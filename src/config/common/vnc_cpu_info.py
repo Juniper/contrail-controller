@@ -32,7 +32,7 @@ class CpuInfo(object):
         self._vms = 0
         self._pvms = 0
         self._load_avg = (0, 0, 0)
-        self._phymem_usage = (0, 0, 0, 0)
+        self._virtual_memory = None
         self._phymem_buffers = 0
         self._num_cpus = 0
         self._cpu_share = 0
@@ -78,13 +78,9 @@ class CpuInfo(object):
                     self._load_avg = load_avg
 
                 # collect systemmeory info
-                phymem_usage = psutil.phymem_usage()
-                if (phymem_usage != self._phymem_usage):
-                    self._phymem_usage = phymem_usage
-
-                phymem_buffers = psutil.phymem_buffers()
-                if (phymem_buffers != self._phymem_buffers):
-                    self._phymem_buffers = phymem_buffers
+                virtual_memory = psutil.virtual_memory()
+                if (virtual_memory != self._virtual_memory):
+                    self._virtual_memory = virtual_memory
 
                 if (self._new_ip != self._curr_ip):
                     self._new_ip = self.get_config_node_ip()
@@ -129,10 +125,11 @@ class CpuInfo(object):
         if self._sysinfo:
             # populate system memory details
             mod_cpu.cpu_info.sys_mem_info = SysMemInfo()
-            mod_cpu.cpu_info.sys_mem_info.total = self._phymem_usage[0] / 1024
-            mod_cpu.cpu_info.sys_mem_info.used = self._phymem_usage[1] / 1024
-            mod_cpu.cpu_info.sys_mem_info.free = self._phymem_usage[2] / 1024
-            mod_cpu.cpu_info.sys_mem_info.buffers = self._phymem_buffers / 1024
+            mod_cpu.cpu_info.sys_mem_info.total = self._virtual_memory.total / 1024
+            mod_cpu.cpu_info.sys_mem_info.used = self._virtual_memory.used / 1024
+            mod_cpu.cpu_info.sys_mem_info.free = self._virtual_memory.free / 1024
+            mod_cpu.cpu_info.sys_mem_info.buffers = self._virtual_memory.buffers / 1024
+            mod_cpu.cpu_info.sys_mem_info.cached = self._virtual_memory.cached / 1024
 
             # populate CPU Load avg
             mod_cpu.cpu_info.cpuload = CpuLoadAvg()
