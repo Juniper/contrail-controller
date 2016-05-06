@@ -77,10 +77,12 @@ void TestAgentInit::CreateModules() {
                 TestAgentInit::kIncrementalInterval));
     agent()->set_uve(uve_.get());
 
-    stats_collector_.reset(new AgentStatsCollectorTest(
-                                *(agent()->event_manager()->io_service()),
-                                agent()));
-    agent()->set_stats_collector(stats_collector_.get());
+    if (agent()->tsn_enabled() == false) {
+        stats_collector_.reset(new AgentStatsCollectorTest(
+                                   *(agent()->event_manager()->io_service()),
+                                   agent()));
+        agent()->set_stats_collector(stats_collector_.get());
+    }
 
     flow_stats_manager_.reset(new FlowStatsManager(agent()));
     flow_stats_manager_->Init(agent()->params()->flow_stats_interval(),
