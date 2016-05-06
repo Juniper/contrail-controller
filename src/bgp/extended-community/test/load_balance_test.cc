@@ -48,6 +48,8 @@ TEST_F(LoadBalanceTest, Default_1) {
     EXPECT_EQ(0, lba.reserved4);
     EXPECT_EQ(0, lba.reserved5);
     EXPECT_EQ(0, lba.reserved6);
+    EXPECT_TRUE(lb.IsDefault());
+    EXPECT_TRUE(lba.IsDefault());
 
     autogen::LoadBalanceType item;
     lba.Encode(&item);
@@ -111,6 +113,8 @@ TEST_F(LoadBalanceTest, AllBooleanSet_1) {
 
     // Reconstruct community from the attribute and verify data
     EXPECT_EQ(data, LoadBalance(lba).GetExtCommunity());
+    EXPECT_FALSE(lb.IsDefault());
+    EXPECT_FALSE(lba.IsDefault());
 
     autogen::LoadBalanceType item;
     lba.Encode(&item);
@@ -164,6 +168,8 @@ TEST_F(LoadBalanceTest, AllBooleanReset_1) {
 
     // Reconstruct community from the attribute and verify data
     EXPECT_EQ(data, LoadBalance(lba).GetExtCommunity());
+    EXPECT_FALSE(lb.IsDefault());
+    EXPECT_FALSE(lba.IsDefault());
 
     autogen::LoadBalanceType item;
     lba.Encode(&item);
@@ -229,6 +235,8 @@ TEST_F(LoadBalanceTest, AlternateBooleanSet_1) {
 
     // Reconstruct community from the attribute and verify data
     EXPECT_EQ(data, LoadBalance(lba).GetExtCommunity());
+    EXPECT_FALSE(lb.IsDefault());
+    EXPECT_FALSE(lba.IsDefault());
 
     autogen::LoadBalanceType item;
     lba.Encode(&item);
@@ -294,6 +302,8 @@ TEST_F(LoadBalanceTest, AlternateBooleanSet_2) {
     lba.Encode(&item);
     EXPECT_EQ(lb_fields, item.load_balance_fields.load_balance_field_list);
     EXPECT_EQ("field-hash", item.load_balance_decision);
+    EXPECT_FALSE(lb.IsDefault());
+    EXPECT_FALSE(lba.IsDefault());
 
     // Reconstruct load-balance extended community from autogen item and verify
     LoadBalance lb2 = LoadBalance(item);
@@ -355,6 +365,8 @@ TEST_F(LoadBalanceTest, AttributeSetters) {
     EXPECT_EQ(0, lba.reserved4);
     EXPECT_EQ(0, lba.reserved5);
     EXPECT_EQ(0, lba.reserved6);
+    EXPECT_FALSE(lb.IsDefault());
+    EXPECT_FALSE(lba.IsDefault());
 
     // All options are set by set APIs above
     LoadBalance::bytes_type data2 =
