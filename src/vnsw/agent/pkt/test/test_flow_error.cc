@@ -252,6 +252,54 @@ TEST_F(FlowTest, Flow_ksync_nh_state_find_failure) {
     client->WaitForIdle();
 }
 
+TEST_F(FlowTest, Flow_Deleted_Interace_nh) {
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
+    //Create PHYSICAL interface to receive GRE packets on it.
+    FlowSetup();
+    PhysicalInterfaceKey key(eth_itf);
+    Interface *intf = static_cast<Interface *>
+        (agent()->interface_table()->FindActiveEntry(&key));
+
+    EXPECT_TRUE(intf != NULL);
+    CreateRemoteRoute("vrf6", remote_vm1_ip, remote_router_ip, 30, "vn6");
+    client->WaitForIdle();
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(Address::INET, vm_a_ip, remote_vm1_ip, 1, 0, 0, "vrf6",
+                    flow5->id()),
+            {
+            }
+        }
+    };
+   //remove policy enabled Interface
+   DBRequest req(DBRequest::DB_ENTRY_DELETE);
+   req.key.reset(new InterfaceNHKey
+                  (new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, flow5->GetUuid(), ""),
+                   true, InterfaceNHFlags::INET4));
+   req.data.reset(NULL);
+   NextHopTable::GetInstance()->Enqueue(&req);
+   //remove policy disabled Interface
+   DBRequest req1(DBRequest::DB_ENTRY_DELETE);
+   client->WaitForIdle(1);
+   req1.key.reset(new InterfaceNHKey
+                  (new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, flow5->GetUuid(), ""),
+                   false, InterfaceNHFlags::INET4));
+   req1.data.reset(NULL);
+   NextHopTable::GetInstance()->Enqueue(&req1);
+
+   CreateFlow(flow, 1);
+   client->WaitForIdle();
+
+   FlowEntry *fe =
+        FlowGet(VrfGet("vrf6")->vrf_id(), vm_a_ip, remote_vm1_ip, 1, 0, 0,
+                GetFlowKeyNH(input4[0].intf_id));
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true);
+    DeleteFlow(flow, 1);
+    DeleteRemoteRoute("vrf6", remote_vm1_ip);
+    FlowTeardown();
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
