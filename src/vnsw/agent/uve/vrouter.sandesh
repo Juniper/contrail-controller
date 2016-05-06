@@ -199,11 +199,6 @@ struct VrouterStatsAgent {  // Agent stats
 
         //Process stats
     12: optional cpuinfo.CpuLoadInfo cpu_info;
-    13: optional double cpu_share (aggtype="stats")
-    45: optional u32 virt_mem (aggtype="stats")
-    46: optional u32 used_sys_mem (aggtype="stats")
-    47: optional double one_min_avg_cpuload (aggtype="stats")
-    48: optional u32 res_mem (aggtype="stats")
 
         //Nexthop stats
     14: optional u32 nexthops; 

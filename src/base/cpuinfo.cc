@@ -109,7 +109,9 @@ static void SystemMemInfo(SystemMemInfo &info) {
     // MemFree:        90333184 kB
     file >> tmp; file >> info.free; file >> tmp; 
     // Buffers:         1029924 kB
-    file >> tmp; file >> info.buffers; 
+    file >> tmp; file >> info.buffers; file >> tmp;
+    // Cached:         10290012 kB
+    file >> tmp; file >> info.cached;
     // Used = Total - Free
     info.used = info.total - info.free;
 }
@@ -179,6 +181,7 @@ void CpuLoadData::FillCpuInfo(CpuLoadInfo &cpu_load_info, bool system) {
         sys_mem_info.set_used(info.sys_mem_info.used);
         sys_mem_info.set_free(info.sys_mem_info.free);
         sys_mem_info.set_buffers(info.sys_mem_info.buffers);
+        sys_mem_info.set_cached(info.sys_mem_info.cached);
         cpu_load_info.set_sys_mem_info(sys_mem_info);
     }
 }
