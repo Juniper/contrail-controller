@@ -4,39 +4,38 @@ import json
 
 class DiskUsage(AlarmBase):
     """Disk Usage crosses a threshold.
-       NodeMgr reports disk usage in DatabaseUsageInfo.database_usage"""
+       NodeMgr reports disk usage in NodeStatus.disk_usage_info"""
 
     def __init__(self):
         AlarmBase.__init__(self, AlarmBase.SYS_ERR)
-        self._threshold = 0.90
+        self._threshold = 50
 
     def __call__(self, uve_key, uve_data):
         or_list = []
-        db_usage_info = uve_data.get("DatabaseUsageInfo", None)
-	if db_usage_info is None:
+        node_status = uve_data.get("NodeStatus", None)
+        if node_status is None:
 	    return None
-        db_usage_list = db_usage_info.get("database_usage", None)
-        if db_usage_list is None:
+        disk_usage_list = node_status.get("disk_usage_info", None)
+        if disk_usage_list is None:
             return None
 
-        for db_usage in db_usage_list:
-            used_space = db_usage["disk_space_used_1k"]
-            available_space = db_usage["disk_space_available_1k"]
-            use_space_threshold = available_space * self._threshold
-            if used_space > use_space_threshold:
-                or_list.append(AllOf(all_of=[AlarmElement(\
-                    rule=AlarmTemplate(oper=">",
-                        operand1=Operand1(\
-                            keys=["DatabaseUsageInfo","database_usage","disk_space_used_1k"]),
-                        operand2=Operand2(json_value=str(use_space_threshold))),
-                    json_operand1_value=str(used_space),
-                    json_vars={\
-                        "DatabaseUsageInfo.database_usage.disk_space_used_1k":\
-                            str(used_space),
-                        "DatabaseUsageInfo.database_usage.disk_space_available_1k":\
-                            str(available_space)})]))
+        match_list = []
+        for disk_usage in disk_usage_list:
+            if disk_usage["percentage_partition_space_used"] > self._threshold:
+                match_list.append(AlarmMatch(json_operand1_value=json.dumps(
+                    disk_usage["percentage_partition_space_used"]), json_vars={
+                    "NodeStatus.disk_usage_info.partition_name":\
+                        json.dumps(disk_usage["partition_name"])}))
+        if len(match_list):
+            and_list = [AlarmConditionMatch(
+                condition=AlarmCondition(operation=">",
+                    operand1="NodeStatus.disk_usage_info." +\
+                        "percentage_partition_space_used",
+                    operand2=json.dumps(self._threshold),
+                    vars=["NodeStatus.disk_usage_info.partition_name"]),
+                match=match_list)]
+            or_list.append(AlarmRuleMatch(rule=and_list))
         if len(or_list):
             return or_list
         else:
             return None
-

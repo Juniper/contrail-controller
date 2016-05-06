@@ -20,30 +20,36 @@ class ProuterConnectivity(AlarmBase):
            not "elements" in contrail_config:
             return None
         uattr = contrail_config["elements"]
-        if isinstance(uattr,list):
-            uattr = uattr[0][0]
         if not "virtual_router_refs" in uattr:
             return None
         
         or_list = []
-        v2 = None 
+        and_list = []
+        and_list.append(AlarmConditionMatch(
+            condition=AlarmCondition(operation="!=",
+                operand1="ContrailConfig.elements.virtual_router_refs",
+                operand2="null"),
+            match=[AlarmMatch(json_operand1_value=json.dumps(
+                uattr["virtual_router_refs"]))]))
         v1 = uve_data.get("ProuterData",None)
         if v1 is not None:
             v2 = v1.get("connected_agent_list",None)
-        if v2 is None:
-            or_list.append(AllOf(all_of=[AlarmElement(\
-                rule=AlarmTemplate(oper="==",
-                    operand1=Operand1(keys=["ProuterData","connected_agent_list"]),
-                    operand2=Operand2(json_value="null")),
-                json_operand1_value="null")]))
-            return or_list
+            if v2 is None:
+                and_list.append(AlarmConditionMatch(
+                    condition=AlarmCondition(operation="==",
+                        operand1="ProuterData.connected_agent_list",
+                        operand2="null"),
+                    match=[AlarmMatch(json_operand1_value="null")]))
+                or_list.append(AlarmRuleMatch(rule=and_list))
+                return or_list
 
-        if not (len(v2) == 1):
-            or_list.append(AllOf(all_of=[AlarmElement(\
-                rule=AlarmTemplate(oper="size!=",
-                    operand1=Operand1(keys=["ProuterData","connected_agent_list"]),
-                    operand2=Operand2(json_value=json.dumps(1))),
-                json_operand1_value=json.dumps(v2))]))
-            return or_list
+            if len(v2) != 1:
+                and_list.append(AlarmConditionMatch(
+                    condition=AlarmCondition(operation="size!=",
+                        operand1="ProuterData.connected_agent_list",
+                        operand2=json.dumps(1)),
+                    match=[AlarmMatch(json_operand1_value=json.dumps(v2))]))
+                or_list.append(AlarmRuleMatch(rule=and_list))
+                return or_list
 
 	return None

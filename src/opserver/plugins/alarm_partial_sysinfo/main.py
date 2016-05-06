@@ -16,24 +16,21 @@ class PartialSysinfo(AlarmBase):
                  'ObjectBgpRouter':"BgpRouterState",
                  'ObjectVRouter':"VrouterAgent", }
         sname = smap[tab]
-        val = None       
         if sname in uve_data:
-            if "build_info" in uve_data[sname]:
-                val = uve_data[sname]["build_info"]
-
-        if val is None:
-	    and_list = []
-	    and_list.append(AlarmElement(\
-		rule=AlarmTemplate(oper="==",
-		    operand1=Operand1(keys=[sname,"build_info"]),
-		    operand2=Operand2(json_value="null")),
-		json_operand1_value="null"))
-            or_list.append(AllOf(all_of=and_list))
+            try:
+                build_info = uve_data[sname]["build_info"]
+            except KeyError:
+                and_list = []
+                and_list.append(AlarmConditionMatch(
+                    condition=AlarmCondition(operation="==",
+                        operand1=sname+".build_info", operand2="null"),
+                    match=[AlarmMatch(json_operand1_value="null")]))
+                or_list.append(AlarmRuleMatch(rule=and_list))
 
         if len(or_list):
             return or_list
         else:
-	    return None
+            return None
 
 class PartialSysinfoCompute(PartialSysinfo):
     """System Info Incomplete.

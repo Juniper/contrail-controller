@@ -10,17 +10,16 @@ class ConfIncorrect(AlarmBase):
         or_list = []
         if not uve_data.has_key("ContrailConfig"):
             and_list = []
-            and_list.append(AlarmElement(\
-                rule=AlarmTemplate(oper="==",
-                    operand1=Operand1(keys=["ContrailConfig"]),
-                    operand2=Operand2(json_value="null")),
-                json_operand1_value=json.dumps(None)))
-            or_list.append(AllOf(all_of=and_list))
+            and_list.append(AlarmConditionMatch(
+                condition=AlarmCondition(operation="==",
+                    operand1="ContrailConfig", operand2="null"),
+                match=[AlarmMatch(json_operand1_value="null")]))
+            or_list.append(AlarmRuleMatch(rule=and_list))
 
         if len(or_list):
             return or_list
         else:
-	    return None
+            return None
 
 class ConfIncorrectCompute(ConfIncorrect):
     """Compute Node config missing or incorrect.
