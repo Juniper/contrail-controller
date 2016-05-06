@@ -22,6 +22,7 @@ struct SysMemInfo {
     2: u32 used;
     3: u32 free;
     4: u32 buffers;
+    5: u32 cached;
 }
 
 struct CpuLoadInfo {
