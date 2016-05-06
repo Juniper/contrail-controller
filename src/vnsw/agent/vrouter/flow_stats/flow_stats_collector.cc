@@ -464,8 +464,13 @@ bool FlowStatsCollector::Run() {
         // Stats for deleted flow are updated when we get DELETE message
         if (deleted == false && k_flow) {
             uint64_t k_bytes, bytes;
-            k_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow,
-                                   k_flow->fe_stats.flow_bytes);
+            /* Copy full stats in one shot and use local copy instead of reading
+             * individual stats from shared memory directly to minimize the
+             * inconsistency */
+            struct vr_flow_stats fe_stats = k_flow->fe_stats;
+
+            k_bytes = GetFlowStats(fe_stats.flow_bytes_oflow,
+                                   fe_stats.flow_bytes);
             bytes = 0x0000ffffffffffffULL & info->bytes();
             /* Always copy udp source port even though vrouter does not change
              * it. Vrouter many change this behavior and recompute source port
@@ -477,10 +482,10 @@ bool FlowStatsCollector::Run() {
              * stats */
             if (bytes != k_bytes) {
                 UpdateAndExportInternalLocked(info,
-                                        k_flow->fe_stats.flow_bytes,
-                                        k_flow->fe_stats.flow_bytes_oflow,
-                                        k_flow->fe_stats.flow_packets,
-                                        k_flow->fe_stats.flow_packets_oflow,
+                                        fe_stats.flow_bytes,
+                                        fe_stats.flow_bytes_oflow,
+                                        fe_stats.flow_packets,
+                                        fe_stats.flow_packets_oflow,
                                         curr_time, false, NULL);
             } else if (info->changed()) {
                 /* export flow (reverse) for which traffic is not seen yet. */
