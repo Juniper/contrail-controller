@@ -110,14 +110,12 @@ class SchemaTransformer(object):
             'security_group': [],
         },
         'route_table': {
-            'self': ['virtual_network', 'service_instance', 'logical_router'],
+            'self': ['virtual_network', 'service_instance'],
             'virtual_network': ['service_instance'],
-            'logical_router': ['service_instance'],
         },
         'logical_router': {
-            'self': ['route_table'],
+            'self': [],
             'virtual_machine_interface': [],
-            'route_table': [],
         },
         'floating_ip': {
             'self': ['virtual_machine_interface'],
