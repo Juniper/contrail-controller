@@ -22,7 +22,7 @@ struct DBState {
 class DBEntryBase {
 public:
     typedef DBTableBase::ListenerId ListenerId;
-    typedef std::auto_ptr<DBRequestKey> KeyPtr;
+    typedef std::unique_ptr<DBRequestKey> KeyPtr;
 
     DBEntryBase();
     virtual ~DBEntryBase();

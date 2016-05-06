@@ -14,7 +14,7 @@ public:
     virtual ~MetadataServer() {}
 
     virtual TcpSession *AllocSession(Socket *socket) {
-        std::auto_ptr<MetadataServerSession>
+        std::unique_ptr<MetadataServerSession>
             session(new MetadataServerSession(this, socket));
         boost::system::error_code ec = session->SetSocketOptions();
         if (ec) {

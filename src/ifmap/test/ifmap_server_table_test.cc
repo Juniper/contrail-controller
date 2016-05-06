@@ -255,13 +255,13 @@ protected:
         }
         IFMapTable::RequestKey reqkey;
         reqkey.id_name = name;
-        auto_ptr<DBEntry> key(tbl->AllocEntry(&reqkey));
+        unique_ptr<DBEntry> key(tbl->AllocEntry(&reqkey));
         return static_cast<IFMapNode *>(tbl->Find(key.get()));
     }
 
     void IFMapSetProperty(const string &type, const string &objid,
                           const string &attr) {
-        auto_ptr<DBRequest> request(new DBRequest());
+        unique_ptr<DBRequest> request(new DBRequest());
         request->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         IFMapTable *tbl = IFMapTable::FindTable(&db_, type);
         IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
@@ -285,7 +285,7 @@ protected:
 
     void IFMapClearProperty(const string &type, const string &objid,
                           const string &attr) {
-        auto_ptr<DBRequest> request(new DBRequest());
+        unique_ptr<DBRequest> request(new DBRequest());
         request->oper = DBRequest::DB_ENTRY_DELETE;
         IFMapTable *tbl = IFMapTable::FindTable(&db_, type);
         IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
@@ -314,7 +314,7 @@ protected:
                           const string &lhs, const string &rhs,
                           const string &lid, const string &rid,
                           const string &attr) {
-        auto_ptr<DBRequest> request(new DBRequest());
+        unique_ptr<DBRequest> request(new DBRequest());
         request->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         ifmap_test_util::IFMapLinkCommon(request.get(), lhs, lid, rhs, rid,
                                          meta);

@@ -64,17 +64,17 @@ private:
     OperDB();
 
     Agent *agent_;
-    std::auto_ptr<MulticastHandler> multicast_;
-    std::auto_ptr<GlobalVrouter> global_vrouter_;
-    std::auto_ptr<PathPreferenceModule> route_preference_module_;
-    std::auto_ptr<IFMapDependencyManager> dependency_manager_;
-    std::auto_ptr<InstanceManager> instance_manager_;
-    std::auto_ptr<DomainConfig> domain_config_;
-    std::auto_ptr<NexthopManager> nexthop_manager_;
-    std::auto_ptr<AgentSandeshManager> agent_sandesh_manager_;
-    std::auto_ptr<AgentProfile> profile_;
-    std::auto_ptr<VRouter> vrouter_;
-    std::auto_ptr<BgpAsAService> bgp_as_a_service_;
+    std::unique_ptr<MulticastHandler> multicast_;
+    std::unique_ptr<GlobalVrouter> global_vrouter_;
+    std::unique_ptr<PathPreferenceModule> route_preference_module_;
+    std::unique_ptr<IFMapDependencyManager> dependency_manager_;
+    std::unique_ptr<InstanceManager> instance_manager_;
+    std::unique_ptr<DomainConfig> domain_config_;
+    std::unique_ptr<NexthopManager> nexthop_manager_;
+    std::unique_ptr<AgentSandeshManager> agent_sandesh_manager_;
+    std::unique_ptr<AgentProfile> profile_;
+    std::unique_ptr<VRouter> vrouter_;
+    std::unique_ptr<BgpAsAService> bgp_as_a_service_;
     DISALLOW_COPY_AND_ASSIGN(OperDB);
 };
 #endif

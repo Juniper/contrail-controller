@@ -177,7 +177,7 @@ class ErmVpnTableNativeTest : public ErmVpnTableTest {
 
 TEST_F(ErmVpnTableNativeTest, AllocEntryStr) {
     string prefix_str("0-10.1.1.1:65535-0.0.0.0,224.1.2.3,192.168.1.1");
-    std::auto_ptr<DBEntry> route = blue_->AllocEntryStr(prefix_str);
+    std::unique_ptr<DBEntry> route = blue_->AllocEntryStr(prefix_str);
     EXPECT_EQ(prefix_str, route->ToString());
 }
 
@@ -330,7 +330,7 @@ class ErmVpnTableLocalTest : public ErmVpnTableTest {
 
 TEST_F(ErmVpnTableLocalTest, AllocEntryStr) {
     string prefix_str("1-10.1.1.1:65535-20.1.1.1,192.168.1.255,0.0.0.0");
-    std::auto_ptr<DBEntry> route = blue_->AllocEntryStr(prefix_str);
+    std::unique_ptr<DBEntry> route = blue_->AllocEntryStr(prefix_str);
     EXPECT_EQ(prefix_str, route->ToString());
 }
 
@@ -636,7 +636,7 @@ class ErmVpnTableGlobalTest : public ErmVpnTableTest {
 
 TEST_F(ErmVpnTableGlobalTest, AllocEntryStr) {
     string prefix_str("2-10.1.1.1:65535-20.1.1.1,192.168.1.255,0.0.0.0");
-    std::auto_ptr<DBEntry> route = blue_->AllocEntryStr(prefix_str);
+    std::unique_ptr<DBEntry> route = blue_->AllocEntryStr(prefix_str);
     EXPECT_EQ(prefix_str, route->ToString());
 }
 

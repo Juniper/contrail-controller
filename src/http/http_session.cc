@@ -124,7 +124,7 @@ private:
     static struct http_parser_settings settings_;
 
     struct http_parser parser_;
-    std::auto_ptr<HttpRequest> request_;
+    std::unique_ptr<HttpRequest> request_;
 
     bool complete_;
     string tmp_url_;        // temporary: used while parsing

@@ -73,7 +73,7 @@ private:
     XmppBgpMockPeer *mock_peer_;
     int count_;
     Timer *timer_;
-    std::auto_ptr<XmppPeerManagerMock> manager_;
+    std::unique_ptr<XmppPeerManagerMock> manager_;
 };
 
 class XmppPeerManagerMock : public XmppPeerManager {
@@ -132,7 +132,7 @@ int main() {
     ControlNode::SetDefaultSchedulingPolicy();
     EventManager evm;
     XmppServer *server = new XmppServer(&evm);
-    auto_ptr<XmppInit> init(new XmppInit());
+    unique_ptr<XmppInit> init(new XmppInit());
 
     XmppChannelConfig cfg(false);
     cfg.endpoint.address(ip::address::from_string("127.0.0.1"));

@@ -19,15 +19,15 @@ size_t Inet6Table::HashFunction(const Inet6Prefix &prefix) {
     return boost::hash_range(addr_bytes.begin(), addr_bytes.end());
 }
 
-std::auto_ptr<DBEntry> Inet6Table::AllocEntry(const DBRequestKey *key) const {
+std::unique_ptr<DBEntry> Inet6Table::AllocEntry(const DBRequestKey *key) const {
     const RequestKey *rkey = static_cast<const RequestKey *>(key);
-    return std::auto_ptr<DBEntry> (new Inet6Route(rkey->prefix));
+    return std::unique_ptr<DBEntry> (new Inet6Route(rkey->prefix));
 }
 
-std::auto_ptr<DBEntry> Inet6Table::AllocEntryStr(
+std::unique_ptr<DBEntry> Inet6Table::AllocEntryStr(
         const std::string &key_str) const {
     Inet6Prefix prefix = Inet6Prefix::FromString(key_str);
-    return std::auto_ptr<DBEntry> (new Inet6Route(prefix));
+    return std::unique_ptr<DBEntry> (new Inet6Route(prefix));
 }
 
 size_t Inet6Table::Hash(const DBEntry *entry) const {

@@ -92,10 +92,10 @@ void VmEntry::SendObjectLog(AgentLogEvent::type event) const {
     VM_OBJECT_LOG_LOG("AgentVm", SandeshLevel::SYS_INFO, info);
 }
 
-std::auto_ptr<DBEntry> VmTable::AllocEntry(const DBRequestKey *k) const {
+std::unique_ptr<DBEntry> VmTable::AllocEntry(const DBRequestKey *k) const {
     const VmKey *key = static_cast<const VmKey *>(k);
     VmEntry *vm = new VmEntry(key->uuid_);
-    return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(vm));
+    return std::unique_ptr<DBEntry>(static_cast<DBEntry *>(vm));
 }
 
 DBEntry *VmTable::OperDBAdd(const DBRequest *req) {

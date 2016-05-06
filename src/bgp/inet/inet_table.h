@@ -30,8 +30,8 @@ public:
 
     InetTable(DB *db, const std::string &name);
 
-    virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *key) const;
-    virtual std::auto_ptr<DBEntry> AllocEntryStr(const std::string &key) const;
+    virtual std::unique_ptr<DBEntry> AllocEntry(const DBRequestKey *key) const;
+    virtual std::unique_ptr<DBEntry> AllocEntryStr(const std::string &key) const;
 
     virtual Address::Family family() const { return Address::INET; }
 

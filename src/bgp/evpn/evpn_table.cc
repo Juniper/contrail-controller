@@ -12,7 +12,7 @@
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routing_instance.h"
 
-using std::auto_ptr;
+using std::unique_ptr;
 using std::string;
 
 size_t EvpnTable::HashFunction(const EvpnPrefix &prefix) {
@@ -33,16 +33,16 @@ EvpnTable::EvpnTable(DB *db, const string &name)
     im_route_count_ = 0;
 }
 
-auto_ptr<DBEntry> EvpnTable::AllocEntry(
+unique_ptr<DBEntry> EvpnTable::AllocEntry(
         const DBRequestKey *key) const {
     const RequestKey *pfxkey = static_cast<const RequestKey *>(key);
-    return auto_ptr<DBEntry> (new EvpnRoute(pfxkey->prefix));
+    return unique_ptr<DBEntry> (new EvpnRoute(pfxkey->prefix));
 }
 
-auto_ptr<DBEntry> EvpnTable::AllocEntryStr(
+unique_ptr<DBEntry> EvpnTable::AllocEntryStr(
         const string &key_str) const {
     EvpnPrefix prefix = EvpnPrefix::FromString(key_str);
-    return auto_ptr<DBEntry> (new EvpnRoute(prefix));
+    return unique_ptr<DBEntry> (new EvpnRoute(prefix));
 }
 
 void EvpnTable::AddRemoveCallback(const DBEntryBase *entry, bool add) const {

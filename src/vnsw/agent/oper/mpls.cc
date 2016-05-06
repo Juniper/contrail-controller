@@ -38,10 +38,10 @@ void MplsLabel::SetKey(const DBRequestKey *k) {
     label_ = key->label_;
 }
 
-std::auto_ptr<DBEntry> MplsTable::AllocEntry(const DBRequestKey *k) const {
+std::unique_ptr<DBEntry> MplsTable::AllocEntry(const DBRequestKey *k) const {
     const MplsLabelKey *key = static_cast<const MplsLabelKey *>(k);
     MplsLabel *mpls = new MplsLabel(agent(), key->type_, key->label_);
-    return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(mpls));
+    return std::unique_ptr<DBEntry>(static_cast<DBEntry *>(mpls));
 }
 
 DBEntry *MplsTable::Add(const DBRequest *req) {

@@ -214,7 +214,7 @@ public:
     BgpPeerTest *peer_;
 
 private:
-    auto_ptr<BgpNeighborConfig> config_;
+    unique_ptr<BgpNeighborConfig> config_;
     std::vector<bool> ribout_creation_complete_;
 };
 
@@ -498,7 +498,7 @@ BgpAttr *BgpPeerCloseTest::CreatePathAttr() {
 }
 
 ExtCommunitySpec *BgpPeerCloseTest::CreateRouteTargets() {
-    auto_ptr<ExtCommunitySpec> commspec(new ExtCommunitySpec());
+    unique_ptr<ExtCommunitySpec> commspec(new ExtCommunitySpec());
 
     for (int i = 1; i <= n_targets_; i++) {
         RouteTarget tgt = RouteTarget::FromString(

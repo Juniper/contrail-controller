@@ -289,11 +289,11 @@ protected:
     XmppConfigData *xmpps_cfg;
 
     XmppServer *xs;
-    //auto_ptr<XmppServer> xs;
+    //unique_ptr<XmppServer> xs;
 
     XmppConnection *sconnection;
 
-    auto_ptr<ControlNodeMockIFMapXmppPeer> mock_ifmap_peer;
+    unique_ptr<ControlNodeMockIFMapXmppPeer> mock_ifmap_peer;
 };
 
 namespace {

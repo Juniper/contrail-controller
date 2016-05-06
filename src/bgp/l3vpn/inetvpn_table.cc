@@ -10,22 +10,22 @@
 #include "bgp/inet/inet_table.h"
 #include "bgp/routing-instance/routing_instance.h"
 
-using std::auto_ptr;
+using std::unique_ptr;
 using std::string;
 
 InetVpnTable::InetVpnTable(DB *db, const string &name)
         : BgpTable(db, name) {
 }
 
-auto_ptr<DBEntry> InetVpnTable::AllocEntry(const DBRequestKey *key) const {
+unique_ptr<DBEntry> InetVpnTable::AllocEntry(const DBRequestKey *key) const {
     const RequestKey *pfxkey = static_cast<const RequestKey *>(key);
-    return auto_ptr<DBEntry> (new InetVpnRoute(pfxkey->prefix));
+    return unique_ptr<DBEntry> (new InetVpnRoute(pfxkey->prefix));
 }
 
 
-auto_ptr<DBEntry> InetVpnTable::AllocEntryStr(const string &key_str) const {
+unique_ptr<DBEntry> InetVpnTable::AllocEntryStr(const string &key_str) const {
     InetVpnPrefix prefix = InetVpnPrefix::FromString(key_str);
-    return auto_ptr<DBEntry> (new InetVpnRoute(prefix));
+    return unique_ptr<DBEntry> (new InetVpnRoute(prefix));
 }
 
 size_t InetVpnTable::Hash(const DBEntry *entry) const {

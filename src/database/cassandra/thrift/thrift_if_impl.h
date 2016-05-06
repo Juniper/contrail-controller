@@ -38,8 +38,8 @@ class ThriftIfImpl {
     virtual bool Db_AddColumnfamily(const GenDb::NewCf& cf);
     virtual bool Db_UseColumnfamily(const GenDb::NewCf& cf);
     // Column
-    virtual bool Db_AddColumn(std::auto_ptr<GenDb::ColList> cl);
-    virtual bool Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl);
+    virtual bool Db_AddColumn(std::unique_ptr<GenDb::ColList> cl);
+    virtual bool Db_AddColumnSync(std::unique_ptr<GenDb::ColList> cl);
     // Read
     virtual bool Db_GetRow(GenDb::ColList *ret, const std::string& cfname,
         const GenDb::DbDataValueVec& rowkey);
@@ -80,8 +80,8 @@ class ThriftIfImpl {
         }
         ~ThriftIfCfInfo() {
         }
-        std::auto_ptr<org::apache::cassandra::CfDef> cfdef_;
-        std::auto_ptr<GenDb::NewCf> cf_;
+        std::unique_ptr<org::apache::cassandra::CfDef> cfdef_;
+        std::unique_ptr<GenDb::NewCf> cf_;
     };
     typedef boost::ptr_unordered_map<std::string, ThriftIfCfInfo> ThriftIfCfListType;
     ThriftIfCfListType ThriftIfCfList;

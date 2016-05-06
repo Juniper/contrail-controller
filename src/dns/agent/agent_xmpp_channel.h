@@ -34,7 +34,7 @@ public:
 
 private:
     std::string GetDnsRecordName(std::string &vdns_name, const DnsItem &item);
-    void HandleAgentUpdate(std::auto_ptr<DnsUpdateData> rcv_data);
+    void HandleAgentUpdate(std::unique_ptr<DnsUpdateData> rcv_data);
 
     DataSet update_data_;
     XmppChannel *channel_;

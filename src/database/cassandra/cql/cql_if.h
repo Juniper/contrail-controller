@@ -42,10 +42,10 @@ class CqlIf : public GenDb::GenDbIf {
     virtual bool Db_AddColumnfamily(const GenDb::NewCf &cf);
     virtual bool Db_UseColumnfamily(const GenDb::NewCf &cf);
     // Column
-    virtual bool Db_AddColumn(std::auto_ptr<GenDb::ColList> cl);
-    virtual bool Db_AddColumn(std::auto_ptr<GenDb::ColList> cl,
+    virtual bool Db_AddColumn(std::unique_ptr<GenDb::ColList> cl);
+    virtual bool Db_AddColumn(std::unique_ptr<GenDb::ColList> cl,
         GenDb::GenDbIf::DbAddColumnCb cb);
-    virtual bool Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl);
+    virtual bool Db_AddColumnSync(std::unique_ptr<GenDb::ColList> cl);
     // Read
     virtual bool Db_GetRow(GenDb::ColList *out, const std::string &cfname,
         const GenDb::DbDataValueVec &rowkey);

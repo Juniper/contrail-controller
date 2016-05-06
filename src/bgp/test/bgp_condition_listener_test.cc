@@ -25,7 +25,7 @@
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
 
-using std::auto_ptr;
+using std::unique_ptr;
 using std::make_pair;
 using std::map;
 using std::multimap;
@@ -410,7 +410,7 @@ protected:
         task_util::WaitForIdle();
     }
 
-    auto_ptr<EventManager> evm_;
+    unique_ptr<EventManager> evm_;
     DB config_db_;
     DBGraph config_graph_;
     boost::scoped_ptr<BgpServer> bgp_server_;

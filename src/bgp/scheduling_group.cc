@@ -15,7 +15,7 @@
 #include "bgp/bgp_ribout.h"
 #include "bgp/bgp_ribout_updates.h"
 
-using std::auto_ptr;
+using std::unique_ptr;
 using std::make_pair;
 using std::map;
 using std::pair;
@@ -408,7 +408,7 @@ public:
         CHECK_CONCURRENCY("bgp::SendTask");
 
         while (true) {
-            auto_ptr<WorkBase> wentry = group_->WorkDequeue();
+            unique_ptr<WorkBase> wentry = group_->WorkDequeue();
             if (wentry.get() == NULL) {
                 break;
             }
@@ -835,14 +835,14 @@ void SchedulingGroup::MaybeStartWorker() {
 
 //
 // Dequeue the first WorkBase item from the work queue and return an
-// auto_ptr to it.  Clear out Worker related state if the work queue
+// unique_ptr to it.  Clear out Worker related state if the work queue
 // is empty.
 //
-auto_ptr<SchedulingGroup::WorkBase> SchedulingGroup::WorkDequeue() {
+unique_ptr<SchedulingGroup::WorkBase> SchedulingGroup::WorkDequeue() {
     CHECK_CONCURRENCY("bgp::SendTask");
 
     tbb::mutex::scoped_lock lock(mutex_);
-    auto_ptr<WorkBase> wentry;
+    unique_ptr<WorkBase> wentry;
     if (work_queue_.empty()) {
         worker_task_ = NULL;
         running_ = false;

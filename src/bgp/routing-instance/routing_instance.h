@@ -197,7 +197,7 @@ private:
 
     std::string name_;
     int index_;
-    std::auto_ptr<RouteDistinguisher> rd_;
+    std::unique_ptr<RouteDistinguisher> rd_;
     RouteTableList vrf_tables_by_name_;
     RouteTableFamilyList vrf_tables_by_family_;
     RouteTargetList import_;

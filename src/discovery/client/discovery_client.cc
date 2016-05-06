@@ -359,7 +359,7 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
 
     resp->publish_cb_called_ = true;
     //Parse the xml string and build DSResponse
-    auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+    unique_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
     if (impl->LoadDoc(xmls) == -1) {
         DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
             "PublishResponseHandler: Loading Xml Doc failed!!",
@@ -469,7 +469,7 @@ void DiscoveryServiceClient::Publish(std::string serviceName, std::string &msg) 
 
     pub_msg->client_msg_ = msg;
     pub_msg->publish_msg_ = "<publish>" + msg;
-    auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+    unique_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
     if (impl->LoadDoc(msg) != -1) {
         XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
         pugi::xml_node node_addr = pugi->FindNode("ip-address");
@@ -515,7 +515,7 @@ void DiscoveryServiceClient::ReEvaluatePublish(std::string serviceName,
         if ((resp->oper_state != oper_state) ||
             (resp->oper_state_reason.compare(reeval_reason))) {
 
-            auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+            unique_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
             if (impl->LoadDoc(resp->publish_msg_) == -1) {
                 resp->pub_fail_++;
                 return;
@@ -584,7 +584,7 @@ void DiscoveryServiceClient::Publish(std::string serviceName, std::string &msg,
     pub_msg->client_msg_ = msg;
     pub_msg->publish_msg_ += "<publish>" + msg;
     pub_msg->publish_msg_ += "<service-type>" + serviceName + "</service-type>";
-    auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+    unique_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
     if (impl->LoadDoc(msg) != -1) {
         XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
         pugi::xml_node node_addr = pugi->FindNode("ip-address");
@@ -671,7 +671,7 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName,
     RegisterSubscribeResponseHandler(serviceName, cb); 
 
     //Build the DOM tree                                 
-    auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+    unique_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
     impl->LoadDoc(""); 
     XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
     pugi->AddNode(serviceName, "");
@@ -731,7 +731,7 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName,
     RegisterSubscribeResponseHandler(serviceName, cb);
 
     //Build the DOM tree
-    auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+    unique_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
     impl->LoadDoc("");
     XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
     pugi->AddNode(serviceName, "");
@@ -809,7 +809,7 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName) {
         resp->subscribe_cb_called_ = false;
         resp->sub_sent_++;
 
-        auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+        unique_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
         stringstream ss;
         if (impl->LoadDoc(resp->subscribe_msg_) != -1) {
             XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
@@ -946,7 +946,7 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
 
     hdr->subscribe_cb_called_= true;
     //Parse the xml string and build DSResponse
-    auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+    unique_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
     if (impl->LoadDoc(xmls) == -1) {
         DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
             "SubscribeResponseHandler: Loading Xml Doc failed!!",

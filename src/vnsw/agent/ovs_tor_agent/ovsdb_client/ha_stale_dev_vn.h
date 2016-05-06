@@ -72,7 +72,7 @@ private:
 
     Agent *agent_;
     OvsPeerManager *manager_;
-    std::auto_ptr<OvsPeer> route_peer_;
+    std::unique_ptr<OvsPeer> route_peer_;
     std::string dev_name_;
     ConnectionStateEntryPtr state_;
     // Additionaly listen to VN table for VN-VRF link updates

@@ -82,7 +82,7 @@ public:
     }
 
     Agent *agent_;
-    std::auto_ptr<TestClient> client_;
+    std::unique_ptr<TestClient> client_;
 };
 
 static void

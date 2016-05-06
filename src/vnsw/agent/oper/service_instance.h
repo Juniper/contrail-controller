@@ -141,7 +141,7 @@ class ServiceInstanceTable : public AgentDBTable {
  public:
     ServiceInstanceTable(DB *db, const std::string &name);
 
-    virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *key) const;
+    virtual std::unique_ptr<DBEntry> AllocEntry(const DBRequestKey *key) const;
 
     /*
      * Register with the dependency manager.

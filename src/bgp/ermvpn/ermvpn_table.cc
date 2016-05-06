@@ -13,7 +13,7 @@
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routing_instance.h"
 
-using std::auto_ptr;
+using std::unique_ptr;
 using std::string;
 
 size_t ErmVpnTable::HashFunction(const ErmVpnPrefix &prefix) const {
@@ -24,17 +24,17 @@ ErmVpnTable::ErmVpnTable(DB *db, const string &name)
     : BgpTable(db, name), tree_manager_(NULL) {
 }
 
-auto_ptr<DBEntry> ErmVpnTable::AllocEntry(
+unique_ptr<DBEntry> ErmVpnTable::AllocEntry(
     const DBRequestKey *key) const {
     const RequestKey *pfxkey = static_cast<const RequestKey *>(key);
-    return auto_ptr<DBEntry> (new ErmVpnRoute(pfxkey->prefix));
+    return unique_ptr<DBEntry> (new ErmVpnRoute(pfxkey->prefix));
 }
 
 
-auto_ptr<DBEntry> ErmVpnTable::AllocEntryStr(
+unique_ptr<DBEntry> ErmVpnTable::AllocEntryStr(
     const string &key_str) const {
     ErmVpnPrefix prefix = ErmVpnPrefix::FromString(key_str);
-    return auto_ptr<DBEntry> (new ErmVpnRoute(prefix));
+    return unique_ptr<DBEntry> (new ErmVpnRoute(prefix));
 }
 
 size_t ErmVpnTable::Hash(const DBEntry *entry) const {

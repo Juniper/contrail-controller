@@ -109,7 +109,7 @@ protected:
 
     DB db_;
     DBGraph db_graph_;
-    std::auto_ptr<BgpIfmapConfigManager> config_manager_;
+    std::unique_ptr<BgpIfmapConfigManager> config_manager_;
     BgpConfigParser parser_;
 };
 

@@ -42,7 +42,7 @@ public:
 private:
     class WorkQueue;
     class QueueRunner;
-    std::auto_ptr<WorkQueue> work_queue_;
+    std::unique_ptr<WorkQueue> work_queue_;
     static int db_partition_task_id_;
     DISALLOW_COPY_AND_ASSIGN(DBPartition);
 };

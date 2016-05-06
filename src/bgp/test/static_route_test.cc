@@ -42,7 +42,7 @@
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
 
-using std::auto_ptr;
+using std::unique_ptr;
 using std::ifstream;
 using std::istreambuf_iterator;
 using std::istringstream;
@@ -644,9 +644,9 @@ protected:
         return content;
     }
 
-    auto_ptr<autogen::StaticRouteEntriesType> GetStaticRouteConfig(
+    unique_ptr<autogen::StaticRouteEntriesType> GetStaticRouteConfig(
         const string &filename) {
-        auto_ptr<autogen::StaticRouteEntriesType> params(
+        unique_ptr<autogen::StaticRouteEntriesType> params(
             new autogen::StaticRouteEntriesType());
         string content;
 
@@ -689,7 +689,7 @@ protected:
 
     void SetStaticRouteEntries(const string &instance_name,
         const string &filename) {
-        auto_ptr<autogen::StaticRouteEntriesType> params =
+        unique_ptr<autogen::StaticRouteEntriesType> params =
             GetStaticRouteConfig(filename);
         ifmap_test_util::IFMapMsgPropertyAdd(&this->config_db_,
             "routing-instance", instance_name, "static-route-entries",

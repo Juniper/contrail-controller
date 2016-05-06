@@ -41,11 +41,11 @@ public:
     TestPkt0Interface *pkt0() const { return pkt0_.get(); }
     void ProcessComputeAddress(AgentParam *param);
 private:
-    std::auto_ptr<KSync> ksync_;
-    std::auto_ptr<AgentUveBase> uve_;
-    std::auto_ptr<TestPkt0Interface> pkt0_;
-    std::auto_ptr<AgentStatsCollectorTest> stats_collector_;
-    std::auto_ptr<FlowStatsManager> flow_stats_manager_;
+    std::unique_ptr<KSync> ksync_;
+    std::unique_ptr<AgentUveBase> uve_;
+    std::unique_ptr<TestPkt0Interface> pkt0_;
+    std::unique_ptr<AgentStatsCollectorTest> stats_collector_;
+    std::unique_ptr<FlowStatsManager> flow_stats_manager_;
 
     DISALLOW_COPY_AND_ASSIGN(TestAgentInit);
 };

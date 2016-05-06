@@ -74,8 +74,8 @@ public:
     void KSyncShutdown();
 
 private:
-    std::auto_ptr<OvsPeerManager> ovs_peer_manager_;
-    std::auto_ptr<OVSDB::OvsdbClient> ovsdb_client_;
+    std::unique_ptr<OvsPeerManager> ovs_peer_manager_;
+    std::unique_ptr<OVSDB::OvsdbClient> ovsdb_client_;
 
     bool ovs_init_;
     bool use_ssl_;

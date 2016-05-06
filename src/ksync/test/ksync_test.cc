@@ -140,7 +140,7 @@ public:
     virtual void EmptyTable(void) { is_empty_count_++; }
 
     int is_empty_count_;
-    auto_ptr<EventManager> evm_;
+    unique_ptr<EventManager> evm_;
     DISALLOW_COPY_AND_ASSIGN(VlanTable);
 };
 

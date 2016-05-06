@@ -432,7 +432,7 @@ private:
     bool test_mode_;
     bool debug_;
     boost::property_tree::ptree tree_;
-    std::auto_ptr<VirtualGatewayConfigTable> vgw_config_table_;
+    std::unique_ptr<VirtualGatewayConfigTable> vgw_config_table_;
     bool headless_mode_;
     bool dhcp_relay_mode_;
     bool xmpp_auth_enable_;

@@ -78,7 +78,7 @@ bool IFMapServerParser::ParseMetadata(const pugi::xml_node &node,
     if (loc == metadata_map_.end()) {
         return false;
     }
-    auto_ptr<AutogenProperty> pvalue;
+    unique_ptr<AutogenProperty> pvalue;
     bool success = (loc->second)(node, &pvalue);
     if (!success) {
         return false;
@@ -133,7 +133,7 @@ static DBRequest *IFMapServerRequestClone(const DBRequest *src) {
 
 bool IFMapServerParser::ParseResultItem(
     const xml_node &parent, bool add_change, RequestList *list) const {
-    auto_ptr<DBRequest> request(new DBRequest);
+    unique_ptr<DBRequest> request(new DBRequest);
     request->oper = (add_change ? DBRequest::DB_ENTRY_ADD_CHANGE :
                      DBRequest::DB_ENTRY_DELETE);
     IFMapTable::RequestKey *key = NULL;
@@ -227,7 +227,7 @@ bool IFMapServerParser::Receive(DB *db, const char *data, size_t length,
     ParseResults(xdoc, &requests);
 
     while (!requests.empty()) {
-        auto_ptr<DBRequest> req(requests.front());
+        unique_ptr<DBRequest> req(requests.front());
         requests.pop_front();
 
         IFMapTable::RequestKey *key =

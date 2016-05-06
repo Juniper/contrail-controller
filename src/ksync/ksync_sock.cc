@@ -46,7 +46,7 @@ typedef boost::asio::detail::socket_option::integer<SOL_SOCKET,
 
 int KSyncSock::vnsw_netlink_family_id_;
 AgentSandeshContext *KSyncSock::agent_sandesh_ctx_;
-std::auto_ptr<KSyncSock> KSyncSock::sock_;
+std::unique_ptr<KSyncSock> KSyncSock::sock_;
 pid_t KSyncSock::pid_;
 tbb::atomic<bool> KSyncSock::shutdown_;
 

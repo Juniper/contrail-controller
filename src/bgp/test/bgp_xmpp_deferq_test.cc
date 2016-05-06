@@ -323,7 +323,7 @@ protected:
 
     EventManager evm_;
     ServerThread thread_;
-    auto_ptr<BgpServerTest> a_;
+    unique_ptr<BgpServerTest> a_;
     XmppServer *xs_a_;
     boost::scoped_ptr<test::NetworkAgentMock> agent_a_;
     boost::scoped_ptr<BgpXmppChannelManagerMock> bgp_channel_manager_;

@@ -288,9 +288,9 @@ protected:
     IFMapExporter *exporter_;
     IFMapServerParser *parser_;
 
-    auto_ptr<ServerThread> thread_;
+    unique_ptr<ServerThread> thread_;
     XmppServer *xmpp_server_;
-    auto_ptr<IFMapChannelManager> ifmap_channel_mgr_;
+    unique_ptr<IFMapChannelManager> ifmap_channel_mgr_;
     IFMapVmUuidMapper *vm_uuid_mapper_;
 };
 

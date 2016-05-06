@@ -159,10 +159,10 @@ class SyslogCollectorTest : public ::testing::Test
         task_util::WaitForIdle();
     }
     SyslogMsgGen                   *gen_;
-    std::auto_ptr<SyslogListeners> listener_;
+    std::unique_ptr<SyslogListeners> listener_;
     boost::shared_ptr<DbHandlerMock> db_handler_;
-    std::auto_ptr<EventManager>    evm_;
-    std::auto_ptr<ServerThread>    thread_;
+    std::unique_ptr<EventManager>    evm_;
+    std::unique_ptr<ServerThread>    thread_;
 };
 
 class SyslogParserTest : public ::testing::Test
@@ -187,7 +187,7 @@ class SyslogParserTest : public ::testing::Test
     std::string body() { return sp_->body(); }
 
   private:
-    std::auto_ptr<SyslogParserTestHelper> sp_;
+    std::unique_ptr<SyslogParserTestHelper> sp_;
 };
 
 class LineParserTest : public ::testing::Test
@@ -231,7 +231,7 @@ class LineParserTest : public ::testing::Test
 #endif
         return w;
     }
-    std::auto_ptr<LineParser> lp_;
+    std::unique_ptr<LineParser> lp_;
 };
 
 TEST_F(SyslogParserTest, ParseNone)

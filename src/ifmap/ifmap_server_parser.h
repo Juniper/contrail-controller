@@ -21,7 +21,7 @@ class xml_node;
 class IFMapServerParser {
 public:
     typedef boost::function<
-                bool(const pugi::xml_node &, std::auto_ptr<AutogenProperty > *)
+                bool(const pugi::xml_node &, std::unique_ptr<AutogenProperty > *)
             > MetadataParseFn;
     typedef std::map<std::string, MetadataParseFn> MetadataParseMap;
     typedef std::list<struct DBRequest *> RequestList;

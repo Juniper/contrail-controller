@@ -574,10 +574,10 @@ protected:
     XmppChannel *cchannel_p;
     XmppChannel *cchannel_s;
 
-    auto_ptr<AgentBgpXmppPeerTest> bgp_peer;
-    auto_ptr<AgentBgpXmppPeerTest> bgp_peer_s;
-    auto_ptr<ControlNodeMockBgpXmppPeer> mock_peer;
-    auto_ptr<ControlNodeMockBgpXmppPeer> mock_peer_s;
+    unique_ptr<AgentBgpXmppPeerTest> bgp_peer;
+    unique_ptr<AgentBgpXmppPeerTest> bgp_peer_s;
+    unique_ptr<ControlNodeMockBgpXmppPeer> mock_peer;
+    unique_ptr<ControlNodeMockBgpXmppPeer> mock_peer_s;
 };
 
 

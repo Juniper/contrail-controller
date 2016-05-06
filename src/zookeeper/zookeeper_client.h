@@ -29,7 +29,7 @@ class ZookeeperClient {
     friend class ZookeeperLock;
     friend class ::ZookeeperClientTest;
 
-    std::auto_ptr<impl::ZookeeperClientImpl> impl_;
+    std::unique_ptr<impl::ZookeeperClientImpl> impl_;
 };
 
 //
@@ -50,7 +50,7 @@ class ZookeeperLock {
 
     std::string Id() const;
 
-    std::auto_ptr<ZookeeperLockImpl> impl_;
+    std::unique_ptr<ZookeeperLockImpl> impl_;
 };
 
 } // namespace client

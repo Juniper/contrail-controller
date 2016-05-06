@@ -1322,10 +1322,10 @@ class ProtobufServerStatsTest : public ::testing::Test {
 
     std::vector<bool> match_;
     StatCbTester stats_tester_;
-    std::auto_ptr<ServerThread> thread_;
-    std::auto_ptr<protobuf::ProtobufServer> server_;
+    std::unique_ptr<ServerThread> thread_;
+    std::unique_ptr<protobuf::ProtobufServer> server_;
     ProtobufMockClient *client_;
-    std::auto_ptr<EventManager> evm_;
+    std::unique_ptr<EventManager> evm_;
 };
 
 static bool VerifySocketEndpointMessageStats(
@@ -1440,10 +1440,10 @@ class ProtobufServerTest : public ::testing::Test {
         return va_rx_msg_stats.size();
     }
 
-    std::auto_ptr<ServerThread> thread_;
-    std::auto_ptr<protobuf::ProtobufServer> server_;
+    std::unique_ptr<ServerThread> thread_;
+    std::unique_ptr<protobuf::ProtobufServer> server_;
     ProtobufMockClient *client_;
-    std::auto_ptr<EventManager> evm_;
+    std::unique_ptr<EventManager> evm_;
 };
 
 TEST_F(ProtobufServerTest, MessageSize) {

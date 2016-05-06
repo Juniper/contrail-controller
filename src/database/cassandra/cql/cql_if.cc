@@ -975,7 +975,7 @@ struct CassAsyncQueryContext {
 
 static void OnExecuteQueryAsync(CassFuture *future, void *data) {
     assert(data);
-    std::auto_ptr<CassAsyncQueryContext> ctx(
+    std::unique_ptr<CassAsyncQueryContext> ctx(
         boost::reinterpret_pointer_cast<CassAsyncQueryContext>(data));
     CassError rc(cass_future_error_code(future));
     if (rc != CASS_OK) {
@@ -992,7 +992,7 @@ static void ExecuteQueryAsyncInternal(CassSession *session,
     CassConsistency consistency, CassAsyncQueryCallback cb) {
     cass_statement_set_consistency(qstatement, consistency);
     CassFuturePtr future(cass_session_execute(session, qstatement));
-    std::auto_ptr<CassAsyncQueryContext> ctx(new CassAsyncQueryContext(qid, cb));
+    std::unique_ptr<CassAsyncQueryContext> ctx(new CassAsyncQueryContext(qid, cb));
     cass_future_set_callback(future.get(), OnExecuteQueryAsync, ctx.release());
 }
 
@@ -1392,17 +1392,17 @@ class CqlIf::CqlIfImpl {
         return !IsTableStatic(table);
     }
 
-    bool InsertIntoTableSync(std::auto_ptr<GenDb::ColList> v_columns,
+    bool InsertIntoTableSync(std::unique_ptr<GenDb::ColList> v_columns,
         CassConsistency consistency) {
         return InsertIntoTableInternal(v_columns, consistency, true, NULL);
     }
 
-    bool InsertIntoTableAsync(std::auto_ptr<GenDb::ColList> v_columns,
+    bool InsertIntoTableAsync(std::unique_ptr<GenDb::ColList> v_columns,
         CassConsistency consistency, impl::CassAsyncQueryCallback cb) {
         return InsertIntoTableInternal(v_columns, consistency, false, cb);
     }
 
-    bool InsertIntoTablePrepareAsync(std::auto_ptr<GenDb::ColList> v_columns,
+    bool InsertIntoTablePrepareAsync(std::unique_ptr<GenDb::ColList> v_columns,
         CassConsistency consistency, impl::CassAsyncQueryCallback cb) {
         return InsertIntoTablePrepareInternal(v_columns, consistency, false,
             cb);
@@ -1598,7 +1598,7 @@ class CqlIf::CqlIfImpl {
         session_state_ = SessionState::DISCONNECTED;
     }
 
-    bool InsertIntoTableInternal(std::auto_ptr<GenDb::ColList> v_columns,
+    bool InsertIntoTableInternal(std::unique_ptr<GenDb::ColList> v_columns,
         CassConsistency consistency, bool sync,
         impl::CassAsyncQueryCallback cb) {
         if (session_state_ != SessionState::CONNECTED) {
@@ -1640,7 +1640,7 @@ class CqlIf::CqlIfImpl {
             prepared);
     }
 
-    bool InsertIntoTablePrepareInternal(std::auto_ptr<GenDb::ColList> v_columns,
+    bool InsertIntoTablePrepareInternal(std::unique_ptr<GenDb::ColList> v_columns,
         CassConsistency consistency, bool sync,
         impl::CassAsyncQueryCallback cb) {
         if (session_state_ != SessionState::CONNECTED) {
@@ -1835,11 +1835,11 @@ void CqlIf::OnAsyncColumnAddCompletion(bool success, std::string cfname,
     }
 }
 
-bool CqlIf::Db_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
+bool CqlIf::Db_AddColumn(std::unique_ptr<GenDb::ColList> cl) {
     return Db_AddColumn(cl, GenDb::GenDbIf::DbAddColumnCb());
 }
 
-bool CqlIf::Db_AddColumn(std::auto_ptr<GenDb::ColList> cl,
+bool CqlIf::Db_AddColumn(std::unique_ptr<GenDb::ColList> cl,
     GenDb::GenDbIf::DbAddColumnCb cb) {
     std::string cfname(cl->cfname_);
     if (!initialized_) {
@@ -1866,7 +1866,7 @@ bool CqlIf::Db_AddColumn(std::auto_ptr<GenDb::ColList> cl,
     return success;
 }
 
-bool CqlIf::Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl) {
+bool CqlIf::Db_AddColumnSync(std::unique_ptr<GenDb::ColList> cl) {
     std::string cfname(cl->cfname_);
     bool success(impl_->InsertIntoTableSync(cl, CASS_CONSISTENCY_ONE));
     if (!success) {
@@ -1895,7 +1895,7 @@ bool CqlIf::Db_GetRow(GenDb::ColList *out, const std::string &cfname,
 bool CqlIf::Db_GetMultiRow(GenDb::ColListVec *out, const std::string &cfname,
     const std::vector<GenDb::DbDataValueVec> &v_rowkey) {
     BOOST_FOREACH(const GenDb::DbDataValueVec &rkey, v_rowkey) {
-        std::auto_ptr<GenDb::ColList> v_columns(new GenDb::ColList);
+        std::unique_ptr<GenDb::ColList> v_columns(new GenDb::ColList);
         // Partition Key
         v_columns->rowkey_ = rkey;
         bool success(impl_->SelectFromTableSync(cfname, rkey,
@@ -1917,7 +1917,7 @@ bool CqlIf::Db_GetMultiRow(GenDb::ColListVec *out, const std::string &cfname,
     const std::vector<GenDb::DbDataValueVec> &v_rowkey,
     const GenDb::ColumnNameRange &crange) {
     BOOST_FOREACH(const GenDb::DbDataValueVec &rkey, v_rowkey) {
-        std::auto_ptr<GenDb::ColList> v_columns(new GenDb::ColList);
+        std::unique_ptr<GenDb::ColList> v_columns(new GenDb::ColList);
         // Partition Key
         v_columns->rowkey_ = rkey;
         bool success(impl_->SelectFromTableClusteringKeyRangeSync(cfname,

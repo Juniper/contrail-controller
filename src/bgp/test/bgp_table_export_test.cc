@@ -16,7 +16,7 @@
 #include "net/community_type.h"
 
 using boost::assign::list_of;
-using std::auto_ptr;
+using std::unique_ptr;
 using std::cout;
 using std::endl;
 using std::ostringstream;
@@ -447,7 +447,7 @@ protected:
 
     BgpTable *table_;
     RibOut *ribout_;
-    auto_ptr<BgpTestPeer> peer_;
+    unique_ptr<BgpTestPeer> peer_;
     vector<BgpTestPeer *> ribout_peers_;
     BgpRouteMock rt_;
     BgpAttrPtr attr_ptr_;

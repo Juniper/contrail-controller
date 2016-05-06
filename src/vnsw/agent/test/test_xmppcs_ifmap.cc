@@ -189,12 +189,12 @@ protected:
     ServerThread *thread_;
 
     // 0 - primary 1 - secondary
-    //auto_ptr<XmppServer> xs[2];
+    //unique_ptr<XmppServer> xs[2];
     XmppServer *xs[2];
 
     XmppConnection *sconnection[2];
 
-    auto_ptr<ControlNodeMockIFMapXmppPeer> mock_ifmap_peer[2];
+    unique_ptr<ControlNodeMockIFMapXmppPeer> mock_ifmap_peer[2];
     int server_shutdown[2];
 };
 

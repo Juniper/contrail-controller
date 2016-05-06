@@ -31,10 +31,10 @@ void VxLanId::SetKey(const DBRequestKey *k) {
     vxlan_id_ = key->vxlan_id();
 }
 
-std::auto_ptr<DBEntry> VxLanTable::AllocEntry(const DBRequestKey *k) const {
+std::unique_ptr<DBEntry> VxLanTable::AllocEntry(const DBRequestKey *k) const {
     const VxLanIdKey *key = static_cast<const VxLanIdKey *>(k);
     VxLanId *vxlan_id = new VxLanId(key->vxlan_id());
-    return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(vxlan_id));
+    return std::unique_ptr<DBEntry>(static_cast<DBEntry *>(vxlan_id));
 }
 
 void VxLanTable::Process(DBRequest &req) {

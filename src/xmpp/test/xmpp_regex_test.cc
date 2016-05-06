@@ -73,7 +73,7 @@ protected:
     }
 
 
-    auto_ptr<XmppRegexMock> regex_;
+    unique_ptr<XmppRegexMock> regex_;
 };
 
 namespace {

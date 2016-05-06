@@ -153,10 +153,10 @@ protected:
 };
 
 TEST_F(SchedulingGroupManagerTest, OneTableTwoPeers) {
-    auto_ptr<RibOut> rp1(new RibOut(inetvpn_table_, &sgman_,
+    unique_ptr<RibOut> rp1(new RibOut(inetvpn_table_, &sgman_,
                                     RibExportPolicy()));
-    auto_ptr<BgpTestPeer> p1(new BgpTestPeer());
-    auto_ptr<BgpTestPeer> p2(new BgpTestPeer());
+    unique_ptr<BgpTestPeer> p1(new BgpTestPeer());
+    unique_ptr<BgpTestPeer> p2(new BgpTestPeer());
 
     Join(rp1.get(), p1.get());
     EXPECT_EQ(1, sgman_.size());
@@ -181,11 +181,11 @@ TEST_F(SchedulingGroupManagerTest, OneTableTwoPeers) {
 }
 
 TEST_F(SchedulingGroupManagerTest, TwoTablesOnePeer) {
-    auto_ptr<RibOut> rp1(new RibOut(inetvpn_table_, &sgman_,
+    unique_ptr<RibOut> rp1(new RibOut(inetvpn_table_, &sgman_,
                                     RibExportPolicy()));
-    auto_ptr<RibOut> rp2(new RibOut(inetvpn_table_, &sgman_,
+    unique_ptr<RibOut> rp2(new RibOut(inetvpn_table_, &sgman_,
                                     RibExportPolicy()));
-    auto_ptr<BgpTestPeer> p1(new BgpTestPeer());
+    unique_ptr<BgpTestPeer> p1(new BgpTestPeer());
 
     Join(rp1.get(), p1.get());
     EXPECT_EQ(1, sgman_.size());
@@ -215,12 +215,12 @@ TEST_F(SchedulingGroupManagerTest, TwoTablesOnePeer) {
 // the same as join order.
 TEST_F(SchedulingGroupManagerTest, TwoTablesTwoPeers1a) {
     SchedulingGroup *sg;
-    auto_ptr<RibOut> rp1(new RibOut(inetvpn_table_, &sgman_,
+    unique_ptr<RibOut> rp1(new RibOut(inetvpn_table_, &sgman_,
                                     RibExportPolicy()));
-    auto_ptr<RibOut> rp2(new RibOut(inetvpn_table_, &sgman_,
+    unique_ptr<RibOut> rp2(new RibOut(inetvpn_table_, &sgman_,
                                     RibExportPolicy()));
-    auto_ptr<BgpTestPeer> p1(new BgpTestPeer());
-    auto_ptr<BgpTestPeer> p2(new BgpTestPeer());
+    unique_ptr<BgpTestPeer> p1(new BgpTestPeer());
+    unique_ptr<BgpTestPeer> p2(new BgpTestPeer());
 
     Join(rp1.get(), p1.get());
     EXPECT_EQ(1, sgman_.size());
@@ -277,12 +277,12 @@ TEST_F(SchedulingGroupManagerTest, TwoTablesTwoPeers1a) {
 // order.
 TEST_F(SchedulingGroupManagerTest, TwoTablesTwoPeers1b) {
     SchedulingGroup *sg;
-    auto_ptr<RibOut> rp1(new RibOut(inetvpn_table_, &sgman_,
+    unique_ptr<RibOut> rp1(new RibOut(inetvpn_table_, &sgman_,
                                     RibExportPolicy()));
-    auto_ptr<RibOut> rp2(new RibOut(inetvpn_table_, &sgman_,
+    unique_ptr<RibOut> rp2(new RibOut(inetvpn_table_, &sgman_,
                                     RibExportPolicy()));
-    auto_ptr<BgpTestPeer> p1(new BgpTestPeer());
-    auto_ptr<BgpTestPeer> p2(new BgpTestPeer());
+    unique_ptr<BgpTestPeer> p1(new BgpTestPeer());
+    unique_ptr<BgpTestPeer> p2(new BgpTestPeer());
 
     Join(rp1.get(), p1.get());
     EXPECT_EQ(1, sgman_.size());
@@ -339,12 +339,12 @@ TEST_F(SchedulingGroupManagerTest, TwoTablesTwoPeers1b) {
 // of the join order.
 TEST_F(SchedulingGroupManagerTest, TwoTablesTwoPeers2) {
     SchedulingGroup *sg, *sg_a, *sg_b;
-    auto_ptr<RibOut> rp1(new RibOut(inetvpn_table_, &sgman_,
+    unique_ptr<RibOut> rp1(new RibOut(inetvpn_table_, &sgman_,
                                     RibExportPolicy()));
-    auto_ptr<RibOut> rp2(new RibOut(inetvpn_table_, &sgman_,
+    unique_ptr<RibOut> rp2(new RibOut(inetvpn_table_, &sgman_,
                                     RibExportPolicy()));
-    auto_ptr<BgpTestPeer> p1(new BgpTestPeer());
-    auto_ptr<BgpTestPeer> p2(new BgpTestPeer());
+    unique_ptr<BgpTestPeer> p1(new BgpTestPeer());
+    unique_ptr<BgpTestPeer> p2(new BgpTestPeer());
 
     Join(rp1.get(), p1.get());
     EXPECT_EQ(1, sgman_.size());
@@ -410,15 +410,15 @@ TEST_F(SchedulingGroupManagerTest, TwoTablesTwoPeers2) {
 }
 
 TEST_F(SchedulingGroupManagerTest, Merge) {
-    auto_ptr<RibOut> rp1(new RibOut(inetvpn_table_, &sgman_,
+    unique_ptr<RibOut> rp1(new RibOut(inetvpn_table_, &sgman_,
                                     RibExportPolicy()));
-    auto_ptr<RibOut> rp2(new RibOut(inetvpn_table_, &sgman_,
+    unique_ptr<RibOut> rp2(new RibOut(inetvpn_table_, &sgman_,
                                     RibExportPolicy()));
-    auto_ptr<RibOut> rp3(new RibOut(inetvpn_table_, &sgman_,
+    unique_ptr<RibOut> rp3(new RibOut(inetvpn_table_, &sgman_,
                                     RibExportPolicy()));
-    auto_ptr<BgpTestPeer> p1(new BgpTestPeer());
-    auto_ptr<BgpTestPeer> p2(new BgpTestPeer());
-    auto_ptr<BgpTestPeer> p3(new BgpTestPeer());
+    unique_ptr<BgpTestPeer> p1(new BgpTestPeer());
+    unique_ptr<BgpTestPeer> p2(new BgpTestPeer());
+    unique_ptr<BgpTestPeer> p3(new BgpTestPeer());
 
     Join(rp1.get(), p1.get());
     Join(rp2.get(), p2.get());
@@ -868,8 +868,8 @@ protected:
         SchedulingGroupManagerTest::TearDown();
     }
 
-    auto_ptr<RibOut> rp1_, rp2_;
-    auto_ptr<BgpTestPeer> p1_, p2_;
+    unique_ptr<RibOut> rp1_, rp2_;
+    unique_ptr<BgpTestPeer> p1_, p2_;
     int num_items_;
     bool condition_;
 };
@@ -1163,8 +1163,8 @@ protected:
         SchedulingGroupManagerTest::TearDown();
     }
 
-    auto_ptr<RibOut> rp1_, rp2_;
-    auto_ptr<BgpTestPeer> p1_, p2_;
+    unique_ptr<RibOut> rp1_, rp2_;
+    unique_ptr<BgpTestPeer> p1_, p2_;
     bool rp1_p1_bulk_active_, rp1_p1_update_active_;
     bool rp2_p2_bulk_active_, rp2_p2_update_active_;
 };

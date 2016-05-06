@@ -1160,7 +1160,7 @@ typedef std::vector<ComponentNHKeyPtr> ComponentNHKeyList;
 
 class ComponentNHKey {
 public:
-    ComponentNHKey(int label, std::auto_ptr<const NextHopKey> key) :
+    ComponentNHKey(int label, std::unique_ptr<const NextHopKey> key) :
         label_(label), nh_key_(key) { }
     ComponentNHKey(int label, Composite::Type type, bool policy,
                    const ComponentNHKeyList &component_nh_list,
@@ -1194,7 +1194,7 @@ public:
     const NextHopKey* nh_key() const { return nh_key_.get(); }
 private:
     uint32_t label_;
-    std::auto_ptr<const NextHopKey> nh_key_;
+    std::unique_ptr<const NextHopKey> nh_key_;
     DISALLOW_COPY_AND_ASSIGN(ComponentNHKey);
 };
 
@@ -1378,7 +1378,7 @@ public:
     NextHopTable(DB *db, const std::string &name);
     virtual ~NextHopTable();
 
-    virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
+    virtual std::unique_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
     virtual size_t Hash(const DBEntry *entry) const {return 0;};
     virtual size_t Hash(const DBRequestKey *key) const {return 0;};
     virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
@@ -1433,7 +1433,7 @@ public:
 
 private:
     NextHop *AllocWithKey(const DBRequestKey *k) const;
-    virtual std::auto_ptr<DBEntry> GetEntry(const DBRequestKey *key) const;
+    virtual std::unique_ptr<DBEntry> GetEntry(const DBRequestKey *key) const;
 
     NextHop *discard_nh_;
     NextHop *l2_receive_nh_;

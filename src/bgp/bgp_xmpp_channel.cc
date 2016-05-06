@@ -51,7 +51,7 @@ using autogen::TunnelEncapsulationListType;
 
 using boost::system::error_code;
 using pugi::xml_node;
-using std::auto_ptr;
+using std::unique_ptr;
 using std::make_pair;
 using std::numeric_limits;
 using std::ostringstream;
@@ -241,7 +241,7 @@ public:
 
 private:
     BgpXmppChannel *parent_;
-    auto_ptr<PeerCloseManager> manager_;
+    unique_ptr<PeerCloseManager> manager_;
 };
 
 class BgpXmppChannel::PeerStats : public IPeerDebugStats {
@@ -1776,7 +1776,7 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
 
 void BgpXmppChannel::DequeueRequest(const string &table_name,
                                     DBRequest *request) {
-    auto_ptr<DBRequest> ptr(request);
+    unique_ptr<DBRequest> ptr(request);
 
     BgpTable *table = static_cast<BgpTable *>
         (bgp_server_->database()->FindTable(table_name));

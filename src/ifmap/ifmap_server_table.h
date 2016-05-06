@@ -26,13 +26,13 @@ public:
         std::string id_type;
         std::string id_name;
         std::string metadata;
-        std::auto_ptr<AutogenProperty> content;
+        std::unique_ptr<AutogenProperty> content;
     };
 
     IFMapServerTable(DB *db, const std::string &name, DBGraph *graph);
 
     // Allocate an IFMapNode.
-    virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *key) const;
+    virtual std::unique_ptr<DBEntry> AllocEntry(const DBRequestKey *key) const;
 
     // Process a DB add/change/delete request. Requests consist of 1 or 2
     // identifiers plus associated metadata.

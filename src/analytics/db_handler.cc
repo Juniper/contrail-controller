@@ -211,7 +211,7 @@ bool DbHandler::CreateTables() {
     }
 
     if (!init_done) {
-        std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
+        std::unique_ptr<GenDb::ColList> col_list(new GenDb::ColList);
         col_list->cfname_ = g_viz_constants.SYSTEM_OBJECT_TABLE;
         // Rowkey
         GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
@@ -250,7 +250,7 @@ bool DbHandler::CreateTables() {
      * add ttls to cassandra to be retrieved by other daemons
      */
     {
-        std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
+        std::unique_ptr<GenDb::ColList> col_list(new GenDb::ColList);
         col_list->cfname_ = g_viz_constants.SYSTEM_OBJECT_TABLE;
         // Rowkey
         GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
@@ -471,7 +471,7 @@ bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
         const std::string& message_type,
         const boost::uuids::uuid& unm,
         const std::string keyword) {
-    std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
+    std::unique_ptr<GenDb::ColList> col_list(new GenDb::ColList);
     col_list->cfname_ = cfname;
     // Rowkey
     GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
@@ -579,7 +579,7 @@ void DbHandler::MessageTableOnlyInsert(const VizMsg *vmsgp) {
     } else {
         ttl = GetTtl(TtlType::GLOBAL_TTL);
     }
-    std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
+    std::unique_ptr<GenDb::ColList> col_list(new GenDb::ColList);
     col_list->cfname_ = g_viz_constants.COLLECTOR_GLOBAL_TABLE;
     // Rowkey
     GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
@@ -828,7 +828,7 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
 
       {
         uint8_t partition_no = 0;
-        std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
+        std::unique_ptr<GenDb::ColList> col_list(new GenDb::ColList);
         col_list->cfname_ = g_viz_constants.OBJECT_TABLE;
         GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
         rowkey.reserve(3);
@@ -855,7 +855,7 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
       }
 
       {
-        std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
+        std::unique_ptr<GenDb::ColList> col_list(new GenDb::ColList);
         col_list->cfname_ = g_viz_constants.OBJECT_VALUE_TABLE;
         GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
         rowkey.reserve(2);
@@ -964,7 +964,7 @@ bool DbHandler::StatTableWrite(uint32_t t2,
                 ":" << stag.first << " jsonline " << jsonline);
         return false;
     }
-    std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
+    std::unique_ptr<GenDb::ColList> col_list(new GenDb::ColList);
     col_list->cfname_ = cfname;
     
     GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
@@ -1258,7 +1258,7 @@ static void PopulateFlowRecordTableRowKey(
 static bool PopulateFlowRecordTable(FlowValueArray &fvalues,
     GenDb::GenDbIf *dbif, const TtlMap& ttl_map,
     FlowFieldValuesCb fncb) {
-    std::auto_ptr<GenDb::ColList> colList(new GenDb::ColList);
+    std::unique_ptr<GenDb::ColList> colList(new GenDb::ColList);
     colList->cfname_ = g_viz_constants.FLOW_TABLE;
     PopulateFlowRecordTableRowKey(fvalues, colList->rowkey_);
     PopulateFlowRecordTableColumns(FlowRecordTableColumns, fvalues,
@@ -1474,7 +1474,7 @@ static bool PopulateFlowIndexTables(const FlowValueArray &fvalues,
     for (int tid = FLOW_INDEX_TABLE_MIN;
          tid < FLOW_INDEX_TABLE_MAX_PLUS_1; ++tid) {
         FlowIndexTableType fitt(static_cast<FlowIndexTableType>(tid));
-        std::auto_ptr<GenDb::ColList> colList(new GenDb::ColList);
+        std::unique_ptr<GenDb::ColList> colList(new GenDb::ColList);
         colList->cfname_ = FlowIndexTable2String(fitt);
         colList->rowkey_ = rkey;
         PopulateFlowIndexTableColumns(fitt, fvalues, T1, &colList->columns_,

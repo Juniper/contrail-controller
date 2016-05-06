@@ -156,7 +156,7 @@ private:
     tbb::interface5::condition_variable cond_var_;
     SessionSet session_ref_;
     SessionMap session_map_;
-    std::auto_ptr<Socket> so_accept_;      // socket used in async_accept
+    std::unique_ptr<Socket> so_accept_;      // socket used in async_accept
     boost::scoped_ptr<boost::asio::ip::tcp::acceptor> acceptor_;
     tbb::atomic<int> refcount_;
     std::string name_;

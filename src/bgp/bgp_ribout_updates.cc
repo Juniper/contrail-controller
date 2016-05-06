@@ -13,7 +13,7 @@
 #include "bgp/message_builder.h"
 #include "bgp/scheduling_group.h"
 
-using std::auto_ptr;
+using std::unique_ptr;
 
 //
 // Create a new RibOutUpdates.  Also create the necessary UpdateQueue and
@@ -113,7 +113,7 @@ bool RibOutUpdates::DequeueCommon(UpdateMarker *marker, RouteUpdate *rt_update,
         // incrementing any counters.
         RibPeerSet msg_blocked;
         bool msg_sent = false;
-        auto_ptr<Message> message(
+        unique_ptr<Message> message(
             builder_->Create(ribout_, &uinfo->roattr, rt_update->route()));
         if (message.get() != NULL) {
             UpdatePack(rt_update->queue_id(), message.get(), uinfo, msgset);

@@ -87,10 +87,10 @@ std::string CfgIntEntry::CfgIntTypeToString(CfgIntEntry::CfgIntType type) {
 }
 
 // CfgIntTable methods
-std::auto_ptr<DBEntry> CfgIntTable::AllocEntry(const DBRequestKey *key) const {
+std::unique_ptr<DBEntry> CfgIntTable::AllocEntry(const DBRequestKey *key) const {
     const CfgIntKey *k = static_cast<const CfgIntKey *>(key);
     CfgIntEntry *cfg_intf = new CfgIntEntry(k->id_);
-    return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(cfg_intf));
+    return std::unique_ptr<DBEntry>(static_cast<DBEntry *>(cfg_intf));
 }
 
 bool CfgIntTable::OnChange(DBEntry *entry, const DBRequest *req) {

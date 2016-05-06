@@ -151,7 +151,7 @@ TEST_F(IdentityPropertyTest, EncodeDecode) {
     EXPECT_TRUE(node);
     BOOST_FOREACH(const char *name, objs) {
         IFMapTable::RequestKey key;
-        auto_ptr<Foo> obj(static_cast<Foo *>(
+        unique_ptr<Foo> obj(static_cast<Foo *>(
             table->AllocObject()));
         string id_name;
         EXPECT_TRUE(Foo::Decode(node, &id_name, obj.get()));
@@ -185,7 +185,7 @@ TEST_F(IdentityPropertyTest, UnsignedLong) {
         IFMapTable::FindTable(&db_, "foo"));
     IFMapTable::RequestKey key;
     key.id_name = "a";
-    auto_ptr<IFMapNode> node_ptr(static_cast<IFMapNode *>(
+    unique_ptr<IFMapNode> node_ptr(static_cast<IFMapNode *>(
         table->AllocEntry(&key).release()));
     Foo *obj = static_cast<Foo *>(table->AllocObject());
     node_ptr->Insert(obj);
@@ -204,7 +204,7 @@ TEST_F(IdentityPropertyTest, UnsignedLong) {
     pugi::xml_node node = update.first_child();
     EXPECT_TRUE(node);
 
-    auto_ptr<Foo> result(static_cast<Foo *>(table->AllocObject()));
+    unique_ptr<Foo> result(static_cast<Foo *>(table->AllocObject()));
     string id_name;
     EXPECT_TRUE(Foo::Decode(node, &id_name, result.get()));
     EXPECT_EQ(prop.data, result->long_value());
@@ -215,7 +215,7 @@ TEST_F(IdentityPropertyTest, Bool) {
         IFMapTable::FindTable(&db_, "foo"));
     IFMapTable::RequestKey key;
     key.id_name = "a";
-    auto_ptr<IFMapNode> node_ptr(static_cast<IFMapNode *>(
+    unique_ptr<IFMapNode> node_ptr(static_cast<IFMapNode *>(
         table->AllocEntry(&key).release()));
     Foo *obj = static_cast<Foo *>(table->AllocObject());
     node_ptr->Insert(obj);
@@ -234,7 +234,7 @@ TEST_F(IdentityPropertyTest, Bool) {
     pugi::xml_node node = update.first_child();
     EXPECT_TRUE(node);
 
-    auto_ptr<Foo> result(static_cast<Foo *>(table->AllocObject()));
+    unique_ptr<Foo> result(static_cast<Foo *>(table->AllocObject()));
     string id_name;
     EXPECT_TRUE(Foo::Decode(node, &id_name, result.get()));
     EXPECT_EQ(bool_prop.data, result->bool_value());

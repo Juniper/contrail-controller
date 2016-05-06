@@ -150,7 +150,7 @@ TEST_F(VrfAssignTest, Check_key_manipulations) {
     EXPECT_TRUE(key->vlan_tag_ == 1);
     EXPECT_TRUE(key->intf_uuid_ == MakeUuid(1));
     EXPECT_TRUE(key->type_ == VrfAssign::VLAN);
-    std::auto_ptr<VrfAssign::VrfAssignKey> new_key(new VrfAssign::VrfAssignKey());
+    std::unique_ptr<VrfAssign::VrfAssignKey> new_key(new VrfAssign::VrfAssignKey());
     new_key->VlanInit(MakeUuid(1), 2); 
     vlan_vrf_assign->SetKey(new_key.get());
     EXPECT_TRUE(vlan_vrf_assign->GetVlanTag() == 2);

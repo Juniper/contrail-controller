@@ -60,13 +60,13 @@ bool FlowHandler::Run() {
     PktControlInfo out;
     PktFlowInfo info(agent_, pkt_info_,
                      flow_proto_->GetTable(flow_table_index_));
-    std::auto_ptr<FlowTaskMsg> ipc;
+    std::unique_ptr<FlowTaskMsg> ipc;
 
     if (pkt_info_->type == PktType::INVALID) {
         info.SetPktInfo(pkt_info_);
         info.l3_flow = pkt_info_->l3_forwarding = IsL3ModeFlow();
     } else if (pkt_info_->type == PktType::MESSAGE) {
-        ipc = std::auto_ptr<FlowTaskMsg>(static_cast<FlowTaskMsg *>(pkt_info_->ipc));
+        ipc = std::unique_ptr<FlowTaskMsg>(static_cast<FlowTaskMsg *>(pkt_info_->ipc));
         pkt_info_->ipc = NULL;
         FlowEntry *fe = ipc->fe_ptr.get();
         // take lock on flow entry before accessing it, since we need to read

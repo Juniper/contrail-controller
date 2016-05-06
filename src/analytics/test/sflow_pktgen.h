@@ -156,7 +156,7 @@ public:
     }
 
     void WriteCounterSample(const SFlowSample& counter_sample) {
-        std::auto_ptr<uint8_t> counter_sample_data(
+        std::unique_ptr<uint8_t> counter_sample_data(
                                     new uint8_t[counter_sample.length]);
 
         WriteData32(counter_sample.type);

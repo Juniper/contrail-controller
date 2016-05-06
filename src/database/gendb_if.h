@@ -165,10 +165,10 @@ public:
     virtual bool Db_AddColumnfamily(const NewCf& cf) = 0;
     virtual bool Db_UseColumnfamily(const NewCf& cf) = 0;
     // Column
-    virtual bool Db_AddColumn(std::auto_ptr<ColList> cl) = 0;
-    virtual bool Db_AddColumn(std::auto_ptr<ColList> cl,
+    virtual bool Db_AddColumn(std::unique_ptr<ColList> cl) = 0;
+    virtual bool Db_AddColumn(std::unique_ptr<ColList> cl,
         DbAddColumnCb cb) = 0;
-    virtual bool Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl) = 0;
+    virtual bool Db_AddColumnSync(std::unique_ptr<GenDb::ColList> cl) = 0;
     // Read/Get
     virtual bool Db_GetRow(ColList *ret, const std::string& cfname,
         const DbDataValueVec& rowkey) = 0;

@@ -758,11 +758,11 @@ int main(int argc, char *argv[]) {
     CpuLoadData::Init();
     uint64_t start_time = UTCTimestampUsec();
 
-    std::auto_ptr<Timer> node_info_log_timer(
+    std::unique_ptr<Timer> node_info_log_timer(
         TimerManager::CreateTimer(
             *evm.io_service(), "ControlNode Info log timer"));
 
-    std::auto_ptr<TaskTrigger> node_info_trigger(
+    std::unique_ptr<TaskTrigger> node_info_trigger(
         new TaskTrigger(
             boost::bind(&ControlNodeInfoLogger,
                         bgp_server.get(), bgp_peer_manager.get(),

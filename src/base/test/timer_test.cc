@@ -12,11 +12,10 @@
 #include "testing/gunit.h"
 
 using namespace std;
-using tbb::atomic;
 
 TaskScheduler       *scheduler;
-atomic<int> timer_count_;
-atomic<bool> timer_hold_;
+tbb::atomic<int> timer_count_;
+tbb::atomic<bool> timer_hold_;
 
 class TimerTest : public Timer {
 public:
@@ -38,9 +37,9 @@ public:
         count_--;
     }
 
-    static atomic<uint32_t> count_;
+    static tbb::atomic<uint32_t> count_;
 };
-atomic<uint32_t> TimerTest::count_;
+tbb::atomic<uint32_t> TimerTest::count_;
 
 class TimerUT : public ::testing::Test {
 public:
@@ -65,8 +64,8 @@ public:
         task_util::WaitForIdle();
     }
 
-    auto_ptr<ServerThread> thread_;
-    auto_ptr<EventManager> evm_;
+    unique_ptr<ServerThread> thread_;
+    unique_ptr<EventManager> evm_;
 };
 
 bool TimerCb() {

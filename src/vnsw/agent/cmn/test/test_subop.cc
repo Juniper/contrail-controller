@@ -33,10 +33,10 @@ AgentDBTable *EntryC::DBToTable() const {
     return table_c_;
 }
 
-std::auto_ptr<DBEntry> TableC::AllocEntry(const DBRequestKey *k) const {
+std::unique_ptr<DBEntry> TableC::AllocEntry(const DBRequestKey *k) const {
     const EntryKey *key = static_cast<const EntryKey *>(k);
     EntryC *entry = new EntryC(key->id_);
-    return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(entry));
+    return std::unique_ptr<DBEntry>(static_cast<DBEntry *>(entry));
 }
 
 DBEntry *TableC::Add(const DBRequest *req) {
@@ -67,7 +67,7 @@ bool TableC::Delete(DBEntry *entry, const DBRequest *req) {
 }
 
 EntryC *TableC::FindC(int id) {
-    auto_ptr<EntryKey> key(new EntryKey());
+    unique_ptr<EntryKey> key(new EntryKey());
     key->id_ = id;
     return static_cast<EntryC *>(table_c_->FindActiveEntry(key.get()));
 }

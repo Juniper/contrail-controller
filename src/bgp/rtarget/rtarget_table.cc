@@ -7,21 +7,21 @@
 #include "bgp/bgp_update.h"
 #include "db/db.h"
 
-using std::auto_ptr;
+using std::unique_ptr;
 using std::string;
 
 RTargetTable::RTargetTable(DB *db, const string &name)
         : BgpTable(db, name) {
 }
 
-auto_ptr<DBEntry> RTargetTable::AllocEntry(const DBRequestKey *key) const {
+unique_ptr<DBEntry> RTargetTable::AllocEntry(const DBRequestKey *key) const {
     const RequestKey *pfxkey = static_cast<const RequestKey *>(key);
-    return auto_ptr<DBEntry> (new RTargetRoute(pfxkey->prefix));
+    return unique_ptr<DBEntry> (new RTargetRoute(pfxkey->prefix));
 }
 
-auto_ptr<DBEntry> RTargetTable::AllocEntryStr(const string &key_str) const {
+unique_ptr<DBEntry> RTargetTable::AllocEntryStr(const string &key_str) const {
     RTargetPrefix prefix = RTargetPrefix::FromString(key_str);
-    return auto_ptr<DBEntry> (new RTargetRoute(prefix));
+    return unique_ptr<DBEntry> (new RTargetRoute(prefix));
 }
 
 size_t RTargetTable::Hash(const DBEntry *entry) const {

@@ -234,7 +234,10 @@ int Timer::GetElapsedTime() const {
     tbb::mutex::scoped_lock lock(mutex_);
     int64_t elapsed;
 
-#if BOOST_VERSION >= 104900
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+    elapsed =
+        std::chrono::nanoseconds(impl_->timer_.expires_from_now()).count();
+#elif BOOST_VERSION >= 104900
     elapsed =
         boost::chrono::nanoseconds(impl_->timer_.expires_from_now()).count();
 #else

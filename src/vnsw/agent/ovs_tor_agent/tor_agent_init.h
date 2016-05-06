@@ -48,9 +48,9 @@ class TorAgentInit : public AgentInit {
     OVSDB::OvsdbClient *ovsdb_client() {return ovsdb_client_.get();}
 
  private:
-    std::auto_ptr<OvsPeerManager> ovs_peer_manager_;
-    std::auto_ptr<OVSDB::OvsdbClient> ovsdb_client_;
-    std::auto_ptr<AgentUveBase> uve_;
+    std::unique_ptr<OvsPeerManager> ovs_peer_manager_;
+    std::unique_ptr<OVSDB::OvsdbClient> ovsdb_client_;
+    std::unique_ptr<AgentUveBase> uve_;
     DISALLOW_COPY_AND_ASSIGN(TorAgentInit);
 };
 

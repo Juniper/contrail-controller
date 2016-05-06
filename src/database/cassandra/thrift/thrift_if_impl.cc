@@ -1457,7 +1457,7 @@ void ThriftIfImpl::Db_BatchAddColumn(bool done) {
     mutation_map_.clear();
 }
 
-bool ThriftIfImpl::Db_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
+bool ThriftIfImpl::Db_AddColumn(std::unique_ptr<GenDb::ColList> cl) {
     tbb::mutex::scoped_lock lock(q_mutex_);
     if (!Db_IsInitDone() || !q_.get()) {
         UpdateCfWriteFailStats(cl->cfname_);
@@ -1469,7 +1469,7 @@ bool ThriftIfImpl::Db_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
     return true;
 }
 
-bool ThriftIfImpl::Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl) {
+bool ThriftIfImpl::Db_AddColumnSync(std::unique_ptr<GenDb::ColList> cl) {
     ThriftIfColList qentry;
     std::string cfname(cl->cfname_);
     qentry.gendb_cl = cl.release();
@@ -1508,13 +1508,13 @@ bool ThriftIfImpl::ColListFromColumnOrSuper(GenDb::ColList *ret,
         NewColVec& columns = ret->columns_;
         std::vector<cassandra::ColumnOrSuperColumn>::const_iterator citer;
         for (citer = result.begin(); citer != result.end(); citer++) {
-            std::auto_ptr<GenDb::DbDataValueVec> name(new GenDb::DbDataValueVec);
+            std::unique_ptr<GenDb::DbDataValueVec> name(new GenDb::DbDataValueVec);
             if (!DbDataValueVecFromString(*name, cf->comparator_type,
                 citer->column.name)) {
                 THRIFTIF_LOG_ERR(cfname << ": Column Name Decode FAILED");
                 continue;
             }
-            std::auto_ptr<GenDb::DbDataValueVec> value(new GenDb::DbDataValueVec);
+            std::unique_ptr<GenDb::DbDataValueVec> value(new GenDb::DbDataValueVec);
             if (!DbDataValueVecFromString(*value, cf->default_validation_class,
                     citer->column.value)) {
                 THRIFTIF_LOG_ERR(cfname << ": Column Value Decode FAILED");
@@ -1637,7 +1637,7 @@ bool ThriftIfImpl::Db_GetMultiRow(GenDb::ColListVec *ret,
         for (std::map<std::string,
                  std::vector<ColumnOrSuperColumn> >::iterator it = ret_c.begin();
              it != ret_c.end(); it++) {
-            std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
+            std::unique_ptr<GenDb::ColList> col_list(new GenDb::ColList);
             if (!DbDataValueVecFromString(col_list->rowkey_,
                 cf->key_validation_class, it->first)) {
                 THRIFTIF_LOG_ERR(cfname << ": Key decode FAILED");

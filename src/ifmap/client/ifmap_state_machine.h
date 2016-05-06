@@ -150,11 +150,11 @@ private:
     void LogSmTransition();
 
     IFMapManager *manager_;
-    std::auto_ptr<TimerImpl> connect_timer_;
+    std::unique_ptr<TimerImpl> connect_timer_;
     int ssrc_connect_attempts_;
     int arc_connect_attempts_;
     // used to limit the wait time for a response
-    std::auto_ptr<TimerImpl> response_timer_;
+    std::unique_ptr<TimerImpl> response_timer_;
     // how many times we timed out waiting for a response
     int response_timer_expired_count_;
     WorkQueue<boost::intrusive_ptr<const sc::event_base> > work_queue_;

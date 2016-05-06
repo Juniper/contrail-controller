@@ -115,8 +115,8 @@ protected:
         client->ConfigUpdate(config);
     }
 
-    auto_ptr<EventManager> evm_;
-    auto_ptr<ServerThread> thread_;
+    unique_ptr<EventManager> evm_;
+    unique_ptr<ServerThread> thread_;
     XmppServer *a_;
     XmppClient *b_;
     boost::scoped_ptr<XmppPeerManagerMock> xmpp_peer_manager_;

@@ -219,18 +219,18 @@ private:
     TxnStats stats_;
 
     tbb::atomic<int> refcount_;
-    std::auto_ptr<OvsPeer> route_peer_;
-    std::auto_ptr<VMInterfaceKSyncObject> vm_interface_table_;
-    std::auto_ptr<PhysicalSwitchTable> physical_switch_table_;
-    std::auto_ptr<LogicalSwitchTable> logical_switch_table_;
-    std::auto_ptr<PhysicalPortTable> physical_port_table_;
-    std::auto_ptr<PhysicalLocatorTable> physical_locator_table_;
-    std::auto_ptr<VlanPortBindingTable> vlan_port_table_;
-    std::auto_ptr<UnicastMacLocalOvsdb> unicast_mac_local_ovsdb_;
-    std::auto_ptr<MulticastMacLocalOvsdb> multicast_mac_local_ovsdb_;
-    std::auto_ptr<VrfOvsdbObject> vrf_ovsdb_;
-    std::auto_ptr<VnOvsdbObject> vn_ovsdb_;
-    std::auto_ptr<OvsdbResourceVxLanIdTable> vxlan_table_;
+    std::unique_ptr<OvsPeer> route_peer_;
+    std::unique_ptr<VMInterfaceKSyncObject> vm_interface_table_;
+    std::unique_ptr<PhysicalSwitchTable> physical_switch_table_;
+    std::unique_ptr<LogicalSwitchTable> logical_switch_table_;
+    std::unique_ptr<PhysicalPortTable> physical_port_table_;
+    std::unique_ptr<PhysicalLocatorTable> physical_locator_table_;
+    std::unique_ptr<VlanPortBindingTable> vlan_port_table_;
+    std::unique_ptr<UnicastMacLocalOvsdb> unicast_mac_local_ovsdb_;
+    std::unique_ptr<MulticastMacLocalOvsdb> multicast_mac_local_ovsdb_;
+    std::unique_ptr<VrfOvsdbObject> vrf_ovsdb_;
+    std::unique_ptr<VnOvsdbObject> vn_ovsdb_;
+    std::unique_ptr<OvsdbResourceVxLanIdTable> vxlan_table_;
     DISALLOW_COPY_AND_ASSIGN(OvsdbClientIdl);
 };
 };  // namespace OVSDB

@@ -233,10 +233,10 @@ protected:
                         vector<ConfigUTAuthKeyItem> auth_keys =
                                 vector<ConfigUTAuthKeyItem>());
 
-    auto_ptr<EventManager> evm_;
-    auto_ptr<ServerThread> thread_;
-    auto_ptr<BgpServerTest> a_;
-    auto_ptr<BgpServerTest> b_;
+    unique_ptr<EventManager> evm_;
+    unique_ptr<ServerThread> thread_;
+    unique_ptr<BgpServerTest> a_;
+    unique_ptr<BgpServerTest> b_;
     BgpSessionManagerCustom *a_session_manager_;
     BgpSessionManagerCustom *b_session_manager_;
     tbb::atomic<long> a_asn_update_notification_cnt_;

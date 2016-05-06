@@ -377,12 +377,12 @@ DBTableBase *HealthCheckTable::CreateTable(Agent *agent, DB *db,
     return health_check_table;
 };
 
-std::auto_ptr<DBEntry>
+std::unique_ptr<DBEntry>
 HealthCheckTable::AllocEntry(const DBRequestKey *k) const {
     const HealthCheckServiceKey *key =
         static_cast<const HealthCheckServiceKey *>(k);
     HealthCheckService *service = new HealthCheckService(this, key->uuid_);
-    return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(service));
+    return std::unique_ptr<DBEntry>(static_cast<DBEntry *>(service));
 }
 
 DBEntry *HealthCheckTable::OperDBAdd(const DBRequest *req) {

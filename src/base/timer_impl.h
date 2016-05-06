@@ -27,7 +27,11 @@ public:
 
 #if BOOST_VERSION >= 104900
     void expires_from_now(int ms, boost::system::error_code &ec) {
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+        timer_.expires_from_now(std::chrono::milliseconds(ms), ec);
+#else
         timer_.expires_from_now(boost::chrono::milliseconds(ms), ec);
+#endif
     }
 #else
     void expires_from_now(int ms, boost::system::error_code &ec) {

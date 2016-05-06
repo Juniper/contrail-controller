@@ -146,13 +146,13 @@ DBEntry *DBTablePartition::Find(const DBEntry *entry) {
 DBEntry *DBTablePartition::FindNoLock(const DBRequestKey *key) {
     CHECK_CONCURRENCY("db::DBTable", "Agent::FlowEvent", "Agent::FlowUpdate");
     DBTable *table = static_cast<DBTable *>(parent());
-    std::auto_ptr<DBEntry> entry_ptr = table->AllocEntry(key);
+    std::unique_ptr<DBEntry> entry_ptr = table->AllocEntry(key);
     return FindInternal(entry_ptr.get());
 }
 
 DBEntry *DBTablePartition::Find(const DBRequestKey *key) {
     DBTable *table = static_cast<DBTable *>(parent());
-    std::auto_ptr<DBEntry> entry_ptr = table->AllocEntry(key);
+    std::unique_ptr<DBEntry> entry_ptr = table->AllocEntry(key);
     tbb::mutex::scoped_lock lock(mutex_);
     return FindInternal(entry_ptr.get());
 }
@@ -160,7 +160,7 @@ DBEntry *DBTablePartition::Find(const DBRequestKey *key) {
 DBEntry *DBTablePartition::FindNext(const DBRequestKey *key) {
     tbb::mutex::scoped_lock lock(mutex_);
     DBTable *table = static_cast<DBTable *>(parent());
-    std::auto_ptr<DBEntry> entry_ptr = table->AllocEntry(key);
+    std::unique_ptr<DBEntry> entry_ptr = table->AllocEntry(key);
 
     Tree::iterator loc = tree_.upper_bound(*(entry_ptr.get()));
     if (loc != tree_.end()) {

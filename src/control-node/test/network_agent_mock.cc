@@ -29,6 +29,8 @@ using namespace std;
 using namespace pugi;
 using boost::asio::ip::address;
 using boost::assign::list_of;
+using std::string;
+using std::vector;
 
 namespace test {
 
@@ -180,7 +182,7 @@ public:
                 xml_attribute id = item.attribute("id");
                 std::string sid = id.value();
                 if (inet_route) {
-                    auto_ptr<autogen::ItemType> rt_entry(
+                    unique_ptr<autogen::ItemType> rt_entry(
                             new autogen::ItemType());
                     if (!rt_entry->XmlParse(item))
                         continue;
@@ -192,7 +194,7 @@ public:
                                 network, sid, rt_entry.release());
                     }
                 } else if (inet6_route) {
-                    auto_ptr<autogen::ItemType> rt_entry(
+                    unique_ptr<autogen::ItemType> rt_entry(
                             new autogen::ItemType());
                     if (!rt_entry->XmlParse(item)) {
                         continue;
@@ -205,7 +207,7 @@ public:
                                                      rt_entry.release());
                     }
                 } else if (enet_route) {
-                    auto_ptr<autogen::EnetItemType> rt_entry(
+                    unique_ptr<autogen::EnetItemType> rt_entry(
                             new autogen::EnetItemType());
                     if (!rt_entry->XmlParse(item))
                         continue;
@@ -217,7 +219,7 @@ public:
                                 network, sid, rt_entry.release());
                     }
                 } else if (mcast_route) {
-                    auto_ptr<autogen::McastItemType> rt_entry(
+                    unique_ptr<autogen::McastItemType> rt_entry(
                             new autogen::McastItemType());
                     if (!rt_entry->XmlParse(item))
                         continue;
@@ -402,7 +404,7 @@ pugi::xml_document *XmppDocumentMock::RouteAddDeleteXmlDoc(
             item_nexthop.address = localaddr();
             item_nexthop.label = label_alloc_++;
             item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation =
-                list_of("gre");
+                list_of("gre").convert_to_container<vector<string> >();
             rt_entry.entry.next_hops.next_hop.push_back(item_nexthop);
         } else {
             BOOST_FOREACH(const NextHop &nexthop, nexthops) {
@@ -630,7 +632,7 @@ pugi::xml_document *XmppDocumentMock::RouteEnetAddDeleteXmlDoc(
             item_nexthop.address = localaddr();
             item_nexthop.label = label_alloc_++;
             item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation =
-                list_of("gre");
+                list_of("gre").convert_to_container<vector<string> >();
             rt_entry.entry.next_hops.next_hop.push_back(item_nexthop);
         } else {
             BOOST_FOREACH(NextHop nexthop, nexthops) {

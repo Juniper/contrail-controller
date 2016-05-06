@@ -22,7 +22,7 @@ DnsAgentXmpp::DnsAgentXmppEncode(XmppChannel *channel,
     if (!channel)
         return 0;
 
-    std::auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
+    std::unique_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
     XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
     std::string iq_type = 
         (type == DnsQuery) ? "get" : 

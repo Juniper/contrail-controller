@@ -148,7 +148,7 @@ public:
     virtual ~AclTable() { }
     void GetTables(DB *db) { };
 
-    virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
+    virtual std::unique_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
     virtual size_t Hash(const DBEntry *entry) const {return 0;};
     virtual size_t Hash(const DBRequestKey *key) const {return 0;};
 

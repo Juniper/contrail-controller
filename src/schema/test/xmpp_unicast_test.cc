@@ -28,7 +28,7 @@ class QueryTest : public ::testing::Test {
     }
 
     pugi::xml_document xdoc_;
-    auto_ptr<AutogenProperty> xparser_;
+    unique_ptr<AutogenProperty> xparser_;
 };
 
 TEST_F(QueryTest, Decode) {

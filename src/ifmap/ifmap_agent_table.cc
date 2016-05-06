@@ -29,8 +29,8 @@ IFMapAgentTable::IFMapAgentTable(DB *db, const string &name, DBGraph *graph)
         : IFMapTable(db, name), graph_(graph), pre_filter_(NULL) {
 }
 
-auto_ptr<DBEntry> IFMapAgentTable::AllocEntry(const DBRequestKey *key) const {
-    auto_ptr<DBEntry> entry(
+unique_ptr<DBEntry> IFMapAgentTable::AllocEntry(const DBRequestKey *key) const {
+    unique_ptr<DBEntry> entry(
         new IFMapNode(const_cast<IFMapAgentTable *>(this)));
     entry->SetKey(key);
     return entry;
@@ -43,7 +43,7 @@ IFMapNode* IFMapAgentTable::TableEntryLookup(DB *db, RequestKey *key) {
         return NULL;
     }
 
-    auto_ptr<DBEntry> entry(new IFMapNode(table));
+    unique_ptr<DBEntry> entry(new IFMapNode(table));
     entry->SetKey(key);
     IFMapNode *node = static_cast<IFMapNode *>(table->Find(entry.get()));
     return node;
@@ -60,7 +60,7 @@ IFMapAgentTable* IFMapAgentTable::TableFind(const string &node_name) {
 }
 
 IFMapNode *IFMapAgentTable::EntryLookup(RequestKey *request) {
-    auto_ptr<DBEntry> key(AllocEntry(request));
+    unique_ptr<DBEntry> key(AllocEntry(request));
     IFMapNode *node = static_cast<IFMapNode *>(Find(key.get()));
     return node;
 }
@@ -84,7 +84,7 @@ IFMapNode *IFMapAgentTable::EntryLocate(IFMapNode *node, RequestKey *req) {
         node->Remove(obj);
 
     } else {
-        auto_ptr<DBEntry> key(AllocEntry(req));
+        unique_ptr<DBEntry> key(AllocEntry(req));
         node = const_cast<IFMapNode *>(
             static_cast<const IFMapNode *>(key.release()));
         DBTablePartition *partition =
@@ -120,7 +120,7 @@ void IFMapAgentTable::HandlePendingLinks(IFMapNode *node) {
         assert(origin_exists);
    
         // Create both the request keys
-        auto_ptr <IFMapAgentLinkTable::RequestKey> req_key (new IFMapAgentLinkTable::RequestKey);
+        unique_ptr <IFMapAgentLinkTable::RequestKey> req_key (new IFMapAgentLinkTable::RequestKey);
         req_key->left_key.id_name = node->name();
         req_key->left_key.id_type = node->table()->Typename();
         req_key->left_key.id_seq_num = seq;
@@ -551,7 +551,7 @@ void IFMapAgentLinkTable::EvalDefLink(IFMapTable::RequestKey *key) {
         assert(right_it != right_list->end());
 
         //Remove from deferred list before enqueing
-        auto_ptr <RequestKey> req_key (new RequestKey);
+        unique_ptr <RequestKey> req_key (new RequestKey);
         req_key->left_key = *key;
         req_key->right_key = (*left_list_entry).node_key;
         req_key->metadata = (*left_list_entry).link_metadata;

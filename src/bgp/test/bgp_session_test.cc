@@ -91,9 +91,9 @@ protected:
     EventManager evm_;
     BgpServer server_;
     BgpInstanceConfig instance_config_;
-    auto_ptr<BgpNeighborConfig> config_;
+    unique_ptr<BgpNeighborConfig> config_;
     BgpPeerMock *peer_;
-    auto_ptr<BgpSessionTest> session_;
+    unique_ptr<BgpSessionTest> session_;
 };
 
 static void CreateFakeMessage(uint8_t *data, size_t length) {

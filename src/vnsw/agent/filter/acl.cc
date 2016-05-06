@@ -96,10 +96,10 @@ void AclDBEntry::SetAclSandeshData(AclSandeshData &data) const {
     return;
 }
 
-std::auto_ptr<DBEntry> AclTable::AllocEntry(const DBRequestKey *k) const {
+std::unique_ptr<DBEntry> AclTable::AllocEntry(const DBRequestKey *k) const {
     const AclKey *key = static_cast<const AclKey *>(k);
     AclDBEntry *acl = new AclDBEntry(key->uuid_);
-    return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(acl));
+    return std::unique_ptr<DBEntry>(static_cast<DBEntry *>(acl));
 }
 
 DBEntry *AclTable::OperDBAdd(const DBRequest *req) {

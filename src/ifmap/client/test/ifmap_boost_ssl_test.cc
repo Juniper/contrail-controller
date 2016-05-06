@@ -50,8 +50,8 @@ protected:
     }
 
     boost::asio::io_service io_service_;
-    std::auto_ptr<BoostSslClient> client_;
-    std::auto_ptr<BoostSslServer> server_;
+    std::unique_ptr<BoostSslClient> client_;
+    std::unique_ptr<BoostSslServer> server_;
     pthread_t thread_id_;
     static const unsigned short port = 23232;
 };

@@ -335,7 +335,7 @@ private:
     int err_count_;
     bool read_inline_;
 
-    static std::auto_ptr<KSyncSock> sock_;
+    static std::unique_ptr<KSyncSock> sock_;
     static pid_t pid_;
     static int vnsw_netlink_family_id_;
     static AgentSandeshContext *agent_sandesh_ctx_;

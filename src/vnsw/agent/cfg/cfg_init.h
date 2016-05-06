@@ -102,13 +102,13 @@ public:
     void Shutdown();
 private:
     Agent *agent_;
-    std::auto_ptr<CfgFilter> cfg_filter_;
-    std::auto_ptr<IFMapAgentParser> cfg_parser_; 
-    std::auto_ptr<DBGraph> cfg_graph_;
-    std::auto_ptr<InterfaceCfgClient> cfg_interface_client_;
-    std::auto_ptr<DiscoveryAgentClient> discovery_client_;
-    std::auto_ptr<MirrorCfgTable> cfg_mirror_table_;
-    std::auto_ptr<IntfMirrorCfgTable> cfg_intf_mirror_table_;
+    std::unique_ptr<CfgFilter> cfg_filter_;
+    std::unique_ptr<IFMapAgentParser> cfg_parser_; 
+    std::unique_ptr<DBGraph> cfg_graph_;
+    std::unique_ptr<InterfaceCfgClient> cfg_interface_client_;
+    std::unique_ptr<DiscoveryAgentClient> discovery_client_;
+    std::unique_ptr<MirrorCfgTable> cfg_mirror_table_;
+    std::unique_ptr<IntfMirrorCfgTable> cfg_intf_mirror_table_;
 
     DBTableBase::ListenerId lid_;
 

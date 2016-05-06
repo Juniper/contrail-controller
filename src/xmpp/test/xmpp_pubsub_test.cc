@@ -130,8 +130,8 @@ protected:
         client->ConfigUpdate(config);
     }
 
-    auto_ptr<EventManager> evm_;
-    auto_ptr<ServerThread> thread_;
+    unique_ptr<EventManager> evm_;
+    unique_ptr<ServerThread> thread_;
     XmppChannelConfig *server_cfg_;
     XmppServer *a_;
     XmppClient *b_;

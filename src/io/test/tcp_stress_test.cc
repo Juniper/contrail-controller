@@ -421,8 +421,8 @@ protected:
         return (total_sent == total_rxed);
     }
 
-    auto_ptr<ServerThread> thread_;
-    auto_ptr<EventManager> evm_;
+    unique_ptr<ServerThread> thread_;
+    unique_ptr<EventManager> evm_;
     std::vector<EchoServer *> server_;
     tbb::mutex mutex_;
     SessionMatrix session_matrix_;

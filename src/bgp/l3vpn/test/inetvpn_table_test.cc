@@ -81,7 +81,7 @@ protected:
     BgpServer server_;
     InetVpnTable *rib_;
     DBTableBase::ListenerId tid_;
-    std::auto_ptr<BgpInstanceConfig> master_cfg_;
+    std::unique_ptr<BgpInstanceConfig> master_cfg_;
 
     tbb::atomic<long> adc_notification_;
     tbb::atomic<long> del_notification_;
@@ -89,7 +89,7 @@ protected:
 
 TEST_F(InetVpnTableTest, AllocEntryStr) {
     std::string prefix_str("123:456:192.168.24.0/24");
-    std::auto_ptr<DBEntry> route = rib_->AllocEntryStr(prefix_str);
+    std::unique_ptr<DBEntry> route = rib_->AllocEntryStr(prefix_str);
     EXPECT_EQ(prefix_str, route->ToString());
 }
 

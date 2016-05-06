@@ -54,7 +54,7 @@ public:
         uint8_t data[256];
 
         //EncodeStream
-        auto_ptr<XmlBase> resp_doc(XmppXmlImplFactory::Instance()->GetXmlImpl()); 
+        unique_ptr<XmlBase> resp_doc(XmppXmlImplFactory::Instance()->GetXmlImpl()); 
         if (send_bad_open_resp == true) { 
             if (resp_doc->LoadDoc(sXMPP_STREAM_RESP_BAD) == -1) { 
                 return false;
@@ -203,11 +203,11 @@ protected:
         LOG(DEBUG, "-- Executing --");
     }
 
-    auto_ptr<XmppInit> init_;
+    unique_ptr<XmppInit> init_;
     XmppChannelConfig *client_cfg;
     XmppConnection *cconnection_;
-    auto_ptr<EventManager> evm_;
-    auto_ptr<ServerThread> thread_;
+    unique_ptr<EventManager> evm_;
+    unique_ptr<ServerThread> thread_;
     XmppMockServer *a_;
     XmppClient *b_;
 };

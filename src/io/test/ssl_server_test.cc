@@ -320,8 +320,8 @@ protected:
             boost::bind(&SslEchoServerTest::DummyTimerHandler, this, session,
                         boost::asio::placeholders::error));
     }
-    auto_ptr<ServerThread> thread_;
-    auto_ptr<EventManager> evm_;
+    unique_ptr<ServerThread> thread_;
+    unique_ptr<EventManager> evm_;
     EchoServer *server_;
     boost::asio::deadline_timer timer_;
     EchoSession *session_;

@@ -21,7 +21,7 @@
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
 
-using std::auto_ptr;
+using std::unique_ptr;
 using std::istringstream;
 using std::list;
 using std::ostringstream;
@@ -278,7 +278,7 @@ static bool ParseSession(const string &identifier, const xml_node &node,
 static bool ParseServiceChain(const string &instance, const xml_node &node,
                               bool add_change, Address::Family family,
                               BgpConfigParser::RequestList *requests) {
-    auto_ptr<autogen::ServiceChainInfo> property(
+    unique_ptr<autogen::ServiceChainInfo> property(
         new autogen::ServiceChainInfo());
     assert(property->XmlParse(node));
 
@@ -324,7 +324,7 @@ static bool ParseInstanceRoutingPolicy(const string &instance,
     xml_attribute to = node.attribute("to");
     assert(to);
     string policy_name = to.value();
-    auto_ptr<autogen::RoutingPolicyType> attr(
+    unique_ptr<autogen::RoutingPolicyType> attr(
         new autogen::RoutingPolicyType());
     assert(attr->XmlParse(node));
     if (add_change) {
@@ -343,7 +343,7 @@ static bool ParseInstanceRoutingPolicy(const string &instance,
 static bool ParseStaticRoute(const string &instance, const xml_node &node,
                               bool add_change,
                               BgpConfigParser::RequestList *requests) {
-    auto_ptr<autogen::StaticRouteEntriesType> property(
+    unique_ptr<autogen::StaticRouteEntriesType> property(
         new autogen::StaticRouteEntriesType());
     assert(property->XmlParse(node));
 
@@ -362,7 +362,7 @@ static bool ParseBgpRouter(const string &instance, const xml_node &node,
                            bool add_change, string *nodename,
                            SessionMap *sessions,
                            BgpConfigParser::RequestList *requests) {
-    auto_ptr<autogen::BgpRouterParams> property(
+    unique_ptr<autogen::BgpRouterParams> property(
         new autogen::BgpRouterParams());
     xml_attribute name = node.attribute("name");
     assert(name);
@@ -443,7 +443,7 @@ static bool ParseInstanceTarget(const string &instance, const xml_node &node,
     RouteTarget::FromString(rtarget, &parse_err);
     assert(!parse_err);
 
-    auto_ptr<autogen::InstanceTargetType> params(
+    unique_ptr<autogen::InstanceTargetType> params(
         new autogen::InstanceTargetType());
     assert(params->XmlParse(node));
 
@@ -537,7 +537,7 @@ bool BgpConfigParser::ParseVirtualNetwork(const xml_node &node,
     string vn_name(node.attribute("name").value());
     assert(!vn_name.empty());
 
-    auto_ptr<autogen::VirtualNetworkType> property(
+    unique_ptr<autogen::VirtualNetworkType> property(
         new autogen::VirtualNetworkType());
     assert(property->XmlParse(node));
 
@@ -564,7 +564,7 @@ bool BgpConfigParser::ParseRouteAggregate(const xml_node &node,
          child = child.next_sibling()) {
         if (strcmp(child.name(), "aggregate-route-entries") == 0) {
             if (add_change) {
-                auto_ptr<autogen::RouteListType>
+                unique_ptr<autogen::RouteListType>
                     aggregate_routes(new autogen::RouteListType());
                 assert(aggregate_routes->XmlParse(child));
                 MapObjectSetProperty("route-aggregate", aggregate_name,
@@ -601,7 +601,7 @@ bool BgpConfigParser::ParseRoutingPolicy(const xml_node &node,
     string policy_name(node.attribute("name").value());
     assert(!policy_name.empty());
 
-    auto_ptr<autogen::PolicyStatementType> policy_statement(
+    unique_ptr<autogen::PolicyStatementType> policy_statement(
         new autogen::PolicyStatementType());
     assert(policy_statement->XmlParse(node));
 
@@ -674,7 +674,7 @@ bool BgpConfigParser::Parse(const string &content)  {
     }
 
     while (!requests.empty()) {
-        auto_ptr<DBRequest> req(requests.front());
+        unique_ptr<DBRequest> req(requests.front());
         requests.pop_front();
 
         IFMapTable::RequestKey *key =

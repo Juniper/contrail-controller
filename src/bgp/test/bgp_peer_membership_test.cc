@@ -140,8 +140,8 @@ protected:
     BgpServer *server() { return server_.get(); }
     int size() { return server()->membership_mgr()->peer_rib_set_.size(); }
 
-    auto_ptr<EventManager> evm_;
-    auto_ptr<BgpServerTest> server_;
+    unique_ptr<EventManager> evm_;
+    unique_ptr<BgpServerTest> server_;
     vector<BgpTestPeer *> peers_;
     vector<BgpNeighborConfig *> peer_configs_;
     vector<std::string> peer_names_;

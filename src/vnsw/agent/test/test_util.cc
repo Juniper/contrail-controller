@@ -2922,7 +2922,7 @@ bool FlowDelete(const string &vrf_name, const char *sip, const char *dip,
     }
 
     int task_id = TaskScheduler::GetInstance()->GetTaskId(kTaskFlowEvent);
-    std::auto_ptr<TaskTrigger> trigger_
+    std::unique_ptr<TaskTrigger> trigger_
         (new TaskTrigger(boost::bind(FlowDeleteTrigger, key), task_id, 0));
     trigger_->Set();
     client->WaitForIdle();
@@ -3693,7 +3693,7 @@ void DeleteBgpPeer(Peer *peer) {
     TaskScheduler::GetInstance()->Start();
     client->WaitForIdle();
     int task_id = TaskScheduler::GetInstance()->GetTaskId("Agent::ControllerXmpp");
-    std::auto_ptr<TaskTrigger> trigger_
+    std::unique_ptr<TaskTrigger> trigger_
         (new TaskTrigger(boost::bind(ControllerCleanupTrigger), task_id, 0));
     trigger_->Set();
     client->WaitForIdle();

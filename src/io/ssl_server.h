@@ -53,7 +53,7 @@ private:
     void set_accept_socket();
 
     boost::asio::ssl::context context_;
-    std::auto_ptr<SslSocket> so_ssl_accept_;       // SSL socket used in async_accept
+    std::unique_ptr<SslSocket> so_ssl_accept_;       // SSL socket used in async_accept
     bool ssl_enabled_;
     bool ssl_handshake_delayed_;
     DISALLOW_COPY_AND_ASSIGN(SslServer);

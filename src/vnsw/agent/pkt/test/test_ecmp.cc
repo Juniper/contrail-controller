@@ -2326,7 +2326,7 @@ TEST_F(EcmpTest, VgwFlag) {
     client->WaitForIdle();
 
     InetInterfaceKey *intf_key = new InetInterfaceKey("vgw1");
-    std::auto_ptr<const NextHopKey> nh_key(new InterfaceNHKey(intf_key, false,
+    std::unique_ptr<const NextHopKey> nh_key(new InterfaceNHKey(intf_key, false,
                                                               InterfaceNHFlags::INET4));
 
     Ip4Address remote_server_ip1 = Ip4Address::from_string("10.10.10.100");

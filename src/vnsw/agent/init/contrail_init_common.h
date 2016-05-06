@@ -62,13 +62,13 @@ private:
     bool vgw_enable_;
     bool router_id_dep_enable_;
 
-    std::auto_ptr<KSync> ksync_;
-    std::auto_ptr<AgentUveBase> uve_;
+    std::unique_ptr<KSync> ksync_;
+    std::unique_ptr<AgentUveBase> uve_;
 
-    std::auto_ptr<DiagTable> diag_table_;
-    std::auto_ptr<ServicesModule> services_;
-    std::auto_ptr<PktModule> pkt_;
-    std::auto_ptr<VirtualGateway> vgw_;
+    std::unique_ptr<DiagTable> diag_table_;
+    std::unique_ptr<ServicesModule> services_;
+    std::unique_ptr<PktModule> pkt_;
+    std::unique_ptr<VirtualGateway> vgw_;
     DISALLOW_COPY_AND_ASSIGN(ContrailInitCommon);
 };
 

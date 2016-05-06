@@ -151,10 +151,10 @@ void Policy::SetName(const std::string str) {
     name_ = str;
 }
 
-std::auto_ptr<DBEntry> PolicyTable::AllocEntry(const DBRequestKey *key) const {
+std::unique_ptr<DBEntry> PolicyTable::AllocEntry(const DBRequestKey *key) const {
     const PolicyKey *k = static_cast<const PolicyKey *>(key);
     Policy *p = new Policy(k->id_);
-    return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(p));
+    return std::unique_ptr<DBEntry>(static_cast<DBEntry *>(p));
 }
 
 DBEntry *PolicyTable::Add(const DBRequest *req) {

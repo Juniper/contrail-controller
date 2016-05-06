@@ -937,7 +937,7 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
     std::vector<std::pair<std::string, std::vector<FlowLogData> > >::
         const_iterator fit;
     for (fit = flow_msgs.begin(); fit != flow_msgs.end(); fit++) {
-        std::auto_ptr<SandeshXMLMessageTest> msg(
+        std::unique_ptr<SandeshXMLMessageTest> msg(
             dynamic_cast<SandeshXMLMessageTest *>(
                 builder_->Create(reinterpret_cast<const uint8_t *>(
                     fit->first.c_str()), fit->first.size())));

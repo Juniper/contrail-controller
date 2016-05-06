@@ -405,7 +405,7 @@ TEST_F(MetadataTest, MetadataReqTest) {
     // for agent to identify the vm, the remote end should have vm's ip;
     // overload the FindVmUuidFromMetadataIp to return true
     InterfaceTable *intf_table = Agent::GetInstance()->interface_table();
-    std::auto_ptr<InterfaceTable> interface_table(new TestInterfaceTable());
+    std::unique_ptr<InterfaceTable> interface_table(new TestInterfaceTable());
     Agent::GetInstance()->set_interface_table(interface_table.get());
     SendHttpClientRequest(GET_METHOD);
     METADATA_CHECK (stats.responses < 1);
@@ -444,7 +444,7 @@ TEST_F(MetadataTest, MetadataMultiReqTest) {
     // for agent to identify the vm, the remote end should have vm's ip;
     // overload the FindVmUuidFromMetadataIp to return true
     InterfaceTable *intf_table = Agent::GetInstance()->interface_table();
-    std::auto_ptr<InterfaceTable> interface_table(new TestInterfaceTable());
+    std::unique_ptr<InterfaceTable> interface_table(new TestInterfaceTable());
     Agent::GetInstance()->set_interface_table(interface_table.get());
 
     CurlRun();
@@ -553,7 +553,7 @@ TEST_F(MetadataTest, MetadataOtherMethodsTest) {
     // for agent to identify the vm, the remote end should have vm's ip;
     // overload the FindVmUuidFromMetadataIp to return true
     InterfaceTable *intf_table = Agent::GetInstance()->interface_table();
-    std::auto_ptr<InterfaceTable> interface_table(new TestInterfaceTable());
+    std::unique_ptr<InterfaceTable> interface_table(new TestInterfaceTable());
     Agent::GetInstance()->set_interface_table(interface_table.get());
     SendHttpClientRequest(POST_METHOD);
     METADATA_CHECK (stats.responses < 5);
@@ -627,7 +627,7 @@ TEST_F(MetadataTest, MetadataNoLinkLocalTest) {
     // for agent to identify the vm, the remote end should have vm's ip;
     // overload the FindVmUuidFromMetadataIp to return true
     InterfaceTable *intf_table = Agent::GetInstance()->interface_table();
-    std::auto_ptr<InterfaceTable> interface_table(new TestInterfaceTable());
+    std::unique_ptr<InterfaceTable> interface_table(new TestInterfaceTable());
     Agent::GetInstance()->set_interface_table(interface_table.get());
     SendHttpClientRequest(GET_METHOD);
     METADATA_CHECK (stats.internal_errors < 1);
@@ -665,7 +665,7 @@ TEST_F(MetadataTest, MetadataCloseServerTest) {
     StartHttpClient();
 
     InterfaceTable *intf_table = Agent::GetInstance()->interface_table();
-    std::auto_ptr<InterfaceTable> interface_table(new TestInterfaceTable());
+    std::unique_ptr<InterfaceTable> interface_table(new TestInterfaceTable());
     Agent::GetInstance()->set_interface_table(interface_table.get());
     std::string large_data;
     for (int i = 0; i < 200; i++) {

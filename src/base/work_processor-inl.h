@@ -120,7 +120,7 @@ private:
         return true;
     }
 
-    void Response(std::auto_ptr<ExternalT> resp) {
+    void Response(std::unique_ptr<ExternalT> resp) {
         ExternalT * msg = resp.get();
         resp.release();
         externals_.push_back(msg);

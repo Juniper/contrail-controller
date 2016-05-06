@@ -84,7 +84,7 @@ protected:
 };
 
 TEST_F(MplTest, Vector) {
-    auto_ptr<Base> element;
+    unique_ptr<Base> element;
     element.reset(vec_.getElement());
     EXPECT_EQ("Foo", element->TypeName());
     vec_.inc();

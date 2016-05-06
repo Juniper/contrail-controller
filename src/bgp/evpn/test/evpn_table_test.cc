@@ -210,7 +210,7 @@ class EvpnTableAutoDiscoveryTest : public EvpnTableTest {
 
 TEST_F(EvpnTableAutoDiscoveryTest, AllocEntryStr) {
     string prefix_str("1-10.1.1.1:65535-00:01:02:03:04:05:06:07:08:09-65536");
-    auto_ptr<DBEntry> route = master_->AllocEntryStr(prefix_str);
+    unique_ptr<DBEntry> route = master_->AllocEntryStr(prefix_str);
     EXPECT_EQ(prefix_str, route->ToString());
 }
 
@@ -390,25 +390,25 @@ class EvpnTableMacAdvertisementTest : public EvpnTableTest {
 
 TEST_F(EvpnTableMacAdvertisementTest, AllocEntryStr1) {
     string prefix_str("2-10.1.1.1:65535-0-11:12:13:14:15:16,192.168.1.1");
-    auto_ptr<DBEntry> route = master_->AllocEntryStr(prefix_str);
+    unique_ptr<DBEntry> route = master_->AllocEntryStr(prefix_str);
     EXPECT_EQ(prefix_str, route->ToString());
 }
 
 TEST_F(EvpnTableMacAdvertisementTest, AllocEntryStr2) {
     string prefix_str("2-10.1.1.1:65535-100000-11:12:13:14:15:16,192.168.1.1");
-    auto_ptr<DBEntry> route = master_->AllocEntryStr(prefix_str);
+    unique_ptr<DBEntry> route = master_->AllocEntryStr(prefix_str);
     EXPECT_EQ(prefix_str, route->ToString());
 }
 
 TEST_F(EvpnTableMacAdvertisementTest, AllocEntryStr3) {
     string prefix_str("2-10.1.1.1:65535-100000-11:12:13:14:15:16,0.0.0.0");
-    auto_ptr<DBEntry> route = master_->AllocEntryStr(prefix_str);
+    unique_ptr<DBEntry> route = master_->AllocEntryStr(prefix_str);
     EXPECT_EQ(prefix_str, route->ToString());
 }
 
 TEST_F(EvpnTableMacAdvertisementTest, AllocEntryStr4) {
     string prefix_str("2-10.1.1.1:65535-0-11:12:13:14:15:16,2001:db8:0:9::1");
-    auto_ptr<DBEntry> route = master_->AllocEntryStr(prefix_str);
+    unique_ptr<DBEntry> route = master_->AllocEntryStr(prefix_str);
     EXPECT_EQ(prefix_str, route->ToString());
 }
 
@@ -870,19 +870,19 @@ class EvpnTableInclusiveMulticastTest : public EvpnTableTest {
 
 TEST_F(EvpnTableInclusiveMulticastTest, AllocEntryStr1) {
     string prefix_str("3-10.1.1.1:65535-0-192.1.1.1");
-    auto_ptr<DBEntry> route = master_->AllocEntryStr(prefix_str);
+    unique_ptr<DBEntry> route = master_->AllocEntryStr(prefix_str);
     EXPECT_EQ(prefix_str, route->ToString());
 }
 
 TEST_F(EvpnTableInclusiveMulticastTest, AllocEntryStr2) {
     string prefix_str("3-10.1.1.1:65535-65536-192.1.1.1");
-    auto_ptr<DBEntry> route = master_->AllocEntryStr(prefix_str);
+    unique_ptr<DBEntry> route = master_->AllocEntryStr(prefix_str);
     EXPECT_EQ(prefix_str, route->ToString());
 }
 
 TEST_F(EvpnTableInclusiveMulticastTest, AllocEntryStr3) {
     string prefix_str("3-10.1.1.1:65535-65536-2001:db8:0:9::1");
-    auto_ptr<DBEntry> route = master_->AllocEntryStr(prefix_str);
+    unique_ptr<DBEntry> route = master_->AllocEntryStr(prefix_str);
     EXPECT_EQ(prefix_str, route->ToString());
 }
 
@@ -1199,14 +1199,14 @@ class EvpnTableSegmentTest : public EvpnTableTest {
 TEST_F(EvpnTableSegmentTest, AllocEntryStr1) {
     string prefix_str(
         "4-10.1.1.1:65535-00:01:02:03:04:05:06:07:08:09-192.1.1.1");
-    auto_ptr<DBEntry> route = master_->AllocEntryStr(prefix_str);
+    unique_ptr<DBEntry> route = master_->AllocEntryStr(prefix_str);
     EXPECT_EQ(prefix_str, route->ToString());
 }
 
 TEST_F(EvpnTableSegmentTest, AllocEntryStr2) {
     string prefix_str(
         "4-10.1.1.1:65535-00:01:02:03:04:05:06:07:08:09-2001:db8:0:9::1");
-    auto_ptr<DBEntry> route = master_->AllocEntryStr(prefix_str);
+    unique_ptr<DBEntry> route = master_->AllocEntryStr(prefix_str);
     EXPECT_EQ(prefix_str, route->ToString());
 }
 

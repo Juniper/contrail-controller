@@ -55,9 +55,9 @@ protected:
 
 private:
     Agent *agent_;
-    std::auto_ptr<KSyncVxlanBridgeObject> bridge_obj_;
-    std::auto_ptr<KSyncVxlanPortObject> port_obj_;
-    std::auto_ptr<KSyncVxlanVrfObject> vrf_obj_;
+    std::unique_ptr<KSyncVxlanBridgeObject> bridge_obj_;
+    std::unique_ptr<KSyncVxlanPortObject> port_obj_;
+    std::unique_ptr<KSyncVxlanVrfObject> vrf_obj_;
     static KSyncEntry *defer_entry_;
     DISALLOW_COPY_AND_ASSIGN(KSyncVxlan);
 };

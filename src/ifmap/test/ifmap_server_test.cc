@@ -80,7 +80,7 @@ class IFMapServerTest : public ::testing::Test {
     IFMapServer server_;
     IFMapServerParser *parser_;
     XmppServer *xmpp_server_;
-    auto_ptr<IFMapChannelManagerMock> ifmap_channel_mgr_;
+    unique_ptr<IFMapChannelManagerMock> ifmap_channel_mgr_;
 };
 
 TEST_F(IFMapServerTest, DeleteLink) {

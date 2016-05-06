@@ -732,9 +732,9 @@ ServiceInstanceTable::ServiceInstanceTable(DB *db, const std::string &name)
           graph_(NULL), dependency_manager_(NULL) {
 }
 
-std::auto_ptr<DBEntry> ServiceInstanceTable::AllocEntry(
+std::unique_ptr<DBEntry> ServiceInstanceTable::AllocEntry(
     const DBRequestKey *key) const {
-    std::auto_ptr<DBEntry> entry(new ServiceInstance());
+    std::unique_ptr<DBEntry> entry(new ServiceInstance());
     entry->SetKey(key);
     return entry;
 }

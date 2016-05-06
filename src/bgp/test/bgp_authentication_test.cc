@@ -69,7 +69,7 @@ private:
     DB* db_;
     DBGraph* db_graph_;
     EventManager &evm_;
-    std::auto_ptr<BgpServerTest> cn_;
+    std::unique_ptr<BgpServerTest> cn_;
     BgpIfmapConfigManager *cfg_mgr_;
     const string fqn_ifmap_id_;
     const string ifmap_id_;

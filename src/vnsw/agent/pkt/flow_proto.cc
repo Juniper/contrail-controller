@@ -381,7 +381,7 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
 }
 
 bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
-    std::auto_ptr<FlowEvent> req_ptr(req);
+    std::unique_ptr<FlowEvent> req_ptr(req);
     // concurrency check to ensure all request are in right partitions
     assert(table->ConcurrencyCheck() == true);
 
@@ -459,7 +459,7 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
 
 bool FlowProto::FlowKSyncMsgHandler(FlowEvent *req, FlowTable *table) {
     FlowEventKSync *ksync_event = static_cast<FlowEventKSync *>(req);
-    std::auto_ptr<FlowEvent> req_ptr(req);
+    std::unique_ptr<FlowEvent> req_ptr(req);
 
     // concurrency check to ensure all request are in right partitions
     assert(table->ConcurrencyCheck() == true);
@@ -484,7 +484,7 @@ bool FlowProto::FlowKSyncMsgHandler(FlowEvent *req, FlowTable *table) {
 }
 
 bool FlowProto::FlowUpdateHandler(FlowEvent *req) {
-    std::auto_ptr<FlowEvent> req_ptr(req);
+    std::unique_ptr<FlowEvent> req_ptr(req);
 
     switch (req->event()) {
     case FlowEvent::FREE_DBENTRY: {
@@ -518,7 +518,7 @@ bool FlowProto::FlowUpdateHandler(FlowEvent *req) {
 }
 
 bool FlowProto::FlowDeleteHandler(FlowEvent *req, FlowTable *table) {
-    std::auto_ptr<FlowEvent> req_ptr(req);
+    std::unique_ptr<FlowEvent> req_ptr(req);
     // concurrency check to ensure all request are in right partitions
     // flow-update-queue doenst happen table pointer. Skip concurrency check
     // for flow-update-queue

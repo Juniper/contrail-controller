@@ -115,7 +115,7 @@ bool IFMapExporter::IsFeasible(const IFMapNode *node) {
 }
 
 const BitSet *IFMapExporter::MergeClientInterest(
-    IFMapNode * node, IFMapNodeState *state, std::auto_ptr<BitSet> *ptr) {
+    IFMapNode * node, IFMapNodeState *state, std::unique_ptr<BitSet> *ptr) {
 
     const BitSet *set = &state->interest();
     IFMapTable *table = node->table();
@@ -471,7 +471,7 @@ void IFMapExporter::LinkTableExport(DBTablePartBase *partition,
 
         // If one of the nodes is a vswitch node, then the interest mask
         // is the corresponding peer bit.
-        std::auto_ptr<BitSet> ml, mr;
+        std::unique_ptr<BitSet> ml, mr;
         const BitSet *lset = MergeClientInterest(link->left(), s_left, &ml);
         const BitSet *rset = MergeClientInterest(link->right(), s_right, &mr);
         if (*lset != *rset) {

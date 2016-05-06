@@ -178,11 +178,11 @@ public:
         return value % DB::PartitionCount();
     }
 
-    virtual std::auto_ptr<const DBEntryBase> GetEntry(const DBRequestKey *req) const {
+    virtual std::unique_ptr<const DBEntryBase> GetEntry(const DBRequestKey *req) const {
         const VlanTableReqKey *vlanreqkey = 
             static_cast<const VlanTableReqKey *>(req);
         Vlan *vlan = new Vlan(vlanreqkey->tag);
-        return std::auto_ptr<const DBEntryBase>(vlan);
+        return std::unique_ptr<const DBEntryBase>(vlan);
     }
 
     // Input handler

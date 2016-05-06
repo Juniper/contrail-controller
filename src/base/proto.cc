@@ -19,7 +19,7 @@ struct ParseContext::StackFrame {
     int lensize; //size of the length of the current element being parsed
     size_t size;
     size_t total_size;
-    std::auto_ptr<ParseObject> data;
+    std::unique_ptr<ParseObject> data;
 };
 
 ParseContext::ParseContext()

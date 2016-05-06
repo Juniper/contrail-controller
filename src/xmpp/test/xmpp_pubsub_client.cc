@@ -97,9 +97,9 @@ protected:
         client->ConfigUpdate(config);
     }
 
-    auto_ptr<EventManager> evm_;
-    auto_ptr<ServerThread> thread_;
-    auto_ptr<XmppClient> b_;
+    unique_ptr<EventManager> evm_;
+    unique_ptr<ServerThread> thread_;
+    unique_ptr<XmppClient> b_;
 };
 
 namespace {

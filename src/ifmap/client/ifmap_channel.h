@@ -238,8 +238,8 @@ private:
     boost::asio::ip::tcp::resolver resolver_;
     boost::asio::ssl::context ctx_;
     boost::asio::strand io_strand_;
-    std::auto_ptr<SslStream> ssrc_socket_;
-    std::auto_ptr<SslStream> arc_socket_;
+    std::unique_ptr<SslStream> ssrc_socket_;
+    std::unique_ptr<SslStream> arc_socket_;
     std::string username_;
     std::string password_;
     std::string b64_auth_str_;

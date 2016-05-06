@@ -7,7 +7,7 @@
 // Verify when externally connected route is available as static route.
 //
 TYPED_TEST(ServiceChainIntegrationTest, StaticRoute) {
-    auto_ptr<autogen::StaticRouteEntriesType> params;
+    unique_ptr<autogen::StaticRouteEntriesType> params;
 
     params = this->GetStaticRouteConfig(
             "controller/src/bgp/testdata/static_route_8.xml");
@@ -70,7 +70,7 @@ TYPED_TEST(ServiceChainIntegrationTest, StaticRoute) {
 // Verify static route in VN's default routing instance.
 //
 TYPED_TEST(ServiceChainIntegrationTest, StaticRouteDefaultRoutingInstance) {
-    auto_ptr<autogen::StaticRouteEntriesType> params;
+    unique_ptr<autogen::StaticRouteEntriesType> params;
 
     params = this->GetStaticRouteConfig(
             "controller/src/bgp/testdata/static_route_13.xml");
@@ -134,7 +134,7 @@ TYPED_TEST(ServiceChainIntegrationTest, StaticRouteDefaultRoutingInstance) {
 // and service chain route
 //
 TYPED_TEST(ServiceChainIntegrationTest, DISABLED_SvcStaticRoute) {
-    auto_ptr<autogen::StaticRouteEntriesType> params;
+    unique_ptr<autogen::StaticRouteEntriesType> params;
 
     params = this->GetStaticRouteConfig(
         "controller/src/bgp/testdata/static_route_8.xml");

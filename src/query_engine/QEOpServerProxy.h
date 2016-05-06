@@ -116,8 +116,8 @@ public:
         int error; 
     };
 
-    void QueryResult(void *, QPerfInfo qperf, std::auto_ptr<BufferT> res,
-            std::auto_ptr<OutRowMultimapT> mres);
+    void QueryResult(void *, QPerfInfo qperf, std::unique_ptr<BufferT> res,
+            std::unique_ptr<OutRowMultimapT> mres);
 private:
     EventManager * const evm_;
     QueryEngine * const qe_;

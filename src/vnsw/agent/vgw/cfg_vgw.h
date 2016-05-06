@@ -145,7 +145,7 @@ private:
 
     Agent *agent_;
     Table table_;
-    std::auto_ptr< WorkQueue<boost::shared_ptr<VirtualGatewayData> > > work_queue_;
+    std::unique_ptr< WorkQueue<boost::shared_ptr<VirtualGatewayData> > > work_queue_;
     DISALLOW_COPY_AND_ASSIGN(VirtualGatewayConfigTable);
 };
 

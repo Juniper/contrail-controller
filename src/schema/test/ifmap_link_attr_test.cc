@@ -204,7 +204,7 @@ TEST_F(LinkAttrTest, AgentEncodeDecode) {
     table = IFMapTable::FindTable(&db_, "bar");
     IFMapTable::RequestKey key;
     IFMapServerTable *bar_table = static_cast<IFMapServerTable *>(table);
-    auto_ptr<Foo> aprime(static_cast<Foo *>(bar_table->AllocObject()));
+    unique_ptr<Foo> aprime(static_cast<Foo *>(bar_table->AllocObject()));
     string id_name;
     EXPECT_TRUE(Foo::Decode(node, &id_name, aprime.get()));
     EXPECT_EQ("a", id_name);
@@ -215,7 +215,7 @@ TEST_F(LinkAttrTest, AgentEncodeDecode) {
 
     table = IFMapTable::FindTable(&db_, "foo-bar-link");
     IFMapServerTable *attr_table = static_cast<IFMapServerTable *>(table);
-    auto_ptr<FooBarLink> n_attr(
+    unique_ptr<FooBarLink> n_attr(
         static_cast<FooBarLink *>(attr_table->AllocObject()));
     EXPECT_TRUE(FooBarLink::Decode(node, &id_name, n_attr.get()));
     EXPECT_EQ(lnode->name(), id_name);

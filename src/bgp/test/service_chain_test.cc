@@ -48,7 +48,7 @@ using namespace boost::program_options;
 using pugi::xml_document;
 using pugi::xml_node;
 using pugi::xml_parse_result;
-using std::auto_ptr;
+using std::unique_ptr;
 using std::endl;
 using std::ifstream;
 using std::istreambuf_iterator;
@@ -943,9 +943,9 @@ protected:
         return content;
     }
 
-    auto_ptr<autogen::ServiceChainInfo>
+    unique_ptr<autogen::ServiceChainInfo>
         GetChainConfig(string filename) {
-        auto_ptr<autogen::ServiceChainInfo>
+        unique_ptr<autogen::ServiceChainInfo>
             params (new autogen::ServiceChainInfo());
         string content = GetConfigFileContents(filename);
         EXPECT_FALSE(content.empty());
@@ -964,7 +964,7 @@ protected:
 
     void SetServiceChainInformation(const string &instance,
         const string &filename) {
-        auto_ptr<autogen::ServiceChainInfo> params = GetChainConfig(filename);
+        unique_ptr<autogen::ServiceChainInfo> params = GetChainConfig(filename);
         ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
             instance, family_ == Address::INET ?
                 "service-chain-information" : "ipv6-service-chain-information",

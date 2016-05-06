@@ -111,7 +111,7 @@ public:
 
     void BuildSubscribeResponseMessage(std::string serviceNameTag, uint num_instances,
                                        std::string &msg) {
-        auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+        unique_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
         impl->LoadDoc("");
         XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
 
@@ -136,7 +136,7 @@ public:
     void BuildSubscribeResponseMessageWithPubliserId(std::string serviceNameTag,
                                                      uint num_instances,
                                                      std::string &msg) {
-        auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+        unique_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
         impl->LoadDoc("");
         XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
 
@@ -179,7 +179,7 @@ public:
     void BuildHeartBeat503ResponseMessage(std::string serviceNameTag,
                                        std::string &msg) {
 
-        auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+        unique_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
         impl->LoadDoc("");
         XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
 
@@ -195,7 +195,7 @@ public:
     void BuildNullServiceResponseMessage(std::string serviceNameTag, 
                                          std::string &msg) {
 
-        auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+        unique_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
         impl->LoadDoc("");
         XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
 
@@ -207,7 +207,7 @@ public:
     }
 
     void BuildPublishMessage(std::string serviceNameTag, std::string &msg) {
-        auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+        unique_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
         impl->LoadDoc("");
         XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
 
@@ -222,7 +222,7 @@ public:
     }
 
     void BuildPublishResponseMessage(std::string serviceNameTag, std::string &msg) {
-        auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+        unique_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
         impl->LoadDoc("");
         XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
 
@@ -237,7 +237,7 @@ public:
 
     void BuildPublishResponseMessageNocookie(std::string serviceNameTag, 
                                              std::string &msg) {
-        auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+        unique_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
         impl->LoadDoc("");
         XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
 
@@ -294,8 +294,8 @@ protected:
         task_util::WaitForIdle(); 
     }
 
-    auto_ptr<EventManager> evm_; 
-    auto_ptr<ServerThread> thread_;
+    unique_ptr<EventManager> evm_; 
+    unique_ptr<ServerThread> thread_;
 };
 
 namespace {

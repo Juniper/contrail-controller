@@ -14,16 +14,16 @@ Inet6VpnTable::Inet6VpnTable(DB *db, const std::string &name)
     : BgpTable(db, name) {
 }
 
-std::auto_ptr<DBEntry>
+std::unique_ptr<DBEntry>
 Inet6VpnTable::AllocEntry(const DBRequestKey *key) const {
     const RequestKey *pfxkey = static_cast<const RequestKey *>(key);
-    return std::auto_ptr<DBEntry>(new Inet6VpnRoute(pfxkey->prefix));
+    return std::unique_ptr<DBEntry>(new Inet6VpnRoute(pfxkey->prefix));
 }
 
-std::auto_ptr<DBEntry>
+std::unique_ptr<DBEntry>
 Inet6VpnTable::AllocEntryStr(const std::string &key_str) const {
     Inet6VpnPrefix vpn_prefix = Inet6VpnPrefix::FromString(key_str);
-    return std::auto_ptr<DBEntry> (new Inet6VpnRoute(vpn_prefix));
+    return std::unique_ptr<DBEntry> (new Inet6VpnRoute(vpn_prefix));
 }
 
 size_t Inet6VpnTable::Hash(const DBEntry *entry) const {

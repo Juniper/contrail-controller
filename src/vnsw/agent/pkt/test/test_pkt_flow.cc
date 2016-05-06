@@ -93,7 +93,7 @@ static bool FlowStatsTimerStartStopTrigger (bool stop) {
 
 static void FlowStatsTimerStartStop (bool stop) {
     int task_id = TaskScheduler::GetInstance()->GetTaskId(kTaskFlowEvent);
-    std::auto_ptr<TaskTrigger> trigger_
+    std::unique_ptr<TaskTrigger> trigger_
         (new TaskTrigger(boost::bind(FlowStatsTimerStartStopTrigger, stop), task_id, 0));
     trigger_->Set();
     client->WaitForIdle();

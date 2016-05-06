@@ -385,10 +385,10 @@ void VnTable::GlobalVrouterConfigChanged() {
                       boost::bind(&VnTable::VnEntryWalkDone, this, _1));
 }
 
-std::auto_ptr<DBEntry> VnTable::AllocEntry(const DBRequestKey *k) const {
+std::unique_ptr<DBEntry> VnTable::AllocEntry(const DBRequestKey *k) const {
     const VnKey *key = static_cast<const VnKey *>(k);
     VnEntry *vn = new VnEntry(agent(), key->uuid_);
-    return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(vn));
+    return std::unique_ptr<DBEntry>(static_cast<DBEntry *>(vn));
 }
 
 extern IFMapNode *vn_test_node;

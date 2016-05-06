@@ -703,7 +703,7 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
         NextHopKey *tor_peer_key =
             static_cast<NextHopKey *>((tor_peer_path->
                         ComputeNextHop(agent)->GetDBRequestKey()).release());
-        std::auto_ptr<const NextHopKey> key4(tor_peer_key);
+        std::unique_ptr<const NextHopKey> key4(tor_peer_key);
         ComponentNHKeyPtr component_nh_data4(new ComponentNHKey(0, key4));
         component_nh_list.push_back(component_nh_data4);
     }
@@ -712,7 +712,7 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
         NextHopKey *evpn_peer_key =
             static_cast<NextHopKey *>((evpn_peer_path->
                         ComputeNextHop(agent)->GetDBRequestKey()).release());
-        std::auto_ptr<const NextHopKey> key2(evpn_peer_key);
+        std::unique_ptr<const NextHopKey> key2(evpn_peer_key);
         ComponentNHKeyPtr component_nh_data2(new ComponentNHKey(0, key2));
         component_nh_list.push_back(component_nh_data2);
     }
@@ -721,7 +721,7 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
         NextHopKey *fabric_peer_key =
             static_cast<NextHopKey *>((fabric_peer_path->
                         ComputeNextHop(agent)->GetDBRequestKey()).release());
-        std::auto_ptr<const NextHopKey> key3(fabric_peer_key);
+        std::unique_ptr<const NextHopKey> key3(fabric_peer_key);
         ComponentNHKeyPtr component_nh_data3(new ComponentNHKey(0, key3));
         component_nh_list.push_back(component_nh_data3);
     }
@@ -730,7 +730,7 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
         NextHopKey *local_vm_peer_key =
             static_cast<NextHopKey *>((local_vm_peer_path->
                                        ComputeNextHop(agent)->GetDBRequestKey()).release());
-        std::auto_ptr<const NextHopKey> key4(local_vm_peer_key);
+        std::unique_ptr<const NextHopKey> key4(local_vm_peer_key);
         ComponentNHKeyPtr component_nh_data4(new ComponentNHKey(0, key4));
         component_nh_list.push_back(component_nh_data4);
     }

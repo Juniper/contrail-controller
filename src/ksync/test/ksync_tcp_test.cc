@@ -139,10 +139,10 @@ public:
     VlanTable(DB *db, const std::string &name) : DBTable(db, name) { };
     virtual ~VlanTable() { };
 
-    virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const {
+    virtual std::unique_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const {
         const Vlan::VlanKey *key = static_cast<const Vlan::VlanKey *>(k);
         Vlan *vlan = new Vlan(key->tag_);
-        return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(vlan));
+        return std::unique_ptr<DBEntry>(static_cast<DBEntry *>(vlan));
     }
 
     virtual DBEntry *Add(const DBRequest *req) {

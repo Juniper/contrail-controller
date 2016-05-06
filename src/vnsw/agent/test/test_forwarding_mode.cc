@@ -172,7 +172,7 @@ protected:
         //Validate ksync
         InterfaceKSyncObject *obj = agent_->ksync()->interface_ksync_obj();;
         VmInterface *vm_intf = static_cast<VmInterface *>(VmPortGet(1));
-        std::auto_ptr<InterfaceKSyncEntry> ksync(new InterfaceKSyncEntry(obj,
+        std::unique_ptr<InterfaceKSyncEntry> ksync(new InterfaceKSyncEntry(obj,
                                                                          vm_intf));
         ksync->Sync(vm_intf);
         if (dhcp_external) {
@@ -237,9 +237,9 @@ protected:
             (vrf->GetState(vrf_l2_table, vrf_listener_id));
         RouteKSyncObject *vrf_rt_obj = l3_state->inet4_uc_route_table_;
         RouteKSyncObject *vrf_l2_rt_obj = l2_state->bridge_route_table_;
-        std::auto_ptr<RouteKSyncEntry> ksync(new RouteKSyncEntry(vrf_rt_obj,
+        std::unique_ptr<RouteKSyncEntry> ksync(new RouteKSyncEntry(vrf_rt_obj,
                                                                  local_vm_rt));
-        std::auto_ptr<RouteKSyncEntry> l2_ksync(new RouteKSyncEntry(vrf_l2_rt_obj,
+        std::unique_ptr<RouteKSyncEntry> l2_ksync(new RouteKSyncEntry(vrf_l2_rt_obj,
                                                                     local_vm_l2_rt));
         ksync->BuildArpFlags(local_vm_rt, local_vm_rt->GetActivePath(),
                              local_vm_mac_);
@@ -267,9 +267,9 @@ protected:
         //             (remote_vm_l2_rt->FindMacVmBindingPath()->flood_dhcp()
         //              == false));
         //}
-        std::auto_ptr<RouteKSyncEntry> remote_ksync(new RouteKSyncEntry(vrf_rt_obj,
+        std::unique_ptr<RouteKSyncEntry> remote_ksync(new RouteKSyncEntry(vrf_rt_obj,
                                                                         remote_vm_rt));
-        std::auto_ptr<RouteKSyncEntry> remote_l2_ksync(new RouteKSyncEntry(vrf_l2_rt_obj,
+        std::unique_ptr<RouteKSyncEntry> remote_l2_ksync(new RouteKSyncEntry(vrf_l2_rt_obj,
                                                                            remote_vm_l2_rt));
         remote_ksync->BuildArpFlags(remote_vm_rt, remote_vm_rt->GetActivePath(),
                              remote_vm_mac_);
@@ -286,7 +286,7 @@ protected:
         InetUnicastRouteEntry* subnet_rt = RouteGet("vrf1",
                                                     Ip4Address::from_string("1.1.1.0"),
                                                     24);
-        std::auto_ptr<RouteKSyncEntry> ksync1(new RouteKSyncEntry(vrf_rt_obj,
+        std::unique_ptr<RouteKSyncEntry> ksync1(new RouteKSyncEntry(vrf_rt_obj,
                                                                   subnet_rt));
         EXPECT_FALSE(vrf1_obj->RouteNeedsMacBinding(subnet_rt));
         ksync1->BuildArpFlags(subnet_rt, subnet_rt->GetActivePath(),
@@ -335,7 +335,7 @@ protected:
             static_cast<VrfKSyncObject::VrfState *>
             (vrf->GetState(vrf_l2_table, vrf_listener_id));
         RouteKSyncObject *vrf_rt_obj = state->bridge_route_table_;
-        std::auto_ptr<RouteKSyncEntry> ksync(new RouteKSyncEntry(vrf_rt_obj,
+        std::unique_ptr<RouteKSyncEntry> ksync(new RouteKSyncEntry(vrf_rt_obj,
                                                                  local_vm_rt));
         ksync->BuildArpFlags(local_vm_rt, local_vm_rt->GetActivePath(),
                              MacAddress());
@@ -350,9 +350,9 @@ protected:
         InetUnicastRouteEntry* remote_vm_rt = RouteGet("vrf1", remote_vm_ip4_,
                                                        32);
         BridgeRouteEntry* remote_vm_l2_rt = L2RouteGet("vrf1", remote_vm_mac_);
-        std::auto_ptr<RouteKSyncEntry> remote_ksync(new RouteKSyncEntry(vrf_rt_obj,
+        std::unique_ptr<RouteKSyncEntry> remote_ksync(new RouteKSyncEntry(vrf_rt_obj,
                                                                         remote_vm_rt));
-        std::auto_ptr<RouteKSyncEntry> remote_l2_ksync(new RouteKSyncEntry(vrf_l2_rt_obj,
+        std::unique_ptr<RouteKSyncEntry> remote_l2_ksync(new RouteKSyncEntry(vrf_l2_rt_obj,
                                                                            remote_vm_l2_rt));
         remote_ksync->BuildArpFlags(remote_vm_rt, remote_vm_rt->GetActivePath(),
                              remote_vm_mac_);
@@ -412,7 +412,7 @@ protected:
             static_cast<VrfKSyncObject::VrfState *>
             (vrf->GetState(vrf_uc_table, vrf_listener_id));
         RouteKSyncObject *vrf_rt_obj = state->inet4_uc_route_table_;
-        std::auto_ptr<RouteKSyncEntry> ksync(new RouteKSyncEntry(vrf_rt_obj,
+        std::unique_ptr<RouteKSyncEntry> ksync(new RouteKSyncEntry(vrf_rt_obj,
                                                                  local_vm_rt));
         EXPECT_FALSE(vrf1_obj->RouteNeedsMacBinding(local_vm_rt));
         ksync->BuildArpFlags(local_vm_rt, local_vm_rt->GetActivePath(),
@@ -424,7 +424,7 @@ protected:
         InetUnicastRouteEntry* subnet_rt = RouteGet("vrf1",
                                                     Ip4Address::from_string("1.1.1.0"),
                                                     24);
-        std::auto_ptr<RouteKSyncEntry> ksync1(new RouteKSyncEntry(vrf_rt_obj,
+        std::unique_ptr<RouteKSyncEntry> ksync1(new RouteKSyncEntry(vrf_rt_obj,
                                                                   subnet_rt));
         EXPECT_FALSE(vrf1_obj->RouteNeedsMacBinding(subnet_rt));
         ksync1->BuildArpFlags(subnet_rt, subnet_rt->GetActivePath(),

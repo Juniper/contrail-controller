@@ -20,7 +20,7 @@ namespace ifmap_test_util {
 void IFMapMsgNodeAdd(DB *db, const string &type, const string &id,
                      uint64_t sequence_number, const string &metadata,
                      AutogenProperty *content) {
-    auto_ptr<DBRequest> request(new DBRequest());
+    unique_ptr<DBRequest> request(new DBRequest());
     request->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     IFMapTable *tbl = IFMapTable::FindTable(db, type);
     IFMapNodeCommon(tbl, request.get(), type, id, sequence_number, metadata,
@@ -31,7 +31,7 @@ void IFMapMsgNodeAdd(DB *db, const string &type, const string &id,
 void IFMapMsgNodeDelete(DB *db, const string &type, const string &id,
                         uint64_t sequence_number, const string &metadata,
                         AutogenProperty *content) {
-    auto_ptr<DBRequest> request(new DBRequest());
+    unique_ptr<DBRequest> request(new DBRequest());
     request->oper = DBRequest::DB_ENTRY_DELETE;
     IFMapTable *tbl = IFMapTable::FindTable(db, type);
     IFMapNodeCommon(tbl, request.get(), type, id, sequence_number, metadata,

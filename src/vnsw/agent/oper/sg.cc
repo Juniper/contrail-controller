@@ -45,10 +45,10 @@ void SgEntry::SetKey(const DBRequestKey *key) {
     sg_uuid_ = k->sg_uuid_;
 }
 
-std::auto_ptr<DBEntry> SgTable::AllocEntry(const DBRequestKey *k) const {
+std::unique_ptr<DBEntry> SgTable::AllocEntry(const DBRequestKey *k) const {
     const SgKey *key = static_cast<const SgKey *>(k);
     SgEntry *sg = new SgEntry(key->sg_uuid_);
-    return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(sg));
+    return std::unique_ptr<DBEntry>(static_cast<DBEntry *>(sg));
 }
 
 DBEntry *SgTable::OperDBAdd(const DBRequest *req) {

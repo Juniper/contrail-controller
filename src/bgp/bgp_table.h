@@ -97,7 +97,7 @@ public:
     virtual bool IsVpnTable() const { return false; }
     virtual bool IsRoutingPolicySupported() const { return false; }
     virtual bool IsRouteAggregationSupported() const { return false; }
-    virtual std::auto_ptr<DBEntry> AllocEntryStr(
+    virtual std::unique_ptr<DBEntry> AllocEntryStr(
         const std::string &key) const = 0;
 
     virtual BgpRoute *RouteReplicate(BgpServer *server, BgpTable *table,

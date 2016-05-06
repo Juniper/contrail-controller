@@ -54,7 +54,7 @@ void IFMapAgentParser::NodeParse(xml_node &node, DBRequest::DBOperation oper, ui
     IFMapAgentTable::IFMapAgentData *req_data = new IFMapAgentTable::IFMapAgentData;
     req_data->content.reset(obj);
 
-    auto_ptr<DBRequest> request(new DBRequest);
+    unique_ptr<DBRequest> request(new DBRequest);
     request->oper = oper;
     request->data.reset(req_data);
     request->key.reset(req_key);
@@ -120,7 +120,7 @@ void IFMapAgentParser::LinkParse(xml_node &link, DBRequest::DBOperation oper, ui
     }
 
     // Create both the request keys
-    auto_ptr <IFMapAgentLinkTable::RequestKey> req_key (new IFMapAgentLinkTable::RequestKey);
+    unique_ptr <IFMapAgentLinkTable::RequestKey> req_key (new IFMapAgentLinkTable::RequestKey);
     req_key->left_key.id_name = name_node1.child_value();
     req_key->left_key.id_type = name1;
     req_key->left_key.id_seq_num = seq;
@@ -134,7 +134,7 @@ void IFMapAgentParser::LinkParse(xml_node &link, DBRequest::DBOperation oper, ui
         req_key->metadata = metadata.attribute("type").value();
     }
 
-    auto_ptr <DBRequest> req (new DBRequest);
+    unique_ptr <DBRequest> req (new DBRequest);
     req->oper = oper;
     req->key = req_key;
 

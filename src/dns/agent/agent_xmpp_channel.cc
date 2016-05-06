@@ -47,7 +47,7 @@ void DnsAgentXmppChannel::ReceiveReq(const XmppStanza::XmppMessage *msg) {
         DnsAgentXmpp::XmppType type;
         uint32_t xid;
         uint16_t code;
-        std::auto_ptr<DnsUpdateData> rcv_data(new DnsUpdateData());
+        std::unique_ptr<DnsUpdateData> rcv_data(new DnsUpdateData());
         DnsUpdateData *data = rcv_data.get();
         if (DnsAgentXmpp::DnsAgentXmppDecode(node, type, xid, code, data)) {
             if (type == DnsAgentXmpp::Update) {
@@ -58,7 +58,7 @@ void DnsAgentXmppChannel::ReceiveReq(const XmppStanza::XmppMessage *msg) {
 }
 
 void DnsAgentXmppChannel::HandleAgentUpdate(
-    std::auto_ptr<DnsUpdateData> rcv_data) {
+    std::unique_ptr<DnsUpdateData> rcv_data) {
     DnsUpdateData *data = rcv_data.get();
     DataSet::iterator it = update_data_.find(data);
     if (it != update_data_.end()) {

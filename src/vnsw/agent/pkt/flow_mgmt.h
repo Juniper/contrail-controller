@@ -1098,7 +1098,7 @@ private:
     NhFlowMgmtTree nh_flow_mgmt_tree_;
     FlowEntryTree flow_tree_;
     boost::scoped_ptr<BgpAsAServiceFlowMgmtTree> bgp_as_a_service_flow_mgmt_tree_[MAX_XMPP_SERVERS];
-    std::auto_ptr<FlowMgmtDbClient> flow_mgmt_dbclient_;
+    std::unique_ptr<FlowMgmtDbClient> flow_mgmt_dbclient_;
     FlowMgmtQueue request_queue_;
     FlowMgmtQueue db_event_queue_;
     FlowMgmtQueue log_queue_;

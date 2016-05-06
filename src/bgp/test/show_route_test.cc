@@ -424,10 +424,10 @@ protected:
         validate_done_ = true;
     }
 
-    auto_ptr<EventManager> evm_;
-    auto_ptr<ServerThread> thread_;
-    auto_ptr<BgpServerTest> a_;
-    auto_ptr<BgpServerTest> b_;
+    unique_ptr<EventManager> evm_;
+    unique_ptr<ServerThread> thread_;
+    unique_ptr<BgpServerTest> a_;
+    unique_ptr<BgpServerTest> b_;
     BgpPeerTest *peers_[3];
 };
 

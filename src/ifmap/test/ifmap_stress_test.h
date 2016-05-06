@@ -255,9 +255,9 @@ protected:
     EventManager evm_;
     IFMapServer ifmap_server_;
     IFMapServerParser *parser_;
-    std::auto_ptr<ServerThread> thread_;
+    std::unique_ptr<ServerThread> thread_;
     XmppServer *xmpp_server_;
-    std::auto_ptr<IFMapChannelManager> ifmap_channel_mgr_;
+    std::unique_ptr<IFMapChannelManager> ifmap_channel_mgr_;
     IFMapSTOptions config_options_;
     IFMapSTEventMgr event_generator_;
     std::vector<IFMapXmppClientMock *> xmpp_clients_;

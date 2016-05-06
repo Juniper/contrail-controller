@@ -204,8 +204,8 @@ protected:
     XmppBgpMockPeer *bgp_server_peer_;
     XmppConnection *sconnection_;
     XmppMockConnection *cconnection_;
-    auto_ptr<EventManager> evm_;
-    auto_ptr<ServerThread> thread_;
+    unique_ptr<EventManager> evm_;
+    unique_ptr<ServerThread> thread_;
     XmppServer *a_;
     XmppClient *b_;
 };

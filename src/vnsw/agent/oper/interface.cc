@@ -104,10 +104,10 @@ bool InterfaceTable::ProcessConfig(IFMapNode *node, DBRequest &req,
     return false;
 }
 
-std::auto_ptr<DBEntry> InterfaceTable::AllocEntry(const DBRequestKey *k) const{
+std::unique_ptr<DBEntry> InterfaceTable::AllocEntry(const DBRequestKey *k) const{
     const InterfaceKey *key = static_cast<const InterfaceKey *>(k);
     
-    return std::auto_ptr<DBEntry>(static_cast<DBEntry *>
+    return std::unique_ptr<DBEntry>(static_cast<DBEntry *>
                                   (key->AllocEntry(this)));
 }
 

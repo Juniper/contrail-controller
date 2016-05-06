@@ -226,12 +226,12 @@ protected:
     XmppServer *xs5;
     XmppServer *xs6;
 
-    auto_ptr<ControlNodeMockBgpXmppPeer> mock_peer1;
-    auto_ptr<ControlNodeMockBgpXmppPeer> mock_peer2;
-    auto_ptr<ControlNodeMockBgpXmppPeer> mock_peer3;
-    auto_ptr<ControlNodeMockBgpXmppPeer> mock_peer4;
-    auto_ptr<ControlNodeMockBgpXmppPeer> mock_peer5;
-    auto_ptr<ControlNodeMockBgpXmppPeer> mock_peer6;
+    unique_ptr<ControlNodeMockBgpXmppPeer> mock_peer1;
+    unique_ptr<ControlNodeMockBgpXmppPeer> mock_peer2;
+    unique_ptr<ControlNodeMockBgpXmppPeer> mock_peer3;
+    unique_ptr<ControlNodeMockBgpXmppPeer> mock_peer4;
+    unique_ptr<ControlNodeMockBgpXmppPeer> mock_peer5;
+    unique_ptr<ControlNodeMockBgpXmppPeer> mock_peer6;
     Agent *agent_;
 };
 

@@ -83,7 +83,7 @@ public:
         assert(b_table_ != NULL);
     };
 
-    virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
+    virtual std::unique_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
     virtual size_t Hash(const DBEntry *entry) const {return 0;};
     virtual size_t Hash(const DBRequestKey *key) const {return 0;};
 
@@ -155,7 +155,7 @@ public:
         assert(a_table_ != NULL);
     };
 
-    virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
+    virtual std::unique_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
     virtual size_t Hash(const DBEntry *entry) const {return 0;};
     virtual size_t Hash(const DBRequestKey *key) const {return 0;};
 
@@ -190,10 +190,10 @@ public:
     TableC(DB *db, const std::string &name) : AgentDBTable(db, name) { }
     virtual ~TableC() { }
 
-    virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const {
+    virtual std::unique_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const {
         const EntryCKey *key = static_cast<const EntryCKey *>(k);
         EntryA *entry = new EntryA(key->id_);
-        return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(entry));
+        return std::unique_ptr<DBEntry>(static_cast<DBEntry *>(entry));
     };
     virtual size_t Hash(const DBEntry *entry) const {return 0;};
     virtual size_t Hash(const DBRequestKey *key) const {return 0;};

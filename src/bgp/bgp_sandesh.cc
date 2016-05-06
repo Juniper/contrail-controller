@@ -95,7 +95,8 @@ void ShowNeighborStatisticsReq::HandleRequest() const {
     s1.cbFn_ = ShowNeighborStatisticsHandler::CallbackS1;
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_= list_of(s1);
+    ps.stages_= list_of(s1).convert_to_container<
+                                vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 
@@ -141,7 +142,8 @@ void ClearBgpNeighborReq::HandleRequest() const {
     s1.cbFn_ = ClearBgpNeighborHandler::CallbackS1;
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_= list_of(s1);
+    ps.stages_= list_of(s1).convert_to_container<
+                                vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 
@@ -285,7 +287,8 @@ void ShowMulticastManagerDetailReq::HandleRequest() const {
     s2.cbFn_ = ShowMulticastManagerDetailHandler::CallbackS2;
     s2.instances_.push_back(0);
 
-    ps.stages_ = list_of(s1)(s2);
+    ps.stages_= list_of(s1)(s2).convert_to_container<
+                                    vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 
@@ -390,7 +393,8 @@ void ShowRouteVrfReq::HandleRequest() const {
     s2.cbFn_ = ShowRouteVrfHandler::CallbackS2;
     s2.instances_.push_back(0);
 
-    ps.stages_ = list_of(s1)(s2);
+    ps.stages_= list_of(s1)(s2).convert_to_container<
+                                    vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 
@@ -428,7 +432,8 @@ void ShowBgpServerReq::HandleRequest() const {
     s1.taskId_ = scheduler->GetTaskId("bgp::ShowCommand");
     s1.cbFn_ = ShowBgpServerHandler::CallbackS1;
     s1.instances_.push_back(0);
-    ps.stages_ = list_of(s1);
+    ps.stages_= list_of(s1).convert_to_container<
+                                vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 

@@ -38,8 +38,8 @@ public:
     void WaitForIdle();
 
 private:
-    std::auto_ptr<KSyncVxlan> ksync_vxlan_;
-    std::auto_ptr<AgentUveBase> uve_;
+    std::unique_ptr<KSyncVxlan> ksync_vxlan_;
+    std::unique_ptr<AgentUveBase> uve_;
     DISALLOW_COPY_AND_ASSIGN(LinuxVxlanAgentInit);
 };
 

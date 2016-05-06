@@ -53,7 +53,7 @@ bool AgentDnsXmppChannel::SendMsg(uint8_t *msg, std::size_t len) {
 
 void AgentDnsXmppChannel::ReceiveMsg(const XmppStanza::XmppMessage *msg) {
     if (msg && msg->type == XmppStanza::IQ_STANZA) {
-        std::auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+        std::unique_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
         XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
         XmlPugi *msg_pugi = reinterpret_cast<XmlPugi *>(msg->dom.get());
         pugi->LoadXmlDoc(msg_pugi->doc()); //Verify Xmpp message format 
@@ -70,13 +70,13 @@ void AgentDnsXmppChannel::ReceiveInternal(const XmppStanza::XmppMessage *msg) {
     ReceiveMsg(msg);
 }
 
-void AgentDnsXmppChannel::ReceiveDnsMessage(std::auto_ptr<XmlBase> impl) {
+void AgentDnsXmppChannel::ReceiveDnsMessage(std::unique_ptr<XmlBase> impl) {
     XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
     pugi::xml_node node = pugi->FindNode("dns");
     DnsAgentXmpp::XmppType xmpp_type;
     uint32_t xid;
     uint16_t code;
-    std::auto_ptr<DnsUpdateData> xmpp_data(new DnsUpdateData);
+    std::unique_ptr<DnsUpdateData> xmpp_data(new DnsUpdateData);
     if (DnsAgentXmpp::DnsAgentXmppDecode(node, xmpp_type, xid,
                                          code, xmpp_data.get())) {
         dns_message_handler_cb_(xmpp_data.release(), xmpp_type, NULL,
@@ -93,7 +93,7 @@ void AgentDnsXmppChannel::WriteReadyCb(const boost::system::error_code &ec) {
 
 void AgentDnsXmppChannel::XmppClientChannelEvent(AgentDnsXmppChannel *peer,
                                                  xmps::PeerState state) {
-    std::auto_ptr<XmlBase> dummy_dom;
+    std::unique_ptr<XmlBase> dummy_dom;
     boost::shared_ptr<ControllerXmppData> data(new ControllerXmppData(xmps::DNS,
                                                                       state,
                                                                       peer->GetXmppServerIdx(),

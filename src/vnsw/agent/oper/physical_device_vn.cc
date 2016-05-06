@@ -87,14 +87,14 @@ bool PhysicalDeviceVn::Copy(PhysicalDeviceVnTable *table,
 //////////////////////////////////////////////////////////////////////////////
 // PhysicalDeviceVnTable routines
 //////////////////////////////////////////////////////////////////////////////
-std::auto_ptr<DBEntry> PhysicalDeviceVnTable::AllocEntry(const DBRequestKey *k)
+std::unique_ptr<DBEntry> PhysicalDeviceVnTable::AllocEntry(const DBRequestKey *k)
     const {
     const PhysicalDeviceVnKey *key =
         static_cast<const PhysicalDeviceVnKey *>(k);
 
     PhysicalDeviceVn *entry = new PhysicalDeviceVn(key->device_uuid_,
                                                              key->vn_uuid_);
-    return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(entry));
+    return std::unique_ptr<DBEntry>(static_cast<DBEntry *>(entry));
 }
 
 DBEntry *PhysicalDeviceVnTable::Add(const DBRequest *req) {

@@ -19,7 +19,7 @@
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
 
-using std::auto_ptr;
+using std::unique_ptr;
 using std::make_pair;
 using std::pair;
 using std::set;
@@ -1741,7 +1741,7 @@ void BgpIfmapConfigManager::DefaultBgpRouterParams(
 //
 void BgpIfmapConfigManager::DefaultConfig() {
     BgpIfmapInstanceConfig *rti = config_->LocateInstance(kMasterInstance);
-    auto_ptr<autogen::BgpRouter> router(new autogen::BgpRouter());
+    unique_ptr<autogen::BgpRouter> router(new autogen::BgpRouter());
     autogen::BgpRouterParams param;
     DefaultBgpRouterParams(&param);
     router->SetProperty("bgp-router-parameters", &param);

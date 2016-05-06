@@ -24,10 +24,10 @@ void IFMapLinkTable::Input(DBTablePartition *partition, DBClient *client,
     assert(false);
 }
 
-std::auto_ptr<DBEntry> IFMapLinkTable::AllocEntry(
+std::unique_ptr<DBEntry> IFMapLinkTable::AllocEntry(
         const DBRequestKey *key) const {
     const RequestKey *rkey = static_cast<const RequestKey *>(key);
-    auto_ptr<DBEntry> entry(new IFMapLink(rkey->name));
+    unique_ptr<DBEntry> entry(new IFMapLink(rkey->name));
     return entry;
 }
 

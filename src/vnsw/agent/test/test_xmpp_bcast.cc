@@ -769,8 +769,8 @@ protected:
     XmppConnection *sconnection;
     XmppChannel *cchannel;
 
-    auto_ptr<AgentBgpXmppPeerTest> bgp_peer;
-    auto_ptr<ControlNodeMockBgpXmppPeer> mock_peer;
+    unique_ptr<AgentBgpXmppPeerTest> bgp_peer;
+    unique_ptr<ControlNodeMockBgpXmppPeer> mock_peer;
 };
 
 
@@ -1565,8 +1565,8 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Retract_from_non_mcast_tree_builder) {
     XmppClient *xc_s;
     XmppConnection *sconnection_s;
     XmppChannel *cchannel_s;
-    auto_ptr<AgentBgpXmppPeerTest> bgp_peer_s;
-    auto_ptr<ControlNodeMockBgpXmppPeer> mock_peer_s;
+    unique_ptr<AgentBgpXmppPeerTest> bgp_peer_s;
+    unique_ptr<ControlNodeMockBgpXmppPeer> mock_peer_s;
 
     xs_s = new XmppServer(&evm_, XmppInit::kControlNodeJID);
     xs_s->Initialize(0, false);

@@ -10,7 +10,7 @@
 #include "bgp/routing-instance/path_resolver.h"
 #include "bgp/routing-instance/routing_instance.h"
 
-using std::auto_ptr;
+using std::unique_ptr;
 using std::string;
 
 InetTable::InetTable(DB *db, const string &name)
@@ -21,14 +21,14 @@ size_t InetTable::HashFunction(const Ip4Prefix &prefix) {
     return boost::hash_value(prefix.ip4_addr().to_ulong());
 }
 
-auto_ptr<DBEntry> InetTable::AllocEntry(const DBRequestKey *key) const {
+unique_ptr<DBEntry> InetTable::AllocEntry(const DBRequestKey *key) const {
     const RequestKey *pfxkey = static_cast<const RequestKey *>(key);
-    return auto_ptr<DBEntry> (new InetRoute(pfxkey->prefix));
+    return unique_ptr<DBEntry> (new InetRoute(pfxkey->prefix));
 }
 
-auto_ptr<DBEntry> InetTable::AllocEntryStr(const string &key_str) const {
+unique_ptr<DBEntry> InetTable::AllocEntryStr(const string &key_str) const {
     Ip4Prefix prefix = Ip4Prefix::FromString(key_str);
-    return auto_ptr<DBEntry> (new InetRoute(prefix));
+    return unique_ptr<DBEntry> (new InetRoute(prefix));
 }
 
 size_t InetTable::Hash(const DBEntry *entry) const {

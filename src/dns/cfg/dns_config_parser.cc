@@ -112,7 +112,7 @@ static bool ParseVnNetworkIpam(const xml_node &node, bool add_change,
     if (vn_attr)
         vn = vn_attr.value();
 
-    auto_ptr<autogen::VnSubnetsType> params(new autogen::VnSubnetsType());
+    unique_ptr<autogen::VnSubnetsType> params(new autogen::VnSubnetsType());
     if (!params->XmlParse(node)) {
         assert(0);
     }
@@ -137,7 +137,7 @@ static bool ParseNetworkIpam(const xml_node &node, bool add_change,
     if (name)
         identifier = name.value();
 
-    auto_ptr<autogen::IpamType> params(new autogen::IpamType());
+    unique_ptr<autogen::IpamType> params(new autogen::IpamType());
     if (!params->XmlParse(node)) {
         assert(0);
     }
@@ -164,7 +164,7 @@ static bool ParseVirtualDNS(const xml_node &node, bool add_change,
     if (domain)
         view = domain.value();
 
-    auto_ptr<autogen::VirtualDnsType> params(new autogen::VirtualDnsType());
+    unique_ptr<autogen::VirtualDnsType> params(new autogen::VirtualDnsType());
     if (!params->XmlParse(node)) {
         assert(0);
     }
@@ -197,7 +197,7 @@ static bool ParseVirtualDNSRecord(const xml_node &node, bool add_change,
     if (dns)
         virtual_dns = dns.value();
 
-    auto_ptr<autogen::VirtualDnsRecordType> params(new autogen::VirtualDnsRecordType());
+    unique_ptr<autogen::VirtualDnsRecordType> params(new autogen::VirtualDnsRecordType());
     if (!params->XmlParse(node)) {
         assert(0);
     }
@@ -276,7 +276,7 @@ bool DnsConfigParser::Parse(const std::string &content)  {
     }
 
     while (!requests.empty()) {
-        auto_ptr<DBRequest> req(requests.front());
+        unique_ptr<DBRequest> req(requests.front());
         requests.pop_front();
 
         IFMapTable::RequestKey *key =

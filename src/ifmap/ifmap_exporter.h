@@ -122,7 +122,7 @@ private:
     bool IsFeasible(const IFMapNode *node);
 
     const BitSet *MergeClientInterest(IFMapNode *node, IFMapNodeState *state,
-                                      std::auto_ptr<BitSet> *ptr);
+                                      std::unique_ptr<BitSet> *ptr);
 
     const TableInfo *Find(const DBTable *table) const;
 

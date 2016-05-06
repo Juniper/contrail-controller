@@ -11,7 +11,7 @@
 #include "xml/xml_pugi.h"
 #include "testing/gunit.h"
 
-using std::auto_ptr;
+using std::unique_ptr;
 using std::ifstream;
 using std::istreambuf_iterator;
 using std::string;
@@ -143,10 +143,10 @@ protected:
 
     EventManager evm_;
     BgpServer server_;
-    auto_ptr<XmlBase> impl_;
+    unique_ptr<XmlBase> impl_;
     XmlPugi *pugi_;
-    auto_ptr<XmppChannel> channel_;
-    auto_ptr<BgpXmppChannel> bx_channel_;
+    unique_ptr<XmppChannel> channel_;
+    unique_ptr<BgpXmppChannel> bx_channel_;
 };
 
 // Error in parsing message, XML document is fine.

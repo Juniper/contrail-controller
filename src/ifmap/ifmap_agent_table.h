@@ -31,7 +31,7 @@ class IFMapAgentTable : public IFMapTable {
 public:
 
     struct IFMapAgentData : DBRequestData {
-        std::auto_ptr<IFMapObject>content;
+        std::unique_ptr<IFMapObject>content;
     };
     typedef boost::function<bool(DBTable *table, IFMapNode *node, DBRequest *req)> PreFilterFn;
 
@@ -42,7 +42,7 @@ public:
     virtual void Clear();
 
      // Allocate an IFMapNode.
-    virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *key) const;
+    virtual std::unique_ptr<DBEntry> AllocEntry(const DBRequestKey *key) const;
     
     static IFMapNode *TableEntryLookup(DB *db, RequestKey *key);
     void NotifyNode(IFMapNode *node);

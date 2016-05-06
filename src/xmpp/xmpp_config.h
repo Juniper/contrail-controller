@@ -97,8 +97,8 @@ public:
 
     void Terminate();
 private:
-    std::auto_ptr<const XmppConfigData> current_;
-    std::auto_ptr<const XmppConfigData> future_;
+    std::unique_ptr<const XmppConfigData> current_;
+    std::unique_ptr<const XmppConfigData> future_;
     DISALLOW_COPY_AND_ASSIGN(XmppConfigManager);
 };
 

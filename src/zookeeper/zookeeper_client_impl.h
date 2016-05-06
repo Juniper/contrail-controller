@@ -38,7 +38,7 @@ class ZookeeperClientImpl {
     std::string servers_;
     zhandle_t *zk_handle_;
     bool connected_;
-    std::auto_ptr<zookeeper::interface::ZookeeperInterface> zki_;
+    std::unique_ptr<zookeeper::interface::ZookeeperInterface> zki_;
 };
 
 } // namespace impl

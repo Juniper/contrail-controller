@@ -664,9 +664,9 @@ TEST_F(IFMapGraphWalkerTest, PopulateWhiteList) {
 
     // With filter_info as input, let the GTFCalculator give the white_list as
     // output.
-    const std::auto_ptr<IFMapTypenameWhiteList>
+    const std::unique_ptr<IFMapTypenameWhiteList>
         white_list(new IFMapTypenameWhiteList());
-    const std::auto_ptr<IFMapGraphTraversalFilterCalculator> 
+    const std::unique_ptr<IFMapGraphTraversalFilterCalculator> 
         filter_calculator(new IFMapGraphTraversalFilterCalculator(
             filter_info, white_list.get()));
 

@@ -611,7 +611,7 @@ void GracefulRestartTest::WaitForPeerToBeEstablished(BgpPeerTest *peer) {
 }
 
 ExtCommunitySpec *GracefulRestartTest::CreateRouteTargets() {
-    auto_ptr<ExtCommunitySpec> commspec(new ExtCommunitySpec());
+    unique_ptr<ExtCommunitySpec> commspec(new ExtCommunitySpec());
 
     for (int i = 1; i <= n_targets_; i++) {
         RouteTarget tgt = RouteTarget::FromString(

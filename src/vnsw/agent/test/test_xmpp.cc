@@ -441,8 +441,8 @@ protected:
     XmppConnection *sconnection;
     XmppChannel *cchannel;
 
-    auto_ptr<AgentBgpXmppPeerTest> bgp_peer;
-    auto_ptr<ControlNodeMockBgpXmppPeer> mock_peer;
+    unique_ptr<AgentBgpXmppPeerTest> bgp_peer;
+    unique_ptr<ControlNodeMockBgpXmppPeer> mock_peer;
     Agent *agent_;
 };
 

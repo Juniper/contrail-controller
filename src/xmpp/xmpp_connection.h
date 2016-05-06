@@ -252,7 +252,7 @@ private:
 
     boost::scoped_ptr<XmppStateMachine> state_machine_;
     boost::scoped_ptr<XmppChannelMux> mux_;
-    std::auto_ptr<XmppStanza::XmppMessage> last_msg_;
+    std::unique_ptr<XmppStanza::XmppMessage> last_msg_;
 
     ProtoStats stats_[2];
     void IncProtoStats(unsigned int type);

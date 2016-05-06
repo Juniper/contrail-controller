@@ -20,8 +20,8 @@ VrfAssignTable *VrfAssignTable::vrf_assign_table_;
 ///////////////////////////////////////////////////////////////////////////
 // VRF Assignment table routines
 ///////////////////////////////////////////////////////////////////////////
-std::auto_ptr<DBEntry> VrfAssignTable::AllocEntry(const DBRequestKey *k) const {
-    return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(AllocWithKey(k)));
+std::unique_ptr<DBEntry> VrfAssignTable::AllocEntry(const DBRequestKey *k) const {
+    return std::unique_ptr<DBEntry>(static_cast<DBEntry *>(AllocWithKey(k)));
 }
 
 VrfAssign *VrfAssignTable::AllocWithKey(const DBRequestKey *k) const {

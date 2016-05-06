@@ -49,10 +49,10 @@ AgentDBTable *EntryB::DBToTable() const {
     return table_b_;
 }
 
-std::auto_ptr<DBEntry> TableA::AllocEntry(const DBRequestKey *k) const {
+std::unique_ptr<DBEntry> TableA::AllocEntry(const DBRequestKey *k) const {
     const EntryKey *key = static_cast<const EntryKey *>(k);
     EntryA *entry = new EntryA(key->id_);
-    return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(entry));
+    return std::unique_ptr<DBEntry>(static_cast<DBEntry *>(entry));
 }
 
 DBEntry *TableA::Add(const DBRequest *req) {
@@ -98,15 +98,15 @@ void TableA::Register() {
 };
 
 EntryB *TableA::FindBRef(const EntryKey &k) const {
-    auto_ptr<EntryKey> key(new EntryKey());
+    unique_ptr<EntryKey> key(new EntryKey());
     key->id_ = k.id_;
     return static_cast<EntryB *>(table_b_->FindActiveEntry(key.get()));
 }
 
-std::auto_ptr<DBEntry> TableB::AllocEntry(const DBRequestKey *k) const {
+std::unique_ptr<DBEntry> TableB::AllocEntry(const DBRequestKey *k) const {
     const EntryKey *key = static_cast<const EntryKey *>(k);
     EntryB *entry = new EntryB(key->id_);
-    return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(entry));
+    return std::unique_ptr<DBEntry>(static_cast<DBEntry *>(entry));
 }
 
 DBEntry *TableB::Add(const DBRequest *req) {
@@ -145,7 +145,7 @@ void TableB::Register() {
 }
 
 EntryA *TableB::FindA(const EntryKey &k) const {
-    auto_ptr<EntryKey> key(new EntryKey());
+    unique_ptr<EntryKey> key(new EntryKey());
     key->id_ = k.id_;
     return static_cast<EntryA *>(table_b_->FindActiveEntry(key.get()));
 }
@@ -221,8 +221,8 @@ tbb::atomic<long> ClientA::del_notification;
 tbb::atomic<long> ClientB::adc_notification;
 tbb::atomic<long> ClientB::del_notification;
 
-std::auto_ptr<ClientA> client_a;
-std::auto_ptr<ClientB> client_b;
+std::unique_ptr<ClientA> client_a;
+std::unique_ptr<ClientB> client_b;
 
 void init_db_tables() {
     TableA::Register();

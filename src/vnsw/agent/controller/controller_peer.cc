@@ -267,7 +267,7 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
     }
 
     //Call Auto-generated Code to return struct
-    auto_ptr<AutogenProperty> xparser(new AutogenProperty());
+    unique_ptr<AutogenProperty> xparser(new AutogenProperty());
     if (EnetItemsType::XmlParseProperty(node, &xparser) == false) {
         CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
                          "Xml Parsing for evpn Failed");
@@ -421,7 +421,7 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
     }
 
     //Call Auto-generated Code to return struct
-    auto_ptr<AutogenProperty> xparser(new AutogenProperty());
+    unique_ptr<AutogenProperty> xparser(new AutogenProperty());
     if (McastItemsType::XmlParseProperty(node, &xparser) == false) {
         CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
                         "Xml Parsing for Multicast Message Failed");
@@ -561,7 +561,7 @@ void AgentXmppChannel::ReceiveV4V6Update(XmlPugi *pugi) {
         }
            
         //Call Auto-generated Code to return struct
-        auto_ptr<AutogenProperty> xparser(new AutogenProperty());
+        unique_ptr<AutogenProperty> xparser(new AutogenProperty());
         if (ItemsType::XmlParseProperty(node, &xparser) == false) {
             CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
                              "Xml Parsing Failed");
@@ -697,7 +697,7 @@ void AgentXmppChannel::AddEcmpRoute(string vrf_name, IpAddress prefix_addr,
                     //of type composite
                     nh_key->SetPolicy(false);
                 }
-                std::auto_ptr<const NextHopKey> nh_key_ptr(nh_key);
+                std::unique_ptr<const NextHopKey> nh_key_ptr(nh_key);
                 ComponentNHKeyPtr component_nh_key(new ComponentNHKey(label,
                                                    nh_key_ptr));
                 comp_nh_list.push_back(component_nh_key);
@@ -709,7 +709,7 @@ void AgentXmppChannel::AddEcmpRoute(string vrf_name, IpAddress prefix_addr,
                                                   agent_->router_id(),
                                                   addr.to_v4(), false,
                                                   TunnelType::ComputeType(encap));
-            std::auto_ptr<const NextHopKey> nh_key_ptr(nh_key);
+            std::unique_ptr<const NextHopKey> nh_key_ptr(nh_key);
             ComponentNHKeyPtr component_nh_key(new ComponentNHKey(label,
                                                                   nh_key_ptr));
             comp_nh_list.push_back(component_nh_key);
@@ -1151,7 +1151,7 @@ void AgentXmppChannel::AddRoute(string vrf_name, IpAddress prefix_addr,
 
 void AgentXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
     if (msg && msg->type == XmppStanza::MESSAGE_STANZA) {
-        auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+        unique_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
         XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
         XmlPugi *msg_pugi = reinterpret_cast<XmlPugi *>(msg->dom.get());
         pugi->LoadXmlDoc(msg_pugi->doc());
@@ -1164,7 +1164,7 @@ void AgentXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
     }
 }
 
-void AgentXmppChannel::ReceiveBgpMessage(std::auto_ptr<XmlBase> impl) {
+void AgentXmppChannel::ReceiveBgpMessage(std::unique_ptr<XmlBase> impl) {
     if (agent_->stats())
         agent_->stats()->incr_xmpp_in_msgs(xs_idx_);
 
@@ -1405,7 +1405,7 @@ void AgentXmppChannel::SetMulticastPeer(AgentXmppChannel *old_peer,
 
 void AgentXmppChannel::XmppClientChannelEvent(AgentXmppChannel *peer,
                                               xmps::PeerState state) {
-    std::auto_ptr<XmlBase> dummy_dom;
+    std::unique_ptr<XmlBase> dummy_dom;
     boost::shared_ptr<ControllerXmppData> data(new ControllerXmppData(xmps::BGP,
                                                    state,
                                                    peer->GetXmppServerIdx(),
@@ -1645,7 +1645,7 @@ bool AgentXmppChannel::ControllerSendVmCfgSubscribe(AgentXmppChannel *peer,
     }
 
     //Build the DOM tree
-    auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
+    unique_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
     XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
 
     pugi->AddNode("iq", "");
@@ -1693,7 +1693,7 @@ bool AgentXmppChannel::ControllerSendCfgSubscribe(AgentXmppChannel *peer) {
     }
 
     //Build the DOM tree
-    auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
+    unique_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
     XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
 
     pugi->AddNode("iq", "");
@@ -1736,7 +1736,7 @@ bool AgentXmppChannel::ControllerSendSubscribe(AgentXmppChannel *peer,
     CONTROLLER_INFO_TRACE(Trace, peer->GetBgpPeerName(), vrf->GetName(),
                      subscribe ? "Subscribe" : "Unsubscribe");
     //Build the DOM tree
-    auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
+    unique_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
     XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
 
     pugi->AddNode("iq", "");
@@ -1801,7 +1801,7 @@ bool AgentXmppChannel::ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
     size_t datalen_;
 
     //Build the DOM tree
-    auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
+    unique_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
     XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
 
     if (type == Agent::INET4_UNICAST) {
@@ -2172,7 +2172,7 @@ bool AgentXmppChannel::BuildAndSendEvpnDom(EnetItemType &item,
     size_t datalen_;
 
     //Build the DOM tree
-    auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
+    unique_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
     XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
 
     pugi->AddNode("iq", "");
@@ -2309,7 +2309,7 @@ bool AgentXmppChannel::ControllerSendMcastRouteCommon(AgentRoute *route,
                                 route->ToString());
 
     //Build the DOM tree
-    auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
+    unique_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
     XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
 
     item.entry.nlri.af = BgpAf::IPv4;

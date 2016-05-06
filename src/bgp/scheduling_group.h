@@ -160,7 +160,7 @@ private:
     typedef IndexMap<RibOut *, RibState> RibStateMap;
 
     void MaybeStartWorker();
-    std::auto_ptr<WorkBase> WorkDequeue();
+    std::unique_ptr<WorkBase> WorkDequeue();
     void WorkEnqueue(WorkBase *wentry);
     void WorkPeerEnqueue(IPeerUpdate *peer);
     void WorkRibOutEnqueue(RibOut *ribout, int queue_id);

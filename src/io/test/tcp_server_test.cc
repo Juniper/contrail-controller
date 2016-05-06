@@ -190,8 +190,8 @@ protected:
             boost::bind(&EchoServerTest::DummyTimerHandler, this, session,
                         boost::asio::placeholders::error));
     }
-    auto_ptr<ServerThread> thread_;
-    auto_ptr<EventManager> evm_;
+    unique_ptr<ServerThread> thread_;
+    unique_ptr<EventManager> evm_;
     EchoServer *server_;
     boost::asio::deadline_timer timer_;
     EchoSession *session_;
@@ -351,7 +351,7 @@ class ReaderTestSession : public TcpSession {
         return true;
     }
 
-    std::auto_ptr<ReaderTest> reader_;
+    std::unique_ptr<ReaderTest> reader_;
     vector<int> sizes;
     int release_count_;
 };

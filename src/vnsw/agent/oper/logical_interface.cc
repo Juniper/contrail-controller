@@ -20,7 +20,7 @@
 #include <string>
 
 using std::string;
-using std::auto_ptr;
+using std::unique_ptr;
 using boost::uuids::uuid;
 
 /////////////////////////////////////////////////////////////////////////////

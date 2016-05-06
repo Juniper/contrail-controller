@@ -113,7 +113,7 @@ public:
 
              //
              // Update the channel stored in bgp_xmpp_channel to this new mock
-             // channel. Old gets deleted via auto_ptr
+             // channel. Old gets deleted via unique_ptr
              //
              mux->connection()->SetChannelMux(xmpp_mux_ch_);
          }
@@ -212,7 +212,7 @@ protected:
 
     EventManager evm_;
     ServerThread thread_;
-    auto_ptr<BgpServerTest> a_;
+    unique_ptr<BgpServerTest> a_;
     XmppServer *xs_a_;
     boost::scoped_ptr<test::NetworkAgentMock> agent_a_;
     BgpXmppChannelManagerMock *bgp_channel_manager_;

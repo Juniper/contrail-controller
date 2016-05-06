@@ -56,7 +56,7 @@ public:
         XmppStanzaErrorType error;
         std::string from;
         std::string to;
-        std::auto_ptr<XmlBase> dom;
+        std::unique_ptr<XmlBase> dom;
 
         bool IsValidType(XmppMessageType type) const {
             return (type > INVALID && type < RESERVED_STANZA);
@@ -204,7 +204,7 @@ private:
     static XmppStanza::XmppMessage *DecodeInternal(const std::string &ts,
                                                    XmlBase *impl); 
 
-    static std::auto_ptr<XmlBase> open_doc_;
+    static std::unique_ptr<XmlBase> open_doc_;
 
     XmppProto();
     ~XmppProto();

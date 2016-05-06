@@ -62,16 +62,16 @@ bool ThriftIf::Db_UseColumnfamily(const GenDb::NewCf& cf) {
 }
 
 // Column
-bool ThriftIf::Db_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
+bool ThriftIf::Db_AddColumn(std::unique_ptr<GenDb::ColList> cl) {
     return impl_->Db_AddColumn(cl);
 }
 
-bool ThriftIf::Db_AddColumn(std::auto_ptr<GenDb::ColList> cl,
+bool ThriftIf::Db_AddColumn(std::unique_ptr<GenDb::ColList> cl,
     GenDb::GenDbIf::DbAddColumnCb cb) {
     return Db_AddColumn(cl);
 }
 
-bool ThriftIf::Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl) {
+bool ThriftIf::Db_AddColumnSync(std::unique_ptr<GenDb::ColList> cl) {
     return impl_->Db_AddColumnSync(cl);
 }
 

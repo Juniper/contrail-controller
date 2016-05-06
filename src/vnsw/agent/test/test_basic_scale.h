@@ -801,8 +801,8 @@ protected:
     XmppConnection *sconnection[MAX_CHANNEL];
     XmppChannel *cchannel[MAX_CHANNEL];
 
-    auto_ptr<AgentBgpXmppPeerTest> bgp_peer[MAX_CHANNEL];
-    auto_ptr<ControlNodeMockBgpXmppPeer> mock_peer[MAX_CHANNEL];
+    unique_ptr<AgentBgpXmppPeerTest> bgp_peer[MAX_CHANNEL];
+    unique_ptr<ControlNodeMockBgpXmppPeer> mock_peer[MAX_CHANNEL];
     Agent *agent_;
     struct PortInfo *input;
 };

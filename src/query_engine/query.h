@@ -513,10 +513,10 @@ public:
     // fields/NULL for flow series)
     std::string cfname; 
 
-    std::auto_ptr<BufT> result_;
-    std::auto_ptr<MapBufT> mresult_;
+    std::unique_ptr<BufT> result_;
+    std::unique_ptr<MapBufT> mresult_;
    
-    std::auto_ptr<StatsSelect> stats_;
+    std::unique_ptr<StatsSelect> stats_;
 
     enum fs_query_type {
         FS_SELECT_INVALID = 0x0,
@@ -711,8 +711,8 @@ public:
 
     // result after post processing
 
-    std::auto_ptr<BufT> result_;
-    std::auto_ptr<MapBufT> mresult_;
+    std::unique_ptr<BufT> result_;
+    std::unique_ptr<MapBufT> mresult_;
 
     bool sort_field_comparator(const QEOpServerProxy::ResultRowT& lhs,
                                const QEOpServerProxy::ResultRowT& rhs);
@@ -778,8 +778,8 @@ public:
     bool  filter_qe_logs;   // whether to filter query engine logs
 
     // final result of the query
-    std::auto_ptr<QEOpServerProxy::BufferT> final_result;
-    std::auto_ptr<QEOpServerProxy::OutRowMultimapT> final_mresult;
+    std::unique_ptr<QEOpServerProxy::BufferT> final_result;
+    std::unique_ptr<QEOpServerProxy::OutRowMultimapT> final_mresult;
 
     std::map<std::string, std::string> json_api_data_;
 
@@ -860,7 +860,7 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
 
     const StatsQuery& stats(void) const { return *stats_; }
     private:
-    std::auto_ptr<StatsQuery> stats_;
+    std::unique_ptr<StatsQuery> stats_;
     // Analytics table to query
     std::string table_; 
     // query start time requested by the user

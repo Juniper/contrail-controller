@@ -159,7 +159,7 @@ private:
         return timer_task_id;
     }
 
-    std::auto_ptr<TimerImpl> impl_;
+    std::unique_ptr<TimerImpl> impl_;
     std::string name_;
     Handler handler_;
     ErrorHandler error_handler_;

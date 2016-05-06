@@ -61,7 +61,7 @@ private:
     void UpdateNeighbor(NeighborMap::iterator iter1,
                         NeighborMap::iterator iter2);
 
-    std::auto_ptr<Configuration> data_;
+    std::unique_ptr<Configuration> data_;
 };
 
 #endif  // BGP_BGP_CONFIG_YAML_H__

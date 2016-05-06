@@ -43,7 +43,10 @@ void LoggingInit() {
     BasicConfigurator config;
     config.configure();
     Logger logger = Logger::getRoot();
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     std::auto_ptr<Layout> layout_ptr(new PatternLayout(loggingPattern));
+#pragma GCC diagnostic pop
     logger.getAllAppenders().at(0)->setLayout(layout_ptr);
     CheckEnvironmentAndUpdate();
 }
@@ -62,7 +65,10 @@ void LoggingInit(const std::string &filename, long maxFileSize, int maxBackupInd
         logger.addAppender(fileappender);
     }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     std::auto_ptr<Layout> layout_ptr(new PatternLayout(loggingPattern));
+#pragma GCC diagnostic pop
     logger.getAllAppenders().at(0)->setLayout(layout_ptr);
 
     if (useSyslog) {
@@ -75,8 +81,11 @@ void LoggingInit(const std::string &filename, long maxFileSize, int maxBackupInd
                         : syslogFacility);
         props.setProperty(LOG4CPLUS_TEXT("ident"), syslogident);
         SharedAppenderPtr syslogappender(new SysLogAppender(props));
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         std::auto_ptr<Layout> syslog_layout_ptr(new PatternLayout(
                                                     loggingPattern));
+#pragma GCC diagnostic pop
         syslogappender->setLayout(syslog_layout_ptr);
         logger.addAppender(syslogappender);
     }

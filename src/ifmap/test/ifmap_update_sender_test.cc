@@ -97,7 +97,7 @@ protected:
         IFMapTable::RequestKey key;
         key.id_type = "virtual-network";
         key.id_name = name;
-        auto_ptr<DBEntry> entry(tbl_->AllocEntry(&key));
+        unique_ptr<DBEntry> entry(tbl_->AllocEntry(&key));
         IFMapNode *node = static_cast<IFMapNode *>(entry.release());
         node_map_.insert(make_pair(name, node));
         IFMapExporter *exporter = server_.exporter();

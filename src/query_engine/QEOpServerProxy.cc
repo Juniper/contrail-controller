@@ -37,7 +37,7 @@ using boost::tuple;
 using boost::shared_ptr;
 using boost::scoped_ptr;
 using std::pair;
-using std::auto_ptr;
+using std::unique_ptr;
 using std::make_pair;
 using process::ConnectionState;
 using process::ConnectionType;
@@ -210,8 +210,8 @@ public:
     }
 
 
-    void QECallback(void * qid, QPerfInfo qperf, auto_ptr<QEOpServerProxy::BufferT> res, 
-            auto_ptr<QEOpServerProxy::OutRowMultimapT> mres) {
+    void QECallback(void * qid, QPerfInfo qperf, unique_ptr<QEOpServerProxy::BufferT> res, 
+            unique_ptr<QEOpServerProxy::OutRowMultimapT> mres) {
 
         RawResultT* raw(new RawResultT);
         raw->first = qperf;
@@ -225,7 +225,7 @@ public:
         if (rpi) {
             QE_LOG_NOQID(DEBUG,  " Rx data from QE for " <<
                     rpi->Key());
-            auto_ptr<RawResultT> rp(raw);
+            unique_ptr<RawResultT> rp(raw);
             rpi->Response(rp);
         }
     }
@@ -462,7 +462,7 @@ public:
                     ret.inp = inp.inp;
                     RedisAsyncConnection * rac = conns_[ret.inp.cnum].get();
                     std::stringstream keystr;
-                    auto_ptr<QEOutputT> jsonresult(new QEOutputT);
+                    unique_ptr<QEOutputT> jsonresult(new QEOutputT);
 
                     QE_LOG_NOQID(INFO,  "Will Jsonify #rows " << 
                         inp.result.size() + inp.mresult.size());
@@ -943,7 +943,7 @@ public:
             return;
         }
 
-        auto_ptr<RedisT> fullReply;
+        unique_ptr<RedisT> fullReply;
         vector<string> elements;
 
         if (r == NULL) {
@@ -1042,7 +1042,7 @@ QEOpServerProxy::~QEOpServerProxy() {}
 
 void
 QEOpServerProxy::QueryResult(void * qid, QPerfInfo qperf,
-        auto_ptr<BufferT> res, auto_ptr<OutRowMultimapT> mres) {
+        unique_ptr<BufferT> res, unique_ptr<OutRowMultimapT> mres) {
         
     impl_->QECallback(qid, qperf, res, mres);
 }

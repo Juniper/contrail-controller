@@ -108,13 +108,13 @@ void AgentRouteTable::SetVrf(VrfEntry *vrf) {
 }
 
 // Allocate a route entry
-auto_ptr<DBEntry> AgentRouteTable::AllocEntry(const DBRequestKey *k) const {
+unique_ptr<DBEntry> AgentRouteTable::AllocEntry(const DBRequestKey *k) const {
     const AgentRouteKey *key = static_cast<const AgentRouteKey*>(k);
     VrfKey vrf_key(key->vrf_name());
     AgentRoute *route = 
         static_cast<AgentRoute *>(key->AllocRouteEntry(vrf_entry_.get(),
                                                        false));
-    return auto_ptr<DBEntry>(static_cast<DBEntry *>(route));
+    return unique_ptr<DBEntry>(static_cast<DBEntry *>(route));
 }
 
 // Delete all paths from BGP Peer. Delete route if no path left

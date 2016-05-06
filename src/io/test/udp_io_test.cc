@@ -169,10 +169,10 @@ class EchoServerTest : public ::testing::Test {
         task_util::WaitForIdle();
     }
 
-    std::auto_ptr<ServerThread> thread_;
+    std::unique_ptr<ServerThread> thread_;
     EchoServer *server_;
     EchoClient *client_;
-    std::auto_ptr<EventManager> evm_;
+    std::unique_ptr<EventManager> evm_;
 };
 
 
@@ -325,8 +325,8 @@ class UdpRecvTest : public ::testing::Test {
         }
         task_util::WaitForIdle();
     }
-    std::auto_ptr<ServerThread> thread_;
-    std::auto_ptr<EventManager> evm_;
+    std::unique_ptr<ServerThread> thread_;
+    std::unique_ptr<EventManager> evm_;
     UdpRecvServerTest *server_;
 };
 

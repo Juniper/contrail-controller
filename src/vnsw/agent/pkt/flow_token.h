@@ -10,7 +10,7 @@ class FlowTokenPool;
 class FlowEntry;
 class FlowProto;
 
-typedef std::auto_ptr<FlowToken> FlowTokenPtr;
+typedef std::unique_ptr<FlowToken> FlowTokenPtr;
 
 class FlowToken {
 public:

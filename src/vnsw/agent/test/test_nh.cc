@@ -386,12 +386,12 @@ TEST_F(CfgTest, EcmpNH_controller) {
                                           agent_->router_id(),
                                           ip1, false,
                                           TunnelType::MPLS_GRE);
-    std::auto_ptr<const NextHopKey> nh_key_ptr(nh_key);
+    std::unique_ptr<const NextHopKey> nh_key_ptr(nh_key);
     TunnelNHKey *nh_key_2 = new TunnelNHKey(agent_->fabric_vrf_name(),
                                             agent_->router_id(),
                                             ip2, false,
                                             TunnelType::MPLS_GRE);
-    std::auto_ptr<const NextHopKey> nh_key_ptr_2(nh_key_2);
+    std::unique_ptr<const NextHopKey> nh_key_ptr_2(nh_key_2);
 
     ComponentNHKeyPtr component_nh_key(new ComponentNHKey(1000,
                                                           nh_key_ptr));
@@ -1034,7 +1034,7 @@ TEST_F(CfgTest, EcmpNH_7) {
 
     DBEntryBase::KeyPtr comp_key = comp_nh->GetDBRequestKey();
     NextHopKey *nh_key = static_cast<NextHopKey *>(comp_key.release());
-    std::auto_ptr<const NextHopKey> nh_key_ptr(nh_key);
+    std::unique_ptr<const NextHopKey> nh_key_ptr(nh_key);
     ComponentNHKeyPtr nh_data1(new ComponentNHKey(rt->GetActiveLabel(),
                                                   nh_key_ptr));
     Ip4Address remote_server_ip1 = Ip4Address::from_string("11.1.1.1");
@@ -1539,7 +1539,7 @@ TEST_F(CfgTest, EcmpNH_14) {
 
     DBEntryBase::KeyPtr db_nh_key = nh->GetDBRequestKey();
     NextHopKey *nh_key = static_cast<NextHopKey *>(db_nh_key.release());
-    std::auto_ptr<const NextHopKey> nh_key_ptr(nh_key);
+    std::unique_ptr<const NextHopKey> nh_key_ptr(nh_key);
     ComponentNHKeyPtr nh_data1(new ComponentNHKey(rt->GetActiveLabel(),
                                                   nh_key_ptr));
     Ip4Address remote_server_ip1 = Ip4Address::from_string("11.1.1.1");
@@ -1817,7 +1817,7 @@ TEST_F(CfgTest, EcmpNH_17) {
                                                   TunnelType::DefaultType()));
     DBEntryBase::KeyPtr key = nh->GetDBRequestKey();
     NextHopKey *nh_key = static_cast<NextHopKey *>(key.release());
-    std::auto_ptr<const NextHopKey> nh_akey(nh_key);
+    std::unique_ptr<const NextHopKey> nh_akey(nh_key);
     nh_key->SetPolicy(false);
     ComponentNHKeyPtr nh_data2(new ComponentNHKey(intf->label(), nh_akey));
 
@@ -2415,7 +2415,7 @@ TEST_F(CfgTest, EcmpNH_18) {
     //Transition remote VM route to ECMP route
     DBEntryBase::KeyPtr key = nh->GetDBRequestKey();
     NextHopKey *nh_key = static_cast<NextHopKey *>(key.release());
-    std::auto_ptr<const NextHopKey> nh_akey(nh_key);
+    std::unique_ptr<const NextHopKey> nh_akey(nh_key);
     ComponentNHKeyPtr nh_data1(new ComponentNHKey(rt->GetActiveLabel(), nh_akey));
 
     ComponentNHKeyList comp_nh_list;

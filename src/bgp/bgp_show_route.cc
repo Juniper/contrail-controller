@@ -14,7 +14,7 @@
 #include "bgp/routing-instance/routing_instance.h"
 
 using boost::assign::list_of;
-using std::auto_ptr;
+using std::unique_ptr;
 using std::string;
 using std::vector;
 
@@ -25,8 +25,8 @@ static bool IsLess(const ShowRoute &lhs, const ShowRoute &rhs,
     if (!table) {
         return false;
     }
-    auto_ptr<DBEntry> lhs_entry = table->AllocEntryStr(lhs.prefix);
-    auto_ptr<DBEntry> rhs_entry = table->AllocEntryStr(rhs.prefix);
+    unique_ptr<DBEntry> lhs_entry = table->AllocEntryStr(lhs.prefix);
+    unique_ptr<DBEntry> rhs_entry = table->AllocEntryStr(rhs.prefix);
 
     Route *lhs_route = static_cast<Route *>(lhs_entry.get());
     Route *rhs_route = static_cast<Route *>(rhs_entry.get());
@@ -155,10 +155,10 @@ public:
         bool exact_lookup = false;
         if (!req_->get_prefix().empty() && !req_->get_longer_match()) {
             exact_lookup = true;
-            auto_ptr<DBEntry> key = table->AllocEntryStr(req_->get_prefix());
+            unique_ptr<DBEntry> key = table->AllocEntryStr(req_->get_prefix());
             route = static_cast<BgpRoute *>(partition->Find(key.get()));
         } else if (table->name() == req_->get_start_routing_table()) {
-            auto_ptr<DBEntry> key =
+            unique_ptr<DBEntry> key =
                 table->AllocEntryStr(req_->get_start_prefix());
             route = static_cast<BgpRoute *>(partition->lower_bound(key.get()));
         } else {
@@ -588,7 +588,8 @@ void ShowRouteReq::HandleRequest() const {
     s2.cbFn_ = ShowRouteHandler::CallbackS2;
     s2.instances_.push_back(0);
 
-    ps.stages_= list_of(s1)(s2);
+    ps.stages_= list_of(s1)(s2).convert_to_container<
+                                    vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 
@@ -616,6 +617,7 @@ void ShowRouteReqIterate::HandleRequest() const {
     s2.cbFn_ = ShowRouteHandler::CallbackS2Iterate;
     s2.instances_.push_back(0);
 
-    ps.stages_= list_of(s1)(s2);
+    ps.stages_= list_of(s1)(s2).convert_to_container<
+                                    vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }

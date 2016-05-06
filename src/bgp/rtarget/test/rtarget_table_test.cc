@@ -56,7 +56,7 @@ protected:
     BgpServer server_;
     RTargetTable *rtable_;
     DBTableBase::ListenerId tid_;
-    std::auto_ptr<BgpInstanceConfig> master_cfg_;
+    std::unique_ptr<BgpInstanceConfig> master_cfg_;
 
     tbb::atomic<long> adc_notification_;
     tbb::atomic<long> del_notification_;
@@ -205,7 +205,7 @@ TEST_F(RTargetTableTest, SinglePartition) {
 
 TEST_F(RTargetTableTest, AllocEntryStr) {
     string prefix_str("64512:target:64512:1");
-    std::auto_ptr<DBEntry> route = rtable_->AllocEntryStr(prefix_str);
+    std::unique_ptr<DBEntry> route = rtable_->AllocEntryStr(prefix_str);
     EXPECT_EQ(prefix_str, route->ToString());
 }
 

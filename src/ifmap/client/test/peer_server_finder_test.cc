@@ -97,7 +97,7 @@ protected:
         peer_finder_->ProcPeerIFMapDSResp(ds_resp);
     }
 
-    std::auto_ptr<PeerIFMapServerTestFinder> peer_finder_;
+    std::unique_ptr<PeerIFMapServerTestFinder> peer_finder_;
     MockIFMapManager ifmap_manager_;
 };
 

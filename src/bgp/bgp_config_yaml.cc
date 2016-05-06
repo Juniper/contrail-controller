@@ -425,7 +425,7 @@ static bool ParseBgpNeighbors(BgpYamlConfigManager::Configuration *data,
             return false;
         }
         LOG(DEBUG, "neighbor: " << address);
-        auto_ptr<BgpNeighborConfig> neighbor(new BgpNeighborConfig());
+        unique_ptr<BgpNeighborConfig> neighbor(new BgpNeighborConfig());
         neighbor->CopyValues(*tmpl);
         neighbor->set_name(address);
         neighbor->set_peer_address(ipaddress);
@@ -679,7 +679,7 @@ bool BgpYamlConfigManager::Parse(istream *stream, string *error_msg) {
     }
 
     YAML::Node bgp = config["bgp"];
-    auto_ptr<Configuration> candidate(new Configuration());
+    unique_ptr<Configuration> candidate(new Configuration());
     if (bgp && !ParseBgp(candidate.get(), bgp, error_msg)) {
         return false;
     }

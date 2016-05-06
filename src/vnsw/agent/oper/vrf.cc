@@ -363,10 +363,10 @@ void VrfEntry::ResyncRoutes() {
     route_resync_walker_.get()->UpdateRoutesInVrf(this);
 }
 
-std::auto_ptr<DBEntry> VrfTable::AllocEntry(const DBRequestKey *k) const {
+std::unique_ptr<DBEntry> VrfTable::AllocEntry(const DBRequestKey *k) const {
     const VrfKey *key = static_cast<const VrfKey *>(k);
     VrfEntry *vrf = new VrfEntry(key->name_, 0, agent());
-    return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(vrf));
+    return std::unique_ptr<DBEntry>(static_cast<DBEntry *>(vrf));
 }
 
 VrfTable::~VrfTable() {

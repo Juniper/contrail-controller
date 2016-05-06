@@ -106,7 +106,7 @@ public:
     virtual size_t Hash(const DBEntry *entry) const {return 0;};
     virtual size_t Hash(const DBRequestKey *key) const {return 0;};
 
-    virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
+    virtual std::unique_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
     virtual DBEntry *Add(const DBRequest *req);
     virtual bool OnChange(DBEntry *entry, const DBRequest *req);
     virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,

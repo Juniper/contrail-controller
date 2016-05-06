@@ -92,7 +92,7 @@ struct ExternalBase {
 template<typename ExternalT>
 struct ExternalProcIf : public ExternalBase {
     virtual std::string Key() const = 0;
-    virtual void Response(std::auto_ptr<ExternalT>) = 0;
+    virtual void Response(std::unique_ptr<ExternalT>) = 0;
     virtual ~ExternalProcIf() {}
 };
 

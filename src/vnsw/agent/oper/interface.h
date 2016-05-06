@@ -304,7 +304,7 @@ public:
     void RegisterDBClients(IFMapDependencyManager *dep);
 
     // DBTable virtual functions
-    std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
+    std::unique_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
     size_t Hash(const DBEntry *entry) const { return 0; }
     size_t Hash(const DBRequestKey *key) const { return 0; }
     virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,

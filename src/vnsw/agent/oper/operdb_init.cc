@@ -167,10 +167,10 @@ void OperDB::CreateDBTables(DB *db) {
     agent_->set_vxlan_table(vxlan_table);
     vxlan_table->set_agent(agent_);
 
-    multicast_ = std::auto_ptr<MulticastHandler>(new MulticastHandler(agent_));
-    global_vrouter_ = std::auto_ptr<GlobalVrouter> (new GlobalVrouter(this));
+    multicast_ = std::unique_ptr<MulticastHandler>(new MulticastHandler(agent_));
+    global_vrouter_ = std::unique_ptr<GlobalVrouter> (new GlobalVrouter(this));
     route_preference_module_ =
-        std::auto_ptr<PathPreferenceModule>(new PathPreferenceModule(agent_));
+        std::unique_ptr<PathPreferenceModule>(new PathPreferenceModule(agent_));
     route_preference_module_->Init();
 
     ServiceInstanceTable *si_table =
@@ -190,8 +190,8 @@ void OperDB::CreateDBTables(DB *db) {
                                              "db.physical_device_vn.0");
     agent_->set_physical_device_vn_table(dev_vn_table);
     profile_.reset(new AgentProfile(agent_, true));
-    vrouter_ = std::auto_ptr<VRouter> (new VRouter(this));
-    bgp_as_a_service_ = std::auto_ptr<BgpAsAService>(new BgpAsAService(agent_));
+    vrouter_ = std::unique_ptr<VRouter> (new VRouter(this));
+    bgp_as_a_service_ = std::unique_ptr<BgpAsAService>(new BgpAsAService(agent_));
 }
 
 void OperDB::Init() {

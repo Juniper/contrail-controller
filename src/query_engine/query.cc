@@ -1427,7 +1427,7 @@ QueryEngine::QueryExec(void * handle, QueryParams qp, uint32_t chunk)
              " Got Query to execute for QID " << qid << " chunk:"<< chunk);
     //GenDb::GenDbIf *db_if = dbif_.get();
     if (cassandra_ports_.size() == 1 && cassandra_ports_[0] == 0) {
-        std::auto_ptr<QEOpServerProxy::BufferT> final_output(new QEOpServerProxy::BufferT);
+        std::unique_ptr<QEOpServerProxy::BufferT> final_output(new QEOpServerProxy::BufferT);
         QEOpServerProxy::OutRowT outrow = boost::assign::map_list_of(
             "MessageTS", "1368037623434740")(
             "Messagetype", "IFMapString")(
@@ -1435,7 +1435,7 @@ QueryEngine::QueryExec(void * handle, QueryParams qp, uint32_t chunk)
             "Source","b1s1")(
             "ObjectLog","\n<IFMapString type=\"sandesh\"><message type=\"string\" identifier=\"1\">Cancelling Response timer.</message><file type=\"string\" identifier=\"-32768\">src/ifmap/client/ifmap_state_machine.cc</file><line type=\"i32\" identifier=\"-32767\">578</line></IFMapString>");
         QEOpServerProxy::MetadataT metadata;
-        std::auto_ptr<QEOpServerProxy::OutRowMultimapT> final_moutput(new QEOpServerProxy::OutRowMultimapT);
+        std::unique_ptr<QEOpServerProxy::OutRowMultimapT> final_moutput(new QEOpServerProxy::OutRowMultimapT);
         for (int i = 0 ; i < 100; i++)
             final_output->push_back(std::make_pair(outrow, metadata));
         QE_TRACE_NOQID(DEBUG, " Finished query processing for QID " << qid << " chunk:" << chunk);

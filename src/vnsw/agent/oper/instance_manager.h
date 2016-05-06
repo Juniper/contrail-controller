@@ -147,7 +147,7 @@ class InstanceManager {
     std::string namespace_store_path_;
     int stale_timer_interval_;
     Timer *stale_timer_;
-    std::auto_ptr<NamespaceStaleCleaner> stale_cleaner_;
+    std::unique_ptr<NamespaceStaleCleaner> stale_cleaner_;
     Agent *agent_;
 
     std::vector<InstanceManagerAdapter *> adapters_;

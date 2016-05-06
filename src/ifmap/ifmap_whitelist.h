@@ -87,7 +87,7 @@ public:
                                         IFMapTypenameWhiteList *white_list);
 
 private:
-    std::auto_ptr<DBGraph> graph_;
+    std::unique_ptr<DBGraph> graph_;
     vnc_cfg_FilterInfo filter_info_;
     IFMapGTFVisitor visitor_;
     // pointer-maps for automatic disposal of allocated memory

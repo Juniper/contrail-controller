@@ -223,7 +223,7 @@ public:
             default_flow_stats_collector();
         int task_id =
             agent->task_scheduler()->GetTaskId(kTaskFlowStatsCollector);
-        std::auto_ptr<TaskTrigger> trigger_
+        std::unique_ptr<TaskTrigger> trigger_
             (new TaskTrigger(boost::bind(FlowStatsTimerStartStopTrigger,
                                          fsc, stop),
                              task_id, 0));

@@ -165,17 +165,17 @@ public:
     void WaitForDBEmpty();
 
 private:
-    std::auto_ptr<Agent> agent_;
+    std::unique_ptr<Agent> agent_;
     AgentParam *agent_param_;
 
-    std::auto_ptr<TaskTrigger> trigger_;
+    std::unique_ptr<TaskTrigger> trigger_;
 
-    std::auto_ptr<AgentStats> stats_;
-    std::auto_ptr<AgentConfig> cfg_;
-    std::auto_ptr<OperDB> oper_;
+    std::unique_ptr<AgentStats> stats_;
+    std::unique_ptr<AgentConfig> cfg_;
+    std::unique_ptr<OperDB> oper_;
 
     bool enable_controller_;
-    std::auto_ptr<VNController> controller_;
+    std::unique_ptr<VNController> controller_;
 
     DISALLOW_COPY_AND_ASSIGN(AgentInit);
 };

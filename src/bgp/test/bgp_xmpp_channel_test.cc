@@ -275,9 +275,9 @@ protected:
         return content;
     }
 
-    std::auto_ptr<XmppStanza::XmppMessageIq> GetSubscribe(string rt_instance_name,
+    std::unique_ptr<XmppStanza::XmppMessageIq> GetSubscribe(string rt_instance_name,
                                           bool subscribe) {
-        std::auto_ptr<XmppStanza::XmppMessageIq> msg(AllocIq());
+        std::unique_ptr<XmppStanza::XmppMessageIq> msg(AllocIq());
         pugi::xml_document *doc = subscribe ? enc_->SubscribeXmlDoc(rt_instance_name, 1) :
             enc_->UnsubscribeXmlDoc(rt_instance_name, 1);
         msg->action = string(subscribe ? "subscribe" : "unsubscribe");
@@ -287,9 +287,9 @@ protected:
         return msg;
     }
 
-    std::auto_ptr<XmppStanza::XmppMessageIq> RouteAddMsg(string rt_instance_name,
+    std::unique_ptr<XmppStanza::XmppMessageIq> RouteAddMsg(string rt_instance_name,
                                          const string &ipa) {
-        std::auto_ptr<XmppStanza::XmppMessageIq> msg(AllocIq());
+        std::unique_ptr<XmppStanza::XmppMessageIq> msg(AllocIq());
         pugi::xml_document *doc = enc_->RouteAddXmlDoc(rt_instance_name, ipa);
         msg->dom.reset(GetXmlDoc(doc));
         msg->node = rt_instance_name;
@@ -297,9 +297,9 @@ protected:
         return msg;
     }
 
-    std::auto_ptr<XmppStanza::XmppMessageIq> RouteDelMsg(string rt_instance_name,
+    std::unique_ptr<XmppStanza::XmppMessageIq> RouteDelMsg(string rt_instance_name,
                                          const string &ipa) {
-        std::auto_ptr<XmppStanza::XmppMessageIq> msg(AllocIq());
+        std::unique_ptr<XmppStanza::XmppMessageIq> msg(AllocIq());
         pugi::xml_document *doc = enc_->RouteDeleteXmlDoc(rt_instance_name, ipa);
         msg->dom.reset(GetXmlDoc(doc));
         msg->node = rt_instance_name;
@@ -402,7 +402,7 @@ TEST_F(BgpXmppChannelTest, Connection) {
         ;
 
     // subscribe to routing instance purple
-    std::auto_ptr<XmppStanza::XmppMessageIq> msg;
+    std::unique_ptr<XmppStanza::XmppMessageIq> msg;
     msg = GetSubscribe("purple", true);
     this->ReceiveUpdate(a.get(), msg.get());
 

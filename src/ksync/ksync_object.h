@@ -296,7 +296,7 @@ public:
     static KSyncObjectManager *GetInstance();
 private:
     WorkQueue<KSyncObjectEvent *> *event_queue_;
-    static std::auto_ptr<KSyncEntry> default_defer_entry_;
+    static std::unique_ptr<KSyncEntry> default_defer_entry_;
     static KSyncObjectManager *singleton_;
 };
 

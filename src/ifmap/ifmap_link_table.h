@@ -43,7 +43,7 @@ public:
     void DeleteLink(DBGraphEdge *edge, IFMapNode *lhs, IFMapNode *rhs);
     void DeleteLink(IFMapNode *lhs, IFMapNode *rhs, const IFMapOrigin &origin);
 
-    virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *key) const;
+    virtual std::unique_ptr<DBEntry> AllocEntry(const DBRequestKey *key) const;
 
     void Clear();
 

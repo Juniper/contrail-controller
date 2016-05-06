@@ -28,7 +28,7 @@
 #include <base/misc_utils.h>
 #include <query_engine/buildinfo.h>
 #include <sandesh/sandesh_http.h>
-using std::auto_ptr;
+using std::unique_ptr;
 using std::string;
 using std::vector;
 using std::map;

@@ -728,7 +728,7 @@ public:
     virtual std::string ToString() const {return "Interface";}
 
 private:
-    std::auto_ptr<InterfaceKey> interface_key_;
+    std::unique_ptr<InterfaceKey> interface_key_;
     std::string vn_name_;
     DISALLOW_COPY_AND_ASSIGN(Inet4UnicastInterfaceRoute);
 };

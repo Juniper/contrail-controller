@@ -62,7 +62,7 @@ private:
     DBGraph *graph_;
     IFMapExporter *exporter_;
     boost::scoped_ptr<TaskTrigger> link_delete_walk_trigger_;
-    std::auto_ptr<IFMapTypenameWhiteList> traversal_white_list_;
+    std::unique_ptr<IFMapTypenameWhiteList> traversal_white_list_;
     BitSet link_delete_clients_;
     size_t walk_client_index_;
     ReachableNodesTracker new_reachable_nodes_tracker_;

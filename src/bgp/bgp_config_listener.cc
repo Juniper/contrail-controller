@@ -14,6 +14,7 @@
 using boost::assign::list_of;
 using boost::assign::map_list_of;
 using std::make_pair;
+using std::set;
 using std::string;
 
 BgpConfigListener::BgpConfigListener(BgpIfmapConfigManager *manager)
@@ -49,27 +50,33 @@ void BgpConfigListener::DependencyTrackerInit() {
 
     ReactionMap connection_react = map_list_of<string, PropagateList>
         ("self", list_of("connection"))
-        ("connection", list_of("connection"));
+        ("connection", list_of("connection").
+             convert_to_container<set<string> >());
     policy->insert(make_pair("connection", connection_react));
 
     ReactionMap rt_instance_react = map_list_of<string, PropagateList>
         ("instance-target", list_of("self")("connection"))
-        ("connection", list_of("self"))
-        ("virtual-network-routing-instance", list_of("self"))
-        ("routing-policy-routing-instance", list_of("self"))
-        ("route-aggregate-routing-instance", list_of("self"));
+        ("connection", list_of("self").convert_to_container<set<string> >())
+        ("virtual-network-routing-instance",
+             list_of("self").convert_to_container<set<string> >())
+        ("routing-policy-routing-instance",
+             list_of("self").convert_to_container<set<string> >())
+        ("route-aggregate-routing-instance",
+             list_of("self").convert_to_container<set<string> >());
     policy->insert(make_pair("routing-instance", rt_instance_react));
 
     ReactionMap routing_policy_assoc_react = map_list_of<string, PropagateList>
         ("self", list_of("routing-policy-routing-instance"))
         ("routing-policy-routing-instance",
-         list_of("routing-policy-routing-instance"));
+         list_of("routing-policy-routing-instance").
+             convert_to_container<set<string> >());
     policy->insert(make_pair("routing-policy-routing-instance",
                              routing_policy_assoc_react));
 
     ReactionMap routing_policy_react = map_list_of<string, PropagateList>
         ("self", list_of("routing-policy-routing-instance"))
-        ("routing-policy-routing-instance", list_of("self"));
+        ("routing-policy-routing-instance",
+             list_of("self").convert_to_container<set<string> >());
     policy->insert(make_pair("routing-policy", routing_policy_react));
 
     ReactionMap virtual_network_react = map_list_of<string, PropagateList>

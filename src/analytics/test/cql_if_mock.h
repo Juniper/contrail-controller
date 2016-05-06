@@ -15,11 +15,11 @@ class CqlIfMock : public cass::cql::CqlIf {
 
     ~CqlIfMock() {}
 
-    bool Db_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
+    bool Db_AddColumn(std::unique_ptr<GenDb::ColList> cl) {
         return Db_AddColumnProxy(cl.get());
     }
 
-    bool Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl) {
+    bool Db_AddColumnSync(std::unique_ptr<GenDb::ColList> cl) {
         return Db_AddColumnSyncProxy(cl.get());
     }
 

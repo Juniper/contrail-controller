@@ -44,10 +44,10 @@ void MirrorEntry::SetKey(const DBRequestKey *k) {
     analyzer_name_ = key->analyzer_name_;
 }
 
-std::auto_ptr<DBEntry> MirrorTable::AllocEntry(const DBRequestKey *k) const {
+std::unique_ptr<DBEntry> MirrorTable::AllocEntry(const DBRequestKey *k) const {
     const MirrorEntryKey *key = static_cast<const MirrorEntryKey *>(k);
     MirrorEntry *mirror_entry = new MirrorEntry(key->analyzer_name_);
-    return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(mirror_entry));
+    return std::unique_ptr<DBEntry>(static_cast<DBEntry *>(mirror_entry));
 }
 
 DBEntry *MirrorTable::Add(const DBRequest *req) {

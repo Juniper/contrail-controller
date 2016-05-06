@@ -60,7 +60,7 @@ bool AgentIfMapXmppChannel::SendUpdate(const std::string &msg) {
 
 void AgentIfMapXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
     if (msg && msg->type == XmppStanza::IQ_STANZA) {
-        std::auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+        std::unique_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
         XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
         XmlPugi *msg_pugi = reinterpret_cast<XmlPugi *>(msg->dom.get());
         pugi->LoadXmlDoc(msg_pugi->doc());
@@ -73,7 +73,7 @@ void AgentIfMapXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
     }
 }
 
-void AgentIfMapXmppChannel::ReceiveConfigMessage(std::auto_ptr<XmlBase> impl) {
+void AgentIfMapXmppChannel::ReceiveConfigMessage(std::unique_ptr<XmlBase> impl) {
 
     if (GetXmppServerIdx() != agent_->ifmap_active_xmpp_server_index()) {
         LOG(WARN, "IFMap config on non primary channel");

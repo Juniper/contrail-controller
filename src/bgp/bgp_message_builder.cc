@@ -12,7 +12,7 @@
 #include "bgp/bgp_server.h"
 #include "net/bgp_af.h"
 
-using std::auto_ptr;
+using std::unique_ptr;
 
 BgpMessage::BgpMessage(const BgpTable *table) : table_(table), datalen_(0) {
 }
@@ -249,7 +249,7 @@ const uint8_t *BgpMessage::GetData(IPeerUpdate *ipeer_update, size_t *lenp) {
 
 Message *BgpMessageBuilder::Create(const RibOut *ribout,
         const RibOutAttr *roattr, const BgpRoute *route) const {
-    auto_ptr<BgpMessage> msg(new BgpMessage(ribout->table()));
+    unique_ptr<BgpMessage> msg(new BgpMessage(ribout->table()));
     if (msg->Start(ribout, roattr, route)) {
         return msg.release();
     } else {

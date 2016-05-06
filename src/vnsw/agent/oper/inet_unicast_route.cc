@@ -381,14 +381,14 @@ AgentPath *InetUnicastRouteEntry::AllocateEcmpPath(Agent *agent,
     // Create Component NH to be added to ECMP path
     DBEntryBase::KeyPtr key1 = path1->ComputeNextHop(agent)->GetDBRequestKey();
     NextHopKey *nh_key1 = static_cast<NextHopKey *>(key1.release());
-    std::auto_ptr<const NextHopKey> nh_akey1(nh_key1);
+    std::unique_ptr<const NextHopKey> nh_akey1(nh_key1);
     nh_key1->SetPolicy(false);
     ComponentNHKeyPtr component_nh_data1(new ComponentNHKey(path1->label(),
                                                             nh_akey1));
 
     DBEntryBase::KeyPtr key2 = path2->ComputeNextHop(agent)->GetDBRequestKey();
     NextHopKey *nh_key2 = static_cast<NextHopKey *>(key2.release());
-    std::auto_ptr<const NextHopKey> nh_akey2(nh_key2);
+    std::unique_ptr<const NextHopKey> nh_akey2(nh_key2);
     nh_key2->SetPolicy(false);
     ComponentNHKeyPtr component_nh_data2(new ComponentNHKey(path2->label(),
                                                             nh_akey2));
@@ -670,7 +670,7 @@ void InetUnicastRouteEntry::AppendEcmpPath(Agent *agent,
 
     DBEntryBase::KeyPtr key = path->ComputeNextHop(agent)->GetDBRequestKey();
     NextHopKey *nh_key = static_cast<NextHopKey *>(key.release());
-    std::auto_ptr<const NextHopKey> nh_akey(nh_key);
+    std::unique_ptr<const NextHopKey> nh_akey(nh_key);
     nh_key->SetPolicy(false);
     ComponentNHKeyPtr comp_nh_key_ptr(new ComponentNHKey(path->label(), nh_akey));
 
@@ -712,7 +712,7 @@ void InetUnicastRouteEntry::DeleteComponentNH(Agent *agent, AgentPath *path) {
     assert(ecmp_path);
     DBEntryBase::KeyPtr key = path->ComputeNextHop(agent)->GetDBRequestKey();
     NextHopKey *nh_key = static_cast<NextHopKey *>(key.release());
-    std::auto_ptr<const NextHopKey> nh_akey(nh_key);
+    std::unique_ptr<const NextHopKey> nh_akey(nh_key);
     nh_key->SetPolicy(false);
     ComponentNHKeyPtr comp_nh_key_ptr(new ComponentNHKey(path->label(), nh_akey));
 

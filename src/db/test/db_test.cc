@@ -88,10 +88,10 @@ public:
     uint32_t del_req_count() const { return del_req_count_; }
 
     // Alloc a derived DBEntry
-    virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *key) const {
+    virtual std::unique_ptr<DBEntry> AllocEntry(const DBRequestKey *key) const {
         const VlanTableReqKey *vkey = static_cast<const VlanTableReqKey *>(key);
         Vlan *vlan = new Vlan(vkey->tag);
-        return std::auto_ptr<DBEntry>(vlan);
+        return std::unique_ptr<DBEntry>(vlan);
     };
 
     size_t Hash(const DBEntry *entry) const {

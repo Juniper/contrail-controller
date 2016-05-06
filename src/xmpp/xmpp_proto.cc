@@ -22,7 +22,7 @@
 
 using namespace std;
 
-auto_ptr<XmlBase> XmppProto::open_doc_(AllocXmppXmlImpl(sXMPP_STREAM_OPEN));
+unique_ptr<XmlBase> XmppProto::open_doc_(AllocXmppXmlImpl(sXMPP_STREAM_OPEN));
 
 XmppStanza::XmppStanza() {
 }
@@ -87,7 +87,7 @@ int XmppProto::EncodePresence(uint8_t *buf, size_t size) {
 
 int XmppProto::EncodeIq(const XmppStanza::XmppMessageIq *iq, 
                         XmlBase *doc, uint8_t *buf, size_t size) {
-    auto_ptr<XmlBase> send_doc_(AllocXmppXmlImpl());
+    unique_ptr<XmlBase> send_doc_(AllocXmppXmlImpl());
 
     // create
     send_doc_->LoadDoc("");
@@ -138,7 +138,7 @@ int XmppProto::EncodeWhitespace(uint8_t *buf) {
 int XmppProto::EncodeOpenResp(uint8_t *buf, string &to, string &from,
                               size_t max_size) {
 
-    auto_ptr<XmlBase> resp_doc(XmppStanza::AllocXmppXmlImpl(sXMPP_STREAM_RESP));
+    unique_ptr<XmlBase> resp_doc(XmppStanza::AllocXmppXmlImpl(sXMPP_STREAM_RESP));
 
     if (resp_doc.get() == NULL) {
         return 0;
@@ -189,28 +189,28 @@ int XmppProto::EncodeOpen(uint8_t *buf, string &to, string &from,
 }
 
 int XmppProto::EncodeFeatureTlsRequest(uint8_t *buf) {
-    auto_ptr<XmlBase> resp_doc(XmppStanza::AllocXmppXmlImpl(sXMPP_STREAM_FEATURE_TLS));
+    unique_ptr<XmlBase> resp_doc(XmppStanza::AllocXmppXmlImpl(sXMPP_STREAM_FEATURE_TLS));
     //Returns byte encoded in the doc
     int len = resp_doc->WriteDoc(buf);
     return len;
 }
 
 int XmppProto::EncodeFeatureTlsStart(uint8_t *buf) {
-    auto_ptr<XmlBase> resp_doc(XmppStanza::AllocXmppXmlImpl(sXMPP_STREAM_START_TLS));
+    unique_ptr<XmlBase> resp_doc(XmppStanza::AllocXmppXmlImpl(sXMPP_STREAM_START_TLS));
     //Returns byte encoded in the doc
     int len = resp_doc->WriteDoc(buf);
     return len;
 }
 
 int XmppProto::EncodeFeatureTlsProceed(uint8_t *buf) {
-    auto_ptr<XmlBase> resp_doc(XmppStanza::AllocXmppXmlImpl(sXMPP_STREAM_PROCEED_TLS));
+    unique_ptr<XmlBase> resp_doc(XmppStanza::AllocXmppXmlImpl(sXMPP_STREAM_PROCEED_TLS));
     //Returns byte encoded in the doc
     int len = resp_doc->WriteDoc(buf);
     return len;
 }
 
 XmppStanza::XmppMessage *XmppProto::Decode(const string &ts) {
-    auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
+    unique_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
     if (impl.get() == NULL) {
         return NULL;
     }

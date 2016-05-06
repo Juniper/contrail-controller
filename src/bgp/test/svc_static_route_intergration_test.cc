@@ -10,7 +10,7 @@
 // created on both compute nodes.
 //
 TYPED_TEST(ServiceChainIntegrationTest, StaticRouteMultipleL3Intf) {
-    auto_ptr<autogen::StaticRouteEntriesType> params =
+    unique_ptr<autogen::StaticRouteEntriesType> params =
         this->GetStaticRouteConfig(
             "controller/src/bgp/testdata/static_route_8.xml");
 
@@ -114,7 +114,7 @@ TYPED_TEST(ServiceChainIntegrationTest, StaticRouteMultipleL3Intf) {
 // Tests both static route and service chain functionality.
 //
 TYPED_TEST(ServiceChainIntegrationTest, DISABLED_StaticRouteMultipleL3Intf) {
-    auto_ptr<autogen::StaticRouteEntriesType> params =
+    unique_ptr<autogen::StaticRouteEntriesType> params =
         this->GetStaticRouteConfig(
                 "controller/src/bgp/testdata/static_route_8.xml");
 

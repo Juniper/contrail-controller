@@ -91,20 +91,20 @@ public:
 
 private:
     Agent *agent_;
-    std::auto_ptr<TaskTrigger> trigger_;
+    std::unique_ptr<TaskTrigger> trigger_;
     Timer *timer_;
     uint32_t timeout_;
 
-    std::auto_ptr<ConfigManagerNodeList> vmi_list_;
-    std::auto_ptr<ConfigManagerNodeList> physical_interface_list_;
-    std::auto_ptr<ConfigManagerNodeList> logical_interface_list_;
-    std::auto_ptr<ConfigManagerNodeList> device_list_;
-    std::auto_ptr<ConfigManagerNodeList> sg_list_;
-    std::auto_ptr<ConfigManagerNodeList> vn_list_;
-    std::auto_ptr<ConfigManagerNodeList> vrf_list_;
-    std::auto_ptr<ConfigManagerNodeList> vm_list_;
-    std::auto_ptr<ConfigManagerNodeList> hc_list_;
-    std::auto_ptr<ConfigManagerDeviceVnList> device_vn_list_;
+    std::unique_ptr<ConfigManagerNodeList> vmi_list_;
+    std::unique_ptr<ConfigManagerNodeList> physical_interface_list_;
+    std::unique_ptr<ConfigManagerNodeList> logical_interface_list_;
+    std::unique_ptr<ConfigManagerNodeList> device_list_;
+    std::unique_ptr<ConfigManagerNodeList> sg_list_;
+    std::unique_ptr<ConfigManagerNodeList> vn_list_;
+    std::unique_ptr<ConfigManagerNodeList> vrf_list_;
+    std::unique_ptr<ConfigManagerNodeList> vm_list_;
+    std::unique_ptr<ConfigManagerNodeList> hc_list_;
+    std::unique_ptr<ConfigManagerDeviceVnList> device_vn_list_;
 
     uint64_t process_config_count_[kMaxTimeout + 1];
     DISALLOW_COPY_AND_ASSIGN(ConfigManager);

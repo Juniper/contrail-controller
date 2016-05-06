@@ -88,7 +88,7 @@ class IFMapServerParserTest : public ::testing::Test {
     IFMapServer server_;
     IFMapServerParser *parser_;
     XmppServer *xmpp_server_;
-    auto_ptr<IFMapChannelManagerMock> ifmap_channel_mgr_;
+    unique_ptr<IFMapChannelManagerMock> ifmap_channel_mgr_;
 };
 
 // In a single message, adds vn1, vn2, vn3, then deletes, vn3, then adds vn4,

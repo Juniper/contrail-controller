@@ -24,7 +24,7 @@
 #include "xmpp/xmpp_factory.h"
 
 using namespace std;
-using std::auto_ptr;
+using std::unique_ptr;
 using boost::assign::list_of;
 
 static const char *config_2_control_nodes_4vns = "\
@@ -2797,14 +2797,14 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, RoutingPolicy_UpdateLocalPref) {
     VerifyRouteExists(agent_b_, "blue", route_a.str(), "192.168.1.1", 9999);
 
 
-    auto_ptr<autogen::RoutingPolicyType> p_a(new autogen::RoutingPolicyType());
+    unique_ptr<autogen::RoutingPolicyType> p_a(new autogen::RoutingPolicyType());
     p_a->sequence = "2.0";
     ifmap_test_util::IFMapMsgLink(bs_x_->config_db(), "routing-instance",
                       "blue", "routing-policy", "p2",
                       "routing-policy-routing-instance", 0, p_a.release());
     task_util::WaitForIdle();
 
-    auto_ptr<autogen::RoutingPolicyType> p_b(new autogen::RoutingPolicyType());
+    unique_ptr<autogen::RoutingPolicyType> p_b(new autogen::RoutingPolicyType());
     p_b->sequence = "2.0";
     ifmap_test_util::IFMapMsgLink(bs_y_->config_db(), "routing-instance",
                           "blue", "routing-policy", "p2",

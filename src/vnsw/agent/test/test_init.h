@@ -600,7 +600,7 @@ public:
     int comp_nh_notify_;
     int mpls_notify_;
     std::vector<const NextHop *> comp_nh_list_;
-    std::auto_ptr<TestAgentInit> agent_init_;
+    std::unique_ptr<TestAgentInit> agent_init_;
     Agent *agent_;
     AgentParam param_;
 };

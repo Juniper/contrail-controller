@@ -794,7 +794,7 @@ private:
     VmEntryRef vm_;
     VnEntryRef vn_;
     Ip4Address primary_ip_addr_;
-    std::auto_ptr<MetaDataIp> mdata_ip_;
+    std::unique_ptr<MetaDataIp> mdata_ip_;
     Ip4Address subnet_bcast_addr_;
     Ip6Address primary_ip6_addr_;
     std::string vm_mac_;
@@ -845,7 +845,7 @@ private:
     FatFlowList fat_flow_list_;
 
     // Peer for interface routes
-    std::auto_ptr<LocalVmPortPeer> peer_;
+    std::unique_ptr<LocalVmPortPeer> peer_;
     VrfAssignRuleList vrf_assign_rule_list_;
     AclDBEntryRef vrf_assign_acl_;
     Ip4Address vm_ip_service_addr_;

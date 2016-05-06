@@ -123,11 +123,11 @@ bool PhysicalDevice::Copy(PhysicalDeviceTable *table,
 /////////////////////////////////////////////////////////////////////////////
 // PhysicalDeviceTable routines
 /////////////////////////////////////////////////////////////////////////////
-std::auto_ptr<DBEntry> PhysicalDeviceTable::AllocEntry(const DBRequestKey *k)
+std::unique_ptr<DBEntry> PhysicalDeviceTable::AllocEntry(const DBRequestKey *k)
     const {
     const PhysicalDeviceKey *key = static_cast<const PhysicalDeviceKey *>(k);
     PhysicalDevice *dev = new PhysicalDevice(key->uuid_);
-    return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(dev));
+    return std::unique_ptr<DBEntry>(static_cast<DBEntry *>(dev));
 }
 
 DBEntry *PhysicalDeviceTable::OperDBAdd(const DBRequest *req) {
