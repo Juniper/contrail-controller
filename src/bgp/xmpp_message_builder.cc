@@ -227,7 +227,8 @@ void BgpXmppMessage::AddIpReach(const BgpRoute *route,
     }
 
     // Encode load balance attribute.
-    load_balance_attribute_.Encode(&item.entry.load_balance);
+    if (!load_balance_attribute_.IsDefault())
+        load_balance_attribute_.Encode(&item.entry.load_balance);
 
     xml_node node = xitems_.append_child("item");
     node.append_attribute("id") = route->ToXmppIdString().c_str();
