@@ -386,22 +386,9 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         logger.debug("*** test interface-add not allowing vm's port to be"
                      "attached to logical router ***")
 
-        # Create Domain
-        domain = Domain('my-lr-domain')
-        self._vnc_lib.domain_create(domain)
-        logger.debug('Created domain ')
-
-        # Create Project
-        project = Project('my-lr-proj', domain)
-        self._vnc_lib.project_create(project)
-        logger.debug('Created Project')
-
-        # Create NetworkIpam
-        ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
-        self._vnc_lib.network_ipam_create(ipam)
-        logger.debug('Created network ipam')
-
-        ipam = self._vnc_lib.network_ipam_read(fq_name=['my-lr-domain', 'my-lr-proj',
+        project = self._vnc_lib.project_read(fq_name=['default-domain',
+                                                      'default-project'])
+        ipam = self._vnc_lib.network_ipam_read(fq_name=['default-domain', 'default-project',
                                                         'default-network-ipam'])
         logger.debug('Read network ipam')
 
@@ -409,7 +396,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         ipam_sn_v4_vn = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24))
 
         # Create VN my-vn
-        vn = VirtualNetwork('my-vn', project)
+        vn = VirtualNetwork('%s-vn' % self.id(), project)
         vn.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4_vn]))
         self._vnc_lib.virtual_network_create(vn)
         logger.debug('Created Virtual Network object for my-vn: %s', vn.uuid)
@@ -488,22 +475,9 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
                      "same network to be attached as both internal and external"
                      "network of logical router ***")
 
-        # Create Domain
-        domain = Domain('my-lr-domain')
-        self._vnc_lib.domain_create(domain)
-        logger.debug('Created domain ')
-
-        # Create Project
-        project = Project('my-lr-proj', domain)
-        self._vnc_lib.project_create(project)
-        logger.debug('Created Project')
-
-        # Create NetworkIpam
-        ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
-        self._vnc_lib.network_ipam_create(ipam)
-        logger.debug('Created network ipam')
-
-        ipam = self._vnc_lib.network_ipam_read(fq_name=['my-lr-domain', 'my-lr-proj',
+        project = self._vnc_lib.project_read(fq_name=['default-domain',
+                                                      'default-project'])
+        ipam = self._vnc_lib.network_ipam_read(fq_name=['default-domain', 'default-project',
                                                         'default-network-ipam'])
         logger.debug('Read network ipam')
 
@@ -511,7 +485,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         ipam_sn_v4_vn = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24))
 
         # Create VN my-vn
-        vn = VirtualNetwork('my-vn', project)
+        vn = VirtualNetwork('%s-vn' % self.id(), project)
         vn.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4_vn]))
         self._vnc_lib.virtual_network_create(vn)
         logger.debug('Created Virtual Network object for my-vn: %s', vn.uuid)
