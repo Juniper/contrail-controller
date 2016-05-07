@@ -1466,6 +1466,7 @@ class RouteTableST(DBBaseST):
     def __init__(self, name, obj=None):
         self.name = name
         self.virtual_networks = set()
+        self.logical_routers = set()
         self.service_instances = set()
         self.routes = []
         self.update(obj)
@@ -1483,6 +1484,7 @@ class RouteTableST(DBBaseST):
             if route.next_hop_type != 'ip-address':
                 si_set.add(route.next_hop)
         self.update_service_instances(si_set)
+        self.update_multiple_refs('logical_router', self.obj)
     # end update
 
     def update_service_instances(self, si_set):
@@ -1514,12 +1516,14 @@ class RouteTableST(DBBaseST):
 
     def delete_obj(self):
         self.update_multiple_refs('virtual_network', {})
+        self.update_multiple_refs('logical_router', {})
 
     def handle_st_object_req(self):
         resp = super(RouteTableST, self).handle_st_object_req()
         resp.obj_refs = [
             self._get_sandesh_ref_list('virtual_network'),
             self._get_sandesh_ref_list('service_instance'),
+            self._get_sandesh_ref_list('logical_router'),
         ]
         resp.properties = [
             sandesh.PropList('route', str(route)) for route in self.routes
@@ -2093,13 +2097,12 @@ class RoutingInstanceST(DBBaseST):
                     self._logger.debug("route table/routes None for: " + route_table_name)
                     continue
                 route_targets = set()
-                for vn_name in route_table.virtual_networks:
-                    vn = VirtualNetworkST.get(vn_name)
-                    if vn is None:
-                        self._logger.debug("vn is None for: " + vn_name)
+                for lr_name in route_table.logical_routers:
+                    lr = LogicalRouterST.get(lr_name)
+                    if lr is None:
+                        self._logger.debug("lr is None for: " + lr_name)
                         continue
-                    route_targets = route_targets | vn.rt_list | vn.import_rt_list
-                    route_targets.add(vn.get_route_target())
+                    route_targets = route_targets | lr.rt_list | set([lr.route_target])
                 if not route_targets:
                     self._logger.debug("route targets None for: " + route_table_name)
                     continue
@@ -3549,6 +3552,7 @@ class LogicalRouterST(DBBaseST):
         self.name = name
         self.virtual_machine_interfaces = set()
         self.virtual_networks = set()
+        self.route_tables = set()
         self.rt_list = set()
         self.obj = obj or self.read_vnc_obj(fq_name=name)
         rt_ref = self.obj.get_route_target_refs()
@@ -3577,6 +3581,7 @@ class LogicalRouterST(DBBaseST):
     def update(self, obj=None):
         self.obj = obj or self.read_vnc_obj(uuid=self.obj.uuid)
         self.update_multiple_refs('virtual_machine_interface', self.obj)
+        self.update_multiple_refs('route_table', self.obj)
         self.update_virtual_networks()
         rt_list = self.obj.get_configured_route_target_list() or RouteTargetList()
         self.set_route_target_list(rt_list)
@@ -3584,6 +3589,7 @@ class LogicalRouterST(DBBaseST):
 
     def delete_obj(self):
         self.update_multiple_refs('virtual_machine_interface', {})
+        self.update_multiple_refs('route_table', {})
         self.update_virtual_networks()
         rtgt_num = int(self.route_target.split(':')[-1])
         self._cassandra.free_route_target_by_number(rtgt_num)
@@ -3718,6 +3724,8 @@ class ServiceInstanceST(DBBaseST):
             if not vm_pt:
                 continue
             vmi = vm_pt.get_vmi_by_service_type(side)
+            if not vmi:
+                continue
             return vmi.get_any_instance_ip_address(version)
         return None
 
