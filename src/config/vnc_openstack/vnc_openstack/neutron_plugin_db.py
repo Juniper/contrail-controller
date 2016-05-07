@@ -1099,10 +1099,16 @@ class DBInterface(object):
         sgr_q_dict['ethertype'] = sg_rule.get_ethertype()
         sgr_q_dict['direction'] = direction
         sgr_q_dict['protocol'] = sg_rule.get_protocol()
-        sgr_q_dict['port_range_min'] = sg_rule.get_dst_ports()[0].\
-            get_start_port()
-        sgr_q_dict['port_range_max'] = sg_rule.get_dst_ports()[0].\
-            get_end_port()
+
+        if sg_rule.get_dst_ports():
+            sgr_q_dict['port_range_min'] = sg_rule.get_dst_ports()[0].\
+                get_start_port()
+            sgr_q_dict['port_range_max'] = sg_rule.get_dst_ports()[0].\
+                get_end_port()
+        else:
+            sgr_q_dict['port_range_min'] = 0
+            sgr_q_dict['port_range_max'] = 65535
+
         sgr_q_dict['remote_ip_prefix'] = remote_cidr
         sgr_q_dict['remote_group_id'] = remote_sg_uuid
 
