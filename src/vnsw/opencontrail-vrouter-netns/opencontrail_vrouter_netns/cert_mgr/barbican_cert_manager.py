@@ -30,6 +30,7 @@ class BarbicanKeystoneSession(object):
         self.auth_url = config.get('DEFAULT', 'auth_url')
         self.auth_version = config.get('DEFAULT', 'auth_version')
         self.region = config.get('DEFAULT', 'region')
+        self.project_name = config.get('DEFAULT', 'admin_tenant_name')
 
     def get_session(self):
         if self.session.get(self.project_name):
@@ -70,19 +71,56 @@ class Cert:
 
     def get_certificate(self):
         if self._cert_container.certificate:
-            return self._cert_container.certificate.payload
+            try:
+                payload = self._cert_container.certificate.payload
+                return True, payload
+            except exceptions.Exception as e:
+                logging.exception('')
+                logging.error(e.__class__)
+                logging.error(e.__doc__)
+                logging.error(e.message)
+                return False, None
+        return True, None
 
     def get_intermediates(self):
         if self._cert_container.intermediates:
-            return self._cert_container.intermediates.payload
+            try:
+                payload = self._cert_container.intermediates.payload
+                return True, payload
+            except exceptions.Exception as e:
+                logging.exception('')
+                logging.error(e.__class__)
+                logging.error(e.__doc__)
+                logging.error(e.message)
+                return False, None
+        return True, None
 
     def get_private_key(self):
         if self._cert_container.private_key:
-            return self._cert_container.private_key.payload
+            try:
+                payload = self._cert_container.private_key.payload
+                return True, payload
+            except exceptions.Exception as e:
+                logging.exception('')
+                logging.error(e.__class__)
+                logging.error(e.__doc__)
+                logging.error(e.message)
+                return False, None
+        return True, None
 
     def get_private_key_passphrase(self):
         if self._cert_container.private_key_passphrase:
-            return self._cert_container.private_key_passphrase.payload
+            try:
+                payload = self._cert_container.private_key_passphrase.payload
+                return True, payload
+            except exceptions.Exception as e:
+                msg = "Error in getting Barbican Private-Key-PassPhrase from Container"
+                logging.exception('')
+                logging.error(e.__class__)
+                logging.error(e.__doc__)
+                logging.error(e.message)
+                return False, None
+        return True, None
 
 class TLSContainer:
 
@@ -126,10 +164,22 @@ def get_tls_certificates(barbican, url):
         logging.error(e.message)
         return None
     cert = Cert(container)
-    certificate = cert.get_certificate()
+    status, certificate = cert.get_certificate()
+    if (status == False):
+        msg = "Error in getting Barbican Certficates from Container %s" %url
+        logging.error(msg)
+        return None
     primary_cn = get_primary_cn(certificate)
-    private_key = cert.get_private_key()
-    intermediates = cert.get_intermediates()
+    status, private_key = cert.get_private_key()
+    if (status == False):
+        msg = "Error in getting Barbican Private-Key from Container %s" %url
+        logging.error(msg)
+        return None
+    status, intermediates = cert.get_intermediates()
+    if (status == False):
+        msg = "Error in getting Barbican Intermediates from Container %s" %url
+        logging.error(msg)
+        return None
     return TLSContainer(
         primary_cn=primary_cn,
         private_key=private_key,
