@@ -203,6 +203,8 @@ class VncApiServer(object):
             attr_type = attr_type_vals['attr_type']
             restrictions = attr_type_vals['restrictions']
             is_array = attr_type_vals.get('is_array', False)
+            if value is None:
+                continue
             if is_array:
                 if not isinstance(value, list):
                     raise ValueError('Field %s must be a list. Received value: %s'
