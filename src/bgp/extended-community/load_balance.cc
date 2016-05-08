@@ -13,6 +13,11 @@
 using std::copy;
 using std::string;
 
+// Initialize default attribute statically.
+const LoadBalance::LoadBalanceAttribute
+    LoadBalance::LoadBalanceAttribute::kDefaultLoadBalanceAttribute =
+        LoadBalance::LoadBalanceAttribute();
+
 LoadBalance::LoadBalanceAttribute::LoadBalanceAttribute() {
     value1 = 0;  // reset all fields
     value2 = 0;  // reset all fields
@@ -68,6 +73,10 @@ bool LoadBalance::LoadBalanceAttribute::operator==(
 bool LoadBalance::LoadBalanceAttribute::operator!=(
         const LoadBalance::LoadBalanceAttribute &other) const {
     return value1 != other.value1 || value2 != other.value2;
+}
+
+const bool LoadBalance::LoadBalanceAttribute::IsDefault() const {
+    return *this == kDefaultLoadBalanceAttribute;
 }
 
 LoadBalance::LoadBalance() {
@@ -229,7 +238,7 @@ bool LoadBalance::IsPresent(const BgpPath *path) {
 }
 
 const bool LoadBalance::IsDefault() const {
-    return ToAttribute() == LoadBalance().ToAttribute();
+    return ToAttribute() == LoadBalanceAttribute::kDefaultLoadBalanceAttribute;
 }
 
 bool LoadBalance::operator==(const LoadBalance &other) const {
