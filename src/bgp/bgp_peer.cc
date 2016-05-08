@@ -60,12 +60,12 @@ class BgpPeer::PeerClose : public IPeerClose {
     virtual bool IsReady() const { return peer_->IsReady(); }
     virtual IPeer *peer() const { return peer_; }
 
-    void Close() {
+    virtual void Close(bool non_graceful) {
 
         // Process closure through close manager only if this is a flip.
         if (!manager_->IsInGracefulRestartTimerWait() ||
             peer_->state_machine()->get_state() == StateMachine::ESTABLISHED) {
-            manager_->Close();
+            manager_->Close(non_graceful);
             return;
         }
 
@@ -433,7 +433,10 @@ void BgpPeer::MembershipRequestCallback(IPeer *ipeer, BgpTable *table) {
 }
 
 bool BgpPeer::ResumeClose() {
-    peer_close_->Close();
+    peer_close_->Close(non_graceful_close_);
+
+    // No need to track graceful_closure once the close process is resumed.
+    non_graceful_close_ = false;
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
     peer_info.set_send_state("not advertising");
@@ -468,6 +471,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           as_override_(config->as_override()),
           membership_req_pending_(0),
           defer_close_(false),
+          non_graceful_close_(false),
           vpn_tables_registered_(false),
           hold_time_(config->hold_time()),
           local_as_(config->local_as()),
@@ -901,15 +905,19 @@ void BgpPeer::CustomClose() {
 //
 // Close this peer by closing all of it's RIBs.
 //
-void BgpPeer::Close() {
+void BgpPeer::Close(bool non_graceful) {
     if (membership_req_pending_) {
         BGP_LOG_PEER(Event, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
             BGP_PEER_DIR_NA, "Close procedure deferred");
         defer_close_ = true;
+
+        // Note down non-graceful closures. Once a close is non-graceful,
+        // it shall remain as non-graceful.
+        non_graceful_close_ |= non_graceful;
         return;
     }
 
-    peer_close_->Close();
+    peer_close_->Close(non_graceful);
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
     peer_info.set_send_state("not advertising");
@@ -1238,6 +1246,109 @@ bool BgpPeer::SendUpdate(const uint8_t *msg, size_t msgsize) {
 }
 
 //
+// Check if hard close can be skipped upon notification message reception
+// based on code. Typically, when we want to avail the use of GR/LLGR, it is
+// better not to do hard close and do GR instead for as many cases as possible.
+//
+bool BgpPeer::SkipNotificationReceive(int code, int subcode) const {
+    switch (static_cast<BgpProto::Notification::Code>(code)) {
+        case BgpProto::Notification::MsgHdrErr:
+            switch (static_cast<BgpProto::Notification::MsgHdrSubCode>(
+                        subcode)) {
+            case BgpProto::Notification::ConnNotSync:
+                break;
+            case BgpProto::Notification::BadMsgLength:
+                break;
+            case BgpProto::Notification::BadMsgType:
+                break;
+            }
+            break;
+        case BgpProto::Notification::OpenMsgErr:
+            switch (static_cast<BgpProto::Notification::OpenMsgSubCode>(
+                        subcode)) {
+            case BgpProto::Notification::UnsupportedVersion:
+                break;
+            case BgpProto::Notification::BadPeerAS:
+                break;
+            case BgpProto::Notification::BadBgpId:
+                break;
+            case BgpProto::Notification::UnsupportedOptionalParam:
+                break;
+            case BgpProto::Notification::AuthenticationFailure:
+                break;
+            case BgpProto::Notification::UnacceptableHoldTime:
+                break;
+            case BgpProto::Notification::UnsupportedCapability:
+                break;
+            }
+            break;
+        case BgpProto::Notification::UpdateMsgErr:
+            switch (static_cast<BgpProto::Notification::UpdateMsgSubCode>(
+                        subcode)) {
+            case BgpProto::Notification::MalformedAttributeList:
+                break;
+            case BgpProto::Notification::UnrecognizedWellKnownAttrib:
+                break;
+            case BgpProto::Notification::MissingWellKnownAttrib:
+                break;
+            case BgpProto::Notification::AttribFlagsError:
+                break;
+            case BgpProto::Notification::AttribLengthError:
+                break;
+            case BgpProto::Notification::InvalidOrigin:
+                break;
+            case BgpProto::Notification::InvalidNH:
+                break;
+            case BgpProto::Notification::OptionalAttribError:
+                break;
+            case BgpProto::Notification::InvalidNetworkField:
+                break;
+            case BgpProto::Notification::MalformedASPath:
+                break;
+            }
+            break;
+        case BgpProto::Notification::HoldTimerExp:
+            return true;
+        case BgpProto::Notification::FSMErr:
+            switch (static_cast<BgpProto::Notification::FsmSubcode>(subcode)) {
+            case BgpProto::Notification::UnspecifiedError:
+                break;
+            case BgpProto::Notification::OpenSentError:
+                break;
+            case BgpProto::Notification::OpenConfirmError:
+                break;
+            case BgpProto::Notification::EstablishedError:
+                break;
+            }
+            break;
+        case BgpProto::Notification::Cease:
+            switch (static_cast<BgpProto::Notification::CeaseSubCode>(
+                        subcode)) {
+            case BgpProto::Notification::Unknown:
+                return true;
+            case BgpProto::Notification::MaxPrefixes:
+                return true;
+            case BgpProto::Notification::AdminShutdown:
+                break;
+            case BgpProto::Notification::PeerDeconfigured:
+                break;
+            case BgpProto::Notification::AdminReset:
+                break;
+            case BgpProto::Notification::ConnectionRejected:
+                break;
+            case BgpProto::Notification::OtherConfigChange:
+                return true;
+            case BgpProto::Notification::ConnectionCollision:
+                break;
+            case BgpProto::Notification::OutOfResources:
+                return true;
+            }
+            break;
+    }
+    return false;
+}
+
+//
 // Check if notification send can be skipped. Typically, when we want to avail
 // the use of GR/LLGR, it is better not to send a notification message so that
 // peer retains the routes (as stale) we have already sent over this session.
@@ -1370,9 +1481,12 @@ bool BgpPeer::SetGRCapabilities(BgpPeerInfoData *peer_info) {
     // If GR is no longer supported, terminate GR right away. This can happen
     // due to mis-match between gr and llgr afis. For now, we expect an
     // identical set.
-    if (peer_close_->close_manager()->IsInGracefulRestartTimerWait() &&
-            !peer_close_->IsGRReady()) {
-        Close();
+    if ((peer_close_->close_manager()->state() == PeerCloseManager::GR_TIMER &&
+            !peer_close_->IsCloseGraceful()) ||
+        (peer_close_->close_manager()->state() ==
+                PeerCloseManager::LLGR_TIMER &&
+            !peer_close_->IsCloseLongLivedGraceful())) {
+        Close(true);
         return false;
     }
     return true;
