@@ -220,21 +220,6 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
         flow->set_deleted(false);
     }
 
-    if (flow) {
-        if (fwd_flow_update) {
-            flow->set_last_event(FlowEvent::FLOW_MESSAGE);
-        } else {
-            flow->set_last_event(FlowEvent::VROUTER_FLOW_MSG);
-        }
-    }
-    if (rflow) {
-        if (rev_flow_update) {
-            rflow->set_last_event(FlowEvent::FLOW_MESSAGE);
-        } else {
-            rflow->set_last_event(FlowEvent::VROUTER_FLOW_MSG);
-        }
-    }
-
     if (rflow) {
         if (rflow_req != rflow) {
             Copy(rflow, rflow_req, (rev_flow_update || force_update_rflow));
@@ -254,6 +239,21 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
             // we are creating a new reverse flow, so avoid triggering
             // force update in this case
             force_update_rflow = false;
+        }
+    }
+
+    if (flow) {
+        if (fwd_flow_update) {
+            flow->set_last_event(FlowEvent::FLOW_MESSAGE);
+        } else {
+            flow->set_last_event(FlowEvent::VROUTER_FLOW_MSG);
+        }
+    }
+    if (rflow) {
+        if (rev_flow_update) {
+            rflow->set_last_event(FlowEvent::FLOW_MESSAGE);
+        } else {
+            rflow->set_last_event(FlowEvent::VROUTER_FLOW_MSG);
         }
     }
 
