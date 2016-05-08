@@ -995,9 +995,17 @@ TEST_F(StatsTestMock, Underlay_3) {
     //invoked, the dispatch of flow log message happens
     KSyncSockTypeMap::IncrFlowStats(fe->flow_handle(), 1, 30);
 
+    //Verify that flows DON'T have exported_alteast_once_ flag set
+    EXPECT_FALSE(info->exported_atleast_once());
+    EXPECT_FALSE(rinfo->exported_atleast_once());
+
     //Invoke FlowStatsCollector to update the stats
     util_.EnqueueFlowStatsCollectorTask();
     client->WaitForIdle(10);
+
+    //Verify that exported flows have exported_alteast_once_ flag set
+    EXPECT_TRUE(info->exported_atleast_once());
+    EXPECT_TRUE(rinfo->exported_atleast_once());
 
     //Verify underlay source port for forward flow
     EXPECT_EQ(fe->tunnel_type().GetType(), TunnelType::MPLS_GRE);
@@ -1015,10 +1023,18 @@ TEST_F(StatsTestMock, Underlay_3) {
     FlowLogData flow_log = f->last_sent_flow_log();
     EXPECT_EQ(flow_log.get_underlay_source_port(), 0);
 
+    //Verify that teardown_time is not set
+    EXPECT_FALSE((flow_log.__isset.teardown_time));
+
     //cleanup
     DeleteFlow(flow, 1);
     client->WaitForIdle();
     EXPECT_EQ(0U, flow_proto_->FlowCount());
+
+    //Verify that FlowLog sent for deleted flow has teadown time set.
+    flow_log = f->last_sent_flow_log();
+    EXPECT_TRUE((flow_log.__isset.teardown_time));
+    EXPECT_TRUE((flow_log.get_teardown_time() != 0));
 
     //Remove remote VM routes
     util_.DeleteRemoteRoute("vrf5", remote_vm4_ip, peer_);

@@ -38,7 +38,8 @@ class GlobalVrouter {
 public:
     static const std::string kMetadataService;
     static const Ip4Address kLoopBackIp;
-    static const uint32_t kDefaultFlowExportRate = 100;
+    static const int32_t kDefaultFlowExportRate = 100;
+    static const int32_t kDisableSampling = -1;
 
     struct LinkLocalServiceKey {
         Ip4Address linklocal_service_ip;
@@ -96,7 +97,7 @@ public:
     const LinkLocalServicesMap &linklocal_services_map() const {
         return linklocal_services_map_;
     }
-    uint32_t flow_export_rate() const { return flow_export_rate_; }
+    int32_t flow_export_rate() const { return flow_export_rate_; }
 
     void GlobalVrouterConfig(DBTablePartBase *partition, DBEntryBase *dbe);
     bool FindLinkLocalService(const std::string &service_name,
@@ -143,7 +144,7 @@ private:
     boost::scoped_ptr<FabricDnsResolver> fabric_dns_resolver_;
     boost::scoped_ptr<AgentRouteResync> agent_route_resync_walker_;
     Agent::ForwardingMode forwarding_mode_;
-    uint32_t flow_export_rate_;
+    int32_t flow_export_rate_;
     FlowAgingTimeoutMap flow_aging_timeout_map_;
     EcmpLoadBalance ecmp_load_balance_;
 };

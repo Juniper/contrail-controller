@@ -885,7 +885,7 @@ bool AgentUtXmlGlobalVrouterValidate::Validate() {
         return false;
 
     if (flow_export_rate_ != -1) {
-        uint32_t rate = (uint32_t)(flow_export_rate_);
+        int32_t rate = flow_export_rate_;
         if (vr->flow_export_rate() != rate)
             return false;
     }
