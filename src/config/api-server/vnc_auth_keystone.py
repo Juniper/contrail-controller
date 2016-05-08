@@ -155,7 +155,6 @@ class AuthServiceKeystone(object):
            self._conf_info['cafile'] = _kscertbundle
         self._server_mgr = server_mgr
         self._auth_method = args.auth
-        self._auth_token = None
         self._auth_middleware = None
         self._mt_rbac = args.multi_tenancy_with_rbac
         self._multi_tenancy = args.multi_tenancy or args.multi_tenancy_with_rbac
@@ -177,35 +176,6 @@ class AuthServiceKeystone(object):
                 self._conf_info['token_cache_time'] = args.token_cache_time
     # end __init__
 
-    def json_request(self, method, path, retry_after_authn=False):
-        if self._auth_token is None or self._auth_middleware is None:
-            return {}
-        headers = {'X-Auth-Token': self._auth_token}
-        response, data = self._auth_middleware._json_request(
-            method, path, additional_headers=headers)
-        try:
-            status_code = response.status_code
-        except AttributeError:
-            status_code = response.status
-
-        # avoid multiple reauth
-        if ((status_code == 401) and (not retry_after_authn)):
-            try:
-                self._auth_token = self._auth_middleware.get_admin_token()
-                return self.json_request(method, path, retry_after_authn=True)
-            except Exception as e:
-                self._server_mgr.config_log(
-                    "Error in getting admin token from keystone: " + str(e),
-                    level=SandeshLevel.SYS_WARN)
-                return {}
-
-        return data if status_code == 200 else {}
-    # end json_request
-
-    def get_projects(self):
-        return self.json_request('GET', '/v2.0/tenants')
-    # end get_projects
-
     def get_middleware_app(self):
         if not self._auth_method:
             return None
@@ -220,16 +190,6 @@ class AuthServiceKeystone(object):
 
         auth_middleware = auth_token.AuthProtocol(app, self._conf_info)
         self._auth_middleware = auth_middleware
-        while True:
-            try:
-                self._auth_token = auth_middleware.get_admin_token()
-                break
-            except auth_token.ServiceError as e:
-                msg = "Error in getting admin token: " + str(e)
-                time.sleep(2)
-
-        self._server_mgr.config_log("Auth token fetched from keystone.",
-            level=SandeshLevel.SYS_NOTICE)
 
         # open access for troubleshooting
         admin_port = self._conf_info['admin_port']
@@ -241,7 +201,7 @@ class AuthServiceKeystone(object):
         # allow multi tenancy to be updated dynamically
         app = AuthPreKeystone(
             auth_middleware,
-            {'admin_token': self._auth_token},
+            None,
             self._multi_tenancy)
 
         return app
@@ -274,21 +234,4 @@ class AuthServiceKeystone(object):
         auth_middleware = auth_token.AuthProtocol(self.token_valid, conf_info)
         return auth_middleware(request.headers.environ, None)
 
-    # convert keystone user id to name
-    def user_id_to_name(self, id):
-        if id in self._ks_users:
-            return self._ks_users[id]
-
-        # fetch from keystone
-        content = self.json_request('GET', '/v2.0/users')
-        if 'users' in content:
-            self._ks_users = dict((user['id'], user['name'])
-                                  for user in content['users'])
-
-        # check it again
-        if id in self._ks_users:
-            return self._ks_users[id]
-        else:
-            return ''
-    # end user_id_to_name
 # end class AuthService
