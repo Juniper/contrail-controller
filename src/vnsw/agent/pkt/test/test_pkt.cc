@@ -206,6 +206,7 @@ TEST_F(PktTest, tx_no_vlan_1) {
     EXPECT_TRUE(*(data_p + 6) == htons(ETHERTYPE_ARP));
 }
 
+// TODO : flaky test
 TEST_F(PktTest, tx_vlan_1) {
     int len;
     PktInfo pkt_info(agent_, 1024, PktHandler::ARP, 0);

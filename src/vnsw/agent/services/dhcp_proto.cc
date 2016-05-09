@@ -23,6 +23,9 @@ DhcpProto::DhcpProto(Agent *agent, boost::asio::io_service &io,
     ip_fabric_interface_index_(-1), pkt_interface_index_(-1),
     dhcp_server_socket_(io), dhcp_server_read_buf_(NULL),
     gateway_delete_seqno_(0) {
+    // limit the number of entries in the workqueue
+    work_queue_.SetSize(agent->params()->services_queue_limit());
+    work_queue_.SetBounded(true);
 
     dhcp_relay_mode_ = agent->params()->dhcp_relay_mode();
     if (dhcp_relay_mode_) {

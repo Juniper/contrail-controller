@@ -67,6 +67,7 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
     const std::vector<uint16_t> &ports = param.bgp_as_a_service_port_range_value();
     EXPECT_EQ(ports[0], 100);
     EXPECT_EQ(ports[1], 199);
+    EXPECT_EQ(param.services_queue_limit(), 8192);
 
     // By default, flow-tracing must be enabled
     EXPECT_TRUE(param.flow_trace_enable());
@@ -100,6 +101,7 @@ TEST_F(FlowTest, Agent_Conf_file_2) {
     EXPECT_EQ(param.mirror_client_port(), 8097);
     // Default value for pkt0_tx_buffer_count
     EXPECT_EQ(param.pkt0_tx_buffer_count(), 1000);
+    EXPECT_EQ(param.services_queue_limit(), 1024);
 }
 
 TEST_F(FlowTest, Agent_Flows_Option_1) {
