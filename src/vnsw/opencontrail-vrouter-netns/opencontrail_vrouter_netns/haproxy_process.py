@@ -15,6 +15,15 @@ logging.basicConfig(level=logging.WARNING,
                     format='%(asctime)s %(levelname)-8s %(message)s',
                     datefmt='%m/%d/%Y %H:%M:%S',
                     filename=LOG_FILE)
+log_levels = {
+    'MSG': {
+        'name': 'MSG',
+        'value': 35,
+    },
+}
+for log_level_key in log_levels.keys():
+    log_level = log_levels[log_level_key]
+    logging.addLevelName(log_level['value'], log_level['name'])
 
 def delete_haproxy_dir(base_dir, loadbalancer_id):
     dir_name = base_dir + "/" +  loadbalancer_id
@@ -41,12 +50,15 @@ def get_haproxy_config_file(cfg_file, dir_name):
         if (KeyValue[0] == 'haproxy_config'):
             break;
     haproxy_cfg_file = dir_name + "/" + HAPROXY_PROCESS_CONF
+    haproxy_conf = KeyValue[1]
+    if 'ssl crt http' in haproxy_conf:
+        haproxy_conf = barbican_cert_mgr.update_ssl_conf(haproxy_conf, dir_name)
+        if haproxy_conf is None:
+            return None
+
     f = open(haproxy_cfg_file, 'w+')
-    f.write(KeyValue[1])
+    f.write(haproxy_conf)
     f.close()
-    updated_conf = barbican_cert_mgr.update_ssl_conf(haproxy_cfg_file)
-    if updated_conf is None:
-        return None
 
     return haproxy_cfg_file
 
@@ -118,14 +130,16 @@ def _get_lbaas_pid(conf_file):
     return pid
 
 def _stop_haproxy_daemon(loadbalancer_id, conf_file):
+    log_msg = log_levels['MSG']
     last_pid = _get_lbaas_pid(conf_file)
     if last_pid:
         cmd_list = shlex.split('kill -9 ' + last_pid)
         subprocess.Popen(cmd_list)
         msg = "Stopping haproxy for Loadbalancer-ID %s" %loadbalancer_id
-        logging.info(msg)
+        logging.log(log_msg['value'], msg)
 
 def _start_haproxy_daemon(pool_id, netns, conf_file):
+    log_msg = log_levels['MSG']
     loadbalancer_id = pool_id
     last_pid = _get_lbaas_pid(conf_file)
     if last_pid:
@@ -136,7 +150,7 @@ def _start_haproxy_daemon(pool_id, netns, conf_file):
         sf_opt = ''
 
     pid_file = get_pid_file_from_conf_file(conf_file)
-    logging.info(msg)
+    logging.log(log_msg['value'], msg)
 
     cmd = 'ip netns exec %s haproxy -f %s -p %s %s' % \
         (netns, conf_file, pid_file, sf_opt)

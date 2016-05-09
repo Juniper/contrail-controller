@@ -197,17 +197,14 @@ def create_pem_file(barbican, url, dest_dir):
     f.close()
     return pem_file_name
 
-def update_ssl_conf(file):
+def update_ssl_conf(haproxy_conf, dest_dir):
     barb_auth = BarbicanKeystoneSession()
     sess = barb_auth.get_session()
     if sess is None:
         return None
     barbican = client.Client(session=sess)
-    dest_dir = os.path.dirname(file)
-    with open(file) as f:
-        conf = f.read()
-        updated_conf = conf
-    for line in conf.split('\n'):
+    updated_conf = haproxy_conf
+    for line in haproxy_conf.split('\n'):
         if 'ssl crt http' in line:
             try:
                 url_list = filter(lambda x: x.startswith('http:'), line.split(' '))
@@ -219,6 +216,4 @@ def update_ssl_conf(file):
                     return None
                 updated_conf = updated_conf.replace(url, pem_file_name)
 
-    with open(file, "w") as f:
-        conf = f.write(updated_conf)
     return updated_conf
