@@ -247,6 +247,7 @@ public:
     const std::vector<uint16_t> &bgp_as_a_service_port_range_value() const {
         return bgp_as_a_service_port_range_value_;
     }
+    uint32_t packet_handler_queue_limit() { return packet_handler_queue_limit_; }
 
     uint16_t flow_thread_count() const { return flow_thread_count_; }
     void set_flow_thread_count(uint16_t count) { flow_thread_count_ = count; }
@@ -342,7 +343,7 @@ private:
     void ParseAgentInfo();
     void ParseNexthopServer();
     void ParsePlatform();
-    void ParseBgpAsAServicePortRange();
+    void ParseServices();
     void set_agent_mode(const std::string &mode);
 
     void ParseCollectorArguments
@@ -377,7 +378,7 @@ private:
         (const boost::program_options::variables_map &v);
     void ParsePlatformArguments
         (const boost::program_options::variables_map &v);
-    void ParseBgpAsAServicePortRangeArguments
+    void ParseServicesArguments
         (const boost::program_options::variables_map &v);
 
     boost::program_options::variables_map var_map_;
@@ -480,6 +481,7 @@ private:
     bool subnet_hosts_resolvable_;
     std::string bgp_as_a_service_port_range_;
     std::vector<uint16_t> bgp_as_a_service_port_range_value_;
+    uint32_t packet_handler_queue_limit_;
 
     // TBB related
     uint32_t tbb_thread_count_;
