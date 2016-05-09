@@ -47,6 +47,7 @@ public:
     typedef boost::array<uint8_t, kSize> bytes_type;
 
     struct LoadBalanceAttribute {
+        static const LoadBalanceAttribute kDefaultLoadBalanceAttribute;
         union {
             struct {
 #if BYTE_ORDER == BIG_ENDIAN
@@ -105,6 +106,7 @@ public:
         void Encode(autogen::LoadBalanceType *lb_type) const;
         bool operator==(const LoadBalanceAttribute &other) const;
         bool operator!=(const LoadBalanceAttribute &other) const;
+        const bool IsDefault() const;
     };
 
     LoadBalance();
