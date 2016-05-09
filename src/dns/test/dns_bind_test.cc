@@ -1061,6 +1061,17 @@ TEST_F(DnsBindTest, DnsUpdateErrorParse) {
 
 int main(int argc, char **argv) {
     Dns::Init();
+
+    // Bind to the client port first so that a new client port is used
+    boost::system::error_code ec;
+    boost::asio::ip::udp::socket sock(*Dns::GetEventManager()->io_service());
+    boost::asio::ip::udp::endpoint ep(boost::asio::ip::address::
+                                      from_string("0.0.0.0", ec),
+                                      ContrailPorts::ContrailDnsClientUdpPort());
+    sock.open(boost::asio::ip::udp::v4(), ec);
+    assert(ec.value() == 0);
+    sock.bind(ep, ec);
+
     ::testing::InitGoogleTest(&argc, argv);
     int error = RUN_ALL_TESTS();
     TaskScheduler::GetInstance()->Terminate();
