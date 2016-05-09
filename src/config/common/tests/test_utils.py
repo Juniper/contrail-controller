@@ -21,9 +21,9 @@ import six
 import contextlib
 from lxml import etree
 try:
-    from collections import OrderedDict
+    from collections import OrderedDict, defaultdict
 except ImportError:
-    from ordereddict import OrderedDict
+    from ordereddict import OrderedDict, defaultdict
 import pycassa
 import Queue
 from collections import deque
@@ -96,13 +96,13 @@ class CassandraCFs(object):
     _all_cfs = {}
 
     @classmethod
-    def add_cf(cls, name, cf):
-        CassandraCFs._all_cfs[name] = cf
+    def add_cf(cls, keyspace, cf_name, cf):
+        CassandraCFs._all_cfs[keyspace + '_' + cf_name] = cf
     # end add_cf
 
     @classmethod
-    def get_cf(cls, name):
-        return CassandraCFs._all_cfs[name]
+    def get_cf(cls, keyspace, cf_name):
+        return CassandraCFs._all_cfs[keyspace + '_' + cf_name]
     # end get_cf
 
     @classmethod
@@ -115,18 +115,30 @@ class CassandraCFs(object):
         cls._all_cfs = {}
 # end CassandraCFs
 
+class FakeConnectionPool(object):
+
+    def __init__(*args, **kwargs):
+        self = args[0]
+        if "keyspace" in kwargs:
+            self.keyspace = kwargs['keyspace']
+        else:
+            self.keyspace = args[2]
+    # end __init__
+# end FakeConnectionPool
+
 class FakeCF(object):
 
     def __init__(*args, **kwargs):
         self = args[0]
+        self._pool = args[2]
         self._name = args[3]
         try:
-            old_cf = CassandraCFs.get_cf(self._name)
+            old_cf = CassandraCFs.get_cf(self._pool.keyspace, self._name)
             self._rows = old_cf._rows
         except KeyError:
             self._rows = OrderedDict({})
         self.column_validators = {}
-        CassandraCFs.add_cf(self._name, self)
+        CassandraCFs.add_cf(self._pool.keyspace, self._name, self)
     # end __init__
 
     def get_range(self, *args, **kwargs):
@@ -703,22 +715,25 @@ class FakeIfmapClient(object):
 
 
 class FakeKombu(object):
-    _queues = {}
+    _exchange = defaultdict(dict)
 
     @classmethod
-    def is_empty(cls, qname):
-        for name, q in FakeKombu._queues.items():
+    def is_empty(cls, vhost, qname):
+        _vhost = ''.join(vhost)
+        for name, q in FakeKombu._exchange[_vhost].items():
             if name.startswith(qname) and q.qsize() > 0:
                 return False
         return True
     # end is_empty
 
+    @classmethod
+    def new_queues(self, vhost, q_name, q_gevent_obj):
+        FakeKombu._exchange[vhost][q_name] = q_gevent_obj
+    # end new_queues
+
     class Exchange(object):
         def __init__(self, *args, **kwargs):
-            pass
-
-        def _new_queue(self, q_name, q_obj):
-            FakeKombu._queues[q_name] = q_obj
+            self.exchange = args[1]
         # end __init__
     # end Exchange
 
@@ -739,7 +754,6 @@ class FakeKombu(object):
             self._sync_q = gevent.queue.Queue()
             self._name = q_name
             self._exchange = q_exchange
-            self._exchange._new_queue(q_name, self._sync_q)
         # end __init__
 
         def __call__(self, *args):
@@ -764,16 +778,23 @@ class FakeKombu(object):
 
     # end class Queue
 
+    class FakeChannel(object):
+        def __init__(self, vhost):
+            self.vhost = vhost
+        # end __init__
+    # end class Channel
+
     class Connection(object):
         class ConnectionException(Exception): pass
         class ChannelException(Exception): pass
 
         def __init__(self, *args, **kwargs):
-            pass
+            self.vhost = args[1]
         # end __init__
 
         def channel(self):
-            pass
+            chan = FakeKombu.FakeChannel(self.vhost)
+            return chan
         # end channel
 
         def close(self):
@@ -809,6 +830,9 @@ class FakeKombu(object):
         def __init__(self, *args, **kwargs):
             self.queues = kwargs['queues']
             self.callbacks = kwargs['callbacks']
+            self.vhost = ''.join(args[1].vhost)
+            FakeKombu._exchange[self.vhost][self.queues._name] \
+                                            = self.queues._sync_q
         # end __init__
 
         def consume(self):
@@ -830,10 +854,11 @@ class FakeKombu(object):
     class Producer(object):
         def __init__(self, *args, **kwargs):
             self.exchange = kwargs['exchange']
+            self.vhost = ''.join(args[1].vhost)
         # end __init__
 
         def publish(self, payload):
-            for q in FakeKombu._queues.values():
+            for q in FakeKombu._exchange[self.vhost].values():
                 msg_obj = FakeKombu.Queue.Message(payload)
                 q.put(msg_obj, None)
         #end publish
@@ -843,10 +868,11 @@ class FakeKombu(object):
         # end close
 
     # end class Producer
-
     @classmethod
-    def reset(cls):
-        cls._queues = {}
+    def reset(cls, vhost):
+        _vhost = ''.join(vhost)
+        cls._exchange[_vhost].clear()
+        pass
 # end class FakeKombu
 
 class FakeRedis(object):
