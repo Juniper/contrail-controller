@@ -244,6 +244,9 @@ public:
     const std::string &bgp_as_a_service_port_range() const {
         return bgp_as_a_service_port_range_;
     }
+    const std::vector<uint16_t> &bgp_as_a_service_port_range_value() const {
+        return bgp_as_a_service_port_range_value_;
+    }
 
     uint16_t flow_thread_count() const { return flow_thread_count_; }
     void set_flow_thread_count(uint16_t count) { flow_thread_count_ = count; }
@@ -312,6 +315,7 @@ protected:
 
 private:
     friend class AgentParamTest;
+    void UpdateBgpAsaServicePortRange();
     void ComputeFlowLimits();
     void ParseCollector();
     void ParseVirtualHost();
@@ -465,6 +469,7 @@ private:
     uint16_t flow_thread_count_;
     bool subnet_hosts_resolvable_;
     std::string bgp_as_a_service_port_range_;
+    std::vector<uint16_t> bgp_as_a_service_port_range_value_;
 
     // TBB related
     uint32_t tbb_thread_count_;

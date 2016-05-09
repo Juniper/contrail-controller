@@ -63,6 +63,11 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
     EXPECT_EQ(param.agent_mode(), AgentParam::VROUTER_AGENT);
     EXPECT_STREQ(param.agent_base_dir().c_str(), "/var/lib/contrail");
     EXPECT_EQ(param.subnet_hosts_resolvable(), true);
+
+    const std::vector<uint16_t> &ports = param.bgp_as_a_service_port_range_value();
+    EXPECT_EQ(ports[0], 100);
+    EXPECT_EQ(ports[1], 199);
+
     EXPECT_TRUE(param.debug());
     EXPECT_EQ(param.pkt0_tx_buffer_count(), 2000);
 }
@@ -168,15 +173,20 @@ TEST_F(FlowTest, Agent_Tbb_Option_Arguments) {
 // Check that linklocal flows are updated when the system limits are lowered
 TEST_F(FlowTest, Agent_Conf_file_3) {
     struct rlimit rl;
-    rl.rlim_max = 128;
-    rl.rlim_cur = 64;
+    rl.rlim_max = 1024;
+    rl.rlim_cur = 512;
     int result = setrlimit(RLIMIT_NOFILE, &rl);
     if (result == 0) {
         AgentParam param;
         param.Init("controller/src/vnsw/agent/init/test/cfg.ini", "test-param");
 
-        EXPECT_EQ(param.linklocal_system_flows(), 63);
-        EXPECT_EQ(param.linklocal_vm_flows(), 63);
+        const std::vector<uint16_t> &ports =
+            param.bgp_as_a_service_port_range_value();
+        EXPECT_EQ(ports[0], 100);
+        EXPECT_EQ(ports[1], 199);
+
+        EXPECT_EQ(param.linklocal_system_flows(), 411);
+        EXPECT_EQ(param.linklocal_vm_flows(), 411);
     }
 }
 
