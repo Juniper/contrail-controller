@@ -408,12 +408,17 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
     // Mark this peer's all paths as deleted.
     for (Route::PathList::iterator it = rt->GetPathList().begin();
          it != rt->GetPathList().end(); ++it) {
-        // Skip secondary paths.
-        if (dynamic_cast<BgpSecondaryPath *>(it.operator->())) continue;
-
         BgpPath *path = static_cast<BgpPath *>(it.operator->());
-        if (path->GetPeer() == peer &&
-                path->GetSource() == BgpPath::BGP_XMPP) {
+
+        // Skip resolved paths.
+        if (path->IsResolved())
+            continue;
+
+        // Skip secondary paths.
+        if (dynamic_cast<BgpSecondaryPath *>(path))
+            continue;
+
+        if (path->GetPeer() == peer && path->GetSource() == BgpPath::BGP_XMPP) {
             deleted_paths.insert(make_pair(path, true));
         }
     }
