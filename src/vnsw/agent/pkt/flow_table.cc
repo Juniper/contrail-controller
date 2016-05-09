@@ -193,11 +193,6 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
     if (rflow_req)
         rflow_req->set_reverse_flow_entry(NULL);
 
-    if (flow)
-        flow->GetPendingAction()->SetRecompute(false);
-    if (rflow)
-        rflow->GetPendingAction()->SetRecompute(false);
-
     bool force_update_rflow = false;
     if (fwd_flow_update) {
         if (flow == NULL)
@@ -514,8 +509,8 @@ boost::uuids::uuid FlowTable::rand_gen() {
     return rand_gen_();
 }
 
-// Enqueue message to revaluate a flow
-void FlowTable::RevaluateFlow(FlowEntry *flow) {
+// Enqueue message to recompute a flow
+void FlowTable::RecomputeFlow(FlowEntry *flow) {
     if (flow->is_flags_set(FlowEntry::ShortFlow))
         return;
 
@@ -524,7 +519,7 @@ void FlowTable::RevaluateFlow(FlowEntry *flow) {
         flow = flow->reverse_flow_entry();
     }
 
-    agent_->pkt()->get_flow_proto()->MessageRequest(new FlowTaskMsg(flow));
+    agent_->pkt()->get_flow_proto()->MessageRequest(flow);
 }
 
 // Handle deletion of a Route. Flow management module has identified that route
@@ -545,15 +540,6 @@ void FlowTable::EvictFlow(FlowEntry *flow, FlowEntry *reverse_flow) {
 
 void FlowTable::HandleRevaluateDBEntry(const DBEntry *entry, FlowEntry *flow,
                                        bool active_flow, bool deleted_flow) {
-    // Check if re-valuate still pending on flow
-    if (flow->GetPendingAction()->revaluate() == false)
-        return;
-    flow->GetPendingAction()->SetRevaluate(false);
-
-    FlowEntry *rflow = flow->reverse_flow_entry();
-    if (rflow)
-        rflow->GetPendingAction()->SetRevaluate(false);
-
     // Ignore revluate of deleted/short flows
     if (flow->IsShortFlow())
         return;
@@ -561,6 +547,7 @@ void FlowTable::HandleRevaluateDBEntry(const DBEntry *entry, FlowEntry *flow,
     if (flow->deleted())
         return;
 
+    FlowEntry *rflow = flow->reverse_flow_entry();
     // Update may happen for reverse-flow. We act on both forward and
     // reverse-flow. Get both forward and reverse flows
     if (flow->is_flags_set(FlowEntry::ReverseFlow)) {
@@ -778,7 +765,7 @@ bool FlowTable::ProcessFlowEvent(const FlowEvent *req, FlowEntry *flow,
     //Now process events.
     switch (req->event()) {
     case FlowEvent::DELETE_FLOW: {
-        DeleteUnLocked(req->get_del_rev_flow(), flow, rflow);
+        DeleteUnLocked(true, flow, rflow);
         break;
     }
 
@@ -793,9 +780,9 @@ bool FlowTable::ProcessFlowEvent(const FlowEvent *req, FlowEntry *flow,
         break;
     }
 
-    case FlowEvent::REVALUATE_FLOW: {
+    case FlowEvent::RECOMPUTE_FLOW: {
         if (active_flow)
-            RevaluateFlow(flow);
+            RecomputeFlow(flow);
         break;
     }
 
@@ -845,30 +832,6 @@ bool FlowTable::ProcessFlowEvent(const FlowEvent *req, FlowEntry *flow,
         break;
     }
     }
-    return true;
-}
-
-bool FlowTable::SetRecomputePending(FlowEntry *flow) {
-    tbb::mutex::scoped_lock mutext(flow->mutex());
-    if (flow->deleted() || flow->IsShortFlow())
-        return false;
-
-    if (flow->GetPendingAction()->recompute())
-        return false;
-
-    flow->GetPendingAction()->SetRecompute(true);
-    return true;
-}
-
-bool FlowTable::SetRevaluatePending(FlowEntry *flow) {
-    tbb::mutex::scoped_lock mutext(flow->mutex());
-    if (flow->deleted() || flow->IsShortFlow())
-        return false;
-
-    if (flow->GetPendingAction()->revaluate())
-        return false;
-
-    flow->GetPendingAction()->SetRevaluate(true);
     return true;
 }
 
