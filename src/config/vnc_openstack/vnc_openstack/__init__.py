@@ -16,8 +16,9 @@ import logging.handlers
 from datetime import datetime
 import Queue
 import ConfigParser
-import keystoneclient.v2_0.client as keystone
-import keystoneclient.v3.client as keystonev3
+from keystoneclient import session as ksession
+from keystoneclient.auth.identity import generic as kauth
+from keystoneclient import client as kclient
 from netaddr import *
 try:
     from cfgm_common import vnc_plugin_base
@@ -121,7 +122,7 @@ def fill_keystone_opts(obj, conf_sections):
     obj._resync_number_workers = int(resync_workers)
 
     try:
-        # If new project with same name as an orphan project 
+        # If new project with same name as an orphan project
         # (gone in keystone, present in # contrail with resources within)
         # is encountered,
         # a. proceed with unique ified name (new_unique_fqn)
@@ -302,53 +303,46 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         if self._ks:
             return
 
-        if 'v3' in self._auth_url.split('/')[-1]:
-            self._ks = self._ksv3_get_conn()
-            if self._endpoint_type and self._ks.service_catalog:
-                self._ks.management_url = \
-                    self._ks.service_catalog.get_urls(
-                        service_type='identity',
-                        endpoint_type=self._endpoint_type)[0]
+        if self._admin_token:
+            auth = kauth.token.Token(self._auth_url, token=self._admin_token)
         else:
-            self._ks = self._ksv2_get_conn()
+            kwargs = {
+                'project_name': self._admin_tenant,
+                'username': self._auth_user,
+                'password': self._auth_passwd,
+            }
+            if 'v3' in self._auth_url.split('/')[-1]:
+                kwargs.update({
+                    'user_domain_name': self._user_domain_name,
+                })
+                if self._user_domain_name:
+                    kwargs.update({
+                        'project_domain_name': self._project_domain_name,
+                        'project_name': self._project_name,
+                    })
+                else:
+                    kwargs.update({
+                        'domain_id': self._domain_id,
+                    })
+
+            auth = kauth.password.Password(self._auth_url, **kwargs)
+
+        if self._use_certs:
+            sess = ksession.Session(auth=auth, verify=self._kscertbundle)
+        else:
+            sess = ksession.Session(auth=auth, verify=self._insecure)
+
+        self._ks = kclient.Client(session=sess, auth_url=self._auth_url)
+
+        if self._endpoint_type and auth.auth_ref.service_catalog:
+            self._ks.management_url = \
+                auth.auth_ref.service_catalog.get_urls(
+                    service_type='identity',
+                    endpoint_type=self._endpoint_type)[0]
 
         ConnectionState.update(conn_type=ConnType.OTHER,
-            name='Keystone', status=ConnectionStatus.UP, message='',
-            server_addrs=[self._auth_url])
-    # end _get_keystone_conn
-
-    def _ksv2_get_conn(self):
-        if self._admin_token:
-            if self._insecure:
-                   return keystone.Client(token=self._admin_token,
-                                          endpoint=self._auth_url,
-                                          insecure=self._insecure)
-            elif not self._insecure and self._use_certs:
-                   return keystone.Client(token=self._admin_token,
-                                          endpoint=self._auth_url,
-                                          cacert=self._kscertbundle)
-            else:
-                   return keystone.Client(token=self._admin_token,
-                                          endpoint=self._auth_url)
-        else:
-            if self._insecure:
-                 return keystone.Client(username=self._auth_user,
-                                        password=self._auth_passwd,
-                                        tenant_name=self._admin_tenant,
-                                        auth_url=self._auth_url,
-                                        insecure=self._insecure)
-            elif not self._insecure and self._use_certs:
-                 return keystone.Client(username=self._auth_user,
-                                        password=self._auth_passwd,
-                                        tenant_name=self._admin_tenant,
-                                        auth_url=self._auth_url,
-                                        cacert=self._kscertbundle)
-            else:
-                 return keystone.Client(username=self._auth_user,
-                                        password=self._auth_passwd,
-                                        tenant_name=self._admin_tenant,
-                                        auth_url=self._auth_url)
-    # end _ksv2_get_conn
+                    name='Keystone', status=ConnectionStatus.UP, message='',
+                    server_addrs=[self._auth_url])
 
     def _ksv2_projects_list(self):
         return [{'id': tenant.id} for tenant in self._ks.tenants.list()]
@@ -437,41 +431,6 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                                        (project_id, e))
             self._failed_project_dels.add(project_id)
     # _ksv2_del_project_from_vnc
-
-    def _ksv3_get_conn(self):
-        if self._admin_token:
-           if not self._insecure and self._use_certs:
-              return keystonev3.Client(token=self._admin_token,
-                                       endpoint=self._auth_url,
-                                       verify=self._kscertbundle)
-           else:
-              return keystonev3.Client(token=self._admin_token,
-                                       endpoint=self._auth_url,
-                                       insecure=self._insecure)
-        elif self._project_domain_name:
-            return keystonev3.Client(user_domain_name=self._user_domain_name,
-                                     username=self._auth_user,
-                                     password=self._auth_passwd,
-                                     project_domain_name=self._project_domain_name,
-                                     project_name=self._project_name,
-                                     auth_url=self._auth_url,
-                                     insecure=self._insecure)
-        else:
-           if not self._insecure and self._use_certs:
-               return keystonev3.Client(user_domain_name=self._user_domain_name,
-                                        username=self._auth_user,
-                                        password=self._auth_passwd,
-                                        domain_id=self._domain_id,
-                                        auth_url=self._auth_url,
-                                        verify=self._kscertbundle)
-           else:
-               return keystonev3.Client(user_domain_name=self._user_domain_name,
-                                        username=self._auth_user,
-                                        password=self._auth_passwd,
-                                        domain_id=self._domain_id,
-                                        auth_url=self._auth_url,
-                                        insecure=self._insecure)
-    # end _ksv3_get_conn
 
     def _ksv3_domains_list(self):
         return [{'id': domain.id} for domain in self._ks.domains.list()]
@@ -1122,4 +1081,3 @@ class NeutronApiDriver(vnc_plugin_base.NeutronApi):
 
     def __call__(self):
         pass
-
