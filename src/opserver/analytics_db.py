@@ -241,7 +241,7 @@ class AnalyticsDb(object):
             server_list = [i.split(":")[0] for i in self._cassandra_server_list]
             cql_port = self._cassandra_server_list[0].split(":")[1]
             cluster = Cluster(contact_points = server_list,
-                auth_provider = creds, port = cql_port)
+                auth_provider = creds, port = int(cql_port))
             self._session=cluster.connect(COLLECTOR_KEYSPACE_CQL)
             self._session.connection_class = GeventConnection
             self._session.default_consistency_level = ConsistencyLevel.LOCAL_ONE
