@@ -207,7 +207,7 @@ public:
     void SetAceSandeshData(const AclDBEntry *acl, AclFlowCountResp &data, 
                            int ace_id);
    
-    void RevaluateFlow(FlowEntry *flow);
+    void RecomputeFlow(FlowEntry *flow);
     void DeleteMessage(FlowEntry *flow);
 
     void DeleteVrf(VrfEntry *vrf);
@@ -231,9 +231,6 @@ public:
                           FlowEntry *rflow);
     void PopulateFlowEntriesUsingKey(const FlowKey &key, bool reverse_flow,
                                      FlowEntry** flow, FlowEntry** rflow);
-
-    bool SetRecomputePending(FlowEntry *flow);
-    bool SetRevaluatePending(FlowEntry *flow);
 
     // Concurrency check to ensure all flow-table and free-list manipulations
     // are done from FlowEvent task context only

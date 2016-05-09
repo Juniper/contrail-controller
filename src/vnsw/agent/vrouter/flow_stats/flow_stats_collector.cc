@@ -300,12 +300,7 @@ void FlowStatsCollector::UpdateStatsAndExportFlow(FlowExportInfo *info,
 void FlowStatsCollector::FlowDeleteEnqueue(FlowExportInfo *info,
                                            uint64_t t) {
     FlowEntry *fe = info->flow();
-    uint16_t idx = 0;
-    if (fe->flow_table()) {
-        idx = fe->flow_table()->table_index();
-    }
-    agent_uve_->agent()->pkt()->get_flow_proto()->DeleteFlowRequest
-        (fe->key(), true, idx);
+    agent_uve_->agent()->pkt()->get_flow_proto()->DeleteFlowRequest(fe);
     info->set_delete_enqueue_time(t);
     FlowEntry *rflow = info->reverse_flow();
     if (rflow) {

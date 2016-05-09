@@ -2033,18 +2033,91 @@ FlowPendingAction::~FlowPendingAction() {
 }
 
 void FlowPendingAction::Reset() {
+    delete_ = false;
     recompute_ = false;
+    recompute_dbentry_ = false;
     revaluate_ = false;
 }
 
-void FlowPendingAction::SetRevaluate(bool val) {
-    revaluate_ = val;
+bool FlowPendingAction::SetDelete() {
+    if (delete_)
+        return false;
+
+    delete_ = true;
+    return true;
 }
 
-void FlowPendingAction::SetRecompute(bool val) {
-    recompute_ = val;
-    revaluate_ = val;
+void FlowPendingAction::ResetDelete() {
+    delete_ = false;
+    recompute_ = false;
+    recompute_dbentry_ = false;
+    revaluate_ = false;
 }
+
+bool FlowPendingAction::CanDelete() {
+    return delete_;
+}
+
+bool FlowPendingAction::SetRecompute() {
+    if (delete_ || recompute_)
+        return false;
+
+    recompute_ = true;
+    return true;
+}
+
+void FlowPendingAction::ResetRecompute() {
+    recompute_ = false;
+    recompute_dbentry_ = false;
+    revaluate_ = false;
+}
+
+bool FlowPendingAction::CanRecompute() {
+    if (delete_)
+        return false;
+
+    return recompute_;
+}
+
+bool FlowPendingAction::SetRecomputeDBEntry() {
+    if (delete_ || recompute_ || recompute_dbentry_)
+        return false;
+
+    recompute_dbentry_ = true;
+    return true;
+}
+
+void FlowPendingAction::ResetRecomputeDBEntry() {
+    recompute_dbentry_ = false;
+    revaluate_ = false;
+}
+
+bool FlowPendingAction::CanRecomputeDBEntry() {
+    if (delete_ || recompute_)
+        return false;
+
+    return recompute_dbentry_;
+}
+
+bool FlowPendingAction::SetRevaluate() {
+    if (delete_ || recompute_ || recompute_dbentry_ || revaluate_)
+        return false;
+
+    revaluate_ = true;
+    return true;
+}
+
+void FlowPendingAction::ResetRevaluate() {
+    revaluate_ = false;
+}
+
+bool FlowPendingAction::CanRevaluate() {
+    if (delete_ || recompute_ || recompute_dbentry_)
+        return false;
+
+    return revaluate_;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // Introspect routines
 /////////////////////////////////////////////////////////////////////////////

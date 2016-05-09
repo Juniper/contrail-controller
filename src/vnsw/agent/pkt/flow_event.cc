@@ -24,7 +24,7 @@ FlowEventQueueBase::FlowEventQueueBase(FlowProto *proto,
                                        FlowTokenPool *pool,
                                        uint16_t latency_limit) :
     flow_proto_(proto), token_pool_(pool), task_start_(0), count_(0),
-    latency_limit_(latency_limit) {
+    events_processed_(0), latency_limit_(latency_limit) {
     queue_ = new Queue(task_id, task_instance,
                        boost::bind(&FlowEventQueueBase::Handler, this, _1));
     char buff[100];
@@ -49,6 +49,10 @@ void FlowEventQueueBase::Shutdown() {
 }
 
 void FlowEventQueueBase::Enqueue(FlowEvent *event) {
+    if (CanEnqueue(event) == false) {
+        delete event;
+        return;
+    }
     queue_->Enqueue(event);
 }
 
@@ -72,11 +76,11 @@ void FlowEventQueueBase::TaskExit(bool done) {
         struct rusage r;
         getrusage(RUSAGE_THREAD, &r);
 
-        uint32_t user = (r.ru_utime.tv_sec - rusage_.ru_utime.tv_sec) * 100;
-        user += (r.ru_utime.tv_usec - rusage_.ru_utime.tv_usec);
+        uint32_t user = (r.ru_utime.tv_sec - rusage_.ru_utime.tv_sec) * 1000;
+        user += ((r.ru_utime.tv_usec - rusage_.ru_utime.tv_usec) / 1000);
 
-        uint32_t sys = (r.ru_stime.tv_sec - rusage_.ru_stime.tv_sec) * 100;
-        sys += (r.ru_stime.tv_usec - rusage_.ru_stime.tv_usec);
+        uint32_t sys = (r.ru_stime.tv_sec - rusage_.ru_stime.tv_sec) * 1000;
+        sys += ((r.ru_stime.tv_usec - rusage_.ru_stime.tv_usec) / 1000);
 
         LOG(ERROR, queue_->Description() 
             << " Time exceeded " << ((t - task_start_) / 1000)
@@ -87,8 +91,141 @@ void FlowEventQueueBase::TaskExit(bool done) {
 }
 
 bool FlowEventQueueBase::Handler(FlowEvent *event) {
+    std::auto_ptr<FlowEvent> event_ptr(event);
     count_++;
-    return HandleEvent(event);
+    if (CanProcess(event) == false) {
+        ProcessDone(event, false);
+        return true;
+    }
+
+    HandleEvent(event);
+
+    ProcessDone(event, true);
+    return true;
+}
+
+bool FlowEventQueueBase::CanEnqueue(FlowEvent *event) {
+    FlowEntry *flow = event->flow();
+    bool ret = true;
+    switch (event->event()) {
+
+    case FlowEvent::DELETE_DBENTRY:
+    case FlowEvent::DELETE_FLOW: {
+        tbb::mutex::scoped_lock mutext(flow->mutex());
+        ret = flow->GetPendingAction()->SetDelete();
+        break;
+    }
+
+    // lock already token for the flow
+    case FlowEvent::FLOW_MESSAGE: {
+        ret = flow->GetPendingAction()->SetRecompute();
+        break;
+    }
+
+    case FlowEvent::RECOMPUTE_FLOW: {
+        tbb::mutex::scoped_lock mutext(flow->mutex());
+        ret = flow->GetPendingAction()->SetRecomputeDBEntry();
+        break;
+    }
+
+    case FlowEvent::REVALUATE_DBENTRY: {
+        tbb::mutex::scoped_lock mutext(flow->mutex());
+        ret = flow->GetPendingAction()->SetRevaluate();
+        break;
+    }
+
+    default:
+        break;
+    }
+
+    return ret;
+}
+
+bool FlowEventQueueBase::CanProcess(FlowEvent *event) {
+    FlowEntry *flow = event->flow();
+    bool ret = true;
+    switch (event->event()) {
+
+    case FlowEvent::DELETE_DBENTRY:
+    case FlowEvent::DELETE_FLOW: {
+        tbb::mutex::scoped_lock mutext(flow->mutex());
+        events_processed_++;
+        ret = flow->GetPendingAction()->CanDelete();
+        break;
+    }
+
+    case FlowEvent::FLOW_MESSAGE: {
+        tbb::mutex::scoped_lock mutext(flow->mutex());
+        events_processed_++;
+        ret = flow->GetPendingAction()->CanRecompute();
+        break;
+    }
+
+    case FlowEvent::RECOMPUTE_FLOW: {
+        tbb::mutex::scoped_lock mutext(flow->mutex());
+        events_processed_++;
+        ret = flow->GetPendingAction()->CanRecomputeDBEntry();
+        break;
+    }
+
+    case FlowEvent::REVALUATE_DBENTRY: {
+        events_processed_++;
+        tbb::mutex::scoped_lock mutext(flow->mutex());
+        ret = flow->GetPendingAction()->CanRevaluate();
+        break;
+    }
+
+    default:
+        break;
+    }
+
+    return ret;
+}
+
+void FlowEventQueueBase::ProcessDone(FlowEvent *event, bool update_rev_flow) {
+    FlowEntry *flow = event->flow();
+    FlowEntry *rflow = NULL;
+    if (flow && update_rev_flow)
+        rflow = flow->reverse_flow_entry();
+
+    switch (event->event()) {
+
+    case FlowEvent::DELETE_DBENTRY:
+    case FlowEvent::DELETE_FLOW: {
+        FLOW_LOCK(flow, rflow);
+        flow->GetPendingAction()->ResetDelete();
+        if (rflow)
+            rflow->GetPendingAction()->ResetDelete();
+        break;
+    }
+
+    case FlowEvent::FLOW_MESSAGE: {
+        FLOW_LOCK(flow, rflow);
+        flow->GetPendingAction()->ResetRecompute();
+        if (rflow)
+            rflow->GetPendingAction()->ResetRecompute();
+        break;
+    }
+
+    case FlowEvent::RECOMPUTE_FLOW: {
+        tbb::mutex::scoped_lock mutext(flow->mutex());
+        flow->GetPendingAction()->ResetRecomputeDBEntry();
+        break;
+    }
+
+    case FlowEvent::REVALUATE_DBENTRY: {
+        FLOW_LOCK(flow, rflow);
+        flow->GetPendingAction()->ResetRevaluate();
+        if (rflow)
+            rflow->GetPendingAction()->ResetRevaluate();
+        break;
+    }
+
+    default:
+        break;
+    }
+
+    return;
 }
 
 FlowEventQueue::FlowEventQueue(Agent *agent, FlowProto *proto,
