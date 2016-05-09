@@ -619,15 +619,27 @@ int IFMapChannel::ReadPollResponse() {
 
         // Manage timers.
         if (start_stale_entries_cleanup()) {
-            // If this is a reconnection, keep re-arming the stale entries
-            // cleanup timer as long as we keep receiving data.
-            StartStaleEntriesCleanupTimer();
+            if (reply_str.find("searchResult") != string::npos) {
+                // If this is a reconnection, keep re-arming the stale entries
+                // cleanup timer as long as we receive searchResults.
+                StartStaleEntriesCleanupTimer();
+            } else {
+                // Artificially expire the state entries cleanup timer if we
+                // receive updateResult or deleteResult.
+                ExpireStaleEntriesCleanupTimer();
+            }
         }
         if (!end_of_rib_computed()) {
-            // When the daemon is coming up, as long as we are receiving data,
-            // we have not received the entire db. Keep re-arming the EOR timer
-            // as long as we are receiving data.
-            StartEndOfRibTimer();
+            if (reply_str.find("searchResult") != string::npos) {
+                // When the daemon is coming up, as long as we are receiving
+                // searchResults, we have not received the entire db. Keep
+                // re-arming the EOR timer as long as we receive searchResults.
+                StartEndOfRibTimer();
+            } else {
+                // Artificially expire the EOR timer if we receive updateResult
+                // or deleteResult.
+                ExpireEndOfRibTimer();
+            }
         }
 
         // Send the message to the parser for further processing.
@@ -668,6 +680,14 @@ void IFMapChannel::StopStaleEntriesCleanupTimer() {
     }
 }
 
+void IFMapChannel::ExpireStaleEntriesCleanupTimer() {
+    CHECK_CONCURRENCY("ifmap::StateMachine");
+    IFMAP_PEER_DEBUG(IFMapServerConnection, "", "stale cleanup timer expired");
+    stale_entries_cleanup_timer_->Cancel();
+    set_start_stale_entries_cleanup(false);
+    manager_->ifmap_server()->ProcessStaleEntriesTimeout();
+}
+
 // Called in the context of the main thread.
 bool IFMapChannel::ProcessStaleEntriesTimeout() {
     int timeout = kStaleEntriesCleanupTimeout;
@@ -696,6 +716,14 @@ void IFMapChannel::StopEndOfRibTimer() {
     if (end_of_rib_timer_->running()) {
         end_of_rib_timer_->Cancel();
     }
+}
+
+void IFMapChannel::ExpireEndOfRibTimer() {
+    CHECK_CONCURRENCY("ifmap::StateMachine");
+    IFMAP_PEER_DEBUG(IFMapServerConnection, "", "end of rib timer expired");
+    end_of_rib_timer_->Cancel();
+    set_end_of_rib_computed(true);
+    process::ConnectionState::GetInstance()->Update();
 }
 
 // Called in the context of the main thread.
