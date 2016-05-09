@@ -99,13 +99,12 @@ bool ControllerRouteWalker::VrfDelPeer(DBTablePartBase *partition,
                                        DBEntryBase *entry) {
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
     if (peer_->GetType() == Peer::BGP_PEER) {
-        BgpPeer *bgp_peer = static_cast<BgpPeer *>(peer_);
-        VrfExport::State *vrf_state = static_cast<VrfExport::State *>
-            (bgp_peer->GetVrfExportState(partition, entry));
-        // If there is no state for this peer for vrf sent, then ignore
-        // walk for same and continue for next entry.
-        if (!vrf_state) return true;
-
+        // skip starting walk on route tables if all the the route tables
+        // are already delete, this also safe-gaurds that StartRouteWalk
+        // will not be the first reference on the deleted VRF which will
+        // end up taking reference and setting refcount state on deleted
+        // VRF which can cause Bug - 1495824
+        if (vrf->AllRouteTableDeleted()) return true;
         // Register Callback for deletion of VRF state on completion of route
         // walks 
         RouteWalkDoneForVrfCallback(boost::bind(
