@@ -347,12 +347,14 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
     traversal_white_list_->include_vertex.insert("instance-ip");
     traversal_white_list_->include_vertex.insert("virtual-network");
     traversal_white_list_->include_vertex.insert("floating-ip");
+    traversal_white_list_->include_vertex.insert("alias-ip");
     traversal_white_list_->include_vertex.insert("customer-attachment");
     traversal_white_list_->include_vertex.insert(
         "virtual-machine-interface-routing-instance");
     traversal_white_list_->include_vertex.insert("physical-interface");
     traversal_white_list_->include_vertex.insert("domain");
     traversal_white_list_->include_vertex.insert("floating-ip-pool");
+    traversal_white_list_->include_vertex.insert("alias-ip-pool");
     traversal_white_list_->include_vertex.insert("logical-interface");
     traversal_white_list_->include_vertex.insert(
         "virtual-network-network-ipam");
@@ -402,6 +404,8 @@ void IFMapGraphWalker::AddLinksToWhitelist() {
     traversal_white_list_->include_edge.insert(
         "source=virtual-machine-interface,target=floating-ip");
     traversal_white_list_->include_edge.insert(
+        "source=virtual-machine-interface,target=alias-ip");
+    traversal_white_list_->include_edge.insert(
         "source=virtual-machine-interface,target=customer-attachment");
     traversal_white_list_->include_edge.insert(
         "source=virtual-machine-interface,target=virtual-machine-interface-routing-instance");
@@ -421,6 +425,8 @@ void IFMapGraphWalker::AddLinksToWhitelist() {
         "source=service-template,target=domain");
     traversal_white_list_->include_edge.insert(
         "source=virtual-network,target=floating-ip-pool");
+    traversal_white_list_->include_edge.insert(
+        "source=virtual-network,target=alias-ip-pool");
     traversal_white_list_->include_edge.insert(
         "source=virtual-network,target=virtual-network-network-ipam");
     traversal_white_list_->include_edge.insert(
@@ -445,6 +451,8 @@ void IFMapGraphWalker::AddLinksToWhitelist() {
     traversal_white_list_->include_edge.insert(
         "source=floating-ip,target=floating-ip-pool");
     traversal_white_list_->include_edge.insert(
+        "source=alias-ip,target=alias-ip-pool");
+    traversal_white_list_->include_edge.insert(
         "source=virtual-machine-interface-routing-instance,target=routing-instance");
     // VDNS needs dns/dhcp info from IPAM and FQN from Domain.
     traversal_white_list_->include_edge.insert(
@@ -453,6 +461,10 @@ void IFMapGraphWalker::AddLinksToWhitelist() {
     // getting the pool from. EG: public-network (might not have any VMs)
     traversal_white_list_->include_edge.insert(
         "source=floating-ip-pool,target=virtual-network");
+    // Need this to get from alias-ip-pool to the virtual-network we are
+    // getting the pool from. since alias ip network might not have any VMs
+    traversal_white_list_->include_edge.insert(
+        "source=alias-ip-pool,target=virtual-network");
     traversal_white_list_->include_edge.insert(
         "source=virtual-machine-interface,target=service-health-check");
     traversal_white_list_->include_edge.insert(

@@ -156,6 +156,42 @@ public:
         FloatingIpSet list_;
     };
 
+    // A unified structure for storing AliasIp information for both
+    // operational and config elements
+    struct AliasIp : public ListEntry {
+        AliasIp();
+        AliasIp(const AliasIp &rhs);
+        AliasIp(const IpAddress &addr, const std::string &vrf,
+                   const boost::uuids::uuid &vn_uuid);
+        virtual ~AliasIp();
+
+        bool operator() (const AliasIp &lhs, const AliasIp &rhs) const;
+        bool IsLess(const AliasIp *rhs) const;
+        void Activate(VmInterface *interface, bool force_update) const;
+        void DeActivate(VmInterface *interface) const;
+
+        IpAddress alias_ip_;
+        mutable VnEntryRef vn_;
+        mutable VrfEntryRef vrf_;
+        std::string vrf_name_;
+        boost::uuids::uuid vn_uuid_;
+        mutable bool force_update_;
+    };
+    typedef std::set<AliasIp, AliasIp> AliasIpSet;
+
+    struct AliasIpList {
+        AliasIpList() : v4_count_(0), v6_count_(0), list_() { }
+        ~AliasIpList() { }
+
+        void Insert(const AliasIp *rhs);
+        void Update(const AliasIp *lhs, const AliasIp *rhs);
+        void Remove(AliasIpSet::iterator &it);
+
+        uint16_t v4_count_;
+        uint16_t v6_count_;
+        AliasIpSet list_;
+    };
+
     struct ServiceVlan : ListEntry {
         ServiceVlan();
         ServiceVlan(const ServiceVlan &rhs);
@@ -498,9 +534,15 @@ public:
     Interface::MirrorDirection mirror_direction() const {
         return mirror_direction_;
     }
+
     const FloatingIpList &floating_ip_list() const {
         return floating_ip_list_;
     }
+
+    const AliasIpList &alias_ip_list() const {
+        return alias_ip_list_;
+    }
+
     const ServiceVlanList &service_vlan_list() const {
         return service_vlan_list_;
     }
@@ -558,6 +600,7 @@ public:
     bool HasFloatingIp(Address::Family family) const;
     bool HasFloatingIp() const;
     bool IsFloatingIp(const IpAddress &ip) const;
+    bool IsAliasIp(const IpAddress &ip) const;
     Ip4Address mdata_ip_addr() const;
     MetaDataIp *GetMetaDataIp(const Ip4Address &ip) const;
 
@@ -570,6 +613,7 @@ public:
     const HealthCheckInstanceSet &hc_instance_set() const;
 
     size_t GetFloatingIpCount() const { return floating_ip_list_.list_.size(); }
+    size_t GetAliasIpCount() const { return alias_ip_list_.list_.size(); }
     bool HasServiceVlan() const { return service_vlan_list_.list_.size() != 0; }
 
     uint32_t GetServiceVlanLabel(const VrfEntry *vrf) const;
@@ -658,7 +702,6 @@ private:
     void ServiceVlanRouteAdd(const ServiceVlan &entry);
     void ServiceVlanRouteDel(const ServiceVlan &entry);
 
-    bool OnResyncFloatingIp(VmInterfaceConfigData *data, bool new_ipv4_active);
     bool OnResyncSecurityGroupList(VmInterfaceConfigData *data,
                                    bool new_ipv4_active);
     bool OnResyncStaticRoute(VmInterfaceConfigData *data, bool new_ipv4_active);
@@ -751,6 +794,11 @@ private:
     void UpdateFloatingIp(bool force_update, bool policy_change, bool l2,
                           uint32_t old_ethernet_tag);
     void DeleteFloatingIp(bool l2, uint32_t old_ethernet_tag);
+
+    void CleanupAliasIpList();
+    void UpdateAliasIp(bool force_update, bool policy_change);
+    void DeleteAliasIp();
+
     void UpdateServiceVlan(bool force_update, bool policy_change,
                            bool old_ipv4_active, bool old_ipv6_active);
     void DeleteServiceVlan();
@@ -837,6 +885,7 @@ private:
     // Lists
     SecurityGroupEntryList sg_list_;
     FloatingIpList floating_ip_list_;
+    AliasIpList alias_ip_list_;
     ServiceVlanList service_vlan_list_;
     StaticRouteList static_route_list_;
     AllowedAddressPairList allowed_address_pair_list_;
@@ -1002,6 +1051,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     Interface::MirrorDirection mirror_direction_;
     VmInterface::SecurityGroupEntryList sg_list_;
     VmInterface::FloatingIpList floating_ip_list_;
+    VmInterface::AliasIpList alias_ip_list_;
     VmInterface::ServiceVlanList service_vlan_list_;
     VmInterface::StaticRouteList static_route_list_;
     VmInterface::VrfAssignRuleList vrf_assign_rule_list_;
