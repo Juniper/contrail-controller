@@ -4,7 +4,7 @@ flexmock
 coverage
 webtest
 pyaml
-python-keystoneclient
+python-keystoneclient>=0.11.0
 lxml>=2.3.3
 gevent==1.1a2
 geventhttpclient==1.0a
