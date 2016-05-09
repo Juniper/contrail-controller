@@ -92,6 +92,11 @@ protected:
     Agent *agent_;
 };
 
+//Verify that when agent is in TSN mode, AgentStatsCollector is not created
+TEST_F(TsnRoute, NoAgentStatsCollector) {
+    EXPECT_TRUE((agent_->stats_collector() == NULL));
+}
+
 TEST_F(TsnRoute, Basic) {
 }
 
