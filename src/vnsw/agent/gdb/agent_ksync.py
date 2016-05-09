@@ -1,9 +1,9 @@
 #
 #  Copyright (c) 2016 Juniper Networks. All rights reserved.
 #
-#  agent_ksync.py
+#  agent_db.py
 #
-#  gdb macros to dump the vrouter agent KSync object/entries
+#  gdb macros to dump the vrouter agent DB object/entries
 
 import gdb
 
@@ -37,4 +37,21 @@ def print_nh_ksync_entry(entry_ptr, entry):
 def dump_nh_ksync_entries():
     nh_table = gdb.parse_and_eval('Agent::singleton_->ksync_->nh_ksync_obj_.px')
     print_ksync_entries(nh_table, print_nh_ksync_entry)
+
+def print_mpls_ksync_entry(entry_ptr, entry):
+    kmpls = entry.cast(gdb.lookup_type(str(entry.dynamic_type)))
+    print (str(entry_ptr) + "  label=%-5s  nh=%-5s   " % (kmpls['label_'], kmpls['nh_']))
+
+def dump_ksync_mpls_entries():
+    kmpls_table = gdb.parse_and_eval('Agent::singleton_->ksync_->mpls_ksync_obj_.px')
+    print_ksync_entries(kmpls_table, print_mpls_ksync_entry)
+
+def print_kintf_entry(entry_ptr, entry):
+    kintf = entry.cast(gdb.lookup_type('InterfaceKSyncEntry'))
+    print(str(entry_ptr) + "    idx=%-5d   name=%-20s   " % (kintf['index_'],\
+                                                  kintf['interface_name_']['_M_dataplus']['_M_p']))
+
+def dump_ksync_intf_entries():
+    kintf_table = gdb.parse_and_eval('Agent::singleton_->ksync_->interface_ksync_obj_.px')
+    print_ksync_entries(kintf_table, print_kintf_entry)
 
