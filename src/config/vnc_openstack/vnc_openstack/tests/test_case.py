@@ -39,11 +39,12 @@ class VncOpenstackTestCase(TestCase):
     _entry_pt_to_classes = FakeExtensionManager._entry_pt_to_classes
     @classmethod
     def setup_flexmock(cls):
-        import keystoneclient.v2_0.client as keystone
+        from keystoneclient import client as keystone
         FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.resync'] = [vnc_openstack.OpenstackDriver]
         FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.resourceApi'] = [vnc_openstack.ResourceApiDriver]
         FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.neutronApi'] = [vnc_openstack.NeutronApiDriver]
-        setup_extra_flexmock([(keystone.Client, '__new__', get_keystone_client)])
+        setup_extra_flexmock([(keystone, 'Client', get_keystone_client)])
+
     # end setup_flexmock
 
     @classmethod
