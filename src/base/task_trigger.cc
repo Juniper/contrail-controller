@@ -16,6 +16,9 @@ public:
             parent_->Reset();
             return true;
         }
+        if (parent_->deferred()) {
+            return false;
+        }
         bool done = (parent_->func_)();
         if (done) {
             parent_->Reset();
@@ -23,6 +26,7 @@ public:
         return done;
     }
     std::string Description() const { return "TaskTrigger::WorkerTask"; }
+
 private:
     TaskTrigger *parent_;
 };
@@ -31,6 +35,7 @@ TaskTrigger::TaskTrigger(FunctionPtr func, int task_id, int task_instance)
     : func_(func), task_id_(task_id), task_instance_(task_instance) {
     trigger_ = false;
     disabled_ = false;
+    deferred_ = false;
 }
 
 TaskTrigger::~TaskTrigger() {
