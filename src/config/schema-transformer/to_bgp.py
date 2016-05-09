@@ -2275,6 +2275,7 @@ class VirtualMachineInterfaceST(DBBase):
         for ip in ip_list:
             address = AddressType(subnet=SubnetType(ip, 32))
             mc = MatchConditionType(src_address=address,
+                                    protocol='any',
                                     src_port=PortType(),
                                     dst_port=PortType())
 
