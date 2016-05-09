@@ -222,6 +222,7 @@ extern void RouterIdDepInit(Agent *agent);
 #define kTaskHealthCheck "Agent::HealthCheck"
 
 #define kTaskDBExclude "Agent::DBExcludeTask"
+#define kTaskConfigManager "Agent::ConfigManager"
 
 #define kInterfaceDbTablePrefix "db.interface"
 #define kVnDbTablePrefix  "db.vn"
