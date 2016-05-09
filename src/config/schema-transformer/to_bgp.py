@@ -678,10 +678,10 @@ class VirtualNetworkST(DBBase):
             si = _vnc_lib.service_instance_read(fq_name_str=next_hop)
             si_props = si.get_service_instance_properties()
             if si_props is None:
-                return None
+                return (None, None)
         except NoIdError:
             _sandesh._logger.error("Cannot read service instance %s", next_hop)
-            return None
+            return (None, None)
         left_vn_str, _ = get_si_vns(si, si_props)
         if not left_vn_str:
             _sandesh._logger.error("%s: route table next hop service instance "
@@ -1134,7 +1134,7 @@ class RouteTableST(DBBase):
         rt_list = [route.next_hop for route in routes]
         for route in self.routes or []:
             if route.next_hop not in rt_list:
-                self._si_dict.discard(route.next_hop)
+                del _si_dict[route.next_hop]
         self.routes = routes
         for route in self.routes or []:
             self._si_dict[route.next_hop] = self
