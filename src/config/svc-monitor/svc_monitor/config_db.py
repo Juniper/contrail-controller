@@ -126,6 +126,7 @@ class LoadbalancerPoolSM(DBBaseSM):
         self.loadbalancer_listener = None
         self.loadbalancer_id = None
         self.last_sent = None
+        self.custom_attributes = []
         self.update(obj_dict)
     # end __init__
 
@@ -136,6 +137,9 @@ class LoadbalancerPoolSM(DBBaseSM):
         self.fq_name = obj['fq_name']
         self.params = obj.get('loadbalancer_pool_properties', None)
         self.provider = obj.get('loadbalancer_pool_provider', None)
+        kvpairs = obj.get('loadbalancer_pool_custom_attributes', None)
+        if kvpairs:
+            self.custom_attributes = kvpairs.get('key_value_pair', [])
         self.members = set([lm['uuid']
                             for lm in obj.get('loadbalancer_members', [])])
         self.id_perms = obj.get('id_perms', None)
