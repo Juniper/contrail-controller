@@ -180,9 +180,11 @@ public:
         if (event == BgpConfigManager::CFG_ADD ||
             event == BgpConfigManager::CFG_CHANGE) {
             BgpPeer *peer = peer_manager->PeerLocate(server_, neighbor_config);
-            server_->RemovePeer(peer->endpoint(), peer);
-            peer->ConfigUpdate(neighbor_config);
-            server_->InsertPeer(peer->endpoint(), peer);
+            if (peer) {
+                server_->RemovePeer(peer->endpoint(), peer);
+                peer->ConfigUpdate(neighbor_config);
+                server_->InsertPeer(peer->endpoint(), peer);
+            }
         } else if (event == BgpConfigManager::CFG_DELETE) {
             BgpPeer *peer = peer_manager->TriggerPeerDeletion(neighbor_config);
             if (peer) {
