@@ -298,10 +298,6 @@ void XmppSession::OnRead(Buffer buffer) {
                 break;
             }
 
-            //
-            // XXX Connection gone ?
-            //
-            if (!connection_) break;
             connection_->ReceiveMsg(this, xml);
 
         } else {

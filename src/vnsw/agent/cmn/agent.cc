@@ -250,6 +250,12 @@ void Agent::SetAgentTaskPolicy() {
     SetTaskPolicyOne("http client", metadata_exclude_list,
                      sizeof(metadata_exclude_list) / sizeof(char *));
 
+    const char *xmpp_state_machine_exclude_list[] = {
+        "io::ReaderTask"
+    };
+    SetTaskPolicyOne("xmpp::StateMachine", xmpp_state_machine_exclude_list,
+                     sizeof(xmpp_state_machine_exclude_list) / sizeof(char *));
+
     const char *agent_init_exclude_list[] = {
         "xmpp::StateMachine",
         "http client",
