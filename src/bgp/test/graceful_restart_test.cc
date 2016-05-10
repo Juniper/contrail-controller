@@ -245,20 +245,6 @@ public:
 typedef std::tr1::tuple<int, int, int, int, int> TestParams;
 
 class GracefulRestartTest : public ::testing::TestWithParam<TestParams> {
-
-public:
-    bool IsPeerCloseGraceful(bool graceful) { return graceful; }
-    void SetPeerCloseGraceful(bool graceful) {
-        xmpp_server_->GetIsPeerCloseGraceful_fnc_ =
-                    boost::bind(&GracefulRestartTest::IsPeerCloseGraceful, this,
-                                graceful);
-        for (int i = 1; i <= n_peers_; i++) {
-            bgp_servers_[i]->GetIsPeerCloseGraceful_fnc_ =
-                    boost::bind(&GracefulRestartTest::IsPeerCloseGraceful, this,
-                                graceful);
-        }
-    }
-
 protected:
     GracefulRestartTest() : thread_(&evm_) { }
 
@@ -395,6 +381,9 @@ void GracefulRestartTest::SetUp() {
     server_.reset(new BgpServerTest(&evm_, "RTR0"));
     bgp_servers_.push_back(server_.get());
 
+    // Disable GR advertisement in DUT to prevent GR in non DUTs.
+    server_->set_disable_gr(true);
+
     for (int i = 1; i <= n_peers_; i++) {
         bgp_servers_.push_back(
             new BgpServerTest(&evm_, "RTR" + boost::lexical_cast<string>(i)));
@@ -420,9 +409,14 @@ void GracefulRestartTest::SetUp() {
 
 void GracefulRestartTest::TearDown() {
     task_util::WaitForIdle();
-    SetPeerCloseGraceful(false);
-    XmppAgentClose();
+
+    for (int i = 1; i <= n_instances_; i++) {
+        BOOST_FOREACH(BgpPeerTest *peer, bgp_peers_) {
+            ProcessVpnRoute(peer, i, n_routes_, false);
+        }
+    }
     xmpp_server_->Shutdown();
+    XmppAgentClose();
     task_util::WaitForIdle();
 
     VerifyRoutes(0);
@@ -438,12 +432,6 @@ void GracefulRestartTest::TearDown() {
 
     TcpServerManager::DeleteServer(xmpp_server_);
     xmpp_server_ = NULL;
-
-    for (int i = 1; i <= n_instances_; i++) {
-        BOOST_FOREACH(BgpPeerTest *peer, bgp_peers_) {
-            ProcessVpnRoute(peer, i, n_routes_, false);
-        }
-    }
 
     for (int i = 0; i <= n_peers_; i++)
         bgp_servers_[i]->Shutdown();
@@ -463,6 +451,7 @@ void GracefulRestartTest::Configure() {
     for (int i = 0; i <= n_peers_; i++)
         bgp_servers_[i]->Configure(config.c_str());
     task_util::WaitForIdle();
+
     for (int i = 0; i <= n_peers_; i++)
         VerifyRoutingInstances(bgp_servers_[i]);
 
@@ -529,6 +518,11 @@ string GracefulRestartTest::GetConfig(bool delete_config) {
         out << "<delete>";
     else
         out << "<config>";
+
+    out << "<global-system-config>\
+           <graceful-restart-time>300</graceful-restart-time>\
+           <long-lived-graceful-restart-time>300</long-lived-graceful-restart-time>\
+           </global-system-config>";
 
     for (int i = 0; i <= n_peers_; i++) {
         out << "<bgp-router name=\'RTR" << i << "\'>\
@@ -982,7 +976,6 @@ void GracefulRestartTest::InitParams() {
 //     Subset of routes are [re]advertised after restart
 //     Subset of routing-instances are deleted (during GR)
 void GracefulRestartTest::GracefulRestartTestStart () {
-    SetPeerCloseGraceful(true);
     Configure();
 
     //  Bring up n_agents_ in n_instances_ and advertise n_routes_ per session

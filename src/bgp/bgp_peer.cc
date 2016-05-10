@@ -109,6 +109,10 @@ class BgpPeer::PeerClose : public IPeerClose {
         if (peer_->gr_params().families.empty())
             return false;
 
+        // Restart time must be non-zero in order to enable GR helper mode.
+        if (!GetGracefulRestartTime())
+            return false;
+
         // Abort GR if currently negotiated familes differ from already
         // staled address families.
         if (!negotiated_families_.empty() &&
@@ -161,7 +165,7 @@ class BgpPeer::PeerClose : public IPeerClose {
             return false;
         if (peer_->llgr_params().families.empty())
             return false;
-        if (!peer_->llgr_params().time)
+        if (!GetLongLivedGracefulRestartTime())
             return false;
         return true;
     }
@@ -1077,9 +1081,10 @@ const vector<Address::Family> BgpPeer::supported_families_ = list_of
 
 void BgpPeer::AddGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param) {
     vector<Address::Family> gr_families;
+    uint16_t time = server_->GetGracefulRestartTime();
 
     // Indicate EOR support by default.
-    if (!server_->IsPeerCloseGraceful()) {
+    if (!time) {
         BgpProto::OpenMessage::Capability *gr_cap =
             BgpProto::OpenMessage::Capability::GR::Encode(0, 0, 0,
                                                           gr_families);
@@ -1093,7 +1098,6 @@ void BgpPeer::AddGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param) {
     }
 
     uint8_t flags = 0;
-    uint16_t time = PeerCloseManager::kDefaultGracefulRestartTimeSecs;
     uint8_t afi_flags =
         BgpProto::OpenMessage::Capability::GR::ForwardingStatePreserved;
     BgpProto::OpenMessage::Capability *gr_cap =
@@ -1103,7 +1107,8 @@ void BgpPeer::AddGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param) {
 }
 
 void BgpPeer::AddLLGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param) {
-    if (!server_->IsPeerCloseGraceful())
+    if (!server_->GetGracefulRestartTime() ||
+            !server_->GetLongLivedGracefulRestartTime())
         return;
 
     vector<Address::Family> llgr_families;
@@ -1112,8 +1117,7 @@ void BgpPeer::AddLLGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param) {
             llgr_families.push_back(family);
     }
 
-    uint32_t time =
-        PeerCloseManager::kDefaultLongLivedGracefulRestartTimeSecs;
+    uint32_t time = server_->GetLongLivedGracefulRestartTime();
     uint8_t afi_flags =
         BgpProto::OpenMessage::Capability::LLGR::ForwardingStatePreserved;
     BgpProto::OpenMessage::Capability *llgr_cap =

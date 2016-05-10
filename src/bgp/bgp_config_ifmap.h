@@ -329,6 +329,15 @@ private:
     DISALLOW_COPY_AND_ASSIGN(BgpIfmapRoutingPolicyConfig);
 };
 
+class BgpIfmapGlobalSystemConfig {
+public:
+    const BgpGlobalSystemConfig *config() const { return &data_; }
+    bool Update(BgpIfmapConfigManager *manager,
+                const autogen::GlobalSystemConfig *system);
+private:
+    BgpGlobalSystemConfig data_;
+};
+
 
 //
 // BgpConfigData contains all the configuration data that's relevant to a
@@ -392,6 +401,10 @@ public:
 
     const IfmapInstanceMap &instances() const { return instances_; }
     const IfmapPeeringMap &peerings() const { return peerings_; }
+    BgpIfmapGlobalSystemConfig *global_config() { return &global_config_; }
+    const BgpIfmapGlobalSystemConfig *global_config() const {
+        return &global_config_;
+    }
 
 private:
     IfmapInstanceMap instances_;
@@ -400,6 +413,7 @@ private:
     BgpRoutingPolicyMap routing_policy_config_map_;
     IfmapPeeringMap peerings_;
     IfmapRoutingPolicyLinkMap ri_rp_links_;
+    BgpIfmapGlobalSystemConfig global_config_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpIfmapConfigData);
 };
@@ -478,6 +492,7 @@ private:
     void ProcessBgpRouter(const BgpConfigDelta &change);
     void ProcessBgpProtocol(const BgpConfigDelta &change);
     void ProcessBgpPeering(const BgpConfigDelta &change);
+    void ProcessGlobalSystemConfig(const BgpConfigDelta &delta);
 
     bool ConfigHandler();
 
