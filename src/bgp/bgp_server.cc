@@ -46,7 +46,24 @@ public:
             this, _1, _2);
         obs.policy = boost::bind(&ConfigUpdater::ProcessRoutingPolicyConfig,
             this, _1, _2);
+        obs.system= boost::bind(&ConfigUpdater::ProcessGlobalSystemConfig,
+            this, _1, _2);
         server->config_manager()->RegisterObservers(obs);
+    }
+
+    void ProcessGlobalSystemConfig(const BgpGlobalSystemConfig *system,
+            BgpConfigManager::EventType event) {
+        if (server_->disable_gr())
+            return;
+        server_->global_config()->set_gr_time(system->gr_time());
+        server_->global_config()->set_llgr_time(system->llgr_time());
+
+        RoutingInstanceMgr *ri_mgr = server_->routing_instance_mgr();
+        RoutingInstance *rti =
+            ri_mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
+        assert(rti);
+        PeerManager *peer_manager = rti->peer_manager();
+        peer_manager->ClearAllPeers();
     }
 
     void ProcessProtocolConfig(const BgpProtocolConfig *protocol_config,
@@ -304,6 +321,7 @@ BgpServer::BgpServer(EventManager *evm)
       local_autonomous_system_(0),
       bgp_identifier_(0),
       hold_time_(0),
+      disable_gr_(getenv("BGP_GR_DISABLE") != NULL),
       lifetime_manager_(BgpObjectFactory::Create<BgpLifetimeManager>(this,
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)),
@@ -334,6 +352,7 @@ BgpServer::BgpServer(EventManager *evm)
           BgpObjectFactory::Create<IServiceChainMgr, Address::INET>(this)),
       inet6_service_chain_mgr_(
           BgpObjectFactory::Create<IServiceChainMgr, Address::INET6>(this)),
+      global_config_(new BgpGlobalSystemConfig()),
       config_mgr_(BgpObjectFactory::Create<BgpConfigManager>(this)),
       updater_(new ConfigUpdater(this)) {
     bgp_count_ = 0;
@@ -468,19 +487,12 @@ boost::asio::io_service *BgpServer::ioservice() {
     return session_manager()->event_manager()->io_service();
 }
 
-bool BgpServer::IsPeerCloseGraceful() {
-    // If the server is deleted, do not do graceful restart
-    if (deleter()->IsDeleted()) return false;
+uint16_t BgpServer::GetGracefulRestartTime() const {
+    return global_config_->gr_time();
+}
 
-    static bool init = false;
-    static bool enabled = false;
-
-    if (!init) {
-        init = true;
-        char *p = getenv("BGP_GRACEFUL_RESTART_ENABLE");
-        if (p && !strcasecmp(p, "true")) enabled = true;
-    }
-    return enabled;
+uint32_t BgpServer::GetLongLivedGracefulRestartTime() const {
+    return global_config_->llgr_time();
 }
 
 uint32_t BgpServer::num_routing_instance() const {

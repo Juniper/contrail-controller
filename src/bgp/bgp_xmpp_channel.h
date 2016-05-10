@@ -26,6 +26,7 @@ namespace pugi {
 class xml_node;
 }
 
+class BgpGlobalSystemConfig;
 class BgpServer;
 struct DBRequest;
 class IPeer;
@@ -34,6 +35,7 @@ class XmppServer;
 class BgpXmppChannelMock;
 class BgpXmppChannelManager;
 class BgpXmppChannelManagerMock;
+class XmppConfigUpdater;
 class XmppPeerInfoData;
 class XmppSession;
 
@@ -231,6 +233,7 @@ private:
     void ProcessDeferredSubscribeRequest(RoutingInstance *rt_instance,
                                          int instance_id);
     void ClearStaledSubscription(SubscriptionState &sub_state);
+    const BgpXmppChannelManager *manager() const { return manager_; }
 
     xmps::PeerId peer_id_;
     BgpServer *bgp_server_;
@@ -318,6 +321,7 @@ public:
 
     BgpServer *bgp_server() { return bgp_server_; }
     XmppServer *xmpp_server() { return xmpp_server_; }
+    const XmppServer *xmpp_server() const { return xmpp_server_; }
     uint64_t get_subscription_gen_id() {
         return subscription_gen_id_.fetch_and_increment();
     }
