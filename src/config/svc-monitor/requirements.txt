@@ -2,3 +2,4 @@
 pycassa
 python-novaclient
 requests
+pyyaml
