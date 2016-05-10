@@ -14,23 +14,38 @@ from barbicanclient import client
 class BarbicanKeystoneSession(object):
 
     def __init__(self):
-        self.auth_version = '2'
         self.admin_user = None
         self.admin_password = None
+        self.project_name = None
         self.auth_url = None
+        self.auth_version = '2'
         self.region = 'RegionOne'
-        self.project_name = 'admin'
         self.session = {}
 
     def parse_args(self):
         config = ConfigParser.SafeConfigParser()
-        config.read('/etc/contrail/contrail-barbican-auth.conf')
-        self.admin_user = config.get('DEFAULT', 'admin_user')
-        self.admin_password = config.get('DEFAULT', 'admin_password')
-        self.auth_url = config.get('DEFAULT', 'auth_url')
-        self.auth_version = config.get('DEFAULT', 'auth_version')
-        self.region = config.get('DEFAULT', 'region')
-        self.project_name = config.get('DEFAULT', 'admin_tenant_name')
+        config.read('/etc/contrail/contrail-lbaas-auth.conf')
+
+        self.admin_user = config.get('BARBICAN', 'admin_user')
+        self.admin_password = config.get('BARBICAN', 'admin_password')
+        self.project_name = config.get('BARBICAN', 'admin_tenant_name')
+
+        self.auth_url = config.get('BARBICAN', 'auth_url')
+        tmp_auth_url = self.auth_url
+        if (tmp_auth_url[-1] == '/'):
+            tmp_auth_url[:-1]
+        auth_version = tmp_auth_url.split('/')[-1]
+        if (auth_version.lower() == 'v2.0'):
+            self.auth_version = '2'
+        elif (auth_version.lower() == 'v3.0'):
+            self.auth_version = '3'
+            self.admin_user_domain = config.get('BARBICAN', 'admin_user_domain')
+            self.admin_project_domain = config.get('BARBICAN', 'admin_project_domain')
+
+        try:
+            self.region = config.get('BARBICAN', 'region')
+        except Exception:
+            pass
 
     def get_session(self):
         if self.session.get(self.project_name):
@@ -47,10 +62,8 @@ class BarbicanKeystoneSession(object):
         elif self.auth_version == '3':
             client = v3_client
             kwargs['project_name'] = self.project_name
-            kwargs['user_domain_name'] = (cfg.CONF.service_auth.
-                                          admin_user_domain)
-            kwargs['project_domain_name'] = (cfg.CONF.service_auth.
-                                             admin_project_domain)
+            kwargs['user_domain_name'] = self.admin_user_domain
+            kwargs['project_domain_name'] = self.admin_project_domain
 
         try:
             kc = client.Password(**kwargs)
@@ -197,14 +210,14 @@ def create_pem_file(barbican, url, dest_dir):
     f.close()
     return pem_file_name
 
-def update_ssl_conf(haproxy_conf, dest_dir):
+def update_ssl_config(haproxy_config, dest_dir):
     barb_auth = BarbicanKeystoneSession()
     sess = barb_auth.get_session()
     if sess is None:
         return None
     barbican = client.Client(session=sess)
-    updated_conf = haproxy_conf
-    for line in haproxy_conf.split('\n'):
+    updated_config = haproxy_config
+    for line in haproxy_config.split('\n'):
         if 'ssl crt http' in line:
             try:
                 url_list = filter(lambda x: x.startswith('http:'), line.split(' '))
@@ -214,6 +227,6 @@ def update_ssl_conf(haproxy_conf, dest_dir):
                 pem_file_name = create_pem_file(barbican, url, dest_dir)
                 if pem_file_name is None:
                     return None
-                updated_conf = updated_conf.replace(url, pem_file_name)
+                updated_config = updated_config.replace(url, pem_file_name)
 
-    return updated_conf
+    return updated_config
