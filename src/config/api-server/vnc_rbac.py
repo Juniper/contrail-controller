@@ -14,6 +14,7 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 class VncRbac(object):
 
     op_str = {'GET': 'R', 'POST': 'C', 'PUT': 'U', 'DELETE': 'D'}
+    op_str2 = {'GET': 'read', 'POST': 'create', 'PUT': 'update', 'DELETE': 'delete'}
 
     def __init__(self, server_mgr, db_conn):
         self._db_conn = db_conn
@@ -199,7 +200,7 @@ class VncRbac(object):
         # rule list for project/domain of the request
         rule_list = self.get_rbac_rules(request)
         if len(rule_list) == 0:
-            msg = 'Error: RBAC rule list empty!!'
+            msg = 'rbac: rule list empty!!'
             self._server_mgr.config_log(msg, level=SandeshLevel.SYS_NOTICE)
             return (False, err_msg)
 
@@ -214,7 +215,7 @@ class VncRbac(object):
         except Exception:
             obj_dict = {}
 
-        msg = 'u=%s, r=%s, o=%s, op=%s, rules=%d, proj:%s(%s), dom:%s' \
+        msg = 'rbac: u=%s, r=%s, o=%s, op=%s, rules=%d, proj:%s(%s), dom:%s' \
             % (user, roles, obj_type, api_op, len(rule_list), project_id, project_name, domain_id)
         self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
 
@@ -258,12 +259,15 @@ class VncRbac(object):
         # temporarily allow all access to admin till we figure out default creation of rbac group in domain
         ok = ok or is_admin
 
-        msg = "%s admin=%s, u=%s, r='%s'" \
+        msg = "rbac: %s admin=%s, u=%s, r='%s'" \
             % ('+++' if ok else '\n---',
                'yes' if is_admin else 'no',
                user, string.join(roles, ',')
                )
         self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+        if not ok:
+            msg = "rbac: %s doesn't have %s permission for %s" % (user, self.op_str2[request.method], obj_type)
+            self._server_mgr.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
         return (True, '') if ok else (False, err_msg)
     # end validate_request
