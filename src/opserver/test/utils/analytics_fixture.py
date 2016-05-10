@@ -778,6 +778,11 @@ class AnalyticsFixture(fixtures.Fixture):
 	    elem = uves['uai']['UVEAlarms']
             if elem['name'] != name:
                 continue
+	    #alarms in states 0/1 should not be counted
+	    alarm_state = int(uves['uas']['UVEAlarmOperState']['state'])
+	    if (alarm_state == 0) or (alarm_state == 1):
+		if not is_set:
+		    continue
             for alm in elem['alarms']:
                 if len(alm['any_of']):
                     alarms[alm['type']] = []
