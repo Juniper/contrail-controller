@@ -397,17 +397,17 @@ class OpencontrailLoadbalancerDriver(
         if not pool:
             return
         conf = haproxy_config.get_config_v1(pool)
-        self.set_haproxy_config(pool.service_instance, pool.uuid, conf)
+        self.set_haproxy_config(pool.service_instance, 'v1', pool.uuid, conf)
 
     def set_config_v2(self, lb_id):
         lb = LoadbalancerSM.get(lb_id)
         if not lb:
             return
         conf = haproxy_config.get_config_v2(lb)
-        self.set_haproxy_config(lb.service_instance, lb.uuid, conf)
+        self.set_haproxy_config(lb.service_instance, 'v2', lb.uuid, conf)
         return conf
 
-    def set_haproxy_config(self, si_id, lb_uuid, conf):
+    def set_haproxy_config(self, si_id, lb_version, lb_uuid, conf):
         si = ServiceInstanceSM.get(si_id)
         if not si:
             return
@@ -420,9 +420,11 @@ class OpencontrailLoadbalancerDriver(
         si_obj = ServiceInstance()
         si_obj.uuid = si.uuid
         si_obj.fq_name = si.fq_name
-        kvp = KeyValuePair('haproxy_config', conf)
+        kvp = KeyValuePair('lb_version', lb_version)
         si_obj.add_service_instance_bindings(kvp)
         kvp = KeyValuePair('lb_uuid', lb_uuid)
+        si_obj.add_service_instance_bindings(kvp)
+        kvp = KeyValuePair('haproxy_config', conf)
         si_obj.add_service_instance_bindings(kvp)
         try:
             self._api.service_instance_update(si_obj)

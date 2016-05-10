@@ -35,7 +35,7 @@ def get_config_v2(lb):
     return conf
 
 def get_config_v1(pool):
-    sock_path = '/var/lib/contrail/loadbalancer/'
+    sock_path = '/var/lib/contrail/loadbalancer/haproxy/'
     sock_path += pool.uuid + '/haproxy.sock'
     conf = set_globals(sock_path) + '\n\n'
     conf += set_defaults() + '\n\n'
@@ -91,7 +91,7 @@ def set_v1_frontend_backend(pool):
 
     ssl = ''
     if vip.params['protocol'] == PROTO_HTTPS:
-        ssl = 'ssl crt %s no-sslv3' % crt_file
+        ssl = 'ssl crt haproxy_ssl_cert_path no-sslv3'
 
     lconf = [
         'frontend %s' % vip.uuid,

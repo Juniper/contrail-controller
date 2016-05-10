@@ -1,16 +1,21 @@
-import itertools
 import os
-import shlex
+import ConfigParser
 import subprocess
+import shlex
 import logging
-import cert_mgr.barbican_cert_manager as barbican_cert_mgr
+import itertools
+
+try:
+    import cert_mgr.barbican_cert_manager as barbican_cert_mgr
+except ImportError:
+    pass
 
 HAPROXY_DIR = "/var/lib/contrail/loadbalancer/haproxy"
 HAPROXY_PROCESS = 'haproxy'
 HAPROXY_PROCESS_CONF = HAPROXY_PROCESS + ".conf"
 SUPERVISOR_BASE_DIR = '/etc/contrail/supervisord_vrouter_files/lbaas-haproxy-'
-LOG_FILE= '/var/log/contrail/contrail-lb-haproxy-stdout.log'
 
+LOG_FILE= '/var/log/contrail/contrail-lbaas-haproxy-stdout.log'
 logging.basicConfig(level=logging.WARNING,
                     format='%(asctime)s %(levelname)-8s %(message)s',
                     datefmt='%m/%d/%Y %H:%M:%S',
@@ -40,24 +45,43 @@ def create_haproxy_dir(base_dir, loadbalancer_id):
     p.communicate()
     return dir_name
 
+def update_ssl_config(haproxy_config, dir_name):
+    config = ConfigParser.SafeConfigParser()
+    config.read('/etc/contrail/contrail-vrouter-agent.conf')
+    haproxy_ssl_cert_path = config.get('SERVICE-INSTANCE', 'haproxy_ssl_cert_path')
+    search_string = 'haproxy_ssl_cert_path'
+    for line in haproxy_config.split('\n'):
+        if search_string in line:
+            haproxy_config = haproxy_config.replace(search_string, haproxy_ssl_cert_path)
+            break
+    return haproxy_config
+
 def get_haproxy_config_file(cfg_file, dir_name):
+    lb_version = ''
+    haproxy_config = ''
     f = open(cfg_file)
     content = f.read()
     f.close()
     kvps = content.split(':::::')
     for kvp in kvps or []:
         KeyValue = kvp.split('::::')
-        if (KeyValue[0] == 'haproxy_config'):
+        if (KeyValue[0] == 'lb_version'):
+            lb_version = KeyValue[1]
+        elif (KeyValue[0] == 'haproxy_config'):
+            haproxy_config = KeyValue[1]
+        if lb_version and haproxy_config:
             break;
     haproxy_cfg_file = dir_name + "/" + HAPROXY_PROCESS_CONF
-    haproxy_conf = KeyValue[1]
-    if 'ssl crt http' in haproxy_conf:
-        haproxy_conf = barbican_cert_mgr.update_ssl_conf(haproxy_conf, dir_name)
-        if haproxy_conf is None:
+    if 'ssl crt' in haproxy_config:
+        if lb_version == 'v1':
+            haproxy_config = update_ssl_config(haproxy_config, dir_name);
+        else:
+            haproxy_config = barbican_cert_mgr.update_ssl_config(haproxy_config, dir_name)
+        if haproxy_config is None:
             return None
 
     f = open(haproxy_cfg_file, 'w+')
-    f.write(haproxy_conf)
+    f.write(haproxy_config)
     f.close()
 
     return haproxy_cfg_file
@@ -133,10 +157,15 @@ def _stop_haproxy_daemon(loadbalancer_id, conf_file):
     log_msg = log_levels['MSG']
     last_pid = _get_lbaas_pid(conf_file)
     if last_pid:
-        cmd_list = shlex.split('kill -9 ' + last_pid)
-        subprocess.Popen(cmd_list)
         msg = "Stopping haproxy for Loadbalancer-ID %s" %loadbalancer_id
         logging.log(log_msg['value'], msg)
+        cmd_list = shlex.split('kill -9 ' + last_pid)
+        p = subprocess.Popen(cmd_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = p.communicate()
+        if (stdout != ''):
+            logging.log(log_msg['value'], stdout)
+        if (stderr != ''):
+            logging.log(log_msg['value'], stderr)
 
 def _start_haproxy_daemon(pool_id, netns, conf_file):
     log_msg = log_levels['MSG']
@@ -155,7 +184,12 @@ def _start_haproxy_daemon(pool_id, netns, conf_file):
     cmd = 'ip netns exec %s haproxy -f %s -p %s %s' % \
         (netns, conf_file, pid_file, sf_opt)
     cmd_list = shlex.split(cmd)
-    subprocess.Popen(cmd_list)
+    p = subprocess.Popen(cmd_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = p.communicate()
+    if (stdout != ''):
+        logging.log(log_msg['value'], stdout)
+    if (stderr != ''):
+        logging.log(log_msg['value'], stderr)
 
 def _stop_supervisor_haproxy(pool_id):
     pool_suffix = _get_pool_suffix(pool_id)
