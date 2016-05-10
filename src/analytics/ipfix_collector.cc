@@ -32,9 +32,8 @@ void IpfixCollector::HandleReceive(boost::asio::const_buffer& buffer,
             const boost::system::error_code& error) {
     if (!error) {
         ProcessIpfixPacket(buffer, bytes_transferred, remote_endpoint); 
-    } else {
-        DeallocateBuffer(buffer);
     }
+    DeallocateBuffer(buffer);
 }
 
 IpfixCollector::IpfixCollector(EventManager* evm,
