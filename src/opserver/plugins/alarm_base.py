@@ -9,7 +9,7 @@ class AlarmBase(object):
     SYS_EMERG, SYS_ALERT, SYS_CRIT, SYS_ERR,\
         SYS_WARN, SYS_NOTICE, SYS_INFO, SYS_DEBUG = range(8)
 
-    def __init__(self, sev, at=0, it=0, fec=False, fcs=0, fct=0):
+    def __init__(self, sev, at=10, it=10, fec=True, fcs=300, fct=4):
         self._sev = sev
 	self._ActiveTimer = at
 	self._IdleTimer = it
