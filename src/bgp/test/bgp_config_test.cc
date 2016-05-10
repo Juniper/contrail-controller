@@ -672,6 +672,94 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors6) {
     task_util::WaitForIdle();
 }
 
+//
+// Config for neighbor is re-added before the previous incarnation has been
+// destroyed. The peer should get resurrected after the old incarnation has
+// been destroyed.
+//
+TEST_F(BgpConfigTest, BGPaaSNeighbors7) {
+    string content;
+    content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    RoutingInstance *rti =
+        server_.routing_instance_mgr()->GetRoutingInstance("test");
+    TASK_UTIL_ASSERT_TRUE(rti != NULL);
+    TASK_UTIL_EXPECT_EQ(2, rti->peer_manager()->size());
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
+    TASK_UTIL_EXPECT_EQ(2, server_.num_bgpaas_peer());
+
+    // Verify that peers got created.
+    TASK_UTIL_EXPECT_TRUE(
+        rti->peer_manager()->PeerLookup("test:vm1:0") != NULL);
+    BgpPeer *peer1 = rti->peer_manager()->PeerLookup("test:vm1:0");
+    TASK_UTIL_EXPECT_EQ(1024, peer1->peer_port());
+    TASK_UTIL_EXPECT_EQ(peer1, server_.FindPeer(peer1->endpoint()));
+
+    TASK_UTIL_EXPECT_TRUE(
+        rti->peer_manager()->PeerLookup("test:vm2:0") != NULL);
+    BgpPeer *peer2 = rti->peer_manager()->PeerLookup("test:vm2:0");
+    TASK_UTIL_EXPECT_EQ(1025, peer2->peer_port());
+    TASK_UTIL_EXPECT_EQ(peer2, server_.FindPeer(peer2->endpoint()));
+
+    // Pause deletion of both peers.
+    PauseDelete(peer1->deleter());
+    PauseDelete(peer2->deleter());
+    task_util::WaitForIdle();
+
+    // Delete the neighbor config - this should trigger peer deletion.
+    // The peers can't get destroyed because deletion has been paused.
+    content = FileRead("controller/src/bgp/testdata/config_test_36e.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(peer1->IsDeleted());
+    TASK_UTIL_EXPECT_TRUE(peer1->config() == NULL);
+    TASK_UTIL_EXPECT_TRUE(server_.FindPeer(peer1->endpoint()) == NULL);
+    TASK_UTIL_EXPECT_TRUE(peer2->IsDeleted());
+    TASK_UTIL_EXPECT_TRUE(peer2->config() == NULL);
+    TASK_UTIL_EXPECT_TRUE(server_.FindPeer(peer2->endpoint()) == NULL);
+
+    // Recreate neighbor config. The old peers should still be around
+    // but should not be in the BgpServer::EndpointToBgpPeerList.
+    content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(peer1->IsDeleted());
+    TASK_UTIL_EXPECT_TRUE(peer1->config() == NULL);
+    TASK_UTIL_EXPECT_TRUE(server_.FindPeer(peer1->endpoint()) == NULL);
+    TASK_UTIL_EXPECT_TRUE(peer2->IsDeleted());
+    TASK_UTIL_EXPECT_TRUE(peer2->config() == NULL);
+    TASK_UTIL_EXPECT_TRUE(server_.FindPeer(peer2->endpoint()) == NULL);
+
+    // Resume deletion of the peers.
+    ResumeDelete(peer1->deleter());
+    ResumeDelete(peer2->deleter());
+    task_util::WaitForIdle();
+
+    // Make sure the peers got resurrected.
+    TASK_UTIL_EXPECT_TRUE(
+        rti->peer_manager()->PeerLookup("test:vm1:0") != NULL);
+    peer1 = rti->peer_manager()->PeerLookup("test:vm1:0");
+    TASK_UTIL_EXPECT_EQ(1024, peer1->peer_port());
+    TASK_UTIL_EXPECT_EQ(peer1, server_.FindPeer(peer1->endpoint()));
+
+    TASK_UTIL_EXPECT_TRUE(
+        rti->peer_manager()->PeerLookup("test:vm2:0") != NULL);
+    peer2 = rti->peer_manager()->PeerLookup("test:vm2:0");
+    TASK_UTIL_EXPECT_EQ(1025, peer2->peer_port());
+    TASK_UTIL_EXPECT_EQ(peer2, server_.FindPeer(peer2->endpoint()));
+
+    // Get rid of the peers.
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
 TEST_F(BgpConfigTest, MasterNeighborAttributes) {
     string content_a = FileRead("controller/src/bgp/testdata/config_test_35a.xml");
     EXPECT_TRUE(parser_.Parse(content_a));
