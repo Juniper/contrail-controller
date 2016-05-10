@@ -6,3 +6,4 @@ psutil>=0.6.0
 bottle
 kombu
 kazoo
+pyyaml

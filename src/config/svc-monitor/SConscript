@@ -41,6 +41,9 @@ sources = [
     'svc_monitor/services/loadbalancer/drivers/ha_proxy/__init__.py',
     'svc_monitor/services/loadbalancer/drivers/ha_proxy/driver.py',
     'svc_monitor/services/loadbalancer/drivers/ha_proxy/haproxy_config.py',
+    'svc_monitor/services/loadbalancer/drivers/ha_proxy/custom_attributes/custom_attributes.yml',
+    'svc_monitor/services/loadbalancer/drivers/ha_proxy/custom_attributes/__init__.py',
+    'svc_monitor/services/loadbalancer/drivers/ha_proxy/custom_attributes/haproxy_validator.py',
     'svc_monitor/snat_agent.py',
     'svc_monitor/tests/__init__.py',
     'svc_monitor/tests/test_common_utils.py',
@@ -58,6 +61,7 @@ sources = [
     'svc_monitor/tests/fake_lb_driver.py',
     'svc_monitor/tests/scheduler/__init__.py',
     'svc_monitor/tests/scheduler/test_vrouter_schedulers.py',
+    'svc_monitor/tests/test_lbaas_custom_attributes.py',
 ]
 
 sources += env.SandeshGenPy('svc_mon_introspect.sandesh',
