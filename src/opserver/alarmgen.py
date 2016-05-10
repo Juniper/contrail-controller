@@ -965,16 +965,20 @@ class Controller(object):
                             password=self._conf.redis_password(),
                             db=7)
                     self.reconnect_agg_uve(lredis)
+                    ConnectionState.update(conn_type = ConnectionType.REDIS_UVE,
+                          name = 'AggregateRedis', status = ConnectionStatus.UP)
                 else:
                     if not lredis.exists(self._moduleid+':'+self._instance_id):
                         self._logger.error('Identified redis restart')
                         self.reconnect_agg_uve(lredis)
                 gevs = {}
                 pendingset = {}
+		kafka_topic_down = False
                 for part in self._uveq.keys():
                     if not len(self._uveq[part]):
                         continue
                     self._logger.info("UVE Process for %d" % part)
+		    kafka_topic_down |= self._workers[part].failed()
 
                     # Allow the partition handlers to queue new UVEs without
                     # interfering with the work of processing the current UVEs
@@ -983,6 +987,13 @@ class Controller(object):
 
                     gevs[part] = gevent.spawn(self.handle_uve_notif,part,\
                         pendingset[part])
+		if kafka_topic_down:
+                    ConnectionState.update(conn_type = ConnectionType.KAFKA_PUB,
+                        name = 'KafkaTopic', status = ConnectionStatus.DOWN)
+	        else:
+                    ConnectionState.update(conn_type = ConnectionType.KAFKA_PUB,
+                        name = 'KafkaTopic', status = ConnectionStatus.UP)
+
                 if len(gevs):
                     gevent.joinall(gevs.values())
                     for part in gevs.keys():
@@ -1035,6 +1046,8 @@ class Controller(object):
                 self._logger.error("%s : traceback %s" % \
                                   (messag, traceback.format_exc()))
                 lredis = None
+                ConnectionState.update(conn_type = ConnectionType.REDIS_UVE,
+                      name = 'AggregateRedis', status = ConnectionStatus.DOWN)
                 gevent.sleep(1)
                         
             curr = time.time()
