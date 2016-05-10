@@ -25,6 +25,7 @@ class AsPathDB;
 class BgpAttrDB;
 class BgpConditionListener;
 class BgpConfigManager;
+class BgpGlobalSystemConfig;
 class BgpOListDB;
 class BgpPeer;
 class BgpSessionManager;
@@ -59,7 +60,8 @@ public:
 
     virtual std::string ToString() const;
 
-    virtual bool IsPeerCloseGraceful();
+    uint16_t GetGracefulRestartTime() const;
+    uint32_t GetLongLivedGracefulRestartTime() const;
 
     int RegisterPeer(BgpPeer *peer);
     void UnregisterPeer(BgpPeer *peer);
@@ -236,6 +238,9 @@ public:
     void NotifyAllStaticRoutes();
     uint32_t GetStaticRouteCount() const;
     uint32_t GetDownStaticRouteCount() const;
+    BgpGlobalSystemConfig *global_config() { return global_config_.get(); }
+    bool disable_gr() const { return disable_gr_; }
+    void set_disable_gr(bool disable_gr) { disable_gr_ = disable_gr; }
 
 private:
     class ConfigUpdater;
@@ -263,6 +268,7 @@ private:
     IdentifierUpdateListenersList id_listeners_;
     boost::dynamic_bitset<> id_bmap_;      // free list.
     uint32_t hold_time_;
+    bool disable_gr_;
     StaticRouteMgrList srt_manager_list_;
 
     DB db_;
@@ -309,6 +315,7 @@ private:
     boost::scoped_ptr<IServiceChainMgr> inet6_service_chain_mgr_;
 
     // configuration
+    boost::scoped_ptr<BgpGlobalSystemConfig> global_config_;
     boost::scoped_ptr<BgpConfigManager> config_mgr_;
     boost::scoped_ptr<ConfigUpdater> updater_;
 

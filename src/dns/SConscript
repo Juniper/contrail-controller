@@ -11,6 +11,7 @@ def MapBuildDir(list):
 
 env = BuildEnv.Clone()
 
+env.Prepend(CPPPATH = env['TOP'])
 env.Prepend(CPPPATH = env['TOP'] + '/dns')
 env.Prepend(CPPPATH = env['TOP'] + '/dns/cmn')
 env.Prepend(CPPPATH = env['TOP'] + '/ifmap')

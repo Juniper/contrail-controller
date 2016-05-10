@@ -616,6 +616,23 @@ bool BgpConfigParser::ParseRoutingPolicy(const xml_node &node,
     return true;
 }
 
+bool BgpConfigParser::ParseGlobalSystemConfig(const xml_node &node,
+                                              bool add_change,
+                                              RequestList *requests) const {
+    auto_ptr<autogen::GracefulRestartType> gr_config(
+            new autogen::GracefulRestartType());
+    assert(gr_config->XmlParse(node));
+
+    if (add_change) {
+        MapObjectSetProperty("global-system-config", "",
+            "graceful-restart-params", gr_config.release(), requests);
+    } else {
+        MapObjectClearProperty("global-system-config", "",
+                               "graceful-restart-params", requests);
+    }
+    return true;
+}
+
 bool BgpConfigParser::ParseConfig(const xml_node &root, bool add_change,
                                   RequestList *requests) const {
     SessionMap sessions;
@@ -641,6 +658,9 @@ bool BgpConfigParser::ParseConfig(const xml_node &root, bool add_change,
         }
         if (strcmp(node.name(), "routing-policy") == 0) {
             ParseRoutingPolicy(node, add_change, requests);
+        }
+        if (strcmp(node.name(), "global-system-config") == 0) {
+            ParseGlobalSystemConfig(node, add_change, requests);
         }
     }
 
