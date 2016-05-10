@@ -433,8 +433,10 @@ template<>
 void BgpConfigManager::Notify<BgpInstanceConfig>(
         const BgpInstanceConfig *config, EventType event) {
     config->set_last_change_at(UTCTimestampUsec());
-    if (obs_.instance) {
-        (obs_.instance)(config, event);
+    BOOST_FOREACH(Observers obs, obs_) {
+        if (obs.instance) {
+            (obs.instance)(config, event);
+        }
     }
 }
 
@@ -442,8 +444,10 @@ template<>
 void BgpConfigManager::Notify<BgpRoutingPolicyConfig>(
         const BgpRoutingPolicyConfig *config, EventType event) {
     config->set_last_change_at(UTCTimestampUsec());
-    if (obs_.policy) {
-        (obs_.policy)(config, event);
+    BOOST_FOREACH(Observers obs, obs_) {
+        if (obs.policy) {
+            (obs.policy)(config, event);
+        }
     }
 }
 
@@ -451,8 +455,10 @@ template<>
 void BgpConfigManager::Notify<BgpProtocolConfig>(
         const BgpProtocolConfig *config, EventType event) {
     config->set_last_change_at(UTCTimestampUsec());
-    if (obs_.protocol) {
-        (obs_.protocol)(config, event);
+    BOOST_FOREACH(Observers obs, obs_) {
+        if (obs.protocol) {
+            (obs.protocol)(config, event);
+        }
     }
 }
 
@@ -460,7 +466,20 @@ template<>
 void BgpConfigManager::Notify<BgpNeighborConfig>(
         const BgpNeighborConfig *config, EventType event) {
     config->set_last_change_at(UTCTimestampUsec());
-    if (obs_.neighbor) {
-        (obs_.neighbor)(config, event);
+    BOOST_FOREACH(Observers obs, obs_) {
+        if (obs.neighbor) {
+            (obs.neighbor)(config, event);
+        }
+    }
+}
+
+template<>
+void BgpConfigManager::Notify<BgpGlobalSystemConfig>(
+        const BgpGlobalSystemConfig *config, EventType event) {
+    config->set_last_change_at(UTCTimestampUsec());
+    BOOST_FOREACH(Observers obs, obs_) {
+        if (obs.system) {
+            (obs.system)(config, event);
+        }
     }
 }

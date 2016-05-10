@@ -198,6 +198,15 @@ size_t PeerManager::GetNeighborCount(string up_or_down) {
     return count;
 }
 
+void PeerManager::ClearAllPeers() {
+    BgpPeerNameMap::iterator iter;
+
+    for (iter = peers_by_name_.begin(); iter != peers_by_name_.end(); iter++) {
+        BgpPeer *peer = iter->second;
+        peer->Clear(BgpProto::Notification::OtherConfigChange);
+    }
+}
+
 //
 // Concurrency: Called from state machine thread
 //

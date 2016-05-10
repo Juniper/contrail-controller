@@ -140,6 +140,7 @@ public:
         parent_->Peer()->server()->membership_mgr()->UnregisterPeer(
                 parent_->Peer(), completion_fn);
     }
+
     virtual string ToString() const {
         return parent_ ? parent_->ToString() : "";
     }
@@ -147,11 +148,18 @@ public:
     virtual PeerCloseManager *close_manager() {
         return manager_.get();
     }
+
     virtual const int GetGracefulRestartTime() const {
-        return PeerCloseManager::kDefaultGracefulRestartTimeSecs;
+        if (!parent_)
+            return 0;
+        return parent_->manager()->xmpp_server()->GetGracefulRestartTime();
     }
+
     virtual const int GetLongLivedGracefulRestartTime() const {
-        return PeerCloseManager::kDefaultLongLivedGracefulRestartTimeSecs;
+        if (!parent_)
+            return 0;
+        return parent_->manager()->xmpp_server()->
+                                       GetLongLivedGracefulRestartTime();
     }
 
     // Mark all current subscription as 'stale'
@@ -175,14 +183,15 @@ public:
         XmppConnection *connection =
             const_cast<XmppConnection *>(parent_->channel_->connection());
 
-        if (!connection || connection->IsActiveChannel()) return false;
+        if (!connection || connection->IsActiveChannel())
+            return false;
 
-        // Check from the server, if GR is enabled or not.
-        return static_cast<XmppServer *>(
-            connection->server())->IsPeerCloseGraceful();
+        return parent_->manager()->xmpp_server()->IsPeerCloseGraceful();
     }
 
-    virtual bool IsCloseLongLivedGraceful() const { return IsCloseGraceful(); }
+    virtual bool IsCloseLongLivedGraceful() const {
+        return IsCloseGraceful() && GetLongLivedGracefulRestartTime() != 0;
+    }
 
     // EoR from xmpp is afi independent at the moment.
     virtual void GetGracefulRestartFamilies(Families *families) const {
@@ -235,6 +244,8 @@ public:
         if (parent_) {
             assert(parent_->peer_deleted());
             assert(parent_->channel_->IsCloseInProgress());
+            if (!IsCloseGraceful())
+                non_graceful = true;
             manager_->Close(non_graceful);
         }
     }
@@ -2355,9 +2366,7 @@ bool BgpXmppChannelManager::DeleteExecutor(BgpXmppChannel *channel) {
     return true;
 }
 
-
 // BgpXmppChannelManager routines.
-
 BgpXmppChannelManager::BgpXmppChannelManager(XmppServer *xmpp_server,
                                              BgpServer *server)
     : xmpp_server_(xmpp_server),
@@ -2370,6 +2379,9 @@ BgpXmppChannelManager::BgpXmppChannelManager(XmppServer *xmpp_server,
       deleting_count_(0) {
     // Initialize the gen id counter
     subscription_gen_id_ = 1;
+
+    if (xmpp_server)
+        xmpp_server->CreateConfigUpdater(server->config_manager());
     queue_.SetEntryCallback(
             boost::bind(&BgpXmppChannelManager::IsReadyForDeletion, this));
     if (xmpp_server) {

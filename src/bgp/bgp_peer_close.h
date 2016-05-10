@@ -45,12 +45,6 @@ public:
         END_STATE = DELETE,
     };
 
-    // Use 5 minutes as the default GR timer expiry duration.
-    static const int kDefaultGracefulRestartTimeSecs = 5 * 60;
-
-    // Use 12 hours as the default LLGR timer expiry duration.
-    static const int kDefaultLongLivedGracefulRestartTimeSecs = 12 * 60 * 60;
-
     explicit PeerCloseManager(IPeerClose *peer_close,
                               boost::asio::io_service &io_service);
     explicit PeerCloseManager(IPeerClose *peer_close);
