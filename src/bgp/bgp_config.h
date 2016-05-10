@@ -15,6 +15,7 @@
 #include "bgp/bgp_common.h"
 #include "io/tcp_session.h"
 #include "net/address.h"
+#include "schema/vnc_cfg_types.h"
 
 class BgpServer;
 
@@ -513,6 +514,27 @@ private:
     DISALLOW_COPY_AND_ASSIGN(BgpProtocolConfig);
 };
 
+// Route Policy configuration.
+class BgpGlobalSystemConfig {
+public:
+    BgpGlobalSystemConfig() : last_change_at_(0), gr_time_(0), llgr_time_(0) {
+    }
+    ~BgpGlobalSystemConfig() { }
+
+    uint16_t gr_time() const { return gr_time_;}
+    void set_gr_time(uint16_t gr_time) { gr_time_ = gr_time;}
+    uint32_t llgr_time() const { return llgr_time_;}
+    void set_llgr_time(uint64_t llgr_time) { llgr_time_ = llgr_time;}
+    uint32_t last_change_at() const { return last_change_at_; }
+    void set_last_change_at(uint32_t tstamp) const { last_change_at_ = tstamp; }
+
+private:
+    mutable uint64_t last_change_at_;
+    uint16_t gr_time_;
+    uint32_t llgr_time_;
+    DISALLOW_COPY_AND_ASSIGN(BgpGlobalSystemConfig);
+};
+
 /*
  * BgpConfigManager defines the interface between the BGP server and the
  * configuration sub-system. Multiple configuration sub-systems are
@@ -535,12 +557,15 @@ public:
         BgpNeighborObserver;
     typedef boost::function<void(const BgpRoutingPolicyConfig *, EventType)>
         BgpRoutingPolicyObserver;
+    typedef boost::function<void(const BgpGlobalSystemConfig *, EventType)>
+        BgpGlobalSystemConfigObserver;
 
     struct Observers {
         BgpProtocolObserver protocol;
         BgpInstanceObserver instance;
         BgpNeighborObserver neighbor;
         BgpRoutingPolicyObserver policy;
+        BgpGlobalSystemConfigObserver system;
     };
 
     typedef std::map<std::string, BgpRoutingPolicyConfig *> RoutingPolicyMap;
@@ -560,7 +585,7 @@ public:
     explicit BgpConfigManager(BgpServer *server);
     virtual ~BgpConfigManager();
 
-    void RegisterObservers(const Observers &obs) { obs_ = obs; }
+    void RegisterObservers(const Observers &obs) { obs_.push_back(obs); }
 
     virtual void Terminate() = 0;
     virtual const std::string &localname() const = 0;
@@ -591,7 +616,7 @@ public:
 
 private:
     BgpServer *server_;
-    Observers obs_;
+    std::vector<Observers> obs_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpConfigManager);
 };
