@@ -1,0 +1,60 @@
+# HAProxy custom attributes
+global:
+    max_conn:
+      type: int
+      limits: [1, 65535]
+      cmd: maxconn %d
+    max_conn_rate:
+      type: int
+      limits: [1, 65535]
+      cmd: maxconnrate %d
+    max_sess_rate:
+      type: int
+      limits: [1, 65535]
+      cmd: maxsessrate %d
+    max_ssl_conn:
+      type: int
+      limits: [1, 65535]
+      cmd: maxsslconn %d
+    max_ssl_rate:
+      type: int
+      limits: [1, 65535]
+      cmd: maxsslrate %d
+    ssl_ciphers:
+      type: str
+      limits: [1, 100]
+      cmd: ssl-default-bind-ciphers %s
+    tune_http_max_header:
+      type: int
+      limits: [1, 128]
+      cmd: tune.http.maxhdr %d
+    tune_ssl_max_record:
+      type: int
+      limits: [1, 16384]
+      cmd: tune.ssl.maxrecord %d
+default:
+    server_timeout:
+      type: int
+      limits: [1, 5000000]
+      cmd: timeout server %d
+    client_timeout:
+      type: int
+      limits: [1, 5000000]
+      cmd: timeout client %d
+    connect_timeout:
+      type: int
+      limits: [1, 5000000]
+      cmd: timeout connect %d
+frontend:
+    http_server_close:
+      type: bool
+      limits: [True, False]
+      cmd: "%soption http-server-close"
+    rate_limit_sessions:
+      type: int
+      limits: [1, 65535]
+      cmd: rate-limit sessions %d
+    tls_container:
+      type: CustomAttrTlsContainer
+      limits: ""
+      cmd: ""
