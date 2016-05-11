@@ -39,9 +39,6 @@ class FlowProto : public Proto {
 public:
     static const int kMinTableCount = 1;
     static const int kMaxTableCount = 16;
-    static const int kFlowAddTokens = 800;
-    static const int kFlowDelTokens = 800;
-    static const int kFlowUpdateTokens = 400;
 
     FlowProto(Agent *agent, boost::asio::io_service &io);
     virtual ~FlowProto();

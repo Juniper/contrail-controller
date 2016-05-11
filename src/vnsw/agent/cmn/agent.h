@@ -258,6 +258,10 @@ public:
     // Default number of tx-buffers on pkt0 interface
     static const uint32_t kPkt0TxBufferCount = 1000;
 
+    static const uint32_t kFlowAddTokens = 100;
+    static const uint32_t kFlowDelTokens = 50;
+    static const uint32_t kFlowUpdateTokens = 50;
+
     enum ForwardingMode {
         NONE,
         L2_L3,
@@ -886,6 +890,16 @@ public:
     uint32_t max_vm_flows() const { return max_vm_flows_; }
     void set_max_vm_flows(uint32_t count) { max_vm_flows_ = count; }
 
+    uint32_t flow_add_tokens() const { return flow_add_tokens_; }
+    uint32_t flow_del_tokens() const { return flow_del_tokens_; }
+    uint32_t flow_update_tokens() const { return flow_update_tokens_; }
+    void set_flow_tokens(uint32_t add_tokens, uint32_t del_tokens,
+                         uint32_t update_tokens) {
+        flow_add_tokens_ = add_tokens;
+        flow_del_tokens_ = del_tokens;
+        flow_update_tokens_ = update_tokens;
+    }
+
     bool init_done() const { return init_done_; }
     void set_init_done(bool done) { init_done_ = done; }
 
@@ -1147,6 +1161,9 @@ private:
     uint16_t flow_thread_count_;
     bool flow_trace_enable_;
     uint32_t max_vm_flows_;
+    uint32_t flow_add_tokens_;
+    uint32_t flow_del_tokens_;
+    uint32_t flow_update_tokens_;
 
     // OVSDB client ptr
     OVSDB::OvsdbClient *ovsdb_client_;
