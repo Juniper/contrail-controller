@@ -366,11 +366,12 @@ void VrfEntry::ResyncRoutes() {
 void VrfEntry::RetryDelete() {
     if (AllRouteTablesEmpty() == false)
         return;
-    Agent *agent = (static_cast<VrfTable *>(get_table()))->agent();
-    agent->ConcurrencyCheck();
-    DBTablePartBase *tpart =
-        static_cast<DBTablePartition *>(get_table()->GetTablePartition(this));
-    tpart->Notify(this);
+
+    // Enqueue a DB Request to notify the entry, entry should always be
+    // notified in db::DBTable task context
+    DBRequest req(DBRequest::DB_ENTRY_NOTIFY);
+    req.key = GetDBRequestKey();
+    (static_cast<VrfTable *>(get_table()))->Enqueue(&req);
 }
 
 bool VrfEntry::AllRouteTablesEmpty() const {
@@ -634,9 +635,16 @@ void VrfTable::Input(DBTablePartition *partition, DBClient *client,
     VrfEntry *entry = static_cast<VrfEntry *>(partition->Find(key));
 
     if (entry && entry->IsDeleted()) {
-        OPER_TRACE(Vrf, "VRF pending delete, Ignoring DB operation for ",
-                   entry->GetName());
-        return;
+        if (req->oper != DBRequest::DB_ENTRY_NOTIFY) {
+            OPER_TRACE(Vrf, "VRF pending delete, Ignoring DB operation for ",
+                       entry->GetName());
+            return;
+        } else {
+            // Allow DB Operation for DB Entry Notify, along with
+            // validation for sub op as ADD_DEL_CHANGE
+            AgentKey *key = static_cast<AgentKey *>(req->key.get());
+            assert(key->sub_op_ == AgentKey::ADD_DEL_CHANGE);
+        }
     }
 
     AgentDBTable::Input(partition, client, req);
