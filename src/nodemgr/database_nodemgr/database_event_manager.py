@@ -230,9 +230,8 @@ class DatabaseEventManager(EventManager):
             self.msg_log(msg, level=SandeshLevel.SYS_ERR)
             self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE_NA
 
-        cassandra_cli_cmd = "cassandra-cli --host " + self.hostip + \
-            " --batch  < /dev/null | grep 'Connected to:'"
-        proc = Popen(cassandra_cli_cmd, shell=True, stdout=PIPE, stderr=PIPE)
+        cqlsh_cmd = "cqlsh " + self.hostip + " -e quit"
+        proc = Popen(cqlsh_cmd, shell=True, stdout=PIPE, stderr=PIPE)
         (output, errout) = proc.communicate()
         if proc.returncode != 0:
             self.fail_status_bits |= self.FAIL_STATUS_SERVER_PORT
