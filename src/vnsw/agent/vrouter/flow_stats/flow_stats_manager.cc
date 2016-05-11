@@ -279,8 +279,11 @@ void FlowStatsManager::DeleteEvent(const FlowEntryPtr &flow,
         return;
     }
     FlowStatsCollector *fsc = flow->fsc();
-    assert(fsc != NULL);
-    fsc->DeleteEvent(flow, params);
+    /* Ignore delete requests if FlowStatsCollector is NULL */
+    if (fsc != NULL) {
+        fsc->DeleteEvent(flow, params);
+        flow->set_fsc(NULL);
+    }
 }
 
 void FlowStatsManager::UpdateStatsEvent(const FlowEntryPtr &flow,
