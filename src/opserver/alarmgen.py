@@ -266,8 +266,7 @@ class AlarmStateMachine:
         return self.uas
 
     def set_uai(self, uai):
-        if self.uai == None:
-            self.uai = uai
+        self.uai = uai
 
     def is_new_alarm_same(self, new_uai):
         uai2 = copy.deepcopy(self.uai)
@@ -280,6 +279,12 @@ class AlarmStateMachine:
             return True
         return False
 
+    def _remove_timer_from_list(self, index):
+        AlarmStateMachine.tab_alarms_timer[index].discard((self.tab,\
+                                self.uv, self.nm))
+        if len(AlarmStateMachine.tab_alarms_timer[index]) == 0:
+            del AlarmStateMachine.tab_alarms_timer[index]
+
     def set_alarms(self):
         """
         This function runs the state machine code for setting an alarm
@@ -290,8 +295,7 @@ class AlarmStateMachine:
         curr_time = int(time.time())
         if self.uas.state == UVEAlarmState.Soak_Idle:
             self.uas.state = UVEAlarmState.Active
-            AlarmStateMachine.tab_alarms_timer[self.idleTimeout].discard\
-                    ((self.tab, self.uv, self.nm))
+            self._remove_timer_from_list(self.idleTimeout)
         elif self.uas.state == UVEAlarmState.Idle:
             if self.uac.FreqExceededCheck:
                 # log the timestamp
@@ -346,11 +350,10 @@ class AlarmStateMachine:
         if self.uas.state == UVEAlarmState.Soak_Active:
             # stop the active timer and start idle timer
             self.uas.state = UVEAlarmState.Idle
+            self._remove_timer_from_list(self.activeTimeout)
             if self.uac.FreqCheck_Seconds:
                 self.deleteTimeout = cur_time + self.uac.FreqCheck_Seconds
                 to_value = self.deleteTimeout
-                AlarmStateMachine.tab_alarms_timer[self.activeTimeout].discard\
-                    ((self.tab, self.uv, self.nm))
                 if not to_value in AlarmStateMachine.tab_alarms_timer:
                     AlarmStateMachine.tab_alarms_timer[to_value] = set()
                 AlarmStateMachine.tab_alarms_timer[to_value].add\
@@ -365,8 +368,7 @@ class AlarmStateMachine:
                 if self.uac.FreqCheck_Seconds:
                     self.deleteTimeout = cur_time + self.uac.FreqCheck_Seconds
                     to_value = self.deleteTimeout
-                    AlarmStateMachine.tab_alarms_timer[self.activeTimeout]\
-                            .discard((self.tab, self.uv, self.nm))
+                    self._remove_timer_from_list(self.activeTimeout)
                     if not to_value in AlarmStateMachine.tab_alarms_timer:
                         AlarmStateMachine.tab_alarms_timer[to_value] = set()
                     AlarmStateMachine.tab_alarms_timer[to_value].add\
@@ -469,16 +471,13 @@ class AlarmStateMachine:
     def delete_timers(self):
         if self.uas.state == UVEAlarmState.Idle:
             if self.deleteTimeout and self.deleteTimeout > 0:
-                AlarmStateMachine.tab_alarms_timer[self.deleteTimeout].\
-                        discard((self.tab, self.uv, self.nm))
+                self._remove_timer_from_list(self.deleteTimeout)
         elif self.uas.state == UVEAlarmState.Soak_Active:
             if self.activeTimeout and self.activeTimeout > 0:
-                AlarmStateMachine.tab_alarms_timer[self.activeTimeout].\
-                        discard((self.tab, self.uv, self.nm))
+                self._remove_timer_from_list(self.activeTimeout)
         elif self.uas.state == UVEAlarmState.Soak_Idle:
             if self.idleTimeout and self.idleTimeout > 0:
-                AlarmStateMachine.tab_alarms_timer[self.idleTimeout].\
-                        discard((self.tab, self.uv, self.nm))
+                self._remove_timer_from_list(self.idleTimeout)
 
     @staticmethod
     def run_timers(curr_time, tab_alarms):
