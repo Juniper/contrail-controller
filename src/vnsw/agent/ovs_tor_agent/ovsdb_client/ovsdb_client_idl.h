@@ -181,6 +181,10 @@ public:
     uint64_t pending_txn_count() const;
     uint64_t pending_send_msg_count() const;
 
+    // Concurrency Check to validate all idl transactions happen only in
+    // db::DBTable or Agent::KSync task context
+    bool ConcurrencyCheck() const;
+
 private:
     friend void ovsdb_wrapper_idl_callback(void *, int, struct ovsdb_idl_row *);
     friend void ovsdb_wrapper_idl_txn_ack(void *, struct ovsdb_idl_txn *);

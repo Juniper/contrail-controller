@@ -287,6 +287,7 @@ bool OvsdbClientIdl::ProcessMessage(OvsdbMsg *msg) {
 
 struct ovsdb_idl_txn *OvsdbClientIdl::CreateTxn(OvsdbEntryBase *entry,
                                             KSyncEntry::KSyncEvent ack_event) {
+    assert(ConcurrencyCheck());
     if (deleted_) {
         // Don't create new transactions for deleted idl.
         return NULL;
@@ -317,6 +318,7 @@ struct ovsdb_idl_txn *OvsdbClientIdl::CreateTxn(OvsdbEntryBase *entry,
 
 struct ovsdb_idl_txn *OvsdbClientIdl::CreateBulkTxn(OvsdbEntryBase *entry,
                                             KSyncEntry::KSyncEvent ack_event) {
+    assert(ConcurrencyCheck());
     if (deleted_) {
         // Don't create new transactions for deleted idl.
         return NULL;
@@ -347,6 +349,7 @@ struct ovsdb_idl_txn *OvsdbClientIdl::CreateBulkTxn(OvsdbEntryBase *entry,
 
 bool OvsdbClientIdl::EncodeSendTxn(struct ovsdb_idl_txn *txn,
                                    OvsdbEntryBase *skip_entry) {
+    assert(ConcurrencyCheck());
     // return false to wait for bulk txn to complete
     if (txn == bulk_txn_) {
         return false;
@@ -374,6 +377,7 @@ bool OvsdbClientIdl::EncodeSendTxn(struct ovsdb_idl_txn *txn,
 }
 
 void OvsdbClientIdl::DeleteTxn(struct ovsdb_idl_txn *txn) {
+    assert(ConcurrencyCheck());
     pending_txn_.erase(txn);
     // third party code and handle only one txn at a time,
     // if there is a pending bulk entry encode and send before
@@ -575,6 +579,32 @@ uint64_t OvsdbClientIdl::pending_txn_count() const {
 
 uint64_t OvsdbClientIdl::pending_send_msg_count() const {
     return pending_send_msgs_.size();
+}
+
+bool OvsdbClientIdl::ConcurrencyCheck() const {
+    Task *current = Task::Running();
+    static int ksync_task_id = -1;
+    static int db_task_id = -1;
+
+    if (ksync_task_id == -1)
+        ksync_task_id = agent_->task_scheduler()->GetTaskId("Agent::KSync");
+
+    if (db_task_id == -1)
+        db_task_id = agent_->task_scheduler()->GetTaskId("db::DBTable");
+
+    if (current == NULL) {
+        return session_->TestConcurrencyAllow();
+    }
+
+    if (current->GetTaskId() == ksync_task_id) {
+        return true;
+    }
+
+    if (current->GetTaskId() == db_task_id) {
+        return true;
+    }
+
+    return false;
 }
 
 void OvsdbClientIdl::ConnectOperDB() {
