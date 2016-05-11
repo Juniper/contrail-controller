@@ -1621,12 +1621,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="service-health-check-service-instance" type="ServiceInterfaceTag"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('service-health-check-service-instance',
-          'service-health-check', 'service-instance', ['ref']) -->
+          'service-health-check', 'service-instance', ['ref', 'derived']) -->
 
 <xsd:element name="interface-route-table-service-instance" type="ServiceInterfaceTag"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('interface-route-table-service-instance',
-          'interface-route-table', 'service-instance', ['ref']) -->
+          'interface-route-table', 'service-instance', ['ref', 'derived']) -->
 
 <xsd:element name="routing-policy-service-instance" type="RoutingPolicyServiceInstanceType"/>
 <!--#IFMAP-SEMANTICS-IDL
