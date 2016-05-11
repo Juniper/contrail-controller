@@ -156,12 +156,11 @@ public:
 
         // Find the vm's node using its UUID. If the config has not added the
         // vm yet, treat this request as pending since we cant process it right
-        // now.
+        // now. If the node is marked deleted, mark it as pending since the
+        // node might get revived. In this case, the pending entry will get
+        // cleaned up either via an unsub from the client or client-delete.
         IFMapNode *vm_node = ifmap_server_->GetVmNodeByUuid(vm_uuid_);
-        if (vm_node) {
-            if (vm_node->IsDeleted()) {
-                return true;
-            }
+        if (vm_node && !vm_node->IsDeleted()) {
             IFMapServerTable *vr_table = static_cast<IFMapServerTable *>(
                 db_->FindTable("__ifmap__.virtual_router.0"));
             assert(vr_table != NULL);
