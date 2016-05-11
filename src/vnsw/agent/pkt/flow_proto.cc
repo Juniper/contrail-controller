@@ -19,11 +19,12 @@ static void UpdateStats(FlowEvent *event, FlowStats *stats);
 
 FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
     Proto(agent, kTaskFlowEvent, PktHandler::FLOW, io),
-    add_tokens_("Add Tokens", this, kFlowAddTokens),
-    del_tokens_("Delete Tokens", this, kFlowDelTokens),
-    update_tokens_("Update Tokens", this, kFlowUpdateTokens),
+    add_tokens_("Add Tokens", this, agent->flow_add_tokens()),
+    ksync_tokens_("KSync` Tokens", this, agent->flow_ksync_tokens()),
+    del_tokens_("Delete Tokens", this, agent->flow_del_tokens()),
+    update_tokens_("Update Tokens", this, agent->flow_update_tokens()),
     flow_update_queue_(agent, this, &update_tokens_,
-                       agent->params()->flow_task_latency_limit()),
+                       agent->params()->flow_task_latency_limit(), 16),
     use_vrouter_hash_(false), ipv4_trace_filter_(), ipv6_trace_filter_(),
     stats_() {
     agent->SetFlowProto(this);
@@ -38,15 +39,15 @@ FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
         uint16_t latency = agent->params()->flow_task_latency_limit();
         flow_event_queue_.push_back
             (new FlowEventQueue(agent, this, flow_table_list_[i],
-                                &add_tokens_, latency));
+                                &add_tokens_, latency, 16));
 
         flow_delete_queue_.push_back
             (new DeleteFlowEventQueue(agent, this, flow_table_list_[i],
-                                      &del_tokens_, latency));
+                                      &del_tokens_, latency, 16));
 
         flow_ksync_queue_.push_back
             (new KSyncFlowEventQueue(agent, this, flow_table_list_[i],
-                                     &add_tokens_, latency));
+                                     &ksync_tokens_, latency, 32));
     }
     if (::getenv("USE_VROUTER_HASH") != NULL) {
         string opt = ::getenv("USE_VROUTER_HASH");
@@ -624,9 +625,12 @@ FlowTokenPtr FlowProto::GetToken(FlowEvent::Event event) {
     switch (event) {
     case FlowEvent::VROUTER_FLOW_MSG:
     case FlowEvent::AUDIT_FLOW:
-    case FlowEvent::KSYNC_EVENT:
     case FlowEvent::REENTRANT:
         return add_tokens_.GetToken(NULL);
+        break;
+
+    case FlowEvent::KSYNC_EVENT:
+        return ksync_tokens_.GetToken(NULL);
         break;
 
     case FlowEvent::FLOW_MESSAGE:
@@ -661,6 +665,12 @@ void FlowProto::TokenAvailable(FlowTokenPool *pool) {
     if (pool == &add_tokens_) {
         for (uint32_t i = 0; i < flow_event_queue_.size(); i++) {
             flow_event_queue_[i]->MayBeStartRunner();
+        }
+    }
+
+    if (pool == &ksync_tokens_) {
+        for (uint32_t i = 0; i < flow_event_queue_.size(); i++) {
+            flow_ksync_queue_[i]->MayBeStartRunner();
         }
     }
 
@@ -775,6 +785,9 @@ void FlowProto::SetProfileData(ProfileData *data) {
     data->flow_.token_stats_.add_tokens_ = add_tokens_.token_count();
     data->flow_.token_stats_.add_failures_ = add_tokens_.failures();
     data->flow_.token_stats_.add_restarts_ = add_tokens_.restarts();
+    data->flow_.token_stats_.ksync_tokens_ = ksync_tokens_.token_count();
+    data->flow_.token_stats_.ksync_failures_ = ksync_tokens_.failures();
+    data->flow_.token_stats_.ksync_restarts_ = ksync_tokens_.restarts();
     data->flow_.token_stats_.update_tokens_ = update_tokens_.token_count();
     data->flow_.token_stats_.update_failures_ = update_tokens_.failures();
     data->flow_.token_stats_.update_restarts_ = update_tokens_.restarts();

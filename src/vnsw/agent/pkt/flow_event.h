@@ -243,7 +243,8 @@ public:
 
     FlowEventQueueBase(FlowProto *proto, const std::string &name,
                        uint32_t task_id, int task_instance,
-                       FlowTokenPool *pool, uint16_t latency_limit);
+                       FlowTokenPool *pool, uint16_t latency_limit,
+                       uint32_t max_iterations);
     virtual ~FlowEventQueueBase();
     virtual bool HandleEvent(FlowEvent *event) = 0;
     virtual bool Handler(FlowEvent *event);
@@ -281,7 +282,8 @@ protected:
 class FlowEventQueue : public FlowEventQueueBase {
 public:
     FlowEventQueue(Agent *agent, FlowProto *proto, FlowTable *table,
-                   FlowTokenPool *pool, uint16_t latency_limit);
+                   FlowTokenPool *pool, uint16_t latency_limit,
+                   uint32_t max_iterations);
     virtual ~FlowEventQueue();
 
     bool HandleEvent(FlowEvent *event);
@@ -292,7 +294,8 @@ private:
 class DeleteFlowEventQueue : public FlowEventQueueBase {
 public:
     DeleteFlowEventQueue(Agent *agent, FlowProto *proto, FlowTable *table,
-                         FlowTokenPool *pool, uint16_t latency_limit);
+                         FlowTokenPool *pool, uint16_t latency_limit,
+                         uint32_t max_iterations);
     virtual ~DeleteFlowEventQueue();
 
     bool HandleEvent(FlowEvent *event);
@@ -303,7 +306,8 @@ private:
 class KSyncFlowEventQueue : public FlowEventQueueBase {
 public:
     KSyncFlowEventQueue(Agent *agent, FlowProto *proto, FlowTable *table,
-                        FlowTokenPool *pool, uint16_t latency_limit);
+                        FlowTokenPool *pool, uint16_t latency_limit,
+                        uint32_t max_iterations);
     virtual ~KSyncFlowEventQueue();
 
     bool HandleEvent(FlowEvent *event);
@@ -314,7 +318,8 @@ private:
 class UpdateFlowEventQueue : public FlowEventQueueBase {
 public:
     UpdateFlowEventQueue(Agent *agent, FlowProto *proto,
-                         FlowTokenPool *pool, uint16_t latency_limit);
+                         FlowTokenPool *pool, uint16_t latency_limit,
+                         uint32_t max_iterations);
     virtual ~UpdateFlowEventQueue();
 
     bool HandleEvent(FlowEvent *event);
