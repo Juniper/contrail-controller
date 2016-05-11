@@ -3935,6 +3935,69 @@ TEST_F(XmppIfmapTest, NodePropertyChanges) {
     TASK_UTIL_EXPECT_TRUE(xmpp_server_->FindConnection(client_name) == NULL);
 }
 
+TEST_F(XmppIfmapTest, DeleteClientPendingVmregCleanup) {
+    SetObjectsPerMessage(1);
+
+    // Read the ifmap data from file and give it to the parser
+    string content(FileRead("controller/src/ifmap/testdata/vr_3vm_add.xml"));
+    assert(content.size() != 0);
+    parser_->Receive(&db_, content.data(), content.size(), 0);
+    task_util::WaitForIdle();
+
+    // create the mock client
+    string client_name =
+        string("default-global-system-config:a1s27.contrail.juniper.net");
+    string filename("/tmp/" + GetUserName() +
+                    "_cfgadd_reg_cfgdel_unreg.output");
+    IFMapXmppClientMock *vnsw_client =
+        new IFMapXmppClientMock(&evm_, xmpp_server_->GetPort(), client_name,
+                                filename);
+    TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
+    vnsw_client->RegisterWithXmpp();
+
+    usleep(1000);
+    // Server connection
+    TASK_UTIL_EXPECT_TRUE(ServerIsEstablished(xmpp_server_, client_name)
+                          == true);
+
+    // verify ifmap_server client is not created until config subscribe
+    EXPECT_TRUE(ifmap_server_.FindClient(client_name) == NULL);
+    // no config messages sent until config subscribe
+    EXPECT_EQ(0, vnsw_client->Count());
+
+    vnsw_client->SendConfigSubscribe();
+    TASK_UTIL_EXPECT_TRUE(ifmap_server_.FindClient(client_name) != NULL);
+
+    // Send a VM subscribe for a VM that does not exist in the config. This
+    // should create a pending vm-reg entry.
+    TASK_UTIL_EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
+    vnsw_client->SendVmConfigSubscribe("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+    TASK_UTIL_EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 1);
+
+    // Cleanup the client. This should clean up the pending vm-reg list too.
+    ConfigUpdate(vnsw_client, new XmppConfigData());
+    TASK_UTIL_EXPECT_EQ(ifmap_server_.GetClientMapSize(), 0);
+
+    // Verify ifmap_server client cleanup
+    EXPECT_EQ(true, IsIFMapClientUnregistered(&ifmap_server_, client_name));
+
+    vnsw_client->UnRegisterWithXmpp();
+    vnsw_client->Shutdown();
+    task_util::WaitForIdle();
+    TcpServerManager::DeleteServer(vnsw_client);
+
+    // Delete xmpp-channel explicitly
+    XmppConnection *sconnection = xmpp_server_->FindConnection(client_name);
+    if (sconnection) {
+        sconnection->Shutdown();
+    }
+    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionCount(), 0);
+    EXPECT_TRUE(xmpp_server_->FindConnection(client_name) == NULL);
+
+    // The pending vm-reg should be cleaned up when the client dies
+    TASK_UTIL_EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
+}
+
 }
 
 static void SetUp() {
