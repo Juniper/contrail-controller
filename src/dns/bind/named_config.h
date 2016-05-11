@@ -33,9 +33,9 @@ private:
     bool CheckBindStatus();
 
     uint32_t named_pid_;
-    TaskTrigger trigger_;
     BindEventHandler handler_;
     Timer *status_timer_;
+    bool change_timeout_;
 
     DISALLOW_COPY_AND_ASSIGN(BindStatus);
 };
