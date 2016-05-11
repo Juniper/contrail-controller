@@ -19,9 +19,9 @@ static void UpdateStats(FlowEvent *event, FlowStats *stats);
 
 FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
     Proto(agent, kTaskFlowEvent, PktHandler::FLOW, io),
-    add_tokens_("Add Tokens", this, kFlowAddTokens),
-    del_tokens_("Delete Tokens", this, kFlowDelTokens),
-    update_tokens_("Update Tokens", this, kFlowUpdateTokens),
+    add_tokens_("Add Tokens", this, agent->flow_add_tokens()),
+    del_tokens_("Delete Tokens", this, agent->flow_del_tokens()),
+    update_tokens_("Update Tokens", this, agent->flow_update_tokens()),
     flow_update_queue_(agent, this, &update_tokens_,
                        agent->params()->flow_task_latency_limit()),
     use_vrouter_hash_(false), ipv4_trace_filter_(), ipv6_trace_filter_(),

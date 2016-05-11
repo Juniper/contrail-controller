@@ -544,6 +544,9 @@ void AgentParam::ParseFlows() {
         flow_index_sm_log_count_ = Agent::kDefaultFlowIndexSmLogCount;
     }
 
+    GetValueFromTree<uint32_t>(flow_add_tokens_, "FLOWS.add_tokens");
+    GetValueFromTree<uint32_t>(flow_del_tokens_, "FLOWS.del_tokens");
+    GetValueFromTree<uint32_t>(flow_update_tokens_, "FLOWS.update_tokens");
 }
 
 void AgentParam::ParseHeadlessMode() {
@@ -788,6 +791,12 @@ void AgentParam::ParseFlowArguments
                           "FLOWS.max_vm_linklocal_flows");
     GetOptValue<uint16_t>(var_map, flow_index_sm_log_count_,
                           "FLOWS.index_sm_log_count");
+    GetOptValue<uint32_t>(var_map, flow_add_tokens_,
+                          "FLOWS.add_tokens");
+    GetOptValue<uint32_t>(var_map, flow_del_tokens_,
+                          "FLOWS.del_tokens");
+    GetOptValue<uint32_t>(var_map, flow_update_tokens_,
+                          "FLOWS.update_tokens");
 }
 
 void AgentParam::ParseHeadlessModeArguments
@@ -1195,6 +1204,9 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Flow thread count           : " << flow_thread_count_);
     LOG(DEBUG, "Flow latency limit          : " << flow_latency_limit_);
     LOG(DEBUG, "Flow index-mgr sm log count : " << flow_index_sm_log_count_);
+    LOG(DEBUG, "Flow add-tokens             : " << flow_add_tokens_);
+    LOG(DEBUG, "Flow del-tokens             : " << flow_del_tokens_);
+    LOG(DEBUG, "Flow update-tokens          : " << flow_update_tokens_);
 
     if (agent_mode_ == VROUTER_AGENT)
         LOG(DEBUG, "Agent Mode                  : Vrouter");
@@ -1291,6 +1303,9 @@ AgentParam::AgentParam(bool enable_flow_options,
         metadata_proxy_port_(0), max_vm_flows_(),
         linklocal_system_flows_(), linklocal_vm_flows_(),
         flow_cache_timeout_(), flow_index_sm_log_count_(),
+        flow_add_tokens_(Agent::kFlowAddTokens),
+        flow_del_tokens_(Agent::kFlowDelTokens),
+        flow_update_tokens_(Agent::kFlowUpdateTokens),
         config_file_(), program_name_(),
         log_file_(), log_local_(false), log_flow_(false), log_level_(),
         log_category_(), use_syslog_(false),
@@ -1436,6 +1451,12 @@ AgentParam::AgentParam(bool enable_flow_options,
              "Maximum number of link-local flows allowed per VM")
             ("FLOWS.trace_enable", opt::value<bool>(),
              "Enable flow tracing")
+            ("FLOWS.add_tokens", opt::value<uint32_t>(),
+             "Number of add-tokens")
+            ("FLOWS.del_tokens", opt::value<uint32_t>(),
+             "Number of delete-tokens")
+            ("FLOWS.update_tokens", opt::value<uint32_t>(),
+             "Number of update-tokens")
             ;
         options_.add(flow);
     }
