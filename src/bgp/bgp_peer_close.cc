@@ -271,10 +271,19 @@ void PeerCloseManager::ProcessRibIn(DBTablePartBase *root, BgpRoute *rt,
          it != rt->GetPathList().end(); it = next) {
         next++;
 
-        // Skip secondary paths.
-        if (dynamic_cast<BgpSecondaryPath *>(it.operator->())) continue;
         BgpPath *path = static_cast<BgpPath *>(it.operator->());
-        if (path->GetPeer() != peer_) continue;
+
+        // Skip paths from other peers.
+        if (path->GetPeer() != peer_)
+            continue;
+
+        // Skip resolved paths - PathResolver is responsible for them.
+        if (path->IsResolved())
+            continue;
+
+        // Skip secondary paths.
+        if (dynamic_cast<BgpSecondaryPath *>(path))
+            continue;
 
         switch (action) {
             case MembershipRequest::RIBIN_SWEEP:

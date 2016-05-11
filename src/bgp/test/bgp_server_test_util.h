@@ -195,7 +195,7 @@ public:
                               const std::string &name);
     void DisableAllPeers();
     void EnableAllPeers();
-    void Shutdown(bool verify = true);
+    void Shutdown(bool verify = true, bool wait_for_idle = true);
     void VerifyShutdown() const;
 
     DB *config_db() { return config_db_.get(); }
