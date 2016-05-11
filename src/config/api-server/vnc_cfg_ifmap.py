@@ -909,7 +909,7 @@ class VncServerCassandraClient(VncCassandraClient):
 
     def uuid_to_obj_dict(self, id):
         try:
-            obj_cols = self._obj_uuid_cf.get(id)
+            obj_cols = self._obj_uuid_cf.get(id, column_count=self._MAX_COL)
         except pycassa.NotFoundException:
             raise NoIdError(id)
         return obj_cols
