@@ -56,6 +56,9 @@ public:
 
     void AddSessionInfo(SandeshOvsdbClientSession &session);
 
+    // UT overrides this to allow concurrency check on NULL task
+    virtual bool TestConcurrencyAllow() { return false; }
+
 protected:
     // ovsdb io task ID.
     static int ovsdb_io_task_id_;

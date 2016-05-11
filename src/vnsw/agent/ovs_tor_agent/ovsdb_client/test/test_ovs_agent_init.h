@@ -33,6 +33,8 @@ public:
                               TcpServer *server, Socket *sock,
                               bool async_ready = true);
     virtual ~OvsdbClientTcpSessionTest();
+
+    virtual bool TestConcurrencyAllow() { return true; }
 };
 
 class OvsdbClientTcpTest : public OvsdbClientTcp {

@@ -350,6 +350,10 @@ bool LogicalSwitchEntry::ProcessDeleteOvsReqTask::Run() {
         entry->TriggerDeleteAdd();
     }
 
+    // on task completion reset intrusive pointer in context of task itself
+    // rather than processing it in the Task destructor, since in case of
+    // task completion task destructor will be called in context of scheduler
+    entry_ = NULL;
     return true;
 }
 
