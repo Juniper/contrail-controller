@@ -239,7 +239,7 @@ class AnalyticsDb(object):
                        password=self._cassandra_password)
             # Extract the server_list and port number seperately
             server_list = [i.split(":")[0] for i in self._cassandra_server_list]
-            cql_port = self._cassandra_server_list[0].split(":")[1]
+            cql_port = int(self._cassandra_server_list[0].split(":")[1])
             cluster = Cluster(contact_points = server_list,
                 auth_provider = creds, port = cql_port)
             self._session=cluster.connect(COLLECTOR_KEYSPACE_CQL)
