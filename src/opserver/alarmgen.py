@@ -346,11 +346,11 @@ class AlarmStateMachine:
         if self.uas.state == UVEAlarmState.Soak_Active:
             # stop the active timer and start idle timer
             self.uas.state = UVEAlarmState.Idle
+            AlarmStateMachine.tab_alarms_timer[self.activeTimeout].discard\
+                    ((self.tab, self.uv, self.nm))
             if self.uac.FreqCheck_Seconds:
                 self.deleteTimeout = cur_time + self.uac.FreqCheck_Seconds
                 to_value = self.deleteTimeout
-                AlarmStateMachine.tab_alarms_timer[self.activeTimeout].discard\
-                    ((self.tab, self.uv, self.nm))
                 if not to_value in AlarmStateMachine.tab_alarms_timer:
                     AlarmStateMachine.tab_alarms_timer[to_value] = set()
                 AlarmStateMachine.tab_alarms_timer[to_value].add\
