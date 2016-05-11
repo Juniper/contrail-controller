@@ -24,7 +24,6 @@ public:
 
     // Run until shutdown.
     void Run();
-    void RunWithExceptionHandling();
 
     // Run at most once.
     size_t RunOnce();
