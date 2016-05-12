@@ -41,7 +41,7 @@ env.Append(LIBPATH=libs)
 if sys.platform != 'darwin':
     env.Prepend(LINKFLAGS =
                      ['-Wl,--whole-archive',
-                      '-lifmap_server', '-rdynamic',
+                      '-lbase', '-lifmap_server', '-rdynamic',
                       '-Wl,--no-whole-archive'])
 
 contrail_dns = env.Program(target = 'contrail-dns', source = ['main.cc'])
