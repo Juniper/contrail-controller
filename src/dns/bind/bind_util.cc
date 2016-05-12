@@ -17,6 +17,7 @@ DnsTypeMap g_dns_type_map = map_list_of<std::string, uint16_t>
                                 ("MX", 0x0F)
                                 ("TXT", 0x10)
                                 ("AAAA", 0x1C)
+                                ("SRV", 0x21)
                                 ("ANY", 0xFF);
 
 DnsTypeNumMap g_dns_type_num_map = map_list_of<uint16_t, std::string>
@@ -28,6 +29,7 @@ DnsTypeNumMap g_dns_type_num_map = map_list_of<uint16_t, std::string>
                                 (DNS_MX_RECORD, "MX")
                                 (DNS_TXT_RECORD, "TXT")
                                 (DNS_AAAA_RECORD, "AAAA")
+                                (DNS_SRV_RECORD, "SRV")
                                 (DNS_TYPE_ANY, "ANY");
 
 DnsTypeNumMap g_dns_class_num_map = map_list_of<uint16_t, std::string>
@@ -192,6 +194,19 @@ uint8_t *BindUtil::AddData(uint8_t *ptr, const DnsItem &item,
         ptr = WriteShort(ptr, item.priority);
         ptr = AddName(ptr, item.data, item.data_plen, item.data_offset, length);
         length += 2 + 2;
+    } else if (item.type == DNS_SRV_RECORD) {
+        uint16_t data_len = 6 + DataLength(item.srv.hn_plen, item.srv.hn_offset,
+                                           item.srv.hostname.size());
+        ptr = WriteShort(ptr, data_len);
+        ptr = WriteShort(ptr, item.srv.priority);
+        ptr = WriteShort(ptr, item.srv.weight);
+        ptr = WriteShort(ptr, item.srv.port);
+        ptr = AddName(ptr, item.srv.hostname, item.srv.hn_plen,
+                      item.srv.hn_offset, length);
+        length += 2 + 6;
+    } else {
+        DNS_BIND_TRACE(DnsBindError,
+            "Unsupported record type in response : " << item.type);
     }
 
     return ptr;
@@ -319,6 +334,15 @@ bool BindUtil::ReadData(uint8_t *dns, uint16_t dnslen, int *remlen,
         if (ReadShort(dns, dnslen, remlen, item.priority) == false)
             return false;
         return ReadName(dns, dnslen, remlen, item.data, item.data_plen, item.data_offset);
+    } else if (item.type == DNS_SRV_RECORD) {
+        if (ReadShort(dns, dnslen, remlen, item.srv.priority) == false)
+            return false;
+        if (ReadShort(dns, dnslen, remlen, item.srv.weight) == false)
+            return false;
+        if (ReadShort(dns, dnslen, remlen, item.srv.port) == false)
+            return false;
+        return ReadName(dns, dnslen, remlen, item.srv.hostname, 
+                        item.srv.hn_plen, item.srv.hn_offset);
     }
 
     DNS_BIND_TRACE(DnsBindError,
@@ -426,10 +450,17 @@ bool BindUtil::ParseDnsResponse(uint8_t *dns, uint16_t dnslen, uint16_t &xid,
         DnsItem item;
         if (ReadAnswerEntry(dns, dnslen, &remlen, item) == false) {
             errmsg = "Parse error in authority section";
+
+            DNS_BIND_TRACE(DnsBindError,
+                       "Parse Error in Authority section");
             goto error;
         }
         auth.push_back(item);
     }
+
+
+    DNS_BIND_TRACE(DnsBindError,
+                       "Check Additional  section");
 
     // additional section
     for (unsigned int i = 0; i < add_rrcount; ++i) {
