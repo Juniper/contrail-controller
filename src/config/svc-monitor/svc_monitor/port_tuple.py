@@ -88,7 +88,7 @@ class PortTupleAgent(Agent):
                 'service-health-check', health_id, None, 'ADD')
             vmi.update()
         # handle deletes
-        for health_id in vmi.service_health_checks:
+        for health_id in list(vmi.service_health_checks):
             if health_id in port['service-health-checks']:
                 continue
             self._vnc_lib.ref_update('virtual-machine-interface', vmi.uuid,
@@ -104,7 +104,7 @@ class PortTupleAgent(Agent):
                 'interface-route-table', irt_id, None, 'ADD')
             vmi.update()
         # handle deletes
-        for irt_id in vmi.interface_route_tables:
+        for irt_id in list(vmi.interface_route_tables):
             if irt_id in port['interface-route-tables']:
                 continue
             self._vnc_lib.ref_update('virtual-machine-interface', vmi.uuid,
@@ -112,7 +112,7 @@ class PortTupleAgent(Agent):
             vmi.update()
 
     def update_secondary_iip(self, vmi):
-        for iip_id in vmi.instance_ips:
+        for iip_id in list(vmi.instance_ips):
             iip = InstanceIpSM.get(iip_id)
             if not iip or not iip.instance_ip_secondary:
                 continue
@@ -172,7 +172,7 @@ class PortTupleAgent(Agent):
             return
         if iip.service_instance:
             return
-        for vmi_id in iip.virtual_machine_interfaces:
+        for vmi_id in list(iip.virtual_machine_interfaces):
             self._vnc_lib.ref_update('instance-ip', iip.uuid,
                 'virtual-machine-interface', vmi_id, None, 'DELETE')
 
@@ -191,14 +191,14 @@ class PortTupleAgent(Agent):
                 'virtual-machine-interface', vmi.uuid, None, 'DELETE')
             vmi.instance_ips.remove(iip_id)
 
-        for irt_id in vmi.interface_route_tables:
+        for irt_id in list(vmi.interface_route_tables):
             irt = InterfaceRouteTableSM.get(irt_id)
             if irt and irt.service_instance:
                 self._vnc_lib.ref_update('virtual-machine-interface', vmi.uuid,
                     'interface-route-table', irt.uuid, None, 'DELETE')
                 vmi.interface_route_tables.remove(irt_id)
 
-        for health_id in vmi.service_health_checks:
+        for health_id in list(vmi.service_health_checks):
             health = ServiceHealthCheckSM.get(health_id)
             if health and health.service_instance:
                 self._vnc_lib.ref_update('virtual-machine-interface', vmi.uuid,
