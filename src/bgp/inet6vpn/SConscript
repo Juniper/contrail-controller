@@ -8,6 +8,8 @@ Import('BuildEnv')
 
 env = BuildEnv.Clone()
 env.Append(CPPPATH = env['TOP'])
+env.Append(CPPPATH = [env['TOP'] + '/ifmap'])
+env.Append(CPPPATH = [env['TOP'] + '/base/sandesh'])
 
 libbgp_inet6vpn = env.Library('bgp_inet6vpn',
                               [

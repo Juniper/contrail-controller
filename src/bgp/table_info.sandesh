@@ -1,0 +1,12 @@
+/*
+ * Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
+ */
+
+struct TableStats {
+    1: optional string address_family;
+    2: optional u64 prefixes;
+    3: optional u64 primary_paths;
+    4: optional u64 secondary_paths;
+    5: optional u64 infeasible_paths;
+    6: optional u64 total_paths;
+}

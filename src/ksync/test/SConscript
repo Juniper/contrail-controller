@@ -18,12 +18,12 @@ env.Prepend(CPPPATH = '#/third_party/thrift-0.8.0/lib/cpp/src/')
 env.Prepend(CPPPATH = env['TOP'] + '/discovery/client')
 env.Prepend(CPPPATH = env['TOP'] + '/http/client')
 
-env.Prepend(LIBS=['thrift','xmpp', 'peer_sandesh', 'xmpp_unicast',
-                  'xmpp_multicast',  'ds', 'services', 
+env.Prepend(LIBS=['thrift','xmpp', 'peer_sandesh', 'table_sandesh',
+                  'xmpp_unicast', 'xmpp_multicast', 'ds', 'services',
                   'xml', 'pugixml', 'route',
-                  'bgp_schema', 'ifmap_vnc', 'ifmap_agent', 'ifmap_common', 
+                  'bgp_schema', 'ifmap_vnc', 'ifmap_agent', 'ifmap_common',
                   'sandeshflow', 'sandesh', 'httpc', 'http', 'http_parser', 'curl',
-                  'process_info', 'db', 'base', 'task_test', 'io', 'sandeshvns', 'net', 
+                  'process_info', 'db', 'base', 'task_test', 'io', 'sandeshvns', 'net',
                   'gunit', 'boost_regex', 'boost_filesystem',
                   'cpuinfo', 'pugixml'])
 
