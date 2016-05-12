@@ -107,6 +107,7 @@ env.Append(LIBPATH = MapBuildDir([
 env.Prepend(LIBS = [
     'xmpp',
     'peer_sandesh',
+    'table_sandesh',
     'xmpp_multicast',
     'xmpp_enet',
     'xmpp_unicast',

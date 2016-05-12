@@ -211,6 +211,12 @@ static void FillRxErrorStats(const IPeerDebugStats::RxErrorStats &src,
         src.inet6_bad_afi_safi_count;
 }
 
+static void FillRxRouteStats(const IPeerDebugStats::RxRouteStats &src,
+                             PeerRxRouteStats *dest) {
+    dest->total_path_count = src.total_path_count;
+    dest->primary_path_count = src.primary_path_count;
+}
+
 static void FillPeerDebugStats(const IPeerDebugStats *peer_state,
                                PeerStatsInfo *stats) {
     PeerProtoStats proto_stats_tx;
@@ -218,6 +224,7 @@ static void FillPeerDebugStats(const IPeerDebugStats *peer_state,
     PeerUpdateStats rt_stats_rx;
     PeerUpdateStats rt_stats_tx;
     PeerRxErrorStats dest_error_stats_rx;
+    PeerRxRouteStats dest_route_stats_rx;
 
     IPeerDebugStats::ProtoStats stats_rx;
     peer_state->GetRxProtoStats(&stats_rx);
@@ -239,11 +246,16 @@ static void FillPeerDebugStats(const IPeerDebugStats *peer_state,
     peer_state->GetRxErrorStats(&src_error_stats_rx);
     FillRxErrorStats(src_error_stats_rx, &dest_error_stats_rx);
 
+    IPeerDebugStats::RxRouteStats src_route_stats_rx;
+    peer_state->GetRxRouteStats(&src_route_stats_rx);
+    FillRxRouteStats(src_route_stats_rx, &dest_route_stats_rx);
+
     stats->set_rx_proto_stats(proto_stats_rx);
     stats->set_tx_proto_stats(proto_stats_tx);
     stats->set_rx_update_stats(rt_stats_rx);
     stats->set_tx_update_stats(rt_stats_tx);
     stats->set_rx_error_stats(dest_error_stats_rx);
+    stats->set_rx_route_stats(dest_route_stats_rx);
 }
 
 void FillXmppPeerStats(BgpServer *server, BgpXmppChannel *channel) {
@@ -285,6 +297,7 @@ bool ControlNodeInfoLogger(BgpServer *server,
     static bool first = true, build_info_set = false;
     bool change = false;
 
+    server->SendTableStatsUve();
     CpuLoadInfo cpu_load_info;
     CpuLoadData::FillCpuInfo(cpu_load_info, false);
     state.set_name(server->localname());
@@ -768,7 +781,7 @@ int main(int argc, char *argv[]) {
                         bgp_server.get(), bgp_peer_manager.get(),
                         &ifmap_server,
                         start_time, node_info_log_timer.get()),
-            TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0));
+            TaskScheduler::GetInstance()->GetTaskId("bgp::Uve"), 0));
 
     // Start periodic timer to send BGPRouterInfo UVE.
     node_info_log_timer->Start(

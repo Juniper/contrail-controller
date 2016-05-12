@@ -1,0 +1,10 @@
+/*
+ * Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
+ */
+
+struct TableStatsInfo {
+    1: u64 destinations;
+    2: u64 primary_paths;
+    3: u64 secondary_paths;
+    4: u64 infeasible_paths;
+}

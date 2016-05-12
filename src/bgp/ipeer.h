@@ -65,6 +65,13 @@ public:
         uint64_t inet6_bad_afi_safi_count;
     };
 
+    struct RxRouteStats {
+        RxRouteStats() : total_path_count(0), primary_path_count(0) {
+        }
+        uint64_t total_path_count;
+        uint64_t primary_path_count;
+    };
+
     struct UpdateStats {
         UpdateStats() : end_of_rib(0), total(0), reach(0), unreach(0) {
         }
@@ -107,6 +114,7 @@ public:
     virtual void GetRxRouteUpdateStats(UpdateStats *stats) const = 0;
     virtual void GetRxSocketStats(SocketStats *stats) const = 0;
     virtual void GetRxErrorStats(RxErrorStats *stats) const = 0;
+    virtual void GetRxRouteStats(RxRouteStats *stats) const = 0;
 
     virtual void GetTxProtoStats(ProtoStats *stats) const = 0;
     virtual void GetTxRouteUpdateStats(UpdateStats *stats) const = 0;
@@ -165,8 +173,8 @@ public:
     virtual BgpProto::BgpPeerType PeerType() const = 0;
     virtual uint32_t bgp_identifier() const = 0;
     virtual const std::string GetStateName() const = 0;
-    virtual void UpdateRefCount(int count) const = 0;
-    virtual tbb::atomic<int> GetRefCount() const = 0;
+    virtual void UpdateTotalPathCount(int count) const = 0;
+    virtual tbb::atomic<int> GetTotalPathCount() const = 0;
     virtual void UpdatePrimaryPathCount(int count) const = 0;
     virtual int GetPrimaryPathCount() const = 0;
 };
