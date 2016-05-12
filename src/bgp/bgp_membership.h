@@ -94,7 +94,7 @@ public:
     void UnregisterPeerRegistrationCallback(int id);
 
     virtual void Register(IPeer *peer, BgpTable *table,
-        const RibExportPolicy &policy, int instance_id);
+        const RibExportPolicy &policy, int instance_id = -1);
     void RegisterRibIn(IPeer *peer, BgpTable *table);
     virtual void Unregister(IPeer *peer, BgpTable *table);
     void UnregisterRibIn(IPeer *peer, BgpTable *table);

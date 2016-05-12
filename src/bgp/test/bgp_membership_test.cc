@@ -188,6 +188,7 @@ protected:
         table->Enqueue(&request);
     }
 
+    void SetQueueDisable(bool value) { mgr_->SetQueueDisable(value); }
     void SetWalkerDisable(bool value) { walker_->SetQueueDisable(value); }
     bool IsWalkerQueueEmpty() { return walker_->IsQueueEmpty(); }
     size_t GetWalkerQueueSize() { return walker_->GetQueueSize(); }
@@ -301,7 +302,7 @@ TEST_F(BgpMembershipTest, MultipleTables2) {
 // Registration and unregistration requests to all tables are made when the
 // walker is disabled. Exercise the case where all requests are queued in the
 // walker and it needs to schedule one walk after another, without any new
-// external triggers other than notification from table walk infra.
+// external triggers other than notification from table walk infrastructure.
 //
 TEST_F(BgpMembershipTest, MultipleTables3) {
     ConcurrencyScope scope("bgp::StateMachine");
@@ -413,6 +414,60 @@ TEST_F(BgpMembershipTest, UnregisterRibOutWithPaths) {
     TASK_UTIL_EXPECT_FALSE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
     TASK_UTIL_EXPECT_EQ(0, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 2, blue_tbl_->walk_complete_count());
+}
+
+//
+// Verify sequence used in graceful restart i.e. register, then unregister for
+// RibOut and then register again.
+//
+TEST_F(BgpMembershipTest, GracefulRestart) {
+    ConcurrencyScope scope("bgp::StateMachine");
+    static const int kRouteCount = 8;
+    uint64_t blue_walk_count = blue_tbl_->walk_complete_count();
+
+    // Register.
+    mgr_->Register(peers_[0], blue_tbl_, peers_[0]->GetRibExportPolicy(), -1);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
+    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
+
+    // Add paths from peer.
+    for (int idx = 0; idx < kRouteCount; idx++) {
+        AddRoute(peers_[0], blue_tbl_, BuildPrefix(idx), "192.168.1.0");
+    }
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(kRouteCount, blue_tbl_->Size());
+
+    // Unregister RibOut.
+    mgr_->UnregisterRibOut(peers_[0], blue_tbl_);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
+    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(blue_walk_count + 2, blue_tbl_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(kRouteCount, peers_[0]->path_cb_count());
+
+    // Register.
+    mgr_->Register(peers_[0], blue_tbl_, peers_[0]->GetRibExportPolicy(), -1);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
+    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(blue_walk_count + 3, blue_tbl_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(kRouteCount, peers_[0]->path_cb_count());
+
+    // Delete paths from peer.
+    for (int idx = 0; idx < kRouteCount; idx++) {
+        DeleteRoute(peers_[0], blue_tbl_, BuildPrefix(idx));
+    }
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, blue_tbl_->Size());
+
+    // Unregister.
+    mgr_->Unregister(peers_[0], blue_tbl_);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_FALSE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
+    TASK_UTIL_EXPECT_EQ(0, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(blue_walk_count + 4, blue_tbl_->walk_complete_count());
 }
 
 //
@@ -998,6 +1053,352 @@ TEST_F(BgpMembershipTest, MultiplePeersMultipleTable) {
     TASK_UTIL_EXPECT_EQ(0, mgr_->GetMembershipCount());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 2, blue_tbl_->walk_complete_count());
     TASK_UTIL_EXPECT_EQ(red_walk_count + 2, red_tbl_->walk_complete_count());
+}
+
+//
+// Duplicate register causes assertion.
+// Duplicate register happens after original is fully processed.
+//
+TEST_F(BgpMembershipTest, DuplicateRegister1DeathTest) {
+    ConcurrencyScope scope("bgp::StateMachine");
+    uint64_t blue_walk_count = blue_tbl_->walk_complete_count();
+
+    // Register to blue.
+    mgr_->Register(peers_[0], blue_tbl_, peers_[0]->GetRibExportPolicy());
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
+    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
+
+    // Register to blue again.
+    // Note that this happens only in the cloned/forked child.
+    EXPECT_DEATH(
+        mgr_->Register(peers_[0], blue_tbl_, peers_[0]->GetRibExportPolicy()),
+        ".*");
+
+    // Unregister from blue.
+    mgr_->Unregister(peers_[0], blue_tbl_);
+    task_util::WaitForIdle();
+}
+
+//
+// Duplicate register causes assertion.
+// Duplicate register happens before original is fully processed.
+//
+TEST_F(BgpMembershipTest, DuplicateRegister2DeathTest) {
+    ConcurrencyScope scope("bgp::StateMachine");
+    uint64_t blue_walk_count = blue_tbl_->walk_complete_count();
+
+    // Disable membership manager.
+    SetQueueDisable(true);
+
+    // Register to blue.
+    mgr_->Register(peers_[0], blue_tbl_, peers_[0]->GetRibExportPolicy());
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
+    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
+
+    // Register to blue again.
+    // Note that this happens only in the cloned/forked child.
+    EXPECT_DEATH(
+        mgr_->Register(peers_[0], blue_tbl_, peers_[0]->GetRibExportPolicy()),
+        ".*");
+
+    // Enable membership manager.
+    SetQueueDisable(false);
+    task_util::WaitForIdle();
+
+    // Unregister from blue.
+    mgr_->Unregister(peers_[0], blue_tbl_);
+    task_util::WaitForIdle();
+}
+
+//
+// Duplicate register for ribin causes assertion.
+// Duplicate register happens after original is fully processed.
+//
+TEST_F(BgpMembershipTest, DuplicateRegisterRibIn1DeathTest) {
+    ConcurrencyScope scope("bgp::StateMachine");
+    uint64_t blue_walk_count = blue_tbl_->walk_complete_count();
+
+    // Register to blue.
+    mgr_->Register(peers_[0], blue_tbl_, peers_[0]->GetRibExportPolicy());
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
+    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
+
+    // Register for ribin to blue.
+    // Note that this happens only in the cloned/forked child.
+    EXPECT_DEATH(mgr_->RegisterRibIn(peers_[0], blue_tbl_), ".*");
+
+    // Unregister from blue.
+    mgr_->Unregister(peers_[0], blue_tbl_);
+    task_util::WaitForIdle();
+}
+
+//
+// Duplicate register for ribin causes assertion.
+// Duplicate register happens before original is fully processed.
+//
+TEST_F(BgpMembershipTest, DuplicateRegisterRibIn2DeathTest) {
+    ConcurrencyScope scope("bgp::StateMachine");
+    uint64_t blue_walk_count = blue_tbl_->walk_complete_count();
+
+    // Disable membership manager.
+    SetQueueDisable(true);
+
+    // Register to blue.
+    mgr_->Register(peers_[0], blue_tbl_, peers_[0]->GetRibExportPolicy());
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
+    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
+
+    // Register for ribin to blue.
+    // Note that this happens only in the cloned/forked child.
+    EXPECT_DEATH(mgr_->RegisterRibIn(peers_[0], blue_tbl_), ".*");
+
+    // Enable membership manager.
+    SetQueueDisable(false);
+    task_util::WaitForIdle();
+
+    // Unregister from blue.
+    mgr_->Unregister(peers_[0], blue_tbl_);
+    task_util::WaitForIdle();
+}
+
+//
+// Duplicate register for ribin causes assertion.
+// First register is also for ribin.
+//
+TEST_F(BgpMembershipTest, DuplicateRegisterRibIn3DeathTest) {
+    ConcurrencyScope scope("bgp::StateMachine");
+
+    // Register for ribin to blue.
+    mgr_->RegisterRibIn(peers_[0], blue_tbl_);
+    TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
+    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+
+    // Register for ribin to blue again.
+    // Note that this happens only in the cloned/forked child.
+    EXPECT_DEATH(mgr_->RegisterRibIn(peers_[0], blue_tbl_), ".*");
+
+    // Unregister from blue.
+    mgr_->UnregisterRibIn(peers_[0], blue_tbl_);
+    task_util::WaitForIdle();
+}
+
+//
+// Unregister without register causes assertion.
+//
+TEST_F(BgpMembershipTest, UnregisterWithoutRegisterDeathTest) {
+    ConcurrencyScope scope("bgp::StateMachine");
+
+    // Unregister from blue.
+    // Note that this happens only in the cloned/forked child.
+    EXPECT_DEATH(mgr_->Unregister(peers_[0], blue_tbl_), ".*");
+}
+
+//
+// Unregister with pending register causes assertion.
+//
+TEST_F(BgpMembershipTest, UnregisterWithPendingRegisterDeathTest) {
+    ConcurrencyScope scope("bgp::StateMachine");
+    uint64_t blue_walk_count = blue_tbl_->walk_complete_count();
+
+    // Disable membership manager.
+    SetQueueDisable(true);
+
+    // Register to blue.
+    mgr_->Register(peers_[0], blue_tbl_, peers_[0]->GetRibExportPolicy());
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
+    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
+
+    // Unregister from blue.
+    // Note that this happens only in the cloned/forked child.
+    EXPECT_DEATH(mgr_->Unregister(peers_[0], blue_tbl_), ".*");
+
+    // Enable membership manager.
+    SetQueueDisable(false);
+    task_util::WaitForIdle();
+
+    // Unregister from blue.
+    mgr_->Unregister(peers_[0], blue_tbl_);
+    task_util::WaitForIdle();
+}
+
+//
+// Unregister with pending unregister causes assertion.
+//
+TEST_F(BgpMembershipTest, UnregisterWithPendingUnregisterDeathTest) {
+    ConcurrencyScope scope("bgp::StateMachine");
+    uint64_t blue_walk_count = blue_tbl_->walk_complete_count();
+
+    // Register to blue.
+    mgr_->Register(peers_[0], blue_tbl_, peers_[0]->GetRibExportPolicy());
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
+    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
+
+    // Disable membership manager.
+    SetQueueDisable(true);
+
+    // Unregister from blue.
+    mgr_->Unregister(peers_[0], blue_tbl_);
+    task_util::WaitForIdle();
+
+    // Unregister from blue again.
+    // Note that this happens only in the cloned/forked child.
+    EXPECT_DEATH(mgr_->Unregister(peers_[0], blue_tbl_), ".*");
+
+    // Enable membership manager.
+    SetQueueDisable(false);
+    task_util::WaitForIdle();
+}
+
+//
+// Unregister with pending walk causes assertion.
+//
+TEST_F(BgpMembershipTest, UnregisterWithPendingWalkDeathTest) {
+    ConcurrencyScope scope("bgp::StateMachine");
+    uint64_t blue_walk_count = blue_tbl_->walk_complete_count();
+
+    // Register to blue.
+    mgr_->Register(peers_[0], blue_tbl_, peers_[0]->GetRibExportPolicy());
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
+    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
+
+    // Disable membership manager.
+    SetQueueDisable(true);
+
+    // Walk blue.
+    mgr_->WalkRibIn(peers_[0], blue_tbl_);
+    task_util::WaitForIdle();
+
+    // Unregister from blue.
+    // Note that this happens only in the cloned/forked child.
+    EXPECT_DEATH(mgr_->Unregister(peers_[0], blue_tbl_), ".*");
+
+    // Enable membership manager.
+    SetQueueDisable(false);
+    task_util::WaitForIdle();
+
+    // Unregister from blue.
+    mgr_->Unregister(peers_[0], blue_tbl_);
+    task_util::WaitForIdle();
+}
+
+//
+// Walk without register causes assertion.
+//
+TEST_F(BgpMembershipTest, WalkWithoutRegisterDeathTest) {
+    ConcurrencyScope scope("bgp::StateMachine");
+
+    // Walk blue.
+    // Note that this happens only in the cloned/forked child.
+    EXPECT_DEATH(mgr_->WalkRibIn(peers_[0], blue_tbl_), ".*");
+
+}
+
+//
+// Walk with pending register causes assertion.
+//
+TEST_F(BgpMembershipTest, WalkWithPendingRegisterDeathTest) {
+    ConcurrencyScope scope("bgp::StateMachine");
+    uint64_t blue_walk_count = blue_tbl_->walk_complete_count();
+
+    // Disable membership manager.
+    SetQueueDisable(true);
+
+    // Register to blue.
+    mgr_->Register(peers_[0], blue_tbl_, peers_[0]->GetRibExportPolicy());
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
+    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
+
+    // Walk blue.
+    // Note that this happens only in the cloned/forked child.
+    EXPECT_DEATH(mgr_->WalkRibIn(peers_[0], blue_tbl_), ".*");
+
+    // Enable membership manager.
+    SetQueueDisable(false);
+    task_util::WaitForIdle();
+
+    // Unregister from blue.
+    mgr_->Unregister(peers_[0], blue_tbl_);
+    task_util::WaitForIdle();
+}
+
+//
+// Walk with pending unregister causes assertion.
+//
+TEST_F(BgpMembershipTest, WalkWithPendingUnregisterDeathTest) {
+    ConcurrencyScope scope("bgp::StateMachine");
+    uint64_t blue_walk_count = blue_tbl_->walk_complete_count();
+
+    // Register to blue.
+    mgr_->Register(peers_[0], blue_tbl_, peers_[0]->GetRibExportPolicy());
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
+    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
+
+    // Disable membership manager.
+    SetQueueDisable(true);
+
+    // Unregister from blue.
+    mgr_->Unregister(peers_[0], blue_tbl_);
+    task_util::WaitForIdle();
+
+    // Walk blue.
+    // Note that this happens only in the cloned/forked child.
+    EXPECT_DEATH(mgr_->WalkRibIn(peers_[0], blue_tbl_), ".*");
+
+    // Enable membership manager.
+    SetQueueDisable(false);
+    task_util::WaitForIdle();
+}
+
+//
+// Walk with pending walk causes assertion.
+//
+TEST_F(BgpMembershipTest, WalkWithPendingWalkDeathTest) {
+    ConcurrencyScope scope("bgp::StateMachine");
+    uint64_t blue_walk_count = blue_tbl_->walk_complete_count();
+
+    // Register to blue.
+    mgr_->Register(peers_[0], blue_tbl_, peers_[0]->GetRibExportPolicy());
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
+    TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
+    TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
+
+    // Disable membership manager.
+    SetQueueDisable(true);
+
+    // Walk blue.
+    mgr_->WalkRibIn(peers_[0], blue_tbl_);
+    task_util::WaitForIdle();
+
+    // Walk blue again.
+    // Note that this happens only in the cloned/forked child.
+    EXPECT_DEATH(mgr_->WalkRibIn(peers_[0], blue_tbl_), ".*");
+
+    // Enable membership manager.
+    SetQueueDisable(false);
+    task_util::WaitForIdle();
+
+    // Unregister from blue.
+    mgr_->Unregister(peers_[0], blue_tbl_);
+    task_util::WaitForIdle();
 }
 
 static void SetUp() {
