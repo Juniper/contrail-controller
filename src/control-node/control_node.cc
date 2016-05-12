@@ -47,6 +47,12 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("bgp::ResolverNexthop")));
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::Config"), config_policy);
 
+    // Policy for bgp::Uve Task.
+    TaskPolicy uve_policy = boost::assign::list_of
+        (TaskExclusion(scheduler->GetTaskId("bgp::Uve")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::Config")));
+    scheduler->SetPolicy(scheduler->GetTaskId("bgp::Uve"), uve_policy);
+
     // Policy for bgp::ServiceChain and bgp::StaticRoute Tasks.
     TaskPolicy static_service_chain_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
