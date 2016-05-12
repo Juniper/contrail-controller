@@ -245,5 +245,12 @@ void OvsdbDBEntry::Ack(bool success) {
 }
 
 void OvsdbDBEntry::TriggerDeleteAdd() {
+    if (IsDeleted() || stale()) {
+        // skip this operation for Deleted/stale Entry, After this operation
+        // Deleted/Stale entry would become active/non-stale which is not
+        // intended use of this API, caller must ensure the entry to be Active
+        // if this operation is required
+        return;
+    }
     GetObject()->SafeNotifyEvent(this, KSyncEntry::DEL_ADD_REQ);
 }
