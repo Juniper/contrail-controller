@@ -19,6 +19,11 @@ using std::make_pair;
 using std::string;
 using std::vector;
 
+//
+// Find or create a BgpPeer for the given BgpNeighborConfig.
+// Return NULL if the peer already exists and is being deleted. The BgpPeer
+// will eventually get created in this case via PeerResurrect.
+//
 BgpPeer *PeerManager::PeerLocate(BgpServer *server,
     const BgpNeighborConfig *config) {
     BgpPeerKey key(config);
@@ -26,7 +31,7 @@ BgpPeer *PeerManager::PeerLocate(BgpServer *server,
     BgpPeerNameMap::iterator loc = peers_by_name_.find(config->name());
     if (loc != peers_by_name_.end()) {
         if (loc->second->IsDeleted())
-            return loc->second;
+            return NULL;
         RemovePeerByKey(loc->second->peer_key(), loc->second);
         InsertPeerByKey(key, loc->second);
         return loc->second;
@@ -50,6 +55,10 @@ BgpPeer *PeerManager::PeerLocate(BgpServer *server,
 
 //
 // Resurrect the BgpPeer with given name if we have configuration for it.
+// Also insert it into the BgpServer's EndpointToBgpPeerList - in case it's
+// a BGPaaS peer. This needs to happen here since we would not have been
+// able to do it from BgpServer::ConfigUpdater::ProcessNeighborConfig since
+// old incarnation of the BgpPeer still existed at that point.
 //
 void PeerManager::PeerResurrect(string name) {
     CHECK_CONCURRENCY("bgp::Config");
@@ -64,7 +73,9 @@ void PeerManager::PeerResurrect(string name) {
     if (!config)
         return;
 
-    PeerLocate(server(), config);
+    BgpPeer *peer = PeerLocate(server(), config);
+    assert(peer);
+    server()->InsertPeer(peer->endpoint(), peer);
 }
 
 //
