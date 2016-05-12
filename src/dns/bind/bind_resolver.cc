@@ -45,7 +45,11 @@ BindResolver::BindResolver(boost::asio::io_service &io,
     sock_.open(boost::asio::ip::udp::v4(), ec);
     assert(ec.value() == 0);
     sock_.bind(local_ep, ec);
-    assert(ec.value() == 0);
+    if (ec.value() != 0) {
+        local_ep.port(0);
+        sock_.bind(local_ep, ec);
+        assert(ec.value() == 0);
+    }
     AsyncRead();
 }
 
