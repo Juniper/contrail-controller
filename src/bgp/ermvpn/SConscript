@@ -8,6 +8,8 @@ Import('BuildEnv')
 
 env = BuildEnv.Clone()
 env.Append(CPPPATH = env['TOP'])
+env.Append(CPPPATH = [env['TOP'] + '/ifmap'])
+env.Append(CPPPATH = [env['TOP'] + '/base/sandesh'])
 
 libbgp_ermvpn = env.Library('bgp_ermvpn',
                             ['ermvpn_route.cc', 'ermvpn_table.cc'])

@@ -18,6 +18,7 @@
 #include "base/queue_task.h"
 #include "ifmap/client/ifmap_manager.h"
 
+class BgpRouterState;
 class DB;
 class DBGraph;
 class DBGraphEdge;
@@ -88,9 +89,8 @@ public:
     void set_ifmap_manager(IFMapManager *manager) {
         ifmap_manager_ = manager;
     }
-    IFMapManager *get_ifmap_manager() {
-        return ifmap_manager_;
-    }
+    IFMapManager *get_ifmap_manager() { return ifmap_manager_; }
+    IFMapManager *get_ifmap_manager() const { return ifmap_manager_; }
     virtual uint64_t get_ifmap_channel_sequence_number() {
         return ifmap_manager_->GetChannelSequenceNumber();
     }
@@ -121,9 +121,10 @@ public:
                            const std::string &search_string);
     const CmSz_t GetClientMapSize() const { return client_map_.size(); }
     const CmSz_t GetIndexMapSize() const { return index_map_.size(); }
-    void GetUIInfo(IFMapServerInfoUI *server_info);
+    void GetUIInfo(IFMapServerInfoUI *server_info) const;
     bool ClientNameToIndex(const std::string &id, int *index);
     bool ProcessStaleEntriesTimeout();
+    bool CollectStats(BgpRouterState *state, bool first) const;
 
 private:
     friend class IFMapServerTest;

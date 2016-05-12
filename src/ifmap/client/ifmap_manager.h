@@ -48,7 +48,7 @@ public:
     std::string get_url();
     uint64_t GetChannelSequenceNumber();
     bool GetEndOfRibComputed() const;
-    void GetPeerServerInfo(IFMapPeerServerInfoUI &server_info);
+    void GetPeerServerInfo(IFMapPeerServerInfoUI *server_info);
     void RetrieveStaticHostPort(const std::string& url);
     void GetAllDSPeerInfo(IFMapDSPeerInfo *ds_peer_info);
     bool get_init_done();

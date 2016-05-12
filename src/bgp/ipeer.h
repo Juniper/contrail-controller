@@ -30,60 +30,83 @@ public:
 class IPeerDebugStats {
 public:
     struct ProtoStats {
-        ProtoStats() : total(0), open(0), keepalive(0), notification(0),
-        update(0), close(0) {
+        ProtoStats() {
+            total = 0;
+            open = 0;
+            keepalive = 0;
+            notification = 0;
+            update = 0;
+            close = 0;
         }
-        uint64_t total;
-        uint64_t open;
-        uint64_t keepalive;
-        uint64_t notification;
-        uint64_t update;
-        uint64_t close;
+        tbb::atomic<uint64_t> total;
+        tbb::atomic<uint64_t> open;
+        tbb::atomic<uint64_t> keepalive;
+        tbb::atomic<uint64_t> notification;
+        tbb::atomic<uint64_t> update;
+        tbb::atomic<uint64_t> close;
     };
 
     struct ErrorStats {
-        ErrorStats()
-            : connect_error(0),
-              connect_timer(0),
-              hold_timer(0),
-              open_error(0),
-              update_error(0) {
+        ErrorStats() {
+            connect_error = 0;
+            connect_timer = 0;
+            hold_timer = 0;
+            open_error = 0;
+            update_error = 0;
         }
-        uint64_t connect_error;
-        uint64_t connect_timer;
-        uint64_t hold_timer;
-        uint64_t open_error;
-        uint64_t update_error;
+        tbb::atomic<uint64_t> connect_error;
+        tbb::atomic<uint64_t> connect_timer;
+        tbb::atomic<uint64_t> hold_timer;
+        tbb::atomic<uint64_t> open_error;
+        tbb::atomic<uint64_t> update_error;
     };
 
     struct RxErrorStats {
-        RxErrorStats() : inet6_bad_xml_token_count(0),
-            inet6_bad_prefix_count(0), inet6_bad_nexthop_count(0),
-            inet6_bad_afi_safi_count(0) {
+        RxErrorStats() {
+            inet6_bad_xml_token_count = 0;
+            inet6_bad_prefix_count = 0;
+            inet6_bad_nexthop_count = 0;
+            inet6_bad_afi_safi_count = 0;
         }
-        uint64_t inet6_bad_xml_token_count;
-        uint64_t inet6_bad_prefix_count;
-        uint64_t inet6_bad_nexthop_count;
-        uint64_t inet6_bad_afi_safi_count;
+        tbb::atomic<uint64_t> inet6_bad_xml_token_count;
+        tbb::atomic<uint64_t> inet6_bad_prefix_count;
+        tbb::atomic<uint64_t> inet6_bad_nexthop_count;
+        tbb::atomic<uint64_t> inet6_bad_afi_safi_count;
+    };
+
+    struct RxRouteStats {
+        RxRouteStats() {
+            total_path_count = 0;
+            primary_path_count = 0;
+        }
+        tbb::atomic<uint64_t> total_path_count;
+        tbb::atomic<uint64_t> primary_path_count;
     };
 
     struct UpdateStats {
-        UpdateStats() : end_of_rib(0), total(0), reach(0), unreach(0) {
+        UpdateStats() {
+            end_of_rib = 0;
+            total = 0;
+            reach = 0;
+            unreach = 0;
         }
-        uint64_t end_of_rib;
-        uint64_t total;
-        uint64_t reach;
-        uint64_t unreach;
+        tbb::atomic<uint64_t> end_of_rib;
+        tbb::atomic<uint64_t> total;
+        tbb::atomic<uint64_t> reach;
+        tbb::atomic<uint64_t> unreach;
     };
 
     struct SocketStats {
-        SocketStats() : calls(0), bytes(0), blocked_count(0),
-                        blocked_duration_usecs(0) {
+        SocketStats() {
+            calls = 0;
+            bytes = 0;
+            blocked_count = 0;
+            blocked_duration_usecs = 0;
         }
-        uint64_t calls;
-        uint64_t bytes;
-        uint64_t blocked_count;
-        uint64_t blocked_duration_usecs;
+        tbb::atomic<uint64_t> calls;
+        tbb::atomic<uint64_t> bytes;
+        tbb::atomic<uint64_t> blocked_count;
+        tbb::atomic<uint64_t> blocked_duration_usecs;
     };
 
     virtual ~IPeerDebugStats() { }
@@ -109,6 +132,7 @@ public:
     virtual void GetRxRouteUpdateStats(UpdateStats *stats) const = 0;
     virtual void GetRxSocketStats(SocketStats *stats) const = 0;
     virtual void GetRxErrorStats(RxErrorStats *stats) const = 0;
+    virtual void GetRxRouteStats(RxRouteStats *stats) const = 0;
 
     virtual void GetTxProtoStats(ProtoStats *stats) const = 0;
     virtual void GetTxRouteUpdateStats(UpdateStats *stats) const = 0;
@@ -167,8 +191,8 @@ public:
     virtual BgpProto::BgpPeerType PeerType() const = 0;
     virtual uint32_t bgp_identifier() const = 0;
     virtual const std::string GetStateName() const = 0;
-    virtual void UpdateRefCount(int count) const = 0;
-    virtual tbb::atomic<int> GetRefCount() const = 0;
+    virtual void UpdateTotalPathCount(int count) const = 0;
+    virtual int GetTotalPathCount() const = 0;
     virtual void UpdatePrimaryPathCount(int count) const = 0;
     virtual int GetPrimaryPathCount() const = 0;
     virtual void MembershipCallback(BgpTable *table) { }

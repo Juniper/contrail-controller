@@ -173,314 +173,67 @@ static void ShutdownServers(
     WaitForIdle();
 }
 
-bool ControlNodeInfoLogTimer(TaskTrigger *node_info_trigger) {
+static bool ControlNodeInfoLogTimer(TaskTrigger *node_info_trigger) {
     node_info_trigger->Set();
     // Periodic timer. Restart
     return true;
 }
 
-bool ControlNodeVersion(string &build_info_str) {
-    return MiscUtils::GetBuildInfo(MiscUtils::ControlNode, BuildInfo,
-                                   build_info_str);
-}
-
-static void FillProtoStats(const IPeerDebugStats::ProtoStats &stats,
-                           PeerProtoStats *proto_stats) {
-    proto_stats->open = stats.open;
-    proto_stats->keepalive = stats.keepalive;
-    proto_stats->close = stats.close;
-    proto_stats->update = stats.update;
-    proto_stats->notification = stats.notification;
-    proto_stats->total = stats.open + stats.keepalive + stats.close +
-        stats.update + stats.notification;
-}
-
-static void FillRouteUpdateStats(const IPeerDebugStats::UpdateStats &stats,
-                                 PeerUpdateStats *rt_stats) {
-    rt_stats->total = stats.total;
-    rt_stats->reach = stats.reach;
-    rt_stats->unreach = stats.unreach;
-}
-
-static void FillRxErrorStats(const IPeerDebugStats::RxErrorStats &src,
-                             PeerRxErrorStats *dest) {
-    dest->inet6_error_stats.bad_inet6_xml_token_count =
-        src.inet6_bad_xml_token_count;
-    dest->inet6_error_stats.bad_inet6_prefix_count =
-        src.inet6_bad_prefix_count;
-    dest->inet6_error_stats.bad_inet6_nexthop_count =
-        src.inet6_bad_nexthop_count;
-    dest->inet6_error_stats.bad_inet6_afi_safi_count =
-        src.inet6_bad_afi_safi_count;
-}
-
-static void FillPeerDebugStats(const IPeerDebugStats *peer_state,
-                               PeerStatsInfo *stats) {
-    PeerProtoStats proto_stats_tx;
-    PeerProtoStats proto_stats_rx;
-    PeerUpdateStats rt_stats_rx;
-    PeerUpdateStats rt_stats_tx;
-    PeerRxErrorStats dest_error_stats_rx;
-
-    IPeerDebugStats::ProtoStats stats_rx;
-    peer_state->GetRxProtoStats(&stats_rx);
-    FillProtoStats(stats_rx, &proto_stats_rx);
-
-    IPeerDebugStats::ProtoStats stats_tx;
-    peer_state->GetTxProtoStats(&stats_tx);
-    FillProtoStats(stats_tx, &proto_stats_tx);
-
-    IPeerDebugStats::UpdateStats update_stats_rx;
-    peer_state->GetRxRouteUpdateStats(&update_stats_rx);
-    FillRouteUpdateStats(update_stats_rx, &rt_stats_rx);
-
-    IPeerDebugStats::UpdateStats update_stats_tx;
-    peer_state->GetTxRouteUpdateStats(&update_stats_tx);
-    FillRouteUpdateStats(update_stats_tx, &rt_stats_tx);
-
-    IPeerDebugStats::RxErrorStats src_error_stats_rx;
-    peer_state->GetRxErrorStats(&src_error_stats_rx);
-    FillRxErrorStats(src_error_stats_rx, &dest_error_stats_rx);
-
-    stats->set_rx_proto_stats(proto_stats_rx);
-    stats->set_tx_proto_stats(proto_stats_tx);
-    stats->set_rx_update_stats(rt_stats_rx);
-    stats->set_tx_update_stats(rt_stats_tx);
-    stats->set_rx_error_stats(dest_error_stats_rx);
-}
-
-void FillXmppPeerStats(BgpServer *server, BgpXmppChannel *channel) {
-    PeerStatsInfo stats;
-    FillPeerDebugStats(channel->Peer()->peer_stats(), &stats);
-
-    XmppPeerInfoData peer_info;
-    peer_info.set_name(channel->Peer()->ToUVEKey());
-    peer_info.set_peer_stats_info(stats);
-    XMPPPeerInfo::Send(peer_info);
-}
-
-void FillBgpPeerStats(BgpServer *server, BgpPeer *peer) {
-    PeerStatsInfo stats;
-    FillPeerDebugStats(peer->peer_stats(), &stats);
-
-    BgpPeerInfoData peer_info;
-    peer_info.set_name(peer->ToUVEKey());
-    peer_info.set_peer_stats_info(stats);
-    BGPPeerInfo::Send(peer_info);
-}
-
-void LogControlNodePeerStats(BgpServer *server,
-                             BgpXmppChannelManager *xmpp_channel_mgr) {
-    xmpp_channel_mgr->VisitChannels(boost::bind(FillXmppPeerStats,
-                                                server, _1));
-    server->VisitBgpPeers(boost::bind(FillBgpPeerStats, server, _1));
-}
-
-bool ControlNodeInfoLogger(BgpServer *server,
-                           BgpXmppChannelManager *xmpp_channel_mgr,
-                           IFMapServer *ifmap_server,
-                           uint64_t start_time,
-                           Timer *node_info_log_timer) {
-    LogControlNodePeerStats(server, xmpp_channel_mgr);
-
-    BgpRouterState state;
-    static BgpRouterState prev_state;
-    static bool first = true, build_info_set = false;
-    bool change = false;
-
+static bool ControlNodeInfoLogger(BgpServer *server,
+                                  BgpXmppChannelManager *xmpp_channel_mgr,
+                                  IFMapServer *ifmap_server,
+                                  Timer *node_info_log_timer) {
+    // Send CPU usage Information.
     CpuLoadInfo cpu_load_info;
     CpuLoadData::FillCpuInfo(cpu_load_info, false);
+    SendCpuInfoStat<ControlCpuStateTrace, ControlCpuState>(server->localname(),
+                                                           cpu_load_info);
+
+    static bool first = true;
+    static BgpRouterState state;
+    bool change = false;
+
     state.set_name(server->localname());
 
-    uint32_t admin_down = server->admin_down();
-    if (admin_down != prev_state.get_admin_down() || first) {
-        state.set_admin_down(admin_down);
-        prev_state.set_admin_down(admin_down);
-        change = true;
-    }
-
-    string router_id = server->bgp_identifier_string();
-    if (router_id != prev_state.get_router_id() || first) {
-        state.set_router_id(router_id);
-        prev_state.set_router_id(router_id);
-        change = true;
-    }
-
-    uint32_t local_asn = server->local_autonomous_system();
-    if (local_asn != prev_state.get_local_asn() || first) {
-        state.set_local_asn(local_asn);
-        prev_state.set_local_asn(local_asn);
-        change = true;
-    }
-
-    uint32_t global_asn = server->autonomous_system();
-    if (global_asn != prev_state.get_global_asn() || first) {
-        state.set_global_asn(global_asn);
-        prev_state.set_global_asn(global_asn);
-        change = true;
-    }
-
-    if (first) {
+    // Send self information.
+    uint64_t start_time = UTCTimestampUsec();
+    if (first || start_time != state.get_uptime()) {
         state.set_uptime(start_time);
-        vector<string> ip_list;
-        ip_list.push_back(ControlNode::GetSelfIp());
+        change = true;
+    }
+
+    vector<string> ip_list;
+    ip_list.push_back(ControlNode::GetSelfIp());
+    if (first || state.get_bgp_router_ip_list() != ip_list) {
         state.set_bgp_router_ip_list(ip_list);
-        vector<string> list;
-        MiscUtils::GetCoreFileList(ControlNode::GetProgramName(), list);
-        if (list.size()) {
-            state.set_core_files_list(list);
-        }
-    }
-    if (!build_info_set) {
-        string build_info;
-        build_info_set = ControlNodeVersion(build_info);
-        if (build_info != prev_state.get_build_info()) {
-            state.set_build_info(build_info);
-            prev_state.set_build_info(build_info);
-            change = true;
-        }
-    }
-
-    SendCpuInfoStat<ControlCpuStateTrace, ControlCpuState>(server->localname(),
-        cpu_load_info);
-
-    uint32_t num_xmpp = xmpp_channel_mgr->count();
-    if (num_xmpp != prev_state.get_num_xmpp_peer() || first) {
-        state.set_num_xmpp_peer(num_xmpp);
-        prev_state.set_num_xmpp_peer(num_xmpp);
         change = true;
     }
 
-    uint32_t num_up_xmpp = xmpp_channel_mgr->NumUpPeer();
-    if (num_up_xmpp != prev_state.get_num_up_xmpp_peer() || first) {
-        state.set_num_up_xmpp_peer(num_up_xmpp);
-        prev_state.set_num_up_xmpp_peer(num_up_xmpp);
+    vector<string> list;
+    MiscUtils::GetCoreFileList(ControlNode::GetProgramName(), list);
+    if (first || state.get_core_files_list() != list) {
+        state.set_core_files_list(list);
         change = true;
     }
 
-    uint32_t num_deleting_xmpp = xmpp_channel_mgr->deleting_count();
-    if (num_deleting_xmpp != prev_state.get_num_deleting_xmpp_peer() || first) {
-        state.set_num_deleting_xmpp_peer(num_deleting_xmpp);
-        prev_state.set_num_deleting_xmpp_peer(num_deleting_xmpp);
+    // Send Build information.
+    string build_info;
+    MiscUtils::GetBuildInfo(MiscUtils::ControlNode, BuildInfo, build_info);
+    if (first || build_info != state.get_build_info()) {
+        state.set_build_info(build_info);
         change = true;
     }
 
-    uint32_t num_bgp = server->num_bgp_peer();
-    if (num_bgp != prev_state.get_num_bgp_peer() || first) {
-        state.set_num_bgp_peer(num_bgp);
-        prev_state.set_num_bgp_peer(num_bgp);
-        change = true;
-    }
+    change |= server->CollectStats(&state, first);
+    change |= xmpp_channel_mgr->CollectStats(&state, first);
+    change |= ifmap_server->CollectStats(&state, first);
 
-    uint32_t num_up_bgp_peer = server->NumUpPeer();
-    if (num_up_bgp_peer != prev_state.get_num_up_bgp_peer() || first) {
-        state.set_num_up_bgp_peer(num_up_bgp_peer);
-        prev_state.set_num_up_bgp_peer(num_up_bgp_peer);
-        change = true;
-    }
-
-    uint32_t num_deleting_bgp_peer = server->num_deleting_bgp_peer();
-    if (num_deleting_bgp_peer != prev_state.get_num_deleting_bgp_peer() ||
-        first) {
-        state.set_num_deleting_bgp_peer(num_deleting_bgp_peer);
-        prev_state.set_num_deleting_bgp_peer(num_deleting_bgp_peer);
-        change = true;
-    }
-
-    uint32_t num_bgpaas = server->num_bgpaas_peer();
-    if (num_bgpaas != prev_state.get_num_bgpaas_peer() || first) {
-        state.set_num_bgpaas_peer(num_bgpaas);
-        prev_state.set_num_bgpaas_peer(num_bgpaas);
-        change = true;
-    }
-
-    uint32_t num_up_bgpaas_peer = server->NumUpBgpaasPeer();
-    if (num_up_bgpaas_peer != prev_state.get_num_up_bgpaas_peer() || first) {
-        state.set_num_up_bgpaas_peer(num_up_bgpaas_peer);
-        prev_state.set_num_up_bgpaas_peer(num_up_bgpaas_peer);
-        change = true;
-    }
-
-    uint32_t num_deleting_bgpaas_peer = server->num_deleting_bgpaas_peer();
-    if (num_deleting_bgpaas_peer != prev_state.get_num_deleting_bgpaas_peer() ||
-        first) {
-        state.set_num_deleting_bgpaas_peer(num_deleting_bgpaas_peer);
-        prev_state.set_num_deleting_bgpaas_peer(num_deleting_bgpaas_peer);
-        change = true;
-    }
-
-    uint32_t num_ri = server->num_routing_instance();
-    if (num_ri != prev_state.get_num_routing_instance() || first) {
-        state.set_num_routing_instance(num_ri);
-        prev_state.set_num_routing_instance(num_ri);
-        change = true;
-    }
-
-    uint32_t num_deleted_ri = server->num_deleted_routing_instance();
-    if (num_deleted_ri != prev_state.get_num_deleted_routing_instance() ||
-        first) {
-        state.set_num_deleted_routing_instance(num_deleted_ri);
-        prev_state.set_num_deleted_routing_instance(num_deleted_ri);
-        change = true;
-    }
-
-    uint32_t num_service_chains = server->num_service_chains();
-    if (num_service_chains != prev_state.get_num_service_chains() ||
-        first) {
-        state.set_num_service_chains(num_service_chains);
-        prev_state.set_num_service_chains(num_service_chains);
-        change = true;
-    }
-
-    uint32_t num_down_service_chains = server->num_down_service_chains();
-    if (num_down_service_chains != prev_state.get_num_down_service_chains() ||
-        first) {
-        state.set_num_down_service_chains(num_down_service_chains);
-        prev_state.set_num_down_service_chains(num_down_service_chains);
-        change = true;
-    }
-
-    uint32_t num_static_routes = server->num_static_routes();
-    if (num_static_routes != prev_state.get_num_static_routes() ||
-        first) {
-        state.set_num_static_routes(num_static_routes);
-        prev_state.set_num_static_routes(num_static_routes);
-        change = true;
-    }
-
-    uint32_t num_down_static_routes = server->num_down_static_routes();
-    if (num_down_static_routes != prev_state.get_num_down_static_routes() ||
-        first) {
-        state.set_num_down_static_routes(num_down_static_routes);
-        prev_state.set_num_down_static_routes(num_down_static_routes);
-        change = true;
-    }
-
-    IFMapPeerServerInfoUI peer_server_info;
-    ifmap_server->get_ifmap_manager()->GetPeerServerInfo(peer_server_info);
-    if (peer_server_info != prev_state.get_ifmap_info() || first) {
-        state.set_ifmap_info(peer_server_info);
-        prev_state.set_ifmap_info(peer_server_info);
-        change = true;
-    }
-
-    IFMapServerInfoUI server_info;
-    ifmap_server->GetUIInfo(&server_info);
-    if (server_info != prev_state.get_ifmap_server_info() || first) {
-        state.set_ifmap_server_info(server_info);
-        prev_state.set_ifmap_server_info(server_info);
-        change = true;
-    }
-
-    uint32_t out_load = server->get_output_queue_depth();
-    if (out_load != prev_state.get_output_queue_depth() || first) {
-        state.set_output_queue_depth(out_load);
-        prev_state.set_output_queue_depth(out_load);
-        change = true;
-    }
-
-    if (change)
+    if (change) {
         BGPRouterInfo::Send(state);
+
+        // Reset changed flags in the uve structure.
+        memset(&state.__isset, 0, sizeof(state.__isset));
+    }
 
     first = false;
     return true;
@@ -773,7 +526,6 @@ int main(int argc, char *argv[]) {
     ifmap_manager->InitializeDiscovery(ds_client, options.ifmap_server_url());
 
     CpuLoadData::Init();
-    uint64_t start_time = UTCTimestampUsec();
 
     std::auto_ptr<Timer> node_info_log_timer(
         TimerManager::CreateTimer(
@@ -783,9 +535,8 @@ int main(int argc, char *argv[]) {
         new TaskTrigger(
             boost::bind(&ControlNodeInfoLogger,
                         bgp_server.get(), bgp_peer_manager.get(),
-                        &ifmap_server,
-                        start_time, node_info_log_timer.get()),
-            TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0));
+                        &ifmap_server, node_info_log_timer.get()),
+            TaskScheduler::GetInstance()->GetTaskId("bgp::Uve"), 0));
 
     // Start periodic timer to send BGPRouterInfo UVE.
     node_info_log_timer->Start(
