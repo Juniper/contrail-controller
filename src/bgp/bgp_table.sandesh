@@ -1,0 +1,20 @@
+/*
+ * Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
+ */
+
+include "bgp/table_info.sandesh"
+
+struct RoutingInstanceStatsData {
+    1: string name (key="ObjectRoutingInstance");
+    2: optional bool deleted
+    3: optional list<table_info.TableStats> table_stats (tags=".address_family");
+}
+
+/**
+ * @description: RoutingInstance related statistics
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
+uve sandesh RoutingInstanceStats {
+    1: RoutingInstanceStatsData data;
+}

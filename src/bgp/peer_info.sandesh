@@ -54,6 +54,11 @@ struct PeerFlapInfo {
     2: optional u64 flap_time;
 }
 
+struct PeerRxRouteStats {
+    1: optional u64 total_path_count;
+    2: optional u64 primary_path_count;
+}
+
 struct PeerStatsInfo {
     1: optional PeerProtoStats rx_proto_stats;
     2: optional PeerProtoStats tx_proto_stats;
@@ -62,4 +67,5 @@ struct PeerStatsInfo {
     5: optional PeerSocketStats rx_socket_stats;
     6: optional PeerSocketStats tx_socket_stats;
     7: optional PeerRxErrorStats rx_error_stats;
+    8: optional PeerRxRouteStats rx_route_stats;
 }
