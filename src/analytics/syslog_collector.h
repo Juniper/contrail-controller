@@ -12,7 +12,7 @@
 #include "db_handler.h"
 
 typedef boost::function<bool(const VizMsg*, bool,
-    DbHandler *)> VizCallback;
+    DbHandler *, GenDb::GenDbIf::DbAddColumnCb)> VizCallback;
 
 class SyslogQueueEntry
 {

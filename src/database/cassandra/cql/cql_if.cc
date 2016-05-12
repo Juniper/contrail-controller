@@ -963,7 +963,7 @@ static bool ExecuteQueryStatementSync(CassSession *session,
     return ExecuteQuerySyncInternal(session, statement, NULL, consistency);
 }
 
-typedef boost::function<void(bool)> CassAsyncQueryCallback;
+typedef boost::function<void(GenDb::DbOpResult::type)> CassAsyncQueryCallback;
 
 struct CassAsyncQueryContext {
     CassAsyncQueryContext(const char *query_id, CassAsyncQueryCallback cb) :
@@ -973,6 +973,19 @@ struct CassAsyncQueryContext {
     std::string query_id_;
     CassAsyncQueryCallback cb_;
 };
+
+static GenDb::DbOpResult::type CassError2DbOpResult(CassError rc) {
+    switch (rc) {
+      case CASS_OK:
+        return GenDb::DbOpResult::OK;
+      case CASS_ERROR_LIB_NO_HOSTS_AVAILABLE:
+      case CASS_ERROR_LIB_REQUEST_QUEUE_FULL:
+      case CASS_ERROR_LIB_NO_AVAILABLE_IO_THREAD:
+        return GenDb::DbOpResult::BACK_PRESSURE;
+      default:
+        return GenDb::DbOpResult::ERROR;
+    }
+}
 
 static void OnExecuteQueryAsync(CassFuture *future, void *data) {
     assert(data);
@@ -985,7 +998,8 @@ static void OnExecuteQueryAsync(CassFuture *future, void *data) {
         CQLIF_LOG_ERR("AsyncQuery: " << ctx->query_id_ << " FAILED: "
             << err.data);
     }
-    ctx->cb_(rc == CASS_OK);
+    GenDb::DbOpResult::type db_rc(CassError2DbOpResult(rc));
+    ctx->cb_(db_rc);
 }
 
 static void ExecuteQueryAsyncInternal(CassSession *session,
@@ -1823,16 +1837,19 @@ bool CqlIf::Db_UseColumnfamily(const GenDb::NewCf &cf) {
 }
 
 // Column
-void CqlIf::OnAsyncColumnAddCompletion(bool success, std::string cfname,
-    GenDb::GenDbIf::DbAddColumnCb cb) {
-    if (success) {
+void CqlIf::OnAsyncColumnAddCompletion(GenDb::DbOpResult::type drc,
+    std::string cfname, GenDb::GenDbIf::DbAddColumnCb cb) {
+    if (drc == GenDb::DbOpResult::OK) {
         IncrementTableWriteStats(cfname);
+    } else if (drc == GenDb::DbOpResult::BACK_PRESSURE) {
+        IncrementTableWriteBackPressureFailStats(cfname);
+        IncrementErrors(GenDb::IfErrors::ERR_WRITE_COLUMN);
     } else {
         IncrementTableWriteFailStats(cfname);
         IncrementErrors(GenDb::IfErrors::ERR_WRITE_COLUMN);
     }
     if (!cb.empty()) {
-        cb(success);
+        cb(drc);
     }
 }
 
@@ -1993,6 +2010,12 @@ void CqlIf::IncrementTableWriteFailStats(const std::string &table_name,
     uint64_t num_writes) {
     tbb::mutex::scoped_lock lock(stats_mutex_);
     stats_.IncrementTableWriteFail(table_name, num_writes);
+}
+
+void CqlIf::IncrementTableWriteBackPressureFailStats(
+    const std::string &table_name) {
+    tbb::mutex::scoped_lock lock(stats_mutex_);
+    stats_.IncrementTableWriteBackPressureFail(table_name);
 }
 
 void CqlIf::IncrementTableReadStats(const std::string &table_name) {

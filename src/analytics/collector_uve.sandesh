@@ -110,8 +110,8 @@ struct GeneratorSummaryInfo {
     5: string                              node_type
     6: u64                                 sm_queue_count
     7: optional u64                        db_queue_count
-    8: string                              sm_drop_level
-    9: optional string                     db_drop_level
+    8: optional string                     db_drop_level
+    9: optional bool                       sm_back_pressure
 }
 
 /**

@@ -15,7 +15,8 @@ class CqlIfMock : public cass::cql::CqlIf {
 
     ~CqlIfMock() {}
 
-    bool Db_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
+    bool Db_AddColumn(std::auto_ptr<GenDb::ColList> cl,
+        GenDb::GenDbIf::DbAddColumnCb db_cb) {
         return Db_AddColumnProxy(cl.get());
     }
 

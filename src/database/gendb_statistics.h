@@ -15,7 +15,7 @@ class DbTableStatistics {
     DbTableStatistics() {
     }
     void Update(const std::string &table_name, bool write, bool fail,
-        uint64_t num);
+        bool back_pressure, uint64_t num);
     void Get(std::vector<GenDb::DbTableInfo> *vdbti) const;
     void GetDiffs(std::vector<GenDb::DbTableInfo> *vdbti);
 
@@ -25,9 +25,10 @@ class DbTableStatistics {
             num_reads_(0),
             num_read_fails_(0),
             num_writes_(0),
-            num_write_fails_(0) {
+            num_write_fails_(0),
+            num_write_back_pressure_fails_(0) {
         }
-        void Update(bool write, bool fail, uint64_t num);
+        void Update(bool write, bool fail, bool back_pressure, uint64_t num);
         void Get(const std::string &table_name,
             GenDb::DbTableInfo *dbti) const;
 
@@ -35,6 +36,7 @@ class DbTableStatistics {
         uint64_t num_read_fails_;
         uint64_t num_writes_;
         uint64_t num_write_fails_;
+        uint64_t num_write_back_pressure_fails_;
     };
 
     typedef boost::ptr_map<const std::string, TableStats> TableStatsMap;
@@ -85,6 +87,7 @@ class GenDbIfStats {
         TABLE_OP_NONE,
         TABLE_OP_WRITE,
         TABLE_OP_WRITE_FAIL,
+        TABLE_OP_WRITE_BACK_PRESSURE_FAIL,
         TABLE_OP_READ,
         TABLE_OP_READ_FAIL,
     };
@@ -93,6 +96,7 @@ class GenDbIfStats {
     void IncrementTableWrite(const std::string &table_name);
     void IncrementTableWrite(const std::string &table_name, uint64_t num_writes);
     void IncrementTableWriteFail(const std::string &table_name);
+    void IncrementTableWriteBackPressureFail(const std::string &table_name);
     void IncrementTableWriteFail(const std::string &table_name, uint64_t num_writes);
     void IncrementTableRead(const std::string &table_name);
     void IncrementTableRead(const std::string &table_name, uint64_t num_reads);
@@ -103,7 +107,7 @@ class GenDbIfStats {
 
  private:
     void IncrementTableStatsInternal(const std::string &table_name, bool write,
-        bool fail, uint64_t num);
+        bool fail, bool back_pressure, uint64_t num);
 
     GenDb::DbTableStatistics table_stats_;
     IfErrors errors_;

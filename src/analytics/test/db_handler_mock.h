@@ -21,6 +21,7 @@ class DbHandlerMock : public DbHandler {
     void StartDbifReinit() {
         UnInit(-1);
     }
-    MOCK_METHOD1(MessageTableInsert, void(const VizMsg *vmsgp));
+    MOCK_METHOD2(MessageTableInsert, void(const VizMsg *vmsgp,
+        GenDb::GenDbIf::DbAddColumnCb db_cb));
 };
 #endif//__DH_HANDLER_MOCK_H__

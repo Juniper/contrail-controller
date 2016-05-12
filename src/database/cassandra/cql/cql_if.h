@@ -71,14 +71,16 @@ class CqlIf : public GenDb::GenDbIf {
     virtual std::vector<GenDb::Endpoint> Db_GetEndpoints() const;
 
  private:
-    void OnAsyncColumnAddCompletion(bool success, std::string cfname,
-        GenDb::GenDbIf::DbAddColumnCb cb);
+    void OnAsyncColumnAddCompletion(GenDb::DbOpResult::type drc,
+        std::string cfname, GenDb::GenDbIf::DbAddColumnCb cb);
     void IncrementTableWriteStats(const std::string &table_name);
     void IncrementTableWriteStats(const std::string &table_name,
         uint64_t num_writes);
     void IncrementTableWriteFailStats(const std::string &table_name);
     void IncrementTableWriteFailStats(const std::string &table_name,
         uint64_t num_writes);
+    void IncrementTableWriteBackPressureFailStats(
+        const std::string &table_name);
     void IncrementTableReadStats(const std::string &table_name);
     void IncrementTableReadStats(const std::string &table_name,
         uint64_t num_reads);
