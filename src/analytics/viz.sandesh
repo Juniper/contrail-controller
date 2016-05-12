@@ -391,6 +391,7 @@ const map<string, string> UVE_MAP = {
     "vrouter" : VROUTER_TABLE,
     "control-node" : BGP_ROUTER_TABLE,
     "bgp-peer" : BGP_PEER_TABLE,
+    "routing-instance" : ROUTING_INSTANCE_TABLE,
     "xmpp-peer" : XMPP_PEER_INFO_TABLE,
     "analytics-node" : COLLECTOR_INFO_TABLE,
     "database-node" : DATABASE_INFO_TABLE,
@@ -2291,6 +2292,20 @@ const list<query_table> _TABLES = [
               ]
         },
         'columnvalues' : [ ],
+    },
+    {
+      'display_name' : 'Routung Instance Information',
+      'stat_type' : 'RoutingInstanceInfo',
+      'stat_attr' : 'data',
+      'obj_table' : ROUTING_INSTANCE_TABLE,
+      'attributes': [
+          { 'name' : 'table.address_family', 'datatype' : 'string',    'index' : true},
+          { 'name' : 'table.prefixes', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'table.primary_paths', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'table.secondary_paths', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'table.infeasible_paths', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'table.total_paths', 'datatype' : 'int', 'index' : false},
+        ]
     },
 ]
 

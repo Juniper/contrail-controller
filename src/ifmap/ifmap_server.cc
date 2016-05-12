@@ -32,6 +32,9 @@
 #include "ifmap/ifmap_uuid_mapper.h"
 #include "schema/vnc_cfg_types.h"
 
+#include "sandesh/sandesh.h"
+#include "control-node/sandesh/control_node_types.h"
+
 using std::make_pair;
 
 class IFMapServer::IFMapStaleEntriesCleaner : public Task {
@@ -514,6 +517,28 @@ void IFMapServer::FillClientHistory(IFMapServerClientHistoryList *out_list,
     out_list->set_print_count(out_list->clients.size());
 }
 
-void IFMapServer::GetUIInfo(IFMapServerInfoUI *server_info) {
+void IFMapServer::GetUIInfo(IFMapServerInfoUI *server_info) const {
     server_info->set_num_peer_clients(GetClientMapSize());
+}
+
+bool IFMapServer::CollectStats(BgpRouterState &state, bool first) const {
+    CHECK_CONCURRENCY("bgp::Uve");
+
+    IFMapPeerServerInfoUI peer_server_info;
+    bool change = false;
+
+    get_ifmap_manager()->GetPeerServerInfo(peer_server_info);
+    if (first || peer_server_info != state.get_ifmap_info())  {
+        state.set_ifmap_info(peer_server_info);
+        change = true;
+    }
+
+    IFMapServerInfoUI server_info;
+    GetUIInfo(&server_info);
+    if (first || server_info != state.get_ifmap_server_info()) {
+        state.set_ifmap_server_info(server_info);
+        change = true;
+    }
+
+    return change;
 }
