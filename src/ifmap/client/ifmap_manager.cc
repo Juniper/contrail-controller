@@ -58,10 +58,10 @@ bool IFMapManager::GetEndOfRibComputed() const {
     return channel_->end_of_rib_computed();
 }
 
-void IFMapManager::GetPeerServerInfo(IFMapPeerServerInfoUI &server_info) {
-    server_info.set_url(get_host_port());
-    server_info.set_connection_status(channel_->get_connection_status());
-    server_info.set_connection_status_change_at(
+void IFMapManager::GetPeerServerInfo(IFMapPeerServerInfoUI *server_info) {
+    server_info->set_url(get_host_port());
+    server_info->set_connection_status(channel_->get_connection_status());
+    server_info->set_connection_status_change_at(
         channel_->get_connection_status_change_at());
 }
 

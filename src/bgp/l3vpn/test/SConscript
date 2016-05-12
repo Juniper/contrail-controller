@@ -49,6 +49,7 @@ env.Prepend(LIBS = [
                     'bgp_ifmap_config',
                     'extended_community',
                     'peer_sandesh',
+                    'table_sandesh',
                     'control_node',
                     'origin_vn',
                     'routing_instance',
