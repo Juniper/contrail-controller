@@ -280,6 +280,11 @@ public:
     virtual void GetRxErrorStats(RxErrorStats *stats) const {
     }
 
+    virtual void GetRxRouteStats(RxRouteStats *stats) const {
+        stats->total_path_count = peer_->GetTotalPathCount();
+        stats->primary_path_count = peer_->GetPrimaryPathCount();
+    }
+
 private:
     friend class BgpPeer;
 
@@ -496,7 +501,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
         peer_basename_ = peer_name_;
     }
 
-    refcount_ = 0;
+    total_path_count_ = 0;
     primary_path_count_ = 0;
 
     ProcessEndpointConfig(config);
@@ -522,7 +527,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
 }
 
 BgpPeer::~BgpPeer() {
-    assert(GetRefCount() == 0);
+    assert(GetTotalPathCount() == 0);
     STLDeleteValues(&family_attributes_list_);
     ClearListenSocketAuthKey();
     BgpPeerInfoData peer_info;

@@ -7,6 +7,7 @@
 
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/scoped_ptr.hpp>
+#include <tbb/atomic.h>
 #include <tbb/spin_mutex.h>
 
 #include "base/timer.h"
@@ -29,23 +30,31 @@ class XmppSession;
 class XmppConnection {
 public:
     struct ProtoStats {
-        ProtoStats() : open(0), close(0), keepalive(0), update(0) {
+        ProtoStats() {
+            open = 0;
+            close = 0;
+            keepalive = 0;
+            update = 0;
         }
-        uint32_t open;
-        uint32_t close;
-        uint32_t keepalive;
-        uint32_t update;
+        tbb::atomic<uint32_t> open;
+        tbb::atomic<uint32_t> close;
+        tbb::atomic<uint32_t> keepalive;
+        tbb::atomic<uint32_t> update;
     };
 
     struct ErrorStats {
-        ErrorStats() : connect_error(0), session_close(0), open_fail(0),
-        stream_feature_fail(0), handshake_fail(0) {
+        ErrorStats() {
+            connect_error = 0;
+            session_close = 0;
+            open_fail = 0;
+            stream_feature_fail = 0;
+            handshake_fail = 0;
         }
-        uint32_t connect_error;
-        uint32_t session_close;
-        uint32_t open_fail;
-        uint32_t stream_feature_fail;
-        uint32_t handshake_fail;
+        tbb::atomic<uint32_t> connect_error;
+        tbb::atomic<uint32_t> session_close;
+        tbb::atomic<uint32_t> open_fail;
+        tbb::atomic<uint32_t> stream_feature_fail;
+        tbb::atomic<uint32_t> handshake_fail;
     };
 
     XmppConnection(TcpServer *server, const XmppChannelConfig *config);

@@ -31,14 +31,13 @@ env.Append(LIBPATH = [env['TOP'] + '/base', env['TOP'] + '/base/test',
            env['TOP'] + '/schema', env['TOP'] + '/xmpp', env['TOP'] + '/xml'])
 
 env.Prepend(LIBS = ['control_test', 'bgptest', 'bgp', 'peer_sandesh',
-                    'bgp_test_factory',
-                    'bgp_schema', 'control_node', 'dbtest',
-                    'ifmap_vnc', 'task_test',
+                    'table_sandesh', 'bgp_test_factory', 'bgp_schema',
+                    'control_node', 'dbtest', 'ifmap_vnc', 'task_test',
                     'ifmap_test_util', 'ifmap_test_util_server',
-		    'ifmap_server', 'ifmap_common',
-                    'ifmapio', 'ds', 'pugixml', 'httpc', 'curl',
-                    'crypto', 'ssl', 'sandesh', 'http', 'http_parser',
-                    'db', 'sandeshvns', 'io', 'process_info', 'base', 'gunit'])
+                    'ifmap_server', 'ifmap_common', 'ifmapio', 'ds',
+                    'pugixml', 'httpc', 'curl', 'crypto', 'ssl', 'sandesh',
+                    'http', 'http_parser', 'db', 'sandeshvns', 'io',
+                    'process_info', 'base', 'gunit'])
 
 env.Append(LIBS = ['bgp_ermvpn', 'bgp_evpn'])
 env.Append(LIBS = ['bgp_inet', 'bgp_l3vpn'])

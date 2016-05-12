@@ -33,10 +33,10 @@ env.Install(env['TOP_LIB'], libboostssltest)
 env.Prepend(LIBS = [
                     'boostssl',
                     'ifmapio', 'ifmap_server', 'ds', 'xmpp', 'peer_sandesh',
-                    'sandesh', 'http', 'http_parser', 'httpc', 'curl',
-                    'sandeshvns', 'process_info', 'io', 'ifmap_common', 'ifmap_vnc', 
-                    'pugixml', 'xml', 'task_test', 'db', 'curl', 'base',
-                    'gunit', 'crypto', 'ssl', 'boost_regex'
+                    'table_sandesh', 'sandesh', 'http', 'http_parser', 'httpc',
+                    'curl', 'sandeshvns', 'process_info', 'io', 'ifmap_common',
+                    'ifmap_vnc', 'pugixml', 'xml', 'task_test', 'db', 'curl',
+                    'base', 'gunit', 'crypto', 'ssl', 'boost_regex'
                    ])
 
 if sys.platform != 'darwin':
