@@ -199,8 +199,10 @@ bool PortIpcHandler::AddPort(const PortIpcHandler::AddPortParams &r,
     CfgIntEntry::CfgIntType intf_type;
 
     intf_type = CfgIntEntry::CfgIntVMPort;
-    if (port_type) {
+    if (port_type == 1) {
         intf_type = CfgIntEntry::CfgIntNameSpacePort;
+    } else if (port_type == 2) {
+        intf_type = CfgIntEntry::CfgIntVCenterPort;
     }
     boost::system::error_code ec, ec6;
     /* from_string returns default constructor IP (all zeroes) when there is
@@ -258,10 +260,13 @@ bool PortIpcHandler::AddPort(const PortIpcHandler::AddPortParams &r,
         err = true;
     }
 
-    // Verify that interface exists in OS
-    if (check_port && !InterfaceExists(r.system_name)) {
-        resp_str += "Interface does not exist in OS";
-        err = true;
+    // No Validation required if port_type is VCenter
+    if (intf_type != CfgIntEntry::CfgIntVCenterPort) {
+        // Verify that interface exists in OS
+        if (check_port && !InterfaceExists(r.system_name)) {
+            resp_str += "Interface does not exist in OS";
+            err = true;
+        }
     }
 
     // If Writing to file fails return error

@@ -119,6 +119,31 @@ TEST_F(PortIpcTest, PortReload) {
     WAIT_FOR(500, 1000, ((port_count) == ctable->Size()));
 }
 
+/* Add/delete a port */
+TEST_F(PortIpcTest, Vcenter_Port_Add_Del) {
+
+    const string dir = "/tmp/";
+    CfgIntTable *ctable = agent()->interface_config_table();
+    assert(ctable);
+    uint32_t port_count = ctable->Size();
+    std::string err_str;
+
+    PortIpcHandler::AddPortParams req("ea73b285-01a7-4d3e-8322-50976e8913da",
+        "ea73b285-01a7-4d3e-8322-50976e8913db",
+        "fa73b285-01a7-4d3e-8322-50976e8913de",
+        "b02a3bfb-7946-4b1c-8cc4-bf8cedcbc48d", "vm1", "tap1af4bee3-04",
+        "11.0.0.3", "", "02:1a:f4:be:e3:04", CfgIntEntry::CfgIntVCenterPort,
+        -1, -1);
+    PortIpcHandler pih(agent(), dir, false);
+    AddPort(pih, req);
+    client->WaitForIdle(2);
+    WAIT_FOR(500, 1000, ((port_count + 1) == ctable->Size()));
+
+    pih.DeletePort(req.port_id, err_str);
+    client->WaitForIdle(2);
+    WAIT_FOR(500, 1000, ((port_count) == ctable->Size()));
+}
+
 int main (int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
