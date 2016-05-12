@@ -11,10 +11,11 @@
 
 const IpAddress MetaDataIp::kDefaultIp;
 
-MetaDataIp::MetaDataIp(MetaDataIpAllocator *allocator, VmInterface *intf) :
+MetaDataIp::MetaDataIp(MetaDataIpAllocator *allocator, VmInterface *intf,
+                       MetaDataIpType type) :
     allocator_(allocator), index_(-1), intf_(intf),
     intf_label_(MplsTable::kInvalidLabel), service_ip_(), destination_ip_(),
-    active_(false) {
+    active_(false), type_(type) {
     index_ = allocator_->AllocateIndex(this);
     intf->InsertMetaDataIpInfo(this);
 }
@@ -23,7 +24,7 @@ MetaDataIp::MetaDataIp(MetaDataIpAllocator *allocator, VmInterface *intf,
                        uint16_t index) :
     allocator_(allocator), index_(index), intf_(intf),
     intf_label_(MplsTable::kInvalidLabel), service_ip_(), destination_ip_(),
-    active_(false) {
+    active_(false), type_(LINKLOCAL) {
     allocator_->AllocateIndex(this, index_);
     intf_->InsertMetaDataIpInfo(this);
 }
@@ -41,13 +42,26 @@ Ip4Address MetaDataIp::GetLinkLocalIp() {
 }
 
 IpAddress MetaDataIp::service_ip() {
+    // check if explicit configuration of service ip is present for
+    // this metadata ip
     if (service_ip_ == kDefaultIp) {
-        IpAddress service_ip =  intf_->GetServiceIp(intf_->primary_ip_addr());
-        if (service_ip == kDefaultIp) {
-            // if service IP is not available fallback to MetaData IP
-            return Ip4Address(METADATA_IP_ADDR);
+        IpAddress service_ip;
+        if (type_ == HEALTH_CHECK) {
+            // for metadata IP type Health Check first verify
+            // if service health check ip is available on interface
+            service_ip =  intf_->service_health_check_ip();
+            if (service_ip != kDefaultIp) {
+                return service_ip;
+            }
         }
-        return service_ip;
+        // check if service ip on the primary ip addr of interface
+        // is available
+        service_ip = intf_->GetServiceIp(intf_->primary_ip_addr());
+        if (service_ip != kDefaultIp) {
+            return service_ip;
+        }
+        // if service IP is not available fallback to MetaData IP
+        return Ip4Address(METADATA_IP_ADDR);
     }
     return service_ip_;
 }

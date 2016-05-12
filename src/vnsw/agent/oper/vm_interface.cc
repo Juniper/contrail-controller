@@ -73,7 +73,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     configurer_(0), subnet_(0), subnet_plen_(0), ethernet_tag_(0),
     logical_interface_(nil_uuid()), nova_ip_addr_(0), nova_ip6_addr_(),
     dhcp_addr_(0), metadata_ip_map_(), hc_instance_set_(),
-    ecmp_load_balance_() {
+    ecmp_load_balance_(), service_health_check_ip_() {
     metadata_ip_active_ = false;
     ipv4_active_ = false;
     ipv6_active_ = false;
@@ -106,7 +106,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     vmi_type_(vmi_type), configurer_(0), subnet_(0),
     subnet_plen_(0), ethernet_tag_(0), logical_interface_(nil_uuid()),
     nova_ip_addr_(0), nova_ip6_addr_(), dhcp_addr_(0), metadata_ip_map_(),
-    hc_instance_set_() {
+    hc_instance_set_(), service_health_check_ip_() {
     metadata_ip_active_ = false;
     ipv4_active_ = false;
     ipv6_active_ = false;
@@ -426,7 +426,8 @@ static void BuildInstanceIp(Agent *agent, VmInterfaceConfigData *data,
     IpAddress addr = IpAddress::from_string(ip->address(), err);
     bool is_primary = false;
 
-    if (ip->secondary() != true && ip->service_instance_ip() != true) {
+    if (ip->secondary() != true && ip->service_instance_ip() != true &&
+        ip->service_health_check_ip() != true) {
         is_primary = true;
         if (addr.is_v4()) {
             if (addr == Ip4Address(0)) {
@@ -463,12 +464,22 @@ static void BuildInstanceIp(Agent *agent, VmInterfaceConfigData *data,
         ecmp = true;
     }
 
+    if (ip->service_health_check_ip()) {
+        // if instance ip is service health check ip along with adding
+        // it to instance ip list to allow route export and save it
+        // under service_health_check_ip_ to allow usage for health
+        // check service
+        data->service_health_check_ip_ = addr;
+    }
+
     if (addr.is_v4()) {
         data->instance_ipv4_list_.list_.insert(
-                VmInterface::InstanceIp(addr, ecmp, is_primary));
+                VmInterface::InstanceIp(addr, ecmp, is_primary,
+                                        ip->service_health_check_ip()));
     } else {
         data->instance_ipv6_list_.list_.insert(
-                VmInterface::InstanceIp(addr, ecmp, is_primary));
+                VmInterface::InstanceIp(addr, ecmp, is_primary,
+                                        ip->service_health_check_ip()));
     }
 }
 
@@ -1325,24 +1336,30 @@ void VmInterface::DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
                            const Ip4Address &old_subnet,
                            const uint8_t old_subnet_plen,
                            int old_ethernet_tag,
-                           const Ip4Address &old_dhcp_addr) {
+                           const Ip4Address &old_dhcp_addr,
+                           bool force_update) {
+    // trigger delete instance ip v4/v6 unconditionally, it internally
+    // handles cases where delete is already processed
+    DeleteIpv4InstanceIp(false, old_ethernet_tag, old_vrf, force_update);
+    DeleteIpv4InstanceIp(true, old_ethernet_tag, old_vrf, force_update);
+    DeleteIpv6InstanceIp(false, old_ethernet_tag, old_vrf, force_update);
+    DeleteIpv6InstanceIp(true, old_ethernet_tag, old_vrf, force_update);
+
     if (old_ipv4_active) {
-        DeleteIpv4InstanceIp(false, old_ethernet_tag, old_vrf);
-        DeleteIpv4InstanceIp(true, old_ethernet_tag, old_vrf);
         if (old_dhcp_addr != Ip4Address(0)) {
             DeleteIpv4InterfaceRoute(old_vrf, old_dhcp_addr);
         }
     }
-    if (old_ipv6_active) {
-        DeleteIpv6InstanceIp(false, old_ethernet_tag, old_vrf);
-        DeleteIpv6InstanceIp(true, old_ethernet_tag, old_vrf);
+    // Process following deletes only if any of old ipv4 or ipv6
+    // was active
+    if ((old_ipv4_active || old_ipv6_active)) {
+        DeleteFloatingIp(false, old_ethernet_tag);
+        DeleteServiceVlan();
+        DeleteStaticRoute();
+        DeleteAllowedAddressPair(false);
+        DeleteVrfAssignRule();
+        DeleteResolveRoute(old_vrf, old_subnet, old_subnet_plen);
     }
-    DeleteFloatingIp(false, old_ethernet_tag);
-    DeleteServiceVlan();
-    DeleteStaticRoute();
-    DeleteAllowedAddressPair(false);
-    DeleteVrfAssignRule();
-    DeleteResolveRoute(old_vrf, old_subnet, old_subnet_plen);
 }
 
 void VmInterface::UpdateVxLan() {
@@ -1409,23 +1426,29 @@ void VmInterface::UpdateL2(bool old_l2_active, bool policy_change) {
 
 void VmInterface::UpdateL2(bool force_update) {
     UpdateL2(l2_active_, false);
-    UpdateL2Bridging(bridging_, vrf_.get(), ethernet_tag_, force_update, false,
-                     primary_ip_addr_, primary_ip6_addr_, layer3_forwarding_);
+    if (bridging_) {
+        UpdateL2Bridging(bridging_, vrf_.get(), ethernet_tag_, force_update,
+                         false, primary_ip_addr_, primary_ip6_addr_,
+                         layer3_forwarding_);
+    }
 }
 
-void VmInterface::DeleteL2Bridging(bool old_briding, VrfEntry *old_vrf,
+void VmInterface::DeleteL2Bridging(bool old_bridging, VrfEntry *old_vrf,
                                    int old_ethernet_tag,
                                    const Ip4Address &old_v4_addr,
                                    const Ip6Address &old_v6_addr,
-                                   bool old_layer3_forwarding) {
-    DeleteIpv4InstanceIp(true, old_ethernet_tag, old_vrf);
-    DeleteIpv6InstanceIp(true, old_ethernet_tag, old_vrf);
-    DeleteL2InterfaceRoute(old_briding, old_vrf, Ip4Address(0),
-                           Ip6Address(), old_ethernet_tag,
-                           MacAddress::FromString(vm_mac_));
-    DeleteFloatingIp(true, old_ethernet_tag);
-    DeleteL2ReceiveRoute(old_vrf, old_briding);
-    DeleteAllowedAddressPair(true);
+                                   bool old_layer3_forwarding,
+                                   bool force_update) {
+    DeleteIpv4InstanceIp(true, old_ethernet_tag, old_vrf, force_update);
+    DeleteIpv6InstanceIp(true, old_ethernet_tag, old_vrf, force_update);
+    if (old_bridging) {
+        DeleteL2InterfaceRoute(old_bridging, old_vrf, Ip4Address(0),
+                               Ip6Address(), old_ethernet_tag,
+                               MacAddress::FromString(vm_mac_));
+        DeleteFloatingIp(true, old_ethernet_tag);
+        DeleteL2ReceiveRoute(old_vrf, old_bridging);
+        DeleteAllowedAddressPair(true);
+    }
 }
 
 void VmInterface::DeleteL2(bool old_l2_active) {
@@ -1537,10 +1560,11 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,
         UpdateL3(old_ipv4_active, old_vrf, old_addr, old_ethernet_tag, force_update,
                  policy_change, old_ipv6_active, old_v6_addr,
                  old_subnet, old_subnet_plen, old_dhcp_addr);
-    } else if ((old_ipv4_active || old_ipv6_active)) {
+    } else {
         DeleteL3(old_ipv4_active, old_vrf, old_addr, old_need_linklocal_ip,
                  old_ipv6_active, old_v6_addr,
-                 old_subnet, old_subnet_plen, old_ethernet_tag, old_dhcp_addr);
+                 old_subnet, old_subnet_plen, old_ethernet_tag, old_dhcp_addr,
+                 (force_update || policy_change));
     }
 
     // Del L3 Metadata after deleting L3
@@ -1558,9 +1582,10 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,
         UpdateL2Bridging(old_bridging, old_vrf, old_ethernet_tag, 
                          force_update, policy_change, old_addr, old_v6_addr,
                          old_layer3_forwarding);
-    } else if (old_bridging) {
+    } else {
         DeleteL2Bridging(old_bridging, old_vrf, old_ethernet_tag, 
-                         old_addr, old_v6_addr, old_layer3_forwarding);
+                         old_addr, old_v6_addr, old_layer3_forwarding,
+                         (force_update || policy_change));
     }
 
     // Delete L2
@@ -1649,7 +1674,8 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
     physical_interface_(""), parent_vmi_(), subnet_(0), subnet_plen_(0),
     rx_vlan_id_(VmInterface::kInvalidVlanId),
     tx_vlan_id_(VmInterface::kInvalidVlanId),
-    logical_interface_(nil_uuid()), ecmp_load_balance_() {
+    logical_interface_(nil_uuid()), ecmp_load_balance_(),
+    service_health_check_ip_() {
 }
 
 VmInterface *VmInterfaceConfigData::OnAdd(const InterfaceTable *table,
@@ -1778,6 +1804,11 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
     // CopyIpAddress uses fabric_port_. So, set it before CopyIpAddresss
     if (fabric_port_ != data->fabric_port_) {
         fabric_port_ = data->fabric_port_;
+        ret = true;
+    }
+
+    if (service_health_check_ip_ != data->service_health_check_ip_) {
+        service_health_check_ip_ = data->service_health_check_ip_;
         ret = true;
     }
 
@@ -1915,7 +1946,7 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
     if (nova_ip_addr_ != Ip4Address(0) &&
         data->vrf_name_ != Agent::NullString()) {
         new_ipv4_list.insert(
-            VmInterface::InstanceIp(nova_ip_addr_, data->ecmp_, true));
+            VmInterface::InstanceIp(nova_ip_addr_, data->ecmp_, true, false));
     }
     if (AuditList<InstanceIpList, InstanceIpSet::iterator>
         (instance_ipv4_list_, old_ipv4_list.begin(), old_ipv4_list.end(),
@@ -1928,7 +1959,7 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
     if (nova_ip6_addr_ != Ip6Address() &&
             data->vrf_name_ != Agent::NullString()) {
         new_ipv6_list.insert(
-            VmInterface::InstanceIp(nova_ip6_addr_, data->ecmp6_, true));
+            VmInterface::InstanceIp(nova_ip6_addr_, data->ecmp6_, true, false));
     }
 
     if (AuditList<InstanceIpList, InstanceIpSet::iterator>
@@ -2675,8 +2706,8 @@ void VmInterface::DeleteMulticastNextHop() {
 }
 
 void VmInterface::DeleteL2ReceiveRoute(const VrfEntry *old_vrf,
-                                       bool old_briding) {
-    if (BridgingDeactivated(old_briding) && old_vrf) {
+                                       bool old_bridging) {
+    if (BridgingDeactivated(old_bridging) && old_vrf) {
         InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
         Agent *agent = table->agent();
         BridgeAgentRouteTable::Delete(peer_.get(), old_vrf->GetName(),
@@ -3185,9 +3216,6 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_bridging, bool force_update,
                                          const Ip6Address &new_ip6_addr,
                                          const MacAddress &mac,
                                          const IpAddress &dependent_ip) const {
-    if (bridging_ == false)
-        return;
-
     if (ethernet_tag_ != old_ethernet_tag) {
         force_update = true;
     }
@@ -3415,20 +3443,23 @@ bool VmInterface::GetIpamDhcpOptions(
 /////////////////////////////////////////////////////////////////////////////
 VmInterface::InstanceIp::InstanceIp() :
     ListEntry(), ip_(), ecmp_(false), l2_installed_(false), old_ecmp_(false),
-    is_primary_(false) {
+    is_primary_(false), is_service_health_check_ip_(false) {
 }
 
 VmInterface::InstanceIp::InstanceIp(const InstanceIp &rhs) :
     ListEntry(rhs.installed_, rhs.del_pending_),
     ip_(rhs.ip_), ecmp_(rhs.ecmp_),
     l2_installed_(rhs.l2_installed_), old_ecmp_(rhs.old_ecmp_),
-    is_primary_(rhs.is_primary_) {
+    is_primary_(rhs.is_primary_),
+    is_service_health_check_ip_(rhs.is_service_health_check_ip_) {
 }
 
 VmInterface::InstanceIp::InstanceIp(const IpAddress &addr,
-                                    bool ecmp, bool is_primary) :
+                                    bool ecmp, bool is_primary,
+                                    bool is_service_health_check_ip) :
     ListEntry(), ip_(addr), ecmp_(ecmp),
-    l2_installed_(false), old_ecmp_(false), is_primary_(is_primary) {
+    l2_installed_(false), old_ecmp_(false), is_primary_(is_primary),
+    is_service_health_check_ip_(is_service_health_check_ip) {
 }
 
 VmInterface::InstanceIp::~InstanceIp() {
@@ -3490,12 +3521,14 @@ void VmInterface::InstanceIp::L2Activate(VmInterface *interface,
     Ip6Address ipv6;
 
     if (ip_.is_v4()) {
-        if (interface->IsIpv4Active() == false) {
+        // check if L3 route is already installed or not 
+        if (installed_ == false) {
             return;
         }
         ipv4 = ip_.to_v4();
     } else {
-        if (interface->IsIpv6Active() == false) {
+        // check if L3 route is already installed or not 
+        if (installed_ == false) {
             return;
         }
         ipv6 = ip_.to_v6();
@@ -3563,6 +3596,8 @@ void VmInterface::InstanceIpList::Update(const InstanceIp *lhs,
     if (lhs->ecmp_ != rhs->ecmp_) {
         lhs->ecmp_ = rhs->ecmp_;
     }
+
+    lhs->is_service_health_check_ip_ = rhs->is_service_health_check_ip_;
     lhs->set_del_pending(false);
 }
 
@@ -4007,10 +4042,13 @@ void VmInterface::AllowedAddressPair::L2Activate(VmInterface *interface,
             }
         }
 
-        interface->UpdateL2InterfaceRoute(old_layer2_forwarding, force_update,
-                               interface->vrf(), v4ip, v6ip, ethernet_tag_,
-                               old_layer3_forwarding, policy_change, v4ip, v6ip,
-                               mac_, dependent_rt);
+        if (interface->bridging()) {
+            interface->UpdateL2InterfaceRoute(old_layer2_forwarding,
+                                   force_update, interface->vrf(), v4ip, v6ip,
+                                   ethernet_tag_, old_layer3_forwarding,
+                                   policy_change, v4ip, v6ip, mac_,
+                                   dependent_rt);
+        }
         ethernet_tag_ = interface->ethernet_tag();
         //If layer3 forwarding is disabled
         //  * IP + mac allowed address pair should not be published
@@ -4679,10 +4717,31 @@ void VmInterface::UpdateIpv4InstanceIp(bool force_update, bool policy_change,
 }
 
 void VmInterface::DeleteIpv4InstanceIp(bool l2, uint32_t old_ethernet_tag,
-                                       VrfEntry *old_vrf_entry) {
+                                       VrfEntry *old_vrf_entry,
+                                       bool force_update) {
+    if (l2 && old_ethernet_tag != ethernet_tag()) {
+        force_update = true;
+    }
+
     InstanceIpSet::iterator it = instance_ipv4_list_.list_.begin();
     while (it != instance_ipv4_list_.list_.end()) {
         InstanceIpSet::iterator prev = it++;
+        if (prev->is_service_health_check_ip_) {
+            // for service health check instance ip do not withdraw
+            // the route till it is marked del_pending
+            // interface itself is not active
+            bool interface_active = false;
+            if (l2) {
+                interface_active = l2_active_;
+            } else {
+                interface_active = metadata_ip_active_;
+            }
+            if (!prev->del_pending_ && interface_active) {
+                prev->Activate(this, force_update, l2,
+                               old_ethernet_tag);
+                continue;
+            }
+        }
         prev->DeActivate(this, l2, old_vrf_entry, old_ethernet_tag);
         if (prev->del_pending_ && prev->installed() == false) {
             instance_ipv4_list_.list_.erase(prev);
@@ -4713,10 +4772,31 @@ void VmInterface::UpdateIpv6InstanceIp(bool force_update, bool policy_change,
 }
 
 void VmInterface::DeleteIpv6InstanceIp(bool l2, uint32_t old_ethernet_tag,
-                                       VrfEntry *old_vrf_entry) {
+                                       VrfEntry *old_vrf_entry,
+                                       bool force_update) {
+    if (l2 && old_ethernet_tag != ethernet_tag()) {
+        force_update = true;
+    }
+
     InstanceIpSet::iterator it = instance_ipv6_list_.list_.begin();
     while (it != instance_ipv6_list_.list_.end()) {
         InstanceIpSet::iterator prev = it++;
+        if (prev->is_service_health_check_ip_) {
+            // for service health check instance ip do not withdraw
+            // the route till it is marked del_pending
+            // interface itself is not active
+            bool interface_active = false;
+            if (l2) {
+                interface_active = l2_active_;
+            } else {
+                interface_active = metadata_ip_active_;
+            }
+            if (!prev->del_pending_ && interface_active) {
+                prev->Activate(this, force_update, l2,
+                               old_ethernet_tag);
+                continue;
+            }
+        }
         prev->DeActivate(this, l2, old_vrf_entry, old_ethernet_tag);
         if (prev->del_pending_ && prev->installed() == false) {
             instance_ipv6_list_.list_.erase(prev);
