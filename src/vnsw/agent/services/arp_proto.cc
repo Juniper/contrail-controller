@@ -57,7 +57,7 @@ void ArpProto::VrfNotify(DBTablePartBase *part, DBEntryBase *entry) {
     state = static_cast<ArpVrfState *>(entry->GetState(part->parent(),
                                                    vrf_table_listener_id_));
     if (entry->IsDeleted()) {
-        if (state && !state->deleted) {
+        if (state) {
             for (ArpProto::ArpIterator it = arp_cache_.begin();
                  it != arp_cache_.end();) {
                 ArpEntry *arp_entry = it->second;
