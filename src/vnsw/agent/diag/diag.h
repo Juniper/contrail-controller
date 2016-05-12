@@ -122,7 +122,7 @@ struct VxLanOamTlv{
 struct OverlayOamPktData{
    enum MsgType {
     OVERLAY_ECHO_REQUEST = 1,
-    OVERLAY_ECHO_REPLY = 1,
+    OVERLAY_ECHO_REPLY = 2
 
    };
    enum Returncode {
@@ -143,10 +143,10 @@ struct OverlayOamPktData{
    uint8_t return_subcode_;
    uint32_t org_handle_;
    uint32_t seq_no_;
-   boost::posix_time::ptime timesent_sec_;
-   boost::posix_time::ptime timesent_misec_;
-   boost::posix_time::ptime timerecv_sec_;
-   boost::posix_time::ptime timerecv_misec_;
+   long timesent_sec_;
+   long timesent_misec_;
+   long timerecv_sec_;
+   long timerecv_misec_;
    VxLanOamTlv vxlanoamtlv_;
 };
 #endif
