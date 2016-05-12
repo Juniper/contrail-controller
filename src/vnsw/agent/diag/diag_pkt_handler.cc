@@ -376,10 +376,13 @@ void DiagPktHandler::ReplyOverlayPing() {
     if (oamdata->reply_mode_ == OverlayOamPktData::DONT_REPLY) {
         return ;
     }
-    oamdata->msg_type_ = AgentDiagPktData::DIAG_REPLY;
+    oamdata->msg_type_ = OverlayOamPktData::OVERLAY_ECHO_REPLY;
     SetReturnCode(&oamdata->return_code_);
-    oamdata->timerecv_sec_ = second_clock::universal_time(); 
-    oamdata->timerecv_misec_ = microsec_clock::universal_time();
+    boost::posix_time::ptime time = microsec_clock::universal_time();
+    boost::posix_time::time_duration td = time.time_of_day();
+    oamdata->timerecv_sec_ = td.total_seconds();
+    oamdata->timerecv_misec_ = td.total_microseconds() - 
+        seconds(oamdata->timerecv_sec_).total_microseconds();;
     pkt_info_->set_len(GetLength());
     PhysicalInterfaceKey key1(agent->fabric_interface_name());
     Interface *intf = static_cast<Interface *>
