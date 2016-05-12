@@ -14,11 +14,19 @@
 class DiagTable;
 class OverlayPing : public DiagEntry{
 public:
-   static const uint32_t KOverlayPingHdrLength = 2 *(sizeof(struct ether_header) +
+   static const uint32_t kOverlayUdpPingHdrLength = 2 *(sizeof(struct ether_header) +
                                                sizeof(struct ip) + sizeof(udphdr))
                                                + sizeof(VxlanHdr);
-   static const uint32_t KVxlanRABit = 0x01000000;
-   static const uint32_t KVxlanIBit = 0x08000000;
+   static const uint32_t kOverlayTcpPingHdrLength = 2 *(sizeof(struct ether_header) +
+                                                        sizeof(struct ip)) + 
+                                                        sizeof(udphdr) +
+                                                        sizeof(tcphdr) + 
+                                                        sizeof(VxlanHdr);
+   static const uint32_t kVxlanRABit = 0x01000000;
+   static const uint32_t kVxlanIBit = 0x08000000;
+   static const MacAddress in_dst_mac_;
+   static const MacAddress in_source_mac_;
+   
    OverlayPing(const OverlayPingReq *req, DiagTable *diag_table);
     virtual ~OverlayPing();
     virtual void SendRequest();
