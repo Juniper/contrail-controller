@@ -95,8 +95,8 @@ public:
     virtual const string GetStateName() const {
         return "";
     }
-    virtual void UpdateRefCount(int count) const { }
-    virtual tbb::atomic<int> GetRefCount() const {
+    virtual void UpdateTotalPathCount(int count) const { }
+    virtual int GetTotalPathCount() const {
         tbb::atomic<int> count;
         count = 0;
         return count;

@@ -1,0 +1,20 @@
+/*
+ * Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
+ */
+
+include "bgp/table_info.sandesh"
+
+struct BgpTableInfoData {
+    1: string name (key="ObjectBgpTable");
+    2: optional bool deleted
+    3: optional table_info.TableStatsInfo table_stats_info;
+}
+
+/**
+ * @description: BGP Table specific information
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
+uve sandesh BGPTableInfo {
+    1: BgpTableInfoData data;
+}
