@@ -334,7 +334,8 @@ public:
     struct InstanceIp : ListEntry {
         InstanceIp();
         InstanceIp(const InstanceIp &rhs);
-        InstanceIp(const IpAddress &ip, bool ecmp, bool is_primary);
+        InstanceIp(const IpAddress &ip, bool ecmp, bool is_primary,
+                   bool is_service_health_check_ip);
         ~InstanceIp();
         bool operator == (const InstanceIp &rhs) const;
         bool operator() (const InstanceIp &lhs,
@@ -362,6 +363,7 @@ public:
         mutable bool l2_installed_;
         mutable bool old_ecmp_;
         mutable bool is_primary_;
+        mutable bool is_service_health_check_ip_;
     };
     typedef std::set<InstanceIp, InstanceIp> InstanceIpSet;
 
@@ -625,6 +627,7 @@ public:
                                 const MacAddress &mac,
                                 const IpAddress &dependent_ip) const;
     uint32_t ethernet_tag() const {return ethernet_tag_;}
+    IpAddress service_health_check_ip() const { return service_health_check_ip_; }
     void UpdateVxLan();
     bool IsActive() const;
     const VmiEcmpLoadBalance &ecmp_load_balance() const {return ecmp_load_balance_;}
@@ -863,6 +866,7 @@ private:
     MetaDataIpMap metadata_ip_map_;
     HealthCheckInstanceSet hc_instance_set_;
     VmiEcmpLoadBalance ecmp_load_balance_;
+    IpAddress service_health_check_ip_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 
@@ -1021,6 +1025,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     uint16_t tx_vlan_id_;
     boost::uuids::uuid logical_interface_;
     VmiEcmpLoadBalance ecmp_load_balance_;
+    IpAddress service_health_check_ip_;
 };
 
 // Definition for structures when request queued from Nova

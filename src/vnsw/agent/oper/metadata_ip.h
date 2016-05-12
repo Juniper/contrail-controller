@@ -30,8 +30,16 @@ class MetaDataIp {
 public:
     static const IpAddress kDefaultIp;
 
-    MetaDataIp(MetaDataIpAllocator *allocator, VmInterface *intf);
-    MetaDataIp(MetaDataIpAllocator *allocator, VmInterface *intf, uint16_t index);
+    enum MetaDataIpType {
+        LINKLOCAL = 0,
+        HEALTH_CHECK,
+        INVALID
+    };
+
+    MetaDataIp(MetaDataIpAllocator *allocator, VmInterface *intf,
+               MetaDataIpType type);
+    MetaDataIp(MetaDataIpAllocator *allocator, VmInterface *intf,
+               uint16_t index);
     ~MetaDataIp();
 
     Ip4Address GetLinkLocalIp();
@@ -60,6 +68,7 @@ private:
     IpAddress service_ip_;
     IpAddress destination_ip_;
     bool active_;
+    MetaDataIpType type_;
     DISALLOW_COPY_AND_ASSIGN(MetaDataIp);
 };
 

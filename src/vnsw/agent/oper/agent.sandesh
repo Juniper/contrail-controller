@@ -150,6 +150,7 @@ struct ItfSandeshData {
    52: list<string> fat_flow_list;
    53: optional string health_check_active;
    54: optional string metadata_ip_active;
+   55: optional string service_health_check_ip;
 }
 
 /**
