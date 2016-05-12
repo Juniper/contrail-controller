@@ -47,11 +47,11 @@ request sandesh TraceRouteReq {
 request sandesh OverlayPingReq {
     1: string source_ip;
     2: string dest_ip;
-    3: i16    protocol;
-    4: string   vn_uuid;
-    5: string vm_remote_mac;
-    6: i32 source_port;
-    7: i32    dest_port;
+    3: string   vn_uuid;
+    4: string vm_remote_mac;
+    5: i32 source_port;
+    6: i32    dest_port;
+    7: optional i16    protocol = 17;
     8: optional i16 packet_size = 100;
     9: optional i16 count = 10;
     10: optional i32 interval = 1;
