@@ -7,6 +7,8 @@ Import('BuildEnv')
 
 env = BuildEnv.Clone()
 env.Append(CPPPATH = env['TOP'])
+env.Append(CPPPATH = [env['TOP'] + '/ifmap'])
+env.Append(CPPPATH = [env['TOP'] + '/base/sandesh'])
 env.Prepend(LIBS=['io', 'base'])
 
 except_env = BuildEnv.Clone()

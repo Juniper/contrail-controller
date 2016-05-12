@@ -15,6 +15,8 @@
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_membership.h"
 #include "bgp/bgp_session_manager.h"
+#include "bgp/bgp_table_types.h"
+#include "bgp/peer_stats.h"
 #include "bgp/scheduling_group.h"
 #include "bgp/routing-instance/iservice_chain_mgr.h"
 #include "bgp/routing-instance/istatic_route_mgr.h"
@@ -23,6 +25,9 @@
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/routing-policy/routing_policy.h"
+
+#include "sandesh/sandesh.h"
+#include "control-node/sandesh/control_node_types.h"
 
 using boost::system::error_code;
 using boost::tie;
@@ -717,4 +722,184 @@ uint32_t BgpServer::GetDownStaticRouteCount() const {
         count += srt_manager->GetDownRouteCount();
     }
     return count;
+}
+
+uint32_t BgpServer::SendTableStatsUve(bool first) const {
+    uint32_t out_q_depth = 0;
+    for (RoutingInstanceMgr::RoutingInstanceIterator rit = inst_mgr_->begin();
+         rit != inst_mgr_->end(); ++rit) {
+        bool send = false;
+        RoutingInstanceStatsData instance_info;
+        RoutingInstance::RouteTableList const rt_list = rit->GetTables();
+        for (RoutingInstance::RouteTableList::const_iterator it =
+             rt_list.begin(); it != rt_list.end(); ++it) {
+            BgpTable *table = it->second;
+
+            size_t markers;
+            out_q_depth += table->GetPendingRiboutsCount(&markers);
+            string family = Address::FamilyToString(table->family());
+
+            bool changed = false;
+            if (first || table->stats()->get_address_family() != family) {
+                changed = true;
+                table->stats()->set_address_family(family);
+            }
+
+            if (first || table->stats()->get_prefixes() != table->Size()) {
+                changed = true;
+                table->stats()->set_prefixes(table->Size());
+            }
+
+            if (first || table->stats()->get_primary_paths() !=
+                    table->GetPrimaryPathCount()) {
+                changed = true;
+                table->stats()->set_primary_paths(table->GetPrimaryPathCount());
+            }
+
+            if (first || table->stats()->get_secondary_paths() !=
+                    table->GetSecondaryPathCount()) {
+                changed = true;
+                table->stats()->set_secondary_paths(
+                    table->GetSecondaryPathCount());
+            }
+
+            uint64_t total_paths = table->stats()->get_primary_paths() +
+                                   table->stats()->get_secondary_paths() +
+                                   table->stats()->get_infeasible_paths();
+            if (first || table->stats()->get_total_paths() != total_paths) {
+                changed = true;
+                table->stats()->set_total_paths(total_paths);
+            }
+
+            if (changed) {
+                send = true;
+                instance_info.table_stats.push_back(*table->stats());
+            }
+        }
+
+        if (send)
+            RoutingInstanceStats::Send(instance_info);
+    }
+
+    return out_q_depth;
+}
+
+void BgpServer::FillPeerStats(const BgpPeer *peer) const {
+    PeerStatsInfo stats;
+    PeerStats::FillPeerDebugStats(peer->peer_stats(), &stats);
+
+    BgpPeerInfoData peer_info;
+    peer_info.set_name(peer->ToUVEKey());
+    peer_info.set_peer_stats_info(stats);
+    BGPPeerInfo::Send(peer_info);
+}
+
+bool BgpServer::CollectStats(BgpRouterState &state, bool first) const {
+    CHECK_CONCURRENCY("bgp::Uve");
+
+    VisitBgpPeers(boost::bind(&BgpServer::FillPeerStats, this, _1));
+    bool change = false;
+    uint32_t is_admin_down = admin_down();
+    if (first || is_admin_down != state.get_admin_down()) {
+        state.set_admin_down(is_admin_down);
+        change = true;
+    }
+
+    string router_id = bgp_identifier_string();
+    if (first || router_id != state.get_router_id()) {
+        state.set_router_id(router_id);
+        change = true;
+    }
+
+    uint32_t local_asn = local_autonomous_system();
+    if (first || local_asn != state.get_local_asn()) {
+        state.set_local_asn(local_asn);
+        change = true;
+    }
+
+    uint32_t global_asn = autonomous_system();
+    if (first || global_asn != state.get_global_asn()) {
+        state.set_global_asn(global_asn);
+        change = true;
+    }
+
+    uint32_t num_bgp = num_bgp_peer();
+    if (first || num_bgp != state.get_num_bgp_peer()) {
+        state.set_num_bgp_peer(num_bgp);
+        change = true;
+    }
+
+    uint32_t num_up_bgp_peer = NumUpPeer();
+    if (first || num_up_bgp_peer != state.get_num_up_bgp_peer()) {
+        state.set_num_up_bgp_peer(num_up_bgp_peer);
+        change = true;
+    }
+
+    uint32_t deleting_bgp_peer = num_deleting_bgp_peer();
+    if (first || deleting_bgp_peer != state.get_num_deleting_bgp_peer()) {
+        state.set_num_deleting_bgp_peer(deleting_bgp_peer);
+        change = true;
+    }
+
+    uint32_t num_bgpaas = num_bgpaas_peer();
+    if (first || num_bgpaas != state.get_num_bgpaas_peer()) {
+        state.set_num_bgpaas_peer(num_bgpaas);
+        change = true;
+    }
+
+    uint32_t num_up_bgpaas_peer = NumUpBgpaasPeer();
+    if (first || num_up_bgpaas_peer != state.get_num_up_bgpaas_peer()) {
+        state.set_num_up_bgpaas_peer(num_up_bgpaas_peer);
+        change = true;
+    }
+
+    uint32_t deleting_bgpaas_peer = num_deleting_bgpaas_peer();
+    if (first || deleting_bgpaas_peer != state.get_num_deleting_bgpaas_peer()) {
+        state.set_num_deleting_bgpaas_peer(deleting_bgpaas_peer);
+        change = true;
+    }
+
+    uint32_t num_ri = num_routing_instance();
+    if (first || num_ri != state.get_num_routing_instance()) {
+        state.set_num_routing_instance(num_ri);
+        change = true;
+    }
+
+    uint32_t num_deleted_ri = num_deleted_routing_instance();
+    if (first || num_deleted_ri != state.get_num_deleted_routing_instance()) {
+        state.set_num_deleted_routing_instance(num_deleted_ri);
+        change = true;
+    }
+
+    uint32_t service_chains = num_service_chains();
+    if (first || service_chains != state.get_num_service_chains()) {
+        state.set_num_service_chains(service_chains);
+        change = true;
+    }
+
+    uint32_t down_service_chains = num_down_service_chains();
+    if (first || down_service_chains != state.get_num_down_service_chains()) {
+        state.set_num_down_service_chains(down_service_chains);
+        change = true;
+    }
+
+    uint32_t static_routes = num_static_routes();
+    if (first || static_routes != state.get_num_static_routes()) {
+        state.set_num_static_routes(static_routes);
+        change = true;
+    }
+
+    uint32_t down_static_routes = num_down_static_routes();
+    if (first || down_static_routes != state.get_num_down_static_routes()) {
+        state.set_num_down_static_routes(down_static_routes);
+        change = true;
+    }
+
+    uint32_t out_load = SendTableStatsUve(first);
+    if (first || out_load != state.get_output_queue_depth()) {
+        state.set_output_queue_depth(out_load);
+        change = true;
+    }
+
+    return change;
 }
