@@ -283,10 +283,6 @@ void XmppSession::OnRead(Buffer buffer) {
             std::string::const_iterator st = buf_.begin();
             std::string xml = string(st, offset_);
 
-            //
-            // XXX Connection gone ?
-            //
-            if (!connection_) break;
             connection_->ReceiveMsg(this, xml);
 
         } else {
