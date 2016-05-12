@@ -27,6 +27,7 @@ class BgpConditionListener;
 class BgpConfigManager;
 class BgpOListDB;
 class BgpPeer;
+class BgpRouterState;
 class BgpSessionManager;
 class ClusterListDB;
 class CommunityDB;
@@ -236,6 +237,7 @@ public:
     void NotifyAllStaticRoutes();
     uint32_t GetStaticRouteCount() const;
     uint32_t GetDownStaticRouteCount() const;
+    bool CollectStats(BgpRouterState *state, bool first) const;
 
 private:
     class ConfigUpdater;
@@ -249,6 +251,8 @@ private:
     typedef std::map<TcpSession::Endpoint, BgpPeer *> EndpointToBgpPeerList;
 
     void RoutingInstanceMgrDeletionComplete(RoutingInstanceMgr *mgr);
+    uint32_t SendTableStatsUve(bool first) const;
+    void FillPeerStats(const BgpPeer *peer) const;
 
     // base config variables
     tbb::spin_rw_mutex rw_mutex_;
