@@ -15,6 +15,7 @@ libs = [
     'tunnel_encap',
     'origin_vn',
     'peer_sandesh',
+    'table_sandesh',
     'route',
     'net',
     'db',

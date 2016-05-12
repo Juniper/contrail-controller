@@ -236,6 +236,7 @@ public:
     void NotifyAllStaticRoutes();
     uint32_t GetStaticRouteCount() const;
     uint32_t GetDownStaticRouteCount() const;
+    void SendTableStatsUve() const;
 
 private:
     class ConfigUpdater;

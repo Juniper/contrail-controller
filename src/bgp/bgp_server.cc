@@ -15,6 +15,7 @@
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_membership.h"
 #include "bgp/bgp_session_manager.h"
+#include "bgp/bgp_table_types.h"
 #include "bgp/scheduling_group.h"
 #include "bgp/routing-instance/iservice_chain_mgr.h"
 #include "bgp/routing-instance/istatic_route_mgr.h"
@@ -715,4 +716,25 @@ uint32_t BgpServer::GetDownStaticRouteCount() const {
         count += srt_manager->GetDownRouteCount();
     }
     return count;
+}
+
+void BgpServer::SendTableStatsUve() const {
+    CHECK_CONCURRENCY("bgp::Uve");
+
+    for (RoutingInstanceMgr::RoutingInstanceIterator rit = inst_mgr_->begin();
+         rit != inst_mgr_->end(); ++rit) {
+        RoutingInstance::RouteTableList const rt_list = rit->GetTables();
+        for (RoutingInstance::RouteTableList::const_iterator it =
+             rt_list.begin(); it != rt_list.end(); ++it) {
+            BgpTable *table = it->second;
+
+            BgpTableInfoData table_info;
+            table_info.table_stats_info.destinations = table->Size();
+            table_info.table_stats_info.primary_paths = table->GetPrimaryPathCount();
+            table_info.table_stats_info.secondary_paths = table->GetSecondaryPathCount();
+            table_info.table_stats_info.infeasible_paths = table->GetInfeasiblePathCount();
+            table_info.set_name(table->name());
+            BGPTableInfo::Send(table_info);
+        }
+    }
 }

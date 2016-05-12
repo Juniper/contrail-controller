@@ -270,8 +270,12 @@ public:
     bool ResumeClose();
     void MembershipRequestCallback(IPeer *ipeer, BgpTable *table);
 
-    virtual void UpdateRefCount(int count) const { refcount_ += count; }
-    virtual tbb::atomic<int> GetRefCount() const { return refcount_; }
+    virtual void UpdateTotalPathCount(int count) const {
+        total_path_count_ += count;
+    }
+    virtual int GetTotalPathCount() const {
+        return total_path_count_;
+    }
     virtual void UpdatePrimaryPathCount(int count) const {
         primary_path_count_ += count;
     }
@@ -447,7 +451,7 @@ private:
     boost::scoped_ptr<PeerStats> peer_stats_;
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<BgpPeer> instance_delete_ref_;
-    mutable tbb::atomic<int> refcount_;
+    mutable tbb::atomic<int> total_path_count_;
     mutable tbb::atomic<int> primary_path_count_;
     uint64_t flap_count_;
     uint64_t last_flap_;
