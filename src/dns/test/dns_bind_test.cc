@@ -950,46 +950,46 @@ TEST_F(DnsBindTest, DnsResponseParse) {
     EXPECT_TRUE(add == add_in);
 }
 
-// Check the parsing of an error DNS Response
-TEST_F(DnsBindTest, DnsResponseErrorParse) {
-    uint8_t buf[1024];
-    int count = 3;
-    DnsItems ans_in, auth_in, add_in;
-    for (int i = 0; i < count; i++) {
-        DnsItem item;
-        item.eclass = DNS_CLASS_IN;
-        item.type = DNS_A_RECORD;
-        item.ttl = 100;
-        item.name = names[i];
-        item.data = addresses[i];
-        ans_in.push_back(item);
 
-        item.type = DNS_NS_RECORD;
-        item.name = auth_names[i];
-        auth_in.push_back(item);
-    }
+// Check the parsing of a DNS SRV Response
+TEST_F(DnsBindTest, DnsResponseSRVParse) {
+    uint8_t buf[1024];
+    int count = 1;
+    DnsItems ans_in, auth_in, add_in;
+    
+    DnsItem item;
+    item.eclass = DNS_CLASS_IN;
+    item.type = DNS_SRV_RECORD;
+    item.ttl = 100;
+    item.name = "_rubygems._tcp.rubygems.org";
+    item.srv.priority = 0;
+    item.srv.weight = 1;
+    item.srv.port = 80;
+    item.srv.hostname = "api.rubygems.org";
+    ans_in.push_back(item);
 
     dnshdr *dns = (dnshdr *) buf;
     BindUtil::BuildDnsHeader(dns, 0x0102, DNS_QUERY_RESPONSE, DNS_OPCODE_QUERY,
                              0, 0, 0, 0);
     dns->ques_rrcount = htons(count);
-    // send wrong count for answer
-    dns->ans_rrcount = htons(10);
-    dns->auth_rrcount = htons(3);
-    dns->add_rrcount = htons(1);
+    dns->ans_rrcount = htons(count);
+    dns->auth_rrcount = 0;
+    dns->add_rrcount = 0;
+
     uint16_t len = sizeof(dnshdr);
     uint8_t *ptr = (uint8_t *) (dns + 1);
     for (int i = 0; i < count; i++)
-        ptr = BindUtil::AddQuestionSection(ptr, names[i],
-                                           DNS_A_RECORD, DNS_CLASS_IN, len);
+        ptr = BindUtil::AddQuestionSection(ptr, "_rubygems._tcp.rubygems.org",
+                                           DNS_SRV_RECORD, DNS_CLASS_IN, len);
     for (DnsItems::iterator it = ans_in.begin(); it != ans_in.end(); it++)
         ptr = BindUtil::AddAnswerSection(ptr, *it, len);
 
     uint16_t xid;
     dns_flags flags;
     DnsItems ques, ans, auth, add;
-    EXPECT_FALSE(BindUtil::ParseDnsResponse(buf, len, xid, flags,
+    EXPECT_TRUE(BindUtil::ParseDnsResponse(buf, len, xid, flags,
                  ques, ans, auth, add));
+    EXPECT_TRUE(ans == ans_in);
 }
 
 // Check the parsing of a DNS Update
