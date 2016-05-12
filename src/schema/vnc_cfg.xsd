@@ -2148,10 +2148,19 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:restriction>
 </xsd:simpleType>
 
+<xsd:simpleType name="HealthCheckType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="link-local"/>
+        <xsd:enumeration value="end-to-end"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name='ServiceHealthCheckType'>
     <xsd:sequence>
         <xsd:element name='enabled' type='xsd:boolean' default='false' required='optional' operations='CRUD'
              description='Administratively enable or disable this health check.'/>
+        <xsd:element name='health-check-type' type='HealthCheckType' default='link-local', required='true' operations='CRUD'
+             description='Health check type, currently only link-local and end-to-end are supported'/>
         <xsd:element name='monitor-type' type='HealthCheckProtocolType' required='true' operations='CRUD'
              description='Protocol used to monitor health, currently only HTTP and ICMP(ping) is supported'/>
         <xsd:element name='delay' type='xsd:integer' required='true' operations='CRUD'
