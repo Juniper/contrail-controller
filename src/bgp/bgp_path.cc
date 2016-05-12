@@ -131,7 +131,7 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
 void BgpPath::UpdatePeerRefCount(int count) const {
     if (!peer_)
         return;
-    peer_->UpdateRefCount(count);
+    peer_->UpdateTotalPathCount(count);
     if (source_ != BGP_XMPP || IsReplicated())
         return;
     peer_->UpdatePrimaryPathCount(count);
