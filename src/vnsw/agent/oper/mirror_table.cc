@@ -153,11 +153,7 @@ void MirrorTable::MirrorSockInit(void) {
     assert(ec.value() == 0);
 
     udp_sock_->bind(ep, ec);
-    if (ec.value() != 0) {
-        ep.port(0);
-        udp_sock_->bind(ep, ec);
-        assert(ec.value() == 0);
-    }
+    assert(ec.value() == 0);
 
     ip::udp::endpoint sock_ep = udp_sock_->local_endpoint(ec);
     assert(ec.value() == 0);
