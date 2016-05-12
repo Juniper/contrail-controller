@@ -3673,6 +3673,8 @@ class ServiceInstanceST(DBBaseST):
             if not vm_pt:
                 continue
             vmi = vm_pt.get_vmi_by_service_type(side)
+            if not vmi:
+                continue
             return vmi.get_any_instance_ip_address(version)
         return None
 
