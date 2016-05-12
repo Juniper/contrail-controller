@@ -67,7 +67,7 @@ class DsTestCase(test_common.TestCase):
 
 
     def tearDown(self):
-        test_utils.CassandraCFs.reset(cf_list=['discovery'])
+        test_utils.CassandraCFs.reset(cf_list=['DISCOVERY_SERVER_discovery'])
         test_common.kill_disc_server(self._disc_server_greenlet)
         super(DsTestCase, self).tearDown()
 
