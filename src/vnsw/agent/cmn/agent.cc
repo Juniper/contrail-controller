@@ -206,6 +206,7 @@ void Agent::SetAgentTaskPolicy() {
                      sizeof(xmpp_config_exclude_list) / sizeof(char *));
 
     const char *controller_xmpp_exclude_list[] = {
+        "Agent::Services",
         "io::ReaderTask",
         "db::DBTable",
         AGENT_SHUTDOWN_TASKNAME,

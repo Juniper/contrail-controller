@@ -103,6 +103,23 @@ bool BindResolver::DnsSend(uint8_t *pkt, unsigned int dns_srv_index,
     }
 }
 
+bool BindResolver::DnsSend(uint8_t *pkt, boost::asio::ip::udp::endpoint ep,
+                           std::size_t len) {
+    if (len > 0) {
+        sock_.async_send_to(
+            boost::asio::buffer(pkt, len),ep,
+            boost::bind(&BindResolver::DnsSendHandler, this,
+                        boost::asio::placeholders::error,
+                        boost::asio::placeholders::bytes_transferred, pkt));
+        return true;
+    } else {
+        DNS_BIND_TRACE(DnsBindError, "Invalid length of packet: " << len
+                       << ";");
+        delete [] pkt;
+        return false;
+    }
+}
+
 void BindResolver::DnsSendHandler(const boost::system::error_code &error,
                                   std::size_t length, uint8_t *pkt) {
     if (error)
