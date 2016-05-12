@@ -2068,6 +2068,16 @@ void AddActiveActiveInstanceIp(const char *name, int id, const char *addr) {
     AddNode("instance-ip", name, id, buf);
 }
 
+void AddHealthCheckServiceInstanceIp(const char *name, int id,
+                                     const char *addr) {
+    char buf[256];
+
+    sprintf(buf, "<instance-ip-address>%s</instance-ip-address>"
+                 "<service-health-check-ip>true</service-health-check-ip>"
+                 "<instance-ip-mode>active-backup</instance-ip-mode>", addr);
+    AddNode("instance-ip", name, id, buf);
+}
+
 void DelInstanceIp(const char *name) {
     DelNode("instance-ip", name);
 }

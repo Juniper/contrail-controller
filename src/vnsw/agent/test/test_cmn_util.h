@@ -371,6 +371,8 @@ bool VlanNhFind(int id, uint16_t tag);
 void AddInstanceIp(const char *name, int id, const char* addr);
 void AddSubnetType(const char *name, int id, const char* addr, uint8_t);
 void AddActiveActiveInstanceIp(const char *name, int id, const char* addr);
+void AddHealthCheckServiceInstanceIp(const char *name, int id,
+                                     const char *addr);
 void DelInstanceIp(const char *name);
 extern Peer *bgp_peer_;
 VxLanId* GetVxLan(const Agent *agent, uint32_t vxlan_id);

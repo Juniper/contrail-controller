@@ -3734,6 +3734,76 @@ TEST_F(IntfTest, MultipleIp3) {
     client->Reset();
 }
 
+//Addition and deletion of service health check IP
+TEST_F(IntfTest, ServiceHealthCheckIP) {
+    struct PortInfo input1[] = {
+        {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    client->Reset();
+    CreateVmportEnv(input1, 1, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    client->Reset();
+
+    AddHealthCheckServiceInstanceIp("instance2", input1[0].vm_id, "1.1.1.10");
+    AddLink("virtual-machine-interface", input1[0].name,
+            "instance-ip", "instance2");
+    client->WaitForIdle();
+
+    const VmInterface *vm_intf = static_cast<const VmInterface *>(VmPortGet(8));
+    const MacAddress mac("00:00:00:01:01:01");
+    Ip4Address ip = Ip4Address::from_string("8.1.1.1");
+    Ip4Address service_hc_ip = Ip4Address::from_string("1.1.1.10");
+    Ip4Address zero_ip = Ip4Address::from_string("0.0.0.0");
+
+    EXPECT_TRUE(L2RouteFind("vrf1", mac));
+    EvpnRouteEntry *evpn_rt = EvpnRouteGet("vrf1", mac, zero_ip,
+                                           vm_intf->ethernet_tag());
+    EXPECT_TRUE(evpn_rt != NULL);
+    EXPECT_TRUE(evpn_rt->GetActiveNextHop()->PolicyEnabled() == true);
+
+    //Verify primary route is found
+    evpn_rt = EvpnRouteGet("vrf1", mac, ip, vm_intf->ethernet_tag());
+    EXPECT_TRUE(evpn_rt != NULL);
+    EXPECT_TRUE(evpn_rt->GetActiveNextHop()->PolicyEnabled() == true);
+    EXPECT_TRUE(RouteFind("vrf1", ip, 32));
+
+    //Verify service health check IP route is found
+    evpn_rt = EvpnRouteGet("vrf1", mac, service_hc_ip, vm_intf->ethernet_tag());
+    EXPECT_TRUE(evpn_rt != NULL);
+    EXPECT_TRUE(evpn_rt->GetActiveNextHop()->PolicyEnabled() == true);
+    EXPECT_TRUE(RouteFind("vrf1", service_hc_ip, 32));
+    EXPECT_TRUE(vm_intf->instance_ipv4_list().list_.size() == 2);
+    EXPECT_TRUE(vm_intf->service_health_check_ip().to_v4() == service_hc_ip);
+
+    DelLink("virtual-machine-interface", input1[0].name,
+            "instance-ip", "instance2");
+    client->WaitForIdle();
+
+    //Verify primary route is found
+    evpn_rt = EvpnRouteGet("vrf1", mac, ip, vm_intf->ethernet_tag());
+    EXPECT_TRUE(evpn_rt != NULL);
+    EXPECT_TRUE(evpn_rt->GetActiveNextHop()->PolicyEnabled() == true);
+    EXPECT_TRUE(RouteFind("vrf1", ip, 32));
+
+    //Verify secondary IP route is not found since link is deleted
+    evpn_rt = EvpnRouteGet("vrf1", mac, service_hc_ip, vm_intf->ethernet_tag());
+    EXPECT_TRUE(evpn_rt == NULL);
+    EXPECT_FALSE(RouteFind("vrf1", service_hc_ip, 32));
+    EXPECT_TRUE(vm_intf->instance_ipv4_list().list_.size() == 1);
+    EXPECT_TRUE(vm_intf->service_health_check_ip().to_v4() == zero_ip);
+
+    DelInstanceIp("instance2");
+    DeleteVmportEnv(input1, 1, true, 1);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(8));
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
+    WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_table()->Find(&key, true)
+                == NULL));
+    client->Reset();
+}
+
 TEST_F(IntfTest, Add_vmi_with_zero_mac_and_update_with_correct_mac) {
     struct PortInfo input[] = {
         {"vnet10", 10, "1.1.1.1", "00:00:00:00:00:00", 10, 10},
