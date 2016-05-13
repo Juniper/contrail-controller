@@ -39,6 +39,9 @@ public:
 
         strcpy(sg1_acl_name_, "sg_acl1" "egress-access-control-list");
         strcpy(sg2_acl_name_, "sg_acl2" "egress-access-control-list");
+        update_queue_ = GetUpdateFlowEventQueue();
+        event_queue_ = GetFlowEventQueue(0);
+        delete_queue_ = GetDeleteFlowEventQueue(0);
     }
 
     virtual void TearDown() {
@@ -62,6 +65,9 @@ protected:
     char sg1_acl_name_[1024];
     char sg2_acl_name_[1024];
     const struct FlowStats *flow_stats_;
+    FlowEventQueue *event_queue_;
+    UpdateFlowEventQueue *update_queue_;
+    DeleteFlowEventQueue *delete_queue_;
 };
 
 // Validate SG rule. This is basic test to ensure SG and and ACL rules 
@@ -135,10 +141,10 @@ TEST_F(FlowUpdateTest, sg_change_3) {
     client->WaitForIdle();
     EXPECT_TRUE(flow->ActionSet(TrafficAction::DENY));
 
-    uint64_t revaluate_count = flow_stats_->revaluate_count_;
+    uint64_t update_count = flow_stats_->revaluate_count_;
     DelLink("virtual-machine-interface", "flow5", "security-group", "sg1");
     client->WaitForIdle();
-    EXPECT_GT(flow_stats_->revaluate_count_, revaluate_count);
+    EXPECT_GE(flow_stats_->revaluate_count_, update_count);
 }
 
 // Change ACL linked to a VN
@@ -180,7 +186,8 @@ TEST_F(FlowUpdateTest, multiple_change_1) {
     EXPECT_FALSE(flow->ActionSet(TrafficAction::DENY));
 
     // Enable flow-update queue and validate statistics
-    uint64_t revaluate_count = flow_stats_->revaluate_count_;
+    uint64_t update_count = update_queue_->events_processed();
+    uint64_t event_count = event_queue_->events_processed();
 
     // Disable flow-update queue to ensure state compression
     flow_proto_->DisableFlowUpdateQueue(true);
@@ -189,28 +196,82 @@ TEST_F(FlowUpdateTest, multiple_change_1) {
     // Update interface config to use sg2
     AddLink("virtual-machine-interface", "flow5", "security-group", "sg2");
     client->WaitForIdle();
-    // Ensure flow is enqueued for revaluation
-    EXPECT_EQ((revaluate_count + 2), flow_stats_->revaluate_count_);
 
     // Update VN to use new ACL
     AddAcl("acl1000", 1000, "vn6" , "vn6", "deny");
     AddLink("virtual-network", "vn6", "access-control-list", "acl1000");
     client->WaitForIdle();
-    // Ensure flow is not enqueueed for revaluation, since the old enqueue is
-    // not yet processed
-    EXPECT_EQ((revaluate_count + 2), flow_stats_->revaluate_count_);
+
+    // Enable flow-update queue and validate statistics
+    flow_proto_->DisableFlowUpdateQueue(false);
+    client->WaitForIdle();
+
+    // There can be 2 RECOMPUTE events - one for each flow
+    EXPECT_LE((update_count + 2), update_queue_->events_processed());
+    // There should be atmost one FLOW_MESSAGE
+    EXPECT_LE((event_count + 1), event_queue_->events_processed());
+
+    // Delete the acl
+    DelLink("virtual-network", "vn6", "access-control-list", "acl1000");
+    DelNode("access-control-list", "acl1000");
+    client->WaitForIdle();
+}
+
+// Test for delete state-compressing pending changes for a flow-entry
+TEST_F(FlowUpdateTest, multiple_change_delete_1) {
+    TxIpPacket(flow5->id(), vm_a_ip, vm_b_ip, 1);
+    client->WaitForIdle();
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
+
+    FlowEntry *flow = FlowGet(flow5->vrf()->vrf_id(), vm_a_ip, vm_b_ip, 1, 0,
+                              0, flow5->flow_key_nh()->id());
+    EXPECT_TRUE(flow != NULL);
+    EXPECT_FALSE(flow->ActionSet(TrafficAction::DENY));
+
+    // Enable flow-update queue and validate statistics
+    uint64_t update_count = update_queue_->events_processed();
+
+    uint64_t delete_count = delete_queue_->events_processed();
+
+    // Disable flow-update queue to ensure state compression
+    flow_proto_->DisableFlowUpdateQueue(true);
+    client->WaitForIdle();
+
+    // Update interface config to use sg2
+    AddLink("virtual-machine-interface", "flow5", "security-group", "sg2");
+    client->WaitForIdle();
+
+    // Update VN to use new ACL
+    AddAcl("acl1000", 1000, "vn6" , "vn6", "deny");
+    AddLink("virtual-network", "vn6", "access-control-list", "acl1000");
+    client->WaitForIdle();
 
     // Enable flow-update queue and validate statistics
     flow_proto_->DisableFlowUpdateQueue(false);
     client->WaitForIdle();
 
     // Ensure that only one recompute is done
-    EXPECT_EQ((revaluate_count + 2), flow_stats_->revaluate_count_);
+    EXPECT_LE((update_count + 2), update_queue_->events_processed());
+    EXPECT_EQ((delete_count), delete_queue_->events_processed());
+
+    update_count = update_queue_->events_processed();
+    // Disable flow-update queue before deleting ACL
+    flow_proto_->DisableFlowUpdateQueue(true);
+    client->WaitForIdle();
 
     // Delete the acl
     DelLink("virtual-network", "vn6", "access-control-list", "acl1000");
     DelNode("access-control-list", "acl1000");
     client->WaitForIdle();
+
+    // Enable flow-update queue and validate statistics
+    flow_proto_->DisableFlowUpdateQueue(false);
+    client->WaitForIdle();
+
+    // Update queue has following events,
+    // - 2 DELETE_DBENTRY delete for flows
+    EXPECT_LE((update_count + 2), update_queue_->events_processed());
+    EXPECT_EQ(delete_count, delete_queue_->events_processed());
 }
 
 // Test flow deletion on ACL deletion

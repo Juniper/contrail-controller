@@ -78,11 +78,8 @@ bool FlowHandler::Run() {
         // forward flow only take lock only on forward flow
         tbb::mutex::scoped_lock lock1(fe->mutex());
         assert(flow_table_index_ == fe->flow_table()->table_index());
-        if (fe->deleted() || fe->is_flags_set(FlowEntry::ShortFlow)) {
-            return true;
-        }
 
-        if (fe->is_flags_set(FlowEntry::ShortFlow)) {
+        if (fe->deleted() || fe->is_flags_set(FlowEntry::ShortFlow)) {
             return true;
         }
 

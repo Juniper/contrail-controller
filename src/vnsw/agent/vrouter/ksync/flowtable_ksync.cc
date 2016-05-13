@@ -579,7 +579,7 @@ bool FlowTableKSyncObject::TimerExpiry() {
         count++;
         if (!flow_entry->deleted()) {
             FlowProto *proto = ksync()->agent()->pkt()->get_flow_proto();
-            proto->EnqueueUnResolvedFlowEntry(flow);
+            proto->EnqueueUnResolvedFlowEntry(flow.get());
         }
     }
     if (!unresolved_flow_list_.empty())
