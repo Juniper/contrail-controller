@@ -1146,6 +1146,7 @@ class LogicalRouterSM(DBBaseSM):
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
+        self.fq_name = obj['fq_name']
         self.parent_uuid = obj['parent_uuid']
         self.update_single_ref('service_instance', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
