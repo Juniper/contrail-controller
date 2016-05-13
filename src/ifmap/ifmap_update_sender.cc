@@ -240,9 +240,8 @@ void IFMapUpdateSender::SendUpdate(BitSet send_set, BitSet *blocked_set) {
          i = send_set.find_next(i)) {
         assert(!send_blocked_.test(i));
         client = server_->GetClient(i);
-        if (client == NULL) {
-            continue;
-        }
+        assert(client);
+
         message_->SetReceiverInMsg(client->identifier());
         // Close the message to save the document as string
         message_->Close();
