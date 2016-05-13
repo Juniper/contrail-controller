@@ -664,7 +664,7 @@ void MulticastHandler::ModifyEvpnMembers(const Peer *peer,
 
     TriggerRemoteRouteChange(obj, peer, vrf_name, olist,
                              peer_identifier, delete_op, Composite::EVPN,
-                             ethernet_tag, false, ethernet_tag);
+                             MplsTable::kInvalidLabel, false, ethernet_tag);
     MCTRACE(Log, "Add EVPN TOR Olist ", vrf_name, grp.to_string(), 0);
 }
 
