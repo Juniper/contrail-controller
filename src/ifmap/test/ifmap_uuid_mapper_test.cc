@@ -71,6 +71,9 @@ protected:
         TASK_UTIL_EXPECT_TRUE(state->interest().test(index) == binterest);
         TASK_UTIL_EXPECT_TRUE(state->advertised().test(index) == badvertised);
     }
+    void SimulateDeleteClient(IFMapClient *c1) {
+        server_.SimulateDeleteClient(c1);
+    }
 
     DB db_;
     DBGraph db_graph_;
@@ -129,6 +132,147 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, ConfigThenSubscribe) {
     TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-network"), 1);
     TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine"), 3);
     TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine-interface"), 3);
+    EXPECT_EQ(vm_uuid_mapper_->UuidMapperCount(), 3);
+    EXPECT_EQ(vm_uuid_mapper_->NodeUuidMapCount(), 3);
+    EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
+}
+
+// Add all the config and then simulate receiving a vm-subscribe just after the
+// node was marked deleted.
+TEST_P(IFMapVmUuidMapperTestWithParam1, VmSubUnsubWithDeletedNode) {
+    string filename = GetParam();
+    string content = FileRead(filename);
+    assert(content.size() != 0);
+    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
+        "2d308482-c7b3-4e05-af14-e732b7b50117"));
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
+        "93e76278-1990-4905-a472-8e9188f41b2c"));
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
+        "43d086ab-52c4-4a1f-8c3d-63b321e36e8a"));
+    EXPECT_EQ(vm_uuid_mapper_->UuidMapperCount(), 3);
+    EXPECT_EQ(vm_uuid_mapper_->NodeUuidMapCount(), 3);
+    EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
+
+    IFMapClientMock
+        c1("default-global-system-config:a1s27.contrail.juniper.net");
+    server_.AddClient(&c1);
+
+    IFMapNode *vm = vm_uuid_mapper_->GetVmNodeByUuid(
+        "2d308482-c7b3-4e05-af14-e732b7b50117");
+    EXPECT_TRUE(vm != NULL);
+    IFMapObject *obj = vm->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    ASSERT_TRUE(obj != NULL);
+
+    // vm-subscribe for the first VM
+    EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
+    server_.ProcessVmSubscribe(
+        "default-global-system-config:a1s27.contrail.juniper.net",
+        "2d308482-c7b3-4e05-af14-e732b7b50117", true, 1);
+    task_util::WaitForIdle();
+    EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
+    task_util::WaitForIdle();
+
+    // Simulate receiving a vm-subscribe for the second VM after the VM node is
+    // deleted. The second VM should show up in the pending list.
+    vm = vm_uuid_mapper_->GetVmNodeByUuid(
+        "93e76278-1990-4905-a472-8e9188f41b2c");
+    EXPECT_TRUE(vm != NULL);
+    obj = vm->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    ASSERT_TRUE(obj != NULL);
+    EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
+    vm->MarkDelete();
+    server_.ProcessVmSubscribe(
+        "default-global-system-config:a1s27.contrail.juniper.net",
+        "93e76278-1990-4905-a472-8e9188f41b2c", true, 2);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 1);
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
+        "93e76278-1990-4905-a472-8e9188f41b2c"));
+    string vr_name;
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->PendingVmRegExists(
+        "93e76278-1990-4905-a472-8e9188f41b2c", &vr_name));
+    task_util::WaitForIdle();
+
+    // Send a vm-unsubscribe while the node is deleted. The pending vm-reg
+    // should be removed.
+    server_.ProcessVmSubscribe(
+        "default-global-system-config:a1s27.contrail.juniper.net",
+        "93e76278-1990-4905-a472-8e9188f41b2c", false, 2);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
+        "93e76278-1990-4905-a472-8e9188f41b2c"));
+    TASK_UTIL_EXPECT_FALSE(vm_uuid_mapper_->PendingVmRegExists(
+        "93e76278-1990-4905-a472-8e9188f41b2c", &vr_name));
+    task_util::WaitForIdle();
+}
+
+// Vm-sub with deleted node followed by vm_uuid_mapper processing a node-delete
+// followed by processing revival of the node.
+TEST_P(IFMapVmUuidMapperTestWithParam1, DeletedNodeRevival) {
+    string filename = GetParam();
+    string content = FileRead(filename);
+    assert(content.size() != 0);
+    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
+        "2d308482-c7b3-4e05-af14-e732b7b50117"));
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
+        "93e76278-1990-4905-a472-8e9188f41b2c"));
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
+        "43d086ab-52c4-4a1f-8c3d-63b321e36e8a"));
+    EXPECT_EQ(vm_uuid_mapper_->UuidMapperCount(), 3);
+    EXPECT_EQ(vm_uuid_mapper_->NodeUuidMapCount(), 3);
+
+    IFMapClientMock
+        c1("default-global-system-config:a1s27.contrail.juniper.net");
+    server_.AddClient(&c1);
+
+    // Simulate receiving a vm-subscribe for a VM *after* the VM node is marked
+    // deleted. The VM should show up in the pending list.
+    IFMapNode *vm = vm_uuid_mapper_->GetVmNodeByUuid(
+        "93e76278-1990-4905-a472-8e9188f41b2c");
+    EXPECT_TRUE(vm != NULL);
+    IFMapObject *obj = vm->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    ASSERT_TRUE(obj != NULL);
+    EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
+    vm->MarkDelete();
+    server_.ProcessVmSubscribe(
+        "default-global-system-config:a1s27.contrail.juniper.net",
+        "93e76278-1990-4905-a472-8e9188f41b2c", true, 2);
+    task_util::WaitForIdle();
+    EXPECT_EQ(vm_uuid_mapper_->UuidMapperCount(), 3);
+    EXPECT_EQ(vm_uuid_mapper_->NodeUuidMapCount(), 3);
+    TASK_UTIL_EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 1);
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
+        "93e76278-1990-4905-a472-8e9188f41b2c"));
+    task_util::WaitForIdle();
+
+    // Simulate the vm_uuid_mapper processing the VM node-delete. The counts in
+    // the mapper maps should go down by one but the pending list should still
+    // have the VM's reg request.
+    DBTable *table = vm->table();
+    DBTablePartBase *partition = table->GetTablePartition(0);
+    ASSERT_TRUE(table != NULL);
+    vm_uuid_mapper_->VmNodeProcess(partition, vm);
+    task_util::WaitForIdle();
+    EXPECT_EQ(vm_uuid_mapper_->UuidMapperCount(), 2);
+    EXPECT_EQ(vm_uuid_mapper_->NodeUuidMapCount(), 2);
+    EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 1);
+    TASK_UTIL_EXPECT_FALSE(vm_uuid_mapper_->VmNodeExists(
+        "93e76278-1990-4905-a472-8e9188f41b2c"));
+
+    // Simulate that the deleted node is getting revived by removing the
+    // deleted flag and the vm_uuid_mapper processes this node revival.
+    vm->ClearDelete();
+    vm_uuid_mapper_->VmNodeProcess(partition, vm);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
+        "93e76278-1990-4905-a472-8e9188f41b2c"));
     EXPECT_EQ(vm_uuid_mapper_->UuidMapperCount(), 3);
     EXPECT_EQ(vm_uuid_mapper_->NodeUuidMapCount(), 3);
     EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
