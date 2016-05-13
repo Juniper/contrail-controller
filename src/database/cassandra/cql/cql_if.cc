@@ -1357,13 +1357,17 @@ class CqlIf::CqlIfImpl {
             consistency);
     }
 
-    bool AddPrepareInsertIntoTable(const GenDb::NewCf &cf) {
+    bool LocatePrepareInsertIntoTable(const GenDb::NewCf &cf) {
+        const std::string &table_name(cf.cfname_);
         impl::CassPreparedPtr prepared;
+        // Check if the prepared statement exists
+        if (GetPrepareInsertIntoTable(table_name, &prepared)) {
+            return true;
+        }
         bool success(PrepareInsertIntoTableSync(cf, &prepared));
         if (!success) {
             return success;
         }
-        const std::string &table_name(cf.cfname_);
         // Store the prepared statement into the map
         tbb::mutex::scoped_lock lock(map_mutex_);
         success = (insert_prepared_map_.insert(
@@ -1378,7 +1382,6 @@ class CqlIf::CqlIfImpl {
         CassPreparedMapType::const_iterator it(
             insert_prepared_map_.find(table_name));
         if (it == insert_prepared_map_.end()) {
-            CQLIF_LOG_ERR("CassPrepared statement NOT found: " << table_name);
             return false;
         }
         *prepared = it->second;
@@ -1664,6 +1667,8 @@ class CqlIf::CqlIfImpl {
         impl::CassPreparedPtr prepared;
         bool success(GetPrepareInsertIntoTable(v_columns->cfname_, &prepared));
         if (!success) {
+            CQLIF_LOG_ERR("CassPrepared statement NOT found: " <<
+                v_columns->cfname_);
             return false;
         }
         impl::CassStatementPtr qstatement(cass_prepared_bind(prepared.get()));
@@ -1813,8 +1818,8 @@ bool CqlIf::Db_AddColumnfamily(const GenDb::NewCf &cf) {
         IncrementErrors(GenDb::IfErrors::ERR_WRITE_COLUMN_FAMILY);
         return success;
     }
-    // Add INSERT INTO prepare statement
-    success = impl_->AddPrepareInsertIntoTable(cf);
+    // Locate (add if not exists) INSERT INTO prepare statement
+    success = impl_->LocatePrepareInsertIntoTable(cf);
     if (!success) {
         IncrementTableWriteFailStats(cf.cfname_);
         IncrementErrors(GenDb::IfErrors::ERR_WRITE_COLUMN_FAMILY);
