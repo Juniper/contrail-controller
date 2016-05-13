@@ -48,6 +48,7 @@ public:
     void UnmapFlowMemTest();
     void MapSharedMemory();
     void GetFlowTableSize();
+    bool IsEvictionMarked(const vr_flow_entry *entry) const;
 
     KSync *ksync() const { return ksync_; }
     void set_major_devid(int id) { major_devid_ = id; }

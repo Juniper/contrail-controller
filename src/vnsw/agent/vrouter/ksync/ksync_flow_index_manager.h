@@ -50,6 +50,7 @@ public:
 
     void Update(FlowEntry *flow);
     void Delete(FlowEntry *flow);
+    void DisableSend(FlowEntry *flow);
     void UpdateFlowHandle(FlowTableKSyncEntry *kentry, uint32_t index,
                           uint8_t gen_id);
     void TriggerKSyncEvent(FlowTableKSyncEntry *kentry,

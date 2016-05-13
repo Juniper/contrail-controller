@@ -103,6 +103,8 @@ public:
     uint32_t old_first_mirror_index() {
         return old_first_mirror_index_;
     }
+    void set_send_to_vrouter(bool value) { send_to_vrouter_ = value; }
+    bool send_to_vrouter() const { return send_to_vrouter_; }
 
 private:
     friend class KSyncFlowEntryFreeList;
@@ -130,6 +132,7 @@ private:
     FlowKSyncResponseInfo ksync_response_info_;
     FlowTableKSyncObject *ksync_obj_;
     boost::intrusive::list_member_hook<> free_list_node_;
+    bool send_to_vrouter_;
     DISALLOW_COPY_AND_ASSIGN(FlowTableKSyncEntry);
 };
 

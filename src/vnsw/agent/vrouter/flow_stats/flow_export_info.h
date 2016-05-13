@@ -49,6 +49,8 @@ public:
     }
     void set_delete_enqueue_time(uint64_t value) { delete_enqueue_time_ = value; }
     uint64_t delete_enqueue_time() const { return delete_enqueue_time_; }
+    void set_evict_enqueue_time(uint64_t value) { evict_enqueue_time_ = value; }
+    uint64_t evict_enqueue_time() const { return evict_enqueue_time_; }
 private:
     FlowEntryPtr flow_;
     boost::uuids::uuid egress_uuid_; // used/applicable only for local flows
@@ -71,6 +73,7 @@ private:
     bool changed_;
     uint16_t tcp_flags_;
     uint64_t delete_enqueue_time_;
+    uint64_t evict_enqueue_time_;
 };
 
 #endif //  __AGENT_FLOW_EXPORT_INFO_H__

@@ -262,6 +262,7 @@ public:
     friend class PktFlowInfo;
     friend void intrusive_ptr_release(FlowEntry *fe);
 private:
+    void DisableKSyncSend(FlowEntry *flow);
     bool IsEvictedFlow(const FlowKey &key);
 
     void DeleteInternal(FlowEntry *fe, uint64_t t, const RevFlowDepParams &p);

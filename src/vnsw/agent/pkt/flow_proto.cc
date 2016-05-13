@@ -737,6 +737,9 @@ void UpdateStats(FlowEvent *req, FlowStats *stats) {
     case FlowEvent::REVALUATE_FLOW:
         stats->revaluate_count_++;
         break;
+    case FlowEvent::EVICT_FLOW:
+        stats->evict_count_++;
+        break;
     case FlowEvent::KSYNC_EVENT: {
         stats->vrouter_responses_++;
         FlowEventKSync *ksync_event = static_cast<FlowEventKSync *>(req);
@@ -787,6 +790,7 @@ void FlowProto::SetProfileData(ProfileData *data) {
     data->flow_.reval_count_ = stats_.revaluate_count_;
     data->flow_.vrouter_responses_ = stats_.vrouter_responses_;
     data->flow_.vrouter_error_ = stats_.vrouter_error_;
+    data->flow_.evict_count_ = stats_.evict_count_;
 
     PktModule *pkt = agent()->pkt();
     const FlowMgmtManager::FlowMgmtQueue *flow_mgmt =

@@ -297,8 +297,7 @@ void FlowStatsCollector::UpdateStatsAndExportFlow(FlowExportInfo *info,
     ExportFlow(info, 0, 0, p);
 }
 
-void FlowStatsCollector::FlowDeleteEnqueue(FlowExportInfo *info,
-                                           uint64_t t) {
+void FlowStatsCollector::FlowDeleteEnqueue(FlowExportInfo *info, uint64_t t) {
     FlowEntry *fe = info->flow();
     uint16_t idx = 0;
     if (fe->flow_table()) {
@@ -314,6 +313,13 @@ void FlowStatsCollector::FlowDeleteEnqueue(FlowExportInfo *info,
             rev_info->set_delete_enqueue_time(t);
         }
     }
+}
+
+void FlowStatsCollector::FlowEvictEnqueue(FlowExportInfo *info, uint64_t t) {
+    FlowEntry *fe = info->flow();
+    agent_uve_->agent()->pkt()->get_flow_proto()->EvictFlowRequest
+        (fe, fe->flow_handle(), fe->gen_id());
+    info->set_evict_enqueue_time(t);
 }
 
 void FlowStatsCollector::UpdateFlowStatsInternal(FlowExportInfo *info,
@@ -413,6 +419,21 @@ bool FlowStatsCollector::Run() {
         }
 
         count++;
+        const vr_flow_entry *k_flow = ksync_obj->GetValidKFlowEntry
+            (fe->key(), fe->flow_handle());
+
+        if (k_flow && ksync_obj->IsEvictionMarked(k_flow)) {
+            uint64_t evict_time = info->evict_enqueue_time();
+            if (evict_time) {
+                if ((curr_time - evict_time) > kFlowDeleteRetryTime) {
+                    FlowEvictEnqueue(info, curr_time);
+                }
+                continue;
+            }
+            FlowEvictEnqueue(info, curr_time);
+            continue;
+        }
+
         FlowExportInfo *rev_info = NULL;
         // Delete short flows
         if ((flow_stats_manager_->delete_short_flow() == true) &&
@@ -426,8 +447,6 @@ bool FlowStatsCollector::Run() {
         }
 
         bool deleted = false;
-        const vr_flow_entry *k_flow = ksync_obj->GetValidKFlowEntry
-            (fe->key(), fe->flow_handle());
         // Can the flow be aged?
         if (ShouldBeAged(info, k_flow, curr_time)) {
             rev_info = FindFlowExportInfo(rfe);
@@ -954,6 +973,7 @@ void FlowStatsCollector::AddFlow(FlowExportInfo info) {
     if (it != flow_tree_.end()) {
         it->second.set_changed(true);
         it->second.set_delete_enqueue_time(0);
+        it->second.set_evict_enqueue_time(0);
         return;
     }
 

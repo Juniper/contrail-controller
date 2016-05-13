@@ -131,6 +131,7 @@ void FlowTableKSyncEntry::Reset() {
     last_event_ = FlowEvent::INVALID;
     token_.reset();
     ksync_response_info_.Reset();
+    send_to_vrouter_ = true;
 }
 
 void FlowTableKSyncEntry::Reset(FlowEntry *flow, uint32_t hash_id) {
@@ -195,7 +196,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     // on vrouter-agent restart
     // TODO(prabhjot) need to move last gen id seen by vrouter in KSync
     // Index Manager
-    if (gen_id_ != evict_gen_id_) {
+    if ((gen_id_ != evict_gen_id_) || !send_to_vrouter_) {
         // skip sending update to vrouter for evicted entry
         flow_entry_->LogFlow(FlowEventLog::FLOW_MSG_SKIP_EVICTED, this,
                              hash_id_, evict_gen_id_);

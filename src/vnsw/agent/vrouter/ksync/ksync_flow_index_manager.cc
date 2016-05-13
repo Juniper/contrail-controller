@@ -101,6 +101,21 @@ void KSyncFlowIndexManager::Delete(FlowEntry *flow) {
 }
 
 //////////////////////////////////////////////////////////////////////////////
+// Delete:
+//     Flow module triggers this API to suppress message to vrouter
+//
+//     API ensures that evict_gen_id has different value from gen_id
+//////////////////////////////////////////////////////////////////////////////
+void KSyncFlowIndexManager::DisableSend(FlowEntry *flow) {
+    FlowTableKSyncEntry *kentry = flow->ksync_entry_;
+    if (kentry != NULL) {
+        if (kentry->gen_id() == kentry->evict_gen_id()) {
+            kentry->set_send_to_vrouter(false);
+        }
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////
 // UpdateFlowHandle:
 //     Flow module triggers this API to update flow handle for the reverse
 //     flow.

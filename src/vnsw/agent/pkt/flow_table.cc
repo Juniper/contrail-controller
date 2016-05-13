@@ -772,6 +772,7 @@ void FlowTable::DeleteMessage(FlowEntry *flow) {
 }
 
 void FlowTable::EvictFlow(FlowEntry *flow, FlowEntry *reverse_flow) {
+    DisableKSyncSend(flow);
     DeleteUnLocked(false, flow, NULL);
 
     // Reverse flow unlinked with forward flow. Make it short-flow
@@ -886,6 +887,11 @@ void FlowTable::UpdateKSync(FlowEntry *flow, bool update) {
         return;
     }
     mgr->Update(flow);
+}
+
+void FlowTable::DisableKSyncSend(FlowEntry *flow) {
+    KSyncFlowIndexManager *mgr = agent()->ksync()->ksync_flow_index_manager();
+    mgr->DisableSend(flow);
 }
 
 /////////////////////////////////////////////////////////////////////////////

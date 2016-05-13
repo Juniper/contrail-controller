@@ -26,11 +26,12 @@ struct FlowStats {
     uint64_t audit_count_;
     uint64_t vrouter_responses_;
     uint64_t vrouter_error_;
+    uint64_t evict_count_;
 
     FlowStats() :
         add_count_(0), delete_count_(0), flow_messages_(0),
         revaluate_count_(0), audit_count_(0), vrouter_responses_(0),
-        vrouter_error_(0) {
+        vrouter_error_(0), evict_count_(0) {
     }
 };
 
