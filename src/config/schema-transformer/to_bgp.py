@@ -1593,7 +1593,7 @@ class ServiceChain(DBBase):
 
     def log_error(self, msg):
         self.error_msg = msg
-        _sandesh._logger.error('service chain %s: ' + msg)
+        _sandesh._logger.error('service chain %s: %s' % (self.name, msg))
     # end log_error
 
     def check_create(self):
