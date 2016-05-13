@@ -45,9 +45,6 @@ class FlowProto : public Proto {
 public:
     static const int kMinTableCount = 1;
     static const int kMaxTableCount = 16;
-    static const int kFlowAddTokens = 800;
-    static const int kFlowDelTokens = 800;
-    static const int kFlowUpdateTokens = 400;
 
     FlowProto(Agent *agent, boost::asio::io_service &io);
     virtual ~FlowProto();
@@ -131,6 +128,7 @@ private:
     bool ProcessFlowEvent(const FlowEvent &req, FlowTable *table);
 
     FlowTokenPool add_tokens_;
+    FlowTokenPool ksync_tokens_;
     FlowTokenPool del_tokens_;
     FlowTokenPool update_tokens_;
     std::vector<FlowEventQueue *> flow_event_queue_;

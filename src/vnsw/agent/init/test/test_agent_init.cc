@@ -115,10 +115,14 @@ TEST_F(FlowTest, Agent_Flows_Option_1) {
     EXPECT_EQ(param.linklocal_system_flows(), 1024);
     EXPECT_EQ(param.linklocal_vm_flows(), 512);
     EXPECT_FALSE(param.flow_trace_enable());
+    EXPECT_EQ(param.flow_add_tokens(), 1000);
+    EXPECT_EQ(param.flow_ksync_tokens(), 1000);
+    EXPECT_EQ(param.flow_del_tokens(), 1000);
+    EXPECT_EQ(param.flow_update_tokens(), 500);
 }
 
 TEST_F(FlowTest, Agent_Flows_Option_Arguments) {
-    int argc = 11;
+    int argc = 19;
     char *argv[] = {
         (char *) "",
         (char *) "--FLOWS.thread_count",                   (char *)"8",
@@ -126,6 +130,10 @@ TEST_F(FlowTest, Agent_Flows_Option_Arguments) {
         (char *) "--FLOWS.max_system_linklocal_flows",     (char *)"24",
         (char *) "--FLOWS.max_vm_linklocal_flows",         (char *)"20",
         (char *) "--FLOWS.trace_enable",                   (char *)"true",
+        (char *) "--FLOWS.add_tokens",                     (char *)"2000",
+        (char *) "--FLOWS.ksync_tokens",                   (char *)"2000",
+        (char *) "--FLOWS.del_tokens",                     (char *)"2000",
+        (char *) "--FLOWS.update_tokens",                  (char *)"1000",
     };
 
     AgentParam param;
@@ -137,6 +145,10 @@ TEST_F(FlowTest, Agent_Flows_Option_Arguments) {
     EXPECT_EQ(param.linklocal_system_flows(), 24);
     EXPECT_EQ(param.linklocal_vm_flows(), 20);
     EXPECT_TRUE(param.flow_trace_enable());
+    EXPECT_EQ(param.flow_add_tokens(), 2000);
+    EXPECT_EQ(param.flow_ksync_tokens(), 2000);
+    EXPECT_EQ(param.flow_del_tokens(), 2000);
+    EXPECT_EQ(param.flow_update_tokens(), 1000);
 }
 
 TEST_F(FlowTest, Agent_Tbb_Option_1) {

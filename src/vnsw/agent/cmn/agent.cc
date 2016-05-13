@@ -383,6 +383,10 @@ void Agent::CopyConfig(AgentParam *params) {
     tor_agent_enabled_ = params_->isTorAgent();
     flow_thread_count_ = params_->flow_thread_count();
     flow_trace_enable_ = params_->flow_trace_enable();
+    flow_add_tokens_ = params_->flow_add_tokens();
+    flow_ksync_tokens_ = params_->flow_ksync_tokens();
+    flow_del_tokens_ = params_->flow_del_tokens();
+    flow_update_tokens_ = params_->flow_update_tokens();
     tbb_keepawake_timeout_ = params_->tbb_keepawake_timeout();
 }
 

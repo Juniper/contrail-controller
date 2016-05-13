@@ -119,6 +119,9 @@ void ProfileData::FlowTokenStats::Reset() {
     add_tokens_ = 0;
     add_failures_ = 0;
     add_restarts_ = 0;
+    ksync_tokens_ = 0;
+    ksync_failures_ = 0;
+    ksync_restarts_ = 0;
     update_tokens_ = 0;
     update_failures_ = 0;
     update_restarts_ = 0;
@@ -521,6 +524,9 @@ static void GetQueueSummaryInfo(SandeshFlowQueueSummaryInfo *info, int index,
     token_info.set_add_tokens(token_stats->add_tokens_);
     token_info.set_add_token_full(token_stats->add_failures_);
     token_info.set_add_token_restarts(token_stats->add_restarts_);
+    token_info.set_ksync_tokens(token_stats->ksync_tokens_);
+    token_info.set_ksync_token_full(token_stats->ksync_failures_);
+    token_info.set_ksync_token_restarts(token_stats->ksync_restarts_);
     token_info.set_update_tokens(token_stats->update_tokens_);
     token_info.set_update_token_full(token_stats->update_failures_);
     token_info.set_update_token_restarts(token_stats->update_restarts_);
