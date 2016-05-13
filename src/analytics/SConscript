@@ -123,6 +123,7 @@ if sys.platform != 'darwin':
     buildinfo_dep_libs += [ '../../lib/libtbb_debug.so.2' ]
     AnalyticsEnv.Prepend(LINKFLAGS =
                          ['-Wl,--whole-archive',
+                          '-lcpuinfo',
                           '-l:librdkafka.a', '-l:librdkafka++.a',
                           '-Wl,--no-whole-archive'])
 
