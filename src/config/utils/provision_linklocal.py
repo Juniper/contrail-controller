@@ -28,8 +28,9 @@ class MetadataProvisioner(object):
                  linklocal_service_ip=self._args.linklocal_service_ip,
                  linklocal_service_port=self._args.linklocal_service_port,
                  ip_fabric_DNS_service_name=self._args.ipfabric_dns_service_name,
-                 ip_fabric_service_port=self._args.ipfabric_service_port,
-                 ip_fabric_service_ip=[self._args.ipfabric_service_ip])
+                 ip_fabric_service_port=self._args.ipfabric_service_port)
+        if self._args.ipfabric_service_ip:
+            linklocal_obj.ip_fabric_service_ip=[self._args.ipfabric_service_ip]
 
         try:
             current_config=self._vnc_lib.global_vrouter_config_read(
