@@ -69,6 +69,8 @@ void AgentStatsReq::HandleRequest() const {
                 agent->flow_stats_manager()->flow_export_disable_drops());
         flow->set_flow_export_sampling_drops(
                 agent->flow_stats_manager()->flow_export_sampling_drops());
+        flow->set_flow_export_drops(
+                agent->flow_stats_manager()->flow_export_drops());
         flow->set_context(context());
         flow->set_more(true);
         flow->Response();

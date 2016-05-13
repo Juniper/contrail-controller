@@ -132,6 +132,10 @@ public:
         return flow_export_sampling_drops_;
     }
 
+    uint32_t flow_export_drops() const {
+        return flow_export_drops_;
+    }
+
     uint32_t threshold() const { return threshold_;}
     bool delete_short_flow() const {
         return delete_short_flow_;
@@ -163,6 +167,7 @@ private:
     uint32_t threshold_;
     tbb::atomic<uint64_t> flow_export_disable_drops_;
     tbb::atomic<uint64_t> flow_export_sampling_drops_;
+    tbb::atomic<uint64_t> flow_export_drops_;
     uint32_t prev_cfg_flow_export_rate_;
     Timer* timer_;
     bool delete_short_flow_;
