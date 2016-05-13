@@ -92,10 +92,15 @@ void NamedConfig::AddZone(const Subnet &subnet, const VirtualDnsConfig *vdns) {
     // Ignore zone files which already exist
     for (unsigned int i = 0; i < zones.size();) {
         std::ifstream file(zones[i].c_str());
-        if (file.good()) {
-            zones.erase(zones.begin() + i);
-        } else
-            i++;
+        if (file.is_open()) {
+            if (file.good()) {
+                zones.erase(zones.begin() + i);
+                file.close();
+                continue;
+            }
+            file.close();
+        }
+        i++;
     }
     AddZoneFiles(zones, vdns);
     UpdateNamedConf();
@@ -470,24 +475,17 @@ void NamedConfig::GetDefaultForwarders() {
 ///////////////////////////////////////////////////////////////////////////////
 
 BindStatus::BindStatus(BindEventHandler handler) 
-    : named_pid_(-1),
-      trigger_(boost::bind(&BindStatus::CheckBindStatus, this),
-               TaskScheduler::GetInstance()->GetTaskId("dns::BindStatus"), 0),
-      handler_(handler) {
+    : named_pid_(-1), handler_(handler), change_timeout_(true) {
     status_timer_ = TimerManager::CreateTimer(
-                    *Dns::GetEventManager()->io_service(), "BindStatusTimer");
-    status_timer_->Start(kInitTimeout, 
-                         boost::bind(&BindStatus::SetTrigger, this));
+                    *Dns::GetEventManager()->io_service(), "BindStatusTimer",
+                    TaskScheduler::GetInstance()->GetTaskId("dns::BindStatus"), 0);
+    status_timer_->Start(kInitTimeout,
+                         boost::bind(&BindStatus::CheckBindStatus, this));
 }
 
 BindStatus::~BindStatus() {
     status_timer_->Cancel();
     TimerManager::DeleteTimer(status_timer_);
-}
-
-bool BindStatus::SetTrigger() {
-    trigger_.Set();
-    return false;
 }
 
 // Check if a given pid belongs to contrail-named
@@ -497,18 +495,20 @@ bool BindStatus::IsBindPid(uint32_t pid) {
     str << "/proc/" << pid << "/cmdline";
 
     ifstream ifile(str.str().c_str());
-    if (ifile.good()) {
-        std::string cmdline;
-        cmdline.assign((istreambuf_iterator<char>(ifile)),
-                        istreambuf_iterator<char>());
-        istringstream cmdstream(cmdline);
-        if (cmdstream.str().find("/usr/bin/contrail-named") !=
-            std::string::npos) {
-           ret = true;
+    if (ifile.is_open()) {
+        if (ifile.good()) {
+            std::string cmdline;
+            cmdline.assign((istreambuf_iterator<char>(ifile)),
+                            istreambuf_iterator<char>());
+            istringstream cmdstream(cmdline);
+            if (cmdstream.str().find("/usr/bin/contrail-named") !=
+                std::string::npos) {
+               ret = true;
+            }
         }
+        ifile.close();
     }
 
-    ifile.close();
     return ret;
 }
 
@@ -517,10 +517,12 @@ bool BindStatus::CheckBindStatus() {
     NamedConfig *ncfg = NamedConfig::GetNamedConfigObject();
     if (ncfg) {
         std::ifstream pid_file(ncfg->GetPidFilePath().c_str());
-        if (pid_file.good()) {
-            pid_file >> new_pid;
+        if (pid_file.is_open()) {
+            if (pid_file.good()) {
+                pid_file >> new_pid;
+            }
+            pid_file.close();
         }
-        pid_file.close();
     }
 
     if (new_pid == (uint32_t) -1) {
@@ -537,7 +539,9 @@ bool BindStatus::CheckBindStatus() {
         }
     }
 
-    status_timer_->Start(kBindStatusTimeout, 
-                         boost::bind(&BindStatus::SetTrigger, this));
+    if (change_timeout_) {
+        change_timeout_ = false;
+        status_timer_->Reschedule(kBindStatusTimeout);
+    }
     return true;
 }
