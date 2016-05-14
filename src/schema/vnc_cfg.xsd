@@ -2016,13 +2016,13 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="service-health-check-service-instance" type="ServiceInterfaceTag"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('service-health-check-service-instance',
-          'service-health-check', 'service-instance', ['ref'], 'optional', 'CRUD',
+          'service-health-check', 'service-instance', ['ref', 'derived'], 'optional', 'CRUD',
           'Reference to service instance using this service health check.') -->
 
 <xsd:element name="interface-route-table-service-instance" type="ServiceInterfaceTag"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('interface-route-table-service-instance',
-          'interface-route-table', 'service-instance', ['ref'], 'optional', 'CRUD',
+          'interface-route-table', 'service-instance', ['ref', 'derived'], 'optional', 'CRUD',
           'Reference to interface route table attached to (service instance, interface), This is used to add interface static routes to service instance interface.') -->
 
 <xsd:element name="routing-policy-service-instance" type="RoutingPolicyServiceInstanceType"/>
