@@ -195,6 +195,10 @@ bgp_ip_test2 = env.UnitTest('bgp_ip_test2',
                             ['bgp_ip_test2.cc'])
 env.Alias('src/bgp:bgp_ip_test2', bgp_ip_test2)
 
+bgp_membership_test = env.UnitTest('bgp_membership_test',
+                                   ['bgp_membership_test.cc'])
+env.Alias('src/bgp:bgp_membership_test', bgp_membership_test)
+
 bgp_msg_builder_test = env.UnitTest('bgp_msg_builder_test',
                                    ['bgp_msg_builder_test.cc'])
 env.Alias('src/bgp:bgp_msg_builder_test', bgp_msg_builder_test)

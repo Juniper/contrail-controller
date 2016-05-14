@@ -25,6 +25,7 @@ class AsPathDB;
 class BgpAttrDB;
 class BgpConditionListener;
 class BgpConfigManager;
+class BgpMembershipManager;
 class BgpOListDB;
 class BgpPeer;
 class BgpSessionManager;
@@ -137,6 +138,11 @@ public:
     const PeerRibMembershipManager *membership_mgr() const {
         return membership_mgr_.get();
     }
+
+    BgpMembershipManager *bgp_membership_mgr() {
+        return bgp_membership_mgr_.get();
+    }
+
     AsPathDB *aspath_db() { return aspath_db_.get(); }
     BgpAttrDB *attr_db() { return attr_db_.get(); }
     BgpOListDB *olist_db() { return olist_db_.get(); }
@@ -298,6 +304,7 @@ private:
     boost::scoped_ptr<RoutingInstanceMgr> inst_mgr_;
     boost::scoped_ptr<RoutingPolicyMgr> policy_mgr_;
     boost::scoped_ptr<RTargetGroupMgr> rtarget_group_mgr_;
+    boost::scoped_ptr<BgpMembershipManager> bgp_membership_mgr_;
     boost::scoped_ptr<PeerRibMembershipManager> membership_mgr_;
     boost::scoped_ptr<BgpConditionListener> inet_condition_listener_;
     boost::scoped_ptr<BgpConditionListener> inet6_condition_listener_;

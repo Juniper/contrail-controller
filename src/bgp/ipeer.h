@@ -9,6 +9,8 @@
 #include "net/address.h"
 #include "tbb/atomic.h"
 
+class DBTablePartBase;
+class BgpRoute;
 class BgpServer;
 class BgpTable;
 class IPeer;
@@ -169,6 +171,9 @@ public:
     virtual tbb::atomic<int> GetRefCount() const = 0;
     virtual void UpdatePrimaryPathCount(int count) const = 0;
     virtual int GetPrimaryPathCount() const = 0;
+    virtual void MembershipCallback(BgpTable *table) { }
+    virtual bool MembershipPathCallback(DBTablePartBase *tpart,
+        BgpRoute *route) { return false; }
 };
 
 #endif  // SRC_BGP_IPEER_H_
