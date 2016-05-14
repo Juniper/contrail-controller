@@ -417,6 +417,8 @@ class UveStreamPart(gevent.Greenlet):
 
             except gevent.GreenletExit:
                 break
+            except redis.exceptions.ConnectionError:
+                pass
             except Exception as ex:
                 template = "Exception {0} in uve stream proc. Arguments:\n{1!r}"
                 messag = template.format(type(ex).__name__, ex.args)
@@ -424,6 +426,7 @@ class UveStreamPart(gevent.Greenlet):
                                   (self._pi.ip_address, self._pi.port, \
                                    self._pi.instance_id, self._partno, \
                                    messag, traceback.format_exc()))
+            finally:
                 lredis = None
                 if pb is not None:
                     pb.close()
