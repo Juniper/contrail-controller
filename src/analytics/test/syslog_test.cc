@@ -112,7 +112,8 @@ class SyslogMsgGen : public UdpServer
 class SyslogCollectorTest : public ::testing::Test
 {
     public:
-    void AssertVizMsg(const VizMsg *vmsgp) {
+    void AssertVizMsg(const VizMsg *vmsgp,
+        GenDb::GenDbIf::DbAddColumnCb db_cb) {
         EXPECT_STREQ(vmsgp->msg->GetMessageType().c_str(), "Syslog");
     }
     protected:
@@ -256,7 +257,7 @@ TEST_F(SyslogParserTest, ParseWithHostOne)
 
 TEST_F(SyslogCollectorTest, End2End)
 {
-    EXPECT_CALL(*db_handler_.get(), MessageTableInsert(_))
+    EXPECT_CALL(*db_handler_.get(), MessageTableInsert(_,_))
             .WillRepeatedly(Invoke(this, &SyslogCollectorTest::AssertVizMsg));
     SendLog("<84>Feb 25 13:44:21 a3s45 sudo: pam_limits(sudo:session): invalid line 'cassandra - memlock unlimited' - skipped]");
     sleep(1);

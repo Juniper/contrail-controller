@@ -142,11 +142,43 @@ protected:
     SandeshMessageBuilder *builder_;
     boost::uuids::random_generator rgen_;
 
-private:
-    void DbErrorHandlerFn() {
-        assert(0);
+    void DbAddColumnCbFn(bool success) {
+        assert(success);
     }
 
+    void MessageTableOnlyInsert(const VizMsg *vmsgp) {
+        db_handler()->MessageTableOnlyInsert(vmsgp,
+            boost::bind(&DbHandlerTest::DbAddColumnCbFn, this, _1));
+    }
+
+    void MessageTableInsert(const VizMsg *vmsgp) {
+        db_handler()->MessageTableInsert(vmsgp,
+            boost::bind(&DbHandlerTest::DbAddColumnCbFn, this, _1));
+    }
+
+    void MessageIndexTableInsert(const std::string& cfname,
+        const SandeshHeader& header, const std::string& message_type,
+        const boost::uuids::uuid& unm, const std::string keyword) {
+        db_handler()->MessageIndexTableInsert(cfname, header, message_type,
+            unm, keyword,
+            boost::bind(&DbHandlerTest::DbAddColumnCbFn, this, _1));
+    }
+
+    void ObjectTableInsert(const std::string &table,
+        const std::string &rowkey_str, uint64_t timestamp,
+        const boost::uuids::uuid& unm, const VizMsg *vmsgp) {
+        db_handler()->ObjectTableInsert(table, rowkey_str, timestamp,
+            unm, vmsgp,
+            boost::bind(&DbHandlerTest::DbAddColumnCbFn, this, _1));
+    }
+
+    void FlowTableInsert(const pugi::xml_node& parent,
+        const SandeshHeader &header) {
+        db_handler()->FlowTableInsert(parent, header,
+            boost::bind(&DbHandlerTest::DbAddColumnCbFn, this, _1));
+    }
+
+private:
     EventManager evm_;
 #ifdef USE_CASSANDRA_CQL
     CqlIfMock *dbif_mock_;
@@ -214,7 +246,7 @@ TEST_F(DbHandlerTest, MessageTableOnlyInsertTest) {
         .Times(1)
         .WillOnce(Return(true));
 
-    db_handler()->MessageTableOnlyInsert(&vmsgp);
+    MessageTableOnlyInsert(&vmsgp);
     vmsgp.msg = NULL;
     delete msg;
 }
@@ -272,7 +304,7 @@ TEST_F(DbHandlerTest, MessageTableOnlyInsertConfigAuditTest) {
         .Times(1)
         .WillOnce(Return(true));
 
-    db_handler()->MessageTableOnlyInsert(&vmsgp);
+    MessageTableOnlyInsert(&vmsgp);
     vmsgp.msg = NULL;
     delete msg;
 }
@@ -323,7 +355,7 @@ TEST_F(DbHandlerTest, MessageIndexTableInsertTest) {
         .Times(1)
         .WillOnce(Return(true));
 
-    db_handler()->MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_SOURCE,
+    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_SOURCE,
             hdr, "", unm, "");
 }
 
@@ -473,7 +505,7 @@ TEST_F(DbHandlerTest, MessageTableInsertTest) {
         .Times(6)
         .WillRepeatedly(Return(true));
 
-    db_handler()->MessageTableInsert(&vmsgp);
+    MessageTableInsert(&vmsgp);
     vmsgp.msg = NULL;
     delete msg;
 }
@@ -665,7 +697,7 @@ TEST_F(DbHandlerTest, MessageTableInsertTest) {
         .Times(6)
         .WillRepeatedly(Return(true));
 
-    db_handler()->MessageTableInsert(&vmsgp);
+    MessageTableInsert(&vmsgp);
     vmsgp.msg = NULL;
     delete msg;
 }
@@ -769,7 +801,7 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
             .WillRepeatedly(Return(true));
       }
 
-    db_handler()->ObjectTableInsert(table, rowkey_str, timestamp, unm, &vmsgp);
+    ObjectTableInsert(table, rowkey_str, timestamp, unm, &vmsgp);
     vmsgp.msg = NULL;
     delete msg;
 }
@@ -1190,8 +1222,7 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
             }
         }
 
-        db_handler()->FlowTableInsert(msg->GetMessageNode(),
-                                      msg->GetHeader());
+        FlowTableInsert(msg->GetMessageNode(), msg->GetHeader());
     }
 }
 

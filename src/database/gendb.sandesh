@@ -28,6 +28,7 @@ struct DbTableInfo {
     3: u64                                 read_fails
     4: u64                                 writes
     5: u64                                 write_fails
+    6: u64                                 write_back_pressure_fails
 }
 
 struct DbErrors {
