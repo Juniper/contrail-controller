@@ -184,7 +184,8 @@ void KSyncSockTypeMap::FlowNatResponse(uint32_t seq_num, vr_flow_req *req) {
     sock->AddNetlinkTxBuff(&cl);
 }
 
-void KSyncSockTypeMap::InitNetlinkDoneMsg(struct nlmsghdr *nlh, int seq_num) {
+void KSyncSockTypeMap::InitNetlinkDoneMsg(struct nlmsghdr *nlh,
+                                          uint32_t seq_num) {
     nlh->nlmsg_seq = seq_num;
     nlh->nlmsg_type = NLMSG_DONE;
     nlh->nlmsg_len = NLMSG_HDRLEN;
