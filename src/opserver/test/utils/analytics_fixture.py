@@ -26,6 +26,7 @@ from alarmgen_introspect_utils import VerificationAlarmGen
 from generator_introspect_utils import VerificationGenerator
 from opserver.sandesh.viz.constants import COLLECTOR_GLOBAL_TABLE, SOURCE, MODULE
 from opserver.opserver_util import OpServerUtils
+from opserver.sandesh.alarmgen_ctrl.ttypes import UVEAlarmState
 from sandesh_common.vns.constants import NodeTypeNames, ModuleNames
 from sandesh_common.vns.ttypes import NodeType, Module
 from pysandesh.util import UTCTimestampUsec
@@ -768,16 +769,17 @@ class AnalyticsFixture(fixtures.Fixture):
                 return True
             if not len(uves):
                 return True
-            else:
-                self.logger.info("Did not expect UVEs for %s" % table)
-                return False
-        if not ret['uves']:
-            ret['uves'] = []
+        if not uves:
+            uves = []
         alarms = {}
-        for uves in ret['uves']:
-            elem = uves['uai']['UVEAlarms']
-            if elem['name'] != name:
+	for uve in uves:
+	    elem = uve['uai']['UVEAlarms']
+            if name and elem['name'] != name:
                 continue
+	    #alarms in Idle state should not be counted
+	    alarm_state = int(uve['uas']['UVEAlarmOperState']['state'])
+	    if (alarm_state == UVEAlarmState.Idle):
+		continue
             for alm in elem['alarms']:
                 if len(alm['rules']):
                     alarms[alm['type']] = alm['rules']
@@ -795,6 +797,8 @@ class AnalyticsFixture(fixtures.Fixture):
                         return False
             return is_set
         else:
+	    if not name:
+		return True
             return not is_set
 
     @retry(delay=2, tries=10)
