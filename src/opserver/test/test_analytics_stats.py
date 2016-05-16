@@ -358,6 +358,89 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_05_statprefix_double
 
+    #@unittest.skip('Stats query filter test')
+    def test_06_stats_filter(self):
+        '''
+        This test starts redis,vizd,opserver and qed
+        It uses the test class' cassandra instance
+        Then it sends test stats to the collector
+        and checks if all filter operations work properly.
+        '''
+        logging.info("*** test_06_stats_filter ***")
+        if StatsTest._check_skip_test() is True:
+            return True
+
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.redis_port,
+                             self.__class__.cassandra_port))
+        assert vizd_obj.verify_on_setup()
+        assert vizd_obj.verify_collector_obj_count()
+        collectors = [vizd_obj.get_collector()]
+
+        generator_obj = self.useFixture(
+            StatsFixture("VRouterAgent", collectors,
+                             logging, vizd_obj.get_opserver_port()))
+        assert generator_obj.verify_on_setup()
+
+        logging.info("Starting stat gen " + str(UTCTimestampUsec()))
+
+        generator_obj.send_test_stat("name0", "lxxx", "samp1", 10, 12)
+        generator_obj.send_test_stat("name0", "lxxx", "samp2", 20, 12.6)
+        generator_obj.send_test_stat("name0", "lyyy", "samp1", 500, 2.345)
+        generator_obj.send_test_stat("name0", "lyyy", "samp2", 1000, 15.789)
+
+        # verify that all the stats messages are added in the analytics db
+        # before starting the filter tests
+        assert generator_obj.verify_test_stat("StatTable.StatTestState.st",
+            "-2m", select_fields=["UUID", "l1", "st.s1", "st.i1", "st.d1"],
+            where_clause = 'name=name0', num=4, check_rows=
+            [{"l1":"lxxx", "st.s1":"samp1", "st.i1":10, "st.d1":12},
+             {"l1":"lxxx", "st.s1":"samp2", "st.i1":20, "st.d1":12.6},
+             {"l1":"lyyy", "st.s1":"samp1", "st.i1":500, "st.d1":2.345},
+             {"l1":"lyyy", "st.s1":"samp2", "st.i1":1000, "st.d1":15.789}])
+
+        assert generator_obj.verify_test_stat("StatTable.StatTestState.st",
+            "-2m", select_fields=["UUID", "l1", "st.s1", "st.i1", "st.d1"],
+            where_clause = 'name=name0', num=2, check_rows=
+            [{"l1":"lxxx", "st.s1":"samp1", "st.i1":10, "st.d1":12},
+             {"l1":"lxxx", "st.s1":"samp2", "st.i1":20, "st.d1":12.6}],
+            filt="l1 = lxxx")
+
+        assert generator_obj.verify_test_stat("StatTable.StatTestState.st",
+            "-2m", select_fields=["UUID", "l1", "st.s1", "st.i1", "st.d1"],
+            where_clause = 'name=name0', num=1, check_rows=
+            [{"l1":"lyyy", "st.s1":"samp1", "st.i1":500, "st.d1":2.345}],
+            filt="st.i1 = 500")
+
+        assert generator_obj.verify_test_stat("StatTable.StatTestState.st",
+            "-2m", select_fields=["UUID", "l1", "st.s1", "st.i1", "st.d1"],
+            where_clause = 'name=name0', num=2, check_rows=
+            [{"l1":"lxxx", "st.s1":"samp1", "st.i1":10, "st.d1":12},
+             {"l1":"lxxx", "st.s1":"samp2", "st.i1":20, "st.d1":12.6}],
+            filt="st.i1 <= 400")
+
+        assert generator_obj.verify_test_stat("StatTable.StatTestState.st",
+            "-2m", select_fields=["UUID", "l1", "st.s1", "st.i1", "st.d1"],
+            where_clause = 'name=name0', num=2, check_rows=
+            [{"l1":"lyyy", "st.s1":"samp1", "st.i1":500, "st.d1":2.345},
+             {"l1":"lyyy", "st.s1":"samp2", "st.i1":1000, "st.d1":15.789}],
+            filt="st.i1 >= 500")
+
+        assert generator_obj.verify_test_stat("StatTable.StatTestState.st",
+            "-2m", select_fields=["UUID", "l1", "st.s1", "st.i1", "st.d1"],
+            where_clause = 'name=name0', num=1, check_rows=
+            [{"l1":"lyyy", "st.s1":"samp1", "st.i1":500, "st.d1":2.345}],
+            filt="st.d1 <= 3")
+
+        assert generator_obj.verify_test_stat("StatTable.StatTestState.st",
+            "-2m", select_fields=["UUID", "l1", "st.s1", "st.i1", "st.d1"],
+            where_clause = 'name=name0', num=2, check_rows=
+            [{"l1":"lxxx", "st.s1":"samp2", "st.i1":20, "st.d1":12.6},
+             {"l1":"lyyy", "st.s1":"samp2", "st.i1":1000, "st.d1":15.789}],
+            filt="st.d1 >= 12.5")
+    # end test_06_stats_filter
+
     @staticmethod
     def get_free_port():
         cs = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

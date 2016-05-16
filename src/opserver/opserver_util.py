@@ -764,13 +764,13 @@ class OpServerUtils(object):
                     match_op[1] = match_e[1].strip(' ()')
                     op = OpServerUtils.MatchOp.REGEX_MATCH
 
-                match_e = match_s.split('<')
+                match_e = match_s.split('<=')
                 if (len(match_e) == 2):
                     match_op[0] = match_e[0].strip(' ()')
                     match_op[1] = match_e[1].strip(' ()')
                     op = OpServerUtils.MatchOp.LEQ
 
-                match_e = match_s.split('>')
+                match_e = match_s.split('>=')
                 if (len(match_e) == 2):
                     match_op[0] = match_e[0].strip(' ()')
                     match_op[1] = match_e[1].strip(' ()')
