@@ -22,9 +22,13 @@ class BarbicanKeystoneSession(object):
         self.region = 'RegionOne'
         self.session = {}
 
-    def parse_args(self):
+    def parse_args(self, auth_conf=None):
         config = ConfigParser.SafeConfigParser()
-        config.read('/etc/contrail/contrail-lbaas-auth.conf')
+        if (auth_conf):
+            self.auth_conf = auth_conf
+        else:
+            self.auth_conf = '/etc/contrail/contrail-lbaas-auth.conf'
+        config.read(self.auth_conf)
 
         self.admin_user = config.get('BARBICAN', 'admin_user')
         self.admin_password = config.get('BARBICAN', 'admin_password')
@@ -47,11 +51,11 @@ class BarbicanKeystoneSession(object):
         except Exception:
             pass
 
-    def get_session(self):
+    def get_session(self, auth_conf=None):
         if self.session.get(self.project_name):
             return self.session[self.project_name]
 
-        self.parse_args()
+        self.parse_args(auth_conf)
         kwargs = {'auth_url': self.auth_url,
                   'username': self.admin_user,
                   'password': self.admin_password}
@@ -210,9 +214,9 @@ def create_pem_file(barbican, url, dest_dir):
     f.close()
     return pem_file_name
 
-def update_ssl_config(haproxy_config, dest_dir):
+def update_ssl_config(haproxy_config, auth_conf, dest_dir):
     barb_auth = BarbicanKeystoneSession()
-    sess = barb_auth.get_session()
+    sess = barb_auth.get_session(auth_conf)
     if sess is None:
         return None
     barbican = client.Client(session=sess)

@@ -45,41 +45,57 @@ def create_haproxy_dir(base_dir, loadbalancer_id):
     p.communicate()
     return dir_name
 
-def update_ssl_config(haproxy_config, dir_name):
-    config = ConfigParser.SafeConfigParser()
-    config.read('/etc/contrail/contrail-vrouter-agent.conf')
-    haproxy_ssl_cert_path = config.get('SERVICE-INSTANCE', 'haproxy_ssl_cert_path')
+def update_ssl_config(haproxy_config,
+             haproxy_ssl_cert_path, dir_name):
     search_string = 'haproxy_ssl_cert_path'
     for line in haproxy_config.split('\n'):
         if search_string in line:
-            haproxy_config = haproxy_config.replace(search_string, haproxy_ssl_cert_path)
+            haproxy_config = haproxy_config.replace(
+                             search_string, haproxy_ssl_cert_path)
             break
     return haproxy_config
 
 def get_haproxy_config_file(cfg_file, dir_name):
-    lb_version = ''
-    haproxy_config = ''
     f = open(cfg_file)
     content = f.read()
     f.close()
+
+    lb_ssl_cert_path = ''
+    lbaas_auth_conf = '/etc/contrail/contrail-lbaas-auth.conf'
     kvps = content.split(':::::')
     for kvp in kvps or []:
         KeyValue = kvp.split('::::')
-        if (KeyValue[0] == 'lb_version'):
+        if (KeyValue[0] == 'lb_uuid'):
+            lb_uuid = KeyValue[1]
+        elif (KeyValue[0] == 'lb_version'):
             lb_version = KeyValue[1]
         elif (KeyValue[0] == 'haproxy_config'):
             haproxy_config = KeyValue[1]
-        if lb_version and haproxy_config:
-            break;
-    haproxy_cfg_file = dir_name + "/" + HAPROXY_PROCESS_CONF
+        elif (KeyValue[0] == 'lb_ssl_cert_path'):
+            lb_ssl_cert_path = KeyValue[1]
+        elif (KeyValue[0] == 'lbaas_auth_conf'):
+            lbaas_auth_conf = KeyValue[1]
     if 'ssl crt' in haproxy_config:
         if lb_version == 'v1':
-            haproxy_config = update_ssl_config(haproxy_config, dir_name);
+            if not (os.path.isfile(lb_ssl_cert_path)):
+                msg = "%s is missing for "\
+                      "Loadbalancer-ID %s" %(lb_ssl_cert_path, lb_uuid)
+                logging.error(msg)
+                return None
+            haproxy_config = update_ssl_config(haproxy_config,
+                             lb_ssl_cert_path, dir_name);
         else:
-            haproxy_config = barbican_cert_mgr.update_ssl_config(haproxy_config, dir_name)
+            if not (os.path.isfile(lbaas_auth_conf)):
+                msg = "%s is missing for "\
+                      "Loadbalancer-ID %s" %(lbaas_auth_conf, lb_uuid)
+                logging.error(msg)
+                return None
+            haproxy_config = barbican_cert_mgr.update_ssl_config(
+                             haproxy_config, lbaas_auth_conf, dir_name)
         if haproxy_config is None:
             return None
 
+    haproxy_cfg_file = dir_name + "/" + HAPROXY_PROCESS_CONF
     f = open(haproxy_cfg_file, 'w+')
     f.write(haproxy_config)
     f.close()

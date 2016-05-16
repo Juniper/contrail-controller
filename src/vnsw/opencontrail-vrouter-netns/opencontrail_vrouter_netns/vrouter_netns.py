@@ -150,19 +150,6 @@ class NetnsManager(object):
                 break;
         return lbaas_type
 
-    def move_cfg_file_to_lbaas_dir(self, cfg_file):
-        dir_name = self.LBAAS_DIR;
-        if not os.path.exists(dir_name):
-           cmd = "mkdir -p " + dir_name
-           cmd_list = shlex.split(cmd)
-           p = subprocess.Popen(cmd_list)
-           p.communicate()
-        cmd = "mv " + cfg_file + " " + dir_name
-        cmd_list = shlex.split(cmd)
-        p = subprocess.Popen(cmd_list)
-        p.communicate();
-        return dir_name + '/' + os.path.basename(cfg_file)
-
     def remove_cfg_file(self, cfg_file):
         cmd = "rm " + cfg_file
         cmd_list = shlex.split(cmd)
@@ -173,10 +160,13 @@ class NetnsManager(object):
         if not self.ip_ns.netns.exists(self.namespace):
             self.create()
 
+        if not (os.path.isfile(self.cfg_file)):
+            msg = "%s is missing for "\
+                  "Loadbalancer-ID %s" %(self.cfg_file, self.loadbalancer_id)
+            raise ValueError(msg)
         lbaas_type = self.find_lbaas_type(self.cfg_file)
         if (lbaas_type == ''):
             raise ValueError('LBAAS_TYPE does not exist %s' % self.cfg_file)
-        self.cfg_file = self.move_cfg_file_to_lbaas_dir(self.cfg_file)
         if (lbaas_type == 'haproxy_config'):
             ret = haproxy_process.start_update_haproxy(
                           self.loadbalancer_id, self.cfg_file,
@@ -190,7 +180,7 @@ class NetnsManager(object):
             pass
         return True
 
-    def release_lbaas(self):
+    def release_lbaas(self, caller):
         if not self.ip_ns.netns.exists(self.namespace):
             raise ValueError('Need to create the network namespace before '
                              'relasing lbaas')
@@ -204,7 +194,8 @@ class NetnsManager(object):
             self.ip_ns.netns.execute(['route', 'del', 'default'])
         except RuntimeError:
             pass
-        self.remove_cfg_file(cfg_file)
+        if (caller == 'destroy'):
+            self.remove_cfg_file(cfg_file)
 
     def destroy(self):
         if not self.ip_ns.netns.exists(self.namespace):
@@ -457,7 +448,7 @@ class VRouterNetns(object):
                 # If the netns already exists, destroy it to be sure to set it
                 # with new parameters like another external network
                 if self.args.service_type == self.LOAD_BALANCER:
-                    netns_mgr.release_lbaas()
+                    netns_mgr.release_lbaas('create')
                 netns_mgr.unplug_namespace_interface()
                 netns_mgr.destroy()
             netns_mgr.create()
@@ -495,7 +486,7 @@ class VRouterNetns(object):
         if self.args.service_type == self.SOURCE_NAT:
             netns_mgr.destroy()
         elif self.args.service_type == self.LOAD_BALANCER:
-            netns_mgr.release_lbaas()
+            netns_mgr.release_lbaas('destroy')
             netns_mgr.destroy()
         else:
             msg = ('The %s service type is not supported' %
