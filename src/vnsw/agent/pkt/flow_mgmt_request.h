@@ -88,7 +88,7 @@ public:
         const InetUnicastRouteEntry *rt =
             dynamic_cast<const InetUnicastRouteEntry *>(db_entry_);
         if (rt) {
-            resp_event = FlowEvent::REVALUATE_FLOW;
+            resp_event = FlowEvent::RECOMPUTE_FLOW;
         }
 
         return resp_event;

@@ -312,8 +312,42 @@ struct FlowEventLog {
     uint8_t vrouter_gen_id_;
 };
 
-// Structure to track pending actions on flow. This is used to state-compress
-// multiple actions on a flow
+// There are 4 actions supported,
+// Flow recomputation goes thru 2 stages of processing,
+//
+// - recompute_dbentry_ : In this stage, flow is enqueued to flow-update-queue
+//                        as a result of db-entry add/delete/change.
+// - recompute_         : In this stage, flow is enqueued to flow-event-queue
+//                        for recomputation of flow
+// - delete_            : Specifies that delete action is pending on flow.
+// - recompute_         : Specifies that flow is enqueued into flow-event-queue
+//                        for recomputation.
+//
+// The actions have a priority, the higher priorty action overrides lower
+// priority actions. The priority in decreasing order is,
+// - delete_
+// - recompute_
+// - recompute_dbentry_
+// - revaluate_
+//
+// The flags are also used for state-compression of objects. The state
+// compression is acheived with,
+//
+// - Before Event Enqueue :
+//   Before enqueuing an event, the FlowEvent module checks if the
+//   corresponding action or higher priority action is pending. If so, the
+//   event is ignored.
+//   Note, if the lower priority event is pending, the higher priority event
+//   is still enqueued. The lower priority event is ignored later as given below
+//
+// - On Event dequeue :
+//   After dequeuing an event, FlowEvent module checks if a higher priority
+//   event is pending. If so, the current event is ignored.
+//
+// - Post Event processing:
+//   Once the event is processed, the corresponding action is cleared for both
+//   forward and reverse flows. Clearing an action also clears lower priority
+//   actions
 class FlowPendingAction {
 public:
     FlowPendingAction();
@@ -321,16 +355,30 @@ public:
 
     void Reset();
 
-    void SetRevaluate(bool val);
-    bool revaluate() const { return revaluate_; }
+    bool CanDelete();
+    bool SetDelete();
+    void ResetDelete();
 
-    void SetRecompute(bool val);
-    bool recompute() const { return recompute_; }
+    bool CanRecompute();
+    bool SetRecompute();
+    void ResetRecompute();
+
+    bool CanRecomputeDBEntry();
+    bool SetRecomputeDBEntry();
+    void ResetRecomputeDBEntry();
+
+    bool CanRevaluate();
+    bool SetRevaluate();
+    void ResetRevaluate();
 private:
-    // Flow pending revaluation due to change in interface, vn, acl and nh
-    bool revaluate_;
+    // delete pending
+    bool delete_;
     // Flow pending complete recompute
     bool recompute_;
+    // Flow pending recompute-dbentry
+    bool recompute_dbentry_;
+    // Flow pending revaluation due to change in interface, vn, acl and nh
+    bool revaluate_;
 };
 
 class FlowEntry {

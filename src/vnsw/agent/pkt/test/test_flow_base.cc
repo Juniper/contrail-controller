@@ -734,6 +734,22 @@ protected:
     Agent *agent() {return agent_;}
     FlowProto *get_flow_proto() const { return flow_proto_; }
 
+    FlowEventQueue *GetFlowEventQueue(uint32_t table_index) {
+        return flow_proto_->flow_event_queue_[table_index];
+    }
+
+    DeleteFlowEventQueue *GetDeleteFlowEventQueue(uint32_t table_index) {
+        return flow_proto_->flow_delete_queue_[table_index];
+    }
+
+    KSyncFlowEventQueue *GetKSyncFlowEventQueue(uint32_t table_index) {
+        return flow_proto_->flow_ksync_queue_[table_index];
+    }
+
+    UpdateFlowEventQueue *GetUpdateFlowEventQueue() {
+        return &flow_proto_->flow_update_queue_;
+    }
+
 protected:
     static bool ksync_init_;
     BgpPeer *peer_;
