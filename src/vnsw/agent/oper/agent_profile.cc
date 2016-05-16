@@ -137,6 +137,7 @@ void ProfileData::FlowStats::Reset() {
     del_count_= 0;
     audit_count_ = 0;
     reval_count_ = 0;
+    recompute_count_ = 0;
     pkt_handler_queue_.Reset();
     flow_mgmt_queue_.Reset();
     flow_update_queue_.Reset();
@@ -317,6 +318,7 @@ static void GetFlowStats(SandeshFlowStats *stats, int index,
     stats->set_add_count(data->flow_.add_count_);
     stats->set_del_count(data->flow_.del_count_);
     stats->set_reval_count(data->flow_.reval_count_);
+    stats->set_recompute_count(data->flow_.recompute_count_);
     stats->set_audit_count(data->flow_.audit_count_);
     stats->set_vrouter_responses(data->flow_.vrouter_responses_);
     stats->set_vrouter_error(data->flow_.vrouter_error_);

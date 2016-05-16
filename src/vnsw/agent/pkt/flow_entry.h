@@ -504,6 +504,10 @@ class FlowEntry {
     }
     const MatchPolicy &match_p() const { return data_.match_p; }
 
+    bool ActionSet(TrafficAction::Action action) const {
+        return ((data_.match_p.action_info.action & 
+                 (1 << action)) ? true : false);
+    }
     bool ImplicitDenyFlow() const { 
         return ((data_.match_p.action_info.action & 
                  (1 << TrafficAction::IMPLICIT_DENY)) ? true : false);

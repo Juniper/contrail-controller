@@ -34,7 +34,12 @@ test_pkt_linklocal = AgentEnv.MakeTestCmd(env, 'test_pkt_linklocal',
 test_flow_audit = AgentEnv.MakeTestCmd(env, 'test_flow_audit', pkt_test_suite)
 test_flow_trace_filter = AgentEnv.MakeTestCmd(env, 'test_flow_trace_filter',
                                               pkt_test_suite)
-test_pkt_flow = AgentEnv.MakeTestCmd(env, 'test_pkt_flow', pkt_flaky_test_suite)
+test_flow_add = AgentEnv.MakeTestCmd(env, 'test_flow_add', pkt_test_suite)
+test_flow_age = AgentEnv.MakeTestCmd(env, 'test_flow_age', pkt_test_suite)
+test_flow_error = AgentEnv.MakeTestCmd(env, 'test_flow_error', pkt_flaky_test_suite)
+test_flow_nat = AgentEnv.MakeTestCmd(env, 'test_flow_nat', pkt_test_suite)
+test_flow_policy = AgentEnv.MakeTestCmd(env, 'test_flow_policy', pkt_test_suite)
+test_flow_update = AgentEnv.MakeTestCmd(env, 'test_flow_update', pkt_test_suite)
 test_pkt_flowv6 = AgentEnv.MakeTestCmd(env, 'test_pkt_flowv6', pkt_test_suite)
 test_rpf_flow = AgentEnv.MakeTestCmd(env, 'test_rpf_flow', pkt_flaky_test_suite)
 test_pkt_parse = AgentEnv.MakeTestCmd(env, 'test_pkt_parse', pkt_flaky_test_suite)
