@@ -68,6 +68,8 @@ struct UpdateQueueShowEntry {
     1: string node_name;
     2: string qe_type;
     3: string qe_bitset;
+    4: string queue_insert_ago;
+    5: u64 sequence;
 }
 
 request sandesh IFMapUpdateQueueShowReq {
