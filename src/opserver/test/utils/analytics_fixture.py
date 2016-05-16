@@ -768,16 +768,17 @@ class AnalyticsFixture(fixtures.Fixture):
                 return True
             if not len(uves):
                 return True
-            else:
-                self.logger.info("Did not expect UVEs for %s" % table)
-                return False
-        if not ret['uves']:
-            ret['uves'] = []
+        if not uves:
+            uves = []
         alarms = {}
-	for uves in ret['uves']:
-	    elem = uves['uai']['UVEAlarms']
-            if elem['name'] != name:
+	for uve in uves:
+	    elem = uve['uai']['UVEAlarms']
+            if name and elem['name'] != name:
                 continue
+	    #alarms in states 0/1 should not be counted
+	    alarm_state = int(uve['uas']['UVEAlarmOperState']['state'])
+	    if (alarm_state == 0):
+		continue
             for alm in elem['alarms']:
                 if len(alm['any_of']):
                     alarms[alm['type']] = []
@@ -801,6 +802,8 @@ class AnalyticsFixture(fixtures.Fixture):
                         return False
             return is_set
         else:
+	    if not name:
+		return True
             return not is_set
 
     @retry(delay=2, tries=10)
