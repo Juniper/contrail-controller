@@ -238,7 +238,7 @@ class PhysicalRouterDM(DBBaseDM):
     def get_vn_irb_ip_map(self):
         irb_ips = {}
         for vn_subnet, ip_addr in self.vn_ip_map.items():
-            (vn_uuid, subnet_prefix) = vn_subnet.split(':')
+            (vn_uuid, subnet_prefix) = vn_subnet.split(':', 1)
             vn = VirtualNetworkDM.get(vn_uuid)
             if vn_uuid not in irb_ips:
                 irb_ips[vn_uuid] = set()
@@ -260,7 +260,7 @@ class PhysicalRouterDM(DBBaseDM):
         delete_set = old_set.difference(new_vn_ip_set)
         create_set = new_vn_ip_set.difference(old_set)
         for vn_subnet in delete_set:
-            (vn_uuid, subnet_prefix) = vn_subnet.split(':')
+            (vn_uuid, subnet_prefix) = vn_subnet.split(':', 1)
             ret = self.free_ip(
                 vn_uuid, subnet_prefix, self.vn_ip_map[vn_subnet])
             if ret == False:
@@ -283,7 +283,7 @@ class PhysicalRouterDM(DBBaseDM):
             del self.vn_ip_map[vn_subnet]
 
         for vn_subnet in create_set:
-            (vn_uuid, subnet_prefix) = vn_subnet.split(':')
+            (vn_uuid, subnet_prefix) = vn_subnet.split(':', 1)
             (sub, length) = subnet_prefix.split('/')
             ip_addr = self.reserve_ip(vn_uuid, subnet_prefix)
             if ip_addr is None:
