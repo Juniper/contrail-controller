@@ -133,6 +133,15 @@ env.GenerateBuildInfoCode(
 
 build_obj = map(lambda x : env.Object(x), ['buildinfo.cc'])
 
+lib_cpuinfo = File('../base/libcpuinfo.a')
+if sys.platform != 'darwin':
+    env.Prepend(LINKFLAGS =
+                  ['-Wl,--whole-archive',
+                   '-lcpuinfo',
+                   '-Wl,--no-whole-archive'])
+else:
+    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_cpuinfo.path])
+
 qed = env.Program(
         target = 'qed', 
         source = qed_objs + qed_except_objs + build_obj +
