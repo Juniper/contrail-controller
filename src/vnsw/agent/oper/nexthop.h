@@ -1342,10 +1342,14 @@ public:
         return vrf_.get();
     }
    uint32_t hash(uint32_t seed) const {
-       uint32_t idx = seed % component_nh_list_.size();
+       size_t size = component_nh_list_.size();
+       if (size == 0) {
+           return kInvalidComponentNHIdx;
+       }
+       uint32_t idx = seed % size;
        while (component_nh_list_[idx].get() == NULL) {
-           idx = (idx + 1) % component_nh_list_.size();
-           if (idx == seed % component_nh_list_.size()) {
+           idx = (idx + 1) % size;
+           if (idx == seed % size) {
                idx = 0xffff;
                break;
            }
