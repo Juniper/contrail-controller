@@ -1,2 +1,10 @@
 [run]
 branch = True
+omit =
+       *gen/cfixture.py
+       *gen/connection_drv_gen.py
+       *gen/heat*
+       *gen/resource_test.py
+       *gen/vnc_api_extension_gen.py
+       *gen/vnc_api_schema.py
+       *gen/vnc_api_test_gen.py
