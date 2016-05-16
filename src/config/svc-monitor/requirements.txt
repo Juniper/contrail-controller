@@ -2,3 +2,13 @@
 pycassa
 python-novaclient
 requests
+psutil>=0.6.0
+bottle
+kombu
+kazoo
+cfgm_common
+vnc_api
+discoveryclient
+sandesh
+sandesh-common
+vnc_cfg_api_server

@@ -1120,7 +1120,7 @@ class VncApiServer(object):
             if not child_cls.generate_default_instance:
                 continue
             # first locate default child then delete it")
-            default_child_name = 'default-%s' %(child_cls().get_type())
+            default_child_name = 'default-%s' %(child_type)
             child_infos = parent_dict.get(child_field, [])
             for child_info in child_infos:
                 if child_info['to'][-1] == default_child_name:
