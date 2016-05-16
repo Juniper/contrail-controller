@@ -130,6 +130,7 @@ private:
     friend class ShowIFMapXmppClientInfo;
     friend class XmppIfmapTest;
     friend class IFMapExporterTest;
+    friend class IFMapVmUuidMapperTest;
 
     enum QueueOp {
         ADD = 1,
