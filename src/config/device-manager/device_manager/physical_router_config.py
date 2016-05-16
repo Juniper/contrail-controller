@@ -304,10 +304,23 @@ class PhysicalRouterConfig(object):
         if not is_l2:
             if ri_opt is None:
                 ri_opt = etree.SubElement(ri, "routing-options")
+            has_ipv6_prefixes = False
+            has_ipv4_prefixes = False
             if prefixes and fip_map is None:
                 static_config = etree.SubElement(ri_opt, "static")
+                rib_config_v6 = None
+                static_config_v6 = None
                 for prefix in prefixes:
-                    route_config = etree.SubElement(static_config, "route")
+                    if ':' in prefix and not rib_config_v6:
+                        rib_config_v6 = etree.SubElement(ri_opt, "rib")
+                        etree.SubElement(rib_config_v6, "name").text = ri_name + ".inet6.0"
+                        static_config_v6 = etree.SubElement(rib_config_v6, "static")
+                        has_ipv6_prefixes = True
+                    if ':' in prefix:
+                        route_config = etree.SubElement(static_config_v6, "route")
+                    else:
+                        route_config = etree.SubElement(static_config, "route")
+                        has_ipv4_prefixes = True
                     etree.SubElement(route_config, "name").text = prefix
                     etree.SubElement(route_config, "discard")
                     if router_external:
@@ -324,10 +337,16 @@ class PhysicalRouterConfig(object):
                 ri_opt = etree.SubElement(ri, "routing-options")
             if static_routes:
                 self.add_static_routes(ri_opt, static_routes)
-            auto_export = """<auto-export>
+            if has_ipv4_prefixes:
+                auto_export = """<auto-export>
                                 <family><inet><unicast/></inet></family>
                             </auto-export>"""
-            ri_opt.append(etree.fromstring(auto_export))
+                ri_opt.append(etree.fromstring(auto_export))
+            if has_ipv6_prefixes:
+                auto_export = """<auto-export>
+                                <family><inet6><unicast/></inet6></family>
+                            </auto-export>"""
+                ri_opt.append(etree.fromstring(auto_export))
         else:
             etree.SubElement(ri, "instance-type").text = "virtual-switch"
 
@@ -496,9 +515,17 @@ class PhysicalRouterConfig(object):
                     intf_unit = etree.SubElement(irb_intf, "unit")
                     etree.SubElement(intf_unit, "name").text = str(network_id)
                     family = etree.SubElement(intf_unit, "family")
-                    inet = etree.SubElement(family, "inet")
+                    inet = None
+                    inet6 = None
                     for (irb_ip, gateway) in gateways:
-                        addr = etree.SubElement(inet, "address")
+                        if ':' in irb_ip:
+                            if not inet6:
+                                inet6 = etree.SubElement(family, "inet6")
+                            addr = etree.SubElement(inet6, "address")
+                        else:
+                            if not inet:
+                                inet = etree.SubElement(family, "inet")
+                            addr = etree.SubElement(inet, "address")
                         etree.SubElement(addr, "name").text = irb_ip
                         if len(gateway) and gateway != '0.0.0.0':
                             etree.SubElement(
