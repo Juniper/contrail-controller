@@ -995,10 +995,6 @@ TEST_F(StatsTestMock, Underlay_3) {
     //invoked, the dispatch of flow log message happens
     KSyncSockTypeMap::IncrFlowStats(fe->flow_handle(), 1, 30);
 
-    //Verify that flows DON'T have exported_alteast_once_ flag set
-    EXPECT_FALSE(info->exported_atleast_once());
-    EXPECT_FALSE(rinfo->exported_atleast_once());
-
     //Invoke FlowStatsCollector to update the stats
     util_.EnqueueFlowStatsCollectorTask();
     client->WaitForIdle(10);
