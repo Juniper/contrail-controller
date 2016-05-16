@@ -22,11 +22,13 @@ FlowEventQueueBase::FlowEventQueueBase(FlowProto *proto,
                                        const std::string &name,
                                        uint32_t task_id, int task_instance,
                                        FlowTokenPool *pool,
-                                       uint16_t latency_limit) :
+                                       uint16_t latency_limit,
+                                       uint32_t max_iterations) :
     flow_proto_(proto), token_pool_(pool), task_start_(0), count_(0),
     events_processed_(0), latency_limit_(latency_limit) {
     queue_ = new Queue(task_id, task_instance,
-                       boost::bind(&FlowEventQueueBase::Handler, this, _1));
+                       boost::bind(&FlowEventQueueBase::Handler, this, _1),
+                       Queue::kMaxSize, Queue::kMaxIterations);
     char buff[100];
     sprintf(buff, "%s-%d", name.c_str(), task_instance);
     queue_->set_name(buff);
@@ -230,10 +232,12 @@ void FlowEventQueueBase::ProcessDone(FlowEvent *event, bool update_rev_flow) {
 
 FlowEventQueue::FlowEventQueue(Agent *agent, FlowProto *proto,
                                FlowTable *table, FlowTokenPool *pool,
-                               uint16_t latency_limit) :
+                               uint16_t latency_limit,
+                               uint32_t max_iterations) :
     FlowEventQueueBase(proto, "Flow Event Queue",
                        agent->task_scheduler()->GetTaskId(kTaskFlowEvent),
-                       table->table_index(), pool, latency_limit),
+                       table->table_index(), pool, latency_limit,
+                       max_iterations),
     flow_table_(table) {
 }
 
@@ -247,10 +251,12 @@ bool FlowEventQueue::HandleEvent(FlowEvent *event) {
 DeleteFlowEventQueue::DeleteFlowEventQueue(Agent *agent, FlowProto *proto,
                                            FlowTable *table,
                                            FlowTokenPool *pool,
-                                           uint16_t latency_limit) :
+                                           uint16_t latency_limit,
+                                           uint32_t max_iterations) :
     FlowEventQueueBase(proto, "Flow Delete Queue",
                        agent->task_scheduler()->GetTaskId(kTaskFlowEvent),
-                       table->table_index(), pool, latency_limit),
+                       table->table_index(), pool, latency_limit,
+                       max_iterations),
     flow_table_(table) {
 }
 
@@ -264,10 +270,12 @@ bool DeleteFlowEventQueue::HandleEvent(FlowEvent *event) {
 KSyncFlowEventQueue::KSyncFlowEventQueue(Agent *agent, FlowProto *proto,
                                          FlowTable *table,
                                          FlowTokenPool *pool,
-                                         uint16_t latency_limit) :
+                                         uint16_t latency_limit,
+                                         uint32_t max_iterations) :
     FlowEventQueueBase(proto, "Flow KSync Queue",
                        agent->task_scheduler()->GetTaskId(kTaskFlowEvent),
-                       table->table_index(), pool, latency_limit),
+                       table->table_index(), pool, latency_limit,
+                       max_iterations),
     flow_table_(table) {
 }
 
@@ -280,10 +288,11 @@ bool KSyncFlowEventQueue::HandleEvent(FlowEvent *event) {
 
 UpdateFlowEventQueue::UpdateFlowEventQueue(Agent *agent, FlowProto *proto,
                                            FlowTokenPool *pool,
-                                           uint16_t latency_limit) :
+                                           uint16_t latency_limit,
+                                           uint32_t max_iterations) :
     FlowEventQueueBase(proto, "Flow Update Queue",
                        agent->task_scheduler()->GetTaskId(kTaskFlowUpdate), 0,
-                       pool, latency_limit) {
+                       pool, latency_limit, max_iterations) {
 }
 
 UpdateFlowEventQueue::~UpdateFlowEventQueue() {
