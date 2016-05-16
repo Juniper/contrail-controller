@@ -334,8 +334,8 @@ void AgentInit::InitDoneBase() {
                                    schedule_delay);
     scheduler->SetLatencyThreshold(kTaskFlowUpdate, execute_delay,
                                    schedule_delay);
-    scheduler->SetLatencyThreshold(kTaskFlowStatsCollector, execute_delay,
-                                   schedule_delay);
+    scheduler->SetLatencyThreshold(kTaskFlowStatsCollector, (execute_delay * 2),
+                                   (schedule_delay * 2));
     agent_->InitDone();
     InitDone();
 }
