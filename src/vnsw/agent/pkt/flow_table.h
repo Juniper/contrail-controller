@@ -210,24 +210,8 @@ public:
     void RevaluateFlow(FlowEntry *flow);
     void DeleteMessage(FlowEntry *flow);
 
-    void RevaluateInterface(FlowEntry *flow);
-    void RevaluateVn(FlowEntry *flow);
-    void RevaluateAcl(FlowEntry *flow);
-    void RevaluateNh(FlowEntry *flow);
     void DeleteVrf(VrfEntry *vrf);
-    void RevaluateRoute(FlowEntry *flow, const AgentRoute *route);
 
-    bool FlowRouteMatch(const InetUnicastRouteEntry *rt, uint32_t vrf,
-                        Address::Family family, const IpAddress &ip,
-                        uint8_t plen);
-    bool FlowInetRpfMatch(FlowEntry *flow, const InetUnicastRouteEntry *rt);
-    bool FlowInetSrcMatch(FlowEntry *flow, const InetUnicastRouteEntry *rt);
-    bool FlowInetDstMatch(FlowEntry *flow, const InetUnicastRouteEntry *rt);
-    bool FlowBridgeSrcMatch(FlowEntry *flow, const BridgeRouteEntry *rt);
-    bool FlowBridgeDstMatch(FlowEntry *flow, const BridgeRouteEntry *rt);
-    bool RevaluateSgList(FlowEntry *flow, const AgentRoute *rt,
-                         const SecurityGroupList &sg_list);
-    bool RevaluateRpfNH(FlowEntry *flow, const AgentRoute *rt);
     void HandleRevaluateDBEntry(const DBEntry *entry, FlowEntry *flow,
                                 bool active_flow, bool deleted_flow);
     void HandleKSyncError(FlowEntry *flow, FlowTableKSyncEntry *ksync_entry,
@@ -243,11 +227,13 @@ public:
     FlowEntryFreeList *free_list() { return &free_list_; }
 
     void ProcessKSyncFlowEvent(const FlowEventKSync *req, FlowEntry *flow);
-
     bool ProcessFlowEvent(const FlowEvent *req, FlowEntry *flow,
                           FlowEntry *rflow);
     void PopulateFlowEntriesUsingKey(const FlowKey &key, bool reverse_flow,
                                      FlowEntry** flow, FlowEntry** rflow);
+
+    bool SetRecomputePending(FlowEntry *flow);
+    bool SetRevaluatePending(FlowEntry *flow);
 
     // Concurrency check to ensure all flow-table and free-list manipulations
     // are done from FlowEvent task context only
