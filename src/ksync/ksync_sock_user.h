@@ -137,7 +137,7 @@ public:
     static void set_error_code(int code) { error_code_ = code; }
     static int error_code() { return error_code_; }
     static void SimulateResponse(uint32_t, int, int);
-    static void SendNetlinkDoneMsg(int seq_num);
+    static void SendNetlinkDoneMsg(uint32_t seq_num);
     static void IfDumpResponse(uint32_t);
     static void IfNetlinkMsgSend(uint32_t seq_num, ksync_map_if::const_iterator it);
     static void IfStatsUpdate(int, int, int, int, int, int, int);
@@ -199,7 +199,7 @@ public:
 
     // Add a response in nl_client into tx_buff_list_
     void AddNetlinkTxBuff(struct nl_client *cl);
-    void InitNetlinkDoneMsg(struct nlmsghdr *nlh, int seq_num);
+    void InitNetlinkDoneMsg(struct nlmsghdr *nlh, uint32_t seq_num);
     void DisableReceiveQueue(bool disable);
 private:
     void PurgeBlockedMsg();
