@@ -35,11 +35,14 @@ class VerifyServicePolicy(VerifyPolicy):
         self._vnc_lib = vnc_lib
 
     @retries(5)
-    def wait_to_get_sc(self, left_vn=None, right_vn=None, si_name=None):
+    def wait_to_get_sc(self, left_vn=None, right_vn=None, si_name=None,
+                       check_create=False):
         for sc in to_bgp.ServiceChain.values():
             if (left_vn in (None, sc.left_vn) and
                     right_vn in (None, sc.right_vn) and
                     si_name in (sc.service_list[0], None)):
+                if check_create and not sc.created:
+                    raise Exception('Service chain not created')
                 return sc.name
         raise Exception('Service chain not found')
 
@@ -1566,7 +1569,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self._vnc_lib.virtual_network_update(vn1_obj)
         self._vnc_lib.virtual_network_update(vn2_obj)
 
-        self.wait_to_get_sc()
+        self.wait_to_get_sc(check_create=True)
 
         sp_list1 = [PortType(start_port=5000, end_port=8000),
                     PortType(start_port=2000, end_port=3000)]

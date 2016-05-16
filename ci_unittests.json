@@ -23,7 +23,8 @@
     "contrail-config" : {
         "source_directories" : [
             "controller/src/api-lib",
-            "controller/src/config"
+            "controller/src/config",
+            "controller/src/schema"
         ],
         "scons_test_targets" : [
             "controller/src/config/svc_monitor:test",
