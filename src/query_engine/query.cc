@@ -189,7 +189,8 @@ PostProcessingQuery::PostProcessingQuery(
                     // do some validation checks
                     QE_INVALIDARG_ERROR(name_value.IsString());
                     QE_INVALIDARG_ERROR
-                        ((value_value.IsString() || value_value.IsNumber()));
+                        ((value_value.IsString() || value_value.IsNumber() ||
+                          value_value.IsDouble()));
                     QE_INVALIDARG_ERROR(op_value.IsNumber());
 
                     filter.name = name_value.GetString();
@@ -211,6 +212,12 @@ PostProcessingQuery::PostProcessingQuery(
                               std::ostringstream convert;
                               uint_value = value_value.GetUint();
                               convert << uint_value;
+                              filter.value = convert.str();
+                          } else if (value_value.IsDouble()) {
+                              double dbl_value;
+                              std::ostringstream convert;
+                              dbl_value = value_value.GetDouble();
+                              convert << dbl_value;
                               filter.value = convert.str();
                           }
                       }
