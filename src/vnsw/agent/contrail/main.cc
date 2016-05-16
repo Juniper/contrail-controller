@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
     }
 
     Agent *agent = init.agent();
-    agent->event_manager()->RunWithExceptionHandling();
+    agent->event_manager()->Run();
 
     return 0;
 }
