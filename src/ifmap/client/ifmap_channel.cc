@@ -44,7 +44,7 @@
 #include <sandesh/request_pipeline.h>
 
 const int IFMapChannel::kSocketCloseTimeout = 2 * 1000;
-const uint64_t IFMapChannel::kRetryConnectionMax = 2;
+const uint64_t IFMapChannel::kRetryConnectionMax = 0;
 
 using namespace boost::assign;
 using namespace std;
