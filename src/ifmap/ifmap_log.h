@@ -13,6 +13,7 @@
 
 extern SandeshTraceBufferPtr IFMapTraceBuf;
 extern SandeshTraceBufferPtr IFMapBigMsgTraceBuf;
+extern SandeshTraceBufferPtr IFMapUpdateSenderBuf;
 
 // Log and trace regular messages
 
@@ -40,6 +41,13 @@ do { \
 #define IFMAP_DEBUG_ONLY(obj, ...) \
 do { \
     IFMAP_DEBUG_LOG(obj, Category::IFMAP, __VA_ARGS__); \
+} while(0)
+
+#define IFMAP_UPD_SENDER_TRACE(obj, ...) \
+do { \
+    if (!LoggingDisabled()) { \
+        obj::TraceMsg(IFMapUpdateSenderBuf, __FILE__, __LINE__, __VA_ARGS__); \
+    } \
 } while(0)
 
 #define IFMAP_XMPP_DEBUG(obj, ...) \

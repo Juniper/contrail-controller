@@ -12,3 +12,6 @@ SandeshTraceBufferPtr IFMapTraceBuf(SandeshTraceBufferCreate("IFMapTraceBuf",
 SandeshTraceBufferPtr IFMapBigMsgTraceBuf(
     SandeshTraceBufferCreate("IFMapBigMsgTraceBuf", 25));
 
+SandeshTraceBufferPtr IFMapUpdateSenderBuf(SandeshTraceBufferCreate(
+                                           "IFMapUpdateSenderBuf", 100000));
+
