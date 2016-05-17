@@ -256,9 +256,6 @@ if vnc_op.args.on or vnc_op.args.off:
     except PermissionDenied:
         print 'Permission denied'
         sys.exit(1)
-elif vnc_op.args.uuid and vnc_op.args.name:
-    print 'Only one of uuid and fqname should be specified'
-    sys.exit(1)
 
 try:
     rv_json = vnc._request_server(rest.OP_GET, url)
