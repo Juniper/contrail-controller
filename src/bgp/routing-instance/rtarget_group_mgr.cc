@@ -118,6 +118,7 @@ void RTargetGroupMgr::BuildRTargetDistributionGraph(BgpTable *table,
         return;
     }
 
+    const BgpPath *best_ebgp_path = NULL;
     for (Route::PathList::iterator it = rt->GetPathList().begin();
          it != rt->GetPathList().end(); it++) {
         BgpPath *path = static_cast<BgpPath *>(it.operator->());
@@ -127,6 +128,14 @@ void RTargetGroupMgr::BuildRTargetDistributionGraph(BgpTable *table,
             continue;
 
         const BgpPeer *peer = static_cast<const BgpPeer *>(path->GetPeer());
+        if (peer->PeerType() == BgpProto::EBGP) {
+            if (!best_ebgp_path) {
+                best_ebgp_path = path;
+            } else if (!best_ebgp_path->PathSameNeighborAs(*path)) {
+                continue;
+            }
+        }
+
         std::pair<RtGroup::InterestedPeerList::iterator, bool> ret =
             peer_list.insert(std::pair<const BgpPeer *,
                  RtGroup::RTargetRouteList>(peer, RtGroup::RTargetRouteList()));
