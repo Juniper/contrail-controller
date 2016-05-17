@@ -494,14 +494,24 @@ class OpServerProxy::OpServerImpl {
                 k_dr_cb.count = 0;
 
 		if (k_event_cb.disableKafka) {
-		    LOG(ERROR, "Kafka Restart");
-		    StopKafka();
-		    assert(StartKafka());
-		    k_event_cb.disableKafka = false;
-		    if (collector_ && redis_up_) {
-			LOG(ERROR, "Kafka Restarting Redis");
-			collector_->RedisUpdate(true);
-		    }
+		    LOG(ERROR, "Kafka Needs Restart");
+                    class RdKafka::Metadata *metadata;
+                    /* Fetch metadata */
+                    RdKafka::ErrorCode err = producer_->metadata(true, NULL,
+                                          &metadata, 5000);
+                    if (err != RdKafka::ERR_NO_ERROR) {
+                        LOG(ERROR, "Failed to acquire metadata: " << RdKafka::err2str(err));
+                    } else {
+                        LOG(ERROR, "Kafka Metadata Detected");
+                        LOG(ERROR, "Metadata for " << metadata->orig_broker_id() <<
+                            ":" << metadata->orig_broker_name());
+
+                        if (collector_ && redis_up_) {
+                            LOG(ERROR, "Kafka Restarting Redis");
+                            collector_->RedisUpdate(true);
+                            k_event_cb.disableKafka = false;
+                        }
+                    }
 		}
             } 
 
@@ -578,6 +588,7 @@ class OpServerProxy::OpServerImpl {
                 producer_.reset();
 
                 assert(RdKafka::wait_destroyed(8000) == 0);
+                LOG(ERROR, "Kafka Stopped");
             }
         }
 
