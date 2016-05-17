@@ -1488,21 +1488,21 @@ class Controller(object):
             dout = copy.deepcopy(self._uvestats[pk])
             self._uvestats[pk] = {}
             for ktab,tab in dout.iteritems():
-                au_keys = []
+                utct = UVETableCount()
+                utct.keys = 0
+                utct.count = 0
                 for uk,uc in tab.iteritems():
                     s_keys.add(uk)
                     n_updates += uc
-                    ukc = UVEKeyCount()
-                    ukc.key = uk
-                    ukc.count = uc
-                    au_keys.append(ukc)
+                    utct.keys += 1
+                    utct.count += uc
                 au_obj = AlarmgenUpdate(name=self._sandesh._source + ':' + \
                         self._sandesh._node_type + ':' + \
                         self._sandesh._module + ':' + \
                         self._sandesh._instance_id,
                         partition = pk,
                         table = ktab,
-                        o = au_keys,
+                        o = utct,
                         i = None,
                         sandesh=self._sandesh)
                 self._logger.debug('send output stats: %s' % (au_obj.log()))
