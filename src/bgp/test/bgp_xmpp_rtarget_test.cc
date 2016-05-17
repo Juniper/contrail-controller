@@ -3383,6 +3383,36 @@ TEST_F(BgpXmppRTargetTest, PathSelection5) {
 }
 
 //
+// If RTargetRoute is received from EBGP peers in different ASes, VPN routes
+// should be sent to peers in AS of the best EBGP path.
+//
+TEST_F(BgpXmppRTargetTest, PathSelection6) {
+    Unconfigure();
+    task_util::WaitForIdle();
+    Configure(64496, 64497, 64498);
+    agent_a_1_->Subscribe("blue", 1);
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
+    AddRouteTarget(cn2_.get(), "blue", "target:1:1001");
+    task_util::WaitForIdle();
+
+    RTargetRoute *rtgt_rt =
+        VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
+    TASK_UTIL_EXPECT_EQ(2, rtgt_rt->count());
+    VerifyRTargetRouteNoExists(mx_.get(), "64497:target:1:1001");
+
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+
+    BgpRoute *inet_rt =
+        VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    usleep(50000);
+    TASK_UTIL_EXPECT_EQ(1, inet_rt->count());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
 // Local AS is different than the global AS.
 // Verify that RTarget route prefixes use local AS while the route target
 // itself uses the global AS.
