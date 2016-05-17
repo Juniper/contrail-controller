@@ -125,7 +125,7 @@ class DBInterface(object):
         return None
     #end _get_plugin_property
 
-    def _ensure_instance_exists(self, instance_id):
+    def _ensure_instance_exists(self, instance_id, tenant_id):
         instance_name = instance_id
         instance_obj = VirtualMachine(instance_name)
         try:
@@ -137,6 +137,8 @@ class DBInterface(object):
                 # virtual_machine_create generate uuid for the vm
                 pass
             self._vnc_lib.virtual_machine_create(instance_obj)
+            # set instance ownership to real tenant
+            self._vnc_lib.chown(instance_id, tenant_id)
         except RefsExistError as e:
             instance_obj = self._vnc_lib.virtual_machine_read(id=instance_obj.uuid)
 
@@ -1740,7 +1742,7 @@ class DBInterface(object):
         return fip_q_dict
     #end _floatingip_vnc_to_neutron
 
-    def _port_set_vm_instance(self, port_obj, instance_name):
+    def _port_set_vm_instance(self, port_obj, instance_name, tenant_id):
         """ This function also deletes the old virtual_machine object
         associated with the port (if any) after the new virtual_machine
         object is associated with it.
@@ -1753,7 +1755,7 @@ class DBInterface(object):
 
         if instance_name:
             try:
-                instance_obj = self._ensure_instance_exists(instance_name)
+                instance_obj = self._ensure_instance_exists(instance_name, tenant_id)
                 port_obj.set_virtual_machine(instance_obj)
             except RefsExistError as e:
                 self._raise_contrail_exception('BadRequest',
@@ -1820,6 +1822,7 @@ class DBInterface(object):
                 port_obj.add_security_group(sg_obj)
         else:  # READ/UPDATE/DELETE
             port_obj = self._virtual_machine_interface_read(port_id=port_q['id'])
+            project_id = self._get_obj_tenant_id('port', port_obj.get_uuid())
 
         if 'name' in port_q and port_q['name']:
             port_obj.display_name = port_q['name']
@@ -1827,7 +1830,7 @@ class DBInterface(object):
         if (port_q.get('device_owner') != constants.DEVICE_OWNER_ROUTER_INTF
             and port_q.get('device_owner') != constants.DEVICE_OWNER_ROUTER_GW
             and 'device_id' in port_q):
-            self._port_set_vm_instance(port_obj, port_q.get('device_id'))
+            self._port_set_vm_instance(port_obj, port_q.get('device_id'), project_id)
 
         if 'device_owner' in port_q:
             port_obj.set_virtual_machine_interface_device_owner(port_q.get('device_owner'))
@@ -3484,6 +3487,9 @@ class DBInterface(object):
             ip_obj.set_instance_ip_address(ip_addr)
 
         ip_id = self._instance_ip_create(ip_obj)
+        # set instance ip ownership to real tenant
+        tenant_id = self._get_obj_tenant_id('port', port_obj.get_uuid())
+        self._vnc_lib.chown(ip_id, tenant_id)
         return ip_id
     # end _create_instance_ip
 
@@ -3569,6 +3575,7 @@ class DBInterface(object):
 
         # create the object
         port_id = self._resource_create('virtual_machine_interface', port_obj)
+        self._vnc_lib.chown(port_id, tenant_id)
         # add support, nova boot --nic subnet-id=subnet_uuid
         subnet_id = port_q.get('subnet_id')
         try:
