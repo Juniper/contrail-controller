@@ -1146,4 +1146,32 @@ class VncApi(object):
         self._headers['X-API-ROLE'] = (',').join(roles)
     #end set_user_roles
 
+    # change object ownsership
+    def chown(self, obj_uuid, owner):
+        payload = {'uuid': obj_uuid, 'owner': owner}
+        content = self._request_server(rest.OP_POST,
+            self._action_uri['chown'], data=json.dumps(payload))
+        return content
+    #end chown
+
+    """
+    owner: UUID of owner tenant
+    owner_access: octal permission for owner (int)
+    share is list of tuple of <uuid:octal-perms>, for example [(0ed5ea...700:7)]
+    global_access: octal permission for global access (int)
+    """
+    def chmod(self, obj_uuid, owner=None, owner_access=None, share=None, global_access=None):
+        payload = {'uuid': obj_uuid}
+        if owner:
+            payload['owner'] = owner
+        if owner_access is not None:
+            payload['owner_access'] = owner_access
+        if share is not None:
+            payload['share'] = [{'tenant':item[0], 'tenant_access':item[1]} for item in share]
+        if global_access is not None:
+            payload['global_access'] = global_access
+        content = self._request_server(rest.OP_POST,
+            self._action_uri['chmod'], data=json.dumps(payload))
+        return content
+
 #end class VncApi
