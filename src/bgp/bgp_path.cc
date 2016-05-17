@@ -125,6 +125,15 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
     return 0;
 }
 
+bool BgpPath::PathSameNeighborAs(const BgpPath &rhs) const {
+    const BgpAttr *rattr = rhs.GetAttr();
+    if (!peer_ || peer_->PeerType() != BgpProto::EBGP)
+        return false;
+    if (!rhs.peer_ || rhs.peer_->PeerType() != BgpProto::EBGP)
+        return false;
+    return (attr_->neighbor_as() == rattr->neighbor_as());
+}
+
 BgpSecondaryPath::BgpSecondaryPath(const IPeer *peer, uint32_t path_id,
         PathSource src, const BgpAttrPtr ptr, uint32_t flags, uint32_t label)
     : BgpPath(peer, path_id, src, ptr, flags, label) {
