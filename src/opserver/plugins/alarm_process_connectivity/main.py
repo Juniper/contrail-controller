@@ -11,34 +11,37 @@ class ProcessConnectivity(AlarmBase):
     def __call__(self, uve_key, uve_data):
         or_list = [] 
 
-        v2 = None 
         v1 = uve_data.get("NodeStatus",None)
-        if v1 is not None:
-            v2 = v1.get("process_status",None)
+        if v1 is None:
+            return None
+        v2 = v1.get("process_status",None)
         if v2 is None:
-            or_list.append(AllOf(all_of=[AlarmElement(\
-                rule=AlarmTemplate(oper="==",
-                    operand1=Operand1(keys=["NodeStatus","process_status"]),
-                    operand2=Operand2(json_value="null")),
-                json_operand1_value="null")]))
+            and_list = []
+            and_list.append(AlarmConditionMatch(
+                condition=AlarmCondition(operation="==",
+                    operand1="NodeStatus.process_status", operand2="null"),
+                match=[AlarmMatch(json_operand1_value="null")]))
+            or_list.append(AlarmRuleMatch(rule=and_list))
             return or_list
 
-        value = None
-	proc_status_list = v2
-	for proc_status in proc_status_list:
-	    value = str(proc_status)
+        proc_status_list = v2
+        match_list = []
+        for proc_status in proc_status_list:
 	    if proc_status["state"] != "Functional":
-		or_list.append(AllOf(all_of=[AlarmElement(\
-		    rule=AlarmTemplate(oper="!=",
-			operand1=Operand1(\
-                            keys=["NodeStatus","process_status","state"]),
-			operand2=Operand2(json_value=json.dumps("Functional"))),
-		    json_operand1_value=json.dumps(proc_status["state"]),
-                    json_vars={\
-                        "NodeStatus.process_status.module_id":\
-                            proc_status["module_id"],
-                        "NodeStatus.process_status.instance_id":\
-                            proc_status["instance_id"]})])) 
+                match_list.append(AlarmMatch(json_operand1_value=json.dumps(
+                    proc_status["state"]), json_vars={
+                    "NodeStatus.process_status.module_id":\
+                        json.dumps(proc_status["module_id"]),
+                    "NodeStatus.process_status.instance_id":\
+                        json.dumps(proc_status["instance_id"])}))
+        if len(match_list):
+            or_list.append(AlarmRuleMatch(rule=[AlarmConditionMatch(
+                condition=AlarmCondition(operation="!=",
+                    operand1="NodeStatus.process_status.state",
+                    operand2=json.dumps("Functional"),
+                    vars=["NodeStatus.process_status.module_id",
+                        "NodeStatus.process_status.instance_id"]),
+                match=match_list)]))
         if len(or_list):
             return or_list
         else:

@@ -216,17 +216,16 @@ class AlarmProcessor(object):
             or_list = ext.obj.__call__(uv, local_uve)
             self._logger.debug("Alarm[%s] %s: %s" % (uv, nm, str(or_list)))
             if or_list:
-                self.uve_alarms[nm] = UVEAlarmInfo(type = nm, severity = sev,
-                                       timestamp = 0, token = "",
-                                       any_of = or_list, ack = False)
+                self.uve_alarms[nm] = UVEAlarmInfo(type=nm, severity=sev,
+                                       timestamp=0, token="",
+                                       rules=or_list, ack=False)
 	except Exception as ex:
 	    template = "Exception {0} in Alarm Processing. Arguments:\n{1!r}"
 	    messag = template.format(type(ex).__name__, ex.args)
 	    self._logger.error("%s : traceback %s" % \
 			      (messag, traceback.format_exc()))
-            self.uve_alarms[nm] = UVEAlarmInfo(type = nm, severity = sev,
-                                   timestamp = 0, token = "",
-                                   any_of = [AllOf(all_of=[])], ack = False)
+            self.uve_alarms[nm] = UVEAlarmInfo(type=nm, severity=sev,
+                                   timestamp=0, token="", rules=[], ack=False)
 
 class AlarmStateMachine:
     tab_alarms_timer = {}

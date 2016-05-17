@@ -377,6 +377,12 @@ class EventManager(object):
                     int(partition_space_used_1k)
                 disk_usage_stat.partition_space_available_1k = \
                     int(partition_space_available_1k)
+                total_disk_space = \
+                    disk_usage_stat.partition_space_used_1k + \
+                    disk_usage_stat.partition_space_available_1k
+                disk_usage_stat.percentage_partition_space_used = \
+                    int(round((float(disk_usage_stat.partition_space_used_1k)/ \
+                        float(total_disk_space))*100))
             except ValueError:
                 sys.stderr.write("Failed to get local disk space usage" + "\n")
             else:
