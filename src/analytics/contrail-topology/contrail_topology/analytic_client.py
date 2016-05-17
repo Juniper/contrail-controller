@@ -50,8 +50,13 @@ class AnalyticApiClient(object):
 
     def get_uves(self, ob=None, defult=None, refresh=False):
         if not self._uves or refresh:
-            self._uves = self._get_list_2_dict(self._get_url_json(
+            try:
+                self._uves = self._get_list_2_dict(self._get_url_json(
                     self.get_uve_url()))
+            except Exception as e:
+                import traceback; traceback.print_exc()
+                print str(e)
+                self._uves = None
         if ob is None:
             return self._uves
         if self._uves:
@@ -60,8 +65,13 @@ class AnalyticApiClient(object):
 
     def get_vrouters(self, refresh=False):
         if self._vrouters is None or refresh:
-            self._vrouters = self._get_list_2_dict(self._get_url_json(
-                    self.get_uves('vrouters', refresh=refresh)))
+            try:
+                self._vrouters = self._get_list_2_dict(self._get_url_json(
+                        self.get_uves('vrouters', refresh=refresh)))
+            except Exception as e:
+                import traceback; traceback.print_exc()
+                print str(e)
+                self._vrouters = None
         return self._vrouters
 
     def list_vrouters(self):
@@ -76,8 +86,13 @@ class AnalyticApiClient(object):
 
     def get_prouters(self, refresh=False):
         if self._prouters is None or refresh:
-            self._prouters = self._get_list_2_dict(self._get_url_json(
-                    self.get_uves('prouters')))
+            try:
+                self._prouters = self._get_list_2_dict(self._get_url_json(
+                        self.get_uves('prouters')))
+            except Exception as e:
+                import traceback; traceback.print_exc()
+                print str(e)
+                self._prouters = None
         return self._prouters
 
     def list_prouters(self):
