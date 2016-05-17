@@ -20,6 +20,11 @@ SandeshTraceBufferPtr IFMapPeerTraceBuf(
 SandeshTraceBufferPtr IFMapSmTraceBuf(
     SandeshTraceBufferCreate("IFMapSmTraceBuf", 50000));
 
+// Trace buffer for update-sender messages
+SandeshTraceBufferPtr IFMapUpdateSenderBuf(
+    SandeshTraceBufferCreate("IFMapUpdateSenderBuf", 50000));
+
 // Trace buffer for xmpp messages
 SandeshTraceBufferPtr IFMapXmppTraceBuf(
     SandeshTraceBufferCreate("IFMapXmppTraceBuf", 50000));
+

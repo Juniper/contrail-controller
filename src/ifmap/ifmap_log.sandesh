@@ -725,3 +725,60 @@ trace sandesh IFMapXmlLoadErrorTrace {
     2: u32 length
 }
 
+trace sandesh IFMapUSSplitBlocked {
+    1: string message1
+    2: string blocked_set
+    3: string message2
+    4: string marker
+}
+
+trace sandesh IFMapUSAllBlocked {
+    1: string marker
+    2: string message
+    3: string entry
+}
+
+trace sandesh IFMapUSSubsetBlocked {
+    1: string message1
+    2: string blocked_clients
+    3: string message2
+    4: string entry
+    5: string message3
+    6: string marker
+}
+
+trace sandesh IFMapUSMoveAfterLast {
+    1: string message1
+    2: string marker
+    3: string message2
+    4: string entry
+    5: string message3
+    6: string blocked_set
+}
+
+trace sandesh IFMapUSMarkerMerge {
+    1: string message1
+    2: string marker1
+    3: string message2
+    4: string marker2
+}
+
+trace sandesh IFMapUSMarkerSplit {
+    1: string message1
+    2: string blocked_set
+    3: string message2
+    4: string marker
+}
+
+trace sandesh IFMapUSSendScheduled {
+    1: string message1
+    2: string send_scheduled
+    3: string message2
+    4: u32 client
+    5: string marker
+}
+
+trace sandesh IFMapUSQueueActive {
+    1: string message
+    2: string clients
+}

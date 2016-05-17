@@ -38,11 +38,16 @@ public:
         for (size_t i = send_scheduled.find_first(); i != BitSet::npos;
              i = send_scheduled.find_next(i)) {
             // Dequeue from client marker (i).
+            IFMAP_UPD_SENDER_TRACE(IFMapUSSendScheduled, "Send scheduled for",
+                send_scheduled.ToNumberedString(), "client", i,
+                sender_->queue_->GetMarker(i)->ToString());
             sender_->Send(sender_->queue_->GetMarker(i));
         }
         if (sender_->queue_active_) {
             // Dequeue from tail marker.
             // Reset queue_active_
+            IFMAP_UPD_SENDER_TRACE(IFMapUSQueueActive, "Queue active for",
+                sender_->queue_->tail_marker()->ToString());
             sender_->Send(sender_->queue_->tail_marker());
             sender_->queue_active_ = false;
         }
@@ -113,6 +118,8 @@ void IFMapUpdateSender::Send(IFMapMarker *imarker) {
     // blocked clients, insert it before marker and continue with the ready
     // set.
     if (!blocked_clients.empty()) {
+        IFMAP_UPD_SENDER_TRACE(IFMapUSSplitBlocked, "Splitting blocked clients",
+            blocked_clients.ToNumberedString(), "from", marker->ToString());
         queue_->MarkerSplitBefore(marker, marker, blocked_clients);
     }
 
@@ -169,6 +176,8 @@ void IFMapUpdateSender::Send(IFMapMarker *imarker) {
             if (!blocked_set.empty()) {
                 // All the clients in this marker are blocked. We are done.
                 if (blocked_set == marker->mask) {
+                    IFMAP_UPD_SENDER_TRACE(IFMapUSAllBlocked, marker->ToString(),
+                        "blocked before", curr->ToString());
                     queue_->MoveMarkerBefore(marker, curr);
                     return;
                 }
@@ -176,6 +185,9 @@ void IFMapUpdateSender::Send(IFMapMarker *imarker) {
                 // a marker for them 'before' curr since they have seen
                 // everything before curr. Let the ready clients continue the
                 // traversal.
+                IFMAP_UPD_SENDER_TRACE(IFMapUSSubsetBlocked, "Clients",
+                    blocked_set.ToNumberedString(), "blocked before",
+                    curr->ToString(), "and split from", marker->ToString());
                 queue_->MarkerSplitBefore(marker, curr, blocked_set);
                 send_set.Reset(blocked_set);
             }
@@ -190,8 +202,8 @@ void IFMapUpdateSender::Send(IFMapMarker *imarker) {
 
     // The buffer will be filled in the common case of updates being added
     // after the tail_marker.
+    BitSet blk_set;
     if (!message_->IsEmpty()) {
-        BitSet blk_set;
         SendUpdate(base_send_set, &blk_set);
     }
     // If the last node in the Q was the tail_marker, we would have already
@@ -207,6 +219,9 @@ void IFMapUpdateSender::Send(IFMapMarker *imarker) {
         // is advantageous since by the time we get the next trigger, a blocked
         // client could have become ready and splitting the marker now would be
         // useless.
+        IFMAP_UPD_SENDER_TRACE(IFMapUSMoveAfterLast, "Moving", marker->ToString(),
+            "before", last->ToString(), "with blocked_set",
+            blk_set.ToNumberedString());
         queue_->MoveMarkerAfter(marker, last);
     }
     return;
@@ -279,6 +294,8 @@ IFMapMarker* IFMapUpdateSender::ProcessMarker(IFMapMarker *marker,
     // If all the clients are ready or all are blocked, merge marker into
     // next_marker. marker will be deleted.
     if (blocked_set.empty() || ready_set.empty()) {
+        IFMAP_UPD_SENDER_TRACE(IFMapUSMarkerMerge, "Merging", marker->ToString(),
+            "into", next_marker->ToString());
         queue_->MarkerMerge(next_marker, marker, marker->mask);
         assert(next_marker->mask == total_set);
     } else {
@@ -287,8 +304,12 @@ IFMapMarker* IFMapUpdateSender::ProcessMarker(IFMapMarker *marker,
         // split next_marker into 2 markers: first with the blocked_set and the
         // second with the ready_set, with first(blocked) preceding the
         // second(ready).
+        IFMAP_UPD_SENDER_TRACE(IFMapUSMarkerMerge, "Merging", marker->ToString(),
+            "into", next_marker->ToString());
         queue_->MarkerMerge(next_marker, marker, marker->mask);
         assert(next_marker->mask == total_set);
+        IFMAP_UPD_SENDER_TRACE(IFMapUSMarkerSplit, "Splitting blocked clients",
+            blocked_set.ToNumberedString(), "from", next_marker->ToString());
         queue_->MarkerSplitBefore(next_marker, next_marker, blocked_set);
     }
     if (ready_set.empty()) {

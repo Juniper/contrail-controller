@@ -53,8 +53,7 @@ std::string IFMapUpdate::ConfigName() {
 }
 
 std::string IFMapUpdate::ToString() {
-    std::string name = ConfigName();
-    return TypeToString() + " of " + name;
+    return TypeToString() + ":" + ConfigName();
 }
 
 void IFMapUpdate::AdvertiseReset(const BitSet &set) {
@@ -71,6 +70,10 @@ void IFMapUpdate::SetAdvertise(const BitSet &set) {
 
 IFMapMarker::IFMapMarker()
     : IFMapListEntry(MARKER) {
+}
+
+std::string IFMapMarker::ToString() {
+    return std::string("Marker:") + mask.ToNumberedString();
 }
 
 IFMapState::IFMapState(IFMapNode *node)
