@@ -111,7 +111,13 @@ class User(object):
        return rg_name
 
    def check_perms(self, obj_uuid):
+<<<<<<< HEAD
        rv = self.vnc_lib.obj_perms(self.vnc_lib.get_auth_token(), obj_uuid)
+=======
+       query = 'token=%s&uuid=%s' % (self.vnc_lib.get_auth_token(), obj_uuid)
+       rv = self.vnc_lib._request_server(rest.OP_GET, "/obj-perms", data=query)
+       rv = json.loads(rv)
+>>>>>>> 800a654... Add chown and chmod API to change ownership and permissions for an object.
        return rv['permissions']
 
 # display resource id-perms
@@ -930,7 +936,7 @@ class TestPermissions(test_case.ApiServerTestCase):
             self.assertEquals(perms, ExpectedPerms[user.name])
 
         logger.info( 'Enable virtual networks in alice project for global sharing (read, write, link)')
-        alice.vnc_lib.chmod(vn.get_uuid(), global_access=7)
+        alice.vnc_lib.chmod(vn.get_uuid(), global_access=PERMS_RWX)
         ExpectedPerms = {'admin':'RWX', 'alice':'RWX', 'bob':'RWX'}
         for user in [alice, bob, admin]:
             perms = user.check_perms(vn.get_uuid())

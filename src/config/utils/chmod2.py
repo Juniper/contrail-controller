@@ -151,6 +151,9 @@ if chmod.args.uuid:
     except cfgm_common.exceptions.PermissionDenied:
         print 'Permission denied!'
         sys.exit(1)
+    except cfgm_common.exceptions.PermissionDenied:
+        print '*** Permission denied!'
+        sys.exit(1)
     chmod.args.type = type
     chmod.args.name = ":".join(name)
 
