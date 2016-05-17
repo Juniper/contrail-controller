@@ -48,13 +48,14 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         super(TestIpAlloc, self).__init__(*args, **kwargs)
 
     def test_subnet_quota(self):
-        domain = Domain('v4-domain')
+        domain_name = 'v4-domain'
+        domain = Domain(domain_name)
         self._vnc_lib.domain_create(domain)
 
         # Create Project
         project = Project('v4-proj', domain)
         self._vnc_lib.project_create(project)
-        project = self._vnc_lib.project_read(fq_name=['v4-domain', 'v4-proj'])
+        project = self._vnc_lib.project_read(fq_name=[domain_name, 'v4-proj'])
 
         ipam1_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 28))
         ipam2_sn_v4 = IpamSubnetType(subnet=SubnetType('12.1.1.0', 28))
@@ -64,12 +65,12 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         #create two ipams
         ipam1 = NetworkIpam('ipam1', project, IpamType("dhcp"))
         self._vnc_lib.network_ipam_create(ipam1)
-        ipam1 = self._vnc_lib.network_ipam_read(fq_name=['v4-domain',
+        ipam1 = self._vnc_lib.network_ipam_read(fq_name=[domain_name,
                                                         'v4-proj', 'ipam1'])
 
         ipam2 = NetworkIpam('ipam2', project, IpamType("dhcp"))
         self._vnc_lib.network_ipam_create(ipam2)
-        ipam2 = self._vnc_lib.network_ipam_read(fq_name=['v4-domain',
+        ipam2 = self._vnc_lib.network_ipam_read(fq_name=[domain_name,
                                                         'v4-proj', 'ipam2'])
 
         #create virtual network with unlimited subnet quota without any subnets

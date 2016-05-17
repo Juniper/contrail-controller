@@ -240,7 +240,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         net_obj2 = self._vnc_lib.virtual_network_read(id = vn2.uuid)
 
         # Create Logical Router
-        lr = LogicalRouter('router-test-v6', project)
+        lr = LogicalRouter('router-test-v6-%s' % self.id(), project)
         lr_uuid = self._vnc_lib.logical_router_create(lr)
         logger.debug('Created Logical Router ')
 
