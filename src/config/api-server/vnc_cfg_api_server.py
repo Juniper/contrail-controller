@@ -133,6 +133,14 @@ _ACTION_RESOURCES = [
      'method': 'POST', 'method_name': 'list_bulk_collection_http_post'},
     {'uri': '/obj-perms', 'link_name': 'obj-perms',
      'method': 'GET', 'method_name': 'obj_perms_http_get'},
+    {'uri': '/chown', 'link_name': 'chown',
+     'method': 'POST', 'method_name': 'obj_chown_http_post'},
+    {'uri': '/chmod', 'link_name': 'chmod',
+     'method': 'POST', 'method_name': 'obj_chmod_http_post'},
+    {'uri': '/multi-tenancy', 'link_name': 'multi-tenancy',
+     'method': 'PUT', 'method_name': 'mt_http_put'},
+    {'uri': '/multi-tenancy-with-rbac', 'link_name': 'rbac',
+     'method': 'PUT', 'method_name': 'rbac_http_put'},
 ]
 
 
@@ -1352,6 +1360,7 @@ class VncApiServer(object):
         self.route('/multi-tenancy', 'GET', self.mt_http_get)
         self.route('/multi-tenancy', 'PUT', self.mt_http_put)
         self.route('/multi-tenancy-with-rbac', 'GET', self.rbac_http_get)
+        self.route('/multi-tenancy-with-rbac', 'PUT', self.rbac_http_put)
 
         # Initialize discovery client
         self._disc = None
@@ -1452,6 +1461,9 @@ class VncApiServer(object):
             self._sandesh.module(), self._sandesh.instance_id(), sysinfo_req,
             self._sandesh, 60, config_node_ip)
         self._cpu_info = cpu_info
+
+        self.re_uuid = re.compile('^[0-9A-F]{8}-?[0-9A-F]{4}-?4[0-9A-F]{3}-?[89AB][0-9A-F]{3}-?[0-9A-F]{12}$',
+                                  re.IGNORECASE)
 
     # end __init__
 
@@ -1742,6 +1754,116 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(403, " Permission denied")
         return result
     #end check_obj_perms_http_get
+
+    def invalid_uuid(self, uuid):
+        return self.re_uuid.match(uuid) == None
+    def invalid_access(self, access):
+        return type(access) is not int or access not in range(0,7)
+
+    # change ownership of an object
+    def obj_chown_http_post(self):
+        self._post_common(get_request(), None, None)
+
+        try:
+            obj_uuid = get_request().json['uuid']
+            owner = get_request().json['owner']
+        except Exception as e:
+            raise cfgm_common.exceptions.HttpError(400, str(e))
+        if self.invalid_uuid(obj_uuid) or self.invalid_uuid(owner):
+            raise cfgm_common.exceptions.HttpError(
+                400, "Bad Request, invalid object or owner id")
+
+        try:
+            obj_type = self._db_conn.uuid_to_obj_type(obj_uuid)
+        except NoIdError:
+            raise cfgm_common.exceptions.HttpError(400, 'Invalid object id')
+
+        # ensure user has RW permissions to object
+        perms = self._permissions.obj_perms(get_request(), obj_uuid)
+        if not 'RW' in perms:
+            raise cfgm_common.exceptions.HttpError(403, " Permission denied")
+
+        (ok, obj_dict) = self._db_conn.dbe_read(obj_type, {'uuid':obj_uuid},
+                             obj_fields=['perms2'])
+        obj_dict['perms2']['owner'] = owner
+        self._db_conn.dbe_update(obj_type, {'uuid': obj_uuid}, obj_dict)
+
+        msg = "chown: %s owner set to %s" % (obj_uuid, owner)
+        self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
+
+        return {}
+    #end obj_chown_http_post
+
+    # chmod for an object
+    def obj_chmod_http_post(self):
+        self._post_common(get_request(), None, None)
+
+        try:
+            obj_uuid = get_request().json['uuid']
+        except Exception as e:
+            raise cfgm_common.exceptions.HttpError(400, str(e))
+        if self.invalid_uuid(obj_uuid):
+            raise cfgm_common.exceptions.HttpError(
+                400, "Bad Request, invalid object id")
+
+        try:
+            obj_type = self._db_conn.uuid_to_obj_type(obj_uuid)
+        except NoIdError:
+            raise cfgm_common.exceptions.HttpError(400, 'Invalid object id')
+
+        # ensure user has RW permissions to object
+        perms = self._permissions.obj_perms(get_request(), obj_uuid)
+        if not 'RW' in perms:
+            raise cfgm_common.exceptions.HttpError(403, " Permission denied")
+
+        request_params = get_request().json
+        owner         = request_params.get('owner')
+        share         = request_params.get('share')
+        owner_access  = request_params.get('owner_access')
+        global_access = request_params.get('global_access')
+
+        (ok, obj_dict) = self._db_conn.dbe_read(obj_type, {'uuid':obj_uuid},
+                             obj_fields=['perms2'])
+        obj_perms = obj_dict['perms2']
+        old_perms = '%s/%d %d %s' % (obj_perms['owner'],
+            obj_perms['owner_access'], obj_perms['global_access'],
+            ['%s:%d' % (item['tenant'], item['tenant_access']) for item in obj_perms['share']])
+
+        if owner:
+            if self.invalid_uuid(owner):
+                raise cfgm_common.exceptions.HttpError(
+                    400, "Bad Request, invalid owner")
+            obj_perms['owner'] = owner.replace('-','')
+        if owner_access is not None:
+            if self.invalid_access(owner_access):
+                raise cfgm_common.exceptions.HttpError(
+                    400, "Bad Request, invalid owner_access value")
+            obj_perms['owner_access'] = owner_access
+        if share is not None:
+            try:
+                for item in share:
+                    if self.invalid_uuid(item['tenant']) or self.invalid_access(item['tenant_access']):
+                        raise cfgm_common.exceptions.HttpError(
+                            400, "Bad Request, invalid share list")
+            except Exception as e:
+                raise cfgm_common.exceptions.HttpError(400, str(e))
+            obj_perms['share'] = share
+        if global_access is not None:
+            if self.invalid_access(global_access):
+                raise cfgm_common.exceptions.HttpError(
+                    400, "Bad Request, invalid global_access value")
+            obj_perms['global_access'] = global_access
+
+        new_perms = '%s/%d %d %s' % (obj_perms['owner'],
+            obj_perms['owner_access'], obj_perms['global_access'],
+            ['%s:%d' % (item['tenant'], item['tenant_access']) for item in obj_perms['share']])
+
+        self._db_conn.dbe_update(obj_type, {'uuid': obj_uuid}, obj_dict)
+        msg = "chmod: %s perms old=%s, new=%s" % (obj_uuid, old_perms, new_perms)
+        self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
+
+        return {}
+    #end obj_chmod_http_post
 
     def prop_collection_http_get(self):
         if 'uuid' not in get_request().query:
@@ -3159,16 +3281,27 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(403, " Permission denied")
 
         self.set_mt(multi_tenancy)
-        return {}
+        return {'enabled': self.is_multi_tenancy_set()}
     # end
 
     # indication if multi tenancy with rbac is enabled or disabled
     def rbac_http_get(self):
         return {'enabled': self._args.multi_tenancy_with_rbac}
 
+    def rbac_http_put(self):
+        multi_tenancy_with_rbac = get_request().json['enabled']
+        if not self._auth_svc.validate_user_token(get_request()):
+            raise cfgm_common.exceptions.HttpError(403, " Permission denied")
+        if not self.is_admin_request():
+            raise cfgm_common.exceptions.HttpError(403, " Permission denied")
+
+        self.set_multi_tenancy_with_rbac(multi_tenancy_with_rbac)
+        return {'enabled': self.is_multi_tenancy_with_rbac_set()}
+    # end
+
     @property
     def cloud_admin_role(self):
-        return self._args.cloud_admin_role if self._args.multi_tenancy_with_rbac else "admin"
+        return self._args.cloud_admin_role
 
     def publish_self_to_discovery(self):
         # publish API server
