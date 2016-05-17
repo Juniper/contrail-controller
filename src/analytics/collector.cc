@@ -480,6 +480,7 @@ void Collector::GetGeneratorSummaryInfo(vector<GeneratorSummaryInfo> *genlist) {
                     gsinfo.set_db_drop_level(db_drop_level);
                 }
             }
+            gsinfo.set_sm_queue_count_max(gen->GetSandeshStateMachineMaxQueueCount());
             genlist->push_back(gsinfo);
         }
     }

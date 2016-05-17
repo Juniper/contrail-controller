@@ -112,6 +112,7 @@ struct GeneratorSummaryInfo {
     7: optional u64                        db_queue_count
     8: optional string                     db_drop_level
     9: optional bool                       sm_back_pressure
+    10: optional u32                       sm_queue_count_max
 }
 
 /**

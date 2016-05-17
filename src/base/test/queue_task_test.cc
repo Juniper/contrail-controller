@@ -244,6 +244,13 @@ TEST_F(QueueTaskTest, StartRunnerBasic) {
     EXPECT_EQ(2, work_queue_.NumEnqueues());
     EXPECT_EQ(1, work_queue_.NumDequeues());
     EXPECT_EQ(1, work_queue_.Length());
+    // Verify WorkQueue max_queue_len_
+    EXPECT_EQ(1, work_queue_.max_queue_len());
+    work_queue_.Enqueue(enqueue_counter++);
+    work_queue_.Enqueue(enqueue_counter++);
+    work_queue_.Enqueue(enqueue_counter++);
+    task_util::WaitForIdle(1);
+    EXPECT_EQ(3, work_queue_.max_queue_len());
 }
 
 TEST_F(QueueTaskTest, StartRunnerInternals) {
