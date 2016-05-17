@@ -53,6 +53,9 @@ PERMS_RWX = 7
 # create users specified as array of tuples (name, password, role)
 # assumes admin user and tenant exists
 
+def normalize_uuid(id):
+    return id.replace('-','')
+
 class User(object):
    def __init__(self, apis_ip, apis_port, kc, name, password, role, project):
        self.name = name
@@ -792,6 +795,74 @@ class TestPermissions(test_case.ApiServerTestCase):
         logger.info( 'Enable virtual networks in alice project for global sharing (read, write)')
         set_perms(vn, global_access = PERMS_RW)
         alice.vnc_lib.virtual_network_update(vn)
+
+        ExpectedPerms = {'admin':'RWX', 'alice':'RWX', 'bob':'RW'}
+        for user in [alice, bob, admin]:
+            perms = user.check_perms(vn.get_uuid())
+            self.assertEquals(perms, ExpectedPerms[user.name])
+
+    def test_chown_api(self):
+        logger.info('')
+        logger.info( '########### CHECK CHOWN API ##################')
+
+        alice = self.alice
+        bob   = self.bob
+        admin = self.admin
+
+        logger.info( 'alice: create VN in her project')
+        vn = VirtualNetwork(self.vn_name, self.alice.project_obj)
+        self.alice.vnc_lib.virtual_network_create(vn)
+
+        logger.info( 'Verify Alice owns virtual network in her project')
+        vn_fq_name = [self.domain_name, alice.project, self.vn_name]
+        vn = vnc_read_obj(admin.vnc_lib, 'virtual-network', name = vn_fq_name)
+        perms = vn.get_perms2()
+        self.assertEquals(normalize_uuid(perms.owner), normalize_uuid(alice.project_uuid))
+
+        logger.info( "Verify Bob cannot chown/chmod Alice's virtual network")
+        self.assertRaises(PermissionDenied, bob.vnc_lib.chown, vn.get_uuid(), bob.project_uuid)
+        self.assertRaises(PermissionDenied, bob.vnc_lib.chmod, vn.get_uuid(), owner=bob.project_uuid)
+
+        logger.info( 'Verify Alice can chown virtual network in her project to Bob')
+        alice.vnc_lib.chown(vn.get_uuid(), bob.project_uuid)
+        vn = vnc_read_obj(admin.vnc_lib, 'virtual-network', name = vn_fq_name)
+        perms = vn.get_perms2()
+        self.assertEquals(normalize_uuid(perms.owner), normalize_uuid(bob.project_uuid))
+
+        logger.info( '########### READ (ENABLE READ SHARING) ##################')
+        logger.info( 'Enable read share in virtual network for bob project')
+        vn = vnc_read_obj(self.admin.vnc_lib, 'virtual-network', name = vn_fq_name)
+        admin.vnc_lib.chmod(vn.get_uuid(), owner=alice.project_uuid, share=[(bob.project_uuid,PERMS_R)])
+        ExpectedPerms = {'admin':'RWX', 'alice':'RWX', 'bob':'R'}
+        for user in [alice, bob, admin]:
+            perms = user.check_perms(vn.get_uuid())
+            self.assertEquals(ExpectedPerms[user.name], perms)
+
+        logger.info('')
+        logger.info( '########### READ (DISABLE READ SHARING) ##################')
+        logger.info( 'Disable share in virtual networks for others')
+        alice.vnc_lib.chmod(vn.get_uuid(), share=[])
+
+        ExpectedPerms = {'admin':'RWX', 'alice':'RWX', 'bob':''}
+        for user in [alice, bob, admin]:
+            perms = user.check_perms(vn.get_uuid())
+            self.assertEquals(perms, ExpectedPerms[user.name])
+        logger.info( 'Reading VN as bob ... should fail')
+
+        logger.info('')
+        logger.info( '########### READ (GLOBALLY SHARED) ##################')
+        logger.info( 'Enable virtual networks in alice project for global sharing (read only)')
+        alice.vnc_lib.chmod(vn.get_uuid(), global_access=PERMS_R)
+
+        ExpectedPerms = {'admin':'RWX', 'alice':'RWX', 'bob':'R'}
+        for user in [alice, bob, admin]:
+            perms = user.check_perms(vn.get_uuid())
+            self.assertEquals(perms, ExpectedPerms[user.name])
+
+        logger.info('')
+        logger.info( '########### WRITE (GLOBALLY SHARED) ##################')
+        logger.info( 'Enable virtual networks in alice project for global sharing (read, write)')
+        alice.vnc_lib.chmod(vn.get_uuid(), global_access=PERMS_RW)
 
         ExpectedPerms = {'admin':'RWX', 'alice':'RWX', 'bob':'RW'}
         for user in [alice, bob, admin]:

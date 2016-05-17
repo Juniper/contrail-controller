@@ -109,13 +109,13 @@ class VncPermissions(object):
 
         # build perms
         mask = 07
-        if tenant == owner:
+        if tenant.replace('-','') == owner.replace('-',''):
             mask |= 0700
 
         share = perms2['share']
         tenants = [item['tenant'] for item in share]
         for item in share:
-            if tenant == item['tenant']:
+            if tenant.replace('-','') == item['tenant'].replace('-',''):
                 perms = perms | item['tenant_access'] << 3
                 mask |= 0070
                 break
