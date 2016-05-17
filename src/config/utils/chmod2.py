@@ -33,8 +33,8 @@ class VncChmod():
         parser.add_argument('--user',  help="User Name")
         parser.add_argument('--role',  help="Role Name")
         parser.add_argument('--owner', help="Set owner tenant")
-        parser.add_argument('--owner-access', type=int, help="Set owner access")
-        parser.add_argument('--global-access', type=int, help="Set global access")
+        parser.add_argument('--owner-access', help="Set owner access")
+        parser.add_argument('--global-access', help="Set global access")
         parser.add_argument('--share-list', help="Set share list")
         parser.add_argument(
             '--os-username',  help="Keystone User Name", default=None)
@@ -77,23 +77,14 @@ def print_perms(obj_perms):
 # end print_perms
 
 def set_perms(obj, owner=None, owner_access=None, share=None, global_access=None):
-    perms = obj.get_perms2()
-    print 'Current perms %s = %s' % (obj.get_fq_name(), print_perms(perms))
-
-    if owner:
-        perms.owner = owner
-
-    if owner_access:
-        perms.owner_access = owner_access
-
-    if share is not None:
-        perms.share = [ShareType(obj_uuid, obj_crud) for (obj_uuid, obj_crud) in share]
-
-    if global_access is not None:
-        perms.global_access = global_access
-
-    obj.set_perms2(perms)
-    print 'New perms %s = %s' % (obj.get_fq_name(), print_perms(perms))
+    global vnc
+    try:
+        rv = vnc.chmod(obj.get_uuid(), owner, owner_access, share, global_access)
+        if rv == None:
+            print 'Error in setting perms'
+    except cfgm_common.exceptions.PermissionDenied:
+        print '*** Permission denied!'
+        sys.exit(1)
 # end set_perms
 
 chmod = VncChmod()
@@ -157,6 +148,9 @@ if chmod.args.uuid:
     except cfgm_common.exceptions.NoIdError:
         print '*** Unknown UUID %s' % chmod.args.uuid
         sys.exit(1)
+    except cfgm_common.exceptions.PermissionDenied:
+        print '*** Permission denied!'
+        sys.exit(1)
     chmod.args.type = type
     chmod.args.name = ":".join(name)
 
@@ -166,8 +160,12 @@ print 'Name = ', chmod.args.name
 # read object from API server
 method_name = chmod.args.type.replace('-', '_')
 method = getattr(vnc, "%s_read" % (method_name))
-obj = method(fq_name_str=chmod.args.name)
-print 'Cur perms %s' % print_perms(obj.get_perms2())
+try:
+    obj = method(fq_name_str=chmod.args.name)
+    print 'Cur perms %s' % print_perms(obj.get_perms2())
+except cfgm_common.exceptions.PermissionDenied:
+    print '*** Permission denied!'
+    sys.exit(1)
 
 # write to API server
 if args.owner or args.owner_access or args.global_access is not None or args.share_list is not None:
@@ -187,20 +185,10 @@ if args.owner or args.owner_access or args.global_access is not None or args.sha
            except ValueError:
                print 'share list is tuple of <uuid:octal-perms>, for example "0ed5ea...700:7"'
                sys.exit(1)
-    global_access = int(chmod.args.global_access) if args.global_access else None
     set_perms(obj,
         owner = chmod.args.owner,
-        owner_access = chmod.args.owner_access,
-        global_access = global_access,
+        owner_access = int(chmod.args.owner_access) if chmod.args.owner_access else None,
+        global_access = int(chmod.args.global_access) if chmod.args.global_access else None,
         share = share_list)
+    obj = method(fq_name_str=chmod.args.name)
     print 'New perms %s' % print_perms(obj.get_perms2())
-    ans = raw_input("Update perms? confirm (y/n): ")
-    if not ans or ans[0].lower() != 'y':
-        sys.exit(0)
-    obj.set_id_perms(obj.get_id_perms())
-    write_method = getattr(vnc, "%s_update" % (method_name))
-    try:
-        rv = write_method(obj)
-    except cfgm_common.exceptions.PermissionDenied:
-        print '*** Permission denied!'
-        sys.exit(1)

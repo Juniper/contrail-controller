@@ -133,6 +133,10 @@ _ACTION_RESOURCES = [
      'method': 'POST', 'method_name': 'list_bulk_collection_http_post'},
     {'uri': '/obj-perms', 'link_name': 'obj-perms',
      'method': 'GET', 'method_name': 'obj_perms_http_get'},
+    {'uri': '/chown', 'link_name': 'chown',
+     'method': 'POST', 'method_name': 'obj_chown_http_post'},
+    {'uri': '/chmod', 'link_name': 'chmod',
+     'method': 'POST', 'method_name': 'obj_chmod_http_post'},
 ]
 
 
@@ -1742,6 +1746,87 @@ class VncApiServer(object):
         return result
     #end check_obj_perms_http_get
 
+    # change ownership of an object
+    def obj_chown_http_post(self):
+        self._post_common(get_request(), None, None)
+
+        try:
+            obj_uuid = get_request().json['uuid']
+            owner = get_request().json['owner']
+        except Exceptions as e:
+            raise cfgm_common.exceptions.HttpError(400, str(e))
+
+        try:
+            obj_type = self._db_conn.uuid_to_obj_type(obj_uuid)
+        except NoIdError:
+            raise cfgm_common.exceptions.HttpError(400, 'Invalid object id')
+
+        # ensure user has RW permissions to object
+        perms = self._permissions.obj_perms(get_request(), obj_uuid)
+        if not 'RW' in perms:
+            raise cfgm_common.exceptions.HttpError(403, " Permission denied")
+
+        (ok, obj_dict) = self._db_conn.dbe_read(obj_type, {'uuid':obj_uuid})
+        obj_dict['perms2']['owner'] = owner
+        self._db_conn.dbe_update(obj_type, {'uuid': obj_uuid}, obj_dict)
+
+        msg = "chown: %s owner set to %s" % (obj_uuid, owner)
+        self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
+
+        return {}
+    #end obj_chown_http_get
+
+    # chmod for an object
+    def obj_chmod_http_post(self):
+        self._post_common(get_request(), None, None)
+
+        try:
+            obj_uuid = get_request().json['uuid']
+        except Exceptions as e:
+            raise cfgm_common.exceptions.HttpError(400, str(e))
+
+        try:
+            obj_type = self._db_conn.uuid_to_obj_type(obj_uuid)
+        except NoIdError:
+            raise cfgm_common.exceptions.HttpError(400, 'Invalid object id')
+
+        # ensure user has RW permissions to object
+        perms = self._permissions.obj_perms(get_request(), obj_uuid)
+        if not 'RW' in perms:
+            raise cfgm_common.exceptions.HttpError(403, " Permission denied")
+
+        request_params = get_request().json
+        owner         = request_params.get('owner', None)
+        share         = request_params.get('share', None)
+        owner_access  = request_params.get('owner_access', None)
+        global_access = request_params.get('global_access', None)
+
+        (ok, obj_dict) = self._db_conn.dbe_read(obj_type, {'uuid':obj_uuid})
+        obj_perms = obj_dict['perms2']
+        old_perms = '%s/%d %d %s' % (obj_perms['owner'],
+            obj_perms['owner_access'], obj_perms['global_access'],
+            ['%s:%d' % (item['tenant'], item['tenant_access']) for item in obj_perms['share']])
+
+        if owner:
+            obj_perms['owner'] = owner.replace('-','')
+        if owner_access is not None:
+            obj_perms['owner_access'] = owner_access
+        if share is not None:
+            obj_perms['share'] = share
+        if global_access is not None:
+            obj_perms['global_access'] = global_access
+
+        new_perms = '%s/%d %d %s' % (obj_perms['owner'],
+            obj_perms['owner_access'], obj_perms['global_access'],
+            ['%s:%d' % (item['tenant'], item['tenant_access']) for item in obj_perms['share']])
+
+        self._db_conn.dbe_update(obj_type, {'uuid': obj_uuid}, obj_dict)
+        msg = "chmod: %s perms old=%s, new=%s" % (obj_uuid, old_perms, new_perms)
+        self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
+
+        return {}
+    #end obj_chmod_http_get
+
     def prop_collection_http_get(self):
         if 'uuid' not in get_request().query:
             raise cfgm_common.exceptions.HttpError(
@@ -2560,6 +2645,7 @@ class VncApiServer(object):
         fq_name = ['default-domain', 'default-api-access-list']
         try:
             id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
+            return
         except NoIdError:
             self._create_singleton_entry(ApiAccessList(parent_type='domain', fq_name=fq_name))
             id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
