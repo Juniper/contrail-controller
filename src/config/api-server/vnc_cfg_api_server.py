@@ -2665,7 +2665,7 @@ class VncApiServer(object):
             return {'%ss' %(resource_type): {'count': result}}
 
         # filter out items not authorized
-        for fq_name, uuid in result:
+        for fq_name, uuid in copy.deepcopy(result):
             (ok, status) = self._permissions.check_perms_read(get_request(), uuid)
             if not ok and status[0] == 403:
                 result.remove((fq_name, uuid))
