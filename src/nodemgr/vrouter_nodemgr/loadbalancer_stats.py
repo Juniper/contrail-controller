@@ -3,15 +3,17 @@ import sys
 
 from haproxy_stats import HaproxyStats
 from vrouter.loadbalancer.ttypes import \
-    UveLoadbalancerTrace, UveLoadbalancer, UveLoadbalancerStats  
+    UveLoadbalancerTrace, UveLoadbalancer, UveLoadbalancerStats
 
 LB_BASE_DIR = '/var/lib/contrail/loadbalancer/'
 
 class LoadbalancerStats(object):
     def __init__(self):
        self.driver = HaproxyStats()
+       if not self.driver.lbaas_dir:
+           self.driver.lbaas_dir = LB_BASE_DIR
        try:
-           self.old_pool_uuids = os.listdir(LB_BASE_DIR)
+           self.old_pool_uuids = os.listdir(self.driver.lbaas_dir)
        except OSError:
            self.old_pool_uuids = []
 
@@ -44,7 +46,7 @@ class LoadbalancerStats(object):
 
     def _send_loadbalancer_uve(self):
         try:
-            pool_uuids = os.listdir(LB_BASE_DIR)
+            pool_uuids = os.listdir(self.driver.lbaas_dir)
         except OSError:
             return
 
@@ -52,6 +54,9 @@ class LoadbalancerStats(object):
         for pool_uuid in self.old_pool_uuids:
             if pool_uuid not in pool_uuids:
                 uve_lb = UveLoadbalancer(name=pool_uuid, deleted=True)
+                uve_lb.virtual_ip_stats = {}
+                uve_lb.pool_stats = {}
+                uve_lb.member_stats = []
                 uve_trace = UveLoadbalancerTrace(data=uve_lb)
                 uve_trace.send()
         self.old_pool_uuids = pool_uuids
@@ -59,14 +64,24 @@ class LoadbalancerStats(object):
         # send stats
         for pool_uuid in pool_uuids:
             stats = self.driver.get_stats(pool_uuid)
-            if not len(stats) or not stats.get('vip') or not stats.get('pool'):
+            if not len(stats) or not 'vip' in stats:
+                uve_lb = UveLoadbalancer(name=pool_uuid, deleted=True)
+                uve_lb.virtual_ip_stats = {}
+                uve_lb.pool_stats = {}
+                uve_lb.member_stats = []
+                uve_trace = UveLoadbalancerTrace(data=uve_lb)
+                uve_trace.send()
                 continue
 
             uve_lb = UveLoadbalancer()
             uve_lb.name = pool_uuid
+            uve_lb.pool_stats = {}
+            uve_lb.member_stats = []
             uve_lb.virtual_ip_stats = self._uve_get_stats(stats['vip'])
-            uve_lb.pool_stats = self._uve_get_stats(stats['pool'])
-            uve_lb.member_stats = self._uve_get_member_stats(stats['members'])
+            if 'pool' in stats:
+                uve_lb.pool_stats = self._uve_get_stats(stats['pool'])
+            if 'members' in stats:
+                uve_lb.member_stats = self._uve_get_member_stats(stats['members'])
             uve_trace = UveLoadbalancerTrace(data=uve_lb)
             uve_trace.send()
 

@@ -30,10 +30,11 @@ TYPE_SERVER_RESPONSE = '2'
 
 class HaproxyStats(object):
     def __init__(self):
+        self.lbaas_dir = HAPROXY_DIR
         pass
 
     def get_stats(self, pool_id):
-        sock_path = os.path.join(LB_BASE_DIR, pool_id, 'haproxy.sock')
+        sock_path = os.path.join(self.lbaas_dir, pool_id, 'haproxy.sock')
         if not os.path.exists(sock_path):
             sys.stderr.write('\nStats socket not found for pool ' + pool_id)
             return {}
