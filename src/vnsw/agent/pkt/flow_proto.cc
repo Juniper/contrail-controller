@@ -381,6 +381,7 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
         FlowHandler *handler = new FlowHandler(agent(), req->pkt_info(), io_,
                                                this, table->table_index());
         RunProtoHandler(handler);
+        break;
     }
 
     case FlowEvent::FLOW_MESSAGE: {
