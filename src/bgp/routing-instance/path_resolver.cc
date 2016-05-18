@@ -237,7 +237,7 @@ void PathResolver::RemoveResolverNexthop(ResolverNexthop *rnexthop) {
 //
 void PathResolver::UnregisterResolverNexthopDone(BgpTable *table,
     ConditionMatch *match) {
-    CHECK_CONCURRENCY("db::DBTable");
+    CHECK_CONCURRENCY("db::Walker");
 
     ResolverNexthop *rnexthop = dynamic_cast<ResolverNexthop *>(match);
     assert(rnexthop);

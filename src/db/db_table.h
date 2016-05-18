@@ -11,6 +11,7 @@
 #include <tbb/atomic.h>
 
 #include "base/util.h"
+#include "db/db_table_walk_mgr.h"
 
 class DB;
 class DBClient;
@@ -156,7 +157,8 @@ private:
 // functionality
 class DBTable : public DBTableBase {
 public:
-    static bool WalkCallback(DBTablePartBase *tpart, DBEntryBase *entry);
+
+    static const int kIterationToYield = 1024;
 
     DBTable(DB *db, const std::string &name);
     virtual ~DBTable();
@@ -195,7 +197,9 @@ public:
     // Delete hook for user function
     virtual bool Delete(DBEntry *entry, const DBRequest *req);
 
+    bool WalkCallback(DBTablePartBase *tpart, DBEntryBase *entry);
     void WalkCompleteCallback(DBTableBase *tbl_base);
+
     void NotifyAllEntries();
 
     ///////////////////////////////////////////////////////////
@@ -236,7 +240,49 @@ public:
     // Not thread-safe. Used to shutdown and cleanup the process.
     static void DBStateClear(DBTable *table, ListenerId id);
 
+
 private:
+    friend class DBTableWalkMgr;
+    class TableWalker;
+    // A Job for walking through the DBTablePartition
+    class WalkWorker;
+
+    static int walker_task_id_;
+    static int max_iteration_to_yield_;
+
+    static int GetIterationToYield() {
+        static bool init_ = false;
+
+        if (!init_) {
+
+            // XXX To be used for testing purposes only.
+            char *count_str = getenv("DB_ITERATION_TO_YIELD");
+            if (count_str) {
+                max_iteration_to_yield_ = strtol(count_str, NULL, 0);
+            }
+            init_ = true;
+        }
+
+        return max_iteration_to_yield_;
+    }
+
+    static void db_walker_wait() {
+        static int walk_sleep_usecs_;
+        static bool once;
+
+        if (!once) {
+            once = true;
+
+            char *wait = getenv("DB_WALKER_WAIT_USECS");
+            if (wait) walk_sleep_usecs_ = strtoul(wait, NULL, 0);
+        }
+
+        if (walk_sleep_usecs_) {
+            usleep(walk_sleep_usecs_);
+        }
+    }
+
+
     ///////////////////////////////////////////////////////////
     // Utility methods
     ///////////////////////////////////////////////////////////
@@ -245,8 +291,11 @@ private:
     // Hash entry to a partition id
     int GetPartitionId(const DBEntry *entry);
 
+    void WalkTable(DBTableWalkMgr::WalkReqList &walk_req);
+
+    std::auto_ptr<TableWalker> walker_;
     std::vector<DBTablePartition *> partitions_;
-    int walk_id_;
+    DBTableWalkMgr::DBTableWalkRef walk_ref_;
 
     DISALLOW_COPY_AND_ASSIGN(DBTable);
 };

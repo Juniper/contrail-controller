@@ -825,7 +825,7 @@ void RouteAggregator<T>::RemoveAggregateRoutePrefix(const PrefixT &aggregate) {
 template <typename T>
 void RouteAggregator<T>::StopAggregateRouteDone(BgpTable *table,
                                              ConditionMatch *info) {
-    CHECK_CONCURRENCY("db::DBTable");
+    CHECK_CONCURRENCY("db::Walker");
     UnregisterAndResolveRouteAggregate(info);
     return;
 }
