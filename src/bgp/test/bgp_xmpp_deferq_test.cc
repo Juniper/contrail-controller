@@ -757,13 +757,13 @@ TEST_F(BgpXmppUnitTest, BasicDelayedInput_3) {
     task_util::WaitForIdle();
 
     // Add multiple routes to each DBTablePartition
-    for (int idx = 0; idx < 255; idx++) {
+    for (int idx = 0; idx < 64; idx++) {
         string prefix = string("10.1.") + integerToString(idx / 255) +
             "." + integerToString(idx % 255) + "/32";
         agent_a_->AddRoute("blue", prefix);
     }
-    TASK_UTIL_EXPECT_EQ(255, agent_a_->RouteCount());
-    ASSERT_TRUE(agent_a_->RouteCount() == 255);
+    TASK_UTIL_EXPECT_EQ(64, agent_a_->RouteCount());
+    ASSERT_TRUE(agent_a_->RouteCount() == 64);
 
     // Disable DB input processing
     a_->database()->SetQueueDisable(true);

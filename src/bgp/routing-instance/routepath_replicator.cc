@@ -78,6 +78,11 @@ TableState::TableState(RoutePathReplicator *replicator, BgpTable *table)
 }
 
 TableState::~TableState() {
+    if (walk_ref().get()) {
+        DB *db = replicator()->server()->database();
+        DBTableWalkMgr *walk_mgr = db->GetWalkMgr();
+        walk_mgr->ReleaseWalker(walk_ref());
+    }
 }
 
 void TableState::ManagedDelete() {
@@ -98,7 +103,7 @@ const LifetimeActor *TableState::deleter() const {
 
 bool TableState::MayDelete() const {
     if (list_.empty() && !route_count() &&
-        !replicator()->BulkSyncExists(table()))
+        ((walk_ref().get() == NULL) || !walk_ref()->walk_is_active()))
         return true;
     return false;
 }
@@ -167,9 +172,6 @@ RoutePathReplicator::RoutePathReplicator(BgpServer *server,
     : server_(server),
       family_(family),
       vpn_table_(NULL),
-      walk_trigger_(new TaskTrigger(
-          boost::bind(&RoutePathReplicator::StartWalk, this),
-          TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0)),
       trace_buf_(SandeshTraceBufferCreate("RoutePathReplicator", 500)) {
 }
 
@@ -244,68 +246,26 @@ const TableState *RoutePathReplicator::FindTableState(
 void
 RoutePathReplicator::RequestWalk(BgpTable *table) {
     CHECK_CONCURRENCY("bgp::Config");
-    BulkSyncState *state = NULL;
-    BulkSyncOrders::iterator loc = bulk_sync_.find(table);
-    if (loc != bulk_sync_.end()) {
-        // Accumulate the walk request till walk is started.
-        // After the walk is started don't cancel/interrupt the walk
-        // instead remember the request to walk again
-        // Walk will restarted after completion of current walk
-        // This situation is possible in cases where DBWalker yeilds or
-        // config task requests for walk before the previous walk is finished
-        if (loc->second->GetWalkerId() != DBTableWalker::kInvalidWalkerId) {
-            // This will be reset when the walk actually starts
-            loc->second->SetWalkAgain(true);
-        }
-        return;
-    } else {
-        state = new BulkSyncState();
-        state->SetWalkerId(DBTableWalker::kInvalidWalkerId);
-        bulk_sync_.insert(make_pair(table, state));
-    }
-}
-
-bool
-RoutePathReplicator::StartWalk() {
-    CHECK_CONCURRENCY("bgp::Config");
-
-    // For each member table, start a walker to replicate
-    for (BulkSyncOrders::iterator it = bulk_sync_.begin();
-         it != bulk_sync_.end(); ++it) {
-        if (it->second->GetWalkerId() != DBTableWalker::kInvalidWalkerId) {
-            // Walk is in progress.
-            continue;
-        }
-        BgpTable *table = it->first;
-        RPR_TRACE(Walk, table->name());
-        TableState *ts = FindTableState(table);
-        assert(ts);
-        DB *db = server()->database();
-        DBTableWalker::WalkId id = db->GetWalker()->WalkTable(table, NULL,
+    TableState *ts = FindTableState(table);
+    assert(ts);
+    DB *db = server()->database();
+    DBTableWalkMgr *walk_mgr = db->GetWalkMgr();
+    if (!ts->walk_ref()) {
+        DBTableWalkMgr::DBTableWalkRef walk_ref = walk_mgr->AllocWalker(table,
             boost::bind(&RoutePathReplicator::RouteListener, this, ts, _1, _2),
             boost::bind(&RoutePathReplicator::BulkReplicationDone, this, _1));
-        it->second->SetWalkerId(id);
-        it->second->SetWalkAgain(false);
+        walk_mgr->WalkTable(walk_ref);
+        ts->set_walk_ref(walk_ref);
+    } else {
+        walk_mgr->WalkAgain(ts->walk_ref());
     }
-    return true;
 }
 
 void
 RoutePathReplicator::BulkReplicationDone(DBTableBase *dbtable) {
-    CHECK_CONCURRENCY("db::DBTable");
-    tbb::mutex::scoped_lock lock(mutex_);
+    CHECK_CONCURRENCY("db::Walker");
     BgpTable *table = static_cast<BgpTable *>(dbtable);
     RPR_TRACE(WalkDone, table->name());
-    BulkSyncOrders::iterator loc = bulk_sync_.find(table);
-    assert(loc != bulk_sync_.end());
-    BulkSyncState *bulk_sync_state = loc->second;
-    if (bulk_sync_state->WalkAgain()) {
-        bulk_sync_state->SetWalkerId(DBTableWalker::kInvalidWalkerId);
-        walk_trigger_->Set();
-        return;
-    }
-    delete bulk_sync_state;
-    bulk_sync_.erase(loc);
     TableState *ts = FindTableState(table);
     ts->RetryDelete();
 }
@@ -357,13 +317,11 @@ void RoutePathReplicator::Join(BgpTable *table, const RouteTarget &rt,
                 continue;
             RequestWalk(sec_table);
         }
-        walk_trigger_->Set();
     } else {
         first = group->AddExportTable(family(), table);
         AddTableState(table, group);
         if (!table->empty()) {
             RequestWalk(table);
-            walk_trigger_->Set();
         }
     }
 
@@ -395,13 +353,11 @@ void RoutePathReplicator::Leave(BgpTable *table, const RouteTarget &rt,
                 continue;
             RequestWalk(sec_table);
         }
-        walk_trigger_->Set();
     } else {
         group->RemoveExportTable(family(), table);
         RemoveTableState(table, group);
         if (!table->empty()) {
             RequestWalk(table);
-            walk_trigger_->Set();
         }
     }
 

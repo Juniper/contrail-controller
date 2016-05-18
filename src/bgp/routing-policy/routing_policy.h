@@ -16,7 +16,7 @@
 #include "base/lifetime.h"
 #include "base/util.h"
 #include "bgp/bgp_common.h"
-#include "db/db_table_walker.h"
+#include "db/db_table_walk_mgr.h"
 
 #include <sandesh/sandesh_trace.h>
 
@@ -56,13 +56,6 @@ class TaskTrigger;
 //     policy on routing instance.  This function calls the operator() of the
 //     policy in input to match and apply the action on successful match.
 //
-// To avoid multiple walk requests and cancels on the table,
-// RoutingPolicyManager clubs multiple walk request in config update cycle into
-// one table walk. This is achieved using RoutingPolicyWalkRequests,
-// which stores a map of BgpTable vs RoutingPolicySyncState.
-// RoutingPolicySyncState stores the walk id of the current walk and a boolean
-// flag to indicate whether walk is requested again before the previous walk
-// is completed.
 //
 // RoutingPolicyManager takes a delete reference of BgpServer.
 //
@@ -294,42 +287,13 @@ inline void intrusive_ptr_release(RoutingPolicy *policy) {
     }
 }
 
-// RoutingPolicySyncState
-// This class holds the information of the TableWalk requests posted from
-// config sync.
-class RoutingPolicySyncState {
-public:
-    RoutingPolicySyncState() : id_(DBTable::kInvalidId), walk_again_(false) {
-    }
-
-    DBTableWalker::WalkId GetWalkerId() {
-        return id_;
-    }
-
-    void SetWalkerId(DBTableWalker::WalkId id) {
-        id_ = id;
-    }
-
-    void SetWalkAgain(bool walk) {
-        walk_again_ = walk;
-    }
-
-    bool WalkAgain() {
-        return walk_again_;
-    }
-
-private:
-    DBTableWalker::WalkId id_;
-    bool walk_again_;
-    DISALLOW_COPY_AND_ASSIGN(RoutingPolicySyncState);
-};
-
 class RoutingPolicyMgr {
 public:
     typedef std::map<std::string, RoutingPolicy*> RoutingPolicyList;
     typedef RoutingPolicyList::iterator name_iterator;
     typedef RoutingPolicyList::const_iterator const_name_iterator;
-    typedef std::map<BgpTable *, RoutingPolicySyncState *> RoutingPolicyWalkRequests;
+    typedef std::map<BgpTable *,
+            DBTableWalkMgr::DBTableWalkRef> RoutingPolicyWalkRequests;
 
     explicit RoutingPolicyMgr(BgpServer *server);
     virtual ~RoutingPolicyMgr();
@@ -389,7 +353,6 @@ public:
     // applies that policy on each route of this routing instance
     void ApplyRoutingPolicy(RoutingInstance *instance);
 
-    bool StartWalk();
     void RequestWalk(BgpTable *table);
     void WalkDone(DBTableBase *dbtable);
     bool EvaluateRoutingPolicy(DBTablePartBase *root, DBEntryBase *entry);
@@ -401,10 +364,7 @@ private:
     RoutingPolicyList routing_policies_;
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<RoutingPolicyMgr> server_delete_ref_;
-    // Mutex to protect routing_policy_sync_ from multiple DBTable tasks.
-    tbb::mutex mutex_;
     RoutingPolicyWalkRequests routing_policy_sync_;
-    boost::scoped_ptr<TaskTrigger> walk_trigger_;
     SandeshTraceBufferPtr trace_buf_;
 };
 #endif // SRC_BGP_ROUTING_POLICY_ROUTING_POLICY_H_
