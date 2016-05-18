@@ -110,7 +110,7 @@ public:
 
     void ManagedDelete();
     virtual void RetryDelete();
-    void Shutdown();
+    void TableShutdown();
     virtual bool MayDelete() const;
     bool IsDeleted() const { return deleter()->IsDeleted(); }
     virtual PathResolver *CreatePathResolver();

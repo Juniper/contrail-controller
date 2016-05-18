@@ -114,7 +114,6 @@ public:
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static VrfAssignTable *GetInstance() {return vrf_assign_table_;};
-    static void Shutdown();
 
     static Interface *FindInterface(const boost::uuids::uuid &intf_uuid);
     static VrfEntry *FindVrf(const std::string &name);

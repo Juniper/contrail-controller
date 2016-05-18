@@ -7,6 +7,7 @@
 #include "db/db_partition.h"
 #include "db/db_table.h"
 #include "db/db_table_walker.h"
+#include "db/db_table_walk_mgr.h"
 #include "tbb/task_scheduler_init.h"
 
 using namespace std;
@@ -37,7 +38,7 @@ int DB::PartitionCount() {
     return partition_count_;
 }
 
-DB::DB() : walker_(new DBTableWalker()) {
+DB::DB() : walker_(new DBTableWalker()), walk_mgr_(new DBTableWalkMgr()) {
     for (int i = 0; i < PartitionCount(); i++) {
         partitions_.push_back(new DBPartition(i));
     }

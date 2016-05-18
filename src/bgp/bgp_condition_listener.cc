@@ -5,6 +5,7 @@
 #include "bgp/bgp_condition_listener.h"
 
 #include <boost/bind.hpp>
+#include <boost/foreach.hpp>
 
 #include <utility>
 
@@ -21,79 +22,6 @@ using std::pair;
 using std::set;
 
 //
-// Helper class to maintain the WalkRequests
-// Contains a map of ConditionMatch object and RequestComplete callback
-// pending_walk_list_: List of ConditionObjects requesting walk(not completed)
-// current_walk_list_: List of ConditionObjects for which current walk is done
-//
-class WalkRequest {
-public:
-    typedef map<ConditionMatchPtr,
-            BgpConditionListener::RequestDoneCb> WalkList;
-
-    WalkRequest();
-
-    void AddMatchObject(ConditionMatch *obj,
-                        BgpConditionListener::RequestDoneCb cb) {
-        pair<WalkList::iterator, bool> ret =
-            pending_walk_list_.insert(make_pair(obj, cb));
-        if (!ret.second) {
-            if (ret.first->second.empty()) {
-                ret.first->second = cb;
-            }
-        }
-    }
-
-    //
-    // When the walk actually starts, pending_walk_list_ entries are moved to
-    // current_walk_list_.
-    //
-    void WalkStarted(DBTableWalker::WalkId id) {
-        id_ = id;
-        pending_walk_list_.swap(current_walk_list_);
-        pending_walk_list_.clear();
-    }
-
-    DBTableWalker::WalkId GetWalkId() const {
-        return id_;
-    }
-
-    void ResetWalkId() {
-        id_ = DBTableWalker::kInvalidWalkerId;
-    }
-
-    bool walk_in_progress() {
-        return (id_ != DBTableWalker::kInvalidWalkerId);
-    }
-
-    //
-    // Table requires further walk as requests are cached in pending_walk_list_
-    // during the current table walk
-    //
-    bool walk_again() {
-        return !pending_walk_list_.empty();
-    }
-
-    WalkList *walk_list() {
-        return &current_walk_list_;
-    }
-
-    bool is_walk_pending(ConditionMatch *obj) {
-        if (pending_walk_list_.empty()) {
-            return false;
-        } else {
-            return (pending_walk_list_.find(ConditionMatchPtr(obj)) !=
-                    pending_walk_list_.end());
-        }
-    }
-
-private:
-    WalkList pending_walk_list_;
-    WalkList current_walk_list_;
-    DBTableWalker::WalkId id_;
-};
-
-//
 // ConditionMatchTableState
 // State managed by the BgpConditionListener for each of the table it is
 // listening to.
@@ -107,6 +35,8 @@ private:
 class ConditionMatchTableState {
 public:
     typedef set<ConditionMatchPtr> MatchList;
+    typedef map<ConditionMatchPtr,
+            BgpConditionListener::RequestDoneCb> WalkList;
     ConditionMatchTableState(BgpTable *table, DBTableBase::ListenerId id);
     ~ConditionMatchTableState();
 
@@ -125,16 +55,47 @@ public:
         match_object_list_.insert(ConditionMatchPtr(obj));
     }
 
-    //
+    void StoreDoneCb(ConditionMatch *obj,
+                     BgpConditionListener::RequestDoneCb cb) {
+        pair<WalkList::iterator, bool> ret =
+            walk_list_.insert(make_pair(obj, cb));
+        if (!ret.second) {
+            if (ret.first->second.empty()) {
+                ret.first->second = cb;
+            }
+        }
+    }
+
     // Mutex required to manager MatchState list for concurrency
-    //
     tbb::mutex &table_state_mutex() {
         return table_state_mutex_;
     }
 
+    void set_walk_ref(DBTableWalkMgr::DBTableWalkRef walk_ref) {
+        walk_ref_ = walk_ref;
+    }
+
+    const DBTableWalkMgr::DBTableWalkRef &walk_ref() const {
+        return walk_ref_;
+    }
+
+    DBTableWalkMgr::DBTableWalkRef &walk_ref() {
+        return walk_ref_;
+    }
+
+    WalkList *walk_list() {
+        return &walk_list_;
+    }
+
+    BgpTable *table() const {
+        return table_;
+    }
 private:
     tbb::mutex table_state_mutex_;
+    BgpTable *table_;
     DBTableBase::ListenerId id_;
+    DBTableWalkMgr::DBTableWalkRef walk_ref_;
+    WalkList walk_list_;
     MatchList match_object_list_;
     LifetimeRef<ConditionMatchTableState> table_delete_ref_;
     DISALLOW_COPY_AND_ASSIGN(ConditionMatchTableState);
@@ -142,9 +103,27 @@ private:
 
 BgpConditionListener::BgpConditionListener(BgpServer *server) :
     server_(server),
-    walk_trigger_(new TaskTrigger(boost::bind(&BgpConditionListener::StartWalk,
-                                              this),
+    purge_trigger_(new TaskTrigger(
+                  boost::bind(&BgpConditionListener::PurgeTableState, this),
                   TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0)) {
+}
+
+bool BgpConditionListener::PurgeTableState() {
+    CHECK_CONCURRENCY("bgp::Config");
+    DBTableWalkMgr *walk_mgr = server()->database()->GetWalkMgr();
+    BOOST_FOREACH(ConditionMatchTableState *ts, purge_list_) {
+        if (ts->match_objects()->empty()) {
+            BgpTable *bgptable = ts->table();
+            if (ts->walk_ref().get())
+                walk_mgr->ReleaseWalker(ts->walk_ref());
+            bgptable->Unregister(ts->GetListenerId());
+            map_.erase(bgptable);
+            delete ts;
+        }
+    }
+    purge_list_.clear();
+
+    return true;
 }
 
 //
@@ -173,7 +152,7 @@ void BgpConditionListener::AddMatchCondition(BgpTable *table,
         ts = loc->second;
     }
     ts->AddMatchObject(obj);
-    TableWalk(table, obj, cb);
+    TableWalk(ts, obj, cb);
 }
 
 
@@ -189,7 +168,10 @@ void BgpConditionListener::RemoveMatchCondition(BgpTable *table,
                                                 RequestDoneCb cb) {
     CHECK_CONCURRENCY("bgp::Config");
     obj->SetDeleted();
-    TableWalk(table, obj, cb);
+
+    TableMap::iterator loc = map_.find(table);
+    assert(loc != map_.end());
+    TableWalk(loc->second, obj, cb);
 }
 
 //
@@ -307,47 +289,21 @@ void BgpConditionListener::RemoveMatchState(BgpTable *table, BgpRoute *route,
     }
 }
 
-//
-// Add ConditionMatch object to pending_walk_list_
-// and trigger the task to actually start the walk
-//
-void BgpConditionListener::TableWalk(BgpTable *table, ConditionMatch *obj,
-                                     RequestDoneCb cb) {
-    CHECK_CONCURRENCY("bgp::Config");
-    WalkRequestMap::iterator loc = walk_map_.find(table);
-    WalkRequest *walk_req = NULL;
-    if (loc != walk_map_.end()) {
-        walk_req = loc->second;
-        walk_req->AddMatchObject(obj, cb);
-    } else {
-        walk_req = new WalkRequest();
-        walk_map_.insert(make_pair(table, walk_req));
-        walk_req->AddMatchObject(obj, cb);
-    }
-    walk_trigger_->Set();
-}
-
-bool BgpConditionListener::StartWalk() {
+void BgpConditionListener::TableWalk(ConditionMatchTableState *ts,
+                 ConditionMatch *obj, BgpConditionListener::RequestDoneCb cb) {
     CHECK_CONCURRENCY("bgp::Config");
 
-    DBTableWalker::WalkCompleteFn walk_complete
-        = boost::bind(&BgpConditionListener::WalkDone, this, _1);
-
-    DBTableWalker::WalkFn walker
-        = boost::bind(&BgpConditionListener::BgpRouteNotify, this, server(),
-                      _1, _2);
-
-    for (WalkRequestMap::iterator it = walk_map_.begin();
-         it != walk_map_.end(); ++it) {
-        if (it->second->walk_in_progress()) {
-            continue;
-        }
-        DB *db = server()->database();
-        DBTableWalker::WalkId id =
-            db->GetWalker()->WalkTable(it->first, NULL, walker, walk_complete);
-        it->second->WalkStarted(id);
+    DBTableWalkMgr *walk_mgr = server()->database()->GetWalkMgr();
+    if (!ts->walk_ref().get()) {
+        DBTableWalkMgr::DBTableWalkRef walk_ref =
+            walk_mgr->AllocWalker(ts->table(),
+            boost::bind(&BgpConditionListener::BgpRouteNotify, this, server(), _1, _2),
+            boost::bind(&BgpConditionListener::WalkDone, this, ts, _1));
+        ts->set_walk_ref(walk_ref);
     }
-    return true;
+    ts->StoreDoneCb(obj, cb);
+    obj->reset_walk_done();
+    walk_mgr->WalkTable(ts->walk_ref());
 }
 
 // Table listener
@@ -380,39 +336,27 @@ bool BgpConditionListener::BgpRouteNotify(BgpServer *server,
 
 //
 // WalkComplete function
-// At the end of the walk reset the WalkId.
+// WalkComplete is invoked only after all walk requests for BgpConditionListener
+// is served. (say after multiple walkagain, only one WalkDone is invoked)
 // Invoke the RequestDoneCb for all objects for which walk was started
-// Clear the current_walk_list_ and check whether the table needs to be
-// walked again.
+// Clear the walk_list_
 //
-void BgpConditionListener::WalkDone(DBTableBase *table) {
+void BgpConditionListener::WalkDone(ConditionMatchTableState *ts,
+                                    DBTableBase *table) {
     BgpTable *bgptable = static_cast<BgpTable *>(table);
-    WalkRequestMap::iterator it = walk_map_.find(bgptable);
-    assert(it != walk_map_.end());
-    WalkRequest *walk_state = it->second;
 
-    walk_state->ResetWalkId();
-
-    //
     // Invoke the RequestDoneCb after the TableWalk
-    //
-    for (WalkRequest::WalkList::iterator walk_it =
-         walk_state->walk_list()->begin();
-         walk_it != walk_state->walk_list()->end(); ++walk_it) {
+    for (ConditionMatchTableState::WalkList::iterator walk_it =
+         ts->walk_list()->begin();
+         walk_it != ts->walk_list()->end(); ++walk_it) {
+        walk_it->first->set_walk_done();
         // If application has registered a WalkDone callback, invoke it
-        if (!walk_it->second.empty())
+        if (!walk_it->second.empty()) {
             walk_it->second(bgptable, walk_it->first.get());
+        }
     }
 
-    walk_state->walk_list()->clear();
-
-    if (walk_state->walk_again()) {
-        // More walk requests are pending
-        walk_trigger_->Set();
-    } else {
-        delete walk_state;
-        walk_map_.erase(it);
-    }
+    ts->walk_list()->clear();
 }
 
 void BgpConditionListener::UnregisterMatchCondition(BgpTable *bgptable,
@@ -421,43 +365,29 @@ void BgpConditionListener::UnregisterMatchCondition(BgpTable *bgptable,
     assert(loc != map_.end());
     ConditionMatchTableState *ts = loc->second;
 
-    WalkRequestMap::iterator it = walk_map_.find(bgptable);
-    WalkRequest *walk_state = NULL;
-    if (it != walk_map_.end()) {
-        walk_state = it->second;
-    }
-
-    //
     // Wait for Walk completion of deleted ConditionMatch object
-    //
-    if ((!walk_state || !walk_state->is_walk_pending(obj)) &&
-        obj->deleted()) {
+    if (obj->deleted() && obj->walk_done()) {
         ts->match_objects()->erase(obj);
+        purge_list_.insert(ts);
     }
-
-    if (ts->match_objects()->empty()) {
-        bgptable->Unregister(ts->GetListenerId());
-        map_.erase(bgptable);
-        delete ts;
-    }
+    purge_trigger_->Set();
 }
 
 void BgpConditionListener::DisableTableWalkProcessing() {
-    walk_trigger_->set_disable();
+    DBTableWalkMgr *walk_mgr = server()->database()->GetWalkMgr();
+    walk_mgr->DisableWalkProcessing();
 }
 
 void BgpConditionListener::EnableTableWalkProcessing() {
-    walk_trigger_->set_enable();
+    DBTableWalkMgr *walk_mgr = server()->database()->GetWalkMgr();
+    walk_mgr->EnableWalkProcessing();
 }
 
 ConditionMatchTableState::ConditionMatchTableState(BgpTable *table,
                                                    DBTableBase::ListenerId id)
-    : id_(id), table_delete_ref_(this, table->deleter()) {
+    : table_(table), id_(id), table_delete_ref_(this, table->deleter()) {
     assert(table->deleter() != NULL);
 }
 
 ConditionMatchTableState::~ConditionMatchTableState() {
-}
-
-WalkRequest::WalkRequest() : id_(DBTableWalker::kInvalidWalkerId) {
 }

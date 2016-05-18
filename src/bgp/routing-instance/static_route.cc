@@ -778,7 +778,7 @@ void StaticRouteMgr<T>::LocateStaticRoutePrefix(
 template <typename T>
 void StaticRouteMgr<T>::StopStaticRouteDone(BgpTable *table,
                                              ConditionMatch *info) {
-    CHECK_CONCURRENCY("db::DBTable");
+    CHECK_CONCURRENCY("db::Walker");
     StaticRoute<T> *match = static_cast<StaticRoute<T> *>(info);
     match->set_unregistered();
     if (!match->num_matchstate() && match->unregistered()) {

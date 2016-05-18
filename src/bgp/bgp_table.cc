@@ -38,7 +38,7 @@ class BgpTable::DeleteActor : public LifetimeActor {
     }
 
     virtual void Shutdown() {
-        table_->Shutdown();
+        table_->TableShutdown();
     }
 
     // Make sure that all notifications have been processed and all db
@@ -710,8 +710,10 @@ bool BgpTable::MayDelete() const {
     return DBTableBase::MayDelete();
 }
 
-void BgpTable::Shutdown() {
+void BgpTable::TableShutdown() {
     CHECK_CONCURRENCY("bgp::PeerMembership", "bgp::Config");
+    // Invoke shutdown on base class
+    return DBTable::TableShutdown();
 }
 
 void BgpTable::ManagedDelete() {
