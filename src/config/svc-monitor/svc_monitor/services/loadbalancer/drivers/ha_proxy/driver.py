@@ -10,6 +10,7 @@ from vnc_api.vnc_api import ServiceTemplate, ServiceInstance, ServiceInstanceTyp
 from vnc_api.vnc_api import ServiceScaleOutType, ServiceInstanceInterfaceType
 from vnc_api.vnc_api import NoIdError, RefsExistError
 from vnc_api.vnc_api import KeyValuePair, KeyValuePairs
+from vnc_api.vnc_api import FatFlowProtocols, ProtocolType
 
 from svc_monitor.config_db import *
 import haproxy_config
@@ -392,10 +393,66 @@ class OpencontrailLoadbalancerDriver(
     def update_health_monitor(self, id, health_monitor):
         pass
 
+    def get_vip_port_v1(self, pool):
+        vip = VirtualIpSM.get(pool.virtual_ip)
+        if not vip:
+            return None
+        return vip.virtual_machine_interface
+ 
+    def get_port_list_v1(self, pool):
+        port_list = set()
+        vip = VirtualIpSM.get(pool.virtual_ip)
+        if not vip:
+            return port_list
+        if vip.params.get('port', None):
+            port_list.add(vip.params.get('port'))
+        return port_list
+        
+    def get_port_list_v2(self, lb):
+        port_list = set()
+        for ll_id in lb.loadbalancer_listeners:
+            ll = LoadbalancerListenerSM.get(ll_id)
+            if not ll:
+                continue
+            port = ll.params.get('protocol_port', None)
+            if port:
+                port_list.add(port)
+
+        return port_list
+
+    def update_vmi_fat_flows(self, vip_vmi_id, port_list):
+        vip_vmi = VirtualMachineInterfaceSM.get(vip_vmi_id)
+        if not vip_vmi or not len(vip_vmi.instance_ips):
+            return
+        vip_iip = InstanceIpSM.get(list(vip_vmi.instance_ips)[0])
+        if not vip_iip:
+            return
+
+        for vmi_id in vip_iip.virtual_machine_interfaces:
+            if vmi_id == vip_vmi_id:
+                continue
+            vmi = VirtualMachineInterfaceSM.get(vmi_id)
+            if not vmi:
+                continue
+            if not vmi.fat_flow_ports.symmetric_difference(port_list):
+                continue
+            try:
+                vmi_obj = self._api.virtual_machine_interface_read(id=vmi.uuid)
+                ffp = FatFlowProtocols()
+                for port in port_list:
+                    ffp.add_fat_flow_protocol(ProtocolType(port=port))
+                vmi_obj.set_virtual_machine_interface_fat_flow_protocols(ffp)
+                self._api.virtual_machine_interface_update(vmi_obj)
+                vmi.update()
+            except NoIdError:
+                continue
+
     def set_config_v1(self, pool_id):
         pool = LoadbalancerPoolSM.get(pool_id)
         if not pool:
             return
+        self.update_vmi_fat_flows(self.get_vip_port_v1(pool),
+           self.get_port_list_v1(pool))
         conf = haproxy_config.get_config_v1(pool)
         self.set_haproxy_config(pool.service_instance, 'v1', pool.uuid, conf)
 
@@ -403,6 +460,8 @@ class OpencontrailLoadbalancerDriver(
         lb = LoadbalancerSM.get(lb_id)
         if not lb:
             return
+        self.update_vmi_fat_flows(lb.virtual_machine_interface,
+            self.get_port_list_v2(lb))
         conf = haproxy_config.get_config_v2(lb)
         self.set_haproxy_config(lb.service_instance, 'v2', lb.uuid, conf)
         return conf
