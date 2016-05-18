@@ -712,6 +712,8 @@ bool BgpTable::MayDelete() const {
 
 void BgpTable::Shutdown() {
     CHECK_CONCURRENCY("bgp::PeerMembership", "bgp::Config");
+    // Invoke shutdown on base class
+    return DBTable::Shutdown();
 }
 
 void BgpTable::ManagedDelete() {

@@ -15,6 +15,7 @@ class DBGraph;
 class DBPartition;
 class DBTableBase;
 class DBTableWalker;
+class DBTableWalkMgr;
 
 // A database is a collection of tables.
 // The storage is implemented by a set of shards (DB Partitions).
@@ -44,6 +45,9 @@ public:
     // Table walker
     DBTableWalker *GetWalker() {
         return walker_.get();
+    }
+    DBTableWalkMgr *GetWalkMgr() {
+        return walk_mgr_.get();
     }
 
     DBGraph *GetGraph(const std::string &name);
@@ -80,6 +84,7 @@ private:
     TableMap tables_;
     GraphMap graph_map_;
     std::auto_ptr<DBTableWalker> walker_;
+    std::auto_ptr<DBTableWalkMgr> walk_mgr_;
 
     DISALLOW_COPY_AND_ASSIGN(DB);
 };
