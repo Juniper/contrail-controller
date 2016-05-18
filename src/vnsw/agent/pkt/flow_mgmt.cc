@@ -208,6 +208,9 @@ size_t FlowMgmtManager::FlowUpdateQueueLength() {
     return request_queue_.Length();
 }
 
+size_t FlowMgmtManager::FlowDBQueueLength() {
+    return db_event_queue_.Length();
+}
 /////////////////////////////////////////////////////////////////////////////
 // Handlers for events from the work-queue
 /////////////////////////////////////////////////////////////////////////////
@@ -1612,7 +1615,5 @@ VrfFlowMgmtEntry::Data::~Data() {
 
 void VrfFlowMgmtEntry::Data::ManagedDelete() {
     deleted_ = true;
-    if (vrf_mgmt_entry_->CanDelete()) {
-        vrf_mgmt_entry_->vrf_tree()->mgr()->RetryVrfDeleteEvent(vrf_);
-    }
+    vrf_mgmt_entry_->vrf_tree()->mgr()->RetryVrfDeleteEvent(vrf_);
 }

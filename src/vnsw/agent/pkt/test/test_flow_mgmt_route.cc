@@ -313,6 +313,41 @@ TEST_F(FlowMgmtRouteTest, RouteDelete_5) {
     client->WaitForIdle();
 }
 
+TEST_F(FlowMgmtRouteTest, RouteAddDelete_6) {
+    VrfAddReq("vrf10");
+    client->WaitForIdle();
+
+    boost::system::error_code ec;
+    Ip4Address remote_compute = Ip4Address::from_string("1.1.1.1", ec);
+    char router_id[80];
+    strcpy(router_id, Agent::GetInstance()->router_id().to_string().c_str());
+
+    //uint32_t id = VrfGet("vrf10")->vrf_id();
+    string vn_name = "vn10";
+    for (uint32_t i = 1; i < 100; i++) {
+        Ip4Address ip(i);
+        Inet4TunnelRouteAdd(agent_->local_peer(), "vrf10",
+                ip, 32,
+                remote_compute, TunnelType::AllType(), 10,
+                vn_name, SecurityGroupList(),
+                PathPreference());
+        client->WaitForIdle();
+    }
+
+    flow_mgmt_->FlowUpdateQueueDisable(true);
+    for (uint32_t i = 0; i < 100; i++) {
+        Ip4Address ip(i);
+        DeleteRoute("vrf10", ip.to_string().c_str(),  32, agent_->local_peer());
+        client->WaitForIdle();
+    }
+
+    // Enable flow-mgmt queue
+    flow_mgmt_->FlowUpdateQueueDisable(false);
+    Agent::GetInstance()->vrf_table()->DeleteVrfReq("vrf10");
+    WAIT_FOR(1000, 1000, (flow_mgmt_->FlowUpdateQueueLength() == 0));
+    WAIT_FOR(1000, 10000, (VrfFind("vrf10", true) == false));
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // UT for bug 1551577
 // Simulate the following scenario,
