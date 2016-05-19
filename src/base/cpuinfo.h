@@ -29,6 +29,7 @@ struct SystemMemInfo {
     uint32_t used;
     uint32_t free;
     uint32_t buffers;
+    uint32_t cached;
 };
 
 struct CpuInfo {

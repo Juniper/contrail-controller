@@ -19,3 +19,5 @@ class ProcessStat(object):
         self.process_state = 'PROCESS_STATE_STOPPED'
         self.group = 'default'
         self.name = socket.gethostname()
+        self.pname = pname
+        self.pid = 0
