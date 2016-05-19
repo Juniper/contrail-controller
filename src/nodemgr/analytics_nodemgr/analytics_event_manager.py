@@ -27,7 +27,7 @@ from analytics.ttypes import \
     NodeStatusUVE, NodeStatus
 from pysandesh.connection_info import ConnectionState
 from analytics.process_info.ttypes import \
-    ProcessStatus, ProcessState, ProcessInfo, DiskPartitionUsageStats
+    ProcessStatus, ProcessState, ProcessInfo
 from analytics.process_info.constants import \
     ProcessStateNames
 
@@ -55,6 +55,7 @@ class AnalyticsEventManager(EventManager):
             self.instance_id,
             staticmethod(ConnectionState.get_process_state_cb),
             NodeStatusUVE, NodeStatus)
+        self.send_system_cpu_info()
     # end __init__
 
     def process(self):
@@ -73,10 +74,12 @@ class AnalyticsEventManager(EventManager):
             ProcessStateNames, ProcessState, ProcessStatus,
             NodeStatus, NodeStatusUVE)
 
+    def get_node_status_class(self):
+        return NodeStatus
+
+    def get_node_status_uve_class(self):
+        return NodeStatusUVE
+
     def get_process_state(self, fail_status_bits):
         return self.get_process_state_base(
             fail_status_bits, ProcessStateNames, ProcessState)
-
-    def send_disk_usage_info(self):
-        self.send_disk_usage_info_base(
-            NodeStatusUVE, NodeStatus, DiskPartitionUsageStats)
