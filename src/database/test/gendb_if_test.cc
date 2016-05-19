@@ -540,6 +540,10 @@ class GenDbTest : public ::testing::Test {
         GenDb::DbErrors *dbe) {
         stats_.GetDiffs(vdbti, dbe);
     }
+    void GetCumulativeStats(std::vector<GenDb::DbTableInfo> *vdbti,
+        GenDb::DbErrors *dbe) {
+        stats_.GetCumulative(vdbti, dbe);
+    }
     void UpdateErrorsWriteTablespace() {
         stats_.IncrementErrors(
             GenDb::IfErrors::ERR_WRITE_TABLESPACE);
@@ -690,6 +694,50 @@ TEST_F(GenDbTest, Stats) {
     GenDb::DbErrors edbe_diffs;
     edbe_diffs.set_write_tablespace_fails(1);
     EXPECT_EQ(edbe_diffs, adbe_diffs);
+}
+
+TEST_F(GenDbTest, CumulativeStats) {
+    // Update Cf stats
+    const std::string cfname1("FakeColumnFamily1");
+    UpdateStatsAll(cfname1);
+    // Get and verify
+    std::vector<GenDb::DbTableInfo> vdbti;
+    GenDb::DbErrors adbe;
+    GetStats(&vdbti, &adbe);
+    ASSERT_EQ(1, vdbti.size());
+    vdbti.clear();
+    GetCumulativeStats(&vdbti, &adbe);
+    ASSERT_EQ(1, vdbti.size());
+    vdbti.clear();
+    // Update Cf stats again
+    const std::string cfname2("FakeColumnFamily2");
+    UpdateStatsAll(cfname2);
+    GetStats(&vdbti, &adbe);
+    ASSERT_EQ(1, vdbti.size());
+    vdbti.clear();
+    GetCumulativeStats(&vdbti, &adbe);
+    ASSERT_EQ(2, vdbti.size());
+    vdbti.clear();
+    // Test if the idividual stats in the tables
+    // are getting updated
+    UpdateStatsAll(cfname);
+    GenDb::DbTableInfo edbti;
+    edbti.set_table_name(cfname);
+    edbti.set_reads(1);
+    edbti.set_read_fails(1);
+    edbti.set_writes(1);
+    edbti.set_write_fails(1);
+    // Get stats should not change
+    GetStats(&vdbti, &adbe);
+    EXPECT_EQ(edbti, vdbti[0]);
+    edbti.set_table_name(cfname);
+    edbti.set_reads(2);
+    edbti.set_read_fails(2);
+    edbti.set_writes(2);
+    edbti.set_write_fails(2);
+    // cumulative stats should keep increasing
+    GetCumulativeStats(&vdbti, &adbe);
+    EXPECT_EQ(edbti, vdbti[0]);
 }
 
 int main(int argc, char **argv) {
