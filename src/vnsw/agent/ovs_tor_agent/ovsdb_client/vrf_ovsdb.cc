@@ -100,7 +100,7 @@ void VrfOvsdbEntry::TriggerAck(UnicastMacRemoteTable *table) {
     OvsdbDBObject *object = static_cast<OvsdbDBObject*>(GetObject());
     assert(route_table_ == table);
     route_table_ = NULL;
-    object->NotifyEvent(this, KSyncEntry::DEL_ACK);
+    object->SafeNotifyEvent(this, KSyncEntry::DEL_ACK);
 }
 
 VrfOvsdbObject::VrfOvsdbObject(OvsdbClientIdl *idl) : OvsdbDBObject(idl, true) {

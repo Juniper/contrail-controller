@@ -153,7 +153,7 @@ protected:
     void ClearStale(KSyncEntry *entry);
     // Big lock on the tree
     // TODO: Make this more fine granular
-    tbb::recursive_mutex  lock_;
+    mutable tbb::recursive_mutex  lock_;
     void ChangeKey(KSyncEntry *entry, uint32_t arg);
     virtual void UpdateKey(KSyncEntry *entry, uint32_t arg) { }
 
