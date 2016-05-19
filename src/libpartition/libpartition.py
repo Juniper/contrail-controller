@@ -163,7 +163,8 @@ class PartitionClient(object):
             # TODO: If we have a non-KazooException, the lock object
             #       may get stuck in the "cancelled" state
             self._logger.error("Lock acquire unexpected error!: " + str(ex))
-            assert()
+            # This exception should get propogated to main thread
+            raise SystemExit
             return False
     #end _acquire_lock
 
