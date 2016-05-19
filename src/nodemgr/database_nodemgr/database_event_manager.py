@@ -83,6 +83,7 @@ class DatabaseEventManager(EventManager):
             self.instance_id,
             staticmethod(ConnectionState.get_process_state_cb),
             NodeStatusUVE, NodeStatus)
+        self.send_sys_cpu_info()
     # end __init__
 
     def _get_cassandra_config_option(self, config):
@@ -160,6 +161,21 @@ class DatabaseEventManager(EventManager):
         self.send_nodemgr_process_status_base(
             ProcessStateNames, ProcessState, ProcessStatus,
             NodeStatus, NodeStatusUVE)
+
+    def get_node_status(self):
+        return NodeStatus
+
+    def get_node_status_uve(self):
+        return NodeStatusUVE
+
+    def send_sys_cpu_info(self):
+        self.send_sys_cpu_info_base(NodeStatus, NodeStatusUVE)
+
+    def send_sys_mem_cpu_info(self):
+        self.send_sys_mem_cpu_info_base(NodeStatus, NodeStatusUVE)
+
+    def send_process_mem_cpu_info(self, process_mem_cpu_info, pstat):
+        self.send_process_mem_cpu_info_base(process_mem_cpu_info, pstat)
 
     def get_process_state(self, fail_status_bits):
         return self.get_process_state_base(
