@@ -24,6 +24,8 @@ class CpuInfoData(object):
         sys_mem_info.total = virtmem_info.total/1024
         sys_mem_info.used = virtmem_info.used/1024
         sys_mem_info.free = virtmem_info.free/1024
+        sys_mem_info.buffers = virtmem_info.buffers/1024
+        sys_mem_info.cached = virtmem_info.cached/1024
         return sys_mem_info
     #end _get_sys_mem_info
 
