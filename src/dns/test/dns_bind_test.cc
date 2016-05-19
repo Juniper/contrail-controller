@@ -802,7 +802,7 @@ TEST_F(DnsBindTest, ReorderedExternalReverseResolutionDisabled) {
 
 TEST_F(DnsBindTest, DnsClassTest) {
     std::string cl = BindUtil::DnsClass(4);
-    EXPECT_TRUE(cl == "");
+    EXPECT_TRUE(cl == "4");
 }
 
 #define MAX_ITEMS 3
@@ -1098,7 +1098,40 @@ TEST_F(DnsBindTest, DnsResponseSRVParse) {
     EXPECT_TRUE(ans == ans_in);
 }
 
+// Check the parsing of a TXT record
+TEST_F(DnsBindTest, DnsResponseTxtParse) {
+    uint8_t buf[1024];
+    DnsItems ans_in;
+    DnsItem item;
+    item.eclass = DNS_CLASS_IN;
+    item.type = DNS_TXT_RECORD;
+    item.ttl = 100;
+    item.name = "google.com";
+    item.data = "v=spf1 include:_spf.google.com ~all";
+    ans_in.push_back(item);
 
+    dnshdr *dns = (dnshdr *) buf;
+    BindUtil::BuildDnsHeader(dns, 0x0102, DNS_QUERY_RESPONSE, DNS_OPCODE_QUERY,
+                             0, 0, 0, 0);
+    dns->ques_rrcount = htons(1);
+    dns->ans_rrcount = htons(1);
+    dns->auth_rrcount = 0;
+    dns->add_rrcount = 0;
+
+    uint16_t len = sizeof(dnshdr);
+    uint8_t *ptr = (uint8_t *) (dns + 1);
+    ptr = BindUtil::AddQuestionSection(ptr, "google.com",
+                                       DNS_TXT_RECORD, DNS_CLASS_IN, len);
+    for (DnsItems::iterator it = ans_in.begin(); it != ans_in.end(); it++)
+         ptr = BindUtil::AddAnswerSection(ptr, *it, len);
+
+    uint16_t xid;
+    dns_flags flags;
+    DnsItems ques, ans, auth, add;
+    EXPECT_TRUE(BindUtil::ParseDnsResponse(buf, len, xid, flags,
+                ques, ans, auth, add));
+    EXPECT_TRUE(ans == ans_in);
+}
 
 }  // namespace
 
