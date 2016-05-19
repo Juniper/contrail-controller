@@ -778,6 +778,31 @@ TEST_F(PktParseTest, IPv6_Invalid_GRE_On_Enet_1) {
     delete pkt;
 }
 
+// check that flow UDP packet with DHCP port is not enqueued to DHCP
+TEST_F(PktParseTest, FlowOverridesDHCP) {
+    unsigned int dhcp_count = GetPktModuleCount(PktHandler::DHCP);
+    unsigned int flow_count = GetPktModuleCount(PktHandler::FLOW);
+    unsigned int invalid_count = GetPktModuleCount(PktHandler::INVALID);
+    VmInterface *vnet1 = VmInterfaceGet(1);
+
+    std::auto_ptr<PktGen> pkt(new PktGen());
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddAgentHdr(vnet1->id(), AGENT_TRAP_FLOW_MISS);
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddIpHdr("1.1.1.1", "1.1.1.2", 1);
+    pkt->AddUdpHdr(68, 67, 128);
+    uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
+    memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket
+        (ptr, pkt->GetBuffLen(), pkt->GetBuffLen());
+        // (ptr, (sizeof(struct ether_header) + sizeof(agent_hdr)), pkt->GetBuffLen());
+
+    client->WaitForIdle();
+    EXPECT_EQ(dhcp_count, GetPktModuleCount(PktHandler::DHCP));
+    EXPECT_EQ((flow_count + 1), GetPktModuleCount(PktHandler::FLOW));
+    EXPECT_EQ(invalid_count, GetPktModuleCount(PktHandler::INVALID));
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
