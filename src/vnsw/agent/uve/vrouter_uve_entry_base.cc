@@ -794,7 +794,9 @@ void VrouterUveEntryBase::BuildAndSendComputeCpuStateMsg(const CpuLoadInfo &info
     ainfo.set_cpu_share(info.get_cpu_share());
     ainfo.set_mem_virt(info.get_meminfo().get_virt());
     ainfo.set_mem_res(info.get_meminfo().get_res());
-    ainfo.set_used_sys_mem(info.get_sys_mem_info().get_used());
+    const SysMemInfo &sys_mem_info(info.get_sys_mem_info());
+    ainfo.set_used_sys_mem(sys_mem_info.get_used() -
+        sys_mem_info.get_buffers() - sys_mem_info.get_cached());
     ainfo.set_one_min_cpuload(info.get_cpuload().get_one_min_avg());
     aciv.push_back(ainfo);
     astate.set_cpu_info(aciv);

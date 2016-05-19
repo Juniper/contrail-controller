@@ -40,7 +40,7 @@ from database.sandesh.database.ttypes import \
     DatabaseUsageInfo, DatabaseUsage
 from pysandesh.connection_info import ConnectionState
 from database.sandesh.database.process_info.ttypes import \
-    ProcessStatus, ProcessState, ProcessInfo, DiskPartitionUsageStats
+    ProcessStatus, ProcessState, ProcessInfo
 from database.sandesh.database.process_info.constants import \
     ProcessStateNames
 
@@ -83,6 +83,7 @@ class DatabaseEventManager(EventManager):
             self.instance_id,
             staticmethod(ConnectionState.get_process_state_cb),
             NodeStatusUVE, NodeStatus)
+        self.send_system_cpu_info()
     # end __init__
 
     def _get_cassandra_config_option(self, config):
@@ -160,6 +161,12 @@ class DatabaseEventManager(EventManager):
         self.send_nodemgr_process_status_base(
             ProcessStateNames, ProcessState, ProcessStatus,
             NodeStatus, NodeStatusUVE)
+
+    def get_node_status_class(self):
+        return NodeStatus
+
+    def get_node_status_uve_class(self):
+        return NodeStatusUVE
 
     def get_process_state(self, fail_status_bits):
         return self.get_process_state_base(
@@ -250,10 +257,6 @@ class DatabaseEventManager(EventManager):
                           "--log-file", logdir,
                           "--debug"])
     #end cassandra_repair
-
-    def send_disk_usage_info(self):
-        self.send_disk_usage_info_base(
-            NodeStatusUVE, NodeStatus, DiskPartitionUsageStats)
 
     def runforever(self, test=False):
         prev_current_time = int(time.time())
