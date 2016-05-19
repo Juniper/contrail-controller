@@ -37,7 +37,7 @@ from StringIO import StringIO
 from vrouter.vrouter.ttypes import \
     NodeStatusUVE, NodeStatus
 from vrouter.vrouter.process_info.ttypes import \
-    ProcessStatus, ProcessState, ProcessInfo, DiskPartitionUsageStats
+    ProcessStatus, ProcessState, ProcessInfo
 from vrouter.vrouter.process_info.constants import \
     ProcessStateNames
 
@@ -66,6 +66,7 @@ class VrouterEventManager(EventManager):
         self.add_current_process()
 
         self.lb_stats = LoadbalancerStats()
+        self.send_system_cpu_info()
     # end __init__
 
     def msg_log(self, msg, level):
@@ -89,13 +90,15 @@ class VrouterEventManager(EventManager):
             ProcessStateNames, ProcessState, ProcessStatus,
             NodeStatus, NodeStatusUVE)
 
+    def get_node_status_class(self):
+        return NodeStatus
+
+    def get_node_status_uve_class(self):
+        return NodeStatusUVE
+
     def get_process_state(self, fail_status_bits):
         return self.get_process_state_base(
             fail_status_bits, ProcessStateNames, ProcessState)
-
-    def send_disk_usage_info(self):
-        self.send_disk_usage_info_base(
-            NodeStatusUVE, NodeStatus, DiskPartitionUsageStats)
 
     def get_process_stat_object(self, pname):
         return VrouterProcessStat(pname)

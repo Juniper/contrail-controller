@@ -34,7 +34,7 @@ from StringIO import StringIO
 from control_node.control_node.ttypes \
     import NodeStatusUVE, NodeStatus
 from control_node.control_node.process_info.ttypes \
-    import ProcessStatus, ProcessState, ProcessInfo, DiskPartitionUsageStats
+    import ProcessStatus, ProcessState, ProcessInfo
 from control_node.control_node.process_info.constants import \
     ProcessStateNames
 
@@ -59,6 +59,7 @@ class ControlEventManager(EventManager):
             node_type_name, self.instance_id, self.collector_addr,
             self.module_id, 8101, ['control_node.control_node'], _disc)
         sandesh_global.set_logging_params(enable_local_log=True)
+        self.send_system_cpu_info()
     # end __init__
 
     def process(self):
@@ -77,10 +78,12 @@ class ControlEventManager(EventManager):
             ProcessStateNames, ProcessState, ProcessStatus,
             NodeStatus, NodeStatusUVE)
 
+    def get_node_status_class(self):
+        return NodeStatus
+
+    def get_node_status_uve_class(self):
+        return NodeStatusUVE
+
     def get_process_state(self, fail_status_bits):
         return self.get_process_state_base(
             fail_status_bits, ProcessStateNames, ProcessState)
-
-    def send_disk_usage_info(self):
-        self.send_disk_usage_info_base(
-            NodeStatusUVE, NodeStatus, DiskPartitionUsageStats)
