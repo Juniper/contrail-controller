@@ -47,7 +47,7 @@ void OvsdbEntry::Ack(bool success) {
     }
 
     OvsdbObject *object = static_cast<OvsdbObject*>(GetObject());
-    object->NotifyEvent(this, ack_event_);
+    object->SafeNotifyEvent(this, ack_event_);
 }
 
 OvsdbDBEntry::OvsdbDBEntry(OvsdbDBObject *table) : KSyncDBEntry(), table_(table),
@@ -206,9 +206,9 @@ void OvsdbDBEntry::Ack(bool success) {
 
     if (success) {
         if (IsDelAckWaiting())
-            object->NotifyEvent(this, KSyncEntry::DEL_ACK);
+            object->SafeNotifyEvent(this, KSyncEntry::DEL_ACK);
         else if (IsAddChangeAckWaiting())
-            object->NotifyEvent(this, KSyncEntry::ADD_ACK);
+            object->SafeNotifyEvent(this, KSyncEntry::ADD_ACK);
         else
             delete this;
     } else {
@@ -225,7 +225,7 @@ void OvsdbDBEntry::Ack(bool success) {
             }
 
             if (trigger_ack) {
-                object->NotifyEvent(this, KSyncEntry::DEL_ACK);
+                object->SafeNotifyEvent(this, KSyncEntry::DEL_ACK);
             }
         } else if (IsAddChangeAckWaiting()) {
             OVSDB_TRACE(Error, "Add Transaction failed for " + ToString());
@@ -236,7 +236,7 @@ void OvsdbDBEntry::Ack(bool success) {
                 object->Change(this);
             }
 
-            object->NotifyEvent(this, KSyncEntry::ADD_ACK);
+            object->SafeNotifyEvent(this, KSyncEntry::ADD_ACK);
         } else {
             // should never happen
             assert(0);

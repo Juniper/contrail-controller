@@ -141,10 +141,10 @@ void HaStaleDevVnEntry::TriggerAck(HaStaleL2RouteTable *table) {
     assert(old_l2_table_ == table);
     if (l2_table_ != NULL) {
         old_l2_table_ = NULL;
-        object->NotifyEvent(this, KSyncEntry::ADD_ACK);
+        object->SafeNotifyEvent(this, KSyncEntry::ADD_ACK);
     } else {
         old_l2_table_ = NULL;
-        object->NotifyEvent(this, KSyncEntry::DEL_ACK);
+        object->SafeNotifyEvent(this, KSyncEntry::DEL_ACK);
     }
 }
 

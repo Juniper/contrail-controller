@@ -62,7 +62,7 @@ void MulticastMacLocalEntry::EvaluateVrfDependency(VrfEntry *vrf) {
         OnVrfDelete();
         // Issue a ADD_CHANGE_REQ to push entry into defer state.
         // Whenever VN entry is back this will be updated.
-        table_->NotifyEvent(this, KSyncEntry::ADD_CHANGE_REQ);
+        table_->SafeNotifyEvent(this, KSyncEntry::ADD_CHANGE_REQ);
     }
 }
 

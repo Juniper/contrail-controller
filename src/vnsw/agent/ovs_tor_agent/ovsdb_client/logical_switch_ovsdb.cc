@@ -147,7 +147,7 @@ void LogicalSwitchEntry::DeleteMsg(struct ovsdb_idl_txn *txn) {
 
 void LogicalSwitchEntry::OvsdbChange() {
     if (!IsResolved())
-        table_->NotifyEvent(this, KSyncEntry::ADD_CHANGE_REQ);
+        table_->SafeNotifyEvent(this, KSyncEntry::ADD_CHANGE_REQ);
 }
 
 const std::string &LogicalSwitchEntry::name() const {
