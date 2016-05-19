@@ -7,6 +7,7 @@
  *  Database Node UVE.
  */
 
+include "base/sandesh/cpuinfo.sandesh"
 include "base/sandesh/process_info.sandesh"
 
 /**
@@ -53,6 +54,9 @@ struct NodeStatus {
     7: optional string description
     8: optional list<string> all_core_file_list
     9: optional string build_info
+   10: optional list<cpuinfo.ProcessCpuInfo> process_mem_cpu_info (aggtype="union")
+   11: optional cpuinfo.SystemMemCpuInfo  sys_mem_cpu_info
+   12: optional cpuinfo.SystemCpuInfo     sys_cpu_info
 }
 
 /**

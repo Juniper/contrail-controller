@@ -9,6 +9,7 @@ from StringIO import StringIO
 from ConfigParser import NoOptionError, NoSectionError
 import sys
 import os
+import psutil
 import socket
 import time
 import subprocess
@@ -20,6 +21,8 @@ from supervisor import childutils
 from nodemgr.common.event_listener_protocol_nodemgr import \
     EventListenerProtocolNodeMgr
 from nodemgr.common.process_stat import ProcessStat
+from nodemgr.common.sandesh.cpuinfo.ttypes import *
+from nodemgr.common.cpuinfo import SystemMemCpuInfoData
 from sandesh_common.vns.constants import INSTANCE_ID_DEFAULT
 import discoveryclient.client as client
 from buildinfo import build_info
@@ -63,6 +66,22 @@ class EventManager(object):
         self.new_build_info = None
         self.send_build_info = send_build_info
 
+        cmd = 'lscpu | grep "Socket(s):" | awk \'{print $2}\''
+        proc = Popen(cmd, shell=True, stdout=PIPE)
+        self.num_socket = int(proc.communicate()[0])
+
+        cmd = 'lscpu | grep "^CPU(s):" | awk \'{print $2}\''
+        proc = Popen(cmd, shell=True, stdout=PIPE)
+        self.num_cpu = int(proc.communicate()[0])
+
+        cmd = 'lscpu | grep "Core(s) per socket:" | awk \'{print $4}\''
+        proc = Popen(cmd, shell=True, stdout=PIPE)
+        self.num_core_per_socket = int(proc.communicate()[0])
+
+        cmd = 'lscpu | grep "Thread(s) per core:" | awk \'{print $4}\''
+        proc = Popen(cmd, shell=True, stdout=PIPE)
+        self.num_thread_per_core = int(proc.communicate()[0])
+
     # Get all the current processes in the node
     def get_current_process(self):
         proxy = xmlrpclib.ServerProxy(
@@ -71,11 +90,14 @@ class EventManager(object):
                 None, None, serverurl=self.supervisor_serverurl))
         # Add all current processes to make sure nothing misses the radar
         process_state_db = {}
+        # list of all processes on the node is made here
         for proc_info in proxy.supervisor.getAllProcessInfo():
             if (proc_info['name'] != proc_info['group']):
                 proc_name = proc_info['group'] + ":" + proc_info['name']
             else:
                 proc_name = proc_info['name']
+            proc_pid = proc_info['pid']
+
             process_stat_ent = self.get_process_stat_object(proc_name)
             process_stat_ent.process_state = "PROCESS_STATE_" + \
                 proc_info['statename']
@@ -83,6 +105,7 @@ class EventManager(object):
                     'PROCESS_STATE_RUNNING'):
                 process_stat_ent.start_time = str(proc_info['start'] * 1000000)
                 process_stat_ent.start_count += 1
+            process_stat_ent.pid = proc_pid
             process_state_db[proc_name] = process_stat_ent
         return process_state_db
     # end get_current_process
@@ -356,6 +379,52 @@ class EventManager(object):
                                     SandeshLevel.SYS_INFO), msg)
             node_status_uve.send()
 
+    def send_sys_cpu_info_base(self, NodeStatus, NodeStatusUVE):
+
+            sys_cpu      = SystemCpuInfo()
+
+            sys_cpu.num_socket          = self.num_socket
+            sys_cpu.num_cpu             = self.num_cpu
+            sys_cpu.num_core_per_socket = self.num_core_per_socket
+            sys_cpu.num_thread_per_core = self.num_thread_per_core
+
+            node_status = NodeStatus(name=socket.gethostname(),
+                                     sys_cpu_info=sys_cpu)
+            node_status_uve = NodeStatusUVE(data=node_status)
+            node_status_uve.send()
+
+    def send_sys_mem_cpu_info_base(self, NodeStatus, NodeStatusUVE):
+
+            sys_mem_cpu_info = SystemMemCpuInfoData()
+            sys_mem_cpu   = SystemMemCpuInfo()
+
+            sys_mem_cpu.mem_info     = sys_mem_cpu_info._get_sys_mem_info()
+            sys_mem_cpu.cpu_load     = sys_mem_cpu_info._get_cpu_load_avg()
+            sys_mem_cpu.cpu_share    = sys_mem_cpu_info._get_cpu_share()
+
+            node_status = NodeStatus(name=socket.gethostname(),
+                                     sys_mem_cpu_info=sys_mem_cpu)
+            node_status_uve = NodeStatusUVE(data=node_status)
+            node_status_uve.send()
+
+    def send_process_mem_cpu_info_base(self, process_mem_cpu_info, pstat):
+
+        try:
+            process               = psutil.Process(pstat.pid)
+
+        except psutil.NoSuchProcess:
+            sys.stderr.write("send_process_mem_cpu_info_base(): NoSuchProcess for "
+                             + pstat.pname + " pid:" + str(pstat.pid)
+                             + " \n")
+            return
+
+        else:
+            process_mem_cpu           = ProcessCpuInfo(module_id = pstat.pname)
+            process_mem_cpu.cpu_share = process.get_cpu_percent(interval=0.1)/psutil.NUM_CPUS
+            process_mem_cpu.mem_virt  = process.get_memory_info().vms/1024
+            process_mem_cpu.mem_res   = process.get_memory_info().rss/1024
+            process_mem_cpu_info.append(process_mem_cpu)
+
     def send_disk_usage_info_base(self, NodeStatusUVE, NodeStatus,
                                   DiskPartitionUsageStats):
         partition = subprocess.Popen(
@@ -401,7 +470,7 @@ class EventManager(object):
 	self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level(
 			    SandeshLevel.SYS_INFO), msg)
         node_status_uve.send()
-    # end send_disk_usage_info
+    # end send_disk_usage_info_base
 
     def get_process_state_base(self, fail_status_bits,
                                ProcessStateNames, ProcessState):
@@ -479,6 +548,33 @@ class EventManager(object):
             self.check_ntp_status()
         if self.update_process_core_file_list():
             self.send_process_state_db(['default'])
+
+        self.send_sys_mem_cpu_info()
+
+        process_mem_cpu_info = []
+        for key in self.process_state_db:
+            pstat = self.process_state_db[key]
+            self.send_process_mem_cpu_info(process_mem_cpu_info, pstat)
+
+        # walk through all processes being monitored by nodemgr,
+        # not spawned by supervisord
+        third_party_process_list = self.get_node_third_party_process_list()
+        for pname in third_party_process_list:
+            cmd = "ps -aux | grep -v grep | grep " + str(pname) + " | awk '{print $2}' | head -n1"
+            proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout, stderr = proc.communicate()
+            if (stdout != ''):
+                pid = int(stdout.strip('\n'))
+                pstat = self.get_process_stat_object(pname)
+                pstat.pid = pid
+                self.send_process_mem_cpu_info(process_mem_cpu_info, pstat)
+
+        NodeStatus    = self.get_node_status()
+        NodeStatusUVE = self.get_node_status_uve()
+        node_status = NodeStatus(name=socket.gethostname(),
+                                 process_mem_cpu_info=process_mem_cpu_info)
+        node_status_uve = NodeStatusUVE(data=node_status)
+        node_status_uve.send()
 
         current_time = int(time.time())
         if ((abs(current_time - prev_current_time)) > 300):

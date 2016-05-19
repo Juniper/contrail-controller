@@ -57,3 +57,19 @@ struct ProcessCpuInfo {
     4: double                              cpu_share
     5: u32                                 mem_res
 }
+
+struct SystemCpuInfo {
+    1: u32  num_socket;
+    2: u32  num_cpu;
+    3: u32  num_core_per_socket;
+    4: u32  num_thread_per_core;
+}
+
+/**
+ * This structure carries system memory and cpu information
+ */
+struct SystemMemCpuInfo {
+    1:          SysMemInfo      mem_info;
+    2:          CpuLoadAvg      cpu_load;
+    3:          double          cpu_share;
+}
