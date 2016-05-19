@@ -127,6 +127,7 @@ class CpuInfo(object):
             mod_cpu.cpu_info.sys_mem_info.used = self._virtmem_info.used / 1024
             mod_cpu.cpu_info.sys_mem_info.free = self._virtmem_info.free / 1024
             mod_cpu.cpu_info.sys_mem_info.buffers = self._virtmem_info.buffers / 1024
+            mod_cpu.cpu_info.sys_mem_info.cached = self._virtmem_info.cached / 1024
 
             # populate CPU Load avg
             mod_cpu.cpu_info.cpuload = CpuLoadAvg()
