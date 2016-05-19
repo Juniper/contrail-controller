@@ -11,6 +11,7 @@ local res = {}
 for k,v in pairs(typ) do
     redis.log(redis.LOG_NOTICE, "Read UVES:"..sm..":"..v)
     local lres = redis.call('zrange',"UVES:"..sm..":"..v, 0, -1, "withscores")
+    redis.call('del', "UVES:"..sm..":"..v)
     local iter = 1
     redis.log(redis.LOG_NOTICE, "Delete "..sm..":"..v.." [#"..(#lres/2).."]")
     while iter <= #lres do
@@ -38,9 +39,6 @@ for k,v in pairs(typ) do
         if lttt == 1 then
             redis.call('rename', dval, dkey)
         end
-
-        dval = "UVES:"..sm..":"..deltyp
-        redis.call('zrem', dval, deluve)
 
         dval = "ORIGINS:"..deluve
         if redis.call('srem', dval, sm..":"..deltyp) == 1 then
