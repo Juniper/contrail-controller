@@ -724,6 +724,18 @@ RouteKSyncObject::~RouteKSyncObject() {
     table_delete_ref_.Reset(NULL);
 }
 
+KSyncDBObject::DBFilterResp
+RouteKSyncObject::DBEntryFilter(const DBEntry *entry,
+                                const KSyncDBEntry *ksync) {
+    const AgentRoute *route = static_cast<const AgentRoute *>(entry);
+    // Ignore Add/Change notifications when VRF is deleted
+    if (route->vrf()->IsDeleted() == true) {
+        return DBFilterIgnore;
+    }
+
+    return DBFilterAccept;
+}
+
 KSyncEntry *RouteKSyncObject::Alloc(const KSyncEntry *entry, uint32_t index) {
     const RouteKSyncEntry *route = static_cast<const RouteKSyncEntry *>(entry);
     RouteKSyncEntry *ksync = new RouteKSyncEntry(this, route, index);
