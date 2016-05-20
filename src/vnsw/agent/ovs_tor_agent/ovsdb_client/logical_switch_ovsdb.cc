@@ -330,14 +330,31 @@ LogicalSwitchEntry::ProcessDeleteOvsReqTask::~ProcessDeleteOvsReqTask() {
 
 bool LogicalSwitchEntry::ProcessDeleteOvsReqTask::Run() {
     LogicalSwitchEntry *entry = static_cast<LogicalSwitchEntry*>(entry_.get());
+
+    // start from the entry where the last iteration stopped
+    // entries are removed from this tree in PostDelete which
+    // is triggered only on Delete Acks, using begin_ref_ helps
+    // skip already delete-add processed entries.
+    IntrusiveReferrer reffer(begin_ref_.get(), NULL);
+    std::set<IntrusiveReferrer>::const_iterator it =
+        entry->back_ref_set_.lower_bound(reffer);
+    OvsdbDBEntry *ref_entry = NULL;
+
     for (int i = 0; i < kEntriesPerIteration; i++) {
-        std::set<IntrusiveReferrer>::const_iterator it =
-            entry->back_ref_set_.begin();
         if (it == entry->back_ref_set_.end()) {
             break;
         }
-        OvsdbDBEntry *ref_entry = static_cast<OvsdbDBEntry*>((*it).first);
+        ref_entry = static_cast<OvsdbDBEntry*>((*it).first);
+        it++;
         ref_entry->TriggerDeleteAdd();
+    }
+
+    if (it != entry->back_ref_set_.end()) {
+        // keep reference to the entry to be processes next
+        begin_ref_ = static_cast<OvsdbDBEntry*>((*it).first);
+    } else {
+        // finished with the complete set reset begin_ref_ as NULL
+        begin_ref_ = NULL;
     }
 
     if (!entry->back_ref_set_.empty()) {
