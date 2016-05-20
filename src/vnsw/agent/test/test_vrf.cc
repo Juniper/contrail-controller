@@ -59,6 +59,7 @@ protected:
     };
 
     virtual void SetUp() {
+        agent = Agent::GetInstance();
         Agent::GetInstance()->controller()->Cleanup();
         client->WaitForIdle();
         Agent::GetInstance()->controller()->DisConnect();
@@ -100,6 +101,7 @@ protected:
     EventManager evm_;
     ServerThread *thread_;
     test::ControlNodeMock *bgp_peer1;
+    Agent *agent;
 };
 
 //Add VRF1 and fabric VRF
@@ -369,6 +371,38 @@ TEST_F(VrfTest, DelReqonDeletedVrfRouteTable) {
 
     // release the VRF reference
     vrf_ref = NULL;
+}
+
+//Test case for bug #1580733
+//If route ADD is notified to ksync after route ksync object
+//is notified, ksyncobject would unregister from table before
+//all the states are cleared
+TEST_F(VrfTest, AddReqonDeletedVrfRouteTable) {
+    client->Reset();
+    VrfAddReq("vrf1");
+    EXPECT_TRUE(client->VrfNotifyWait(1));
+    client->WaitForIdle();
+
+    // take reference of vrf entry
+    VrfEntryRef vrf_ref = VrfGet("vrf1");
+
+    vrf_ref->set_allow_route_add_on_deleted_vrf(true);
+
+    VrfDelReq("vrf1");
+    Ip4Address vip(0);
+    Ip4Address server_ip(0);
+    Inet4TunnelRouteAdd(agent->local_peer(), "vrf1", vip, 32,
+                        server_ip, TunnelType::AllType(),
+                        16, "vn1", SecurityGroupList(), PathPreference());
+    client->WaitForIdle();
+    agent->fabric_inet4_unicast_table()->DeleteReq(agent->local_peer(), "vrf1",
+                                                   vip, 32, NULL);
+    client->WaitForIdle();
+
+    // release the VRF reference
+    vrf_ref = NULL;
+    client->WaitForIdle();
+    EXPECT_TRUE(VrfFind("vrf1", true) == false);
 }
 
 int main(int argc, char **argv) {

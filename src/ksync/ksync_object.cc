@@ -1517,7 +1517,9 @@ void KSyncObject::BackRefReEval(KSyncEntry *key) {
 bool KSyncObjectManager::Process(KSyncObjectEvent *event) {
     switch(event->event_) {
     case KSyncObjectEvent::UNREGISTER:
-        delete event->obj_;
+        if (event->obj_->Size() == 0) {
+            delete event->obj_;
+        }
         break;
     case KSyncObjectEvent::DELETE:
         {
