@@ -79,6 +79,30 @@ class SNATAgent(Agent):
         except vnc_exc.NoIdError:
             return
 
+    def _del_route_table(self, net_uuid, rt_obj):
+        try:
+            self._vnc_lib.ref_update(
+                  'virtual-network', net_uuid, 'route-table',
+                  None, rt_obj.get_fq_name(), 'DELETE', None)
+        except vnc_exc.NoIdError:
+            return
+
+    def upgrade(self, router_obj):
+        try:
+            vnc_rtr_obj = self._vnc_lib.logical_router_read(id=router_obj.uuid)
+        except vnc_exc.NoIdError:
+            return
+        rt_obj = self._get_route_table(router_obj)
+        if rt_obj and not vnc_rtr_obj.get_route_table_refs():
+            # remove route table links from all networks connected to logical router
+            for uuid in router_obj.virtual_machine_interfaces or []:
+                net_uuid = VirtualMachineInterfaceSM.get(uuid).virtual_network
+                self._del_route_table(net_uuid, rt_obj)
+            # Associate route table to logical router
+            vnc_rtr_obj.set_route_table(rt_obj)
+            self._vnc_lib.logical_router_update(vnc_rtr_obj)
+    #end
+
     def _add_snat_instance(self, router_obj):
         try:
             vnc_rtr_obj = self._vnc_lib.logical_router_read(id=router_obj.uuid)

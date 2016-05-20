@@ -15,6 +15,7 @@ ROUTER_1 = {
     'fq_name': ['default-domain', 'demo', 'router1'],
     'parent_uuid': 'a8d55cfc-c66a-4eeb-82f8-d144fe74c46b',
     'uuid': '8e9b4859-d4c2-4ed5-9468-4809b1a926f3',
+    'parent_type': 'project',
     'virtual_machine_interface_refs': [
         {'attr': None,
          'to': ['default-domain',
@@ -49,6 +50,23 @@ class VirtualNetworkMatcher(object):
         return (net_obj.get_fq_name_str().startswith(self._name) and
                 user_visible == self._user_visible)
 
+class VN_RouteTableMatcher(object):
+
+    def __init__(self, net_name):
+        self._net_name = net_name
+
+    def __eq__(self, net_obj):
+        return (not net_obj.get_route_table_refs())
+
+class LR_RouteTableMatcher(object):
+
+    def __init__(self, lr_name, rt_name):
+        self._lr_name = lr_name
+        self._rt_name = rt_name
+
+    def __eq__(self, lr_obj):
+        return ( lr_obj.get_route_table_refs()[0]['to'][-1] ==
+                    self._rt_name)
 
 class ServiceInstanceMatcher(object):
 
@@ -141,6 +159,79 @@ class SnatAgentTest(unittest.TestCase):
 
         return json.loads(json.dumps(obj, default=to_json))
 
+    def test_upgrade(self):
+        #create lr
+        router_obj = LogicalRouter('router1')
+        router_obj.fq_name = ROUTER_1['fq_name']
+        router_obj.uuid = ROUTER_1['uuid']
+        router_obj.parent_type = 'project'
+        self.vnc_lib.logical_router_read = mock.Mock(return_value=router_obj)
+        #create rt
+        rt_name = 'rt1_' + ROUTER_1['uuid']
+        rt_uuid = 'rt1-a04b32bd658d'
+        rt_fq_name = ['default-domain', 'demo', 'rt1_' + ROUTER_1['uuid']]
+        rt_obj = RouteTable(rt_name)
+        rt_obj.fq_name = rt_fq_name
+        rt_obj.uuid = rt_uuid
+        rt_obj.parent_type = 'project'
+        self.vnc_lib.route_table_read = mock.Mock(return_value=rt_obj)
+
+        def db_read_side_effect(obj_type, uuids):
+            if obj_type != 'virtual_network' and obj_type != 'route_table':
+                return (False, None)
+
+            if obj_type == 'route_table':
+                return (True, [{'fq_name': rt_fq_name,
+                                'parent_type': 'project',
+                                'uuid': rt_uuid
+                               }])
+            if 'private1-uuid' in uuids:
+                return (True, [{'fq_name': ['default-domain',
+                                            'demo',
+                                            'private1-name'],
+                                'uuid': 'private1-uuid',
+                                'route_table_refs': [ {
+                                    'to': rt_fq_name,
+                                    'uuid': rt_uuid
+                                                      }
+                                                    ]
+                                }])
+            return (False, None)
+
+        self.cassandra.object_read = mock.Mock(
+            side_effect=db_read_side_effect)
+
+        self.vnc_lib.virtual_network_create = mock.Mock()
+
+        def no_id_side_effect(type, fq_name):
+            if type == 'network-ipam':
+                return 'fake-uuid'
+            if type == 'route_table':
+                return rt_uuid
+            raise NoIdError("xxx")
+
+        self.cassandra.fq_name_to_uuid = mock.Mock(
+            side_effect=no_id_side_effect)
+
+        self.vnc_lib.virtual_network_update = mock.Mock()
+        self.vnc_lib.logical_router_update = mock.Mock()
+        self.vnc_lib.route_table_update = mock.Mock()
+        self.vnc_lib.ref_update = mock.Mock()
+
+        router = config_db.LogicalRouterSM.locate(ROUTER_1['uuid'], ROUTER_1)
+        rt_obj = self.vnc_lib.route_table_read(id=rt_uuid)
+
+        self.snat_agent.upgrade(router)
+
+        # check that the route table is applied to logical router
+        self.vnc_lib.logical_router_update.assert_called_with(
+            LR_RouteTableMatcher(lr_name='router1', rt_name=rt_name))
+
+        # check that the route table link deleted from network
+        self.vnc_lib.ref_update.assert_called_with(
+            'virtual-network', 'private1-uuid', 'route-table',
+            None, [u'default-domain', u'demo', rt_name], 'DELETE', None)
+
     def test_gateway_set(self):
         router_obj = LogicalRouter('rtr1-name')
         self.vnc_lib.logical_router_read = mock.Mock(return_value=router_obj)
@@ -173,7 +264,6 @@ class SnatAgentTest(unittest.TestCase):
         self.vnc_lib.virtual_network_create = mock.Mock(
             side_effect=vn_create_side_effect)
 
-        self.vnc_lib.service_instance_read = mock.Mock(return_value=None)
         self.vnc_lib.route_table_read = mock.Mock(return_value=None)
 
         def no_id_side_effect(type, fq_name):
