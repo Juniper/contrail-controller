@@ -103,53 +103,47 @@ class VncCassandraClient(object):
     #end
 
     def get(self, cf_name, key, columns=[], start='', finish=''):
-        result = OrderedDict()
+        result = self.multiget(cf_name,
+                               [key],
+                               columns=columns,
+                               start=start,
+                               finish=finish)
+        return result[key] if key in result else None
 
-        for column in columns:
-            col_res = self.multiget(cf_name,
-                                    [key],
-                                    start=column,
-                                    finish=column)
-            if key in col_res:
-                result.update(col_res[key])
-
-        if start or finish:
-            col_res = self.multiget(cf_name,
-                                    [key],
-                                    start=start,
-                                    finish=finish)
-            if key in col_res:
-                result.update(col_res[key])
-
-        if not columns and not start and not finish:
-            col_res = self.multiget(cf_name, [key])
-            if key in col_res:
-                result.update(col_res[key])
-
-        return result
-
-    def multiget(self, cf_name, keys, start='', finish='', timestamp=False):
+    def multiget(self, cf_name, keys, columns=[], start='', finish='',
+                 timestamp=False):
         results = OrderedDict()
         cf = self.get_cf(cf_name)
 
         for key in keys:
             row = results.get(key, OrderedDict())
-            for col, val in cf.xget(key,
-                                    column_start=start,
-                                    column_finish=finish,
-                                    include_timestamp=timestamp):
-                try:
-                    if timestamp:
-                        row[col] = (json.loads(val[0]), val[1])
-                    else:
-                        row[col] = json.loads(val)
-                except ValueError as e:
-                    msg = ("Cannot json load the value of cf: %s, key:%s "
-                           "(error: %s). Use it as is: %s" %
-                           (cf_name, key, str(e),
-                            val if not timestamp else val[0]))
-                    self._logger(msg, level=SandeshLevel.SYS_WARN)
-                    row[col] = val
+            if not columns or start or finish:
+                for col, val in cf.xget(key,
+                                        column_start=start,
+                                        column_finish=finish,
+                                        include_timestamp=timestamp):
+                    try:
+                        if timestamp:
+                            row[col] = (json.loads(val[0]), val[1])
+                        else:
+                            row[col] = json.loads(val)
+                    except ValueError as e:
+                        msg = ("Cannot json load the value of cf: %s, key:%s "
+                               "(error: %s). Use it as is: %s" %
+                               (cf_name, key, str(e),
+                                val if not timestamp else val[0]))
+                        self._logger(msg, level=SandeshLevel.SYS_WARN)
+                        row[col] = val
+            for column_name in columns:
+                if column_name in row:
+                    continue
+                column_value = self.multiget(cf_name,
+                                             [key],
+                                             start=column_name,
+                                             finish=column_name,
+                                             timestamp=timestamp)
+                if key in column_value:
+                    row.update(column_value[key])
             if row:
                 results[key] = row
 
@@ -574,16 +568,32 @@ class VncCassandraClient(object):
         # optimize for common case of reading non-backref, non-children fields
         # ignoring columns starting from 'b' and 'c' - significant performance
         # impact in scaled setting. e.g. read of project
+        columns = []
         column_start = ''
-        if (field_names and
-            not (set(field_names) & (obj_class.backref_fields |
-                                     obj_class.children_fields))):
+        column_finish = ''
+        if (field_names is None or
+            (set(field_names) & (obj_class.backref_fields |
+                                 obj_class.children_fields))):
+            # atleast one backref/children field is needed
+            column_start = ''
+        elif not set(field_names) & (obj_class.ref_fields):
+            # specific props have been asked fetch exactly those
+            column_start = 'parent:'
+            column_finish = 'parent;'
+            columns = set(['type', 'fq_name', 'parent_type'])
+            for fname in field_names:
+                if fname in obj_class.prop_fields:
+                    columns.add('prop:' + fname)
+                else:
+                    columns.add(fname)
+        else:
             # ignore reading backref + children columns
             column_start = 'd'
-
         obj_rows = self.multiget(self._OBJ_UUID_CF_NAME,
                                  obj_uuids,
+                                 columns=columns,
                                  start=column_start,
+                                 finish=column_finish,
                                  timestamp=True)
 
         if not obj_rows:
@@ -849,10 +859,10 @@ class VncCassandraClient(object):
                 return coll_infos
 
             filtered_infos = {}
+            columns = ['prop:%s' % filter_key for filter_key in filters]
             rows = self.multiget(self._OBJ_UUID_CF_NAME,
                                  coll_infos.keys(),
-                                 start='prop:',
-                                 finish='prop;')
+                                 columns=columns)
             for obj_uuid, properties in rows.items():
                 # give chance for zk heartbeat/ping
                 gevent.sleep(0)
