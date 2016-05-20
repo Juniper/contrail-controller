@@ -22,6 +22,7 @@ struct FlowLogData {
     12: optional string    vm;
     16: optional string    reverse_uuid;
     17: optional i64       setup_time;
+    18: optional i64       teardown_time;
   
     23: optional i64       bytes;
     24: optional i64       packets;

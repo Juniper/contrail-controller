@@ -41,6 +41,10 @@ public:
         changed_ = value;
     }
 
+    bool exported_atleast_once() const { return exported_atleast_once_; }
+    void set_exported_atleast_once(bool value) {
+        exported_atleast_once_ = value;
+    }
     bool IsActionLog() const;
     void SetActionLog();
     uint16_t tcp_flags() const { return tcp_flags_; }
@@ -71,6 +75,7 @@ private:
     bool changed_;
     uint16_t tcp_flags_;
     uint64_t delete_enqueue_time_;
+    bool exported_atleast_once_;
 };
 
 #endif //  __AGENT_FLOW_EXPORT_INFO_H__
