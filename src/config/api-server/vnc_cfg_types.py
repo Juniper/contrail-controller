@@ -24,6 +24,21 @@ from pprint import pformat
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 
+def _parse_rt(rt):
+     (prefix, asn, target) = rt.split(':')
+     if prefix != 'target':
+         raise ValueError()
+     target = int(target)
+     if not asn.isdigit():
+         try:
+             netaddr.IPAddress(asn)
+         except netaddr.core.AddrFormatError:
+             raise ValueError()
+     else:
+         asn = int(asn)
+     return (prefix, asn, target)
+
+
 class GlobalSystemConfigServer(GlobalSystemConfigServerGen):
     @classmethod
     def _check_asn(cls, obj_dict, db_conn):
@@ -40,9 +55,9 @@ class GlobalSystemConfigServer(GlobalSystemConfigServerGen):
                 return ok, result
             rt_dict = result.get('route_target_list', {})
             for rt in rt_dict.get('route_target', []):
-                (_, asn, target) = rt.split(':')
-                if (int(asn) == global_asn and
-                    int(target) >= cfgm_common.BGP_RTGT_MIN_ID):
+                (_, asn, target) = _parse_rt(rt)
+                if (asn == global_asn and
+                    target >= cfgm_common.BGP_RTGT_MIN_ID):
                     return (False, (400, "Virtual network %s is configured "
                             "with a route target with this ASN and route "
                             "target value in the same range as used by "
@@ -412,13 +427,8 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
             return (True, '')
         for rt in rt_dict.get('route_target', []):
             try:
-                (prefix, asn, target) = rt.split(':')
-                if prefix != 'target':
-                    raise ValueError()
-                target = int(target)
-                if not asn.isdigit():
-                    netaddr.IPAddress(asn)
-            except (ValueError, netaddr.core.AddrFormatError) as e:
+                (prefix, asn, target) = _parse_rt(rt)
+            except ValueError:
                  return (False, "Route target must be of the format "
                          "'target:<asn>:<number>' or 'target:<ip>:number'")
             if asn == global_asn and target >= cfgm_common.BGP_RTGT_MIN_ID:
