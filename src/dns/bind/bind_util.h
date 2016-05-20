@@ -40,6 +40,7 @@ do {                                                                          \
 #define DNS_MX_RECORD    0x0F
 #define DNS_TXT_RECORD   0x10
 #define DNS_AAAA_RECORD  0x1C
+#define DNS_SRV_RECORD   0x21
 #define DNS_TYPE_ANY     0x00ff
 
 // DNS return codes
@@ -131,6 +132,18 @@ struct DnsSOAData {
     }
 };
 
+// Data format in an SRV record
+struct DnsSRVData {
+    uint16_t priority;
+    uint16_t weight;
+    uint16_t port;
+    std::string hostname;
+    uint16_t hn_plen;       // length of the prefix in hostname that is unique
+    uint16_t hn_offset;     // offset from where rest of hostname name exists
+
+    DnsSRVData() : hn_plen(0), hn_offset(0) {}
+};
+
 struct DnsItem {
     uint16_t eclass;
     uint16_t type;
@@ -144,6 +157,7 @@ struct DnsItem {
     std::string name;
     std::string data;
     DnsSOAData soa;
+    DnsSRVData srv;
 
     DnsItem() : eclass(1), type(0), ttl(0), priority(0), offset(0),
     name_plen(0), name_offset(0), data_plen(0), data_offset(0), soa() {}
