@@ -44,8 +44,13 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
         StatsCollector(TaskScheduler::GetInstance()->GetTaskId
                        (kTaskFlowStatsCollector), instance_id,
                        io, kFlowStatsTimerInterval, "Flow stats collector"),
-        agent_uve_(uve), rand_gen_(boost::uuids::random_generator()),
-        flow_iteration_key_(NULL), flow_tcp_syn_age_time_(FlowTcpSynAgeTime),
+        agent_uve_(uve),
+        task_id_(uve->agent()->task_scheduler()->GetTaskId
+                 (kTaskFlowStatsCollector)),
+        rand_gen_(boost::uuids::random_generator()),
+        flow_iteration_key_(NULL),
+        entries_to_visit_(0),
+        flow_tcp_syn_age_time_(FlowTcpSynAgeTime),
         request_queue_(agent_uve_->agent()->task_scheduler()->
                        GetTaskId(kTaskFlowStatsCollector),
                        instance_id,
@@ -53,17 +58,18 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
                                    this, _1)),
         msg_list_(kMaxFlowMsgsPerSend, FlowLogData()), msg_index_(0),
         flow_aging_key_(*key), instance_id_(instance_id),
-        flow_stats_manager_(aging_module) {
-        flow_default_interval_ = intvl;
+        flow_stats_manager_(aging_module), ageing_task_(NULL) {
         if (flow_cache_timeout) {
             // Convert to usec
             flow_age_time_intvl_ = 1000000L * (uint64_t)flow_cache_timeout;
         } else {
             flow_age_time_intvl_ = FlowAgeTime;
         }
-        flow_count_per_pass_ = kMinFlowsPerTimer;;
         deleted_ = false;
         request_queue_.set_name("Flow stats collector");
+        // Aging timer fires every kFlowStatsTimerInterval msec. Compute
+        // number of timer fires needed to scan complete table
+        timers_per_scan_ = TimersPerScan();
 }
 
 FlowStatsCollector::~FlowStatsCollector() {
@@ -79,12 +85,14 @@ uint64_t FlowStatsCollector::GetCurrentTime() {
 }
 
 void FlowStatsCollector::Shutdown() {
+    assert(ageing_task_ == NULL);
     StatsCollector::Shutdown();
     request_queue_.Shutdown();
 }
 
-// Get the time (in msec) in which one scan of flow-table is to be done
-uint64_t FlowStatsCollector::GetScanTime() {
+// We want to scan the flow table every 25% of configured ageing time.
+// Compute number of timer fires needed to scan the flow-table once.
+uint32_t FlowStatsCollector::TimersPerScan() {
     uint64_t scan_time_millisec;
     /* Use Age Time itself as scan-time for flows */
 
@@ -95,29 +103,39 @@ uint64_t FlowStatsCollector::GetScanTime() {
     // kFlowScanTime
     scan_time_millisec = (scan_time_millisec * kFlowScanTime) / 100;
 
-    //  Enforce min value on scan-time. Aging timer run at kFlowStatsInterval
-    if (scan_time_millisec < kFlowStatsInterval) {
-        scan_time_millisec = kFlowStatsInterval;
+    // Enforce min value on scan-time
+    if (scan_time_millisec < kFlowStatsTimerInterval) {
+        scan_time_millisec = kFlowStatsTimerInterval;
     }
-    return scan_time_millisec;
+
+    // Number of timer fires needed to scan table once
+    return scan_time_millisec / kFlowStatsTimerInterval;
 }
 
-/*
- * Update flow_count_per_pass_ based on total flows that we have
- * kFlowScanTime is the acceptable tolerance to aging interval. It
- * effectively specifies the time in which we must scan the flow-table
- */
-void FlowStatsCollector::UpdateAgingParameters() {
-    // Aging timer fires every kFlowStatsInterval msec. Compute number of time
-    // the timer fires for scan-time
-    uint32_t timers_per_scan = GetScanTime() / kFlowStatsInterval;
-
+// Update entries_to_visit_ based on total flows
+// Timer fires every kFlowScanTime. Its possible that we may not have visited
+// all entries by the time next timer fires. So, keep accumulating the number
+// of entries to visit into entries_to_visit_
+//
+// A lower-bound and an upper-bound are enforced on entries_to_visit_
+void FlowStatsCollector::UpdateEntriesToVisit() {
     // Compute number of flows to visit per scan-time
-    flow_count_per_pass_ = flow_tree_.size() / timers_per_scan;
+    uint32_t entries = flow_tree_.size() / timers_per_scan_;
+
+    // Update number of entries to visit in flow.
+    // The scan for previous timer may still be in progress. So, accmulate
+    // number of entries to visit
+    entries_to_visit_ += entries;
+
+    // Cap number of entries to visit to 25% of table
+    if (entries_to_visit_ > ((flow_tree_.size() * kFlowScanTime)/100))
+        entries_to_visit_ = (flow_tree_.size() * kFlowScanTime)/100;
 
     // Apply lower-limit
-    if (flow_count_per_pass_ < kMinFlowsPerTimer)
-        flow_count_per_pass_ = kMinFlowsPerTimer;
+    if (entries_to_visit_ < kMinFlowsPerTimer)
+        entries_to_visit_ = kMinFlowsPerTimer;
+
+    return;
 }
 
 bool FlowStatsCollector::ShouldBeAged(FlowExportInfo *info,
@@ -377,17 +395,8 @@ void FlowStatsCollector::UpdateAndExportInternal(FlowExportInfo *info,
     ExportFlow(info, diff_bytes, diff_pkts, p);
 }
 
-bool FlowStatsCollector::Run() {
-    run_counter_++;
-    if (!flow_tree_.size()) {
-        set_expiry_time(kFlowStatsTimerInterval);
-        return true;
-    }
-
-    // Update aging parameters for this cycle
-    UpdateAgingParameters();
-
-    uint64_t curr_time = GetCurrentTime();
+// Scan for max_count entries in flow-table
+uint32_t FlowStatsCollector::RunAgeing(uint32_t max_count) {
     FlowEntryTree::iterator it = flow_tree_.lower_bound(flow_iteration_key_);
     if (it == flow_tree_.end()) {
         it = flow_tree_.begin();
@@ -395,7 +404,8 @@ bool FlowStatsCollector::Run() {
     KSyncFlowMemory *ksync_obj = agent_uve_->agent()->ksync()->
                                          ksync_flow_memory();
     uint32_t count = 0;
-    while (it != flow_tree_.end() && count < flow_count_per_pass_) {
+    uint64_t curr_time = GetCurrentTime();
+    while (it != flow_tree_.end() && count < max_count) {
         FlowExportInfo *info = NULL;
         info = &it->second;
         FlowEntry *fe = info->flow();
@@ -499,16 +509,46 @@ bool FlowStatsCollector::Run() {
         flow_iteration_key_ = it->first;
     }
 
-    // The flow processing above can have significant latency (>20msec)
-    // adjust timer such that time between firing is kFlowStatsTimerInterval
-    int64_t latency = (GetCurrentTime() - curr_time)/1000;
-    int next_interval = (int)kFlowStatsTimerInterval - latency;
-    if (next_interval < (int)kFlowStatsTimerIntervalMin) {
-        next_interval = (int)kFlowStatsTimerIntervalMin;
-    }
-    RescheduleTimer(next_interval);
+    return count;
+}
 
-    return true;
+// Timer fired for ageing. Update the number of entries to visit and start the
+// task if its already not ruuning
+bool FlowStatsCollector::Run() {
+    run_counter_++;
+    if (flow_tree_.size() == 0) {
+        return true;
+     }
+  
+    // Update number of entries to visit in flow.
+    UpdateEntriesToVisit();
+
+    // Start task to scan the entries
+    if (ageing_task_ == NULL) {
+        ageing_task_ = new AgeingTask(this);
+       agent_uve_->agent()->task_scheduler()->Enqueue(ageing_task_);
+    }
+      return true;
+}
+  
+// Called on runnig of a task
+bool FlowStatsCollector::RunAgeingTask() {
+    // Run ageing per task
+    uint32_t count = RunAgeing(kFlowsPerTask);
+    // Update number of entries visited
+    if (count < entries_to_visit_)
+        entries_to_visit_ -= count;
+    else
+        entries_to_visit_ = 0;
+    // Done with task if we reach end of tree or count is exceeded
+    if (flow_iteration_key_ == NULL || entries_to_visit_ == 0) {
+        entries_to_visit_ = 0;
+        ageing_task_ = NULL;
+        return true;
+    }
+
+    // More entries to visit. Continue the task
+    return false;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1097,4 +1137,22 @@ void FlowStatsRecordsReq::HandleRequest() const {
     resp->set_context(context());
     resp->Response();
     return;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// Flow Stats Ageing task
+/////////////////////////////////////////////////////////////////////////////
+FlowStatsCollector::AgeingTask::AgeingTask(FlowStatsCollector *fsc) :
+    Task(fsc->task_id(), fsc->instance_id()), fsc_(fsc) {
+}
+
+FlowStatsCollector::AgeingTask::~AgeingTask() {
+}
+
+std::string FlowStatsCollector::AgeingTask::Description() const {
+    return "Flow Stats Collector Ageing Task";
+}
+
+bool FlowStatsCollector::AgeingTask::Run() {
+    return fsc_->RunAgeingTask();
 }
