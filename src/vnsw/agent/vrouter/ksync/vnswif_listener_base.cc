@@ -107,17 +107,24 @@ void VnswInterfaceListenerBase::InterfaceNotify(DBTablePartBase *part,
 
     if (vmport->IsDeleted()) {
         if (state) {
+            HostInterfaceEntry *entry = GetHostInterfaceEntry(vmport->name());
+            uint32_t id = Interface::kInvalidIndex;
+            if (entry) {
+                id = entry->oper_id_;
+            }
+            LOG(DEBUG, "VnswInterfaceListenerBase Intf Del " << vmport->name()
+                << " id " << id);
             ResetSeen(vmport->name(), true);
             e->ClearState(part->parent(), intf_listener_id_);
             delete state;
         }
     } else {
         if (state == NULL) {
+            LOG(DEBUG, "VnswInterfaceListenerBase Intf Add " << vmport->name()
+                << " id " << vmport->id());
             state = new DBState();
             e->SetState(part->parent(), intf_listener_id_, state);
-            SetSeen(vmport->name(), true);
-            HostInterfaceEntry *entry = GetHostInterfaceEntry(vmport->name());
-            entry->oper_id_ = vmport->id();
+            SetSeen(vmport->name(), true, vmport->id());
         }
     }
 
@@ -170,10 +177,16 @@ bool VnswInterfaceListenerBase::IsInterfaceActive(const HostInterfaceEntry *entr
 }
 
 static void InterfaceResync(Agent *agent, uint32_t id, bool active) {
+    if (id == Interface::kInvalidIndex) {
+        return;
+    }
     InterfaceTable *table = agent->interface_table();
     Interface *interface = table->FindInterface(id);
-    if (interface == NULL)
+    if (interface == NULL) {
+        LOG(DEBUG, "VnswInterfaceListenerBase InterfaceResync failed. "
+            "Interface index " << id << " not found. Active " << active);
         return;
+    }
 
     if (agent->test_mode())
         interface->set_test_oper_state(active);
@@ -206,7 +219,8 @@ void VnswInterfaceListenerBase::DeActivate(const std::string &name, uint32_t id)
     InterfaceResync(agent_, id, false);
 }
 
-void VnswInterfaceListenerBase::SetSeen(const std::string &name, bool oper) {
+void VnswInterfaceListenerBase::SetSeen(const std::string &name, bool oper,
+                                        uint32_t id) {
     HostInterfaceEntry *entry = GetHostInterfaceEntry(name);
     if (entry == NULL) {
         entry = new HostInterfaceEntry();
@@ -215,6 +229,7 @@ void VnswInterfaceListenerBase::SetSeen(const std::string &name, bool oper) {
 
     if (oper) {
         entry->oper_seen_ = true;
+        entry->oper_id_ = id;
     } else {
         entry->host_seen_ = true;
     }
@@ -241,6 +256,10 @@ void VnswInterfaceListenerBase::ResetSeen(const std::string &name, bool oper) {
     }
 
     DeActivate(name, entry->oper_id_);
+    if (oper) {
+        /* Reset index after VMI is notified via the index */
+        entry->oper_id_ = Interface::kInvalidIndex;
+    }
 }
 
 void VnswInterfaceListenerBase::SetLinkState(const std::string &name, bool link_up){
@@ -261,7 +280,7 @@ void VnswInterfaceListenerBase::HandleInterfaceEvent(const Event *event) {
     if (event->event_ == Event::DEL_INTERFACE) {
         ResetSeen(event->interface_, false);
     } else {
-        SetSeen(event->interface_, false);
+        SetSeen(event->interface_, false, Interface::kInvalidIndex);
         bool up =
             (event->flags_ & (IFF_UP | IFF_RUNNING)) == (IFF_UP | IFF_RUNNING);
 
@@ -435,11 +454,16 @@ static string EventTypeToString(uint32_t type) {
 }
 
 bool VnswInterfaceListenerBase::ProcessEvent(Event *event) {
+    HostInterfaceEntry *entry = GetHostInterfaceEntry(event->interface_);
+    uint32_t id = Interface::kInvalidIndex;
+    if (entry) {
+        id = entry->oper_id_;
+    }
     LOG(DEBUG, "VnswInterfaceListenerBase Event " << EventTypeToString(event->event_)
         << " Interface " << event->interface_ << " Addr "
         << event->addr_.to_string() << " prefixlen " << (uint32_t)event->plen_
         << " Gateway " << event->gw_.to_string() << " Flags " << event->flags_
-        << " Protocol " << (uint32_t)event->protocol_);
+        << " Protocol " << (uint32_t)event->protocol_ << " Index " << id);
 
     switch (event->event_) {
     case Event::ADD_ADDR:
