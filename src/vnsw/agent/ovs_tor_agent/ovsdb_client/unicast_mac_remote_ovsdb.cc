@@ -167,7 +167,7 @@ void UnicastMacRemoteEntry::DeleteMsg(struct ovsdb_idl_txn *txn) {
 
 void UnicastMacRemoteEntry::OvsdbChange() {
     if (!IsResolved())
-        table_->NotifyEvent(this, KSyncEntry::ADD_CHANGE_REQ);
+        table_->SafeNotifyEvent(this, KSyncEntry::ADD_CHANGE_REQ);
 }
 
 bool UnicastMacRemoteEntry::Sync(DBEntry *db_entry) {
