@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <boost/lexical_cast.hpp>
 #include <boost/assign/list_of.hpp>
-
+#include <boost/tuple/tuple.hpp>
 #include <base/util.h>
 #include <base/logging.h>
 #include <sandesh/sandesh_constants.h>
@@ -30,6 +30,8 @@ using std::vector;
 using std::map;
 using std::pair;
 using std::make_pair;
+using boost::tuple;
+using boost::tuples::make_tuple;
 
 using namespace contrail::sandesh::protocol;
 
@@ -100,14 +102,8 @@ void Ruleeng::remove_identifier(const pugi::xml_node &parent) {
     }
 }
 
-static DbHandler::Var ParseNode(const pugi::xml_node& node, bool silent = false) {
-    DbHandler::Var sample;
-
-    if (node.empty()) {
-        LOG(ERROR, __func__ << "Parsing Empty node");
-        return sample;
-    }
-    string attype = node.attribute("type").value();
+static bool ParseNodeImpl(DbHandler::Var& sample,
+        const string& attype, const pugi::xml_node& node) {
     if (attype == "string") {
         std::string val(node.child_value());
         TXMLProtocol::unescapeXMLControlChars(val);
@@ -117,6 +113,20 @@ static DbHandler::Var ParseNode(const pugi::xml_node& node, bool silent = false)
     } else if ((attype == "u16") ||  (attype == "u32") || (attype == "u64")) {
         sample = (uint64_t) strtoul(node.child_value(), NULL, 10);
     } else {
+        return false;
+    }
+    return true;
+}
+
+static DbHandler::Var ParseNode(const pugi::xml_node& node, bool silent = false) {
+    DbHandler::Var sample;
+
+    if (node.empty()) {
+        LOG(ERROR, __func__ << "Parsing Empty node");
+        return sample;
+    }
+    string attype = node.attribute("type").value();
+    if (!ParseNodeImpl(sample, attype, node)) {
         if (!silent)
             LOG(ERROR, __func__ << " Bad Stat Type " << attype <<
                 " for attr " << node.name());
@@ -124,9 +134,34 @@ static DbHandler::Var ParseNode(const pugi::xml_node& node, bool silent = false)
     return sample;
 }
 
+// Dom Elements are pair
+// First member is a variant; either xml_node (struct) or Var (basic type)
+// Second member is a key, for the map case
+typedef boost::variant<pugi::xml_node, DbHandler::Var> ElemVar;
+typedef std::pair<ElemVar, string> ElemT; 
+
+class DomChildVisitor : public boost::static_visitor<> {
+  public:
+    void operator()(const pugi::xml_node& node) {
+        parent = node;
+    }
+    void operator()(const DbHandler::Var& dv) {
+    }
+
+    pugi::xml_node parent;
+
+    void GetResult(const string& sub, pugi::xml_node& node) {
+        if (!parent) {
+            node = parent;
+        } else {
+            node = parent.child(sub.c_str()); 
+        }
+    }
+};
+
 static bool ParseDomTags(const std::string& tstr,
         std::vector<std::string> *toptags,
-        const std::vector<std::pair<std::string,pugi::xml_node> >* elem_chain,
+        const vector<tuple<string,ElemT> >* elem_chain,
         StatWalker::TagMap *tagmap) {
     size_t pos;
     size_t npos = 0;
@@ -191,11 +226,23 @@ static bool ParseDomTags(const std::string& tstr,
 
         // strip out the leading "."
         sname = sterm.substr(1, string::npos);
-
         size_t sz = elem_chain->size();
-        pugi::xml_node anode_s = elem_chain->at(sz-1).second.child(sname.c_str());
         StatWalker::TagVal tv;
-        tv.val = ParseNode(anode_s);
+
+        if (sname.compare(g_viz_constants.STAT_KEY_FIELD)==0) {
+            tv.val = elem_chain->at(sz-1).get<1>().second;
+        } else {
+            // TODO: Add support for map value as tag
+            const ElemVar& ev = elem_chain->at(sz-1).get<1>().first;
+            pugi::xml_node anode_s;
+
+            DomChildVisitor dcv; 
+            boost::apply_visitor(dcv, ev);
+            dcv.GetResult(sname, anode_s);
+
+            if (!anode_s) return false;
+            tv.val = ParseNode(anode_s);
+        }
 
         if (!pterm.empty()) {
             // The prefix is a child of the deepest node,
@@ -203,7 +250,7 @@ static bool ParseDomTags(const std::string& tstr,
             size_t idx = ((pterm[0] == '.') ? sz-1 : sz-2);
             for (size_t ix=1; ix<=idx; ix++) {
                 if (!pname.empty()) pname.append(".");
-                pname.append(elem_chain->at(ix).first);
+                pname.append(elem_chain->at(ix).get<0>());
             }
             if (pterm[0] != '.') {
                 if (!pname.empty()) pname.append(".");
@@ -211,8 +258,21 @@ static bool ParseDomTags(const std::string& tstr,
             pname.append(pterm);
             size_t found = pterm.rfind('.');
             string pattr = pterm.substr(found+1, string::npos);
-            pugi::xml_node anode_p = elem_chain->at(idx).second.child(pattr.c_str());
-            DbHandler::Var pv = ParseNode(anode_p);
+            DbHandler::Var pv;
+            if (pattr.compare(g_viz_constants.STAT_KEY_FIELD)==0) {
+                pv = elem_chain->at(idx).get<1>().second;
+            } else {
+                // TODO: Add support for map value as tag
+                const ElemVar& ev = elem_chain->at(idx).get<1>().first;
+                pugi::xml_node anode_p;
+
+                DomChildVisitor dcv; 
+                boost::apply_visitor(dcv, ev);
+                dcv.GetResult(pattr, anode_p);
+
+                if (!anode_p) return false;
+                pv = ParseNode(anode_p);
+            }
             tv.prefix = make_pair(pname, pv);
         }
 
@@ -224,51 +284,64 @@ static bool ParseDomTags(const std::string& tstr,
 }
 
 static bool DomValidElems(pugi::xml_node node,
-        std::vector<pugi::xml_node> &elem_list, std::string& ltype) {
-
+        std::vector<ElemT> &elem_list, std::string& ltype) {
     if (strcmp(node.attribute("type").value(), "list") == 0) {
         pugi::xml_node subs = node.child("list");
         ltype = subs.attribute("type").value();
-        if (ltype == "struct") {
-            for (pugi::xml_node elem = subs.first_child(); elem;
-                    elem = elem.next_sibling()) {
-                elem_list.push_back(elem);
+        for (pugi::xml_node elem = subs.first_child(); elem;
+                elem = elem.next_sibling()) {
+            if (ltype == "struct") {
+                elem_list.push_back(make_pair<ElemVar, string>(
+                        elem, string()));
+            } else {
+                DbHandler::Var sample;
+                if (ParseNodeImpl(sample, ltype, elem)) {
+                    elem_list.push_back(make_pair<ElemVar, string>(
+                            sample, string()));
+                } else {
+                    return false;
+                }
             }
-        } else {
-            return false;
         }
     } else if (strcmp(node.attribute("type").value(), "struct") == 0) {
-        elem_list.push_back(node.first_child());
+        elem_list.push_back(make_pair<ElemVar, string>(
+                node.first_child(),string()));
+    } else if (strcmp(node.attribute("type").value(), "map") == 0) {
+        pugi::xml_node subs = node.child("map");
+        ltype = subs.attribute("value").value();
+        string key("__UNKNOWN__");
+        uint32_t idx = 0;
+        for (pugi::xml_node elem = subs.first_child(); elem;
+                elem = elem.next_sibling()) {
+            if (idx % 2) {
+                if (ltype == "struct") {
+                    elem_list.push_back(make_pair<ElemVar, string>(elem,key));
+                } else {
+                    DbHandler::Var sample;
+                    if (ParseNodeImpl(sample, ltype, elem)) {
+                        elem_list.push_back(make_pair<ElemVar, string>(
+                                sample, key));
+                    } else {
+                        return false;
+                    }
+                }
+                key = string("__UNKNOWN__");
+            } else {
+                std::string val(elem.child_value());
+                TXMLProtocol::unescapeXMLControlChars(val);
+                key = val;
+            }
+            idx++;
+        }
     } else {
         return false;
     }
     return true;
 }
 
-/* This function recursively walks the XML DOM
-   for objectlog and UVE messages and processes
-   them for stats.
-   It is invoked after finding a top-level
-   stats attribute
-*/
-static bool DomStatWalker(StatWalker& sw,
-        const std::string& tstr,
-        std::vector<std::pair<std::string,pugi::xml_node> > elem_chain) {
-
-    pugi::xml_node object = elem_chain.at(0).second;
-    size_t sz = elem_chain.size();
-    pugi::xml_node node = elem_chain.at(sz-1).second;
-    string node_name = elem_chain.at(sz-1).first;
-    StatWalker::TagMap tagmap;
-    // Parse the tags annotation to find all tags that will
-    // be used to index stats samples
-    if (ParseDomTags(tstr, NULL, &elem_chain, &tagmap)) {
-        DbHandler::AttribMap attribs;
-        // For this map:
-        //     the key is the attribute name
-        //     the value is the tags string, and the child DOM elements
-        map<string,pair<string, vector<pugi::xml_node> > > elem_map;
-        // Load all tags and non-tags
+class DomStatVisitor : public boost::static_visitor<> {
+  public:
+    void operator()(const pugi::xml_node& node) {
         for (pugi::xml_node sattr = node.first_child(); sattr;
                 sattr = sattr.next_sibling()) {
             DbHandler::Var sample = ParseNode(sattr, true);
@@ -279,16 +352,17 @@ static bool DomStatWalker(StatWalker& sw,
             //  tags annotation
                 if (sattr.attribute("tags").empty()) {
                     LOG(ERROR, __func__ << " Message: "  << 
-                      " Name: " << object.name() <<  " Child Node: " << sattr.name()  <<
-                      " No tags annotation ");
+                      " Name: " << node.name() <<  " Child: " <<
+                      sattr.name()  << " No tags annotation ");
                     continue;
                 }
                 string ltype;
-                vector<pugi::xml_node> elem_list;
+                vector<ElemT> elem_list;
                 if (!DomValidElems(sattr, elem_list, ltype)) {
                     LOG(ERROR, __func__ << " Message: "  << 
-                      " Name: " << object.name() <<  " Node: " << node.name()  <<
-                      (ltype.empty() ? " Bad Stat type in walk" : " Bad Stat list type in walk") <<
+                      " Name: " << node.name() <<  " Child: " << sattr.name()  <<
+                      (ltype.empty() ? " Bad Stat type in walk" :
+                                       " Bad Stat list type in walk") <<
                       (ltype.empty() ? node.attribute("type").value() : ltype));
                     continue;
                 }
@@ -300,29 +374,101 @@ static bool DomStatWalker(StatWalker& sw,
                 attribs.insert(make_pair(sattr.name(), sample));
             }
         }
+    }
+    void operator()(const DbHandler::Var& dv) {
+        attribs.insert(make_pair(
+                g_viz_constants.STAT_VALUE_FIELD, dv));
+    }
+
+    DbHandler::AttribMap attribs;
+    // For this map:
+    //     the key is the attribute name
+    //     the value is a pair of the tags string, and ElemT
+    map<string, pair<string, vector<ElemT> > > elem_map;
+
+    void GetResult(DbHandler::AttribMap& lattribs,
+            map<string, pair<string, vector<ElemT> > >& lelem_map) {
+        lattribs = attribs;
+        lelem_map = elem_map;
+    }
+};
+
+class DomSelfVisitor : public boost::static_visitor<> {
+  public:
+    void operator()(const pugi::xml_node& node) {
+        se = node;
+    }
+    void operator()(const DbHandler::Var& dv) {
+    }
+
+    pugi::xml_node se;
+
+    void GetResult(pugi::xml_node& node) {
+        node = se;
+    }
+};
+/* This function recursively walks the XML DOM
+   for objectlog and UVE messages and processes
+   them for stats.
+   It is invoked after finding a top-level
+   stats attribute
+*/
+static bool DomStatWalker(StatWalker& sw,
+        const std::string& tstr,
+        vector<tuple<string,ElemT> > elem_chain) {
+
+    pugi::xml_node object;
+ 
+    DomSelfVisitor dsv; 
+    boost::apply_visitor(dsv, elem_chain.at(0).get<1>().first);
+    dsv.GetResult(object);
+    
+    size_t sz = elem_chain.size();
+
+    const ElemVar& ev = elem_chain.at(sz-1).get<1>().first;
+    const string& node_key = elem_chain.at(sz-1).get<1>().second;
+    string node_name = elem_chain.at(sz-1).get<0>();
+    StatWalker::TagMap tagmap;
+    // Parse the tags annotation to find all tags that will
+    // be used to index stats samples
+    if (ParseDomTags(tstr, NULL, &elem_chain, &tagmap)) {
+        DbHandler::AttribMap attribs;
+        // For this map:
+        //     the key is the attribute name
+        //     the value is a pair of the tags string, and ElemT
+        map<string, pair<string, vector<ElemT> > > elem_map;
+        // Load all tags and non-tags
+       
+        DomStatVisitor dsv; 
+        boost::apply_visitor(dsv, ev);
+        dsv.GetResult(attribs, elem_map);
+
+        if (!node_key.empty()) {
+            attribs.insert(make_pair(g_viz_constants.STAT_KEY_FIELD,
+                    node_key));
+        }
         sw.Push(node_name, tagmap, attribs);
 
-        for (map<string, pair<string, vector<pugi::xml_node> > >::iterator ei =
+        for (map<string, pair<string, vector<ElemT> > >::iterator ei =
                 elem_map.begin(); ei != elem_map.end(); ei++) {
-            vector<pugi::xml_node>& elem_list = ei->second.second;
+            vector<ElemT> & elem_list = ei->second.second;
             string & tstr_sub(ei->second.first);
             for (size_t idx=0; idx<elem_list.size(); idx++) {
-                vector<pair<string,pugi::xml_node> > elem_parent = elem_chain;
-                elem_parent.push_back(make_pair(ei->first,elem_list[idx]));
+                vector<tuple<string,ElemT> > elem_parent = elem_chain;
+                elem_parent.push_back(make_tuple(ei->first, elem_list[idx]));
                 // recursive invokation to process stats of child
                 // structs and lists that have the tags annotation
                 if (!DomStatWalker(sw, tstr_sub, elem_parent)) {
                     LOG(ERROR, __func__ << 
-                      " Name: " << object.name() <<  " Node: " << node.name()  <<
-                      " Bad element " << elem_list[idx].name());
+                      " Name: " << object.name() <<  " Node: " << node_name  <<
+                      " Bad element " << ei->first);
                 }
             }
         }
         sw.Pop();
-
     } else {
         LOG(ERROR, __func__ <<
-          " Name: " << object.name() <<  " Node: " << node.name()  <<
+          " Name: " << object.name() <<  " Node: " << node_name  <<
           " Bad tags " << tstr); 
         return false;
     }
@@ -342,7 +488,7 @@ static bool DomTopStatWalker(const pugi::xml_node& object,
         const std::string& source,
         GenDb::GenDbIf::DbAddColumnCb db_cb) {
 
-    vector<pugi::xml_node> elem_list;
+    vector<ElemT> elem_list;
     string ltype;
     // We accept both structs and lists of structs for stats
     // For structs, we need to process a singe element.
@@ -375,17 +521,17 @@ static bool DomTopStatWalker(const pugi::xml_node& object,
         StatWalker sw(boost::bind(&DbHandler::StatTableInsert, db,
             _1, _2, _3, _4, _5, db_cb), timestamp, object.name(), m1);
 
-        vector<pair<string, pugi::xml_node> > parent_chain;
-        parent_chain.push_back(make_pair(object.name(),object));
+        vector<tuple<string, ElemT> > parent_chain;
+        parent_chain.push_back(make_tuple(object.name(),
+                make_pair<ElemVar, string>(object,string())));
 
         // Process all elements the next level down for stats
         for (size_t idx=0; idx<elem_list.size(); idx++) {
-            vector<pair<string, pugi::xml_node> > elem_chain = parent_chain; 
-            elem_chain.push_back(make_pair(node.name(), elem_list[idx]));
+            vector<tuple<string, ElemT> > elem_chain = parent_chain; 
+            elem_chain.push_back(make_tuple(node.name(), elem_list[idx]));
             if (!DomStatWalker(sw, tstr, elem_chain)) {
                 LOG(ERROR, __func__ << " Source: " << source <<
-                  " Name: " << object.name() <<  " Node: " << node.name()  <<
-                  " Bad element " << elem_list[idx].name());
+                  " Name: " << object.name() <<  " Node: " << node.name());
                 continue;
             }
         }
