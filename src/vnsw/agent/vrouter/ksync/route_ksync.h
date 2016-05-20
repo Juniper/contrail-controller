@@ -109,6 +109,7 @@ public:
     void ManagedDelete();
     void Unregister();
     virtual void EmptyTable();
+    DBFilterResp DBEntryFilter(const DBEntry *entry, const KSyncDBEntry *ksync);
 
 private:
     KSync *ksync_;

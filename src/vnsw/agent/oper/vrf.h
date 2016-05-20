@@ -121,6 +121,14 @@ public:
     void SetRouteTableDeleted(uint8_t table_type);
     void DeleteRouteTables();
     void ResyncRoutes();
+    bool allow_route_add_on_deleted_vrf() const {
+        return allow_route_add_on_deleted_vrf_;
+    }
+
+    //To be set in test cases only
+    void set_allow_route_add_on_deleted_vrf(bool val) {
+        allow_route_add_on_deleted_vrf_ = val;
+    }
 
 private:
     friend class VrfTable;
@@ -140,6 +148,7 @@ private:
     uint32_t rt_table_delete_bmap_;
     IFMapDependencyManager::IFMapNodePtr vrf_node_ptr_;
     boost::scoped_ptr<AgentRouteResync> route_resync_walker_;
+    bool allow_route_add_on_deleted_vrf_;
     DISALLOW_COPY_AND_ASSIGN(VrfEntry);
 };
 
