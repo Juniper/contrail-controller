@@ -588,6 +588,7 @@ struct stat_table
 
 const string STAT_OBJECTID_FIELD = "name";
 const string STAT_SOURCE_FIELD   = SOURCE;
+const string STAT_KEY_FIELD      = "__key";
 const string STAT_TIME_FIELD     = "T";
 const string STAT_TIMEBIN_FIELD  = "T=";
 const string STAT_UUID_FIELD     = "UUID";
