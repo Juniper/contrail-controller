@@ -134,7 +134,7 @@ protected:
     void AddLinkLocalRoutes();
     void DelLinkLocalRoutes();
 
-    void SetSeen(const std::string &name, bool oper);
+    void SetSeen(const std::string &name, bool oper, uint32_t oper_idx);
     void ResetSeen(const std::string &name, bool oper);
     void Activate(const std::string &name, uint32_t os_id);
     void DeActivate(const std::string &name, uint32_t os_id);
