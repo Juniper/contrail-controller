@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
         return ret;
     }
 
-    agent->event_manager()->RunWithExceptionHandling();
+    agent->event_manager()->Run();
 
     return 0;
 }
