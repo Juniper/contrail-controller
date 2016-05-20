@@ -63,7 +63,7 @@ VrfEntry::VrfEntry(const string &name, uint32_t flags, Agent *agent) :
         table_label_(MplsTable::kInvalidLabel),
         vxlan_id_(VxLanTable::kInvalidvxlan_id),
         rt_table_delete_bmap_(0),
-        route_resync_walker_(NULL) {
+        route_resync_walker_(NULL), allow_route_add_on_deleted_vrf_(false) {
 }
 
 VrfEntry::~VrfEntry() {

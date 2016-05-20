@@ -351,8 +351,8 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
     }
 
     if (req->oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
-        // Ignore ADD_CHANGE if received on deleted VRF
-        if(vrf->IsDeleted()) {
+        if (vrf->IsDeleted() &&
+            vrf->allow_route_add_on_deleted_vrf() == false) {
             return;
         }
 
