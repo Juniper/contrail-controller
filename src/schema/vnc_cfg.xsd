@@ -902,7 +902,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="global-qos-config-qos-config"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('global-qos-config-qos-config',
-          'global-qos-config', 'qos-config', ['has'], 'optional', 'CRUD',
+          'global-qos-config', 'qos-config', ['ref'], 'optional', 'CRUD',
           'Global system QoS config for vhost and fabric traffic .') -->
 
 <xsd:element name="domain"        type="ifmap:IdentityType"/>
