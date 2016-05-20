@@ -379,8 +379,8 @@ class UVEServer(object):
                 pa = ParallelAggregator(state, self._uve_reverse_map)
                 rsp = pa.aggregate(key, flat, base_url)
             except Exception as e:
-                self._logger.error("redis-uve failed %s for : %s tb %s" \
-                               % (str(e), str(r_inst), traceback.format_exc()))
+                self._logger.error("redis-uve failed %s for key %s: %s tb %s" \
+                               % (str(e), key, str(r_inst), traceback.format_exc()))
                 self._redis_inst_down(r_inst)
                 failures = True
             else:
@@ -736,8 +736,10 @@ class ParallelAggregator:
         It aggregates across all sources and return the global state of the UVE
         '''
         result = {}
+        ltyp = None
         try:
             for typ in self._state[key].keys():
+                ltyp = typ
                 result[typ] = {}
                 for objattr in self._state[key][typ].keys():
                     if self._is_sum(self._state[key][typ][objattr]):
@@ -795,6 +797,9 @@ class ParallelAggregator:
                             result[typ][objattr] = default_res
         except KeyError:
             pass
+        except Exception as ex:
+            print "Aggregation Error key %s type %s in %s" % (key, str(ltyp), str(self._state))
+            raise ex
         return result
 
 if __name__ == '__main__':

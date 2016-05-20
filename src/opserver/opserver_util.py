@@ -90,13 +90,14 @@ class OpServerUtils(object):
 
     @staticmethod
     def uve_attr_flatten(inp):
-        #import pdb; pdb.set_trace()
         sname = ""
         if (inp['@type'] == 'struct'):
             sname = OpServerUtils._get_list_name(inp)
             if (sname == ""):
-                return Exception('Struct Parse Error')
+                raise Exception('Struct Parse Error')
             ret = {}
+            if inp[sname] is None:
+                return ret
             for k, v in inp[sname].items():
                 ret[k] = OpServerUtils.uve_attr_flatten(v)
             return ret
