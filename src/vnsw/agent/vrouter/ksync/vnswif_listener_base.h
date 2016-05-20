@@ -21,6 +21,14 @@
 
 #define XAPI_INTF_PREFIX "xapi"
 
+#define VNSWIF_TRACE_BUF "VnswIfTrace"
+
+extern SandeshTraceBufferPtr VnswIfTraceBuf;
+
+#define VNSWIF_TRACE(...) do {                                       \
+        VnswIfInfoTrace::TraceMsg(VnswIfTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__); \
+} while (0);
+
 namespace local = boost::asio::local;
 
 class VnswInterfaceListenerBase {
@@ -134,7 +142,7 @@ protected:
     void AddLinkLocalRoutes();
     void DelLinkLocalRoutes();
 
-    void SetSeen(const std::string &name, bool oper);
+    void SetSeen(const std::string &name, bool oper, uint32_t oper_idx);
     void ResetSeen(const std::string &name, bool oper);
     void Activate(const std::string &name, uint32_t os_id);
     void DeActivate(const std::string &name, uint32_t os_id);
