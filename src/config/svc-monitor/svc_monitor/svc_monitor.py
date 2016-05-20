@@ -234,6 +234,9 @@ class SvcMonitor(object):
             return
 
     def upgrade(self):
+        for lr in LogicalRouterSM.values():
+            self.snat_agent.upgrade(lr)
+
         for si in ServiceInstanceSM.values():
             st = ServiceTemplateSM.get(si.service_template)
             if not st:
