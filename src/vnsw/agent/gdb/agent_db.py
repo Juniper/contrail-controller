@@ -259,3 +259,20 @@ def find_vrf_references(vrf_ptr):
     dump_vrf_assign_entries(db_entry_filter_vrf)
     print_db_header = True
 
+def print_route_entry(entry_ptr, entry):
+    path = entry.cast(gdb.lookup_type('AgentPath'))
+    print ( "Path : %s  Peer : %s  NH : %s Label : %d\n" % (str(entry_ptr) , path['peer_'], path['nh_']['px'], path['label_']))
+
+def dump_route_paths(entry):
+    paths = my_value(gdb.parse_and_eval('(((Route *)' + str(entry) + ')->path_)'))
+    path_list = BoostIntrusiveList(paths)
+    it = path_list.children()
+    try:
+        while (it.node):
+            element_ptr = it.get_element_pointer_from_node_pointer()
+            element = next(it)[1]
+            print( "Number of paths : %d\n" % path_list.get_size())
+            print_route_entry(element_ptr, element)
+    except StopIteration:
+        pass
+
