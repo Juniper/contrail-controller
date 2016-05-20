@@ -25,6 +25,7 @@ import re
 from operator import itemgetter
 import itertools
 from collections import OrderedDict
+import sys
 
 class VncCassandraClient(object):
     # Name to ID mapping keyspace + tables
@@ -102,56 +103,62 @@ class VncCassandraClient(object):
             return False
     #end
 
-    def get(self, cf_name, key, columns=[], start='', finish=''):
-        result = OrderedDict()
+    def get(self, cf_name, key, columns=None, start='', finish=''):
+        result = self.multiget(cf_name,
+                               [key],
+                               columns=columns,
+                               start=start,
+                               finish=finish)
+        return result.get(key)
 
-        for column in columns:
-            col_res = self.multiget(cf_name,
-                                    [key],
-                                    start=column,
-                                    finish=column)
-            if key in col_res:
-                result.update(col_res[key])
-
-        if start or finish:
-            col_res = self.multiget(cf_name,
-                                    [key],
-                                    start=start,
-                                    finish=finish)
-            if key in col_res:
-                result.update(col_res[key])
-
-        if not columns and not start and not finish:
-            col_res = self.multiget(cf_name, [key])
-            if key in col_res:
-                result.update(col_res[key])
-
-        return result
-
-    def multiget(self, cf_name, keys, start='', finish='', timestamp=False):
-        results = OrderedDict()
+    def multiget(self, cf_name, keys, columns=None, start='', finish='',
+                 timestamp=False):
+        _thrift_limit_size = 10000
+        results = {}
         cf = self.get_cf(cf_name)
 
-        for key in keys:
-            row = results.get(key, OrderedDict())
-            for col, val in cf.xget(key,
-                                    column_start=start,
-                                    column_finish=finish,
-                                    include_timestamp=timestamp):
+        if not columns or start or finish:
+            for key in keys:
+                results[key] = OrderedDict(cf.xget(key,
+                                                   column_start=start,
+                                                   column_finish=finish,
+                                                   include_timestamp=timestamp))
+
+        if columns:
+            if len(keys) * len(columns) < _thrift_limit_size:
+                rows = cf.multiget(keys,
+                                   columns=columns,
+                                   include_timestamp=timestamp)
+                for key, cols in rows.items():
+                    results.setdefault(key, OrderedDict())
+                    results[key].update(cols)
+            else:
+                for key in keys:
+                    for column_chunk in [columns[x:x+(_thrift_limit_size - 1)] for x in
+                                         xrange(0, len(columns), _thrift_limit_size - 1)]:
+                        try:
+                            cols = cf.get(key,
+                                          columns=column_chunk,
+                                          include_timestamp=timestamp)
+                        except pycassa.NotFoundException:
+                            continue
+                        results.setdefault(key, OrderedDict())
+                        results[key].update(cols)
+
+        for key in results:
+            for col, val in results[key].items():
                 try:
                     if timestamp:
-                        row[col] = (json.loads(val[0]), val[1])
+                        results[key][col] = (json.loads(val[0]), val[1])
                     else:
-                        row[col] = json.loads(val)
+                        results[key][col] = json.loads(val)
                 except ValueError as e:
                     msg = ("Cannot json load the value of cf: %s, key:%s "
                            "(error: %s). Use it as is: %s" %
                            (cf_name, key, str(e),
                             val if not timestamp else val[0]))
                     self._logger(msg, level=SandeshLevel.SYS_WARN)
-                    row[col] = val
-            if row:
-                results[key] = row
+                    results[key][col] = val
 
         return results
 
@@ -171,7 +178,7 @@ class VncCassandraClient(object):
     #end
 
     def get_one_col(self, cf_name, key, column):
-        col = self.multiget(cf_name, [key], start=column, finish=column)
+        col = self.multiget(cf_name, [key], columns=[column])
         if key not in col:
             raise NoIdError(key)
         elif len(col[key]) > 1:
@@ -315,10 +322,11 @@ class VncCassandraClient(object):
 
     def _handle_exceptions(self, func):
         def wrapper(*args, **kwargs):
-            if func.__name__ in ['get', 'multiget']:
+            if (sys._getframe(1).f_code.co_name != 'multiget' and
+                    func.__name__ in ['get', 'multiget']):
                 msg = ("It is not recommended to use 'get' or 'multiget' "
-                       "pycassa methods with precaution. It's better to use "
-                       "'xget' or 'get_range' methods")
+                       "pycassa methods. It's better to use 'xget' or "
+                       "'get_range' methods due to thrift limitations")
                 self._logger(msg, level=SandeshLevel.SYS_WARN)
             try:
                 if self._conn_state != ConnectionStatus.UP:
@@ -569,21 +577,34 @@ class VncCassandraClient(object):
         # if field_names=None, all fields will be read/returned
         obj_type = res_type.replace('-', '_')
         obj_class = self._get_resource_class(obj_type)
-        obj_uuid_cf = self._obj_uuid_cf
 
         # optimize for common case of reading non-backref, non-children fields
         # ignoring columns starting from 'b' and 'c' - significant performance
         # impact in scaled setting. e.g. read of project
+        columns = set([])
         column_start = ''
-        if (field_names and
-            not (set(field_names) & (obj_class.backref_fields |
-                                     obj_class.children_fields))):
+        column_finish = ''
+        if (field_names is None or
+            (set(field_names) & (obj_class.backref_fields |
+                                 obj_class.children_fields))):
+            # atleast one backref/children field is needed
+            column_start = ''
+        elif not set(field_names) & (obj_class.ref_fields):
+            # specific props have been asked fetch exactly those
+            column_start = 'parent:'
+            column_finish = 'parent;'
+            columns = set(['type', 'fq_name', 'parent_type'])
+            for fname in field_names:
+                if fname in obj_class.prop_fields:
+                    columns.add('prop:' + fname)
+        else:
             # ignore reading backref + children columns
             column_start = 'd'
-
         obj_rows = self.multiget(self._OBJ_UUID_CF_NAME,
                                  obj_uuids,
+                                 columns=list(columns),
                                  start=column_start,
+                                 finish=column_finish,
                                  timestamp=True)
 
         if not obj_rows:
@@ -849,10 +870,10 @@ class VncCassandraClient(object):
                 return coll_infos
 
             filtered_infos = {}
+            columns = ['prop:%s' % filter_key for filter_key in filters]
             rows = self.multiget(self._OBJ_UUID_CF_NAME,
                                  coll_infos.keys(),
-                                 start='prop:',
-                                 finish='prop;')
+                                 columns=columns)
             for obj_uuid, properties in rows.items():
                 # give chance for zk heartbeat/ping
                 gevent.sleep(0)
@@ -920,7 +941,6 @@ class VncCassandraClient(object):
 
         if back_ref_uuids:
             # go from anchor to backrefs
-            obj_uuid_cf = self._obj_uuid_cf
             col_start = 'backref:%s:' %(obj_type)
             col_fin = 'backref:%s;' %(obj_type)
 
@@ -952,7 +972,6 @@ class VncCassandraClient(object):
             children_fq_names_uuids.extend(filter_rows_backref_anchor())
 
         if not parent_uuids and not back_ref_uuids:
-            obj_uuid_cf = self._obj_uuid_cf
             if obj_uuids:
                 # exact objects specified
                 def filter_rows_object_list():

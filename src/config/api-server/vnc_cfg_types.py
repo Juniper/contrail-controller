@@ -394,7 +394,7 @@ class InstanceIpServer(Resource, InstanceIp):
 
         ok, result = cls.dbe_read(db_conn, 'virtual-network',
                                   vn_uuid,
-                                  obj_fields=['network_ipam-refs'])
+                                  obj_fields=['network_ipam_refs'])
         if not ok:
             return ok, result
 
