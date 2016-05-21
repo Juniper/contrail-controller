@@ -433,7 +433,8 @@ void Interface::GetOsParams(Agent *agent) {
     assert(fd >= 0);
     if (ioctl(fd, SIOCGIFHWADDR, (void *)&ifr) < 0) {
         LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
-            "> querying mac-address for interface <" << name << ">");
+            "> querying mac-address for interface <" << name << "> " <<
+            "Agent-index <" << id_ << ">");
         os_oper_state_ = false;
         close(fd);
         return;
@@ -442,7 +443,8 @@ void Interface::GetOsParams(Agent *agent) {
 
     if (ioctl(fd, SIOCGIFFLAGS, (void *)&ifr) < 0) {
         LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
-            "> querying mac-address for interface <" << name << ">");
+            "> querying flags for interface <" << name << "> " <<
+            "Agent-index <" << id_ << ">");
         os_oper_state_ = false;
         close(fd);
         return;
@@ -460,11 +462,9 @@ void Interface::GetOsParams(Agent *agent) {
     mac_ = ifr.ifr_addr;
 #endif
 
-    if (os_index_ == kInvalidIndex) {
-        int idx = if_nametoindex(name.c_str());
-        if (idx)
-            os_index_ = idx;
-    }
+    int idx = if_nametoindex(name.c_str());
+    if (idx)
+        os_index_ = idx;
 }
 
 void Interface::SetKey(const DBRequestKey *key) {
