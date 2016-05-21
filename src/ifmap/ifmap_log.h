@@ -15,6 +15,7 @@ extern SandeshTraceBufferPtr IFMapTraceBuf;
 extern SandeshTraceBufferPtr IFMapBigMsgTraceBuf;
 extern SandeshTraceBufferPtr IFMapPeerTraceBuf;
 extern SandeshTraceBufferPtr IFMapSmTraceBuf;
+extern SandeshTraceBufferPtr IFMapUpdateSenderBuf;
 extern SandeshTraceBufferPtr IFMapXmppTraceBuf;
 
 // Log and trace regular messages
@@ -82,6 +83,13 @@ do { \
 do { \
     IFMAP_DEBUG_LOG(obj, Category::IFMAP_STATE_MACHINE, __VA_ARGS__); \
     IFMAP_SM_TRACE(obj##Trace, __VA_ARGS__); \
+} while(0)
+
+#define IFMAP_UPD_SENDER_TRACE(obj, ...) \
+do { \
+    if (!LoggingDisabled()) { \
+        obj::TraceMsg(IFMapUpdateSenderBuf, __FILE__, __LINE__, __VA_ARGS__); \
+    } \
 } while(0)
 
 // Log and trace big-sized messages
