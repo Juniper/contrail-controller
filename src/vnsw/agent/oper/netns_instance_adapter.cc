@@ -69,6 +69,14 @@ InstanceTask* NetNSInstanceAdapter::CreateStartTask(const ServiceInstance::Prope
             fs << kvp.key << "::::" << kvp.value;
             kvp_found = true;
         }
+        if (!agent_->params()->si_lb_ssl_cert_path().empty()) {
+            fs << ":::::" << "lb_ssl_cert_path";
+            fs << "::::" << agent_->params()->si_lb_ssl_cert_path();
+        }
+        if (!agent_->params()->si_lbaas_auth_conf().empty()) {
+            fs << ":::::" << "lbaas_auth_conf";
+            fs << "::::" << agent_->params()->si_lbaas_auth_conf();
+        }
         fs.close();
         if (kvp_found == false) {
             LOG(ERROR, "KeyValuePair is missing for loadbalancer: "
