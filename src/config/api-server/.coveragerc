@@ -1,3 +1,11 @@
 [run]
 branch = True
-omit = vnc_cfg_api_server/gen/vnc_api_server_gen.py,vnc_cfg_api_server/gen/vnc_cassandra_client_gen.py,vnc_cfg_api_server/gen/vnc_api_test_gen.py,vnc_cfg_api_server/gen/vnc_api_extension_gen.py,vnc_cfg_api_server/gen/vnc_ifmap_client_gen.py,vnc_cfg_api_server/gen/resource_test.py,vnc_cfg_api_server/gen/resource_client.py
+omit = 
+        *gen/cfixture.py
+        *gen/connection_drv_gen.py
+        *gen/vnc_api_schema.py
+        *gen/vnc_api_test_gen.py
+        *gen/vnc_api_extension_gen.py
+        *gen/resource_client.py
+        *gen/resource_test.py
+        *gen/resource_client.py
