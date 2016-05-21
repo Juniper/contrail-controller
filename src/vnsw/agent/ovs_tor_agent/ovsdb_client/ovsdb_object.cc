@@ -128,7 +128,7 @@ void OvsdbDBObject::NotifyDeleteOvsdb(OvsdbDBEntry *key,
             // we were not waiting for delete to happen, state for
             // OVSDB server and client mismatch happend.
             // Trigger Add/Change Req on entry to resync
-            NotifyEvent(entry, KSyncEntry::ADD_CHANGE_REQ);
+            SafeNotifyEvent(entry, KSyncEntry::ADD_CHANGE_REQ);
         }
     }
 }
