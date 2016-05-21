@@ -12,3 +12,14 @@ SandeshTraceBufferPtr IFMapTraceBuf(SandeshTraceBufferCreate("IFMapTraceBuf",
 SandeshTraceBufferPtr IFMapBigMsgTraceBuf(
     SandeshTraceBufferCreate("IFMapBigMsgTraceBuf", 25));
 
+// Trace buffer for peer messages
+SandeshTraceBufferPtr IFMapPeerTraceBuf(
+    SandeshTraceBufferCreate("IFMapPeerTraceBuf", 50000));
+
+// Trace buffer for state-machine messages
+SandeshTraceBufferPtr IFMapSmTraceBuf(
+    SandeshTraceBufferCreate("IFMapSmTraceBuf", 50000));
+
+// Trace buffer for xmpp messages
+SandeshTraceBufferPtr IFMapXmppTraceBuf(
+    SandeshTraceBufferCreate("IFMapXmppTraceBuf", 50000));
