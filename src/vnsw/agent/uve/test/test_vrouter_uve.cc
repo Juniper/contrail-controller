@@ -239,9 +239,6 @@ public:
         if (d1.get_ds_mcast_clone_fail() != (uint64_t)d2.get_vds_mcast_clone_fail()) {
             return false;
         }
-        if (d1.get_ds_composite_invalid_interface() != (uint64_t)d2.get_vds_composite_invalid_interface()) {
-            return false;
-        }
         if (d1.get_ds_rewrite_fail() != (uint64_t)d2.get_vds_rewrite_fail()) {
             return false;
         }
@@ -284,7 +281,10 @@ public:
         if (d1.get_ds_l2_no_route() != (uint64_t)d2.get_vds_l2_no_route()) {
             return false;
         }
-        if (d1.get_ds_arp_reply_no_route() != (uint64_t)d2.get_vds_arp_reply_no_route()) {
+        if (d1.get_ds_vlan_fwd_tx() != (uint64_t)d2.get_vds_vlan_fwd_tx()) {
+            return false;
+        }
+        if (d1.get_ds_vlan_fwd_enq() != (uint64_t)d2.get_vds_vlan_fwd_enq()) {
             return false;
         }
         return true;

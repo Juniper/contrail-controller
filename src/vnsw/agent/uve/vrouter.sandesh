@@ -166,7 +166,6 @@ struct AgentDropStats {
     29: u64   ds_pcow_fail;
     30: u64   ds_flood;
     31: u64   ds_mcast_clone_fail;
-    32: u64   ds_composite_invalid_interface;
     33: u64   ds_rewrite_fail;
     34: u64   ds_misc;
     35: u64   ds_invalid_packet;
@@ -181,7 +180,8 @@ struct AgentDropStats {
     44: u64   ds_arp_no_where_to_go;
     45: u64   ds_arp_no_route;
     46: u64   ds_l2_no_route;
-    47: u64   ds_arp_reply_no_route;
+    48: u64   ds_vlan_fwd_tx;
+    49: u64   ds_vlan_fwd_enq;
 }
 
 /**
