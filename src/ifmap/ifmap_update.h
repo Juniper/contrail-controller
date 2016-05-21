@@ -51,12 +51,16 @@ struct IFMapListEntry {
     };
     IFMapListEntry(EntryType type) :
         type(type), queue_insert_at(0), sequence(0) { }
+    virtual ~IFMapListEntry() { }
 
     boost::intrusive::list_member_hook<> node;
     EntryType type;
     uint64_t queue_insert_at;
     uint64_t sequence;
 
+    virtual std::string ToString() {
+        return std::string("To implement");
+    }
     bool IsMarker() const { return ((type == MARKER) ? true : false); }
     bool IsUpdate() const { return ((type == UPDATE) ? true : false); }
     bool IsDelete() const { return ((type == DELETE) ? true : false); }
@@ -82,6 +86,7 @@ class IFMapUpdate : public IFMapListEntry {
 public:
     IFMapUpdate(IFMapNode *node, bool positive);
     IFMapUpdate(IFMapLink *link, bool positive);
+    virtual ~IFMapUpdate() { }
 
     void AdvertiseReset(const BitSet &set);
     void AdvertiseOr(const BitSet &set);
@@ -90,7 +95,7 @@ public:
 
     const IFMapObjectPtr &data() const { return data_; }
     std::string ConfigName();
-    std::string ToString();
+    virtual std::string ToString();
     bool IsNode() const { return data_.IsNode(); }
     bool IsLink() const { return data_.IsLink(); }
 
@@ -103,6 +108,8 @@ private:
 
 struct IFMapMarker : public IFMapListEntry {
     IFMapMarker();
+    virtual ~IFMapMarker() { }
+    virtual std::string ToString();
     BitSet mask;
 };
 
