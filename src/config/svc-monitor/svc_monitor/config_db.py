@@ -432,6 +432,7 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         self.instance_id = None
         self.physical_interface = None
         self.port_tuple = None
+        self.fat_flow_ports = set()
         self.aaps = None
         obj_dict = self.update(obj_dict)
         self.add_to_parent(obj_dict)
@@ -448,6 +449,12 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         self.aaps = obj.get('virtual_machine_interface_allowed_address_pairs', None)
         if self.aaps:
             self.aaps = self.aaps.get('allowed_address_pair', None)
+        self.fat_flow_ports.clear()
+        ffps = obj.get('virtual_machine_interface_fat_flow_protocols', None)
+        if ffps:
+            for ffp in ffps.get('fat_flow_protocol', []):
+                if ffp['port']:
+                    self.fat_flow_ports.add(ffp['port'])
         self.update_single_ref('virtual_ip', obj)
         self.update_single_ref('loadbalancer', obj)
         self.update_single_ref('loadbalancer_pool', obj)
