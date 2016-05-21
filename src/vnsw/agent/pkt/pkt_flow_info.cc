@@ -234,7 +234,7 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
             }
             nh = comp_nh->GetNH(info->out_component_nh_idx);
             // TODO: Should we re-hash here?
-            if (nh->IsActive() == false) {
+            if (!nh || nh->IsActive() == false) {
                 return false;
             }
         }
