@@ -878,7 +878,7 @@ class AddrMgmt(object):
                                     should_persist=False)
                 self._subnet_objs[vn_fq_name_str][subnet_name] = subnet_obj
 
-            if asked_ip_version != subnet_obj.get_version():
+            if asked_ip_version and asked_ip_version != subnet_obj.get_version():
                 continue
             if asked_ip_addr == str(subnet_obj.gw_ip):
                 return asked_ip_addr

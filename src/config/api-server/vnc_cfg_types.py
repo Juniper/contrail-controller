@@ -1070,7 +1070,10 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
     @classmethod
     def ip_alloc(cls, vn_fq_name, subnet_name, count, family=None):
-        ip_version = 6 if family == 'v6' else 4
+        if family:
+            ip_version = 6 if family == 'v6' else 4
+        else:
+            ip_version = None
         ip_list = [cls.addr_mgmt.ip_alloc_req(vn_fq_name, sub=subnet_name,
                                               asked_ip_version=ip_version,
                                               alloc_id=str(uuid.uuid4()))
