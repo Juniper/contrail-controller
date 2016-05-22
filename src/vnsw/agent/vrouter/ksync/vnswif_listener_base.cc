@@ -18,6 +18,9 @@
 
 extern void RouterIdDepInit(Agent *agent);
 
+SandeshTraceBufferPtr VnswIfTraceBuf(SandeshTraceBufferCreate(
+                                     VNSWIF_TRACE_BUF, 2000));
+
 VnswInterfaceListenerBase::VnswInterfaceListenerBase(Agent *agent) :
     agent_(agent), read_buf_(NULL), sock_fd_(-1),
     sock_(*(agent->event_manager())->io_service()),
@@ -107,17 +110,28 @@ void VnswInterfaceListenerBase::InterfaceNotify(DBTablePartBase *part,
 
     if (vmport->IsDeleted()) {
         if (state) {
+            HostInterfaceEntry *entry = GetHostInterfaceEntry(vmport->name());
+            uint32_t id = Interface::kInvalidIndex;
+            if (entry) {
+                id = entry->oper_id_;
+            }
+            ostringstream oss;
+            oss << "Intf Del " << vmport->name() << " id " << id;
+            string msg = oss.str();
+            VNSWIF_TRACE(msg.c_str());
             ResetSeen(vmport->name(), true);
             e->ClearState(part->parent(), intf_listener_id_);
             delete state;
         }
     } else {
         if (state == NULL) {
+            ostringstream oss;
+            oss << "Intf Add " << vmport->name() << " id " << vmport->id();
+            string msg = oss.str();
+            VNSWIF_TRACE(msg.c_str());
             state = new DBState();
             e->SetState(part->parent(), intf_listener_id_, state);
-            SetSeen(vmport->name(), true);
-            HostInterfaceEntry *entry = GetHostInterfaceEntry(vmport->name());
-            entry->oper_id_ = vmport->id();
+            SetSeen(vmport->name(), true, vmport->id());
         }
     }
 
@@ -170,10 +184,19 @@ bool VnswInterfaceListenerBase::IsInterfaceActive(const HostInterfaceEntry *entr
 }
 
 static void InterfaceResync(Agent *agent, uint32_t id, bool active) {
+    if (id == Interface::kInvalidIndex) {
+        return;
+    }
     InterfaceTable *table = agent->interface_table();
     Interface *interface = table->FindInterface(id);
-    if (interface == NULL)
+    if (interface == NULL) {
+        ostringstream oss;
+        oss << "InterfaceResync failed. Interface index " << id <<
+            " not found. Active " << active;
+        string msg = oss.str();
+        VNSWIF_TRACE(msg.c_str());
         return;
+    }
 
     if (agent->test_mode())
         interface->set_test_oper_state(active);
@@ -206,7 +229,8 @@ void VnswInterfaceListenerBase::DeActivate(const std::string &name, uint32_t id)
     InterfaceResync(agent_, id, false);
 }
 
-void VnswInterfaceListenerBase::SetSeen(const std::string &name, bool oper) {
+void VnswInterfaceListenerBase::SetSeen(const std::string &name, bool oper,
+                                        uint32_t id) {
     HostInterfaceEntry *entry = GetHostInterfaceEntry(name);
     if (entry == NULL) {
         entry = new HostInterfaceEntry();
@@ -215,6 +239,7 @@ void VnswInterfaceListenerBase::SetSeen(const std::string &name, bool oper) {
 
     if (oper) {
         entry->oper_seen_ = true;
+        entry->oper_id_ = id;
     } else {
         entry->host_seen_ = true;
     }
@@ -229,6 +254,7 @@ void VnswInterfaceListenerBase::ResetSeen(const std::string &name, bool oper) {
 
     if (oper) {
         entry->oper_seen_ = false;
+        entry->oper_id_ = Interface::kInvalidIndex;
     } else {
         entry->host_seen_ = false;
     }
@@ -240,7 +266,11 @@ void VnswInterfaceListenerBase::ResetSeen(const std::string &name, bool oper) {
         return;
     }
 
-    DeActivate(name, entry->oper_id_);
+    if (!oper) {
+        /* Send notification to interface only when it is not marked for
+         * delete */
+        DeActivate(name, entry->oper_id_);
+    }
 }
 
 void VnswInterfaceListenerBase::SetLinkState(const std::string &name, bool link_up){
@@ -261,7 +291,7 @@ void VnswInterfaceListenerBase::HandleInterfaceEvent(const Event *event) {
     if (event->event_ == Event::DEL_INTERFACE) {
         ResetSeen(event->interface_, false);
     } else {
-        SetSeen(event->interface_, false);
+        SetSeen(event->interface_, false, Interface::kInvalidIndex);
         bool up =
             (event->flags_ & (IFF_UP | IFF_RUNNING)) == (IFF_UP | IFF_RUNNING);
 
@@ -330,8 +360,11 @@ void VnswInterfaceListenerBase::HandleAddressEvent(const Event *event) {
         return;
     }
 
-    LOG(DEBUG, "Setting IP address for " << event->interface_ << " to "
-        << event->addr_.to_string() << "/" << (unsigned short)event->plen_);
+    ostringstream oss;
+    oss << "Setting IP address for " << event->interface_ << " to "
+        << event->addr_.to_string() << "/" << (unsigned short)event->plen_;
+    string msg = oss.str();
+    VNSWIF_TRACE(msg.c_str());
     vhost_update_count_++;
 
     bool dep_init_reqd = false;
@@ -435,11 +468,19 @@ static string EventTypeToString(uint32_t type) {
 }
 
 bool VnswInterfaceListenerBase::ProcessEvent(Event *event) {
-    LOG(DEBUG, "VnswInterfaceListenerBase Event " << EventTypeToString(event->event_)
+    HostInterfaceEntry *entry = GetHostInterfaceEntry(event->interface_);
+    uint32_t id = Interface::kInvalidIndex;
+    if (entry) {
+        id = entry->oper_id_;
+    }
+    ostringstream oss;
+    oss << " Event " << EventTypeToString(event->event_)
         << " Interface " << event->interface_ << " Addr "
         << event->addr_.to_string() << " prefixlen " << (uint32_t)event->plen_
         << " Gateway " << event->gw_.to_string() << " Flags " << event->flags_
-        << " Protocol " << (uint32_t)event->protocol_);
+        << " Protocol " << (uint32_t)event->protocol_ << " Index " << id;
+    string msg = oss.str();
+    VNSWIF_TRACE(msg.c_str());
 
     switch (event->event_) {
     case Event::ADD_ADDR:
