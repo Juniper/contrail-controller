@@ -46,7 +46,7 @@ void RouterIdDepInit(Agent *agent) {
 }
 
 struct PortInfo input[] = {
-    {"intf1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    {"intf1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1, "fd10::2"},
 };
 
 class TestAap : public ::testing::Test {
@@ -1133,6 +1133,60 @@ TEST_F(TestAap, StateMachine_19) {
     client->WaitForIdle();
 }
 
+TEST_F(TestAap, StateMachine_20) {
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+
+    AddVmPortVrf("ser1", "11.1.1.253", 1);
+    AddLink("virtual-machine-interface-routing-instance", "ser1",
+            "routing-instance", "vrf1");
+    AddLink("virtual-machine-interface-routing-instance", "ser1",
+            "virtual-machine-interface", "intf1");
+   client->WaitForIdle();
+
+   Ip4Address service_vlan_rt = Ip4Address::from_string("11.1.1.253");
+   VmInterface *vm_intf = VmInterfaceGet(1);
+   InetUnicastRouteEntry *rt =
+       RouteGet("vrf1", service_vlan_rt, 32);
+   const AgentPath *path = rt->FindPath(vm_intf->peer());
+   EXPECT_TRUE(path->path_preference().sequence() == 0);
+   EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
+   EXPECT_TRUE(path->path_preference().ecmp() == false);
+   EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
+
+   Agent::GetInstance()->oper_db()->route_preference_module()->
+       EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id(),
+                          MacAddress::FromString(vm_intf->vm_mac()));
+   client->WaitForIdle();
+   EXPECT_TRUE(path->path_preference().sequence() == 0);
+   EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+   EXPECT_TRUE(path->path_preference().ecmp() == false);
+   EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+
+   AddServiceInstanceIp("instaneip100", 100, "2.2.2.2", false);
+   AddLink("virtual-machine-interface", "intf1", "instance-ip", "instaneip100");
+   client->WaitForIdle();
+   EXPECT_TRUE(path->path_preference().sequence() == 0);
+   EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
+   EXPECT_TRUE(path->path_preference().ecmp() == false);
+   EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
+
+   AddServiceInstanceIp("instaneip100", 100, "2.2.2.2", true);
+   client->WaitForIdle();
+   EXPECT_TRUE(path->path_preference().sequence() == 0);
+   EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+   EXPECT_TRUE(path->path_preference().ecmp() == true);
+   EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+
+   Ip6Address ip6 = Ip6Address::from_string("ffd2::11");
+   Agent::GetInstance()->oper_db()->route_preference_module()->
+       EnqueueTrafficSeen(ip6, 128, vm_intf->id(), vm_intf->vrf()->vrf_id(),
+                          MacAddress::FromString(vm_intf->vm_mac()));
+   client->WaitForIdle();
+   EXPECT_TRUE(path->path_preference().sequence() == 0);
+   EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+   EXPECT_TRUE(path->path_preference().ecmp() == true);
+   EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+}
 
 int main(int argc, char *argv[]) {
     GETUSERARGS();

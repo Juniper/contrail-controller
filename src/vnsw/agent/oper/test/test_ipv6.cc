@@ -539,6 +539,206 @@ TEST_F(Ipv6Test, VlanNHRoute_3) {
     client->WaitForIdle();
 }
 
+/* Verify that tracking ip and ecmp mode gets set properly and
+ * routes are added */
+TEST_F(Ipv6Test, VlanNHServiceIp_1) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+    string service_vlan_ip("2.2.2.1");
+    string service_vlan_ip6("fd12::1");
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    //Verify that interface is IPv4 active.
+    EXPECT_TRUE(VmPortActive(input, 0));
+    EXPECT_TRUE(RouteFind("vrf1", input[0].addr, 32));
+
+    // Add service interface-1
+    AddVrf("vrf2");
+    AddVmPortVrf("ser1", service_vlan_ip, 1, service_vlan_ip6);
+    AddLink("virtual-machine-interface-routing-instance", "ser1",
+            "routing-instance", "vrf2");
+    AddLink("virtual-machine-interface-routing-instance", "ser1",
+            "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+
+    // Validate service vlan route
+    InetUnicastRouteEntry *rt = RouteGet("vrf2",
+        Ip4Address::from_string(service_vlan_ip), 32);
+    EXPECT_TRUE(rt != NULL);
+
+    InetUnicastRouteEntry *rt6 = RouteGetV6("vrf2",
+        Ip6Address::from_string(service_vlan_ip6), 128);
+    EXPECT_TRUE(rt6 != NULL);
+
+    AddServiceInstanceIp("serviceip1", 100, "1.1.1.100", false);
+    AddLink("virtual-machine-interface", "vnet1", "instance-ip", "serviceip1");
+    client->WaitForIdle();
+    EXPECT_TRUE(rt->GetActivePath()->path_preference().dependent_ip() ==
+                Ip4Address::from_string("1.1.1.100"));
+    EXPECT_TRUE(rt->GetActivePath()->path_preference().ecmp() == false);
+    EXPECT_TRUE(rt6->GetActivePath()->path_preference().dependent_ip() ==
+                Ip4Address::from_string("1.1.1.100"));
+    EXPECT_TRUE(rt6->GetActivePath()->path_preference().ecmp() == false);
+
+    AddServiceInstanceIp("serviceip1", 100, "1.1.1.100", true);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(rt->GetActivePath()->path_preference().dependent_ip() ==
+                Ip4Address::from_string("1.1.1.100"));
+    EXPECT_TRUE(rt->GetActivePath()->path_preference().ecmp() == true);
+    EXPECT_TRUE(rt6->GetActivePath()->path_preference().dependent_ip() ==
+                Ip4Address::from_string("1.1.1.100"));
+    EXPECT_TRUE(rt6->GetActivePath()->path_preference().ecmp() == true);
+
+    DelLink("virtual-machine-interface", "vnet1", "instance-ip", "serviceip1");
+    DelNode("instance-ip", "serviceip1");
+    client->WaitForIdle();
+
+    EXPECT_TRUE(rt->GetActivePath()->path_preference().dependent_ip() ==
+                Ip4Address::from_string("1.1.1.1"));
+    EXPECT_TRUE(rt->GetActivePath()->path_preference().ecmp() == false);
+    EXPECT_TRUE(rt6->GetActivePath()->path_preference().dependent_ip() ==
+                Ip4Address::from_string("1.1.1.1"));
+    EXPECT_TRUE(rt6->GetActivePath()->path_preference().ecmp() == false);
+
+    AddServiceInstanceIp("serviceip1", 100, "fd23::1", true);
+    AddLink("virtual-machine-interface", "vnet1", "instance-ip", "serviceip1");
+    client->WaitForIdle();
+    EXPECT_TRUE(rt->GetActivePath()->path_preference().dependent_ip() ==
+            Ip6Address::from_string("fd23::1"));
+    EXPECT_TRUE(rt->GetActivePath()->path_preference().ecmp() == true);
+    EXPECT_TRUE(rt6->GetActivePath()->path_preference().dependent_ip() ==
+            Ip6Address::from_string("fd23::1"));
+    EXPECT_TRUE(rt6->GetActivePath()->path_preference().ecmp() == true);
+
+    DelLink("virtual-machine-interface", "vnet1", "instance-ip", "serviceip1");
+    DelNode("instance-ip", "serviceip1");
+    client->WaitForIdle();
+
+    //cleanup
+    DelLink("virtual-machine-interface-routing-instance", "ser1",
+            "routing-instance", "vrf2");
+    DelLink("virtual-machine-interface-routing-instance", "ser1",
+            "virtual-machine-interface", "vnet1");
+    DelVmPortVrf("ser1");
+    client->WaitForIdle();
+    WAIT_FOR(100, 1000,
+        (RouteGet("vrf2",
+                  Ip4Address::from_string(service_vlan_ip), 32)) == NULL);
+    WAIT_FOR(100, 1000,
+        (RouteGetV6("vrf2",
+                    Ip6Address::from_string(service_vlan_ip6), 128)) == NULL);
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+
+    DelVrf("vrf2");
+    client->WaitForIdle();
+}
+
+TEST_F(Ipv6Test, VlanNHServiceIp_2) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+    string service_vlan_ip("2.2.2.1");
+    string service_vlan_ip6("fd12::1");
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    //Verify that interface is IPv4 active.
+    EXPECT_TRUE(VmPortActive(input, 0));
+    EXPECT_TRUE(RouteFind("vrf1", input[0].addr, 32));
+
+    // Add service interface-1
+    AddVrf("vrf2");
+    AddVmPortVrf("ser1", service_vlan_ip, 1, service_vlan_ip6);
+    AddLink("virtual-machine-interface-routing-instance", "ser1",
+            "routing-instance", "vrf2");
+    AddLink("virtual-machine-interface-routing-instance", "ser1",
+            "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+
+    // Validate service vlan route
+    InetUnicastRouteEntry *rt = RouteGet("vrf2",
+        Ip4Address::from_string(service_vlan_ip), 32);
+    EXPECT_TRUE(rt != NULL);
+
+    InetUnicastRouteEntry *rt6 = RouteGetV6("vrf2",
+        Ip6Address::from_string(service_vlan_ip6), 128);
+    EXPECT_TRUE(rt6 != NULL);
+
+    AddServiceInstanceIp("serviceip1", 100, "1.1.1.100", false);
+    AddServiceInstanceIp("serviceip2", 100, "fd11::1", true);
+    AddLink("virtual-machine-interface", "vnet1", "instance-ip", "serviceip1");
+    AddLink("virtual-machine-interface", "vnet1", "instance-ip", "serviceip2");
+    client->WaitForIdle();
+    EXPECT_TRUE(rt->GetActivePath()->path_preference().dependent_ip() ==
+                Ip4Address::from_string("1.1.1.100"));
+    EXPECT_TRUE(rt->GetActivePath()->path_preference().ecmp() == false);
+    EXPECT_TRUE(rt6->GetActivePath()->path_preference().dependent_ip() ==
+                Ip6Address::from_string("fd11::1"));
+    EXPECT_TRUE(rt6->GetActivePath()->path_preference().ecmp() == true);
+
+    AddServiceInstanceIp("serviceip1", 100, "1.1.1.100", true);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(rt->GetActivePath()->path_preference().dependent_ip() ==
+                Ip4Address::from_string("1.1.1.100"));
+    EXPECT_TRUE(rt->GetActivePath()->path_preference().ecmp() == true);
+    EXPECT_TRUE(rt6->GetActivePath()->path_preference().dependent_ip() ==
+                Ip6Address::from_string("fd11::1"));
+    EXPECT_TRUE(rt6->GetActivePath()->path_preference().ecmp() == true);
+
+    DelLink("virtual-machine-interface", "vnet1", "instance-ip", "serviceip1");
+    DelNode("instance-ip", "serviceip1");
+    client->WaitForIdle();
+
+    EXPECT_TRUE(rt->GetActivePath()->path_preference().dependent_ip() ==
+                Ip6Address::from_string("fd11::1"));
+    EXPECT_TRUE(rt->GetActivePath()->path_preference().ecmp() == true);
+    EXPECT_TRUE(rt6->GetActivePath()->path_preference().dependent_ip() ==
+                Ip6Address::from_string("fd11::1"));
+    EXPECT_TRUE(rt6->GetActivePath()->path_preference().ecmp() == true);
+
+    DelLink("virtual-machine-interface", "vnet1", "instance-ip", "serviceip2");
+    DelNode("instance-ip", "serviceip2");
+    client->WaitForIdle();
+
+    EXPECT_TRUE(rt->GetActivePath()->path_preference().dependent_ip() ==
+            Ip4Address::from_string("1.1.1.1"));
+    EXPECT_TRUE(rt->GetActivePath()->path_preference().ecmp() == false);
+    EXPECT_TRUE(rt6->GetActivePath()->path_preference().dependent_ip() ==
+            Ip4Address::from_string("1.1.1.1"));
+    EXPECT_TRUE(rt6->GetActivePath()->path_preference().ecmp() == false);
+
+    //cleanup
+    DelLink("virtual-machine-interface-routing-instance", "ser1",
+            "routing-instance", "vrf2");
+    DelLink("virtual-machine-interface-routing-instance", "ser1",
+            "virtual-machine-interface", "vnet1");
+    DelVmPortVrf("ser1");
+    client->WaitForIdle();
+    WAIT_FOR(100, 1000,
+        (RouteGet("vrf2",
+                  Ip4Address::from_string(service_vlan_ip), 32)) == NULL);
+    WAIT_FOR(100, 1000,
+        (RouteGetV6("vrf2",
+                    Ip6Address::from_string(service_vlan_ip6), 128)) == NULL);
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+
+    DelVrf("vrf2");
+    client->WaitForIdle();
+}
+
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 

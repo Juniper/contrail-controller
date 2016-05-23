@@ -2068,6 +2068,21 @@ void AddActiveActiveInstanceIp(const char *name, int id, const char *addr) {
     AddNode("instance-ip", name, id, buf);
 }
 
+void AddServiceInstanceIp(const char *name, int id, const char *addr, bool ecmp) {
+    char buf[256];
+    char mode[256];
+
+    if (ecmp) {
+         sprintf(mode, "active-active");
+    } else {
+        sprintf(mode, "active-backup");
+    }
+
+    sprintf(buf, "<instance-ip-address>%s</instance-ip-address>"
+                 "<service-instance-ip>true</service-instance-ip>"
+                 "<instance-ip-mode>%s</instance-ip-mode>", addr, mode);
+    AddNode("instance-ip", name, id, buf);
+}
 void DelInstanceIp(const char *name) {
     DelNode("instance-ip", name);
 }
