@@ -194,7 +194,9 @@ int main(int argc, char *argv[]) {
                            options.named_log_file(),
                            options.rndc_config_file(),
                            options.rndc_secret(),
-                           options.named_max_cache_size());
+                           options.named_max_cache_size(),
+                           options.named_max_retransmissions(),
+                           options.named_retransmission_interval());
     DnsConfigParser parser(&config_db);
     parser.Parse(FileRead(options.config_file()));
 
@@ -292,6 +294,7 @@ int main(int argc, char *argv[]) {
                             &config_db, _1, _2, _3),
                         Dns::GetEventManager()->io_service());
     ifmap_server.set_ifmap_manager(ifmapmgr);
+    dns_manager.set_ifmap_manager(ifmapmgr);
     ifmapmgr->InitializeDiscovery(ds_client, options.ifmap_server_url());
 
     Dns::GetEventManager()->Run();

@@ -27,6 +27,10 @@ public:
     const std::string & named_max_cache_size() const {
         return named_max_cache_size_;
     }
+    const uint16_t named_max_retransmissions() { return named_max_retransmissions_; }
+    const uint16_t named_retransmission_interval() {
+        return named_retransmission_interval_;
+    }
     std::string hostname() const { return hostname_; }
     std::string host_ip() const { return host_ip_; }
     uint16_t http_server_port() const { return http_server_port_; }
@@ -101,6 +105,8 @@ private:
     std::string rndc_config_file_;
     std::string rndc_secret_;
     std::string named_max_cache_size_;
+    uint16_t named_max_retransmissions_;
+    uint16_t named_retransmission_interval_;
 
     std::string hostname_;
     std::string host_ip_;
