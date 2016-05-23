@@ -15,6 +15,7 @@ uint16_t DnsManager::g_trans_id_;
 
 DnsManager::DnsManager()
     : bind_status_(boost::bind(&DnsManager::BindEventHandler, this, _1)),
+      end_of_config_(false),
       pending_done_queue_(TaskScheduler::GetInstance()->GetTaskId("dns::Config"), 0,
                           boost::bind(&DnsManager::PendingDone, this, _1)) {
     std::vector<BindResolver::DnsServer> bind_servers;
@@ -46,6 +47,12 @@ DnsManager::DnsManager()
               "DnsRetransmitTimer",
               TaskScheduler::GetInstance()->GetTaskId("dns::Config"), 0);
     StartPendingTimer();
+
+    end_of_config_check_timer_ =
+        TimerManager::CreateTimer(*Dns::GetEventManager()->io_service(),
+              "Check_EndofConfig_Timer",
+              TaskScheduler::GetInstance()->GetTaskId("dns::Config"), 0);
+    StartEndofConfigTimer();
 }
 
 void DnsManager::Initialize(DB *config_db, DBGraph *config_graph,
@@ -58,7 +65,6 @@ void DnsManager::Initialize(DB *config_db, DBGraph *config_graph,
     NamedConfig::Init(named_config_dir, named_config_file,
                       named_log_file, rndc_config_file, rndc_secret,
                       named_max_cache_size);
-    // bind_status_.SetTrigger();
     config_mgr_.Initialize(config_db, config_graph);
 }
 
@@ -137,6 +143,10 @@ void DnsManager::ProcessAgentUpdate(BindUtil::Operation event,
 }
 
 void DnsManager::DnsView(const DnsConfig *cfg, DnsConfig::DnsConfigEvent ev) {
+
+    if (!IsEndOfConfig())
+        return;
+
     if (!bind_status_.IsUp())
         return;
 
@@ -180,6 +190,10 @@ void DnsManager::DnsView(const DnsConfig *cfg, DnsConfig::DnsConfigEvent ev) {
 
 void DnsManager::DnsPtrZone(const Subnet &subnet, const VirtualDnsConfig *vdns,
                             DnsConfig::DnsConfigEvent ev) {
+
+    if (!IsEndOfConfig())
+        return;
+
     if (!bind_status_.IsUp())
         return;
 
@@ -206,6 +220,10 @@ void DnsManager::DnsPtrZone(const Subnet &subnet, const VirtualDnsConfig *vdns,
 }
 
 void DnsManager::DnsRecord(const DnsConfig *cfg, DnsConfig::DnsConfigEvent ev) {
+
+    if (!IsEndOfConfig())
+        return;
+
     if (!bind_status_.IsUp())
         return;
 
@@ -327,6 +345,15 @@ void DnsManager::SendRetransmit(uint16_t xid, BindUtil::Operation op,
 }
 
 void DnsManager::UpdateAll() {
+
+    if (!bind_status_.IsUp()) {
+        return;
+    }
+
+    if (!end_of_config_) {
+        return;
+    }
+
     VirtualDnsConfig::DataMap vmap = VirtualDnsConfig::GetVirtualDnsMap();
     for (VirtualDnsConfig::DataMap::iterator it = vmap.begin();
          it != vmap.end(); ++it) {
@@ -531,6 +558,7 @@ inline bool DnsManager::CheckName(std::string rec_name, std::string name) {
 void DnsManager::BindEventHandler(BindStatus::Event event) {
     switch (event) {
         case BindStatus::Up: {
+
             DNS_OPERATIONAL_LOG(
                 g_vns_constants.CategoryNames.find(Category::DNSAGENT)->second,
                 SandeshLevel::SYS_NOTICE, "BIND named up; DNS is operational");
@@ -539,6 +567,7 @@ void DnsManager::BindEventHandler(BindStatus::Event event) {
         }
 
         case BindStatus::Down: {
+
             DNS_OPERATIONAL_LOG(
                 g_vns_constants.CategoryNames.find(Category::DNSAGENT)->second,
                 SandeshLevel::SYS_NOTICE, "BIND named down; DNS is not operational");
@@ -552,6 +581,30 @@ void DnsManager::BindEventHandler(BindStatus::Event event) {
             assert(0);
     }
 }
+
+void DnsManager::StartEndofConfigTimer() {
+    if (!end_of_config_check_timer_->running()) {
+        end_of_config_check_timer_->Start(kPendingRecordRetransmitTime,
+                              boost::bind(&DnsManager::EndofConfigTimerExpiry, this));
+    }
+}
+
+void DnsManager::CancelEndofConfigTimer() {
+    end_of_config_check_timer_->Cancel();
+}
+
+bool DnsManager::EndofConfigTimerExpiry() {
+    bool current_config_state = IsEndOfConfig();
+    if ((current_config_state != end_of_config_) && current_config_state) {
+        end_of_config_ = current_config_state;
+        UpdateAll();
+    } else {
+        end_of_config_ = current_config_state;
+    }
+    return true;
+}
+
+
 
 void ShowDnsConfig::HandleRequest() const {
     DnsConfigResponse *resp = new DnsConfigResponse();
