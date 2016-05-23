@@ -14,7 +14,7 @@ class IFMapNode;
 
 class DnsProto : public Proto {
 public:
-    static const uint32_t kDnsTimeout = 2000;   // milli seconds
+    static const uint32_t kDnsTimeout = 3000;   // milli seconds
     static const uint32_t kDnsMaxRetries = 2;
     static const uint32_t kDnsDefaultTtl = 84600;
 
