@@ -123,6 +123,22 @@ response sandesh AgentXmppDnsDataResponse {
     1: list<AgentDnsData> data;
 }
 
+struct PendingListEntry {
+   1: i32 xid;
+   2: string view;
+   3: string zone;
+   4: i32 retry_count;
+   5: bool successfully_sent;
+   6: string items;
+}
+
+request sandesh ShowBindPendingList {
+}
+
+response sandesh BindPendingListResponse {
+    1: list<PendingListEntry> data;
+}
+
 systemlog sandesh DnsConfiguration {
     1: string message;
     2: string config_name;
