@@ -18,7 +18,7 @@ from lxml import etree
 import StringIO
 
 import socket
-from netaddr import IPNetwork
+from netaddr import IPNetwork, IPAddress, IPSet
 
 from cfgm_common.uve.vnc_api.ttypes import *
 from cfgm_common import ignore_exceptions
@@ -1551,6 +1551,32 @@ class VncDbClient(object):
             self._cassandra_db.object_update('bgp_router', obj_uuid, obj_dict)
     # end update_bgp_router_type
 
+    def iip_update_subnet_uuid(self, iip_dict):
+        """ Set the subnet uuid as instance-ip attribute """
+        if iip_dict.get('subnet_uuid'):
+            return
+
+        for vn_ref in iip_dict.get('virtual_network_refs', []):
+            (ok, results) = self._cassandra_db.object_read(
+                'virtual_network', [vn_ref['uuid']],
+                field_names=['network_ipam_refs'])
+            if not ok:
+                return
+            vn_dict = results[0]
+            for ipam in vn_dict.get('network_ipam_refs', []):
+                subnets = ipam['attr']['ipam_subnets']
+                for subnet in subnets:
+                    pfx = subnet['subnet']['ip_prefix']
+                    pfx_len = subnet['subnet']['ip_prefix_len']
+                    cidr = '%s/%s' % (pfx, pfx_len)
+                    if (IPAddress(iip_dict['instance_ip_address']) in
+                            IPSet([cidr])):
+                        iip_dict['subnet_uuid'] = subnet['subnet_uuid']
+                        self._cassandra_db.object_update('instance-ip',
+                                                         iip_dict['uuid'],
+                                                         iip_dict)
+                        return
+
     def _dbe_resync(self, obj_type, obj_uuids):
         obj_class = cfgm_common.utils.obj_type_to_vnc_class(obj_type, __name__)
         obj_fields = list(obj_class.prop_fields) + list(obj_class.ref_fields)
@@ -1578,9 +1604,13 @@ class VncDbClient(object):
                 if (obj_type == 'virtual_network' and
                         'network_ipam_refs' in obj_dict):
                     self.update_subnet_uuid(obj_dict, do_update=True)
+
                 if (obj_type == 'bgp_router' and
                         'bgp_router_parameters' in obj_dict):
                     self.update_bgp_router_type(obj_dict)
+
+                if obj_type == 'instance_ip':
+                    self.iip_update_subnet_uuid(obj_dict)
 
                 # Ifmap alloc
                 parent_type = obj_dict.get('parent_type', None)
