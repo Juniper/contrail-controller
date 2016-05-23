@@ -1587,6 +1587,7 @@ class DBInterface(object):
             # TODO for now create from default pool, later
             # use first available pool on net
             net_id = fip_q['floating_network_id']
+            floating_ip_addr = fip_q['floating_ip_address']
             try:
                 fq_name = self._fip_pool_list_network(net_id)[0]['fq_name']
             except IndexError:
@@ -1597,7 +1598,8 @@ class DBInterface(object):
                                                resource="floatingip", msg=msg)
             fip_pool_obj = self._vnc_lib.floating_ip_pool_read(fq_name=fq_name)
             fip_name = str(uuid.uuid4())
-            fip_obj = FloatingIp(fip_name, fip_pool_obj)
+            fip_obj = FloatingIp(fip_name, fip_pool_obj,
+                                 floating_ip_address = floating_ip_addr)
             fip_obj.uuid = fip_name
 
             proj_id = str(uuid.UUID(fip_q['tenant_id']))
