@@ -293,6 +293,7 @@ int main(int argc, char *argv[]) {
                             &config_db, _1, _2, _3),
                         Dns::GetEventManager()->io_service());
     ifmap_server.set_ifmap_manager(ifmapmgr);
+    dns_manager.set_ifmap_manager(ifmapmgr);
     ifmapmgr->InitializeDiscovery(ds_client, options.ifmap_server_url());
 
     Dns::GetEventManager()->Run();
