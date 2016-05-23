@@ -9,6 +9,7 @@
 #include <mgr/dns_oper.h>
 #include <bind/named_config.h>
 #include <cfg/dns_config.h>
+#include <ifmap/client/ifmap_manager.h>
 
 class DB;
 class DBGraph;
@@ -74,6 +75,11 @@ public:
                             const std::string &vdns_name, const DnsItem &item);
     bool IsBindStatusUp() { return bind_status_.IsUp(); }
 
+    void set_ifmap_manager(IFMapManager *ifmap_mgr) { ifmap_mgr_ = ifmap_mgr; }
+    IFMapManager* get_ifmap_manager() { return ifmap_mgr_; }
+    bool IsEndOfConfig() { return (ifmap_mgr_->GetEndOfRibComputed()); }
+  
+
 private:
     friend class DnsBindTest;
 
@@ -97,6 +103,11 @@ private:
     void StartPendingTimer();
     void CancelPendingTimer();
     bool PendingTimerExpiry();
+
+    void StartEndofConfigTimer();
+    void CancelEndofConfigTimer();
+    bool EndofConfigTimerExpiry();
+
     void NotifyAllDnsRecords(const VirtualDnsConfig *config,
                              DnsConfig::DnsConfigEvent ev);
     void NotifyReverseDnsRecords(const VirtualDnsConfig *config,
@@ -107,9 +118,12 @@ private:
     tbb::mutex mutex_;
     BindStatus bind_status_;
     DnsConfigManager config_mgr_;    
+    IFMapManager *ifmap_mgr_;
     static uint16_t g_trans_id_;
     PendingListMap pending_map_;
     Timer *pending_timer_;
+    Timer *end_of_config_check_timer_;
+    bool end_of_config_;
     WorkQueue<uint16_t> pending_done_queue_;
 
     DISALLOW_COPY_AND_ASSIGN(DnsManager);
