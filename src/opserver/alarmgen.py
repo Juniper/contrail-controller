@@ -527,7 +527,9 @@ class AlarmStateMachine:
                 AlarmStateMachine.tab_alarms_timer[timeout_val] = set()
             if (tab, uv, nm) in AlarmStateMachine.tab_alarms_timer\
                     [timeout_val]:
-                assert()
+                self._logger.error("Timer error for (%s,%s,%s)" % \
+                    (tab, uv, nm))
+                raise SystemExit
             AlarmStateMachine.tab_alarms_timer[timeout_val].add\
                         ((asm.tab, asm.uv, asm.nm))
 
@@ -682,7 +684,7 @@ class Controller(object):
         newset = set(part_list)
         oldset = self._partset
         self._partset = newset
-
+        
         self._logger.error('Partition List : new %s old %s' % \
             (str(newset),str(oldset)))
         
@@ -692,7 +694,9 @@ class Controller(object):
         
         for delpart in (oldset-newset):
             self._logger.error('Partition Del : %s' % delpart)
-            self.partition_change(delpart, False)
+            if not self.partition_change(delpart, False):
+                self._logger.error('Partition Del : %s failed!' % delpart)
+                raise SystemExit
 
         self._logger.error('Partition List done : new %s old %s' % \
             (str(newset),str(oldset)))
@@ -824,7 +828,8 @@ class Controller(object):
         The key and typename information is also published on a redis channel
         """
         if not redish:
-            assert() 
+            self._logger.error("No redis handle")
+            raise SystemExit
         old_acq_time = redish.hget("AGPARTS:%s" % inst, part)
         if old_acq_time is None:
             self._logger.error("Agg %s part %d new" % (inst, part))
@@ -889,7 +894,7 @@ class Controller(object):
 
         if retry:
             self._logger.error("Agg unexpected rows %s" % str(rows))
-            assert()
+            raise SystemExit
         
     def send_alarm_update(self, tab, uk):
         ustruct = None
@@ -1434,8 +1439,13 @@ class Controller(object):
             if partno in self._workers:
                 ph = self._workers[partno]
                 self._logger.error("Kill part %s" % str(partno))
-                ph.kill()
-                res,db = ph.get(False)
+                ph.kill(timeout=60)
+                try:
+                    res,db = ph.get(False)
+                except gevent.Timeout:
+                    self._logger.error("Unable to kill partition %d" % partno)
+                    return False
+                    
                 self._logger.error("Returned " + str(res))
                 self._uveqf[partno] = self._workers[partno].acq_time()
                 del self._workers[partno]
