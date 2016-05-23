@@ -142,6 +142,7 @@ protected:
         Dns::SetDnsManager(&dns_manager_);
         dns_manager_.config_mgr_.Initialize(&db_, &db_graph_);
         dns_manager_.bind_status_.named_pid_ = 0;
+        dns_manager_.end_of_config_ = true;
     }
     virtual void TearDown() {
         task_util::WaitForIdle();
