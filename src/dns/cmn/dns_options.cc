@@ -88,8 +88,14 @@ void Options::Initialize(EventManager &evm,
              opt::value<string>()->default_value("xvysmOR8lnUQRBcunkC6vg=="),
              "RNDC secret")
         ("DEFAULT.named_max_cache_size",
-             opt::value<string>()->default_value("100M"),
+             opt::value<string>()->default_value("32M"),
              "Maximum cache size, in bytes, used by contrail-named (per view)")
+        ("DEFAULT.named_max_retransmissions",
+             opt::value<uint16_t>()->default_value(6),
+             "Maximum number of retries to named")
+        ("DEFAULT.named_retransmission_interval",
+             opt::value<uint16_t>()->default_value(1000),
+             "Retranmission interval in msec")
 
         ("DEFAULT.hostip", opt::value<string>()->default_value(host_ip),
              "IP address of DNS Server")
@@ -262,6 +268,10 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<string>(var_map, rndc_secret_, "DEFAULT.rndc_secret");
     GetOptValue<string>(var_map, named_max_cache_size_,
                         "DEFAULT.named_max_cache_size");
+    GetOptValue<uint16_t>(var_map, named_max_retransmissions_,
+                        "DEFAULT.named_max_retransmissions");
+    GetOptValue<uint16_t>(var_map, named_retransmission_interval_,
+                        "DEFAULT.named_retransmission_interval");
 
     GetOptValue<string>(var_map, host_ip_, "DEFAULT.hostip");
     GetOptValue<string>(var_map, hostname_, "DEFAULT.hostname");
