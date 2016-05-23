@@ -720,9 +720,9 @@ TEST_F(GenDbTest, CumulativeStats) {
     vdbti.clear();
     // Test if the idividual stats in the tables
     // are getting updated
-    UpdateStatsAll(cfname);
+    UpdateStatsAll(cfname1);
     GenDb::DbTableInfo edbti;
-    edbti.set_table_name(cfname);
+    edbti.set_table_name(cfname1);
     edbti.set_reads(1);
     edbti.set_read_fails(1);
     edbti.set_writes(1);
@@ -730,7 +730,8 @@ TEST_F(GenDbTest, CumulativeStats) {
     // Get stats should not change
     GetStats(&vdbti, &adbe);
     EXPECT_EQ(edbti, vdbti[0]);
-    edbti.set_table_name(cfname);
+    vdbti.clear();
+    edbti.set_table_name(cfname1);
     edbti.set_reads(2);
     edbti.set_read_fails(2);
     edbti.set_writes(2);
