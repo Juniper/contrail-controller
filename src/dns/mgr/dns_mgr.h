@@ -9,6 +9,7 @@
 #include <mgr/dns_oper.h>
 #include <bind/named_config.h>
 #include <cfg/dns_config.h>
+#include <ifmap/client/ifmap_manager.h>
 
 class DB;
 class DBGraph;
@@ -18,8 +19,9 @@ struct VirtualDnsRecordConfig;
 class DnsManager {
 public:
     static const int max_records_per_sandesh = 200;
-    static const uint32_t kPendingRecordRetransmitTime = 3000; // milliseconds
+    static const uint32_t kPendingRecordRetransmitTime = 5000; // milliseconds
     static const uint32_t kMaxRetransmitCount = 32;
+    static const int kJitter = 20; //percentage
 
     struct PendingList {
         uint16_t xid;
@@ -28,16 +30,34 @@ public:
         DnsItems items;
         BindUtil::Operation op;
         uint32_t retransmit_count;
+        Timer *retry_pending_timer; 
 
         PendingList(uint16_t id, const std::string &v, const std::string &z,
                     const DnsItems &it, BindUtil::Operation o) {
-            // xid(id), view(v), zone(z), items(it), op(o), retransmit_count(0) {}
             xid = id;
             view = v;
             zone = z;
             items = it;
             op = o;
             retransmit_count = 0;
+            retry_pending_timer = TimerManager::CreateTimer
+                (*(Dns::GetEventManager()->io_service()), "RetryPendingTimer",
+                 TaskScheduler::GetInstance()->GetTaskId("dns::Config"), 0); 
+
+            // Timer will be in range of (4-6)secs
+            int ms = kPendingRecordRetransmitTime;
+            ms = (ms * (100 - kJitter)) / 100;
+            ms += (ms * (rand() % (kJitter * 2))) / 100;
+            retry_pending_timer->Start(ms,
+                boost::bind(&PendingList::SendPendingListEntry, this, 
+                xid, op, view, zone, items));
+        }
+
+        bool SendPendingListEntry(uint16_t xid, BindUtil::Operation op,
+                                  std::string &view, std::string &zone,
+                                  DnsItems &items) {
+            Dns::GetDnsManager()->SendRetransmit(xid, op, view, zone, items);
+            return true;
         }
     };
     typedef std::map<uint16_t, PendingList> PendingListMap;
@@ -74,6 +94,10 @@ public:
                             const std::string &vdns_name, const DnsItem &item);
     bool IsBindStatusUp() { return bind_status_.IsUp(); }
 
+    void set_ifmap_manager(IFMapManager *ifmap_mgr) { ifmap_mgr_ = ifmap_mgr; }
+    IFMapManager* get_ifmap_manager() { return ifmap_mgr_; }
+    bool IsEndOfConfig() { return (ifmap_mgr_->GetEndOfRibComputed()); }
+
 private:
     friend class DnsBindTest;
 
@@ -94,9 +118,10 @@ private:
     bool CheckZoneDelete(ZoneList &zones, PendingList &pend);
     void PendingListZoneDelete(const Subnet &subnet,
                                const VirtualDnsConfig *config);
-    void StartPendingTimer();
-    void CancelPendingTimer();
-    bool PendingTimerExpiry();
+    void StartEndofConfigTimer();
+    void CancelEndofConfigTimer();
+    bool EndofConfigTimerExpiry();
+
     void NotifyAllDnsRecords(const VirtualDnsConfig *config,
                              DnsConfig::DnsConfigEvent ev);
     void NotifyReverseDnsRecords(const VirtualDnsConfig *config,
@@ -107,9 +132,11 @@ private:
     tbb::mutex mutex_;
     BindStatus bind_status_;
     DnsConfigManager config_mgr_;    
+    IFMapManager *ifmap_mgr_;
     static uint16_t g_trans_id_;
     PendingListMap pending_map_;
-    Timer *pending_timer_;
+    Timer *end_of_config_check_timer_;
+    bool end_of_config_;
     WorkQueue<uint16_t> pending_done_queue_;
 
     DISALLOW_COPY_AND_ASSIGN(DnsManager);
