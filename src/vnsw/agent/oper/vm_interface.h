@@ -481,6 +481,10 @@ public:
     const Interface *parent() const { return parent_.get(); }
     bool ecmp() const { return ecmp_;}
     bool ecmp6() const { return ecmp6_;}
+    Ip4Address service_ip() { return service_ip_;}
+    bool service_ip_ecmp() const { return service_ip_ecmp_;}
+    Ip6Address service_ip6() { return service_ip6_;}
+    bool service_ip_ecmp6() const { return service_ip_ecmp6_;}
     const OperDhcpOptions &oper_dhcp_options() const { return oper_dhcp_options_; }
     uint8_t configurer() const {return configurer_;}
     bool IsConfigurerSet(VmInterface::Configurer type);
@@ -552,6 +556,8 @@ public:
 
     void SetPathPreference(PathPreference *pref, bool ecmp,
                            const IpAddress &dependent_ip) const;
+    void SetServiceVlanPathPreference(PathPreference *pref,
+                                      const IpAddress &service_ip) const;
     void CopySgIdList(SecurityGroupList *sg_id_list) const;
     bool NeedMplsLabel() const;
     bool IsVxlanMode() const;
@@ -658,7 +664,7 @@ private:
                       uint32_t plen, const std::string &dest_vn, bool policy);
     void ServiceVlanAdd(ServiceVlan &entry);
     void ServiceVlanDel(ServiceVlan &entry);
-    void ServiceVlanRouteAdd(const ServiceVlan &entry);
+    void ServiceVlanRouteAdd(const ServiceVlan &entry, bool force_update);
     void ServiceVlanRouteDel(const ServiceVlan &entry);
 
     bool OnResyncFloatingIp(VmInterfaceConfigData *data, bool new_ipv4_active);
@@ -825,6 +831,10 @@ private:
     bool mac_set_;
     bool ecmp_;
     bool ecmp6_;
+    Ip4Address service_ip_;
+    bool service_ip_ecmp_;
+    Ip6Address service_ip6_;
+    bool service_ip_ecmp6_;
     // disable-policy configuration on VMI. When this is configured, policy
     // dependent features like flows, floating-IP and SG will not work on this
     // VMI. However metadata-services will work because metadata route will
@@ -1032,6 +1042,10 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     boost::uuids::uuid logical_interface_;
     VmiEcmpLoadBalance ecmp_load_balance_;
     IpAddress service_health_check_ip_;
+    Ip4Address service_ip_;
+    bool service_ip_ecmp_;
+    Ip6Address service_ip6_;
+    bool service_ip_ecmp6_;
 };
 
 // Definition for structures when request queued from Nova
