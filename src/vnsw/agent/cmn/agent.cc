@@ -855,3 +855,6 @@ void Agent::TaskTrace(const char *file_name, uint32_t line_no,
                         description, delay, task->Description());
 }
 
+bool Agent::MeasureQueueDelay() {
+    return params_->measure_queue_delay();
+}

@@ -34,6 +34,7 @@ FlowMgmtManager::FlowMgmtManager(Agent *agent) :
     log_queue_(agent_->task_scheduler()->GetTaskId(kFlowMgmtTask), 1,
                boost::bind(&FlowMgmtManager::LogHandler, this, _1)) {
     request_queue_.set_name("Flow management");
+    request_queue_.set_measure_busy_time(agent->MeasureQueueDelay());
     db_event_queue_.set_name("Flow DB Event Queue");
     log_queue_.set_name("Flow Log Queue");
     for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {

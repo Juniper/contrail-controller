@@ -41,6 +41,10 @@ FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
             (new FlowEventQueue(agent, this, flow_table_list_[i],
                                 &add_tokens_, latency, 16));
 
+        flow_misc_event_queue_.push_back
+            (new FlowEventQueue(agent, this, flow_table_list_[i],
+                                NULL, latency, 16));
+
         flow_delete_queue_.push_back
             (new DeleteFlowEventQueue(agent, this, flow_table_list_[i],
                                       &del_tokens_, latency, 16));
@@ -60,6 +64,7 @@ FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
 
 FlowProto::~FlowProto() {
     STLDeleteValues(&flow_event_queue_);
+    STLDeleteValues(&flow_misc_event_queue_);
     STLDeleteValues(&flow_delete_queue_);
     STLDeleteValues(&flow_ksync_queue_);
     STLDeleteValues(&flow_table_list_);
@@ -92,6 +97,7 @@ void FlowProto::Shutdown() {
     }
     for (uint32_t i = 0; i < flow_event_queue_.size(); i++) {
         flow_event_queue_[i]->Shutdown();
+        flow_misc_event_queue_[i]->Shutdown();
         flow_delete_queue_[i]->Shutdown();
         flow_ksync_queue_[i]->Shutdown();
     }
@@ -721,34 +727,46 @@ void UpdateStats(FlowEvent *req, FlowStats *stats) {
     }
 }
 
-static void SetFlowEventQueueStats(const FlowEventQueueBase::Queue *queue,
+static void SetFlowEventQueueStats(Agent *agent,
+                                   const FlowEventQueueBase::Queue *queue,
                                    ProfileData::WorkQueueStats *stats) {
     stats->name_ = queue->Description();
     stats->queue_count_ = queue->Length();
     stats->enqueue_count_ = queue->NumEnqueues();
     stats->dequeue_count_ = queue->NumDequeues();
     stats->max_queue_count_ = queue->max_queue_len();
-    stats->task_start_count_ = queue->task_starts();
+    stats->start_count_ = queue->task_starts();
+    stats->busy_time_ = queue->busy_time();
+    if (agent->MeasureQueueDelay())
+        queue->ClearStats();
 }
 
-static void SetFlowMgmtQueueStats(const FlowMgmtManager::FlowMgmtQueue *queue,
+static void SetFlowMgmtQueueStats(Agent *agent,
+                                  const FlowMgmtManager::FlowMgmtQueue *queue,
                                   ProfileData::WorkQueueStats *stats) {
     stats->name_ = queue->Description();
     stats->queue_count_ = queue->Length();
     stats->enqueue_count_ = queue->NumEnqueues();
     stats->dequeue_count_ = queue->NumDequeues();
     stats->max_queue_count_ = queue->max_queue_len();
-    stats->task_start_count_ = queue->task_starts();
+    stats->start_count_ = queue->task_starts();
+    stats->busy_time_ = queue->busy_time();
+    if (agent->MeasureQueueDelay())
+        queue->ClearStats();
 }
 
-static void SetPktHandlerQueueStats(const PktHandler::PktHandlerQueue *queue,
+static void SetPktHandlerQueueStats(Agent *agent,
+                                    const PktHandler::PktHandlerQueue *queue,
                                     ProfileData::WorkQueueStats *stats) {
     stats->name_ = queue->Description();
     stats->queue_count_ = queue->Length();
     stats->enqueue_count_ = queue->NumEnqueues();
     stats->dequeue_count_ = queue->NumDequeues();
     stats->max_queue_count_ = queue->max_queue_len();
-    stats->task_start_count_ = queue->task_starts();
+    stats->start_count_ = queue->task_starts();
+    stats->busy_time_ = queue->busy_time();
+    if (agent->MeasureQueueDelay())
+        queue->ClearStats();
 }
 
 void FlowProto::SetProfileData(ProfileData *data) {
@@ -764,24 +782,28 @@ void FlowProto::SetProfileData(ProfileData *data) {
     PktModule *pkt = agent()->pkt();
     const FlowMgmtManager::FlowMgmtQueue *flow_mgmt =
         pkt->flow_mgmt_manager()->request_queue();
-    SetFlowMgmtQueueStats(flow_mgmt, &data->flow_.flow_mgmt_queue_);
+    SetFlowMgmtQueueStats(agent(), flow_mgmt, &data->flow_.flow_mgmt_queue_);
 
     data->flow_.flow_event_queue_.resize(flow_table_list_.size());
     data->flow_.flow_delete_queue_.resize(flow_table_list_.size());
+    data->flow_.flow_misc_event_queue_.resize(flow_table_list_.size());
     data->flow_.flow_ksync_queue_.resize(flow_table_list_.size());
     for (uint16_t i = 0; i < flow_table_list_.size(); i++) {
-        SetFlowEventQueueStats(flow_event_queue_[i]->queue(),
+        SetFlowEventQueueStats(agent(), flow_event_queue_[i]->queue(),
                                &data->flow_.flow_event_queue_[i]);
-        SetFlowEventQueueStats(flow_delete_queue_[i]->queue(),
+        SetFlowEventQueueStats(agent(), flow_delete_queue_[i]->queue(),
                                &data->flow_.flow_delete_queue_[i]);
-        SetFlowEventQueueStats(flow_ksync_queue_[i]->queue(),
+        SetFlowEventQueueStats(agent(), flow_misc_event_queue_[i]->queue(),
+                               &data->flow_.flow_misc_event_queue_[i]);
+        SetFlowEventQueueStats(agent(), flow_ksync_queue_[i]->queue(),
                                &data->flow_.flow_ksync_queue_[i]);
     }
-    SetFlowEventQueueStats(flow_update_queue_.queue(),
+    SetFlowEventQueueStats(agent(), flow_update_queue_.queue(),
                            &data->flow_.flow_update_queue_);
     const PktHandler::PktHandlerQueue *pkt_queue =
         pkt->pkt_handler()->work_queue();
-    SetPktHandlerQueueStats(pkt_queue, &data->flow_.pkt_handler_queue_);
+    SetPktHandlerQueueStats(agent(), pkt_queue,
+                            &data->flow_.pkt_handler_queue_);
 
     data->flow_.token_stats_.add_tokens_ = add_tokens_.token_count();
     data->flow_.token_stats_.add_failures_ = add_tokens_.failures();

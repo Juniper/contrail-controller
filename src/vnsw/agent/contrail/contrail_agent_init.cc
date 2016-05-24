@@ -135,6 +135,7 @@ void ContrailAgentInit::InitDone() {
     PortIpcHandler pih(agent(), PortIpcHandler::kPortsDir,
                        !agent_param()->vrouter_on_host_dpdk());
     pih.ReloadAllPorts();
+    flow_stats_manager_->InitDone();
 }
 
 void ContrailAgentInit::ModulesShutdown() {

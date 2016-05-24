@@ -65,8 +65,18 @@ public:
     size_t enqueues() const { return enqueues_; }
     size_t dequeues() const { return dequeues_; }
     uint32_t write_events() const { return write_events_; }
+    uint32_t read_events() const { return read_events_; }
     size_t queue_len() const { return queue_len_; }
+    uint64_t busy_time() const { return busy_time_; }
     uint32_t max_queue_len() const { return max_queue_len_; }
+    void set_measure_busy_time(bool val) const { measure_busy_time_ = val; }
+    void ClearStats() const {
+        max_queue_len_ = 0;
+        enqueues_ = 0;
+        dequeues_ = 0;
+        busy_time_ = 0;
+        read_events_ = 0;
+    }
 
     bool Enqueue(IoContext *io_context) {
         return EnqueueInternal(io_context);
@@ -82,11 +92,14 @@ private:
     tbb::atomic<bool> shutdown_;
     pthread_t event_thread_;
     tbb::atomic<size_t> queue_len_;
-    size_t max_queue_len_;
+    mutable size_t max_queue_len_;
 
-    size_t enqueues_;
-    size_t dequeues_;
-    size_t write_events_;
+    mutable size_t enqueues_;
+    mutable size_t dequeues_;
+    mutable size_t write_events_;
+    mutable size_t read_events_;
+    mutable uint64_t busy_time_;
+    mutable bool measure_busy_time_;
 
     DISALLOW_COPY_AND_ASSIGN(KSyncTxQueue);
 };
