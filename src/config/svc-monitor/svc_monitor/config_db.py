@@ -515,8 +515,8 @@ class ServiceInstanceSM(DBBaseSM):
         self.service_template = None
         self.loadbalancer = None
         self.loadbalancer_pool = None
-        self.interface_route_tables = set()
-        self.service_health_checks = set()
+        self.interface_route_tables = {}
+        self.service_health_checks = {}
         self.instance_ips = set()
         self.virtual_machines = set()
         self.logical_router = None
@@ -560,8 +560,8 @@ class ServiceInstanceSM(DBBaseSM):
         self.update_single_ref('loadbalancer', obj)
         self.update_single_ref('loadbalancer_pool', obj)
         self.update_single_ref('logical_router', obj)
-        self.update_multiple_refs('interface_route_table', obj)
-        self.update_multiple_refs('service_health_check', obj)
+        self.update_multiple_refs_with_attr('interface_route_table', obj)
+        self.update_multiple_refs_with_attr('service_health_check', obj)
         self.update_multiple_refs('instance_ip', obj)
         self.update_multiple_refs('virtual_machine', obj)
         self.id_perms = obj.get('id_perms', None)
@@ -753,6 +753,7 @@ class InstanceIpSM(DBBaseSM):
         self.service_instance_ip = None
         self.instance_ip_secondary = None
         self.secondary_tracking_ip = None
+        self.service_health_check_ip = None
         self.virtual_machine_interfaces = set()
         self.update(obj_dict)
     # end __init__
@@ -766,6 +767,7 @@ class InstanceIpSM(DBBaseSM):
         self.service_instance_ip = obj.get('service_instance_ip', False)
         self.instance_ip_secondary = obj.get('instance_ip_secondary', False)
         self.secondary_tracking_ip = obj.get('secondary_ip_tracking_ip', None)
+        self.service_health_check_ip = obj.get('service_health_check_ip', None)
         self.family = obj.get('instance_ip_family', 'v4')
         self.address = obj.get('instance_ip_address', None)
         self.update_multiple_refs('virtual_machine_interface', obj)
@@ -1002,8 +1004,7 @@ class InterfaceRouteTableSM(DBBaseSM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
-        self.service_instance = None
-        self.service_interface_tag = None
+        self.service_instances = {}
         self.si_uuid = None
         self.if_type = None
         self.update(obj_dict)
@@ -1015,10 +1016,7 @@ class InterfaceRouteTableSM(DBBaseSM):
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
         self.update_multiple_refs('virtual_machine_interface', obj)
-        self.update_single_ref('service_instance', obj)
-        ref_attr = self.get_single_ref_attr('service_instance', obj)
-        if ref_attr:
-            self.service_interface_tag = ref_attr['interface_type']
+        self.update_multiple_refs_with_attr('service_instance', obj)
         name_split = self.name.split(' ')
         if len(name_split) == 2:
             self.si_uuid = name_split[0]
@@ -1220,8 +1218,7 @@ class ServiceHealthCheckSM(DBBaseSM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
-        self.service_instance = None
-        self.service_interface_tag = None
+        self.service_instances = {}
         self.update(obj_dict)
     # end __init__
 
@@ -1230,11 +1227,9 @@ class ServiceHealthCheckSM(DBBaseSM):
             obj = self.read_obj(self.uuid)
         self.parent_uuid = obj['parent_uuid']
         self.name = obj['fq_name'][-1]
+        self.params = obj.get('service_health_check_properties', None)
         self.update_multiple_refs('virtual_machine_interface', obj)
-        self.update_single_ref('service_instance', obj)
-        ref_attr = self.get_single_ref_attr('service_instance', obj)
-        if ref_attr:
-            self.service_interface_tag = ref_attr['interface_type']
+        self.update_multiple_refs_with_attr('service_instance', obj)
     # end update
 
     @classmethod
