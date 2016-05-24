@@ -2,4 +2,4 @@
 
 # chkconfig: 2345 99 01
 # description: Juniper Network Virtualization Control Nodemgr
-supervisorctl -s unix:///tmp/supervisord_control.sock ${1} `basename ${0}`
+supervisorctl -s unix:///var/run/supervisord_control.sock ${1} `basename ${0}`
