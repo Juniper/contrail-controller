@@ -331,17 +331,24 @@ class AnalyticsApiStatistics(object):
         self.api_stats = None
         self.sandesh = sandesh
 
-    def collect(self, resp_size):
+    def collect(self, resp_size, resp_size_bytes):
         time_finish = UTCTimestampUsec()
+
+        useragent = bottle.request.headers.get('X-Contrail-Useragent')
+        if not useragent:
+            useragent = bottle.request.headers.get('User-Agent')
 
         # Create api stats object
         self.api_stats = AnalyticsApiSample(
             operation_type=bottle.request.method,
-            remote_ip=bottle.request.headers.get('Host'),
+            remote_ip=bottle.request.environ.get('REMOTE_ADDR'),
             request_url=bottle.request.url,
             object_type=self.obj_type,
             response_time_in_usec=(time_finish - self.time_start),
-            response_size=resp_size,
+            response_size_objects=resp_size,
+            response_size_bytes=resp_size_bytes,
+            resp_code='200',
+            useragent=useragent,
             node=self.sandesh.source_id())
 
     def sendwith(self):
@@ -1372,18 +1379,21 @@ class OpServer(object):
             yield u'{"value": ['
             first = True
             num = 0
+            byt = 0
             for key in filters['kfilt']:
                 if key.find('*') != -1:
                     for gen in self._uve_server.multi_uve_get(uve_tbl, True,
                                                               filters,
                                                               base_url):
+                        dp = json.dumps(gen)
+                        byt += len(dp)
                         if first:
-                            yield u'' + json.dumps(gen)
+                            yield u'' + dp
                             first = False
                         else:
-                            yield u', ' + json.dumps(gen)
+                            yield u', ' + dp
                         num += 1
-                    stats.collect(num)
+                    stats.collect(num,byt)
                     stats.sendwith()
                     yield u']}'
                     return
@@ -1395,12 +1405,14 @@ class OpServer(object):
                 num += 1
                 if rsp != {}:
                     data = {'name': key, 'value': rsp}
+                    dp = json.dumps(data)
+                    byt += len(dp)
                     if first:
-                        yield u'' + json.dumps(data)
+                        yield u'' + dp
                         first = False
                     else:
-                        yield u', ' + json.dumps(data)
-            stats.collect(num)
+                        yield u', ' + dp
+            stats.collect(num,byt)
             stats.sendwith()
             yield u']}'
     # end _uve_alarm_http_post
@@ -1438,23 +1450,27 @@ class OpServer(object):
             if filters['kfilt'] is None:
                 filters['kfilt'] = [name]
             num = 0
+            byt = 0
             for gen in self._uve_server.multi_uve_get(uve_tbl, flat,
                                                       filters, base_url):
+                dp = json.dumps(gen)
+                byt += len(dp)
                 if first:
-                    yield u'' + json.dumps(gen)
+                    yield u'' + dp
                     first = False
                 else:
-                    yield u', ' + json.dumps(gen)
+                    yield u', ' + dp
                 num += 1
-            stats.collect(num)
+            stats.collect(num,byt)
             stats.sendwith()
             yield u']}'
         else:
             _, rsp = self._uve_server.get_uve(uve_name, flat, filters,
                                            base_url=base_url)
-            stats.collect(1)
+            dp = json.dumps(rsp)
+            stats.collect(1, len(dp))
             stats.sendwith()
-            yield json.dumps(rsp)
+            yield dp
     # end dyn_http_get
 
     def uve_alarm_http_types(self):

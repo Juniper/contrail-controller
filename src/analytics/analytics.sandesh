@@ -126,7 +126,10 @@ struct AnalyticsApiSample {
     5: string object_type
     6: string request_url
     8: u64 response_time_in_usec
-    9: u64 response_size
+    9: u64 response_size_objects
+    11: u64 response_size_bytes
+    12: string resp_code
+    13: string useragent
     10: string node (key="ObjectCollectorInfo")
 }
 
