@@ -491,6 +491,10 @@ void AgentParam::ParseDefaultSection() {
                                     "DEFAULT.pkt0_tx_buffers")) {
         pkt0_tx_buffer_count_ = Agent::kPkt0TxBufferCount;
     }
+    if (!GetValueFromTree<bool>(measure_queue_delay_,
+                                "DEFAULT.measure_queue_delay")) {
+        measure_queue_delay_ = false;
+    }
 }
 
 void AgentParam::ParseTaskSection() {
@@ -755,6 +759,8 @@ void AgentParam::ParseDefaultSectionArguments
                           "DEFAULT.mirror_client_port");
     GetOptValue<uint32_t>(var_map, pkt0_tx_buffer_count_,
                           "DEFAULT.pkt0_tx_buffers");
+    GetOptValue<bool>(var_map, measure_queue_delay_,
+                      "DEFAULT.measure_queue_delay");
 }
 
 void AgentParam::ParseTaskSectionArguments
@@ -1304,6 +1310,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         enable_service_options_(enable_service_options),
         agent_mode_(agent_mode), vhost_(),
         pkt0_tx_buffer_count_(Agent::kPkt0TxBufferCount),
+        measure_queue_delay_(false),
         agent_name_(), eth_port_(),
         eth_port_no_arp_(false), eth_port_encap_type_(),
         xmpp_instance_count_(),
