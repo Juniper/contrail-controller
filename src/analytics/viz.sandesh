@@ -1778,7 +1778,8 @@ const list<stat_table> _STAT_TABLES  = [
       'obj_table' : 'NONE',
       'attributes': [
           { 'name' : 'partition', 'datatype' : 'int',    'index' : true },
-          { 'name' : 'o.key',     'datatype' : 'string', 'index' : true },
+          { 'name' : 'table',     'datatype' : 'string', 'index' : true },
+          { 'name' : 'o.keys',    'datatype' : 'int',    'index' : false },
           { 'name' : 'o.count',   'datatype' : 'int',    'index' : false },
         ]
     },
