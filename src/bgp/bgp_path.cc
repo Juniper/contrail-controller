@@ -61,11 +61,11 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
     // Compare sequence_number in reverse order as larger is better.
     KEY_COMPARE(rattr->sequence_number(), attr_->sequence_number());
 
-    // For ECMP paths, above checks should suffice
+    KEY_COMPARE(attr_->as_path_count(), rattr->as_path_count());
+
+    // For ECMP paths, above checks should suffice.
     if (allow_ecmp)
         return 0;
-
-    KEY_COMPARE(attr_->as_path_count(), rattr->as_path_count());
 
     KEY_COMPARE(attr_->origin(), rattr->origin());
 
