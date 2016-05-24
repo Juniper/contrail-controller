@@ -3,4 +3,4 @@
 # chkconfig: 2345 99 01
 # description: Juniper Network Virtualization physical topology daemon
 
-supervisorctl -s unix:///tmp/supervisord_analytics.sock ${1} `basename ${0}`
+supervisorctl -s unix:///var/run/supervisord_analytics.sock ${1} `basename ${0}`
