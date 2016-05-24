@@ -97,12 +97,15 @@ class DBBase(object):
         return self.uuid
     # end get_key
 
-    def add_ref(self, ref_type, ref):
+    def add_ref(self, ref_type, ref, attr=None):
         if hasattr(self, ref_type):
             setattr(self, ref_type, ref)
         elif hasattr(self, ref_type+'s'):
             ref_set = getattr(self, ref_type+'s')
-            ref_set.add(ref)
+            if isinstance(ref_set, set):
+                ref_set.add(ref)
+            elif isinstance(ref_set, dict):
+                ref_set[ref] = attr
     # end add_ref
 
     def delete_ref(self, ref_type, ref):
@@ -110,7 +113,10 @@ class DBBase(object):
             setattr(self, ref_type, None)
         elif hasattr(self, ref_type+'s'):
             ref_set = getattr(self, ref_type+'s')
-            ref_set.discard(ref)
+            if isinstance(ref_set, set):
+                ref_set.discard(ref)
+            elif isinstance(ref_set, dict) and ref in ref_set:
+                del ref_set[ref]
     # end delete_ref
 
     def add_to_parent(self, obj):
@@ -228,6 +234,31 @@ class DBBase(object):
             ref_obj = self.get_obj_type_map()[ref_type].get(ref_key)
             if ref_obj is not None:
                 ref_obj.add_ref(self.obj_type, self.get_key())
+        setattr(self, ref_type+'s', new_refs)
+    # end update_multiple_refs
+
+    def update_multiple_refs_with_attr(self, ref_type, obj):
+        if isinstance(obj, dict):
+            refs = obj.get(ref_type+'_refs') or obj.get(ref_type+'_back_refs')
+        else:
+            refs = (getattr(obj, ref_type+'_refs', None) or
+                    getattr(obj, ref_type+'_back_refs', None))
+
+        new_refs = {}
+        for ref in refs or []:
+            new_key = self._get_ref_key(ref, ref_type)
+            new_refs[new_key] = ref.get('attr')
+        old_refs = getattr(self, ref_type+'s')
+        for ref_key in set(old_refs.keys()) - set(new_refs.keys()):
+            ref_obj = self.get_obj_type_map()[ref_type].get(ref_key)
+            if ref_obj is not None:
+                ref_obj.delete_ref(self.obj_type, self.get_key())
+        for ref_key in new_refs:
+            if ref_key in old_refs and new_refs[ref_key] == old_refs[ref_key]:
+                continue
+            ref_obj = self.get_obj_type_map()[ref_type].get(ref_key)
+            if ref_obj is not None:
+                ref_obj.add_ref(self.obj_type, self.get_key(), new_refs[ref_key])
         setattr(self, ref_type+'s', new_refs)
     # end update_multiple_refs
 
