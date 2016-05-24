@@ -427,7 +427,7 @@ class PhysicalRouterDM(DBBaseDM):
                     if pi_vmi.routing_instances:
                         for ri_id in pi_vmi.routing_instances:
                             ri_obj = RoutingInstanceDM.get(ri_id)
-                            if ri_obj and ri_obj.routing_instances:
+                            if ri_obj and ri_obj.routing_instances and ri_obj.service_chain_address:
                                 pnf_ris.add(ri_obj)
                                 # If this service is on a service chain, we need allocate
                                 # a logic interface for its VMI
