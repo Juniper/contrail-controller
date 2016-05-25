@@ -44,7 +44,7 @@ using boost::optional;
 
 void IFMapAgentSandeshInit(DB *, IFMapAgentParser *);
 
-SandeshTraceBufferPtr CfgTraceBuf(SandeshTraceBufferCreate("Config", 100));
+SandeshTraceBufferPtr CfgTraceBuf(SandeshTraceBufferCreate("Config", 2000));
 
 AgentConfig::AgentConfig(Agent *agent)
         : agent_(agent),
