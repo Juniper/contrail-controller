@@ -27,7 +27,8 @@ namespace opt = boost::program_options;
 
 class MockGenerator {
 public:
-    const static int kNumFlowsInIteration;
+    const static int kNumFlowSamplesPerSec;
+    const static int kNumFlowSamplesInMessage;
 
     MockGenerator(std::string &hostname, std::string &module_name,
                   std::string &node_type_name,
@@ -37,7 +38,8 @@ public:
                   std::vector<std::string> &collectors,
                   std::vector<uint32_t> &ip_vns,
                   int ip_start_index, int num_flows_per_vm,
-                  int num_flows_in_iteration,
+                  int num_flow_samples_per_sec,
+                  int num_flow_samples_in_message,
                   EventManager *evm) :
         hostname_(hostname),
         module_name_(module_name),
@@ -53,7 +55,8 @@ public:
         ip_vns_(ip_vns),
         ip_start_index_(ip_start_index),
         num_flows_per_vm_(num_flows_per_vm),
-        num_flows_in_iteration_(num_flows_in_iteration),
+        num_flow_samples_per_sec_(num_flow_samples_per_sec),
+        num_flow_samples_in_message_(num_flow_samples_in_message),
         rgen_(std::time(0)),
         u_rgen_(&rgen_),
         evm_(evm) {
@@ -130,8 +133,11 @@ private:
             // Send the flows periodically
             int lflow_cnt = 0;
             uint64_t diff_time = 0;
-            for (std::vector<FlowLogData>::iterator it = mgen_->flows_.begin() +
-                 mgen_->flow_counter_; it != mgen_->flows_.end(); ++it) {
+            std::vector<FlowLogData>::iterator begin(mgen_->flows_.begin() +
+                mgen_->flow_counter_);
+            for (std::vector<FlowLogData>::iterator it = begin;
+                 it != mgen_->flows_.end(); ++it) {
+                bool sent_message(false);
                 uint64_t stime = UTCTimestampUsec();
                 FlowLogData &flow_data(*it);
                 uint64_t new_packets(mgen_->dFlowPktsPerSec(mgen_->rgen_));
@@ -143,22 +149,30 @@ private:
                 flow_data.set_bytes(old_bytes + new_bytes);
                 flow_data.set_diff_packets(new_packets);
                 flow_data.set_diff_bytes(new_bytes);
-                std::vector<FlowLogData> v;
-                v.push_back(flow_data);
-                FLOW_LOG_DATA_OBJECT_SEND(v);
                 lflow_cnt++;
                 mgen_->flow_counter_++;
+                if (lflow_cnt % mgen_->num_flow_samples_in_message_ == 0) {
+                    FLOW_LOG_DATA_OBJECT_LOG("", SandeshLevel::SYS_NOTICE,
+                        std::vector<FlowLogData>(begin, it + 1));
+                    sent_message = true;
+                }
+                if (lflow_cnt == mgen_->num_flow_samples_per_sec_) {
+                    if (!sent_message) {
+                        FLOW_LOG_DATA_OBJECT_LOG("", SandeshLevel::SYS_NOTICE,
+                            std::vector<FlowLogData>(begin, it + 1));
+                    }
+                    diff_time += UTCTimestampUsec() - stime;
+                    usleep(1000000 - diff_time);
+                    return false;
+                }
                 diff_time += UTCTimestampUsec() - stime;
                 if (diff_time >= 1000000) {
-                    if (lflow_cnt < mgen_->num_flows_in_iteration_) {
-                        LOG(ERROR, "Unable to send at " <<
-                            mgen_->num_flows_in_iteration_ << " rate");
+                    if (lflow_cnt < mgen_->num_flow_samples_per_sec_) {
+                        LOG(ERROR, "Sent: " << lflow_cnt << " in " <<
+                            diff_time/1000000 << " seconds, NOT sending at " <<
+                            mgen_->num_flow_samples_per_sec_ << " rate");
                         return false;
                     }
-                }
-                if (lflow_cnt == mgen_->num_flows_in_iteration_) {
-                    usleep(1000000-diff_time);
-                    return false;
                 }
             }
             // Completed iteration, reset flow counter
@@ -207,7 +221,8 @@ private:
     const std::vector<uint32_t> ip_vns_;
     const int ip_start_index_;
     const int num_flows_per_vm_;
-    const int num_flows_in_iteration_;
+    const int num_flow_samples_per_sec_;
+    const int num_flow_samples_in_message_;
     std::vector<FlowLogData> flows_;
     static int flow_counter_;
     boost::random::mt19937 rgen_;
@@ -234,9 +249,12 @@ const std::vector<int> MockGenerator::kProtocols = boost::assign::list_of
 const boost::random::uniform_int_distribution<>
     MockGenerator::dProtocols(0, MockGenerator::kProtocols.size() - 1);
 int MockGenerator::flow_counter_(0);
-const int MockGenerator::kNumFlowsInIteration(145 * 10);
+const int MockGenerator::kNumFlowSamplesPerSec(200);
+const int MockGenerator::kNumFlowSamplesInMessage(32);
 
 int main(int argc, char *argv[]) {
+    bool log_local(false), use_syslog(false), log_flow(false);
+    std::string log_category;
     opt::options_description desc("Command line options");
     desc.add_options()
         ("help", "help message")
@@ -259,9 +277,34 @@ int main(int argc, char *argv[]) {
          "Generator Id")
         ("num_generators", opt::value<int>()->default_value(1),
          "Number of generators")
-        ("num_flows_in_iteration", opt::value<int>()->default_value(
-             MockGenerator::kNumFlowsInIteration),
-         "Number of flow messages to send in one iteration");
+        ("num_flow_samples_per_second", opt::value<int>()->default_value(
+            MockGenerator::kNumFlowSamplesPerSec),
+         "Number of flow messages to send in one second")
+        ("num_flow_samples_in_message", opt::value<int>()->default_value(
+            MockGenerator::kNumFlowSamplesInMessage),
+         "Number of flow samples to send in one message")
+        ("log_property_file", opt::value<std::string>()->default_value(""),
+            "log4cplus property file name")
+        ("log_files_count", opt::value<int>()->default_value(10),
+            "Maximum log file roll over index")
+        ("log_file_size",
+            opt::value<long>()->default_value(10*1024*1024),
+            "Maximum size of the log file")
+        ("log_category",
+            opt::value<std::string>()->default_value(log_category),
+            "Category filter for local logging of sandesh messages")
+        ("log_file", opt::value<std::string>()->default_value("<stdout>"),
+            "Filename for the logs to be written to")
+        ("log_level", opt::value<std::string>()->default_value("SYS_NOTICE"),
+            "Severity level for local logging of sandesh messages")
+        ("log_local", opt::bool_switch(&log_local),
+            "Enable local logging of sandesh messages")
+        ("use_syslog", opt::bool_switch(&use_syslog),
+            "Enable logging to syslog")
+        ("syslog_facility", opt::value<std::string>()->default_value(
+            "LOG_LOCAL0"), "Syslog facility to receive log lines")
+        ("log_flow", opt::bool_switch(&log_flow),
+            "Enable local logging of flow sandesh messages");
 
     opt::variables_map var_map;
     opt::store(opt::parse_command_line(argc, argv, desc), var_map);
@@ -272,15 +315,30 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    LoggingInit();
-
+    Module::type module(Module::VROUTER_AGENT);
+    std::string moduleid(g_vns_constants.ModuleNames.find(module)->second);
+    std::string log_property_file(
+        var_map["log_property_file"].as<std::string>());
+    if (log_property_file.size()) {
+        LoggingInit(log_property_file);
+    } else {
+        LoggingInit(var_map["log_file"].as<std::string>(),
+                    var_map["log_file_size"].as<long>(),
+                    var_map["log_files_count"].as<int>(),
+                    use_syslog,
+                    var_map["syslog_facility"].as<std::string>(),
+                    moduleid,
+                    SandeshLevelTolog4Level(Sandesh::StringToLevel(
+                        var_map["log_level"].as<std::string>())));
+    }
+    Sandesh::SetLoggingParams(log_local,
+        var_map["log_category"].as<std::string>(),
+        var_map["log_level"].as<std::string>(), false, log_flow);
     int gen_id(var_map["generator_id"].as<int>());
     int ngens(var_map["num_generators"].as<int>());
     int pid(getpid());
     int num_instances(var_map["num_instances_per_generator"].as<int>());
     int num_networks(var_map["num_networks"].as<int>());
-    Module::type module(Module::VROUTER_AGENT);
-    std::string moduleid(g_vns_constants.ModuleNames.find(module)->second);
     NodeType::type node_type(
         g_vns_constants.Module2NodeType.find(module)->second);
     std::string node_type_name(
@@ -331,12 +389,16 @@ int main(int argc, char *argv[]) {
 
     EventManager evm;
     int num_flows_per_instance(var_map["num_flows_per_instance"].as<int>());
-    int num_flows_in_iteration(var_map["num_flows_in_iteration"].as<int>());
+    int num_flow_samples_per_sec(
+        var_map["num_flow_samples_per_second"].as<int>());
+    int num_flow_samples_in_message(
+        var_map["num_flow_samples_in_message"].as<int>());
     std::string instance_id(integerToString(gen_id));
     MockGenerator mock_generator(hostname, moduleid, node_type_name,
         instance_id, http_server_port, start_vn, end_vn, other_vn,
         num_networks, instance_iterations, collectors, ip_vns, start_ip_index,
-        num_flows_per_instance, num_flows_in_iteration, &evm);
+        num_flows_per_instance, num_flow_samples_per_sec,
+        num_flow_samples_in_message, &evm);
     mock_generator.Run();
     evm.Run();
     return 0;
