@@ -28,28 +28,58 @@ class FlowStatsManager;
 //shared memory (between agent and Kernel) and export this stats info to
 //collector. Also responsible for aging of flow entries. Runs in the context
 //of kTaskFlowStatsCollector which has exclusion with "db::DBTable",
+//
+// The algorithm for ageing flows,
+// - The complete flow-table will be scanned every 25% of ageing time
+//   - An implication of this is, flow ageing will have accuracy of 25%
+// - Run timer every kFlowStatsTimerInterval msec (100 msec)
+// - Compute number of flow-entres to visit in kFlowStatsTimerInterval
+//   - This is subject to constraing that complete flow table must be scanned
+//     in 25% of ageing time
+// - On every timer expiry accumulate the number of entries to visit into
+//   entries_to_visit_ variable
+// - Start a task (Flow AgeingTask) to scan the flow-entries
+// - On every run of task, visit upto kFlowsPerTask entries
+//   If scan is not complete, continue the task
+//   On completion of scan, stop the task
+//
+// On every visit of flow, check if flow is idle for configured ageing time and
+// delete the idle flows
 class FlowStatsCollector : public StatsCollector {
 public:
+    // Default ageing time
     static const uint64_t FlowAgeTime = 1000000 * 180;
-    static const uint32_t kFlowStatsTimerInterval = 50; // time in milliseconds
-    // Min time in milliseconds
-    static const uint32_t kFlowStatsTimerIntervalMin = 5;
+    // Default TCP ageing time
     static const uint64_t FlowTcpSynAgeTime = 1000000 * 180;
-    // Retry flow-delete after 2 second
-    static const uint64_t kFlowDeleteRetryTime = (5 * 1000 * 1000);
 
     // Time within which complete table must be scanned
     // Specified in terms of percentage of aging-time
-    static const uint8_t  kFlowScanTime = 25;
-    // Flow timer interval
-    static const uint32_t kFlowStatsInterval = 50;
+    static const uint32_t kFlowScanTime = 25;
+    // Flog ageing timer interval in milliseconds
+    static const uint32_t kFlowStatsTimerInterval = 100;
     // Minimum flows to visit per interval
-    static const uint32_t kMinFlowsPerTimer = 2000;
+    static const uint32_t kMinFlowsPerTimer = 4000;
+    // Number of flows to visit per task
+    static const uint32_t kFlowsPerTask = 256;
+
+    // Retry flow-delete after 5 second
+    static const uint64_t kFlowDeleteRetryTime = (5 * 1000 * 1000);
 
     static const uint32_t kDefaultFlowSamplingThreshold = 500;
     static const uint8_t  kMaxFlowMsgsPerSend = 16;
 
     typedef std::map<const FlowEntry*, FlowExportInfo> FlowEntryTree;
+
+    // Task in which the actual flow table scan happens. See description above
+    class AgeingTask : public Task {
+    public:
+        AgeingTask(FlowStatsCollector *fsc);
+        virtual ~AgeingTask();
+        bool Run();
+        std::string Description() const;
+    private:
+        FlowStatsCollector *fsc_;
+    };
 
     FlowStatsCollector(boost::asio::io_service &io, int intvl,
                        uint32_t flow_cache_timeout,
@@ -78,6 +108,8 @@ public:
     uint32_t threshold()  const;
     boost::uuids::uuid rand_gen();
     bool Run();
+    bool RunAgeingTask();
+    uint32_t RunAgeing(uint32_t max_count);
     void UpdateFlowAgeTime(uint64_t usecs) {
         flow_age_time_intvl_ = usecs;
     }
@@ -112,6 +144,8 @@ public:
     const FlowAgingTableKey& flow_aging_key() const {
         return flow_aging_key_;
     }
+    int task_id() const { return task_id_; }
+    uint32_t instance_id() const { return instance_id_; }
     friend class AgentUtXmlFlowThreshold;
     friend class AgentUtXmlFlowThresholdValidate;
     friend class FlowStatsRecordsReq;
@@ -124,8 +158,8 @@ private:
     static uint64_t GetCurrentTime();
     void ExportFlowLocked(FlowExportInfo *info, uint64_t diff_bytes,
                           uint64_t diff_pkts, const RevFlowDepParams *params);
-    uint64_t GetScanTime();
-    void UpdateAgingParameters();
+    uint32_t TimersPerScan();
+    void UpdateEntriesToVisit();
     void UpdateStatsAndExportFlow(FlowExportInfo *info, uint64_t teardown_time,
                                   const RevFlowDepParams *params);
     void EvictedFlowStatsUpdate(const FlowEntryPtr &flow,
@@ -189,12 +223,12 @@ private:
     uint8_t GetFlowMsgIdx();
 
     AgentUveBase *agent_uve_;
+    int task_id_;
     boost::uuids::random_generator rand_gen_;
     const FlowEntry* flow_iteration_key_;
     uint64_t flow_age_time_intvl_;
-    uint32_t flow_count_per_pass_;
-    uint32_t flow_multiplier_;
-    uint32_t flow_default_interval_;
+    // Number of entries pending to be visited
+    uint32_t entries_to_visit_;
     // Should short-flow be deleted immediately?
     // Value will be set to false for test cases
     bool delete_short_flow_;
@@ -212,6 +246,10 @@ private:
     FlowAgingTableKey flow_aging_key_;
     uint32_t instance_id_;
     FlowStatsManager *flow_stats_manager_;
+    AgeingTask *ageing_task_;
+    // Number of timer fires needed to scan the flow-table once
+    // This is based on ageing timer
+    uint32_t timers_per_scan_;
     DISALLOW_COPY_AND_ASSIGN(FlowStatsCollector);
 };
 #endif //vnsw_agent_flow_stats_collector_h
