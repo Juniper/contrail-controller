@@ -144,7 +144,6 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
     Interface *intf = NULL;
 
     pkt_info->agent_hdr = hdr;
-    agent_->stats()->incr_pkt_exceptions();
     if (!IsValidInterface(hdr.ifindex, &intf)) {
         return INVALID;
     }
@@ -168,9 +167,10 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
 
     pkt_info->vrf = pkt_info->agent_hdr.vrf;
 
+    bool is_flow_packet = IsFlowPacket(pkt_info);
     // Look for DHCP packets if corresponding service is enabled
     // Service processing over-rides ACL/Flow and forwarding configuration
-    if (intf->dhcp_enabled() && (pkt_type == PktType::UDP)) {
+    if (!is_flow_packet && intf->dhcp_enabled() && (pkt_type == PktType::UDP)) {
         if (pkt_info->ip && (pkt_info->dport == DHCP_SERVER_PORT ||
                              pkt_info->sport == DHCP_CLIENT_PORT)) {
             return DHCP;
@@ -204,7 +204,7 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
     }
 
     // Packets needing flow
-    if (IsFlowPacket(pkt_info)) {
+    if (is_flow_packet) {
         CalculatePort(pkt_info);
         if ((pkt_info->ip && pkt_info->family == Address::INET) ||
             (pkt_info->ip6 && pkt_info->family == Address::INET6)) {
@@ -270,6 +270,7 @@ void PktHandler::HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff){
 }
 
 bool PktHandler::ProcessPacket(boost::shared_ptr<PacketBufferEnqueueItem> item) {
+    agent_->stats()->incr_pkt_exceptions();
     const AgentHdr &hdr = item->hdr;
     const PacketBufferPtr &buff = item->buff;
     boost::shared_ptr<PktInfo> pkt_info (new PktInfo(buff));
