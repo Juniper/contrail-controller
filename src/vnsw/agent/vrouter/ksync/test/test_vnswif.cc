@@ -39,8 +39,8 @@ public:
         WAIT_FOR(1000, 100, (VmPortFindRetDel(2) == false));
     }
 
-    void SetSeen(const string &ifname, bool oper) {
-        vnswif_->SetSeen(agent_->vhost_interface_name(), true);
+    void SetSeen(const string &ifname, bool oper, uint32_t id) {
+        vnswif_->SetSeen(agent_->vhost_interface_name(), true, id);
     }
 
     void ResetSeen(const string &ifname) {
@@ -132,7 +132,12 @@ TEST_F(TestVnswIf, host_route_del) {
 
 // On link flap of vhost, all link-local must be written again
 TEST_F(TestVnswIf, vhost_link_flap) {
-    SetSeen(agent_->vhost_interface_name(), true);
+    uint32_t id = Interface::kInvalidIndex;
+    const Interface *intf = agent_->vhost_interface();
+    if (intf) {
+        id = intf->id();
+    }
+    SetSeen(agent_->vhost_interface_name(), true, id);
     client->WaitForIdle();
 
     // Set link-state down
@@ -177,7 +182,12 @@ TEST_F(TestVnswIf, inactive_1) {
 
 // vhost-ip address update
 TEST_F(TestVnswIf, vhost_addr_1) {
-    SetSeen(agent_->vhost_interface_name(), true);
+    uint32_t id = Interface::kInvalidIndex;
+    const Interface *intf = agent_->vhost_interface();
+    if (intf) {
+        id = intf->id();
+    }
+    SetSeen(agent_->vhost_interface_name(), true, id);
     client->WaitForIdle();
 
     VnswInterfaceListener::HostInterfaceEntry *entry =
