@@ -17,6 +17,7 @@
 using namespace log4cplus;
 
 static bool disabled_;
+static bool use_syslog_;
 static const char *loggingPattern = "%D{%Y-%m-%d %a %H:%M:%S:%Q %Z} "
                                     " %h [Thread %t, Pid %i]: %m%n";
 
@@ -26,6 +27,10 @@ bool LoggingDisabled() {
 
 void SetLoggingDisabled(bool flag) {
     disabled_ = flag;
+}
+
+bool LoggingUseSyslog() {
+    return use_syslog_;
 }
 
 void CheckEnvironmentAndUpdate() {
@@ -53,17 +58,6 @@ void LoggingInit(const std::string &filename, long maxFileSize, int maxBackupInd
                  const std::string &ident, LogLevel logLevel) {
     Logger logger = Logger::getRoot();
     logger.setLogLevel(logLevel);
-    if (filename == "<stdout>" || filename.length() == 0) {
-        BasicConfigurator config;
-        config.configure();
-    } else {
-        SharedAppenderPtr fileappender(new RollingFileAppender(filename,
-                                           maxFileSize, maxBackupIndex));
-        logger.addAppender(fileappender);
-    }
-
-    std::auto_ptr<Layout> layout_ptr(new PatternLayout(loggingPattern));
-    logger.getAllAppenders().at(0)->setLayout(layout_ptr);
 
     if (useSyslog) {
         helpers::Properties props;
@@ -79,8 +73,20 @@ void LoggingInit(const std::string &filename, long maxFileSize, int maxBackupInd
                                                     loggingPattern));
         syslogappender->setLayout(syslog_layout_ptr);
         logger.addAppender(syslogappender);
-    }
+        use_syslog_ = useSyslog;
+    } else {
+        if (filename == "<stdout>" || filename.length() == 0) {
+            BasicConfigurator config;
+            config.configure();
+        } else {
+            SharedAppenderPtr fileappender(new RollingFileAppender(filename,
+                                           maxFileSize, maxBackupIndex));
+            logger.addAppender(fileappender);
+        }
 
+        std::auto_ptr<Layout> layout_ptr(new PatternLayout(loggingPattern));
+        logger.getAllAppenders().at(0)->setLayout(layout_ptr);
+    }
     CheckEnvironmentAndUpdate();
 }
 

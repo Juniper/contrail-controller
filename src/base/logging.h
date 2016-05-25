@@ -48,6 +48,7 @@ void LoggingInit(const std::string &filename,
 
 void LoggingInit(const std::string &propertyFile);
 void SetLoggingLevel(log4cplus::LogLevel logLevel);
+bool LoggingUseSyslog();
 
 //
 // Disable logging - For testing purposes only
