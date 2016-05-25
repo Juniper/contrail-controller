@@ -416,8 +416,14 @@ void PathPreferenceSM::Process() {
 }
 
 void PathPreferenceSM::Log(std::string state) {
+    std::string dependent_ip_str = "";
+    if (is_dependent_rt()) {
+        dependent_ip_str = dependent_ip().to_string();
+    }
+
     PATH_PREFERENCE_TRACE(rt_->vrf()->GetName(), rt_->GetAddressString(),
-                          preference(), sequence(), state, timeout());
+                          preference(), sequence(), state, timeout(),
+                          dependent_ip_str);
 }
 
 void PathPreferenceSM::EnqueuePathChange() {
@@ -767,6 +773,8 @@ void PathPreferenceState::Process() {
              path_preference_sm->set_dependent_rt(NULL);
          }
          path_preference_sm->set_is_dependent_rt(dependent_rt);
+         path_preference_sm->set_dependent_ip(
+                 path->path_preference().dependent_ip());
 
          path_preference_sm->set_seen(true);
          path_preference_sm->Process();

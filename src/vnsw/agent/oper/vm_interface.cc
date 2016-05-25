@@ -431,6 +431,9 @@ static void BuildInstanceIp(Agent *agent, VmInterfaceConfigData *data,
     IpAddress addr = IpAddress::from_string(ip->address(), err);
     bool is_primary = false;
 
+    if (err.value() != 0) {
+        return;
+    }
     if (ip->secondary() != true && ip->service_instance_ip() != true) {
         is_primary = true;
         if (addr.is_v4()) {
@@ -459,6 +462,22 @@ static void BuildInstanceIp(Agent *agent, VmInterfaceConfigData *data,
                 data->ecmp6_ = true;
             } else {
                 data->ecmp6_ = false;
+            }
+        }
+    }
+
+    if (ip->service_instance_ip()) {
+        if (addr.is_v4()) {
+            data->service_ip_ = addr.to_v4();
+            data->service_ip_ecmp_ = false;
+            if (ip->mode() == "active-active") {
+                data->service_ip_ecmp_ = true;
+            }
+        } else if (addr.is_v6()) {
+            data->service_ip6_ = addr.to_v6();
+            data->service_ip_ecmp6_ = false;
+            if (ip->mode() == "active-active") {
+                data->service_ip_ecmp6_ = true;
             }
         }
     }
@@ -1668,7 +1687,8 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
     physical_interface_(""), parent_vmi_(), subnet_(0), subnet_plen_(0),
     rx_vlan_id_(VmInterface::kInvalidVlanId),
     tx_vlan_id_(VmInterface::kInvalidVlanId),
-    logical_interface_(nil_uuid()), ecmp_load_balance_() {
+    logical_interface_(nil_uuid()), ecmp_load_balance_(), service_ip_(0),
+    service_ip_ecmp_(false), service_ip6_(), service_ip_ecmp6_(false){
 }
 
 VmInterface *VmInterfaceConfigData::OnAdd(const InterfaceTable *table,
@@ -1964,6 +1984,22 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
     if (!data->ip6_addr_.is_unspecified() && ecmp6_ != data->ecmp6_) {
         ecmp6_ = data->ecmp6_;
         *ecmp_changed = true;
+    }
+
+    if (service_ip_ecmp_ != data->service_ip_ecmp_ ||
+        service_ip_ != data->service_ip_) {
+        service_ip_ecmp_ = data->service_ip_ecmp_;
+        service_ip_ = data->service_ip_;
+        *ecmp_changed = true;
+        ret = true;
+    }
+
+    if (service_ip_ecmp6_ != data->service_ip_ecmp6_ ||
+        service_ip6_ != data->service_ip6_) {
+        service_ip_ecmp6_ = data->service_ip_ecmp6_;
+        service_ip6_ = data->service_ip6_;
+        *ecmp_changed = true;
+        ret = true;
     }
 
     if (data->device_type_ !=  VmInterface::DEVICE_TYPE_INVALID &&
@@ -3343,6 +3379,56 @@ void VmInterface::SetPathPreference(PathPreference *pref, bool ecmp,
     pref->set_vrf(vrf()->GetName());
 }
 
+void VmInterface::SetServiceVlanPathPreference(PathPreference *pref,
+                                          const IpAddress &service_ip) const {
+
+    bool ecmp_mode = false;
+    IpAddress dependent_ip;
+
+    //Logic for setting ecmp and tracking IP on Service chain route
+    //Service vlan route can be active when interface is either
+    //IPV4 active or IPV6 active, hence we have to consider both
+    //IPV6 and IPV4 IP
+    //If Service vlan is for Ipv4 route, then priority is as below
+    //1> Service IP for v4
+    //3> Primary IP for v4
+    if (service_ip.is_v4()) {
+        if (service_ip_ != Ip4Address(0)) {
+            dependent_ip = service_ip_;
+            ecmp_mode = service_ip_ecmp_;
+        } else {
+            dependent_ip = primary_ip_addr_;
+            ecmp_mode = ecmp_;
+        }
+    }
+
+    //If Service vlan is for Ipv6 route, then priority is as below
+    //1> Service IP for v6
+    //3> Primary IP for v6
+    if (service_ip.is_v6()) {
+        if (service_ip6_ != Ip6Address()) {
+            dependent_ip = service_ip6_;
+            ecmp_mode = service_ip_ecmp6_;
+        } else {
+            dependent_ip = primary_ip6_addr_;
+            ecmp_mode = ecmp6_;
+        }
+    }
+
+    pref->set_ecmp(ecmp_mode);
+    if (local_preference_ != INVALID) {
+        pref->set_static_preference(true);
+    }
+    if (local_preference_ == HIGH) {
+        pref->set_preference(PathPreference::HIGH);
+    } else {
+        pref->set_preference(PathPreference::LOW);
+    }
+
+    pref->set_dependent_ip(dependent_ip);
+    pref->set_vrf(vrf()->GetName());
+}
+
 void VmInterface::CopyEcmpLoadBalance(EcmpLoadBalance &ecmp_load_balance) {
     if (ecmp_load_balance_.use_global_vrouter() == false)
         return ecmp_load_balance.Copy(ecmp_load_balance_);
@@ -4289,7 +4375,7 @@ void VmInterface::ServiceVlan::Activate(VmInterface *interface,
     if (installed_ && force_update == false)
         return;
 
-    interface->ServiceVlanRouteAdd(*this);
+    interface->ServiceVlanRouteAdd(*this, force_update);
     installed_ = true;
 }
 
@@ -4368,7 +4454,8 @@ const VrfEntry* VmInterface::GetServiceVlanVrf(uint16_t vlan_tag) const {
     return NULL;
 }
 
-void VmInterface::ServiceVlanRouteAdd(const ServiceVlan &entry) {
+void VmInterface::ServiceVlanRouteAdd(const ServiceVlan &entry,
+                                      bool force_update) {
     if (vrf_.get() == NULL ||
         vn_.get() == NULL) {
         return;
@@ -4391,9 +4478,10 @@ void VmInterface::ServiceVlanRouteAdd(const ServiceVlan &entry) {
                                  0, entry.smac_, vn()->GetName());
     VnListType vn_list;
     vn_list.insert(vn()->GetName());
-    if (!entry.v4_rt_installed_ && !entry.addr_.is_unspecified()) {
+    if (force_update ||
+        (!entry.v4_rt_installed_ && !entry.addr_.is_unspecified())) {
         PathPreference path_preference;
-        SetPathPreference(&path_preference, ecmp(), primary_ip_addr());
+        SetServiceVlanPathPreference(&path_preference, entry.addr_);
 
         InetUnicastAgentRouteTable::AddVlanNHRoute
             (peer_.get(), entry.vrf_->GetName(), entry.addr_, 32,
@@ -4401,9 +4489,10 @@ void VmInterface::ServiceVlanRouteAdd(const ServiceVlan &entry) {
              path_preference);
         entry.v4_rt_installed_ = true;
     }
-    if (!entry.v6_rt_installed_ && !entry.addr6_.is_unspecified()) {
+    if ((!entry.v6_rt_installed_ && !entry.addr6_.is_unspecified()) ||
+        force_update) {
         PathPreference path_preference;
-        SetPathPreference(&path_preference, ecmp6(), primary_ip6_addr());
+        SetServiceVlanPathPreference(&path_preference, entry.addr6_);
 
         InetUnicastAgentRouteTable::AddVlanNHRoute
             (peer_.get(), entry.vrf_->GetName(), entry.addr6_, 128,

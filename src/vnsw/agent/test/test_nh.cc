@@ -2495,6 +2495,49 @@ TEST_F(CfgTest, EcmpNH_19) {
     EXPECT_FALSE(RouteFind("vrf1", ip, 32));
 }
 
+TEST_F(CfgTest, EcmpNH_20) {
+    //Add interface
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.3", "00:00:00:01:01:01", 1, 1},
+        {"vnet2", 2, "1.1.1.4", "00:00:00:01:01:01", 1, 2},
+    };
+    CreateVmportWithEcmp(input, 2);
+    client->WaitForIdle();
+
+    AddServiceInstanceIp("instance1", 100, "1.1.1.10", false);
+    AddLink("virtual-machine-interface", "vnet1", "instance-ip", "instance1");
+    AddServiceInstanceIp("instance2", 101, "1.1.1.10", false);
+    AddLink("virtual-machine-interface", "vnet2", "instance-ip", "instance2");
+    client->WaitForIdle();
+
+    Ip4Address ip = Ip4Address::from_string("1.1.1.10");
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    EXPECT_TRUE(rt != NULL);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
+
+    AddServiceInstanceIp("instance1", 100, "1.1.1.10", true);
+    client->WaitForIdle();
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
+
+    AddServiceInstanceIp("instance2", 101, "1.1.1.10", true);
+    client->WaitForIdle();
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+
+    AddServiceInstanceIp("instance2", 101, "1.1.1.10", false);
+    client->WaitForIdle();
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
+
+    DelLink("virtual-machine-interface", "vnet1", "instance-ip", "instance1");
+    DelLink("virtual-machine-interface", "vnet2", "instance-ip", "instance2");
+    DelNode("instance-ip", "instance1");
+    DelNode("instance-ip", "instance2");
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 2, true);
+    WAIT_FOR(100, 1000, (VrfFind("vrf1") == false));
+    client->WaitForIdle();
+    EXPECT_FALSE(RouteFind("vrf1", ip, 32));
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
