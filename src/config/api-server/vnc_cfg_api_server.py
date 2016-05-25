@@ -2646,11 +2646,6 @@ class VncApiServer(object):
         if is_count:
             return {'%ss' %(resource_type): {'count': result}}
 
-        # filter out items not authorized
-        for fq_name, uuid in result:
-            (ok, status) = self._permissions.check_perms_read(get_request(), uuid)
-            if not ok and status[0] == 403:
-                result.remove((fq_name,iuuid))
 
         # include objects shared with tenant
         env = get_request().headers.environ
@@ -2684,6 +2679,12 @@ class VncApiServer(object):
                     raise cfgm_common.exceptions.HttpError(404, result)
                 for obj_result in result:
                     if obj_result['id_perms'].get('user_visible', True):
+                        # skip items not authorized
+                        (ok, status) = self._permissions.check_perms_read(
+                                get_request(), obj_result['uuid'],
+                                obj_result['id_perms'])
+                        if not ok and status[0] == 403:
+                            continue
                         obj_dict = {}
                         obj_dict['uuid'] = obj_result['uuid']
                         obj_dict['href'] = self.generate_url(resource_type,
@@ -2745,6 +2746,12 @@ class VncApiServer(object):
                     continue
                 if (obj_dict['id_perms'].get('user_visible', True) or
                     self.is_admin_request()):
+                    # skip items not authorized
+                    (ok, status) = self._permissions.check_perms_read(
+                            get_request(), obj_result['uuid'],
+                            obj_result['id_perms'])
+                    if not ok and status[0] == 403:
+                        continue
                     obj_dicts.append({resource_type: obj_dict})
 
         return {'%ss' %(resource_type): obj_dicts}
