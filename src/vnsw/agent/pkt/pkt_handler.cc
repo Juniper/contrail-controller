@@ -10,7 +10,6 @@
 #include <netinet/icmp6.h>
 
 #include "cmn/agent_cmn.h"
-#include "init/agent_init.h"
 #include "net/address_util.h"
 #include "oper/ecmp_load_balance.h"
 #include "oper/interface_common.h"
@@ -45,11 +44,8 @@ const std::size_t PktTrace::kPktMaxTraceSize;
 PktHandler::PktHandler(Agent *agent, PktModule *pkt_module) :
     stats_(), agent_(agent), pkt_module_(pkt_module),
     work_queue_(TaskScheduler::GetInstance()->GetTaskId("Agent::PktHandler"), 0,
-                boost::bind(&PktHandler::ProcessPacket, this, _1),
-                agent->params()->packet_handler_queue_limit()) {
+                boost::bind(&PktHandler::ProcessPacket, this, _1)) {
     work_queue_.set_name("Packet Handler Queue");
-    // limit the number of entries in the workqueue
-    work_queue_.SetBounded(true);
     for (int i = 0; i < MAX_MODULES; ++i) {
         if (i == PktHandler::DHCP || i == PktHandler::DHCPV6 ||
             i == PktHandler::DNS)

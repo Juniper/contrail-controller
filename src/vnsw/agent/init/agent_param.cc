@@ -622,8 +622,7 @@ void AgentParam::ParseNexthopServer() {
 void AgentParam::ParseServices() {
     GetValueFromTree<string>(bgp_as_a_service_port_range_,
                              "SERVICES.bgp_as_a_service_port_range");
-    GetValueFromTree<uint32_t>(packet_handler_queue_limit_,
-                             "SERVICES.packet_handler_queue_limit");
+    GetValueFromTree<uint32_t>(services_queue_limit_, "SERVICES.queue_limit");
 }
 
 void AgentParam::ParseCollectorArguments
@@ -877,8 +876,7 @@ void AgentParam::ParseServicesArguments
     (const boost::program_options::variables_map &v) {
     GetOptValue<string>(v, bgp_as_a_service_port_range_,
                         "SERVICES.bgp_as_a_service_port_range");
-    GetOptValue<uint32_t>(v, packet_handler_queue_limit_,
-                          "SERVICES.packet_handler_queue_limit");
+    GetOptValue<uint32_t>(v, services_queue_limit_, "SERVICES.queue_limit");
 }
 
 // Initialize hypervisor mode based on system information
@@ -1239,7 +1237,7 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Service instance lb ssl     : " << si_lb_ssl_cert_path_);
     LOG(DEBUG, "Service instance lbaas auth : " << si_lbaas_auth_conf_);
     LOG(DEBUG, "Bgp as a service port range : " << bgp_as_a_service_port_range_);
-    LOG(DEBUG, "Packet Handler queue limit  : " << packet_handler_queue_limit_);
+    LOG(DEBUG, "Services queue limit        : " << services_queue_limit_);
     if (hypervisor_mode_ == MODE_KVM) {
     LOG(DEBUG, "Hypervisor mode             : kvm");
         return;
@@ -1350,7 +1348,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         flow_trace_enable_(true),
         flow_latency_limit_(Agent::kDefaultFlowLatencyLimit),
         subnet_hosts_resolvable_(true),
-        packet_handler_queue_limit_(1024),
+        services_queue_limit_(1024),
         tbb_thread_count_(Agent::kMaxTbbThreads),
         tbb_exec_delay_(0),
         tbb_schedule_delay_(0),

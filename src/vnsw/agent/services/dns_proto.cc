@@ -4,6 +4,7 @@
 
 #include <sys/types.h>
 #include "net/address_util.h"
+#include "init/agent_init.h"
 #include "oper/interface_common.h"
 #include "services/dns_proto.h"
 #include "bind/bind_resolver.h"
@@ -48,6 +49,10 @@ void DnsProto::ConfigInit() {
 DnsProto::DnsProto(Agent *agent, boost::asio::io_service &io) :
     Proto(agent, "Agent::Services", PktHandler::DNS, io),
     xid_(0), timeout_(kDnsTimeout), max_retries_(kDnsMaxRetries) {
+    // limit the number of entries in the workqueue
+    work_queue_.SetSize(agent->params()->services_queue_limit());
+    work_queue_.SetBounded(true);
+
     lid_ = agent->interface_table()->Register(
                   boost::bind(&DnsProto::InterfaceNotify, this, _2));
     Vnlid_ = agent->vn_table()->Register(

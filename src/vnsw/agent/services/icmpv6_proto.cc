@@ -4,12 +4,17 @@
 
 #include "base/os.h"
 #include <cmn/agent_cmn.h>
+#include <init/agent_init.h>
 #include <pkt/pkt_handler.h>
 #include <oper/route_common.h>
 #include <services/icmpv6_proto.h>
 
 Icmpv6Proto::Icmpv6Proto(Agent *agent, boost::asio::io_service &io) :
     Proto(agent, "Agent::Services", PktHandler::ICMPV6, io) {
+    // limit the number of entries in the workqueue
+    work_queue_.SetSize(agent->params()->services_queue_limit());
+    work_queue_.SetBounded(true);
+
     vn_table_listener_id_ = agent->vn_table()->Register(
                              boost::bind(&Icmpv6Proto::VnNotify, this, _2));
     vrf_table_listener_id_ = agent->vrf_table()->Register(

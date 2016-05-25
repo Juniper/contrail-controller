@@ -210,6 +210,10 @@ public:
         start_runner_ = start_runner_fn;
     }
 
+    void SetSize(size_t size) {
+        size_ = size;
+    }
+
     void SetBounded(bool bounded) {
         bounded_ = bounded;
     }

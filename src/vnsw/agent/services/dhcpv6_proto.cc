@@ -3,6 +3,7 @@
  */
 
 #include "cmn/agent_cmn.h"
+#include "init/agent_init.h"
 #include "services/dhcpv6_proto.h"
 #include "services/services_types.h"
 #include "services/services_init.h"
@@ -15,6 +16,10 @@ Dhcpv6Proto::Dhcpv6Proto(Agent *agent, boost::asio::io_service &io,
                          bool run_with_vrouter) :
     Proto(agent, "Agent::Services", PktHandler::DHCPV6, io),
     run_with_vrouter_(run_with_vrouter) {
+    // limit the number of entries in the workqueue
+    work_queue_.SetSize(agent->params()->services_queue_limit());
+    work_queue_.SetBounded(true);
+
     // server duid based on vrrp mac
     server_duid_.type = htons(DHCPV6_DUID_TYPE_LL);
     server_duid_.hw_type = 0;

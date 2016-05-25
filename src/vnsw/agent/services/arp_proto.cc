@@ -5,6 +5,7 @@
 #include "sandesh/sandesh_types.h"
 #include "sandesh/sandesh.h"
 #include "net/address_util.h"
+#include "init/agent_init.h"
 #include "oper/nexthop.h"
 #include "oper/tunnel_nh.h"
 #include "oper/mirror_table.h"
@@ -21,6 +22,9 @@ ArpProto::ArpProto(Agent *agent, boost::asio::io_service &io,
     ip_fabric_interface_(NULL), gratuitous_arp_entry_(NULL),
     max_retries_(kMaxRetries), retry_timeout_(kRetryTimeout),
     aging_timeout_(kAgingTimeout) {
+    // limit the number of entries in the workqueue
+    work_queue_.SetSize(agent->params()->services_queue_limit());
+    work_queue_.SetBounded(true);
 
     vrf_table_listener_id_ = agent->vrf_table()->Register(
                              boost::bind(&ArpProto::VrfNotify, this, _1, _2));
