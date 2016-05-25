@@ -244,7 +244,7 @@ response sandesh KDropStatsResp {
     30: u64             ds_pcow_fail;
     31: u64             ds_flood;
     32: u64             ds_mcast_clone_fail;
-    33: u64             ds_composite_invalid_interface;
+    33: u64             ds_no_memory;
     34: u64             ds_rewrite_fail;
     35: u64             ds_misc;
     36: u64             ds_invalid_packet;
