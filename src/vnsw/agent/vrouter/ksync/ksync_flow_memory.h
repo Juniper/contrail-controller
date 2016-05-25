@@ -38,7 +38,7 @@ public:
     const vr_flow_entry *GetKernelFlowEntry(uint32_t idx,
                                             bool ignore_active_status) const;
     const vr_flow_entry *GetValidKFlowEntry(const FlowKey &key,
-                                            uint32_t idx) const;
+                                            uint32_t idx, uint8_t gen_id) const;
     bool GetFlowKey(uint32_t index, FlowKey *key);
 
     uint32_t flow_table_entries_count() { return flow_table_entries_count_; }
@@ -48,6 +48,7 @@ public:
     void UnmapFlowMemTest();
     void MapSharedMemory();
     void GetFlowTableSize();
+    bool IsEvictionMarked(const vr_flow_entry *entry) const;
 
     KSync *ksync() const { return ksync_; }
     void set_major_devid(int id) { major_devid_ = id; }
@@ -66,8 +67,8 @@ private:
         uint8_t audit_flow_gen_id;
         uint64_t timeout;
     };
-
     void KFlow2FlowKey(const vr_flow_entry *entry, FlowKey *key) const;
+
 
     KSync                   *ksync_;
     vr_flow_entry           *flow_table_;

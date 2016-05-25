@@ -192,6 +192,7 @@ private:
                                  uint64_t *diff_bytes,
                                  uint64_t *diff_pkts);
     void FlowDeleteEnqueue(FlowExportInfo *info, uint64_t t);
+    void FlowEvictEnqueue(FlowExportInfo *info, uint64_t t);
     void EnqueueFlowMsg();
     void DispatchPendingFlowMsg();
     void GetFlowSandeshActionParams(const FlowAction &action_info,

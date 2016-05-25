@@ -101,6 +101,20 @@ void KSyncFlowIndexManager::Delete(FlowEntry *flow) {
 }
 
 //////////////////////////////////////////////////////////////////////////////
+// Delete:
+//     Flow module triggers this API to suppress message to vrouter
+//
+//     API ensures that evict_gen_id has different value from gen_id
+//////////////////////////////////////////////////////////////////////////////
+void KSyncFlowIndexManager::DisableSend(FlowEntry *flow,
+                                        uint8_t evict_gen_id) {
+    FlowTableKSyncEntry *kentry = flow->ksync_entry_;
+    if (kentry != NULL) {
+        kentry->set_evict_gen_id(evict_gen_id);
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////
 // UpdateFlowHandle:
 //     Flow module triggers this API to update flow handle for the reverse
 //     flow.
@@ -198,7 +212,7 @@ uint8_t KSyncFlowIndexManager::AcquireIndexUnLocked(uint32_t index,
                 old->flow_entry()->LogFlow(FlowEventLog::FLOW_EVICT, old,
                                            index, gen_id);
                 proto_->EvictFlowRequest(old->flow_entry().get(),
-                                         old->hash_id(), old->gen_id());
+                                         old->hash_id(), old->gen_id(), 0);
                 index_list_[index].owner_ = flow;
             } else {
                 // evict current entry
@@ -210,7 +224,7 @@ uint8_t KSyncFlowIndexManager::AcquireIndexUnLocked(uint32_t index,
                     flow->LogFlow(FlowEventLog::FLOW_EVICT, flow->ksync_entry_,
                                   flow->flow_handle(), evict_gen_id);
                     proto_->EvictFlowRequest(flow, flow->flow_handle(),
-                                             flow->gen_id());
+                                             flow->gen_id(), 0);
                 }
             }
         } else {

@@ -523,9 +523,9 @@ void FlowProto::DeleteFlowRequest(FlowEntry *flow) {
 }
 
 void FlowProto::EvictFlowRequest(FlowEntry *flow, uint32_t flow_handle,
-                                 uint8_t gen_id) {
+                                 uint8_t gen_id, uint8_t evict_gen_id) {
     FlowEvent *event = new FlowEvent(FlowEvent::EVICT_FLOW, flow,
-                                     flow_handle, gen_id);
+                                     flow_handle, gen_id, evict_gen_id);
     EnqueueFlowEvent(event);
    return;
 }
@@ -709,6 +709,9 @@ void UpdateStats(FlowEvent *req, FlowStats *stats) {
     case FlowEvent::REVALUATE_DBENTRY:
         stats->revaluate_count_++;
         break;
+    case FlowEvent::EVICT_FLOW:
+        stats->evict_count_++;
+        break;
     case FlowEvent::KSYNC_EVENT: {
         stats->vrouter_responses_++;
         FlowEventKSync *ksync_event = static_cast<FlowEventKSync *>(req);
@@ -760,6 +763,7 @@ void FlowProto::SetProfileData(ProfileData *data) {
     data->flow_.recompute_count_ = stats_.recompute_count_;
     data->flow_.vrouter_responses_ = stats_.vrouter_responses_;
     data->flow_.vrouter_error_ = stats_.vrouter_error_;
+    data->flow_.evict_count_ = stats_.evict_count_;
 
     PktModule *pkt = agent()->pkt();
     const FlowMgmtManager::FlowMgmtQueue *flow_mgmt =
