@@ -2,6 +2,113 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+/** Definitions for showing ifmap-server state and stats **/
+
+request sandesh IFMapPeerServerInfoReq {
+}
+
+struct IFMapPeerServerInfoUI {
+    1: string url;
+    2: string connection_status;
+    3: u64 connection_status_change_at;
+}
+
+struct IFMapServerInfoUI {
+    1: u64 num_peer_clients;
+}
+
+struct IFMapPeerServerInfo {
+    1: string url;
+    3: bool init_done;
+}
+
+struct IFMapPeerServerConnInfo {
+    1: string publisher_id;
+    2: string session_id;
+    3: u64 sequence_number;
+    4: string connection_status;
+    5: string host;
+    6: string port;
+    11: i32 end_of_rib_timeout_ms;
+    7: bool end_of_rib_computed;
+    8: bool end_of_rib_timer_running;
+    12: i32 stale_entries_cleanup_timeout_ms;
+    9: bool start_stale_entries_cleanup;
+    10: bool stale_entries_cleanup_timer_running;
+}
+
+struct IFMapPeerTimedoutEntry {
+    1: string peer
+    2: u64 timeout_count;
+    3: string last_timeout_ago
+}
+
+struct IFMapPeerTimedoutEntries {
+    1: i32 list_count
+    2: list<IFMapPeerTimedoutEntry> timedout_list
+}
+
+struct IFMapPeerServerStatsInfo {
+    1: u64 rx_msgs;
+    2: u64 tx_msgs;
+    3: u64 reconnect_attempts;
+    4: IFMapPeerTimedoutEntries timedout_entries;
+}
+
+struct IFMapStateMachineInfo {
+    1: string state;
+    2: string last_state;
+    3: string last_state_change_at;
+    4: string last_event;
+    5: string last_event_at;
+    6: u64 workq_enqueues;
+    7: u64 workq_dequeues;
+    8: u64 workq_length;
+    9: i32 max_response_wait_interval_ms;
+}
+
+struct IFMapDSPeerInfoEntry {
+    1: string host;
+    2: string port;
+    3: bool in_use;
+}
+
+struct IFMapDSPeerInfo {
+    1: i32 num_peers;
+    2: list<IFMapDSPeerInfoEntry> ds_peer_list;
+    3: string service_name;
+    4: string subscriber_name;
+    5: string static_peer;
+    6: string current_peer;
+    7: u64 ds_response_count;
+    8: string last_response_ago;
+    9: u64 using_non_ds_peer_count;
+    10: u64 no_best_peer_count;
+}
+
+response sandesh IFMapPeerServerInfoResp {
+    1: IFMapPeerServerInfo server_info;
+    2: IFMapPeerServerConnInfo server_conn_info;
+    3: IFMapPeerServerStatsInfo stats_info;
+    4: IFMapStateMachineInfo sm_info;
+    5: IFMapDSPeerInfo ds_peer_info;
+}
+
+/** Definitions for showing the list of node ifmap tables **/
+
+request sandesh IFMapNodeTableListShowReq {
+}
+
+struct IFMapNodeTableListShowEntry {
+    1: string table_name (link="IFMapTableShowReq")
+    2: u32 size
+}
+
+response sandesh IFMapNodeTableListShowResp {
+    1: list<IFMapNodeTableListShowEntry> table_list
+}
+
+
 /** Definitions for showing 'type' tables - IFMapNode/IFMapObject **/
 
 struct IFMapObjectShowInfo {
@@ -247,98 +354,6 @@ response sandesh IFMapXmppShowResp {
     1: IFMapChannelManagerInfo channel_manager_info;
 }
 
-/** Definitions for showing ifmap-server state and stats **/
-
-request sandesh IFMapPeerServerInfoReq {
-}
-
-struct IFMapPeerServerInfoUI {
-    1: string url;
-    2: string connection_status;
-    3: u64 connection_status_change_at;
-}
-
-struct IFMapServerInfoUI {
-    1: u64 num_peer_clients;
-}
-
-struct IFMapPeerServerInfo {
-    1: string url;
-    3: bool init_done;
-}
-
-struct IFMapPeerServerConnInfo {
-    1: string publisher_id;
-    2: string session_id;
-    3: u64 sequence_number;
-    4: string connection_status;
-    5: string host;
-    6: string port;
-    11: i32 end_of_rib_timeout_ms;
-    7: bool end_of_rib_computed;
-    8: bool end_of_rib_timer_running;
-    12: i32 stale_entries_cleanup_timeout_ms;
-    9: bool start_stale_entries_cleanup;
-    10: bool stale_entries_cleanup_timer_running;
-}
-
-struct IFMapPeerTimedoutEntry {
-    1: string peer
-    2: u64 timeout_count;
-    3: string last_timeout_ago
-}
-
-struct IFMapPeerTimedoutEntries {
-    1: i32 list_count
-    2: list<IFMapPeerTimedoutEntry> timedout_list
-}
-
-struct IFMapPeerServerStatsInfo {
-    1: u64 rx_msgs;
-    2: u64 tx_msgs;
-    3: u64 reconnect_attempts;
-    4: IFMapPeerTimedoutEntries timedout_entries;
-}
-
-struct IFMapStateMachineInfo {
-    1: string state;
-    2: string last_state;
-    3: string last_state_change_at;
-    4: string last_event;
-    5: string last_event_at;
-    6: u64 workq_enqueues;
-    7: u64 workq_dequeues;
-    8: u64 workq_length;
-    9: i32 max_response_wait_interval_ms;
-}
-
-struct IFMapDSPeerInfoEntry {
-    1: string host;
-    2: string port;
-    3: bool in_use;
-}
-
-struct IFMapDSPeerInfo {
-    1: i32 num_peers;
-    2: list<IFMapDSPeerInfoEntry> ds_peer_list;
-    3: string service_name;
-    4: string subscriber_name;
-    5: string static_peer;
-    6: string current_peer;
-    7: u64 ds_response_count;
-    8: string last_response_ago;
-    9: u64 using_non_ds_peer_count;
-    10: u64 no_best_peer_count;
-}
-
-response sandesh IFMapPeerServerInfoResp {
-    1: IFMapPeerServerInfo server_info;
-    2: IFMapPeerServerConnInfo server_conn_info;
-    3: IFMapPeerServerStatsInfo stats_info;
-    4: IFMapStateMachineInfo sm_info;
-    5: IFMapDSPeerInfo ds_peer_info;
-}
-
 /** Definitions for showing the list of uuid to node mappings **/
 
 request sandesh IFMapUuidToNodeMappingReq {
@@ -383,18 +398,3 @@ response sandesh IFMapPendingVmRegResp {
     1: i32 map_count;
     2: list<IFMapPendingVmRegEntry> vm_reg_map;
 }
-
-/** Definitions for showing the list of node ifmap tables **/
-
-request sandesh IFMapNodeTableListShowReq {
-}
-
-struct IFMapNodeTableListShowEntry {
-    1: string table_name (link="IFMapTableShowReq")
-    2: u32 size
-}
-
-response sandesh IFMapNodeTableListShowResp {
-    1: list<IFMapNodeTableListShowEntry> table_list
-}
-
