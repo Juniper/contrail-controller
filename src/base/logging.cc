@@ -53,17 +53,6 @@ void LoggingInit(const std::string &filename, long maxFileSize, int maxBackupInd
                  const std::string &ident, LogLevel logLevel) {
     Logger logger = Logger::getRoot();
     logger.setLogLevel(logLevel);
-    if (filename == "<stdout>" || filename.length() == 0) {
-        BasicConfigurator config;
-        config.configure();
-    } else {
-        SharedAppenderPtr fileappender(new RollingFileAppender(filename,
-                                           maxFileSize, maxBackupIndex));
-        logger.addAppender(fileappender);
-    }
-
-    std::auto_ptr<Layout> layout_ptr(new PatternLayout(loggingPattern));
-    logger.getAllAppenders().at(0)->setLayout(layout_ptr);
 
     if (useSyslog) {
         helpers::Properties props;
@@ -79,8 +68,19 @@ void LoggingInit(const std::string &filename, long maxFileSize, int maxBackupInd
                                                     loggingPattern));
         syslogappender->setLayout(syslog_layout_ptr);
         logger.addAppender(syslogappender);
-    }
+    } else {
+        if (filename == "<stdout>" || filename.length() == 0) {
+            BasicConfigurator config;
+            config.configure();
+        } else {
+            SharedAppenderPtr fileappender(new RollingFileAppender(filename,
+                                           maxFileSize, maxBackupIndex));
+            logger.addAppender(fileappender);
+        }
 
+        std::auto_ptr<Layout> layout_ptr(new PatternLayout(loggingPattern));
+        logger.getAllAppenders().at(0)->setLayout(layout_ptr);
+    }
     CheckEnvironmentAndUpdate();
 }
 
