@@ -13,6 +13,8 @@ class ProtoHandler;
 // Protocol task (work queue for each protocol)
 class Proto {
 public:
+    typedef WorkQueue<boost::shared_ptr<PktInfo> > ProtoWorkQueue;
+
     Proto(Agent *agent, const char *task_name, PktHandler::PktModuleName mod,
           boost::asio::io_service &io);
     virtual ~Proto();
@@ -28,15 +30,16 @@ public:
     void set_trace(bool val) { trace_ = val; }
     void set_free_buffer(bool val) { free_buffer_ = val; }
     Agent *agent() const { return agent_; }
+    const ProtoWorkQueue *work_queue() const { return &work_queue_; }
 protected:
     Agent *agent_;
     PktHandler::PktModuleName module_;
     bool trace_;
     bool free_buffer_;
     boost::asio::io_service &io_;
+    ProtoWorkQueue work_queue_;
 
 private:
-    WorkQueue<boost::shared_ptr<PktInfo> > work_queue_;
     DISALLOW_COPY_AND_ASSIGN(Proto);
 };
 

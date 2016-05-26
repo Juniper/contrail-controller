@@ -3,11 +3,15 @@
  */
 
 #include <cmn/agent_cmn.h>
+#include <init/agent_init.h>
 #include <services/icmp_error_proto.h>
 #include <services/icmp_error_handler.h>
 
 IcmpErrorProto::IcmpErrorProto(Agent *agent, boost::asio::io_service &io) :
     Proto(agent, "Agent::Services", PktHandler::ICMP_ERROR, io) {
+    // limit the number of entries in the workqueue
+    work_queue_.SetSize(agent->params()->services_queue_limit());
+    work_queue_.SetBounded(true);
 }
 
 IcmpErrorProto::~IcmpErrorProto() {

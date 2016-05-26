@@ -2487,6 +2487,64 @@ TEST_F(DhcpTest, DhcpReqv6PortTest) {
     Agent::GetInstance()->GetDhcpProto()->ClearStats();
 }
 
+// Check the DHCP queue limit
+TEST_F(DhcpTest, QueueLimitTest) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    uint8_t options[] = {
+        DHCP_OPTION_MSG_TYPE,
+        DHCP_OPTION_HOST_NAME,
+        DHCP_OPTION_DOMAIN_NAME,
+        DHCP_OPTION_END
+    };
+    DhcpProto::DhcpStats stats;
+
+    ClearPktTrace();
+    IpamInfo ipam_info[] = {
+        {"1.2.3.128", 27, "1.2.3.129", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
+        {"1.1.1.0", 24, "1.1.1.200", true},
+    };
+    char vdns_attr[] = "<virtual-DNS-data>\n <domain-name>test.contrail.juniper.net</domain-name>\n <dynamic-records-from-client>true</dynamic-records-from-client>\n <record-order>fixed</record-order>\n <default-ttl-seconds>120</default-ttl-seconds>\n </virtual-DNS-data>\n";
+    char ipam_attr[] = "<network-ipam-mgmt>\n <ipam-dns-method>virtual-dns-server</ipam-dns-method>\n <ipam-dns-server><virtual-dns-server-name>vdns1</virtual-dns-server-name></ipam-dns-server>\n </network-ipam-mgmt>\n";
+
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    client->Reset();
+    AddVDNS("vdns1", vdns_attr);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1");
+    client->WaitForIdle();
+
+    // disable pkt handler queue, enqueue packets and
+    // check that limit is not exceeded
+    WorkQueue<boost::shared_ptr<PktInfo> > *queue =
+        const_cast<Proto::ProtoWorkQueue *>(
+        Agent::GetInstance()->GetDhcpProto()->work_queue());
+    queue->set_disable(true);
+    EXPECT_EQ(queue->Length(), 0);
+    for (int i = 0; i < 2048; i++) {
+        SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4);
+        SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4);
+    }
+    EXPECT_EQ(queue->Length(), 1023);
+    queue->set_disable(false);
+
+    client->Reset();
+    DelIPAM("vn1", "vdns1");
+    client->WaitForIdle();
+    DelVDNS("vdns1");
+    client->WaitForIdle();
+
+    client->Reset();
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+
+    Agent::GetInstance()->GetDhcpProto()->ClearStats();
+}
+
 void RouterIdDepInit(Agent *agent) {
 }
 
