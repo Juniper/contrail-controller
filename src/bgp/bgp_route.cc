@@ -218,8 +218,13 @@ bool BgpRoute::IsValid() const {
 
 //
 // Check if there's a better path with the same forwarding information.
-// The forwarding information we look at is the label and the next hop.
+//
 // Return true if we find such a path, false otherwise.
+//
+// The forwarding information we look at is just the next hop. We don't
+// consider the label since there's could be transient cases where we
+// have 2 paths with the same next hop and different labels.  We don't
+// want to treat these as unique paths.
 //
 bool BgpRoute::DuplicateForwardingPath(const BgpPath *in_path) const {
     for (Route::PathList::const_iterator it = GetPathList().begin();
@@ -231,10 +236,8 @@ bool BgpRoute::DuplicateForwardingPath(const BgpPath *in_path) const {
             return false;
 
         // Check the forwarding information.
-        if ((path->GetAttr()->nexthop() == in_path->GetAttr()->nexthop()) &&
-            (path->GetLabel() == in_path->GetLabel())) {
+        if (path->GetAttr()->nexthop() == in_path->GetAttr()->nexthop())
             return true;
-        }
     }
 
     return false;

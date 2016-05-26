@@ -970,9 +970,9 @@ bool ResolverPath::UpdateResolvedPaths() {
             break;
 
         // Skip paths with duplicate forwarding information.  This ensures
-        // that we generate only one path with any given next hop and label
-        // when there are multiple nexthop paths from the original source
-        // received via different peers e.g. directly via XMPP and via BGP.
+        // that we generate only one path with any given next hop when there
+        // are multiple nexthop paths from the original source received via
+        // different peers e.g. directly via XMPP and via BGP.
         if (nh_route->DuplicateForwardingPath(nh_path))
             continue;
 
