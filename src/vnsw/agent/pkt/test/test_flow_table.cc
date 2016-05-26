@@ -3,25 +3,96 @@
  */
 
 #include "base/os.h"
+#include <base/task.h>
+#include <base/test/task_test_util.h>
 #include "test/test_cmn_util.h"
+#include "test_flow_util.h"
+#include "ksync/ksync_sock_user.h"
+#include "oper/tunnel_nh.h"
 #include "test_pkt_util.h"
 #include "pkt/flow_proto.h"
 #include "pkt/flow_mgmt.h"
-#include <base/task.h>
-#include <base/test/task_test_util.h>
+#include "uve/test/test_uve_util.h"
+
+#define vm1_ip "1.1.1.1"
+#define vm2_ip "1.1.1.2"
+#define remote_vm1_ip "1.1.1.3"
+#define remote_compute "100.100.100.100"
+
+struct PortInfo input[] = {
+    {"vif0", 1, vm1_ip, "00:00:00:01:01:01", 1, 1},
+    {"vif1", 2, vm2_ip, "00:00:00:01:01:02", 1, 2},
+};
 
 class TestFlowTable : public ::testing::Test {
 public:
+    TestFlowTable() : agent_(Agent::GetInstance()), peer_(NULL), util_() {
+        eth = EthInterfaceGet("vnet0");
+        EXPECT_TRUE(eth != NULL);
+    }
     virtual void SetUp() {
-        agent_ = Agent::GetInstance();
         flow_proto_ = agent_->pkt()->get_flow_proto();
         client->WaitForIdle();
         for (int i = 0; i < 4; i++) {
             flow_count_[i] = 0;
         }
+
+        WAIT_FOR(100, 100, (flow_proto_->FlowCount() == 0));
+        client->Reset();
+
+        CreateVmportEnv(input, 2, 1);
+        client->WaitForIdle();
+
+        EXPECT_TRUE(VmPortActive(input, 0));
+        EXPECT_TRUE(VmPortActive(input, 1));
+
+        vif0 = VmInterfaceGet(input[0].intf_id);
+        assert(vif0);
+        vif1 = VmInterfaceGet(input[1].intf_id);
+        assert(vif1);
+        vrf_name_ = vif0->vrf()->GetName();
+        vn_name_ = vif0->vn()->GetName();
+
+        peer_ = CreateBgpPeer(Ip4Address(1), "BGP Peer 1");
+        client->WaitForIdle();
+
+        boost::system::error_code ec;
+        Ip4Address remote_ip = Ip4Address::from_string(remote_vm1_ip, ec);
+        Ip4Address remote_compute_ip = Ip4Address::from_string(remote_compute,
+                                                               ec);
+
+        Inet4TunnelRouteAdd(peer_, vrf_name_, remote_ip, 32,
+                            remote_compute_ip,
+                            TunnelType::AllType(), 10, vn_name_,
+                            SecurityGroupList(), PathPreference());
+        client->WaitForIdle();
+        EXPECT_EQ(0U, flow_proto_->FlowCount());
+        strcpy(router_id_, agent_->router_id().to_string().c_str());
     }
 
     virtual void TearDown() {
+        FlushFlowTable();
+        client->Reset();
+
+        DeleteRoute(vrf_name_.c_str(), remote_vm1_ip, 32, peer_);
+        client->WaitForIdle(3);
+
+        DeleteVmportEnv(input, 3, true, 1);
+        client->WaitForIdle(3);
+
+        EXPECT_FALSE(VmPortFind(input, 0));
+        EXPECT_FALSE(VmPortFind(input, 1));
+
+        EXPECT_EQ(0U, agent_->vm_table()->Size());
+        EXPECT_EQ(0U, agent_->vn_table()->Size());
+        EXPECT_EQ(0U, agent_->acl_table()->Size());
+        DeleteBgpPeer(peer_);
+    }
+
+    void FlushFlowTable() {
+        client->EnqueueFlowFlush();
+        client->WaitForIdle();
+        WAIT_FOR(100, 100, (flow_proto_->FlowCount() == 0));
     }
 
     void FlowHash(const char *sip, const char *dip, uint8_t proto,
@@ -44,6 +115,14 @@ protected:
     Agent *agent_;
     FlowProto *flow_proto_;
     uint32_t flow_count_[4];
+    BgpPeer *peer_;
+    VmInterface *vif0;
+    VmInterface *vif1;
+    PhysicalInterface *eth;
+    string vrf_name_;
+    string vn_name_;
+    char router_id_[80];
+    TestUveUtil util_;
 };
 
 TEST_F(TestFlowTable, TestParam_1) {
@@ -98,6 +177,68 @@ TEST_F(TestFlowTable, flow_hash_proto_1) {
     EXPECT_TRUE(flow_count_[1] > 0);
     EXPECT_TRUE(flow_count_[2] > 0);
     EXPECT_TRUE(flow_count_[3] > 0);
+}
+
+TEST_F(TestFlowTable, AgeOutVrouterEvictedFlow) {
+    TxTcpMplsPacket(eth->id(), remote_compute, router_id_, vif0->label(),
+                    remote_vm1_ip, vm1_ip, 1000, 200, 1, 1);
+    client->WaitForIdle();
+
+    FlowEntry *flow = FlowGet(remote_vm1_ip, vm1_ip, IPPROTO_TCP, 1000,
+                              200, vif0->flow_key_nh()->id(), 1);
+    EXPECT_TRUE(flow != NULL);
+    FlowEntry *rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow != NULL);
+
+    uint32_t flow_handle = flow->flow_handle();
+    EXPECT_TRUE(flow_handle != FlowEntry::kInvalidFlowHandle);
+    uint32_t rflow_handle = rflow->flow_handle();
+    EXPECT_TRUE(rflow_handle != FlowEntry::kInvalidFlowHandle);
+    KSyncSock *sock = KSyncSock::Get(0);
+
+    //Fetch the delete_count_ for delete enqueues
+    uint32_t evict_count = agent_->GetFlowProto()->flow_stats()->evict_count_;
+    uint32_t tx_count = sock->tx_count();
+
+    //Invoke FlowStatsCollector to check whether flow gets evicted
+    util_.EnqueueFlowStatsCollectorTask();
+    client->WaitForIdle();
+
+    //Verify that evict count has not been modified
+    EXPECT_EQ(evict_count, agent_->GetFlowProto()->flow_stats()->
+              evict_count_);
+
+    //Set Evicted flag for the flow
+    KSyncSockTypeMap::SetEvictedFlag(flow_handle);
+    KSyncSockTypeMap::SetEvictedFlag(rflow_handle);
+
+    //Invoke FlowStatsCollector to enqueue delete for evicted flow.
+    util_.EnqueueFlowStatsCollectorTask();
+    client->WaitForIdle();
+
+    //Verify that evict count has been increased by 1
+    EXPECT_EQ((evict_count + 2), agent_->GetFlowProto()->flow_stats()->
+              evict_count_);
+
+    //Invoke FlowStatsCollector to enqueue delete for reverse flow which is
+    //marked as short flow
+    util_.EnqueueFlowStatsCollectorTask();
+    client->WaitForIdle();
+
+    //Verify that evict count is still same
+    EXPECT_EQ((evict_count + 2), agent_->GetFlowProto()->flow_stats()->
+              evict_count_);
+
+    //Verify that flows have been removed
+    WAIT_FOR(100, 100, (flow_proto_->FlowCount() == 0));
+
+    //Verify that tx_count is unchanged after deletion of evicted flows
+    //because agent does not sent any message to vrouter for evicted flows
+    EXPECT_EQ(tx_count, sock->tx_count());
+
+    //Reset the Evicted flag set by this test-case
+    KSyncSockTypeMap::ResetEvictedFlag(flow_handle);
+    KSyncSockTypeMap::ResetEvictedFlag(rflow_handle);
 }
 
 int main(int argc, char *argv[]) {
