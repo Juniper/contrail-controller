@@ -24,6 +24,8 @@
 #include <boost/asio/streambuf.hpp>
 #include <boost/function.hpp>
 
+#include "ifmap/ifmap_config_options.h"
+
 class IFMapStateMachine;
 class IFMapManager;
 class TimerImpl;
@@ -45,8 +47,8 @@ public:
     static const int kSocketCloseTimeout;
     static const uint64_t kRetryConnectionMax;
 
-    IFMapChannel(IFMapManager *manager, const std::string& user,
-                 const std::string& passwd, const std::string& certstore);
+    IFMapChannel(IFMapManager *manager,
+                 const IFMapConfigOptions& config_options);
 
     virtual ~IFMapChannel();
 
@@ -176,10 +178,14 @@ public:
     bool start_stale_entries_cleanup() const {
         return start_stale_entries_cleanup_;
     }
+    int stale_entries_cleanup_timeout_ms() {
+        return stale_entries_cleanup_timeout_ms_;
+    }
     void set_end_of_rib_computed(bool value) {
         end_of_rib_computed_ = value;
     }
     bool end_of_rib_computed() const { return end_of_rib_computed_; }
+    int end_of_rib_timeout_ms() { return end_of_rib_timeout_ms_; }
     bool EndOfRibTimerRunning();
 
 private:
@@ -188,9 +194,6 @@ private:
     static const int kSessionKeepaliveInterval = 3; // in seconds
     static const int kSessionKeepaliveProbes = 5; // count
     static const int kSessionTcpUserTimeout = 45000; // in milliseconds
-
-    static const int kStaleEntriesCleanupTimeout = 10000; // milliseconds
-    static const int kEndOfRibTimeout = 10000; // milliseconds
 
     enum ResponseState {
         NONE = 0,
@@ -260,7 +263,11 @@ private:
     boost::asio::ip::tcp::endpoint endpoint_;
     TimedoutMap timedout_map_;
     tbb::atomic<bool> start_stale_entries_cleanup_;
+    // default values in seconds src/control-node/contrail-control.conf
+    int stale_entries_cleanup_timeout_ms_;
     Timer *stale_entries_cleanup_timer_;
+    // default values in seconds src/control-node/contrail-control.conf
+    int end_of_rib_timeout_ms_;
     Timer *end_of_rib_timer_;
     tbb::atomic<bool> end_of_rib_computed_;
 
