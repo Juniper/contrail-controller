@@ -11,6 +11,8 @@
 #include <boost/asio/io_service.hpp>
 #include <boost/scoped_ptr.hpp>
 
+#include "ifmap/ifmap_config_options.h"
+
 class DiscoveryServiceClient;
 class IFMapStateMachine;
 class IFMapServer;
@@ -25,9 +27,8 @@ public:
                                  uint64_t sequence_number)> PollReadCb;
 
     IFMapManager();
-    IFMapManager(IFMapServer *ifmap_server, const std::string& url,
-                 const std::string& user, const std::string& passwd,
-                 const std::string& certstore, PollReadCb readcb,
+    IFMapManager(IFMapServer *ifmap_server,
+                 const IFMapConfigOptions& config_options, PollReadCb readcb,
                  boost::asio::io_service *io_service);
     virtual ~IFMapManager();
 

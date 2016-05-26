@@ -15,6 +15,7 @@
 #include "ifmap/client/ifmap_manager.h"
 #include "ifmap/client/ifmap_channel.h"
 #include "ifmap/ifmap_server.h"
+#include "ifmap/ifmap_config_options.h"
 
 #include <boost/asio.hpp>
 #include <boost/asio/placeholders.hpp>
@@ -32,9 +33,9 @@ using namespace std;
 
 class IFMapChannelMock : public IFMapChannel {
 public:
-    explicit IFMapChannelMock(IFMapManager *manager, const std::string& user,
-            const std::string& passwd, const std::string& certstore) :
-        IFMapChannel(manager, user, passwd, certstore) {
+    explicit IFMapChannelMock(IFMapManager *manager,
+                               const IFMapConfigOptions &config_options)
+        : IFMapChannel(manager, config_options) {
     }
 
     MOCK_METHOD0(ReconnectPreparation, void());
@@ -80,10 +81,13 @@ protected:
 
     IFMapStateMachineTest() :
             ifmap_server_(&db_, &graph_, evm_.io_service()),
-            ifmap_manager_(&ifmap_server_, "https://10.1.2.3:8443", "user",
-                           "passwd", "", NULL, evm_.io_service()),
-            mock_channel_(new IFMapChannelMock(&ifmap_manager_, "user",
-                          "passwd", "")),
+            ifmap_manager_(&ifmap_server_,
+                IFMapConfigOptions("https://10.1.2.3:8443", "passwd",
+                                   "user", "", 60, 10, 10),
+                NULL, evm_.io_service()),
+            mock_channel_(new IFMapChannelMock(&ifmap_manager_,
+                IFMapConfigOptions("https://10.1.2.3:8443", "passwd",
+                                   "user", "", 60, 10, 10))),
             success_ec_(0, boost::system::system_category()),
             failure_ec_(boost::system::errc::connection_refused,
                         boost::system::system_category()),
