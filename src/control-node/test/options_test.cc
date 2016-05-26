@@ -75,6 +75,9 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.ifmap_password(), "control-node");
     EXPECT_EQ(options_.ifmap_user(), "control-node");
     EXPECT_EQ(options_.ifmap_certs_store(), "");
+    EXPECT_EQ(options_.ifmap_stale_entries_cleanup_timeout(), 10);
+    EXPECT_EQ(options_.ifmap_end_of_rib_timeout(), 10);
+    EXPECT_EQ(options_.ifmap_peer_response_wait_time(), 60);
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 0);
@@ -112,6 +115,9 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.ifmap_password(), "control-node");
     EXPECT_EQ(options_.ifmap_user(), "control-node");
     EXPECT_EQ(options_.ifmap_certs_store(), "");
+    EXPECT_EQ(options_.ifmap_stale_entries_cleanup_timeout(), 10);
+    EXPECT_EQ(options_.ifmap_end_of_rib_timeout(), 10);
+    EXPECT_EQ(options_.ifmap_peer_response_wait_time(), 60);
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 100);
@@ -226,7 +232,10 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "certs_store=test-store\n"
         "password=test-password\n"
         "server_url=https://127.0.0.1:100\n"
-        "user=test-user\n";
+        "user=test-user\n"
+        "stale_entries_cleanup_timeout=120\n"
+        "end_of_rib_timeout=110\n"
+        "peer_response_wait_time=100\n";
 
     ofstream config_file;
     config_file.open("./options_test_config_file.conf");
@@ -269,6 +278,9 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.ifmap_password(), "test-password");
     EXPECT_EQ(options_.ifmap_user(), "test-user");
     EXPECT_EQ(options_.ifmap_certs_store(), "test-store");
+    EXPECT_EQ(options_.ifmap_stale_entries_cleanup_timeout(), 120);
+    EXPECT_EQ(options_.ifmap_end_of_rib_timeout(), 110);
+    EXPECT_EQ(options_.ifmap_peer_response_wait_time(), 100);
     EXPECT_EQ(options_.xmpp_port(), 100);
     EXPECT_EQ(options_.test_mode(), true);
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
@@ -480,6 +492,87 @@ TEST_F(OptionsTest, UnresolvableHostName) {
     hostname_ = "uresolvable_host";
     host_ip_ = GetHostIp(evm_.io_service(), hostname_);
     EXPECT_EQ("", host_ip_);
+}
+
+TEST_F(OptionsTest, OverrideIFMapOptionsFromCommandLine) {
+    int argc = 9;
+    char *argv[argc];
+    char argv_0[] = "options_test";
+    char argv_1[] = "--conf_file=controller/src/control-node/contrail-control.conf";
+    char argv_2[] = "--IFMAP.server_url=https://66.55.44.33";
+    char argv_3[] = "--IFMAP.password=mynewpassword";
+    char argv_4[] = "--IFMAP.user=mynewuser";
+    char argv_5[] = "--IFMAP.certs_store=mynewcertstore";
+    char argv_6[] = "--IFMAP.stale_entries_cleanup_timeout=99";
+    char argv_7[] = "--IFMAP.end_of_rib_timeout=88";
+    char argv_8[] = "--IFMAP.peer_response_wait_time=77";
+    argv[0] = argv_0;
+    argv[1] = argv_1;
+    argv[2] = argv_2;
+    argv[3] = argv_3;
+    argv[4] = argv_4;
+    argv[5] = argv_5;
+    argv[6] = argv_6;
+    argv[7] = argv_7;
+    argv[8] = argv_8;
+
+    options_.Parse(evm_, argc, argv);
+
+    EXPECT_EQ(options_.ifmap_server_url(), "https://66.55.44.33");
+    EXPECT_EQ(options_.ifmap_password(), "mynewpassword");
+    EXPECT_EQ(options_.ifmap_user(), "mynewuser");
+    EXPECT_EQ(options_.ifmap_certs_store(), "mynewcertstore");
+    EXPECT_EQ(options_.ifmap_stale_entries_cleanup_timeout(), 99); // default 10
+    EXPECT_EQ(options_.ifmap_end_of_rib_timeout(), 88); // default 10
+    EXPECT_EQ(options_.ifmap_peer_response_wait_time(), 77); // default 60
+}
+
+TEST_F(OptionsTest, CustomIFMapConfigFileAndOverrideFromCommandLine) {
+    string config = ""
+        "[IFMAP]\n"
+        "certs_store=test-store\n"
+        "password=test-password\n"
+        "server_url=https://127.0.0.1:100\n"
+        "user=test-user\n"
+        "stale_entries_cleanup_timeout=120\n"
+        "end_of_rib_timeout=110\n"
+        "peer_response_wait_time=100\n";
+
+    ofstream config_file;
+    config_file.open("./options_test_config_file.conf");
+    config_file << config;
+    config_file.close();
+
+    int argc = 9;
+    char *argv[argc];
+    char argv_0[] = "options_test";
+    char argv_1[] = "--conf_file=./options_test_config_file.conf";
+    char argv_2[] = "--IFMAP.certs_store=new-test-store";
+    char argv_3[] = "--IFMAP.password=new-test-password";
+    char argv_4[] = "--IFMAP.server_url=https://11.10.10.1:100";
+    char argv_5[] = "--IFMAP.stale_entries_cleanup_timeout=21";
+    char argv_6[] = "--IFMAP.end_of_rib_timeout=31";
+    char argv_7[] = "--IFMAP.peer_response_wait_time=41";
+    char argv_8[] = "--IFMAP.user=new-test-user";
+    argv[0] = argv_0;
+    argv[1] = argv_1;
+    argv[2] = argv_2;
+    argv[3] = argv_3;
+    argv[4] = argv_4;
+    argv[5] = argv_5;
+    argv[6] = argv_6;
+    argv[7] = argv_7;
+    argv[8] = argv_8;
+
+    options_.Parse(evm_, argc, argv);
+
+    EXPECT_EQ(options_.ifmap_certs_store(), "new-test-store");
+    EXPECT_EQ(options_.ifmap_password(), "new-test-password");
+    EXPECT_EQ(options_.ifmap_server_url(), "https://11.10.10.1:100");
+    EXPECT_EQ(options_.ifmap_stale_entries_cleanup_timeout(), 21);
+    EXPECT_EQ(options_.ifmap_end_of_rib_timeout(), 31);
+    EXPECT_EQ(options_.ifmap_peer_response_wait_time(), 41);
+    EXPECT_EQ(options_.ifmap_user(), "new-test-user");
 }
 
 int main(int argc, char **argv) {
