@@ -154,6 +154,65 @@ TEST_F(IntfTest, basic_1) {
     client->WaitForIdle();
 }
 
+//https://bugs.launchpad.net/juniperopenstack/r3.0/+bug/1550459
+TEST_F(IntfTest, bug_1550459) {
+    AddVrf("vrf1");
+    AddVn("vn1", 1);
+    AddPhysicalInterface("pi1", 1, "pi1");
+    AddLogicalInterface("li1", 1, "li1", 100);
+    AddLink("physical-interface", "pi1", "logical-interface", "li1");
+
+    AddVmi(1, 1);
+    client->WaitForIdle();
+    AddLink(1, 1);
+    client->WaitForIdle();
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    AddLink("virtual-machine-interface", "vmi1",
+            "virtual-network", "vn1");
+    AddLink("virtual-machine-interface-routing-instance", "vmi1",
+            "routing-instance", "vrf1",
+            "virtual-machine-interface-routing-instance");
+    AddLink("virtual-machine-interface-routing-instance", "vmi1",
+            "virtual-machine-interface", "vmi1",
+            "virtual-machine-interface-routing-instance");
+    client->WaitForIdle();
+
+    WAIT_FOR(1000, 100, (LogicalInterfaceGet(1, "li1") != NULL));
+    client->WaitForIdle();
+    LogicalInterface *li = LogicalInterfaceGet(1, "li1");
+
+    WAIT_FOR(1000, 100, (li->vm_interface() != NULL));
+    client->WaitForIdle();
+    InterfaceRef vmi_ref = li->vm_interface();
+    VmInterface *vmi = static_cast<VmInterface *>(vmi_ref.get());
+    VmInterface::Delete(Agent::GetInstance()->interface_table(),
+                        vmi->GetUuid(), VmInterface::CONFIG);
+    client->WaitForIdle();
+    AddVmi(1, 1);
+    client->WaitForIdle();
+    VmInterface::Delete(Agent::GetInstance()->interface_table(),
+                        vmi->GetUuid(), VmInterface::CONFIG);
+    client->WaitForIdle();
+
+    DelLink(1, 1);
+    DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    DelLink("virtual-machine-interface", "vmi1",
+            "virtual-network", "vn1");
+    DelLink("virtual-machine-interface-routing-instance", "vmi1",
+            "routing-instance", "vrf1");
+    DelLink("virtual-machine-interface-routing-instance", "vmi1",
+            "virtual-machine-interface", "vmi1");
+    client->WaitForIdle();
+    DelLink("physical-interface", "pi1", "logical-interface", "li1");
+    vmi_ref.reset();
+    DelVmi(1);
+    DeleteLogicalInterface("li1");
+    DeletePhysicalInterface("pi1");
+    DelVrf("vrf1");
+    DelVn("vn1");
+    client->WaitForIdle();
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 
