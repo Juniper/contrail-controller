@@ -27,6 +27,7 @@ struct FlowStats {
     uint64_t audit_count_;
     uint64_t vrouter_responses_;
     uint64_t vrouter_error_;
+    uint64_t evict_count_;
 
     // Number of events actually processed
     uint64_t delete_process_;
@@ -36,8 +37,8 @@ struct FlowStats {
     FlowStats() :
         add_count_(0), delete_count_(0), flow_messages_(0),
         revaluate_count_(0), recompute_count_(0), audit_count_(0),
-        vrouter_responses_(0), vrouter_error_(0), delete_process_(0),
-        revaluate_process_(0), recompute_process_(0) {
+        vrouter_responses_(0), vrouter_error_(0), evict_count_(0),
+        delete_process_(0), revaluate_process_(0), recompute_process_(0) {
     }
 };
 
@@ -77,7 +78,7 @@ public:
     void ForceEnqueueFreeFlowReference(FlowEntryPtr &flow);
     void DeleteFlowRequest(FlowEntry *flow);
     void EvictFlowRequest(FlowEntry *flow, uint32_t flow_handle,
-                          uint8_t gen_id);
+                          uint8_t gen_id, uint8_t evict_gen_id);
     void CreateAuditEntry(const FlowKey &key, uint32_t flow_handle,
                           uint8_t gen_id);
     bool FlowEventHandler(FlowEvent *req, FlowTable *table);

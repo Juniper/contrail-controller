@@ -605,6 +605,7 @@ void KSyncSockTypeMap::SetFlowEntry(vr_flow_req *req, bool set) {
         f->fe_flags &= ~VR_FLOW_FLAG_ACTIVE;
         f->fe_stats.flow_bytes = 0;
         f->fe_stats.flow_packets = 0;
+        f->fe_gen_id = 0;
         return;
     }
 
@@ -615,6 +616,7 @@ void KSyncSockTypeMap::SetFlowEntry(vr_flow_req *req, bool set) {
     f->fe_flags = VR_FLOW_FLAG_ACTIVE;
     f->fe_stats.flow_bytes = 30;
     f->fe_stats.flow_packets = 1;
+    f->fe_gen_id = req->get_fr_gen_id();
     if (sip.is_v4()) {
         f->fe_key.flow4_sip = htonl(sip.to_v4().to_ulong());
         f->fe_key.flow4_dip = htonl(dip.to_v4().to_ulong());
@@ -630,6 +632,21 @@ void KSyncSockTypeMap::SetFlowEntry(vr_flow_req *req, bool set) {
     f->fe_key.flow_nh_id = req->get_fr_flow_nh_id();
     f->fe_key.flow_proto = req->get_fr_flow_proto();
 }
+
+void KSyncSockTypeMap::SetEvictedFlag(int idx) {
+    vr_flow_entry *f = &flow_table_[idx];
+    if (f->fe_flags & VR_FLOW_FLAG_ACTIVE) {
+        f->fe_flags |= VR_FLOW_FLAG_EVICTED;
+    }
+}
+
+void KSyncSockTypeMap::ResetEvictedFlag(int idx) {
+    vr_flow_entry *f = &flow_table_[idx];
+    if (f->fe_flags & VR_FLOW_FLAG_ACTIVE) {
+        f->fe_flags &= ~VR_FLOW_FLAG_EVICTED;
+    }
+}
+
 
 void KSyncSockTypeMap::IncrFlowStats(int idx, int pkts, int bytes) {
     vr_flow_entry *f = &flow_table_[idx];
@@ -762,6 +779,7 @@ void KSyncUserSockFlowContext::Process() {
                 /* Allocate entry only of no error case */
                 fwd_flow_idx = rand() % 50000;
                 req_->set_fr_index(fwd_flow_idx);
+                req_->set_fr_gen_id((fwd_flow_idx % 255));
             }
         }          
 
