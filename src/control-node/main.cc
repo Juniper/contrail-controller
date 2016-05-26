@@ -633,8 +633,7 @@ int main(int argc, char *argv[]) {
     // Create IFMapManager and associate with the IFMapServer.
     IFMapServerParser *ifmap_parser = IFMapServerParser::GetInstance("vnc_cfg");
     IFMapManager *ifmap_manager = new IFMapManager(&ifmap_server,
-        options.ifmap_server_url(), options.ifmap_user(),
-        options.ifmap_password(), options.ifmap_certs_store(),
+        options.ifmap_config_options(),
         boost::bind(
             &IFMapServerParser::Receive, ifmap_parser, &config_db, _1, _2, _3),
         evm.io_service());
