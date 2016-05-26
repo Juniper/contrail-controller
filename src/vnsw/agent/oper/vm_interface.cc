@@ -1707,9 +1707,9 @@ bool VmInterfaceConfigData::OnDelete(const InterfaceTable *table,
     if (vmi->IsConfigurerSet(VmInterface::CONFIG) == false)
         return true;
 
-    vmi->ResetConfigurer(VmInterface::CONFIG);
     VmInterfaceConfigData data(NULL, NULL);
     vmi->Resync(table, &data);
+    vmi->ResetConfigurer(VmInterface::CONFIG);
     return true;
 }
 
@@ -1730,6 +1730,7 @@ bool VmInterfaceConfigData::OnResync(const InterfaceTable *table,
         ecmp_load_balance_changed || static_route_config_changed)
         *force_update = true;
 
+    vmi->SetConfigurer(VmInterface::CONFIG);
     return ret;
 }
 
@@ -2129,9 +2130,9 @@ bool VmInterfaceNovaData::OnDelete(const InterfaceTable *table,
     if (vmi->IsConfigurerSet(VmInterface::INSTANCE_MSG) == false)
         return true;
 
-    vmi->ResetConfigurer(VmInterface::CONFIG);
     VmInterfaceConfigData data(NULL, NULL);
     vmi->Resync(table, &data);
+    vmi->ResetConfigurer(VmInterface::CONFIG);
     vmi->ResetConfigurer(VmInterface::INSTANCE_MSG);
     return true;
 }
