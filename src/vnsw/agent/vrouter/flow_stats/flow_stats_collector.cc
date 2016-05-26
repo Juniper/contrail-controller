@@ -283,7 +283,8 @@ void FlowStatsCollector::UpdateStatsAndExportFlow(FlowExportInfo *info,
     }
     FlowEntry *fe = info->flow();
     const vr_flow_entry *k_flow = ksync_obj->GetValidKFlowEntry(fe->key(),
-                                                            fe->flow_handle());
+                                                            fe->flow_handle(),
+                                                            fe->gen_id());
     if (k_flow) {
         UpdateAndExportInternal(info, k_flow->fe_stats.flow_bytes,
                                 k_flow->fe_stats.flow_bytes_oflow,
@@ -297,8 +298,7 @@ void FlowStatsCollector::UpdateStatsAndExportFlow(FlowExportInfo *info,
     ExportFlow(info, 0, 0, p);
 }
 
-void FlowStatsCollector::FlowDeleteEnqueue(FlowExportInfo *info,
-                                           uint64_t t) {
+void FlowStatsCollector::FlowDeleteEnqueue(FlowExportInfo *info, uint64_t t) {
     FlowEntry *fe = info->flow();
     agent_uve_->agent()->pkt()->get_flow_proto()->DeleteFlowRequest(fe);
     info->set_delete_enqueue_time(t);
@@ -309,6 +309,13 @@ void FlowStatsCollector::FlowDeleteEnqueue(FlowExportInfo *info,
             rev_info->set_delete_enqueue_time(t);
         }
     }
+}
+
+void FlowStatsCollector::FlowEvictEnqueue(FlowExportInfo *info, uint64_t t) {
+    FlowEntry *fe = info->flow();
+    agent_uve_->agent()->pkt()->get_flow_proto()->EvictFlowRequest
+        (fe, fe->flow_handle(), fe->gen_id(), (fe->gen_id() + 1));
+    info->set_evict_enqueue_time(t);
 }
 
 void FlowStatsCollector::UpdateFlowStatsInternal(FlowExportInfo *info,
@@ -408,6 +415,22 @@ bool FlowStatsCollector::Run() {
         }
 
         count++;
+        const vr_flow_entry *k_flow = ksync_obj->GetValidKFlowEntry
+            (fe->key(), fe->flow_handle(), fe->gen_id());
+
+        if ((fe->key().protocol == IPPROTO_TCP) &&
+            ksync_obj->IsEvictionMarked(k_flow)) {
+            uint64_t evict_time = info->evict_enqueue_time();
+            if (evict_time) {
+                if ((curr_time - evict_time) > kFlowDeleteRetryTime) {
+                    FlowEvictEnqueue(info, curr_time);
+                }
+                continue;
+            }
+            FlowEvictEnqueue(info, curr_time);
+            continue;
+        }
+
         FlowExportInfo *rev_info = NULL;
         // Delete short flows
         if ((flow_stats_manager_->delete_short_flow() == true) &&
@@ -421,8 +444,6 @@ bool FlowStatsCollector::Run() {
         }
 
         bool deleted = false;
-        const vr_flow_entry *k_flow = ksync_obj->GetValidKFlowEntry
-            (fe->key(), fe->flow_handle());
         // Can the flow be aged?
         if (ShouldBeAged(info, k_flow, curr_time)) {
             rev_info = FindFlowExportInfo(rfe);
@@ -431,7 +452,7 @@ bool FlowStatsCollector::Run() {
             if (rev_info) {
                 const vr_flow_entry *k_flow_rev;
                 k_flow_rev = ksync_obj->GetValidKFlowEntry
-                    (rfe->key(), rfe->flow_handle());
+                    (rfe->key(), rfe->flow_handle(), rfe->gen_id());
                 if (ShouldBeAged(rev_info, k_flow_rev, curr_time)) {
                     deleted = true;
                 }
@@ -968,6 +989,7 @@ void FlowStatsCollector::AddFlow(FlowExportInfo info) {
     if (it != flow_tree_.end()) {
         it->second.set_changed(true);
         it->second.set_delete_enqueue_time(0);
+        it->second.set_evict_enqueue_time(0);
         return;
     }
 

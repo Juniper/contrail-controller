@@ -245,6 +245,7 @@ public:
     friend class PktFlowInfo;
     friend void intrusive_ptr_release(FlowEntry *fe);
 private:
+    void DisableKSyncSend(FlowEntry *flow, uint32_t evict_gen_id);
     bool IsEvictedFlow(const FlowKey &key);
 
     void DeleteInternal(FlowEntry *fe, uint64_t t, const RevFlowDepParams &p);
@@ -259,7 +260,7 @@ private:
                      bool rev_flow_update);
     void Add(FlowEntry *flow, FlowEntry *new_flow, FlowEntry *rflow,
              FlowEntry *new_rflow, bool fwd_flow_update, bool rev_flow_update);
-    void EvictFlow(FlowEntry *flow, FlowEntry *rflow);
+    void EvictFlow(FlowEntry *flow, FlowEntry *rflow, uint32_t evict_gen_id);
     bool DeleteFlows(FlowEntry *flow, FlowEntry *rflow);
     bool DeleteUnLocked(const FlowKey &key, bool del_reverse_flow);
     bool DeleteUnLocked(bool del_reverse_flow, FlowEntry *flow,

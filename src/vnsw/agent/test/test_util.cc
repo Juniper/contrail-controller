@@ -10,6 +10,7 @@
 #include "oper/ecmp_load_balance.h"
 #include "oper/mirror_table.h"
 #include "oper/physical_device_vn.h"
+#include "ksync/ksync_sock_user.h"
 #include "uve/test/vn_uve_table_test.h"
 #include "uve/agent_uve_stats.h"
 #include <cfg/cfg_types.h>
@@ -3043,6 +3044,27 @@ bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
         return false;
 
     return true;
+}
+
+FlowEntry* FlowGet(std::string sip, std::string dip, uint8_t proto,
+                   uint16_t sport, uint16_t dport, int nh_id,
+                   uint32_t flow_handle) {
+    FlowKey key;
+    key.nh = nh_id;
+    key.src_addr = IpAddress::from_string(sip);
+    key.dst_addr = IpAddress::from_string(dip);
+    key.src_port = sport;
+    key.dst_port = dport;
+    key.protocol = proto;
+    key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
+
+    FlowTable *table =
+        Agent::GetInstance()->pkt()->get_flow_proto()->GetFlowTable(key,
+                                                                    flow_handle);
+    if (table == NULL) {
+        return NULL;
+    }
+    return table->Find(key);
 }
 
 FlowEntry* FlowGet(int vrf_id, std::string sip, std::string dip, uint8_t proto,

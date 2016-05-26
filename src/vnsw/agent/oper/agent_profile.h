@@ -58,6 +58,7 @@ public:
         uint64_t recompute_count_;
         uint64_t vrouter_responses_;
         uint64_t vrouter_error_;
+        uint64_t evict_count_;
         FlowTokenStats token_stats_;
         WorkQueueStats pkt_handler_queue_;
         WorkQueueStats flow_mgmt_queue_;
