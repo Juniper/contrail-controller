@@ -22,6 +22,27 @@ using std::make_pair;
 using std::string;
 using std::vector;
 
+//
+// Return true if the prefix for the BgpRoute is the same as given IpAddress.
+//
+static bool RoutePrefixIsAddress(Address::Family family, const BgpRoute *route,
+    const IpAddress &address) {
+    if (family == Address::INET) {
+        const InetRoute *inet_route = static_cast<const InetRoute *>(route);
+        if (inet_route->GetPrefix().addr() == address.to_v4() &&
+            inet_route->GetPrefix().prefixlen() == Address::kMaxV4PrefixLen) {
+            return true;
+        }
+    } else if (family == Address::INET6) {
+        const Inet6Route *inet6_route = static_cast<const Inet6Route *>(route);
+        if (inet6_route->GetPrefix().addr() == address.to_v6() &&
+            inet6_route->GetPrefix().prefixlen() == Address::kMaxV6PrefixLen) {
+            return true;
+        }
+    }
+    return false;
+}
+
 class PathResolver::DeleteActor : public LifetimeActor {
 public:
     explicit DeleteActor(PathResolver *resolver)
@@ -604,7 +625,12 @@ void PathResolverPartition::StartPathResolution(const BgpPath *path,
         return;
     if (table()->IsDeleted() || nh_table->IsDeleted())
         return;
+
+    Address::Family family = table()->family();
     IpAddress address = path->GetAttr()->nexthop();
+    if (table() == nh_table && RoutePrefixIsAddress(family, route, address))
+        return;
+
     ResolverNexthop *rnexthop =
         resolver_->LocateResolverNexthop(address, nh_table);
     assert(!FindResolverPath(path));
@@ -1053,19 +1079,8 @@ bool ResolverNexthop::Match(BgpServer *server, BgpTable *table,
     // Ignore if the route doesn't match the address.
     Address::Family family = table->family();
     assert(family == Address::INET || family == Address::INET6);
-    if (family == Address::INET) {
-        const InetRoute *inet_route = static_cast<InetRoute *>(route);
-        if (inet_route->GetPrefix().addr() != address_.to_v4() ||
-            inet_route->GetPrefix().prefixlen() != Address::kMaxV4PrefixLen) {
-            return false;
-        }
-    } else if (family == Address::INET6) {
-        const Inet6Route *inet6_route = static_cast<Inet6Route *>(route);
-        if (inet6_route->GetPrefix().addr() != address_.to_v6() ||
-            inet6_route->GetPrefix().prefixlen() != Address::kMaxV6PrefixLen) {
-            return false;
-        }
-    }
+    if (!RoutePrefixIsAddress(family, route, address_))
+        return false;
 
     // Set or remove MatchState as appropriate.
     BgpConditionListener *condition_listener =
