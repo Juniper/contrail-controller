@@ -347,7 +347,6 @@ void KState::DropStatsMsgHandler(vr_drop_stats_req *req) {
     resp->set_ds_discard(req->get_vds_discard());
     resp->set_ds_pull(req->get_vds_pull());
     resp->set_ds_invalid_if(req->get_vds_invalid_if());
-    //resp->set_ds_arp_not_me(req->get_vds_arp_not_me());
     resp->set_ds_garp_from_vm(req->get_vds_garp_from_vm());
     resp->set_ds_invalid_arp(req->get_vds_invalid_arp());
     resp->set_ds_trap_no_if(req->get_vds_trap_no_if());
@@ -384,5 +383,10 @@ void KState::DropStatsMsgHandler(vr_drop_stats_req *req) {
     resp->set_ds_cloned_original(req->get_vds_cloned_original());
     resp->set_ds_invalid_vnid(req->get_vds_invalid_vnid());
     resp->set_ds_frag_err(req->get_vds_frag_err());
+    resp->set_ds_invalid_source(req->get_vds_invalid_source());
+    resp->set_ds_mcast_df_bit(req->get_vds_mcast_df_bit());
+    resp->set_ds_arp_no_where_to_go(req->get_vds_arp_no_where_to_go());
+    resp->set_ds_arp_no_route(req->get_vds_arp_no_route());
+    resp->set_ds_l2_no_route(req->get_vds_l2_no_route());
 }
 
