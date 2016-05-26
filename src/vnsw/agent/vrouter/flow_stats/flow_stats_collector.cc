@@ -659,7 +659,7 @@ void FlowStatsCollector::DispatchPendingFlowMsg() {
 }
 
 void FlowStatsCollector::DispatchFlowMsg(const std::vector<FlowLogData> &lst) {
-    FLOW_LOG_DATA_OBJECT_LOG("", SandeshLevel::SYS_CRIT, lst);
+    FLOW_LOG_DATA_OBJECT_LOG("", SandeshLevel::SYS_INFO, lst);
 }
 
 uint8_t FlowStatsCollector::GetFlowMsgIdx() {
