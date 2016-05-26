@@ -182,7 +182,6 @@ AgentDropStats AgentStatsSandeshContext::GetDropStats(vr_drop_stats_req *req) {
     ds.ds_pcow_fail = req->get_vds_pcow_fail();
     ds.ds_flood = req->get_vds_flood();
     ds.ds_mcast_clone_fail = req->get_vds_mcast_clone_fail();
-    ds.ds_composite_invalid_interface = req->get_vds_composite_invalid_interface();
     ds.ds_rewrite_fail = req->get_vds_rewrite_fail();
     ds.ds_misc = req->get_vds_misc();
     ds.ds_invalid_packet = req->get_vds_invalid_packet();
@@ -195,6 +194,8 @@ AgentDropStats AgentStatsSandeshContext::GetDropStats(vr_drop_stats_req *req) {
 
     ds.ds_invalid_source = req->get_vds_invalid_source();
     ds.ds_mcast_df_bit = req->get_vds_mcast_df_bit();
+    ds.ds_arp_no_route = req->get_vds_arp_no_route();
+    ds.ds_l2_no_route = req->get_vds_l2_no_route();
     return ds;
 } 
 
