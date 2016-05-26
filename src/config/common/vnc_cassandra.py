@@ -890,8 +890,6 @@ class VncCassandraClient(object):
                                      start='children:%s:' % (obj_type),
                                      finish='children:%s;' % (obj_type),
                                      timestamp=True)
-            if not obj_rows:
-                return ((True, 0) if count else (True, []))
 
             def filter_rows_parent_anchor(sort=False):
                 # flatten to [('children:<type>:<uuid>', (<val>,<ts>), *]
@@ -918,7 +916,7 @@ class VncCassandraClient(object):
                 return get_fq_name_uuid_list(r['uuid'] for r in ret_child_infos)
             # end filter_rows_parent_anchor
 
-            children_fq_names_uuids = filter_rows_parent_anchor(sort=True)
+            children_fq_names_uuids.extend(filter_rows_parent_anchor(sort=True))
 
         if back_ref_uuids:
             # go from anchor to backrefs
@@ -931,8 +929,6 @@ class VncCassandraClient(object):
                                      start='backref:%s:' % (obj_type),
                                      finish='backref:%s;' % (obj_type),
                                      timestamp=True)
-            if not obj_rows:
-                return ((True, 0) if count else (True, []))
 
             def filter_rows_backref_anchor():
                 # flatten to [('backref:<obj-type>:<uuid>', (<val>,<ts>), *]
@@ -953,7 +949,7 @@ class VncCassandraClient(object):
                                              filt_backref_infos.values())
             # end filter_rows_backref_anchor
 
-            children_fq_names_uuids = filter_rows_backref_anchor()
+            children_fq_names_uuids.extend(filter_rows_backref_anchor())
 
         if not parent_uuids and not back_ref_uuids:
             obj_uuid_cf = self._obj_uuid_cf
@@ -968,7 +964,7 @@ class VncCassandraClient(object):
                     return get_fq_name_uuid_list(filt_obj_infos.keys())
                 # end filter_rows_object_list
 
-                children_fq_names_uuids = filter_rows_object_list()
+                children_fq_names_uuids.extend(filter_rows_object_list())
 
             else: # grab all resources of this type
                 obj_fq_name_cf = self._obj_fq_name_cf
@@ -987,7 +983,7 @@ class VncCassandraClient(object):
                     return filt_obj_infos.values()
                 # end filter_rows_no_anchor
 
-                children_fq_names_uuids = filter_rows_no_anchor()
+                children_fq_names_uuids.extend(filter_rows_no_anchor())
 
         if count:
             return (True, len(children_fq_names_uuids))
