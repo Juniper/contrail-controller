@@ -14,20 +14,19 @@
 #include <boost/function.hpp>
 #include <boost/asio/io_service.hpp>
 
-IFMapManager::IFMapManager(IFMapServer *ifmap_server, const std::string& url,
-                           const std::string& user, const std::string& passwd,
-                           const std::string& certstore, PollReadCb readcb,
-                           boost::asio::io_service *io_service)
-    : pollreadcb_(readcb), io_service_(io_service),
-      channel_(new IFMapChannel(this, user, passwd, certstore)),
-      state_machine_(new IFMapStateMachine(this)), peer_finder_(NULL),
-      ifmap_server_(ifmap_server) {
-    ifmap_server->set_ifmap_manager(this);
-}
-
 IFMapManager::IFMapManager()
     : pollreadcb_(NULL), io_service_(NULL), channel_(NULL),
       state_machine_(NULL), peer_finder_(NULL), ifmap_server_(NULL) {
+}
+
+IFMapManager::IFMapManager(IFMapServer *ifmap_server,
+        const IFMapConfigOptions& config_options, PollReadCb readcb,
+        boost::asio::io_service *io_service)
+    : pollreadcb_(readcb), io_service_(io_service),
+      channel_(new IFMapChannel(this, config_options)),
+      state_machine_(new IFMapStateMachine(this, config_options)),
+      ifmap_server_(ifmap_server) {
+    ifmap_server->set_ifmap_manager(this);
 }
 
 IFMapManager::~IFMapManager() {
