@@ -3770,8 +3770,10 @@ class DBInterface(object):
 
         # gather all ports from an anchor of virtual-machine (backref in
         # current schema and parent in < 1.06 schema)
-        port_objs = self._virtual_machine_interface_list(parent_id=device_ids,
-                                                    back_ref_id=device_ids)
+        port_objs = self._virtual_machine_interface_list(parent_id=project_id,
+                                                         back_ref_id=device_ids)
+        if not port_objs:
+            port_objs = self._virtual_machine_interface_list(parent_id=device_ids)
 
         if len(more_ports):
             rtr_port_objs = self._virtual_machine_interface_list(obj_uuids=more_ports)
