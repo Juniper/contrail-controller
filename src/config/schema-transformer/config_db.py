@@ -102,7 +102,7 @@ class DBBaseST(DBBase):
     @classmethod
     def locate(cls, key, *args):
         obj = super(DBBaseST, cls).locate(key, *args)
-        if obj.obj.uuid not in cls._uuid_fq_name_map:
+        if obj and obj.obj.uuid not in cls._uuid_fq_name_map:
             cls._uuid_fq_name_map[obj.obj.uuid] = key
         return obj
     # end locate
@@ -370,7 +370,7 @@ class VirtualNetworkST(DBBaseST):
 
         # Delete the service chains that are no longer active
         for remote_vn_name in old_scs:
-            # Get the Remote VNs in this VN's service chain and 
+            # Get the Remote VNs in this VN's service chain and
             # get a list of the remote service chains in the remote
             # VNs which has this VNs name.
             remote_vn = VirtualNetworkST.get(remote_vn_name)
