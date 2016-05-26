@@ -62,8 +62,8 @@ public:
         uint64_t evict_count_;
         FlowTokenStats token_stats_;
         WorkQueueStats pkt_handler_queue_;
-        WorkQueueStats flow_mgmt_queue_;
         WorkQueueStats flow_update_queue_;
+        std::vector<WorkQueueStats> flow_mgmt_queue_;
         std::vector<WorkQueueStats> flow_event_queue_;
         std::vector<WorkQueueStats> flow_misc_event_queue_;
         std::vector<WorkQueueStats> flow_delete_queue_;

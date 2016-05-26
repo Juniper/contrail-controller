@@ -281,7 +281,8 @@ void Agent::SetAgentTaskPolicy() {
     const char *flow_stats_manager_exclude_list[] = {
         "Agent::StatsCollector",
         kTaskFlowStatsCollector,
-        "Flow::Management",
+        kFlowMgmtTask,
+        kFlowMgmtDbTask,
         AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
@@ -303,6 +304,14 @@ void Agent::SetAgentTaskPolicy() {
     };
     SetTaskPolicyOne(kTaskDBExclude, db_exclude_task_exclude_list,
                      sizeof(db_exclude_task_exclude_list) / sizeof(char *));
+
+    const char *flow_mgmt_task_exclude_list[] = {
+        kFlowMgmtTask,
+        AGENT_SHUTDOWN_TASKNAME,
+        AGENT_INIT_TASKNAME
+    };
+    SetTaskPolicyOne(kFlowMgmtDbTask, flow_mgmt_task_exclude_list,
+                     sizeof(flow_mgmt_task_exclude_list) / sizeof(char *));
 
 }
 
@@ -765,7 +774,7 @@ bool Agent::isVmwareVcenterMode() const {
 void Agent::ConcurrencyCheck() {
     if (test_mode_) {
        CHECK_CONCURRENCY("db::DBTable", "Agent::KSync", AGENT_INIT_TASKNAME,
-                         "Flow::Management", kTaskFlowUpdate,
+                         kFlowMgmtTask, kFlowMgmtDbTask, kTaskFlowUpdate,
                          kTaskFlowEvent, kTaskFlowKSync);
     }
 }

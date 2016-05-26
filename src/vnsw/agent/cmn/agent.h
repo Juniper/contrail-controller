@@ -219,6 +219,8 @@ extern void RouterIdDepInit(Agent *agent);
 #define kTaskFlowKSync "Agent::FlowKSync"
 #define kTaskFlowAudit "KSync::FlowAudit"
 #define kTaskFlowStatsCollector "Flow::StatsCollector"
+#define kFlowMgmtTask "Flow::Management"
+#define kFlowMgmtDbTask "Flow::DBTable::Management"
 
 #define kTaskHealthCheck "Agent::HealthCheck"
 

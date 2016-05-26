@@ -337,11 +337,33 @@ void FlowStatsCollector::FlowDeleteEnqueue(FlowExportInfo *info, uint64_t t) {
     }
 }
 
+// Enqueue evict request for both forward and reverse flow
 void FlowStatsCollector::FlowEvictEnqueue(FlowExportInfo *info, uint64_t t) {
     FlowEntry *fe = info->flow();
-    agent_uve_->agent()->pkt()->get_flow_proto()->EvictFlowRequest
-        (fe, fe->flow_handle(), fe->gen_id(), (fe->gen_id() + 1));
+    uint32_t gen_id = 0;
+    uint32_t flow_handle = 0;
+    FlowEntry *reverse_flow = NULL;
+    {
+        tbb::mutex::scoped_lock mutext(fe->mutex());
+        gen_id = fe->gen_id();
+        flow_handle = fe->flow_handle();
+        reverse_flow = fe->reverse_flow_entry();
+    }
+    FlowProto *proto = agent_uve_->agent()->pkt()->get_flow_proto();
+    proto->EvictFlowRequest(fe, flow_handle, gen_id, gen_id+1);
     info->set_evict_enqueue_time(t);
+
+    if (reverse_flow) {
+        {
+            tbb::mutex::scoped_lock mutext(reverse_flow->mutex());
+            gen_id = reverse_flow->gen_id();
+            flow_handle = reverse_flow->flow_handle();
+        }
+        proto->EvictFlowRequest(reverse_flow, flow_handle, gen_id, gen_id+1);
+        info = FindFlowExportInfo(reverse_flow);
+        if (info)
+            info->set_evict_enqueue_time(t);
+    }
 }
 
 void FlowStatsCollector::UpdateFlowStatsInternal(FlowExportInfo *info,

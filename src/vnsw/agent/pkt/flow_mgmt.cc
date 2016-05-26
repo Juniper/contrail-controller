@@ -10,7 +10,6 @@
 #include "uve/flow_ace_stats_request.h"
 #include "uve/agent_uve_stats.h"
 #include "vrouter/flow_stats/flow_stats_collector.h"
-const string FlowMgmtManager::kFlowMgmtTask = "Flow::Management";
 
 /////////////////////////////////////////////////////////////////////////////
 // FlowMgmtManager methods
@@ -26,21 +25,37 @@ FlowMgmtManager::FlowMgmtManager(Agent *agent) :
     vrf_flow_mgmt_tree_(this),
     nh_flow_mgmt_tree_(this),
     flow_mgmt_dbclient_(new FlowMgmtDbClient(agent, this)),
-    request_queue_(agent_->task_scheduler()->GetTaskId(kFlowMgmtTask), 0,
-                   boost::bind(&FlowMgmtManager::RequestHandler, this, _1)),
-    db_event_queue_(agent_->task_scheduler()->GetTaskId(kFlowMgmtTask), 0,
+    request_queue_list_(),
+    db_event_queue_(agent_->task_scheduler()->GetTaskId(kFlowMgmtDbTask), 0,
                     boost::bind(&FlowMgmtManager::DBRequestHandler, this, _1),
                     db_event_queue_.kMaxSize, 1),
-    log_queue_(agent_->task_scheduler()->GetTaskId(kFlowMgmtTask), 1,
+    log_queue_(agent_->task_scheduler()->GetTaskId(kFlowMgmtTask),
+               agent->flow_thread_count() + 1,
                boost::bind(&FlowMgmtManager::LogHandler, this, _1)) {
-    request_queue_.set_name("Flow management");
-    request_queue_.set_measure_busy_time(agent->MeasureQueueDelay());
+
+    uint16_t table_count = agent->flow_thread_count();
+    int task_id = agent_->task_scheduler()->GetTaskId(kFlowMgmtTask);
+    for (int i = 0; i < table_count; i++) {
+        request_queue_list_.push_back
+            (new FlowMgmtQueue(task_id, i,
+                               boost::bind(&FlowMgmtManager::RequestHandler,
+                                           this, _1)));
+        char buff[128];
+        sprintf(buff, "Flow Management-%d", i);
+        request_queue_list_[i]->set_name(buff);
+        request_queue_list_[i]->set_measure_busy_time(agent->MeasureQueueDelay());
+    }
+
     db_event_queue_.set_name("Flow DB Event Queue");
     log_queue_.set_name("Flow Log Queue");
     for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
         bgp_as_a_service_flow_mgmt_tree_[count].reset(
             new BgpAsAServiceFlowMgmtTree(this));
     }
+}
+
+FlowMgmtManager::~FlowMgmtManager() {
+    STLDeleteValues(&request_queue_list_);
 }
 
 void FlowMgmtManager::Init() {
@@ -59,7 +74,9 @@ void FlowMgmtManager::Init() {
 }
 
 void FlowMgmtManager::Shutdown() {
-    request_queue_.Shutdown();
+    for (uint16_t i = 0; i < request_queue_list_.size(); i++) {
+        request_queue_list_[i]->Shutdown();
+    }
     db_event_queue_.Shutdown();
     log_queue_.Shutdown();
     flow_mgmt_dbclient_->Shutdown();
@@ -72,12 +89,12 @@ void FlowMgmtManager::BgpAsAServiceNotify(const boost::uuids::uuid &vm_uuid,
                                           uint32_t source_port) {
     FlowMgmtRequestPtr req(new BgpAsAServiceFlowMgmtRequest(vm_uuid,
                                                             source_port));
-    request_queue_.Enqueue(req);
+    request_queue_list_[0]->Enqueue(req);
 }
 
 void FlowMgmtManager::ControllerNotify(uint8_t index) {
     FlowMgmtRequestPtr req(new BgpAsAServiceFlowMgmtRequest(index));
-    request_queue_.Enqueue(req);
+    request_queue_list_[0]->Enqueue(req);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -119,7 +136,8 @@ void FlowMgmtManager::AddEvent(FlowEntry *flow) {
     if (req == NULL) {
         req = new FlowMgmtRequest(FlowMgmtRequest::UPDATE_FLOW, flow);
         flow->set_flow_mgmt_request(req);
-        request_queue_.Enqueue(FlowMgmtRequestPtr(req));
+        int table_index = flow->flow_table()->table_index();
+        request_queue_list_[table_index]->Enqueue(FlowMgmtRequestPtr(req));
     }
 }
 
@@ -132,7 +150,8 @@ void FlowMgmtManager::DeleteEvent(FlowEntry *flow,
     if (req == NULL) {
         req = new FlowMgmtRequest(FlowMgmtRequest::UPDATE_FLOW, flow);
         flow->set_flow_mgmt_request(req);
-        request_queue_.Enqueue(FlowMgmtRequestPtr(req));
+        int table_index = flow->flow_table()->table_index();
+        request_queue_list_[table_index]->Enqueue(FlowMgmtRequestPtr(req));
     }
 
     req->set_params(params);
@@ -152,18 +171,19 @@ void FlowMgmtManager::FlowStatsUpdateEvent(FlowEntry *flow, uint32_t bytes,
     FlowMgmtRequestPtr req(new FlowMgmtRequest
                            (FlowMgmtRequest::UPDATE_FLOW_STATS, flow,
                             bytes, packets, oflow_bytes));
-    request_queue_.Enqueue(req);
+    int table_index = flow->flow_table()->table_index();
+    request_queue_list_[table_index]->Enqueue(req);
 }
 
 void FlowMgmtManager::RetryVrfDeleteEvent(const VrfEntry *vrf) {
     FlowMgmtRequestPtr req(new FlowMgmtRequest
                            (FlowMgmtRequest::RETRY_DELETE_VRF, vrf, 0));
-    request_queue_.Enqueue(req);
+    db_event_queue_.Enqueue(req);
 }
 
 void FlowMgmtManager::DummyEvent() {
     FlowMgmtRequestPtr req(new FlowMgmtRequest(FlowMgmtRequest::DUMMY));
-    request_queue_.Enqueue(req);
+    request_queue_list_[0]->Enqueue(req);
 }
 
 void FlowMgmtManager::AddDBEntryEvent(const DBEntry *entry, uint32_t gen_id) {
@@ -212,12 +232,18 @@ void FlowMgmtManager::FreeDBEntryEvent(FlowEvent::Event event, FlowMgmtKey *key,
 }
 
 void FlowMgmtManager::FlowUpdateQueueDisable(bool disabled) {
-    request_queue_.set_disable(disabled);
+    for (uint16_t i = 0; i < request_queue_list_.size(); i++) {
+        request_queue_list_[i]->set_disable(disabled);
+    }
     db_event_queue_.set_disable(disabled);
 }
 
 size_t FlowMgmtManager::FlowUpdateQueueLength() {
-    return request_queue_.Length();
+    size_t len = 0;
+    for (uint16_t i = 0; i < request_queue_list_.size(); i++) {
+        len += request_queue_list_[i]->Length();
+    }
+    return len;
 }
 
 size_t FlowMgmtManager::FlowDBQueueLength() {
@@ -378,13 +404,18 @@ FlowMgmtManager::BgpAsAServiceRequestHandler(FlowMgmtRequest *req) {
                                      bgp_as_a_service_request->source_port());
         //Delete it for for all CN trees
         for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
-            bgp_as_a_service_flow_mgmt_tree_[count].get()->
-                BgpAsAServiceDelete(key, req);
+            BgpAsAServiceFlowMgmtTree *tree =
+                bgp_as_a_service_flow_mgmt_tree_[count].get();
+            tbb::mutex::scoped_lock mutex(tree->mutex());
+            tree->BgpAsAServiceDelete(key, req);
         }
     } else if (bgp_as_a_service_request->type() ==
                BgpAsAServiceFlowMgmtRequest::CONTROLLER) {
-        bgp_as_a_service_flow_mgmt_tree_[bgp_as_a_service_request->index()].get()->
-            DeleteAll();
+        int index = bgp_as_a_service_request->index();
+        BgpAsAServiceFlowMgmtTree *tree =
+            bgp_as_a_service_flow_mgmt_tree_[index].get();
+        tbb::mutex::scoped_lock mutex(tree->mutex());
+        tree->DeleteAll();
     }
     return true;
 }
@@ -426,11 +457,6 @@ bool FlowMgmtManager::RequestHandler(FlowMgmtRequestPtr req) {
         break;
     }
 
-    case FlowMgmtRequest::RETRY_DELETE_VRF: {
-        RetryVrfDelete(req->vrf_id());
-        break;
-    }
-
     case FlowMgmtRequest::DELETE_BGP_AAS_FLOWS: {
         BgpAsAServiceRequestHandler(req.get());
         break;
@@ -453,6 +479,11 @@ bool FlowMgmtManager::DBRequestHandler(FlowMgmtRequestPtr req) {
     case FlowMgmtRequest::CHANGE_DBENTRY:
     case FlowMgmtRequest::DELETE_DBENTRY: {
         DBRequestHandler(req.get(), req->db_entry());
+        break;
+    }
+
+    case FlowMgmtRequest::RETRY_DELETE_VRF: {
+        RetryVrfDelete(req->vrf_id());
         break;
     }
 
@@ -715,15 +746,20 @@ void FlowMgmtManager::AddFlowMgmtKey(FlowEntry *flow, FlowEntryInfo *info,
     }
 
     switch (key->type()) {
-    case FlowMgmtKey::INTERFACE:
+    case FlowMgmtKey::INTERFACE: {
+        tbb::mutex::scoped_lock mutex(interface_flow_mgmt_tree_.mutex());
         interface_flow_mgmt_tree_.Add(key, flow);
         break;
+    }
 
-    case FlowMgmtKey::ACL:
+    case FlowMgmtKey::ACL: {
+        tbb::mutex::scoped_lock mutex(acl_flow_mgmt_tree_.mutex());
         acl_flow_mgmt_tree_.Add(key, flow, old_key);
         break;
+    }
 
     case FlowMgmtKey::VN: {
+        tbb::mutex::scoped_lock mutex(vn_flow_mgmt_tree_.mutex());
         bool new_flow = vn_flow_mgmt_tree_.Add(key, flow);
         VnFlowMgmtEntry *entry = static_cast<VnFlowMgmtEntry *>
             (vn_flow_mgmt_tree_.Find(key));
@@ -734,26 +770,39 @@ void FlowMgmtManager::AddFlowMgmtKey(FlowEntry *flow, FlowEntryInfo *info,
         break;
     }
 
-    case FlowMgmtKey::INET4:
+    case FlowMgmtKey::INET4: {
+        tbb::mutex::scoped_lock mutex(ip4_route_flow_mgmt_tree_.mutex());
         ip4_route_flow_mgmt_tree_.Add(key, flow);
         break;
+    }
 
-    case FlowMgmtKey::INET6:
+    case FlowMgmtKey::INET6: {
+        tbb::mutex::scoped_lock mutex(ip6_route_flow_mgmt_tree_.mutex());
         ip6_route_flow_mgmt_tree_.Add(key, flow);
         break;
+    }
 
-    case FlowMgmtKey::BRIDGE:
+    case FlowMgmtKey::BRIDGE: {
+        tbb::mutex::scoped_lock mutex(ip6_route_flow_mgmt_tree_.mutex());
         bridge_route_flow_mgmt_tree_.Add(key, flow);
         break;
+    }
 
-    case FlowMgmtKey::NH:
+    case FlowMgmtKey::NH: {
+        tbb::mutex::scoped_lock mutex(nh_flow_mgmt_tree_.mutex());
         nh_flow_mgmt_tree_.Add(key, flow);
         break;
+    }
 
-    case FlowMgmtKey::BGPASASERVICE:
-        for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++)
-            bgp_as_a_service_flow_mgmt_tree_[count].get()->Add(key, flow);
+    case FlowMgmtKey::BGPASASERVICE: {
+        for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
+            BgpAsAServiceFlowMgmtTree *tree =
+                bgp_as_a_service_flow_mgmt_tree_[count].get();
+            tbb::mutex::scoped_lock mutex(tree->mutex());
+            tree->Add(key, flow);
+        }
         break;
+    }
 
     default:
         assert(0);
@@ -768,15 +817,20 @@ void FlowMgmtManager::DeleteFlowMgmtKey(FlowEntry *flow, FlowEntryInfo *info,
     assert(it != info->tree_.end());
 
     switch (key->type()) {
-    case FlowMgmtKey::INTERFACE:
+    case FlowMgmtKey::INTERFACE: {
+        tbb::mutex::scoped_lock mutex(interface_flow_mgmt_tree_.mutex());
         interface_flow_mgmt_tree_.Delete(key, flow);
         break;
+    }
 
-    case FlowMgmtKey::ACL:
+    case FlowMgmtKey::ACL: {
+        tbb::mutex::scoped_lock mutex(acl_flow_mgmt_tree_.mutex());
         acl_flow_mgmt_tree_.Delete(key, flow);
         break;
+    }
 
     case FlowMgmtKey::VN: {
+        tbb::mutex::scoped_lock mutex(vn_flow_mgmt_tree_.mutex());
         vn_flow_mgmt_tree_.Delete(key, flow);
         VnFlowMgmtEntry *entry = static_cast<VnFlowMgmtEntry *>
             (vn_flow_mgmt_tree_.Find(key));
@@ -787,26 +841,39 @@ void FlowMgmtManager::DeleteFlowMgmtKey(FlowEntry *flow, FlowEntryInfo *info,
         break;
     }
 
-    case FlowMgmtKey::INET4:
+    case FlowMgmtKey::INET4: {
+        tbb::mutex::scoped_lock mutex(ip4_route_flow_mgmt_tree_.mutex());
         ip4_route_flow_mgmt_tree_.Delete(key, flow);
         break;
+    }
 
-    case FlowMgmtKey::INET6:
+    case FlowMgmtKey::INET6: {
+        tbb::mutex::scoped_lock mutex(ip6_route_flow_mgmt_tree_.mutex());
         ip6_route_flow_mgmt_tree_.Delete(key, flow);
         break;
+    }
 
-    case FlowMgmtKey::BRIDGE:
+    case FlowMgmtKey::BRIDGE: {
+        tbb::mutex::scoped_lock mutex(bridge_route_flow_mgmt_tree_.mutex());
         bridge_route_flow_mgmt_tree_.Delete(key, flow);
         break;
+    }
 
-    case FlowMgmtKey::NH:
+    case FlowMgmtKey::NH: {
+        tbb::mutex::scoped_lock mutex(nh_flow_mgmt_tree_.mutex());
         nh_flow_mgmt_tree_.Delete(key, flow);
         break;
+    }
 
-    case FlowMgmtKey::BGPASASERVICE:
-        for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++)
-            bgp_as_a_service_flow_mgmt_tree_[count].get()->Delete(key, flow);
+    case FlowMgmtKey::BGPASASERVICE: {
+        for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
+            BgpAsAServiceFlowMgmtTree *tree =
+                bgp_as_a_service_flow_mgmt_tree_[count].get();
+            tbb::mutex::scoped_lock mutex(tree->mutex());
+            tree->Delete(key, flow);
+        }
         break;
+    }
 
     default:
         assert(0);
@@ -1277,12 +1344,10 @@ void VnFlowMgmtEntry::UpdateCounterOnDel(FlowEntry *flow, bool local_flow,
 }
 
 bool VnFlowMgmtTree::Add(FlowMgmtKey *key, FlowEntry *flow) {
-    tbb::mutex::scoped_lock mutex(mutex_);
     return FlowMgmtTree::Add(key, flow);
 }
 
 bool VnFlowMgmtTree::Delete(FlowMgmtKey *key, FlowEntry *flow) {
-    tbb::mutex::scoped_lock mutex(mutex_);
     return FlowMgmtTree::Delete(key, flow);
 }
 

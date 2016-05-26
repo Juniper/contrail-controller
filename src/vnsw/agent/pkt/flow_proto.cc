@@ -223,6 +223,7 @@ bool FlowProto::Enqueue(PktInfoPtr msg) {
 void FlowProto::DisableFlowEventQueue(uint32_t index, bool disabled) {
     flow_event_queue_[index]->set_disable(disabled);
     flow_delete_queue_[index]->set_disable(disabled);
+    flow_misc_event_queue_[index]->set_disable(disabled);
 }
 
 void FlowProto::DisableFlowUpdateQueue(bool disabled) {
@@ -296,25 +297,31 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
         break;
     }
 
-    case FlowEvent::FLOW_MESSAGE:
-    case FlowEvent::EVICT_FLOW:
-    case FlowEvent::FREE_FLOW_REF: {
+    case FlowEvent::FLOW_MESSAGE: {
         FlowEntry *flow = event->flow();
         FlowTable *table = flow->flow_table();
         queue = flow_event_queue_[table->table_index()];
         break;
     }
 
+    case FlowEvent::EVICT_FLOW:
+    case FlowEvent::FREE_FLOW_REF: {
+        FlowEntry *flow = event->flow();
+        FlowTable *table = flow->flow_table();
+        queue = flow_misc_event_queue_[table->table_index()];
+        break;
+    }
+
     case FlowEvent::AUDIT_FLOW: {
         FlowTable *table = GetFlowTable(event->get_flow_key(),
                                         event->flow_handle());
-        queue = flow_event_queue_[table->table_index()];
+        queue = flow_misc_event_queue_[table->table_index()];
         break;
     }
 
     case FlowEvent::GROW_FREE_LIST: {
         FlowTable *table = GetTable(event->table_index());
-        queue = flow_event_queue_[table->table_index()];
+        queue = flow_misc_event_queue_[table->table_index()];
         break;
     }
 
@@ -676,13 +683,13 @@ void FlowProto::TokenAvailable(FlowTokenPool *pool) {
     }
 
     if (pool == &ksync_tokens_) {
-        for (uint32_t i = 0; i < flow_event_queue_.size(); i++) {
+        for (uint32_t i = 0; i < flow_ksync_queue_.size(); i++) {
             flow_ksync_queue_[i]->MayBeStartRunner();
         }
     }
 
     if (pool == &del_tokens_) {
-        for (uint32_t i = 0; i < flow_event_queue_.size(); i++) {
+        for (uint32_t i = 0; i < flow_delete_queue_.size(); i++) {
             flow_delete_queue_[i]->MayBeStartRunner();
         }
     }
@@ -784,9 +791,13 @@ void FlowProto::SetProfileData(ProfileData *data) {
     data->flow_.evict_count_ = stats_.evict_count_;
 
     PktModule *pkt = agent()->pkt();
-    const FlowMgmtManager::FlowMgmtQueue *flow_mgmt =
-        pkt->flow_mgmt_manager()->request_queue();
-    SetFlowMgmtQueueStats(agent(), flow_mgmt, &data->flow_.flow_mgmt_queue_);
+    data->flow_.flow_mgmt_queue_.resize(flow_table_list_.size());
+    for (uint16_t i = 0; i < flow_table_list_.size(); i++) {
+        const FlowMgmtManager::FlowMgmtQueue *flow_mgmt =
+            pkt->flow_mgmt_manager()->request_queue(i);
+        SetFlowMgmtQueueStats(agent(), flow_mgmt,
+                              &data->flow_.flow_mgmt_queue_[i]);
+    }
 
     data->flow_.flow_event_queue_.resize(flow_table_list_.size());
     data->flow_.flow_delete_queue_.resize(flow_table_list_.size());

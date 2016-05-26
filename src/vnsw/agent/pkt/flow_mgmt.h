@@ -403,8 +403,12 @@ public:
     Tree &tree() { return tree_; }
     FlowMgmtManager *mgr() const { return mgr_; }
     static bool AddFlowMgmtKey(FlowMgmtKeyTree *tree, FlowMgmtKey *key);
+    tbb::mutex &mutex() { return mutex_; }
 protected:
     bool TryDelete(FlowMgmtKey *key, FlowMgmtEntry *entry);
+    // We need to support query of counters in VN from other threads.
+    // So, implement synchronization on access to VN Flow Tree
+    tbb::mutex mutex_;
     Tree tree_;
     FlowMgmtManager *mgr_;
 private:
@@ -519,9 +523,6 @@ public:
                         uint32_t *ingress_flow_count,
                         uint32_t *egress_flow_count);
 private:
-    // We need to support query of counters in VN from other threads.
-    // So, implement synchronization on access to VN Flow Tree
-    tbb::mutex mutex_;
     DISALLOW_COPY_AND_ASSIGN(VnFlowMgmtTree);
 };
 
@@ -998,7 +999,6 @@ private:
 
 class FlowMgmtManager {
 public:
-    static const std::string kFlowMgmtTask;
     typedef boost::shared_ptr<FlowMgmtRequest> FlowMgmtRequestPtr;
     typedef WorkQueue<FlowMgmtRequestPtr> FlowMgmtQueue;
 
@@ -1018,7 +1018,7 @@ public:
         FlowEntryTree;
 
     FlowMgmtManager(Agent *agent);
-    virtual ~FlowMgmtManager() { }
+    virtual ~FlowMgmtManager();
 
     void Init();
     void Shutdown();
@@ -1059,9 +1059,13 @@ public:
         return flow_mgmt_dbclient_.get();
     }
 
-    const FlowMgmtQueue *request_queue() const { return &request_queue_; }
+    const FlowMgmtQueue *request_queue(uint32_t index) const {
+        return request_queue_list_[index];
+    }
     const FlowMgmtQueue *log_queue() const { return &log_queue_; }
-    void DisableWorkQueue(bool disable) { request_queue_.set_disable(disable); }
+    void DisableWorkQueue(uint32_t index, bool disable) {
+        request_queue_list_[index]->set_disable(disable);
+    }
     void BgpAsAServiceNotify(const boost::uuids::uuid &vm_uuid,
                              uint32_t source_port);
     void EnqueueUveAddEvent(const FlowEntry *flow) const;
@@ -1109,7 +1113,7 @@ private:
     FlowEntryTree flow_tree_;
     boost::scoped_ptr<BgpAsAServiceFlowMgmtTree> bgp_as_a_service_flow_mgmt_tree_[MAX_XMPP_SERVERS];
     std::auto_ptr<FlowMgmtDbClient> flow_mgmt_dbclient_;
-    FlowMgmtQueue request_queue_;
+    std::vector<FlowMgmtQueue *> request_queue_list_;
     FlowMgmtQueue db_event_queue_;
     FlowMgmtQueue log_queue_;
     DISALLOW_COPY_AND_ASSIGN(FlowMgmtManager);

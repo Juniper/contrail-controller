@@ -142,8 +142,10 @@ void ProfileData::FlowStats::Reset() {
     reval_count_ = 0;
     recompute_count_ = 0;
     pkt_handler_queue_.Reset();
-    flow_mgmt_queue_.Reset();
     flow_update_queue_.Reset();
+    for (uint16_t i = 0; i < flow_mgmt_queue_.size(); i++) {
+        flow_mgmt_queue_[i].Reset();
+    }
     for (uint16_t i = 0; i < flow_event_queue_.size(); i++) {
         flow_event_queue_[i].Reset();
     }
@@ -557,8 +559,31 @@ static void GetQueueSummaryInfo(SandeshFlowQueueSummaryInfo *info, int index,
     one.set_busy_msec(busy_time);
     info->set_flow_ksync_queue(one);
 
-    // flow_mgmt_queue
-    GetOneQueueSummary(&one, &flow_stats->flow_mgmt_queue_);
+    // flow_misc_event_queue
+    qcount = 0;
+    enqueues = 0;
+    dequeues = 0;
+    max_qlen = 0;
+    busy_time = 0;
+    starts = 0;
+    it = flow_stats->flow_mgmt_queue_.begin();
+    while (it != flow_stats->flow_mgmt_queue_.end()) {
+        qcount += it->queue_count_;
+        enqueues += it->enqueue_count_;
+        dequeues += it->dequeue_count_;
+        busy_time += it->busy_time_;
+        starts += it->start_count_;
+        if (it->max_queue_count_ > max_qlen) {
+            max_qlen = it->max_queue_count_;
+        }
+        it++;
+    }
+    one.set_qcount(qcount);
+    one.set_enqueues(enqueues);
+    one.set_dequeues(dequeues);
+    one.set_max_qlen(max_qlen);
+    one.set_starts(starts);
+    one.set_busy_msec(busy_time);
     info->set_flow_mgmt_queue(one);
 
     // flow_update_queue

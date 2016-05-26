@@ -278,7 +278,7 @@ TEST_F(FlowMgmtRouteTest, RouteDelete_4) {
     client->WaitForIdle(3);
 
     flow_proto_->DisableFlowUpdateQueue(false);
-    mgr->DisableWorkQueue(false);
+    mgr->DisableWorkQueue(0, false);
     client->WaitForIdle(10);
 
     flow_proto_->DisableFlowEventQueue(0, false);

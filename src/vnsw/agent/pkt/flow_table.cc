@@ -534,9 +534,10 @@ void FlowTable::EvictFlow(FlowEntry *flow, FlowEntry *reverse_flow,
     DeleteUnLocked(false, flow, NULL);
 
     // Reverse flow unlinked with forward flow. Make it short-flow
+    // Dont update KSync yet for reverse flow. It will also will most likely
+    // get eviceted
     if (reverse_flow && reverse_flow->deleted() == false) {
         reverse_flow->MakeShortFlow(FlowEntry::SHORT_NO_REVERSE_FLOW);
-        UpdateKSync(reverse_flow, true);
     }
 }
 
