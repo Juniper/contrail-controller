@@ -72,7 +72,7 @@ class SecurityGroup(Resource):
                 id_str = "%(#)010d" % {'#': self._SG_ID_PADDING +
                                        self._sg_id_allocator}
                 self._zk_client.create_node(self._SG_ID_ALLOC_PATH + id_str)
-                sgs.append(self._create_resource('security-group',
+                sgs.append(self._create_resource('security_group',
                                                  fq_name, attr, uuid_batch,
                                                  fqname_batch))
                 self._sg_id_allocator += 1
@@ -104,7 +104,7 @@ class SecurityGroup(Resource):
                                            self._sg_id_allocator}
                     self._zk_client.create_node(self._SG_ID_ALLOC_PATH +
                                                 id_str)
-                    sgs.append(self._create_resource('security-group',
+                    sgs.append(self._create_resource('security_group',
                                                      fq_name, attr, uuid_batch,
                                                      fqname_batch))
                     self._sg_id_allocator += 1
@@ -124,7 +124,7 @@ class SecurityGroup(Resource):
                         'acl_rule': ingress,
                     },
                 }
-                self._create_resource('access-control-list', fq_name, attr,
+                self._create_resource('access_control_list', fq_name, attr,
                                       uuid_batch, fqname_batch)
                 fq_name = sg['fq_name'] + ['egress-access-control-list']
                 attr = {
@@ -134,7 +134,7 @@ class SecurityGroup(Resource):
                         'acl_rule': egress,
                     },
                 }
-                self._create_resource('access-control-list', fq_name, attr,
+                self._create_resource('access_control_list', fq_name, attr,
                                       uuid_batch, fqname_batch)
 
     def _policy_rule_to_acl_rule(self, sg_id, prules):

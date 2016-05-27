@@ -42,7 +42,7 @@ class VirtualMachineInterface(Resource):
                     }
                     vms.append(
                         self._create_resource(
-                            'virtual-machine',
+                            'virtual_machine',
                             fq_name,
                             attr,
                             uuid_batch,
@@ -132,7 +132,7 @@ class VirtualMachineInterface(Resource):
                     }
                     vmis.append(
                         self._create_resource(
-                            'virtual-machine-interface',
+                            'virtual_machine_interface',
                             fq_name,
                             attr,
                             uuid_batch,
@@ -176,7 +176,7 @@ class VirtualMachineInterface(Resource):
                 id_str = "%(#)010d" % {'#': int(ip)}
                 self._zk_client.create_node(subnet_path + id_str)
                 self._create_resource(
-                    'instance-ip',
+                    'instance_ip',
                     fq_name,
                     attr,
                     uuid_batch,
