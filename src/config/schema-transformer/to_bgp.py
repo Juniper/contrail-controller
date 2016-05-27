@@ -239,7 +239,7 @@ class SchemaTransformer(object):
         try:
             msg = "Notification Message: %s" % (pformat(oper_info))
             self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
-            obj_type = oper_info['type'].replace('-', '_')
+            obj_type = oper_info['type']
             obj_class = DBBaseST.get_obj_type_map().get(obj_type)
             if obj_class is None:
                 return
