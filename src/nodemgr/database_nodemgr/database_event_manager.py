@@ -31,13 +31,14 @@ from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames,\
     Module2NodeType, INSTANCE_ID_DEFAULT, SERVICE_CONTRAIL_DATABASE, \
-    RepairNeededKeyspaces
+    RepairNeededKeyspaces, ThreadPoolNames
 from subprocess import Popen, PIPE
 from StringIO import StringIO
 
 from database.sandesh.database.ttypes import \
     NodeStatusUVE, NodeStatus, DatabaseUsageStats,\
-    DatabaseUsageInfo, DatabaseUsage
+    DatabaseUsageInfo, DatabaseUsage, CassandraStatusUVE,\
+    CassandraStatusData,CassandraThreadPoolStats, CassandraCompactionTask
 from pysandesh.connection_info import ConnectionState
 from database.sandesh.database.process_info.ttypes import \
     ProcessStatus, ProcessState, ProcessInfo
@@ -249,11 +250,72 @@ class DatabaseEventManager(EventManager):
         else:
             self.fail_status_bits &= ~self.FAIL_STATUS_SERVER_PORT
         self.send_nodemgr_process_status()
+        # Send cassandra nodetool information
+        self.send_database_status()
         # Record cluster status and shut down cassandra if needed
         subprocess.Popen(["contrail-cassandra-status",
                           "--log-file", "/var/log/cassandra/status.log",
                           "--debug"])
     # end database_periodic
+
+    def send_database_status(self):
+        cassandra_status_uve = CassandraStatusUVE()
+        cassandra_status = CassandraStatusData()
+        cassandra_status.cassandra_compaction_task = CassandraCompactionTask()
+        # Get compactionstats
+        compaction_count = subprocess.Popen("nodetool compactionstats|grep 'pending tasks:'",
+            shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        op, err = compaction_count.communicate()
+        if compaction_count.returncode != 0:
+            msg = "Failed to get nodetool compactionstats " + err
+            self.msg_log(msg, level=SandeshLevel.SYS_ERR)
+            return
+        cassandra_status.cassandra_compaction_task.pending_compaction_tasks = \
+            self.get_pending_compaction_count(op)
+        # Get the tpstats value
+        tpstats_op = subprocess.Popen(["nodetool", "tpstats"], stdout=subprocess.PIPE,
+                                      stderr=subprocess.PIPE)
+        op, err = tpstats_op.communicate()
+        if tpstats_op.returncode != 0:
+            msg = "Failed to get nodetool tpstats " + err
+            self.msg_log(msg, level=SandeshLevel.SYS_ERR)
+            return
+        cassandra_status.thread_pool_stats = self.get_tp_status(op)
+        cassandra_status.name = socket.gethostname()
+        cassandra_status_uve = CassandraStatusUVE(data=cassandra_status)
+        msg = 'Sending UVE: ' + str(cassandra_status_uve)
+        self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level(
+                            SandeshLevel.SYS_DEBUG), msg)
+        cassandra_status_uve.send()
+    # end send_database_status
+
+    def get_pending_compaction_count(self, pending_count):
+        compaction_count_val = pending_count.strip()
+        # output is of the format pending tasks: x
+        pending_count_val = compaction_count_val.split(':')
+        return int(pending_count_val[1].strip())
+    # end get_pending_compaction_count
+
+    def get_tp_status(self,tp_stats_output):
+        tpstats_rows = tp_stats_output.split('\n')
+        thread_pool_stats_list = []
+        for row_index in range(1, len(tpstats_rows)):
+            cols = tpstats_rows[row_index].split()
+            # If tpstats len(cols) > 2, else we have reached the end
+            if len(cols) > 2:
+                if (cols[0] in ThreadPoolNames):
+                    # Create a CassandraThreadPoolStats for matching entries
+                    tpstat = CassandraThreadPoolStats()
+                    tpstat.pool_name = cols[0]
+                    tpstat.active = int(cols[1])
+                    tpstat.pending = int(cols[2])
+                    tpstat.all_time_blocked = int(cols[5])
+                    thread_pool_stats_list.append(tpstat)
+            else:
+                # Reached end of tpstats, breaking because dropstats follows
+                break
+        return thread_pool_stats_list
+    # end get_tp_status
 
     def cassandra_repair(self):
         logdir = self.cassandra_repair_logdir + "repair.log"
