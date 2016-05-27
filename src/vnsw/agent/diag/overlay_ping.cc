@@ -31,8 +31,8 @@ OverlayPing::OverlayPing(const OverlayPingReq *ping_req, DiagTable *diag_table):
 /*
  * Get the L2 Route entry to find the Tunnel NH
  */
-static BridgeRouteEntry * L2RouteGet(VxLanId* vxlan, string remotemac,
-                                     Agent *agent)
+BridgeRouteEntry * 
+OverlayPing::L2RouteGet(VxLanId* vxlan, string remotemac, Agent *agent)
 {
     string vrf_name;
     const VrfNH *vrf_nh = dynamic_cast<const VrfNH *>(vxlan->nexthop());
@@ -94,7 +94,8 @@ void OverlayPingReq::HandleRequest() const {
         goto error;
     }
 
-    BridgeRouteEntry *rt = L2RouteGet(vxlan, get_vm_remote_mac(), agent);
+    BridgeRouteEntry *rt = OverlayPing::L2RouteGet(vxlan, get_vm_remote_mac(), 
+                                                   agent);
     if (!rt) {
         err_str = "Invalid remote mac";
         goto error;
@@ -115,21 +116,6 @@ OverlayPing::~OverlayPing() {
 
 }
 
-void OverlayPing::FillOamPktHeader(OverlayOamPktData *pktdata) {
-   pktdata->msg_type_ = AgentDiagPktData::DIAG_REQUEST;
-   pktdata->reply_mode_ = OverlayOamPktData::REPLY_OVERLAY_SEGMENT;
-   pktdata->org_handle_ = htons(key_);
-   pktdata->seq_no_ = htonl(seq_no_);
-   boost::posix_time::ptime time =  microsec_clock::universal_time();
-   boost::posix_time::time_duration td = time.time_of_day();
-   pktdata->timesent_sec_ = td.total_seconds();
-   pktdata->timesent_misec_ = td.total_microseconds() - 
-       seconds(pktdata->timesent_sec_).total_microseconds();
-   pktdata->vxlanoamtlv_.type_ = AgentDiagPktData::DIAG_REQUEST;
-   uint32_t vxlan_id = diag_table_->agent()->vn_table()->Find(vn_uuid_)->GetVxLanId();
-   pktdata->vxlanoamtlv_.vxlan_id_ = htonl(vxlan_id);
-   pktdata->vxlanoamtlv_.sip_ = sip_;
-}
 /*
  * Creat Overlay VXlan packet.
  * Set the Route alert bit to indicate Overlay OAM packet
@@ -165,7 +151,7 @@ void OverlayPing::SendRequest() {
     pktdata = (OverlayOamPktData *)(buf + kOverlayUdpPingHdrLength);
     memset(pktdata, 0, sizeof(OverlayOamPktData));
 
-    FillOamPktHeader(pktdata);
+    FillOamPktHeader(pktdata, vxlan_id);
     DiagPktHandler *pkt_handler = new DiagPktHandler(diag_table_->agent(), pkt_info,
                                    *(diag_table_->agent()->event_manager())->io_service());
     // FIll outer header
@@ -177,8 +163,8 @@ void OverlayPing::SendRequest() {
     uint8_t  len;
     len = data_len_+2 * sizeof(udphdr)+sizeof(VxlanHdr)+
                             sizeof(struct ip) + sizeof(struct ether_header);
-    pkt_handler->UdpHdr(len, ntohl(tunnelsrc.to_ulong()), HashValUdpSourcePort(),
-                     ntohl(tunneldst.to_ulong()), VXLAN_UDP_DEST_PORT);
+    pkt_handler->UdpHdr(len, ntohl(tunnelsrc.to_ulong()), HashValUdpSourcePort(), 
+                        ntohl(tunneldst.to_ulong()), VXLAN_UDP_DEST_PORT);
 
     pkt_handler->IpHdr(len + sizeof(struct ip), ntohl(tunnelsrc.to_ulong()),
                        ntohl(tunneldst.to_ulong()), IPPROTO_UDP,
@@ -263,16 +249,5 @@ if (pkt_lost_count_ != GetMaxAttempts()) {
     resp->set_pkt_loss(pkt_loss_percent);
     resp->set_context(context_);
     resp->Response();
-}
-
-
-uint32_t OverlayPing::HashValUdpSourcePort() {
-    std::size_t seed = 0;
-    boost::hash_combine(seed, sip_.to_ulong());
-    boost::hash_combine(seed, dip_.to_ulong());
-    boost::hash_combine(seed, proto_);
-    boost::hash_combine(seed, sport_);
-    boost::hash_combine(seed, dport_);
-    return seed;
 }
 

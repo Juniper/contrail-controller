@@ -28,8 +28,9 @@ public:
     virtual void HandleReply(DiagPktHandler *handler);
     virtual void RequestTimedOut(uint32_t seq_no);
     virtual void SendSummary();
-    void FillOamPktHeader(OverlayOamPktData *pkt);
-    uint32_t HashValUdpSourcePort();
+    //void FillOamPktHeader(OverlayOamPktData *pkt);
+    static BridgeRouteEntry *L2RouteGet(VxLanId* vxlan, string remotemac, 
+                                        Agent *agent);
 private:
     uuid vn_uuid_;
     MacAddress remote_vm_mac_;

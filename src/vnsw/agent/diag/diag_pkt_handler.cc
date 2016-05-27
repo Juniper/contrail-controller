@@ -65,13 +65,24 @@ bool DiagPktHandler::IsOverlayPingPacket() {
 
 bool DiagPktHandler::HandleTraceRoutePacket() {
 
+    uint32_t rabit =0;
     if (pkt_info_->ip == NULL) {
         // we only send IPv4 trace route packets; ignore other packets
         return true;
     }
 
     if (pkt_info_->ip->ip_ttl == 0) {
-        SendTimeExceededPacket();
+        if (pkt_info_->dport == VXLAN_UDP_DEST_PORT) {
+            VxlanHdr *vxlan = (VxlanHdr *)(pkt_info_->transp.udp + 
+                                           + sizeof(udphdr));
+            rabit = ntohl(vxlan->reserved) & OverlayPing::kVxlanRABit;
+        }
+
+        if (rabit) {
+           ReplyOverlayPing(); 
+        } else {
+            SendTimeExceededPacket();
+        }
         return true;
     }
 
@@ -125,8 +136,14 @@ bool DiagPktHandler::HandleTraceRouteResponse() {
     uint8_t *data = (uint8_t *)(pkt_info_->transp.icmp) + 8;
     uint16_t len = pkt_info_->len - (data - pkt_info_->pkt);
     DiagEntry::DiagKey key = -1;
-    if (!ParseIcmpData(data, len, (uint16_t *)&key))
-        return true;
+    // if it is Overlay packet get the key from Oam data 
+    if (IsOverlayPingPacket()) {
+        OverlayOamPktData *oamdata = (OverlayOamPktData * )pkt_info_->data;
+        key = ntohs(oamdata->org_handle_); 
+    } else {
+        if (!ParseIcmpData(data, len, (uint16_t *)&key))
+            return true;
+    }
 
     DiagEntry *entry = diag_table_->Find(key);
     if (!entry) return true;
@@ -266,7 +283,6 @@ bool DiagPktHandler::Run() {
     if (!entry) {
         return true;
     }
-
     entry->HandleReply(this);
 
     if (entry->GetSeqNo() == entry->GetMaxAttempts()) {
@@ -383,7 +399,6 @@ void DiagPktHandler::ReplyOverlayPing() {
     oamdata->timerecv_sec_ = td.total_seconds();
     oamdata->timerecv_misec_ = td.total_microseconds() - 
         seconds(oamdata->timerecv_sec_).total_microseconds();;
-    pkt_info_->set_len(GetLength());
     PhysicalInterfaceKey key1(agent->fabric_interface_name());
     Interface *intf = static_cast<Interface *>
                 (agent->interface_table()->Find(&key1, true));

@@ -45,7 +45,8 @@ public:
     DiagTable* diag_table() const {
         return diag_table_;
     }
-
+    uint32_t HashValUdpSourcePort();
+    void FillOamPktHeader(OverlayOamPktData *pktdata, uint32_t vxlan_id);
 protected:
     Ip4Address sip_;
     Ip4Address dip_;
