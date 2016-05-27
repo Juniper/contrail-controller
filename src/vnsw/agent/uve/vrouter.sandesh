@@ -261,6 +261,9 @@ struct VrouterStatsAgent {  // Agent stats
     22: optional u64 aged_flows; 
     23: optional u64 aged_flows_dp; 
     24: optional u64 active_flows_dp; 
+    47: optional u64 flow_export_disable_drops; /* Number of flow samples dropped because of disable of flow exports */ 
+    48: optional u64 flow_export_sampling_drops; /* Number of flow samples dropped after subjecting them to sampling algorithm */
+    49: optional u64 flow_export_drops; /* Number of flows which are never exported */
 
         //Dataplane stats
     25: optional u64 in_kernel_ipc_msgs; 
