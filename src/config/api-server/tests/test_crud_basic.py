@@ -970,7 +970,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             self.assertTrue(False)
 
         def exception_on_vn_read(obj_type, *args, **kwargs):
-            if obj_type.replace('-', '_') == 'virtual_network':
+            if obj_type == 'virtual_network':
                 raise Exception("fake vn read exception")
             orig_read(obj_type, *args, **kwargs)
 
@@ -1699,7 +1699,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         iip_obj = self._vnc_lib.instance_ip_read(id=iip_obj.uuid)
 
         def err_on_delete(orig_method, *args, **kwargs):
-            if args[0].replace('-', '_') == 'instance_ip':
+            if args[0] == 'instance_ip':
                 raise Exception("Faking db delete for instance ip")
             return orig_method(*args, **kwargs)
         with test_common.patch(
@@ -1735,7 +1735,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         fip_obj = self._vnc_lib.floating_ip_read(id=fip_obj.uuid)
 
         def err_on_delete(orig_method, *args, **kwargs):
-            if args[0].replace('-', '_') == 'floating_ip':
+            if args[0] == 'floating_ip':
                 raise Exception("Faking db delete for floating ip")
             return orig_method(*args, **kwargs)
         with test_common.patch(
@@ -1937,7 +1937,7 @@ class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
         api_server = test_common.vnc_cfg_api_server.server
         self.blocked = True
         def slow_response_on_vn_read(obj_type, *args, **kwargs):
-            if obj_type.replace('-', '_') == 'virtual_network':
+            if obj_type == 'virtual_network':
                 while self.blocked:
                     gevent.sleep(1)
             return orig_vn_read(obj_type, *args, **kwargs)

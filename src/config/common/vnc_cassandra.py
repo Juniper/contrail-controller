@@ -258,12 +258,12 @@ class VncCassandraClient(object):
                    'children:%s:%s' % (child_type, child_uuid)])
     # end _delete_child
 
-    def _create_ref(self, bch, obj_type, obj_uuid, ref_type,
-                    ref_uuid, ref_data):
+    def _create_ref(self, bch, obj_type, obj_uuid, ref_obj_type, ref_uuid,
+                    ref_data):
         bch.insert(
             obj_uuid, {'ref:%s:%s' %
-                  (ref_type, ref_uuid): json.dumps(ref_data)})
-        if obj_type == ref_type:
+                  (ref_obj_type, ref_uuid): json.dumps(ref_data)})
+        if obj_type == ref_obj_type:
             bch.insert(
                 ref_uuid, {'ref:%s:%s' %
                       (obj_type, obj_uuid): json.dumps(ref_data)})
@@ -273,17 +273,17 @@ class VncCassandraClient(object):
                       (obj_type, obj_uuid): json.dumps(ref_data)})
     # end _create_ref
 
-    def _update_ref(self, bch, obj_type, obj_uuid, ref_type,
-                    old_ref_uuid, new_ref_infos):
-        if ref_type not in new_ref_infos:
+    def _update_ref(self, bch, obj_type, obj_uuid, ref_obj_type, old_ref_uuid,
+                    new_ref_infos):
+        if ref_obj_type not in new_ref_infos:
             # update body didn't touch this type, nop
             return
 
-        if old_ref_uuid not in new_ref_infos[ref_type]:
+        if old_ref_uuid not in new_ref_infos[ref_obj_type]:
             # remove old ref
             bch.remove(obj_uuid, columns=[
-                       'ref:%s:%s' % (ref_type, old_ref_uuid)])
-            if obj_type == ref_type:
+                       'ref:%s:%s' % (ref_obj_type, old_ref_uuid)])
+            if obj_type == ref_obj_type:
                 bch.remove(old_ref_uuid, columns=[
                            'ref:%s:%s' % (obj_type, obj_uuid)])
             else:
@@ -291,12 +291,12 @@ class VncCassandraClient(object):
                            'backref:%s:%s' % (obj_type, obj_uuid)])
         else:
             # retain old ref with new ref attr
-            new_ref_data = new_ref_infos[ref_type][old_ref_uuid]
+            new_ref_data = new_ref_infos[ref_obj_type][old_ref_uuid]
             bch.insert(
                 obj_uuid,
                 {'ref:%s:%s' %
-                 (ref_type, old_ref_uuid): json.dumps(new_ref_data)})
-            if obj_type == ref_type:
+                 (ref_obj_type, old_ref_uuid): json.dumps(new_ref_data)})
+            if obj_type == ref_obj_type:
                 bch.insert(
                     old_ref_uuid,
                     {'ref:%s:%s' %
@@ -307,16 +307,16 @@ class VncCassandraClient(object):
                     {'backref:%s:%s' %
                      (obj_type, obj_uuid): json.dumps(new_ref_data)})
             # uuid has been accounted for, remove so only new ones remain
-            del new_ref_infos[ref_type][old_ref_uuid]
+            del new_ref_infos[ref_obj_type][old_ref_uuid]
     # end _update_ref
 
-    def _delete_ref(self, bch, obj_type, obj_uuid, ref_type, ref_uuid):
+    def _delete_ref(self, bch, obj_type, obj_uuid, ref_obj_type, ref_uuid):
         send = False
         if bch is None:
             send = True
             bch = self._cassandra_db._obj_uuid_cf.batch()
-        bch.remove(obj_uuid, columns=['ref:%s:%s' % (ref_type, ref_uuid)])
-        if obj_type == ref_type:
+        bch.remove(obj_uuid, columns=['ref:%s:%s' % (ref_obj_type, ref_uuid)])
+        if obj_type == ref_obj_type:
             bch.remove(ref_uuid, columns=[
                        'ref:%s:%s' % (obj_type, obj_uuid)])
         else:
@@ -481,7 +481,10 @@ class VncCassandraClient(object):
     # end _cassandra_init_conn_pools
 
     def _get_resource_class(self, obj_type):
-        cls_name = '%s' %(utils.CamelCase(obj_type.replace('-', '_')))
+        if hasattr(self, '_db_client_mgr'):
+            return self._db_client_mgr.get_resource_class(obj_type)
+
+        cls_name = '%s' % (utils.CamelCase(obj_type))
         return getattr(vnc_api, cls_name)
     # end _get_resource_class
 
@@ -489,9 +492,8 @@ class VncCassandraClient(object):
         return getattr(vnc_api, xsd_type)
     # end _get_xsd_class
 
-    def object_create(self, res_type, obj_id, obj_dict,
+    def object_create(self, obj_type, obj_id, obj_dict,
                       uuid_batch=None, fqname_batch=None):
-        obj_type = res_type.replace('-', '_')
         obj_class = self._get_resource_class(obj_type)
 
         if uuid_batch:
@@ -509,11 +511,14 @@ class VncCassandraClient(object):
             parent_type = obj_dict['parent_type']
             if parent_type not in obj_class.parent_types:
                 return False, (400, 'Invalid parent type: %s' % parent_type)
-            parent_method_type = parent_type.replace('-', '_')
+            parent_object_type = \
+                self._get_resource_class(parent_type).object_type
             parent_fq_name = obj_dict['fq_name'][:-1]
             obj_cols['parent_type'] = json.dumps(parent_type)
-            parent_uuid = self.fq_name_to_uuid(parent_method_type, parent_fq_name)
-            self._create_child(bch, parent_method_type, parent_uuid, obj_type, obj_id)
+            parent_uuid = self.fq_name_to_uuid(parent_object_type,
+                                               parent_fq_name)
+            self._create_child(bch, parent_object_type, parent_uuid, obj_type,
+                               obj_id)
 
         # Properties
         for prop_field in obj_class.prop_fields:
@@ -559,14 +564,16 @@ class VncCassandraClient(object):
         #      ref_link_type = 'VnSubnetsType'
         #      is_weakref = False
         for ref_field in obj_class.ref_fields:
-            ref_type, ref_link_type, _ = obj_class.ref_field_types[ref_field]
+            ref_res_type, ref_link_type, _ =\
+                obj_class.ref_field_types[ref_field]
+            ref_obj_type = self._get_resource_class(ref_res_type).object_type
             refs = obj_dict.get(ref_field, [])
             for ref in refs:
-                ref_uuid = self.fq_name_to_uuid(ref_type, ref['to'])
+                ref_uuid = self.fq_name_to_uuid(ref_obj_type, ref['to'])
                 ref_attr = ref.get('attr')
                 ref_data = {'attr': ref_attr, 'is_weakref': False}
-                self._create_ref(bch, obj_type, obj_id,
-                    ref_type.replace('-', '_'), ref_uuid, ref_data)
+                self._create_ref(bch, obj_type, obj_id, ref_obj_type, ref_uuid,
+                                 ref_data)
 
         bch.insert(obj_id, obj_cols)
         if not uuid_batch:
@@ -584,11 +591,10 @@ class VncCassandraClient(object):
         return (True, '')
     # end object_create
 
-    def object_read(self, res_type, obj_uuids, field_names=None):
+    def object_read(self, obj_type, obj_uuids, field_names=None):
         if not obj_uuids:
             return (True, [])
         # if field_names=None, all fields will be read/returned
-        obj_type = res_type.replace('-', '_')
         obj_class = self._get_resource_class(obj_type)
 
         # optimize for common case of reading non-backref, non-children fields
@@ -637,11 +643,11 @@ class VncCassandraClient(object):
                 if self._re_match_parent.match(col_name):
                     # non config-root child
                     (_, _, parent_uuid) = col_name.split(':')
-                    parent_type = obj_cols['parent_type'][0]
-                    result['parent_type'] = parent_type
+                    parent_res_type = obj_cols['parent_type'][0]
+                    result['parent_type'] = parent_res_type
                     try:
                         result['parent_uuid'] = parent_uuid
-                        result['parent_href'] = self._generate_url(parent_type,
+                        result['parent_href'] = self._generate_url(parent_res_type,
                                                                    parent_uuid)
                     except NoIdError:
                         err_msg = 'Unknown uuid for parent ' + result['fq_name'][-2]
@@ -744,11 +750,10 @@ class VncCassandraClient(object):
         return (True, results)
     # end object_read
 
-    def object_count_children(self, res_type, obj_uuid, child_type):
+    def object_count_children(self, obj_type, obj_uuid, child_type):
         if child_type is None:
             return (False, '')
 
-        obj_type = res_type.replace('-', '_')
         obj_class = self._get_resource_class(obj_type)
         obj_uuid_cf = self._obj_uuid_cf
         if child_type not in obj_class.children_fields:
@@ -772,9 +777,8 @@ class VncCassandraClient(object):
         self._update_prop(bch, obj_uuid, 'id_perms', {'id_perms': id_perms})
     # end update_last_modified
 
-    def object_update(self, res_type, obj_uuid, new_obj_dict,
+    def object_update(self, obj_type, obj_uuid, new_obj_dict,
                       uuid_batch=None):
-        obj_type = res_type.replace('-', '_')
         obj_class = self._get_resource_class(obj_type)
          # Grab ref-uuids and properties in new version
         new_ref_infos = {}
@@ -791,17 +795,19 @@ class VncCassandraClient(object):
         #      ref_link_type = 'VnSubnetsType'
         #      is_weakref = False
         for ref_field in obj_class.ref_fields:
-            ref_type, ref_link_type, is_weakref = \
+            ref_res_type, ref_link_type, is_weakref = \
                 obj_class.ref_field_types[ref_field]
-            ref_obj_type = ref_type.replace('-', '_')
+            ref_obj_type = self._get_resource_class(ref_res_type).object_type
 
             if ref_field in new_obj_dict:
                 new_refs = new_obj_dict[ref_field]
                 new_ref_infos[ref_obj_type] = {}
                 for new_ref in new_refs or []:
-                    new_ref_uuid = self.fq_name_to_uuid(ref_type, new_ref['to'])
+                    new_ref_uuid = self.fq_name_to_uuid(ref_obj_type,
+                                                        new_ref['to'])
                     new_ref_attr = new_ref.get('attr')
-                    new_ref_data = {'attr': new_ref_attr, 'is_weakref': is_weakref}
+                    new_ref_data = {'attr': new_ref_attr,
+                                    'is_weakref': is_weakref}
                     new_ref_infos[ref_obj_type][new_ref_uuid] = new_ref_data
 
         # Gather column values for obj and updates to backrefs
@@ -893,9 +899,8 @@ class VncCassandraClient(object):
         return (True, '')
     # end object_update
 
-    def object_list(self, res_type, parent_uuids=None, back_ref_uuids=None,
-                    obj_uuids=None, count=False, filters=None):
-        obj_type = res_type.replace('-', '_')
+    def object_list(self, obj_type, parent_uuids=None, back_ref_uuids=None,
+                     obj_uuids=None, count=False, filters=None):
         obj_class = self._get_resource_class(obj_type)
 
         children_fq_names_uuids = []
@@ -1045,8 +1050,7 @@ class VncCassandraClient(object):
 
     # end object_list
 
-    def object_delete(self, res_type, obj_uuid):
-        obj_type = res_type.replace('-', '_')
+    def object_delete(self, obj_type, obj_uuid):
         obj_class = self._get_resource_class(obj_type)
         obj_uuid_cf = self._obj_uuid_cf
         fq_name = self.get_one_col(self._OBJ_UUID_CF_NAME,
@@ -1169,11 +1173,10 @@ class VncCassandraClient(object):
 
 
     def fq_name_to_uuid(self, obj_type, fq_name):
-        method_name = obj_type.replace('-', '_')
         fq_name_str = utils.encode_string(':'.join(fq_name))
 
         col_infos = self.get(self._OBJ_FQ_NAME_CF_NAME,
-                             method_name,
+                             obj_type,
                              start=fq_name_str + ':',
                              finish=fq_name_str + ';')
         if not col_infos:
@@ -1186,11 +1189,10 @@ class VncCassandraClient(object):
     # return all objects shared with a (share_type, share_id)
     def get_shared(self, obj_type, share_id = '', share_type = 'global'):
         result = []
-        method_name = obj_type.replace('-', '_')
         column = '%s:%s' % (share_type, share_id)
 
         col_infos = self.get(self._OBJ_SHARED_CF_NAME,
-                             method_name,
+                             obj_type,
                              start=column + ':',
                              finish=column + ';')
 
@@ -1208,32 +1210,32 @@ class VncCassandraClient(object):
     # rwx indicate type of access (sharing) allowed
     def set_shared(self, obj_type, obj_id, share_id = '', share_type = 'global', rwx = 7):
         col_name = '%s:%s:%s' % (share_type, share_id, obj_id)
-        method_name = obj_type.replace('-', '_')
-        self._obj_shared_cf.insert(method_name, {col_name : json.dumps(rwx)})
+        self._obj_shared_cf.insert(obj_type, {col_name : json.dumps(rwx)})
 
     # delete share of 'obj_id' object with <share_type:share_id>
     def del_shared(self, obj_type, obj_id, share_id = '', share_type = 'global'):
         col_name = '%s:%s:%s' % (share_type, share_id, obj_id)
-        method_name = obj_type.replace('-', '_')
-        self._obj_shared_cf.remove(method_name, columns=[col_name])
+        self._obj_shared_cf.remove(obj_type, columns=[col_name])
 
-    def _read_child(self, result, obj_uuid, child_type,
-                    child_uuid, child_tstamp):
-        if '%ss' % (child_type) not in result:
-            result['%ss' % (child_type)] = []
+    def _read_child(self, result, obj_uuid, child_obj_type, child_uuid,
+                    child_tstamp):
+        if '%ss' % (child_obj_type) not in result:
+            result['%ss' % (child_obj_type)] = []
+        child_res_type = self._get_resource_class(child_obj_type).resource_type
 
         child_info = {}
         child_info['to'] = self.uuid_to_fq_name(child_uuid)
-        child_info['href'] = self._generate_url(child_type, child_uuid)
+        child_info['href'] = self._generate_url(child_res_type, child_uuid)
         child_info['uuid'] = child_uuid
         child_info['tstamp'] = child_tstamp
 
-        result['%ss' % (child_type)].append(child_info)
+        result['%ss' % (child_obj_type)].append(child_info)
     # end _read_child
 
-    def _read_ref(self, result, obj_uuid, ref_type, ref_uuid, ref_data_json):
-        if '%s_refs' % (ref_type) not in result:
-            result['%s_refs' % (ref_type)] = []
+    def _read_ref(self, result, obj_uuid, ref_obj_type, ref_uuid, ref_data_json):
+        if '%s_refs' % (ref_obj_type) not in result:
+            result['%s_refs' % (ref_obj_type)] = []
+        ref_res_type = self._get_resource_class(ref_obj_type).resource_type
 
         ref_data = ref_data_json
         ref_info = {}
@@ -1249,16 +1251,17 @@ class VncCassandraClient(object):
                 # TODO remove backward compat old format had attr directly
                 ref_info['attr'] = ref_data
 
-        ref_info['href'] = self._generate_url(ref_type, ref_uuid)
+        ref_info['href'] = self._generate_url(ref_res_type, ref_uuid)
         ref_info['uuid'] = ref_uuid
 
-        result['%s_refs' % (ref_type)].append(ref_info)
+        result['%s_refs' % (ref_obj_type)].append(ref_info)
     # end _read_ref
 
-    def _read_back_ref(self, result, obj_uuid, back_ref_type,
-                       back_ref_uuid, back_ref_data_json):
-        if '%s_back_refs' % (back_ref_type) not in result:
-            result['%s_back_refs' % (back_ref_type)] = []
+    def _read_back_ref(self, result, obj_uuid, back_ref_obj_type, back_ref_uuid,
+                       back_ref_data_json):
+        if '%s_back_refs' % (back_ref_obj_type) not in result:
+            result['%s_back_refs' % (back_ref_obj_type)] = []
+        back_ref_res_type = self._get_resource_class(back_ref_obj_type).resource_type
 
         back_ref_info = {}
         back_ref_info['to'] = self.uuid_to_fq_name(back_ref_uuid)
@@ -1270,8 +1273,8 @@ class VncCassandraClient(object):
                 # TODO remove backward compat old format had attr directly
                 back_ref_info['attr'] = back_ref_data
 
-        back_ref_info['href'] = self._generate_url(back_ref_type, back_ref_uuid)
+        back_ref_info['href'] = self._generate_url(back_ref_res_type, back_ref_uuid)
         back_ref_info['uuid'] = back_ref_uuid
 
-        result['%s_back_refs' % (back_ref_type)].append(back_ref_info)
+        result['%s_back_refs' % (back_ref_obj_type)].append(back_ref_info)
     # end _read_back_ref
