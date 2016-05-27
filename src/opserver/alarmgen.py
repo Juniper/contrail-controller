@@ -284,7 +284,6 @@ class AlarmStateMachine:
         This function runs the state machine code for setting an alarm
         If a timer becomes Active, caller should send out updated AlarmUVE
         """
-        update_alarms = False
         old_state = self.uas.state
         curr_time = int(time.time())
         if self.uas.state == UVEAlarmState.Soak_Idle:
@@ -303,7 +302,6 @@ class AlarmStateMachine:
                                 (self.uac.FreqCheck_Times + 1)
             if not self.uac.ActiveTimer or self.is_alarm_frequency_exceeded():
                 self.uas.state = UVEAlarmState.Active
-                update_alarms = True
             else:
                 # put it on the timer
                 self.uas.state = UVEAlarmState.Soak_Active
@@ -313,10 +311,7 @@ class AlarmStateMachine:
                     AlarmStateMachine.tab_alarms_timer[timeout_value] = set()
                 AlarmStateMachine.tab_alarms_timer[timeout_value].add\
                         ((self.tab, self.uv, self.nm))
-        elif self.uas.state == UVEAlarmState.Active:
-            update_alarms = True
         self.send_state_change_trace(old_state, self.uas.state)
-        return update_alarms
     #end set_alarms
 
     def send_state_change_trace(self, os, ns):
@@ -341,7 +336,6 @@ class AlarmStateMachine:
         cur_time = int(time.time())
         old_state = self.uas.state
         delete_alarm = False
-        update_alarm = False
         if self.uas.state == UVEAlarmState.Soak_Active:
             # stop the active timer and start idle timer
             self.uas.state = UVEAlarmState.Idle
@@ -360,7 +354,6 @@ class AlarmStateMachine:
             if not self.uac.IdleTimer:
                 # Move to Idle state, caller should delete it
                 self.uas.state = UVEAlarmState.Idle
-                update_alarm = True
                 if self.uac.FreqCheck_Seconds:
                     self.deleteTimeout = cur_time + self.uac.FreqCheck_Seconds
                     to_value = self.deleteTimeout
@@ -381,7 +374,7 @@ class AlarmStateMachine:
                 AlarmStateMachine.tab_alarms_timer[to_value].add\
                         ((self.tab, self.uv, self.nm))
         self.send_state_change_trace(old_state, self.uas.state)
-        return delete_alarm, update_alarm
+        return delete_alarm
 
     def is_alarm_frequency_exceeded(self):
         if not self.uac.FreqExceededCheck or \
@@ -1207,17 +1200,14 @@ class Controller(object):
                 if tab in self.tab_alarms:
                     if uv in self.tab_alarms[tab]:
                         del_types = []
-                        update_uv_alarm = False
                         for nm, asm in self.tab_alarms[tab][uv].iteritems():
-                            delete_alarm, update_alarm = \
+                            delete_alarm = \
                                 self.tab_alarms[tab][uv][nm].clear_alarms()
                             if delete_alarm:
                                 del_types.append(nm)
-                            update_uv_alarm |= update_alarm
                         for nm in del_types:
                             del self.tab_alarms[tab][uv][nm]
-                        if update_uv_alarm == True:
-                            self.send_alarm_update(tab, uv)
+                        self.send_alarm_update(tab, uv)
                 # Both alarm and non-alarm contents are gone.
                 # We do not need to do alarm evaluation
                 continue
@@ -1228,17 +1218,14 @@ class Controller(object):
                     if uv in self.tab_alarms[tab]:
                         self._logger.info("UVE %s has no non-alarm" % (uv))
                         del_types = []
-                        update_uv_alarm = False
                         for nm, asm in self.tab_alarms[tab][uv].iteritems():
-                            delete_alarm, update_alarm = \
+                            delete_alarm = \
                                 self.tab_alarms[tab][uv][nm].clear_alarms()
                             if delete_alarm:
                                 del_types.append(nm)
-                            update_uv_alarm |= update_alarm
                         for nm in del_types:
                             del self.tab_alarms[tab][uv][nm]
-                        if update_uv_alarm == True:
-                            self.send_alarm_update(tab, uv)
+                        self.send_alarm_update(tab, uv)
                 continue
  
             # Handing Alarms
@@ -1272,7 +1259,6 @@ class Controller(object):
                         (tab, str(del_types))) 
                 self._logger.debug("Alarm[%s] Updated %s" % \
                         (tab, str(new_uve_alarms))) 
-                update_uv_alarm = False
                 # These alarm types are new or updated
                 for nm, uai2 in new_uve_alarms.iteritems():
                     uai = copy.deepcopy(uai2)
@@ -1294,7 +1280,7 @@ class Controller(object):
                     asm = self.tab_alarms[tab][uv][nm]
                     asm.set_uai(uai)
                     # go through alarm set statemachine code
-                    update_uv_alarm |= asm.set_alarms()
+                    asm.set_alarms()
                 # These alarm types are now gone
                 for dnm in del_types:
                     if dnm in self.tab_alarms[tab][uv]:
@@ -1302,9 +1288,7 @@ class Controller(object):
                             self.tab_alarms[tab][uv][dnm].clear_alarms()
                         if delete_alarm:
                             del self.tab_alarms[tab][uv][dnm]
-                        update_uv_alarm |= update_alarm
-                if update_uv_alarm:
-                    self.send_alarm_update(tab, uv)
+                self.send_alarm_update(tab, uv)
         if success:
             return output
         else:
