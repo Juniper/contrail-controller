@@ -162,6 +162,10 @@ static void BuildLinkToMetadata() {
     AddLinkToMetadata("virtual-machine-interface", "bgp-as-a-service");
     AddLinkToMetadata("bgp-router", "bgp-as-a-service");
     AddLinkToMetadata("bgp-router", "routing-instance");
+    AddLinkToMetadata("virtual-network", "qos-config");
+    AddLinkToMetadata("virtual-machine-interface", "qos-config");
+    AddLinkToMetadata("qos-config", "global-qos-config");
+    AddLinkToMetadata("forwarding-class", "qos-queue");
 }
 
 string GetMetadata(const char *node1, const char *node2,
@@ -808,6 +812,45 @@ bool VmPortFloatingIpCount(int id, unsigned int count) {
         return false;
 
     return true;
+}
+
+bool QosConfigFind(uint32_t id) {
+    AgentQosConfigKey key(MakeUuid(id));
+
+    if (Agent::GetInstance()->qos_config_table()->FindActiveEntry(&key) == NULL) {
+        return false;
+    }
+    return true;
+}
+
+const AgentQosConfig*
+QosConfigGetByIndex(uint32_t id) {
+    return Agent::GetInstance()->qos_config_table()->FindByIndex(id);
+}
+
+const AgentQosConfig*
+QosConfigGet(uint32_t id) {
+    AgentQosConfigKey key(MakeUuid(id));
+
+    return static_cast<AgentQosConfig *>(Agent::GetInstance()->
+            qos_config_table()->FindActiveEntry(&key));
+}
+
+bool ForwardingClassFind(uint32_t id) {
+    ForwardingClassKey key(MakeUuid(id));
+    if (Agent::GetInstance()->forwarding_class_table()->
+            FindActiveEntry(&key) == NULL) {
+        return false;
+    }
+    return true;
+}
+
+ForwardingClass*
+ForwardingClassGet(uint32_t id) {
+    ForwardingClassKey key(MakeUuid(id));
+
+    return static_cast<ForwardingClass *>(Agent::GetInstance()->
+            forwarding_class_table()->FindActiveEntry(&key));
 }
 
 bool VmPortGetStats(PortInfo *input, int id, uint32_t & bytes, uint32_t & pkts) {
@@ -1921,7 +1964,7 @@ void AddAceEntry(string *str, const char *src_vn, const char *dst_vn,
                  const char *proto, uint16_t sport_start, uint16_t sport_end,
                  uint16_t dport_start, uint16_t dport_end,
                  const char *action, const std::string &vrf_assign,
-                 const std::string &mirror_ip) {
+                 const std::string &mirror_ip, const std::string &qos_action) {
     char buff[2048];
 
     std::ostringstream mirror;
@@ -1960,10 +2003,11 @@ void AddAceEntry(string *str, const char *src_vn, const char *dst_vn,
             "                        <simple-action> %s </simple-action>\n"
             "                        %s\n"
             "                        <assign-routing-instance> %s </assign-routing-instance>\n"
+            "                        <qos-action> %s </qos-action>\n"
             "                    </action-list>\n"
             "                </acl-rule>\n",
         proto, src_vn, sport_start, sport_end, dst_vn, dport_start, dport_end,
-        action, mirror.str().c_str(), vrf_assign.c_str());
+        action, mirror.str().c_str(), vrf_assign.c_str(), qos_action.c_str());
     string s(buff);
     *str += s;
     return;
@@ -1972,13 +2016,14 @@ void AddAceEntry(string *str, const char *src_vn, const char *dst_vn,
 static string AddAclXmlString(const char *node_name, const char *name, int id,
                               const char *src_vn, const char *dest_vn,
                               const char *action, const std::string &vrf_assign,
-                              const std::string &mirror_ip) {
+                              const std::string &mirror_ip,
+                              const std::string &qos_action) {
     string str;
     StartAcl(&str, name, id);
     AddAceEntry(&str, src_vn, dest_vn, "any", 10, 20, 10, 20, action,
-                vrf_assign, mirror_ip);
+                vrf_assign, mirror_ip, qos_action);
     AddAceEntry(&str, dest_vn, src_vn, "any", 10, 20, 10, 20, action,
-                vrf_assign, mirror_ip);
+                vrf_assign, mirror_ip, qos_action);
     EndAcl(&str);
     return str;
 }
@@ -1994,7 +2039,7 @@ void DelAcl(const char *name) {
 void AddAcl(const char *name, int id, const char *src_vn, const char *dest_vn,
             const char *action) {
     std::string s = AddAclXmlString("access-control-list", name, id,
-                                    src_vn, dest_vn, action, "", "");
+                                    src_vn, dest_vn, action, "", "", "");
     ApplyXmlString(s.c_str());
 }
 
@@ -2002,7 +2047,15 @@ void AddVrfAssignNetworkAcl(const char *name, int id, const char *src_vn,
                             const char *dest_vn, const char *action,
                             std::string vrf_name) {
     std::string s = AddAclXmlString("access-control-list", name, id,
-                                    src_vn, dest_vn, action, vrf_name, "");
+                                    src_vn, dest_vn, action, vrf_name, "", "");
+    ApplyXmlString(s.c_str());
+}
+
+void AddQosAcl(const char *name, int id, const char *src_vn,
+               const char *dest_vn, const char *action,
+               std::string qos_config) {
+    std::string s = AddAclXmlString("access-control-list", name, id,
+                                     src_vn, dest_vn, action, "", "", qos_config);
     ApplyXmlString(s.c_str());
 }
 
@@ -2010,7 +2063,7 @@ void AddMirrorAcl(const char *name, int id, const char *src_vn,
                   const char *dest_vn, const char *action,
                   std::string mirror_ip) {
     std::string s = AddAclXmlString("access-control-list", name, id,
-            src_vn, dest_vn, action, "", mirror_ip);
+            src_vn, dest_vn, action, "", mirror_ip, "");
     ApplyXmlString(s.c_str());
 }
 
@@ -4034,4 +4087,175 @@ void SendBgpServiceConfig(const std::string &ip,
     AddLink("virtual-machine-interface", vmi_name.c_str(),
             "bgp-as-a-service", bgp_router_name.str().c_str());
     client->WaitForIdle();
+}
+
+void AddQosConfig(struct TestQosConfigData &data) {
+    std::stringstream str;
+
+    str << "<qos-config-type>" << data.type_ << "</qos-config-type>";
+
+    if (data.dscp_.size()) {
+        str << "<dscp-entries>";
+    }
+
+    std::map<uint32_t, uint32_t>::const_iterator it = data.dscp_.begin();
+    for (; it != data.dscp_.end(); it++) {
+        str << "<qos-id-forwarding-class-pair>";
+        str << "<key>" << it->first << "</key>";
+        str << "<forwarding-class-id>"<< it->second << "</forwarding-class-id>";
+        str << "</qos-id-forwarding-class-pair>";
+    }
+    if (data.dscp_.size()) {
+        str << "</dscp-entries>";
+    }
+
+    if (data.vlan_priority_.size()) {
+        str << "<vlan-priority-entries>";
+    }
+    it = data.vlan_priority_.begin();
+    for (; it != data.vlan_priority_.end(); it++) {
+        str << "<qos-id-forwarding-class-pair>";
+        str << "<key>" << it->first << "</key>";
+        str << "<forwarding-class-id>"<< it->second << "</forwarding-class-id>";
+        str << "</qos-id-forwarding-class-pair>";
+    }
+    if (data.vlan_priority_.size()) {
+        str << "</vlan-priority-entries>";
+    }
+
+    if (data.mpls_exp_.size()) {
+        str << "<mpls-exp-entries>";
+    }
+    it = data.mpls_exp_.begin();
+    for (; it != data.mpls_exp_.end(); it++) {
+        str << "<qos-id-forwarding-class-pair>";
+        str << "<key>" << it->first << "</key>";
+        str << "<forwarding-class-id>"<< it->second << "</forwarding-class-id>";
+        str << "</qos-id-forwarding-class-pair>";
+    }
+    if (data.mpls_exp_.size()) {
+        str << "</mpls-exp-entries>";
+    }
+
+    char buf[10000];
+    int len = 0;
+    memset(buf, 0, 10000);
+    AddXmlHdr(buf, len);
+    AddNodeString(buf, len, "qos-config",
+            data.name_.c_str(), data.id_, str.str().c_str());
+    AddXmlTail(buf, len);
+    ApplyXmlString(buf);
+}
+
+void VerifyQosConfig(Agent *agent, struct TestQosConfigData *data) {
+    AgentQosConfigKey key(MakeUuid(data->id_));
+    AgentQosConfig *qc = static_cast<AgentQosConfig *>(
+            agent->qos_config_table()->FindActiveEntry(&key));
+
+    EXPECT_TRUE(qc->trusted() == data->trusted_);
+
+    if (data->type_ == "vhost") {
+        EXPECT_TRUE(qc->type() == AgentQosConfig::VHOST);
+    } else if (data->type_ == "fabric") {
+        EXPECT_TRUE(qc->type() == AgentQosConfig::FABRIC);
+    } else {
+        EXPECT_TRUE(qc->type() == AgentQosConfig::DEFAULT);
+    }
+
+    std::map<uint32_t, uint32_t>::const_iterator it = data->dscp_.begin();
+    AgentQosConfig::QosIdForwardingClassMap::const_iterator qc_it =
+        qc->dscp_map().begin();
+    while(it != data->dscp_.end() && qc_it != qc->dscp_map().end()) {
+        EXPECT_TRUE(it->first == qc_it->first);
+        EXPECT_TRUE(it->second == qc_it->second);
+        it++;
+        qc_it++;
+    }
+    EXPECT_TRUE(it == data->dscp_.end());
+    EXPECT_TRUE(qc_it == qc->dscp_map().end());
+
+    it = data->vlan_priority_.begin();
+    qc_it = qc->vlan_priority_map().begin();
+    while(it != data->vlan_priority_.end() &&
+            qc_it != qc->vlan_priority_map().end()) {
+        EXPECT_TRUE(it->first == qc_it->first);
+        EXPECT_TRUE(it->second == qc_it->second);
+        it++;
+        qc_it++;
+    }
+    EXPECT_TRUE(it == data->vlan_priority_.end());
+    EXPECT_TRUE(qc_it == qc->vlan_priority_map().end());
+
+    it = data->mpls_exp_.begin();
+    qc_it = qc->mpls_exp_map().begin();
+    while(it != data->mpls_exp_.end() &&
+            qc_it != qc->mpls_exp_map().end()) {
+        EXPECT_TRUE(it->first == qc_it->first);
+        EXPECT_TRUE(it->second == qc_it->second);
+        it++;
+        qc_it++;
+    }
+    EXPECT_TRUE(it == data->mpls_exp_.end());
+    EXPECT_TRUE(qc_it == qc->mpls_exp_map().end());
+}
+
+void AddGlobalConfig(struct TestForwardingClassData *data,
+                     uint32_t count) {
+    std::stringstream str;
+
+    char qos_name[100];
+    char fc_name[100];
+    for (uint32_t i = 0; i < count; i++) {
+        sprintf(qos_name, "qosqueue%d", data[i].qos_queue_);
+        sprintf(fc_name, "fc%d", data[i].id_);
+
+        AddNode("qos-queue", qos_name, data[i].qos_queue_);
+        client->WaitForIdle();
+        str << "<forwarding-class-id>" << data[i].id_ << "</forwarding-class-id>";
+        str << "<forwarding-class-dscp>" << data[i].dscp_ <<
+            "</forwarding-class-dscp>";
+        str << "<forwarding-class-vlan-priority>" << data[i].vlan_priority_
+            << "</forwarding-class-vlan-priority>";
+        str << "<forwarding-class-mpls-exp>" << data[i].mpls_exp_
+            << "</forwarding-class-mpls-exp>";
+
+        char buf[10000];
+        int len = 0;
+        memset(buf, 0, 10000);
+        AddXmlHdr(buf, len);
+        AddNodeString(buf, len, "forwarding-class", fc_name,
+                      data[i].id_, str.str().c_str());
+        AddXmlTail(buf, len);
+        ApplyXmlString(buf);
+        AddLink("forwarding-class", fc_name, "qos-queue", qos_name);
+    }
+}
+
+void DelGlobalConfig(struct TestForwardingClassData *data,
+                     uint32_t count) {
+
+    char qos_name[100];
+    char fc_name[100];
+    for (uint32_t i = 0; i < count; i++) {
+        sprintf(qos_name, "qosqueue%d", data[i].qos_queue_);
+        sprintf(fc_name, "fc%d", data[i].id_);
+
+        DelLink("forwarding-class", fc_name, "qos-queue", qos_name);
+        DelNode("qos-queue", qos_name);
+        DelNode("forwarding-class", fc_name);
+    }
+    client->WaitForIdle();
+}
+
+void VerifyForwardingClass(Agent *agent, struct TestForwardingClassData *data,
+                           uint32_t count) {
+    for (uint32_t i = 0; i < count; i++) {
+        ForwardingClassKey key(MakeUuid(data[i].id_));
+        ForwardingClass *fc = static_cast<ForwardingClass *>(
+            agent->forwarding_class_table()->FindActiveEntry(&key));
+        EXPECT_TRUE(fc->dscp() == data[i].dscp_);
+        EXPECT_TRUE(fc->vlan_priority() == data[i].vlan_priority_);
+        EXPECT_TRUE(fc->mpls_exp() == data[i].mpls_exp_);
+        EXPECT_TRUE(fc->qos_queue_ref()->uuid() == MakeUuid(data[i].qos_queue_));
+    }
 }

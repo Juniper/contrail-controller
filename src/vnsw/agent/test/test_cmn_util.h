@@ -40,6 +40,25 @@ private:
     tbb::atomic<bool> task_held_;
 };
 
+struct TestForwardingClassData {
+    uint32_t id_;
+    uint32_t dscp_;
+    uint32_t vlan_priority_;
+    uint32_t mpls_exp_;
+    uint32_t qos_queue_;
+};
+
+struct TestQosConfigData {
+    std::string name_;
+    uint32_t id_;
+    std::string type_;
+    bool trusted_;
+
+    std::map<uint32_t, uint32_t> dscp_;
+    std::map<uint32_t, uint32_t> vlan_priority_;
+    std::map<uint32_t, uint32_t> mpls_exp_;
+};
+
 uuid MakeUuid(int id);
 void DelXmlHdr(char *buff, int &len);
 void DelXmlTail(char *buff, int &len);
@@ -247,6 +266,9 @@ void AddAcl(const char *name, int id, const char *src_vn, const char *dest_vn,
 void AddVrfAssignNetworkAcl(const char *name, int id, const char *src_vn,
                             const char *dest_vn, const char *action,
                             std::string vrf_name);
+void AddQosAcl(const char *name, int id, const char *src_vn,
+               const char *dest_vn, const char *action,
+               std::string qos_config);
 void AddMirrorAcl(const char *name, int id, const char *src_vn,
                   const char *dest_vn, const char *action,
                   std::string mirror_ip);
@@ -528,4 +550,16 @@ void SendBgpServiceConfig(const std::string &ip,
                           const std::string &vrf_name,
                           const std::string &bgp_router_type,
                           bool deleted);
+bool QosConfigFind(uint32_t id);
+const AgentQosConfig* QosConfigGetByIndex(uint32_t id);
+const AgentQosConfig* QosConfigGet(uint32_t id);
+bool ForwardingClassFind(uint32_t id);
+ForwardingClass *ForwardingClassGet(uint32_t id);
+
+void AddGlobalConfig(struct TestForwardingClassData *data, uint32_t count);
+void DelGlobalConfig(struct TestForwardingClassData *data, uint32_t count);
+void VerifyForwardingClass(Agent *agent, struct TestForwardingClassData *data,
+                           uint32_t count);
+void VerifyQosConfig(Agent *agent, struct TestQosConfigData *data);
+void AddQosConfig(struct TestQosConfigData &data);
 #endif // vnsw_agent_test_cmn_util_h

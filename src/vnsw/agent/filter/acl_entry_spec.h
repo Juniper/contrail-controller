@@ -49,6 +49,33 @@ struct VrfTranslateActionSpec {
     bool ignore_acl_;
 };
 
+struct QosConfigActionSpec {
+    QosConfigActionSpec() : name_(""), id_(-1) {}
+    QosConfigActionSpec(const std::string &qos_config_name):
+        name_(qos_config_name), id_(-1) {}
+    void set_name(const std::string &name) {
+        name_ = name;
+    }
+    const std::string& name() const {
+        return name_;
+    }
+
+    void set_id(uint32_t id) {
+        id_ = id;
+    }
+
+    uint32_t id() const {
+        return id_;
+    }
+
+    void clear() {
+        name_ = "";
+        id_ = -1;
+    }
+    std::string name_;
+    uint32_t id_;
+};
+
 struct ActionSpec {
     /* For actions log and alert we don't have any specific field. Only ta_type
      * of TrafficAction::LOG_ACTION and TrafficAction::ALERT_ACTION is enough
@@ -57,6 +84,7 @@ struct ActionSpec {
     TrafficAction::TrafficActionType ta_type;
     MirrorActionSpec ma;
     VrfTranslateActionSpec vrf_translate;
+    QosConfigActionSpec qos_config_action;
     ActionSpec() {}
     ActionSpec(TrafficAction::TrafficActionType type) : ta_type(type) {}
 };

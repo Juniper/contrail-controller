@@ -130,6 +130,7 @@ private:
     FlowKSyncResponseInfo ksync_response_info_;
     FlowTableKSyncObject *ksync_obj_;
     boost::intrusive::list_member_hook<> free_list_node_;
+    uint32_t qos_config_idx;
     DISALLOW_COPY_AND_ASSIGN(FlowTableKSyncEntry);
 };
 

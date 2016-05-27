@@ -372,3 +372,56 @@ response sandesh KDropStatsResp {
     48: u64             ds_vlan_fwd_tx;
     49: u64             ds_vlan_fwd_enq;
 }
+
+
+
+/**
+ * Sandesh definition for QOS config in kernel
+ */
+struct kQosIdFowardingClassPair {
+    1: i16 qos;
+    2: i16 fc_id;
+}
+
+struct KQosConfig {
+    1: i16 id;
+    2: list<kQosIdFowardingClassPair> dscp_map;
+    3: list<kQosIdFowardingClassPair> vlan_priority_map;
+    4: list<kQosIdFowardingClassPair> mpls_exp_map;
+}
+
+/**
+ * Request message to get vrf stats list from kernel in agent introspect
+ */
+request sandesh KQosConfigReq {
+    1: i32 index = -1;
+}
+
+/**
+ * Response message for vrf stats list from kernel
+ */
+response sandesh KQosConfigResp {
+    1: list<KQosConfig> qos_config_list;
+}
+
+struct KForwardingClass {
+    1: i16 id;
+    2: i16 dscp;
+    3: i16 vlan_priority;
+    4: i16 mpls_exp;
+    5: i16 qos_queue;
+}
+
+/**
+ * Request message to get vrf stats list from kernel in agent introspect
+ */
+request sandesh KForwardingClassReq {
+    1: i32 index = -1;
+}
+
+/**
+ * Response message for vrf stats list from kernel
+ */
+response sandesh KForwardingClassResp {
+    1: list<KForwardingClass> forwarding_class_list;
+}

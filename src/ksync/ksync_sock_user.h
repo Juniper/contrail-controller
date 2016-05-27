@@ -43,6 +43,8 @@ public:
     virtual void VrfStatsMsgHandler(vr_vrf_stats_req *req);
     virtual void DropStatsMsgHandler(vr_drop_stats_req *req);
     virtual void VxLanMsgHandler(vr_vxlan_req *req);
+    virtual void QosConfigMsgHandler(vr_qos_map_req *req);
+    virtual void ForwardingClassMsgHandler(vr_fc_map_req *req);
     virtual void VrouterOpsMsgHandler(vrouter_ops *req);
     virtual void Process() {}
 private:

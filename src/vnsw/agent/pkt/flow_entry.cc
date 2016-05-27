@@ -32,6 +32,7 @@
 #include <oper/vrf.h>
 #include <oper/vm.h>
 #include <oper/sg.h>
+#include <oper/qos_config.h>
 
 #include <filter/packet_header.h>
 #include <filter/acl.h>
@@ -283,6 +284,7 @@ void FlowData::Reset() {
     bgp_as_a_service_port = 0;
     ecmp_rpf_nh_ = 0;
     acl_assigned_vrf_index_ = VrfEntry::kInvalidIndex;
+    qos_config_idx = AgentQosConfigTable::kInvalidIndex;
 }
 
 static std::vector<std::string> MakeList(const VnListType &ilist) {
@@ -1886,6 +1888,62 @@ void FlowEntry::set_ecmp_rpf_nh(uint32_t id) {
     }
 }
 
+bool FlowEntry::SetQosConfigIndex() {
+    uint32_t i = AgentQosConfigTable::kInvalidIndex;
+    MatchAclParamsList::const_iterator it;
+
+    if (is_flags_set(FlowEntry::ReverseFlow) &&
+        data_.match_p.sg_action_summary & 1 << TrafficAction::APPLY_QOS) {
+        i = reverse_flow_entry()->data().qos_config_idx;
+    } if (data_.match_p.sg_action & 1 << TrafficAction::APPLY_QOS) {
+        for(it = data_.match_p.m_sg_acl_l.begin();
+                it != data_.match_p.m_sg_acl_l.end(); it++) {
+            if (it->action_info.action & 1 << TrafficAction::APPLY_QOS &&
+                    it->action_info.qos_config_action_.id()
+                    != AgentQosConfigTable::kInvalidIndex) {
+                i = it->action_info.qos_config_action_.id();
+                break;
+            }
+        }
+    } else if (data_.match_p.out_sg_action & 1 << TrafficAction::APPLY_QOS) {
+        for(it = data_.match_p.m_out_sg_acl_l.begin();
+                it != data_.match_p.m_out_sg_acl_l.end(); it++) {
+            if (it->action_info.action & 1 << TrafficAction::APPLY_QOS &&
+                    it->action_info.qos_config_action_.id() !=
+                    AgentQosConfigTable::kInvalidIndex) {
+                i = it->action_info.qos_config_action_.id();
+                break;
+            }
+        }
+    } else if (data_.match_p.policy_action & 1 << TrafficAction::APPLY_QOS) {
+        for(it = data_.match_p.m_acl_l.begin();
+                it != data_.match_p.m_acl_l.end(); it++) {
+            if (it->action_info.action & 1 << TrafficAction::APPLY_QOS &&
+                    it->action_info.qos_config_action_.id() !=
+                    AgentQosConfigTable::kInvalidIndex) {
+                i = it->action_info.qos_config_action_.id();
+                break;
+            }
+        }
+    } else if (data_.match_p.out_policy_action & 1 << TrafficAction::APPLY_QOS) {
+        for(it = data_.match_p.m_out_acl_l.begin();
+                it != data_.match_p.m_out_acl_l.end(); it++) {
+            if (it->action_info.action & 1 << TrafficAction::APPLY_QOS &&
+                    it->action_info.qos_config_action_.id() !=
+                    AgentQosConfigTable::kInvalidIndex) {
+                i = it->action_info.qos_config_action_.id();
+                break;
+            }
+        }
+    }
+
+    if (i != data_.qos_config_idx) {
+        data_.qos_config_idx = i;
+        return true;
+    }
+    return false;
+}
+
 // Recompute FlowEntry action based on ACLs already set in the flow
 bool FlowEntry::ActionRecompute() {
     uint32_t action = 0;
@@ -1922,6 +1980,14 @@ bool FlowEntry::ActionRecompute() {
     // Force short flows to DROP
     if (is_flags_set(FlowEntry::ShortFlow)) {
         action |= (1 << TrafficAction::DENY);
+    }
+
+    if (action & (1 << TrafficAction::APPLY_QOS)) {
+        if (SetQosConfigIndex()) {
+            ret = true;
+        }
+    } else {
+        data_.qos_config_idx = AgentQosConfigTable::kInvalidIndex;
     }
 
     // check for conflicting actions and remove allowed action
@@ -2021,6 +2087,7 @@ void FlowEntry::UpdateReflexiveAction() {
         data_.match_p.sg_action &= ~(TrafficAction::DROP_FLAGS);
         data_.match_p.sg_action |= (1 << TrafficAction::TRAP);
      }
+    data_.qos_config_idx = fwd_flow->data_.qos_config_idx;
 }
 
 /////////////////////////////////////////////////////////////////////////////

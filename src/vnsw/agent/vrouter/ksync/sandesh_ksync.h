@@ -49,6 +49,13 @@ public:
     virtual void VxLanMsgHandler(vr_vxlan_req *req) {
         assert(0);
     }
+    virtual void QosConfigMsgHandler(vr_qos_map_req *req) {
+        assert(0);
+    }
+    virtual void ForwardingClassMsgHandler(vr_fc_map_req *req) {
+        assert(0);
+    }
+
     virtual int VrResponseMsgHandler(vr_response *r);
     virtual void FlowMsgHandler(vr_flow_req *r);
     virtual void VrouterOpsMsgHandler(vrouter_ops *r);

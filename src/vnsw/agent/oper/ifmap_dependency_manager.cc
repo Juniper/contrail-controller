@@ -16,6 +16,9 @@
 #include "oper/vm.h"
 #include "oper/physical_device.h"
 #include "filter/acl.h"
+#include "oper/qos_queue.h"
+#include "oper/forwarding_class.h"
+#include "oper/qos_config.h"
 
 #include <boost/assign/list_of.hpp>
 #include <boost/bind.hpp>
@@ -74,11 +77,14 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
         "bgp-router",
         "floating-ip",
         "floating-ip-pool",
+        "forwarding-class",
         "instance-ip",
         "logical-interface",
         "network-ipam",
         "physical-interface",
         "physical-router",
+        "qos-config",
+        "qos-queue",
         "routing-instance",
         "security-group",
         "service-health-check",
@@ -561,6 +567,9 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                                "virtual-network-network-ipam", true,
                                "virtual-network-network-ipam",
                                "network-ipam", false));
+    AddDependencyPath("virtual-network",
+                      MakePath("virtual-network-qos-config",
+                               "qos-config", true));
     RegisterConfigHandler(this, "virtual-network",
                           agent ? agent->vn_table() : NULL);
 
@@ -643,6 +652,9 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                                "bgp-router", true,
                                "instance-bgp-router",
                                "routing-instance", true));
+    AddDependencyPath("virtual-machine-interface",
+                      MakePath("virtual-machine-interface-qos-config",
+                               "qos-config", true));
     RegisterConfigHandler(this, "virtual-machine-interface",
                           agent ? agent->interface_table() : NULL);
     ////////////////////////////////////////////////////////////////////////
@@ -684,6 +696,16 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
 
     RegisterConfigHandler(this, "service-health-check",
                           agent ? agent->health_check_table() : NULL);
+
+     AddDependencyPath("qos-config",
+                       MakePath("global-qos-config",
+                                "qos-config", true));
+    RegisterConfigHandler(this, "qos-config",
+                          agent ? agent->qos_config_table() : NULL);
+    RegisterConfigHandler(this, "qos-queue",
+                          agent ? agent->qos_queue_table() : NULL);
+    RegisterConfigHandler(this, "forwarding-class",
+                          agent ? agent->forwarding_class_table() : NULL);
 }
 
 void IFMapNodePolicyReq::HandleRequest() const {

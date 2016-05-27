@@ -23,7 +23,9 @@
 #include <oper/sg.h>
 #include <oper/agent_sandesh.h>
 #include <oper/vrf_assign.h>
-
+#include <oper/forwarding_class.h>
+#include <oper/qos_config.h>
+#include <oper/qos_queue.h>
 #include <filter/acl.h>
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1069,7 +1071,157 @@ bool AgentHealthCheckSandesh::Filter(const DBEntryBase *entry) {
 
 bool AgentHealthCheckSandesh::FilterToArgs(AgentSandeshArguments *args) {
     args->Add("uuid", uuid_str_);
+    return true;
+}
+
+AgentQosConfigSandesh::AgentQosConfigSandesh(const std::string &context,
+                                             const std::string &u,
+                                             const std::string &name,
+                                             const std::string &id) :
+    AgentSandesh(context, ""), uuid_(u), name_(name), id_(id) {
+}
+
+DBTable *AgentQosConfigSandesh::AgentGetTable() {
+    return static_cast<DBTable *>(Agent::GetInstance()->qos_config_table());
+}
+
+void AgentQosConfigSandesh::Alloc() {
+    resp_ = new AgentQosConfigSandeshResp();
+}
+
+bool AgentQosConfigSandesh::Filter(const DBEntryBase *entry) {
+    const AgentQosConfig *qos =
+        dynamic_cast<const AgentQosConfig *>(entry);
+    assert(qos);
+
+    if (uuid_.empty() && name_.empty() && id_.empty()) {
+        return true;
+    }
+
+    if (id_.empty() == false) {
+        uint32_t id;
+        stringToInteger(id_, id);
+        if (qos->id() != id) {
+            return false;
+        }
+    }
+
+    if (name_.empty() == false &&
+        qos->name() != name_) {
+        return false;
+    }
+
+    if (uuid_.empty() == false && qos->uuid() != StringToUuid(uuid_)) {
+        return false;
+    }
 
     return true;
 }
 
+bool AgentQosConfigSandesh::FilterToArgs(AgentSandeshArguments *args) {
+    args->Add("uuid", uuid_);
+    args->Add("id", id_);
+    args->Add("name", name_);
+    return true;
+}
+
+ForwardingClassSandesh::ForwardingClassSandesh(const std::string &context,
+                                               const std::string &u,
+                                               const std::string &name,
+                                               const std::string &id) :
+    AgentSandesh(context, ""), uuid_(u), name_(name), id_(id) {
+}
+
+DBTable *ForwardingClassSandesh::AgentGetTable() {
+    return static_cast<DBTable *>(Agent::GetInstance()->forwarding_class_table());
+}
+
+void ForwardingClassSandesh::Alloc() {
+    resp_ = new ForwardingClassSandeshResp();
+}
+
+bool ForwardingClassSandesh::Filter(const DBEntryBase *entry) {
+    const ForwardingClass *fc =
+        dynamic_cast<const ForwardingClass *>(entry);
+    assert(fc);
+
+    if (uuid_.empty() && name_.empty() && id_.empty()) {
+        return true;
+    }
+
+    if (id_.empty() == false) {
+        uint32_t id;
+        stringToInteger(id_, id);
+        if (fc->id() != id) {
+            return false;
+        }
+    }
+
+    if (name_.empty() == false &&
+        fc->name() != name_) {
+        return false;
+    }
+
+    if (uuid_.empty() == false && fc->uuid() != StringToUuid(uuid_)) {
+        return false;
+    }
+
+    return true;
+}
+
+bool ForwardingClassSandesh::FilterToArgs(AgentSandeshArguments *args) {
+    args->Add("uuid", uuid_);
+    args->Add("id", id_);
+    args->Add("name", name_);
+    return true;
+}
+
+QosQueueSandesh::QosQueueSandesh(const std::string &context,
+                                 const std::string &u,
+                                 const std::string &name,
+                                 const std::string &id) :
+    AgentSandesh(context, ""), uuid_(u), name_(name), id_(id) {
+}
+
+DBTable *QosQueueSandesh::AgentGetTable() {
+    return static_cast<DBTable *>(Agent::GetInstance()->qos_queue_table());
+}
+
+void QosQueueSandesh::Alloc() {
+    resp_ = new QosQueueSandeshResp();
+}
+
+bool QosQueueSandesh::Filter(const DBEntryBase *entry) {
+    const QosQueue *qos_queue = dynamic_cast<const QosQueue *>(entry);
+    assert(qos_queue);
+
+    if (uuid_.empty() && name_.empty() && id_.empty()) {
+        return true;
+    }
+
+    if (id_.empty() == false) {
+        uint32_t id;
+        stringToInteger(id_, id);
+        if (qos_queue->id() != id) {
+            return false;
+        }
+    }
+
+    if (name_.empty() == false &&
+        qos_queue->name() != name_) {
+        return false;
+    }
+
+    if (uuid_.empty() == false && qos_queue->uuid() != StringToUuid(uuid_)) {
+        return false;
+    }
+
+    return true;
+}
+
+bool QosQueueSandesh::FilterToArgs(AgentSandeshArguments *args) {
+    args->Add("uuid", uuid_);
+    args->Add("name", name_);
+    args->Add("id", id_);
+    return true;
+}

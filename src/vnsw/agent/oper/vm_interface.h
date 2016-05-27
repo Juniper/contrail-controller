@@ -1046,6 +1046,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     bool service_ip_ecmp_;
     Ip6Address service_ip6_;
     bool service_ip_ecmp6_;
+    boost::uuids::uuid qos_config_uuid_;
 };
 
 // Definition for structures when request queued from Nova

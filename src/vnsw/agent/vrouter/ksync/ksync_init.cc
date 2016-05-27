@@ -38,6 +38,9 @@
 #include "vrouter/ksync/vrf_assign_ksync.h"
 #include "vrouter/ksync/vxlan_ksync.h"
 #include "vrouter/ksync/sandesh_ksync.h"
+#include "vrouter/ksync/qos_queue_ksync.h"
+#include "vrouter/ksync/forwarding_class_ksync.h"
+#include "vrouter/ksync/qos_config_ksync.h"
 #include "nl_util.h"
 #include "vhost.h"
 #include "vr_message.h"
@@ -56,7 +59,10 @@ KSync::KSync(Agent *agent)
       interface_scanner_(new InterfaceKScan(agent)),
       vnsw_interface_listner_(new VnswInterfaceListener(agent)),
       ksync_flow_memory_(new KSyncFlowMemory(this)),
-      ksync_flow_index_manager_(new KSyncFlowIndexManager(this)) {
+      ksync_flow_index_manager_(new KSyncFlowIndexManager(this)),
+      qos_queue_ksync_obj_(new QosQueueKSyncObject(this)),
+      forwarding_class_ksync_obj_(new ForwardingClassKSyncObject(this)),
+      qos_config_ksync_obj_(new QosConfigKSyncObject(this)) {
       for (uint16_t i = 0; i < agent->flow_thread_count(); i++) {
           FlowTableKSyncObject *obj = new FlowTableKSyncObject(this);
           flow_table_ksync_obj_list_.push_back(obj);
@@ -76,6 +82,9 @@ void KSync::RegisterDBClients(DB *db) {
     mirror_ksync_obj_.get()->RegisterDBClients();
     vrf_assign_ksync_obj_.get()->RegisterDBClients();
     vxlan_ksync_obj_.get()->RegisterDBClients();
+    qos_queue_ksync_obj_.get()->RegisterDBClients();
+    forwarding_class_ksync_obj_.get()->RegisterDBClients();
+    qos_config_ksync_obj_.get()->RegisterDBClients();
     agent_->set_router_id_configured(false);
 }
 
@@ -318,6 +327,9 @@ void KSync::Shutdown() {
     mirror_ksync_obj_.reset(NULL);
     vrf_assign_ksync_obj_.reset(NULL);
     vxlan_ksync_obj_.reset(NULL);
+    qos_queue_ksync_obj_.reset(NULL);
+    forwarding_class_ksync_obj_.reset(NULL);
+    qos_config_ksync_obj_.reset(NULL);
     STLDeleteValues(&flow_table_ksync_obj_list_);
     KSyncSock::Shutdown();
     KSyncObjectManager::Shutdown();
