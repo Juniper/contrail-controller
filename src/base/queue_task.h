@@ -564,6 +564,7 @@ private:
         }
         AtomicDecrementQueueCount(&entry);
         drops_++;
+        max_queue_len_ = count_;
         return false;
     }
 

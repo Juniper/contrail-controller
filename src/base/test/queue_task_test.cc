@@ -208,7 +208,7 @@ public:
     tbb::atomic<bool> shutdown_test_exit_callback_sleep_;
 };
 
-TEST_F(QueueTaskTest, StartRunnerBasic) {
+TEST_F(QueueTaskTest, StartRunnerBasic)
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     // Always do start runner
     work_queue_.SetStartRunnerFunc(
@@ -244,6 +244,24 @@ TEST_F(QueueTaskTest, StartRunnerBasic) {
     EXPECT_EQ(2, work_queue_.NumEnqueues());
     EXPECT_EQ(1, work_queue_.NumDequeues());
     EXPECT_EQ(1, work_queue_.Length());
+    // Verify WorkQueue max_queue_len_
+    EXPECT_EQ(1, work_queue_.max_queue_len());
+    work_queue_.Enqueue(enqueue_counter++);
+    work_queue_.Enqueue(enqueue_counter++);
+    work_queue_.Enqueue(enqueue_counter++);
+    task_util::WaitForIdle(1);
+    EXPECT_EQ(3, work_queue_.max_queue_len());
+    // Add test case for bounded workq
+    work_queue_.SetBounded(true);
+    work_queue_.size_(4);
+    work_queue_.Enqueue(enqueue_counter++);
+    work_queue_.Enqueue(enqueue_counter++);
+    work_queue_.Enqueue(enqueue_counter++);
+    work_queue_.Enqueue(enqueue_counter++);
+    EXPECT_EQ(4, work_queue_.max_queue_len());
+    work_queue_.Enqueue(enqueue_counter++);
+    EXPECT_EQ(4, work_queue_.max_queue_len());
+    task_util::WaitForIdle(1);
 }
 
 TEST_F(QueueTaskTest, StartRunnerInternals) {
