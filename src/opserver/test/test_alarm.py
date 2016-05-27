@@ -668,7 +668,7 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
 	    	self.assertEqual(update_alarm, True)
 	    elif case.expected_output_state == UVEAlarmState.Soak_Idle:
 	    	self.assertEqual(delete_alarm, False)
-	    	self.assertEqual(update_alarm, False)
+	    	self.assertEqual(update_alarm, True)
 
         logging.info('=== Test case%s checking idleTimerExpiry ===' % (test_count))
 	test_count += 1
@@ -744,7 +744,7 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
             output_state = self._ag.tab_alarms['table1']['table1:name1']\
                     ['type1'].get_uas().state
             self.assertEqual(case.expected_output_state, output_state)
-            self.assertEqual(False, update_alarm)
+            self.assertEqual(True, update_alarm)
 
     # end test_04_alarm_state_machine
 
