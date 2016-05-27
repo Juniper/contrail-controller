@@ -248,7 +248,7 @@ class VncIfmapClient(object):
     # end object_set
 
     def object_create(self, obj_ids, obj_dict):
-        obj_type = obj_ids['type'].replace('-', '_')
+        obj_type = obj_ids['type']
 
         if not 'parent_type' in obj_dict:
             # parent is config-root
@@ -1276,15 +1276,13 @@ class VncZkClient(object):
 
     def create_fq_name_to_uuid_mapping(self, obj_type, fq_name, id):
         fq_name_str = ':'.join(fq_name)
-        zk_path = self._fq_name_to_uuid_path+'/%s:%s' %(obj_type.replace('-', '_'),
-                                             fq_name_str)
+        zk_path = self._fq_name_to_uuid_path+'/%s:%s' %(obj_type, fq_name_str)
         self._zk_client.create_node(zk_path, id)
     # end create_fq_name_to_uuid_mapping
 
     def get_fq_name_to_uuid_mapping(self, obj_type, fq_name):
         fq_name_str = ':'.join(fq_name)
-        zk_path = self._fq_name_to_uuid_path+'/%s:%s' %(obj_type.replace('-', '_'),
-                                             fq_name_str)
+        zk_path = self._fq_name_to_uuid_path+'/%s:%s' %(obj_type, fq_name_str)
         obj_uuid, znode_stat = self._zk_client.read_node(
             zk_path, include_timestamp=True)
 
@@ -1293,8 +1291,7 @@ class VncZkClient(object):
 
     def delete_fq_name_to_uuid_mapping(self, obj_type, fq_name):
         fq_name_str = ':'.join(fq_name)
-        zk_path = self._fq_name_to_uuid_path+'/%s:%s' %(obj_type.replace('-', '_'),
-                                             fq_name_str)
+        zk_path = self._fq_name_to_uuid_path+'/%s:%s' %(obj_type, fq_name_str)
         self._zk_client.delete_node(zk_path)
     # end delete_fq_name_to_uuid_mapping
 
@@ -1671,7 +1668,7 @@ class VncDbClient(object):
         return (True, obj_ids)
     # end dbe_alloc
 
-    def dbe_uve_trace(self, oper, typ, uuid, obj_dict):
+    def dbe_uve_trace(self, oper, type, uuid, obj_dict):
         oo = {}
         oo['uuid'] = uuid
         if oper.upper() == 'DELETE':
@@ -1679,12 +1676,12 @@ class VncDbClient(object):
         else:
             oo['name'] = self.uuid_to_fq_name(uuid)
         oo['value'] = obj_dict
-        oo['type'] = typ.replace('-', '_')
+        oo['type'] = type
 
         req_id = get_trace_id()
         db_trace = DBRequestTrace(request_id=req_id)
         db_trace.operation = oper
-        db_trace.body = "name=" + str(oo['name']) + " type=" + typ + " value=" +  json.dumps(obj_dict)
+        db_trace.body = "name=" + str(oo['name']) + " type=" + type + " value=" +  json.dumps(obj_dict)
         trace_msg(db_trace, 'DBUVERequestTraceBuf', self._sandesh)
 
         attr_contents = None
@@ -1870,7 +1867,6 @@ class VncDbClient(object):
     @dbe_trace('update')
     @build_shared_index('update')
     def dbe_update(self, obj_type, obj_ids, new_obj_dict):
-        method_name = obj_type.replace('-', '_')
         (ok, cassandra_result) = self._cassandra_db.object_update(
             obj_type, obj_ids['uuid'], new_obj_dict)
 
