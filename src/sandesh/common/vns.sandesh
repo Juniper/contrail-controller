@@ -490,3 +490,15 @@ const list<string> RepairNeededKeyspaces = [
 
 // Set to default of 10 days
 const u32 CASSANDRA_DEFAULT_GC_GRACE_SECONDS = 864000
+
+// Define the threadpool names
+const string READSTAGE = "ReadStage"
+const string MUTATIONSTAGE = "MutationStage"
+const string MEMTABLEFLUSHWRITER = "MemtableFlushWriter"
+const string NATIVETRANSPORT = "NativeTransport"
+const list<string> ThreadPoolNames = [
+    READSTAGE,
+    MUTATIONSTAGE,
+    MEMTABLEFLUSHWRITER,
+    NATIVETRANSPORT,
+]
