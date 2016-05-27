@@ -515,7 +515,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
 
     def ifmap_has_ident(self, obj=None, id=None):
         if obj:
-            _type = obj.get_type()
+            _type = obj.get_type().replace('-', '_')
             _fq_name = obj.get_fq_name()
         if id:
             _type = self._vnc_lib.id_to_fq_name_type(id)
