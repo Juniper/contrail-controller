@@ -43,7 +43,7 @@ class RabbitConnection(object):
     def _vnc_subscribe_actions(self, oper_info):
         msg = "Notification Message: %s" % (pformat(oper_info))
         self.logger.debug(msg)
-        obj_type = oper_info['type'].replace('-', '_')
+        obj_type = oper_info['type']
         obj_class = DBBaseSM.get_obj_type_map().get(obj_type)
         if obj_class is None:
             return
