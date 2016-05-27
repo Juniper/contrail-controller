@@ -910,5 +910,6 @@ void FlowEntryFreeList::Free(FlowEntry *flow) {
     total_free_++;
     flow->Reset();
     free_list_.push_back(*flow);
+    assert(flow->flow_mgmt_info() == NULL);
     // TODO : Free entry if beyound threshold
 }

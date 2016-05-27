@@ -16,6 +16,7 @@ public:
         INVALID,
         ADD_FLOW,
         DELETE_FLOW,
+        UPDATE_FLOW,
         ADD_DBENTRY,
         CHANGE_DBENTRY,
         DELETE_DBENTRY,
@@ -26,20 +27,20 @@ public:
 
     };
 
-    FlowMgmtRequest(Event event, FlowEntryPtr &flow) :
+    FlowMgmtRequest(Event event, FlowEntry *flow) :
         event_(event), flow_(flow), db_entry_(NULL), vrf_id_(0), gen_id_(),
         bytes_(), packets_(), oflow_bytes_(), params_() {
             if (event == RETRY_DELETE_VRF)
                 assert(vrf_id_);
     }
 
-    FlowMgmtRequest(Event event, FlowEntryPtr &flow,
+    FlowMgmtRequest(Event event, FlowEntry *flow,
                     const RevFlowDepParams &params) :
         event_(event), flow_(flow), db_entry_(NULL), vrf_id_(0), gen_id_(),
         bytes_(), packets_(), oflow_bytes_(), params_(params) {
     }
 
-    FlowMgmtRequest(Event event, FlowEntryPtr &flow, uint32_t bytes,
+    FlowMgmtRequest(Event event, FlowEntry *flow, uint32_t bytes,
                     uint32_t packets, uint32_t oflow_bytes) :
         event_(event), flow_(flow), db_entry_(NULL), vrf_id_(0), gen_id_(),
         bytes_(bytes), packets_(packets), oflow_bytes_(oflow_bytes), params_() {
@@ -105,6 +106,9 @@ public:
     uint32_t packets() const { return packets_;}
     uint32_t oflow_bytes() const { return oflow_bytes_;}
     const RevFlowDepParams& params() const { return params_; }
+    void set_params(const RevFlowDepParams &params) {
+        params_ = params;
+    }
 
 private:
     Event event_;
