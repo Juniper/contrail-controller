@@ -63,7 +63,7 @@ class User(object):
            if tenant.name == self.project:
                 break
        self.project_uuid = tenant.id
-    
+
        if self.name not in kc_users:
            print 'user %s missing from keystone ... creating' % self.name
            user = kc.users.create(self.name, self.password, '', tenant_id=tenant.id)
@@ -87,7 +87,7 @@ class User(object):
            print '*** RBAC disabled or missing user-token middleware in Neutron pipeline? Please verify'
            sys.exit(1)
    # end __init__
-    
+
    def api_acl_name(self):
        rg_name = list(self.project_obj.get_fq_name())
        rg_name.append('default-api-access-list')
@@ -127,11 +127,11 @@ def set_perms(obj, owner=None, owner_access=None, share=None, global_access=None
 # end set_perms
 
 # Read VNC object. Return None if object doesn't exists
-def vnc_read_obj(vnc, obj_type, name = None, obj_uuid = None):
+def vnc_read_obj(vnc, res_type, name = None, obj_uuid = None):
     if name is None and obj_uuid is None:
         print 'Need FQN or UUID to read object'
         return None
-    method_name = obj_type.replace('-', '_')
+    method_name = res_type.replace('-', '_')
     method = getattr(vnc, "%s_read" % (method_name))
     try:
         if obj_uuid:
@@ -141,10 +141,10 @@ def vnc_read_obj(vnc, obj_type, name = None, obj_uuid = None):
         else:
             return method(fq_name=name)
     except NoIdError:
-        print '%s %s not found!' % (obj_type, name if name else obj_uuid)
+        print '%s %s not found!' % (res_type, name if name else obj_uuid)
         return None
     except PermissionDenied:
-        print 'Permission denied reading %s %s' % (obj_type, name)
+        print 'Permission denied reading %s %s' % (res_type, name)
         raise
 # end
 
@@ -219,7 +219,7 @@ def match_rule(rule_list, rule_str):
 
     if extend_rule_list:
         rule_list.append(nr)
-            
+
 # end match_rule
 
 def vnc_fix_api_access_list(vnc_lib, pobj, rule_str = None):
@@ -437,7 +437,7 @@ def all(ip='127.0.0.1', port=8082, domain_name='default-domain',
     if testfail > 0:
         sys.exit()
 
-    print 
+    print
     print '############### PERMS2 ##########################'
     print 'Giving bob API level access to perform all ops on virtual-network'
     vnc_fix_api_access_list(admin.vnc_lib, bob.project_obj,
