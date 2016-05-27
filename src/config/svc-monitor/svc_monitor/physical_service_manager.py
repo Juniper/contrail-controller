@@ -109,7 +109,7 @@ class PhysicalServiceManager(InstanceManager):
             try:
                 self._vnc_lib.ref_update('service-instance',
                             si.uuid,
-                            'instance_ip_refs',
+                            'instance-ip',
                             iip_id,
                             None,
                             'DELETE')
@@ -122,7 +122,7 @@ class PhysicalServiceManager(InstanceManager):
                 vmi = VirtualMachineInterfaceSM.get(vmi_id)
                 self._vnc_lib.ref_update('virtual-machine-interface',
                                          vmi.uuid,
-                                         'physical_interface_refs',
+                                         'physical-interface',
                                          vmi.physical_interface,
                                          None,
                                          'DELETE')
