@@ -15,6 +15,9 @@
 #include <vrouter/ksync/interface_scan.h>
 #include <vrouter/ksync/ksync_flow_index_manager.h>
 #include <oper/agent_profile.h>
+#include <vrouter/ksync/qos_queue_ksync.h>
+#include <vrouter/ksync/forwarding_class_ksync.h>
+#include <vrouter/ksync/qos_config_ksync.h>
 #include "vnswif_listener.h"
 
 class KSyncFlowMemory;
@@ -62,6 +65,17 @@ public:
     }
 
     void SetProfileData(ProfileData *data);
+    QosQueueKSyncObject *qos_queue_ksync_obj() const {
+        return qos_queue_ksync_obj_.get();
+    }
+
+    ForwardingClassKSyncObject*  forwarding_class_ksync_obj() const {
+        return forwarding_class_ksync_obj_.get();
+    }
+
+    QosConfigKSyncObject* qos_config_ksync_obj() const {
+        return qos_config_ksync_obj_.get();
+    }
 protected:
     Agent *agent_;
     boost::scoped_ptr<InterfaceKSyncObject> interface_ksync_obj_; 
@@ -76,6 +90,9 @@ protected:
     boost::scoped_ptr<VnswInterfaceListener> vnsw_interface_listner_;
     boost::scoped_ptr<KSyncFlowMemory> ksync_flow_memory_;
     boost::scoped_ptr<KSyncFlowIndexManager> ksync_flow_index_manager_;
+    boost::scoped_ptr<QosQueueKSyncObject> qos_queue_ksync_obj_;
+    boost::scoped_ptr<ForwardingClassKSyncObject> forwarding_class_ksync_obj_;
+    boost::scoped_ptr<QosConfigKSyncObject> qos_config_ksync_obj_;
     virtual void InitFlowMem();
     void VRouterInterfaceSnapshot();
     void ResetVRouter(bool run_sync_mode);

@@ -132,6 +132,24 @@ typedef boost::intrusive_ptr<HealthCheckService> HealthCheckServiceRef;
 void intrusive_ptr_release(const HealthCheckService* p);
 void intrusive_ptr_add_ref(const HealthCheckService* p);
 
+class ForwardingClass;
+typedef boost::intrusive_ptr<ForwardingClass> ForwardingClassRef;
+typedef boost::intrusive_ptr<const ForwardingClass> ForwardingClassConstRef;
+void intrusive_ptr_release(const ForwardingClass *p);
+void intrusive_ptr_add_ref(const ForwardingClass *p);
+
+class AgentQosConfig;
+typedef boost::intrusive_ptr<AgentQosConfig> AgentQosConfigRef;
+typedef boost::intrusive_ptr<const AgentQosConfig> AgentQosConfigConstRef;
+void intrusive_ptr_release(const AgentQosConfig *p);
+void intrusive_ptr_add_ref(const AgentQosConfig *p);
+
+class QosQueue;
+typedef boost::intrusive_ptr<QosQueue> QosQueueRef;
+typedef boost::intrusive_ptr<const QosQueue> QosQueueConstRef;
+void intrusive_ptr_release(const QosQueueRef *p);
+void intrusive_ptr_add_ref(const QosQueueRef *p);
+
 //class SecurityGroup;
 typedef std::vector<int> SecurityGroupList;
 typedef std::vector<std::string> CommunityList;
@@ -162,7 +180,9 @@ class VxLanTable;
 class MulticastGroupObject;
 class PhysicalDeviceTable;
 class PhysicalDeviceVnTable;
-
+class ForwardingClassTable;
+class AgentQosConfigTable;
+class QosQueueTable;
 class MirrorCfgTable;
 class IntfMirrorCfgTable;
 
@@ -373,6 +393,28 @@ public:
     CfgIntTable *interface_config_table() const {return intf_cfg_table_;}
     void set_interface_config_table(CfgIntTable *table) {
         intf_cfg_table_ = table;
+    }
+
+    ForwardingClassTable *forwarding_class_table() const {
+        return forwarding_class_table_;
+    }
+    void set_forwarding_class_table(ForwardingClassTable *table) {
+        forwarding_class_table_ = table;
+    }
+
+    AgentQosConfigTable *qos_config_table() const {
+        return qos_config_table_;
+    }
+
+    void set_qos_config_table(AgentQosConfigTable *qos_config_table) {
+        qos_config_table_ = qos_config_table;
+    }
+
+    QosQueueTable *qos_queue_table() const {
+        return qos_queue_table_;
+    }
+    void set_qos_queue_table(QosQueueTable *table) {
+        qos_queue_table_ = table;
     }
 
     DomainConfig *domain_config_table() const;
@@ -1066,6 +1108,9 @@ private:
     ServiceInstanceTable *service_instance_table_;
     PhysicalDeviceTable *physical_device_table_;
     PhysicalDeviceVnTable *physical_device_vn_table_;
+    ForwardingClassTable *forwarding_class_table_;
+    QosQueueTable *qos_queue_table_;
+    AgentQosConfigTable *qos_config_table_;
     std::auto_ptr<ConfigManager> config_manager_;
  
     // Mirror config table

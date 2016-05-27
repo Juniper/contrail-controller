@@ -22,6 +22,7 @@ class AgentSandeshManager;
 class AgentProfile;
 class VRouter;
 class BgpAsAService;
+class GlobalQosConfig;
 
 class OperDB {
 public:
@@ -60,6 +61,10 @@ public:
     BgpAsAService *bgp_as_a_service() const { return bgp_as_a_service_.get(); }
 
     AgentProfile *agent_profile() const { return profile_.get(); }
+
+    GlobalQosConfig* global_qos_config() const {
+        return global_qos_config_.get();
+    }
 private:
     OperDB();
 
@@ -75,6 +80,7 @@ private:
     std::auto_ptr<AgentProfile> profile_;
     std::auto_ptr<VRouter> vrouter_;
     std::auto_ptr<BgpAsAService> bgp_as_a_service_;
+    std::auto_ptr<GlobalQosConfig> global_qos_config_;
     DISALLOW_COPY_AND_ASSIGN(OperDB);
 };
 #endif

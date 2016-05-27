@@ -150,6 +150,7 @@ struct ItfSandeshData {
    52: list<string> fat_flow_list;
    53: optional string health_check_active;
    54: optional string metadata_ip_active;
+   55: optional string qos_config;
 }
 
 /**
@@ -1991,4 +1992,138 @@ trace sandesh BgpAsAServiceTrace {
  */
 trace sandesh InstanceManagerTrace {
     1: string message;
+}
+
+/**
+ * Sandesh definition for QOS queue
+ */
+struct QosQueueSandeshData {
+    1: string uuid;
+    2: string name;
+    3: u32 id;
+}
+
+/**
+ * Sandesh request for QOS queue
+ */
+request sandesh QosQueueSandeshReq {
+    1: string uuid;
+    2: string name;
+    3: string id;
+}
+
+/**
+ * Sandesh response for QOS queue
+ */
+response sandesh QosQueueSandeshResp {
+    1: list<QosQueueSandeshData> qos_queue_list;
+}
+
+/**
+ * Sandesh definition for QOS config
+ */
+struct ForwardingClassSandeshData {
+    1: string uuid;
+    2: u32 id;
+    3: string name;
+    4: u32 dscp;
+    5: u32 vlan_priority;
+    6: u32 mpls_exp;
+    7: u32 qos_queue (link="QosQueueSandeshReq");
+}
+
+/**
+ * Request QOS config instances list
+ */
+request sandesh ForwardingClassSandeshReq {
+    1: string uuid;
+    2: string name;
+    3: string id;
+}
+/**
+ * Response to QOS config request
+ */
+response sandesh ForwardingClassSandeshResp {
+    1: list<ForwardingClassSandeshData> fc_list;
+}
+
+struct QosForwardingClassSandeshPair {
+    1: u32 qos_value;
+    2: u32 forwarding_class_id (link="ForwardingClassSandeshReq");
+}
+/**
+ * Sandesh definition for QOS config
+ */
+struct AgentQosConfigSandeshData {
+    1: string uuid;
+    2: string name;
+    3: string type;
+    4: u32 id;
+    5: optional list<QosForwardingClassSandeshPair> dscp_list;
+    6: optional list<QosForwardingClassSandeshPair> vlan_priority_list;
+    7: optional list<QosForwardingClassSandeshPair> mpls_exp_list;
+}
+
+/**
+ * Request QOS config instances list
+ */
+request sandesh AgentQosConfigSandeshReq {
+    1: string uuid;
+    2: string name;
+    3: string id;
+}
+
+/**
+ * Response to QOS config request
+ */
+response sandesh AgentQosConfigSandeshResp {
+    1: list<AgentQosConfigSandeshData> qc_list;
+}
+
+request sandesh AddQosQueue {
+    1: u32 uuid;
+    2: string name;
+}
+
+request sandesh DeleteQosQueue {
+    1: u32 uuid;
+}
+
+request sandesh AddForwardingClass {
+    1: u32 uuid;
+    2: u32 id;
+    3: u32 dscp_value;
+    4: u32 mpls_exp;
+    5: u32 vlan_priority;
+    6: u32 qos_queue_uuid;
+    7: string name;
+}
+
+request sandesh DeleteForwardingClass {
+    1: u32 uuid;
+}
+
+request sandesh AddQosConfig {
+    1: u32 uuid;
+    2: string name;
+    3: string type;
+    4: u32 dscp;
+    5: u32 dscp_forwarding_class_id;
+    6: u32 vlan_priority;
+    7: u32 vlan_priority_forwarding_class_id;
+    8: u32 mpls_exp;
+    9: u32 mpls_exp_forwarding_class_id;
+}
+
+request sandesh DeleteQosConfig {
+    1: u32 uuid;
+}
+
+request sandesh AddVmiQosConfig {
+    1: string vmi_uuid;
+    2: string qos_config_uuid;
+}
+
+response sandesh QosResponse {
+    1: string resp;
 }

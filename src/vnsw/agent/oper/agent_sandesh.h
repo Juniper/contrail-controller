@@ -475,4 +475,51 @@ private:
 
 };
 
+class AgentQosConfigSandesh : public AgentSandesh {
+public:
+    AgentQosConfigSandesh(const std::string &context, const std::string &u,
+                          const std::string &name, const std::string &id);
+    ~AgentQosConfigSandesh() {}
+    virtual bool Filter(const DBEntryBase *entry);
+    virtual bool FilterToArgs(AgentSandeshArguments *args);
+
+private:
+    DBTable *AgentGetTable();
+    void Alloc();
+    std::string uuid_;
+    std::string name_;
+    std::string id_;
+};
+
+class ForwardingClassSandesh : public AgentSandesh {
+public:
+    ForwardingClassSandesh(const std::string &context, const std::string &u,
+                           const std::string &name, const std::string &idx);
+    ~ForwardingClassSandesh() {}
+    virtual bool Filter(const DBEntryBase *entry);
+    virtual bool FilterToArgs(AgentSandeshArguments *args);
+
+private:
+    DBTable *AgentGetTable();
+    void Alloc();
+    std::string uuid_;
+    std::string name_;
+    std::string id_;
+};
+
+class QosQueueSandesh : public AgentSandesh {
+public:
+    QosQueueSandesh(const std::string &context, const std::string &u,
+                    const std::string &name, const std::string &id);
+    ~QosQueueSandesh() {}
+    virtual bool Filter(const DBEntryBase *entry);
+    virtual bool FilterToArgs(AgentSandeshArguments *args);
+
+private:
+    DBTable *AgentGetTable();
+    void Alloc();
+    std::string uuid_;
+    std::string name_;
+    std::string id_;
+};
 #endif // vnsw_agent_sandesh_h_

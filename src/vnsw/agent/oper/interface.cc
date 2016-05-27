@@ -30,6 +30,7 @@
 #include <oper/interface_common.h>
 #include <oper/vrf_assign.h>
 #include <oper/vxlan.h>
+#include <oper/qos_config.h>
 #include <oper/ifmap_dependency_manager.h>
 
 #include <vnc_cfg_types.h>
@@ -196,6 +197,23 @@ bool InterfaceTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
 // RESYNC supported only for VM_INTERFACE
 bool InterfaceTable::OperDBResync(DBEntry *entry, const DBRequest *req) {
     InterfaceKey *key = static_cast<InterfaceKey *>(req->key.get());
+
+    //RESYNC for QOS config handling for vhost and fabric interface
+    InterfaceQosConfigData *qos_config_data =
+        dynamic_cast<InterfaceQosConfigData *>(req->data.get());
+    if (qos_config_data) {
+        Interface *intf = static_cast<Interface *>(entry);
+        AgentQosConfigKey key(qos_config_data->qos_config_uuid_);
+
+        AgentQosConfig *qos_config = static_cast<AgentQosConfig *>
+            (agent()->qos_config_table()->FindActiveEntry(&key));
+
+        if (intf->qos_config_ != qos_config) {
+            intf->qos_config_ = qos_config;
+            return true;
+        }
+        return false;
+    }
 
     if (key->type_ != Interface::VM_INTERFACE)
         return false;
@@ -725,6 +743,10 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
     data.set_vrf_assign_acl_uuid("--NA--");
     data.set_vmi_type("--NA--");
     data.set_flood_unknown_unicast(false);
+
+    if (qos_config_.get()) {
+        data.set_qos_config(UuidToString(qos_config_->uuid()));
+    }
 
     switch (type_) {
     case Interface::PHYSICAL:

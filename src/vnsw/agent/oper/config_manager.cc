@@ -22,6 +22,9 @@
 #include <oper/sg.h>
 #include <oper/vm.h>
 #include <oper/interface_common.h>
+#include <oper/qos_config.h>
+#include <oper/forwarding_class.h>
+#include<oper/qos_queue.h>
 
 #include <vector>
 #include <string>
@@ -212,8 +215,12 @@ void ConfigManager::Init() {
     vm_list_.reset(new ConfigManagerNodeList(agent_->vm_table()));
     hc_list_.reset(new ConfigManagerNodeList
                        (agent_->health_check_table()));
+    qos_config_list_.reset(new ConfigManagerNodeList(agent_->qos_config_table()));
     device_vn_list_.reset(new ConfigManagerDeviceVnList
                           (agent_->physical_device_vn_table()));
+    qos_queue_list_.reset(new ConfigManagerNodeList(agent_->qos_queue_table()));
+    forwarding_class_list_.reset(new
+            ConfigManagerNodeList(agent_->forwarding_class_table()));
 }
 
 uint32_t ConfigManager::Size() const {
@@ -227,7 +234,8 @@ uint32_t ConfigManager::Size() const {
         vrf_list_->Size() +
         vm_list_->Size() +
         hc_list_->Size() +
-        device_vn_list_->Size();
+        device_vn_list_->Size() +
+        qos_config_list_->Size();
 }
 
 uint32_t ConfigManager::ProcessCount() const {
@@ -241,7 +249,8 @@ uint32_t ConfigManager::ProcessCount() const {
         vrf_list_->process_count() +
         vm_list_->process_count() +
         hc_list_->process_count() +
-        device_vn_list_->process_count();
+        device_vn_list_->process_count() +
+        qos_config_list_->process_count();
 }
 
 void ConfigManager::Start() {
@@ -285,6 +294,9 @@ int ConfigManager::Run() {
 
     count += sg_list_->Process(max_count - count);
     count += physical_interface_list_->Process(max_count - count);
+    count += qos_queue_list_->Process(max_count - count);
+    count += forwarding_class_list_->Process(max_count - count);
+    count += qos_config_list_->Process(max_count - count);
     count += vn_list_->Process(max_count - count);
     count += vm_list_->Process(max_count - count);
     count += vrf_list_->Process(max_count - count);
@@ -342,6 +354,18 @@ void ConfigManager::AddVmNode(IFMapNode *node) {
 
 void ConfigManager::AddPhysicalInterfaceNode(IFMapNode *node) {
     physical_interface_list_->Add(agent_, this, node);
+}
+
+void ConfigManager::AddQosConfigNode(IFMapNode *node) {
+    qos_config_list_->Add(agent_, this, node);
+}
+
+void ConfigManager::AddForwardingClassNode(IFMapNode *node) {
+    forwarding_class_list_->Add(agent_, this, node);
+}
+
+void ConfigManager::AddQosQueueNode(IFMapNode *node) {
+    qos_queue_list_->Add(agent_, this, node);
 }
 
 void ConfigManager::AddPhysicalDeviceVn(const boost::uuids::uuid &dev,

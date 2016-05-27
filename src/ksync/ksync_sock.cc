@@ -999,6 +999,16 @@ void KSyncBulkSandeshContext::MplsMsgHandler(vr_mpls_req *req) {
     context->MplsMsgHandler(req);
 }
 
+void KSyncBulkSandeshContext::QosConfigMsgHandler(vr_qos_map_req *req) {
+    AgentSandeshContext *context = GetSandeshContext();
+    context->QosConfigMsgHandler(req);
+}
+
+void KSyncBulkSandeshContext::ForwardingClassMsgHandler(vr_fc_map_req *req) {
+    AgentSandeshContext *context = GetSandeshContext();
+    context->ForwardingClassMsgHandler(req);
+}
+
 // vr_response message is treated as delimiter in a bulk-context. So, move to
 // next io-context within bulk-message context.
 int KSyncBulkSandeshContext::VrResponseMsgHandler(vr_response *resp) {

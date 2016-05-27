@@ -22,7 +22,8 @@ public:
       MIRROR_ACTION = 2,
       VRF_TRANSLATE_ACTION = 3,
       LOG_ACTION = 4,
-      ALERT_ACTION = 5
+      ALERT_ACTION = 5,
+      QOS_ACTION = 6
     };
     // Don't go beyond 31
     enum Action {
@@ -32,6 +33,7 @@ public:
         PASS = 5,
         MIRROR = 7,
         VRF_TRANSLATE = 8,
+        APPLY_QOS = 9,
         TRAP = 28,
         IMPLICIT_DENY = 29,
         RESERVED = 30,
@@ -117,6 +119,31 @@ public:
 private:
     std::string vrf_name_;
     bool ignore_acl_;
+};
+
+class QosConfigAction : public TrafficAction {
+public:
+    QosConfigAction() :
+        TrafficAction(APPLY_QOS, QOS_ACTION), name_(""), qos_config_ref_(NULL) {}
+    QosConfigAction(const std::string &qos_config_name):
+        TrafficAction(APPLY_QOS, QOS_ACTION),
+        name_(qos_config_name), qos_config_ref_(NULL) {}
+    const std::string& name() const {
+        return name_;
+    }
+
+    void set_qos_config_ref(const AgentQosConfig *config) {
+        qos_config_ref_ = config;
+    }
+    const AgentQosConfig* qos_config_ref() const {
+        return qos_config_ref_.get();
+    }
+
+    virtual bool Compare(const TrafficAction &rhs) const;
+    virtual void SetActionSandeshData(std::vector<ActionStr> &actions);
+private:
+    std::string name_;
+    AgentQosConfigConstRef qos_config_ref_;
 };
 
 class LogAction : public TrafficAction {

@@ -21,7 +21,7 @@
 #include <filter/acl_entry_spec.h>
 #include <filter/packet_header.h>
 #include <filter/acl.h>
-
+#include <oper/qos_config.h>
 #include <oper/mirror_table.h>
 
 AclEntry::ActionList AclEntry::kEmptyActionList;
@@ -136,6 +136,14 @@ void AclEntry::PopulateAclEntry(const AclEntrySpec &acl_entry_spec)
                     new VrfTranslateAction((*it).vrf_translate.vrf_name(),
                                            (*it).vrf_translate.ignore_acl());
                 actions_.push_back(act);
+            } else if ((*it).ta_type == TrafficAction::QOS_ACTION) {
+                QosConfigAction *act =
+                    new QosConfigAction((*it).qos_config_action.name());
+
+                const AgentQosConfig *qos_config = Agent::GetInstance()->
+                    qos_config_table()->FindByName((*it).qos_config_action.name());
+                act->set_qos_config_ref(qos_config);
+                actions_.push_back(act);
             } else {
                 ACL_TRACE(Err, "Not supported action " + integerToString((*it).ta_type));
             }
@@ -147,6 +155,36 @@ void AclEntry::PopulateAclEntry(const AclEntrySpec &acl_entry_spec)
     } else {
         type_ = NON_TERMINAL;
     }
+}
+
+bool AclEntry::IsQosConfigResolved() {
+    ActionList::iterator al;
+    for (al = actions_.begin(); al != actions_.end(); al++) {
+        if ((*al)->action_type() == TrafficAction::QOS_ACTION) {
+            QosConfigAction *act = static_cast<QosConfigAction *>(*al);
+            if (act->qos_config_ref() == NULL) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+bool AclEntry::ResyncQosConfigEntries() {
+    bool ret = false;
+    ActionList::iterator al;
+    for (al = actions_.begin(); al != actions_.end(); al++) {
+        if ((*al)->action_type() == TrafficAction::QOS_ACTION) {
+            QosConfigAction *act = static_cast<QosConfigAction *>(*al);
+            const AgentQosConfig *qos_config = Agent::GetInstance()->
+                qos_config_table()->FindByName(act->name());
+            if (act->qos_config_ref() != qos_config) {
+                act->set_qos_config_ref(qos_config);
+                ret = true;
+            }
+        }
+    }
+    return ret;
 }
 
 void AclEntry::set_mirror_entry(MirrorEntryRef me) { 

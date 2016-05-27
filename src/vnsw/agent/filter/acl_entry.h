@@ -62,6 +62,8 @@ public:
     boost::intrusive::list_member_hook<> acl_list_node;
 
     bool operator==(const AclEntry &rhs) const;
+    bool ResyncQosConfigEntries();
+    bool IsQosConfigResolved();
 private:
     uint32_t id_;
     AclType type_;
@@ -69,7 +71,6 @@ private:
     ActionList actions_;
     MirrorEntryRef mirror_entry_;
     std::string uuid_;
-
     DISALLOW_COPY_AND_ASSIGN(AclEntry);
 };
 

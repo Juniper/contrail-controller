@@ -29,6 +29,7 @@
 #include <oper/config_manager.h>
 #include <oper/global_vrouter.h>
 #include <oper/agent_route_resync.h>
+#include <oper/qos_config.h>
 #include <filter/acl.h>
 #include "net/address_util.h"
 
@@ -499,6 +500,14 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
         ret = true;
     }
 
+    AgentQosConfigKey qos_config_key(data->qos_config_uuid_);
+    AgentQosConfig *qos_config = static_cast<AgentQosConfig *>
+        (agent()->qos_config_table()->FindActiveEntry(&qos_config_key));
+    if (vn->qos_config_.get() != qos_config) {
+        vn->qos_config_ = qos_config;
+        ret = true;
+    }
+
     VrfKey vrf_key(data->vrf_name_);
     VrfEntry *vrf = static_cast<VrfEntry *>
         (agent()->vrf_table()->FindActiveEntry(&vrf_key));
@@ -704,6 +713,7 @@ VnData *VnTable::BuildData(IFMapNode *node) {
 
     uuid acl_uuid = nil_uuid();
     uuid mirror_cfg_acl_uuid = nil_uuid();
+    uuid qos_config_uuid = nil_uuid();
     string vrf_name = "";
     std::vector<VnIpam> vn_ipam;
     VnData::VnIpamDataMap vn_ipam_data;
@@ -737,6 +747,14 @@ VnData *VnTable::BuildData(IFMapNode *node) {
         if ((adj_node->table() == agent()->cfg()->cfg_vrf_table()) &&
             (!IsVRFServiceChainingInstance(node->name(), adj_node->name()))) {
             vrf_name = adj_node->name();
+        }
+
+        if (adj_node->table() == agent()->cfg()->cfg_qos_table()) {
+            autogen::QosConfig *qc =
+                static_cast<autogen::QosConfig *>(adj_node->GetObject());
+            autogen::IdPermsType id_perms = qc->id_perms();
+            CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                        qos_config_uuid);
         }
 
         if (adj_node->table() == agent()->cfg()->cfg_vn_network_ipam_table()) {
@@ -794,7 +812,8 @@ VnData *VnTable::BuildData(IFMapNode *node) {
                       vn_ipam_data, cfg->properties().vxlan_network_identifier,
                       GetCfgVnId(cfg), bridging, layer3_forwarding,
                       cfg->id_perms().enable, enable_rpf,
-                      flood_unknown_unicast, forwarding_mode);
+                      flood_unknown_unicast, forwarding_mode,
+                      qos_config_uuid);
 }
 
 bool VnTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
@@ -847,7 +866,7 @@ void VnTable::AddVn(const uuid &vn_uuid, const string &name,
                               nil_uuid(), ipam, vn_ipam_data,
                               vn_id, vxlan_id, true, true,
                               admin_state, enable_rpf,
-                              flood_unknown_unicast, Agent::NONE);
+                              flood_unknown_unicast, Agent::NONE, nil_uuid());
  
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);

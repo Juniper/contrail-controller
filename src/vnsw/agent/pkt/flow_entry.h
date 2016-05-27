@@ -283,6 +283,7 @@ struct FlowData {
     std::string vm_cfg_name;
     uint32_t ecmp_rpf_nh_;
     uint32_t acl_assigned_vrf_index_;
+    uint32_t qos_config_idx;
     // IMPORTANT: Keep this structure assignable. Assignment operator is used in
     // FlowEntry::Copy() on this structure
 };
@@ -650,6 +651,7 @@ private:
     void SetRemoteFlowEcmpIndex();
     void SetLocalFlowEcmpIndex();
     void set_ecmp_rpf_nh() const;
+    bool SetQosConfigIndex();
 
     FlowKey key_;
     FlowTable *flow_table_;

@@ -132,6 +132,9 @@ public:
     const NextHop* flow_key_nh() const {return flow_key_nh_.get();}
     Interface::Transport transport() const { return transport_;}
     bool IsUveActive() const;
+    const AgentQosConfig* qos_config() const {
+        return qos_config_.get();
+    }
 
 protected:
     void SetItfSandeshData(ItfSandeshData &data) const;
@@ -164,6 +167,7 @@ protected:
     //reference set.
     NextHopConstRef flow_key_nh_;
     Transport transport_;
+    AgentQosConfigConstRef qos_config_;
 
 private:
     friend class InterfaceTable;
@@ -240,6 +244,14 @@ struct InterfaceData : public AgentOperDBData {
     // This is constant-data. Set only during create and not modified later
     std::string vrf_name_;
     Interface::Transport transport_;
+};
+
+struct InterfaceQosConfigData : public AgentOperDBData {
+    InterfaceQosConfigData(const Agent *agent, IFMapNode *node,
+                           boost::uuids::uuid qos_config_uuid):
+        AgentOperDBData(agent, node), qos_config_uuid_(qos_config_uuid) {}
+
+    boost::uuids::uuid qos_config_uuid_;
 };
 
 /////////////////////////////////////////////////////////////////////////////

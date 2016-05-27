@@ -297,6 +297,25 @@ private:
     std::string dest_vn_;
 };
 
+class VerifyQosAction : public FlowVerify {
+public:
+    VerifyQosAction(std::string qos_action1,
+                    std::string qos_action2):
+    qos_action1_(qos_action1), qos_action2_(qos_action2) {}
+    ~VerifyQosAction() {};
+
+    virtual void Verify(FlowEntry *fe) {
+        FlowEntry *rev = fe->reverse_flow_entry();
+        EXPECT_TRUE(QosConfigGetByIndex(fe->data().qos_config_idx)->name() ==
+                    qos_action1_);
+        EXPECT_TRUE(QosConfigGetByIndex(rev->data().qos_config_idx)->name()==
+                    qos_action2_);
+    }
+
+    std::string qos_action1_;
+    std::string qos_action2_;
+};
+
 class ShortFlow : public FlowVerify {
 public:
     ShortFlow() {}

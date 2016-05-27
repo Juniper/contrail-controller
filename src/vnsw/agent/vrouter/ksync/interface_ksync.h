@@ -113,6 +113,7 @@ private:
     Interface::Transport transport_;
     bool flood_unknown_unicast_;
     VmInterface::FatFlowList fat_flow_list_;
+    KSyncEntryPtr qos_config_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceKSyncEntry);
 };
 

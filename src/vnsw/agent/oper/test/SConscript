@@ -38,6 +38,8 @@ test_fabric_interface = AgentEnv.MakeTestCmd(env, 'test_fabric_interface',
 test_aap = AgentEnv.MakeTestCmd(env, 'test_aap', oper_flaky_test_suite)
 test_aap6 = AgentEnv.MakeTestCmd(env, 'test_aap6', oper_test_suite)
 test_ipv6 = AgentEnv.MakeTestCmd(env, 'test_ipv6', oper_test_suite)
+test_forwarding_class = AgentEnv.MakeTestCmd(env, 'test_forwarding_class', oper_test_suite)
+test_qos_config = AgentEnv.MakeTestCmd(env, 'test_qos_config', oper_test_suite)
 test_oper_xml = AgentEnv.MakeTestCmdSrc(env, 'test_oper_xml',
                                         [
                                          'test_oper_xml.cc',

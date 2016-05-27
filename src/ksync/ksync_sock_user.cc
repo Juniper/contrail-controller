@@ -905,6 +905,14 @@ void KSyncUserSockContext::RouteMsgHandler(vr_route_req *req) {
     }
 }
 
+void KSyncUserSockContext::QosConfigMsgHandler(vr_qos_map_req *req) {
+    assert(0);
+}
+
+void KSyncUserSockContext::ForwardingClassMsgHandler(vr_fc_map_req *req) {
+    assert(0);
+}
+
 void KSyncUserSockContext::MirrorMsgHandler(vr_mirror_req *req) {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
 

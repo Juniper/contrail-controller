@@ -1026,6 +1026,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     uint16_t tx_vlan_id_;
     boost::uuids::uuid logical_interface_;
     VmiEcmpLoadBalance ecmp_load_balance_;
+    boost::uuids::uuid qos_config_uuid_;
 };
 
 // Definition for structures when request queued from Nova

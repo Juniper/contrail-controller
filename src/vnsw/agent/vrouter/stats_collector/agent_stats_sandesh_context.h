@@ -51,6 +51,12 @@ public:
     virtual void VxLanMsgHandler(vr_vxlan_req *req) {
         assert(0);
     }
+    virtual void ForwardingClassMsgHandler(vr_fc_map_req *req) {
+        assert(0);
+    }
+    virtual void QosConfigMsgHandler(vr_qos_map_req *req) {
+        assert(0);
+    }
     virtual void VrfStatsMsgHandler(vr_vrf_stats_req *req);
     virtual void DropStatsMsgHandler(vr_drop_stats_req *req);
     /* Vr-response is expected from kernel and mock code.
