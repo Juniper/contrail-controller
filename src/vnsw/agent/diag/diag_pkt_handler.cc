@@ -65,13 +65,25 @@ bool DiagPktHandler::IsOverlayPingPacket() {
 
 bool DiagPktHandler::HandleTraceRoutePacket() {
 
+    uint32_t rabit =0;
     if (pkt_info_->ip == NULL) {
         // we only send IPv4 trace route packets; ignore other packets
         return true;
     }
 
     if (pkt_info_->ip->ip_ttl == 0) {
-        SendTimeExceededPacket();
+        if (pkt_info_->dport == VXLAN_UDP_DEST_PORT) {
+            VxlanHdr *vxlan = (VxlanHdr *)(pkt_info_->pkt + 
+                                           sizeof(struct ether_header)+
+                                           sizeof(struct ip) + sizeof(udphdr));
+            rabit = ntohl(vxlan->reserved) & OverlayPing::kVxlanRABit;
+        }
+
+        if (rabit) {
+           ReplyOverlayPing(); 
+        } else {
+            SendTimeExceededPacket();
+        }
         return true;
     }
 
@@ -383,7 +395,6 @@ void DiagPktHandler::ReplyOverlayPing() {
     oamdata->timerecv_sec_ = td.total_seconds();
     oamdata->timerecv_misec_ = td.total_microseconds() - 
         seconds(oamdata->timerecv_sec_).total_microseconds();;
-    pkt_info_->set_len(GetLength());
     PhysicalInterfaceKey key1(agent->fabric_interface_name());
     Interface *intf = static_cast<Interface *>
                 (agent->interface_table()->Find(&key1, true));
