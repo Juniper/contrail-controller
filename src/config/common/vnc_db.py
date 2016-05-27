@@ -124,7 +124,7 @@ class DBBase(object):
             parent_type = obj.get('parent_type')
         else:
             parent_type = obj.parent_type
-        self.parent_type = parent_type.replace('-', '_')
+        self.parent_type = parent_type
         if self._indexed_by_name:
             if isinstance(obj, dict):
                 fq_name = obj_dict.get('fq_name', [])
@@ -318,7 +318,7 @@ class DBBase(object):
         if 'parent_uuid' in obj:
             return obj['parent_uuid']
         else:
-            parent_type = obj['parent_type'].replace('-', '_')
+            parent_type = obj['parent_type']
             parent_fq_name = obj['fq_name'][:-1]
             return self._cassandra.fq_name_to_uuid(parent_type, parent_fq_name)
     # end get_parent_uuid
@@ -346,4 +346,3 @@ class DBBase(object):
         return dict((x.obj_type, x) for x in module_base[0].__subclasses__())
 
 # end class DBBase
-
