@@ -364,9 +364,9 @@ class DiscoveryCassandraClient(VncCassandraClient):
     """
     def read_dsa_config(self):
         try:
-            obj_type = 'discovery-service-assignment'
-            dsa_uuid = self.fq_name_to_uuid(obj_type,
-                           ['default-discovery-service-assignment'])
+            obj_type = 'discovery_service_assignment'
+            dsa_uuid = self.fq_name_to_uuid(
+                obj_type, ['default-discovery-service-assignment'])
             (ok, dsa_obj) = self.object_read(obj_type, [dsa_uuid])
         except Exception as e:
             return None
@@ -377,7 +377,7 @@ class DiscoveryCassandraClient(VncCassandraClient):
 
         result = []
         for rule in dsa_rules:
-            (ok, rule_obj) = self.object_read('dsa-rule', [rule['uuid']])
+            (ok, rule_obj) = self.object_read('dsa_rule', [rule['uuid']])
             entry = rule_obj[0]['dsa_rule_entry']
             if entry:
                 result.append(entry)

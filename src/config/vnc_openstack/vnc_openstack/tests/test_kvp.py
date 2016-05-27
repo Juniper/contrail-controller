@@ -65,11 +65,11 @@ class NetworkKVPTest(test_case.ResourceDriverTestCase):
         self._vnc_lib.virtual_network_create(vn)
         net_obj = self._vnc_lib.virtual_network_read(id=vn.uuid)
         print 'network created with uuid ' + net_obj.uuid
-        # Ensure only TWO entry in KV 
+        # Ensure only TWO entry in KV
         kvp = self._vnc_lib.kv_retrieve()
         self.assertEqual(len(kvp), 4)
 
-        # Ensure only one entry in KV 
+        # Ensure only one entry in KV
         key = net_obj.uuid + " " + subnet +'/'+str(prefix)
         subnet_uuid = self._vnc_lib.kv_retrieve(key)
         key_tmp = self._vnc_lib.kv_retrieve(subnet_uuid)
@@ -81,7 +81,7 @@ class NetworkKVPTest(test_case.ResourceDriverTestCase):
         self.assertEqual(key, key_tmp)
 
         # Test delete
-        print 'Deleting network with name ' + vn_name 
+        print 'Deleting network with name ' + vn_name
         self._vnc_lib.virtual_network_delete(id=vn.uuid)
         # Ensure all entries are gone
         kvp = self._vnc_lib.kv_retrieve()
@@ -97,7 +97,7 @@ class NetworkKVPTest(test_case.ResourceDriverTestCase):
         self._vnc_lib.virtual_network_create(vn)
         net_obj = self._vnc_lib.virtual_network_read(id=vn.uuid)
         print 'network created with uuid ' + net_obj.uuid
-        # Ensure only ONE entry in KV 
+        # Ensure only ONE entry in KV
         kvp = self._vnc_lib.kv_retrieve()
         self.assertEqual(len(kvp), 2)
         key = net_obj.uuid + " " + subnet_2 +'/'+str(prefix)
@@ -114,7 +114,7 @@ class NetworkKVPTest(test_case.ResourceDriverTestCase):
                 ipam_ref['attr'].set_ipam_subnets([ipam_sn_2])
                 net_obj._pending_field_updates.add('network_ipam_refs')
         self._vnc_lib.virtual_network_update(net_obj)
-        # Ensure only ONE entry in KV 
+        # Ensure only ONE entry in KV
         kvp = self._vnc_lib.kv_retrieve()
         self.assertEqual(len(kvp), 2)
         key = net_obj.uuid + " " + subnet_3 +'/'+str(prefix)
@@ -143,15 +143,15 @@ class NetworkKVPTest(test_case.ResourceDriverTestCase):
         net_obj = self._vnc_lib.virtual_network_read(id=vn.uuid)
         print 'network created with uuid ' + net_obj.uuid
 
-        # Ensure only ONE entry in KV 
+        # Ensure only ONE entry in KV
         kvp = self._vnc_lib.kv_retrieve()
         self.assertEqual(len(kvp), 0)
 
         subnet_3 = '99.1.1.0'
         print 'ref_update with subnet ' + subnet_3
         ipam_sn_3 = IpamSubnetType(subnet=SubnetType(subnet_3, prefix))
-        self._vnc_lib.ref_update('virtual-network', net_obj.uuid, 'network_ipam_refs', None, self._ipam_obj.get_fq_name(), 'ADD', VnSubnetsType([ipam_sn_3]))
-        # Ensure only TWO entries in KV 
+        self._vnc_lib.ref_update('virtual-network', net_obj.uuid, 'network-ipam-refs', None, self._ipam_obj.get_fq_name(), 'ADD', VnSubnetsType([ipam_sn_3]))
+        # Ensure only TWO entries in KV
         kvp = self._vnc_lib.kv_retrieve()
         self.assertEqual(len(kvp), 2)
         key = net_obj.uuid + " " + subnet_3 +'/'+str(prefix)
@@ -160,7 +160,7 @@ class NetworkKVPTest(test_case.ResourceDriverTestCase):
         self.assertEqual(key, key_tmp)
 
         print 'ref_update to remove the ipam ref'
-        self._vnc_lib.ref_update('virtual-network', net_obj.uuid, 'network_ipam_refs', None, self._ipam_obj.get_fq_name(), 'DELETE')
+        self._vnc_lib.ref_update('virtual-network', net_obj.uuid, 'network-ipam-refs', None, self._ipam_obj.get_fq_name(), 'DELETE')
         kvp = self._vnc_lib.kv_retrieve()
         self.assertEqual(len(kvp), 0)
 

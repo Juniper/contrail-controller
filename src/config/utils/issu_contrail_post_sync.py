@@ -3,7 +3,6 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
-from cfgm_common.vnc_cassandra import VncCassandraClient
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from issu_contrail_common import ICCassandraClient
 from issu_contrail_common import ICCassandraInfo
