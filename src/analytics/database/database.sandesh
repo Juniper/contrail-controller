@@ -63,3 +63,30 @@ struct NodeStatus {
 uve sandesh NodeStatusUVE {
     1: NodeStatus data
 }
+
+struct CassandraThreadPoolStats {
+    1: string pool_name
+    2: u64 active
+    3: u64 pending
+    4: u64 all_time_blocked
+}
+
+struct CassandraCompactionTask {
+    1: u64 pending_compaction_tasks
+}
+struct CassandraStatusData {
+    1: string name (key="ObjectDatabaseInfo")
+    2: optional bool deleted
+    3: CassandraCompactionTask cassandra_compaction_task (tags="")
+    4: list<CassandraThreadPoolStats>  thread_pool_stats (tags=".pool_name")
+}
+
+/**
+ * @description: For monitoring nodetool tpstats and compaction pending counts
+ * contrail-database-nodemgr
+ * @object: database-node
+ */
+uve sandesh CassandraStatusUVE {
+    1: CassandraStatusData data
+}
+
