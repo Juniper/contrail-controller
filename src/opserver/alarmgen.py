@@ -290,7 +290,7 @@ class AlarmStateMachine:
         This function runs the state machine code for setting an alarm
         If a timer becomes Active, caller should send out updated AlarmUVE
         """
-        update_alarms = False
+        update_alarms = True
         old_state = self.uas.state
         curr_time = int(time.time())
         if self.uas.state == UVEAlarmState.Soak_Idle:
@@ -308,7 +308,6 @@ class AlarmStateMachine:
                                 (self.uac.FreqCheck_Times + 1)
             if not self.uac.ActiveTimer or self.is_alarm_frequency_exceeded():
                 self.uas.state = UVEAlarmState.Active
-                update_alarms = True
             else:
                 # put it on the timer
                 self.uas.state = UVEAlarmState.Soak_Active
@@ -346,7 +345,7 @@ class AlarmStateMachine:
         cur_time = int(time.time())
         old_state = self.uas.state
         delete_alarm = False
-        update_alarm = False
+        update_alarm = True
         if self.uas.state == UVEAlarmState.Soak_Active:
             # stop the active timer and start idle timer
             self.uas.state = UVEAlarmState.Idle
@@ -364,7 +363,6 @@ class AlarmStateMachine:
             if not self.uac.IdleTimer:
                 # Move to Idle state, caller should delete it
                 self.uas.state = UVEAlarmState.Idle
-                update_alarm = True
                 if self.uac.FreqCheck_Seconds:
                     self.deleteTimeout = cur_time + self.uac.FreqCheck_Seconds
                     to_value = self.deleteTimeout
