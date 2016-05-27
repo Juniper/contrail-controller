@@ -14,7 +14,7 @@
 class DiagTable;
 class OverlayPing : public DiagEntry{
 public:
-   static const uint32_t kOverlayUdpPingHdrLength = 2 *(sizeof(struct ether_header) +
+   static const uint32_t kOverlayUdpHdrLength = 2 *(sizeof(struct ether_header) +
                                                sizeof(struct ip) + sizeof(udphdr))
                                                + sizeof(VxlanHdr);
    static const uint32_t kVxlanRABit = 0x01000000;
@@ -28,8 +28,9 @@ public:
     virtual void HandleReply(DiagPktHandler *handler);
     virtual void RequestTimedOut(uint32_t seq_no);
     virtual void SendSummary();
-    void FillOamPktHeader(OverlayOamPktData *pkt);
-    uint32_t HashValUdpSourcePort();
+    //void FillOamPktHeader(OverlayOamPktData *pkt);
+    static BridgeRouteEntry *L2RouteGet(VxLanId* vxlan, string remotemac, 
+                                        Agent *agent);
 private:
     uuid vn_uuid_;
     MacAddress remote_vm_mac_;
