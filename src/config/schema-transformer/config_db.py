@@ -3939,8 +3939,8 @@ class RoutingPolicyST(DBBaseST):
     def add_routing_instance(self, ri, seq):
         if ri.name in self.routing_instances:
             return
-        self._vnc_lib.ref_update('routing_policy', self.obj.uuid,
-                                 'routing_instance', ri.obj.uuid,
+        self._vnc_lib.ref_update('routing-policy', self.obj.uuid,
+                                 'routing-instance', ri.obj.uuid,
                                  None, 'ADD', RoutingPolicyType(seq))
         self.routing_instances.add(ri.name)
     # end add_routing_instance
@@ -3948,8 +3948,8 @@ class RoutingPolicyST(DBBaseST):
     def delete_routing_instance(self, ri):
         if ri.name not in self.routing_instances:
             return
-        self._vnc_lib.ref_update('routing_policy', self.obj.uuid,
-                                 'routing_instance', ri.obj.uuid,
+        self._vnc_lib.ref_update('routing-policy', self.obj.uuid,
+                                 'routing-instance', ri.obj.uuid,
                                  None, 'DELETE')
         self.routing_instances.discard(ri.name)
     # end delete_routing_instance

@@ -17,7 +17,7 @@ import ssl
 
 import gen.resource_common
 import gen.vnc_api_client_gen
-from gen.vnc_api_client_gen import all_resource_types
+from gen.vnc_api_client_gen import all_resource_type_tuples
 from gen.resource_xsd import *
 from gen.resource_client import *
 from gen.generatedssuper import GeneratedsSuper
@@ -46,8 +46,8 @@ def compare_refs(old_refs, new_refs):
     return old_ref_dict == new_ref_dict
 # end compare_refs
 
-def get_object_class(obj_type):
-    cls_name = '%s' %(utils.CamelCase(obj_type.replace('-', '_')))
+def get_object_class(res_type):
+    cls_name = '%s' %(utils.CamelCase(res_type))
     return utils.str_to_class(cls_name, __name__)
 # end get_object_class
 
@@ -133,19 +133,18 @@ class VncApi(object):
         # TODO allow for username/password to be present in creds file
 
         self._obj_serializer = self._obj_serializer_diff
-        for resource_type in vnc_api.gen.vnc_api_client_gen.all_resource_types:
-            obj_type = resource_type.replace('-', '_')
+        for object_type, resource_type in all_resource_type_tuples:
             for oper_str in ('_create', '_read', '_update', '_delete',
                          's_list', '_get_default_id'):
                 method = getattr(self, '_object%s' %(oper_str))
                 bound_method = functools.partial(method, resource_type)
                 functools.update_wrapper(bound_method, method)
                 if oper_str == '_get_default_id':
-                    setattr(self, 'get_default_%s_id' %(obj_type),
-                        bound_method)
+                    setattr(self, 'get_default_%s_id' % (object_type),
+                            bound_method)
                 else:
-                    setattr(self, '%s%s' %(obj_type, oper_str),
-                        bound_method)
+                    setattr(self, '%s%s' %(object_type, oper_str),
+                            bound_method)
 
         cfg_parser = ConfigParser.ConfigParser()
         try:
@@ -154,7 +153,7 @@ class VncApi(object):
         except Exception as e:
             logger = logging.getLogger(__name__)
             logger.warn("Exception: %s", str(e))
-            
+
         self._api_connect_protocol = VncApi._DEFAULT_API_SERVER_CONNECT
         # API server SSL Support
         use_ssl = api_server_use_ssl
@@ -338,7 +337,6 @@ class VncApi(object):
 
     @check_homepage
     def _object_create(self, res_type, obj):
-        obj_type = res_type.replace('-', '_')
         obj_cls = get_object_class(res_type)
 
         obj._pending_field_updates |= obj._pending_ref_updates
@@ -395,7 +393,6 @@ class VncApi(object):
     @check_homepage
     def _object_read(self, res_type, fq_name=None, fq_name_str=None,
                      id=None, ifmap_id=None, fields=None):
-        obj_type = res_type.replace('-', '_')
         obj_cls = get_object_class(res_type)
 
         (args_ok, result) = self._read_args_to_id(
@@ -424,7 +421,6 @@ class VncApi(object):
 
     @check_homepage
     def _object_update(self, res_type, obj):
-        obj_type = res_type.replace('-', '_')
         obj_cls = get_object_class(res_type)
 
         # Read in uuid from api-server if not specified in obj
@@ -476,10 +472,12 @@ class VncApi(object):
                             tuple(x.get('to', [])), x.get('attr'))
                        for x in getattr(obj, ref_name, [])])
              for ref in ref_orig - ref_new:
-                 self.ref_update(res_type, obj.uuid, ref_name, ref[0],
+                 self.ref_update(res_type, obj.uuid,
+                                 ref_name[:-5].replace('_', '-'), ref[0],
                                  list(ref[1]), 'DELETE')
              for ref in ref_new - ref_orig:
-                 self.ref_update(res_type, obj.uuid, ref_name, ref[0],
+                 self.ref_update(res_type, obj.uuid,
+                                 ref_name[:-5].replace('_', '-'), ref[0],
                                  list(ref[1]), 'ADD', ref[2])
         obj.clear_pending_updates()
 
@@ -498,11 +496,10 @@ class VncApi(object):
 
     @check_homepage
     def _object_delete(self, res_type, fq_name=None, id=None, ifmap_id=None):
-        obj_type = res_type.replace('-', '_')
         obj_cls = get_object_class(res_type)
 
         (args_ok, result) = self._read_args_to_id(
-            obj_type=res_type, fq_name=fq_name, id=id, ifmap_id=ifmap_id)
+            res_type=res_type, fq_name=fq_name, id=id, ifmap_id=ifmap_id)
         if not args_ok:
             return result
 
@@ -513,7 +510,6 @@ class VncApi(object):
     # end _object_delete
 
     def _object_get_default_id(self, res_type):
-        obj_type = res_type.replace('-', '_')
         obj_cls = get_object_class(res_type)
 
         return self.fq_name_to_id(res_type, obj_cls().get_fq_name())
@@ -682,7 +678,7 @@ class VncApi(object):
         return None
     #end _find_url
 
-    def _read_args_to_id(self, obj_type, fq_name=None, fq_name_str=None,
+    def _read_args_to_id(self, res_type, fq_name=None, fq_name_str=None,
                          id=None, ifmap_id=None):
         arg_count = ((fq_name is not None) + (fq_name_str is not None) +
                      (id is not None) + (ifmap_id is not None))
@@ -695,9 +691,9 @@ class VncApi(object):
         if id:
             return (True, id)
         if fq_name:
-            return (True, self.fq_name_to_id(obj_type, fq_name))
+            return (True, self.fq_name_to_id(res_type, fq_name))
         if fq_name_str:
-            return (True, self.fq_name_to_id(obj_type, fq_name_str.split(':')))
+            return (True, self.fq_name_to_id(res_type, fq_name_str.split(':')))
         if ifmap_id:
             return (True, self.ifmap_to_id(ifmap_id))
     #end _read_args_to_id
@@ -733,20 +729,20 @@ class VncApi(object):
             except ConnectionError:
                 if not retry_on_error:
                     raise ConnectionError
-     
+
                 time.sleep(1)
                 self._create_api_server_session()
                 continue
-     
+
             if status == 200:
                 return content
-     
+
             # Exception Response, see if it can be resolved
             if ((status == 401) and (not self._auth_token_input) and (not retry_after_authn)):
                 self._headers = self._authenticate(content, self._headers)
                 # Recursive call after authentication (max 1 level)
                 content = self._request(op, url, data=data, retry_after_authn=True)
-     
+
                 return content
             elif status == 404:
                 raise NoIdError('Error: oper %s url %s body %s response %s'
@@ -805,9 +801,9 @@ class VncApi(object):
         return json.loads(content)[obj_field]
     # end _prop_collection_get
 
-    def _prop_map_get_elem_key(self, obj_uuid, obj_field, elem):
-        _, obj_type = self.id_to_fq_name_type(obj_uuid)
-        obj_class = utils.obj_type_to_vnc_class(obj_type, __name__)
+    def _prop_map_get_elem_key(self, id, obj_field, elem):
+        _, res_type = self.id_to_fq_name_type(id)
+        obj_class = utils.obj_type_to_vnc_class(res_type, __name__)
 
         key_name = obj_class.prop_map_field_key_names[obj_field]
         if isinstance(value, GeneratedsSuper):
@@ -858,11 +854,10 @@ class VncApi(object):
     # end prop_list_get
 
     @check_homepage
-    def ref_update(self, obj_type, obj_uuid, ref_type, ref_uuid, ref_fq_name, operation, attr=None):
-        if ref_type.endswith('_refs'):
-            ref_type = ref_type[:-5].replace('_', '-')
-        json_body = json.dumps({'type': obj_type, 'uuid': obj_uuid,
-                                'ref-type': ref_type, 'ref-uuid': ref_uuid,
+    def ref_update(self, res_type, obj_uuid, ref_res_type, ref_uuid,
+                   ref_fq_name, operation, attr=None):
+        json_body = json.dumps({'type': res_type, 'uuid': obj_uuid,
+                                'ref-type': ref_res_type, 'ref-uuid': ref_uuid,
                                 'ref-fq-name': ref_fq_name,
                                 'operation': operation, 'attr': attr},
                                default=self._obj_serializer_diff)
@@ -898,8 +893,8 @@ class VncApi(object):
     #end obj_to_id
 
     @check_homepage
-    def fq_name_to_id(self, obj_type, fq_name):
-        json_body = json.dumps({'type': obj_type, 'fq_name': fq_name})
+    def fq_name_to_id(self, res_type, fq_name):
+        json_body = json.dumps({'type': res_type, 'fq_name': fq_name})
         uri = self._action_uri['name-to-id']
         try:
             content = self._request_server(rest.OP_POST, uri, data=json_body)
@@ -1049,15 +1044,15 @@ class VncApi(object):
     #end get_auth_token
 
     @check_homepage
-    def resource_list(self, obj_type, parent_id=None, parent_fq_name=None,
+    def resource_list(self, res_type, parent_id=None, parent_fq_name=None,
                       back_ref_id=None, obj_uuids=None, fields=None,
                       detail=False, count=False, filters=None):
-        if not obj_type:
-            raise ResourceTypeUnknownError(obj_type)
+        if not res_type:
+            raise ResourceTypeUnknownError(res_type)
 
-        obj_class = utils.obj_type_to_vnc_class(obj_type, __name__)
+        obj_class = utils.obj_type_to_vnc_class(res_type, __name__)
         if not obj_class:
-            raise ResourceTypeUnknownError(obj_type)
+            raise ResourceTypeUnknownError(res_type)
 
         query_params = {}
         do_post_for_list = False
@@ -1105,7 +1100,7 @@ class VncApi(object):
                 raise
 
             # use same keys as in GET with additional 'type'
-            query_params['type'] = obj_type
+            query_params['type'] = res_type
             json_body = json.dumps(query_params)
             content = self._request_server(rest.OP_POST,
                                            uri, json_body)
@@ -1121,10 +1116,10 @@ class VncApi(object):
         if not detail:
             return json.loads(content)
 
-        resource_dicts = json.loads(content)['%ss' %(obj_type)]
+        resource_dicts = json.loads(content)['%ss' %(res_type)]
         resource_objs = []
         for resource_dict in resource_dicts:
-            obj_dict = resource_dict['%s' %(obj_type)]
+            obj_dict = resource_dict['%s' %(res_type)]
             resource_obj = obj_class.from_dict(**obj_dict)
             resource_obj.clear_pending_updates()
             resource_obj.set_server_conn(self)
