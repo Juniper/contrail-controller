@@ -38,6 +38,9 @@ class FlowEntry;
 struct FlowExportInfo;
 class FlowStatsCollector;
 class FlowToken;
+class FlowMgmtRequest;
+class FlowEntryInfo;
+typedef std::auto_ptr<FlowEntryInfo> FlowMgmtEntryInfoPtr;
 
 ////////////////////////////////////////////////////////////////////////////
 // This is helper struct to carry parameters of reverse-flow. When flow is
@@ -625,6 +628,16 @@ class FlowEntry {
     void ResetRetryCount(){ flow_retry_attempts_ = 0; }
     bool IsOnUnresolvedList(){ return is_flow_on_unresolved_list;}
     void SetUnResolvedList(bool added){ is_flow_on_unresolved_list = added;}
+
+    FlowMgmtRequest *flow_mgmt_request() const { return flow_mgmt_request_; }
+    void set_flow_mgmt_request(FlowMgmtRequest *req) {
+        flow_mgmt_request_ = req;
+    }
+
+    FlowEntryInfo *flow_mgmt_info() const { return flow_mgmt_info_.get(); }
+    void set_flow_mgmt_info(FlowEntryInfo *info) {
+        flow_mgmt_info_.reset(info);
+    }
 private:
     friend class FlowTable;
     friend class FlowEntryFreeList;
@@ -691,6 +704,15 @@ private:
     static SecurityGroupList default_sg_list_;
     uint8_t flow_retry_attempts_;
     bool is_flow_on_unresolved_list;
+    // flow_mgmt_request used for compressing events to flow-mgmt queue.
+    // flow_mgmt_request_ is set when flow is enqueued to flow-mgmt queue. No
+    // subsequent enqueues are done till this field is set. The request can be
+    // updated with new values to reflect latest state
+    FlowMgmtRequest *flow_mgmt_request_;
+
+    // Field used by flow-mgmt module. Its stored here to optimize flow-mgmt
+    // and avoid lookups
+    FlowMgmtEntryInfoPtr flow_mgmt_info_;
     // IMPORTANT: Remember to update Reset() routine if new fields are added
     // IMPORTANT: Remember to update Copy() routine if new fields are added
 };
