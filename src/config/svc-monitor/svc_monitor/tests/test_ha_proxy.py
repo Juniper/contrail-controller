@@ -70,7 +70,7 @@ class HAProxyTest(unittest.TestCase):
         def validate_pool_update(obj_type, obj_uuid, ref_type, ref_uuid,
                                  ref_fq_name, operation):
             self.assertEqual(obj_type, "loadbalancer-pool")
-            self.assertEqual(ref_type, "service_instance_refs")
+            self.assertEqual(ref_type, "service-instance")
             pool = config_db.LoadbalancerPoolSM.get(obj_uuid)
             if operation is "ADD":
                 si = config_db.ServiceInstanceSM.get(ref_uuid)

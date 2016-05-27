@@ -34,12 +34,12 @@ class VirtualNetwork(Resource):
         # Get default global system config dict
         try:
             id = self._db_manger.fq_name_to_uuid(
-                'global-system-config', ['default-global-system-config'])
+                'global_system_config', ['default-global-system-config'])
         except NoIdError as e:
             logger.error("%s. Run once the VNC API server to initialize "
                          "default resources", text_type(e))
             exit(1)
-        ok, obj_dicts = self._db_manger.object_read('global-system-config',
+        ok, obj_dicts = self._db_manger.object_read('global_system_config',
                                                     [id])
         if not ok or len(obj_dicts) != 1:
             logger.error("Cannot read the default global system config %s or "
@@ -120,7 +120,7 @@ class VirtualNetwork(Resource):
                     self._zk_client.create_node(subnet_path + id_str)
                     id_str = "%(#)010d" % {'#': subnet.last}
                     self._zk_client.create_node(subnet_path + id_str)
-                    self._create_resource('virtual-network', fq_name, attr,
+                    self._create_resource('virtual_network', fq_name, attr,
                                           uuid_batch, fqname_batch)
                     self._vn_id_allocator += 1
 
@@ -143,7 +143,7 @@ class VirtualNetwork(Resource):
                         'routing_instance_is_default': True,
                     }
                     ris[project_idx].append(self._create_resource(
-                        'routing-instance', fq_name, attr, uuid_batch,
+                        'routing_instance', fq_name, attr, uuid_batch,
                         fqname_batch))
 
         rts = []
@@ -164,7 +164,7 @@ class VirtualNetwork(Resource):
                     self._zk_client.create_node(self._RT_ID_ALLOC_PATH +
                                                 id_str)
                     rts[project_idx].append(self._create_resource(
-                        'route-target', fq_name))
+                        'route_target', fq_name))
                     self._rt_id_allocator += 1
 
         # Update reference ri -> rt
@@ -184,4 +184,4 @@ class VirtualNetwork(Resource):
                             },
                         ],
                     })
-                    self._update_resource('routing-instance', ri, uuid_batch)
+                    self._update_resource('routing_instance', ri, uuid_batch)

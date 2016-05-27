@@ -186,7 +186,7 @@ class OpencontrailLoadbalancerDriver(
 
         if si_refs is None or si_refs != si_obj.uuid:
             self._api.ref_update('loadbalancer-pool', pool.uuid,
-                'service_instance_refs', si_obj.uuid, None, 'ADD')
+                'service-instance', si_obj.uuid, None, 'ADD')
         self.db.pool_driver_info_insert(pool_id,
                                         {'service_instance': si_obj.uuid})
 
@@ -203,7 +203,7 @@ class OpencontrailLoadbalancerDriver(
         pool = LoadbalancerPoolSM.get(pool_id)
         if pool:
             self._api.ref_update('loadbalancer-pool', pool_id,
-                  'service_instance_refs', si_id, None, 'DELETE')
+                  'service-instance', si_id, None, 'DELETE')
         try:
             self._api.service_instance_delete(id=si_id)
             ServiceInstanceSM.delete(si_id)
@@ -245,7 +245,7 @@ class OpencontrailLoadbalancerDriver(
 
         if si_refs is None or si_refs != si_obj.uuid:
             self._api.ref_update('loadbalancer', lb.uuid,
-                'service_instance_refs', si_obj.uuid, None, 'ADD')
+                'service-instance', si_obj.uuid, None, 'ADD')
 
     def _clear_loadbalancer_instance_v2(self, lb_id):
         lb = LoadbalancerSM.get(lb_id)
@@ -262,7 +262,7 @@ class OpencontrailLoadbalancerDriver(
         if si_refs:
             try:
                 self._api.ref_update('loadbalancer', lb.uuid,
-                    'service_instance_refs', si_obj.uuid, None, 'DELETE')
+                    'service-instance', si_obj.uuid, None, 'DELETE')
             except:
                 pass
         try:
@@ -398,7 +398,7 @@ class OpencontrailLoadbalancerDriver(
         if not vip:
             return None
         return vip.virtual_machine_interface
- 
+
     def get_port_list_v1(self, pool):
         port_list = set()
         vip = VirtualIpSM.get(pool.virtual_ip)
@@ -407,7 +407,7 @@ class OpencontrailLoadbalancerDriver(
         if vip.params.get('port', None):
             port_list.add(vip.params.get('port'))
         return port_list
-        
+
     def get_port_list_v2(self, lb):
         port_list = set()
         for ll_id in lb.loadbalancer_listeners:

@@ -393,9 +393,9 @@ class AddrMgmt(object):
 
         # Read in the VN details if not passed in
         if not vn_dict:
-            vn_uuid = db_conn.fq_name_to_uuid('virtual-network', vn_fq_name)
+            vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
             (ok, result) = self._db_conn.dbe_read(
-                                obj_type='virtual-network',
+                                obj_type='virtual_network',
                                 obj_ids={'uuid': vn_uuid},
                                 obj_fields=['network_ipam_refs'])
 
@@ -479,7 +479,7 @@ class AddrMgmt(object):
         db_conn = self._get_db_conn()
         try:
             (ok, result) = db_conn.dbe_read(
-                               'virtual-network',
+                               'virtual_network',
                                obj_ids={'uuid': obj_ids['uuid']},
                                obj_fields=['fq_name', 'network_ipam_refs'])
         except cfgm_common.exceptions.NoIdError:
@@ -540,7 +540,7 @@ class AddrMgmt(object):
         db_conn = self._get_db_conn()
         try:
             (ok, result) = db_conn.dbe_read(
-                                obj_type='virtual-network',
+                                obj_type='virtual_network',
                                 obj_ids={'uuid': obj_ids['uuid']},
                                 obj_fields=['fq_name', 'network_ipam_refs'])
         except cfgm_common.exceptions.NoIdError:
@@ -614,14 +614,14 @@ class AddrMgmt(object):
         if not subnets:
             return True, ""
         # Read list of virtual networks for the given project
-        (ok, result) = db_conn.dbe_list('virtual-network', [proj_uuid])
+        (ok, result) = db_conn.dbe_list('virtual_network', [proj_uuid])
         if not ok:
             return (False, 'Internal error : Failed to read virtual networks')
 
         # Read network ipam refs for all virtual networks for the given project
         obj_ids_list = [{'uuid': obj_uuid} for _, obj_uuid in result if obj_uuid != db_vn_dict['uuid']]
         obj_fields = [u'network_ipam_refs']
-        (ok, result) = db_conn.dbe_read_multi('virtual-network', obj_ids_list, obj_fields)
+        (ok, result) = db_conn.dbe_read_multi('virtual_network', obj_ids_list, obj_fields)
         if not ok:
             return (False, 'Internal error : Failed to read virtual networks')
 
@@ -747,7 +747,7 @@ class AddrMgmt(object):
             # deleted. Skip the port check if no subnet is being deleted
             vn_id = {'uuid': db_vn_dict['uuid']}
             obj_fields = ['network_ipam_refs', 'instance_ip_back_refs', 'floating_ip_pools']
-            (read_ok, db_vn_dict) = db_conn.dbe_read('virtual-network', vn_id, obj_fields)
+            (read_ok, db_vn_dict) = db_conn.dbe_read('virtual_network', vn_id, obj_fields)
             if not read_ok:
                 return (False, (500, db_vn_dict))
 
@@ -766,7 +766,7 @@ class AddrMgmt(object):
         for ref in instip_refs:
             try:
                 (ok, result) = db_conn.dbe_read(
-                    'instance-ip', {'uuid': ref['uuid']})
+                    'instance_ip', {'uuid': ref['uuid']})
             except cfgm_common.exceptions.NoIdError:
                 continue
             if not ok:
@@ -790,7 +790,7 @@ class AddrMgmt(object):
         for ref in fip_pool_refs:
             try:
                 (ok, result) = db_conn.dbe_read(
-                    'floating-ip-pool', {'uuid': ref['uuid']})
+                    'floating_ip_pool', {'uuid': ref['uuid']})
             except cfgm_common.exceptions.NoIdError:
                 continue
             if not ok:
@@ -806,7 +806,7 @@ class AddrMgmt(object):
                 # new subnet_list
                 try:
                     (read_ok, read_result) = db_conn.dbe_read(
-                        'floating-ip', {'uuid': floating_ip['uuid']})
+                        'floating_ip', {'uuid': floating_ip['uuid']})
                 except cfgm_common.exceptions.NoIdError:
                     continue
                 if not read_ok:
@@ -841,7 +841,7 @@ class AddrMgmt(object):
 
     # allocate an IP address for given virtual network
     # we use the first available subnet unless provided
-    def ip_alloc_req(self, vn_fq_name, vn_dict=None, sub=None, asked_ip_addr=None, 
+    def ip_alloc_req(self, vn_fq_name, vn_dict=None, sub=None, asked_ip_addr=None,
                      asked_ip_version=4, alloc_id=None):
         vn_fq_name_str = ':'.join(vn_fq_name)
         subnet_dicts = self._get_subnet_dicts(vn_fq_name, vn_dict)
@@ -850,7 +850,7 @@ class AddrMgmt(object):
             raise AddrMgmtSubnetUndefined(vn_fq_name_str)
 
         current_count = 0
-        subnet_count = len(subnet_dicts)     
+        subnet_count = len(subnet_dicts)
         for subnet_name in subnet_dicts:
             current_count += 1
             if sub and sub != subnet_name:

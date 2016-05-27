@@ -141,22 +141,23 @@ class ICCassandraClient():
         if msg['oper'] == "CREATE":
             self._logger(msg, level=SandeshLevel.SYS_INFO)
             self._newversion_handle.object_create(
-                msg['type'], msg['uuid'], msg['obj_dict'])
+                msg['type'].replace('-', '_'), msg['uuid'], msg['obj_dict'])
         elif msg['oper'] == "UPDATE":
             self._logger(msg, level=SandeshLevel.SYS_INFO)
             uuid_list = []
             uuid_list.append(msg['uuid'])
             bool1, current = self._newversion_handle.object_read(
-                msg['type'], uuid_list)
+                msg['type'].replace('-', '_'), uuid_list)
             bool2, new = self._oldversion_handle.object_read(
-                msg['type'], uuid_list)
+                msg['type'].replace('-', '_'), uuid_list)
             updated = self._merge_overwrite(
                 dict(new.pop()), dict(current.pop()))
             #  New object dictionary should be created, for now passing as is
             self._newversion_handle.object_update(
-                msg['type'], msg['uuid'], updated)
+                msg['type'].replace('-', '_'), msg['uuid'], updated)
         elif msg['oper'] == "DELETE":
             self._logger(msg, level=SandeshLevel.SYS_INFO)
-            self._newversion_handle.object_delete(msg['type'], msg['uuid'])
+            self._newversion_handle.object_delete(
+                msg['type'].replace('-', '_'), msg['uuid'])
         return
     # end
