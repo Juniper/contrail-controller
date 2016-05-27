@@ -6,9 +6,13 @@
 
 #include <boost/foreach.hpp>
 
+#include "sandesh/sandesh_types.h"
+#include "sandesh/sandesh.h"
+#include "sandesh/sandesh_trace.h"
 #include "base/task_annotations.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer_membership.h"
+#include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_ribout.h"
 #include "bgp/bgp_ribout_updates.h"
 #include "bgp/bgp_route.h"
@@ -787,4 +791,12 @@ bool BgpTable::IsAggregateRoute(const BgpRoute *route) const {
 // Check whether the route is contributing route to aggregate route
 bool BgpTable::IsContributingRoute(const BgpRoute *route) const {
     return routing_instance()->IsContributingRoute(this, route);
+}
+
+void BgpTable::FillRibOutStatisticsInfo(
+    vector<ShowRibOutStatistics> *sros_list) const {
+    BOOST_FOREACH(const RibOutMap::value_type &value, ribout_map_) {
+        const RibOut *ribout = value.second;
+        ribout->FillStatisticsInfo(sros_list);
+    }
 }

@@ -4,8 +4,12 @@
 
 #include "bgp/bgp_ribout_updates.h"
 
+#include "sandesh/sandesh_types.h"
+#include "sandesh/sandesh.h"
+#include "sandesh/sandesh_trace.h"
 #include "base/task_annotations.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_ribout.h"
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_update_queue.h"
@@ -26,6 +30,7 @@ RibOutUpdates::RibOutUpdates(RibOut *ribout) : ribout_(ribout) {
     }
     monitor_.reset(new RibUpdateMonitor(ribout, &queue_vec_));
     builder_ = MessageBuilder::GetInstance(ribout->ExportPolicy().encoding);
+    memset(&stats_, 0, sizeof(stats_));
 }
 
 //
@@ -84,6 +89,7 @@ bool RibOutUpdates::DequeueCommon(UpdateMarker *marker, RouteUpdate *rt_update,
     CHECK_CONCURRENCY("bgp::SendTask");
 
     // Go through all UpdateInfo elements for the RouteUpdate.
+    int queue_id = rt_update->queue_id();
     RibPeerSet rt_blocked;
     for (UpdateInfoSList::List::iterator iter = rt_update->Updates()->begin();
          iter != rt_update->Updates()->end();) {
@@ -113,12 +119,13 @@ bool RibOutUpdates::DequeueCommon(UpdateMarker *marker, RouteUpdate *rt_update,
         // incrementing any counters.
         RibPeerSet msg_blocked;
         bool msg_sent = false;
+        stats_[queue_id].messages_built_count_++;
         auto_ptr<Message> message(
             builder_->Create(ribout_, &uinfo->roattr, rt_update->route()));
         if (message.get() != NULL) {
-            UpdatePack(rt_update->queue_id(), message.get(), uinfo, msgset);
+            UpdatePack(queue_id, message.get(), uinfo, msgset);
             message->Finish();
-            UpdateSend(message.get(), msgset, &msg_blocked);
+            UpdateSend(queue_id, message.get(), msgset, &msg_blocked);
             msg_sent = true;
         }
 
@@ -162,6 +169,7 @@ bool RibOutUpdates::TailDequeue(int queue_id, const RibPeerSet &msync,
         RibPeerSet *blocked) {
     CHECK_CONCURRENCY("bgp::SendTask");
 
+    stats_[queue_id].tail_dequeue_count_++;
     UpdateQueue *queue = queue_vec_[queue_id];
     UpdateMarker *start_marker = queue->tail_marker();
     RouteUpdatePtr update = monitor_->GetNextUpdate(queue_id, start_marker);
@@ -183,6 +191,7 @@ bool RibOutUpdates::TailDequeue(int queue_id, const RibPeerSet &msync,
     // Split the unsync peers from the tail marker. Note that this updates
     // the RibPeerSet in the tail marker.
     if (!unsync.empty()) {
+        stats_[queue_id].marker_split_count_++;
         queue->MarkerSplit(start_marker, unsync);
     }
 
@@ -232,6 +241,7 @@ bool RibOutUpdates::PeerDequeue(int queue_id, IPeerUpdate *peer,
         RibPeerSet *blocked) {
     CHECK_CONCURRENCY("bgp::SendTask");
 
+    stats_[queue_id].peer_dequeue_count_++;
     UpdateQueue *queue = queue_vec_[queue_id];
     UpdateMarker *start_marker = queue->GetMarker(ribout_->GetPeerIndex(peer));
 
@@ -258,8 +268,7 @@ bool RibOutUpdates::PeerDequeue(int queue_id, IPeerUpdate *peer,
     RibPeerSet notready;
     notready.BuildComplement(start_marker->members, mready);
     if (!notready.empty()) {
-        BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
-                    "PeerDequeue Split: " << notready.ToString());
+        stats_[queue_id].marker_split_count_++;
         queue->MarkerSplit(start_marker, notready);
     }
 
@@ -274,6 +283,7 @@ bool RibOutUpdates::PeerDequeue(int queue_id, IPeerUpdate *peer,
             // tail marker.  Updates will be built later via TailDequeue.
             marker = static_cast<UpdateMarker *>(upentry);
             if (marker == queue->tail_marker()) {
+                stats_[queue_id].marker_merge_count_++;
                 queue->MarkerMerge(queue->tail_marker(), start_marker,
                         start_marker->members);
                 return true;
@@ -302,9 +312,7 @@ bool RibOutUpdates::PeerDequeue(int queue_id, IPeerUpdate *peer,
             RibPeerSet mmove;
             mmove.BuildIntersection(marker->members, mready);
             if  (!mmove.empty()) {
-                BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_DEBUG,
-                            BGP_LOG_FLAG_TRACE,
-                            "PeerDequeue Merge: " << mmove.ToString());
+                stats_[queue_id].marker_merge_count_++;
                 queue->MarkerMerge(start_marker, marker, mmove);
             }
         } else if (update->empty()) {
@@ -381,8 +389,8 @@ void RibOutUpdates::UpdatePack(int queue_id, Message *message,
 // message to each of them.  Update the blocked RibPeerSet with peers that
 // become blocked after sending the message.
 //
-void RibOutUpdates::UpdateSend(Message *message, const RibPeerSet &dst,
-        RibPeerSet *blocked) {
+void RibOutUpdates::UpdateSend(int queue_id, Message *message,
+        const RibPeerSet &dst, RibPeerSet *blocked) {
     CHECK_CONCURRENCY("bgp::SendTask");
 
     RibOut::PeerIterator iter(ribout_, dst);
@@ -398,6 +406,9 @@ void RibOutUpdates::UpdateSend(Message *message, const RibPeerSet &dst,
                 " reach " << message->num_reach_routes() <<
                 " unreach " << message->num_unreach_routes());
         }
+        stats_[queue_id].messages_sent_count_++;
+        stats_[queue_id].reach_count_ += message->num_reach_routes();
+        stats_[queue_id].unreach_count_ += message->num_unreach_routes();
         bool more = peer->SendUpdate(data, msgsize);
         if (!more) {
             blocked->set(ix_current);
@@ -532,11 +543,13 @@ bool RibOutUpdates::UpdateMarkersOnBlocked(UpdateMarker *marker,
     CHECK_CONCURRENCY("bgp::SendTask");
 
     assert(!blocked->empty());
-    UpdateQueue *queue = queue_vec_[rt_update->queue_id()];
+    int queue_id = rt_update->queue_id();
+    UpdateQueue *queue = queue_vec_[queue_id];
 
     // If all the peers in the UpdateMarker are blocked, we simply move the
     // marker after the RouteUpdate.
     if (marker->members == *blocked) {
+        stats_[queue_id].marker_move_count_++;
         queue->MoveMarker(marker, rt_update);
         return true;
     }
@@ -547,6 +560,7 @@ bool RibOutUpdates::UpdateMarkersOnBlocked(UpdateMarker *marker,
     assert(!marker->members.empty());
     UpdateMarker *new_marker = new UpdateMarker();
     new_marker->members = *blocked;
+    stats_[queue_id].marker_split_count_++;
     queue->AddMarker(new_marker, rt_update);
 
     return false;
@@ -570,4 +584,23 @@ bool RibOutUpdates::QueueJoin(int queue_id, int bit) {
 void RibOutUpdates::QueueLeave(int queue_id, int bit) {
     UpdateQueue *queue = queue_vec_[queue_id];
     queue->Leave(bit);
+}
+
+//
+// Fill introspect information.
+//
+void RibOutUpdates::FillStatisticsInfo(int queue_id,
+    ShowRibOutStatistics *sros) const {
+    sros->set_queue(queue_id == QBULK ? "BULK" : "UPDATE");
+    sros->set_pending_updates(queue_vec_[queue_id]->size());
+    sros->set_markers(queue_vec_[queue_id]->marker_count());
+    sros->set_messages_built(stats_[queue_id].messages_built_count_);
+    sros->set_messages_sent(stats_[queue_id].messages_sent_count_);
+    sros->set_reach(stats_[queue_id].reach_count_);
+    sros->set_unreach(stats_[queue_id].unreach_count_);
+    sros->set_tail_dequeues(stats_[queue_id].tail_dequeue_count_);
+    sros->set_peer_dequeues(stats_[queue_id].peer_dequeue_count_);
+    sros->set_marker_splits(stats_[queue_id].marker_split_count_);
+    sros->set_marker_merges(stats_[queue_id].marker_merge_count_);
+    sros->set_marker_moves(stats_[queue_id].marker_move_count_);
 }

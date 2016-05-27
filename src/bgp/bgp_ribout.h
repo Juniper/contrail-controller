@@ -25,6 +25,7 @@ class IPeerUpdate;
 class RibOutUpdates;
 class SchedulingGroup;
 class SchedulingGroupManager;
+class ShowRibOutStatistics;
 class BgpTable;
 class BgpExport;
 class BgpRoute;
@@ -286,6 +287,11 @@ public:
     bool IsEncodingBgp() const {
         return (policy_.encoding == RibExportPolicy::BGP);
     }
+    std::string EncodingString() const {
+        return IsEncodingXmpp() ? "XMPP" : "BGP";
+    }
+
+    void FillStatisticsInfo(std::vector<ShowRibOutStatistics> *sros_list) const;
 
 private:
     struct PeerState {

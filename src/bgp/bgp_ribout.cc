@@ -6,7 +6,11 @@
 
 #include <algorithm>
 
+#include "sandesh/sandesh_types.h"
+#include "sandesh/sandesh.h"
+#include "sandesh/sandesh_trace.h"
 #include "base/string_util.h"
+#include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_ribout.h"
 #include "bgp/bgp_ribout_updates.h"
 #include "bgp/bgp_export.h"
@@ -432,4 +436,20 @@ IPeerUpdate *RibOut::GetPeer(int index) const {
 int RibOut::GetPeerIndex(IPeerUpdate *peer) const {
     PeerState *ps = state_map_.Find(peer);
     return (ps ? ps->index : -1);
+}
+
+//
+// Fill introspect information.
+//
+void RibOut::FillStatisticsInfo(vector<ShowRibOutStatistics> *sros_list) const {
+    for (int qid = RibOutUpdates::QFIRST; qid < RibOutUpdates::QCOUNT; ++qid) {
+        ShowRibOutStatistics sros;
+        sros.set_table(table_->name());
+        sros.set_encoding(EncodingString());
+        sros.set_peer_type(BgpProto::BgpPeerTypeString(peer_type()));
+        sros.set_peer_as(peer_as());
+        sros.set_peers(state_map_.size());
+        updates_->FillStatisticsInfo(qid, &sros);
+        sros_list->push_back(sros);
+    }
 }

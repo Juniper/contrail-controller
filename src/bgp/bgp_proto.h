@@ -30,6 +30,23 @@ public:
         EBGP,
         XMPP,
     };
+
+    static std::string BgpPeerTypeString(BgpPeerType peer_type) {
+        switch (peer_type) {
+        case IBGP:
+            return "IBGP";
+            break;
+        case EBGP:
+            return "EBGP";
+            break;
+        case XMPP:
+            return "XMPP";
+            break;
+        }
+        assert(false);
+        return "OTHER";
+    }
+
     struct BgpMessage : public ParseObject {
         explicit BgpMessage(MessageType type) : type(type) {
         }

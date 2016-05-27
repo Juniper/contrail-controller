@@ -391,6 +391,36 @@ request sandesh ShowPathResolverReq {
     1: string search_string;
 }
 
+struct ShowRibOutStatistics {
+    1: string table;
+    2: string encoding;
+    3: string peer_type;
+    4: u32 peer_as;
+    5: string queue;
+    6: u32 peers;
+    7: u64 pending_updates;
+    8: u64 markers;
+    9: u64 messages_built;
+    10: u64 messages_sent;
+    11: u64 reach;
+    12: u64 unreach;
+    13: u64 tail_dequeues;
+    14: u64 peer_dequeues;
+    15: u64 marker_splits;
+    16: u64 marker_merges;
+    17: u64 marker_moves;
+}
+
+request sandesh ShowRibOutStatisticsReq {
+    1: string search_string;
+}
+
+response sandesh ShowRibOutStatisticsResp {
+    1: list<ShowRibOutStatistics> ribouts;
+    2: optional string next_batch (link="ShowRibOutStatisticsReqIterate",
+                                   link_title="next_batch");
+}
+
 struct ShowEvpnMcastLeaf {
     1: string address;
     2: string replicator;
