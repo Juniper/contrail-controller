@@ -27,6 +27,7 @@ FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
                        agent->params()->flow_task_latency_limit(), 16),
     use_vrouter_hash_(false), ipv4_trace_filter_(), ipv6_trace_filter_(),
     stats_() {
+    linklocal_flow_count_ = 0;
     agent->SetFlowProto(this);
     set_trace(false);
     uint16_t table_count = agent->flow_thread_count();
@@ -544,8 +545,8 @@ void FlowProto::CreateAuditEntry(const FlowKey &key, uint32_t flow_handle,
 }
 
 
-void FlowProto::GrowFreeListRequest(const FlowKey &key, FlowTable *table) {
-    EnqueueFlowEvent(new FlowEvent(FlowEvent::GROW_FREE_LIST, key, false,
+void FlowProto::GrowFreeListRequest(FlowTable *table) {
+    EnqueueFlowEvent(new FlowEvent(FlowEvent::GROW_FREE_LIST,
                                    table->table_index()));
     return;
 }

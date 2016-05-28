@@ -484,6 +484,7 @@ void intrusive_ptr_release(FlowEntry *fe) {
                 flow_table->flow_entry_map_.find(fe->key());
             assert(it != flow_table->flow_entry_map_.end());
             flow_table->flow_entry_map_.erase(it);
+            flow_table->agent()->stats()->decr_flow_count();
         }
         flow_table->free_list()->Free(fe);
     }

@@ -429,6 +429,7 @@ struct SandeshFlowTableInfo {
     2: u32 count;
     3: u64 total_add;
     4: u64 total_del;
+    5: u64 freelist_count;
 }
 
 /**
@@ -438,7 +439,8 @@ response sandesh SandeshFlowTableInfoResp {
     1: u64 flow_count;
     2: u64 total_added;
     3: u64 total_deleted;
-    4: list<SandeshFlowTableInfo> table_list;
+    4: u64 max_flows;
+    5: list<SandeshFlowTableInfo> table_list;
 }
 
 /**
