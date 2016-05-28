@@ -128,6 +128,41 @@ public:
         }
         return ret;
     }
+
+    bool BandwidthMatch(const map<string,uint64_t> &imp,
+                        const map<string,uint64_t> &omp,
+                        uint64_t in,
+                        uint64_t out) {
+        if (0 == imp.size()) {
+            if (in == 0) {
+                return true;
+            }
+            return false;
+        }
+        if (0 == omp.size()) {
+            if (out == 0) {
+                return true;
+            }
+            return false;
+        }
+
+        map<string,uint64_t>::const_iterator it;
+        EXPECT_EQ(1U, imp.size());
+        it = imp.begin();
+        EXPECT_EQ(in, it->second);
+        if (in != it->second) {
+            return false;
+        }
+
+        EXPECT_EQ(1U, omp.size());
+        it = omp.begin();
+        EXPECT_EQ(out, it->second);
+        if (out != it->second) {
+            return false;
+        }
+        return true;
+    }
+
     bool BandwidthMatch(const vector<AgentIfBandwidth> &list, uint64_t in,
                         uint64_t out) {
         if (0 == list.size()) {
@@ -615,7 +650,9 @@ TEST_F(UveVrouterUveTest, BandwidthTest_1) {
     VrouterStatsAgent &uve = vr->prev_stats();
     vr->set_bandwidth_count(0);
     vector<AgentIfBandwidth> empty_list;
-    uve.set_phy_if_band(empty_list);
+    map<string,uint64_t> empty_map;
+    uve.set_phy_band_in_bps(empty_map);
+    uve.set_phy_band_out_bps(empty_map);
 
     PhysicalInterfaceKey key(agent_->params()->eth_port());
     Interface *intf = static_cast<Interface *>
@@ -640,8 +677,11 @@ TEST_F(UveVrouterUveTest, BandwidthTest_1) {
     client->WaitForIdle();
     WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
 
-    EXPECT_EQ(0, uve.get_phy_if_band().size());
-    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_band(), 0, 0));
+    EXPECT_EQ(0, uve.get_phy_band_in_bps().size());
+    EXPECT_EQ(0, uve.get_phy_band_out_bps().size());
+    EXPECT_TRUE(BandwidthMatch(uve.get_phy_band_in_bps(),
+            uve.get_phy_band_out_bps(),
+            0, 0));
 
     //Update the stats object
     stats->speed = 1;
@@ -664,8 +704,11 @@ TEST_F(UveVrouterUveTest, BandwidthTest_1) {
     }
 
     EXPECT_EQ(2, vr->bandwidth_count());
-    EXPECT_EQ(1U, uve.get_phy_if_band().size());
-    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_band(), 139810, 1048576));
+    EXPECT_EQ(1U, uve.get_phy_band_in_bps().size());
+    EXPECT_EQ(1U, uve.get_phy_band_out_bps().size());
+    EXPECT_TRUE(BandwidthMatch(uve.get_phy_band_in_bps(),
+            uve.get_phy_band_out_bps(),
+            139810, 1048576));
     vr->clear_count();
 
     //cleanup
@@ -771,106 +814,6 @@ TEST_F(UveVrouterUveTest, BandwidthTest_2) {
     stats->speed = stats->in_bytes = stats->out_bytes = stats->prev_in_bytes
         = stats->prev_out_bytes = stats->prev_5min_in_bytes =
         stats->prev_5min_out_bytes = 0;
-}
-
-TEST_F(UveVrouterUveTest, BandwidthTest_3) {
-    Agent *agent = agent_;
-    AgentUveStats *u = static_cast<AgentUveStats *>(agent_->uve());
-    StatsManager *sm = u->stats_manager();
-    VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
-        (agent_->uve()->vrouter_uve_entry());
-    vr->clear_count();
-    VrouterStatsAgent &uve = vr->prev_stats();
-
-    PhysicalInterfaceKey key(agent_->params()->eth_port());
-    Interface *intf = static_cast<Interface *>
-        (agent_->interface_table()->FindActiveEntry(&key));
-    EXPECT_TRUE((intf != NULL));
-
-    //Fetch interface stats
-    AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
-        (agent->stats_collector());
-    collector->interface_stats_responses_ = 0;
-    agent->stats_collector()->Run();
-    client->WaitForIdle();
-    WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
-
-    //Fetch the stats object from agent_stats_collector
-    StatsManager::InterfaceStats* stats = sm->GetInterfaceStats(intf);
-    EXPECT_TRUE((stats != NULL));
-
-    //Reset bandwidth counter which controls when bandwidth is updated
-    vr->set_bandwidth_count(0);
-    vector<AgentIfBandwidth> empty_list;
-    uve.set_phy_if_10min_usage(empty_list);
-
-    u->vrouter_stats_collector()->run_counter_ = 0;
-    util_.EnqueueVRouterStatsCollectorTask(1);
-    client->WaitForIdle();
-    WAIT_FOR(10000, 500, (u->vrouter_stats_collector()->run_counter_ >= 1));
-
-    //Update the stats object
-    stats->speed = 1;
-    stats->in_bytes = 10 * 1024 * 1024;
-    stats->out_bytes = (10 * 60 * 1024 * 1024)/8; //60 Mbps = 60 MBps/8
-    stats->prev_in_bytes = 0;
-    stats->prev_out_bytes = 0;
-    stats->prev_10min_in_bytes = 0;
-    stats->prev_10min_out_bytes = 0;
-
-    //Run Vrouter stats collector to update bandwidth
-    vr->set_bandwidth_count(1);
-    u->vrouter_stats_collector()->run_counter_ = 0;
-    util_.EnqueueVRouterStatsCollectorTask(18);
-    client->WaitForIdle();
-    WAIT_FOR(10000, 500, (u->vrouter_stats_collector()->run_counter_ >= 18));
-    if (vr->bandwidth_count() == 18) {
-        u->vrouter_stats_collector()->run_counter_ = 0;
-        util_.EnqueueVRouterStatsCollectorTask(1);
-        client->WaitForIdle();
-        WAIT_FOR(10000, 500, (u->vrouter_stats_collector()->run_counter_ >= 1));
-    }
-
-    //Verify the 10-min bandwidth usage
-    EXPECT_EQ(19, vr->bandwidth_count());
-    EXPECT_EQ(0, uve.get_phy_if_10min_usage().size());
-    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_10min_usage(), 0, 0));
-
-    //Run Vrouter stats collector again
-    vr->clear_count();
-    EXPECT_TRUE(stats->in_bytes != stats->prev_10min_in_bytes);
-    u->vrouter_stats_collector()->run_counter_ = 0;
-    util_.EnqueueVRouterStatsCollectorTask(1);
-    client->WaitForIdle();
-    WAIT_FOR(10000, 500, (u->vrouter_stats_collector()->run_counter_ >= 1));
-
-    //Verify the 10-min bandwidth usage
-    EXPECT_EQ(0, vr->bandwidth_count());
-    WAIT_FOR(10000, 500, (uve.get_phy_if_10min_usage().size() == 1));
-    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_10min_usage(), 139810, 1048576));
-
-    //Run Vrouter stats collector
-    u->vrouter_stats_collector()->run_counter_ = 0;
-    util_.EnqueueVRouterStatsCollectorTask(19);
-    client->WaitForIdle();
-    WAIT_FOR(10000, 500, (u->vrouter_stats_collector()->run_counter_ >= 19));
-
-    //Verify the 10-min bandwidth usage
-    EXPECT_EQ(1U, uve.get_phy_if_10min_usage().size());
-    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_10min_usage(), 139810, 1048576));
-
-    //Run Vrouter stats collector again
-    u->vrouter_stats_collector()->run_counter_ = 0;
-    util_.EnqueueVRouterStatsCollectorTask(1);
-    client->WaitForIdle();
-    WAIT_FOR(10000, 500, (u->vrouter_stats_collector()->run_counter_ >= 1));
-
-    //Verify the 10-min bandwidth usage
-    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_10min_usage(), 0, 0));
-    vr->clear_count();
-    stats->speed = stats->in_bytes = stats->out_bytes = stats->prev_in_bytes
-        = stats->prev_out_bytes = stats->prev_10min_in_bytes =
-        stats->prev_10min_out_bytes = 0;
 }
 
 TEST_F(UveVrouterUveTest, ExceptionPktsChange) {

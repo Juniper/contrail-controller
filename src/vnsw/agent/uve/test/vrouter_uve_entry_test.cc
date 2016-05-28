@@ -71,8 +71,11 @@ void VrouterUveEntryTest::DispatchVrouterStatsMsg(const VrouterStatsAgent &uve)
     {
     vrouter_stats_msg_count_++;
     last_sent_vrouter_stats_ = uve;
-    if (uve.__isset.phy_if_band) {
-        prev_stats_.set_phy_if_band(uve.get_phy_if_band());
+    if (uve.__isset.phy_band_in_bps) {
+        prev_stats_.set_phy_band_in_bps(uve.get_phy_band_in_bps());
+    }
+    if (uve.__isset.phy_band_out_bps) {
+        prev_stats_.set_phy_band_out_bps(uve.get_phy_band_out_bps());
     }
 }
 
