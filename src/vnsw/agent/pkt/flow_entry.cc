@@ -358,7 +358,8 @@ FlowEventLog::~FlowEventLog() {
 FlowEntry::FlowEntry(FlowTable *flow_table) :
     flow_table_(flow_table), flags_(0),
     tunnel_type_(TunnelType::INVALID),
-    fip_vmi_(AgentKey::ADD_DEL_CHANGE, nil_uuid(), "") {
+    fip_vmi_(AgentKey::ADD_DEL_CHANGE, nil_uuid(), ""),
+    flow_mgmt_request_(NULL), flow_mgmt_info_() {
     // ksync entry is set to NULL only on constructor and on flow delete
     // it should not have any other explicit set to NULL
     ksync_entry_ = NULL;
@@ -399,6 +400,8 @@ void FlowEntry::Reset() {
     pending_actions_.Reset();
     flow_retry_attempts_ = 0;
     is_flow_on_unresolved_list = false;
+    assert(flow_mgmt_request_ == NULL);
+    assert(flow_mgmt_info_.get() == NULL);
 }
 
 void FlowEntry::Reset(const FlowKey &k) {
