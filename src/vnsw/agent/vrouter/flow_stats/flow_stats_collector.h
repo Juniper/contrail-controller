@@ -69,6 +69,7 @@ public:
     static const uint8_t  kMaxFlowMsgsPerSend = 16;
 
     typedef std::map<const FlowEntry*, FlowExportInfo> FlowEntryTree;
+    typedef WorkQueue<boost::shared_ptr<FlowExportReq> > Queue;
 
     // Task in which the actual flow table scan happens. See description above
     class AgeingTask : public Task {
@@ -146,6 +147,7 @@ public:
     }
     int task_id() const { return task_id_; }
     uint32_t instance_id() const { return instance_id_; }
+    const Queue *queue() const { return &request_queue_; }
     friend class AgentUtXmlFlowThreshold;
     friend class AgentUtXmlFlowThresholdValidate;
     friend class FlowStatsRecordsReq;
@@ -236,7 +238,7 @@ private:
     uint64_t flow_tcp_syn_age_time_;
 
     FlowEntryTree flow_tree_;
-    WorkQueue<boost::shared_ptr<FlowExportReq> > request_queue_;
+    Queue request_queue_;
     uint32_t flow_export_count_;
     uint64_t prev_flow_export_rate_compute_time_;
     uint32_t flow_export_rate_;

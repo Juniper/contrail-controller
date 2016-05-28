@@ -32,8 +32,10 @@ FlowEventQueueBase::FlowEventQueueBase(FlowProto *proto,
     char buff[100];
     sprintf(buff, "%s-%d", name.c_str(), task_instance);
     queue_->set_name(buff);
-    queue_->SetStartRunnerFunc(boost::bind(&FlowEventQueueBase::TokenCheck,
-                                           this));
+    if (token_pool_)
+        queue_->SetStartRunnerFunc(boost::bind(&FlowEventQueueBase::TokenCheck,
+                                               this));
+    queue_->set_measure_busy_time(proto->agent()->MeasureQueueDelay());
     if (latency_limit_) {
         queue_->SetEntryCallback(boost::bind(&FlowEventQueueBase::TaskEntry,
                                              this));

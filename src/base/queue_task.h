@@ -24,6 +24,7 @@
 #include <tbb/spin_rw_mutex.h>
 
 #include <base/task.h>
+#include <base/time_util.h>
 
 // WaterMarkInfo
 typedef boost::function<void (size_t)> WaterMarkCallback;
@@ -80,6 +81,10 @@ private:
             return queue_->RunnerDone();
         }
 
+        uint64_t start = 0;
+        if (queue_->measure_busy_time_)
+            start = ClockMonotonicUsec();
+
         QueueEntryT entry = QueueEntryT();
         size_t count = 0;
         while (queue_->Dequeue(&entry)) {
@@ -88,9 +93,14 @@ private:
                 break;
             }
             if (++count == queue_->max_iterations_) {
+                if (start)
+                    queue_->add_busy_time(ClockMonotonicUsec() - start);
                 return queue_->RunnerDone();
             }
         }
+
+        if (start)
+            queue_->add_busy_time(ClockMonotonicUsec() - start);
 
         // Running is done if queue_ is empty
         // While notification is being run, its possible that more entries
@@ -154,7 +164,9 @@ public:
         shutdown_scheduled_(false),
         delete_entries_on_shutdown_(true),
         task_starts_(0),
-        max_queue_len_(0) {
+        max_queue_len_(0),
+        busy_time_(0),
+        measure_busy_time_(false) {
         count_ = 0;
         hwater_index_ = -1;
         lwater_index_ = -1;
@@ -424,6 +436,17 @@ public:
 
     uint32_t task_starts() const { return task_starts_; }
     uint32_t max_queue_len() const { return max_queue_len_; }
+    bool measure_busy_time() const { return measure_busy_time_; }
+    void set_measure_busy_time(bool val) { measure_busy_time_ = val; }
+    uint64_t busy_time() const { return busy_time_; }
+    void add_busy_time(uint64_t t) { busy_time_ += t; }
+    void ClearStats() const {
+        max_queue_len_ = 0;
+        enqueues_ = 0;
+        dequeues_ = 0;
+        busy_time_ = 0;
+        task_starts_ = 0;
+    }
 private:
     // Returns true if pop is successful.
     bool DequeueInternal(QueueEntryT *entry) {
@@ -625,8 +648,8 @@ private:
     size_t on_entry_defer_count_;
     tbb::atomic<bool> disabled_;
     bool deleted_;
-    size_t enqueues_;
-    size_t dequeues_;
+    mutable size_t enqueues_;
+    mutable size_t dequeues_;
     size_t drops_;
     size_t max_iterations_;
     size_t size_;
@@ -642,8 +665,10 @@ private:
     mutable tbb::mutex water_mutex_;
     tbb::atomic<bool> hwater_mark_set_;
     tbb::atomic<bool> lwater_mark_set_;
-    uint32_t task_starts_;
-    uint32_t max_queue_len_;
+    mutable uint32_t task_starts_;
+    mutable uint32_t max_queue_len_;
+    mutable uint64_t busy_time_;
+    bool measure_busy_time_;
 
     friend class QueueTaskTest;
     friend class QueueTaskShutdownTest;

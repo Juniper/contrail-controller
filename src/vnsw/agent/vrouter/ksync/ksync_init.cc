@@ -108,6 +108,7 @@ void KSync::InitDone() {
     AgentProfile *profile = agent_->oper_db()->agent_profile();
     profile->RegisterKSyncStatsCb(boost::bind(&KSync::SetProfileData,
                                               this, _1));
+    KSyncSock::Get(0)->SetMeasureQueueDelay(agent_->MeasureQueueDelay());
 }
 
 void KSync::InitFlowMem() {
@@ -142,7 +143,10 @@ void KSync::SetProfileData(ProfileData *data) {
     stats->enqueue_count_ = tx_queue->enqueues();
     stats->dequeue_count_ = tx_queue->dequeues();
     stats->max_queue_count_ = tx_queue->max_queue_len();
-    stats->task_start_count_ = tx_queue->write_events();
+    stats->start_count_ = tx_queue->read_events();
+    stats->busy_time_ = tx_queue->busy_time();
+    if (agent()->MeasureQueueDelay())
+        tx_queue->ClearStats();
 
     const KSyncSock::KSyncReceiveQueue *rx_queue =
         sock->get_receive_work_queue(0);
@@ -152,7 +156,10 @@ void KSync::SetProfileData(ProfileData *data) {
     stats->enqueue_count_ = rx_queue->NumEnqueues();
     stats->dequeue_count_ = rx_queue->NumDequeues();
     stats->max_queue_count_ = rx_queue->max_queue_len();
-    stats->task_start_count_ = rx_queue->task_starts();
+    stats->start_count_ = rx_queue->task_starts();
+    stats->busy_time_ = rx_queue->busy_time();
+    if (agent()->MeasureQueueDelay())
+        rx_queue->ClearStats();
 }
 
 void KSync::VRouterInterfaceSnapshot() {

@@ -83,6 +83,7 @@ FlowStatsManager::FlowStatsManager(Agent *agent) : agent_(agent),
     flow_export_disable_drops_ = 0;
     flow_export_sampling_drops_ = 0;
     flow_export_drops_ = 0;
+    request_queue_.set_measure_busy_time(agent->MeasureQueueDelay());
 }
 
 FlowStatsManager::~FlowStatsManager() {
@@ -336,6 +337,12 @@ void FlowStatsManager::Init(uint64_t flow_stats_interval,
                   boost::bind(&FlowStatsManager::UpdateFlowThreshold, this));
 }
 
+void FlowStatsManager::InitDone() {
+    AgentProfile *profile = agent_->oper_db()->agent_profile();
+    profile->RegisterFlowStatsCb(boost::bind(&FlowStatsManager::SetProfileData,
+                                             this, _1));
+}
+
 void FlowStatsManager::Shutdown() {
     default_flow_stats_collector_->Shutdown();
     default_flow_stats_collector_.reset();
@@ -387,4 +394,29 @@ void DeleteAgingConfig::HandleRequest() const {
     resp->set_context(context());
     resp->Response();
     return;
+}
+
+static void SetQueueStats(Agent *agent, FlowStatsCollector *fsc,
+                          ProfileData::WorkQueueStats *stats) {
+    stats->name_ = fsc->queue()->Description();
+    stats->queue_count_ = fsc->queue()->Length();
+    stats->enqueue_count_ = fsc->queue()->NumEnqueues();
+    stats->dequeue_count_ = fsc->queue()->NumDequeues();
+    stats->max_queue_count_ = fsc->queue()->max_queue_len();
+    stats->start_count_ = fsc->queue()->task_starts();
+    stats->busy_time_ = fsc->queue()->busy_time();
+    if (agent->MeasureQueueDelay())
+        fsc->queue()->ClearStats();
+}
+
+void FlowStatsManager::SetProfileData(ProfileData *data) {
+    data->flow_.flow_stats_queue_.resize(flow_aging_table_map_.size());
+    int i = 0;
+    FlowAgingTableMap::iterator it = flow_aging_table_map_.begin();
+    while (it != flow_aging_table_map_.end()) {
+        SetQueueStats(agent(), it->second.get(),
+                      &data->flow_.flow_stats_queue_[i]);
+        i++;
+        it++;
+    }
 }
