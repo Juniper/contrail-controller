@@ -34,8 +34,11 @@ private:
     uint64_t GetBandwidthUsage(StatsManager::InterfaceStats *s,
                               bool dir_in, int mins, double *util) const;
     bool BuildPhysicalInterfaceBandwidth(std::vector<AgentIfBandwidth> &list,
-                                         uint8_t mins, double *in_util,
-                                         double *out_util) const;
+                                         uint8_t mins) const;
+    bool BuildPhysicalInterfaceBandwidth(map<string,uint64_t> &imp,
+                                         map<string,uint64_t> &omp, 
+                                         uint8_t mins, double &in_util,
+                                         double &out_util) const;
     bool BuildPhysicalInterfaceList(std::vector<AgentIfStats> &list) const;
     std::string GetMacAddress(const MacAddress &mac) const;
     void BuildXmppStatsList(std::vector<AgentXmppStats> &list) const;

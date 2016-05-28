@@ -40,8 +40,6 @@ class StatsManager {
         uint64_t prev_out_pkts; /* Required for sending diff stats */
         uint64_t prev_5min_in_bytes;
         uint64_t prev_5min_out_bytes;
-        uint64_t prev_10min_in_bytes;
-        uint64_t prev_10min_out_bytes;
         uint64_t stats_time;
     };
     struct VrfStats {

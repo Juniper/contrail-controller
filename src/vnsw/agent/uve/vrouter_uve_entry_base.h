@@ -38,7 +38,6 @@ public:
     // VrouterStatsCollector::VrouterStatsInterval
     static const uint8_t bandwidth_mod_1min = 2;
     static const uint8_t bandwidth_mod_5min = 10;
-    static const uint8_t bandwidth_mod_10min = 20;
     typedef std::set<const Interface *> PhysicalInterfaceSet;
     typedef boost::shared_ptr<std::vector<std::string> > StringVectorPtr;
 
