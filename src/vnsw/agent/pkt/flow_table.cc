@@ -852,7 +852,7 @@ void FlowTable::GrowFreeList() {
 
 FlowEntryFreeList::FlowEntryFreeList(FlowTable *table) :
     table_(table), max_count_(0), grow_pending_(false), total_alloc_(0),
-    total_free_(0), free_list_() {
+    total_free_(0), free_list_(), grow_count_(0) {
     uint32_t count = kInitCount;
     if (table->agent()->test_mode()) {
         count = kTestInitCount;
@@ -880,6 +880,7 @@ void FlowEntryFreeList::Grow() {
     if (free_list_.size() >= kMinThreshold)
         return;
 
+    grow_count_++;
     for (uint32_t i = 0; i < kGrowSize; i++) {
         free_list_.push_back(*new FlowEntry(table_));
         max_count_++;
@@ -901,7 +902,7 @@ FlowEntry *FlowEntryFreeList::Allocate(const FlowKey &key) {
     if (grow_pending_ == false && free_list_.size() < kMinThreshold) {
         grow_pending_ = true;
         FlowProto *proto = table_->agent()->pkt()->get_flow_proto();
-        proto->GrowFreeListRequest(key, table_);
+        proto->GrowFreeListRequest(table_);
     }
     flow->Reset(key);
     total_alloc_++;

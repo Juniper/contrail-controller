@@ -8,6 +8,7 @@
 #define vnsw_agent_stats_hpp
 
 #include <stdint.h>
+#include <tbb/atomic.h>
 
 typedef boost::function<uint32_t()> FlowCountFn;
 class AgentStats {
@@ -20,6 +21,7 @@ public:
         sandesh_http_sessions_(0U), nh_count_(0U), pkt_exceptions_(0U),
         pkt_invalid_agent_hdr_(0U), pkt_invalid_interface_(0U), 
         pkt_no_handler_(0U), pkt_fragments_dropped_(0U), pkt_dropped_(0U),
+        max_flow_count_(0),
         flow_created_(0U), flow_aged_(0U), flow_active_(0U),
         flow_drop_due_to_max_limit_(0), flow_drop_due_to_linklocal_limit_(0),
         prev_flow_created_(0U), prev_flow_aged_(0U),
@@ -31,6 +33,7 @@ public:
         out_tpkts_(0U), out_bytes_(0U) {
         assert(singleton_ == NULL);
         singleton_ = this;
+        flow_count_ = 0;
     }
 
     virtual ~AgentStats() {singleton_ = NULL;}
@@ -67,8 +70,19 @@ public:
     void incr_sandesh_http_sessions() {sandesh_http_sessions_++;}
     uint32_t sandesh_http_sessions() const {return sandesh_http_sessions_;}
 
-    void incr_flow_created() {flow_created_++;}
+    void incr_flow_created() {
+        flow_created_++;
+        uint32_t count = flow_count_.fetch_and_increment();
+        if (count > max_flow_count_)
+            max_flow_count_ = count + 1;
+    }
+    void decr_flow_count() {
+        flow_count_--;
+    }
+
     uint64_t flow_created() const {return flow_created_;}
+
+    uint64_t max_flow_count() const {return max_flow_count_;}
 
     void incr_flow_aged() {flow_aged_++;}
     uint64_t flow_aged() const {return flow_aged_;}
@@ -192,6 +206,8 @@ private:
     uint64_t pkt_dropped_;
 
     // Flow stats
+    tbb::atomic<uint32_t> flow_count_;
+    uint32_t max_flow_count_;
     uint64_t flow_created_;
     uint64_t flow_aged_;
     uint64_t flow_active_;

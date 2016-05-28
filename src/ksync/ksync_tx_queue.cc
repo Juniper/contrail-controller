@@ -40,7 +40,8 @@ KSyncTxQueue::KSyncTxQueue(KSyncSock *sock) :
     dequeues_(0),
     write_events_(0),
     read_events_(0),
-    busy_time_(0) {
+    busy_time_(0),
+    measure_busy_time_(false) {
     queue_len_ = 0;
     shutdown_ = false;
 }
