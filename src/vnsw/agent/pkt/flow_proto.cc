@@ -544,8 +544,8 @@ void FlowProto::CreateAuditEntry(const FlowKey &key, uint32_t flow_handle,
 }
 
 
-void FlowProto::GrowFreeListRequest(const FlowKey &key, FlowTable *table) {
-    EnqueueFlowEvent(new FlowEvent(FlowEvent::GROW_FREE_LIST, key, false,
+void FlowProto::GrowFreeListRequest(FlowTable *table) {
+    EnqueueFlowEvent(new FlowEvent(FlowEvent::GROW_FREE_LIST,
                                    table->table_index()));
     return;
 }

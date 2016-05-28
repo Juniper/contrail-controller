@@ -67,8 +67,14 @@ public:
     void incr_sandesh_http_sessions() {sandesh_http_sessions_++;}
     uint32_t sandesh_http_sessions() const {return sandesh_http_sessions_;}
 
-    void incr_flow_created() {flow_created_++;}
+    void incr_flow_created() {
+        flow_created_++;
+        if (flow_created_ > max_flows_)
+            max_flows_ = flow_created_;
+    }
     uint64_t flow_created() const {return flow_created_;}
+
+    uint64_t max_flows() const {return max_flows_;}
 
     void incr_flow_aged() {flow_aged_++;}
     uint64_t flow_aged() const {return flow_aged_;}
@@ -192,6 +198,7 @@ private:
     uint64_t pkt_dropped_;
 
     // Flow stats
+    uint64_t max_flows_;
     uint64_t flow_created_;
     uint64_t flow_aged_;
     uint64_t flow_active_;

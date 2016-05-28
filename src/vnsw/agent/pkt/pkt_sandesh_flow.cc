@@ -623,6 +623,7 @@ void SandeshFlowTableInfoRequest::HandleRequest() const {
     SandeshFlowTableInfoResp *resp = new SandeshFlowTableInfoResp();
     resp->set_flow_count(proto->FlowCount());
     resp->set_total_added(agent->stats()->flow_created());
+    resp->set_max_flows(agent->stats()->max_flows());
     resp->set_total_deleted(agent->stats()->flow_aged());
     std::vector<SandeshFlowTableInfo> info_list;
     for (uint16_t i = 0; i < proto->flow_table_count(); i++) {
@@ -632,6 +633,7 @@ void SandeshFlowTableInfoRequest::HandleRequest() const {
         info.set_count(table->Size());
         info.set_total_add(table->free_list()->total_alloc());
         info.set_total_del(table->free_list()->total_free());
+        info.set_freelist_count(table->free_list()->free_count());
         info_list.push_back(info);
     }
     resp->set_table_list(info_list);
