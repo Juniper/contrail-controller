@@ -137,7 +137,14 @@ bool VrouterUveEntry::SendVrouterMsg() {
         BuildPhysicalInterfaceBandwidth(phy_if_blist, 1, &in_util, &out_util);
         /* One minute bandwidth has 'tags' annotation and has to be sent
          * always regardless of change in bandwidth or not */
-        stats.set_phy_if_band(phy_if_blist);
+        map<string,uint64_t> inb,outb;
+        for (vector<AgentIfBandwidth>::const_iterator ab = phy_if_blist.begin();
+                ab != phy_if_blist.end(); ab++) {
+            inb.insert(make_pair(ab->name, ab->in_bandwidth_usage));
+            outb.insert(make_pair(ab->name, ab->out_bandwidth_usage));
+        }
+        stats.set_phy_band_in_bps(inb);
+        stats.set_phy_band_out_bps(outb);
         change = true;
         if (in_util != prev_stats_.get_total_in_bandwidth_utilization()) {
             stats.set_total_in_bandwidth_utilization(in_util);
@@ -160,18 +167,6 @@ bool VrouterUveEntry::SendVrouterMsg() {
         }
     }
 
-    // 10 minute bandwidth
-    if (bandwidth_count_ && ((bandwidth_count_ % bandwidth_mod_10min) == 0)) {
-        vector<AgentIfBandwidth> phy_if_blist;
-        BuildPhysicalInterfaceBandwidth(phy_if_blist, 10, NULL, NULL);
-        if (prev_stats_.get_phy_if_10min_usage() != phy_if_blist) {
-            stats.set_phy_if_10min_usage(phy_if_blist);
-            prev_stats_.set_phy_if_10min_usage(phy_if_blist);
-            change = true;
-        }
-        //The following avoids handling of count overflow cases.
-        bandwidth_count_ = 0;
-    }
     InetInterfaceKey key(agent_->vhost_interface_name());
     const Interface *vhost = static_cast<const Interface *>
         (agent_->interface_table()->FindActiveEntry(&key));
@@ -286,13 +281,9 @@ uint64_t VrouterUveEntry::GetBandwidthUsage(StatsManager::InterfaceStats *s,
                 bytes = s->in_bytes - s->prev_in_bytes;
                 s->prev_in_bytes = s->in_bytes;
                 break;
-            case 5:
+            default:
                 bytes = s->in_bytes - s->prev_5min_in_bytes;
                 s->prev_5min_in_bytes = s->in_bytes;
-                break;
-            default:
-                bytes = s->in_bytes - s->prev_10min_in_bytes;
-                s->prev_10min_in_bytes = s->in_bytes;
                 break;
         }
     } else {
@@ -301,13 +292,9 @@ uint64_t VrouterUveEntry::GetBandwidthUsage(StatsManager::InterfaceStats *s,
                 bytes = s->out_bytes - s->prev_out_bytes;
                 s->prev_out_bytes = s->out_bytes;
                 break;
-            case 5:
+            default:
                 bytes = s->out_bytes - s->prev_5min_out_bytes;
                 s->prev_5min_out_bytes = s->out_bytes;
-                break;
-            default:
-                bytes = s->out_bytes - s->prev_10min_out_bytes;
-                s->prev_10min_out_bytes = s->out_bytes;
                 break;
         }
     }
@@ -402,10 +389,8 @@ void VrouterUveEntry::InitPrevStats() const {
         }
         s->prev_in_bytes = s->in_bytes;
         s->prev_5min_in_bytes = s->in_bytes;
-        s->prev_10min_in_bytes = s->in_bytes;
         s->prev_out_bytes = s->out_bytes;
         s->prev_5min_out_bytes = s->out_bytes;
-        s->prev_10min_out_bytes = s->out_bytes;
         ++it;
     }
 }

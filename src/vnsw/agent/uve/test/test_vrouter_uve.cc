@@ -128,6 +128,41 @@ public:
         }
         return ret;
     }
+
+    bool BandwidthMatch(const map<string,uint64_t> &imp,
+                        const map<string,uint64_t> &omp,
+                        uint64_t in,
+                        uint64_t out) {
+        if (0 == imp.size()) {
+            if (in == 0) {
+                return true;
+            }
+            return false;
+        }
+        if (0 == omp.size()) {
+            if (out == 0) {
+                return true;
+            }
+            return false;
+        }
+
+        map<string,uint64_t>::const_iterator it;
+        EXPECT_EQ(1U, imp.size());
+        it = imp.begin();
+        EXPECT_EQ(in, it->second);
+        if (in != it->second) {
+            return false;
+        }
+
+        EXPECT_EQ(1U, omp.size());
+        it = omp.begin();
+        EXPECT_EQ(out, it->second);
+        if (out != it->second) {
+            return false;
+        }
+        return true;
+    }
+
     bool BandwidthMatch(const vector<AgentIfBandwidth> &list, uint64_t in,
                         uint64_t out) {
         if (0 == list.size()) {
@@ -615,7 +650,9 @@ TEST_F(UveVrouterUveTest, BandwidthTest_1) {
     VrouterStatsAgent &uve = vr->prev_stats();
     vr->set_bandwidth_count(0);
     vector<AgentIfBandwidth> empty_list;
-    uve.set_phy_if_band(empty_list);
+    map<string,uint64_t> empty_map;
+    uve.set_phy_band_in_bps(empty_map);
+    uve.set_phy_band_out_bps(empty_map);
 
     PhysicalInterfaceKey key(agent_->params()->eth_port());
     Interface *intf = static_cast<Interface *>
@@ -640,8 +677,11 @@ TEST_F(UveVrouterUveTest, BandwidthTest_1) {
     client->WaitForIdle();
     WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
 
-    EXPECT_EQ(0, uve.get_phy_if_band().size());
-    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_band(), 0, 0));
+    EXPECT_EQ(0, uve.get_phy_band_in_bps().size());
+    EXPECT_EQ(0, uve.get_phy_band_out_bps().size());
+    EXPECT_TRUE(BandwidthMatch(uve.get_phy_band_in_bps(),
+            uve.get_phy_band_out_bps(),
+            0, 0));
 
     //Update the stats object
     stats->speed = 1;
@@ -664,8 +704,11 @@ TEST_F(UveVrouterUveTest, BandwidthTest_1) {
     }
 
     EXPECT_EQ(2, vr->bandwidth_count());
-    EXPECT_EQ(1U, uve.get_phy_if_band().size());
-    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_band(), 139810, 1048576));
+    EXPECT_EQ(1U, uve.get_phy_band_in_bps().size());
+    EXPECT_EQ(1U, uve.get_phy_band_out_bps().size());
+    EXPECT_TRUE(BandwidthMatch(uve.get_phy_band_in_bps(),
+            uve.get_phy_band_out_bps(),
+            139810, 1048576));
     vr->clear_count();
 
     //cleanup
