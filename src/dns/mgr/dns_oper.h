@@ -207,7 +207,7 @@ struct VirtualDnsRecordConfig : public DnsConfig {
     void OnDelete();
     void OnChange(IFMapNode *node);
     void OnChange(const DnsItem &new_rec);
-    void UpdateVdns(IFMapNode *node);
+    bool UpdateVdns(IFMapNode *node);
 
     bool CanNotify();
     bool HasChanged(DnsItem &rhs);

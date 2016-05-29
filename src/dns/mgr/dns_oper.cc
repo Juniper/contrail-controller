@@ -440,6 +440,7 @@ void VirtualDnsConfig::VirtualDnsTrace(VirtualDnsTraceData &rec) {
     rec.floating_ip_record = rec_.floating_ip_record;
     rec.external_visible = (rec_.external_visible ? "yes" : "no");
     rec.reverse_resolution = (rec_.reverse_resolution ? "yes" : "no");
+    rec.flags = flags_;
 }
 
 void VirtualDnsConfig::Trace(const std::string &ev) {
@@ -503,7 +504,9 @@ VirtualDnsRecordConfig::~VirtualDnsRecordConfig() {
 void VirtualDnsRecordConfig::OnAdd(IFMapNode *node) {
     MarkValid();
     if (!virt_dns_) {
-        UpdateVdns(node);
+        if (!UpdateVdns(node)) {
+            ClearValid();
+        }
     } else if (!virt_dns_->IsValid()) {
         virt_dns_->AddRecord(this);
     } else {
@@ -528,10 +531,15 @@ void VirtualDnsRecordConfig::OnDelete() {
 
 void VirtualDnsRecordConfig::OnChange(IFMapNode *node) {
     DnsItem new_rec;
-    if (!GetObject(node, new_rec) || !HasChanged(new_rec))
+    if (!GetObject(node, new_rec) ||
+        (IsValid() && !HasChanged(new_rec))) {
         return;
+    }
     if (!virt_dns_) {
-        UpdateVdns(node);
+        MarkValid();
+        if (!UpdateVdns(node)) {
+            ClearValid();
+        }
     }
     // For records, notify a change with a delete of the old record
     // followed by addition of new record; If only TTL has changed,
@@ -551,26 +559,29 @@ void VirtualDnsRecordConfig::OnChange(const DnsItem &new_rec) {
     Trace("Change");
 }
 
-void VirtualDnsRecordConfig::UpdateVdns(IFMapNode *node) {
-    if (node) {
-        IFMapNode *vdns_node = Dns::GetDnsConfigManager()->FindTarget(node,
-                               "virtual-DNS-virtual-DNS-record");
-        if (vdns_node == NULL) {
-            DNS_TRACE(DnsError, "Virtual DNS Record <" + GetName() +
-                                "> does not have virtual DNS link");
-            return;
-        }
-        virt_dns_ = VirtualDnsConfig::Find(vdns_node->name());
-        if (!virt_dns_) {
-            virt_dns_ = new VirtualDnsConfig(vdns_node);
-            virt_dns_->AddRecord(this);
-        }
-        virtual_dns_name_ = virt_dns_->GetName();
+bool VirtualDnsRecordConfig::UpdateVdns(IFMapNode *node) {
+    if (!node) {
+        return false;
     }
+
+    IFMapNode *vdns_node = Dns::GetDnsConfigManager()->FindTarget(node,
+                           "virtual-DNS-virtual-DNS-record");
+    if (vdns_node == NULL) {
+        DNS_TRACE(DnsError, "Virtual DNS Record <" + GetName() +
+                            "> does not have virtual DNS link");
+        return false;
+    }
+    virt_dns_ = VirtualDnsConfig::Find(vdns_node->name());
+    if (!virt_dns_) {
+        virt_dns_ = new VirtualDnsConfig(vdns_node);
+    }
+    virt_dns_->AddRecord(this);
+    virtual_dns_name_ = virt_dns_->GetName();
+    return true;
 }
 
 bool VirtualDnsRecordConfig::CanNotify() {
-    if (!virt_dns_ || !virt_dns_->IsValid())
+    if (!IsValid() || !virt_dns_ || !virt_dns_->IsValid())
         return false;
 
     if (rec_.eclass == DNS_CLASS_IN && rec_.type == DNS_PTR_RECORD) {
@@ -663,6 +674,7 @@ void VirtualDnsRecordConfig::VirtualDnsRecordTrace(VirtualDnsRecordTraceData &re
         rec.installed = "true";
     else
         rec.installed = "false";
+    rec.flags = flags_;
 }
 
 void VirtualDnsRecordConfig::Trace(const std::string &ev) {
