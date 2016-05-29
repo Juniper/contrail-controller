@@ -27,6 +27,7 @@ class RibPeerSet;
 class Route;
 class RoutingInstance;
 class SchedulingGroupManager;
+class ShowRibOutStatistics;
 class UpdateInfoSList;
 struct UpdateInfo;
 
@@ -154,6 +155,9 @@ public:
                      uint32_t path_id, uint32_t flags, uint32_t label);
     void InputCommonPostProcess(DBTablePartBase *root, BgpRoute *rt,
                                 bool notify_rt);
+
+    void FillRibOutStatisticsInfo(
+        std::vector<ShowRibOutStatistics> *sros_list) const;
 
 private:
     friend class BgpTableTest;
