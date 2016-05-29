@@ -75,6 +75,7 @@ public:
 
 private:
     friend class DnsBindTest;
+    friend class DnsManagerTest;
 
     bool SendRecordUpdate(BindUtil::Operation op, 
                           const VirtualDnsRecordConfig *config);
