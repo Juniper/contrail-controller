@@ -144,6 +144,9 @@ private:
 
     private:
         KSyncEntry::KSyncEntryPtr entry_;
+        // back reference to the reffer from which process
+        // should start triggering DelAdd OP
+        KSyncEntry::KSyncEntryPtr begin_ref_;
         DISALLOW_COPY_AND_ASSIGN(ProcessDeleteOvsReqTask);
     };
 
