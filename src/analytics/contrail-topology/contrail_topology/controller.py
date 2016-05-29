@@ -40,11 +40,21 @@ class Controller(object):
         self.vrouter_ips = {}
         self.vrouter_macs = {}
         for vr in self.analytic_api.list_vrouters():
-            d = self.analytic_api.get_vrouter(vr, 'VrouterAgent:phy_if')
+            try:
+                d = self.analytic_api.get_vrouter(vr, 'VrouterAgent:phy_if')
+            except Exception as e:
+                traceback.print_exc()
+                print str(e)
+                d = {}
             if 'VrouterAgent' not in d:
                 d['VrouterAgent'] = {}
-            _ipl = self.analytic_api.get_vrouter(vr,
-                    'VrouterAgent:self_ip_list')
+            try:
+                _ipl = self.analytic_api.get_vrouter(vr,
+                        'VrouterAgent:self_ip_list')
+            except Exception as e:
+                traceback.print_exc()
+                print str(e)
+                _ipl = {}
             if 'VrouterAgent' in _ipl:
                 d['VrouterAgent'].update(_ipl['VrouterAgent'])
             if 'VrouterAgent' not in d or\
@@ -68,8 +78,12 @@ class Controller(object):
         self.analytic_api.get_prouters(True)
         self.prouters = []
         for pr in self.analytic_api.list_prouters():
-            self.prouters.append(PRouter(pr, self.analytic_api.get_prouter(
+            try:
+                self.prouters.append(PRouter(pr, self.analytic_api.get_prouter(
                             pr, 'PRouterEntry')))
+            except Exception as e:
+                traceback.print_exc()
+                print str(e)
 
     def _is_linkup(self, prouter, ifindex):
         if 'PRouterEntry' in prouter.data and \
@@ -110,6 +124,7 @@ class Controller(object):
                 self._vnc = self._config.vnc_api()
             except:
                 print 'Proceeding without any api-server'
+                self._vnc = None # refresh
         if self._vnc:
             try:
                 for li in self._vnc.logical_interfaces_list()[
@@ -277,7 +292,7 @@ class Controller(object):
                         self.compute()
                         self.send_uve()
                 except Exception as e:
-                    import traceback; traceback.print_exc()
+                    traceback.print_exc()
                     print str(e)
                 gevent.sleep(self._sleep_time)
             else:
