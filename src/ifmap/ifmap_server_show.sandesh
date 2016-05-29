@@ -274,8 +274,10 @@ struct IFMapPeerServerConnInfo {
     4: string connection_status;
     5: string host;
     6: string port;
+    11: i32 end_of_rib_timeout_ms;
     7: bool end_of_rib_computed;
     8: bool end_of_rib_timer_running;
+    12: i32 stale_entries_cleanup_timeout_ms;
     9: bool start_stale_entries_cleanup;
     10: bool stale_entries_cleanup_timer_running;
 }
@@ -307,6 +309,7 @@ struct IFMapStateMachineInfo {
     6: u64 workq_enqueues;
     7: u64 workq_dequeues;
     8: u64 workq_length;
+    9: i32 max_response_wait_interval_ms;
 }
 
 struct IFMapDSPeerInfoEntry {

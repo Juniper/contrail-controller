@@ -140,15 +140,20 @@ void Options::Initialize(EventManager &evm,
 
         ("IFMAP.certs_store",  opt::value<string>(),
              "Certificates store to use for communication with IFMAP server")
-        ("IFMAP.password", opt::value<string>()->default_value(
-                                                     "dns_user_passwd"),
+        ("IFMAP.password",
+             opt::value<string>()->default_value("dns_user_passwd"),
              "IFMAP server password")
-        ("IFMAP.server_url",
-             opt::value<string>()->default_value(ifmap_server_url_),
-             "IFMAP server URL")
+        ("IFMAP.server_url", opt::value<string>()->default_value(
+             ifmap_config_options_.server_url), "IFMAP server URL")
         ("IFMAP.user", opt::value<string>()->default_value("dns_user"),
              "IFMAP server username")
-
+        ("IFMAP.stale_entries_cleanup_timeout",
+             opt::value<int>()->default_value(10),
+             "IFMAP stale entries cleanup timeout")
+        ("IFMAP.end_of_rib_timeout", opt::value<int>()->default_value(10),
+             "IFMAP end of rib timeout")
+        ("IFMAP.peer_response_wait_time", opt::value<int>()->default_value(60),
+             "IFMAP peer response wait time")
 
         ("DEFAULT.xmpp_dns_auth_enable", opt::bool_switch(&xmpp_auth_enable_),
              "Enable authentication over Xmpp")
@@ -281,11 +286,22 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<uint16_t>(var_map, discovery_port_, "DISCOVERY.port");
     GetOptValue<string>(var_map, discovery_server_, "DISCOVERY.server");
 
-
-    GetOptValue<string>(var_map, ifmap_password_, "IFMAP.password");
-    GetOptValue<string>(var_map, ifmap_server_url_, "IFMAP.server_url");
-    GetOptValue<string>(var_map, ifmap_user_, "IFMAP.user");
-    GetOptValue<string>(var_map, ifmap_certs_store_, "IFMAP.certs_store");
+    GetOptValue<string>(var_map, ifmap_config_options_.password,
+                        "IFMAP.password");
+    GetOptValue<string>(var_map, ifmap_config_options_.server_url,
+                        "IFMAP.server_url");
+    GetOptValue<string>(var_map, ifmap_config_options_.user,
+                        "IFMAP.user");
+    GetOptValue<string>(var_map, ifmap_config_options_.certs_store,
+                        "IFMAP.certs_store");
+    GetOptValue<int>(var_map,
+                     ifmap_config_options_.stale_entries_cleanup_timeout,
+                     "IFMAP.stale_entries_cleanup_timeout");
+    GetOptValue<int>(var_map, ifmap_config_options_.end_of_rib_timeout,
+                     "IFMAP.end_of_rib_timeout");
+    GetOptValue<int>(var_map,
+                     ifmap_config_options_.peer_response_wait_time,
+                     "IFMAP.peer_response_wait_time");
 
     GetOptValue<bool>(var_map, xmpp_auth_enable_, "DEFAULT.xmpp_dns_auth_enable");
     GetOptValue<string>(var_map, xmpp_server_cert_, "DEFAULT.xmpp_server_cert");
