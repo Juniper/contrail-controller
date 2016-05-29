@@ -13,6 +13,7 @@ struct VirtualDnsTraceData {
     8: string floating_ip_record;
     9: string external_visible;
     10: string reverse_resolution;
+    11: i32 flags;
 }
 
 struct VirtualDnsRecordTraceData {
@@ -24,6 +25,7 @@ struct VirtualDnsRecordTraceData {
     6: i32 rec_ttl;
     7: string source;
     8: string installed;
+    9: i32 flags;
 }
 
 trace sandesh IpamTrace {

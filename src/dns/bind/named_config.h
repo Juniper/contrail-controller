@@ -28,6 +28,7 @@ public:
 
 private:
     friend class DnsBindTest;
+    friend class DnsManagerTest;
 
     bool CheckBindStatus();
 
