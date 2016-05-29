@@ -52,6 +52,7 @@ response sandesh FlowStatsResp {
     7: u32 flow_max_vm_flows;
     8: u64 flow_export_disable_drops;
     9: u64 flow_export_sampling_drops;
+   10: u64 flow_export_drops;
 }
 
 /**
