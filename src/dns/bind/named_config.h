@@ -28,6 +28,7 @@ public:
 
 private:
     friend class DnsBindTest;
+    friend class DnsManagerTest;
 
     bool IsBindPid(uint32_t pid);
     bool CheckBindStatus();
