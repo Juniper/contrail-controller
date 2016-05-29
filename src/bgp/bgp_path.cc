@@ -75,11 +75,11 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
 
     KEY_COMPARE(llgr_stale, rllgr_stale);
 
-    // For ECMP paths, above checks should suffice
+    KEY_COMPARE(attr_->as_path_count(), rattr->as_path_count());
+
+    // For ECMP paths, above checks should suffice.
     if (allow_ecmp)
         return 0;
-
-    KEY_COMPARE(attr_->as_path_count(), rattr->as_path_count());
 
     KEY_COMPARE(attr_->origin(), rattr->origin());
 
