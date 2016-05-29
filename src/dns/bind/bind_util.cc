@@ -72,7 +72,7 @@ uint16_t BindUtil::DnsClass(const std::string &cl) {
 std::string BindUtil::DnsClass(uint16_t cl) {
     DnsTypeNumIter iter = g_dns_class_num_map.find(cl);
     if (iter == g_dns_class_num_map.end())
-        return "";
+        return integerToString(cl);
     return iter->second;
 }
 
@@ -86,7 +86,7 @@ uint16_t BindUtil::DnsType(const std::string &tp) {
 std::string BindUtil::DnsType(uint16_t tp) {
     DnsTypeNumIter iter = g_dns_type_num_map.find(tp);
     if (iter == g_dns_type_num_map.end())
-        return "";
+        return integerToString(tp);
     return iter->second;
 }
 
@@ -179,8 +179,7 @@ uint8_t *BindUtil::AddData(uint8_t *ptr, const DnsItem &item,
         length += 2 + 20;
     } else if(item.type == DNS_PTR_RECORD ||
               item.type == DNS_CNAME_RECORD ||
-              item.type == DNS_NS_RECORD ||
-              item.type == DNS_TXT_RECORD) {
+              item.type == DNS_NS_RECORD) {
         uint16_t data_len = DataLength(item.data_plen, item.data_offset,
                                        item.data.size());
         ptr = WriteShort(ptr, data_len);
@@ -205,8 +204,19 @@ uint8_t *BindUtil::AddData(uint8_t *ptr, const DnsItem &item,
                       item.srv.hn_offset, length);
         length += 2 + 6;
     } else {
-        DNS_BIND_TRACE(DnsBindError,
-            "Unsupported record type in response : " << item.type);
+        // TXT and other record types are handled here.
+        // TODO: In case a record type has domain name and name is compressed
+        // in the message that is being read, it may lead to problem if the
+        // offset in the message we send doesnt match with the offset in the
+        // message that is received. Each such message has to be handled
+        // as a different case here.
+        uint16_t size = item.data.size();
+        ptr = WriteShort(ptr, size);
+        if (size) {
+            memcpy(ptr, item.data.c_str(), size);
+            ptr += size;
+        }
+        length += 2 + size;
     }
 
     return ptr;
@@ -327,8 +337,7 @@ bool BindUtil::ReadData(uint8_t *dns, uint16_t dnslen, int *remlen,
         return ReadWord(dns, dnslen, remlen, item.soa.ttl);
     } else if(item.type == DNS_PTR_RECORD ||
               item.type == DNS_CNAME_RECORD ||
-              item.type == DNS_NS_RECORD ||
-              item.type == DNS_TXT_RECORD) {
+              item.type == DNS_NS_RECORD) {
         return ReadName(dns, dnslen, remlen, item.data, item.data_plen, item.data_offset);
     } else if(item.type == DNS_MX_RECORD) {
         if (ReadShort(dns, dnslen, remlen, item.priority) == false)
@@ -343,6 +352,20 @@ bool BindUtil::ReadData(uint8_t *dns, uint16_t dnslen, int *remlen,
             return false;
         return ReadName(dns, dnslen, remlen, item.srv.hostname,
                         item.srv.hn_plen, item.srv.hn_offset);
+    } else {
+        // TXT and other record types are handled here.
+        // TODO: In case a record type has domain name and name is compressed
+        // in the message that is being read, it may lead to problem if the
+        // offset in the message we send doesnt match with the offset in the
+        // message that is received. Each such message has to be handled
+        // as a different case here.
+        if (*remlen < length) {
+            return false;
+        }
+        uint8_t *ptr = dns + (dnslen - *remlen);
+        item.data.assign((const char *)ptr, length);
+        *remlen -= length;
+        return true;
     }
 
     DNS_BIND_TRACE(DnsBindError,
