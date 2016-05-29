@@ -157,3 +157,12 @@ traceobject sandesh KSyncVxLan {
     1: KSyncVxLanInfo info;
 }
 
+/**
+ * @description: Trace message for Vnsw Interface events
+ * @type: Trace
+ * @severity: DEBUG
+ */
+trace sandesh VnswIfInfoTrace {
+    1: string info;
+}
+
