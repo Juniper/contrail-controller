@@ -39,12 +39,13 @@ class VncPermissions(object):
         return id_perms.get('user_visible', True) is not False or is_admin
     # end
 
-    def validate_perms(self, request, uuid, mode=PERMS_R):
+    def validate_perms(self, request, uuid, mode=PERMS_R, id_perms=None):
         # retrieve object and permissions
-        try:
-            id_perms = self._server_mgr._db_conn.uuid_to_obj_perms(uuid)
-        except NoIdError:
-            return (True, 'RWX')
+        if not id_perms:
+            try:
+                id_perms = self._server_mgr._db_conn.uuid_to_obj_perms(uuid)
+            except NoIdError:
+                return (True, 'RWX')
 
         err_msg = (403, 'Permission Denied')
 
@@ -173,7 +174,7 @@ class VncPermissions(object):
             return (True, '')
     # end check_perms_write
 
-    def check_perms_read(self, request, id):
+    def check_perms_read(self, request, id, id_perms=None):
         app = request.environ['bottle.app']
         if app.config.local_auth or self._server_mgr.is_auth_disabled():
             return (True, '')
@@ -181,7 +182,7 @@ class VncPermissions(object):
         if self._rbac:
             return self.validate_perms_rbac(request, id, PERMS_R)
         elif self._multi_tenancy:
-            return self.validate_perms(request, id, PERMS_R)
+            return self.validate_perms(request, id, PERMS_R, id_perms)
         else:
             return (True, '')
     # end check_perms_read
