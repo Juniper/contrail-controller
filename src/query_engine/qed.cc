@@ -39,6 +39,9 @@ using namespace boost::asio;
 using namespace std;
 using process::ConnectionStateManager;
 using process::GetProcessStateCb;
+using process::ConnectionType;
+using process::ConnectionTypeName;
+using process::g_process_info_constants;
 // This is to force qed to wait for a gdbattach
 // before proceeding.
 // It will make it easier to debug qed during systest
@@ -222,18 +225,29 @@ main(int argc, char *argv[]) {
     // 2. Redis
     // 3. Cassandra
     // 4. Discovery (if collector list not configured)
-    int num_expected_connections = 4;
-    bool use_collector_list = false;
-    if (options.collectors_configured() || !csf) {
-        num_expected_connections = 3;
-        use_collector_list = true;
+    std::vector<ConnectionTypeName> expected_connections =
+        boost::assign::list_of
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::DATABASE)->second, ""))
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::REDIS_QUERY)->second, "Query"))
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::COLLECTOR)->second, ""));
+    bool use_collector_list = true;
+    if (!options.collectors_configured() && csf) {
+        // Use discovery to connect to collector
+        use_collector_list = false;
+        expected_connections.push_back(ConnectionTypeName(
+            g_process_info_constants.ConnectionTypeNames.find(
+                ConnectionType::DISCOVERY)->second,
+            g_vns_constants.COLLECTOR_DISCOVERY_SERVICE_NAME));
     }
     ConnectionStateManager<NodeStatusUVE, NodeStatus>::
         GetInstance()->Init(*evm.io_service(),
             options.hostname(), module_name,
             instance_id,
             boost::bind(&GetProcessStateCb, _1, _2, _3,
-            num_expected_connections));
+            expected_connections));
     Sandesh::set_send_rate_limit(options.sandesh_send_rate_limit());
     bool success;
     // subscribe to the collector service with discovery only if the

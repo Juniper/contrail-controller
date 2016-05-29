@@ -58,6 +58,9 @@ using process::ConnectionInfo;
 using process::ConnectionStateManager;
 using process::GetProcessStateCb;
 using process::ProcessState;
+using process::ConnectionType;
+using process::ConnectionTypeName;
+using process::g_process_info_constants;
 
 static EventManager evm;
 
@@ -501,7 +504,7 @@ static void ControlNodeGetProcessStateCb(const BgpServer *bgp_server,
     const IFMapManager *ifmap_manager,
     const std::vector<ConnectionInfo> &cinfos,
     ProcessState::type &state, std::string &message,
-    size_t expected_connections) {
+    std::vector<ConnectionTypeName> expected_connections) {
     GetProcessStateCb(cinfos, state, message, expected_connections);
     if (state == ProcessState::NON_FUNCTIONAL)
         return;
@@ -680,11 +683,26 @@ int main(int argc, char *argv[]) {
     // 3. Discovery Server subscribe Collector
     // 4. Discovery Server subscribe IfmapServer
     // 5. IFMap Server (irond)
+    std::vector<ConnectionTypeName> expected_connections = boost::assign::list_of
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::DISCOVERY)->second,
+                             g_vns_constants.COLLECTOR_DISCOVERY_SERVICE_NAME))
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::COLLECTOR)->second, ""))
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::DISCOVERY)->second,
+                             g_vns_constants.IFMAP_SERVER_DISCOVERY_SERVICE_NAME))
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::IFMAP)->second, "IFMapServer"))
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::DISCOVERY)->second,
+                             g_vns_constants.XMPP_SERVER_DISCOVERY_SERVICE_NAME));
     ConnectionStateManager<NodeStatusUVE, NodeStatus>::GetInstance()->Init(
         *evm.io_service(), options.hostname(),
         module_name, g_vns_constants.INSTANCE_ID_DEFAULT,
         boost::bind(&ControlNodeGetProcessStateCb,
-                    bgp_server.get(), ifmap_manager, _1, _2, _3, 5));
+                    bgp_server.get(), ifmap_manager, _1, _2, _3,
+                    expected_connections));
 
     // Parse discovery server configuration.
     DiscoveryServiceClient *ds_client = NULL;
