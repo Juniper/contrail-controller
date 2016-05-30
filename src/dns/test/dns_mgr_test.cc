@@ -1,7 +1,6 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
-#include "cfg/dns_config.h"
 
 #include <fstream>
 #include <boost/algorithm/string/replace.hpp>
@@ -21,13 +20,51 @@
 #include "io/event_manager.h"
 #include "schema/vnc_cfg_types.h"
 #include "cmn/dns.h"
+#include "bind/bind_util.h"
+#include "cfg/dns_config.h"
 #include "cfg/dns_config.h"
 #include "cfg/dns_config_parser.h"
-#include "bind/named_config.h"
-#include "mgr/dns_mgr.h"
 #include "testing/gunit.h"
+#include "mgr/dns_mgr.h"
+#include "bind/named_config.h"
 
 using namespace std;
+
+class NamedConfigTest : public NamedConfig {
+public:
+    NamedConfigTest(const std::string &conf_dir, const std::string &conf_file) :
+                    NamedConfig(conf_dir, conf_file, "/var/log/named/bind.log",
+                                "rndc.conf", "xvysmOR8lnUQRBcunkC6vg==", "100M") {}
+    static void Init() {
+        assert(singleton_ == NULL);
+        singleton_ = new NamedConfigTest(".", "named.conf");
+        singleton_->Reset();
+    }
+    static void Shutdown() {
+        delete singleton_;
+        singleton_ = NULL;
+        remove("./named.conf");
+        remove("./rndc.conf");
+    }
+    virtual void UpdateNamedConf(const VirtualDnsConfig *updated_vdns) {
+        CreateNamedConf(updated_vdns);
+    }
+    std::string GetZoneFileName(const std::string &vdns,
+                                const std::string &name) {
+        if (name.size() && name.at(name.size() - 1) == '.')
+            return (name + "zone");
+        else
+            return (name + ".zone");
+    }
+    std::string GetZoneFilePath(const std::string &vdns,
+                                const string &name) {
+         return (named_config_dir_ + GetZoneFileName("", name));
+    }
+    std::string GetZoneFilePath(const string &name) {
+        return GetZoneFilePath("", name);
+    }
+    std::string GetResolveFile() { return ""; }
+};
 
 static string FileRead(const string &filename) {
     ifstream file(filename.c_str());
@@ -38,24 +75,26 @@ static string FileRead(const string &filename) {
 
 class DnsManagerTest : public ::testing::Test {
 protected:
+
     DnsManagerTest() : parser_(&db_) {
-        NamedConfig::Init();
     }
     virtual void SetUp() {
         IFMapLinkTable_Init(&db_, &db_graph_);
         vnc_cfg_Server_ModuleInit(&db_, &db_graph_);
-
+        NamedConfigTest::Init();
         Dns::SetDnsManager(&dns_manager_);
-        dns_manager_.GetConfigManager().Initialize(&db_, &db_graph_,
-                                                   "local");
+        dns_manager_.config_mgr_.Initialize(&db_, &db_graph_);
+        dns_manager_.bind_status_.named_pid_ = 0;
     }
     virtual void TearDown() {
         task_util::WaitForIdle();
+        dns_manager_.bind_status_.named_pid_ = -1;
         dns_manager_.Shutdown();
+        NamedConfigTest::Shutdown();
+        // dns_manager_.GetConfigManager().Terminate();
         task_util::WaitForIdle();
         db_util::Clear(&db_);
     }
-
     DB db_;
     DBGraph db_graph_;
     DnsManager dns_manager_;
