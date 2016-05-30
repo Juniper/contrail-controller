@@ -42,6 +42,12 @@ public:
                                  const std::string &,
                                  const XmppStanza::XmppMessage * msg)
         > RxMessageTraceCb;
+    typedef boost::function<bool(const std::string &,
+                                 int,
+                                 int,
+                                 const std::string &,
+                                 const XmppStanza::XmppMessage * msg)
+        > TxMessageTraceCb;
 
     virtual ~XmppChannel() { }
 
@@ -50,6 +56,7 @@ public:
     virtual void RegisterReceive(xmps::PeerId, ReceiveCb) = 0;
     virtual void UnRegisterReceive(xmps::PeerId) = 0;
     virtual void RegisterRxMessageTraceCallback(RxMessageTraceCb cb) = 0;
+    virtual void RegisterTxMessageTraceCallback(TxMessageTraceCb cb) = 0;
     virtual void UnRegisterWriteReady(xmps::PeerId id) = 0;
     virtual void Close() = 0;
     virtual void CloseComplete() = 0;

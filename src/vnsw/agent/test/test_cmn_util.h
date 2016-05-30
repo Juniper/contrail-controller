@@ -427,6 +427,8 @@ public:
 
     virtual void RegisterRxMessageTraceCallback(RxMessageTraceCb cb) {
     }
+    virtual void RegisterTxMessageTraceCallback(TxMessageTraceCb cb) {
+    }
     virtual std::string LastStateName() const {
         return "";
     }

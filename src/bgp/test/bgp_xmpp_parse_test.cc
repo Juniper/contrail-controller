@@ -82,6 +82,9 @@ public:
     virtual void RegisterRxMessageTraceCallback(RxMessageTraceCb cb) {
         return;
     }
+    virtual void RegisterTxMessageTraceCallback(TxMessageTraceCb cb) {
+        return;
+    }
 };
 
 class BgpXmppChannelMock : public BgpXmppChannel {
