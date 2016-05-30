@@ -1014,6 +1014,9 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             data.set_vrf_assign_acl_uuid(vrf_assign_acl);
         }
 
+        data.set_service_health_check_ip(
+                vintf->service_health_check_ip().to_string());
+
         break;
     }
     case Interface::INET: {

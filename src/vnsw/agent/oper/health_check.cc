@@ -48,7 +48,8 @@ HealthCheckService::~HealthCheckService() {
 HealthCheckInstance::HealthCheckInstance(HealthCheckService *service,
                                          MetaDataIpAllocator *allocator,
                                          VmInterface *intf) :
-    service_(NULL), intf_(intf), ip_(new MetaDataIp(allocator, intf)),
+    service_(NULL), intf_(intf),
+    ip_(new MetaDataIp(allocator, intf, MetaDataIp::HEALTH_CHECK)),
     task_(NULL), last_update_time_("-"), deleted_(false) {
     active_ = false;
     ip_->set_active(true);
