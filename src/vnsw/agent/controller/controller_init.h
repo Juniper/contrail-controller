@@ -167,11 +167,16 @@ public:
     void RegisterControllerChangeCallback(XmppChannelDownCb xmpp_channel_down_cb) {
         xmpp_channel_down_cb_ = xmpp_channel_down_cb;
     }
-    bool XmppMessageTrace(uint8_t peer_index,
-                          const std::string &to_address,
-                          int port, int size,
-                          const std::string &msg,
-                          const XmppStanza::XmppMessage *xmpp_msg);
+    bool RxXmppMessageTrace(uint8_t peer_index,
+                            const std::string &to_address,
+                            int port, int size,
+                            const std::string &msg,
+                            const XmppStanza::XmppMessage *xmpp_msg);
+    bool TxXmppMessageTrace(uint8_t peer_index,
+                            const std::string &to_address,
+                            int port, int size,
+                            const std::string &msg,
+                            const XmppStanza::XmppMessage *xmpp_msg);
 
 private:
     AgentXmppChannel *FindAgentXmppChannel(const std::string &server_ip);
@@ -205,6 +210,8 @@ extern SandeshTraceBufferPtr ControllerRxRouteMessageTraceBuf1;
 extern SandeshTraceBufferPtr ControllerRxConfigMessageTraceBuf1;
 extern SandeshTraceBufferPtr ControllerRxRouteMessageTraceBuf2;
 extern SandeshTraceBufferPtr ControllerRxConfigMessageTraceBuf2;
+extern SandeshTraceBufferPtr ControllerTxMessageTraceBuf1;
+extern SandeshTraceBufferPtr ControllerTxMessageTraceBuf2;
 
 #define CONTROLLER_RX_ROUTE_MESSAGE_TRACE(obj, index, ...)\
 do {\
@@ -255,6 +262,17 @@ do {\
 #define CONTROLLER_TRACE(obj, ...)\
 do {\
     AgentXmpp##obj::TraceMsg(ControllerTraceBuf, __FILE__, __LINE__, __VA_ARGS__);\
+} while(0);\
+
+#define CONTROLLER_TX_MESSAGE_TRACE(obj, index, ...)\
+do {\
+    if (index == 0) { \
+        AgentXmpp##obj::TraceMsg(ControllerTxMessageTraceBuf1, __FILE__, \
+                                 __LINE__, __VA_ARGS__);\
+    } else { \
+        AgentXmpp##obj::TraceMsg(ControllerTxMessageTraceBuf2, __FILE__, \
+                                 __LINE__, __VA_ARGS__);\
+    } \
 } while(0);\
 
 #endif
