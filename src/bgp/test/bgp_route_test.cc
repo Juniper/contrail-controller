@@ -388,6 +388,7 @@ TEST_F(BgpRouteTest, PathCompareClusterList2) {
 
 //
 // Path with lower med is better.
+// Paths with different MEDs are not considered ECMP.
 //
 TEST_F(BgpRouteTest, PathCompareMed1) {
     boost::system::error_code ec;
@@ -423,12 +424,15 @@ TEST_F(BgpRouteTest, PathCompareMed1) {
 
     EXPECT_EQ(-1, path1.PathCompare(path2, false));
     EXPECT_EQ(1, path2.PathCompare(path1, false));
+    EXPECT_EQ(-1, path1.PathCompare(path2, true));
+    EXPECT_EQ(1, path2.PathCompare(path1, true));
 }
 
 //
 // Paths with different neighbor as are not compared w.r.t med.
 // Path with higher med happens to win since it has lower router id.
 // Both paths have as paths, but the leftmost as is different.
+// Paths with different MEDs are considered ECMP as leftmost AS is different.
 //
 TEST_F(BgpRouteTest, PathCompareMed2) {
     boost::system::error_code ec;
@@ -464,12 +468,15 @@ TEST_F(BgpRouteTest, PathCompareMed2) {
 
     EXPECT_EQ(1, path1.PathCompare(path2, false));
     EXPECT_EQ(-1, path2.PathCompare(path1, false));
+    EXPECT_EQ(0, path1.PathCompare(path2, true));
+    EXPECT_EQ(0, path2.PathCompare(path1, true));
 }
 
 //
 // Paths with different neighbor as are not compared w.r.t med.
 // Path with higher med happens to win since it has lower router id.
 // Both paths have nil as path.
+// Paths with different MEDs are considered ECMP as leftmost AS is 0.
 //
 TEST_F(BgpRouteTest, PathCompareMed3) {
     boost::system::error_code ec;
@@ -495,12 +502,15 @@ TEST_F(BgpRouteTest, PathCompareMed3) {
 
     EXPECT_EQ(1, path1.PathCompare(path2, false));
     EXPECT_EQ(-1, path2.PathCompare(path1, false));
+    EXPECT_EQ(0, path1.PathCompare(path2, true));
+    EXPECT_EQ(0, path2.PathCompare(path1, true));
 }
 
 //
 // Paths with 0 neighbor as are not compared w.r.t med.
 // Path with higher med happens to win since it has lower router id.
 // First segment in both paths is an AS_SET.
+// Paths with different MEDs are considered ECMP as leftmost AS is 0.
 //
 TEST_F(BgpRouteTest, PathCompareMed4) {
     boost::system::error_code ec;
@@ -536,6 +546,8 @@ TEST_F(BgpRouteTest, PathCompareMed4) {
 
     EXPECT_EQ(1, path1.PathCompare(path2, false));
     EXPECT_EQ(-1, path2.PathCompare(path1, false));
+    EXPECT_EQ(0, path1.PathCompare(path2, true));
+    EXPECT_EQ(0, path2.PathCompare(path1, true));
 }
 
 //
