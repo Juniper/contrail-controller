@@ -29,9 +29,6 @@
 #include <sandesh/sandesh_message_builder.h>
 #include <discovery/client/discovery_client.h>
 #include <discovery_client_stats_types.h>
-#ifndef USE_CASSANDRA_CQL
-#include <database/cassandra/thrift/thrift_if.h>
-#endif // !USE_CASSANDRA_CQL
 #include "collector.h"
 #include "viz_collector.h"
 #include "viz_sandesh.h"
@@ -71,8 +68,7 @@ Collector::Collector(EventManager *evm, short server_port,
         std::vector<std::string> cassandra_ips,
         std::vector<int> cassandra_ports, const TtlMap& ttl_map,
         const std::string &cassandra_user,
-        const std::string &cassandra_password,
-        bool use_global_dbhandler) :
+        const std::string &cassandra_password) :
         SandeshServer(evm),
         db_handler_(db_handler),
         osp_(osp),
@@ -84,7 +80,6 @@ Collector::Collector(EventManager *evm, short server_port,
         db_task_id_(TaskScheduler::GetInstance()->GetTaskId(kDbTask)),
         cassandra_user_(cassandra_user),
         cassandra_password_(cassandra_password),
-        use_global_db_handler_(use_global_dbhandler),
         db_queue_wm_info_(kDbQueueWaterMarkInfo),
         sm_queue_wm_info_(kSmQueueWaterMarkInfo) {
 
@@ -245,8 +240,7 @@ bool Collector::ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
     GeneratorMap::iterator gen_it = gen_map_.find(id);
     if (gen_it == gen_map_.end()) {
         gen = new SandeshGenerator(this, vsession, state_machine, id.get<0>(),
-                id.get<1>(), id.get<2>(), id.get<3>(), db_handler_,
-                UseGlobalDbHandler());
+                id.get<1>(), id.get<2>(), id.get<3>(), db_handler_);
         gen_map_.insert(id, gen);
     } else {
         // Update the generator if needed
@@ -329,39 +323,7 @@ void Collector::TestDbConnErrHandler() {
     }
 
 void Collector::TestDatabaseConnection() {
-#ifndef USE_CASSANDRA_CQL
-    bool connect_status_change = false;
-    boost::scoped_ptr<GenDb::GenDbIf> testdbif_; // for testing db connection
 
-    // try to instantiate a new dbif instance for testing db connection
-    testdbif_.reset(new ThriftIf(
-        boost::bind(&Collector::TestDbConnErrHandler, this),
-        cassandra_ips_, cassandra_ports_, db_handler_->GetName(), true,
-        cassandra_user_, cassandra_password_));
-
-    if (!testdbif_->Db_Init("analytics::DbHandler", db_task_id_)) {
-        if (dbConnStatus_ != ConnectionStatus::DOWN) {
-            LOG(ERROR, "Connection to DB FAILED");
-            dbConnStatus_ = ConnectionStatus::DOWN;
-            connect_status_change = true;
-        }
-    } else {
-        if (dbConnStatus_ != ConnectionStatus::UP) {
-            LOG(ERROR, "Connection to DB Established/Re-Established");
-            dbConnStatus_ = ConnectionStatus::UP;
-            connect_status_change = true;
-        }
-        testdbif_->Db_Uninit("analytics::DbHandler", db_task_id_);
-    }
-
-    if (connect_status_change)
-    {
-        // update connection status
-        ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
-            DbGlobalName(false), dbConnStatus_, testdbif_->Db_GetEndpoints(),
-            std::string());
-    }
-#endif // !USE_CASSANDRA_CQL
 }
 
 void Collector::SendGeneratorStatistics() {
@@ -376,10 +338,6 @@ void Collector::SendGeneratorStatistics() {
         }
         // Sandesh message info
         gen->SendSandeshMessageStatistics();
-        // DB stats are only sent if each generator has its only DBHandler
-        if (!UseGlobalDbHandler()) {
-            gen->SendDbStatistics();
-        }
     }
 }
 
@@ -415,19 +373,6 @@ void Collector::GetGeneratorUVEInfo(vector<ModuleServerState> &genlist) {
         if (gen->GetSandeshStateMachineStats(sm_stats, sm_msg_stats)) {
             ginfo.set_sm_stats(sm_stats);
             ginfo.set_sm_msg_stats(sm_msg_stats);
-        }
-        if (!UseGlobalDbHandler()) {
-            uint64_t db_queue_count;
-            uint64_t db_enqueues;
-            std::string db_drop_level;
-            vector<SandeshStats> vdropmstats;
-            if (gen->GetDbStats(&db_queue_count, &db_enqueues,
-                    &db_drop_level, &vdropmstats)) {
-                ginfo.set_db_queue_count(db_queue_count);
-                ginfo.set_db_enqueues(db_enqueues);
-                ginfo.set_db_drop_level(db_drop_level);
-                ginfo.set_db_dropped_msg_stats(vdropmstats);
-            }
         }
         // Only send if generator is connected
         VizSession *session = gen->session();
@@ -470,16 +415,6 @@ void Collector::GetGeneratorSummaryInfo(vector<GeneratorSummaryInfo> *genlist) {
             }
             gsinfo.set_sm_back_pressure(
                 gen->IsStateMachineBackPressureTimerRunning());
-            if (!UseGlobalDbHandler()) {
-                uint64_t db_queue_count;
-                uint64_t db_enqueues;
-                std::string db_drop_level;
-                if (gen->GetDbStats(&db_queue_count, &db_enqueues,
-                        &db_drop_level, NULL)) {
-                    gsinfo.set_db_queue_count(db_queue_count);
-                    gsinfo.set_db_drop_level(db_drop_level);
-                }
-            }
             genlist->push_back(gsinfo);
         }
     }

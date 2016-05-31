@@ -52,8 +52,7 @@ public:
             SandeshStateMachine *state_machine,
             const std::string &source, const std::string &module,
             const std::string &instance_id, const std::string &node_type,
-            DbHandlerPtr global_db_handler,
-            bool use_global_dbhandler);
+            DbHandlerPtr global_db_handler);
     ~SandeshGenerator();
 
     void ReceiveSandeshCtrlMsg(uint32_t connects);
@@ -90,7 +89,6 @@ public:
     void ResetSmQueueWaterMarkInfo();
     void StartDbifReinit();
     virtual DbHandler * GetDbHandler() const { return db_handler_.get(); }
-    bool UseGlobalDbHandler() const { return use_global_dbhandler_; }
 
 private:
     virtual bool ProcessRules(const VizMsg *vmsg, bool rsc);
@@ -138,7 +136,6 @@ private:
     Timer *db_connect_timer_;
     tbb::atomic<bool> disconnected_;
     DbHandlerPtr db_handler_;
-    bool use_global_dbhandler_;
     GenDb::GenDbIf::DbAddColumnCb process_rules_cb_;
     Timer *sm_back_pressure_timer_;
     mutable tbb::mutex mutex_;

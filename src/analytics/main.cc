@@ -330,7 +330,6 @@ int main(int argc, char *argv[])
 
     //Get Platform info
     //cql not supported in precise, centos 6.4 6.5
-    bool use_cql = MiscUtils::IsCqlSupported();
     std::string zookeeper_server_list(options.zookeeper_server_list());
     bool use_zookeeper = !zookeeper_server_list.empty();
     VizCollector analytics(a_evm,
@@ -351,7 +350,6 @@ int main(int argc, char *argv[])
             options.kafka_prefix(),
             ttl_map, options.cassandra_user(),
             options.cassandra_password(),
-            use_cql,
             zookeeper_server_list,
             use_zookeeper);
 

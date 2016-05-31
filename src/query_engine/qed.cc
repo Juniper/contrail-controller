@@ -295,7 +295,6 @@ main(int argc, char *argv[]) {
 
     //Get Platform info
     //cql not supported in precise, centos 6.4 6.5
-    bool use_cql = MiscUtils::IsCqlSupported();
 
     if (cassandra_ports.size() == 1 && cassandra_ports[0] == 0) {
         qe.reset(new QueryEngine(&evm,
@@ -316,8 +315,7 @@ main(int argc, char *argv[]) {
             max_tasks,
             options.max_slice(),
             options.cassandra_user(),
-            options.cassandra_password(),
-            use_cql));
+            options.cassandra_password()));
     }
 
     CpuLoadData::Init();
