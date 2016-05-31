@@ -131,8 +131,7 @@ public:
 
     AgentProfile(Agent *agent, bool enable);
     ~AgentProfile();
-    bool Init();
-    bool Shutdown();
+    void InitDone();
 
     bool TimerRun();
     void Log();
