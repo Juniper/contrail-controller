@@ -77,14 +77,14 @@ class Subscribe(object):
             'blob'         : '',
         }
 
-        data = {
+        self.data = {
             'service': service_type,
             'instances': count,
             'client-type': dc._client_type,
             'remote-addr': dc._remote_addr,
             'client': dc._myid
         }
-        self.post_body = json.dumps(data)
+        self.post_body = json.dumps(self.data)
 
         self.url = "http://%s:%s/subscribe" % (dc._server_ip, dc._server_port)
 
@@ -100,6 +100,10 @@ class Subscribe(object):
             self._query()
             self.done = True
     # end
+
+    def update_subscribe_data(self, key, val):
+        self.data[key] = val
+        self.post_body = json.dumps(self.data)
 
     def inc_stats(self, key):
         if key not in self.stats:

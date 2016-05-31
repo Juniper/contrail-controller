@@ -36,6 +36,7 @@ class TestDiscService():
             'subscribe_type': None,
             'iterations': 1,
             'delay': 0,
+            'send_siul': False,
         }
 
         # override with CLI options
@@ -66,6 +67,8 @@ class TestDiscService():
             '--iterations', type=int, help="Number of iterations for scaled test. Default is 1")
         parser.add_argument(
             '--delay', type=int, help="Delay in seconds between iterations for scaled test. Default is 0")
+        parser.add_argument('--send-siul', action="store_true",
+            help="Send service-in-use-list attribute in subscribe request")
 
         parser.set_defaults(**defaults)
         self.args = parser.parse_args(args_str.split())
@@ -90,22 +93,34 @@ class TestDiscService():
         print 'Instance count = ', self.args.service_count
     # end _parse_args
 
+x = None
+disc = None
+server_list = {}
+subtask_dict = {}
 
-def info_callback(info):
+def info_callback(info, client_id):
+    global x
+    global server_list
+    global subtask_dict
     print 'In subscribe callback handler'
     print '%s' % (info)
+    server_list[client_id] = [entry['@publisher-id'] for entry in info]
+    if x.args.send_siul:
+        sub_obj = subtask_dict[client_id]
+        sub_obj.update_subscribe_data('service-in-use-list', {'publisher-id':server_list[client_id]})
+        print 'Setting service-in-use-list to %s' % server_list[client_id]
 
 def ctrl_c_handler(signal, frame):
     print disc.get_stats()
     sys.exit(0)
 
 signal.signal(signal.SIGINT, ctrl_c_handler)
-disc = None
 def main(args_str=None):
+    global x
+    global disc
     x = TestDiscService(args_str)
     _uuid = str(uuid.uuid4())
     myid = 'test_disc:%s' % (_uuid[:8])
-    global disc
     disc = client.DiscoveryClient(
         x.args.server_ip, x.args.server_port, "test-discovery",
             pub_id = "test-discovery-%d" % os.getpid())
@@ -156,16 +171,18 @@ def main(args_str=None):
                 time.sleep(x.args.delay)
         gevent.joinall(tasks)
     elif x.args.oper == 'subtest':
+        global subtask_dict
         tasks = []
         for i in range(x.args.iterations):
+            client_id = "test-discovery-%d-%d" % (os.getpid(), i)
             disc = client.DiscoveryClient(
-                x.args.server_ip, x.args.server_port, 
-                "test-discovery-%d-%d" % (os.getpid(), i))
+                x.args.server_ip, x.args.server_port, client_id)
             obj = disc.subscribe(
-                      x.args.service_type, x.args.service_count, info_callback)
+                      x.args.service_type, x.args.service_count, info_callback, client_id)
             tasks.append(obj.task)
             if x.args.delay:
                 time.sleep(x.args.delay)
+            subtask_dict[client_id] = obj
         print 'Started %d tasks to subscribe service %s, count %d' \
             % (x.args.iterations, x.args.service_type, x.args.service_count)
         gevent.joinall(tasks)
