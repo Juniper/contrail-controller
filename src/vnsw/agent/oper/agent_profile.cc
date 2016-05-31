@@ -34,10 +34,6 @@ AgentProfile::AgentProfile(Agent *agent, bool enable) :
     timer_ = TimerManager::CreateTimer
         (*(agent_->event_manager())->io_service(), "Agent Profile",
          task->GetTaskId("Agent::Profile"), 0);
-    if (enable) {
-        timer_->Start(kProfileTimeout, boost::bind(&AgentProfile::TimerRun,
-                                                   this));
-    }
     time(&start_time_);
 }
 
@@ -47,6 +43,13 @@ AgentProfile::~AgentProfile() {
 
 void AgentProfile::Shutdown() {
     timer_->Cancel();
+}
+
+void AgentProfile::InitDone() {
+    if (enable_) {
+        timer_->Start(kProfileTimeout, boost::bind(&AgentProfile::TimerRun,
+                                                   this));
+    }
 }
 
 bool AgentProfile::TimerRun() {
