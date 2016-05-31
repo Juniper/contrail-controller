@@ -34,7 +34,7 @@ from StringIO import StringIO
 from cfgm_common.uve.cfgm_cpuinfo.ttypes import \
     NodeStatusUVE, NodeStatus
 from cfgm_common.uve.cfgm_cpuinfo.process_info.ttypes import \
-    ProcessStatus, ProcessState, ProcessInfo, DiskPartitionUsageStats
+    ProcessStatus, ProcessState, ProcessInfo
 from cfgm_common.uve.cfgm_cpuinfo.process_info.constants import \
     ProcessStateNames
 
@@ -59,6 +59,7 @@ class ConfigEventManager(EventManager):
             node_type_name, self.instance_id, self.collector_addr,
             self.module_id, 8100, ['cfgm_common.uve'], _disc)
         sandesh_global.set_logging_params(enable_local_log=True)
+        self.send_system_cpu_info()
     # end __init__
 
     def process(self):
@@ -77,10 +78,12 @@ class ConfigEventManager(EventManager):
             ProcessStateNames, ProcessState, ProcessStatus,
             NodeStatus, NodeStatusUVE)
 
+    def get_node_status_class(self):
+        return NodeStatus
+
+    def get_node_status_uve_class(self):
+        return NodeStatusUVE
+
     def get_process_state(self, fail_status_bits):
         return self.get_process_state_base(
             fail_status_bits, ProcessStateNames, ProcessState)
-
-    def send_disk_usage_info(self):
-        self.send_disk_usage_info_base(
-            NodeStatusUVE, NodeStatus, DiskPartitionUsageStats)
