@@ -129,6 +129,7 @@ typedef boost::function<void()> EnqueuedCb;
 class DiscoveryServiceClient {
 public:
     static const int kHeartBeatInterval = 5;
+    static const char *kDefaultClientIpAdress;
 
     DiscoveryServiceClient(EventManager *evm, boost::asio::ip::tcp::endpoint,
                            std::string client_name,
@@ -228,6 +229,12 @@ private:
     void ReEvaluatePublish(std::string serviceName, ReEvalPublishCbHandler);
     void WithdrawPublishInternal(std::string serviceName);
     void UnsubscribeInternal(std::string serviceName);
+    void UpdateLocalClientIpAddress();
+
+    bool IsDefaultLocalAddress() {
+        if (local_addr_.compare(kDefaultClientIpAdress) == 0) return true;
+        return false;
+    }
 
     bool DequeueEvent(EnqueuedCb);
     WorkQueue<EnqueuedCb> work_queue_;
