@@ -201,14 +201,17 @@ class DiscoveryCassandraClient(VncCassandraClient):
                         column_finish = col_name, column_count = disc_consts.MAX_COL)
                     for col, val in subscribers.items():
                         _, serv_id, client_id = col
-                        data_dict[(serv_type,serv_id)]['in_use'] += 1
+                        if (serv_type,serv_id) in data_dict:
+                            data_dict[(serv_type,serv_id)]['in_use'] += 1
                 except pycassa.NotFoundException:
                     pass
 
+            if len(data_dict) == 0:
+                return None if service_id else []
             for key, entry in data_dict.items():
                 entry['admin_state'] = admin_state.get(key, "up")
             data = [data_dict[key] for key in sorted(data_dict.iterkeys())]
-            return data[0] if service_id else data
+            return data[0] or None if service_id else data
         except pycassa.NotFoundException:
             return None
     # end lookup_service
