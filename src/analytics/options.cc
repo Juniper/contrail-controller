@@ -69,11 +69,7 @@ void Options::Initialize(EventManager &evm,
     uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
 
     vector<string> default_cassandra_server_list;
-#ifdef USE_CASSANDRA_CQL
     string default_cassandra_server("127.0.0.1:9042");
-#else // USE_CASSANDRA_CQL
-    string default_cassandra_server("127.0.0.1:9160");
-#endif // !USE_CASSANDRA_CQL
     default_cassandra_server_list.push_back(default_cassandra_server);
 
     string default_zookeeper_server("127.0.0.1:2181");

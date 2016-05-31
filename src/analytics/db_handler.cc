@@ -20,11 +20,7 @@
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_message_builder.h>
 #include <sandesh/protocol/TXMLProtocol.h>
-#ifdef USE_CASSANDRA_CQL
 #include <database/cassandra/cql/cql_if.h>
-#else // USE_CASSANDRA_CQL
-#include <database/cassandra/thrift/thrift_if.h>
-#endif // !USE_CASSANDRA_CQL
 #include <zookeeper/zookeeper_client.h>
 
 #include "viz_constants.h"
@@ -81,21 +77,11 @@ DbHandler::DbHandler(EventManager *evm,
         (uint8_t)g_viz_constants.PARTITION_MAX),
     zookeeper_server_list_(zookeeper_server_list),
     use_zookeeper_(use_zookeeper) {
-#ifdef USE_CASSANDRA_CQL
     if (use_cql) {
         dbif_.reset(new cass::cql::CqlIf(evm, cassandra_ips,
             cassandra_ports[0], cassandra_user, cassandra_password));
         tablespace_ = g_viz_constants.COLLECTOR_KEYSPACE_CQL;
-    } else {
-#else //  USE_CASSANDRA_CQL
-        dbif_.reset(new ThriftIf(err_handler,
-            cassandra_ips, cassandra_ports, name, false,
-            cassandra_user, cassandra_password));
-        tablespace_ = g_viz_constants.COLLECTOR_KEYSPACE;
-#endif // !USE_CASSANDRA_CQL
-#ifdef USE_CASSANDRA_CQL
     }
-#endif //  USE_CASSANDRA_CQL
     error_code error;
     col_name_ = boost::asio::ip::host_name(error);
 }
@@ -476,7 +462,6 @@ bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
     col_list->cfname_ = cfname;
     // Rowkey
     GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
-#ifdef USE_CASSANDRA_CQL
     rowkey.reserve(2);
     uint32_t T2(header.get_Timestamp() >> g_viz_constants.RowTimeInBits);
     rowkey.push_back(T2);
@@ -520,44 +505,6 @@ bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
     GenDb::NewColVec& columns = col_list->columns_;
     columns.reserve(1);
     columns.push_back(col);
-#else
-    rowkey.reserve(8);
-    uint32_t T2(header.get_Timestamp() >> g_viz_constants.RowTimeInBits);
-    rowkey.push_back(T2);
-    if (cfname == g_viz_constants.MESSAGE_TABLE_SOURCE) {
-        rowkey.push_back(header.get_Source());
-    } else if (cfname == g_viz_constants.MESSAGE_TABLE_MODULE_ID) {
-        rowkey.push_back(header.get_Module());
-    } else if (cfname == g_viz_constants.MESSAGE_TABLE_CATEGORY) {
-        rowkey.push_back(header.get_Category());
-    } else if (cfname == g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE) {
-        rowkey.push_back(message_type);
-    } else if (cfname == g_viz_constants.MESSAGE_TABLE_TIMESTAMP) {
-    } else if (cfname == g_viz_constants.MESSAGE_TABLE_KEYWORD) {
-        if (keyword.length())
-            rowkey.push_back(keyword);
-        else
-            return false;
-    } else {
-        DB_LOG(ERROR, "Unknown table: " << cfname << ", message: "
-                << message_type << ", message UUID: " << unm);
-        return false;
-    }
-    // Columns
-    GenDb::NewColVec& columns = col_list->columns_;
-    columns.reserve(1);
-    uint32_t T1(header.get_Timestamp() & g_viz_constants.RowTimeInMask);
-    GenDb::DbDataValueVec *col_name(new GenDb::DbDataValueVec(1, T1));
-    GenDb::DbDataValueVec *col_value(new GenDb::DbDataValueVec(1, unm));
-    int ttl;
-    if (message_type == "VncApiConfigLog") {
-        ttl = GetTtl(TtlType::CONFIGAUDIT_TTL);
-    } else {
-        ttl = GetTtl(TtlType::GLOBAL_TTL);
-    }
-    GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value, ttl));
-    columns.push_back(col);
-#endif
     if (!dbif_->Db_AddColumn(col_list, db_cb)) {
         DB_LOG(ERROR, "Addition of message: " << message_type <<
                 ", message UUID: " << unm << " to table: " << cfname <<
@@ -1354,7 +1301,6 @@ void PopulateFlowIndexTableColumnValues(
     const std::vector<FlowRecordFields::type> &frvt,
     const FlowValueArray &fvalues, GenDb::DbDataValueVec *cvalues, int ttl,
     FlowFieldValuesCb fncb) {
-#ifdef USE_CASSANDRA_CQL
     cvalues->reserve(1);
     FlowValueJsonPrinter jprinter;
     BOOST_FOREACH(const FlowRecordFields::type &fvt, frvt) {
@@ -1367,16 +1313,6 @@ void PopulateFlowIndexTableColumnValues(
     }
     std::string jsonline(jprinter.GetJson());
     cvalues->push_back(jsonline);
-#else // USE_CASSANDRA_CQL
-    cvalues->reserve(frvt.size());
-    BOOST_FOREACH(const FlowRecordFields::type &fvt, frvt) {
-        const GenDb::DbDataValue &db_value(fvalues[fvt]);
-        if (db_value.which() != GenDb::DB_VALUE_BLANK) {
-            cvalues->push_back(db_value);
-            PopulateFlowFieldValues(fvt, db_value, ttl, fncb);
-        }
-    }
-#endif // !USE_CASSANDRA_CQL
 }
 
 // T2, Partition No, Direction
@@ -1490,23 +1426,7 @@ bool FlowLogDataObjectWalker<T>::for_each(pugi::xml_node& node) {
         case GenDb::DbDataType::Unsigned32Type:
             {
                 int32_t val;
-#ifndef USE_CASSANDRA_CQL
-                if (strcmp(node.attribute("type").value(), "ipaddr") == 0) {
-                    boost::system::error_code ec;
-                    IpAddress ipaddr(IpAddress::from_string(
-                                     node.child_value(), ec));
-                    if (ec) {
-                        LOG(ERROR, "FlowRecordTable: " << col_name << ": (" <<
-                            node.child_value() << ") INVALID");
-                    } else {
-                        val = ipaddr.to_v4().to_ulong();
-                    }
-                } else {
-                    stringToInteger(node.child_value(), val);
-                }
-#else // !USE_CASSANDRA_CQL
                 stringToInteger(node.child_value(), val);
-#endif // USE_CASSANDRA_CQL
                 values_[ftinfo.get<0>()] = static_cast<uint32_t>(val);
                 break;
             }
@@ -1548,7 +1468,6 @@ bool FlowLogDataObjectWalker<T>::for_each(pugi::xml_node& node) {
                 values_[ftinfo.get<0>()] = val;
                 break;
             }
-#ifdef USE_CASSANDRA_CQL
         case GenDb::DbDataType::InetType:
             {
                 // Handle old datatype
@@ -1569,7 +1488,6 @@ bool FlowLogDataObjectWalker<T>::for_each(pugi::xml_node& node) {
                 }
                 break;
             }
-#endif // USE_CASSANDRA_CQL
         default:
             VIZD_ASSERT(0);
             break;

@@ -5,7 +5,7 @@
 Import('DbEnv')
 env = DbEnv.Clone()
 
-subdirs = ['thrift', 'cql']
+subdirs = ['cql']
 
 for dir in subdirs:
     DbEnv.SConscript(dir + '/SConscript', exports='DbEnv', duplicate=0)

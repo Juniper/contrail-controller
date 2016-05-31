@@ -103,7 +103,6 @@ public:
             for (it = tstats.begin(); it != tstats.end(); it++) {
                 query_result_unit_t qres;
                 qres.timestamp = it->first;
-#ifdef USE_CASSANDRA_CQL
                 const std::vector<std::string> &frnames(
                     g_viz_constants.FlowRecordNames);
                 std::ostringstream ss;
@@ -135,24 +134,6 @@ public:
                 ss << "}";
                 std::string json(ss.str());
                 qres.info.push_back(json);
-#else // USE_CASSANDRA_CQL
-                qres.info.push_back(GenDb::DbDataValue(it->second.bytes));
-                qres.info.push_back(GenDb::DbDataValue(it->second.pkts));
-                qres.info.push_back(GenDb::DbDataValue(
-                    static_cast<uint8_t>(0)));
-                qres.info.push_back(GenDb::DbDataValue(fuuid));
-                qres.info.push_back(GenDb::DbDataValue(tuple.vrouter));
-                qres.info.push_back(GenDb::DbDataValue(tuple.source_vn));
-                qres.info.push_back(GenDb::DbDataValue(tuple.dest_vn));
-                qres.info.push_back(GenDb::DbDataValue(tuple.source_ip));
-                qres.info.push_back(GenDb::DbDataValue(tuple.dest_ip));
-                qres.info.push_back(GenDb::DbDataValue(
-                    static_cast<uint8_t>(tuple.protocol)));
-                qres.info.push_back(GenDb::DbDataValue(
-                    static_cast<uint16_t>(tuple.source_port)));
-                qres.info.push_back(GenDb::DbDataValue(
-                    static_cast<uint16_t>(tuple.dest_port)));
-#endif // !USE_CASSANDRA_CQL
                 where_query_result.push_back(qres);
             }
     }
@@ -266,25 +247,15 @@ SelectFSQueryTest::flowseries_data_init() {
     std::string vr1("vrouter1");
     std::string svn1("vn1");
     std::string dvn1("vn2");
-#ifdef USE_CASSANDRA_CQL
     boost::system::error_code ec;
     flow_tuple tuple1(vr1, svn1, dvn1,
                       IpAddress::from_string("10.10.10.1", ec),
                       IpAddress::from_string("11.11.11.1", ec), 1, 10, 11, 1);
-#else // USE_CASSANDRA_CQL
-    flow_tuple tuple1(vr1, svn1, dvn1, 0x0A0A0A01, 0x0B0B0B01, 
-                      1, 10, 11, 1);
-#endif // !USE_CASSANDRA_CQL
     SelectFSQueryTest::FlowSeriesData fs_data1(tuple1, 
         SelectFSQueryTest::start_time_, 60, 5, 1, 50);
-#ifdef USE_CASSANDRA_CQL
     flow_tuple tuple2(vr1, svn1, dvn1,
                       IpAddress::from_string("10.10.10.2", ec),
                       IpAddress::from_string("11.11.11.2", ec), 2, 20, 21, 1);
-#else // USE_CASSANDRA_CQL
-    flow_tuple tuple2(vr1, svn1, dvn1, 0x0A0A0A02, 0x0B0B0B02,
-                      2, 20, 21, 1);
-#endif // !USE_CASSANDRA_CQL
     SelectFSQueryTest::FlowSeriesData fs_data2(tuple2, 
         SelectFSQueryTest::start_time_, 30, 4, 2, 100);
     static FlowSeriesData fs_data[] = {fs_data1, fs_data2};
@@ -866,7 +837,6 @@ TEST_F(FlowColumnValuesTest, Json) {
         g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTVN] <<
         "\":\"" << dest_vn << "\",";
     // Source IP
-#ifdef USE_CASSANDRA_CQL
     std::string source_ip("1.1.1.1");
     ss << "\"" <<
         g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP] <<
@@ -876,17 +846,6 @@ TEST_F(FlowColumnValuesTest, Json) {
     ss << "\"" <<
         g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP] <<
        "\":\"" << dest_ip << "\",";
-#else // USE_CASSANDRA_CQL
-    uint32_t source_ip(0x01010101);
-    ss << "\"" <<
-        g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP] <<
-        "\":" << source_ip << ",";
-    // Destination IP
-    uint32_t dest_ip(0x02020202);
-    ss << "\"" <<
-        g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP] <<
-        "\":" << dest_ip << ",";
-#endif // !USE_CASSANDRA_CQL
     // Protocol
     int protocol(6);
     ss << "\"" <<
@@ -904,16 +863,11 @@ TEST_F(FlowColumnValuesTest, Json) {
         "\":" << dest_port << "}";
     std::string jsonline(ss.str());
     flow_stats exp_stats(diff_bytes, diff_packets, short_flow);
-#ifdef USE_CASSANDRA_CQL
     boost::system::error_code ec;
     flow_tuple exp_tuple(vrouter, source_vn, dest_vn,
         IpAddress::from_string("1.1.1.1", ec),
         IpAddress::from_string("2.2.2.2", ec),
         protocol, source_port, dest_port, 0);
-#else // USE_CASSANDRA_CQL
-    flow_tuple exp_tuple(vrouter, source_vn, dest_vn, 0x01010101, 0x02020202,
-        protocol, source_port, dest_port, 0);
-#endif // !USE_CASSANDRA_CQL
     boost::uuids::uuid act_flow_uuid;
     flow_stats act_stats;
     flow_tuple act_tuple;

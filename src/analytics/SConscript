@@ -65,11 +65,7 @@ if PLATFORM.lower() != 'ubuntu':
         'crypto',
         'sasl2'])
 
-if AnalyticsEnv.UseCassandraCql():
-    database_libs = ['cassandra_cql', 'cassandra']
-    AnalyticsEnv.AppendUnique(CCFLAGS='-DUSE_CASSANDRA_CQL')
-else:
-    database_libs = ['cassandra_thrift', 'thrift']
+database_libs = ['cassandra_cql', 'cassandra']
 
 database_libs.append('gendb')
 database_libs.append('boost_regex')
