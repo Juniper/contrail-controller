@@ -21,20 +21,12 @@ query_status_t DbQueryUnit::process_query()
 
     if (m_query->is_object_table_query(m_query->table()))
     {
-#ifdef USE_CASSANDRA_CQL
         GenDb::DbDataValue timestamp_start =
             (uint32_t)std::numeric_limits<int32_t>::min();
-#else // USE_CASSANDRA_CQL
-        GenDb::DbDataValue timestamp_start = (uint32_t)0x0;
-#endif // !USE_CASSANDRA_CQL
         cr.start_.push_back(timestamp_start);
     }
-#ifdef USE_CASSANDRA_CQL
     GenDb::DbDataValue timestamp_end =
         (uint32_t)std::numeric_limits<int32_t>::max();
-#else // USE_CASSANDRA_CQL
-    GenDb::DbDataValue timestamp_end = (uint32_t)(0xffffffff);
-#endif // !USE_CASSANDRA_CQL
     cr.finish_.push_back(timestamp_end);
 
     std::vector<GenDb::DbDataValueVec> keys;    // vector of keys for multi-row get
@@ -61,7 +53,6 @@ query_status_t DbQueryUnit::process_query()
             }
         }
 
-#ifdef USE_CASSANDRA_CQL
         // If querying message_index_tables, partion_no is an additional row_key
         // It spans values 0..15
         if (t_only_col) {
@@ -75,9 +66,6 @@ query_status_t DbQueryUnit::process_query()
         } else {
             keys.push_back(rowkey);
         }
-#else
-        keys.push_back(rowkey);
-#endif
     }
 
     if (!m_query->dbif_->Db_GetMultiRow(&mget_res, cfname, keys, cr)) {
@@ -137,7 +125,6 @@ query_status_t DbQueryUnit::process_query()
                             assert(0);
                         }
                     } else {
-#ifdef USE_CASSANDRA_CQL
                         // For MessageIndex tables t1 is stored in the first column
                         // except for timestamp table
                         int ts_at = 0;
@@ -146,9 +133,6 @@ query_status_t DbQueryUnit::process_query()
                         } else {
                             ts_at = i->name->size() - 1;
                         }
-#else
-                        int ts_at = i->name->size() - 1;
-#endif
                         assert(ts_at >= 0);
                         try {
                             t1 = boost::get<uint32_t>(i->name->at(ts_at));
@@ -193,7 +177,6 @@ query_status_t DbQueryUnit::process_query()
                             attribstr,
                             uuid);
                     } else {
-#ifdef USE_CASSANDRA_CQL
                         // If message index table uuid is not the value, but
                         // column name
                         if (t_only_col) {
@@ -203,9 +186,6 @@ query_status_t DbQueryUnit::process_query()
                         } else {
                             result_unit.info = *i->value;
                         }
-#else
-                        result_unit.info = *i->value;
-#endif
                     }
 
                     query_result.push_back(result_unit);

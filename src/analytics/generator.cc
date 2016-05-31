@@ -86,8 +86,7 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
         SandeshStateMachine *state_machine, const string &source,
         const string &module, const string &instance_id,
         const string &node_type,
-        DbHandlerPtr global_db_handler,
-        bool use_global_dbhandler) :
+        DbHandlerPtr global_db_handler) :
         Generator(),
         collector_(collector),
         state_machine_(state_machine),
@@ -99,35 +98,22 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
         name_(source + ":" + node_type_ + ":" + module + ":" + instance_id_),
         instance_(session->GetSessionInstance()),
         db_connect_timer_(NULL),
-        use_global_dbhandler_(use_global_dbhandler),
         process_rules_cb_(
             boost::bind(&SandeshGenerator::ProcessRulesCb, this, _1)),
         sm_back_pressure_timer_(NULL) {
-    if (!UseGlobalDbHandler()) {
-        db_handler_.reset(new DbHandler(
-            collector->event_manager(), boost::bind(
-                &SandeshGenerator::StartDbifReinit, this),
-            collector->cassandra_ips(), collector->cassandra_ports(),
-            source + ":" + node_type + ":" +
-                module + ":" + instance_id, collector->analytics_ttl_map(),
-            collector->cassandra_user(), collector->cassandra_password(),
-            false, std::string(), false));
-    } else {
+
         //Use collector db_handler
         db_handler_ = global_db_handler;
-    }
-    disconnected_ = false;
-    gen_attr_.set_connects(1);
-    gen_attr_.set_connect_time(UTCTimestampUsec());
-    // Update state machine
-    state_machine_->SetGeneratorKey(name_);
-    CreateStateMachineBackPressureTimer();
-    Create_Db_Connect_Timer();
+        disconnected_ = false;
+        gen_attr_.set_connects(1);
+        gen_attr_.set_connect_time(UTCTimestampUsec());
+    	// Update state machine
+        state_machine_->SetGeneratorKey(name_);
+        CreateStateMachineBackPressureTimer();
 }
 
 SandeshGenerator::~SandeshGenerator() {
     DeleteStateMachineBackPressureTimer();
-    Delete_Db_Connect_Timer();
     GetDbHandler()->UnInit(instance_);
 }
 
@@ -143,7 +129,6 @@ void SandeshGenerator::StartDbifReinit() {
         return;
     }
     GetDbHandler()->UnInitUnlocked(instance_);
-    Start_Db_Connect_Timer();
 }
 
 bool SandeshGenerator::DbConnectTimerExpired() {
@@ -151,68 +136,7 @@ bool SandeshGenerator::DbConnectTimerExpired() {
     if (disconnected_) {
         return false;
     }
-    if (!(Db_Connection_Init())) {
-        return true;
-    }
     return false;
-}
-
-void SandeshGenerator::Create_Db_Connect_Timer() {
-    if (UseGlobalDbHandler()) {
-        return;
-    }
-    assert(db_connect_timer_ == NULL);
-    db_connect_timer_ = TimerManager::CreateTimer(
-    *collector_->event_manager()->io_service(),
-        "SandeshGenerator db connect timer: " + name_,
-        TaskScheduler::GetInstance()->GetTaskId(Collector::kDbTask),
-        instance_);
-}
-
-void SandeshGenerator::Start_Db_Connect_Timer() {
-    db_connect_timer_->Start(kDbConnectTimerSec * 1000,
-            boost::bind(&SandeshGenerator::DbConnectTimerExpired, this),
-            boost::bind(&SandeshGenerator::TimerErrorHandler, this, _1, _2));
-}
-
-void SandeshGenerator::Stop_Db_Connect_Timer() {
-    db_connect_timer_->Cancel();
-}
-
-void SandeshGenerator::Delete_Db_Connect_Timer() {
-    // No need to if global handler is used
-    if (UseGlobalDbHandler()) {
-        return;
-    }
-    TimerManager::DeleteTimer(db_connect_timer_);
-    db_connect_timer_ = NULL;
-}
-
-void SandeshGenerator::Db_Connection_Uninit() {
-    if (UseGlobalDbHandler()) {
-        return;
-    }
-    GetDbHandler()->ResetDbQueueWaterMarkInfo();
-    GetDbHandler()->UnInit(instance_);
-    Delete_Db_Connect_Timer();
-}
-
-bool SandeshGenerator::Db_Connection_Init() {
-    // If global_db_handler user, we can skip Init
-    if (UseGlobalDbHandler()) {
-        return true;
-    }
-    if (!GetDbHandler()->Init(false, instance_)) {
-        GENERATOR_LOG(ERROR, ": Database setup FAILED");
-        return false;
-    }
-    // Setup DB watermarks
-    std::vector<Sandesh::QueueWaterMarkInfo> wm_info;
-    collector_->GetDbQueueWaterMarkInfo(wm_info);
-    for (size_t i = 0; i < wm_info.size(); i++) {
-        SetDbQueueWaterMarkInfo(wm_info[i]);
-    }
-    return true;
 }
 
 void SandeshGenerator::TimerErrorHandler(string name, string error) {
@@ -229,10 +153,6 @@ void SandeshGenerator::ReceiveSandeshCtrlMsg(uint32_t connects) {
     collector_->GetSmQueueWaterMarkInfo(wm_info);
     for (size_t i = 0; i < wm_info.size(); i++) {
         state_machine_->SetQueueWaterMarkInfo(wm_info[i]);
-    }
-    // Initialize DB connection
-    if (!Db_Connection_Init()) {
-        Start_Db_Connect_Timer();
     }
 }
 
@@ -257,7 +177,6 @@ void SandeshGenerator::DisconnectSession(VizSession *vsession) {
         ModuleServerState ginfo;
         GetGeneratorInfo(ginfo);
         SandeshModuleServerTrace::Send(ginfo);
-        Db_Connection_Uninit();
     } else {
         GENERATOR_LOG(ERROR, "Disconnect for session:" << vsession->ToString() <<
                 ", generator session:" << viz_session_->ToString());
@@ -393,7 +312,6 @@ void SandeshGenerator::ConnectSession(VizSession *session,
     uint32_t tmp = gen_attr_.get_connects();
     gen_attr_.set_connects(tmp+1);
     gen_attr_.set_connect_time(UTCTimestampUsec());
-    Create_Db_Connect_Timer();
     CreateStateMachineBackPressureTimer();
 }
 

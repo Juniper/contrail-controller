@@ -72,8 +72,7 @@ public:
               std::vector<std::string> cassandra_ips,
               std::vector<int> cassandra_ports, const TtlMap& ttl_map,
               const std::string& cassandra_user,
-              const std::string& cassandra_password,
-              bool use_global_dbhandler);
+              const std::string& cassandra_password);
     virtual ~Collector();
     virtual void Shutdown();
     virtual void SessionShutdown();
@@ -125,8 +124,6 @@ public:
     int db_task_id();
     const CollectorStats &GetStats() const { return stats_; }
     void SendGeneratorStatistics();
-    void TestDatabaseConnection();
-    void TestDbConnErrHandler();
 
     static void SetDiscoveryServiceClient(DiscoveryServiceClient *ds) {
         ds_client_ = ds;
@@ -137,7 +134,6 @@ public:
     }
 
     std::string DbGlobalName(bool dup=false);
-    bool UseGlobalDbHandler() const { return use_global_db_handler_; }
 protected:
     virtual TcpSession *AllocSession(Socket *socket);
     virtual void DisconnectSession(SandeshSession *session);
@@ -175,7 +171,6 @@ private:
     int db_task_id_;
     std::string cassandra_user_;
     std::string cassandra_password_;
-    bool use_global_db_handler_;
 
     // SandeshGenerator map
     typedef boost::ptr_map<SandeshGenerator::GeneratorId, SandeshGenerator> GeneratorMap;

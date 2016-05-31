@@ -16,7 +16,7 @@ std::vector<GenDb::NewCf> vizd_stat_tables;
 FlowTypeMap flow_msg2type_map;
 
 void init_tables(std::vector<GenDb::NewCf>& table,
-                std::vector<table_schema> schema, bool use_thrift_flow = false) {
+                std::vector<table_schema> schema) {
 
     GenDb::DbDataTypeVec flow_series_value_thrift = boost::assign::list_of
         (GenDb::DbDataType::Unsigned64Type)
@@ -43,12 +43,6 @@ void init_tables(std::vector<GenDb::NewCf>& table,
                 if (schema[i].columns[j].key) {
                     key_types.push_back(schema[i].columns[j].datatype);
                 } else {
-#ifndef USE_CASSANDRA_CQL
-                    if(schema[i].columns[j].datatype ==
-                            GenDb::DbDataType::InetType) {
-                        schema[i].columns[j].datatype = GenDb::DbDataType::Unsigned32Type;
-                    }
-#endif
                     cols[schema[i].columns[j].name] =
                         static_cast<GenDb::DbDataType::type>(
                                 schema[i].columns[j].datatype);
@@ -66,18 +60,13 @@ void init_tables(std::vector<GenDb::NewCf>& table,
                     comp_type.push_back(schema[i].columns[j].datatype);
                 }
             }
-            if (use_thrift_flow) {
-                table.push_back(GenDb::NewCf(schema[i].table_name,
-                            key_types, comp_type, flow_series_value_thrift));
-            } else {
-                table.push_back(GenDb::NewCf(schema[i].table_name,
-                            key_types, comp_type, valid_class));
-            }
+            table.push_back(GenDb::NewCf(schema[i].table_name,
+                        key_types, comp_type, valid_class));
         }
     }
 }
 
-void init_vizd_tables(bool use_cql) {
+void init_vizd_tables() {
     static bool init_done = false;
 
     if (init_done)
@@ -86,21 +75,13 @@ void init_vizd_tables(bool use_cql) {
 
 // usage of GenDb::_DbDataType_VALUES_TO_NAMES[GenDb::DbDataType::LexicalUUIDType])) didn't
 // compile, hence using raw values
-#ifdef USE_CASSANDRA_CQL
     init_tables(vizd_tables, g_viz_constants._VIZD_TABLE_SCHEMA);
-#else
-    init_tables(vizd_tables, g_viz_constants._VIZD_THRIFT_TABLE_SCHEMA);
-#endif
 
 /* flow records table and flow series table are created in the code path itself
  * the following are flow index tables - for SVN:SIP, DVN:DIP, ...
  *
  */
-#ifdef USE_CASSANDRA_CQL
     init_tables(vizd_flow_tables, g_viz_constants._VIZD_FLOW_TABLE_SCHEMA);
-#else
-    init_tables(vizd_flow_tables, g_viz_constants._VIZD_FLOW_TABLE_SCHEMA, true);
-#endif
 
     init_tables(vizd_stat_tables, g_viz_constants._VIZD_STAT_TABLE_SCHEMA);
 
@@ -111,19 +92,11 @@ void init_vizd_tables(bool use_cql) {
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEVN]] =
          FlowTypeInfo(FlowRecordFields::FLOWREC_SOURCEVN, GenDb::DbDataType::UTF8Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP]] =
-#ifdef USE_CASSANDRA_CQL
          FlowTypeInfo(FlowRecordFields::FLOWREC_SOURCEIP, GenDb::DbDataType::InetType);
-#else // USE_CASSANDRA_CQL
-         FlowTypeInfo(FlowRecordFields::FLOWREC_SOURCEIP, GenDb::DbDataType::Unsigned32Type);
-#endif // !USE_CASSANDRA_CQL
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTVN]] =
          FlowTypeInfo(FlowRecordFields::FLOWREC_DESTVN, GenDb::DbDataType::UTF8Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP]] =
-#ifdef USE_CASSANDRA_CQL
          FlowTypeInfo(FlowRecordFields::FLOWREC_DESTIP, GenDb::DbDataType::InetType);
-#else // USE_CASSANDRA_CQL
-         FlowTypeInfo(FlowRecordFields::FLOWREC_DESTIP, GenDb::DbDataType::Unsigned32Type);
-#endif // !USE_CASSANDRA_CQL
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_PROTOCOL]] =
          FlowTypeInfo(FlowRecordFields::FLOWREC_PROTOCOL, GenDb::DbDataType::Unsigned8Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SPORT]] =
