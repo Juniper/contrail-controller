@@ -499,7 +499,6 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
 
                 // string encoding
-#ifdef USE_CASSANDRA_CQL
                 db_query->cr.start_.push_back(value);
                 if (op == PREFIX) {
                     value2 = value + "\x7f";
@@ -507,9 +506,6 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 } else {
                     db_query->cr.finish_.push_back(value);
                 }
-#else
-                db_query->row_key_suffix.push_back(value);
-#endif
                 QE_TRACE(DEBUG, "where match term for source " << value);
             }
 
@@ -526,7 +522,6 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
 
                 // string encoding
-#ifdef USE_CASSANDRA_CQL
                 db_query->cr.start_.push_back(value);
                 if (op == PREFIX) {
                     value2 = value + "\x7f";
@@ -534,10 +529,6 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 } else {
                     db_query->cr.finish_.push_back(value);
                 }
-#else
-                db_query->row_key_suffix.push_back(value);
-#endif
-
                 QE_TRACE(DEBUG, "where match term for source " << value);
             }
 
@@ -551,7 +542,6 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
 
                 // string encoding
-#ifdef USE_CASSANDRA_CQL
                 db_query->cr.start_.push_back(value);
                 if (op == PREFIX) {
                     value2 = value + "\x7f";
@@ -559,9 +549,6 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 } else {
                     db_query->cr.finish_.push_back(value);
                 }
-#else
-                db_query->row_key_suffix.push_back(value);
-#endif
 
                 // dont filter query engine logs if the query is about query
                 // engine
@@ -582,7 +569,6 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
 
                 // string encoding
-#ifdef USE_CASSANDRA_CQL
                 db_query->cr.start_.push_back(value);
                 if (op == PREFIX) {
                     value2 = value + "\x7f";
@@ -590,9 +576,6 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 } else {
                     db_query->cr.finish_.push_back(value);
                 }
-#else
-                db_query->row_key_suffix.push_back(value);
-#endif
 
                 QE_TRACE(DEBUG, "where match term for msg-type " << value);
             }
@@ -608,7 +591,6 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
 
                 // string encoding
-#ifdef USE_CASSANDRA_CQL
                 db_query->cr.start_.push_back(value);
                 if (op == PREFIX) {
                     value2 = value + "\x7f";
@@ -616,9 +598,6 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 } else {
                     db_query->cr.finish_.push_back(value);
                 }
-#else
-                db_query->row_key_suffix.push_back(value);
-#endif
 
                 QE_TRACE(DEBUG, "where match term for msg-type " << value);
             }
@@ -675,31 +654,15 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
             if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP])
             {
                 sip_match = true; sip_op = op;
-#ifdef USE_CASSANDRA_CQL
                 boost::system::error_code ec;
                 sip = IpAddress::from_string(value, ec);
                 QE_INVALIDARG_ERROR(ec == 0);
                 QE_TRACE(DEBUG, "where match term for sourceip " << value);
-#else // USE_CASSANDRA_CQL
-                struct in_addr addr; 
-                QE_INVALIDARG_ERROR(inet_aton(value.c_str(), &addr) != -1);
-                sip = (uint32_t)htonl(addr.s_addr);
-                QE_TRACE(DEBUG, "where match term for sourceip " <<
-                         value << ":" << addr.s_addr);
-#endif // !USE_CASSANDRA_CQL
-
                 if (sip_op == IN_RANGE)
                 {
-#ifdef USE_CASSANDRA_CQL
                     boost::system::error_code ec;
                     sip2 = IpAddress::from_string(value2, ec);
                     QE_INVALIDARG_ERROR(ec == 0);
-#else // USE_CASSANDRA_CQL
-                    struct in_addr addr; 
-                    QE_INVALIDARG_ERROR(
-                            inet_aton(value2.c_str(), &addr) != -1);
-                    sip2 = htonl(addr.s_addr);
-#endif // !USE_CASSANDRA_CQL
                 } else {
                     QE_INVALIDARG_ERROR(sip_op == EQUAL);
                 }
@@ -722,30 +685,15 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
             if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP])
             {
                 dip_match = true; dip_op = op; dip = value;
-#ifdef USE_CASSANDRA_CQL
                 boost::system::error_code ec;
                 dip = IpAddress::from_string(value, ec);
                 QE_INVALIDARG_ERROR(ec == 0);
                 QE_TRACE(DEBUG, "where match term for destip " << value);
-#else // USE_CASSANDRA_CQL
-                struct in_addr addr; 
-                QE_INVALIDARG_ERROR(inet_aton(value.c_str(), &addr) != -1);
-                dip = (uint32_t)htonl(addr.s_addr);
-                QE_TRACE(DEBUG, "where match term for destip " <<
-                         value << ":" << addr.s_addr);
-#endif // !USE_CASSANDRA_CQL
                 if (dip_op == IN_RANGE)
                 {
-#ifdef USE_CASSANDRA_CQL
                     boost::system::error_code ec;
                     dip2 = IpAddress::from_string(value2, ec);
                     QE_INVALIDARG_ERROR(ec == 0);
-#else // USE_CASSANDRA_CQL
-                    struct in_addr addr; 
-                    QE_INVALIDARG_ERROR(
-                            inet_aton(value2.c_str(), &addr) != -1);
-                    dip2 = htonl(addr.s_addr);
-#endif // !USE_CASSANDRA_CQL
                 } else {
                     QE_INVALIDARG_ERROR(dip_op == EQUAL);
                 }
@@ -900,13 +848,9 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                     db_query->cr.finish_.push_back(sip);
                 }
             }  else {
-#ifdef USE_CASSANDRA_CQL
                 boost::system::error_code ec;
                 db_query->cr.finish_.push_back(IpAddress::from_string(
                     "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", ec));
-#else // USE_CASSANDRA_CQL
-                db_query->cr.finish_.push_back((uint32_t)0xffffffff);
-#endif // !USE_CASSANDRA_CQL
             }
 
             QE_TRACE(DEBUG, "row_key_suffix for svn/sip:" << direction_ing);
@@ -935,13 +879,9 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                     db_query->cr.finish_.push_back(dip);
                 }
             }  else {
-#ifdef USE_CASSANDRA_CQL
                 boost::system::error_code ec;
                 db_query->cr.finish_.push_back(IpAddress::from_string(
                     "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", ec));
-#else // USE_CASSANDRA_CQL
-                db_query->cr.finish_.push_back((uint32_t)0xffffffff);
-#endif // !USE_CASSANDRA_CQL
             }
 
             QE_TRACE(DEBUG, "row_key_suffix for dvn/dip:" << direction_ing);

@@ -70,30 +70,20 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         pass
 
     def _update_analytics_start_time(self, start_time):
-        if mockcassandra.use_cql():
-            cluster = Cluster(['127.0.0.1'],
-                port=int(self.__class__.cassandra_port))
-            session = cluster.connect(COLLECTOR_KEYSPACE_CQL)
-            query = "INSERT INTO {0} (key, \"{1}\") VALUES ('{2}', {3})".format(
-                SYSTEM_OBJECT_TABLE, SYSTEM_OBJECT_START_TIME,
-                SYSTEM_OBJECT_ANALYTICS, start_time)
-            try:
-                session.execute(query)
-            except Exception as e:
-                logging.error("INSERT INTO %s: Key %s Column %s Value %d "
-                    "FAILED: %s" % (SYSTEM_OBJECT_TABLE,
-                    SYSTEM_OBJECT_ANALYTICS, SYSTEM_OBJECT_START_TIME,
-                    start_time, str(e)))
-                assert False
-            else:
-                cluster.shutdown()
-        else:
-            pool = ConnectionPool(COLLECTOR_KEYSPACE, ['127.0.0.1:%s'
-                        % (self.__class__.cassandra_port)])
-            col_family = ColumnFamily(pool, SYSTEM_OBJECT_TABLE)
-            col_family.insert(SYSTEM_OBJECT_ANALYTICS,
-                    {SYSTEM_OBJECT_START_TIME: start_time})
-
+        cluster = Cluster(['127.0.0.1'],
+            port=int(self.__class__.cassandra_port))
+        session = cluster.connect(COLLECTOR_KEYSPACE_CQL)
+        query = "INSERT INTO {0} (key, \"{1}\") VALUES ('{2}', {3})".format(
+            SYSTEM_OBJECT_TABLE, SYSTEM_OBJECT_START_TIME,
+            SYSTEM_OBJECT_ANALYTICS, start_time)
+        try:
+            session.execute(query)
+        except Exception as e:
+            logging.error("INSERT INTO %s: Key %s Column %s Value %d "
+                "FAILED: %s" % (SYSTEM_OBJECT_TABLE,
+                SYSTEM_OBJECT_ANALYTICS, SYSTEM_OBJECT_START_TIME,
+                start_time, str(e)))
+            assert False
     # end _update_analytics_start_time
 
     #@unittest.skip('Skipping cassandra test with vizd')

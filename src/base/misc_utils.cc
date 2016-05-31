@@ -193,17 +193,3 @@ bool MiscUtils::GetPlatformInfo(std::string &distro, std::string &code_name) {
     }
     return true;
 }
-
-bool MiscUtils::IsCqlSupported() {
-    std::string distro, code_name;
-    if (!MiscUtils::GetPlatformInfo(distro, code_name)) {
-        LOG(ERROR,"Unable to get platform information");
-        exit(1);
-    }
-    if (code_name.find("Precise") != std::string::npos ||
-        code_name.find("6.4") != std::string::npos ||
-        code_name.find("6.5") != std::string::npos) {
-            return false;
-    }
-    return true;
-}
