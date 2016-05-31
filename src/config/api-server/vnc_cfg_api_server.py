@@ -2991,10 +2991,11 @@ class VncApiServer(object):
         self._ensure_perms2_present(obj_type, None, obj_dict)
 
         # set ownership of object to creator tenant
+        owner = obj_dict['perms2']['owner']
         if obj_type == 'project':
             owner = str(obj_dict['uuid']).replace('-','')
-        else:
-            owner = request.headers.environ.get('HTTP_X_PROJECT_ID', None)
+        elif 'HTTP_X_PROJECT_ID' in request.headers.environ:
+            owner = request.headers.environ.get('HTTP_X_PROJECT_ID')
         obj_dict['perms2']['owner'] = owner
 
         # TODO check api + resource perms etc.
