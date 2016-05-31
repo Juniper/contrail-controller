@@ -247,6 +247,10 @@ void ContrailInitCommon::InitDone() {
         agent()->ksync()->VnswInterfaceListenerInit();
     }
 
+    if (agent()->oper_db()) {
+        agent()->oper_db()->InitDone();
+    }
+
     if (agent()->pkt()) {
         agent()->pkt()->InitDone();
     }
