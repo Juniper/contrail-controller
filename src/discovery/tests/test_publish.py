@@ -376,3 +376,52 @@ class DiscoveryServerTestCase(test_case.DsTestCase):
         time.sleep(1)
         self.assertEqual(subscribe_info[0]['port_str'], "1234")
         self.assertEqual(subscribe_info[0]['port_int'], 5678)
+
+    def test_bug_1586925(self):
+        """
+        1) Publish an entry
+        2) Set admin state down
+        3) Delete publisher entry (will leave admin entry around)
+        4) Republish - should succeeed with admin state down
+        """
+        service_type = 'foobar'
+        payload = {
+            '%s' % service_type: { "ip-addr" : "1.1.1.1", "port"    : "1234" },
+            'service-type' : '%s' % service_type,
+        }
+        puburl = '/publish/test_discovery'
+        ooburl = '/service/test_discovery'
+        unpuburl = '/service/test_discovery:foobar'
+
+        # 1) Publish and entry
+        (code, msg) = self._http_post(puburl, json.dumps(payload))
+        self.assertEqual(code, 200)
+        (code, msg) = self._http_get('/services.json')
+        self.assertEqual(code, 200)
+        response = json.loads(msg)
+        self.assertEqual(len(response['services']), 1)
+        self.assertEqual(response['services'][0]['service_type'], service_type)
+
+        # 2) Set admin state down
+        payload['admin-state'] = 'down'
+        (code, msg) = self._http_put(ooburl, json.dumps(payload))
+        self.assertEqual(code, 200)
+        del payload['admin-state']
+
+        # 3) Delete publisher entry (will leave admin entry around)
+        (code, msg) = self._http_delete(unpuburl, json.dumps({}))
+        self.assertEqual(code, 200)
+        (code, msg) = self._http_get('/services.json')
+        self.assertEqual(code, 200)
+        response = json.loads(msg)
+        self.assertEqual(len(response['services']), 0)
+
+        # 4) Republish - should succeeed with admin state down
+        (code, msg) = self._http_post(puburl, json.dumps(payload))
+        self.assertEqual(code, 200)
+        (code, msg) = self._http_get('/services.json')
+        self.assertEqual(code, 200)
+        response = json.loads(msg)
+        self.assertEqual(len(response['services']), 1)
+        self.assertEqual(response['services'][0]['service_type'], service_type)
+        self.assertEqual(response['services'][0]['admin_state'], "down")
