@@ -397,6 +397,26 @@ class EventManager(object):
                     process_mem_cpu.module_id = pstat.pname
                     process_mem_cpu.inst_id = "0"   # ??
                     process_mem_cpu_usage.append(process_mem_cpu)
+
+        # walk through all processes being monitored by nodemgr,
+        # not spawned by supervisord
+        third_party_process_list = self.get_node_third_party_process_list()
+        for pname in third_party_process_list:
+            cmd = "ps -aux | grep -v grep | grep " + str(pname) + " | awk '{print $2}' | head -n1"
+            proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout, stderr = proc.communicate()
+            if (stdout != ''):
+                pid = int(stdout.strip('\n'))
+                try:
+                    mem_cpu_usage_data = MemCpuUsageData(pid)
+                except psutil.NoSuchProcess:
+                    sys.stderr.write("NoSuchProcess: process name:%s pid:%d\n"
+                                     % (pname, pid))
+                else:
+                    process_mem_cpu = mem_cpu_usage_data.get_process_mem_cpu_info()
+                    process_mem_cpu.module_id = pname
+                    process_mem_cpu.inst_id = "0"
+                    process_mem_cpu_usage.append(process_mem_cpu)
         return process_mem_cpu_usage
 
     def get_disk_usage(self):

@@ -56,6 +56,7 @@ class AnalyticsEventManager(EventManager):
             staticmethod(ConnectionState.get_process_state_cb),
             NodeStatusUVE, NodeStatus)
         self.send_system_cpu_info()
+        self.third_party_process_list = [ ]
     # end __init__
 
     def process(self):
@@ -73,6 +74,9 @@ class AnalyticsEventManager(EventManager):
         self.send_nodemgr_process_status_base(
             ProcessStateNames, ProcessState, ProcessStatus,
             NodeStatus, NodeStatusUVE)
+
+    def get_node_third_party_process_list(self):
+        return self.third_party_process_list 
 
     def get_node_status_class(self):
         return NodeStatus

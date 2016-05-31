@@ -72,6 +72,7 @@ class VrouterEventManager(EventManager):
 
         self.lb_stats = LoadbalancerStats()
         self.send_system_cpu_info()
+        self.third_party_process_list = [ ]
     # end __init__
 
     def msg_log(self, msg, level):
@@ -94,6 +95,9 @@ class VrouterEventManager(EventManager):
         self.send_nodemgr_process_status_base(
             ProcessStateNames, ProcessState, ProcessStatus,
             NodeStatus, NodeStatusUVE)
+
+    def get_node_third_party_process_list(self):
+        return self.third_party_process_list 
 
     def get_node_status_class(self):
         return NodeStatus
