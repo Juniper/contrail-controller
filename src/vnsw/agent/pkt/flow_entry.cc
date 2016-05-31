@@ -1573,7 +1573,7 @@ bool FlowEntry::DoPolicy() {
             SetOutPacketHeader(&out_hdr);
             data_.match_p.out_sg_action =
                 MatchAcl(out_hdr, data_.match_p.m_out_sg_acl_l, true,
-                         !data_.match_p.out_sg_rule_present, &sg_acl_info);
+                         !data_.match_p.out_sg_rule_present, &rev_sg_acl_info);
         }
 
         // For TCP-ACK packet, we allow packet if either forward or reverse
@@ -1592,7 +1592,7 @@ bool FlowEntry::DoPolicy() {
                 data_.match_p.reverse_out_sg_action =
                     MatchAcl(out_hdr, data_.match_p.m_reverse_out_sg_acl_l,
                              true, !data_.match_p.reverse_out_sg_rule_present,
-                             &rev_sg_acl_info);
+                             &sg_acl_info);
             }
         }
 
@@ -1622,7 +1622,8 @@ bool FlowEntry::DoPolicy() {
                 data_.match_p.out_sg_action |
                 data_.match_p.reverse_sg_action |
                 data_.match_p.reverse_out_sg_action;
-            sg_rule_uuid_ = sg_acl_info.uuid;
+                sg_rule_uuid_ = sg_acl_info.uuid;
+                rflow->sg_rule_uuid_ = rev_sg_acl_info.uuid;
         } else {
             if (ShouldDrop(data_.match_p.sg_action |
                            data_.match_p.out_sg_action)
@@ -2007,8 +2008,6 @@ void FlowEntry::UpdateReflexiveAction() {
     if (fwd_flow) {
         data_.match_p.sg_action_summary =
             fwd_flow->data().match_p.sg_action_summary;
-        // Since SG is reflexive ACL, copy sg_rule_uuid_ from forward flow
-        sg_rule_uuid_ = fwd_flow->sg_rule_uuid();
     }
     // If forward flow is DROP, set action for reverse flow to
     // TRAP. If packet hits reverse flow, we will re-establish
