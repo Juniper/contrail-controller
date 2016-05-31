@@ -27,6 +27,8 @@
 #include "base/util.h"
 
 using boost::uuids::uuid;
+SandeshTraceBufferPtr InstanceManagerTraceBuf(
+        SandeshTraceBufferCreate("InstanceManager", 1000));
 
 static const char loadbalancer_config_path_default[] =
         "/var/lib/contrail/loadbalancer/";
@@ -111,32 +113,40 @@ public:
                 if (fs::exists(conf_path.str())) {
                     fs::remove_all(conf_path.str(), error);
                     if (error) {
-                        LOG(ERROR, "Stale loadbalancer conf fle delete error"
-                                    << error.message());
+                        std::stringstream ss;
+                        ss << "Stale loadbalancer cfg file delete error ";
+                        ss << error.message();
+                        INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
                     }
                 }
 
                 if (fs::exists(sock_path.str())) {
                     fs::remove_all(sock_path.str(), error);
                     if (error) {
-                        LOG(ERROR, "Stale loadbalancer sock fle delete error"
-                                    << error.message());
+                        std::stringstream ss;
+                        ss << "Stale loadbalancer sock file delete error ";
+                        ss << error.message();
+                        INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
                     }
                 }
 
                 if (fs::exists(json_path.str())) {
                     fs::remove_all(json_path.str(), error);
                     if (error) {
-                        LOG(ERROR, "Stale loadbalancer json file delete error"
-                                    << error.message());
+                        std::stringstream ss;
+                        ss << "Stale loadbalancer json file delete error ";
+                        ss << error.message();
+                        INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
                     }
                 }
 
                 if (fs::exists(crt_path.str())) {
                     fs::remove_all(crt_path.str(), error);
                     if (error) {
-                        LOG(ERROR, "Stale loadbalancer certificate file delete error"
-                                    << error.message());
+                        std::stringstream ss;
+                        ss << "Stale loadbalancer certificate file delete error ";
+                        ss << error.message();
+                        INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
                     }
                 }
             }
@@ -245,6 +255,10 @@ void InstanceManager::OnTaskTimeout(InstanceTaskQueue *task_queue) {
 }
 
 void InstanceManager::OnTaskTimeoutEventHandler(InstanceManagerChildEvent event) {
+    std::stringstream ss;
+    ss << "TaskTimeOut for the TaskQ " << event.task_queue;
+    INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
+
     ScheduleNextTask(event.task_queue);
 }
 
@@ -253,6 +267,10 @@ void InstanceManager::OnErrorEventHandler(InstanceManagerChildEvent event) {
     if (!svc_instance) {
        return;
     }
+
+    std::stringstream ss;
+    ss << "Error for the Task " << event.task << " " << event.errors;
+    INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
 
     InstanceState *state = GetState(svc_instance);
     if (state != NULL) {
@@ -265,6 +283,10 @@ void InstanceManager::OnExitEventHandler(InstanceManagerChildEvent event) {
     if (!svc_instance) {
        return;
     }
+
+    std::stringstream ss;
+    ss << "Exit event for the Task " << event.task;
+    INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
 
     UpdateStateStatusType(event);
     for (std::vector<InstanceTaskQueue *>::iterator iter =
@@ -325,9 +347,6 @@ void InstanceManager::UpdateStateStatusType(InstanceManagerChildEvent event) {
             }
 
             state->set_status(error_status);
-            LOG(DEBUG, "NetNS update status for uuid: "
-                << svc_instance->ToString()
-                << " " << error_status);
 
             if (error_status != 0) {
                 if (state->status_type() != InstanceState::Timeout) {
@@ -338,6 +357,11 @@ void InstanceManager::UpdateStateStatusType(InstanceManagerChildEvent event) {
             } else if (state->status_type() == InstanceState::Stopping) {
                 state->set_status_type(InstanceState::Stopped);
             }
+
+            std::stringstream ss;
+            ss << "For the task " << event.task << " error status " <<
+                error_status << " status type " << state->status_type();
+            INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
         }
     }
 }
@@ -456,6 +480,12 @@ bool InstanceManager::StartTask(InstanceTaskQueue *task_queue,
 
     pid_t pid;
     bool status = task->Run();
+
+    std::stringstream ss;
+    ss << "Run status for the task " << task << " " << status;
+    ss << " With running status " << task->is_running();
+    INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
+
     if (status || task->is_running()) {
         pid = task->pid();
         if (state != NULL) {
@@ -468,13 +498,19 @@ bool InstanceManager::StartTask(InstanceTaskQueue *task_queue,
             }
         }
     } else {
-        LOG(ERROR, "Instance task " << task << " attempt " << task->reattempts());
+
+        ss.str(std::string());
+        ss << "Run failure for the task " << task << " attempt " << task->reattempts();
+        INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
+
         if (state) {
             state->set_status_type(InstanceState::Reattempt);
             state->set_cmd(task->cmd());
         }
         if (task->incr_reattempts() > netns_reattempts_) {
-            LOG(ERROR, "Instance task " << task << " reattempts exceeded");
+            ss.str(std::string());
+            ss << "Run failure for the task " << task << " attempts exceeded";
+            INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
             return false;
         }
     }
@@ -506,11 +542,11 @@ void InstanceManager::ScheduleNextTask(InstanceTaskQueue *task_queue) {
                 state->set_status_type(InstanceState::Timeout);
             }
 
-            LOG(ERROR, "NetNS error timeout " << delay << " > " <<
-                netns_timeout_ << ", " << task->cmd());
-
-            LOG(ERROR, " Delay " << delay << "Timeout " <<
-                    (netns_timeout_ * 2));
+            std::stringstream ss;
+            ss << "Timeout for the Task " << task << " delay " << delay;
+            ss << " netns timeout " << netns_timeout_ << " ";
+            ss << task->cmd();
+            INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
 
             if (delay >= (netns_timeout_ * 2)) {
                task->Terminate();
@@ -529,7 +565,10 @@ void InstanceManager::ScheduleNextTask(InstanceTaskQueue *task_queue) {
 
         task_svc_instances_.erase(task);
 
-        LOG(ERROR, "Delete task " << task);
+        std::stringstream ss;
+        ss << "Delete of the Task " << task;
+        INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
+
         DeleteState(svc_instance);
 
         delete task;
@@ -604,9 +643,15 @@ void InstanceManager::StartServiceInstance(ServiceInstance *svc_instance,
                                  InstanceState *state, bool update) {
     const ServiceInstance::Properties &props = svc_instance->properties();
     InstanceManagerAdapter *adapter = this->FindApplicableAdapter(props);
+    std::stringstream ss;
     if (adapter != NULL) {
         InstanceTask *task = adapter->CreateStartTask(props, update);
         if (task != NULL) {
+
+            ss << "Starting the Task " << task << " " << task->cmd();
+            ss << " for " << props.instance_id;
+            INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
+
             task->set_on_error_cb(boost::bind(&InstanceManager::OnError,
                                               this, _1, _2));
             task->set_on_exit_cb(boost::bind(&InstanceManager::OnExit,
@@ -614,14 +659,15 @@ void InstanceManager::StartServiceInstance(ServiceInstance *svc_instance,
             state->set_properties(props);
             RegisterSvcInstance(task, svc_instance);
             std::stringstream info;
-            info << "Service run command queued: " << task->cmd();
             Enqueue(task, props.instance_id);
-            LOG(DEBUG, info.str().c_str());
         } else {
-            LOG(ERROR, "Error creating task!");
+            ss << "Error Starting the Task for " << props.instance_id;
+            INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
         }
     } else {
-        LOG(ERROR, "Unknown virtualization type: " << props.virtualization_type);
+        ss << "Unknown virtualization type " << props.virtualization_type;
+        ss << " for " << svc_instance->ToString();
+        INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
     }
 }
 
@@ -630,23 +676,30 @@ void InstanceManager::StopServiceInstance(ServiceInstance *svc_instance,
                                 InstanceState *state) {
     const ServiceInstance::Properties &props = state->properties();
     InstanceManagerAdapter *adapter = this->FindApplicableAdapter(props);
+    std::stringstream ss;
     if (adapter != NULL) {
         InstanceTask *task = adapter->CreateStopTask(props);
         if (task != NULL) {
+            ss << "Stopping the Task " << task << " " << task->cmd();
+            ss << " for " << props.instance_id;
+            INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
+
             task->set_on_error_cb(boost::bind(&InstanceManager::OnError,
                                               this, _1, _2));
             task->set_on_exit_cb(boost::bind(&InstanceManager::OnExit,
                         this, _1, _2));
             RegisterSvcInstance(task, svc_instance);
             std::stringstream info;
-            info << "Service stop command queued: " << task->cmd();
             Enqueue(task, props.instance_id);
-            LOG(DEBUG, info.str().c_str());
         } else {
-            LOG(ERROR, "Error creating task!");
+            std::stringstream ss;
+            ss << "Error Stopping the Task for " << props.instance_id;
+            INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
         }
     } else {
-        LOG(ERROR, "Unknown virtualization type: " << props.virtualization_type);
+        ss << "Unknown virtualization type " << props.virtualization_type;
+        ss << " for " << svc_instance->ToString();
+        INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
     }
 }
 
@@ -699,7 +752,9 @@ void InstanceManager::StopStaleNetNS(ServiceInstance::Properties &props) {
         c_argv[i] = argv[i].c_str();
     }
 
-    LOG(ERROR, "Stale NetNS " << cmd);
+    std::stringstream ss;
+    ss << "StaleNetNS " << cmd;
+    INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
 
     pid_t pid = vfork();
     if (pid == 0) {
@@ -767,10 +822,13 @@ void InstanceManager::EventObserver(
         }
 
         bool usable = svc_instance->IsUsable();
-        LOG(DEBUG, "NetNS event notification for uuid: " << svc_instance->ToString()
-            << (usable ? " usable" : " not usable"));
+
+        std::stringstream ss;
+        ss << "NetNS event notification for uuid: " << svc_instance->ToString();
+        ss << (usable ? " usable" : " not usable");
+        INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
+
         if (!usable && GetLastCmdType(svc_instance) == Start) {
-            LOG(DEBUG, "Stopping service instance!");
             StopServiceInstance(svc_instance, state);
             SetLastCmdType(svc_instance, Stop);
         } else if (usable) {
@@ -798,7 +856,11 @@ void InstanceManager::LoadbalancerObserver(
         if (!boost::filesystem::exists(dir, error)) {
             boost::filesystem::create_directories(dir, error);
             if (error) {
-                LOG(ERROR, error.message());
+                std::stringstream ss;
+                ss << "CreateDirectory error for ";
+                ss << UuidToString(loadbalancer->uuid()) << " ";
+                ss << error.message();
+                INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
                 return;
             }
         }
