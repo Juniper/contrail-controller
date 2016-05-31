@@ -31,6 +31,7 @@ public:
     void CreateDBTables(DB *);
     void RegisterDBClients();
     void Init();
+    void InitDone();
     void CreateDefaultVrf();
     void DeleteRoutes();
     void Shutdown();
