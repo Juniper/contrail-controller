@@ -1060,6 +1060,7 @@ public:
 
     void FlowUpdateQueueDisable(bool val);
     size_t FlowUpdateQueueLength();
+    size_t FlowDBQueueLength();
 private:
     // Handle Add/Change of a flow. Builds FlowMgmtKeyTree for all objects
     void AddFlow(FlowEntryPtr &flow);
