@@ -148,7 +148,7 @@ bool Icmpv6Handler::RouterAdvertisement(Icmpv6Proto *proto) {
     for (Icmpv6Proto::VmInterfaceMap::const_iterator it = interfaces.begin();
          it != interfaces.end(); ++it) {
         VmInterface *vmi = it->first;
-        if (vmi->IsIpv6Active()) {
+        if (vmi->IsIpv6Active() && !vmi->HasServiceVlan()) {
             pkt_info_->AllocPacketBuffer(agent(), PktHandler::ICMPV6, ICMP_PKT_SIZE, 0);
             pkt_info_->eth = (struct ether_header *)(pkt_info_->pkt);
             pkt_info_->ip6 = (ip6_hdr *)(pkt_info_->pkt + sizeof(struct ether_header));
