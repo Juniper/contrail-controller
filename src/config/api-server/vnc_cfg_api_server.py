@@ -2615,6 +2615,12 @@ class VncApiServer(object):
         elif project_id:
             perms2['owner'] = project_id
 
+        # set ownership of object to creator tenant
+        if obj_type == 'project' and 'uuid' in obj_dict:
+            perms2['owner'] = str(obj_dict['uuid']).replace('-','')
+        elif project_id:
+            perms2['owner'] = project_id
+
         if (('perms2' not in obj_dict) or
                 (obj_dict['perms2'] is None)):
             # Resource creation
