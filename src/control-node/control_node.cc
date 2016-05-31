@@ -42,6 +42,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("bgp::ShowCommand")))
         (TaskExclusion(scheduler->GetTaskId("bgp::SendReadyTask")))
         (TaskExclusion(scheduler->GetTaskId("bgp::StaticRoute")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::Uve")))
         (TaskExclusion(scheduler->GetTaskId("bgp::RouteAggregation")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ResolverPath")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ResolverNexthop")));
