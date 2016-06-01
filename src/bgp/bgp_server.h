@@ -25,6 +25,7 @@ class AsPathDB;
 class BgpAttrDB;
 class BgpConditionListener;
 class BgpConfigManager;
+class BgpGlobalSystemConfig;
 class BgpMembershipManager;
 class BgpOListDB;
 class BgpPeer;
@@ -41,7 +42,6 @@ class LifetimeActor;
 class LifetimeManager;
 class OriginVnPathDB;
 class PmsiTunnelDB;
-class PeerRibMembershipManager;
 class RoutePathReplicator;
 class RoutingInstanceMgr;
 class RoutingPolicyMgr;
@@ -61,7 +61,9 @@ public:
 
     virtual std::string ToString() const;
 
-    virtual bool IsPeerCloseGraceful();
+    uint16_t GetGracefulRestartTime() const;
+    uint32_t GetLongLivedGracefulRestartTime() const;
+    uint32_t GetEndOfRibReceiveTime() const;
 
     int RegisterPeer(BgpPeer *peer);
     void UnregisterPeer(BgpPeer *peer);
@@ -135,13 +137,9 @@ public:
         return NULL;
     }
 
-    PeerRibMembershipManager *membership_mgr() { return membership_mgr_.get(); }
-    const PeerRibMembershipManager *membership_mgr() const {
+    BgpMembershipManager *membership_mgr() { return membership_mgr_.get(); }
+    const BgpMembershipManager *membership_mgr() const {
         return membership_mgr_.get();
-    }
-
-    BgpMembershipManager *bgp_membership_mgr() {
-        return bgp_membership_mgr_.get();
     }
 
     AsPathDB *aspath_db() { return aspath_db_.get(); }
@@ -158,6 +156,8 @@ public:
     bool IsDeleted() const;
     bool IsReadyForDeletion();
     void RetryDelete();
+    bool logging_disabled() const { return logging_disabled_; }
+    void set_logging_disabled(bool flag) { logging_disabled_ = flag; }
 
     bool destroyed() const { return destroyed_; }
     void set_destroyed() { destroyed_  = true; }
@@ -243,6 +243,9 @@ public:
     void NotifyAllStaticRoutes();
     uint32_t GetStaticRouteCount() const;
     uint32_t GetDownStaticRouteCount() const;
+    BgpGlobalSystemConfig *global_config() { return global_config_.get(); }
+    bool disable_gr() const { return disable_gr_; }
+    void set_disable_gr(bool disable_gr) { disable_gr_ = disable_gr; }
     bool CollectStats(BgpRouterState *state, bool first) const;
 
 private:
@@ -273,6 +276,7 @@ private:
     IdentifierUpdateListenersList id_listeners_;
     boost::dynamic_bitset<> id_bmap_;      // free list.
     uint32_t hold_time_;
+    bool disable_gr_;
     StaticRouteMgrList srt_manager_list_;
 
     DB db_;
@@ -289,6 +293,7 @@ private:
     boost::scoped_ptr<LifetimeManager> lifetime_manager_;
     boost::scoped_ptr<DeleteActor> deleter_;
     bool destroyed_;
+    bool logging_disabled_;
 
     // databases
     boost::scoped_ptr<AsPathDB> aspath_db_;
@@ -308,8 +313,7 @@ private:
     boost::scoped_ptr<RoutingInstanceMgr> inst_mgr_;
     boost::scoped_ptr<RoutingPolicyMgr> policy_mgr_;
     boost::scoped_ptr<RTargetGroupMgr> rtarget_group_mgr_;
-    boost::scoped_ptr<BgpMembershipManager> bgp_membership_mgr_;
-    boost::scoped_ptr<PeerRibMembershipManager> membership_mgr_;
+    boost::scoped_ptr<BgpMembershipManager> membership_mgr_;
     boost::scoped_ptr<BgpConditionListener> inet_condition_listener_;
     boost::scoped_ptr<BgpConditionListener> inet6_condition_listener_;
     boost::scoped_ptr<RoutePathReplicator> inetvpn_replicator_;
@@ -320,6 +324,7 @@ private:
     boost::scoped_ptr<IServiceChainMgr> inet6_service_chain_mgr_;
 
     // configuration
+    boost::scoped_ptr<BgpGlobalSystemConfig> global_config_;
     boost::scoped_ptr<BgpConfigManager> config_mgr_;
     boost::scoped_ptr<ConfigUpdater> updater_;
 

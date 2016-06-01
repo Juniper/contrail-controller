@@ -134,7 +134,7 @@ public:
 
     // accessors
     virtual BgpServer *server() { return server_; }
-    const BgpServer *server() const { return server_; }
+    virtual BgpServer *server() const { return server_; }
 
     uint32_t PeerAddress() const { return peer_key_.address(); }
     const std::string peer_address_string() const {
@@ -175,10 +175,8 @@ public:
     }
 
     bool IsFamilyNegotiated(Address::Family family);
-
-    RoutingInstance *GetRoutingInstance() {
-        return rtinstance_;
-    }
+    RoutingInstance *GetRoutingInstance() { return rtinstance_; }
+    RoutingInstance *GetRoutingInstance() const { return rtinstance_; }
 
     int GetIndex() const { return index_; }
     int GetTaskInstance() const;
@@ -200,6 +198,8 @@ public:
     bool IsCloseInProgress() const;
     virtual bool IsReady() const;
     virtual bool IsXmppPeer() const;
+    virtual bool CanUseMembershipManager() const;
+    virtual bool IsRegistrationRequired() const { return true; }
 
     void Close(bool non_graceful);
     void Clear(int subcode);
@@ -217,6 +217,7 @@ public:
     void increment_flap_count();
     void reset_flap_count();
     uint64_t flap_count() const { return flap_count_; }
+    uint64_t total_flap_count() const { return total_flap_count_; }
 
     std::string last_flap_at() const;
 
@@ -268,7 +269,7 @@ public:
         const IPeerDebugStats *peer);
 
     bool ResumeClose();
-    void MembershipRequestCallback(IPeer *ipeer, BgpTable *table);
+    void MembershipRequestCallback(BgpTable *table);
 
     virtual void UpdateTotalPathCount(int count) const {
         total_path_count_ += count;
@@ -305,7 +306,9 @@ public:
         return llgr_params_;
     }
     bool SkipNotificationSend(int code, int subcode) const;
-    bool SkipNotificationReceive(int code, int subcode) const;
+    virtual bool SkipNotificationReceive(int code, int subcode) const;
+    void Register(BgpTable *table, const RibExportPolicy &policy);
+    void Register(BgpTable *table);
 
 protected:
     const std::vector<std::string> &negotiated_families() const {
@@ -325,6 +328,7 @@ protected:
         return long_lived_graceful_restart_families_;
     }
     void SendEndOfRIB(Address::Family family);
+    int membership_req_pending() const { return membership_req_pending_; }
 
 private:
     friend class BgpConfigTest;
@@ -356,6 +360,8 @@ private:
     void UnregisterAllTables();
     void BGPPeerInfoSend(const BgpPeerInfoData &peer_info) const;
 
+    virtual bool MembershipPathCallback(DBTablePartBase *tpart,
+                                        BgpRoute *route, BgpPath *path);
     uint32_t GetPathFlags(Address::Family family, const BgpAttr *attr) const;
     virtual bool MpNlriAllowed(uint16_t afi, uint8_t safi);
     BgpAttrPtr GetMpNlriNexthop(BgpMpNlri *nlri, BgpAttrPtr attr);
@@ -426,7 +432,7 @@ private:
     bool resolve_paths_;
     bool as_override_;
 
-    uint64_t membership_req_pending_;
+    tbb::atomic<int> membership_req_pending_;
     bool defer_close_;
     bool non_graceful_close_;
     bool vpn_tables_registered_;
@@ -450,6 +456,7 @@ private:
     mutable tbb::atomic<int> total_path_count_;
     mutable tbb::atomic<int> primary_path_count_;
     uint64_t flap_count_;
+    uint64_t total_flap_count_;
     uint64_t last_flap_;
     AuthenticationData auth_data_;
     AuthenticationKey inuse_auth_key_;

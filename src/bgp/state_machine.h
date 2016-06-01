@@ -209,6 +209,7 @@ private:
     template <typename Ev> bool Enqueue(const Ev &event);
     bool DequeueEvent(EventContainer ec);
     void DequeueEventDone(bool done);
+    void UpdateFlapCount();
 
     WorkQueue<EventContainer> work_queue_;
     BgpPeer *peer_;

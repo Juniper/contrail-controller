@@ -26,6 +26,7 @@ class BgpServer;
 class BgpTable;
 class IPeer;
 class RibOut;
+class ShowMembershipPeerInfo;
 class ShowRoutingInstanceTable;
 class TaskTrigger;
 
@@ -106,6 +107,13 @@ public:
     void SetRegistrationInfo(const IPeer *peer, const BgpTable *table,
         int instance_id, uint64_t subscription_gen_id);
 
+    bool IsRegistered(const IPeer *peer, const BgpTable *table) const;
+    bool IsRibInRegistered(const IPeer *peer, const BgpTable *table) const;
+    bool IsRibOutRegistered(const IPeer *peer, const BgpTable *table) const;
+
+    void GetRegisteredRibs(const IPeer *peer,
+        std::list<BgpTable *> *table_list) const;
+
     void FillRoutingInstanceTableInfo(ShowRoutingInstanceTable *srit,
         const BgpTable *table) const;
     void FillPeerMembershipInfo(const IPeer *peer, BgpNeighborResp *resp) const;
@@ -116,8 +124,14 @@ public:
     uint64_t current_jobs_count() const { return current_jobs_count_; }
     uint64_t total_jobs_count() const { return total_jobs_count_; }
 
-private:
+protected:
     struct Event;
+
+    virtual bool EventCallbackInternal(Event *event);
+
+    mutable tbb::spin_rw_mutex rw_mutex_;
+
+private:
     class PeerState;
     class PeerRibState;
     class RibState;
@@ -128,13 +142,16 @@ private:
     friend class BgpMembershipManager::PeerRibState;
     friend class BgpMembershipManager::Walker;
     friend class BgpMembershipTest;
+    friend class BgpServerUnitTest;
+    friend class BgpXmppUnitTest;
 
     enum Action {
         NONE,
         RIBOUT_ADD,
-        RIBOUT_DELETE,
+        RIBIN_DELETE,
         RIBIN_WALK,
-        RIBIN_WALK_RIBOUT_DELETE
+        RIBIN_WALK_RIBOUT_DELETE,
+        RIBIN_DELETE_RIBOUT_DELETE
     };
 
     enum EventType {
@@ -149,6 +166,8 @@ private:
     typedef std::map<const IPeer *, PeerState *> PeerStateMap;
     typedef std::map<const BgpTable *, RibState *> RibStateMap;
     typedef std::set<PeerRibState *> PeerRibList;
+
+    void UnregisterRibInUnlocked(PeerRibState *prs);
 
     PeerState *LocatePeerState(IPeer *peer);
     PeerState *FindPeerState(const IPeer *peer);
@@ -183,7 +202,6 @@ private:
     Walker *walker() { return walker_.get(); }
 
     BgpServer *server_;
-    mutable tbb::spin_rw_mutex rw_mutex_;
     tbb::atomic<uint64_t> current_jobs_count_;
     tbb::atomic<uint64_t> total_jobs_count_;
     RibStateMap rib_state_map_;
@@ -238,6 +256,7 @@ public:
     const PeerRibState *FindPeerRibState(const RibState *rs) const;
     bool RemovePeerRibState(PeerRibState *prs);
 
+    void GetRegisteredRibs(std::list<BgpTable *> *table_list) const;
     size_t GetMembershipCount() const { return rib_map_.size(); }
     void FillPeerMembershipInfo(BgpNeighborResp *resp) const;
 
@@ -283,12 +302,14 @@ public:
 
     void FillRoutingInstanceTableInfo(ShowRoutingInstanceTable *srit) const;
 
-    BgpTable *table() { return table_; }
-    const BgpTable *table() const { return table_; }
+    BgpTable *table() const { return table_; }
+    void increment_walk_count() { walk_count_++; }
 
 private:
     BgpMembershipManager *manager_;
     BgpTable *table_;
+    uint32_t request_count_;
+    uint32_t walk_count_;
     PeerRibList peer_rib_list_;
     PeerRibList pending_peer_rib_list_;
 
@@ -315,14 +336,19 @@ public:
     void RegisterRibOut(const RibExportPolicy &policy);
     void UnregisterRibOut();
     void DeactivateRibOut();
+    void UnregisterRibIn();
     void WalkRibIn();
     void ManagedDelete() {}
 
+    void FillMembershipInfo(ShowMembershipPeerInfo *smpi) const;
+
+    const IPeer *peer() const { return ps_->peer(); }
     PeerState *peer_state() { return ps_; }
     const PeerState *peer_state() const { return ps_; }
     RibState *rib_state() { return rs_; }
     RibOut *ribout() const { return ribout_; }
     int ribout_index() const { return ribout_index_; }
+    const BgpTable *table() const { return rs_->table(); }
 
     BgpMembershipManager::Action action() const { return action_; }
     void set_action(BgpMembershipManager::Action action) { action_ = action; }

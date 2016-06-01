@@ -6,10 +6,11 @@
 #include <string>
 #include <vector>
 
+#include "bgp/bgp_membership.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_internal_types.h"
-#include "bgp/bgp_peer_membership.h"
 #include "bgp/bgp_sandesh.h"
+#include "bgp/bgp_server.h"
 #include "bgp/bgp_xmpp_channel.h"
 #include "xmpp/xmpp_connection.h"
 
@@ -54,7 +55,7 @@ static void FillXmppNeighborInfo(BgpNeighborResp *bnr,
     bnr->set_configured_hold_time(connection->GetConfiguredHoldTime());
     bnr->set_configured_address_families(vector<string>());
     bnr->set_negotiated_address_families(vector<string>());
-    const PeerRibMembershipManager *mgr = bsc->bgp_server->membership_mgr();
+    const BgpMembershipManager *mgr = bsc->bgp_server->membership_mgr();
     mgr->FillPeerMembershipInfo(bx_channel->Peer(), bnr);
     bx_channel->FillTableMembershipInfo(bnr);
     bx_channel->FillInstanceMembershipInfo(bnr);
@@ -114,7 +115,7 @@ static void ShowXmppNeighborStatisticsVisitor(
         if (!table)
             return;
 
-        const PeerRibMembershipManager *mgr = bgp_server->membership_mgr();
+        const BgpMembershipManager *mgr = bgp_server->membership_mgr();
         if (!mgr->GetRegistrationInfo(channel->Peer(), table)) {
             return;
         }

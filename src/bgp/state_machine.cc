@@ -40,8 +40,9 @@ const int StateMachine::kJitter = 10;                   // percentage
 
 #define SM_LOG(level, _Msg)                                    \
     do {                                                       \
-        ostringstream out;                                \
+        ostringstream out;                                     \
         out << _Msg;                                           \
+        if (LoggingDisabled()) break;                          \
         BGP_LOG_SERVER(peer_, (BgpTable *) 0);                 \
         BGP_LOG(BgpPeerStateMachine, level,                    \
                 BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_NA,          \
@@ -404,12 +405,7 @@ struct Idle : sc::state<Idle, StateMachine> {
         state_machine->DeleteSession(session);
         state_machine->CancelOpenTimer();
         state_machine->CancelIdleHoldTimer();
-        bool flap = (state_machine->get_state() == StateMachine::ESTABLISHED);
         state_machine->set_state(StateMachine::IDLE);
-        if (flap) {
-            peer->increment_flap_count();
-            peer->peer_stats()->Clear();
-        }
     }
 
     ~Idle() {
@@ -1151,14 +1147,25 @@ bool StateMachine::IsQueueEmpty() const {
     return work_queue_.IsQueueEmpty();
 }
 
+void StateMachine::UpdateFlapCount() {
+    if (get_state() == StateMachine::ESTABLISHED) {
+        peer_->increment_flap_count();
+        peer_->peer_stats()->Clear();
+    }
+}
+
 template <typename Ev, int code>
 void StateMachine::OnIdle(const Ev &event) {
+    UpdateFlapCount();
+
     // Release all resources.
     SendNotificationAndClose(peer_->session(), code);
 }
 
 template <typename Ev>
 void StateMachine::OnIdleCease(const Ev &event) {
+    UpdateFlapCount();
+
     // Release all resources.
     SendNotificationAndClose(
         peer_->session(), BgpProto::Notification::Cease, event.subcode);
@@ -1170,11 +1177,15 @@ void StateMachine::OnIdleCease(const Ev &event) {
 //
 template <typename Ev, int code>
 void StateMachine::OnIdleError(const Ev &event) {
+    UpdateFlapCount();
+
     // Release all resources.
     SendNotificationAndClose(event.session, code, event.subcode, event.data);
 }
 
 void StateMachine::OnIdleNotification(const fsm::EvBgpNotification &event) {
+    UpdateFlapCount();
+
     // Release all resources.
     SendNotificationAndClose(peer()->session(), 0);
     set_last_notification_in(event.msg->error, event.msg->subcode,
