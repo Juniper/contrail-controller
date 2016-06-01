@@ -6,6 +6,8 @@
 #define __BASE__TASK_TEST_UTIL_H__
 
 #include <boost/function.hpp>
+#include <boost/scoped_ptr.hpp>
+#include <base/task_trigger.h>
 #include "testing/gunit.h"
 
 class EventManager;
@@ -24,6 +26,48 @@ public:
     ~TaskSchedulerLock();
 };
 
+// Fire user routine through task-triger inline and return after the task is
+// complete.
+//
+// Usage example:
+// task_util::TaskFire(boost::bind(&Example::ExampleRun, this, _1), args,
+//                     "bgp::Config");
+//
+// Note: One cannot call task_util::wait_for_idle() inside ExampleRun() as that
+// we will never reach idle state until the user callback is complete.
+class TaskFire {
+public:
+    typedef boost::function<void(void)> FunctionPtr;
+    typedef boost::function<void(const void *)> FunctionPtr1;
+    TaskFire(FunctionPtr func, const std::string task_name,
+             int task_instance = 0);
+    TaskFire(FunctionPtr1 func, const void *arg1, const std::string task_name,
+             int task_instance = 0);
+
+private:
+    bool Run();
+    bool Run1();
+    FunctionPtr func_;
+    FunctionPtr1 func1_;
+    const void *arg1_;
+    std::string task_name_;
+    boost::scoped_ptr<TaskTrigger> task_trigger_;
+};
+
+}
+
+// Fork off python shell for pause. Use portable fork and exec instead of the
+// platform specific system() call.
+static inline void TaskUtilPauseTest() {
+    static bool d_pause_ = getenv("TASK_UTIL_PAUSE_AFTER_FAILURE") != NULL;
+    if (!d_pause_)
+        return;
+    std::cout << "Test PAUSED. Exit (Ctrl-d) python shell to resume";
+    pid_t pid;
+    if (!(pid = fork()))
+        execl("/usr/bin/python", "/usr/bin/python", NULL);
+    int status;
+    waitpid(pid, &status, 0);
 }
 
 #define TASK_UTIL_WAIT_EQ_NO_MSG(expected, actual, wait, retry, msg)           \
@@ -38,6 +82,8 @@ do {                                                                           \
     }                                                                          \
     if (!_satisfied) {                                                         \
         EXPECT_TRUE((expected) == (actual));                                   \
+        if((expected) != (actual))                                             \
+            TaskUtilPauseTest();                                               \
     }                                                                          \
 } while (false)
 
@@ -53,6 +99,8 @@ do {                                                                           \
     }                                                                          \
     if (!_satisfied) {                                                         \
         EXPECT_TRUE((expected) != (actual));                                   \
+        if((expected) == (actual))                                             \
+            TaskUtilPauseTest();                                               \
     }                                                                          \
 } while (false)
 
@@ -88,6 +136,8 @@ do {                                                                           \
     }                                                                          \
     if (!_satisfied) {                                                         \
         EXPECT_EQ(expected, actual);                                           \
+        if((expected) != (actual))                                             \
+            TaskUtilPauseTest();                                               \
     }                                                                          \
 } while (false)
 
@@ -114,6 +164,8 @@ do {                                                                           \
     }                                                                          \
     if (!_satisfied) {                                                         \
         EXPECT_NE(expected, actual);                                           \
+        if((expected) == (actual))                                             \
+            TaskUtilPauseTest();                                               \
     }                                                                          \
 } while (false)
 
@@ -141,6 +193,8 @@ do {                                                                           \
     }                                                                          \
     if (!_satisfied) {                                                         \
         EXPECT_GT(object1, object2);                                           \
+        if((object1) <= (object2))                                             \
+            TaskUtilPauseTest();                                               \
     }                                                                          \
 } while (false)
 
@@ -168,6 +222,8 @@ do {                                                                           \
     }                                                                          \
     if (!_satisfied) {                                                         \
         EXPECT_GE(object1, object2);                                           \
+        if((object1) < (object2))                                              \
+            TaskUtilPauseTest();                                               \
     }                                                                          \
 } while (false)
 
@@ -195,6 +251,8 @@ do {                                                                           \
     }                                                                          \
     if (!_satisfied) {                                                         \
         EXPECT_LT(object1, object2);                                           \
+        if((object1) >= (object2))                                             \
+            TaskUtilPauseTest();                                               \
     }                                                                          \
 } while (false)
 
@@ -222,6 +280,8 @@ do {                                                                           \
     }                                                                          \
     if (!_satisfied) {                                                         \
         EXPECT_LE(object1, object2);                                           \
+        if((object1) > (object2))                                              \
+            TaskUtilPauseTest();                                               \
     }                                                                          \
 } while (false)
 

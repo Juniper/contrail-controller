@@ -5,9 +5,11 @@
 #include "base/test/task_test_util.h"
 
 #include <boost/asio/deadline_timer.hpp>
+#include <boost/bind.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 #include "base/task.h"
+#include "base/task_annotations.h"
 #include "io/event_manager.h"
 #include "testing/gunit.h"
 
@@ -108,6 +110,38 @@ TaskSchedulerLock::TaskSchedulerLock() {
 
 TaskSchedulerLock::~TaskSchedulerLock() {
     TaskScheduler::GetInstance()->Start();
+}
+
+TaskFire::TaskFire(FunctionPtr func, const std::string task_name,
+                   int task_instance) :
+        func_(func), task_name_(task_name),
+        task_trigger_(new TaskTrigger(boost::bind(&TaskFire::Run, this),
+                      TaskScheduler::GetInstance()->GetTaskId(task_name),
+                      task_instance)) {
+    task_trigger_->Set();
+    TASK_UTIL_EXPECT_FALSE(task_trigger_->IsSet());
+}
+
+TaskFire::TaskFire(FunctionPtr1 func, const void *arg1,
+                   const std::string task_name, int task_instance) :
+        func1_(func), arg1_(arg1), task_name_(task_name),
+        task_trigger_(new TaskTrigger(boost::bind(&TaskFire::Run1, this),
+                      TaskScheduler::GetInstance()->GetTaskId(task_name),
+                      task_instance)) {
+    task_trigger_->Set();
+    TASK_UTIL_EXPECT_FALSE(task_trigger_->IsSet());
+}
+
+bool TaskFire::Run() {
+   CHECK_CONCURRENCY(task_name_.c_str());
+   func_();
+   return true;
+}
+
+bool TaskFire::Run1() {
+   CHECK_CONCURRENCY(task_name_.c_str());
+   func1_(arg1_);
+   return true;
 }
 
 }  // namespace task_util
