@@ -81,7 +81,7 @@ class Subscribe(object):
             'service': service_type,
             'instances': count,
             'client-type': dc._client_type,
-            'remote-addr': dc._remote_addr,
+            'remote-addr': dc.remote_addr,
             'client': dc._myid
         }
         self.post_body = json.dumps(self.data)
@@ -217,15 +217,7 @@ class DiscoveryClient(object):
             'hb_iters'       : 0,
         }
         self.pub_stats = {}
-
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect((server_ip, server_port))
-            self._myip = s.getsockname()[0]
-            s.close()
-        except Exception as e:
-            self._myip = socket.gethostname()
-        self._remote_addr = self._myip
+        self._myip = '127.0.0.1'
 
         # queue to publish information (sig => service data)
         self.pub_q = {}
@@ -248,12 +240,23 @@ class DiscoveryClient(object):
         self._subs = []
     # end __init__
 
-    def set_myip(self, ip):
-        self._myip = ip
+    @property
+    def remote_addr(self):
+        if self._myip != '127.0.0.1':
+            return self._myip
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect((self._server_ip, self._server_port))
+            self._myip = s.getsockname()[0]
+            s.close()
+        except Exception as e:
+            pass
+        return self._myip
 
-    def set_remote_addr(self, remote_addr):
-        self._remote_addr = remote_addr
- 
+    @remote_addr.setter
+    def remote_addr(self, remote_addr):
+        self._myip = remote_addr
+
     def set_sandesh(self, sandesh):
         self._sandesh = sandesh
     # end set_sandesh
@@ -304,7 +307,7 @@ class DiscoveryClient(object):
         payload = {
             service             : data,
             'service-type'      : service,
-            'remote-addr'       : self._remote_addr,
+            'remote-addr'       : self.remote_addr,
             'oper-state'        : oper_state,
             'oper-state-reason' : msg
         }
