@@ -512,7 +512,7 @@ class IpNetnsCommand(IpCommandBase):
         output = self._parent._execute('o', 'netns', ['list'])
 
         for line in output.split('\n'):
-            if name == line.strip():
+            if name in line.strip():
                 return True
         return False
 
