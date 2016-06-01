@@ -109,7 +109,7 @@ class TestDsa(test_case.DsTestCase):
             disc = client.DiscoveryClient(
                         self._disc_server_ip, self._disc_server_port,
                         client_type, pub_id)
-            disc.set_remote_addr(ipaddr)
+            disc.remote_addr = ipaddr
             task = disc.publish(service_type, pub_data)
             pub_tasks.append(task)
 
@@ -129,7 +129,7 @@ class TestDsa(test_case.DsTestCase):
                 disc = client.DiscoveryClient(
                            self._disc_server_ip, self._disc_server_port,
                            subscriber_type, pub_id=subscriber_id)
-                disc.set_remote_addr(remote)
+                disc.remote_addr = remote
                 obj = disc.subscribe(
                           service_type, service_count, info_callback, subscriber_id)
             sub_tasks.append(obj.task)
