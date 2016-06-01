@@ -2019,8 +2019,11 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'api_stats.object_type', 'datatype' : 'string', 'index' : true },
           { 'name' : 'api_stats.request_url', 'datatype' : 'string', 'index' : false },
           { 'name' : 'api_stats.response_time_in_usec', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'api_stats.response_size', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'api_stats.response_size_objects', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'api_stats.response_size_bytes', 'datatype' : 'int', 'index' : false },
           { 'name' : 'api_stats.node', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'api_stats.resp_code', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'api_stats.useragent', 'datatype' : 'string', 'index' : false },
         ]
     },
     {
