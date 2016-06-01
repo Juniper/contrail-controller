@@ -193,6 +193,12 @@ bool DhcpHandlerBase::IsValidIpOption(uint32_t option, const std::string &ipstr,
         }
     }
 
+    boost::system::error_code ec;
+    uint32_t ip = Ip4Address::from_string(ipstr, ec).to_ulong();
+    if(!ip) {
+        return false;
+    }
+
     return true;
 }
 
@@ -211,6 +217,7 @@ bool DhcpHandlerBase::IsValidDnsOption(uint32_t option,
             return false;
         }
     }
+
     return true;
 }
 
