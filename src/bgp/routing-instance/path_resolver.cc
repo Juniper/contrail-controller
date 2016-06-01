@@ -253,12 +253,12 @@ void PathResolver::RemoveResolverNexthop(ResolverNexthop *rnexthop) {
 // a ResolverNexthop.
 //
 // It's safe to unregister the ResolverNexthop at this point. However the
-// operation cannot be done in the context of db::DBTable Task. Enqueue the
+// operation cannot be done in the context of db::Walker Task. Enqueue the
 // ResolverNexthop to the register/unregister list.
 //
 void PathResolver::UnregisterResolverNexthopDone(BgpTable *table,
     ConditionMatch *match) {
-    CHECK_CONCURRENCY("db::DBTable");
+    CHECK_CONCURRENCY("db::Walker");
 
     ResolverNexthop *rnexthop = dynamic_cast<ResolverNexthop *>(match);
     assert(rnexthop);

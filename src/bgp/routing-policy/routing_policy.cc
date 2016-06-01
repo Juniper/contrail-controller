@@ -42,9 +42,6 @@ RoutingPolicyMgr::RoutingPolicyMgr(BgpServer *server) :
         server_(server),
         deleter_(new DeleteActor(this)),
         server_delete_ref_(this, server->deleter()),
-        walk_trigger_(new TaskTrigger(
-          boost::bind(&RoutingPolicyMgr::StartWalk, this),
-          TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0)),
         trace_buf_(SandeshTraceBufferCreate("RoutingPolicyMgr", 500)) {
 }
 
@@ -148,7 +145,6 @@ void RoutingPolicyMgr::ApplyRoutingPolicy(RoutingInstance *instance) {
         if (table->IsRoutingPolicySupported())
             RequestWalk(table);
     }
-    walk_trigger_->Set();
 }
 
 // On a given path of the route, apply the policy
@@ -257,64 +253,32 @@ bool RoutingPolicyMgr::UpdateRoutingPolicyList(
 void
 RoutingPolicyMgr::RequestWalk(BgpTable *table) {
     CHECK_CONCURRENCY("bgp::Config");
-    RoutingPolicySyncState *state = NULL;
-    RoutingPolicyWalkRequests::iterator loc = routing_policy_sync_.find(table);
-    if (loc != routing_policy_sync_.end()) {
-        // Accumulate the walk request till walk is started.
-        // After the walk is started don't cancel/interrupt the walk
-        // instead remember the request to walk again
-        // Walk will restarted after completion of current walk
-        // This situation is possible in cases where DBWalker yeilds or
-        // config task requests for walk before the previous walk is finished
-        if (loc->second->GetWalkerId() != DBTableWalker::kInvalidWalkerId) {
-            // This will be reset when the walk actually starts
-            loc->second->SetWalkAgain(true);
-        }
-        return;
-    } else {
-        state = new RoutingPolicySyncState();
-        state->SetWalkerId(DBTableWalker::kInvalidWalkerId);
-        routing_policy_sync_.insert(std::make_pair(table, state));
-    }
-}
-
-bool
-RoutingPolicyMgr::StartWalk() {
-    CHECK_CONCURRENCY("bgp::Config");
-
-    // For each member table, start a walker to replicate
-    for (RoutingPolicyWalkRequests::iterator it = routing_policy_sync_.begin();
-         it != routing_policy_sync_.end(); ++it) {
-        if (it->second->GetWalkerId() != DBTableWalker::kInvalidWalkerId) {
-            // Walk is in progress.
-            continue;
-        }
-        BgpTable *table = it->first;
-        DB *db = server()->database();
-        DBTableWalker::WalkId id = db->GetWalker()->WalkTable(table, NULL,
+    DB *db = server()->database();
+    DBTableWalkMgr *walk_mgr = db->GetWalkMgr();
+    RoutingPolicyWalkRequests::iterator it = routing_policy_sync_.find(table);
+    if (it == routing_policy_sync_.end()) {
+        DBTableWalkMgr::DBTableWalkRef walk_ref =
+            walk_mgr->AllocWalker(table,
             boost::bind(&RoutingPolicyMgr::EvaluateRoutingPolicy, this, _1, _2),
             boost::bind(&RoutingPolicyMgr::WalkDone, this, _1));
-        it->second->SetWalkerId(id);
-        it->second->SetWalkAgain(false);
+        walk_mgr->WalkTable(walk_ref);
+        routing_policy_sync_.insert(std::make_pair(table, walk_ref));
+    } else {
+        walk_mgr->WalkAgain(it->second);
     }
-    return true;
 }
 
 void
 RoutingPolicyMgr::WalkDone(DBTableBase *dbtable) {
-    CHECK_CONCURRENCY("db::DBTable");
-    tbb::mutex::scoped_lock lock(mutex_);
+    CHECK_CONCURRENCY("db::Walker");
     BgpTable *table = static_cast<BgpTable *>(dbtable);
-    RoutingPolicyWalkRequests::iterator loc = routing_policy_sync_.find(table);
-    assert(loc != routing_policy_sync_.end());
-    RoutingPolicySyncState *policy_sync_state = loc->second;
-    if (policy_sync_state->WalkAgain()) {
-        policy_sync_state->SetWalkerId(DBTableWalker::kInvalidWalkerId);
-        walk_trigger_->Set();
-        return;
-    }
-    delete policy_sync_state;
-    routing_policy_sync_.erase(loc);
+    RoutingPolicyWalkRequests::iterator it = routing_policy_sync_.find(table);
+    assert(it != routing_policy_sync_.end());
+    DBTableWalkMgr::DBTableWalkRef walk_ref = it->second;
+    DB *db = server()->database();
+    DBTableWalkMgr *walk_mgr = db->GetWalkMgr();
+    routing_policy_sync_.erase(it);
+    walk_mgr->ReleaseWalker(walk_ref);
 }
 
 class RoutingPolicy::DeleteActor : public LifetimeActor {

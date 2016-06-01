@@ -514,15 +514,13 @@ protected:
     }
 
     void DisableBulkSync() {
-        RoutePathReplicator *replicator =
-            bgp_server_->replicator(Address::INETVPN);
-        replicator->walk_trigger_->set_disable();
+        DBTableWalkMgr *walk_mgr = bgp_server_->database()->GetWalkMgr();
+        walk_mgr->DisableWalkProcessing();
     }
 
     void EnableBulkSync() {
-        RoutePathReplicator *replicator =
-            bgp_server_->replicator(Address::INETVPN);
-        replicator->walk_trigger_->set_enable();
+        DBTableWalkMgr *walk_mgr = bgp_server_->database()->GetWalkMgr();
+        walk_mgr->EnableWalkProcessing();
     }
 
     EventManager evm_;

@@ -7,6 +7,7 @@
 
 #include "io/event_manager.h"
 #include "base/task.h"
+#include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
 
 struct Client : public DBClient {
@@ -37,6 +38,10 @@ public:
     }
 
     virtual void SetUp() {
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        TaskPolicy walker_policy = boost::assign::list_of
+            (TaskExclusion(scheduler->GetTaskId("db::DBTable")));
+        scheduler->SetPolicy(scheduler->GetTaskId("db::Walker"), walker_policy);
     }
 
     virtual void TearDown() {
@@ -486,7 +491,7 @@ TEST_F(DBTest, JWalker) {
         return;
     }
 
-    int walk_count = 1024;
+    int walk_count = 2;
     // Clear stats in begin
     adc_notification = 0;
     del_notification = 0;
@@ -516,37 +521,53 @@ TEST_F(DBTest, JWalker) {
         EXPECT_TRUE(vlan != NULL);
     }
 
-    
+    adc_notification = 0;
+
+    {
+        ConcurrencyScope scope("bgp::Config");
+        table->NotifyAllEntries();
+    }
+    task_util::WaitForIdle();
+
+    EXPECT_TRUE(adc_notification == walk_count);
+
     walk_done_ = false;
     walk_count_ = 0;
 
-    VlanTableReqKey *searchKey = new VlanTableReqKey(0);
-    DBTableWalker::WalkId id = db_.GetWalker()->WalkTable(table, searchKey,
+    DBTableWalkMgr::DBTableWalkRef walk_ref = db_.GetWalkMgr()->AllocWalker(table,
                                   boost::bind(&DBTest::TableWalk, this, _1, _2),
                                   boost::bind(&DBTest::TWalkDone, this, _1));
-    EXPECT_EQ(id, 0);
 
+    DBTableWalkMgr::DBTableWalkRef walk_ref_1 = db_.GetWalkMgr()->AllocWalker(table,
+                                  boost::bind(&DBTest::TableWalk, this, _1, _2),
+                                  boost::bind(&DBTest::TWalkDone, this, _1));
+
+    DBTableWalkMgr::DBTableWalkRef walk_ref_2 = db_.GetWalkMgr()->AllocWalker(table,
+                                  boost::bind(&DBTest::TableWalk, this, _1, _2),
+                                  boost::bind(&DBTest::TWalkDone, this, _1));
+
+    TaskScheduler::GetInstance()->Stop();
+    db_.GetWalkMgr()->WalkTable(walk_ref);
+    db_.GetWalkMgr()->WalkTable(walk_ref_1);
+    db_.GetWalkMgr()->WalkTable(walk_ref_2);
 
     LOG(DEBUG, "Verify Walk count and done for full table search");
-
+    TaskScheduler::GetInstance()->Start();
     task_util::WaitForIdle();
+
     EXPECT_TRUE(walk_done_);
 
-    EXPECT_EQ(walk_count_, walk_count);
+    EXPECT_EQ(walk_count_, 3*walk_count);
 
     walk_done_ = false;
     walk_count_ = 0;
 
-    VlanTableReqKey *fail_search = new VlanTableReqKey(4091);
-    id = db_.GetWalker()->WalkTable(table, fail_search,
-                                  boost::bind(&DBTest::TableWalk, this, _1, _2),
-                                  boost::bind(&DBTest::TWalkDone, this, _1));
-    EXPECT_EQ(id, 0);
+    db_.GetWalkMgr()->WalkTable(walk_ref);
     LOG(DEBUG, "Verify Walk count and done for walk on non existing entry");
 
     task_util::WaitForIdle();
     EXPECT_TRUE(walk_done_);
-    EXPECT_EQ(walk_count_, 0);
+    EXPECT_EQ(walk_count_, walk_count);
 
 
     del_notification = 0;
@@ -571,14 +592,16 @@ TEST_F(DBTest, WalkerStats) {
     if (table == NULL) {
         return;
     }
-    DBTableWalker::WalkId id;
 
     walk_done_ = false;
     TaskScheduler::GetInstance()->Stop();
-    id = db_.GetWalker()->WalkTable(table, NULL,
-        boost::bind(&DBTest::TableWalk, this, _1, _2),
-        boost::bind(&DBTest::TWalkDone, this, _1));
-    EXPECT_EQ(id, 0);
+
+    DBTableWalkMgr::DBTableWalkRef walk_ref =
+        db_.GetWalkMgr()->AllocWalker(table, 
+                                  boost::bind(&DBTest::TableWalk, this, _1, _2),
+                                  boost::bind(&DBTest::TWalkDone, this, _1));
+    db_.GetWalkMgr()->WalkTable(walk_ref);
+
     TaskScheduler::GetInstance()->Start();
     task_util::WaitForIdle();
 
@@ -590,11 +613,8 @@ TEST_F(DBTest, WalkerStats) {
 
     walk_done_ = false;
     TaskScheduler::GetInstance()->Stop();
-    id = db_.GetWalker()->WalkTable(table, NULL,
-        boost::bind(&DBTest::TableWalk, this, _1, _2),
-        boost::bind(&DBTest::TWalkDone, this, _1));
-    EXPECT_EQ(id, 0);
-    db_.GetWalker()->WalkCancel(id);
+    db_.GetWalkMgr()->WalkTable(walk_ref);
+    db_.GetWalkMgr()->ReleaseWalker(walk_ref);
     TaskScheduler::GetInstance()->Start();
     task_util::WaitForIdle();
 

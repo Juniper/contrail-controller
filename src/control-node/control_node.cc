@@ -35,6 +35,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("bgp::StateMachine")))
         (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")))
         (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
+        (TaskExclusion(scheduler->GetTaskId("db::Walker")))
         (TaskExclusion(scheduler->GetTaskId("io::ReaderTask")))
         (TaskExclusion(scheduler->GetTaskId("ifmap::StateMachine")))
         (TaskExclusion(scheduler->GetTaskId("xmpp::StateMachine")))
@@ -79,6 +80,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     // Policy for bgp::PeerMembership Task.
     TaskPolicy peer_membership_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
+        (TaskExclusion(scheduler->GetTaskId("db::Walker")))
         (TaskExclusion(scheduler->GetTaskId("bgp::SendTask")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ServiceChain")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ShowCommand")))
@@ -98,6 +100,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     // Policy for bgp::RTFilter Task.
     TaskPolicy rtfilter_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
+        (TaskExclusion(scheduler->GetTaskId("db::Walker")))
         (TaskExclusion(scheduler->GetTaskId("bgp::StateMachine")))
         (TaskExclusion(scheduler->GetTaskId("bgp::RTFilter")))
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")));
@@ -134,4 +137,11 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("bgp::StaticRoute")));
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::RouteAggregation"),
         route_aggregation_policy);
+
+    TaskPolicy walker_policy = boost::assign::list_of
+        (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
+        (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::RTFilter")));
+    scheduler->SetPolicy(scheduler->GetTaskId("db::Walker"), walker_policy);
 }

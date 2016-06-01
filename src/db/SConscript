@@ -25,6 +25,7 @@ libdb = env.Library('db',
                      'db_partition.cc',
                      'db_table.cc',
                      'db_table_partition.cc',
+                     'db_table_walk_mgr.cc',
                      'db_table_walker.cc'])
 
 env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
