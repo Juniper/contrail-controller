@@ -210,7 +210,13 @@ bool DhcpHandlerBase::IsValidDnsOption(uint32_t option,
             set_flag(option);
             return false;
         }
+    } else {
+        uint32_t ip = Ip4Address::from_string(ipstr, ec).to_ulong();
+        if (!ip) {
+            return false;
+        }
     }
+
     return true;
 }
 
