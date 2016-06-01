@@ -6,8 +6,10 @@
 
 #include <boost/foreach.hpp>
 
+#include "bgp/bgp_membership.h"
 #include "bgp/bgp_peer_internal_types.h"
-#include "bgp/bgp_peer_membership.h"
+#include "bgp/bgp_server.h"
+#include "bgp/bgp_table.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-policy/routing_policy.h"
 
@@ -62,14 +64,14 @@ static void FillRoutingInstanceInfo(ShowRoutingInstance *sri,
     sri->set_always_subscribe(rtinstance->always_subscribe());
 
     if (!summary) {
-        const PeerRibMembershipManager *pmm = bsc->bgp_server->membership_mgr();
+        const BgpMembershipManager *bmm = bsc->bgp_server->membership_mgr();
         vector<ShowRoutingInstanceTable> srit_list;
         const RoutingInstance::RouteTableList &tables = rtinstance->GetTables();
         for (RoutingInstance::RouteTableList::const_iterator it =
              tables.begin(); it != tables.end(); ++it) {
             ShowRoutingInstanceTable srit;
             FillRoutingInstanceTableInfo(&srit, bsc, it->second);
-            pmm->FillRoutingInstanceTableInfo(&srit, it->second);
+            bmm->FillRoutingInstanceTableInfo(&srit, it->second);
             srit_list.push_back(srit);
         }
         sri->set_tables(srit_list);

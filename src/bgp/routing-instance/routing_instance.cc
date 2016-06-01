@@ -379,11 +379,8 @@ void RoutingInstanceMgr::UpdateRoutingInstance(
 //
 // Trigger deletion of a particular routing-instance
 //
-// This involves several asynchronous steps such as
-//
-// 1. Close all peers (RibIn and RibOut) from every IPeerRib in the instance
-// 2. Close all tables (Flush all notifications, registrations and user data)
-// 3. etc.
+// This involves several asynchronous steps such as deleting all tables in
+// routing-instance (flush all notifications, registrations and user data).
 //
 void RoutingInstanceMgr::DeleteRoutingInstance(const string &name) {
     CHECK_CONCURRENCY("bgp::Config");

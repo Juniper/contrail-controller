@@ -11,7 +11,7 @@
 #include "base/test/addr_test_util.h"
 
 #include "bgp/bgp_factory.h"
-#include "bgp/bgp_peer_membership.h"
+#include "bgp/bgp_membership.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
 #include "bgp/inet/inet_table.h"
@@ -198,16 +198,9 @@ public:
 
         peer_ = static_cast<BgpPeerTest *>
             (rtinstance->peer_manager()->PeerLocate(server, config_.get()));
-        WaitForIdle();
     }
     BgpPeerTest *peer() { return peer_; }
     int peer_id() { return peer_id_; }
-    bool ribout_creation_complete(Address::Family family) {
-        return ribout_creation_complete_[family];
-    }
-    void ribout_creation_complete(Address::Family family, bool complete) {
-        ribout_creation_complete_[family] = complete;
-    }
 
     string name_;
     int peer_id_;
@@ -236,10 +229,6 @@ typedef std::tr1::tuple<int, int, int, int, int, bool> TestParams;
 class BgpPeerCloseTest : public ::testing::TestWithParam<TestParams> {
 
 public:
-    void CreateRibsDone(IPeer *ipeer, BgpTable *table, BgpNullPeer *npeer) {
-        npeer->ribout_creation_complete(table->family(), true);
-    }
-
     void DeleteRoutingInstance(RoutingInstance *rtinstance);
 
 protected:
@@ -329,6 +318,7 @@ protected:
     ExtCommunitySpec *CreateRouteTargets();
     void AddAllRoutes();
     void AddPeersWithRoutes(const BgpInstanceConfig *instance_config);
+    void AddPeers(const void *args);
     void AddXmppPeersWithRoutes();
     void CreateAgents();
     void Subscribe();
@@ -410,7 +400,9 @@ void BgpPeerCloseTest::VerifyRibOutCreationCompletion() {
 
     BOOST_FOREACH(BgpNullPeer *npeer, peers_) {
         for (int i = 0; i < n_families_; i++) {
-            EXPECT_TRUE(npeer->ribout_creation_complete(familes_[i]));
+            BgpTable *table = rtinstance_->GetTable(familes_[i]);
+            TASK_UTIL_EXPECT_TRUE(server_->membership_mgr()->IsRegistered(
+                                      npeer->peer(), table));
         }
     }
 }
@@ -546,7 +538,8 @@ void BgpPeerCloseTest::AddRoutes(BgpTable *table, BgpNullPeer *npeer) {
         switch (table->family()) {
             case Address::INET:
                 commspec.reset(new ExtCommunitySpec());
-                commspec->communities.push_back(get_value(tun_encap.GetExtCommunity().begin(), 8));
+                commspec->communities.push_back(
+                        get_value(tun_encap.GetExtCommunity().begin(), 8));
                 attr_spec.push_back(commspec.get());
                 req.key.reset(new InetTable::RequestKey(prefix, peer));
                 break;
@@ -556,7 +549,8 @@ void BgpPeerCloseTest::AddRoutes(BgpTable *table, BgpNullPeer *npeer) {
                 if (!commspec.get()) {
                     commspec.reset(new ExtCommunitySpec());
                 }
-                commspec->communities.push_back(get_value(tun_encap.GetExtCommunity().begin(), 8));
+                commspec->communities.push_back(
+                        get_value(tun_encap.GetExtCommunity().begin(), 8));
                 attr_spec.push_back(commspec.get());
                 break;
             default:
@@ -572,24 +566,18 @@ void BgpPeerCloseTest::AddRoutes(BgpTable *table, BgpNullPeer *npeer) {
 }
 
 void BgpPeerCloseTest::AddAllRoutes() {
-    ConcurrencyScope scope("bgp::StateMachine");
     RibExportPolicy policy(BgpProto::IBGP, RibExportPolicy::BGP, 1, 0);
 
     BOOST_FOREACH(BgpNullPeer *npeer, peers_) {
         for (int i = 0; i < n_families_; i++) {
             BgpTable *table = rtinstance_->GetTable(familes_[i]);
-
-            server_->membership_mgr()->Register(npeer->peer(), table, policy,
-                    -1, boost::bind(&BgpPeerCloseTest::CreateRibsDone, this, _1,
-                                    _2, npeer));
+            npeer->peer()->Register(table, policy);
 
             // Add routes to RibIn
             AddRoutes(table, npeer);
         }
         npeer->peer()->set_vpn_tables_registered(true);
     }
-
-    WaitForIdle();
 }
 
 void BgpPeerCloseTest::AddXmppPeersWithRoutes() {
@@ -766,19 +754,11 @@ void BgpPeerCloseTest::VerifyRoutingInstances() {
                                BgpConfigManager::kMasterInstance));
 }
 
-void BgpPeerCloseTest::AddPeersWithRoutes(
-        const BgpInstanceConfig *instance_config) {
-    Configure();
-
-    //
-    // Add XmppPeers with routes as well
-    //
-    AddXmppPeersWithRoutes();
-
+void BgpPeerCloseTest::AddPeers(const void *args) {
+    const BgpInstanceConfig *instance_config =
+        static_cast<const BgpInstanceConfig *>(args);
     for (int p = 1; p <= n_peers_; p++) {
-        ConcurrencyScope scope("bgp::Config");
         ostringstream oss;
-
         oss << "NullPeer" << p;
         BgpNullPeer *npeer =
             new BgpNullPeer(server_.get(), instance_config, oss.str(),
@@ -797,8 +777,20 @@ void BgpPeerCloseTest::AddPeersWithRoutes(
             boost::bind(&BgpPeerCloseTest::IsReady, this, true);
         peers_.push_back(npeer);
     }
+}
 
-    AddAllRoutes();
+void BgpPeerCloseTest::AddPeersWithRoutes(
+        const BgpInstanceConfig *instance_config) {
+    Configure();
+
+    // Add XmppPeers with routes as well
+    AddXmppPeersWithRoutes();
+
+    task_util::TaskFire(boost::bind(&BgpPeerCloseTest::AddPeers, this, _1),
+                        instance_config, "bgp::Config");
+    task_util::TaskFire(boost::bind(&BgpPeerCloseTest::AddAllRoutes, this),
+                        "bgp::StateMachine");
+    WaitForIdle();
     VerifyXmppRouteNextHops();
 }
 

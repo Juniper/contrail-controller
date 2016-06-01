@@ -1112,6 +1112,7 @@ TEST_F(BgpXmppEvpnTest1, 2AgentSessionDown) {
 
     // Close the sessions.
     agent_a_->SessionDown();
+    agent_b_->SessionDown();
 }
 
 //

@@ -8,6 +8,7 @@
 #include "base/task_trigger.h"
 #include "bgp/bgp_export.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_peer_close.h"
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_ribout_updates.h"
 #include "bgp/bgp_route.h"
@@ -15,6 +16,7 @@
 #include "bgp/scheduling_group.h"
 #include "bgp/routing-instance/routing_instance.h"
 
+using std::list;
 using std::make_pair;
 using std::string;
 using std::vector;
@@ -36,6 +38,7 @@ BgpMembershipManager::BgpMembershipManager(BgpServer *server)
 // Destructor for BgpMembershipManager.
 //
 BgpMembershipManager::~BgpMembershipManager() {
+    assert(current_jobs_count_ == 0);
     assert(rib_state_map_.empty());
     assert(peer_state_map_.empty());
 }
@@ -97,13 +100,15 @@ void BgpMembershipManager::NotifyPeerRegistration(IPeer *peer, BgpTable *table,
 
 //
 // Register the IPeer to the BgpTable.
-// Post a REGISTER_RIB event to deal with concurrency issues.
+// Post a REGISTER_RIB event to deal with concurrency issues with RibOut.
 //
 void BgpMembershipManager::Register(IPeer *peer, BgpTable *table,
     const RibExportPolicy &policy, int instance_id) {
     CHECK_CONCURRENCY("bgp::Config", "bgp::StateMachine", "xmpp::StateMachine");
 
     tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
+    current_jobs_count_++;
+    total_jobs_count_++;
     PeerRibState *prs = LocatePeerRibState(peer, table);
     assert(prs->action() == NONE);
     assert(!prs->ribout_registered());
@@ -122,57 +127,89 @@ void BgpMembershipManager::RegisterRibIn(IPeer *peer, BgpTable *table) {
     tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
     PeerRibState *prs = LocatePeerRibState(peer, table);
     assert(prs->action() == NONE);
-    assert(!prs->ribin_registered());
+    assert(!prs->ribin_registered() ||
+           peer->peer_close()->close_manager()->IsInGracefulRestartTimerWait());
     assert(!prs->ribout_registered());
     prs->set_ribin_registered(true);
 }
 
 //
 // Unregister the IPeer from the BgpTable.
-// Post an UNREGISTER_RIB event to deal with concurrency issues.
+// Post an UNREGISTER_RIB event to deal with concurrency issues with RibOut.
 //
 void BgpMembershipManager::Unregister(IPeer *peer, BgpTable *table) {
-    CHECK_CONCURRENCY("bgp::Config", "bgp::StateMachine", "xmpp::StateMachine");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::StateMachine", "xmpp::StateMachine",
+                      "bgp::PeerMembership");
 
     tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
+    current_jobs_count_++;
+    total_jobs_count_++;
     PeerRibState *prs = FindPeerRibState(peer, table);
     assert(prs && prs->action() == NONE);
     assert(prs->ribin_registered());
-    prs->set_action(RIBOUT_DELETE);
+
+    if (!prs->ribout_registered()) {
+        UnregisterRibInUnlocked(prs);
+        return;
+    }
+
+    prs->set_action(RIBIN_DELETE_RIBOUT_DELETE);
     prs->set_ribin_registered(false);
+    prs->set_instance_id(-1);
+    prs->set_subscription_gen_id(0);
     Event *event = new Event(UNREGISTER_RIB, peer, table);
     EnqueueEvent(event);
 }
 
 //
-// Synchronously unregister the IPeer to the BgpTable for RIBIN.
+// Unregister the IPeer from the BgpTable for RIBIN.
 //
 void BgpMembershipManager::UnregisterRibIn(IPeer *peer, BgpTable *table) {
-    CHECK_CONCURRENCY("bgp::Config", "bgp::StateMachine", "xmpp::StateMachine");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::StateMachine", "xmpp::StateMachine",
+                      "bgp::PeerMembership");
 
     tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
+    current_jobs_count_++;
+    total_jobs_count_++;
     PeerRibState *prs = FindPeerRibState(peer, table);
     assert(prs && prs->action() == NONE);
-    assert(prs->ribin_registered());
+    assert(prs->ribin_registered() && !prs->ribout_registered());
+    UnregisterRibInUnlocked(prs);
+}
+
+//
+// Common routine to handle unregister of IPeer from Table for RIBIN.
+//
+void BgpMembershipManager::UnregisterRibInUnlocked(PeerRibState *prs) {
     prs->set_ribin_registered(false);
-    if (!prs->ribout_registered())
-        DestroyPeerRibState(prs);
+    prs->set_instance_id(-1);
+    prs->set_subscription_gen_id(0);
+    prs->set_action(RIBIN_DELETE);
+    prs->UnregisterRibIn();
+    BGP_LOG_PEER_TABLE(prs->peer(), SandeshLevel::SYS_DEBUG,
+        BGP_LOG_FLAG_SYSLOG, prs->table(),
+        "Unregister table requested for action " << prs->action());
 }
 
 //
 // Unregister the IPeer from the BgpTable.
-// Post an UNREGISTER_RIB event to deal with concurrency issues.
+// Post an UNREGISTER_RIB event to deal with concurrency issues with RibOut.
 // The action is set to RIBIN_WALK_RIBOUT_DELETE.
 // This API is to be used when handling graceful restart of the peer.
 //
 void BgpMembershipManager::UnregisterRibOut(IPeer *peer, BgpTable *table) {
-    CHECK_CONCURRENCY("bgp::Config", "bgp::StateMachine", "xmpp::StateMachine");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::StateMachine", "xmpp::StateMachine",
+                      "bgp::PeerMembership");
 
     tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
+    current_jobs_count_++;
+    total_jobs_count_++;
     PeerRibState *prs = FindPeerRibState(peer, table);
     assert(prs && prs->action() == NONE);
     assert(prs->ribin_registered());
     assert(prs->ribout_registered());
+    prs->set_instance_id(-1);
+    prs->set_subscription_gen_id(0);
     prs->set_action(RIBIN_WALK_RIBOUT_DELETE);
     Event *event = new Event(UNREGISTER_RIB, peer, table);
     EnqueueEvent(event);
@@ -184,16 +221,19 @@ void BgpMembershipManager::UnregisterRibOut(IPeer *peer, BgpTable *table) {
 // It can also be used in future when re-evaluating import policy for a peer.
 //
 void BgpMembershipManager::WalkRibIn(IPeer *peer, BgpTable *table) {
-    CHECK_CONCURRENCY("bgp::Config", "bgp::StateMachine", "xmpp::StateMachine");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::StateMachine", "xmpp::StateMachine",
+                      "bgp::PeerMembership");
 
     tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
+    current_jobs_count_++;
+    total_jobs_count_++;
     PeerRibState *prs = FindPeerRibState(peer, table);
     assert(prs && prs->action() == NONE);
     assert(prs->ribin_registered());
     prs->set_action(RIBIN_WALK);
     prs->WalkRibIn();
     BGP_LOG_PEER_TABLE(peer, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_SYSLOG,
-        table, "Walk table requested");
+        table, "Walk table requested for action " << prs->action());
 }
 
 //
@@ -215,7 +255,7 @@ bool BgpMembershipManager::GetRegistrationInfo(
 }
 
 //
-// Update the subscription info of the IPeer for the BgpTable.
+// Update the registration info of the IPeer for the BgpTable.
 //
 void BgpMembershipManager::SetRegistrationInfo(
     const IPeer *peer, const BgpTable *table,
@@ -228,6 +268,49 @@ void BgpMembershipManager::SetRegistrationInfo(
     prs->set_subscription_gen_id(subscription_gen_id);
 }
 
+//
+// Return true if the IPeer is registered to the BgpTable.
+//
+bool BgpMembershipManager::IsRegistered(const IPeer *peer,
+    const BgpTable *table) const {
+    tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
+    const PeerRibState *prs = FindPeerRibState(peer, table);
+    return (prs && prs->ribin_registered() && prs->ribout_registered());
+}
+
+//
+// Return true if the IPeer is registered to the BgpTable for RibIn.
+//
+bool BgpMembershipManager::IsRibInRegistered(const IPeer *peer,
+    const BgpTable *table) const {
+    tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
+    const PeerRibState *prs = FindPeerRibState(peer, table);
+    return (prs && prs->ribin_registered());
+}
+
+//
+// Return true if the IPeer is registered to the BgpTable for RibOut.
+//
+bool BgpMembershipManager::IsRibOutRegistered(const IPeer *peer,
+    const BgpTable *table) const {
+    tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
+    const PeerRibState *prs = FindPeerRibState(peer, table);
+    return (prs && prs->ribout_registered());
+}
+
+//
+// Fill in the list of registered BgpTables for given IPeer.
+//
+void BgpMembershipManager::GetRegisteredRibs(const IPeer *peer,
+    list<BgpTable *> *table_list) const {
+    tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
+    table_list->clear();
+    const PeerState *ps = FindPeerState(peer);
+    if (ps)
+        ps->GetRegisteredRibs(table_list);
+}
+
+//
 //
 // Fill membership introspect information for a BgpTable.
 //
@@ -433,19 +516,19 @@ void BgpMembershipManager::ProcessRegisterRibEvent(Event *event) {
     PeerRibState *prs = FindPeerRibState(peer, table);
     assert(prs && prs->action() == RIBOUT_ADD);
     assert(prs->ribin_registered());
+    prs->set_instance_id(event->instance_id);
 
     // Notify completion right away if the table is marked for deletion.
     if (table->IsDeleted()) {
         prs->clear_action();
-        prs->set_ribout_registered(true);
-        peer->MembershipCallback(table);
+        peer->MembershipRequestCallback(table);
+        current_jobs_count_--;
         return;
     }
 
     prs->RegisterRibOut(event->policy);
-    prs->set_instance_id(event->instance_id);
     BGP_LOG_PEER_TABLE(peer, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_SYSLOG,
-        table, "Register table requested");
+        table, "Register table requested for action " << prs->action());
 }
 
 
@@ -459,12 +542,12 @@ void BgpMembershipManager::ProcessRegisterRibCompleteEvent(Event *event) {
     assert(prs && prs->action() == RIBOUT_ADD);
     assert(prs->ribin_registered());
     assert(prs->ribout_registered());
-    prs->clear_action();
-
     BGP_LOG_PEER_TABLE(peer, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_SYSLOG,
-        table, "Register table completed");
-    peer->MembershipCallback(table);
+        table, "Register table completed for action " << prs->action());
+    prs->clear_action();
+    peer->MembershipRequestCallback(table);
     NotifyPeerRegistration(peer, table, false);
+    current_jobs_count_--;
 }
 
 //
@@ -475,9 +558,9 @@ void BgpMembershipManager::ProcessUnregisterRibEvent(Event *event) {
     BgpTable *table = event->table;
     PeerRibState *prs = FindPeerRibState(peer, table);
     assert(prs);
-    assert(prs->action() == RIBOUT_DELETE ||
+    assert(prs->action() == RIBIN_DELETE_RIBOUT_DELETE ||
         prs->action() == RIBIN_WALK_RIBOUT_DELETE);
-    if (prs->action() == RIBOUT_DELETE)
+    if (prs->action() == RIBIN_DELETE_RIBOUT_DELETE)
         assert(!prs->ribin_registered());
     if (prs->action() == RIBIN_WALK_RIBOUT_DELETE)
         assert(prs->ribin_registered());
@@ -485,7 +568,7 @@ void BgpMembershipManager::ProcessUnregisterRibEvent(Event *event) {
 
     prs->DeactivateRibOut();
     BGP_LOG_PEER_TABLE(peer, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_SYSLOG,
-        table, "Unregister table requested");
+        table, "Unregister table requested for action " << prs->action());
 }
 
 //
@@ -496,18 +579,23 @@ void BgpMembershipManager::ProcessUnregisterRibCompleteEvent(Event *event) {
     BgpTable *table = event->table;
     PeerRibState *prs = FindPeerRibState(peer, table);
     assert(prs);
-    assert(prs->action() == RIBOUT_DELETE ||
+    assert(prs->action() == RIBIN_DELETE_RIBOUT_DELETE ||
         prs->action() == RIBIN_WALK_RIBOUT_DELETE);
+    if (prs->action() == RIBIN_DELETE_RIBOUT_DELETE)
+        assert(!prs->ribin_registered());
+    if (prs->action() == RIBIN_WALK_RIBOUT_DELETE)
+        assert(prs->ribin_registered());
 
     prs->UnregisterRibOut();
+    BGP_LOG_PEER_TABLE(peer, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_SYSLOG,
+        table, "Unregister table completed for action " << prs->action());
     prs->clear_action();
     if (!prs->ribin_registered() && !prs->ribout_registered())
         DestroyPeerRibState(prs);
 
-    BGP_LOG_PEER_TABLE(peer, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_SYSLOG,
-        table, "Unregister table completed");
-    peer->MembershipCallback(table);
+    peer->MembershipRequestCallback(table);
     NotifyPeerRegistration(peer, table, true);
+    current_jobs_count_--;
 }
 
 //
@@ -517,26 +605,29 @@ void BgpMembershipManager::ProcessWalkRibCompleteEvent(Event *event) {
     IPeer *peer = event->peer;
     BgpTable *table = event->table;
     PeerRibState *prs = FindPeerRibState(peer, table);
-    assert(prs && prs->action() == RIBIN_WALK);
-    assert(prs->ribin_registered());
+    assert(prs);
+    assert(prs->action() == RIBIN_WALK || prs->action() == RIBIN_DELETE);
+    if (prs->action() == RIBIN_WALK) {
+        assert(prs->ribin_registered());
+        BGP_LOG_PEER_TABLE(peer, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_SYSLOG,
+            table, "Walk table completed for action " << prs->action());
+    } else {
+        assert(!prs->ribin_registered());
+        BGP_LOG_PEER_TABLE(peer, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_SYSLOG,
+            table, "Unregister table completed for action " << prs->action());
+    }
     prs->clear_action();
-
-    BGP_LOG_PEER_TABLE(peer, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_SYSLOG,
-        table, "Walk table completed");
-    peer->MembershipCallback(table);
+    if (!prs->ribin_registered() && !prs->ribout_registered())
+        DestroyPeerRibState(prs);
+    peer->MembershipRequestCallback(table);
+    current_jobs_count_--;
 }
 
 //
-// Handler for an Event.
+// Internal handler for an Event.
+// Exists so that test code can override it.
 //
-bool BgpMembershipManager::EventCallback(Event *event) {
-    CHECK_CONCURRENCY("bgp::PeerMembership");
-
-    // Mutex should not be required since bgp::PeerMembership is exclusive
-    // with bgp::StateMachine and xmpp::StateMachine. However, it's needed
-    // for unit tests since they use a ConcurrencyScope.
-    tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
-
+bool BgpMembershipManager::EventCallbackInternal(Event *event) {
     switch (event->event_type) {
     case REGISTER_RIB:
         ProcessRegisterRibEvent(event);
@@ -560,6 +651,14 @@ bool BgpMembershipManager::EventCallback(Event *event) {
 
     delete event;
     return true;
+}
+
+//
+// Handler for an Event.
+//
+bool BgpMembershipManager::EventCallback(Event *event) {
+    CHECK_CONCURRENCY("bgp::PeerMembership");
+    return EventCallbackInternal(event);
 }
 
 //
@@ -647,6 +746,18 @@ bool BgpMembershipManager::PeerState::RemovePeerRibState(PeerRibState *prs) {
 }
 
 //
+// Fill in the list of registered BgpTables.
+//
+void BgpMembershipManager::PeerState::GetRegisteredRibs(
+    list<BgpTable *> *table_list) const {
+    for (PeerRibStateMap::const_iterator loc = rib_map_.begin();
+         loc != rib_map_.end(); ++loc) {
+        const RibState *rs = loc->first;
+        table_list->push_back(rs->table());
+    }
+}
+
+//
 // Fill introspect information.
 //
 void BgpMembershipManager::PeerState::FillPeerMembershipInfo(
@@ -669,7 +780,9 @@ void BgpMembershipManager::PeerState::FillPeerMembershipInfo(
 BgpMembershipManager::RibState::RibState(BgpMembershipManager *manager,
     BgpTable *table)
     : manager_(manager),
-      table_(table) {
+      table_(table),
+      request_count_(0),
+      walk_count_(0) {
 }
 
 //
@@ -684,6 +797,7 @@ BgpMembershipManager::RibState::~RibState() {
 // Enqueue given PeerRibState into the pending PeerRibStateList.
 //
 void BgpMembershipManager::RibState::EnqueuePeerRibState(PeerRibState *prs) {
+    request_count_++;
     pending_peer_rib_list_.insert(prs);
     manager_->EnqueueRibState(this);
 }
@@ -715,14 +829,19 @@ bool BgpMembershipManager::RibState::RemovePeerRibState(PeerRibState *prs) {
 //
 void BgpMembershipManager::RibState::FillRoutingInstanceTableInfo(
     ShowRoutingInstanceTable *srit) const {
-    vector<string> peers;
+    ShowTableMembershipInfo stmi;
+    stmi.set_requests(request_count_);
+    stmi.set_walks(walk_count_);
+    vector<ShowMembershipPeerInfo> peers;
     for (PeerRibList::const_iterator it = peer_rib_list_.begin();
          it != peer_rib_list_.end(); ++it) {
         const PeerRibState *prs = *it;
-        peers.push_back(prs->peer_state()->peer()->ToString());
+        ShowMembershipPeerInfo smpi;
+        prs->FillMembershipInfo(&smpi);
+        peers.push_back(smpi);
     }
-    if (!peers.empty())
-        srit->set_peers(peers);
+    stmi.set_peers(peers);
+    srit->set_membership(stmi);
 }
 
 //
@@ -824,10 +943,29 @@ void BgpMembershipManager::PeerRibState::UnregisterRibOut() {
 }
 
 //
+// Unregister the RibIn for the IPeer.
+//
+void BgpMembershipManager::PeerRibState::UnregisterRibIn() {
+    rs_->EnqueuePeerRibState(this);
+}
+
+//
 // Walk the RibIn for the IPeer.
 //
 void BgpMembershipManager::PeerRibState::WalkRibIn() {
     rs_->EnqueuePeerRibState(this);
+}
+
+//
+// Fill introspect information.
+//
+void BgpMembershipManager::PeerRibState::FillMembershipInfo(
+    ShowMembershipPeerInfo *smpi) const {
+    smpi->set_peer(ps_->peer()->ToString());
+    smpi->set_ribin_registered(ribin_registered_);
+    smpi->set_ribout_registered(ribout_registered_);
+    smpi->set_instance_id(instance_id_);
+    smpi->set_generation_id(subscription_gen_id_);
 }
 
 //
@@ -938,7 +1076,7 @@ bool BgpMembershipManager::Walker::WalkCallback(DBTablePartBase *tpart,
         if (!peer || peer_list_.find(peer) == peer_list_.end())
             continue;
 
-        notify |= peer->MembershipPathCallback(tpart, route);
+        notify |= peer->MembershipPathCallback(tpart, route, path);
     }
 
     rs_->table()->InputCommonPostProcess(tpart, route, notify);
@@ -979,7 +1117,7 @@ void BgpMembershipManager::Walker::WalkStart() {
     // Get and remove the first RibState from the RibStateList.
     rs_ = rib_state_list_.front();
     rib_state_list_.pop_front();
-    rib_state_set_.erase(rs_);
+    assert(rib_state_set_.erase(rs_) == 1);
 
     // Process all pending PeerRibStates for chosen RibState.
     // Insert the PeerRibStates into PeerRibList for post processing when
@@ -996,17 +1134,14 @@ void BgpMembershipManager::Walker::WalkStart() {
             ros->JoinPeer(prs->ribout_index());
             break;
         }
-        case RIBOUT_DELETE: {
-            RibOutState *ros = LocateRibOutState(prs->ribout());
-            ros->LeavePeer(prs->ribout_index());
-            break;
-        }
+        case RIBIN_DELETE:
         case RIBIN_WALK: {
             IPeer *peer = prs->peer_state()->peer();
             peer_list_.insert(peer);
             break;
         }
-        case RIBIN_WALK_RIBOUT_DELETE: {
+        case RIBIN_WALK_RIBOUT_DELETE:
+        case RIBIN_DELETE_RIBOUT_DELETE: {
             IPeer *peer = prs->peer_state()->peer();
             peer_list_.insert(peer);
             RibOutState *ros = LocateRibOutState(prs->ribout());
@@ -1026,6 +1161,7 @@ void BgpMembershipManager::Walker::WalkStart() {
     rs_->ClearPeerRibStateList();
 
     // Start the walk.
+    rs_->increment_walk_count();
     BgpTable *table = rs_->table();
     DBTableWalker *walker = table->database()->GetWalker();
     walk_id_ = walker->WalkTable(table, NULL,
@@ -1064,17 +1200,15 @@ void BgpMembershipManager::Walker::WalkFinish() {
             event = new Event(
                 BgpMembershipManager::REGISTER_RIB_COMPLETE, peer, table);
             break;
-        case RIBOUT_DELETE:
-            event = new Event(
-                BgpMembershipManager::UNREGISTER_RIB_COMPLETE, peer, table);
-            break;
-        case RIBIN_WALK_RIBOUT_DELETE:
-            event = new Event(
-                BgpMembershipManager::UNREGISTER_RIB_COMPLETE, peer, table);
-            break;
+        case RIBIN_DELETE:
         case RIBIN_WALK:
             event = new Event(
                 BgpMembershipManager::WALK_RIB_COMPLETE, peer, table);
+            break;
+        case RIBIN_WALK_RIBOUT_DELETE:
+        case RIBIN_DELETE_RIBOUT_DELETE:
+            event = new Event(
+                BgpMembershipManager::UNREGISTER_RIB_COMPLETE, peer, table);
             break;
         default:
             assert(false);

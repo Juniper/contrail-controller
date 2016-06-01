@@ -72,29 +72,15 @@ class XmppServerTest : public XmppServer {
 public:
 
     XmppServerTest(EventManager *evm) : XmppServer(evm) {
-        GetIsPeerCloseGraceful_fnc_ =
-            boost::bind(&XmppServerTest::XmppServerIsPeerCloseGraceful, this);
     }
     XmppServerTest(EventManager *evm, const std::string &server_addr) :
             XmppServer(evm, server_addr) {
-        GetIsPeerCloseGraceful_fnc_ =
-            boost::bind(&XmppServerTest::XmppServerIsPeerCloseGraceful, this);
     }
     XmppServerTest(EventManager *evm, const std::string &server_addr,
                    const XmppChannelConfig *config) :
         XmppServer(evm, server_addr, config) {
-        GetIsPeerCloseGraceful_fnc_ =
-            boost::bind(&XmppServerTest::XmppServerIsPeerCloseGraceful, this);
     }
     virtual ~XmppServerTest() { }
-
-    virtual bool IsPeerCloseGraceful() {
-        return GetIsPeerCloseGraceful_fnc_();
-    }
-
-    bool XmppServerIsPeerCloseGraceful() {
-        return XmppServer::IsPeerCloseGraceful();
-    }
 
     const ConnectionMap &connection_map() const { return connection_map_; }
 
@@ -125,8 +111,6 @@ public:
         XmppServer::RemoveDeletedConnection(connection);
     }
 
-    boost::function<bool()> GetIsPeerCloseGraceful_fnc_;
-
 private:
     tbb::mutex mutex_;
 };
@@ -139,7 +123,7 @@ public:
     virtual ~StateMachineTest() { }
 
     void StartConnectTimer(int seconds) {
-        connect_timer_->Start(10,
+        connect_timer_->Start(100,
             boost::bind(&StateMachine::ConnectTimerExpired, this),
             boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
     }
@@ -251,15 +235,6 @@ public:
     }
 
     virtual std::string ToString() const;
-    virtual bool IsPeerCloseGraceful() {
-        return GetIsPeerCloseGraceful_fnc_();
-    }
-
-    bool BgpServerIsPeerCloseGraceful() {
-        return BgpServer::IsPeerCloseGraceful();
-    }
-
-    boost::function<bool()> GetIsPeerCloseGraceful_fnc_;
 
 private:
     void PostShutdown();
@@ -292,7 +267,7 @@ public:
     virtual bool MpNlriAllowed(uint16_t afi, uint8_t safi) {
         return MpNlriAllowed_fnc_(afi, safi);
     }
-  
+
     bool BgpPeerIsReady();
     void SetDataCollectionKey(BgpPeerInfo *peer_info) const;
     void SendEorMarker() {
@@ -301,14 +276,8 @@ public:
         }
     }
 
-    virtual bool IsReady() const {
-        return IsReady_fnc_();
-    }
-
-    void set_vpn_tables_registered(bool registered) {
-        vpn_tables_registered_ = registered;
-    }
-
+    virtual bool IsReady() const { return IsReady_fnc_(); }
+    void set_vpn_tables_registered(bool flag) { vpn_tables_registered_ = flag; }
     const int id() const { return id_; }
     void set_id(int id) { id_ = id; }
 
@@ -327,9 +296,20 @@ public:
         cond_var_.wait(lock);
     }
 
+    bool SkipNotificationReceiveDefault(int code, int subcode) const {
+        return BgpPeer::SkipNotificationReceive(code, subcode);
+    }
+
+    virtual bool SkipNotificationReceive(int code, int subcode) const {
+        if (skip_notification_recv_fnc_.empty())
+            return SkipNotificationReceiveDefault(code, subcode);
+        return skip_notification_recv_fnc_(code, subcode);
+    }
+
     boost::function<bool(const uint8_t *, size_t)> SendUpdate_fnc_;
     boost::function<bool(uint16_t, uint8_t)> MpNlriAllowed_fnc_;
     boost::function<bool()> IsReady_fnc_;
+    boost::function<bool(int, int)> skip_notification_recv_fnc_;
 
     BgpTestUtil util_;
 
@@ -392,7 +372,7 @@ public:
     ~XmppStateMachineTest() { }
 
     void StartConnectTimer(int seconds) {
-        connect_timer_->Start(10,
+        connect_timer_->Start(100,
             boost::bind(&XmppStateMachine::ConnectTimerExpired, this),
             boost::bind(&XmppStateMachine::TimerErrorHandler, this, _1, _2));
     }

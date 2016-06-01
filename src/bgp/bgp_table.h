@@ -126,11 +126,6 @@ public:
     PathResolver *path_resolver() { return path_resolver_; }
     const PathResolver *path_resolver() const { return path_resolver_; }
 
-    virtual void Input(DBTablePartition *root, DBClient *client,
-                       DBRequest *req);
-    void Input(DBTablePartBase *root, IPeer *peer, BgpRoute *rt,
-               int action_mask);
-
     LifetimeActor *deleter();
     const LifetimeActor *deleter() const;
     size_t GetPendingRiboutsCount(size_t *markers) const;
@@ -151,6 +146,9 @@ public:
     bool IsContributingRoute(const BgpRoute *route) const;
     BgpTableStats *stats() { return stats_.get(); }
 
+    bool DeletePath(DBTablePartBase *root, BgpRoute *rt, BgpPath *path);
+    virtual void Input(DBTablePartition *root, DBClient *client,
+                       DBRequest *req);
     bool InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
                      const IPeer *peer, DBRequest *req,
                      DBRequest::DBOperation oper, BgpAttrPtr attrs,
