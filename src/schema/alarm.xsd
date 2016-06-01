@@ -12,10 +12,12 @@
         <xsd:enumeration value="&gt;="/>
         <xsd:enumeration value="in"/>
         <xsd:enumeration value="not in"/>
+        <xsd:enumeration value="size=="/>
+        <xsd:enumeration value="size!="/>
     </xsd:restriction>
 </xsd:simpleType>
 
-<xsd:complexType name="AlarmElement">
+<xsd:complexType name="AlarmExpression">
     <xsd:all>
         <xsd:element name="operation" type="AlarmOperation" required="true" description="operation to compare operand1 and operand2"/>
         <xsd:element name="operand1" type="xsd:string" required="true" description="UVE attribute specified in the dotted format. Example: NodeStatus.process_info.process_state"/>
@@ -24,9 +26,15 @@
     </xsd:all>
 </xsd:complexType>
 
-<xsd:complexType name="AlarmRule">
+<xsd:complexType name="AlarmAndList">
     <xsd:all>
-        <xsd:element name="rule" type="AlarmElement" maxOccurs="unbounded"/>
+        <xsd:element name="and_list" type="AlarmExpression" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="AlarmOrList">
+    <xsd:all>
+        <xsd:element name="or_list" type="AlarmAndList" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -64,9 +72,9 @@
 <!--#IFMAP-SEMANTICS-IDL
      Property('alarm-severity', 'alarm', 'required', 'CRUD',
               'Severity level for the alarm.') -->
-<xsd:element name="alarm-rules" type="AlarmRule" maxOccurs="unbounded"/>
+<xsd:element name="alarm-rules" type="AlarmOrList"/>
 <!--#IFMAP-SEMANTICS-IDL
-     ListProperty('alarm-rules', 'alarm', 'required', 'CRUD',
-                  'Rules based on the UVE attributes specified as OR-of-ANDs of AlarmRule template. Example: "alarm_rules": [{"rule": [{AlarmRule1}, {AlarmRule2}, ...]}, {"rule": [{AlarmRule3}, {AlarmRule4}, ...]}]') -->
+     ListProperty('alarm-rules', 'alarm', 'optional', 'CRUD',
+                  'Rules based on the UVE attributes specified as OR-of-ANDs of AlarmExpression template. Example: "alarm_rules": {"or_list": [{"and_list": [{AlarmExpression1}, {AlarmExpression2}, ...]}, {"and_list": [{AlarmExpression3}, {AlarmExpression4}, ...]}]}') -->
 
 </xsd:schema>
