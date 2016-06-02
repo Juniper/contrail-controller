@@ -7,7 +7,8 @@ class ProcessStatus(AlarmBase):
        NodeMgr reports abnormal status for process(es) in NodeStatus.process_info"""
    
     def __init__(self):
-	AlarmBase.__init__(self, AlarmBase.SYS_ERR)
+	AlarmBase.__init__(self, AlarmBase.SYS_ERR, at=10, it=10, fec=True,
+                fcs=300, fct=4)
 
     def __call__(self, uve_key, uve_data):
         or_list = []
