@@ -298,6 +298,10 @@ def check_svc_status(service_name, debug, detail, timeout):
         cmdout = cmdout.replace('   RUNNING', 'active')
         cmdout = cmdout.replace('   STOPPED', 'inactive')
         cmdout = cmdout.replace('   FATAL', 'failed')
+        cmdout = cmdout.replace('   STOPPING', 'failed')
+        cmdout = cmdout.replace('   EXITED', 'failed')
+        cmdout = cmdout.replace('   FATAL', 'failed')
+        cmdout = cmdout.replace('   UNKNOWN', 'failed')
         cmdoutlist = cmdout.split('\n')
         if debug:
             print '%s: %s' % (str(service_name), cmdoutlist)
