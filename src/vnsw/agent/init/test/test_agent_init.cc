@@ -72,7 +72,6 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
     // By default, flow-tracing must be enabled
     EXPECT_TRUE(param.flow_trace_enable());
     EXPECT_EQ(param.pkt0_tx_buffer_count(), 2000);
-    EXPECT_TRUE(param.debug());
     EXPECT_EQ(param.pkt0_tx_buffer_count(), 2000);
 }
 
@@ -302,12 +301,11 @@ TEST_F(FlowTest, Agent_Arg_Override_Config_1) {
 }
 
 TEST_F(FlowTest, Agent_Arg_Override_Config_2) {
-    int argc = 9;
+    int argc = 7;
     char *argv[] = {
         (char *) "",
         (char *) "--DNS.server",    (char *)"20.1.1.1:500", (char *)"21.1.1.1:15001", 
         (char *) "--CONTROL-NODE.server",   (char *)"22.1.1.1", (char *)"23.1.1.1",
-        (char *) "--DEFAULT.debug",   (char *)"0",
     };
 
     AgentParam param;
@@ -347,7 +345,6 @@ TEST_F(FlowTest, Default_Cmdline_arg1) {
     EXPECT_STREQ(param.log_level().c_str(), "SYS_ERR");
     EXPECT_TRUE(param.isXenMode());
     EXPECT_EQ(param.agent_mode(), AgentParam::TSN_AGENT);
-    EXPECT_FALSE(param.debug());
 }
 
 /* Some command line args have default values. If user has not passed these

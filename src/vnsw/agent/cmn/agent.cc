@@ -384,7 +384,6 @@ void Agent::CopyConfig(AgentParam *params) {
 
     headless_agent_mode_ = params_->headless_mode();
     simulate_evpn_tor_ = params->simulate_evpn_tor();
-    debug_ = params_->debug();
     test_mode_ = params_->test_mode();
     tsn_enabled_ = params_->isTsnAgent();
     tor_agent_enabled_ = params_->isTorAgent();
