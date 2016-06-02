@@ -834,9 +834,6 @@ public:
         return ip_fabric_intf_name_;
     }
 
-    bool debug() { return debug_; }
-    void set_debug(bool debug) { debug_ = debug; }
-
     VxLanNetworkIdentifierMode vxlan_network_identifier_mode() const {
         return vxlan_network_identifier_mode_;
     }
@@ -1144,7 +1141,6 @@ private:
     bool headless_agent_mode_;
     const Interface *vhost_interface_;
     process::ConnectionState* connection_state_;
-    bool debug_;
     bool test_mode_;
     bool xmpp_dns_test_mode_;
     bool init_done_;
