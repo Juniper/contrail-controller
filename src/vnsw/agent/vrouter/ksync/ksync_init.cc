@@ -77,7 +77,6 @@ void KSync::RegisterDBClients(DB *db) {
     vrf_assign_ksync_obj_.get()->RegisterDBClients();
     vxlan_ksync_obj_.get()->RegisterDBClients();
     agent_->set_router_id_configured(false);
-    KSyncDebug::set_debug(agent_->debug());
 }
 
 void KSync::Init(bool create_vhost) {
