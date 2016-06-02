@@ -253,6 +253,7 @@ class DatabaseEventManager(EventManager):
     def send_database_status(self):
         cassandra_status_uve = CassandraStatusUVE()
         cassandra_status = CassandraStatusData()
+        cassandra_status.cassandra_compaction_task = CassandraCompactionTask()
         # Get compactionstats
         compaction_count = subprocess.Popen(["nodetool", "compactionstats"],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
