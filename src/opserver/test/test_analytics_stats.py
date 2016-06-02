@@ -257,14 +257,14 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         logging.info("Checking Stats " + str(UTCTimestampUsec()))
         assert generator_obj.verify_test_stat("StatTable.StatTestState.st","-2m",
-            select_fields = [ "MAX(st.i1)", "PERCENTILES(st.i1)"],
+            select_fields = [ "MAX(st.i1)", "PERCENTILES(st.i1)", "AVG(st.i1)"],
             where_clause = 'name|st.s1=t04|samp1', num = 1, check_rows =
-            [{u'MAX(st.i1)': 4, u'PERCENTILES(st.i1)': None}]);
+            [{u'MAX(st.i1)': 4, u'PERCENTILES(st.i1)': None, u'AVG(st.i1)': 2.33333}]);
 
         assert generator_obj.verify_test_stat("StatTable.StatTestState.st","-2m",
-            select_fields = [ "MIN(st.d1)"],
+            select_fields = [ "MIN(st.d1)", "AVG(st.d1)"],
             where_clause = 'name|st.s1=t04|samp1', num = 1, check_rows =
-            [{u'MIN(st.d1)': 3.4}]);
+            [{u'MIN(st.d1)': 3.4, u'AVG(st.d1)': 4.13333}]);
 
         return True
     # end test_03_min_max_query
