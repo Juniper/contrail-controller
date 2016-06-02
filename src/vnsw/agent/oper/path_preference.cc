@@ -809,6 +809,10 @@ bool PathPreferenceModule::DequeueEvent(PathPreferenceEventContainer event) {
     const PathPreferenceIntfState *cintf_state =
         static_cast<const PathPreferenceIntfState *>(
         vm_intf->GetState(agent_->interface_table(), intf_id_));
+    if (!cintf_state) {
+        return true;
+    }
+
     PathPreferenceIntfState *intf_state =
         const_cast<PathPreferenceIntfState *>(cintf_state);
     /* Only events with IPv4 IP is enqueued now */
@@ -887,9 +891,11 @@ void PathPreferenceModule::VrfNotify(DBTablePartBase *partition,
        static_cast<PathPreferenceVrfState *>(e->GetState(partition->parent(),
                                                           vrf_id_));
 
-   if (vrf->IsDeleted() && vrf_state) {
-       e->ClearState(partition->parent(), vrf_id_);
-       delete vrf_state;
+   if (vrf->IsDeleted()) {
+       if (vrf_state) {
+           e->ClearState(partition->parent(), vrf_id_);
+           delete vrf_state;
+       }
        return;
    }
 
