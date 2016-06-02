@@ -222,6 +222,10 @@ void OperDB::Init() {
     domain_config_->Init();
 }
 
+void OperDB::InitDone() {
+    profile_->InitDone();
+}
+
 void OperDB::RegisterDBClients() {
     IFMapDependencyManager *mgr = agent_->oper_db()->dependency_manager();
     agent_->physical_device_table()->RegisterDBClients(mgr);

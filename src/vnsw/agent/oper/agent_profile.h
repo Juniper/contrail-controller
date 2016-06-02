@@ -128,6 +128,7 @@ public:
     ~AgentProfile();
     bool Init();
     void Shutdown();
+    void InitDone();
 
     bool TimerRun();
     void Log();

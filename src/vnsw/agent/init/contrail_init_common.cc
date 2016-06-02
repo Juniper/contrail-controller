@@ -254,6 +254,10 @@ void ContrailInitCommon::InitDone() {
     if (agent()->ksync()) {
         agent()->ksync()->InitDone();
     }
+
+    if (agent()->oper_db()) {
+        agent()->oper_db()->InitDone();
+    }
 }
 
 /****************************************************************************
