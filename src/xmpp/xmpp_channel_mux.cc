@@ -13,7 +13,8 @@ using namespace std;
 using namespace xmsm;
 
 XmppChannelMux::XmppChannelMux(XmppConnection *connection) 
-    : connection_(connection), rx_message_trace_cb_(NULL), closing_count_(0) {
+    : connection_(connection), rx_message_trace_cb_(NULL),
+    tx_message_trace_cb_(NULL), closing_count_(0) {
 }
 
 XmppChannelMux::~XmppChannelMux() {
@@ -250,6 +251,9 @@ std::string XmppChannelMux::LastFlap() const {
 void XmppChannelMux::RegisterRxMessageTraceCallback(RxMessageTraceCb cb) {
     rx_message_trace_cb_ = cb;
 }
+void XmppChannelMux::RegisterTxMessageTraceCallback(TxMessageTraceCb cb) {
+    tx_message_trace_cb_ = cb;
+}
 
 bool XmppChannelMux::RxMessageTrace(const std::string &to_address,
                                     int port,
@@ -258,6 +262,17 @@ bool XmppChannelMux::RxMessageTrace(const std::string &to_address,
                                     const XmppStanza::XmppMessage *xmpp_msg) {
     if (rx_message_trace_cb_) {
         return rx_message_trace_cb_(to_address, port, msg_size, msg, xmpp_msg);
+    }
+    return false;
+}
+
+bool XmppChannelMux::TxMessageTrace(const std::string &to_address,
+                                    int port,
+                                    int msg_size,
+                                    const std::string &msg,
+                                    const XmppStanza::XmppMessage *xmpp_msg) {
+    if (tx_message_trace_cb_) {
+        return tx_message_trace_cb_(to_address, port, msg_size, msg, xmpp_msg);
     }
     return false;
 }
