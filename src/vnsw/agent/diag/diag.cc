@@ -17,7 +17,7 @@
 
 
 const std::string KDiagName("DiagTimeoutHandler");
-
+using namespace boost::posix_time; 
 ////////////////////////////////////////////////////////////////////////////////
 
 DiagEntry::DiagEntry(const std::string &sip, const std::string &dip,
@@ -137,4 +137,28 @@ DiagEntry* DiagTable::Find(DiagEntry::DiagKey &key) {
 
 void DiagTable::Enqueue(DiagEntryOp *op) {
     entry_op_queue_->Enqueue(op);
+}
+
+uint32_t DiagEntry::HashValUdpSourcePort() {
+    std::size_t seed = 0;
+    boost::hash_combine(seed, sip_.to_ulong());
+    boost::hash_combine(seed, dip_.to_ulong());
+    boost::hash_combine(seed, proto_);
+    boost::hash_combine(seed, sport_);
+    boost::hash_combine(seed, dport_);
+    return seed;
+}
+void DiagEntry::FillOamPktHeader(OverlayOamPktData *pktdata, uint32_t vxlan_id) {
+   pktdata->msg_type_ = AgentDiagPktData::DIAG_REQUEST;
+   pktdata->reply_mode_ = OverlayOamPktData::REPLY_OVERLAY_SEGMENT;
+   pktdata->org_handle_ = htons(key_);
+   pktdata->seq_no_ = htonl(seq_no_);
+   boost::posix_time::ptime time =  microsec_clock::universal_time();
+   boost::posix_time::time_duration td = time.time_of_day();
+   pktdata->timesent_sec_ = td.total_seconds();
+   pktdata->timesent_misec_ = td.total_microseconds() - 
+       seconds(pktdata->timesent_sec_).total_microseconds();
+   pktdata->vxlanoamtlv_.type_ = AgentDiagPktData::DIAG_REQUEST;
+   pktdata->vxlanoamtlv_.vxlan_id_ = htonl(vxlan_id);
+   pktdata->vxlanoamtlv_.sip_ = sip_;
 }

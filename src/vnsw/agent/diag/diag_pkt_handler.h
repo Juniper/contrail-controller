@@ -36,7 +36,7 @@ public:
     void SetReply();
     void SetDiagChkSum();
     void Reply();
-    void ReplyOverlayPing();
+    void SendOverlayResponse();
     const std::string &GetAddress() const { return address_; }
     uint8_t* GetData() {
         return (pkt_info_->data);

@@ -26,6 +26,8 @@ public:
 
     static void HandleRequest(DiagPktHandler *);
 
+    static void SendSandeshReply(const std::string &address,
+                                 const std::string &context, bool more);
 private:
     void FillHeader(AgentDiagPktData *data);
     void IncrementTtl();
