@@ -88,6 +88,14 @@ public:
         is_dependent_rt_ = dependent_path;
     }
 
+    void set_dependent_ip(const IpAddress &ip) {
+        path_preference_.set_dependent_ip(ip);
+    }
+
+    IpAddress dependent_ip() {
+        return path_preference_.dependent_ip();
+    }
+
     bool seen() { return seen_; }
     uint32_t max_sequence() const { return max_sequence_;}
     void Process();
