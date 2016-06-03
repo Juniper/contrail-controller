@@ -857,6 +857,11 @@ class VncServerKombuClient(VncKombuClient):
         finally:
             method_name = obj_info['type'].replace('-', '_')
             method = getattr(self._ifmap_db, "_ifmap_%s_create" % (method_name))
+            # Update notification might be received before create notify,
+            # so reading the object from database and publishing to IFMAP.
+            (ok, result) = self._db_client_mgr.dbe_read(obj_info['type'], obj_info)
+            if ok:
+                obj_dict = result
             (ok, result) = method(obj_info, obj_dict)
             if not ok:
                 self.config_log(result, level=SandeshLevel.SYS_ERR)

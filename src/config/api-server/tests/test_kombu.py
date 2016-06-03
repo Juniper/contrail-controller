@@ -3,12 +3,23 @@ from gevent import monkey
 monkey.patch_all()
 import kombu
 import sys
-
+import logging
+import uuid
 import unittest
+import testtools
 from flexmock import flexmock
 from cfgm_common import vnc_kombu
 from vnc_cfg_api_server import vnc_cfg_ifmap
 from distutils.version import LooseVersion
+from vnc_api.vnc_api import VirtualNetwork, NetworkIpam, VnSubnetsType
+
+sys.path.append('../common/tests')
+import test_common
+import test_case
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
 
 if LooseVersion(kombu.__version__) >= LooseVersion("2.5.0"):
     is_kombu_client_v1 = False
@@ -151,3 +162,59 @@ class TestIfmapKombuClient(unittest.TestCase):
         self.assertEqual(len(req_id), 2)
         self.assertEqual(len(set(req_id)), 1)
 
+
+class TestVncRabbitPublish(test_case.ApiServerTestCase):
+    """ Tests to verify the publish of rabbit msg."""
+    @classmethod
+    def setUpClass(cls):
+        super(TestVncRabbitPublish, cls).setUpClass()
+
+    def test_out_of_order_rabbit_publish(self):
+        """ Test to make sure api-server preserves the state of the 
+            object even if the CREATE msg is queued after UPDATE in rabbit
+        """
+        api_server = test_common.vnc_cfg_api_server.server
+        orig_dbe_create_publish = api_server._db_conn._msgbus.dbe_create_publish
+        self.block_untill_update_publish = True
+        def out_of_order_dbe_create_publish(obj_type, obj_ids, *args, **kwargs):
+            if obj_type.replace('-', '_') == 'virtual_network':
+                while self.block_untill_update_publish:
+                    gevent.sleep(1)
+            return orig_dbe_create_publish(obj_type,obj_ids, *args, **kwargs)
+
+        api_server._db_conn._msgbus.dbe_create_publish = \
+                out_of_order_dbe_create_publish
+        logger.info("Creating VN object, without publishing it to IFMAP.")
+        vn_obj = VirtualNetwork('vn1')
+        vn_obj.set_uuid(str(uuid.uuid4()))
+        ipam_obj = NetworkIpam('ipam1')
+        vn_obj.add_network_ipam(ipam_obj, VnSubnetsType())
+        self._vnc_lib.network_ipam_create(ipam_obj)
+        vn_create_greenlet = gevent.spawn(self._vnc_lib.virtual_network_create, vn_obj)
+        gevent.sleep(0)
+        logger.info("Update VN object, Expected to update the object in",
+                    "Cassandra DB and skip publishing to IFMAP.")
+        vn_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+        vn_obj.display_name = 'test_update_1'
+        self._vnc_lib.virtual_network_update(vn_obj)
+        gevent.sleep(2)
+        with testtools.ExpectedException(KeyError):
+            api_server._db_conn._ifmap_db._id_to_metas[\
+                    'contrail:virtual-network:default-domain:default-project:vn1']
+
+        logger.info("Unblock create notify to amqp, Create expected to read from DB",
+                    "and publish to IFMAP with the updated object info.")
+        self.block_untill_update_publish = False
+        vn_uuid = vn_create_greenlet.get(timeout=3)
+        gevent.sleep(2)
+        self.assertEqual(api_server._db_conn._ifmap_db._id_to_metas[\
+                'contrail:virtual-network:default-domain:default-project:vn1'][\
+                'display-name'][0]['meta']._Metadata__value, 'test_update_1')
+
+        logger.info("update after publishing to IFAMAP, Expected to publish to IFMAP")
+        vn_obj.display_name = 'test_update_2'
+        self._vnc_lib.virtual_network_update(vn_obj)
+        gevent.sleep(2)
+        self.assertEqual(api_server._db_conn._ifmap_db._id_to_metas[\
+                'contrail:virtual-network:default-domain:default-project:vn1'][\
+                'display-name'][0]['meta']._Metadata__value, 'test_update_2')
