@@ -105,6 +105,7 @@ test_vhost_ip_change = AgentEnv.MakeTestCmd(env, 'test_vhost_ip_change',
                                         flaky_agent_suite)
 test_mirror = AgentEnv.MakeTestCmd(env, 'test_mirror', flaky_agent_suite)
 test_nh = AgentEnv.MakeTestCmd(env, 'test_nh', flaky_agent_suite)
+test_ecmp_nh = AgentEnv.MakeTestCmd(env, 'test_ecmp_nh', agent_suite)
 test_dummy = AgentEnv.MakeTestCmd(env, 'test_dummy', flaky_agent_suite)
 test_multicast = AgentEnv.MakeTestCmd(env, 'test_multicast', flaky_agent_suite)
 test_xmpp_bcast_hv = AgentEnv.MakeTestCmd(env, 'test_xmpp_bcast_hv',
