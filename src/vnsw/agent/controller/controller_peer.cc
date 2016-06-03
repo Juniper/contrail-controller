@@ -718,7 +718,7 @@ void AgentXmppChannel::AddEcmpRoute(string vrf_name, IpAddress prefix_addr,
 
     // Build the NH request and then create route data to be passed
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    nh_req.key.reset(new CompositeNHKey(Composite::ECMP, true,
+    nh_req.key.reset(new CompositeNHKey(Composite::ECMP, false,
                                         comp_nh_list, vrf_name));
     nh_req.data.reset(new CompositeNHData());
     ControllerEcmpRoute *data =

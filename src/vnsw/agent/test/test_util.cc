@@ -1221,7 +1221,7 @@ void DeleteRoute(const char *vrf, const char *ip, uint8_t plen,
                       new ControllerVmRoute(bgp_peer));
     }
     client->WaitForIdle();
-    WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
+    WAIT_FOR(1000, 1000, (RouteFind(vrf, addr, 32) == false));
 }
 
 bool RouteFind(const string &vrf_name, const Ip4Address &addr, int plen) {
@@ -1482,7 +1482,7 @@ bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Addre
         type = Composite::LOCAL_ECMP;
     }
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    nh_req.key.reset(new CompositeNHKey(type, true,
+    nh_req.key.reset(new CompositeNHKey(type, false,
                                         comp_nh_list, vrf_name));
     nh_req.data.reset(new CompositeNHData());
 
@@ -2656,7 +2656,6 @@ void DeleteVmportEnv(struct PortInfo *input, int count, int del_vn, int acl_id,
                 sprintf(vrf_name, "%s", vrf);
             else
                 sprintf(vrf_name, "vrf%d", input[i].vn_id);
-            sprintf(vm_name, "vm%d", input[i].vm_id);
             DelLink("virtual-network", vn_name, "routing-instance", vrf_name);
             if (acl_id) {
                 DelLink("virtual-network", vn_name, "access-control-list", acl_name);
