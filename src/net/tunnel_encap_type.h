@@ -12,10 +12,11 @@ class TunnelEncapType {
 public:
     enum Encap {
         UNSPEC = 0,
-        MPLS_O_GRE = 2,
+        GRE = 2,
         VXLAN = 8,
         NVGRE = 9,
         MPLS = 10,
+        MPLS_O_GRE = 11,
         VXLAN_GPE = 12,
         MPLS_O_UDP = 13,
         MPLS_O_UDP_CONTRAIL = 37001,
