@@ -15,7 +15,7 @@ TunnelEncapType::TunnelEncapType() {
 static const map<string, TunnelEncapType::Encap>
     fromString = boost::assign::map_list_of
         ("unspecified", TunnelEncapType::UNSPEC) 
-        ("gre", TunnelEncapType::MPLS_O_GRE) 
+        ("gre", TunnelEncapType::GRE)
         ("vxlan", TunnelEncapType::VXLAN)
         ("nvgre", TunnelEncapType::NVGRE)
         ("mpls", TunnelEncapType::MPLS)
@@ -27,10 +27,11 @@ static const map<string, TunnelEncapType::Encap>
 static const map<TunnelEncapType::Encap, string>
     toString = boost::assign::map_list_of
         (TunnelEncapType::UNSPEC, "unspecified")
-        (TunnelEncapType::MPLS_O_GRE, "gre")
+        (TunnelEncapType::GRE, "gre")
         (TunnelEncapType::VXLAN, "vxlan")
         (TunnelEncapType::NVGRE, "nvgre")
         (TunnelEncapType::MPLS, "mpls")
+        (TunnelEncapType::MPLS_O_GRE, "mpls-o-gre")
         (TunnelEncapType::VXLAN_GPE, "vxlan-gpe")
         (TunnelEncapType::MPLS_O_UDP, "udp")
         (TunnelEncapType::MPLS_O_UDP_CONTRAIL, "udp-contrail")
@@ -39,10 +40,11 @@ static const map<TunnelEncapType::Encap, string>
 static const map<TunnelEncapType::Encap, string>
     toXmppString = boost::assign::map_list_of
         (TunnelEncapType::UNSPEC, "unspecified")
-        (TunnelEncapType::MPLS_O_GRE, "gre")
+        (TunnelEncapType::GRE, "gre")
         (TunnelEncapType::VXLAN, "vxlan")
         (TunnelEncapType::NVGRE, "nvgre")
         (TunnelEncapType::MPLS, "mpls")
+        (TunnelEncapType::MPLS_O_GRE, "gre")
         (TunnelEncapType::VXLAN_GPE, "vxlan-gpe")
         (TunnelEncapType::MPLS_O_UDP, "udp")
         (TunnelEncapType::MPLS_O_UDP_CONTRAIL, "udp")
