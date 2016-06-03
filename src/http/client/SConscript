@@ -16,6 +16,9 @@ libhttpc = env.Library('httpc',
                     ['http_client.cc',
                      'http_curl.cc'])
 
+libvncapi = env.Library('vncapi',
+                    ['kc.cc',
+                     'vncapi.cc'])
 env.Prepend(LIBS=['sandesh', 'curl', 'io'])
 
 libs = MapBuildDir(['io'])
@@ -41,5 +44,13 @@ if sys.platform != 'darwin':
 httpcd = env.Program(target = 'httpcd',
                    source = ['main.cc'])
 env.Requires(httpcd, '#/build/include/curl/curl.h')
+env.AppendUnique(LINKFLAGS='-Wl,--no-as-needed')
+env.Append(LIBS = ['vncapi', 'json-c', 'httpc'])
+vncapitest = env.Program(target = 'vncapitest',
+                   source = ['vncapi_test.cc'])
+env.Requires(libvncapi, '#/build/include/curl/curl.h')
+env.Requires(libvncapi, '#/build/include/rapidjson.h')
+env.Requires(vncapitest, '#/build/include/rapidjson.h')
 #env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
 env.Install(env['TOP_LIB'], libhttpc)                                  
+env.Install(env['TOP_LIB'], libvncapi)                                  
