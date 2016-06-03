@@ -53,6 +53,7 @@ struct IFMapLinkShowInfo {
 // Show all the nodes in the IFMap link table
 request sandesh IFMapLinkTableShowReq {
     1: string search_string;
+    2: string metadata;
 }
 
 response sandesh IFMapLinkTableShowResp {

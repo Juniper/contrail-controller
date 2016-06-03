@@ -478,7 +478,8 @@ public:
         return static_cast<RequestPipeline::InstData *>(new ShowData);
     }
 
-    static bool SkipLink(DBEntryBase *src, const string &search_string);
+    static bool IncludeLink(DBEntryBase *src, const string &search_string,
+                            const string &metadata);
     static void CopyNode(IFMapLinkShowInfo *dest, DBEntryBase *src,
                          IFMapServer *server);
     static bool BufferStageCommon(const IFMapLinkTableShowReq *request,
@@ -505,21 +506,25 @@ public:
         IFMapLinkTableShowReq *req, string *last_link_name);
 };
 
-bool ShowIFMapLinkTable::SkipLink(DBEntryBase *src,
-                                  const string &search_string) {
+bool ShowIFMapLinkTable::IncludeLink(DBEntryBase *src,
+        const string &search_string, const string &metadata) {
     IFMapLink *link = static_cast<IFMapLink *>(src);
     IFMapNode *left = link->left();
     IFMapNode *right = link->right();
-    if (search_string.empty()) {
+
+    // If we do not find the search string in the names of either of the 2 ends,
+    // do not include the link
+    if (!search_string.empty() &&
+        (!left || (left->ToString().find(search_string) == string::npos)) &&
+        (!right || (right->ToString().find(search_string) == string::npos))) {
         return false;
     }
-    // If we do not find the search string in the names of either of the 2 ends,
-    // skip the link
-    if ((!left || (left->ToString().find(search_string) == string::npos)) &&
-        (!right || (right->ToString().find(search_string) == string::npos))) {
-        return true;
+    // If the metadata does not match, do not include the link
+    if (!metadata.empty() &&
+        (link->metadata().find(metadata) == string::npos)) {
+        return false;
     }
-    return false;
+    return true;
 }
 
 void ShowIFMapLinkTable::CopyNode(IFMapLinkShowInfo *dest, DBEntryBase *src,
@@ -616,18 +621,18 @@ bool ShowIFMapLinkTable::BufferStageCommon(const IFMapLinkTableShowReq *request,
             src = partition->GetFirst();
         }
         for (; src != NULL; src = partition->GetNext(src)) {
-            IFMapLink *src_link = static_cast<IFMapLink *>(src);
-            if (SkipLink(src, request->get_search_string())) {
-                continue;
-            }
-            IFMapLinkShowInfo dest;
-            CopyNode(&dest, src, sctx->ifmap_server());
-            show_data->send_buffer.push_back(dest);
-            // If we have picked up enough links for this round...
-            if (show_data->send_buffer.size() == kMaxElementsPerRound) {
-                show_data->last_link_name = src_link->link_name();
-                buffer_full = true;
-                break;
+            if (IncludeLink(src, request->get_search_string(),
+                            request->get_metadata())) {
+                IFMapLinkShowInfo dest;
+                CopyNode(&dest, src, sctx->ifmap_server());
+                show_data->send_buffer.push_back(dest);
+                // If we have picked up enough links for this round...
+                if (show_data->send_buffer.size() == kMaxElementsPerRound) {
+                    IFMapLink *src_link = static_cast<IFMapLink *>(src);
+                    show_data->last_link_name = src_link->link_name();
+                    buffer_full = true;
+                    break;
+                }
             }
         }
     } else {
