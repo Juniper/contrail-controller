@@ -4,6 +4,7 @@
 
 #include "http_client.h"
 #include <boost/bind.hpp>
+#include <boost/algorithm/string.hpp>
 #include "base/task_annotations.h"
 #include "io/event_manager.h"
 #include "base/logging.h"
@@ -63,7 +64,7 @@ void HttpClientSession::RegisterEventCb(SessionEventCb cb) {
 HttpConnection::HttpConnection(boost::asio::ip::tcp::endpoint ep, size_t id, 
                                HttpClient *client) :
     endpoint_(ep), id_(id), cb_(NULL), offset_(0), curl_handle_(NULL),
-    session_(NULL), client_(client) {
+    session_(NULL), client_(client), state_(STATUS) {
 }
 
 HttpConnection::~HttpConnection() {
@@ -114,13 +115,15 @@ int HttpConnection::HttpGet(const std::string &path, HttpCb cb) {
     return HttpGet(path, false, true, false, hdr_options, cb);
 }
 
-int HttpConnection::HttpGet(const std::string &path, bool header, bool short_timeout,
-                            bool reuse, std::vector<std::string> &hdr_options,
+int HttpConnection::HttpGet(const std::string &path, bool header,
+                            bool short_timeout, bool reuse,
+                            std::vector<std::string> &hdr_options,
                             HttpCb cb) {
     const std::string body;
+
     client()->ProcessEvent(boost::bind(&HttpConnection::HttpProcessInternal,
-                           this, body, path, header, short_timeout, reuse,
-                           hdr_options, cb, HTTP_GET));
+                           this, body, path, bool2bf(header, short_timeout,
+                               reuse), hdr_options, cb, HTTP_GET));
     return 0;
 }
 
@@ -129,8 +132,8 @@ int HttpConnection::HttpHead(const std::string &path, bool header, bool short_ti
                              HttpCb cb) {
     const std::string body;
     client()->ProcessEvent(boost::bind(&HttpConnection::HttpProcessInternal,
-                           this, body, path, header, short_timeout, reuse,
-                           hdr_options, cb, HTTP_HEAD));
+                           this, body, path, bool2bf(header, short_timeout,
+                               reuse), hdr_options, cb, HTTP_HEAD));
     return 0;
 }
 
@@ -141,12 +144,14 @@ int HttpConnection::HttpPut(const std::string &put_string,
 }
 
 int HttpConnection::HttpPut(const std::string &put_string,
-                            const std::string &path, bool header, bool short_timeout,
+                            const std::string &path, bool header,
+                            bool short_timeout,
                             bool reuse, std::vector<std::string> &hdr_options,
                             HttpCb cb) {
     client()->ProcessEvent(boost::bind(&HttpConnection::HttpProcessInternal,
-                                       this, put_string, path, header, short_timeout,
-                                       reuse, hdr_options, cb, HTTP_PUT));
+                                       this, put_string, path,
+                                       bool2bf(header, short_timeout, reuse),
+                                       hdr_options, cb, HTTP_PUT));
     return 0;
 }
 
@@ -157,12 +162,12 @@ int HttpConnection::HttpPost(const std::string &post_string,
 }
 
 int HttpConnection::HttpPost(const std::string &post_string,
-                             const std::string &path, bool header, bool short_timeout,
-                             bool reuse, std::vector<std::string> &hdr_options,
-                             HttpCb cb) {
+                             const std::string &path, bool header,
+                             bool short_timeout, bool reuse,
+                             std::vector<std::string> &hdr_options, HttpCb cb) {
     client()->ProcessEvent(boost::bind(&HttpConnection::HttpProcessInternal,
-                           this, post_string, path, header, short_timeout, reuse,
-                           hdr_options, cb, HTTP_POST));
+                           this, post_string, path, bool2bf(header,
+                           short_timeout, reuse), hdr_options, cb, HTTP_POST));
     return 0;
 }
 
@@ -176,8 +181,8 @@ int HttpConnection::HttpDelete(const std::string &path, bool header, bool short_
                                HttpCb cb) {
     const std::string body;
     client()->ProcessEvent(boost::bind(&HttpConnection::HttpProcessInternal,
-                           this, body, path, header, short_timeout, reuse,
-                           hdr_options, cb, HTTP_DELETE));
+                           this, body, path, bool2bf(header, short_timeout,
+                               reuse), hdr_options, cb, HTTP_DELETE));
     return 0;
 }
 
@@ -185,10 +190,17 @@ void HttpConnection::ClearCallback() {
    cb_ = NULL; 
 }
 
-void HttpConnection::HttpProcessInternal(const std::string body, std::string path,
-                                         bool header, bool short_timeout, bool reuse,
+void HttpConnection::HttpProcessInternal(const std::string body,
+                                         std::string path,
+                                         unsigned short hdr_shortTimeout_reuse,
                                          std::vector<std::string> hdr_options,
                                          HttpCb cb, http_method method) {
+    bool short_timeout, reuse;
+    bf2bool(hdr_shortTimeout_reuse, sent_hdr_, short_timeout, reuse);
+    state_ = STATUS;
+    status_ = 0;
+    version_.clear();
+    reason_.clear();
     if (client()->AddConnection(this) == false) {
         // connection already exists
         if (!reuse)
@@ -196,7 +208,8 @@ void HttpConnection::HttpProcessInternal(const std::string body, std::string pat
     }
 
     struct _GlobalInfo *gi = client()->GlobalInfo();
-    struct _ConnInfo *curl_handle = new_conn(this, gi, header, short_timeout, reuse);
+    struct _ConnInfo *curl_handle = new_conn(this, gi, sent_hdr_, short_timeout,
+                                             reuse);
     if (!curl_handle) {
         LOG(DEBUG, "Http : unable to create new connection");
         return;
@@ -262,6 +275,51 @@ void HttpConnection::AssignData(const char *ptr, size_t size) {
     boost::system::error_code error;
     if (cb_ != NULL)
         cb_(buf_, error);
+}
+
+void HttpConnection::AssignHeader(const char *ptr, size_t size) {
+
+    buf_.assign(ptr, size);
+
+    switch (state_) {
+        case STATUS: {
+            status_ = 0;
+            int i = buf_.find(' ', 0);
+            version_ = boost::algorithm::trim_copy(buf_.substr(0, i));
+            int j = buf_.find(' ', i+1);
+            status_ = atoi(buf_.substr(i+1, j).c_str());
+            reason_ = boost::algorithm::trim_copy(buf_.substr(j+1));
+#ifdef __DEBUG__
+            //for (std::string::iterator ii=buf_.begin()+i+1;
+            //        ii != buf_.begin()+j; ii++) {
+            //    status_ = (status_ << 3) + (status_ << 1) + (*ii - '0');
+            //}
+            std::cout << "Status Line: " << std::dec << status_ << ":"
+                << reason_ << "(" << version_ << ")" << std::endl;
+#endif
+            state_ = HEADER;
+            break;
+                     }
+        case HEADER:
+            if (buf_ != "\r\n") {
+                std::istringstream iss(buf_);
+                std::string tok;
+                while (std::getline(iss, tok, '\r')  && tok != "\n") {
+                    unsigned int i = tok.find(':', 0);
+                    if (i != std::string::npos) {
+                        headers_.insert(std::make_pair(
+                            boost::algorithm::trim_copy(tok.substr(0, i)),
+                            boost::algorithm::trim_copy(tok.substr(i + 1))));
+                    }
+                }
+            }
+            break;
+    }
+    boost::system::error_code error;
+    // callback to client *backward compatibility*
+    if (sent_hdr_ && cb_ != NULL) {
+        cb_(buf_, error);
+    }
 }
 
 const std::string &HttpConnection::GetData() {

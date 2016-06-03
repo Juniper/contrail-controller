@@ -71,19 +71,24 @@ public:
     int HttpPut(const std::string &put_string, const std::string &path,
                 bool header, bool short_timeout, bool reuse,
                 std::vector<std::string> &hdr_options, HttpCb cb);
-    int HttpPost(const std::string &post_string, const std::string &path, HttpCb);
+    int HttpPost(const std::string &post_string, const std::string &path,
+                HttpCb);
     int HttpPost(const std::string &post_string, const std::string &path,
                  bool header, bool short_timeout, bool reuse,
                  std::vector<std::string> &hdr_options, HttpCb cb);
     int HttpGet(const std::string &path, HttpCb);
-    int HttpGet(const std::string &path, bool header, bool short_timeout, bool reuse,
-                std::vector<std::string> &hdr_options, HttpCb cb);
-    int HttpHead(const std::string &path, bool header, bool short_timeout, bool reuse,
-                 std::vector<std::string> &hdr_options, HttpCb cb);
+    int HttpGet(const std::string &path, bool header, bool short_timeout,
+                bool reuse, std::vector<std::string> &hdr_options, HttpCb cb);
+    int HttpHead(const std::string &path, bool header, bool short_timeout,
+                bool reuse, std::vector<std::string> &hdr_options, HttpCb cb);
     int HttpDelete(const std::string &path, HttpCb);
     int HttpDelete(const std::string &path, bool header, bool short_timeout,
                    bool reuse, std::vector<std::string> &hdr_options,
                    HttpCb cb);
+    int Status() { return status_; }
+    std::string Version() { return version_; }
+    std::string Reason() { return reason_; }
+    std::map<std::string, std::string> *Headers() { return &headers_; }
     void ClearCallback();
 
     struct _ConnInfo *curl_handle() { return curl_handle_; }
@@ -99,6 +104,7 @@ public:
     void set_session(HttpClientSession *session);
     void delete_session();
     void AssignData(const char *ptr, size_t size);
+    void AssignHeader(const char *ptr, size_t size);
     void UpdateOffset(size_t bytes);
     size_t GetOffset();
     HttpCb HttpClientCb() { return cb_; }
@@ -107,10 +113,21 @@ public:
 private:
     std::string make_url(std::string &path);
 
+    unsigned short bool2bf(bool header, bool short_timeout, bool reuse) {
+        return (header ? 1 << 2 : 0) | (short_timeout ? 1 << 1 : 0) |
+               (reuse ? 1 : 0);
+    }
+    void bf2bool(unsigned short bf, bool &header, bool &short_timeout,
+            bool &reuse) {
+        header = bf & 4u;
+        short_timeout = bf & 2u;
+        reuse = bf & 1u;
+    }
     void HttpProcessInternal(const std::string body, std::string path,
-                             bool header, bool short_timeout, bool reuse,
+                             //bool header, bool short_timeout, bool reuse,
+                             unsigned short header_shortTimeout_reuse,
                              std::vector<std::string> hdr_options,
-                             HttpCb, http_method);
+                             HttpCb cb, http_method m);
 
     // key = endpoint_ + id_ 
     boost::asio::ip::tcp::endpoint endpoint_;
@@ -123,6 +140,15 @@ private:
     HttpClient *client_;
     mutable tbb::mutex mutex_;
     HttpClientSession::SessionEventCb event_cb_;
+    int status_;
+    std::string version_;
+    std::string reason_;
+    std::map<std::string, std::string> headers_;
+    bool sent_hdr_; // backward compatibility
+    enum HTTPHeaderDataState {
+        STATUS = 142,
+        HEADER,
+    } state_;
 
     DISALLOW_COPY_AND_ASSIGN(HttpConnection);
 };
