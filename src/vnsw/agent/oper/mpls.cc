@@ -209,7 +209,7 @@ void MplsLabel::CreateEcmpLabel(const Agent *agent,
     MplsLabelKey *key = new MplsLabelKey(MplsLabel::VPORT_NH, label);
     req.key.reset(key);
 
-    MplsLabelData *data = new MplsLabelData(type, true, component_nh_key_list,
+    MplsLabelData *data = new MplsLabelData(type, false, component_nh_key_list,
                                             vrf_name);
     req.data.reset(data);
 
