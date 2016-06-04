@@ -255,8 +255,8 @@ class DatabaseEventManager(EventManager):
         cassandra_status = CassandraStatusData()
         cassandra_status.cassandra_compaction_task = CassandraCompactionTask()
         # Get compactionstats
-        compaction_count = subprocess.Popen(["nodetool", "compactionstats"],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        compaction_count = subprocess.Popen("nodetool compactionstats|grep 'pending tasks:'",
+            shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         op, err = compaction_count.communicate()
         if compaction_count.returncode != 0:
             msg = "Failed to get nodetool compactionstats " + err
