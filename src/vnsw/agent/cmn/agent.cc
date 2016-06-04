@@ -384,7 +384,6 @@ void Agent::CopyConfig(AgentParam *params) {
 
     headless_agent_mode_ = params_->headless_mode();
     simulate_evpn_tor_ = params->simulate_evpn_tor();
-    debug_ = params_->debug();
     test_mode_ = params_->test_mode();
     tsn_enabled_ = params_->isTsnAgent();
     tor_agent_enabled_ = params_->isTorAgent();
@@ -576,7 +575,7 @@ Agent::Agent() :
     lifetime_manager_(NULL), ksync_sync_mode_(false), mgmt_ip_(""),
     vxlan_network_identifier_mode_(AUTOMATIC), headless_agent_mode_(false), 
     vhost_interface_(NULL),
-    connection_state_(NULL), debug_(false), test_mode_(false),
+    connection_state_(NULL), test_mode_(false),
     xmpp_dns_test_mode_(false),
     init_done_(false), simulate_evpn_tor_(false), tsn_enabled_(false),
     tor_agent_enabled_(false),

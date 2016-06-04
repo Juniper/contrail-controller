@@ -186,7 +186,6 @@ public:
     const std::string &vmware_physical_port() const {
         return vmware_physical_port_;
     }
-    bool debug() const { return debug_; }
 
     HypervisorMode mode() const { return hypervisor_mode_; }
     bool isXenMode() const { return hypervisor_mode_ == MODE_XEN; }
@@ -454,7 +453,6 @@ private:
     int vrouter_stats_interval_;
     std::string vmware_physical_port_;
     bool test_mode_;
-    bool debug_;
     boost::property_tree::ptree tree_;
     std::auto_ptr<VirtualGatewayConfigTable> vgw_config_table_;
     bool headless_mode_;

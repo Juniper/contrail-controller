@@ -427,7 +427,6 @@ void AgentParam::ParseDefaultSection() {
         log_local_ = false;
     }
 
-    GetValueFromTree<bool>(debug_, "DEFAULT.debug");
     GetValueFromTree<bool>(use_syslog_, "DEFAULT.use_syslog");
     if (!GetValueFromTree<string>(syslog_facility_, "DEFAULT.syslog_facility")) {
         syslog_facility_ = "LOG_LOCAL0";
@@ -728,7 +727,6 @@ void AgentParam::ParseDefaultSectionArguments
     GetValueFromTree<long>(log_file_size_, "DEFAULT.log_file_size");
     GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");
     GetOptValue<string>(var_map, syslog_facility_, "DEFAULT.syslog_facility");
-    GetOptValue<bool>(var_map, debug_, "DEFAULT.debug");
     if (var_map.count("DEFAULT.use_syslog")) {
         use_syslog_ = true;
     }
@@ -1326,7 +1324,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         agent_stats_interval_(kAgentStatsInterval),
         flow_stats_interval_(kFlowStatsInterval),
         vrouter_stats_interval_(kVrouterStatsInterval),
-        vmware_physical_port_(""), test_mode_(false), debug_(false), tree_(),
+        vmware_physical_port_(""), test_mode_(false), tree_(),
         vgw_config_table_(new VirtualGatewayConfigTable() ),
         headless_mode_(false), dhcp_relay_mode_(false),
         xmpp_auth_enable_(false),
@@ -1368,7 +1366,6 @@ AgentParam::AgentParam(bool enable_flow_options,
         ("DEFAULT.collectors",
          opt::value<std::vector<std::string> >()->multitoken(),
          "Collector server list")
-        ("DEFAULT.debug", opt::value<bool>(), "Enable / Disable debug logging")
         ("DEFAULT.flow_cache_timeout",
          opt::value<uint16_t>()->default_value(Agent::kDefaultFlowCacheTimeout),
          "Flow aging time in seconds")

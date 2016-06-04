@@ -300,24 +300,9 @@ private:
     static KSyncObjectManager *singleton_;
 };
 
-class KSyncDebug {
-public:
-    static void set_debug(bool debug) { debug_ = debug;}
-    static bool debug() { return debug_; }
-private:
-    static bool debug_;
-};
-
 #define KSYNC_TRACE(obj, parent, ...)\
 do {\
    KSync##obj::TraceMsg(parent->GetKSyncTraceBuf(), __FILE__, __LINE__, ##__VA_ARGS__);\
-} while (false);\
-
-#define KSYNC_ASSERT(cond)\
-do {\
-   if (KSyncDebug::debug() == true) {\
-       assert(cond);\
-   }\
 } while (false);\
 
 #endif // ctrlplane_ksync_object_h 
