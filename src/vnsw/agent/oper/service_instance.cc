@@ -882,6 +882,9 @@ void ServiceInstanceTable::ChangeEventHandler(IFMapNode *node, DBEntry *entry) {
     boost::uuids::uuid old_uuid = state->uuid();
 
     if (!node->IsDeleted()) {
+        if (new_uuid == boost::uuids::nil_uuid()) {
+            return;
+        }
         if (entry) {
             if ((old_uuid != new_uuid)) {
                 if (old_uuid != boost::uuids::nil_uuid()) {
