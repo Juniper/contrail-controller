@@ -164,13 +164,13 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         # check for PartialSysinfo alarm
         alarm_gen1.send_vrouterinfo("myvrouter1")
         assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
-            "ObjectVRouter:myvrouter1", "PartialSysinfoCompute"))
+            "ObjectVRouter:myvrouter1", "partial-sysinfo-compute"))
 
         self.verify_uve_resync(vizd_obj)
  
         # Alarm should return after redis restart
         assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
-            "ObjectVRouter:myvrouter1", "PartialSysinfoCompute"))
+            "ObjectVRouter:myvrouter1", "partial-sysinfo-compute"))
 
         # should there be a return True here?
     # end test_03_redis_uve_restart
@@ -352,7 +352,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_on_setup()
 
         assert(vizd_obj.verify_uvetable_alarm("ObjectCollectorInfo",
-            "ObjectCollectorInfo:" + socket.gethostname(), "ProcessStatus"))
+            "ObjectCollectorInfo:" + socket.gethostname(), "process-status"))
         # setup generator for sending Vrouter build_info
         collector = vizd_obj.collectors[0].get_addr()
         alarm_gen1 = self.useFixture(
@@ -364,7 +364,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         # check for PartialSysinfo alarm
         alarm_gen1.send_vrouterinfo("myvrouter1")
         assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
-            "ObjectVRouter:myvrouter1", "PartialSysinfoCompute",
+            "ObjectVRouter:myvrouter1", "partial-sysinfo-compute",
             rules=[{"rule": [{
                 "condition": {
                     "operation": "==",
@@ -378,19 +378,19 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         # Now try to clear the alarm by sending build_info
         alarm_gen1.send_vrouterinfo("myvrouter1", b_info = True)
         assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
-            "ObjectVRouter:myvrouter1", "PartialSysinfoCompute", is_set = False))
+            "ObjectVRouter:myvrouter1", "partial-sysinfo-compute", is_set = False))
 
         # send vrouter UVE without build_info !!!
         # check for PartialSysinfo alarm
         alarm_gen1.send_vrouterinfo("myvrouter1", deleted = True)
         alarm_gen1.send_vrouterinfo("myvrouter1")
         assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
-            "ObjectVRouter:myvrouter1", "PartialSysinfoCompute"))
+            "ObjectVRouter:myvrouter1", "partial-sysinfo-compute"))
 
         # Now try to clear the alarm by deleting the UVE
         alarm_gen1.send_vrouterinfo("myvrouter1", deleted = True)
         assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
-            "ObjectVRouter:myvrouter1", "PartialSysinfoCompute", is_set = False))
+            "ObjectVRouter:myvrouter1", "partial-sysinfo-compute", is_set = False))
 
         alarm_gen2 = self.useFixture(
             GeneratorFixture('vrouter-agent', [collector], logging,
@@ -401,19 +401,19 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         # check for PartialSysinfo alarm
         alarm_gen2.send_vrouterinfo("myvrouter2")
         assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
-            "ObjectVRouter:myvrouter2", "PartialSysinfoCompute"))
+            "ObjectVRouter:myvrouter2", "partial-sysinfo-compute"))
 
         # Now try to clear the alarm by disconnecting the generator
         alarm_gen2._sandesh_instance._client._connection.set_admin_state(\
             down=True)
         assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
-            "ObjectVRouter:myvrouter2", "PartialSysinfoCompute", is_set = False))
+            "ObjectVRouter:myvrouter2", "partial-sysinfo-compute", is_set = False))
          
         # send vrouter UVE of myvrouter without build_info again !!!
         # check for PartialSysinfo alarm
         alarm_gen1.send_vrouterinfo("myvrouter1")
         assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
-            "ObjectVRouter:myvrouter1", "PartialSysinfoCompute"))
+            "ObjectVRouter:myvrouter1", "partial-sysinfo-compute"))
 
         # Verify that we can give up partition ownership 
         assert(vizd_obj.set_alarmgen_partition(0,0) == 'true')
@@ -437,7 +437,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         # The PartialSysinfo alarm om myvrouter should return
         assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
-            "ObjectVRouter:myvrouter1", "PartialSysinfoCompute"))
+            "ObjectVRouter:myvrouter1", "partial-sysinfo-compute"))
 
         return True
     # end test_06_alarmgen_basic

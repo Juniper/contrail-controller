@@ -27,11 +27,13 @@ except ImportError:
     from ordereddict import OrderedDict
 from pysandesh.sandesh_base import *
 from pysandesh.connection_info import ConnectionState
+from pysandesh.sandesh_logger import SandeshLogger
 from pysandesh.gen_py.process_info.ttypes import ConnectionType,\
     ConnectionStatus
 from pysandesh.gen_py.sandesh_alarm.ttypes import SandeshAlarmAckResponseCode
 from sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import AlarmTrace, \
-    UVEAlarms, UVEAlarmInfo, UVEAlarmConfig, AlarmTemplate, AllOf
+    UVEAlarms, UVEAlarmInfo, UVEAlarmConfig, AlarmCondition, AlarmMatch, \
+    AlarmConditionMatch, AlarmRuleMatch
 from sandesh.analytics.ttypes import *
 from sandesh.analytics.cpuinfo.ttypes import ProcessCpuInfo
 from sandesh_common.vns.ttypes import Module, NodeType
@@ -42,6 +44,7 @@ from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
 from alarmgen_cfg import CfgParser
 from uveserver import UVEServer
 from partition_handler import PartitionHandler, UveStreamProc
+from alarmgen_config_handler import AlarmGenConfigHandler
 from sandesh.alarmgen_ctrl.ttypes import PartitionOwnershipReq, \
     PartitionOwnershipResp, PartitionStatusReq, UVECollInfo, UVEGenInfo, \
     PartitionStatusResp, UVETableAlarmReq, UVETableAlarmResp, \
@@ -193,39 +196,223 @@ class AlarmProcessor(object):
         self.FreqCheck_Times = {}
         self.FreqCheck_Seconds = {}
 
-    def process_alarms(self, ext, uv, local_uve):
-        nm = ext.entry_point_target.split(":")[1]
-        sev = ext.obj.severity()
+    def process_alarms(self, alarm, alarm_name, uv, local_uve):
+        sev = alarm.severity()
         if not uv in self.ActiveTimer:
             self.ActiveTimer[uv] = {}
-        self.ActiveTimer[uv][nm] = ext.obj.ActiveTimer()
+        self.ActiveTimer[uv][alarm_name] = alarm.ActiveTimer()
         if not uv in self.IdleTimer:
             self.IdleTimer[uv] = {}
-        self.IdleTimer[uv][nm] = ext.obj.IdleTimer()
+        self.IdleTimer[uv][alarm_name] = alarm.IdleTimer()
         if not uv in self.FreqExceededCheck:
             self.FreqExceededCheck[uv] = {}
-        self.FreqExceededCheck[uv][nm] = ext.obj.FreqExceededCheck()
+        self.FreqExceededCheck[uv][alarm_name] = alarm.FreqExceededCheck()
         if not uv in self.FreqCheck_Times:
             self.FreqCheck_Times[uv] = {}
-        self.FreqCheck_Times[uv][nm] = ext.obj.FreqCheck_Times()
+        self.FreqCheck_Times[uv][alarm_name] = alarm.FreqCheck_Times()
         if not uv in self.FreqCheck_Seconds:
             self.FreqCheck_Seconds[uv] = {}
-        self.FreqCheck_Seconds[uv][nm] = ext.obj.FreqCheck_Seconds()
+        self.FreqCheck_Seconds[uv][alarm_name] = alarm.FreqCheck_Seconds()
 
         try:
-            or_list = ext.obj.__call__(uv, local_uve)
-            self._logger.debug("Alarm[%s] %s: %s" % (uv, nm, str(or_list)))
+            # __call__ method overrides the generic alarm processing code.
+            if hasattr(alarm, '__call__'):
+                or_list = alarm.__call__(uv, local_uve)
+            else:
+                or_list = self._evaluate_uve_for_alarms(
+                    alarm.config(), local_uve)
+            self._logger.debug("Alarm[%s] %s: %s" %
+                (uv, alarm_name, str(or_list)))
             if or_list:
-                self.uve_alarms[nm] = UVEAlarmInfo(type=nm, severity=sev,
-                                       timestamp=0, token="",
-                                       rules=or_list, ack=False)
+                self.uve_alarms[alarm_name] = UVEAlarmInfo(type=alarm_name,
+                    severity=sev, timestamp=0, token="",
+                    rules=or_list, ack=False)
 	except Exception as ex:
 	    template = "Exception {0} in Alarm Processing. Arguments:\n{1!r}"
 	    messag = template.format(type(ex).__name__, ex.args)
 	    self._logger.error("%s : traceback %s" % \
 			      (messag, traceback.format_exc()))
-            self.uve_alarms[nm] = UVEAlarmInfo(type=nm, severity=sev,
+            self.uve_alarms[alarm_name] = UVEAlarmInfo(type=alarm_name, severity=sev,
                                    timestamp=0, token="", rules=[], ack=False)
+
+    def _get_uve_attribute(self, tuve, puve, attr_list):
+        if tuve is None or not attr_list:
+            return {'value': tuve, 'parent_attr': puve,
+                    'status': False if len(attr_list) else True}
+        if isinstance(tuve, dict):
+            return self._get_uve_attribute(tuve.get(attr_list[0]),
+                                           tuve, attr_list[1:])
+        elif isinstance(tuve, list):
+            return [self._get_uve_attribute(elem, tuve, attr_list) \
+                    for elem in tuve]
+        elif isinstance(tuve, str):
+            try:
+                json_elem = json.loads(tuve)
+            except ValueError:
+                return {'value': None, 'parent_attr': tuve, 'status': False}
+            else:
+                return self._get_uve_attribute(json_elem, tuve, attr_list)
+    # end _get_uve_attribute
+
+    def _get_operand_value(self, uve, operand):
+        attr_list = operand.split('.')
+        return self._get_uve_attribute(uve, uve, attr_list)
+    # end _get_operand_value
+
+    def _get_json_value(self, val):
+        try:
+            tval = json.loads(val)
+        except (ValueError, TypeError):
+            return json.dumps(val)
+        else:
+            return val
+    # end _get_json_value
+
+    def _get_json_vars(self, uve, exp, operand1_val,
+                       operand2_val, is_operand2_json_val):
+        json_vars = {}
+        for var in exp.vars:
+            # If var and operand1/operand2 are at the same hirerarchy in
+            # the uve struture, then get the value of var from parent_attr of
+            # the corresponding operand_val
+            # TODO: Handle the case len(var.rsplit) != len(operand.rsplit)
+            if var.rsplit('.', 1)[0] == exp.operand1.rsplit('.', 1)[0]:
+                var_val = \
+                    operand1_val['parent_attr'].get(var.rsplit('.', 1)[1])
+            elif not is_operand2_json_val and \
+                var.rsplit('.', 1)[0] == exp.operand2.rsplit('.', 1)[0]:
+                var_val = \
+                    operand2_val['parent_attr'].get(var.rsplit('.', 1)[1])
+            else:
+                var_val = self._get_operand_value(uve, var)['value']
+            json_vars[var] = self._get_json_value(var_val)
+        return json_vars
+    # end _get_json_vars
+
+    def _compare_operand_vals(self, val1, val2, operation):
+        try:
+            val1 = json.loads(val1)
+        except (TypeError, ValueError):
+            pass
+        try:
+            val2 = json.loads(val2)
+        except (TypeError, ValueError):
+            pass
+        if operation == '==':
+            return val1 == val2
+        elif operation == '!=':
+            return val1 != val2
+        elif operation == '<=':
+            return val1 <= val2
+        elif operation == '>=':
+            return val1 >= val2
+        elif operation == 'in':
+            if not isinstance(val2, list):
+                return False
+            return val1 in val2
+        elif operation == 'not in':
+            if not isinstance(val2, list):
+                return True
+            return val1 not in val2
+        elif operation == 'size==':
+            if not isinstance(val1, list):
+                return False
+            return len(val1) == val2
+        elif operation == 'size!=':
+            if not isinstance(val1, list):
+                return True
+            return len(val1) != val2
+    # end _compare_operand_vals
+
+    def _get_alarm_match(self, uve, exp, operand1_val, operand2_val,
+                         is_operand2_json_val):
+        json_vars = self._get_json_vars(uve, exp, operand1_val,
+            operand2_val, is_operand2_json_val)
+        json_operand1_val = self._get_json_value(operand1_val['value'])
+        if not is_operand2_json_val:
+            json_operand2_val = self._get_json_value(operand2_val['value'])
+        else:
+            json_operand2_val = None
+        return AlarmMatch(json_operand1_value=json_operand1_val,
+            json_operand2_value=json_operand2_val, json_vars=json_vars)
+    # end _get_alarm_match
+
+    def _get_alarm_condition_match(self, uve, exp, operand1_val, operand2_val,
+                                   is_operand2_json_val, match_list=None):
+        if not match_list:
+            match_list = [self._get_alarm_match(uve, exp, operand1_val,
+                operand2_val, is_operand2_json_val)]
+        return AlarmConditionMatch(
+            condition=AlarmCondition(operation=exp.operation,
+                operand1=exp.operand1, operand2=exp.operand2, vars=exp.vars),
+            match=match_list)
+    # end _get_alarm_condition_match
+
+    def _evaluate_uve_for_alarms(self, alarm_cfg, uve):
+        or_list = []
+        for cfg_and_list in alarm_cfg.alarm_rules.or_list:
+            and_list = []
+            and_list_fail = False
+            for exp in cfg_and_list.and_list:
+                operand1_val = self._get_operand_value(uve, exp.operand1)
+                if isinstance(operand1_val, dict) and \
+                    operand1_val['status'] is False:
+                    and_list_fail = True
+                    break
+                try:
+                    operand2_val = json.loads(exp.operand2)
+                    is_operand2_json_val = True
+                except ValueError:
+                    operand2_val = self._get_operand_value(uve, exp.operand2)
+                    if isinstance(operand2_val, dict) and \
+                        operand2_val['status'] is False:
+                        and_list_fail = True
+                        break
+                    is_operand2_json_val = False
+                if isinstance(operand1_val, list):
+                    match_list = []
+                    if is_operand2_json_val:
+                        for val in operand1_val:
+                            if self._compare_operand_vals(val['value'],
+                                operand2_val, exp.operation):
+                                match_list.append(self._get_alarm_match(
+                                    uve, exp, val, operand2_val,
+                                    is_operand2_json_val))
+                        if match_list:
+                            and_list.append(self._get_alarm_condition_match(
+                                uve, exp, operand1_val, operand2_val,
+                                is_operand2_json_val, match_list))
+                        else:
+                            and_list_fail = True
+                            break
+                    else:
+                        # TODO: Handle the case where both operand1_val and
+                        # operand2_val are lists
+                        and_list_fail = True
+                        break
+                else:
+                    val1 = operand1_val['value']
+                    if not is_operand2_json_val:
+                        if isinstance(operand2_val, list):
+                            and_list_fail = True
+                            break
+                        val2 = operand2_val['value']
+                    else:
+                        val2 = operand2_val
+                    if self._compare_operand_vals(val1, val2, exp.operation):
+                        and_list.append(self._get_alarm_condition_match(
+                            uve, exp, operand1_val, operand2_val,
+                            is_operand2_json_val))
+                    else:
+                        and_list_fail = True
+                        break
+            if not and_list_fail:
+                or_list.append(AlarmRuleMatch(rule=and_list))
+        if or_list:
+            return or_list
+        return None
+    # end _evaluate_uve_for_alarms
+
 
 class AlarmStateMachine:
     tab_alarms_timer = {}
@@ -634,6 +821,17 @@ class Controller(object):
 
         self._us = UVEServer(None, self._logger, self._conf.redis_password())
 
+        # Create config handler to read/update alarm config
+        rabbitmq_params = self._conf.rabbitmq_params()
+        self._config_handler = AlarmGenConfigHandler(self._moduleid,
+            self._instance_id, self.config_log, self.disc,
+            self._conf.keystone_params(), rabbitmq_params, self.mgrs)
+        if rabbitmq_params['servers'] and self.disc:
+            self._config_handler.start()
+        else:
+            self._logger.error('Rabbitmq server and/or Discovery server '
+                'not configured')
+
         if not self.disc:
             self._max_out_rows = 2
             # If there is no discovery service, use fixed redis_uve list
@@ -661,6 +859,11 @@ class Controller(object):
         UVETableAlarmReq.handle_request = self.handle_UVETableAlarmReq 
         UVETableInfoReq.handle_request = self.handle_UVETableInfoReq
         UVETablePerfReq.handle_request = self.handle_UVETablePerfReq
+
+    def config_log(self, msg, level):
+        self._sandesh.logger().log(
+            SandeshLogger.get_py_logger_level(level), msg)
+    # end config_log
 
     def libpart_cb(self, part_list):
 
@@ -1240,7 +1443,8 @@ class Controller(object):
                 continue
  
             # Handing Alarms
-            if not self.mgrs.has_key(tab):
+            alarm_cfg = self._config_handler.alarm_config()
+            if not alarm_cfg.has_key(tab):
                 continue
             prevt = UTCTimestampUsec()
 
@@ -1250,7 +1454,9 @@ class Controller(object):
             #     del uve_data["UVEAlarms"]
             prevt = UTCTimestampUsec()
             aproc = AlarmProcessor(self._logger)
-            self.mgrs[tab].map(aproc.process_alarms, uv, local_uve)
+            for alarm_name, alarm_obj in alarm_cfg[tab].iteritems():
+                aproc.process_alarms(alarm_obj, alarm_obj.config().name,
+                    uv, local_uve)
             new_uve_alarms = aproc.uve_alarms
             self.tab_perf[tab].record_call(UTCTimestampUsec() - prevt)
 
@@ -1436,6 +1642,8 @@ class Controller(object):
                     idx += 1
                 if partno in self._uveq:
                     status = True 
+                    if partno == 0:
+                        self._config_handler.set_config_ownership()
                 else:
                     # TODO: The partition has not started yet,
                     #       but it still might start later.
@@ -1470,6 +1678,8 @@ class Controller(object):
                     idx += 1
                 if partno not in self._uveq:
                     status = True 
+                    if partno == 0:
+                        self._config_handler.release_config_ownership()
                 else:
                     # TODO: The partition has not stopped yet
                     #       but it still might stop later.
@@ -1781,6 +1991,8 @@ class Controller(object):
     def stop(self):
         self._sandesh._client._connection.set_admin_state(down=True)
         self._sandesh.uninit()
+        if self._config_handler:
+            self._config_handler.stop()
         l = len(self.gevs)
         for idx in range(0,l):
             self._logger.error('AlarmGen killing %d of %d' % (idx+1, l))
