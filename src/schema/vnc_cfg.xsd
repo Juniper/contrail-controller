@@ -519,6 +519,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              description='Host routes to be sent via DHCP for VM(s) in this subnet, Next hop for these routes is always default gateway'/>
         <xsd:element name="subnet-name" type="xsd:string" required='optional'
              description='User provided name for this subnet'/>
+        <xsd:element name="alloc-unit"   type="xsd:integer" default='1' required='optional'
+             description='allocation unit for this subnet to allocate bulk ip addresses'/>
     </xsd:all>
 </xsd:complexType>
 
