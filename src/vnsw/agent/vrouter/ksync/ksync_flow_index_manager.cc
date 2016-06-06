@@ -168,10 +168,17 @@ void KSyncFlowIndexManager::UpdateFlowHandle(FlowTableKSyncEntry *kentry,
         // just use the correct key to encode delete msg
         INDEX_LOCK(index);
         flow->LogFlow(FlowEventLog::FLOW_HANDLE_ASSIGN, kentry, index, gen_id);
-        object->UpdateFlowHandle(kentry, index);
         evict_gen_id = AcquireIndexUnLocked(index, gen_id, NULL);
-        kentry->set_gen_id(gen_id);
-        kentry->set_evict_gen_id(evict_gen_id);
+        // following processing is required only if kentry successfully
+        // acquired the index, on index acquire failure we will anyway
+        // skip sending message to vrouter due to evicted state.
+        // So avoid changing ksync entry handle to avoid replacing
+        // hash id of an active ksync entry (Bug - 1587540)
+        if (evict_gen_id == gen_id) {
+            object->UpdateFlowHandle(kentry, index);
+            kentry->set_gen_id(gen_id);
+            kentry->set_evict_gen_id(evict_gen_id);
+        }
     }
 }
 

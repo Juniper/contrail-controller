@@ -85,6 +85,7 @@ public:
 
     KSyncSockTypeMap(boost::asio::io_service &ios) : KSyncSock(), sock_(ios) {
         block_msg_processing_ = false;
+        is_incremental_index_ = false;
     }
     ~KSyncSockTypeMap() {
         assert(nh_map.size() == 0);
@@ -193,6 +194,12 @@ public:
         return block_msg_processing_;
     }
 
+    void set_is_incremental_index(bool incremental) {
+        is_incremental_index_ = incremental;
+    }
+
+    bool is_incremental_index() { return is_incremental_index_; }
+
     void SetKSyncError(KSyncSockEntryType type, int ksync_error) {
         ksync_error_[type] = ksync_error;
     }
@@ -211,6 +218,7 @@ private:
     udp::endpoint local_ep_;
     int ksync_error_[KSYNC_MAX_ENTRY_TYPE];
     bool block_msg_processing_;
+    bool is_incremental_index_;
     static KSyncSockTypeMap *singleton_;
     static vr_flow_entry *flow_table_;
     static int error_code_;

@@ -241,6 +241,46 @@ TEST_F(TestFlowTable, AgeOutVrouterEvictedFlow) {
     KSyncSockTypeMap::ResetEvictedFlag(rflow_handle);
 }
 
+TEST_F(TestFlowTable, EvictPktTrapBeforeReverseFlowResp) {
+    KSyncSockTypeMap *sock = static_cast<KSyncSockTypeMap *>(KSyncSock::Get(0));
+    sock->set_is_incremental_index(true);
+    for (uint32_t i = 0; i < flow_proto_->flow_table_count(); i++) {
+        flow_proto_->DisableFlowKSyncQueue(i, true);
+    }
+    TxTcpMplsPacket(eth->id(), remote_compute, router_id_, vif0->label(),
+                    remote_vm1_ip, vm1_ip, 1000, 200, 1, 1);
+
+    FlowEntry *flow = NULL;
+    
+    WAIT_FOR(1000, 1000, ((flow = FlowGet(remote_vm1_ip, vm1_ip, IPPROTO_TCP,
+                          1000, 200, vif0->flow_key_nh()->id(), 1)) != NULL));
+    FlowEntry *rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow != NULL);
+
+    uint32_t flow_handle = flow->flow_handle();
+    EXPECT_TRUE(flow_handle != FlowEntry::kInvalidFlowHandle);
+    uint32_t rflow_handle = rflow->flow_handle();
+    EXPECT_TRUE(rflow_handle == FlowEntry::kInvalidFlowHandle);
+
+    //client->EnqueueFlowFlush();
+    //WAIT_FOR(1000, 1000, (flow->deleted()));
+    //WAIT_FOR(1000, 1000, (rflow->deleted()));
+
+    TxTcpMplsPacket(eth->id(), remote_compute, router_id_, vif0->label(),
+                    vm1_ip, remote_vm1_ip, 200, 1000, 1, 2, 3);
+    WAIT_FOR(1000, 1000, ((rflow_handle = rflow->flow_handle())
+                != FlowEntry::kInvalidFlowHandle));
+    //WAIT_FOR(1000, 1000, (!flow->deleted()));
+    //WAIT_FOR(1000, 1000, (!rflow->deleted()));
+    for (uint32_t i = 0; i < flow_proto_->flow_table_count(); i++) {
+        flow_proto_->DisableFlowKSyncQueue(i, false);
+    }
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (flow->flow_handle() != FlowEntry::kInvalidFlowHandle));
+    sock->set_is_incremental_index(false);
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     int ret = 0;
     GETUSERARGS();
