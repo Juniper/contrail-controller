@@ -301,9 +301,10 @@ bool BgpAsAServiceFlowMgmtEntry::NonOperEntryDelete(FlowMgmtManager *mgr,
     if (event == FlowEvent::INVALID)
         return false;
 
-    Tree::iterator it = tree_.begin();
-    while (it != tree_.end()) {
-        mgr->NonOperEntryEvent(event, *it);
+    FlowNodeList::iterator it = flow_node_list_.begin();
+    while (it != flow_node_list_.end()) {
+        FlowMgmtKeyNode *node = &(*it);
+        mgr->NonOperEntryEvent(event, node->flow_entry());
         it++;
     }
     return true;
@@ -544,17 +545,22 @@ void FlowMgmtManager::AddFlow(FlowEntryPtr &flow) {
     FlowMgmtKeyTree::iterator old_it = old_tree->begin();
 
     while (new_it != new_tree.end() && old_it != old_tree->end()) {
-        FlowMgmtKey *new_key = *new_it;
-        FlowMgmtKey *old_key = *old_it;
+        FlowMgmtKey *new_key = new_it->first;
+        FlowMgmtKey *old_key = old_it->first;
         if (new_key->IsLess(old_key)) {
             AddFlowMgmtKey(flow.get(), old_info, new_key, NULL);
             new_it++;
         } else if (old_key->IsLess(new_key)) {
-            DeleteFlowMgmtKey(flow.get(), old_info, old_key);
+            std::vector<FlowMgmtKeyNode *> node_l = old_it->second;
+            DeleteFlowMgmtKey(flow.get(), old_info, old_key, node_l);
             FlowMgmtKeyTree::iterator tmp = old_it++;
-            FlowMgmtKey *key = *tmp;
+            FlowMgmtKey *key = tmp->first;
             old_tree->erase(tmp);
             delete key;
+            while (!node_l.empty()) {
+                delete node_l.back();
+                node_l.pop_back();
+            }
         } else {
             AddFlowMgmtKey(flow.get(), old_info, new_key, old_key);
             old_it++;
@@ -563,28 +569,37 @@ void FlowMgmtManager::AddFlow(FlowEntryPtr &flow) {
     }
 
     while (new_it != new_tree.end()) {
-        FlowMgmtKey *new_key = *new_it;
+        FlowMgmtKey *new_key = new_it->first;
         AddFlowMgmtKey(flow.get(), old_info, new_key, NULL);
         new_it++;
     }
 
     while (old_it != old_tree->end()) {
-        FlowMgmtKey *old_key = *old_it;
-        DeleteFlowMgmtKey(flow.get(), old_info, old_key);
+        FlowMgmtKey *old_key = old_it->first;
+        std::vector<FlowMgmtKeyNode *> node_l = old_it->second;
+        DeleteFlowMgmtKey(flow.get(), old_info, old_key, node_l);
         FlowMgmtKeyTree::iterator tmp = old_it++;
-        FlowMgmtKey *key = *tmp;
+        FlowMgmtKey *key = tmp->first;
         old_tree->erase(tmp);
         delete key;
+        while (!node_l.empty()) {
+            delete node_l.back();
+            node_l.pop_back();
+        }
     }
 
     new_it = new_tree.begin();
     while (new_it != new_tree.end()) {
         FlowMgmtKeyTree::iterator tmp = new_it++;
-        FlowMgmtKey *key = *tmp;
+        FlowMgmtKey *key = tmp->first;
+        std::vector<FlowMgmtKeyNode *> node_l = tmp->second;
         new_tree.erase(tmp);
+        while (!node_l.empty()) {
+            delete node_l.back();
+            node_l.pop_back();
+        }
         delete key;
     }
-
 }
 
 void FlowMgmtManager::DeleteFlow(FlowEntryPtr &flow,
@@ -600,11 +615,16 @@ void FlowMgmtManager::DeleteFlow(FlowEntryPtr &flow,
 
     FlowMgmtKeyTree::iterator old_it = old_tree->begin();
     while (old_it != old_tree->end()) {
-        DeleteFlowMgmtKey(flow.get(), old_info, *old_it);
+        std::vector<FlowMgmtKeyNode *> node_l = old_it->second;
+        DeleteFlowMgmtKey(flow.get(), old_info, old_it->first, node_l);
         FlowMgmtKeyTree::iterator tmp = old_it++;
-        FlowMgmtKey *key = *tmp;
+        FlowMgmtKey *key = tmp->first;
         old_tree->erase(tmp);
         delete key;
+        while (!node_l.empty()) {
+            delete node_l.back();
+            node_l.pop_back();
+        }
     }
 
     assert(old_tree->size() == 0);
@@ -679,12 +699,27 @@ void FlowMgmtManager::DeleteFlowEntryInfo(FlowEntryPtr &flow) {
 void FlowMgmtManager::AddFlowMgmtKey(FlowEntry *flow, FlowEntryInfo *info,
                                      FlowMgmtKey *key, FlowMgmtKey *old_key) {
     FlowMgmtKey *tmp = key->Clone();
-    std::pair<FlowMgmtKeyTree::iterator, bool> ret = info->tree_.insert(tmp);
+    std::vector<FlowMgmtKeyNode *> node_l;
+
+    if (key->type() == FlowMgmtKey::BGPASASERVICE) {
+        for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
+            node_l.push_back(new FlowMgmtKeyNode(flow));
+        }
+    } else {
+        node_l.push_back(new FlowMgmtKeyNode(flow));
+    }
+
+    std::pair<FlowMgmtKeyTree::iterator, bool> ret = info->tree_.insert(
+                                                     make_pair(tmp, node_l));
     if (ret.second == false) {
         delete tmp;
+        while (!node_l.empty()) {
+            delete node_l.back();
+            node_l.pop_back();
+        }
         if (key->type() == FlowMgmtKey::ACL) {
             /* Copy the ACE Id list to existing key from new Key */
-            FlowMgmtKey *existing_key = *(ret.first);
+            FlowMgmtKey *existing_key = ret.first->first;
             AclFlowMgmtKey *akey = static_cast<AclFlowMgmtKey *>(existing_key);
             AclFlowMgmtKey *new_key = static_cast<AclFlowMgmtKey *>(key);
             akey->set_ace_id_list(new_key->ace_id_list());
@@ -693,15 +728,18 @@ void FlowMgmtManager::AddFlowMgmtKey(FlowEntry *flow, FlowEntryInfo *info,
 
     switch (key->type()) {
     case FlowMgmtKey::INTERFACE:
-        interface_flow_mgmt_tree_.Add(key, flow);
+        interface_flow_mgmt_tree_.Add(key, flow,
+                                      (ret.second)? node_l.back() : NULL);
         break;
 
     case FlowMgmtKey::ACL:
-        acl_flow_mgmt_tree_.Add(key, flow, old_key);
+        acl_flow_mgmt_tree_.Add(key, flow, old_key,
+                                (ret.second)? node_l.back() : NULL);
         break;
 
     case FlowMgmtKey::VN: {
-        bool new_flow = vn_flow_mgmt_tree_.Add(key, flow);
+        bool new_flow = vn_flow_mgmt_tree_.Add(key, flow,
+                                               (ret.second)? node_l.back() : NULL);
         VnFlowMgmtEntry *entry = static_cast<VnFlowMgmtEntry *>
             (vn_flow_mgmt_tree_.Find(key));
         entry->UpdateCounterOnAdd(flow, new_flow, info->local_flow_,
@@ -712,25 +750,38 @@ void FlowMgmtManager::AddFlowMgmtKey(FlowEntry *flow, FlowEntryInfo *info,
     }
 
     case FlowMgmtKey::INET4:
-        ip4_route_flow_mgmt_tree_.Add(key, flow);
+        ip4_route_flow_mgmt_tree_.Add(key, flow,
+                                      (ret.second)? node_l.back() : NULL);
         break;
 
     case FlowMgmtKey::INET6:
-        ip6_route_flow_mgmt_tree_.Add(key, flow);
+        ip6_route_flow_mgmt_tree_.Add(key, flow,
+                                      (ret.second)? node_l.back() : NULL);
         break;
 
     case FlowMgmtKey::BRIDGE:
-        bridge_route_flow_mgmt_tree_.Add(key, flow);
+        bridge_route_flow_mgmt_tree_.Add(key, flow,
+                                         (ret.second)? node_l.back() : NULL);
         break;
 
     case FlowMgmtKey::NH:
-        nh_flow_mgmt_tree_.Add(key, flow);
+        nh_flow_mgmt_tree_.Add(key, flow,
+                               (ret.second)? node_l.back() : NULL);
         break;
 
-    case FlowMgmtKey::BGPASASERVICE:
-        for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++)
-            bgp_as_a_service_flow_mgmt_tree_[count].get()->Add(key, flow);
+    case FlowMgmtKey::BGPASASERVICE: {
+        if (ret.second) {
+        std::vector<FlowMgmtKeyNode *>::iterator it = node_l.begin();
+            for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++)
+                bgp_as_a_service_flow_mgmt_tree_[count].get()->Add(key, flow,
+                                                                   *it++);
+        } else {
+            for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++)
+                bgp_as_a_service_flow_mgmt_tree_[count].get()->Add(key, flow,
+                                                                   NULL);
+        }
         break;
+    }
 
     default:
         assert(0);
@@ -739,22 +790,24 @@ void FlowMgmtManager::AddFlowMgmtKey(FlowEntry *flow, FlowEntryInfo *info,
 
 // Delete a FlowMgmtKey from FlowMgmtKeyTree for an object
 // The FlowMgmtKeyTree for object is passed as argument
-void FlowMgmtManager::DeleteFlowMgmtKey(FlowEntry *flow, FlowEntryInfo *info,
-                                        FlowMgmtKey *key) {
+void FlowMgmtManager::DeleteFlowMgmtKey(
+    FlowEntry *flow, FlowEntryInfo *info, FlowMgmtKey *key,
+    std::vector<FlowMgmtKeyNode *> &node_l) {
+
     FlowMgmtKeyTree::iterator it = info->tree_.find(key);
     assert(it != info->tree_.end());
 
     switch (key->type()) {
     case FlowMgmtKey::INTERFACE:
-        interface_flow_mgmt_tree_.Delete(key, flow);
+        interface_flow_mgmt_tree_.Delete(key, flow, node_l.back());
         break;
 
     case FlowMgmtKey::ACL:
-        acl_flow_mgmt_tree_.Delete(key, flow);
+        acl_flow_mgmt_tree_.Delete(key, flow, node_l.back());
         break;
 
     case FlowMgmtKey::VN: {
-        vn_flow_mgmt_tree_.Delete(key, flow);
+        vn_flow_mgmt_tree_.Delete(key, flow, node_l.back());
         VnFlowMgmtEntry *entry = static_cast<VnFlowMgmtEntry *>
             (vn_flow_mgmt_tree_.Find(key));
         if (entry)
@@ -765,25 +818,27 @@ void FlowMgmtManager::DeleteFlowMgmtKey(FlowEntry *flow, FlowEntryInfo *info,
     }
 
     case FlowMgmtKey::INET4:
-        ip4_route_flow_mgmt_tree_.Delete(key, flow);
+        ip4_route_flow_mgmt_tree_.Delete(key, flow, node_l.back());
         break;
 
     case FlowMgmtKey::INET6:
-        ip6_route_flow_mgmt_tree_.Delete(key, flow);
+        ip6_route_flow_mgmt_tree_.Delete(key, flow, node_l.back());
         break;
 
     case FlowMgmtKey::BRIDGE:
-        bridge_route_flow_mgmt_tree_.Delete(key, flow);
+        bridge_route_flow_mgmt_tree_.Delete(key, flow, node_l.back());
         break;
 
     case FlowMgmtKey::NH:
-        nh_flow_mgmt_tree_.Delete(key, flow);
+        nh_flow_mgmt_tree_.Delete(key, flow, node_l.back());
         break;
 
-    case FlowMgmtKey::BGPASASERVICE:
+    case FlowMgmtKey::BGPASASERVICE: {
+        std::vector<FlowMgmtKeyNode *>::iterator it = node_l.begin();
         for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++)
-            bgp_as_a_service_flow_mgmt_tree_[count].get()->Delete(key, flow);
+            bgp_as_a_service_flow_mgmt_tree_[count].get()->Delete(key, flow, *it++);
         break;
+    }
 
     default:
         assert(0);
@@ -875,31 +930,39 @@ bool FlowMgmtTree::TryDelete(FlowMgmtKey *key, FlowMgmtEntry *entry) {
 // Generic Event handler on tree for add/delete of a flow
 /////////////////////////////////////////////////////////////////////////////
 bool FlowMgmtTree::AddFlowMgmtKey(FlowMgmtKeyTree *tree, FlowMgmtKey *key) {
-    std::pair<FlowMgmtKeyTree::iterator, bool> ret = tree->insert(key);
-    if (ret.second == false)
+    std::vector<FlowMgmtKeyNode *> node_l;
+    node_l.push_back(new FlowMgmtKeyNode());
+    std::pair<FlowMgmtKeyTree::iterator, bool> ret;
+    ret = tree->insert(make_pair(key, node_l));
+    if (ret.second == false) {
         delete key;
+        delete node_l.back();
+        node_l.pop_back();
+    }
     return ret.second;
 }
 
 // Adds Flow to a FlowMgmtEntry defined by key. Does not allocate FlowMgmtEntry
 // if its not already present
-bool FlowMgmtTree::Add(FlowMgmtKey *key, FlowEntry *flow) {
+bool FlowMgmtTree::Add(FlowMgmtKey *key, FlowEntry *flow,
+                       FlowMgmtKeyNode *node) {
     FlowMgmtEntry *entry = Locate(key);
     if (entry == NULL) {
         return false;
     }
 
-    return entry->Add(flow);
+    return entry->Add(flow, node);
 }
 
-bool FlowMgmtTree::Delete(FlowMgmtKey *key, FlowEntry *flow) {
+bool FlowMgmtTree::Delete(FlowMgmtKey *key, FlowEntry *flow,
+                          FlowMgmtKeyNode *node) {
     Tree::iterator it = tree_.find(key);
     if (it == tree_.end()) {
         return false;
     }
 
     FlowMgmtEntry *entry = it->second;
-    bool ret = entry->Delete(flow);
+    bool ret = entry->Delete(flow, node);
 
     TryDelete(it->first, entry);
     return ret;
@@ -960,14 +1023,17 @@ bool FlowMgmtTree::RetryDelete(FlowMgmtKey *key) {
 /////////////////////////////////////////////////////////////////////////////
 // Object Entry code
 /////////////////////////////////////////////////////////////////////////////
-bool FlowMgmtEntry::Add(FlowEntry *flow) {
-    std::pair<Tree::iterator, bool> ret = tree_.insert(flow);
-    return ret.second;
+bool FlowMgmtEntry::Add(FlowEntry *flow, FlowMgmtKeyNode *node) {
+    if (node) {
+        flow_node_list_.push_back(*node);
+        return true;
+    }
+    return false;
 }
 
-bool FlowMgmtEntry::Delete(FlowEntry *flow) {
-    tree_.erase(flow);
-    return tree_.size();
+bool FlowMgmtEntry::Delete(FlowEntry *flow, FlowMgmtKeyNode *node) {
+    flow_node_list_.erase(flow_node_list_.iterator_to(*node));
+    return flow_node_list_.size();
 }
 
 // An entry *cannot* be deleted if 
@@ -975,7 +1041,7 @@ bool FlowMgmtEntry::Delete(FlowEntry *flow) {
 //    - It has seen ADD but not seen any DELETE
 bool FlowMgmtEntry::CanDelete() const {
     assert(oper_state_ != INVALID);
-    if (tree_.size())
+    if (flow_node_list_.size())
         return false;
 
     return (oper_state_ != OPER_ADD_SEEN);
@@ -989,9 +1055,10 @@ bool FlowMgmtEntry::OperEntryAdd(FlowMgmtManager *mgr,
     if (event == FlowEvent::INVALID)
         return false;
 
-    Tree::iterator it = tree_.begin();
-    while (it != tree_.end()) {
-        mgr->DBEntryEvent(event, key, *it);
+    FlowNodeList::iterator it = flow_node_list_.begin();
+    while (it != flow_node_list_.end()) {
+        FlowMgmtKeyNode *node = &(*it);
+        mgr->DBEntryEvent(event, key, node->flow_entry());
         it++;
     }
 
@@ -1014,9 +1081,10 @@ bool FlowMgmtEntry::OperEntryDelete(FlowMgmtManager *mgr,
     if (event == FlowEvent::INVALID)
         return false;
 
-    Tree::iterator it = tree_.begin();
-    while (it != tree_.end()) {
-        mgr->DBEntryEvent(event, key, *it);
+    FlowNodeList::iterator it = flow_node_list_.begin();
+    while (it != flow_node_list_.end()) {
+        FlowMgmtKeyNode *node = &(*it);
+        mgr->DBEntryEvent(event, key, node->flow_entry());
         it++;
     }
 
@@ -1080,23 +1148,25 @@ void AclFlowMgmtEntry::FillAclFlowSandeshInfo(const AclDBEntry *acl,
                                               Agent *agent) {
     int count = 0;
     bool key_set = false;
-    FlowMgmtEntry::Tree::iterator fe_tree_it = tree_.begin();
-    while (fe_tree_it != tree_.end() && (count + 1) < last_count) {
+    FlowNodeList::iterator fe_tree_it = flow_node_list_.begin();
+    while (fe_tree_it != flow_node_list_.end() && (count + 1) < last_count) {
         fe_tree_it++;
         count++;
     }
     data.set_flow_count(Size());
     data.set_flow_miss(flow_miss_);
     std::vector<FlowSandeshData> flow_entries_l;
-    while(fe_tree_it != tree_.end()) {
-        const FlowEntry *fe = *fe_tree_it;
+    while(fe_tree_it != flow_node_list_.end()) {
+        FlowMgmtKeyNode *node = &(*fe_tree_it);
+        const FlowEntry *fe = node->flow_entry();
         FlowSandeshData fe_sandesh_data;
         fe->SetAclFlowSandeshData(acl, fe_sandesh_data, agent);
 
         flow_entries_l.push_back(fe_sandesh_data);
         count++;
         ++fe_tree_it;
-        if (count == (MaxResponses + last_count) && fe_tree_it != tree_.end()) {
+        if (count == (MaxResponses + last_count) &&
+            fe_tree_it != flow_node_list_.end()) {
             data.set_iteration_key(GetAclFlowSandeshDataKey(acl, count));
             key_set = true;
             break;
@@ -1116,7 +1186,8 @@ void AclFlowMgmtEntry::DecrementAceIdCountMap(const AclEntryIDList *id_list) {
 }
 
 bool AclFlowMgmtEntry::Add(const AclEntryIDList *id_list, FlowEntry *flow,
-                           const AclEntryIDList *old_id_list) {
+                           const AclEntryIDList *old_id_list,
+                           FlowMgmtKeyNode *node) {
     if (old_id_list) {
         DecrementAceIdCountMap(old_id_list);
     }
@@ -1128,14 +1199,15 @@ bool AclFlowMgmtEntry::Add(const AclEntryIDList *id_list, FlowEntry *flow,
     } else {
         flow_miss_++;
     }
-    return FlowMgmtEntry::Add(flow);
+    return FlowMgmtEntry::Add(flow, node);
 }
 
-bool AclFlowMgmtEntry::Delete(const AclEntryIDList *id_list, FlowEntry *flow) {
+bool AclFlowMgmtEntry::Delete(const AclEntryIDList *id_list, FlowEntry *flow,
+                              FlowMgmtKeyNode *node) {
     if (id_list->size()) {
         DecrementAceIdCountMap(id_list);
     }
-    return FlowMgmtEntry::Delete(flow);
+    return FlowMgmtEntry::Delete(flow, node);
 }
 
 void AclFlowMgmtTree::ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree,
@@ -1165,7 +1237,7 @@ FlowMgmtEntry *AclFlowMgmtTree::Allocate(const FlowMgmtKey *key) {
 }
 
 bool AclFlowMgmtTree::Add(FlowMgmtKey *key, FlowEntry *flow,
-                          FlowMgmtKey *old_key) {
+                          FlowMgmtKey *old_key, FlowMgmtKeyNode *node) {
     AclFlowMgmtEntry *entry = static_cast<AclFlowMgmtEntry *>(Locate(key));
     if (entry == NULL) {
         return false;
@@ -1177,10 +1249,11 @@ bool AclFlowMgmtTree::Add(FlowMgmtKey *key, FlowEntry *flow,
         AclFlowMgmtKey *old_acl_key = static_cast<AclFlowMgmtKey *>(old_key);
         old_ace_id_list = old_acl_key->ace_id_list();
     }
-    return entry->Add(acl_key->ace_id_list(), flow, old_ace_id_list);
+    return entry->Add(acl_key->ace_id_list(), flow, old_ace_id_list, node);
 }
 
-bool AclFlowMgmtTree::Delete(FlowMgmtKey *key, FlowEntry *flow) {
+bool AclFlowMgmtTree::Delete(FlowMgmtKey *key, FlowEntry *flow,
+                             FlowMgmtKeyNode *node) {
     Tree::iterator it = tree_.find(key);
     if (it == tree_.end()) {
         return false;
@@ -1188,7 +1261,7 @@ bool AclFlowMgmtTree::Delete(FlowMgmtKey *key, FlowEntry *flow) {
 
     AclFlowMgmtKey *acl_key = static_cast<AclFlowMgmtKey *>(key);
     AclFlowMgmtEntry *entry = static_cast<AclFlowMgmtEntry *>(it->second);
-    bool ret = entry->Delete(acl_key->ace_id_list(), flow);
+    bool ret = entry->Delete(acl_key->ace_id_list(), flow, node);
 
     TryDelete(it->first, entry);
     return ret;
@@ -1253,14 +1326,16 @@ void VnFlowMgmtEntry::UpdateCounterOnDel(FlowEntry *flow, bool local_flow,
     }
 }
 
-bool VnFlowMgmtTree::Add(FlowMgmtKey *key, FlowEntry *flow) {
+bool VnFlowMgmtTree::Add(FlowMgmtKey *key, FlowEntry *flow,
+                         FlowMgmtKeyNode *node) {
     tbb::mutex::scoped_lock mutex(mutex_);
-    return FlowMgmtTree::Add(key, flow);
+    return FlowMgmtTree::Add(key, flow, node);
 }
 
-bool VnFlowMgmtTree::Delete(FlowMgmtKey *key, FlowEntry *flow) {
+bool VnFlowMgmtTree::Delete(FlowMgmtKey *key, FlowEntry *flow,
+                            FlowMgmtKeyNode *node) {
     tbb::mutex::scoped_lock mutex(mutex_);
-    return FlowMgmtTree::Delete(key, flow);
+    return FlowMgmtTree::Delete(key, flow, node);
 }
 
 bool VnFlowMgmtTree::OperEntryAdd(const FlowMgmtRequest *req,
@@ -1322,8 +1397,9 @@ FlowMgmtEntry *NhFlowMgmtTree::Allocate(const FlowMgmtKey *key) {
 /////////////////////////////////////////////////////////////////////////////
 // Route Flow Management
 /////////////////////////////////////////////////////////////////////////////
-bool RouteFlowMgmtTree::Delete(FlowMgmtKey *key, FlowEntry *flow) {
-    bool ret = FlowMgmtTree::Delete(key, flow);
+bool RouteFlowMgmtTree::Delete(FlowMgmtKey *key, FlowEntry *flow,
+                               FlowMgmtKeyNode *node) {
+    bool ret = FlowMgmtTree::Delete(key, flow, node);
     RouteFlowMgmtKey *route_key = static_cast<RouteFlowMgmtKey *>(key);
     mgr_->RetryVrfDelete(route_key->vrf_id());
     return ret;
