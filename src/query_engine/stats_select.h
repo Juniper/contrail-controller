@@ -60,6 +60,7 @@ public:
 
 private:
     static void DeleteTDigest(TDigest *);
+    static void DeleteCentroid(Centroid *);
     static void MergeAggRow(QEOpServerProxy::AggRowT &arows,
             const QEOpServerProxy::AggRowT &narows);
     static void MergeFullRow(
@@ -102,6 +103,7 @@ private:
 
     std::set<std::string> max_field_;
     std::set<std::string> min_field_;
+    std::set<std::string> avg_field_;
 
     std::set<std::string> percentile_cols_;
 

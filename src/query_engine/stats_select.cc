@@ -21,6 +21,14 @@ using std::set;
 using std::pair;
 using std::make_pair;
 
+struct Centroid {
+};
+
+void
+StatsSelect::DeleteCentroid (Centroid *t) {
+    free(t);
+}
+
 struct TDigest {
 };
 
@@ -89,6 +97,8 @@ StatsSelect::Jsonify(const std::map<std::string, StatVal>&  uniks,
                 sname = string("MIN(") + it->first.second + string(")");
             } else if (it->first.first == QEOpServerProxy::PERCENTILES) {
                 sname = string("PERCENTILES(") + it->first.second + string(")");
+            } else if (it->first.first == QEOpServerProxy::AVG) {
+                sname = string("AVG(") + it->first.second + string(")");
             } else {
                 QE_ASSERT(0);
             }
@@ -133,6 +143,15 @@ StatsSelect::Jsonify(const std::map<std::string, StatVal>&  uniks,
                             val.AddMember(stiles[idx].c_str(), dd.GetAllocator(),
                                 sval, dd.GetAllocator());
                         }
+                        dd.AddMember(sname.c_str(), dd.GetAllocator(),
+                            val, dd.GetAllocator());
+                    }
+                    break;
+                case QEOpServerProxy::CENTROID : {
+                        boost::shared_ptr<Centroid> mapit =
+                            boost::get<boost::shared_ptr<Centroid> >(it->second);
+                        rapidjson::Value val(rapidjson::kNumberType);
+                        val.SetDouble(Centroid_get_mean(mapit.get()));
                         dd.AddMember(sname.c_str(), dd.GetAllocator(),
                             val, dd.GetAllocator());
                     }
@@ -282,6 +301,9 @@ StatsSelect::StatsSelect(AnalyticsQuery * m_query,
             } else if (agg == QEOpServerProxy::PERCENTILES) {
                 percentile_cols_.insert(sfield);
                 QE_TRACE(DEBUG, "StatsSelect PERCENTILES " << sfield);
+            } else if (agg == QEOpServerProxy::AVG) {
+                avg_field_.insert(sfield);
+                QE_TRACE(DEBUG, "StatsSelect AVG " << sfield);
             } else {
                 QE_ASSERT(0);
             }
@@ -415,6 +437,23 @@ void StatsSelect::MergeAggRow(QEOpServerProxy::AggRowT &arows,
                     QE_ASSERT(0);
                 }     
             }
+            if (jt->first.first == QEOpServerProxy::AVG) {
+                StatsSelect::StatVal & sv = jt->second;
+                try {
+                    if (sv.which() == QEOpServerProxy::CENTROID) {
+                        boost::shared_ptr<Centroid>& pt =
+                            boost::get<boost::shared_ptr<Centroid> >(jt->second);
+
+                        boost::shared_ptr<Centroid> pt2 =
+                            boost::get<boost::shared_ptr<Centroid> >(kt->second);
+                        Centroid_add(pt.get(),
+                                Centroid_get_mean(pt2.get()),
+                                Centroid_get_count(pt2.get()));
+                    }
+                } catch (boost::bad_get& ex) {
+                    QE_ASSERT(0);
+                }
+            }
             if (jt->first.first == QEOpServerProxy::PERCENTILES) {
                 StatsSelect::StatVal & sv = jt->second;
                 try {
@@ -519,6 +558,27 @@ bool StatsSelect::LoadRow(boost::uuids::uuid u,
         if (uit!=min_field_.end()) {
             pair<QEOpServerProxy::AggOper,string> aggkey(QEOpServerProxy::MIN,it->name);
             narows.insert(make_pair(aggkey, it->value)); 
+        }
+        uit = avg_field_.find(it->name);
+        if (uit!=avg_field_.end()) {
+            pair<QEOpServerProxy::AggOper,string> aggkey(QEOpServerProxy::AVG,it->name);
+            try {
+                Centroid *t = Centroid_create(0, 0);
+                StatsSelect::StatVal sv = it->value;
+                double val;
+                if (sv.which() == QEOpServerProxy::UINT64) {
+                    val = boost::get<uint64_t>(sv);
+                } else {
+                    val = boost::get<double>(sv);
+                }
+                Centroid_add(t, val, 1);
+                boost::shared_ptr<Centroid> pt(t, &StatsSelect::DeleteCentroid);
+                narows.insert(make_pair(aggkey, pt));
+            } catch (boost::bad_get& ex) {
+                QE_ASSERT(0);
+            } catch (const std::out_of_range& oor) {
+                QE_ASSERT(0);
+            }
         }
         uit = percentile_cols_.find(it->name);
         if (uit!=percentile_cols_.end()) {

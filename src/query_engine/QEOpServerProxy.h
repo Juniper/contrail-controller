@@ -70,7 +70,7 @@ public:
     typedef std::pair<OutRowT, MetadataT> ResultRowT; 
     typedef std::vector<ResultRowT> BufferT;
 
-    typedef boost::variant<boost::blank, std::string, uint64_t, double, boost::uuids::uuid, boost::shared_ptr<TDigest> > SubVal;
+    typedef boost::variant<boost::blank, std::string, uint64_t, double, boost::uuids::uuid, boost::shared_ptr<TDigest>, boost::shared_ptr<Centroid> > SubVal;
     enum VarType {
         BLANK=0,
         STRING=1,
@@ -78,6 +78,7 @@ public:
         DOUBLE=3,
         UUID=4,
         TDIGEST=5,
+	CENTROID=6,
     };
     enum AggOper {
         INVALID = 0,
@@ -87,6 +88,7 @@ public:
         MAX = 4,
         MIN = 5,
         PERCENTILES = 6,
+	AVG = 7,
     };
 
     // This is a map of aggregations for an output row
