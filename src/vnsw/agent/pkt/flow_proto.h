@@ -96,6 +96,7 @@ public:
 
     void DisableFlowEventQueue(uint32_t index, bool disabled);
     void DisableFlowUpdateQueue(bool disabled);
+    void DisableFlowKSyncQueue(uint32_t index, bool disabled);
     size_t FlowUpdateQueueLength();
 
     const FlowStats *flow_stats() const { return &stats_; }
