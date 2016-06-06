@@ -1623,7 +1623,8 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
 
     if ((pkt->type == PktType::MESSAGE &&
         pkt->agent_hdr.cmd == AgentHdr::TRAP_FLOW_MISS) ||
-        pkt->agent_hdr.cmd == AgentHdr::TRAP_ECMP_RESOLVE) {
+        pkt->agent_hdr.cmd == AgentHdr::TRAP_ECMP_RESOLVE ||
+        pkt->agent_hdr.cmd == AgentHdr::TRAP_FLOW_ACTION_HOLD) {
         update = true;
     }
 
