@@ -13,7 +13,7 @@ class TunnelEncapTest : public ::testing::Test {
 
 TEST_F(TunnelEncapTest, String_1) {
     TunnelEncap tunnel_encap("gre");
-    EXPECT_EQ(TunnelEncapType::MPLS_O_GRE, tunnel_encap.tunnel_encap());
+    EXPECT_EQ(TunnelEncapType::GRE, tunnel_encap.tunnel_encap());
     EXPECT_EQ("encapsulation:gre", tunnel_encap.ToString());
     EXPECT_EQ("gre", tunnel_encap.ToXmppString());
 }
@@ -74,10 +74,17 @@ TEST_F(TunnelEncapTest, String_7) {
     EXPECT_EQ("vxlan-gpe", tunnel_encap.ToXmppString());
 }
 
-TEST_F(TunnelEncapTest, EncapType_1) {
+TEST_F(TunnelEncapTest, EncapType_1a) {
+    TunnelEncap tunnel_encap(TunnelEncapType::GRE);
+    EXPECT_EQ(TunnelEncapType::GRE, tunnel_encap.tunnel_encap());
+    EXPECT_EQ("encapsulation:gre", tunnel_encap.ToString());
+    EXPECT_EQ("gre", tunnel_encap.ToXmppString());
+}
+
+TEST_F(TunnelEncapTest, EncapType_1b) {
     TunnelEncap tunnel_encap(TunnelEncapType::MPLS_O_GRE);
     EXPECT_EQ(TunnelEncapType::MPLS_O_GRE, tunnel_encap.tunnel_encap());
-    EXPECT_EQ("encapsulation:gre", tunnel_encap.ToString());
+    EXPECT_EQ("encapsulation:mpls-o-gre", tunnel_encap.ToString());
     EXPECT_EQ("gre", tunnel_encap.ToXmppString());
 }
 
@@ -136,12 +143,21 @@ TEST_F(TunnelEncapTest, EncapType_7) {
     EXPECT_EQ("vxlan-gpe", tunnel_encap.ToXmppString());
 }
 
-TEST_F(TunnelEncapTest, ByteArray_1) {
+TEST_F(TunnelEncapTest, ByteArray_1a) {
     TunnelEncap::bytes_type data =
         { { 0x03, 0x0C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02 } };
     TunnelEncap tunnel_encap(data);
-    EXPECT_EQ(TunnelEncapType::MPLS_O_GRE, tunnel_encap.tunnel_encap());
+    EXPECT_EQ(TunnelEncapType::GRE, tunnel_encap.tunnel_encap());
     EXPECT_EQ("encapsulation:gre", tunnel_encap.ToString());
+    EXPECT_EQ("gre", tunnel_encap.ToXmppString());
+}
+
+TEST_F(TunnelEncapTest, ByteArray_1b) {
+    TunnelEncap::bytes_type data =
+        { { 0x03, 0x0C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0B } };
+    TunnelEncap tunnel_encap(data);
+    EXPECT_EQ(TunnelEncapType::MPLS_O_GRE, tunnel_encap.tunnel_encap());
+    EXPECT_EQ("encapsulation:mpls-o-gre", tunnel_encap.ToString());
     EXPECT_EQ("gre", tunnel_encap.ToXmppString());
 }
 
