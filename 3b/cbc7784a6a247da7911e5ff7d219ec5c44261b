@@ -1,0 +1,9 @@
+Verified+2: Zuul <zuul@lists.opencontrail.org>
+Code-Review+1: Hari Prasad Killi <haripk@juniper.net>
+Approved+1: Naveen N <naveenn@juniper.net>
+Code-Review+2: Naveen N <naveenn@juniper.net>
+Submitted-by: Zuul <zuul@lists.opencontrail.org>
+Submitted-at: Mon, 06 Jun 2016 01:23:42 -0700
+Reviewed-on: https://review.opencontrail.org/20929
+Project: Juniper/contrail-controller
+Branch: refs/heads/master
