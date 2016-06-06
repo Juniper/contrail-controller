@@ -392,7 +392,8 @@ public:
     };
 
     agent_hdr *AddAgentHdr(int if_id, int cmd, int param = 0, int vrf = -1,
-                           int label = -1, int vxlan_id = -1) {
+                           int label = -1, int vxlan_id = -1,
+                           uint8_t gen_id = 0) {
         agent_hdr *hdr= (agent_hdr *)(buff + len);
         Interface *intf = InterfaceTable::GetInstance()->FindInterface(if_id);
         if (vrf == -1) {
@@ -450,6 +451,7 @@ public:
         hdr->hdr_cmd_param = htonl(param);
         hdr->hdr_vrf = htons(vrf);
         hdr->hdr_cmd_param_1 = htonl(nh);
+        hdr->hdr_cmd_param_5 = gen_id;
         len += sizeof(*hdr);
         return hdr;
     };

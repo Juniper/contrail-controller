@@ -773,12 +773,16 @@ void KSyncUserSockFlowContext::Process() {
         //Deactivate the flow-entry in flow mmap
         KSyncSockTypeMap::SetFlowEntry(req_, false);
     } else {
-        /* Send reverse-flow index as one more than fwd-flow index */
         uint32_t fwd_flow_idx = req_->get_fr_index();
         if (fwd_flow_idx == 0xFFFFFFFF) {
             if (flow_error == 0) {
                 /* Allocate entry only of no error case */
-                fwd_flow_idx = rand() % 50000;
+                if (sock->is_incremental_index()) {
+                    /* Send reverse-flow index as one more than fwd-flow index */
+                    fwd_flow_idx = req_->get_fr_rindex() + 1;
+                } else {
+                    fwd_flow_idx = rand() % 50000;
+                }
                 req_->set_fr_index(fwd_flow_idx);
                 req_->set_fr_gen_id((fwd_flow_idx % 255));
             }

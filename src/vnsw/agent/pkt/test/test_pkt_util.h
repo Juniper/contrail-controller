@@ -60,11 +60,12 @@ extern void TxUdpMplsPacket(int ifindex, const char *out_sip,
 extern void MakeTcpMplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
 			      const char *out_dip, uint32_t label,
 			      const char *sip, const char *dip, uint16_t sport,
-			      uint16_t dport, bool ack, int hash_id);
+			      uint16_t dport, bool ack, int hash_id, uint8_t gen_id = 0);
 extern void TxTcpMplsPacket(int ifindex, const char *out_sip,
                                const char *out_dip, uint32_t label,
                                const char *sip, const char *dip, uint16_t sport,
-                               uint16_t dport, bool ack, int hash_id = 1);
+                               uint16_t dport, bool ack, int hash_id = 1,
+                               uint8_t gen_id = 0);
 
 extern void MakeIp6Packet(PktGen *pkt, int ifindex, const char *sip,
                           const char *dip, int proto, int hash_id,

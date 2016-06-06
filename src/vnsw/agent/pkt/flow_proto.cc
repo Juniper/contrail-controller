@@ -230,6 +230,10 @@ void FlowProto::DisableFlowUpdateQueue(bool disabled) {
     flow_update_queue_.set_disable(disabled);
 }
 
+void FlowProto::DisableFlowKSyncQueue(uint32_t index, bool disabled) {
+    flow_ksync_queue_[index]->set_disable(disabled);
+}
+
 size_t FlowProto::FlowUpdateQueueLength() {
     return flow_update_queue_.Length();
 }
