@@ -68,6 +68,7 @@ public:
     virtual std::string ToString() const { return address_str_; }
     virtual std::string ToUVEKey() const { return address_str_; }
     virtual BgpServer *server() { return server_; }
+    virtual BgpServer *server() const { return server_; }
     virtual IPeerClose *peer_close() { return NULL; }
     virtual IPeerDebugStats *peer_stats() { return NULL; }
     virtual const IPeerDebugStats *peer_stats() const { return NULL; }
@@ -83,6 +84,10 @@ public:
     virtual int GetTotalPathCount() const { return 0; }
     virtual void UpdatePrimaryPathCount(int count) const { }
     virtual int GetPrimaryPathCount() const { return 0; }
+    virtual void MembershipRequestCallback(BgpTable *table) { }
+    virtual bool MembershipPathCallback(DBTablePartBase *tpart,
+        BgpRoute *route, BgpPath *path) { return false; }
+    virtual bool CanUseMembershipManager() const { return true; }
 
 private:
     BgpServer *server_;

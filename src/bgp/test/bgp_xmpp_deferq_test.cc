@@ -13,7 +13,7 @@ using namespace boost::assign;
 #include "base/task_annotations.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_path.h"
-#include "bgp/bgp_peer_membership.h"
+#include "bgp/bgp_membership.h"
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
@@ -22,11 +22,6 @@ using namespace boost::assign;
 #include "io/test/event_manager_test.h"
 #include "control-node/control_node.h"
 #include "control-node/test/network_agent_mock.h"
-
-
-
-
-
 
 using namespace boost::asio;
 using namespace std;
@@ -124,11 +119,39 @@ public:
         BgpTable *table = rt_instance->GetTable(Address::INET);
         if (table == NULL)
             return false;
-        IPeerRib *rib = a_->membership_mgr()->IPeerRibFind(channel->Peer(), table);
-        if (rib) {
-            if (rib->instance_id() == instance_id) return true;
+        BgpMembershipManager *membership_mgr = a_->membership_mgr();
+        int mm_instance_id;
+        if (!membership_mgr->GetRegistrationInfo(channel->Peer(), table,
+            &mm_instance_id)) {
+            return false;
         }
-        return false;
+        return (mm_instance_id == instance_id);
+    }
+
+    bool PeerRegisteredRibIn(BgpXmppChannel *channel, string instance_name) {
+        RoutingInstanceMgr *instance_mgr = a_->routing_instance_mgr();
+        RoutingInstance *rt_instance =
+            instance_mgr->GetRoutingInstance(instance_name);
+        if (rt_instance == NULL)
+            return false;
+        BgpTable *table = rt_instance->GetTable(Address::INET);
+        if (table == NULL)
+            return false;
+        BgpMembershipManager *membership_mgr = a_->membership_mgr();
+        return (membership_mgr->IsRibInRegistered(channel->Peer(), table));
+    }
+
+    bool PeerRegisteredRibOut(BgpXmppChannel *channel, string instance_name) {
+        RoutingInstanceMgr *instance_mgr = a_->routing_instance_mgr();
+        RoutingInstance *rt_instance =
+            instance_mgr->GetRoutingInstance(instance_name);
+        if (rt_instance == NULL)
+            return false;
+        BgpTable *table = rt_instance->GetTable(Address::INET);
+        if (table == NULL)
+            return false;
+        BgpMembershipManager *membership_mgr = a_->membership_mgr();
+        return (membership_mgr->IsRibOutRegistered(channel->Peer(), table));
     }
 
     bool PeerNotRegistered(BgpXmppChannel *channel, std::string instance_name) {
@@ -140,11 +163,8 @@ public:
         BgpTable *table = rt_instance->GetTable(Address::INET);
         if (table == NULL)
             return true;
-        IPeerRib *rib = a_->membership_mgr()->IPeerRibFind(channel->Peer(), table);
-        if (rib) {
-            return false;
-        }
-        return true;
+        BgpMembershipManager *membership_mgr = a_->membership_mgr();
+        return (!membership_mgr->IsRegistered(channel->Peer(), table));
     }
 
     bool PeerHasPendingInstanceMembershipRequests(BgpXmppChannel *channel) {
@@ -164,11 +184,11 @@ public:
     }
 
     void PausePeerRibMembershipManager() {
-        a_->membership_mgr()->event_queue_->set_disable(true);
+        a_->membership_mgr()->SetQueueDisable(true);
     }
 
     void ResumePeerRibMembershipManager() {
-        a_->membership_mgr()->event_queue_->set_disable(false);
+        a_->membership_mgr()->SetQueueDisable(false);
     }
 
     void PauseBgpXmppChannelManager() {
@@ -1565,12 +1585,17 @@ TEST_F(BgpXmppUnitTest, RegisterWithDeletedBgpTable2) {
 
     // The subscribe request should have been processed by the membership
     // manager and a response returned.  The membership manager will have
-    // no subscription state since the table was marked deleted when the
+    // subscription state even though the table was marked deleted when the
     // subscribe was processed by it.
     TASK_UTIL_EXPECT_FALSE(
         PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
     TASK_UTIL_EXPECT_TRUE(
-        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+        PeerRegisteredRibIn(bgp_channel_manager_->channel_, "blue"));
+    TASK_UTIL_EXPECT_FALSE(
+        PeerRegisteredRibOut(bgp_channel_manager_->channel_, "blue"));
+
+    // Unsubscribe from blue instance.
+    agent_a_->Unsubscribe("blue", -1, false);
 
     // Resume deletion of blue inet table and blue instance and make sure
     // they are gone.
@@ -1579,7 +1604,6 @@ TEST_F(BgpXmppUnitTest, RegisterWithDeletedBgpTable2) {
     VerifyNoRoutingInstance("blue");
 
     // Clean up.
-    agent_a_->Unsubscribe("blue", -1, false);
     agent_a_->SessionDown();
     task_util::WaitForIdle();
 }
@@ -1666,7 +1690,7 @@ TEST_F(BgpXmppUnitTest, UnregisterWithDeletedBgpTable2) {
     TASK_UTIL_EXPECT_FALSE(
         PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
     TASK_UTIL_EXPECT_TRUE(
-        PeerRegistered(bgp_channel_manager_->channel_, "blue", 1));
+        PeerRegisteredRibOut(bgp_channel_manager_->channel_, "blue"));
 
     // Pause the peer membership manager.
     PausePeerRibMembershipManager();
@@ -1678,8 +1702,10 @@ TEST_F(BgpXmppUnitTest, UnregisterWithDeletedBgpTable2) {
     TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_->channel_->Count());
     TASK_UTIL_EXPECT_TRUE(
         PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_FALSE(
+        PeerRegisteredRibIn(bgp_channel_manager_->channel_, "blue"));
     TASK_UTIL_EXPECT_TRUE(
-        PeerRegistered(bgp_channel_manager_->channel_, "blue", 1));
+        PeerRegisteredRibOut(bgp_channel_manager_->channel_, "blue"));
 
     // Unconfigure all instances.
     // The blue instance should still exist in deleted state.
@@ -1890,25 +1916,26 @@ TEST_F(BgpXmppUnitTest, RegisterUnregisterWithDeletedBgpTable3) {
 
     // The subscribe request should have been processed by the membership
     // manager and a response returned.  The membership manager will have
-    // no subscription state since the table was marked deleted when the
+    // subscription state even though the table was marked deleted when the
     // subscribe was processed by it.
     TASK_UTIL_EXPECT_FALSE(
         PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
     TASK_UTIL_EXPECT_TRUE(
-        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+        PeerRegisteredRibIn(bgp_channel_manager_->channel_, "blue"));
+    TASK_UTIL_EXPECT_FALSE(
+        PeerRegisteredRibOut(bgp_channel_manager_->channel_, "blue"));
+
+    // Unsubscribe for the old incarnation.
+    agent_a_->Unsubscribe("blue", -1, false);
 
     // Resume deletion of blue inet table and blue instance.
     ResumeDelete(blue_table->deleter());
     ResumeDelete(blue->deleter());
     VerifyNoRoutingInstance("blue");
 
-    // Unsubscribe for the old incarnation.
-    agent_a_->Unsubscribe("blue", -1, false);
-
-    // Wait till the channel goes away but do not read inside the channel,
-    // which will get destroyed.
-    TASK_UTIL_EXPECT_EQ((BgpXmppChannelMock *) NULL,
-                        bgp_channel_manager_->channel_);
+    // Clean up.
+    agent_a_->SessionDown();
+    task_util::WaitForIdle();
 }
 
 TEST_F(BgpXmppUnitTest, RegisterAddDelAddRouteWithDeletedBgpTable) {
@@ -1976,6 +2003,9 @@ TEST_F(BgpXmppUnitTest, RegisterAddDelAddRouteWithDeletedBgpTable) {
     // Route shouldn't have been added.
     TASK_UTIL_EXPECT_EQ(0, agent_a_->RouteCount());
 
+    // Unsubscribe.
+    agent_a_->Unsubscribe("blue", -1, false);
+
     // Resume deletion of blue inet table and blue instance and make sure
     // they are gone.
     ResumeDelete(blue_table->deleter());
@@ -1983,7 +2013,6 @@ TEST_F(BgpXmppUnitTest, RegisterAddDelAddRouteWithDeletedBgpTable) {
     VerifyNoRoutingInstance("blue");
 
     // Clean up.
-    agent_a_->Unsubscribe("blue", -1, false);
     agent_a_->SessionDown();
     task_util::WaitForIdle();
 }
@@ -2294,8 +2323,10 @@ TEST_F(BgpXmppUnitTest, DeferCloseWithPendingUnregister) {
     TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_->channel_->Count());
     TASK_UTIL_EXPECT_TRUE(
         PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_FALSE(
+        PeerRegisteredRibIn(bgp_channel_manager_->channel_, "blue"));
     TASK_UTIL_EXPECT_TRUE(
-        PeerRegistered(bgp_channel_manager_->channel_, "blue", 1));
+        PeerRegisteredRibOut(bgp_channel_manager_->channel_, "blue"));
 
     // Bring the session down.  The close should get deferred since there
     // are pending membership requests.

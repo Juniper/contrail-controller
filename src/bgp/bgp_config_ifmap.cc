@@ -1767,6 +1767,35 @@ void BgpIfmapConfigManager::DefaultConfig() {
         vector<string>());
 }
 
+bool BgpIfmapGlobalSystemConfig::Update(BgpIfmapConfigManager *manager,
+        const autogen::GlobalSystemConfig *system) {
+    bool changed = false;
+
+    if (data_.gr_time() != system->graceful_restart_params().
+                               graceful_restart_time) {
+        data_.set_gr_time(system->graceful_restart_params().
+                              graceful_restart_time);
+        changed |= true;
+    }
+
+    if (data_.llgr_time() != static_cast<uint32_t>(
+            system->graceful_restart_params().
+                long_lived_graceful_restart_time)) {
+        data_.set_llgr_time(system->graceful_restart_params().
+                                long_lived_graceful_restart_time);
+        changed |= true;
+    }
+
+    if (data_.eor_time() != static_cast<uint32_t>(
+            system->graceful_restart_params().
+                end_of_rib_receive_time)) {
+        data_.set_eor_time(system->graceful_restart_params().
+                               end_of_rib_receive_time);
+        changed |= true;
+    }
+    return changed;
+}
+
 //
 // Initialize IdentifierMap with handlers for interesting identifier types.
 //
@@ -1786,6 +1815,9 @@ void BgpIfmapConfigManager::IdentifierMapInit() {
         boost::bind(&BgpIfmapConfigManager::ProcessBgpRouter, this, _1)));
     id_map_.insert(make_pair("bgp-peering",
         boost::bind(&BgpIfmapConfigManager::ProcessBgpPeering, this, _1)));
+    id_map_.insert(make_pair("global-system-config",
+        boost::bind(&BgpIfmapConfigManager::ProcessGlobalSystemConfig, this,
+                    _1)));
 }
 
 //
@@ -2127,6 +2159,24 @@ void BgpIfmapConfigManager::ProcessBgpPeering(const BgpConfigDelta &delta) {
     autogen::BgpPeering *peering_config =
             static_cast<autogen::BgpPeering *>(delta.obj.get());
     peering->Update(this, peering_config);
+}
+
+void BgpIfmapConfigManager::ProcessGlobalSystemConfig(
+        const BgpConfigDelta &delta) {
+    IFMapNodeProxy *proxy = delta.node.get();
+    if (proxy == NULL)
+        return;
+
+    IFMapNode *node = proxy->node();
+    autogen::GlobalSystemConfig *config, default_config;
+    if (node == NULL || node->IsDeleted() || delta.obj.get() == NULL) {
+        config = &default_config;
+    } else {
+        config = static_cast<autogen::GlobalSystemConfig *>(delta.obj.get());
+    }
+
+    if (config_->global_config()->Update(this, config))
+        Notify(config_->global_config()->config(), BgpConfigManager::CFG_ADD);
 }
 
 //
