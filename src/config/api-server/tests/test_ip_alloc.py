@@ -46,6 +46,158 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         logger.addHandler(ch)
         super(TestIpAlloc, self).__init__(*args, **kwargs)
 
+    def test_subnet_alloc_unit(self):
+
+        # Create Domain
+        domain = Domain('my-v4-v6-domain')
+        self._vnc_lib.domain_create(domain)
+        logger.debug('Created domain ')
+
+        # Create Project
+        project = Project('my-v4-v6-proj', domain)
+        self._vnc_lib.project_create(project)
+        logger.debug('Created Project')
+
+        # Create NetworkIpam
+        ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
+        self._vnc_lib.network_ipam_create(ipam)
+        logger.debug('Created network ipam')
+
+        ipam = self._vnc_lib.network_ipam_read(fq_name=['my-v4-v6-domain',
+                                                        'my-v4-v6-proj',
+                                                        'default-network-ipam'])
+        logger.debug('Read network ipam')
+
+        # create ipv4 subnet with alloc_unit not power of 2
+        ipam_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24),
+                                    alloc_unit=3)
+        vn = VirtualNetwork('my-v4-v6-vn', project)
+        vn.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4]))
+        try:
+            self._vnc_lib.virtual_network_create(vn)
+        except HttpError:
+            logger.debug('alloc-unit is not power of 2')
+            pass
+
+        vn.del_network_ipam(ipam)
+        # create ipv6 subnet with alloc_unit not power of 2
+        ipam_sn_v6 = IpamSubnetType(subnet=SubnetType('fd14::', 120),
+                                    alloc_unit=3)
+        vn.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v6]))
+
+        try:
+            self._vnc_lib.virtual_network_create(vn)
+        except HttpError:
+            logger.debug('alloc-unit is not power of 2')
+            pass
+
+        vn.del_network_ipam(ipam)
+        # Create subnets
+        ipam_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24),
+                                    alloc_unit=4)
+        ipam_sn_v6 = IpamSubnetType(subnet=SubnetType('fd14::', 120),
+                                    alloc_unit=4)
+
+        vn.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4, ipam_sn_v6]))
+        self._vnc_lib.virtual_network_create(vn)
+        logger.debug('Created Virtual Network object %s', vn.uuid)
+        net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
+
+        # Create v4 Ip objects
+        ipv4_obj1 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4')
+        ipv4_obj1.uuid = ipv4_obj1.name
+        logger.debug('Created Instance IPv4 object 1 %s', ipv4_obj1.uuid)
+
+        ipv4_obj2 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4')
+        ipv4_obj2.uuid = ipv4_obj2.name
+        logger.debug('Created Instance IPv4 object 2 %s', ipv4_obj2.uuid)
+
+        # Create v6 Ip object
+        ipv6_obj1 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v6')
+        ipv6_obj1.uuid = ipv6_obj1.name
+        logger.debug('Created Instance IPv6 object 2 %s', ipv6_obj1.uuid)
+
+        ipv6_obj2 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v6')
+        ipv6_obj2.uuid = ipv6_obj2.name
+        logger.debug('Created Instance IPv6 object 2 %s', ipv6_obj2.uuid)
+
+        # Create VM
+        vm_inst_obj1 = VirtualMachine(str(uuid.uuid4()))
+        vm_inst_obj1.uuid = vm_inst_obj1.name
+        self._vnc_lib.virtual_machine_create(vm_inst_obj1)
+
+        id_perms = IdPermsType(enable=True)
+        port_obj1 = VirtualMachineInterface(
+            str(uuid.uuid4()), vm_inst_obj1, id_perms=id_perms)
+        port_obj1.uuid = port_obj1.name
+        port_obj1.set_virtual_network(vn)
+        ipv4_obj1.set_virtual_machine_interface(port_obj1)
+        ipv4_obj1.set_virtual_network(net_obj)
+        ipv4_obj2.set_virtual_machine_interface(port_obj1)
+        ipv4_obj2.set_virtual_network(net_obj)
+
+        ipv6_obj1.set_virtual_machine_interface(port_obj1)
+        ipv6_obj1.set_virtual_network(net_obj)
+        ipv6_obj2.set_virtual_machine_interface(port_obj1)
+        ipv6_obj2.set_virtual_network(net_obj)
+
+        port_id1 = self._vnc_lib.virtual_machine_interface_create(port_obj1)
+
+        logger.debug('Wrong ip address request,not aligned with alloc-unit')
+        ipv4_obj1.set_instance_ip_address('11.1.1.249') 
+        try:
+            ipv4_id1 = self._vnc_lib.instance_ip_create(ipv4_obj1)
+        except HttpError:
+            logger.debug('requested ipaddr is not aligned with alloc-unit')
+            pass
+         
+        ipv4_obj1.set_instance_ip_address(None) 
+        logger.debug('Allocating an IP4 address for first VM')
+        ipv4_id1 = self._vnc_lib.instance_ip_create(ipv4_obj1)
+        ipv4_obj1 = self._vnc_lib.instance_ip_read(id=ipv4_id1)
+        ipv4_addr1 = ipv4_obj1.get_instance_ip_address()
+        logger.debug('  got v4 IP Address for first instance %s', ipv4_addr1)
+        if ipv4_addr1 != '11.1.1.248':
+            logger.debug('Allocation failed, expected v4 IP Address 11.1.1.248')
+
+        logger.debug('Allocating an IPV4 address for second VM')
+        ipv4_id2 = self._vnc_lib.instance_ip_create(ipv4_obj2)
+        ipv4_obj2 = self._vnc_lib.instance_ip_read(id=ipv4_id2)
+        ipv4_addr2 = ipv4_obj2.get_instance_ip_address()
+        logger.debug('  got v6 IP Address for first instance %s', ipv4_addr2)
+        if ipv4_addr2 != '11.1.1.244':
+            logger.debug('Allocation failed, expected v4 IP Address 11.1.1.244')
+
+        logger.debug('Allocating an IP6 address for first VM')
+        ipv6_id1 = self._vnc_lib.instance_ip_create(ipv6_obj1)
+        ipv6_obj1 = self._vnc_lib.instance_ip_read(id=ipv6_id1)
+        ipv6_addr1 = ipv6_obj1.get_instance_ip_address()
+        logger.debug('  got v6 IP Address for first instance %s', ipv6_addr1)
+        if ipv6_addr1 != 'fd14::f8':
+            logger.debug('Allocation failed, expected v6 IP Address fd14::f8')
+
+        logger.debug('Allocating an IP6 address for second VM')
+        ipv6_id2 = self._vnc_lib.instance_ip_create(ipv6_obj2)
+        ipv6_obj2 = self._vnc_lib.instance_ip_read(id=ipv6_id2)
+        ipv6_addr2 = ipv6_obj2.get_instance_ip_address()
+        logger.debug('  got v6 IP Address for first instance %s', ipv6_addr2)
+        if ipv6_addr2 != 'fd14::f4':
+            logger.debug('Allocation failed, expected v6 IP Address fd14::f4')
+
+        #cleanup
+        logger.debug('Cleaning up')
+        self._vnc_lib.instance_ip_delete(id=ipv4_id1)
+        self._vnc_lib.instance_ip_delete(id=ipv4_id2)
+        self._vnc_lib.instance_ip_delete(id=ipv6_id1)
+        self._vnc_lib.instance_ip_delete(id=ipv6_id2)
+        self._vnc_lib.virtual_machine_interface_delete(id=port_obj1.uuid)
+        self._vnc_lib.virtual_machine_delete(id=vm_inst_obj1.uuid)
+        self._vnc_lib.virtual_network_delete(id=vn.uuid)
+        self._vnc_lib.network_ipam_delete(id=ipam.uuid)
+        self._vnc_lib.project_delete(id=project.uuid)
+        self._vnc_lib.domain_delete(id=domain.uuid)
+    #end
+
     def test_ip_alloction(self):
         # Create Domain
         domain = Domain('my-v4-v6-domain')
