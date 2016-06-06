@@ -220,6 +220,11 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
 
             BgpAttr *clone = new BgpAttr(*attr);
 
+            // Remove non-transitive attributes.
+            // Note that med is handled further down.
+            clone->set_originator_id(Ip4Address());
+            clone->set_cluster_list(NULL);
+
             // Reset LocalPref.
             if (attr->local_pref())
                 clone->set_local_pref(0);
