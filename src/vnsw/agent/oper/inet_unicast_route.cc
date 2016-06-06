@@ -406,7 +406,7 @@ AgentPath *InetUnicastRouteEntry::AllocateEcmpPath(Agent *agent,
     // It will also create CompositeNH if necessary
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(new CompositeNHKey(Composite::LOCAL_ECMP,
-                                        true, component_nh_list,
+                                        false, component_nh_list,
                                         vrf()->GetName()));
     nh_req.data.reset(new CompositeNHData());
 
@@ -687,7 +687,7 @@ void InetUnicastRouteEntry::AppendEcmpPath(Agent *agent,
     // Form the request for Inet4UnicastEcmpRoute and invoke AddChangePath
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(new CompositeNHKey(Composite::LOCAL_ECMP,
-                                        true, component_nh_key_list,
+                                        false, component_nh_key_list,
                                         vrf()->GetName()));
     nh_req.data.reset(new CompositeNHData());
 
@@ -729,7 +729,7 @@ void InetUnicastRouteEntry::DeleteComponentNH(Agent *agent, AgentPath *path) {
     // Form the request for Inet4UnicastEcmpRoute and invoke AddChangePath
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(new CompositeNHKey(Composite::LOCAL_ECMP,
-                                        true, component_nh_key_list,
+                                        false, component_nh_key_list,
                                         vrf()->GetName()));
     nh_req.data.reset(new CompositeNHData());
 
