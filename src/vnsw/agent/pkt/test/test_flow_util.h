@@ -348,7 +348,7 @@ public:
         EXPECT_TRUE(dest_vrf != NULL);
 
         EXPECT_TRUE(fe->data().vrf == src_vrf->vrf_id());
-        EXPECT_TRUE(fe->data().dest_vrf = dest_vrf->vrf_id());
+        EXPECT_TRUE(fe->data().dest_vrf == dest_vrf->vrf_id());
 
         FlowEntry *rev = fe->reverse_flow_entry();
         EXPECT_TRUE(rev != NULL);
@@ -362,7 +362,7 @@ public:
         EXPECT_TRUE(dest_vrf != NULL);
 
         EXPECT_TRUE(rev->data().vrf == src_vrf->vrf_id());
-        EXPECT_TRUE(rev->data().dest_vrf = dest_vrf->vrf_id());
+        EXPECT_TRUE(rev->data().dest_vrf == dest_vrf->vrf_id());
     }
 
 private:
