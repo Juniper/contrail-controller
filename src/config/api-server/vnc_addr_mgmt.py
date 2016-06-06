@@ -37,6 +37,20 @@ class AddrMgmtSubnetUndefined(AddrMgmtError):
 # end AddrMgmtSubnetUndefined
 
 
+class AddrMgmtAllocUnitInvalid(AddrMgmtError):
+
+    def __init__(self, vn_fq_name, subnet_name, alloc_unit):
+        self.vn_fq_name = vn_fq_name
+        self.subnet_name = subnet_name
+        self.alloc_unit = alloc_unit
+    # end __init__
+
+    def __str__(self):
+        return "Virtual-Network(%s) has invalid alloc_unit(%s) in subnet(%s)" %\
+            (self.vn_fq_name, self.alloc_unit, self.subnet_name)
+    # end __str__
+# end AddrMgmtAllocUnitInvalid
+
 class AddrMgmtSubnetInvalid(AddrMgmtError):
 
     def __init__(self, vn_fq_name, subnet_name):
@@ -172,7 +186,8 @@ class Subnet(object):
                  dns_nameservers=None,
                  alloc_pool_list=None,
                  addr_from_start=False,
-                 should_persist=True):
+                 should_persist=True,
+                 ip_alloc_unit=1):
 
         network = IPNetwork('%s/%s' % (prefix, prefix_len))
 
@@ -187,6 +202,7 @@ class Subnet(object):
                 raise AddrMgmtOutofBoundAllocPool(name, ip_pool)
             if (end_ip < start_ip):
                 raise AddrMgmtInvalidAllocPool(name, ip_pool)
+        
         # check gw
         if gw:
             try:
@@ -222,23 +238,80 @@ class Subnet(object):
             except AddrFormatError:
                 raise AddrMgmtInvalidDnsServer(name, nameserver)
 
-        # Exclude host and broadcast
-        exclude = [IPAddress(network.first), network.broadcast]
+        # check allocation-unit
+        if ip_alloc_unit is not 1:
+            # alloc-unit should be power of 2
+            if (ip_alloc_unit & (ip_alloc_unit-1)):
+                raise AddrMgmtAllocUnitInvalid(name, prefix+'/'+prefix_len,
+                                               ip_alloc_unit)
 
         # if allocation-pool is not specified, create one with entire cidr
         if not alloc_pool_list:
             alloc_pool_list = [{'start': str(IPAddress(network.first)),
                                 'end': str(IPAddress(network.last-1))}]
+            no_alloc_pool = True
+
 
         # need alloc_pool_list with integer to use in Allocator
         alloc_int_list = list()
-
         # store integer for given ip address in allocation list
         for alloc_pool in alloc_pool_list:
             alloc_int = {'start': int(IPAddress(alloc_pool['start'])),
                          'end': int(IPAddress(alloc_pool['end']))}
             alloc_int_list.append(alloc_int)
 
+        # check alloc_pool starts at integer multiple of alloc_unit
+        if ip_alloc_unit is not 1:
+            for alloc_int in alloc_int_list:
+                if alloc_int['start'] % ip_alloc_unit:
+                    raise AddrMgmtAllocUnitInvalid(name, prefix+'/'+prefix_len, ip_alloc_unit)
+
+        # go through each alloc_pool and validate allocation pool
+        # given ip_alloc_unit
+        net_ip = IPAddress(network.first)
+        bc_ip = IPAddress(network.last)
+        for alloc_pool in alloc_pool_list:
+            if no_alloc_pool:
+                start_ip = IPAddress(network.first)
+                end_ip = IPAddress(network.last)
+            else:
+                start_ip = IPAddress(alloc_pool['start'])
+                end_ip = IPAddress(alloc_pool['end'])
+
+            alloc_pool_range = int(end_ip) - int(start_ip) + 1
+            # each alloc-pool range should be integer multiple of ip_alloc_unit
+            if (alloc_pool_range % ip_alloc_unit):
+                raise AddrMgmtAllocUnitInvalid(name, prefix+'/'+prefix_len,
+                                               ip_alloc_unit)
+
+            block_alloc_unit = 0
+            if (net_ip == start_ip):
+                block_alloc_unit += 1
+                if (bc_ip == end_ip):
+                    if (int(end_ip) - int(start_ip) >= ip_alloc_unit):
+                        block_alloc_unit += 1
+            else:    
+                if (bc_ip == end_ip):
+                    block_alloc_unit += 1
+ 
+            if (gw_ip >= start_ip and gw_ip <= end_ip):
+                #gw_ip is part of this alloc_pool, block another alloc_unit
+                # only if gw_ip is not a part of already counted block units.
+                if ((int(gw_ip) - int(start_ip) >= ip_alloc_unit) and 
+                    (int(end_ip) - int(gw_ip) >= ip_alloc_unit)):
+                    block_alloc_unit += 1
+
+            # each alloc-pool should have minimum block_alloc_unit+1,
+            # possible allocation
+            if (alloc_pool_range/ip_alloc_unit) <= block_alloc_unit:
+                raise AddrMgmtAllocUnitInvalid(name, prefix+'/'+prefix_len,
+                                               ip_alloc_unit)
+                    
+        # Exclude host and broadcast
+        exclude = [IPAddress(network.first), network.broadcast]
+
+        #check size of subnet or individual alloc_pools are multiple of alloc_unit
+ 
         # exclude gw_ip, service_node_address if they are within
         # allocation-pool
         for alloc_int in alloc_int_list:
@@ -247,16 +320,18 @@ class Subnet(object):
             if (alloc_int['start'] <= int(service_node_address)
                     <= alloc_int['end']):
                 exclude.append(service_node_address)
+        # ip address allocator will be per alloc-unit
         self._db_conn.subnet_create_allocator(name, alloc_int_list,
                                               addr_from_start,
                                               should_persist,
                                               network.first,
-                                              network.size)
+                                              network.size,
+                                              ip_alloc_unit)
 
         # reserve excluded addresses
         for addr in exclude:
             if should_persist:
-                self._db_conn.subnet_reserve_req(name, int(addr),
+                self._db_conn.subnet_reserve_req(name, int(addr)/ip_alloc_unit,
                                                  'system-reserved')
             else:
                 self._db_conn.subnet_set_in_use(name, int(addr))
@@ -270,6 +345,9 @@ class Subnet(object):
         self._alloc_pool_list = alloc_pool_list
         self.enable_dhcp = enable_dhcp
         self.dns_nameservers = dns_nameservers
+        self.alloc_unit = ip_alloc_unit
+        self._prefix = prefix
+        self._prefix_len = prefix_len
     # end __init__
 
     @classmethod
@@ -324,11 +402,15 @@ class Subnet(object):
 
     def ip_alloc(self, ipaddr=None, value=None):
         if ipaddr:
-            return self.ip_reserve(ipaddr, value)
+            #check if ipaddr is multiple of alloc_unit
+            if ipaddr % self.alloc_unit:
+                raise AddrMgmtAllocUnitInvalid(self._name,
+                          self._prefix+'/'+self._prefix_len, self.alloc_unit)
+            return self.ip_reserve(ipaddr/self.ip_alloc_unit, value)
 
         addr = self._db_conn.subnet_alloc_req(self._name, value)
         if addr:
-            return str(IPAddress(addr))
+            return str(IPAddress(addr * self.alloc_unit))
         return None
     # end ip_alloc
 
@@ -415,6 +497,7 @@ class AddrMgmt(object):
             for ipam_subnet in ipam_subnets:
                 subnet_dict = copy.deepcopy(ipam_subnet['subnet'])
                 subnet_dict['gw'] = ipam_subnet.get('default_gateway', None)
+                subnet_dict['alloc_unit'] = ipam_subnet.get('alloc_unit', 1)
                 subnet_dict['dns_server_address'] = ipam_subnet.get('dns_server_address', None)
                 subnet_dict['allocation_pools'] = \
                     ipam_subnet.get('allocation_pools', None)
@@ -449,6 +532,7 @@ class AddrMgmt(object):
                     dhcp_config = ipam_subnet.get('enable_dhcp', True)
                     nameservers = ipam_subnet.get('dns_nameservers', None)
                     addr_start = ipam_subnet.get('addr_from_start', False)
+                    alloc_unit = ipam_subnet.get('alloc_unit', 1)
                     subnet_obj = Subnet(
                         '%s:%s' % (vn_fq_name_str, subnet_name),
                         subnet['ip_prefix'], str(subnet['ip_prefix_len']),
@@ -457,7 +541,9 @@ class AddrMgmt(object):
                         dns_nameservers=nameservers,
                         alloc_pool_list=allocation_pools,
                         addr_from_start=addr_start,
-                        should_persist=should_persist)
+                        should_persist=should_persist,
+                        ip_alloc_unit=alloc_unit)
+
                     self._subnet_objs[vn_fq_name_str][subnet_name] = \
                          subnet_obj
                     ipam_subnet['default_gateway'] = str(subnet_obj.gw_ip)
@@ -875,7 +961,8 @@ class AddrMgmt(object):
                                     dns_nameservers=subnet_dict['dns_nameservers'],
                                     alloc_pool_list=subnet_dict['allocation_pools'],
                                     addr_from_start = subnet_dict['addr_start'],
-                                    should_persist=False)
+                                    should_persist=False,
+                                    ip_alloc_unit=subnet_dict['alloc_unit']) 
                 self._subnet_objs[vn_fq_name_str][subnet_name] = subnet_obj
 
             if asked_ip_version and asked_ip_version != subnet_obj.get_version():
@@ -891,6 +978,11 @@ class AddrMgmt(object):
             # existing object(iip/fip) using it, return an exception with
             # the info. client can determine if its error or not
             if asked_ip_addr:
+                if (int(IPAddress(asked_ip_addr)) % subnet_obj.alloc_unit):
+                    raise AddrMgmtAllocUnitInvalid(subnet_obj._name,
+                                                   subnet_obj._prefix+'/'+subnet_obj._prefix_len,
+                                                   ip_alloc_unit)
+
                 return subnet_obj.ip_reserve(ipaddr=asked_ip_addr,
                                              value=alloc_id)
 
@@ -939,7 +1031,8 @@ class AddrMgmt(object):
                                     dns_nameservers=subnet_dict['dns_nameservers'],
                                     alloc_pool_list=subnet_dict['allocation_pools'],
                                     addr_from_start = subnet_dict['addr_start'],
-                                    should_persist=False)
+                                    should_persist=False,
+                                    ip_alloc_unit=subnet_dict['alloc_unit']) 
                 self._subnet_objs[vn_fq_name_str][subnet_name] = subnet_obj
 
             if not subnet_obj.ip_belongs(ip_addr):
@@ -976,7 +1069,8 @@ class AddrMgmt(object):
                                     dns_nameservers=subnet_dict['dns_nameservers'],
                                     alloc_pool_list=subnet_dict['allocation_pools'],
                                     addr_from_start = subnet_dict['addr_start'],
-                                    should_persist=False)
+                                    should_persist=False,
+                                    ip_alloc_unit=subnet_dict['alloc_unit']) 
                 self._subnet_objs[vn_fq_name_str][subnet_name] = subnet_obj
 
             if Subnet.ip_belongs_to(IPNetwork(subnet_name),
