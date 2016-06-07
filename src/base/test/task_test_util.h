@@ -5,6 +5,9 @@
 #ifndef __BASE__TASK_TEST_UTIL_H__
 #define __BASE__TASK_TEST_UTIL_H__
 
+#include <sys/time.h>
+#include <sys/resource.h>
+
 #include <boost/function.hpp>
 #include <boost/scoped_ptr.hpp>
 #include <base/task_trigger.h>
@@ -30,7 +33,7 @@ public:
 // complete.
 //
 // Usage example:
-// task_util::TaskFire(boost::bind(&Example::ExampleRun, this, _1), args,
+// task_util::TaskFire(boost::bind(&Example::ExampleRun, this, args),
 //                     "bgp::Config");
 //
 // Note: One cannot call task_util::wait_for_idle() inside ExampleRun() as that
@@ -39,17 +42,11 @@ class TaskFire {
 public:
     typedef boost::function<void(void)> FunctionPtr;
     typedef boost::function<void(const void *)> FunctionPtr1;
-    TaskFire(FunctionPtr func, const std::string task_name,
-             int task_instance = 0);
-    TaskFire(FunctionPtr1 func, const void *arg1, const std::string task_name,
-             int task_instance = 0);
+    TaskFire(FunctionPtr func, const std::string task_name, int instance = 0);
 
 private:
     bool Run();
-    bool Run1();
     FunctionPtr func_;
-    FunctionPtr1 func1_;
-    const void *arg1_;
     std::string task_name_;
     boost::scoped_ptr<TaskTrigger> task_trigger_;
 };
@@ -383,6 +380,19 @@ static inline unsigned long long int task_util_retry_count() {
 #define TASK_UTIL_EXPECT_FALSE_MSG(condition, msg) \
     TASK_UTIL_WAIT_EQ_NO_MSG(false, condition, task_util_wait_time(), \
                              task_util_retry_count(), msg)
+
+#define TASK_UTIL_EXPECT_DEATH(statement, regex)                               \
+    do {                                                                       \
+        rlimit current_core_limit;                                             \
+        getrlimit(RLIMIT_CORE, &current_core_limit);                           \
+        rlimit new_core_limit;                                                 \
+        new_core_limit.rlim_cur = 0;                                           \
+        new_core_limit.rlim_max = 0;                                           \
+        setrlimit(RLIMIT_CORE, &new_core_limit);                               \
+        EXPECT_DEATH(statement, regex);                                        \
+        setrlimit(RLIMIT_CORE, &current_core_limit);                           \
+    } while (false)
+
 
 #define TASK_UTIL_ASSERT_EQ(expected, actual)                                  \
     do {                                                                       \

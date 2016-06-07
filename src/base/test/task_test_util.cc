@@ -113,21 +113,11 @@ TaskSchedulerLock::~TaskSchedulerLock() {
 }
 
 TaskFire::TaskFire(FunctionPtr func, const std::string task_name,
-                   int task_instance) :
+                   int instance) :
         func_(func), task_name_(task_name),
         task_trigger_(new TaskTrigger(boost::bind(&TaskFire::Run, this),
                       TaskScheduler::GetInstance()->GetTaskId(task_name),
-                      task_instance)) {
-    task_trigger_->Set();
-    TASK_UTIL_EXPECT_FALSE(task_trigger_->IsSet());
-}
-
-TaskFire::TaskFire(FunctionPtr1 func, const void *arg1,
-                   const std::string task_name, int task_instance) :
-        func1_(func), arg1_(arg1), task_name_(task_name),
-        task_trigger_(new TaskTrigger(boost::bind(&TaskFire::Run1, this),
-                      TaskScheduler::GetInstance()->GetTaskId(task_name),
-                      task_instance)) {
+                      instance)) {
     task_trigger_->Set();
     TASK_UTIL_EXPECT_FALSE(task_trigger_->IsSet());
 }
@@ -135,12 +125,6 @@ TaskFire::TaskFire(FunctionPtr1 func, const void *arg1,
 bool TaskFire::Run() {
    CHECK_CONCURRENCY(task_name_.c_str());
    func_();
-   return true;
-}
-
-bool TaskFire::Run1() {
-   CHECK_CONCURRENCY(task_name_.c_str());
-   func1_(arg1_);
    return true;
 }
 
