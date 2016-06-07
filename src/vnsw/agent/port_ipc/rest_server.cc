@@ -19,31 +19,57 @@
 #include "rest_common.h"
 
 void RESTServer::VmPortPostHandler(const struct RESTData& data) {
-    PortIpcHandler pih(agent_, PortIpcHandler::kPortsDir, true);
-    std::string err_msg;
-    if (pih.AddPortFromJson(data.request->Body(), false, err_msg)) {
+    PortIpcHandler *pih = agent_->port_ipc_handler();
+    if (pih) {
+        std::string err_msg;
+        if (pih->AddPortFromJson(data.request->Body(), false, err_msg)) {
+            REST::SendResponse(data.session, "{}");
+        } else {
+            REST::SendErrorResponse(data.session, "{ " + err_msg + " }");
+        }
+    } else {
+       REST::SendErrorResponse(data.session, "{ Operation Not Supported }");
+    }
+}
+
+void RESTServer::VmPortSyncHandler(const struct RESTData& data) {
+    PortIpcHandler *pih = agent_->port_ipc_handler();
+    if (pih) {
+        pih->SyncHandler();
         REST::SendResponse(data.session, "{}");
     } else {
-        REST::SendErrorResponse(data.session, "{ " + err_msg + " }");
+       REST::SendErrorResponse(data.session, "{ Operation Not Supported }");
     }
 }
 
 void RESTServer::VmPortDeleteHandler(const struct RESTData& data) {
     std::string error;
     const std::string& port_id = (*data.match)[1];
-    PortIpcHandler pih(agent_, PortIpcHandler::kPortsDir, true);
-    if (pih.DeletePort(port_id, error)) {
-        REST::SendResponse(data.session, "{}");
+    PortIpcHandler *pih = agent_->port_ipc_handler();
+    if (pih) {
+        if (pih->DeletePort(port_id, error)) {
+            REST::SendResponse(data.session, "{}");
+        } else {
+            REST::SendErrorResponse(data.session, "{" + error + "}");
+        }
     } else {
-        REST::SendErrorResponse(data.session, "{" + error + "}");
+        REST::SendErrorResponse(data.session, "{ Operation Not Supported }");
     }
 }
 
 void RESTServer::VmPortGetHandler(const struct RESTData& data) {
     const std::string& port_id = (*data.match)[1];
-    PortIpcHandler pih(agent_, PortIpcHandler::kPortsDir, true);
-    std::string info = pih.GetPortInfo(port_id);
-    REST::SendResponse(data.session, info);
+    PortIpcHandler *pih = agent_->port_ipc_handler();
+    if (pih) {
+        std::string info;
+        if (pih->GetPortInfo(port_id, info)) {
+            REST::SendResponse(data.session, info);
+        } else {
+            REST::SendErrorResponse(data.session, "{ Not Found }", 404);
+        }
+    } else {
+        REST::SendErrorResponse(data.session, "{ Operation Not Supported }");
+    }
 }
 
 const std::vector<RESTServer::HandlerSpecifier> RESTServer::RESTHandlers_ =
@@ -52,6 +78,10 @@ const std::vector<RESTServer::HandlerSpecifier> RESTServer::RESTHandlers_ =
         boost::regex("/port"),
         HTTP_POST,
         &RESTServer::VmPortPostHandler))
+    (HandlerSpecifier(
+        boost::regex("/syncports"),
+        HTTP_POST,
+        &RESTServer::VmPortSyncHandler))
     (HandlerSpecifier(
         boost::regex("/port/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
                      "[0-9a-f]{12})"),
