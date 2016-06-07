@@ -104,6 +104,7 @@ private:
     uint64_t total_alloc_;
     uint64_t total_free_;
     FreeList free_list_;
+    uint64_t grow_count_;
     DISALLOW_COPY_AND_ASSIGN(FlowEntryFreeList);
 };
 

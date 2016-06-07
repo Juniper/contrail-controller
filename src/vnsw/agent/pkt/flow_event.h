@@ -71,8 +71,13 @@ public:
 
     FlowEvent(Event event, FlowEntry *flow) :
         event_(event), flow_(flow), pkt_info_(), db_entry_(NULL),
-        gen_id_(0), flow_handle_(FlowEntry::kInvalidFlowHandle),
         table_index_(0) {
+    }
+
+    FlowEvent(Event event, uint32_t table_index) :
+        event_(event), flow_(NULL), pkt_info_(), db_entry_(NULL),
+        gen_id_(0), flow_handle_(FlowEntry::kInvalidFlowHandle),
+        table_index_(table_index) {
     }
 
     FlowEvent(Event event, FlowEntry *flow, uint32_t flow_handle,
