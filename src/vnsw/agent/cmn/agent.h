@@ -190,6 +190,7 @@ class AgentSignal;
 class ServiceInstanceTable;
 class Agent;
 class RESTServer;
+class PortIpcHandler;
 
 extern void RouterIdDepInit(Agent *agent);
 
@@ -795,6 +796,9 @@ public:
     RESTServer *rest_server() const;
     void set_rest_server(RESTServer *r);
 
+    PortIpcHandler *port_ipc_handler() const;
+    void set_port_ipc_handler(PortIpcHandler *r);
+
     OperDB *oper_db() const;
     void set_oper_db(OperDB *oper_db);
 
@@ -1013,6 +1017,7 @@ private:
     ServicesModule *services_;
     VirtualGateway *vgw_;
     RESTServer *rest_server_;
+    PortIpcHandler *port_ipc_handler_;
     OperDB *oper_db_;
     DiagTable *diag_table_;
     VNController *controller_;
