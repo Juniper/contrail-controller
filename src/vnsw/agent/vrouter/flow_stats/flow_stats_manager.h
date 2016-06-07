@@ -92,6 +92,7 @@ public:
                           uint32_t packets, uint32_t oflow_bytes);
 
     void Init(uint64_t flow_stats_interval, uint64_t flow_cache_timeout);
+    void InitDone();
     void Shutdown();
 
     FlowAgingTableMap::iterator begin() {
@@ -150,6 +151,7 @@ public:
                                     uint64_t protocol);
     void FreeIndex(uint32_t idx);
 
+    void SetProfileData(ProfileData *data);
     friend class AgentUtXmlFlowThreshold;
     friend class AgentUtXmlFlowThresholdValidate;
 private:

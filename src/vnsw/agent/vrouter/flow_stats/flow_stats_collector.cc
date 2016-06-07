@@ -67,6 +67,8 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
         }
         deleted_ = false;
         request_queue_.set_name("Flow stats collector");
+        request_queue_.set_measure_busy_time
+            (agent_uve_->agent()->MeasureQueueDelay());
         // Aging timer fires every kFlowStatsTimerInterval msec. Compute
         // number of timer fires needed to scan complete table
         timers_per_scan_ = TimersPerScan();

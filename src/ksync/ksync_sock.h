@@ -276,6 +276,7 @@ public:
 
     uint32_t WaitTreeSize() const;
     void SetSeqno(uint32_t seq);
+    void SetMeasureQueueDelay(bool val);
 protected:
     static void Init(bool use_work_queue);
     static void SetSockTableEntry(KSyncSock *sock);

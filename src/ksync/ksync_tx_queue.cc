@@ -38,7 +38,9 @@ KSyncTxQueue::KSyncTxQueue(KSyncSock *sock) :
     sock_(sock),
     enqueues_(0),
     dequeues_(0),
-    write_events_(0) {
+    write_events_(0),
+    read_events_(0),
+    busy_time_(0) {
     queue_len_ = 0;
     shutdown_ = false;
 }
@@ -116,6 +118,7 @@ bool KSyncTxQueue::Run() {
     while (1) {
         uint64_t u = 0;
         ssize_t num = 0;
+
         while (1) {
             num = read(event_fd_, &u, sizeof(u));
             if (num >= (int)sizeof(u)) {
@@ -127,6 +130,11 @@ bool KSyncTxQueue::Run() {
                 assert(0);
             }
         }
+        read_events_++;
+
+        uint64_t t1 = 0;
+        if (measure_busy_time_)
+            t1 = ClockMonotonicUsec();
         IoContext *io_context = NULL;
         while (queue_.try_pop(io_context)) {
             dequeues_++;
@@ -137,6 +145,9 @@ bool KSyncTxQueue::Run() {
         if (shutdown_) {
             break;
         }
+
+        if (t1)
+            busy_time_ += (ClockMonotonicUsec() - t1);
     }
     return true;
 }

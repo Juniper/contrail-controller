@@ -243,6 +243,13 @@ void KSyncSock::Init(bool use_work_queue) {
     shutdown_ = false;
 }
 
+void KSyncSock::SetMeasureQueueDelay(bool val) {
+    sock_->send_queue_.set_measure_busy_time(val);
+    for (int i = 0; i < IoContext::MAX_WORK_QUEUES; i++) {
+        receive_work_queue[i]->set_measure_busy_time(val);
+    }
+}
+
 void KSyncSock::Start(bool read_inline) {
     sock_->read_inline_ = read_inline;
     if (sock_->read_inline_) {
