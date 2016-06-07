@@ -10,6 +10,7 @@
 
 #include "base/lifetime.h"
 #include "base/queue_task.h"
+#include "bgp/bgp_config.h"
 #include "io/ssl_server.h"
 #include "net/address.h"
 #include "xmpp/xmpp_session.h"
@@ -23,6 +24,7 @@ class ShowXmppConnection;
 class ShowXmppServerResp;
 class TcpSession;
 class XmppConnectionEndpoint;
+class XmppConfigUpdater;
 class XmppServerConnection;
 
 // Class to represent Xmpp Server
@@ -35,7 +37,6 @@ public:
     XmppServer(EventManager *evm, const std::string &server_addr);
     explicit XmppServer(EventManager *evm);
     virtual ~XmppServer();
-    virtual bool IsPeerCloseGraceful();
 
     typedef boost::function<void(XmppChannelMux *, xmps::PeerState)> ConnectionEventCb;
     void RegisterConnectionEvent(xmps::PeerId, ConnectionEventCb);
@@ -45,6 +46,7 @@ public:
 
     LifetimeManager *lifetime_manager();
     virtual LifetimeActor *deleter();
+    virtual LifetimeActor *deleter() const;
 
     virtual TcpSession *CreateSession();
     virtual bool Initialize(short port);
@@ -78,6 +80,13 @@ public:
     void FillShowConnections(
         std::vector<ShowXmppConnection> *show_connection_list) const;
     void FillShowServer(ShowXmppServerResp *resp) const;
+    void CreateConfigUpdater(BgpConfigManager *config_manager);
+    bool IsPeerCloseGraceful() const;
+    const uint16_t GetGracefulRestartTime() const;
+    const uint32_t GetLongLivedGracefulRestartTime() const;
+    const uint32_t GetEndOfRibReceiveTime() const;
+    bool gr_helper_disable() const { return gr_helper_disable_; }
+    void set_gr_helper_disable(bool flag) { gr_helper_disable_ = flag; }
 
 protected:
     virtual SslSession *AllocSession(SslSocket *socket);
@@ -116,6 +125,8 @@ private:
     bool log_uve_;
     bool auth_enabled_;
     int tcp_hold_time_;
+    bool gr_helper_disable_;
+    boost::scoped_ptr<XmppConfigUpdater> xmpp_config_updater_;
     WorkQueue<XmppServerConnection *> connection_queue_;
 
     DISALLOW_COPY_AND_ASSIGN(XmppServer);

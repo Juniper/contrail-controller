@@ -44,8 +44,10 @@ XmppConnection::XmppConnection(TcpServer *server,
       local_endpoint_(config->local_endpoint),
       config_(NULL),
       keepalive_timer_(TimerManager::CreateTimer(
-                           *server->event_manager()->io_service(),
-                           "Xmpp keepalive timer")),
+                  *server->event_manager()->io_service(),
+                  "Xmpp keepalive timer",
+                  TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"),
+                  GetTaskInstance())),
       is_client_(config->ClientOnly()),
       log_uve_(config->logUVE),
       admin_down_(false), 
@@ -413,6 +415,8 @@ void XmppConnection::SendKeepAlive() {
 }
 
 bool XmppConnection::KeepAliveTimerExpired() {
+    if (state_machine_->get_state() != xmsm::ESTABLISHED)
+        return false;
 
     // TODO: check timestamp of last received packet.
     SendKeepAlive();
