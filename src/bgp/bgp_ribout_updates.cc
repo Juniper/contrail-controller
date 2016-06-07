@@ -84,9 +84,18 @@ void RibOutUpdates::Enqueue(DBEntryBase *db_entry, RouteUpdate *rt_update) {
 // Return false if all the peers in the marker get blocked.  In any case, the
 // blocked parameter is populated with the set of peers that are send blocked.
 //
-bool RibOutUpdates::DequeueCommon(UpdateMarker *marker, RouteUpdate *rt_update,
-        RibPeerSet *blocked) {
+bool RibOutUpdates::DequeueCommon(UpdateQueue *queue, UpdateMarker *marker,
+        RouteUpdate *rt_update, RibPeerSet *blocked) {
     CHECK_CONCURRENCY("bgp::SendTask");
+
+    // Pass a hint to the Message telling it whether it needs to cache the
+    // formatted version of each route. This is used only for xmpp messages.
+    // Heuristic is to cache if there's markers other than the tail marker.
+    // The reasoning is that the cached version can be used later when the
+    // markers in question are being processed.  Put another way - there's
+    // no need to cache if route is not going to be advertised to any peers
+    // other than the ones in the given UpdateMarker.
+    bool cache_routes = queue->marker_count() != 0;
 
     // Go through all UpdateInfo elements for the RouteUpdate.
     int queue_id = rt_update->queue_id();
@@ -120,8 +129,8 @@ bool RibOutUpdates::DequeueCommon(UpdateMarker *marker, RouteUpdate *rt_update,
         RibPeerSet msg_blocked;
         bool msg_sent = false;
         stats_[queue_id].messages_built_count_++;
-        auto_ptr<Message> message(
-            builder_->Create(ribout_, &uinfo->roattr, rt_update->route()));
+        auto_ptr<Message> message(builder_->Create(
+            ribout_, cache_routes, &uinfo->roattr, rt_update->route()));
         if (message.get() != NULL) {
             UpdatePack(queue_id, message.get(), uinfo, msgset);
             message->Finish();
@@ -200,7 +209,7 @@ bool RibOutUpdates::TailDequeue(int queue_id, const RibPeerSet &msync,
     // packet.
     RouteUpdatePtr next_update;
     for (; update.get() != NULL; update = next_update) {
-        if (!DequeueCommon(start_marker, update.get(), blocked)) {
+        if (!DequeueCommon(queue, start_marker, update.get(), blocked)) {
             // Be sure to get rid of the RouteUpdate if it's empty.
             if (update->empty()) {
                 ClearUpdate(&update);
@@ -291,7 +300,7 @@ bool RibOutUpdates::PeerDequeue(int queue_id, IPeerUpdate *peer,
         } else {
             // The queue entry is a RouteUpdate. Go ahead and build an update
             // message.  Bail if all the peers in the marker get blocked.
-            if (!DequeueCommon(start_marker, update.get(), blocked)) {
+            if (!DequeueCommon(queue, start_marker, update.get(), blocked)) {
                 // Be sure to get rid of the RouteUpdate if it's empty.
                 if (update->empty()) {
                     ClearUpdate(&update);

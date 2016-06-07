@@ -94,8 +94,8 @@ private:
         uint64_t marker_move_count_;
     };
 
-    bool DequeueCommon(UpdateMarker *marker, RouteUpdate *rt_update,
-                       RibPeerSet *blocked);
+    bool DequeueCommon(UpdateQueue *queue, UpdateMarker *marker,
+                       RouteUpdate *rt_update, RibPeerSet *blocked);
 
     // Add additional updates.
     void UpdatePack(int queue_id, Message *message, UpdateInfo *start_uinfo,

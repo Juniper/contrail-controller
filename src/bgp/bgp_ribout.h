@@ -70,6 +70,7 @@ public:
 
     typedef std::vector<NextHop> NextHopList;
 
+    RibOutAttr(const RibOutAttr &rhs);
     RibOutAttr() : attr_out_(NULL), is_xmpp_(false), vrf_originated_(false) { }
     RibOutAttr(const BgpTable *table, const BgpAttr *attr, uint32_t label);
     RibOutAttr(const BgpTable *table, const BgpRoute *route,
@@ -77,9 +78,10 @@ public:
         bool is_xmpp = false);
     RibOutAttr(const BgpRoute *route, const BgpAttr *attr, bool is_xmpp);
 
-    bool IsReachable() const { return attr_out_.get() != NULL; }
+    RibOutAttr &operator=(const RibOutAttr &rhs);
     bool operator==(const RibOutAttr &rhs) const { return CompareTo(rhs) == 0; }
     bool operator!=(const RibOutAttr &rhs) const { return CompareTo(rhs) != 0; }
+    bool IsReachable() const { return attr_out_.get() != NULL; }
 
     const NextHopList &nexthop_list() const { return nexthop_list_; }
     const BgpAttr *attr() const { return attr_out_.get(); }
@@ -95,6 +97,11 @@ public:
     }
     bool is_xmpp() const { return is_xmpp_; }
     bool vrf_originated() const { return vrf_originated_; }
+    const std::string &repr() const { return repr_; }
+    void set_repr(const std::string &repr, size_t pos = 0) const {
+        repr_.clear();
+        repr_.append(repr, pos, std::string::npos);
+    }
 
 private:
     int CompareTo(const RibOutAttr &rhs) const;
@@ -103,6 +110,7 @@ private:
     NextHopList nexthop_list_;
     bool is_xmpp_;
     bool vrf_originated_;
+    mutable std::string repr_;
 };
 
 //
