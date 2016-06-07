@@ -461,7 +461,8 @@ int PktHandler::ParseIpPacket(PktInfo *pkt_info, PktType::Type &pkt_type,
             pkt_info->dport = ICMP_ECHOREPLY;
             pkt_info->sport = htons(icmp->icmp_id);
         } else if (IsFlowPacket(pkt_info) &&
-                   icmp->icmp_type == ICMP_DEST_UNREACH) {
+                   ((icmp->icmp_type == ICMP_DEST_UNREACH) ||
+                    (icmp->icmp_type == ICMP_TIME_EXCEEDED))) {
             //Agent has to look at inner payload
             //and recalculate the parameter
             //Handle this only for packets requiring flow miss
