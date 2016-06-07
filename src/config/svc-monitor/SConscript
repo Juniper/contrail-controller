@@ -54,6 +54,7 @@ sources = [
     'svc_monitor/tests/test_loadbalancer_agent.py',
     'svc_monitor/tests/test_config_db.py',
     'svc_monitor/tests/test_f5_lb.py',
+    'svc_monitor/tests/test_port_tuple.py',
     'svc_monitor/tests/fake_lb_driver.py',
     'svc_monitor/tests/scheduler/__init__.py',
     'svc_monitor/tests/scheduler/test_vrouter_schedulers.py',
