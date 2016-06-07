@@ -59,6 +59,7 @@ flaky_agent_suite = []
 
 test_vn = AgentEnv.MakeTestCmd(env, 'test_vn', agent_suite)
 test_vm = AgentEnv.MakeTestCmd(env, 'test_vm', flaky_agent_suite)
+test_ksync = AgentEnv.MakeTestCmd(env, 'test_ksync', agent_suite)
 test_peer_del = AgentEnv.MakeTestCmd(env, 'test_peer_del', flaky_agent_suite)
 test_vmport_cfg = AgentEnv.MakeTestCmd(env, 'test_vmport_cfg', flaky_agent_suite)
 test_fip_cfg = AgentEnv.MakeTestCmd(env, 'test_fip_cfg', flaky_agent_suite)
