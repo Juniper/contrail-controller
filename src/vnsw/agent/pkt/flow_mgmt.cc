@@ -112,18 +112,30 @@ void FlowMgmtManager::SetAclFlowSandeshData(const AclDBEntry *acl,
 // Utility methods to enqueue events into work-queue
 /////////////////////////////////////////////////////////////////////////////
 void FlowMgmtManager::AddEvent(FlowEntry *flow) {
-    FlowEntryPtr flow_ptr(flow);
-    FlowMgmtRequestPtr req(new FlowMgmtRequest(FlowMgmtRequest::ADD_FLOW,
-                                               flow_ptr));
-    request_queue_.Enqueue(req);
+    // Check if there is a flow-mgmt request already pending
+    // Flow mgmt takes care of current state of flow. So, there is no need to
+    // enqueue duplicate requests
+    FlowMgmtRequest *req = flow->flow_mgmt_request();
+    if (req == NULL) {
+        req = new FlowMgmtRequest(FlowMgmtRequest::UPDATE_FLOW, flow);
+        flow->set_flow_mgmt_request(req);
+        request_queue_.Enqueue(FlowMgmtRequestPtr(req));
+    }
 }
 
 void FlowMgmtManager::DeleteEvent(FlowEntry *flow,
                                   const RevFlowDepParams &params) {
-    FlowEntryPtr flow_ptr(flow);
-    FlowMgmtRequestPtr req(new FlowMgmtRequest(FlowMgmtRequest::DELETE_FLOW,
-                                               flow_ptr, params));
-    request_queue_.Enqueue(req);
+    // Check if there is a flow-mgmt request already pending
+    // Flow mgmt takes care of current state of flow. So, there is no need to
+    // enqueue duplicate requests
+    FlowMgmtRequest *req = flow->flow_mgmt_request();
+    if (req == NULL) {
+        req = new FlowMgmtRequest(FlowMgmtRequest::UPDATE_FLOW, flow);
+        flow->set_flow_mgmt_request(req);
+        request_queue_.Enqueue(FlowMgmtRequestPtr(req));
+    }
+
+    req->set_params(params);
 }
 
 void FlowMgmtManager::FlowStatsUpdateEvent(FlowEntry *flow, uint32_t bytes,
@@ -137,9 +149,8 @@ void FlowMgmtManager::FlowStatsUpdateEvent(FlowEntry *flow, uint32_t bytes,
     if (agent_->tsn_enabled()) {
         return;
     }
-    FlowEntryPtr flow_ptr(flow);
     FlowMgmtRequestPtr req(new FlowMgmtRequest
-                           (FlowMgmtRequest::UPDATE_FLOW_STATS, flow_ptr,
+                           (FlowMgmtRequest::UPDATE_FLOW_STATS, flow,
                             bytes, packets, oflow_bytes));
     request_queue_.Enqueue(req);
 }
@@ -380,17 +391,31 @@ FlowMgmtManager::BgpAsAServiceRequestHandler(FlowMgmtRequest *req) {
 
 bool FlowMgmtManager::RequestHandler(FlowMgmtRequestPtr req) {
     switch (req->event()) {
-    case FlowMgmtRequest::ADD_FLOW: {
-        log_queue_.Enqueue(req);
-        //Handle the Add request for flow-mgmt
-        AddFlow(req->flow());
-        break;
-    }
+    case FlowMgmtRequest::UPDATE_FLOW: {
+        FlowEntry *flow = req->flow().get();
+        {
+            // Before processing event, set the request pointer in flow to
+            // NULL. This ensures flow-entry enqueues new request from now
+            // onwards
+            tbb::mutex::scoped_lock mutex(flow->mutex());
+            flow->set_flow_mgmt_request(NULL);
+        }
 
-    case FlowMgmtRequest::DELETE_FLOW: {
-        log_queue_.Enqueue(req);
-        //Handle the Delete request for flow-mgmt
-        DeleteFlow(req->flow(), req->params());
+        // Update flow-mgmt information based on flow-state
+        if (req->flow()->deleted() == false) {
+            FlowMgmtRequestPtr log_req(new FlowMgmtRequest
+                                       (FlowMgmtRequest::ADD_FLOW,
+                                        req->flow().get()));
+            log_queue_.Enqueue(log_req);
+            AddFlow(req->flow());
+
+        } else {
+            FlowMgmtRequestPtr log_req(new FlowMgmtRequest
+                                       (FlowMgmtRequest::DELETE_FLOW,
+                                        req->flow().get(), req->params()));
+            log_queue_.Enqueue(log_req);
+            DeleteFlow(req->flow(), req->params());
+        }
         break;
     }
 
@@ -533,7 +558,6 @@ void FlowMgmtManager::EnqueueUveDeleteEvent(const FlowEntry *flow) const {
 }
 
 void FlowMgmtManager::AddFlow(FlowEntryPtr &flow) {
-    // Trace the flow add/change
     FlowMgmtKeyTree new_tree;
     MakeFlowMgmtKeyTree(flow.get(), &new_tree);
 
@@ -644,33 +668,28 @@ void FlowMgmtManager::VnFlowCounters(const VnEntry *vn, uint32_t *ingress_flow_c
                                       egress_flow_count);
 }
 
-FlowMgmtManager::FlowEntryInfo *
+FlowEntryInfo *
 FlowMgmtManager::FindFlowEntryInfo(const FlowEntryPtr &flow) {
-    FlowEntryTree::iterator it = flow_tree_.find(flow);
-    if (it == flow_tree_.end()) {
-        return NULL;
-    }
-
-    return &it->second;
+    return flow->flow_mgmt_info();
 }
 
-FlowMgmtManager::FlowEntryInfo *
+FlowEntryInfo *
 FlowMgmtManager::LocateFlowEntryInfo(FlowEntryPtr &flow) {
     FlowEntryInfo *info = FindFlowEntryInfo(flow);
     if (info != NULL)
         return info;
-
-    flow_tree_.insert(make_pair(flow, FlowEntryInfo()));
-    return FindFlowEntryInfo(flow);
+    info = new FlowEntryInfo(flow.get());
+    flow->set_flow_mgmt_info(info);
+    return info;
 }
 
 void FlowMgmtManager::DeleteFlowEntryInfo(FlowEntryPtr &flow) {
-    FlowEntryTree::iterator it = flow_tree_.find(flow);
-    if (it == flow_tree_.end())
+    FlowEntryInfo *info = flow->flow_mgmt_info();
+    if (info == NULL)
         return;
 
-    assert(it->second.tree_.size() == 0);
-    flow_tree_.erase(it);
+    assert(info->tree_.size() == 0);
+    flow->set_flow_mgmt_info(NULL);
     return;
 }
 
