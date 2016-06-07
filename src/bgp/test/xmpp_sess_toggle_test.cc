@@ -6,20 +6,14 @@
 #include <sstream>
 #include <boost/assign/list_of.hpp>
 
-
-
-#include "bgp/bgp_peer_membership.h"
+#include "bgp/bgp_membership.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"
 #include "io/test/event_manager_test.h"
 #include "control-node/test/network_agent_mock.h"
-
-
 #include "xmpp/xmpp_init.h"
-
-
 
 using namespace boost::asio;
 using namespace boost::assign;

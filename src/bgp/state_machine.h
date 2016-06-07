@@ -167,6 +167,7 @@ public:
     void set_state(State state);
     State get_state() const { return state_; }
     const std::string last_state_change_at() const;
+    const uint64_t last_state_change_usecs_at() const;
     void set_last_event(const std::string &event);
     const std::string &last_event() const { return last_event_; }
 
@@ -209,6 +210,7 @@ private:
     template <typename Ev> bool Enqueue(const Ev &event);
     bool DequeueEvent(EventContainer ec);
     void DequeueEventDone(bool done);
+    void UpdateFlapCount();
 
     WorkQueue<EventContainer> work_queue_;
     BgpPeer *peer_;

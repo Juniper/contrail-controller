@@ -7,11 +7,8 @@
 #include <boost/assign/list_of.hpp>
 using namespace boost::assign;
 
-
-
-
 #include "bgp/bgp_factory.h"
-#include "bgp/bgp_peer_membership.h"
+#include "bgp/bgp_membership.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
 #include "bgp/test/bgp_server_test_util.h"
@@ -19,11 +16,7 @@ using namespace boost::assign;
 #include "control-node/control_node.h"
 #include "control-node/test/network_agent_mock.h"
 #include "io/test/event_manager_test.h"
-
-
 #include "xmpp/xmpp_init.h"
-
-
 
 using namespace boost::asio;
 using namespace std;

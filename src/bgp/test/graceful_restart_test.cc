@@ -5,16 +5,21 @@
 #include <boost/assign/list_of.hpp>
 #include <boost/foreach.hpp>
 #include <boost/program_options.hpp>
+#include <fstream>
+#include <iostream>
 #include <list>
+#include <signal.h>
 
 #include "base/task_annotations.h"
 #include "base/test/addr_test_util.h"
 
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
-#include "bgp/bgp_peer_membership.h"
+#include "bgp/bgp_membership.h"
+#include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
+#include "bgp/bgp_xmpp_sandesh.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/bgp_session_manager.h"
@@ -25,6 +30,8 @@
 #include "control-node/control_node.h"
 #include "control-node/test/network_agent_mock.h"
 #include "io/test/event_manager_test.h"
+#include "sandesh/sandesh.h"
+#include "sandesh/sandesh_server.h"
 #include "xmpp/xmpp_connection.h"
 #include "xmpp/xmpp_factory.h"
 
@@ -41,18 +48,21 @@ using ::testing::TestWithParam;
 using ::testing::Bool;
 using ::testing::ValuesIn;
 using ::testing::Combine;
+using task_util::TaskFire;
 
 static int d_instances = 4;
 static int d_routes = 4;
 static int d_agents = 4;
 static int d_peers = 4;
 static int d_targets = 1;
+static int d_http_port_ = 0;
+static bool d_no_sandesh_server_ = false;
 
 static string d_log_category_ = "";
 static string d_log_level_ = "SYS_WARN";
 static bool d_log_local_enable_ = false;
 static bool d_log_trace_enable_ = false;
-static bool d_log_enable_ = false;
+static bool d_log_disable_ = false;
 
 static vector<int>  n_instances = boost::assign::list_of(d_instances);
 static vector<int>  n_routes    = boost::assign::list_of(d_routes);
@@ -63,6 +73,14 @@ static vector<int>  n_targets   = boost::assign::list_of(d_targets);
 static char **gargv;
 static int    gargc;
 static int    n_db_walker_wait_usecs = 0;
+
+#define GR_TEST_LOG(str)                                         \
+do {                                                             \
+    log4cplus::Logger logger = log4cplus::Logger::getRoot();     \
+    LOG4CPLUS_DEBUG(logger, "GR_TEST_LOG: "                      \
+                    << __FILE__  << ":"  << __FUNCTION__ << "()" \
+                    << ":"  << __LINE__ << " " << str);          \
+} while (false)
 
 static void process_command_line_args(int argc, char **argv) {
     static bool cmd_line_processed;
@@ -81,9 +99,10 @@ static void process_command_line_args(int argc, char **argv) {
     options_description desc("Allowed options");
     desc.add_options()
         ("help", "produce help message")
+        ("http-port", value<int>(), "set http introspect server port number")
         ("log-category", value<string>()->default_value(d_log_category_),
             "set log category")
-        ("log-disable", bool_switch(&d_log_enable_),
+        ("log-disable", bool_switch(&d_log_disable_),
              "Disable logging")
         ("log-file", value<string>()->default_value(log_file),
              "Filename for the logs to be written to")
@@ -101,6 +120,8 @@ static void process_command_line_args(int argc, char **argv) {
              "Enable local logging")
         ("log-trace-enable", bool_switch(&d_log_trace_enable_),
              "Enable logging traces")
+        ("no-sandesh-server", bool_switch(&d_no_sandesh_server_),
+             "Do not add multicast routes")
         ("nroutes", value<int>()->default_value(d_routes),
              "set number of routes")
         ("nagents", value<int>()->default_value(d_agents),
@@ -148,6 +169,10 @@ static void process_command_line_args(int argc, char **argv) {
         cmd_line_arg_set = true;
     }
 
+    if (vm.count("http-port")) {
+        d_http_port_ = vm["http-port"].as<int>();
+    }
+
     if (cmd_line_arg_set) {
         n_instances.clear();
         n_instances.push_back(ninstances);
@@ -165,7 +190,7 @@ static void process_command_line_args(int argc, char **argv) {
         n_peers.push_back(npeers);
     }
 
-    if (!d_log_enable_) {
+    if (d_log_disable_) {
         SetLoggingDisabled(true);
     }
 
@@ -191,7 +216,7 @@ static void process_command_line_args(int argc, char **argv) {
                 vm["log-file-size"].as<unsigned long>() : log_file_size,
             vm.count("log-file-index") ?
                 vm["log-file-index"].as<unsigned int>() : log_file_index,
-                d_log_enable_, d_log_level_, module_name, d_log_level_);
+                !d_log_disable_, d_log_level_, module_name, d_log_level_);
     }
 }
 
@@ -223,11 +248,22 @@ static vector<int> GetTargetParameters() {
 class PeerCloseManagerTest : public PeerCloseManager {
 public:
     explicit PeerCloseManagerTest(IPeerClose *peer_close) :
-            PeerCloseManager(peer_close) {
+            PeerCloseManager(peer_close), gr_timer_fired_(false) {
     }
-    ~PeerCloseManagerTest() { }
-    const State state() const { return state_; }
+    ~PeerCloseManagerTest() { last_stats_ = stats(); }
+    static Stats &last_stats() { return last_stats_; }
+    static void reset_last_stats() {
+        memset(&last_stats_, 0, sizeof(PeerCloseManagerTest::last_stats()));
+    }
+    virtual bool GRTimerFired() const { return gr_timer_fired_; }
+    void set_gr_timer_fired(bool flag) { gr_timer_fired_ = flag; }
+
+private:
+    bool gr_timer_fired_;
+    static Stats last_stats_;
 };
+
+PeerCloseManager::Stats PeerCloseManagerTest::last_stats_;
 
 class BgpXmppChannelManagerMock : public BgpXmppChannelManager {
 public:
@@ -244,27 +280,35 @@ public:
 
 typedef std::tr1::tuple<int, int, int, int, int> TestParams;
 
-class GracefulRestartTest : public ::testing::TestWithParam<TestParams> {
-
+class SandeshServerTest : public SandeshServer {
 public:
-    bool IsPeerCloseGraceful(bool graceful) { return graceful; }
-    void SetPeerCloseGraceful(bool graceful) {
-        xmpp_server_->GetIsPeerCloseGraceful_fnc_ =
-                    boost::bind(&GracefulRestartTest::IsPeerCloseGraceful, this,
-                                graceful);
-        for (int i = 1; i <= n_peers_; i++) {
-            bgp_servers_[i]->GetIsPeerCloseGraceful_fnc_ =
-                    boost::bind(&GracefulRestartTest::IsPeerCloseGraceful, this,
-                                graceful);
-        }
+    SandeshServerTest(EventManager *evm) : SandeshServer(evm) { }
+    virtual ~SandeshServerTest() { }
+    virtual bool ReceiveSandeshMsg(SandeshSession *session,
+                       const SandeshMessage *msg, bool rsc) {
+        return true;
     }
 
+private:
+};
+
+boost::scoped_ptr<BgpSandeshContext> sandesh_context_;
+std::vector<BgpServerTest *> bgp_servers_;
+std::vector<XmppServerTest *> xmpp_servers_;
+std::vector<BgpXmppChannelManagerMock *> channel_managers_;
+
+typedef std::map<XmppServerTest *, std::vector<test::NetworkAgentMock *> >
+    XmppAgentsType;
+XmppAgentsType xmpp_server_agents_;
+
+class GracefulRestartTest : public ::testing::TestWithParam<TestParams> {
 protected:
     GracefulRestartTest() : thread_(&evm_) { }
 
     virtual void SetUp();
     virtual void TearDown();
     void AgentCleanup();
+    void AgentDelete();
     void Configure();
     void BgpPeerUp(BgpPeerTest *peer);
     void BgpPeerDown(BgpPeerTest *peer, TcpSession::Event event);
@@ -294,25 +338,31 @@ protected:
     void VerifyDeletedRoutingInstnaces(vector<int> instances);
     void VerifyRoutingInstances(BgpServer *server);
     void XmppAgentClose(int nagents = -1);
-    void CallStaleTimer(BgpXmppChannel *channel);
-    void CallStaleTimer(BgpPeerTest *peer);
+    void FireGRTimer(PeerCloseManagerTest *pc, bool is_ready);
+    void FireGRTimer(BgpPeerTest *peer);
+    void FireGRTimer(BgpXmppChannel *channel);
+    void GRTimerCallback(PeerCloseManagerTest *pc);
     void InitParams();
     void VerifyRoutes(int count);
     bool IsReady(bool ready);
     void WaitForAgentToBeEstablished(test::NetworkAgentMock *agent);
     void WaitForPeerToBeEstablished( BgpPeerTest *peer);
     void BgpPeersAdminUpOrDown(bool down);
+    bool SkipNotificationReceive(BgpPeerTest *peer, int code,
+                                 int subcode) const;
+
+    void SandeshStartup();
+    void SandeshShutdown();
 
     EventManager evm_;
     ServerThread thread_;
-    boost::scoped_ptr<BgpServerTest> server_;
+    BgpServerTest *server_;
     XmppServerTest *xmpp_server_;
-    boost::scoped_ptr<BgpXmppChannelManagerMock> channel_manager_;
+    BgpXmppChannelManagerMock *channel_manager_;
     scoped_ptr<BgpInstanceConfigTest> master_cfg_;
     RoutingInstance *master_instance_;
     std::vector<test::NetworkAgentMock *> xmpp_agents_;
     std::vector<BgpPeerTest *> bgp_peers_;
-    std::vector<BgpServerTest *> bgp_servers_;
     std::vector<BgpXmppChannel *> bgp_xmpp_channels_;
     std::vector<BgpPeerTest *> bgp_server_peers_;
     int n_families_;
@@ -322,6 +372,7 @@ protected:
     int n_agents_;
     int n_peers_;
     int n_targets_;
+    SandeshServerTest *sandesh_server_;
 
     struct GRTestParams {
         GRTestParams(test::NetworkAgentMock *agent, vector<int> instance_ids,
@@ -367,6 +418,9 @@ protected:
             this->send_eor = true;
         }
 
+        // TODO: Enable tests for EoR.
+        bool should_send_eor() const { return true || send_eor; }
+
         test::NetworkAgentMock *agent;
         BgpPeerTest *peer;
         vector<int> instance_ids;
@@ -389,20 +443,49 @@ protected:
     std::vector<int> instances_to_delete_during_gr_;
 };
 
+static int d_wait_for_idle_ = 30; // Seconds
+static void WaitForIdle() {
+    if (d_wait_for_idle_) {
+        usleep(10);
+        task_util::WaitForIdle(d_wait_for_idle_);
+    }
+}
+
+static void SignalHandler (int sig) {
+    if (sig != SIGUSR1)
+        return;
+    ifstream infile("/tmp/.gr_test_bgp_server_index");
+    if (!infile)
+        return;
+
+    int i;
+    infile >> i;
+    sandesh_context_->bgp_server = bgp_servers_[i];
+    sandesh_context_->xmpp_peer_manager = channel_managers_[i];
+}
+
 void GracefulRestartTest::SetUp() {
     InitParams();
+    SandeshStartup();
 
-    server_.reset(new BgpServerTest(&evm_, "RTR0"));
-    bgp_servers_.push_back(server_.get());
+    for (int i = 0; i <= n_peers_; i++) {
+        bgp_servers_.push_back(new BgpServerTest(&evm_,
+                    "RTR" + boost::lexical_cast<string>(i)));
+        xmpp_servers_.push_back(new XmppServerTest(&evm_, XMPP_CONTROL_SERV));
+        channel_managers_.push_back(new BgpXmppChannelManagerMock(
+                                        xmpp_servers_[i], bgp_servers_[i]));
 
-    for (int i = 1; i <= n_peers_; i++) {
-        bgp_servers_.push_back(
-            new BgpServerTest(&evm_, "RTR" + boost::lexical_cast<string>(i)));
+        // Disable GR helper mode in non DUTs
+        if (i) {
+            bgp_servers_[i]->set_gr_helper_disable(true);
+            xmpp_servers_[i]->set_gr_helper_disable(true);
+        }
     }
 
-    xmpp_server_ = new XmppServerTest(&evm_, XMPP_CONTROL_SERV);
-    channel_manager_.reset(new BgpXmppChannelManagerMock(
-                                   xmpp_server_, server_.get()));
+    server_ = bgp_servers_[0];
+    xmpp_server_ = xmpp_servers_[0];
+    channel_manager_ = channel_managers_[0];
+
     master_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig(
         BgpConfigManager::kMasterInstance, "", ""));
     master_instance_ = static_cast<RoutingInstance *>(
@@ -412,17 +495,71 @@ void GracefulRestartTest::SetUp() {
     familes_.push_back(Address::INET);
     familes_.push_back(Address::INETVPN);
 
-    for (int i = 0; i <= n_peers_; i++)
-        bgp_servers_[i]->session_manager()->Initialize(0);
+    server_->session_manager()->Initialize(0);
     xmpp_server_->Initialize(0, false);
+    for (int i = 1; i <= n_peers_; i++) {
+        xmpp_servers_[i]->Initialize(0, false);
+        bgp_servers_[i]->session_manager()->Initialize(0);
+
+        // Disable logging in non dut bgp servers.
+        bgp_servers_[i]->set_logging_disabled(true);
+    }
+
+    sandesh_context_->bgp_server = bgp_servers_[0];
+    sandesh_context_->xmpp_peer_manager = channel_managers_[0];
+
     thread_.Start();
+}
+
+void GracefulRestartTest::SandeshStartup() {
+    sandesh_context_.reset(new BgpSandeshContext());
+    RegisterSandeshShowXmppExtensions(sandesh_context_.get());
+    if (d_no_sandesh_server_) {
+        Sandesh::set_client_context(sandesh_context_.get());
+        sandesh_server_ = NULL;
+        return;
+    }
+
+    // Initialize SandeshServer.
+    sandesh_server_ = new SandeshServerTest(&evm_);
+    sandesh_server_->Initialize(0);
+
+    boost::system::error_code error;
+    string hostname(boost::asio::ip::host_name(error));
+    Sandesh::InitGenerator("BgpUnitTestSandeshClient", hostname,
+                           "BgpTest", "Test", &evm_,
+                            d_http_port_, sandesh_context_.get());
+    Sandesh::ConnectToCollector("127.0.0.1",
+                                sandesh_server_->GetPort());
+    GR_TEST_LOG("Introspect at http://localhost:" << Sandesh::http_port());
+}
+
+void GracefulRestartTest::SandeshShutdown() {
+    if (d_no_sandesh_server_)
+        return;
+
+    Sandesh::Uninit();
+    WaitForIdle();
+    // TASK_UTIL_EXPECT_FALSE(sandesh_server_->HasSessions());
+    sandesh_server_->Shutdown();
+    WaitForIdle();
+    TcpServerManager::DeleteServer(sandesh_server_);
+    sandesh_server_ = NULL;
+    WaitForIdle();
 }
 
 void GracefulRestartTest::TearDown() {
     task_util::WaitForIdle();
-    SetPeerCloseGraceful(false);
+
+    for (int i = 1; i <= n_instances_; i++) {
+        BOOST_FOREACH(BgpPeerTest *peer, bgp_peers_) {
+            ProcessVpnRoute(peer, i, n_routes_, false);
+        }
+    }
+
+    for (int i = 0; i <= n_peers_; i++)
+        xmpp_servers_[i]->Shutdown();
     XmppAgentClose();
-    xmpp_server_->Shutdown();
     task_util::WaitForIdle();
 
     VerifyRoutes(0);
@@ -432,18 +569,11 @@ void GracefulRestartTest::TearDown() {
         TASK_UTIL_EXPECT_EQ(0, xmpp_server_->connection_map().size());
     }
     AgentCleanup();
-    TASK_UTIL_EXPECT_EQ(0, channel_manager_->channel_map().size());
-    channel_manager_.reset();
-    task_util::WaitForIdle();
-
-    TcpServerManager::DeleteServer(xmpp_server_);
-    xmpp_server_ = NULL;
-
-    for (int i = 1; i <= n_instances_; i++) {
-        BOOST_FOREACH(BgpPeerTest *peer, bgp_peers_) {
-            ProcessVpnRoute(peer, i, n_routes_, false);
-        }
+    for (int i = 0; i <= n_peers_; i++) {
+        TASK_UTIL_EXPECT_EQ(0, channel_managers_[i]->channel_map().size());
+        delete channel_managers_[i];
     }
+    task_util::WaitForIdle();
 
     for (int i = 0; i <= n_peers_; i++)
         bgp_servers_[i]->Shutdown();
@@ -453,9 +583,19 @@ void GracefulRestartTest::TearDown() {
     thread_.Join();
     task_util::WaitForIdle();
 
-    BOOST_FOREACH(test::NetworkAgentMock *agent, xmpp_agents_) {
-        delete agent;
+    for (int i = 0; i <= n_peers_; i++) {
+        TcpServerManager::DeleteServer(xmpp_servers_[i]);
+        delete bgp_servers_[i];
     }
+
+    AgentDelete();
+    SandeshShutdown();
+    WaitForIdle();
+    sandesh_context_.reset();
+    bgp_servers_.clear();
+    xmpp_servers_.clear();
+    channel_managers_.clear();
+    xmpp_server_agents_.clear();
 }
 
 void GracefulRestartTest::Configure() {
@@ -463,6 +603,7 @@ void GracefulRestartTest::Configure() {
     for (int i = 0; i <= n_peers_; i++)
         bgp_servers_[i]->Configure(config.c_str());
     task_util::WaitForIdle();
+
     for (int i = 0; i <= n_peers_; i++)
         VerifyRoutingInstances(bgp_servers_[i]);
 
@@ -489,6 +630,9 @@ void GracefulRestartTest::Configure() {
         BgpPeerTest *peer = bgp_servers_[0]->FindPeerByUuid(
                                 BgpConfigManager::kMasterInstance, uuid);
         peer->set_id(i-1);
+        peer->skip_notification_recv_fnc_ =
+            boost::bind(&GracefulRestartTest::SkipNotificationReceive, this,
+                        peer, _1, _2);
         bgp_server_peers_.push_back(peer);
     }
 }
@@ -510,6 +654,24 @@ void GracefulRestartTest::AgentCleanup() {
     BOOST_FOREACH(test::NetworkAgentMock *agent, xmpp_agents_) {
         agent->Delete();
     }
+
+    BOOST_FOREACH(XmppAgentsType::value_type &i, xmpp_server_agents_) {
+        BOOST_FOREACH(test::NetworkAgentMock *agent, i.second) {
+            agent->Delete();
+        }
+    }
+}
+
+void GracefulRestartTest::AgentDelete() {
+    BOOST_FOREACH(test::NetworkAgentMock *agent, xmpp_agents_) {
+        delete agent;
+    }
+
+    BOOST_FOREACH(XmppAgentsType::value_type &i, xmpp_server_agents_) {
+        BOOST_FOREACH(test::NetworkAgentMock *agent, i.second) {
+            delete agent;
+        }
+    }
 }
 
 void GracefulRestartTest::VerifyRoutes(int count) {
@@ -530,10 +692,16 @@ string GracefulRestartTest::GetConfig(bool delete_config) {
     else
         out << "<config>";
 
+    out << "<global-system-config>\
+           <graceful-restart-time>600</graceful-restart-time>\
+           <long-lived-graceful-restart-time>60000</long-lived-graceful-restart-time>\
+           </global-system-config>";
+
     for (int i = 0; i <= n_peers_; i++) {
         out << "<bgp-router name=\'RTR" << i << "\'>\
                     <identifier>192.168.0." << i << "</identifier>\
-                    <address>127.0.0.1</address>\
+                    <address>127.0.0.1</address>" <<
+                    "<autonomous-system>" << (i+1) << "</autonomous-system>\
                     <port>" << bgp_servers_[i]->session_manager()->GetPort();
         out <<      "</port>";
 
@@ -604,10 +772,12 @@ void GracefulRestartTest::WaitForAgentToBeEstablished(
         test::NetworkAgentMock *agent) {
     TASK_UTIL_EXPECT_TRUE(agent->IsChannelReady());
     TASK_UTIL_EXPECT_TRUE(agent->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(bgp_xmpp_channels_[agent->id()]->Peer()->IsReady());
 }
 
 void GracefulRestartTest::WaitForPeerToBeEstablished(BgpPeerTest *peer) {
     TASK_UTIL_EXPECT_TRUE(peer->IsReady());
+    TASK_UTIL_EXPECT_TRUE(bgp_server_peers_[peer->id()]->IsReady());
 }
 
 ExtCommunitySpec *GracefulRestartTest::CreateRouteTargets() {
@@ -656,8 +826,7 @@ void GracefulRestartTest::CreateAgents() {
         test::NetworkAgentMock *agent = new test::NetworkAgentMock(&evm_,
             "agent" + boost::lexical_cast<string>(i) +
                 "@vnsw.contrailsystems.com",
-            xmpp_server_->GetPort(),
-            prefix.ip4_addr().to_string());
+            xmpp_server_->GetPort(), prefix.ip4_addr().to_string());
         agent->set_id(i);
         xmpp_agents_.push_back(agent);
         task_util::WaitForIdle();
@@ -667,8 +836,34 @@ void GracefulRestartTest::CreateAgents() {
                           "Waiting for channel_manager_->channel_ to be set");
         bgp_xmpp_channels_.push_back(channel_manager_->channel_);
         channel_manager_->channel_ = NULL;
-
         prefix = task_util::Ip4PrefixIncrement(prefix);
+    }
+
+    for (int j = 1; j <= n_peers_; j++) {
+        xmpp_server_agents_.insert(make_pair(xmpp_servers_[j],
+                                   vector<test::NetworkAgentMock *>()));
+        for (int i = 0; i < n_agents_; i++) {
+
+            // Create a dummy agent for other bgp speakers too.
+            test::NetworkAgentMock *agent = new test::NetworkAgentMock(&evm_,
+                "dummy_agent" + boost::lexical_cast<string>(i) +
+                "@vnsw.contrailsystems.com",
+                xmpp_servers_[j]->GetPort(), prefix.ip4_addr().to_string());
+            xmpp_server_agents_[xmpp_servers_[j]].push_back(agent);
+            prefix = task_util::Ip4PrefixIncrement(prefix);
+        }
+    }
+
+    for (int j = 1; j <= n_peers_; j++) {
+        BOOST_FOREACH(test::NetworkAgentMock *agent,
+                xmpp_server_agents_[xmpp_servers_[j]]) {
+            WaitForAgentToBeEstablished(agent);
+            for (int k = 1; k <= n_instances_; k++) {
+                string instance_name =
+                    "instance" + boost::lexical_cast<string>(k);
+                agent->Subscribe(instance_name, k);
+            }
+        }
     }
 }
 
@@ -815,7 +1010,8 @@ void GracefulRestartTest::VerifyReceivedXmppRoutes(int routes) {
             if (!agent->HasSubscribed(instance_name))
                 continue;
             TASK_UTIL_EXPECT_EQ_MSG(routes, agent->RouteCount(instance_name),
-                                    "Wait for routes in " + instance_name);
+                                    "Agent " + agent->ToString() +
+                                    ": Wait for routes in " + instance_name);
         }
     }
     task_util::WaitForIdle();
@@ -894,51 +1090,65 @@ void GracefulRestartTest::VerifyRoutingInstances(BgpServer *server) {
                                BgpConfigManager::kMasterInstance));
 }
 
-// Invoke stale timer callbacks directly speed up the test.
-void GracefulRestartTest::CallStaleTimer(BgpXmppChannel *channel) {
-    ConcurrencyScope scope("bgp::Config");
-    if (channel->Peer()->peer_close()->close_manager()->state() !=
-            PeerCloseManager::GR_TIMER)
-        return;
-
-    task_util::WaitForIdle();
-    bool is_ready = channel->Peer()->IsReady();
-    channel->Peer()->peer_close()->close_manager()->RestartTimerCallback();
-    if (!is_ready) {
-        TASK_UTIL_EXPECT_EQ(PeerCloseManager::LLGR_TIMER,
-                channel->Peer()->peer_close()->close_manager()->state());
-        channel->Peer()->peer_close()->close_manager()->RestartTimerCallback();
-    }
-    task_util::WaitForIdle();
+bool GracefulRestartTest::SkipNotificationReceive(BgpPeerTest *peer,
+                                                  int code, int subcode) const {
+    if (code == BgpProto::Notification::Cease &&
+            subcode == BgpProto::Notification::AdminShutdown)
+        return true;
+    return peer->SkipNotificationReceiveDefault(code, subcode);
 }
 
-// Invoke stale timer callbacks directly as evm is not running in this unit test
-void GracefulRestartTest::CallStaleTimer(BgpPeerTest *peer) {
-    ConcurrencyScope scope("bgp::Config");
-    if (peer->peer_close()->close_manager()->state() !=
-            PeerCloseManager::GR_TIMER)
-        return;
+// Invoke stale timer callbacks directly to speed up.
+void GracefulRestartTest::GRTimerCallback(PeerCloseManagerTest *pc) {
+    CHECK_CONCURRENCY("bgp::Config");
 
-    task_util::WaitForIdle();
-    bool is_ready = peer->IsReady();
-    uint64_t llgr_stale =
-        peer->peer_close()->close_manager()->stats().llgr_stale;
-    peer->peer_close()->close_manager()->RestartTimerCallback();
-    if (!is_ready) {
-        TASK_UTIL_EXPECT_EQ(llgr_stale + 1,
-                peer->peer_close()->close_manager()->stats().llgr_stale);
+    // Fire the timer.
+    pc->set_gr_timer_fired(true);
+    if (pc->RestartTimerCallback())
+        assert(!pc->RestartTimerCallback());
+    pc->set_gr_timer_fired(false);
+}
+
+void GracefulRestartTest::FireGRTimer(PeerCloseManagerTest *pc, bool is_ready) {
+    if (pc->state() != PeerCloseManager::GR_TIMER)
+        return;
+    if (is_ready) {
+        uint64_t sweep = pc->stats().sweep;
+        TaskFire(boost::bind(&GracefulRestartTest::GRTimerCallback, this, pc),
+                 "bgp::Config");
+        TASK_UTIL_EXPECT_EQ(sweep + 1, pc->stats().sweep);
+        TASK_UTIL_EXPECT_EQ(PeerCloseManager::NONE, pc->state());
         task_util::WaitForIdle();
-        PeerCloseManager *pc = peer->peer_close()->close_manager();
-        TASK_UTIL_EXPECT_TRUE(PeerCloseManager::LLGR_TIMER ||
-                              PeerCloseManager::GR_TIMER == pc->state());
-        task_util::WaitForIdle();
-        if (pc->state() == PeerCloseManager::GR_TIMER) {
-            pc->RestartTimerCallback();
-            task_util::WaitForIdle();
-        }
-        peer->peer_close()->close_manager()->RestartTimerCallback();
+        return;
     }
+
+    uint64_t deletes = pc->stats().deletes;
+    PeerCloseManager::Stats stats;
+    bool is_xmpp = pc->peer_close()->peer()->IsXmppPeer();
     task_util::WaitForIdle();
+    PeerCloseManagerTest::reset_last_stats();
+    while (true) {
+        if (pc->state() == PeerCloseManager::GR_TIMER ||
+                pc->state() == PeerCloseManager::LLGR_TIMER)
+            TaskFire(boost::bind(&GracefulRestartTest::GRTimerCallback,
+                                 this, pc), "bgp::Config");
+        task_util::WaitForIdle();
+        stats = is_xmpp ? PeerCloseManagerTest::last_stats() : pc->stats();
+        if (stats.deletes > deletes)
+            break;
+    }
+    EXPECT_GT(stats.deletes, deletes);
+}
+
+void GracefulRestartTest::FireGRTimer(BgpPeerTest *peer) {
+    FireGRTimer(dynamic_cast<PeerCloseManagerTest *>(
+                    peer->peer_close()->close_manager()), peer->IsReady());
+}
+
+void GracefulRestartTest::FireGRTimer(BgpXmppChannel *channel) {
+    FireGRTimer(dynamic_cast<PeerCloseManagerTest *>(
+                    channel->Peer()->peer_close()->close_manager()),
+                channel->Peer()->IsReady());
 }
 
 void GracefulRestartTest::XmppAgentClose(int nagents) {
@@ -982,7 +1192,6 @@ void GracefulRestartTest::InitParams() {
 //     Subset of routes are [re]advertised after restart
 //     Subset of routing-instances are deleted (during GR)
 void GracefulRestartTest::GracefulRestartTestStart () {
-    SetPeerCloseGraceful(true);
     Configure();
 
     //  Bring up n_agents_ in n_instances_ and advertise n_routes_ per session
@@ -1064,6 +1273,10 @@ void GracefulRestartTest::ProcessFlippingAgents(int &total_routes,
             TASK_UTIL_EXPECT_FALSE(agent->IsEstablished());
             TASK_UTIL_EXPECT_EQ(TcpSession::EVENT_NONE,
                                 XmppStateMachineTest::get_skip_tcp_event());
+            if (gr_test_param.skip_tcp_event == TcpSession::EVENT_NONE) {
+                TASK_UTIL_EXPECT_FALSE(
+                        bgp_xmpp_channels_[agent->id()]->Peer()->IsReady());
+            }
 
             for (size_t i = 0; i < gr_test_param.instance_ids.size(); i++) {
                 int instance_id = gr_test_param.instance_ids[i];
@@ -1085,7 +1298,10 @@ void GracefulRestartTest::ProcessFlippingAgents(int &total_routes,
     // sent desired routes.
     BOOST_FOREACH(GRTestParams gr_test_param, n_flipping_agents) {
         test::NetworkAgentMock *agent = gr_test_param.agent;
-        if (gr_test_param.send_eor && agent->IsEstablished()) {
+        if (!agent->down())
+            WaitForAgentToBeEstablished(agent);
+
+        if (gr_test_param.should_send_eor() && agent->IsEstablished()) {
             agent->SendEorMarker();
         } else {
             PeerCloseManager *pc =
@@ -1108,7 +1324,7 @@ void GracefulRestartTest::ProcessFlippingAgents(int &total_routes,
                         bgp_xmpp_channels_[agent->id()]->Peer()->IsReady());
                 TASK_UTIL_EXPECT_EQ(PeerCloseManager::GR_TIMER, pc->state());
             }
-            CallStaleTimer(bgp_xmpp_channels_[agent->id()]);
+            FireGRTimer(bgp_xmpp_channels_[agent->id()]);
         }
     }
     task_util::WaitForIdle();
@@ -1132,6 +1348,9 @@ void GracefulRestartTest::BgpPeerDown(BgpPeerTest *peer,
     TASK_UTIL_EXPECT_TRUE(peer->IsReady());
     peer->SetAdminState(true);
     TASK_UTIL_EXPECT_FALSE(peer->IsReady());
+
+    if (event == TcpSession::EVENT_NONE)
+        TASK_UTIL_EXPECT_FALSE(server_peer->IsReady());
 
     // Also delete the routes
     for (int i = 1; i <= n_instances_; i++)
@@ -1213,8 +1432,8 @@ void GracefulRestartTest::ProcessFlippingPeers(int &total_routes,
     // sent desired routes.
     BOOST_FOREACH(GRTestParams gr_test_param, n_flipping_peers) {
         BgpPeerTest *peer = gr_test_param.peer;
-        if (gr_test_param.send_eor && peer->IsReady()) {
-            peer->SendEorMarker();
+        if (gr_test_param.should_send_eor() && peer->IsReady()) {
+            peer->SendEndOfRIB();
         } else {
             PeerCloseManager *pc =
                 bgp_server_peers_[peer->id()]->peer_close()->close_manager();
@@ -1236,7 +1455,7 @@ void GracefulRestartTest::ProcessFlippingPeers(int &total_routes,
                                                peer->id()]->IsReady());
                 TASK_UTIL_EXPECT_EQ(PeerCloseManager::GR_TIMER, pc->state());
             }
-            CallStaleTimer(bgp_server_peers_[peer->id()]);
+            FireGRTimer(bgp_server_peers_[peer->id()]);
         }
     }
     task_util::WaitForIdle();
@@ -1248,6 +1467,7 @@ void GracefulRestartTest::GracefulRestartTestRun () {
     //  Verify that n_agents_ * n_instances_ * n_routes_ routes are received in
     //  agent in each instance
     VerifyReceivedXmppRoutes(total_routes);
+
     vector<test::NetworkAgentMock *> dont_unsubscribe =
         vector<test::NetworkAgentMock *>();
 
@@ -1425,20 +1645,20 @@ void GracefulRestartTest::GracefulRestartTestRun () {
     // sent desired routes.
     BOOST_FOREACH(GRTestParams gr_test_param, n_flipped_agents) {
         test::NetworkAgentMock *agent = gr_test_param.agent;
-        if (gr_test_param.send_eor)
+        if (gr_test_param.should_send_eor())
             agent->SendEorMarker();
         else
-            CallStaleTimer(bgp_xmpp_channels_[agent->id()]);
+            FireGRTimer(bgp_xmpp_channels_[agent->id()]);
     }
 
     // Send EoR marker or trigger GR timer for peers which came back up and
     // sent desired routes.
     BOOST_FOREACH(GRTestParams gr_test_param, n_flipped_peers) {
         BgpPeerTest *peer = gr_test_param.peer;
-        if (false && gr_test_param.send_eor)
-            peer->SendEorMarker();
+        if (gr_test_param.should_send_eor())
+            peer->SendEndOfRIB();
         else
-            CallStaleTimer(bgp_server_peers_[peer->id()]);
+            FireGRTimer(bgp_server_peers_[peer->id()]);
     }
 
     // Process agents which keep flipping and trigger LLGR..
@@ -1449,12 +1669,12 @@ void GracefulRestartTest::GracefulRestartTestRun () {
 
     // Trigger GR timer for agents which went down permanently.
     BOOST_FOREACH(test::NetworkAgentMock *agent, n_down_from_agents_) {
-        CallStaleTimer(bgp_xmpp_channels_[agent->id()]);
+        FireGRTimer(bgp_xmpp_channels_[agent->id()]);
     }
 
     // Trigger GR timer for peers which went down permanently.
     BOOST_FOREACH(BgpPeerTest *peer, n_down_from_peers_) {
-        CallStaleTimer(bgp_server_peers_[peer->id()]);
+        FireGRTimer(bgp_server_peers_[peer->id()]);
     }
 
     VerifyReceivedXmppRoutes(total_routes);
@@ -2425,6 +2645,7 @@ static void TearDown() {
 }
 
 int main(int argc, char **argv) {
+    signal(SIGUSR1, SignalHandler);
     gargc = argc;
     gargv = argv;
 
