@@ -14,6 +14,7 @@ env = BuildEnv.Clone()
 
 sandesh_files = env.SConscript('sandesh/SConscript', exports='BuildEnv', duplicate = 0)
 
+env.Append(CPPPATH = [env['TOP']])
 except_env = env.Clone()
 except_env.Prepend(CPPPATH = Dir('.').abspath)
 

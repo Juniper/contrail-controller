@@ -12,6 +12,7 @@
 #include "sandesh/common/vns_types.h"
 #include "base/logging.h"
 #include "bgp/bgp_log_types.h"
+#include "bgp/bgp_server.h"
 #include "bgp/ipeer.h"
 #include "bgp/bgp_table.h"
 
@@ -73,11 +74,13 @@ do {                                                                       \
 // XXX Only used in unit tests. In production, there is only one BgpServer per
 // control-node daemon
 #define BGP_LOG_SERVER(peer, table)                                        \
-do {                                                                       \
     if (LoggingDisabled()) break;                                          \
+    if (dynamic_cast<const IPeer *>(peer) &&                               \
+            dynamic_cast<const IPeer *>(peer)->server() &&                 \
+        dynamic_cast<const IPeer *>(peer)->server()->logging_disabled())   \
+        break;                                                             \
     bgp_log_test::LogServerName(dynamic_cast<const IPeer *>(peer),         \
                                 dynamic_cast<const BgpTable *>(table));    \
-} while (false)
 
 // BgpPeer specific logging macros
 #define BGP_PEER_DIR_OUT "SEND"
@@ -86,7 +89,7 @@ do {                                                                       \
 
 #define BGP_LOG_PEER_INTERNAL(type, peer, level, flags, ...)               \
 do {                                                                       \
-    IPeer *_peer = dynamic_cast<IPeer *>(peer);                            \
+    const IPeer *_peer = dynamic_cast<const IPeer *>(peer);                \
     std::string _peer_name;                                                \
     if (_peer)  {                                                          \
         _peer_name = _peer->ToUVEKey();                                    \
@@ -150,7 +153,7 @@ do {                                                                       \
 #define BGP_LOG_TABLE(table, level, flags, arg)                            \
 do {                                                                       \
     if (LoggingDisabled()) break;                                          \
-    BGP_LOG_SERVER((IPeer *) 0, table);                                    \
+    BGP_LOG_SERVER((const IPeer *) 0, table);                              \
     std::ostringstream _os;                                                \
     _os << arg;                                                            \
     BGP_LOG(BgpTable, level, flags, (table) ? (table)->name() : "",        \
