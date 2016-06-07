@@ -61,6 +61,7 @@ const string VN_TABLE               = "ObjectVNTable"
 const string VM_TABLE               = "ObjectVMTable"
 const string VMI_TABLE              = "ObjectVMITable"
 const string SI_TABLE               = "ObjectSITable"
+const string LB_TABLE               = "ObjectLBTable"
 const string VROUTER_TABLE          = "ObjectVRouter"
 const string BGP_PEER_TABLE         = "ObjectBgpPeer"
 const string BGP_ROUTER_TABLE       = "ObjectBgpRouter"
@@ -90,6 +91,7 @@ const string VN_DISPLAY_NAME        = "Virtual Network"
 const string VM_DISPLAY_NAME        = "Virtual Machine"
 const string VMI_DISPLAY_NAME       = "Virtual Machine Interface"
 const string SI_DISPLAY_NAME        = "Service Instance"
+const string LB_DISPLAY_NAME        = "Loadbalancer"
 const string VROUTER_DISPLAY_NAME   = "vRouter"
 const string BGP_PEER_DISPLAY_NAME  = "BGP Peer"
 const string ROUTING_INSTANCE_DISPLAY_NAME = "Routing Instance"
@@ -388,6 +390,7 @@ const map<string, string> UVE_MAP = {
     "virtual-machine" : VM_TABLE,
     "virtual-machine-interface" : VMI_TABLE,
     "service-instance" : SI_TABLE,
+    "loadbalancer" : LB_TABLE,
     "vrouter" : VROUTER_TABLE,
     "control-node" : BGP_ROUTER_TABLE,
     "bgp-peer" : BGP_PEER_TABLE,
@@ -434,6 +437,10 @@ const map<string, objtable_info> _OBJECT_TABLES = {
     SI_TABLE               : {
         'objtable_display_name' : SI_DISPLAY_NAME
         'log_query_name'        : "service-instance"
+    }
+    LB_TABLE               : {
+        'objtable_display_name' : LB_DISPLAY_NAME
+        'log_query_name'        : "loadbalancer"
     }
     VROUTER_TABLE          : {
         'objtable_display_name' : VROUTER_DISPLAY_NAME
@@ -1812,87 +1819,66 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
-      'display_name' : 'Loadbalancer VirtualIp Stats',
-      'stat_type' : 'UveLoadbalancer'
-      'stat_attr' : 'virtual_ip_stats',
-      'obj_table' : SI_TABLE,
-      'attributes': [
-          { 'name' : 'virtual_ip_stats.obj_name', 'datatype' : 'string', 'index' : true },
-          { 'name' : 'virtual_ip_stats.uuid', 'datatype' : 'string', 'index' : true },
-          { 'name' : 'virtual_ip_stats.status', 'datatype' : 'string', 'index' : false },
-          { 'name' : 'virtual_ip_stats.vrouter', 'datatype' : 'string', 'index' : true },
-          { 'name' : 'virtual_ip_stats.active_connections', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'virtual_ip_stats.max_connections', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'virtual_ip_stats.current_sessions', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'virtual_ip_stats.max_sessions', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'virtual_ip_stats.total_sessions', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'virtual_ip_stats.bytes_in', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'virtual_ip_stats.bytes_out', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'virtual_ip_stats.connection_errors', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'virtual_ip_stats.reponse_errors', 'datatype' : 'int', 'index' : false },
-        ]
-    },
-    {
       'display_name' : 'Loadbalancer Listener Stats',
-      'stat_type' : 'UveLoadbalancer'
-      'stat_attr' : 'listener_stats',
-      'obj_table' : SI_TABLE,
+      'stat_type' : 'LoadbalancerStats'
+      'stat_attr' : 'listener',
+      'obj_table' : LB_TABLE,
       'attributes': [
-          { 'name' : 'listener_stats.obj_name', 'datatype' : 'string', 'index' : true },
-          { 'name' : 'listener_stats.uuid', 'datatype' : 'string', 'index' : true },
-          { 'name' : 'listener_stats.status', 'datatype' : 'string', 'index' : false },
-          { 'name' : 'listener_stats.vrouter', 'datatype' : 'string', 'index' : true },
-          { 'name' : 'listener_stats.active_connections', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'listener_stats.max_connections', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'listener_stats.current_sessions', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'listener_stats.max_sessions', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'listener_stats.total_sessions', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'listener_stats.bytes_in', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'listener_stats.bytes_out', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'listener_stats.connection_errors', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'listener_stats.reponse_errors', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'listener.obj_name', 'datatype' : 'string', 'index' : true },
+          { 'name' : 'listener.__key', 'datatype' : 'string', 'index' : true },
+          { 'name' : 'listener.status', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'listener.vrouter', 'datatype' : 'string', 'index' : true },
+          { 'name' : 'listener.active_connections', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'listener.max_connections', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'listener.current_sessions', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'listener.max_sessions', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'listener.total_sessions', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'listener.bytes_in', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'listener.bytes_out', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'listener.connection_errors', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'listener.reponse_errors', 'datatype' : 'int', 'index' : false },
         ]
     },
     {
       'display_name' : 'Loadbalancer Pool Stats',
-      'stat_type' : 'UveLoadbalancer'
-      'stat_attr' : 'pool_stats',
-      'obj_table' : SI_TABLE,
+      'stat_type' : 'LoadbalancerStats'
+      'stat_attr' : 'pool',
+      'obj_table' : LB_TABLE,
       'attributes': [
-          { 'name' : 'pool_stats.obj_name', 'datatype' : 'string', 'index' : true },
-          { 'name' : 'pool_stats.uuid', 'datatype' : 'string', 'index' : true },
-          { 'name' : 'pool_stats.status', 'datatype' : 'string', 'index' : false },
-          { 'name' : 'pool_stats.vrouter', 'datatype' : 'string', 'index' : true },
-          { 'name' : 'pool_stats.active_connections', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'pool_stats.max_connections', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'pool_stats.current_sessions', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'pool_stats.max_sessions', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'pool_stats.total_sessions', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'pool_stats.bytes_in', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'pool_stats.bytes_out', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'pool_stats.connection_errors', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'pool_stats.reponse_errors', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'pool.obj_name', 'datatype' : 'string', 'index' : true },
+          { 'name' : 'pool.__key', 'datatype' : 'string', 'index' : true },
+          { 'name' : 'pool.status', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'pool.vrouter', 'datatype' : 'string', 'index' : true },
+          { 'name' : 'pool.active_connections', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'pool.max_connections', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'pool.current_sessions', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'pool.max_sessions', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'pool.total_sessions', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'pool.bytes_in', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'pool.bytes_out', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'pool.connection_errors', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'pool.reponse_errors', 'datatype' : 'int', 'index' : false },
         ]
     },
     {
       'display_name' : 'Loadbalancer Member Stats',
-      'stat_type' : 'UveLoadbalancer'
-      'stat_attr' : 'member_stats',
-      'obj_table' : SI_TABLE,
+      'stat_type' : 'LoadbalancerStats'
+      'stat_attr' : 'member',
+      'obj_table' : LB_TABLE,
       'attributes': [
-          { 'name' : 'member_stats.obj_name', 'datatype' : 'string', 'index' : true },
-          { 'name' : 'member_stats.uuid', 'datatype' : 'string', 'index' : true },
-          { 'name' : 'member_stats.status', 'datatype' : 'string', 'index' : false },
-          { 'name' : 'member_stats.vrouter', 'datatype' : 'string', 'index' : true },
-          { 'name' : 'member_stats.active_connections', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'member_stats.max_connections', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'member_stats.current_sessions', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'member_stats.max_sessions', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'member_stats.total_sessions', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'member_stats.bytes_in', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'member_stats.bytes_out', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'member_stats.connection_errors', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'member_stats.reponse_errors', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'member.obj_name', 'datatype' : 'string', 'index' : true },
+          { 'name' : 'member.__key', 'datatype' : 'string', 'index' : true },
+          { 'name' : 'member.status', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'member.vrouter', 'datatype' : 'string', 'index' : true },
+          { 'name' : 'member.active_connections', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'member.max_connections', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'member.current_sessions', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'member.max_sessions', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'member.total_sessions', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'member.bytes_in', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'member.bytes_out', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'member.connection_errors', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'member.reponse_errors', 'datatype' : 'int', 'index' : false },
         ]
     },
     {

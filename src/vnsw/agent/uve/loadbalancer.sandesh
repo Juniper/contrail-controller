@@ -16,11 +16,10 @@
 /**
  * Sandesh definition for loadbalancer
  */
-struct UveLoadbalancerStats {
+struct LoadbalancerStats {
     10: string          obj_name;
-    11: string          uuid;
-    12: string          status;
-    13: string          vrouter;
+    11: string          status;
+    12: string          vrouter;
     20: optional u64    active_connections;
     21: optional u64    max_connections;
     22: optional u64    current_sessions;
@@ -35,13 +34,12 @@ struct UveLoadbalancerStats {
 /**
  * Sandesh definition for loadbalancer uve
  */
-struct UveLoadbalancer {
-    10: string                                  name (key="ObjectSITable")
-    11: optional bool                           deleted
-    12: optional list<UveLoadbalancerStats>     virtual_ip_stats (tags=".uuid,.obj_name,.vrouter",aggtype="union");
-    13: optional list<UveLoadbalancerStats>     listener_stats   (tags=".uuid,.obj_name,.vrouter",aggtype="union");
-    14: optional list<UveLoadbalancerStats>     pool_stats       (tags=".uuid,.obj_name,.vrouter",aggtype="union");
-    15: optional list<UveLoadbalancerStats>     member_stats     (tags=".uuid,.obj_name,.vrouter",aggtype="union");
+struct UveLoadbalancerStats {
+    10: string          name (key="ObjectLBTable")
+    11: optional bool   deleted
+    12: optional map<string, LoadbalancerStats>     listener    (tags=".__key,.obj_name,.vrouter",aggtype="union");
+    13: optional map<string, LoadbalancerStats>     pool        (tags=".__key,.obj_name,.vrouter",aggtype="union");
+    14: optional map<string, LoadbalancerStats>     member      (tags=".__key,.obj_name,.vrouter",aggtype="union");
 }
 
 /**
@@ -50,5 +48,5 @@ struct UveLoadbalancer {
  * @object: Loadbalancer
  */
 uve sandesh UveLoadbalancerTrace {
-    1: UveLoadbalancer data
+    1: UveLoadbalancerStats data
 }

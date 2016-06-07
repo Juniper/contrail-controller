@@ -42,7 +42,7 @@ from vrouter.vrouter.process_info.ttypes import \
 from vrouter.vrouter.process_info.constants import \
     ProcessStateNames
 
-from loadbalancer_stats import LoadbalancerStats
+from loadbalancer_stats import LoadbalancerStatsUVE
 
 
 class VrouterEventManager(EventManager):
@@ -70,7 +70,7 @@ class VrouterEventManager(EventManager):
             staticmethod(ConnectionState.get_process_state_cb),
             NodeStatusUVE, NodeStatus)
 
-        self.lb_stats = LoadbalancerStats()
+        self.lb_stats = LoadbalancerStatsUVE()
         self.send_system_cpu_info()
         self.third_party_process_list = [ ]
     # end __init__

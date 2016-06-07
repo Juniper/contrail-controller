@@ -40,15 +40,21 @@ class HaproxyStats(object):
             return {}
 
         lb_stats = {}
+        lb_stats.setdefault('listener', [])
+        lb_stats.setdefault('pool', [])
+        lb_stats.setdefault('member', [])
         raw_stats = self._read_stats(sock_path)
+        row_count = 0
         for row in csv.DictReader(raw_stats.lstrip('# ').splitlines()):
+            row_count = row_count + 1
             if row.get('type') == TYPE_FRONTEND_RESPONSE:
-                lb_stats['vip'] = self._get_stats(row, row['pxname'])
+                lb_stats['listener'].append(self._get_stats(row, row['pxname']))
             elif row.get('type') == TYPE_BACKEND_RESPONSE:
-                lb_stats['pool'] = self._get_stats(row, row['pxname'])
+                lb_stats['pool'].append(self._get_stats(row, row['pxname']))
             elif row.get('type') == TYPE_SERVER_RESPONSE:
-                lb_stats.setdefault('members', [])
-                lb_stats['members'].append(self._get_stats(row, row['svname']))
+                lb_stats['member'].append(self._get_stats(row, row['svname']))
+        if (row_count == 0):
+            return {}
         return lb_stats
 
     def _get_stats(self, row, name):
