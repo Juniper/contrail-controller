@@ -196,7 +196,8 @@ void KSyncFlowMemory::KFlow2FlowKey(const vr_flow_entry *kflow,
 }
 
 const vr_flow_entry *KSyncFlowMemory::GetValidKFlowEntry(const FlowKey &key,
-                                                         uint32_t idx) const {
+                                                         uint32_t idx,
+                                                         uint8_t gen_id) const {
     const vr_flow_entry *kflow = GetKernelFlowEntry(idx, false);
     if (!kflow) {
         return NULL;
@@ -207,9 +208,9 @@ const vr_flow_entry *KSyncFlowMemory::GetValidKFlowEntry(const FlowKey &key,
         if (!key.IsEqual(rhs)) {
             return NULL;
         }
-        /* TODO: If a flow is evicted from vrouter and later flow with same
-         * key is assigned with same index, then we may end up reading
-         * wrong stats */
+        if (kflow->fe_gen_id != gen_id) {
+            return NULL;
+        }
     }
     return kflow;
 }
@@ -250,6 +251,16 @@ bool KSyncFlowMemory::GetFlowKey(uint32_t index, FlowKey *key) {
     key->protocol = kflow->fe_key.flow4_proto;
     key->family = family;
     return true;
+}
+
+bool KSyncFlowMemory::IsEvictionMarked(const vr_flow_entry *entry) const {
+    if (!entry) {
+        return false;
+    }
+    if (entry->fe_flags & VR_FLOW_FLAG_EVICTED) {
+        return true;
+    }
+    return false;
 }
 
 bool KSyncFlowMemory::AuditProcess() {

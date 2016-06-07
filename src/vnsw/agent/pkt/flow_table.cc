@@ -528,7 +528,9 @@ void FlowTable::DeleteMessage(FlowEntry *flow) {
     DeleteUnLocked(true, flow, flow->reverse_flow_entry());
 }
 
-void FlowTable::EvictFlow(FlowEntry *flow, FlowEntry *reverse_flow) {
+void FlowTable::EvictFlow(FlowEntry *flow, FlowEntry *reverse_flow,
+                          uint32_t evict_gen_id) {
+    DisableKSyncSend(flow, evict_gen_id);
     DeleteUnLocked(false, flow, NULL);
 
     // Reverse flow unlinked with forward flow. Make it short-flow
@@ -644,10 +646,6 @@ void FlowTable::HandleKSyncError(FlowEntry *flow,
         // installed due to EEXIST error. We are converting flows to
         // short-flow till this case is handled properly
         flow->MakeShortFlow(FlowEntry::SHORT_FAILED_VROUTER_INSTALL);
-        // Enqueue Add request to flow-stats-collector
-        // to update flow flags in stats collector
-        FlowEntryPtr flow_ptr(flow);
-        agent()->flow_stats_manager()->AddEvent(flow_ptr);
     }
     return;
 }
@@ -669,6 +667,11 @@ void FlowTable::UpdateKSync(FlowEntry *flow, bool update) {
         return;
     }
     mgr->Update(flow);
+}
+
+void FlowTable::DisableKSyncSend(FlowEntry *flow, uint32_t evict_gen_id) {
+    KSyncFlowIndexManager *mgr = agent()->ksync()->ksync_flow_index_manager();
+    mgr->DisableSend(flow, evict_gen_id);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -796,7 +799,7 @@ bool FlowTable::ProcessFlowEvent(const FlowEvent *req, FlowEntry *flow,
         if (flow->flow_handle() != req->flow_handle() ||
             flow->gen_id() != req->gen_id())
             break;
-        EvictFlow(flow, rflow);
+        EvictFlow(flow, rflow, req->evict_gen_id());
         break;
     }
 
