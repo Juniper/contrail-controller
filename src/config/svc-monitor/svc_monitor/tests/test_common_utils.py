@@ -59,10 +59,12 @@ class AnyStringWith(str):
     def __eq__(self, other):
         return self in other
 
-def create_test_st(name='fake-template', virt_type='virtual-machine', intf_list=[]):
+def create_test_st(name='fake-template', virt_type='virtual-machine', intf_list=[],
+                   version='1'):
     st_obj = {}
     st_obj['fq_name'] = ['fake-domain', name]
     st_obj['uuid'] = name
+    st_obj['version'] = version
     st_obj['id_perms'] = 'fake-id-perms'
     st_props = {}
     st_props['flavor'] = 'm1.medium'
@@ -139,6 +141,30 @@ def create_test_virtual_router(fq_name_str):
     vr = VirtualRouterSM.locate(vr_obj['uuid'], vr_obj)
     vr.agent_state = True
     return vr
+
+def create_test_port_tuple(fq_name_str, parent_uuid):
+    pt_obj = {}
+    pt_obj['fq_name'] = fq_name_str.split(':')
+    pt_obj['name'] = fq_name_str.split(':')[-1]
+    pt_obj['uuid'] = fq_name_str.split(':')[-1]
+    pt_obj['display_name'] = fq_name_str
+    pt_obj['parent_type'] = 'service-instance'
+    pt_obj['parent_uuid'] = parent_uuid
+    pt = PortTupleSM.locate(pt_obj['uuid'], pt_obj)
+    return pt
+
+def create_test_vmi(fq_name_str, pt=None):
+    vmi_obj = {}
+    vmi_obj['fq_name'] = fq_name_str.split(':')
+    vmi_obj['name'] = fq_name_str.split(':')[-1]
+    vmi_obj['uuid'] = fq_name_str.split(':')[-1]
+    vmi_obj['display_name'] = fq_name_str
+    vmi_obj['parent_type'] = 'project'
+    vmi = VirtualMachineInterfaceSM.locate(vmi_obj['uuid'], vmi_obj)
+    if pt:
+        pt.virtual_machine_interfaces.add(vmi.uuid)
+        vmi.port_tuple = pt.uuid
+    return vmi
 
 def create_test_security_group(fq_name_str):
     sg_obj = {}
@@ -224,7 +250,7 @@ def vr_db_read(obj_type, vr_id):
 
 def vmi_db_read(obj_type, vmi_id):
     vmi_obj = {}
-    vmi_obj['uuid'] = 'fake-vmi-uuid'
+    vmi_obj['uuid'] = vmi_id
     vmi_obj['fq_name'] = ['fake-vmi-uuid']
     vmi_obj['parent_type'] = 'project'
     vmi_obj['parent_uuid'] = 'fake-project'
@@ -232,9 +258,26 @@ def vmi_db_read(obj_type, vmi_id):
 
 def iip_db_read(obj_type, iip_id):
     iip_obj = {}
-    iip_obj['uuid'] = 'fake-iip-uuid'
+    iip_obj['uuid'] = iip_id
     iip_obj['fq_name'] = ['fake-iip-uuid']
     return True, [iip_obj]
+
+def si_db_read(obj_type, si_id):
+    name = si_id[0]
+    si = ServiceInstanceSM.get(name)
+    si_obj = {}
+    si_obj['fq_name'] = ['fake-domain', 'fake-project', name]
+    si_obj['uuid'] = name
+    si_obj['id_perms'] = 'fake-id-perms'
+    si_props = {}
+    si_props['scale_out'] = {'max_instances': si.params['scale_out']['max_instances']}
+    si_props['interface_list'] = []
+    for vn_fq_name in si.params['interface_list']:
+        si_props['interface_list'].append({'virtual_network': vn_fq_name['virtual_network']})
+    si_props['virtual_router_id'] = 'fake-vr-uuid'
+    si_obj['service_instance_properties'] = si_props
+    si_obj['parent_type'] = 'project'
+    return True, [si_obj]
 
 def vn_db_read(obj_type, vn_id):
     vn_obj = {}
