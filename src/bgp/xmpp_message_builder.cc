@@ -110,6 +110,7 @@ private:
     bool is_reachable_;
     xml_document xdoc_;
     xml_node xitems_;
+    string items_str_;
     uint32_t sequence_number_;
     vector<int> security_group_list_;
     vector<string> community_list_;
@@ -197,8 +198,12 @@ void BgpXmppMessage::EncodeNextHop(const BgpRoute *route,
 
 void BgpXmppMessage::AddIpReach(const BgpRoute *route,
                                 const RibOutAttr *roattr) {
-    autogen::ItemType item;
+    if (!roattr->repr().empty()) {
+        items_str_ += "\n" + roattr->repr();
+        return;
+    }
 
+    autogen::ItemType item;
     item.entry.nlri.af = route->Afi();
     item.entry.nlri.safi = route->XmppSafi();
     item.entry.nlri.address = route->ToString();
@@ -210,9 +215,7 @@ void BgpXmppMessage::AddIpReach(const BgpRoute *route,
 
     assert(!roattr->nexthop_list().empty());
 
-    //
-    // Encode all next-hops in the list
-    //
+    // Encode all next-hops in the list.
     BOOST_FOREACH(const RibOutAttr::NextHop &nexthop, roattr->nexthop_list()) {
         EncodeNextHop(route, nexthop, &item);
     }
@@ -231,14 +234,20 @@ void BgpXmppMessage::AddIpReach(const BgpRoute *route,
     if (!load_balance_attribute_.IsDefault())
         load_balance_attribute_.Encode(&item.entry.load_balance);
 
-    xml_node node = xitems_.append_child("item");
+    xml_document doc;
+    xml_node node = doc.append_child("item");
     node.append_attribute("id") = route->ToXmppIdString().c_str();
     item.Encode(&node);
+
+    ostringstream oss;
+    doc.print(oss);
+    string repr = oss.str();
+    roattr->set_repr(repr);
+    items_str_ += "\n" + repr;
 }
 
 void BgpXmppMessage::AddIpUnreach(const BgpRoute *route) {
-    xml_node node = xitems_.append_child("retract");
-    node.append_attribute("id") = route->ToXmppIdString().c_str();
+    items_str_ += "\n<retract id=\"" + route->ToXmppIdString() + "\" />";
 }
 
 bool BgpXmppMessage::AddInetRoute(const BgpRoute *route,
@@ -287,6 +296,11 @@ void BgpXmppMessage::EncodeEnetNextHop(const BgpRoute *route,
 
 void BgpXmppMessage::AddEnetReach(const BgpRoute *route,
                                   const RibOutAttr *roattr) {
+    if (!roattr->repr().empty()) {
+        items_str_ += roattr->repr();
+        return;
+    }
+
     autogen::EnetItemType item;
     item.entry.nlri.af = route->Afi();
     item.entry.nlri.safi = route->XmppSafi();
@@ -342,14 +356,20 @@ void BgpXmppMessage::AddEnetReach(const BgpRoute *route,
         EncodeEnetNextHop(route, nexthop, &item);
     }
 
-    xml_node node = xitems_.append_child("item");
+    xml_document doc;
+    xml_node node = doc.append_child("item");
     node.append_attribute("id") = route->ToXmppIdString().c_str();
     item.Encode(&node);
+
+    ostringstream oss;
+    doc.print(oss);
+    string repr = oss.str();
+    roattr->set_repr(repr);
+    items_str_ += repr;
 }
 
 void BgpXmppMessage::AddEnetUnreach(const BgpRoute *route) {
-    xml_node node = xitems_.append_child("retract");
-    node.append_attribute("id") = route->ToXmppIdString().c_str();
+    items_str_ += "\n<retract id=\"" + route->ToXmppIdString() + "\" />";
 }
 
 bool BgpXmppMessage::AddEnetRoute(const BgpRoute *route,
@@ -366,6 +386,11 @@ bool BgpXmppMessage::AddEnetRoute(const BgpRoute *route,
 
 void BgpXmppMessage::AddMcastReach(const BgpRoute *route,
                                    const RibOutAttr *roattr) {
+    if (!roattr->repr().empty()) {
+        items_str_ += roattr->repr();
+        return;
+    }
+
     autogen::McastItemType item;
     item.entry.nlri.af = route->Afi();
     item.entry.nlri.safi = route->XmppSafi();
@@ -387,14 +412,20 @@ void BgpXmppMessage::AddMcastReach(const BgpRoute *route,
         item.entry.olist.next_hop.push_back(nh);
     }
 
-    xml_node node = xitems_.append_child("item");
+    xml_document doc;
+    xml_node node = doc.append_child("item");
     node.append_attribute("id") = route->ToXmppIdString().c_str();
     item.Encode(&node);
+
+    ostringstream oss;
+    doc.print(oss);
+    string repr = oss.str();
+    roattr->set_repr(repr);
+    items_str_ += repr;
 }
 
 void BgpXmppMessage::AddMcastUnreach(const BgpRoute *route) {
-    xml_node node = xitems_.append_child("retract");
-    node.append_attribute("id") = route->ToXmppIdString().c_str();
+    items_str_ += "\n<retract id=\"" + route->ToXmppIdString() + "\" />";
 }
 
 bool BgpXmppMessage::AddMcastRoute(const BgpRoute *route,
@@ -427,8 +458,13 @@ const uint8_t *BgpXmppMessage::GetData(IPeerUpdate *peer, size_t *lenp) {
         attr_to = message.append_attribute("to");
     }
     attr_to.set_value(str.c_str());
+
+    xml_node items = xitems_.append_child(pugi::node_pcdata);
+    items_str_ += "\n";
+    items.set_value(items_str_.c_str());
+
     ostringstream oss;
-    xdoc_.save(oss);
+    xdoc_.save(oss, "\t", pugi::format_indent | pugi::format_no_escapes);
     repr_ = oss.str();
 
     repr_part1_ = repr_.find("to=", 0);

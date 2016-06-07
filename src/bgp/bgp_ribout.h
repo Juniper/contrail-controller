@@ -70,15 +70,17 @@ public:
 
     typedef std::vector<NextHop> NextHopList;
 
+    RibOutAttr(const RibOutAttr &rhs);
     RibOutAttr() : attr_out_(NULL), vrf_originated_(false) { }
     RibOutAttr(const BgpTable *table, const BgpAttr *attr, uint32_t label);
     RibOutAttr(const BgpTable *table, const BgpRoute *route,
         const BgpAttr *attr, uint32_t label, bool include_nh = true);
     RibOutAttr(const BgpRoute *route, const BgpAttr *attr, bool is_xmpp);
 
-    bool IsReachable() const { return attr_out_.get() != NULL; }
+    RibOutAttr &operator=(const RibOutAttr &rhs);
     bool operator==(const RibOutAttr &rhs) const { return CompareTo(rhs) == 0; }
     bool operator!=(const RibOutAttr &rhs) const { return CompareTo(rhs) != 0; }
+    bool IsReachable() const { return attr_out_.get() != NULL; }
 
     const NextHopList &nexthop_list() const { return nexthop_list_; }
     const BgpAttr *attr() const { return attr_out_.get(); }
@@ -93,6 +95,8 @@ public:
         return nexthop_list_.empty() ? 0 : nexthop_list_.at(0).label();
     }
     bool vrf_originated() const { return vrf_originated_; }
+    const std::string &repr() const { return repr_; }
+    void set_repr(const std::string &repr) const { repr_ = repr; }
 
 private:
     int CompareTo(const RibOutAttr &rhs) const;
@@ -100,6 +104,7 @@ private:
     BgpAttrPtr attr_out_;
     NextHopList nexthop_list_;
     bool vrf_originated_;
+    mutable std::string repr_;
 };
 
 //
