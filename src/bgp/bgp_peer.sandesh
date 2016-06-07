@@ -44,6 +44,7 @@ struct ShowBgpNeighborFamily {
 
 struct PeerCloseInfo {
     1: string state;
+    17: string membership_state;
     2: bool close_again;
     16: bool non_graceful;
     3: u64 init;
@@ -249,10 +250,23 @@ request sandesh ShowRouteSummaryReq {
     1: string search_string;
 }
 
+struct ShowMembershipPeerInfo {
+    1: string peer;
+    2: bool ribout_registered;
+    3: bool ribin_registered;
+    4: u32 instance_id;
+    5: u64 generation_id;
+}
+
+struct ShowTableMembershipInfo {
+    1: u32 requests;
+    2: u32 walks;
+    3: list<ShowMembershipPeerInfo> peers;
+}
+
 struct ShowRoutingInstanceTable {
     1: string name (link="ShowRouteReq");
     13: bool deleted;
-    2: list<string> peers;
     3: u64 prefixes;
     4: u64 paths;
     5: u64 primary_paths;
@@ -265,6 +279,7 @@ struct ShowRoutingInstanceTable {
     12: u64 markers;
     14: u64 listeners;
     15: u64 walkers;
+    2: ShowTableMembershipInfo membership;
 }
 
 struct ShowInstanceRoutingPolicyInfo {

@@ -12,7 +12,8 @@
 #include "base/task_trigger.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_peer_membership.h"
+#include "bgp/bgp_membership.h"
+#include "bgp/bgp_server.h"
 #include "bgp/extended-community/load_balance.h"
 #include "bgp/extended-community/site_of_origin.h"
 #include "bgp/inet6vpn/inet6vpn_route.h"
@@ -423,7 +424,7 @@ void ServiceChain<T>::AddServiceChainRoute(PrefixT prefix,
     CommunityPtr new_community = comm_db->AppendAndLocate(
         orig_community, CommunityType::AcceptOwnNexthop);
     ExtCommunityDB *extcomm_db = server->extcomm_db();
-    PeerRibMembershipManager *membership_mgr = server->membership_mgr();
+    BgpMembershipManager *membership_mgr = server->membership_mgr();
     OriginVnPathDB *ovnpath_db = server->ovnpath_db();
     OriginVnPathPtr new_ovnpath =
         ovnpath_db->PrependAndLocate(orig_ovnpath, origin_vn.GetExtCommunity());
@@ -910,7 +911,7 @@ ServiceChainMgr<T>::ServiceChainMgr(BgpServer *server)
     id_ = server->routing_instance_mgr()->RegisterInstanceOpCallback(
         bind(&ServiceChainMgr::RoutingInstanceCallback, this, _1, _2));
 
-    PeerRibMembershipManager *membership_mgr = server->membership_mgr();
+    BgpMembershipManager *membership_mgr = server->membership_mgr();
     registration_id_ = membership_mgr->RegisterPeerRegistrationCallback(
         bind(&ServiceChainMgr::PeerRegistrationCallback, this, _1, _2, _3));
 }
@@ -919,7 +920,7 @@ template <typename T>
 ServiceChainMgr<T>::~ServiceChainMgr() {
     delete process_queue_;
     server_->routing_instance_mgr()->UnregisterInstanceOpCallback(id_);
-    PeerRibMembershipManager *membership_mgr = server_->membership_mgr();
+    BgpMembershipManager *membership_mgr = server_->membership_mgr();
     membership_mgr->UnregisterPeerRegistrationCallback(registration_id_);
 }
 

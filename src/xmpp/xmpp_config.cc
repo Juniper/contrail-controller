@@ -15,6 +15,7 @@ XmppChannelConfig::XmppChannelConfig(bool isClient) :
      ToAddr(""), FromAddr(""), NodeAddr(""), logUVE(false), auth_enabled(false),
      path_to_server_cert(""), path_to_server_priv_key(""), path_to_ca_cert(""),
      tcp_hold_time(XmppChannelConfig::kTcpHoldTime),
+     gr_helper_disable(getenv("GR_HELPER_XMPP_DISABLE") != NULL),
      isClient_(isClient)  {
 }
 

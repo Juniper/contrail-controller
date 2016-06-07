@@ -14,7 +14,7 @@
 #include "base/task_annotations.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_peer_membership.h"
+#include "bgp/bgp_membership.h"
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_session.h"
@@ -43,7 +43,7 @@ using std::vector;
 class BgpPeer::PeerClose : public IPeerClose {
   public:
     explicit PeerClose(BgpPeer *peer)
-        : peer_(peer),
+        : peer_(peer), flap_count_(0),
           manager_(BgpObjectFactory::Create<PeerCloseManager>(this)) {
     }
 
@@ -62,16 +62,27 @@ class BgpPeer::PeerClose : public IPeerClose {
 
     virtual void Close(bool non_graceful) {
 
-        // Process closure through close manager only if this is a flip.
-        if (!manager_->IsInGracefulRestartTimerWait() ||
-            peer_->state_machine()->get_state() == StateMachine::ESTABLISHED) {
+        // Abort GR-Closuree if this request is for non-graceful closure.
+        // Reset GR-Closure if previous closure is still in progress or if
+        // this is a flip (from established state).
+        if (non_graceful || flap_count_ != peer_->total_flap_count()) {
+            if (flap_count_ != peer_->total_flap_count()) {
+                flap_count_++;
+                assert(peer_->total_flap_count() == flap_count_);
+            }
             manager_->Close(non_graceful);
             return;
         }
 
+        // Ignore if close is already in progress.
+        if (close_manager()->IsCloseInProgress() &&
+                !close_manager()->IsInGracefulRestartTimerWait())
+            return;
+
         if (peer_->IsDeleted()) {
             peer_->RetryDelete();
         } else {
+            CustomClose();
             CloseComplete();
         }
     }
@@ -89,11 +100,6 @@ class BgpPeer::PeerClose : public IPeerClose {
         }
     }
 
-    virtual void UnregisterPeer(
-            MembershipRequest::NotifyCompletionFn completion_fn) {
-        peer_->server()->membership_mgr()->UnregisterPeer(peer_, completion_fn);
-    }
-
     // Return the time to wait for, in seconds to exit GR_TIMER state.
     virtual const int GetGracefulRestartTime() const {
         return  peer_->gr_params_.time;
@@ -104,12 +110,25 @@ class BgpPeer::PeerClose : public IPeerClose {
         return peer_->llgr_params_.time;
     }
 
+    virtual void ReceiveEndOfRIB(Address::Family family) {
+        peer_->ReceiveEndOfRIB(family, 0);
+    }
+
     bool IsGRReady() const {
+
+        // Check if GR helper mode is disabled.
+        if (peer_->server()->gr_helper_disable())
+            return false;
+
         // Check if GR is supported by the peer.
         if (peer_->gr_params().families.empty())
             return false;
 
-        // Abort GR if currently negotiated familes differ from already
+        // Restart time must be non-zero in order to enable GR helper mode.
+        if (!GetGracefulRestartTime())
+            return false;
+
+        // Abort GR if currently negotiated families differ from already
         // staled address families.
         if (!negotiated_families_.empty() &&
                 peer_->negotiated_families() != negotiated_families_)
@@ -161,7 +180,7 @@ class BgpPeer::PeerClose : public IPeerClose {
             return false;
         if (peer_->llgr_params().families.empty())
             return false;
-        if (!peer_->llgr_params().time)
+        if (!GetLongLivedGracefulRestartTime())
             return false;
         return true;
     }
@@ -182,6 +201,7 @@ class BgpPeer::PeerClose : public IPeerClose {
 
 private:
     BgpPeer *peer_;
+    uint64_t flap_count_;
     boost::scoped_ptr<PeerCloseManager> manager_;
     std::vector<std::string> negotiated_families_;
 };
@@ -323,6 +343,9 @@ public:
         } else {
             peer_->server()->decrement_deleting_count();
         }
+        assert(!peer_->membership_req_pending());
+        assert(peer_->peer_close()->close_manager()->membership_state() !=
+               PeerCloseManager::MEMBERSHIP_IN_USE);
         peer_->rtinstance_->peer_manager()->DestroyIPeer(peer_);
     }
 
@@ -381,7 +404,7 @@ void BgpPeer::ReceiveEndOfRIB(Address::Family family, size_t msgsize) {
     RegisterToVpnTables();
 }
 
-void BgpPeer::SendEndOfRIB(Address::Family family) {
+void BgpPeer::SendEndOfRIBActual(Address::Family family) {
     tbb::spin_mutex::scoped_lock lock(spin_mutex_);
 
     // Bail if there's no session for the peer anymore.
@@ -406,17 +429,74 @@ void BgpPeer::SendEndOfRIB(Address::Family family) {
         " size " << msgsize);
 }
 
+uint32_t BgpPeer::GetOutputQueueDepth(Address::Family family) const {
+    BgpTable *table = GetRoutingInstance()->GetTable(family);
+    return server_->membership_mgr()->GetRibOutQueueDepth(this, table);
+}
+
+uint64_t BgpPeer::GetElapsedTimeSinceLastStateChange() const {
+    return UTCTimestampUsec() - state_machine_->last_state_change_usecs_at();
+}
+
+bool BgpPeer::EndOfRibSendTimerExpired(Address::Family family) {
+    if (!IsReady())
+        return false;
+
+    uint64_t elapsed = GetElapsedTimeSinceLastStateChange();
+
+    // Wait for atleast kMinEndOfRibSendTimeUsecs duration.
+    if (elapsed < kMinEndOfRibSendTimeUsecs)
+        return true;
+
+    // Retry if wait time has not exceeded kMaxEndOfRibSendTimeUsecs and output
+    // queue has not been fully drained yet.
+    if (elapsed < kMaxEndOfRibSendTimeUsecs && GetOutputQueueDepth(family))
+        return true;
+
+    SendEndOfRIBActual(family);
+    return false;
+}
+
+void BgpPeer::SendEndOfRIB(Address::Family family) {
+    end_of_rib_send_timer_[family]->Start(kEndOfRibSendRetryTimeMsecs,
+        boost::bind(&BgpPeer::EndOfRibSendTimerExpired, this, family),
+        boost::bind(&BgpPeer::EndOfRibTimerErrorHandler, this, _1, _2));
+}
+
 void BgpPeer::BGPPeerInfoSend(const BgpPeerInfoData &peer_info) const {
     BGPPeerInfo::Send(peer_info);
 }
 
+bool BgpPeer::CanUseMembershipManager() const {
+    if (membership_req_pending_)
+        return false;
+
+#if 0
+    // Make sure that registration is complete for all negotiated families.
+    RoutingInstance *instance = GetRoutingInstance();
+    BgpMembershipManager *membership_mgr = server_->membership_mgr();
+    BOOST_FOREACH(string family, negotiated_families_) {
+        BgpTable *table = instance->GetTable(Address::FamilyFromString(family));
+        if (!membership_mgr->IsRegistered(this, table))
+            return false;
+    }
+#endif
+    return true;
+}
+
 //
-// Callback from PeerRibMembershipManager.
+// Callback from BgpMembershipManager.
 // Update pending membership request count and send EndOfRib for the family
 // in question.
 //
-void BgpPeer::MembershipRequestCallback(IPeer *ipeer, BgpTable *table) {
-    assert(membership_req_pending_);
+void BgpPeer::MembershipRequestCallback(BgpTable *table) {
+    if (peer_close_->close_manager()->membership_state() ==
+            PeerCloseManager::MEMBERSHIP_IN_USE) {
+        (void) peer_close_->close_manager()->MembershipRequestCallback();
+        return;
+    }
+
+    assert(membership_req_pending_ > 0);
     membership_req_pending_--;
 
     // Resume close if it was deferred and this is the last pending callback.
@@ -435,6 +515,18 @@ void BgpPeer::MembershipRequestCallback(IPeer *ipeer, BgpTable *table) {
     BGPPeerInfoSend(peer_info);
 
     SendEndOfRIB(table->family());
+
+    // Resume if CloseManager is waiting to use membership manager.
+    if (peer_close_->close_manager()->membership_state() ==
+            PeerCloseManager::MEMBERSHIP_IN_WAIT) {
+        peer_close_->close_manager()->MembershipRequest();
+    }
+}
+
+bool BgpPeer::MembershipPathCallback(DBTablePartBase *tpart, BgpRoute *route,
+                                     BgpPath *path) {
+    return peer_close_->close_manager()->MembershipPathCallback(tpart, route,
+                                                                path);
 }
 
 bool BgpPeer::ResumeClose() {
@@ -464,7 +556,9 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
                    GetTaskInstance()),
           session_(NULL),
           keepalive_timer_(TimerManager::CreateTimer(*server->ioservice(),
-                     "BGP keepalive timer")),
+                     "BGP keepalive timer",
+                   TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
+                   GetTaskInstance())),
           end_of_rib_timer_(TimerManager::CreateTimer(*server->ioservice(),
                    "BGP RTarget EndOfRib timer",
                    TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
@@ -474,7 +568,6 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           passive_(config->passive()),
           resolve_paths_(config->router_type() == "bgpaas-client"),
           as_override_(config->as_override()),
-          membership_req_pending_(0),
           defer_close_(false),
           non_graceful_close_(false),
           vpn_tables_registered_(false),
@@ -489,16 +582,29 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           peer_close_(new PeerClose(this)),
           peer_stats_(new PeerStats(this)),
           deleter_(new DeleteActor(this)),
-          instance_delete_ref_(this, instance->deleter()),
+          instance_delete_ref_(this, instance ? instance->deleter() : NULL),
           flap_count_(0),
+          total_flap_count_(0),
           last_flap_(0),
           inuse_authkey_type_(AuthenticationData::NIL) {
+    membership_req_pending_ = 0;
     BGP_LOG_PEER(Event, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
         BGP_PEER_DIR_NA, "Created");
-    if (peer_name_.find(rtinstance_->name()) == 0) {
+
+    if (rtinstance_ && peer_name_.find(rtinstance_->name()) == 0) {
         peer_basename_ = peer_name_.substr(rtinstance_->name().size() + 1);
     } else {
         peer_basename_ = peer_name_;
+    }
+
+    for (Address::Family family = Address::UNSPEC;
+            family < Address::NUM_FAMILIES;
+            family = static_cast<Address::Family>(family + 1)) {
+        end_of_rib_send_timer_[family] = TimerManager::CreateTimer(
+                *server->ioservice(), "BGP EndOfRib Send timer " +
+                                      Address::FamilyToString(family),
+                   TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
+                   GetTaskInstance());
     }
 
     total_path_count_ = 0;
@@ -850,6 +956,12 @@ void BgpPeer::PostCloseRelease() {
     }
     TimerManager::DeleteTimer(keepalive_timer_);
     TimerManager::DeleteTimer(end_of_rib_timer_);
+
+    for (Address::Family family = Address::UNSPEC;
+            family < Address::NUM_FAMILIES;
+            family = static_cast<Address::Family>(family + 1)) {
+        TimerManager::DeleteTimer(end_of_rib_send_timer_[family]);
+    }
 }
 
 // IsReady
@@ -905,13 +1017,22 @@ void BgpPeer::CustomClose() {
     ResetCapabilities();
     keepalive_timer_->Cancel();
     end_of_rib_timer_->Cancel();
+
+    for (Address::Family family = Address::UNSPEC;
+            family < Address::NUM_FAMILIES;
+            family = static_cast<Address::Family>(family + 1)) {
+        end_of_rib_send_timer_[family]->Cancel();
+    }
 }
 
 //
 // Close this peer by closing all of it's RIBs.
 //
 void BgpPeer::Close(bool non_graceful) {
-    if (membership_req_pending_) {
+    if (membership_req_pending_ &&
+        peer_close_->close_manager()->membership_state() !=
+            PeerCloseManager::MEMBERSHIP_IN_USE) {
+
         BGP_LOG_PEER(Event, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
             BGP_PEER_DIR_NA, "Close procedure deferred");
         defer_close_ = true;
@@ -1006,6 +1127,27 @@ bool BgpPeer::AcceptSession(BgpSession *session) {
     return state_machine_->PassiveOpen(session);
 }
 
+void BgpPeer::Register(BgpTable *table, const RibExportPolicy &policy) {
+    assert(peer_close_->close_manager()->membership_state() !=
+               PeerCloseManager::MEMBERSHIP_IN_USE);
+    if (peer_close_->close_manager()->membership_state() ==
+            PeerCloseManager::MEMBERSHIP_IN_WAIT)
+        assert(membership_req_pending_ > 0);
+    BgpMembershipManager *membership_mgr = server_->membership_mgr();
+    membership_req_pending_++;
+    membership_mgr->Register(this, table, policy);
+}
+
+void BgpPeer::Register(BgpTable *table) {
+    assert(peer_close_->close_manager()->membership_state() !=
+               PeerCloseManager::MEMBERSHIP_IN_USE);
+    if (peer_close_->close_manager()->membership_state() ==
+            PeerCloseManager::MEMBERSHIP_IN_WAIT)
+        assert(membership_req_pending_ > 0);
+    BgpMembershipManager *membership_mgr = server_->membership_mgr();
+    membership_mgr->RegisterRibIn(this, table);
+}
+
 //
 // Register to tables for negotiated address families.
 //
@@ -1020,7 +1162,6 @@ bool BgpPeer::AcceptSession(BgpSession *session) {
 // normally before ribout registration to VPN tables is completed.
 //
 void BgpPeer::RegisterAllTables() {
-    PeerRibMembershipManager *membership_mgr = server_->membership_mgr();
     RoutingInstance *instance = GetRoutingInstance();
 
     BGP_LOG_PEER(Event, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
@@ -1038,9 +1179,7 @@ void BgpPeer::RegisterAllTables() {
         BgpTable *table = instance->GetTable(family);
         BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
                            table, "Register peer with the table");
-        membership_mgr->Register(this, table, BuildRibExportPolicy(family),
-            -1, boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2));
-        membership_req_pending_++;
+        Register(table, BuildRibExportPolicy(family));
     }
 
     vpn_tables_registered_ = false;
@@ -1053,9 +1192,7 @@ void BgpPeer::RegisterAllTables() {
     BgpTable *table = instance->GetTable(family);
     BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
         table, "Register peer with the table");
-    membership_mgr->Register(this, table, BuildRibExportPolicy(family),
-        -1, boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2));
-    membership_req_pending_++;
+    Register(table, BuildRibExportPolicy(family));
     StartEndOfRibTimer();
 
     vector<Address::Family> vpn_family_list = list_of
@@ -1066,7 +1203,7 @@ void BgpPeer::RegisterAllTables() {
         BgpTable *table = instance->GetTable(vpn_family);
         BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_TRACE,
             table, "Register ribin for peer with the table");
-        membership_mgr->RegisterRibIn(this, table);
+        Register(table);
     }
 }
 
@@ -1082,9 +1219,10 @@ const vector<Address::Family> BgpPeer::supported_families_ = list_of
 
 void BgpPeer::AddGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param) {
     vector<Address::Family> gr_families;
+    uint16_t time = server_->GetGracefulRestartTime();
 
     // Indicate EOR support by default.
-    if (!server_->IsPeerCloseGraceful()) {
+    if (!time) {
         BgpProto::OpenMessage::Capability *gr_cap =
             BgpProto::OpenMessage::Capability::GR::Encode(0, 0, 0,
                                                           gr_families);
@@ -1098,7 +1236,6 @@ void BgpPeer::AddGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param) {
     }
 
     uint8_t flags = 0;
-    uint16_t time = PeerCloseManager::kDefaultGracefulRestartTimeSecs;
     uint8_t afi_flags =
         BgpProto::OpenMessage::Capability::GR::ForwardingStatePreserved;
     BgpProto::OpenMessage::Capability *gr_cap =
@@ -1108,7 +1245,8 @@ void BgpPeer::AddGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param) {
 }
 
 void BgpPeer::AddLLGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param) {
-    if (!server_->IsPeerCloseGraceful())
+    if (!server_->GetGracefulRestartTime() ||
+            !server_->GetLongLivedGracefulRestartTime())
         return;
 
     vector<Address::Family> llgr_families;
@@ -1117,8 +1255,7 @@ void BgpPeer::AddLLGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param) {
             llgr_families.push_back(family);
     }
 
-    uint32_t time =
-        PeerCloseManager::kDefaultLongLivedGracefulRestartTimeSecs;
+    uint32_t time = server_->GetLongLivedGracefulRestartTime();
     uint8_t afi_flags =
         BgpProto::OpenMessage::Capability::LLGR::ForwardingStatePreserved;
     BgpProto::OpenMessage::Capability *llgr_cap =
@@ -1793,7 +1930,6 @@ void BgpPeer::RegisterToVpnTables() {
         return;
     vpn_tables_registered_ = true;
 
-    PeerRibMembershipManager *membership_mgr = server_->membership_mgr();
     RoutingInstance *instance = GetRoutingInstance();
     vector<Address::Family> vpn_family_list = list_of
         (Address::INETVPN)(Address::INET6VPN)(Address::ERMVPN)(Address::EVPN);
@@ -1803,9 +1939,7 @@ void BgpPeer::RegisterToVpnTables() {
         BgpTable *table = instance->GetTable(vpn_family);
         BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_TRACE,
             table, "Register peer with the table");
-        membership_mgr->Register(this, table, BuildRibExportPolicy(vpn_family),
-            -1, boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2));
-        membership_req_pending_++;
+        Register(table, BuildRibExportPolicy(vpn_family));
     }
 }
 
@@ -1822,6 +1956,9 @@ bool BgpPeer::EndOfRibTimerExpired() {
 }
 
 bool BgpPeer::KeepaliveTimerExpired() {
+    if (!IsReady())
+        return false;
+
     SendKeepalive(true);
 
     //
@@ -1831,12 +1968,12 @@ bool BgpPeer::KeepaliveTimerExpired() {
 }
 
 void BgpPeer::StartEndOfRibTimer() {
-    uint32_t timeout = 30 * 1000;
+    uint32_t timeout = server_->GetEndOfRibReceiveTime();
     char *time_str = getenv("BGP_RTFILTER_EOR_TIMEOUT");
     if (time_str) {
         timeout = strtoul(time_str, NULL, 0);
     }
-    end_of_rib_timer_->Start(timeout,
+    end_of_rib_timer_->Start(timeout * 1000,
         boost::bind(&BgpPeer::EndOfRibTimerExpired, this),
         boost::bind(&BgpPeer::EndOfRibTimerErrorHandler, this, _1, _2));
 }
@@ -1859,11 +1996,6 @@ void BgpPeer::StartKeepaliveTimer() {
 
 void BgpPeer::StopKeepaliveTimerUnlocked() {
     keepalive_timer_->Cancel();
-}
-
-void BgpPeer::StopKeepaliveTimer() {
-    tbb::spin_mutex::scoped_lock lock(spin_mutex_);
-    StopKeepaliveTimerUnlocked();
 }
 
 bool BgpPeer::KeepaliveTimerRunning() {
@@ -1955,10 +2087,10 @@ string BgpPeer::ToString() const {
 string BgpPeer::ToUVEKey() const {
     ostringstream out;
 
-    // XXX Skip master instance names from the logs and uves.
-    if (true || !rtinstance_->IsMasterRoutingInstance()) {
+    if (rtinstance_) {
         out << rtinstance_->name() << ":";
     }
+
     // out << peer_key_.endpoint.address();
     out << server_->localname() << ":";
     out << peer_name();
@@ -2223,9 +2355,10 @@ void BgpPeer::FillNeighborInfo(const BgpSandeshContext *bsc,
     bnr->set_configured_hold_time(state_machine_->GetConfiguredHoldTime());
     FillBgpNeighborFamilyAttributes(bnr);
     FillBgpNeighborDebugState(bnr, peer_stats_.get());
-    PeerRibMembershipManager *mgr = server_->membership_mgr();
+    BgpMembershipManager *mgr = server_->membership_mgr();
     mgr->FillPeerMembershipInfo(this, bnr);
     bnr->set_routing_instances(vector<BgpNeighborRoutingInstance>());
+    FillCloseInfo(bnr);
 }
 
 void BgpPeer::inc_rx_open() {
@@ -2382,6 +2515,7 @@ string BgpPeer::last_flap_at() const {
 
 void BgpPeer::increment_flap_count() {
     flap_count_++;
+    total_flap_count_++;
     last_flap_ = UTCTimestampUsec();
 
     BgpPeerInfoData peer_info;

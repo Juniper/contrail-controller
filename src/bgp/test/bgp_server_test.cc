@@ -5,7 +5,7 @@
 #include "base/task_annotations.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
-#include "bgp/bgp_peer_membership.h"
+#include "bgp/bgp_membership.h"
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/inet/inet_table.h"
@@ -125,11 +125,11 @@ protected:
 
     void PausePeerRibMembershipManager(BgpServer *server) {
         task_util::WaitForIdle();
-        server->membership_mgr()->event_queue_->set_disable(true);
+        server->membership_mgr()->SetQueueDisable(true);
     }
 
     void ResumePeerRibMembershipManager(BgpServer *server) {
-        server->membership_mgr()->event_queue_->set_disable(false);
+        server->membership_mgr()->SetQueueDisable(false);
         task_util::WaitForIdle();
     }
 

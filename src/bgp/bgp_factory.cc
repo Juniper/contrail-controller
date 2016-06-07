@@ -17,15 +17,15 @@ FACTORY_STATIC_REGISTER(BgpObjectFactory, BgpExport, BgpExport);
 FACTORY_STATIC_REGISTER(BgpObjectFactory, BgpLifetimeManager,
     BgpLifetimeManager);
 
+#include "bgp/bgp_membership.h"
+FACTORY_STATIC_REGISTER(BgpObjectFactory, BgpMembershipManager,
+    BgpMembershipManager);
+
 #include "bgp/bgp_peer.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, BgpPeer, BgpPeer);
 
 #include "bgp/bgp_session_manager.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, BgpSessionManager, BgpSessionManager);
-
-#include "bgp/bgp_peer_membership.h"
-FACTORY_STATIC_REGISTER(BgpObjectFactory, PeerRibMembershipManager,
-    PeerRibMembershipManager);
 
 #include "bgp/bgp_ribout_updates.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, RibOutUpdates, RibOutUpdates);

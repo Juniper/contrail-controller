@@ -6,6 +6,7 @@
 #define __XMPP_CHANNEL_MUX_H__
 
 #include <boost/system/error_code.hpp>
+#include <tbb/atomic.h>
 #include <tbb/mutex.h>
 #include "xmpp/xmpp_channel.h"
 #include "xmpp/xmpp_proto.h"
@@ -72,7 +73,7 @@ protected:
 
 private:
     void RegisterWriteReady(xmps::PeerId, SendReadyCb);
-    void InitializeClosingCount();
+    bool InitializeClosingCount();
 
     typedef std::map<xmps::PeerId, SendReadyCb> WriteReadyCbMap;
     typedef std::map<xmps::PeerId, ReceiveCb> ReceiveCbMap;
@@ -84,7 +85,7 @@ private:
     tbb::mutex mutex_;
     RxMessageTraceCb rx_message_trace_cb_;
     TxMessageTraceCb tx_message_trace_cb_;
-    int closing_count_;
+    tbb::atomic<int> closing_count_;
 };
 
 #endif // __XMPP_CHANNEL_MUX_H__

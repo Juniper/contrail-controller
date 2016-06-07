@@ -11,7 +11,7 @@
 #include "sandesh/sandesh_trace.h"
 #include "base/task_annotations.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_peer_membership.h"
+#include "bgp/bgp_membership.h"
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_ribout.h"
 #include "bgp/bgp_ribout_updates.h"
@@ -359,6 +359,11 @@ bool BgpTable::PathSelection(const Path &path1, const Path &path2) {
     return res;
 }
 
+bool BgpTable::DeletePath(DBTablePartBase *root, BgpRoute *rt, BgpPath *path) {
+    return InputCommon(root, rt, path, path->GetPeer(), NULL,
+        DBRequest::DB_ENTRY_DELETE, NULL, path->GetPathId(), 0, 0);
+}
+
 bool BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
                            const IPeer *peer, DBRequest *req,
                            DBRequest::DBOperation oper, BgpAttrPtr attrs,
@@ -440,8 +445,7 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
         // and route add is from the same incarnation of VRF subscription
         //
         if (peer->IsXmppPeer() && peer->IsRegistrationRequired()) {
-            PeerRibMembershipManager *mgr =
-                rtinstance_->server()->membership_mgr();
+            BgpMembershipManager *mgr = rtinstance_->server()->membership_mgr();
             int instance_id = -1;
             uint64_t subscription_gen_id = 0;
             bool is_registered =
@@ -554,126 +558,6 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
     InputCommonPostProcess(root, rt, notify_rt);
 }
 
-// For graceful-restart, we take mark-and-sweep approach instead of directly
-// deleting the paths. In the first walk, local-preference is lowered so that
-// the paths are least preferred and they are marked stale. After some time, if
-// the peer session does not come back up, we delete all the paths and the peer
-// itself. If the session did come back up, we flush only those paths that were
-// not learned again in the new session.
-//
-// Concurrency: Runs in the context of the DB Walker task launched by peer rib
-// membership manager
-//
-// DBWalker callback routine for each of the RibIn prefix.
-void BgpTable::Input(DBTablePartBase *root, IPeer *peer, BgpRoute *rt,
-                     int action_mask) {
-    DBRequest::DBOperation oper;
-    BgpAttrPtr attrs;
-    MembershipRequest::Action  action;
-
-    // Look for the flags that we care about
-    action = static_cast<MembershipRequest::Action>(action_mask &
-                (MembershipRequest::RIBIN_STALE |
-                 MembershipRequest::RIBIN_LLGR_STALE |
-                 MembershipRequest::RIBIN_SWEEP |
-                 MembershipRequest::RIBIN_DELETE));
-
-    if (action == MembershipRequest::INVALID)
-        return;
-
-    bool notify_rt = false;
-
-    // Process all paths sourced from this peer_. Multiple paths could exist
-    // in ecmp cases.
-    for (Route::PathList::iterator it = rt->GetPathList().begin(), next = it;
-         it != rt->GetPathList().end(); it = next) {
-        next++;
-
-        BgpPath *path = static_cast<BgpPath *>(it.operator->());
-
-        // Skip paths from other peers.
-        if (path->GetPeer() != peer)
-            continue;
-
-        // Skip resolved paths - PathResolver is responsible for them.
-        if (path->IsResolved())
-            continue;
-
-        // Skip secondary paths.
-        if (dynamic_cast<BgpSecondaryPath *>(path))
-            continue;
-
-        uint32_t stale = 0;
-        switch (action) {
-            case MembershipRequest::RIBIN_SWEEP:
-
-                // Stale paths must be deleted.
-                if (!path->IsStale() && !path->IsLlgrStale())
-                    return;
-                path->ResetStale();
-                path->ResetLlgrStale();
-                oper = DBRequest::DB_ENTRY_DELETE;
-                attrs = NULL;
-                break;
-
-            case MembershipRequest::RIBIN_DELETE:
-
-                // This path must be deleted. Hence attr is not required.
-                oper = DBRequest::DB_ENTRY_DELETE;
-                attrs = NULL;
-                break;
-
-            case MembershipRequest::RIBIN_STALE:
-
-                // If path is already marked as stale, then there is no need to
-                // process again. This can happen if the session flips while in
-                // GR_TIMER state.
-                if (path->IsStale())
-                    continue;
-
-                // This path must be marked for staling. Update the local
-                // preference and update the route accordingly.
-                oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-                attrs = path->GetAttr();
-                stale = BgpPath::Stale;
-                break;
-
-            case MembershipRequest::RIBIN_LLGR_STALE:
-
-                // If the path has NO_LLGR community, DELETE it.
-                if (path->GetAttr()->community() &&
-                    path->GetAttr()->community()->ContainsValue(
-                        CommunityType::NoLlgr)) {
-                    oper = DBRequest::DB_ENTRY_DELETE;
-                    attrs = NULL;
-                    break;
-                }
-
-                // If path is already marked as llgr_stale, then there is no
-                // need to process again. This can happen if the session flips
-                // while in LLGR_TIMER state.
-                if (path->IsLlgrStale())
-                    continue;
-
-                attrs = path->GetAttr();
-                stale = BgpPath::LlgrStale;
-                oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-                break;
-
-            default:
-                assert(false);
-                break;
-        }
-
-        // Feed the route modify/delete request to the table input process.
-        notify_rt |= InputCommon(root, rt, path, peer, NULL, oper, attrs,
-                                 path->GetPathId(), path->GetFlags() | stale,
-                                 path->GetLabel());
-    }
-
-    InputCommonPostProcess(root, rt, notify_rt);
-}
-
 void BgpTable::InputCommonPostProcess(DBTablePartBase *root,
                                       BgpRoute *rt, bool notify_rt) {
     if (!notify_rt)
@@ -713,7 +597,10 @@ bool BgpTable::MayDelete() const {
 
     // Check the base class at the end so that we add custom checks
     // before this if needed and to get more informative log message.
-    return DBTableBase::MayDelete();
+    if (!DBTableBase::MayDelete())
+        return false;
+
+    return true;
 }
 
 void BgpTable::Shutdown() {

@@ -26,6 +26,7 @@ namespace pugi {
 class xml_node;
 }
 
+class BgpGlobalSystemConfig;
 class BgpRouterState;
 class BgpServer;
 struct DBRequest;
@@ -35,11 +36,14 @@ class XmppServer;
 class BgpXmppChannelMock;
 class BgpXmppChannelManager;
 class BgpXmppChannelManagerMock;
+class Timer;
+class XmppConfigUpdater;
 class XmppPeerInfoData;
 class XmppSession;
 
 class BgpXmppChannel {
 public:
+    static const int kEndOfRibTime = 30; // seconds
     enum StatsIndex {
         RX,
         TX,
@@ -96,6 +100,8 @@ public:
     void set_peer_closed(bool flag);
     bool peer_deleted() const;
     uint64_t peer_closed_at() const;
+    bool routingtable_membership_request_map_empty() const;
+    size_t GetMembershipRequestQueueSize() const;
 
     const XmppSession *GetSession() const;
     const Stats &rx_stats() const { return stats_[RX]; }
@@ -113,8 +119,8 @@ public:
     void StaleCurrentSubscriptions();
     void SweepCurrentSubscriptions();
     void XMPPPeerInfoSend(const XmppPeerInfoData &peer_info) const;
-
     const XmppChannel *channel() const { return channel_; }
+    void StartEndOfRibTimer();
 
     uint64_t get_rx_route_reach() const { return stats_[RX].reach; }
     uint64_t get_rx_route_unreach() const { return stats_[RX].unreach; }
@@ -219,10 +225,11 @@ private:
                                     const XmppStanza::XmppMessageIq *iq,
                                     bool add_change);
 
-    void RegisterTable(BgpTable *table, int instance_id);
-    void UnregisterTable(BgpTable *table);
+    void RegisterTable(int line, BgpTable *table, int instance_id);
+    void UnregisterTable(int line, BgpTable *table);
     bool MembershipResponseHandler(std::string table_name);
-    void MembershipRequestCallback(IPeer *ipeer, BgpTable *table);
+    void MembershipRequestCallback(BgpTable *table);
+    void ProcessPendingSubscriptions();
     void DequeueRequest(const std::string &table_name, DBRequest *request);
     bool XmppDecodeAddress(int af, const std::string &address,
                            IpAddress *addrp, bool zero_ok = false);
@@ -231,7 +238,15 @@ private:
     void FlushDeferQ(std::string vrf_name, std::string table_name);
     void ProcessDeferredSubscribeRequest(RoutingInstance *rt_instance,
                                          int instance_id);
-    void ClearStaledSubscription(SubscriptionState &sub_state);
+    void ClearStaledSubscription(std::string instance_name,
+                                 SubscriptionState &sub_state);
+    const BgpXmppChannelManager *manager() const { return manager_; }
+    bool ProcessMembershipResponse(std::string table_name,
+             RoutingTableMembershipRequestMap::iterator loc);
+    void ReceiveEndOfRIB(Address::Family family);
+    void EndOfRibTimerErrorHandler(std::string error_name,
+                                   std::string error_message);
+    bool EndOfRibTimerExpired();
 
     xmps::PeerId peer_id_;
     BgpServer *bgp_server_;
@@ -249,6 +264,7 @@ private:
     bool delete_in_progress_;
     bool deleted_;
     bool defer_peer_close_;
+    Timer *end_of_rib_timer_;
     WorkQueue<std::string> membership_response_worker_;
     SubscribedRoutingInstanceList routing_instances_;
     PublishedRTargetRoutes rtarget_routes_;
@@ -314,12 +330,16 @@ public:
         return channel_map_.size();
     }
 
-    uint32_t deleting_count() const { return deleting_count_; }
+    int32_t deleting_count() const { return deleting_count_; }
     void increment_deleting_count() { deleting_count_++; }
-    void decrement_deleting_count() { deleting_count_--; }
+    void decrement_deleting_count() {
+        assert(deleting_count_);
+        deleting_count_--;
+    }
 
     BgpServer *bgp_server() { return bgp_server_; }
     XmppServer *xmpp_server() { return xmpp_server_; }
+    const XmppServer *xmpp_server() const { return xmpp_server_; }
     uint64_t get_subscription_gen_id() {
         return subscription_gen_id_.fetch_and_increment();
     }
@@ -344,7 +364,7 @@ private:
     int admin_down_listener_id_;
     int asn_listener_id_;
     int identifier_listener_id_;
-    uint32_t deleting_count_;
+    tbb::atomic<int32_t> deleting_count_;
     // Generation number for subscription tracking
     tbb::atomic<uint64_t> subscription_gen_id_;
 
