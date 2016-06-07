@@ -244,7 +244,7 @@ const uint8_t *BgpMessage::GetData(IPeerUpdate *ipeer_update, size_t *lenp) {
     return data_;
 }
 
-Message *BgpMessageBuilder::Create(const BgpTable *table,
+Message *BgpMessageBuilder::Create(const BgpTable *table, bool cache_routes,
         const RibOutAttr *roattr, const BgpRoute *route) const {
     auto_ptr<BgpMessage> msg(new BgpMessage(table));
     if (msg->Start(roattr, route)) {

@@ -33,7 +33,7 @@ protected:
 
 class MessageBuilder {
 public:
-    virtual Message *Create(const BgpTable *table,
+    virtual Message *Create(const BgpTable *table, bool cache_routes,
                             const RibOutAttr *roattr,
                             const BgpRoute *route) const = 0;
     static MessageBuilder *GetInstance(RibExportPolicy::Encoding encoding);

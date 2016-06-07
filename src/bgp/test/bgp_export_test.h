@@ -137,12 +137,12 @@ public:
     MsgBuilderMock() : msg_count_(0) { }
     virtual ~MsgBuilderMock() { }
 
-    virtual Message *Create(const BgpTable *table,
+    virtual Message *Create(const BgpTable *table, bool cache_routes,
                             const RibOutAttr *attr,
                             const BgpRoute *route) const {
         msg_count_++;
         if (use_bgp_messages) {
-            return BgpMessageBuilder::Create(table, attr, route);
+            return BgpMessageBuilder::Create(table, cache_routes, attr, route);
         } else {
             return new MessageMock();
         }
