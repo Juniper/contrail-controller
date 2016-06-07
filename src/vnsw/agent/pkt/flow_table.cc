@@ -528,7 +528,9 @@ void FlowTable::DeleteMessage(FlowEntry *flow) {
     DeleteUnLocked(true, flow, flow->reverse_flow_entry());
 }
 
-void FlowTable::EvictFlow(FlowEntry *flow, FlowEntry *reverse_flow) {
+void FlowTable::EvictFlow(FlowEntry *flow, FlowEntry *reverse_flow,
+                          uint32_t evict_gen_id) {
+    DisableKSyncSend(flow, evict_gen_id);
     DeleteUnLocked(false, flow, NULL);
 
     // Reverse flow unlinked with forward flow. Make it short-flow
@@ -671,6 +673,11 @@ void FlowTable::UpdateKSync(FlowEntry *flow, bool update) {
     mgr->Update(flow);
 }
 
+void FlowTable::DisableKSyncSend(FlowEntry *flow, uint32_t evict_gen_id) {
+    KSyncFlowIndexManager *mgr = agent()->ksync()->ksync_flow_index_manager();
+    mgr->DisableSend(flow, evict_gen_id);
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // Link local flow information tree
 /////////////////////////////////////////////////////////////////////////////
@@ -796,7 +803,7 @@ bool FlowTable::ProcessFlowEvent(const FlowEvent *req, FlowEntry *flow,
         if (flow->flow_handle() != req->flow_handle() ||
             flow->gen_id() != req->gen_id())
             break;
-        EvictFlow(flow, rflow);
+        EvictFlow(flow, rflow, req->evict_gen_id());
         break;
     }
 

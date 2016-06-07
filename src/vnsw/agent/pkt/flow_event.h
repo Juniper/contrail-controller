@@ -60,13 +60,13 @@ public:
 
     FlowEvent() :
         event_(INVALID), flow_(NULL), pkt_info_(), db_entry_(NULL),
-        gen_id_(0), flow_handle_(FlowEntry::kInvalidFlowHandle),
-        table_index_(0) {
+        gen_id_(0), evict_gen_id_(0),
+        flow_handle_(FlowEntry::kInvalidFlowHandle), table_index_(0) {
     }
 
     FlowEvent(Event event) :
         event_(event), flow_(NULL), pkt_info_(), db_entry_(NULL),
-        gen_id_(0), table_index_(0) {
+        gen_id_(0), evict_gen_id_(0), table_index_(0) {
     }
 
     FlowEvent(Event event, FlowEntry *flow) :
@@ -76,53 +76,61 @@ public:
 
     FlowEvent(Event event, uint32_t table_index) :
         event_(event), flow_(NULL), pkt_info_(), db_entry_(NULL),
-        gen_id_(0), flow_handle_(FlowEntry::kInvalidFlowHandle),
-        table_index_(table_index) {
+        gen_id_(0), evict_gen_id_(0),
+        flow_handle_(FlowEntry::kInvalidFlowHandle), table_index_(table_index) {
     }
 
     FlowEvent(Event event, FlowEntry *flow, uint32_t flow_handle,
               uint8_t gen_id) :
         event_(event), flow_(flow), pkt_info_(), db_entry_(NULL),
-        gen_id_(gen_id), flow_handle_(flow_handle), table_index_(0) {
+        gen_id_(gen_id), evict_gen_id_(0), flow_handle_(flow_handle),
+        table_index_(0) {
+    }
+
+    FlowEvent(Event event, FlowEntry *flow, uint32_t flow_handle,
+              uint8_t gen_id, uint8_t evict_gen_id) :
+        event_(event), flow_(flow), pkt_info_(), db_entry_(NULL),
+        gen_id_(gen_id), evict_gen_id_(evict_gen_id), flow_handle_(flow_handle),
+        table_index_(0) {
     }
 
     FlowEvent(Event event, FlowEntry *flow, const DBEntry *db_entry) :
         event_(event), flow_(flow), pkt_info_(), db_entry_(db_entry),
-        gen_id_(0), flow_handle_(FlowEntry::kInvalidFlowHandle),
-        table_index_(0) {
+        gen_id_(0), evict_gen_id_(0),
+        flow_handle_(FlowEntry::kInvalidFlowHandle), table_index_(0) {
     }
 
     FlowEvent(Event event, const DBEntry *db_entry, uint32_t gen_id) :
         event_(event), flow_(NULL), pkt_info_(), db_entry_(db_entry),
-        gen_id_(gen_id), flow_handle_(FlowEntry::kInvalidFlowHandle),
-        table_index_(0) {
+        gen_id_(gen_id), evict_gen_id_(0),
+        flow_handle_(FlowEntry::kInvalidFlowHandle), table_index_(0) {
     }
 
     FlowEvent(Event event, const FlowKey &key) :
         event_(event), flow_(NULL), pkt_info_(), db_entry_(NULL),
-        gen_id_(0), flow_key_(key),
+        gen_id_(0), evict_gen_id_(0), flow_key_(key),
         flow_handle_(FlowEntry::kInvalidFlowHandle), table_index_(0) {
     }
 
     FlowEvent(Event event, const FlowKey &key, uint32_t flow_handle,
               uint8_t gen_id) :
         event_(event), flow_(NULL), pkt_info_(), db_entry_(NULL),
-        gen_id_(gen_id), flow_key_(key), flow_handle_(flow_handle),
-        table_index_(0) {
+        gen_id_(gen_id), evict_gen_id_(0), flow_key_(key),
+        flow_handle_(flow_handle), table_index_(0) {
     }
 
     FlowEvent(Event event, PktInfoPtr pkt_info, FlowEntry *flow,
               uint32_t table_index) :
         event_(event), flow_(flow), pkt_info_(pkt_info), db_entry_(NULL),
-        gen_id_(0), flow_key_(), flow_handle_(FlowEntry::kInvalidFlowHandle),
-        table_index_(table_index) {
+        gen_id_(0), evict_gen_id_(0), flow_key_(),
+        flow_handle_(FlowEntry::kInvalidFlowHandle), table_index_(table_index) {
     }
 
     FlowEvent(const FlowEvent &rhs) :
         event_(rhs.event_), flow_(rhs.flow()), pkt_info_(rhs.pkt_info_),
         db_entry_(rhs.db_entry_), gen_id_(rhs.gen_id_),
-        flow_key_(rhs.flow_key_), flow_handle_(rhs.flow_handle_),
-        table_index_(rhs.table_index_) {
+        evict_gen_id_(rhs.evict_gen_id_), flow_key_(rhs.flow_key_),
+        flow_handle_(rhs.flow_handle_), table_index_(rhs.table_index_) {
     }
 
     virtual ~FlowEvent() {
@@ -135,6 +143,7 @@ public:
     const DBEntry *db_entry() const { return db_entry_; }
     void set_db_entry(const DBEntry *db_entry) { db_entry_ = db_entry; }
     uint32_t gen_id() const { return gen_id_; }
+    uint32_t evict_gen_id() const { return evict_gen_id_; }
     const FlowKey &get_flow_key() const { return flow_key_; }
     PktInfoPtr pkt_info() const { return pkt_info_; }
     uint32_t flow_handle() const { return flow_handle_; }
@@ -145,6 +154,7 @@ private:
     PktInfoPtr pkt_info_;
     const DBEntry *db_entry_;
     uint32_t gen_id_;
+    uint32_t evict_gen_id_;
     FlowKey flow_key_;
     uint32_t flow_handle_;
     uint32_t table_index_;

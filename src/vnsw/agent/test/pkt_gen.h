@@ -392,8 +392,8 @@ public:
         len += sizeof(MplsHdr);
     };
 
-    void AddAgentHdr(int if_id, int cmd, int param = 0, int vrf = -1,
-                     int label = -1, int vxlan_id = -1) {
+    agent_hdr *AddAgentHdr(int if_id, int cmd, int param = 0, int vrf = -1,
+                           int label = -1, int vxlan_id = -1) {
         agent_hdr *hdr= (agent_hdr *)(buff + len);
         Interface *intf = InterfaceTable::GetInstance()->FindInterface(if_id);
         if (vrf == -1) {
@@ -452,6 +452,7 @@ public:
         hdr->hdr_vrf = htons(vrf);
         hdr->hdr_cmd_param_1 = htonl(nh);
         len += sizeof(*hdr);
+        return hdr;
     };
 
     char *GetBuff() {return buff;};
