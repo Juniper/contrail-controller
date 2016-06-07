@@ -156,7 +156,6 @@ class VncIfmapClient(object):
     def object_set(self, res_type, my_imid, existing_metas, obj_dict):
         obj_class = self._db_client_mgr.get_resource_class(res_type)
         update = {}
-
         # Properties Meta
         for prop_field in obj_class.prop_fields:
             field = obj_dict.get(prop_field)
@@ -173,13 +172,6 @@ class VncIfmapClient(object):
                 norm_str = escape(str(field))
                 meta = Metadata(prop_meta, norm_str,
                        {'ifmap-cardinality':'singleValue'}, ns_prefix = 'contrail')
-
-                if (existing_metas and prop_meta in existing_metas and
-                    str(existing_metas[prop_meta][0]['meta']) == str(meta)):
-                    # no change
-                    pass
-                else:
-                    self._update_id_self_meta(update, meta)
             else: # complex type
                 prop_cls = cfgm_common.utils.str_to_class(prop_type,
                                                           __name__)
@@ -206,12 +198,20 @@ class VncIfmapClient(object):
                     {'ifmap-cardinality':'singleValue'}, ns_prefix='contrail',
                     elements=prop_xml)
 
-                if (existing_metas and prop_meta in existing_metas and
-                    str(existing_metas[prop_meta][0]['meta']) == str(meta)):
-                    # no change
-                    pass
+            if (existing_metas and prop_meta in existing_metas):
+                # If the meta is a property, then the meta value is
+                # stored with a '' (empty) string as key. If the meta 
+                # is a link or reference, then the meta value is stored
+                # with the id2 as a key.
+                if '' in existing_metas[prop_meta][0]:
+                    meta_value = str(existing_metas[prop_meta][0][''])
                 else:
+                    id2 = existing_metas[prop_meta][0].keys()[0]
+                    meta_value = str(existing_metas[prop_meta][0][id2])
+                if meta_value != str(meta):
                     self._update_id_self_meta(update, meta)
+            else:
+                self._update_id_self_meta(update, meta)
         # end for all property types
 
         # References Meta
@@ -281,7 +281,7 @@ class VncIfmapClient(object):
 
     def _object_read_to_meta_index(self, ifmap_id):
         # metas is a dict where key is meta-name and val is list of dict of
-        # form [{'meta':meta}, {'id':id1, 'meta':meta}, {'id':id2, 'meta':meta}]
+        # form [{'':meta}, {'id':id1, '':meta}, {id2:meta}]
         metas = {}
         if ifmap_id in self._id_to_metas:
             metas = self._id_to_metas[ifmap_id].copy()
@@ -313,7 +313,10 @@ class VncIfmapClient(object):
         #        'virtual-network-network-policy': 'network-policy',
         #        'virtual-network-route-table': 'route-table'}
         for meta, to_name in refs.items():
-            old_set = set([m['id'] for m in existing_metas.get(meta, [])])
+            if meta in existing_metas:
+                old_set = set(existing_metas.get(meta)[0].keys())
+            else:
+                old_set = set()
             new_set = set()
             to_name_m = to_name.replace('-', '_')
             for ref in new_obj_dict.get(to_name_m+'_refs', []):
@@ -337,11 +340,10 @@ class VncIfmapClient(object):
         existing_metas = self._object_read_to_meta_index(ifmap_id)
         meta_list = []
         for meta_name, meta_infos in existing_metas.items():
-            for meta_info in meta_infos:
-                ref_imid = meta_info.get('id')
-                if ref_imid is None:
-                    continue
-                meta_list.append((ref_imid, 'contrail:'+meta_name))
+            ref_imid = meta_infos[0].keys()[0]
+            if ref_imid is None:
+                continue
+            meta_list.append((ref_imid, 'contrail:' + meta_name))
 
         if parent_imid:
             # Remove link from parent
@@ -629,10 +631,10 @@ class VncIfmapClient(object):
                 return
 
             # if meta is prop, noop
-            if 'id' not in self._id_to_metas[id1][meta_name][0]:
-                return
-            self._id_to_metas[id1][meta_name] = [
-                m for m in self._id_to_metas[id1][meta_name] if m['id'] != id2]
+            if id2 in self._id_to_metas[id1][meta_name]:
+                del self._id_to_metas[id1][meta_name][id2]
+        #end _id_to_metas_delete
+
         for id2, metadata in meta_list:
             if metadata:
                 meta_name = metadata.replace('contrail:', '')
@@ -664,11 +666,10 @@ class VncIfmapClient(object):
      # end _update_id_pair_meta
 
     def _publish_update(self, self_imid, update):
-        if self_imid not in self._id_to_metas:
-            self._id_to_metas[self_imid] = {}
-
         mapclient = self._mapclient
         requests = []
+        self_metas = self._id_to_metas.setdefault(self_imid, {})
+
         for id2 in update:
             metalist = update[id2]
             requests.append(self._build_request(self_imid, id2, metalist))
@@ -676,34 +677,28 @@ class VncIfmapClient(object):
             # remember what we wrote for diffing during next update
             for m in metalist:
                 meta_name = m._Metadata__name.replace('contrail:', '')
+                # If the meta ia prop, then the prop is stored with an
+                # empty string as key. If it is a link or a ref, then
+                # id2 is used as key to store the reference.
                 if id2 == 'self':
-                    self._id_to_metas[self_imid][meta_name] = [{'meta':m}]
+                    self._id_to_metas[self_imid][meta_name] = [{'':m}]
                     continue
-                if meta_name in self._id_to_metas[self_imid]:
-                    for id_meta in self._id_to_metas[self_imid][meta_name]:
-                        if id_meta['id'] == id2:
-                            id_meta['meta'] = m
-                            break
-                    else:
-                        self._id_to_metas[self_imid][meta_name].append({'meta':m,
-                                                                        'id': id2})
+                if meta_name in self_metas and id2 in self_metas[meta_name]:
+                    # Update the link/ref
+                    self_metas[meta_name][id2] = m
                 else:
-                   self._id_to_metas[self_imid][meta_name] = [{'meta':m,
-                                                               'id': id2}]
+                    # Create the link/ref
+                    self_metas[meta_name] = [{id2 : m}]
 
+                # Taking care of the reverse linkage from id2 to id1.
                 if id2 not in self._id_to_metas:
                     self._id_to_metas[id2] = {}
-                if meta_name in self._id_to_metas[id2]:
-                    for id_meta in self._id_to_metas[id2][meta_name]:
-                        if id_meta['id'] == self_imid:
-                            id_meta['meta'] = m
-                            break
-                    else:
-                        self._id_to_metas[id2][meta_name].append({'meta':m,
-                                                                  'id': self_imid})
+
+                if meta_name in self._id_to_metas[id2] and\
+                   self_imid in self._id_to_metas[id2][meta_name]:
+                    self._id_to_metas[id2][meta_name][self_imid] = m
                 else:
-                   self._id_to_metas[id2][meta_name] = [{'meta':m,
-                                                         'id': self_imid}]
+                    self._id_to_metas[id2][meta_name] = [{self_imid : m}]
         upd_str = ''.join(requests)
         self._publish_to_ifmap_enqueue('update', upd_str)
     # end _publish_update
@@ -1594,9 +1589,6 @@ class VncDbClient(object):
         (ok, obj_dicts) = self._cassandra_db.object_read(
                                obj_type, obj_uuids, field_names=obj_fields)
         for obj_dict in obj_dicts:
-            # give chance for zk heartbeat/ping
-            gevent.sleep(0)
-
             try:
                 obj_uuid = obj_dict['uuid']
                 self.dbe_uve_trace("RESYNC", obj_type, obj_uuid, obj_dict)
