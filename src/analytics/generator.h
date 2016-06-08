@@ -91,6 +91,9 @@ public:
     void StartDbifReinit();
     virtual DbHandler * GetDbHandler() const { return db_handler_.get(); }
     bool UseGlobalDbHandler() const { return use_global_dbhandler_; }
+    uint32_t GetSandeshStateMachineMaxQueueCount() const {
+        return state_machine_->GetMaxQueueCount();
+    }
 
 private:
     virtual bool ProcessRules(const VizMsg *vmsg, bool rsc);
