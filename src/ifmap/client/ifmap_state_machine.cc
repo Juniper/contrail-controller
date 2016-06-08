@@ -30,7 +30,6 @@
 using boost::system::error_code;
 
 const int IFMapStateMachine::kConnectWaitIntervalMs = 30000;
-const int IFMapStateMachine::kResponseWaitIntervalMs = 60000;
 
 namespace sc = boost::statechart;
 namespace mpl = boost::mpl;
@@ -670,7 +669,8 @@ struct PollResponseWait :
 
 }  // namespace ifsm
 
-IFMapStateMachine::IFMapStateMachine(IFMapManager *manager)
+IFMapStateMachine::IFMapStateMachine(IFMapManager *manager,
+                                     const IFMapConfigOptions& config_options)
     : manager_(manager),
       connect_timer_(new TimerImpl(*manager->io_service())),
       ssrc_connect_attempts_(0), arc_connect_attempts_(0),
@@ -681,7 +681,8 @@ IFMapStateMachine::IFMapStateMachine(IFMapManager *manager)
                   0, boost::bind(&IFMapStateMachine::DequeueEvent, this, _1)),
       channel_(NULL), state_(IDLE), last_state_(IDLE), last_state_change_at_(0),
       last_event_at_(0), max_connect_wait_interval_ms_(kConnectWaitIntervalMs),
-      max_response_wait_interval_ms_(kResponseWaitIntervalMs),
+      max_response_wait_interval_ms_(
+          config_options.peer_response_wait_time*1000), // ms
       log_all_transitions_(true) {
 }
 

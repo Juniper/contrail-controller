@@ -9,6 +9,7 @@
 #include <boost/system/error_code.hpp>
 
 #include "base/queue_task.h"
+#include "ifmap/ifmap_config_options.h"
 
 namespace sc = boost::statechart;
 
@@ -26,7 +27,6 @@ class IFMapStateMachine :
         public sc::state_machine<IFMapStateMachine, ifsm::Idle> {
 public:
     static const int kConnectWaitIntervalMs; // in milliseconds
-    static const int kResponseWaitIntervalMs; // in milliseconds
 
     enum State {
         IDLE                   = 0,
@@ -46,7 +46,8 @@ public:
         // Add an entry to state_names[] if you add an entry here
     };
 
-    IFMapStateMachine(IFMapManager *manager);
+    IFMapStateMachine(IFMapManager *manager,
+                      const IFMapConfigOptions& config_options);
 
     void Initialize();
 
@@ -133,6 +134,9 @@ public:
     }
     void set_max_response_wait_interval_ms(int ms) {
         max_response_wait_interval_ms_ = ms;
+    }
+    int max_response_wait_interval_ms() {
+        return max_response_wait_interval_ms_;
     }
     size_t WorkQueueEnqueues() const { return work_queue_.NumEnqueues(); }
     size_t WorkQueueDequeues() const { return work_queue_.NumDequeues(); }
