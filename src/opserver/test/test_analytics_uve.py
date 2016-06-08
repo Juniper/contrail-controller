@@ -365,7 +365,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         alarm_gen1.send_vrouterinfo("myvrouter1")
         assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
             "ObjectVRouter:myvrouter1", "partial-sysinfo-compute",
-            rules=[{"rule": [{
+            rules=[{"and_list": [{
                 "condition": {
                     "operation": "==",
                     "operand1": "ObjectVRouter.build_info",
