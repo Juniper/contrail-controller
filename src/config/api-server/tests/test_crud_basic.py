@@ -858,7 +858,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                 if not node:
                     return False
                 meta = node.get('links', {}).get('contrail:display-name',
-                    {}).get('meta')
+                    {}).get('')
                 if meta is None:
                     return False
                 if not 'test_update' in etree.tostring(meta):
@@ -950,7 +950,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             if not node:
                 return False
             meta = node.get('links', {}).get('contrail:display-name',
-                {}).get('meta')
+                {}).get('')
             if meta is None:
                 return False
             if not 'test_update_2' in etree.tostring(meta):
