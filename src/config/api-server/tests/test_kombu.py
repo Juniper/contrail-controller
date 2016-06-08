@@ -211,7 +211,7 @@ class TestVncRabbitPublish(test_case.ApiServerTestCase):
         gevent.sleep(2)
         self.assertEqual(api_server._db_conn._ifmap_db._id_to_metas[\
                 'contrail:virtual-network:default-domain:default-project:vn1'][\
-                'display-name'][0]['meta']._Metadata__value, 'test_update_1')
+                'display-name']['']._Metadata__value, 'test_update_1')
 
         logger.info("update after publishing to IFAMAP, Expected to publish to IFMAP")
         vn_obj.display_name = 'test_update_2'
@@ -219,4 +219,4 @@ class TestVncRabbitPublish(test_case.ApiServerTestCase):
         gevent.sleep(2)
         self.assertEqual(api_server._db_conn._ifmap_db._id_to_metas[\
                 'contrail:virtual-network:default-domain:default-project:vn1'][\
-                'display-name'][0]['meta']._Metadata__value, 'test_update_2')
+                'display-name']['']._Metadata__value, 'test_update_2')
