@@ -651,16 +651,9 @@ class VncCassandraClient(object):
                     (_, prop_name) = col_name.split(':')
                     result[prop_name] = obj_cols[col_name][0]
 
-                if (self._re_match_prop_list.match(col_name) or
-                    self._re_match_prop_map.match(col_name)):
+                if self._re_match_prop_list.match(col_name):
                     (_, prop_name, prop_elem_position) = col_name.split(':')
-                    if self._re_match_prop_list.match(col_name):
-                        has_wrapper = \
-                            obj_class.prop_list_field_has_wrappers[prop_name]
-                    else:
-                        has_wrapper = \
-                            obj_class.prop_map_field_has_wrappers[prop_name]
-                    if has_wrapper:
+                    if obj_class.prop_list_field_has_wrappers[prop_name]:
                         prop_field_types = obj_class.prop_field_types[prop_name]
                         wrapper_type = prop_field_types['xsd_type']
                         wrapper_cls = self._get_xsd_class(wrapper_type)
@@ -674,6 +667,22 @@ class VncCassandraClient(object):
                             result[prop_name] = []
                         result[prop_name].append((obj_cols[col_name][0],
                                                   prop_elem_position))
+
+                if self._re_match_prop_map.match(col_name):
+                    prop_name, _, _ = col_name.strip('propm:').partition(':')
+                    if obj_class.prop_map_field_has_wrappers[prop_name]:
+                        prop_field_types = obj_class.prop_field_types[prop_name]
+                        wrapper_type = prop_field_types['xsd_type']
+                        wrapper_cls = self._get_xsd_class(wrapper_type)
+                        wrapper_field = wrapper_cls.attr_fields[0]
+                        if prop_name not in result:
+                            result[prop_name] = {wrapper_field: []}
+                        result[prop_name][wrapper_field].append(
+                            obj_cols[col_name][0])
+                    else:
+                        if prop_name not in result:
+                            result[prop_name] = []
+                        result[prop_name].append(obj_cols[col_name][0])
 
                 if self._re_match_children.match(col_name):
                     (_, child_type, child_uuid) = col_name.split(':')
@@ -717,11 +726,8 @@ class VncCassandraClient(object):
                 [child.pop('tstamp') for child in result[child_field]]
             # for all children
 
-            # Ordering property lists and maps by position attribute
-            for prop_name in (obj_class.prop_list_fields |
-                                   obj_class.prop_map_fields):
-                if prop_name not in result:
-                    continue
+            # Ordering property lists by position attribute
+            for prop_name in (obj_class.prop_list_fields & set(result.keys())):
                 if isinstance(result[prop_name], list):
                     result[prop_name] = [el[0] for el in
                                          sorted(result[prop_name],
@@ -1100,6 +1106,8 @@ class VncCassandraClient(object):
                 prop_pfx = 'propl'
             elif field in obj_class.prop_map_fields:
                 prop_pfx = 'propm'
+            else:
+                continue
             if position:
                 col_start = '%s:%s:%s' %(prop_pfx, field, position)
                 col_end = '%s:%s:%s' %(prop_pfx, field, position)
@@ -1114,7 +1122,7 @@ class VncCassandraClient(object):
             result[field] = []
             for name, value in obj_cols:
                 # tuple of col_value, position. result is already sorted
-                # lexically by position
+                # lexically by position (necessary only for list property)
                 result[field].append((json.loads(value), name.split(':')[-1]))
 
         return (True, result)

@@ -572,7 +572,7 @@ class TestListUpdate(test_case.ApiServerTestCase):
                    dst_addresses=[AddressType(virtual_network='any')],
                    dst_ports=[PortType(3, 4)]),
 
-            PolicyRuleType(direction='<>', 
+            PolicyRuleType(direction='<>',
                            action_list=ActionListType(simple_action='deny'),
                            protocol='any',
                            src_addresses=
@@ -714,7 +714,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         self.addDetail('useragent-kv-post-wrongop', content.json_content(test_body))
         (code, msg) = self._http_post('/useragent-kv', test_body)
         self.assertEqual(code, 404)
-        
+
     def test_err_on_max_rabbit_pending(self):
         self.ignore_err_in_log = True
         api_server = test_common.vnc_cfg_api_server.server
@@ -960,7 +960,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
 
         self.assertTill(ifmap_has_update_2)
     # end test_reconnect_to_rabbit
- 
+
     def test_handle_trap_on_exception(self):
         self.ignore_err_in_log = True
         api_server = test_common.vnc_cfg_api_server.server
@@ -1037,7 +1037,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         logger.info('Creating Project %s', project_name)
         orig_project_obj = Project(project_name, domain_obj)
         self._vnc_lib.project_create(orig_project_obj)
- 
+
         logger.info('Creating Dup Project in default domain with same uuid')
         dup_project_obj = Project(project_name)
         dup_project_obj.uuid = orig_project_obj.uuid
@@ -1382,7 +1382,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             back_ref_id=ipam_obj.uuid, detail=True)
         self.assertThat(len(read_vn_objs), Equals(num_objs))
         read_display_names = [o.display_name for o in read_vn_objs]
-        read_ipam_uuids = [o.network_ipam_refs[0]['uuid'] 
+        read_ipam_uuids = [o.network_ipam_refs[0]['uuid']
                            for o in read_vn_objs]
         for obj in vn_objs:
             self.assertThat(read_display_names,
@@ -1396,7 +1396,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             filters={'display_name':vn_objs[2].display_name,
                      'is_shared':vn_objs[2].is_shared})
         self.assertThat(len(read_vn_objs), Equals(1))
-        read_ipam_fq_names = [o.network_ipam_refs[0]['to'] 
+        read_ipam_fq_names = [o.network_ipam_refs[0]['to']
                               for o in read_vn_objs]
         for ipam_fq_name in read_ipam_fq_names:
             self.assertThat(ipam_fq_name,
@@ -1798,12 +1798,12 @@ class TestStaleLockRemoval(test_case.ApiServerTestCase):
     @classmethod
     def setUpClass(cls):
         super(TestStaleLockRemoval, cls).setUpClass(
-            extra_config_knobs=[('DEFAULTS', 'stale_lock_seconds', 
+            extra_config_knobs=[('DEFAULTS', 'stale_lock_seconds',
             cls.STALE_LOCK_SECS)])
     # end setUpClass
 
     def test_stale_fq_name_lock_removed_on_partial_create(self):
-        # 1. partially create an object i.e zk done, cass 
+        # 1. partially create an object i.e zk done, cass
         #    cass silently not(simulating process restart).
         # 2. create same object again, expect RefsExist
         # 3. wait for stale_lock_seconds and attempt create
@@ -1961,8 +1961,8 @@ class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
 
         # when there are pipe-lined requests, responses have content-length
         # calculated only once. see _cast() in bottle.py for 'out' as bytes.
-        # in this test, without resetting as below, read of def-nw-ipam 
-        # in create_vn will be the size returned for read_vn and 
+        # in this test, without resetting as below, read of def-nw-ipam
+        # in create_vn will be the size returned for read_vn and
         # deserialization fails
         @bottle.hook('after_request')
         def reset_response_content_length():
@@ -2240,7 +2240,7 @@ class TestExtensionApi(test_case.ApiServerTestCase):
         TestExtensionApi.test_case = self
         super(TestExtensionApi, self).setUp()
     # end setUp
-  
+
     def test_transform_request(self):
         # create
         obj = VirtualNetwork('transform-create')
@@ -2733,6 +2733,8 @@ class TestPropertyWithList(test_case.ApiServerTestCase):
 
 
 class TestPropertyWithMap(test_case.ApiServerTestCase):
+    _excluded_vmi_bindings = ['vif_type', 'vnic_type']
+
     def assert_kvpos(self, rd_bindings, idx, k, v, pos):
         self.assertEqual(rd_bindings[idx][0]['key'], k)
         self.assertEqual(rd_bindings[idx][0]['value'], v)
@@ -2749,13 +2751,12 @@ class TestPropertyWithMap(test_case.ApiServerTestCase):
         self._vnc_lib.virtual_machine_interface_create(vmi_obj)
 
         # ensure stored as list order
-        rd_vmi_obj = self._vnc_lib.virtual_machine_interface_read(
-            id=vmi_obj.uuid)
-        rd_bindings = rd_vmi_obj.virtual_machine_interface_bindings
-        self.assertThat(
-            rd_bindings.key_value_pair[0].key, Equals('k1'))
-        self.assertThat(
-            rd_bindings.key_value_pair[1].key, Equals('k2'))
+        rd_bindings = self._vnc_lib.virtual_machine_interface_read(
+            id=vmi_obj.uuid).virtual_machine_interface_bindings
+        bindings_dict = {binding.key: binding.value for binding in
+                         rd_bindings.key_value_pair
+                         if binding.key not in self._excluded_vmi_bindings}
+        self.assertDictEqual(bindings_dict, {'k1': 'v1', 'k2': 'v2'})
 
         # verify db storage format (wrapper/container type stripped in storage)
         uuid_cf = test_common.CassandraCFs.get_cf('config_db_uuid','obj_uuid_table')
@@ -2787,8 +2788,11 @@ class TestPropertyWithMap(test_case.ApiServerTestCase):
         vmi_obj = VirtualMachineInterface('vmi-%s' %(self.id()),
             parent_obj=Project())
 
-        for key,val in [('k2','v2'), ('k1','v1'),
-                            ('k3','v3'), ('k4', 'v4')]:
+        fake_bindings_dict = {'k1': 'v1',
+                              'k2': 'v2',
+                              'k3': 'v3',
+                              'k4': 'v4'}
+        for key, val in fake_bindings_dict.iteritems():
             vmi_obj.add_virtual_machine_interface_bindings(
                 KeyValuePair(key=key, value=val))
 
@@ -2800,28 +2804,24 @@ class TestPropertyWithMap(test_case.ApiServerTestCase):
 
         self.assertEqual(len(rd_bindings.key_value_pair), 4)
 
-        self.assertEqual(rd_bindings.key_value_pair[0].key, 'k1')
-        self.assertEqual(rd_bindings.key_value_pair[0].value, 'v1')
-        self.assertEqual(rd_bindings.key_value_pair[1].key, 'k2')
-        self.assertEqual(rd_bindings.key_value_pair[1].value, 'v2')
-        self.assertEqual(rd_bindings.key_value_pair[2].key, 'k3')
-        self.assertEqual(rd_bindings.key_value_pair[2].value, 'v3')
-        self.assertEqual(rd_bindings.key_value_pair[3].key, 'k4')
-        self.assertEqual(rd_bindings.key_value_pair[3].value, 'v4')
+        bindings_dict = {binding.key: binding.value for binding in
+                         rd_bindings.key_value_pair
+                         if binding.key not in self._excluded_vmi_bindings}
+        self.assertDictEqual(bindings_dict, fake_bindings_dict)
 
         for pos in ['k1', 'k4']:
-            vmi_obj.del_virtual_machine_interface_bindings(
-                elem_position=pos)
+            vmi_obj.del_virtual_machine_interface_bindings(elem_position=pos)
+            fake_bindings_dict.pop(pos)
         self._vnc_lib.virtual_machine_interface_update(vmi_obj)
         rd_bindings = self._vnc_lib.virtual_machine_interface_read(
             id=vmi_obj.uuid).virtual_machine_interface_bindings
 
         self.assertEqual(len(rd_bindings.key_value_pair), 2)
 
-        self.assertEqual(rd_bindings.key_value_pair[0].key, 'k2')
-        self.assertEqual(rd_bindings.key_value_pair[0].value, 'v2')
-        self.assertEqual(rd_bindings.key_value_pair[1].key, 'k3')
-        self.assertEqual(rd_bindings.key_value_pair[1].value, 'v3')
+        bindings_dict = {binding.key: binding.value for binding in
+                         rd_bindings.key_value_pair
+                         if binding.key not in self._excluded_vmi_bindings}
+        self.assertDictEqual(bindings_dict, fake_bindings_dict)
     # end test_element_set_del_in_object
 # end class TestPropertyWithMap
 
@@ -2954,7 +2954,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
             from vnc_cfg_api_server import db_manage
             test_obj = self._create_test_object()
             self.assertTill(self.ifmap_has_ident, obj=test_obj)
-     
+
             uuid_cf = test_common.CassandraCFs.get_cf('config_db_uuid','obj_uuid_table')
             with uuid_cf.patch_row(test_obj.uuid, new_columns=None):
                 db_checker = db_manage.DatabaseChecker(
@@ -2966,7 +2966,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
     # test_checker_ifmap_identifier_extra
 
     def test_checker_ifmap_identifier_missing(self):
-        # ifmap has doesn't have an identifier but obj_uuid table 
+        # ifmap has doesn't have an identifier but obj_uuid table
         # in cassandra does
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
