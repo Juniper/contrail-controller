@@ -174,12 +174,6 @@ class VncIfmapClient(object):
                 meta = Metadata(prop_meta, norm_str,
                        {'ifmap-cardinality':'singleValue'}, ns_prefix = 'contrail')
 
-                if (existing_metas and prop_meta in existing_metas and
-                    str(existing_metas[prop_meta][0]['meta']) == str(meta)):
-                    # no change
-                    pass
-                else:
-                    self._update_id_self_meta(update, meta)
             else: # complex type
                 prop_cls = cfgm_common.utils.str_to_class(prop_type,
                                                           __name__)
@@ -206,12 +200,15 @@ class VncIfmapClient(object):
                     {'ifmap-cardinality':'singleValue'}, ns_prefix='contrail',
                     elements=prop_xml)
 
-                if (existing_metas and prop_meta in existing_metas and
-                    str(existing_metas[prop_meta][0]['meta']) == str(meta)):
-                    # no change
-                    pass
-                else:
-                    self._update_id_self_meta(update, meta)
+            # If obj is new (existing metas is none) or
+            # if obj does not have this prop_meta (or)
+            # or if the prop_meta is different from what we have currently,
+            # then update
+            if (not existing_metas or
+                not prop_meta in existing_metas or
+                    ('' in existing_metas[prop_meta] and
+                    str(meta) != str(existing_metas[prop_meta]['']))):
+                self._update_id_self_meta(update, meta)
         # end for all property types
 
         # References Meta
@@ -301,7 +298,7 @@ class VncIfmapClient(object):
         props = obj_cls.prop_field_metas
         for prop, meta in props.items():
             if meta in existing_metas and new_obj_dict.get(prop) is None:
-                self._delete_id_self_meta(ifmap_id, 'contrail:'+meta)
+                self._delete_id_self_meta(ifmap_id, meta)
 
         # remove refs that are no longer active
         delete_list = []
@@ -313,7 +310,7 @@ class VncIfmapClient(object):
         #        'virtual-network-network-policy': 'network-policy',
         #        'virtual-network-route-table': 'route-table'}
         for meta, to_name in refs.items():
-            old_set = set([m['id'] for m in existing_metas.get(meta, [])])
+            old_set = set(existing_metas.get(meta, {}).keys())
             new_set = set()
             to_name_m = to_name.replace('-', '_')
             for ref in new_obj_dict.get(to_name_m+'_refs', []):
@@ -322,7 +319,7 @@ class VncIfmapClient(object):
                 new_set.add(to_imid)
 
             for inact_ref in old_set - new_set:
-                delete_list.append((inact_ref, 'contrail:'+meta))
+                delete_list.append((inact_ref, meta))
 
         if delete_list:
             self._delete_id_pair_meta_list(ifmap_id, delete_list)
@@ -337,11 +334,11 @@ class VncIfmapClient(object):
         existing_metas = self._object_read_to_meta_index(ifmap_id)
         meta_list = []
         for meta_name, meta_infos in existing_metas.items():
-            for meta_info in meta_infos:
-                ref_imid = meta_info.get('id')
-                if ref_imid is None:
-                    continue
-                meta_list.append((ref_imid, 'contrail:'+meta_name))
+            # Delete all refs/links in the object.
+            # Refs are identified when the key is a non-empty string.
+            meta_list.extend(
+                [(k, meta_name)
+                  for k in meta_infos if k != ''])
 
         if parent_imid:
             # Remove link from parent
@@ -594,14 +591,14 @@ class VncIfmapClient(object):
 
     def _delete_id_self_meta(self, self_imid, meta_name):
         mapclient = self._mapclient
-
-        del_str = self._build_request(self_imid, 'self', [meta_name], True)
+        contrail_metaname = 'contrail:' + meta_name if meta_name else None
+        del_str = self._build_request(self_imid, 'self', [contrail_metaname], 
+                                      True)
         self._publish_to_ifmap_enqueue('delete', del_str)
 
         # del meta from cache and del id if this was last meta
         if meta_name:
-            prop_name = meta_name.replace('contrail:', '')
-            del self._id_to_metas[self_imid][prop_name]
+            del self._id_to_metas[self_imid][meta_name]
             if not self._id_to_metas[self_imid]:
                 del self._id_to_metas[self_imid]
         else:
@@ -612,7 +609,8 @@ class VncIfmapClient(object):
         mapclient = self._mapclient
         del_str = ''
         for id2, metadata in meta_list:
-            del_str += self._build_request(id1, id2, [metadata], True)
+            contrail_metadata = 'contrail:' + metadata if metadata else None
+            del_str += self._build_request(id1, id2, [contrail_metadata], True)
 
         self._publish_to_ifmap_enqueue('delete', del_str)
 
@@ -629,26 +627,21 @@ class VncIfmapClient(object):
                 return
 
             # if meta is prop, noop
-            if 'id' not in self._id_to_metas[id1][meta_name][0]:
-                return
-            self._id_to_metas[id1][meta_name] = [
-                m for m in self._id_to_metas[id1][meta_name] if m['id'] != id2]
+            if id2 in self._id_to_metas[id1][meta_name]:
+                del self._id_to_metas[id1][meta_name][id2]
+        #end _id_to_metas_delete
+
         for id2, metadata in meta_list:
             if metadata:
-                meta_name = metadata.replace('contrail:', '')
                 # replace with remaining refs
-                _id_to_metas_delete(id1, id2, meta_name)
-                _id_to_metas_delete(id2, id1, meta_name)
+                _id_to_metas_delete(id1, id2, metadata)
+                _id_to_metas_delete(id2, id1, metadata)
             else: # no meta specified remove all links from id1 to id2
                 for meta_name in self._id_to_metas.get(id1, {}).keys():
                     _id_to_metas_delete(id1, id2, meta_name)
                 for meta_name in self._id_to_metas.get(id2, {}).keys():
                     _id_to_metas_delete(id2, id1, meta_name)
     # end _delete_id_pair_meta_list
-
-    def _delete_id_pair_meta(self, id1, id2, metadata):
-        self._delete_id_pair_meta_list(id1, [(id2, metadata)])
-    # end _delete_id_pair_meta
 
     def _update_id_self_meta(self, update, meta):
         """ update: dictionary of the type
@@ -664,46 +657,44 @@ class VncIfmapClient(object):
      # end _update_id_pair_meta
 
     def _publish_update(self, self_imid, update):
-        if self_imid not in self._id_to_metas:
-            self._id_to_metas[self_imid] = {}
-
         mapclient = self._mapclient
         requests = []
-        for id2 in update:
-            metalist = update[id2]
+        self_metas = self._id_to_metas.setdefault(self_imid, {})
+        for id2, metalist in update.items():
             requests.append(self._build_request(self_imid, id2, metalist))
 
             # remember what we wrote for diffing during next update
             for m in metalist:
                 meta_name = m._Metadata__name.replace('contrail:', '')
-                if id2 == 'self':
-                    self._id_to_metas[self_imid][meta_name] = [{'meta':m}]
-                    continue
-                if meta_name in self._id_to_metas[self_imid]:
-                    for id_meta in self._id_to_metas[self_imid][meta_name]:
-                        if id_meta['id'] == id2:
-                            id_meta['meta'] = m
-                            break
-                    else:
-                        self._id_to_metas[self_imid][meta_name].append({'meta':m,
-                                                                        'id': id2})
-                else:
-                   self._id_to_metas[self_imid][meta_name] = [{'meta':m,
-                                                               'id': id2}]
 
-                if id2 not in self._id_to_metas:
-                    self._id_to_metas[id2] = {}
-                if meta_name in self._id_to_metas[id2]:
-                    for id_meta in self._id_to_metas[id2][meta_name]:
-                        if id_meta['id'] == self_imid:
-                            id_meta['meta'] = m
-                            break
-                    else:
-                        self._id_to_metas[id2][meta_name].append({'meta':m,
-                                                                  'id': self_imid})
+                # Objects have two types of members - Props and refs/links.
+                # Props are cached in id_to_metas as
+                #        id_to_metas[self_imid][meta_name][''] 
+                #        (with empty string as key)
+
+                # Links are cached in id_to_metas as
+                #        id_to_metas[self_imid][meta_name][id2]
+                #        id2 is used as a key
+
+                if id2 == 'self':
+                    self_metas[meta_name] = {'' : m}
+                    continue
+
+                if meta_name in self_metas:
+                    # Update the link/ref
+                    self_metas[meta_name][id2] = m
                 else:
-                   self._id_to_metas[id2][meta_name] = [{'meta':m,
-                                                         'id': self_imid}]
+                    # Create a new link/ref
+                    self_metas[meta_name] = {id2 : m}
+
+                # Reverse linking from id2 to id1
+                self._id_to_metas.setdefault(id2, {})
+ 
+                if meta_name in self._id_to_metas[id2]:
+                    self._id_to_metas[id2][meta_name][self_imid] = m
+                else:
+                    self._id_to_metas[id2][meta_name] = {self_imid : m}
+
         upd_str = ''.join(requests)
         self._publish_to_ifmap_enqueue('update', upd_str)
     # end _publish_update
@@ -1328,7 +1319,6 @@ class VncDbClient(object):
 
         self._UVEMAP = {
             "virtual_network" : "ObjectVNTable",
-            "virtual_machine" : "ObjectVMTable",
             "service_instance" : "ObjectSITable",
             "virtual_router" : "ObjectVRouter",
             "analytics_node" : "ObjectCollectorInfo",
@@ -1594,9 +1584,6 @@ class VncDbClient(object):
         (ok, obj_dicts) = self._cassandra_db.object_read(
                                obj_type, obj_uuids, field_names=obj_fields)
         for obj_dict in obj_dicts:
-            # give chance for zk heartbeat/ping
-            gevent.sleep(0)
-
             try:
                 obj_uuid = obj_dict['uuid']
                 self.dbe_uve_trace("RESYNC", obj_type, obj_uuid, obj_dict)
