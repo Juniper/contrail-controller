@@ -245,6 +245,14 @@ class VncIfmapClient(object):
 
     def object_create(self, obj_ids, obj_dict):
         obj_type = obj_ids['type'].replace('-', '_')
+        # Update notification might be received before create notify,
+        # so reading the object from database and publishing to IFMAP.
+        try:
+            (ok, result) = self._db_client_mgr.dbe_read(obj_ids['type'], obj_ids)
+            if ok:
+                obj_dict = result
+        except NoIdError as e:
+            pass
 
         if not 'parent_type' in obj_dict:
             # parent is config-root
@@ -281,6 +289,10 @@ class VncIfmapClient(object):
         obj_cls = self._db_client_mgr.get_resource_class(res_type)
         # read in refs from ifmap to determine which ones become inactive after update
         existing_metas = self._object_read_to_meta_index(ifmap_id)
+
+        if not existing_metas:
+            # UPDATE notify queued before CREATE notify, Skip publish to IFMAP.
+            return (True, '')
 
         # remove properties that are no longer active
         props = obj_cls.prop_field_metas
