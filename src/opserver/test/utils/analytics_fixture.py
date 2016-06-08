@@ -781,8 +781,8 @@ class AnalyticsFixture(fixtures.Fixture):
 	    if (alarm_state == UVEAlarmState.Idle):
 		continue
             for alm in elem['alarms']:
-                if len(alm['rules']):
-                    alarms[alm['type']] = alm['rules']
+                if len(alm['alarm_rules']):
+                    alarms[alm['type']] = alm['alarm_rules']['AlarmRules']['or_list']
         if type in alarms:
             if is_set:
                 if rules:
@@ -791,8 +791,8 @@ class AnalyticsFixture(fixtures.Fixture):
                     agg1 = 0
                     agg2 = 0
                     for idx in range(0,len(rules)):
-                        agg1 += len(rules[idx]['rule'])
-                        agg2 += len(alarms[type][idx]['rule'])
+                        agg1 += len(rules[idx]['and_list'])
+                        agg2 += len(alarms[type][idx]['and_list'])
                     if agg1 != agg2:
                         return False
             return is_set

@@ -3,6 +3,8 @@
 #
 
 
+import socket
+
 from vnc_api.gen.resource_client import Alarm
 from vnc_api.gen.resource_xsd import IdPermsType, AlarmExpression, \
     AlarmAndList, AlarmOrList
@@ -21,7 +23,7 @@ class AlarmGenConfigHandler(ConfigHandler):
     def __init__(self, module_id, instance_id, logger,
                  discovery_client, keystone_info, rabbitmq_info,
                  alarm_plugins):
-        service_id = module_id+':'+instance_id
+        service_id = socket.gethostname()+':'+module_id+':'+instance_id
         config_types = ['global-system-config', 'alarm']
         super(AlarmGenConfigHandler, self).__init__(service_id, logger,
             discovery_client, keystone_info, rabbitmq_info, config_types)

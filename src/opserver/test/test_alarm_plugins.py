@@ -59,7 +59,8 @@ class TestAlarmPlugins(unittest.TestCase):
                         operand2=exp['operand2'], vars=exp.get('vars')))
                 alarm_or_list.append(AlarmAndList(alarm_and_list))
         alarm_name = camel_case_to_hyphen(plugin.__class__.__name__)
-        kwargs = {'parent_type': 'global-system-config'}
+        kwargs = {'parent_type': 'global-system-config',
+            'fq_name': ['default-global-system-config', alarm_name]}
         return Alarm(name=alarm_name, alarm_rules=AlarmOrList(alarm_or_list),
             **kwargs)
     # end get_alarm_config
@@ -110,7 +111,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [
+                        'and_list': [
                             ('ContrailConfig.elements.bgp_router_parameters' +\
                                 '.address not in BgpRouterState.' +\
                                 'bgp_router_ip_list', None,
@@ -136,7 +137,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [
+                        'and_list': [
                             ('ContrailConfig.elements.bgp_router_parameters' +\
                                 '.address not in BgpRouterState.' +\
                                 'bgp_router_ip_list', None,
@@ -163,7 +164,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [
+                        'and_list': [
                             ('ContrailConfig.elements.bgp_router_parameters' +\
                                 '.address not in BgpRouterState.' +\
                                 'bgp_router_ip_list', None,
@@ -235,7 +236,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [
+                        'and_list': [
                             ('ContrailConfig.elements.' +\
                                 'virtual_router_ip_address not in '
                                 'VrouterAgent.self_ip_list', None,
@@ -243,7 +244,7 @@ class TestAlarmPlugins(unittest.TestCase):
                         ]
                     },
                     {
-                        'rule': [
+                        'and_list': [
                             ('ContrailConfig.elements.' +\
                                 'virtual_router_ip_address != '
                                 'VrouterAgent.control_ip', None,
@@ -268,7 +269,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [
+                        'and_list': [
                             ('ContrailConfig.elements.' +\
                                 'virtual_router_ip_address not in '
                                 'VrouterAgent.self_ip_list', None,
@@ -293,7 +294,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [
+                        'and_list': [
                             ('ContrailConfig.elements.' +\
                                 'virtual_router_ip_address != '
                                 'VrouterAgent.control_ip', None,
@@ -318,7 +319,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [
+                        'and_list': [
                             ('ContrailConfig.elements.' +\
                                 'virtual_router_ip_address not in '
                                 'VrouterAgent.self_ip_list', None,
@@ -326,7 +327,7 @@ class TestAlarmPlugins(unittest.TestCase):
                         ]
                     },
                     {
-                        'rule': [
+                        'and_list': [
                             ('ContrailConfig.elements.' +\
                                 'virtual_router_ip_address != '
                                 'VrouterAgent.control_ip', None,
@@ -353,7 +354,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [
+                        'and_list': [
                             ('ContrailConfig.elements.' +\
                                 'virtual_router_ip_address != '
                                 'VrouterAgent.control_ip', None,
@@ -380,7 +381,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [
+                        'and_list': [
                             ('ContrailConfig.elements.' +\
                                 'virtual_router_ip_address not in '
                                 'VrouterAgent.self_ip_list', None,
@@ -432,13 +433,13 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [
+                        'and_list': [
                             ('BgpRouterState.num_up_bgp_peer == null',
                              None, [('null', None, None)])
                         ]
                     },
                     {
-                        'rule': [
+                        'and_list': [
                             ('BgpRouterState.num_up_bgp_peer != ' +\
                                 'BgpRouterState.num_bgp_peer',
                              None, [('null', '2', None)])
@@ -459,7 +460,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [
+                        'and_list': [
                             ('BgpRouterState.num_up_bgp_peer != ' +\
                                 'BgpRouterState.num_bgp_peer',
                              None, [('1', '2', None)])
@@ -492,7 +493,7 @@ class TestAlarmPlugins(unittest.TestCase):
                     uve_data={}),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [
+                        'and_list': [
                             ('ContrailConfig == null', None,
                              [('null', None, None)])
                         ]
@@ -579,7 +580,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [
+                        'and_list': [
                             ('NodeStatus.disk_usage_info.' +\
                                 'percentage_partition_space_used >= 50',
                              ['NodeStatus.disk_usage_info.' +\
@@ -615,7 +616,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [('CollectorState.build_info == null',
+                        'and_list': [('CollectorState.build_info == null',
                             None, [('null', None, None)])
                         ]
                     }
@@ -654,7 +655,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [('ModuleCpuState.build_info == null',
+                        'and_list': [('ModuleCpuState.build_info == null',
                             None, [('null', None, None)])
                         ]
                     }
@@ -693,7 +694,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [('BgpRouterState.build_info == null',
+                        'and_list': [('BgpRouterState.build_info == null',
                             None, [('null', None, None)])
                         ]
                     }
@@ -732,7 +733,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [('VrouterAgent.build_info == null',
+                        'and_list': [('VrouterAgent.build_info == null',
                             None, [('null', None, None)])
                         ]
                     }
@@ -770,7 +771,7 @@ class TestAlarmPlugins(unittest.TestCase):
                     uve_data={'NodeStatus': {}}),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [('NodeStatus.process_status == null',
+                        'and_list': [('NodeStatus.process_status == null',
                             None, [('null', None, None)])
                         ]
                     }
@@ -814,7 +815,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [
+                        'and_list': [
                             ('NodeStatus.process_status.state != "Functional"',
                              ['NodeStatus.process_status.module_id',
                               'NodeStatus.process_status.instance_id'],
@@ -851,7 +852,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [
+                        'and_list': [
                             ('NodeStatus.process_status.state != "Functional"',
                              ['NodeStatus.process_status.module_id',
                               'NodeStatus.process_status.instance_id'],
@@ -886,7 +887,7 @@ class TestAlarmPlugins(unittest.TestCase):
                     uve_data={'NodeStatus': {}}),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [('NodeStatus.process_info == null',
+                        'and_list': [('NodeStatus.process_info == null',
                             None, [('null', None, None)])
                         ]
                     }
@@ -926,7 +927,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [
+                        'and_list': [
                             ('NodeStatus.process_info.process_state ' +\
                                  '!= "PROCESS_STATE_RUNNING"',
                              ['NodeStatus.process_info.process_name'],
@@ -958,7 +959,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [('NodeStatus.process_info.process_state ' +\
+                        'and_list': [('NodeStatus.process_info.process_state ' +\
                             '!= "PROCESS_STATE_RUNNING"',
                             ['NodeStatus.process_info.process_name'],
                             [('"PROCESS_STATE_STOPPED"', None, {
@@ -1022,7 +1023,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [
+                        'and_list': [
                             ('ContrailConfig.elements.virtual_router_refs ' +\
                                 '!= null', None,
                                 [('[{"to": ["tor1"]}]', None, None)]),
@@ -1031,7 +1032,7 @@ class TestAlarmPlugins(unittest.TestCase):
                         ]
                     },
                     {
-                        'rule': [
+                        'and_list': [
                             ('ContrailConfig.elements.virtual_router_refs ' +\
                                 '!= null', None,
                                 [('[{"to": ["tor1"]}]', None, None)]),
@@ -1058,7 +1059,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [
+                        'and_list': [
                             ('ContrailConfig.elements.virtual_router_refs ' +\
                                 '!= null', None,
                                 [('[{"to": ["tor1"]}]', None, None)]
@@ -1124,7 +1125,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [
+                        'and_list': [
                             ('StorageCluster.info_stats.status != 0',
                              ['StorageCluster.info_stats.health_summary'],
                              [('1', None, {
@@ -1181,7 +1182,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [
+                        'and_list': [
                             ('VrouterAgent.error_intf_list != null', None,
                              [('["error1"]', None, None)]),
                             ('VrouterAgent.error_intf_list != []', None,
@@ -1213,13 +1214,13 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [
+                        'and_list': [
                             ('BgpRouterState.num_up_xmpp_peer == null',
                              None, [('null', None, None)])
                         ]
                     },
                     {
-                        'rule': [
+                        'and_list': [
                             ('BgpRouterState.num_up_xmpp_peer != ' +\
                                 'BgpRouterState.num_xmpp_peer',
                              None, [('null', '3', None)])
@@ -1240,7 +1241,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'rule': [
+                        'and_list': [
                             ('BgpRouterState.num_up_xmpp_peer != ' +\
                                 'BgpRouterState.num_xmpp_peer',
                              None, [('2', '3', None)])
@@ -1273,7 +1274,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 exp_or_list = []
                 for elt in test.output.or_list:
                     and_list = []
-                    for condition, vars, match in elt['rule']:
+                    for condition, vars, match in elt['and_list']:
                         oper1, tmp = condition.split(' ', 1)
                         oper, oper2 = tmp.rsplit(' ', 1)
                         and_list.append(AlarmConditionMatch(
@@ -1284,14 +1285,15 @@ class TestAlarmPlugins(unittest.TestCase):
                                 json_operand1_value=e[0],
                                 json_operand2_value=e[1],
                                 json_vars=e[2] or {}) for e in match]))
-                    exp_or_list.append(AlarmRuleMatch(rule=and_list))
+                    exp_or_list.append(AlarmAndList(and_list))
             if hasattr(plugin, '__call__'):
-                or_list = plugin.__call__(test.input.uve_key, test.input.uve_data)
+                or_list = plugin.__call__(test.input.uve_key,
+                    test.input.uve_data)
             else:
                 alarm_processor = AlarmProcessor(logging)
                 alarm_cfg = self.get_alarm_config(plugin)
                 or_list = alarm_processor._evaluate_uve_for_alarms(
-                    alarm_cfg, test.input.uve_data)
+                    alarm_cfg, test.input.uve_key, test.input.uve_data)
             logging.info('exp_or_list: %s' % (str(exp_or_list)))
             logging.info('or_list: %s' % (str(or_list)))
             self.assertEqual(exp_or_list, or_list)

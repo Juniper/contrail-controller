@@ -33,7 +33,7 @@ from pysandesh.gen_py.process_info.ttypes import ConnectionType,\
 from pysandesh.gen_py.sandesh_alarm.ttypes import SandeshAlarmAckResponseCode
 from sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import AlarmTrace, \
     UVEAlarms, UVEAlarmInfo, UVEAlarmConfig, AlarmCondition, AlarmMatch, \
-    AlarmConditionMatch, AlarmRuleMatch
+    AlarmConditionMatch, AlarmAndList, AlarmRules
 from sandesh.analytics.ttypes import *
 from sandesh.analytics.cpuinfo.ttypes import ProcessCpuInfo
 from sandesh_common.vns.ttypes import Module, NodeType
@@ -187,6 +187,7 @@ class AGKeyInfo(object):
         return self.set_unchanged
 
 class AlarmProcessor(object):
+
     def __init__(self, logger):
         self.uve_alarms = {}
         self._logger = logger
@@ -220,13 +221,13 @@ class AlarmProcessor(object):
                 or_list = alarm.__call__(uv, local_uve)
             else:
                 or_list = self._evaluate_uve_for_alarms(
-                    alarm.config(), local_uve)
+                    alarm.config(), uv, local_uve)
             self._logger.debug("Alarm[%s] %s: %s" %
                 (uv, alarm_name, str(or_list)))
             if or_list:
                 self.uve_alarms[alarm_name] = UVEAlarmInfo(type=alarm_name,
                     severity=sev, timestamp=0, token="",
-                    rules=or_list, ack=False)
+                    alarm_rules=AlarmRules(or_list), ack=False)
 	except Exception as ex:
 	    template = "Exception {0} in Alarm Processing. Arguments:\n{1!r}"
 	    messag = template.format(type(ex).__name__, ex.args)
@@ -234,6 +235,7 @@ class AlarmProcessor(object):
 			      (messag, traceback.format_exc()))
             self.uve_alarms[alarm_name] = UVEAlarmInfo(type=alarm_name, severity=sev,
                                    timestamp=0, token="", rules=[], ack=False)
+    # end process_alarms
 
     def _get_uve_attribute(self, tuve, puve, attr_list):
         if tuve is None or not attr_list:
@@ -348,7 +350,14 @@ class AlarmProcessor(object):
             match=match_list)
     # end _get_alarm_condition_match
 
-    def _evaluate_uve_for_alarms(self, alarm_cfg, uve):
+    def _evaluate_uve_for_alarms(self, alarm_cfg, uve_key, uve):
+        table, uve_name = uve_key.split(':', 1)
+        # For alarms configured under project, the parent fq_name of the uve
+        # should match with that of the alarm config
+        if alarm_cfg.parent_type == 'project':
+            uve_parent_fqname = uve_name.rsplit(':', 1)[0]
+            if uve_parent_fqname != alarm_cfg.get_parent_fq_name_str():
+                return None
         or_list = []
         for cfg_and_list in alarm_cfg.alarm_rules.or_list:
             and_list = []
@@ -371,23 +380,25 @@ class AlarmProcessor(object):
                     is_operand2_json_val = False
                 if isinstance(operand1_val, list):
                     match_list = []
-                    if is_operand2_json_val:
-                        for val in operand1_val:
-                            if self._compare_operand_vals(val['value'],
-                                operand2_val, exp.operation):
-                                match_list.append(self._get_alarm_match(
-                                    uve, exp, val, operand2_val,
-                                    is_operand2_json_val))
-                        if match_list:
-                            and_list.append(self._get_alarm_condition_match(
-                                uve, exp, operand1_val, operand2_val,
-                                is_operand2_json_val, match_list))
-                        else:
+                    val2 = operand2_val
+                    if not is_operand2_json_val:
+                        if isinstance(operand2_val, list):
+                            # TODO: Handle the case where both operand1_val and
+                            # operand2_val are lists
                             and_list_fail = True
                             break
+                        val2 = operand2_val['value']
+                    for val1 in operand1_val:
+                        if self._compare_operand_vals(val1['value'],
+                            operand2_val, exp.operation):
+                            match_list.append(self._get_alarm_match(
+                                uve, exp, val1, val2,
+                                is_operand2_json_val))
+                    if match_list:
+                        and_list.append(self._get_alarm_condition_match(
+                            uve, exp, operand1_val, operand2_val,
+                            is_operand2_json_val, match_list))
                     else:
-                        # TODO: Handle the case where both operand1_val and
-                        # operand2_val are lists
                         and_list_fail = True
                         break
                 else:
@@ -407,7 +418,7 @@ class AlarmProcessor(object):
                         and_list_fail = True
                         break
             if not and_list_fail:
-                or_list.append(AlarmRuleMatch(rule=and_list))
+                or_list.append(AlarmAndList(and_list))
         if or_list:
             return or_list
         return None
@@ -1461,6 +1472,8 @@ class Controller(object):
             self.tab_perf[tab].record_call(UTCTimestampUsec() - prevt)
 
             del_types = []
+            if not self.tab_alarms.has_key(tab):
+                self.tab_alarms[tab] = {}
             if self.tab_alarms[tab].has_key(uv):
                 for nm, asm in self.tab_alarms[tab][uv].iteritems():
                     # This type was present earlier, but is now gone

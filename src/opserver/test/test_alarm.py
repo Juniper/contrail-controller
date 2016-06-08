@@ -22,8 +22,8 @@ from pysandesh.util import UTCTimestampUsec
 from pysandesh.gen_py.sandesh_alarm.ttypes import SandeshAlarmAckRequest, \
     SandeshAlarmAckResponseCode
 from opserver.sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import \
-    AlarmTemplate, AlarmElement, Operand1, Operand2, \
-    UVEAlarmInfo, UVEAlarmConfig, UVEAlarms, AllOf
+    UVEAlarmInfo, UVEAlarmConfig, UVEAlarms, AlarmRules, AlarmAndList, \
+    AlarmCondition, AlarmMatch, AlarmConditionMatch
 from opserver.sandesh.alarmgen_ctrl.ttypes import UVEAlarmOperState, \
     UVEAlarmStateMachineInfo, UVEAlarmState
 from opserver.uveserver import UVEServer
@@ -279,15 +279,15 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
 
     def create_test_alarm_info(self, table, name, alarm_type):
         or_list = []
-        or_list.append([AllOf(all_of=[AlarmElement(\
-            rule=AlarmTemplate(oper="!=",
-                operand1=Operand1(keys=["dummytoken"]),
-                operand2=Operand2(json_value=json.dumps('UP'))),
-            json_operand1_value=json.dumps('DOWN'))])])
+        condition_match = AlarmConditionMatch(
+            condition=AlarmCondition(operation="!=", operand1="dummytoken",
+                operand2=json.dumps("UP")),
+            match=[AlarmMatch(json_operand1_value=json.dumps("DOWN"))])
+        or_list.append(AlarmAndList([condition_match]))
         uai = UVEAlarmInfo(type=alarm_type, severity=1,
-                                  timestamp=UTCTimestampUsec(),
-                                  token="dummytoken",
-                                  any_of=or_list, ack=False)
+                           timestamp=UTCTimestampUsec(),
+                           token="dummytoken",
+                           alarm_rules=AlarmRules(or_list), ack=False)
         conf = UVEAlarmConfig()
         state = UVEAlarmOperState(state = UVEAlarmState.Active,
                                 head_timestamp = 0, alarm_timestamp = [])
