@@ -156,9 +156,8 @@ class CfgParser(object):
         parser.add_argument("--zk_list",
             help="List of zookeepers in ip:port format",
             nargs="+")
-        parser.add_argument("--rabbitmq_server_list",
-            help="List of Rabbitmq servers in ip:port format",
-            nargs="+")
+        parser.add_argument("--rabbitmq_server_list", type=str,
+                help="List of Rabbitmq servers in ip1:port,ip2:port format")
         parser.add_argument("--rabbitmq_user",
             help="Username for Rabbitmq")
         parser.add_argument("--rabbitmq_password",
@@ -201,9 +200,6 @@ class CfgParser(object):
             self._args.redis_uve_list = self._args.redis_uve_list.split()
         if type(self._args.redis_uve_list) is str:
             self._args.alarmgen_list = self._args.alarmgen_list.split()
-        if type(self._args.rabbitmq_server_list) is str:
-            self._args.rabbitmq_server_list = \
-                self._args.rabbitmq_server_list.split()
 
     def _pat(self):
         if self.__pat is None:
