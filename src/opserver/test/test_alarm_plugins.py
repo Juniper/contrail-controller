@@ -9,15 +9,19 @@ import unittest
 import logging
 from collections import namedtuple
 
+from vnc_api.gen.resource_client import Alarm
+from vnc_api.gen.resource_xsd import IdPermsType, AlarmExpression, \
+    AlarmAndList, AlarmOrList
 from opserver.sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import *
+from opserver.alarmgen import AlarmProcessor
+from opserver.opserver_util import camel_case_to_hyphen
 from alarm_process_status.main import ProcessStatus
+from alarm_process_connectivity.main import ProcessConnectivity
 from alarm_bgp_connectivity.main import BgpConnectivity
 from alarm_xmpp_connectivity.main import XmppConnectivity
 from alarm_partial_sysinfo.main import PartialSysinfoCompute,\
     PartialSysinfoAnalytics, PartialSysinfoConfig, PartialSysinfoControl
-from alarm_config_incorrect.main import ConfIncorrectCompute,\
-    ConfIncorrectAnalytics, ConfIncorrectConfig, ConfIncorrectControl,\
-    ConfIncorrectDatabase
+from alarm_config_incorrect.main import ConfIncorrect
 from alarm_address_mismatch.main import AddressMismatchControl,\
     AddressMismatchCompute
 from alarm_prouter_connectivity.main import ProuterConnectivity
@@ -43,6 +47,22 @@ class TestAlarmPlugins(unittest.TestCase):
     def tearDown(self):
         pass
     # end tearDown
+
+    def get_alarm_config(self, plugin):
+        alarm_or_list = []
+        if plugin.rules():
+            for and_list in plugin.rules()['or_list']:
+                alarm_and_list = []
+                for exp in and_list['and_list']:
+                    alarm_and_list.append(AlarmExpression(
+                        operation=exp['operation'], operand1=exp['operand1'],
+                        operand2=exp['operand2'], vars=exp.get('vars')))
+                alarm_or_list.append(AlarmAndList(alarm_and_list))
+        alarm_name = camel_case_to_hyphen(plugin.__class__.__name__)
+        kwargs = {'parent_type': 'global-system-config'}
+        return Alarm(name=alarm_name, alarm_rules=AlarmOrList(alarm_or_list),
+            **kwargs)
+    # end get_alarm_config
 
     def test_alarm_address_mismatch(self):
         tests = [
@@ -492,123 +512,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             )
         ]
-        self._verify(ConfIncorrectAnalytics(), tests)
-
-        tests = [
-            TestCase(
-                name='vrouter: ContrailConfig == null',
-                input=TestInput(uve_key='ObjectVRouter:host1',
-                    uve_data={}),
-                output=TestOutput(or_list=[
-                    {
-                        'rule': [
-                            ('ContrailConfig == null', None,
-                             [('null', None, None)])
-                        ]
-                    }
-                ])
-            ),
-            TestCase(
-                name='vrouter: ContrailConfig != null',
-                input=TestInput(uve_key='ObjectVRouter:host1',
-                    uve_data={
-                        'ContrailConfig': {
-                            'elements': {
-                                'display_name': '"host1"'
-                            }
-                        }
-                    }),
-                output=TestOutput(or_list=None)
-            )
-        ]
-        self._verify(ConfIncorrectCompute(), tests)
-
-        tests= [
-            TestCase(
-                name='config-node: ContrailConfig == null',
-                input=TestInput(uve_key='ObjectConfigNode:host1',
-                    uve_data={}),
-                output=TestOutput(or_list=[
-                    {
-                        'rule': [
-                            ('ContrailConfig == null', None,
-                             [('null', None, None)])
-                        ]
-                    }
-                ])
-            ),
-            TestCase(
-                name='config-node: ContrailConfig != null',
-                input=TestInput(uve_key='ObjectConfigNode:host1',
-                    uve_data={
-                        'ContrailConfig': {
-                            'elements': {
-                                'display_name': '"host1"'
-                            }
-                        }
-                    }),
-                output=TestOutput(or_list=None)
-            )
-        ]
-        self._verify(ConfIncorrectConfig(), tests)
-
-        tests = [
-            TestCase(
-                name='control-node: ContrailConfig == null',
-                input=TestInput(uve_key='ObjectBgpRouter:host1',
-                    uve_data={}),
-                output=TestOutput(or_list=[
-                    {
-                        'rule': [
-                            ('ContrailConfig == null', None,
-                             [('null', None, None)])
-                        ]
-                    }
-                ])
-            ),
-            TestCase(
-                name='control-node: ContrailConfig != null',
-                input=TestInput(uve_key='ObjectBgpRouter:host1',
-                    uve_data={
-                        'ContrailConfig': {
-                            'elements': {
-                                'display_name': '"host1"'
-                            }
-                        }
-                    }),
-                output=TestOutput(or_list=None)
-            )
-        ]
-        self._verify(ConfIncorrectControl(), tests)
-
-        tests = [
-            TestCase(
-                name='database-node: ContrailConfig == null',
-                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
-                    uve_data={}),
-                output=TestOutput(or_list=[
-                    {
-                        'rule': [
-                            ('ContrailConfig == null', None,
-                             [('null', None, None)])
-                        ]
-                    }
-                ])
-            ),
-            TestCase(
-                name='database-node: ContrailConfig != null',
-                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
-                    uve_data={
-                        'ContrailConfig': {
-                            'elements': {
-                                'display_name': '"host1"'
-                            }
-                        }
-                    }),
-                output=TestOutput(or_list=None)
-            )
-        ]
-        self._verify(ConfIncorrectDatabase(), tests)
+        self._verify(ConfIncorrect(), tests)
     # end test_alarm_incorrect_config
 
     def test_alarm_disk_usage(self):
@@ -650,7 +554,7 @@ class TestAlarmPlugins(unittest.TestCase):
             ),
             TestCase(
                 name='NodeStatus.disk_usage_info.' +\
-                    'percentage_partition_space_used > threshold',
+                    'percentage_partition_space_used >= threshold',
                 input=TestInput(uve_key='ObjectDatabaseInfo:host1',
                     uve_data={
                         'NodeStatus': {
@@ -677,7 +581,7 @@ class TestAlarmPlugins(unittest.TestCase):
                     {
                         'rule': [
                             ('NodeStatus.disk_usage_info.' +\
-                                'percentage_partition_space_used > 50',
+                                'percentage_partition_space_used >= 50',
                              ['NodeStatus.disk_usage_info.' +\
                                 'partition_name'],
                              [('55', None, {
@@ -965,6 +869,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ])
             ),
         ]
+        self._verify(ProcessConnectivity(), tests)
     # end test_alarm_process_connectivity
 
     def test_alarm_process_status(self):
@@ -1071,7 +976,7 @@ class TestAlarmPlugins(unittest.TestCase):
         self._verify(ProcessStatus(), tests)
     # end test_alarm_process_status
 
-    def test_prouter_connectivity(self):
+    def test_alarm_prouter_connectivity(self):
         tests = [
             TestCase(
                 name='ProuterData == null',
@@ -1120,9 +1025,17 @@ class TestAlarmPlugins(unittest.TestCase):
                         'rule': [
                             ('ContrailConfig.elements.virtual_router_refs ' +\
                                 '!= null', None,
-                                [('"[{\\"to\\": [\\"tor1\\"]}]"',
-                                    None, None)]),
+                                [('[{"to": ["tor1"]}]', None, None)]),
                             ('ProuterData.connected_agent_list == null', None,
+                             [('null', None, None)])
+                        ]
+                    },
+                    {
+                        'rule': [
+                            ('ContrailConfig.elements.virtual_router_refs ' +\
+                                '!= null', None,
+                                [('[{"to": ["tor1"]}]', None, None)]),
+                            ('ProuterData.connected_agent_list size!= 1', None,
                              [('null', None, None)])
                         ]
                     }
@@ -1148,7 +1061,7 @@ class TestAlarmPlugins(unittest.TestCase):
                         'rule': [
                             ('ContrailConfig.elements.virtual_router_refs ' +\
                                 '!= null', None,
-                                [('"[{\\"to\\": [\\"tor1\\"]}]"', None, None)]
+                                [('[{"to": ["tor1"]}]', None, None)]
                             ),
                             ('ProuterData.connected_agent_list size!= 1', None,
                              [('["tor1", "tor2"]', None, None)])
@@ -1175,7 +1088,7 @@ class TestAlarmPlugins(unittest.TestCase):
             )
         ]
         self._verify(ProuterConnectivity(), tests)
-    # end test_prouter_connectivity
+    # end test_alarm_prouter_connectivity
 
     def test_alarm_storage(self):
         tests = [
@@ -1366,13 +1279,21 @@ class TestAlarmPlugins(unittest.TestCase):
                         and_list.append(AlarmConditionMatch(
                             condition=AlarmCondition(
                                 operation=oper, operand1=oper1,
-                                operand2=oper2, vars=vars),
+                                operand2=oper2, vars=vars or []),
                             match=[AlarmMatch(
                                 json_operand1_value=e[0],
                                 json_operand2_value=e[1],
-                                json_vars=e[2]) for e in match]))
+                                json_vars=e[2] or {}) for e in match]))
                     exp_or_list.append(AlarmRuleMatch(rule=and_list))
-            or_list = plugin.__call__(test.input.uve_key, test.input.uve_data)
+            if hasattr(plugin, '__call__'):
+                or_list = plugin.__call__(test.input.uve_key, test.input.uve_data)
+            else:
+                alarm_processor = AlarmProcessor(logging)
+                alarm_cfg = self.get_alarm_config(plugin)
+                or_list = alarm_processor._evaluate_uve_for_alarms(
+                    alarm_cfg, test.input.uve_data)
+            logging.info('exp_or_list: %s' % (str(exp_or_list)))
+            logging.info('or_list: %s' % (str(or_list)))
             self.assertEqual(exp_or_list, or_list)
     # end _verify
 

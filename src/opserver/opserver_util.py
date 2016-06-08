@@ -21,6 +21,7 @@ import socket, struct
 import copy
 import traceback
 import ast
+import re
 try:
     from pysandesh.gen_py.sandesh.ttypes import SandeshType
 except:
@@ -32,6 +33,19 @@ except:
 def enum(**enums):
     return type('Enum', (), enums)
 # end enum
+
+
+def camel_case_to_hyphen(name):
+    name = re.sub('(.)([A-Z][a-z]+)', r'\1-\2', name)
+    name = re.sub('([a-z])([A-Z])', r'\1-\2', name).lower()
+    return name
+# end camel_case_to_hyphen
+
+
+def inverse_dict(d):
+    return dict(zip(d.values(), d.keys()))
+# end inverse_dict
+
 
 class ServicePoller(gevent.Greenlet):
     def __init__(self, logger, trace_cls, disc, svc_name, callbk, snh):

@@ -4,18 +4,30 @@ from collections import namedtuple
 class AlarmBase(object):
     """Base class for Alarms
     """
-    __metaclass__ = abc.ABCMeta
 
     SYS_EMERG, SYS_ALERT, SYS_CRIT, SYS_ERR,\
         SYS_WARN, SYS_NOTICE, SYS_INFO, SYS_DEBUG = range(8)
 
+    _RULES = None
+
     def __init__(self, sev, at=0, it=0, fec=False, fcs=0, fct=0):
+        self._config = None
         self._sev = sev
-	self._ActiveTimer = at
-	self._IdleTimer = it
-	self._FreqExceededCheck = fec
-	self._FreqCheck_Times = fct
-	self._FreqCheck_Seconds = fcs
+        self._ActiveTimer = at
+        self._IdleTimer = it
+        self._FreqExceededCheck = fec
+        self._FreqCheck_Times = fct
+        self._FreqCheck_Seconds = fcs
+
+    def rules(self):
+        """Return the rules for this alarm
+        """
+        return self._RULES
+
+    def config(self):
+        """Return the config object for this alarm
+        """
+        return self._config
 
     def severity(self):
         """Return the severity of the alarm
@@ -52,10 +64,16 @@ class AlarmBase(object):
         """
         return self._ActiveTimer
 
-    @abc.abstractmethod
-    def __call__(self, uve_key, uve_data):
-        """Evaluate whether alarm should be raised
-        :param uve_key: Key of the UVE (a string) 
+    def set_config(self, alarm_cfg_obj):
+        """Set the alarm config object for this alarm
+        """
+        self._config = alarm_cfg_obj
+
+    #def __call__(self, uve_key, uve_data):
+        """Evaluate whether alarm should be raised.
+        Implement this method if you want to override the generic
+        alarm processing engine.
+        :param uve_key: Key of the UVE (a string)
         :param uve_data: UVE Contents
-        :returns: tuple with list of list of AlarmElements (AND of ORs)
+        :returns: list of AlarmRuleMatch
         """
