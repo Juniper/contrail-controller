@@ -253,6 +253,16 @@ static size_t write_cb(void *ptr, size_t size, size_t nmemb, void *data)
   return written;
 }
 
+/* CURLOPT_HEADERFUNCTION */
+static size_t header_cb(void *ptr, size_t size, size_t nmemb, void *data)
+{
+  size_t written = size * nmemb;
+
+  HttpConnection *conn = static_cast<HttpConnection *>(data);
+  conn->AssignHeader((char *)ptr, written);
+  return written;
+}
+
 static size_t read_cb(void *ptr, size_t size, size_t nmemb, void *data)
 {
   HttpConnection *conn = static_cast<HttpConnection *>(data);
@@ -385,6 +395,8 @@ ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g,
   curl_easy_setopt(conn->easy, CURLOPT_FOLLOWLOCATION, 1L);
   curl_easy_setopt(conn->easy, CURLOPT_WRITEFUNCTION, write_cb);
   curl_easy_setopt(conn->easy, CURLOPT_WRITEDATA, connection);
+  curl_easy_setopt(conn->easy, CURLOPT_HEADERFUNCTION, header_cb);
+  curl_easy_setopt(conn->easy, CURLOPT_HEADERDATA, connection);
   curl_easy_setopt(conn->easy, CURLOPT_READFUNCTION, read_cb);
   curl_easy_setopt(conn->easy, CURLOPT_READDATA, connection);
   curl_easy_setopt(conn->easy, CURLOPT_ERRORBUFFER, conn->error);
@@ -405,8 +417,8 @@ ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g,
   curl_easy_setopt(conn->easy, CURLOPT_FORBID_REUSE, 1L);
 
   /* to include the header in the body */
-  if (header)
-      curl_easy_setopt(conn->easy, CURLOPT_HEADER, 1);
+  //if (header)
+  //    curl_easy_setopt(conn->easy, CURLOPT_HEADER, 1);
 
   /* call this function to get a socket */
   curl_easy_setopt(conn->easy, CURLOPT_OPENSOCKETFUNCTION, opensocket);
