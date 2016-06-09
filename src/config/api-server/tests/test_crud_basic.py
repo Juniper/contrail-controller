@@ -1175,14 +1175,14 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         vmi_uuids = [o.uuid for o in vmi_objs]
 
         logger.info("Querying VNs by obj_uuids.")
-        flexmock(self._api_server).should_call('_list_collection').once()
+        flexmock(self._api_server).should_call('list_bulk_collection_http_post').once()
         ret_list = self._vnc_lib.resource_list('virtual-network',
                                                obj_uuids=vn_uuids)
         ret_uuids = [ret['uuid'] for ret in ret_list['virtual-networks']]
         self.assertThat(set(vn_uuids), Equals(set(ret_uuids)))
 
         logger.info("Querying RIs by parent_id.")
-        flexmock(self._api_server).should_call('_list_collection').once()
+        flexmock(self._api_server).should_call('list_bulk_collection_http_post').once()
         ret_list = self._vnc_lib.resource_list('routing-instance',
                                                parent_id=vn_uuids)
         ret_uuids = [ret['uuid']
@@ -1191,7 +1191,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             Equals(set(ret_uuids) & set(ri_uuids)))
 
         logger.info("Querying VMIs by back_ref_id.")
-        flexmock(self._api_server).should_call('_list_collection').once()
+        flexmock(self._api_server).should_call('list_bulk_collection_http_post').once()
         ret_list = self._vnc_lib.resource_list('virtual-machine-interface',
                                                back_ref_id=vn_uuids)
         ret_uuids = [ret['uuid']
@@ -1199,7 +1199,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         self.assertThat(set(vmi_uuids), Equals(set(ret_uuids)))
 
         logger.info("Querying VMIs by back_ref_id and extra fields.")
-        flexmock(self._api_server).should_call('_list_collection').once()
+        flexmock(self._api_server).should_call('list_bulk_collection_http_post').once()
         ret_list = self._vnc_lib.resource_list('virtual-machine-interface',
                                                back_ref_id=vn_uuids,
                                                fields=['virtual_network_refs'])
@@ -1211,14 +1211,14 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             set(vn_uuids))
 
         logger.info("Querying RIs by parent_id and filter.")
-        flexmock(self._api_server).should_call('_list_collection').once()
+        flexmock(self._api_server).should_call('list_bulk_collection_http_post').once()
         ret_list = self._vnc_lib.resource_list('routing-instance',
             parent_id=vn_uuids,
             filters={'display_name':'%s-ri-5' %(self.id())})
         self.assertThat(len(ret_list['routing-instances']), Equals(1))
 
         logger.info("Querying VNs by obj_uuids for children+backref fields.")
-        flexmock(self._api_server).should_call('_list_collection').once()
+        flexmock(self._api_server).should_call('list_bulk_collection_http_post').once()
         ret_objs = self._vnc_lib.resource_list('virtual-network',
             detail=True, obj_uuids=vn_uuids, fields=['routing_instances',
             'virtual_machine_interface_back_refs'])
