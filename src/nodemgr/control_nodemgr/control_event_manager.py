@@ -32,8 +32,7 @@ from subprocess import Popen, PIPE
 from StringIO import StringIO
 
 from pysandesh.connection_info import ConnectionState
-from control_node.control_node.ttypes \
-    import NodeStatusUVE, NodeStatus
+from nodemgr.common.sandesh.nodeinfo.ttypes import *
 from control_node.control_node.process_info.ttypes \
     import ProcessStatus, ProcessState, ProcessInfo
 from control_node.control_node.process_info.constants import \
@@ -77,21 +76,17 @@ class ControlEventManager(EventManager):
 
     def send_process_state_db(self, group_names):
         self.send_process_state_db_base(
-            group_names, ProcessInfo, NodeStatus, NodeStatusUVE)
+            group_names, ProcessInfo)
 
     def send_nodemgr_process_status(self):
         self.send_nodemgr_process_status_base(
-            ProcessStateNames, ProcessState, ProcessStatus,
-            NodeStatus, NodeStatusUVE)
+            ProcessStateNames, ProcessState, ProcessStatus)
 
     def get_node_third_party_process_list(self):
         return self.third_party_process_list 
 
-    def get_node_status_class(self):
-        return NodeStatus
-
-    def get_node_status_uve_class(self):
-        return NodeStatusUVE
+    def get_node_type(self):
+        return self.node_type
 
     def get_process_state(self, fail_status_bits):
         return self.get_process_state_base(

@@ -46,7 +46,7 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns.ttypes import Module, NodeType
 from pysandesh.connection_info import ConnectionState
 from sandesh.discovery_introspect import ttypes as sandesh
-from sandesh.cfgm_cpuinfo.ttypes import NodeStatusUVE, NodeStatus
+from sandesh.nodeinfo.ttypes import NodeStatusUVE, NodeStatus
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeNames,\
     INSTANCE_ID_DEFAULT
 

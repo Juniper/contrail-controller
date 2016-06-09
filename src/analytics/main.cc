@@ -29,6 +29,7 @@
 #include "viz_sandesh.h"
 #include "ruleeng.h"
 #include "viz_types.h"
+#include "nodeinfo_types.h"
 #include "analytics_types.h"
 #include "generator.h"
 #include <base/misc_utils.h>

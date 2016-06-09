@@ -39,10 +39,13 @@ timer = timer_env.Object('timer.o', 'timer.cc')
 
 ProcessInfoSandeshGenFiles = env.SandeshGenCpp('sandesh/process_info.sandesh')
 ProcessInfoSandeshGenSrcs = env.ExtractCpp(ProcessInfoSandeshGenFiles)
+NodeInfoSandeshGenFiles = env.SandeshGenCpp('sandesh/nodeinfo.sandesh')
+NodeInfoSandeshGenSrcs = env.ExtractCpp(NodeInfoSandeshGenFiles)
 
 libprocessinfo = env.Library('process_info',
                           ['connection_info.cc'] +
-                          ProcessInfoSandeshGenSrcs)
+                          ProcessInfoSandeshGenSrcs +
+                          NodeInfoSandeshGenSrcs)
 
 VersionInfoSandeshGenFiles = env.SandeshGenCpp('sandesh/version.sandesh')
 VersionInfoSandeshGenSrcs = env.ExtractCpp(VersionInfoSandeshGenFiles)

@@ -33,7 +33,7 @@ from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 import discoveryclient.client as client
 from cfgm_common.exceptions import ResourceExhaustionError
 from vnc_api.vnc_api import VncApi
-from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
+from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, \
     NodeStatus
 from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     ServiceInstanceDM, LogicalInterfaceDM, VirtualMachineInterfaceDM, \

@@ -5,6 +5,9 @@
 #ifndef vnsw_agent_uve_base_h
 #define vnsw_agent_uve_base_h
 
+#include <sandesh/sandesh_types.h>
+#include <sandesh/sandesh.h>
+#include "nodeinfo_types.h"
 #include <base/connection_info.h>
 #include <uve/vn_uve_table_base.h>
 #include <uve/vm_uve_table_base.h>

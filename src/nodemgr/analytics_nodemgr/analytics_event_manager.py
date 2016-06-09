@@ -23,8 +23,7 @@ from sandesh_common.vns.constants import ModuleNames, NodeTypeNames,\
     Module2NodeType
 from subprocess import Popen, PIPE
 
-from analytics.ttypes import \
-    NodeStatusUVE, NodeStatus
+from nodemgr.common.sandesh.nodeinfo.ttypes import *
 from pysandesh.connection_info import ConnectionState
 from analytics.process_info.ttypes import \
     ProcessStatus, ProcessState, ProcessInfo
@@ -49,7 +48,7 @@ class AnalyticsEventManager(EventManager):
         sandesh_global.init_generator(
             self.module_id, socket.gethostname(),
             node_type_name, self.instance_id, self.collector_addr,
-            self.module_id, 8104, ['analytics'], _disc)
+            self.module_id, 8104, ['analytics', 'nodemgr.common.sandesh'], _disc)
         sandesh_global.set_logging_params(enable_local_log=True)
         ConnectionState.init(sandesh_global, socket.gethostname(), self.module_id,
             self.instance_id,
@@ -68,21 +67,17 @@ class AnalyticsEventManager(EventManager):
 
     def send_process_state_db(self, group_names):
         self.send_process_state_db_base(
-            group_names, ProcessInfo, NodeStatus, NodeStatusUVE)
+            group_names, ProcessInfo)
 
     def send_nodemgr_process_status(self):
         self.send_nodemgr_process_status_base(
-            ProcessStateNames, ProcessState, ProcessStatus,
-            NodeStatus, NodeStatusUVE)
+            ProcessStateNames, ProcessState, ProcessStatus)
 
     def get_node_third_party_process_list(self):
         return self.third_party_process_list 
 
-    def get_node_status_class(self):
-        return NodeStatus
-
-    def get_node_status_uve_class(self):
-        return NodeStatusUVE
+    def get_node_type(self):
+        return self.node_type
 
     def get_process_state(self, fail_status_bits):
         return self.get_process_state_base(
