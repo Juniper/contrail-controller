@@ -1,3 +1,5 @@
+requests
+pycassa
 lxml
 gevent==1.1a2
 geventhttpclient==1.0a
