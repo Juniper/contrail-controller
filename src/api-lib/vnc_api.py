@@ -753,6 +753,8 @@ class VncApi(object):
                                 % (op, url, data, content))
             elif status == 403:
                 raise PermissionDenied(content)
+            elif status == 412:
+                raise OverQuota(content)
             elif status == 409:
                 raise RefsExistError(content)
             elif status == 504:
