@@ -1111,7 +1111,7 @@ class FakeAuthProtocol(object):
             return self._reject_request(env, start_response)
 
         token_info = self._validate_user_token(user_token, env)
-        # env['keystone.token_info'] = token_info
+        env['keystone.token_info'] = token_info
         user_headers = self._build_user_headers(token_info)
         self._add_headers(env, user_headers)
         return self.app(env, start_response)
