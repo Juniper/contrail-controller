@@ -1,5 +1,4 @@
 import sys
-import json
 import uuid
 import logging
 
@@ -14,6 +13,8 @@ import test_common
 
 import test_case
 
+from cfgm_common import jsonutils as json
+
 logger = logging.getLogger(__name__)
 
 class NBTestNaming(test_case.NeutronBackendTestCase):
@@ -26,7 +27,7 @@ class NBTestNaming(test_case.NeutronBackendTestCase):
         #self._vnc_lib.security_group_create(default_sg_obj)
         return proj_obj
     # end _create_project
-        
+
     def _create_resource(self, res_type, proj_id, name=None, extra_res_fields=None):
         context = {'operation': 'CREATE',
                    'user_id': '',
@@ -62,7 +63,7 @@ class NBTestNaming(test_case.NeutronBackendTestCase):
         context = {'operation': 'UPDATE',
                    'user_id': '',
                    'roles': ''}
-        data = {'resource': {'name': new_res_name}, 
+        data = {'resource': {'name': new_res_name},
                 'id': res_q['id']}
         body = {'context': context, 'data': data}
         resp = self._api_svr_app.post_json('/neutron/%s' %(res_type), body)

@@ -67,7 +67,7 @@ class GeneratedsSuper(object):
         return input_data
 
     def gds_format_integer(self, input_data, input_name=''):
-        return '%d' % input_data
+        return '%d' % int(input_data)
 
     def gds_validate_integer(self, input_data, node, input_name=''):
         return input_data
@@ -85,7 +85,7 @@ class GeneratedsSuper(object):
         return input_data
 
     def gds_format_float(self, input_data, input_name=''):
-        return '%f' % input_data
+        return '%f' % float(input_data)
 
     def gds_validate_float(self, input_data, node, input_name=''):
         return input_data
@@ -103,7 +103,7 @@ class GeneratedsSuper(object):
         return input_data
 
     def gds_format_double(self, input_data, input_name=''):
-        return '%e' % input_data
+        return '%e' % float(input_data)
 
     def gds_validate_double(self, input_data, node, input_name=''):
         return input_data

@@ -8,7 +8,6 @@ import os
 import sys
 import logging
 import pdb
-import json
 from pprint import pprint
 import functools
 import socket
@@ -36,6 +35,7 @@ from pycassa.util import *
 from vnc_api import vnc_api
 from novaclient import exceptions as nc_exc
 
+from cfgm_common import jsonutils as json
 from cfgm_common.exceptions import ResourceExistsError
 from cfgm_common.imid import escape, unescape
 

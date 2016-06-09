@@ -1487,8 +1487,8 @@ class VncDbClient(object):
         # set uuid in the perms meta
         mslong, lslong = self._uuid_to_longs(id)
         obj_dict['id_perms']['uuid'] = {}
-        obj_dict['id_perms']['uuid']['uuid_mslong'] = mslong
-        obj_dict['id_perms']['uuid']['uuid_lslong'] = lslong
+        obj_dict['id_perms']['uuid']['uuid_mslong'] = str(mslong)
+        obj_dict['id_perms']['uuid']['uuid_lslong'] = str(lslong)
 
         obj_dict['uuid'] = str(id)
 
@@ -1504,8 +1504,8 @@ class VncDbClient(object):
 
     def match_uuid(self, obj_dict, obj_uuid):
         new_mslong, new_lslong = self._uuid_to_longs(uuid.UUID(obj_uuid))
-        old_mslong = obj_dict['id_perms']['uuid']['uuid_mslong']
-        old_lslong = obj_dict['id_perms']['uuid']['uuid_lslong']
+        old_mslong = str(obj_dict['id_perms']['uuid']['uuid_mslong'])
+        old_lslong = str(obj_dict['id_perms']['uuid']['uuid_lslong'])
         if new_mslong == old_mslong and new_lslong == old_lslong:
             return True
 

@@ -19,7 +19,6 @@ from testtools.matchers import Equals, MismatchError, Not, Contains
 from testtools import content, content_type, ExpectedException
 import unittest
 import re
-import json
 import copy
 from lxml import etree
 import inspect
@@ -30,8 +29,9 @@ from vnc_api.vnc_api import *
 import keystoneclient.exceptions as kc_exceptions
 import keystoneclient.v2_0.client as keystone
 from keystonemiddleware import auth_token
-from cfgm_common import rest, utils
 import cfgm_common
+from cfgm_common import jsonutils as json
+from cfgm_common import rest, utils
 
 sys.path.append('../common/tests')
 import test_utils

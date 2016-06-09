@@ -161,15 +161,26 @@ class VncCassandraClient(object):
             for col, val in results[key].items():
                 try:
                     if timestamp:
-                        results[key][col] = (json.loads(val[0]), val[1])
-                    else:
-                        results[key][col] = json.loads(val)
+                        ts = val[1]
+                        val = val[0]
+                    val = json.loads(val)
+                    # Convert old uuid mslong and lslong from integer to string
+                    if (cf_name == self._OBJ_UUID_CF_NAME and
+                            col == 'prop:id_perms' and 'uuid' in val):
+                        uuid = val['uuid']
+                        if not isinstance(uuid['uuid_lslong'], (str, unicode)):
+                            uuid['uuid_mslong'] = str(uuid['uuid_mslong'])
+                            uuid['uuid_lslong'] = str(uuid['uuid_lslong'])
+                            cf.insert(key, {col: json.dumps(val)})
                 except ValueError as e:
                     msg = ("Cannot json load the value of cf: %s, key:%s "
                            "(error: %s). Use it as is: %s" %
                            (cf_name, key, str(e),
                             val if not timestamp else val[0]))
                     self._logger(msg, level=SandeshLevel.SYS_WARN)
+                if timestamp:
+                    results[key][col] = (val, ts)
+                else:
                     results[key][col] = val
 
         return results
@@ -769,6 +780,11 @@ class VncCassandraClient(object):
                                         obj_uuid,
                                         'prop:id_perms')
         id_perms['last_modified'] = datetime.datetime.utcnow().isoformat()
+        if 'uuid' in id_perms:
+            id_perms['uuid']['uuid_mslong'] =\
+                str(id_perms['uuid']['uuid_mslong'])
+            id_perms['uuid']['uuid_lslong'] =\
+                str(id_perms['uuid']['uuid_lslong'])
         self._update_prop(bch, obj_uuid, 'id_perms', {'id_perms': id_perms})
     # end update_last_modified
 
