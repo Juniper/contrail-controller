@@ -4,7 +4,8 @@
 import argparse, os, ConfigParser, sys, re
 from pysandesh.sandesh_base import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from sandesh_common.vns.constants import ModuleNames, HttpPortTopology, API_SERVER_DISCOVERY_SERVICE_NAME
+from sandesh_common.vns.constants import ModuleNames, HttpPortTopology, \
+    API_SERVER_DISCOVERY_SERVICE_NAME, OpServerAdminPort
 from sandesh_common.vns.ttypes import Module
 import discoveryclient.client as discovery_client
 import traceback
@@ -69,7 +70,7 @@ optional arguments:
 
         defaults = {
             'collectors'      : None,
-            'analytics_api'   : ['127.0.0.1:8081'],
+            'analytics_api'   : ['127.0.0.1:' + str(OpServerAdminPort)],
             'log_local'       : False,
             'log_level'       : SandeshLevel.SYS_DEBUG,
             'log_category'    : '',
@@ -223,6 +224,12 @@ optional arguments:
 
     def http_port(self):
         return self._args.http_server_port
+
+    def admin_user(self):
+        return self._args.admin_user
+
+    def admin_password(self):
+        return self._args.admin_password
 
     def sandesh_send_rate_limit(self):
         return self._args.sandesh_send_rate_limit

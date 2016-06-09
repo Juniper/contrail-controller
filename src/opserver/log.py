@@ -82,7 +82,7 @@ class LogQuerier(object):
     def parse_args(self):
         """
         Eg. python log.py --analytics-api-ip 127.0.0.1
-                          --analytics-api-port 8081
+                          --analytics-api-port 8181
                           --source 127.0.0.1
                           --node-type Control
                           --module bgp | cfgm | vnswad
@@ -105,7 +105,7 @@ class LogQuerier(object):
         """
         defaults = {
             'analytics_api_ip': '127.0.0.1',
-            'analytics_api_port': '8081',
+            'analytics_api_port': '8181',
         }
 
         parser = argparse.ArgumentParser(
@@ -158,6 +158,9 @@ class LogQuerier(object):
         parser.add_argument("--output-file", "-o", help="redirect output to file")
         parser.add_argument("--json", help="Dump output as json", action="store_true")
         parser.add_argument("--all", action="store_true", help=argparse.SUPPRESS)
+        parser.add_argument("--admin-user", help="Name of admin user", default="admin")
+        parser.add_argument("--admin-password", help="Password of admin user",
+            default="contrail123")
         self._args = parser.parse_args()
         return 0
     # end parse_args
@@ -457,13 +460,15 @@ class LogQuerier(object):
             print 'Performing query: {0}'.format(
                 json.dumps(messages_query.__dict__))
         resp = OpServerUtils.post_url_http(
-            messages_url, json.dumps(messages_query.__dict__))
+            messages_url, json.dumps(messages_query.__dict__),
+            self._args.admin_user, self._args.admin_password)
         result = {}
         if resp is not None:
             resp = json.loads(resp)
             qid = resp['href'].rsplit('/', 1)[1]
             result = OpServerUtils.get_query_result(
-                self._args.analytics_api_ip, self._args.analytics_api_port, qid)
+                self._args.analytics_api_ip, self._args.analytics_api_port, qid,
+                self._args.admin_user, self._args.admin_password)
         return result
     # end query
 

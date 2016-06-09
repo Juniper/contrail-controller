@@ -43,7 +43,9 @@ local_sources = [
            'gendb_move_tables.py',
            'alarm_notify.py',
            'config_handler.py',
-           'alarmgen_config_handler.py'
+           'alarmgen_config_handler.py',
+           'vnc_cfg_api_client.py',
+           'opserver_local.py',
           ]
 
 plugins_sources = [
