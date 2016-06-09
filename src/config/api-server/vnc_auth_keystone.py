@@ -223,7 +223,8 @@ class AuthServiceKeystone(object):
     # gets called from keystone middleware after token check
     def token_valid(self, env, start_response):
         status = env.get('HTTP_X_IDENTITY_STATUS')
-        return True if status != 'Invalid' else False
+        token_info = env.get('keystone.token_info')
+        return token_info if status != 'Invalid' else None
 
     def validate_user_token(self, request):
         # following config forces keystone middleware to always return the result
