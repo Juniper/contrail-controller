@@ -34,9 +34,15 @@ control_node_pkg  = env.SandeshGenPy('sandesh/control_node.sandesh', 'control_no
 cpu_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'control_node/control_node/', False)
 ifmap_pkg = env.SandeshGenPy('#controller/src/ifmap/ifmap_server_show.sandesh', 'control_node/control_node/', False)
 process_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'control_node/control_node/', False)
+node_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/nodeinfo.sandesh', 'control_node/control_node/', False)
+cpu_info_pkg2 = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'control_node/control_node/nodeinfo/', False)
+process_info_pkg2 = env.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'control_node/control_node/nodeinfo/', False)
 env.Depends(cpu_info_pkg, control_node_pkg)
 env.Depends(ifmap_pkg, control_node_pkg)
 env.Depends(process_info_pkg, control_node_pkg)
+env.Depends(node_info_pkg, control_node_pkg)
+env.Depends(cpu_info_pkg2, control_node_pkg)
+env.Depends(process_info_pkg2, control_node_pkg)
 
 rel_path = Dir('control_node').path
 def BuildInfoAction(target, source, env):

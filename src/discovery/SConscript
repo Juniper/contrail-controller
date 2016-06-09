@@ -65,6 +65,9 @@ introspect_pkg = env.SandeshGenPy('discovery_introspect.sandesh', 'discovery/san
 cfgm_pkg = env.SandeshGenPy('#controller/src/config/uve/cfgm_cpuinfo.sandesh', 'discovery/sandesh/', False)
 cpu_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'discovery/sandesh/cfgm_cpuinfo/', False)
 process_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'discovery/sandesh/cfgm_cpuinfo/', False)
+node_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/nodeinfo.sandesh', 'discovery/sandesh/', False)
+cpu_info_pkg2 = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'discovery/sandesh/nodeinfo/', False)
+process_info_pkg2 = env.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'discovery/sandesh/nodeinfo/', False)
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_depends = [generated_rule]
@@ -74,6 +77,9 @@ sdist_depends.extend(introspect_pkg)
 sdist_depends.extend(cfgm_pkg)
 sdist_depends.extend(cpu_info_pkg)
 sdist_depends.extend(process_info_pkg)
+sdist_depends.extend(node_info_pkg)
+sdist_depends.extend(cpu_info_pkg2)
+sdist_depends.extend(process_info_pkg2)
 
 sdist_gen = env.Command('dist', 'setup.py', cd_cmd + 'python setup.py sdist')
 

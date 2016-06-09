@@ -79,8 +79,14 @@ pkg = [env.SandeshGenPy('#controller/src/config/uve/service_instance.sandesh', '
 # Generate the sandesh cpuinfo from base
 cpu_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'cfgm_common/uve/cfgm_cpuinfo/', False)
 process_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'cfgm_common/uve/cfgm_cpuinfo/', False)
+node_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/nodeinfo.sandesh', 'cfgm_common/uve/', False)
+cpu_info_pkg2 = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'cfgm_common/uve/nodeinfo/', False)
+process_info_pkg2 = env.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'cfgm_common/uve/nodeinfo/', False)
 env.Depends(cpu_info_pkg, pkg)
 env.Depends(process_info_pkg, pkg)
+env.Depends(node_info_pkg, pkg)
+env.Depends(cpu_info_pkg2, pkg)
+env.Depends(process_info_pkg2, pkg)
 
 rel_path = Dir('cfgm_common').path
 def BuildInfoAction(target, source, env):
@@ -96,6 +102,9 @@ sdist_depends.extend(test_sources_rules)
 sdist_depends.extend(pkg)
 sdist_depends.extend(cpu_info_pkg)
 sdist_depends.extend(process_info_pkg)
+sdist_depends.extend(node_info_pkg)
+sdist_depends.extend(cpu_info_pkg2)
+sdist_depends.extend(process_info_pkg2)
 sdist_depends.extend(build_info_rules)
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '

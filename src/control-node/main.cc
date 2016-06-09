@@ -10,6 +10,9 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/program_options.hpp>
 
+#include "sandesh/sandesh_types.h"
+#include "sandesh/sandesh.h"
+#include "nodeinfo_types.h"
 #include "base/connection_info.h"
 #include "base/cpuinfo.h"
 #include "base/logging.h"
@@ -41,10 +44,8 @@
 #include "io/event_manager.h"
 #include "sandesh/common/vns_constants.h"
 #include "sandesh/common/vns_types.h"
-#include "sandesh/sandesh.h"
 #include "sandesh/sandesh_http.h"
 #include "sandesh/sandesh_trace.h"
-#include "sandesh/sandesh_types.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
 #include "xmpp/sandesh/xmpp_peer_info_types.h"

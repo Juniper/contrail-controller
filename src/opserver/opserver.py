@@ -57,6 +57,7 @@ from sandesh.viz.constants import _TABLES, _OBJECT_TABLES,\
 from sandesh.viz.constants import *
 from sandesh.analytics.ttypes import *
 from sandesh.analytics.cpuinfo.ttypes import ProcessCpuInfo
+from sandesh.nodeinfo.ttypes import NodeStatusUVE, NodeStatus
 from sandesh.discovery.ttypes import CollectorTrace
 import discoveryclient.client as discovery_client
 from opserver_util import OpServerUtils
