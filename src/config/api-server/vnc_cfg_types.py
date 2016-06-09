@@ -501,7 +501,7 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
         (ok, result) = cls.addr_mgmt.net_check_subnet_quota(read_result,
                                                             obj_dict, db_conn)
         if not ok:
-            return (ok, (403, result))
+            return (ok, (vnc_quota.QUOTA_OVER_ERROR_CODE, result))
         (ok, result) = cls.addr_mgmt.net_check_subnet_overlap(read_result,
                                                               obj_dict)
         if not ok:
@@ -974,7 +974,7 @@ class SecurityGroupServer(SecurityGroupServerGen):
                 (ok, quota_limit) = vnc_quota.QuotaHelper.check_quota_limit(
                                         proj_dict, obj_type, rule_count-1)
                 if not ok:
-                    return (False, (403, pformat(fq_name) + ' : ' + quota_limit))
+                    return (False, (vnc_quota.QUOTA_OVER_ERROR_CODE, pformat(fq_name) + ' : ' + quota_limit))
 
         err_msg = _check_policy_rule_port_range(obj_dict.get('security_group_entries'))
         if err_msg:
@@ -1207,7 +1207,7 @@ class LoadbalancerMemberServer(LoadbalancerMemberServerGen):
         (ok, quota_limit) = vnc_quota.QuotaHelper.check_quota_limit(
             proj_dict, 'loadbalancer-member', quota_count)
         if not ok:
-            return (False, (403, pformat(fq_name) + ' : ' + quota_limit))
+            return (False, (vnc_quota.QUOTA_OVER_ERROR_CODE, pformat(fq_name) + ' : ' + quota_limit))
 
         return True, ""
 

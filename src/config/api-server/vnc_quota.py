@@ -3,6 +3,7 @@ from gen.resource_common import *
 from gen.resource_server import *
 from pprint import pformat
 
+QUOTA_OVER_ERROR_CODE = 412
 
 class QuotaHelper(object):
 
@@ -77,6 +78,6 @@ class QuotaHelper(object):
         if quota_count >= quota_limit:
             msg = ('quota limit (%d) exceeded for resource %s'
                    % (quota_limit, obj_type))
-            return (False, (403, pformat(fq_name) + ' : ' + msg))
+            return (False, (QUOTA_OVER_ERROR_CODE, pformat(fq_name) + ' : ' + msg))
 
         return True, ""
