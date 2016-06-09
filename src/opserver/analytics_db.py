@@ -603,7 +603,7 @@ class AnalyticsDb(object):
         return (total_rows_deleted, purge_error_details)
     # end db_purge
 
-    def get_dbusage_info(self, rest_api_ip, rest_api_port):
+    def get_dbusage_info(self, ip, port, user, password):
         """Collects database usage information from all db nodes
         Returns:
         A dictionary with db node name as key and db usage in % as value
@@ -611,12 +611,17 @@ class AnalyticsDb(object):
 
         to_return = {}
         try:
-            uve_url = "http://" + rest_api_ip + ":" + str(rest_api_port) + "/analytics/uves/database-nodes?cfilt=DatabaseUsageInfo"
-            node_dburls = json.loads(urllib2.urlopen(uve_url).read())
+            uve_url = "http://" + ip + ":" + str(port) + \
+                "/analytics/uves/database-nodes?cfilt=DatabaseUsageInfo"
+            data = OpServerUtils.get_url_http(uve_url, user, password)
+            node_dburls = json.loads(data)
 
             for node_dburl in node_dburls:
-                # calculate disk usage percentage for analytics in each cassandra node
-                db_uve_state = json.loads(urllib2.urlopen(node_dburl['href']).read())
+                # calculate disk usage percentage for analytics in each
+                # cassandra node
+                db_uve_data = OpServerUtils.get_url_http(node_dburl['href'],
+                    user, password)
+                db_uve_state = json.loads(db_uve_data)
                 db_usage_in_perc = (100*
                         float(db_uve_state['DatabaseUsageInfo']['database_usage'][0]['analytics_db_size_1k'])/
                         float(db_uve_state['DatabaseUsageInfo']['database_usage'][0]['disk_space_available_1k'] +
