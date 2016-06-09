@@ -1,9 +1,9 @@
 import copy
-import json
 import mock
 import unittest
 import uuid
 
+from cfgm_common import jsonutils as json
 from cfgm_common.vnc_db import DBBase
 from svc_monitor import config_db
 from svc_monitor import instance_manager

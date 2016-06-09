@@ -68,8 +68,8 @@ class Resource(object):
                 "group_access": 7,
             },
             'uuid': {
-                'uuid_mslong': mslong,
-                'uuid_lslong': lslong,
+                'uuid_mslong': str(mslong),
+                'uuid_lslong': str(lslong),
             },
         }
 

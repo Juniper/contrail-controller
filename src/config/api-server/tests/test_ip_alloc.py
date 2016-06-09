@@ -18,7 +18,6 @@ from testtools.matchers import Equals, MismatchError, Not, Contains
 from testtools import content, content_type, ExpectedException
 import unittest
 import re
-import json
 import copy
 import inspect
 import pycassa
@@ -29,6 +28,7 @@ from vnc_api.vnc_api import *
 import vnc_api.gen.vnc_api_test_gen
 from vnc_api.gen.resource_test import *
 import cfgm_common
+from cfgm_common import jsonutils as json
 
 sys.path.append('../common/tests')
 from test_utils import *
@@ -119,13 +119,13 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         if ip_addr2 != 'fd14::fd':
             logger.debug('Allocation failed, expected v6 IP Address fd14::fd')
 
-        # Read gateway ip address 
+        # Read gateway ip address
         logger.debug('Read default gateway ip address' )
         ipam_refs = net_obj.get_network_ipam_refs()
         for ipam_ref in ipam_refs:
             subnets = ipam_ref['attr'].get_ipam_subnets()
             for subnet in subnets:
-                logger.debug('Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(), 
+                logger.debug('Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(),
                         subnet.subnet.get_ip_prefix_len(),
                         subnet.get_default_gateway()))
 
@@ -214,7 +214,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         logger.debug('got v4 IP Address for first instance %s', ip_addr1)
         if ip_addr1 != '11.1.1.20':
             logger.debug('Allocation failed, expected v4 IP Address 11.1.1.20')
-        
+
         logger.debug('Allocating an IP6 address for first VM')
         ip_id2 = self._vnc_lib.instance_ip_create(ip_obj2)
         ip_obj2 = self._vnc_lib.instance_ip_read(id=ip_id2)
@@ -223,20 +223,20 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         if ip_addr2 != 'fd14::30':
             logger.debug('Allocation failed, expected v6 IP Address fd14::30')
 
-        # Read gateway ip address 
+        # Read gateway ip address
         logger.debug('Read default gateway ip address')
         ipam_refs = net_obj.get_network_ipam_refs()
         for ipam_ref in ipam_refs:
             subnets = ipam_ref['attr'].get_ipam_subnets()
             for subnet in subnets:
-                logger.debug('Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(), 
+                logger.debug('Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(),
                         subnet.subnet.get_ip_prefix_len(),
                         subnet.get_default_gateway()))
 
 
         #cleanup
         logger.debug('Cleaning up')
-        #cleanup subnet and allocation pools 
+        #cleanup subnet and allocation pools
         self._vnc_lib.instance_ip_delete(id=ip_id1)
         self._vnc_lib.instance_ip_delete(id=ip_id2)
         self._vnc_lib.virtual_machine_interface_delete(id=port_obj1.uuid)
@@ -286,13 +286,13 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         logger.debug('Created Virtual Network object %s', vn.uuid)
         net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
 
-        # Read gateway ip address 
+        # Read gateway ip address
         logger.debug('Read default gateway ip address')
         ipam_refs = net_obj.get_network_ipam_refs()
         for ipam_ref in ipam_refs:
             subnets = ipam_ref['attr'].get_ipam_subnets()
             for subnet in subnets:
-                logger.debug('Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(), 
+                logger.debug('Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(),
                         subnet.subnet.get_ip_prefix_len(),
                         subnet.get_default_gateway()))
                 if subnet.subnet.get_ip_prefix() == '11.1.1.0':
@@ -355,7 +355,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self.assertEqual(len(expected_ip_addr), len(ret_ip_addr))
         for idx in range(len(expected_ip_addr)):
             self.assertEqual(expected_ip_addr[idx], ret_ip_addr[idx])
-        
+
         logger.debug('Verify bulk ip address allocation')
         # Find out number of allocated ips from given VN/subnet
         # We should not get 13 ip allocated from this subnet
@@ -797,7 +797,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
             self.assertTill(self.ifmap_has_ident, obj=iip_obj)
 
     #end test_notify_doesnt_persist
- 
+
     def test_ip_alloc_clash(self):
         # prep objects for testing
         proj_obj = Project('proj-%s' %(self.id()), parent_obj=Domain())
@@ -856,7 +856,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         with ExpectedException(cfgm_common.exceptions.PermissionDenied,
                                'Ip address already in use') as e:
             self._vnc_lib.instance_ip_create(iip2_obj)
-        
+
         # allocate instance-ip clashing with existing floating-ip
         iip2_obj.set_instance_ip_address(fip_obj.floating_ip_address)
         with ExpectedException(cfgm_common.exceptions.PermissionDenied,

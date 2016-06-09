@@ -20,7 +20,6 @@ from testtools.matchers import Equals, MismatchError, Not, Contains
 from testtools import content, content_type, ExpectedException
 import unittest
 import re
-import json
 import copy
 from lxml import etree
 import inspect

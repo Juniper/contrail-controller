@@ -2,7 +2,6 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 import sys
-from cfgm_common import jsonutils as json
 import string
 import uuid
 from provision_defaults import *

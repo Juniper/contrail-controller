@@ -22,7 +22,6 @@ from testtools import content, content_type, ExpectedException
 import unittest
 from flexmock import flexmock
 import re
-import json
 import copy
 from lxml import etree
 import inspect
@@ -35,6 +34,7 @@ import netaddr
 
 from vnc_api.vnc_api import *
 from cfgm_common import exceptions as vnc_exceptions
+from cfgm_common import jsonutils as json
 import vnc_api.gen.vnc_api_test_gen
 from vnc_api.gen.resource_test import *
 import cfgm_common
