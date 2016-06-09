@@ -22,7 +22,10 @@ from vnc_api.vnc_api import *
 from instance_manager import InstanceManager
 from config_db import VirtualMachineSM
 
-from novaclient import exceptions as nc_exc
+try:
+    from novaclient import exceptions as nc_exc
+except ImportError:
+    pass
 
 class VirtualMachineManager(InstanceManager):
 

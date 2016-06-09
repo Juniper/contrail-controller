@@ -50,7 +50,10 @@ from loadbalancer_agent import LoadbalancerAgent
 from port_tuple import PortTupleAgent
 from snat_agent import SNATAgent
 
-from novaclient import exceptions as nc_exc
+try:
+    from novaclient import exceptions as nc_exc
+except ImportError:
+    pass
 
 # zookeeper client connection
 _zookeeper_client = None
@@ -96,9 +99,12 @@ class SvcMonitor(object):
         # api server
         self._vnc_lib = vnc_lib
 
-        self._nova_client = importutils.import_object(
-            'svc_monitor.nova_client.ServiceMonitorNovaClient',
-            self._args, self.logger)
+        try:
+            self._nova_client = importutils.import_object(
+                'svc_monitor.nova_client.ServiceMonitorNovaClient',
+                self._args, self.logger)
+        except Exception as e:
+            self._nova_client = None
 
         # agent manager
         self._agent_manager = AgentManager()
