@@ -1826,16 +1826,17 @@ class DBInterface(object):
         if 'device_owner' in port_q:
             port_obj.set_virtual_machine_interface_device_owner(port_q.get('device_owner'))
 
-        # pick binding keys from neutron repr and persist as kvp elements.
+        # pick binding keys from neutron repr and persist as kvp elements
+        # that are string/string(k/v).
         # it is assumed allowing/denying oper*key is done at neutron-server.
         if oper == CREATE:
-            vmi_binding_kvps = dict((k.replace('binding:',''), v)
+            vmi_binding_kvps = dict((k.replace('binding:',''), json.dumps(v))
                 for k,v in port_q.items() if k.startswith('binding:'))
             port_obj.set_virtual_machine_interface_bindings(
                 KeyValuePairs([KeyValuePair(k,v)
                               for k,v in vmi_binding_kvps.items()]))
         elif oper == UPDATE:
-            vmi_binding_kvps = dict((k.replace('binding:',''), v)
+            vmi_binding_kvps = dict((k.replace('binding:',''), json.dumps(v))
                 for k,v in port_q.items() if k.startswith('binding:'))
             for k,v in vmi_binding_kvps.items():
                 port_obj.add_virtual_machine_interface_bindings(
@@ -2024,7 +2025,12 @@ class DBInterface(object):
         if bindings:
             kvps = bindings.get_key_value_pair()
             for kvp in kvps:
-                port_q_dict['binding:'+kvp.key] = kvp.value
+                try:
+                    port_q_dict['binding:'+kvp.key] = json.loads(kvp.value)
+                except ValueError:
+                    # upgrade case, earlier version might have saved it
+                    # in non-json format OR vif_details/vif_type/vnic_type
+                    port_q_dict['binding:'+kvp.key] = kvp.value
 
         # 1. upgrade case, port created before bindings prop was
         #    defined on vmi OR
