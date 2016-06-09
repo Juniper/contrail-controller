@@ -3,7 +3,6 @@ testrepository
 python-subunit
 coverage
 fixtures==1.3.1
-requests>=1.1.0
 thrift
 mock==1.0.1
 flexmock==0.9.7

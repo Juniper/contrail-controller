@@ -102,6 +102,7 @@ const u16 MetadataProxyVrouterAgentPort = 8097   // TCP
 const u16 VrouterAgentMirrorClientUdpPort = 8097 // UDP
 const u16 VrouterAgentDnsClientUdpPort = 8098    // UDP
 const u16 ContrailDnsClientUdpPort = 8092        // UDP
+const u16 OpServerAdminPort = 8181
 
 const map<string, u16> ServiceHttpPortMap = {
     SERVICE_VROUTER_AGENT : HttpPortAgent,
@@ -503,4 +504,14 @@ const list<string> ThreadPoolNames = [
     MEMTABLEFLUSHWRITER,
     NATIVETRANSPORTREQUESTS,
     COMPACTIONEXECUTOR,
+]
+
+const string CLOUD_ADMIN_ROLE = "admin"
+
+const string AAA_MODE_NO_AUTH = "no-auth"
+const string AAA_MODE_CLOUD_ADMIN = "cloud-admin"
+
+const list <string> APIAAAModes = [
+    AAA_MODE_NO_AUTH,
+    AAA_MODE_CLOUD_ADMIN,
 ]

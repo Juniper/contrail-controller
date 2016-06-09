@@ -235,7 +235,7 @@ class TestOverlayToUnderlayMapper(unittest.TestCase):
             overlay_to_underlay_mapper = \
                 OverlayToUnderlayMapper(
                     item['input']['overlay_to_underlay_map_query'],
-                    None, None, logging)
+                    None, None, None, None, logging)
             self.assertEqual(item['output']['flowrecord_data'],
                 overlay_to_underlay_mapper._get_overlay_flow_data())
             args, _ = overlay_to_underlay_mapper._send_query.call_args
@@ -296,7 +296,7 @@ class TestOverlayToUnderlayMapper(unittest.TestCase):
 
         for query in queries:
             overlay_to_underlay_mapper = \
-                OverlayToUnderlayMapper(query, None, None, logging)
+                OverlayToUnderlayMapper(query, None, None, None, None, logging)
             self.assertRaises(_OverlayToFlowRecordFieldsNameError,
                overlay_to_underlay_mapper._get_overlay_flow_data)
     # end test_get_overlay_flow_data_raise_exception
@@ -618,7 +618,7 @@ class TestOverlayToUnderlayMapper(unittest.TestCase):
             overlay_to_underlay_mapper = \
                 OverlayToUnderlayMapper(
                     item['input']['overlay_to_underlay_map_query'],
-                    None, None, logging)
+                    None, None, None, None, logging)
             self.assertEqual(item['output']['uflow_data'],
                 overlay_to_underlay_mapper._get_underlay_flow_data(
                     item['input']['flow_record_data']))
@@ -683,7 +683,7 @@ class TestOverlayToUnderlayMapper(unittest.TestCase):
         for query in queries:
             overlay_to_underlay_mapper = \
                 OverlayToUnderlayMapper(query['overlay_to_underlay_map_query'],
-                    None, None, logging)
+                    None, None, None, None, logging)
             self.assertRaises(_UnderlayToUFlowDataFieldsNameError,
                overlay_to_underlay_mapper._get_underlay_flow_data,
                     query['flow_record_data'])
@@ -696,6 +696,8 @@ class TestOverlayToUnderlayMapper(unittest.TestCase):
                 'input': {
                     'analytics_api_ip': '10.10.10.1',
                     'analytics_api_port': 8081,
+                    'username': 'admin',
+                    'password': 'admin123',
                     'query': {
                         'table': FLOW_TABLE,
                         'start_time': 'now-10m', 'end_time': 'now-5m',
@@ -714,6 +716,8 @@ class TestOverlayToUnderlayMapper(unittest.TestCase):
                 'input': {
                     'analytics_api_ip': '192.168.10.1',
                     'analytics_api_port': 8090,
+                    'username': 'admin',
+                    'password': 'admin123',
                     'query': {
                         'table': 'StatTable.UFlowData.flow',
                         'start_time': 1416275005000000,
@@ -751,11 +755,14 @@ class TestOverlayToUnderlayMapper(unittest.TestCase):
         for item in input_output_list:
             overlay_to_underlay_mapper = \
                 OverlayToUnderlayMapper(None, item['input']['analytics_api_ip'],
-                    item['input']['analytics_api_port'], logging)
+                    item['input']['analytics_api_port'],
+                    item['input']['username'], item['input']['password'],
+                    logging)
             self.assertEqual(overlay_to_underlay_mapper._send_query(
                 item['input']['query']), item['output']['response']['value'])
             OpServerUtils.post_url_http.assert_called_with(
-                item['output']['query_url'], item['input']['query'], True)
+                item['output']['query_url'], item['input']['query'],
+                item['input']['username'], item['input']['password'], True)
     # end test_send_query_no_error
 
     @mock.patch('opserver.overlay_to_underlay_mapper.OpServerUtils.post_url_http')
@@ -810,7 +817,7 @@ class TestOverlayToUnderlayMapper(unittest.TestCase):
         for item in queries:
             overlay_to_underlay_mapper = \
                 OverlayToUnderlayMapper(None, item['analytics_api_ip'],
-                    item['analytics_api_port'], logging)
+                    item['analytics_api_port'], None, None, logging)
             self.assertRaises(_QueryError,
                 overlay_to_underlay_mapper._send_query, item['query'])
     # end test_send_query_raise_exception
@@ -888,7 +895,7 @@ class TestOverlayToUnderlayMapper(unittest.TestCase):
             overlay_to_underlay_mapper = \
                 OverlayToUnderlayMapper(
                     item['input']['overlay_to_underlay_map_query'],
-                    None, None, logging)
+                    None, None, None, None, logging)
             self.assertEqual(item['output']['underlay_response'],
                 json.loads(overlay_to_underlay_mapper._send_response(
                     item['input']['uflow_data'])))
@@ -911,7 +918,7 @@ class TestOverlayToUnderlayMapper(unittest.TestCase):
         for item in input_list:
             overlay_to_underlay_mapper = \
                 OverlayToUnderlayMapper(item['overlay_to_underlay_map_query'],
-                    None, None, logging)
+                    None, None, None, None, logging)
             self.assertRaises(_UnderlayToUFlowDataFieldsNameError,
                 overlay_to_underlay_mapper._send_response, item['uflow_data'])
     # end test_send_response_raise_exception
@@ -956,7 +963,7 @@ class TestOverlayToUnderlayMapper(unittest.TestCase):
             [json.dumps(item['response']) for item in  test_data]
         for item in test_data:
             overlay_to_underlay_mapper = \
-                OverlayToUnderlayMapper(None, None, None, logging)
+                OverlayToUnderlayMapper(None, None, None, None, None, logging)
             self.assertEqual(item['response'],
                 json.loads(overlay_to_underlay_mapper.process_query()))
             overlay_to_underlay_mapper._get_overlay_flow_data.called_with()
