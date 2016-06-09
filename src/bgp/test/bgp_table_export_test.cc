@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <boost/assign/list_of.hpp>
 
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_route.h"
@@ -13,6 +14,7 @@
 #include "control-node/control_node.h"
 #include "net/community_type.h"
 
+using boost::assign::list_of;
 using namespace std;
 
 //
@@ -221,6 +223,15 @@ protected:
         attr_ptr_ = server_.attr_db()->Locate(attr);
     }
 
+    void SetAttrClusterList(const vector<uint32_t> cluster_list) {
+        BgpAttr *attr = new BgpAttr(*attr_ptr_);
+        ClusterListSpec clist_spec;
+        clist_spec.cluster_list = cluster_list;
+        attr->set_cluster_list(&clist_spec);
+        EXPECT_EQ(cluster_list.size(), attr->cluster_list_length());
+        attr_ptr_ = server_.attr_db()->Locate(attr);
+    }
+
     void SetAttrCommunity(uint32_t comm_value) {
         BgpAttr *attr = new BgpAttr(*attr_ptr_);
         CommunitySpec community;
@@ -250,6 +261,12 @@ protected:
     void SetAttrMed(uint32_t med) {
         BgpAttr *attr = new BgpAttr(*attr_ptr_);
         attr->set_med(med);
+        attr_ptr_ = server_.attr_db()->Locate(attr);
+    }
+
+    void SetAttrOriginatorId(Ip4Address originator_id) {
+        BgpAttr *attr = new BgpAttr(*attr_ptr_);
+        attr->set_originator_id(originator_id);
         attr_ptr_ = server_.attr_db()->Locate(attr);
     }
 
@@ -321,10 +338,23 @@ protected:
         EXPECT_FALSE(as_path->path().AsLeftMostMatch(my_local_as));
     }
 
+    void VerifyAttrNoClusterList() {
+        const UpdateInfo &uinfo = uinfo_slist_->front();
+        const BgpAttr *attr = uinfo.roattr.attr();
+        EXPECT_EQ(NULL, attr->cluster_list());
+        EXPECT_EQ(0, attr->cluster_list_length());
+    }
+
     void VerifyAttrExtCommunity(bool is_null) {
         const UpdateInfo &uinfo = uinfo_slist_->front();
         const BgpAttr *attr = uinfo.roattr.attr();
         EXPECT_EQ(is_null, attr->ext_community() == NULL);
+    }
+
+    void VerifyAttrNoOriginatorId() {
+        const UpdateInfo &uinfo = uinfo_slist_->front();
+        const BgpAttr *attr = uinfo.roattr.attr();
+        EXPECT_TRUE(attr->originator_id().is_unspecified());
     }
 
     EventManager evm_;
@@ -592,6 +622,25 @@ TEST_P(BgpTableExportParamTest2, EBgpNoRetainMed) {
     VerifyAttrLocalPref(0);
     VerifyAttrMed(0);
     VerifyAttrAsPrepend();
+}
+
+//
+// Table : inet.0, bgp.l3vpn.0
+// Source: iBGP
+// RibOut: eBGP
+// Intent: Non transitive attributes are stripped.
+//
+TEST_P(BgpTableExportParamTest2, EBgpStripNonTransitive) {
+    boost::system::error_code ec;
+    Ip4Address originator_id = Ip4Address::from_string("10.1.1.1", ec);
+    CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 300);
+    SetAttrOriginatorId(originator_id);
+    SetAttrClusterList(list_of(1)(2)(3));
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrNoOriginatorId();
+    VerifyAttrNoClusterList();
 }
 
 INSTANTIATE_TEST_CASE_P(Instance, BgpTableExportParamTest2,
