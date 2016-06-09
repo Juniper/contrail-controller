@@ -40,6 +40,12 @@ class RunTestsCommand(Command):
             if not re.search('\nOK', ''.join(f.readlines())):
                 os._exit(1)
 
+def requirements(filename):
+    with open(filename) as f:
+        lines = f.read().splitlines()
+    c = re.compile(r'\s*#.*')
+    return filter(bool, map(lambda y: c.sub('', y).strip(), lines))
+
 setup(
     name='opserver',
     version='0.1dev',
@@ -49,15 +55,7 @@ setup(
     zip_safe=False,
     include_package_data=True,
     long_description="VNC Analytics API Implementation",
-    install_requires=[
-        'lxml',
-        'gevent',
-        'geventhttpclient',
-        'redis',
-        'xmltodict',
-        'prettytable',
-        'psutil>=0.4.1'
-    ],
+    install_requires=requirements('requirements.txt'),
     entry_points = {
         # Please update sandesh/common/vns.sandesh on process name change
         'console_scripts' : [

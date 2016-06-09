@@ -76,7 +76,7 @@ class FlowQuerier(object):
     def parse_args(self):
         """
         Eg. python flow.py --analytics-api-ip 127.0.0.1
-                          --analytics-api-port 8081
+                          --analytics-api-port 8181
                           --vrouter a6s23
                           --source-vn default-domain:default-project:vn1
                           --destination-vn default-domain:default-project:vn2
@@ -94,7 +94,7 @@ class FlowQuerier(object):
         """
         defaults = {
             'analytics_api_ip': '127.0.0.1',
-            'analytics_api_port': '8081',
+            'analytics_api_port': '8181',
             'start_time': 'now-10m',
             'end_time': 'now',
             'direction' : 'ingress',
@@ -139,6 +139,11 @@ class FlowQuerier(object):
             help="Show vmi uuid information")
         parser.add_argument(
             "--verbose", action="store_true", help="Show internal information")        
+        parser.add_argument(
+            "--admin-user", help="Name of admin user", default="admin")
+        parser.add_argument(
+            "--admin-password", help="Password of admin user",
+            default="contrail123")
         self._args = parser.parse_args()
 
         try:
@@ -332,13 +337,15 @@ class FlowQuerier(object):
                 json.dumps(flow_query.__dict__))
         print ''
         resp = OpServerUtils.post_url_http(
-            flow_url, json.dumps(flow_query.__dict__))
+            flow_url, json.dumps(flow_query.__dict__), self._args.admin_user,
+            self._args.admin_password)
         result = {}
         if resp is not None:
             resp = json.loads(resp)
             qid = resp['href'].rsplit('/', 1)[1]
             result = OpServerUtils.get_query_result(
-                self._args.analytics_api_ip, self._args.analytics_api_port, qid)
+                self._args.analytics_api_ip, self._args.analytics_api_port, qid,
+                self._args.admin_user, self._args.admin_password)
         return result
     # end query
 

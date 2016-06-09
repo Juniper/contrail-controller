@@ -106,7 +106,8 @@ class VRouterScheduler(object):
         path = "/analytics/uves/vrouter/"
         response_dict = {}
         try:
-            response = self._analytics.request(path, filter_string)
+            response = self._analytics.request(path, filter_string,
+                user_token=self._vnc_lib.get_auth_token())
             for values in response['value']:
                 response_dict[values['name']] = values['value']
         except analytics_client.OpenContrailAPIFailed:
