@@ -577,8 +577,8 @@ class PartitionHandler(gevent.Greenlet):
                     gevent.sleep(2)
                     pause = False
                 self._logger.error("New KafkaClient %s" % self._topic)
-                self._kfk = KafkaClient(self._brokers , "kc-" + self._topic, timeout=1)
-		self._failed = False
+                self._kfk = KafkaClient(self._brokers , "kc-" + self._topic, timeout=2)
+                self._failed = False
                 try:
                     consumer = SimpleConsumer(self._kfk, self._group, self._topic, buffer_size = 4096*4, max_buffer_size=4096*32)
                     #except:
