@@ -212,6 +212,9 @@ class DBInterface(object):
         except PermissionDenied as e:
             self._raise_contrail_exception('BadRequest',
                 resource='security_group_rule', msg=str(e))
+        except OverQuota as e:
+            self._raise_contrail_exception('OverQuota',
+                overs=['security_group_rule'], msg=str(e))
         except RefsExistError as e:
             try:
                 rule_uuid = str(e).split(':')[1].strip()
@@ -281,16 +284,19 @@ class DBInterface(object):
     def _resource_create(self, resource_type, obj):
         create_method = getattr(self._vnc_lib, resource_type + '_create')
         try:
-            obj_uuid = create_method(obj)
-        except RefsExistError:
-            obj.uuid = str(uuid.uuid4())
-            obj.name += '-' + obj.uuid
-            obj.fq_name[-1] += '-' + obj.uuid
-            obj_uuid = create_method(obj)
+            try:
+                obj_uuid = create_method(obj)
+            except RefsExistError:
+                obj.uuid = str(uuid.uuid4())
+                obj.name += '-' + obj.uuid
+                obj.fq_name[-1] += '-' + obj.uuid
+                obj_uuid = create_method(obj)
         except (PermissionDenied, BadRequest) as e:
             self._raise_contrail_exception('BadRequest',
                 resource=resource_type, msg=str(e))
-
+        except OverQuota as e:
+            self._raise_contrail_exception('OverQuota',
+                overs=[resource_type], msg=str(e))
         return obj_uuid
     #end _resource_create
 
@@ -3357,6 +3363,9 @@ class DBInterface(object):
                                            resource='floatingip', msg=msg)
         try:
             fip_uuid = self._vnc_lib.floating_ip_create(fip_obj)
+        except OverQuota as e:
+            self._raise_contrail_exception('OverQuota',
+                overs=['floatingip'], msg=str(e))
         except Exception as e:
             self._raise_contrail_exception('IpAddressGenerationFailure',
                                            net_id=fip_q['floating_network_id'])
