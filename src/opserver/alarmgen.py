@@ -51,7 +51,7 @@ from sandesh.alarmgen_ctrl.ttypes import PartitionOwnershipReq, \
     UVETableInfoReq, UVETableInfoResp, UVEObjectInfo, UVEStructInfo, \
     UVETablePerfReq, UVETablePerfResp, UVETableInfo, UVETableCount, \
     UVEAlarmStateMachineInfo, UVEAlarmState, UVEAlarmOperState,\
-    AlarmStateChangeTrace
+    AlarmStateChangeTrace, UVEQTrace
 
 from sandesh.discovery.ttypes import CollectorTrace
 from cpuinfo import CpuInfoData
@@ -596,7 +596,8 @@ class Controller(object):
         # Trace buffer list
         self.trace_buf = [
             {'name':'DiscoveryMsg', 'size':1000},
-            {'name':'AlarmStateChangeTrace', 'size':1000}
+            {'name':'AlarmStateChangeTrace', 'size':1000},
+            {'name':'UVEQTrace', 'size':10000}
         ]
         # Create trace buffers 
         for buf in self.trace_buf:
@@ -737,9 +738,18 @@ class Controller(object):
           <UVE-Key> : { <Struct>: None } # The given struct may have gone
           Our treatment of the 2nd and 3rd case above is the same
         """
+        uveq_trace = UVEQTrace()
+        uveq_trace.uves = uves.keys()
+        uveq_trace.part = part
         if part not in self._uveq:
             self._uveq[part] = {}
             self._logger.error('Created uveQ for part %s' % str(part))
+            uveq_trace.oper = "create"
+        else:
+            uveq_trace.oper = "update"
+        uveq_trace.trace_msg(name="UVEQTrace",\
+                sandesh=self._sandesh)
+
         for uv,types in uves.iteritems():
             if types is None:
                 self._uveq[part][uv] = None
@@ -795,7 +805,16 @@ class Controller(object):
                 pp,
                 self._workers[pp].acq_time())
             self.stop_uve_partition(pp)
+
         for part in self._uveq.keys():
+            self._logger.info("Clearing part %d uveQ : %s" % \
+                    (part,str(self._uveq[part].keys())))
+	    uveq_trace = UVEQTrace()
+	    uveq_trace.uves = self._uveq[part].keys()
+	    uveq_trace.part = part
+            uveq_trace.oper = "clear"
+	    uveq_trace.trace_msg(name="UVEQTrace",\
+		    sandesh=self._sandesh)
             del self._uveq[part]
 
     def clear_agg_uve(self, redish, inst, part, acq_time):
@@ -956,6 +975,14 @@ class Controller(object):
                 self.stop_uve_partition(part)
                 del self._uveqf[part]
                 if part in self._uveq:
+		    uveq_trace = UVEQTrace()
+		    uveq_trace.uves = self._uveq[part].keys()
+		    uveq_trace.part = part
+		    uveq_trace.oper = "stop"
+		    uveq_trace.trace_msg(name="UVEQTrace",\
+			    sandesh=self._sandesh)
+                    self._logger.info("Stopping part %d uveQ : %s" % \
+                            (part,str(self._uveq[part].keys())))
                     del self._uveq[part]
             prev = time.time()
             try:
@@ -1092,6 +1119,15 @@ class Controller(object):
         self._logger.debug("Changed part %d UVEs : %s" % (part, str(uves)))
         success = True
         output = {}
+
+	uveq_trace = UVEQTrace()
+	uveq_trace.uves = uves.keys()
+	uveq_trace.part = part
+	uveq_trace.oper = "process"
+	uveq_trace.trace_msg(name="UVEQTrace",\
+		sandesh=self._sandesh)
+
+        erruves = []
         for uv,types in uves.iteritems():
             tab = uv.split(':',1)[0]
             if tab not in self.tab_perf:
@@ -1115,8 +1151,8 @@ class Controller(object):
                     filters["cfilt"][typ] = set()
 
             failures, uve_data = self._us.get_uve(uv, True, filters)
-
             if failures:
+                erruves.append(uv)
                 success = False
             self.tab_perf[tab].record_get(UTCTimestampUsec() - prevt)
             # Handling Agg UVEs
@@ -1136,20 +1172,26 @@ class Controller(object):
                 self.ptab_info[part][tab][uve_name].update(uve_data)
                 if len(self.ptab_info[part][tab][uve_name].removed()):
                     touched = True
-                    self._logger.info("UVE %s removed structs %s" % (uve_name, \
-                            self.ptab_info[part][tab][uve_name].removed()))
+                    rset = self.ptab_info[part][tab][uve_name].removed()
+                    self._logger.info("UVE %s removed structs %s" % (uv, rset))
+		    uveq_trace = UVEQTrace()
+		    uveq_trace.uves = [uv + "-" + str(rset)]
+		    uveq_trace.part = part
+		    uveq_trace.oper = "remove"
+		    uveq_trace.trace_msg(name="UVEQTrace",\
+			    sandesh=self._sandesh)
                     for rems in self.ptab_info[part][tab][uve_name].removed():
                         output[uv][rems] = None
                 if len(self.ptab_info[part][tab][uve_name].changed()):
                     touched = True
-                    self._logger.debug("UVE %s changed structs %s" % (uve_name, \
+                    self._logger.debug("UVE %s changed structs %s" % (uv, \
                             self.ptab_info[part][tab][uve_name].changed()))
                     for chgs in self.ptab_info[part][tab][uve_name].changed():
                         output[uv][chgs] = \
                                 self.ptab_info[part][tab][uve_name].values()[chgs]
                 if len(self.ptab_info[part][tab][uve_name].added()):
                     touched = True
-                    self._logger.debug("UVE %s added structs %s" % (uve_name, \
+                    self._logger.debug("UVE %s added structs %s" % (uv, \
                             self.ptab_info[part][tab][uve_name].added()))
                     for adds in self.ptab_info[part][tab][uve_name].added():
                         output[uv][adds] = \
@@ -1162,8 +1204,14 @@ class Controller(object):
                     self.ptab_info[part][tab][uve_name].update_single(typ, val)
                     if len(self.ptab_info[part][tab][uve_name].removed()):
                         touched = True
-                        self._logger.info("UVE %s removed structs %s" % (uve_name, \
-                                self.ptab_info[part][tab][uve_name].removed()))
+                        rset = self.ptab_info[part][tab][uve_name].removed()
+			self._logger.info("UVE %s removed structs %s" % (uv, rset))
+			uveq_trace = UVEQTrace()
+			uveq_trace.uves = [uv + "-" + str(rset)]
+			uveq_trace.part = part
+			uveq_trace.oper = "remove"
+			uveq_trace.trace_msg(name="UVEQTrace",\
+				sandesh=self._sandesh)
                         for rems in self.ptab_info[part][tab][uve_name].removed():
                             output[uv][rems] = None
                     if len(self.ptab_info[part][tab][uve_name].changed()):
@@ -1293,8 +1341,20 @@ class Controller(object):
                 if update_uv_alarm:
                     self.send_alarm_update(tab, uv)
         if success:
+	    uveq_trace = UVEQTrace()
+	    uveq_trace.uves = output.keys()
+	    uveq_trace.part = part
+	    uveq_trace.oper = "proc-output"
+	    uveq_trace.trace_msg(name="UVEQTrace",\
+		    sandesh=self._sandesh)
             return output
         else:
+	    uveq_trace = UVEQTrace()
+	    uveq_trace.uves = erruves
+	    uveq_trace.part = part
+	    uveq_trace.oper = "proc-error"
+	    uveq_trace.trace_msg(name="UVEQTrace",\
+		    sandesh=self._sandesh)
             return None
  
     def handle_UVETableInfoReq(self, req):
@@ -1766,6 +1826,7 @@ class Controller(object):
         finally:
             self._logger.error('AlarmGen stopping everything')
             self.stop()
+            exit()
 
     def stop(self):
         self._sandesh._client._connection.set_admin_state(down=True)
