@@ -46,8 +46,8 @@ class FlowQuerierTest(unittest.TestCase):
     def setUp(self):
         self._querier = FlowQuerier()
 
-        flexmock(OpServerUtils).should_receive('post_url_http').once().replace_with(lambda x, y: self.custom_post_url_http(x, y))
-        flexmock(OpServerUtils).should_receive('get_query_result').once().replace_with(lambda x, y, z: self.custom_get_query_result(x, y, z))
+        flexmock(OpServerUtils).should_receive('post_url_http').once().replace_with(lambda x, y, w, z: self.custom_post_url_http(x, y))
+        flexmock(OpServerUtils).should_receive('get_query_result').once().replace_with(lambda x, y, z, a, b: self.custom_get_query_result(x, y, z))
         flexmock(self._querier).should_receive('output').replace_with(lambda x: self.custom_output(x))
 
     #@unittest.skip("skip test_1_noarg_query")
