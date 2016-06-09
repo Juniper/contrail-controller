@@ -36,6 +36,15 @@ TunnelType::Type TunnelType::ComputeType(TunnelType::TypeBmap bmap) {
         }
     }
 
+    //There is no match found in priority list of config,
+    //pick the advertised Tunnel type according to the order.
+    if (bmap & (1 <<  MPLS_GRE))
+        return MPLS_GRE;
+    else if (bmap & (1 << MPLS_UDP))
+        return MPLS_UDP;
+    else if (bmap & (1 << VXLAN))
+        return VXLAN;
+
     return DefaultType();
 }
 
