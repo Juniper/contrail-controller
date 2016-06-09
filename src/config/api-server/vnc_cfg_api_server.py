@@ -1730,13 +1730,7 @@ class VncApiServer(object):
         if 'token' not in get_request().query:
             raise cfgm_common.exceptions.HttpError(
                 400, 'User token needed for validation')
-        if 'uuid' not in get_request().query:
-            raise cfgm_common.exceptions.HttpError(
-                400, 'Object uuid needed for validation')
-        obj_uuid = get_request().query.uuid
         user_token = get_request().query.token
-
-        result = {'permissions' : ''}
 
         # get permissions in internal context
         try:
@@ -1751,11 +1745,18 @@ class VncApiServer(object):
             i_req = context.ApiInternalRequest(
                 b_req.url, b_req.urlparts, b_req.environ, b_req.headers, None, None)
             set_context(context.ApiContext(internal_req=i_req))
-            if self._auth_svc.validate_user_token(get_request()):
-                result['permissions']= self._permissions.obj_perms(get_request(), obj_uuid)
+            token_info = self._auth_svc.validate_user_token(get_request())
         finally:
             set_context(orig_context)
 
+        # roles in result['token_info']['access']['user']['roles']
+        if token_info:
+            result = {'token_info' : token_info}
+            if 'uuid' in get_request().query:
+                obj_uuid = get_request().query.uuid
+                result['permissions'] = self._permissions.obj_perms(get_request(), obj_uuid)
+        else:
+            raise cfgm_common.exceptions.HttpError(403, " Permission denied")
         return result
     #end check_obj_perms_http_get
 
