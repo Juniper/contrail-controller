@@ -1614,9 +1614,19 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
                 if (first_nh) {
                     ext.communities.push_back(
                         tun_encap.GetExtCommunityValue());
+                    if (tun_encap.tunnel_encap() == TunnelEncapType::GRE) {
+                        TunnelEncap alt_tun_encap(TunnelEncapType::MPLS_O_GRE);
+                        ext.communities.push_back(
+                            alt_tun_encap.GetExtCommunityValue());
+                    }
                 }
                 nexthop.tunnel_encapsulations_.push_back(
                     tun_encap.GetExtCommunity());
+                if (tun_encap.tunnel_encap() == TunnelEncapType::GRE) {
+                    TunnelEncap alt_tun_encap(TunnelEncapType::MPLS_O_GRE);
+                    nexthop.tunnel_encapsulations_.push_back(
+                        alt_tun_encap.GetExtCommunity());
+                }
             }
 
             // Mark the path as infeasible if all tunnel encaps published
