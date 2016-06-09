@@ -1043,8 +1043,6 @@ class VncApi(object):
     #end virtual_network_subnet_ip_count
 
     def get_auth_token(self):
-        if self._auth_token:
-            return self._auth_token
         self._headers = self._authenticate(headers=self._headers)
         return self._auth_token
 
@@ -1147,5 +1145,19 @@ class VncApi(object):
         """
         self._headers['X-API-ROLE'] = (',').join(roles)
     #end set_user_roles
+
+    """
+    validate user token. Optionally, check token authorization for an object.
+    rv {'token_info': <token-info>, 'permissions': 'RWX'}
+    """
+    def obj_perms(self, token, obj_uuid=None):
+        query = 'token=%s' % token
+        if obj_uuid:
+            query += '&uuid=%s' % obj_uuid
+        try:
+            rv = self._request_server(rest.OP_GET, "/obj-perms", data=query)
+            return json.loads(rv)
+        except PermissionDenied:
+            return None
 
 #end class VncApi
