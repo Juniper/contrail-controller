@@ -105,9 +105,7 @@ class User(object):
        return rg_name
 
    def check_perms(self, obj_uuid):
-       query = 'token=%s&uuid=%s' % (self.vnc_lib.get_token(), obj_uuid)
-       rv = self.vnc_lib._request_server(rest.OP_GET, "/obj-perms", data=query)
-       rv = json.loads(rv)
+       rv = self.vnc_lib.obj_perms(self.vnc_lib.get_token(), obj_uuid)
        return rv['permissions']
 
 # display resource id-perms
