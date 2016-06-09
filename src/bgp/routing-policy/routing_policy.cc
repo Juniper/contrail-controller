@@ -253,18 +253,15 @@ bool RoutingPolicyMgr::UpdateRoutingPolicyList(
 void
 RoutingPolicyMgr::RequestWalk(BgpTable *table) {
     CHECK_CONCURRENCY("bgp::Config");
-    DB *db = server()->database();
-    DBTableWalkMgr *walk_mgr = db->GetWalkMgr();
     RoutingPolicyWalkRequests::iterator it = routing_policy_sync_.find(table);
     if (it == routing_policy_sync_.end()) {
-        DBTableWalkMgr::DBTableWalkRef walk_ref =
-            walk_mgr->AllocWalker(table,
+        DBTable::DBTableWalkRef walk_ref = table->AllocWalker(
             boost::bind(&RoutingPolicyMgr::EvaluateRoutingPolicy, this, _1, _2),
-            boost::bind(&RoutingPolicyMgr::WalkDone, this, _1));
-        walk_mgr->WalkTable(walk_ref);
+            boost::bind(&RoutingPolicyMgr::WalkDone, this, _2));
+        table->WalkTable(walk_ref);
         routing_policy_sync_.insert(std::make_pair(table, walk_ref));
     } else {
-        walk_mgr->WalkAgain(it->second);
+        table->WalkAgain(it->second);
     }
 }
 
@@ -274,11 +271,9 @@ RoutingPolicyMgr::WalkDone(DBTableBase *dbtable) {
     BgpTable *table = static_cast<BgpTable *>(dbtable);
     RoutingPolicyWalkRequests::iterator it = routing_policy_sync_.find(table);
     assert(it != routing_policy_sync_.end());
-    DBTableWalkMgr::DBTableWalkRef walk_ref = it->second;
-    DB *db = server()->database();
-    DBTableWalkMgr *walk_mgr = db->GetWalkMgr();
+    DBTable::DBTableWalkRef walk_ref = it->second;
     routing_policy_sync_.erase(it);
-    walk_mgr->ReleaseWalker(walk_ref);
+    table->ReleaseWalker(walk_ref);
 }
 
 class RoutingPolicy::DeleteActor : public LifetimeActor {

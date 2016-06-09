@@ -157,8 +157,19 @@ private:
 // functionality
 class DBTable : public DBTableBase {
 public:
+    typedef DBTableWalkMgr::DBTableWalkRef DBTableWalkRef;
 
-    static const int kIterationToYield = 1024;
+    // Walker function:
+    // Called for each DBEntry under a db::DBTable task that corresponds to the
+    // specific partition.
+    // arguments: DBTable partition and DBEntry.
+    // returns: true (continue); false (stop).
+    typedef DBTableWalkMgr::WalkFn WalkFn;
+
+    // Called when all partitions are done iterating.
+    typedef DBTableWalkMgr::WalkCompleteFn WalkCompleteFn;
+
+    static const int kIterationToYield = 256;
 
     DBTable(DB *db, const std::string &name);
     virtual ~DBTable();
@@ -238,6 +249,30 @@ public:
     static void DBStateClear(DBTable *table, ListenerId id);
 
 
+    // Walk APIs
+    // Create a DBTable Walker
+    // Concurrency : should be invoked from a task which is mutually exclusive
+    // "db::Walker" task
+    DBTableWalkRef AllocWalker(WalkFn walk_fn, WalkCompleteFn walk_complete);
+
+    // Release the Walker
+    // Concurrency : can be invoked from any task
+    void ReleaseWalker(DBTableWalkRef &walk);
+
+    // Start a walk on the table.
+    // Concurrency : should be invoked from a task which is mutually exclusive
+    // "db::Walker" task
+    void WalkTable(DBTableWalkRef walk);
+
+    // Walk the table again
+    // Concurrency : should be invoked from a task which is mutually exclusive
+    // "db::Walker" task
+    void WalkAgain(DBTableWalkRef walk);
+
+    static void SetIterationToYield(int count) {
+        max_iteration_to_yield_ = count;
+    }
+
 private:
     friend class DBTableWalkMgr;
     class TableWalker;
@@ -288,7 +323,14 @@ private:
     // Hash entry to a partition id
     int GetPartitionId(const DBEntry *entry);
 
-    void WalkTable(DBTableWalkMgr::WalkReqList &walk_req);
+    // Called from DBTableWalkMgr to start the walk
+    void WalkTable();
+
+    // Call DBTableWalkMgr to notify the walkers
+    bool InvokeWalkCb(DBTablePartBase *part, DBEntryBase *entry);
+
+    // Call DBTableWalkMgr::WalkDone
+    void WalkDone();
 
     // Walker callback for NotifyAllEntries()
     bool WalkCallback(DBTablePartBase *tpart, DBEntryBase *entry);
@@ -296,7 +338,7 @@ private:
 
     std::auto_ptr<TableWalker> walker_;
     std::vector<DBTablePartition *> partitions_;
-    DBTableWalkMgr::DBTableWalkRef walk_ref_;
+    DBTable::DBTableWalkRef walk_ref_;
 
     DISALLOW_COPY_AND_ASSIGN(DBTable);
 };

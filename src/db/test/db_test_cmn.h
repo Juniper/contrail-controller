@@ -66,7 +66,7 @@ public:
         return true;
     }
 
-    void TWalkDone(DBTableBase *tbl) {
+    void TWalkDone(DBTable::DBTableWalkRef walker, DBTableBase *tbl) {
         walk_done_ = true;
     }
 
@@ -534,22 +534,22 @@ TEST_F(DBTest, JWalker) {
     walk_done_ = false;
     walk_count_ = 0;
 
-    DBTableWalkMgr::DBTableWalkRef walk_ref = db_.GetWalkMgr()->AllocWalker(table,
-                                  boost::bind(&DBTest::TableWalk, this, _1, _2),
-                                  boost::bind(&DBTest::TWalkDone, this, _1));
+    DBTable::DBTableWalkRef walk_ref = table->AllocWalker(
+                              boost::bind(&DBTest::TableWalk, this, _1, _2),
+                              boost::bind(&DBTest::TWalkDone, this, _1, _2));
 
-    DBTableWalkMgr::DBTableWalkRef walk_ref_1 = db_.GetWalkMgr()->AllocWalker(table,
-                                  boost::bind(&DBTest::TableWalk, this, _1, _2),
-                                  boost::bind(&DBTest::TWalkDone, this, _1));
+    DBTable::DBTableWalkRef walk_ref_1 = table->AllocWalker(
+                              boost::bind(&DBTest::TableWalk, this, _1, _2),
+                              boost::bind(&DBTest::TWalkDone, this, _1, _2));
 
-    DBTableWalkMgr::DBTableWalkRef walk_ref_2 = db_.GetWalkMgr()->AllocWalker(table,
-                                  boost::bind(&DBTest::TableWalk, this, _1, _2),
-                                  boost::bind(&DBTest::TWalkDone, this, _1));
+    DBTable::DBTableWalkRef walk_ref_2 = table->AllocWalker(
+                              boost::bind(&DBTest::TableWalk, this, _1, _2),
+                              boost::bind(&DBTest::TWalkDone, this, _1, _2));
 
     TaskScheduler::GetInstance()->Stop();
-    db_.GetWalkMgr()->WalkTable(walk_ref);
-    db_.GetWalkMgr()->WalkTable(walk_ref_1);
-    db_.GetWalkMgr()->WalkTable(walk_ref_2);
+    table->WalkTable(walk_ref);
+    table->WalkTable(walk_ref_1);
+    table->WalkTable(walk_ref_2);
 
     LOG(DEBUG, "Verify Walk count and done for full table search");
     TaskScheduler::GetInstance()->Start();
@@ -562,7 +562,7 @@ TEST_F(DBTest, JWalker) {
     walk_done_ = false;
     walk_count_ = 0;
 
-    db_.GetWalkMgr()->WalkTable(walk_ref);
+    table->WalkTable(walk_ref);
     LOG(DEBUG, "Verify Walk count and done for walk on non existing entry");
 
     task_util::WaitForIdle();
@@ -596,11 +596,10 @@ TEST_F(DBTest, WalkerStats) {
     walk_done_ = false;
     TaskScheduler::GetInstance()->Stop();
 
-    DBTableWalkMgr::DBTableWalkRef walk_ref =
-        db_.GetWalkMgr()->AllocWalker(table, 
-                                  boost::bind(&DBTest::TableWalk, this, _1, _2),
-                                  boost::bind(&DBTest::TWalkDone, this, _1));
-    db_.GetWalkMgr()->WalkTable(walk_ref);
+    DBTable::DBTableWalkRef walk_ref = table->AllocWalker(
+                              boost::bind(&DBTest::TableWalk, this, _1, _2),
+                              boost::bind(&DBTest::TWalkDone, this, _1, _2));
+    table->WalkTable(walk_ref);
 
     TaskScheduler::GetInstance()->Start();
     task_util::WaitForIdle();
@@ -613,8 +612,8 @@ TEST_F(DBTest, WalkerStats) {
 
     walk_done_ = false;
     TaskScheduler::GetInstance()->Stop();
-    db_.GetWalkMgr()->WalkTable(walk_ref);
-    db_.GetWalkMgr()->ReleaseWalker(walk_ref);
+    table->WalkTable(walk_ref);
+    table->ReleaseWalker(walk_ref);
     TaskScheduler::GetInstance()->Start();
     task_util::WaitForIdle();
 
