@@ -1,5 +1,4 @@
 import sys
-import json
 
 from testtools.matchers import Equals, Contains
 from testtools import ExpectedException
@@ -10,6 +9,8 @@ from test_utils import *
 import test_common
 
 import test_case
+
+from cfgm_common import jsonutils as json
 
 class TestBasic(test_case.NeutronBackendTestCase):
     def read_resource(self, url_pfx, id):
@@ -137,7 +138,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         # for collections that are objects in contrail model
         for (objects, res_url_pfx, res_xlate_name) in collection_types:
             res_dicts = list_resource(res_url_pfx)
-            present_ids = [r['id'] for r in res_dicts] 
+            present_ids = [r['id'] for r in res_dicts]
             for obj in objects:
                 self.assertIn(obj.uuid, present_ids)
 
@@ -153,11 +154,11 @@ class TestBasic(test_case.NeutronBackendTestCase):
             with test_common.patch(
                 neutron_db_obj, res_xlate_name, err_on_object_2):
                 res_dicts = list_resource(res_url_pfx)
-                present_ids = [r['id'] for r in res_dicts] 
+                present_ids = [r['id'] for r in res_dicts]
                 self.assertNotIn(objects[2].uuid, present_ids)
 
             res_dicts = list_resource(res_url_pfx)
-            present_ids = [r['id'] for r in res_dicts] 
+            present_ids = [r['id'] for r in res_dicts]
             for obj in objects:
                 self.assertIn(obj.uuid, present_ids)
         # end for collections that are objects in contrail model
@@ -176,7 +177,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         with test_common.patch(
             neutron_db_obj, '_subnet_vnc_to_neutron', err_on_sn2):
             res_dicts = list_resource('subnet')
-            present_ids = [r['id'] for r in res_dicts] 
+            present_ids = [r['id'] for r in res_dicts]
             self.assertNotIn(sn2_id, present_ids)
     # end test_list_with_inconsistent_members
 

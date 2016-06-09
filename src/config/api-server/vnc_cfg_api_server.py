@@ -1573,6 +1573,29 @@ class VncApiServer(object):
         rest_trace.trace_msg(name='RestApiTraceBuf', sandesh=self._sandesh)
     # end _generate_rest_api_response_trace
 
+    def _sanitize_response(self, response):
+        if response is None:
+            return
+
+        def _gen_dict_extract(key, var):
+            if hasattr(var,'iteritems'):
+                for k, v in var.iteritems():
+                    if k == key:
+                        yield v
+                    if isinstance(v, dict):
+                        for result in _gen_dict_extract(key, v):
+                            yield result
+                    elif isinstance(v, list):
+                        for d in v:
+                            for result in _gen_dict_extract(key, d):
+                                yield result
+
+        for id_perms in _gen_dict_extract('id_perms', response):
+            if id_perms and 'uuid' in id_perms:
+                uuid = id_perms['uuid']
+                uuid['uuid_mslong'] = int(uuid['uuid_mslong'])
+                uuid['uuid_lslong'] = int(uuid['uuid_lslong'])
+
     # Public Methods
     def route(self, uri, method, handler):
         def handler_trap_exception(*args, **kwargs):
@@ -1587,10 +1610,12 @@ class VncApiServer(object):
                 if not ok:
                     (code, err_msg) = status
                     raise cfgm_common.exceptions.HttpError(code, err_msg)
-                response = handler(*args, **kwargs)
-                self._generate_rest_api_response_trace(trace, response)
 
+                response = handler(*args, **kwargs)
+
+                self._generate_rest_api_response_trace(trace, response)
                 self._extensions_transform_response(get_request(), response)
+                self._sanitize_response(response)
 
                 return response
             except Exception as e:
@@ -2461,6 +2486,10 @@ class VncApiServer(object):
                 id_perms[key] = req_id_perms[key]
         # TODO handle perms present in req_id_perms
 
+        if 'uuid' in id_perms and id_perms['uuid'] is not None:
+            uuid = id_perms['uuid']
+            uuid['uuid_mslong'] = str(uuid['uuid_mslong'])
+            uuid['uuid_lslong'] = str(uuid['uuid_lslong'])
         obj_dict['id_perms'] = id_perms
     # end _ensure_id_perms_present
 

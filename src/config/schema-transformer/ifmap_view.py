@@ -13,7 +13,6 @@ sys.setdefaultencoding('UTF8')
 import lxml.etree as et
 import StringIO
 import re
-import json
 
 from cfgm_common.ifmap.client import client
 from cfgm_common.ifmap.request import NewSessionRequest, SearchRequest
@@ -89,7 +88,7 @@ class IfmapSearcher():
     # end _search
 
     def parse_args(self):
-        # Eg. python ifmap_search.py 192.168.1.17 8443 test2 test2 --identifier 
+        # Eg. python ifmap_search.py 192.168.1.17 8443 test2 test2 --identifier
         parser = argparse.ArgumentParser(
             description="Display IFMAP configuration")
         parser.add_argument('ip', default='localhost', nargs='?',
@@ -158,7 +157,7 @@ class IfmapSearcher():
         props = []
         links = []
         for r_item in self.result_items:
-            if (len(r_item) == 2 and 
+            if (len(r_item) == 2 and
                 r_item[0].get('name') == self._args.search_identifier):
                 props.extend([x.tag for x in r_item[1]])
             elif len(r_item) == 3:
@@ -175,7 +174,7 @@ class IfmapSearcher():
 def main():
      # Example usage:
      # python ifmap_search.py localhost 8443 <username> <password>
-     #     --search-identifier contrail:virtual-network:default-domain:admin:test-net 
+     #     --search-identifier contrail:virtual-network:default-domain:admin:test-net
      #     --search-metas contrail:project-virtual-network --verbose --max-depth 1
     logger.setLevel('INFO')
     logformat = logging.Formatter("%(levelname)s: %(message)s")

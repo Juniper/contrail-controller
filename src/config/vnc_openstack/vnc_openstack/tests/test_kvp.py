@@ -1,5 +1,4 @@
 import sys
-import json
 import uuid
 import logging
 import gevent.event

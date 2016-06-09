@@ -1,6 +1,5 @@
 import sys
 import uuid
-import json
 import ConfigParser
 
 import bottle
@@ -15,6 +14,7 @@ from test_common import TestCase, setup_extra_flexmock
 
 import fake_neutron
 import vnc_openstack
+
 
 @bottle.hook('after_request')
 def after_request():
