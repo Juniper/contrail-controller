@@ -255,6 +255,33 @@ class TestBasic(test_case.NeutronBackendTestCase):
         net_dict = json.loads(resp.text)
         self.assertIn('contrail:fq_name', net_dict)
     # end test_extra_fields_on_network
+
+    def test_port_bindings(self):
+        vn_obj = vnc_api.VirtualNetwork(self.id())
+        vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
+            vnc_api.VnSubnetsType(
+                [vnc_api.IpamSubnetType(
+                         vnc_api.SubnetType('1.1.1.0', 24))]))
+        self._vnc_lib.virtual_network_create(vn_obj)
+
+        sg_obj = vnc_api.SecurityGroup('default')
+        self._vnc_lib.security_group_create(sg_obj)
+
+        proj_uuid = self._vnc_lib.fq_name_to_id('project',
+            fq_name=['default-domain', 'default-project'])
+
+        context = {'operation': 'CREATE',
+                   'user_id': '',
+                   'is_admin': True,
+                   'roles': ''}
+        data = {'resource':{'network_id': vn_obj.uuid,
+                            'tenant_id': proj_uuid,
+                            'binding:profile': {'foo': 'bar'}}}
+        body = {'context': context, 'data': data}
+        resp = self._api_svr_app.post_json('/neutron/port', body)
+        port_dict = json.loads(resp.text)
+        self.assertTrue(isinstance(port_dict['binding:profile'], dict))
+    # end test_port_bindings
 # end class TestBasic
 
 class TestExtraFieldsPresenceByKnob(test_case.NeutronBackendTestCase):
