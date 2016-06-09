@@ -199,8 +199,7 @@ StatsManager::InterfaceStats::InterfaceStats()
     : name(""), speed(0), duplexity(0), in_pkts(0), in_bytes(0),
     out_pkts(0), out_bytes(0), prev_in_bytes(0),
     prev_out_bytes(0), prev_in_pkts(0), prev_out_pkts(0),
-    prev_5min_in_bytes(0), prev_5min_out_bytes(0),
-    prev_10min_in_bytes(0), prev_10min_out_bytes(10), stats_time(0) {
+    prev_5min_in_bytes(0), prev_5min_out_bytes(0), stats_time(0) {
 }
 
 void StatsManager::InterfaceStats::UpdateStats

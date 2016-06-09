@@ -25,6 +25,7 @@ if GetOption('with_libvirt'):
 ##########################################################################
 env.Prepend(CPPPATH = '#/vrouter/include')
 env.Prepend(CPPPATH = env['TOP_INCLUDE'] + '/thrift')
+env.Prepend(CPPPATH = env['TOP'] + '/tools/sandesh/library/common')
 
 # Function to append TOP level directory
 def AddTopDir(list):
