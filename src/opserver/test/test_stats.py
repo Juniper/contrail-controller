@@ -36,7 +36,7 @@ class StatQuerierTest(unittest.TestCase):
     def setUp(self):
         self._querier = StatQuerier()
 
-        flexmock(OpServerUtils).should_receive('post_url_http').once().replace_with(lambda x, y, **kwargs: self.custom_post_url_http(x, y, kwargs))
+        flexmock(OpServerUtils).should_receive('post_url_http').once().replace_with(lambda x, y, w, z, **kwargs: self.custom_post_url_http(x, y, kwargs))
         flexmock(self._querier).should_receive('display').replace_with(lambda x: self.custom_display(x))
 
 
