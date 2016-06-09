@@ -640,7 +640,15 @@ class VirtualNetworkST(DictST):
 
         if old_rtgt:
             rt_key = "target:%s:%d" % (self.get_autonomous_system(), old_rtgt)
-            _vnc_lib.route_target_delete(fq_name=[rt_key])
+            try:
+                _vnc_lib.route_target_delete(fq_name=[rt_key])
+            except NoIdError:
+                _sandesh._logger.error(
+                    "NoIdError while deleting route target: ")
+            except RefsExistError:
+                _sandesh._logger.error(
+                    "Back referenes exists while deleting route target: ")
+
         return rinst
     # end locate_routing_instance
 
@@ -791,7 +799,13 @@ class VirtualNetworkST(DictST):
                 route_target=[self.get_route_target()])
             static_route_entries.add_route(static_route)
         left_ri.obj.set_static_route_entries(static_route_entries)
-        _vnc_lib.routing_instance_update(left_ri.obj)
+        try:
+            _vnc_lib.routing_instance_update(left_ri.obj)
+        except NoIdError:
+            _sandesh._logger.error(
+                "Cannot add route. Id not found for %s", left_ri.name)
+            return
+
         left_ri.update_route_target_list(
             rt_add=self.rt_list | set([self.get_route_target()]),
             import_export="import")
@@ -820,7 +834,12 @@ class VirtualNetworkST(DictST):
                 if static_route.route_target == []:
                     static_route_entries.delete_route(static_route)
                 left_ri.obj._pending_field_updates.add('static_route_entries')
-                _vnc_lib.routing_instance_update(left_ri.obj)
+                try:
+                    _vnc_lib.routing_instance_update(left_ri.obj)
+                except NoIdError:
+                    _sandesh._logger.error(
+                        "Cannot delete route. Id not found for %s", left_ri.name)
+                    return
                 return
     # end delete_route
 
@@ -1234,7 +1253,12 @@ class SecurityGroupST(DictST):
                     update = True
             if update:
                 acl.set_access_control_list_entries(acl_entries)
-                _vnc_lib.access_control_list_update(acl)
+                try:
+                    _vnc_lib.access_control_list_update(acl)
+                except NoIdError:
+                    _sandesh._logger.error(
+                        "Cannot update ACL. Id not found")
+                    return
     # end update_acl
                 
     def __init__(self, name):
@@ -1388,12 +1412,25 @@ class RoutingInstanceST(object):
     def add_connection(self, ri2):
         self.connections.add(ri2.get_fq_name_str())
         ri2.connections.add(self.get_fq_name_str())
-        self.obj = _vnc_lib.routing_instance_read(id=self.obj.uuid)
-        ri2.obj = _vnc_lib.routing_instance_read(id=ri2.obj.uuid)
+        try:
+            self.obj = _vnc_lib.routing_instance_read(id=self.obj.uuid)
+            ri2.obj = _vnc_lib.routing_instance_read(id=ri2.obj.uuid)
+        except NoIdError:
+            _sandesh._logger.error(
+                "Cannot add connection. Id not found")
+            self.connections.discard(ri2.get_fq_name_str())
+            ri2.connections.discard(self.get_fq_name_str())
+            return
 
         conn_data = ConnectionType()
         self.obj.add_routing_instance(ri2.obj, conn_data)
-        _vnc_lib.routing_instance_update(self.obj)
+        try:
+            _vnc_lib.routing_instance_update(self.obj)
+        except NoIdError:
+            _sandesh._logger.error(
+                "Cannot add connection. RI update failed. Id not found")
+            self.connections.discard(ri2.get_fq_name_str())
+            ri2.connections.discard(self.get_fq_name_str())
     # end add_connection
 
     def delete_connection(self, ri2):
@@ -1444,7 +1481,10 @@ class RoutingInstanceST(object):
             rtgt_obj = RouteTarget(rt)
             self.obj.del_route_target(rtgt_obj)
         if len(rt_add) or len(rt_del or set()):
-            _vnc_lib.routing_instance_update(self.obj)
+            try:
+                _vnc_lib.routing_instance_update(self.obj)
+            except NoIdError:
+                return
     # end update_route_target_list
 
     def delete(self, vn_obj=None):
@@ -2410,7 +2450,12 @@ class LogicalRouterST(DictST):
             lr = cls._dict[name]
             rtgt_num = int(lr.route_target.split(':')[-1])
             VirtualNetworkST._rt_allocator.delete(rtgt_num)
-            _vnc_lib.route_target_delete(fq_name=[lr.route_target])
+            try:
+                _vnc_lib.route_target_delete(fq_name=[lr.route_target])
+            except NoIdError:
+                _sandesh._logger.error("NoIdError while trying to delete lr with route target :{}".format(lr.route_target))
+            except RefsExistError:
+                _sandesh._logger.error("Back references exists while trying to delete lr with route target :{}".format(lr.route_target))
             for interface in lr.interfaces:
                 lr.delete_interface(interface)
             del cls._dict[name]
