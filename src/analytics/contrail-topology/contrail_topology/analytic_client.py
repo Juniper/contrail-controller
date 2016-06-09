@@ -3,6 +3,7 @@
 #
 import requests, json
 from requests.exceptions import ConnectionError
+from requests.auth import HTTPBasicAuth
 
 class AnalyticApiClient(object):
     def __init__(self, cfg):
@@ -23,7 +24,8 @@ class AnalyticApiClient(object):
     def _get_url_json(self, url):
         if url is None:
             return {}
-        page = self.client.get(url)
+        page = self.client.get(url, auth=HTTPBasicAuth(
+            self.config.admin_user(), self.config.admin_password()))
         if page.status_code == 200:
             return json.loads(page.text)
         raise ConnectionError, "bad request " + url

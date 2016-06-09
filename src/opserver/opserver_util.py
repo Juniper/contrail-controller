@@ -27,7 +27,7 @@ except:
     class SandeshType(object):
         SYSTEM = 1
         TRACE = 4
-
+from requests.auth import HTTPBasicAuth
 
 def enum(**enums):
     return type('Enum', (), enums)
@@ -197,7 +197,7 @@ class OpServerUtils(object):
     # end parse_start_end_time
 
     @staticmethod
-    def post_url_http(url, params, sync=False):
+    def post_url_http(url, params, user, password, sync=False):
         if sync:
             hdrs = OpServerUtils.POST_HEADERS_SYNC
             stm = False
@@ -211,10 +211,12 @@ class OpServerUtils(object):
             if int(pkg_resources.get_distribution("requests").version[0]) != 0:
                 response = requests.post(url, stream=stm,
                                          data=params,
+                                         auth=HTTPBasicAuth(user, password),
                                          headers=hdrs)
             else:
                 response = requests.post(url, prefetch=pre,
                                          data=params,
+                                         auth=HTTPBasicAuth(user, password),
                                          headers=hdrs)
         except requests.exceptions.ConnectionError, e:
             print "Connection to %s failed %s" % (url, str(e))
@@ -227,13 +229,15 @@ class OpServerUtils(object):
     # end post_url_http
 
     @staticmethod
-    def get_url_http(url):
+    def get_url_http(url, user, password):
         data = {}
         try:
             if int(pkg_resources.get_distribution("requests").version[0]) != 0:
-                data = requests.get(url, stream=True)
+                data = requests.get(url, stream=True,
+                                    auth=HTTPBasicAuth(user, password))
             else:
-                data = requests.get(url, prefetch=False)
+                data = requests.get(url, prefetch=False,
+                                    auth=HTTPBasicAuth(user, password))
         except requests.exceptions.ConnectionError, e:
             print "Connection to %s failed %s" % (url, str(e))
 
@@ -268,13 +272,14 @@ class OpServerUtils(object):
     # end parse_query_result
 
     @staticmethod
-    def get_query_result(opserver_ip, opserver_port, qid, time_out=None):
+    def get_query_result(opserver_ip, opserver_port, qid, user, password,
+                         time_out=None):
         sleep_interval = 0.5
         time_left = time_out
         while True:
             url = OpServerUtils.opserver_query_url(
                 opserver_ip, opserver_port) + '/' + qid
-            resp = OpServerUtils.get_url_http(url)
+            resp = OpServerUtils.get_url_http(url, user, password)
             if resp.status_code != 200:
                 yield {}
                 return
@@ -297,7 +302,7 @@ class OpServerUtils(object):
                 for chunk in status['chunks']:
                     url = OpServerUtils.opserver_url(
                         opserver_ip, opserver_port) + chunk['href']
-                    resp = OpServerUtils.get_url_http(url)
+                    resp = OpServerUtils.get_url_http(url, user, password)
                     if resp.status_code != 200:
                         yield {}
                     else:
