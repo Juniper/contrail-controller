@@ -48,7 +48,8 @@ from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
      ModuleCategoryMap, Module2NodeType, NodeTypeNames, ModuleIds,\
      INSTANCE_ID_DEFAULT, COLLECTOR_DISCOVERY_SERVICE_NAME,\
-     ANALYTICS_API_SERVER_DISCOVERY_SERVICE_NAME, ALARM_GENERATOR_SERVICE_NAME
+     ANALYTICS_API_SERVER_DISCOVERY_SERVICE_NAME, ALARM_GENERATOR_SERVICE_NAME, \
+     OpServerAdminPort, CLOUD_ADMIN_ROLE
 from sandesh.viz.constants import _TABLES, _OBJECT_TABLES,\
     _OBJECT_TABLE_SCHEMA, _OBJECT_TABLE_COLUMN_VALUES, \
     _STAT_TABLES, STAT_OBJECTID_FIELD, STAT_VT_PREFIX, \
@@ -70,6 +71,9 @@ from overlay_to_underlay_mapper import OverlayToUnderlayMapper, \
 from generator_introspect_util import GeneratorIntrospectUtil
 from stevedore import hook, extension
 from partition_handler import PartInfo, UveStreamer, UveCacheProcessor
+from functools import wraps
+from vnc_cfg_api_client import VncCfgApiClient
+from opserver_local import LocalApp
 
 _ERRORS = {
     errno.EBADMSG: 400,
@@ -389,6 +393,26 @@ class OpServer(object):
         self.disc.publish(ANALYTICS_API_SERVER_DISCOVERY_SERVICE_NAME, data)
     # end disc_publish
 
+    def validate_user_token(func):
+        @wraps(func)
+        def _impl(self, *f_args, **f_kwargs):
+            if self._args.auth_conf_info.get('cloud_admin_access_only') and \
+                    bottle.request.app == bottle.app():
+                user_token = bottle.request.headers.get('X-Auth-Token')
+                if not user_token or not \
+                        self._vnc_api_client.is_role_cloud_admin(user_token):
+                    raise bottle.HTTPResponse(status = 401,
+                        body = 'Authentication required',
+                        headers = self._reject_auth_headers())
+            return func(self, *f_args, **f_kwargs)
+        return _impl
+    # end validate_user_token
+
+    def _reject_auth_headers(self):
+        header_val = 'Keystone uri=\'%s\'' % \
+            self._args.auth_conf_info.get('auth_uri')
+        return { "WWW-Authenticate" : header_val }
+
     def __init__(self, args_str=' '.join(sys.argv[1:])):
         self.gevs = []
         self._args = None
@@ -464,6 +488,10 @@ class OpServer(object):
 
         body = gevent.queue.Queue()
 
+        self._vnc_api_client = None
+        if self._args.auth_conf_info.get('cloud_admin_access_only'):
+            self._vnc_api_client = VncCfgApiClient(self._args.auth_conf_info,
+                self._sandesh, self._logger)
         self._uvedbstream = UveStreamer(self._logger, None, None,
                 self.get_agp, self._args.redis_password)
 
@@ -738,6 +766,10 @@ class OpServer(object):
             'partitions'        : 15,
             'sandesh_send_rate_limit': SandeshSystem. \
                  get_sandesh_send_rate_limit(),
+            'cloud_admin_access_only' : False,
+            'api_server'        : '127.0.0.1:8082',
+            'admin_port'        : OpServerAdminPort,
+            'cloud_admin_role'  : CLOUD_ADMIN_ROLE,
         }
         redis_opts = {
             'redis_server_port'  : 6379,
@@ -751,6 +783,14 @@ class OpServer(object):
         cassandra_opts = {
             'cassandra_user'     : None,
             'cassandra_password' : None,
+        }
+        keystone_opts = {
+            'auth_host': '127.0.0.1',
+            'auth_protocol': 'http',
+            'auth_port': 35357,
+            'admin_user': 'admin',
+            'admin_password': 'contrail123',
+            'admin_tenant_name': 'default-domain'
         }
 
         # read contrail-analytics-api own conf file
@@ -766,6 +806,8 @@ class OpServer(object):
                 disc_opts.update(dict(config.items('DISCOVERY')))
             if 'CASSANDRA' in config.sections():
                 cassandra_opts.update(dict(config.items('CASSANDRA')))
+            if 'KEYSTONE' in config.sections():
+                keystone_opts.update(dict(config.items('KEYSTONE')))
 
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
@@ -779,6 +821,7 @@ class OpServer(object):
         defaults.update(redis_opts)
         defaults.update(disc_opts)
         defaults.update(cassandra_opts)
+        defaults.update(keystone_opts)
         defaults.update()
         parser.set_defaults(**defaults)
 
@@ -850,6 +893,26 @@ class OpServer(object):
             help="Number of partitions for hashing UVE keys")
         parser.add_argument("--sandesh_send_rate_limit", type=int,
             help="Sandesh send rate limit in messages/sec")
+        parser.add_argument("--cloud_admin_role",
+            help="Name of cloud-admin role")
+        parser.add_argument("--cloud_admin_access_only", action="store_true",
+            help="REST API access for cloud-admin role only")
+        parser.add_argument("--auth_host",
+            help="IP address of keystone server")
+        parser.add_argument("--auth_protocol",
+            help="Keystone authentication protocol")
+        parser.add_argument("--auth_port", type=int,
+            help="Keystone server port")
+        parser.add_argument("--admin_user",
+            help="Name of keystone admin user")
+        parser.add_argument("--admin_password",
+            help="Password of keystone admin user")
+        parser.add_argument("--admin_tenant_name",
+            help="Tenant name for keystone admin user")
+        parser.add_argument("--api_server",
+            help="Address of VNC API server in ip:port format")
+        parser.add_argument("--admin_port",
+            help="Port with local auth for admin access")
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
@@ -857,6 +920,25 @@ class OpServer(object):
             self._args.redis_uve_list = self._args.redis_uve_list.split()
         if type(self._args.cassandra_server_list) is str:
             self._args.cassandra_server_list = self._args.cassandra_server_list.split()
+
+        auth_conf_info = {}
+        auth_conf_info['admin_user'] = self._args.admin_user
+        auth_conf_info['admin_password'] = self._args.admin_password
+        auth_conf_info['admin_tenant_name'] = self._args.admin_tenant_name
+        auth_conf_info['auth_protocol'] = self._args.auth_protocol
+        auth_conf_info['auth_host'] = self._args.auth_host
+        auth_conf_info['auth_port'] = self._args.auth_port
+        auth_conf_info['auth_uri'] = '%s://%s:%d' % (self._args.auth_protocol,
+            self._args.auth_host, self._args.auth_port)
+        auth_conf_info['api_server_use_ssl'] = False
+        auth_conf_info['cloud_admin_access_only'] = \
+            self._args.cloud_admin_access_only
+        auth_conf_info['cloud_admin_role'] = self._args.cloud_admin_role
+        auth_conf_info['admin_port'] = self._args.admin_port
+        api_server_info = self._args.api_server.split(':')
+        auth_conf_info['api_server_ip'] = api_server_info[0]
+        auth_conf_info['api_server_port'] = int(api_server_info[1])
+        self._args.auth_conf_info = auth_conf_info
     # end _parse_args
 
     def get_args(self):
@@ -925,9 +1007,11 @@ class OpServer(object):
         ph.start()
         return body
 
+    @validate_user_token
     def uve_stream(self):
         return self._serve_streams(False)
 
+    @validate_user_token
     def alarm_stream(self):
         return self._serve_streams(True)
 
@@ -1197,17 +1281,19 @@ class OpServer(object):
         return
     # end _sync_query
 
+    @validate_user_token
     def query_process(self):
         self._post_common(bottle.request, None)
         result = self._query(bottle.request)
         return result
     # end query_process
 
+    @validate_user_token
     def query_status_get(self, queryId):
         (ok, result) = self._get_common(bottle.request)
         if not ok:
             (code, msg) = result
-            abort(code, msg)
+            bottle.abort(code, msg)
         return self._query_status(bottle.request, queryId)
     # end query_status_get
 
@@ -1215,15 +1301,16 @@ class OpServer(object):
         (ok, result) = self._get_common(bottle.request)
         if not ok:
             (code, msg) = result
-            abort(code, msg)
+            bottle.abort(code, msg)
         return self._query_chunk(bottle.request, queryId, int(chunkId))
     # end query_chunk_get
 
+    @validate_user_token
     def show_queries(self):
         (ok, result) = self._get_common(bottle.request)
         if not ok:
             (code, msg) = result
-            abort(code, msg)
+            bottle.abort(code, msg)
         queries = {}
         try:
             redish = redis.StrictRedis(db=0, host='127.0.0.1',
@@ -1349,13 +1436,14 @@ class OpServer(object):
         return filters
     # end _uve_http_post_filter_set
 
+    @validate_user_token
     def dyn_http_post(self, tables):
         (ok, result) = self._post_common(bottle.request, None)
         base_url = bottle.request.urlparts.scheme + \
             '://' + bottle.request.urlparts.netloc
         if not ok:
             (code, msg) = result
-            abort(code, msg)
+            bottle.abort(code, msg)
         uve_type = tables
         uve_tbl = uve_type
         if uve_type in UVE_MAP:
@@ -1405,6 +1493,7 @@ class OpServer(object):
             yield u']}'
     # end _uve_alarm_http_post
 
+    @validate_user_token
     def dyn_http_get(self, table, name):
         # common handling for all resource get
         (ok, result) = self._get_common(bottle.request)
@@ -1412,7 +1501,7 @@ class OpServer(object):
             '://' + bottle.request.urlparts.netloc
         if not ok:
             (code, msg) = result
-            abort(code, msg)
+            bottle.abort(code, msg)
         uve_tbl = table 
         if table in UVE_MAP:
             uve_tbl = UVE_MAP[table]
@@ -1457,12 +1546,13 @@ class OpServer(object):
             yield json.dumps(rsp)
     # end dyn_http_get
 
+    @validate_user_token
     def uve_alarm_http_types(self):
         # common handling for all resource get
         (ok, result) = self._get_common(bottle.request)
         if not ok:
             (code, msg) = result
-            abort(code, msg)
+            bottle.abort(code, msg)
 
         bottle.response.set_header('Content-Type', 'application/json')
         ret = {}
@@ -1478,12 +1568,13 @@ class OpServer(object):
                 ret[aname] = avalue
         return json.dumps(ret)
 
+    @validate_user_token
     def alarms_http_get(self):
         # common handling for all resource get
         (ok, result) = self._get_common(bottle.request)
         if not ok:
             (code, msg) = result
-            abort(code, msg)
+            bottle.abort(code, msg)
 
         bottle.response.set_header('Content-Type', 'application/json')
 
@@ -1510,12 +1601,13 @@ class OpServer(object):
                 return bottle.HTTPError(_ERRORS[errno.EIO],json.dumps(alms))
     # end alarms_http_get
 
+    @validate_user_token
     def dyn_list_http_get(self, tables):
         # common handling for all resource get
         (ok, result) = self._get_common(bottle.request)
         if not ok:
             (code, msg) = result
-            abort(code, msg)
+            bottle.abort(code, msg)
         arg_line = bottle.request.url.rsplit('/', 1)[1]
         uve_args = arg_line.split('?')
         uve_type = tables[:-1]
@@ -1554,12 +1646,13 @@ class OpServer(object):
             return json.dumps(uve_links)
     # end dyn_list_http_get
 
+    @validate_user_token
     def analytics_http_get(self):
         # common handling for all resource get
         (ok, result) = self._get_common(bottle.request)
         if not ok:
             (code, msg) = result
-            abort(code, msg)
+            bottle.abort(code, msg)
 
         base_url = bottle.request.urlparts.scheme + '://' + \
             bottle.request.urlparts.netloc + '/analytics/'
@@ -1569,12 +1662,13 @@ class OpServer(object):
         return json.dumps(analytics_links)
     # end analytics_http_get
 
+    @validate_user_token
     def uves_http_get(self):
         # common handling for all resource get
         (ok, result) = self._get_common(bottle.request)
         if not ok:
             (code, msg) = result
-            abort(code, msg)
+            bottle.abort(code, msg)
 
         base_url = bottle.request.urlparts.scheme + '://' + \
             bottle.request.urlparts.netloc + '/analytics/uves/'
@@ -1603,6 +1697,7 @@ class OpServer(object):
 	    return bottle.HTTPError(_ERRORS[errno.EIO],json.dumps(uvetype_links))
     # end _uves_http_get
 
+    @validate_user_token
     def alarms_ack_http_post(self):
         self._post_common(bottle.request, None)
         if ('application/json' not in bottle.request.headers['Content-Type']):
@@ -1655,6 +1750,7 @@ class OpServer(object):
         return bottle.HTTPResponse(status=200)
     # end alarms_ack_http_post
 
+    @validate_user_token
     def send_trace_buffer(self, source, module, instance_id, name):
         response = {}
         trace_req = SandeshTraceRequest(name)
@@ -1677,11 +1773,12 @@ class OpServer(object):
         return json.dumps(response)
     # end send_trace_buffer
 
+    @validate_user_token
     def tables_process(self):
         (ok, result) = self._get_common(bottle.request)
         if not ok:
             (code, msg) = result
-            abort(code, msg)
+            bottle.abort(code, msg)
 
         base_url = bottle.request.urlparts.scheme + '://' + \
             bottle.request.urlparts.netloc + '/analytics/table/'
@@ -1736,6 +1833,7 @@ class OpServer(object):
         return purge_cutoff
     #end get_purge_cutoff
 
+    @validate_user_token
     def process_purge_request(self):
         self._post_common(bottle.request, None)
 
@@ -1917,8 +2015,7 @@ class OpServer(object):
             gevent.sleep(60*30) # sleep for 30 minutes
     # end _auto_purge
 
-
-
+    @validate_user_token
     def _get_analytics_data_start_time(self):
         analytics_start_time = (self._analytics_db.get_analytics_start_time())[SYSTEM_OBJECT_START_TIME]
         response = {'analytics_data_start_time': analytics_start_time}
@@ -1930,7 +2027,7 @@ class OpServer(object):
         (ok, result) = self._get_common(bottle.request)
         if not ok:
             (code, msg) = result
-            abort(code, msg)
+            bottle.abort(code, msg)
 
         base_url = bottle.request.urlparts.scheme + '://' + \
             bottle.request.urlparts.netloc + '/analytics/table/' + table + '/'
@@ -1950,11 +2047,12 @@ class OpServer(object):
         return json.dumps(json_links)
     # end table_process
 
+    @validate_user_token
     def table_schema_process(self, table):
         (ok, result) = self._get_common(bottle.request)
         if not ok:
             (code, msg) = result
-            abort(code, msg)
+            bottle.abort(code, msg)
 
         bottle.response.set_header('Content-Type', 'application/json')
         for i in range(0, len(self._VIRTUAL_TABLES)):
@@ -1965,11 +2063,12 @@ class OpServer(object):
         return (json.dumps({}))
     # end table_schema_process
 
+    @validate_user_token
     def column_values_process(self, table):
         (ok, result) = self._get_common(bottle.request)
         if not ok:
             (code, msg) = result
-            abort(code, msg)
+            bottle.abort(code, msg)
 
         base_url = bottle.request.urlparts.scheme + '://' + \
             bottle.request.urlparts.netloc + \
@@ -2034,11 +2133,12 @@ class OpServer(object):
         return []
     # end generator_info
 
+    @validate_user_token
     def column_process(self, table, column):
         (ok, result) = self._get_common(bottle.request)
         if not ok:
             (code, msg) = result
-            abort(code, msg)
+            bottle.abort(code, msg)
 
         bottle.response.set_header('Content-Type', 'application/json')
         for i in range(0, len(self._VIRTUAL_TABLES)):
@@ -2183,6 +2283,11 @@ class OpServer(object):
                                 self.disc_agp, self._sandesh)
             sp2.start()
             self.gevs.append(sp2)
+
+        if self._vnc_api_client:
+            self.gevs.append(gevent.spawn(self._vnc_api_client.connect))
+        self._local_app = LocalApp(bottle.app(), self._args.auth_conf_info)
+        self.gevs.append(gevent.spawn(self._local_app.start_http_server))
 
         try:
             gevent.joinall(self.gevs)

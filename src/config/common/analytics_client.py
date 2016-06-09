@@ -34,12 +34,13 @@ class Client(object):
         self.endpoint = endpoint
         self.data = data
 
-    def request(self, path, fqdn_uuid, data=None):
+    def request(self, path, fqdn_uuid, user_token=None,
+                data=None):
         req_data = dict(self.data)
         if data:
             req_data.update(data)
 
-        req_params = self._get_req_params(data=req_data)
+        req_params = self._get_req_params(user_token, data=req_data)
 
         url = urlparse.urljoin(self.endpoint, path + fqdn_uuid)
         resp = requests.get(url, **req_params)
@@ -51,7 +52,7 @@ class Client(object):
 
         return resp.json()
 
-    def _get_req_params(self, data=None):
+    def _get_req_params(self, user_token, data=None):
         req_params = {
             'headers': {
                 'Accept': 'application/json'
@@ -59,5 +60,7 @@ class Client(object):
             'data': data,
             'allow_redirects': False,
         }
+        if user_token:
+            req_params['headers']['X-AUTH-TOKEN'] = user_token
 
         return req_params

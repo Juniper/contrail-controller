@@ -55,8 +55,8 @@ class LogQuerierTest(unittest.TestCase):
         self.maxDiff = None
         self._querier = LogQuerier()
 
-        flexmock(OpServerUtils).should_receive('post_url_http').replace_with(lambda x, y: self.custom_post_url_http(x, y))
-        flexmock(OpServerUtils).should_receive('get_query_result').replace_with(lambda x, y, z: self.custom_get_query_result(x, y, z))
+        flexmock(OpServerUtils).should_receive('post_url_http').replace_with(lambda x, y, w, z: self.custom_post_url_http(x, y))
+        flexmock(OpServerUtils).should_receive('get_query_result').replace_with(lambda x, y, z, a, b: self.custom_get_query_result(x, y, z))
         flexmock(self._querier).should_receive('display').replace_with(lambda x: self.custom_display(x))
 
 

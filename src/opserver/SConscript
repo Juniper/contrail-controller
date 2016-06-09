@@ -13,6 +13,7 @@ OpEnv = BuildEnv.Clone()
 setup_sources = [
            'setup.py',
            'MANIFEST.in',
+           'requirements.txt',
           ]
 
 setup_sources_rules = []
@@ -42,6 +43,8 @@ local_sources = [
            'consistent_schdlr.py',
            'gendb_move_tables.py',
            'alarm_notify.py'
+           'vnc_cfg_api_client.py',
+           'opserver_local.py',
           ]
 
 plugins_sources = [
