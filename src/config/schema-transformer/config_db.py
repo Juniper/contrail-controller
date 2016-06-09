@@ -1897,6 +1897,10 @@ class RoutingInstanceST(DBBaseST):
             return
         left_vn = VirtualNetworkST.get(sc.left_vn)
         right_vn = VirtualNetworkST.get(sc.right_vn)
+        if left_vn is None or right_vn is None:
+            self._logger.debug("left or right vn not found for RI " + self.name)
+            return
+
         multi_policy_enabled = (
             left_vn.multi_policy_service_chains_enabled and
             right_vn.multi_policy_service_chains_enabled)
