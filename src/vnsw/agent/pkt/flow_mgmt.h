@@ -924,12 +924,13 @@ private:
 class BgpAsAServiceFlowMgmtKey : public FlowMgmtKey {
 public:
     BgpAsAServiceFlowMgmtKey(const boost::uuids::uuid &uuid,
-                             uint32_t source_port) :
+                             uint32_t source_port,
+                             const IpAddress &dest_ip) :
         FlowMgmtKey(FlowMgmtKey::BGPASASERVICE, NULL), uuid_(uuid),
-        source_port_(source_port) { }
+        source_port_(source_port), dest_ip_(dest_ip) { }
     virtual ~BgpAsAServiceFlowMgmtKey() { }
     virtual FlowMgmtKey *Clone() {
-        return new BgpAsAServiceFlowMgmtKey(uuid_, source_port_);
+        return new BgpAsAServiceFlowMgmtKey(uuid_, source_port_, dest_ip_);
     }
     virtual bool UseDBEntry() const { return false; }
     virtual bool Compare(const FlowMgmtKey *rhs) const {
@@ -937,14 +938,18 @@ public:
             static_cast<const BgpAsAServiceFlowMgmtKey *>(rhs);
         if (uuid_ != rhs_key->uuid_)
             return uuid_ < rhs_key->uuid_;
-        return source_port_ < rhs_key->source_port_;
+        if (source_port_ != rhs_key->source_port_)
+            return source_port_ < rhs_key->source_port_;
+        return dest_ip_ < rhs_key->dest_ip_;
     }
     const boost::uuids::uuid &uuid() const { return uuid_; }
     uint32_t source_port() const { return source_port_; }
+    const IpAddress &dest_ip() const { return dest_ip_; }
 
 private:
     boost::uuids::uuid uuid_;
     uint32_t source_port_;
+    const IpAddress &dest_ip_;
     DISALLOW_COPY_AND_ASSIGN(BgpAsAServiceFlowMgmtKey);
 };
 

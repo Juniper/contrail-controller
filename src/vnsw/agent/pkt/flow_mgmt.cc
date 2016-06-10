@@ -339,7 +339,8 @@ void BgpAsAServiceFlowMgmtTree::ExtractKeys(FlowEntry *flow,
 
     BgpAsAServiceFlowMgmtKey *key =
         new BgpAsAServiceFlowMgmtKey(vm_intf->GetUuid(),
-                                     flow->bgp_as_a_service_port());
+                                     flow->bgp_as_a_service_port(),
+                                     flow->key().dst_addr);
     AddFlowMgmtKey(tree, key);
 }
 
@@ -349,13 +350,23 @@ FlowMgmtEntry *BgpAsAServiceFlowMgmtTree::Allocate(const FlowMgmtKey *key) {
 
 bool BgpAsAServiceFlowMgmtTree::BgpAsAServiceDelete
 (BgpAsAServiceFlowMgmtKey &key, const FlowMgmtRequest *req) {
-    FlowMgmtEntry *entry = Find(&key);
-    if (entry == NULL) {
+    Tree::iterator it = tree_.lower_bound(&key);
+
+    if (it == tree_.end())
         return true;
+
+    bool ret = false;
+    BgpAsAServiceFlowMgmtKey *vmi_key =
+        static_cast<BgpAsAServiceFlowMgmtKey *>(it->first);
+
+    while ((vmi_key->uuid() == key.uuid()) &&
+           (vmi_key->source_port() == key.source_port())) {
+        FlowMgmtEntry *entry = it->second;
+        entry->NonOperEntryDelete(mgr_, req, &key);
+        ret |= TryDelete(&key, entry);
     }
 
-    entry->NonOperEntryDelete(mgr_, req, &key);
-    return TryDelete(&key, entry);
+    return ret;
 }
 
 void BgpAsAServiceFlowMgmtTree::DeleteAll() {
@@ -363,7 +374,8 @@ void BgpAsAServiceFlowMgmtTree::DeleteAll() {
     while (it != tree_.end()) {
         BgpAsAServiceFlowMgmtKey *key =
             static_cast<BgpAsAServiceFlowMgmtKey *>(it->first);
-        mgr_->BgpAsAServiceNotify(key->uuid(), key->source_port());
+        mgr_->BgpAsAServiceNotify(key->uuid(),
+                                  key->source_port());
         it++;
     }
 }
@@ -375,7 +387,8 @@ FlowMgmtManager::BgpAsAServiceRequestHandler(FlowMgmtRequest *req) {
         dynamic_cast<BgpAsAServiceFlowMgmtRequest *>(req);
     if (bgp_as_a_service_request->type() == BgpAsAServiceFlowMgmtRequest::VMI) {
         BgpAsAServiceFlowMgmtKey key(bgp_as_a_service_request->vm_uuid(),
-                                     bgp_as_a_service_request->source_port());
+                                     bgp_as_a_service_request->source_port(),
+                                     IpAddress());
         //Delete it for for all CN trees
         for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
             bgp_as_a_service_flow_mgmt_tree_[count].get()->
