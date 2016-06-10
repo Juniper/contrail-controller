@@ -714,6 +714,11 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn,
                        prop_collection_updates=None, **kwargs):
 
+        # if a sub interface ref is added to a VMI, check that vlan tag is not already in use
+        (ok, result) = cls._check_duplicate_vlan_tag_in_vmi(obj_dict, db_conn)
+        if not ok:
+            return (False, (403, result))
+
         ok, read_result = cls.dbe_read(
                               db_conn, 'virtual-machine-interface', id)
         if not ok:
@@ -783,6 +788,39 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
         return True, ""
     # end pre_dbe_delete
+
+    @classmethod
+    def _check_duplicate_vlan_tag_in_vmi(cls, obj_dict, db_conn):
+
+        (ok, sub_itf_obj) = db_conn.dbe_read('virtual-machine-interface', {'uuid':obj_dict['uuid']})
+
+        if ('virtual_machine_interface_properties' in sub_itf_obj) and \
+           ('sub_interface_vlan_tag' in sub_itf_obj['virtual_machine_interface_properties']):
+                parent_vmi = sub_itf_obj.get('virtual_machine_interface_refs', [])
+                (ok, parent_vmi_obj) = db_conn.dbe_read('virtual-machine-interface', {'uuid':parent_vmi[0]['uuid']})
+                if not ok:
+                    return (False, ('Internal error : virtual machine interface ' +
+                                         parent_vmi[0]['uuid'] + ' not found'))
+                vlan_tags = []
+                for sub_itf in parent_vmi_obj.get('virtual_machine_interface_refs', []):
+                    (ok, sub_itf_obj) = db_conn.dbe_read('virtual-machine-interface',
+                                                         {'uuid':sub_itf['uuid']})
+                    if not ok:
+                        return (False, ('Internal error : virtual machine interface ' +
+                                             sub_itf['uuid'] + ' not found'))
+                    if ('virtual_machine_interface_properties' in sub_itf_obj) and \
+                       ('sub_interface_vlan_tag' in sub_itf_obj['virtual_machine_interface_properties']):
+
+                       vlan = sub_itf_obj['virtual_machine_interface_properties']['sub_interface_vlan_tag']
+
+                       index = [i for i, v in enumerate(vlan_tags) if v[0] == vlan]
+                       if index:
+                           return (False, ("Vlan tag already used in " +
+                                   "another sub interface : " + vlan_tags[index[0]][1]))
+                    vlan_tags.append((vlan, sub_itf_obj['uuid']))
+
+            return (True, "")
+    # end _check_duplicate_vlan_tag_in_vmi
 
 # end class VirtualMachineInterfaceServer
 
