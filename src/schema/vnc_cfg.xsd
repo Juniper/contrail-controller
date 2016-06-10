@@ -1370,7 +1370,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="local-preference" type="xsd:integer" required='optional'
              description='BGP route local preference for routes representing this interface, higher value is higher preference'/>
         <xsd:element name="sub-interface-vlan-tag" type="xsd:integer" required='optional'
-             description='802.1Q VLAN tag to be used if this interface is sub-interface for some other interface.'/>
+             description='802.1Q VLAN tag to be used if this interface is sub-interface for some other interface.'
+             minInclusive value="1"
+             maxInclusive value="4094"/>
     </xsd:all>
 </xsd:complexType>
 
