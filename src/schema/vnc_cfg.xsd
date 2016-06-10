@@ -1361,6 +1361,13 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:simpleType name="SubInterfaceVlanTag">
+    <xsd:restriction base="xsd:integer">
+        <xsd:minInclusive value="1"/>
+        <xsd:maxInclusive value="4094"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name='VirtualMachineInterfacePropertiesType'>
     <xsd:all>
         <xsd:element name='service-interface-type' type="ServiceInterfaceType" required='optional'
@@ -1369,7 +1376,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              description='Interface Mirror configuration'/>
         <xsd:element name="local-preference" type="xsd:integer" required='optional'
              description='BGP route local preference for routes representing this interface, higher value is higher preference'/>
-        <xsd:element name="sub-interface-vlan-tag" type="xsd:integer" required='optional'
+        <xsd:element name="sub-interface-vlan-tag" type="SubInterfaceVlanTag" required='optional'
              description='802.1Q VLAN tag to be used if this interface is sub-interface for some other interface.'/>
     </xsd:all>
 </xsd:complexType>
