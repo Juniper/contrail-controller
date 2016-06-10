@@ -430,7 +430,7 @@ class AddrMgmt(object):
     # end _get_subnet_dicts
 
     def _create_subnet_objs(self, vn_fq_name_str, vn_dict, should_persist):
-        self._subnet_objs[vn_fq_name_str] = {}
+        self._subnet_objs.setdefault(vn_fq_name_str, {})
         # create subnet for each new subnet
         refs = vn_dict.get('network_ipam_refs', None)
         if refs:
@@ -443,23 +443,27 @@ class AddrMgmt(object):
                     subnet_name = subnet['ip_prefix'] + '/' + str(
                         subnet['ip_prefix_len'])
 
-                    gateway_ip = ipam_subnet.get('default_gateway', None)
-                    service_address = ipam_subnet.get('dns_server_address', None)
-                    allocation_pools = ipam_subnet.get('allocation_pools', None)
-                    dhcp_config = ipam_subnet.get('enable_dhcp', True)
-                    nameservers = ipam_subnet.get('dns_nameservers', None)
-                    addr_start = ipam_subnet.get('addr_from_start', False)
-                    subnet_obj = Subnet(
-                        '%s:%s' % (vn_fq_name_str, subnet_name),
-                        subnet['ip_prefix'], str(subnet['ip_prefix_len']),
-                        gw=gateway_ip, service_address=service_address,
-                        enable_dhcp=dhcp_config,
-                        dns_nameservers=nameservers,
-                        alloc_pool_list=allocation_pools,
-                        addr_from_start=addr_start,
-                        should_persist=should_persist)
-                    self._subnet_objs[vn_fq_name_str][subnet_name] = \
-                         subnet_obj
+                    try:
+                        subnet_obj = self._subnet_objs[vn_fq_name_str][subnet_name]
+                    except KeyError:
+                        gateway_ip = ipam_subnet.get('default_gateway')
+                        service_address = ipam_subnet.get('dns_server_address')
+                        allocation_pools = ipam_subnet.get('allocation_pools')
+                        dhcp_config = ipam_subnet.get('enable_dhcp', True)
+                        nameservers = ipam_subnet.get('dns_nameservers')
+                        addr_start = ipam_subnet.get('addr_from_start', False)
+                        subnet_obj = Subnet(
+                            '%s:%s' % (vn_fq_name_str, subnet_name),
+                            subnet['ip_prefix'], str(subnet['ip_prefix_len']),
+                            gw=gateway_ip, service_address=service_address,
+                            enable_dhcp=dhcp_config,
+                            dns_nameservers=nameservers,
+                            alloc_pool_list=allocation_pools,
+                            addr_from_start=addr_start,
+                            should_persist=should_persist)
+                        self._subnet_objs[vn_fq_name_str][subnet_name] = \
+                             subnet_obj
+
                     ipam_subnet['default_gateway'] = str(subnet_obj.gw_ip)
                     ipam_subnet['dns_server_address'] = str(subnet_obj.dns_server_address)
     # end _create_subnet_objs
@@ -509,6 +513,10 @@ class AddrMgmt(object):
 
         for subnet_name in del_subnet_names:
             Subnet.delete_cls('%s:%s' % (vn_fq_name_str, subnet_name))
+            try:
+                del self._subnet_objs[vn_fq_name_str][subnet_name]
+            except KeyError:
+                pass
 
         # check db_subnet_dicts and req_subnet_dicts
         # following parameters are same for subnets present in both dicts
