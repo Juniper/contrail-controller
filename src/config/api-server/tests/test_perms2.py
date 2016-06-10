@@ -798,6 +798,36 @@ class TestPermissions(test_case.ApiServerTestCase):
             perms = user.check_perms(vn.get_uuid())
             self.assertEquals(perms, ExpectedPerms[user.name])
 
+    # check owner of internally created ri is cloud-admin (bug #1528796)
+    def test_ri_owner(self):
+        """
+        1) Create a virtual network as a non-admin user.
+        2) Verify owner of automatically created routing instance is cloud-admin
+        """
+
+        alice = self.alice
+        bob   = self.bob
+        admin = self.admin
+
+        # allow permission to create virtual-network
+        for user in self.users:
+            logger.info( "%s: project %s to allow full access to role %s" % \
+                (user.name, user.project, user.role))
+            # note that collection API is set for create operation
+            vnc_fix_api_access_list(self.admin.vnc_lib, user.project_obj,
+                rule_str = 'virtual-networks %s:CRUD' % user.role)
+
+        # Create VN as non-admin user
+        vn_fq_name = [self.domain_name, alice.project, self.vn_name]
+        vn = VirtualNetwork(self.vn_name, self.alice.project_obj)
+        self.alice.vnc_lib.virtual_network_create(vn)
+        vn_obj = vnc_read_obj(self.admin.vnc_lib, 'virtual-network', name = vn_fq_name)
+        self.assertNotEquals(vn_obj, None)
+
+        # Verify owner of automatically created routing instance is cloud-admin
+        ri_name = [self.domain_name, alice.project, self.vn_name, self.vn_name]
+        ri = vnc_read_obj(self.admin.vnc_lib, 'routing-instance', name = ri_name)
+        self.assertEquals(ri.get_perms2().owner, 'cloud-admin')
 
     def tearDown(self):
         super(TestPermissions, self).tearDown()

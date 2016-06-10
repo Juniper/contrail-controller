@@ -2472,12 +2472,18 @@ class VncApiServer(object):
         return id_perms_dict
     # end _get_default_id_perms
 
-    def _ensure_perms2_present(self, obj_type, obj_uuid, obj_dict):
+    def _ensure_perms2_present(self, obj_type, obj_uuid, obj_dict, project_id=None):
         """
         Called at resource creation to ensure that id_perms is present in obj
         """
         # retrieve object and permissions
         perms2 = self._get_default_perms2(obj_type)
+
+        # set ownership of object to creator tenant
+        if obj_type == 'project' and 'uuid' in obj_dict:
+            perms2['owner'] = str(obj_dict['uuid']).replace('-','')
+        elif project_id:
+            perms2['owner'] = project_id
 
         if (('perms2' not in obj_dict) or
                 (obj_dict['perms2'] is None)):
@@ -2988,14 +2994,8 @@ class VncApiServer(object):
 
         # Ensure object has at least default permissions set
         self._ensure_id_perms_present(obj_type, None, obj_dict)
-        self._ensure_perms2_present(obj_type, None, obj_dict)
-
-        # set ownership of object to creator tenant
-        if obj_type == 'project':
-            owner = str(obj_dict['uuid']).replace('-','')
-        else:
-            owner = request.headers.environ.get('HTTP_X_PROJECT_ID', None)
-        obj_dict['perms2']['owner'] = owner
+        self._ensure_perms2_present(obj_type, None, obj_dict,
+            request.headers.environ.get('HTTP_X_PROJECT_ID', None))
 
         # TODO check api + resource perms etc.
 
