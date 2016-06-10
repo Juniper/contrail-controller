@@ -27,26 +27,13 @@ logging.basicConfig(level=logging.INFO,
 
 cassandra_bdir = '/tmp/cache-' + os.environ['USER'] + '-systemless_test'
 
-def use_cql():
-    (PLATFORM, VERSION, EXTRA) = platform.linux_distribution()
-    if PLATFORM.lower() == 'ubuntu':
-        if VERSION.find('12.') == 0:
-            return False
-    if PLATFORM.lower() == 'centos':
-        if VERSION.find('6.') == 0:
-            return False
-    return True
-
 def start_cassandra(cport, sport_arg=None, cassandra_user=None, cassandra_password = None):
     '''
     Client uses this function to start an instance of Cassandra
     Arguments:
         cport : An unused TCP port for Cassandra to use as the client port
     '''
-    if not use_cql():
-        cassandra_version = '1.2.11'
-    else:
-        cassandra_version = '2.1.9'
+    cassandra_version = '2.1.9'
     cassandra_url = cassandra_bdir + '/apache-cassandra-'+cassandra_version+'-bin.tar.gz'
 
     if not os.path.exists(cassandra_bdir):
@@ -90,12 +77,8 @@ def start_cassandra(cport, sport_arg=None, cassandra_user=None, cassandra_passwo
     o_clients.bind(("",0))
     o_client_port = o_clients.getsockname()[1]
 
-    if not use_cql():
-        cqlport = o_client_port
-        thriftport = cport
-    else:
-        cqlport = cport
-        thriftport = o_client_port
+    cqlport = cport
+    thriftport = o_client_port
 
     logging.info('Cassandra Client Port %d: CQL Port %d, Thrift Port %d' %
         (cport, cqlport, thriftport))
@@ -115,12 +98,6 @@ def start_cassandra(cport, sport_arg=None, cassandra_user=None, cassandra_passwo
         replace_string_(confdir + "cassandra.yaml", \
             [("authenticator: AllowAllAuthenticator",  \
               "authenticator: PasswordAuthenticator")])
-
-    if not use_cql():
-        replace_string_(confdir + "log4j-server.properties", \
-           [("/var/log/cassandra/system.log", cassbase + "system.log"),
-            ("INFO","DEBUG")])
-    else:
         replace_string_(confdir + "logback.xml",\
             [('level="INFO"','level="DEBUG"')])
 

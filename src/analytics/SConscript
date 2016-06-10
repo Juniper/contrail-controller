@@ -65,11 +65,7 @@ if PLATFORM.lower() != 'ubuntu':
         'crypto',
         'sasl2'])
 
-if AnalyticsEnv.UseCassandraCql():
-    database_libs = ['cassandra_cql', 'cassandra']
-    AnalyticsEnv.AppendUnique(CCFLAGS='-DUSE_CASSANDRA_CQL')
-else:
-    database_libs = ['cassandra_thrift', 'thrift']
+database_libs = ['cassandra_cql', 'cassandra']
 
 database_libs.append('gendb')
 database_libs.append('boost_regex')
@@ -189,7 +185,6 @@ AnalyticsEnv.Default(vizd)
 AnalyticsEnv.Requires(OpServerProxy_obj, '#/build/include/rapidjson')
 AnalyticsEnv.Requires(vizd, '#/build/include/boost')
 AnalyticsEnv.Requires(vizd, '#/build/include/ipfix.h')
-AnalyticsEnv.Requires(vizd, '#/build/include/thrift/Thrift.h')
 
 AnalyticsEnv.SConscript('ruleparser/SConscript', exports='AnalyticsEnv', duplicate = 0)
 AnalyticsEnv.SConscript('database/SConscript', exports='AnalyticsEnv', duplicate = 0)

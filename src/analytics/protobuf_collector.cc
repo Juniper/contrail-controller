@@ -20,15 +20,7 @@ ProtobufCollector::ProtobufCollector(EventManager *evm,
     const std::vector<int> &cassandra_ports, const TtlMap& ttl_map,
     const std::string& cassandra_user, const std::string& cassandra_password,
     DbHandlerPtr global_dbhandler) {
-    if (!global_dbhandler) {
-        db_initializer_.reset(new DbHandlerInitializer(evm, kDbName, kDbTaskInstance,
-            kDbTaskName, boost::bind(&ProtobufCollector::DbInitializeCb, this),
-            cassandra_ips, cassandra_ports, ttl_map, cassandra_user,
-            cassandra_password, false, std::string(), false));
-        db_handler_ = db_initializer_->GetDbHandler();
-    } else {
-        db_handler_ = global_dbhandler;
-    }
+    db_handler_ = global_dbhandler;
     server_.reset(new protobuf::ProtobufServer(evm, protobuf_udp_port,
         boost::bind(&DbHandler::StatTableInsert, db_handler_,
             _1, _2, _3, _4, _5, GenDb::GenDbIf::DbAddColumnCb())));

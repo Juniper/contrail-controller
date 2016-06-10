@@ -88,7 +88,7 @@ public:
         std::string name, const TtlMap& ttl_map,
         const std::string& cassandra_user,
         const std::string& cassandra_password,
-        bool use_cql, const std::string &zookeeper_server_list,
+        const std::string &zookeeper_server_list,
         bool use_zookeeper);
     DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map);
     virtual ~DbHandler();
@@ -134,7 +134,6 @@ public:
     void ResetDbQueueWaterMarkInfo();
     std::vector<boost::asio::ip::tcp::endpoint> GetEndpoints() const;
     std::string GetName() const;
-    bool UseCql() const;
 
 private:
     void StatTableInsertTtl(uint64_t ts,
@@ -192,7 +191,6 @@ private:
     static uint8_t old_t2_index_;
     static uint8_t new_t2_index_;
     static tbb::mutex fmutex_;
-    bool use_cql_;
     std::string tablespace_;
     UniformInt8RandomGenerator gen_partition_no_;
     std::string zookeeper_server_list_;
@@ -236,7 +234,6 @@ class DbHandlerInitializer {
         const TtlMap& ttl_map,
         const std::string& cassandra_user,
         const std::string& cassandra_password,
-        bool use_cql,
         const std::string &zookeeper_server_list,
         bool use_zookeeper);
     DbHandlerInitializer(EventManager *evm,
