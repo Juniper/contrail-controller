@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ * Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
  */
 
 #ifndef ctrlplane_db_table_walk_mgr_h
@@ -11,12 +11,14 @@
 #include <boost/function.hpp>
 #include <boost/intrusive_ptr.hpp>
 #include <boost/scoped_ptr.hpp>
+#include <boost/shared_ptr.hpp>
 
 #include <tbb/mutex.h>
 #include <tbb/task.h>
 
 #include "base/logging.h"
 #include "base/task_trigger.h"
+#include "base/util.h"
 
 class DBTableWalk;
 class DBTable;
@@ -28,44 +30,13 @@ class DBEntryBase;
 // entries in a certain routing table.
 class DBTableWalkMgr {
 public:
-
-    // Walker function:
-    // Called for each DBEntry under a db::DBTable task that corresponds to the
-    // specific partition.
-    // arguments: DBTable partition and DBEntry.
-    // returns: true (continue); false (stop).
-    typedef boost::function<bool(DBTablePartBase *, DBEntryBase *)> WalkFn;
-
-    // Called when all partitions are done iterating.
-    typedef boost::function<void(DBTableBase *)> WalkCompleteFn;
-
     typedef boost::intrusive_ptr<DBTableWalk> DBTableWalkRef;
+    typedef boost::function<bool(DBTablePartBase *, DBEntryBase *)> WalkFn;
+    typedef boost::function<void(DBTableWalkRef, DBTableBase *)> WalkCompleteFn;
 
     typedef std::set<DBTableWalkRef> WalkReqList;
 
-    static const int kIterationToYield = 1024;
-
     DBTableWalkMgr();
-
-    // Create a DBTable Walker
-    // Concurrency : should be invoked from a task which is mutually exclusive
-    // "db::Walker" task
-    DBTableWalkRef AllocWalker(DBTable *table, WalkFn walk_fn,
-                       WalkCompleteFn walk_complete);
-
-    // Release the Walker
-    // Concurrency : can be invoked from any task
-    void ReleaseWalker(DBTableWalkRef &walk);
-
-    // Start a walk on the table.
-    // Concurrency : should be invoked from a task which is mutually exclusive
-    // "db::Walker" task
-    void WalkTable(DBTableWalkRef walk);
-
-    // Walk the table again
-    // Concurrency : should be invoked from a task which is mutually exclusive
-    // "db::Walker" task
-    void WalkAgain(DBTableWalkRef walk);
 
     void WalkDone();
 
@@ -86,8 +57,9 @@ public:
     }
 
 private:
+    friend class DBTable;
     struct WalkRequestInfo;
-    typedef std::list<WalkRequestInfo *> WalkRequestInfoList;
+    typedef std::list<boost::shared_ptr<WalkRequestInfo> > WalkRequestInfoList;
 
     struct WalkRequestInfo {
         WalkRequestInfo(DBTable *table) : table(table) {
@@ -108,8 +80,24 @@ private:
         WalkReqList pending_requests;
     };
 
+    // Create a DBTable Walker
+    DBTableWalkRef AllocWalker(DBTable *table, WalkFn walk_fn,
+                       WalkCompleteFn walk_complete);
+
+    // Release the Walker
+    void ReleaseWalker(DBTableWalkRef &walk);
+
+    // Start a walk on the table.
+    void WalkTable(DBTableWalkRef walk);
+
+    // Walk the table again
+    void WalkAgain(DBTableWalkRef walk);
+
     bool ProcessWalkRequestList();
+
     bool ProcessWalkDone();
+
+    bool InvokeWalkCb(DBTablePartBase *part, DBEntryBase *entry);
 
     boost::scoped_ptr<TaskTrigger> walk_request_trigger_;
     boost::scoped_ptr<TaskTrigger> walk_done_trigger_;
@@ -117,6 +105,8 @@ private:
     tbb::mutex mutex_;
     WalkRequestInfoList walk_request_list_;
     WalkReqList current_table_walk_;
+
+    DISALLOW_COPY_AND_ASSIGN(DBTableWalkMgr);
 };
 
 class DBTableWalk {
@@ -137,9 +127,9 @@ public:
         refcount_ = 0;
     }
 
-    DBTable *table() { return table_;}
-    DBTableWalkMgr::WalkFn walk_fn() { return walk_fn_;}
-    DBTableWalkMgr::WalkCompleteFn walk_complete() { return walk_complete_;}
+    DBTable *table() const { return table_;}
+    DBTableWalkMgr::WalkFn walk_fn() const { return walk_fn_;}
+    DBTableWalkMgr::WalkCompleteFn walk_complete() const { return walk_complete_;}
 
     void set_walk_done() { walk_state_ = WALK_DONE;}
 
@@ -153,7 +143,7 @@ public:
                 (walk_state_ == WALK_IN_PROGRESS));
     }
 
-    uint8_t walk_state() {
+    WalkState walk_state() const {
         return walk_state_;
     }
 
@@ -173,8 +163,10 @@ private:
     DBTable *table_;
     DBTableWalkMgr::WalkFn walk_fn_;
     DBTableWalkMgr::WalkCompleteFn walk_complete_;
-    tbb::atomic<uint8_t> walk_state_;
+    tbb::atomic<WalkState> walk_state_;
     tbb::atomic<bool> walk_again_;
     tbb::atomic<int> refcount_;
+
+    DISALLOW_COPY_AND_ASSIGN(DBTableWalk);
 };
 #endif

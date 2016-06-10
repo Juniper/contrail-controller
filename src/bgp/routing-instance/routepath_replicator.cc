@@ -79,9 +79,7 @@ TableState::TableState(RoutePathReplicator *replicator, BgpTable *table)
 
 TableState::~TableState() {
     if (walk_ref().get()) {
-        DB *db = replicator()->server()->database();
-        DBTableWalkMgr *walk_mgr = db->GetWalkMgr();
-        walk_mgr->ReleaseWalker(walk_ref());
+        table()->ReleaseWalker(walk_ref());
     }
 }
 
@@ -248,16 +246,14 @@ RoutePathReplicator::RequestWalk(BgpTable *table) {
     CHECK_CONCURRENCY("bgp::Config");
     TableState *ts = FindTableState(table);
     assert(ts);
-    DB *db = server()->database();
-    DBTableWalkMgr *walk_mgr = db->GetWalkMgr();
     if (!ts->walk_ref()) {
-        DBTableWalkMgr::DBTableWalkRef walk_ref = walk_mgr->AllocWalker(table,
-            boost::bind(&RoutePathReplicator::RouteListener, this, ts, _1, _2),
-            boost::bind(&RoutePathReplicator::BulkReplicationDone, this, _1));
-        walk_mgr->WalkTable(walk_ref);
+        DBTable::DBTableWalkRef walk_ref = table->AllocWalker(
+          boost::bind(&RoutePathReplicator::RouteListener, this, ts, _1, _2),
+          boost::bind(&RoutePathReplicator::BulkReplicationDone, this, _2));
+        table->WalkTable(walk_ref);
         ts->set_walk_ref(walk_ref);
     } else {
-        walk_mgr->WalkAgain(ts->walk_ref());
+        table->WalkAgain(ts->walk_ref());
     }
 }
 

@@ -71,15 +71,15 @@ public:
         return table_state_mutex_;
     }
 
-    void set_walk_ref(DBTableWalkMgr::DBTableWalkRef walk_ref) {
+    void set_walk_ref(DBTable::DBTableWalkRef walk_ref) {
         walk_ref_ = walk_ref;
     }
 
-    const DBTableWalkMgr::DBTableWalkRef &walk_ref() const {
+    const DBTable::DBTableWalkRef &walk_ref() const {
         return walk_ref_;
     }
 
-    DBTableWalkMgr::DBTableWalkRef &walk_ref() {
+    DBTable::DBTableWalkRef &walk_ref() {
         return walk_ref_;
     }
 
@@ -95,7 +95,7 @@ private:
     tbb::mutex table_state_mutex_;
     BgpTable *table_;
     DBTableBase::ListenerId id_;
-    DBTableWalkMgr::DBTableWalkRef walk_ref_;
+    DBTable::DBTableWalkRef walk_ref_;
     WalkList walk_list_;
     MatchList match_object_list_;
     LifetimeRef<ConditionMatchTableState> table_delete_ref_;
@@ -111,12 +111,11 @@ BgpConditionListener::BgpConditionListener(BgpServer *server) :
 
 bool BgpConditionListener::PurgeTableState() {
     CHECK_CONCURRENCY("bgp::Config");
-    DBTableWalkMgr *walk_mgr = server()->database()->GetWalkMgr();
     BOOST_FOREACH(ConditionMatchTableState *ts, purge_list_) {
         if (ts->match_objects()->empty()) {
             BgpTable *bgptable = ts->table();
             if (ts->walk_ref().get())
-                walk_mgr->ReleaseWalker(ts->walk_ref());
+                bgptable->ReleaseWalker(ts->walk_ref());
             bgptable->Unregister(ts->GetListenerId());
             map_.erase(bgptable);
             delete ts;
@@ -294,17 +293,15 @@ void BgpConditionListener::TableWalk(ConditionMatchTableState *ts,
                  ConditionMatch *obj, BgpConditionListener::RequestDoneCb cb) {
     CHECK_CONCURRENCY("bgp::Config");
 
-    DBTableWalkMgr *walk_mgr = server()->database()->GetWalkMgr();
     if (!ts->walk_ref().get()) {
-        DBTableWalkMgr::DBTableWalkRef walk_ref =
-            walk_mgr->AllocWalker(ts->table(),
+        DBTable::DBTableWalkRef walk_ref = ts->table()->AllocWalker(
             boost::bind(&BgpConditionListener::BgpRouteNotify, this, server(), _1, _2),
-            boost::bind(&BgpConditionListener::WalkDone, this, ts, _1));
+            boost::bind(&BgpConditionListener::WalkDone, this, ts, _2));
         ts->set_walk_ref(walk_ref);
     }
     ts->StoreDoneCb(obj, cb);
     obj->reset_walk_done();
-    walk_mgr->WalkTable(ts->walk_ref());
+    ts->table()->WalkTable(ts->walk_ref());
 }
 
 // Table listener
