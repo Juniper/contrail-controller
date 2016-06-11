@@ -339,7 +339,8 @@ void BgpAsAServiceFlowMgmtTree::ExtractKeys(FlowEntry *flow,
 
     BgpAsAServiceFlowMgmtKey *key =
         new BgpAsAServiceFlowMgmtKey(vm_intf->GetUuid(),
-                                     flow->bgp_as_a_service_port());
+                                 flow->bgp_as_a_service_port(),
+                                 BgpAsAServiceFlowMgmtTree::GetCNIndex(flow));
     AddFlowMgmtKey(tree, key);
 }
 
@@ -368,16 +369,33 @@ void BgpAsAServiceFlowMgmtTree::DeleteAll() {
     }
 }
 
+uint8_t BgpAsAServiceFlowMgmtTree::GetCNIndex(const FlowEntry *flow) {
+    IpAddress dest_ip = IpAddress();
+    if (flow->is_flags_set(FlowEntry::ReverseFlow)) {
+        dest_ip = flow->key().src_addr;
+    } else {
+        dest_ip = flow->reverse_flow_entry()->key().src_addr;
+    }
+    for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
+        if (flow->flow_table()->agent()->controller_ifmap_xmpp_server(count) ==
+            dest_ip.to_string()) {
+            return count;
+        }
+    }
+    return 0;
+}
+
 bool
 FlowMgmtManager::BgpAsAServiceRequestHandler(FlowMgmtRequest *req) {
 
     BgpAsAServiceFlowMgmtRequest *bgp_as_a_service_request =
         dynamic_cast<BgpAsAServiceFlowMgmtRequest *>(req);
     if (bgp_as_a_service_request->type() == BgpAsAServiceFlowMgmtRequest::VMI) {
-        BgpAsAServiceFlowMgmtKey key(bgp_as_a_service_request->vm_uuid(),
-                                     bgp_as_a_service_request->source_port());
         //Delete it for for all CN trees
         for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
+            BgpAsAServiceFlowMgmtKey key(bgp_as_a_service_request->vm_uuid(),
+                                         bgp_as_a_service_request->source_port(),
+                                         count);
             bgp_as_a_service_flow_mgmt_tree_[count].get()->
                 BgpAsAServiceDelete(key, req);
         }
@@ -524,7 +542,8 @@ void FlowMgmtManager::MakeFlowMgmtKeyTree(FlowEntry *flow,
     ip6_route_flow_mgmt_tree_.ExtractKeys(flow, tree);
     bridge_route_flow_mgmt_tree_.ExtractKeys(flow, tree);
     nh_flow_mgmt_tree_.ExtractKeys(flow, tree);
-    for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
+    if (flow->is_flags_set(FlowEntry::BgpRouterService)) {
+        uint8_t count = BgpAsAServiceFlowMgmtTree::GetCNIndex(flow);
         bgp_as_a_service_flow_mgmt_tree_[count].get()->
             ExtractKeys(flow, tree);
     }
@@ -750,10 +769,11 @@ void FlowMgmtManager::AddFlowMgmtKey(FlowEntry *flow, FlowEntryInfo *info,
         nh_flow_mgmt_tree_.Add(key, flow);
         break;
 
-    case FlowMgmtKey::BGPASASERVICE:
-        for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++)
-            bgp_as_a_service_flow_mgmt_tree_[count].get()->Add(key, flow);
+    case FlowMgmtKey::BGPASASERVICE: {
+        uint8_t count = BgpAsAServiceFlowMgmtTree::GetCNIndex(flow);
+        bgp_as_a_service_flow_mgmt_tree_[count].get()->Add(key, flow);
         break;
+    }
 
     default:
         assert(0);
@@ -803,10 +823,13 @@ void FlowMgmtManager::DeleteFlowMgmtKey(FlowEntry *flow, FlowEntryInfo *info,
         nh_flow_mgmt_tree_.Delete(key, flow);
         break;
 
-    case FlowMgmtKey::BGPASASERVICE:
-        for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++)
-            bgp_as_a_service_flow_mgmt_tree_[count].get()->Delete(key, flow);
+    case FlowMgmtKey::BGPASASERVICE: {
+        BgpAsAServiceFlowMgmtKey *bgp_service_key =
+            static_cast<BgpAsAServiceFlowMgmtKey *>(key);
+        uint8_t count = bgp_service_key->cn_index();
+        bgp_as_a_service_flow_mgmt_tree_[count].get()->Delete(key, flow);
         break;
+    }
 
     default:
         assert(0);
