@@ -924,12 +924,13 @@ private:
 class BgpAsAServiceFlowMgmtKey : public FlowMgmtKey {
 public:
     BgpAsAServiceFlowMgmtKey(const boost::uuids::uuid &uuid,
-                             uint32_t source_port) :
+                             uint32_t source_port,
+                             uint8_t cn_index) :
         FlowMgmtKey(FlowMgmtKey::BGPASASERVICE, NULL), uuid_(uuid),
-        source_port_(source_port) { }
+        source_port_(source_port), cn_index_(cn_index) { }
     virtual ~BgpAsAServiceFlowMgmtKey() { }
     virtual FlowMgmtKey *Clone() {
-        return new BgpAsAServiceFlowMgmtKey(uuid_, source_port_);
+        return new BgpAsAServiceFlowMgmtKey(uuid_, source_port_, cn_index_);
     }
     virtual bool UseDBEntry() const { return false; }
     virtual bool Compare(const FlowMgmtKey *rhs) const {
@@ -941,10 +942,12 @@ public:
     }
     const boost::uuids::uuid &uuid() const { return uuid_; }
     uint32_t source_port() const { return source_port_; }
+    uint8_t cn_index() const { return cn_index_; }
 
 private:
     boost::uuids::uuid uuid_;
     uint32_t source_port_;
+    uint8_t cn_index_; //Control node index
     DISALLOW_COPY_AND_ASSIGN(BgpAsAServiceFlowMgmtKey);
 };
 
@@ -970,6 +973,9 @@ public:
     bool BgpAsAServiceDelete(BgpAsAServiceFlowMgmtKey &key,
                              const FlowMgmtRequest *req);
     void DeleteAll();
+    //Gets CN index from flow.
+    static uint8_t GetCNIndex(const FlowEntry *flow,
+                              const RevFlowDepParams &params);
     // Called just before entry is deleted. Used to implement cleanup operations
     virtual void FreeNotify(FlowMgmtKey *key, uint32_t gen_id);
 private:
@@ -1085,7 +1091,7 @@ private:
     // Delete a FlowMgmtKey from FlowMgmtKeyTree for an object
     // The FlowMgmtKeyTree for object is passed as argument
     void DeleteFlowMgmtKey(FlowEntry *flow, FlowEntryInfo *info,
-                           FlowMgmtKey *key);
+                           FlowMgmtKey *key, const RevFlowDepParams &params);
     FlowEntryInfo *FindFlowEntryInfo(const FlowEntryPtr &flow);
     FlowEntryInfo *LocateFlowEntryInfo(FlowEntryPtr &flow);
     void DeleteFlowEntryInfo(FlowEntryPtr &flow);
