@@ -8,8 +8,10 @@
 //
 // Initialize the UpdateQueue and add the tail marker to the FIFO.
 //
-UpdateQueue::UpdateQueue(int queue_id)
-    : queue_id_(queue_id), marker_count_(0) {
+UpdateQueue::UpdateQueue(const RibOut *ribout, int queue_id)
+    : queue_id_(queue_id),
+      encoding_is_xmpp_(ribout->IsEncodingXmpp()),
+      marker_count_(0) {
     queue_.push_back(tail_marker_);
 }
 
@@ -112,7 +114,10 @@ void UpdateQueue::AttrDequeue(UpdateInfo *current_uinfo) {
 // container and returns the next one if it has the same BgpAttr.  Note that
 // we must not consider the label in order to ensure optimal packing.
 //
-// Returns NULL if there are no more updates with the same BgpAttr.
+// Returns NULL if there are no more updates with the same BgpAttr. This is
+// relaxed if the RibOut encoding is XMPP since it's possible to pack items
+// with different BgpAttrs in the same message given that each item is self
+// contained.
 //
 // Also return NULL if the next UpdateInfo is for the same RouteUpdate. This
 // can happen in corner cases where the label (or the set for ecmp nexthops
@@ -130,6 +135,9 @@ UpdateInfo *UpdateQueue::AttrNext(UpdateInfo *current_uinfo) {
     UpdateInfo *next_uinfo = iter.operator->();
     if (next_uinfo->update == current_uinfo->update) {
         return NULL;
+    }
+    if (encoding_is_xmpp_) {
+        return next_uinfo;
     }
     if (next_uinfo->roattr.attr() == current_uinfo->roattr.attr()) {
         return next_uinfo;

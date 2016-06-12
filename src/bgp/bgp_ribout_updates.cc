@@ -25,7 +25,7 @@ using std::auto_ptr;
 //
 RibOutUpdates::RibOutUpdates(RibOut *ribout) : ribout_(ribout) {
     for (int i = 0; i < QCOUNT; i++) {
-        UpdateQueue *queue = new UpdateQueue(i);
+        UpdateQueue *queue = new UpdateQueue(ribout, i);
         queue_vec_.push_back(queue);
     }
     monitor_.reset(new RibUpdateMonitor(ribout, &queue_vec_));

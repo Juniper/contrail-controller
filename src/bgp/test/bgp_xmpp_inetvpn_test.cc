@@ -1596,6 +1596,200 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete3) {
 }
 
 //
+// Multiple routes are exchanged correctly.
+// Large xmpp update messages even though attributes for each route are
+// different.
+// Small bgp update messages since attributes for each route are different.
+//
+TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete4) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Verify table walk count for blue.inet.0.
+    BgpTable *blue_x = VerifyTableExists(bs_x_, "blue.inet.0");
+    BgpTable *blue_y = VerifyTableExists(bs_y_, "blue.inet.0");
+    TASK_UTIL_EXPECT_EQ(0, blue_x->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(0, blue_y->walk_complete_count());
+    task_util::WaitForIdle();
+
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 1);
+    task_util::WaitForIdle();
+
+    // Verify that subscribe completed.
+    TASK_UTIL_EXPECT_EQ(1, blue_x->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1, blue_y->walk_complete_count());
+    task_util::WaitForIdle();
+
+    // Pause update generation on X.
+    bs_x_->scheduling_group_manager()->DisableGroups();
+
+    // Add routes from agent A.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        int lpref = idx + 1;
+        int med = idx + 1;
+        agent_a_->AddRoute("blue", BuildPrefix(idx), "192.168.1.1", lpref, med);
+    }
+    task_util::WaitForIdle();
+
+    // Verify that blue.inet.0 and bgp.l3vpn.0 output queues have built up on X.
+    VerifyOutputQueueDepth(bs_x_, 2 * kRouteCount);
+    task_util::WaitForIdle();
+
+    // Pause update generation on Y.
+    bs_y_->scheduling_group_manager()->DisableGroups();
+
+    // Resume update generation on X.
+    bs_x_->scheduling_group_manager()->EnableGroups();
+    task_util::WaitForIdle();
+
+    // Verify that blue.inet.0 and bgp.l3vpn.0 output queues are drained on X.
+    VerifyOutputQueueDepth(bs_x_, 0);
+    task_util::WaitForIdle();
+
+    // Verify that blue.inet.0 output queues have built up on Y.
+    VerifyOutputQueueDepth(bs_y_, kRouteCount);
+    task_util::WaitForIdle();
+
+    // Resume update generation on Y.
+    bs_y_->scheduling_group_manager()->EnableGroups();
+    task_util::WaitForIdle();
+
+    // Verify that blue.inet.0 output queues are drained on Y.
+    VerifyOutputQueueDepth(bs_y_, 0);
+    task_util::WaitForIdle();
+
+    // Verify that routes showed up on agents A and B.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        VerifyRouteExists(agent_a_, "blue", BuildPrefix(idx), "192.168.1.1");
+        VerifyRouteExists(agent_b_, "blue", BuildPrefix(idx), "192.168.1.1");
+    }
+
+    // Pause update generation on server X.
+    bs_x_->scheduling_group_manager()->DisableGroups();
+
+    // Delete routes from agent A.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        agent_a_->DeleteRoute("blue", BuildPrefix(idx));
+    }
+    task_util::WaitForIdle();
+
+    // Verify that blue.inet.0 and bgp.l3vpn.0 output queues have built up on X.
+    VerifyOutputQueueDepth(bs_x_, 2 * kRouteCount);
+    task_util::WaitForIdle();
+
+    // Pause update generation on Y.
+    bs_y_->scheduling_group_manager()->DisableGroups();
+
+    // Resume update generation on server X.
+    bs_x_->scheduling_group_manager()->EnableGroups();
+    task_util::WaitForIdle();
+
+    // Verify that blue.inet.0 and bgp.l3vpn.0 output queues are drained on X.
+    VerifyOutputQueueDepth(bs_x_, 0);
+
+    // Verify that blue.inet.0 output queues have built up on Y.
+    VerifyOutputQueueDepth(bs_y_, kRouteCount);
+    task_util::WaitForIdle();
+
+    // Resume update generation on Y.
+    bs_y_->scheduling_group_manager()->EnableGroups();
+    task_util::WaitForIdle();
+
+    // Verify that blue.inet.0 output queues are drained on Y.
+    VerifyOutputQueueDepth(bs_y_, 0);
+
+    // Verify that routes are deleted at agents A and B.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        VerifyRouteNoExists(agent_a_, "blue", BuildPrefix(idx));
+        VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
+    }
+
+    // Unregister to blue instance
+    agent_a_->Unsubscribe("blue");
+    agent_b_->Unsubscribe("blue");
+
+    // Verify bgp update counters.
+    const BgpPeer *peer_xy = VerifyPeerExists(bs_x_, bs_y_);
+    const BgpPeer *peer_yx = VerifyPeerExists(bs_y_, bs_x_);
+    TASK_UTIL_EXPECT_EQ(
+        peer_xy->get_rx_route_reach(), peer_yx->get_tx_route_reach());
+    TASK_UTIL_EXPECT_EQ(
+        peer_xy->get_tx_route_reach(), peer_yx->get_rx_route_reach());
+    TASK_UTIL_EXPECT_EQ(
+        peer_xy->get_rx_route_unreach(), peer_yx->get_tx_route_unreach());
+    TASK_UTIL_EXPECT_EQ(
+        peer_xy->get_tx_route_unreach(), peer_yx->get_rx_route_unreach());
+    TASK_UTIL_EXPECT_EQ(
+        peer_xy->get_rx_end_of_rib(), peer_yx->get_tx_end_of_rib());
+    TASK_UTIL_EXPECT_EQ(
+        peer_xy->get_tx_end_of_rib(), peer_yx->get_rx_end_of_rib());
+    TASK_UTIL_EXPECT_EQ(
+        peer_xy->get_rx_route_total(), peer_yx->get_tx_route_total());
+    TASK_UTIL_EXPECT_EQ(
+        peer_xy->get_tx_route_total(), peer_yx->get_rx_route_total());
+
+    // Verify bgp reach/unreach, end-of-rib and total counts.
+    // 1 route-target and kRouteCount inet-vpn routes.
+    // 2 end-of-ribs - one for route-target and one for inet-vpn.
+    TASK_UTIL_EXPECT_EQ(1 + kRouteCount, peer_xy->get_tx_route_reach());
+    TASK_UTIL_EXPECT_EQ(1 + kRouteCount, peer_xy->get_tx_route_unreach());
+    TASK_UTIL_EXPECT_EQ(2, peer_xy->get_tx_end_of_rib());
+    TASK_UTIL_EXPECT_EQ(
+        2 * (1 + kRouteCount) + 2, peer_xy->get_tx_route_total());
+
+    // Verify bgp update message counters.
+    // X->Y : 2 route-target (1 advertise, 1 withdraw) +
+    //        515 inet-vpn (512 advertise, 3 withdraw) +
+    //        2 end-of-rib (1 route-target, 1 inet-vpn)
+    // Y->X : 2 route-target (1 advertise, 1 withdraw) +
+    //        2 end-of-rib (1 route-target, 1 inet-vpn)
+    TASK_UTIL_EXPECT_EQ(peer_xy->get_rx_update(), peer_yx->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(peer_xy->get_tx_update(), peer_yx->get_rx_update());
+    TASK_UTIL_EXPECT_EQ(4 + 3 + kRouteCount, peer_xy->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(4, peer_yx->get_tx_update());
+
+    // Verify xmpp update counters.
+    const BgpXmppChannel *xc_a =
+        VerifyXmppChannelExists(cm_x_.get(), "agent-a");
+    const BgpXmppChannel *xc_b =
+        VerifyXmppChannelExists(cm_y_.get(), "agent-b");
+    TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_a->get_rx_route_reach());
+    TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_a->get_tx_route_reach());
+    TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_a->get_rx_route_unreach());
+    TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_a->get_tx_route_unreach());
+    TASK_UTIL_EXPECT_EQ(0, xc_b->get_rx_route_reach());
+    TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_b->get_tx_route_reach());
+    TASK_UTIL_EXPECT_EQ(0, xc_b->get_rx_route_unreach());
+    TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_b->get_tx_route_unreach());
+
+    // Verify xmpp update message counters.
+    // agent-a: 16 (kRouteCount/BgpXmppMessage::kMaxReachCount) advertise +
+    //           2 (kRouteCount/BgpXmppMessage::kMaxUnreachCount) withdraw
+    // agent-b: 16 (kRouteCount/BgpXmppMessage::kMaxReachCount) advertise +
+    //           2 (kRouteCount/BgpXmppMessage::kMaxUnreachCount) withdraw
+    TASK_UTIL_EXPECT_EQ(18, xc_a->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(18, xc_b->get_tx_update());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
 // Generate big update message.
 // Each route has a very large number of attributes such that only a single
 // route fits into each update.
