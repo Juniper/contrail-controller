@@ -16,7 +16,9 @@
 //
 // Comparator used to order UpdateInfos in the UpdateQueue set container.
 // Looks at the BgpAttr, Timestamp and the associated RouteUpdate but not
-// the Label, in order to achieve optimal packing of BGP updates.
+// the Label, in order to achieve optimal packing of BGP updates. Ignore
+// the BgpAttr in case of XMPP since each item is self contained - there's
+// no notion of common attributes for all items in an update message.
 //
 // Compare the UpdateInfo pointers themselves as the final tie-breaker to
 // handle the case where there are 2 UpdateInfos with the same BgpAttr in
@@ -26,11 +28,13 @@
 //
 struct UpdateByAttrCmp {
     bool operator()(const UpdateInfo &lhs, const UpdateInfo &rhs) const {
-        if (lhs.roattr.attr() < rhs.roattr.attr()) {
-            return true;
-        }
-        if (lhs.roattr.attr() > rhs.roattr.attr()) {
-            return false;
+        if (!lhs.roattr.is_xmpp()) {
+            if (lhs.roattr.attr() < rhs.roattr.attr()) {
+                return true;
+            }
+            if (lhs.roattr.attr() > rhs.roattr.attr()) {
+                return false;
+            }
         }
         if (lhs.update->tstamp() < rhs.update->tstamp())  {
             return true;
@@ -116,7 +120,7 @@ public:
 
     typedef std::map<int, UpdateMarker *> MarkerMap;
 
-    explicit UpdateQueue(int queue_id);
+    UpdateQueue(const RibOut *ribout, int queue_id);
     ~UpdateQueue();
 
     bool Enqueue(RouteUpdate *rt_update);
@@ -152,6 +156,7 @@ private:
 
     mutable tbb::mutex mutex_;
     int queue_id_;
+    bool encoding_is_xmpp_;
     size_t marker_count_;
     UpdatesByOrder queue_;
     UpdatesByAttr attr_set_;

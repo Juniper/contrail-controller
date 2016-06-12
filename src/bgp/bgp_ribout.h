@@ -68,10 +68,11 @@ public:
 
     typedef std::vector<NextHop> NextHopList;
 
-    RibOutAttr() : attr_out_(NULL), vrf_originated_(false) { }
+    RibOutAttr() : attr_out_(NULL), is_xmpp_(false), vrf_originated_(false) { }
     RibOutAttr(const BgpTable *table, const BgpAttr *attr, uint32_t label);
     RibOutAttr(const BgpTable *table, const BgpRoute *route,
-        const BgpAttr *attr, uint32_t label, bool include_nh = true);
+        const BgpAttr *attr, uint32_t label, bool include_nh = true,
+        bool is_xmpp = false);
     RibOutAttr(const BgpRoute *route, const BgpAttr *attr, bool is_xmpp);
 
     bool IsReachable() const { return attr_out_.get() != NULL; }
@@ -90,6 +91,7 @@ public:
     uint32_t label() const {
         return nexthop_list_.empty() ? 0 : nexthop_list_.at(0).label();
     }
+    bool is_xmpp() const { return is_xmpp_; }
     bool vrf_originated() const { return vrf_originated_; }
 
 private:
@@ -97,6 +99,7 @@ private:
 
     BgpAttrPtr attr_out_;
     NextHopList nexthop_list_;
+    bool is_xmpp_;
     bool vrf_originated_;
 };
 
