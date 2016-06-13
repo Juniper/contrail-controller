@@ -187,7 +187,7 @@ public:
 
         //Create Mirror entry
         MirrorTable::AddMirrorEntry(analyzer, Agent::GetInstance()->fabric_vrf_name(),
-                                    sip, SPORT, dip, DPORT);
+                                    sip, SPORT, dip, DPORT, 1);
         client->WaitForIdle(2);
 
         //Verify mirror NH is created

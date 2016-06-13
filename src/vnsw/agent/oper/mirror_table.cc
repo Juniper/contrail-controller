@@ -68,7 +68,7 @@ bool MirrorTable::OnChange(DBEntry *entry, const DBRequest *req) {
     mirror_entry->sport_ = data->sport_;
     mirror_entry->dip_ = data->dip_;
     mirror_entry->dport_ = data->dport_;
-
+    mirror_entry->mirror_flags_ = data->mirror_flags_;
     DBRequest nh_req;
     nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     MirrorNHKey *nh_key = new MirrorNHKey(data->vrf_name_, data->sip_,
@@ -171,7 +171,7 @@ void MirrorTable::ResyncMirrorEntry(VrfMirrorEntryList &list,
                 *((*list_it)->GetSip()),
                 (*list_it)->GetSPort(),
                 *((*list_it)->GetDip()),
-                (*list_it)->GetDPort());
+                (*list_it)->GetDPort(), (*list_it)->GetMirrorFlags());
         req.key.reset(key);
         req.data.reset(data);
         Enqueue(&req);
@@ -206,7 +206,8 @@ void MirrorTable::ResyncUnresolvedMirrorEntry(const VrfEntry *vrf) {
 void MirrorTable::AddMirrorEntry(const std::string &analyzer_name,
                                  const std::string &vrf_name,
                                  const IpAddress &sip, uint16_t sport,
-                                 const IpAddress &dip, uint16_t dport) {
+                                 const IpAddress &dip, uint16_t dport,  
+                                 uint32_t mirror_flags) {
 
     DBRequest req;
 
@@ -226,7 +227,7 @@ void MirrorTable::AddMirrorEntry(const std::string &analyzer_name,
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     MirrorEntryKey *key = new MirrorEntryKey(analyzer_name);
     MirrorEntryData *data = new MirrorEntryData(vrf_name, sip, 
-                                                sport, dip, dport);
+                                                sport, dip, dport, mirror_flags);
     req.key.reset(key);
     req.data.reset(data);
     mirror_table_->Enqueue(&req);
@@ -343,6 +344,7 @@ void MirrorEntry::set_mirror_entrySandeshData(MirrorEntrySandeshData &data) cons
     data.set_sport(GetSPort());
     data.set_dport(GetDPort());
     data.set_ref_count(GetRefCount());
+    data.set_mirror_flags(GetMirrorFlags());
     nh_->SetNHSandeshData(data.nh);
 }
 

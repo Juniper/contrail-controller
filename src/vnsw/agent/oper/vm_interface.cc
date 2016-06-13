@@ -596,7 +596,7 @@ static void ReadAnalyzerNameAndCreate(Agent *agent,
         agent->mirror_table()->AddMirrorEntry
             (mirror_to.analyzer_name, std::string(),
              agent->GetMirrorSourceIp(dip),
-             agent->mirror_port(), dip, dport);
+             agent->mirror_port(), dip, dport, mirror_to.mirror_flags);
         data.analyzer_name_ =  mirror_to.analyzer_name;
         string traffic_direction =
             cfg->properties().interface_mirror.traffic_direction;

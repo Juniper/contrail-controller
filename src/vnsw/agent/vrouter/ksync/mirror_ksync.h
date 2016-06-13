@@ -47,6 +47,7 @@ private:
     uint16_t   dport_;
     KSyncEntryPtr nh_;
     std::string analyzer_name_;
+    uint32_t mirror_flags_;
     DISALLOW_COPY_AND_ASSIGN(MirrorKSyncEntry);
 };
 

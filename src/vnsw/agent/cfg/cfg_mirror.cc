@@ -77,7 +77,7 @@ const char *MirrorCfgTable::Add(const MirrorCreateReq &cfg) {
 
     entry->data.ip = cfg.get_ip();
     entry->data.udp_port = cfg.get_udp_port();
-
+  
     entry->data.time_period = cfg.get_time_period();
     if (cfg.get_mirror_vrf().empty()) {
         entry->data.mirror_vrf = agent_cfg_->agent()->fabric_vrf_name();
@@ -99,11 +99,12 @@ const char *MirrorCfgTable::Add(const MirrorCreateReq &cfg) {
     }
 
     IpAddress sip = agent_cfg_->agent()->GetMirrorSourceIp(dest_ip);
-    
+    entry->data.mirror_flags = cfg.get_mirror_flags();  
     MirrorTable::AddMirrorEntry(entry->key.handle,
                                 entry->data.mirror_vrf, sip, 
                                 agent_cfg_->agent()->mirror_port(), 
-                                dest_ip, entry->data.udp_port);
+                                dest_ip, entry->data.udp_port, 
+                                entry->data.mirror_flags);
 
     // Update ACL
     VnAclMap::iterator va_it;
@@ -431,13 +432,14 @@ const char *IntfMirrorCfgTable::Add(const IntfMirrorCreateReq &intf_mirror) {
     entry->data.mirror_dest.sport = agent_cfg_->agent()->mirror_port();
     entry->data.mirror_dest.time_period = intf_mirror.get_time_period();
     entry->data.mirror_dest.mirror_vrf = intf_mirror.get_mirror_vrf();
-
+    entry->data.mirror_dest.mirror_flags = intf_mirror.get_mirror_flags();
     MirrorTable::AddMirrorEntry(entry->key.handle,
                                 entry->data.mirror_dest.mirror_vrf,
                                 entry->data.mirror_dest.sip,
                                 entry->data.mirror_dest.sport,
                                 entry->data.mirror_dest.dip,
-                                entry->data.mirror_dest.dport);
+                                entry->data.mirror_dest.dport,
+                                entry->data.mirror_dest.mirror_flags);
     intf_mc_tree_.insert(std::pair<MirrorCfgKey, IntfMirrorCfgEntry *>(key, entry));
 
     VmInterfaceKey *intf_key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
