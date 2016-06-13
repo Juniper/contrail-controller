@@ -19,7 +19,8 @@ sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
 
 libport_ipc = env.Library('port_ipc',
                           sandesh_objs +
-                          [except_env.Object('port_ipc_handler.cc'),
+                          ['config_stale_cleaner.cc',
+                           except_env.Object('port_ipc_handler.cc'),
                            'rest_common.cc',
                            except_env.Object('rest_server.cc')
                           ])
