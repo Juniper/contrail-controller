@@ -19,13 +19,15 @@ struct MirrorEntryKey : public AgentKey {
 struct MirrorEntryData : public AgentData {
     MirrorEntryData(const std::string vrf_name, const IpAddress &sip,
                     const uint16_t sport, const IpAddress &dip,
-                    const uint16_t dport): vrf_name_(vrf_name),
-            sip_(sip), sport_(sport), dip_(dip), dport_(dport) { };
+                    const uint16_t dport, const uint32_t mirror_flags): 
+                     vrf_name_(vrf_name), sip_(sip), sport_(sport), dip_(dip), 
+                     dport_(dport), mirror_flags_(mirror_flags) { };
     std::string vrf_name_;
     IpAddress sip_;
     uint16_t sport_;
     IpAddress dip_;
     uint16_t dport_;
+    uint32_t mirror_flags_;
 };
 
 class MirrorEntry : AgentRefCount<MirrorEntry>, public AgentDBEntry {
@@ -57,7 +59,7 @@ public:
     uint16_t GetDPort() const {return dport_;}
     const NextHop *GetNH() const {return nh_.get();}
     const std::string vrf_name() const {return vrf_name_;}
-
+    const uint32_t GetMirrorFlags() const {return mirror_flags_;}
 private:
     std::string analyzer_name_;
     VrfEntryRef vrf_;
@@ -67,6 +69,7 @@ private:
     uint16_t dport_;
     NextHopRef nh_;
     std::string vrf_name_;
+    uint32_t mirror_flags_;
     friend class MirrorTable;
 };
 
@@ -98,7 +101,8 @@ public:
     static void AddMirrorEntry(const std::string &analyzer_name,
                                const std::string &vrf_name,
                                const IpAddress &sip, uint16_t sport,
-                               const IpAddress &dip, uint16_t dport);
+                               const IpAddress &dip, uint16_t dport, 
+                               uint32_t mirror_flags);
     static void DelMirrorEntry(const std::string &analyzer_name);
     virtual void OnZeroRefcount(AgentDBEntry *e);
     static DBTableBase *CreateTable(DB *db, const std::string &name);

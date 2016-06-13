@@ -65,7 +65,8 @@ protected:
         for (int i = 0; i < count_; i++) {
             std::stringstream str;
             str << analyzer << i;
-            MirrorTable::AddMirrorEntry(str.str(), agent_->fabric_vrf_name(), sip_[i], sport_[i], dip_[i], dport_[i]);
+            MirrorTable::AddMirrorEntry(str.str(), agent_->fabric_vrf_name(), sip_[i], sport_[i], dip_[i], dport_[i], 2);
+
         }
         client->WaitForIdle();
     }
@@ -229,7 +230,7 @@ TEST_F(MirrorTableTest, MirrorEntryAddDel_3) {
     std::stringstream str;
     str << analyzer;
     MirrorTable::AddMirrorEntry(analyzer, agent_->fabric_vrf_name(), 
-                                vhost_ip, 0x1, vhost_ip, 0x2);
+                                vhost_ip, 0x1, vhost_ip, 0x2, 2);
     client->WaitForIdle();
     //Mirror NH would point to a route, whose nexthop would be RCV NH
     MirrorEntryKey key(analyzer);
@@ -247,14 +248,14 @@ TEST_F(MirrorTableTest, MirrorEntryAddDel_3) {
                  (agent_->mirror_table()->FindActiveEntry(&key));
     EXPECT_TRUE(mirr_entry == NULL);
 }
- 
+
 TEST_F(MirrorTableTest, MirrorEntryAddDel_4) {
     Ip4Address vhost_ip(agent_->router_id());
     Ip4Address remote_server = Ip4Address::from_string("1.1.1.1");
     //Add mirror entry pointing to same vhost IP
     std::string ana = analyzer + "r";
     MirrorTable::AddMirrorEntry(ana, agent_->fabric_vrf_name(),
-                                vhost_ip, 0x1, remote_server, 0x2);
+                                vhost_ip, 0x1, remote_server, 0x2, 2);
     client->WaitForIdle();
     //Mirror NH would point to a gateway route
     MirrorEntryKey key(ana);
@@ -297,11 +298,11 @@ TEST_F(MirrorTableTest, MirrorEntryAddDel_5) {
     std::string analyzer1 = analyzer + "1";
     std::string analyzer2 = "analyzer2";
     MirrorTable::AddMirrorEntry(ana, "vrf3",
-                                vhost_ip, 0x1, remote_server, 0x2);
+                                vhost_ip, 0x1, remote_server, 0x2, 2);
     MirrorTable::AddMirrorEntry(analyzer1, "vrf3",
-                                vhost_ip, 0x1, remote_server, 0x2);
+                                vhost_ip, 0x1, remote_server, 0x2, 2);
     MirrorTable::AddMirrorEntry(analyzer2 , "vrf2",
-                                vhost_ip, 0x1, remote_server, 0x2);
+                                vhost_ip, 0x1, remote_server, 0x2, 2);
     client->WaitForIdle();
     //Mirror NH would point to a gateway route
     MirrorEntryKey key(ana);
@@ -354,7 +355,7 @@ TEST_F(MirrorTableTest, MirrorInvalidVrf_1) {
     string vrf("invalid-vrf");
 
     //Add mirror entry pointing to same vhost IP
-    MirrorTable::AddMirrorEntry(analyzer, vrf, vhost_ip, 0x1, vhost_ip, 0x2);
+    MirrorTable::AddMirrorEntry(analyzer, vrf, vhost_ip, 0x1, vhost_ip, 0x2, 2);
     client->WaitForIdle();
 
     //Mirror NH would point to a route, whose nexthop would be RCV NH
@@ -385,11 +386,11 @@ TEST_F(MirrorTableTest, MirrorEntryAddDel_6) {
     std::string analyzer1 = analyzer + "1";
     std::string analyzer2 = "analyzer2";
     MirrorTable::AddMirrorEntry(ana, "vrf3",
-                                vhost_ip, 0x1, remote_server, 0x2);
+                                vhost_ip, 0x1, remote_server, 0x2, 2);
     MirrorTable::AddMirrorEntry(analyzer1, "vrf3",
-                                vhost_ip, 0x1, remote_server, 0x2);
+                                vhost_ip, 0x1, remote_server, 0x2, 2);
     MirrorTable::AddMirrorEntry(analyzer2 , "vrf2",
-                                vhost_ip, 0x1, remote_server, 0x2);
+                                vhost_ip, 0x1, remote_server, 0x2, 2);
     client->WaitForIdle();
     //Mirror NH would point to a gateway route
     MirrorEntryKey key(ana);

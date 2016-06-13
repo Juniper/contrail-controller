@@ -240,7 +240,7 @@ static void CreateMirror(AnalyzerInfo &analyzer_info) {
                                                            Agent::GetInstance()->router_id(),
                                                            Agent::GetInstance()->mirror_port(),
                                                            dip,
-                                                           analyzer_info.dport);
+                                                           analyzer_info.dport, 1);
 }
 
 static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,

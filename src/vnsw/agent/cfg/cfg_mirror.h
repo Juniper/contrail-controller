@@ -54,6 +54,7 @@ struct MirrorCfgData {
     // Time period for mirroring in seconds
     int time_period;
     std::string mirror_vrf;
+    int mirror_flags;
 };
 
 struct AceInfo {
@@ -124,6 +125,7 @@ struct MirrorDestination {
     // Time period for mirroring in seconds
     int time_period;
     std::string mirror_vrf;
+    uint32_t mirror_flags;
 };
 
 struct IntfMirrorCfgData {

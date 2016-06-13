@@ -446,7 +446,8 @@ struct MirrorEntrySandeshData {
     5: optional string vrf (link="VrfListReq"); // VRF
     6: optional i32 sport;            // Source port for Mirror NH
     7: optional i32 dport;            // Destination port for Mirror NH
-    8: NhSandeshData nh;              // next hop info
+    8: optional i32 mirror_flags;      // mirror flags for inclusion of PCAP hdr
+    9: NhSandeshData nh;              // next hop info
 }
 
 /**
@@ -1062,6 +1063,7 @@ request sandesh MirrorCreateReq {
     // Time period for mirroring in seconds
     16: i32 time_period;
     17: string mirror_vrf;
+    19: i32 mirror_flags;
 }
 
 /**
@@ -1181,6 +1183,7 @@ struct MirrorCfgSandesh {
     // Time period for mirroring in seconds
     16: i32 time_period;
     17: string mirror_vrf;
+    18: i32 mirror_flags;
 }
 
 /**
@@ -1238,6 +1241,7 @@ request sandesh IntfMirrorCreateReq {
     5: optional i32 udp_port;
     6: optional i32 time_period;
     7: optional string mirror_vrf;
+    8: optional i32 mirror_flags;
 }
 
 /**
