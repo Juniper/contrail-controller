@@ -787,6 +787,7 @@ uint32_t FlowEntry::acl_assigned_vrf_index() const {
 
 void FlowEntry::RevFlowDepInfo(RevFlowDepParams *params) {
     params->sip_ = key().src_addr;
+    params->dip_ = key().dst_addr;
     FlowEntry *rev_flow = reverse_flow_entry();
     if (rev_flow) {
         params->rev_uuid_ = rev_flow->uuid();
@@ -798,6 +799,9 @@ void FlowEntry::RevFlowDepInfo(RevFlowDepParams *params) {
             const FlowKey *nat_key = &rev_flow->key();
             if (key().src_addr != nat_key->dst_addr) {
                 params->sip_ = nat_key->dst_addr;
+            }
+            if (key().dst_addr != nat_key->src_addr) {
+                params->dip_ = nat_key->src_addr;
             }
         }
     }

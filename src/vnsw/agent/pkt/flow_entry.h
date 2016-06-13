@@ -52,10 +52,11 @@ typedef std::auto_ptr<FlowEntryInfo> FlowMgmtEntryInfoPtr;
 struct RevFlowDepParams {
     uuid rev_uuid_;
     IpAddress sip_;
-    RevFlowDepParams() : rev_uuid_(), sip_() {
+    IpAddress dip_;
+    RevFlowDepParams() : rev_uuid_(), sip_(), dip_() {
     }
-    RevFlowDepParams(const uuid &uuid, IpAddress sip) : rev_uuid_(uuid),
-        sip_(sip) {
+    RevFlowDepParams(const uuid &uuid, IpAddress sip, IpAddress dip) :
+        rev_uuid_(uuid), sip_(sip), dip_(dip) {
     }
 };
 
