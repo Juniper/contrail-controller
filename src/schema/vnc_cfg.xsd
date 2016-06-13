@@ -188,6 +188,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              description='Internal use only, should be set to -1'/>
         <xsd:element name="udp-port" type="xsd:integer"              required='optional'
              description='ip udp port used in contrail default encapsulation for mirroring'/>
+        <xsd:element name="mirror-flags" type="xsd:integer"          required='optional'
+            description='mirror-flags is used to notify vrouter about PCAP meta data addtion'/>
     </xsd:all>
 </xsd:complexType>
 

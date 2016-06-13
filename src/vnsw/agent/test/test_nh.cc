@@ -240,7 +240,7 @@ TEST_F(CfgTest, MirrorNh_1) {
     std::string analyzer_1 = "TestAnalyzer_1";
     MirrorTable::AddMirrorEntry(analyzer_1, agent_->fabric_vrf_name(),
             Ip4Address::from_string("10.10.10.10"), 10,
-            Ip4Address::from_string("20.20.20.20"), 20);
+            Ip4Address::from_string("20.20.20.20"), 20, 2);
     WaitForIdle(table_size, 5);
 
     //Do key operations
@@ -254,7 +254,7 @@ TEST_F(CfgTest, MirrorNh_1) {
     std::string analyzer_2 = "TestAnalyzer_2";
     MirrorTable::AddMirrorEntry(analyzer_2, agent_->fabric_vrf_name(),
             Ip4Address::from_string("10.10.10.10"), 10,
-            Ip4Address::from_string("20.20.20.20"), 30);
+            Ip4Address::from_string("20.20.20.20"), 30, 2);
     MirrorNHKey mirror_dport_key
         (agent_->fabric_vrf_name(), Ip4Address::from_string("10.10.10.10"),
          10, Ip4Address::from_string("20.20.20.20"), 30);
@@ -287,7 +287,7 @@ TEST_F(CfgTest, MirrorNh_2) {
     std::string analyzer_1 = "TestAnalyzer_1";
     MirrorTable::AddMirrorEntry(analyzer_1, agent_->fabric_vrf_name(),
             Ip4Address::from_string("10.10.10.10"), 10,
-            Ip4Address::from_string("20.20.20.20"), 20);
+            Ip4Address::from_string("20.20.20.20"), 20, 2);
     client->WaitForIdle();
 
     client->Reset();
@@ -295,7 +295,7 @@ TEST_F(CfgTest, MirrorNh_2) {
     for (uint32_t i = 0; i < 10; i++) {
         MirrorTable::AddMirrorEntry(analyzer_1, agent_->fabric_vrf_name(),
                 Ip4Address::from_string("10.10.10.10"), 10,
-                Ip4Address::from_string("20.20.20.20"), 20);
+                Ip4Address::from_string("20.20.20.20"), 20, 2);
         client->WaitForIdle();
     }
     EXPECT_TRUE(client->nh_notify_ == 0);
@@ -322,7 +322,7 @@ TEST_F(CfgTest, NhSandesh_1) {
     MirrorTable::AddMirrorEntry(analyzer_1,
                           agent_->fabric_vrf_name(),
                           Ip4Address::from_string("100.10.10.10"), 100,
-                          Ip4Address::from_string("200.20.20.20"), 200);
+                          Ip4Address::from_string("200.20.20.20"), 200, 2);
     WaitForIdle(table_size, 5);
 
     //Mock the sandesh request, no expecatation just catch crashes.

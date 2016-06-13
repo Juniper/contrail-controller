@@ -28,6 +28,7 @@ struct MirrorActionSpec {
     IpAddress ip;
     uint16_t port;
     std::string encap;
+    uint32_t mirror_flags;
     bool operator == (const MirrorActionSpec &rhs) const {
         return analyzer_name == rhs.analyzer_name;
     }

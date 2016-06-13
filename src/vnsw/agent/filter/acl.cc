@@ -819,7 +819,7 @@ void AclEntrySpec::AddMirrorEntry(Agent *agent) const {
         IpAddress sip = agent->GetMirrorSourceIp(action.ma.ip);
         agent->mirror_table()->AddMirrorEntry(action.ma.analyzer_name,
             action.ma.vrf_name, sip, agent->mirror_port(), action.ma.ip,
-            action.ma.port);
+            action.ma.port, action.ma.mirror_flags);
     }
 }
 
