@@ -57,11 +57,8 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'zookeeper_client',
         'zookeeper_mt',
         'boost_filesystem',
-        'boost_program_options'])
-
-(PLATFORM, VERSION, EXTRA) = platform.linux_distribution()
-if PLATFORM.lower() != 'ubuntu':
-    AnalyticsEnv.Prepend(LIBS=['ssl',
+        'boost_program_options',
+        'ssl',
         'crypto',
         'sasl2'])
 
