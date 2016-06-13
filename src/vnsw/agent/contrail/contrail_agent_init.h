@@ -45,6 +45,7 @@ private:
     std::auto_ptr<VrouterControlInterface> pkt0_;
     std::auto_ptr<AgentStatsCollector> stats_collector_;
     std::auto_ptr<FlowStatsManager> flow_stats_manager_;
+    std::auto_ptr<PortIpcHandler> port_ipc_handler_;
     std::auto_ptr<RESTServer> rest_server_;
 
     DISALLOW_COPY_AND_ASSIGN(ContrailAgentInit);

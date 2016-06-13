@@ -41,6 +41,7 @@ traceobject sandesh ConfigAddPortEnqueue {
 traceobject sandesh ConfigDeletePortEnqueue {
     1: string op;
     2: string port_uuid;
+    3: i32 version;
 }
 
 /**
