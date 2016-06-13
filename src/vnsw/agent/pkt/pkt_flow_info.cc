@@ -1471,7 +1471,7 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
     }
 
     if (out->rt_ && out->rt_->GetActiveNextHop() &&
-            out->rt_->GetActiveNextHop()->GetType() == NextHop::COMPOSITE) {
+        out->rt_->GetActiveNextHop()->GetType() == NextHop::COMPOSITE) {
         ecmp = true;
     }
 

@@ -183,6 +183,26 @@ void AgentConfig::RegisterDBClients(DB *db) {
     assert(cfg_physical_device_table_);
 
 
+    cfg_qos_table_ = (static_cast<IFMapAgentTable *>
+                      (IFMapTable::FindTable(agent_->db(),
+                                             "qos-config")));
+    assert(cfg_qos_table_);
+
+    cfg_global_qos_table_ = (static_cast<IFMapAgentTable *>
+                            (IFMapTable::FindTable(agent_->db(),
+                                                   "global-qos-config")));
+    assert(cfg_global_qos_table_);
+
+    cfg_qos_queue_table_ = (static_cast<IFMapAgentTable *>
+                            (IFMapTable::FindTable(agent_->db(),
+                                                   "qos-queue")));
+    assert(cfg_qos_queue_table_);
+
+    cfg_forwarding_class_table_ = (static_cast<IFMapAgentTable *>
+                            (IFMapTable::FindTable(agent_->db(),
+                                                   "forwarding-class")));
+    assert(cfg_forwarding_class_table_);
+
     cfg_interface_client_->Init();
 }
 

@@ -41,6 +41,10 @@
 #include <oper/vrouter.h>
 #include <oper/bgp_as_service.h>
 #include <nexthop_server/nexthop_manager.h>
+#include <oper/forwarding_class.h>
+#include <oper/qos_config.h>
+#include <oper/qos_queue.h>
+#include <oper/global_qos_config.h>
 
 using boost::assign::map_list_of;
 using boost::assign::list_of;
@@ -85,6 +89,15 @@ void OperDB::CreateDBTables(DB *db) {
     DB::RegisterFactory("db.healthcheck.0",
                         boost::bind(&HealthCheckTable::CreateTable,
                                     agent_, _1, _2));
+    DB::RegisterFactory("db.qos_queue.0",
+                        boost::bind(&QosQueueTable::CreateTable,
+                        agent_, _1, _2));
+    DB::RegisterFactory("db.forwardingclass.0",
+                        boost::bind(&ForwardingClassTable::CreateTable,
+                        agent_, _1, _2));
+    DB::RegisterFactory("db.qos_config.0",
+                        boost::bind(&AgentQosConfigTable::CreateTable,
+                        agent_, _1, _2));
 
     InterfaceTable *intf_table;
     intf_table = static_cast<InterfaceTable *>(db->CreateTable("db.interface.0"));
@@ -167,6 +180,23 @@ void OperDB::CreateDBTables(DB *db) {
     agent_->set_vxlan_table(vxlan_table);
     vxlan_table->set_agent(agent_);
 
+    QosQueueTable *qos_queue_table;
+    qos_queue_table =
+        static_cast<QosQueueTable *>(db->CreateTable("db.qos_queue.0"));
+    agent_->set_qos_queue_table(qos_queue_table);
+
+    ForwardingClassTable *forwarding_class_table;
+    forwarding_class_table = static_cast<ForwardingClassTable *>(
+                                 db->CreateTable("db.forwardingclass.0"));
+    agent_->set_forwarding_class_table(forwarding_class_table);
+
+    AgentQosConfigTable *qos_config_table;
+    qos_config_table =
+        static_cast<AgentQosConfigTable *>(db->CreateTable("db.qos_config.0"));
+    agent_->set_qos_config_table(qos_config_table);
+
+    acl_table->ListenerInit();
+
     multicast_ = std::auto_ptr<MulticastHandler>(new MulticastHandler(agent_));
     global_vrouter_ = std::auto_ptr<GlobalVrouter> (new GlobalVrouter(this));
     route_preference_module_ =
@@ -192,6 +222,7 @@ void OperDB::CreateDBTables(DB *db) {
     profile_.reset(new AgentProfile(agent_, true));
     vrouter_ = std::auto_ptr<VRouter> (new VRouter(this));
     bgp_as_a_service_ = std::auto_ptr<BgpAsAService>(new BgpAsAService(agent_));
+    global_qos_config_ = std::auto_ptr<GlobalQosConfig>(new GlobalQosConfig(this));
 }
 
 void OperDB::Init() {
@@ -263,6 +294,8 @@ void OperDB::Shutdown() {
     dependency_manager_->Terminate();
     global_vrouter_.reset();
 
+    global_qos_config_.reset();
+
     route_preference_module_->Shutdown();
     multicast_->Shutdown();
     multicast_->Terminate();
@@ -284,6 +317,7 @@ void OperDB::Shutdown() {
     agent_->vxlan_table()->Clear();
     agent_->service_instance_table()->Clear();
 #endif
+
     route_preference_module_->Shutdown();
     domain_config_->Terminate();
     vrouter_.reset();

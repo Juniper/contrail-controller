@@ -38,6 +38,7 @@
 #include <oper/ecmp_load_balance.h>
 #include <oper/global_vrouter.h>
 #include <oper/ifmap_dependency_manager.h>
+#include <oper/qos_config.h>
 
 #include <vnc_cfg_types.h>
 #include <oper/agent_sandesh.h>
@@ -543,6 +544,15 @@ static void BuildVn(VmInterfaceConfigData *data, IFMapNode *node,
     }
 }
 
+static void BuildQosConfig(VmInterfaceConfigData *data, IFMapNode *node) {
+    autogen::QosConfig *qc = static_cast<autogen::QosConfig *>
+        (node->GetObject());
+    assert(qc);
+    autogen::IdPermsType id_perms = qc->id_perms();
+    CfgUuidSet(id_perms.uuid.uuid_mslong,
+               id_perms.uuid.uuid_lslong, data->qos_config_uuid_);
+}
+
 static void BuildVm(VmInterfaceConfigData *data, IFMapNode *node,
                     const boost::uuids::uuid &u, CfgIntEntry *cfg_entry) {
     VirtualMachine *vm = static_cast<VirtualMachine *>
@@ -984,6 +994,10 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
         if (adj_node->table() == agent_->cfg()->cfg_vn_table()) {
             vn_node = adj_node;
             BuildVn(data, adj_node, u, cfg_entry);
+        }
+
+        if (adj_node->table() == agent_->cfg()->cfg_qos_table()) {
+            BuildQosConfig(data, adj_node);
         }
 
         if (adj_node->table() == agent_->cfg()->cfg_vm_table()) {
@@ -1715,7 +1729,8 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
     tx_vlan_id_(VmInterface::kInvalidVlanId),
     logical_interface_(nil_uuid()), ecmp_load_balance_(),
     service_health_check_ip_(), service_ip_(0),
-    service_ip_ecmp_(false), service_ip6_(), service_ip_ecmp6_(false){
+    service_ip_ecmp_(false), service_ip6_(), service_ip_ecmp6_(false), 
+    qos_config_uuid_(){
 }
 
 VmInterface *VmInterfaceConfigData::OnAdd(const InterfaceTable *table,
@@ -1827,6 +1842,20 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
             vn ? vn->flood_unknown_unicast(): false;
         if (flood_unknown_unicast_ != flood_unknown_unicast) {
             flood_unknown_unicast_ = flood_unknown_unicast;
+            ret = true;
+        }
+
+        AgentQosConfigTable *qos_table = table->agent()->qos_config_table();
+        AgentQosConfigKey qos_key(data->qos_config_uuid_);
+        AgentQosConfig *qos_config =  static_cast<AgentQosConfig *>(
+            qos_table->FindActiveEntry(&qos_key));
+        if (qos_config_.get() != qos_config) {
+            qos_config_ = qos_config;
+            ret = true;
+        }
+
+        if (qos_config_.get() == NULL && vn && vn->qos_config()) {
+            qos_config_ = vn->qos_config();
             ret = true;
         }
     }
@@ -4935,4 +4964,22 @@ void VmInterface::DeleteIpv6InstanceIp(bool l2, uint32_t old_ethernet_tag,
             instance_ipv6_list_.list_.erase(prev);
         }
     }
+}
+
+void AddVmiQosConfig::HandleRequest() const {
+    QosResponse *resp = new QosResponse();
+    resp->set_context(context());
+
+    boost::uuids::uuid vmi_uuid = StringToUuid(std::string(get_vmi_uuid()));
+    boost::uuids::uuid qos_config_uuid =
+        StringToUuid(std::string(get_qos_config_uuid()));
+    DBTable *table = Agent::GetInstance()->interface_table();
+
+    DBRequest req;
+    req.oper =  DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, vmi_uuid, ""));
+    req.data.reset(new InterfaceQosConfigData(NULL, NULL, qos_config_uuid));
+    table->Enqueue(&req);
+    resp->set_resp("Success");
+    resp->Response();
 }

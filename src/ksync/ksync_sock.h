@@ -53,6 +53,8 @@ public:
     virtual void DropStatsMsgHandler(vr_drop_stats_req *req) = 0;
     virtual void VxLanMsgHandler(vr_vxlan_req *req) = 0;
     virtual void VrouterOpsMsgHandler(vrouter_ops *req) = 0;
+    virtual void QosConfigMsgHandler(vr_qos_map_req *req) = 0;
+    virtual void ForwardingClassMsgHandler(vr_fc_map_req *req) = 0;
     virtual void SetErrno(int err) {errno_ = err;}
 
     int GetErrno() const {return errno_;}
@@ -185,6 +187,8 @@ public:
     void DropStatsMsgHandler(vr_drop_stats_req *req);
     void VxLanMsgHandler(vr_vxlan_req *req);
     void VrouterOpsMsgHandler(vrouter_ops *req);
+    void QosConfigMsgHandler(vr_qos_map_req *req);
+    void ForwardingClassMsgHandler(vr_fc_map_req *req);
     void SetErrno(int err);
 
     bool Decoder(char *buff, uint32_t buff_len, uint32_t alignment, bool more);

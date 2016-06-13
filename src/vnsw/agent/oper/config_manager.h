@@ -71,6 +71,9 @@ public:
     void AddVnNode(IFMapNode *node);
     void AddVrfNode(IFMapNode *node);
     void AddVmNode(IFMapNode *node);
+    void AddQosConfigNode(IFMapNode *node);
+    void AddQosQueueNode(IFMapNode *node);
+    void AddForwardingClassNode(IFMapNode *node);
     uint32_t LogicalInterfaceNodeCount() const;
 
     void AddPhysicalDeviceNode(IFMapNode *node);
@@ -104,6 +107,9 @@ private:
     std::auto_ptr<ConfigManagerNodeList> vrf_list_;
     std::auto_ptr<ConfigManagerNodeList> vm_list_;
     std::auto_ptr<ConfigManagerNodeList> hc_list_;
+    std::auto_ptr<ConfigManagerNodeList> qos_config_list_;
+    std::auto_ptr<ConfigManagerNodeList> qos_queue_list_;
+    std::auto_ptr<ConfigManagerNodeList> forwarding_class_list_;
     std::auto_ptr<ConfigManagerDeviceVnList> device_vn_list_;
 
     uint64_t process_config_count_[kMaxTimeout + 1];

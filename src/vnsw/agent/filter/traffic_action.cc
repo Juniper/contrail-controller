@@ -48,6 +48,8 @@ std::string TrafficAction::ActionToString(enum Action at)
             return("implicit deny");
         case VRF_TRANSLATE:
             return("VRF assign");
+        case APPLY_QOS:
+            return ("Apply QOS marking");
         default:
             return("unknown");
     }
@@ -98,6 +100,9 @@ bool MirrorAction::Compare(const TrafficAction &rhs) const {
     return true;
 }
 
+MirrorAction::~MirrorAction() {
+    //Agent::mirror_table()->DelMirrorEntry(analyzer_name_);
+}
 
 void VrfTranslateAction::SetActionSandeshData(std::vector<ActionStr> &actions) {
     ActionStr astr;
@@ -125,6 +130,24 @@ bool VrfTranslateAction::Compare(const TrafficAction &rhs) const {
     return true;
 }
 
-MirrorAction::~MirrorAction() {
-    //Agent::mirror_table()->DelMirrorEntry(analyzer_name_);
+void QosConfigAction::SetActionSandeshData(std::vector<ActionStr> &actions) {
+    ActionStr astr;
+    astr.action = ActionToString(action());
+    actions.push_back(astr);
+    std::stringstream ss;
+    ss << name_;
+    astr.action = ss.str();
+    actions.push_back(astr);
+    return;
+}
+
+bool QosConfigAction::Compare(const TrafficAction &r) const {
+    const QosConfigAction &rhs = static_cast<const QosConfigAction &>(r);
+    if (name_ != rhs.name_) {
+        return false;
+    }
+    if (qos_config_ref_.get() != rhs.qos_config_ref_.get()) {
+        return false;
+    }
+    return true;
 }

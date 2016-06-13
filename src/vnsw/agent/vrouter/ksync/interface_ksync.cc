@@ -72,7 +72,8 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     encap_type_(entry->encap_type_),
     display_name_(entry->display_name_),
     transport_(entry->transport_),
-    flood_unknown_unicast_ (entry->flood_unknown_unicast_) {
+    flood_unknown_unicast_ (entry->flood_unknown_unicast_),
+    qos_config_(entry->qos_config_){
 }
 
 InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
@@ -110,7 +111,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     no_arp_(false),
     encap_type_(PhysicalInterface::ETHERNET),
     transport_(Interface::TRANSPORT_INVALID),
-    flood_unknown_unicast_(false) {
+    flood_unknown_unicast_(false), qos_config_(NULL) {
 
     if (intf->flow_key_nh()) {
         flow_key_nh_id_ = intf->flow_key_nh()->id();
@@ -309,6 +310,18 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
         }
     }
 
+    KSyncEntryPtr qos_config = NULL;
+    QosConfigKSyncObject *qos_object =
+        static_cast<InterfaceKSyncObject *>(ksync_obj_)->ksync()->
+        qos_config_ksync_obj();
+    if (intf->qos_config() != NULL) {
+        QosConfigKSyncEntry tmp(qos_object, intf->qos_config());
+        qos_config = qos_object->GetReference(&tmp);
+    }
+    if (qos_config != qos_config_) {
+        qos_config_ = qos_config;
+        ret = true;
+    }
 
     if (vrf_id != vrf_id_) {
         vrf_id_ = vrf_id;
@@ -434,6 +447,10 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
 }
 
 KSyncEntry *InterfaceKSyncEntry::UnresolvedReference() {
+    if (qos_config_.get() && qos_config_->IsResolved() == false) {
+        return qos_config_.get();
+    }
+
     if (type_ == Interface::INET && sub_type_ == InetInterface::VHOST) {
         if (xconnect_.get() && !xconnect_->IsResolved()) {
             return xconnect_.get();
@@ -509,6 +526,14 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         assert(error == 0);
         assert(encode_len <= buf_len);
         return encode_len;
+    }
+
+    if (qos_config_.get() != NULL) {
+        QosConfigKSyncEntry *qos_config =
+            static_cast<QosConfigKSyncEntry *>(qos_config_.get());
+        encoder.set_vifr_qos_map_index(qos_config->id());
+    } else {
+        encoder.set_vifr_qos_map_index(-1);
     }
 
     switch (type_) {

@@ -91,7 +91,8 @@ struct VnData : public AgentOperDBData {
            const std::vector<VnIpam> &ipam, const VnIpamDataMap &vn_ipam_data,
            int vxlan_id, int vnid, bool bridging,
            bool layer3_forwarding, bool admin_state, bool enable_rpf,
-           bool flood_unknown_unicast, Agent::ForwardingMode forwarding_mode) :
+           bool flood_unknown_unicast, Agent::ForwardingMode forwarding_mode,
+           const boost::uuids::uuid &qos_config_uuid) :
         AgentOperDBData(agent, node), name_(name), vrf_name_(vrf_name),
         acl_id_(acl_id), mirror_acl_id_(mirror_acl_id),
         mirror_cfg_acl_id_(mc_acl_id), ipam_(ipam), vn_ipam_data_(vn_ipam_data),
@@ -99,7 +100,7 @@ struct VnData : public AgentOperDBData {
         layer3_forwarding_(layer3_forwarding), admin_state_(admin_state),
         enable_rpf_(enable_rpf),
         flood_unknown_unicast_(flood_unknown_unicast),
-        forwarding_mode_(forwarding_mode) {
+        forwarding_mode_(forwarding_mode), qos_config_uuid_(qos_config_uuid) {
     };
     virtual ~VnData() { }
 
@@ -118,6 +119,7 @@ struct VnData : public AgentOperDBData {
     bool enable_rpf_;
     bool flood_unknown_unicast_;
     Agent::ForwardingMode forwarding_mode_;
+    boost::uuids::uuid qos_config_uuid_;
 };
 
 class VnEntry : AgentRefCount<VnEntry>, public AgentOperDBEntry {
@@ -183,6 +185,9 @@ public:
     void ResyncRoutes();
     bool IdentifyBgpRoutersServiceIp(const IpAddress &ip_address,
                                      bool *is_dns, bool *is_gateway) const;
+    const AgentQosConfig* qos_config() const {
+        return qos_config_.get();
+    }
 
 private:
     friend class VnTable;
@@ -208,6 +213,7 @@ private:
     uint32_t old_vxlan_id_;
     Agent::ForwardingMode forwarding_mode_;
     boost::scoped_ptr<AgentRouteResync> route_resync_walker_;
+    AgentQosConfigConstRef qos_config_;
     DISALLOW_COPY_AND_ASSIGN(VnEntry);
 };
 

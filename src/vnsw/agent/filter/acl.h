@@ -40,11 +40,13 @@ struct FlowAction {
     void Clear() {
         action = 0;
         mirror_l.clear();
+        qos_config_action_.clear();
     };
 
     uint32_t action;
     std::vector<MirrorActionSpec> mirror_l;
     VrfTranslateActionSpec vrf_translate_action_;
+    QosConfigActionSpec qos_config_action_;
 };
 
 struct MatchAclParams {
@@ -80,6 +82,11 @@ struct AclData: public AgentOperDBData {
     bool ace_add;
     std::string cfg_name_;
     AclSpec acl_spec_;
+};
+
+struct AclResyncQosConfigData : public AgentOperDBData {
+    AclResyncQosConfigData(Agent *agent, IFMapNode *node) :
+        AgentOperDBData(agent, node) {}
 };
 
 class AclDBEntry : AgentRefCount<AclDBEntry>, public AgentOperDBEntry {
@@ -124,6 +131,10 @@ public:
     bool Changed(const AclEntries &new_acl_entries) const;
     uint32_t ace_count() const { return acl_entries_.size();}
     bool IsRulePresent(const std::string &uuid) const;
+    bool ResyncQosConfigEntries();
+    bool IsQosConfigResolved();
+    bool Isresolved();
+    const AclEntry* GetAclEntryAtIndex(uint32_t) const;
 private:
     friend class AclTable;
     uuid uuid_;
@@ -136,6 +147,8 @@ private:
 class AclTable : public AgentOperDBTable {
 public:
     typedef std::map<std::string, TrafficAction::Action> TrafficActionMap;
+    typedef std::set<AclDBEntry*> UnResolvedAclEntries;
+
     // Packet module is optional. Callback function to update the flow stats
     // for ACL. The callback is defined to avoid linking error
     // when flow is not enabled
@@ -155,6 +168,7 @@ public:
     virtual DBEntry *OperDBAdd(const DBRequest *req);
     virtual bool OperDBOnChange(DBEntry *entry, const DBRequest *req);
     virtual bool OperDBDelete(DBEntry *entry, const DBRequest *req);
+    virtual bool OperDBResync(DBEntry *entry, const DBRequest *req);
 
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req,
             const boost::uuids::uuid &u);
@@ -170,11 +184,17 @@ public:
                                      const std::string ctx, int ace_id);
     void set_ace_flow_sandesh_data_cb(FlowAceSandeshDataFn fn);
     void set_acl_flow_sandesh_data_cb(FlowAclSandeshDataFn fn);
+    void ListenerInit();
+    void Notify(DBTablePartBase *partition, DBEntryBase *e);
+    void AddUnresolvedEntry(AclDBEntry *entry);
+    void DeleteUnresolvedEntry(AclDBEntry *entry);
 private:
     static const AclDBEntry* GetAclDBEntry(const std::string uuid_str, 
                                            const std::string ctx,
                                            SandeshResponse *resp);
     void ActionInit();
+    DBTableBase::ListenerId qos_config_listener_id_;
+    UnResolvedAclEntries unresolved_acl_entries_;
     TrafficActionMap ta_map_;
     FlowAceSandeshDataFn flow_ace_sandesh_data_cb_;
     FlowAclSandeshDataFn flow_acl_sandesh_data_cb_;
@@ -187,6 +207,5 @@ extern SandeshTraceBufferPtr AclTraceBuf;
 do {\
     Acl##obj::TraceMsg(AclTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__);\
 } while(false);\
-
 
 #endif

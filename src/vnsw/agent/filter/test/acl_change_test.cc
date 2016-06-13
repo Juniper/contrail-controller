@@ -95,6 +95,16 @@ public:
         return vrf_action.str();
     }
 
+    std::string GetQosConfigAction(std::string qos_name) {
+        std::ostringstream qos_action;
+        qos_action << "<action-list>\n"
+            "    <simple-action>pass</simple-action>\n";
+        qos_action << "<qos-action>" << qos_name
+            << "</qos-action>";
+        qos_action << "</action-list>";
+        return qos_action.str();
+    }
+
     std::string GetVnAclString(std::string source_vn, std::string dest_vn,
                                std::string proto, uint32_t sport_start,
                                uint32_t sport_end, uint32_t dport_start,
@@ -298,6 +308,27 @@ public:
                   std::string action) {
         AddIpAcl(name, id, source_ip, source_plen, dest_ip, dest_plen, "all", 
                  0, 65535, 0, 65535, "pass");
+    }
+
+    bool VerifyQosAction(uint32_t acl_id, uint32_t ace_id, std::string qos_name) {
+        AclDBEntry *acl = AclGet(1);
+        EXPECT_TRUE(acl != NULL);
+
+        const AclEntry *acl_entry = acl->GetAclEntryAtIndex(ace_id);
+        EXPECT_TRUE(acl_entry != NULL);
+
+        QosConfigAction action(qos_name);
+        action.set_qos_config_ref(Agent::GetInstance()->
+                qos_config_table()->FindByName(qos_name));
+        AclEntry::ActionList::const_iterator action_it =
+            acl_entry->Actions().begin();
+        while (action_it != acl_entry->Actions().end()) {
+            if (**action_it == action) {
+                    return true;
+            }
+            action_it++;
+        }
+        return false;
     }
 protected:
 };
@@ -598,6 +629,58 @@ TEST_F(AclTest, VrfAssignActionChange_1) {
             "</acl-rule>\n", ace_1.c_str(), action_list.c_str());
     AddAcl("acl1", 1, buff);
     client->AclNotifyWait(2);
+}
+
+TEST_F(AclTest, QosActionChange_1) {
+    std::string ace_1 = GetVnAclString("vn1", "vn2", "any", 1, 10, 1, 10);
+    std::string action_list = GetQosConfigAction("qos-config1");
+    std::string action_list1 = GetQosConfigAction("qos-config2");
+    char buff[10240];
+    sprintf(buff,
+            "<acl-rule>\n"
+            " %s\n %s\n"
+            "</acl-rule>\n", ace_1.c_str(), action_list.c_str());
+    AddAcl("acl1", 1, buff);
+    client->AclNotifyWait(1);
+    EXPECT_TRUE(VerifyQosAction(1, 0, "qos-config1"));
+
+    sprintf(buff,
+            "<acl-rule>\n"
+            " %s\n %s\n"
+            "</acl-rule>\n", ace_1.c_str(), action_list1.c_str());
+    AddAcl("acl1", 1, buff);
+    client->AclNotifyWait(2);
+    EXPECT_TRUE(VerifyQosAction(1, 0, "qos-config2"));
+}
+
+TEST_F(AclTest, QosActionChange_2) {
+    std::string ace_1 = GetVnAclString("vn1", "vn2", "any", 1, 10, 1, 10);
+    std::string action_list = GetQosConfigAction("qos-config1");
+    std::string action_list1 = GetQosConfigAction("qos-config2");
+    char buff[10240];
+    sprintf(buff,
+            "<acl-rule>\n"
+            " %s\n %s\n"
+            "</acl-rule>\n", ace_1.c_str(), action_list.c_str());
+    AddAcl("acl1", 1, buff);
+    client->AclNotifyWait(1);
+    EXPECT_TRUE(VerifyQosAction(1, 0, "qos-config1"));
+
+    TestQosConfigData data = {"qos-config1", 1, "fabric", false};
+    AddQosConfig(data);
+    TestQosConfigData data1 = {"qos-config2", 2, "fabric", false};
+    AddQosConfig(data1);
+    client->WaitForIdle();
+    client->AclNotifyWait(2);
+    EXPECT_TRUE(VerifyQosAction(1, 0, "qos-config1"));
+
+    sprintf(buff,
+            "<acl-rule>\n"
+            " %s\n %s\n"
+            "</acl-rule>\n", ace_1.c_str(), action_list1.c_str());
+    AddAcl("acl1", 1, buff);
+    client->AclNotifyWait(3);
+    EXPECT_TRUE(VerifyQosAction(1, 0, "qos-config2"));
 }
 }
 

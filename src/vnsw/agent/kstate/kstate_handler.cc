@@ -13,6 +13,8 @@
 #include "vrf_assign_kstate.h"
 #include "vrf_stats_kstate.h"
 #include "drop_stats_kstate.h"
+#include "forwarding_class_kstate.h"
+#include "qos_config_kstate.h"
 
 void KInterfaceReq::HandleRequest() const {
     vr_interface_req req;
@@ -120,4 +122,24 @@ void KVxLanReq::HandleRequest() const {
     kstate->EncodeAndSend(req);
 }
 
+void KQosConfigReq::HandleRequest() const {
 
+    vr_qos_map_req req;
+    KQosConfigResp *resp = new KQosConfigResp();
+    resp->set_context(context());
+
+    QosConfigKState *kstate = new QosConfigKState(resp, context(), req,
+                                                  get_index());
+    kstate->EncodeAndSend(req);
+}
+
+void KForwardingClassReq::HandleRequest() const {
+    vr_fc_map_req req;
+    KForwardingClassResp *resp = new KForwardingClassResp();
+    resp->set_context(context());
+
+    ForwardingClassKState *kstate = new ForwardingClassKState(resp, context(),
+                                                  req,
+                                                  get_index());
+    kstate->EncodeAndSend(req);
+}

@@ -62,6 +62,9 @@ struct AgentOperDBData : public AgentData {
         IFMapNodeState *state = ifmap_node_state_.get();
         return state->node();
     }
+    const Agent *agent() const {
+        return agent_;
+    }
 private:
     const Agent *agent_;
     // IFMap Node pointer for the object
