@@ -623,14 +623,24 @@ class OpServerUtils(object):
                          data_str += ', '
                     vdict = value_dict['map']
                     data_str += key + ': {'
-                    if vdict['@value'] == 'struct':
+
+                    sname = None
+                    for ss in vdict.keys():
+                        if ss[0] != '@':
+                            if ss != 'element':
+                                sname = ss
+
+                    if sname is not None:
                         keys = []
                         values = []
                         for key, value in vdict.iteritems():
                             if key == 'element':
-                                keys = value
+                                if isinstance(value, list):
+                                    keys = value
+                                else:
+                                    keys = [value]
                             elif isinstance(value, dict):
-                                values = value
+                                values = [value]
                             elif isinstance(value, list):
                                 values = value
                         for i in range(len(keys)):
