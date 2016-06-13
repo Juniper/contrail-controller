@@ -1164,6 +1164,7 @@ class TestAlarmPlugins(unittest.TestCase):
                     uve_data={
                         'VrouterAgent': {
                             'self_ip_list': ['10.1.1.1'],
+                            'down_interface_count': 0,
                             'error_intf_list': []
                         }
                     }
@@ -1176,6 +1177,7 @@ class TestAlarmPlugins(unittest.TestCase):
                     uve_data={
                         'VrouterAgent': {
                             'self_ip_list': ['10.1.1.1'],
+                            'down_interface_count': 1,
                             'error_intf_list': ['error1']
                         }
                     }
@@ -1183,10 +1185,13 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('VrouterAgent.error_intf_list != null', None,
-                             [('["error1"]', None, None)]),
-                            ('VrouterAgent.error_intf_list != []', None,
-                             [('["error1"]', None, None)])
+                            ('VrouterAgent.down_interface_count >= 1',
+                                ['VrouterAgent.error_intf_list',
+                                    'VrouterAgent.no_config_intf_list'],
+                                [('1', None, {'VrouterAgent.error_intf_list':
+                                            '["error1"]',
+                                            'VrouterAgent.no_config_intf_list':
+                                            'null'})])
                         ]
                     }
                 ])
