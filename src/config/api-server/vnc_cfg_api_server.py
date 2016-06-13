@@ -324,7 +324,8 @@ class VncApiServer(object):
 
     def _validate_refs_in_request(self, resource_class, obj_dict):
         for ref_name in resource_class.ref_fields:
-            _, ref_link_type, _ = resource_class.ref_field_types[ref_name]
+            ref_fld_types_list = list(resource_class.ref_field_types[ref_name])
+            ref_link_type = ref_fld_types_list[1]
             if ref_link_type == 'None':
                 continue
             for ref_dict in obj_dict.get(ref_name) or []:
@@ -347,7 +348,9 @@ class VncApiServer(object):
     def _validate_perms_in_request(self, resource_class, obj_type, obj_dict):
         for ref_name in resource_class.ref_fields:
             for ref in obj_dict.get(ref_name) or []:
-                ref_type, _, _ = resource_class.ref_field_types[ref_name]
+                ref_fld_types_list = list(
+                        resource_class.ref_field_types[ref_name])
+                ref_type = ref_fld_types_list[0]
                 ref_uuid = self._db_conn.fq_name_to_uuid(ref_type, ref['to'])
                 (ok, status) = self._permissions.check_perms_link(
                     get_request(), ref_uuid)
