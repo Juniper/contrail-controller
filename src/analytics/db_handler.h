@@ -33,6 +33,10 @@
 #include "uflow_types.h"
 #include "viz_constants.h"
 #include <database/cassandra/cql/cql_types.h>
+#include "usrdef_counters.h"
+
+class Options;
+class DiscoveryServiceClient;
 
 class DbHandler {
 public:
@@ -134,6 +138,9 @@ public:
     void ResetDbQueueWaterMarkInfo();
     std::vector<boost::asio::ip::tcp::endpoint> GetEndpoints() const;
     std::string GetName() const;
+    void UpdateUdc(Options *o, DiscoveryServiceClient *c) {
+        udc_->Update(o, c);
+    }
 
 private:
     void StatTableInsertTtl(uint64_t ts,
@@ -196,6 +203,11 @@ private:
     std::string zookeeper_server_list_;
     bool use_zookeeper_;
     bool CanRecordDataForT2(uint32_t, std::string);
+    boost::scoped_ptr<UserDefinedCounters> udc_;
+    Timer *udc_cfg_poll_timer_;
+    static const int kUDCPollInterval = 120 * 1000; // in ms
+    bool PollUDCCfg() { if(udc_) udc_->PollCfg(); return true; }
+    void PollUDCCfgErrorHandler(std::string err_name, std::string err_message);
     friend class DbHandlerTest;
     DISALLOW_COPY_AND_ASSIGN(DbHandler);
 };

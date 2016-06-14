@@ -87,6 +87,7 @@ const u16 DiscoveryServerPort = 5998
 const u16 RedisQueryPort = 6379
 const u16 RedisUvePort = 6379
 const u16 RedisWebuiPort = 6383
+const u16 KeystonePort = 35357
 const u16 WebConsolePort = 8080
 const u16 OpServerPort = 8081
 const u16 ApiServerPort = 8082
