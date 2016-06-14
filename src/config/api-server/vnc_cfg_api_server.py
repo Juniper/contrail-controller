@@ -2566,6 +2566,7 @@ class VncApiServer(object):
         fq_name = ['default-domain', 'default-api-access-list']
         try:
             id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
+            return
         except NoIdError:
             self._create_singleton_entry(ApiAccessList(parent_type='domain', fq_name=fq_name))
             id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
