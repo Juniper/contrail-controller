@@ -536,16 +536,16 @@ bool FlowStatsCollector::Run() {
     if (flow_tree_.size() == 0) {
         return true;
      }
-  
+
     // Update number of entries to visit in flow.
     UpdateEntriesToVisit();
 
     // Start task to scan the entries
     if (ageing_task_ == NULL) {
         ageing_task_ = new AgeingTask(this);
-       agent_uve_->agent()->task_scheduler()->Enqueue(ageing_task_);
+        agent_uve_->agent()->task_scheduler()->Enqueue(ageing_task_);
     }
-      return true;
+    return true;
 }
   
 // Called on runnig of a task
@@ -798,6 +798,11 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
     s_flow.set_sourcevn(flow->data().source_vn_match);
     s_flow.set_destvn(flow->data().dest_vn_match);
     s_flow.set_vm(flow->data().vm_cfg_name);
+    if (flow->is_flags_set(FlowEntry::ReverseFlow)) {
+        s_flow.set_forward_flow(false);
+    } else {
+        s_flow.set_forward_flow(true);
+    }
 
     string drop_reason = FlowEntry::DropReasonStr(flow->data().drop_reason);
     s_flow.set_drop_reason(drop_reason);
@@ -865,6 +870,7 @@ bool FlowStatsManager::UpdateFlowThreshold() {
     if (!flow_export_count_) {
         return true;
     }
+
     // Calculate Flow Export rate
     if (prev_flow_export_rate_compute_time_) {
         uint64_t diff_secs = 0;
@@ -1070,11 +1076,10 @@ void FlowStatsCollector::EvictedFlowStatsUpdate(const FlowEntryPtr &flow,
 // Introspect routines
 /////////////////////////////////////////////////////////////////////////////
 void FlowStatsCollectionParamsReq::HandleRequest() const {
-    FlowStatsCollector *col = Agent::GetInstance()->
-        flow_stats_manager()->default_flow_stats_collector();
+    FlowStatsManager *mgr = Agent::GetInstance()->flow_stats_manager();
     FlowStatsCollectionParamsResp *resp = new FlowStatsCollectionParamsResp();
-    resp->set_flow_export_rate(col->flow_export_rate());
-    resp->set_sampling_threshold(col->threshold());
+    resp->set_flow_export_rate(mgr->flow_export_rate());
+    resp->set_sampling_threshold(mgr->threshold());
 
     resp->set_context(context());
     resp->Response();
