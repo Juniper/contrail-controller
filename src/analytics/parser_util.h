@@ -20,7 +20,8 @@ public:
             bool check_attr=true);
     static std::string GetXmlString(const pugi::xml_node node);
     static std::string MakeSane(const std::string &text);
-    static unsigned int SearchPattern(boost::regex exp, std::string text);
+    static unsigned int SearchPattern(const boost::regex &exp,
+            std::string text);
     static unsigned int SearchPattern(std::string exp, std::string text) {
         return SearchPattern(boost::regex(exp, boost::regex::icase), text); }
 private:

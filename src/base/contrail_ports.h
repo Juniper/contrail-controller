@@ -42,6 +42,7 @@ public:
     static const uint16_t DiscoveryServerPort();
     static const uint16_t RedisQueryPort();
     static const uint16_t RedisUvePort();
+    static const uint16_t KeystonePort();
     static const uint16_t RedisWebuiPort();
     static const uint16_t WebConsole();
     static const uint16_t OpServer();
