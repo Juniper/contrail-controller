@@ -249,14 +249,6 @@ class VncIfmapClient(object):
 
     def object_create(self, obj_ids, obj_dict):
         obj_type = obj_ids['type'].replace('-', '_')
-        # Update notification might be received before create notify,
-        # so reading the object from database and publishing to IFMAP.
-        try:
-            (ok, result) = self._db_client_mgr.dbe_read(obj_ids['type'], obj_ids)
-            obj_dict = result
-        except NoIdError as e:
-            pass
-
         if not 'parent_type' in obj_dict:
             # parent is config-root
             parent_type = 'config-root'
@@ -1078,7 +1070,14 @@ class VncServerKombuClient(VncKombuClient):
     # end dbe_create_publish
 
     def _dbe_create_notification(self, obj_info):
-        obj_dict = obj_info['obj_dict']
+        try:
+            (ok, result) = self._db_client_mgr.dbe_read(obj_info['type'], obj_info)
+            if not ok:
+                raise Exception(result)
+            obj_dict = result
+        except NoIdError as e:
+            # No error, we will hear a delete shortly
+            return
 
         self.dbe_uve_trace("CREATE", obj_info['type'], obj_info['uuid'], obj_dict)
 
