@@ -766,6 +766,35 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:simpleType name="GracefulRestartTimeType">
+     <xsd:restriction base="xsd:integer">
+         <xsd:minInclusive value="0"/>
+         <xsd:maxInclusive value="600"/>
+     </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="LongLivedGracefulRestartTimeType">
+     <xsd:restriction base="xsd:integer">
+         <xsd:minInclusive value="0"/>
+         <xsd:maxInclusive value="16777215"/>
+     </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="EndOfRibReceiveTimeType">
+     <xsd:restriction base="xsd:integer">
+         <xsd:minInclusive value="0"/>
+         <xsd:maxInclusive value="600"/>
+     </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="GracefulRestartType">
+    <xsd:all>
+        <xsd:element name="graceful-restart-time" type="GracefulRestartTimeType" default="0"/>
+        <xsd:element name="long-lived-graceful-restart-time" type="LongLivedGracefulRestartTimeType" default="0"/>
+        <xsd:element name="end-of-rib-receive-time" type="EndOfRibReceiveTimeType" default="30"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:element name="display-name" type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL Property('display-name', 'all', 'optional', 'CRUD',
                                   'Display name user configured string(name) that can be updated any time. Used as openstack name.') -->
@@ -795,6 +824,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Property('config-version', 'global-system-config', 'system-only', 'R',
               'Version of OpenContrail software that generated this config.') -->
+
+<xsd:element name="graceful-restart-params" type="GracefulRestartType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('graceful-restart-params', 'global-system-config', 'optional',
+              'CRUD', 'Graceful Restart parameters') -->
 
 <xsd:element name="plugin-tuning" type="PluginProperties"/>
 <!--#IFMAP-SEMANTICS-IDL 

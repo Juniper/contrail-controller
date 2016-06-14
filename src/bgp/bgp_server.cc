@@ -14,7 +14,6 @@
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_membership.h"
 #include "bgp/bgp_peer.h"
-#include "bgp/bgp_peer_membership.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_table_types.h"
 #include "bgp/peer_stats.h"
@@ -52,7 +51,23 @@ public:
             this, _1, _2);
         obs.policy = boost::bind(&ConfigUpdater::ProcessRoutingPolicyConfig,
             this, _1, _2);
+        obs.system= boost::bind(&ConfigUpdater::ProcessGlobalSystemConfig,
+            this, _1, _2);
         server->config_manager()->RegisterObservers(obs);
+    }
+
+    void ProcessGlobalSystemConfig(const BgpGlobalSystemConfig *system,
+            BgpConfigManager::EventType event) {
+        server_->global_config()->set_gr_time(system->gr_time());
+        server_->global_config()->set_llgr_time(system->llgr_time());
+        server_->global_config()->set_eor_rx_time(system->eor_rx_time());
+
+        RoutingInstanceMgr *ri_mgr = server_->routing_instance_mgr();
+        RoutingInstance *rti =
+            ri_mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
+        assert(rti);
+        PeerManager *peer_manager = rti->peer_manager();
+        peer_manager->ClearAllPeers();
     }
 
     void ProcessProtocolConfig(const BgpProtocolConfig *protocol_config,
@@ -280,13 +295,8 @@ bool BgpServer::IsReadyForDeletion() {
         return false;
     }
 
-    // Check if the IPeer membership manager queue is empty.
+    // Check if the membership manager queue is empty.
     if (!membership_mgr_->IsQueueEmpty()) {
-        return false;
-    }
-
-    // Check if the IPeer membership manager queue is empty.
-    if (!bgp_membership_mgr_->IsQueueEmpty()) {
         return false;
     }
 
@@ -317,10 +327,12 @@ BgpServer::BgpServer(EventManager *evm)
       local_autonomous_system_(0),
       bgp_identifier_(0),
       hold_time_(0),
+      gr_helper_disable_(getenv("GR_HELPER_BGP_DISABLE") != NULL),
       lifetime_manager_(BgpObjectFactory::Create<BgpLifetimeManager>(this,
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)),
       destroyed_(false),
+      logging_disabled_(false),
       aspath_db_(new AsPathDB(this)),
       olist_db_(new BgpOListDB(this)),
       cluster_list_db_(new ClusterListDB(this)),
@@ -336,8 +348,7 @@ BgpServer::BgpServer(EventManager *evm)
       inst_mgr_(BgpObjectFactory::Create<RoutingInstanceMgr>(this)),
       policy_mgr_(BgpObjectFactory::Create<RoutingPolicyMgr>(this)),
       rtarget_group_mgr_(BgpObjectFactory::Create<RTargetGroupMgr>(this)),
-      bgp_membership_mgr_(new BgpMembershipManager(this)),
-      membership_mgr_(BgpObjectFactory::Create<PeerRibMembershipManager>(this)),
+      membership_mgr_(BgpObjectFactory::Create<BgpMembershipManager>(this)),
       inet_condition_listener_(new BgpConditionListener(this)),
       inet6_condition_listener_(new BgpConditionListener(this)),
       inetvpn_replicator_(new RoutePathReplicator(this, Address::INETVPN)),
@@ -348,6 +359,7 @@ BgpServer::BgpServer(EventManager *evm)
           BgpObjectFactory::Create<IServiceChainMgr, Address::INET>(this)),
       inet6_service_chain_mgr_(
           BgpObjectFactory::Create<IServiceChainMgr, Address::INET6>(this)),
+      global_config_(new BgpGlobalSystemConfig()),
       config_mgr_(BgpObjectFactory::Create<BgpConfigManager>(this)),
       updater_(new ConfigUpdater(this)) {
     bgp_count_ = 0;
@@ -482,19 +494,16 @@ boost::asio::io_service *BgpServer::ioservice() {
     return session_manager()->event_manager()->io_service();
 }
 
-bool BgpServer::IsPeerCloseGraceful() {
-    // If the server is deleted, do not do graceful restart
-    if (deleter()->IsDeleted()) return false;
+uint16_t BgpServer::GetGracefulRestartTime() const {
+    return global_config_->gr_time();
+}
 
-    static bool init = false;
-    static bool enabled = false;
+uint32_t BgpServer::GetLongLivedGracefulRestartTime() const {
+    return global_config_->llgr_time();
+}
 
-    if (!init) {
-        init = true;
-        char *p = getenv("BGP_GRACEFUL_RESTART_ENABLE");
-        if (p && !strcasecmp(p, "true")) enabled = true;
-    }
-    return enabled;
+uint32_t BgpServer::GetEndOfRibReceiveTime() const {
+    return global_config_->eor_rx_time();
 }
 
 uint32_t BgpServer::num_routing_instance() const {

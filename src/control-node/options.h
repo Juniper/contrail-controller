@@ -65,6 +65,8 @@ public:
     bool collectors_configured() const { return collectors_configured_; }
     int tcp_hold_time() const { return tcp_hold_time_; }
     bool optimize_snat() const { return optimize_snat_; }
+    bool gr_helper_bgp_disable() const { return gr_helper_bgp_disable_; }
+    bool gr_helper_xmpp_disable() const { return gr_helper_xmpp_disable_; }
     uint32_t sandesh_send_rate_limit() const { return sandesh_ratelimit_; }
 
 private:
@@ -116,6 +118,8 @@ private:
     int tcp_hold_time_;
     bool optimize_snat_;
     uint32_t sandesh_ratelimit_;
+    bool gr_helper_bgp_disable_;
+    bool gr_helper_xmpp_disable_;
     std::vector<std::string> default_collector_server_list_;
     boost::program_options::options_description config_file_options_;
 };
