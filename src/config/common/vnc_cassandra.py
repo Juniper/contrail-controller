@@ -590,35 +590,54 @@ class VncCassandraClient(object):
         # if field_names=None, all fields will be read/returned
         obj_type = res_type.replace('-', '_')
         obj_class = self._get_resource_class(obj_type)
+        ref_fields = obj_class.ref_fields
+        backref_fields = obj_class.backref_fields
+        children_fields = obj_class.children_fields
+        list_fields = obj_class.prop_list_fields
+        map_fields = obj_class.prop_map_fields
+        prop_fields = obj_class.prop_fields - (list_fields | map_fields)
 
         # optimize for common case of reading non-backref, non-children fields
         # ignoring columns starting from 'b' and 'c' - significant performance
         # impact in scaled setting. e.g. read of project
-        columns = set([])
-        column_start = ''
-        column_finish = ''
+        obj_rows = {}
         if (field_names is None or
-            (set(field_names) & (obj_class.backref_fields |
-                                 obj_class.children_fields))):
+            set(field_names) & (backref_fields | children_fields)):
             # atleast one backref/children field is needed
-            column_start = ''
-        elif not set(field_names) & (obj_class.ref_fields):
+            obj_rows = self.multiget(self._OBJ_UUID_CF_NAME,
+                                     obj_uuids,
+                                     timestamp=True)
+        elif not set(field_names) & ref_fields:
             # specific props have been asked fetch exactly those
-            column_start = 'parent:'
-            column_finish = 'parent;'
             columns = set(['type', 'fq_name', 'parent_type'])
-            for fname in field_names:
-                if fname in obj_class.prop_fields:
-                    columns.add('prop:' + fname)
+            for fname in set(field_names) & prop_fields:
+                columns.add('prop:' + fname)
+            obj_rows = self.multiget(self._OBJ_UUID_CF_NAME,
+                                     obj_uuids,
+                                     columns=list(columns),
+                                     start='parent:',
+                                     finish='parent;',
+                                     timestamp=True)
+            for fname in set(field_names) & list_fields:
+                merge_dict(obj_rows,
+                           self.multiget(self._OBJ_UUID_CF_NAME,
+                                         obj_uuids,
+                                         start='propl:%s:' % fname,
+                                         finish='propl:%s;' % fname,
+                                         timestamp=True))
+            for fname in set(field_names) & map_fields:
+                merge_dict(obj_rows,
+                           self.multiget(self._OBJ_UUID_CF_NAME,
+                                         obj_uuids,
+                                         start='propm:%s:' % fname,
+                                         finish='propm:%s;' % fname,
+                                         timestamp=True))
         else:
             # ignore reading backref + children columns
-            column_start = 'd'
-        obj_rows = self.multiget(self._OBJ_UUID_CF_NAME,
-                                 obj_uuids,
-                                 columns=list(columns),
-                                 start=column_start,
-                                 finish=column_finish,
-                                 timestamp=True)
+            obj_rows = self.multiget(self._OBJ_UUID_CF_NAME,
+                                     obj_uuids,
+                                     start='d',
+                                     timestamp=True)
 
         if not obj_rows:
             if len(obj_uuids) == 1:

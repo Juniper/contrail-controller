@@ -2729,6 +2729,32 @@ class TestPropertyWithList(test_case.ApiServerTestCase):
         self.assertEqual(response.status_code, 400)
     # end test_prop_list_wrong_type_should_fail
 
+    def test_resource_list_with_field_prop_list(self):
+        vmi_obj = VirtualMachineInterface('vmi-%s' % (self.id()),
+                                          parent_obj=Project())
+        fname = 'virtual_machine_interface_fat_flow_protocols'
+        # needed for backend type-specific handling
+        vmi_obj.add_virtual_network(VirtualNetwork())
+        self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+
+        vmis = self._vnc_lib.virtual_machine_interfaces_list(
+            obj_uuids=[vmi_obj.uuid], fields=[fname])
+        vmi_ids = [vmi['uuid'] for vmi in vmis['virtual-machine-interfaces']]
+        self.assertEqual([vmi_obj.uuid], vmi_ids)
+        self.assertNotIn(fname, vmis['virtual-machine-interfaces'][0])
+
+        vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_obj.uuid)
+        proto_type = ProtocolType(protocol='proto', port='port')
+        vmi_obj.add_virtual_machine_interface_fat_flow_protocols(proto_type,
+                                                                 'pos')
+        self._vnc_lib.virtual_machine_interface_update(vmi_obj)
+        vmis = self._vnc_lib.virtual_machine_interfaces_list(
+            obj_uuids=[vmi_obj.uuid], fields=[fname])
+        vmi_ids = [vmi['uuid'] for vmi in vmis['virtual-machine-interfaces']]
+        self.assertEqual([vmi_obj.uuid], vmi_ids)
+        self.assertIn(fname, vmis['virtual-machine-interfaces'][0])
+        self.assertDictEqual({'fat_flow_protocol': [vars(proto_type)]},
+                             vmis['virtual-machine-interfaces'][0][fname])
 # end class TestPropertyWithlist
 
 
@@ -2823,6 +2849,33 @@ class TestPropertyWithMap(test_case.ApiServerTestCase):
                          if binding.key not in self._excluded_vmi_bindings}
         self.assertDictEqual(bindings_dict, fake_bindings_dict)
     # end test_element_set_del_in_object
+
+    def test_resource_list_with_field_prop_map(self):
+        vmi_obj = VirtualMachineInterface('vmi-%s' % (self.id()),
+                                          parent_obj=Project())
+        fname = 'virtual_machine_interface_bindings'
+        # needed for backend type-specific handling
+        vmi_obj.add_virtual_network(VirtualNetwork())
+        self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+
+        vmis = self._vnc_lib.virtual_machine_interfaces_list(
+            obj_uuids=[vmi_obj.uuid], fields=[fname])
+        vmi_ids = [vmi['uuid'] for vmi in vmis['virtual-machine-interfaces']]
+        self.assertEqual([vmi_obj.uuid], vmi_ids)
+        self.assertNotIn(fname, vmis['virtual-machine-interfaces'][0])
+
+        vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_obj.uuid)
+        kv_pairs = KeyValuePairs([KeyValuePair(key='k', value='v')])
+        vmi_obj.set_virtual_machine_interface_bindings(kv_pairs)
+        self._vnc_lib.virtual_machine_interface_update(vmi_obj)
+
+        vmis = self._vnc_lib.virtual_machine_interfaces_list(
+            obj_uuids=[vmi_obj.uuid], fields=[fname])
+        vmi_ids = [vmi['uuid'] for vmi in vmis['virtual-machine-interfaces']]
+        self.assertEqual([vmi_obj.uuid], vmi_ids)
+        self.assertIn(fname, vmis['virtual-machine-interfaces'][0])
+        self.assertDictEqual(kv_pairs.exportDict()['KeyValuePairs'],
+                             vmis['virtual-machine-interfaces'][0][fname])
 # end class TestPropertyWithMap
 
 
