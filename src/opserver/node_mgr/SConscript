@@ -27,11 +27,15 @@ cpu_info_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh'
                                          'analytics/', False)
 process_info_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh',
                                          'analytics/', False)
+derived_stats_pkg = OpEnv.SandeshGenPy(
+        '#tools/sandesh/library/common/derived_stats_results.sandesh',
+        'analytics/', False)
 OpEnv.Depends(cpu_info_pkg, analytics_pkg)
 OpEnv.Depends(process_info_pkg, analytics_pkg)
+OpEnv.Depends(derived_stats_pkg, analytics_pkg)
  
 node_sdist_depends = [node_setup_sources_rules, analytics_pkg,
-	cpu_info_pkg, process_info_pkg]
+	cpu_info_pkg, process_info_pkg, derived_stats_pkg]
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 node_sdist_gen = OpEnv.Command('dist', 'setup.py', cd_cmd + 'python setup.py sdist')
