@@ -245,6 +245,7 @@ class Subnet(object):
                                            ip_alloc_unit)
 
         # if allocation-pool is not specified, create one with entire cidr
+        no_alloc_pool = False
         if not alloc_pool_list:
             alloc_pool_list = [{'start': str(IPAddress(network.first)),
                                 'end': str(IPAddress(network.last-1))}]
