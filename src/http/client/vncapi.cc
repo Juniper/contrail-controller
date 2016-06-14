@@ -16,7 +16,6 @@
 #include <rapidjson/stringbuffer.h>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/predicate.hpp>
-#include "keystone-client.h"
 
 #include "vncapi.h"
 
@@ -79,7 +78,7 @@ RespBlock::GetCallBack()
 void
 VncApi::hex_dump(std::string s)
 {
-#define __DEBUG__ 1
+//#define __DEBUG__ 1
 #ifdef __DEBUG__
     unsigned long a = 0;
     int rem = s.length();
@@ -108,38 +107,6 @@ VncApi::hex_dump(std::string s)
     std::cout << std::dec;
 #endif
 }
-
-#if 0
-std::string
-VncApi::GetTokenFromKeystone()
-{
-    keystone_context_t c = {};
-    std::string token;
-    if (keystone_global_init() == KSERR_SUCCESS) {
-        if (keystone_start(&c) == KSERR_SUCCESS) {
-            std::ostringstream url;
-            url << cfg_->protocol << "://" << cfg_->ks_srv_ip << ":" <<
-                cfg_->ks_srv_port << "/v2.0/tokens";
-            if (keystone_authenticate(&c, url.str().c_str(),
-                        cfg_->user.c_str(), cfg_->tenant.c_str(),
-                        cfg_->password.c_str()) == KSERR_SUCCESS) {
-                 token = std::string(keystone_get_auth_token(&c));
-                 //hex_dump(token);
-                 std::cout << "Token : " << token << std::endl;
-            } else {
-                std::cout << "keystone_authenticate Falied\n";
-            }
-            keystone_end(&c);
-        } else {
-            std::cout << "keystone_startFalied\n";
-        }
-        keystone_global_cleanup();
-    } else {
-        std::cout << "keystone_global_init Falied\n";
-    }
-    return token;
-}
-#endif
 
 void
 VncApi::Reauthenticate(RespBlock *orb)
@@ -224,6 +191,7 @@ VncApi::MakeUri(std::string type, std::vector<std::string> ids,
     Add2URI(uri, qadded, "parent_id", parents);
     Add2URI(uri, qadded, "refs", refs);
     Add2URI(uri, qadded, "fields", fields);
+
     return uri.str();
 }
 

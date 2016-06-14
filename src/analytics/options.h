@@ -67,6 +67,12 @@ public:
     const bool test_mode() const { return test_mode_; }
     const uint32_t sandesh_send_rate_limit() const { return sandesh_ratelimit_; }
     const bool disable_flow_collection() const { return disable_flow_collection_; }
+    const std::string auth_host() const { return ks_server_; }
+    const uint16_t auth_port() const { return ks_port_; }
+    const std::string auth_protocol() const { return ks_protocol_; }
+    const std::string auth_user() const { return ks_user_; }
+    const std::string auth_passwd() const { return ks_password_; }
+    const std::string auth_tenant() const { return ks_tenant_; }
 
 private:
     template <typename ValueType>
@@ -135,6 +141,17 @@ private:
     uint16_t partitions_;
     uint32_t sandesh_ratelimit_;
     bool disable_flow_collection_;
+    std::string ks_server_;
+    uint16_t    ks_port_;
+    std::string ks_protocol_;
+    std::string ks_user_;
+    std::string ks_password_;
+    std::string ks_tenant_;
+    bool        ks_insecure_;
+    std::string memcache_servers_;
+    std::string ks_cert_;
+    std::string ks_key_;
+    std::string ks_ca_;
 
     boost::program_options::options_description config_file_options_;
 };
