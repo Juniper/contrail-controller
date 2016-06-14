@@ -1019,6 +1019,9 @@ TEST_F(StatsTestMock, Underlay_3) {
     FlowLogData flow_log = f->last_sent_flow_log();
     EXPECT_EQ(flow_log.get_underlay_source_port(), 0);
 
+    //Verify that forward_flow field is set
+    EXPECT_TRUE((flow_log.__isset.forward_flow));
+
     //Verify that teardown_time is not set
     EXPECT_FALSE((flow_log.__isset.teardown_time));
 
@@ -1031,6 +1034,9 @@ TEST_F(StatsTestMock, Underlay_3) {
     flow_log = f->last_sent_flow_log();
     EXPECT_TRUE((flow_log.__isset.teardown_time));
     EXPECT_TRUE((flow_log.get_teardown_time() != 0));
+
+    //Verify that forward_flow field is set
+    EXPECT_TRUE((flow_log.__isset.forward_flow));
 
     //Remove remote VM routes
     util_.DeleteRemoteRoute("vrf5", remote_vm4_ip, peer_);

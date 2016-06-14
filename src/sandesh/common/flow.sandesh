@@ -37,6 +37,7 @@ struct FlowLogData {
     34: optional u16       underlay_source_port;
     35: optional string    vmi_uuid;
     36: optional string    drop_reason;
+    37: optional bool      forward_flow;
 }
 
 flowlog sandesh FlowLogDataObject {
