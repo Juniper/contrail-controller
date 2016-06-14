@@ -122,6 +122,7 @@ struct SandeshFlowData {
     50: bool enable_rpf;
     51: i32 aging_protocol;
     52: i32 aging_port;
+    53: optional i32 short_flow_reason;
 }
 
 struct LinkLocalFlowInfo {
@@ -218,6 +219,7 @@ struct FlowInfo {
    33: string smac;
    34: string dmac;
    35: string drop_reason;
+   36: optional u32 short_flow_reason;
 }
 
 traceobject sandesh FlowTrace {
