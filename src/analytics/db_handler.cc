@@ -80,7 +80,11 @@ DbHandler::DbHandler(EventManager *evm,
     gen_partition_no_((uint8_t)g_viz_constants.PARTITION_MIN,
         (uint8_t)g_viz_constants.PARTITION_MAX),
     zookeeper_server_list_(zookeeper_server_list),
-    use_zookeeper_(use_zookeeper) {
+    use_zookeeper_(use_zookeeper),
+    udc_(new UserDefinedCounters(evm, 0)),
+    udc_cfg_poll_timer_(TimerManager::CreateTimer(*evm->io_service(),
+        "udc config poll timer",
+        TaskScheduler::GetInstance()->GetTaskId("UDC_cfg_poll_timer"))) {
 #ifdef USE_CASSANDRA_CQL
     if (use_cql) {
         dbif_.reset(new cass::cql::CqlIf(evm, cassandra_ips,
@@ -98,16 +102,26 @@ DbHandler::DbHandler(EventManager *evm,
 #endif //  USE_CASSANDRA_CQL
     error_code error;
     col_name_ = boost::asio::ip::host_name(error);
+    udc_cfg_poll_timer_->Start(kUDCPollInterval,
+        boost::bind(&DbHandler::PollUDCCfg, this),
+        boost::bind(&DbHandler::PollUDCCfgErrorHandler, this, _1, _2));
+}
+
+void DbHandler::PollUDCCfgErrorHandler(string error_name, string error_message)
+{
+    LOG(ERROR, "UDC poll Timer Err: " << error_name << " " << error_message);
 }
 
 DbHandler::DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map) :
     dbif_(dbif),
     ttl_map_(ttl_map),
     gen_partition_no_((uint8_t)g_viz_constants.PARTITION_MIN,
-        (uint8_t)g_viz_constants.PARTITION_MAX) {
+        (uint8_t)g_viz_constants.PARTITION_MAX),
+    udc_(new UserDefinedCounters(0, 0)) {
 }
 
 DbHandler::~DbHandler() {
+    TimerManager::DeleteTimer(udc_cfg_poll_timer_);
 }
 
 uint64_t DbHandler::GetTtlInHourFromMap(const TtlMap& ttl_map,
@@ -681,12 +695,15 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp,
             static_cast<const SandeshXMLMessage *>(vmsgp->msg);
         if (!LineParser::ParseXML(sxmsg->GetMessageNode(), &words, false))
             DB_LOG(ERROR, "Failed to parse xml");
+        udc_->MatchFilter(LineParser::GetXmlString(sxmsg->GetMessageNode()),
+                &words);
     } else if (!vmsgp->keyword_doc_.empty()) {
         std::string s;
         s = std::string(vmsgp->keyword_doc_);
         if (!s.empty()) {
             if (!LineParser::Parse(s, &words))
                 DB_LOG(ERROR, "Failed to parse text");
+            udc_->MatchFilter(s, &words);
         }
     }
     for (LineParser::WordListType::iterator i = words.begin();
