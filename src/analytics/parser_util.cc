@@ -199,7 +199,7 @@ LineParser::GetXmlString(const pugi::xml_node node) {
 }
 
 unsigned int
-LineParser::SearchPattern(boost::regex exp, std::string text)
+LineParser::SearchPattern(const boost::regex &exp, std::string text)
 {
     unsigned int cnt = 0;
 

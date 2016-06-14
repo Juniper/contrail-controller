@@ -9,6 +9,7 @@
 
 include "base/sandesh/cpuinfo.sandesh"
 include "base/sandesh/process_info.sandesh"
+include "sandesh/library/common/derived_stats_results.sandesh"
 
 /**
  * This structure carries process's memory and cpu information on
@@ -142,4 +143,32 @@ struct AnalyticsApiSample {
  */
 objectlog sandesh AnalyticsApiStats {
     1: AnalyticsApiSample api_stats (tags=".operation_type,.remote_ip,.object_type")
+}
+
+/**
+ * This structure is used to send UserDefinedCounter data
+ * - name: user given name to identify the counter
+ * - rx_event it is hit everytime conter is hit
+ * - count total number of hits happened
+ *
+ */
+
+struct uint64_t_P_ {
+    1: optional u64 current
+    2: optional u64 previous
+}
+
+struct UserDefinedCounter {
+    1: string name (key="UserDefinedCounterTable")
+    2: optional bool deleted
+    3: optional u64 rx_event (hidden="yes")
+    4: optional uint64_t_P_ count (stats="rx_event:DSSum:", tags="")
+} (period="60")
+
+/**
+ * @description: UVE to send UserDefinedCounter data
+ * @object: analytics-node
+ */
+uve sandesh UserDefinedCounterUVE {
+    1: UserDefinedCounter data
 }

@@ -39,6 +39,7 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'sandesh',
         'httpc',
         'http',
+        'vncapi',
         'http_parser',
         'curl',
         'ruleparser',
@@ -151,6 +152,7 @@ vizd_sources = ['viz_collector.cc', 'ruleeng.cc', 'collector.cc',
                 'protobuf_server.cc',
                 'sflow.cc',
                 'sflow_generator.cc', 'sflow_collector.cc',
+                'usrdef_counters.cc',
                 'sflow_parser.cc', 'ipfix_collector.cc']
 
 RedisLuaBuild(AnalyticsEnv, 'seqnum')
