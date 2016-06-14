@@ -103,9 +103,6 @@ public:
     void set_flow_tcp_syn_age_time(uint64_t interval) {
         flow_tcp_syn_age_time_ = interval;
     }
-    uint32_t flow_export_count()  const { return flow_export_count_; }
-    void set_flow_export_count(uint32_t val) { flow_export_count_ = val; }
-    uint32_t flow_export_rate()  const { return flow_export_rate_; }
     uint32_t threshold()  const;
     boost::uuids::uuid rand_gen();
     bool Run();
@@ -239,10 +236,6 @@ private:
 
     FlowEntryTree flow_tree_;
     Queue request_queue_;
-    uint32_t flow_export_count_;
-    uint64_t prev_flow_export_rate_compute_time_;
-    uint32_t flow_export_rate_;
-    uint32_t prev_cfg_flow_export_rate_;
     std::vector<FlowLogData> msg_list_;
     uint8_t msg_index_;
     tbb::atomic<bool> deleted_;
