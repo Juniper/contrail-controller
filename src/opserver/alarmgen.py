@@ -1501,7 +1501,7 @@ class Controller(object):
                 # These alarm types are now gone
                 for dnm in del_types:
                     if dnm in self.tab_alarms[tab][uv]:
-                        delete_alarm, update_alarm = \
+                        delete_alarm = \
                             self.tab_alarms[tab][uv][dnm].clear_alarms()
                         if delete_alarm:
                             del self.tab_alarms[tab][uv][dnm]
