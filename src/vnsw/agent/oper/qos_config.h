@@ -187,7 +187,7 @@ public:
         std::set<boost::uuids::uuid>::const_iterator it =
             fabric_qos_config_uuids_.begin();
         if (it == fabric_qos_config_uuids_.end()) {
-            return nil_uuid();
+            return boost::uuids::nil_uuid();
         }
         return *it;
     }
@@ -204,7 +204,7 @@ public:
         std::set<boost::uuids::uuid>::const_iterator it =
             fabric_qos_config_uuids_.begin();
         if (it == fabric_qos_config_uuids_.end()) {
-            return nil_uuid();
+            return boost::uuids::nil_uuid();
         }
         return *it;
     }
