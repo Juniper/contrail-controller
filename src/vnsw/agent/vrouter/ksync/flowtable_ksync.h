@@ -60,6 +60,7 @@ private:
     bool enable_rpf_;
     KSyncEntryPtr nh_;
     FlowTableKSyncObject *ksync_obj_;
+    uint32_t vrf_assign_index_;
     DISALLOW_COPY_AND_ASSIGN(FlowTableKSyncEntry);
 };
 

@@ -1337,13 +1337,6 @@ bool FlowEntry::SetRpfNHState(FlowTable *ft, const NextHop *nh) {
         }
     }
 
-    if (data_.nh_state_ && nh) {
-        if (data_.nh_state_->nh()->GetType() != NextHop::COMPOSITE &&
-                nh->GetType() == NextHop::COMPOSITE) {
-            set_flags(FlowEntry::Trap);
-        }
-    }
-
     if (data_.nh_state_ != nh_state) {
         data_.nh_state_ = nh_state;
         return true;
@@ -1470,7 +1463,6 @@ bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
     data_.out_vm_entry = rev_ctrl->vm_ ? rev_ctrl->vm_ : NULL;
     l3_flow_ = info->l3_flow;
     data_.ecmp_rpf_nh_ = 0;
-    data_.acl_assigned_vrf_index_ = VrfEntry::kInvalidIndex;
     return true;
 }
 
