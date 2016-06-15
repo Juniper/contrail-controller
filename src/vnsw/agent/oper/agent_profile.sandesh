@@ -176,3 +176,22 @@ response sandesh SandeshTaskStatsList {
 request sandesh SandeshTaskStatsRequest {
     1: u16 count; // send data for last 'count' entries
 }
+
+/**
+ * Response message for SandeshSetTaskProfileParams
+ * Shows modified parameters
+ */
+response sandesh SandeshProfileParams {
+    1: u16    task_exec_threshold;
+    2: u16    task_schedule_threshold;
+    3: bool   measure_queue_run_time;
+}
+
+/**
+ * Request to tune to task-profiling parameters
+ */
+request sandesh SandeshSetProfileParams {
+    1: u16    task_exec_threshold;
+    2: u16    task_schedule_threshold;
+    3: bool   measure_queue_run_time;
+}

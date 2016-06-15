@@ -275,6 +275,7 @@ public:
     uint32_t pkt0_tx_buffer_count() const { return pkt0_tx_buffer_count_; }
     void set_pkt0_tx_buffer_count(uint32_t val) { pkt0_tx_buffer_count_ = val; }
     bool measure_queue_delay() const { return measure_queue_delay_; }
+    void set_measure_queue_delay(bool val) { measure_queue_delay_ = val; }
 protected:
     void set_hypervisor_mode(HypervisorMode m) { hypervisor_mode_ = m; }
     virtual void InitFromSystem();
