@@ -29,6 +29,7 @@
 #include <oper/agent_route_resync.h>
 #include <oper/global_vrouter.h>
 #include <vrouter/flow_stats/flow_stats_collector.h>
+#include "db/db_table_walk_mgr.h"
 
 const std::string GlobalVrouter::kMetadataService = "metadata";
 const Ip4Address GlobalVrouter::kLoopBackIp = Ip4Address(0x7f000001);
@@ -469,7 +470,7 @@ GlobalVrouter::GlobalVrouter(OperDB *oper)
                            *(oper->agent()->event_manager()->io_service()))),
       agent_route_resync_walker_(new AgentRouteResync(oper->agent())),
       forwarding_mode_(Agent::L2_L3), flow_export_rate_(kDefaultFlowExportRate),
-      ecmp_load_balance_() {
+      ecmp_load_balance_(), global_cfg_seqno_(0) {
 
     DBTableBase *cfg_db = IFMapTable::FindTable(oper->agent()->db(),
               "global-vrouter-config");
@@ -502,24 +503,21 @@ void GlobalVrouter::GlobalVrouterConfig(DBTablePartBase *partition,
     Agent::VxLanNetworkIdentifierMode cfg_vxlan_network_identifier_mode = 
                                             Agent::AUTOMATIC;
     bool resync_vn = false; //resync_vn walks internally calls VMI walk.
-    bool resync_route = false;
 
     if (node->IsDeleted() == false) {
         autogen::GlobalVrouterConfig *cfg = 
             static_cast<autogen::GlobalVrouterConfig *>(node->GetObject());
-        resync_route =
-            TunnelType::EncapPrioritySync(cfg->encapsulation_priorities());
         if (cfg->vxlan_network_identifier_mode() == "configured") {
             cfg_vxlan_network_identifier_mode = Agent::CONFIGURED;
         }
         UpdateLinkLocalServiceConfig(cfg->linklocal_services());
-
+        resync_vn =
+            TunnelType::EncapPrioritySync(cfg->encapsulation_priorities());
         //Take the forwarding mode if its set, else fallback to l2_l3.
         Agent::ForwardingMode new_forwarding_mode =
             oper_->agent()->TranslateForwardingMode(cfg->forwarding_mode());
         if (new_forwarding_mode != forwarding_mode_) {
             forwarding_mode_ = new_forwarding_mode;
-            resync_route = true;
             resync_vn = true;
         }
         if (cfg->IsPropertySet
@@ -541,7 +539,6 @@ void GlobalVrouter::GlobalVrouterConfig(DBTablePartBase *partition,
     } else {
         DeleteLinkLocalServiceConfig();
         TunnelType::DeletePriorityList();
-        resync_route = true;
         flow_export_rate_ = kDefaultFlowExportRate;
         DeleteFlowAging();
     }
@@ -552,24 +549,42 @@ void GlobalVrouter::GlobalVrouterConfig(DBTablePartBase *partition,
             set_vxlan_network_identifier_mode(cfg_vxlan_network_identifier_mode);
         resync_vn = true;
     }
-
     //Rebakes
-    if (resync_route) {
-        AGENT_LOG(GlobalVrouterLog, "Rebake all routes");
         //Resync vm_interfaces to handle ethernet tag change if vxlan changed to
         //mpls or vice versa.
         //Update all routes irrespectively as this will handle change of
         //priority between MPLS-UDP to MPLS-GRE and vice versa.
-        ResyncRoutes();
-        resync_vn = true;
+    if (resync_vn) {
+        agent_route_resync_walker_.get()->UpdateRoutesInVrf(oper_->agent()->fabric_vrf ());
+        global_cfg_seqno_++;
+        ResyncGlobalCfgChange("virtual-network");
     }
-
-    //Rebakes VN and then all interfaces.
-    if (resync_vn)
-        oper_->agent()->vn_table()->GlobalVrouterConfigChanged();
 }
 
+void GlobalVrouter::ResyncGlobalCfgChange(const std::string name) {
+    IFMapTable *iftable  = IFMapTable::FindTable(oper_->agent()->db(), name);
+    DBTable::DBTableWalkRef walk_ref = iftable->AllocWalker(
+         boost::bind(&GlobalVrouter::GlobalCfgChangeWalk, this, _1, _2),
+         boost::bind(&GlobalVrouter::GlobalCfgChangeWalkDone, this, _1, _2));
+    iftable->WalkTable(walk_ref);
+}
+
+bool GlobalVrouter::GlobalCfgChangeWalk(DBTablePartBase *partition,
+                                    DBEntryBase *entry) {
+    IFMapNode* node = static_cast<IFMapNode*>(entry);
+    if (node->IsDeleted())
+        return true;
+    IFMapDependencyManager *dep = oper_->dependency_manager();
+    dep->SetNotify(node, true);
+    dep->PropogateNodeAndLinkChange(node);
+    return true;
+}
+
+void GlobalVrouter::GlobalCfgChangeWalkDone(DBTable::DBTableWalkRef walker, 
+                                            DBTableBase *tbl) {
+}
 // Get link local service configuration info, for a given service name
+//
 bool GlobalVrouter::FindLinkLocalService(const std::string &service_name,
                                          Ip4Address *service_ip,
                                          uint16_t *service_port,
@@ -830,9 +845,6 @@ bool GlobalVrouter::IsLinkLocalAddressInUse(const Ip4Address &ip) const {
     return false;
 }
 
-void GlobalVrouter::ResyncRoutes() {
-    agent_route_resync_walker_.get()->Update();
-}
 
 const EcmpLoadBalance &GlobalVrouter::ecmp_load_balance() const {
     return ecmp_load_balance_;

@@ -129,6 +129,10 @@ public:
     void set_allow_route_add_on_deleted_vrf(bool val) {
         allow_route_add_on_deleted_vrf_ = val;
     }
+    uint32_t GlobalCfgCurrentSeqNo() { return global_cfg_current_seqno_;}
+    void SetGlobalCfgCurrentSeqNo(uint32_t seqno) {
+        global_cfg_current_seqno_ = seqno;
+    }
 
 private:
     friend class VrfTable;
@@ -149,6 +153,7 @@ private:
     IFMapDependencyManager::IFMapNodePtr vrf_node_ptr_;
     boost::scoped_ptr<AgentRouteResync> route_resync_walker_;
     bool allow_route_add_on_deleted_vrf_;
+    uint32_t global_cfg_current_seqno_;
     DISALLOW_COPY_AND_ASSIGN(VrfEntry);
 };
 
