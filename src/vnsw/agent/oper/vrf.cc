@@ -27,6 +27,7 @@
 #include <oper/nexthop.h>
 #include <oper/config_manager.h>
 #include <oper/agent_route_resync.h>
+#include <oper/global_vrouter.h>
 
 using namespace std;
 using namespace autogen;
@@ -421,9 +422,9 @@ bool VrfTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
     VrfData *data = static_cast<VrfData *>(req->data.get());
     vrf->set_flags(data->flags_);
-
     VnEntry *vn = agent()->vn_table()->Find(data->vn_uuid_);
-    if (vn != vrf->vn_.get()) {
+    GlobalVrouter *global_vrouter = agent()->oper_db()->global_vrouter();
+    if (vn != vrf->vn_.get() || global_vrouter->GlobalCfgChanged())  {
         vrf->vn_.reset(vn);
         vrf->ResyncRoutes();
         ret = true;
