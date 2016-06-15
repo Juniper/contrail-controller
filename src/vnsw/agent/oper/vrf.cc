@@ -27,6 +27,7 @@
 #include <oper/nexthop.h>
 #include <oper/config_manager.h>
 #include <oper/agent_route_resync.h>
+#include <oper/global_vrouter.h>
 
 using namespace std;
 using namespace autogen;
@@ -63,7 +64,8 @@ VrfEntry::VrfEntry(const string &name, uint32_t flags, Agent *agent) :
         table_label_(MplsTable::kInvalidLabel),
         vxlan_id_(VxLanTable::kInvalidvxlan_id),
         rt_table_delete_bmap_(0),
-        route_resync_walker_(NULL), allow_route_add_on_deleted_vrf_(false) {
+        route_resync_walker_(NULL), allow_route_add_on_deleted_vrf_(false),
+        global_cfg_current_seqno_(0) {
 }
 
 VrfEntry::~VrfEntry() {
@@ -421,11 +423,14 @@ bool VrfTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
     VrfData *data = static_cast<VrfData *>(req->data.get());
     vrf->set_flags(data->flags_);
-
     VnEntry *vn = agent()->vn_table()->Find(data->vn_uuid_);
-    if (vn != vrf->vn_.get()) {
+    GlobalVrouter *global_vrouter = agent()->oper_db()->global_vrouter();
+
+    if (vn != vrf->vn_.get() ||
+        vrf->GlobalCfgCurrentSeqNo() != global_vrouter->GlobalCfgSeqNo()) {
         vrf->vn_.reset(vn);
         vrf->ResyncRoutes();
+        vrf->SetGlobalCfgCurrentSeqNo(global_vrouter->GlobalCfgSeqNo());
         ret = true;
     }
 
