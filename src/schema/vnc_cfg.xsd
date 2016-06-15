@@ -352,6 +352,17 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:choice>
 </xsd:complexType>
 
+<xsd:simpleType name="SubnetMethodType" default="user-defined-subnet">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="user-defined-subnet"
+             description='Subnet scope is within a network, not shared across different networks in ipam'/>
+        <xsd:enumeration value="flat-subnet"
+             description='Subnet scope is within a ipam, shared acrossed all networks in the ipam'/>
+        <xsd:enumeration value="auto-subnet"
+             description='Subnet scope is within a network, assinged by ipam'/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name="IpamType">
     <xsd:all>
         <xsd:element name="ipam-method"      type="IpamMethodType" required='optional'/>
@@ -1216,11 +1227,25 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              ['Allow multiple service chains within same two networks based on network policy.',
               'Current limitation is that both networks must reside within cluster, except when right most service is NAT.']) -->
 
+<xsd:complexType name="IpamSubnets">
+    <xsd:all>
+        <xsd:element name="subnets" type="IpamSubnetType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:element name="network-ipam" type="ifmap:IdentityType"/>
 <xsd:element name="network-ipam-mgmt" type="IpamType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('network-ipam-mgmt', 'network-ipam', 'optional', 'CRUD',
               'Network IP Address Management configuration.') -->
+<xsd:element name="ipam-subnets" type="IpamSubnets"/>
+<!--#IFMAP-SEMANTICS-IDL
+     ListProperty('ipam-subnets', 'network-ipam', 'optional', 'CRD',
+             'List of subnets for this ipam.') -->
+<xsd:element name='ipam-subnet-method' type='SubnetMethodType' default='user-defined-subnet'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('ipam-subnet-method', 'network-ipam', 'optional', 'CRD',
+              'Subnet method configuration for ipam, user can configure user-defined, flat or auto.') -->
 <xsd:element name="project-network-ipam"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('project-network-ipam',
