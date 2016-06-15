@@ -79,6 +79,8 @@ static uint16_t GetDropReason(uint16_t dr) {
         return VR_FLOW_DR_LINKLOCAL_SRC_NAT;
     case FlowEntry::SHORT_NO_MIRROR_ENTRY:
         return VR_FLOW_DR_NO_MIRROR_ENTRY;
+    case FlowEntry::SHORT_SAME_FLOW_RFLOW_KEY:
+        return VR_FLOW_DR_SAME_FLOW_RFLOW_KEY;
     case FlowEntry::DROP_POLICY:
         return VR_FLOW_DR_POLICY;
     case FlowEntry::DROP_OUT_POLICY:
@@ -329,6 +331,9 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             if (nat_flow->is_flags_set(FlowEntry::LinkLocalBindLocalSrcPort) ||
                 nat_flow->is_flags_set(FlowEntry::BgpRouterService)) {
                 flags |= VR_FLOW_FLAG_LINK_LOCAL;
+                if (nat_flow->is_flags_set(FlowEntry::BgpRouterService)) {
+                    flags |= VR_FLOW_BGP_SERVICE;
+                }
             }
 
             flags |= VR_FLOW_FLAG_VRFT;

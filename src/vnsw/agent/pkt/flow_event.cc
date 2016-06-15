@@ -196,7 +196,7 @@ void FlowEventQueueBase::ProcessDone(FlowEvent *event, bool update_rev_flow) {
 
     case FlowEvent::DELETE_DBENTRY:
     case FlowEvent::DELETE_FLOW: {
-        FLOW_LOCK(flow, rflow);
+        FLOW_LOCK(flow, rflow, event->event());
         flow->GetPendingAction()->ResetDelete();
         if (rflow)
             rflow->GetPendingAction()->ResetDelete();
@@ -204,7 +204,7 @@ void FlowEventQueueBase::ProcessDone(FlowEvent *event, bool update_rev_flow) {
     }
 
     case FlowEvent::FLOW_MESSAGE: {
-        FLOW_LOCK(flow, rflow);
+        FLOW_LOCK(flow, rflow, event->event());
         flow->GetPendingAction()->ResetRecompute();
         if (rflow)
             rflow->GetPendingAction()->ResetRecompute();
@@ -218,7 +218,7 @@ void FlowEventQueueBase::ProcessDone(FlowEvent *event, bool update_rev_flow) {
     }
 
     case FlowEvent::REVALUATE_DBENTRY: {
-        FLOW_LOCK(flow, rflow);
+        FLOW_LOCK(flow, rflow, event->event());
         flow->GetPendingAction()->ResetRevaluate();
         if (rflow)
             rflow->GetPendingAction()->ResetRevaluate();

@@ -407,6 +407,7 @@ class FlowEntry {
         SHORT_INVALID_L2_FLOW,
         SHORT_FLOW_ON_TSN,
         SHORT_NO_MIRROR_ENTRY,
+        SHORT_SAME_FLOW_RFLOW_KEY,
         SHORT_MAX
     };
 

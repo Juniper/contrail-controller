@@ -143,6 +143,7 @@ void FlowStatsCollector::UpdateEntriesToVisit() {
 bool FlowStatsCollector::ShouldBeAged(FlowExportInfo *info,
                                       const vr_flow_entry *k_flow,
                                       uint64_t curr_time) {
+    FlowEntry *flow = info->flow();
     //If both forward and reverse flow are marked
     //as TCP closed then immediately remote the flow
     if (k_flow != NULL) {
@@ -161,6 +162,11 @@ bool FlowStatsCollector::ShouldBeAged(FlowExportInfo *info,
     if (diff_time < flow_age_time_intvl()) {
         return false;
     }
+
+    if (flow->is_flags_set(FlowEntry::BgpRouterService)) {
+        return false;
+    }
+
     return true;
 }
 
@@ -379,7 +385,7 @@ void FlowStatsCollector::UpdateAndExportInternalLocked(FlowExportInfo *info,
                                                    const RevFlowDepParams *p) {
     FlowEntry *flow = info->flow();
     FlowEntry *rflow = info->reverse_flow();
-    FLOW_LOCK(flow, rflow);
+    FLOW_LOCK(flow, rflow, FlowEvent::FLOW_MESSAGE);
     UpdateAndExportInternal(info, bytes, oflow_bytes, pkts, oflow_pkts, time,
                             teardown_time, p);
 }
@@ -691,7 +697,7 @@ void FlowStatsCollector::ExportFlowLocked(FlowExportInfo *info,
                                           const RevFlowDepParams *params) {
     FlowEntry *flow = info->flow();
     FlowEntry *rflow = info->reverse_flow();
-    FLOW_LOCK(flow, rflow);
+    FLOW_LOCK(flow, rflow, FlowEvent::FLOW_MESSAGE);
     ExportFlow(info, diff_bytes, diff_pkts, params);
 }
 
@@ -921,7 +927,7 @@ bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
     const FlowExportInfo &info = req->info();
     FlowEntry *flow = info.flow();
     FlowEntry *rflow = info.reverse_flow();
-    FLOW_LOCK(flow, rflow);
+    FLOW_LOCK(flow, rflow, FlowEvent::FLOW_MESSAGE);
 
     switch (req->event()) {
     case FlowExportReq::ADD_FLOW: {
