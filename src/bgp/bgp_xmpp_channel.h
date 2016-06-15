@@ -117,6 +117,7 @@ public:
     void FillTableMembershipInfo(BgpNeighborResp *resp) const;
     void FillCloseInfo(BgpNeighborResp *resp) const;
     void StaleCurrentSubscriptions();
+    void LlgrStaleCurrentSubscriptions();
     void SweepCurrentSubscriptions();
     void XMPPPeerInfoSend(const XmppPeerInfoData &peer_info) const;
     const XmppChannel *channel() const { return channel_; }
@@ -241,6 +242,8 @@ private:
     void ClearStaledSubscription(BgpTable *rtarget_table,
             RoutingInstance *rt_instance, BgpAttrPtr attr,
             SubscriptionState &sub_state);
+    void UpdateRouteTargetRouteFlag(SubscriptionState &sub_state,
+                                    bool set, bool llgr = false);
     const BgpXmppChannelManager *manager() const { return manager_; }
     bool ProcessMembershipResponse(std::string table_name,
              RoutingTableMembershipRequestMap::iterator loc);
