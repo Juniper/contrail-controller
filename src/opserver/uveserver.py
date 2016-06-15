@@ -651,14 +651,35 @@ class ParallelAggregator:
         result['map']['@value'] = oattr[akey]['map']['@value']
         result['map']['element'] = []
 
+	sname = None
+	for ss in oattr[akey]['map'].keys():
+	    if ss[0] != '@':
+		if ss != 'element':
+		    sname = ss
+                    result['map'][sname] = []
+
         siz = 0
         for source in oattr.keys():
-            for subidx in range(0,int(oattr[source]['map']['@size'])):
-                result['map']['element'].append(source + ":" + \
-                        json.dumps(oattr[source]['map']['element'][subidx*2]))
-                result['map']['element'].append(\
-                        oattr[source]['map']['element'][(subidx*2) + 1])
-                siz += 1
+            if sname is None:
+		for subidx in range(0,int(oattr[source]['map']['@size'])):
+		    print "map_union_agg Content %s" % (oattr[source]['map'])
+		    result['map']['element'].append(source + ":" + \
+			    json.dumps(oattr[source]['map']['element'][subidx*2]))
+		    result['map']['element'].append(\
+			    oattr[source]['map']['element'][(subidx*2) + 1])
+		    siz += 1
+            else:
+                if not isinstance(oattr[source]['map']['element'], list):
+                    oattr[source]['map']['element'] = [oattr[source]['map']['element']]
+                if not isinstance(oattr[source]['map'][sname], list):
+                    oattr[source]['map'][sname] = [oattr[source]['map'][sname]]
+                
+                for idx in range(0,int(oattr[source]['map']['@size'])):
+                    result['map']['element'].append(source + ":" + \
+                            json.dumps(oattr[source]['map']['element'][idx]))
+                    result['map'][sname].append(\
+                            oattr[source]['map'][sname][idx])
+                    siz += 1
         
         result['map']['@size'] = str(siz)
              
