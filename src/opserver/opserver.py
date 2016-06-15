@@ -766,7 +766,7 @@ class OpServer(object):
             'partitions'        : 15,
             'sandesh_send_rate_limit': SandeshSystem. \
                  get_sandesh_send_rate_limit(),
-            'cloud_admin_access_only' : False,
+            'multi_tenancy'     : False,
             'api_server'        : '127.0.0.1:8082',
             'admin_port'        : OpServerAdminPort,
             'cloud_admin_role'  : CLOUD_ADMIN_ROLE,
@@ -895,8 +895,8 @@ class OpServer(object):
             help="Sandesh send rate limit in messages/sec")
         parser.add_argument("--cloud_admin_role",
             help="Name of cloud-admin role")
-        parser.add_argument("--cloud_admin_access_only", action="store_true",
-            help="REST API access for cloud-admin role only")
+        parser.add_argument("--multi_tenancy", action="store_true",
+            help="Validate resource permissions (implies token validation)")
         parser.add_argument("--auth_host",
             help="IP address of keystone server")
         parser.add_argument("--auth_protocol",
@@ -932,7 +932,7 @@ class OpServer(object):
             self._args.auth_host, self._args.auth_port)
         auth_conf_info['api_server_use_ssl'] = False
         auth_conf_info['cloud_admin_access_only'] = \
-            self._args.cloud_admin_access_only
+            self._args.multi_tenancy
         auth_conf_info['cloud_admin_role'] = self._args.cloud_admin_role
         auth_conf_info['admin_port'] = self._args.admin_port
         api_server_info = self._args.api_server.split(':')
