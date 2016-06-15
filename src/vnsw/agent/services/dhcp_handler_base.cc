@@ -183,13 +183,25 @@ uint16_t DhcpHandlerBase::AddShortArrayOption(uint32_t option, uint16_t opt_len,
 // Check for exceptions in handling IP options
 bool DhcpHandlerBase::IsValidIpOption(uint32_t option, const std::string &ipstr,
                                       bool is_v4) {
+    boost::system::error_code ec;
     if (is_v4) {
         if (option == DHCP_OPTION_DNS) {
             return IsValidDnsOption(option, ipstr);
+        } else {
+            uint32_t ip = Ip4Address::from_string(ipstr, ec).to_ulong();
+            if(!ec.value() && !ip) {
+                return false;
+            }
         }
+
     } else {
         if (option == DHCPV6_OPTION_DNS_SERVERS) {
             return IsValidDnsOption(option, ipstr);
+        } else {
+            IpAddress ip = IpAddress::from_string(ipstr, ec);
+            if (!ec.value() && ip.is_unspecified()) {
+                return false;
+            }
         }
     }
 
@@ -211,6 +223,7 @@ bool DhcpHandlerBase::IsValidDnsOption(uint32_t option,
             return false;
         }
     }
+
     return true;
 }
 
