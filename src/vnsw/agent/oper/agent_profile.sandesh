@@ -108,7 +108,7 @@ struct SandeshFlowQueueSummaryInfo {
     2: string time_str;
     3: SandeshFlowTokenInfo token_stats;
     4: SandeshFlowQueueSummaryOneInfo flow_event_queue;
-    5: SandeshFlowQueueSummaryOneInfo flow_misc_event_queue;
+    5: SandeshFlowQueueSummaryOneInfo flow_tokenless_queue;
     6: SandeshFlowQueueSummaryOneInfo flow_ksync_queue;
     7: SandeshFlowQueueSummaryOneInfo flow_delete_queue;
     8: SandeshFlowQueueSummaryOneInfo flow_update_queue;

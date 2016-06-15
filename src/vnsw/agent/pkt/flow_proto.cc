@@ -42,7 +42,7 @@ FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
             (new FlowEventQueue(agent, this, flow_table_list_[i],
                                 &add_tokens_, latency, 16));
 
-        flow_misc_event_queue_.push_back
+        flow_tokenless_queue_.push_back
             (new FlowEventQueue(agent, this, flow_table_list_[i],
                                 NULL, latency, 16));
 
@@ -65,7 +65,7 @@ FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
 
 FlowProto::~FlowProto() {
     STLDeleteValues(&flow_event_queue_);
-    STLDeleteValues(&flow_misc_event_queue_);
+    STLDeleteValues(&flow_tokenless_queue_);
     STLDeleteValues(&flow_delete_queue_);
     STLDeleteValues(&flow_ksync_queue_);
     STLDeleteValues(&flow_table_list_);
@@ -98,7 +98,7 @@ void FlowProto::Shutdown() {
     }
     for (uint32_t i = 0; i < flow_event_queue_.size(); i++) {
         flow_event_queue_[i]->Shutdown();
-        flow_misc_event_queue_[i]->Shutdown();
+        flow_tokenless_queue_[i]->Shutdown();
         flow_delete_queue_[i]->Shutdown();
         flow_ksync_queue_[i]->Shutdown();
     }
@@ -223,6 +223,7 @@ bool FlowProto::Enqueue(PktInfoPtr msg) {
 
 void FlowProto::DisableFlowEventQueue(uint32_t index, bool disabled) {
     flow_event_queue_[index]->set_disable(disabled);
+    flow_tokenless_queue_[index]->set_disable(disabled);
     flow_delete_queue_[index]->set_disable(disabled);
 }
 
@@ -301,12 +302,18 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
         break;
     }
 
-    case FlowEvent::FLOW_MESSAGE:
+    case FlowEvent::FLOW_MESSAGE: {
+        FlowEntry *flow = event->flow();
+        FlowTable *table = flow->flow_table();
+        queue = flow_event_queue_[table->table_index()];
+        break;
+    }
+
     case FlowEvent::EVICT_FLOW:
     case FlowEvent::FREE_FLOW_REF: {
         FlowEntry *flow = event->flow();
         FlowTable *table = flow->flow_table();
-        queue = flow_event_queue_[table->table_index()];
+        queue = flow_tokenless_queue_[table->table_index()];
         break;
     }
 
@@ -318,23 +325,25 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
     }
 
     case FlowEvent::GROW_FREE_LIST: {
-        FlowTable *table = GetTable(event->table_index());
-        queue = flow_event_queue_[table->table_index()];
+        queue = flow_tokenless_queue_[event->table_index()];
         break;
     }
 
     case FlowEvent::KSYNC_EVENT: {
         FlowEventKSync *ksync_event = static_cast<FlowEventKSync *>(event);
-        FlowTableKSyncObject *ksync_obj = static_cast<FlowTableKSyncObject *>
-            (ksync_event->ksync_entry()->GetObject());
-        FlowTable *table = ksync_obj->flow_table();
-        queue = flow_ksync_queue_[table->table_index()];
+        FlowTableKSyncEntry *ksync_entry =
+            (static_cast<FlowTableKSyncEntry *> (ksync_event->ksync_entry()));
+        FlowEntry *flow = ksync_entry->flow_entry().get();
+        FlowTable *table = flow->flow_table();
+        if (flow->flow_handle() == FlowEntry::kInvalidFlowHandle)
+            queue = flow_ksync_queue_[table->table_index()];
+        else
+            queue = flow_tokenless_queue_[table->table_index()];
         break;
     }
 
     case FlowEvent::REENTRANT: {
-        uint32_t index = event->table_index();
-        queue = flow_event_queue_[index];
+        queue = flow_event_queue_[event->table_index()];
         break;
     }
 
@@ -344,7 +353,11 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
         break;
     }
 
-    case FlowEvent::FREE_DBENTRY:
+    case FlowEvent::FREE_DBENTRY: {
+        queue = flow_tokenless_queue_[0];
+        break;
+    }
+
     case FlowEvent::DELETE_DBENTRY:
     case FlowEvent::RECOMPUTE_FLOW:
     case FlowEvent::REVALUATE_DBENTRY: {
@@ -433,6 +446,16 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
         break;
     }
 
+    case FlowEvent::KSYNC_EVENT: {
+        return FlowKSyncMsgHandler(req, table);
+    }
+
+    case FlowEvent::FREE_DBENTRY: {
+        FlowMgmtManager *mgr = agent()->pkt()->flow_mgmt_manager();
+        mgr->flow_mgmt_dbclient()->FreeDBState(req->db_entry(), req->gen_id());
+        break;
+    }
+
     default: {
         assert(0);
         break;
@@ -471,12 +494,6 @@ bool FlowProto::FlowKSyncMsgHandler(FlowEvent *req, FlowTable *table) {
 
 bool FlowProto::FlowUpdateHandler(FlowEvent *req) {
     switch (req->event()) {
-    case FlowEvent::FREE_DBENTRY: {
-        FlowMgmtManager *mgr = agent()->pkt()->flow_mgmt_manager();
-        mgr->flow_mgmt_dbclient()->FreeDBState(req->db_entry(), req->gen_id());
-        break;
-    }
-
     case FlowEvent::DELETE_DBENTRY:
     case FlowEvent::REVALUATE_DBENTRY: {
         FlowEntry *flow = req->flow();
@@ -799,15 +816,15 @@ void FlowProto::SetProfileData(ProfileData *data) {
 
     data->flow_.flow_event_queue_.resize(flow_table_list_.size());
     data->flow_.flow_delete_queue_.resize(flow_table_list_.size());
-    data->flow_.flow_misc_event_queue_.resize(flow_table_list_.size());
+    data->flow_.flow_tokenless_queue_.resize(flow_table_list_.size());
     data->flow_.flow_ksync_queue_.resize(flow_table_list_.size());
     for (uint16_t i = 0; i < flow_table_list_.size(); i++) {
         SetFlowEventQueueStats(agent(), flow_event_queue_[i]->queue(),
                                &data->flow_.flow_event_queue_[i]);
         SetFlowEventQueueStats(agent(), flow_delete_queue_[i]->queue(),
                                &data->flow_.flow_delete_queue_[i]);
-        SetFlowEventQueueStats(agent(), flow_misc_event_queue_[i]->queue(),
-                               &data->flow_.flow_misc_event_queue_[i]);
+        SetFlowEventQueueStats(agent(), flow_tokenless_queue_[i]->queue(),
+                               &data->flow_.flow_tokenless_queue_[i]);
         SetFlowEventQueueStats(agent(), flow_ksync_queue_[i]->queue(),
                                &data->flow_.flow_ksync_queue_[i]);
     }
