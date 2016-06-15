@@ -167,6 +167,13 @@ public:
             parent_->StaleCurrentSubscriptions();
     }
 
+    // Mark all current subscriptions as 'llgr_stale'
+    // Concurrency: Protected with a mutex from peer close manager
+    virtual void LongLivedGracefulRestartStale() {
+        if (parent_)
+            parent_->LlgrStaleCurrentSubscriptions();
+    }
+
     // Delete all current subscriptions which are still stale.
     // Concurrency: Protected with a mutex from peer close manager
     virtual void GracefulRestartSweep() {
@@ -2140,16 +2147,58 @@ void BgpXmppChannel::FlushDeferQ(string vrf_name) {
     }
 }
 
-// Mark all current subscriptions as 'stale'.
+void BgpXmppChannel::UpdateRouteTargetRouteFlag(SubscriptionState &sub_state,
+                                                bool llgr) {
+    RoutingInstanceMgr *instance_mgr = bgp_server_->routing_instance_mgr();
+    RoutingInstance *master =
+        instance_mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
+    assert(master);
+    BgpTable *rtarget_table = master->GetTable(Address::RTARGET);
+    BOOST_FOREACH(RouteTarget rtarget, sub_state.targets) {
+        RTargetPrefix rt_prefix(bgp_server_->local_autonomous_system(),
+                                rtarget);
+        const RTargetTable::RequestKey key(rt_prefix, Peer());
+        RTargetRoute *rt = static_cast<RTargetRoute *>(
+                               rtarget_table->Find(&key));
+        assert(rt);
+        BgpPath *path = rt->FindPath(BgpPath::BGP_XMPP, Peer(),
+                                     bgp_server_->bgp_identifier());
+        assert(path);
+
+        // Set Stale or LlgrStale state as requested.
+        if (!llgr) {
+            path->SetStale();
+        } else {
+            assert(path->IsStale());
+            path->SetLlgrStale();
+        }
+    }
+}
+
+// Mark all current subscriptions as 'stale'. This is called when peer close
+// process is initiated by BgpXmppChannel via PeerCloseManager.
 void BgpXmppChannel::StaleCurrentSubscriptions() {
+    CHECK_CONCURRENCY("bgp::Config");
     BOOST_FOREACH(SubscribedRoutingInstanceList::value_type &entry,
                   routing_instances_) {
         entry.second.SetStale();
+        UpdateRouteTargetRouteFlag(entry.second, false);
+    }
+}
+
+// Mark all current subscriptions as 'llgr_stale'.
+void BgpXmppChannel::LlgrStaleCurrentSubscriptions() {
+    CHECK_CONCURRENCY("bgp::Config");
+    BOOST_FOREACH(SubscribedRoutingInstanceList::value_type &entry,
+                  routing_instances_) {
+        assert(entry.second.IsStale());
+        UpdateRouteTargetRouteFlag(entry.second, true);
     }
 }
 
 // Sweep all current subscriptions which are still marked as 'stale'.
 void BgpXmppChannel::SweepCurrentSubscriptions() {
+    CHECK_CONCURRENCY("bgp::Config");
     for (SubscribedRoutingInstanceList::iterator i = routing_instances_.begin();
             i != routing_instances_.end();) {
         if (i->second.IsStale()) {

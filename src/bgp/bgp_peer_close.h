@@ -122,10 +122,13 @@ private:
     virtual bool CanUseMembershipManager() const;
     virtual BgpMembershipManager *membership_mgr() const;
     virtual bool GRTimerFired() const;
+    void StaleNotify();
+    bool NotifyStaleEvent();
 
     IPeerClose *peer_close_;
     Timer *stale_timer_;
     Timer *sweep_timer_;
+    Timer *stale_notify_timer_;
     State state_;
     bool close_again_;
     bool non_graceful_;
