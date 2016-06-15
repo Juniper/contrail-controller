@@ -293,6 +293,7 @@ void PeerCloseManager::ProcessClosure() {
             if (peer_close_->IsCloseLongLivedGraceful()) {
                 MOVE_TO_STATE(LLGR_STALE);
                 stats_.llgr_stale++;
+                peer_close_->LongLivedGracefulRestartStale();
                 break;
             }
             MOVE_TO_STATE(DELETE);

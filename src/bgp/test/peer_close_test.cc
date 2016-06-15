@@ -28,6 +28,7 @@ public:
     virtual void Close(bool non_graceful) { }
     virtual void Delete() { }
     virtual void GracefulRestartStale() { }
+    virtual void LongLivedGracefulRestartStale() { }
     virtual void GracefulRestartSweep() { }
     virtual void GetGracefulRestartFamilies(Families *) const { }
     virtual const int GetGracefulRestartTime() const { return 1; }
