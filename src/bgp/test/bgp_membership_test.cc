@@ -1493,6 +1493,7 @@ static void TearDown() {
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
+    ::testing::FLAGS_gtest_death_test_style = "threadsafe";
     SetUp();
     int result = RUN_ALL_TESTS();
     TearDown();
