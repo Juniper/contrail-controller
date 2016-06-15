@@ -65,7 +65,7 @@ public:
         WorkQueueStats flow_mgmt_queue_;
         WorkQueueStats flow_update_queue_;
         std::vector<WorkQueueStats> flow_event_queue_;
-        std::vector<WorkQueueStats> flow_misc_event_queue_;
+        std::vector<WorkQueueStats> flow_tokenless_queue_;
         std::vector<WorkQueueStats> flow_delete_queue_;
         std::vector<WorkQueueStats> flow_ksync_queue_;
         std::vector<WorkQueueStats> flow_stats_queue_;
