@@ -6,6 +6,7 @@
 
 #include <boost/foreach.hpp>
 
+#include "base/task_annotations.h"
 #include "base/timer.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_membership.h"
@@ -43,6 +44,7 @@
 PeerCloseManager::PeerCloseManager(IPeerClose *peer_close,
                                    boost::asio::io_service &io_service) :
         peer_close_(peer_close), stale_timer_(NULL), sweep_timer_(NULL),
+        stale_notify_timer_(NULL),
         state_(NONE), close_again_(false), non_graceful_(false), gr_elapsed_(0),
         llgr_elapsed_(0), membership_state_(MEMBERSHIP_NONE) {
     stats_.init++;
@@ -53,11 +55,15 @@ PeerCloseManager::PeerCloseManager(IPeerClose *peer_close,
     sweep_timer_ = TimerManager::CreateTimer(io_service,
         "Graceful Restart SweepTimer",
         TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0);
+    stale_notify_timer_ = TimerManager::CreateTimer(io_service,
+        "Graceful Restart StaleNotifyTimer",
+        TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0);
 }
 
 // Create an instance of PeerCloseManager with back reference to parent IPeer
 PeerCloseManager::PeerCloseManager(IPeerClose *peer_close) :
         peer_close_(peer_close), stale_timer_(NULL), sweep_timer_(NULL),
+        stale_notify_timer_(NULL),
         state_(NONE), close_again_(false), non_graceful_(false), gr_elapsed_(0),
         llgr_elapsed_(0), membership_state_(MEMBERSHIP_NONE) {
     stats_.init++;
@@ -71,12 +77,17 @@ PeerCloseManager::PeerCloseManager(IPeerClose *peer_close) :
             *peer_close->peer()->server()->ioservice(),
             "Graceful Restart SweepTimer",
             TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0);
+        stale_notify_timer_ = TimerManager::CreateTimer(
+            *peer_close->peer()->server()->ioservice(),
+            "Graceful Restart StaleNotifyTimer",
+            TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0);
     }
 }
 
 PeerCloseManager::~PeerCloseManager() {
     TimerManager::DeleteTimer(stale_timer_);
     TimerManager::DeleteTimer(sweep_timer_);
+    TimerManager::DeleteTimer(stale_notify_timer_);
 }
 
 std::string PeerCloseManager::GetStateName(State state) const {
@@ -243,6 +254,7 @@ void PeerCloseManager::StartRestartTimer(int time) {
 }
 
 bool PeerCloseManager::RestartTimerCallback() {
+    CHECK_CONCURRENCY("bgp::Config");
     tbb::mutex::scoped_lock lock(mutex_);
 
     PEER_CLOSE_MANAGER_LOG("GR Timer callback started");
@@ -279,7 +291,8 @@ void PeerCloseManager::ProcessClosure() {
             } else {
                 MOVE_TO_STATE(STALE);
                 stats_.stale++;
-                peer_close_->GracefulRestartStale();
+                StaleNotify();
+                return;
             }
             break;
         case GR_TIMER:
@@ -293,6 +306,7 @@ void PeerCloseManager::ProcessClosure() {
             if (peer_close_->IsCloseLongLivedGraceful()) {
                 MOVE_TO_STATE(LLGR_STALE);
                 stats_.llgr_stale++;
+                peer_close_->LongLivedGracefulRestartStale();
                 break;
             }
             MOVE_TO_STATE(DELETE);
@@ -340,6 +354,7 @@ void PeerCloseManager::CloseComplete() {
 }
 
 bool PeerCloseManager::ProcessSweepStateActions() {
+    CHECK_CONCURRENCY("bgp::Config");
     assert(state_ == SWEEP);
 
     // Notify clients to trigger sweep as appropriate.
@@ -353,6 +368,23 @@ void PeerCloseManager::TriggerSweepStateActions() {
     sweep_timer_->Cancel();
     sweep_timer_->Start(0,
         boost::bind(&PeerCloseManager::ProcessSweepStateActions, this));
+}
+
+bool PeerCloseManager::NotifyStaleEvent() {
+    CHECK_CONCURRENCY("bgp::Config");
+
+    peer_close_->GracefulRestartStale();
+    MembershipRequestInternal();
+    return false;
+}
+
+// Notify clients about entering Stale event. Do this through a timer callback
+// off bgp::Config to solve concurrency issues in the client.
+void PeerCloseManager::StaleNotify() {
+    PEER_CLOSE_MANAGER_LOG("Stale Notify Timer started to fire right away");
+    stale_notify_timer_->Cancel();
+    stale_notify_timer_->Start(0,
+        boost::bind(&PeerCloseManager::NotifyStaleEvent, this));
 }
 
 void PeerCloseManager::MembershipRequest() {
