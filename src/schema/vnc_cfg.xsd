@@ -352,6 +352,14 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:choice>
 </xsd:complexType>
 
+<xsd:simpleType name="SubnetMethodType" default="user-defined-subnet">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="user-defined-subnet"/>
+        <xsd:enumeration value="flat-subnet"/>
+        <xsd:enumeration value="auto-subnet"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name="IpamType">
     <xsd:all>
         <xsd:element name="ipam-method"      type="IpamMethodType" required='optional'/>
@@ -1221,6 +1229,18 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('network-ipam-mgmt', 'network-ipam', 'optional', 'CRUD',
               'Network IP Address Management configuration.') -->
+<xsd:element name="ipam-subnets" type="IpamSubnetType" maxOccurs="unbounded"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('ipam-subnets', 'network-ipam', 'optional', 'CRD',
+              'Subnets within this ipam.') -->
+<xsd:element name='ipam-subnet-method' type='SubnetMethodType' default='user-defined-subnet' required='true' operations='CRD'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('ipam-subnet-method', 'network-ipam', 'optional', 'CRD',
+              'Subnet method configuration.') -->
+<xsd:element name="ipam-default-gateway" type="IpAddressType" required='optional' operations='CRD'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('ipam-default-gateway', 'network-ipam', 'optional', 'CRD',
+              'Default-gateway for all subnets in this ipam.') -->
 <xsd:element name="project-network-ipam"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('project-network-ipam',
