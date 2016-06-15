@@ -437,7 +437,7 @@ public:
     uint32_t task_starts() const { return task_starts_; }
     uint32_t max_queue_len() const { return max_queue_len_; }
     bool measure_busy_time() const { return measure_busy_time_; }
-    void set_measure_busy_time(bool val) { measure_busy_time_ = val; }
+    void set_measure_busy_time(bool val) const { measure_busy_time_ = val; }
     uint64_t busy_time() const { return busy_time_; }
     void add_busy_time(uint64_t t) { busy_time_ += t; }
     void ClearStats() const {
@@ -669,7 +669,7 @@ private:
     mutable uint32_t task_starts_;
     mutable uint32_t max_queue_len_;
     mutable uint64_t busy_time_;
-    bool measure_busy_time_;
+    mutable bool measure_busy_time_;
 
     friend class QueueTaskTest;
     friend class QueueTaskShutdownTest;

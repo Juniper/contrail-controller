@@ -647,3 +647,19 @@ void SandeshFlowQueueSummaryRequest::HandleRequest() const {
     resp->set_context(context());
     resp->Response();
 }
+
+void SandeshSetProfileParams::HandleRequest() const {
+    SandeshProfileParams *resp = new SandeshProfileParams();
+    Agent *agent = Agent::GetInstance();
+    TaskScheduler *scheduler = agent->task_scheduler();
+
+    scheduler->EnableLatencyThresholds(get_task_exec_threshold() * 1000,
+                                       get_task_schedule_threshold() * 1000);
+    agent->SetMeasureQueueDelay(get_measure_queue_run_time());
+
+    resp->set_task_exec_threshold(scheduler->execute_delay()/1000);
+    resp->set_task_schedule_threshold(scheduler->schedule_delay()/1000);
+    resp->set_measure_queue_run_time(agent->MeasureQueueDelay());
+    resp->set_context(context());
+    resp->Response();
+}

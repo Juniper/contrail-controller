@@ -997,6 +997,7 @@ public:
         flow_stats_req_handler_ = req;
     }
  
+    void SetMeasureQueueDelay(bool val);
     bool MeasureQueueDelay();
     void TaskTrace(const char *file_name, uint32_t line_no, const Task *task,
                    const char *description, uint32_t delay);

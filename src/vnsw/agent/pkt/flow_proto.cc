@@ -745,8 +745,10 @@ static void SetFlowEventQueueStats(Agent *agent,
     stats->max_queue_count_ = queue->max_queue_len();
     stats->start_count_ = queue->task_starts();
     stats->busy_time_ = queue->busy_time();
-    if (agent->MeasureQueueDelay())
+    queue->set_measure_busy_time(agent->MeasureQueueDelay());
+    if (agent->MeasureQueueDelay()) {
         queue->ClearStats();
+    }
 }
 
 static void SetFlowMgmtQueueStats(Agent *agent,
@@ -759,6 +761,7 @@ static void SetFlowMgmtQueueStats(Agent *agent,
     stats->max_queue_count_ = queue->max_queue_len();
     stats->start_count_ = queue->task_starts();
     stats->busy_time_ = queue->busy_time();
+    queue->set_measure_busy_time(agent->MeasureQueueDelay());
     if (agent->MeasureQueueDelay())
         queue->ClearStats();
 }
@@ -773,6 +776,7 @@ static void SetPktHandlerQueueStats(Agent *agent,
     stats->max_queue_count_ = queue->max_queue_len();
     stats->start_count_ = queue->task_starts();
     stats->busy_time_ = queue->busy_time();
+    queue->set_measure_busy_time(agent->MeasureQueueDelay());
     if (agent->MeasureQueueDelay())
         queue->ClearStats();
 }
