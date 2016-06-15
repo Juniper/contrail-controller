@@ -156,6 +156,7 @@ void BgpXmppMessage::Start(const RibOutAttr *roattr, const BgpRoute *route) {
 }
 
 bool BgpXmppMessage::AddRoute(const BgpRoute *route, const RibOutAttr *roattr) {
+    assert(is_reachable_ == roattr->IsReachable());
     if (is_reachable_ && num_reach_route_ >= kMaxReachCount)
         return false;
     if (!is_reachable_ && num_unreach_route_ >= kMaxUnreachCount)
