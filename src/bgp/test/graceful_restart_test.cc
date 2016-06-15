@@ -54,7 +54,7 @@ static int d_instances = 4;
 static int d_routes = 4;
 static int d_agents = 4;
 static int d_peers = 4;
-static int d_targets = 1;
+static int d_targets = 4;
 static int d_http_port_ = 0;
 static bool d_no_sandesh_server_ = false;
 
