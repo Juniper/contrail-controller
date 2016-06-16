@@ -1206,6 +1206,7 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
     info.set_mirror_vrf(data_.mirror_vrf);
     info.set_implicit_deny(ImplicitDenyFlow());
     info.set_short_flow(is_flags_set(FlowEntry::ShortFlow));
+    info.set_short_flow_reason(short_flow_reason_);
     if (is_flags_set(FlowEntry::EcmpFlow) && 
             data_.component_nh_idx != CompositeNH::kInvalidComponentNHIdx) {
         info.set_ecmp_index(data_.component_nh_idx);
@@ -2221,8 +2222,8 @@ void InetRouteFlowUpdate::RouteDel(AgentRoute *entry) {
 
     RouteFlowInfo rt_key(RouteFlowKey(route->vrf()->vrf_id(), route->addr(),
                                       route->plen()));
-    RouteFlowInfo *rt_info =
-        agent->pkt()->flow_table()->FindRouteFlowInfo(&rt_key);
+    FlowTable *table = agent->pkt()->flow_table();
+    RouteFlowInfo *rt_info = table->route_flow_tree_.Find(&rt_key);
     agent->pkt()->flow_table()->FlowRecompute(rt_info, NULL);
 }
 
