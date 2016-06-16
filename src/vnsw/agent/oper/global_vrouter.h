@@ -118,7 +118,11 @@ public:
     uint64_t PendingFabricDnsRequests() const;
     void ResyncRoutes();
     const EcmpLoadBalance &ecmp_load_balance() const;
-
+    void ResyncGlobalCfgChange(const std::string name);
+    bool GlobalCfgChangeWalk(DBTablePartBase *partition, DBEntryBase *entry);
+    void GlobalCfgChangeWalkDone(DBTable::DBTableWalkRef walker,
+                                 DBTableBase *tbl);
+    uint32_t ResyncNotificationSeqNo() {return resync_notification_seqno_;}
     friend class AgentUtXmlFlowThreshold;
 private:
     class FabricDnsResolver;
@@ -147,6 +151,7 @@ private:
     int32_t flow_export_rate_;
     FlowAgingTimeoutMap flow_aging_timeout_map_;
     EcmpLoadBalance ecmp_load_balance_;
+    uint32_t resync_notification_seqno_;
 };
 
 #endif // vnsw_agent_global_router_h_
