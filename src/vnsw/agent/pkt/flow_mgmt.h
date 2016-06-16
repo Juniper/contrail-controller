@@ -205,7 +205,7 @@ class FlowMgmtDbClient;
 //
 // - FlowEntryTree : Tree of all flow entries
 //   FlowEntryPtr  : Key for the tree. Holds reference to FlowEntry
-//   FlowEntryInfo : Data for the tree. Contains list of DBEntries the flow is
+//   FlowEntryInfo : Data for the tree. Contains tree of DBEntries the flow is
 //                   dependent on.
 //
 // - FlowMgmtTree  : Per operational entry tree. Tracks flow entries dependent
@@ -222,8 +222,9 @@ class FlowMgmtDbClient;
 //                   2. DBEntry delete message is got from DBClient
 //
 //   FlowEntryKey  : Key for the tree. Contains DBEntry pointer as key
-//   FlowMgmtEntry : Data fot the tree. Contains tree of flow-entries dependent
-//                   on the DBEntry
+//   FlowMgmtEntry : Data fot the tree. Maintains intrusive-list of
+//                   FlowMgmtKeyNodes(which contains references to Flow entries)
+//                   dependent on the DBEntry
 //
 // - AclFlowMgmtTree        : FlowMgmtTree for ACL
 // - InterfaceFlowMgmtTree  : FlowMgmtTree for VM-Interfaces
@@ -241,6 +242,18 @@ class FlowMgmtDbClient;
 //                               establish a bgp peer session with each control
 //                               node.
 ////////////////////////////////////////////////////////////////////////////
+class FlowMgmtKeyNode {
+public:
+    FlowMgmtKeyNode() : flow_(NULL) { }
+    FlowMgmtKeyNode(FlowEntry *fe) : flow_(fe) { }
+    virtual ~FlowMgmtKeyNode() { }
+    FlowEntry *flow_entry() const { return flow_;}
+private:
+    friend class FlowMgmtEntry;
+    FlowEntry *flow_;
+    boost::intrusive::list_member_hook<> hook_;
+};
+
 class FlowMgmtKey {
 public:
     enum Type {
@@ -309,7 +322,7 @@ struct FlowMgmtKeyCmp {
     }
 };
 
-typedef std::set<FlowMgmtKey *, FlowMgmtKeyCmp> FlowMgmtKeyTree;
+typedef std::map<FlowMgmtKey *, FlowMgmtKeyNode *, FlowMgmtKeyCmp> FlowMgmtKeyTree;
 
 class FlowMgmtEntry {
 public:
@@ -321,20 +334,24 @@ public:
         OPER_DEL_SEEN,
     };
 
-    typedef std::set<FlowEntry *> Tree;
+    typedef boost::intrusive::member_hook<FlowMgmtKeyNode,
+            boost::intrusive::list_member_hook<>,
+            &FlowMgmtKeyNode::hook_> Node;
+    typedef boost::intrusive::list<FlowMgmtKeyNode, Node> FlowList;
+
     static const int MaxResponses = 100;
 
     FlowMgmtEntry() : oper_state_(OPER_NOT_SEEN) {
     }
     virtual ~FlowMgmtEntry() {
-        assert(tree_.size() == 0);
+        assert(flow_list_.size() == 0);
     }
 
-    uint32_t Size() const { return tree_.size(); }
+    uint32_t Size() const { return flow_list_.size(); }
     // Make flow dependent on the DBEntry
-    virtual bool Add(FlowEntry *flow);
+    virtual bool Add(FlowEntry *flow, FlowMgmtKeyNode *node);
     // Remove flow from dependency tree
-    virtual bool Delete(FlowEntry *flow);
+    virtual bool Delete(FlowEntry *flow, FlowMgmtKeyNode *node);
 
     // Handle Add/Change event for DBEntry
     virtual bool OperEntryAdd(FlowMgmtManager *mgr, const FlowMgmtRequest *req,
@@ -358,7 +375,7 @@ protected:
     // Add seen from OperDB entry
     State oper_state_;
     uint32_t gen_id_;
-    Tree tree_;
+    FlowList flow_list_;
 private:
     DISALLOW_COPY_AND_ASSIGN(FlowMgmtEntry);
 };
@@ -373,11 +390,13 @@ public:
 
     // Add a flow into dependency tree for an object
     // Creates an entry if not already present in the tree
-    virtual bool Add(FlowMgmtKey *key, FlowEntry *flow);
+    virtual bool Add(FlowMgmtKey *key, FlowEntry *flow,
+                     FlowMgmtKeyNode *node);
     // Delete a flow from dependency tree for an object
     // Entry is deleted after all flows dependent on the entry are deleted
     // and DBEntry delete message is got from FlowTable
-    virtual bool Delete(FlowMgmtKey *key, FlowEntry *flow);
+    virtual bool Delete(FlowMgmtKey *key, FlowEntry *flow,
+                        FlowMgmtKeyNode *node);
 
     // Handle DBEntry add
     virtual bool OperEntryAdd(const FlowMgmtRequest *req, FlowMgmtKey *key);
@@ -440,14 +459,15 @@ class AclFlowMgmtEntry : public FlowMgmtEntry {
 public:
     typedef std::map<int, int> AceIdFlowCntMap;
     AclFlowMgmtEntry() : FlowMgmtEntry() { }
-    ~AclFlowMgmtEntry() { }
+    virtual ~AclFlowMgmtEntry() { }
     void FillAclFlowSandeshInfo(const AclDBEntry *acl, AclFlowResp &data,
                                 const int last_count, Agent *agent);
     void FillAceFlowSandeshInfo(const AclDBEntry *acl, AclFlowCountResp &data,
                                 int ace_id);
     bool Add(const AclEntryIDList *ace_id_list, FlowEntry *flow,
-             const AclEntryIDList *old_id_list);
-    bool Delete(const AclEntryIDList *ace_id_list, FlowEntry *flow);
+             const AclEntryIDList *old_id_list, FlowMgmtKeyNode *node);
+    bool Delete(const AclEntryIDList *ace_id_list, FlowEntry *flow,
+                FlowMgmtKeyNode *node);
     void DecrementAceIdCountMap(const AclEntryIDList *id_list);
 private:
     std::string GetAceSandeshDataKey(const AclDBEntry *acl, int ace_id);
@@ -463,8 +483,10 @@ public:
     AclFlowMgmtTree(FlowMgmtManager *mgr) : FlowMgmtTree(mgr) { }
     virtual ~AclFlowMgmtTree() { }
 
-    bool Add(FlowMgmtKey *key, FlowEntry *flow, FlowMgmtKey *old_key);
-    bool Delete(FlowMgmtKey *key, FlowEntry *flow);
+    bool Add(FlowMgmtKey *key, FlowEntry *flow, FlowMgmtKey *old_key,
+             FlowMgmtKeyNode *node);
+    bool Delete(FlowMgmtKey *key, FlowEntry *flow,
+                FlowMgmtKeyNode *node);
     void ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree,
                      const MatchAclParamsList *acl_list);
     void ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree);
@@ -490,7 +512,7 @@ public:
     VnFlowMgmtEntry() :
         FlowMgmtEntry(), ingress_flow_count_(0), egress_flow_count_(0) {
     }
-    ~VnFlowMgmtEntry() { }
+    virtual ~VnFlowMgmtEntry() { }
 
     void UpdateCounterOnAdd(FlowEntry *flow, bool add_flow, bool local_flow,
                             bool old_ingress);
@@ -506,13 +528,13 @@ private:
 class VnFlowMgmtTree : public FlowMgmtTree {
 public:
     VnFlowMgmtTree(FlowMgmtManager *mgr) : FlowMgmtTree(mgr) {}
-    ~VnFlowMgmtTree() {}
+    virtual ~VnFlowMgmtTree() {}
 
     void ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree);
     FlowMgmtEntry *Allocate(const FlowMgmtKey *key);
 
-    bool Add(FlowMgmtKey *key, FlowEntry *flow);
-    bool Delete(FlowMgmtKey *key, FlowEntry *flow);
+    bool Add(FlowMgmtKey *key, FlowEntry *flow, FlowMgmtKeyNode *node);
+    bool Delete(FlowMgmtKey *key, FlowEntry *flow, FlowMgmtKeyNode *node);
     bool OperEntryAdd(const FlowMgmtRequest *req, FlowMgmtKey *key);
     bool OperEntryDelete(const FlowMgmtRequest *req, FlowMgmtKey *key);
     void VnFlowCounters(const VnEntry *vn,
@@ -541,7 +563,7 @@ private:
 class InterfaceFlowMgmtEntry : public FlowMgmtEntry {
 public:
     InterfaceFlowMgmtEntry() : FlowMgmtEntry() { }
-    ~InterfaceFlowMgmtEntry() { }
+    virtual ~InterfaceFlowMgmtEntry() { }
 
 private:
     DISALLOW_COPY_AND_ASSIGN(InterfaceFlowMgmtEntry);
@@ -550,7 +572,7 @@ private:
 class InterfaceFlowMgmtTree : public FlowMgmtTree {
 public:
     InterfaceFlowMgmtTree(FlowMgmtManager *mgr) : FlowMgmtTree(mgr) {}
-    ~InterfaceFlowMgmtTree() {}
+    virtual ~InterfaceFlowMgmtTree() {}
 
     void ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree);
     FlowMgmtEntry *Allocate(const FlowMgmtKey *key);
@@ -572,7 +594,7 @@ private:
 class NhFlowMgmtEntry : public FlowMgmtEntry {
 public:
     NhFlowMgmtEntry() : FlowMgmtEntry() { }
-    ~NhFlowMgmtEntry() { }
+    virtual ~NhFlowMgmtEntry() { }
 
 private:
     DISALLOW_COPY_AND_ASSIGN(NhFlowMgmtEntry);
@@ -581,7 +603,7 @@ private:
 class NhFlowMgmtTree : public FlowMgmtTree {
 public:
     NhFlowMgmtTree(FlowMgmtManager *mgr) : FlowMgmtTree(mgr) {}
-    ~NhFlowMgmtTree() {}
+    virtual ~NhFlowMgmtTree() {}
 
     void ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree);
     FlowMgmtEntry *Allocate(const FlowMgmtKey *key);
@@ -634,7 +656,7 @@ private:
 class RouteFlowMgmtEntry : public FlowMgmtEntry {
 public:
     RouteFlowMgmtEntry() : FlowMgmtEntry() { }
-    ~RouteFlowMgmtEntry() { }
+    virtual ~RouteFlowMgmtEntry() { }
 
 private:
     DISALLOW_COPY_AND_ASSIGN(RouteFlowMgmtEntry);
@@ -646,7 +668,7 @@ public:
     virtual ~RouteFlowMgmtTree() { }
     virtual bool HasVrfFlows(uint32_t vrf_id, Agent::RouteTableType type) = 0;
 
-    virtual bool Delete(FlowMgmtKey *key, FlowEntry *flow);
+    virtual bool Delete(FlowMgmtKey *key, FlowEntry *flow, FlowMgmtKeyNode *node);
     virtual bool OperEntryDelete(const FlowMgmtRequest *req, FlowMgmtKey *key);
     virtual bool OperEntryAdd(const FlowMgmtRequest *req, FlowMgmtKey *key);
 private:
@@ -731,7 +753,7 @@ private:
 class InetRouteFlowMgmtEntry : public RouteFlowMgmtEntry {
 public:
     InetRouteFlowMgmtEntry() : RouteFlowMgmtEntry() { }
-    ~InetRouteFlowMgmtEntry() { }
+    virtual ~InetRouteFlowMgmtEntry() { }
 
 private:
     DISALLOW_COPY_AND_ASSIGN(InetRouteFlowMgmtEntry);
@@ -813,7 +835,7 @@ private:
 class BridgeRouteFlowMgmtEntry : public RouteFlowMgmtEntry {
 public:
     BridgeRouteFlowMgmtEntry() : RouteFlowMgmtEntry() { }
-    ~BridgeRouteFlowMgmtEntry() { }
+    virtual ~BridgeRouteFlowMgmtEntry() { }
 
 private:
     DISALLOW_COPY_AND_ASSIGN(BridgeRouteFlowMgmtEntry);
@@ -924,12 +946,13 @@ private:
 class BgpAsAServiceFlowMgmtKey : public FlowMgmtKey {
 public:
     BgpAsAServiceFlowMgmtKey(const boost::uuids::uuid &uuid,
-                             uint32_t source_port) :
+                             uint32_t source_port,
+                             uint8_t cn_index) :
         FlowMgmtKey(FlowMgmtKey::BGPASASERVICE, NULL), uuid_(uuid),
-        source_port_(source_port) { }
+        source_port_(source_port), cn_index_(cn_index) { }
     virtual ~BgpAsAServiceFlowMgmtKey() { }
     virtual FlowMgmtKey *Clone() {
-        return new BgpAsAServiceFlowMgmtKey(uuid_, source_port_);
+        return new BgpAsAServiceFlowMgmtKey(uuid_, source_port_, cn_index_);
     }
     virtual bool UseDBEntry() const { return false; }
     virtual bool Compare(const FlowMgmtKey *rhs) const {
@@ -937,14 +960,18 @@ public:
             static_cast<const BgpAsAServiceFlowMgmtKey *>(rhs);
         if (uuid_ != rhs_key->uuid_)
             return uuid_ < rhs_key->uuid_;
+        if (cn_index_ != rhs_key->cn_index_)
+            return cn_index_ < rhs_key->cn_index_;
         return source_port_ < rhs_key->source_port_;
     }
     const boost::uuids::uuid &uuid() const { return uuid_; }
     uint32_t source_port() const { return source_port_; }
+    uint8_t cn_index() const { return cn_index_; }
 
 private:
     boost::uuids::uuid uuid_;
     uint32_t source_port_;
+    uint8_t cn_index_; //Control node index
     DISALLOW_COPY_AND_ASSIGN(BgpAsAServiceFlowMgmtKey);
 };
 
@@ -970,6 +997,8 @@ public:
     bool BgpAsAServiceDelete(BgpAsAServiceFlowMgmtKey &key,
                              const FlowMgmtRequest *req);
     void DeleteAll();
+    //Gets CN index from flow.
+    static uint8_t GetCNIndex(const FlowEntry *flow);
     // Called just before entry is deleted. Used to implement cleanup operations
     virtual void FreeNotify(FlowMgmtKey *key, uint32_t gen_id);
 private:
@@ -1085,7 +1114,7 @@ private:
     // Delete a FlowMgmtKey from FlowMgmtKeyTree for an object
     // The FlowMgmtKeyTree for object is passed as argument
     void DeleteFlowMgmtKey(FlowEntry *flow, FlowEntryInfo *info,
-                           FlowMgmtKey *key);
+                           FlowMgmtKey *key, FlowMgmtKeyNode *node);
     FlowEntryInfo *FindFlowEntryInfo(const FlowEntryPtr &flow);
     FlowEntryInfo *LocateFlowEntryInfo(FlowEntryPtr &flow);
     void DeleteFlowEntryInfo(FlowEntryPtr &flow);
