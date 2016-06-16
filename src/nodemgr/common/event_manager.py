@@ -212,6 +212,8 @@ class EventManager(object):
                 process_info.last_exit_time = pstat.exit_time
                 process_info.core_file_list = pstat.core_file_list
                 process_infos.append(process_info)
+                #in tor-agent case, we should use tor-agent name as uve key
+                name = pstat.name
                 if pstat.deleted == False:
                     delete_status = False
 
@@ -220,7 +222,7 @@ class EventManager(object):
 
             # send node UVE
             node_status = NodeStatus()
-            node_status.name = socket.gethostname()
+            node_status.name = name
             node_status.deleted = delete_status
             node_status.process_info = process_infos
             if (self.send_build_info):
