@@ -67,7 +67,12 @@ class RabbitConnection(object):
             else:
                 obj = obj_class.locate(obj_id)
             if obj is not None:
-                obj.update()
+                try:
+                    obj.update()
+                except NoIdError:
+                    self.logger.warning('%s uuid %s has vanished' %
+                                        (obj_type, obj_id))
+                    return
                 dependency_tracker = DependencyTracker(
                     DBBaseSM.get_obj_type_map(), self._REACTION_MAP)
                 dependency_tracker.evaluate(obj_type, obj)
