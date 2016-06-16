@@ -3311,6 +3311,9 @@ class DBInterface(object):
         port_obj = self._virtual_machine_interface_read(port_id)
         router_obj.del_virtual_machine_interface(port_obj)
         self._vnc_lib.logical_router_update(router_obj)
+        if port_obj.get_logical_router_back_refs():
+            port_obj.logical_router_back_refs = []
+            self._virtual_machine_interface_update(port_obj)
         self.port_delete(port_id)
         info = {'id': router_id,
             'tenant_id': subnet['tenant_id'],
