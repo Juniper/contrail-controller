@@ -647,6 +647,27 @@ void FlowStatsCollector::SourceIpOverride(FlowExportInfo *info,
     }
 }
 
+void FlowStatsCollector::SetImplicitFlowDetails(FlowExportInfo *info,
+                                                FlowLogData &s_flow,
+                                                const RevFlowDepParams *params) {
+
+    FlowEntry *rflow = info->reverse_flow();
+
+    if (rflow) {
+        s_flow.set_vm(rflow->data().vm_cfg_name);
+        s_flow.set_sg_rule_uuid(rflow->sg_rule_uuid());
+        if (rflow->intf_entry()) {
+            s_flow.set_vmi_uuid(UuidToString(rflow->intf_entry()->GetUuid()));
+        }
+        s_flow.set_reverse_uuid(to_string(rflow->uuid()));
+    } else if (params) {
+        s_flow.set_vm(params->vm_cfg_name_);
+        s_flow.set_sg_rule_uuid(params->sg_uuid_);
+        s_flow.set_reverse_uuid(to_string(params->rev_uuid_));
+        s_flow.set_vmi_uuid(params->vmi_uuid_);
+    }
+}
+
 void FlowStatsCollector::GetFlowSandeshActionParams
     (const FlowAction &action_info, std::string &action_str) {
     std::bitset<32> bs(action_info.action);
@@ -847,13 +868,15 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
         s_flow.set_direction_ing(1);
         SourceIpOverride(info, s_flow, params);
         EnqueueFlowMsg();
+
         FlowLogData &s_flow2 = msg_list_[GetFlowMsgIdx()];
         s_flow2 = s_flow;
         s_flow2.set_direction_ing(0);
+        s_flow2.set_flowuuid(to_string(info->egress_uuid()));
+        SetImplicitFlowDetails(info, s_flow2, params);
         //Export local flow of egress direction with a different UUID even when
         //the flow is same. Required for analytics module to query flows
         //irrespective of direction.
-        s_flow2.set_flowuuid(to_string(info->egress_uuid()));
         EnqueueFlowMsg();
         flow_stats_manager_->flow_export_count_ += 2;
     } else {
