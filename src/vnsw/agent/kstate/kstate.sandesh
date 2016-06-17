@@ -217,6 +217,7 @@ request sandesh NextKFlowReq {
  */
 request sandesh KFlowReq {
     1: i32 flow_idx = -1;        // send data for given flow index, send all if -1
+    2: bool show_evicted = 0;        //show evicted flows if flag is set
 }
 
 /**

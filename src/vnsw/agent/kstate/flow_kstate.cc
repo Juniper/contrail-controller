@@ -21,14 +21,14 @@ using namespace std;
 
 FlowKState::FlowKState(Agent *agent, const string &resp_ctx, int idx) :
     Task((TaskScheduler::GetInstance()->GetTaskId("Agent::FlowResponder")),
-            0), response_context_(resp_ctx), flow_idx_(idx), 
+            0), response_context_(resp_ctx), flow_idx_(idx), evicted_(0),
     flow_iteration_key_(0), agent_(agent) {
 }
 
 FlowKState::FlowKState(Agent *agent, const string &resp_ctx, 
                        const string &iter_idx) :
     Task((TaskScheduler::GetInstance()->GetTaskId("Agent::FlowResponder")),
-            0), response_context_(resp_ctx), flow_idx_(-1), 
+            0), response_context_(resp_ctx), flow_idx_(-1), evicted_(0),
     flow_iteration_key_(0), agent_(agent) {
     stringToInteger(iter_idx, flow_iteration_key_);
 }
@@ -294,20 +294,24 @@ bool FlowKState::Run() {
     }
     uint32_t idx = flow_iteration_key_;
     uint32_t max_flows = ksync_obj->flow_table_entries_count();
+    uint32_t temp_idx = idx;
     
     resp = new KFlowResp();
     vector<KFlowInfo> &list = const_cast<std::vector<KFlowInfo>&>
                                   (resp->get_flow_list());
     while(idx < max_flows) {
         k_flow = ksync_obj->GetKernelFlowEntry(idx, false);
-        if (k_flow) {
-            count++;
-            SetFlowData(list, k_flow, idx);
-        } 
         idx++;
+        if (k_flow) {
+            if((k_flow->fe_flags & VR_FLOW_FLAG_EVICTED) && (!evicted_)) {
+                continue;
+            }
+            count++;
+            SetFlowData(list, k_flow, temp_idx);
+        } 
         if (count == KState::kMaxEntriesPerResponse) {
-            if (idx != max_flows) {
-                resp->set_flow_handle(integerToString(idx));
+            if (temp_idx != max_flows) {
+                resp->set_flow_handle(integerToString(temp_idx));
             } else {
                 resp->set_flow_handle(integerToString(0));
             }
