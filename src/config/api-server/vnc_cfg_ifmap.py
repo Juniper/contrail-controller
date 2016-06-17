@@ -218,8 +218,10 @@ class VncIfmapClient(object):
                 continue
             for ref in refs:
                 ref_fq_name = ref['to']
-                ref_type, ref_link_type, _ = \
-                    obj_class.ref_field_types[ref_field]
+                ref_fld_types_list = list(
+                    obj_class.ref_field_types[ref_field])
+                ref_type = ref_fld_types_list[0]
+                ref_link_type = ref_fld_types_list[1]
                 ref_meta = obj_class.ref_field_metas[ref_field]
                 ref_imid = cfgm_common.imid.get_ifmap_id_from_fq_name(
                     ref_type, ref_fq_name)

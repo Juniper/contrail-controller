@@ -559,7 +559,9 @@ class VncCassandraClient(object):
         #      ref_link_type = 'VnSubnetsType'
         #      is_weakref = False
         for ref_field in obj_class.ref_fields:
-            ref_type, ref_link_type, _ = obj_class.ref_field_types[ref_field]
+            ref_fld_types_list = list(obj_class.ref_field_types[ref_field])
+            ref_type = ref_fld_types_list[0]
+            ref_link_type = ref_fld_types_list[1]
             refs = obj_dict.get(ref_field, [])
             for ref in refs:
                 ref_uuid = self.fq_name_to_uuid(ref_type, ref['to'])
@@ -791,8 +793,10 @@ class VncCassandraClient(object):
         #      ref_link_type = 'VnSubnetsType'
         #      is_weakref = False
         for ref_field in obj_class.ref_fields:
-            ref_type, ref_link_type, is_weakref = \
-                obj_class.ref_field_types[ref_field]
+            ref_fld_types_list = list(obj_class.ref_field_types[ref_field])
+            ref_type = ref_fld_types_list[0]
+            ref_link_type = ref_fld_types_list[1]
+            is_weakref = ref_fld_types_list[2]
             ref_obj_type = ref_type.replace('-', '_')
 
             if ref_field in new_obj_dict:
