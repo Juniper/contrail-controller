@@ -123,6 +123,9 @@ public:
     void DeleteEvent(const FlowEntryPtr &flow, const RevFlowDepParams &params);
     void SourceIpOverride(FlowExportInfo *info, FlowLogData &s_flow,
                           const RevFlowDepParams *params);
+    void SetImplicitFlowDetails(FlowExportInfo *info, FlowLogData &s_flow,
+                                const RevFlowDepParams *params);
+
     FlowExportInfo *FindFlowExportInfo(const FlowEntry *fe);
     const FlowExportInfo *FindFlowExportInfo(const FlowEntry *fe) const;
     void ExportFlow(FlowExportInfo *info, uint64_t diff_bytes,
