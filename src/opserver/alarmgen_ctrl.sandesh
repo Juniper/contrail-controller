@@ -230,3 +230,11 @@ trace sandesh AlarmgenTrace {
     1: "Alarmgen list from Discovery:"
     2: list<string>     publishers
 }
+
+trace sandesh UVEQTrace {
+    1: string oper
+    2: u16 part
+    3: list<string> uves
+}
+
+
