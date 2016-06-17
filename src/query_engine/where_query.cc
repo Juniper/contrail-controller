@@ -215,7 +215,7 @@ static bool StatSlicer(DbQueryUnit *db_query, match_op op,
 }
 
 bool WhereQuery::StatTermProcess(const rapidjson::Value& where_term,
-        SetOperationUnit * and_node, QueryUnit *main_query) {
+        QueryUnit* and_node, QueryUnit *main_query) {
 
     AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
     std::string pname,sname,cfname;
@@ -318,14 +318,15 @@ bool WhereQuery::StatTermProcess(const rapidjson::Value& where_term,
 }
 
 WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
-        QueryUnit *main_query): 
+        int32_t or_number, QueryUnit *main_query):
     QueryUnit(main_query, main_query), direction_ing(direction),
-    json_string_(where_json_string) {
+    json_string_(where_json_string), wterms_(0) {
 
     AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
-
+    where_result_.reset(new std::vector<query_result_unit_t>);
     if (where_json_string == std::string(""))
     {
+        if (or_number == -1) wterms_ = 1;
         DbQueryUnit *db_query = new DbQueryUnit(this, main_query);
 
         //TBD not sure if this will work for Message table or Object Log
@@ -366,8 +367,6 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
     }
 
     // Do JSON parsing
-    // highest level set operation node;
-    SetOperationUnit *or_node= new SetOperationUnit(this, main_query);
     rapidjson::Document d;
     std::string json_string = "{ \"where\" : " + 
         where_json_string + " }";
@@ -379,17 +378,21 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
 
     QE_TRACE(DEBUG, "number of OR terms in where :" << json_or_list.Size());
 
+    if (or_number == -1) wterms_ = json_or_list.Size();
+
     for (rapidjson::SizeType i = 0; i < json_or_list.Size(); i++) 
     {
-        SetOperationUnit *and_node= 
-            new SetOperationUnit(or_node, main_query);
-        and_node->set_operation = SetOperationUnit::INTERSECTION_OP;
-        and_node->is_leaf_node = true;
-
+        const rapidjson::Value& json_or_node = json_or_list[i];
         QE_PARSE_ERROR(json_or_list[i].IsArray());
         QE_INVALIDARG_ERROR(json_or_list[i].Size() != 0);
 
-        const rapidjson::Value& json_or_node = json_or_list[i];
+        // If the or_number is -1, we are in query prepare.
+        // We have no intention of actually executing the query.
+        // But, we parse everything to catch errors.
+        if (or_number != -1) {
+            // Only execute the requested OR term
+            if (or_number != (int)i) continue;
+        }
 
         QE_TRACE(DEBUG, "number of AND term in " << (i+1) << 
                 "th OR term is " <<json_or_node.Size());
@@ -490,7 +493,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
             bool isStat = m_query->is_stat_table_query(m_query->table());
             if ((name == g_viz_constants.SOURCE) && (!isStat))
             {
-                DbQueryUnit *db_query = new DbQueryUnit(and_node, main_query);
+                DbQueryUnit *db_query = new DbQueryUnit(this, main_query);
 
                 db_query->cfname = g_viz_constants.MESSAGE_TABLE_SOURCE;
                 db_query->t_only_col = true;
@@ -515,7 +518,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
 
             if ((name == g_viz_constants.KEYWORD) && (!isStat))
             {
-                DbQueryUnit *db_query = new DbQueryUnit(and_node, main_query);
+                DbQueryUnit *db_query = new DbQueryUnit(this, main_query);
 
                 db_query->cfname = g_viz_constants.MESSAGE_TABLE_KEYWORD;
                 db_query->t_only_col = true;
@@ -543,7 +546,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
 
             if ((name == g_viz_constants.MODULE) && (!isStat))
             {
-                DbQueryUnit *db_query = new DbQueryUnit(and_node, main_query);
+                DbQueryUnit *db_query = new DbQueryUnit(this, main_query);
                 db_query->cfname = g_viz_constants.MESSAGE_TABLE_MODULE_ID;
                 db_query->t_only_col = true;
 
@@ -573,7 +576,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
  
             if ((name == g_viz_constants.MESSAGE_TYPE) && (!isStat))
             {
-                DbQueryUnit *db_query = new DbQueryUnit(and_node, main_query);
+                DbQueryUnit *db_query = new DbQueryUnit(this, main_query);
                 db_query->cfname = 
                     g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE;
                 db_query->t_only_col = true;
@@ -599,7 +602,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
   
             if ((name == g_viz_constants.CATEGORY) && (!isStat))
             {
-                DbQueryUnit *db_query = new DbQueryUnit(and_node, main_query);
+                DbQueryUnit *db_query = new DbQueryUnit(this, main_query);
                 db_query->cfname = 
                     g_viz_constants.MESSAGE_TABLE_CATEGORY;
                 db_query->t_only_col = true;
@@ -625,7 +628,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
 
             if (name == OBJECTID)
             {
-                DbQueryUnit *db_query = new DbQueryUnit(and_node, main_query);
+                DbQueryUnit *db_query = new DbQueryUnit(this, main_query);
                 GenDb::DbDataValue value2 = value;
 
                 db_query->cfname = g_viz_constants.OBJECT_TABLE;
@@ -812,7 +815,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
 
             if (isStat)
             {
-                StatTermProcess(json_or_node[j], and_node, main_query);
+                StatTermProcess(json_or_node[j], this, main_query);
                 object_id_specified = true;
             }
         }
@@ -856,7 +859,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
 
         if (vr_match) 
         {
-            DbQueryUnit *db_query = new DbQueryUnit(and_node, m_query);
+            DbQueryUnit *db_query = new DbQueryUnit(this, m_query);
             db_query->row_key_suffix.push_back((uint8_t)direction_ing);
             db_query->cfname = g_viz_constants.FLOW_TABLE_VROUTER;
             db_query->cr.start_.push_back(vr);
@@ -878,7 +881,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
         // now create flow related db queries
         if (svn_match) 
         {
-            DbQueryUnit *db_query = new DbQueryUnit(and_node, m_query);
+            DbQueryUnit *db_query = new DbQueryUnit(this, m_query);
             db_query->row_key_suffix.push_back((uint8_t)direction_ing);
             db_query->cfname = g_viz_constants.FLOW_TABLE_SVN_SIP;
             db_query->cr.start_.push_back(svn);
@@ -917,7 +920,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
 
         if (dvn_match) 
         {
-            DbQueryUnit *db_query = new DbQueryUnit(and_node, m_query);
+            DbQueryUnit *db_query = new DbQueryUnit(this, m_query);
             db_query->row_key_suffix.push_back((uint8_t)direction_ing);
             db_query->cfname = g_viz_constants.FLOW_TABLE_DVN_DIP;
             db_query->cr.start_.push_back(dvn);
@@ -954,7 +957,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
         {
             if (sport_match)
             {
-                DbQueryUnit *db_query = new DbQueryUnit(and_node, m_query);
+                DbQueryUnit *db_query = new DbQueryUnit(this, m_query);
                 db_query->row_key_suffix.push_back((uint8_t)direction_ing);
                 db_query->cfname = g_viz_constants.FLOW_TABLE_PROT_SP;
 
@@ -978,7 +981,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
 
             if (dport_match)
             {
-                DbQueryUnit *db_query = new DbQueryUnit(and_node, m_query);
+                DbQueryUnit *db_query = new DbQueryUnit(this, m_query);
                 db_query->row_key_suffix.push_back((uint8_t)direction_ing);
                 db_query->cfname = g_viz_constants.FLOW_TABLE_PROT_DP;
                 if (dport_op == EQUAL) {
@@ -1002,7 +1005,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
             if (!(dport_match) && !(sport_match))
             {
                 // no port specified, just query for protocol
-                DbQueryUnit *db_query = new DbQueryUnit(and_node, m_query);
+                DbQueryUnit *db_query = new DbQueryUnit(this, m_query);
                 db_query->row_key_suffix.push_back((uint8_t)direction_ing);
                 db_query->cfname = g_viz_constants.FLOW_TABLE_PROT_DP;
                 db_query->cr.start_.push_back(proto);
@@ -1030,7 +1033,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
             if (!object_id_specified)
             {
                 GenDb::DbDataValue value = "\x1b", value2 = "\x7f";
-                DbQueryUnit *db_query = new DbQueryUnit(and_node, main_query);
+                DbQueryUnit *db_query = new DbQueryUnit(this, main_query);
 
                 db_query->cfname = g_viz_constants.OBJECT_TABLE;
                 db_query->row_key_suffix.push_back(m_query->table());
@@ -1065,6 +1068,7 @@ query_status_t WhereQuery::process_query()
         return QUERY_SUCCESS;
     }
 
+    vector<WhereResultT*> inp;
     // invoke processing of all the sub queries
     // TBD: Handle ASYNC processing
     for (unsigned int i = 0; i < sub_queries.size(); i++)
@@ -1076,14 +1080,15 @@ query_status_t WhereQuery::process_query()
             status_details = sub_queries[i]->status_details;
             parent_query->subquery_processed(this);
             return QUERY_FAILURE;
+        } else {
+            inp.push_back(&sub_queries[i]->query_result);
         }
     }
 
-    // TBD make this generic 
-    if (sub_queries.size() > 0)
-        query_result = sub_queries[0]->query_result;
+    SetOperationUnit::op_and(((AnalyticsQuery *)(this->main_query))->query_id,
+            *where_result_, inp);
 
-    QE_TRACE(DEBUG, "Set ops returns # of rows:" << query_result.size());
+    QE_TRACE(DEBUG, "Set ops returns # of rows:" << where_result_->size());
 
     if (m_query->table() == g_viz_constants.FLOW_TABLE)
     {
@@ -1094,10 +1099,10 @@ query_status_t WhereQuery::process_query()
         std::map<boost::uuids::uuid, int> uuid_list;
 
         // reverse iterate to make sure the latest entries are there
-        for (int i = (int)(query_result.size() -1); i>=0; i--)
+        for (int i = (int)(where_result_->size() -1); i>=0; i--)
         {
             boost::uuids::uuid u; flow_stats stats;
-            query_result[i].get_uuid_stats(u, stats);
+            where_result_->at(i).get_uuid_stats(u, stats);
             std::map<boost::uuids::uuid, int>::iterator it;
             it = uuid_list.find(u);
             if (it == uuid_list.end())
@@ -1105,15 +1110,14 @@ query_status_t WhereQuery::process_query()
                 uuid_list.insert(std::pair<boost::uuids::uuid, int>(u, 0));
                 // this is first instance of the UUID, hence insert in the 
                 // results table
-                uniqued_result.push_back(query_result[i]);
+                uniqued_result.push_back(where_result_->at(i));
             }
         }
-
-        query_result = uniqued_result;  // only unique values of UUID return
+        *where_result_ = uniqued_result;
     }
 
     // Have the result ready and processing is done
-    QE_TRACE(DEBUG, "WHERE processing done row #s:" << query_result.size());
+    QE_TRACE(DEBUG, "WHERE processing done row #s:" << where_result_->size());
     status_details = 0;
     parent_query->subquery_processed(this);
     return QUERY_SUCCESS;

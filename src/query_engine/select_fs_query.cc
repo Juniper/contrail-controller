@@ -229,9 +229,9 @@ query_status_t SelectQuery::process_fs_query(
         process_fs_query_callback process_fs_query_cb,
         populate_fs_result_callback populate_fs_result_cb) {
     AnalyticsQuery *mquery = (AnalyticsQuery*)main_query;
-    std::vector<query_result_unit_t>& where_query_result = 
+    const std::vector<query_result_unit_t>& where_query_result = 
         mquery->where_query_result(); 
-    std::vector<query_result_unit_t>::iterator where_result_it;
+    std::vector<query_result_unit_t>::const_iterator where_result_it;
     // Walk thru each entry in the where result
     for (where_result_it = where_query_result.begin(); 
          where_result_it != where_query_result.end(); ++where_result_it) {

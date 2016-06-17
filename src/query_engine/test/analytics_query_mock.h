@@ -20,7 +20,7 @@ public:
 #else // USE_CASSANDRA_CQL
                        GenDbIfPtr(new ThriftIfMock()),
 #endif // !USE_CASSANDRA_CQL
-                       std::map<std::string, std::string>(),
+                       std::map<std::string, std::string>(), -1, NULL,
                        TtlMap(), int(0), int(0)) {
     }
     
