@@ -693,6 +693,7 @@ def parse_args(args_str):
         'logger_class': None,
         'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
         'check_service_interval': '60',
+        'nova_endpoint_type': 'internalURL',
     }
     secopts = {
         'use_certs': False,
