@@ -405,6 +405,7 @@ static void SetQueueStats(Agent *agent, FlowStatsCollector *fsc,
     stats->max_queue_count_ = fsc->queue()->max_queue_len();
     stats->start_count_ = fsc->queue()->task_starts();
     stats->busy_time_ = fsc->queue()->busy_time();
+    fsc->queue()->set_measure_busy_time(agent->MeasureQueueDelay());
     if (agent->MeasureQueueDelay())
         fsc->queue()->ClearStats();
 }

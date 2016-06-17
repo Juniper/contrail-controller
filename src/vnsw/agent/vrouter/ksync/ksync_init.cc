@@ -145,8 +145,10 @@ void KSync::SetProfileData(ProfileData *data) {
     stats->max_queue_count_ = tx_queue->max_queue_len();
     stats->start_count_ = tx_queue->read_events();
     stats->busy_time_ = tx_queue->busy_time();
-    if (agent()->MeasureQueueDelay())
+    tx_queue->set_measure_busy_time(agent()->MeasureQueueDelay());
+    if (agent()->MeasureQueueDelay()) {
         tx_queue->ClearStats();
+    }
 
     const KSyncSock::KSyncReceiveQueue *rx_queue =
         sock->get_receive_work_queue(0);
@@ -158,8 +160,10 @@ void KSync::SetProfileData(ProfileData *data) {
     stats->max_queue_count_ = rx_queue->max_queue_len();
     stats->start_count_ = rx_queue->task_starts();
     stats->busy_time_ = rx_queue->busy_time();
-    if (agent()->MeasureQueueDelay())
+    rx_queue->set_measure_busy_time(agent()->MeasureQueueDelay());
+    if (agent()->MeasureQueueDelay()) {
         rx_queue->ClearStats();
+    }
 }
 
 void KSync::VRouterInterfaceSnapshot() {

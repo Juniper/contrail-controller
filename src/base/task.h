@@ -214,6 +214,9 @@ public:
 
     // Enable logging of tasks exceeding configured latency
     void EnableLatencyThresholds(uint32_t execute, uint32_t schedule);
+    uint32_t schedule_delay() const { return schedule_delay_; }
+    uint32_t execute_delay() const { return execute_delay_; }
+
     bool measure_delay() const { return measure_delay_; }
     void SetLatencyThreshold(const std::string &name, uint32_t execute,
                              uint32_t schedule);
