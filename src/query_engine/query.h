@@ -14,20 +14,12 @@
  *                |
  *                |--PostProcessingQuery
  *                |
- *                |--WhereQuery-|
- *                              |-SetOperationUnit (for OR)
- *                                  |----
- *                                      |---SetOperationUnit (for AND)
- *                                          |
- *                                          |-DbQueryUnit
- *                                          |
- *                                          | .....
- *                                          |
- *                                          |-DbQueryUnit
- *                                      .....
- *                                      |---SetOperationUnit (for AND)
- *                                          |
- *                                          | .....
+ *                |--WhereQuery (multiple ANDs)
+ *                       |
+ *                       |-DbQueryUnit
+ *                       |
+ *                       |-DbQueryUnit
+ *                       ...
  *
  */
 #ifndef QUERY_H_
@@ -298,15 +290,15 @@ struct query_result_unit_t {
 
     void get_stattable_info(
             std::string& attribstr,
-            boost::uuids::uuid& uuid);
+            boost::uuids::uuid& uuid) const;
 
     // Get UUID from the info field
-    void get_uuid(boost::uuids::uuid& u);
+    void get_uuid(boost::uuids::uuid& u) const;
     // Get UUID and stats
-    void get_uuid_stats(boost::uuids::uuid& u, flow_stats& stats);
+    void get_uuid_stats(boost::uuids::uuid& u, flow_stats& stats) const;
     // Get UUID and stats and 8-tuple
     void get_uuid_stats_8tuple(boost::uuids::uuid& u,
-            flow_stats& stats, flow_tuple& tuple);
+            flow_stats& stats, flow_tuple& tuple) const;
     // for sorting and set operations
     bool operator<(const query_result_unit_t& rhs) const;
 
@@ -314,6 +306,8 @@ struct query_result_unit_t {
     friend std::ostream &operator<<(std::ostream &out, 
             query_result_unit_t&);
 } ;
+
+typedef std::vector<query_result_unit_t> WhereResultT;
 
 // Different status codes of query processing
 enum query_status_t {
@@ -351,7 +345,7 @@ public:
     uint32_t status_details;
 
     // After query is processed following vector is populated
-    std::vector<query_result_unit_t> query_result;
+    WhereResultT query_result;
 }; 
 
 class QueryResultMetaData {
@@ -396,24 +390,12 @@ public:
     bool t_only_row;    // only T2 is in row key
 };
 
-// This class provides interface to process SET operations involved in the 
-// WHERE part of the query
-// leaf node's child nodes are DbQueryUnit
-class SetOperationUnit: public QueryUnit {
-public:
-    SetOperationUnit(QueryUnit *p_query, QueryUnit *m_query):
-        QueryUnit(p_query, m_query), set_operation(UNION_OP), 
-        is_leaf_node(false) {};
-    virtual query_status_t process_query();
-
-    enum {UNION_OP, INTERSECTION_OP} set_operation;
-    bool is_leaf_node;
-
-private:
-    void or_operation();
-    void and_operation();
+struct SetOperationUnit {
+    static void op_and(string qi, WhereResultT& res,
+        std::vector<WhereResultT*> inp);
+    static void op_or(string qi, WhereResultT& res,
+        std::vector<WhereResultT*> inp);
 };
-
 
 // Where processing class
     // Result is available for SELECT processing in query_result field
@@ -432,16 +414,18 @@ public:
         GenDb::DbDataValue& sval, GenDb::DbDataValue& sval2);
 
     bool StatTermProcess(const rapidjson::Value& where_term,
-        SetOperationUnit * and_node, QueryUnit *main_query);
+        QueryUnit* pnode, QueryUnit *main_query);
  
     WhereQuery(const std::string& where_json_string, int direction,
-            QueryUnit *main_query);
+            int32_t or_number, QueryUnit *main_query);
     virtual query_status_t process_query();
 
     
     // 0 is for egress and 1 for ingress
     int32_t direction_ing;
     const std::string json_string_;
+    uint32_t wterms_;
+    std::auto_ptr<WhereResultT> where_result_;
 private:
 };
 
@@ -731,13 +715,18 @@ class StatsQuery;
 class AnalyticsQuery: public QueryUnit {
 public:
     AnalyticsQuery(std::string qid, std::map<std::string, 
-            std::string>& json_api_data, const TtlMap& ttlmap,
+            std::string>& json_api_data,
+            int or_number,
+            const std::vector<query_result_unit_t> * where_info,
+            const TtlMap& ttlmap,
             EventManager *evm, std::vector<std::string> cassandra_ips, 
             std::vector<int> cassandra_ports, int batch,
             int total_batches, const std::string& cassandra_user,
             const std::string &cassandra_password);
     AnalyticsQuery(std::string qid, GenDbIfPtr dbif, 
             std::map<std::string, std::string> json_api_data,
+            int or_number,
+            const std::vector<query_result_unit_t> * where_info,
             const TtlMap& ttlmap, int batch, int total_batches);
     virtual ~AnalyticsQuery() {}
 
@@ -763,7 +752,8 @@ public:
     std::auto_ptr<QEOpServerProxy::OutRowMultimapT> final_mresult;
 
     std::map<std::string, std::string> json_api_data_;
-
+    const std::vector<query_result_unit_t> * where_info_;
+    
     TtlMap ttlmap_;
     uint64_t where_start_;
     uint64_t select_start_;
@@ -801,7 +791,7 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
     // this is to get parallelization details once the query is parsed
     void get_query_details(bool& is_merge_needed, bool& is_map_output,
         std::vector<uint64_t>& chunk_sizes,
-        std::string& where,
+        std::string& where, uint32_t& wterms,
         std::string& select,
         std::string& post,
         uint64_t& time_period,
@@ -822,8 +812,8 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
     virtual uint64_t end_time() const {
         return end_time_;
     }
-    virtual std::vector<query_result_unit_t>& where_query_result() {
-        return wherequery_->query_result;
+    virtual const std::vector<query_result_unit_t>& where_query_result() {
+        return *where_info_;
     }
     virtual uint32_t direction_ing() const {
         return wherequery_->direction_ing;
@@ -861,7 +851,8 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
     bool parallelize_query_;
     // Init function
     void Init(std::string qid,
-        std::map<std::string, std::string>& json_api_data);
+        std::map<std::string, std::string>& json_api_data,
+        int32_t or_number);
     bool can_parallelize_query();
 };
 
@@ -876,8 +867,9 @@ public:
     
     struct QueryParams {
         QueryParams(std::string qi, 
-                std::map<std::string, std::string> qu, uint32_t ch, uint64_t tm) :
-            qid(qi), terms(qu), maxChunks(ch), query_starttm(tm) {}  
+                std::map<std::string, std::string> qu,
+                uint32_t ch, uint64_t tm) :
+            qid(qi), terms(qu), maxChunks(ch), query_starttm(tm) {}
         QueryParams() {}
         std::string qid;
         std::map<std::string, std::string> terms;
@@ -909,12 +901,20 @@ public:
     QueryPrepare(QueryParams qp,
         std::vector<uint64_t> &chunk_size,
         bool & need_merge, bool & map_output,
-        std::string& where, std::string& select, std::string& post,
+        std::string& where, uint32_t& wterms,
+        std::string& select, std::string& post,
         uint64_t& time_period, 
         std::string &table);
 
+    // Query Execution of WHERE term
     bool
-    QueryExec(void * handle, QueryParams qp, uint32_t chunk);
+    QueryExecWhere(void * handle, QueryParams qp, uint32_t chunk,
+            uint32_t or_number);
+
+    // Query Execution of SELECT and post-processing
+    bool
+    QueryExec(void * handle, QueryParams qp, uint32_t chunk,
+            const std::vector<query_result_unit_t> *wi);
 
     bool
     QueryAccumulate(QueryParams qp,

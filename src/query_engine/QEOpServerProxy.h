@@ -19,6 +19,8 @@ extern "C" {
 class EventManager;
 class QueryEngine;
 class QueryResultMetaData;
+class query_result_unit_t;
+
 // This class represents the interface between the Query Engine and 
 // the OpServer. It will internally talk to the OpServer using Redis
 
@@ -120,6 +122,8 @@ public:
 
     void QueryResult(void *, QPerfInfo qperf, std::auto_ptr<BufferT> res,
             std::auto_ptr<OutRowMultimapT> mres);
+    void QueryResult(void *, QPerfInfo qperf,
+            std::auto_ptr<std::vector<query_result_unit_t> > res);
 private:
     EventManager * const evm_;
     QueryEngine * const qe_;

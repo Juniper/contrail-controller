@@ -23,6 +23,7 @@
 
 using std::map;
 using std::string;
+using std::vector;
 using boost::assign::map_list_of;
 using boost::system::error_code;
 using process::ConnectionState;
@@ -348,7 +349,7 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
 // this is to get parallelization details once the query is parsed
 void AnalyticsQuery::get_query_details(bool& is_merge_needed, bool& is_map_output,
         std::vector<uint64_t>& chunk_sizes,
-        std::string& where,
+        std::string& where, uint32_t& wterms,
         std::string& select,
         std::string& post,
         uint64_t& time_period,
@@ -382,6 +383,7 @@ void AnalyticsQuery::get_query_details(bool& is_merge_needed, bool& is_map_outpu
     }
 
     where = wherequery_->json_string_;
+    wterms = wherequery_->wterms_;
     select = selectquery_->json_string_;
     post = postprocess_->json_string_;
     is_map_output = is_stat_table_query(table_);
@@ -396,7 +398,8 @@ bool AnalyticsQuery::can_parallelize_query() {
 }
 
 void AnalyticsQuery::Init(std::string qid,
-    std::map<std::string, std::string>& json_api_data)
+    std::map<std::string, std::string>& json_api_data,
+    int32_t or_number)
 {
     std::map<std::string, std::string>::iterator iter;
 
@@ -509,7 +512,8 @@ void AnalyticsQuery::Init(std::string qid,
         }
 
         QE_TRACE(DEBUG,  " Initializing Where Query");
-        wherequery_ = new WhereQuery(where_json_string, direction, this);
+        wherequery_ = new WhereQuery(where_json_string, direction,
+                or_number, this);
         this->status_details = wherequery_->status_details;
         if (this->status_details != 0 )
         {
@@ -623,7 +627,6 @@ void AnalyticsQuery::Init(std::string qid,
     }
 
 }
-
 QueryUnit::QueryUnit(QueryUnit *p_query, QueryUnit *m_query):
     parent_query(p_query), main_query(m_query), pending_subqueries(0),
     query_status(QUERY_PROCESSING_NOT_STARTED), status_details(0) 
@@ -641,7 +644,7 @@ QueryUnit::~QueryUnit()
 
 
 // Get UUID from the info field
-void query_result_unit_t::get_uuid(boost::uuids::uuid& u)
+void query_result_unit_t::get_uuid(boost::uuids::uuid& u) const
 {
     try {
         u = boost::get<boost::uuids::uuid>(info.at(0));
@@ -652,7 +655,7 @@ void query_result_unit_t::get_uuid(boost::uuids::uuid& u)
 
 // Get UUID and stats
 void query_result_unit_t::get_uuid_stats(boost::uuids::uuid& u, 
-        flow_stats& stats)
+        flow_stats& stats) const
 {
     QE_ASSERT(info.size() == 1);
     const GenDb::DbDataValue &val(info[0]);
@@ -670,7 +673,7 @@ void query_result_unit_t::set_stattable_info(
 
 void  query_result_unit_t::get_stattable_info(
             std::string& attribstr,
-            boost::uuids::uuid& uuid) {
+            boost::uuids::uuid& uuid) const {
 
     int index = 0;
 
@@ -806,7 +809,7 @@ void get_uuid_stats_8tuple_from_json(const std::string &jsonline,
 
 // Get UUID and stats and 8-tuple
 void query_result_unit_t::get_uuid_stats_8tuple(boost::uuids::uuid& u,
-       flow_stats& stats, flow_tuple& tuple)
+       flow_stats& stats, flow_tuple& tuple) const
 {
     QE_ASSERT(info.size() == 1);
     const GenDb::DbDataValue &val(info[0]);
@@ -823,20 +826,6 @@ query_status_t AnalyticsQuery::process_query()
              "No need to process query, as there were errors previously");
         return QUERY_FAILURE;
     }
-
-    QE_TRACE(DEBUG, "Start Where Query Processing");
-    where_start_ = UTCTimestampUsec();
-    query_status = wherequery_->process_query();
-    qperf_.chunk_where_time =
-            static_cast<uint32_t>((UTCTimestampUsec() - where_start_)/1000);
-
-    status_details = wherequery_->status_details;
-    if (query_status != QUERY_SUCCESS) 
-    {
-        QE_LOG(DEBUG, "where processing failed with error:"<< query_status);
-        return query_status;
-    }
-    QE_TRACE(DEBUG, "End Where Query Processing");
 
     QE_TRACE(DEBUG, "Start Select Processing");
     select_start_ = UTCTimestampUsec();
@@ -876,7 +865,10 @@ query_status_t AnalyticsQuery::process_query()
 }
 
 AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string, 
-        std::string>& json_api_data, const TtlMap& ttlmap,
+        std::string>& json_api_data,
+        int or_number,
+        const std::vector<query_result_unit_t> * where_info,
+        const TtlMap& ttlmap,
         EventManager *evm, std::vector<std::string> cassandra_ips, 
         std::vector<int> cassandra_ports, int batch,
         int total_batches, const std::string& cassandra_user,
@@ -884,6 +876,7 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
         QueryUnit(NULL, this),
         filter_qe_logs(true),
         json_api_data_(json_api_data),
+        where_info_(where_info),
         ttlmap_(ttlmap),
         where_start_(0),
         select_start_(0),
@@ -947,18 +940,21 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
             std::string());
     }
     dbif_->Db_SetInitDone(true);
-    Init(qid, json_api_data);
+    Init(qid, json_api_data, or_number);
 }
 
 AnalyticsQuery::AnalyticsQuery(std::string qid, 
     GenDbIfPtr dbif_ptr,
-    std::map<std::string, std::string> json_api_data, 
+    std::map<std::string, std::string> json_api_data,
+    int or_number,
+    const std::vector<query_result_unit_t> * where_info,
     const TtlMap &ttlmap, int batch, int total_batches) :
     QueryUnit(NULL, this),
     dbif_(dbif_ptr),
     query_id(qid),
     filter_qe_logs(true),
     json_api_data_(json_api_data),
+    where_info_(where_info),
     ttlmap_(ttlmap),
     where_start_(0), 
     select_start_(0), 
@@ -968,7 +964,7 @@ AnalyticsQuery::AnalyticsQuery(std::string qid,
     total_parallel_batches(total_batches),
     processing_needed(true),
     stats_(NULL) {
-    Init(qid, json_api_data);
+    Init(qid, json_api_data, or_number);
 }
 
 QueryEngine::QueryEngine(EventManager *evm,
@@ -1167,7 +1163,8 @@ int
 QueryEngine::QueryPrepare(QueryParams qp,
         std::vector<uint64_t> &chunk_size,
         bool & need_merge, bool & map_output,
-        std::string& where, std::string& select, std::string& post,
+        std::string& where, uint32_t& wterms,
+        std::string& select, std::string& post,
         uint64_t& time_period, 
         std::string &table) {
     string& qid = qp.qid;
@@ -1182,11 +1179,11 @@ QueryEngine::QueryPrepare(QueryParams qp,
         table = string("ObjectCollectorInfo");
     } else {
         AnalyticsQuery *q;
-        q = new AnalyticsQuery(qid, dbif_, qp.terms, ttlmap_, 0,
+        q = new AnalyticsQuery(qid, dbif_, qp.terms, -1, NULL, ttlmap_, 0,
                 qp.maxChunks);
         chunk_size.clear();
         q->get_query_details(need_merge, map_output, chunk_size,
-            where, select, post, time_period, ret_code);
+            where, wterms ,select, post, time_period, ret_code);
         table = q->table();
         delete q;
     }
@@ -1200,7 +1197,7 @@ QueryEngine::QueryAccumulate(QueryParams qp,
 
     QE_TRACE_NOQID(DEBUG, "Creating analytics query object for merge_processing");
     AnalyticsQuery *q;
-    q = new AnalyticsQuery(qp.qid, dbif_, qp.terms, ttlmap_, 1,
+    q = new AnalyticsQuery(qp.qid, dbif_, qp.terms, -1, NULL, ttlmap_, 1,
                 qp.maxChunks);
     QE_TRACE_NOQID(DEBUG, "Calling merge_processing");
     bool ret = q->merge_processing(input, output);
@@ -1215,7 +1212,7 @@ QueryEngine::QueryFinalMerge(QueryParams qp,
 
     QE_TRACE_NOQID(DEBUG, "Creating analytics query object for final_merge_processing");
     AnalyticsQuery *q;
-    q = new AnalyticsQuery(qp.qid, dbif_, qp.terms, ttlmap_, 1,
+    q = new AnalyticsQuery(qp.qid, dbif_, qp.terms, -1, NULL, ttlmap_, 1,
                 qp.maxChunks);
     QE_TRACE_NOQID(DEBUG, "Calling final_merge_processing");
     bool ret = q->final_merge_processing(inputs, output);
@@ -1229,7 +1226,7 @@ QueryEngine::QueryFinalMerge(QueryParams qp,
         QEOpServerProxy::OutRowMultimapT& output) {
     QE_TRACE_NOQID(DEBUG, "Creating analytics query object for final_merge_processing");
     AnalyticsQuery *q;
-    q = new AnalyticsQuery(qp.qid, dbif_, qp.terms, ttlmap_, 1,
+    q = new AnalyticsQuery(qp.qid, dbif_, qp.terms, -1, NULL, ttlmap_, 1,
                 qp.maxChunks);
 
     if (!q->is_stat_table_query(q->table())) {
@@ -1244,8 +1241,62 @@ QueryEngine::QueryFinalMerge(QueryParams qp,
     return true;   
 }
 
+// Query Execution of WHERE term
+bool
+QueryEngine::QueryExecWhere(void * handle, QueryParams qp, uint32_t chunk,
+        uint32_t or_number)
+{
+    string& qid = qp.qid;
+    QE_TRACE_NOQID(DEBUG,
+             " Got Where Query to execute for QID " << qid << " chunk:"<< chunk);
+    //GenDb::GenDbIf *db_if = dbif_.get();
+    if (cassandra_ports_.size() == 1 && cassandra_ports_[0] == 0) {
+        std::auto_ptr<std::vector<query_result_unit_t> > where_output(
+                new std::vector<query_result_unit_t>());
+        QE_TRACE_NOQID(DEBUG, " Finished NULL query processing for QID " << qid << " chunk:" << chunk);
+        QEOpServerProxy::QPerfInfo qperf(0,0,0);
+        qperf.error = 0;
+
+        qosp_->QueryResult(handle, qperf, where_output);
+        return true;
+    }
+    AnalyticsQuery *q;
+    if (UseGlobalDbHandler()) {
+        q = new AnalyticsQuery(qid, dbif_, qp.terms, or_number, NULL,
+                ttlmap_, chunk, qp.maxChunks);
+    } else {
+        q = new AnalyticsQuery(qp.qid, qp.terms, or_number, NULL,
+                ttlmap_, evm_,
+                cassandra_ips_, cassandra_ports_, chunk, qp.maxChunks,
+                cassandra_user_, cassandra_password_);
+    }
+
+    QE_TRACE_NOQID(DEBUG, " Finished parsing and starting where for QID " << qid << " chunk:" << chunk);
+
+    q->where_start_ = UTCTimestampUsec();
+    q->query_status = q->wherequery_->process_query();
+    q->qperf_.chunk_where_time =
+            static_cast<uint32_t>((UTCTimestampUsec() - q->where_start_)/1000);
+
+    q->status_details = q->wherequery_->status_details;
+    if (q->query_status != QUERY_SUCCESS) 
+    {
+        QE_TRACE_NOQID(DEBUG, "where processing failed with error:"  <<
+                q->query_status);
+        return q->query_status;
+    }
+
+    QE_TRACE_NOQID(DEBUG, " Finished where processing for QID " << qid << " chunk:" << chunk);
+    q->qperf_.error = q->status_details;
+    qosp_->QueryResult(handle, q->qperf_, q->wherequery_->where_result_);
+    delete q;
+    return true;
+}
+
+// Query Execution of SELECT and post-processing
 bool 
-QueryEngine::QueryExec(void * handle, QueryParams qp, uint32_t chunk)
+QueryEngine::QueryExec(void * handle, QueryParams qp, uint32_t chunk,
+        const std::vector<query_result_unit_t> * where_info)
 {
     string& qid = qp.qid;
     QE_TRACE_NOQID(DEBUG,
@@ -1270,7 +1321,7 @@ QueryEngine::QueryExec(void * handle, QueryParams qp, uint32_t chunk)
         return true;
     }
     AnalyticsQuery *q;
-    q = new AnalyticsQuery(qid, dbif_, qp.terms, ttlmap_, chunk,
+    q = new AnalyticsQuery(qid, dbif_, qp.terms, -1, where_info, ttlmap_, chunk,
                 qp.maxChunks);
 
     QE_TRACE_NOQID(DEBUG, " Finished parsing and starting processing for QID " << qid << " chunk:" << chunk); 
