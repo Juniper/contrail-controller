@@ -13,7 +13,7 @@ class DiskUsage(AlarmBase):
                         'operand1': 'NodeStatus.disk_usage_info.' + \
                             'percentage_partition_space_used',
                         'operation': '>=',
-                        'operand2': '50',
+                        'operand2': '90',
                         'vars': ['NodeStatus.disk_usage_info.partition_name']
                     }
                 ]

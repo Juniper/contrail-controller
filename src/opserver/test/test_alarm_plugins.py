@@ -572,7 +572,7 @@ class TestAlarmPlugins(unittest.TestCase):
                                     'partition_space_used_1k': 73819750,
                                     'partition_name': 'dev/sda2',
                                     'partition_type': 'ext4',
-                                    'percentage_partition_space_used': 55
+                                    'percentage_partition_space_used': 95
                                 }
                             ]
                         }
@@ -582,10 +582,10 @@ class TestAlarmPlugins(unittest.TestCase):
                     {
                         'and_list': [
                             ('NodeStatus.disk_usage_info.' +\
-                                'percentage_partition_space_used >= 50',
+                                'percentage_partition_space_used >= 90',
                              ['NodeStatus.disk_usage_info.' +\
                                 'partition_name'],
-                             [('55', None, {
+                             [('95', None, {
                                  'NodeStatus.disk_usage_info.' +\
                                      'partition_name': '"dev/sda2"'})]
                             )
