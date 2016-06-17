@@ -1600,9 +1600,10 @@ void PktFlowInfo::LinkLocalPortBind(const PktInfo *pkt,
 
 void PktFlowInfo::UpdateEvictedFlowStats(const PktInfo *pkt) {
     Agent *agent = flow_table->agent();
-    FlowMgmtManager *mgr = agent->pkt()->flow_mgmt_manager();
     KSyncFlowIndexManager *imgr = agent->ksync()->ksync_flow_index_manager();
     FlowEntryPtr flow = imgr->FindByIndex(pkt->agent_hdr.cmd_param);
+    FlowMgmtManager *mgr = agent->pkt()->flow_mgmt_manager(
+                               flow_table->table_index());
 
     if (flow.get() && flow->deleted() == false) {
         mgr->FlowStatsUpdateEvent(flow.get(), pkt->agent_hdr.cmd_param_2,

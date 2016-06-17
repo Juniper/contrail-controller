@@ -20,6 +20,7 @@ public:
     PktModule(Agent *agent);
     virtual ~PktModule();
 
+    typedef std::vector<FlowMgmtManager *> FlowMgmtManagerList;
     void Init(bool run_with_vrouter);
     void Shutdown();
     void IoShutdown();
@@ -32,8 +33,12 @@ public:
     PacketBufferManager *packet_buffer_manager() const {
         return packet_buffer_manager_.get();
     }
-    FlowMgmtManager *flow_mgmt_manager() const {
-        return flow_mgmt_manager_.get();
+    FlowMgmtManagerList flow_mgmt_manager_list() const {
+        return flow_mgmt_manager_list_;
+    }
+    FlowMgmtManager *flow_mgmt_manager(uint16_t index) const {
+        assert(index < flow_mgmt_manager_list_.size());
+        return flow_mgmt_manager_list_[index];
     }
     FlowProto *get_flow_proto() const { return flow_proto_.get(); }
 
@@ -48,7 +53,7 @@ private:
     boost::scoped_ptr<PktHandler> pkt_handler_;
     boost::scoped_ptr<FlowProto> flow_proto_;
     boost::scoped_ptr<PacketBufferManager> packet_buffer_manager_;
-    boost::scoped_ptr<FlowMgmtManager> flow_mgmt_manager_;
+    FlowMgmtManagerList flow_mgmt_manager_list_;
     DISALLOW_COPY_AND_ASSIGN(PktModule);
 };
 
