@@ -106,6 +106,13 @@ public:
         flow_handle_(FlowEntry::kInvalidFlowHandle), table_index_(0) {
     }
 
+    FlowEvent(Event event, uint16_t table_index, const DBEntry *db_entry,
+              uint32_t gen_id) :
+        event_(event), flow_(NULL), pkt_info_(), db_entry_(db_entry),
+        gen_id_(gen_id), evict_gen_id_(0),
+        flow_handle_(FlowEntry::kInvalidFlowHandle), table_index_(table_index) {
+    }
+
     FlowEvent(Event event, const FlowKey &key) :
         event_(event), flow_(NULL), pkt_info_(), db_entry_(NULL),
         gen_id_(0), evict_gen_id_(0), flow_key_(key),
