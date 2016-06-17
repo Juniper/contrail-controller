@@ -21,14 +21,14 @@ using namespace std;
 
 FlowKState::FlowKState(Agent *agent, const string &resp_ctx, int idx) :
     Task((TaskScheduler::GetInstance()->GetTaskId("Agent::FlowResponder")),
-            0), response_context_(resp_ctx), flow_idx_(idx), 
+            0), response_context_(resp_ctx), flow_idx_(idx), evicted_(0),
     flow_iteration_key_(0), agent_(agent) {
 }
 
 FlowKState::FlowKState(Agent *agent, const string &resp_ctx, 
                        const string &iter_idx) :
     Task((TaskScheduler::GetInstance()->GetTaskId("Agent::FlowResponder")),
-            0), response_context_(resp_ctx), flow_idx_(-1), 
+            0), response_context_(resp_ctx), flow_idx_(-1), evicted_(0),
     flow_iteration_key_(0), agent_(agent) {
     stringToInteger(iter_idx, flow_iteration_key_);
 }
@@ -301,6 +301,9 @@ bool FlowKState::Run() {
     while(idx < max_flows) {
         k_flow = ksync_obj->GetKernelFlowEntry(idx, false);
         if (k_flow) {
+            if((k_flow->fe_tcp_flags & VR_FLOW_FLAG_EVICTED) && (evicted_ == 0)) {
+                continue;
+            }
             count++;
             SetFlowData(list, k_flow, idx);
         } 

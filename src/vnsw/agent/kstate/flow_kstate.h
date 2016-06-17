@@ -16,9 +16,11 @@ class FlowKState : public Task {
     std::string Description() const { return "FlowKState"; }
     void SetFlowData(std::vector<KFlowInfo> &list, const vr_flow_entry *k_flow,
                      int index) const;
+    void set_evicted_flag(bool show_evicted) { evicted_ = show_evicted;}
 protected:
     std::string response_context_;
     int flow_idx_;
+    bool evicted_;
     uint32_t flow_iteration_key_;
 private:
     Agent *agent_;

@@ -69,6 +69,7 @@ void NextKFlowReq::HandleRequest() const {
 void KFlowReq::HandleRequest() const {
     FlowKState *task = new FlowKState(Agent::GetInstance(), context(), 
                                       get_flow_idx());
+    task->set_evicted_flag(get_show_evicted());
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Enqueue(task);
 }
