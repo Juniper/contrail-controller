@@ -276,11 +276,13 @@ class TestBasic(test_case.NeutronBackendTestCase):
                    'roles': ''}
         data = {'resource':{'network_id': vn_obj.uuid,
                             'tenant_id': proj_uuid,
-                            'binding:profile': {'foo': 'bar'}}}
+                            'binding:profile': {'foo': 'bar'},
+                            'binding:host_id': 'somehost'}}
         body = {'context': context, 'data': data}
         resp = self._api_svr_app.post_json('/neutron/port', body)
         port_dict = json.loads(resp.text)
         self.assertTrue(isinstance(port_dict['binding:profile'], dict))
+        self.assertTrue(isinstance(port_dict['binding:host_id'], basestring))
     # end test_port_bindings
 # end class TestBasic
 
