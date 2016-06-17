@@ -8,27 +8,37 @@ class VncError(Exception):
     pass
 # end class VncError
 
+
 class ServiceUnavailableError(VncError):
-    def __init__(self, code):
-        self._reason_code = code
+    def __init__(self, reason=None):
+        self._service_type = 'Unknown'
+        self._reason = reason
     # end __init__
 
     def __str__(self):
-        return 'Service unavailable time out due to: %s' % (str(self._reason_code))
+        msg = '%s service unavailable' % self._service_type
+        if self._reason:
+            msg += ' due to: %s' % self._reason
+        return msg
     # end __str__
 # end class ServiceUnavailableError
 
-class DatabaseUnavailableError(ServiceUnavailableError):
-    def __init__(self, db_type, code=None):
-        self._db_type = db_type
-        super(DatabaseUnavailableError, self).__init__(code)
-    # end __init__
 
-    def __str__(self):
-        return 'Error accessing %s database due to: %s' \
-               %(self._db_type, self._reason_code)
-    # end __str__
-# end class DatabaseUnavailableError
+class CassandraUnavailableError(ServiceUnavailableError):
+    def __init__(self, reason=None):
+        self._service_type = 'Cassandra'
+        super(CassandraUnavailableError, self).__init__(reason)
+    # end __init__
+# end class CassandraUnavailableError
+
+
+class IfmapUnavailableError(ServiceUnavailableError):
+    def __init__(self, reason=None):
+        self._service_type = 'IF-MAP'
+        super(IfmapUnavailableError, self).__init__(reason)
+    # end __init__
+# end class IfmapUnavailableError
+
 
 class TimeOutError(VncError):
     def __init__(self, code):

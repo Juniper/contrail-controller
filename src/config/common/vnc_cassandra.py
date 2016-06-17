@@ -10,7 +10,7 @@ from pycassa.pool import AllServersUnavailable, MaximumRetryException
 import gevent
 
 from vnc_api import vnc_api
-from exceptions import NoIdError, DatabaseUnavailableError, VncError
+from exceptions import NoIdError, CassandraUnavailableError, VncError
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
@@ -354,7 +354,7 @@ class VncCassandraClient(object):
                     self._logger(msg, level=SandeshLevel.SYS_ERR)
 
                 self._conn_state = ConnectionStatus.DOWN
-                raise DatabaseUnavailableError(
+                raise CassandraUnavailableError(
                     'Error, %s: %s' %(str(e), utils.detailed_traceback()))
 
         return wrapper
