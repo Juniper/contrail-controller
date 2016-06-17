@@ -495,11 +495,11 @@ void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
 // Flow Info tree management
 ////////////////////////////////////////////////////////////////////////////
 void FlowTable::AddFlowInfo(FlowEntry *fe) {
-    agent_->pkt()->flow_mgmt_manager()->AddEvent(fe);
+    agent_->pkt()->flow_mgmt_manager(table_index_)->AddEvent(fe);
 }
 
 void FlowTable::DeleteFlowInfo(FlowEntry *fe, const RevFlowDepParams &params) {
-    agent_->pkt()->flow_mgmt_manager()->DeleteEvent(fe, params);
+    agent_->pkt()->flow_mgmt_manager(table_index_)->DeleteEvent(fe, params);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -744,7 +744,7 @@ void FlowTable::ProcessKSyncFlowEvent(const FlowEventKSync *req,
         req->flow_handle() != flow->flow_handle()) {
         FlowEntryPtr evicted_flow = imgr->FindByIndex(req->flow_handle());
         if (evicted_flow.get() && evicted_flow->deleted() == false) {
-            FlowMgmtManager *mgr = agent()->pkt()->flow_mgmt_manager();
+            FlowMgmtManager *mgr = agent()->pkt()->flow_mgmt_manager(table_index_);
             mgr->FlowStatsUpdateEvent(evicted_flow.get(),
                                       req->evict_flow_bytes(),
                                       req->evict_flow_packets(),

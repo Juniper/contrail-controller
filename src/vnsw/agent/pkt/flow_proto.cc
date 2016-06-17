@@ -266,7 +266,13 @@ void FlowProto::VnFlowCounters(const VnEntry *vn, uint32_t *in_count,
     if (vn == NULL)
         return;
 
-    agent_->pkt()->flow_mgmt_manager()->VnFlowCounters(vn, in_count, out_count);
+    std::vector<FlowMgmtManager *> mgr_list =
+        agent_->pkt()->flow_mgmt_manager_list();
+    std::vector<FlowMgmtManager *>::iterator it = mgr_list.begin();
+    while (it != mgr_list.end()) {
+        (*it)->VnFlowCounters(vn, in_count, out_count);
+        it++;
+    }
 }
 
 FlowEntry *FlowProto::Find(const FlowKey &key, uint32_t table_index) const {
@@ -472,7 +478,8 @@ bool FlowProto::FlowKSyncMsgHandler(FlowEvent *req, FlowTable *table) {
 bool FlowProto::FlowUpdateHandler(FlowEvent *req) {
     switch (req->event()) {
     case FlowEvent::FREE_DBENTRY: {
-        FlowMgmtManager *mgr = agent()->pkt()->flow_mgmt_manager();
+        FlowMgmtManager *mgr = agent()->pkt()->flow_mgmt_manager(
+                                   req->table_index());
         mgr->flow_mgmt_dbclient()->FreeDBState(req->db_entry(), req->gen_id());
         break;
     }
@@ -789,15 +796,15 @@ void FlowProto::SetProfileData(ProfileData *data) {
     data->flow_.evict_count_ = stats_.evict_count_;
 
     PktModule *pkt = agent()->pkt();
-    const FlowMgmtManager::FlowMgmtQueue *flow_mgmt =
-        pkt->flow_mgmt_manager()->request_queue();
-    SetFlowMgmtQueueStats(agent(), flow_mgmt, &data->flow_.flow_mgmt_queue_);
+    std::vector<FlowMgmtManager *> mgr_list = pkt->flow_mgmt_manager_list();
 
     data->flow_.flow_event_queue_.resize(flow_table_list_.size());
     data->flow_.flow_delete_queue_.resize(flow_table_list_.size());
     data->flow_.flow_misc_event_queue_.resize(flow_table_list_.size());
     data->flow_.flow_ksync_queue_.resize(flow_table_list_.size());
     for (uint16_t i = 0; i < flow_table_list_.size(); i++) {
+        SetFlowMgmtQueueStats(agent(), mgr_list[i]->request_queue(),
+                              &data->flow_.flow_mgmt_queue_);
         SetFlowEventQueueStats(agent(), flow_event_queue_[i]->queue(),
                                &data->flow_.flow_event_queue_[i]);
         SetFlowEventQueueStats(agent(), flow_delete_queue_[i]->queue(),
