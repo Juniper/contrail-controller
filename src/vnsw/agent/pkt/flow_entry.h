@@ -664,7 +664,8 @@ private:
     void SetRemoteFlowEcmpIndex();
     void SetLocalFlowEcmpIndex();
     void set_ecmp_rpf_nh() const;
-
+    void SetSgAclInfo(const FlowPolicyInfo &fwd_flow_info,
+                      const FlowPolicyInfo &rev_flow_info, bool tcp_rev_sg);
     FlowKey key_;
     FlowTable *flow_table_;
     FlowData data_;

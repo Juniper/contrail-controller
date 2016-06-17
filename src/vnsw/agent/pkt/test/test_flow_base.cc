@@ -675,7 +675,7 @@ protected:
         AddLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");
         client->WaitForIdle();
         boost::system::error_code ec;
-        peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+        bgp_peer_ = peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
                               "xmpp channel");
         Ip4Address gw_ip = Ip4Address::from_string("11.1.1.254");
         //Add a gateway route pointing to pkt0
