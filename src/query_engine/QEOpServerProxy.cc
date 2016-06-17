@@ -53,9 +53,13 @@ RedisAsyncConnection::ClientDisconnectCbFn );
 
 SandeshTraceBufferPtr QeTraceBuf(SandeshTraceBufferCreate(QE_TRACE_BUF, 10000));
 
-typedef pair<QEOpServerProxy::QPerfInfo,
-             pair<shared_ptr<QEOpServerProxy::BufferT>,
-                  shared_ptr<QEOpServerProxy::OutRowMultimapT> > > RawResultT; 
+struct RawResultT {
+    QEOpServerProxy::QPerfInfo perf;
+    shared_ptr<QEOpServerProxy::BufferT> res;
+    shared_ptr<QEOpServerProxy::OutRowMultimapT>  mres;
+    shared_ptr<WhereResultT> wres;
+};
+
 typedef pair<redisReply,vector<string> > RedisT;
 
 bool RedisAsyncArgCommand(RedisAsyncConnection * rac,
@@ -63,6 +67,7 @@ bool RedisAsyncArgCommand(RedisAsyncConnection * rac,
 
     return rac->RedisAsyncArgCmd(rpi, args);
 }
+
 
 class QEOpServerProxy::QEOpServerImpl {
 public:
@@ -73,6 +78,7 @@ public:
         string hostname;
         QueryEngine::QueryParams qp;
         vector<uint64_t> chunk_size;
+        uint32_t wterms;
         bool need_merge;
         bool map_output;
         string where;
@@ -201,13 +207,32 @@ public:
     }
 
 
+    void QECallback(void * qid, QPerfInfo qperf,
+            auto_ptr<std::vector<query_result_unit_t> > res) {
+
+        RawResultT* raw(new RawResultT);
+        raw->perf = qperf;
+        raw->wres = res;
+
+        ExternalProcIf<RawResultT> * rpi = NULL;
+        if (qid)
+            rpi = reinterpret_cast<ExternalProcIf<RawResultT> *>(qid);
+
+        if (rpi) {
+            QE_LOG_NOQID(DEBUG,  " Rx data from QE for " <<
+                    rpi->Key());
+            auto_ptr<RawResultT> rp(raw);
+            rpi->Response(rp);
+        }
+    }
+
     void QECallback(void * qid, QPerfInfo qperf, auto_ptr<QEOpServerProxy::BufferT> res, 
             auto_ptr<QEOpServerProxy::OutRowMultimapT> mres) {
 
         RawResultT* raw(new RawResultT);
-        raw->first = qperf;
-        raw->second.first = res;
-        raw->second.second = mres;
+        raw->perf = qperf;
+        raw->res = res;
+        raw->mres = mres;
 
         ExternalProcIf<RawResultT> * rpi = NULL;
         if (qid)
@@ -228,12 +253,14 @@ public:
         vector<uint32_t> chunk_merge_time;
         shared_ptr<BufferT> result;
         shared_ptr<OutRowMultimapT> mresult;
+        vector<shared_ptr<WhereResultT> > welem;
+        shared_ptr<WhereResultT> wresult;
+        uint32_t current_chunk;
     };
 
     ExternalBase::Efn QueryExec(uint32_t inst, const vector<RawResultT*> & exts,
             const Input & inp, Stage0Out & res) { 
         uint32_t step = exts.size();
-
 
         if (!step) {
             res.inp = inp;
@@ -244,8 +271,15 @@ public:
             else
                 res.result = shared_ptr<BufferT>(new BufferT());
 
+            res.wresult = shared_ptr<WhereResultT>(new WhereResultT());
+            for (size_t or_idx=0; or_idx<inp.wterms; or_idx++) {
+                shared_ptr<WhereResultT> ss;
+                res.welem.push_back(ss);
+            }
+ 
             Input& cinp = const_cast<Input&>(inp);
-            uint32_t chunknum = cinp.chunk_q.fetch_and_increment(); 
+            res.current_chunk = cinp.chunk_q.fetch_and_increment();
+            const uint32_t chunknum = res.current_chunk;
             if (chunknum < inp.chunk_size.size()) {
 
                 string key = "QUERY:" + res.inp.qp.qid;
@@ -261,36 +295,63 @@ public:
                 RedisAsyncArgCommand(rac, NULL, 
                     list_of(string("RPUSH"))(rkey)(stat));
 
-                return boost::bind(&QueryEngine::QueryExec, qosp_->qe_,
-                        _1,
-                        inp.qp,
-                        chunknum);
+                return boost::bind(&QueryEngine::QueryExecWhere, qosp_->qe_,
+                        _1, inp.qp, chunknum, 0);
             } else {
                 return NULL;
             }
         }
 
-        res.ret_info.push_back(exts[step-1]->first);
-        if (exts[step-1]->first.error) {
+        res.ret_info.push_back(exts[step-1]->perf);
+        if (exts[step-1]->perf.error) {
             res.ret_code =false;
         }
+        if (!res.ret_code) return NULL;
 
-        uint32_t added_rows;
+        // Number of substeps per chunk is the number of OR terms in WHERE
+        // plus one more substep for select and post processing
+        uint32_t substep = step % (inp.wterms + 1);
 
-        if (res.ret_code) {
+        if (substep == inp.wterms) {
+            // Get the result of the final WHERE
+            res.welem[substep-1] = exts[step-1]->wres;
+
+            // The set "OR" API needs raw pointers
+            vector<WhereResultT*> oterms;
+            for (size_t or_idx = 0; or_idx < inp.wterms; or_idx++) {
+                oterms.push_back(res.welem[or_idx].get());
+            }
+
+            // Do SET operations
+            QE_ASSERT(res.wresult->size() == 0);
+            SetOperationUnit::op_or(res.inp.qp.qid, *res.wresult, oterms);
+
+	    for (size_t or_idx=0; or_idx<inp.wterms; or_idx++) {
+                res.welem[or_idx].reset();
+            }
+
+            // Start the SELECT and POST-processing
+            return boost::bind(&QueryEngine::QueryExec, qosp_->qe_,
+                   _1, inp.qp, res.current_chunk, res.wresult.get());
+
+        } else if (substep == 0) {
+            // A chunk is complete. Start another one
+            res.wresult->clear();
+            uint32_t added_rows;
+
             if (inp.need_merge) {
                 uint64_t then = UTCTimestampUsec();
                 if (inp.map_output) {
                     uint32_t base_rows = res.mresult->size();
                     // TODO: This interface should not be Stats-Specific
-                    StatsSelect::Merge(*(exts[step-1]->second.second), *(res.mresult));
+                    StatsSelect::Merge(*(exts[step-1]->mres), *(res.mresult));
                     // Some rows of this chunk will merge into existing results
                     added_rows = res.mresult->size() - base_rows;
                 } else {
                     uint32_t base_rows = res.result->size();
                     res.ret_code =
                         qosp_->qe_->QueryAccumulate(inp.qp,
-                            *(exts[step-1]->second.first), *(res.result));
+                            *(exts[step-1]->res), *(res.result));
                     // Some rows of this chunk will merge into existing results
                     added_rows = res.result->size() - base_rows;
                 }
@@ -302,19 +363,19 @@ public:
                 //        a result upto redis at this point.
 
                 if (inp.map_output) {
-                    added_rows = exts[step-1]->second.second->size();
+                    added_rows = exts[step-1]->mres->size();
                     OutRowMultimapT::iterator jt = res.mresult->begin();
-                    for (OutRowMultimapT::const_iterator it = exts[step-1]->second.second->begin();
-                            it != exts[step-1]->second.second->end(); it++ ) {
+                    for (OutRowMultimapT::const_iterator it = exts[step-1]->mres->begin();
+                            it != exts[step-1]->mres->end(); it++ ) {
 
                         jt = res.mresult->insert(jt,
                                 std::make_pair(it->first, it->second));
                     }
                 } else {
-                    added_rows = exts[step-1]->second.first->size();
+                    added_rows = exts[step-1]->res->size();
                     res.result->insert(res.result->begin(),
-                        exts[step-1]->second.first->begin(),
-                        exts[step-1]->second.first->end());                        
+                        exts[step-1]->res->begin(),
+                        exts[step-1]->res->end());                        
                 }
             }
             Input& cinp = const_cast<Input&>(inp);
@@ -323,7 +384,9 @@ public:
                     cinp.total_rows << " chunk " << cinp.chunk_q);
                 return NULL;
             }
-            uint32_t chunknum = cinp.chunk_q.fetch_and_increment(); 
+            
+	    res.current_chunk = cinp.chunk_q.fetch_and_increment();
+            const uint32_t chunknum = res.current_chunk;
             if (chunknum < inp.chunk_size.size()) {
                 string key = "QUERY:" + res.inp.qp.qid;
 
@@ -337,13 +400,18 @@ public:
                 sprintf(stat,"{\"progress\":%d}", prg);
                 RedisAsyncArgCommand(rac, NULL, 
                     list_of(string("RPUSH"))(rkey)(stat));         
-                return boost::bind(&QueryEngine::QueryExec, qosp_->qe_,
-                        _1,
-                        inp.qp,
-                        chunknum);
+                return boost::bind(&QueryEngine::QueryExecWhere, qosp_->qe_,
+                        _1, inp.qp, chunknum, 0);
             } else {
                 return NULL;
             }            
+        } else {
+            // We are in the middle of doing WHERE processing for a chunk
+
+            res.welem[substep-1] = exts[step-1]->wres;
+
+            return boost::bind(&QueryEngine::QueryExecWhere, qosp_->qe_,
+                    _1, inp.qp, res.current_chunk, substep);
         }
         return NULL;
     }
@@ -756,12 +824,13 @@ public:
         bool map_output;
         string table;
         string where;
+        uint32_t wterms;
         string select;
         string post;
         uint64_t time_period;
 
         int ret = qosp_->qe_->QueryPrepare(qp, chunk_size, need_merge, map_output,
-            where, select, post, time_period, table);
+            where, wterms, select, post, time_period, table);
 
         qs.set_where(where);
         qs.set_select(select);
@@ -810,8 +879,8 @@ public:
         inp.get()->chunk_q = 0;
         inp.get()->total_rows = 0;
         inp.get()->max_rows = max_rows_;
+        inp.get()->wterms = wterms;
         
-
         vector<pair<int,int> > tinfo;
         for (uint idx=0; idx<(uint)max_tasks_; idx++) {
             tinfo.push_back(make_pair(0, -1));
@@ -1038,4 +1107,10 @@ QEOpServerProxy::QueryResult(void * qid, QPerfInfo qperf,
     impl_->QECallback(qid, qperf, res, mres);
 }
 
+void
+QEOpServerProxy::QueryResult(void * qid, QPerfInfo qperf,
+        auto_ptr<std::vector<query_result_unit_t> > res) {
+        
+    impl_->QECallback(qid, qperf, res);
+}
 
