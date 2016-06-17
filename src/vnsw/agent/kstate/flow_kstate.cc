@@ -301,6 +301,9 @@ bool FlowKState::Run() {
     while(idx < max_flows) {
         k_flow = ksync_obj->GetKernelFlowEntry(idx, false);
         if (k_flow) {
+            if(k_flow->fe_tcp_flags & VR_FLOW_FLAG_EVICTED) {
+                continue;
+            }
             count++;
             SetFlowData(list, k_flow, idx);
         } 
