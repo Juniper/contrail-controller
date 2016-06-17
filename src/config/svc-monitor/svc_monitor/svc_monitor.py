@@ -1051,7 +1051,8 @@ def parse_args(args_str):
         'logging_conf': '',
         'logger_class': None,
         'sandesh_send_rate_limit' : SandeshSystem.get_sandesh_send_rate_limit(),
-        }
+        'nova_endpoint_type': 'internalURL',
+    }
     secopts = {
         'use_certs': False,
         'keyfile': '',
