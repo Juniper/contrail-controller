@@ -176,6 +176,24 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:restriction>
 </xsd:simpleType>
 
+<xsd:simpleType name="NHModeType">
+    <xsd:restriction base='xsd:string' required='true'>
+        <xsd:enumeration value='dynamic' required='exclusive'/>
+        <xsd:enumeration value='static' required='exclusive'/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="StaticMirrorNhType">
+    <xsd:all>
+    <xsd:element name="vtep-dst-ip-address" type="smi:IpAddress" required='true'
+        description='ip address of destination VTEP'/>
+    <xsd:element name="mac" type="xsd:string" required='true'
+        description='mac address of destination '/>
+    <xsd:element name="vni" type="xsd:integer" required='true'
+        description='Vni of Vtep'/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:complexType name="MirrorActionType">
     <xsd:all>
         <xsd:element name="analyzer-name" type="xsd:string"          required='optional'
@@ -188,6 +206,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              description='Internal use only, should be set to -1'/>
         <xsd:element name="udp-port" type="xsd:integer"              required='optional'
              description='ip udp port used in contrail default encapsulation for mirroring'/>
+        <xsd:element name="juniper-hdr" type="xsd:boolean"  default="true"      required='optional'
+            description='This flag is used to determine with/without juniper-hdr'/>
+        <xsd:element name="nh-mode" type="NHModeType"      required='true'
+            description='This mode used to determine static or dynamic nh '/>
+        <xsd:element name="static-nh-hdr" type="StaticMirrorNhType"             required='optional'
+            description='vtep details required if static nh enabled'/>
     </xsd:all>
 </xsd:complexType>
 
