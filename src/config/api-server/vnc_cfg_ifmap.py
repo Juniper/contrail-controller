@@ -11,6 +11,8 @@ monkey.patch_all()
 import gevent
 import gevent.event
 from gevent.queue import Queue, Empty
+from gevent.pool import Pool
+
 import time
 from pprint import pformat
 
@@ -93,12 +95,17 @@ class VncIfmapClient(object):
         file.close()
 
     def __init__(self, db_client_mgr, ifmap_srv_ip, ifmap_srv_port,
-                 uname, passwd, ssl_options):
+                 uname, passwd, ssl_options, init_worker=False):
         self._ifmap_srv_ip = ifmap_srv_ip
         self._ifmap_srv_port = ifmap_srv_port
         self._username = uname
         self._password = passwd
         self._ssl_options = ssl_options
+        self._init_worker = init_worker
+        if not self._init_worker:
+            self._queue_size = db_client_mgr.ifmap_queue_size_for_init
+        else:
+            self._queue_size = db_client_mgr.ifmap_queue_size
         self._dequeue_greenlet = None
         self._CONTRAIL_XSD = "http://www.contrailsystems.com/vnc_cfg.xsd"
         self._IPERMS_NAME = "id-perms"
@@ -113,11 +120,12 @@ class VncIfmapClient(object):
         self._db_client_mgr = db_client_mgr
         self._sandesh = db_client_mgr._sandesh
 
-        ConnectionState.update(conn_type = ConnType.IFMAP,
-            name = 'IfMap', status = ConnectionStatus.INIT, message = '',
-            server_addrs = ["%s:%s" % (ifmap_srv_ip, ifmap_srv_port)])
-        self._conn_state = ConnectionStatus.INIT
-        self._is_ifmap_up = False
+        if not self._init_worker:
+            ConnectionState.update(conn_type = ConnType.IFMAP,
+                name = 'IfMap', status = ConnectionStatus.INIT, message = '',
+                server_addrs = ["%s:%s" % (ifmap_srv_ip, ifmap_srv_port)])
+            self._conn_state = ConnectionStatus.INIT
+            self._is_ifmap_up = False
 
         self.reset()
 
@@ -125,11 +133,18 @@ class VncIfmapClient(object):
         signal.signal(signal.SIGUSR2, self.handler)
 
         self._init_conn()
-        self._publish_config_root()
-        self._health_checker_greenlet =\
-               vnc_greenlets.VncGreenlet('VNC IfMap Health Checker',
-                                         self._health_checker)
+        if not self._init_worker:
+            self._publish_config_root()
+            self._health_checker_greenlet =\
+                   vnc_greenlets.VncGreenlet('VNC IfMap Health Checker',
+                                             self._health_checker)
     # end __init__
+
+    def get_id_to_meta_map(self):
+        return self._id_to_metas
+
+    def update_id_to_meta_map(self, dict):
+        cfgm_common.utils.merge_dict(self._id_to_metas, dict)
 
     def object_alloc(self, obj_type, parent_type, fq_name):
         res_type = obj_type.replace('_', '-')
@@ -360,13 +375,17 @@ class VncIfmapClient(object):
             except socket.error as e:
                 time.sleep(3)
 
-        ConnectionState.update(conn_type = ConnType.IFMAP,
-            name = 'IfMap', status = ConnectionStatus.UP, message = '',
-            server_addrs = ["%s:%s" % (self._ifmap_srv_ip,
-                                       self._ifmap_srv_port)])
-        self._conn_state = ConnectionStatus.UP
-        msg = 'IFMAP connection ESTABLISHED'
-        self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
+        if not self._init_worker:
+            ConnectionState.update(conn_type = ConnType.IFMAP,
+                name = 'IfMap', status = ConnectionStatus.UP, message = '',
+                server_addrs = ["%s:%s" % (self._ifmap_srv_ip,
+                                           self._ifmap_srv_port)])
+            self._conn_state = ConnectionStatus.UP
+            msg = 'IFMAP connection ESTABLISHED with user %s' % self._username
+            self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
+        else:
+            msg = 'IFMAP connection ESTABLISHED with user %s' % self._username
+            self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
 
         mapclient.set_session_id(newSessionResult(result).get_session_id())
         mapclient.set_publisher_id(newSessionResult(result).get_publisher_id())
@@ -388,7 +407,7 @@ class VncIfmapClient(object):
                     break
         # end drained in flight messages
 
-        self._queue = Queue(self._get_api_server()._args.ifmap_queue_size)
+        self._queue = Queue(self._queue_size)
         if self._dequeue_greenlet is None:
             self._dequeue_greenlet =\
                   vnc_greenlets.VncGreenlet("VNC IfMap Dequeue",
@@ -476,6 +495,8 @@ class VncIfmapClient(object):
                     traces.append(trace)
                 requests.append(oper_body)
                 requests_len += len(oper_body)
+                with open('/tmp/message_length', 'a') as file:
+                    file.write('%s\n' % len(oper_body))
                 if (requests_len >
                     self._get_api_server()._args.ifmap_max_message_size):
                     _publish(requests, traces)
@@ -534,6 +555,7 @@ class VncIfmapClient(object):
             return True, resp_xml
         except Exception as e:
             if (isinstance(e, socket.error) and
+                not self._init_worker and
                 self._conn_state != ConnectionStatus.DOWN):
                 self._conn_state = ConnectionStatus.DOWN
                 log_str = 'Connection to IFMAP down. Failed to publish %s' %(
@@ -582,9 +604,8 @@ class VncIfmapClient(object):
             return request
 
     def _delete_id_self_meta(self, self_imid, meta_name):
-        mapclient = self._mapclient
         contrail_metaname = 'contrail:' + meta_name if meta_name else None
-        del_str = self._build_request(self_imid, 'self', [contrail_metaname], 
+        del_str = self._build_request(self_imid, 'self', [contrail_metaname],
                                       True)
         self._publish_to_ifmap_enqueue('delete', del_str)
 
@@ -598,7 +619,6 @@ class VncIfmapClient(object):
     # end _delete_id_self_meta
 
     def _delete_id_pair_meta_list(self, id1, meta_list):
-        mapclient = self._mapclient
         del_str = ''
         for id2, metadata in meta_list:
             contrail_metadata = 'contrail:' + metadata if metadata else None
@@ -649,7 +669,6 @@ class VncIfmapClient(object):
      # end _update_id_pair_meta
 
     def _publish_update(self, self_imid, update):
-        mapclient = self._mapclient
         requests = []
         self_metas = self._id_to_metas.setdefault(self_imid, {})
         for id2, metalist in update.items():
@@ -661,7 +680,7 @@ class VncIfmapClient(object):
 
                 # Objects have two types of members - Props and refs/links.
                 # Props are cached in id_to_metas as
-                #        id_to_metas[self_imid][meta_name][''] 
+                #        id_to_metas[self_imid][meta_name]['']
                 #        (with empty string as key)
 
                 # Links are cached in id_to_metas as
@@ -681,7 +700,7 @@ class VncIfmapClient(object):
 
                 # Reverse linking from id2 to id1
                 self._id_to_metas.setdefault(id2, {})
- 
+
                 if meta_name in self._id_to_metas[id2]:
                     self._id_to_metas[id2][meta_name][self_imid] = m
                 else:
@@ -785,9 +804,10 @@ class VncServerCassandraClient(VncCassandraClient):
         return db_info
     # end get_db_info
 
-    def __init__(self, db_client_mgr, cass_srv_list, reset_config, db_prefix,
-                      cassandra_credential):
+    def __init__(self, db_client_mgr, ifmap_db, cass_srv_list, reset_config,
+                 db_prefix, cassandra_credential):
         self._db_client_mgr = db_client_mgr
+        self._ifmap_db = ifmap_db
         keyspaces = self._UUID_KEYSPACE.copy()
         keyspaces[self._USERAGENT_KEYSPACE_NAME] = [
             (self._USERAGENT_KV_CF_NAME, None)]
@@ -941,6 +961,7 @@ class VncServerCassandraClient(VncCassandraClient):
     # end useragent_kv_delete
 
     def walk(self, fn):
+        start_time = datetime.datetime.utcnow()
         type_to_object = {}
         for obj_uuid, obj_col in self._obj_uuid_cf.get_range(
                 columns=['type', 'fq_name']):
@@ -949,31 +970,35 @@ class VncServerCassandraClient(VncCassandraClient):
                 obj_fq_name = json.loads(obj_col['fq_name'])
                 # prep cache to avoid n/w round-trip in db.read for ref
                 self.cache_uuid_to_fq_name_add(obj_uuid, obj_fq_name, obj_type)
-
-                try:
-                    type_to_object[obj_type].append(obj_uuid)
-                except KeyError:
-                    type_to_object[obj_type] = [obj_uuid]
+                type_to_object.setdefault(obj_type, []).append(obj_uuid)
             except Exception as e:
                 self.config_log('Error in db walk read %s' %(str(e)),
                                 level=SandeshLevel.SYS_ERR)
                 continue
+        elapsed = datetime.datetime.utcnow() - start_time
+        total_resources = sum([len(uuids) for uuids in type_to_object.values()])
+        self.config_log('Walk cassandra database in %s and found %d resources...' %
+                        (elapsed, total_resources), level=SandeshLevel.SYS_INFO)
 
-        walk_results = []
-        for obj_type, uuid_list in type_to_object.items():
-            try:
-                self.config_log('Resync: obj_type %s len %s'
-                                %(obj_type, len(uuid_list)),
-                                level=SandeshLevel.SYS_INFO)
-                result = fn(obj_type, uuid_list)
-                if result:
-                    walk_results.append(result)
-            except Exception as e:
-                self.config_log('Error in db walk invoke %s' %(str(e)),
-                                level=SandeshLevel.SYS_ERR)
-                continue
+        start_time = datetime.datetime.utcnow()
+        ifmap_client_queue = self._db_client_mgr._ifmap_client_queue
+        ifmap_workers = Pool(ifmap_client_queue.maxsize + 1)
+        queue_len = self._db_client_mgr.ifmap_queue_size_for_init
+        for obj_type, obj_uuids in type_to_object.iteritems():
+            for chunk_uuid in [obj_uuids[x:x+queue_len] for x in
+                               xrange(0, len(obj_uuids), queue_len)]:
+                ifmap_workers.spawn(fn, obj_type, chunk_uuid)
+        ifmap_workers.join()
+        elapsed = datetime.datetime.utcnow() - start_time
+        self.config_log('IF-MAP graph populated in %s' % elapsed,
+                        level=SandeshLevel.SYS_INFO)
 
-        return walk_results
+        ifmap_client_queue.maxsize = ifmap_client_queue.maxsize + 1
+        self._db_client_mgr._ifmap_client_queue.put(StopIteration)
+        for ifmap_client in ifmap_client_queue:
+            self._ifmap_db.update_id_to_meta_map(
+                ifmap_client.get_id_to_meta_map())
+
     # end walk
 # end class VncCassandraClient
 
@@ -1318,16 +1343,16 @@ class VncDbClient(object):
         self._api_svr_mgr = api_svr_mgr
         self._sandesh = api_svr_mgr._sandesh
 
-        self._UVEMAP = {
-            "virtual_network" : "ObjectVNTable",
-            "service_instance" : "ObjectSITable",
-            "virtual_router" : "ObjectVRouter",
-            "analytics_node" : "ObjectCollectorInfo",
-            "database_node" : "ObjectDatabaseInfo",
-            "config_node" : "ObjectConfigNode",
-            "service_chain" : "ServiceChain",
-            "physical_router" : "ObjectPRouter",
-        }
+        self._UVEMAP = {}
+        #     "virtual_network" : "ObjectVNTable",
+        #     "service_instance" : "ObjectSITable",
+        #     "virtual_router" : "ObjectVRouter",
+        #     "analytics_node" : "ObjectCollectorInfo",
+        #     "database_node" : "ObjectDatabaseInfo",
+        #     "config_node" : "ObjectConfigNode",
+        #     "service_chain" : "ServiceChain",
+        #     "physical_router" : "ObjectPRouter",
+        # }
 
         self._UVEGLOBAL = set([
             "virtual_router",
@@ -1337,25 +1362,36 @@ class VncDbClient(object):
             "physical_router"
         ])
 
-        # certificate auth
-        ssl_options = None
-        if api_svr_mgr._args.use_certs:
-            ssl_options = {
-                'keyfile': api_svr_mgr._args.keyfile,
-                'certfile': api_svr_mgr._args.certfile,
-                'ca_certs': api_svr_mgr._args.ca_certs,
-                'cert_reqs': ssl.CERT_REQUIRED,
-                'ciphers': 'ALL'
-            }
-
         self._db_resync_done = gevent.event.Event()
+        # Calculate the two distinct ifmap queue sizes, one for init workers
+        # and another one for nominal case depending to calculates average size
+        # in that cases
+        self.ifmap_queue_size = int(
+            self._api_svr_mgr._args.ifmap_max_message_size /
+            cfgm_common.IFMAP_AVG_MESSAGE_SIZE)
+        self.ifmap_queue_size_for_init = int(
+            self._api_svr_mgr._args.ifmap_max_message_size /
+            cfgm_common.IFMAP_AVG_MESSAGE_SIZE_FOR_INIT)
 
-        msg = "Connecting to ifmap on %s:%s as %s" \
-              % (ifmap_srv_ip, ifmap_srv_port, uname)
-        self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
+        # Get an ifmap client that will be used in nominal case
+        username, password = self._api_svr_mgr._args.ifmap_credentials.pop()
+        try:
+            self._ifmap_db = self._get_ifmap_client(username, password)
+        except IndexError:
+            msg = "Cannot acquire ifmap credentials, none set?"
+            self.config_log(msg, level=SandeshLevel.SYS_ERR)
+            raise IfmapUnavailableError(msg)
 
-        self._ifmap_db = VncIfmapClient(
-            self, ifmap_srv_ip, ifmap_srv_port, uname, passwd, ssl_options)
+        # Instanciate an ifmap client for each credential and put it into a
+        # queue that will be share between workers during the init phase
+        if len(self._api_svr_mgr._args.ifmap_credentials) == 0:
+            msg = "Cannot acquire ifmap credentials to init the ifmap server"
+            raise IfmapUnavailableError(msg)
+        self._ifmap_client_queue = gevent.queue.Queue(
+            len(self._api_svr_mgr._args.ifmap_credentials))
+        for username, password in api_svr_mgr._args.ifmap_credentials:
+            self._ifmap_client_queue.put(
+                self._get_ifmap_client(username, password, init_worker=True))
 
         msg = "Connecting to zookeeper on %s" % (zk_server_ip)
         self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
@@ -1367,7 +1403,8 @@ class VncDbClient(object):
             self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
             self._cassandra_db = VncServerCassandraClient(
-                self, cass_srv_list, reset_config, db_prefix, cassandra_credential)
+                self, self._ifmap_db, cass_srv_list, reset_config, db_prefix,
+                cassandra_credential)
 
         self._zk_db.master_election(cassandra_client_init)
 
@@ -1405,7 +1442,6 @@ class VncDbClient(object):
 
     def db_resync(self):
         # Read contents from cassandra and publish to ifmap
-        mapclient = self._ifmap_db._mapclient
         start_time = datetime.datetime.utcnow()
         self._cassandra_db.walk(self._dbe_resync)
         self._ifmap_db._publish_to_ifmap_enqueue('publish_discovery', 1)
@@ -1416,6 +1452,7 @@ class VncDbClient(object):
         msg = "Time elapsed in syncing ifmap: %s" % (str(end_time - start_time))
         self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
         self._db_resync_done.set()
+        import ipdb; ipdb.set_trace()
     # end db_resync
 
     def wait_for_resync_done(self):
@@ -1584,6 +1621,10 @@ class VncDbClient(object):
         obj_fields = list(obj_class.prop_fields) + list(obj_class.ref_fields)
         (ok, obj_dicts) = self._cassandra_db.object_read(
                                obj_type, obj_uuids, field_names=obj_fields)
+
+        # Block until a ifmap client is available
+        ifmap_client = self._ifmap_client_queue.get()
+
         for obj_dict in obj_dicts:
             try:
                 obj_uuid = obj_dict['uuid']
@@ -1613,7 +1654,7 @@ class VncDbClient(object):
 
                 # Ifmap alloc
                 parent_type = obj_dict.get('parent_type', None)
-                (ok, result) = self._ifmap_db.object_alloc(
+                (ok, result) = ifmap_client.object_alloc(
                     obj_type, parent_type, obj_dict['fq_name'])
                 if not ok:
                     msg = "%s(%s), dbe_resync:ifmap_alloc error: %s" % (
@@ -1625,11 +1666,14 @@ class VncDbClient(object):
                 # Ifmap create
                 obj_ids = {'type': obj_type, 'uuid': obj_uuid, 'imid': my_imid,
                            'parent_imid': parent_imid}
-                (ok, result) = self._ifmap_db.object_create(obj_ids, obj_dict)
+                (ok, result) = ifmap_client.object_create(obj_ids, obj_dict)
             except Exception as e:
                 tb = cfgm_common.utils.detailed_traceback()
                 self.config_log(tb, level=SandeshLevel.SYS_ERR)
                 continue
+
+        # Release the ifmap client
+        self._ifmap_client_queue.put(ifmap_client)
         # end for all objects
     # end _dbe_resync
 
@@ -2104,4 +2148,22 @@ class VncDbClient(object):
         self._ifmap_db.reset(drain_inflight=True)
         self._msgbus.reset()
     # end reset
+
+    def _get_ifmap_client(self, username, password, init_worker=False):
+        host = self._api_svr_mgr._args.ifmap_server_ip
+        port = self._api_svr_mgr._args.ifmap_server_port
+
+        # certificate auth
+        ssl_options = None
+        if self._api_svr_mgr._args.use_certs:
+            ssl_options = {
+                'keyfile': self._api_svr_mgr._args.keyfile,
+                'certfile': self._api_svr_mgr._args.certfile,
+                'ca_certs': self._api_svr_mgr._args.ca_certs,
+                'cert_reqs': ssl.CERT_REQUIRED,
+                'ciphers': 'ALL'
+            }
+
+        return VncIfmapClient(self, host, port, username, password,
+                              ssl_options, init_worker)
 # end class VncDbClient

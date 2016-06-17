@@ -18,6 +18,11 @@ _WEB_PORT = 8082
 _ADMIN_PORT = 8095
 _CLOUD_ADMIN_ROLE = 'admin'
 
+
+def credential_list(s):
+    return [(cred.split(':')[0], cred.split(':')[1]) for cred in s.split(',')]
+
+
 def parse_args(args_str):
     args_obj = None
     # Source any specified config/ini file
@@ -36,11 +41,9 @@ def parse_args(args_str):
         'admin_port': _ADMIN_PORT,
         'ifmap_server_ip': '127.0.0.1',
         'ifmap_server_port': "8443",
-        'ifmap_queue_size': 10000,
-        'ifmap_max_message_size': 1024*1024,
+        'ifmap_max_message_size': 5000000,
         'cassandra_server_list': "127.0.0.1:9160",
-        'ifmap_username': "api-server",
-        'ifmap_password': "api-server",
+        'ifmap_credentials': "user1:pass1,user2:pass2",
         'collectors': None,
         'http_server_port': '8084',
         'log_local': True,
@@ -149,19 +152,13 @@ def parse_args(args_str):
     parser.add_argument(
         "--ifmap_server_port", help="Port of ifmap server")
     parser.add_argument(
-        "--ifmap_queue_size", type=int, help="Size of the queue that holds "
-        "pending messages to be sent to ifmap server")
-    parser.add_argument(
         "--ifmap_max_message_size", type=int, help="Maximum size of message "
         "sent to ifmap server")
+    parser
+    parser.add_argument(
+        "--ifmap_credentials", help="List of tuple 'username:password' "
+        "separated by a comma", type=credential_list)
 
-    # TODO should be from certificate
-    parser.add_argument(
-        "--ifmap_username",
-        help="Username known to ifmap server")
-    parser.add_argument(
-        "--ifmap_password",
-        help="Password known to ifmap server")
     parser.add_argument(
         "--cassandra_server_list",
         help="List of cassandra servers in IP Address:Port format",

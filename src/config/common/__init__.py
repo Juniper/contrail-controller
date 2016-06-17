@@ -15,6 +15,12 @@ SG_NO_RULE_FQ_NAME = ['default-domain', 'default-project', SG_NO_RULE_NAME]
 BGP_RTGT_MIN_ID = 8000000
 SGID_MIN_ALLOC = 8000000
 
+# IF-MAP avegerage message size in init phase (only add) (in octet)
+IFMAP_AVG_MESSAGE_SIZE_FOR_INIT = 2000
+# IF-MAP avegerage message size in nominal case (in octet)
+IFMAP_AVG_MESSAGE_SIZE = 160
+
+
 def obj_to_json(obj):
     return dict((k, v) for k, v in obj.__dict__.iteritems())
 #end obj_to_json

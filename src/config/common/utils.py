@@ -23,7 +23,7 @@
 
 import re
 import urllib
-from collections import OrderedDict
+from collections import OrderedDict, Mapping
 import sys
 import cgitb
 import cStringIO
@@ -201,3 +201,14 @@ def getCertKeyCaBundle(bundle, certs):
                     ofile.write(line)
     return bundle
 # end CreateCertKeyCaBundle
+
+
+def merge_dict(orig_dict, new_dict):
+    for key, value in new_dict.iteritems():
+        if isinstance(value, Mapping):
+            orig_dict[key] = merge_dict(orig_dict.get(key, {}), value)
+        elif isinstance(value, list):
+            orig_dict[key] = orig_dict[key].append(value)
+        else:
+            orig_dict[key] = new_dict[key]
+    return orig_dict

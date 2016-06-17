@@ -10,7 +10,7 @@ from pycassa.pool import AllServersUnavailable, MaximumRetryException
 import gevent
 
 from vnc_api import vnc_api
-from exceptions import NoIdError, DatabaseUnavailableError, VncError
+from exceptions import NoIdError, CassandraUnavailableError, VncError
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
@@ -25,18 +25,6 @@ import re
 from operator import itemgetter
 import itertools
 import sys
-from collections import Mapping
-
-
-def merge_dict(orig_dict, new_dict):
-    for key, value in new_dict.iteritems():
-        if isinstance(value, Mapping):
-            orig_dict[key] = merge_dict(orig_dict.get(key, {}), value)
-        elif isinstance(value, list):
-            orig_dict[key] = orig_dict[key].append(value)
-        else:
-            orig_dict[key] = new_dict[key]
-    return orig_dict
 
 
 class VncCassandraClient(object):
@@ -143,7 +131,7 @@ class VncCassandraClient(object):
                 rows = cf.multiget(keys,
                                    columns=columns,
                                    include_timestamp=timestamp)
-                merge_dict(results, rows)
+                utils.merge_dict(results, rows)
             else:
                 for key in keys:
                     for column_chunk in [columns[x:x+(_thrift_limit_size - 1)] for x in
@@ -354,7 +342,7 @@ class VncCassandraClient(object):
                     self._logger(msg, level=SandeshLevel.SYS_ERR)
 
                 self._conn_state = ConnectionStatus.DOWN
-                raise DatabaseUnavailableError(
+                raise CassandraUnavailableError(
                     'Error, %s: %s' %(str(e), utils.detailed_traceback()))
 
         return wrapper
