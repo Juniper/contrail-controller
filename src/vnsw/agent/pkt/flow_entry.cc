@@ -378,6 +378,7 @@ FlowEntry::~FlowEntry() {
 void FlowEntry::Reset() {
     assert(ksync_entry_ == NULL);
     uuid_ = flow_table_->rand_gen();
+    egress_uuid_ = flow_table_->rand_gen();
     data_.Reset();
     l3_flow_ = true;
     gen_id_ = 0;
@@ -800,6 +801,13 @@ void FlowEntry::RevFlowDepInfo(RevFlowDepParams *params) {
     FlowEntry *rev_flow = reverse_flow_entry();
     if (rev_flow) {
         params->rev_uuid_ = rev_flow->uuid();
+        params->vm_cfg_name_ = rev_flow->data().vm_cfg_name;
+        params->sg_uuid_ = rev_flow->sg_rule_uuid();
+        params->rev_egress_uuid_ = rev_flow->egress_uuid();
+        if (rev_flow->intf_entry()) {
+            params->vmi_uuid_ = UuidToString(rev_flow->intf_entry()->GetUuid());
+        }
+
         if (key().family != Address::INET) {
             return;
         }
@@ -1499,6 +1507,53 @@ void FlowEntry::SetOutPacketHeader(PacketHeader *hdr) {
     hdr->dst_sg_id_l = &(rflow->data().source_sg_id_l);
 }
 
+void FlowEntry::SetSgAclInfo(const FlowPolicyInfo &fwd_flow_info,
+                             const FlowPolicyInfo &rev_flow_info,
+                             bool tcp_rev_sg) {
+
+    FlowEntry *rflow = reverse_flow_entry();
+    if (rflow == NULL) {
+        return;
+    }
+
+    sg_rule_uuid_ = fwd_flow_info.uuid;
+    rflow->sg_rule_uuid_ = rev_flow_info.uuid;
+
+    //If Forward flow SG rule says drop, copy corresponding
+    //ACE id to both forward and reverse flow
+    if (fwd_flow_info.drop) {
+        rflow->sg_rule_uuid_ = fwd_flow_info.uuid;
+        return;
+    }
+
+    //If reverse flow SG rule says drop, copy corresponding
+    //ACE id to both forward and reverse flow
+    if (rev_flow_info.drop) {
+        sg_rule_uuid_ = rev_flow_info.uuid;
+        return;
+    }
+
+    if (tcp_rev_sg == false) {
+        if (data_.match_p.sg_rule_present == false) {
+            sg_rule_uuid_ = rev_flow_info.uuid;
+        }
+
+        if (data_.match_p.out_sg_rule_present == false) {
+            rflow->sg_rule_uuid_ = fwd_flow_info.uuid;
+        }
+    }
+
+    if (tcp_rev_sg == true) {
+        if (data_.match_p.reverse_sg_rule_present == false) {
+             rflow->sg_rule_uuid_ = fwd_flow_info.uuid;
+        }
+
+        if (data_.match_p.reverse_out_sg_rule_present == false) {
+            sg_rule_uuid_ = rev_flow_info.uuid;
+        }
+    }
+}
+
 // Apply Policy and SG rules for a flow.
 //
 // Special case of local flows:
@@ -1543,7 +1598,9 @@ bool FlowEntry::DoPolicy() {
 
     const string value = FlowPolicyStateStr.at(NOT_EVALUATED);
     FlowPolicyInfo nw_acl_info(value), sg_acl_info(value);
+    FlowPolicyInfo out_sg_acl_info(value);
     FlowPolicyInfo rev_sg_acl_info(value);
+    FlowPolicyInfo rev_out_sg_acl_info(value);
 
     FlowEntry *rflow = reverse_flow_entry();
     PacketHeader hdr;
@@ -1587,7 +1644,7 @@ bool FlowEntry::DoPolicy() {
             SetOutPacketHeader(&out_hdr);
             data_.match_p.out_sg_action =
                 MatchAcl(out_hdr, data_.match_p.m_out_sg_acl_l, true,
-                         !data_.match_p.out_sg_rule_present, &sg_acl_info);
+                         !data_.match_p.out_sg_rule_present, &out_sg_acl_info);
         }
 
         // For TCP-ACK packet, we allow packet if either forward or reverse
@@ -1606,7 +1663,7 @@ bool FlowEntry::DoPolicy() {
                 data_.match_p.reverse_out_sg_action =
                     MatchAcl(out_hdr, data_.match_p.m_reverse_out_sg_acl_l,
                              true, !data_.match_p.reverse_out_sg_rule_present,
-                             &rev_sg_acl_info);
+                             &rev_out_sg_acl_info);
             }
         }
 
@@ -1636,7 +1693,7 @@ bool FlowEntry::DoPolicy() {
                 data_.match_p.out_sg_action |
                 data_.match_p.reverse_sg_action |
                 data_.match_p.reverse_out_sg_action;
-            sg_rule_uuid_ = sg_acl_info.uuid;
+                SetSgAclInfo(sg_acl_info, out_sg_acl_info, false);
         } else {
             if (ShouldDrop(data_.match_p.sg_action |
                            data_.match_p.out_sg_action)
@@ -1644,15 +1701,15 @@ bool FlowEntry::DoPolicy() {
                 ShouldDrop(data_.match_p.reverse_sg_action |
                            data_.match_p.reverse_out_sg_action)) {
                 data_.match_p.sg_action_summary = (1 << TrafficAction::DENY);
-                sg_rule_uuid_ = sg_acl_info.uuid;
+                SetSgAclInfo(sg_acl_info, out_sg_acl_info, false);
             } else {
                 data_.match_p.sg_action_summary = (1 << TrafficAction::PASS);
                 if (!ShouldDrop(data_.match_p.sg_action |
                                 data_.match_p.out_sg_action)) {
-                    sg_rule_uuid_ = sg_acl_info.uuid;
+                    SetSgAclInfo(sg_acl_info, out_sg_acl_info, false);
                 } else if (!ShouldDrop(data_.match_p.reverse_sg_action |
                                        data_.match_p.reverse_out_sg_action)) {
-                    sg_rule_uuid_ = rev_sg_acl_info.uuid;
+                    SetSgAclInfo(rev_out_sg_acl_info, rev_sg_acl_info, true);
                 }
             }
         }
@@ -2085,8 +2142,6 @@ void FlowEntry::UpdateReflexiveAction() {
     if (fwd_flow) {
         data_.match_p.sg_action_summary =
             fwd_flow->data().match_p.sg_action_summary;
-        // Since SG is reflexive ACL, copy sg_rule_uuid_ from forward flow
-        sg_rule_uuid_ = fwd_flow->sg_rule_uuid();
     }
     // If forward flow is DROP, set action for reverse flow to
     // TRAP. If packet hits reverse flow, we will re-establish

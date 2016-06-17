@@ -698,9 +698,11 @@ TEST_F(FlowTest, FlowPolicyUuid_12) {
     //Verify the network policy uuid and SG rule UUID for flow.
     const FlowEntry *fe = FlowGet(flow5->vrf()->vrf_id(), vm_a_ip, vm_b_ip, 6,
                                   1, 2, flow5->flow_key_nh()->id());
+    const FlowEntry *rfe = fe->reverse_flow_entry();
     EXPECT_STREQ(FlowEntry::FlowPolicyStateStr.at(FlowEntry::IMPLICIT_ALLOW),
                  fe->nw_ace_uuid().c_str());
     EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2e2", fe->sg_rule_uuid().c_str());
+    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2e2", rfe->sg_rule_uuid().c_str());
 
     //cleanup
     FlushFlowTable();
@@ -836,10 +838,13 @@ TEST_F(FlowTest, FlowPolicyUuid_14) {
     //Verify the network policy uuid and SG rule UUID for flow.
     const FlowEntry *fe = FlowGet(flow5->vrf()->vrf_id(), vm_a_ip, vm_b_ip, 6,
                                   1, 2, flow5->flow_key_nh()->id());
+    const FlowEntry *rfe = fe->reverse_flow_entry();
     EXPECT_STREQ(FlowEntry::FlowPolicyStateStr.at(FlowEntry::IMPLICIT_ALLOW),
                  fe->nw_ace_uuid().c_str());
     EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2d2",
                  fe->sg_rule_uuid().c_str());
+    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2d3",
+                 rfe->sg_rule_uuid().c_str());
 
     //cleanup
     FlushFlowTable();
@@ -958,6 +963,293 @@ TEST_F(FlowTest, FlowPolicyUuid_16) {
     EXPECT_TRUE(FlowTableWait(0));
     DelIPAM("vn5");
     client->WaitForIdle();
+}
+
+//Local with both egress and ingress SG allowing the traffic
+//Verify SG uuid of forward flow is set to that of Egress SG of flow5
+//Verify SG uuid of reverse flow is set to that of Ingress SG of flow6
+TEST_F(FlowTest, FlowPolicyUuid_17) {
+    char acl_name[1024];
+    uint16_t max_len = sizeof(acl_name) - 1;
+    FlowSetup();
+
+    EXPECT_EQ(flow5->sg_list().list_.size(), 0U);
+    AddSgEntry("sg1", "sg_acl1", 10, 1, "pass", EGRESS,
+               "fe6a4dcb-dde4-48e6-8957-856a7aacb2d2", "0");
+    AddLink("virtual-machine-interface", "flow5", "security-group", "sg1");
+    client->WaitForIdle();
+
+    AddSgEntry("sg_i", "sg_acl_i", 11, 1, "pass", INGRESS,
+               "fe6a4dcb-dde4-48e6-8957-856a7aacb2e2", "0");
+    AddLink("virtual-machine-interface", "flow6", "security-group", "sg_i");
+    client->WaitForIdle();
+
+
+    EXPECT_EQ(flow5->sg_list().list_.size(), 1U);
+
+    TestFlow flow[] = {
+        //Add a ICMP forward and reverse flow
+        {  TestFlowPkt(Address::INET, vm_a_ip, vm_b_ip, 1, 0, 0, "vrf6",
+                       flow5->id()),
+        {
+            new VerifyVn("vn6", "vn6"),
+            new VerifyVrf("vrf6", "vrf6")
+        }
+        }
+    };
+
+    CreateFlow(flow, 1);
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
+
+    //Verify the network policy uuid and SG rule UUID for flow.
+    const FlowEntry *fe = flow[0].pkt_.FlowFetch();
+    const FlowEntry *rfe = fe->reverse_flow_entry();
+
+    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2d2",
+                 fe->sg_rule_uuid().c_str());
+    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2e2",
+                 rfe->sg_rule_uuid().c_str());
+
+    //cleanup
+    FlushFlowTable();
+    client->WaitForIdle();
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
+    DelLink("virtual-machine-interface", "flow5", "security-group", "sg1");
+    DelLink("virtual-machine-interface", "flow6", "security-group", "sg_i");
+
+    strncpy(acl_name, "sg_acl1", max_len);
+    strncat(acl_name, "egress-access-control-list", max_len);
+    DelLink("security-group", "sg1", "access-control-list", acl_name);
+    DelNode("access-control-list", acl_name);
+    DelNode("security-group", "sg1");
+
+    strncpy(acl_name, "sg_acl_i", max_len);
+    strncat(acl_name, "ingress-access-control-list", max_len);
+    DelLink("security-group", "sg_i", "access-control-list", acl_name);
+    DelNode("access-control-list", acl_name);
+    DelNode("security-group", "sg_i");
+
+    client->WaitForIdle();
+    FlowTeardown();
+    client->WaitForIdle(5);
+}
+
+//Add a remote route and verify that
+//both forward and reverse flow are set to that of egress SG uuid of flow5
+TEST_F(FlowTest, FlowPolicyUuid_18) {
+    char acl_name[1024];
+    uint16_t max_len = sizeof(acl_name) - 1;
+    FlowSetup();
+
+    EXPECT_EQ(flow5->sg_list().list_.size(), 0U);
+    AddSgEntry("sg1", "sg_acl1", 10, 1, "pass", EGRESS,
+               "fe6a4dcb-dde4-48e6-8957-856a7aacb2d2", "0");
+    AddLink("virtual-machine-interface", "flow5", "security-group", "sg1");
+    client->WaitForIdle();
+
+    EXPECT_EQ(flow5->sg_list().list_.size(), 1U);
+
+    TunnelRouteAdd("10.1.1.2", "1.1.1.3", "vrf6", 16, "vn6");
+    client->WaitForIdle();
+
+    TestFlow flow[] = {
+        //Add a ICMP forward and reverse flow
+        {  TestFlowPkt(Address::INET, vm_a_ip, "1.1.1.3", 1, 0, 0, "vrf6",
+                       flow5->id()),
+        {
+            new VerifyVn("vn6", "vn6"),
+            new VerifyVrf("vrf6", "vrf6")
+        }
+        }
+    };
+
+    CreateFlow(flow, 1);
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
+
+    //Verify the network policy uuid and SG rule UUID for flow.
+    const FlowEntry *fe = flow[0].pkt_.FlowFetch();
+    const FlowEntry *rfe = fe->reverse_flow_entry();
+
+    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2d2",
+                 fe->sg_rule_uuid().c_str());
+    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2d2",
+                 rfe->sg_rule_uuid().c_str());
+
+    //cleanup
+    FlushFlowTable();
+    client->WaitForIdle();
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
+    DelLink("virtual-machine-interface", "flow5", "security-group", "sg1");
+
+    strncpy(acl_name, "sg_acl1", max_len);
+    strncat(acl_name, "egress-access-control-list", max_len);
+    DelLink("security-group", "sg1", "access-control-list", acl_name);
+    DelNode("access-control-list", acl_name);
+    DelNode("security-group", "sg1");
+    ::DeleteRoute("vrf6", "1.1.1.3", 32, bgp_peer_);
+
+    client->WaitForIdle();
+    FlowTeardown();
+    client->WaitForIdle(5);
+}
+
+
+/* Local flow. Port 'A' has IP 'X' and port 'B' has IP 'Y'
+ * Configure INGRESS SG ACL on port 'A' with action 'pass'
+ * Configure EGRESS SG ACL on port 'B' with action 'pass'
+ * Configure INGRESS SG ACL on port 'B' with action 'deny'
+ * Configure ERESS SG ACL on port 'A' with action 'deny'
+ * Send TCP Ack pkt (SIP X and DIP Y) in only one direction from port 'A'
+ * Verify that SG UUID is set to first pass UUID
+ */
+TEST_F(FlowTest, FlowPolicyUuid_19) {
+    char acl_name[1024];
+    uint16_t max_len = sizeof(acl_name) - 1;
+    FlowSetup();
+
+    EXPECT_EQ(flow5->sg_list().list_.size(), 0U);
+    EXPECT_EQ(flow6->sg_list().list_.size(), 0U);
+    AddSgEntry("sg_i", "sg_acl_i", 10, 6, "pass", INGRESS,
+               "fe6a4dcb-dde4-48e6-8957-856a7aacb2d2", "0");
+    AddLink("virtual-machine-interface", "flow5", "security-group", "sg_i");
+    AddSgEntry("sg_e", "sg_acl_e", 11, 6, "pass", EGRESS,
+               "fe6a4dcb-dde4-48e6-8957-856a7aacb2d3", "0");
+    AddLink("virtual-machine-interface", "flow6", "security-group", "sg_e");
+    client->WaitForIdle();
+    EXPECT_EQ(flow5->sg_list().list_.size(), 1U);
+    EXPECT_EQ(flow6->sg_list().list_.size(), 1U);
+
+    AddSgEntry("sg_i2", "sg_acl_i2", 12, 6, "deny", INGRESS,
+               "fe6a4dcb-dde4-48e6-8957-856a7aacb2e2", "0");
+    AddLink("virtual-machine-interface", "flow6", "security-group", "sg_i2");
+    AddSgEntry("sg_e2", "sg_acl_e2", 13, 6, "deny", EGRESS,
+               "fe6a4dcb-dde4-48e6-8957-856a7aacb2e3", "0");
+    AddLink("virtual-machine-interface", "flow5", "security-group", "sg_e2");
+    client->WaitForIdle();
+    EXPECT_EQ(flow5->sg_list().list_.size(), 2U);
+    EXPECT_EQ(flow6->sg_list().list_.size(), 2U);
+
+    //Send TCP Ack pkt
+    TxTcpPacket(flow5->id(), vm_a_ip, vm_b_ip, 1, 2, true, 10);
+    client->WaitForIdle();
+
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
+
+    //Verify the network policy uuid and SG rule UUID for flow.
+    const FlowEntry *fe = FlowGet(flow5->vrf()->vrf_id(), vm_a_ip, vm_b_ip, 6,
+                                  1, 2, flow5->flow_key_nh()->id());
+    const FlowEntry *rfe = fe->reverse_flow_entry();
+    EXPECT_STREQ(FlowEntry::FlowPolicyStateStr.at(FlowEntry::IMPLICIT_ALLOW),
+                 fe->nw_ace_uuid().c_str());
+    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2d2",
+                 fe->sg_rule_uuid().c_str());
+    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2d3",
+                 rfe->sg_rule_uuid().c_str());
+
+    //cleanup
+    FlushFlowTable();
+    client->WaitForIdle();
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
+    DelLink("virtual-machine-interface", "flow5", "security-group", "sg_i");
+    DelLink("virtual-machine-interface", "flow6", "security-group", "sg_e");
+    DelLink("virtual-machine-interface", "flow5", "security-group", "sg_i2");
+    DelLink("virtual-machine-interface", "flow6", "security-group", "sg_ei");
+
+    strncpy(acl_name, "sg_acl_e", max_len);
+    strncat(acl_name, "egress-access-control-list", max_len);
+    DelLink("security-group", "sg_e", "access-control-list", acl_name);
+    DelNode("access-control-list", acl_name);
+
+    strncpy(acl_name, "sg_acl_e2", max_len);
+    strncat(acl_name, "egress-access-control-list", max_len);
+    DelLink("security-group", "sg_e2", "access-control-list", acl_name);
+    DelNode("access-control-list", acl_name);
+
+    strncpy(acl_name, "sg_acl_i", max_len);
+    strncat(acl_name, "ingress-access-control-list", max_len);
+    DelLink("security-group", "sg_i", "access-control-list", acl_name);
+    DelNode("access-control-list", acl_name);
+
+    strncpy(acl_name, "sg_acl_i2", max_len);
+    strncat(acl_name, "ingress-access-control-list", max_len);
+    DelLink("security-group", "sg_i2", "access-control-list", acl_name);
+    DelNode("access-control-list", acl_name);
+
+    DelNode("security-group", "sg_e");
+    DelNode("security-group", "sg_e2");
+    DelNode("security-group", "sg_i");
+    DelNode("security-group", "sg_i2");
+    client->WaitForIdle();
+    FlowTeardown();
+    client->WaitForIdle(5);
+}
+
+/* Remote flow. Port 'A' has IP 'X' and port 'B' has IP 'Y'
+ * Configure INGRESS SG ACL on port 'A' with action 'pass'
+ * Configure EGRESS SG ACL on port 'B' with action 'deny'
+ * Send TCP Ack pkt (SIP X and DIP Y) in only one direction from port 'A'
+ * Verify that SG UUID is set to first pass UUID
+ */
+TEST_F(FlowTest, FlowPolicyUuid_20) {
+    char acl_name[1024];
+    uint16_t max_len = sizeof(acl_name) - 1;
+    FlowSetup();
+
+    EXPECT_EQ(flow5->sg_list().list_.size(), 0U);
+    EXPECT_EQ(flow6->sg_list().list_.size(), 0U);
+    AddSgEntry("sg_e", "sg_acl_e", 10, 6, "deny", EGRESS,
+               "fe6a4dcb-dde4-48e6-8957-856a7aacb2d2", "0");
+    AddLink("virtual-machine-interface", "flow5", "security-group", "sg_e");
+    
+    AddSgEntry("sg_i", "sg_acl_i", 13, 6, "pass", INGRESS,
+               "fe6a4dcb-dde4-48e6-8957-856a7aacb2e3", "0");
+    AddLink("virtual-machine-interface", "flow5", "security-group", "sg_i");
+    client->WaitForIdle();
+    EXPECT_EQ(flow5->sg_list().list_.size(), 2U);
+
+    TunnelRouteAdd("10.1.1.2", "1.1.1.3", "vrf6", 16, "vn6");
+    client->WaitForIdle();
+
+    //Send TCP Ack pkt
+    TxTcpPacket(flow5->id(), vm_a_ip, "1.1.1.3", 1, 2, true, 10);
+    client->WaitForIdle();
+
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
+
+    //Verify the network policy uuid and SG rule UUID for flow.
+    const FlowEntry *fe = FlowGet(flow5->vrf()->vrf_id(), vm_a_ip, "1.1.1.3", 6,
+                                  1, 2, flow5->flow_key_nh()->id());
+    const FlowEntry *rfe = fe->reverse_flow_entry();
+    EXPECT_STREQ(FlowEntry::FlowPolicyStateStr.at(FlowEntry::IMPLICIT_ALLOW),
+                 fe->nw_ace_uuid().c_str());
+    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2e3",
+                 fe->sg_rule_uuid().c_str());
+    EXPECT_STREQ("fe6a4dcb-dde4-48e6-8957-856a7aacb2e3",
+                 rfe->sg_rule_uuid().c_str());
+
+    //cleanup
+    FlushFlowTable();
+    client->WaitForIdle();
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
+    DelLink("virtual-machine-interface", "flow5", "security-group", "sg_e");
+    DelLink("virtual-machine-interface", "flow5", "security-group", "sg_i");
+
+    strncpy(acl_name, "sg_acl_e", max_len);
+    strncat(acl_name, "egress-access-control-list", max_len);
+    DelLink("security-group", "sg_e", "access-control-list", acl_name);
+    DelNode("access-control-list", acl_name);
+
+    strncpy(acl_name, "sg_acl_i", max_len);
+    strncat(acl_name, "ingress-access-control-list", max_len);
+    DelLink("security-group", "sg_i", "access-control-list", acl_name);
+    DelNode("access-control-list", acl_name);
+
+    DelNode("security-group", "sg_e");
+    DelNode("security-group", "sg_i");
+    ::DeleteRoute("vrf6", "1.1.1.3", 32, bgp_peer_);
+    client->WaitForIdle();
+    FlowTeardown();
+    client->WaitForIdle(5);
 }
 
 //Create a l2 flow and verify l3 route
@@ -1538,6 +1830,7 @@ int main(int argc, char *argv[]) {
     FlowTest::TestSetup(ksync_init);
     int ret = RUN_ALL_TESTS();
     client->WaitForIdle();
+
     TestShutdown();
     delete client;
     return ret;
