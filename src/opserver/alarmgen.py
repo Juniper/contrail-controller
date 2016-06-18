@@ -197,7 +197,10 @@ class AlarmProcessor(object):
         self.FreqCheck_Times = {}
         self.FreqCheck_Seconds = {}
 
-    def process_alarms(self, alarm, alarm_name, uv, local_uve):
+    def process_alarms(self, alarm_fqname, alarm, uv, local_uve):
+        if not alarm.is_enabled():
+            return
+        alarm_name = alarm_fqname.rsplit(':', 1)[1]
         sev = alarm.severity()
         if not uv in self.ActiveTimer:
             self.ActiveTimer[uv] = {}
@@ -826,17 +829,6 @@ class Controller(object):
 
         self._us = UVEServer(None, self._logger, self._conf.redis_password())
 
-        # Create config handler to read/update alarm config
-        rabbitmq_params = self._conf.rabbitmq_params()
-        self._config_handler = AlarmGenConfigHandler(self._moduleid,
-            self._instance_id, self.config_log, self.disc,
-            self._conf.keystone_params(), rabbitmq_params, self.mgrs)
-        if rabbitmq_params['servers'] and self.disc:
-            self._config_handler.start()
-        else:
-            self._logger.error('Rabbitmq server and/or Discovery server '
-                'not configured')
-
         if not self.disc:
             self._max_out_rows = 2
             # If there is no discovery service, use fixed redis_uve list
@@ -858,6 +850,19 @@ class Controller(object):
         self._uvestats = {}
         self._uveq = {}
         self._uveqf = {}
+        self._alarm_config_change_map = {}
+
+        # Create config handler to read/update alarm config
+        rabbitmq_params = self._conf.rabbitmq_params()
+        self._config_handler = AlarmGenConfigHandler(self._moduleid,
+            self._instance_id, self.config_log, self.disc,
+            self._conf.keystone_params(), rabbitmq_params, self.mgrs,
+            self.alarm_config_change_callback)
+        if rabbitmq_params['servers'] and self.disc:
+            self._config_handler.start()
+        else:
+            self._logger.error('Rabbitmq server and/or Discovery server '
+                'not configured')
 
         PartitionOwnershipReq.handle_request = self.handle_PartitionOwnershipReq
         PartitionStatusReq.handle_request = self.handle_PartitionStatusReq
@@ -1272,7 +1277,19 @@ class Controller(object):
                                         acq_time,
                                         rows)
                                     rows[:] = []
-
+                # If there are alarm config changes, then start a gevent per
+                # partition to process the alarm config changes
+                if self._alarm_config_change_map:
+                    alarm_config_change_map = copy.deepcopy(
+                        self._alarm_config_change_map)
+                    self._alarm_config_change_map = {}
+                    alarm_workers = {}
+                    for partition in self._workers.keys():
+                        alarm_workers[partition] = gevent.spawn(
+                            self.alarm_config_change_worker, partition,
+                            alarm_config_change_map)
+                    if alarm_workers:
+                        gevent.joinall(alarm_workers.values())
             except Exception as ex:
                 template = "Exception {0} in uve proc. Arguments:\n{1!r}"
                 messag = template.format(type(ex).__name__, ex.args)
@@ -1291,7 +1308,103 @@ class Controller(object):
             else:
                 self._logger.info("UVE Process saturated")
                 gevent.sleep(0)
-             
+
+    def examine_uve_for_alarms(self, uve_key, uve):
+        table = uve_key.split(':', 1)[0]
+        alarm_cfg = self._config_handler.alarm_config_db()
+        if not alarm_cfg.has_key(table):
+            new_uve_alarms = {}
+        else:
+            prevt = UTCTimestampUsec()
+            aproc = AlarmProcessor(self._logger)
+            for alarm_fqname, alarm_obj in alarm_cfg[table].iteritems():
+                aproc.process_alarms(alarm_fqname, alarm_obj, uve_key, uve)
+            new_uve_alarms = aproc.uve_alarms
+            self.tab_perf[table].record_call(UTCTimestampUsec() - prevt)
+
+        del_types = []
+        if not self.tab_alarms.has_key(table):
+            self.tab_alarms[table] = {}
+        if self.tab_alarms[table].has_key(uve_key):
+            for nm, asm in self.tab_alarms[table][uve_key].iteritems():
+                # This type was present earlier, but is now gone
+                if not new_uve_alarms.has_key(nm):
+                    del_types.append(nm)
+                else:
+                    # This type has no new information
+                    if asm.is_new_alarm_same(new_uve_alarms[nm]):
+                        del new_uve_alarms[nm]
+
+        if len(del_types) != 0  or len(new_uve_alarms) != 0:
+            self._logger.debug("Alarm[%s] Deleted %s" % \
+                    (table, str(del_types)))
+            self._logger.debug("Alarm[%s] Updated %s" % \
+                    (table, str(new_uve_alarms)))
+            # These alarm types are new or updated
+            for nm, uai2 in new_uve_alarms.iteritems():
+                uai = copy.deepcopy(uai2)
+                uai.timestamp = UTCTimestampUsec()
+                uai.token = Controller.token(self._sandesh, uai.timestamp)
+                if not self.tab_alarms[table].has_key(uve_key):
+                    self.tab_alarms[table][uve_key] = {}
+                if not nm in self.tab_alarms[table][uve_key]:
+                    self.tab_alarms[table][uve_key][nm] = AlarmStateMachine(
+                        tab=table, uv=uve_key, nm=nm, sandesh=self._sandesh,
+                        activeTimer=aproc.ActiveTimer[uve_key][nm],
+                        idleTimer=aproc.IdleTimer[uve_key][nm],
+                        freqCheck_Times=aproc.FreqCheck_Times[uve_key][nm],
+                        freqCheck_Seconds= \
+                            aproc.FreqCheck_Seconds[uve_key][nm],
+                        freqExceededCheck= \
+                            aproc.FreqExceededCheck[uve_key][nm])
+                asm = self.tab_alarms[table][uve_key][nm]
+                asm.set_uai(uai)
+                # go through alarm set statemachine code
+                asm.set_alarms()
+            # These alarm types are now gone
+            for dnm in del_types:
+                if dnm in self.tab_alarms[table][uve_key]:
+                    delete_alarm = \
+                        self.tab_alarms[table][uve_key][dnm].clear_alarms()
+                    if delete_alarm:
+                        del self.tab_alarms[table][uve_key][dnm]
+            self.send_alarm_update(table, uve_key)
+    # end examine_uve_for_alarms
+
+    def alarm_config_change_worker(self, partition, alarm_config_change_map):
+        self._logger.debug('Alarm config change worker for partition %d'
+            % (partition))
+        try:
+            for table, alarm_map in alarm_config_change_map.iteritems():
+                self._logger.debug('Handle alarm config change for '
+                    '[partition:table:{alarms}] -> [%d:%s:%s]' %
+                    (partition, table, str(alarm_map)))
+                try:
+                    uves = self.ptab_info[partition][table]
+                except KeyError:
+                    continue
+                else:
+                    for uve, data in uves.iteritems():
+                        self._logger.debug('process alarm for uve %s' % (uve))
+                        self.examine_uve_for_alarms(table+':'+uve,
+                            data.values())
+                    gevent.sleep(0)
+        except Exception as e:
+            self._logger.error('Error in alarm config change worker for '
+                'partition %d - %s' % (partition, str(e)))
+            self._logger.error('traceback %s' % (traceback.format_exc()))
+    # end alarm_config_change_worker
+
+    def alarm_config_change_callback(self, alarm_config_change_map):
+        for table, alarm_map in alarm_config_change_map.iteritems():
+            try:
+                tamap = self._alarm_config_change_map[table]
+            except KeyError:
+                self._alarm_config_change_map[table] = alarm_map
+            else:
+                tamap.update(alarm_map)
+    # end alarm_config_change_callback
+
     def stop_uve_partition(self, part):
         if not part in self.ptab_info:
             return
@@ -1487,73 +1600,8 @@ class Controller(object):
                             del self.tab_alarms[tab][uv][nm]
                         self.send_alarm_update(tab, uv)
                 continue
- 
-            # Handing Alarms
-            alarm_cfg = self._config_handler.alarm_config()
-            if not alarm_cfg.has_key(tab):
-                continue
-            prevt = UTCTimestampUsec()
-
-            #TODO: We may need to remove alarm from local_uve before 
-            #      alarm evaluation
-            # if "UVEAlarms" in uve_data:
-            #     del uve_data["UVEAlarms"]
-            prevt = UTCTimestampUsec()
-            aproc = AlarmProcessor(self._logger)
-            for alarm_name, alarm_obj in alarm_cfg[tab].iteritems():
-                aproc.process_alarms(alarm_obj, alarm_obj.config().name,
-                    uv, local_uve)
-            new_uve_alarms = aproc.uve_alarms
-            self.tab_perf[tab].record_call(UTCTimestampUsec() - prevt)
-
-            del_types = []
-            if not self.tab_alarms.has_key(tab):
-                self.tab_alarms[tab] = {}
-            if self.tab_alarms[tab].has_key(uv):
-                for nm, asm in self.tab_alarms[tab][uv].iteritems():
-                    # This type was present earlier, but is now gone
-                    if not new_uve_alarms.has_key(nm):
-                        del_types.append(nm)
-                    else:
-                        # This type has no new information
-                        if asm.is_new_alarm_same(new_uve_alarms[nm]):
-                            del new_uve_alarms[nm]
-
-            if len(del_types) != 0  or len(new_uve_alarms) != 0:
-                self._logger.debug("Alarm[%s] Deleted %s" % \
-                        (tab, str(del_types))) 
-                self._logger.debug("Alarm[%s] Updated %s" % \
-                        (tab, str(new_uve_alarms))) 
-                # These alarm types are new or updated
-                for nm, uai2 in new_uve_alarms.iteritems():
-                    uai = copy.deepcopy(uai2)
-                    uai.timestamp = UTCTimestampUsec()
-                    uai.token = Controller.token(self._sandesh, uai.timestamp)
-                    if not self.tab_alarms[tab].has_key(uv):
-                        self.tab_alarms[tab][uv] = {}
-                    if not nm in self.tab_alarms[tab][uv]:
-                        self.tab_alarms[tab][uv][nm] = AlarmStateMachine(
-                                    tab = tab, uv = uv, nm = nm,
-                                    sandesh = self._sandesh,
-                                    activeTimer = aproc.ActiveTimer[uv][nm],
-                                    idleTimer = aproc.IdleTimer[uv][nm],
-                                    freqCheck_Times = aproc.FreqCheck_Times[uv][nm],
-                                    freqCheck_Seconds = \
-                                            aproc.FreqCheck_Seconds[uv][nm],
-                                    freqExceededCheck = \
-                                            aproc.FreqExceededCheck[uv][nm])
-                    asm = self.tab_alarms[tab][uv][nm]
-                    asm.set_uai(uai)
-                    # go through alarm set statemachine code
-                    asm.set_alarms()
-                # These alarm types are now gone
-                for dnm in del_types:
-                    if dnm in self.tab_alarms[tab][uv]:
-                        delete_alarm = \
-                            self.tab_alarms[tab][uv][dnm].clear_alarms()
-                        if delete_alarm:
-                            del self.tab_alarms[tab][uv][dnm]
-                self.send_alarm_update(tab, uv)
+            # Examine UVE to check if alarm need to be raised/deleted
+            self.examine_uve_for_alarms(uv, local_uve)
         if success:
 	    uveq_trace = UVEQTrace()
 	    uveq_trace.uves = output.keys()
@@ -1709,6 +1757,9 @@ class Controller(object):
                     self._logger.error("Unable to start partition %d" % partno)
         else:
             if partno in self._workers:
+                self._logger.error("Kill alarm worker for partition %d" %
+                    (partno))
+
                 ph = self._workers[partno]
                 self._logger.error("Kill part %s" % str(partno))
                 ph.kill(timeout=60)

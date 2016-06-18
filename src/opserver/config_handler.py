@@ -59,6 +59,10 @@ class ConfigHandler(object):
 
     # Private methods
 
+    def _fqname_to_str(self, fq_name):
+        return ':'.join(fq_name)
+    # end _fqname_to_str
+
     def _update_apiserver_connection_status(self, api_server, status, msg=''):
         ConnectionState.update(conn_type=ConnectionType.APISERVER,
             name='Config', status=status, message=msg,
@@ -72,11 +76,20 @@ class ConfigHandler(object):
         self._logger('Received config update: %s' % (pformat(notify_msg)),
             SandeshLevel.SYS_INFO)
         cfg_type = notify_msg['type'].replace('-', '_')
-        if notify_msg['oper'] == 'CREATE':
-            cfg_obj = self._read_config(cfg_type,
-                notify_msg['obj_dict']['fq_name'])
+        uuid = notify_msg['uuid']
+        if notify_msg['oper'] == 'CREATE' or notify_msg['oper'] == 'UPDATE':
+            cfg_obj = self._read_config(cfg_type, uuid)
             if cfg_obj:
-                self._handle_config_update(cfg_type, cfg_obj)
+                self._handle_config_update(cfg_type, cfg_obj.get_fq_name_str(),
+                    cfg_obj, notify_msg['oper'])
+            else:
+                self._logger('config object %s:%s not found in api-server' %
+                    (cfg_type, uuid), SandeshLevel.SYS_ERR)
+        elif notify_msg['oper'] == 'DELETE':
+            fq_name_str = self._fqname_to_str(
+                notify_msg['obj_dict']['fq_name'])
+            self._handle_config_update(cfg_type, fq_name_str, None,
+                notify_msg['oper'])
     # end _rabbitmq_subscribe_callback
 
     def _apiserver_subscribe_callback(self, api_server_info):
@@ -162,20 +175,20 @@ class ConfigHandler(object):
         return False
     # end _create_config
 
-    def _read_config(self, config_type, fq_name):
+    def _read_config(self, config_type, uuid):
         try:
             config_read_method = getattr(self._api_client,
                 config_type.replace('-', '_')+'_read')
-            config_obj = config_read_method(fq_name=fq_name)
+            config_obj = config_read_method(id=uuid)
         except AttributeError:
             self._logger('Invalid config type "%s"' % (config_type),
                 SandeshLevel.SYS_ERR)
         except NoIdError:
             self._logger('config object %s:%s not found' %
-                (config_type, '.'.join(fq_name)), SandeshLevel.SYS_ERR)
+                (config_type, uuid), SandeshLevel.SYS_ERR)
         except Exception as e:
             self._logger('Failed to get config object %s:%s - %s' %
-                (config_type, '.'.join(fq_name), str(e)), SandeshLevel.SYS_ERR)
+                (config_type, uuid, str(e)), SandeshLevel.SYS_ERR)
         else:
             return config_obj
         return None
@@ -202,7 +215,8 @@ class ConfigHandler(object):
     # end _sync_config
 
     # Should be overridden by the derived class
-    def _handle_config_update(self, config_type, config_obj):
+    def _handle_config_update(self, config_type, fq_name,
+                              config_obj, operation):
         pass
     # end _handle_config_update
 
