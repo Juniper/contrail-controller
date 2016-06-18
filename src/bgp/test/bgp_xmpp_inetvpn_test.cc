@@ -1790,6 +1790,158 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete4) {
 }
 
 //
+// Multiple routes are exchanged correctly.
+// Reach and unreach items go in separate xmpp messages even though add and
+// delete of routes is interleaved.
+//
+TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete5) {
+    string nh_str("192.168.1.1");
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Verify table walk count for blue.inet.0.
+    BgpTable *blue_x = VerifyTableExists(bs_x_, "blue.inet.0");
+    BgpTable *blue_y = VerifyTableExists(bs_y_, "blue.inet.0");
+    TASK_UTIL_EXPECT_EQ(0, blue_x->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(0, blue_y->walk_complete_count());
+    task_util::WaitForIdle();
+
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 1);
+    task_util::WaitForIdle();
+
+    // Verify that subscribe completed.
+    TASK_UTIL_EXPECT_EQ(1, blue_x->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1, blue_y->walk_complete_count());
+    task_util::WaitForIdle();
+
+    // Pause update generation on Y.
+    bs_y_->scheduling_group_manager()->DisableGroups();
+
+    // Add even routes from agent A.
+    for (int idx = 0; idx < kRouteCount; idx += 2) {
+        int lpref = idx + 1;
+        int med = idx + 1;
+        agent_a_->AddRoute("blue", BuildPrefix(idx), nh_str, lpref, med);
+    }
+    task_util::WaitForIdle();
+
+    // Verify that blue.inet.0 output queues have built up on Y.
+    VerifyOutputQueueDepth(bs_y_, kRouteCount / 2);
+    task_util::WaitForIdle();
+
+    // Resume update generation on Y.
+    bs_y_->scheduling_group_manager()->EnableGroups();
+    task_util::WaitForIdle();
+
+    // Verify that blue.inet.0 output queues are drained on Y.
+    VerifyOutputQueueDepth(bs_y_, 0);
+
+    // Verify that even routes showed up on agents A and B.
+    for (int idx = 0; idx < kRouteCount; idx += 2) {
+        VerifyRouteExists(agent_a_, "blue", BuildPrefix(idx), nh_str);
+        VerifyRouteExists(agent_b_, "blue", BuildPrefix(idx), nh_str);
+    }
+
+    // Pause update generation on Y.
+    bs_y_->scheduling_group_manager()->DisableGroups();
+
+    // Add odd route and delete even routes from agent A.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        if (idx % 2 == 1) {
+            int lpref = idx + 1;
+            int med = idx + 1;
+            agent_a_->AddRoute("blue", BuildPrefix(idx), nh_str, lpref, med);
+        } else {
+            agent_a_->DeleteRoute("blue", BuildPrefix(idx));
+        }
+    }
+    task_util::WaitForIdle();
+
+    // Verify that blue.inet.0 output queues have built up on Y.
+    VerifyOutputQueueDepth(bs_y_, kRouteCount);
+    task_util::WaitForIdle();
+
+    // Resume update generation on Y.
+    bs_y_->scheduling_group_manager()->EnableGroups();
+    task_util::WaitForIdle();
+
+    // Verify that blue.inet.0 output queues are drained on Y.
+    VerifyOutputQueueDepth(bs_y_, 0);
+
+    // Verify odd routes exist and even routes are deleted at agents A and B.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        if (idx % 2 == 1) {
+            VerifyRouteExists(agent_a_, "blue", BuildPrefix(idx), nh_str);
+            VerifyRouteExists(agent_b_, "blue", BuildPrefix(idx), nh_str);
+        } else {
+            VerifyRouteNoExists(agent_a_, "blue", BuildPrefix(idx));
+            VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
+        }
+    }
+
+    // Pause update generation on Y.
+    bs_y_->scheduling_group_manager()->DisableGroups();
+
+    // Delete odd routes from agent A.
+    for (int idx = 1; idx < kRouteCount; idx += 2) {
+        agent_a_->DeleteRoute("blue", BuildPrefix(idx));
+    }
+    task_util::WaitForIdle();
+
+    // Verify that blue.inet.0 output queues have built up on Y.
+    VerifyOutputQueueDepth(bs_y_, kRouteCount / 2);
+    task_util::WaitForIdle();
+
+    // Resume update generation on Y.
+    bs_y_->scheduling_group_manager()->EnableGroups();
+    task_util::WaitForIdle();
+
+    // Verify that blue.inet.0 output queues are drained on Y.
+    VerifyOutputQueueDepth(bs_y_, 0);
+
+    // Verify all routes are deleted at agents A and B.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        VerifyRouteNoExists(agent_a_, "blue", BuildPrefix(idx));
+        VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
+    }
+
+    // Unregister to blue instance
+    agent_a_->Unsubscribe("blue");
+    agent_b_->Unsubscribe("blue");
+
+    // Verify xmpp update counters.
+    const BgpXmppChannel *xc_b =
+        VerifyXmppChannelExists(cm_y_.get(), "agent-b");
+    TASK_UTIL_EXPECT_EQ(0, xc_b->get_rx_route_reach());
+    TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_b->get_tx_route_reach());
+    TASK_UTIL_EXPECT_EQ(0, xc_b->get_rx_route_unreach());
+    TASK_UTIL_EXPECT_EQ(0 + kRouteCount, xc_b->get_tx_route_unreach());
+
+    // Verify xmpp update message counters.
+    // agent-b: 16 (kRouteCount/BgpXmppMessage::kMaxReachCount) advertise +
+    //           2 (kRouteCount/BgpXmppMessage::kMaxUnreachCount) withdraw
+    TASK_UTIL_EXPECT_EQ(18, xc_b->get_tx_update());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
 // Generate big update message.
 // Each route has a very large number of attributes such that only a single
 // route fits into each update.

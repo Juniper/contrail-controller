@@ -28,7 +28,14 @@
 //
 struct UpdateByAttrCmp {
     bool operator()(const UpdateInfo &lhs, const UpdateInfo &rhs) const {
-        if (!lhs.roattr.is_xmpp()) {
+        if (lhs.roattr.is_xmpp()) {
+            if (lhs.roattr.IsReachable() < rhs.roattr.IsReachable()) {
+                return true;
+            }
+            if (lhs.roattr.IsReachable() > rhs.roattr.IsReachable()) {
+                return false;
+            }
+        } else {
             if (lhs.roattr.attr() < rhs.roattr.attr()) {
                 return true;
             }
