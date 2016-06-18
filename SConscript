@@ -16,7 +16,6 @@ env.Alias('controller/test', [
     'controller/src/discovery:test',
     'controller/src/dns:test',
     'controller/src/database/gendb:test',
-    'controller/src/database/cassandra/thrift:test',
     'controller/src/ifmap:test',
     'controller/src/io:test',
     'controller/src/net:test',
