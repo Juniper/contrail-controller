@@ -143,6 +143,10 @@ void BgpTable::ProcessLlgrState(const RibOut *ribout, const BgpPath *path,
     if (!server() || !server()->comm_db())
         return;
 
+    // Skip LLGR specific attributes manipulation for rtarget routes.
+    if (family() == Address::RTARGET)
+        return;
+
     bool llgr_stale_comm = attr->community() &&
         attr->community()->ContainsValue(CommunityType::LlgrStale);
 

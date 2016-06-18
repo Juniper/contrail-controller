@@ -158,6 +158,7 @@ public:
     virtual void CloseComplete() = 0;
     virtual void Delete() = 0;
     virtual void GracefulRestartStale() = 0;
+    virtual void LongLivedGracefulRestartStale() = 0;
     virtual void GracefulRestartSweep() = 0;
     virtual void GetGracefulRestartFamilies(Families *) const = 0;
     virtual const int GetGracefulRestartTime() const = 0;

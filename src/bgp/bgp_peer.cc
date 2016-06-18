@@ -53,6 +53,7 @@ class BgpPeer::PeerClose : public IPeerClose {
     virtual void GracefulRestartStale() {
         negotiated_families_ = peer_->negotiated_families();
     }
+    virtual void LongLivedGracefulRestartStale() { }
     virtual void GracefulRestartSweep() {
         negotiated_families_.clear();
     }
