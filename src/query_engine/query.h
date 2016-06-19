@@ -200,7 +200,6 @@ struct flow_stats {
 
 // 8-tuple corresponding to a flow
 struct flow_tuple {
-#ifdef USE_CASSANDRA_CQL
     flow_tuple() : protocol(0), source_port(0), dest_port(0), direction(0) {
     }
 
@@ -212,19 +211,6 @@ struct flow_tuple {
         dest_ip(dip), protocol(proto), source_port(sport),
         dest_port(dport), direction(dir) {
     }
-#else // USE_CASSANDRA_CQL
-    flow_tuple() : source_ip(0), dest_ip(0), protocol(0), source_port(0),
-                   dest_port(0), direction(0) {
-    }
-
-    flow_tuple(std::string& vr, std::string& svn, std::string& dvn, 
-               uint32_t sip, uint32_t dip, uint32_t proto, 
-               uint32_t sport, uint32_t dport, uint32_t dir) :
-        vrouter(vr), source_vn(svn), dest_vn(dvn), source_ip(sip),
-        dest_ip(dip), protocol(proto), source_port(sport), 
-        dest_port(dport), direction(dir) {
-    }
-#endif // !USE_CASSANDRA_CQL
     
     bool operator<(const flow_tuple& rhs) const {
         if (vrouter < rhs.vrouter) return true;
@@ -274,13 +260,8 @@ struct flow_tuple {
     std::string vrouter;
     std::string source_vn;
     std::string dest_vn;
-#ifdef USE_CASSANDRA_CQL
     IpAddress source_ip;
     IpAddress dest_ip;
-#else // USE_CASSANDRA_CQL
-    uint32_t source_ip;
-    uint32_t dest_ip;
-#endif // !USE_CASSANDRA_CQL
     uint32_t protocol;
     uint32_t source_port;
     uint32_t dest_port;
@@ -913,8 +894,7 @@ public:
             const std::string & redis_password,
             int max_tasks, int max_slice,
             const std::string & cassandra_name,
-            const std::string & cassandra_password,
-            bool use_cql);
+            const std::string & cassandra_password);
 
     QueryEngine(EventManager *evm,
             const std::string & redis_ip, unsigned short redis_port,
@@ -956,7 +936,6 @@ public:
 
     void db_err_handler() {};
     TtlMap& GetTTlMap() { return ttlmap_; }
-    bool UseGlobalDbHandler() { return use_cql_; }
 private:
     GenDbIfPtr dbif_;
     boost::scoped_ptr<QEOpServerProxy> qosp_;
@@ -966,7 +945,6 @@ private:
     std::string cassandra_user_;
     std::string cassandra_password_;
     TtlMap ttlmap_;
-    bool use_cql_;
     std::string keyspace_;
 };
 

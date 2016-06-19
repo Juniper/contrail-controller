@@ -50,40 +50,9 @@ class AnalyticsDb(object):
         self.connect_db()
         self.number_of_purge_requests = 0
     # end __init__
-
-    @staticmethod
-    def use_cql():
-        (PLATFORM, VERSION, EXTRA) = platform.linux_distribution()
-        if PLATFORM.lower() == 'ubuntu':
-            if VERSION.find('12.') == 0:
-                return False
-        if PLATFORM.lower() == 'centos':
-            if VERSION.find('6.') == 0:
-                return False
-        return True
-    # end use_cql
-
+    
     def connect_db(self):
-        if not AnalyticsDb.use_cql():
-            self.connect_db_thrift()
-        else:
-            self.get_cql_session()
-
-    def connect_db_thrift(self):
-        try:
-             creds=None
-             if self._cassandra_user is not None and \
-                self._cassandra_password is not None:
-                    creds =  {'username':self._cassandra_user,
-                              'password':self._cassandra_password}
-             self._pool = ConnectionPool(COLLECTOR_KEYSPACE,
-                         server_list=self._cassandra_server_list, timeout=None,
-                         credentials=creds)
-        except Exception as e:
-            self._logger.error("Exception: Failure in connection to "
-                "AnalyticsDb %s" % e)
-            return -1
-        return None
+        self.get_cql_session()
     # end connect_db
 
     def _get_sysm(self):
@@ -125,27 +94,10 @@ class AnalyticsDb(object):
             ret_row[SYSTEM_OBJECT_GLOBAL_DATA_TTL] = AnalyticsTTL
             return (ret_row, -1)
     # end _get_analytics_ttls_cql
-
-    def _get_analytics_ttls_thrift(self):
-        ret_row = {}
-        try:
-            col_family = ColumnFamily(self._pool, SYSTEM_OBJECT_TABLE)
-            row = col_family.get(SYSTEM_OBJECT_ANALYTICS)
-        except Exception as e:
-            self._logger.error("Exception: analytics_start_time Failure %s" % e)
-            ret_row[SYSTEM_OBJECT_FLOW_DATA_TTL] = AnalyticsFlowTTL
-            ret_row[SYSTEM_OBJECT_STATS_DATA_TTL] = AnalyticsStatisticsTTL
-            ret_row[SYSTEM_OBJECT_CONFIG_AUDIT_TTL] = AnalyticsConfigAuditTTL
-            ret_row[SYSTEM_OBJECT_GLOBAL_DATA_TTL] = AnalyticsTTL
-            return (ret_row, -1)
-        return (row, 0)
-
+    
     def get_analytics_ttls(self):
         ret_row = {}
-        if (AnalyticsDb.use_cql):
-            (row, status) = self._get_analytics_ttls_cql()
-        else:
-            (row, status) = self._get_analytics_ttls_thrift()
+        (row, status) = self._get_analytics_ttls_cql()
 
         if status == -1:
             return row
@@ -189,21 +141,9 @@ class AnalyticsDb(object):
             self._logger.error("Exception: analytics_start_time Failure %s" % e)
             return None
     # end _get_analytics_start_time_cql
-
-    def _get_analytics_start_time_thrift(self):
-        try:
-            col_family = ColumnFamily(self._pool, SYSTEM_OBJECT_TABLE)
-            row = col_family.get(SYSTEM_OBJECT_ANALYTICS)
-            return row
-        except Exception as e:
-            self._logger.error("Exception: analytics_start_time Failure %s" % e)
-            return None
-
+   
     def get_analytics_start_time(self):
-        if AnalyticsDb.use_cql() is True:
-            row = self._get_analytics_start_time_cql()
-        else:
-            row = self._get_analytics_start_time_thrift()
+        row = self._get_analytics_start_time_cql()
 
         if row is None:
             return row
@@ -265,20 +205,9 @@ class AnalyticsDb(object):
         except Exception as e:
             self._logger.error("Exception: update_analytics_start_time "
                 "Connection Failure %s" % e)
-
-    def _update_analytics_start_time_thrift(self, start_times):
-        try:
-            col_family = ColumnFamily(self._pool, SYSTEM_OBJECT_TABLE)
-            col_family.insert(SYSTEM_OBJECT_ANALYTICS, start_times)
-        except Exception as e:
-            self._logger.error("Exception: update_analytics_start_time "
-                "Connection Failure %s" % e)
-
+    
     def _update_analytics_start_time(self, start_times):
-        if AnalyticsDb.use_cql() is True:
-            self._update_analytics_start_time_cql(start_times)
-        else:
-            self._update_analytics_start_time_thrift(start_times)
+        self._update_analytics_start_time_cql(start_times)
     # end _update_analytics_start_time
 
     def set_analytics_db_purge_status(self, purge_id, purge_cutoff):
@@ -467,140 +396,7 @@ class AnalyticsDb(object):
     #end db_purge_cql
 
     def db_purge(self, purge_cutoff, purge_id):
-        if (AnalyticsDb.use_cql() is True) :
-            return self.db_purge_cql(purge_cutoff, purge_id)
-        else:
-            return self.db_purge_thrift(purge_cutoff, purge_id)
-
-    def db_purge_thrift(self, purge_cutoff, purge_id):
-        total_rows_deleted = 0 # total number of rows deleted
-        purge_error_details = []
-        if (self._pool == None):
-            self.connect_db()
-        if not self._pool:
-            self._logger.error('Connection to AnalyticsDb has Timed out')
-            purge_error_details.append('Connection to AnalyticsDb has Timed out')
-            return (-1, purge_error_details)
-        sysm = self._get_sysm()
-        if (sysm == None):
-            self._logger.error('Failed to connect SystemManager')
-            purge_error_details.append('Failed to connect SystemManager')
-            return (-1, purge_error_details)
-        try:
-            table_list = sysm.get_keyspace_column_families(COLLECTOR_KEYSPACE)
-        except Exception as e:
-            self._logger.error("Exception: Purge_id %s Failed to get "
-                "Analytics Column families %s" % (purge_id, e))
-            purge_error_details.append("Exception: Failed to get "
-                "Analytics Column families %s" % (e))
-            return (-1, purge_error_details)
-
-        # delete entries from message table
-        msg_table = COLLECTOR_GLOBAL_TABLE
-        # total number of rows deleted from this table
-        msg_table_deleted = 0
-        try:
-            msg_cf = pycassa.ColumnFamily(self._pool, msg_table)
-        except Exception as e:
-            self._logger.error("purge_id %s Failure in fetching "
-                "message table columnfamily %s" % e)
-            purge_error_details.append("Failure in fetching "
-                "message table columnfamily %s" % e)
-            return (-1, purge_error_details)
-
-        for table in table_list:
-            # purge from index tables
-            if (table not in _NO_AUTO_PURGE_TABLES):
-                self._logger.info("purge_id %s deleting old records from "
-                                  "table: %s" % (purge_id, table))
-
-                # determine purge cutoff time
-                if (table in _FLOW_TABLES):
-                    purge_time = purge_cutoff['flow_cutoff']
-                elif (table in _STATS_TABLES):
-                    purge_time = purge_cutoff['stats_cutoff']
-                elif (table in _MSG_TABLES):
-                    purge_time = purge_cutoff['msg_cutoff']
-                else:
-                    purge_time = purge_cutoff['other_cutoff']
-
-                del_msg_uuids = [] # list of uuids of messages to be deleted
-
-                # total number of rows deleted from each table
-                per_table_deleted = 0
-                try:
-                    cf = pycassa.ColumnFamily(self._pool, table)
-                except Exception as e:
-                    self._logger.error("purge_id %s Failure in fetching "
-                        "the columnfamily %s" % e)
-                    purge_error_details.append("Failure in fetching "
-                        "the columnfamily %s" % e)
-                    return (-1, purge_error_details)
-                b = cf.batch()
-                try:
-                    # get all columns only in case of one message index table
-                    if table == MESSAGE_TABLE_SOURCE:
-                        cols_to_fetch = 1000000
-                    else:
-                        cols_to_fetch = 1
-
-                    for key, cols in cf.get_range(column_count=cols_to_fetch):
-                        # key is of type integer for MESSAGE_TABLE_TIMESTAMP.
-                        # For other tables, key is a composite type with
-                        # first element being timestamp (integer).
-                        if table == MESSAGE_TABLE_TIMESTAMP:
-                            t2 = key
-                        else:
-                            t2 = key[0]
-                        # each row will have equivalent of 2^23 = 8388608 usecs
-                        row_time = (float(t2)*pow(2, RowTimeInBits))
-                        if (row_time < purge_time):
-                            per_table_deleted +=1
-                            total_rows_deleted +=1
-                            if table == MESSAGE_TABLE_SOURCE:
-                                # get message table uuids to delete
-                                del_msg_uuids.extend(cols.values())
-                            try:
-                                b.remove(key)
-                            except Exception as e:
-                                self._logger.error("Exception: Purge_id:%s table:%s "
-                                        "error: %s" % (purge_id, table, e))
-                                b = cf.batch() # create a new batch job
-                                continue
-                    try:
-                        b.send()
-                    except Exception as e:
-                        self._logger.error("Exception: Purge_id:%s table:%s "
-                                "error: %s" % (purge_id, table, e))
-
-                    if len(del_msg_uuids) != 0:
-                        # delete uuids from the message table
-                        b_msgtbl = msg_cf.batch()
-                        try:
-                            for key in del_msg_uuids:
-                                msg_table_deleted +=1
-                                total_rows_deleted +=1
-                                b_msgtbl.remove(key)
-                            b_msgtbl.send()
-                        except Exception as e:
-                            self._logger.error("Exception: Purge_id %s message table "
-                                "doesnot have uuid %s" % (purge_id, e))
-                            purge_error_details.append("Exception: Message table "
-                                "doesnot have uuid %s" % (e))
-                except Exception as e:
-                    self._logger.error("Exception: Purge_id:%s table:%s "
-                            "error: %s" % (purge_id, table, e))
-                    purge_error_details.append("Exception: Table:%s "
-                            "error: %s" % (table, e))
-                    continue
-                self._logger.warning("Purge_id %s deleted %d rows from "
-                    "table: %s" % (purge_id, per_table_deleted, table))
-
-        self._logger.warning("Purge_id %s deleted %d rows from table: %s"
-            % (purge_id, msg_table_deleted, COLLECTOR_GLOBAL_TABLE))
-        self._logger.warning("Purge_id %s total rows deleted: %s"
-            % (purge_id, total_rows_deleted))
-        return (total_rows_deleted, purge_error_details)
+        return self.db_purge_cql(purge_cutoff, purge_id)
     # end db_purge
 
     def get_dbusage_info(self, rest_api_ip, rest_api_port):
