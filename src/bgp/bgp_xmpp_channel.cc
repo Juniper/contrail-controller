@@ -476,6 +476,10 @@ void BgpXmppChannel::XmppPeer::Close() {
         return;
     }
     parent_->peer_close_->Close();
+    XmppPeerInfoData peer_info;
+    peer_info.set_name(parent_->ToUVEKey());
+    peer_info.set_send_state("not advertising");
+    XMPPPeerInfo::Send(peer_info);
 }
 
 BgpXmppChannel::BgpXmppChannel(XmppChannel *channel, BgpServer *bgp_server,
@@ -2404,8 +2408,8 @@ BgpXmppChannel *BgpXmppChannelManager::CreateChannel(XmppChannel *channel) {
 
 void BgpXmppChannelManager::XmppHandleChannelEvent(XmppChannel *channel,
                                                    xmps::PeerState state) {
+    bool created = false;
     XmppChannelMap::iterator it = channel_map_.find(channel);
-
     BgpXmppChannel *bgp_xmpp_channel = NULL;
     if (state == xmps::READY) {
         if (it == channel_map_.end()) {
@@ -2431,6 +2435,7 @@ void BgpXmppChannelManager::XmppHandleChannelEvent(XmppChannel *channel,
                              "BGP is administratively down - closing channel");
                 channel->Close();
             }
+            created = true;
         } else {
             bgp_xmpp_channel = (*it).second;
             bgp_xmpp_channel->peer_->SetDeleted(false);
@@ -2450,10 +2455,10 @@ void BgpXmppChannelManager::XmppHandleChannelEvent(XmppChannel *channel,
                     "Peer not found on channel not ready event");
         }
     }
-    if (bgp_xmpp_channel) {
+    if (created) {
         XmppPeerInfoData peer_info;
         peer_info.set_name(bgp_xmpp_channel->Peer()->ToUVEKey());
-        peer_info.set_send_state("not advertising");
+        peer_info.set_send_state("in sync");
         XMPPPeerInfo::Send(peer_info);
     }
 }
