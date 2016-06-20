@@ -19,9 +19,13 @@ public:
     // Printable name
     virtual std::string ToString() const = 0;
 
-    // Send an update. Returns true if the peer can send additional messages,
-    // false if it is send blocked.
+    // Send an update.
+    // Returns true if the peer can send additional messages.
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize) = 0;
+
+    // Flush any accumulated updates.
+    // Returns true if the peer can send additional messages.
+    virtual bool FlushUpdate() { return true; }
 };
 
 class IPeerDebugStats {
