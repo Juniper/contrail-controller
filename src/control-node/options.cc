@@ -82,12 +82,12 @@ void Options::Initialize(EventManager &evm,
                default_collector_server_list_, "127.0.0.1:8086"),
              "Collector server list")
 
-        ("DEFAULT.gr_helper_bgp_disable",
-            opt::bool_switch(&gr_helper_bgp_disable_),
-            "Disable Graceful Restart Helper functionality for BGP peers")
-        ("DEFAULT.gr_helper_xmpp_disable",
-            opt::bool_switch(&gr_helper_xmpp_disable_),
-            "Disable Graceful Restart Helper functionality for XMPP agents")
+        ("DEFAULT.gr_helper_bgp_enable",
+            opt::bool_switch(&gr_helper_bgp_enable_),
+            "Enable Graceful Restart Helper functionality for BGP peers")
+        ("DEFAULT.gr_helper_xmpp_enable",
+            opt::bool_switch(&gr_helper_xmpp_enable_),
+            "Enable Graceful Restart Helper functionality for XMPP agents")
 
         ("DEFAULT.hostip", opt::value<string>()->default_value(host_ip),
              "IP address of control-node")
