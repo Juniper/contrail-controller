@@ -108,6 +108,9 @@ class PermissionDenied(VncError):
     pass
 # end class PermissionDenied
 
+class OverQuota(VncError):
+    pass
+# end class OverQuota
 
 class RefsExistError(VncError):
     pass
