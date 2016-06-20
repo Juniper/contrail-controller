@@ -361,6 +361,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           trigger_(boost::bind(&BgpPeer::ResumeClose, this),
                    TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
                    GetIndex()),
+          buffer_len_(0),
           session_(NULL),
           keepalive_timer_(TimerManager::CreateTimer(*server->ioservice(),
                      "BGP keepalive timer")),
@@ -1043,15 +1044,35 @@ static bool SkipUpdateSend() {
     return skip_;
 }
 
+//
+// Accumulate the message in the update buffer.
+// Flush the existing buffer if the message can't fit.
+// Note that FlushUpdate resets buffer_len_ to 0.
+//
 bool BgpPeer::SendUpdate(const uint8_t *msg, size_t msgsize) {
+    bool send_ready = true;
+    if (buffer_len_ + msgsize > kBufferSize)
+        send_ready = FlushUpdate();
+    copy(msg, msg + msgsize, buffer_ + buffer_len_);
+    buffer_len_ += msgsize;
+    inc_tx_update();
+    return send_ready;
+}
+
+bool BgpPeer::FlushUpdate() {
     tbb::spin_mutex::scoped_lock lock(spin_mutex_);
+
+    // Bail if the update buffer is empty.
+    if (buffer_len_ == 0)
+        return true;
 
     // Bail if there's no session for the peer anymore.
     if (!session_)
         return true;
 
     if (!SkipUpdateSend()) {
-        send_ready_ = session_->Send(msg, msgsize, NULL);
+        send_ready_ = session_->Send(buffer_, buffer_len_, NULL);
+        buffer_len_ = 0;
         if (send_ready_) {
             StartKeepaliveTimerUnlocked();
         } else {
@@ -1061,7 +1082,6 @@ bool BgpPeer::SendUpdate(const uint8_t *msg, size_t msgsize) {
         send_ready_ = true;
     }
 
-    inc_tx_update();
     if (!send_ready_) {
         BGP_LOG_PEER(Event, this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
                      BGP_PEER_DIR_NA, "Send blocked");
@@ -1929,6 +1949,18 @@ uint64_t BgpPeer::get_open_error() const {
 
 uint64_t BgpPeer::get_update_error() const {
     return peer_stats_->error_stats_.update_error;
+}
+
+uint64_t BgpPeer::get_socket_reads() const {
+    IPeerDebugStats::SocketStats stats;
+    peer_stats_->GetRxSocketStats(&stats);
+    return stats.calls;
+}
+
+uint64_t BgpPeer::get_socket_writes() const {
+    IPeerDebugStats::SocketStats stats;
+    peer_stats_->GetTxSocketStats(&stats);
+    return stats.calls;
 }
 
 std::string BgpPeer::last_flap_at() const {
