@@ -835,7 +835,11 @@ class DiscoveryServer():
             candidate_list = [(index, item[0]) for index, item in enumerate(subs) if item[0] in impacted]
             if (len(candidate_list) > 0):
                 index = random.randint(0, len(candidate_list) - 1)
-                self.syslog("impacted %s, candidate_list %s, replace %d" % (impacted, candidate_list, index))
+                msg = "impacted %s, candidate_list %s, replace %d, total_subs=%d, avg=%f" %\
+                    (impacted, candidate_list, index, total_subs, avg)
+                m = sandesh.dsSubscribe(msg=msg, sandesh=self._sandesh)
+                m.trace_msg(name='dsSubscribeTraceBuf', sandesh=self._sandesh)
+                self.syslog(msg)
                 replace_candidate = candidate_list[index]
                 subs[replace_candidate[0]] = (replace_candidate[1], True)
                 self._debug['lb_auto'] += 1
@@ -864,6 +868,9 @@ class DiscoveryServer():
                         continue
                     entry = pubs_active.pop(0)
                     service_id = entry['service_id']
+                # skip inadvertent duplicate
+                if service_id in assigned_sid:
+                    continue
                 msg = ' subs service=%s, assign=%d, count=%d' % (service_id, assign, count)
                 m = sandesh.dsSubscribe(msg=msg, sandesh=self._sandesh)
                 m.trace_msg(name='dsSubscribeTraceBuf', sandesh=self._sandesh)
