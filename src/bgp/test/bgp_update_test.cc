@@ -108,7 +108,7 @@ public:
             return NULL;
         }
     };
-    virtual Message *Create(const RibOut *ribout,
+    virtual Message *Create(const RibOut *ribout, bool cache_routes,
                             const RibOutAttr *attr,
                             const BgpRoute *route) const {
         return new MessageMock();

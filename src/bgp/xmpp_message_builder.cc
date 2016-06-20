@@ -36,9 +36,13 @@ using std::vector;
 
 class BgpXmppMessage : public Message {
 public:
-    BgpXmppMessage(const BgpTable *table, const RibOutAttr *roattr)
+    BgpXmppMessage(const BgpTable *table, const RibOutAttr *roattr,
+        bool cache_routes)
         : table_(table),
+          writer_(&repr_),
           is_reachable_(roattr->IsReachable()),
+          cache_routes_(cache_routes),
+          repr_valid_(false),
           sequence_number_(0) {
     }
     virtual ~BgpXmppMessage() { }
@@ -48,8 +52,20 @@ public:
     virtual const uint8_t *GetData(IPeerUpdate *peer, size_t *lenp);
 
 private:
+    static const uint32_t kMaxFromToLength = 192;
     static const uint32_t kMaxReachCount = 32;
     static const uint32_t kMaxUnreachCount = 256;
+
+    class XmlWriter : public pugi::xml_writer {
+    public:
+        XmlWriter(string *repr) : repr_(repr) { }
+        virtual void write(const void *data, size_t size) {
+            repr_->append(static_cast<const char*>(data), size);
+        }
+
+    private:
+        string *repr_;
+    };
 
     void EncodeNextHop(const BgpRoute *route,
                        const RibOutAttr::NextHop &nexthop,
@@ -107,51 +123,43 @@ private:
                              const RibOutAttr *roattr) const;
 
     const BgpTable *table_;
+    XmlWriter writer_;
     bool is_reachable_;
-    xml_document xdoc_;
-    xml_node xitems_;
+    bool cache_routes_;
+    bool repr_valid_;
+    string repr_;
     uint32_t sequence_number_;
     vector<int> security_group_list_;
     vector<string> community_list_;
-    string repr_;
-    string repr_new_;
-    size_t repr_part1_;
-    size_t repr_part2_;
     LoadBalance::LoadBalanceAttribute load_balance_attribute_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpXmppMessage);
 };
 
 void BgpXmppMessage::Start(const RibOutAttr *roattr, const BgpRoute *route) {
-    // Build the DOM tree
-    xml_node message = xdoc_.append_child("message");
-    message.append_attribute("from") = XmppInit::kControlNodeJID;
-
-    xml_node event = message.append_child("event");
-    event.append_attribute("xmlns") = "http://jabber.org/protocol/pubsub";
-    xitems_ = event.append_child("items");
-
     if (is_reachable_) {
         const BgpAttr *attr = roattr->attr();
         ProcessCommunity(attr->community());
         ProcessExtCommunity(attr->ext_community());
     }
 
-    stringstream ss;
-    ss << route->Afi() << "/" << int(route->XmppSafi()) << "/" <<
-          table_->routing_instance()->name();
-    string node(ss.str());
+    repr_.append(kMaxFromToLength, ' ');
+    repr_ += "\n\t<event xmlns=\"http://jabber.org/protocol/pubsub\">";
+    repr_ += "\n\t\t<items node=\"";
+    repr_ += integerToString(route->Afi());
+    repr_ += "/";
+    repr_ += integerToString(route->XmppSafi());
+    repr_ += "/";
+    repr_ += table_->routing_instance()->name();
+    repr_ += "\">\n";
+
     if (table_->family() == Address::ERMVPN) {
-        xitems_.append_attribute("node") = node.c_str();
         AddMcastRoute(route, roattr);
     } else if (table_->family() == Address::EVPN) {
-        xitems_.append_attribute("node") = node.c_str();
         AddEnetRoute(route, roattr);
     } else if (table_->family() == Address::INET6) {
-        xitems_.append_attribute("node") = node.c_str();
         AddInet6Route(route, roattr);
     } else {
-        xitems_.append_attribute("node") = node.c_str();
         AddInetRoute(route, roattr);
     }
 }
@@ -198,8 +206,12 @@ void BgpXmppMessage::EncodeNextHop(const BgpRoute *route,
 
 void BgpXmppMessage::AddIpReach(const BgpRoute *route,
                                 const RibOutAttr *roattr) {
-    autogen::ItemType item;
+    if (!roattr->repr().empty()) {
+        repr_ += roattr->repr();
+        return;
+    }
 
+    autogen::ItemType item;
     item.entry.nlri.af = route->Afi();
     item.entry.nlri.safi = route->XmppSafi();
     item.entry.nlri.address = route->ToString();
@@ -211,9 +223,7 @@ void BgpXmppMessage::AddIpReach(const BgpRoute *route,
 
     assert(!roattr->nexthop_list().empty());
 
-    //
-    // Encode all next-hops in the list
-    //
+    // Encode all next-hops in the list.
     BOOST_FOREACH(const RibOutAttr::NextHop &nexthop, roattr->nexthop_list()) {
         EncodeNextHop(route, nexthop, &item);
     }
@@ -232,14 +242,22 @@ void BgpXmppMessage::AddIpReach(const BgpRoute *route,
     if (!load_balance_attribute_.IsDefault())
         load_balance_attribute_.Encode(&item.entry.load_balance);
 
-    xml_node node = xitems_.append_child("item");
+    xml_document doc;
+    xml_node node = doc.append_child("item");
     node.append_attribute("id") = route->ToXmppIdString().c_str();
+
+    // Remember the previous size.
+    size_t pos = repr_.size();
     item.Encode(&node);
+    doc.print(writer_, "\t", pugi::format_default, pugi::encoding_auto, 3);
+
+    // Cache the substring starting at the previous size.
+    if (cache_routes_)
+        roattr->set_repr(repr_, pos);
 }
 
 void BgpXmppMessage::AddIpUnreach(const BgpRoute *route) {
-    xml_node node = xitems_.append_child("retract");
-    node.append_attribute("id") = route->ToXmppIdString().c_str();
+    repr_ += "\t\t\t<retract id=\"" + route->ToXmppIdString() + "\" />\n";
 }
 
 bool BgpXmppMessage::AddInetRoute(const BgpRoute *route,
@@ -288,6 +306,11 @@ void BgpXmppMessage::EncodeEnetNextHop(const BgpRoute *route,
 
 void BgpXmppMessage::AddEnetReach(const BgpRoute *route,
                                   const RibOutAttr *roattr) {
+    if (!roattr->repr().empty()) {
+        repr_ += roattr->repr();
+        return;
+    }
+
     autogen::EnetItemType item;
     item.entry.nlri.af = route->Afi();
     item.entry.nlri.safi = route->XmppSafi();
@@ -343,14 +366,22 @@ void BgpXmppMessage::AddEnetReach(const BgpRoute *route,
         EncodeEnetNextHop(route, nexthop, &item);
     }
 
-    xml_node node = xitems_.append_child("item");
+    xml_document doc;
+    xml_node node = doc.append_child("item");
     node.append_attribute("id") = route->ToXmppIdString().c_str();
+
+    // Remember the previous size.
+    size_t pos = repr_.size();
     item.Encode(&node);
+    doc.print(writer_, "\t", pugi::format_default, pugi::encoding_auto, 3);
+
+    // Cache the substring starting at the previous size.
+    if (cache_routes_)
+        roattr->set_repr(repr_, pos);
 }
 
 void BgpXmppMessage::AddEnetUnreach(const BgpRoute *route) {
-    xml_node node = xitems_.append_child("retract");
-    node.append_attribute("id") = route->ToXmppIdString().c_str();
+    repr_ += "\t\t\t<retract id=\"" + route->ToXmppIdString() + "\" />\n";
 }
 
 bool BgpXmppMessage::AddEnetRoute(const BgpRoute *route,
@@ -365,6 +396,10 @@ bool BgpXmppMessage::AddEnetRoute(const BgpRoute *route,
     return true;
 }
 
+//
+// Note that there's no need to cache the string representation since a given
+// mcast route is sent to exactly one xmpp peer.
+//
 void BgpXmppMessage::AddMcastReach(const BgpRoute *route,
                                    const RibOutAttr *roattr) {
     autogen::McastItemType item;
@@ -388,14 +423,15 @@ void BgpXmppMessage::AddMcastReach(const BgpRoute *route,
         item.entry.olist.next_hop.push_back(nh);
     }
 
-    xml_node node = xitems_.append_child("item");
+    xml_document doc;
+    xml_node node = doc.append_child("item");
     node.append_attribute("id") = route->ToXmppIdString().c_str();
     item.Encode(&node);
+    doc.print(writer_, "\t", pugi::format_default, pugi::encoding_auto, 3);
 }
 
 void BgpXmppMessage::AddMcastUnreach(const BgpRoute *route) {
-    xml_node node = xitems_.append_child("retract");
-    node.append_attribute("id") = route->ToXmppIdString().c_str();
+    repr_ += "\t\t\t<retract id=\"" + route->ToXmppIdString() + "\" />\n";
 }
 
 bool BgpXmppMessage::AddMcastRoute(const BgpRoute *route,
@@ -411,31 +447,24 @@ bool BgpXmppMessage::AddMcastRoute(const BgpRoute *route,
 }
 
 const uint8_t *BgpXmppMessage::GetData(IPeerUpdate *peer, size_t *lenp) {
-    string str = peer->ToString() + "/" + XmppInit::kBgpPeer;
+    string msg_begin;
+    msg_begin.reserve(kMaxFromToLength);
+    msg_begin += "\n<message from=\"";
+    msg_begin += XmppInit::kControlNodeJID;
+    msg_begin += "\" to=\"";
+    msg_begin += peer->ToString();
+    msg_begin += "/";
+    msg_begin += XmppInit::kBgpPeer;
+    msg_begin += "\">";
 
-    // If the message has already been constructed, just replace the 'to' part.
-    if (!repr_.empty()) {
-        repr_new_ = string(repr_, 0, repr_part1_) + "to=\"" + str + "\">" +
-                    string(repr_, repr_part2_);
-
-        *lenp = repr_new_.size();
-        return reinterpret_cast<const uint8_t *>(repr_new_.c_str());
+    repr_.replace(0, msg_begin.size(), msg_begin);
+    if (!repr_valid_) {
+        repr_ += "\t\t</items>\n\t</event>\n</message>\n";
+        repr_valid_ = true;
+    } else {
+        repr_.replace(msg_begin.size(), kMaxFromToLength - msg_begin.size(),
+            kMaxFromToLength - msg_begin.size(), ' ');
     }
-
-    xml_node message =  xdoc_.child("message");
-    xml_attribute attr_to = message.attribute("to");
-    if (!attr_to) {
-        attr_to = message.append_attribute("to");
-    }
-    attr_to.set_value(str.c_str());
-    ostringstream oss;
-    xdoc_.save(oss);
-    repr_ = oss.str();
-
-    repr_part1_ = repr_.find("to=", 0);
-    assert(repr_part1_ != string::npos);
-    repr_part2_ = repr_.find("\n\t<event xmlns");
-    assert(repr_part2_ != string::npos);
 
     *lenp = repr_.size();
     return reinterpret_cast<const uint8_t *>(repr_.c_str());
@@ -470,10 +499,11 @@ string BgpXmppMessage::GetVirtualNetwork(const BgpRoute *route,
     }
 }
 
-Message *BgpXmppMessageBuilder::Create(const RibOut *ribout,
+Message *BgpXmppMessageBuilder::Create(const RibOut *ribout, bool cache_routes,
                                        const RibOutAttr *roattr,
                                        const BgpRoute *route) const {
-    BgpXmppMessage *msg = new BgpXmppMessage(ribout->table(), roattr);
+    const BgpTable *table = ribout->table();
+    BgpXmppMessage *msg = new BgpXmppMessage(table, roattr, cache_routes);
     msg->Start(roattr, route);
     return msg;
 }

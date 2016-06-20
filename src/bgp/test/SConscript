@@ -390,6 +390,9 @@ env.Alias('src/bgp:rt_network_attr_test', rt_network_attr_test)
 xmpp_ecmp_test = env.UnitTest('xmpp_ecmp_test', ['xmpp_ecmp_test.cc'])
 env.Alias('src/bgp:xmpp_ecmp_test', xmpp_ecmp_test)
 
+xmpp_message_builder_test = env.UnitTest('xmpp_message_builder_test', ['xmpp_message_builder_test.cc'])
+env.Alias('src/bgp:xmpp_message_builder_test', xmpp_message_builder_test)
+
 rt_unicast_test = env.UnitTest('rt_unicast_test',
                               ['rt_unicast_test.cc'])
 env.Alias('src/bgp:rt_unicast_test', rt_unicast_test)
@@ -627,6 +630,7 @@ test_suite = [
     svc_static_route_intergration_test4_1,
     svc_static_route_intergration_test4_2,
     xmpp_ecmp_test,
+    xmpp_message_builder_test,
     xmpp_sess_toggle_test,
 ]
 
