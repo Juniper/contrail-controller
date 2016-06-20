@@ -28,8 +28,12 @@ static const char *config = "\
 
 class XmppTestPeer : public IPeerUpdate {
 public:
-    string ToString() const { return "agent.juniper.net"; }
+    XmppTestPeer(const string &name) : name_(name) { }
+    string ToString() const { return name_; }
     bool SendUpdate(const uint8_t *msg, size_t msgsize)  { return true; }
+
+private:
+    string name_;
 };
 
 class XmppMessageBuilderTest : public ::testing::Test {
@@ -93,22 +97,32 @@ protected:
     vector<RibOutAttr *> roattrs_;
 };
 
-// Parameterize caching of RibOutAttr string representation.
+// Parameterize caching of RibOutAttr string representation and short vs. long
+// peer names.
+typedef std::tr1::tuple<bool, bool> TestParams;
+
 class XmppMessageBuilderParamTest:
     public XmppMessageBuilderTest,
-    public ::testing::WithParamInterface<bool> {
+    public ::testing::WithParamInterface<TestParams> {
 };
 
 TEST_P(XmppMessageBuilderParamTest, Basic) {
+    bool cache_routes = std::tr1::get<0>(GetParam());
+    string peer_name = "agent.juniper.net";
+    if (!std::tr1::get<1>(GetParam())) {
+        for (int idx = 0; idx < 16; ++idx) {
+            peer_name += ".agent.juniper.net";
+        }
+    }
     for (int idx = 0; idx < kRepeatCount; ++idx) {
         boost::scoped_ptr<Message> message(
-            builder_->Create(ribout_, GetParam(), roattrs_[0], routes_[0]));
+            builder_->Create(ribout_, cache_routes, roattrs_[0], routes_[0]));
         for (int ridx = 1; ridx < kRouteCount; ++ridx) {
             message->AddRoute(routes_[ridx], roattrs_[ridx]);
         }
         message->Finish();
         for (int pidx = 0; pidx < kPeerCount; ++pidx) {
-            XmppTestPeer peer;
+            XmppTestPeer peer(peer_name);
             size_t msgsize;
             const uint8_t *msg = message->GetData(&peer, &msgsize);
             peer.SendUpdate(msg, msgsize);
@@ -116,7 +130,8 @@ TEST_P(XmppMessageBuilderParamTest, Basic) {
     }
 }
 
-INSTANTIATE_TEST_CASE_P(Test, XmppMessageBuilderParamTest, ::testing::Bool());
+INSTANTIATE_TEST_CASE_P(Test, XmppMessageBuilderParamTest,
+    ::testing::Combine(::testing::Bool(), ::testing::Bool()));
 
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }
