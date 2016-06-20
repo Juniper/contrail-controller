@@ -220,22 +220,13 @@ bool PeerCloseManager::GRTimerFired() const {
 void PeerCloseManager::ProcessEORMarkerReceived(Address::Family family) {
     if (GRTimerFired()) {
         assert(state_ == GR_TIMER || state_ == LLGR_TIMER);
-
-        if (family == Address::UNSPEC) {
-            families_.clear();
-        } else {
-            families_.erase(family);
-        }
+        families_.erase(family);
         return;
     }
 
     tbb::mutex::scoped_lock lock(mutex_);
     if ((state_ == GR_TIMER || state_ == LLGR_TIMER) && !families_.empty()) {
-        if (family == Address::UNSPEC) {
-            families_.clear();
-        } else {
-            families_.erase(family);
-        }
+        families_.erase(family);
 
         // Start the timer if all EORs have been received.
         if (families_.empty())
@@ -264,13 +255,15 @@ bool PeerCloseManager::RestartTimerCallback() {
     if (peer_close_->peer()->IsReady() && !families_.empty()) {
 
         // Fake reception of all EORs.
-        BOOST_FOREACH(Address::Family family, families_) {
-            PEER_CLOSE_MANAGER_LOG("Simulate EoR reception for family "
-                                   << family);
-            peer_close_->ReceiveEndOfRIB(family);
+        for (IPeerClose::Families::iterator i = families_.begin(), next = i;
+                i != families_.end(); i = next) {
+            next++;
+            PEER_CLOSE_MANAGER_LOG("Simulate EoR reception for family " << *i);
+            peer_close_->ReceiveEndOfRIB(*i);
         }
 
-        // Restart the timer.
+        // Restart the timer to fire right away.
+        stale_timer_->Reschedule(0);
         return true;
     }
     ProcessClosure();
