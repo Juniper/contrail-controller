@@ -85,8 +85,8 @@ public:
     const uint16_t GetGracefulRestartTime() const;
     const uint32_t GetLongLivedGracefulRestartTime() const;
     const uint32_t GetEndOfRibReceiveTime() const;
-    bool gr_helper_disable() const { return gr_helper_disable_; }
-    void set_gr_helper_disable(bool flag) { gr_helper_disable_ = flag; }
+    bool gr_helper_enable() const { return gr_helper_enable_; }
+    void set_gr_helper_enable(bool flag) { gr_helper_enable_ = flag; }
 
 protected:
     virtual SslSession *AllocSession(SslSocket *socket);
@@ -125,7 +125,7 @@ private:
     bool log_uve_;
     bool auth_enabled_;
     int tcp_hold_time_;
-    bool gr_helper_disable_;
+    bool gr_helper_enable_;
     boost::scoped_ptr<XmppConfigUpdater> xmpp_config_updater_;
     WorkQueue<XmppServerConnection *> connection_queue_;
 

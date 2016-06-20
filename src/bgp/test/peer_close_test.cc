@@ -100,7 +100,10 @@ public:
         restart_time_ = time;
         restart_timer_started_ = true;
     }
-    virtual void TriggerSweepStateActions() { ProcessSweepStateActions(); }
+    virtual void TriggerSweepStateActions() {
+        ConcurrencyScope scope("bgp::Config");
+        ProcessSweepStateActions();
+    }
     virtual void StaleNotify() {
         ConcurrencyScope scope("bgp::Config");
         PeerCloseManager::NotifyStaleEvent();
@@ -191,6 +194,7 @@ public:
             }
             break;
         case PeerCloseManagerTest::TIMER_CALLBACK:
+            ConcurrencyScope scope("bgp::Config");
             close_manager_->set_restart_timer_fired(true);
             if (close_manager_->RestartTimerCallback())
                 close_manager_->RestartTimerCallback();

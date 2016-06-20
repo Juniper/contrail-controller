@@ -327,7 +327,7 @@ BgpServer::BgpServer(EventManager *evm)
       local_autonomous_system_(0),
       bgp_identifier_(0),
       hold_time_(0),
-      gr_helper_disable_(getenv("GR_HELPER_BGP_DISABLE") != NULL),
+      gr_helper_enable_(getenv("GR_HELPER_BGP_ENABLE") != NULL),
       lifetime_manager_(BgpObjectFactory::Create<BgpLifetimeManager>(this,
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)),

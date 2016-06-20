@@ -63,7 +63,7 @@ XmppServer::XmppServer(EventManager *evm, const string &server_addr,
       log_uve_(false),
       auth_enabled_(config->auth_enabled),
       tcp_hold_time_(config->tcp_hold_time),
-      gr_helper_disable_(config->gr_helper_disable),
+      gr_helper_enable_(config->gr_helper_enable),
       connection_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
           0, boost::bind(&XmppServer::DequeueConnection, this, _1)) {
 
@@ -157,7 +157,7 @@ XmppServer::XmppServer(EventManager *evm, const string &server_addr)
       log_uve_(false),
       auth_enabled_(false),
       tcp_hold_time_(XmppChannelConfig::kTcpHoldTime),
-      gr_helper_disable_(false),
+      gr_helper_enable_(false),
       xmpp_config_updater_(NULL),
       connection_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
           0, boost::bind(&XmppServer::DequeueConnection, this, _1)) {
@@ -173,7 +173,7 @@ XmppServer::XmppServer(EventManager *evm)
       log_uve_(false),
       auth_enabled_(false),
       tcp_hold_time_(XmppChannelConfig::kTcpHoldTime),
-      gr_helper_disable_(false),
+      gr_helper_enable_(false),
       connection_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
           0, boost::bind(&XmppServer::DequeueConnection, this, _1)) {
 }
@@ -202,7 +202,7 @@ bool XmppServer::IsPeerCloseGraceful() const {
         return false;
 
     // Check if GR helper mode is disabled.
-    if (gr_helper_disable())
+    if (!gr_helper_enable())
         return false;
 
     return GetGracefulRestartTime() != 0;
