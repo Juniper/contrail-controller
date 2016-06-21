@@ -304,8 +304,8 @@ TEST_F(FlowTest, Agent_Arg_Override_Config_2) {
     int argc = 7;
     char *argv[] = {
         (char *) "",
-        (char *) "--DNS.server",    (char *)"20.1.1.1:500", (char *)"21.1.1.1:15001", 
-        (char *) "--CONTROL-NODE.server",   (char *)"22.1.1.1", (char *)"23.1.1.1",
+        (char *) "--DNS.server",    (char *)"20.1.1.1:500 21.1.1.1:15001",
+        (char *) "--CONTROL-NODE.server",   (char *)"22.1.1.1 23.1.1.1",
     };
 
     AgentParam param;
