@@ -29,6 +29,7 @@
 #include "viz_sandesh.h"
 #include "ruleeng.h"
 #include "viz_types.h"
+#include "nodeinfo_types.h"
 #include "analytics_types.h"
 #include "generator.h"
 #include <base/misc_utils.h>
@@ -193,7 +194,7 @@ static void ShutdownServers(VizCollector *viz_collector,
         collector_info_log_timer = NULL;
     }
 
-    ConnectionStateManager<NodeStatusUVE, NodeStatus>::
+    ConnectionStateManager::
         GetInstance()->Shutdown();
     VizCollector::WaitForIdle();
 }
@@ -326,11 +327,11 @@ int main(int argc, char *argv[])
                              hostname+":Global"))
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
                              ConnectionType::KAFKA_PUB)->second, kstr));
-    ConnectionStateManager<NodeStatusUVE, NodeStatus>::
+    ConnectionStateManager::
         GetInstance()->Init(*a_evm->io_service(),
             hostname, module_id, instance_id,
             boost::bind(&GetProcessStateCb, _1, _2, _3,
-            expected_connections));
+            expected_connections), "ObjectCollectorInfo");
 
     LOG(INFO, "COLLECTOR analytics_data_ttl: " << options.analytics_data_ttl());
     LOG(INFO, "COLLECTOR analytics_flow_ttl: " << options.analytics_flow_ttl());

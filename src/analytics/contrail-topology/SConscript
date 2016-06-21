@@ -26,16 +26,16 @@ sources = [
     ]
 
 src_sandesh = env.SandeshGenPy('link.sandesh', 'contrail_topology/sandesh/', False)
-analytics_pkg = env.SandeshGenPy('#controller/src/analytics/analytics.sandesh', 'contrail_topology/sandesh/', False)
-cpu_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'contrail_topology/sandesh/analytics/', False)
-process_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'contrail_topology/sandesh/analytics/', False)
+cpu_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'contrail_topology/sandesh/nodeinfo/', False)
+process_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'contrail_topology/sandesh/nodeinfo/', False)
+node_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/nodeinfo.sandesh', 'contrail_topology/sandesh/', False)
 derived_stats_pkg = env.SandeshGenPy('#tools/sandesh/library/common/derived_stats_results.sandesh', 'contrail_topology/sandesh/analytics/', False)
 
 version = '0.0.1'
 #with open("CHANGES.txt") as f:
 #    version = f.read().split(",")[0][1:]
 
-sdist_depends = [ analytics_pkg, cpu_info_pkg, process_info_pkg,
+sdist_depends = [ node_info_pkg, cpu_info_pkg, process_info_pkg,
                   derived_stats_pkg]
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_gen = env.Command('dist/contrail-topology-' \

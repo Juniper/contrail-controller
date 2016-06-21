@@ -23,6 +23,7 @@
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>
 #include "analytics_types.h"
+#include "nodeinfo_types.h"
 #include "query_engine/options.h"
 #include "query.h"
 #include <base/misc_utils.h>
@@ -135,7 +136,7 @@ static void ShutdownQe(DiscoveryServiceClient *ds_client,
     }
     WaitForIdle();
     Sandesh::Uninit();
-    ConnectionStateManager<NodeStatusUVE, NodeStatus>::
+    ConnectionStateManager::
         GetInstance()->Shutdown();
     WaitForIdle();
 }
@@ -242,12 +243,12 @@ main(int argc, char *argv[]) {
                 ConnectionType::DISCOVERY)->second,
             g_vns_constants.COLLECTOR_DISCOVERY_SERVICE_NAME));
     }
-    ConnectionStateManager<NodeStatusUVE, NodeStatus>::
+    ConnectionStateManager::
         GetInstance()->Init(*evm.io_service(),
             options.hostname(), module_name,
             instance_id,
             boost::bind(&GetProcessStateCb, _1, _2, _3,
-            expected_connections));
+            expected_connections), "ObjectCollectorInfo");
     Sandesh::set_send_rate_limit(options.sandesh_send_rate_limit());
     bool success;
     // subscribe to the collector service with discovery only if the

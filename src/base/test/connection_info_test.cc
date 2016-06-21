@@ -5,12 +5,7 @@
 #include "testing/gunit.h"
 
 #include <boost/system/error_code.hpp>
-
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
-
 #include "base/connection_info.h"
-#include "base/test/connection_info_test_types.h"
 #include "io/event_manager.h"
 
 using process::ConnectionStateManager;
@@ -29,13 +24,13 @@ class ConnectionInfoTest : public ::testing::Test {
         std::vector<ConnectionTypeName> expected_connections = boost::assign::list_of
          (ConnectionTypeName("Test", "Test1"))
          (ConnectionTypeName("Test", "Test2"));
-        ConnectionStateManager<NodeStatusTestUVE, NodeStatusTest>::
+        ConnectionStateManager::
             GetInstance()->Init(*evm_.io_service(), "Test",
             "ConnectionInfoTest", "0", boost::bind(
-            &process::GetProcessStateCb, _1, _2, _3, expected_connections));
+            &process::GetProcessStateCb, _1, _2, _3, expected_connections), "ObjectTest");
     }
     static void TearDownTestCase() {
-        ConnectionStateManager<NodeStatusTestUVE, NodeStatusTest>::
+        ConnectionStateManager::
             GetInstance()->Shutdown();
     }
     void PopulateConnInfo(ConnectionInfo *cinfo, const std::string &name,
@@ -65,7 +60,7 @@ class ConnectionInfoTest : public ::testing::Test {
         ASSERT_EQ(0, ec.value());
         process::Endpoint ep(addr, 0);
         // Set callback
-        ConnectionStateManager<NodeStatusTestUVE, NodeStatusTest>::
+        ConnectionStateManager::
             GetInstance()->SetProcessStateCb(boost::bind(
                 &ConnectionInfoTest::VerifyProcessStateCb, this, _1, _2, _3,
                 vcinfo));
@@ -89,7 +84,7 @@ class ConnectionInfoTest : public ::testing::Test {
     void DeleteConnState(const std::string &name,
         const std::vector<ConnectionInfo> &vcinfo) {
         // Set callback
-        ConnectionStateManager<NodeStatusTestUVE, NodeStatusTest>::
+        ConnectionStateManager::
             GetInstance()->SetProcessStateCb(boost::bind(
                 &ConnectionInfoTest::VerifyProcessStateCb, this, _1, _2, _3,
                 vcinfo));

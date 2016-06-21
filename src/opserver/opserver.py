@@ -42,8 +42,6 @@ from pysandesh.sandesh_base import *
 from pysandesh.sandesh_session import SandeshWriter
 from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
 from pysandesh.connection_info import ConnectionState
-from pysandesh.gen_py.process_info.ttypes import ConnectionType,\
-    ConnectionStatus
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
      ModuleCategoryMap, Module2NodeType, NodeTypeNames, ModuleIds,\
@@ -57,7 +55,9 @@ from sandesh.viz.constants import _TABLES, _OBJECT_TABLES,\
     STAT_SOURCE_FIELD, SOURCE, MODULE
 from sandesh.viz.constants import *
 from sandesh.analytics.ttypes import *
-from sandesh.analytics.cpuinfo.ttypes import ProcessCpuInfo
+from sandesh.nodeinfo.ttypes import NodeStatusUVE, NodeStatus
+from sandesh.nodeinfo.cpuinfo.ttypes import *
+from sandesh.nodeinfo.process_info.ttypes import *
 from sandesh.discovery.ttypes import CollectorTrace
 import discoveryclient.client as discovery_client
 from opserver_util import OpServerUtils
@@ -443,6 +443,7 @@ class OpServer(object):
             self._instance_id = self._args.worker_id
         else:
             self._instance_id = INSTANCE_ID_DEFAULT
+        self.table = "ObjectCollectorInfo"
         self._hostname = socket.gethostname()
         if self._args.dup:
             self._hostname += 'dup'
@@ -474,7 +475,7 @@ class OpServer(object):
         ConnectionState.init(self._sandesh, self._hostname, self._moduleid,
             self._instance_id,
             staticmethod(ConnectionState.get_process_state_cb),
-            NodeStatusUVE, NodeStatus)
+            NodeStatusUVE, NodeStatus, self.table)
         self._uvepartitions_state = None
         # Trace buffer list
         self.trace_buf = [
