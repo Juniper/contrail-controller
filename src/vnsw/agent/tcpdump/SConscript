@@ -22,6 +22,9 @@ cmd = ('(cd ' + libnl_dir + '; ' +
   './configure LDFLAGS=\"-L' + libnl_libs + '\" ' + config_opts +'; make; make install;' +
   'mv ' + bin_dir + '/tcpdump ' + bin_dir + '/contrail-tcpdump)')
 
+binproducts = [ str(File('#/build/sbin/contrail-tcpdump')) ]
+
 if not os.path.exists(tcpdump_dir + '/Makefile'):
     Execute(cmd)
 
+env.Alias('install', env.Install(env['INSTALL_BIN'], binproducts))
