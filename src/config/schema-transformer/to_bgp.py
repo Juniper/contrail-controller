@@ -42,7 +42,7 @@ import discoveryclient.client as client
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
-from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, NodeStatus
+from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, NodeStatus
 from db import SchemaTransformerDB
 from cfgm_common.vnc_kombu import VncKombuClient
 from cfgm_common.dependency_tracker import DependencyTracker
@@ -172,6 +172,7 @@ class SchemaTransformer(object):
         module_name = ModuleNames[module]
         node_type = Module2NodeType[module]
         node_type_name = NodeTypeNames[node_type]
+        self.table = "ObjectConfigNode"
         instance_id = INSTANCE_ID_DEFAULT
         hostname = socket.gethostname()
         self._sandesh.init_generator(
@@ -189,7 +190,7 @@ class SchemaTransformer(object):
                                     syslog_facility=args.syslog_facility)
         ConnectionState.init(self._sandesh, hostname, module_name, instance_id,
                 staticmethod(ConnectionState.get_process_state_cb),
-                NodeStatusUVE, NodeStatus)
+                NodeStatusUVE, NodeStatus, self.table)
 
         self._sandesh.trace_buffer_create(name="MessageBusNotifyTraceBuf",
                                           size=1000)
