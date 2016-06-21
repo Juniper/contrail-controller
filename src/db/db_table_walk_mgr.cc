@@ -31,12 +31,13 @@ bool DBTableWalkMgr::ProcessWalkRequestList() {
     if (!current_table_walk_.empty()) return true;
     while (true) {
         if (walk_request_list_.empty()) break;
-        boost::shared_ptr<WalkRequestInfo> info = walk_request_list_.front();
+        WalkRequestInfoPtr info = walk_request_list_.front();
+        walk_request_set_.erase(info.get());
         walk_request_list_.pop_front();
         current_table_walk_.swap(info->pending_requests);
         DBTable *table = info->table;
         bool walk_table = false;
-        BOOST_FOREACH(DBTableWalkRef walker, current_table_walk_) {
+        BOOST_FOREACH(DBTable::DBTableWalkRef walker, current_table_walk_) {
             if (walker->stopped()) continue;
             walker->set_in_progress();
             walker->reset_walk_again();
@@ -44,7 +45,7 @@ bool DBTableWalkMgr::ProcessWalkRequestList() {
         }
         if (walk_table) {
             // start the walk
-            table->WalkTable();
+            table->StartWalk();
             break;
         } else {
             current_table_walk_.clear();
@@ -56,7 +57,7 @@ bool DBTableWalkMgr::ProcessWalkRequestList() {
 bool DBTableWalkMgr::ProcessWalkDone() {
     CHECK_CONCURRENCY("db::Walker");
     assert(!current_table_walk_.empty());
-    BOOST_FOREACH(DBTableWalkRef walker, current_table_walk_) {
+    BOOST_FOREACH(DBTable::DBTableWalkRef walker, current_table_walk_) {
         if (walker->walk_again())
             walker->set_walk_requested();
         else
@@ -69,41 +70,45 @@ bool DBTableWalkMgr::ProcessWalkDone() {
     return true;
 }
 
-DBTableWalkMgr::DBTableWalkRef DBTableWalkMgr::AllocWalker(DBTable *table,
-                               WalkFn walk_fn, WalkCompleteFn walk_complete) {
+DBTable::DBTableWalkRef DBTableWalkMgr::AllocWalker(DBTable *table,
+               DBTable::WalkFn walk_fn, DBTable::WalkCompleteFn walk_complete) {
     table->incr_walker_count();
     DBTableWalk *walker = new DBTableWalk(table, walk_fn, walk_complete);
-    return DBTableWalkRef(walker);
+    return DBTable::DBTableWalkRef(walker);
 }
 
-void DBTableWalkMgr::ReleaseWalker(DBTableWalkMgr::DBTableWalkRef &ref) {
+void DBTableWalkMgr::ReleaseWalker(DBTable::DBTableWalkRef &ref) {
     ref->set_walk_stopped();
     ref.reset();
 }
 
-void DBTableWalkMgr::WalkAgain(DBTableWalkRef ref) {
+void DBTableWalkMgr::WalkAgain(DBTable::DBTableWalkRef ref) {
     WalkTable(ref);
 }
 
-void DBTableWalkMgr::WalkTable(DBTableWalkRef walk) {
+void DBTableWalkMgr::WalkTable(DBTable::DBTableWalkRef walk) {
     tbb::mutex::scoped_lock lock(mutex_);
     DBTable *table = walk->table();
 
-    if (walk->in_progress())
+    if (walk->in_progress()) {
+        table->incr_walk_again_count();
         walk->set_walk_again();
-    else
+    } else {
+        table->incr_walk_request_count();
         walk->set_walk_requested();
+    }
 
-    BOOST_FOREACH(boost::shared_ptr<WalkRequestInfo> info, walk_request_list_) {
-        if (info->table == table) {
-            info->AppendWalkReq(walk);
-            return;
-        }
+    WalkRequestInfo tmp_info = WalkRequestInfo(table);
+    WalkRequestInfoSet::iterator it = walk_request_set_.find(&tmp_info);
+    if (it != walk_request_set_.end()) {
+        (*it)->AppendWalkReq(walk);
+        return;
     }
 
     WalkRequestInfo *new_info = new WalkRequestInfo(table);
     new_info->AppendWalkReq(walk);
-    walk_request_list_.push_back(boost::shared_ptr<WalkRequestInfo>(new_info));
+    walk_request_list_.push_back(WalkRequestInfoPtr(new_info));
+    walk_request_set_.insert(new_info);
     walk_request_trigger_->Set();
 }
 
@@ -113,7 +118,7 @@ void DBTableWalkMgr::WalkDone() {
 
 bool DBTableWalkMgr::InvokeWalkCb(DBTablePartBase *part, DBEntryBase *entry) {
     uint32_t skip_walk_count = 0;
-    BOOST_FOREACH(DBTableWalkMgr::DBTableWalkRef walker, current_table_walk_) {
+    BOOST_FOREACH(DBTable::DBTableWalkRef walker, current_table_walk_) {
         if (walker->done() || walker->stopped()) {
             skip_walk_count++;
             continue;

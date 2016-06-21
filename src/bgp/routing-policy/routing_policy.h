@@ -293,7 +293,7 @@ public:
     typedef RoutingPolicyList::iterator name_iterator;
     typedef RoutingPolicyList::const_iterator const_name_iterator;
     typedef std::map<BgpTable *,
-            DBTableWalkMgr::DBTableWalkRef> RoutingPolicyWalkRequests;
+            DBTable::DBTableWalkRef> RoutingPolicyWalkRequests;
 
     explicit RoutingPolicyMgr(BgpServer *server);
     virtual ~RoutingPolicyMgr();

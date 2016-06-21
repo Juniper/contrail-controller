@@ -90,15 +90,15 @@ public:
         return table_;
     }
 
-    const DBTableWalkMgr::DBTableWalkRef &walk_ref() const {
+    const DBTable::DBTableWalkRef &walk_ref() const {
         return walk_ref_;
     }
 
-    DBTableWalkMgr::DBTableWalkRef &walk_ref() {
+    DBTable::DBTableWalkRef &walk_ref() {
         return walk_ref_;
     }
 
-    void set_walk_ref(DBTableWalkMgr::DBTableWalkRef walk_ref) {
+    void set_walk_ref(DBTable::DBTableWalkRef walk_ref) {
         walk_ref_ = walk_ref;
     }
 
@@ -110,7 +110,7 @@ private:
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<TableState> table_delete_ref_;
     GroupList list_;
-    DBTableWalkMgr::DBTableWalkRef walk_ref_;
+    DBTable::DBTableWalkRef walk_ref_;
 
     DISALLOW_COPY_AND_ASSIGN(TableState);
 };
