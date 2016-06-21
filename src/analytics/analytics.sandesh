@@ -60,37 +60,6 @@ uve sandesh AnalyticsCpuStateTrace {
 }
 
 /**
- * This structure used to send NodeStatus data for Analytics Node
- * - process_status carries process's status [functional/non-functional]
- * - process_info carries process's state [up/down]
- * Each of the processes on Analytics Node will send this information and aggregation
- * will happen on UVE queries.
- */
-struct NodeStatus {
-    1: string name (key="ObjectCollectorInfo")
-    2: optional bool deleted
-    3: optional string status
-    // Sent by process
-    4: optional list<process_info.ProcessStatus> process_status (aggtype="union")
-    // Sent by node manager
-    5: optional list<process_info.ProcessInfo> process_info (aggtype="union")
-    6: optional list<process_info.DiskPartitionUsageStats> disk_usage_info (tags="")
-    7: optional string description
-    8: optional list<string> all_core_file_list
-   10: optional list<cpuinfo.ProcessCpuInfo> process_mem_cpu_usage (aggtype="union")
-   11: optional cpuinfo.SystemMemCpuUsage system_mem_cpu_usage
-   12: optional cpuinfo.SystemCpuInfo system_cpu_info
-}
-
-/**
- * @description: UVE to send NodeStatus data for Analytics Node
- * @object: analytics-node
- */
-uve sandesh NodeStatusUVE {
-    1: NodeStatus data
-}
-
-/**
  * structure to carry contrail-query-engine query statistics
  */
 struct QueryStats {

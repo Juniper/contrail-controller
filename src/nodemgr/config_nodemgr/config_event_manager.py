@@ -31,19 +31,17 @@ from sandesh_common.vns.constants import ModuleNames, NodeTypeNames,\
 from subprocess import Popen, PIPE
 from StringIO import StringIO
 
-from cfgm_common.uve.cfgm_cpuinfo.ttypes import \
-    NodeStatusUVE, NodeStatus
+from nodemgr.common.sandesh.nodeinfo.ttypes import *
+from nodemgr.common.sandesh.nodeinfo.cpuinfo.ttypes import *
+from nodemgr.common.sandesh.nodeinfo.process_info.ttypes import *
+from nodemgr.common.sandesh.nodeinfo.process_info.constants import *
 from pysandesh.connection_info import ConnectionState
-from cfgm_common.uve.cfgm_cpuinfo.process_info.ttypes import \
-    ProcessStatus, ProcessState, ProcessInfo
-from cfgm_common.uve.cfgm_cpuinfo.process_info.constants import \
-    ProcessStateNames
-
 
 class ConfigEventManager(EventManager):
     def __init__(self, rule_file, discovery_server,
                  discovery_port, collector_addr):
         self.node_type = "contrail-config"
+        self.table = "ObjectConfigNode"
         self.module = Module.CONFIG_NODE_MGR
         self.module_id = ModuleNames[self.module]
         self.supervisor_serverurl = "unix:///var/run/supervisord_config.sock"
@@ -58,12 +56,12 @@ class ConfigEventManager(EventManager):
         sandesh_global.init_generator(
             self.module_id, socket.gethostname(),
             node_type_name, self.instance_id, self.collector_addr,
-            self.module_id, 8100, ['cfgm_common.uve'], _disc)
+            self.module_id, 8100, ['nodemgr.common.sandesh'], _disc)
         sandesh_global.set_logging_params(enable_local_log=True)
         ConnectionState.init(sandesh_global, socket.gethostname(),
 		self.module_id, self.instance_id,
 		staticmethod(ConnectionState.get_process_state_cb),
-		NodeStatusUVE, NodeStatus)
+                NodeStatusUVE, NodeStatus, self.table)
         self.send_system_cpu_info()
         self.third_party_process_list = [ ]
     # end __init__
@@ -77,21 +75,14 @@ class ConfigEventManager(EventManager):
 
     def send_process_state_db(self, group_names):
         self.send_process_state_db_base(
-            group_names, ProcessInfo, NodeStatus, NodeStatusUVE)
+            group_names, ProcessInfo)
 
     def send_nodemgr_process_status(self):
         self.send_nodemgr_process_status_base(
-            ProcessStateNames, ProcessState, ProcessStatus,
-            NodeStatus, NodeStatusUVE)
+            ProcessStateNames, ProcessState, ProcessStatus)
 
     def get_node_third_party_process_list(self):
         return self.third_party_process_list 
-
-    def get_node_status_class(self):
-        return NodeStatus
-
-    def get_node_status_uve_class(self):
-        return NodeStatusUVE
 
     def get_process_state(self, fail_status_bits):
         return self.get_process_state_base(
