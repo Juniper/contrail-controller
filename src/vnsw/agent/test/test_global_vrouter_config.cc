@@ -105,6 +105,22 @@ TEST_F(CfgTest, TunnelType_test) {
     ASSERT_TRUE(TunnelType::DefaultType() == default_tunnel_type_);
     ASSERT_TRUE(TunnelType::ComputeType(TunnelType::AllType()) == 
                 default_tunnel_type_);
+
+    AddEncapList("MPLSoUDP", "VXLAN", "");
+    client->WaitForIdle();
+
+    ASSERT_TRUE(TunnelType::ComputeType(1 << TunnelType::MPLS_GRE) ==
+                TunnelType::MPLS_GRE);
+    ASSERT_TRUE(TunnelType::ComputeType(TunnelType::MplsType()) ==
+                TunnelType::MPLS_UDP);
+    client->WaitForIdle();
+    DelEncapList();
+    client->WaitForIdle();
+    ASSERT_TRUE(TunnelType::ComputeType(1 << TunnelType::VXLAN) ==
+                TunnelType::VXLAN);
+    ASSERT_TRUE(TunnelType::ComputeType(1 << TunnelType::INVALID) ==
+                default_tunnel_type_);
+    client->WaitForIdle();
 }
 
 int main(int argc, char **argv) {
