@@ -3684,8 +3684,8 @@ class DBInterface(object):
                msg='port has logical interface attached')
 
         if port_obj.get_logical_router_back_refs():
-            self._raise_contrail_exception('L3PortInUse', port_id=port_id,
-                device_owner=constants.DEVICE_OWNER_ROUTER_INTF)
+            self._raise_contrail_exception('PortInUse', net_id=port_obj['network_id'], port_id=port_id,
+                device_id=port_obj['device_id'])
 
         # release instance IP address
         iip_back_refs = getattr(port_obj, 'instance_ip_back_refs', None)
