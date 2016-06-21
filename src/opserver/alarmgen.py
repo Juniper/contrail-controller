@@ -28,14 +28,14 @@ except ImportError:
 from pysandesh.sandesh_base import *
 from pysandesh.connection_info import ConnectionState
 from pysandesh.sandesh_logger import SandeshLogger
-from pysandesh.gen_py.process_info.ttypes import ConnectionType,\
-    ConnectionStatus
 from pysandesh.gen_py.sandesh_alarm.ttypes import SandeshAlarmAckResponseCode
 from sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import AlarmTrace, \
     UVEAlarms, UVEAlarmInfo, UVEAlarmConfig, AlarmCondition, AlarmMatch, \
     AlarmConditionMatch, AlarmAndList, AlarmRules
 from sandesh.analytics.ttypes import *
-from sandesh.analytics.cpuinfo.ttypes import ProcessCpuInfo
+from sandesh.nodeinfo.ttypes import NodeStatusUVE, NodeStatus
+from sandesh.nodeinfo.cpuinfo.ttypes import *
+from sandesh.nodeinfo.process_info.ttypes import *
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
      ModuleCategoryMap, Module2NodeType, NodeTypeNames, ModuleIds,\
@@ -739,6 +739,7 @@ class Controller(object):
         self._moduleid = ModuleNames[module]
         node_type = Module2NodeType[module]
         self._node_type_name = NodeTypeNames[node_type]
+        self.table = "ObjectCollectorInfo"
         self._hostname = socket.gethostname()
         self._instance_id = self._conf.worker_id()
 
@@ -822,7 +823,7 @@ class Controller(object):
         ConnectionState.init(self._sandesh, self._hostname, self._moduleid,
             self._instance_id,
             staticmethod(ConnectionState.get_process_state_cb),
-            NodeStatusUVE, NodeStatus)
+            NodeStatusUVE, NodeStatus, self.table)
 
         self._us = UVEServer(None, self._logger, self._conf.redis_password())
 

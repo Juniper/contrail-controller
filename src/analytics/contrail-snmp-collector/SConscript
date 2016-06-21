@@ -29,8 +29,12 @@ sources = [
 
 mibs = Glob('mibs/*')
 
-src_sandesh = env.SandeshGenPy('prouter.sandesh',
-        'contrail_snmp_collector/')
+prouter_pkg = env.SandeshGenPy('prouter.sandesh', 'contrail_snmp_collector/sandesh/', False)
+nodeinfo_pkg = env.SandeshGenPy('#controller/src/base/sandesh/nodeinfo.sandesh', 'contrail_snmp_collector/sandesh/', False)
+cpuinfo_pkg = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'contrail_snmp_collector/sandesh/nodeinfo/', False)
+process_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'contrail_snmp_collector/sandesh/nodeinfo/', False)
+
+sdist_depends = [ prouter_pkg, nodeinfo_pkg, cpuinfo_pkg, process_info_pkg ]
 
 version = '0.0.1'
 #with open("CHANGES.txt") as f:
@@ -39,7 +43,7 @@ version = '0.0.1'
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_gen = env.Command('dist/contrail-snmp-collector-' \
         + version + '.tar.gz',
-        sources + src_sandesh, cd_cmd + 'python setup.py sdist')
+        sources + sdist_depends, cd_cmd + 'python setup.py sdist')
 env.Alias('controller/src/analytics/contrail-snmp-collector/' + \
         'contrail_snmp_collector:sdist', sdist_gen)
 
@@ -114,7 +118,7 @@ doc_files += env['ANALYTICS_DOC_FILES']
 doc_files += env.SandeshGenDoc('prouter.sandesh')
 
 if 'install' in BUILD_TARGETS:
-    install_cmd = env.Command(None, sources + src_sandesh,
+    install_cmd = env.Command(None, sources + sdist_depends,
                               cd_cmd + 'python setup.py install %s' %
                               env['PYTHON_INSTALL_OPT'])
     env.Alias('install', install_cmd)

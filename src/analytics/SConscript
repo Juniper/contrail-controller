@@ -118,16 +118,21 @@ main_obj = AnalyticsEnv_excep.Object('main.o', 'main.cc')
 AnalyticsEnv_excep.Depends(main_obj, 'buildinfo.cc')
 
 lib_cpuinfo = File('../base/libcpuinfo.a')
+lib_process_info = File('../base/libprocess_info.a')
+lib_nodeinfo = File('../base/libnodeinfo.a')
 lib_base = File('../base/libbase.a')
 if sys.platform != 'darwin':
     AnalyticsEnv.Prepend(LINKFLAGS =
                          ['-Wl,--whole-archive',
                           '-lbase', '-lcpuinfo',
+                          '-lprocess_info', '-lnodeinfo',
                           '-l:librdkafka.a', '-l:librdkafka++.a',
                           '-Wl,--no-whole-archive'])
 else:
     AnalyticsEnv.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_base.path])
     AnalyticsEnv.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_cpuinfo.path])
+    AnalyticsEnv.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_process_info.path])
+    AnalyticsEnv.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_nodeinfo.path])
 
 def RedisLuaBuild(env, scr_name):
   env.Command('%s_lua.cpp' % scr_name ,'%s.lua' % scr_name,\

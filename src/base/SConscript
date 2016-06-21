@@ -44,6 +44,11 @@ libprocessinfo = env.Library('process_info',
                           ['connection_info.cc'] +
                           ProcessInfoSandeshGenSrcs)
 
+NodeInfoSandeshGenFiles = env.SandeshGenCpp('sandesh/nodeinfo.sandesh')
+NodeInfoSandeshGenSrcs = env.ExtractCpp(NodeInfoSandeshGenFiles)
+libnodeinfo = env.Library('nodeinfo',
+                          NodeInfoSandeshGenSrcs)
+
 VersionInfoSandeshGenFiles = env.SandeshGenCpp('sandesh/version.sandesh')
 VersionInfoSandeshGenSrcs = env.ExtractCpp(VersionInfoSandeshGenFiles)
 

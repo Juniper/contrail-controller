@@ -16,6 +16,8 @@ namespace process {
 
 // ConnectionState
 boost::scoped_ptr<ConnectionState> ConnectionState::instance_;
+boost::scoped_ptr<ConnectionStateManager> ConnectionStateManager::instance_;
+
 
 ConnectionState::ConnectionState(SendUveCb send_uve_cb) :
     send_uve_cb_(send_uve_cb) {

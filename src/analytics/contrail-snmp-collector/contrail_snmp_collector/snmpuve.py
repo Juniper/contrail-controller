@@ -5,7 +5,7 @@ import pprint, socket, copy
 import datetime
 from pysandesh.sandesh_base import *
 from pysandesh.connection_info import ConnectionState
-from gen_py.prouter.ttypes import ArpTable, IfTable, IfXTable, IfStats, \
+from sandesh.prouter.ttypes import ArpTable, IfTable, IfXTable, IfStats, \
          IpMib, LldpSystemCapabilitiesMap, LldpLocManAddrEntry, \
          LldpLocalSystemData, LldpRemOrgDefInfoTable, \
          LldpRemOrgDefInfoTable, LldpRemOrgDefInfoEntry, \
@@ -13,7 +13,7 @@ from gen_py.prouter.ttypes import ArpTable, IfTable, IfXTable, IfStats, \
          dot1qTpFdbPortTable, dot1dBasePortIfIndexTable, \
          LldpTable, PRouterEntry, PRouterUVE, PRouterFlowEntry, \
          PRouterFlowUVE, IfIndexOperStatusTable, LldpLocPortEntry
-from opserver.sandesh.analytics.ttypes import NodeStatusUVE, NodeStatus
+from sandesh.nodeinfo.ttypes import NodeStatusUVE, NodeStatus
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
      ModuleCategoryMap, Module2NodeType, NodeTypeNames, ModuleIds,\
@@ -34,6 +34,7 @@ class SnmpUve(object):
         self._moduleid = ModuleNames[module]
         node_type = Module2NodeType[module]
         self._node_type_name = NodeTypeNames[node_type]
+        self.table = "ObjectCollectorInfo"
         self._hostname = socket.gethostname()
         self._instance_id = instance
         if self._conf.sandesh_send_rate_limit() is not None:
@@ -44,8 +45,7 @@ class SnmpUve(object):
                                       self._conf.collectors(),
                                       self._node_type_name,
                                       self._conf.http_port(),
-                                      ['contrail_snmp_collector.gen_py',
-                                      'opserver.sandesh'],
+                                      ['contrail_snmp_collector.sandesh'],
                                       self._conf._disc)
         sandesh_global.set_logging_params(
             enable_local_log=self._conf.log_local(),
@@ -57,7 +57,7 @@ class SnmpUve(object):
         ConnectionState.init(sandesh_global, self._hostname, self._moduleid,
             self._instance_id,
             staticmethod(ConnectionState.get_process_state_cb),
-            NodeStatusUVE, NodeStatus)
+            NodeStatusUVE, NodeStatus, self.table)
 
         self.if_stat = {}
         self._logger = sandesh_global.logger()

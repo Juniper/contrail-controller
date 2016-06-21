@@ -4,7 +4,7 @@
 import pprint, socket
 from pysandesh.sandesh_base import *
 from pysandesh.connection_info import ConnectionState
-from sandesh.analytics.ttypes import NodeStatusUVE, NodeStatus
+from sandesh.nodeinfo.ttypes import NodeStatusUVE, NodeStatus
 from sandesh.link.ttypes import LinkEntry, PRouterLinkEntry, PRouterLinkUVE
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
@@ -19,6 +19,7 @@ class LinkUve(object):
         node_type = Module2NodeType[module]
         self._node_type_name = NodeTypeNames[node_type]
         self._hostname = socket.gethostname()
+        self.table = "ObjectCollectorInfo"
         self._instance_id = '0'
         if self._conf.sandesh_send_rate_limit() is not None:
             SandeshSystem.set_sandesh_send_rate_limit( \
@@ -40,7 +41,7 @@ class LinkUve(object):
         ConnectionState.init(sandesh_global, self._hostname, self._moduleid,
             self._instance_id,
             staticmethod(ConnectionState.get_process_state_cb),
-            NodeStatusUVE, NodeStatus)
+            NodeStatusUVE, NodeStatus, self.table)
         # end __init__
 
     def send(self, data):

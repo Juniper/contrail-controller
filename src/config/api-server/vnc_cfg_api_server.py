@@ -96,7 +96,7 @@ import discoveryclient.client as client
 # from gen_py.vnc_api.ttypes import *
 import netifaces
 from pysandesh.connection_info import ConnectionState
-from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
+from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, \
     NodeStatus
 
 from sandesh.discovery_client_stats import ttypes as sandesh
@@ -1385,6 +1385,7 @@ class VncApiServer(object):
         module_name = ModuleNames[Module.API_SERVER]
         node_type = Module2NodeType[module]
         node_type_name = NodeTypeNames[node_type]
+        self.table = "ObjectConfigNode"
         if self._args.worker_id:
             instance_id = self._args.worker_id
         else:
@@ -1417,7 +1418,7 @@ class VncApiServer(object):
         ConnectionState.init(self._sandesh, hostname, module_name,
                 instance_id,
                 staticmethod(ConnectionState.get_process_state_cb),
-                NodeStatusUVE, NodeStatus)
+                NodeStatusUVE, NodeStatus, self.table)
 
         # Load extensions
         self._extension_mgrs = {}

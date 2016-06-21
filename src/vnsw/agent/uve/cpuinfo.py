@@ -5,7 +5,7 @@
 import os
 import psutil
 
-from vrouter.cpuinfo.ttypes import *
+from vrouter.nodeinfo.cpuinfo.ttypes import *
 
 class CpuInfoData(object):
 

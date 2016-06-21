@@ -27,6 +27,7 @@ from sandesh.interface.ttypes import \
     UveVMInterfaceAgent, UveVMInterfaceAgentTrace, VmInterfaceStats
 from vrouter.ttypes import VrouterStatsAgent, VrouterStats
 from cpuinfo import CpuInfoData
+from sandesh.nodeinfo.cpuinfo.ttypes import *
 from sandesh.flow.ttypes import *
 import discoveryclient.client as client
 

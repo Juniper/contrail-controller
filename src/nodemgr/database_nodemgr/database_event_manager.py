@@ -35,16 +35,14 @@ from sandesh_common.vns.constants import ModuleNames, NodeTypeNames,\
 from subprocess import Popen, PIPE
 from StringIO import StringIO
 
+from nodemgr.common.sandesh.nodeinfo.ttypes import *
+from nodemgr.common.sandesh.nodeinfo.cpuinfo.ttypes import *
+from nodemgr.common.sandesh.nodeinfo.process_info.ttypes import *
+from nodemgr.common.sandesh.nodeinfo.process_info.constants import *
 from database.sandesh.database.ttypes import \
-    NodeStatusUVE, NodeStatus, DatabaseUsageStats,\
-    DatabaseUsageInfo, DatabaseUsage, CassandraStatusUVE,\
+    DatabaseUsageStats, DatabaseUsageInfo, DatabaseUsage, CassandraStatusUVE,\
     CassandraStatusData,CassandraThreadPoolStats, CassandraCompactionTask
 from pysandesh.connection_info import ConnectionState
-from database.sandesh.database.process_info.ttypes import \
-    ProcessStatus, ProcessState, ProcessInfo
-from database.sandesh.database.process_info.constants import \
-    ProcessStateNames
-
 
 class DatabaseEventManager(EventManager):
     def __init__(self, rule_file, discovery_server,
@@ -53,6 +51,7 @@ class DatabaseEventManager(EventManager):
                  cassandra_repair_interval,
                  cassandra_repair_logdir):
         self.node_type = "contrail-database"
+        self.table = "ObjectDatabaseInfo"
         self.module = Module.DATABASE_NODE_MGR
         self.module_id = ModuleNames[self.module]
         self.hostip = hostip
@@ -78,12 +77,12 @@ class DatabaseEventManager(EventManager):
         sandesh_global.init_generator(
             self.module_id, socket.gethostname(), node_type_name,
             self.instance_id, self.collector_addr, self.module_id, 8103,
-            ['database.sandesh'], _disc)
+            ['database.sandesh', 'nodemgr.common.sandesh'], _disc)
         sandesh_global.set_logging_params(enable_local_log=True)
         ConnectionState.init(sandesh_global, socket.gethostname(), self.module_id,
             self.instance_id,
             staticmethod(ConnectionState.get_process_state_cb),
-            NodeStatusUVE, NodeStatus)
+            NodeStatusUVE, NodeStatus, self.table)
         self.send_system_cpu_info()
         self.third_party_process_list = [ "cassandra", "zookeeper" ]
     # end __init__
@@ -157,21 +156,14 @@ class DatabaseEventManager(EventManager):
 
     def send_process_state_db(self, group_names):
         self.send_process_state_db_base(
-            group_names, ProcessInfo, NodeStatus, NodeStatusUVE)
+            group_names, ProcessInfo)
 
     def send_nodemgr_process_status(self):
         self.send_nodemgr_process_status_base(
-            ProcessStateNames, ProcessState, ProcessStatus,
-            NodeStatus, NodeStatusUVE)
+            ProcessStateNames, ProcessState, ProcessStatus)
 
     def get_node_third_party_process_list(self):
         return self.third_party_process_list 
-
-    def get_node_status_class(self):
-        return NodeStatus
-
-    def get_node_status_uve_class(self):
-        return NodeStatusUVE
 
     def get_process_state(self, fail_status_bits):
         return self.get_process_state_base(
