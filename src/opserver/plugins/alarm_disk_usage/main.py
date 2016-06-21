@@ -22,7 +22,8 @@ class DiskUsage(AlarmBase):
         for db_usage in db_usage_list:
             used_space = db_usage["disk_space_used_1k"]
             available_space = db_usage["disk_space_available_1k"]
-            use_space_threshold = available_space * self._threshold
+            total_space = used_space + available_space
+            use_space_threshold = total_space * self._threshold
             if used_space > use_space_threshold:
                 or_list.append(AllOf(all_of=[AlarmElement(\
                     rule=AlarmTemplate(oper=">",
