@@ -115,6 +115,7 @@ public:
     AgentRouteTable *GetBridgeRouteTable() const;
     InetUnicastAgentRouteTable *GetInet6UnicastRouteTable() const;
     AgentRouteTable *GetRouteTable(uint8_t table_type) const;
+    const std::string GetTableTypeString(uint8_t table_type) const;
     void CreateTableLabel();
     bool AllRouteTableDeleted() const;
     bool RouteTableDeleted(uint8_t table_type) const;

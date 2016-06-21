@@ -306,16 +306,13 @@ bool ArpVrfState::DeleteRouteState(DBTablePartBase *part, DBEntryBase *entry) {
 }
 
 void ArpVrfState::Delete() {
-    if (walk_id_ != DBTableWalker::kInvalidWalkerId)
-        return;
+    rt_table->WalkAgain(managed_delete_walk_ref);
     deleted = true;
-    DBTableWalker *walker = agent->db()->GetWalker();
-    walk_id_ = walker->WalkTable(rt_table, NULL,
-            boost::bind(&ArpVrfState::DeleteRouteState, this, _1, _2),
-            boost::bind(&ArpVrfState::WalkDone, _1, this));
 }
 
 void ArpVrfState::WalkDone(DBTableBase *partition, ArpVrfState *state) {
+    state->rt_table->ReleaseWalker(state->managed_delete_walk_ref);
+    state->managed_delete_walk_ref = NULL;
     state->PreWalkDone(partition);
     delete state;
 }
@@ -331,8 +328,10 @@ ArpVrfState::ArpVrfState(Agent *agent_ptr, ArpProto *proto, VrfEntry *vrf_entry,
                          AgentRouteTable *table):
     agent(agent_ptr), arp_proto(proto), vrf(vrf_entry), rt_table(table),
     route_table_listener_id(DBTableBase::kInvalidId),
-    table_delete_ref(this, table->deleter()), deleted(false),
-    walk_id_(DBTableWalker::kInvalidWalkerId) {
+    table_delete_ref(this, table->deleter()), deleted(false) {
+    managed_delete_walk_ref = rt_table->AllocWalker(
+            boost::bind(&ArpVrfState::DeleteRouteState, this, _1, _2),
+            boost::bind(&ArpVrfState::WalkDone, _2, this));
 }
 
 void ArpProto::InterfaceNotify(DBEntryBase *entry) {

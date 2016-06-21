@@ -42,7 +42,7 @@ InstanceServiceAsyncHandler::InstanceServiceAsyncHandler(Agent *agent)
         &InstanceServiceAsyncHandler::OnVirtualGatewayStaleTimeout, this, _1))) {
     interface_stale_cleaner_->set_callback(
       boost::bind(&InterfaceConfigStaleCleaner::OnInterfaceConfigStaleTimeout,
-                  interface_stale_cleaner_.get(), _1));
+                  interface_stale_cleaner_.get(), _1, agent));
 }
 
 InstanceServiceAsyncHandler::~InstanceServiceAsyncHandler() {
@@ -644,4 +644,3 @@ void DeletePortReq::HandleRequest() const {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-

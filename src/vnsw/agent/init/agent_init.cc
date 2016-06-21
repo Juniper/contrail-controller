@@ -394,44 +394,41 @@ static bool DeleteRoutesInternal(AgentInit *init) {
     return true;
 }
 
-static bool FlushTable(AgentDBTable *table, DBTableWalker *walker) {
-    table->Flush(walker);
+static bool FlushTable(AgentDBTable *table) {
+    table->Flush();
     return true;
 }
 
 void AgentInit::DeleteDBEntriesBase() {
-    DBTableWalker walker;
     int task_id = agent_->task_scheduler()->GetTaskId(AGENT_SHUTDOWN_TASKNAME);
 
     RunInTaskContext(this, task_id, boost::bind(&DeleteRoutesInternal, this));
 
     RunInTaskContext(this, task_id,
-                     boost::bind(&FlushTable, agent_->interface_table(),
-                                 &walker));
+                     boost::bind(&FlushTable, agent_->interface_table()));
     agent_->set_vhost_interface(NULL);
 
     RunInTaskContext(this, task_id,
-                     boost::bind(&FlushTable, agent_->vm_table(), &walker));
+                     boost::bind(&FlushTable, agent_->vm_table()));
 
     RunInTaskContext(this, task_id,
-                     boost::bind(&FlushTable, agent_->vn_table(), &walker));
+                     boost::bind(&FlushTable, agent_->vn_table()));
 
 
     agent_->vrf_table()->DeleteStaticVrf(agent_->fabric_vrf_name());
     RunInTaskContext(this, task_id,
-                     boost::bind(&FlushTable, agent_->vrf_table(), &walker));
+                     boost::bind(&FlushTable, agent_->vrf_table()));
 
     RunInTaskContext(this, task_id,
-                     boost::bind(&FlushTable, agent_->nexthop_table(),
-                                 &walker));
+                     boost::bind(&FlushTable, agent_->nexthop_table()));
     agent_->nexthop_table()->set_discard_nh(NULL);
 
 
     RunInTaskContext(this, task_id,
-                     boost::bind(&FlushTable, agent_->sg_table(), &walker));
+                     boost::bind(&FlushTable, agent_->sg_table()));
 
     RunInTaskContext(this, task_id,
-                     boost::bind(&FlushTable, agent_->acl_table(), &walker));
+                     boost::bind(&FlushTable, agent_->acl_table()));
 }
 
 static bool WaitForDbCount(DBTableBase *table, AgentInit *init,

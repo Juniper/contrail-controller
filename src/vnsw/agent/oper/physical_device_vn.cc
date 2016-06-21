@@ -87,6 +87,15 @@ bool PhysicalDeviceVn::Copy(PhysicalDeviceVnTable *table,
 //////////////////////////////////////////////////////////////////////////////
 // PhysicalDeviceVnTable routines
 //////////////////////////////////////////////////////////////////////////////
+PhysicalDeviceVnTable::PhysicalDeviceVnTable(DB *db, const std::string &name) :
+    AgentDBTable(db, name) {
+    vxlan_id_walk_ref_ =
+        AllocWalker(boost::bind(&PhysicalDeviceVnTable::DeviceVnWalk,
+                                this, _1, _2),
+                    boost::bind(&PhysicalDeviceVnTable::DeviceVnWalkDone,
+                                 this, _1, _2));
+}
+
 std::auto_ptr<DBEntry> PhysicalDeviceVnTable::AllocEntry(const DBRequestKey *k)
     const {
     const PhysicalDeviceVnKey *key =
@@ -126,6 +135,11 @@ bool PhysicalDeviceVnTable::Resync(DBEntry *e, const DBRequest *req) {
     return ret;
 }
 
+void PhysicalDeviceVnTable::Clear() {
+    AgentDBTable::Clear();
+    ReleaseWalker(vxlan_id_walk_ref_);
+}
+
 bool PhysicalDeviceVnTable::Delete(DBEntry *e, const DBRequest *req) {
     PhysicalDeviceVn *entry = static_cast<PhysicalDeviceVn *>(e);
     entry->SendObjectLog(AgentLogEvent::DELETE);
@@ -154,20 +168,12 @@ bool PhysicalDeviceVnTable::DeviceVnWalk(DBTablePartBase *partition,
     return true;
 }
 
-void PhysicalDeviceVnTable::DeviceVnWalkDone(DBTableBase *part) {
-    walkid_ = DBTableWalker::kInvalidWalkerId;
+void PhysicalDeviceVnTable::DeviceVnWalkDone(DBTable::DBTableWalkRef walk_ref,
+                                             DBTableBase *part) {
 }
 
 void PhysicalDeviceVnTable::UpdateVxLanNetworkIdentifierMode() {
-    DBTableWalker *walker = agent()->db()->GetWalker();
-    if (walkid_ != DBTableWalker::kInvalidWalkerId) {
-        walker->WalkCancel(walkid_);
-    }
-    walkid_ = walker->WalkTable(this, NULL,
-                          boost::bind(&PhysicalDeviceVnTable::DeviceVnWalk,
-                                      this, _1, _2),
-                          boost::bind(&PhysicalDeviceVnTable::DeviceVnWalkDone,
-                                      this, _1));
+    WalkAgain(vxlan_id_walk_ref_);
 }
 
 //////////////////////////////////////////////////////////////////////////////

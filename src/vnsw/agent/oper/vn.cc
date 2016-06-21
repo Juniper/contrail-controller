@@ -260,6 +260,20 @@ void VnEntry::ResyncRoutes() {
     route_resync_walker_.get()->UpdateRoutesInVrf(vrf_.get());
 }
 
+VnTable::VnTable(DB *db, const std::string &name) : AgentOperDBTable(db, name) {
+    walk_ref_ = AllocWalker(boost::bind(&VnTable::VnEntryWalk,
+                                        this, _1, _2),
+                            boost::bind(&VnTable::VnEntryWalkDone, this,
+                                        _1, _2));
+}
+
+VnTable::~VnTable() {
+}
+
+void VnTable::Clear() {
+    ReleaseWalker(walk_ref_);
+}
+
 bool VnTable::GetLayer3ForwardingConfig
 (Agent::ForwardingMode forwarding_mode) const {
     if (forwarding_mode == Agent::L2) {
@@ -368,22 +382,15 @@ bool VnTable::VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry) {
     return true;
 }
 
-void VnTable::VnEntryWalkDone(DBTableBase *partition) {
-    walkid_ = DBTableWalker::kInvalidWalkerId;
+void VnTable::VnEntryWalkDone(DBTable::DBTableWalkRef walk_ref,
+                              DBTableBase *partition) {
     agent()->interface_table()->GlobalVrouterConfigChanged();
     agent()->physical_device_vn_table()->
         UpdateVxLanNetworkIdentifierMode();
 }
 
 void VnTable::GlobalVrouterConfigChanged() {
-    DBTableWalker *walker = agent()->db()->GetWalker();
-    if (walkid_ != DBTableWalker::kInvalidWalkerId) {
-        walker->WalkCancel(walkid_);
-    }
-    walkid_ = walker->WalkTable(VnTable::GetInstance(), NULL,
-                      boost::bind(&VnTable::VnEntryWalk, 
-                                  this, _1, _2),
-                      boost::bind(&VnTable::VnEntryWalkDone, this, _1));
+    WalkAgain(walk_ref_);
 }
 
 std::auto_ptr<DBEntry> VnTable::AllocEntry(const DBRequestKey *k) const {

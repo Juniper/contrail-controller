@@ -47,7 +47,8 @@ struct PortInfo input_3[] = {
 class AgentRouteWalkerTest : public AgentRouteWalker, public ::testing::Test {
 public:    
     AgentRouteWalkerTest() : AgentRouteWalker(Agent::GetInstance(),
-                                              AgentRouteWalker::ALL),
+                                              AgentRouteWalker::ALL,
+                                              "agent_route_walker_test"),
     default_tunnel_type_(TunnelType::MPLS_GRE) {
         vrf_name_1_ = "vrf1";
         vrf_name_2_ = "vrf2";
@@ -148,14 +149,6 @@ public:
         client->WaitForIdle();
     }
 
-    virtual bool RouteWalker(boost::shared_ptr<AgentRouteWalkerQueueEntry> data) {
-        if ((Task::Running()->GetTaskId() != TaskScheduler::GetInstance()->
-            GetTaskId("Agent::RouteWalker")) ||
-            (Task::Running()->GetTaskInstance() != 0))
-            walk_task_context_mismatch_ = true;
-        AgentRouteWalker::RouteWalker(data);
-    }
-
     virtual bool RouteWalkNotify(DBTablePartBase *partition, DBEntryBase *e) {
         //Fabric VRF
         //0.0.0.0/32; 10.1.1.0/24; 10.1.1.1/32; 10.1.1.254/3; 10.1.1.255/32;
@@ -189,7 +182,6 @@ public:
         AgentRouteWalker::VrfWalkDone(part);
         if (is_vrf_walk_done_ &&
             !route_table_walk_started_ &&
-            (queued_walk_done_count() == AgentRouteWalker::kInvalidWalkCount) &&
             AreAllWalksDone())
             assert(0);
     }
@@ -244,9 +236,8 @@ class SetupTask : public Task {
             if (test_name_ == "restart_walk_with_2_vrf") {
                 test_->StartVrfWalk();
                 test_->StartVrfWalk();
-            } else if (test_name_ == "cancel_vrf_walk_with_2_vrf") {
+            } else if (test_name_ == "vrf_walk_with_2_vrf") {
                 test_->StartVrfWalk();
-                test_->CancelVrfWalk();
             } else if (test_name_ == "vrf_state_deleted") {
                 test_->WalkDoneCallback(boost::bind(&SetupTask::AllWalkDone,
                                                     test_));
@@ -314,10 +305,10 @@ TEST_F(AgentRouteWalkerTest, restart_walk_with_2_vrf) {
     DeleteEnvironment(2);
 }
 
-TEST_F(AgentRouteWalkerTest, cancel_vrf_walk_with_2_vrf) {
+TEST_F(AgentRouteWalkerTest, vrf_walk_with_2_vrf) {
     client->Reset();
     SetupEnvironment(2);
-    SetupTask * task = new SetupTask(this, "cancel_vrf_walk_with_2_vrf");
+    SetupTask * task = new SetupTask(this, "vrf_walk_with_2_vrf");
     TaskScheduler::GetInstance()->Enqueue(task);
     WAIT_FOR(100, 1000, IsWalkCompleted() == true);
     //TODO validate

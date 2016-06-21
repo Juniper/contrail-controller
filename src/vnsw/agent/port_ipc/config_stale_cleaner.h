@@ -39,14 +39,15 @@ class InterfaceConfigStaleCleaner : public ConfigStaleCleaner {
 public:
     InterfaceConfigStaleCleaner(Agent *agent);
     virtual ~InterfaceConfigStaleCleaner();
-    virtual bool OnInterfaceConfigStaleTimeout(int32_t version);
+    virtual bool OnInterfaceConfigStaleTimeout(int32_t version,
+                                               const Agent *agent);
 
 private:
-    void CfgIntfWalkDone(int32_t version);
-    bool CfgIntfWalk(DBTablePartBase *partition, DBEntryBase *entry,
-                     int32_t version);
+    void CfgIntfWalkDone();
+    bool CfgIntfWalk(DBTablePartBase *partition, DBEntryBase *entry);
 
-    DBTableWalker::WalkId walkid_;
+    DBTable::DBTableWalkRef walk_ref_;
+    int version_;//Version below which everything is stale.
     DISALLOW_COPY_AND_ASSIGN(InterfaceConfigStaleCleaner);
 };
 

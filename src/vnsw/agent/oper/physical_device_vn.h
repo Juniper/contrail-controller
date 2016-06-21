@@ -117,8 +117,7 @@ class PhysicalDeviceVnTable : public AgentDBTable {
 
     typedef std::set<PhysicalDeviceVnToVmi, PhysicalDeviceVnToVmi> ConfigTree;
 
-    PhysicalDeviceVnTable(DB *db, const std::string &name) :
-        AgentDBTable(db, name), walkid_(DBTableWalker::kInvalidWalkerId) { }
+    PhysicalDeviceVnTable(DB *db, const std::string &name);
     virtual ~PhysicalDeviceVnTable() { }
 
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
@@ -131,6 +130,7 @@ class PhysicalDeviceVnTable : public AgentDBTable {
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req,
             const boost::uuids::uuid &u);
     virtual bool Resync(DBEntry *entry, const DBRequest *req);
+    virtual void Clear();
     virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
                                             const std::string &context);
 
@@ -147,13 +147,13 @@ class PhysicalDeviceVnTable : public AgentDBTable {
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 
     bool DeviceVnWalk(DBTablePartBase *partition, DBEntryBase *entry);
-    void DeviceVnWalkDone(DBTableBase *partition);
+    void DeviceVnWalkDone(DBTable::DBTableWalkRef walk_ref, DBTableBase *partition);
     // Handle change in VxLan Identifier mode from global-config
     void UpdateVxLanNetworkIdentifierMode();
 
  private:
     ConfigTree config_tree_;
-    DBTableWalker::WalkId walkid_;
+    DBTable::DBTableWalkRef vxlan_id_walk_ref_;
     DISALLOW_COPY_AND_ASSIGN(PhysicalDeviceVnTable);
 };
 

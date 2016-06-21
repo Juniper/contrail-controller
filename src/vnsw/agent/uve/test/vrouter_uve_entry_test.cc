@@ -83,9 +83,12 @@ void VrouterUveEntryTest::WaitForWalkCompletion() {
     WAIT_FOR(1000, 500, (do_vn_walk_ == false));
     WAIT_FOR(1000, 500, (do_vm_walk_ == false));
     WAIT_FOR(1000, 500, (do_interface_walk_ == false));
-    WAIT_FOR(1000, 500, (vn_walk_id_ == DBTableWalker::kInvalidWalkerId));
-    WAIT_FOR(1000, 500, (vm_walk_id_ == DBTableWalker::kInvalidWalkerId));
-    WAIT_FOR(1000, 500, (interface_walk_id_ == DBTableWalker::kInvalidWalkerId));
+    if (vn_walk_ref_.get() != NULL)
+        WAIT_FOR(1000, 500, (vn_walk_ref_.get()->done() == true));
+    if (vm_walk_ref_.get() != NULL)
+        WAIT_FOR(1000, 500, (vm_walk_ref_.get()->done() == true));
+    if (interface_walk_ref_.get() != NULL)
+        WAIT_FOR(1000, 500, (interface_walk_ref_.get()->done() == true));
 }
 
 void VrouterUveEntryTest::set_prev_flow_setup_rate_export_time(uint64_t

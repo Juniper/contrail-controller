@@ -45,6 +45,7 @@
 #include <oper/qos_config.h>
 #include <oper/qos_queue.h>
 #include <oper/global_qos_config.h>
+#include <oper/agent_route_walker.h>
 
 using boost::assign::map_list_of;
 using boost::assign::list_of;
@@ -223,6 +224,8 @@ void OperDB::CreateDBTables(DB *db) {
     vrouter_ = std::auto_ptr<VRouter> (new VRouter(this));
     bgp_as_a_service_ = std::auto_ptr<BgpAsAService>(new BgpAsAService(agent_));
     global_qos_config_ = std::auto_ptr<GlobalQosConfig>(new GlobalQosConfig(this));
+    route_walk_manager_ =
+        std::auto_ptr<AgentRouteWalkerManager>(new AgentRouteWalkerManager(agent_));
 }
 
 void OperDB::Init() {
@@ -325,6 +328,7 @@ void OperDB::Shutdown() {
         agent()->mirror_table()->Shutdown();
     }
 
+    route_walk_manager_.reset();
     profile_.reset();
 }
 

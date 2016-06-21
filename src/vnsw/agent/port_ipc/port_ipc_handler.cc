@@ -64,7 +64,7 @@ PortIpcHandler::PortIpcHandler(Agent *agent, const std::string &dir)
       interface_stale_cleaner_(new InterfaceConfigStaleCleaner(agent)) {
     interface_stale_cleaner_->set_callback(
         boost::bind(&InterfaceConfigStaleCleaner::OnInterfaceConfigStaleTimeout,
-                    interface_stale_cleaner_.get(), _1));
+                    interface_stale_cleaner_.get(), _1, agent));
     fs::path ports_dir(ports_dir_);
     if (fs::exists(ports_dir)) {
         return;

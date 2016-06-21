@@ -1614,19 +1614,14 @@ trace sandesh OperVrf {
  * @severity: DEBUG
  */
 trace sandesh AgentRouteWalkerTrace {
-    1: string message;
-    2: "Walk Type:";
-    3: i32 walk_type;
-    4: "Vrf name:";
-    5: string vrf_name;
-    6: "VRF walkid:";
-    7: i32 vrf_walk_id;
-    8: "Route table Type:";
-    9: i32 route_table_type;
-   10: "Route table name:";
-   11: string route_table_name;
-   12: "Route Walk Id:";
-   13: i32 route_walk_id;
+    1: string name;
+    2: string message;
+    3: "Walk Type:";
+    4: i32 walk_type;
+    5: "Vrf name:";
+    6: string vrf_name;
+    7: "Route table Type:";
+    8: string route_table_type;
 }
 
 /**

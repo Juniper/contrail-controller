@@ -809,6 +809,11 @@ PathPreferenceRouteListener::PathPreferenceRouteListener(Agent *agent,
     AgentRouteTable *table): agent_(agent), rt_table_(table),
     id_(DBTableBase::kInvalidId), table_delete_ref_(this, table->deleter()),
     deleted_(false) {
+    managed_delete_walk_ref_ = table->
+        AllocWalker(boost::bind(&PathPreferenceRouteListener::DeleteState,
+                                  this, _1, _2),
+                    boost::bind(&PathPreferenceRouteListener::Walkdone, this,
+                                _1, _2, this));
 }
 
 void PathPreferenceRouteListener::Init() {
@@ -819,22 +824,24 @@ void PathPreferenceRouteListener::Init() {
 
 void PathPreferenceRouteListener::Delete() {
     set_deleted();
-    DBTableWalker *walker = agent_->db()->GetWalker();
-    walker->WalkTable(rt_table_, NULL,
-                      boost::bind(&PathPreferenceRouteListener::DeleteState,
-                                  this, _1, _2),
-                      boost::bind(&PathPreferenceRouteListener::Walkdone, this,
-                                  _1, this));
+    //Managed delete walk need to be done only once.
+    if (managed_delete_walk_ref_.get()) {
+        rt_table_->WalkAgain(managed_delete_walk_ref_);
+    }
 }
 
 void PathPreferenceRouteListener::ManagedDelete() {
     Delete();
 }
 
-void PathPreferenceRouteListener::Walkdone(DBTableBase *partition,
+void PathPreferenceRouteListener::Walkdone(DBTable::DBTableWalkRef walk_ref,
+                                       DBTableBase *partition,
                                        PathPreferenceRouteListener *state) {
     rt_table_->Unregister(id_);
     table_delete_ref_.Reset(NULL);
+    if (walk_ref.get() != NULL)
+        (static_cast<DBTable *>(partition))->ReleaseWalker(walk_ref);
+    managed_delete_walk_ref_ = NULL;
     delete state;
 }
 

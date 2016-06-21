@@ -121,7 +121,9 @@ protected:
     SandeshResponse *resp_;
 private:
     bool EntrySandesh(DBEntryBase *entry, int first, int last);
-    void SandeshDone(AgentSandeshPtr ptr, int first, int page_size);
+    void SandeshDone(AgentSandeshPtr ptr, int first, int page_size,
+                     DBTable::DBTableWalkRef walk_ref,
+                     DBTableBase *partition);
     void SetResp();
     virtual DBTable *AgentGetTable() = 0;
     virtual void Alloc() = 0;

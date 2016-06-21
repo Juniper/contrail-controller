@@ -23,8 +23,8 @@
 #include "controller/controller_export.h"
 
 ControllerRouteWalker::ControllerRouteWalker(Agent *agent, Peer *peer) : 
-    AgentRouteWalker(agent, AgentRouteWalker::ALL), peer_(peer), 
-    associate_(false), type_(NOTIFYALL) {
+    AgentRouteWalker(agent, AgentRouteWalker::ALL, "ControllerRouteWalker"),
+    peer_(peer), associate_(false), type_(NOTIFYALL) {
 }
 
 // Takes action based on context of walk. These walks are not parallel.
@@ -292,9 +292,4 @@ void ControllerRouteWalker::Start(Type type, bool associate,
     WalkDoneCallback(walk_done_cb);
 
     StartVrfWalk(); 
-}
-
-void ControllerRouteWalker::Cancel() {
-    CONTROLLER_ROUTE_WALKER_TRACE(Walker, "Cancel Vrf Walk", "", peer_->GetName());
-    CancelVrfWalk(); 
 }

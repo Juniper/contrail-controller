@@ -196,7 +196,7 @@ void Agent::SetAgentTaskPolicy() {
         "sandesh::RecvQueue",
         "io::ReaderTask",
         "Agent::ControllerXmpp",
-        "Agent::RouteWalker",
+        "db::Walker",
         "db::DBTable",
         "xmpp::StateMachine",
         "bgp::ShowCommand",
@@ -216,10 +216,10 @@ void Agent::SetAgentTaskPolicy() {
     SetTaskPolicyOne("Agent::ControllerXmpp", controller_xmpp_exclude_list,
                      sizeof(controller_xmpp_exclude_list) / sizeof(char *));
 
-    const char *walk_cancel_exclude_list[] = {
+    const char *walker_exclude_list[] = {
         "Agent::ControllerXmpp",
         "db::DBTable",
-        // For ToR Agent Agent::KSync and Agent::RouteWalker both task tries
+        // For ToR Agent Agent::KSync and db::Walker both task tries
         // to modify route path list inline (out of DB table context) to
         // manage route exports from dynamic peer before release the peer
         // which is resulting in parallel access, for now we will avoid this
@@ -230,8 +230,8 @@ void Agent::SetAgentTaskPolicy() {
         AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
-    SetTaskPolicyOne("Agent::RouteWalker", walk_cancel_exclude_list,
-                     sizeof(walk_cancel_exclude_list) / sizeof(char *));
+    SetTaskPolicyOne("db::Walker", walker_exclude_list,
+                     sizeof(walker_exclude_list) / sizeof(char *));
 
     const char *ksync_exclude_list[] = {
         "db::DBTable",

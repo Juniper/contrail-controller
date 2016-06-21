@@ -16,7 +16,10 @@
 #include <oper/agent_path.h>
 
 AgentRouteResync::AgentRouteResync(Agent *agent) : 
-    AgentRouteWalker(agent, AgentRouteWalker::ALL) {
+    AgentRouteWalker(agent, AgentRouteWalker::ALL, "AgentRouteResync") {
+}
+
+AgentRouteResync::~AgentRouteResync() {
 }
 
 bool AgentRouteResync::RouteWalkNotify(DBTablePartBase *partition,

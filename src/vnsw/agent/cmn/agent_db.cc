@@ -31,6 +31,49 @@ bool AgentDBEntry::IsActive() const {
 void AgentDBEntry::PostAdd() {
 }
 
+static bool FlushNotify(DBTablePartBase *partition, DBEntryBase *e) {
+    if (e->IsDeleted()) {
+        return true;
+    }
+
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key = e->GetDBRequestKey();
+    (static_cast<AgentDBTable *>(e->get_table()))->Process(req);
+    return true;
+}
+
+static void FlushWalkDone(DBTable::DBTableWalkRef walk_ref,
+                          DBTableBase *partition) {
+}
+
+AgentDBTable::AgentDBTable(DB *db, const std::string &name) :
+    DBTable(db, name), ref_listener_id_(-1), agent_(NULL),
+    OperDBTraceBuf(SandeshTraceBufferCreate(("Oper " + name), 5000)) {
+    ref_listener_id_ = Register(boost::bind(&AgentDBTable::Notify,
+                                            this, _1, _2));
+    flush_walk_ref_ = AllocWalker(boost::bind(FlushNotify, _1, _2),
+                                  boost::bind(FlushWalkDone, _1, _2));
+};
+
+AgentDBTable::AgentDBTable(DB *db, const std::string &name,
+                           bool del_on_zero_refcount) :
+    DBTable(db, name), ref_listener_id_(-1) , agent_(NULL),
+    OperDBTraceBuf(SandeshTraceBufferCreate(("Oper " + name), 5000)) {
+    ref_listener_id_ = Register(boost::bind(&AgentDBTable::Notify,
+                                            this, _1, _2));
+    flush_walk_ref_ = AllocWalker(boost::bind(FlushNotify, _1, _2),
+                                  boost::bind(FlushWalkDone, _1, _2));
+};
+
+AgentDBTable::~AgentDBTable() {
+    //In case Clear is missed which should have removed walk ref
+    if (flush_walk_ref_.get() != NULL) {
+        ReleaseWalker(flush_walk_ref_);
+        flush_walk_ref_ = NULL;
+    }
+    assert(HasWalkers() == false);
+}
+
 void AgentDBTable::NotifyEntry(DBEntryBase *e) {
     agent_->ConcurrencyCheck();
     DBTablePartBase *tpart =
@@ -155,6 +198,8 @@ void AgentDBTable::Clear() {
         }
         partition->Delete(entry);
     }
+    ReleaseWalker(flush_walk_ref_);
+    flush_walk_ref_ = NULL;
 }
 
 void AgentDBTable::Process(DBRequest &req) {
@@ -164,21 +209,6 @@ void AgentDBTable::Process(DBRequest &req) {
     tpart->Process(NULL, &req);
 }
 
-static bool FlushNotify(DBTablePartBase *partition, DBEntryBase *e) {
-    if (e->IsDeleted()) {
-        return true;
-    }
-
-    DBRequest req(DBRequest::DB_ENTRY_DELETE);
-    req.key = e->GetDBRequestKey();
-    (static_cast<AgentDBTable *>(e->get_table()))->Process(req);
-    return true;
-}
-
-static void FlushWalkDone(DBTableBase *table) {
-}
-
-void AgentDBTable::Flush(DBTableWalker *walker) {
-    walker->WalkTable(this, NULL, FlushNotify,
-                      boost::bind(FlushWalkDone, _1));
+void AgentDBTable::Flush() {
+    WalkAgain(flush_walk_ref_);
 }

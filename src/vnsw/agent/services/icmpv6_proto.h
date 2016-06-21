@@ -112,7 +112,7 @@ private:
     LifetimeRef<Icmpv6VrfState> table_delete_ref_;
     bool deleted_;
     bool default_routes_added_;
-    DBTableWalker::WalkId walk_id_;
+    DBTable::DBTableWalkRef managed_delete_walk_ref_;
     DISALLOW_COPY_AND_ASSIGN(Icmpv6VrfState);
 };
 

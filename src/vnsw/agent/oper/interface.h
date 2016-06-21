@@ -303,12 +303,7 @@ public:
     typedef boost::function<void(VmInterface *, const VnEntry *,
                                  const Ip4Address &, bool)> UpdateFloatingIpFn;
 
-    InterfaceTable(DB *db, const std::string &name) :
-        AgentOperDBTable(db, name), operdb_(NULL), agent_(NULL),
-        walkid_(DBTableWalker::kInvalidWalkerId), index_table_(),
-        vmi_count_(0), li_count_(0), active_vmi_count_(0),
-        vmi_ifnode_to_req_(0), li_ifnode_to_req_(0), pi_ifnode_to_req_(0) {
-    }
+    InterfaceTable(DB *db, const std::string &name);
     virtual ~InterfaceTable() { }
 
     void Init(OperDB *oper);
@@ -411,15 +406,19 @@ public:
     uint32_t vmi_ifnode_to_req() const { return vmi_ifnode_to_req_; }
     uint32_t li_ifnode_to_req() const { return li_ifnode_to_req_; }
     uint32_t pi_ifnode_to_req() const { return pi_ifnode_to_req_; }
+    //Shutdown
+    virtual void Clear();
+
 private:
     bool L2VmInterfaceWalk(DBTablePartBase *partition,
                            DBEntryBase *entry);
-    void VmInterfaceWalkDone(DBTableBase *partition);
+    void VmInterfaceWalkDone(DBTable::DBTableWalkRef walk_ref,
+                             DBTableBase *partition);
 
     static InterfaceTable *interface_table_;
     OperDB *operdb_;        // Cached entry
     Agent *agent_;          // Cached entry
-    DBTableWalker::WalkId walkid_;
+    DBTable::DBTableWalkRef global_vrouter_config_walk_ref_;
     IndexVector<Interface> index_table_;
     // On restart, DHCP Snoop entries are read from kernel and updated in the
     // ASIO context. Lock used to synchronize

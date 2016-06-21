@@ -250,6 +250,32 @@ AgentRouteTable *VrfEntry::GetRouteTable(uint8_t table_type) const {
     return (RouteTableDeleted(table_type) ? NULL : rt_table_db_[table_type]);
 }
 
+const std::string VrfEntry::GetTableTypeString(uint8_t table_type) const {
+    switch (table_type) {
+      case Agent::INET4_UNICAST: {
+          return "inet4_unicast";
+          break;
+      }
+      case Agent::INET6_UNICAST: {
+          return "inet6_unicast";
+          break;
+      }
+      case Agent::INET4_MULTICAST: {
+          return "inet4_multicast";
+          break;
+      }
+      case Agent::BRIDGE: {
+          return "bridge";
+          break;
+      }
+      case Agent::EVPN: {
+          return "evpn";
+          break;
+      }
+    }
+    return "None";
+}
+
 InetUnicastAgentRouteTable *VrfEntry::GetInet4UnicastRouteTable() const {
     return static_cast<InetUnicastAgentRouteTable *>(GetRouteTable(Agent::INET4_UNICAST));
 }
@@ -757,7 +783,7 @@ AgentSandeshPtr VrfTable::GetAgentSandesh(const AgentSandeshArguments *args,
 class RouteDeleteWalker : public AgentRouteWalker {
 public:
     RouteDeleteWalker(Agent *agent) : 
-        AgentRouteWalker(agent, AgentRouteWalker::ALL) {
+        AgentRouteWalker(agent, AgentRouteWalker::ALL, "RouteDeleteWalker") {
     }
 
     ~RouteDeleteWalker() { }
@@ -807,7 +833,7 @@ void VrfTable::DeleteRoutes() {
 class VrfDeleteWalker : public AgentRouteWalker {
 public:
     VrfDeleteWalker(Agent *agent) : 
-        AgentRouteWalker(agent, AgentRouteWalker::ALL) {
+        AgentRouteWalker(agent, AgentRouteWalker::ALL, "VrfDeleteWalker") {
     }
 
     ~VrfDeleteWalker() { }

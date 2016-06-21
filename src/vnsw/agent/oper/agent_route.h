@@ -192,7 +192,8 @@ private:
     void AddUnresolvedRoute(const AgentRoute *rt);
     void RemoveUnresolvedRoute(const AgentRoute *rt);
     void EvaluateUnresolvedRoutes(void);
-    void DeleteRouteDone(DBTableBase *base, RouteTableWalkerState *state);
+    void DeleteRouteDone(DBTable::DBTableWalkRef walk_ref, DBTableBase *base,
+                         RouteTableWalkerState *state);
 
     void Input(DBTablePartition *part, DBClient *client, DBRequest *req);
 
@@ -311,14 +312,6 @@ private:
     DEPENDENCY_LIST(NextHop, AgentRoute, tunnel_nh_list_);
     DISALLOW_COPY_AND_ASSIGN(AgentRoute);
 };
-
-#define AGENT_DBWALK_TRACE_BUF "AgentDBwalkTrace"
-
-extern SandeshTraceBufferPtr AgentDBwalkTraceBuf;
-
-#define AGENT_DBWALK_TRACE(obj, ...) do {                                  \
-    obj::TraceMsg(AgentDBwalkTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__); \
-} while (0);
 
 #define GETPEERNAME(peer) (peer)? peer->GetName() : ""
 #define AGENT_ROUTE_LOG(table, msg, route, vrf, peer_info)\

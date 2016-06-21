@@ -219,9 +219,8 @@ private:
 
 class VnTable : public AgentOperDBTable {
 public:
-    VnTable(DB *db, const std::string &name) : AgentOperDBTable(db, name),
-        walkid_(DBTableWalker::kInvalidWalkerId) { }
-    virtual ~VnTable() { }
+    VnTable(DB *db, const std::string &name);
+    virtual ~VnTable();
 
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
     virtual size_t Hash(const DBEntry *entry) const {return 0;};
@@ -239,6 +238,7 @@ public:
     virtual bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
     virtual bool ProcessConfig(IFMapNode *node, DBRequest &req,
             const boost::uuids::uuid &u);
+    virtual void Clear();
 
     int ComputeCfgVxlanId(IFMapNode *node);
     void CfgForwardingFlags(IFMapNode *node, bool *l2, bool *l3, bool *rpf,
@@ -259,7 +259,7 @@ public:
     VnEntry *Find(const uuid &vn_uuid);
     void GlobalVrouterConfigChanged();
     bool VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry);
-    void VnEntryWalkDone(DBTableBase *partition);
+    void VnEntryWalkDone(DBTable::DBTableWalkRef walk_ref, DBTableBase *partition);
     bool RebakeVxlan(VnEntry *vn, bool op_del);
     bool EvaluateForwardingMode(VnEntry *vn);
     bool GetLayer3ForwardingConfig(Agent::ForwardingMode forwarding_mode) const;
@@ -290,7 +290,7 @@ private:
     VnData *BuildData(IFMapNode *node);
     IFMapNode *FindTarget(IFMapAgentTable *table, IFMapNode *node, 
                           std::string node_type);
-    DBTableWalker::WalkId walkid_;
+    DBTable::DBTableWalkRef walk_ref_;
 
     DISALLOW_COPY_AND_ASSIGN(VnTable);
 };

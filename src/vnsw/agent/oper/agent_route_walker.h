@@ -7,6 +7,7 @@
 
 #include <cmn/agent_cmn.h>
 #include <cmn/agent.h>
+#include <sandesh/sandesh_trace.h>
 
 /**
  * The infrastructure is to support and manage VRF walks along with
@@ -26,34 +27,59 @@
  *    start route table walk. In this way only VRF entries can be traversed 
  *    without route walks issued.
  *    
- * Cancellation of walks happen when a new walk is started and there was an old
- * walk started using same object. Multiple objects of this class can have
- * separate parallel walks. 
- * Cancellation of VRF walk only cancels VRF walk and not the corresponding
- * route walk started by VRF.
- * Cancellation of route walk can be done by usig CancelRouteWalk with vrf as
- * argument.
- * TODO - Do route cancellation for route walks when vrf walk is cancelled.
+ * Multiple objects of this class can have separate parallel walks.
+ * There is no more walk cancellations to start a new walk.
+ * Same walk reference can be used to restart walks with different context.
+ * Each AgentRouteWalker instance will have its own walker reference on vrf
+ * table. Walk on this table will result in more walk references created for
+ * route tables. These references are stored in DB State keyed with Vrf walk
+ * reference.
+ *
+ * DB state is created by agent route walk manager and is unique for a vrf
+ * entry. Each instance of AgentRouteWalker will insert its vrf_walk_ref in this
+ * state and maintain route table references with walk tracker in same.
  *
  */
 
-struct AgentRouteWalkerQueueEntry {
-    enum RequestType {
-        START_VRF_WALK,
-        CANCEL_VRF_WALK,
-        START_ROUTE_WALK,
-        CANCEL_ROUTE_WALK,
-        DONE_WALK
-    };
+#define AGENT_DBWALK_TRACE_BUF "AgentDBwalkTrace"
+extern SandeshTraceBufferPtr AgentDBwalkTraceBuf;
 
-    AgentRouteWalkerQueueEntry(VrfEntry *vrf, RequestType type,
-                               bool all_walks_done) :
-        vrf_ref_(vrf, this), type_(type), all_walks_done_(all_walks_done) { }
-    virtual ~AgentRouteWalkerQueueEntry() { }
+#define AGENT_DBWALK_TRACE(obj, ...) do {                                  \
+    obj::TraceMsg(AgentDBwalkTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__); \
+} while (0);
 
-    VrfEntryRef vrf_ref_;
-    RequestType type_;
-    bool all_walks_done_;
+struct RouteWalkerDBState : DBState {
+    typedef std::vector<DBTable::DBTableWalkRef> RouteTableWalkRefList;
+    typedef std::map<DBTable::DBTableWalkRef,
+            RouteTableWalkRefList> VrfWalkRefMap;
+
+    RouteWalkerDBState();
+    VrfWalkRefMap vrf_walk_ref_map_;
+};
+
+class AgentRouteWalkerManager {
+public:
+    AgentRouteWalkerManager(Agent *agent);
+    virtual ~AgentRouteWalkerManager();
+    void RemoveWalkReferencesInVrf(VrfEntry *vrf);
+    void VrfNotify(DBTablePartBase *partition, DBEntryBase *e);
+    DBTable::ListenerId vrf_listener_id() const {
+        return vrf_listener_id_;
+    }
+    //Walk to release all references.
+    static bool VrfWalkNotify(DBTablePartBase *partition, DBEntryBase *e,
+                              DBTable::DBTableWalkRef vrf_walk_ref,
+                              const Agent *agent,
+                              DBTable::ListenerId vrf_listener_id);
+    static void VrfWalkDone(DBTable::DBTableWalkRef walker_ref,
+                            DBTableBase *part,
+                            DBTable::DBTableWalkRef vrf_walk_ref,
+                            DBTable::ListenerId vrf_listener_id);
+
+private:
+    DBTable::ListenerId vrf_listener_id_;
+    Agent *agent_;
+    DISALLOW_COPY_AND_ASSIGN(AgentRouteWalkerManager);
 };
 
 class AgentRouteWalker {
@@ -67,18 +93,14 @@ public:
         ALL,
     };
 
-    typedef std::map<uint32_t, DBTableWalker::WalkId> VrfRouteWalkerIdMap;
-    typedef std::map<uint32_t, DBTableWalker::WalkId>::iterator VrfRouteWalkerIdMapIterator;
-
-    AgentRouteWalker(Agent *agent, WalkType type);
+    AgentRouteWalker(Agent *agent, WalkType type,
+                     const std::string &name);
     virtual ~AgentRouteWalker();
 
     void StartVrfWalk();
-    void CancelVrfWalk();
 
     //Route table walk for specified VRF
     void StartRouteWalk(VrfEntry *vrf);
-    void CancelRouteWalk(VrfEntry *vrf);
 
     virtual bool VrfWalkNotify(DBTablePartBase *partition, DBEntryBase *e);
     virtual bool RouteWalkNotify(DBTablePartBase *partition, DBEntryBase *e);
@@ -88,56 +110,35 @@ public:
 
     void WalkDoneCallback(WalkDone cb);
     void RouteWalkDoneForVrfCallback(RouteWalkDoneCb cb);
-    int queued_walk_done_count() const {return queued_walk_done_count_;}
-    bool AllWalkDoneDequeued() const {return (queued_walk_done_count_ ==
-                                              kInvalidWalkCount);}
-    int queued_walk_count() const {return queued_walk_count_;}
-    bool AllWalksDequeued() const {return (queued_walk_count_ ==
-                                           kInvalidWalkCount);}
     int walk_count() const {return walk_count_;}
     bool IsWalkCompleted() const {return (walk_count_ == kInvalidWalkCount);}
-    //Callback for start of a walk issued from Agent::RouteWalker
-    //task context.
-    virtual bool RouteWalker(boost::shared_ptr<AgentRouteWalkerQueueEntry> data);
     bool AreAllWalksDone() const;
     Agent *agent() const {return agent_;}
     void set_walkable_route_tables(uint32_t walkable_route_tables) {
         walkable_route_tables_ = walkable_route_tables;
     }
     uint32_t walkable_route_tables() const {return walkable_route_tables_;}
+    DBTable::DBTableWalkRef GetRouteTableWalkRef(const VrfEntry *vrf,
+                                                 RouteWalkerDBState *state,
+                                                 AgentRouteTable *table);
+    RouteWalkerDBState *GetRouteWalkerDBState(const VrfEntry *vrf);
+    bool IsRouteTableWalkCompleted(RouteWalkerDBState *state) const;
 
 private:
-    void StartVrfWalkInternal();
-    void CancelVrfWalkInternal();
-    void StartRouteWalkInternal(const VrfEntry * vrf);
-    void CancelRouteWalkInternal(const VrfEntry *vrf);
 
     void Callback(VrfEntry *vrf);
-    void CallbackInternal(VrfEntry *vrf, bool all_walks_done);
-    void OnWalkComplete();
     void OnRouteTableWalkCompleteForVrf(VrfEntry *vrf);
     void DecrementWalkCount();
     void IncrementWalkCount() {walk_count_.fetch_and_increment();}
-    void IncrementQueuedWalkCount() {queued_walk_count_.fetch_and_increment();}
-    void DecrementQueuedWalkCount();
-    void IncrementQueuedWalkDoneCount() {queued_walk_done_count_.fetch_and_increment();}
-    void DecrementQueuedWalkDoneCount();
 
     Agent *agent_;
+    std::string name_;
     AgentRouteWalker::WalkType walk_type_;    
-    tbb::atomic<int> queued_walk_count_;
-    tbb::atomic<int> queued_walk_done_count_;
     tbb::atomic<int> walk_count_;
-    DBTableWalker::WalkId vrf_walkid_;
-    VrfRouteWalkerIdMap route_walkid_[Agent::ROUTE_TABLE_MAX];
     WalkDone walk_done_cb_;
     RouteWalkDoneCb route_walk_done_for_vrf_cb_;
-    //work queue(Agent::RouteWalker) is used for starting/cancelling
-    //walks. This task is in exclusion with dbtable and Controller
-    //which makes sure that walk-done and cancel walk do not get executed in
-    //parallel. Both these calls modify walkid.
-    WorkQueue<boost::shared_ptr<AgentRouteWalkerQueueEntry> > work_queue_;
     uint32_t walkable_route_tables_;
+    DBTable::DBTableWalkRef vrf_walk_ref_;
     DISALLOW_COPY_AND_ASSIGN(AgentRouteWalker);
 };
 

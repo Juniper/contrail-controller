@@ -47,8 +47,11 @@ struct TestPathPreferenceRouteListener : public PathPreferenceRouteListener {
         PathPreferenceRouteListener::Notify(partition, e);
         return ret;
     }
-    void Walkdone(DBTableBase *partition, PathPreferenceRouteListener *state) {
-        PathPreferenceRouteListener::Walkdone(partition, state);
+    void Walkdone(DBTable::DBTableWalkRef walk_ref,
+                  DBTableBase *partition,
+                  PathPreferenceRouteListener *state) {
+        (static_cast<DBTable *>(partition))->ReleaseWalker(walk_ref);
+        PathPreferenceRouteListener::Walkdone(walk_ref, partition, state);
         walk_done_ = true;
     }
     virtual void Delete() { } //Dont call parent delete as it will start
@@ -181,16 +184,16 @@ TEST_F(PathPreferenceRouteTableWalkerTest, notify_on_deleted_before_walk_done) {
     SetupEnvironment(3);
     VrfDelReq("vrf1");
     client->WaitForIdle();
-    DBTableWalker *walker = agent_->db()->GetWalker();
     VrfEntry *vrf = VrfGet("vrf1", true);
     EvpnAgentRouteTable *evpn_rt_table =
         static_cast<EvpnAgentRouteTable*>(vrf->GetEvpnRouteTable());
     test_listener_->set_deleted();//Artificially mark it for delete
-    walker->WalkTable(evpn_rt_table, NULL,
+    DBTable::DBTableWalkRef walk_ref = evpn_rt_table->AllocWalker(
                       boost::bind(&TestPathPreferenceRouteListener::DeleteState,
                                   test_listener_, _1, _2),
                       boost::bind(&TestPathPreferenceRouteListener::Walkdone,
-                                  test_listener_, _1, test_listener_));
+                                  test_listener_, _1, _2, test_listener_));
+    evpn_rt_table->WalkAgain(walk_ref);
     WAIT_FOR(1000, 1000, (test_listener_->walk_done_ == true));
     DeleteEnvironment(3);
 }
