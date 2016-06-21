@@ -7,7 +7,7 @@ import psutil
 import subprocess
 
 from subprocess import Popen, PIPE
-from sandesh.cpuinfo.ttypes import *
+from sandesh.nodeinfo.cpuinfo.ttypes import *
 
 class MemCpuUsageData(object):
 

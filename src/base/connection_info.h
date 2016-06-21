@@ -16,8 +16,14 @@
 
 #include <tbb/mutex.h>
 
+#include "sandesh/sandesh_types.h"
+#include "sandesh/sandesh.h"
 #include <base/sandesh/process_info_constants.h>
 #include <base/sandesh/process_info_types.h>
+#include <base/sandesh/cpuinfo_constants.h>
+#include <base/sandesh/cpuinfo_types.h>
+#include <base/sandesh/nodeinfo_constants.h>
+#include <base/sandesh/nodeinfo_types.h>
 
 class ConnectionInfoTest;
 
@@ -54,7 +60,7 @@ private:
         const std::string &name, ConnectionStatus::type status,
         const std::vector<Endpoint> &servers, std::string message);
 
-    template <typename UVEType, typename UVEDataType> friend class
+    friend class
         ConnectionStateManager;
 
     typedef boost::tuple<ConnectionType::type, std::string> ConnectionInfoKey;
@@ -73,7 +79,6 @@ private:
 };
 
 // ConnectionStateManager
-template <typename UVEType, typename UVEDataType>
 class ConnectionStateManager {
 public:
     static ConnectionStateManager* GetInstance() {
@@ -83,7 +88,7 @@ public:
             // Create ConnectionState instance and bind the send UVE function
             assert(ConnectionState::instance_ == NULL);
             ConnectionState::CreateInstance(boost::bind(
-                &ConnectionStateManager<UVEType, UVEDataType>::
+                &ConnectionStateManager::
                     SendProcessStateUve, instance_.get(), false));
         }
         return instance_.get();
@@ -91,11 +96,12 @@ public:
 
     void Init(boost::asio::io_service &service, const std::string &hostname,
         const std::string &module, const std::string &instance_id,
-        ProcessStateFn status_cb) {
+        ProcessStateFn status_cb, std::string table) {
         data_.set_name(hostname);
         process_status_.set_module_id(module);
         process_status_.set_instance_id(instance_id);
         status_cb_ = status_cb;
+        data_.table_ = table;
     }
 
     void Shutdown() {
@@ -132,20 +138,15 @@ private:
         std::vector<ProcessStatus> vps = boost::assign::list_of
             (process_status_);
         data_.set_process_status(vps);
-        UVEType::Send(data_);
+        NodeStatusUVE::Send(data_);
         return true;
     }
-
     static boost::scoped_ptr<ConnectionStateManager> instance_;
 
     ProcessStateFn status_cb_;
     ProcessStatus process_status_;
-    UVEDataType data_;
+    NodeStatus data_;
 };
-
-template <typename UVEType, typename UVEDataType>
-boost::scoped_ptr<ConnectionStateManager<UVEType, UVEDataType> > 
-    ConnectionStateManager<UVEType, UVEDataType>::instance_;
 
 } // namespace process
 

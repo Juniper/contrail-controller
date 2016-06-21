@@ -17,7 +17,6 @@ CfgmDocFiles = []
 CfgmDocFiles += CfgmEnv['BASE_DOC_FILES']
 CfgmDocFiles += CfgmEnv['SANDESH_DOC_FILES']
 CfgmDocFiles += CfgmEnv.SandeshGenDoc('uve/acl.sandesh')
-CfgmDocFiles += CfgmEnv.SandeshGenDoc('uve/cfgm_cpuinfo.sandesh')
 CfgmDocFiles += CfgmEnv.SandeshGenDoc('uve/physical_router.sandesh')
 CfgmDocFiles += CfgmEnv.SandeshGenDoc('uve/service_instance.sandesh')
 CfgmDocFiles += CfgmEnv.SandeshGenDoc('uve/vnc_api.sandesh')
