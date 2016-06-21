@@ -170,7 +170,7 @@ class TestVncRabbitPublish(test_case.ApiServerTestCase):
         super(TestVncRabbitPublish, cls).setUpClass()
 
     def test_out_of_order_rabbit_publish(self):
-        """ Test to make sure api-server preserves the state of the 
+        """ Test to make sure api-server preserves the state of the
             object even if the CREATE msg is queued after UPDATE in rabbit
         """
         self.wait_till_api_server_idle()
@@ -179,7 +179,7 @@ class TestVncRabbitPublish(test_case.ApiServerTestCase):
         orig_dbe_create_publish = api_server._db_conn._msgbus.dbe_create_publish
         self.block_untill_update_publish = True
         def out_of_order_dbe_create_publish(obj_type, obj_ids, *args, **kwargs):
-            if obj_type.replace('-', '_') == 'virtual_network':
+            if obj_type == 'virtual_network':
                 while self.block_untill_update_publish:
                     gevent.sleep(1)
             return orig_dbe_create_publish(obj_type,obj_ids, *args, **kwargs)

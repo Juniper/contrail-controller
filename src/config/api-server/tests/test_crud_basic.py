@@ -970,7 +970,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             self.assertTrue(False)
 
         def exception_on_vn_read(obj_type, *args, **kwargs):
-            if obj_type.replace('-', '_') == 'virtual_network':
+            if obj_type == 'virtual_network':
                 raise Exception("fake vn read exception")
             orig_read(obj_type, *args, **kwargs)
 
@@ -1699,7 +1699,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         iip_obj = self._vnc_lib.instance_ip_read(id=iip_obj.uuid)
 
         def err_on_delete(orig_method, *args, **kwargs):
-            if args[0].replace('-', '_') == 'instance_ip':
+            if args[0] == 'instance_ip':
                 raise Exception("Faking db delete for instance ip")
             return orig_method(*args, **kwargs)
         with test_common.patch(
@@ -1735,7 +1735,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         fip_obj = self._vnc_lib.floating_ip_read(id=fip_obj.uuid)
 
         def err_on_delete(orig_method, *args, **kwargs):
-            if args[0].replace('-', '_') == 'floating_ip':
+            if args[0] == 'floating_ip':
                 raise Exception("Faking db delete for floating ip")
             return orig_method(*args, **kwargs)
         with test_common.patch(
@@ -1790,6 +1790,49 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             self.assertEqual(len(uuid_to_fq_name_on_delete_invoked), 0,
                 'uuid_to_fq_name invoked in delete at dbe_uve_trace')
     # end test_uve_trace_delete_name_from_msg
+
+    def test_ref_update_with_resource_type_underscored(self):
+        vn_obj = VirtualNetwork('%s-vn' % self.id())
+        ipam_obj = NetworkIpam('%s-vmi' % self.id())
+        self._vnc_lib.network_ipam_create(ipam_obj)
+        self._vnc_lib.virtual_network_create(vn_obj)
+        subnet_type = IpamSubnetType(subnet=SubnetType('1.1.1.0', 2))
+
+        self._vnc_lib.ref_update(vn_obj.get_type().replace('-', '_'),
+                                 vn_obj.uuid,
+                                 ipam_obj.get_type().replace('-', '_'),
+                                 ipam_obj.uuid,
+                                 ipam_obj.fq_name,
+                                 'ADD',
+                                 VnSubnetsType([subnet_type]))
+
+        vn_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+        fq_name = vn_obj.get_network_ipam_refs()[0]['to']
+        ipam_name = self._vnc_lib.network_ipam_read(fq_name=fq_name).name
+        self.assertEqual(ipam_obj.name, ipam_name)
+
+    def test_fq_name_to_id_with_resource_type_underscored(self):
+        test_obj = self._create_test_object()
+
+        test_uuid = self._vnc_lib.fq_name_to_id(
+            test_obj.get_type().replace('-', '_'), test_obj.get_fq_name())
+
+        # check that format is correct
+        try:
+            uuid.UUID(test_uuid)
+        except ValueError:
+            self.assertTrue(False, 'Bad form UUID ' + test_uuid)
+
+    def test_resource_list_with_resource_type_underscored(self):
+        test_obj = self._create_test_object()
+
+        resources = self._vnc_lib.resource_list(
+            test_obj.get_type().replace('-', '_'),
+            obj_uuids=[test_obj.uuid])
+        resource_ids = [resource['uuid'] for resource in
+                             resources['%ss' % test_obj.get_type()]]
+        self.assertEqual([test_obj.uuid], resource_ids)
+
 # end class TestVncCfgApiServer
 
 
@@ -1937,7 +1980,7 @@ class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
         api_server = test_common.vnc_cfg_api_server.server
         self.blocked = True
         def slow_response_on_vn_read(obj_type, *args, **kwargs):
-            if obj_type.replace('-', '_') == 'virtual_network':
+            if obj_type == 'virtual_network':
                 while self.blocked:
                     gevent.sleep(1)
             return orig_vn_read(obj_type, *args, **kwargs)

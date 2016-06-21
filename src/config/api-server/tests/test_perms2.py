@@ -149,11 +149,11 @@ def set_perms(obj, owner=None, owner_access=None, share=None, global_access=None
 # end set_perms
 
 # Read VNC object. Return None if object doesn't exists
-def vnc_read_obj(vnc, obj_type, name = None, obj_uuid = None):
+def vnc_read_obj(vnc, res_type, name = None, obj_uuid = None):
     if name is None and obj_uuid is None:
-        logger.info( 'Need FQN or UUID to read object')
+        logger.info('Need FQN or UUID to read object')
         return None
-    method_name = obj_type.replace('-', '_')
+    method_name = res_type.replace('-', '_')
     method = getattr(vnc, "%s_read" % (method_name))
     try:
         if obj_uuid:
@@ -163,10 +163,10 @@ def vnc_read_obj(vnc, obj_type, name = None, obj_uuid = None):
         else:
             return method(fq_name=name)
     except NoIdError:
-        logger.info( '%s %s not found!' % (obj_type, name if name else obj_uuid))
+        logger.info( '%s %s not found!' % (res_type, name if name else obj_uuid))
         return None
     except PermissionDenied:
-        logger.info( 'Permission denied reading %s %s' % (obj_type, name))
+        logger.info( 'Permission denied reading %s %s' % (res_type, name))
         raise
 # end
 
