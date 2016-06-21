@@ -68,7 +68,9 @@ ServiceChain<T>::ServiceChain(ServiceChainMgrT *manager, RoutingInstance *src,
       connected_table_unregistered_(false),
       dest_table_unregistered_(false),
       aggregate_(false),
-      src_table_delete_ref_(this, src_table()->deleter()) {
+      src_table_delete_ref_(this, src_table()->deleter()),
+      dest_table_delete_ref_(this, dest_table()->deleter()),
+      connected_table_delete_ref_(this, connected_table()->deleter()) {
     for (vector<string>::const_iterator it = subnets.begin();
          it != subnets.end(); ++it) {
         error_code ec;
@@ -898,9 +900,9 @@ ServiceChainMgr<T>::ServiceChainMgr(BgpServer *server)
         service_chain_task_id_ = scheduler->GetTaskId("bgp::ServiceChain");
     }
 
-    process_queue_ =
+    process_queue_.reset(
         new WorkQueue<ServiceChainRequestT *>(service_chain_task_id_, 0,
-                     bind(&ServiceChainMgr::RequestHandler, this, _1));
+                     bind(&ServiceChainMgr::RequestHandler, this, _1)));
 
     id_ = server->routing_instance_mgr()->RegisterInstanceOpCallback(
         bind(&ServiceChainMgr::RoutingInstanceCallback, this, _1, _2));
@@ -912,7 +914,7 @@ ServiceChainMgr<T>::ServiceChainMgr(BgpServer *server)
 
 template <typename T>
 ServiceChainMgr<T>::~ServiceChainMgr() {
-    delete process_queue_;
+    process_queue_->Shutdown();
     server_->routing_instance_mgr()->UnregisterInstanceOpCallback(id_);
     PeerRibMembershipManager *membership_mgr = server_->membership_mgr();
     membership_mgr->UnregisterPeerRegistrationCallback(registration_id_);
