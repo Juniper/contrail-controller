@@ -500,6 +500,13 @@ void BgpPeer::MembershipRequestCallback(BgpTable *table) {
     assert(membership_req_pending_ > 0);
     membership_req_pending_--;
 
+    // Resume if CloseManager is waiting to use membership manager.
+    if (!membership_req_pending_ &&
+             peer_close_->close_manager()->membership_state() ==
+                 PeerCloseManager::MEMBERSHIP_IN_WAIT) {
+        peer_close_->close_manager()->MembershipRequest();
+    }
+
     // Resume close if it was deferred and this is the last pending callback.
     // Don't bother sending EndOfRib if close is deferred.
     if (defer_close_) {
@@ -516,12 +523,6 @@ void BgpPeer::MembershipRequestCallback(BgpTable *table) {
     BGPPeerInfoSend(peer_info);
 
     SendEndOfRIB(table->family());
-
-    // Resume if CloseManager is waiting to use membership manager.
-    if (peer_close_->close_manager()->membership_state() ==
-            PeerCloseManager::MEMBERSHIP_IN_WAIT) {
-        peer_close_->close_manager()->MembershipRequest();
-    }
 }
 
 bool BgpPeer::MembershipPathCallback(DBTablePartBase *tpart, BgpRoute *route,
@@ -1925,7 +1926,7 @@ void BgpPeer::EndOfRibTimerErrorHandler(string error_name,
 }
 
 void BgpPeer::RegisterToVpnTables() {
-    CHECK_CONCURRENCY("bgp::StateMachine", "bgp::RTFilter");
+    CHECK_CONCURRENCY("bgp::StateMachine", "bgp::RTFilter", "bgp::Config");
 
     if (vpn_tables_registered_)
         return;
