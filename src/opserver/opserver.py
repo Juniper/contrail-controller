@@ -58,6 +58,7 @@ from sandesh.viz.constants import _TABLES, _OBJECT_TABLES,\
 from sandesh.viz.constants import *
 from sandesh.analytics.ttypes import *
 from sandesh.analytics.cpuinfo.ttypes import ProcessCpuInfo
+from sandesh.nodeinfo.ttypes import NodeStatusUVE, NodeStatus
 from sandesh.discovery.ttypes import CollectorTrace
 import discoveryclient.client as discovery_client
 from opserver_util import OpServerUtils
@@ -474,7 +475,7 @@ class OpServer(object):
         ConnectionState.init(self._sandesh, self._hostname, self._moduleid,
             self._instance_id,
             staticmethod(ConnectionState.get_process_state_cb),
-            NodeStatusUVE, NodeStatus)
+            NodeStatusUVE, NodeStatus, "ObjectCollectorInfo")
         self._uvepartitions_state = None
         # Trace buffer list
         self.trace_buf = [

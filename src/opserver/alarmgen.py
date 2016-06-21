@@ -36,6 +36,7 @@ from sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import AlarmTrace, \
     AlarmConditionMatch, AlarmAndList, AlarmRules
 from sandesh.analytics.ttypes import *
 from sandesh.analytics.cpuinfo.ttypes import ProcessCpuInfo
+from sandesh.nodeinfo.ttypes import NodeStatusUVE, NodeStatus
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
      ModuleCategoryMap, Module2NodeType, NodeTypeNames, ModuleIds,\
@@ -822,7 +823,7 @@ class Controller(object):
         ConnectionState.init(self._sandesh, self._hostname, self._moduleid,
             self._instance_id,
             staticmethod(ConnectionState.get_process_state_cb),
-            NodeStatusUVE, NodeStatus)
+            NodeStatusUVE, NodeStatus, "ObjectCollectorInfo")
 
         self._us = UVEServer(None, self._logger, self._conf.redis_password())
 

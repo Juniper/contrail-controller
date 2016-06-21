@@ -91,11 +91,12 @@ public:
 
     void Init(boost::asio::io_service &service, const std::string &hostname,
         const std::string &module, const std::string &instance_id,
-        ProcessStateFn status_cb) {
+        ProcessStateFn status_cb, std::string table) {
         data_.set_name(hostname);
         process_status_.set_module_id(module);
         process_status_.set_instance_id(instance_id);
         status_cb_ = status_cb;
+        data_.table_ = table;
     }
 
     void Shutdown() {

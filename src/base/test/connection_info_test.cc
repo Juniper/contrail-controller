@@ -32,7 +32,7 @@ class ConnectionInfoTest : public ::testing::Test {
         ConnectionStateManager<NodeStatusTestUVE, NodeStatusTest>::
             GetInstance()->Init(*evm_.io_service(), "Test",
             "ConnectionInfoTest", "0", boost::bind(
-            &process::GetProcessStateCb, _1, _2, _3, expected_connections));
+            &process::GetProcessStateCb, _1, _2, _3, expected_connections), "ObjectTest");
     }
     static void TearDownTestCase() {
         ConnectionStateManager<NodeStatusTestUVE, NodeStatusTest>::

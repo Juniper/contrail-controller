@@ -22,6 +22,7 @@ from nodemgr.common.event_listener_protocol_nodemgr import \
     EventListenerProtocolNodeMgr
 from nodemgr.common.process_stat import ProcessStat
 from nodemgr.common.sandesh.cpuinfo.ttypes import *
+from nodemgr.common.sandesh.nodeinfo.ttypes import *
 from nodemgr.common.cpuinfo import MemCpuUsageData
 from sandesh_common.vns.constants import INSTANCE_ID_DEFAULT
 import discoveryclient.client as client
@@ -191,8 +192,24 @@ class EventManager(object):
         return ret_value
     #end update_process_core_file_list
 
-    def send_process_state_db_base(self, group_names, ProcessInfo,
-                                   NodeStatus, NodeStatusUVE):
+    def get_node_type_table(self):
+        node_type = self.get_node_type()
+        if (node_type == 'contrail-analytics'):
+            table="ObjectCollectorInfo"
+        elif (node_type == 'contrail-config'):
+            table="ObjectConfigNode"
+        elif (node_type == 'contrail-control'):
+            table="ObjectBgpRouter"
+        elif (node_type == 'contrail-vrouter'):
+            table="ObjectVRouter"
+        elif (node_type == 'contrail-database'):
+            table="ObjectDatabaseInfo"
+        else:
+            sys.stderr.write("Node-type:%s is incorrect\n" % (node_type))
+            table="Invalid"
+        return table
+
+    def send_process_state_db_base(self, group_names, ProcessInfo):
         name = socket.gethostname()
         for group in group_names:
             process_infos = []
@@ -227,7 +244,9 @@ class EventManager(object):
             node_status.process_info = process_infos
             if (self.send_build_info):
                 node_status.build_info = self.get_build_info()
-            node_status_uve = NodeStatusUVE(data=node_status)
+            table = self.get_node_type_table()
+            node_status_uve = NodeStatusUVE(table=table,
+                                            data=node_status)
 	    msg = 'send_process_state_db_base: Sending UVE:' + str(node_status_uve)
             self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level(
 			    SandeshLevel.SYS_INFO), msg)
@@ -345,8 +364,7 @@ class EventManager(object):
             self.send_process_state_db([proc_stat.group])
 
     def send_nodemgr_process_status_base(self, ProcessStateNames,
-                                         ProcessState, ProcessStatus,
-                                         NodeStatus, NodeStatusUVE):
+                                         ProcessState, ProcessStatus):
         if (self.prev_fail_status_bits != self.fail_status_bits):
             self.prev_fail_status_bits = self.fail_status_bits
             fail_status_bits = self.fail_status_bits
@@ -360,7 +378,9 @@ class EventManager(object):
                             process_status=process_status_list)
             if (self.send_build_info):
                 node_status.build_info = self.get_build_info()
-            node_status_uve = NodeStatusUVE(data=node_status)
+            table = self.get_node_type_table()
+            node_status_uve = NodeStatusUVE(table=table,
+                                            data=node_status)
             msg = 'send_nodemgr_process_status_base: Sending UVE:' + str(node_status_uve)
             self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level(
                                     SandeshLevel.SYS_INFO), msg)
@@ -373,11 +393,11 @@ class EventManager(object):
         sys_cpu.num_cpu = mem_cpu_usage_data.get_num_cpu()
         sys_cpu.num_core_per_socket = mem_cpu_usage_data.get_num_core_per_socket()
         sys_cpu.num_thread_per_core = mem_cpu_usage_data.get_num_thread_per_core()
-        NodeStatus = self.get_node_status_class()
-        NodeStatusUVE = self.get_node_status_uve_class()
         node_status = NodeStatus(name=socket.gethostname(),
                                  system_cpu_info=sys_cpu)
-        node_status_uve = NodeStatusUVE(data=node_status)
+        table = self.get_node_type_table()
+        node_status_uve = NodeStatusUVE(table=table, 
+                                        data=node_status)
         node_status_uve.send()
 
     def get_system_mem_cpu_usage(self):
@@ -539,8 +559,6 @@ class EventManager(object):
         process_mem_cpu_usage = self.get_all_processes_mem_cpu_usage()
 
         # send above encoded buffer
-        NodeStatus = self.get_node_status_class()
-        NodeStatusUVE = self.get_node_status_uve_class()
         node_status = NodeStatus(name=socket.gethostname(),
                                  disk_usage_info=disk_usage_info,
                                  system_mem_cpu_usage=system_mem_cpu_usage,
@@ -550,7 +568,9 @@ class EventManager(object):
             node_status.all_core_file_list = self.all_core_file_list
         if (self.send_build_info):
             node_status.build_info = self.get_build_info()
-        node_status_uve = NodeStatusUVE(data=node_status)
+        table = self.get_node_type_table()
+        node_status_uve = NodeStatusUVE(table=table, 
+                                        data=node_status)
         node_status_uve.send()
 
         current_time = int(time.time())

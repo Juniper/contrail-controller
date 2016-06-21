@@ -1,0 +1,27 @@
+/*
+ * Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
+ */
+
+include "base/sandesh/cpuinfo.sandesh"
+include "base/sandesh/process_info.sandesh"
+
+struct NodeStatus {
+    1: string name (key="")
+    2: optional bool deleted
+    3: optional string status
+    // Sent by process
+    4: optional list<process_info.ProcessStatus> process_status (aggtype="union")
+    // Sent by node manager
+    5: optional list<process_info.ProcessInfo> process_info (aggtype="union")
+    6: optional list<process_info.DiskPartitionUsageStats> disk_usage_info (tags="")
+    7: optional string description
+    8: optional list<string> all_core_file_list
+    9: optional string build_info
+   10: optional list<cpuinfo.ProcessCpuInfo> process_mem_cpu_usage (aggtype="union")
+   11: optional cpuinfo.SystemMemCpuUsage system_mem_cpu_usage
+   12: optional cpuinfo.SystemCpuInfo system_cpu_info
+}
+
+uve sandesh NodeStatusUVE {
+    1: NodeStatus data
+}

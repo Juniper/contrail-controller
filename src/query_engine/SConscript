@@ -81,9 +81,11 @@ while env_noWerror['CCFLAGS'].count('-Werror') > 0:
 env_noWerror_excep = env_noWerror.Clone()
 env_noWerror_excep.CppEnableExceptions()
 
+env.Install('', '../base/sandesh/nodeinfo.sandesh')
 env.Install('', '../analytics/analytics.sandesh') 
 # Generate the source files
 SandeshGenFiles  = env.SandeshGenCpp('qe.sandesh')
+SandeshGenFiles += env.SandeshGenOnlyCpp('nodeinfo.sandesh')
 SandeshGenFiles += env.SandeshGenOnlyCpp('analytics.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 

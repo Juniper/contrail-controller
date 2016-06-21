@@ -70,7 +70,7 @@ void AgentUveBase::Init() {
     connection_state_manager_->Init(io, agent_->agent_name(),
             module_id, instance_id,
             boost::bind(&AgentUveBase::VrouterAgentProcessState,
-                        this, _1, _2, _3));
+                        this, _1, _2, _3), "ObjectVRouter");
 }
 
 uint8_t AgentUveBase::ExpectedConnections(uint8_t &num_control_nodes,

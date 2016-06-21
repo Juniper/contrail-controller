@@ -10,6 +10,9 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/program_options.hpp>
 
+#include "sandesh/sandesh_types.h"
+#include "sandesh/sandesh.h"
+#include "nodeinfo_types.h"
 #include "base/connection_info.h"
 #include "base/cpuinfo.h"
 #include "base/logging.h"
@@ -41,10 +44,8 @@
 #include "io/event_manager.h"
 #include "sandesh/common/vns_constants.h"
 #include "sandesh/common/vns_types.h"
-#include "sandesh/sandesh.h"
 #include "sandesh/sandesh_http.h"
 #include "sandesh/sandesh_trace.h"
-#include "sandesh/sandesh_types.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
 #include "xmpp/sandesh/xmpp_peer_info_types.h"
@@ -457,7 +458,7 @@ int main(int argc, char *argv[]) {
         module_name, g_vns_constants.INSTANCE_ID_DEFAULT,
         boost::bind(&ControlNodeGetProcessStateCb,
                     bgp_server.get(), ifmap_manager, _1, _2, _3,
-                    expected_connections));
+                    expected_connections), "ObjectBgpRouter");
 
     // Parse discovery server configuration.
     DiscoveryServiceClient *ds_client = NULL;

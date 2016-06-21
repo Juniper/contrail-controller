@@ -5,7 +5,7 @@
 include "base/sandesh/process_info.sandesh"
 
 struct NodeStatusTest {
-    1: string name (key="ObjectTest")
+    1: string name (key="")
     2: optional bool deleted
     3: optional string status
     // Sent by process

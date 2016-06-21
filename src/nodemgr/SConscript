@@ -83,6 +83,9 @@ for file in common_sources:
     common_sources_rules.append(OpEnv.Install(Dir("nodemgr/common"), file))
 
 cpu_info_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'nodemgr/common/sandesh/', False)
+node_info_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/nodeinfo.sandesh', 'nodemgr/common/sandesh/', False)
+cpu_info_pkg2 = OpEnv.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'nodemgr/common/sandesh/nodeinfo/', False)
+process_info_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'nodemgr/common/sandesh/nodeinfo/', False)
 
 
 rel_path = Dir('nodemgr/common').path
@@ -94,7 +97,7 @@ build_info_rules = [OpEnv.Command(target='buildinfo.py', source = None, action=B
 sdist_depends = [setup_sources_rules, local_sources_rules, analytics_sources_rules,
                  control_sources_rules, config_sources_rules, common_sources_rules,
                  vrouter_sources_rules, database_sources_rules, build_info_rules,
-                 cpu_info_pkg
+                 cpu_info_pkg, node_info_pkg, cpu_info_pkg2, process_info_pkg
                 ]
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
