@@ -261,7 +261,7 @@ bool PeerCloseManager::RestartTimerCallback() {
     if (state_ != GR_TIMER && state_ != LLGR_TIMER)
         return false;
 
-    if (peer_close_->peer()->IsReady() && !families_.empty()) {
+    if (peer_close_->IsReady() && !families_.empty()) {
 
         // Fake reception of all EORs.
         BOOST_FOREACH(Address::Family family, families_) {
@@ -270,7 +270,8 @@ bool PeerCloseManager::RestartTimerCallback() {
             peer_close_->ReceiveEndOfRIB(family);
         }
 
-        // Restart the timer.
+        // Restart the timer to fire right away.
+        stale_timer_->Reschedule(0);
         return true;
     }
     ProcessClosure();
@@ -344,7 +345,6 @@ void PeerCloseManager::CloseComplete() {
     sweep_timer_->Cancel();
     families_.clear();
     stats_.init++;
-
 
     // Nested closures trigger fresh GR
     if (close_again_) {

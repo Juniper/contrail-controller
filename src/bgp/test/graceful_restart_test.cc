@@ -312,12 +312,6 @@ protected:
     void Configure();
     void BgpPeerUp(BgpPeerTest *peer);
     void BgpPeerDown(BgpPeerTest *peer, TcpSession::Event event);
-
-    XmppChannelConfig *CreateXmppChannelCfg(const char *address, int port,
-                                            const string &from,
-                                            const string &to,
-                                            bool isClient);
-
     void GracefulRestartTestStart();
     void GracefulRestartTestRun();
     string GetConfig(bool delete_config);
@@ -418,8 +412,7 @@ protected:
             this->send_eor = true;
         }
 
-        // TODO: Enable tests for EoR.
-        bool should_send_eor() const { return true || send_eor; }
+        bool should_send_eor() const { return send_eor; }
 
         test::NetworkAgentMock *agent;
         BgpPeerTest *peer;
@@ -635,19 +628,6 @@ void GracefulRestartTest::Configure() {
                         peer, _1, _2);
         bgp_server_peers_.push_back(peer);
     }
-}
-
-XmppChannelConfig *GracefulRestartTest::CreateXmppChannelCfg(
-        const char *address, int port, const string &from, const string &to,
-        bool isClient) {
-    XmppChannelConfig *cfg = new XmppChannelConfig(isClient);
-    boost::system::error_code ec;
-    cfg->endpoint.address(ip::address::from_string(address, ec));
-    cfg->endpoint.port(port);
-    cfg->ToAddr = to;
-    cfg->FromAddr = from;
-    if (!isClient) cfg->NodeAddr = PUBSUB_NODE_ADDR;
-    return cfg;
 }
 
 void GracefulRestartTest::AgentCleanup() {
