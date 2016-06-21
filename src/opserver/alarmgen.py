@@ -1015,7 +1015,14 @@ class Controller(object):
                     gevent.joinall(gevs.values())
                     for part in gevs.keys():
                         # If UVE processing failed, requeue the working set
-                        outp = gevs[part].get()
+                        try:
+                            outp = gevs[part].get()
+                        except Exception as ex:
+                            template = "Exception {0} in notif worker. Arguments:\n{1!r}"
+                            messag = template.format(type(ex).__name__, ex.args)
+                            self._logger.error("%s : traceback %s" % \
+                                    (messag, traceback.format_exc()))
+                            outp = None
                         if outp is None:
                             self._logger.error("UVE Process failed for %d" % part)
                             self.handle_uve_notifq(part, pendingset[part])
@@ -1066,8 +1073,14 @@ class Controller(object):
                 gevent.sleep(1)
                         
             curr = time.time()
-
-            self.run_alarm_timers(int(curr))
+            try:
+		self.run_alarm_timers(int(curr))
+            except Exception as ex:
+                template = "Exception {0} in timer proc. Arguments:\n{1!r}"
+                messag = template.format(type(ex).__name__, ex.args)
+                self._logger.error("%s : traceback %s" % \
+                                  (messag, traceback.format_exc()))
+                raise SystemExit
             if (curr - prev) < 0.5:
                 gevent.sleep(0.5 - (curr - prev))
             else:
