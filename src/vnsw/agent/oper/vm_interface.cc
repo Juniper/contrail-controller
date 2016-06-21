@@ -66,9 +66,9 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     mac_set_(false), ecmp_(false), ecmp6_(false), disable_policy_(false),
     tx_vlan_id_(kInvalidVlanId), rx_vlan_id_(kInvalidVlanId), parent_(NULL),
     local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
-    sg_list_(), floating_ip_list_(), service_vlan_list_(), static_route_list_(),
-    allowed_address_pair_list_(), fat_flow_list_(), vrf_assign_rule_list_(),
-    vrf_assign_acl_(NULL), vm_ip_service_addr_(0), 
+    sg_list_(), floating_ip_list_(), alias_ip_list_(), service_vlan_list_(),
+    static_route_list_(), allowed_address_pair_list_(), fat_flow_list_(),
+    vrf_assign_rule_list_(), vrf_assign_acl_(NULL), vm_ip_service_addr_(0),
     device_type_(VmInterface::DEVICE_TYPE_INVALID),
     vmi_type_(VmInterface::VMI_TYPE_INVALID),
     configurer_(0), subnet_(0), subnet_plen_(0), ethernet_tag_(0),
@@ -106,8 +106,8 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     ecmp_(false), ecmp6_(false), disable_policy_(false),
     tx_vlan_id_(tx_vlan_id), rx_vlan_id_(rx_vlan_id), parent_(parent),
     local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
-    sg_list_(), floating_ip_list_(), service_vlan_list_(), static_route_list_(),
-    allowed_address_pair_list_(), vrf_assign_rule_list_(),
+    sg_list_(), floating_ip_list_(), alias_ip_list_(), service_vlan_list_(),
+    static_route_list_(), allowed_address_pair_list_(), vrf_assign_rule_list_(),
     vrf_assign_acl_(NULL), device_type_(device_type),
     vmi_type_(vmi_type), configurer_(0), subnet_(0),
     subnet_plen_(0), ethernet_tag_(0), logical_interface_(nil_uuid()),
@@ -219,6 +219,98 @@ static void BuildFloatingIpList(Agent *agent, VmInterfaceConfigData *data,
                         data->floating_ip_list_.v4_count_++;
                     } else {
                         data->floating_ip_list_.v6_count_++;
+                    }
+                }
+                break;
+            }
+            break;
+        }
+        break;
+    }
+    return;
+}
+
+// Build one Alias IP entry for a virtual-machine-interface
+static void BuildAliasIpList(Agent *agent, VmInterfaceConfigData *data,
+                             IFMapNode *node) {
+    ConfigManager *cfg_manager= agent->config_manager();
+    if (cfg_manager->SkipNode(node)) {
+        return;
+    }
+
+    // Find VRF for the alias-ip. Following path in graphs leads to VRF
+    // virtual-machine-port <-> alias-ip <-> alias-ip-pool 
+    // <-> virtual-network <-> routing-instance
+    IFMapAgentTable *aip_table = static_cast<IFMapAgentTable *>(node->table());
+    DBGraph *aip_graph = aip_table->GetGraph();
+
+    // Iterate thru links for alias-ip looking for alias-ip-pool node
+    for (DBGraphVertex::adjacency_iterator aip_iter = node->begin(aip_graph);
+         aip_iter != node->end(aip_graph); ++aip_iter) {
+        IFMapNode *pool_node = static_cast<IFMapNode *>(aip_iter.operator->());
+        if (cfg_manager->SkipNode
+            (pool_node, agent->cfg()->cfg_aliasip_pool_table())) {
+            continue;
+        }
+
+        // Iterate thru links for alias-ip-pool looking for virtual-network
+        IFMapAgentTable *pool_table = 
+            static_cast<IFMapAgentTable *> (pool_node->table());
+        DBGraph *pool_graph = pool_table->GetGraph();
+        for (DBGraphVertex::adjacency_iterator pool_iter = 
+             pool_node->begin(pool_graph);
+             pool_iter != pool_node->end(pool_graph); ++pool_iter) {
+
+            IFMapNode *vn_node = 
+                static_cast<IFMapNode *>(pool_iter.operator->());
+            if (cfg_manager->SkipNode
+                (vn_node, agent->cfg()->cfg_vn_table())) {
+                continue;
+            }
+
+            VirtualNetwork *cfg = static_cast <VirtualNetwork *> 
+                (vn_node->GetObject());
+            assert(cfg);
+            autogen::IdPermsType id_perms = cfg->id_perms();
+            boost::uuids::uuid vn_uuid;
+            CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                       vn_uuid);
+
+            IFMapAgentTable *vn_table = 
+                static_cast<IFMapAgentTable *> (vn_node->table());
+            DBGraph *vn_graph = vn_table->GetGraph();
+            // Iterate thru links for virtual-network looking for 
+            // routing-instance
+            for (DBGraphVertex::adjacency_iterator vn_iter =
+                 vn_node->begin(vn_graph);
+                 vn_iter != vn_node->end(vn_graph); ++vn_iter) {
+
+                IFMapNode *vrf_node = 
+                    static_cast<IFMapNode *>(vn_iter.operator->());
+                if (cfg_manager->SkipNode
+                    (vrf_node, agent->cfg()->cfg_vrf_table())){
+                    continue;
+                }
+                // Checking whether it is default vrf of not
+                RoutingInstance *ri = static_cast<RoutingInstance *>(vrf_node->GetObject());
+                if(!(ri->is_default())) {
+                    continue;
+                }
+                AliasIp *aip = static_cast<AliasIp *>(node->GetObject());
+                assert(aip != NULL);
+
+                boost::system::error_code ec;
+                IpAddress addr = IpAddress::from_string(aip->address(), ec);
+                if (ec.value() != 0) {
+                    LOG(DEBUG, "Error decoding Alias IP address " 
+                        << aip->address());
+                } else {
+                    data->alias_ip_list_.list_.insert
+                        (VmInterface::AliasIp(addr, vrf_node->name(), vn_uuid));
+                    if (addr.is_v4()) {
+                        data->alias_ip_list_.v4_count_++;
+                    } else {
+                        data->alias_ip_list_.v6_count_++;
                     }
                 }
                 break;
@@ -1012,6 +1104,10 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
             BuildFloatingIpList(agent_, data, adj_node);
         }
 
+        if (adj_node->table() == agent_->cfg()->cfg_aliasip_table()) {
+            BuildAliasIpList(agent_, data, adj_node);
+        }
+
         if (adj_node->table() == agent_->cfg()->cfg_vm_port_vrf_table()) {
             BuildVrfAndServiceVlanInfo(agent_, data, adj_node);
         }
@@ -1369,6 +1465,7 @@ void VmInterface::UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
         UpdateIpv4InstanceIp(force_update, policy_change, false,
                              old_ethernet_tag);
         UpdateFloatingIp(force_update, policy_change, false, old_ethernet_tag);
+        UpdateAliasIp(force_update, policy_change);
         UpdateResolveRoute(old_ipv4_active, force_update, policy_change, 
                            old_vrf, old_subnet, old_subnet_plen);
     }
@@ -1407,6 +1504,7 @@ void VmInterface::DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
     // was active
     if ((old_ipv4_active || old_ipv6_active)) {
         DeleteFloatingIp(false, old_ethernet_tag);
+        DeleteAliasIp();
         DeleteServiceVlan();
         DeleteStaticRoute();
         DeleteAllowedAddressPair(false);
@@ -1651,6 +1749,9 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,
     // Remove floating-ip entries marked for deletion
     CleanupFloatingIpList();
 
+    // Remove Alias-ip entries marked for deletion
+    CleanupAliasIpList();
+
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     if (old_l2_active != l2_active_) {
         if (l2_active_) {
@@ -1720,8 +1821,8 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
     disable_policy_(false), analyzer_name_(""),
     local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
     mirror_direction_(Interface::UNKNOWN), sg_list_(),
-    floating_ip_list_(), service_vlan_list_(), static_route_list_(),
-    allowed_address_pair_list_(),
+    floating_ip_list_(), alias_ip_list_(), service_vlan_list_(),
+    static_route_list_(), allowed_address_pair_list_(),
     device_type_(VmInterface::DEVICE_TYPE_INVALID),
     vmi_type_(VmInterface::VMI_TYPE_INVALID),
     physical_interface_(""), parent_vmi_(), subnet_(0), subnet_plen_(0),
@@ -1947,6 +2048,17 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         ret = true;
         assert(floating_ip_list_.list_.size() ==
                (floating_ip_list_.v4_count_ + floating_ip_list_.v6_count_));
+    }
+
+    // Audit operational and config alias-ip list
+    AliasIpSet &old_aip_list = alias_ip_list_.list_;
+    const AliasIpSet &new_aip_list = data->alias_ip_list_.list_;
+    if (AuditList<AliasIpList, AliasIpSet::iterator>
+        (alias_ip_list_, old_aip_list.begin(), old_aip_list.end(),
+         new_aip_list.begin(), new_aip_list.end())) {
+        ret = true;
+        assert(alias_ip_list_.list_.size() ==
+               (alias_ip_list_.v4_count_ + alias_ip_list_.v6_count_));
     }
 
     // Audit operational and config Service VLAN list
@@ -2532,14 +2644,22 @@ bool VmInterface::PolicyEnabled() const {
         return true;
     }
 
-    // Floating-IP list and SG List can have entries in del_pending state
-    // Look for entries in non-del-pending state
+    // Floating-IP list, Alias-IP list and SG List can have entries in
+    // del_pending state Look for entries in non-del-pending state
     FloatingIpSet::iterator fip_it = floating_ip_list_.list_.begin();
     while (fip_it != floating_ip_list_.list_.end()) {
         if (fip_it->del_pending_ == false) {
             return true;
         }
         fip_it++;
+    }
+
+    AliasIpSet::iterator aip_it = alias_ip_list_.list_.begin();
+    while (aip_it != alias_ip_list_.list_.end()) {
+        if (aip_it->del_pending_ == false) {
+            return true;
+        }
+        aip_it++;
     }
 
     SecurityGroupEntrySet::iterator sg_it = sg_list_.list_.begin();
@@ -3020,6 +3140,44 @@ void VmInterface::DeleteFloatingIp(bool l2, uint32_t old_ethernet_tag) {
     while (it != floating_ip_list_.list_.end()) {
         FloatingIpSet::iterator prev = it++;
         prev->DeActivate(this, l2, old_ethernet_tag);
+    }
+}
+
+void VmInterface::CleanupAliasIpList() {
+    AliasIpSet::iterator it = alias_ip_list_.list_.begin();
+    while (it != alias_ip_list_.list_.end()) {
+        AliasIpSet::iterator prev = it++;
+        if (prev->del_pending_ == false)
+            continue;
+
+        if (prev->alias_ip_.is_v4()) {
+            alias_ip_list_.v4_count_--;
+            assert(alias_ip_list_.v4_count_ >= 0);
+        } else {
+            alias_ip_list_.v6_count_--;
+            assert(alias_ip_list_.v6_count_ >= 0);
+        }
+        alias_ip_list_.list_.erase(prev);
+    }
+}
+
+void VmInterface::UpdateAliasIp(bool force_update, bool policy_change) {
+    AliasIpSet::iterator it = alias_ip_list_.list_.begin();
+    while (it != alias_ip_list_.list_.end()) {
+        AliasIpSet::iterator prev = it++;
+        if (prev->del_pending_) {
+            prev->DeActivate(this);
+        } else {
+            prev->Activate(this, force_update||policy_change);
+        }
+    }
+}
+
+void VmInterface::DeleteAliasIp() {
+    AliasIpSet::iterator it = alias_ip_list_.list_.begin();
+    while (it != alias_ip_list_.list_.end()) {
+        AliasIpSet::iterator prev = it++;
+        prev->DeActivate(this);
     }
 }
 
@@ -3991,6 +4149,113 @@ void VmInterface::FloatingIpList::Remove(FloatingIpSet::iterator &it) {
 }
 
 /////////////////////////////////////////////////////////////////////////////
+// AliasIp routines
+/////////////////////////////////////////////////////////////////////////////
+VmInterface::AliasIp::AliasIp() :
+    ListEntry(), alias_ip_(), vn_(NULL),
+    vrf_(NULL, this), vrf_name_(""), vn_uuid_(), force_update_(false) {
+}
+
+VmInterface::AliasIp::AliasIp(const AliasIp &rhs) :
+    ListEntry(rhs.installed_, rhs.del_pending_),
+    alias_ip_(rhs.alias_ip_), vn_(rhs.vn_), vrf_(rhs.vrf_, this),
+    vrf_name_(rhs.vrf_name_), vn_uuid_(rhs.vn_uuid_),
+    force_update_(rhs.force_update_) {
+}
+
+VmInterface::AliasIp::AliasIp(const IpAddress &addr,
+                              const std::string &vrf,
+                              const boost::uuids::uuid &vn_uuid) :
+    ListEntry(), alias_ip_(addr), vn_(NULL), vrf_(NULL, this), vrf_name_(vrf),
+    vn_uuid_(vn_uuid), force_update_(false) {
+}
+
+VmInterface::AliasIp::~AliasIp() {
+}
+
+bool VmInterface::AliasIp::operator() (const AliasIp &lhs,
+                                       const AliasIp &rhs) const {
+    return lhs.IsLess(&rhs);
+}
+
+// Compare key for AliasIp. Key is <alias_ip_ and vrf_name_> for both
+// Config and Operational processing
+bool VmInterface::AliasIp::IsLess(const AliasIp *rhs) const {
+    if (alias_ip_ != rhs->alias_ip_)
+        return alias_ip_ < rhs->alias_ip_;
+
+    return (vrf_name_ < rhs->vrf_name_);
+}
+
+void VmInterface::AliasIp::Activate(VmInterface *interface,
+                                    bool force_update) const {
+    InterfaceTable *table =
+        static_cast<InterfaceTable *>(interface->get_table());
+
+    if (vn_.get() == NULL) {
+        vn_ = table->FindVnRef(vn_uuid_);
+        assert(vn_.get());
+    }
+
+    if (vrf_.get() == NULL) {
+        vrf_ = table->FindVrfRef(vrf_name_);
+        assert(vrf_.get());
+    }
+
+    // Add route if not installed or if force requested
+    if (installed_ && force_update == false && force_update_ == false) {
+        return;
+    }
+
+    if (alias_ip_.is_v4()) {
+        interface->AddRoute(vrf_.get()->GetName(), alias_ip_.to_v4(), 32,
+                            vn_->GetName(), true, interface->ecmp(), Ip4Address(0),
+                            Ip4Address(0), CommunityList());
+    } else if (alias_ip_.is_v6()) {
+        interface->AddRoute(vrf_.get()->GetName(), alias_ip_.to_v6(), 128,
+                            vn_->GetName(), true, interface->ecmp6(),
+                            Ip6Address(), Ip6Address(), CommunityList());
+    }
+
+    installed_ = true;
+    force_update_ = false;
+}
+
+void VmInterface::AliasIp::DeActivate(VmInterface *interface) const {
+    if (installed_) {
+        if (alias_ip_.is_v4()) {
+            interface->DeleteRoute(vrf_.get()->GetName(), alias_ip_, 32);
+        } else if (alias_ip_.is_v6()) {
+            interface->DeleteRoute(vrf_.get()->GetName(), alias_ip_, 128);
+        }
+        installed_ = false;
+    }
+
+    vrf_ = NULL;
+}
+
+void VmInterface::AliasIpList::Insert(const AliasIp *rhs) {
+    std::pair<AliasIpSet::iterator, bool> ret = list_.insert(*rhs);
+    if (ret.second) {
+        if (rhs->alias_ip_.is_v4()) {
+            v4_count_++;
+        } else {
+            v6_count_++;
+        }
+    }
+}
+
+void VmInterface::AliasIpList::Update(const AliasIp *lhs,
+                                      const AliasIp *rhs) {
+    lhs->set_del_pending(false);
+}
+
+void VmInterface::AliasIpList::Remove(AliasIpSet::iterator &it) {
+    it->set_del_pending(true);
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
 // StaticRoute routines
 /////////////////////////////////////////////////////////////////////////////
 VmInterface::StaticRoute::StaticRoute() :
@@ -4610,6 +4875,18 @@ bool VmInterface::IsFloatingIp(const IpAddress &ip) const {
         floating_ip_list_.list_.begin();
     while(it != floating_ip_list_.list_.end()) {
         if ((*it).floating_ip_ == ip) {
+            return true;
+        }
+        it++;
+    }
+    return false;
+}
+
+bool VmInterface::IsAliasIp(const IpAddress &ip) const {
+    VmInterface::AliasIpSet::const_iterator it =
+        alias_ip_list_.list_.begin();
+    while(it != alias_ip_list_.list_.end()) {
+        if ((*it).alias_ip_ == ip) {
             return true;
         }
         it++;

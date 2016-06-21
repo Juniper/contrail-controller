@@ -578,7 +578,7 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
     data_.flow_source_plen_map = info->flow_source_plen_map;
     data_.flow_dest_plen_map = info->flow_dest_plen_map;
     data_.dest_vrf = info->dest_vrf;
-    data_.vrf = pkt->vrf;
+    data_.vrf = (ctrl->vrf_ != NULL) ? ctrl->vrf_->vrf_id() : pkt->vrf;
     data_.if_index_info = pkt->agent_hdr.ifindex;
     data_.tunnel_info = pkt->tunnel;
 

@@ -396,6 +396,23 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
     return ret;
 }
 
+static VrfEntry *GetAliasIpVrf(const VmInterface *vm_port, const IpAddress &ip) {
+    const VmInterface::AliasIpSet &aip_list = vm_port->alias_ip_list().list_;
+
+    // Look for matching Alias IP
+    VmInterface::AliasIpSet::const_iterator it = aip_list.begin();
+    for (; it != aip_list.end(); ++it) {
+        if (it->vrf_.get() == NULL) {
+            continue;
+        }
+
+        if (ip == it->alias_ip_) {
+            return it->vrf_.get();
+        }
+    }
+    return NULL;
+}
+
 // Decode route and get Interface / ECMP information
 static bool RouteToOutInfo(const AgentRoute *rt, const PktInfo *pkt,
                            PktFlowInfo *info, PktControlInfo *in,
@@ -871,12 +888,24 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
     if (nat_done == false) {
         UpdateRoute(&in->rt_, it->vrf_.get(), pkt->ip_saddr, pkt->smac,
                     flow_source_plen_map);
-        nat_dest_vrf = it->vrf_.get()->vrf_id();
+        //VrfEntry *alias_vrf = GetAliasIpVrf(vm_port, it->GetFixedIp(vm_port));
+        //if (alias_vrf == NULL) {
+            nat_dest_vrf = it->vrf_.get()->vrf_id();
+        //} else {
+        //    nat_dest_vrf = alias_vrf->vrf_id();
+        //}
     }
     UpdateRoute(&out->rt_, it->vrf_.get(), pkt->ip_daddr, pkt->dmac,
                 flow_dest_plen_map);
     out->vn_ = it->vn_.get();
-    dest_vrf = out->intf_->vrf()->vrf_id();
+    // TODO(prabhjot) need to check if dest vrf has to be that of 
+    // alias address ip
+    VrfEntry *alias_vrf = GetAliasIpVrf(vm_port, it->GetFixedIp(vm_port));
+    if (alias_vrf == NULL) {
+        dest_vrf = out->intf_->vrf()->vrf_id();
+    } else {
+        dest_vrf = alias_vrf->vrf_id();
+    }
     if (VrfTranslate(pkt, in, out, pkt->ip_saddr, true) == false) {
         return;
     }
@@ -1013,7 +1042,7 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
     }
 
     // Dest VRF for reverse flow is In-Port VRF
-    nat_dest_vrf = intf->vrf_id();
+    nat_dest_vrf = in->vrf_->vrf_id();//intf->vrf_id();
 
     flow_source_vrf = pkt->vrf;
     if (out->rt_) {
@@ -1121,6 +1150,15 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
         in->intf_->type() != Interface::INET) {
         LogError(pkt, "Unexpected packet on Non-VM interface");
         return;
+    }
+
+    const VmInterface *vm_port = 
+        dynamic_cast<const VmInterface *>(in->intf_);
+    if (vm_port != NULL) {
+        VrfEntry *alias_vrf = GetAliasIpVrf(vm_port, pkt->ip_saddr);
+        if (alias_vrf != NULL) {
+            in->vrf_ = alias_vrf;
+        }
     }
 
     // We always expect route for source-ip for ingress flows.
