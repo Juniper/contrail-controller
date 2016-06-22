@@ -581,7 +581,8 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
     def test_bulk_ip_alloc_free(self):
         # Create Domain
-        domain = Domain('v4-domain')
+        domain_name = 'v4-domain-%s' % self.id()
+        domain = Domain(domain_name)
         self._vnc_lib.domain_create(domain)
         logger.debug('Created domain ')
 
@@ -594,7 +595,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
         self._vnc_lib.network_ipam_create(ipam)
         logger.debug('Created network ipam')
-        ipam = self._vnc_lib.network_ipam_read(fq_name=['v4-domain', 'v4-proj',
+        ipam = self._vnc_lib.network_ipam_read(fq_name=[domain_name, 'v4-proj',
                                                         'default-network-ipam'])
         logger.debug('Read network ipam')
 
@@ -678,7 +679,8 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
     def test_v4_ip_allocation_exhaust(self):
         # Create Domain
-        domain = Domain('v4-domain')
+        domain_name = 'v4-domain-test-v4-ip-allocation-exhaust'
+        domain = Domain(domain_name)
         self._vnc_lib.domain_create(domain)
         logger.debug('Created domain ')
 
@@ -692,7 +694,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.network_ipam_create(ipam)
         logger.debug('Created network ipam')
 
-        ipam = self._vnc_lib.network_ipam_read(fq_name=['v4-domain', 'v4-proj',
+        ipam = self._vnc_lib.network_ipam_read(fq_name=[domain_name, 'v4-proj',
                                                         'default-network-ipam'])
         logger.debug('Read network ipam')
 
@@ -870,7 +872,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
             logger.debug('Allocating an IP4 address for extra instance')
             with ExpectedException(BadRequest,
-                'Virtual-Network\(\[\'v4-domain\', \'v4-proj\', \'v4-vn\'\]\) has exhausted subnet\(all\)') as e:
+                'Virtual-Network\(\[\'v4-domain-test-v4-ip-allocation-exhaust\', \'v4-proj\', \'v4-vn\'\]\) has exhausted subnet\(all\)') as e:
                 ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1)
         
             # cleanup for negative test
