@@ -9,12 +9,14 @@ import argparse
 import ConfigParser
 import gen.resource_xsd
 import vnc_quota
+import cfgm_common
 from pysandesh.sandesh_base import Sandesh, SandeshSystem
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 _WEB_HOST = '0.0.0.0'
 _WEB_PORT = 8082
 _ADMIN_PORT = 8095
+_CLOUD_ADMIN_ROLE = 'admin'
 
 def parse_args(args_str):
     args_obj = None
@@ -51,8 +53,8 @@ def parse_args(args_str):
         'logging_level': 'WARN',
         'logging_conf': '',
         'logger_class': None,
-        'multi_tenancy': True,
-        'multi_tenancy_with_rbac': False,
+        'multi_tenancy': None,
+        'aaa_mode': cfgm_common.AAA_MODE_DEFAULT_VALUE,
         'disc_server_ip': None,
         'disc_server_port': '5998',
         'zk_server_ip': '127.0.0.1:2181',
@@ -69,6 +71,7 @@ def parse_args(args_str):
         'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
         'ifmap_health_check_interval': '60', # in seconds
         'stale_lock_seconds': '5', # lock but no resource past this => stale
+        'cloud_admin_role': _CLOUD_ADMIN_ROLE,
         'rabbit_use_ssl': False,
         'kombu_ssl_version': '',
         'kombu_ssl_keyfile': '',
@@ -109,8 +112,6 @@ def parse_args(args_str):
             if 'multi_tenancy' in config.options('DEFAULTS'):
                 defaults['multi_tenancy'] = config.getboolean(
                     'DEFAULTS', 'multi_tenancy')
-            if 'multi_tenancy_with_rbac' in config.options('DEFAULTS'):
-                defaults['multi_tenancy_with_rbac'] = config.getboolean('DEFAULTS', 'multi_tenancy_with_rbac')
             if 'default_encoding' in config.options('DEFAULTS'):
                 default_encoding = config.get('DEFAULTS', 'default_encoding')
                 gen.resource_xsd.ExternalEncoding = default_encoding
@@ -242,8 +243,8 @@ def parse_args(args_str):
         "--multi_tenancy", action="store_true",
         help="Validate resource permissions (implies token validation)")
     parser.add_argument(
-        "--multi_tenancy_with_rbac", action="store_true",
-        help="Validate API and resource permissions (implies token validation)")
+        "--aaa_mode", choices=cfgm_common.AAA_MODE_VALID_VALUES,
+        help="AAA mode")
     parser.add_argument(
         "--worker_id",
         help="Worker Id")
@@ -287,6 +288,8 @@ def parse_args(args_str):
             help="Interval seconds to check for ifmap health, default 60")
     parser.add_argument("--stale_lock_seconds",
             help="Time after which lock without resource is stale, default 60")
+    parser.add_argument( "--cloud_admin_role",
+        help="Role name of cloud administrator")
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.config_sections = config
     if type(args_obj.cassandra_server_list) is str:

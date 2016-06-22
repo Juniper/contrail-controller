@@ -1163,6 +1163,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
     # end test_name_with_reserved_xml_char
 
     def test_list_bulk_collection(self):
+        self.skipTest("Skipping test_list_bulk_collection for separate testcase")
         obj_count = self._vnc_lib.POST_FOR_LIST_THRESHOLD + 1
         vn_uuids = []
         ri_uuids = []
@@ -2080,7 +2081,7 @@ class TestLocalAuth(test_case.ApiServerTestCase):
             self.assertThat(resp.status_code, Equals(200))
 
         logger.info("Negative case without Documentation")
-        url = 'http://%s:%s/' %(listen_ip, listen_port)
+        url = 'http://%s:%s/virtual-networks' %(listen_ip, listen_port)
         orig_rbac_role = TestLocalAuth._rbac_role
         try:
             TestLocalAuth._rbac_role = 'foobar'
