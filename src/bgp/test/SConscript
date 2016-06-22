@@ -283,6 +283,9 @@ env.Alias('src/bgp:bgp_table_export_test', bgp_table_export_test)
 bgp_table_test = env.UnitTest('bgp_table_test', ['bgp_table_test.cc'])
 env.Alias('src/bgp:bgp_table_test', bgp_table_test)
 
+bgp_table_walk_test = env.UnitTest('bgp_table_walk_test', ['bgp_table_walk_test.cc'])
+env.Alias('src/bgp:bgp_table_walk_test', bgp_table_walk_test)
+
 bgp_update_rx_test = env.UnitTest('bgp_update_rx_test', ['bgp_update_rx_test.cc'])
 env.Alias('src/bgp:bgp_update_rx_test', bgp_update_rx_test)
 
@@ -576,6 +579,7 @@ test_suite = [
     bgp_stress_test,
     bgp_table_export_test,
     bgp_table_test,
+    bgp_table_walk_test,
     bgp_update_rx_test,
     bgp_update_test,
     bgp_xmpp_basic_test,

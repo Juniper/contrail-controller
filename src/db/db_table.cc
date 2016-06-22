@@ -169,6 +169,7 @@ DBTableBase::DBTableBase(DB *db, const string &name)
     walk_request_count_ = 0;
     walk_complete_count_ = 0;
     walk_cancel_count_ = 0;
+    walk_count_ = 0;
 }
 
 DBTableBase::~DBTableBase() {
@@ -239,9 +240,6 @@ void DBTableBase::FillListeners(vector<ShowTableListener> *listeners) const {
     info_->FillListeners(listeners);
 }
 
-int DBTable::walker_task_id_ = -1;
-int DBTable::max_iteration_to_yield_ = kIterationToYield;
-
 class DBTable::WalkWorker : public Task {
 public:
     WalkWorker(TableWalker *walker, int db_partition_id);
@@ -265,7 +263,7 @@ public:
     TableWalker(DBTable *table) : table_(table) {
     }
 
-    void WalkTable();
+    void StartWalk();
 
     DBTable *table() {
         return table_;
@@ -280,6 +278,7 @@ bool DBTable::WalkWorker::Run() {
     int count = 0;
     DBRequestKey *key_resume = walk_ctx_.get();
     DBTable *table = walker_->table();
+    int max_walk_entry_count = table->GetWalkIterationToYield();
     DBEntry *entry;
 
     if (key_resume != NULL) {
@@ -296,7 +295,7 @@ bool DBTable::WalkWorker::Run() {
 
     for (DBEntry *next = NULL; entry; entry = next) {
         next = tbl_partition_->GetNext(entry);
-        if (count == GetIterationToYield()) {
+        if (count == max_walk_entry_count) {
             // store the context
             walk_ctx_ = entry->GetDBRequestKey();
             return false;
@@ -322,12 +321,12 @@ walk_done:
 }
 
 DBTable::WalkWorker::WalkWorker(TableWalker *walker, int db_partition_id)
-    : Task(walker_task_id_, db_partition_id), walker_(walker) {
+    : Task(walker->table()->GetWalkerTaskId(), db_partition_id), walker_(walker) {
     tbl_partition_ = static_cast<DBTablePartition *>
         (walker_->table()->GetTablePartition(db_partition_id));
 }
 
-void DBTable::TableWalker::WalkTable() {
+void DBTable::TableWalker::StartWalk() {
     int num_worker = table_->PartitionCount();
     pending_workers_ = num_worker;
     for (int i = 0; i < num_worker; i++) {
@@ -345,6 +344,21 @@ DBTable::DBTable(DB *db, const string &name)
       walker_(new TableWalker(this)) {
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     walker_task_id_ = scheduler->GetTaskId("db::DBTable");
+
+    static bool init_ = false;
+    static int iter_to_yield_env_ = 0;
+
+    if (!init_) {
+        // XXX To be used for testing purposes only.
+        char *count_str = getenv("DB_ITERATION_TO_YIELD");
+        if (count_str) {
+            iter_to_yield_env_ = strtol(count_str, NULL, 0);
+        } else {
+            iter_to_yield_env_ = kIterationToYield;
+        }
+        init_ = true;
+    }
+    max_walk_iteration_to_yield_ = iter_to_yield_env_;
 }
 
 DBTable::~DBTable() {
@@ -361,8 +375,9 @@ DBTablePartition *DBTable::AllocPartition(int index) {
     return new DBTablePartition(this, index);
 }
 
-void DBTable::WalkTable() {
-    walker_->WalkTable();
+void DBTable::StartWalk() {
+    incr_walk_count();
+    walker_->StartWalk();
 }
 
 DBEntry *DBTable::Add(const DBRequest *req) {
@@ -573,6 +588,7 @@ bool DBTable::InvokeWalkCb(DBTablePartBase *part, DBEntryBase *entry) {
 }
 
 void DBTable::WalkDone() {
+    incr_walk_complete_count();
     DBTableWalkMgr *walk_mgr = database()->GetWalkMgr();
     return walk_mgr->WalkDone();
 }
