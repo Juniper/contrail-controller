@@ -22,6 +22,8 @@ public:
     static const int kEndOfConfigCheckTime = 3000; // msec
     static const uint16_t kMaxRetransmitCount = 6;
     static const uint16_t kPendingRecordReScheduleTime = 1000; //msec
+    static const uint16_t kNamedLoWaterMark = 8192; //pow(2,13);
+    static const uint16_t kNamedHiWaterMark = 32768;  //pow(2,15);
 
     struct PendingList {
         uint16_t xid;
@@ -66,7 +68,7 @@ public:
     void DnsRecord(const DnsConfig *config, DnsConfig::DnsConfigEvent ev);
     void HandleUpdateResponse(uint8_t *pkt, std::size_t length);
     DnsConfigManager &GetConfigManager() { return config_mgr_; }
-    void SendUpdate(BindUtil::Operation op, const std::string &view,
+    bool SendUpdate(BindUtil::Operation op, const std::string &view,
                     const std::string &zone, DnsItems &items);
     void SendRetransmit(uint16_t xid, BindUtil::Operation op,
                         const std::string &view, const std::string &zone,
@@ -88,6 +90,7 @@ public:
         return (true);
     }
     PendingListMap GetDeportedPendingListMap() { return dp_pending_map_; }
+    void NotifyThrottledDnsRecords();
 
 private:
     friend class DnsBindTest;
@@ -97,7 +100,7 @@ private:
                           const VirtualDnsRecordConfig *config);
     bool PendingDone(uint16_t xid);
     bool ResendRecordsinBatch();
-    void AddPendingList(uint16_t xid, const std::string &view,
+    bool AddPendingList(uint16_t xid, const std::string &view,
                                     const std::string &zone, const DnsItems &items,
                                     BindUtil::Operation op);
     void UpdatePendingList(const std::string &view,
@@ -138,6 +141,9 @@ private:
     uint32_t record_send_count_;
     uint16_t named_max_retransmissions_;
     uint16_t named_retransmission_interval_;
+    uint16_t named_lo_watermark_;
+    uint16_t named_hi_watermark_;
+    bool named_send_throttled_;
     WorkQueue<uint16_t> pending_done_queue_;
     PendingListMap::iterator current_it_;
 
