@@ -5,6 +5,7 @@
 #ifndef ctrlplane_bitset_h
 #define ctrlplane_bitset_h
 
+#include <assert.h>
 #include <inttypes.h>
 #include <string>
 #include <vector>
