@@ -366,6 +366,10 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
     traversal_white_list_->include_vertex.insert("subnet");
     traversal_white_list_->include_vertex.insert("service-health-check");
     traversal_white_list_->include_vertex.insert("bgp-as-a-service");
+    traversal_white_list_->include_vertex.insert("qos-config");
+    traversal_white_list_->include_vertex.insert("qos-queue");
+    traversal_white_list_->include_vertex.insert("forwarding-class");
+    traversal_white_list_->include_vertex.insert("global-qos-config");
 }
 
 void IFMapGraphWalker::AddLinksToWhitelist() {
@@ -461,5 +465,21 @@ void IFMapGraphWalker::AddLinksToWhitelist() {
         "source=bgp-as-a-service,target=bgp-router");
     traversal_white_list_->include_edge.insert(
         "source=bgp-router,target=routing-instance");
+
+
+    traversal_white_list_->include_edge.insert(
+                    "source=global-system-config,target=global-qos-config");
+    traversal_white_list_->include_edge.insert(
+                    "source=global-qos-config,target=forwarding-class");
+    traversal_white_list_->include_edge.insert(
+                    "source=global-qos-config,target=qos-queue");
+    traversal_white_list_->include_edge.insert(
+                    "source=forwarding-class,target=qos-queue");
+    traversal_white_list_->include_edge.insert(
+                    "source=global-qos-config,target=qos-config");
+    traversal_white_list_->include_edge.insert(
+                    "source=virtual-machine-interface,target=qos-config");
+    traversal_white_list_->include_edge.insert(
+                    "source=virtual-network,target=qos-config");
 }
 
