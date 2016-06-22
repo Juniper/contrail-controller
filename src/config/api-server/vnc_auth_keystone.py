@@ -14,7 +14,7 @@ import ConfigParser
 import bottle
 import time
 import base64
-
+import re
 try:
     from keystoneclient.middleware import auth_token
 except ImportError:
@@ -82,11 +82,10 @@ class LocalAuth(object):
 
 class AuthPreKeystone(object):
 
-    def __init__(self, app, conf, multi_tenancy, server_mgr):
+    def __init__(self, app, conf, multi_tenancy):
         self.app = app
         self.conf = conf
         self.mt = multi_tenancy
-        self.server_mgr = server_mgr
 
     def get_mt(self):
         return self.mt
@@ -94,8 +93,18 @@ class AuthPreKeystone(object):
     def set_mt(self, value):
         self.mt = value
 
+    def path_in_white_list(self, path):
+        for pattern in self.conf['api_server'].white_list:
+            if re.search(pattern, path):
+                return True
+        return False
+
     def __call__(self, env, start_response):
-        app = self.app if self.mt else self.server_mgr.api_bottle
+        if self.path_in_white_list(env['PATH_INFO']):
+            env['HTTP_X_ROLE'] = ''
+            app = bottle.app()
+        else:
+            app = self.app if self.mt else bottle.app()
 
         return app(env, start_response)
 
@@ -135,6 +144,7 @@ class AuthServiceKeystone(object):
            and args.auth_protocol == 'https':
                certs=[args.certfile, args.keyfile, args.cafile]
                _kscertbundle=cfgmutils.getCertKeyCaBundle(_DEFAULT_KS_CERT_BUNDLE,certs)
+        identity_uri = '%s://%s:%s' % (args.auth_protocol, args.auth_host, args.auth_port)
         self._conf_info = {
             'auth_host': args.auth_host,
             'auth_port': args.auth_port,
@@ -146,10 +156,12 @@ class AuthServiceKeystone(object):
             'max_requests': args.max_requests,
             'region_name': args.region_name,
             'insecure':args.insecure,
+            'identity_uri': identity_uri,
         }
         try:
             if 'v3' in args.auth_url:
                 self._conf_info['auth_version'] = 'v3.0'
+            self._conf_info['auth_uri'] = args.auth_url
         except AttributeError:
             pass
         if _kscertbundle:
@@ -157,8 +169,8 @@ class AuthServiceKeystone(object):
         self._server_mgr = server_mgr
         self._auth_method = args.auth
         self._auth_middleware = None
-        self._mt_rbac = args.multi_tenancy_with_rbac
-        self._multi_tenancy = args.multi_tenancy or args.multi_tenancy_with_rbac
+        self._mt_rbac = server_mgr.is_rbac_enabled()
+        self._multi_tenancy = server_mgr.is_multi_tenancy_set()
         if not self._auth_method:
             return
         if self._auth_method != 'keystone':
@@ -201,9 +213,8 @@ class AuthServiceKeystone(object):
         # allow multi tenancy to be updated dynamically
         app = AuthPreKeystone(
             auth_middleware,
-            None,
-            self._multi_tenancy,
-            self._server_mgr)
+            { 'api_server': self._server_mgr },
+            self._multi_tenancy)
 
         return app
     # end get_middleware_app

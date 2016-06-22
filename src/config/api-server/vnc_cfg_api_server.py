@@ -62,6 +62,7 @@ from context import ApiContext
 import vnc_cfg_types
 from vnc_cfg_ifmap import VncDbClient
 
+import cfgm_common
 from cfgm_common import ignore_exceptions, imid
 from cfgm_common.uve.vnc_api.ttypes import VncApiCommon, VncApiConfigLog,\
     VncApiError
@@ -139,8 +140,8 @@ _ACTION_RESOURCES = [
      'method': 'POST', 'method_name': 'obj_chmod_http_post'},
     {'uri': '/multi-tenancy', 'link_name': 'multi-tenancy',
      'method': 'PUT', 'method_name': 'mt_http_put'},
-    {'uri': '/multi-tenancy-with-rbac', 'link_name': 'rbac',
-     'method': 'PUT', 'method_name': 'rbac_http_put'},
+    {'uri': '/aaa-mode', 'link_name': 'aaa-mode',
+     'method': 'PUT', 'method_name': 'aaa_mode_http_put'},
 ]
 
 
@@ -1237,6 +1238,16 @@ class VncApiServer(object):
             args_str = ' '.join(sys.argv[1:])
         self._parse_args(args_str)
 
+        # aaa-mode is ignored if multi_tenancy is configured by user
+        if self._args.multi_tenancy is None:
+            # MT unconfigured by user - determine from aaa-mode
+            if self.aaa_mode not in cfgm_common.AAA_MODE_VALID_VALUES:
+                self.aaa_mode = cfgm_common.AAA_MODE_DEFAULT_VALUE
+            self._args.multi_tenancy = self.aaa_mode != 'no-auth'
+        else:
+            # MT configured by user - ignore aaa-mode
+            self.aaa_mode = "cloud-admin" if self._args.multi_tenancy else "no-auth"
+
         # set python logging level from logging_level cmdline arg
         if not self._args.logging_conf:
             logging.basicConfig(level = getattr(logging, self._args.logging_level))
@@ -1317,8 +1328,8 @@ class VncApiServer(object):
         # Enable/Disable multi tenancy
         self.route('/multi-tenancy', 'GET', self.mt_http_get)
         self.route('/multi-tenancy', 'PUT', self.mt_http_put)
-        self.route('/multi-tenancy-with-rbac', 'GET', self.rbac_http_get)
-        self.route('/multi-tenancy-with-rbac', 'PUT', self.rbac_http_put)
+        self.route('/aaa-mode',      'GET', self.aaa_mode_http_get)
+        self.route('/aaa-mode',      'PUT', self.aaa_mode_http_put)
 
         # Initialize discovery client
         self._disc = None
@@ -1397,7 +1408,7 @@ class VncApiServer(object):
         # after db init (uses db_conn)
         self._rbac = vnc_rbac.VncRbac(self, self._db_conn)
         self._permissions = vnc_perms.VncPermissions(self, self._args)
-        if self._args.multi_tenancy_with_rbac:
+        if self.is_rbac_enabled():
             self._create_default_rbac_rule()
 
         # Cpuinfo interface
@@ -1435,6 +1446,12 @@ class VncApiServer(object):
         except Exception as e:
             err_msg = cfgm_common.utils.detailed_traceback()
             self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
+
+        # following allowed without authentication
+        self.white_list = [
+            '^/documentation',  # allow all documentation
+            '^/$',              # allow discovery
+        ]
     # end __init__
 
     def sandesh_disc_client_subinfo_handle_request(self, req):
@@ -2629,14 +2646,13 @@ class VncApiServer(object):
             # Resource creation
             if obj_uuid is None:
                 obj_dict['perms2'] = perms2
-                return
+                return (True, "")
             # Resource already exist
             try:
                 obj_dict['perms2'] = self._db_conn.uuid_to_obj_perms2(obj_uuid)
             except NoIdError:
                 obj_dict['perms2'] = perms2
-
-            return
+            return (True, "")
 
         # retrieve the previous version of the perms2
         # from the database and update the perms2 with
@@ -2657,6 +2673,14 @@ class VncApiServer(object):
         # TODO handle perms2 present in req_perms2
 
         obj_dict['perms2'] = perms2
+
+        # ensure is_shared and global_access are consistent
+        shared = obj_dict.get('is_shared', None)
+        gaccess = obj_dict['perms2'].get('global_access', None)
+        if gaccess is not None and shared is not None and shared != (gaccess != 0):
+            error = "Inconsistent is_shared (%s a) and global_access (%s)" % (shared, gaccess)
+            return (False, (400, error))
+        return (True, "")
     # end _ensure_perms2_present
 
     def _get_default_perms2(self):
@@ -3293,18 +3317,14 @@ class VncApiServer(object):
     # end
 
     def is_multi_tenancy_set(self):
-        return self._args.multi_tenancy or self._args.multi_tenancy_with_rbac
+        return self._args.multi_tenancy or self.aaa_mode != 'no-auth'
 
-    def is_multi_tenancy_with_rbac_set(self):
-        return self._args.multi_tenancy_with_rbac
-
-    def set_multi_tenancy_with_rbac(self, rbac_flag):
-        self._args.multi_tenancy_with_rbac = rbac_flag
-    # end
+    def is_rbac_enabled(self):
+        return self.aaa_mode == 'rbac'
 
     def mt_http_get(self):
         pipe_start_app = self.get_pipe_start_app()
-        mt = False
+        mt = self.is_multi_tenancy_set()
         try:
             mt = pipe_start_app.get_mt()
         except AttributeError:
@@ -3326,19 +3346,32 @@ class VncApiServer(object):
         return {'enabled': self.is_multi_tenancy_set()}
     # end
 
-    # indication if multi tenancy with rbac is enabled or disabled
-    def rbac_http_get(self):
-        return {'enabled': self._args.multi_tenancy_with_rbac}
+    @property
+    def aaa_mode(self):
+        return self._args.aaa_mode
 
-    def rbac_http_put(self):
-        multi_tenancy_with_rbac = get_request().json['enabled']
+    @aaa_mode.setter
+    def aaa_mode(self, mode):
+        self._args.aaa_mode = mode
+
+    # indication if multi tenancy with rbac is enabled or disabled
+    def aaa_mode_http_get(self):
+        return {'aaa-mode': self.aaa_mode}
+
+    def aaa_mode_http_put(self):
+        aaa_mode = get_request().json['aaa-mode']
+        if aaa_mode not in cfgm_common.AAA_MODE_VALID_VALUES:
+            raise ValueError('Invalid aaa-mode %s' % aaa_mode)
+
         if not self._auth_svc.validate_user_token(get_request()):
             raise cfgm_common.exceptions.HttpError(403, " Permission denied")
         if not self.is_admin_request():
             raise cfgm_common.exceptions.HttpError(403, " Permission denied")
 
-        self.set_multi_tenancy_with_rbac(multi_tenancy_with_rbac)
-        return {'enabled': self.is_multi_tenancy_with_rbac_set()}
+        self.aaa_mode = aaa_mode
+        if self.is_rbac_enabled():
+            self._create_default_rbac_rule()
+        return {'aaa-mode': self.aaa_mode}
     # end
 
     @property
