@@ -58,7 +58,7 @@ class STTestCase(test_common.TestCase):
     def setUpClass(cls):
         extra_config = [
             ('DEFAULTS', 'multi_tenancy', 'False'),
-            ('DEFAULTS', 'multi_tenancy_with_rbac', 'False'),
+            ('DEFAULTS', 'aaa_mode', 'no-auth'),
         ]
         super(STTestCase, cls).setUpClass(extra_config_knobs=extra_config)
 
