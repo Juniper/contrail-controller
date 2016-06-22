@@ -54,6 +54,14 @@ class VerifyCommon(object):
 
 class STTestCase(test_common.TestCase):
 
+    @classmethod
+    def setUpClass(cls):
+        extra_config = [
+            ('DEFAULTS', 'multi_tenancy', 'False'),
+            ('DEFAULTS', 'aaa_mode', 'no-auth'),
+        ]
+        super(STTestCase, cls).setUpClass(extra_config_knobs=extra_config)
+
     def _class_str(self):
         return str(self.__class__).strip('<class ').strip('>').strip("'")
 
