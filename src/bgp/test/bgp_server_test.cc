@@ -595,7 +595,7 @@ static void ResumeDelete(LifetimeActor *actor) {
 }
 
 TEST_F(BgpServerUnitTest, Connection) {
-    StateMachineTest::set_keepalive_time_msecs(10);
+    StateMachineTest::set_keepalive_time_msecs(100);
     BgpPeerTest::verbose_name(true);
     SetupPeers(3, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), true);
@@ -604,7 +604,7 @@ TEST_F(BgpServerUnitTest, Connection) {
 }
 
 TEST_F(BgpServerUnitTest, LotsOfKeepAlives) {
-    StateMachineTest::set_keepalive_time_msecs(10);
+    StateMachineTest::set_keepalive_time_msecs(100);
     BgpPeerTest::verbose_name(true);
     SetupPeers(3, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), true);
@@ -1871,7 +1871,7 @@ TEST_F(BgpServerUnitTest, ResetStatsOnFlap) {
     ConcurrencyScope scope("bgp::Config");
     int peer_count = 3;
 
-    StateMachineTest::set_keepalive_time_msecs(10);
+    StateMachineTest::set_keepalive_time_msecs(100);
     BgpPeerTest::verbose_name(true);
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), false,
@@ -3257,7 +3257,7 @@ TEST_F(BgpServerUnitTest, ClearNeighbor5) {
 }
 
 TEST_F(BgpServerUnitTest, ShowBgpServer) {
-    StateMachineTest::set_keepalive_time_msecs(10);
+    StateMachineTest::set_keepalive_time_msecs(100);
     BgpPeerTest::verbose_name(true);
     SetupPeers(3,a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), true);

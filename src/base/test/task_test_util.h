@@ -16,7 +16,8 @@
 class EventManager;
 
 namespace task_util {
-void WaitForIdle(long wait_seconds = 30, bool running_only = false);
+void WaitForIdle(long wait_seconds = 30, bool running_only = false,
+                 bool verify = true);
 void WaitForCondition(EventManager *evm, boost::function<bool(void)> condition,
                       const int timeout);
 void BusyWork(EventManager *evm, const int timeout);
