@@ -810,9 +810,20 @@ class PhysicalRouterConfig(object):
                         self._add_family_etree(nbr, session_attr)
                         self.add_bgp_auth_config(nbr, session_attr)
                         break
-            if params.get('autonomous_system') is not None:
-                etree.SubElement(
-                    nbr, "peer-as").text = str(params.get('autonomous_system'))
+            g_as = None
+            local_as = None
+            if self.bgp_params is not None:
+                g_as = self.bgp_params.get('autonomous_system', None)
+                local_as = self.bgp_params.get('local_autonomous_system', None)
+            if local_as and local_as != g_as:
+                etree.SubElement(nbr, "peer-as").text = str(local_as)
+                local_as_element = etree.SubElement(nbr, "local-as")
+                etree.SubElement(local_as_element, "as-number").text = str(local_as)
+                etree.SubElement(local_as_element, "private")
+            else:
+                g_as = params.get('autonomous_system', None)
+                if g_as:
+                    etree.SubElement(nbr, "peer-as").text = str(g_as)
     # end _get_neighbor_config_xml
 
     def send_bgp_config(self):
