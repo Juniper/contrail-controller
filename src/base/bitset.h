@@ -5,6 +5,7 @@
 #ifndef ctrlplane_bitset_h
 #define ctrlplane_bitset_h
 
+#include <assert.h>
 #include <inttypes.h>
 #include <string>
 #include <vector>
@@ -57,6 +58,39 @@ private:
     void check_invariants();
 
     std::vector<uint64_t> blocks_;
+};
+
+class IndexAllocator {
+public:
+    IndexAllocator(size_t max_index)
+        : max_index_(max_index), last_index_(BitSet::npos) { }
+
+    size_t AllocIndex() {
+        size_t index;
+        if (last_index_ == BitSet::npos) {
+            index = bitset_.find_first_clear();
+        } else {
+            index = bitset_.find_next_clear(last_index_);
+            if (index > max_index_) {
+                index = bitset_.find_first_clear();
+            }
+        }
+        if (index != BitSet::npos) {
+            bitset_.set(index);
+        }
+        last_index_ = index;
+        return index;
+    }
+
+    void FreeIndex(size_t index) {
+        assert(index <= max_index_);
+        bitset_.reset(index);
+    }
+
+private:
+    BitSet bitset_;
+    size_t max_index_;
+    size_t last_index_;
 };
 
 #endif
