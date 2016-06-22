@@ -31,6 +31,7 @@ import keystoneclient.exceptions as kc_exceptions
 import keystoneclient.v2_0.client as keystone
 from keystonemiddleware import auth_token
 from cfgm_common import rest, utils
+from cfgm_common.rbaclib import *
 import cfgm_common
 
 sys.path.append('../common/tests')
@@ -173,109 +174,31 @@ def vnc_read_obj(vnc, res_type, name = None, obj_uuid = None):
         raise
 # end
 
-def show_rbac_rules(api_access_list_entries):
-    if api_access_list_entries is None:
-        logger.info( 'Empty RBAC group!')
-        return
-
-    # {u'rbac_rule': [{u'rule_object': u'*', u'rule_perms': [{u'role_crud': u'CRUD', u'role_name': u'admin'}], u'rule_field': None}]}
-    rule_list = api_access_list_entries.get_rbac_rule()
-    logger.info( 'Rules (%d):' % len(rule_list))
-    logger.info( '----------')
-    idx = 1
-    for rule in rule_list:
-            o = rule.rule_object
-            f = rule.rule_field
-            ps = ''
-            for p in rule.rule_perms:
-                ps += p.role_name + ':' + p.role_crud + ','
-            o_f = "%s.%s" % (o,f) if f else o
-            logger.info( '%2d %-32s   %s' % (idx, o_f, ps))
-            idx += 1
-    logger.info( '')
-
-def build_rule(rule_str):
-    r = rule_str.split(" ") if rule_str else []
-    if len(r) < 2:
-        return None
-
-    # [0] is object.field, [1] is list of perms
-    obj_field = r[0].split(".")
-    perms = r[1].split(",")
-
-    o = obj_field[0]
-    f = obj_field[1] if len(obj_field) > 1 else None
-    o_f = "%s.%s" % (o,f) if f else o
-
-    # perms eg ['foo:CRU', 'bar:CR']
-    rule_perms = []
-    for perm in perms:
-        p = perm.split(":")
-        rule_perms.append(RbacPermType(role_name = p[0], role_crud = p[1]))
-
-    # build rule
-    rule = RbacRuleType(
-              rule_object = o,
-              rule_field = f,
-              rule_perms = rule_perms)
-    return rule
-#end
-
-def match_rule(rule_list, rule_str):
-    extend_rule_list = True
-    nr = build_rule(rule_str)
-    for r in rule_list:
-        if r.rule_object != nr.rule_object or r.rule_field != nr.rule_field:
-            continue
-
-        # object and field match - fix rule in place
-        extend_rule_list = False
-
-        for np in nr.rule_perms:
-            extend_perms = True
-            for op in r.rule_perms:
-                if op.role_name == np.role_name:
-                    # role found - merge incoming and existing crud in place
-                    x = set(list(op.role_crud)) | set(list(np.role_crud))
-                    op.role_crud = ''.join(x)
-                    extend_perms = False
-            if extend_perms:
-                r.rule_perms.append(RbacPermType(role_name = np.role_name, role_crud = np.role_crud))
-
-    if extend_rule_list:
-        rule_list.append(nr)
-
-# end match_rule
-
-def vnc_fix_api_access_list(vnc_lib, pobj, rule_str = None):
+def vnc_aal_create(vnc, pobj):
     rg_name = list(pobj.get_fq_name())
     rg_name.append('default-api-access-list')
-
-    rg = vnc_read_obj(vnc_lib, 'api-access-list', name = rg_name)
-
-    create = False
-    rule_list = []
+    rg = vnc_read_obj(vnc, 'api-access-list', name = rg_name)
     if rg == None:
+        rge = RbacRuleEntriesType([])
         rg = ApiAccessList(
                  name = 'default-api-access-list',
                  parent_obj = pobj,
-                 api_access_list_entries = None)
-        create = True
-    elif rule_str:
-        api_access_list_entries = rg.get_api_access_list_entries()
-        rule_list = api_access_list_entries.get_rbac_rule()
+                 api_access_list_entries = rge)
+        vnc.api_access_list_create(rg)
+    return rg
 
-    if rule_str:
-        rule = match_rule(rule_list, rule_str)
-
-    rentry = RbacRuleEntriesType(rule_list)
-    rg.set_api_access_list_entries(rentry)
-    if create:
-        logger.info( 'API access list empty. Creating with default rule')
-        vnc_lib.api_access_list_create(rg)
+def vnc_aal_add_rule(vnc, rg, rule_str):
+    rule = build_rule(rule_str)
+    rg = vnc_read_obj(vnc, 'api-access-list', rg.get_fq_name())
+    rge = rg.get_api_access_list_entries()
+    match = find_rule(rge, rule)
+    if not match:
+        rge.add_rbac_rule(rule)
     else:
-        vnc_lib.api_access_list_update(rg)
-    show_rbac_rules(rg.get_api_access_list_entries())
+        build_perms(rge.rbac_rule[match[0]-1], match[3])
+
+    rg.set_api_access_list_entries(rge)
+    vnc.api_access_list_update(rg)
 
 def token_from_user_info(user_name, tenant_name, domain_name, role_name,
         tenant_id = None):
@@ -339,12 +262,13 @@ class TestPermissions(test_case.ApiServerTestCase):
                        (auth_token, 'AuthProtocol',
                             test_utils.FakeAuthProtocol)]
         extra_config_knobs = [
-            ('DEFAULTS', 'multi_tenancy_with_rbac', 'True'),
+            ('DEFAULTS', 'aaa_mode', 'rbac'),
             ('DEFAULTS', 'cloud_admin_role', 'cloud-admin'),
             ('DEFAULTS', 'auth', 'keystone'),
         ]
         super(TestPermissions, cls).setUpClass(extra_mocks=extra_mocks,
             extra_config_knobs=extra_config_knobs)
+
 
     def setUp(self):
         super(TestPermissions, self).setUp()
@@ -391,12 +315,19 @@ class TestPermissions(test_case.ApiServerTestCase):
             logger.info( '%s exists ... deleting to start fresh' % vn_fq_name)
             self.admin.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
 
-        # allow permission to create objects
+        # allow permission to create objects (including obj-perms)
         for user in self.users:
             logger.info( "%s: project %s to allow full access to role %s" % \
                 (user.name, user.project, user.role))
-            vnc_fix_api_access_list(self.admin.vnc_lib, user.project_obj,
+            user.proj_rg = vnc_aal_create(self.admin.vnc_lib, user.project_obj)
+            vnc_aal_add_rule(self.admin.vnc_lib, user.proj_rg,
                 rule_str = '* %s:CRUD' % user.role)
+
+        """
+        global_rg = vnc_read_obj(self.admin.vnc_lib, 'api-access-list', 
+            name = ['default-global-system-config', 'default-api-access-list'])
+        vnc_aal_add_rule(self.admin.vnc_lib, global_rg, "obj-perms *:R")
+        """
 
     def test_delete_non_admin_role(self):
         alice = self.alice
@@ -407,7 +338,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         for user in self.users:
             logger.info( "%s: project %s to allow full access to role %s" % \
                 (user.name, user.project, user.role))
-            vnc_fix_api_access_list(self.admin.vnc_lib, user.project_obj,
+            vnc_aal_add_rule(self.admin.vnc_lib, user.proj_rg,
                 rule_str = '* %s:CRUD' % user.role)
 
         vn_fq_name = [self.domain_name, alice.project, self.vn_name]
@@ -471,16 +402,16 @@ class TestPermissions(test_case.ApiServerTestCase):
         bob   = self.bob
         admin = self.admin
 
-        rv_json = admin.vnc_lib._request(rest.OP_GET, '/multi-tenancy-with-rbac')
+        rv_json = admin.vnc_lib._request(rest.OP_GET, '/aaa-mode')
         rv = json.loads(rv_json)
-        self.assertEquals(rv["enabled"], True)
-
-        # disable rbac
+        self.assertEquals(rv["aaa-mode"], "rbac")
 
         # delete api-access-list for alice and bob and disallow api access to their projects
         for user in self.users:
             logger.info( "Delete api-acl for project %s to disallow api access" % user.project)
-            vnc_fix_api_access_list(self.admin.vnc_lib, user.project_obj, rule_str = None)
+            rg_name = list(user.project_obj.get_fq_name())
+            rg_name.append('default-api-access-list')
+            self.admin.vnc_lib.api_access_list_delete(fq_name = rg_name)
 
         logger.info( 'alice: trying to create VN in her project')
         vn = VirtualNetwork(self.vn_name, self.alice.project_obj)
@@ -495,7 +426,8 @@ class TestPermissions(test_case.ApiServerTestCase):
             logger.info( "%s: project %s to allow full access to role %s" % \
                 (user.name, user.project, user.role))
             # note that collection API is set for create operation
-            vnc_fix_api_access_list(self.admin.vnc_lib, user.project_obj,
+            user.proj_rg = vnc_aal_create(self.admin.vnc_lib, user.project_obj)
+            vnc_aal_add_rule(self.admin.vnc_lib, user.proj_rg,
                 rule_str = 'virtual-networks %s:C' % user.role)
 
         logger.info( '')
@@ -520,7 +452,7 @@ class TestPermissions(test_case.ApiServerTestCase):
             self.assertTrue(True, 'Unable to read VN ... test passed')
 
         # allow read access
-        vnc_fix_api_access_list(self.admin.vnc_lib, self.alice.project_obj,
+        vnc_aal_add_rule(self.admin.vnc_lib, self.alice.proj_rg,
                 rule_str = 'virtual-network %s:R' % self.alice.role)
         logger.info( 'alice: added permission to read virtual-network')
         logger.info( 'alice: trying to read VN in her project (should succeed)')
@@ -542,7 +474,7 @@ class TestPermissions(test_case.ApiServerTestCase):
             self.assertTrue(True, 'Unable to update field in VN ... Test succeeded!')
 
         # give update API access to alice
-        vnc_fix_api_access_list(admin.vnc_lib, alice.project_obj,
+        vnc_aal_add_rule(admin.vnc_lib, alice.proj_rg,
                 rule_str = 'virtual-network %s:U' % alice.role)
 
         logger.info( '')
@@ -565,7 +497,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         logger.info('')
         logger.info( '####### API ACCESS (update field restricted to admin) ##############')
         logger.info( 'Restricting update of field to admin only        ')
-        vnc_fix_api_access_list(admin.vnc_lib, alice.project_obj,
+        vnc_aal_add_rule(admin.vnc_lib, alice.proj_rg,
                 rule_str = 'virtual-network.display_name admin:U')
         try:
             vn.display_name = "alice"
@@ -591,7 +523,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         logger.info( 'Giving bob API level access to perform all ops on virtual-network')
         logger.info( "Bob should'nt be able to create VN in alice project because only\n ")
         logger.info( 'owner (alice) has write permission in her project')
-        vnc_fix_api_access_list(admin.vnc_lib, bob.project_obj,
+        vnc_aal_add_rule(admin.vnc_lib, bob.proj_rg,
                 rule_str = 'virtual-network %s:CRUD' % bob.role)
 
         logger.info( '')
@@ -695,7 +627,7 @@ class TestPermissions(test_case.ApiServerTestCase):
             logger.info( "%s: project %s to allow collection access to role %s" % \
                 (user.name, user.project, user.role))
             # note that collection API is set for create operation
-            vnc_fix_api_access_list(admin.vnc_lib, user.project_obj,
+            vnc_aal_add_rule(admin.vnc_lib, user.proj_rg,
                 rule_str = 'virtual-networks %s:CR' % user.role)
 
         # create one more VN in alice project to differentiate from what bob sees
@@ -735,8 +667,8 @@ class TestPermissions(test_case.ApiServerTestCase):
             logger.info( "%s: project %s to allow full access to role %s" % \
                 (user.name, user.project, user.role))
             # note that collection API is set for create operation
-            vnc_fix_api_access_list(self.admin.vnc_lib, user.project_obj,
-                rule_str = 'virtual-networks %s:CRUD' % user.role)
+            vnc_aal_add_rule(self.admin.vnc_lib, user.proj_rg,
+                "virtual-networks %s:CRUD" % user.role)
 
         logger.info( '')
         logger.info( 'alice: trying to create VN in her project')
@@ -817,7 +749,7 @@ class TestPermissions(test_case.ApiServerTestCase):
             logger.info( "%s: project %s to allow full access to role %s" % \
                 (user.name, user.project, user.role))
             # note that collection API is set for create operation
-            vnc_fix_api_access_list(self.admin.vnc_lib, user.project_obj,
+            vnc_aal_add_rule(self.admin.vnc_lib, user.proj_rg,
                 rule_str = 'virtual-networks %s:CRUD' % user.role)
 
         # Create VN as non-admin user
@@ -875,9 +807,9 @@ class TestPermissions(test_case.ApiServerTestCase):
         admin.vnc_lib.chown(vn.get_uuid(), alice.project_uuid)
 
         # ensure chown/chmod works even when rbac is disabled
-        self.assertRaises(PermissionDenied, alice.vnc_lib.set_multi_tenancy_with_rbac, False)
-        rv = admin.vnc_lib.set_multi_tenancy_with_rbac(False)
-        self.assertEquals(rv['enabled'], False)
+        self.assertRaises(PermissionDenied, alice.vnc_lib.set_aaa_mode, "admin-only")
+        rv = admin.vnc_lib.set_aaa_mode("admin-only")
+        self.assertEquals(rv['aaa-mode'], "admin-only")
         alice.vnc_lib.chown(vn.get_uuid(), valid_uuid_1)
         admin.vnc_lib.chown(vn.get_uuid(), alice.project_uuid)
         alice.vnc_lib.chmod(vn.get_uuid(), owner=valid_uuid_1)
@@ -885,8 +817,8 @@ class TestPermissions(test_case.ApiServerTestCase):
 
         # re-enable rbac for subsequent tests!
         try:
-            rv = admin.vnc_lib.set_multi_tenancy_with_rbac(True)
-            self.assertEquals(rv['enabled'], True)
+            rv = admin.vnc_lib.set_aaa_mode("rbac")
+            self.assertEquals(rv['aaa-mode'], "rbac")
         except Exception:
             self.fail("Error in enabling rbac")
 
