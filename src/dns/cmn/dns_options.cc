@@ -148,7 +148,7 @@ void Options::Initialize(EventManager &evm,
         ("IFMAP.user", opt::value<string>()->default_value("dns_user"),
              "IFMAP server username")
         ("IFMAP.stale_entries_cleanup_timeout",
-             opt::value<int>()->default_value(10),
+             opt::value<int>()->default_value(300),
              "IFMAP stale entries cleanup timeout")
         ("IFMAP.end_of_rib_timeout", opt::value<int>()->default_value(10),
              "IFMAP end of rib timeout")

@@ -75,7 +75,7 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.ifmap_password(), "control-node");
     EXPECT_EQ(options_.ifmap_user(), "control-node");
     EXPECT_EQ(options_.ifmap_certs_store(), "");
-    EXPECT_EQ(options_.ifmap_stale_entries_cleanup_timeout(), 10);
+    EXPECT_EQ(options_.ifmap_stale_entries_cleanup_timeout(), 300);
     EXPECT_EQ(options_.ifmap_end_of_rib_timeout(), 10);
     EXPECT_EQ(options_.ifmap_peer_response_wait_time(), 60);
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
@@ -115,7 +115,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.ifmap_password(), "control-node");
     EXPECT_EQ(options_.ifmap_user(), "control-node");
     EXPECT_EQ(options_.ifmap_certs_store(), "");
-    EXPECT_EQ(options_.ifmap_stale_entries_cleanup_timeout(), 10);
+    EXPECT_EQ(options_.ifmap_stale_entries_cleanup_timeout(), 300);
     EXPECT_EQ(options_.ifmap_end_of_rib_timeout(), 10);
     EXPECT_EQ(options_.ifmap_peer_response_wait_time(), 60);
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
