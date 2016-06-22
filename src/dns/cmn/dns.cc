@@ -49,6 +49,7 @@ void Dns::SetTaskSchedulingPolicy() {
         "ifmap::StateMachine",
         "sandesh::RecvQueue",
         "http::RequestHandlerTask",
+        "dns::NamedSndRcv"
     };
     int arraysize = sizeof(config_exclude_list) / sizeof(char *);
     for (int i = 0; i < arraysize; ++i) {
