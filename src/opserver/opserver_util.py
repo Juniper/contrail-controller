@@ -653,11 +653,12 @@ class OpServerUtils(object):
                                 '[' + OpServerUtils._data_dict_to_str(
                                     values[i], sandesh_type) + '], '
                     else:
-                        vdict_list = vdict['element']
-                        for i in range(int(vdict['@size'])):
-                            k = i*2
-                            data_str += vdict_list[k] + ': ' + \
-                                vdict_list[k+1] + ', '
+                        if 'element' in vdict:
+                            vdict_list = vdict['element']
+                            for i in range(int(vdict['@size'])):
+                                k = i*2
+                                data_str += vdict_list[k] + ': ' + \
+                                    vdict_list[k+1] + ', '
                     data_str += '}'
                     continue
             else:

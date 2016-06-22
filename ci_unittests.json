@@ -14,7 +14,6 @@
             "controller/src/bfd:test",
             "controller/src/query_engine:test",
             "controller/src/database/gendb:test",
-            "controller/src/database/cassandra/thrift:test",
             "controller/src/database/cassandra/cql:test",
             "controller/src/zookeeper:test"
         ],
@@ -130,7 +129,6 @@
             "controller/src/db:test",
             "controller/src/discovery:test",
             "controller/src/database/gendb:test",
-            "controller/src/database/cassandra/thrift:test",
             "controller/src/database/cassandra/cql:test",
             "controller/src/zookeeper:test",
             "controller/src/io:test",

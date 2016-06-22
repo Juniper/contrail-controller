@@ -1426,8 +1426,7 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
-
-      'display_name' : 'Sandesh Information',
+      'display_name' : 'Collector Message Stats',
       'stat_type' : 'SandeshMessageStat',
       'stat_attr' : 'msg_info',
       'obj_table' : GENERATOR_INFO_TABLE,
@@ -1436,6 +1435,16 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'msg_info.level', 'datatype' : 'string', 'index' : true},
           { 'name' : 'msg_info.messages', 'datatype' : 'int', 'index' : false},
           { 'name' : 'msg_info.bytes', 'datatype' : 'int', 'index' : false},
+      ]
+    },
+    {
+      'display_name' : 'Sandesh Client Message Stats',
+      'stat_type' : 'ModuleClientState',
+      'stat_attr' : 'tx_msg_agg_diff.counters',
+      'obj_table' : GENERATOR_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'tx_msg_agg_diff.counters.__key', 'datatype' : 'string', 'index' : true},
+          { 'name' : 'tx_msg_agg_diff.counters.__value', 'datatype' : 'string', 'index' : false},
       ]
     },
     {
@@ -2033,15 +2042,25 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
-      'display_name' : 'Vrouter Physical Interface bandwidth Statistics',
+      'display_name' : 'Vrouter Physical Interface Input bandwidth Statistics',
       'stat_type' : 'VrouterStatsAgent'
-      'stat_attr' : 'phy_if_band',
+      'stat_attr' : 'phy_band_in_bps',
       'obj_table' : VROUTER_TABLE,
       'attributes': [
-          { 'name' : 'name', 'datatype' : 'string', 'index' : true, 'suffixes': ['phy_if_band.name'] },
-          { 'name' : 'phy_if_band.name', 'datatype' : 'string', 'index' : false },
-          { 'name' : 'phy_if_band.in_bandwidth_usage', 'datatype' : 'int', 'index' : false },
-          { 'name' : 'phy_if_band.out_bandwidth_usage', 'datatype' : 'int', 'index' : false }
+          { 'name' : 'name', 'datatype' : 'string', 'index' : true, 'suffixes': ['phy_band_in_bps.__key'] },
+          { 'name' : 'phy_band_in_bps.__key', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'phy_band_in_bps.__value', 'datatype' : 'int', 'index' : false },
+        ]
+    },
+    {
+      'display_name' : 'Vrouter Physical Interface Output bandwidth Statistics',
+      'stat_type' : 'VrouterStatsAgent'
+      'stat_attr' : 'phy_band_out_bps',
+      'obj_table' : VROUTER_TABLE,
+      'attributes': [
+          { 'name' : 'name', 'datatype' : 'string', 'index' : true, 'suffixes': ['phy_band_out_bps.__key'] },
+          { 'name' : 'phy_band_out_bps.__key', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'phy_band_out_bps.__value', 'datatype' : 'int', 'index' : false },
         ]
     },
     {
