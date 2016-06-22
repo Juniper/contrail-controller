@@ -569,10 +569,12 @@ class PhysicalRouterDM(DBBaseDM):
             self.config_manager.set_bgp_config(bgp_router.params)
             self.config_manager.set_global_routing_options(bgp_router.params)
             bgp_router_ips = bgp_router.get_all_bgp_router_ips()
-            if (self.dataplane_ip is not None and
-                    self.is_valid_ip(self.dataplane_ip)):
+            tunnel_ip = self.dataplane_ip
+            if not tunnel_ip and bgp_router.params:
+                tunnel_ip = bgp_router.params.get('address')
+            if (tunnel_ip and self.is_valid_ip(tunnel_ip)):
                 self.config_manager.add_dynamic_tunnels(
-                    self.dataplane_ip,
+                    tunnel_ip,
                     GlobalSystemConfigDM.ip_fabric_subnets,
                     bgp_router_ips)
 
