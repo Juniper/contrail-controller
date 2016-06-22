@@ -24,6 +24,7 @@ from gen.resource_xsd import *
 from gen.resource_client import *
 from gen.generatedssuper import GeneratedsSuper
 
+import cfgm_common
 from cfgm_common import rest, utils
 from cfgm_common.exceptions import *
 from cfgm_common import ssl_adapter
@@ -1244,9 +1245,11 @@ class VncApi(object):
         content = self._request_server(rest.OP_PUT, url, json.dumps(data))
         return json.loads(content)
 
-    def set_multi_tenancy_with_rbac(self, enabled):
-        url = self._action_uri['rbac']
-        data = {'enabled': enabled}
+    def set_aaa_mode(self, mode):
+        if mode not in cfgm_common.AAA_MODE_VALID_VALUES:
+            raise HttpError(400, 'Invalid AAA mode')
+        url = self._action_uri['aaa-mode']
+        data = {'aaa-mode': mode}
         content =  self._request_server(rest.OP_PUT, url, json.dumps(data))
         return json.loads(content)
 
