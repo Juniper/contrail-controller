@@ -1321,23 +1321,15 @@ class VncDbClient(object):
         self._sandesh = api_svr_mgr._sandesh
 
         self._UVEMAP = {
-            "virtual_network" : "ObjectVNTable",
-            "service_instance" : "ObjectSITable",
-            "virtual_router" : "ObjectVRouter",
-            "analytics_node" : "ObjectCollectorInfo",
-            "database_node" : "ObjectDatabaseInfo",
-            "config_node" : "ObjectConfigNode",
-            "service_chain" : "ServiceChain",
-            "physical_router" : "ObjectPRouter",
+            "virtual_network" : ("ObjectVNTable", False),
+            "service_instance" : ("ObjectSITable", False),
+            "virtual_router" : ("ObjectVRouter", True),
+            "analytics_node" : ("ObjectCollectorInfo", True),
+            "database_node" : ("ObjectDatabaseInfo", True),
+            "config_node" : ("ObjectConfigNode", True),
+            "service_chain" : ("ServiceChain", False),
+            "physical_router" : ("ObjectPRouter", True),
         }
-
-        self._UVEGLOBAL = set([
-            "virtual_router",
-            "analytics_node",
-            "database_node",
-            "config_node",
-            "physical_router"
-        ])
 
         # certificate auth
         ssl_options = None
@@ -1703,52 +1695,37 @@ class VncDbClient(object):
     # end dbe_alloc
 
     def dbe_uve_trace(self, oper, type, uuid, obj_dict):
-        oo = {}
-        oo['uuid'] = uuid
-        if oper.upper() == 'DELETE':
-            oo['name'] = obj_dict['fq_name']
-        else:
-            oo['name'] = self.uuid_to_fq_name(uuid)
-        oo['value'] = obj_dict
-        oo['type'] = type
-
-        req_id = get_trace_id()
-        db_trace = DBRequestTrace(request_id=req_id)
-        db_trace.operation = oper
-        db_trace.body = "name=" + str(oo['name']) + " type=" + type + " value=" +  json.dumps(obj_dict)
-        trace_msg(db_trace, 'DBUVERequestTraceBuf', self._sandesh)
-
-        attr_contents = None
-        emap = {}
-        if oo['value']:
-            for ck,cv in oo['value'].iteritems():
-                emap[ck] = json.dumps(cv)
-
-        utype = oo['type']
-        urawkey = ':'.join(oo['name'])
-        ukey = None
-        utab = None
-        if utype in self._UVEMAP:
-            utab = self._UVEMAP[utype]
-            if utype in self._UVEGLOBAL:
-                ukey = urawkey.split(":",1)[1]
-            else:
-                ukey = urawkey
-        elif utype == 'bgp_router':
-            utab = "ObjectBgpRouter"
-            ukey = urawkey.rsplit(":",1)[1]
-        else:
+        if type not in self._UVEMAP:
             return
 
-        if oper.upper() == 'DELETE':
-            cc = ContrailConfig(name=ukey, elements=emap, deleted=True)
-        else:
-            cc = ContrailConfig(name=ukey, elements=emap)
+        oper.upper()
+        req_id = get_trace_id()
+        obj_dict.setdefault('fq_name', self.uuid_to_fq_name(uuid))
+        obj_json = {k: json.dumps(obj_dict[k]) for k in obj_dict or {}}
 
-        cfg_msg = ContrailConfigTrace(data=cc, table=utab,
-                                      sandesh=self._sandesh)
-        cfg_msg.send(sandesh=self._sandesh)
-    # end dbe_uve_trace
+        db_trace = DBRequestTrace(request_id=req_id)
+        db_trace.operation = oper
+        db_trace.body = "name=%s type=%s value=%s" % (obj_dict['fq_name'],
+                                                      type,
+                                                      json.dumps(obj_dict))
+        if type == 'bgp_router':
+            uve_table = "ObjectBgpRouter"
+            uve_name = obj_dict['fq_name'][-1]
+        else:
+            uve_table, global_uve = self._UVEMAP[type]
+            if global_uve:
+                uve_name = obj_dict['fq_name'][-1]
+            else:
+                uve_name = ':'.join(obj_dict['fq_name'])
+        contrail_config = ContrailConfig(name=uve_name,
+                                         elements=obj_json,
+                                         deleted=oper=='DELETE')
+        contrail_config_msg = ContrailConfigTrace(data=contrail_config,
+                                                  table=uve_table,
+                                                  sandesh=self._sandesh)
+
+        contrail_config_msg.send(sandesh=self._sandesh)
+        trace_msg(db_trace, 'DBUVERequestTraceBuf', self._sandesh)
 
     def dbe_trace(oper):
         def wrapper1(func):
