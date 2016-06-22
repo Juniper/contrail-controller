@@ -156,8 +156,8 @@ class AuthServiceKeystone(object):
         self._server_mgr = server_mgr
         self._auth_method = args.auth
         self._auth_middleware = None
-        self._mt_rbac = args.multi_tenancy_with_rbac
-        self._multi_tenancy = args.multi_tenancy or args.multi_tenancy_with_rbac
+        self._mt_rbac = server_mgr.is_rbac_enabled()
+        self._multi_tenancy = server_mgr.is_multi_tenancy_set()
         if not self._auth_method:
             return
         if self._auth_method != 'keystone':
