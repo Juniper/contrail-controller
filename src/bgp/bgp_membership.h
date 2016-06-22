@@ -18,7 +18,8 @@
 
 #include "base/lifetime.h"
 #include "base/queue_task.h"
-#include "db/db_table_walker.h"
+#include "db/db_table_walk_mgr.h"
+#include "db/db_table.h"
 #include "bgp/bgp_ribout.h"
 
 class BgpNeighborResp;
@@ -408,7 +409,7 @@ private:
 // that walk callbacks for each DBEntry can be handled with minimal processing
 // overhead. Details on this temporary state are as follows:
 //
-// - walk_id_ is the id for the current walk
+// - walk_ref_ is the walker for the current walk
 // - rs_ is the RibState for which the walk was started
 // - peer_rib_list_ is the list of PeerRibStates for the current RibState
 //   that have a pending action. The pending list in RibState is logically
@@ -498,7 +499,7 @@ private:
     bool postpone_walk_;
     bool walk_started_;
     bool walk_completed_;
-    DBTableWalker::WalkId walk_id_;
+    DBTable::DBTableWalkRef walk_ref_;
     RibState *rs_;
     PeerRibList peer_rib_list_;
     PeerList peer_list_;

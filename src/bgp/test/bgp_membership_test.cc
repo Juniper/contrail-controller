@@ -688,7 +688,7 @@ TEST_F(BgpMembershipTest, MultiplePeers3) {
     Register(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, GetWalkerQueueSize());
-    TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_request_count());
+    TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
 
     // Register remaining peers.
@@ -696,7 +696,7 @@ TEST_F(BgpMembershipTest, MultiplePeers3) {
     Register(peers_[2], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, GetWalkerQueueSize());
-    TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_request_count());
+    TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
 
     // Resume walk.
@@ -768,7 +768,7 @@ TEST_F(BgpMembershipTest, MultiplePeers4) {
     Unregister(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, GetWalkerQueueSize());
-    TASK_UTIL_EXPECT_EQ(blue_walk_count + 2, blue_tbl_->walk_request_count());
+    TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 
     // Unregister remaining peers.
@@ -777,7 +777,7 @@ TEST_F(BgpMembershipTest, MultiplePeers4) {
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(1, GetWalkerQueueSize());
-    TASK_UTIL_EXPECT_EQ(blue_walk_count + 2, blue_tbl_->walk_request_count());
+    TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 
     // Resume walk.
@@ -820,7 +820,7 @@ TEST_F(BgpMembershipTest, MultiplePeersDifferentRibOuts) {
 
     TASK_UTIL_EXPECT_EQ(0, GetWalkerQueueSize());
     TASK_UTIL_EXPECT_EQ(3, GetWalkerRibOutStateListSize());
-    TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_request_count());
+    TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
 
     // Resume walk.
@@ -855,7 +855,7 @@ TEST_F(BgpMembershipTest, MultiplePeersDifferentRibOuts) {
 
     TASK_UTIL_EXPECT_EQ(0, GetWalkerQueueSize());
     TASK_UTIL_EXPECT_EQ(3, GetWalkerRibOutStateListSize());
-    TASK_UTIL_EXPECT_EQ(blue_walk_count + 2, blue_tbl_->walk_request_count());
+    TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 
     // Resume walk.
@@ -909,7 +909,7 @@ TEST_F(BgpMembershipTest, MultiplePeersWalkRibIn) {
     SetWalkerDisable(false);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_request_count());
+    TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
     TASK_UTIL_EXPECT_EQ(2, GetWalkerPeerListSize());
 
@@ -986,7 +986,7 @@ TEST_F(BgpMembershipTest, MultiplePeersWalkRibInRegister) {
     SetWalkerDisable(false);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_request_count());
+    TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_request_count());
     TASK_UTIL_EXPECT_EQ(blue_walk_count, blue_tbl_->walk_complete_count());
     TASK_UTIL_EXPECT_EQ(2, GetWalkerPeerListSize());
     TASK_UTIL_EXPECT_EQ(3, GetWalkerPeerRibListSize());

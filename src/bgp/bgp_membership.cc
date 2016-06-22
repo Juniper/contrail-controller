@@ -1004,7 +1004,6 @@ BgpMembershipManager::Walker::Walker(BgpMembershipManager *manager)
       postpone_walk_(false),
       walk_started_(false),
       walk_completed_(false),
-      walk_id_(DBTableWalker::kInvalidWalkerId),
       rs_(NULL) {
 }
 
@@ -1016,7 +1015,7 @@ BgpMembershipManager::Walker::~Walker() {
     assert(rib_state_list_.empty());
     assert(!postpone_walk_);
     assert(!rs_);
-    assert(walk_id_ == DBTableWalker::kInvalidWalkerId);
+    assert(walk_ref_ == NULL);
     assert(peer_rib_list_.empty());
     assert(peer_list_.empty());
     assert(ribout_state_map_.empty());
@@ -1114,7 +1113,7 @@ bool BgpMembershipManager::Walker::WalkCallback(DBTablePartBase *tpart,
 // bgp::PeerMembership task.
 //
 void BgpMembershipManager::Walker::WalkDoneCallback(DBTableBase *table_base) {
-    CHECK_CONCURRENCY("db::DBTable");
+    CHECK_CONCURRENCY("db::Walker");
     assert(rs_->table() == table_base);
     walk_completed_ = true;
     trigger_->Set();
@@ -1127,7 +1126,7 @@ void BgpMembershipManager::Walker::WalkDoneCallback(DBTableBase *table_base) {
 void BgpMembershipManager::Walker::WalkStart() {
     CHECK_CONCURRENCY("bgp::PeerMembership");
 
-    assert(walk_id_ == DBTableWalker::kInvalidWalkerId);
+    assert(walk_ref_ == NULL);
     assert(!rs_);
     assert(peer_rib_list_.empty());
     assert(peer_list_.empty());
@@ -1188,12 +1187,12 @@ void BgpMembershipManager::Walker::WalkStart() {
     // Start the walk.
     rs_->increment_walk_count();
     BgpTable *table = rs_->table();
-    DBTableWalker *walker = table->database()->GetWalker();
-    walk_id_ = walker->WalkTable(table, NULL,
+    walk_ref_ = table->AllocWalker(
         boost::bind(&BgpMembershipManager::Walker::WalkCallback, this, _1, _2),
-        boost::bind(&BgpMembershipManager::Walker::WalkDoneCallback, this, _1),
-        postpone_walk_);
+        boost::bind(&BgpMembershipManager::Walker::WalkDoneCallback, this, _2));
     walk_started_ = true;
+    if (!postpone_walk_)
+        table->WalkTable(walk_ref_);
 }
 
 //
@@ -1206,7 +1205,7 @@ void BgpMembershipManager::Walker::WalkStart() {
 void BgpMembershipManager::Walker::WalkFinish() {
     CHECK_CONCURRENCY("bgp::PeerMembership");
 
-    assert(walk_id_ != DBTableWalker::kInvalidWalkerId);
+    assert(walk_ref_ != NULL);
     assert(rs_);
     assert(!peer_rib_list_.empty());
     assert(!peer_list_.empty() || !ribout_state_map_.empty());
@@ -1243,7 +1242,7 @@ void BgpMembershipManager::Walker::WalkFinish() {
         manager_->EnqueueEvent(event);
     }
 
-    walk_id_ = DBTableWalker::kInvalidWalkerId;
+    table->ReleaseWalker(walk_ref_);
     rs_ = NULL;
     peer_rib_list_.clear();
     peer_list_.clear();
@@ -1286,25 +1285,24 @@ void BgpMembershipManager::Walker::SetQueueDisable(bool value) {
 }
 
 //
-// Force the Walker to trigger walks that are postponed by DBTableWalker.
+// Force the Walker to trigger walks that are postponed.
 // Testing only.
 //
 void BgpMembershipManager::Walker::PostponeWalk() {
     assert(!walk_started_);
-    assert(walk_id_ == DBTableWalker::kInvalidWalkerId);
+    assert(walk_ref_ == NULL);
     postpone_walk_ = true;
 }
 
 //
-// Tell the DBTableWalker to resume walk that was postponed previously.
+// Tell the DBTableWalkMgr to resume walk that was postponed previously.
 // Testing only.
 //
 void BgpMembershipManager::Walker::ResumeWalk() {
     assert(walk_started_);
     assert(!walk_completed_);
-    assert(walk_id_ != DBTableWalker::kInvalidWalkerId);
+    assert(walk_ref_ != NULL);
     postpone_walk_ = false;
     BgpTable *table = rs_->table();
-    DBTableWalker *walker = table->database()->GetWalker();
-    walker->WalkResume(walk_id_);
+    table->WalkTable(walk_ref_);
 }
