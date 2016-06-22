@@ -945,57 +945,58 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
 # end class ResourceApiDriver
 
 class NeutronApiDriver(vnc_plugin_base.NeutronApi):
-    def __init__(self, api_server_ip, api_server_port, conf_sections, sandesh):
+    def __init__(self, api_server_ip, api_server_port, conf_sections, sandesh, **kwargs):
         self._logger = sandesh.logger()
         self._npi = npi.NeutronPluginInterface(api_server_ip, api_server_port,
                                                conf_sections, sandesh)
-
+        api_server_obj=kwargs.get('api_server_obj')
+        self.api_bottle = api_server_obj.api_bottle
         # Bottle callbacks for network operations
-        self.route('/neutron/network',
+        self.api_bottle.route('/neutron/network',
                      'POST', self._npi.plugin_http_post_network)
 
         # Bottle callbacks for subnet operations
-        self.route('/neutron/subnet',
+        self.api_bottle.route('/neutron/subnet',
                      'POST', self._npi.plugin_http_post_subnet)
 
         # Bottle callbacks for port operations
-        self.route('/neutron/port',
+        self.api_bottle.route('/neutron/port',
                      'POST', self._npi.plugin_http_post_port)
 
         # Bottle callbacks for floating IP operations
-        self.route('/neutron/floatingip',
+        self.api_bottle.route('/neutron/floatingip',
                      'POST', self._npi.plugin_http_post_floatingip)
 
         # Bottle callbacks for security group operations
-        self.route('/neutron/security_group',
+        self.api_bottle.route('/neutron/security_group',
                      'POST', self._npi.plugin_http_post_securitygroup)
 
         # Bottle callbacks for security group rule operations
-        self.route('/neutron/security_group_rule',
+        self.api_bottle.route('/neutron/security_group_rule',
                      'POST', self._npi.plugin_http_post_securitygrouprule)
 
         # Bottle callbacks for router operations
-        self.route('/neutron/router',
+        self.api_bottle.route('/neutron/router',
                      'POST', self._npi.plugin_http_post_router)
 
         # Bottle callbacks for ipam operations
-        self.route('/neutron/ipam',
+        self.api_bottle.route('/neutron/ipam',
                      'POST', self._npi.plugin_http_post_ipam)
 
         # Bottle callbacks for Policy operations
-        self.route('/neutron/policy',
+        self.api_bottle.route('/neutron/policy',
                      'POST', self._npi.plugin_http_post_policy)
 
         # Bottle callbacks for route-table operations
-        self.route('/neutron/route_table',
+        self.api_bottle.route('/neutron/route_table',
                      'POST', self._npi.plugin_http_post_route_table)
 
         # Bottle callbacks for svc-instance operations
-        self.route('/neutron/nat_instance',
+        self.api_bottle.route('/neutron/nat_instance',
                      'POST', self._npi.plugin_http_post_svc_instance)
 
         # Bottle callbacks for virtual-router operations
-        self.route('/neutron/virtual_router',
+        self.api_bottle.route('/neutron/virtual_router',
                      'POST', self._npi.plugin_http_post_virtual_router)
 
     def route(self, uri, method, handler):

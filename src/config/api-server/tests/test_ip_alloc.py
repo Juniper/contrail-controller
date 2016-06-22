@@ -24,6 +24,7 @@ import inspect
 import pycassa
 import kombu
 import requests
+import bottle
 
 from vnc_api.vnc_api import *
 import vnc_api.gen.vnc_api_test_gen
@@ -118,12 +119,9 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         vn = VirtualNetwork('my-new-vn', project)
         vn.add_network_ipam(ipam1, VnSubnetsType([ipam1_sn_v4]))
         vn.add_network_ipam(ipam2, VnSubnetsType([ipam2_sn_v4]))
-
-        with ExpectedException(cfgm_common.exceptions.OverQuota,
-                               '\\[\'v4-domain\', \'v4-proj\', \'my-new-vn\'\\] : quota limit \\(1\\) exceeded for resource subnet') as e:
+        with ExpectedException(cfgm_common.exceptions.OverQuota):
             self._vnc_lib.virtual_network_create(vn)
-
-        #increase subnet quota to 2, and network_create will go through..
+	#increase subnet quota to 2, and network_create will go through..
         quota_type.set_subnet(2)
         project.set_quota(quota_type)
         self._vnc_lib.project_update(project)
@@ -138,8 +136,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         #test quota through network_update
         vn.add_network_ipam(ipam1, VnSubnetsType([ipam1_sn_v4, ipam3_sn_v4]))
         vn.add_network_ipam(ipam2, VnSubnetsType([ipam2_sn_v4]))
-        with ExpectedException(cfgm_common.exceptions.OverQuota,
-                               '\\[\'v4-domain\', \'v4-proj\', \'my-new-vn\'\\] : quota limit \\(2\\) exceeded for resource subnet') as e:
+        with ExpectedException(cfgm_common.exceptions.OverQuota):
             self._vnc_lib.virtual_network_update(vn)
 
         self._vnc_lib.virtual_network_delete(id=vn.uuid)

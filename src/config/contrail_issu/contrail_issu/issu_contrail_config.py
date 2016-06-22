@@ -30,19 +30,19 @@ issu_keyspace_config_db_uuid = {
         ('obj_uuid_table'), ('obj_fq_name_table'), ('obj_shared_table')]}
 
 issu_info_pre = [
-    (None, 'config_db_uuid', [
-        ('obj_uuid_table', None),
-        ('obj_fq_name_table', None),
-        ('obj_shared_table', None)]),
-    (None, 'to_bgp_keyspace', [
-        ('route_target_table', None), ('service_chain_table', None),
-        ('service_chain_ip_address_table', None),
-        ('service_chain_uuid_table', None)]),
-    (None, 'useragent', [('useragent_keyval_table', None)]),
-    (None, 'svc_monitor_keyspace', [
-        ('pool_table', None), ('service_instance_table', None)]),
-    (None, 'dm_keyspace', [
-        ('dm_pr_vn_ip_table', None), ('dm_pnf_resource_table', None)])]
+    (None, 'config_db_uuid', {
+        'obj_uuid_table': {},
+        'obj_fq_name_table': {},
+        'obj_shared_table': {}}),
+    (None, 'to_bgp_keyspace', {
+        'route_target_table': {}, 'service_chain_table': {},
+        'service_chain_ip_address_table': {},
+        'service_chain_uuid_table': {}}),
+    (None, 'useragent', {'useragent_keyval_table': {}}),
+    (None, 'svc_monitor_keyspace', {
+        'pool_table': {}, 'service_instance_table': {}}),
+    (None, 'dm_keyspace', {
+        'dm_pr_vn_ip_table': {}, 'dm_pnf_resource_table': {}})]
 
 issu_keyspace_to_bgp_keyspace = {
     'to_bgp_keyspace': [
@@ -57,21 +57,22 @@ issu_keyspace_svc_monitor_keyspace = {
 issu_keyspace_dm_keyspace = {
     'dm_keyspace': [('dm_pr_vn_ip_table'), ('dm_pnf_resource_table')]}
 
+
 issu_info_post = [
-    (None, 'to_bgp_keyspace', [
-        ('route_target_table', None), ('service_chain_table', None),
-        ('service_chain_ip_address_table', None),
-        ('service_chain_uuid_table', None)]),
-    (None, 'useragent', [('useragent_keyval_table', None)]),
-    (None, 'svc_monitor_keyspace', [
-        ('pool_table', None), ('service_instance_table', None)]),
-    (None, 'dm_keyspace', [
-        ('dm_pr_vn_ip_table', None), ('dm_pnf_resource_table', None)])]
+    (None, 'to_bgp_keyspace', {
+        'route_target_table': {}, 'service_chain_table': {},
+        'service_chain_ip_address_table': {},
+        'service_chain_uuid_table': {}}),
+    (None, 'useragent', {'useragent_keyval_table': {}}),
+    (None, 'svc_monitor_keyspace', {
+        'pool_table': {}, 'service_instance_table': {}}),
+    (None, 'dm_keyspace', {
+        'dm_pr_vn_ip_table': {}, 'dm_pnf_resource_table': {}})]
 
 issu_info_config_db_uuid = [
-    (None, 'config_db_uuid', [
-        ('obj_uuid_table', None),
-        ('obj_fq_name_table', None), ('obj_shared_table', None)])]
+    (None, 'config_db_uuid', {
+        'obj_uuid_table': {},
+        'obj_fq_name_table': {}, 'obj_shared_table': {}})]
 
 issu_znode_list = ['fq-name-to-uuid', 'api-server', 'id']
 
