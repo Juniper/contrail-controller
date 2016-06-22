@@ -1036,7 +1036,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteFlap1) {
     // Add route from agent A and change it repeatedly.
     stringstream route_a;
     route_a << "10.1.1.1/32";
-    for (int idx = 0; idx < 1024; ++idx) {
+    for (int idx = 0; idx < 128; ++idx) {
         agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1");
         agent_a_->AddRoute("blue", route_a.str(), "192.168.1.2");
     }
@@ -1081,7 +1081,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteFlap2) {
     // Add and delete route from agent A repeatedly.
     stringstream route_a;
     route_a << "10.1.1.1/32";
-    for (int idx = 0; idx < 1024; ++idx) {
+    for (int idx = 0; idx < 128; ++idx) {
         agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1");
         usleep(5000);
         agent_a_->DeleteRoute("blue", route_a.str());
@@ -1123,7 +1123,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteFlap3) {
     // Add and delete route from agent A repeatedly.
     stringstream route_a;
     route_a << "10.1.1.1/32";
-    for (int idx = 0; idx < 1024; ++idx) {
+    for (int idx = 0; idx < 128; ++idx) {
         agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1");
         usleep(5000);
         agent_a_->DeleteRoute("blue", route_a.str());
@@ -1167,7 +1167,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteFlap4) {
     // Add and delete route from agent A repeatedly.
     stringstream route_a;
     route_a << "10.1.1.1/32";
-    for (int idx = 0; idx < 1024; ++idx) {
+    for (int idx = 0; idx < 128; ++idx) {
         agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1");
         usleep(5000);
         agent_a_->DeleteRoute("blue", route_a.str());
