@@ -1191,9 +1191,9 @@ class VncApi(object):
         content = self._request_server(rest.OP_PUT, url, json.dumps(data))
         return json.loads(content)
 
-    def set_multi_tenancy_with_rbac(self, enabled):
-        url = self._action_uri['rbac']
-        data = {'enabled': enabled}
+    def set_aaa_mode(self, mode):
+        url = self._action_uri['aaa-mode']
+        data = {'aaa-mode': mode}
         content =  self._request_server(rest.OP_PUT, url, json.dumps(data))
         return json.loads(content)
 
