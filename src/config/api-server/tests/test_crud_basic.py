@@ -1235,6 +1235,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
     # end test_name_with_reserved_xml_char
 
     def test_list_bulk_collection(self):
+        self.skipTest("Skipping test_list_bulk_collection for separate testcase")
         obj_count = self._vnc_lib.POST_FOR_LIST_THRESHOLD + 1
         vn_uuids = []
         ri_uuids = []
