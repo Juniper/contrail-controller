@@ -1963,6 +1963,18 @@ class RoutingInstanceST(DBBaseST):
                     elif vn.allow_transit:
                         rtgt_obj = RouteTarget(vn._route_target)
                         self.obj.add_route_target(rtgt_obj, inst_tgt_data)
+                    for vmi_name in vn.virtual_machine_interfaces:
+                        vmi = VirtualMachineInterfaceST.locate(vmi_name)
+                        if vmi.logical_router:
+                            lr = LogicalRouterST.get(vmi.logical_router)
+                            if lr:
+                                rtgt_obj = RouteTarget(lr.route_target)
+                                self.obj.add_route_target(rtgt_obj,
+                                                          inst_tgt_data)
+                                for rt in lr.rt_list:
+                                    rtgt_obj = RouteTarget(rt)
+                                    self.obj.add_route_target(rtgt_obj,
+                                                              inst_tgt_data)
                 self.import_default_ri_route_target_to_service_ri()
                 if not compare_refs(self.obj.get_route_target_refs(),
                                     old_rt_refs):
