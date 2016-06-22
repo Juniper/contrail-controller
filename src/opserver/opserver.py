@@ -810,6 +810,9 @@ class OpServer(object):
             config.read(args.conf_file)
             if 'DEFAULTS' in config.sections():
                 defaults.update(dict(config.items("DEFAULTS")))
+                if 'multi_tenancy' in config.options('DEFAULTS'):
+                    defaults['multi_tenancy'] = config.getboolean(
+                        'DEFAULTS', 'multi_tenancy')
             if 'REDIS' in config.sections():
                 redis_opts.update(dict(config.items('REDIS')))
             if 'DISCOVERY' in config.sections():
