@@ -26,7 +26,7 @@ class VncRbac(object):
         return self._server_mgr.cloud_admin_role
 
     def multi_tenancy_with_rbac(self):
-        return self._server_mgr.is_multi_tenancy_with_rbac_set()
+        return self._server_mgr.is_rbac_enabled()
     # end
 
     def validate_user_visible_perm(self, id_perms, is_admin):
@@ -195,6 +195,9 @@ class VncRbac(object):
 
         user, roles = self.get_user_roles(request)
         is_admin = self.cloud_admin_role in [x.lower() for x in roles]
+        # other checks redundant if admin
+        if is_admin:
+            return (True, '')
 
         # rule list for project/domain of the request
         rule_list = self.get_rbac_rules(request)
@@ -254,9 +257,6 @@ class VncRbac(object):
         if len(result) > 0:
             x = sorted(result.items(), reverse = True)
             ok = x[0][1][1]
-
-        # temporarily allow all access to admin till we figure out default creation of rbac group in domain
-        ok = ok or is_admin
 
         msg = "rbac: %s admin=%s, u=%s, r='%s'" \
             % ('+++' if ok else '\n---',
