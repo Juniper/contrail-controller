@@ -19,7 +19,10 @@ DnsManager::DnsManager()
       record_send_count_(TaskScheduler::GetInstance()->HardwareThreadCount()),
       named_max_retransmissions_(kMaxRetransmitCount),
       named_retransmission_interval_(kPendingRecordReScheduleTime),
-      pending_done_queue_(TaskScheduler::GetInstance()->GetTaskId("dns::Config"), 0,
+      named_lo_watermark_(kNamedLoWaterMark),
+      named_hi_watermark_(kNamedHiWaterMark),
+      named_send_throttled_(false),
+      pending_done_queue_(TaskScheduler::GetInstance()->GetTaskId("dns::NamedSndRcv"), 0,
                           boost::bind(&DnsManager::PendingDone, this, _1)) {
     current_it_ = pending_map_.begin();
     std::vector<BindResolver::DnsServer> bind_servers;
@@ -49,7 +52,7 @@ DnsManager::DnsManager()
     pending_timer_ =
         TimerManager::CreateTimer(*Dns::GetEventManager()->io_service(),
               "DnsRetransmitTimer",
-              TaskScheduler::GetInstance()->GetTaskId("dns::Config"), 0);
+              TaskScheduler::GetInstance()->GetTaskId("dns::NamedSndRcv"), 0);
 
     end_of_config_check_timer_ =
         TimerManager::CreateTimer(*Dns::GetEventManager()->io_service(),
@@ -236,6 +239,9 @@ void DnsManager::DnsRecord(const DnsConfig *cfg, DnsConfig::DnsConfigEvent ev) {
     if (!bind_status_.IsUp())
         return;
 
+    if (named_send_throttled_)
+        return;
+
     const VirtualDnsRecordConfig *config =
                 static_cast<const VirtualDnsRecordConfig *>(cfg);
     config->ClearNotified();
@@ -324,14 +330,20 @@ bool DnsManager::SendRecordUpdate(BindUtil::Operation op,
     DnsItems items;
     items.push_back(item);
     std::string view_name = config->GetViewName();
-    SendUpdate(op, view_name, zone, items);
-    return true;
+    return (SendUpdate(op, view_name, zone, items));
 }
 
-void DnsManager::SendUpdate(BindUtil::Operation op, const std::string &view,
+bool DnsManager::SendUpdate(BindUtil::Operation op, const std::string &view,
                             const std::string &zone, DnsItems &items) {
+
+    if (pending_map_.size() >= named_hi_watermark_) {
+        DNS_BIND_TRACE(DnsBindTrace, "Dns transmit send throttled !!!");
+        named_send_throttled_ = true; 
+        return false;
+    }
+
     uint16_t xid = GetTransId();
-    AddPendingList(xid, view, zone, items, op);
+    return (AddPendingList(xid, view, zone, items, op));
 }
 
 void DnsManager::SendRetransmit(uint16_t xid, BindUtil::Operation op,
@@ -457,25 +469,28 @@ bool DnsManager::ResendRecordsinBatch() {
     return true;
 }
 
-void DnsManager::AddPendingList(uint16_t xid, const std::string &view,
+bool DnsManager::AddPendingList(uint16_t xid, const std::string &view,
                                 const std::string &zone, const DnsItems &items,
                                 BindUtil::Operation op) {
     // delete earlier entries for the same items
     UpdatePendingList(view, zone, items);
 
-    PendingListMap::iterator it = pending_map_.find(xid);
-    if (it != pending_map_.end()) {
-        it->second.view = view;
-        it->second.zone = zone;
-        it->second.items = items;
-        it->second.op = op;
-        it->second.retransmit_count = 0;
-        return;
-    }
-    pending_map_.insert(PendingListPair(xid, PendingList(xid, view, zone,
-                                                         items, op)));
-    StartPendingTimer(named_retransmission_interval_*3);
+    std::pair<PendingListMap::iterator,bool> status;
+    status = pending_map_.insert(PendingListPair(xid, PendingList(xid, view,
+                                                 zone, items, op)));
+    if (status.second == false) {
+        DNS_OPERATIONAL_LOG(
+            g_vns_constants.CategoryNames.find(Category::DNSAGENT)->second,
+            SandeshLevel::SYS_NOTICE, "Found Duplicate xid:" + xid);
 
+        dp_pending_map_.insert(PendingListPair(xid, PendingList(xid, view,
+                                               zone, items, op)));
+        pending_map_.erase(xid);
+        return true;
+    } else {
+       StartPendingTimer(named_retransmission_interval_*3);
+       return true; 
+    }
 }
 
 // if there is an update for an item which is already in pending list,
@@ -496,6 +511,20 @@ void DnsManager::UpdatePendingList(const std::string &view,
 
 void DnsManager::DeletePendingList(uint16_t xid) {
     pending_map_.erase(xid);
+    if (pending_map_.size() == named_lo_watermark_) {
+
+        DNS_BIND_TRACE(DnsBindTrace, "Dns transmit send UnThrottled");
+        named_send_throttled_ = false;
+
+        VirtualDnsConfig::DataMap vmap = VirtualDnsConfig::GetVirtualDnsMap();
+        for (VirtualDnsConfig::DataMap::iterator it = vmap.begin();
+             it != vmap.end(); ++it) {
+            VirtualDnsConfig *vdns = it->second;
+            if (!vdns->IsNotified())
+                continue;
+            NotifyAllDnsRecords(vdns, DnsConfig::CFG_ADD);
+        }
+    }
 }
 
 void DnsManager::ClearPendingList() {
@@ -554,17 +583,34 @@ bool DnsManager::PendingTimerExpiry() {
 
 void DnsManager::NotifyAllDnsRecords(const VirtualDnsConfig *config,
                                      DnsConfig::DnsConfigEvent ev) {
+
+    if (!end_of_config_)
+        return;
+
+    if (!bind_status_.IsUp())
+        return;
+
     for (VirtualDnsConfig::VDnsRec::const_iterator it =
          config->virtual_dns_records_.begin();
          it != config->virtual_dns_records_.end(); ++it) {
-        if ((*it)->IsValid())
-            DnsRecord(*it, ev);
+        if ((*it)->IsValid()) {
+            if (!((*it)->IsNotified())) {
+                DnsRecord(*it, ev);
+            }
+        }
     }
 }
 
 void DnsManager::NotifyReverseDnsRecords(const VirtualDnsConfig *config,
                                          DnsConfig::DnsConfigEvent ev,
                                          bool notify) {
+
+    if (!end_of_config_)
+        return;
+
+    if (!bind_status_.IsUp())
+        return;
+
     for (VirtualDnsConfig::VDnsRec::const_iterator it =
          config->virtual_dns_records_.begin();
          it != config->virtual_dns_records_.end(); ++it) {
