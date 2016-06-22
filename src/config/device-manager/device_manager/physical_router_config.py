@@ -810,9 +810,12 @@ class PhysicalRouterConfig(object):
                         self._add_family_etree(nbr, session_attr)
                         self.add_bgp_auth_config(nbr, session_attr)
                         break
-            if params.get('autonomous_system') is not None:
-                etree.SubElement(
-                    nbr, "peer-as").text = str(params.get('autonomous_system'))
+            peer_local_as = params.get('local_autonomous_system') or params.get('autonomous_system')
+            local_as = self.bgp_params.get('local_autonomous_system') or self.bgp_params.get('autonomous_system')
+            if peer_local_as and peer_local_as != local_as:
+                etree.SubElement(nbr, "peer-as").text = str(peer_local_as)
+            else:
+                etree.SubElement(nbr, "peer-as").text = str(local_as)
     # end _get_neighbor_config_xml
 
     def send_bgp_config(self):
@@ -832,8 +835,8 @@ class PhysicalRouterConfig(object):
         etree.SubElement(
             routing_options_config,
             "route-distinguisher-id").text = self.bgp_params['identifier']
-        etree.SubElement(routing_options_config, "autonomous-system").text = \
-            str(self.bgp_params.get('autonomous_system'))
+        local_as = self.bgp_params.get('local_autonomous_system') or self.bgp_params.get('autonomous_system')
+        etree.SubElement(routing_options_config, "autonomous-system").text = str(local_as)
         config_list = [proto_config, routing_options_config]
         if self.ri_config is not None:
             config_list.append(self.ri_config)
