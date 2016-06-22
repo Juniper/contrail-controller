@@ -68,6 +68,7 @@ local_sources = [
            'context.py',
            'db_manage.py',
            'vnc_bottle.py',
+           'vnc_consts.py',
           ]
 
 local_sources_rules = []

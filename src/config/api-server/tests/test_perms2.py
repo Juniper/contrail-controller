@@ -339,7 +339,7 @@ class TestPermissions(test_case.ApiServerTestCase):
                        (auth_token, 'AuthProtocol',
                             test_utils.FakeAuthProtocol)]
         extra_config_knobs = [
-            ('DEFAULTS', 'multi_tenancy_with_rbac', 'True'),
+            ('DEFAULTS', 'aaa_mode', 'rbac'),
             ('DEFAULTS', 'cloud_admin_role', 'cloud-admin'),
             ('DEFAULTS', 'auth', 'keystone'),
         ]
@@ -471,11 +471,9 @@ class TestPermissions(test_case.ApiServerTestCase):
         bob   = self.bob
         admin = self.admin
 
-        rv_json = admin.vnc_lib._request(rest.OP_GET, '/multi-tenancy-with-rbac')
+        rv_json = admin.vnc_lib._request(rest.OP_GET, '/aaa-mode')
         rv = json.loads(rv_json)
-        self.assertEquals(rv["enabled"], True)
-
-        # disable rbac
+        self.assertEquals(rv["aaa-mode"], "rbac")
 
         # delete api-access-list for alice and bob and disallow api access to their projects
         for user in self.users:
@@ -875,9 +873,9 @@ class TestPermissions(test_case.ApiServerTestCase):
         admin.vnc_lib.chown(vn.get_uuid(), alice.project_uuid)
 
         # ensure chown/chmod works even when rbac is disabled
-        self.assertRaises(PermissionDenied, alice.vnc_lib.set_multi_tenancy_with_rbac, False)
-        rv = admin.vnc_lib.set_multi_tenancy_with_rbac(False)
-        self.assertEquals(rv['enabled'], False)
+        self.assertRaises(PermissionDenied, alice.vnc_lib.set_aaa_mode, "admin-only")
+        rv = admin.vnc_lib.set_aaa_mode("admin-only")
+        self.assertEquals(rv['aaa-mode'], "admin-only")
         alice.vnc_lib.chown(vn.get_uuid(), valid_uuid_1)
         admin.vnc_lib.chown(vn.get_uuid(), alice.project_uuid)
         alice.vnc_lib.chmod(vn.get_uuid(), owner=valid_uuid_1)
@@ -885,8 +883,8 @@ class TestPermissions(test_case.ApiServerTestCase):
 
         # re-enable rbac for subsequent tests!
         try:
-            rv = admin.vnc_lib.set_multi_tenancy_with_rbac(True)
-            self.assertEquals(rv['enabled'], True)
+            rv = admin.vnc_lib.set_aaa_mode("rbac")
+            self.assertEquals(rv['aaa-mode'], "rbac")
         except Exception:
             self.fail("Error in enabling rbac")
 
