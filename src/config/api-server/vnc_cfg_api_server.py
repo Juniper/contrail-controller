@@ -136,37 +136,31 @@ _ACTION_RESOURCES = [
 ]
 
 
-@bottle.error(400)
 def error_400(err):
     return err.body
 # end error_400
 
 
-@bottle.error(403)
 def error_403(err):
     return err.body
 # end error_403
 
 
-@bottle.error(404)
 def error_404(err):
     return err.body
 # end error_404
 
 
-@bottle.error(409)
 def error_409(err):
     return err.body
 # end error_409
 
 
-@bottle.error(500)
 def error_500(err):
     return err.body
 # end error_500
 
 
-@bottle.error(503)
 def error_503(err):
     return err.body
 # end error_503
@@ -180,7 +174,16 @@ class VncApiServer(object):
 
     def __new__(cls, *args, **kwargs):
         obj = super(VncApiServer, cls).__new__(cls, *args, **kwargs)
-        bottle.route('/', 'GET', obj.homepage_http_get)
+        obj.api_bottle = bottle.Bottle() 
+        obj.route('/', 'GET', obj.homepage_http_get)
+        obj.api_bottle.error_handler = {
+                400: error_400,
+                403: error_403,
+                404: error_404,
+                409: error_409,
+                500: error_500,
+                503: error_503,
+            }
 
         cls._generate_resource_crud_methods(obj)
         cls._generate_resource_crud_uri(obj)
@@ -376,7 +379,6 @@ class VncApiServer(object):
 
         self._post_validate(obj_type, obj_dict=obj_dict)
         fq_name = obj_dict['fq_name']
-
         try:
             self._extension_mgrs['resourceApi'].map_method(
                  'pre_%s_create' %(obj_type), obj_dict)
@@ -485,7 +487,6 @@ class VncApiServer(object):
             callable = getattr(r_class, 'http_post_collection_fail', None)
             if callable:
                 cleanup_on_failure.append((callable, [tenant_name, obj_dict, db_conn]))
-
             get_context().set_state('DBE_CREATE')
             (ok, result) = db_conn.dbe_create(obj_type, obj_ids,
                                               obj_dict)
@@ -900,7 +901,7 @@ class VncApiServer(object):
             callable = getattr(r_class, 'http_delete_fail', None)
             if callable:
                 cleanup_on_failure.append((callable, [id, read_result, db_conn]))
-
+            
             get_context().set_state('DBE_DELETE')
             (ok, del_result) = db_conn.dbe_delete(
                 obj_type, obj_ids, read_result)
@@ -1619,7 +1620,7 @@ class VncApiServer(object):
                     self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
                     raise
 
-        bottle.route(uri, method, handler_trap_exception)
+        self.api_bottle.route(uri, method, handler_trap_exception)
     # end route
 
     def get_args(self):
@@ -2632,6 +2633,11 @@ class VncApiServer(object):
                 'rule_field': '',
                 'rule_perms': [{'role_name':'*', 'role_crud':'R'}]
             },
+            {
+                'rule_object':'/',
+                'rule_field': '',
+                'rule_perms': [{'role_name':'*', 'role_crud':'R'}]
+            },
         ]
 
         obj_dict['api_access_list_entries'] = {'rbac_rule' : rbac_rules}
@@ -3253,15 +3259,10 @@ class VncApiServer(object):
 
 # end class VncApiServer
 
-server = None
-def main(args_str=None):
-    vnc_api_server = VncApiServer(args_str)
-    # set module var for uses with import e.g unit test
-    global server
-    server = vnc_api_server
+def main(args_str=None, server=None):
+    vnc_api_server = server
 
     pipe_start_app = vnc_api_server.get_pipe_start_app()
-
     server_ip = vnc_api_server.get_listen_ip()
     server_port = vnc_api_server.get_server_port()
 
@@ -3276,7 +3277,8 @@ def main(args_str=None):
     """
     #hub.signal(signal.SIGCHLD, vnc_api_server.sigchld_handler)
     hub.signal(signal.SIGTERM, vnc_api_server.sigterm_handler)
-
+    if pipe_start_app is None:
+        pipe_start_app = vnc_api_server.api_bottle
     try:
         bottle.run(app=pipe_start_app, host=server_ip, port=server_port,
                    server=get_bottle_server(server._args.max_requests))
@@ -3296,7 +3298,7 @@ def server_main(args_str=None):
     import cgitb
     cgitb.enable(format='text')
 
-    main()
+    main(VncApiServer(args_str))
 #server_main
 
 if __name__ == "__main__":

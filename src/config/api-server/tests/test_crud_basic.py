@@ -717,7 +717,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
 
     def test_err_on_max_rabbit_pending(self):
         self.ignore_err_in_log = True
-        api_server = test_common.vnc_cfg_api_server.server
+        api_server = self._server_info['api_server']
         orig_max_pending_updates = api_server._args.rabbit_max_pending_updates
         max_pend_upd = 10
         api_server._args.rabbit_max_pending_updates = str(max_pend_upd)
@@ -780,7 +780,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
 
     def test_err_on_ifmap_publish(self):
         self.ignore_err_in_log = True
-        api_server = test_common.vnc_cfg_api_server.server
+        api_server = self._server_info['api_server']
         orig_call = api_server._db_conn._ifmap_db._mapclient.call
         def err_call(*args, **kwargs):
             # restore orig method and return error to check handling
@@ -851,10 +851,10 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                 self.assertTill(lambda: consume_captured[0] == True)
             # unpatch err consume
 
-            def ifmap_has_ident_update():
+            def ifmap_has_ident_update(port = '8443'):
                 ifmap_id = imid.get_ifmap_id_from_fq_name(obj.get_type(),
                     obj.get_fq_name())
-                node = FakeIfmapClient._graph.get(ifmap_id)
+                node = FakeIfmapClient._graph[port].get(ifmap_id)
                 if not node:
                     return False
                 meta = node.get('links', {}).get('contrail:display-name',
@@ -943,10 +943,10 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             # unpatch connect
         # unpatch err consume
 
-        def ifmap_has_update_2():
+        def ifmap_has_update_2(port = '8443'):
             ifmap_id = imid.get_ifmap_id_from_fq_name(obj.get_type(),
                 obj.get_fq_name())
-            node = FakeIfmapClient._graph.get(ifmap_id)
+            node = FakeIfmapClient._graph[port].get(ifmap_id)
             if not node:
                 return False
             meta = node.get('links', {}).get('contrail:display-name',
@@ -963,7 +963,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
 
     def test_handle_trap_on_exception(self):
         self.ignore_err_in_log = True
-        api_server = test_common.vnc_cfg_api_server.server
+        api_server = self._server_info['api_server']
         orig_read = api_server._db_conn._cassandra_db.object_read
 
         def exception_on_log_error(*args, **kwargs):
@@ -992,7 +992,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
 
     def test_sandesh_trace(self):
         from lxml import etree
-        api_server = test_common.vnc_cfg_api_server.server
+        api_server = self._server_info['api_server']
         # the test
         test_obj = self._create_test_object()
         self.assertTill(self.ifmap_has_ident, obj=test_obj)
@@ -1127,7 +1127,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                     virtual_network_refs=[vn_fixt.getObj()]))
     # end test_floatingip_as_instanceip
 
-    def test_name_with_reserved_xml_char(self):
+    def test_name_with_reserved_xml_char(self, port = '8443'):
         self.skipTest("Skipping test_name_with_reserved_xml_char")
         vn_name = self.id()+'-&vn<1>"2\''
         vn_obj = VirtualNetwork(vn_name)
@@ -1141,7 +1141,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         self._add_detail('Creating network with name %s expecting success' %(vn_name))
         self._vnc_lib.virtual_network_create(vn_obj)
         self.assertTill(self.ifmap_has_ident, obj=vn_obj)
-        ident_elem = FakeIfmapClient._graph[ifmap_id]['ident']
+        ident_elem = FakeIfmapClient._graph[port][ifmap_id]['ident']
         ident_str = etree.tostring(ident_elem)
         mch = re.search("&amp;vn&lt;1&gt;&quot;2&apos;", ident_str)
         self.assertIsNot(mch, None)
@@ -1175,32 +1175,49 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         vmi_uuids = [o.uuid for o in vmi_objs]
 
         logger.info("Querying VNs by obj_uuids.")
-        flexmock(self._api_server).should_call('list_bulk_collection_http_post').once()
-        ret_list = self._vnc_lib.resource_list('virtual-network',
-                                               obj_uuids=vn_uuids)
+        bulk_post_calls = []
+        route = [r for r in self._api_server.api_bottle.routes
+                   if r.rule == '/list-bulk-collection'][0]
+        def fake_lister(orig_method, *args, **kwargs):
+            bulk_post_calls.append(True)
+            return orig_method(*args, **kwargs)
+
+        with test_common.patch(route,
+            'callback', fake_lister):
+            ret_list = self._vnc_lib.resource_list('virtual-network',
+                                                   obj_uuids=vn_uuids)
         ret_uuids = [ret['uuid'] for ret in ret_list['virtual-networks']]
         self.assertThat(set(vn_uuids), Equals(set(ret_uuids)))
+        self.assertEqual(len(bulk_post_calls), 1)
+        bulk_post_calls = []
 
         logger.info("Querying RIs by parent_id.")
-        flexmock(self._api_server).should_call('list_bulk_collection_http_post').once()
-        ret_list = self._vnc_lib.resource_list('routing-instance',
-                                               parent_id=vn_uuids)
+        with test_common.patch(route,
+            'callback', fake_lister):
+            ret_list = self._vnc_lib.resource_list('routing-instance',
+                                                   parent_id=vn_uuids)
         ret_uuids = [ret['uuid']
                      for ret in ret_list['routing-instances']]
         self.assertThat(set(ri_uuids),
             Equals(set(ret_uuids) & set(ri_uuids)))
+        self.assertEqual(len(bulk_post_calls), 1)
+        bulk_post_calls = []
 
         logger.info("Querying VMIs by back_ref_id.")
-        flexmock(self._api_server).should_call('list_bulk_collection_http_post').once()
-        ret_list = self._vnc_lib.resource_list('virtual-machine-interface',
-                                               back_ref_id=vn_uuids)
+        with test_common.patch(route,
+            'callback', fake_lister):
+             ret_list = self._vnc_lib.resource_list('virtual-machine-interface',
+                                                    back_ref_id=vn_uuids)
         ret_uuids = [ret['uuid']
                      for ret in ret_list['virtual-machine-interfaces']]
         self.assertThat(set(vmi_uuids), Equals(set(ret_uuids)))
+        self.assertEqual(len(bulk_post_calls), 1)
+        bulk_post_calls = []
 
         logger.info("Querying VMIs by back_ref_id and extra fields.")
-        flexmock(self._api_server).should_call('list_bulk_collection_http_post').once()
-        ret_list = self._vnc_lib.resource_list('virtual-machine-interface',
+        with test_common.patch(route,
+            'callback', fake_lister):
+            ret_list = self._vnc_lib.resource_list('virtual-machine-interface',
                                                back_ref_id=vn_uuids,
                                                fields=['virtual_network_refs'])
         ret_uuids = [ret['uuid']
@@ -1209,19 +1226,27 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         self.assertEqual(set(vmi['virtual_network_refs'][0]['uuid']
             for vmi in ret_list['virtual-machine-interfaces']),
             set(vn_uuids))
+        self.assertEqual(len(bulk_post_calls), 1)
+        bulk_post_calls = []
 
         logger.info("Querying RIs by parent_id and filter.")
-        flexmock(self._api_server).should_call('list_bulk_collection_http_post').once()
-        ret_list = self._vnc_lib.resource_list('routing-instance',
-            parent_id=vn_uuids,
-            filters={'display_name':'%s-ri-5' %(self.id())})
+        with test_common.patch(route,
+            'callback', fake_lister):
+            ret_list = self._vnc_lib.resource_list('routing-instance',
+                parent_id=vn_uuids,
+                filters={'display_name':'%s-ri-5' %(self.id())})
         self.assertThat(len(ret_list['routing-instances']), Equals(1))
+        self.assertEqual(len(bulk_post_calls), 1)
+        bulk_post_calls = []
 
         logger.info("Querying VNs by obj_uuids for children+backref fields.")
-        flexmock(self._api_server).should_call('list_bulk_collection_http_post').once()
-        ret_objs = self._vnc_lib.resource_list('virtual-network',
-            detail=True, obj_uuids=vn_uuids, fields=['routing_instances',
-            'virtual_machine_interface_back_refs'])
+        with test_common.patch(route,
+            'callback', fake_lister):
+            ret_objs = self._vnc_lib.resource_list('virtual-network',
+                detail=True, obj_uuids=vn_uuids, fields=['routing_instances',
+                'virtual_machine_interface_back_refs'])
+        self.assertEqual(len(bulk_post_calls), 1)
+        bulk_post_calls = []
 
         ret_ri_uuids = []
         ret_vmi_uuids = []
@@ -1945,13 +1970,13 @@ class TestIfmapHealthCheck(test_case.ApiServerTestCase):
 
     def test_periodic_check(self):
         gevent.sleep(float(self.HEALTH_CHECK_INTERVAL)+0.1)
-        health_check_node = FakeIfmapClient._graph.get('healthcheck')
+        health_check_node = FakeIfmapClient._graph['8443'].get('healthcheck')
         self.assertIsNot(health_check_node, None)
     # end test_periodic_check
 
     def test_reseed_after_error(self):
         self.ignore_err_in_log = True
-        api_server = test_common.vnc_cfg_api_server.server
+        api_server = self._server_info['api_server']
         err_invokes = []
         def err_on_publish(orig_method, *args, **kwargs):
             if not err_invokes:
@@ -1977,7 +2002,7 @@ class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
             extra_config_knobs=[('DEFAULTS', 'max_requests', 10)])
 
     def api_requests(self, orig_vn_read, count, vn_name):
-        api_server = test_common.vnc_cfg_api_server.server
+        api_server = self._server_info['api_server']
         self.blocked = True
         def slow_response_on_vn_read(obj_type, *args, **kwargs):
             if obj_type == 'virtual_network':
@@ -2007,12 +2032,12 @@ class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
         # in this test, without resetting as below, read of def-nw-ipam
         # in create_vn will be the size returned for read_vn and
         # deserialization fails
-        @bottle.hook('after_request')
+        api_server = self._server_info['api_server']
         def reset_response_content_length():
             if 'Content-Length' in bottle.response:
                 del bottle.response['Content-Length']
+        api_server.api_bottle.add_hook('after_request', reset_response_content_length)
 
-        api_server = test_common.vnc_cfg_api_server.server
         orig_vn_read = api_server._db_conn._cassandra_db.object_read
         try:
             vn_name = self.id() + '5testvn1'
@@ -2033,7 +2058,7 @@ class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
 
         # Test to make sure api-server rejects requests over max_api_requests
         self.wait_till_api_server_idle()
-        api_server = test_common.vnc_cfg_api_server.server
+        api_server = self._server_info['api_server']
         orig_vn_read = api_server._db_conn._cassandra_db.object_read
         try:
             vn_name = self.id() + '11testvn2'
@@ -2172,7 +2197,7 @@ class TestLocalAuth(test_case.ApiServerTestCase):
         def fake_verify_signed_token(*args, **kwargs):
             return 1
 
-        server = test_common.vnc_cfg_api_server.server
+        server = self._server_info['api_server']
         with test_common.patch(
             bottle.LocalRequest, 'get_header', fake_get_header):
             with test_common.patch(
@@ -2245,14 +2270,16 @@ class TestExtensionApi(test_case.ApiServerTestCase):
         # end validate_request
 
         def transform_response(self, request, response):
-            TestExtensionApi.test_case.assertIn('X_TEST_DUMMY', request.environ.keys())
-            TestExtensionApi.test_case.assertNotIn('SERVER_SOFTWARE', request.environ.keys())
-            TestExtensionApi.test_case.assertThat(request.environ['HTTP_X_CONTRAIL_USERAGENT'],
-                                       Equals('bar'))
             if request.method == 'POST':
                 obj_type = request.path[1:-1]
+                if obj_type != 'virtual-network':
+                    return
                 obj_name = request.json[obj_type]['fq_name'][-1]
                 if 'transform-create' in obj_name:
+                    TestExtensionApi.test_case.assertIn('X_TEST_DUMMY', request.environ.keys())
+                    TestExtensionApi.test_case.assertNotIn('SERVER_SOFTWARE', request.environ.keys())
+                    TestExtensionApi.test_case.assertThat(request.environ['HTTP_X_CONTRAIL_USERAGENT'],
+                                               Equals('bar'))
                     bottle.response.status = '234 Transformed Response'
                     response[obj_type]['extra_field'] = 'foo'
         # end transform_response

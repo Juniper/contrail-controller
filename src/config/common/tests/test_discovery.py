@@ -249,7 +249,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
     def _create_test_object(self):
         return self._create_test_objects()[0]
 
-    def ifmap_has_ident(self, obj=None, id=None):
+    def ifmap_has_ident(self, obj=None, id=None, port ='8443'):
         if obj:
             _type = obj.get_type()
             _fq_name = obj.get_fq_name()
@@ -258,7 +258,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
             _fq_name = self._vnc_lib.id_to_fq_name(id)
 
         ifmap_id = imid.get_ifmap_id_from_fq_name(_type, _fq_name)
-        if ifmap_id in FakeIfmapClient._graph:
+        if ifmap_id in FakeIfmapClient._graph[port]:
             return True
 
         return False

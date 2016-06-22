@@ -132,7 +132,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
         for obj in [vn1_obj, vn2_obj]:
             ident_name = self.get_obj_imid(obj)
             gevent.sleep(2)
-            self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
+            self.assertThat(FakeIfmapClient._graph['8443'], Contains(ident_name))
 
         self.check_ri_ref_present(self.get_ri_name(vn1_obj),
                                   self.get_ri_name(vn2_obj))
@@ -178,7 +178,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
         np1.set_network_policy_entries(np1.network_policy_entries)
         self._vnc_lib.network_policy_update(np1)
 
-        expr =("('contrail:connection contrail:routing-instance:%s' in FakeIfmapClient._graph['contrail:routing-instance:%s']['links'])"
+        expr =("('contrail:connection contrail:routing-instance:%s' in FakeIfmapClient._graph['8443']['contrail:routing-instance:%s']['links'])"
                % (':'.join(self.get_ri_name(vn2_obj)),
                   ':'.join(self.get_ri_name(vn1_obj))))
         self.assertTill(expr)
@@ -189,7 +189,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
         np2.set_network_policy_entries(np2.network_policy_entries)
         self._vnc_lib.network_policy_update(np2)
 
-        expr = ("('contrail:connection contrail:routing-instance:%s' in FakeIfmapClient._graph['contrail:routing-instance:%s']['links'])"
+        expr = ("('contrail:connection contrail:routing-instance:%s' in FakeIfmapClient._graph['8443']['contrail:routing-instance:%s']['links'])"
                % (':'.join(self.get_ri_name(vn1_obj)),
                   ':'.join(self.get_ri_name(vn2_obj))))
 
@@ -306,7 +306,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
         for obj in [vn1]:
             ident_name = self.get_obj_imid(obj)
             gevent.sleep(2)
-            self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
+            self.assertThat(FakeIfmapClient._graph['8443'], Contains(ident_name))
 
         self.check_vn_ri_state(fq_name=self.get_ri_name(vn1))
 
@@ -351,7 +351,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
         for obj in [vn1]:
             ident_name = self.get_obj_imid(obj)
             gevent.sleep(2)
-            self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
+            self.assertThat(FakeIfmapClient._graph['8443'], Contains(ident_name))
 
         self.check_vn_ri_state(fq_name=self.get_ri_name(vn1))
 
@@ -377,7 +377,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
         gevent.sleep(2)
         for obj in [vn]:
             ident_name = self.get_obj_imid(obj)
-            ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
+            ifmap_ident = self.assertThat(FakeIfmapClient._graph['8443'], Contains(ident_name))
 
         self.check_vn_ri_state(fq_name=self.get_ri_name(vn))
 

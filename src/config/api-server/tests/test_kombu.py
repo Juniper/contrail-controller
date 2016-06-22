@@ -175,7 +175,7 @@ class TestVncRabbitPublish(test_case.ApiServerTestCase):
         """
         self.wait_till_api_server_idle()
 
-        api_server = test_common.vnc_cfg_api_server.server
+        api_server = self._server_info['api_server']
         orig_dbe_create_publish = api_server._db_conn._msgbus.dbe_create_publish
         self.block_untill_update_publish = True
         def out_of_order_dbe_create_publish(obj_type, obj_ids, *args, **kwargs):
