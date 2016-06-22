@@ -24,6 +24,8 @@ class Ruleeng;
 class ProtobufCollector;
 class SFlowCollector;
 class IpfixCollector;
+class Options;
+class DiscoveryServiceClient;
 
 class VizCollector {
 public:
@@ -123,6 +125,9 @@ public:
             break;
         }
         return std::make_pair(bpart, npart);
+    }
+    void UpdateUdc(Options *o, DiscoveryServiceClient *c) {
+        GetDbHandler()->UpdateUdc(o, c);
     }
 private:
     std::string DbGlobalName(bool dup=false);

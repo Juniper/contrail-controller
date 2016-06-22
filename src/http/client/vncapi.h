@@ -60,9 +60,6 @@ class VncApi {
     boost::asio::ip::tcp::endpoint ks_ep_;
 
     void hex_dump(std::string s);
-#if 0
-    virtual std::string GetTokenFromKeystone();
-#endif
     void Reauthenticate(RespBlock *orb);
     void Add2URI(std::ostringstream &uri, std::string &qadded, std::string key,
             std::vector<std::string> data);

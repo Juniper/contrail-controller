@@ -48,6 +48,7 @@ void Options::Initialize(EventManager &evm,
 
     vector<string> conf_files;
     conf_files.push_back("/etc/contrail/contrail-collector.conf");
+    conf_files.push_back("/etc/contrail/contrail-keystone-auth.conf");
 
     opt::options_description generic("Generic options");
 
@@ -61,6 +62,7 @@ void Options::Initialize(EventManager &evm,
     ;
 
     uint16_t default_redis_port = ContrailPorts::RedisUvePort();
+    uint16_t default_ks_port = ContrailPorts::KeystonePort();
     uint16_t default_collector_port = ContrailPorts::CollectorPort();
     uint16_t default_collector_protobuf_port =
         ContrailPorts::CollectorProtobufPort();
@@ -188,6 +190,29 @@ void Options::Initialize(EventManager &evm,
              "IP address of Redis Server")
         ("REDIS.password", opt::value<string>()->default_value(""),
              "password for Redis Server")
+        ("KEYSTONE.auth_host", opt::value<string>()->default_value("127.0.0.1"),
+             "IP address of keystone Server")
+        ("KEYSTONE.auth_port",
+             opt::value<uint16_t>()->default_value(default_ks_port),
+             "Keystone auth server port")
+        ("KEYSTONE.auth_protocol", opt::value<string>()->default_value("http"),
+             "protocol used to authenticate with Keystone Server")
+        ("KEYSTONE.admin_user", opt::value<string>()->default_value("admin"),
+             "Keystone username")
+        ("KEYSTONE.admin_password", opt::value<string>()->default_value(
+                    "admin123"), "Keystone password")
+        ("KEYSTONE.admin_tenant_name", opt::value<string>()->default_value(
+                    "tenant"), "Keystone tenant")
+        ("KEYSTONE.insecure", opt::bool_switch(&ks_insecure_),
+                    "keystone using tls")
+        ("KEYSTONE.memcache_servers", opt::value<string>()->default_value(
+                    "127.0.0.1:11211"), "memcache servers")
+        ("KEYSTONE.certfile", opt::value<string>()->default_value(
+                    "/etc/contrail/ks-cert"), "Keystone certificate")
+        ("KEYSTONE.keyfile", opt::value<string>()->default_value(
+                    "/etc/contrail/ks-key"), "Keystone private key")
+        ("KEYSTONE.cafile", opt::value<string>()->default_value(
+                    "/etc/contrail/ks-ca"), "Keystone CA chain")
         ;
 
     config_file_options_.add(config).add(cassandra_config);
@@ -350,4 +375,14 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<string>(var_map, redis_password_, "REDIS.password");
     GetOptValue<string>(var_map, cassandra_user_, "CASSANDRA.cassandra_user");
     GetOptValue<string>(var_map, cassandra_password_, "CASSANDRA.cassandra_password");
+    GetOptValue<uint16_t>(var_map, ks_port_, "KEYSTONE.auth_port");
+    GetOptValue<string>(var_map, ks_server_, "KEYSTONE.auth_host");
+    GetOptValue<string>(var_map, ks_protocol_, "KEYSTONE.auth_protocol");
+    GetOptValue<string>(var_map, ks_user_, "KEYSTONE.admin_user");
+    GetOptValue<string>(var_map, ks_password_, "KEYSTONE.admin_password");
+    GetOptValue<string>(var_map, ks_tenant_, "KEYSTONE.admin_tenant_name");
+    GetOptValue<string>(var_map, memcache_servers_, "KEYSTONE.memcache_servers");
+    GetOptValue<string>(var_map, ks_cert_, "KEYSTONE.certfile");
+    GetOptValue<string>(var_map, ks_key_, "KEYSTONE.keyfile");
+    GetOptValue<string>(var_map, ks_ca_, "KEYSTONE.cafile");
 }

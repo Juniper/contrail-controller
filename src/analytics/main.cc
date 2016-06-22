@@ -317,6 +317,9 @@ int main(int argc, char *argv[])
                              ConnectionType::REDIS_UVE)->second, "From"))
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
                              ConnectionType::DISCOVERY)->second,
+                             g_vns_constants.API_SERVER_DISCOVERY_SERVICE_NAME))
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::DISCOVERY)->second,
                              g_vns_constants.COLLECTOR_DISCOVERY_SERVICE_NAME))
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
                              ConnectionType::DATABASE)->second,
@@ -421,6 +424,7 @@ int main(int argc, char *argv[])
             g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second;
         ds_client = new DiscoveryServiceClient(a_evm, dss_ep, client_name);
         ds_client->Init();
+        analytics.UpdateUdc(&options, ds_client);
     } else {
         LOG (ERROR, "Invalid Discovery Server hostname or ip " <<
                      options.discovery_server());

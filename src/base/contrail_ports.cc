@@ -116,6 +116,10 @@ const uint16_t ContrailPorts::RedisUvePort() {
     return VnsPorts().RedisUvePort;
 }
 
+const uint16_t ContrailPorts::KeystonePort() {
+    return VnsPorts().KeystonePort;
+}
+
 const uint16_t ContrailPorts::RedisWebuiPort() {
     return VnsPorts().RedisWebuiPort;
 }
