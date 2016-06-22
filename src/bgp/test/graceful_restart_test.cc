@@ -438,10 +438,8 @@ protected:
 
 static int d_wait_for_idle_ = 30; // Seconds
 static void WaitForIdle() {
-    if (d_wait_for_idle_) {
-        usleep(10);
-        task_util::WaitForIdle(d_wait_for_idle_);
-    }
+    if (d_wait_for_idle_)
+        task_util::WaitForIdle(d_wait_for_idle_, false, false);
 }
 
 static void SignalHandler (int sig) {
@@ -542,7 +540,7 @@ void GracefulRestartTest::SandeshShutdown() {
 }
 
 void GracefulRestartTest::TearDown() {
-    task_util::WaitForIdle();
+    WaitForIdle();
 
     for (int i = 1; i <= n_instances_; i++) {
         BOOST_FOREACH(BgpPeerTest *peer, bgp_peers_) {
@@ -553,7 +551,7 @@ void GracefulRestartTest::TearDown() {
     for (int i = 0; i <= n_peers_; i++)
         xmpp_servers_[i]->Shutdown();
     XmppAgentClose();
-    task_util::WaitForIdle();
+    WaitForIdle();
 
     VerifyRoutes(0);
     VerifyReceivedXmppRoutes(0);
@@ -566,15 +564,15 @@ void GracefulRestartTest::TearDown() {
         TASK_UTIL_EXPECT_EQ(0, channel_managers_[i]->channel_map().size());
         delete channel_managers_[i];
     }
-    task_util::WaitForIdle();
+    WaitForIdle();
 
     for (int i = 0; i <= n_peers_; i++)
         bgp_servers_[i]->Shutdown();
 
-    task_util::WaitForIdle();
+    WaitForIdle();
     evm_.Shutdown();
     thread_.Join();
-    task_util::WaitForIdle();
+    WaitForIdle();
 
     for (int i = 0; i <= n_peers_; i++) {
         TcpServerManager::DeleteServer(xmpp_servers_[i]);
@@ -595,7 +593,7 @@ void GracefulRestartTest::Configure() {
     string config = GetConfig(false);
     for (int i = 0; i <= n_peers_; i++)
         bgp_servers_[i]->Configure(config.c_str());
-    task_util::WaitForIdle();
+    WaitForIdle();
 
     for (int i = 0; i <= n_peers_; i++)
         VerifyRoutingInstances(bgp_servers_[i]);
@@ -741,7 +739,7 @@ void GracefulRestartTest::BgpPeersAdminUpOrDown(bool down) {
     BGP_DEBUG_UT("Applying config" << out.str());
     for (int i = 1; i <= n_peers_; i++)
         bgp_servers_[i]->Configure(out.str().c_str());
-    task_util::WaitForIdle();
+    WaitForIdle();
 }
 
 bool GracefulRestartTest::IsReady(bool ready) {
@@ -793,7 +791,7 @@ void GracefulRestartTest::AddRoutes() {
     VerifyReceivedXmppRoutes(0);
     AddOrDeleteBgpRoutes(true);
     AddOrDeleteXmppRoutes(true);
-    task_util::WaitForIdle();
+    WaitForIdle();
     VerifyReceivedXmppRoutes(n_instances_ * (n_agents_ + n_peers_) * n_routes_);
 }
 
@@ -809,7 +807,7 @@ void GracefulRestartTest::CreateAgents() {
             xmpp_server_->GetPort(), prefix.ip4_addr().to_string());
         agent->set_id(i);
         xmpp_agents_.push_back(agent);
-        task_util::WaitForIdle();
+        WaitForIdle();
 
         TASK_UTIL_EXPECT_NE_MSG(static_cast<BgpXmppChannel *>(NULL),
                           channel_manager_->channel_,
@@ -856,7 +854,7 @@ void GracefulRestartTest::Subscribe() {
             agent->Subscribe(instance_name, i);
         }
     }
-    task_util::WaitForIdle();
+    WaitForIdle();
 }
 
 void GracefulRestartTest::UnSubscribe() {
@@ -869,7 +867,7 @@ void GracefulRestartTest::UnSubscribe() {
         }
     }
     VerifyReceivedXmppRoutes(0);
-    task_util::WaitForIdle();
+    WaitForIdle();
 }
 
 test::NextHops GracefulRestartTest::GetNextHops (test::NetworkAgentMock *agent,
@@ -926,7 +924,7 @@ void GracefulRestartTest::ProcessVpnRoute(BgpPeerTest *peer, int instance,
                                                   1000*instance + rt));
         table->Enqueue(&req);
     }
-    task_util::WaitForIdle();
+    WaitForIdle();
 }
 
 void GracefulRestartTest::AddOrDeleteBgpRoutes(bool add, int n_routes,
@@ -974,7 +972,7 @@ void GracefulRestartTest::AddOrDeleteXmppRoutes(bool add, int n_routes,
             }
         }
     }
-    task_util::WaitForIdle();
+    WaitForIdle();
 }
 
 void GracefulRestartTest::VerifyReceivedXmppRoutes(int routes) {
@@ -994,7 +992,7 @@ void GracefulRestartTest::VerifyReceivedXmppRoutes(int routes) {
                                     ": Wait for routes in " + instance_name);
         }
     }
-    task_util::WaitForIdle();
+    WaitForIdle();
 }
 
 void GracefulRestartTest::DeleteRoutingInstances(int count,
@@ -1024,7 +1022,7 @@ void GracefulRestartTest::DeleteRoutingInstances(vector<int> instances,
     out << "</delete>";
 
     server_->Configure(out.str().c_str());
-    task_util::WaitForIdle();
+    WaitForIdle();
 
     // Unsubscribe from all agents who have subscribed
     BOOST_FOREACH(int i, instances) {
@@ -1043,7 +1041,7 @@ void GracefulRestartTest::DeleteRoutingInstances(vector<int> instances,
             ProcessVpnRoute(peer, i, n_routes_, false);
         }
     }
-    task_util::WaitForIdle();
+    WaitForIdle();
 }
 
 void GracefulRestartTest::VerifyDeletedRoutingInstnaces(vector<int> instances) {
@@ -1053,7 +1051,7 @@ void GracefulRestartTest::VerifyDeletedRoutingInstnaces(vector<int> instances) {
                             server_->routing_instance_mgr()->\
                                 GetRoutingInstance(instance_name));
     }
-    task_util::WaitForIdle();
+    WaitForIdle();
 }
 
 void GracefulRestartTest::VerifyRoutingInstances(BgpServer *server) {
@@ -1098,21 +1096,21 @@ void GracefulRestartTest::FireGRTimer(PeerCloseManagerTest *pc, bool is_ready) {
                  "bgp::Config");
         TASK_UTIL_EXPECT_EQ(sweep + 1, pc->stats().sweep);
         TASK_UTIL_EXPECT_EQ(PeerCloseManager::NONE, pc->state());
-        task_util::WaitForIdle();
+        WaitForIdle();
         return;
     }
 
     uint64_t deletes = pc->stats().deletes;
     PeerCloseManager::Stats stats;
     bool is_xmpp = pc->peer_close()->peer()->IsXmppPeer();
-    task_util::WaitForIdle();
+    WaitForIdle();
     PeerCloseManagerTest::reset_last_stats();
     while (true) {
         if (pc->state() == PeerCloseManager::GR_TIMER ||
                 pc->state() == PeerCloseManager::LLGR_TIMER)
             TaskFire(boost::bind(&GracefulRestartTest::GRTimerCallback,
                                  this, pc), "bgp::Config");
-        task_util::WaitForIdle();
+        WaitForIdle();
         stats = is_xmpp ? PeerCloseManagerTest::last_stats() : pc->stats();
         if (stats.deletes > deletes)
             break;
@@ -1307,7 +1305,7 @@ void GracefulRestartTest::ProcessFlippingAgents(int &total_routes,
             FireGRTimer(bgp_xmpp_channels_[agent->id()]);
         }
     }
-    task_util::WaitForIdle();
+    WaitForIdle();
 }
 
 void GracefulRestartTest::BgpPeerDown(BgpPeerTest *peer,
@@ -1438,7 +1436,7 @@ void GracefulRestartTest::ProcessFlippingPeers(int &total_routes,
             FireGRTimer(bgp_server_peers_[peer->id()]);
         }
     }
-    task_util::WaitForIdle();
+    WaitForIdle();
 }
 
 void GracefulRestartTest::GracefulRestartTestRun () {
