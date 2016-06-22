@@ -1,0 +1,10 @@
+Verified+2: opencontrail-admin <ci-admin@opencontrail.org>
+Verified+2: Zuul <zuul@lists.opencontrail.org>
+Code-Review+1: Nipa Kumar <nipak@juniper.net>
+Approved+1: Anish Mehta <amehta00@gmail.com>
+Code-Review+2: Anish Mehta <amehta00@gmail.com>
+Submitted-by: Zuul <zuul@lists.opencontrail.org>
+Submitted-at: Wed, 22 Jun 2016 15:33:16 -0700
+Reviewed-on: https://review.opencontrail.org/21157
+Project: Juniper/contrail-controller
+Branch: refs/heads/master
