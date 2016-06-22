@@ -72,7 +72,7 @@ public:
     std::string local_endpoint_string() const;
     TcpServer *server() { return server_; }
     XmppSession *CreateSession();
-    int GetTaskInstance() const;
+    int GetTaskInstance() const { return GetTaskInstance(is_client_); }
 
     std::string ToString() const; 
     std::string ToUVEKey() const; 
@@ -242,6 +242,7 @@ private:
                                     std::string error_message);
     XmppStanza::XmppMessage *XmppDecode(const std::string &msg);
     void LogKeepAliveSend();
+    int GetTaskInstance(bool is_client) const;
 
     boost::asio::ip::tcp::endpoint endpoint_;
     boost::asio::ip::tcp::endpoint local_endpoint_;

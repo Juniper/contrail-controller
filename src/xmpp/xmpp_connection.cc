@@ -47,7 +47,7 @@ XmppConnection::XmppConnection(TcpServer *server,
                   *server->event_manager()->io_service(),
                   "Xmpp keepalive timer",
                   TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"),
-                  GetTaskInstance())),
+                  GetTaskInstance(config->ClientOnly()))),
       is_client_(config->ClientOnly()),
       log_uve_(config->logUVE),
       admin_down_(false), 
@@ -131,10 +131,10 @@ XmppSession *XmppConnection::CreateSession() {
 // same value as before.
 // Do not make this method virtual since it gets called from the constructor.
 //
-int XmppConnection::GetTaskInstance() const {
-    if (is_client_)
-        return 0;
 
+int XmppConnection::GetTaskInstance(bool is_client) const {
+    if (is_client)
+        return 0;
     IpAddress address = endpoint().address();
     int thread_count = TaskScheduler::GetInstance()->HardwareThreadCount();
     if (address.is_v4()) {
