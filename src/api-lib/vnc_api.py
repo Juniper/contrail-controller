@@ -22,6 +22,7 @@ from gen.resource_xsd import *
 from gen.resource_client import *
 from gen.generatedssuper import GeneratedsSuper
 
+import cfgm_common
 from cfgm_common import rest, utils
 from cfgm_common.exceptions import *
 from cfgm_common import ssl_adapter
@@ -1147,5 +1148,61 @@ class VncApi(object):
         """
         self._headers['X-API-ROLE'] = (',').join(roles)
     #end set_user_roles
+
+    def obj_perms(self, token, obj_uuid=None):
+        """
+        validate user token. Optionally, check token authorization for an object.
+        rv {'token_info': <token-info>, 'permissions': 'RWX'}
+        """
+        query = 'token=%s' % token
+        if obj_uuid:
+            query += '&uuid=%s' % obj_uuid
+        try:
+            rv = self._request_server(rest.OP_GET, "/obj-perms", data=query)
+            return json.loads(rv)
+        except PermissionDenied:
+            return None
+
+    # change object ownsership
+    def chown(self, obj_uuid, owner):
+        payload = {'uuid': obj_uuid, 'owner': owner}
+        content = self._request_server(rest.OP_POST,
+            self._action_uri['chown'], data=json.dumps(payload))
+        return content
+    #end chown
+
+    def chmod(self, obj_uuid, owner=None, owner_access=None, share=None, global_access=None):
+        """
+        owner: tenant UUID
+        owner_access: octal permission for owner (int, 0-7)
+        share: list of tuple of <uuid:octal-perms>, for example [(0ed5ea...700:7)]
+        global_access: octal permission for global access (int, 0-7)
+        """
+        payload = {'uuid': obj_uuid}
+        if owner:
+            payload['owner'] = owner
+        if owner_access is not None:
+            payload['owner_access'] = owner_access
+        if share is not None:
+            payload['share'] = [{'tenant':item[0], 'tenant_access':item[1]} for item in share]
+        if global_access is not None:
+            payload['global_access'] = global_access
+        content = self._request_server(rest.OP_POST,
+            self._action_uri['chmod'], data=json.dumps(payload))
+        return content
+
+    def set_multi_tenancy(self, enabled):
+        url = self._action_uri['multi-tenancy']
+        data = {'enabled': enabled}
+        content = self._request_server(rest.OP_PUT, url, json.dumps(data))
+        return json.loads(content)
+
+    def set_aaa_mode(self, mode):
+        if mode not in cfgm_common.AAA_MODE_VALID_VALUES:
+            raise HttpError(400, 'Invalid AAA mode')
+        url = self._action_uri['aaa-mode']
+        data = {'aaa-mode': mode}
+        content =  self._request_server(rest.OP_PUT, url, json.dumps(data))
+        return json.loads(content)
 
 #end class VncApi

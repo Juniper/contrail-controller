@@ -21,7 +21,7 @@ class VncRbac(object):
     # end __init__
 
     def multi_tenancy_with_rbac(self):
-        return self._server_mgr.is_multi_tenancy_with_rbac_set()
+        return self._server_mgr.is_rbac_enabled()
     # end
 
     def validate_user_visible_perm(self, id_perms, is_admin):
