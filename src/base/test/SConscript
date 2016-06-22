@@ -28,6 +28,9 @@ env.Alias('src/base:libtask_test', libtask_test)
 bitset_test = env.UnitTest('bitset_test', ['bitset_test.cc'])
 env.Alias('src/base:bitset_test', bitset_test)
 
+index_allocator_test = env.UnitTest('index_allocator_test', ['index_allocator_test.cc'])
+env.Alias('src/base:index_allocator_test', index_allocator_test)
+
 dependency_test = env.UnitTest('dependency_test', ['dependency_test.cc'])
 env.Alias('src/base:dependency_test', dependency_test)
 
@@ -94,6 +97,7 @@ util_test = BuildTest(env, 'util_test',
 
 test_suite = [
     bitset_test,
+    index_allocator_test,
     dependency_test,
     label_block_test,
     subset_test,
