@@ -1405,6 +1405,10 @@ class VncDbClient(object):
         self.dbe_update('project', {'uuid':proj_id}, proj_dict)
     # end _update_default_quota
 
+    def get_api_server(self):
+        return self._api_svr_mgr
+    # end get_api_server
+
     def db_resync(self):
         # Read contents from cassandra and publish to ifmap
         mapclient = self._ifmap_db._mapclient

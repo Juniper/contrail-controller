@@ -82,10 +82,11 @@ class LocalAuth(object):
 
 class AuthPreKeystone(object):
 
-    def __init__(self, app, conf, multi_tenancy):
+    def __init__(self, app, conf, multi_tenancy, server_mgr):
         self.app = app
         self.conf = conf
         self.mt = multi_tenancy
+        self.server_mgr = server_mgr
 
     def get_mt(self):
         return self.mt
@@ -94,7 +95,7 @@ class AuthPreKeystone(object):
         self.mt = value
 
     def __call__(self, env, start_response):
-        app = self.app if self.mt else bottle.app()
+        app = self.app if self.mt else self.server_mgr.api_bottle
 
         return app(env, start_response)
 
@@ -185,15 +186,14 @@ class AuthServiceKeystone(object):
 
         # keystone middleware is needed for fetching objects
 
-        # app = bottle.app()
-        app = AuthPostKeystone(bottle.app(), {'auth_svc': self})
+        app = AuthPostKeystone(self._server_mgr.api_bottle, {'auth_svc': self})
 
         auth_middleware = auth_token.AuthProtocol(app, self._conf_info)
         self._auth_middleware = auth_middleware
 
         # open access for troubleshooting
         admin_port = self._conf_info['admin_port']
-        self._local_auth_app = LocalAuth(bottle.app(), self._conf_info)
+        self._local_auth_app = LocalAuth(self._server_mgr.api_bottle, self._conf_info)
         vnc_greenlets.VncGreenlet("VNC Auth Keystone", self._local_auth_app.start_http_server)
 
         app = auth_middleware
@@ -202,7 +202,8 @@ class AuthServiceKeystone(object):
         app = AuthPreKeystone(
             auth_middleware,
             None,
-            self._multi_tenancy)
+            self._multi_tenancy,
+            self._server_mgr)
 
         return app
     # end get_middleware_app

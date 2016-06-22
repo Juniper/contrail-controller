@@ -571,6 +571,8 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
     @classmethod
     def _check_vrouter_link(cls, vmi_data, kvp_dict, obj_dict, db_conn):
+        api_server = db_conn.get_api_server()
+
         host_id = kvp_dict.get('host_id')
         if not host_id:
             return
@@ -589,12 +591,13 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
         #if virtual_machine_refs is an empty list delete vrouter link
         if 'virtual_machine_refs' in obj_dict and not obj_dict['virtual_machine_refs']:
-            cls.server.internal_request_ref_update('virtual-router',
-                                    vrouter_id, 'DELETE',
-                                    'virtual-machine',vm_refs[0]['uuid'])
+            api_server.internal_request_ref_update(
+                'virtual-router',
+                vrouter_id, 'DELETE',
+                'virtual_machine',vm_refs[0]['uuid'])
             return
 
-        cls.server.internal_request_ref_update('virtual-router',
+        api_server.internal_request_ref_update('virtual-router',
                                vrouter_id, 'ADD',
                                'virtual-machine', vm_refs[0]['uuid'])
 
@@ -685,6 +688,8 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
     @classmethod
     def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        api_server = db_conn.get_api_server()
+
         # Create ref to native/vn-default routing instance
         vn_refs = obj_dict.get('virtual_network_refs', [])
         if not vn_refs:
@@ -701,7 +706,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
         attr = PolicyBasedForwardingRuleType(direction="both")
         attr_as_dict = attr.__dict__
-        cls.server.internal_request_ref_update(
+        api_server.internal_request_ref_update(
             'virtual-machine-interface', obj_dict['uuid'], 'ADD',
             'routing-instance', ri_uuid,
             attr_as_dict)
@@ -941,14 +946,15 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
     @classmethod
     def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        api_server = db_conn.get_api_server()
+
         # Create native/vn-default routing instance
         ri_fq_name = obj_dict['fq_name'][:]
         ri_fq_name.append(obj_dict['fq_name'][-1])
         ri_obj = RoutingInstance(
             parent_type='virtual-network', fq_name=ri_fq_name,
             routing_instance_is_default=True)
-
-        cls.server.internal_request_create(
+        api_server.internal_request_create(
             'routing-instance',
             ri_obj.serialize_to_json())
 
@@ -1027,6 +1033,8 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
     @classmethod
     def post_dbe_delete(cls, id, obj_dict, db_conn):
+        api_server = db_conn.get_api_server()
+
         # Delete native/vn-default routing instance
         # For this find backrefs and remove their ref to RI
         ri_fq_name = obj_dict['fq_name'][:]
@@ -1047,7 +1055,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
             backref_res_type = backref_field_types[backref_name][0]
             def drop_ref(obj_uuid):
                 # drop ref from ref_uuid to ri_uuid
-                cls.server.internal_request_ref_update(
+                api_server.internal_request_ref_update(
                     backref_res_type, obj_uuid, 'DELETE',
                     'routing-instance', ri_uuid)
             # end drop_ref
@@ -1058,10 +1066,9 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         for child_name in children_fields:
             child_res_type = children_field_types[child_name][0]
             for child in ri_obj_dict.get(child_name, []):
-                cls.server.internal_request_delete(child_res_type,
-                                                   child['uuid'])
+                api_server.internal_request_delete(child_res_type, child['uuid'])
 
-        cls.server.internal_request_delete('routing-instance', ri_uuid)
+        api_server.internal_request_delete('routing-instance', ri_uuid)
 
         return True, ""
     # end post_dbe_delete
