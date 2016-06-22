@@ -178,7 +178,6 @@ class FakeCF(object):
             column_count=0, include_timestamp=False, include_ttl=False):
         if not key in self._rows:
             raise pycassa.NotFoundException
-
         if columns:
             col_dict = {}
             for col_name in columns:
@@ -258,8 +257,8 @@ class FakeCF(object):
                 # for each entry in col_name delete each that element
                 for col_name in columns:
                     del self._rows[key][col_name]
-            else:
-                    del self._rows[key]
+            elif columns is None:
+                del self._rows[key]
         except KeyError:
             # pycassa remove ignores non-existing keys
             pass
@@ -329,6 +328,8 @@ class FakeCF(object):
 
 
 class FakeNovaClient(object):
+
+    vnc_lib = None
 
     @staticmethod
     def initialize(*args, **kwargs):
@@ -428,9 +429,9 @@ class FakeIfmapClient(object):
     #                virtual-network:default-domain:default-project:vn2':
     #                {'other': <Element identity at 0x2b3ee10>,
     #                 'meta': <Element metadata at 0x2b3e410>}}}
-    _graph = {}
-    _published_messages = [] # all messages published so far
-    _subscribe_lists = [] # list of all subscribers indexed by session-id
+    _graph = defaultdict(dict)
+    _published_messages = defaultdict(list) # all messages published so far
+    _subscribe_lists = defaultdict(list) # list of all subscribers indexed by session-id
     _PUBLISH_ENVELOPE = \
         """<?xml version="1.0" encoding="UTF-8"?> """\
         """<env:Envelope xmlns:"""\
@@ -454,43 +455,43 @@ class FakeIfmapClient(object):
         """</ifmap:response></env:Body></env:Envelope>"""
 
     @classmethod
-    def reset(cls):
-        cls._graph = {}
-        cls._published_messages = [] # all messages published so far
-        cls._subscribe_lists = [] # list of all subscribers indexed by session-id
+    def reset(cls, port):
+        cls._graph[port].clear()
+        cls._published_messages[port] = [] # all messages published so far
+        cls._subscribe_lists[port] = [] # list of all subscribers indexed by session-id
     # end reset
 
     @staticmethod
-    def initialize(*args, **kwargs):
-        pass
+    def initialize(self, *args, **kwargs):
+        self.port = args[0][1]
     # end initialize
 
     @classmethod
-    def _update_publish(cls, upd_root):
+    def _update_publish(cls, port, upd_root):
         subscribe_item = etree.Element('resultItem')
         subscribe_item.extend(deepcopy(upd_root))
         from_name = escape(upd_root[0].attrib['name'])
         to_name = None
-        if not from_name in cls._graph:
-            cls._graph[from_name] = {'ident': upd_root[0], 'links': {}}
+        if not from_name in cls._graph[port]:
+            cls._graph[port][from_name] = {'ident': upd_root[0], 'links': {}}
 
         if len(upd_root) == 2:
             meta_name = re.sub("{.*}", "contrail:", upd_root[1][0].tag)
             link_key = meta_name
             link_info = {'meta': upd_root[1]}
-            cls._graph[from_name]['links'][link_key] = link_info
+            cls._graph[port][from_name]['links'][link_key] = link_info
         elif len(upd_root) == 3:
             meta_name = re.sub("{.*}", "contrail:", upd_root[2][0].tag)
             to_name = escape(upd_root[1].attrib['name'])
             link_key = '%s %s' % (meta_name, to_name)
             link_info = {'meta': upd_root[2], 'other': upd_root[1]}
-            cls._graph[from_name]['links'][link_key] = link_info
+            cls._graph[port][from_name]['links'][link_key] = link_info
 
-            if not to_name in cls._graph:
-                cls._graph[to_name] = {'ident': upd_root[1], 'links': {}}
+            if not to_name in cls._graph[port]:
+                cls._graph[port][to_name] = {'ident': upd_root[1], 'links': {}}
             link_key = '%s %s' % (meta_name, from_name)
             link_info = {'meta': upd_root[2], 'other': upd_root[0]}
-            cls._graph[to_name]['links'][link_key] = link_info
+            cls._graph[port][to_name]['links'][link_key] = link_info
         else:
             raise Exception("Unknown ifmap update: %s" %
                             (etree.tostring(upd_root)))
@@ -501,7 +502,7 @@ class FakeIfmapClient(object):
     # end _update_publish
 
     @classmethod
-    def _delete_publish(cls, del_root):
+    def _delete_publish(cls, port, del_root):
         from_name = escape(del_root[0].attrib['name'])
         to_name = None
         if 'filter' in del_root.attrib:
@@ -519,14 +520,14 @@ class FakeIfmapClient(object):
 
         else:  # delete all metadata on this ident or between pair of idents
             if len(del_root) == 1:
-                link_keys = cls._graph[from_name]['links'].keys()
+                link_keys = cls._graph[port][from_name]['links'].keys()
             elif len(del_root) == 2:
                 to_name = escape(del_root[1].attrib['name'])
                 link_keys = []
-                if from_name in cls._graph:
-                    all_link_keys = cls._graph[from_name]['links'].keys()
+                if from_name in cls._graph[port]:
+                    all_link_keys = cls._graph[port][from_name]['links'].keys()
                     for link_key in all_link_keys:
-                        link_info = cls._graph[from_name]['links'][link_key]
+                        link_info = cls._graph[port][from_name]['links'][link_key]
                         if 'other' in link_info:
                             if link_key.split()[1] == to_name:
                                 link_keys.append(link_key)
@@ -538,7 +539,7 @@ class FakeIfmapClient(object):
         for link_key in link_keys:
             subscribe_item = etree.Element('resultItem')
             subscribe_item.extend(deepcopy(del_root))
-            link_info = cls._graph[from_name]['links'][link_key]
+            link_info = cls._graph[port][from_name]['links'][link_key]
             # generate id1, id2, meta for poll for the case where
             # del of ident for all metas requested but we have a
             # ref meta to another ident
@@ -552,15 +553,15 @@ class FakeIfmapClient(object):
             if 'other' in link_info:
                 other_name = escape(link_info['other'].attrib['name'])
                 rev_link_key = '%s %s' % (meta_name, from_name)
-                if other_name in cls._graph:
-                    del cls._graph[other_name]['links'][rev_link_key]
-                    if not cls._graph[other_name]['links']:
-                        del cls._graph[other_name]
-            del cls._graph[from_name]['links'][link_key]
+                if other_name in cls._graph[port]:
+                    del cls._graph[port][other_name]['links'][rev_link_key]
+                    if not cls._graph[port][other_name]['links']:
+                        del cls._graph[port][other_name]
+            del cls._graph[port][from_name]['links'][link_key]
 
         # delete ident if no links left
-        if from_name in cls._graph and not cls._graph[from_name]['links']:
-            del cls._graph[from_name]
+        if from_name in cls._graph[port] and not cls._graph[port][from_name]['links']:
+            del cls._graph[port][from_name]
 
         if len(subscribe_result) == 0:
             subscribe_item = etree.Element('resultItem')
@@ -573,6 +574,7 @@ class FakeIfmapClient(object):
     @staticmethod
     def call(client, method, body):
         cls = FakeIfmapClient
+        port = client.port
         if method == 'publish':
             pub_env = cls._PUBLISH_ENVELOPE % {
                 'body': body._PublishRequest__operations}
@@ -583,10 +585,10 @@ class FakeIfmapClient(object):
             for pub_root in env_root[0]:
                 #            pub_root = env_root[0][0]
                 if pub_root.tag == 'update':
-                    subscribe_result, info = cls._update_publish(pub_root)
+                    subscribe_result, info = cls._update_publish(port, pub_root)
                     _items.append(('update', subscribe_result, info))
                 elif pub_root.tag == 'delete':
-                    subscribe_result, info = cls._delete_publish(pub_root)
+                    subscribe_result, info = cls._delete_publish(port, pub_root)
                     _items.append(('delete', subscribe_result, info))
                 else:
                     raise Exception(
@@ -594,7 +596,7 @@ class FakeIfmapClient(object):
                         % (etree.tostring(pub_root)))
                 poll_result.append(subscribe_result)
 
-            for sl in cls._subscribe_lists:
+            for sl in cls._subscribe_lists[port]:
                 if sl is not None:
                     sl.put(poll_result)
 
@@ -602,10 +604,10 @@ class FakeIfmapClient(object):
                 if oper == 'update':
                     search_result = deepcopy(result)
                     search_result.tag = 'searchResult'
-                    cls._published_messages.append((search_result, info))
+                    cls._published_messages[port].append((search_result, info))
                 else:
-                    cls._published_messages = [
-                        (r,i) for (r, i) in cls._published_messages
+                    cls._published_messages[port] = [
+                        (r,i) for (r, i) in cls._published_messages[port]
                         if (i != info and i != info [::-1])]
             result = etree.Element('publishReceived')
             result_env = cls._RSP_ENVELOPE % {'result': etree.tostring(result)}
@@ -633,17 +635,17 @@ class FakeIfmapClient(object):
                 visited_nodes.add(ident_name)
                 # add all metas on current to result, visit further nodes
                 to_visit_nodes = set([])
-                for link_key in cls._graph[ident_name]['links']:
+                for link_key in cls._graph[port][ident_name]['links']:
                     meta_name = link_key.split()[0]
                     r_item = etree.Element('resultItem')
-                    link_info = cls._graph[ident_name]['links'][link_key]
+                    link_info = cls._graph[port][ident_name]['links'][link_key]
                     if 'other' in link_info:
-                        r_item.append(cls._graph[ident_name]['ident'])
+                        r_item.append(cls._graph[port][ident_name]['ident'])
                         r_item.append(link_info['other'])
                         r_item.append(link_info['meta'])
                         to_visit_nodes.add(link_info['other'].attrib['name'])
                     else:
-                        r_item.append(cls._graph[ident_name]['ident'])
+                        r_item.append(cls._graph[port][ident_name]['ident'])
                         r_item.append(link_info['meta'])
 
                     if (result_filter != 'all' and
@@ -670,26 +672,26 @@ class FakeIfmapClient(object):
             #obj_json = uuid_cf.get(srch_uuid)['obj_json']
         elif method == 'poll':
             session_id = int(body._PollRequest__session_id)
-            item = cls._subscribe_lists[session_id].get(True)
+            item = cls._subscribe_lists[port][session_id].get(True)
             poll_str = etree.tostring(item)
             poll_env = cls._RSP_ENVELOPE % {'result': poll_str}
             return poll_env
         elif method == 'newSession':
             result = etree.Element('newSessionResult')
-            result.set("session-id", str(len(cls._subscribe_lists)))
+            result.set("session-id", str(len(cls._subscribe_lists[port])))
             result.set("ifmap-publisher-id", "111")
             result.set("max-poll-result-size", "7500000")
             result_env = cls._RSP_ENVELOPE % {'result': etree.tostring(result)}
-            cls._subscribe_lists.append(None)
+            cls._subscribe_lists[port].append(None)
             return result_env
         elif method == 'subscribe':
             session_id = int(body._SubscribeRequest__session_id)
             subscriber_queue = Queue.Queue()
             poll_result = etree.Element('pollResult')
-            for result_item,_ in cls._published_messages:
+            for result_item,_ in cls._published_messages[port]:
                 poll_result.append(result_item)
             subscriber_queue.put(poll_result)
-            cls._subscribe_lists[session_id] = subscriber_queue
+            cls._subscribe_lists[port][session_id] = subscriber_queue
             result = etree.Element('subscribeReceived')
             result_env = cls._RSP_ENVELOPE % {'result': etree.tostring(result)}
             return result_env
@@ -1293,19 +1295,29 @@ class FakeKazooClient(object):
     # end get
 
     def get_children(self, path):
-        children = []
+        children = set()
         for node in self._values:
             if node.startswith(path):
                 # return non-leading '/' in name
                 child_node = node[len(path):]
                 if not child_node:
-                    children.append(child_node)
+                    children.add(child_node)
                     continue
                 if child_node[0] == '/':
                     child_node = child_node[1:]
-                children.append(child_node.split('/')[0])
-        return children
+                children.add(child_node.split('/')[0])
+        return list(children)
     # end get_children
+
+    def exists(self, path):
+        if path in self._values:
+            return self._values[path]
+        else:
+            for node in self._values:
+                if node.startswith(path):
+                    return self._values[node]
+        return None
+    # end exists
 
     def delete(self, path, recursive=False):
         if not recursive:
@@ -1389,9 +1401,9 @@ class ZookeeperClientMock(object):
     # end read_node
 
     def create_node(self, path, value=''):
-        if path in self._values:
-            raise ResourceExistsError(
-                path, str(self._values[path][0], 'zookeeper'))
+        #if path in self._values:
+            #raise ResourceExistsError(
+            #    path, str(self._values[path][0], 'zookeeper'))
         self._values[path] = (value, ZnodeStat(time.time()*1000))
     # end create_node
 

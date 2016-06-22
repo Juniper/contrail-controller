@@ -25,6 +25,18 @@ for file in setup_sources:
     setup_sources_rules.append(
         env.Install(Dir('.'), "#controller/src/config/schema-transformer/" + file))
 
+setup_sources_issu = [
+           '../utils/issu_contrail_common.py',
+           '../utils/issu_contrail_run_sync.py',
+           '../utils/issu_contrail_zk_sync.py',
+          ]
+
+
+setup_sources_issu_rules = []
+for file in setup_sources_issu:
+    setup_sources_issu_rules.append(
+        env.Install(Dir('test/.'), "#controller/src/config/schema-transformer/" + file))
+
 local_sources = [
            '__init__.py',
            'to_bgp.py',
@@ -44,6 +56,7 @@ sandesh_trace_pkg = env.SandeshGenPy('traces.sandesh', 'schema_transformer/sande
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_depends = []
 sdist_depends.extend(setup_sources_rules)
+sdist_depends.extend(setup_sources_issu_rules)
 sdist_depends.extend(local_sources_rules)
 sdist_depends.extend(st_introspect_pkg)
 sdist_depends.extend(sandesh_trace_pkg)
