@@ -563,8 +563,11 @@ class PhysicalRouterDM(DBBaseDM):
                 peer = BgpRouterDM.get(peer_uuid)
                 if peer is None:
                     continue
-                external = (bgp_router.params['autonomous_system'] !=
-                            peer.params['autonomous_system'])
+                local_as = bgp_router.params.get('local_autonomous_system') or \
+                               bgp_router.params.get('autonomous_system')
+                peer_as = peer.params.get('local_autonomous_system') or \
+                               peer.params.get('autonomous_system')
+                external = (local_as != peer_as)
                 self.config_manager.add_bgp_peer(peer.params['address'],
                                                  peer.params, attr, external)
             self.config_manager.set_bgp_config(bgp_router.params)
