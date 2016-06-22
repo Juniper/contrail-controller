@@ -24,6 +24,7 @@ local_sources = [
                   'zkclient.py',
                   'exceptions.py',
                   'utils.py',
+                  'rbaclib.py',
                   'jsonutils.py',
                   'imid.py',
                   'svc_info.py',
