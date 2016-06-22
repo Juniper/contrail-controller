@@ -68,7 +68,7 @@ class ContrailZKIssu():
             else:
                 self._logger(
                     "Issu contrail zookeeper failed...",
-                    level=SandeshLevel.SYS_ERROR,
+                    level=SandeshLevel.SYS_DEBUG,
                 )
                 break
         self._logger(
@@ -110,6 +110,9 @@ class ContrailZKIssu():
 
         if self._zk_old.exists(old_prefix):
             children = self._zk_old.get_children(old_prefix)
+        elif self._zk_old.exists(self._Old_Prefix):
+            children = self._zk_old.get_children(self._Old_Prefix)
+            old_prefix = self._Old_Prefix
 
         for _path in children:
             # Ignore zookeeper replication

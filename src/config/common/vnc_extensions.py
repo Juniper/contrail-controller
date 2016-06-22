@@ -52,13 +52,15 @@ def add_api_hook(hook_manager, hook_name):
 class ExtensionManager(stevedore.extension.ExtensionManager):
     def __init__(self, namespace, api_server_ip,
                  api_server_port, conf_sections, sandesh,
-                 propagate_map_exceptions=False):
+                 propagate_map_exceptions=False, **kwargs):
+        invoke_kwds={'api_server_ip': api_server_ip,
+                     'api_server_port': api_server_port,
+                     'conf_sections': conf_sections,
+                     'sandesh': sandesh}
+        invoke_kwds.update(kwargs)
         super(ExtensionManager, self).__init__(
             namespace, invoke_on_load=True,
-            invoke_kwds={'api_server_ip': api_server_ip,
-                         'api_server_port': api_server_port,
-                         'conf_sections': conf_sections,
-                         'sandesh': sandesh },
+            invoke_kwds=invoke_kwds,
             propagate_map_exceptions=propagate_map_exceptions)
     #end __init__
 

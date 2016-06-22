@@ -48,12 +48,12 @@ class VerifyServicePolicy(VerifyPolicy):
 
     @retries(5)
     def wait_to_get_link(self, ident_name, link_fq_name):
-        self.assertThat(str(FakeIfmapClient._graph[ident_name]['links']),
+        self.assertThat(str(FakeIfmapClient._graph['8443'][ident_name]['links']),
                         Contains(link_fq_name))
 
     @retries(5)
     def wait_to_remove_link(self, ident_name, link_fq_name):
-        self.assertThat(str(FakeIfmapClient._graph[ident_name]['links']),
+        self.assertThat(str(FakeIfmapClient._graph['8443'][ident_name]['links']),
                         Not(Contains(link_fq_name)))
 
     @retries(5)
@@ -591,7 +591,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         for obj in [vn1_obj, vn2_obj]:
             ident_name = self.get_obj_imid(obj)
             gevent.sleep(2)
-            ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
+            ifmap_ident = self.assertThat(FakeIfmapClient._graph['8443'], Contains(ident_name))
 
         sc = self.wait_to_get_sc()
         sc_ri_names = ['service-'+sc+'-default-domain_default-project_' + s for s in service_names]
@@ -1139,7 +1139,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         for obj in [vn1_obj, vn2_obj]:
             ident_name = self.get_obj_imid(obj)
             gevent.sleep(2)
-            ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
+            ifmap_ident = self.assertThat(FakeIfmapClient._graph['8443'], Contains(ident_name))
 
         svc_ri_fq_name = 'default-domain:default-project:svc-vn-left:svc-vn-left'.split(':')
         self.check_ri_ref_present(svc_ri_fq_name, self.get_ri_name(vn1_obj))
@@ -1275,7 +1275,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
 
         for obj in [fip_obj]:
             ident_name = self.get_obj_imid(obj)
-            ifmap_ident = self.assertThat(FakeIfmapClient._graph,
+            ifmap_ident = self.assertThat(FakeIfmapClient._graph['8443'],
                                           Contains(ident_name))
 
         self.wait_to_get_link(ident_name, vmi_fq_name)
@@ -1357,7 +1357,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
 
         ident_name = self.get_obj_imid(vn1_obj)
         gevent.sleep(2)
-        ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
+        ifmap_ident = self.assertThat(FakeIfmapClient._graph['8443'], Contains(ident_name))
 
         # create virtual machine interface with interface mirror property
         vmi_name = self.id() + 'vmi1'
