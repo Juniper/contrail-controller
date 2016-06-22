@@ -468,10 +468,10 @@ void GracefulRestartTest::SetUp() {
         channel_managers_.push_back(new BgpXmppChannelManagerMock(
                                         xmpp_servers_[i], bgp_servers_[i]));
 
-        // Disable GR helper mode in non DUTs
-        if (i) {
-            bgp_servers_[i]->set_gr_helper_disable(true);
-            xmpp_servers_[i]->set_gr_helper_disable(true);
+        // Enaable GR helper mode in DUT.
+        if (!i) {
+            bgp_servers_[i]->set_gr_helper_enable(true);
+            xmpp_servers_[i]->set_gr_helper_enable(true);
         }
     }
 

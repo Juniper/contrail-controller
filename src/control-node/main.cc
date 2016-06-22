@@ -89,7 +89,7 @@ static XmppServer *CreateXmppServer(EventManager *evm, Options *options,
     xmpp_cfg->FromAddr = XmppInit::kControlNodeJID;
     xmpp_cfg->auth_enabled = options->xmpp_auth_enabled();
     xmpp_cfg->tcp_hold_time = options->tcp_hold_time();
-    xmpp_cfg->gr_helper_disable = options->gr_helper_xmpp_disable();
+    xmpp_cfg->gr_helper_enable = options->gr_helper_xmpp_enable();
 
     if (xmpp_cfg->auth_enabled) {
         xmpp_cfg->path_to_server_cert = options->xmpp_server_cert();
@@ -379,7 +379,7 @@ int main(int argc, char *argv[]) {
     boost::scoped_ptr<BgpServer> bgp_server(new BgpServer(&evm));
     sandesh_context.set_test_mode(ControlNode::GetTestMode());
     sandesh_context.bgp_server = bgp_server.get();
-    bgp_server->set_gr_helper_disable(options.gr_helper_bgp_disable());
+    bgp_server->set_gr_helper_enable(options.gr_helper_bgp_enable());
 
     DB config_db;
     DBGraph config_graph;
