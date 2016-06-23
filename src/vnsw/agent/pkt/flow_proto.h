@@ -133,7 +133,7 @@ private:
     FlowTokenPool del_tokens_;
     FlowTokenPool update_tokens_;
     std::vector<FlowEventQueue *> flow_event_queue_;
-    std::vector<FlowEventQueue *> flow_misc_event_queue_;
+    std::vector<FlowEventQueue *> flow_tokenless_queue_;
     std::vector<DeleteFlowEventQueue *> flow_delete_queue_;
     std::vector<KSyncFlowEventQueue *> flow_ksync_queue_;
     std::vector<FlowTable *> flow_table_list_;
