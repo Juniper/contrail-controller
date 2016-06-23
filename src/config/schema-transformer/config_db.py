@@ -3121,11 +3121,13 @@ class VirtualMachineInterfaceST(DBBaseST):
         self.uuid = None
         self.instance_ips = set()
         self.floating_ips = set()
+        self.alias_ips = set()
         self.routing_instances = {}
         self.obj = obj or self.read_vnc_obj(fq_name=name)
         self.uuid = self.obj.uuid
         self.update_multiple_refs('instance_ip', self.obj)
         self.update_multiple_refs('floating_ip', self.obj)
+        self.update_multiple_refs('alias_ip', self.obj)
         self.vrf_table = jsonpickle.encode(self.obj.get_vrf_assign_table())
         self.update(self.obj)
     # end __init__
@@ -3151,6 +3153,7 @@ class VirtualMachineInterfaceST(DBBaseST):
         self.update_single_ref('logical_router', {})
         self.update_multiple_refs('instance_ip', {})
         self.update_multiple_refs('floating_ip', {})
+        self.update_multiple_refs('alias_ip', {})
         self.update_single_ref('bgp_as_a_service', {})
         self.update_routing_instances([])
     # end delete_obj
@@ -3326,6 +3329,10 @@ class VirtualMachineInterfaceST(DBBaseST):
             ip = FloatingIpST.get(ip_name)
             if ip and ip.address:
                 ip_list.append(ip)
+        for ip_name in self.alias_ips:
+            ip = AliasIpST.get(ip_name)
+            if ip and ip.address:
+                ip_list.append(ip)
         for ip in ip_list:
             if ip.ip_version == 6:
                 address = AddressType(subnet=SubnetType(ip.address, 128))
@@ -3389,6 +3396,7 @@ class VirtualMachineInterfaceST(DBBaseST):
         resp.obj_refs = [
             self._get_sandesh_ref_list('instance_ip'),
             self._get_sandesh_ref_list('floating_ip'),
+            self._get_sandesh_ref_list('alias_ip'),
             self._get_sandesh_ref_list('virtual_network'),
             self._get_sandesh_ref_list('virtual_machine'),
             self._get_sandesh_ref_list('port_tuple'),
@@ -3509,6 +3517,41 @@ class FloatingIpST(DBBaseST):
         return resp
     # end handle_st_object_req
 # end FloatingIpST
+
+
+class AliasIpST(DBBaseST):
+    _dict = {}
+    obj_type = 'alias_ip'
+
+    def __init__(self, name, obj=None):
+        self.name = name
+        self.virtual_machine_interface = None
+        self.ip_version = None
+        self.update(obj)
+    # end __init
+
+    def update(self, obj=None):
+        self.obj = obj or self.read_vnc_obj(fq_name=self.name)
+        self.address = self.obj.get_alias_ip_address()
+        if self.address:
+            self.ip_version = IPAddress(self.address).version
+        self.update_single_ref('virtual_machine_interface', self.obj)
+    # end update
+
+    def delete_obj(self):
+        self.update_single_ref('virtual_machine_interface', {})
+
+    def handle_st_object_req(self):
+        resp = super(AliasIpST, self).handle_st_object_req()
+        resp.obj_refs = [
+            self._get_sandesh_ref_list('virtual_machine_interface'),
+        ]
+        resp.properties = [
+            sandesh.PropList('address', self.address),
+        ]
+        return resp
+    # end handle_st_object_req
+# end AliasIpST
 
 
 class VirtualMachineST(DBBaseST):

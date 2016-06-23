@@ -241,6 +241,92 @@ class FloatingIpServer(Resource, FloatingIp):
 # end class FloatingIpServer
 
 
+class AliasIpServer(Resource, AliasIp):
+    generate_default_instance = False
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        if 'project_refs' not in obj_dict:
+            return False, (400, 'Alias Ip should have project reference')
+
+        proj_dict = obj_dict['project_refs'][0]
+        if 'uuid' in proj_dict:
+            proj_uuid = proj_dict['uuid']
+        else:
+            proj_uuid = db_conn.fq_name_to_uuid('project', proj_dict['to'])
+
+        user_visibility = obj_dict['id_perms'].get('user_visible', True)
+        verify_quota_kwargs = {'db_conn': db_conn,
+                               'fq_name': obj_dict['fq_name'],
+                               'resource': 'alias_ip_back_refs',
+                               'obj_type': 'alias_ip',
+                               'user_visibility': user_visibility,
+                               'proj_uuid': proj_uuid}
+        (ok, response) = QuotaHelper.verify_quota_for_resource(
+            **verify_quota_kwargs)
+
+        if not ok:
+            return (ok, response)
+
+        vn_fq_name = obj_dict['fq_name'][:-2]
+        req_ip = obj_dict.get("alias_ip_address")
+        if req_ip and cls.addr_mgmt.is_ip_allocated(req_ip, vn_fq_name):
+            return (False, (403, 'Ip address already in use'))
+        try:
+            aip_addr = cls.addr_mgmt.ip_alloc_req(vn_fq_name,
+                                                  asked_ip_addr=req_ip,
+                                                  alloc_id=obj_dict['uuid'])
+            def undo():
+                db_conn.config_log(
+                    'AddrMgmt: free FIP %s for vn=%s tenant=%s, on undo'
+                        % (fip_addr, vn_fq_name, tenant_name),
+                           level=SandeshLevel.SYS_DEBUG)
+                cls.addr_mgmt.ip_free_req(aip_addr, vn_fq_name)
+                return True, ""
+            # end undo
+            get_context().push_undo(undo)
+        except Exception as e:
+            return (False, (500, str(e)))
+
+        obj_dict['alias_ip_address'] = aip_addr
+        db_conn.config_log('AddrMgmt: alloc %s AIP for vn=%s, tenant=%s, askip=%s' \
+            % (obj_dict['alias_ip_address'], vn_fq_name, tenant_name,
+               req_ip), level=SandeshLevel.SYS_DEBUG)
+
+        return True, ""
+    # end pre_dbe_create
+
+
+    @classmethod
+    def post_dbe_delete(cls, id, obj_dict, db_conn):
+        vn_fq_name = obj_dict['fq_name'][:-2]
+        aip_addr = obj_dict['alias_ip_address']
+        db_conn.config_log('AddrMgmt: free AIP %s for vn=%s'
+                           % (aip_addr, vn_fq_name),
+                           level=SandeshLevel.SYS_DEBUG)
+        cls.addr_mgmt.ip_free_req(aip_addr, vn_fq_name)
+
+        return True, ""
+    # end post_dbe_delete
+
+
+    @classmethod
+    def dbe_create_notification(cls, obj_ids, obj_dict):
+        aip_addr = obj_dict['alias_ip_address']
+        vn_fq_name = obj_dict['fq_name'][:-2]
+        cls.addr_mgmt.ip_alloc_notify(aip_addr, vn_fq_name)
+    # end dbe_create_notification
+
+    @classmethod
+    def dbe_delete_notification(cls, obj_ids, obj_dict):
+        aip_addr = obj_dict['alias_ip_address']
+        vn_fq_name = obj_dict['fq_name'][:-2]
+        cls.addr_mgmt.ip_free_notify(aip_addr, vn_fq_name)
+    # end dbe_delete_notification
+
+# end class AliasIpServer
+
+
 class InstanceIpServer(Resource, InstanceIp):
     generate_default_instance = False
 

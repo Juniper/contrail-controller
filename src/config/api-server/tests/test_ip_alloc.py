@@ -967,6 +967,10 @@ class TestIpAlloc(test_case.ApiServerTestCase):
             'fip-pool-%s' %(self.id()), parent_obj=vn_obj)
         self._vnc_lib.floating_ip_pool_create(fip_pool_obj)
 
+        aip_pool_obj = AliasIpPool(
+            'aip-pool-%s' %(self.id()), parent_obj=vn_obj)
+        self._vnc_lib.alias_ip_pool_create(aip_pool_obj)
+
         iip_obj = InstanceIp('existing-iip-%s' %(self.id()))
         iip_obj.add_virtual_network(vn_obj)
         self._vnc_lib.instance_ip_create(iip_obj)
@@ -978,6 +982,12 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.floating_ip_create(fip_obj)
         # read-in to find allocated address
         fip_obj = self._vnc_lib.floating_ip_read(id=fip_obj.uuid)
+
+        aip_obj = AliasIp('existing-aip-%s' %(self.id()), aip_pool_obj)
+        aip_obj.add_project(proj_obj)
+        self._vnc_lib.alias_ip_create(aip_obj)
+        # read-in to find allocated address
+        aip_obj = self._vnc_lib.alias_ip_read(id=aip_obj.uuid)
 
         vm_obj = VirtualMachine('vm-%s' %(self.id()))
         self._vnc_lib.virtual_machine_create(vm_obj)
@@ -1023,17 +1033,43 @@ class TestIpAlloc(test_case.ApiServerTestCase):
                                'Ip address already in use') as e:
             self._vnc_lib.floating_ip_create(fip2_obj)
 
+        # allocate alias-ip clashing with existing alias-ip
+        aip2_obj = AliasIp('clashing-aip-%s' %(self.id()), aip_pool_obj,
+                           alias_ip_address=aip_obj.alias_ip_address)
+        aip2_obj.add_project(proj_obj)
+        with ExpectedException(cfgm_common.exceptions.PermissionDenied,
+                               'Ip address already in use') as e:
+            self._vnc_lib.alias_ip_create(aip2_obj)
+
         # allocate floating-ip clashing with existing instance-ip
         fip2_obj.set_floating_ip_address(iip_obj.instance_ip_address)
         with ExpectedException(cfgm_common.exceptions.PermissionDenied,
                                'Ip address already in use') as e:
             self._vnc_lib.floating_ip_create(fip2_obj)
 
+        # allocate alias-ip clashing with existing instance-ip
+        aip2_obj.set_alias_ip_address(iip_obj.instance_ip_address)
+        with ExpectedException(cfgm_common.exceptions.PermissionDenied,
+                               'Ip address already in use') as e:
+            self._vnc_lib.alias_ip_create(aip2_obj)
+
+        # allocate alias-ip clashing with existing floating-ip
+        aip2_obj.set_alias_ip_address(fip_obj.floating_ip_address)
+        with ExpectedException(cfgm_common.exceptions.PermissionDenied,
+                               'Ip address already in use') as e:
+            self._vnc_lib.alias_ip_create(aip2_obj)
+
         # allocate floating-ip with gateway ip and verify failure
         fip2_obj.set_floating_ip_address('11.1.1.254')
         with ExpectedException(cfgm_common.exceptions.PermissionDenied,
                                'Ip address already in use') as e:
             self._vnc_lib.floating_ip_create(fip2_obj)
+
+        # allocate alias-ip with gateway ip and verify failure
+        aip2_obj.set_alias_ip_address('11.1.1.254')
+        with ExpectedException(cfgm_common.exceptions.PermissionDenied,
+                               'Ip address already in use') as e:
+            self._vnc_lib.alias_ip_create(aip2_obj)
 
         # allocate 2 instance-ip with gateway ip - should work
         # then verify iip cannot # ref to vm port (during iip-update
