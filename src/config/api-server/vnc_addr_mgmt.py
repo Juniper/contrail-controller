@@ -834,10 +834,11 @@ class AddrMgmt(object):
     # end net_check_subnet
 
     # check subnets associated with a virtual network, return error if
-    # any subnet is being deleted and has backref to instance-ip/floating-ip
+    # any subnet is being deleted and has backref to
+    # instance-ip/floating-ip/alias-ip
     def net_check_subnet_delete(self, db_vn_dict, req_vn_dict):
         db_conn = self._get_db_conn()
-        # if all instance-ip/floating-ip are part of requested list
+        # if all ips are part of requested list
         # things are ok.
         # eg. existing [1.1.1.0/24, 2.2.2.0/24],
         #     requested [1.1.1.0/24] OR
@@ -856,18 +857,20 @@ class AddrMgmt(object):
             # read the instance ip and floating ip pool only if subnet is being
             # deleted. Skip the port check if no subnet is being deleted
             vn_id = {'uuid': db_vn_dict['uuid']}
-            obj_fields = ['network_ipam_refs', 'instance_ip_back_refs', 'floating_ip_pools']
+            obj_fields = ['network_ipam_refs', 'instance_ip_back_refs', 'floating_ip_pools', 'alias_ip_pools']
             (read_ok, db_vn_dict) = db_conn.dbe_read('virtual_network', vn_id, obj_fields)
             if not read_ok:
                 return (False, (500, db_vn_dict))
 
             # if all subnets are being removed, check for any iip backrefs
-            # or floating pools still present in DB version of VN
+            # or floating/alias pools still present in DB version of VN
             if len(requested_subnets) == 0:
                 if db_vn_dict.get('instance_ip_back_refs'):
                     return False, "Cannot Delete IP Block, Instance IP(s) in use"
                 if db_vn_dict.get('floating_ip_pools'):
                     return False, "Cannot Delete IP Block, Floating Pool(s) in use"
+                if db_vn_dict.get('alias_ip_pools'):
+                    return False, "Cannot Delete IP Block, Alias Pool(s) in use"
         else:
             return True, ""
 
@@ -892,9 +895,9 @@ class AddrMgmt(object):
                     level=SandeshLevel.SYS_ERR)
                 continue
             if not all_matching_cidrs(inst_ip, requested_subnets):
-                return False,\
-                    "Cannot Delete IP Block, IP(%s) is in use"\
-                    % (inst_ip)
+                return (False,
+                        "Cannot Delete IP Block, IP(%s) is in use"
+                        % (inst_ip))
 
         fip_pool_refs = db_vn_dict.get('floating_ip_pools', [])
         for ref in fip_pool_refs:
@@ -934,9 +937,51 @@ class AddrMgmt(object):
                         level=SandeshLevel.SYS_ERR)
                     continue
                 if not all_matching_cidrs(fip_addr, requested_subnets):
-                    return False,\
-                        "Cannot Delete IP Block, Floating IP(%s) is in use"\
-                        % (fip_addr)
+                    return (False,
+                            "Cannot Delete IP Block, Floating IP(%s) is in use"
+                            % (fip_addr))
+
+        aip_pool_refs = db_vn_dict.get('alias_ip_pools', [])
+        for ref in aip_pool_refs:
+            try:
+                (ok, result) = db_conn.dbe_read(
+                    'alias_ip_pool', {'uuid': ref['uuid']})
+            except cfgm_common.exceptions.NoIdError:
+                continue
+            if not ok:
+                self.config_log(
+                    "Error in subnet delete alias-ip-pool check: %s"
+                        %(result),
+                    level=SandeshLevel.SYS_ERR)
+                return False, result
+
+            alias_ips = result.get('alias_ips', [])
+            for alias_ip in alias_ips:
+                # get alias_ip_address and this should be in
+                # new subnet_list
+                try:
+                    (read_ok, read_result) = db_conn.dbe_read(
+                        'alias_ip', {'uuid': floating_ip['uuid']})
+                except cfgm_common.exceptions.NoIdError:
+                    continue
+                if not read_ok:
+                    self.config_log(
+                        "Error in subnet delete floating-ip check: %s"
+                            %(read_result),
+                        level=SandeshLevel.SYS_ERR)
+                    return False, result
+
+                aip_addr = read_result.get('alias_ip_address')
+                if not aip_addr:
+                    self.config_log(
+                        "Error in subnet delete aip null: %s"
+                        %(alias_ip['uuid']),
+                        level=SandeshLevel.SYS_ERR)
+                    continue
+                if not all_matching_cidrs(aip_addr, requested_subnets):
+                    return (False,
+                            "Cannot Delete IP Block, Floating IP(%s) is in use"
+                            % (aip_addr))
 
         return True, ""
     # end net_check_subnet_delete

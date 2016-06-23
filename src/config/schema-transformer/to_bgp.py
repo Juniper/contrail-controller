@@ -68,6 +68,7 @@ class SchemaTransformer(object):
             'logical_router': ['virtual_network'],
             'instance_ip': ['virtual_machine', 'port_tuple', 'bgp_as_a_service', 'virtual_network'],
             'floating_ip': ['virtual_machine', 'port_tuple'],
+            'alias_ip': ['virtual_machine', 'port_tuple'],
             'virtual_machine': ['virtual_network'],
             'port_tuple': ['virtual_network'],
             'bgp_as_a_service': [],
@@ -120,6 +121,9 @@ class SchemaTransformer(object):
             'route_table': [],
         },
         'floating_ip': {
+            'self': ['virtual_machine_interface'],
+        },
+        'alias_ip': {
             'self': ['virtual_machine_interface'],
         },
         'instance_ip': {
@@ -452,6 +456,7 @@ class SchemaTransformer(object):
         InstanceIpST.reinit()
         gevent.sleep(0.001)
         FloatingIpST.reinit()
+        AliasIPST.reinit()
 
         gevent.sleep(0.001)
         for si in ServiceInstanceST.list_vnc_obj():
