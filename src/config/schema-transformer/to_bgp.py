@@ -267,6 +267,9 @@ class VirtualNetworkST(DictST):
         ) or VirtualNetworkType()
         self.allow_transit = prop.allow_transit
         nid = self.obj.get_virtual_network_network_id()
+        vmi_refs = self.obj.get_virtual_machine_interface_back_refs() or []
+        self.virtual_machine_interfaces = set([':'.join(ref['to'])
+                                              for ref in vmi_refs])
         if nid is None:
             nid = prop.network_id or self._vn_id_allocator.alloc(name) + 1
             self.obj.set_virtual_network_network_id(nid)
@@ -646,6 +649,18 @@ class VirtualNetworkST(DictST):
                         if not is_default and self.allow_transit:
                             rtgt_obj = RouteTarget(self.get_route_target())
                             rinst_obj.add_route_target(rtgt_obj, inst_tgt_data)
+                        for vmi_name in self.virtual_machine_interfaces:
+                            vmi = VirtualMachineInterfaceST.get(vmi_name)
+                            if vmi.logical_router:
+                                lr = LogicalRouterST.get(vmi.logical_router)
+                                if lr:
+                                    rtgt_obj = RouteTarget(lr.route_target)
+                                    rinst_obj.add_route_target(rtgt_obj,
+                                                              inst_tgt_data)
+                                    #for rt in lr.rt_list:
+                                    #    rtgt_obj = RouteTarget(rt)
+                                    #    rinst_obj.add_route_target(rtgt_obj,
+                                    #                              inst_tgt_data)
                     _vnc_lib.routing_instance_update(rinst_obj)
             except (NoIdError, KeyError):
                 rinst_obj = None
@@ -660,6 +675,18 @@ class VirtualNetworkST(DictST):
                     if not is_default and self.allow_transit:
                         rtgt_obj = RouteTarget(self.get_route_target())
                         rinst_obj.add_route_target(rtgt_obj, inst_tgt_data)
+                        for vmi_name in self.virtual_machine_interfaces:
+                            vmi = VirtualMachineInterfaceST.get(vmi_name)
+                            if vmi.logical_router:
+                                lr = LogicalRouterST.get(vmi.logical_router)
+                                if lr:
+                                    rtgt_obj = RouteTarget(lr.route_target)
+                                    rinst_obj.add_route_target(rtgt_obj,
+                                                              inst_tgt_data)
+                                    #for rt in lr.rt_list:
+                                    #    rtgt_obj = RouteTarget(rt)
+                                    #    rinst_obj.add_route_target(rtgt_obj,
+                                    #                             inst_tgt_data)
                 _vnc_lib.routing_instance_create(rinst_obj)
         except (BadRequest, HttpError) as e:
             _sandesh._logger.error(
@@ -2168,12 +2195,16 @@ class VirtualMachineInterfaceST(DictST):
         self.interface_mirror = None
         self.virtual_network = None
         self.virtual_machine = None
+        self.logical_router = None
         self.uuid = None
         self.instance_ips = set()
         self.floating_ips = set()
         self.obj = obj or _vnc_lib.virtual_machine_interface_read(fq_name_str=name)
         self.uuid = self.obj.uuid
         self.vrf_table = jsonpickle.encode(self.obj.get_vrf_assign_table())
+        lr_refs = self.obj.get_logical_router_back_refs() or []
+        if lr_refs:
+            self.logical_router = ':'.join(lr_refs[0]['to'])
     # end __init__
 
     @classmethod
@@ -2589,8 +2620,8 @@ class LogicalRouterST(DictST):
         self.name = name
         self.interfaces = set()
         self.virtual_networks = set()
-        obj = _vnc_lib.logical_router_read(fq_name_str=name)
-        rt_ref = obj.get_route_target_refs()
+        self.obj = _vnc_lib.logical_router_read(fq_name_str=name)
+        rt_ref = self.obj.get_route_target_refs()
         old_rt_key = None
         if rt_ref:
             rt_key = rt_ref[0]['to'][0]
@@ -2603,8 +2634,8 @@ class LogicalRouterST(DictST):
             rt_key = "target:%s:%d" % (
                 VirtualNetworkST.get_autonomous_system(), rtgt_num)
             rtgt_obj = RouteTargetST.locate(rt_key)
-            obj.set_route_target(rtgt_obj.obj)
-            _vnc_lib.logical_router_update(obj)
+            self.obj.set_route_target(rtgt_obj.obj)
+            _vnc_lib.logical_router_update(self.obj)
 
         if old_rt_key:
             RouteTargetST.delete(old_rt_key)
@@ -2855,6 +2886,16 @@ class SchemaTransformer(object):
         # end for acl
 
         _SLEEP_TIMEOUT=0.001
+        lr_list = _vnc_lib.logical_routers_list()['logical-routers']
+        start_time = time.time()
+        for index, lr in enumerate(lr_list):
+            lr_name = ':'.join(lr['fq_name'])
+            LogicalRouterST.locate(lr_name)
+            if not index % 100:
+                gevent.sleep(_SLEEP_TIMEOUT)
+        elapsed_time = time.time() - start_time
+        _sandesh._logger.info("Initialized %d logical routers in %.3f", len(lr_list), elapsed_time)
+
         start_time = time.time()
         for index, sg in enumerate(sg_list):
             SecurityGroupST.locate(sg.get_fq_name_str(), sg, sg_acl_dict)
@@ -2873,6 +2914,15 @@ class SchemaTransformer(object):
         elapsed_time = time.time() - start_time
         _sandesh._logger.info("Initialized %d route targets in %.3f", len(rt_list), elapsed_time)
 
+        vmi_list = _vnc_lib.virtual_machine_interfaces_list(detail=True)
+        start_time = time.time()
+        for index, vmi in enumerate(vmi_list):
+            VirtualMachineInterfaceST.locate(vmi.get_fq_name_str(), vmi)
+            if not index % 100:
+                gevent.sleep(_SLEEP_TIMEOUT)
+        elapsed_time = time.time() - start_time
+        _sandesh._logger.info("Initialized %d virtual machine interfaces in %.3f", len(vmi_list), elapsed_time)
+
         start_time = time.time()
         for index, vn in enumerate(vn_list):
             if vn.uuid in ri_deleted:
@@ -2886,15 +2936,6 @@ class SchemaTransformer(object):
                 gevent.sleep(_SLEEP_TIMEOUT)
         elapsed_time = time.time() - start_time
         _sandesh._logger.info("Initialized %d virtual networks in %.3f", len(vn_list), elapsed_time)
-
-        vmi_list = _vnc_lib.virtual_machine_interfaces_list(detail=True)
-        start_time = time.time()
-        for index, vmi in enumerate(vmi_list):
-            VirtualMachineInterfaceST.locate(vmi.get_fq_name_str(), vmi)
-            if not index % 100:
-                gevent.sleep(_SLEEP_TIMEOUT)
-        elapsed_time = time.time() - start_time
-        _sandesh._logger.info("Initialized %d virtual machine interfaces in %.3f", len(vmi_list), elapsed_time)
 
         vm_list = _vnc_lib.virtual_machines_list(detail=True)
         start_time = time.time()
