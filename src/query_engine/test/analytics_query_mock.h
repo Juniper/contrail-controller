@@ -12,7 +12,7 @@ public:
     AnalyticsQueryMock() : 
         AnalyticsQuery(std::string(""),
                        GenDbIfPtr(new CqlIfMock()),
-                       std::map<std::string, std::string>(),
+                       std::map<std::string, std::string>(), -1, NULL,
                        TtlMap(), int(0), int(0)) {
     }
     
