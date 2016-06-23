@@ -4,8 +4,8 @@ import platform
 import sys
 
 libnl_dir = str(Dir('#/third_party/libnl-3.2.25/'))
-libpcap_dir = str(Dir('#/third_party/libpcap-1.4.0/'))
-tcpdump_dir  = str(Dir('#/third_party/tcpdump-4.4.0/'))
+libpcap_dir = str(Dir('#/third_party/libpcap-1.7.4/'))
+tcpdump_dir  = str(Dir('#/third_party/tcpdump-4.7.4/'))
 build_dir = str(Dir('#/build'))
 libnl_libs = build_dir + '/lib'
 
