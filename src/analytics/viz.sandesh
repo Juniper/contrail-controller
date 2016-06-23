@@ -2090,7 +2090,7 @@ const list<stat_table> _STAT_TABLES  = [
       'stat_attr' : 'count',
       'obj_table' : USR_DEF_COUNTER_TABLE,
       'attributes': [
-          { 'name' : 'count.value',  'datatype' : 'int',    'index' : false},
+          { 'name' : 'count.previous',  'datatype' : 'int',    'index' : false},
         ]
     },
 

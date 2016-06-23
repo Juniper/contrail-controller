@@ -90,35 +90,14 @@ UserDefinedCounters::MatchFilter(std::string text, LineParser::WordListType *w)
 {
     for(Cfg_t::iterator it=config_.begin(); it != config_.end(); ++it) {
         if (LineParser::SearchPattern(it->second->regexp(), text)) {
-#if 0
-            *it->IncCount();
-#else
             UserDefinedCounter udc;
             udc.set_name(it->first);
             udc.set_rx_event(1);
             UserDefinedCounterUVE::Send(udc);
             w->insert(it->first);
-#endif
         }
     }
 }
-
-#if 0
-void
-UserDefinedCounters::SendUVEs()
-{
-    for(std::set<UserDefinedCounterData>::iterator it=config_.begin();
-            it != config_.end(); ++it) {
-        uint64_t c = it->second->count();
-        if (c) {
-            UserDefinedCounterUVEInfo udc;
-            udc.set_name(it->first);
-            udc.set_count(c);
-            udc.send();
-        }
-    }
-}
-#endif
 
 void
 UserDefinedCounters::AddConfig(std::string name, std::string pattern)

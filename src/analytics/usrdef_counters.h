@@ -26,14 +26,11 @@ class UserDefinedCounterData {
         void SetPattern(std::string pat) {
             regexp_ = boost::regex(pat);
             regexp_str_ = pat;
-            count_ = 0;
         }
         bool operator==(const UserDefinedCounterData &rhs) {
             return rhs.IsMe(name_) &&  rhs.pattern() == regexp_str_;
         }
         const boost::regex& regexp() const { return regexp_; }
-        void IncCount() { count_++; }
-        uint64_t Count() {  uint64_t x = count_;  count_ = 0;  return x; }
         const std::string name() { return name_; }
         bool IsMe(std::string name) const { return name == name_; }
         void Update(Options *o, DiscoveryServiceClient *c);
@@ -41,7 +38,6 @@ class UserDefinedCounterData {
     private:
         std::string            name_;
         std::string            regexp_str_;
-        tbb::atomic<uint64_t>  count_;
         boost::regex           regexp_;
 };
 
