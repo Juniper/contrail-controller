@@ -42,11 +42,9 @@ class ConfigHandler(object):
             self._apiserver_subscribe_callback)
         self._update_apiserver_connection_status('', ConnectionStatus.INIT)
         # Connect to rabbitmq for config update notifications
-        rabbitmq_port = \
-            self._rabbitmq_info['servers'].split(',', 1)[0].split(':')[1]
         rabbitmq_qname = self._service_id
         self._rabbitmq_client = VncKombuClient(self._rabbitmq_info['servers'],
-            rabbitmq_port, self._rabbitmq_info['user'],
+            self._rabbitmq_info['port'], self._rabbitmq_info['user'],
             self._rabbitmq_info['password'], self._rabbitmq_info['vhost'],
             self._rabbitmq_info['ha_mode'], rabbitmq_qname,
             self._rabbitmq_subscribe_callback, self._logger)
