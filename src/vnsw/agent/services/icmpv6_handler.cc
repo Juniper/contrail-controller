@@ -58,6 +58,7 @@ bool Icmpv6Handler::Run() {
         ICMPV6_TRACE(Trace, "Received ICMP with l3 disabled");
         return true;
     }
+    nd_neighbor_advert *icmp = (nd_neighbor_advert *)icmp_;
     switch (icmp_->icmp6_type) {
         case ND_ROUTER_SOLICIT:
             icmpv6_proto->IncrementStatsRouterSolicit(vm_itf);
@@ -103,9 +104,12 @@ bool Icmpv6Handler::Run() {
             break;
 
         case ND_NEIGHBOR_ADVERT:
-            icmpv6_proto->IncrementStatsNeighborAdvert(vm_itf);
+            if (icmp->nd_na_flags_reserved & ND_NA_FLAG_SOLICITED) {
+                icmpv6_proto->IncrementStatsNeighborAdvertSolicited(vm_itf);
+            } else {
+                icmpv6_proto->IncrementStatsNeighborAdvertUnSolicited(vm_itf);
+            }
             if (CheckPacket()) {
-                nd_neighbor_advert *icmp = (nd_neighbor_advert *)icmp_;
                 boost::array<uint8_t, 16> bytes;
                 for (int i = 0; i < 16; i++) {
                     bytes[i] = icmp->nd_na_target.s6_addr[i];
