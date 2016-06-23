@@ -55,6 +55,8 @@ class BgpRouterDM(DBBaseDM):
             new_peers[ref['uuid']] = ref['attr']
         for peer_id in set(self.bgp_routers.keys()) - set(new_peers.keys()):
             peer = BgpRouterDM.get(peer_id)
+            if not peer:
+                continue
             if self.uuid in peer.bgp_routers:
                 del peer.bgp_routers[self.uuid]
         for peer_id, attrs in new_peers.items():
