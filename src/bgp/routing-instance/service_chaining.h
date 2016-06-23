@@ -215,6 +215,8 @@ private:
     bool dest_table_unregistered_;
     bool aggregate_;  // Whether the host route needs to be aggregated
     LifetimeRef<ServiceChain> src_table_delete_ref_;
+    LifetimeRef<ServiceChain> dest_table_delete_ref_;
+    LifetimeRef<ServiceChain> connected_table_delete_ref_;
 
     // Helper function to match
     bool IsMoreSpecific(BgpRoute *route, PrefixT *aggregate_match) const;
@@ -309,7 +311,7 @@ private:
     BgpServer *server_;
     BgpConditionListener *listener_;
     boost::scoped_ptr<TaskTrigger> resolve_trigger_;
-    WorkQueue<ServiceChainRequestT *> *process_queue_;
+    boost::scoped_ptr<WorkQueue<ServiceChainRequestT *> > process_queue_;
     bool aggregate_host_route_;
     ServiceChainMap chain_set_;
     PendingServiceChainList pending_chains_;
