@@ -637,16 +637,34 @@ class VirtualNetworkST(DictST):
                     _vnc_lib.routing_instance_delete(id=rinst_obj.uuid)
                     rinst_obj = None
                 else:
-                    rinst_obj.set_route_target(rtgt_obj, InstanceTargetType())
-                    rinst_obj.set_routing_instance_is_default(is_default)
+                    update_ri = False
+                    stale_rt_list = [':'.join(rt_ref['to']) for rt_ref in
+                                     rinst_obj.get_route_target_refs()]
+                    if rt_key in stale_rt_list:
+                        stale_rt_list.remove(rt_key)
+                    if (rinst_obj.get_routing_instance_is_default() !=
+                            is_defualt):
+                        rinst_obj.set_routing_instance_is_default(is_default)
+                        update_ri = True
                     if inst_tgt_data:
                         for rt in self.rt_list:
-                            rtgt_obj = RouteTarget(rt)
-                            rinst_obj.add_route_target(rtgt_obj, inst_tgt_data)
+                            if rt not in stale_rt_list:
+                                rtgt_obj = RouteTarget(rt)
+                                rinst_obj.add_route_target(rtgt_obj,
+                                                           inst_tgt_data)
+                                update_ri = True
+                            else:
+                                stale_rt_list.remove(rt)
                         if not is_default and self.allow_transit:
-                            rtgt_obj = RouteTarget(self.get_route_target())
-                            rinst_obj.add_route_target(rtgt_obj, inst_tgt_data)
-                    _vnc_lib.routing_instance_update(rinst_obj)
+                            rt = self.get_route_target()
+                            if rt not in stale_rt_list:
+                                rtgt_obj = RouteTarget(rt)
+                                rinst_obj.add_route_target(rtgt_obj, inst_tgt_data)
+                                update_ri = True
+                            else:
+                                stale_rt_list.remove(rt)
+                    if update_ri:
+                        _vnc_lib.routing_instance_update(rinst_obj)
             except (NoIdError, KeyError):
                 rinst_obj = None
             if rinst_obj is None:
@@ -671,6 +689,7 @@ class VirtualNetworkST(DictST):
 
         rinst = RoutingInstanceST(rinst_obj, service_chain, rt_key)
         self.rinst[rinst_name] = rinst
+        rinst.stale_route_targets = stale_rt_list
 
         if old_rtgt:
             rt_key = "target:%s:%d" % (self.get_autonomous_system(), old_rtgt)
@@ -1474,6 +1493,7 @@ class RoutingInstanceST(object):
         self.connections = set()
         for ri_ref in self.obj.get_routing_instance_refs() or []:
             self.connections.add(':'.join(ri_ref['to']))
+        self.stale_route_targets = []
     # end __init__
 
     def get_fq_name(self):
@@ -1538,14 +1558,23 @@ class RoutingInstanceST(object):
 
     def update_route_target_list(self, rt_add, rt_del=None,
                                  import_export=None):
+        update = False
         for rt in rt_add:
-            rtgt_obj = RouteTarget(rt)
-            inst_tgt_data = InstanceTargetType(import_export=import_export)
-            self.obj.add_route_target(rtgt_obj, inst_tgt_data)
+            if rt not in self.stale_route_targets:
+                rtgt_obj = RouteTarget(rt)
+                inst_tgt_data = InstanceTargetType(import_export=import_export)
+                self.obj.add_route_target(rtgt_obj, inst_tgt_data)
+                update = True
+            else:
+                self.stale_route_targets.remove(rt)
         for rt in rt_del or set():
-            rtgt_obj = RouteTarget(rt)
-            self.obj.del_route_target(rtgt_obj)
-        if len(rt_add) or len(rt_del or set()):
+            if rt in self.stale_route_targets:
+                rtgt_obj = RouteTarget(rt)
+                self.obj.del_route_target(rtgt_obj)
+                self.stale_route_targets.remove(rt)
+                update = True
+
+        if update:
             _vnc_lib.routing_instance_update(self.obj)
     # end update_route_target_list
 
@@ -3376,6 +3405,11 @@ class SchemaTransformer(object):
                 sc.destroy()
             if sc.present_stale:
                 sc.delete()
+        for vn in VirtualNetworkST.values():
+            for rinst in vn.rinst.values():
+                if rinst.stale_route_targets:
+                    rinst.update_route_target_list(rt_add=set(),
+                            rt_del=rinst.stale_route_targets)
     # end process_stale_objects
 
     def process_poll_result(self, poll_result_str):
