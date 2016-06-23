@@ -213,7 +213,8 @@ response sandesh Icmpv6Stats {
     4: i32 icmpv6_ping_response;
     5: i32 icmpv6_drop;
     6: i32 icmpv6_neighbor_solicit;
-    7: i32 icmpv6_neighbor_advert;
+    7: i32 icmpv6_neighbor_advert_solicited;
+    8: i32 icmpv6_neighbor_advert_unsolicited;
 }
 
 /**
@@ -253,7 +254,8 @@ struct InterfaceIcmpv6Stats {
     4: u32 icmpv6_ping_request;
     5: u32 icmpv6_ping_response;
     6: u32 icmpv6_neighbor_solicit;
-    7: u32 icmpv6_neighbor_advert;
+    7: u32 icmpv6_neighbor_advert_solicited;
+    8: u32 icmpv6_neighbor_advert_unsolicited;
 }
 
 /**

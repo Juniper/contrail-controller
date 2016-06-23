@@ -31,7 +31,8 @@ public:
         void Reset() {
             icmpv6_router_solicit_ = icmpv6_router_advert_ = 0;
             icmpv6_ping_request_ = icmpv6_ping_response_ = icmpv6_drop_ = 0;
-            icmpv6_neighbor_solicit_ = icmpv6_neighbor_advert_ = 0;
+            icmpv6_neighbor_solicit_ = icmpv6_neighbor_advert_solicited_ = 0;
+            icmpv6_neighbor_advert_unsolicited_ = 0;
         }
 
         uint32_t icmpv6_router_solicit_;
@@ -40,7 +41,8 @@ public:
         uint32_t icmpv6_ping_response_;
         uint32_t icmpv6_drop_;
         uint32_t icmpv6_neighbor_solicit_;
-        uint32_t icmpv6_neighbor_advert_;
+        uint32_t icmpv6_neighbor_advert_solicited_;
+        uint32_t icmpv6_neighbor_advert_unsolicited_;
     };
 
     typedef std::map<VmInterface *, Icmpv6Stats> VmInterfaceMap;
@@ -62,8 +64,9 @@ public:
     void IncrementStatsPingRequest(VmInterface *vmi);
     void IncrementStatsPingResponse(VmInterface *vmi);
     void IncrementStatsDrop() { stats_.icmpv6_drop_++; }
+    void IncrementStatsNeighborAdvertSolicited(VmInterface *vmi);
+    void IncrementStatsNeighborAdvertUnSolicited(VmInterface *vmi);
     void IncrementStatsNeighborSolicit(VmInterface *vmi);
-    void IncrementStatsNeighborAdvert(VmInterface *vmi);
     const Icmpv6Stats &GetStats() const { return stats_; }
     Icmpv6Stats *VmiToIcmpv6Stats(VmInterface *i);
     void ClearStats() { stats_.Reset(); }

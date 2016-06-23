@@ -393,8 +393,8 @@ TEST_F(KStateTest, RouteDumpTest) {
         //Addition of 2 vm ports in a new VN (VRF) will result in the following routes
         // 2 routes corresponding to the addresses of VM
         // l2 broadcast
-        // 2 - v6 host route for new vrf addition
-        TestRouteKState::Init(true, prev_rt_count + (MAX_TEST_FD * 2) + 3);
+        // 3 - v6 host route for new vrf addition
+        TestRouteKState::Init(true, prev_rt_count + (MAX_TEST_FD * 2) + 4);
         client->WaitForIdle();
         client->KStateResponseWait(1);
         DeletePorts();
