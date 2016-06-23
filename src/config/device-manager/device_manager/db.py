@@ -1023,7 +1023,6 @@ class VirtualMachineInterfaceDM(DBBaseDM):
             self.params = obj['virtual_machine_interface_properties']
             self.service_interface_type = self.params.get(
                 'service_interface_type', None)
-        self.device_owner = obj.get("virtual_machine_interface_device_owner")
         self.update_single_ref('logical_interface', obj)
         self.update_single_ref('virtual_network', obj)
         self.update_single_ref('floating_ip', obj)
@@ -1039,8 +1038,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
     # end update
 
     def is_device_owner_bms(self):
-        if (not self.device_owner or
-                self.device_owner.lower() == 'physicalrouter'):
+        if self.logical_interface:
             return True
         return False
     # end
