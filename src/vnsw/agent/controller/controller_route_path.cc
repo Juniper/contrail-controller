@@ -331,7 +331,7 @@ ControllerInetInterfaceRoute::ControllerInetInterfaceRoute(const InetInterfaceKe
                                                            int tunnel_bmap,
                                                            const std::set<string> &dest_vn_list,
                                                            uint64_t sequence_number,
-                                                           const AgentXmppChannel *channel) :
+                                                           const AgentXmppChannel *channel):
     InetInterfaceRoute(intf, label, tunnel_bmap, dest_vn_list),
     sequence_number_(sequence_number), channel_(channel) { }
 

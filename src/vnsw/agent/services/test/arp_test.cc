@@ -203,12 +203,14 @@ public:
 
     void ArpNHUpdate(DBRequest::DBOperation op, in_addr_t addr) {
         Ip4Address ip(addr);
+        VnListType vn_list;
+        vn_list.insert(Agent::GetInstance()->fabric_vrf_name());
         InetUnicastAgentRouteTable::ArpRoute(op,
                           Agent::GetInstance()->fabric_vrf_name(),
                           ip, MacAddress(),
                           Agent::GetInstance()->fabric_vrf_name(),
                           *Agent::GetInstance()->GetArpProto()->ip_fabric_interface(),
-                          false, 32, false, "", SecurityGroupList());
+                          false, 32, false, vn_list, SecurityGroupList());
     }
 
     void TunnelNH(DBRequest::DBOperation op, uint32_t saddr, uint32_t daddr) {
