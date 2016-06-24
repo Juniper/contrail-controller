@@ -1780,6 +1780,7 @@ class RoutingInstanceST(DBBaseST):
     def __init__(self, name, obj=None):
         self.name = name
         self.obj = obj or self.read_vnc_obj(fq_name=name)
+        self.stale_route_targets = []
         self.service_chain = self._get_service_id_from_ri(self.name)
         self.connections = set()
         self.virtual_network = None
@@ -1906,35 +1907,42 @@ class RoutingInstanceST(DBBaseST):
     # end update_routing_policy_and_aggregates
 
     def import_default_ri_route_target_to_service_ri(self):
+        update_ri = False
         if not self.service_chain:
-            return
+            return update_ri
         sc = ServiceChain.get(self.service_chain)
         if sc is None or not sc.created:
-            return
+            return update_ri
         left_vn = VirtualNetworkST.get(sc.left_vn)
         right_vn = VirtualNetworkST.get(sc.right_vn)
         if left_vn is None or right_vn is None:
             self._logger.debug("left or right vn not found for RI " + self.name)
-            return
+            return update_ri
 
         multi_policy_enabled = (
             left_vn.multi_policy_service_chains_enabled and
             right_vn.multi_policy_service_chains_enabled)
         if not multi_policy_enabled:
-            return
+            return update_ri
         vn = VirtualNetworkST.get(self.virtual_network)
         if sc.left_vn == vn.name:
             si_name = sc.service_list[0]
         elif sc.right_vn == vn.name:
             si_name = sc.service_list[-1]
         else:
-            return
+            return update_ri
         service_ri_name = vn.get_service_name(sc.name, si_name)
         if service_ri_name == self.name:
-            rt_obj = RouteTargetST.get(vn.get_route_target())
-            self.obj.add_route_target(rt_obj.obj,
-                                      InstanceTargetType('import'))
-    # end locate_imported_service_chain_route_target
+            rt = vn.get_route_target()
+            if rt not in self.stale_route_targets:
+                rt_obj = RouteTargetST.get(rt)
+                self.obj.add_route_target(rt_obj.obj,
+                                          InstanceTargetType('import'))
+                update_ri = True
+            else:
+                self.stale_route_targets.remove(rt)
+        return update_ri
+    # end import_default_ri_route_target_to_service_ri
 
     def locate_route_target(self):
         old_rtgt = self._cassandra.get_route_target(self.name)
@@ -1961,27 +1969,48 @@ class RoutingInstanceST(DBBaseST):
                 self._vnc_lib.routing_instance_delete(id=self.obj.uuid)
                 self.obj = None
             else:
-                old_rt_refs = copy.deepcopy(self.obj.get_route_target_refs())
-                self.obj.set_route_target(rtgt_obj, InstanceTargetType())
+                update_ri = False
+                self.stale_route_targets = [':'.join(rt_ref['to'])
+                        for rt_ref in self.obj.get_route_target_refs() or []]
+                if rt_key not in self.stale_route_targets:
+                    self.obj.set_route_target(rtgt_obj, InstanceTargetType())
+                    update_ri = True
+                else:
+                    self.stale_route_targets.remove(rt_key)
                 if inst_tgt_data:
                     for rt in vn.rt_list:
-                        rtgt_obj = RouteTargetST.locate(rt)
-                        self.obj.add_route_target(rtgt_obj.obj, inst_tgt_data)
+                        if rt not in self.stale_route_targets:
+                            rtgt_obj = RouteTargetST.locate(rt)
+                            self.obj.add_route_target(rtgt_obj.obj, inst_tgt_data)
+                            update_ri = True
+                        else:
+                            self.stale_route_targets.remove(rt)
                     if self.is_default:
                         for rt in vn.export_rt_list:
-                            rtgt_obj = RouteTargetST.locate(rt)
-                            self.obj.add_route_target(
-                                rtgt_obj.obj, InstanceTargetType('export'))
+                            if rt not in self.stale_route_targets:
+                                rtgt_obj = RouteTargetST.locate(rt)
+                                self.obj.add_route_target(
+                                    rtgt_obj.obj, InstanceTargetType('export'))
+                                update_ri = True
+                            else:
+                                self.stale_route_targets.remove(rt)
                         for rt in vn.import_rt_list:
-                            rtgt_obj = RouteTargetST.locate(rt)
-                            self.obj.add_route_target(
-                                rtgt_obj.obj, InstanceTargetType('import'))
+                            if rt not in self.stale_route_targets:
+                                rtgt_obj = RouteTargetST.locate(rt)
+                                self.obj.add_route_target(
+                                    rtgt_obj.obj, InstanceTargetType('import'))
+                                update_ri = True
+                            else:
+                                self.stale_route_targets.remove(rt)
                     elif vn.allow_transit:
-                        rtgt_obj = RouteTarget(vn._route_target)
-                        self.obj.add_route_target(rtgt_obj, inst_tgt_data)
-                self.import_default_ri_route_target_to_service_ri()
-                if not compare_refs(self.obj.get_route_target_refs(),
-                                    old_rt_refs):
+                        if vn._route_target not in self.stale_route_targets:
+                            rtgt_obj = RouteTarget(vn._route_target)
+                            self.obj.add_route_target(rtgt_obj, inst_tgt_data)
+                            update_ri = True
+                        else:
+                            self.stale_route_targets.remove(vn._route_target)
+                update_ri |= self.import_default_ri_route_target_to_service_ri()
+                if update_ri:
                     self._vnc_lib.routing_instance_update(self.obj)
         except NoIdError as e:
             self._logger.error(
@@ -2068,22 +2097,38 @@ class RoutingInstanceST(DBBaseST):
 
     def update_route_target_list(self, rt_add=None, rt_add_import=None,
                                  rt_add_export=None, rt_del=None):
+        update = False
         for rt in rt_del or []:
+            if rt in self.stale_route_targets:
+                self.stale_route_targets.remove(rt)
             rtgt_obj = RouteTarget(rt)
             self.obj.del_route_target(rtgt_obj)
+            update = True
         for rt in rt_add or []:
-            rtgt_obj = RouteTargetST.locate(rt).obj
-            inst_tgt_data = InstanceTargetType(import_export=None)
-            self.obj.add_route_target(rtgt_obj, inst_tgt_data)
+            if rt not in self.stale_route_targets:
+                rtgt_obj = RouteTargetST.locate(rt).obj
+                inst_tgt_data = InstanceTargetType(import_export=None)
+                self.obj.add_route_target(rtgt_obj, inst_tgt_data)
+                update = True
+            else:
+                self.stale_route_targets.remove(rt)
         for rt in rt_add_import or []:
-            rtgt_obj = RouteTargetST.locate(rt).obj
-            inst_tgt_data = InstanceTargetType(import_export='import')
-            self.obj.add_route_target(rtgt_obj, inst_tgt_data)
+            if rt not in self.stale_route_targets:
+                rtgt_obj = RouteTargetST.locate(rt).obj
+                inst_tgt_data = InstanceTargetType(import_export='import')
+                self.obj.add_route_target(rtgt_obj, inst_tgt_data)
+                update = True
+            else:
+                self.stale_route_targets.remove(rt)
         for rt in rt_add_export or []:
-            rtgt_obj = RouteTargetST.locate(rt).obj
-            inst_tgt_data = InstanceTargetType(import_export='export')
-            self.obj.add_route_target(rtgt_obj, inst_tgt_data)
-        if rt_add or rt_add_export or rt_add_import or rt_del:
+            if rt not in self.stale_route_targets:
+                rtgt_obj = RouteTargetST.locate(rt).obj
+                inst_tgt_data = InstanceTargetType(import_export='export')
+                self.obj.add_route_target(rtgt_obj, inst_tgt_data)
+                update = True
+            else:
+                self.stale_route_targets.remove(rt)
+        if update:
             try:
                 self._vnc_lib.routing_instance_update(self.obj)
             except NoIdError:
