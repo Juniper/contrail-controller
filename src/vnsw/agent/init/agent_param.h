@@ -170,6 +170,7 @@ public:
         return collector_server_list_;
     }
     uint16_t http_server_port() const { return http_server_port_; }
+    uint16_t discovery_server_port() const { return dss_port_; }
     const std::string &host_name() const { return host_name_; }
     int agent_stats_interval() const { return agent_stats_interval_; }
     int flow_stats_interval() const { return flow_stats_interval_; }
