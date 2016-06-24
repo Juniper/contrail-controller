@@ -1027,7 +1027,6 @@ private:
 
 class FlowMgmtManager {
 public:
-    static const std::string kFlowMgmtTask;
     typedef boost::shared_ptr<FlowMgmtRequest> FlowMgmtRequestPtr;
     typedef WorkQueue<FlowMgmtRequestPtr> FlowMgmtQueue;
 

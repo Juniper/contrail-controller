@@ -256,7 +256,7 @@ DeleteFlowEventQueue::DeleteFlowEventQueue(Agent *agent, FlowProto *proto,
                                            uint16_t latency_limit,
                                            uint32_t max_iterations) :
     FlowEventQueueBase(proto, "Flow Delete Queue",
-                       agent->task_scheduler()->GetTaskId(kTaskFlowEvent),
+                       agent->task_scheduler()->GetTaskId(kTaskFlowDelete),
                        table->table_index(), pool, latency_limit,
                        max_iterations),
     flow_table_(table) {
@@ -275,7 +275,7 @@ KSyncFlowEventQueue::KSyncFlowEventQueue(Agent *agent, FlowProto *proto,
                                          uint16_t latency_limit,
                                          uint32_t max_iterations) :
     FlowEventQueueBase(proto, "Flow KSync Queue",
-                       agent->task_scheduler()->GetTaskId(kTaskFlowEvent),
+                       agent->task_scheduler()->GetTaskId(kTaskFlowKSync),
                        table->table_index(), pool, latency_limit,
                        max_iterations),
     flow_table_(table) {

@@ -679,8 +679,6 @@ void KSyncFlowEntryFreeList::Grow() {
 }
 
 FlowTableKSyncEntry *KSyncFlowEntryFreeList::Allocate(const KSyncEntry *key) {
-    object_->flow_table()->ConcurrencyCheck();
-
     const FlowTableKSyncEntry *flow_key  =
         static_cast<const FlowTableKSyncEntry *>(key);
     FlowTableKSyncEntry *flow = NULL;
@@ -707,7 +705,6 @@ FlowTableKSyncEntry *KSyncFlowEntryFreeList::Allocate(const KSyncEntry *key) {
 }
 
 void KSyncFlowEntryFreeList::Free(FlowTableKSyncEntry *flow) {
-    object_->flow_table()->ConcurrencyCheck();
     total_free_++;
     flow->Reset();
     free_list_.push_back(*flow);

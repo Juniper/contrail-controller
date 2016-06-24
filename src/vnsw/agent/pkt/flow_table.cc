@@ -62,7 +62,10 @@ FlowTable::FlowTable(Agent *agent, uint16_t table_index) :
     ksync_object_(NULL),
     flow_entry_map_(),
     free_list_(this),
-    flow_task_id_(0) {
+    flow_task_id_(0),
+    flow_update_task_id_(0),
+    flow_delete_task_id_(0),
+    flow_ksync_task_id_(0) {
 }
 
 FlowTable::~FlowTable() {
@@ -71,6 +74,9 @@ FlowTable::~FlowTable() {
 
 void FlowTable::Init() {
     flow_task_id_ = agent_->task_scheduler()->GetTaskId(kTaskFlowEvent);
+    flow_update_task_id_ = agent_->task_scheduler()->GetTaskId(kTaskFlowUpdate);
+    flow_delete_task_id_ = agent_->task_scheduler()->GetTaskId(kTaskFlowDelete);
+    flow_ksync_task_id_ = agent_->task_scheduler()->GetTaskId(kTaskFlowKSync);
     FlowEntry::Init();
     return;
 }
@@ -83,15 +89,17 @@ void FlowTable::Shutdown() {
 
 // Concurrency check to ensure all flow-table and free-list manipulations
 // are done from FlowEvent task context only
-bool FlowTable::ConcurrencyCheck() {
+bool FlowTable::ConcurrencyCheck(int task_id) {
     Task *current = Task::Running();
     // test code invokes FlowTable API from main thread. The running task
     // will be NULL in such cases
     if (current == NULL) {
         return true;
     }
-    if (current->GetTaskId() != flow_task_id_)
+
+    if (current->GetTaskId() != task_id)
         return false;
+
     if (current->GetTaskInstance() != table_index_)
         return false;
     return true;
@@ -118,7 +126,7 @@ void FlowTable::GetMutexSeq(tbb::mutex &mutex1, tbb::mutex &mutex2,
 }
 
 FlowEntry *FlowTable::Find(const FlowKey &key) {
-    assert(ConcurrencyCheck() == true);
+    assert(ConcurrencyCheck(flow_task_id_) == true);
     FlowEntryMap::iterator it;
 
     it = flow_entry_map_.find(key);
@@ -138,7 +146,7 @@ void FlowTable::Copy(FlowEntry *lhs, FlowEntry *rhs, bool update) {
 }
 
 FlowEntry *FlowTable::Locate(FlowEntry *flow, uint64_t time) {
-    assert(ConcurrencyCheck() == true);
+    assert(ConcurrencyCheck(flow_task_id_) == true);
     std::pair<FlowEntryMap::iterator, bool> ret;
     ret = flow_entry_map_.insert(FlowEntryMapPair(flow->key(), flow));
     if (ret.second == true) {
@@ -875,7 +883,7 @@ FlowEntryFreeList::~FlowEntryFreeList() {
 
 // Allocate a chunk of FlowEntries
 void FlowEntryFreeList::Grow() {
-    assert(table_->ConcurrencyCheck() == true);
+    assert(table_->ConcurrencyCheck(table_->flow_task_id()) == true);
     grow_pending_ = false;
     if (free_list_.size() >= kMinThreshold)
         return;
@@ -888,7 +896,7 @@ void FlowEntryFreeList::Grow() {
 }
 
 FlowEntry *FlowEntryFreeList::Allocate(const FlowKey &key) {
-    assert(table_->ConcurrencyCheck() == true);
+    assert(table_->ConcurrencyCheck(table_->flow_task_id()) == true);
     FlowEntry *flow = NULL;
     if (free_list_.size() == 0) {
         flow = new FlowEntry(table_);
@@ -910,7 +918,7 @@ FlowEntry *FlowEntryFreeList::Allocate(const FlowKey &key) {
 }
 
 void FlowEntryFreeList::Free(FlowEntry *flow) {
-    assert(table_->ConcurrencyCheck() == true);
+    assert(table_->ConcurrencyCheck(table_->flow_task_id()) == true);
     total_free_++;
     flow->Reset();
     free_list_.push_back(*flow);

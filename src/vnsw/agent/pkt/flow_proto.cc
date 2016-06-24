@@ -382,7 +382,7 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
 
 bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
     // concurrency check to ensure all request are in right partitions
-    assert(table->ConcurrencyCheck() == true);
+    assert(table->ConcurrencyCheck(table->flow_task_id()) == true);
 
     switch (req->event()) {
     case FlowEvent::VROUTER_FLOW_MSG: {
@@ -469,7 +469,8 @@ bool FlowProto::FlowKSyncMsgHandler(FlowEvent *req, FlowTable *table) {
     FlowEventKSync *ksync_event = static_cast<FlowEventKSync *>(req);
 
     // concurrency check to ensure all request are in right partitions
-    assert(table->ConcurrencyCheck() == true);
+    assert((table->ConcurrencyCheck(table->flow_ksync_task_id()) == true) ||
+           (table->ConcurrencyCheck(table->flow_task_id()) == true));
 
     switch (req->event()) {
     // Flow was waiting for an index. Index is available now. Retry acquiring
@@ -523,7 +524,7 @@ bool FlowProto::FlowDeleteHandler(FlowEvent *req, FlowTable *table) {
     // flow-update-queue doenst happen table pointer. Skip concurrency check
     // for flow-update-queue
     if (table) {
-        assert(table->ConcurrencyCheck() == true);
+        assert(table->ConcurrencyCheck(table->flow_delete_task_id()) == true);
     }
 
     switch (req->event()) {
