@@ -19,7 +19,7 @@ using namespace boost::asio;
 
 void DiscoveryAgentClient::Init(AgentParam *param) {
     param_ = param;
-    uint32_t port = agent_cfg_->agent()->discovery_server_port();
+    uint16_t port = param_->discovery_server_port();
     if (!port) {
         port = DISCOVERY_SERVER_PORT;
     }
