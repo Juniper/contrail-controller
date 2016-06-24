@@ -137,7 +137,13 @@ UpdateInfo *UpdateQueue::AttrNext(UpdateInfo *current_uinfo) {
         return NULL;
     }
     if (encoding_is_xmpp_) {
-        return next_uinfo;
+        const RibOutAttr &next_roattr = next_uinfo->roattr;
+        const RibOutAttr &current_roattr = current_uinfo->roattr;
+        if (next_roattr.IsReachable() == current_roattr.IsReachable()) {
+            return next_uinfo;
+        } else {
+            return NULL;
+        }
     }
     if (next_uinfo->roattr.attr() == current_uinfo->roattr.attr()) {
         return next_uinfo;
