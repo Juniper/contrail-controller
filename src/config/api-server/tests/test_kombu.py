@@ -69,7 +69,7 @@ class TestIfmapKombuClient(unittest.TestCase):
                      "skipping because kombu client is older")
     def test_url_parsing(self):
         check_value = []
-        def Connection(self, urls):
+        def Connection(self, urls, **kwargs):
             if set(urls) != set(check_value):
                 raise WrongValueException()
             else:
