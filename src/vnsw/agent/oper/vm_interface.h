@@ -244,6 +244,7 @@ public:
                         bool policy_change, bool old_layer2_forwarding,
                         bool old_layer3_forwarding) const;
         void L2DeActivate(VmInterface *interface) const;
+        void CreateLabelAndNH(Agent *agent, VmInterface *interface) const;
 
         mutable std::string vrf_;
         IpAddress   addr_;
@@ -254,6 +255,9 @@ public:
         mutable uint32_t    ethernet_tag_;
         mutable VrfEntryRef vrf_ref_;
         mutable IpAddress  service_ip_;
+        mutable uint32_t label_;
+        mutable NextHopRef policy_enabled_nh_;
+        mutable NextHopRef policy_disabled_nh_;
     };
     typedef std::set<AllowedAddressPair, AllowedAddressPair>
         AllowedAddressPairSet;
@@ -433,7 +437,7 @@ public:
 
     VmInterface(const boost::uuids::uuid &uuid);
     VmInterface(const boost::uuids::uuid &uuid, const std::string &name,
-                const Ip4Address &addr, const std::string &mac,
+                const Ip4Address &addr, const MacAddress &mac,
                 const std::string &vm_name,
                 const boost::uuids::uuid &vm_project_uuid, uint16_t tx_vlan_id,
                 uint16_t rx_vlan_id, Interface *parent,
@@ -459,7 +463,7 @@ public:
     bool policy_enabled() const { return policy_enabled_; }
     const Ip4Address &subnet_bcast_addr() const { return subnet_bcast_addr_; }
     const Ip6Address &primary_ip6_addr() const { return primary_ip6_addr_; }
-    const std::string &vm_mac() const { return vm_mac_; }
+    const MacAddress &vm_mac() const { return vm_mac_; }
     bool fabric_port() const { return fabric_port_; }
     bool need_linklocal_ip() const { return  need_linklocal_ip_; }
     bool dhcp_enable_config() const { return dhcp_enable_; }
@@ -566,6 +570,8 @@ public:
     bool IsFloatingIp(const IpAddress &ip) const;
     Ip4Address mdata_ip_addr() const;
     MetaDataIp *GetMetaDataIp(const Ip4Address &ip) const;
+    const MacAddress& GetIpMac(const IpAddress &,
+                              const uint8_t plen) const;
 
     void InsertMetaDataIpInfo(MetaDataIp *mip);
     void DeleteMetaDataIpInfo(MetaDataIp *mip);
@@ -654,7 +660,7 @@ private:
                   uint32_t plen, const std::string &vn_name, bool policy,
                   bool ecmp, const IpAddress &service_ip,
                   const IpAddress &dependent_ip,
-                  const CommunityList &communties);
+                  const CommunityList &communties, uint32_t label);
     void DeleteRoute(const std::string &vrf_name, const IpAddress &ip,
                      uint32_t plen);
     void ResolveRoute(const std::string &vrf_name, const Ip4Address &addr,
@@ -802,7 +808,7 @@ private:
     std::auto_ptr<MetaDataIp> mdata_ip_;
     Ip4Address subnet_bcast_addr_;
     Ip6Address primary_ip6_addr_;
-    std::string vm_mac_;
+    MacAddress vm_mac_;
     bool policy_enabled_;
     MirrorEntryRef mirror_entry_;
     Interface::MirrorDirection mirror_direction_;
