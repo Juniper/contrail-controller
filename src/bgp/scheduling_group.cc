@@ -509,7 +509,7 @@ bool SchedulingGroup::empty() const {
 // Return true if the IPeer is in sync.
 //
 bool SchedulingGroup::PeerInSync(IPeerUpdate *peer) const {
-    CHECK_CONCURRENCY("bgp::PeerMembership");
+    CHECK_CONCURRENCY("bgp::PeerMembership", "bgp::ShowCommand");
 
     PeerState *ps = peer_state_imap_.Find(peer);
     return (ps) ? ps->in_sync() : false;
