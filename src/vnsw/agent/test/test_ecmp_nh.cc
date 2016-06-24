@@ -1425,12 +1425,14 @@ TEST_F(EcmpNhTest, EcmpNH_15) {
 //Add the interface, trigger route change and verify that component NH
 //list get populated
 TEST_F(EcmpNhTest, EcmpNH_16) {
+    MacAddress mac1 = MacAddress::FromString("00:00:00:01:01:01");
     AddVrf("vrf2");
     client->WaitForIdle();
     Ip4Address remote_vm_ip = Ip4Address::from_string("1.1.1.1");
     //Transition remote VM route to ECMP route
     ComponentNHKeyPtr nh_data1(new ComponentNHKey(15, MakeUuid(1),
-                                                  InterfaceNHFlags::INET4));
+                                                  InterfaceNHFlags::INET4,
+                                                  mac1));
     ComponentNHKeyList comp_nh_list;
     //Insert new NH first and then existing route NH
     comp_nh_list.push_back(nh_data1);
