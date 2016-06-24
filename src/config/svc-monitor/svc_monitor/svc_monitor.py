@@ -84,6 +84,35 @@ class SvcMonitor(object):
             self.logger.warning("Failed to open trace file %s" %
                                     self._err_file)
 
+        # Connect to Rabbit and Initialize cassandra connection
+        self._connect_rabbit()
+
+    def _connect_rabbit(self):
+        rabbit_server = self._args.rabbit_server
+        rabbit_port = self._args.rabbit_port
+        rabbit_user = self._args.rabbit_user
+        rabbit_password = self._args.rabbit_password
+        rabbit_vhost = self._args.rabbit_vhost
+        rabbit_ha_mode = self._args.rabbit_ha_mode
+
+        self._db_resync_done = gevent.event.Event()
+
+        q_name = 'svc_mon.%s' % (socket.gethostname())
+        self._vnc_kombu = VncKombuClient(rabbit_server, rabbit_port,
+                                         rabbit_user, rabbit_password,
+                                         rabbit_vhost, rabbit_ha_mode,
+                                         q_name, self._vnc_subscribe_callback,
+                                         self.logger.log, rabbit_use_ssl =
+                                         self._args.rabbit_use_ssl,
+                                         kombu_ssl_version =
+                                         self._args.kombu_ssl_version,
+                                         kombu_ssl_keyfile =
+                                         self._args.kombu_ssl_keyfile,
+                                         kombu_ssl_certfile =
+                                         self._args.kombu_ssl_certfile,
+                                         kombu_ssl_ca_certs =
+                                         self._args.kombu_ssl_ca_certs)
+
         # init cassandra
         self._cassandra = ServiceMonitorDB(self._args, self.logger)
         DBBaseSM.init(self, self.logger, self._cassandra)
@@ -685,6 +714,11 @@ def parse_args(args_str):
         'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
         'check_service_interval': '60',
         'nova_endpoint_type': 'internalURL',
+        'rabbit_use_ssl': False,
+        'kombu_ssl_version': '',
+        'kombu_ssl_keyfile': '',
+        'kombu_ssl_certfile': '',
+        'kombu_ssl_ca_certs': '',
     }
     secopts = {
         'use_certs': False,
