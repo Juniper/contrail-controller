@@ -1031,13 +1031,14 @@ TEST_F(RouteTest, RouteToDeletedNH_1) {
     InetUnicastRouteEntry *rt = RouteGet(vrf_name_, local_vm_ip_, 32);
     EXPECT_TRUE(rt->dest_vn_name() == "vn1");
 
+    MacAddress vm_mac = MacAddress::FromString("00:00:00:01:01:01");
     // Add state to NextHop so that entry is not freed on delete
     DBTableBase::ListenerId id = 
         Agent::GetInstance()->nexthop_table()->Register(
                boost::bind(&RouteTest::NhListener, this, _1, _2));
     InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                           MakeUuid(1), ""),
-                       false, InterfaceNHFlags::INET4);
+                       false, InterfaceNHFlags::INET4, vm_mac);
     NextHop *nh = 
         static_cast<NextHop *>(Agent::GetInstance()->nexthop_table()->FindActiveEntry(&key));
     TestNhState *state = new TestNhState();
@@ -1617,7 +1618,9 @@ TEST_F(RouteTest, RouteResync_1) {
     InetInterfaceKey intf_key("vnet1");
     VnListType vn_list;
     vn_list.insert("vn1");
-    req.data.reset(new InetInterfaceRoute(intf_key, 1, TunnelType::GREType(), vn_list));
+    req.data.reset(new InetInterfaceRoute(intf_key, 1, TunnelType::GREType(),
+                          vn_list,
+                          MacAddress::FromString("00:00:00:01:01:01")));
     AgentRouteTable *table =
         agent_->vrf_table()->GetInet4UnicastRouteTable("vrf1");
     table->Enqueue(&req);
@@ -2257,11 +2260,13 @@ TEST_F(RouteTest, EcmpTest_1) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
+    MacAddress vm_mac = MacAddress::FromString("00:00:01:01:01:10");
     MplsLabelKey *key = new MplsLabelKey(MplsLabel::VPORT_NH, label);
     req.key.reset(key);
 
     MplsLabelData *data = new MplsLabelData("vnet1", false,
-                                            InterfaceNHFlags::INET4);
+                                            InterfaceNHFlags::INET4,
+                                            vm_mac);
     req.data.reset(data);
 
     agent->mpls_table()->Enqueue(&req);

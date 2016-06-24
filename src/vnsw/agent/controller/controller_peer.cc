@@ -1056,7 +1056,9 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
                                                      TunnelType::GREType(),
                                                      vn_list,
                                                      unicast_sequence_number(),
-                                                     this);
+                                                     this,
+                                                     agent_->pkt_interface_mac());
+
                 rt_table->AddInetInterfaceRouteReq(bgp_peer, vrf_name,
                                                 prefix_addr.to_v4(), prefix_len,
                                                 inet_interface_route);

@@ -285,7 +285,8 @@ public:
                                   const Ip4Address &addr, uint8_t plen,
                                   const string &interface,
                                   uint32_t label,
-                                  const VnListType &vn_list);
+                                  const VnListType &vn_list,
+                                  const MacAddress &mac);
     static void AddVHostRecvRoute(const Peer *peer, const string &vrf,
                                   const string &interface,
                                   const IpAddress &addr, uint8_t plen,

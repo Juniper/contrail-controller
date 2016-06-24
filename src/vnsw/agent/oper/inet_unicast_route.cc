@@ -882,7 +882,7 @@ Inet4UnicastInterfaceRoute::Inet4UnicastInterfaceRoute
 (const PhysicalInterface *interface, const std::string &vn_name) :
         AgentRouteData(false),
         interface_key_(new PhysicalInterfaceKey(interface->name())),
-        vn_name_(vn_name) {
+        vn_name_(vn_name), mac_(interface->mac()) {
 }
 
 bool Inet4UnicastInterfaceRoute::AddChangePath(Agent *agent, AgentPath *path,
@@ -897,7 +897,8 @@ bool Inet4UnicastInterfaceRoute::AddChangePath(Agent *agent, AgentPath *path,
         ret = true;
     }
 
-    InterfaceNHKey key(interface_key_->Clone(), false, InterfaceNHFlags::INET4);
+    InterfaceNHKey key(interface_key_->Clone(), false,
+                       InterfaceNHFlags::INET4, mac_);
     NextHop *nh = static_cast<NextHop *>
         (agent->nexthop_table()->FindActiveEntry(&key));
     if (path->ChangeNH(agent, nh) == true) {
@@ -1082,9 +1083,11 @@ InetUnicastAgentRouteTable::AddHostRoute(const string &vrf_name,
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new InetUnicastRouteKey(agent->local_peer(), vrf_name,
                                            addr, plen));
+    MacAddress mac;
+    mac.last_octet() = 1;
 
     PacketInterfaceKey intf_key(nil_uuid(), agent->GetHostInterfaceName());
-    HostRoute *data = new HostRoute(intf_key, dest_vn_name);
+    HostRoute *data = new HostRoute(intf_key, dest_vn_name, mac);
     req.data.reset(data);
 
     InetUnicastTableEnqueue(Agent::GetInstance(), vrf_name, &req);
@@ -1372,10 +1375,11 @@ void InetUnicastAgentRouteTable::AddInetInterfaceRouteReq(const Peer *peer,
                                                           uint8_t plen,
                                                           const string &interface,
                                                           uint32_t label,
-                                                          const VnListType &vn_list) {
+                                                          const VnListType &vn_list,
+                                                          const MacAddress &mac) {
     InetInterfaceKey intf_key(interface);
     InetInterfaceRoute *data = new InetInterfaceRoute
-        (intf_key, label, TunnelType::GREType(), vn_list);
+        (intf_key, label, TunnelType::GREType(), vn_list, mac);
 
     AddInetInterfaceRouteReq(peer, vm_vrf, addr, plen, data);
 }

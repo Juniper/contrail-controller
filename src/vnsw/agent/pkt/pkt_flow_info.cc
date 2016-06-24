@@ -143,19 +143,6 @@ static uint32_t NhToVrf(const NextHop *nh) {
     return vrf->vrf_id();
 }
 
-// FIXME : PERF - Copy NextHop instead of creating key and then entry
-static const NextHop* GetPolicyEnabledNH(NextHopTable *nh_table,
-                                         const NextHop *nh) {
-    if (nh->PolicyEnabled()) {
-        return nh;
-    }
-    DBEntryBase::KeyPtr key = nh->GetDBRequestKey();
-    NextHopKey *nh_key = static_cast<NextHopKey *>(key.get());
-    nh_key->SetPolicy(true);
-    return static_cast<const NextHop *>
-        (nh_table->FindActiveEntryNoLock(key.get()));
-}
-
 static const NextHop* GetPolicyDisabledNH(NextHopTable *nh_table,
                                           const NextHop *nh) {
     if (nh->PolicyEnabled() == false) {
@@ -303,8 +290,7 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
                     if (local_intf &&
                             local_intf->type() == Interface::VM_INTERFACE) {
                         if (local_nh->IsActive()) {
-                            out->nh_ =
-                                GetPolicyEnabledNH(nh_table, local_nh)->id();
+                            out->nh_ = local_intf->flow_key_nh()->id();
                         } else {
                             LogError(pkt, "Invalid or Inactive ifindex");
                             info->short_flow = true;
@@ -526,7 +512,8 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
                 (agent->nexthop_table()->FindActiveEntryNoLock(&key));
         } else {
             InterfaceNH key(const_cast<VmInterface *>(vm_port), false,
-                            InterfaceNHFlags::INET4);
+                            InterfaceNHFlags::INET4,
+                            MacAddress::FromString(vm_port->vm_mac()));
             component_nh_ptr = static_cast<NextHop *>
                 (agent->nexthop_table()->FindActiveEntryNoLock(&key));
             label = vm_port->label();

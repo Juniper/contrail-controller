@@ -244,6 +244,7 @@ public:
                         bool policy_change, bool old_layer2_forwarding,
                         bool old_layer3_forwarding) const;
         void L2DeActivate(VmInterface *interface) const;
+        void CreateLabelAndNH(Agent *agent, VmInterface *interface) const;
 
         mutable std::string vrf_;
         IpAddress   addr_;
@@ -254,6 +255,9 @@ public:
         mutable uint32_t    ethernet_tag_;
         mutable VrfEntryRef vrf_ref_;
         mutable IpAddress  service_ip_;
+        mutable uint32_t label_;
+        mutable NextHopRef policy_enabled_nh_;
+        mutable NextHopRef policy_disabled_nh_;
     };
     typedef std::set<AllowedAddressPair, AllowedAddressPair>
         AllowedAddressPairSet;
@@ -568,6 +572,8 @@ public:
     bool IsFloatingIp(const IpAddress &ip) const;
     Ip4Address mdata_ip_addr() const;
     MetaDataIp *GetMetaDataIp(const Ip4Address &ip) const;
+    const MacAddress GetIpMac(const IpAddress &,
+                              const uint8_t plen) const;
 
     void InsertMetaDataIpInfo(MetaDataIp *mip);
     void DeleteMetaDataIpInfo(MetaDataIp *mip);
@@ -657,7 +663,7 @@ private:
                   uint32_t plen, const std::string &vn_name, bool policy,
                   bool ecmp, const IpAddress &service_ip,
                   const IpAddress &dependent_ip,
-                  const CommunityList &communties);
+                  const CommunityList &communties, uint32_t label);
     void DeleteRoute(const std::string &vrf_name, const IpAddress &ip,
                      uint32_t plen);
     void ResolveRoute(const std::string &vrf_name, const Ip4Address &addr,

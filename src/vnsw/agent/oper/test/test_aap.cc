@@ -52,6 +52,7 @@ struct PortInfo input[] = {
 class TestAap : public ::testing::Test {
 public:
     TestAap() {
+        agent_ = Agent::GetInstance();
         peer_ = CreateBgpPeer(Ip4Address(1), "BGP Peer 1");
     }
 
@@ -153,6 +154,7 @@ public:
     }
 protected:
     Peer *peer_;
+    Agent *agent_;
 };
 
 //Add and delete allowed address pair route
@@ -241,10 +243,18 @@ TEST_F(TestAap, EvpnRoute) {
     EXPECT_TRUE(EvpnRouteGet("vrf1", mac, ip, 0));
     EXPECT_TRUE(vm_intf->allowed_address_pair_list().list_.size() == 1);
 
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    uint32_t label = rt->GetActivePath()->label();
+    EXPECT_TRUE(label != vm_intf->label());
+    const InterfaceNH *intf_nh =
+        dynamic_cast<const InterfaceNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(intf_nh->GetDMac() == mac);
+
     AddAap("intf1", 1, Ip4Address(0), zero_mac.ToString());
     EXPECT_FALSE(RouteFind("vrf1", ip, 32));
     EXPECT_FALSE(EvpnRouteGet("vrf1", mac, ip, 0));
     EXPECT_TRUE(vm_intf->allowed_address_pair_list().list_.size() == 0);
+    EXPECT_TRUE(agent_->mpls_table()->FindMplsLabel(label) == NULL);
 }
 
 //Check if subnet gateway for allowed address pair route gets set properly
@@ -280,10 +290,23 @@ TEST_F(TestAap, EvpnRoute_with_mac_change) {
     EXPECT_TRUE(EvpnRouteGet("vrf1", mac, ip, 0));
     EXPECT_TRUE(vm_intf->allowed_address_pair_list().list_.size() == 1);
 
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    uint32_t label = rt->GetActivePath()->label();
+    EXPECT_TRUE(label != vm_intf->label());
+    const InterfaceNH *intf_nh =
+        dynamic_cast<const InterfaceNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(intf_nh->GetDMac() == mac);
+
     AddAap("intf1", 1, ip, mac1.ToString());
     EXPECT_TRUE(RouteFind("vrf1", ip, 32));
     EXPECT_FALSE(EvpnRouteGet("vrf1", mac, ip, 0));
     EXPECT_TRUE(EvpnRouteGet("vrf1", mac1, ip, 0));
+
+    rt = RouteGet("vrf1", ip, 32);
+    label = rt->GetActivePath()->label();
+    EXPECT_TRUE(label != vm_intf->label());
+    intf_nh = dynamic_cast<const InterfaceNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(intf_nh->GetDMac() == mac1);
 }
 
 #if 0
@@ -332,6 +355,30 @@ TEST_F(TestAap, EvpnRoute_3) {
     EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
 }
 #endif
+
+TEST_F(TestAap, EvpnRoute_4) {
+    //Have MAC address of AAP same as interface mac
+    Ip4Address ip = Ip4Address::from_string("10.10.10.10");
+    MacAddress mac("00:00:00:01:01:01");
+
+    VmInterface *vm_intf = static_cast<VmInterface *>(VmPortGet(1));
+    AddAap("intf1", 1, ip, mac.ToString());
+    EXPECT_TRUE(RouteFind("vrf1", ip, 32));
+    EXPECT_TRUE(EvpnRouteGet("vrf1", mac, ip, 0));
+    EXPECT_TRUE(vm_intf->allowed_address_pair_list().list_.size() == 1);
+
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    uint32_t label = rt->GetActivePath()->label();
+    EXPECT_TRUE(label == vm_intf->label());
+    const InterfaceNH *intf_nh =
+        dynamic_cast<const InterfaceNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(intf_nh->GetDMac() == mac);
+
+    AddAap("intf1", 1, Ip4Address(0), zero_mac.ToString());
+    EXPECT_FALSE(RouteFind("vrf1", ip, 32));
+    EXPECT_FALSE(EvpnRouteGet("vrf1", mac, ip, 0));
+    EXPECT_TRUE(vm_intf->allowed_address_pair_list().list_.size() == 0);
+}
 
 //Just add a local path, verify that sequence no gets initialized to 0
 TEST_F(TestAap, StateMachine_1) {

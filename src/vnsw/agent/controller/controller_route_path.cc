@@ -331,8 +331,9 @@ ControllerInetInterfaceRoute::ControllerInetInterfaceRoute(const InetInterfaceKe
                                                            int tunnel_bmap,
                                                            const std::set<string> &dest_vn_list,
                                                            uint64_t sequence_number,
-                                                           const AgentXmppChannel *channel) :
-    InetInterfaceRoute(intf, label, tunnel_bmap, dest_vn_list),
+                                                           const AgentXmppChannel *channel,
+                                                           const MacAddress &mac) :
+    InetInterfaceRoute(intf, label, tunnel_bmap, dest_vn_list, mac),
     sequence_number_(sequence_number), channel_(channel) { }
 
 string ControllerInetInterfaceRoute::PeerInvalidMsg

@@ -497,9 +497,10 @@ private:
 class InetInterfaceRoute : public AgentRouteData {
 public:
     InetInterfaceRoute(const InetInterfaceKey &intf, uint32_t label,
-                       int tunnel_bmap, const VnListType &dest_vn_list) :
+                       int tunnel_bmap, const VnListType &dest_vn_list,
+                       const MacAddress &mac) :
         AgentRouteData(false), intf_(intf), label_(label),
-        tunnel_bmap_(tunnel_bmap), dest_vn_list_(dest_vn_list) {
+        tunnel_bmap_(tunnel_bmap), dest_vn_list_(dest_vn_list), mac_(mac) {
     }
     virtual ~InetInterfaceRoute() { }
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
@@ -512,14 +513,16 @@ private:
     uint32_t label_;
     int tunnel_bmap_;
     VnListType dest_vn_list_;
+    MacAddress mac_;
     DISALLOW_COPY_AND_ASSIGN(InetInterfaceRoute);
 };
 
 class HostRoute : public AgentRouteData {
 public:
-    HostRoute(const PacketInterfaceKey &intf, const std::string &dest_vn_name) :
+    HostRoute(const PacketInterfaceKey &intf, const std::string &dest_vn_name,
+              const MacAddress &mac) :
         AgentRouteData(false), intf_(intf), dest_vn_name_(dest_vn_name),
-        proxy_arp_(false) {
+        proxy_arp_(false), mac_(mac) {
     }
     virtual ~HostRoute() { }
     void set_proxy_arp() {proxy_arp_ = true;}
@@ -532,6 +535,7 @@ private:
     PacketInterfaceKey intf_;
     std::string dest_vn_name_;
     bool proxy_arp_;
+    MacAddress mac_;
     DISALLOW_COPY_AND_ASSIGN(HostRoute);
 };
 
@@ -730,6 +734,7 @@ public:
 private:
     std::auto_ptr<InterfaceKey> interface_key_;
     std::string vn_name_;
+    MacAddress mac_;
     DISALLOW_COPY_AND_ASSIGN(Inet4UnicastInterfaceRoute);
 };
 

@@ -731,7 +731,7 @@ TEST_F(AgentXmppUnitTest, resync_db_req_by_deleted_peer_non_hv) {
                               Agent::GetInstance()->router_id(), "vrf10",
                               addr, TunnelType::ComputeType(TunnelType::MplsType()),
                               100, vn_list, SecurityGroupList(),
-                              PathPreference(), false);
+                              PathPreference(), false, EcmpLoadBalance());
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     InetUnicastRouteKey *key =
         new InetUnicastRouteKey(old_bgp_peer, "vrf10", addr, 32);
@@ -793,7 +793,8 @@ TEST_F(AgentXmppUnitTest, resync_db_req_by_deleted_peer_non_hv) {
     ControllerInetInterfaceRoute *inet_interface_route =
         new ControllerInetInterfaceRoute(inet_intf_key, 10,
                                          TunnelType::GREType(), vn_list1,
-                                         sequence_number, channel);
+                                         sequence_number, channel,
+                                         MacAddress());
     DBRequest inet_rt_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     key = new InetUnicastRouteKey(old_bgp_peer, "vrf10",
                                    Ip4Address::from_string("3.3.3.3"), 32);
@@ -912,7 +913,8 @@ TEST_F(AgentXmppUnitTest, Add_db_inetinterface_req_by_deleted_peer_non_hv) {
     ControllerInetInterfaceRoute *inet_interface_route =
         new ControllerInetInterfaceRoute(inet_intf_key, 10,
                                          TunnelType::GREType(), vn_list1,
-                                         sequence_number, channel);
+                                         sequence_number, channel,
+                                         MacAddress());
     agent->fabric_inet4_unicast_table()->AddInetInterfaceRouteReq(old_bgp_peer,
            "vrf1", Ip4Address::from_string("3.3.3.3"), 32, inet_interface_route);
     EXPECT_TRUE(RouteGet("vrf1", Ip4Address::from_string("3.3.3.3"), 32) ==

@@ -215,7 +215,8 @@ VirtualGateway::RouteUpdate(const VirtualGatewayConfig &vgw,
                                            Ip4Address(0), 0,
                                            vgw.interface_name(),
                                            vgw.interface()->label(),
-                                           name_list);
+                                           name_list,
+                                           agent_->pkt_interface_mac());
     }
     // remove old routes, add new routes
     for (uint32_t idx = 0; idx < del_list.size(); idx++) {
@@ -232,7 +233,8 @@ VirtualGateway::RouteUpdate(const VirtualGatewayConfig &vgw,
                                            add_list[idx].plen_,
                                            vgw.interface_name(),
                                            vgw.interface()->label(),
-                                           name_list);
+                                           name_list,
+                                           agent_->pkt_interface_mac());
     }
 }
 

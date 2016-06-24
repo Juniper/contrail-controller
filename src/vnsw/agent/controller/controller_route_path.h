@@ -197,7 +197,8 @@ public:
     ControllerInetInterfaceRoute(const InetInterfaceKey &intf, uint32_t label,
                                  int tunnel_bmap, const VnListType &dest_vn_list,
                                  uint64_t sequence_number,
-                                 const AgentXmppChannel *channel);
+                                 const AgentXmppChannel *channel,
+                                 const MacAddress &mac);
     virtual ~ControllerInetInterfaceRoute() { }
     virtual std::string PeerInvalidMsg(const AgentRouteKey *key) const;
     virtual bool IsPeerValid(const AgentRouteKey *key) const;

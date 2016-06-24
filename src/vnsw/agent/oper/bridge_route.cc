@@ -93,8 +93,11 @@ void BridgeAgentRouteTable::AddBridgeReceiveRoute(const Peer *peer,
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new BridgeRouteKey(peer, vrf_name, mac, 0));
 
+    MacAddress mac1;
+    mac1.last_octet() = 1;
+
     PacketInterfaceKey intf_key(nil_uuid(), agent->pkt_interface_name());
-    req.data.reset(new HostRoute(intf_key, vn_name));
+    req.data.reset(new HostRoute(intf_key, vn_name, mac1));
 
     BridgeTableEnqueue(agent, &req);
 }
