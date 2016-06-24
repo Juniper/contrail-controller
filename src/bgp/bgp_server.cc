@@ -534,12 +534,9 @@ uint32_t BgpServer::num_down_static_routes() const {
 }
 
 void BgpServer::VisitBgpPeers(BgpServer::VisitorFn fn) const {
-    for (RoutingInstanceMgr::RoutingInstanceIterator rit = inst_mgr_->begin();
-         rit != inst_mgr_->end(); ++rit) {
-        BgpPeerKey key = BgpPeerKey();
-        while (BgpPeer *peer = rit->peer_manager()->NextPeer(key)) {
-            fn(peer);
-        }
+    for (BgpPeerList::const_iterator loc = peer_list_.begin();
+         loc != peer_list_.end(); ++loc) {
+        fn(loc->second);
     }
 }
 
