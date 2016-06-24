@@ -338,6 +338,9 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
             flags |= VR_FLOW_FLAG_VRFT;
             req.set_fr_flow_dvrf(flow_entry_->data().dest_vrf);
+        } else if (flow_entry_->is_flags_set(FlowEntry::AliasIpFlow)) {
+            flags |= VR_FLOW_FLAG_VRFT;
+            req.set_fr_flow_dvrf(flow_entry_->data().dest_vrf);
         }
 
         if (fe_action & (1 << TrafficAction::VRF_TRANSLATE)) {

@@ -76,6 +76,15 @@ struct FloatingIpSandeshList {
 }
 
 /**
+ * Sandesh definition for alias ip entry in oper db
+ */
+struct AliasIpSandeshList {
+   1: string ip_addr;
+   2: string vrf_name (link="VrfListReq"); // VRF name
+   3: string installed;
+}
+
+/**
  * Sandesh defenition for static route entry in oper db
  */
 struct StaticRouteSandesh {
@@ -152,6 +161,7 @@ struct ItfSandeshData {
    54: optional string metadata_ip_active;
    55: optional string service_health_check_ip;
    56: optional string qos_config; //QOS config uuid
+   57: list<AliasIpSandeshList> alias_ip_list;// Alias IP List
 }
 
 /**

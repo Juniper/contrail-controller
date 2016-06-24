@@ -252,6 +252,18 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
             //nexthop as reverse flow key
             out->nh_ = out->intf_->flow_key_nh()->id();
             out->vrf_ = static_cast<const InterfaceNH*>(nh)->GetVrf();
+            const VmInterface *vm_port =
+                dynamic_cast<const VmInterface *>(out->intf_);
+            if (vm_port != NULL) {
+                VrfEntry *alias_vrf = vm_port->GetAliasIpVrf(pkt->ip_daddr);
+                if (alias_vrf != NULL) {
+                    out->vrf_ = alias_vrf;
+                    // translate to alias ip vrf for destination, unless
+                    // overriden by translation due to NAT or ACL
+                    info->dest_vrf = alias_vrf->vrf_id();
+                    info->alias_ip_flow = true;
+                }
+            }
         } else if (out->intf_->type() == Interface::PACKET) {
             //Packet destined to pkt interface, packet originating
             //from pkt0 interface will use destination interface as key
@@ -876,7 +888,12 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
     UpdateRoute(&out->rt_, it->vrf_.get(), pkt->ip_daddr, pkt->dmac,
                 flow_dest_plen_map);
     out->vn_ = it->vn_.get();
-    dest_vrf = out->intf_->vrf()->vrf_id();
+    VrfEntry *alias_vrf = vm_port->GetAliasIpVrf(it->GetFixedIp(vm_port));
+    if (alias_vrf == NULL) {
+        dest_vrf = out->intf_->vrf()->vrf_id();
+    } else {
+        dest_vrf = alias_vrf->vrf_id();
+    }
     if (VrfTranslate(pkt, in, out, pkt->ip_saddr, true) == false) {
         return;
     }
@@ -1013,7 +1030,7 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
     }
 
     // Dest VRF for reverse flow is In-Port VRF
-    nat_dest_vrf = intf->vrf_id();
+    nat_dest_vrf = in->vrf_->vrf_id();
 
     flow_source_vrf = pkt->vrf;
     if (out->rt_) {
@@ -1121,6 +1138,19 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
         in->intf_->type() != Interface::INET) {
         LogError(pkt, "Unexpected packet on Non-VM interface");
         return;
+    }
+
+    const VmInterface *vm_port =
+        dynamic_cast<const VmInterface *>(in->intf_);
+    if (vm_port != NULL) {
+        VrfEntry *alias_vrf = vm_port->GetAliasIpVrf(pkt->ip_saddr);
+        if (alias_vrf != NULL) {
+            in->vrf_ = alias_vrf;
+            // translate to alias ip vrf for destination, unless overriden by
+            // translation due to NAT or ACL
+            dest_vrf = alias_vrf->vrf_id();
+            alias_ip_flow = true;
+        }
     }
 
     // We always expect route for source-ip for ingress flows.
@@ -1276,6 +1306,15 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
         if (vm_intf->IsFloatingIp(pkt->ip_daddr)) {
             pkt->l3_forwarding = true;
             l3_flow = true;
+        } else {
+            VrfEntry *alias_vrf = vm_intf->GetAliasIpVrf(pkt->ip_daddr);
+            if (alias_vrf != NULL) {
+                out->vrf_ = alias_vrf;
+                // translate to alias ip vrf for destination, unless overriden by
+                // translation due to NAT or ACL
+                dest_vrf = alias_vrf->vrf_id();
+                alias_ip_flow = true;
+            }
         }
     }
 

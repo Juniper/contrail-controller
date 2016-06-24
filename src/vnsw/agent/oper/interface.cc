@@ -885,6 +885,30 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             it++;
         }
         data.set_fip_list(fip_list);
+
+        std::vector<AliasIpSandeshList> aip_list;
+        VmInterface::AliasIpSet::const_iterator a_it = 
+            vintf->alias_ip_list().list_.begin();
+        while (a_it != vintf->alias_ip_list().list_.end()) {
+            const VmInterface::AliasIp &ip = *a_it;
+            AliasIpSandeshList entry;
+            entry.set_ip_addr(ip.alias_ip_.to_string());
+            if (ip.vrf_.get()) {
+                entry.set_vrf_name(ip.vrf_.get()->GetName());
+            } else {
+                entry.set_vrf_name("--ERROR--");
+            }
+
+            if (ip.installed_) {
+                entry.set_installed("Y");
+            } else {
+                entry.set_installed("N");
+            }
+            aip_list.push_back(entry);
+            a_it++;
+        }
+        data.set_alias_ip_list(aip_list);
+
         data.set_logical_interface_uuid(to_string(vintf->logical_interface()));
 
         // Add Service VLAN list

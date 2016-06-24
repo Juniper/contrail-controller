@@ -73,6 +73,8 @@ IFMapDependencyManager::~IFMapDependencyManager() {
 void IFMapDependencyManager::Initialize(Agent *agent) {
     static const char *ifmap_types[] = {
         "access-control-list",
+        "alias-ip",
+        "alias-ip-pool",
         "bgp-as-a-service",
         "bgp-router",
         "floating-ip",
@@ -622,6 +624,13 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
     AddDependencyPath("virtual-machine-interface",
                       MakePath("virtual-machine-interface-security-group",
                                "security-group", true));
+    AddDependencyPath("virtual-machine-interface",
+                      MakePath("alias-ip-virtual-machine-interface",
+                               "alias-ip", true,
+                               "alias-ip-pool-alias-ip",
+                               "alias-ip-pool", false,
+                               "virtual-network-alias-ip-pool",
+                               "virtual-network", true));
     AddDependencyPath("virtual-machine-interface",
                       MakePath("floating-ip-virtual-machine-interface",
                                "floating-ip", true,
