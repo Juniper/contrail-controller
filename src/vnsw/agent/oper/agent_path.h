@@ -498,7 +498,7 @@ private:
 class InetInterfaceRoute : public AgentRouteData {
 public:
     InetInterfaceRoute(const InetInterfaceKey &intf, uint32_t label,
-                       int tunnel_bmap, const VnListType &dest_vn_list) :
+                       int tunnel_bmap, const VnListType &dest_vn_list):
         AgentRouteData(false), intf_(intf), label_(label),
         tunnel_bmap_(tunnel_bmap), dest_vn_list_(dest_vn_list) {
     }
@@ -518,7 +518,7 @@ private:
 
 class HostRoute : public AgentRouteData {
 public:
-    HostRoute(const PacketInterfaceKey &intf, const std::string &dest_vn_name) :
+    HostRoute(const PacketInterfaceKey &intf, const std::string &dest_vn_name):
         AgentRouteData(false), intf_(intf), dest_vn_name_(dest_vn_name),
         proxy_arp_(false) {
     }
