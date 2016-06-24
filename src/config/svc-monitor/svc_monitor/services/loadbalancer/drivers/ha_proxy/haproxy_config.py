@@ -1,4 +1,15 @@
 from svc_monitor.config_db import *
+from os.path import dirname, exists, join
+import logging
+import yaml
+
+try:
+    from custom_attributes.haproxy_validator \
+        import validate_custom_attributes as get_valid_attrs
+except ImportError:
+    custom_attr_dict = {}
+    def get_valid_attrs(custom_attr_dict, section, custom_attrs):
+        return {}
 
 PROTO_HTTP = 'HTTP'
 PROTO_HTTPS = 'HTTPS'
@@ -29,25 +40,54 @@ PERSISTENCE_APP_COOKIE = 'APP_COOKIE'
 def get_config_v2(lb):
     sock_path = '/var/lib/contrail/loadbalancer/haproxy/'
     sock_path += lb.uuid + '/haproxy.sock'
-    conf = set_globals(sock_path) + '\n\n'
-    conf += set_defaults() + '\n\n'
-    conf += set_v2_frontend_backend(lb)
+    custom_attr_dict = {}
+    custom_attrs = {}
+    conf = set_globals(sock_path, custom_attr_dict, custom_attrs) + '\n\n'
+    conf += set_defaults(custom_attr_dict, custom_attrs) + '\n\n'
+    conf += set_v2_frontend_backend(lb, custom_attr_dict, custom_attrs)
     return conf
 
 def get_config_v1(pool):
     sock_path = '/var/lib/contrail/loadbalancer/haproxy/'
     sock_path += pool.uuid + '/haproxy.sock'
-    conf = set_globals(sock_path) + '\n\n'
-    conf += set_defaults() + '\n\n'
-    conf += set_v1_frontend_backend(pool)
+    custom_attr_dict = get_custom_attributes_dict()
+    custom_attrs = get_custom_attributes(pool)
+    conf = set_globals(sock_path, custom_attr_dict, custom_attrs) + '\n\n'
+    conf += set_defaults(custom_attr_dict, custom_attrs) + '\n\n'
+    conf += set_v1_frontend_backend(pool, custom_attr_dict, custom_attrs)
     return conf
 
-def set_globals(sock_path):
-    maxconn = 65000
-    ssl_ciphers = \
-        'ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:' \
-        'ECDH+AES128:DH+AES:ECDH+3DES:DH+3DES:RSA+AESGCM:' \
-        'RSA+AES:RSA+3DES:!aNULL:!MD5:!DSS'
+
+def get_custom_attributes_dict():
+    custom_attr_dict = {}
+    script_dir = dirname(__file__)
+    rel_path = "custom_attributes/custom_attributes.yml"
+    abs_file_path = join(script_dir, rel_path)
+    if exists(abs_file_path):
+        with open(abs_file_path, 'r') as f:
+            custom_attr_dict = yaml.safe_load(f)
+    return custom_attr_dict
+
+def get_custom_attributes(pool):
+    custom_attrs = {}
+    for kvp in pool.custom_attributes or []:
+        custom_attrs[kvp['key']] = kvp['value']
+    return custom_attrs
+
+def set_globals(sock_path, custom_attr_dict, custom_attrs):
+    global_custom_attrs = get_valid_attrs(custom_attr_dict, 'global', custom_attrs)
+    if 'max_conn' in global_custom_attrs:
+        maxconn = global_custom_attrs.pop('max_conn', None)
+    else:
+        maxconn = 65000
+
+    if 'ssl_ciphers' in global_custom_attrs:
+        ssl_ciphers = global_custom_attrs.pop('ssl_ciphers', None)
+    else:
+        ssl_ciphers = \
+            'ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:' \
+            'ECDH+AES128:DH+AES:ECDH+3DES:DH+3DES:RSA+AESGCM:' \
+            'RSA+AES:RSA+3DES:!aNULL:!MD5:!DSS'
 
     conf = [
         'global',
@@ -62,13 +102,31 @@ def set_globals(sock_path):
         'maxconn %d' % maxconn
     ]
     conf.append('stats socket %s mode 0666 level user' % sock_path)
+
+    # Adding custom_attributes config
+    for key, value in global_custom_attrs.iteritems():
+        cmd = custom_attr_dict['global'][key]['cmd']
+        conf.append(cmd % value)
+
     res = "\n\t".join(conf)
     return res
 
-def set_defaults():
-    client_timeout = 300000
-    server_timeout = 300000
-    connect_timeout = 5000
+def set_defaults(custom_attr_dict, custom_attrs):
+    default_custom_attrs = get_valid_attrs(custom_attr_dict, 'default', custom_attrs)
+    if 'client_timeout' in default_custom_attrs:
+        client_timeout = default_custom_attrs.pop('client_timeout', None)
+    else:
+        client_timeout = 300000
+
+    if 'server_timeout' in default_custom_attrs:
+        server_timeout = default_custom_attrs.pop('server_timeout', None)
+    else:
+        server_timeout = 300000
+
+    if 'connect_timeout' in default_custom_attrs:
+        connect_timeout = default_custom_attrs.pop('connect_timeout', None)
+    else:
+        connect_timeout = 5000
 
     conf = [
         'defaults',
@@ -80,10 +138,15 @@ def set_defaults():
         'timeout server %d' % server_timeout,
     ]
 
+    # Adding custom_attributes config
+    for key, value in default_custom_attrs.iteritems():
+        cmd = custom_attr_dict['default'][key]['cmd']
+        conf.append(cmd % value)
+
     res = "\n\t".join(conf)
     return res
 
-def set_v1_frontend_backend(pool):
+def set_v1_frontend_backend(pool, custom_attr_dict, custom_attrs):
     conf = []
     vip = VirtualIpSM.get(pool.virtual_ip)
     if not vip and not vip.params['admin_state']:
@@ -104,15 +167,20 @@ def set_v1_frontend_backend(pool):
             vip.params['protocol'] == PROTO_HTTPS:
         lconf.append('option forwardfor')
 
+    frontend_custom_attrs = get_valid_attrs(custom_attr_dict, 'frontend', custom_attrs)
     if pool and pool.params['admin_state']:
         lconf.append('default_backend %s' % pool.uuid)
+        # Adding custom_attributes config
+        for key, value in frontend_custom_attrs.iteritems():
+            cmd = custom_attr_dict['frontend'][key]['cmd']
+            lconf.append(cmd % value)
         res = "\n\t".join(lconf) + '\n\n'
-        res += set_backend(pool)
+        res += set_backend(pool, custom_attr_dict, custom_attrs)
         conf.append(res)
 
     return "\n".join(conf)
 
-def set_v2_frontend_backend(lb):
+def set_v2_frontend_backend(lb, custom_attr_dict, custom_attrs):
     conf = []
     for ll_id in lb.loadbalancer_listeners:
         ll = LoadbalancerListenerSM.get(ll_id)
@@ -150,12 +218,13 @@ def set_v2_frontend_backend(lb):
         if pool and pool.params['admin_state']:
             lconf.append('default_backend %s' % pool.uuid)
             res = "\n\t".join(lconf) + '\n\n'
-            res += set_backend(pool)
+            res += set_backend(pool, custom_attr_dict, custom_attrs)
             conf.append(res)
 
     return "\n".join(conf)
 
-def set_backend(pool):
+def set_backend(pool, custom_attr_dict, custom_attrs):
+    backend_custom_attrs = get_valid_attrs(custom_attr_dict, 'backend', custom_attrs)
     conf = [
         'backend %s' % pool.uuid,
         'mode %s' % PROTO_MAP[pool.params['protocol']],
@@ -184,6 +253,11 @@ def set_backend(pool):
                   member.params['weight'])) + server_suffix
         conf.append(server)
 
+    # Adding custom_attributes config
+    for key, value in backend_custom_attrs.iteritems():
+        cmd = custom_attr_dict['backend'][key]['cmd']
+        conf.append(cmd % value)
+
     return "\n\t".join(conf) + '\n'
 
 def set_health_monitor(hm):
@@ -197,7 +271,7 @@ def set_health_monitor(hm):
     ]
 
     if hm.params['monitor_type'] in (HEALTH_MONITOR_HTTP, HEALTH_MONITOR_HTTPS):
-        conf.append('option httpchk %s %s' % 
+        conf.append('option httpchk %s %s' %
             (hm.params['http_method'], hm.params['url_path']))
         conf.append(
             'http-check expect rstatus %s' %
