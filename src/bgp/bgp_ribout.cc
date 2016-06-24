@@ -96,6 +96,17 @@ bool RibOutAttr::NextHop::operator!=(const NextHop &rhs) const {
     return CompareTo(rhs) != 0;
 }
 
+//
+// Copy constructor.
+// Do not copy the string representation;
+//
+RibOutAttr::RibOutAttr(const RibOutAttr &rhs) {
+    attr_out_ = rhs.attr_out_;
+    nexthop_list_ = rhs.nexthop_list_;
+    is_xmpp_ = rhs.is_xmpp_;
+    vrf_originated_ = rhs.vrf_originated_;
+}
+
 RibOutAttr::RibOutAttr(const BgpTable *table, const BgpAttr *attr,
     uint32_t label)
     : attr_out_(attr),
@@ -164,6 +175,18 @@ RibOutAttr::RibOutAttr(const BgpRoute *route, const BgpAttr *attr,
         }
         nexthop_list_.push_back(nexthop);
     }
+}
+
+//
+// Assignment operator.
+// Do not copy the string representation;
+//
+RibOutAttr &RibOutAttr::operator=(const RibOutAttr &rhs) {
+    attr_out_ = rhs.attr_out_;
+    nexthop_list_ = rhs.nexthop_list_;
+    is_xmpp_ = rhs.is_xmpp_;
+    vrf_originated_ = rhs.vrf_originated_;
+    return *this;
 }
 
 //
