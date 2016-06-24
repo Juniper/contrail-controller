@@ -57,7 +57,7 @@ using namespace autogen;
 VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     Interface(Interface::VM_INTERFACE, uuid, "", NULL), vm_(NULL),
     vn_(NULL), primary_ip_addr_(0), mdata_ip_(NULL), subnet_bcast_addr_(0),
-    primary_ip6_addr_(), vm_mac_(""), policy_enabled_(false),
+    primary_ip6_addr_(), vm_mac_(MacAddress::kZeroMac), policy_enabled_(false),
     mirror_entry_(NULL), mirror_direction_(MIRROR_RX_TX), cfg_name_(""),
     fabric_port_(true), need_linklocal_ip_(false), dhcp_enable_(true),
     do_dhcp_relay_(false), vm_name_(),
@@ -88,7 +88,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
 
 VmInterface::VmInterface(const boost::uuids::uuid &uuid,
                          const std::string &name,
-                         const Ip4Address &addr, const std::string &mac,
+                         const Ip4Address &addr, const MacAddress &mac,
                          const std::string &vm_name,
                          const boost::uuids::uuid &vm_project_uuid,
                          uint16_t tx_vlan_id, uint16_t rx_vlan_id,
@@ -1419,16 +1419,18 @@ void VmInterface::UpdateL3MetadataIp(VrfEntry *old_vrf, bool force_update,
     assert(metadata_ip_active_);
     if (!old_metadata_ip_active) {
         InterfaceNH::CreateL3VmInterfaceNH(GetUuid(),
-                                           MacAddress::FromString(vm_mac_),
+                                           vm_mac_,
                                            vrf_->GetName());
         InterfaceNHKey key1(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                               GetUuid(), ""),
-                            true, InterfaceNHFlags::INET4);
+                            true, InterfaceNHFlags::INET4,
+                            vm_mac_);
         l3_interface_nh_policy_ = static_cast<NextHop *>(agent->
                       nexthop_table()->FindActiveEntry(&key1));
         InterfaceNHKey key2(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                               GetUuid(), ""),
-                            false, InterfaceNHFlags::INET4);
+                            false, InterfaceNHFlags::INET4,
+                            vm_mac_);
         l3_interface_nh_no_policy_ = static_cast<NextHop *>(agent->
                       nexthop_table()->FindActiveEntry(&key2));
     }
@@ -1442,7 +1444,8 @@ void VmInterface::DeleteL3MetadataIp(VrfEntry *old_vrf, bool force_update,
                                      bool old_need_linklocal_ip) {
     assert(!metadata_ip_active_);
     if (old_metadata_ip_active) {
-        InterfaceNH::DeleteL3InterfaceNH(GetUuid());
+        InterfaceNH::DeleteL3InterfaceNH(GetUuid(),
+                                         vm_mac_);
         l3_interface_nh_policy_.reset();
         l3_interface_nh_no_policy_.reset();
     }
@@ -1551,7 +1554,7 @@ void VmInterface::UpdateL2Bridging(bool old_bridging, VrfEntry *old_vrf,
                            Ip6Address(), old_ethernet_tag,
                            old_layer3_forwarding, policy_change,
                            Ip4Address(), Ip6Address(),
-                           MacAddress::FromString(vm_mac_),
+                           vm_mac_,
                            Ip4Address(0));
     UpdateIpv4InstanceIp(force_update, policy_change, true, old_ethernet_tag);
     UpdateIpv6InstanceIp(force_update, policy_change, true, old_ethernet_tag);
@@ -1598,7 +1601,7 @@ void VmInterface::DeleteL2Bridging(bool old_bridging, VrfEntry *old_vrf,
     if (old_bridging) {
         DeleteL2InterfaceRoute(old_bridging, old_vrf, Ip4Address(0),
                                Ip6Address(), old_ethernet_tag,
-                               MacAddress::FromString(vm_mac_));
+                               vm_mac_);
         DeleteFloatingIp(true, old_ethernet_tag);
         DeleteL2ReceiveRoute(old_vrf, old_bridging);
         DeleteAllowedAddressPair(true);
@@ -1839,8 +1842,15 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
 
 VmInterface *VmInterfaceConfigData::OnAdd(const InterfaceTable *table,
                                           const VmInterfaceKey *key) const {
+
+    boost::system::error_code ec;
+    MacAddress mac = MacAddress::FromString(vm_mac_, &ec);
+    if (ec.value() != 0) {
+        mac.Zero();
+    }
+
     VmInterface *vmi =
-        new VmInterface(key->uuid_, key->name_, addr_, vm_mac_, vm_name_,
+        new VmInterface(key->uuid_, key->name_, addr_, mac, vm_name_,
                         nil_uuid(), VmInterface::kInvalidVlanId,
                         VmInterface::kInvalidVlanId, NULL, ip6_addr_,
                         device_type_, vmi_type_);
@@ -2019,9 +2029,7 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
     }
 
     bool mac_set = true;
-    boost::system::error_code ec;
-    MacAddress addr(vm_mac_, &ec);
-    if (ec.value() != 0) {
+    if (vm_mac_ == MacAddress::kZeroMac) {
         mac_set = false;
     }
     if (mac_set_ != mac_set) {
@@ -2290,8 +2298,15 @@ VmInterface *VmInterfaceNovaData::OnAdd(const InterfaceTable *table,
             (table->agent()->interface_table()->FindActiveEntry(&key_1));
         assert(parent != NULL);
     }
+
+    boost::system::error_code ec;
+    MacAddress mac = MacAddress::FromString(mac_addr_, &ec);
+    if (ec.value() != 0) {
+        mac.Zero();
+    }
+
     VmInterface *vmi =
-        new VmInterface(key->uuid_, key->name_, ipv4_addr_, mac_addr_, vm_name_,
+        new VmInterface(key->uuid_, key->name_, ipv4_addr_, mac, vm_name_,
                         vm_project_uuid_, tx_vlan_id_, rx_vlan_id_,
                         parent, ipv6_addr_, device_type_, vmi_type_);
     vmi->SetConfigurer(VmInterface::INSTANCE_MSG);
@@ -2713,7 +2728,8 @@ void VmInterface::AllocL3MplsLabel(bool force_update, bool policy_change,
 
     if (force_update || policy_change || new_entry)
         MplsLabel::CreateVPortLabel(agent, label_, GetUuid(), policy_enabled_,
-                                    InterfaceNHFlags::INET4);
+                                    InterfaceNHFlags::INET4,
+                                    vm_mac_);
 }
 
 // Delete MPLS Label for Layer3 routes
@@ -2741,7 +2757,8 @@ void VmInterface::AllocL2MplsLabel(bool force_update,
     Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
     if (force_update || policy_change || new_entry)
         MplsLabel::CreateVPortLabel(agent, l2_label_, GetUuid(),
-                                    policy_enabled_, InterfaceNHFlags::BRIDGE);
+                                    policy_enabled_, InterfaceNHFlags::BRIDGE,
+                                    vm_mac_);
 }
 
 // Delete MPLS Label for Bridge Entries 
@@ -2847,14 +2864,15 @@ void VmInterface::UpdateMulticastNextHop(bool old_ipv4_active,
                                          bool old_l2_active) {
     if (Ipv4Activated(old_ipv4_active) || L2Activated(old_l2_active)) {
         InterfaceNH::CreateMulticastVmInterfaceNH(GetUuid(),
-                                                  MacAddress::FromString(vm_mac_),
+                                                  MacAddress::BroadcastMac(),
                                                   vrf_->GetName());
         InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
         Agent *agent = table->agent();
         InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                               GetUuid(), ""),
                           false, (InterfaceNHFlags::INET4 |
-                                  InterfaceNHFlags::MULTICAST));
+                                  InterfaceNHFlags::MULTICAST),
+                                  MacAddress::BroadcastMac());
         multicast_nh_ = static_cast<NextHop *>(agent->
                         nexthop_table()->FindActiveEntry(&key));
     }
@@ -2867,7 +2885,8 @@ void VmInterface::UpdateFlowKeyNextHop() {
     if (ipv4_active_ || ipv6_active_) {
         InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                               GetUuid(), ""), true,
-                                              InterfaceNHFlags::INET4);
+                                              InterfaceNHFlags::INET4,
+                                              vm_mac_);
         flow_key_nh_ = static_cast<const NextHop *>(
                 agent->nexthop_table()->FindActiveEntry(&key));
         return;
@@ -2875,7 +2894,8 @@ void VmInterface::UpdateFlowKeyNextHop() {
 
     InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                           GetUuid(), ""), true,
-                                          InterfaceNHFlags::BRIDGE);
+                                          InterfaceNHFlags::BRIDGE,
+                                          vm_mac_);
     flow_key_nh_ = static_cast<const NextHop *>(
             agent->nexthop_table()->FindActiveEntry(&key));
 }
@@ -2886,7 +2906,7 @@ void VmInterface::UpdateMacVmBinding() {
     Agent *agent = table->agent();
     table->AddMacVmBindingRoute(agent->mac_vm_binding_peer(),
                                 vrf_->GetName(),
-                                MacAddress::FromString(vm_mac_),
+                                vm_mac_,
                                 this);
 }
 
@@ -2895,16 +2915,16 @@ void VmInterface::UpdateL2NextHop(bool old_l2_active) {
     Agent *agent = table->agent();
     if (L2Activated(old_l2_active)) {
         InterfaceNH::CreateL2VmInterfaceNH(GetUuid(),
-                                           MacAddress::FromString(vm_mac_),
+                                           vm_mac_,
                                            vrf_->GetName());
         InterfaceNHKey key1(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                               GetUuid(), ""),
-                            true, InterfaceNHFlags::BRIDGE);
+                            true, InterfaceNHFlags::BRIDGE, vm_mac_);
         l2_interface_nh_policy_ = static_cast<NextHop *>(agent->
                       nexthop_table()->FindActiveEntry(&key1));
         InterfaceNHKey key2(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                               GetUuid(), ""),
-                            false, InterfaceNHFlags::BRIDGE);
+                            false, InterfaceNHFlags::BRIDGE, vm_mac_);
         l2_interface_nh_no_policy_ = static_cast<NextHop *>(agent->
                       nexthop_table()->FindActiveEntry(&key2));
     }
@@ -2919,14 +2939,14 @@ void VmInterface::DeleteMacVmBinding(const VrfEntry *old_vrf) {
         return;
     Agent *agent = table->agent();
     table->DeleteMacVmBindingRoute(agent->mac_vm_binding_peer(),
-                                   old_vrf->GetName(),
-                                   MacAddress::FromString(vm_mac_),
+                                   old_vrf->GetName(), vm_mac_,
                                    this);
 }
 
 void VmInterface::DeleteL2NextHop(bool old_l2_active) {
     if (L2Deactivated(old_l2_active)) {
-        InterfaceNH::DeleteL2InterfaceNH(GetUuid());
+        InterfaceNH::DeleteL2InterfaceNH(GetUuid(),
+                                         vm_mac_);
         l2_interface_nh_policy_.reset();
         l2_interface_nh_no_policy_.reset();
     }
@@ -3017,7 +3037,7 @@ void VmInterface::UpdateIpv4InterfaceRoute(bool old_ipv4_active, bool force_upda
             vm_ip_service_addr_ = ip;
             AddRoute(vrf_->GetName(), primary_ip_addr_, 32, vn_->GetName(),
                      policy_enabled_, ecmp_, vm_ip_service_addr_, Ip4Address(0),
-                     CommunityList());
+                     CommunityList(), label_);
         } else if (policy_change) {
             // If old-l3-active and there is change in policy, invoke RESYNC of
             // route to account for change in NH policy
@@ -3662,7 +3682,7 @@ void VmInterface::AddRoute(const std::string &vrf_name, const IpAddress &addr,
                            uint32_t plen, const std::string &dest_vn,
                            bool policy, bool ecmp, const IpAddress &service_ip,
                            const IpAddress &dependent_rt,
-                           const CommunityList &communities) {
+                           const CommunityList &communities, uint32_t label) {
     SecurityGroupList sg_id_list;
     CopySgIdList(&sg_id_list);
 
@@ -3675,7 +3695,7 @@ void VmInterface::AddRoute(const std::string &vrf_name, const IpAddress &addr,
     CopyEcmpLoadBalance(ecmp_load_balance);
     InetUnicastAgentRouteTable::AddLocalVmRoute(peer_.get(), vrf_name, addr,
                                                  plen, GetUuid(),
-                                                 vn_list, label_,
+                                                 vn_list, label,
                                                  sg_id_list, communities, false,
                                                  path_preference, service_ip,
                                                  ecmp_load_balance);
@@ -3809,12 +3829,12 @@ void VmInterface::InstanceIp::L3Activate(VmInterface *interface,
         interface->AddRoute(interface->vrf()->GetName(), ip_.to_v4(), 32,
                             interface->vn()->GetName(), true, ecmp_,
                             interface->GetServiceIp(ip_), Ip4Address(0),
-                            CommunityList());
+                            CommunityList(), interface->label());
     } else if (ip_.is_v6()) {
         interface->AddRoute(interface->vrf()->GetName(), ip_.to_v6(), 128,
                             interface->vn()->GetName(), true, ecmp_,
                             interface->GetServiceIp(ip_), Ip6Address(),
-                            CommunityList());
+                            CommunityList(), interface->label());
     }
     installed_ = true;
 }
@@ -3859,7 +3879,7 @@ void VmInterface::InstanceIp::L2Activate(VmInterface *interface,
                                interface->vrf(), ipv4, ipv6,
                                old_ethernet_tag, false,
                                false, ipv4, ipv6,
-                               MacAddress::FromString(interface->vm_mac()),
+                               interface->vm_mac(),
                                Ip4Address(0));
         l2_installed_ = true;
     }
@@ -3883,7 +3903,7 @@ void VmInterface::InstanceIp::L2DeActivate(VmInterface *interface,
 
     interface->DeleteL2InterfaceRoute(true, old_vrf, ipv4, ipv6,
                                       old_ethernet_tag,
-                                      MacAddress::FromString(interface->vm_mac()));
+                                      interface->vm_mac());
     l2_installed_ = false;
 }
 
@@ -3999,7 +4019,8 @@ void VmInterface::FloatingIp::L3Activate(VmInterface *interface,
     if (floating_ip_.is_v4()) {
         interface->AddRoute(vrf_.get()->GetName(), floating_ip_.to_v4(), 32,
                         vn_->GetName(), true, interface->ecmp(), Ip4Address(0),
-                        GetFixedIp(interface), CommunityList());
+                        GetFixedIp(interface), CommunityList(),
+                        interface->label());
         if (table->update_floatingip_cb().empty() == false) {
             table->update_floatingip_cb()(interface, vn_.get(),
                                           floating_ip_.to_v4(), false);
@@ -4008,7 +4029,7 @@ void VmInterface::FloatingIp::L3Activate(VmInterface *interface,
         interface->AddRoute(vrf_.get()->GetName(), floating_ip_.to_v6(), 128,
                             vn_->GetName(), true, interface->ecmp6(),
                             Ip6Address(), GetFixedIp(interface),
-                            CommunityList());
+                            CommunityList(), interface->label());
         //TODO:: callback for DNS handling
     }
 
@@ -4058,7 +4079,7 @@ void VmInterface::FloatingIp::L2Activate(VmInterface *interface,
     }
     evpn_table->AddReceiveRoute(interface->peer_.get(), vrf_->GetName(),
                                 interface->l2_label(),
-                                MacAddress::FromString(interface->vm_mac()),
+                                interface->vm_mac(),
                                 floating_ip_, interface->ethernet_tag(),
                                 vn_->GetName(), path_preference);
     l2_installed_ = true;
@@ -4074,7 +4095,7 @@ void VmInterface::FloatingIp::L2DeActivate(VmInterface *interface,
         (vrf_->GetEvpnRouteTable());
     if (evpn_table) {
         evpn_table->DelLocalVmRoute(interface->peer_.get(), vrf_->GetName(),
-                                    MacAddress::FromString(interface->vm_mac()),
+                                    interface->vm_mac(),
                                     interface, floating_ip_, ethernet_tag);
     }
     //Reset the interface ethernet_tag
@@ -4213,11 +4234,12 @@ void VmInterface::AliasIp::Activate(VmInterface *interface,
     if (alias_ip_.is_v4()) {
         interface->AddRoute(vrf_.get()->GetName(), alias_ip_.to_v4(), 32,
                             vn_->GetName(), true, interface->ecmp(), Ip4Address(0),
-                            Ip4Address(0), CommunityList());
+                            Ip4Address(0), CommunityList(), interface->label());
     } else if (alias_ip_.is_v6()) {
         interface->AddRoute(vrf_.get()->GetName(), alias_ip_.to_v6(), 128,
                             vn_->GetName(), true, interface->ecmp6(),
-                            Ip6Address(), Ip6Address(), CommunityList());
+                            Ip6Address(), Ip6Address(), CommunityList(),
+                            interface->label());
     }
 
     installed_ = true;
@@ -4340,7 +4362,8 @@ void VmInterface::StaticRoute::Activate(VmInterface *interface,
             interface->AddRoute(vrf_, addr_, plen_,
                                 interface->vn_->GetName(),
                                 interface->policy_enabled(),
-                                ecmp, IpAddress(), dependent_ip, communities_);
+                                ecmp, IpAddress(), dependent_ip, communities_,
+                                interface->label());
         }
     }
 
@@ -4376,7 +4399,8 @@ void VmInterface::StaticRouteList::Remove(StaticRouteSet::iterator &it) {
 VmInterface::AllowedAddressPair::AllowedAddressPair() :
     ListEntry(), vrf_(""), addr_(), plen_(0), ecmp_(false), mac_(),
     l2_entry_installed_(false), ethernet_tag_(0), vrf_ref_(NULL, this),
-    service_ip_() {
+    service_ip_(), label_(MplsTable::kInvalidLabel), policy_enabled_nh_(NULL),
+    policy_disabled_nh_(NULL) {
 }
 
 VmInterface::AllowedAddressPair::AllowedAddressPair(
@@ -4384,7 +4408,9 @@ VmInterface::AllowedAddressPair::AllowedAddressPair(
     rhs.del_pending_), vrf_(rhs.vrf_), addr_(rhs.addr_), plen_(rhs.plen_),
     ecmp_(rhs.ecmp_), mac_(rhs.mac_),
     l2_entry_installed_(rhs.l2_entry_installed_), ethernet_tag_(rhs.ethernet_tag_),
-    vrf_ref_(rhs.vrf_ref_, this), service_ip_(rhs.service_ip_) {
+    vrf_ref_(rhs.vrf_ref_, this), service_ip_(rhs.service_ip_),
+    label_(rhs.label_), policy_enabled_nh_(rhs.policy_enabled_nh_),
+    policy_disabled_nh_(rhs.policy_disabled_nh_) {
 }
 
 VmInterface::AllowedAddressPair::AllowedAddressPair(const std::string &vrf,
@@ -4392,7 +4418,9 @@ VmInterface::AllowedAddressPair::AllowedAddressPair(const std::string &vrf,
                                                     uint32_t plen, bool ecmp,
                                                     const MacAddress &mac) :
     ListEntry(), vrf_(vrf), addr_(addr), plen_(plen), ecmp_(ecmp), mac_(mac),
-    l2_entry_installed_(false), ethernet_tag_(0), vrf_ref_(NULL, this) {
+    l2_entry_installed_(false), ethernet_tag_(0), vrf_ref_(NULL, this),
+    label_(MplsTable::kInvalidLabel), policy_enabled_nh_(NULL),
+    policy_disabled_nh_(NULL) {
 }
 
 VmInterface::AllowedAddressPair::~AllowedAddressPair() {
@@ -4511,6 +4539,38 @@ void VmInterface::AllowedAddressPair::L2DeActivate(VmInterface *interface) const
     vrf_ref_ = NULL;
 }
 
+void VmInterface::AllowedAddressPair::CreateLabelAndNH(Agent *agent,
+                                                      VmInterface *interface) const {
+    //Allocate a new L3 label with proper layer 2
+    //rewrite information
+    if (label_ == MplsTable::kInvalidLabel) {
+        label_ = agent->mpls_table()->AllocLabel();
+    }
+
+    InterfaceNH::CreateL3VmInterfaceNH(interface->GetUuid(), mac_,
+                                       interface->vrf_->GetName());
+
+    VmInterfaceKey vmi_key(AgentKey::ADD_DEL_CHANGE, interface->GetUuid(),
+                           interface->name());
+    InterfaceNHKey key(vmi_key.Clone(), false, InterfaceNHFlags::INET4, mac_);
+    InterfaceNH *nh = static_cast<InterfaceNH *>(agent->nexthop_table()->
+                                                 FindActiveEntry(&key));
+    policy_disabled_nh_ = nh;
+    //Ensure nexthop to be deleted upon refcount falling to 0
+    nh->set_delete_on_zero_refcount(true);
+
+    InterfaceNHKey key1(vmi_key.Clone(), true, InterfaceNHFlags::INET4, mac_);
+    nh = static_cast<InterfaceNH *>(agent->
+                                    nexthop_table()->FindActiveEntry(&key1));
+    //Ensure nexthop to be deleted upon refcount falling to 0
+    nh->set_delete_on_zero_refcount(true);
+    policy_enabled_nh_ = nh;
+
+    MplsLabel::CreateVPortLabel(agent, label_, interface->GetUuid(),
+                                interface->policy_enabled(),
+                                InterfaceNHFlags::INET4, mac_);
+}
+
 void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
                                                bool force_update,
                                                bool policy_change) const {
@@ -4521,12 +4581,13 @@ void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
         return;
     }
 
+    Agent *agent = interface->agent();
     if (vrf_ != interface->vrf()->GetName()) {
         vrf_ = interface->vrf()->GetName();
     }
 
     if (installed_ == true && policy_change) {
-        InetUnicastAgentRouteTable::ReEvaluatePaths(interface->agent(),
+        InetUnicastAgentRouteTable::ReEvaluatePaths(agent,
                                                     vrf_, addr_, plen_);
     } else if (installed_ == false || force_update || service_ip_ != ip) {
         service_ip_ = ip;
@@ -4544,9 +4605,19 @@ void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
                 dependent_rt = Ip6Address();
             }
         }
-        interface->AddRoute(vrf_, addr_, plen_, interface->vn_->GetName(),
-                            interface->policy_enabled(),
-                            ecmp_, service_ip_, dependent_rt, CommunityList());
+
+        if (mac_ == MacAddress::kZeroMac ||
+            mac_ == interface->vm_mac_) {
+            interface->AddRoute(vrf_, addr_, plen_, interface->vn_->GetName(),
+                    interface->policy_enabled(),
+                    ecmp_, service_ip_, dependent_rt, CommunityList(),
+                    interface->label());
+        } else {
+            CreateLabelAndNH(agent, interface);
+            interface->AddRoute(vrf_, addr_, plen_, interface->vn_->GetName(),
+                                interface->policy_enabled(), ecmp_, service_ip_,
+                                dependent_rt, CommunityList(), label_);
+        }
     }
     installed_ = true;
 }
@@ -4555,6 +4626,8 @@ void VmInterface::AllowedAddressPair::DeActivate(VmInterface *interface) const {
     if (installed_ == false)
         return;
     interface->DeleteRoute(vrf_, addr_, plen_);
+    MplsLabel::Delete(interface->agent(), label_);
+    label_ = MplsTable::kInvalidLabel;
     installed_ = false;
 }
 
@@ -4756,6 +4829,19 @@ void VmInterface::ServiceVlanList::Update(const ServiceVlan *lhs,
 
 void VmInterface::ServiceVlanList::Remove(ServiceVlanSet::iterator &it) {
     it->set_del_pending(true);
+}
+
+const MacAddress&
+VmInterface::GetIpMac(const IpAddress &ip, uint8_t plen) const {
+    AllowedAddressPairSet::const_iterator it =
+        allowed_address_pair_list_.list_.begin();
+    while (it != allowed_address_pair_list_.list_.end()) {
+        if (it->addr_ == ip && it->plen_ == plen) {
+            return it->mac_;
+        }
+        it++;
+    }
+    return vm_mac_;
 }
 
 uint32_t VmInterface::GetServiceVlanLabel(const VrfEntry *vrf) const {

@@ -73,6 +73,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
         is_mcast_nh_ = if_nh->is_multicastNH();
         is_bridge_ = if_nh->IsBridge();
         vrf_id_ = if_nh->GetVrf()->vrf_id();
+        dmac_ = if_nh->GetDMac();
         // VmInterface can potentially have vlan-tags. Get tag in such case
         if (if_nh->GetInterface()->type() == Interface::VM_INTERFACE) {
             vlan_tag_ = (static_cast<const VmInterface *>
@@ -231,6 +232,11 @@ bool NHKSyncEntry::IsLess(const KSyncEntry &rhs) const {
         if(is_bridge_ != entry.is_bridge_) {
             return is_bridge_ < entry.is_bridge_;
         }
+
+        if (dmac_ != entry.dmac_) {
+            return dmac_ < entry.dmac_;
+        }
+
         return interface() < entry.interface();
     }
 

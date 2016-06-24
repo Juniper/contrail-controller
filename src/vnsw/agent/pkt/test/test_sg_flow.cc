@@ -559,7 +559,8 @@ TEST_F(SgTest, Fwd_Sg_Change_2) {
     Agent::GetInstance()->fabric_inet4_unicast_table()->
         AddLocalVmRouteReq(bgp_peer_, "vrf1", vm_ip, 32,
                 vm_intf->GetUuid(), vn_list, vm_intf->label(),
-                sg_list, CommunityList(), false, PathPreference(), Ip4Address(0));
+                sg_list, CommunityList(), false, PathPreference(), Ip4Address(0),
+                EcmpLoadBalance());
     client->WaitForIdle();
 
     //Packet egress from vnet2, so that its the first entry in flow route map
@@ -577,7 +578,7 @@ TEST_F(SgTest, Fwd_Sg_Change_2) {
         AddLocalVmRouteReq(bgp_peer_, "vrf1", vm_ip, 32,
                 vm_intf->GetUuid(), vn_list, vm_intf->label(),
                 SecurityGroupList(), CommunityList(), false, PathPreference(),
-                Ip4Address(0));
+                Ip4Address(0), EcmpLoadBalance());
     client->WaitForIdle();
 
     FlowEntry *fe = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
@@ -621,11 +622,14 @@ TEST_F(SgTest, Fwd_Sg_Change_3) {
     Ip4Address vm_ip = Ip4Address::from_string("1.1.1.1");
     const VmInterface *vm_intf = static_cast<const VmInterface *>
         (VmPortGet(1));
+
+    VnListType vn_list;
+    vn_list.insert("vn1");
     Agent::GetInstance()->fabric_inet4_unicast_table()->
         AddLocalVmRouteReq(bgp_peer_, "vrf1", vm_ip, 32,
-                vm_intf->GetUuid(), "vn1", vm_intf->label(),
+                vm_intf->GetUuid(), vn_list, vm_intf->label(),
                 SecurityGroupList(), CommunityList(), false, PathPreference(),
-                Ip4Address(0));
+                Ip4Address(0), EcmpLoadBalance());
     client->WaitForIdle();
 
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
@@ -648,9 +652,9 @@ TEST_F(SgTest, Fwd_Sg_Change_3) {
     client->WaitForIdle();
     Agent::GetInstance()->fabric_inet4_unicast_table()->
         AddLocalVmRouteReq(bgp_peer_, "vrf1", vm_ip, 32,
-                vm_intf->GetUuid(), "vn1", vm_intf->label(),
+                vm_intf->GetUuid(), vn_list, vm_intf->label(),
                 sg_list, CommunityList(), false, PathPreference(),
-                Ip4Address(0));
+                Ip4Address(0), EcmpLoadBalance());
     client->WaitForIdle();
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],

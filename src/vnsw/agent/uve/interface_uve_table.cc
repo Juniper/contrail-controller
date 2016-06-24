@@ -113,7 +113,7 @@ bool InterfaceUveTable::UveInterfaceEntry::FrameInterfaceMsg(const string &name,
     s_intf->set_name(name);
     SetVnVmInfo(s_intf);
     s_intf->set_ip_address(intf_->primary_ip_addr().to_string());
-    s_intf->set_mac_address(intf_->vm_mac());
+    s_intf->set_mac_address(intf_->vm_mac().ToString());
     s_intf->set_ip6_address(intf_->primary_ip6_addr().to_string());
     s_intf->set_ip6_active(intf_->ipv6_active());
     s_intf->set_is_health_check_active(intf_->is_hc_active());

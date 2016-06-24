@@ -1064,7 +1064,8 @@ TEST_F(EcmpTest, EcmpTest_16) {
     Agent *agent = Agent::GetInstance();
     //Add a ECMP route for traffic origiator
     ComponentNHKeyPtr nh_data1(new ComponentNHKey(label, MakeUuid(1),
-                                                  InterfaceNHFlags::INET4));
+                                                  InterfaceNHFlags::INET4,
+                                                  intf->vm_mac()));
     ComponentNHKeyPtr nh_data2(new ComponentNHKey(20, agent->fabric_vrf_name(),
                                                   agent->router_id(),
                                                   remote_server_ip1,
@@ -2326,8 +2327,10 @@ TEST_F(EcmpTest, VgwFlag) {
     client->WaitForIdle();
 
     InetInterfaceKey *intf_key = new InetInterfaceKey("vgw1");
+    InetInterface *intf = InetInterfaceGet("vgw1");
     std::auto_ptr<const NextHopKey> nh_key(new InterfaceNHKey(intf_key, false,
-                                                              InterfaceNHFlags::INET4));
+                                                              InterfaceNHFlags::INET4,
+                                                              intf->mac()));
 
     Ip4Address remote_server_ip1 = Ip4Address::from_string("10.10.10.100");
     ComponentNHKeyPtr nh_data1(new ComponentNHKey(16, nh_key));
@@ -2344,11 +2347,6 @@ TEST_F(EcmpTest, VgwFlag) {
                        comp_nh_list, false, "vn2",
                        SecurityGroupList(), PathPreference());
     client->WaitForIdle();
-
-    InetInterfaceKey tmp_key("vgw1");
-    Interface *intf =
-       static_cast<Interface *>(agent->interface_table()->
-           FindActiveEntry(&tmp_key));
 
     //Send packet on vgw interface
     TxIpPacket(intf->id(), "100.1.1.1", "2.2.2.2", 1);
