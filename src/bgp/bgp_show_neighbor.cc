@@ -132,7 +132,7 @@ void BgpNeighborReq::HandleRequest() const {
     RequestPipeline::StageSpec s1;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
-    s1.taskId_ = scheduler->GetTaskId("bgp::PeerMembership");
+    s1.taskId_ = scheduler->GetTaskId("bgp::ShowCommand");
     s1.cbFn_ = boost::bind(&BgpShowHandler<
         BgpNeighborReq,
         BgpNeighborReqIterate,
@@ -156,7 +156,7 @@ void BgpNeighborReqIterate::HandleRequest() const {
     RequestPipeline::StageSpec s1;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
-    s1.taskId_ = scheduler->GetTaskId("bgp::PeerMembership");
+    s1.taskId_ = scheduler->GetTaskId("bgp::ShowCommand");
     s1.cbFn_ = boost::bind(&BgpShowHandler<
         BgpNeighborReq,
         BgpNeighborReqIterate,
@@ -180,7 +180,7 @@ void ShowBgpNeighborSummaryReq::HandleRequest() const {
     RequestPipeline::StageSpec s1;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
-    s1.taskId_ = scheduler->GetTaskId("bgp::PeerMembership");
+    s1.taskId_ = scheduler->GetTaskId("bgp::ShowCommand");
     s1.cbFn_ = boost::bind(&BgpShowHandler<
         ShowBgpNeighborSummaryReq,
         ShowBgpNeighborSummaryReqIterate,
@@ -204,7 +204,7 @@ void ShowBgpNeighborSummaryReqIterate::HandleRequest() const {
     RequestPipeline::StageSpec s1;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
-    s1.taskId_ = scheduler->GetTaskId("bgp::PeerMembership");
+    s1.taskId_ = scheduler->GetTaskId("bgp::ShowCommand");
     s1.cbFn_ = boost::bind(&BgpShowHandler<
         ShowBgpNeighborSummaryReq,
         ShowBgpNeighborSummaryReqIterate,
