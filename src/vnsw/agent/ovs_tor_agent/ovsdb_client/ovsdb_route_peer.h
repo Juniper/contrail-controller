@@ -10,7 +10,7 @@
 class OvsPeerManager;
 
 // Peer for routes added by OVS
-class OvsPeer : public Peer {
+class OvsPeer : public DynamicPeer {
  public:
     OvsPeer(const IpAddress &peer_ip, uint64_t gen_id, OvsPeerManager *manager);
     virtual ~OvsPeer();
@@ -19,12 +19,7 @@ class OvsPeer : public Peer {
     const Ip4Address *NexthopIp(Agent *agent, const AgentPath *path) const;
     bool AddOvsRoute(const VrfEntry *vrf, uint32_t vxlan_id,
                      const std::string &dest_vn, const MacAddress &mac,
-                     Ip4Address &tor_ip, bool async);
-    bool AddOvsRoute(const VrfEntry *vrf, uint32_t vxlan_id,
-                     const std::string &dest_vn, const MacAddress &mac,
                      Ip4Address &tor_ip);
-    void DeleteOvsRoute(VrfEntry *vrf, uint32_t vxlan, const MacAddress &mac,
-                        bool async);
     void DeleteOvsRoute(VrfEntry *vrf, uint32_t vxlan, const MacAddress &mac);
     void AddOvsPeerMulticastRoute(const VrfEntry *vrf,
                                   uint32_t vxlan_id,

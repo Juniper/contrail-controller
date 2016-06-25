@@ -50,9 +50,9 @@ env.Library('test_ovs_agent_init',
 agent_suite = []
 flaky_agent_suite = []
 disabled_ovsdb_suite = []
-test_ovs_route = AgentEnv.MakeTestCmd(env, 'test_ovs_route', flaky_agent_suite)
-test_ovs_route = AgentEnv.MakeTestCmd(env, 'test_ovs_base', agent_suite)
-test_ovs_route = AgentEnv.MakeTestCmd(env, 'test_ovs_logical_switch', agent_suite)
+AgentEnv.MakeTestCmd(env, 'test_ovs_route', agent_suite)
+AgentEnv.MakeTestCmd(env, 'test_ovs_base', agent_suite)
+AgentEnv.MakeTestCmd(env, 'test_ovs_logical_switch', agent_suite)
 AgentEnv.MakeTestCmd(env, 'test_ovs_multicast_local', agent_suite)
 AgentEnv.MakeTestCmd(env, 'test_ovs_unicast_remote', agent_suite)
 AgentEnv.MakeTestCmd(env, 'test_ovs_unicast_local', agent_suite)

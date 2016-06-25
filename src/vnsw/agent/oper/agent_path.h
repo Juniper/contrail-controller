@@ -181,7 +181,7 @@ public:
     void GetDestinationVnList(std::vector<std::string> *vn_list) const;
     uint32_t GetActiveLabel() const;
     NextHop *nexthop() const;
-    const Peer *peer() const {return peer_;}
+    const Peer *peer() const {return peer_.get();}
     uint32_t label() const {return label_;}
     uint32_t vxlan_id() const {return vxlan_id_;}
     TunnelType::Type tunnel_type() const {return tunnel_type_;}
@@ -279,7 +279,7 @@ public:
     }
 
 private:
-    const Peer *peer_;
+    PeerConstPtr peer_;
     // Nexthop for route. Not used for gateway routes
     NextHopRef nh_;
     // MPLS Label sent by control-node

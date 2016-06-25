@@ -16,9 +16,77 @@
 
 Peer::Peer(Type type, const std::string &name, bool export_to_controller) :
     type_(type), name_(name), export_to_controller_(export_to_controller) {
+    refcount_ = 0;
 }
 
 Peer::~Peer() {
+}
+
+void Peer::OnZeroRefcount() const {
+}
+
+void intrusive_ptr_add_ref(const Peer *p) {
+    p->refcount_.fetch_and_increment();
+    // validate that reference is not taken while delete is in progress
+    assert(!p->SkipAddChangeRequest());
+}
+
+void intrusive_ptr_release(const Peer *p) {
+    if (p->refcount_.fetch_and_decrement() == 1) {
+        p->OnZeroRefcount();
+    }
+}
+
+DynamicPeer::DynamicPeer(Agent *agent, Type type, const std::string &name,
+                         bool export_to_controller) :
+    Peer(type, name, export_to_controller) {
+    delete_timeout_timer_ = TimerManager::CreateTimer(
+                                *(agent->event_manager())->io_service(),
+                                "Dynamic Peer Delete Timer",
+                                agent->task_scheduler()->\
+                                GetTaskId("db::DBTable"), 0);
+    deleted_ = false;
+}
+
+DynamicPeer::~DynamicPeer() {
+    // Dynamic Peer should be marked deleted and will free
+    // automatically once all the references go away
+    assert(deleted_);
+    assert(refcount() == 0);
+    TimerManager::DeleteTimer(delete_timeout_timer_);
+}
+
+void DynamicPeer::ProcessDelete() {
+    if (deleted_.fetch_and_store(true)) {
+        return;
+    }
+
+    if (refcount() != 0) {
+        // still pending references are there start delete timeout timer
+        delete_timeout_timer_->Start(kDeleteTimeout,
+                                     boost::bind(&DynamicPeer::DeleteTimeout,
+                                     this));
+        return;
+    }
+
+    // no pending references delete the peer inline and return
+    delete this;
+}
+
+bool DynamicPeer::DeleteTimeout() {
+    assert(0);
+    return false;
+}
+
+void DynamicPeer::OnZeroRefcount() const {
+    if (!deleted_) {
+        return;
+    }
+
+    // last reference has gone, cancel the timer and delete peer
+    delete_timeout_timer_->Cancel();
+
+    delete this;
 }
 
 const Ip4Address *Peer::NexthopIp(Agent *agent, const AgentPath *path) const {

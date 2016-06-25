@@ -351,6 +351,14 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
     }
 
     if (req->oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
+        if (key->peer()->SkipAddChangeRequest()) {
+            AGENT_ROUTE_LOG(this,
+                            "Route operation ignored. Deleted Peer ",
+                            key->ToString(), vrf_name(),
+                            data->InvalidPeerMsg(key));
+            return;
+        }
+
         if (vrf->IsDeleted() &&
             vrf->allow_route_add_on_deleted_vrf() == false) {
             return;

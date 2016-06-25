@@ -42,12 +42,6 @@ public:
 private:
     friend class HaStaleL2RouteEntry;
 
-    // Enqueue entry to route export queue
-    void EnqueueExportEntry(HaStaleL2RouteEntry *entry);
-
-    // API to process route export queue entries
-    bool ProcessExportEntry(HaStaleL2RouteEntry *entry);
-
     LifetimeRef<HaStaleL2RouteTable> table_delete_ref_;
     // DevVn entry will not be deleted till we del_ack for it
     HaStaleDevVnEntry *dev_vn_;
@@ -58,7 +52,6 @@ private:
     // of vrf pointer even if Add route request fails, due to any reason
     VrfEntryRef vrf_;
     std::string vn_name_;
-    WorkQueue<HaStaleL2RouteEntry *> *route_export_queue_;
     DISALLOW_COPY_AND_ASSIGN(HaStaleL2RouteTable);
 };
 

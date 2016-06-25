@@ -10,6 +10,7 @@
 #include <tbb/mutex.h>
 #include <db/db_table_walker.h>
 #include <net/address.h>
+#include <boost/intrusive_ptr.hpp>
 
 #define LOCAL_PEER_NAME "Local"
 #define LOCAL_VM_PEER_NAME "Local_Vm"
@@ -28,6 +29,11 @@ class AgentXmppChannel;
 class ControllerRouteWalker;
 class VrfTable;
 class AgentPath;
+
+class Peer;
+void intrusive_ptr_add_ref(const Peer* p);
+void intrusive_ptr_release(const Peer* p);
+typedef boost::intrusive_ptr<const Peer> PeerConstPtr;
 
 class Peer {
 public:
@@ -70,11 +76,50 @@ public:
     const std::string &GetName() const { return name_; }
     const Type GetType() const { return type_; }
 
+    virtual bool SkipAddChangeRequest() const { return false; }
+
+    uint32_t refcount() const { return refcount_; }
+
 private:
+    friend void intrusive_ptr_add_ref(const Peer *p);
+    friend void intrusive_ptr_release(const Peer *p);
+
+    virtual void OnZeroRefcount() const;
+
     Type type_;
     std::string name_;
     bool export_to_controller_;
+    mutable tbb::atomic<uint32_t> refcount_;
     DISALLOW_COPY_AND_ASSIGN(Peer);
+};
+
+class DynamicPeer : public Peer {
+public:
+    // Dynamic peer clean up is supposed to be relatively faster process
+    // however trigger a timeoout after 5 mins to catch if any issue
+    // happend
+    static const uint32_t kDeleteTimeout = 300 * 1000;
+
+    DynamicPeer(Agent *agent, Type type, const std::string &name,
+                bool controller_export);
+    virtual ~DynamicPeer();
+
+    // Skip Add/Change request for deleted Peer
+    virtual bool SkipAddChangeRequest() const { return deleted_; }
+
+    void ProcessDelete();
+
+    bool DeleteTimeout();
+
+private:
+    friend void intrusive_ptr_add_ref(const Peer *p);
+    friend void intrusive_ptr_release(const Peer *p);
+
+    virtual void OnZeroRefcount() const;
+
+    Timer *delete_timeout_timer_;
+    tbb::atomic<bool> deleted_;
+    DISALLOW_COPY_AND_ASSIGN(DynamicPeer);
 };
 
 // Peer used for BGP paths
