@@ -37,6 +37,7 @@ test_flow_trace_filter = AgentEnv.MakeTestCmd(env, 'test_flow_trace_filter',
 test_flow_add = AgentEnv.MakeTestCmd(env, 'test_flow_add', pkt_test_suite)
 test_flow_age = AgentEnv.MakeTestCmd(env, 'test_flow_age', pkt_test_suite)
 test_flow_error = AgentEnv.MakeTestCmd(env, 'test_flow_error', pkt_flaky_test_suite)
+test_flow_mgr_instances = AgentEnv.MakeTestCmd(env, 'test_flow_mgr_instances', pkt_test_suite)
 test_flow_nat = AgentEnv.MakeTestCmd(env, 'test_flow_nat', pkt_test_suite)
 test_flow_policy = AgentEnv.MakeTestCmd(env, 'test_flow_policy', pkt_test_suite)
 test_flow_update = AgentEnv.MakeTestCmd(env, 'test_flow_update', pkt_test_suite)
