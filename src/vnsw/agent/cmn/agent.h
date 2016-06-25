@@ -235,9 +235,11 @@ extern void RouterIdDepInit(Agent *agent);
 
 #define VROUTER_SERVER_PORT 20914
 
-#define kTaskFlowUpdate "Agent::FlowUpdate"
 #define kTaskFlowEvent "Agent::FlowEvent"
 #define kTaskFlowKSync "Agent::FlowKSync"
+#define kTaskFlowUpdate "Agent::FlowUpdate"
+#define kTaskFlowDelete "Agent::FlowDelete"
+#define kTaskFlowMgmt "Agent::FlowMgmt"
 #define kTaskFlowAudit "KSync::FlowAudit"
 #define kTaskFlowStatsCollector "Flow::StatsCollector"
 

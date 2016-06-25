@@ -129,6 +129,7 @@ void Agent::SetAgentTaskPolicy() {
         kTaskFlowEvent,
         kTaskFlowKSync,
         kTaskFlowUpdate,
+        kTaskFlowDelete,
         kTaskFlowAudit,
         "Agent::Services",
         "Agent::StatsCollector",
@@ -160,22 +161,20 @@ void Agent::SetAgentTaskPolicy() {
 
     const char *flow_table_exclude_list[] = {
         "Agent::PktFlowResponder",
-        kTaskFlowKSync,
-        kTaskFlowUpdate,
         AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
     SetTaskPolicyOne(kTaskFlowEvent, flow_table_exclude_list,
                      sizeof(flow_table_exclude_list) / sizeof(char *));
 
-    const char *flow_exclude_list[] = {
-        "Agent::PktFlowResponder",
-        kTaskFlowKSync,
-        AGENT_SHUTDOWN_TASKNAME,
-        AGENT_INIT_TASKNAME
-    };
-    SetTaskPolicyOne(kTaskFlowUpdate, flow_exclude_list, 
-                     sizeof(flow_exclude_list) / sizeof(char *));
+    SetTaskPolicyOne(kTaskFlowKSync, flow_table_exclude_list,
+                     sizeof(flow_table_exclude_list) / sizeof(char *));
+
+    SetTaskPolicyOne(kTaskFlowUpdate, flow_table_exclude_list,
+                     sizeof(flow_table_exclude_list) / sizeof(char *));
+
+    SetTaskPolicyOne(kTaskFlowDelete, flow_table_exclude_list,
+                     sizeof(flow_table_exclude_list) / sizeof(char *));
 
     const char *sandesh_exclude_list[] = {
         "db::DBTable",
@@ -282,7 +281,7 @@ void Agent::SetAgentTaskPolicy() {
     const char *flow_stats_manager_exclude_list[] = {
         "Agent::StatsCollector",
         kTaskFlowStatsCollector,
-        "Flow::Management",
+        kTaskFlowMgmt,
         AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
@@ -779,8 +778,8 @@ bool Agent::isVmwareVcenterMode() const {
 void Agent::ConcurrencyCheck() {
     if (test_mode_) {
        CHECK_CONCURRENCY("db::DBTable", "Agent::KSync", AGENT_INIT_TASKNAME,
-                         "Flow::Management", kTaskFlowUpdate,
-                         kTaskFlowEvent, kTaskFlowKSync);
+                         kTaskFlowMgmt, kTaskFlowUpdate,
+                         kTaskFlowEvent, kTaskFlowDelete, kTaskFlowKSync);
     }
 }
 

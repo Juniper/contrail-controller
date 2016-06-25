@@ -246,7 +246,11 @@ public:
 
     // Concurrency check to ensure all flow-table and free-list manipulations
     // are done from FlowEvent task context only
-    bool ConcurrencyCheck();
+    bool ConcurrencyCheck(int task_id);
+    int flow_task_id() const { return flow_task_id_; }
+    int flow_update_task_id() const { return flow_update_task_id_; }
+    int flow_delete_task_id() const { return flow_delete_task_id_; }
+    int flow_ksync_task_id() const { return flow_ksync_task_id_; }
     static void GetMutexSeq(tbb::mutex &mutex1, tbb::mutex &mutex2,
                             tbb::mutex **mutex_ptr_1, tbb::mutex **mutex_ptr_2);
 
@@ -290,6 +294,9 @@ private:
     FlowEntryFreeList free_list_;
     tbb::mutex mutex_;
     int flow_task_id_;
+    int flow_update_task_id_;
+    int flow_delete_task_id_;
+    int flow_ksync_task_id_;
     DISALLOW_COPY_AND_ASSIGN(FlowTable);
 };
 

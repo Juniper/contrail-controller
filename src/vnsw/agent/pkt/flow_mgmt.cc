@@ -10,7 +10,6 @@
 #include "uve/flow_ace_stats_request.h"
 #include "uve/agent_uve_stats.h"
 #include "vrouter/flow_stats/flow_stats_collector.h"
-const string FlowMgmtManager::kFlowMgmtTask = "Flow::Management";
 
 /////////////////////////////////////////////////////////////////////////////
 // FlowMgmtManager methods
@@ -27,12 +26,12 @@ FlowMgmtManager::FlowMgmtManager(Agent *agent, uint16_t table_index) :
     vrf_flow_mgmt_tree_(this),
     nh_flow_mgmt_tree_(this),
     flow_mgmt_dbclient_(new FlowMgmtDbClient(agent, this)),
-    request_queue_(agent_->task_scheduler()->GetTaskId(kFlowMgmtTask), 0,
+    request_queue_(agent_->task_scheduler()->GetTaskId(kTaskFlowMgmt), 0,
                    boost::bind(&FlowMgmtManager::RequestHandler, this, _1)),
-    db_event_queue_(agent_->task_scheduler()->GetTaskId(kFlowMgmtTask), 0,
+    db_event_queue_(agent_->task_scheduler()->GetTaskId(kTaskFlowMgmt), 0,
                     boost::bind(&FlowMgmtManager::DBRequestHandler, this, _1),
                     db_event_queue_.kMaxSize, 1),
-    log_queue_(agent_->task_scheduler()->GetTaskId(kFlowMgmtTask), 1,
+    log_queue_(agent_->task_scheduler()->GetTaskId(kTaskFlowMgmt), 1,
                boost::bind(&FlowMgmtManager::LogHandler, this, _1)) {
     request_queue_.set_name("Flow management");
     request_queue_.set_measure_busy_time(agent->MeasureQueueDelay());

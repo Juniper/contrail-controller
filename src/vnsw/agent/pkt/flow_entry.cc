@@ -477,7 +477,8 @@ void intrusive_ptr_release(FlowEntry *fe) {
     int prev = fe->refcount_.fetch_and_decrement();
     if (prev == 1) {
         if (fe->on_tree()) {
-            if (flow_table->ConcurrencyCheck() == false) {
+            if (flow_table->ConcurrencyCheck(flow_table->flow_task_id())
+                == false) {
                 FlowEntryPtr ref(fe);
                 FlowProto *proto=flow_table->agent()->pkt()->get_flow_proto();
                 proto->ForceEnqueueFreeFlowReference(ref);
