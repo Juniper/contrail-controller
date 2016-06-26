@@ -341,9 +341,8 @@ void DBTable::TableWalker::StartWalk() {
 ///////////////////////////////////////////////////////////
 DBTable::DBTable(DB *db, const string &name)
     : DBTableBase(db, name),
-      walker_(new TableWalker(this)) {
-    TaskScheduler *scheduler = TaskScheduler::GetInstance();
-    walker_task_id_ = scheduler->GetTaskId("db::DBTable");
+      walker_(new TableWalker(this)),
+      walker_task_id_(db->task_id()) {
 
     static bool init_ = false;
     static int iter_to_yield_env_ = 0;
@@ -453,7 +452,8 @@ DBEntry *DBTable::Find(const DBRequestKey *key) {
 }
 
 //
-// Concurrency: called from task that's mutually exclusive with db::DBTable.
+// Concurrency: called from task that's mutually exclusive with db::DBTable
+// or db::IFMapTable as applicable.
 //
 // Calculate the size across all partitions.
 //
@@ -534,7 +534,8 @@ void DBTable::WalkCompleteCallback(DBTableBase *tbl_base) {
 }
 
 //
-// Concurrency: called from task that's mutually exclusive with db::DBTable.
+// Concurrency: called from task that's mutually exclusive with db::DBTable
+// or db::IFMapTable as applicable.
 //
 // Trigger notification of all entries to all listeners.
 // Should be used sparingly e.g. to handle significant configuration change.

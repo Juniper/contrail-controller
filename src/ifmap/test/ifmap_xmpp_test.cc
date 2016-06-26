@@ -43,7 +43,8 @@ protected:
     static const string kDefaultXmppServerConfigName;
 
     XmppIfmapTest()
-         : ifmap_server_(&db_, &graph_, evm_.io_service()),
+         : db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
+           ifmap_server_(&db_, &graph_, evm_.io_service()),
            exporter_(ifmap_server_.exporter()), parser_(NULL),
            xmpp_server_(NULL), vm_uuid_mapper_(NULL) {
     }

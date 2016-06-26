@@ -33,7 +33,7 @@ public:
     static const int kIterationToYield = 1024;
     static const WalkId kInvalidWalkerId = -1;
 
-    DBTableWalker();
+    DBTableWalker(int task_id = -1);
 
     // Start a walk request on the specified table. If non null, 'key_start'
     // specifies the starting point for the walk. The walk is performed in
@@ -45,14 +45,15 @@ public:
     // cancel a walk that may be in progress. This cannot be called from
     // the walker function itself.
     void WalkCancel(WalkId id);
-
     void WalkResume(WalkId id);
+
+    int task_id() const { return task_id_; }
 
     static void SetIterationToYield(int count) {
         max_iteration_to_yield_ = count;
     }
+
 private:
-    static int walker_task_id_;
     static int max_iteration_to_yield_;
 
     static int GetIterationToYield() {
@@ -84,6 +85,7 @@ private:
     void PurgeWalker(WalkId id);
 
     // List of walkers allocated
+    int task_id_;
     tbb::mutex walkers_mutex_;
     WalkerList walkers_;
     WalkerMap walker_map_;

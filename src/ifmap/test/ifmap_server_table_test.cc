@@ -229,7 +229,8 @@ static void ModuleInit(DB *db) {
 
 class IFMapServerTableTest : public ::testing::Test {
 protected:
-    IFMapServerTableTest() {
+    IFMapServerTableTest()
+        : db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")) {
         db_.SetGraph("__ifmap__", &graph_);
     }
 

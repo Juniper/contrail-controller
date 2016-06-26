@@ -38,9 +38,13 @@ int DB::PartitionCount() {
     return partition_count_;
 }
 
-DB::DB() : walker_(new DBTableWalker()), walk_mgr_(new DBTableWalkMgr()) {
+DB::DB(int task_id) : task_id_(task_id) {
+    if (task_id == -1)
+        task_id_ = TaskScheduler::GetInstance()->GetTaskId("db::DBTable");
+    walker_.reset(new DBTableWalker(task_id_));
+    walk_mgr_.reset(new DBTableWalkMgr());
     for (int i = 0; i < PartitionCount(); i++) {
-        partitions_.push_back(new DBPartition(i));
+        partitions_.push_back(new DBPartition(this, i));
     }
 }
 

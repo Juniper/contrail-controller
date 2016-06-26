@@ -151,7 +151,7 @@ void IFMapXmppClientInfoShowReq::HandleRequest() const {
 
     // 2 stages - first: gather/read, second: send
 
-    s0.taskId_ = scheduler->GetTaskId("db::DBTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
     s0.allocFn_ = ShowIFMapXmppClientInfo::AllocBuffer;
     s0.cbFn_ = ShowIFMapXmppClientInfo::BufferStage;
     s0.instances_.push_back(0);

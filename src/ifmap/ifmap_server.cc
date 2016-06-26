@@ -40,7 +40,7 @@ using std::make_pair;
 class IFMapServer::IFMapStaleEntriesCleaner : public Task {
 public:
     IFMapStaleEntriesCleaner(DB *db, DBGraph *graph, IFMapServer *server):
-        Task(TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0), 
+        Task(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"), 0),
         db_(db), graph_(graph), ifmap_server_(server) {
     }
 
@@ -139,7 +139,7 @@ public:
     IFMapVmSubscribe(DB *db, DBGraph *graph, IFMapServer *server,
                      const std::string &vr_name, const std::string &vm_uuid,
                      bool subscribe, bool has_vms):
-            Task(TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0), 
+            Task(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"), 0),
             db_(db), ifmap_server_(server), vr_name_(vr_name),
             vm_uuid_(vm_uuid), subscribe_(subscribe), has_vms_(has_vms) {
     }
@@ -199,8 +199,8 @@ IFMapServer::IFMapServer(DB *db, DBGraph *graph,
           exporter_(new IFMapExporter(this)),
           sender_(new IFMapUpdateSender(this, queue())),
           vm_uuid_mapper_(new IFMapVmUuidMapper(db_, this)),
-          work_queue_(TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0,
-                      boost::bind(&IFMapServer::ClientWorker, this, _1)),
+          work_queue_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"),
+              0, boost::bind(&IFMapServer::ClientWorker, this, _1)),
           io_service_(io_service), ifmap_manager_(NULL),
           ifmap_channel_manager_(NULL) {
 }

@@ -30,7 +30,8 @@ using namespace std;
 class IFMapGraphWalkerTest : public ::testing::Test {
 protected:
     IFMapGraphWalkerTest()
-            : server_(&db_, &db_graph_, evm_.io_service()), parser_(NULL) {
+            : db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
+              server_(&db_, &db_graph_, evm_.io_service()), parser_(NULL) {
     }
 
     virtual void SetUp() {
