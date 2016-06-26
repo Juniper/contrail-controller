@@ -32,6 +32,7 @@ using namespace std;
 class IFMapVmUuidMapperTest : public ::testing::Test {
 protected:
     IFMapVmUuidMapperTest() :
+        db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
         server_(&db_, &db_graph_, evm_.io_service()), parser_(NULL) {
     }
 

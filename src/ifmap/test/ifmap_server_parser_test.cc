@@ -37,7 +37,8 @@ public:
 class IFMapServerParserTest : public ::testing::Test {
   protected:
     IFMapServerParserTest()
-            : server_(&db_, &graph_, evm_.io_service()), parser_(NULL) {
+            : db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
+              server_(&db_, &graph_, evm_.io_service()), parser_(NULL) {
     }
 
     virtual void SetUp() {

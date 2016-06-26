@@ -436,7 +436,8 @@ void BgpStressTestEvent::clear_events() {
 void BgpStressTest::IFMapInitialize() {
     if (d_external_mode_) return;
 
-    config_db_ = new DB();
+    config_db_ =
+        new DB(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"));
     config_graph_ = new DBGraph();
 
     ifmap_server_.reset(new IFMapServer(config_db_, config_graph_,

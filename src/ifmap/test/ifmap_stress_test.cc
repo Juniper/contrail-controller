@@ -306,7 +306,8 @@ IFMapSTEventMgr::EventType IFMapSTEventMgr::GetNextEvent() {
 // **** Start IFMapStressTest routines.
 
 IFMapStressTest::IFMapStressTest()
-        : ifmap_server_(&db_, &db_graph_, evm_.io_service()), parser_(NULL),
+        : db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
+          ifmap_server_(&db_, &db_graph_, evm_.io_service()), parser_(NULL),
           xmpp_server_(NULL), log_buffer_(kMAX_LOG_NUM_EVENTS),
           events_ignored_(0) {
 }

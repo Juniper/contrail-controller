@@ -26,7 +26,7 @@ public:
     typedef TableMap::iterator iterator;
     typedef TableMap::const_iterator const_iterator;
 
-    DB();
+    DB(int task_id = -1);
     ~DB();
 
     // Get the partition with the specified id.
@@ -69,6 +69,8 @@ public:
         return tables_.lower_bound(name);
     }
 
+    int task_id() const { return task_id_; }
+
 private:
     typedef std::map<std::string, CreateFunction> FactoryMap;
     typedef std::map<std::string, DBGraph *> GraphMap;
@@ -76,6 +78,7 @@ private:
     static int partition_count_;
     static FactoryMap *factories();
 
+    int task_id_;
     std::vector<DBPartition *> partitions_;
     TableMap tables_;
     GraphMap graph_map_;
