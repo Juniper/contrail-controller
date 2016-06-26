@@ -165,6 +165,7 @@ protected:
 
     BgpConditionListenerTest()
         : evm_(new EventManager()),
+          config_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
           bgp_server_(new BgpServer(evm_.get())),
           family_(GetFamily()),
           ipv6_prefix_("::ffff:"),

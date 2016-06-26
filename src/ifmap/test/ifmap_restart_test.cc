@@ -80,7 +80,8 @@ private:
 class IFMapRestartTest : public ::testing::Test {
 protected:
     IFMapRestartTest()
-        : server_(&db_, &graph_, evm_.io_service()),
+        : db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
+          server_(&db_, &graph_, evm_.io_service()),
           exporter_(server_.exporter()) {
     }
 

@@ -123,7 +123,8 @@ public:
     typedef std::multimap<string, string> ConnectionMap;
 protected:
     ReplicationTest()
-        : bgp_server_(new BgpServer(&evm_)) {
+      : config_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
+        bgp_server_(new BgpServer(&evm_)) {
         min_vrf_ = 32;
         IFMapLinkTable_Init(&config_db_, &config_graph_);
         vnc_cfg_Server_ModuleInit(&config_db_, &config_graph_);

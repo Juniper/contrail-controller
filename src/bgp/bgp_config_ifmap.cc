@@ -1498,7 +1498,7 @@ void BgpIfmapConfigManager::Initialize(DB *db, DBGraph *db_graph,
 // Used to trigger a build and subsequent evaluation of the ChangeList.
 //
 void BgpIfmapConfigManager::OnChange() {
-    CHECK_CONCURRENCY("db::DBTable");
+    CHECK_CONCURRENCY("db::IFMapTable");
     trigger_.Set();
 }
 

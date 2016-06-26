@@ -28,7 +28,7 @@ IFMapUpdateSender::~IFMapUpdateSender() {
 class IFMapUpdateSender::SendTask : public Task {
 public:
     explicit SendTask(IFMapUpdateSender *sender)
-        : Task(TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0),
+        : Task(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"), 0),
           sender_(sender) {
     }
     virtual bool Run() {

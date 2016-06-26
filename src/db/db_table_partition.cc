@@ -31,7 +31,7 @@ void DBTablePartBase::Notify(DBEntryBase *entry) {
 }
 
 //
-// Concurrency: called from db::DBTable task.
+// Concurrency: called from db::DBTable/db::IFMapTable task.
 //
 // Evaluate concurrency issues with DBEntryBase::ClearState when making
 // changes to this method. We expect that either this method or ClearState
@@ -134,7 +134,8 @@ DBEntry *DBTablePartition::FindInternal(const DBEntry *entry) {
     return NULL;
 }
 DBEntry *DBTablePartition::FindNoLock(const DBEntry *entry) {
-    CHECK_CONCURRENCY("db::DBTable", "Agent::FlowEvent", "Agent::FlowUpdate");
+    CHECK_CONCURRENCY("db::DBTable", "db::IFMapTable",
+        "Agent::FlowEvent", "Agent::FlowUpdate");
     return FindInternal(entry);
 }
 
@@ -144,7 +145,8 @@ DBEntry *DBTablePartition::Find(const DBEntry *entry) {
 }
 
 DBEntry *DBTablePartition::FindNoLock(const DBRequestKey *key) {
-    CHECK_CONCURRENCY("db::DBTable", "Agent::FlowEvent", "Agent::FlowUpdate");
+    CHECK_CONCURRENCY("db::DBTable", "db::IFMapTable",
+        "Agent::FlowEvent", "Agent::FlowUpdate");
     DBTable *table = static_cast<DBTable *>(parent());
     std::auto_ptr<DBEntry> entry_ptr = table->AllocEntry(key);
     return FindInternal(entry_ptr.get());

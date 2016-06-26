@@ -13,7 +13,6 @@
 #include "db/db_table.h"
 #include "db/db_table_partition.h"
 
-int DBTableWalker::walker_task_id_ = -1;
 int DBTableWalker::max_iteration_to_yield_ = kIterationToYield;
 
 class DBTableWalker::Walker {
@@ -43,14 +42,16 @@ public:
     // Will be true if Table walk is cancelled
     tbb::atomic<bool> should_stop_;
 
-    // check whether iteraton is completed on all Table Partition
+    // check whether iteration is completed on all Table Partition
     tbb::atomic<long> status_;
+
+    int task_id() const { return wkmgr_->task_id(); }
 };
 
 class DBTableWalker::Worker : public Task {
 public:
     Worker(Walker *walker, int db_partition_id, const DBRequestKey *key) 
-        : Task(walker_task_id_, db_partition_id), walker_(walker), 
+        : Task(walker->task_id(), db_partition_id), walker_(walker),
           key_start_(key) {
         tbl_partition_ = static_cast<DBTablePartition *>(
             walker_->table_->GetTablePartition(db_partition_id));
@@ -175,11 +176,10 @@ DBTableWalker::Walker::Walker(WalkId id, DBTableWalker *wkmgr,
     }
 }
 
-DBTableWalker::DBTableWalker() {
-    if (walker_task_id_ == -1) {
+DBTableWalker::DBTableWalker(int task_id) : task_id_(task_id) {
+    if (task_id == -1) {
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        // Using same task id as DBPartition
-        walker_task_id_ = scheduler->GetTaskId("db::DBTable");
+        task_id_ = scheduler->GetTaskId("db::DBTable");
     }
 }
 

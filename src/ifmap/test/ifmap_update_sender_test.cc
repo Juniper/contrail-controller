@@ -66,7 +66,8 @@ protected:
     typedef map<string, IFMapNode *> NodeMap;
 
     IFMapUpdateSenderTest()
-        : server_(&db_, &graph_, evm_.io_service()), tbl_(NULL),
+        : db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
+          server_(&db_, &graph_, evm_.io_service()), tbl_(NULL),
           sender_(server_.sender()), queue_(server_.queue()) {
     }
 

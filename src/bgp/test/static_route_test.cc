@@ -140,7 +140,8 @@ protected:
     typedef typename T::VpnRouteT VpnRouteT;
 
     StaticRouteTest()
-        : bgp_server_(new BgpServer(&evm_)),
+      : config_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
+        bgp_server_(new BgpServer(&evm_)),
         family_(GetFamily()),
         ipv6_prefix_("::ffff:"),
         ri_mgr_(NULL),
