@@ -1046,7 +1046,7 @@ public:
     typedef std::map<FlowEntryPtr, FlowEntryInfo, FlowEntryRefCmp>
         FlowEntryTree;
 
-    FlowMgmtManager(Agent *agent);
+    FlowMgmtManager(Agent *agent, uint16_t table_index);
     virtual ~FlowMgmtManager() { }
 
     void Init();
@@ -1067,6 +1067,7 @@ public:
                           uint32_t gen_id);
 
     Agent *agent() const { return agent_; }
+    uint16_t table_index() const { return table_index_; }
     void AddEvent(FlowEntry *low);
     void DeleteEvent(FlowEntry *flow, const RevFlowDepParams &params);
     void FlowStatsUpdateEvent(FlowEntry *flow, uint32_t bytes, uint32_t packets,
@@ -1127,6 +1128,7 @@ private:
     void ControllerNotify(uint8_t index);
 
     Agent *agent_;
+    uint16_t table_index_;
     AclFlowMgmtTree acl_flow_mgmt_tree_;
     InterfaceFlowMgmtTree interface_flow_mgmt_tree_;
     VnFlowMgmtTree vn_flow_mgmt_tree_;
