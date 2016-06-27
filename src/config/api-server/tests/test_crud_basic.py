@@ -107,6 +107,10 @@ class TestCrudBasic(object):
         pass
     # end test_floating_ip_crud
 
+    def test_alias_ip_crud(self):
+        pass
+    # end test_alias_ip_crud
+
     def test_id_perms(self):
         # create object in enabled state
         # create object in disabled state
@@ -296,6 +300,30 @@ class TestNetAddrAlloc(object):
                 auto_prop_val=False, floating_ip_address='1.1.1.3'))
         ip_allocated = fip_fixt.getObj().floating_ip_address
         self.assertThat(ip_allocated, Equals('1.1.1.3'))
+        logger.info("...verified")
+
+        logger.info("Creating alias-ip-pool")
+        aip_pool_fixt = self.useFixture(
+            AliasIpPoolTestFixtureGen(self._vnc_lib, 'aip-pool',
+                                         parent_fixt=vn_fixt,
+                                         auto_prop_val=False))
+
+        logger.info("Creating auto-alloc alias-ip, expecting 1.1.1.251...")
+        aip_fixt = self.useFixture(
+            AliasIpTestFixtureGen(
+                self._vnc_lib, 'aip1', parent_fixt=aip_pool_fixt,
+                auto_prop_val=False))
+        ip_allocated = aip_fixt.getObj().alias_ip_address
+        self.assertThat(ip_allocated, Equals('1.1.1.251'))
+        logger.info("...verified")
+
+        logger.info("Creating specific alias-ip, expecting 1.1.1.4...")
+        aip_fixt = self.useFixture(
+            AliasIpTestFixtureGen(
+                self._vnc_lib, 'aip2', parent_fixt=aip_pool_fixt,
+                auto_prop_val=False, alias_ip_address='1.1.1.4'))
+        ip_allocated = aip_fixt.getObj().alias_ip_address
+        self.assertThat(ip_allocated, Equals('1.1.1.4'))
         logger.info("...verified")
 
         logger.info("Creating subnet 2.2.2.0/24, gateway 2.2.2.128")
@@ -1127,6 +1155,42 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                     virtual_network_refs=[vn_fixt.getObj()]))
     # end test_floatingip_as_instanceip
 
+    def test_aliasip_as_instanceip(self):
+        ipam_fixt = self.useFixture(NetworkIpamTestFixtureGen(self._vnc_lib))
+
+        project_fixt = self.useFixture(ProjectTestFixtureGen(self._vnc_lib, 'default-project'))
+
+        subnet_vnc = IpamSubnetType(subnet=SubnetType('1.1.1.0', 24))
+        vnsn_data = VnSubnetsType([subnet_vnc])
+        logger.info("Creating a virtual network")
+        logger.info("Creating subnet 1.1.1.0/24")
+        vn_fixt = self.useFixture(VirtualNetworkTestFixtureGen(self._vnc_lib,
+                  'vn-%s' %(self.id()),
+                  network_ipam_ref_infos=[(ipam_fixt.getObj(), vnsn_data)]))
+        vn_fixt.getObj().set_router_external(True)
+        self._vnc_lib.virtual_network_update(vn_fixt.getObj())
+
+        logger.info("Fetching alias-ip-pool")
+        aip_pool_fixt = self.useFixture(
+            AliasIpPoolTestFixtureGen(self._vnc_lib, 'alias-ip-pool',
+                                         parent_fixt=vn_fixt))
+
+        logger.info("Creating auto-alloc alias-ip")
+        aip_fixt = self.useFixture(
+            AliasIpTestFixtureGen(
+                self._vnc_lib, 'aip1', parent_fixt=aip_pool_fixt,
+                project_refs=[project_fixt.getObj()]))
+        ip_allocated = aip_fixt.getObj().alias_ip_address
+
+        logger.info("Creating auto-alloc instance-ip, expecting an error")
+        with ExpectedException(PermissionDenied) as e:
+            iip_fixt = self.useFixture(
+                InstanceIpTestFixtureGen(
+                    self._vnc_lib, 'iip1', auto_prop_val=False,
+                    instance_ip_address=ip_allocated,
+                    virtual_network_refs=[vn_fixt.getObj()]))
+    # end test_aliasip_as_instanceip
+
     def test_name_with_reserved_xml_char(self):
         self.skipTest("Skipping test_name_with_reserved_xml_char")
         vn_name = self.id()+'-&vn<1>"2\''
@@ -1737,6 +1801,8 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         def err_on_delete(orig_method, *args, **kwargs):
             if args[0] == 'floating_ip':
                 raise Exception("Faking db delete for floating ip")
+            if args[0] == 'alias_ip':
+                raise Exception("Faking db delete for alias ip")
             return orig_method(*args, **kwargs)
         with test_common.patch(
             self._api_server._db_conn, 'dbe_delete', err_on_delete):
@@ -1759,6 +1825,38 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                     self._vnc_lib.floating_ip_read(
                         id=fip_obj.uuid).floating_ip_address,
                     fip_obj.floating_ip_address)
+
+        # alias-ip test
+        aip_pool_obj = AliasIpPool(
+            'aip-pool-%s' %(self.id()), parent_obj=vn_obj)
+        self._vnc_lib.alias_ip_pool_create(aip_pool_obj)
+        aip_obj = AliasIp('aip-%s' %(self.id()), parent_obj=aip_pool_obj)
+        aip_obj.add_project(Project())
+        self._vnc_lib.alias_ip_create(aip_obj)
+        # read back to get allocated alias-ip
+        aip_obj = self._vnc_lib.alias_ip_read(id=aip_obj.uuid)
+
+        with test_common.patch(
+            self._api_server._db_conn, 'dbe_delete', err_on_delete):
+            try:
+                self._vnc_lib.alias_ip_delete(id=aip_obj.uuid)
+                self.assertTrue(
+                    False, 'Alias IP delete worked unexpectedly')
+            except Exception as e:
+                self.assertThat(str(e),
+                    Contains('"Faking db delete for alias ip"'))
+                # assert reservation present in zookeeper and value in iip
+                zk_node = "%(#)010d" % {'#': int(netaddr.IPAddress(
+                    aip_obj.alias_ip_address))}
+                zk_path = '/api-server/subnets/%s:1.1.1.0/28/%s' %(
+                    vn_obj.get_fq_name_str(), zk_node)
+                mock_zk = self._api_server._db_conn._zk_db._zk_client._zk_client
+                self.assertEqual(
+                    mock_zk._values[zk_path][0], aip_obj.uuid)
+                self.assertEqual(
+                    self._vnc_lib.alias_ip_read(
+                        id=aip_obj.uuid).alias_ip_address,
+                    aip_obj.alias_ip_address)
     # end test_ip_addr_not_released_on_delete_error
 
     def test_uve_trace_delete_name_from_msg(self):

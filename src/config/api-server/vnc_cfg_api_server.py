@@ -1281,6 +1281,8 @@ class VncApiServer(object):
             'access-control-list').generate_default_instance = False
         self.get_resource_class(
             'floating-ip-pool').generate_default_instance = False
+        self.get_resource_class(
+            'alias-ip-pool').generate_default_instance = False
         self.get_resource_class('instance-ip').generate_default_instance = False
         self.get_resource_class('logical-router').generate_default_instance = False
         self.get_resource_class('security-group').generate_default_instance = False
@@ -1429,6 +1431,7 @@ class VncApiServer(object):
         vnc_cfg_types.SecurityGroupServer.addr_mgmt = addr_mgmt
         vnc_cfg_types.VirtualMachineInterfaceServer.addr_mgmt = addr_mgmt
         vnc_cfg_types.FloatingIpServer.addr_mgmt = addr_mgmt
+        vnc_cfg_types.AliasIpServer.addr_mgmt = addr_mgmt
         vnc_cfg_types.InstanceIpServer.addr_mgmt = addr_mgmt
         vnc_cfg_types.VirtualNetworkServer.addr_mgmt = addr_mgmt
         vnc_cfg_types.InstanceIpServer.manager = self
