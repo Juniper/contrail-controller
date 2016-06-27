@@ -66,6 +66,10 @@ public:
     bool test_mode() const { return test_mode_; }
     bool collectors_configured() const { return collectors_configured_; }
     uint32_t sandesh_send_rate_limit() const { return send_ratelimit_; }
+    uint16_t named_max_retransmissions() { return named_max_retransmissions_; }
+    uint16_t named_retransmission_interval() { 
+        return named_retransmission_interval_; 
+    }
 
 private:
 
@@ -97,6 +101,8 @@ private:
     std::string rndc_config_file_;
     std::string rndc_secret_;
     std::string named_max_cache_size_;
+    uint16_t named_max_retransmissions_;
+    uint16_t named_retransmission_interval_;
 
     std::string hostname_;
     std::string host_ip_;
