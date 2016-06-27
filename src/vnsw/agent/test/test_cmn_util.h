@@ -133,6 +133,7 @@ bool VmPortPolicyEnabled(int id);
 bool VmPortPolicyEnabled(PortInfo *input, int id);
 Interface *VmPortGet(int id);
 bool VmPortFloatingIpCount(int id, unsigned int count);
+bool VmPortAliasIpCount(int id, unsigned int count);
 bool VmPortGetStats(PortInfo *input, int id, uint32_t & bytes, uint32_t & pkts);
 bool VmPortStats(PortInfo *input, int id, uint32_t bytes, uint32_t pkts);
 bool VmPortStatsMatch(Interface *intf, uint32_t ibytes, uint32_t ipkts, 
@@ -279,6 +280,10 @@ void AddFloatingIp(const char *name, int id, const char *addr,
 void DelFloatingIp(const char *name);
 void AddFloatingIpPool(const char *name, int id);
 void DelFloatingIpPool(const char *name);
+void AddAliasIp(const char *name, int id, const char *addr);
+void DelAliasIp(const char *name);
+void AddAliasIpPool(const char *name, int id);
+void DelAliasIpPool(const char *name);
 void AddIPAM(const char *name, IpamInfo *ipam, int size, const char *ipam_attr = NULL,
              const char *vdns_name = NULL,
              const std::vector<std::string> *vm_host_routes = NULL,

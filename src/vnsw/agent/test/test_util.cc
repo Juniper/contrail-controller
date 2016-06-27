@@ -139,6 +139,7 @@ static void BuildLinkToMetadata() {
     AddLinkToMetadata("virtual-network", "routing-instance");
     AddLinkToMetadata("virtual-network", "access-control-list");
     AddLinkToMetadata("virtual-network", "floating-ip-pool");
+    AddLinkToMetadata("virtual-network", "alias-ip-pool");
     AddLinkToMetadata("virtual-network", "virtual-network-network-ipam",
                       "virtual-network-network-ipam");
     AddLinkToMetadata("virtual-network-network-ipam", "network-ipam",
@@ -157,6 +158,9 @@ static void BuildLinkToMetadata() {
 
     AddLinkToMetadata("floating-ip-pool", "floating-ip");
     AddLinkToMetadata("floating-ip", "virtual-machine-interface");
+
+    AddLinkToMetadata("alias-ip-pool", "alias-ip");
+    AddLinkToMetadata("alias-ip", "virtual-machine-interface");
 
     AddLinkToMetadata("subnet", "virtual-machine-interface");
     AddLinkToMetadata("virtual-router", "virtual-machine");
@@ -852,6 +856,19 @@ ForwardingClassGet(uint32_t id) {
 
     return static_cast<ForwardingClass *>(Agent::GetInstance()->
             forwarding_class_table()->FindActiveEntry(&key));
+}
+
+bool VmPortAliasIpCount(int id, unsigned int count) {
+    VmInterface *intf = static_cast<VmInterface *>(VmPortGet(id));
+    EXPECT_TRUE(intf != NULL);
+    if (intf == NULL)
+        return false;
+
+    EXPECT_EQ(intf->alias_ip_list().list_.size(), count);
+    if (intf->alias_ip_list().list_.size() != count)
+        return false;
+
+    return true;
 }
 
 bool VmPortGetStats(PortInfo *input, int id, uint32_t & bytes, uint32_t & pkts) {
@@ -2105,6 +2122,25 @@ void AddFloatingIpPool(const char *name, int id) {
 
 void DelFloatingIpPool(const char *name) {
     DelNode("floating-ip-pool", name);
+}
+
+void AddAliasIp(const char *name, int id, const char *addr) {
+    char buff[128];
+
+    sprintf(buff, "<alias-ip-address>%s</alias-ip-address>", addr);
+    AddNode("alias-ip", name, id, buff);
+}
+
+void DelAliasIp(const char *name) {
+    DelNode("alias-ip", name);
+}
+
+void AddAliasIpPool(const char *name, int id) {
+    AddNode("alias-ip-pool", name, id);
+}
+
+void DelAliasIpPool(const char *name) {
+    DelNode("alias-ip-pool", name);
 }
 
 void AddInstanceIp(const char *name, int id, const char *addr) {

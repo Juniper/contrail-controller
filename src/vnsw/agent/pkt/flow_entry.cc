@@ -538,6 +538,12 @@ bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
         data_.bgp_as_a_service_port = 0;
     }
 
+    if (info->alias_ip_flow) {
+        set_flags(FlowEntry::AliasIpFlow);
+    } else {
+        reset_flags(FlowEntry::AliasIpFlow);
+    }
+
     data_.intf_entry = ctrl->intf_ ? ctrl->intf_ : rev_ctrl->intf_;
     data_.vn_entry = ctrl->vn_ ? ctrl->vn_ : rev_ctrl->vn_;
     data_.in_vm_entry.SetVm(ctrl->vm_);

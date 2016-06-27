@@ -37,8 +37,14 @@ public:
     IFMapAgentTable *cfg_floatingip_table() const {
         return cfg_floatingip_table_;
     }
+    IFMapAgentTable *cfg_aliasip_table() const {
+        return cfg_aliasip_table_;
+    }
     IFMapAgentTable *cfg_floatingip_pool_table() const {
         return cfg_floatingip_pool_table_;
+    }
+    IFMapAgentTable *cfg_aliasip_pool_table() const {
+        return cfg_aliasip_pool_table_;
     }
     IFMapAgentTable *cfg_network_ipam_table() const {
         return cfg_network_ipam_table_;
@@ -136,7 +142,9 @@ private:
     IFMapAgentTable *cfg_vrf_table_;
     IFMapAgentTable *cfg_instanceip_table_;
     IFMapAgentTable *cfg_floatingip_table_;
+    IFMapAgentTable *cfg_aliasip_table_;
     IFMapAgentTable *cfg_floatingip_pool_table_;
+    IFMapAgentTable *cfg_aliasip_pool_table_;
     IFMapAgentTable *cfg_network_ipam_table_;
     IFMapAgentTable *cfg_vn_network_ipam_table_;
     IFMapAgentTable *cfg_vm_port_vrf_table_;

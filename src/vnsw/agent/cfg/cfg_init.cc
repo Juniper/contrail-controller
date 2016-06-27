@@ -134,9 +134,17 @@ void AgentConfig::RegisterDBClients(DB *db) {
         (IFMapTable::FindTable(agent_->db(), "floating-ip")));
     assert(cfg_floatingip_table_);
 
+    cfg_aliasip_table_ = (static_cast<IFMapAgentTable *>
+        (IFMapTable::FindTable(agent_->db(), "alias-ip")));
+    assert(cfg_aliasip_table_);
+
     cfg_floatingip_pool_table_ = (static_cast<IFMapAgentTable *>
         (IFMapTable::FindTable(agent_->db(), "floating-ip-pool")));
     assert(cfg_floatingip_pool_table_);
+
+    cfg_aliasip_pool_table_ = (static_cast<IFMapAgentTable *>
+        (IFMapTable::FindTable(agent_->db(), "alias-ip-pool")));
+    assert(cfg_aliasip_pool_table_);
 
     cfg_network_ipam_table_ = (static_cast<IFMapAgentTable *>
         (IFMapTable::FindTable(agent_->db(), "network-ipam")));
