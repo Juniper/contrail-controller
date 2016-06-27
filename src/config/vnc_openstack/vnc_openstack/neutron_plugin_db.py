@@ -3172,9 +3172,14 @@ class DBInterface(object):
                 except NoIdError:
                     pass
         else:
-            # read all routers in all projects
-             project_rtrs = self._router_list_project()
-             all_rtrs.append(project_rtrs)
+            if not context['is_admin']:
+                project_id = str(uuid.UUID(context['tenant']))
+            else:
+                project_id = None
+
+            # read all routers in specified projects
+            project_rtrs = self._router_list_project(project_id=project_id)
+            all_rtrs.append(project_rtrs)
 
         # prune phase
         for project_rtrs in all_rtrs:
