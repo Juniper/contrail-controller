@@ -83,9 +83,6 @@ void BgpTable::set_routing_instance(RoutingInstance *rtinstance) {
     assert(rtinstance);
     deleter_.reset(new DeleteActor(this));
     instance_delete_ref_.Reset(rtinstance->deleter());
-    path_resolver_ = CreatePathResolver();
-    if (IsRouteAggregationSupported())
-        rtinstance->route_aggregator(family())->Initialize();
 }
 
 BgpServer *BgpTable::server() {
@@ -628,6 +625,13 @@ void BgpTable::RetryDelete() {
 
 PathResolver *BgpTable::CreatePathResolver() {
     return NULL;
+}
+
+void BgpTable::LocatePathResolver() {
+    if (path_resolver_)
+        return;
+    assert(!deleter()->IsDeleted());
+    path_resolver_ = CreatePathResolver();
 }
 
 void BgpTable::DestroyPathResolver() {

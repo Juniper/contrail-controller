@@ -116,6 +116,7 @@ public:
     virtual bool MayDelete() const;
     bool IsDeleted() const { return deleter()->IsDeleted(); }
     virtual PathResolver *CreatePathResolver();
+    void LocatePathResolver();
     void DestroyPathResolver();
 
     RoutingInstance *routing_instance() { return rtinstance_; }

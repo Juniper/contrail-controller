@@ -612,6 +612,11 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
     total_path_count_ = 0;
     primary_path_count_ = 0;
 
+    if (resolve_paths_) {
+        rtinstance_->GetTable(Address::INET)->LocatePathResolver();
+        rtinstance_->GetTable(Address::INET6)->LocatePathResolver();
+    }
+
     ProcessEndpointConfig(config);
     ProcessAuthKeyChainConfig(config);
     ProcessFamilyAttributesConfig(config);
