@@ -171,7 +171,7 @@ class AuthServiceKeystone(object):
         # configure memcache if enabled
         if self._multi_tenancy and 'memcache_servers' in args:
             self._conf_info[
-                'memcache_servers'] = args.memcache_servers.split(',')
+                'memcached_servers'] = args.memcache_servers.split(',')
             if 'token_cache_time' in args:
                 self._conf_info['token_cache_time'] = args.token_cache_time
     # end __init__
