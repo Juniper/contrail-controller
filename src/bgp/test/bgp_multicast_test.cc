@@ -127,7 +127,7 @@ protected:
             server_.database()->FindTable("red.ermvpn.0"));
         red_tm_ = red_table_->tree_manager_;
         TASK_UTIL_EXPECT_EQ(red_table_, red_tm_->table_);
-        TASK_UTIL_EXPECT_EQ(DB::PartitionCount(),
+        TASK_UTIL_EXPECT_EQ(red_table_->PartitionCount(),
                             (int)red_tm_->partitions_.size());
         TASK_UTIL_EXPECT_NE(-1, red_tm_->listener_id_);
 
@@ -135,7 +135,7 @@ protected:
             server_.database()->FindTable("green.ermvpn.0"));
         green_tm_ = green_table_->tree_manager_;
         TASK_UTIL_EXPECT_EQ(green_table_, green_tm_->table_);
-        TASK_UTIL_EXPECT_EQ(DB::PartitionCount(),
+        TASK_UTIL_EXPECT_EQ(green_table_->PartitionCount(),
                             (int)green_tm_->partitions_.size());
         TASK_UTIL_EXPECT_NE(-1, green_tm_->listener_id_);
 
@@ -329,7 +329,7 @@ protected:
 
     size_t VerifyTreeUpdateCount(McastTreeManager *tm) {
         size_t total = 0;
-        for (int idx = 0; idx < DB::PartitionCount(); idx++) {
+        for (int idx = 0; idx < ErmVpnTable::kPartitionCount; idx++) {
             total += tm->partitions_[idx]->update_count_;
         }
 
