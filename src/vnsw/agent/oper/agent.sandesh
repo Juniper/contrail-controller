@@ -102,10 +102,16 @@ struct ItfSandeshData {
     3: string uuid;                  // intf uuid
     4: string vrf_name (link="VrfListReq"); // VRF name
     5: string active;
+   49: optional string ipv4_active;
+   28: string l2_active;
+   35: optional string ip6_active;
+   53: optional string health_check_active;
     6: string dhcp_service;
     7: string dns_service;
     8: string type;                  // interface type : eth / vport / host
     9: i32 label;                    // interface mpls label
+   25: i32 l2_label;
+   26: i32 vxlan_id;
    10: string vn_name (link="VnListReq");  // VN uuid
    11: string vm_uuid (link="VmListReq");  // VM uuid, in case of vport itf
    12: string vm_name;
@@ -121,16 +127,12 @@ struct ItfSandeshData {
    22: string analyzer_name; 
    23: string config_name;
    24: list<VmIntfSgUuid> sg_uuid_list;
-   25: i32 l2_label;
-   26: i32 vxlan_id;
    27: list<StaticRouteSandesh> static_route_list; //Static route list
-   28: string l2_active;
    30: string vm_project_uuid; // project uuid of the vm to which the interface belongs
    31: string admin_state;
    32: i32 flow_key_idx;
    33: optional list<StaticRouteSandesh> allowed_address_pair_list;
    34: optional string ip6_addr;
-   35: optional string ip6_active;
    36: i32 local_preference;
    37: i16 tx_vlan_id;
    38: i16 rx_vlan_id;
@@ -144,11 +146,9 @@ struct ItfSandeshData {
    46: optional bool flood_unknown_unicast;
    47: string physical_device;
    48: string physical_interface;
-   49: optional string ipv4_active;
    50: list<string> fixed_ip4_list;
    51: list<string> fixed_ip6_list;
    52: list<string> fat_flow_list;
-   53: optional string health_check_active;
    54: optional string metadata_ip_active;
    55: optional string service_health_check_ip;
    56: optional string qos_config; //QOS config uuid

@@ -58,10 +58,10 @@
         <flow name="l2-vxlan-udp-to-vm-vxlan-1" uuid="1" vrf="vrf1" nh="10" sip="1.1.1.2"
          dip="1.1.1.1" proto="udp" sport="1" dport="1" svn="vn1"
          dvn="vn1" action="deny"/>
-        <flow name="l2-gre-udp-to-vm-gre-1" uuid="1" vrf="vrf1" nh="16" sip="1.1.1.2"
+        <flow name="l2-gre-udp-to-vm-gre-1" uuid="1" vrf="vrf1" nh="13" sip="1.1.1.2"
          dip="1.1.1.1" proto="udp" sport="1" dport="2" svn="vn1"
          dvn="vn1" action="deny"/>
-        <flow name="l3-gre-udp-to-vm-1" uuid="1" vrf="vrf1" nh="16" sip="1.1.1.2"
+        <flow name="l3-gre-udp-to-vm-1" uuid="1" vrf="vrf1" nh="13" sip="1.1.1.2"
          dip="1.1.1.1" proto="udp" sport="1" dport="3" svn="vn1"
          dvn="vn1" action="deny"/>
     </validate>
@@ -73,10 +73,10 @@
         <flow name="l2-vxlan-udp-to-vm-vxlan-1" uuid="1" vrf="vrf1" nh="10" sip="1.1.1.2"
          dip="1.1.1.1" proto="udp" sport="1" dport="1" svn="vn1"
          dvn="vn1" action="pass"/>
-        <flow name="l2-gre-udp-to-vm-gre-1" uuid="1" vrf="vrf1" nh="16" sip="1.1.1.2"
+        <flow name="l2-gre-udp-to-vm-gre-1" uuid="1" vrf="vrf1" nh="13" sip="1.1.1.2"
          dip="1.1.1.1" proto="udp" sport="1" dport="2" svn="vn1"
          dvn="vn1" action="pass"/>
-        <flow name="l3-gre-udp-to-vm-1" uuid="1" vrf="vrf1" nh="16" sip="1.1.1.2"
+        <flow name="l3-gre-udp-to-vm-1" uuid="1" vrf="vrf1" nh="13" sip="1.1.1.2"
          dip="1.1.1.1" proto="udp" sport="1" dport="3" svn="vn1"
          dvn="vn1" action="pass"/>
     </validate>
@@ -93,10 +93,10 @@
         <flow name="l2-vxlan-udp-to-vm-vxlan-1" uuid="1" vrf="vrf1" nh="10"
          sip="1.1.1.2" dip="1.1.1.1" proto="udp" sport="1" dport="1" svn="vn1"
          dvn="vn1" action="deny"/>
-        <flow name="l2-gre-udp-to-vm-gre-1" uuid="1" vrf="vrf1" nh="16"
+        <flow name="l2-gre-udp-to-vm-gre-1" uuid="1" vrf="vrf1" nh="13"
          sip="1.1.1.2" dip="1.1.1.1" proto="udp" sport="1" dport="2" svn="vn1"
          dvn="vn1" action="deny"/>
-        <flow name="l3-gre-udp-to-vm-1" uuid="1" vrf="vrf1" nh="16"
+        <flow name="l3-gre-udp-to-vm-1" uuid="1" vrf="vrf1" nh="13"
          sip="1.1.1.2" dip="1.1.1.1" proto="udp" sport="1" dport="3" svn="vn1"
          dvn="vn1" action="deny"/>
     </validate>
