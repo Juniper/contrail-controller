@@ -608,7 +608,6 @@ public:
 
     void AllocL2MplsLabel(bool force_update, bool policy_change);
     void DeleteL2MplsLabel();
-    void UpdateL2(bool force_update);
     const AclDBEntry* vrf_assign_acl() const { return vrf_assign_acl_.get();}
     bool WaitForTraffic() const;
     bool GetInterfaceDhcpOptions(
@@ -634,6 +633,7 @@ public:
     void UpdateVxLan();
     bool IsActive() const;
     const VmiEcmpLoadBalance &ecmp_load_balance() const {return ecmp_load_balance_;}
+    bool InstallBridgeRoutes() const;
     Agent *agent() const {
         return (static_cast<InterfaceTable *>(get_table()))->agent();
     }
@@ -708,14 +708,14 @@ private:
                   bool old_ipv6_active, const Ip6Address &old_v6_addr,
                   const Ip4Address &old_subnet, const uint8_t old_subnet_plen,
                   int old_ethernet_tag, const Ip4Address &old_dhcp_addr);
-    void UpdateL2Bridging(bool old_bridging, VrfEntry *old_vrf,
-                          int old_ethernet_tag, bool force_update,
-                          bool policy_change, const Ip4Address &old_addr,
-                          const Ip6Address &old_v6_addr,
-                          bool old_layer3_forwarding);
-    void DeleteL2Bridging(bool old_bridging, VrfEntry *old_vrf, int old_ethernet_tag,
-                          const Ip4Address &old_addr, const Ip6Address &old_v6_addr,
-                          bool old_layer3_forwarding);
+    void UpdateBridgeRoutes(bool old_bridging, VrfEntry *old_vrf,
+                            int old_ethernet_tag, bool force_update,
+                            bool policy_change, const Ip4Address &old_addr,
+                            const Ip6Address &old_v6_addr,
+                            bool old_layer3_forwarding);
+    void DeleteBridgeRoutes(bool old_bridging, VrfEntry *old_vrf, int old_ethernet_tag,
+                            const Ip4Address &old_addr, const Ip6Address &old_v6_addr,
+                            bool old_layer3_forwarding);
     void UpdateL2(bool old_l2_active, bool policy_change);
     void DeleteL2(bool old_l2_active);
 
@@ -724,12 +724,10 @@ private:
     void DeleteL3MplsLabel();
     void UpdateL3TunnelId(bool force_update, bool policy_change);
     void DeleteL3TunnelId();
-    void UpdateMulticastNextHop(bool old_ipv4_active, bool old_l2_active);
-    void DeleteMulticastNextHop();
     void UpdateMacVmBinding();
-    void UpdateL2NextHop(bool old_l2_active);
+    void UpdateL2NextHop();
     void UpdateFlowKeyNextHop();
-    void DeleteL2NextHop(bool old_l2_active);
+    void DeleteL2NextHop();
     void DeleteMacVmBinding(const VrfEntry *old_vrf);
     bool L2Activated(bool old_l2_active);
     bool BridgingActivated(bool old_bridging);
@@ -796,6 +794,7 @@ private:
 
     bool UpdateIsHealthCheckActive();
     void CopyEcmpLoadBalance(EcmpLoadBalance &ecmp_load_balance);
+    void UpdateCommonNextHop();
 
     VmEntryRef vm_;
     VnEntryRef vn_;
@@ -877,7 +876,6 @@ private:
     NextHopRef l2_interface_nh_policy_;
     NextHopRef l3_interface_nh_no_policy_;
     NextHopRef l2_interface_nh_no_policy_;
-    NextHopRef multicast_nh_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 

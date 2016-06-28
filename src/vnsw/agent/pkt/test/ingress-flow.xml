@@ -26,10 +26,10 @@
      sip="1.1.1.1" dip="1.1.1.2" proto="udp" sport="1" dport="2"
      type="flow" />
     <validate name="validate-2">
-        <flow name="l2-udp-from-vm-1" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.1"
+        <flow name="l2-udp-from-vm-1" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.1"
          dip="1.1.1.2" proto="udp" sport="1" dport="1" svn="vn1"
          dvn="__UNKNOWN__" action="deny"/>
-        <flow name="l2-udp-from-vm-2" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.1"
+        <flow name="l2-udp-from-vm-2" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.1"
          dip="1.1.1.2" proto="udp" sport="1" dport="2" svn="vn1"
          dvn="__UNKNOWN__" action="deny"/>
     </validate>
@@ -54,12 +54,12 @@
      sip="1.1.1.1" dip="1.1.1.2" proto="udp" sport="1" dport="12"
      type="flow" />
     <validate name="validate-3">
-        <flow name="l2-udp-from-vm-2" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.1"
+        <flow name="l2-udp-from-vm-2" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.1"
          dip="1.1.1.2" proto="udp" sport="1" dport="11" svn="vn1"
-         dvn="vn1" action="pass" rpf_nh="12"/>
-        <flow name="l2-udp-from-vm-2" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.1"
+         dvn="vn1" action="pass" rpf_nh="13"/>
+        <flow name="l2-udp-from-vm-2" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.1"
          dip="1.1.1.2" proto="udp" sport="1" dport="12" svn="vn1"
-         dvn="vn1" action="pass" rpf_nh="12"/>
+         dvn="vn1" action="pass" rpf_nh="13"/>
     </validate>
 
     <virtual-machine-interface nova="1"
@@ -80,10 +80,10 @@
      sip="1.1.1.3" dip="1.1.1.1" proto="udp" sport="53" dport="1800"
      type="flow" />
     <validate name="validate-3">
-        <flow name="l2-fat-flow-from-vm" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.1"
+        <flow name="l2-fat-flow-from-vm" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.1"
          dip="1.1.1.3" proto="udp" sport="1800" dport="53" svn="vn1"
          dvn="vn1" action="pass"/>
-        <flow name="l2-fat-flow-from-vm-2" uuid="1" vrf="vrf1" nh="16" sip="1.1.1.3"
+        <flow name="l2-fat-flow-from-vm-2" uuid="1" vrf="vrf1" nh="22" sip="1.1.1.3"
          dip="1.1.1.1" proto="udp" sport="53" dport="0" svn="vn1"
          dvn="vn1" action="pass"/>
     </validate>
