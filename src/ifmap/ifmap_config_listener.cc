@@ -112,7 +112,7 @@ IFMapDependencyTracker *IFMapConfigListener::get_dependency_tracker() {
 // We take references on the IFMapNode and the IFMapObject.
 //
 void IFMapConfigListener::ChangeListAdd(IFMapNode *node) {
-    CHECK_CONCURRENCY(kConcurrency_.c_str(), "db::DBTable");
+    CHECK_CONCURRENCY(kConcurrency_.c_str(), "db::DBTable", "db::IFMapTable");
 
     IFMapTable *table = node->table();
     TableMap::const_iterator tid = table_map_.find(table->name());
@@ -140,7 +140,7 @@ void IFMapConfigListener::ChangeListAdd(IFMapNode *node) {
 //
 void IFMapConfigListener::NodeObserver(
     DBTablePartBase *root, DBEntryBase *db_entry) {
-    CHECK_CONCURRENCY("db::DBTable");
+    CHECK_CONCURRENCY("db::DBTable", "db::IFMapTable");
 
     // Ignore deleted nodes for which the configuration code doesn't hold
     // state. This is the case with ie. BgpRouter objects other than the local
@@ -165,7 +165,7 @@ void IFMapConfigListener::NodeObserver(
 //
 void IFMapConfigListener::LinkObserver(
     DBTablePartBase *root, DBEntryBase *db_entry) {
-    CHECK_CONCURRENCY("db::DBTable");
+    CHECK_CONCURRENCY("db::DBTable", "db::IFMapTable");
 
     IFMapLink *link = static_cast<IFMapLink *>(db_entry);
     IFMapNode *left = link->LeftNode(database());

@@ -67,8 +67,8 @@ IFMapGraphWalker::IFMapGraphWalker(DBGraph *graph, IFMapExporter *exporter)
     : graph_(graph),
       exporter_(exporter),
       link_delete_walk_trigger_(new TaskTrigger(
-                        boost::bind(&IFMapGraphWalker::LinkDeleteWalk, this),
-                        TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0)),
+          boost::bind(&IFMapGraphWalker::LinkDeleteWalk, this),
+          TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"), 0)),
       walk_client_index_(BitSet::npos) {
     traversal_white_list_.reset(new IFMapTypenameWhiteList());
     AddNodesToWhitelist();

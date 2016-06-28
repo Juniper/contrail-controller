@@ -425,7 +425,7 @@ void IFMapTableShowReq::HandleRequest() const {
 
     // 2 stages - first: gather/read, second: send
 
-    s0.taskId_ = scheduler->GetTaskId("db::DBTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
     s0.allocFn_ = ShowIFMapTable::AllocBuffer;
     s0.cbFn_ = ShowIFMapTable::BufferStage;
     s0.instances_.push_back(0);
@@ -447,7 +447,7 @@ void IFMapTableShowReqIterate::HandleRequest() const {
 
     // 2 stages - first: gather/read, second: send
 
-    s0.taskId_ = scheduler->GetTaskId("db::DBTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
     s0.allocFn_ = ShowIFMapTable::AllocBuffer;
     s0.cbFn_ = ShowIFMapTable::BufferStageIterate;
     s0.instances_.push_back(0);
@@ -736,7 +736,7 @@ void IFMapLinkTableShowReq::HandleRequest() const {
 
     // 2 stages - first: gather/read, second: send
 
-    s0.taskId_ = scheduler->GetTaskId("db::DBTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
     s0.allocFn_ = ShowIFMapLinkTable::AllocBuffer;
     s0.cbFn_ = ShowIFMapLinkTable::BufferStage;
     s0.instances_.push_back(0);
@@ -758,7 +758,7 @@ void IFMapLinkTableShowReqIterate::HandleRequest() const {
 
     // 2 stages - first: gather/read, second: send
 
-    s0.taskId_ = scheduler->GetTaskId("db::DBTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
     s0.allocFn_ = ShowIFMapLinkTable::AllocBuffer;
     s0.cbFn_ = ShowIFMapLinkTable::BufferStageIterate;
     s0.instances_.push_back(0);
@@ -823,7 +823,7 @@ void IFMapNodeShowReq::HandleRequest() const {
     RequestPipeline::StageSpec s0;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
-    s0.taskId_ = scheduler->GetTaskId("db::DBTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
     s0.cbFn_ = IFMapNodeShowReqHandleRequest;
     s0.instances_.push_back(0);
 
@@ -1178,7 +1178,7 @@ void IFMapPerClientNodesShowReq::HandleRequest() const {
 
     // 2 stages - first: gather/read, second: send
 
-    s0.taskId_ = scheduler->GetTaskId("db::DBTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
     s0.allocFn_ = ShowIFMapPerClientNodes::AllocBuffer;
     s0.cbFn_ = ShowIFMapPerClientNodes::BufferStage;
     s0.instances_.push_back(0);
@@ -1200,7 +1200,7 @@ void IFMapPerClientNodesShowReqIterate::HandleRequest() const {
 
     // 2 stages - first: gather/read, second: send
 
-    s0.taskId_ = scheduler->GetTaskId("db::DBTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
     s0.allocFn_ = ShowIFMapPerClientNodes::AllocBuffer;
     s0.cbFn_ = ShowIFMapPerClientNodes::BufferStageIterate;
     s0.instances_.push_back(0);
@@ -1440,7 +1440,7 @@ void IFMapPerClientLinksShowReq::HandleRequest() const {
     RequestPipeline::StageSpec s0;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
-    s0.taskId_ = scheduler->GetTaskId("db::DBTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
     s0.cbFn_ = ShowIFMapPerClientLinkTable::HandleRequest;
     s0.instances_.push_back(0);
 
@@ -1453,7 +1453,7 @@ void IFMapPerClientLinksShowReqIterate::HandleRequest() const {
     RequestPipeline::StageSpec s0;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
-    s0.taskId_ = scheduler->GetTaskId("db::DBTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
     s0.cbFn_ = ShowIFMapPerClientLinkTable::HandleRequestIterate;
     s0.instances_.push_back(0);
 
@@ -1575,7 +1575,7 @@ void IFMapUuidToNodeMappingReq::HandleRequest() const {
 
     // 2 stages - first: gather/read, second: send
 
-    s0.taskId_ = scheduler->GetTaskId("db::DBTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
     s0.allocFn_ = ShowIFMapUuidToNodeMapping::AllocBuffer;
     s0.cbFn_ = ShowIFMapUuidToNodeMapping::BufferStage;
     s0.instances_.push_back(0);
@@ -1703,7 +1703,7 @@ void IFMapNodeToUuidMappingReq::HandleRequest() const {
 
     // 2 stages - first: gather/read, second: send
 
-    s0.taskId_ = scheduler->GetTaskId("db::DBTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
     s0.allocFn_ = ShowIFMapNodeToUuidMapping::AllocBuffer;
     s0.cbFn_ = ShowIFMapNodeToUuidMapping::BufferStage;
     s0.instances_.push_back(0);
@@ -1830,7 +1830,7 @@ void IFMapPendingVmRegReq::HandleRequest() const {
 
     // 2 stages - first: gather/read, second: send
 
-    s0.taskId_ = scheduler->GetTaskId("db::DBTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
     s0.allocFn_ = ShowIFMapPendingVmReg::AllocBuffer;
     s0.cbFn_ = ShowIFMapPendingVmReg::BufferStage;
     s0.instances_.push_back(0);
@@ -1880,7 +1880,7 @@ void IFMapServerClientShowReq::HandleRequest() const {
     RequestPipeline::StageSpec s0;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
-    s0.taskId_ = scheduler->GetTaskId("db::DBTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
     s0.cbFn_ = IFMapServerClientShowReqHandleRequest;
     s0.instances_.push_back(0);
 
@@ -1916,7 +1916,7 @@ void IFMapNodeTableListShowReq::HandleRequest() const {
     RequestPipeline::StageSpec s0;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
-    s0.taskId_ = scheduler->GetTaskId("db::DBTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
     s0.cbFn_ = IFMapNodeTableListShowReqHandleRequest;
     s0.instances_.push_back(0);
 

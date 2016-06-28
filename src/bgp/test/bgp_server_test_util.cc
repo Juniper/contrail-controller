@@ -49,10 +49,11 @@ BgpServerTest::BgpServerTest(EventManager *evm, const string &localname,
 }
 
 BgpServerTest::BgpServerTest(EventManager *evm, const string &localname)
-        : BgpServer(evm),
-          name_(localname),
-          config_db_(new DB()),
-          config_graph_(new DBGraph()) {
+    : BgpServer(evm),
+      name_(localname),
+      config_db_(
+          new DB(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"))),
+      config_graph_(new DBGraph()) {
     cleanup_config_ = true;
     IFMapLinkTable_Init(config_db_.get(), config_graph_.get());
     vnc_cfg_Server_ModuleInit(config_db_.get(), config_graph_.get());

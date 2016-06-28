@@ -333,7 +333,8 @@ DBEntry *DBTable::Find(const DBRequestKey *key) {
 }
 
 //
-// Concurrency: called from task that's mutually exclusive with db::DBTable.
+// Concurrency: called from task that's mutually exclusive with db::DBTable
+// or db::IFMapTable as applicable.
 //
 // Calculate the size across all partitions.
 //
@@ -414,7 +415,8 @@ void DBTable::WalkCompleteCallback(DBTableBase *tbl_base) {
 }
 
 //
-// Concurrency: called from task that's mutually exclusive with db::DBTable.
+// Concurrency: called from task that's mutually exclusive with db::DBTable
+// or db::IFMapTable as applicable.
 //
 // Trigger notification of all entries to all listeners.
 // Should be used sparingly e.g. to handle significant configuration change.

@@ -64,7 +64,8 @@ static int ConfigInstanceCount(BgpConfigManager *manager) {
 class BgpIfmapConfigManagerTest : public ::testing::Test {
 protected:
     BgpIfmapConfigManagerTest()
-            : config_manager_(new BgpIfmapConfigManager(NULL)),
+            : db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
+              config_manager_(new BgpIfmapConfigManager(NULL)),
               parser_(&db_) {
     }
 
@@ -121,7 +122,8 @@ protected:
 class BgpIfmapConfigManagerShowTest : public ::testing::Test {
   protected:
     BgpIfmapConfigManagerShowTest()
-            : server_(&evm_), parser_(&db_) {
+            : db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
+              server_(&evm_), parser_(&db_) {
         config_manager_ =
                 static_cast<BgpIfmapConfigManager *>(server_.config_manager());
     }
@@ -153,9 +155,9 @@ class BgpIfmapConfigManagerShowTest : public ::testing::Test {
     }
 
     EventManager evm_;
-    BgpServer server_;
     DB db_;
     DBGraph db_graph_;
+    BgpServer server_;
     BgpIfmapConfigManager *config_manager_;
     BgpConfigParser parser_;
 };
@@ -2846,7 +2848,8 @@ TEST_F(BgpIfmapConfigManagerShowTest, RouteAggregate_Show) {
 class IFMapConfigTest : public ::testing::Test {
   protected:
     IFMapConfigTest()
-        : bgp_server_(new BgpServer(&evm_)) {
+        : config_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
+          bgp_server_(new BgpServer(&evm_)) {
     }
     virtual void SetUp() {
         IFMapLinkTable_Init(&config_db_, &config_graph_);

@@ -96,7 +96,9 @@ static const char *bgp_server_config = "\
 
 class ReplicationTest : public ::testing::Test {
 protected:
-    ReplicationTest() : bgp_server_(new BgpServer(&evm_)) {
+    ReplicationTest()
+      : config_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
+        bgp_server_(new BgpServer(&evm_)) {
         IFMapLinkTable_Init(&config_db_, &config_graph_);
         vnc_cfg_Server_ModuleInit(&config_db_, &config_graph_);
         bgp_schema_Server_ModuleInit(&config_db_, &config_graph_);

@@ -119,7 +119,9 @@ static const char *bgp_server_config = "\
 
 class RouteAggregatorTest : public ::testing::Test {
 protected:
-    RouteAggregatorTest() : bgp_server_(new BgpServer(&evm_)),
+    RouteAggregatorTest()
+      : config_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
+        bgp_server_(new BgpServer(&evm_)),
         parser_(&config_db_),
         validate_done_(false) {
         IFMapLinkTable_Init(&config_db_, &config_graph_);
