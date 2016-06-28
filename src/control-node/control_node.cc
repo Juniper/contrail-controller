@@ -129,4 +129,10 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("bgp::StaticRoute")));
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::RouteAggregation"),
         route_aggregation_policy);
+
+    // Policy for db::IFMapTable Task.
+    TaskPolicy db_ifmap_policy = boost::assign::list_of
+        (TaskExclusion(scheduler->GetTaskId("bgp::Config")));
+    scheduler->SetPolicy(scheduler->GetTaskId("db::IFMapTable"),
+        db_ifmap_policy);
 }
