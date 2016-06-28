@@ -158,9 +158,13 @@ protected:
                                 "Is peer ready");
 
         a_red_ = a_->routing_instance_mgr()->GetRoutingInstance("red");
+        a_red_->LocatePeerManager();
         a_blue_ = a_->routing_instance_mgr()->GetRoutingInstance("blue");
+        a_blue_->LocatePeerManager();
         b_blue_ = b_->routing_instance_mgr()->GetRoutingInstance("blue");
+        b_blue_->LocatePeerManager();
         b_red_ = b_->routing_instance_mgr()->GetRoutingInstance("red");
+        b_red_->LocatePeerManager();
 
         a_vpn_ =
             static_cast<BgpTable *>(a_->database()->FindTable("bgp.l3vpn.0"));

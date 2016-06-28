@@ -494,8 +494,7 @@ RoutingInstance::RoutingInstance(string name, BgpServer *server,
       virtual_network_allow_transit_(false),
       vxlan_id_(0),
       deleter_(new DeleteActor(server, this)),
-      manager_delete_ref_(this, mgr->deleter()),
-      peer_manager_(BgpObjectFactory::Create<PeerManager>(this)) {
+      manager_delete_ref_(this, mgr->deleter()) {
 }
 
 RoutingInstance::~RoutingInstance() {
@@ -673,6 +672,7 @@ void RoutingInstance::ProcessConfig() {
         assert(mgr_->count() == 1);
         is_master_ = true;
 
+        LocatePeerManager();
         VpnTableCreate(Address::INETVPN);
         VpnTableCreate(Address::INET6VPN);
         VpnTableCreate(Address::ERMVPN);
@@ -1310,4 +1310,10 @@ int RoutingInstance::GetOriginVnForAggregateRoute(Address::Family fmly) const {
         if (dest) return dest->virtual_network_index();
     }
     return virtual_network_index_;
+}
+
+PeerManager *RoutingInstance::LocatePeerManager() {
+    if (!peer_manager_)
+        peer_manager_.reset(BgpObjectFactory::Create<PeerManager>(this));
+    return peer_manager_.get();
 }
