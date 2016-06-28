@@ -55,12 +55,12 @@ using namespace boost::uuids;
 using namespace autogen;
 
 VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
-    Interface(Interface::VM_INTERFACE, uuid, "", NULL), vm_(NULL),
+    Interface(Interface::VM_INTERFACE, uuid, "", NULL), vm_(NULL, this),
     vn_(NULL), primary_ip_addr_(0), mdata_ip_(NULL), subnet_bcast_addr_(0),
     primary_ip6_addr_(), vm_mac_(""), policy_enabled_(false),
     mirror_entry_(NULL), mirror_direction_(MIRROR_RX_TX), cfg_name_(""),
-    fabric_port_(true), need_linklocal_ip_(false), dhcp_enable_(true),
-    do_dhcp_relay_(false), vm_name_(),
+    fabric_port_(true), need_linklocal_ip_(false), drop_new_flows_(false),
+    dhcp_enable_(true), do_dhcp_relay_(false), vm_name_(),
     vm_project_uuid_(nil_uuid()), vxlan_id_(0), bridging_(false),
     layer3_forwarding_(true), flood_unknown_unicast_(false),
     mac_set_(false), ecmp_(false), ecmp6_(false), disable_policy_(false),
@@ -94,12 +94,12 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
                          uint16_t tx_vlan_id, uint16_t rx_vlan_id,
                          Interface *parent, const Ip6Address &a6,
                          DeviceType device_type, VmiType vmi_type) :
-    Interface(Interface::VM_INTERFACE, uuid, name, NULL), vm_(NULL),
+    Interface(Interface::VM_INTERFACE, uuid, name, NULL), vm_(NULL, this),
     vn_(NULL), primary_ip_addr_(addr), mdata_ip_(NULL), subnet_bcast_addr_(0),
     primary_ip6_addr_(a6), vm_mac_(mac), policy_enabled_(false),
     mirror_entry_(NULL), mirror_direction_(MIRROR_RX_TX), cfg_name_(""),
-    fabric_port_(true), need_linklocal_ip_(false), dhcp_enable_(true),
-    do_dhcp_relay_(false), vm_name_(vm_name),
+    fabric_port_(true), need_linklocal_ip_(false), drop_new_flows_(false),
+    dhcp_enable_(true), do_dhcp_relay_(false), vm_name_(vm_name),
     vm_project_uuid_(vm_project_uuid), vxlan_id_(0),
     bridging_(false), layer3_forwarding_(true),
     flood_unknown_unicast_(false), mac_set_(false),
@@ -1897,6 +1897,13 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
             ret = true;
         }
 
+        bool drop_new_flows =
+            (vm_.get() != NULL) ? vm_->drop_new_flows() : false;
+        if (drop_new_flows_ != drop_new_flows) {
+            drop_new_flows_ = drop_new_flows;
+            ret = true;
+        }
+
         VrfEntry *vrf = table->FindVrfRef(data->vrf_name_);
         if (vrf_.get() != vrf) {
             vrf_ = vrf;
@@ -2460,6 +2467,25 @@ bool VmInterfaceHealthCheckData::OnResync(const InterfaceTable *table,
                                           VmInterface *vmi,
                                           bool *force_update) const {
     return vmi->UpdateIsHealthCheckActive();
+}
+
+VmInterfaceNewFlowDropData::VmInterfaceNewFlowDropData(bool drop_new_flows) :
+    VmInterfaceData(NULL, NULL, DROP_NEW_FLOWS, Interface::TRANSPORT_INVALID),
+    drop_new_flows_(drop_new_flows) {
+}
+
+VmInterfaceNewFlowDropData::~VmInterfaceNewFlowDropData() {
+}
+
+bool VmInterfaceNewFlowDropData::OnResync(const InterfaceTable *table,
+                                          VmInterface *vmi,
+                                          bool *force_update) const {
+    if (vmi->drop_new_flows_ != drop_new_flows_) {
+        vmi->drop_new_flows_ = drop_new_flows_;
+        return true;
+    }
+
+    return false;
 }
 
 /////////////////////////////////////////////////////////////////////////////

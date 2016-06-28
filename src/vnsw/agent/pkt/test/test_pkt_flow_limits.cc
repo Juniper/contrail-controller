@@ -604,9 +604,12 @@ TEST_F(FlowTest, FlowLimit_1) {
     FlowStatsTimerStartStop(agent_, true);
     CreateFlow(flow, 4);
     client->WaitForIdle();
-    int nh_id = agent_->interface_table()->FindInterface
-        (vmi_3->id())->flow_key_nh()->id();
+    VmInterface *intf = static_cast<VmInterface*>(agent_->interface_table()->\
+                                                  FindInterface(vmi_3->id()));
+    int nh_id = intf->flow_key_nh()->id();
     EXPECT_EQ(4U, get_flow_proto()->FlowCount());
+    // Validate interface is set to drop new flows after flow limit is reached
+    EXPECT_TRUE(intf->drop_new_flows());
     FlowEntry *fe = FlowGet(VrfGet("vrf3")->vrf_id(), vm4_ip, vm1_ip,
                             IPPROTO_TCP, 300, 200, nh_id);
     EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
@@ -618,6 +621,10 @@ TEST_F(FlowTest, FlowLimit_1) {
     DeleteRoute("vrf5", vm4_ip);
     DeleteRoute("vrf3", vm1_ip);
     client->WaitForIdle();
+    FlushFlowTable();
+    client->WaitForIdle();
+    // Validate interface is not dropping new flows after flows age-out
+    EXPECT_FALSE(intf->drop_new_flows());
     client->WaitForIdle();
     agent_->set_max_vm_flows(vm_flows);
 }

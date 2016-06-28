@@ -33,6 +33,12 @@ struct VmData : public AgentOperDBData {
 class VmEntry : AgentRefCount<VmEntry>, public AgentOperDBEntry {
 public:
     static const int kVectorIncreaseSize = 16;
+
+    // kDropNewFlowsRecoveryThreshold is set to 90% of the Max flows for a
+    // VM this value represents that recovery from the drop new flows will
+    // happen only when total number of flow fall below this value
+    static const int kDropNewFlowsRecoveryThreshold = 90;
+
     VmEntry(const uuid &id);
     virtual ~VmEntry();
 
@@ -53,11 +59,7 @@ public:
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
 
     uint32_t flow_count() const { return flow_count_; }
-    void update_flow_count(int val) const {
-        int tmp = flow_count_.fetch_and_add(val);
-        if (val < 0)
-            assert(tmp >= val);
-    }
+    void update_flow_count(int val) const;
 
     uint32_t linklocal_flow_count() const { return linklocal_flow_count_; }
     void update_linklocal_flow_count(int val) const {
@@ -65,12 +67,17 @@ public:
         if (val < 0)
             assert(tmp >= val);
     }
+
+    bool drop_new_flows() const { return drop_new_flows_; }
+
 private:
+    void SetInterfacesDropNewFlows(bool drop_new_flows) const;
     friend class VmTable;
     uuid uuid_;
     std::string name_;
     mutable tbb::atomic<int> flow_count_;
     mutable tbb::atomic<int> linklocal_flow_count_;
+    mutable bool drop_new_flows_;
     DISALLOW_COPY_AND_ASSIGN(VmEntry);
 };
 
