@@ -10,14 +10,15 @@ class AlarmBase(object):
 
     _RULES = None
 
-    def __init__(self, sev, at=0, it=0, fec=False, fcs=0, fct=0):
-        self._config = None
-        self._sev = sev
+    def __init__(self, sev=None, at=0, it=0, fec=False,
+                 fcs=0, fct=0, config=None):
+        self._sev = sev or self.SYS_ERR
         self._ActiveTimer = at
         self._IdleTimer = it
         self._FreqExceededCheck = fec
         self._FreqCheck_Times = fct
         self._FreqCheck_Seconds = fcs
+        self._config = config
 
     def rules(self):
         """Return the rules for this alarm
@@ -33,6 +34,8 @@ class AlarmBase(object):
         """Return the severity of the alarm
            This should not depend on UVE contents
         """
+        if self._config:
+            return self._config.alarm_severity
         return self._sev
 
     def FreqCheck_Times(self):
@@ -68,6 +71,12 @@ class AlarmBase(object):
         """Set the alarm config object for this alarm
         """
         self._config = alarm_cfg_obj
+
+    def is_enabled(self):
+        if self._config:
+            if self._config.id_perms.enable is not None:
+                return self._config.id_perms.enable
+        return True
 
     #def __call__(self, uve_key, uve_data):
         """Evaluate whether alarm should be raised.
