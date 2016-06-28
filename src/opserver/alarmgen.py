@@ -496,6 +496,9 @@ class AlarmStateMachine:
             self.uas.state = UVEAlarmState.Active
             self._remove_timer_from_list(self.idleTimeout)
         elif self.uas.state == UVEAlarmState.Idle:
+            if self.deleteTimeout and (self.deleteTimeout in \
+                    AlarmStateMachine.tab_alarms_timer):
+                self._remove_timer_from_list(self.deleteTimeout)
             if self.uac.FreqExceededCheck:
                 # log the timestamp
                 ts = int(self.uai.timestamp/1000000.0)
