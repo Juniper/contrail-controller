@@ -53,6 +53,9 @@ PERMS_RWX = 7
 # create users specified as array of tuples (name, password, role)
 # assumes admin user and tenant exists
 
+def normalize_uuid(id):
+    return id.replace('-','')
+
 class User(object):
    def __init__(self, apis_ip, apis_port, kc, name, password, role, project):
        self.name = name
@@ -828,6 +831,141 @@ class TestPermissions(test_case.ApiServerTestCase):
         ri_name = [self.domain_name, alice.project, self.vn_name, self.vn_name]
         ri = vnc_read_obj(self.admin.vnc_lib, 'routing-instance', name = ri_name)
         self.assertEquals(ri.get_perms2().owner, 'cloud-admin')
+
+    def test_chown_api(self):
+        """
+        1) Alice creates a VN in her project
+        2) Alice changes ownership of her VN to Bob
+        """
+
+        alice = self.alice
+        bob   = self.bob
+        admin = self.admin
+
+        logger.info( 'alice: create VN in her project')
+        vn_fq_name = [self.domain_name, alice.project, self.vn_name]
+        vn = VirtualNetwork(self.vn_name, self.alice.project_obj)
+        self.alice.vnc_lib.virtual_network_create(vn)
+
+        logger.info( "Verify Bob cannot chown Alice's virtual network")
+        self.assertRaises(PermissionDenied, bob.vnc_lib.chown, vn.get_uuid(), bob.project_uuid)
+
+        logger.info( 'Verify Alice can chown virtual network in her project to Bob')
+        alice.vnc_lib.chown(vn.get_uuid(), bob.project_uuid)
+        self.assertRaises(PermissionDenied, alice.vnc_lib.chown, vn.get_uuid(), alice.project_uuid)
+        bob.vnc_lib.chown(vn.get_uuid(), alice.project_uuid)
+
+        # negative test cases
+
+        # Version 4 UUIDs have the form xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+        # where x is any hexadecimal digit and y is one of 8, 9, A, or B.
+        invalid_uuid = '7a574f27-6934-4970-C767-b4996bd30f36'
+        valid_uuid_1 = '7a574f27-6934-4970-8767-b4996bd30f36'
+        valid_uuid_2 = '7a574f27693449708767b4996bd30f36'
+
+        with ExpectedException(BadRequest) as e:
+            alice.vnc_lib.chown(invalid_uuid, vn.get_uuid())
+        with ExpectedException(BadRequest) as e:
+            alice.vnc_lib.chown(vn.get_uuid(), owner=invalid_uuid)
+
+        # test valid UUID formats
+        alice.vnc_lib.chown(vn.get_uuid(), valid_uuid_1)
+        admin.vnc_lib.chown(vn.get_uuid(), alice.project_uuid)
+        alice.vnc_lib.chown(vn.get_uuid(), valid_uuid_2)
+        admin.vnc_lib.chown(vn.get_uuid(), alice.project_uuid)
+
+        # ensure chown/chmod works even when rbac is disabled
+        self.assertRaises(PermissionDenied, alice.vnc_lib.set_multi_tenancy_with_rbac, False)
+        rv = admin.vnc_lib.set_multi_tenancy_with_rbac(False)
+        self.assertEquals(rv['enabled'], False)
+        alice.vnc_lib.chown(vn.get_uuid(), valid_uuid_1)
+        admin.vnc_lib.chown(vn.get_uuid(), alice.project_uuid)
+        alice.vnc_lib.chmod(vn.get_uuid(), owner=valid_uuid_1)
+        admin.vnc_lib.chown(vn.get_uuid(), alice.project_uuid)
+
+        # re-enable rbac for subsequent tests!
+        try:
+            rv = admin.vnc_lib.set_multi_tenancy_with_rbac(True)
+            self.assertEquals(rv['enabled'], True)
+        except Exception:
+            self.fail("Error in enabling rbac")
+
+    def test_chmod_api(self):
+        """
+        1) Alice creates a VN in her project
+        3) Alice enables read sharing in VN for Bob's project
+        4) Alice enables global read access for VN
+        5) Alice enables global read/write access for VN
+        """
+
+        alice = self.alice
+        bob   = self.bob
+        admin = self.admin
+
+        logger.info( 'alice: create VN in her project')
+        vn_fq_name = [self.domain_name, alice.project, self.vn_name]
+        vn = VirtualNetwork(self.vn_name, self.alice.project_obj)
+        self.alice.vnc_lib.virtual_network_create(vn)
+        vn = vnc_read_obj(alice.vnc_lib, 'virtual-network', name = vn_fq_name)
+
+        logger.info( "Verify Bob cannot chmod Alice's virtual network")
+        self.assertRaises(PermissionDenied, bob.vnc_lib.chmod, vn.get_uuid(), owner=bob.project_uuid)
+
+        logger.info( 'Enable read share in virtual network for bob project')
+        alice.vnc_lib.chmod(vn.get_uuid(), share=[(bob.project_uuid,PERMS_R)])
+        ExpectedPerms = {'admin':'RWX', 'alice':'RWX', 'bob':'R'}
+        for user in [alice, bob, admin]:
+            perms = user.check_perms(vn.get_uuid())
+            self.assertEquals(ExpectedPerms[user.name], perms)
+
+        logger.info( 'Disable share in virtual networks for others')
+        alice.vnc_lib.chmod(vn.get_uuid(), share=[])
+        ExpectedPerms = {'admin':'RWX', 'alice':'RWX', 'bob':''}
+        for user in [alice, bob, admin]:
+            perms = user.check_perms(vn.get_uuid())
+            self.assertEquals(perms, ExpectedPerms[user.name])
+
+        logger.info( 'Enable VN in alice project for global sharing (read only)')
+        alice.vnc_lib.chmod(vn.get_uuid(), global_access=PERMS_R)
+        ExpectedPerms = {'admin':'RWX', 'alice':'RWX', 'bob':'R'}
+        for user in [alice, bob, admin]:
+            perms = user.check_perms(vn.get_uuid())
+            self.assertEquals(perms, ExpectedPerms[user.name])
+
+        logger.info( 'Enable virtual networks in alice project for global sharing (read, write)')
+        alice.vnc_lib.chmod(vn.get_uuid(), global_access=PERMS_RW)
+        ExpectedPerms = {'admin':'RWX', 'alice':'RWX', 'bob':'RW'}
+        for user in [alice, bob, admin]:
+            perms = user.check_perms(vn.get_uuid())
+            self.assertEquals(perms, ExpectedPerms[user.name])
+
+        # negative test cases
+        invalid_uuid = '7a574f27-6934-4970-C767-b4996bd30f36'
+        valid_uuid_1 = '7a574f27-6934-4970-8767-b4996bd30f36'
+        valid_uuid_2 = '7a574f27693449708767b4996bd30f36'
+
+        logger.info( "verify Alice cannot set owner or global access to a bad value")
+        with ExpectedException(BadRequest) as e:
+            alice.vnc_lib.chmod(vn.get_uuid(), owner_access='7')
+        with ExpectedException(BadRequest) as e:
+            alice.vnc_lib.chmod(vn.get_uuid(), owner_access=8)
+        with ExpectedException(BadRequest) as e:
+            alice.vnc_lib.chmod(vn.get_uuid(), global_access='7')
+        with ExpectedException(BadRequest) as e:
+            alice.vnc_lib.chmod(vn.get_uuid(), global_access=8)
+
+        with ExpectedException(BadRequest) as e:
+            alice.vnc_lib.chmod(invalid_uuid, owner=vn.get_uuid())
+        with ExpectedException(BadRequest) as e:
+            alice.vnc_lib.chmod(vn.get_uuid(), owner=invalid_uuid)
+        with ExpectedException(BadRequest) as e:
+            alice.vnc_lib.chmod(vn.get_uuid(), share=[(invalid_uuid,PERMS_R)])
+
+        # test valid UUID formats
+        alice.vnc_lib.chmod(vn.get_uuid(), owner=valid_uuid_1)
+        admin.vnc_lib.chmod(vn.get_uuid(), owner=alice.project_uuid)
+        alice.vnc_lib.chmod(vn.get_uuid(), owner=valid_uuid_2)
+        admin.vnc_lib.chmod(vn.get_uuid(), owner=alice.project_uuid)
 
     def tearDown(self):
         super(TestPermissions, self).tearDown()
