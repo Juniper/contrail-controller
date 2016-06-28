@@ -40,15 +40,17 @@ size_t ShowNeighborStatisticsHandler::FillBgpNeighborStatistics(
         RoutingInstanceMgr *rim = bgp_server->routing_instance_mgr();
         if (!req->get_domain().empty()) {
             RoutingInstance *ri = rim->GetRoutingInstance(req->get_domain());
-            if (ri) {
-                count +=
-                    ri->peer_manager()->GetNeighborCount(req->get_up_or_down());
+            PeerManager *pmgr = ri ? ri->peer_manager() : NULL;
+            if (pmgr) {
+                count += pmgr->GetNeighborCount(req->get_up_or_down());
             }
         } else {
             RoutingInstanceMgr::RoutingInstanceIterator it = rim->begin();
             for (; it != rim->end(); it++) {
-                count +=
-                    it->peer_manager()->GetNeighborCount(req->get_up_or_down());
+                PeerManager *pmgr = it->peer_manager();
+                if (pmgr) {
+                    count += pmgr->GetNeighborCount(req->get_up_or_down());
+                }
             }
         }
     }
