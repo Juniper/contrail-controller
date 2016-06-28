@@ -445,7 +445,7 @@ protected:
             EXPECT_TRUE(VmPortActive(input, 0) == false);
         } else if (type == "l3") {
             WAIT_FOR(1000, 100, (VmPortActive(input, 0) == true)); //v4 active
-            EXPECT_TRUE(VmPortL2Active(input, 0) == true);
+            EXPECT_TRUE(VmPortL2Active(input, 0) == false);
         }
     }
 
