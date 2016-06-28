@@ -1531,7 +1531,6 @@ TEST_F(IntfTest, IntfActivateDeactivate_1) {
     MacAddress mac = MacAddress::FromString("00:00:00:01:01:01");
     VmInterfaceKey *intf_key1 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     VmInterfaceKey *intf_key2 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
-    VmInterfaceKey *intf_key3 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     VmInterfaceKey *intf_key4 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     VmInterfaceKey *intf_key5 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
 
@@ -1541,11 +1540,6 @@ TEST_F(IntfTest, IntfActivateDeactivate_1) {
     InterfaceNHKey unicast_policy_nh_key(intf_key2, true, InterfaceNHFlags::INET4,
                                          mac);
     EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
-
-    InterfaceNHKey multicast_nh_key(intf_key3, false, InterfaceNHFlags::MULTICAST |
-                                    InterfaceNHFlags::INET4,
-                                    MacAddress::BroadcastMac());
-    EXPECT_FALSE(FindNH(&multicast_nh_key));
 
     InterfaceNHKey bridge_nh_key(intf_key4, false, InterfaceNHFlags::BRIDGE, mac);
     EXPECT_FALSE(FindNH(&bridge_nh_key));
@@ -1559,7 +1553,6 @@ TEST_F(IntfTest, IntfActivateDeactivate_1) {
     client->WaitForIdle();
     EXPECT_TRUE(FindNH(&unicast_nh_key));
     EXPECT_TRUE(FindNH(&unicast_policy_nh_key));
-    EXPECT_TRUE(FindNH(&multicast_nh_key));
     EXPECT_TRUE(FindNH(&bridge_nh_key));
     EXPECT_TRUE(FindNH(&bridge_policy_nh_key));
 
@@ -1568,7 +1561,6 @@ TEST_F(IntfTest, IntfActivateDeactivate_1) {
     client->WaitForIdle();
     EXPECT_FALSE(FindNH(&unicast_nh_key));
     EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
-    EXPECT_FALSE(FindNH(&multicast_nh_key));
     EXPECT_FALSE(FindNH(&bridge_nh_key));
     EXPECT_FALSE(FindNH(&bridge_policy_nh_key));
     EXPECT_FALSE(VrfFind("vrf1", true));
@@ -1592,25 +1584,19 @@ TEST_F(IntfTest, IntfActivateDeactivate_2) {
     MacAddress mac = MacAddress::FromString("00:00:00:01:01:01");
     VmInterfaceKey *intf_key1 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     VmInterfaceKey *intf_key2 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
-    VmInterfaceKey *intf_key3 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     VmInterfaceKey *intf_key4 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     VmInterfaceKey *intf_key5 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
 
     InterfaceNHKey unicast_nh_key(intf_key1, false, InterfaceNHFlags::INET4, mac);
     InterfaceNHKey unicast_policy_nh_key(intf_key2, true, InterfaceNHFlags::INET4,
                                          mac);
-    InterfaceNHKey multicast_nh_key(intf_key3, false, InterfaceNHFlags::MULTICAST |
-                                    InterfaceNHFlags::INET4,
-                                    MacAddress::BroadcastMac());
     InterfaceNHKey bridge_nh_key(intf_key4, false, InterfaceNHFlags::BRIDGE,
                                  mac);
     InterfaceNHKey bridge_policy_nh_key(intf_key5, true, InterfaceNHFlags::BRIDGE,
                                         mac);
-
     client->WaitForIdle();
     EXPECT_TRUE(FindNH(&unicast_nh_key));
     EXPECT_TRUE(FindNH(&unicast_policy_nh_key));
-    EXPECT_TRUE(FindNH(&multicast_nh_key));
     EXPECT_TRUE(FindNH(&bridge_nh_key));
     EXPECT_TRUE(FindNH(&bridge_policy_nh_key));
 
@@ -1621,7 +1607,6 @@ TEST_F(IntfTest, IntfActivateDeactivate_2) {
     WAIT_FOR(100, 1000, (FindNH(&unicast_nh_key) == false));
     EXPECT_FALSE(FindNH(&unicast_nh_key));
     EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
-    EXPECT_FALSE(FindNH(&multicast_nh_key));
     EXPECT_FALSE(FindNH(&bridge_nh_key));
     EXPECT_FALSE(FindNH(&bridge_policy_nh_key));
 
@@ -1631,7 +1616,6 @@ TEST_F(IntfTest, IntfActivateDeactivate_2) {
     client->WaitForIdle();
     EXPECT_TRUE(FindNH(&unicast_nh_key));
     EXPECT_TRUE(FindNH(&unicast_policy_nh_key));
-    EXPECT_TRUE(FindNH(&multicast_nh_key));
     EXPECT_TRUE(FindNH(&bridge_nh_key));
     EXPECT_TRUE(FindNH(&bridge_policy_nh_key));
 
@@ -1639,7 +1623,6 @@ TEST_F(IntfTest, IntfActivateDeactivate_2) {
     client->WaitForIdle();
     EXPECT_FALSE(FindNH(&unicast_nh_key));
     EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
-    EXPECT_FALSE(FindNH(&multicast_nh_key));
     EXPECT_FALSE(FindNH(&bridge_nh_key));
     EXPECT_FALSE(FindNH(&bridge_policy_nh_key));
     EXPECT_FALSE(VrfFind("vrf1", true));
@@ -1662,24 +1645,18 @@ TEST_F(IntfTest, IntfActivateDeactivate_5) {
     MacAddress mac = MacAddress::FromString("00:00:00:01:01:01");
     VmInterfaceKey *intf_key1 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     VmInterfaceKey *intf_key2 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
-    VmInterfaceKey *intf_key3 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     VmInterfaceKey *intf_key4 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     VmInterfaceKey *intf_key5 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
 
     InterfaceNHKey unicast_nh_key(intf_key1, false, InterfaceNHFlags::INET4, mac);
     InterfaceNHKey unicast_policy_nh_key(intf_key2, true,
                                          InterfaceNHFlags::INET4, mac);
-    InterfaceNHKey multicast_nh_key(intf_key3, false, InterfaceNHFlags::MULTICAST |
-                                    InterfaceNHFlags::INET4,
-                                    MacAddress::BroadcastMac());
     InterfaceNHKey bridge_nh_key(intf_key4, false, InterfaceNHFlags::BRIDGE, mac);
     InterfaceNHKey bridge_policy_nh_key(intf_key5, true,
                                         InterfaceNHFlags::BRIDGE, mac);
-
     client->WaitForIdle();
     EXPECT_FALSE(FindNH(&unicast_nh_key));
     EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
-    EXPECT_TRUE(FindNH(&multicast_nh_key));
     EXPECT_TRUE(FindNH(&bridge_nh_key));
     EXPECT_TRUE(FindNH(&bridge_policy_nh_key));
 
@@ -1691,7 +1668,6 @@ TEST_F(IntfTest, IntfActivateDeactivate_5) {
     client->WaitForIdle();
     EXPECT_TRUE(FindNH(&unicast_nh_key));
     EXPECT_TRUE(FindNH(&unicast_policy_nh_key));
-    EXPECT_TRUE(FindNH(&multicast_nh_key));
     EXPECT_TRUE(FindNH(&bridge_nh_key));
     EXPECT_TRUE(FindNH(&bridge_policy_nh_key));
 
@@ -1699,7 +1675,6 @@ TEST_F(IntfTest, IntfActivateDeactivate_5) {
     client->WaitForIdle();
     EXPECT_FALSE(FindNH(&unicast_nh_key));
     EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
-    EXPECT_FALSE(FindNH(&multicast_nh_key));
     EXPECT_FALSE(FindNH(&bridge_nh_key));
     EXPECT_FALSE(FindNH(&bridge_policy_nh_key));
     EXPECT_FALSE(VrfFind("vrf1", true));
