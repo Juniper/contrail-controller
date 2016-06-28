@@ -137,6 +137,8 @@ protected:
     virtual void SetUp() {
         bgp_server_->Configure(config);
         task_util::WaitForIdle();
+        GetTable("blue")->LocatePathResolver();
+        GetTable("pink")->LocatePathResolver();
     }
 
     virtual void TearDown() {

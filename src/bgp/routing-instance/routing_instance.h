@@ -139,6 +139,8 @@ public:
         return NULL;
     }
 
+    IStaticRouteMgr *LocateStaticRouteMgr(Address::Family family);
+
     IRouteAggregator *route_aggregator(Address::Family family) const {
         if (family == Address::INET)
             return inet_route_aggregator_.get();
@@ -148,6 +150,7 @@ public:
         return NULL;
     }
 
+    IRouteAggregator *LocateRouteAggregator(Address::Family family);
     void DestroyRouteAggregator(Address::Family family);
 
     PeerManager *peer_manager() { return peer_manager_.get(); }
