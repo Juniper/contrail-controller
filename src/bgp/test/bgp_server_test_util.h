@@ -123,7 +123,7 @@ public:
     virtual ~StateMachineTest() { }
 
     void StartConnectTimer(int seconds) {
-        connect_timer_->Start(10,
+        connect_timer_->Start(100,
             boost::bind(&StateMachine::ConnectTimerExpired, this),
             boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
     }
@@ -376,7 +376,7 @@ public:
     ~XmppStateMachineTest() { }
 
     void StartConnectTimer(int seconds) {
-        connect_timer_->Start(10,
+        connect_timer_->Start(100,
             boost::bind(&XmppStateMachine::ConnectTimerExpired, this),
             boost::bind(&XmppStateMachine::TimerErrorHandler, this, _1, _2));
     }

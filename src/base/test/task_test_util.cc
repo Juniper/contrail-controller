@@ -23,7 +23,7 @@ namespace task_util {
 // Use environment variable WAIT_FOR_IDLE to tune the value appropriately
 // based on the test load and the running environment (pprof, valgrind, etc.)
 //
-void WaitForIdle(long wait_seconds, bool running_only) {
+void WaitForIdle(long wait_seconds, bool running_only, bool verify) {
     static const long kTimeoutUsecs = 1000;
     static long envWaitTime;
 
@@ -44,7 +44,8 @@ void WaitForIdle(long wait_seconds, bool running_only) {
         }
         usleep(kTimeoutUsecs);
     }
-    EXPECT_TRUE(scheduler->IsEmpty(running_only));
+    if (verify)
+        EXPECT_TRUE(scheduler->IsEmpty(running_only));
 }
 
 static void TimeoutHandler(const boost::system::error_code &error) {
