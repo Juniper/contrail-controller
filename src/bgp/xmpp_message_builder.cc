@@ -51,7 +51,7 @@ public:
     virtual const uint8_t *GetData(IPeerUpdate *peer, size_t *lenp);
 
 private:
-    static const uint32_t kMaxFromToLength = 192;
+    static const size_t kMaxFromToLength = 192;
     static const uint32_t kMaxReachCount = 32;
     static const uint32_t kMaxUnreachCount = 256;
 
@@ -142,7 +142,13 @@ void BgpXmppMessage::Start(const RibOutAttr *roattr, const BgpRoute *route) {
         ProcessExtCommunity(attr->ext_community());
     }
 
+    // Reserve space for the begin line that contains the message opening tag
+    // with from and to attributes. Actual value gets patched in when GetData
+    // is called.
     repr_.append(kMaxFromToLength, ' ');
+
+    // Add opening tags for event and items. The closing tags are added when
+    // GetData is called.
     repr_ += "\n\t<event xmlns=\"http://jabber.org/protocol/pubsub\">";
     repr_ += "\n\t\t<items node=\"";
     repr_ += integerToString(route->Afi());
@@ -446,6 +452,8 @@ bool BgpXmppMessage::AddMcastRoute(const BgpRoute *route,
 }
 
 const uint8_t *BgpXmppMessage::GetData(IPeerUpdate *peer, size_t *lenp) {
+    // Build begin line that contains message opening tag with from and to
+    // attributes.
     string msg_begin;
     msg_begin.reserve(kMaxFromToLength);
     msg_begin += "\n<message from=\"";
@@ -456,17 +464,26 @@ const uint8_t *BgpXmppMessage::GetData(IPeerUpdate *peer, size_t *lenp) {
     msg_begin += XmppInit::kBgpPeer;
     msg_begin += "\">";
 
-    repr_.replace(0, msg_begin.size(), msg_begin);
+    // Add closing tags if this is the first peer to which the message will
+    // be sent.
     if (!repr_valid_) {
         repr_ += "\t\t</items>\n\t</event>\n</message>\n";
         repr_valid_ = true;
-    } else {
-        repr_.replace(msg_begin.size(), kMaxFromToLength - msg_begin.size(),
-            kMaxFromToLength - msg_begin.size(), ' ');
     }
 
-    *lenp = repr_.size();
-    return reinterpret_cast<const uint8_t *>(repr_.c_str());
+    // Replace the begin line if it fits in the space reserved at the start
+    // of repr_.  Otherwise build a new string with the begin line and rest
+    // of the message in repr_.
+    if (msg_begin.size() <= kMaxFromToLength) {
+        size_t extra = kMaxFromToLength - msg_begin.size();
+        repr_.replace(extra, msg_begin.size(), msg_begin);
+        *lenp = repr_.size() - extra;
+        return reinterpret_cast<const uint8_t *>(repr_.c_str()) + extra;
+    } else {
+        string temp = msg_begin + string(repr_, kMaxFromToLength);
+        *lenp = temp.size();
+        return reinterpret_cast<const uint8_t *>(temp.c_str());
+    }
 }
 
 string BgpXmppMessage::GetVirtualNetwork(
