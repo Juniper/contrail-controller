@@ -22,7 +22,8 @@ using namespace std;
 class IFMapUpdateQueueTest : public ::testing::Test {
 protected:
     IFMapUpdateQueueTest()
-        : server_(&db_, &graph_, evm_.io_service()), tbl_(NULL),
+        : db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
+          server_(&db_, &graph_, evm_.io_service()), tbl_(NULL),
           queue_(new IFMapUpdateQueue(&server_)) {
     }
 

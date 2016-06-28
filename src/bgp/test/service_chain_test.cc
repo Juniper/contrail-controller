@@ -152,7 +152,8 @@ protected:
     typedef typename T::VpnRouteT VpnRouteT;
 
     ServiceChainTest()
-        : bgp_server_(new BgpServer(&evm_)),
+        : config_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
+          bgp_server_(new BgpServer(&evm_)),
           family_(GetFamily()),
           ipv6_prefix_("::ffff:"),
           parser_(&config_db_),

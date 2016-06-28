@@ -98,7 +98,9 @@ protected:
     typedef IFMapDependencyTracker::NodeList NodeList;
     typedef IFMapDependencyTracker::EdgeDescriptorList EdgeList;
 
-    BgpConfigListenerTest() : server_(&evm_), tracker_(NULL), parser_(&db_) {
+    BgpConfigListenerTest()
+      : db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
+        server_(&evm_), tracker_(NULL), parser_(&db_) {
         config_manager_ = static_cast<BgpIfmapConfigManager *>(
             server_.config_manager());
         listener_ = new BgpConfigListenerMock(config_manager_);
@@ -137,7 +139,7 @@ protected:
 
     void ResumeChangeListPropagation() {
         task_util::WaitForIdle();
-        ConcurrencyScope scope("db::DBTable");
+        ConcurrencyScope scope("db::IFMapTable");
         listener_->clear_no_processing();
         listener_->manager_->OnChange();
         task_util::WaitForIdle();
@@ -186,9 +188,9 @@ protected:
     }
 
     EventManager evm_;
-    BgpServer server_;
     DB db_;
     DBGraph graph_;
+    BgpServer server_;
     BgpConfigListenerMock *listener_;
     IFMapDependencyTracker *tracker_;
     ChangeList *change_list_;

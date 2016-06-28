@@ -71,7 +71,8 @@ public:
 class IFMapExporterTest : public ::testing::Test {
 protected:
     IFMapExporterTest()
-            : server_(&db_, &graph_, evm_.io_service()),
+            : db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
+              server_(&db_, &graph_, evm_.io_service()),
               exporter_(server_.exporter()), parser_(NULL) {
     }
 

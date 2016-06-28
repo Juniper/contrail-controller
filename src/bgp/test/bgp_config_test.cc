@@ -41,7 +41,8 @@ static string FileRead(const string &filename) {
 class BgpConfigTest : public ::testing::Test {
 protected:
     BgpConfigTest()
-        : server_(&evm_), parser_(&config_db_) {
+        : config_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
+          server_(&evm_), parser_(&config_db_) {
     }
 
     virtual void SetUp() {
@@ -78,9 +79,9 @@ protected:
     bool GetPeerAsOverride(BgpPeer *peer) { return peer->as_override_; }
 
     EventManager evm_;
-    BgpServer server_;
     DB config_db_;
     DBGraph db_graph_;
+    BgpServer server_;
     BgpConfigParser parser_;
 };
 

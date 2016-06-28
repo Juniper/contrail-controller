@@ -381,7 +381,7 @@ int main(int argc, char *argv[]) {
     sandesh_context.bgp_server = bgp_server.get();
     bgp_server->set_gr_helper_enable(options.gr_helper_bgp_enable());
 
-    DB config_db;
+    DB config_db(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"));
     DBGraph config_graph;
     IFMapServer ifmap_server(&config_db, &config_graph, evm.io_service());
     IFMap_Initialize(&ifmap_server);

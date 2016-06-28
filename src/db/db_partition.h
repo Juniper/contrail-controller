@@ -11,8 +11,8 @@
 #include "db/db_table.h"
 #include "db/db_table_partition.h"
 
+class DB;
 class DBClient;
-class DBRecord;
 class DBTablePartBase;
 
 // Database shard interface.
@@ -21,7 +21,7 @@ class DBPartition {
 public:
     typedef boost::function<void(void)> Callback;
 
-    explicit DBPartition(int partition_id);
+    explicit DBPartition(DB *db, int partition_id);
     ~DBPartition();
 
     // Enqueue a request at the start of the DB processing pipeline.
@@ -39,11 +39,16 @@ public:
     long request_queue_len() const;
     uint64_t total_request_count() const;
     uint64_t max_request_queue_len() const;
+    int task_id() const;
+
 private:
     class WorkQueue;
     class QueueRunner;
+
+    DB *db_;
     std::auto_ptr<WorkQueue> work_queue_;
     static int db_partition_task_id_;
+
     DISALLOW_COPY_AND_ASSIGN(DBPartition);
 };
 

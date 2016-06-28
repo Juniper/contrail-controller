@@ -35,6 +35,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("bgp::StateMachine")))
         (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")))
         (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
+        (TaskExclusion(scheduler->GetTaskId("db::IFMapTable")))
         (TaskExclusion(scheduler->GetTaskId("db::Walker")))
         (TaskExclusion(scheduler->GetTaskId("io::ReaderTask")))
         (TaskExclusion(scheduler->GetTaskId("ifmap::StateMachine")))
@@ -141,6 +142,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     TaskPolicy walker_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
         (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
+        (TaskExclusion(scheduler->GetTaskId("db::IFMapTable")))
         (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")))
         (TaskExclusion(scheduler->GetTaskId("bgp::RTFilter")));
     scheduler->SetPolicy(scheduler->GetTaskId("db::Walker"), walker_policy);

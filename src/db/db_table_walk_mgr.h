@@ -57,15 +57,15 @@
 //    3. WalkTable: This API starts the table walk. This API should be called
 //    from a task which is mutually exclusive from db::Walker task.
 //
-//    4. WalkAgain: To retrigger/restart current walk request from application.
+//    4. WalkAgain: To re-trigger/restart current walk request from application.
 //    Callback for WalkFn is no longer invoked for ongoing walk and walk is
-//    restarted from begining of DBTable. This API should be called from a task
+//    restarted from beginning of DBTable. This API should be called from a task
 //    which is mutually exclusive from db::Walker task.
 //
 // DBTableWalkMgr ensures that not more than one DBTable is walked at any point
 // in time. All other DBTable walk requests are queued and taken up only after
 // current walk completes.
-// Actual DBTable walk(i.e. iterating the DBTablePartition) is performed in
+// Actual DBTable walk (i.e. iterating the DBTablePartition) is performed in
 // db::DBTable task or task id configured with DBTable::SetWalkTaskId with
 // instance id set as partition index.
 // The advantage of running DBTable walk in serial manner is in clubbing
@@ -96,10 +96,10 @@
 // It removes the WalkRequestInfo on top of this list and starts walk on the
 // table. This task trigger runs in "db::Walker" task context.
 //
-// walk_done_trigger_ : Task trigger ensures that WalkCompleteFn is triggerred
+// walk_done_trigger_ : Task trigger ensures that WalkCompleteFn is triggered
 // in db::Walker task context for all DBTableWalkRef which requested for
 // current DBTable walk. At the end of ProcessWalkDone, walk_request_trigger_ is
-// triggerred to evaluate walk request from top of walk_request_list_.
+// triggered to evaluate walk request from top of walk_request_list_.
 //
 class DBTableWalkMgr {
 public:
