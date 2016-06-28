@@ -139,6 +139,14 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::RouteAggregation"),
         route_aggregation_policy);
 
+    // Policy for db::IFMapTable Task.
+    TaskPolicy db_ifmap_policy = boost::assign::list_of
+        (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
+        (TaskExclusion(scheduler->GetTaskId("db::Walker")));
+    scheduler->SetPolicy(scheduler->GetTaskId("db::IFMapTable"),
+        db_ifmap_policy);
+
+    // Policy for db::Walker Task.
     TaskPolicy walker_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
         (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
