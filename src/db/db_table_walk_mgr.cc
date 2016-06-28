@@ -60,7 +60,7 @@ bool DBTableWalkMgr::ProcessWalkDone() {
     BOOST_FOREACH(DBTable::DBTableWalkRef walker, current_table_walk_) {
         if (walker->walk_again())
             walker->set_walk_requested();
-        else
+        else if (!walker->stopped())
             walker->set_walk_done();
         if (walker->stopped() || walker->walk_again()) continue;
         walker->walk_complete()(walker, walker->table());
@@ -78,6 +78,8 @@ DBTable::DBTableWalkRef DBTableWalkMgr::AllocWalker(DBTable *table,
 }
 
 void DBTableWalkMgr::ReleaseWalker(DBTable::DBTableWalkRef &ref) {
+    DBTable *table = ref->table();
+    table->incr_walk_cancel_count();
     ref->set_walk_stopped();
     ref.reset();
 }
@@ -119,29 +121,15 @@ void DBTableWalkMgr::WalkDone() {
 bool DBTableWalkMgr::InvokeWalkCb(DBTablePartBase *part, DBEntryBase *entry) {
     uint32_t skip_walk_count = 0;
     BOOST_FOREACH(DBTable::DBTableWalkRef walker, current_table_walk_) {
-        if (walker->done() || walker->stopped()) {
+        if (walker->done() || walker->stopped() || walker->walk_again()) {
             skip_walk_count++;
             continue;
         }
         bool more = walker->walk_fn()(part, entry);
         if (!more) {
             skip_walk_count++;
-            walker->set_walk_done();
+            if (!walker->stopped()) walker->set_walk_done();
         }
     }
     return (skip_walk_count < current_table_walk_.size());
-}
-
-void intrusive_ptr_add_ref(DBTableWalk *walker) {
-    walker->refcount_.fetch_and_increment();
-}
-
-void intrusive_ptr_release(DBTableWalk *walker) {
-    int prev = walker->refcount_.fetch_and_decrement();
-    if (prev == 1) {
-        DBTable *table = walker->table();
-        delete walker;
-        table->decr_walker_count();
-        table->RetryDelete();
-    }
 }

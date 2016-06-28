@@ -20,7 +20,6 @@
 #include "bgp/bgp_path.h"
 #include "db/db_entry.h"
 #include "db/db_table.h"
-#include "db/db_table_walk_mgr.h"
 
 class BgpRoute;
 class BgpServer;

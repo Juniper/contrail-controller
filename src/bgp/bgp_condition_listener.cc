@@ -15,6 +15,7 @@
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_table.h"
 #include "db/db_table_partition.h"
+#include "db/db_table_walk_mgr.h"
 
 using std::make_pair;
 using std::map;
@@ -114,7 +115,7 @@ bool BgpConditionListener::PurgeTableState() {
     BOOST_FOREACH(ConditionMatchTableState *ts, purge_list_) {
         if (ts->match_objects()->empty()) {
             BgpTable *bgptable = ts->table();
-            if (ts->walk_ref().get())
+            if (ts->walk_ref() != NULL)
                 bgptable->ReleaseWalker(ts->walk_ref());
             bgptable->Unregister(ts->GetListenerId());
             map_.erase(bgptable);
@@ -293,7 +294,7 @@ void BgpConditionListener::TableWalk(ConditionMatchTableState *ts,
                  ConditionMatch *obj, BgpConditionListener::RequestDoneCb cb) {
     CHECK_CONCURRENCY("bgp::Config");
 
-    if (!ts->walk_ref().get()) {
+    if (ts->walk_ref() == NULL) {
         DBTable::DBTableWalkRef walk_ref = ts->table()->AllocWalker(
             boost::bind(&BgpConditionListener::BgpRouteNotify, this, server(), _1, _2),
             boost::bind(&BgpConditionListener::WalkDone, this, ts, _2));

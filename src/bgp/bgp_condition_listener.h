@@ -14,7 +14,6 @@
 #include <string>
 
 #include "base/util.h"
-#include "db/db_table_walk_mgr.h"
 
 class BgpRoute;
 class BgpServer;

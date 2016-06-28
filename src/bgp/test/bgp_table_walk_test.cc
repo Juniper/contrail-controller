@@ -7,8 +7,8 @@
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"
-#include "db/db_table_walk_mgr.h"
 #include "db/db_table.h"
+#include "db/db_table_walk_mgr.h"
 
 using namespace boost;
 using namespace std;
@@ -24,7 +24,11 @@ public:
           walk_count_1_ = 0;
           walk_count_2_ = 0;
           walk_done_count_ = 0;
+          walk_done_count_1_ = 0;
           walk_done_ = false;
+          walk_done_1_ = false;
+          current_walk_seq_ = 0;
+          current_done_seq_ = 0;
     }
 
     virtual void SetUp() {
@@ -115,12 +119,33 @@ public:
     }
 
     bool WalkTableCallback(DBTablePartBase *root, DBEntryBase *entry) {
-        CHECK_CONCURRENCY("db::DBTable");
         walk_count_++;
         return true;
     }
 
-    // Return false
+    void WalkDone(DBTable::DBTableWalkRef walk_ref, DBTableBase *table) {
+        CHECK_CONCURRENCY("db::Walker");
+        walk_done_ = true;
+        walk_done_count_++;
+    }
+
+    // Verify the order of Walk Callback
+    bool VerifyWalkCbOrder(int seq, DBTablePartBase *root, DBEntryBase *entry) {
+        CHECK_CONCURRENCY("db::DBTable");
+        TASK_UTIL_EXPECT_TRUE(seq > current_walk_seq_);
+        current_walk_seq_ = seq;
+        return true;
+    }
+
+    // Verify the order of Walk Done Callback
+    void VerifyWalkDoneCbOrder(int seq, DBTable::DBTableWalkRef walk_ref,
+                               DBTableBase *table) {
+        CHECK_CONCURRENCY("db::Walker");
+        TASK_UTIL_EXPECT_TRUE(seq > current_done_seq_);
+        current_done_seq_ = seq;
+    }
+
+    // Return false to stop walker from continuing
     bool WalkTableDoneCallback(DBTablePartBase *root, DBEntryBase *entry) {
         CHECK_CONCURRENCY("db::DBTable");
         walk_count_++;
@@ -137,38 +162,71 @@ public:
     bool WalkTableCallback_1(DBTablePartBase *root, DBEntryBase *entry) {
         CHECK_CONCURRENCY("db::DBTable");
         walk_count_1_++;
-        return false;
+        return true;
     }
 
     bool WalkTableCallback_2(DBTablePartBase *root, DBEntryBase *entry) {
         CHECK_CONCURRENCY("db::DBTable");
         walk_count_2_++;
-        return true;
+        return false;
     }
 
-    void WalkDone(DBTable::DBTableWalkRef walker, DBTableBase *table) {
+    void WalkDone_1(DBTable::DBTableWalkRef walk_ref, DBTableBase *table) {
         CHECK_CONCURRENCY("db::Walker");
-        walk_done_ = true;
-        walk_done_count_++;
+        walk_done_1_ = true;
+        walk_done_count_1_++;
     }
 
-    void WalkDoneToStopSched(DBTable::DBTableWalkRef walker,
+    void WalkDoneToStopWalkProcessing(DBTable::DBTableWalkRef walk_ref,
                              DBTableBase *table) {
         CHECK_CONCURRENCY("db::Walker");
         walk_done_ = true;
         walk_done_count_++;
-        TaskScheduler::GetInstance()->Stop();
+        // Disable the walk done processing to validate new walk is done in serial
+        // manner
+        DisableWalkProcessing();
     }
 
     void ResetWalkStats() {
         walk_done_ = false;
+        walk_done_1_ = false;
         walk_count_ = 0;
+        walk_count_1_ = 0;
+        walk_count_2_ = 0;
         walk_done_count_ = 0;
+        walk_done_count_1_ = 0;
+        current_walk_seq_ = 0;
+        current_done_seq_ = 0;
     }
 
-    void WalkTable(BgpTable *table, DBTable::DBTableWalkRef walker) {
+    void WalkTable(BgpTable *table, DBTable::DBTableWalkRef walk_ref) {
         task_util::TaskFire(
-           boost::bind(&DBTable::WalkTable, table, walker), "bgp::Config");
+           boost::bind(&DBTable::WalkTable, table, walk_ref), "bgp::Config");
+    }
+
+    void WalkAgain(BgpTable *table, DBTable::DBTableWalkRef walk_ref) {
+        task_util::TaskFire(
+           boost::bind(&DBTable::WalkAgain, table, walk_ref), "bgp::Config");
+    }
+
+    void DisableWalkProcessing() {
+        DBTableWalkMgr *walk_mgr = server_.database()->GetWalkMgr();
+        walk_mgr->DisableWalkProcessing();
+    }
+
+    void EnableWalkProcessing() {
+        DBTableWalkMgr *walk_mgr = server_.database()->GetWalkMgr();
+        walk_mgr->EnableWalkProcessing();
+    }
+
+    void DisableWalkDoneProcessing() {
+        DBTableWalkMgr *walk_mgr = server_.database()->GetWalkMgr();
+        walk_mgr->DisableWalkDoneTrigger();
+    }
+
+    void EnableWalkDoneProcessing() {
+        DBTableWalkMgr *walk_mgr = server_.database()->GetWalkMgr();
+        walk_mgr->EnableWalkDoneTrigger();
     }
 
     virtual void TearDown() {
@@ -188,7 +246,11 @@ public:
     tbb::atomic<long> walk_count_1_;
     tbb::atomic<long> walk_count_2_;
     tbb::atomic<bool> walk_done_;
+    tbb::atomic<bool> walk_done_1_;
     tbb::atomic<long> walk_done_count_;
+    tbb::atomic<long> walk_done_count_1_;
+    tbb::atomic<long> current_walk_seq_;
+    tbb::atomic<long> current_done_seq_;
 
     scoped_ptr<BgpInstanceConfigTest> master_cfg_;
     scoped_ptr<BgpInstanceConfigTest> purple_cfg_;
@@ -271,6 +333,31 @@ TEST_F(BgpTableWalkTest, Basic_2) {
 }
 
 //
+// Use same walk ref to trigger the walk before previous walk completion
+//
+TEST_F(BgpTableWalkTest, Basic_3) {
+    AddInetRoute(red_, "1.1.1.0/24");
+    AddInetRoute(blue_, "2.2.2.0/24");
+    AddInetRoute(purple_, "3.3.3.0/24");
+
+    DBTable::DBTableWalkRef walk_ref = red_->AllocWalker(
+              boost::bind(&BgpTableWalkTest::WalkTableCallback, this, _1, _2),
+              boost::bind(&BgpTableWalkTest::WalkDone, this, _1, _2));
+
+    DisableWalkProcessing();
+    WalkTable(red_, walk_ref);
+    WalkTable(red_, walk_ref);
+    EnableWalkProcessing();
+
+    TASK_UTIL_EXPECT_TRUE(walk_done_);
+    TASK_UTIL_EXPECT_EQ(1, walk_count_);
+
+    DeleteInetRoute(red_, "1.1.1.0/24");
+    DeleteInetRoute(blue_, "2.2.2.0/24");
+    DeleteInetRoute(purple_, "3.3.3.0/24");
+}
+
+//
 // Allocate multiple walkers and start walk on same table
 // Verify that table is walked only once for multiple walk requests and
 // all walker callback functions are triggerred
@@ -287,10 +374,10 @@ TEST_F(BgpTableWalkTest, ClubWalk) {
               boost::bind(&BgpTableWalkTest::WalkTableCallback, this, _1, _2),
               boost::bind(&BgpTableWalkTest::WalkDone, this, _1, _2));
 
-    TaskScheduler::GetInstance()->Stop();
-    red_->WalkTable(walk_ref_1);
-    red_->WalkTable(walk_ref_2);
-    TaskScheduler::GetInstance()->Start();
+    DisableWalkProcessing();
+    WalkTable(red_, walk_ref_1);
+    WalkTable(red_, walk_ref_2);
+    EnableWalkProcessing();
 
     TASK_UTIL_EXPECT_TRUE(walk_done_);
 
@@ -313,17 +400,17 @@ TEST_F(BgpTableWalkTest, SerialWalk) {
     AddInetRoute(purple_, "33.3.3.0/24");
 
     DBTable::DBTableWalkRef walk_ref_1 = red_->AllocWalker(
-              boost::bind(&BgpTableWalkTest::WalkTableCallback, this, _1, _2),
-              boost::bind(&BgpTableWalkTest::WalkDoneToStopSched, this, _1, _2));
+    boost::bind(&BgpTableWalkTest::WalkTableCallback, this, _1, _2),
+    boost::bind(&BgpTableWalkTest::WalkDoneToStopWalkProcessing, this, _1, _2));
     DBTable::DBTableWalkRef walk_ref_2 = blue_->AllocWalker(
               boost::bind(&BgpTableWalkTest::WalkTableCallback, this, _1, _2),
               boost::bind(&BgpTableWalkTest::WalkDone, this, _1, _2));
 
-    // Disable the scheduler on walk complete of RED table
-    TaskScheduler::GetInstance()->Stop();
-    red_->WalkTable(walk_ref_1);
-    blue_->WalkTable(walk_ref_2);
-    TaskScheduler::GetInstance()->Start();
+    // Disable the walk processing till we start both walks
+    DisableWalkProcessing();
+    WalkTable(red_, walk_ref_1);
+    WalkTable(blue_, walk_ref_2);
+    EnableWalkProcessing();
 
     TASK_UTIL_EXPECT_TRUE(walk_done_);
 
@@ -334,8 +421,10 @@ TEST_F(BgpTableWalkTest, SerialWalk) {
     TASK_UTIL_EXPECT_EQ(0, blue_->walk_count());
     TASK_UTIL_EXPECT_EQ(0, blue_->walk_complete_count());
 
-    // Enable the scheduler to start walk on BLUE
-    TaskScheduler::GetInstance()->Start();
+    // Enable the Walk trigger.
+    // Note: WalkDoneToStopWalkProcessing which is the WalkCompleteCallback,
+    // disables the walk processing task trigger
+    EnableWalkProcessing();
     TASK_UTIL_EXPECT_EQ(2, walk_count_);
     TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
     TASK_UTIL_EXPECT_EQ(1, red_->walk_complete_count());
@@ -359,7 +448,7 @@ TEST_F(BgpTableWalkTest, SerialWalk_1) {
 
     DBTable::DBTableWalkRef walk_ref_1 = red_->AllocWalker(
               boost::bind(&BgpTableWalkTest::WalkTableCallback, this, _1, _2),
-              boost::bind(&BgpTableWalkTest::WalkDoneToStopSched, this, _1, _2));
+              boost::bind(&BgpTableWalkTest::WalkDoneToStopWalkProcessing, this, _1, _2));
     DBTable::DBTableWalkRef walk_ref_2 = blue_->AllocWalker(
               boost::bind(&BgpTableWalkTest::WalkTableCallback, this, _1, _2),
               boost::bind(&BgpTableWalkTest::WalkDone, this, _1, _2));
@@ -367,12 +456,13 @@ TEST_F(BgpTableWalkTest, SerialWalk_1) {
               boost::bind(&BgpTableWalkTest::WalkTableCallback, this, _1, _2),
               boost::bind(&BgpTableWalkTest::WalkDone, this, _1, _2));
 
-    // Disable the scheduler on walk complete of RED table
-    TaskScheduler::GetInstance()->Stop();
-    red_->WalkTable(walk_ref_1);
-    blue_->WalkTable(walk_ref_2);
-    blue_->WalkTable(walk_ref_3);
-    TaskScheduler::GetInstance()->Start();
+    // Disable the walk processing till we start both walks
+    DisableWalkProcessing();
+    WalkTable(red_, walk_ref_1);
+    WalkTable(blue_, walk_ref_2);
+    WalkTable(blue_, walk_ref_3);
+    // Enable the Walk processing trigger
+    EnableWalkProcessing();
 
     TASK_UTIL_EXPECT_TRUE(walk_done_);
 
@@ -385,8 +475,11 @@ TEST_F(BgpTableWalkTest, SerialWalk_1) {
 
     ResetWalkStats();
 
-    // Enable the scheduler to start walk on BLUE
-    TaskScheduler::GetInstance()->Start();
+    // Enable the Walk trigger.
+    // Note: WalkDoneToStopWalkProcessing which is the WalkCompleteCallback,
+    // disables the walk processing task trigger
+    EnableWalkProcessing();
+
     TASK_UTIL_EXPECT_EQ(2, walk_count_);
     // Ensure that table is walked only once
     TASK_UTIL_EXPECT_EQ(1, blue_->walk_count());
@@ -398,7 +491,8 @@ TEST_F(BgpTableWalkTest, SerialWalk_1) {
 }
 
 //
-// Release the walker after starting the walk.
+// Release the walker after starting the walk and before infra actually started
+// the walk.
 // Verify that actual table walk is not started and walker is not notified
 //
 TEST_F(BgpTableWalkTest, StopWalk) {
@@ -410,13 +504,12 @@ TEST_F(BgpTableWalkTest, StopWalk) {
               boost::bind(&BgpTableWalkTest::WalkTableCallback, this, _1, _2),
               boost::bind(&BgpTableWalkTest::WalkDone, this, _1, _2));
 
-    // Disable the scheduler
-    TaskScheduler::GetInstance()->Stop();
-
-    red_->WalkTable(walk_ref);
+    // Disable the Walk trigger to ensure that new walks are not started
+    DisableWalkProcessing();
+    WalkTable(red_, walk_ref);
     red_->ReleaseWalker(walk_ref);
-
-    TaskScheduler::GetInstance()->Start();
+    EnableWalkProcessing();
+    task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_FALSE(walk_done_);
 
@@ -448,22 +541,23 @@ TEST_F(BgpTableWalkTest, StopWalk_1) {
               boost::bind(&BgpTableWalkTest::WalkTableCallback, this, _1, _2),
               boost::bind(&BgpTableWalkTest::WalkDone, this, _1, _2));
 
-    // Disable the scheduler
-    TaskScheduler::GetInstance()->Stop();
-
-    red_->WalkTable(walk_ref);
-    red_->WalkTable(walk_ref_1);
+    // Disable the walk processing and start walk
+    DisableWalkProcessing();
+    WalkTable(red_, walk_ref);
+    WalkTable(red_, walk_ref_1);
     red_->ReleaseWalker(walk_ref);
-
-    TaskScheduler::GetInstance()->Start();
+    EnableWalkProcessing();
+    task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_TRUE(walk_done_);
+    // Table is walked only for walk_ref_1
     TASK_UTIL_EXPECT_EQ(1, walk_count_);
     TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
     TASK_UTIL_EXPECT_EQ(1, red_->walk_complete_count());
 
     ResetWalkStats();
 
+    // Walk the table again for walk_ref that had finished the walk
     WalkTable(red_, walk_ref_1);
 
     TASK_UTIL_EXPECT_TRUE(walk_done_);
@@ -477,10 +571,110 @@ TEST_F(BgpTableWalkTest, StopWalk_1) {
 }
 
 //
+// Release the walker after starting the walk.
+// Verify that
+//    1. not all entries are notified
+//    2. Walk Complete callback is not notified
+//    3. Table is walked and walk completes on the table
+//
+TEST_F(BgpTableWalkTest, StopWalk_2) {
+    red_->SetWalkIterationToYield(1);
+
+    for (int idx = 0; idx < 255; idx++) {
+        string prefix = string("10.1.1.") + integerToString(idx % 255) + "/32";
+        AddInetRoute(red_, prefix, false);
+    }
+
+    DBTable::DBTableWalkRef walk_ref = red_->AllocWalker(
+              boost::bind(&BgpTableWalkTest::WalkTableCallback, this, _1, _2),
+              boost::bind(&BgpTableWalkTest::WalkDone, this, _1, _2));
+
+    // Disable the Walk trigger to ensure that new walks are not started
+    DisableWalkProcessing();
+    WalkTable(red_, walk_ref);
+    EnableWalkProcessing();
+
+    TASK_UTIL_EXPECT_TRUE(walk_count_ > 0);
+
+    // After few DBEntry is notified, ReleaseWalker the walker
+    // ReleaseWalker can be invoked form any task context
+    red_->ReleaseWalker(walk_ref);
+
+    TASK_UTIL_EXPECT_FALSE(walk_done_);
+    TASK_UTIL_EXPECT_TRUE(walk_count_ < 255);
+    TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1, red_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(0, walk_done_count_);
+
+    for (int idx = 0; idx < 255; idx++) {
+        string prefix = string("10.1.1.") + integerToString(idx % 255) + "/32";
+        DeleteInetRoute(red_, prefix, false);
+    }
+}
+
+//
+// Create two walk_ref and start walk on two tables
+// Release the walker after starting the walk for one walk_ref.
+// Validate that WalkComplete is not invoked for walk_ref which is stopped and
+// second table walk completes.
+//
+TEST_F(BgpTableWalkTest, StopWalk_3) {
+    red_->SetWalkIterationToYield(1);
+    AddInetRoute(blue_, "22.2.2.0/24");
+
+    for (int idx = 0; idx < 255; idx++) {
+        string prefix = string("10.1.1.") + integerToString(idx % 255) + "/32";
+        AddInetRoute(red_, prefix, false);
+    }
+
+    DBTable::DBTableWalkRef walk_ref = red_->AllocWalker(
+              boost::bind(&BgpTableWalkTest::WalkTableCallback_1, this, _1, _2),
+              boost::bind(&BgpTableWalkTest::WalkDone, this, _1, _2));
+
+    DBTable::DBTableWalkRef walk_ref_1 = blue_->AllocWalker(
+              boost::bind(&BgpTableWalkTest::WalkTableCallback, this, _1, _2),
+              boost::bind(&BgpTableWalkTest::WalkDone, this, _1, _2));
+
+    // Disable the walk processing and start walk
+    DisableWalkProcessing();
+    WalkTable(red_, walk_ref);
+    WalkTable(blue_, walk_ref_1);
+    EnableWalkProcessing();
+
+    TASK_UTIL_EXPECT_TRUE(walk_count_1_ > 0);
+
+    // After few DBEntry is notified, ReleaseWalker the walker
+    red_->ReleaseWalker(walk_ref);
+
+    TASK_UTIL_EXPECT_TRUE(walk_done_);
+    // Blue is walked
+    TASK_UTIL_EXPECT_EQ(walk_count_, 1);
+    // Red is partially walked
+    TASK_UTIL_EXPECT_TRUE(walk_count_1_ < 255);
+    TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1, red_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1, blue_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1, blue_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1, walk_done_count_);
+
+    for (int idx = 0; idx < 255; idx++) {
+        string prefix = string("10.1.1.") + integerToString(idx % 255) + "/32";
+        DeleteInetRoute(red_, prefix, false);
+    }
+    DeleteInetRoute(blue_, "22.2.2.0/24");
+}
+
+//
 // Issue WalkAgain on ongoing walk request and verify that table is walked again
-// Client is notified only once at the end of WalkAgain()
+// Client is notified about WalkDone only once at the end of WalkAgain()
 //
 TEST_F(BgpTableWalkTest, WalkAgain) {
+    // DBTable walk is performed in "bgp:PeerMembership" task
+    // WalkTable and WalkAgain is called from bgp:RTFilter task which is in
+    // mutual exclusion to db::Walker task. Since bgp:PeerMembership and
+    // bgp:RTFilter can run concurrently WalkAgain() API in invoked while
+    // DBTable walk is in-progress
+    red_->SetWalkTaskId(TaskScheduler::GetInstance()->GetTaskId("bgp::PeerMembership"));
     red_->SetWalkIterationToYield(1);
 
     for (int idx = 0; idx < 255; idx++) {
@@ -492,16 +686,17 @@ TEST_F(BgpTableWalkTest, WalkAgain) {
      boost::bind(&BgpTableWalkTest::WalkTableCallback, this, _1, _2),
      boost::bind(&BgpTableWalkTest::WalkDone, this, _1, _2));
 
-    red_->WalkTable(walk_ref);
+    task_util::TaskFire(boost::bind(&DBTable::WalkTable, red_, walk_ref), "bgp::RTFilter");
 
     TASK_UTIL_EXPECT_TRUE(walk_count_ > 0);
 
-    TaskScheduler::GetInstance()->Stop();
-    red_->WalkAgain(walk_ref);
-    ResetWalkStats();
-    TaskScheduler::GetInstance()->Start();
+    // Note: The iteration count for walk is set to 1, and there are 255 dbentry
+    // Call WalkAgain() and validate that table is walked mutliple times and
+    // walk_done is invoked only once
+    task_util::TaskFire(boost::bind(&DBTable::WalkAgain, red_, walk_ref), "bgp::RTFilter");
 
     TASK_UTIL_EXPECT_TRUE(walk_done_);
+    TASK_UTIL_EXPECT_TRUE(walk_count_ < 255*2);
     TASK_UTIL_EXPECT_EQ(1, walk_done_count_);
     TASK_UTIL_EXPECT_EQ(2, red_->walk_count());
     TASK_UTIL_EXPECT_EQ(2, red_->walk_complete_count());
@@ -510,6 +705,31 @@ TEST_F(BgpTableWalkTest, WalkAgain) {
         string prefix = string("10.1.1.") + integerToString(idx % 255) + "/32";
         DeleteInetRoute(red_, prefix, false);
     }
+}
+
+//
+// Issue WalkAgain on walk request for which walk has not yet started and verify
+// that table is walked only once.
+// Client is notified about WalkDone only once at the end of WalkAgain()
+//
+TEST_F(BgpTableWalkTest, WalkAgain_1) {
+    AddInetRoute(red_, "1.1.1.0/24");
+    DBTable::DBTableWalkRef walk_ref = red_->AllocWalker(
+     boost::bind(&BgpTableWalkTest::WalkTableCallback, this, _1, _2),
+     boost::bind(&BgpTableWalkTest::WalkDone, this, _1, _2));
+
+    DisableWalkProcessing();
+    WalkTable(red_, walk_ref);
+    WalkAgain(red_, walk_ref);
+    EnableWalkProcessing();
+
+    TASK_UTIL_EXPECT_TRUE(walk_done_);
+    TASK_UTIL_EXPECT_EQ(1, walk_count_);
+    TASK_UTIL_EXPECT_EQ(1, walk_done_count_);
+    TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1, red_->walk_complete_count());
+
+    DeleteInetRoute(red_, "1.1.1.0/24");
 }
 
 //
@@ -561,22 +781,22 @@ TEST_F(BgpTableWalkTest, WalkDone_1) {
     // Since multiple partition would call Walk function concurrently,
     // walk callback will be called for multiple db entry
     DBTable::DBTableWalkRef walk_ref = red_->AllocWalker(
-     boost::bind(&BgpTableWalkTest::WalkTableCallback_1, this, _1, _2),
-     boost::bind(&BgpTableWalkTest::WalkDone, this, _1, _2));
-
-    DBTable::DBTableWalkRef walk_ref_1 = red_->AllocWalker(
      boost::bind(&BgpTableWalkTest::WalkTableCallback_2, this, _1, _2),
      boost::bind(&BgpTableWalkTest::WalkDone, this, _1, _2));
 
-    TaskScheduler::GetInstance()->Stop();
-    red_->WalkTable(walk_ref);
-    red_->WalkTable(walk_ref_1);
-    TaskScheduler::GetInstance()->Start();
+    DBTable::DBTableWalkRef walk_ref_1 = red_->AllocWalker(
+     boost::bind(&BgpTableWalkTest::WalkTableCallback_1, this, _1, _2),
+     boost::bind(&BgpTableWalkTest::WalkDone, this, _1, _2));
+
+    DisableWalkProcessing();
+    WalkTable(red_, walk_ref);
+    WalkTable(red_, walk_ref_1);
+    EnableWalkProcessing();
 
     TASK_UTIL_EXPECT_TRUE(walk_done_);
 
-    TASK_UTIL_EXPECT_TRUE(walk_count_1_ < 255);
-    TASK_UTIL_EXPECT_EQ(255, walk_count_2_);
+    TASK_UTIL_EXPECT_TRUE(walk_count_2_ < 255);
+    TASK_UTIL_EXPECT_EQ(255, walk_count_1_);
     // Walk Done is called twice
     TASK_UTIL_EXPECT_EQ(2, walk_done_count_);
     // Table is walked once
@@ -612,6 +832,85 @@ TEST_F(BgpTableWalkTest, WalkTaskContext) {
     TASK_UTIL_EXPECT_EQ(1, red_->walk_complete_count());
 
     DeleteInetRoute(red_, "11.1.1.0/24");
+}
+
+//
+// Verify walk request on table with ongoing walk results in two DBTable walk
+//
+TEST_F(BgpTableWalkTest, WalkInprogress) {
+    red_->SetWalkIterationToYield(1);
+
+    for (int idx = 0; idx < 255; idx++) {
+        string prefix = string("10.1.1.") + integerToString(idx % 255) + "/32";
+        AddInetRoute(red_, prefix, false);
+    }
+
+    DBTable::DBTableWalkRef walk_ref = red_->AllocWalker(
+     boost::bind(&BgpTableWalkTest::WalkTableCallback, this, _1, _2),
+     boost::bind(&BgpTableWalkTest::WalkDone, this, _1, _2));
+
+    DBTable::DBTableWalkRef walk_ref_1 = red_->AllocWalker(
+     boost::bind(&BgpTableWalkTest::WalkTableCallback_1, this, _1, _2),
+     boost::bind(&BgpTableWalkTest::WalkDone_1, this, _1, _2));
+
+    WalkTable(red_, walk_ref);
+
+    TASK_UTIL_EXPECT_TRUE(walk_count_ > 0);
+
+    WalkTable(red_, walk_ref_1);
+
+    TASK_UTIL_EXPECT_TRUE(walk_done_);
+    TASK_UTIL_EXPECT_TRUE(walk_done_1_);
+
+    TASK_UTIL_EXPECT_EQ(255, walk_count_);
+    TASK_UTIL_EXPECT_EQ(255, walk_count_1_);
+    TASK_UTIL_EXPECT_EQ(1, walk_done_count_);
+    TASK_UTIL_EXPECT_EQ(1, walk_done_count_1_);
+    // Table is walked twice
+    TASK_UTIL_EXPECT_EQ(2, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(2, red_->walk_complete_count());
+
+    for (int idx = 0; idx < 255; idx++) {
+        string prefix = string("10.1.1.") + integerToString(idx % 255) + "/32";
+        DeleteInetRoute(red_, prefix, false);
+    }
+}
+
+//
+// Verify walk order
+// Walk red and blue tables, and then request another walk of red with a
+// different walk ref after the first walk has started but not yet finished.
+// Verify that the order of the walks is red, blue, red.
+//
+TEST_F(BgpTableWalkTest, WalkInprogress_1) {
+    AddInetRoute(red_, "1.1.1.0/24");
+    AddInetRoute(blue_, "2.2.2.0/24");
+    AddInetRoute(purple_, "3.3.3.0/24");
+
+    DBTable::DBTableWalkRef walk_ref = red_->AllocWalker(
+     boost::bind(&BgpTableWalkTest::VerifyWalkCbOrder, this, 1, _1, _2),
+     boost::bind(&BgpTableWalkTest::VerifyWalkDoneCbOrder, this, 1, _1, _2));
+
+    DBTable::DBTableWalkRef walk_ref_1 = blue_->AllocWalker(
+     boost::bind(&BgpTableWalkTest::VerifyWalkCbOrder, this, 2, _1, _2),
+     boost::bind(&BgpTableWalkTest::VerifyWalkDoneCbOrder, this, 2, _1, _2));
+
+    DBTable::DBTableWalkRef walk_ref_2 = red_->AllocWalker(
+     boost::bind(&BgpTableWalkTest::VerifyWalkCbOrder, this, 3, _1, _2),
+     boost::bind(&BgpTableWalkTest::VerifyWalkDoneCbOrder, this, 3, _1, _2));
+
+    WalkTable(red_, walk_ref);
+    WalkTable(blue_, walk_ref_1);
+    WalkTable(red_, walk_ref_2);
+
+    TASK_UTIL_EXPECT_EQ(2, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(2, red_->walk_complete_count());
+    TASK_UTIL_EXPECT_EQ(1, blue_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1, blue_->walk_complete_count());
+
+    DeleteInetRoute(red_, "1.1.1.0/24");
+    DeleteInetRoute(blue_, "2.2.2.0/24");
+    DeleteInetRoute(purple_, "3.3.3.0/24");
 }
 
 class TestEnvironment : public ::testing::Environment {
