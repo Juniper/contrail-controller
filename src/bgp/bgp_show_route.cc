@@ -148,6 +148,8 @@ public:
     // Search for interesting prefixes in a given table for given partition
     void BuildShowRouteTable(BgpTable *table, vector<ShowRoute> *route_list,
                              int count) {
+        if (inst_id_ >= table->PartitionCount())
+            return;
         DBTablePartition *partition =
             static_cast<DBTablePartition *>(table->GetTablePartition(inst_id_));
         BgpRoute *route = NULL;

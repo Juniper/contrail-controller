@@ -17,6 +17,8 @@ class McastTreeManager;
 
 class ErmVpnTable : public BgpTable {
 public:
+    static const int kPartitionCount = 1;
+
     struct RequestKey : BgpTable::RequestKey {
         RequestKey(const ErmVpnPrefix &prefix, const IPeer *ipeer)
             : prefix(prefix), peer(ipeer) {
@@ -37,6 +39,7 @@ public:
 
     virtual size_t Hash(const DBEntry *entry) const;
     virtual size_t Hash(const DBRequestKey *key) const;
+    virtual int PartitionCount() const { return kPartitionCount; }
 
     virtual BgpRoute *RouteReplicate(BgpServer *server, BgpTable *src_table,
                                      BgpRoute *src_rt, const BgpPath *path,

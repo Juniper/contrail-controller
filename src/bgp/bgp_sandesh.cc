@@ -266,7 +266,6 @@ public:
 
 void ShowMulticastManagerDetailReq::HandleRequest() const {
     RequestPipeline::PipeSpec ps(this);
-    BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(client_context());
 
     // Request pipeline has 2 stages.
     // First stage to collect multicast manager stats.
@@ -277,7 +276,7 @@ void ShowMulticastManagerDetailReq::HandleRequest() const {
     s1.taskId_ = scheduler->GetTaskId("db::DBTable");
     s1.allocFn_ = ShowMulticastManagerDetailHandler::CreateData;
     s1.cbFn_ = ShowMulticastManagerDetailHandler::CallbackS1;
-    for (int i = 0; i < bsc->bgp_server->database()->PartitionCount(); i++) {
+    for (int i = 0; i < ErmVpnTable::kPartitionCount; i++) {
         s1.instances_.push_back(i);
     }
 
