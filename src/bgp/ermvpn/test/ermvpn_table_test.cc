@@ -311,7 +311,7 @@ TEST_F(ErmVpnTableNativeTest, Hashing) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 0; idx < DB::PartitionCount(); idx++) {
+    for (int idx = 0; idx < blue_->PartitionCount(); idx++) {
         DBTablePartition *tbl_partition =
             static_cast<DBTablePartition *>(blue_->GetTablePartition(idx));
         TASK_UTIL_EXPECT_NE(0, tbl_partition->size());
@@ -496,7 +496,7 @@ TEST_F(ErmVpnTableLocalTest, Hashing) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 0; idx < DB::PartitionCount(); idx++) {
+    for (int idx = 0; idx < blue_->PartitionCount(); idx++) {
         DBTablePartition *tbl_partition =
             static_cast<DBTablePartition *>(blue_->GetTablePartition(idx));
         TASK_UTIL_EXPECT_NE(0, tbl_partition->size());
@@ -798,7 +798,7 @@ TEST_F(ErmVpnTableGlobalTest, Hashing) {
     }
     task_util::WaitForIdle();
 
-    for (int idx = 0; idx < DB::PartitionCount(); idx++) {
+    for (int idx = 0; idx < blue_->PartitionCount(); idx++) {
         DBTablePartition *tbl_partition =
             static_cast<DBTablePartition *>(blue_->GetTablePartition(idx));
         TASK_UTIL_EXPECT_NE(0, tbl_partition->size());
