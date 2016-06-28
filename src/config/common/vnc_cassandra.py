@@ -30,7 +30,9 @@ from collections import Mapping
 
 def merge_dict(orig_dict, new_dict):
     for key, value in new_dict.iteritems():
-        if isinstance(value, Mapping):
+        if key not in orig_dict:
+            orig_dict[key] = new_dict[key]
+        elif isinstance(value, Mapping):
             orig_dict[key] = merge_dict(orig_dict.get(key, {}), value)
         elif isinstance(value, list):
             orig_dict[key] = orig_dict[key].append(value)
@@ -57,6 +59,8 @@ class VncCassandraClient(object):
         [(_OBJ_UUID_CF_NAME, None), (_OBJ_FQ_NAME_CF_NAME, None),
          (_OBJ_SHARED_CF_NAME, None)]}
 
+    _MAX_COL = 10000000
+
     @classmethod
     def get_db_info(cls):
         db_info = [(cls._UUID_KEYSPACE_NAME, [cls._OBJ_UUID_CF_NAME,
@@ -65,16 +69,36 @@ class VncCassandraClient(object):
         return db_info
     # end get_db_info
 
+    @staticmethod
+    def _is_parent(column_name):
+        return column_name[:7] == 'parent:'
+
+    @staticmethod
+    def _is_prop(column_name):
+        return column_name[:5] == 'prop:'
+
+    @staticmethod
+    def _is_prop_list(column_name):
+        return column_name[:6] == 'propl:'
+
+    @staticmethod
+    def _is_prop_map(column_name):
+        return column_name[:6] == 'propm:'
+
+    @staticmethod
+    def _is_ref(column_name):
+        return column_name[:4] == 'ref:'
+
+    @staticmethod
+    def _is_backref(column_name):
+        return column_name[:8] == 'backref:'
+
+    @staticmethod
+    def _is_children(column_name):
+        return column_name[:9] == 'children:'
+
     def __init__(self, server_list, db_prefix, rw_keyspaces, ro_keyspaces,
             logger, generate_url=None, reset_config=False, credential=None):
-        self._re_match_parent = re.compile('parent:')
-        self._re_match_prop = re.compile('prop:')
-        self._re_match_prop_list = re.compile('propl:')
-        self._re_match_prop_map = re.compile('propm:')
-        self._re_match_ref = re.compile('ref:')
-        self._re_match_backref = re.compile('backref:')
-        self._re_match_children = re.compile('children:')
-
         self._reset_config = reset_config
         self._cache_uuid_to_fq_name = {}
         if db_prefix:
@@ -130,32 +154,49 @@ class VncCassandraClient(object):
         cf = self.get_cf(cf_name)
 
         if not columns or start or finish:
-            for key in keys:
-                rows = dict(cf.xget(key,
-                                    column_start=start,
-                                    column_finish=finish,
-                                    include_timestamp=timestamp))
-                if rows:
-                    results[key] = rows
+            try:
+                results = cf.multiget(keys,
+                                      column_start=start,
+                                      column_finish=finish,
+                                      include_timestamp=timestamp,
+                                      column_count=self._MAX_COL)
+            except OverflowError:
+                for key in keys:
+                    rows = dict(cf.xget(key,
+                                        column_start=start,
+                                        column_finish=finish,
+                                        include_timestamp=timestamp))
+                    if rows:
+                        results[key] = rows
 
         if columns:
-            if len(keys) * len(columns) < _thrift_limit_size:
-                rows = cf.multiget(keys,
-                                   columns=columns,
-                                   include_timestamp=timestamp)
-                merge_dict(results, rows)
-            else:
+            max_key_range, _ = divmod(_thrift_limit_size, len(columns))
+            if max_key_range > 1:
+                for key_chunk in [keys[x:x+max_key_range] for x in
+                                  xrange(0, len(keys), max_key_range)]:
+                    rows = cf.multiget(key_chunk,
+                                       columns=columns,
+                                       include_timestamp=timestamp,
+                                       column_count=self._MAX_COL)
+                    merge_dict(results, rows)
+            elif max_key_range == 0:
+                for column_chunk in [columns[x:x+(_thrift_limit_size - 1)] for x in
+                                     xrange(0, len(columns), _thrift_limit_size - 1)]:
+                    rows = cf.multiget(keys,
+                                       columns=column_chunk,
+                                       include_timestamp=timestamp,
+                                       column_count=self._MAX_COL)
+                    merge_dict(results, rows)
+            elif max_key_range == 1:
                 for key in keys:
-                    for column_chunk in [columns[x:x+(_thrift_limit_size - 1)] for x in
-                                         xrange(0, len(columns), _thrift_limit_size - 1)]:
-                        try:
-                            cols = cf.get(key,
-                                          columns=column_chunk,
-                                          include_timestamp=timestamp)
-                        except pycassa.NotFoundException:
-                            continue
-                        results.setdefault(key, {})
-                        results[key].update(cols)
+                    try:
+                        cols = cf.get(key,
+                                      columns=column_chunk,
+                                      include_timestamp=timestamp,
+                                      column_count=self._MAX_COL)
+                    except pycassa.NotFoundException:
+                        continue
+                    results.setdefault(key, {}).update(cols)
 
         for key in results:
             for col, val in results[key].items():
@@ -660,7 +701,7 @@ class VncCassandraClient(object):
             result['uuid'] = obj_uuid
             result['fq_name'] = obj_cols['fq_name'][0]
             for col_name in obj_cols.keys():
-                if self._re_match_parent.match(col_name):
+                if self._is_parent(col_name):
                     # non config-root child
                     (_, _, parent_uuid) = col_name.split(':')
                     parent_res_type = obj_cols['parent_type'][0]
@@ -672,12 +713,14 @@ class VncCassandraClient(object):
                     except NoIdError:
                         err_msg = 'Unknown uuid for parent ' + result['fq_name'][-2]
                         return (False, err_msg)
+                    continue
 
-                if self._re_match_prop.match(col_name):
+                if self._is_prop(col_name):
                     (_, prop_name) = col_name.split(':')
                     result[prop_name] = obj_cols[col_name][0]
+                    continue
 
-                if self._re_match_prop_list.match(col_name):
+                if self._is_prop_list(col_name):
                     (_, prop_name, prop_elem_position) = col_name.split(':')
                     if obj_class.prop_list_field_has_wrappers[prop_name]:
                         prop_field_types = obj_class.prop_field_types[prop_name]
@@ -693,9 +736,10 @@ class VncCassandraClient(object):
                             result[prop_name] = []
                         result[prop_name].append((obj_cols[col_name][0],
                                                   prop_elem_position))
+                    continue
 
-                if self._re_match_prop_map.match(col_name):
-                    prop_name, _, _ = col_name.strip('propm:').partition(':')
+                if self._is_prop_map(col_name):
+                    (_, prop_name, _) = col_name.split(':')
                     if obj_class.prop_map_field_has_wrappers[prop_name]:
                         prop_field_types = obj_class.prop_field_types[prop_name]
                         wrapper_type = prop_field_types['xsd_type']
@@ -709,8 +753,9 @@ class VncCassandraClient(object):
                         if prop_name not in result:
                             result[prop_name] = []
                         result[prop_name].append(obj_cols[col_name][0])
+                    continue
 
-                if self._re_match_children.match(col_name):
+                if self._is_children(col_name):
                     (_, child_type, child_uuid) = col_name.split(':')
                     if field_names and '%ss' %(child_type) not in field_names:
                         continue
@@ -721,13 +766,15 @@ class VncCassandraClient(object):
                                          child_uuid, child_tstamp)
                     except NoIdError:
                         continue
+                    continue
 
-                if self._re_match_ref.match(col_name):
+                if self._is_ref(col_name):
                     (_, ref_type, ref_uuid) = col_name.split(':')
                     self._read_ref(result, obj_uuid, ref_type, ref_uuid,
                                    obj_cols[col_name][0])
+                    continue
 
-                if self._re_match_backref.match(col_name):
+                if self._is_backref(col_name):
                     (_, back_ref_type, back_ref_uuid) = col_name.split(':')
                     if (field_names and
                         '%s_back_refs' %(back_ref_type) not in field_names):
@@ -738,6 +785,7 @@ class VncCassandraClient(object):
                                             back_ref_uuid, obj_cols[col_name][0])
                     except NoIdError:
                         continue
+                    continue
 
             # for all column names
 
@@ -842,7 +890,7 @@ class VncCassandraClient(object):
             bch = obj_uuid_cf.batch()
 
         for col_name, col_value in obj_uuid_cf.xget(obj_uuid):
-            if self._re_match_prop.match(col_name):
+            if self._is_prop(col_name):
                 (_, prop_name) = col_name.split(':')
                 if prop_name == 'id_perms':
                     # id-perms always has to be updated for last-mod timestamp
@@ -853,21 +901,21 @@ class VncCassandraClient(object):
                 elif prop_name in new_obj_dict:
                     self._update_prop(bch, obj_uuid, prop_name, new_props)
 
-            if self._re_match_prop_list.match(col_name):
+            if self._is_prop_list(col_name):
                 (_, prop_name, prop_elem_position) = col_name.split(':')
                 if prop_name in new_props:
                     # delete all old values of prop list
                     self._delete_from_prop_list(
                         bch, obj_uuid, prop_name, prop_elem_position)
 
-            if self._re_match_prop_map.match(col_name):
+            if self._is_prop_map(col_name):
                 (_, prop_name, prop_elem_position) = col_name.split(':')
                 if prop_name in new_props:
                     # delete all old values of prop list
                     self._delete_from_prop_map(
                         bch, obj_uuid, prop_name, prop_elem_position)
 
-            if self._re_match_ref.match(col_name):
+            if self._is_ref(col_name):
                 (_, ref_type, ref_uuid) = col_name.split(':')
                 self._update_ref(bch, obj_type, obj_uuid, ref_type, ref_uuid,
                                  new_ref_infos)
