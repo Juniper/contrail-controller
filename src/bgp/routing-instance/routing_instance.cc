@@ -495,14 +495,6 @@ RoutingInstance::RoutingInstance(string name, BgpServer *server,
       vxlan_id_(0),
       deleter_(new DeleteActor(server, this)),
       manager_delete_ref_(this, mgr->deleter()),
-      inet_static_route_mgr_(
-          BgpObjectFactory::Create<IStaticRouteMgr, Address::INET>(this)),
-      inet6_static_route_mgr_(
-          BgpObjectFactory::Create<IStaticRouteMgr, Address::INET6>(this)),
-      inet_route_aggregator_(
-          BgpObjectFactory::Create<IRouteAggregator, Address::INET>(this)),
-      inet6_route_aggregator_(
-          BgpObjectFactory::Create<IRouteAggregator, Address::INET6>(this)),
       peer_manager_(BgpObjectFactory::Create<PeerManager>(this)) {
 }
 
@@ -561,7 +553,11 @@ void RoutingInstance::ProcessStaticRouteConfig() {
 
     vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
     BOOST_FOREACH(Address::Family family, families) {
-        static_route_mgr(family)->ProcessStaticRouteConfig();
+        IStaticRouteMgr *manager = static_route_mgr(family);
+        if (!manager && !config_->static_routes(family).empty())
+            manager = LocateStaticRouteMgr(family);
+        if (manager)
+            manager->ProcessStaticRouteConfig();
     }
 }
 
@@ -571,7 +567,11 @@ void RoutingInstance::UpdateStaticRouteConfig() {
 
     vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
     BOOST_FOREACH(Address::Family family, families) {
-        static_route_mgr(family)->UpdateStaticRouteConfig();
+        IStaticRouteMgr *manager = static_route_mgr(family);
+        if (!manager && !config_->static_routes(family).empty())
+            manager = LocateStaticRouteMgr(family);
+        if (manager)
+            manager->UpdateStaticRouteConfig();
     }
 }
 
@@ -581,7 +581,9 @@ void RoutingInstance::FlushStaticRouteConfig() {
 
     vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
     BOOST_FOREACH(Address::Family family, families) {
-        static_route_mgr(family)->FlushStaticRouteConfig();
+        IStaticRouteMgr *manager = static_route_mgr(family);
+        if (manager)
+            manager->FlushStaticRouteConfig();
     }
 }
 
@@ -591,7 +593,9 @@ void RoutingInstance::UpdateAllStaticRoutes() {
 
     vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
     BOOST_FOREACH(Address::Family family, families) {
-        static_route_mgr(family)->UpdateAllRoutes();
+        IStaticRouteMgr *manager = static_route_mgr(family);
+        if (manager)
+            manager->UpdateAllRoutes();
     }
 }
 
@@ -601,7 +605,11 @@ void RoutingInstance::ProcessRouteAggregationConfig() {
 
     vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
     BOOST_FOREACH(Address::Family family, families) {
-        route_aggregator(family)->ProcessAggregateRouteConfig();
+        IRouteAggregator *aggregator = route_aggregator(family);
+        if (!aggregator && !config_->aggregate_routes(family).empty())
+            aggregator = LocateRouteAggregator(family);
+        if (aggregator)
+            aggregator->ProcessAggregateRouteConfig();
     }
 }
 
@@ -611,7 +619,11 @@ void RoutingInstance::UpdateRouteAggregationConfig() {
 
     vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
     BOOST_FOREACH(Address::Family family, families) {
-        route_aggregator(family)->UpdateAggregateRouteConfig();
+        IRouteAggregator *aggregator = route_aggregator(family);
+        if (!aggregator && !config_->aggregate_routes(family).empty())
+            aggregator = LocateRouteAggregator(family);
+        if (aggregator)
+            aggregator->UpdateAggregateRouteConfig();
     }
 }
 
@@ -1227,6 +1239,44 @@ bool RoutingInstance::ProcessRoutingPolicy(const BgpRoute *route,
     // Clear the reject if marked so in past
     if (path->IsPolicyReject()) path->ResetPolicyReject();
     return true;
+}
+
+IStaticRouteMgr *RoutingInstance::LocateStaticRouteMgr(
+    Address::Family family) {
+    IStaticRouteMgr *manager = static_route_mgr(family);
+    if (manager)
+        return manager;
+    if (family == Address::INET) {
+        inet_static_route_mgr_.reset(
+            BgpObjectFactory::Create<IStaticRouteMgr, Address::INET>(this));
+        return inet_static_route_mgr_.get();
+    } else if (family == Address::INET6) {
+        inet6_static_route_mgr_.reset(
+            BgpObjectFactory::Create<IStaticRouteMgr, Address::INET6>(this));
+        return inet6_static_route_mgr_.get();
+    }
+    return NULL;
+}
+
+IRouteAggregator *RoutingInstance::LocateRouteAggregator(
+    Address::Family family) {
+    IRouteAggregator *aggregator = route_aggregator(family);
+    if (aggregator)
+        return aggregator;
+    if (family == Address::INET) {
+        GetTable(family)->LocatePathResolver();
+        inet_route_aggregator_.reset(
+            BgpObjectFactory::Create<IRouteAggregator, Address::INET>(this));
+        inet_route_aggregator_->Initialize();
+        return inet_route_aggregator_.get();
+    } else if (family == Address::INET6) {
+        GetTable(family)->LocatePathResolver();
+        inet6_route_aggregator_.reset(
+            BgpObjectFactory::Create<IRouteAggregator, Address::INET6>(this));
+        inet6_route_aggregator_->Initialize();
+        return inet6_route_aggregator_.get();
+    }
+    return NULL;
 }
 
 void RoutingInstance::DestroyRouteAggregator(Address::Family family) {
