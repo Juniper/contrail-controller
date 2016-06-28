@@ -230,7 +230,9 @@ struct ShowRouteTableSummary {
     6: u64 secondary_paths;
     7: u64 infeasible_paths;
     8: u64 walk_requests;
+    16: u64 walk_again_requests;
     9: u64 walk_completes;
+    17: u64 actual_walks;
     10: u64 walk_cancels;
     11: u64 pending_updates;
     12: u64 markers;
@@ -273,6 +275,8 @@ struct ShowRoutingInstanceTable {
     6: u64 secondary_paths;
     7: u64 infeasible_paths;
     8: u64 walk_requests;
+    16: u64 walk_again_requests;
+    17: u64 actual_walks;
     9: u64 walk_completes;
     10: u64 walk_cancels;
     11: u64 pending_updates;

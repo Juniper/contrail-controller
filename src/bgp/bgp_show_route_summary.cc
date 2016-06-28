@@ -27,6 +27,8 @@ static void FillRouteTableSummaryInfo(ShowRouteTableSummary *srts,
     srts->infeasible_paths = table->GetInfeasiblePathCount();
     srts->paths = srts->primary_paths + srts->secondary_paths;
     srts->set_walk_requests(table->walk_request_count());
+    srts->set_walk_again_requests(table->walk_again_count());
+    srts->set_actual_walks(table->walk_count());
     srts->set_walk_completes(table->walk_complete_count());
     srts->set_walk_cancels(table->walk_cancel_count());
     size_t markers = 0;
