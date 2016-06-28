@@ -757,7 +757,8 @@ class Controller(object):
             self.disc = client.DiscoveryClient(
                 self._conf.discovery()['server'],
                 self._conf.discovery()['port'],
-                ModuleNames[Module.ALARM_GENERATOR])
+                ModuleNames[Module.ALARM_GENERATOR],
+                '%s-%s' % (self._hostname, self._instance_id))
 
         is_collector = True
         if test_logger is not None:
@@ -1223,9 +1224,16 @@ class Controller(object):
 
                     # Allow the partition handlers to queue new UVEs without
                     # interfering with the work of processing the current UVEs
-                    pendingset[part] = copy.deepcopy(self._uveq[part])
-                    self._uveq[part] = {}
-
+                    # Process no more than 200 keys at a time
+                    pendingset[part] = {}
+                    icount = 0
+                    while (len(self._uveq[part]) > 0) and icount < 200:
+                        kp,vp = self._uveq[part].popitem()
+                        pendingset[part][kp] = vp
+                        icount += 1
+                    self._logger.info("UVE Process for %d : %d, %d remain" % \
+                            (part, len(pendingset[part]), len(self._uveq[part])))
+                        
                     gevs[part] = gevent.spawn(self.handle_uve_notif,part,\
                         pendingset[part])
 		if kafka_topic_down:
@@ -1751,7 +1759,7 @@ class Controller(object):
                 ph.start()
                 self._workers[partno] = ph
                 self._uvestats[partno] = {}
-                tout = 600
+                tout = 1200
                 idx = 0
                 while idx < tout:
                     # When this partitions starts,
@@ -1787,7 +1795,7 @@ class Controller(object):
                 del self._workers[partno]
                 del self._uvestats[partno]
 
-                tout = 600
+                tout = 1200
                 idx = 0
                 while idx < tout:
                     # When this partitions stop.s
