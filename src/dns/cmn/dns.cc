@@ -42,6 +42,7 @@ void Dns::SetTaskSchedulingPolicy() {
         "dns::Config",
         "dns::BindStatus",
         "db::DBTable",
+        "db::IFMapTable",
         "io::ReaderTask",
         "timer::TimerTask",
         "bgp::Config",
