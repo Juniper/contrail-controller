@@ -4,10 +4,17 @@ PROTO_HTTP = 'HTTP'
 PROTO_HTTPS = 'HTTPS'
 PROTO_TERMINATED_HTTPS = 'TERMINATED_HTTPS'
 
-PROTO_MAP = {
+PROTO_MAP_V1 = {
     'TCP': 'tcp',
     'HTTP': 'http',
     'HTTPS': 'http',
+    'TERMINATED_HTTPS': 'http'
+}
+
+PROTO_MAP_V2 = {
+    'TCP': 'tcp',
+    'HTTP': 'http',
+    'HTTPS': 'tcp',
     'TERMINATED_HTTPS': 'http'
 }
 
@@ -98,7 +105,7 @@ def set_v1_frontend_backend(pool):
         'option tcplog',
         'bind %s:%s %s' % (vip.params['address'],
             vip.params['protocol_port'], ssl),
-        'mode %s' % PROTO_MAP[vip.params['protocol']]
+        'mode %s' % PROTO_MAP_V1[vip.params['protocol']]
     ]
     if vip.params['protocol'] == PROTO_HTTP or \
             vip.params['protocol'] == PROTO_HTTPS:
@@ -140,10 +147,9 @@ def set_v2_frontend_backend(lb):
             'option tcplog',
             'bind %s:%s %s' % (lb.params['vip_address'],
                 ll.params['protocol_port'], ssl),
-            'mode %s' % PROTO_MAP[ll.params['protocol']]
+            'mode %s' % PROTO_MAP_V2[ll.params['protocol']]
         ]
-        if ll.params['protocol'] == PROTO_HTTP or \
-                ll.params['protocol'] == PROTO_HTTPS:
+        if ll.params['protocol'] == PROTO_HTTP:
             lconf.append('option forwardfor')
 
         pool =  LoadbalancerPoolSM.get(ll.loadbalancer_pool)
@@ -158,7 +164,7 @@ def set_v2_frontend_backend(lb):
 def set_backend(pool):
     conf = [
         'backend %s' % pool.uuid,
-        'mode %s' % PROTO_MAP[pool.params['protocol']],
+        'mode %s' % PROTO_MAP_V2[pool.params['protocol']],
         'balance %s' % LB_METHOD_MAP[pool.params['loadbalancer_method']]
     ]
     if pool.params['protocol'] == PROTO_HTTP:
