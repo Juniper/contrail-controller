@@ -42,7 +42,7 @@ using boost::assign::list_of;
 VnTable *VnTable::vn_table_;
 
 VnIpam::VnIpam(const std::string& ip, uint32_t len, const std::string& gw,
-               const std::string& dns, bool dhcp, std::string &name,
+               const std::string& dns, bool dhcp, const std::string &name,
                const std::vector<autogen::DhcpOptionType> &dhcp_options,
                const std::vector<autogen::RouteType> &host_routes)
         : plen(len), installed(false), dhcp_enable(dhcp), ipam_name(name) {
@@ -707,6 +707,32 @@ void VnTable::CfgForwardingFlags(IFMapNode *node, bool *l2, bool *l3,
     *l3 = GetLayer3ForwardingConfig(derived_forwarding_mode);
  }
 
+void
+VnTable::BuildVnIpamData(const std::vector<autogen::IpamSubnetType> &subnets,
+                         const std::string &ipam_name,
+                         std::vector<VnIpam> *vn_ipam) {
+    for (unsigned int i = 0; i < subnets.size(); ++i) {
+        // if the DNS server address is not specified, set this
+        // to be the same as the GW address
+        std::string dns_server_address = subnets[i].dns_server_address;
+        boost::system::error_code ec;
+        IpAddress dns_server =
+            IpAddress::from_string(dns_server_address, ec);
+        if (ec.value() || dns_server.is_unspecified()) {
+            dns_server_address = subnets[i].default_gateway;
+        }
+
+        vn_ipam->push_back
+            (VnIpam(subnets[i].subnet.ip_prefix,
+                    subnets[i].subnet.ip_prefix_len,
+                    subnets[i].default_gateway,
+                    dns_server_address,
+                    subnets[i].enable_dhcp, ipam_name,
+                    subnets[i].dhcp_option_list.dhcp_option,
+                    subnets[i].host_routes.route));
+    }
+}
+
 VnData *VnTable::BuildData(IFMapNode *node) {
     VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
     assert(cfg);
@@ -761,34 +787,25 @@ VnData *VnTable::BuildData(IFMapNode *node) {
             if (IFMapNode *ipam_node = FindTarget(table, adj_node,
                                                   "network-ipam")) {
                 ipam_name = ipam_node->name();
-
-                VirtualNetworkNetworkIpam *ipam =
+                VirtualNetworkNetworkIpam *vnni =
                     static_cast<VirtualNetworkNetworkIpam *>
                     (adj_node->GetObject());
-                assert(ipam);
-                const VnSubnetsType &subnets = ipam->data();
-                for (unsigned int i = 0; i < subnets.ipam_subnets.size(); ++i) {
-                    // if the DNS server address is not specified, set this
-                    // to be the same as the GW address
-                    std::string dns_server_address =
-                        subnets.ipam_subnets[i].dns_server_address;
-                    boost::system::error_code ec;
-                    IpAddress dns_server =
-                        IpAddress::from_string(dns_server_address, ec);
-                    if (ec.value() || dns_server.is_unspecified()) {
-                        dns_server_address =
-                            subnets.ipam_subnets[i].default_gateway;
-                    }
+                VnSubnetsType subnets;
+                if (vnni)
+                    subnets = vnni->data();
 
-                    vn_ipam.push_back
-                        (VnIpam(subnets.ipam_subnets[i].subnet.ip_prefix,
-                                subnets.ipam_subnets[i].subnet.ip_prefix_len,
-                                subnets.ipam_subnets[i].default_gateway,
-                                dns_server_address,
-                                subnets.ipam_subnets[i].enable_dhcp, ipam_name,
-                                subnets.ipam_subnets[i].dhcp_option_list.dhcp_option,
-                                subnets.ipam_subnets[i].host_routes.route));
+                autogen::NetworkIpam *network_ipam =
+                    static_cast<autogen::NetworkIpam *>(ipam_node->GetObject());
+                const std::string subnet_method =
+                    boost::to_lower_copy(network_ipam->ipam_subnet_method());
+
+                if (subnet_method == "flat-subnet") {
+                    BuildVnIpamData(network_ipam->ipam_subnets(),
+                                    ipam_name, &vn_ipam);
+                } else {
+                    BuildVnIpamData(subnets.ipam_subnets, ipam_name, &vn_ipam);
                 }
+
                 VnIpamLinkData ipam_data;
                 ipam_data.oper_dhcp_options_.set_host_routes(subnets.host_routes.route);
                 vn_ipam_data.insert(VnData::VnIpamDataPair(ipam_name, ipam_data));
