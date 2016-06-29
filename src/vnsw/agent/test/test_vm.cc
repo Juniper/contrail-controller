@@ -119,11 +119,64 @@ TEST_F(CfgTest, VmBasic_1) {
     delete(newKey);
 }
 
+TEST_F(CfgTest, VmAddDelAllocUnitIpam_1) {
+    IpamInfo ipam_info[] = {
+        {"17.1.1.0", 24, "17.1.1.1", true, 4},
+    };
+    struct PortInfo input1[] = {
+        {"vif1", 2, "17.1.1.4", "00:00:00:01:01:01", 1, 1},
+    };
+
+    //Create Vmport first and then add IPAM
+    CreateVmportEnv(input1, 1);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 1, NULL, "vdns1");
+    client->WaitForIdle();
+
+    Ip4Address instance_ip = Ip4Address::from_string("17.1.1.4");
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", instance_ip, 30);
+    EXPECT_TRUE(rt != NULL);
+    EXPECT_EQ(30U, rt->plen());
+
+    DeleteVmportEnv(input1, 1, 1);
+    client->WaitForIdle();
+
+    DelIPAM("vn1", "vdns1");
+    client->WaitForIdle();
+}
+
+TEST_F(CfgTest, VmAddDelAllocUnitIpam_2) {
+    IpamInfo ipam_info[] = {
+        {"17.1.1.0", 24, "17.1.1.1", true, 4},
+    };
+    struct PortInfo input1[] = {
+        {"vif1", 2, "17.1.1.4", "00:00:00:01:01:01", 1, 1},
+    };
+
+    //Add IPAM first and then create Vmport
+    AddIPAM("vn1", ipam_info, 1, NULL, "vdns1");
+    client->WaitForIdle();
+    CreateVmportEnv(input1, 1);
+    client->WaitForIdle();
+
+    Ip4Address instance_ip = Ip4Address::from_string("17.1.1.4");
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", instance_ip, 30);
+    EXPECT_TRUE(rt != NULL);
+    EXPECT_EQ(30U, rt->plen());
+
+    DeleteVmportEnv(input1, 1, 1);
+    client->WaitForIdle();
+
+    DelIPAM("vn1", "vdns1");
+    client->WaitForIdle();
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
 
     int ret = RUN_ALL_TESTS();
+    client->WaitForIdle();
     TestShutdown();
     delete client;
     return ret;
