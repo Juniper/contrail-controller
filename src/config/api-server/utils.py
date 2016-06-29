@@ -73,6 +73,11 @@ def parse_args(args_str):
         'ifmap_health_check_interval': '60', # in seconds
         'stale_lock_seconds': '5', # lock but no resource past this => stale
         'cloud_admin_role': _CLOUD_ADMIN_ROLE,
+        'rabbit_use_ssl': False,
+        'kombu_ssl_version': '',
+        'kombu_ssl_keyfile': '',
+        'kombu_ssl_certfile': '',
+        'kombu_ssl_ca_certs': '',
     }
     # ssl options
     secopts = {

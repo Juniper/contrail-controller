@@ -2583,7 +2583,16 @@ class VncApiServer(object):
                               rabbit_user, rabbit_password, rabbit_vhost,
                               rabbit_ha_mode, reset_config,
                               zk_server, self._args.cluster_id,
-                              cassandra_credential=cred)
+                              cassandra_credential=cred,
+                              rabbit_use_ssl = self._args.rabbit_use_ssl,
+                              kombu_ssl_version =
+                              self._args.kombu_ssl_version,
+                              kombu_ssl_keyfile =
+                              self._args.kombu_ssl_keyfile,
+                              kombu_ssl_certfile =
+                              self._args.kombu_ssl_certfile,
+                              kombu_ssl_ca_certs =
+                              self._args.kombu_ssl_ca_certs)
         self._db_conn = db_conn
     # end _db_connect
 
