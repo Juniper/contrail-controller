@@ -239,6 +239,7 @@ void AgentRouteTable::DeletePathFromPeer(DBTablePartBase *part,
         return;
     }
 
+    bool deleted_path_was_active_path = (rt->GetActivePath() == path);
     RouteInfo rt_info;
     rt->FillTrace(rt_info, AgentRoute::DELETE_PATH, path);
     OPER_TRACE_ROUTE(Route, rt_info);
@@ -276,7 +277,8 @@ void AgentRouteTable::DeletePathFromPeer(DBTablePartBase *part,
     } else {
         // Notify deletion of path. 
         part->Notify(rt);
-        UpdateDependants(rt);
+        if (deleted_path_was_active_path)
+            UpdateDependants(rt, NULL);
     }
 }
 
@@ -483,7 +485,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
         part->Notify(rt);
         rt->UpdateDependantRoutes();
         rt->ResyncTunnelNextHop();
-        UpdateDependants(rt);
+        UpdateDependants(rt, path);
     }
 }
 
@@ -690,7 +692,8 @@ AgentPath *AgentRoute::FindPath(const Peer *peer) const {
 
 // First path in list is always treated as active path.
 const AgentPath *AgentRoute::GetActivePath() const {
-    return static_cast<const AgentPath *>(front());
+    const AgentPath *path = static_cast<const AgentPath *>(front());
+    return (path ? path->UsablePath() : NULL);
 }
 
 const NextHop *AgentRoute::GetActiveNextHop() const {
