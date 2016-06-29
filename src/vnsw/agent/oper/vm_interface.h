@@ -334,8 +334,8 @@ public:
     struct InstanceIp : ListEntry {
         InstanceIp();
         InstanceIp(const InstanceIp &rhs);
-        InstanceIp(const IpAddress &ip, bool ecmp, bool is_primary,
-                   bool is_service_health_check_ip);
+        InstanceIp(const IpAddress &ip, uint8_t plen, bool ecmp,
+                   bool is_primary, bool is_service_health_check_ip);
         ~InstanceIp();
         bool operator == (const InstanceIp &rhs) const;
         bool operator() (const InstanceIp &lhs,
@@ -359,6 +359,7 @@ public:
         }
 
         const IpAddress ip_;
+        mutable uint8_t plen_;
         mutable bool ecmp_;
         mutable bool l2_installed_;
         mutable bool old_ecmp_;
