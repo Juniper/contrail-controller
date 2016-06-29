@@ -4,10 +4,17 @@ PROTO_HTTP = 'HTTP'
 PROTO_HTTPS = 'HTTPS'
 PROTO_TERMINATED_HTTPS = 'TERMINATED_HTTPS'
 
-PROTO_MAP = {
+PROTO_MAP_V1 = {
     'TCP': 'tcp',
     'HTTP': 'http',
     'HTTPS': 'http',
+    'TERMINATED_HTTPS': 'http'
+}
+
+PROTO_MAP_V2 = {
+    'TCP': 'tcp',
+    'HTTP': 'http',
+    'HTTPS': 'tcp',
     'TERMINATED_HTTPS': 'http'
 }
 
@@ -98,7 +105,7 @@ def set_v1_frontend_backend(pool):
         'option tcplog',
         'bind %s:%s %s' % (vip.params['address'],
             vip.params['protocol_port'], ssl),
-        'mode %s' % PROTO_MAP[vip.params['protocol']]
+        'mode %s' % PROTO_MAP_V1[vip.params['protocol']]
     ]
     if vip.params['protocol'] == PROTO_HTTP or \
             vip.params['protocol'] == PROTO_HTTPS:
@@ -107,7 +114,7 @@ def set_v1_frontend_backend(pool):
     if pool and pool.params['admin_state']:
         lconf.append('default_backend %s' % pool.uuid)
         res = "\n\t".join(lconf) + '\n\n'
-        res += set_backend(pool)
+        res += set_backend_v1(pool)
         conf.append(res)
 
     return "\n".join(conf)
@@ -140,25 +147,55 @@ def set_v2_frontend_backend(lb):
             'option tcplog',
             'bind %s:%s %s' % (lb.params['vip_address'],
                 ll.params['protocol_port'], ssl),
-            'mode %s' % PROTO_MAP[ll.params['protocol']]
+            'mode %s' % PROTO_MAP_V2[ll.params['protocol']]
         ]
-        if ll.params['protocol'] == PROTO_HTTP or \
-                ll.params['protocol'] == PROTO_HTTPS:
+        if ll.params['protocol'] == PROTO_HTTP:
             lconf.append('option forwardfor')
 
         pool =  LoadbalancerPoolSM.get(ll.loadbalancer_pool)
         if pool and pool.params['admin_state']:
             lconf.append('default_backend %s' % pool.uuid)
             res = "\n\t".join(lconf) + '\n\n'
-            res += set_backend(pool)
+            res += set_backend_v2(pool)
             conf.append(res)
 
     return "\n".join(conf)
 
-def set_backend(pool):
+def set_backend_v1(pool):
     conf = [
         'backend %s' % pool.uuid,
-        'mode %s' % PROTO_MAP[pool.params['protocol']],
+        'mode %s' % PROTO_MAP_V1[pool.params['protocol']],
+        'balance %s' % LB_METHOD_MAP[pool.params['loadbalancer_method']]
+    ]
+    if pool.params['protocol'] == PROTO_HTTP:
+        conf.append('option forwardfor')
+
+    server_suffix = ''
+    for hm_id in pool.loadbalancer_healthmonitors:
+        hm = HealthMonitorSM.get(hm_id)
+        if not hm:
+            continue
+        server_suffix, monitor_conf = set_health_monitor(hm)
+        conf.extend(monitor_conf)
+
+    session_conf = set_session_persistence(pool)
+    conf.extend(session_conf)
+
+    for member_id in pool.members:
+        member = LoadbalancerMemberSM.get(member_id)
+        if not member or not member.params['admin_state']:
+            continue
+        server = (('server %s %s:%s weight %s') % (member.uuid,
+                  member.params['address'], member.params['protocol_port'],
+                  member.params['weight'])) + server_suffix
+        conf.append(server)
+
+    return "\n\t".join(conf) + '\n'
+
+def set_backend_v2(pool):
+    conf = [
+        'backend %s' % pool.uuid,
+        'mode %s' % PROTO_MAP_V2[pool.params['protocol']],
         'balance %s' % LB_METHOD_MAP[pool.params['loadbalancer_method']]
     ]
     if pool.params['protocol'] == PROTO_HTTP:
