@@ -194,7 +194,12 @@ TEST_F(DiagTest, DiagReqTest) {
         {"vnet1", 4, "1.1.1.1", "00:00:00:01:01:01", 1, 2},
         {"vnet2", 5, "1.1.1.2", "00:00:00:02:02:02", 1, 3},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
+    };
 
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
     CreateVmportEnv(input, 2, 0);
     client->WaitForIdle();
     client->Reset();
@@ -222,6 +227,8 @@ TEST_F(DiagTest, DiagReqTest) {
 
     client->Reset();
     DeleteVmportEnv(input, 2, 1, 0);
+    client->WaitForIdle();
+    DelIPAM("vn1");
     client->WaitForIdle();
 }
 

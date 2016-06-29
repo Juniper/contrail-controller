@@ -27,6 +27,11 @@ struct PortInfo input2[] = {
     {"vnet4", 4, "1.1.1.4", "00:00:01:01:01:04", 1, 4, "::1.1.1.4"},
 };
 
+IpamInfo ipam_info[] = {
+    {"1.1.1.0", 24, "1.1.1.10"},
+    {"::1.1.1.0", 120, "::1.1.1.10"},
+};
+
 typedef enum {
     INGRESS = 0,
     EGRESS = 1,
@@ -352,12 +357,17 @@ bool Init() {
     if (VmPortSetup(input2, 2, 0) == false)
         return false;
 
+    AddIPAM("vn1", ipam_info, 2);
+    client->WaitForIdle();
+
     return true;
 }
 
 void Shutdown() {
     DeleteVmportEnv(input1, 2, true, 0, NULL, NULL, true, true);
     DeleteVmportEnv(input2, 2, true, 0, NULL, NULL, true, true);
+    client->WaitForIdle();
+    DelIPAM("vn1");
     client->WaitForIdle();
 
     WAIT_FOR(100, 1000, (VmPortFind(input1, 0)) == false);

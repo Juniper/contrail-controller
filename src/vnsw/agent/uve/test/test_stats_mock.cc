@@ -33,6 +33,15 @@ struct PortInfo stats_if[] = {
         {"test1", 9, "4.1.1.2", "00:00:00:01:01:02", 6, 4},
 };
 
+IpamInfo ipam_info[] = {
+    {"1.1.1.0", 24, "1.1.1.10"},
+};
+
+IpamInfo ipam_stats[] = {
+    {"3.1.1.0", 24, "3.1.1.10"},
+    {"4.1.1.0", 24, "4.1.1.10"},
+};
+
 int hash_id;
 VmInterface *flow0, *flow1;
 VmInterface *test0, *test1;
@@ -72,6 +81,10 @@ public:
         unsigned int vn_count = 0;
         hash_id = 1;
         client->Reset();
+        AddIPAM("vn5", ipam_info, 1);
+        client->WaitForIdle();
+        AddIPAM("vn6", ipam_stats, 2);
+        client->WaitForIdle();
         CreateVmportEnv(input, 2, 1);
         client->WaitForIdle(10);
         vn_count++;
@@ -126,6 +139,10 @@ public:
         client->Reset();
         DeleteVmportEnv(stats_if, 2, 1);
         client->WaitForIdle(10);
+        DelIPAM("vn5");
+        client->WaitForIdle();
+        DelIPAM("vn6");
+        client->WaitForIdle();
         client->VnDelNotifyWait(1);
         client->PortDelNotifyWait(2);
     }

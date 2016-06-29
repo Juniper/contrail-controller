@@ -15,7 +15,9 @@ struct PortInfo input[] = {
     {"intf1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     {"intf2", 2, "1.1.1.2", "00:00:00:01:01:02", 1, 2}
 };
-
+IpamInfo ipam_info[] = {
+    {"1.1.1.0", 24, "1.1.1.10"},
+};
 
 TestQosConfigData data1 = {"qos_config1", 1, "default", false};
 TestQosConfigData data2 = {"qos_config2", 2, "default", false};
@@ -30,6 +32,9 @@ public:
 
     virtual void SetUp() {
         CreateVmportEnv(input, 2);
+        client->WaitForIdle();
+        AddIPAM("vn1", ipam_info, 1);
+        client->WaitForIdle();
         AddQosConfig(data1);
         AddQosConfig(data2);
         AddQosAcl("acl1", 1, "vn1", "vn1", "pass", "qos_config1");
@@ -48,6 +53,9 @@ public:
 
     virtual void TearDown() {
         DeleteVmportEnv(input, 2, true);
+        client->WaitForIdle();
+        DelIPAM("vn1");
+        client->WaitForIdle();
         DelNode("qos-config", "qos_config");
         DelNode("qos-config", "qos_config1");
         client->WaitForIdle();

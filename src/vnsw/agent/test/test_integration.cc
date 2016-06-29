@@ -86,6 +86,10 @@ using namespace Patricia;
         strcpy(init_file, DEFAULT_VNSW_CONFIG_FILE); \
     }                                           \
 
+IpamInfo ipam_info[] = {
+    {"2.2.2.0", 24, "2.2.2.1"},
+};
+
 class GroupEntry {
 public:
     GroupEntry() {
@@ -619,6 +623,16 @@ void AddLinkConfig (xml_document &xdoc, xml_node &node, GroupEntry *g_parent) {
 }
 
 class IntegrationTest : public ::testing::Test {
+public:
+    virtual void SetUp() {
+        AddIPAM("vn1", ipam_info, 1);
+        client->WaitForIdle();
+    }
+
+    virtual void TearDown() {
+        DelIPAM("vn1");
+        client->WaitForIdle();
+    }
 };
 
 struct RandomNumGen : unary_function<unsigned, unsigned> {

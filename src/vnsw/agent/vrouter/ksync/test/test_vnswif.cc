@@ -14,6 +14,9 @@ struct PortInfo input[] = {
     {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     {"vnet2", 2, "1.1.1.2", "00:00:00:01:01:02", 1, 2}
 };
+IpamInfo ipam_info[] = {
+    {"1.1.1.0", 24, "1.1.1.100"},
+};
 
 class TestVnswIf : public ::testing::Test {
 public:
@@ -22,6 +25,8 @@ public:
         vnswif_ = agent_->ksync()->vnsw_interface_listner();
 
         CreateVmportEnv(input, 2, 1);
+        client->WaitForIdle();
+        AddIPAM("vn1", ipam_info, 1);
         client->WaitForIdle();
         EXPECT_TRUE(VmPortActive(1));
         EXPECT_TRUE(VmPortActive(2));
@@ -33,6 +38,8 @@ public:
         InterfaceEvent(false, "vnet1", 0);
         InterfaceEvent(false, "vnet2", 0);
         DeleteVmportEnv(input, 2, true, 1);
+        client->WaitForIdle();
+        DelIPAM("vn1");
         client->WaitForIdle();
         EXPECT_EQ(0, vnswif_->GetHostInterfaceCount());
         WAIT_FOR(1000, 100, (VmPortFindRetDel(1) == false));

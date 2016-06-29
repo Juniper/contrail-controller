@@ -68,6 +68,26 @@ struct PortInfo fip_input2[] = {
     {"flowc", 5, vm_c_ip, "00:00:00:02:01:03", 8, 8},
 };
 
+IpamInfo ipam_info[] = {
+    {"11.1.1.0", 24, "11.1.1.10"},
+};
+
+IpamInfo ipam_info2[] = {
+    {"14.1.1.0", 24, "14.1.1.10"},
+};
+
+IpamInfo ipam_fip[] = {
+    {"15.0.0.0", 24, "15.0.0.10"},
+};
+
+IpamInfo ipam_fip1[] = {
+    {"16.0.0.0", 24, "16.0.0.10"},
+};
+
+IpamInfo ipam_fip2[] = {
+    {"17.0.0.0", 24, "17.0.0.100"},
+};
+
 VmInterface *flow0;
 VmInterface *flow1;
 VmInterface *flow2;
@@ -84,12 +104,39 @@ public:
     UveVmUveTest() : util_(), peer_(NULL), agent_(Agent::GetInstance()) {
         proto_ = agent_->pkt()->get_flow_proto();
     }
-    void SetUp() {
+    virtual void SetUp() {
         agent_->flow_stats_manager()->set_delete_short_flow(false);
         FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>
             (agent_->flow_stats_manager()->default_flow_stats_collector());
         f->ClearList();
         EXPECT_EQ(0U, f->ingress_flow_log_list().size());
+        AddIPAM("vn5", ipam_info, 1);
+        client->WaitForIdle();
+        AddIPAM("vn4", ipam_info2, 1);
+        client->WaitForIdle();
+        AddIPAM("default-project:vn4", ipam_info2, 1);
+        client->WaitForIdle();
+        AddIPAM("vn6", ipam_fip, 1);
+        client->WaitForIdle();
+        AddIPAM("vn7", ipam_fip1, 1);
+        client->WaitForIdle();
+        AddIPAM("vn8", ipam_fip2, 1);
+        client->WaitForIdle();
+    }
+
+    virtual void TearDown() {
+        DelIPAM("vn5");
+        client->WaitForIdle();
+        DelIPAM("vn4");
+        client->WaitForIdle();
+        DelIPAM("default-project:vn4");
+        client->WaitForIdle();
+        DelIPAM("vn6");
+        client->WaitForIdle();
+        DelIPAM("vn7");
+        client->WaitForIdle();
+        DelIPAM("vn8");
+        client->WaitForIdle();
     }
 
     void FlowSetUp() {

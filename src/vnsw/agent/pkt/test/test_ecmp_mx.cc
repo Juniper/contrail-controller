@@ -15,6 +15,9 @@ void RouterIdDepInit(Agent *agent) {
 struct PortInfo input1[] = {
     {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
 };
+IpamInfo ipam_info[] = {
+    {"1.1.1.0", 24, "1.1.1.10"},
+};
 
 class EcmpTest : public ::testing::Test {
     virtual void SetUp() {
@@ -27,6 +30,9 @@ class EcmpTest : public ::testing::Test {
 
         flow_proto_ = agent_->pkt()->get_flow_proto();
         CreateVmportWithEcmp(input1, 1);
+        client->WaitForIdle();
+        AddIPAM("vn1", ipam_info, 1);
+        client->WaitForIdle();
         AddVn("vn2", 2);
         AddVrf("vrf2");
         client->WaitForIdle();
@@ -43,6 +49,9 @@ class EcmpTest : public ::testing::Test {
  
     virtual void TearDown() {
         DeleteVmportEnv(input1, 1, true);
+        client->WaitForIdle();
+        DelIPAM("vn1");
+        client->WaitForIdle();
         DelVn("vn2");
         DelVrf("vrf2");
         client->WaitForIdle();

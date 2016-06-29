@@ -335,6 +335,7 @@ void AddNodeString(char *buff, int &len, const char *nodename, const char *name,
         str << "                   <default-gateway>" << ipam[i].gw << "</default-gateway>\n";
         str << "                   <dns-server-address>" << ipam[i].gw << "</dns-server-address>\n";
         str << "                   <enable-dhcp>" << dhcp_enable << "</enable-dhcp>\n";
+        str << "                   <alloc-unit>" << ipam[i].alloc_unit << "</alloc-unit>\n";
         if (add_subnet_tags)
             str <<                 add_subnet_tags << "\n";
         str << "               </ipam-subnets>\n";
