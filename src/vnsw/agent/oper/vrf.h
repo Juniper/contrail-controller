@@ -129,6 +129,7 @@ public:
     void set_allow_route_add_on_deleted_vrf(bool val) {
         allow_route_add_on_deleted_vrf_ = val;
     }
+    InetUnicastAgentRouteTable *GetInetUnicastRouteTable(const IpAddress &addr) const;
 
 private:
     friend class VrfTable;
@@ -231,6 +232,7 @@ public:
     void DeleteRoutes();
     void Shutdown();
     void DeleteFromDbTree(int table_type, const std::string &vrf_name);
+
 private:
     friend class VrfEntry;
 
