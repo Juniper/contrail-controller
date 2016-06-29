@@ -21,8 +21,9 @@ from ifmap.operations import PublishUpdateOperation, PublishNotifyOperation, \
 from ifmap.util import attr, link_ids
 from ifmap.response import Response, newSessionResult
 from ifmap.metadata import Metadata
-from xml.sax.saxutils import escape as s_esc, unescape as s_unesc
 
+_XML_ESCAPE_SEARCH_PATTERN = re.compile(r'[<>&\"\']').search
+_XML_UNESCAPE_SEARCH_PATTERN = re.compile(r'(&amp;|&lt;|&gt;|&quot;|&apos;)').search
 
 _TENANT_GRP = "(?P<tenant_uuid>.*)"
 _VPC_GRP = "(?P<vpc_name>.*)"
@@ -333,10 +334,22 @@ def ifmap_read_all(mapclient, srch_meta=None, result_meta='all'):
                       srch_meta, result_meta)
 # end ifmap_read_all
 
-def escape(string):
-    return s_esc(string, entities={'"':'&quot;', "'": "&apos;"})
+def escape(data):
+    if _XML_ESCAPE_SEARCH_PATTERN(data):
+        return data.replace('&', r'&amp;')\
+                     .replace('<', r'&lt;')\
+                     .replace('>', r'&gt;')\
+                     .replace('\"', r'&quot;')\
+                     .replace('\'', r'&apos;')
+    return data
 # end escape
 
-def unescape(string):
-    return s_unesc(string, entities={'&quot;':'"', "&apos;": "'"})
+def unescape(data):
+    if _XML_UNESCAPE_SEARCH_PATTERN(data):
+        return data.replace('&amp;', r'&')\
+                   .replace('&lt;', r'<')\
+                   .replace('&gt;', r'>')\
+                   .replace('&quot;', r'"')\
+                   .replace('&apos;', r"'")
+    return data
 # end unescape
