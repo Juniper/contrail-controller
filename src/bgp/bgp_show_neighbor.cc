@@ -28,7 +28,7 @@ static bool FillBgpNeighborInfoList(const BgpSandeshContext *bsc,
     rtinstance->peer_manager()->FillBgpNeighborInfo(
         bsc, show_list, search_string, summary);
 
-    BgpPeer *peer = bsc->bgp_server->FindNextPeer();
+    const BgpPeer *peer = bsc->bgp_server->FindNextPeer();
     while (peer) {
         if (search_string.empty() ||
             (peer->peer_basename().find(search_string) != string::npos) ||
