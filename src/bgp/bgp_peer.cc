@@ -62,7 +62,6 @@ class BgpPeer::PeerClose : public IPeerClose {
     virtual IPeer *peer() const { return peer_; }
 
     virtual void Close(bool non_graceful) {
-
         // Abort GR-Closuree if this request is for non-graceful closure.
         // Reset GR-Closure if previous closure is still in progress or if
         // this is a flip (from established state).
@@ -116,7 +115,6 @@ class BgpPeer::PeerClose : public IPeerClose {
     }
 
     bool IsGRReady() const {
-
         // Check if GR helper mode is disabled.
         if (!peer_->server()->gr_helper_enable())
             return false;
@@ -1039,7 +1037,6 @@ void BgpPeer::Close(bool non_graceful) {
     if (membership_req_pending_ &&
         peer_close_->close_manager()->membership_state() !=
             PeerCloseManager::MEMBERSHIP_IN_USE) {
-
         BGP_LOG_PEER(Event, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
             BGP_PEER_DIR_NA, "Close procedure deferred");
         defer_close_ = true;
@@ -1221,8 +1218,7 @@ const vector<Address::Family> BgpPeer::supported_families_ = list_of
     (Address::RTARGET)
     (Address::ERMVPN)
     (Address::INET6)
-    (Address::INET6VPN)
-;
+    (Address::INET6VPN);
 
 void BgpPeer::AddGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param) {
     vector<Address::Family> gr_families;
@@ -1602,7 +1598,6 @@ bool BgpPeer::SkipNotificationSend(int code, int subcode) const {
 
 void BgpPeer::SendNotification(BgpSession *session,
         int code, int subcode, const string &data) {
-
     // Check if we can skip sending this notification message.
     if (peer_close_->IsCloseGraceful() && SkipNotificationSend(code, subcode))
         return;

@@ -1364,15 +1364,8 @@ void StateMachine::SendNotificationAndClose(BgpSession *session, int code,
     set_idle_hold_time(idle_hold_time() ? idle_hold_time() : kIdleHoldTime);
     reset_hold_time();
 
-    if (!code || peer_->SkipNotificationReceive(code, subcode)) {
-
-        // Trigger graceful closure.
-        peer_->Close(false);
-    } else {
-
-        // Trigger non-graceful closure.
-        peer_->Close(true);
-    }
+    bool non_graceful = code && !peer_->SkipNotificationReceive(code, subcode);
+    peer_->Close(non_graceful);
 }
 
 //
@@ -1708,7 +1701,7 @@ int StateMachine::GetConfiguredHoldTime() const {
     return kHoldTime;
 }
 
-void StateMachine::BGPPeerInfoSend(BgpPeerInfoData &peer_info) {
+void StateMachine::BGPPeerInfoSend(const BgpPeerInfoData &peer_info) {
     BGPPeerInfo::Send(peer_info);
 }
 

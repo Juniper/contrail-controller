@@ -1893,7 +1893,6 @@ bool BgpXmppChannel::ResumeClose() {
 }
 
 void BgpXmppChannel::RegisterTable(int line, BgpTable *table, int instance_id) {
-
     // Defer if Membership manager is in use (by close manager).
     if (peer_close_->close_manager()->membership_state() ==
             PeerCloseManager::MEMBERSHIP_IN_USE) {
@@ -1913,7 +1912,6 @@ void BgpXmppChannel::RegisterTable(int line, BgpTable *table, int instance_id) {
 }
 
 void BgpXmppChannel::UnregisterTable(int line, BgpTable *table) {
-
     // Defer if Membership manager is in use (by close manager).
     if (peer_close_->close_manager()->membership_state() ==
             PeerCloseManager::MEMBERSHIP_IN_USE) {
@@ -2152,14 +2150,14 @@ void BgpXmppChannel::FlushDeferQ(string vrf_name) {
     }
 }
 
-void BgpXmppChannel::UpdateRouteTargetRouteFlag(SubscriptionState &sub_state,
-                                                bool llgr) {
+void BgpXmppChannel::UpdateRouteTargetRouteFlag(
+    const SubscriptionState *sub_state, bool llgr) {
     RoutingInstanceMgr *instance_mgr = bgp_server_->routing_instance_mgr();
     RoutingInstance *master =
         instance_mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
     assert(master);
     BgpTable *rtarget_table = master->GetTable(Address::RTARGET);
-    BOOST_FOREACH(RouteTarget rtarget, sub_state.targets) {
+    BOOST_FOREACH(RouteTarget rtarget, sub_state->targets) {
         RTargetPrefix rt_prefix(bgp_server_->local_autonomous_system(),
                                 rtarget);
         const RTargetTable::RequestKey key(rt_prefix, Peer());
@@ -2187,7 +2185,7 @@ void BgpXmppChannel::StaleCurrentSubscriptions() {
     BOOST_FOREACH(SubscribedRoutingInstanceList::value_type &entry,
                   routing_instances_) {
         entry.second.SetStale();
-        UpdateRouteTargetRouteFlag(entry.second, false);
+        UpdateRouteTargetRouteFlag(&entry.second, false);
     }
 }
 
@@ -2197,7 +2195,7 @@ void BgpXmppChannel::LlgrStaleCurrentSubscriptions() {
     BOOST_FOREACH(SubscribedRoutingInstanceList::value_type &entry,
                   routing_instances_) {
         assert(entry.second.IsStale());
-        UpdateRouteTargetRouteFlag(entry.second, true);
+        UpdateRouteTargetRouteFlag(&entry.second, true);
     }
 }
 
@@ -2209,7 +2207,7 @@ void BgpXmppChannel::SweepCurrentSubscriptions() {
         if (i->second.IsStale()) {
             string name = i->first->name();
 
-            // Incrementor the iterator first as we expect the entry to be
+            // Increment the iterator first as we expect the entry to be
             // soon removed.
             i++;
             BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_DEBUG,
@@ -2226,18 +2224,18 @@ void BgpXmppChannel::SweepCurrentSubscriptions() {
 // Clear staled subscription state as new subscription has been received.
 void BgpXmppChannel::ClearStaledSubscription(BgpTable *rtarget_table,
         RoutingInstance *rt_instance, BgpAttrPtr attr,
-        SubscriptionState &sub_state) {
-    if (!sub_state.IsStale())
+        SubscriptionState *sub_state) {
+    if (!sub_state->IsStale())
         return;
 
     BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_DEBUG,
                  BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
                  "Instance subscription " << rt_instance->name() <<
                  " stale flag is cleared");
-    sub_state.ClearStale();
+    sub_state->ClearStale();
 
     // Update route targets to clear STALE flag.
-    BOOST_FOREACH(RouteTarget rtarget, sub_state.targets) {
+    BOOST_FOREACH(RouteTarget rtarget, sub_state->targets) {
         PublishedRTargetRoutes::iterator rt_loc = rtarget_routes_.find(rtarget);
         assert(rt_loc != rtarget_routes_.end());
 
@@ -2275,11 +2273,11 @@ void BgpXmppChannel::PublishRTargetRoute(RoutingInstance *rt_instance,
                   (rt_instance, state));
         it = ret.first;
 
-        // During GR, we expect duplicate subscription requests. Clear the stale
+        // During GR, we expect duplicate subscription requests. Clear stale
         // state, as agent did re-subscribe after restart.
         if (!ret.second) {
             ClearStaledSubscription(rtarget_table, rt_instance, attr,
-                                    (*(ret.first)).second);
+                                    &it->second);
             return;
         }
     } else {
@@ -2598,7 +2596,6 @@ BgpXmppChannelManager::BgpXmppChannelManager(XmppServer *xmpp_server,
       id_(-1),
       asn_listener_id_(-1),
       identifier_listener_id_(-1) {
-
     // Initialize the gen id counter
     subscription_gen_id_ = 1;
     deleting_count_ = 0;

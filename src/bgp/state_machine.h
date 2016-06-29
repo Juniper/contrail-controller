@@ -205,7 +205,7 @@ private:
 
     void TimerErrorHanlder(std::string name, std::string error) { }
     void DeleteAllTimers();
-    void BGPPeerInfoSend(BgpPeerInfoData &peer_info);
+    void BGPPeerInfoSend(const BgpPeerInfoData &peer_info);
 
     template <typename Ev> bool Enqueue(const Ev &event);
     bool DequeueEvent(EventContainer ec);

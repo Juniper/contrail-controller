@@ -381,9 +381,9 @@ string RoutingPolicyMatchConfig::ToString() const {
     return oss.str();
 }
 
-static void PutCommunityList(ostringstream &oss, const CommunityList &list) {
-    copy(list.begin(), list.end(), ostream_iterator<string>(oss, ","));
-    oss.seekp(-1, oss.cur);
+static void PutCommunityList(ostringstream *oss, const CommunityList &list) {
+    copy(list.begin(), list.end(), ostream_iterator<string>(*oss, ","));
+    oss->seekp(-1, oss->cur);
 }
 
 string RoutingPolicyActionConfig::ToString() const {
@@ -391,17 +391,17 @@ string RoutingPolicyActionConfig::ToString() const {
     oss << "then {" << endl;
     if (!update.community_set.empty()) {
         oss << "    community set [ ";
-        PutCommunityList(oss, update.community_set);
+        PutCommunityList(&oss, update.community_set);
         oss << " ]" << endl;
     }
     if (!update.community_add.empty()) {
         oss << "    community add [ ";
-        PutCommunityList(oss, update.community_add);
+        PutCommunityList(&oss, update.community_add);
         oss << " ]" << endl;
     }
     if (!update.community_remove.empty()) {
         oss << "    community remove [ ";
-        PutCommunityList(oss, update.community_remove);
+        PutCommunityList(&oss, update.community_remove);
         oss << " ]" << endl;
     }
     if (update.local_pref) {

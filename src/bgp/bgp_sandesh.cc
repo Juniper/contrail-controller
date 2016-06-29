@@ -237,11 +237,11 @@ public:
 
     static void CombineMulticastPartitionInfo(
             const RequestPipeline::StageData *sd,
-            vector<ShowMulticastTree> &tree_list) {
+            vector<ShowMulticastTree> *tree_list) {
         for (size_t idx = 0; idx < sd->size(); idx++) {
             const MulticastManagerDetailData &data =
                 static_cast<const MulticastManagerDetailData &>(sd->at(idx));
-            tree_list.insert(tree_list.end(),
+            tree_list->insert(tree_list->end(),
                              data.tree_list.begin(), data.tree_list.end());
         }
     }
@@ -254,7 +254,7 @@ public:
             static_cast<const ShowMulticastManagerReq *>(ps.snhRequest_.get());
         const RequestPipeline::StageData *sd = ps.GetStageData(0);
         vector<ShowMulticastTree> tree_list;
-        CombineMulticastPartitionInfo(sd, tree_list);
+        CombineMulticastPartitionInfo(sd, &tree_list);
 
         ShowMulticastManagerDetailResp *resp =
             new ShowMulticastManagerDetailResp;

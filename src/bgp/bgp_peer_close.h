@@ -5,6 +5,8 @@
 #ifndef SRC_BGP_BGP_PEER_CLOSE_H_
 #define SRC_BGP_BGP_PEER_CLOSE_H_
 
+#include <string>
+
 #include "base/timer.h"
 #include "base/util.h"
 #include "base/queue_task.h"

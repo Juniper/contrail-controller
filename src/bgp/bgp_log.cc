@@ -2,7 +2,10 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp_log.h"
+#include "bgp/bgp_log.h"
+
+#include <string>
+
 #include "bgp/bgp_server.h"
 #include "bgp/routing-instance/routing_instance.h"
 
@@ -77,4 +80,4 @@ void LogServerName(const IPeer *ipeer, const BgpTable *table) {
     LogServerName(server);
 }
 
-}
+}  // namespace bgp_log_test
