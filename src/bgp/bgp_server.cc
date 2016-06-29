@@ -66,7 +66,7 @@ public:
         RoutingInstance *rti =
             ri_mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
         assert(rti);
-        PeerManager *peer_manager = rti->peer_manager();
+        PeerManager *peer_manager = rti->LocatePeerManager();
         peer_manager->ClearAllPeers();
     }
 
@@ -196,7 +196,7 @@ public:
         RoutingInstanceMgr *ri_mgr = server_->routing_instance_mgr();
         RoutingInstance *rti = ri_mgr->GetRoutingInstance(instance_name);
         assert(rti);
-        PeerManager *peer_manager = rti->peer_manager();
+        PeerManager *peer_manager = rti->LocatePeerManager();
 
         if (event == BgpConfigManager::CFG_ADD ||
             event == BgpConfigManager::CFG_CHANGE) {
