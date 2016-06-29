@@ -528,7 +528,7 @@ class AddrMgmt(object):
                 db_subnet = db_subnet_dicts[key]
                 if req_subnet['enable_dhcp'] is None:
                     req_subnet['enable_dhcp'] = True
-                if (req_subnet['gw'] != db_subnet['gw']):
+                if (req_subnet['gw'] and req_subnet['gw'] != db_subnet['gw']):
                     raise AddrMgmtSubnetInvalid(vn_fq_name_str, key)
                 req_subnet['dns_server_address'] = db_subnet['dns_server_address']
 
