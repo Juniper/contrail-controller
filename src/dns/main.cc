@@ -180,7 +180,7 @@ int main(int argc, char *argv[]) {
 
     // DNS::SetTestMode(options.test_mode());
 
-    DB config_db;
+    DB config_db(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"));
     DBGraph config_graph;
     IFMapServer ifmap_server(&config_db, &config_graph,
                              Dns::GetEventManager()->io_service());
