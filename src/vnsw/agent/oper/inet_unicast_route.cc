@@ -33,7 +33,7 @@ InetUnicastRouteKey::AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const {
 }
 
 AgentRouteKey *InetUnicastRouteKey::Clone() const {
-    return (new InetUnicastRouteKey(peer_, vrf_name_, dip_, plen_));
+    return (new InetUnicastRouteKey(peer(), vrf_name_, dip_, plen_));
 }
 
 /////////////////////////////////////////////////////////////////////////////

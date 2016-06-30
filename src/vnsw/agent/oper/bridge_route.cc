@@ -48,7 +48,7 @@ string BridgeRouteKey::ToString() const {
 }
 
 BridgeRouteKey *BridgeRouteKey::Clone() const {
-    return new BridgeRouteKey(peer_, vrf_name_, dmac_);
+    return new BridgeRouteKey(peer(), vrf_name_, dmac_);
 }
 
 AgentRoute *

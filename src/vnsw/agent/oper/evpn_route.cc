@@ -56,7 +56,7 @@ string EvpnRouteKey::ToString() const {
 }
 
 EvpnRouteKey *EvpnRouteKey::Clone() const {
-    return new EvpnRouteKey(peer_, vrf_name_, dmac_, ip_addr_,
+    return new EvpnRouteKey(peer(), vrf_name_, dmac_, ip_addr_,
                               ethernet_tag_);
 }
 

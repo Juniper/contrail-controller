@@ -44,10 +44,10 @@ struct AgentRouteKey : public AgentKey {
     virtual AgentRouteKey *Clone() const = 0;
 
     const std::string &vrf_name() const { return vrf_name_; }
-    const Peer *peer() const { return peer_; }
+    const Peer *peer() const { return peer_.get(); }
     void set_peer(const Peer *peer) {peer_ = peer;}
 
-    const Peer *peer_;
+    PeerConstPtr peer_;
     std::string vrf_name_;
     DISALLOW_COPY_AND_ASSIGN(AgentRouteKey);
 };
