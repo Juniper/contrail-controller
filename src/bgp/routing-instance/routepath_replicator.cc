@@ -78,7 +78,7 @@ TableState::TableState(RoutePathReplicator *replicator, BgpTable *table)
 }
 
 TableState::~TableState() {
-    if (walk_ref().get()) {
+    if (walk_ref() != NULL) {
         table()->ReleaseWalker(walk_ref());
     }
 }
@@ -101,7 +101,7 @@ const LifetimeActor *TableState::deleter() const {
 
 bool TableState::MayDelete() const {
     if (list_.empty() && !route_count() &&
-        ((walk_ref().get() == NULL) || !walk_ref()->walk_is_active()))
+        ((walk_ref() == NULL) || !walk_ref()->walk_is_active()))
         return true;
     return false;
 }

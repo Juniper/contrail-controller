@@ -16,7 +16,7 @@
 #include "base/lifetime.h"
 #include "base/util.h"
 #include "bgp/bgp_common.h"
-#include "db/db_table_walk_mgr.h"
+#include "db/db_table.h"
 
 #include <sandesh/sandesh_trace.h>
 
