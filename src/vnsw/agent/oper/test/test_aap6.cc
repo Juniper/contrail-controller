@@ -293,7 +293,7 @@ TEST_F(TestAap6, StateMachine_2) {
     //Enqueue traffic seen
     Agent::GetInstance()->oper_db()->route_preference_module()->
         EnqueueTrafficSeen(ip, 128, vm_intf->id(), vm_intf->vrf()->vrf_id(),
-                           MacAddress::FromString(vm_intf->vm_mac()));
+                           vm_intf->vm_mac());
     client->WaitForIdle();
 
     //After seeing traffic, verify that path for VMI peer is updated as follows
@@ -404,7 +404,7 @@ TEST_F(TestAap6, StateMachine_4) {
     //Enqueue traffic on native IP
     Agent::GetInstance()->oper_db()->route_preference_module()->
         EnqueueTrafficSeen(ip, 128, vm_intf->id(), vm_intf->vrf()->vrf_id(),
-                           MacAddress::FromString(vm_intf->vm_mac()));
+                           vm_intf->vm_mac());
     client->WaitForIdle();
 
     //Verify that static IP route's path_preference attributes are updated on
@@ -449,7 +449,7 @@ TEST_F(TestAap6, StateMachine_5) {
     //Enqueue traffic seen
     Agent::GetInstance()->oper_db()->route_preference_module()->
         EnqueueTrafficSeen(ip, 128, vm_intf->id(), vm_intf->vrf()->vrf_id(),
-                           MacAddress::FromString(vm_intf->vm_mac()));
+                           vm_intf->vm_mac());
     client->WaitForIdle();
 
     //Verify that there no changes in path attributes, because wait_for_traffic
@@ -601,7 +601,7 @@ TEST_F(TestAap6, StateMachine_16) {
     Ip6Address ip = Ip6Address::from_string("fd10::2");
     Agent::GetInstance()->oper_db()->route_preference_module()->
         EnqueueTrafficSeen(ip, 128, vm_intf->id(), vm_intf->vrf()->vrf_id(),
-                           MacAddress::FromString(vm_intf->vm_mac()));
+                           vm_intf->vm_mac());
     client->WaitForIdle();
 
     //Verify preference for AAP IP path is increased and wait_for_traffic is

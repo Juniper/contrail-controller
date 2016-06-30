@@ -897,9 +897,14 @@ bool Inet4UnicastInterfaceRoute::AddChangePath(Agent *agent, AgentPath *path,
         ret = true;
     }
 
-    InterfaceNHKey key(interface_key_->Clone(), false, InterfaceNHFlags::INET4);
+    Interface *intf = static_cast<Interface *>(
+            agent->interface_table()->FindActiveEntry(interface_key_.get()));
+    assert(intf);
+    InterfaceNHKey key(interface_key_->Clone(), false,
+                       InterfaceNHFlags::INET4, intf->mac());
     NextHop *nh = static_cast<NextHop *>
         (agent->nexthop_table()->FindActiveEntry(&key));
+    assert(nh);
     if (path->ChangeNH(agent, nh) == true) {
         ret = true;
     }

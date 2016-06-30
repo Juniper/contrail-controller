@@ -817,13 +817,13 @@ TEST_F(CfgTest, Nexthop_invalid_vrf) {
                                               MakeUuid(11), "vrf11");
     DBRequest intf_nh_req;
     intf_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    intf_nh_req.key.reset(new InterfaceNHKey(intf_key, true, 5));
-    intf_nh_req.data.reset(new InterfaceNHData("vrf11", intf_vm_mac));
+    intf_nh_req.key.reset(new InterfaceNHKey(intf_key, true, 5, intf_vm_mac));
+    intf_nh_req.data.reset(new InterfaceNHData("vrf11"));
     agent_->nexthop_table()->Enqueue(&intf_nh_req);
     client->WaitForIdle();
     VmInterfaceKey *find_intf_key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                                        MakeUuid(11), "vrf11");
-    InterfaceNHKey find_intf_nh_key(find_intf_key, true, 5);
+    InterfaceNHKey find_intf_nh_key(find_intf_key, true, 5, intf_vm_mac);
     EXPECT_TRUE(agent_->nexthop_table()->
                 FindActiveEntry(&find_intf_nh_key) == NULL);
 

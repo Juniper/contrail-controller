@@ -275,7 +275,8 @@ TEST_F(FlowTest, Flow_Deleted_Interace_nh) {
    DBRequest req(DBRequest::DB_ENTRY_DELETE);
    req.key.reset(new InterfaceNHKey
                   (new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, flow5->GetUuid(), ""),
-                   true, InterfaceNHFlags::INET4));
+                   true, InterfaceNHFlags::INET4,
+                   flow5->vm_mac()));
    req.data.reset(NULL);
    NextHopTable::GetInstance()->Enqueue(&req);
    //remove policy disabled Interface
@@ -283,7 +284,8 @@ TEST_F(FlowTest, Flow_Deleted_Interace_nh) {
    client->WaitForIdle(1);
    req1.key.reset(new InterfaceNHKey
                   (new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, flow5->GetUuid(), ""),
-                   false, InterfaceNHFlags::INET4));
+                   false, InterfaceNHFlags::INET4,
+                   flow5->vm_mac()));
    req1.data.reset(NULL);
    NextHopTable::GetInstance()->Enqueue(&req1);
 

@@ -229,7 +229,7 @@ bool AgentIntfSandesh::Filter(const DBEntryBase *entry) {
             return false;
     }
 
-    if (MatchSubString(vmi->vm_mac(), mac_str_) == false)
+    if (MatchSubString(vmi->vm_mac().ToString(), mac_str_) == false)
         return false;
 
     if (v4_str_.empty() == false) {
