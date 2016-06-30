@@ -239,22 +239,10 @@ BgpPeer *PeerManager::PeerLookup(TcpSession::Endpoint remote_endpoint) const {
     return peer;
 }
 
-BgpPeer *PeerManager::NextPeer(BgpPeerKey &peer_key) {
-    // Do a partial match
-    BgpPeerKeyMap::iterator loc = peers_by_key_.upper_bound(peer_key);
-    if (loc != peers_by_key_.end()) {
-        peer_key = loc->second->peer_key();
-        return loc->second;
-    }
-
-    return NULL;
-}
-
-const BgpPeer *PeerManager::NextPeer(BgpPeerKey &peer_key) const {
+const BgpPeer *PeerManager::NextPeer(const BgpPeerKey &peer_key) const {
     // Do a partial match
     BgpPeerKeyMap::const_iterator loc = peers_by_key_.upper_bound(peer_key);
     if (loc != peers_by_key_.end()) {
-        peer_key = loc->second->peer_key();
         return loc->second;
     }
 
@@ -282,5 +270,6 @@ void PeerManager::FillBgpNeighborInfo(const BgpSandeshContext *bsc,
             peer->FillNeighborInfo(bsc, &bnr, summary);
             bnr_list->push_back(bnr);
         }
+        key = peer->peer_key();
     }
 }
