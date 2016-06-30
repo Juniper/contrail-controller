@@ -155,6 +155,7 @@ public:
 
     PeerManager *peer_manager() { return peer_manager_.get(); }
     const PeerManager *peer_manager() const { return peer_manager_.get(); }
+    PeerManager *LocatePeerManager();
 
     RoutingPolicyAttachList *routing_policies() { return &routing_policies_; }
     const RoutingPolicyAttachList &routing_policies() const {
