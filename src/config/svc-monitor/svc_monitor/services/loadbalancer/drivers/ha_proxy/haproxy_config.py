@@ -40,8 +40,8 @@ PERSISTENCE_APP_COOKIE = 'APP_COOKIE'
 def get_config_v2(lb):
     sock_path = '/var/lib/contrail/loadbalancer/haproxy/'
     sock_path += lb.uuid + '/haproxy.sock'
-    custom_attr_dict = {}
-    custom_attrs = {}
+    custom_attr_dict = get_custom_attributes_dict()
+    custom_attrs = get_custom_attributes_v2(lb)
     conf = set_globals(sock_path, custom_attr_dict, custom_attrs) + '\n\n'
     conf += set_defaults(custom_attr_dict, custom_attrs) + '\n\n'
     conf += set_v2_frontend_backend(lb, custom_attr_dict, custom_attrs)
@@ -51,7 +51,7 @@ def get_config_v1(pool):
     sock_path = '/var/lib/contrail/loadbalancer/haproxy/'
     sock_path += pool.uuid + '/haproxy.sock'
     custom_attr_dict = get_custom_attributes_dict()
-    custom_attrs = get_custom_attributes(pool)
+    custom_attrs = get_custom_attributes_v1(pool)
     conf = set_globals(sock_path, custom_attr_dict, custom_attrs) + '\n\n'
     conf += set_defaults(custom_attr_dict, custom_attrs) + '\n\n'
     conf += set_v1_frontend_backend(pool, custom_attr_dict, custom_attrs)
@@ -68,14 +68,34 @@ def get_custom_attributes_dict():
             custom_attr_dict = yaml.safe_load(f)
     return custom_attr_dict
 
-def get_custom_attributes(pool):
+def get_custom_attributes_v1(pool):
     custom_attrs = {}
+    custom_attrs[pool.uuid] = {}
     for kvp in pool.custom_attributes or []:
-        custom_attrs[kvp['key']] = kvp['value']
+        custom_attrs[pool.uuid][kvp['key']] = kvp['value']
+    return custom_attrs
+
+def get_custom_attributes_v2(lb):
+    custom_attrs = {}
+    for ll_id in lb.loadbalancer_listeners:
+        ll = LoadbalancerListenerSM.get(ll_id)
+        if not ll:
+            continue
+        pool = LoadbalancerPoolSM.get(ll.loadbalancer_pool)
+        if pool:
+            custom_attrs[pool.uuid] = {}
+            for kvp in pool.custom_attributes or []:
+                custom_attrs[pool.uuid][kvp['key']] = kvp['value']
+
     return custom_attrs
 
 def set_globals(sock_path, custom_attr_dict, custom_attrs):
-    global_custom_attrs = get_valid_attrs(custom_attr_dict, 'global', custom_attrs)
+    agg_custom_attrs = {}
+    for key, value in custom_attrs.iteritems():
+        agg_custom_attrs.update(custom_attrs[key])
+
+    global_custom_attrs = get_valid_attrs(custom_attr_dict, 'global',
+                                          agg_custom_attrs)
     if 'max_conn' in global_custom_attrs:
         maxconn = global_custom_attrs.pop('max_conn', None)
     else:
@@ -112,7 +132,11 @@ def set_globals(sock_path, custom_attr_dict, custom_attrs):
     return res
 
 def set_defaults(custom_attr_dict, custom_attrs):
-    default_custom_attrs = get_valid_attrs(custom_attr_dict, 'default', custom_attrs)
+    agg_custom_attrs = {}
+    for key, value in custom_attrs.iteritems():
+        agg_custom_attrs.update(custom_attrs[key])
+    default_custom_attrs = get_valid_attrs(custom_attr_dict, 'default',
+                                           agg_custom_attrs)
     if 'client_timeout' in default_custom_attrs:
         client_timeout = default_custom_attrs.pop('client_timeout', None)
     else:
@@ -167,8 +191,9 @@ def set_v1_frontend_backend(pool, custom_attr_dict, custom_attrs):
             vip.params['protocol'] == PROTO_HTTPS:
         lconf.append('option forwardfor')
 
-    frontend_custom_attrs = get_valid_attrs(custom_attr_dict, 'frontend', custom_attrs)
     if pool and pool.params['admin_state']:
+        frontend_custom_attrs = get_valid_attrs(custom_attr_dict, 'frontend',
+                                                custom_attrs[pool.uuid])
         lconf.append('default_backend %s' % pool.uuid)
         # Adding custom_attributes config
         for key, value in frontend_custom_attrs.iteritems():
@@ -216,7 +241,14 @@ def set_v2_frontend_backend(lb, custom_attr_dict, custom_attrs):
 
         pool =  LoadbalancerPoolSM.get(ll.loadbalancer_pool)
         if pool and pool.params['admin_state']:
+            frontend_custom_attrs = get_valid_attrs(custom_attr_dict,
+                                                    'frontend',
+                                                    custom_attrs[pool.uuid])
             lconf.append('default_backend %s' % pool.uuid)
+            # Adding custom_attributes config
+            for key, value in frontend_custom_attrs.iteritems():
+                cmd = custom_attr_dict['frontend'][key]['cmd']
+                lconf.append(cmd % value) 
             res = "\n\t".join(lconf) + '\n\n'
             res += set_backend(pool, custom_attr_dict, custom_attrs)
             conf.append(res)
@@ -224,7 +256,8 @@ def set_v2_frontend_backend(lb, custom_attr_dict, custom_attrs):
     return "\n".join(conf)
 
 def set_backend(pool, custom_attr_dict, custom_attrs):
-    backend_custom_attrs = get_valid_attrs(custom_attr_dict, 'backend', custom_attrs)
+    backend_custom_attrs = get_valid_attrs(custom_attr_dict, 'backend',
+                                           custom_attrs[pool.uuid])
     conf = [
         'backend %s' % pool.uuid,
         'mode %s' % PROTO_MAP[pool.params['protocol']],
