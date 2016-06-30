@@ -58,7 +58,7 @@ private:
 
     class XmlWriter : public pugi::xml_writer {
     public:
-        XmlWriter(string *repr) : repr_(repr) { }
+        explicit XmlWriter(string *repr) : repr_(repr) { }
         virtual void write(const void *data, size_t size) {
             repr_->append(static_cast<const char*>(data), size);
         }

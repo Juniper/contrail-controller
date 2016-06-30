@@ -21,6 +21,10 @@
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
 
+using pugi::xml_attribute;
+using pugi::xml_document;
+using pugi::xml_node;
+using pugi::xml_parse_result;
 using std::auto_ptr;
 using std::istringstream;
 using std::list;
@@ -32,8 +36,6 @@ using std::pair;
 using std::set;
 using std::string;
 using std::vector;
-
-using namespace pugi;
 
 typedef multimap<
     pair<string, string>,

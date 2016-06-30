@@ -9,6 +9,7 @@
 #include <boost/scoped_ptr.hpp>
 #include <tbb/spin_mutex.h>
 
+#include <map>
 #include <memory>
 #include <set>
 #include <string>
@@ -72,9 +73,9 @@ struct BgpPeerFamilyAttributesCompare {
 // A BGP peer along with its session and state machine.
 class BgpPeer : public IPeer {
 public:
-    static const int kMinEndOfRibSendTimeUsecs = 10000000; // 10 Seconds
-    static const int kMaxEndOfRibSendTimeUsecs = 60000000; // 60 Seconds
-    static const int kEndOfRibSendRetryTimeMsecs = 2000;   // 2 Seconds
+    static const int kMinEndOfRibSendTimeUsecs = 10000000;  // 10 Seconds
+    static const int kMaxEndOfRibSendTimeUsecs = 60000000;  // 60 Seconds
+    static const int kEndOfRibSendRetryTimeMsecs = 2000;    // 2 Seconds
 
     typedef std::set<Address::Family> AddressFamilyList;
     typedef AuthenticationData::KeyType KeyType;

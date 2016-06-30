@@ -6,13 +6,14 @@
 
 #include <boost/foreach.hpp>
 
+#include <list>
+
 #include "base/task_annotations.h"
 #include "base/timer.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_membership.h"
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_route.h"
-#include "bgp/bgp_server.h"
 #include "bgp/bgp_server.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "net/community_type.h"
@@ -253,7 +254,6 @@ bool PeerCloseManager::RestartTimerCallback() {
         return false;
 
     if (peer_close_->IsReady() && !families_.empty()) {
-
         // Fake reception of all EORs.
         for (IPeerClose::Families::iterator i = families_.begin(), next = i;
                 i != families_.end(); i = next) {
@@ -273,7 +273,6 @@ bool PeerCloseManager::RestartTimerCallback() {
 // Route stale timer callback. If the peer has come back up, sweep routes for
 // those address families that are still active. Delete the rest
 void PeerCloseManager::ProcessClosure() {
-
     // If the peer is back up and this address family is still supported,
     // sweep old paths which may not have come back in the new session
     switch (state_) {

@@ -241,8 +241,9 @@ private:
                                          int instance_id);
     void ClearStaledSubscription(BgpTable *rtarget_table,
             RoutingInstance *rt_instance, BgpAttrPtr attr,
-            SubscriptionState &sub_state);
-    void UpdateRouteTargetRouteFlag(SubscriptionState &sub_state, bool llgr);
+            SubscriptionState *sub_state);
+    void UpdateRouteTargetRouteFlag(const SubscriptionState *sub_state,
+        bool llgr);
     const BgpXmppChannelManager *manager() const { return manager_; }
     bool ProcessMembershipResponse(std::string table_name,
              RoutingTableMembershipRequestMap::iterator loc);

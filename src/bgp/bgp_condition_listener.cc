@@ -295,8 +295,10 @@ void BgpConditionListener::TableWalk(ConditionMatchTableState *ts,
 
     if (!ts->walk_ref().get()) {
         DBTable::DBTableWalkRef walk_ref = ts->table()->AllocWalker(
-            boost::bind(&BgpConditionListener::BgpRouteNotify, this, server(), _1, _2),
-            boost::bind(&BgpConditionListener::WalkDone, this, ts, _2));
+            boost::bind(&BgpConditionListener::BgpRouteNotify,
+                this, server(), _1, _2),
+            boost::bind(&BgpConditionListener::WalkDone,
+                this, ts, _2));
         ts->set_walk_ref(walk_ref);
     }
     ts->StoreDoneCb(obj, cb);
