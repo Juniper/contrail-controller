@@ -123,16 +123,17 @@ class OpServerProxy::OpServerImpl {
                 LOG(ERROR, "Kafka ignoring KafkaPub");
                 return;
             }
-            char* gn = new char[gen.length()+1];
-            strcpy(gn,gen.c_str());
 
             if (producer_) {
+                char* gn = new char[gen.length()+1];
+                strcpy(gn,gen.c_str());
+
                 // Key in Kafka Topic includes UVE Key, Type
                 producer_->produce(topic_[pt].get(), 0, 
                     RdKafka::Producer::MSG_COPY,
                     const_cast<char *>(value.c_str()), value.length(),
                     &skey, (void *)gn);
-                }
+            }
         }
 
         struct RedisInfo {
