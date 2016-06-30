@@ -73,14 +73,30 @@ class VrouterPortControl(object):
 
     #end __init__
 
-    def _parse_args(self, args_str):
+    def StripQuotes(self, arg):
+        if arg and arg.startswith('"') and arg.endswith('"'):
+            return arg[1:-1]
+    #end StripQuotes
 
-        # Source any specified config/ini file
+    def IsNumber(self, s):
+        try:
+            int(s)
+            return True
+        except ValueError:
+            return False
+    #end IsNumber
+
+    def _parse_args(self, args_str):
+        strip_quotes = False
+        if '"' in args_str:
+            regex = re.compile("\s+(?=\-\-[_a-zA-Z0-9]+=\".*?\")")
+            strip_quotes = True
+        else:
+            regex = re.compile("\s+(?=\-\-)")
         # Turn off help, so we print all options in response to -h
         conf_parser = argparse.ArgumentParser(add_help = False)
-
         args, remaining_argv = conf_parser.parse_known_args(
-            re.compile("\s+(?=\-\-)").split(args_str)
+            regex.split(args_str)
             )
 
         # Don't surpress add_help here so it will handle -h
@@ -93,9 +109,9 @@ class VrouterPortControl(object):
             formatter_class=argparse.RawDescriptionHelpFormatter,
             )
 
-        parser.add_argument(
-            '--oper', choices=['add', 'delete'], help="Operation add/delete ")
-        parser.add_argument('--uuid', help="port UUID")
+        parser.add_argument('--oper', help="Operation add/delete ",
+                            required = True)
+        parser.add_argument('--uuid', help="port UUID", required = True)
         parser.add_argument('--instance_uuid', help="instance UUID")
         parser.add_argument('--vn_uuid', help="VN UUID")
         parser.add_argument('--vm_project_uuid', help="VM UUID")
@@ -104,14 +120,61 @@ class VrouterPortControl(object):
         parser.add_argument('--vm_name', help="VM Name")
         parser.add_argument('--mac', help="MAC address")
         parser.add_argument('--tap_name', help="System name of interface")
-        parser.add_argument("--port_type", choices=['NovaVMPort', 'NameSpacePort'], help = "Port type")
-        parser.add_argument("--tx_vlan_id", type = int, help = "Transmit VLAN ID")
-        parser.add_argument("--rx_vlan_id", type = int, help = "Receive VLAN ID")
-        parser.add_argument("--no_persist", type = bool, help = "Dont't store port information in files", default=False)
-        parser.add_argument("--vif_type", choices=['VhostUser', 'Vrouter'], help = "VIF type")
+        parser.add_argument("--port_type", help = "Port type")
+        parser.add_argument("--tx_vlan_id", help = "Transmit VLAN ID")
+        parser.add_argument("--rx_vlan_id", help = "Receive VLAN ID")
+        parser.add_argument("--no_persist", type = bool,
+                            help = "Dont't store port information in files",
+                            default=False)
+        parser.add_argument("--vif_type", help = "VIF type")
 
         self._args = parser.parse_args(remaining_argv)
 
+        if strip_quotes:
+            self._args.oper = self.StripQuotes(self._args.oper)
+            self._args.uuid = self.StripQuotes(self._args.uuid)
+            self._args.instance_uuid = self.StripQuotes(self._args.instance_uuid)
+            self._args.ip_address = self.StripQuotes(self._args.ip_address)
+            self._args.ipv6_address = self.StripQuotes(self._args.ipv6_address)
+            self._args.vn_uuid = self.StripQuotes(self._args.vn_uuid)
+            self._args.vm_name = self.StripQuotes(self._args.vm_name)
+            self._args.vm_project_uuid = self.StripQuotes(self._args.vm_project_uuid)
+            self._args.mac = self.StripQuotes(self._args.mac)
+            self._args.tap_name = self.StripQuotes(self._args.tap_name)
+            self._args.port_type = self.StripQuotes(self._args.port_type)
+            self._args.rx_vlan_id = self.StripQuotes(self._args.rx_vlan_id)
+            self._args.tx_vlan_id = self.StripQuotes(self._args.tx_vlan_id)
+            self._args.vif_type = self.StripQuotes(self._args.vif_type)
+            if self._args.no_persist:
+                self._args.no_persist = True
+
+        oper_list = ['add', 'delete']
+        if self._args.oper not in oper_list:
+            print "Invalid argument for oper %s" % (self._args.oper)
+            sys.exit(1)
+
+        if self._args.oper == "add":
+            port_type_list = ['NovaVMPort', 'NameSpacePort']
+            if self._args.port_type not in port_type_list:
+                print "Invalid argument for port_type %s" % (self._args.port_type)
+                sys.exit(1)
+
+            vif_type_list = ['VhostUser', 'Vrouter']
+            if self._args.vif_type not in vif_type_list:
+                print "Invalid argument for vif_type %s" % (self._args.vif_type)
+                sys.exit(1)
+
+            if self._args.rx_vlan_id:
+                if not self.IsNumber(self._args.rx_vlan_id):
+                    print "Invalid argument for rx_vlan_id %s" % (self._args.rx_vlan_id)
+                    sys.exit(1)
+                self._args.rx_vlan_id = int(self._args.rx_vlan_id)
+
+            if self._args.tx_vlan_id:
+                if not self.IsNumber(self._args.tx_vlan_id):
+                    print "Invalid argument for tx_vlan_id %s" % (self._args.tx_vlan_id)
+                    sys.exit(1)
+                self._args.tx_vlan_id = int(self._args.tx_vlan_id)
     #end _parse_args
 
     def CreateDirectoryTree(self, path):
