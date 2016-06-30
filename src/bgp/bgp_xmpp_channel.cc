@@ -400,6 +400,10 @@ public:
 
     virtual ~XmppPeer() {
         assert(GetTotalPathCount() == 0);
+        XmppPeerInfoData peer_info;
+        peer_info.set_name(ToUVEKey());
+        peer_info.set_deleted(true);
+        parent_->XMPPPeerInfoSend(peer_info);
     }
 
     virtual bool MembershipPathCallback(DBTablePartBase *tpart, BgpRoute *rt,
