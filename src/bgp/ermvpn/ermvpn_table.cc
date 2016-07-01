@@ -120,7 +120,7 @@ BgpRoute *ErmVpnTable::RouteReplicate(BgpServer *server,
             src_path->GetSource(), src_path->GetPeer(),
             src_path->GetPathId());
     if (dest_path != NULL) {
-        if (new_attr != dest_path->GetAttr()) {
+        if (new_attr != dest_path->GetOriginalAttr()) {
             bool success = dest_route->RemoveSecondaryPath(src_rt,
                 src_path->GetSource(), src_path->GetPeer(),
                 src_path->GetPathId());
