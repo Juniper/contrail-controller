@@ -2310,11 +2310,6 @@ void BgpStressTest::AddAllRoutes(int ninstances, int npeers, int nagents,
                             "IFMAP configuration");
     }
 
-    // Wait for subscription processing to complete
-    TASK_UTIL_EXPECT_NE(0, server_->membership_mgr()->total_jobs_count());
-    TASK_UTIL_EXPECT_EQ(0, server_->membership_mgr()->current_jobs_count());
-    WaitForIdle();
-
     BGP_STRESS_TEST_LOG("Start injecting BGP and/or XMPP routes");
     AddAllBgpRoutes(nroutes, ntargets);
     BGP_STRESS_TEST_LOG("End injecting BGP and/or XMPP routes");

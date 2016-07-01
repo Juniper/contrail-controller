@@ -104,6 +104,13 @@ void XmppSession::IncStats(unsigned int type, uint64_t bytes) {
 }
 
 boost::system::error_code XmppSession::EnableTcpKeepalive(int hold_time) {
+    char *keepalive_time_str = getenv("TCP_KEEPALIVE_SECONDS");
+    if (keepalive_time_str) {
+        hold_time = strtoul(keepalive_time_str, NULL, 0) * 3;
+        if (!hold_time)
+            return boost::system::error_code();
+    }
+
     if (hold_time <= 9) {
         hold_time = 9; // min hold-time in secs.
     }
