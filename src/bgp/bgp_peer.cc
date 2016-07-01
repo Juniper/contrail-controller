@@ -1689,13 +1689,13 @@ static void FillSocketStats(const IPeerDebugStats::SocketStats &socket_stats,
 }
 
 void BgpPeer::FillBgpNeighborDebugState(BgpNeighborResp *bnr,
-                                        const IPeerDebugStats *peer_state) {
-    bnr->set_last_state(peer_state->last_state());
-    bnr->set_last_event(peer_state->last_event());
-    bnr->set_last_error(peer_state->last_error());
-    bnr->set_last_state_at(peer_state->last_state_change_at());
-    bnr->set_flap_count(peer_state->num_flaps());
-    bnr->set_flap_time(peer_state->last_flap());
+                                        const IPeerDebugStats *peer_stats) {
+    bnr->set_last_state(peer_stats->last_state());
+    bnr->set_last_event(peer_stats->last_event());
+    bnr->set_last_error(peer_stats->last_error());
+    bnr->set_last_state_at(peer_stats->last_state_change_at());
+    bnr->set_flap_count(peer_stats->num_flaps());
+    bnr->set_flap_time(peer_stats->last_flap());
 
     IPeerDebugStats::ProtoStats stats;
     PeerProtoStats proto_stats;
@@ -1768,6 +1768,8 @@ void BgpPeer::FillNeighborInfo(const BgpSandeshContext *bsc,
     bnr->set_local_asn(local_as());
     bnr->set_negotiated_hold_time(state_machine_->hold_time());
     bnr->set_primary_path_count(GetPrimaryPathCount());
+    bnr->set_flap_count(peer_stats_->num_flaps());
+    bnr->set_flap_time(peer_stats_->last_flap());
     bnr->set_auth_type(
         AuthenticationData::KeyTypeToString(inuse_authkey_type_));
     if (bsc->test_mode()) {
