@@ -49,6 +49,8 @@ static void FillXmppNeighborInfo(BgpNeighborResp *bnr,
     bnr->set_primary_path_count(bx_channel->Peer()->GetPrimaryPathCount());
     bnr->set_task_instance(connection->GetTaskInstance());
     bnr->set_auth_type(connection->GetXmppAuthenticationType());
+    bnr->set_flap_count(bx_channel->Peer()->peer_stats()->num_flaps());
+    bnr->set_flap_time(bx_channel->Peer()->peer_stats()->last_flap());
     if (summary)
         return;
 
