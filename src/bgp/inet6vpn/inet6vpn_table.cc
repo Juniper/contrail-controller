@@ -98,7 +98,7 @@ BgpRoute *Inet6VpnTable::RouteReplicate(BgpServer *server, BgpTable *src_table,
                                       src_path->GetPeer(),
                                       src_path->GetPathId());
     if (dest_path != NULL) {
-        if ((new_attr != dest_path->GetAttr()) ||
+        if ((new_attr != dest_path->GetOriginalAttr()) ||
             (src_path->GetLabel() != dest_path->GetLabel())) {
             // Update Attributes and notify (if needed)
             assert(dest_route->RemoveSecondaryPath(source_rt,
