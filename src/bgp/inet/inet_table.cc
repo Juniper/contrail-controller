@@ -93,7 +93,7 @@ BgpRoute *InetTable::RouteReplicate(BgpServer *server,
                                           path->GetSource(), path->GetPeer(),
                                           path->GetPathId());
     if (dest_path != NULL) {
-        if ((new_attr != dest_path->GetAttr()) ||
+        if ((new_attr != dest_path->GetOriginalAttr()) ||
             (path->GetLabel() != dest_path->GetLabel())) {
             // Update Attributes and notify (if needed)
             assert(dest_route->RemoveSecondaryPath(src_rt, path->GetSource(),
