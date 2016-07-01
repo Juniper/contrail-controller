@@ -343,6 +343,10 @@ public:
 
     virtual ~XmppPeer() {
         assert(GetRefCount() == 0);
+        XmppPeerInfoData peer_info;
+        peer_info.set_name(ToUVEKey());
+        peer_info.set_deleted(true);
+        XMPPPeerInfo::Send(peer_info);
     }
 
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize);
