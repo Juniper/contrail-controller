@@ -966,6 +966,57 @@ TEST_F(CfgTest, multicast_fabric_routes) {
     WAIT_FOR(1000, 1000, (VrfFind("vrf1") == false));
 }
 
+// Check that flat subnet config in an IPAM is used to update VN entries
+TEST_F(CfgTest, flat_subnet_config) {
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "12.1.1.1", "00:00:00:01:01:11", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"11.1.1.0", 24, "11.1.1.200", true},
+    };
+
+    char ipam_attr[] = "<network-ipam-mgmt>\n "
+                            "<ipam-dns-method>default-dns-server</ipam-dns-method>\n "
+                       "</network-ipam-mgmt>\n "
+                       "<ipam-subnet-method>flat-subnet</ipam-subnet-method>\n "
+                       "<ipam-subnets>\n "
+                           "<subnets>\n "
+                               "<subnet>\n "
+                                   "<ip-prefix> 12.1.0.0 </ip-prefix>\n "
+                                   "<ip-prefix-len> 16 </ip-prefix-len>\n "
+                               "</subnet>\n "
+                               "<default-gateway> 12.1.0.1 </default-gateway>\n "
+                               "<dns-server-address> 12.1.0.2 </dns-server-address>\n "
+                               "<enable-dhcp>true</enable-dhcp>\n "
+                           "</subnets>\n "
+                       "</ipam-subnets>\n ";
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+
+	WAIT_FOR(1000, 1000, (VmPortActive(input, 0) == true));
+
+    AddIPAM("vn1", ipam_info, 1, ipam_attr);
+    client->WaitForIdle();
+
+    CheckVnAdd(1, 1);
+    VnEntry *vn = VnGet(1);
+    const std::vector<VnIpam> vn_ipam = vn->GetVnIpam();
+    EXPECT_TRUE(vn_ipam[0].ip_prefix.to_string() == "12.1.0.0");
+    EXPECT_TRUE(vn_ipam[0].plen == 16);
+    EXPECT_TRUE(vn_ipam[0].default_gw.to_string() == "12.1.0.1");
+    EXPECT_TRUE(vn_ipam[0].dns_server.to_string() == "12.1.0.2");
+    EXPECT_TRUE(vn_ipam[0].dhcp_enable);
+
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (VrfFind("vrf1") == false));
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 

@@ -39,7 +39,7 @@ struct VnIpam {
     OperDhcpOptions oper_dhcp_options;
 
     VnIpam(const std::string& ip, uint32_t len, const std::string& gw,
-           const std::string& dns, bool dhcp, std::string &name,
+           const std::string& dns, bool dhcp, const std::string &name,
            const std::vector<autogen::DhcpOptionType> &dhcp_options,
            const std::vector<autogen::RouteType> &host_routes);
 
@@ -287,6 +287,9 @@ private:
     void DelHostRoute(VnEntry *vn, const IpAddress &address);
     bool ChangeHandler(DBEntry *entry, const DBRequest *req);
     bool IsGatewayL2(const string &gateway) const;
+    void BuildVnIpamData(const std::vector<autogen::IpamSubnetType> &subnets,
+                         const std::string &ipam_name,
+                         std::vector<VnIpam> *vn_ipam);
     VnData *BuildData(IFMapNode *node);
     IFMapNode *FindTarget(IFMapAgentTable *table, IFMapNode *node, 
                           std::string node_type);
