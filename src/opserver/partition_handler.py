@@ -750,8 +750,8 @@ class UveStreamProc(PartitionHandler):
                         # TODO: for loading only specific types:
                         #       uves[kk][typ] = contents
                     
-        self._logger.error("Starting part %d UVEs %s" % \
-                          (self._partno, str(uves.keys())))
+        self._logger.error("Starting part %d UVEs %d" % \
+                           (self._partno, len(uves)))
         self._callback(self._partno, uves)
 
     def contents(self):
