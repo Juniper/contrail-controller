@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <routing-policy name='basic_1'>
+        <term>
+            <term-match-condition>
+                <community>23:13</community>
+            </term-match-condition>
+            <term-action-list>
+                <update>
+                    <local-pref>200</local-pref>
+                </update>
+                <action>accept</action>
+            </term-action-list>
+        </term>
+    </routing-policy>
+    <routing-policy name='basic_2'>
+        <term>
+            <term-match-condition>
+                <community>23:13</community>
+            </term-match-condition>
+            <term-action-list>
+                <update>
+                    <local-pref>50</local-pref>
+                </update>
+                <action>accept</action>
+            </term-action-list>
+        </term>
+    </routing-policy>
+    <routing-instance name="test_0">
+        <routing-policy to="basic_1">
+            <sequence>1.0</sequence>
+        </routing-policy>
+        <vrf-target>target:1:101</vrf-target>
+    </routing-instance>
+    <routing-instance name="test_1">
+        <routing-policy to="basic_2">
+            <sequence>1.0</sequence>
+        </routing-policy>
+        <vrf-target>target:1:102</vrf-target>
+    </routing-instance>
+</config>
