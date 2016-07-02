@@ -6,6 +6,8 @@ import sys
 
 ExternalEncoding = sys.getdefaultencoding()
 Tag_pattern_ = re.compile(r'({.*})?(.*)')
+_XML_ESCAPE_SEARCH_PATTERN = re.compile(r'[<>&]').search
+_XML_UNESCAPE_SEARCH_PATTERN = re.compile(r'(&amp;|&lt;|&gt;)').search
 
 
 def showIndent(outfile, level, pretty_print=False):
@@ -16,20 +18,20 @@ def showIndent(outfile, level, pretty_print=False):
 def quote_xml(inStr):
     if not inStr:
         return ''
-    s1 = (isinstance(inStr, basestring) and inStr or
-          '%s' % inStr)
-    s1 = s1.replace('&', '&amp;')
-    s1 = s1.replace('<', '&lt;')
-    s1 = s1.replace('>', '&gt;')
+    s1 = (isinstance(inStr, basestring) and inStr or '%s' % inStr)
+    if _XML_ESCAPE_SEARCH_PATTERN(s1):
+        return s1.replace('&', r'&amp;')\
+                 .replace('<', r'&lt;')\
+                 .replace('>', r'&gt;')
     return s1
 
 
 def quote_attrib(inStr):
-    s1 = (isinstance(inStr, basestring) and inStr or
-          '%s' % inStr)
-    s1 = s1.replace('&', '&amp;')
-    s1 = s1.replace('<', '&lt;')
-    s1 = s1.replace('>', '&gt;')
+    s1 = (isinstance(inStr, basestring) and inStr or '%s' % inStr)
+    if _XML_ESCAPE_SEARCH_PATTERN(s1):
+        s1 = s1.replace('&', r'&amp;')\
+               .replace('<', r'&lt;')\
+               .replace('>', r'&gt;')
     if '"' in s1:
         if "'" in s1:
             s1 = '"%s"' % s1.replace('"', "&quot;")
