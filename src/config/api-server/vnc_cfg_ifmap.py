@@ -307,11 +307,11 @@ class VncIfmapClient(object):
         for meta, ref_res_type in refs.items():
             old_set = set(existing_metas.get(meta, {}).keys())
             new_set = set()
-            ref_obj_type =\
-                self._db_client_mgr.get_resource_class(ref_res_type).object_type
-            for ref in new_obj_dict.get(ref_obj_type, []):
-                to_imid = cfgm_common.imid.get_ifmap_id_from_fq_name(to_name,
-                                                                     ref['to'])
+            ref_obj_type = self._db_client_mgr.get_resource_class(
+                ref_res_type).object_type
+            for ref in new_obj_dict.get(ref_obj_type+'_refs', []):
+                to_imid = cfgm_common.imid.get_ifmap_id_from_fq_name(
+                    ref_res_type, ref['to'])
                 new_set.add(to_imid)
 
             for inact_ref in old_set - new_set:
