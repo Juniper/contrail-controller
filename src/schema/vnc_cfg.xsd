@@ -1612,7 +1612,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
               'When this instance ip is secondary ip, it can track activeness of another ip.') -->
 <xsd:element name="subnet-uuid" type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('subnet-uuid', 'instance-ip', 'system-only', 'R', 
+     Property('subnet-uuid', 'instance-ip', 'optional', 'CR',
               'This instance ip was allocated from this Subnet(UUID).') -->
 <xsd:element name="instance-ip-secondary" type="xsd:boolean" default='false'/>
 <!--#IFMAP-SEMANTICS-IDL
