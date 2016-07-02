@@ -524,6 +524,9 @@ void OvsdbClientIdl::TriggerDeletion() {
     // mark idl being set for deletion, so we don't create further txn
     deleted_ = true;
 
+    // mark peer to stop add/change of routes
+    route_peer_->StopRouteExports();
+
     // Since IDL is scheduled for deletion cancel keepalive timer
     keepalive_timer_->Cancel();
 

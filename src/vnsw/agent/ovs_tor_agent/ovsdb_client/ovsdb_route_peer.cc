@@ -12,8 +12,10 @@
 
 OvsPeer::OvsPeer(const IpAddress &peer_ip, uint64_t gen_id,
                  OvsPeerManager *peer_manager) :
-    Peer(Peer::OVS_PEER, "OVS-" + peer_ip.to_string(), true), peer_ip_(peer_ip),
-    gen_id_(gen_id), peer_manager_(peer_manager), ha_stale_export_(false) {
+    DynamicPeer(peer_manager->agent(), Peer::OVS_PEER,
+                "OVS-" + peer_ip.to_string(), true),
+    peer_ip_(peer_ip), gen_id_(gen_id), peer_manager_(peer_manager),
+    ha_stale_export_(false) {
     stringstream str;
     str << "Allocating OVS Peer " << this << " Gen-Id " << gen_id;
     OVSDB_TRACE(Trace, str.str());
@@ -35,7 +37,7 @@ bool OvsPeer::Compare(const Peer *rhs) const {
 
 bool OvsPeer::AddOvsRoute(const VrfEntry *vrf, uint32_t vxlan_id,
                           const std::string &dest_vn, const MacAddress &mac,
-                          Ip4Address &tor_ip, bool async) {
+                          Ip4Address &tor_ip) {
 
     Agent *agent = peer_manager_->agent();
 
@@ -78,24 +80,13 @@ bool OvsPeer::AddOvsRoute(const VrfEntry *vrf, uint32_t vxlan_id,
                                               agent->fabric_vrf_name(),
                                               dest_vn, sg_list,
                                               ha_stale_export_, sequence);
-    if (async) {
-        table->AddRemoteVmRouteReq(this, vrf->GetName(), mac, prefix_ip,
-                                   vxlan_id, data);
-    } else {
-        table->AddRemoteVmRoute(this, vrf->GetName(), mac, prefix_ip,
-                                vxlan_id, data);
-    }
+    table->AddRemoteVmRouteReq(this, vrf->GetName(), mac, prefix_ip,
+                               vxlan_id, data);
     return true;
 }
 
-bool OvsPeer::AddOvsRoute(const VrfEntry *vrf, uint32_t vxlan_id,
-                             const std::string &dest_vn, const MacAddress &mac,
-                             Ip4Address &tor_ip) {
-    return AddOvsRoute(vrf, vxlan_id, dest_vn, mac, tor_ip, false);
-}
-
 void OvsPeer::DeleteOvsRoute(VrfEntry *vrf, uint32_t vxlan_id,
-                             const MacAddress &mac, bool async) {
+                             const MacAddress &mac) {
     if (vrf == NULL)
         return;
 
@@ -105,17 +96,7 @@ void OvsPeer::DeleteOvsRoute(VrfEntry *vrf, uint32_t vxlan_id,
     IpAddress prefix_ip = IpAddress(Ip4Address::from_string("0.0.0.0"));
     EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
         (vrf->GetEvpnRouteTable());
-    if (async) {
-        table->DeleteReq(this, vrf->GetName(), mac, prefix_ip, vxlan_id, NULL);
-    } else {
-        table->Delete(this, vrf->GetName(), mac, prefix_ip, vxlan_id);
-    }
-    return;
-}
-
-void OvsPeer::DeleteOvsRoute(VrfEntry *vrf, uint32_t vxlan_id,
-                             const MacAddress &mac) {
-    DeleteOvsRoute(vrf, vxlan_id, mac, false);
+    table->DeleteReq(this, vrf->GetName(), mac, prefix_ip, vxlan_id, NULL);
     return;
 }
 
@@ -161,7 +142,8 @@ OvsPeer *OvsPeerManager::Allocate(const IpAddress &peer_ip) {
 
 void OvsPeerManager::Free(OvsPeer *peer) {
     table_.erase(peer);
-    delete peer;
+    // Process Delete will internally delete the peer pointer
+    peer->ProcessDelete(peer);
 }
 
 Agent *OvsPeerManager::agent() const {

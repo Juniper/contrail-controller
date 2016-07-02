@@ -33,42 +33,60 @@ HaStaleL2RouteEntry::HaStaleL2RouteEntry(HaStaleL2RouteTable *table,
 HaStaleL2RouteEntry::~HaStaleL2RouteEntry() {
 }
 
-// Add/Change/Delete of route path should be always be an async
-// operation as this callback will be triggered as part of DB
-// Notification, calling a DB operation inline may suppress
-// change notification for other DB Table clients.
-// Enqueue entry to export queue to process Asynchronously
-// Additionaly hold the entry for Ack to assure KSync State
-// Machine won't let the peer get deleted till all the route
-// operations are complete
 bool HaStaleL2RouteEntry::Add() {
-    HaStaleL2RouteTable *table =
-        static_cast<HaStaleL2RouteTable *>(table_);
-    ack_event_ = KSyncEntry::ADD_ACK;
-    table->EnqueueExportEntry(this);
     // Stop stale clear timer on add/change/delete req
     StopStaleClearTimer();
-    return false;
+    HaStaleL2RouteTable *table =
+        static_cast<HaStaleL2RouteTable *>(table_);
+    if (table->vn_name_.empty()) {
+        // donot reexport the route if dest VN is not available
+        OVSDB_TRACE(Trace, std::string("Skipping Route export dest VN name ") +
+                    "not available vrf " + table->vrf_->GetName() +
+                    ", VxlanId " + integerToString(table->vxlan_id_) + ", MAC "+
+                    mac_ + ", dest ip " + table->dev_ip_.to_string());
+        return true;
+    }
+
+    if (path_preference_ < PathPreference::LOW) {
+        // donot reexport the route if path preference is less than LOW
+        return true;
+    }
+    HaStaleDevVnEntry *dev_vn = table->dev_vn_;
+    vxlan_id_ = table->vxlan_id_;
+    dev_vn->route_peer()->AddOvsRoute(table->vrf_.get(), table->vxlan_id_,
+                                      table->vn_name_, MacAddress(mac_),
+                                      table->dev_ip_);
+    OVSDB_TRACE(Trace, std::string("Adding Ha Stale route vrf ") +
+                table->vrf_->GetName() + ", VxlanId " +
+                integerToString(vxlan_id_) + ", MAC " + mac_ + ", dest ip " +
+                table->dev_ip_.to_string());
+    return true;
 }
 
 bool HaStaleL2RouteEntry::Change() {
     HaStaleL2RouteTable *table =
         static_cast<HaStaleL2RouteTable *>(table_);
-    ack_event_ = KSyncEntry::CHANGE_ACK;
-    table->EnqueueExportEntry(this);
-    // Stop stale clear timer on add/change/delete req
-    StopStaleClearTimer();
-    return false;
+    if (vxlan_id_ != 0 && vxlan_id_ != table->vxlan_id_) {
+        // for change in vxlan id delete the previously exported
+        // route before calling AddMsg
+        Delete();
+        vxlan_id_ = 0;
+    }
+    return Add();
 }
 
 bool HaStaleL2RouteEntry::Delete() {
-    HaStaleL2RouteTable *table =
-        static_cast<HaStaleL2RouteTable *>(table_);
-    ack_event_ = KSyncEntry::DEL_ACK;
-    table->EnqueueExportEntry(this);
     // Stop stale clear timer on add/change/delete req
     StopStaleClearTimer();
-    return false;
+    HaStaleL2RouteTable *table =
+        static_cast<HaStaleL2RouteTable *>(table_);
+    HaStaleDevVnEntry *dev_vn = table->dev_vn_;
+    OVSDB_TRACE(Trace, std::string("withdrawing Ha Stale route vrf ") +
+                table->vrf_->GetName() + ", VxlanId " +
+                integerToString(vxlan_id_) + ", MAC " + mac_);
+    dev_vn->route_peer()->DeleteOvsRoute(table->vrf_.get(), vxlan_id_,
+                                         MacAddress(mac_));
+    return true;
 }
 
 void HaStaleL2RouteEntry::StopStaleClearTimer() {
@@ -82,56 +100,6 @@ void HaStaleL2RouteEntry::StopStaleClearTimer() {
         dev_vn_table->StaleClearDelEntry(time_stamp_, this);
         time_stamp_ = 0;
     }
-}
-
-void HaStaleL2RouteEntry::AddEvent() {
-    HaStaleL2RouteTable *table =
-        static_cast<HaStaleL2RouteTable *>(table_);
-    if (table->vn_name_.empty()) {
-        // donot reexport the route if dest VN is not available
-        OVSDB_TRACE(Trace, std::string("Skipping Route export dest VN name ") +
-                    "not available vrf " + table->vrf_->GetName() +
-                    ", VxlanId " + integerToString(table->vxlan_id_) + ", MAC "+
-                    mac_ + ", dest ip " + table->dev_ip_.to_string());
-        return;
-    }
-
-    if (path_preference_ < PathPreference::LOW) {
-        // donot reexport the route if path preference is less than LOW
-        return;
-    }
-    HaStaleDevVnEntry *dev_vn = table->dev_vn_;
-    vxlan_id_ = table->vxlan_id_;
-    dev_vn->route_peer()->AddOvsRoute(table->vrf_.get(), table->vxlan_id_,
-                                      table->vn_name_, MacAddress(mac_),
-                                      table->dev_ip_);
-    OVSDB_TRACE(Trace, std::string("Adding Ha Stale route vrf ") +
-                table->vrf_->GetName() + ", VxlanId " +
-                integerToString(vxlan_id_) + ", MAC " + mac_ + ", dest ip " +
-                table->dev_ip_.to_string());
-}
-
-void HaStaleL2RouteEntry::ChangeEvent() {
-    HaStaleL2RouteTable *table =
-        static_cast<HaStaleL2RouteTable *>(table_);
-    if (vxlan_id_ != 0 && vxlan_id_ != table->vxlan_id_) {
-        // for change in vxlan id delete the previously exported
-        // route before calling AddMsg
-        DeleteEvent();
-        vxlan_id_ = 0;
-    }
-    AddEvent();
-}
-
-void HaStaleL2RouteEntry::DeleteEvent() {
-    HaStaleL2RouteTable *table =
-        static_cast<HaStaleL2RouteTable *>(table_);
-    HaStaleDevVnEntry *dev_vn = table->dev_vn_;
-    OVSDB_TRACE(Trace, std::string("withdrawing Ha Stale route vrf ") +
-                table->vrf_->GetName() + ", VxlanId " +
-                integerToString(vxlan_id_) + ", MAC " + mac_);
-    dev_vn->route_peer()->DeleteOvsRoute(table->vrf_.get(), vxlan_id_,
-                                         MacAddress(mac_));
 }
 
 bool HaStaleL2RouteEntry::Sync(DBEntry *db_entry) {
@@ -201,20 +169,12 @@ HaStaleL2RouteTable::HaStaleL2RouteTable(
     dev_vn_(dev_vn), state_(dev_vn->state()),
     dev_ip_(dev_vn->dev_ip().to_v4()), vxlan_id_(dev_vn->vxlan_id()),
     vrf_(table->vrf_entry(), this), vn_name_(dev_vn->vn_name()) {
-    HaStaleDevVnTable *dev_vn_table =
-        static_cast<HaStaleDevVnTable*>(dev_vn->table());
-    route_export_queue_ = new WorkQueue<HaStaleL2RouteEntry *>(
-            dev_vn_table->agent()->task_scheduler()->GetTaskId("Agent::KSync"),
-            0, boost::bind(&HaStaleL2RouteTable::ProcessExportEntry, this, _1));
-    route_export_queue_->set_name("OVSDB HA Stale L2 Route");
     OvsdbRegisterDBTable(table);
 }
 
 HaStaleL2RouteTable::~HaStaleL2RouteTable() {
     // Table unregister will be done by Destructor of KSyncDBObject
     table_delete_ref_.Reset(NULL);
-    route_export_queue_->Shutdown();
-    delete route_export_queue_;
 }
 
 KSyncEntry *HaStaleL2RouteTable::Alloc(const KSyncEntry *key, uint32_t index) {
@@ -338,29 +298,6 @@ void HaStaleL2RouteTable::UpdateParams(HaStaleDevVnEntry *dev_vn) {
     if (change) {
         OvsdbStartResyncWalk();
     }
-}
-
-void HaStaleL2RouteTable::EnqueueExportEntry(HaStaleL2RouteEntry *entry) {
-    route_export_queue_->Enqueue(entry);
-}
-
-bool HaStaleL2RouteTable::ProcessExportEntry(HaStaleL2RouteEntry *entry) {
-    KSyncEntry::KSyncEvent ack_event = entry->ack_event();
-    switch (ack_event) {
-    case KSyncEntry::ADD_ACK:
-        entry->AddEvent();
-        break;
-    case KSyncEntry::CHANGE_ACK:
-        entry->ChangeEvent();
-        break;
-    case KSyncEntry::DEL_ACK:
-        entry->DeleteEvent();
-        break;
-    default:
-        assert(false);
-    }
-    SafeNotifyEvent(entry, ack_event);
-    return true;
 }
 
 /////////////////////////////////////////////////////////////////////////////

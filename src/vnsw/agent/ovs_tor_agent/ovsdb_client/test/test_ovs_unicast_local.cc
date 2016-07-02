@@ -298,7 +298,7 @@ TEST_F(UnicastLocalRouteTest, tunnel_nh_1) {
 
     VrfEntry *vrf = VrfGet("vrf1");
     WAIT_FOR(100, 100, (vrf->GetBridgeRouteTable() != NULL));
-    peer->AddOvsRoute(vrf, 100, "dummy", mac, tor_ip, true);
+    peer->AddOvsRoute(vrf, 100, "dummy", mac, tor_ip);
     WAIT_FOR(1000, 100, (EvpnRouteGet("vrf1", mac, server_ip, 100) != NULL));
     client->WaitForIdle();
 
@@ -320,7 +320,7 @@ TEST_F(UnicastLocalRouteTest, tunnel_nh_1) {
     EXPECT_TRUE(nh != NULL);
     EXPECT_TRUE(*nh->GetDip() == tor_ip);
 
-    peer->DeleteOvsRoute(vrf, 100, mac, true);
+    peer->DeleteOvsRoute(vrf, 100, mac);
     client->WaitForIdle();
     // Change tunnel-type order
     peer_manager_->Free(peer);
@@ -337,7 +337,11 @@ int main(int argc, char *argv[]) {
     // to work and return exec status appropriately
     signal(SIGCHLD, SIG_DFL);
 
+    boost::system::error_code ec;
+    bgp_peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+                              "xmpp channel");
     int ret = RUN_ALL_TESTS();
+    DeleteBgpPeer(bgp_peer_);
     TestShutdown();
     return ret;
 }

@@ -237,7 +237,11 @@ int main(int argc, char *argv[]) {
     scheduler->SetPolicy(scheduler->GetTaskId("db::DBTableStop"), policy);
     client->WaitForIdle();
 
+    boost::system::error_code ec;
+    bgp_peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+                              "xmpp channel");
     int ret = RUN_ALL_TESTS();
+    DeleteBgpPeer(bgp_peer_);
     TestShutdown();
     return ret;
 }
