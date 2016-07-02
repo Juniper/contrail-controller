@@ -59,11 +59,30 @@ class VRouterScheduler(object):
         az_list = self._nc.oper('availability_zones', 'list',
                                 self._args.admin_tenant_name,
                                 detailed=True)
+        if not az_list:
+            self._logger.log_error("Failed fetching azs from nova")
+            return None
+
         az_vr_list = []
         for az in az_list:
-            if self._args.netns_availability_zone not in str(az):
+            try:
+                # check:
+                # 1. If az is mentioned in config
+                # 2. If the az is enabled & active
+                # 3. If it has any hosts
+                if az.zoneName not in self._args.netns_availability_zone or \
+                   not az.zoneState['available'] or not az.hosts:
+                    continue
+
+                # check if hosts are active & enabled
+                for host,host_status in az.hosts.iteritems():
+                    if (('nova-compute' in host_status) and \
+                        host_status['nova-compute']['available'] and \
+                        host_status['nova-compute']['active']):
+                        az_vr_list.append(host)
+            except Exception as e:
+                self._logger.log_error(str(e))
                 continue
-            az_vr_list.extend(az.hosts.keys())
 
         return az_vr_list
 
