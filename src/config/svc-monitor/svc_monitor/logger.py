@@ -25,7 +25,7 @@ from sandesh.svc_mon_introspect import ttypes as sandesh
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
-from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
+from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, \
     NodeStatus
 
 from config_db import *
@@ -50,6 +50,7 @@ class ServiceMonitorLogger(object):
         node_type = Module2NodeType[module]
         self._module_name = ModuleNames[module]
         self._node_type_name = NodeTypeNames[node_type]
+        self.table = "ObjectConfigNode"
         self._instance_id = INSTANCE_ID_DEFAULT
         self._hostname = socket.gethostname()
 
@@ -60,7 +61,7 @@ class ServiceMonitorLogger(object):
         ConnectionState.init(self._sandesh, self._hostname, self._module_name,
             self._instance_id,
             staticmethod(ConnectionState.get_process_state_cb),
-            NodeStatusUVE, NodeStatus)
+            NodeStatusUVE, NodeStatus, self.table)
 
         #create cpu_info object to send periodic updates
         sysinfo_req = False

@@ -62,8 +62,11 @@ for file in plugins_sources:
 
 viz_pkg = OpEnv.SandeshGenPy('#controller/src/analytics/viz.sandesh', 'opserver/sandesh/', False)
 analytics_pkg = OpEnv.SandeshGenPy('#controller/src/analytics/analytics.sandesh', 'opserver/sandesh/', False)
-cpu_info_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'opserver/sandesh/analytics/', False)
-process_info_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'opserver/sandesh/analytics/', False)
+cpuinfo_pkg2 = OpEnv.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'opserver/sandesh/analytics/', False)
+process_info_pkg2 = OpEnv.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'opserver/sandesh/analytics/', False)
+cpuinfo_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'opserver/sandesh/nodeinfo/', False)
+process_info_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'opserver/sandesh/nodeinfo/', False)
+nodeinfo_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/nodeinfo.sandesh', 'opserver/sandesh/', False)
 redis_pkg = OpEnv.SandeshGenPy('#controller/src/analytics/redis.sandesh', 'opserver/sandesh/', False)
 discovery_pkg = OpEnv.SandeshGenPy('discovery.sandesh', 'opserver/sandesh/', False)
 analytics_database_pkg = OpEnv.SandeshGenPy('analytics_database.sandesh', 'opserver/sandesh/', False)
@@ -75,10 +78,11 @@ OpEnv.Depends(alarm_sandesh_base_pkg, alarmgen_pkg)
 OpEnv.Depends(derived_stats_pkg, analytics_pkg)
 
 sdist_depends = [setup_sources_rules, local_sources_rules,
-                 viz_pkg, analytics_pkg, cpu_info_pkg, redis_pkg,
+                 viz_pkg, analytics_pkg, cpuinfo_pkg, redis_pkg,
                  process_info_pkg, discovery_pkg, analytics_database_pkg,
                  alarmgen_pkg, database_pkg, alarm_sandesh_base_pkg,
-                 derived_stats_pkg]
+                 derived_stats_pkg, nodeinfo_pkg, cpuinfo_pkg2,
+                 process_info_pkg2]
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_gen = OpEnv.Command('dist/opserver-0.1dev.tar.gz', 'setup.py',
