@@ -391,11 +391,11 @@ class EventManager(object):
             if (pstat.process_state == 'PROCESS_STATE_RUNNING'):
                 try:
                     mem_cpu_usage_data = MemCpuUsageData(pstat.pid)
+                    process_mem_cpu = mem_cpu_usage_data.get_process_mem_cpu_info()
                 except psutil.NoSuchProcess:
                     sys.stderr.write("NoSuchProcess: process name:%s pid:%d\n"
                                      % (pstat.pname, pstat.pid))
                 else:
-                    process_mem_cpu = mem_cpu_usage_data.get_process_mem_cpu_info()
                     process_mem_cpu.module_id = pstat.pname
                     process_mem_cpu.inst_id = "0"   # ??
                     process_mem_cpu_usage.append(process_mem_cpu)
@@ -411,11 +411,11 @@ class EventManager(object):
                 pid = int(stdout.strip('\n'))
                 try:
                     mem_cpu_usage_data = MemCpuUsageData(pid)
+                    process_mem_cpu = mem_cpu_usage_data.get_process_mem_cpu_info()
                 except psutil.NoSuchProcess:
                     sys.stderr.write("NoSuchProcess: process name:%s pid:%d\n"
                                      % (pname, pid))
                 else:
-                    process_mem_cpu = mem_cpu_usage_data.get_process_mem_cpu_info()
                     process_mem_cpu.module_id = pname
                     process_mem_cpu.inst_id = "0"
                     process_mem_cpu_usage.append(process_mem_cpu)
