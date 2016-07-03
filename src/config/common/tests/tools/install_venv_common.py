@@ -39,6 +39,8 @@ def find_files(directory, file_pattern):
         for afile in files:
             if fnmatch.fnmatch(afile, file_pattern):
                 yield os.path.join(root, afile)
+        for adir in dirs:
+            find_files(adir, file_pattern)
 
 
 class InstallVenv(object):
@@ -142,14 +144,13 @@ class InstallVenv(object):
 
     def pip_clear_cache(self, find_links):
         contrail_reqs = []
+        cache_dir = os.path.expanduser('~/.cache/pip')
         for req in self.get_requirements():
+            req_pattern = '*' + req + '*'
             for find_link in find_links:
-                if find_files(find_link, req):
-                    contrail_reqs.append(req)
-        for contrail_req in contrail_reqs:
-            cache_dir = os.path.expanduser('~/.cache/pip')
-            for cachefile in find_files(cache_dir, contrail_req):
-                os.remove(cachefile)
+                for contrail_req in find_files(find_link, req_pattern):
+                    for cachefile in find_files(cache_dir, req_pattern):
+                        os.remove(cachefile)
 
     def install_dependencies(self, find_links):
         print('Installing dependencies with pip (this can take a while)...')
