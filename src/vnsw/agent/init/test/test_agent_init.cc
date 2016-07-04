@@ -198,7 +198,7 @@ TEST_F(FlowTest, Agent_Param_1) {
 }
 
 TEST_F(FlowTest, Agent_Arg_Override_Config_1) {
-    int argc = 11;
+    int argc = 9;
     char *argv[] = {
         (char *) "",
         (char *) "--config_file",
@@ -224,12 +224,12 @@ TEST_F(FlowTest, Agent_Arg_Override_Config_1) {
 }
 
 TEST_F(FlowTest, Agent_Arg_Override_Config_2) {
-    int argc = 11;
+    int argc = 8;
     char *argv[] = {
         (char *) "",
         (char *) "--DNS.server",    (char *)"20.1.1.1:500", (char *)"21.1.1.1:15001", 
         (char *) "--CONTROL-NODE.server",   (char *)"22.1.1.1", (char *)"23.1.1.1",
-        (char *) "--DEFAULT.debug",   (char *)"0",
+        (char *) "--DEFAULT.debug",
     };
 
     AgentParam param(Agent::GetInstance());
