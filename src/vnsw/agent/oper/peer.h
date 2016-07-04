@@ -34,6 +34,7 @@ class Peer;
 void intrusive_ptr_add_ref(const Peer* p);
 void intrusive_ptr_release(const Peer* p);
 typedef boost::intrusive_ptr<const Peer> PeerConstPtr;
+typedef boost::intrusive_ptr<Peer> PeerPtr;
 
 class Peer {
 public:
@@ -71,7 +72,6 @@ public:
     virtual bool export_to_controller() const {return export_to_controller_;}
     virtual const Ip4Address *NexthopIp(Agent *agent,
                                         const AgentPath *path) const;
-    virtual bool NeedValidityCheck() const {return false;}
 
     const std::string &GetName() const { return name_; }
     const Type GetType() const { return type_; }
@@ -138,15 +138,13 @@ private:
 };
 
 // Peer used for BGP paths
-class BgpPeer : public Peer {
+class BgpPeer : public DynamicPeer {
 public:
     typedef boost::function<void()> DelPeerDone;
     BgpPeer(const Ip4Address &server_ip, const std::string &name,
-            boost::shared_ptr<AgentXmppChannel> bgp_xmpp_peer,
-            DBTableBase::ListenerId id,
+            Agent *agent, DBTableBase::ListenerId id,
             Peer::Type bgp_peer_type);
     virtual ~BgpPeer();
-    virtual bool NeedValidityCheck() const {return true;}
 
     bool Compare(const Peer *rhs) const {
         const BgpPeer *bgp = static_cast<const BgpPeer *>(rhs);
@@ -156,10 +154,6 @@ public:
     // For testing
     void SetVrfListenerId(DBTableBase::ListenerId id) { id_ = id; }
     DBTableBase::ListenerId GetVrfExportListenerId() { return id_; } 
-    AgentXmppChannel *GetBgpXmppPeer() const { return bgp_xmpp_peer_.get(); }
-    const AgentXmppChannel *GetBgpXmppPeerConst() const {
-        return bgp_xmpp_peer_.get();
-    }
 
     // Table Walkers
     void DelPeerRoutes(DelPeerDone walk_done_cb);
@@ -184,12 +178,12 @@ public:
 
     uint32_t setup_time() const {return setup_time_;}
     Agent *agent() const;
+    AgentXmppChannel *GetAgentXmppChannel() const;
 
 private: 
     Ip4Address server_ip_;
     DBTableBase::ListenerId id_;
     uint32_t setup_time_;
-    boost::shared_ptr<AgentXmppChannel> bgp_xmpp_peer_;
     tbb::atomic<bool> is_disconnect_walk_;
     boost::scoped_ptr<ControllerRouteWalker> route_walker_;
     DISALLOW_COPY_AND_ASSIGN(BgpPeer);
