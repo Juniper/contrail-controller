@@ -179,7 +179,9 @@ TEST_F(TestFlowTable, flow_hash_proto_1) {
     EXPECT_TRUE(flow_count_[3] > 0);
 }
 
-TEST_F(TestFlowTable, AgeOutVrouterEvictedFlow) {
+/* Require commit 43b2179e878d32283ae919a22dfe9b3c97c3336e to enable
+ * this Test Case in this branch */
+TEST_F(TestFlowTable, DISABLED_AgeOutVrouterEvictedFlow) {
     TxTcpMplsPacket(eth->id(), remote_compute, router_id_, vif0->label(),
                     remote_vm1_ip, vm1_ip, 1000, 200, 1, 1);
     client->WaitForIdle();
