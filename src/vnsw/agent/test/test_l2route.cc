@@ -746,8 +746,8 @@ TEST_F(RouteTest, add_deleted_peer_to_multicast_route) {
 
     //Add a peer and enqueue path add in multicast route.
     BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    boost::shared_ptr<BgpPeer> bgp_peer =
-        bgp_peer_ptr->GetBgpXmppPeer()->bgp_peer_id_ref();
+    PeerConstPtr bgp_peer =
+        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
     MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent_->
                                                                    oper_db()->multicast());
     TunnelOlist olist;
@@ -756,7 +756,7 @@ TEST_F(RouteTest, add_deleted_peer_to_multicast_route) {
                                      TunnelType::VxlanType()));
     TaskScheduler::GetInstance()->Stop();
     client->WaitForIdle();
-    AgentXmppChannel::HandleAgentXmppClientChannelEvent(bgp_peer.get()->GetBgpXmppPeer(),
+    AgentXmppChannel::HandleAgentXmppClientChannelEvent(bgp_peer.get()->GetAgentXmppChannel(),
                                                         xmps::NOT_READY);
     TaskScheduler::GetInstance()->Start();
     client->WaitForIdle();
@@ -799,8 +799,8 @@ TEST_F(RouteTest, all_evpn_routes_deleted_when_local_vms_are_gone) {
     EXPECT_TRUE(rt != NULL);
     //Add a peer and enqueue path add in multicast route.
     BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    boost::shared_ptr<BgpPeer> bgp_peer =
-        bgp_peer_ptr->GetBgpXmppPeer()->bgp_peer_id_ref();
+    PeerConstPtr bgp_peer =
+        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
     MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent_->
                                                                    oper_db()->multicast());
     TunnelOlist olist;
@@ -865,8 +865,8 @@ TEST_F(RouteTest, evpn_mcast_label_deleted) {
     uint32_t evpn_mpls_label = rt->GetActivePath()->label();
     //Add a peer and enqueue path add in multicast route.
     BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    boost::shared_ptr<BgpPeer> bgp_peer =
-        bgp_peer_ptr->GetBgpXmppPeer()->bgp_peer_id_ref();
+    PeerConstPtr bgp_peer =
+        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
     MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent_->
                                                                    oper_db()->multicast());
     TunnelOlist olist;
@@ -953,8 +953,8 @@ TEST_F(RouteTest, DISABLED_send_route_add_in_not_subscribed_vrf) {
     client->Reset();
     //Add a peer and enqueue path add in multicast route.
     BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    boost::shared_ptr<BgpPeer> bgp_peer =
-        bgp_peer_ptr->GetBgpXmppPeer()->bgp_peer_id_ref();
+    PeerConstPtr bgp_peer =
+        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
 
@@ -1012,8 +1012,8 @@ TEST_F(RouteTest, notify_on_vrf_with_deleted_state_for_peer) {
     client->Reset();
     //Add a peer and enqueue path add in multicast route.
     BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    boost::shared_ptr<BgpPeer> bgp_peer =
-        bgp_peer_ptr->GetBgpXmppPeer()->bgp_peer_id_ref();
+    PeerConstPtr bgp_peer =
+        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
 
@@ -1036,9 +1036,9 @@ TEST_F(RouteTest, notify_on_vrf_with_deleted_state_for_peer) {
     }
 
     //Stop BGP peer
-    bgp_peer_ptr->GetBgpXmppPeer()->DeCommissionBgpPeer();
+    bgp_peer_ptr->GetAgentXmppChannel()->DeCommissionBgpPeer();
     //create another bgp peer
-    bgp_peer_ptr->GetBgpXmppPeer()->CreateBgpPeer();
+    bgp_peer_ptr->GetAgentXmppChannel()->CreateBgpPeer();
     //Mark Old route as not exported.
     rt = EvpnRouteGet("vrf1", local_vm_mac_, local_vm_ip4_, 0);
     rt->get_table_partition()->Notify(rt);
@@ -1047,7 +1047,7 @@ TEST_F(RouteTest, notify_on_vrf_with_deleted_state_for_peer) {
         (bgp_peer_ptr->GetRouteExportState(rt->get_table_partition(),
                                         rt));
     EXPECT_TRUE(route_state == NULL);
-    AgentXmppChannel::HandleAgentXmppClientChannelEvent(bgp_peer.get()->GetBgpXmppPeer(),
+    AgentXmppChannel::HandleAgentXmppClientChannelEvent(bgp_peer.get()->GetAgentXmppChannel(),
                                                         xmps::NOT_READY);
     client->WaitForIdle();
     bgp_peer_ptr->DelPeerRoutes(
@@ -1075,8 +1075,8 @@ TEST_F(RouteTest, delete_notify_on_multicast_rt_with_no_state) {
     client->Reset();
     //Add a peer and enqueue path add in multicast route.
     BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    boost::shared_ptr<BgpPeer> bgp_peer =
-        bgp_peer_ptr->GetBgpXmppPeer()->bgp_peer_id_ref();
+    PeerConstPtr bgp_peer =
+        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
 
@@ -1128,8 +1128,8 @@ TEST_F(RouteTest, delpeer_walk_on_deleted_vrf) {
 
     //Add a peer and enqueue path add in multicast route.
     BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    boost::shared_ptr<BgpPeer> bgp_peer =
-        bgp_peer_ptr->GetBgpXmppPeer()->bgp_peer_id_ref();
+    PeerConstPtr bgp_peer =
+        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
 
     //Reset agent xmpp channel and back up the original channel.
     AgentXmppChannel *channel1 = agent_->controller_xmpp_channel(1);
@@ -1142,7 +1142,7 @@ TEST_F(RouteTest, delpeer_walk_on_deleted_vrf) {
     agent_->set_controller_xmpp_channel(channel1, 1);
 
     //Now bring channel down
-    AgentXmppChannel::HandleAgentXmppClientChannelEvent(bgp_peer.get()->GetBgpXmppPeer(),
+    AgentXmppChannel::HandleAgentXmppClientChannelEvent(bgp_peer.get()->GetAgentXmppChannel(),
                                                         xmps::NOT_READY);
     client->WaitForIdle();
     //Release VRF reference
@@ -1169,8 +1169,8 @@ TEST_F(RouteTest, notify_walk_on_deleted_vrf_with_no_state_but_listener_id) {
     BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
     DBTableBase::ListenerId bgp_peer_id =
         bgp_peer_ptr->GetVrfExportListenerId();
-    boost::shared_ptr<BgpPeer> bgp_peer =
-        bgp_peer_ptr->GetBgpXmppPeer()->bgp_peer_id_ref();
+    PeerConstPtr bgp_peer =
+        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
 
     //Take VRF reference and delete VRF.
     VrfEntryRef vrf_ref = VrfGet("vrf1");
@@ -1206,8 +1206,8 @@ TEST_F(RouteTest, add_route_in_vrf_with_delayed_vn_vrf_link_add) {
     AddVn("vn1", 1, true);
     client->WaitForIdle();
     BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    boost::shared_ptr<BgpPeer> bgp_peer =
-        bgp_peer_ptr->GetBgpXmppPeer()->bgp_peer_id_ref();
+    PeerConstPtr bgp_peer =
+        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
 
     //Delete VN
     VrfEntry *vrf = VrfGet("vrf1");
@@ -1308,10 +1308,10 @@ TEST_F(RouteTest, add_stale_non_stale_path_in_l2_mcast_and_delete_non_stale) {
     //Add a peer and keep a reference of same.
     BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
     BgpPeer *bgp_peer_ptr_2 = CreateBgpPeer(Ip4Address(2), "BGP Peer2");
-    boost::shared_ptr<BgpPeer> bgp_peer =
-        bgp_peer_ptr->GetBgpXmppPeer()->bgp_peer_id_ref();
-    boost::shared_ptr<BgpPeer> bgp_peer_2 =
-        bgp_peer_ptr_2->GetBgpXmppPeer()->bgp_peer_id_ref();
+    PeerConstPtr bgp_peer =
+        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
+    PeerConstPtr bgp_peer_2 =
+        bgp_peer_ptr_2->GetAgentXmppChannel()->bgp_peer_id_ref();
 
     BridgeRouteEntry *rt = L2RouteGet("vrf1",
                                       MacAddress::FromString("ff:ff:ff:ff:ff:ff"),
@@ -1446,8 +1446,8 @@ TEST_F(RouteTest, evpn_mcast_label_check_with_no_vm) {
     AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
     client->WaitForIdle();
     BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    boost::shared_ptr<BgpPeer> bgp_peer =
-        bgp_peer_ptr->GetBgpXmppPeer()->bgp_peer_id_ref();
+    PeerConstPtr bgp_peer =
+        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
     client->WaitForIdle();
 
     BridgeRouteEntry *rt = L2RouteGet("vrf1",
@@ -1508,8 +1508,8 @@ TEST_F(RouteTest, add_local_peer_and_then_vm) {
 
     //Add a peer and enqueue path add in multicast route.
     BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    boost::shared_ptr<BgpPeer> bgp_peer =
-        bgp_peer_ptr->GetBgpXmppPeer()->bgp_peer_id_ref();
+    PeerConstPtr bgp_peer =
+        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
     client->WaitForIdle();
     BridgeRouteEntry *rt = L2RouteGet("vrf1",
                                       MacAddress::FromString("ff:ff:ff:ff:ff:ff"),
@@ -1578,8 +1578,8 @@ TEST_F(RouteTest, StalePathDeleteRouteDelete) {
 
     //Add a peer and keep a reference of same.
     BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    boost::shared_ptr<BgpPeer> bgp_peer =
-        bgp_peer_ptr->GetBgpXmppPeer()->bgp_peer_id_ref();
+    PeerConstPtr bgp_peer =
+        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
 
     BridgeTunnelRouteAdd(bgp_peer_ptr, vrf_name_, TunnelType::MplsType(),
                          server1_ip_, MplsTable::kStartLabel + 10,
@@ -1680,8 +1680,8 @@ TEST_F(RouteTest, label_in_evpn_mcast_path) {
     uint32_t mpls_label = rt->GetActivePath()->label();
     //Add a peer and enqueue path add in multicast route.
     BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    boost::shared_ptr<BgpPeer> bgp_peer =
-        bgp_peer_ptr->GetBgpXmppPeer()->bgp_peer_id_ref();
+    PeerConstPtr bgp_peer =
+        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
     MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent_->
                                                                    oper_db()->multicast());
     TunnelOlist olist;

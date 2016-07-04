@@ -21,6 +21,7 @@
 #include "controller/controller_types.h"
 #include "controller/controller_vrf_export.h"
 #include "controller/controller_export.h"
+#include "controller/controller_route_path.h"
 
 ControllerRouteWalker::ControllerRouteWalker(Agent *agent, Peer *peer) : 
     AgentRouteWalker(agent, AgentRouteWalker::ALL), peer_(peer), 
@@ -83,7 +84,7 @@ bool ControllerRouteWalker::VrfNotifyAll(DBTablePartBase *partition,
 
         //Pass this object pointer so that VrfExport::Notify can start the route
         //walk if required on this VRF. Also it adds state if none is found.
-        VrfExport::Notify(agent(), bgp_peer->GetBgpXmppPeer(),
+        VrfExport::Notify(agent(), bgp_peer->GetAgentXmppChannel(),
                           partition, entry);
         CONTROLLER_ROUTE_WALKER_TRACE(Walker, "Vrf Notify all", vrf->GetName(),
                          bgp_peer->GetName());
@@ -198,8 +199,8 @@ bool ControllerRouteWalker::RouteNotifyInternal(DBTablePartBase *partition,
 
     if (vs) {
         vs->rt_export_[table_type]->
-            Notify(agent(), bgp_peer->GetBgpXmppPeer(), associate_, table_type,
-                   partition, entry);
+            Notify(agent(), bgp_peer->GetAgentXmppChannel(), associate_,
+                   table_type, partition, entry);
     }
     return true;
 }
@@ -247,20 +248,33 @@ bool ControllerRouteWalker::RouteDelPeer(DBTablePartBase *partition,
                          route->ToString(), peer_->GetName());
     }
 
+    //Enqueue path delete.
     AgentRouteKey *key = (static_cast<AgentRouteKey *>(route->
                                       GetDBRequestKey().get()))->Clone();
     key->set_peer(peer_);
-    route->DeletePathUsingKeyData(key, NULL, true);
-    delete key;
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key.reset(key);
+    req.data.reset();
+    AgentRouteTable *table = static_cast<AgentRouteTable *>(route->get_table());
+    table->Enqueue(&req);
     return true;
 }
 
 bool ControllerRouteWalker::RouteStaleMarker(DBTablePartBase *partition, 
                                              DBEntryBase *entry) {
     AgentRoute *route = static_cast<AgentRoute *>(entry);
+    //Enqueue path to be marked as stale.
     if (route) {
-        route->vrf()->GetRouteTable(route->GetTableType())->
-            StalePathFromPeer(partition, route, peer_);
+        AgentRouteKey *key = (static_cast<AgentRouteKey *>(route->
+                             GetDBRequestKey().get()))->Clone();
+        key->set_peer(peer_);
+        key->sub_op_ = AgentKey::RESYNC;
+        DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+        req.key.reset(key);
+        req.data.reset(new StalePathData());
+        AgentRouteTable *table = static_cast<AgentRouteTable *>(route->
+                                                                get_table());
+        table->Enqueue(&req);
     }
 
     CONTROLLER_ROUTE_WALKER_TRACE(Walker, "Route Stale", route->ToString(), 
