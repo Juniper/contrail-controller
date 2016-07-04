@@ -100,9 +100,9 @@ const Ip4Address *Peer::NexthopIp(Agent *agent, const AgentPath *path) const {
 BgpPeer::BgpPeer(const Ip4Address &server_ip, const std::string &name,
                  boost::shared_ptr<AgentXmppChannel> bgp_xmpp_peer,
                  DBTableBase::ListenerId id,
-                 Peer::Type bgp_peer_type)
-    : Peer(bgp_peer_type, name, false), server_ip_(server_ip), id_(id),
-    bgp_xmpp_peer_(bgp_xmpp_peer), 
+                 Peer::Type bgp_peer_type) :
+    DynamicPeer(bgp_xmpp_peer.get()->agent(), bgp_peer_type, name, false),
+    server_ip_(server_ip), id_(id), bgp_xmpp_peer_(bgp_xmpp_peer),
     route_walker_(new ControllerRouteWalker(bgp_xmpp_peer_.get()->agent(), this)) {
         is_disconnect_walk_ = false;
         setup_time_ = UTCTimestampUsec();

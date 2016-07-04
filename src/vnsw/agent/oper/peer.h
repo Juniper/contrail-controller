@@ -34,6 +34,7 @@ class Peer;
 void intrusive_ptr_add_ref(const Peer* p);
 void intrusive_ptr_release(const Peer* p);
 typedef boost::intrusive_ptr<const Peer> PeerConstPtr;
+typedef boost::intrusive_ptr<Peer> PeerPtr;
 
 class Peer {
 public:
@@ -71,7 +72,6 @@ public:
     virtual bool export_to_controller() const {return export_to_controller_;}
     virtual const Ip4Address *NexthopIp(Agent *agent,
                                         const AgentPath *path) const;
-    virtual bool NeedValidityCheck() const {return false;}
 
     const std::string &GetName() const { return name_; }
     const Type GetType() const { return type_; }
@@ -138,7 +138,7 @@ private:
 };
 
 // Peer used for BGP paths
-class BgpPeer : public Peer {
+class BgpPeer : public DynamicPeer {
 public:
     typedef boost::function<void()> DelPeerDone;
     BgpPeer(const Ip4Address &server_ip, const std::string &name,
@@ -146,7 +146,6 @@ public:
             DBTableBase::ListenerId id,
             Peer::Type bgp_peer_type);
     virtual ~BgpPeer();
-    virtual bool NeedValidityCheck() const {return true;}
 
     bool Compare(const Peer *rhs) const {
         const BgpPeer *bgp = static_cast<const BgpPeer *>(rhs);

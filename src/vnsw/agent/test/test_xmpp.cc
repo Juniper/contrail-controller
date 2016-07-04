@@ -752,14 +752,13 @@ TEST_F(AgentXmppUnitTest, resync_db_req_by_deleted_peer_non_hv) {
                             MakeUuid(1), "");
     VnListType vn_list1;
     vn_list1.insert("");
-    ControllerLocalVmRoute *local_vm_route =
-        new ControllerLocalVmRoute(intf_key, 10, 100, false, vn_list1,
+    LocalVmRoute *local_vm_route =
+        new LocalVmRoute(intf_key, 10, 100, false, vn_list1,
                                    InterfaceNHFlags::INET4,
                                    SecurityGroupList(),
+                                   CommunityList(),
                                    PathPreference(),
-                                   sequence_number,
-                                   EcmpLoadBalance(),
-                                   channel);
+                                   EcmpLoadBalance());
     DBRequest localvm_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     key = new InetUnicastRouteKey(old_bgp_peer, "vrf10", addr, 32);
     key->sub_op_ = AgentKey::RESYNC;
@@ -772,9 +771,9 @@ TEST_F(AgentXmppUnitTest, resync_db_req_by_deleted_peer_non_hv) {
     EXPECT_TRUE(rt->GetPathList().size() == 1);
 
     // Add vlannhroute with old peer. It should be ignored.
-    ControllerVlanNhRoute *vlan_rt_data =
-        new ControllerVlanNhRoute(intf_key, 10, 11, vn_list1, SecurityGroupList(),
-                                  PathPreference(), sequence_number, channel);
+    VlanNhRoute *vlan_rt_data =
+        new VlanNhRoute(intf_key, 10, 11, vn_list1, SecurityGroupList(),
+                                  PathPreference());
     DBRequest vlanrt_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     key = new InetUnicastRouteKey(old_bgp_peer, "vrf10",
                                    Ip4Address::from_string("2.2.2.0"), 24);
@@ -790,10 +789,9 @@ TEST_F(AgentXmppUnitTest, resync_db_req_by_deleted_peer_non_hv) {
 
     //Interface route
     InetInterfaceKey inet_intf_key("something");
-    ControllerInetInterfaceRoute *inet_interface_route =
-        new ControllerInetInterfaceRoute(inet_intf_key, 10,
-                                         TunnelType::GREType(), vn_list1,
-                                         sequence_number, channel);
+    InetInterfaceRoute *inet_interface_route =
+        new InetInterfaceRoute(inet_intf_key, 10,
+                               TunnelType::GREType(), vn_list1);
     DBRequest inet_rt_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     key = new InetUnicastRouteKey(old_bgp_peer, "vrf10",
                                    Ip4Address::from_string("3.3.3.3"), 32);
@@ -885,23 +883,22 @@ TEST_F(AgentXmppUnitTest, Add_db_inetinterface_req_by_deleted_peer_non_hv) {
                             MakeUuid(1), "");
     VnListType vn_list1;
     vn_list1.insert("");
-    ControllerLocalVmRoute *local_vm_route =
-        new ControllerLocalVmRoute(intf_key, 10, 100, false, vn_list1,
+    LocalVmRoute *local_vm_route =
+        new LocalVmRoute(intf_key, 10, 100, false, vn_list1,
                                    InterfaceNHFlags::INET4,
                                    SecurityGroupList(),
+                                   CommunityList(),
                                    PathPreference(),
-                                   sequence_number,
-                                   EcmpLoadBalance(),
-                                   channel);
+                                   EcmpLoadBalance());
     agent->fabric_inet4_unicast_table()->AddLocalVmRouteReq(old_bgp_peer, "vrf1",
                                   addr, 32,
                                   static_cast<LocalVmRoute *>(local_vm_route));
     EXPECT_TRUE(rt->GetPathList().size() == 1);
 
     // Add vlannhroute with old peer. It should be ignored.
-    ControllerVlanNhRoute *vlan_rt_data =
-        new ControllerVlanNhRoute(intf_key, 10, 11, vn_list1, SecurityGroupList(),
-                                  PathPreference(), sequence_number, channel);
+    VlanNhRoute *vlan_rt_data =
+        new VlanNhRoute(intf_key, 10, 11, vn_list1, SecurityGroupList(),
+                        PathPreference());
     agent->fabric_inet4_unicast_table()->AddVlanNHRouteReq(old_bgp_peer,
            "vrf1", Ip4Address::from_string("2.2.2.0"), 24, vlan_rt_data);
     EXPECT_TRUE(RouteGet("vrf1", Ip4Address::from_string("2.2.2.0"), 24) ==
@@ -909,10 +906,9 @@ TEST_F(AgentXmppUnitTest, Add_db_inetinterface_req_by_deleted_peer_non_hv) {
 
     //Interface route
     InetInterfaceKey inet_intf_key("something");
-    ControllerInetInterfaceRoute *inet_interface_route =
-        new ControllerInetInterfaceRoute(inet_intf_key, 10,
-                                         TunnelType::GREType(), vn_list1,
-                                         sequence_number, channel);
+    InetInterfaceRoute *inet_interface_route =
+        new InetInterfaceRoute(inet_intf_key, 10,
+                               TunnelType::GREType(), vn_list1);
     agent->fabric_inet4_unicast_table()->AddInetInterfaceRouteReq(old_bgp_peer,
            "vrf1", Ip4Address::from_string("3.3.3.3"), 32, inet_interface_route);
     EXPECT_TRUE(RouteGet("vrf1", Ip4Address::from_string("3.3.3.3"), 32) ==
