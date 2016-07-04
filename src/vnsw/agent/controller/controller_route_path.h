@@ -32,19 +32,6 @@ class VNController;
  * - Vlan - Derived from VlanNHRoute from agent_path
  * - Inet Interface - Derived from InetInterfaceRoute from agent_path.
  *
- * All route data passed from controller with peer type BGP, should
- * carry AgentXmppChannel and unicast_sequence_number. This is required
- * because BGP peer can go off by the time request for add/change/delete of
- * route is enqueued in DB. At Route input every data is checked for peer
- * validitiy. BGP peer will be valid if AgentXmppChannel is still up and
- * sequence number matches.
- *
- * ControllerPeerPath implements sequence number and agent_xmpp_channel,
- * so if there is native controller data it can be derived from same.
- *
- * In case data is derived from agent_path datas, then he derivative needs to
- * carry info on AgentXmppChannel and sequence number and has to implement
- * check for peer validity.
  */
 
 class ControllerPeerPath : public AgentRouteData {
@@ -54,17 +41,9 @@ public:
     ~ControllerPeerPath() { }
 
     virtual bool UpdateRoute(AgentRoute *route) {return false;}
-    // Only to be used for tests
-    void set_sequence_number(uint64_t sequence_number) {
-        sequence_number_ = sequence_number;
-    }
-    const AgentXmppChannel *channel() const {return channel_;}
-    uint64_t sequence_number() const {return sequence_number_;}
 
 private:
     const Peer *peer_;
-    const AgentXmppChannel *channel_;
-    uint64_t sequence_number_;
 };
 
 /*
@@ -93,8 +72,6 @@ public:
                                const AgentRoute *rt);
     virtual bool UpdateRoute(AgentRoute *route);
     virtual string ToString() const {return "remote VM";}
-    virtual std::string PeerInvalidMsg(const AgentRouteKey *key) const;
-    virtual bool IsPeerValid(const AgentRouteKey *key) const;
     const SecurityGroupList &sg_list() const {return sg_list_;}
     static ControllerVmRoute *MakeControllerVmRoute(const Peer *peer,
                                             const string &default_vrf,
@@ -144,8 +121,6 @@ public:
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
                                const AgentRoute *);
     virtual string ToString() const {return "inet4 ecmp";}
-    virtual std::string PeerInvalidMsg(const AgentRouteKey *key) const;
-    virtual bool IsPeerValid(const AgentRouteKey *key) const;
 
 private:
     IpAddress dest_addr_;
@@ -163,76 +138,6 @@ private:
 };
 
 /*
- * Route data for adding local route with BGP peer.
- * Send agent_xmpp_channel and sequence number to
- * validate peeer validity at the time of route operation
- */
-class ControllerLocalVmRoute : public LocalVmRoute {
-public:
-    ControllerLocalVmRoute(const VmInterfaceKey &intf, uint32_t mpls_label,
-                           uint32_t vxlan_id, bool force_policy,
-                           const VnListType &vn_list, uint8_t flags,
-                           const SecurityGroupList &sg_list,
-                           const PathPreference &path_preference,
-                           uint64_t sequence_number,
-                           const EcmpLoadBalance &ecmp_load_balance,
-                           const AgentXmppChannel *channel);
-    virtual ~ControllerLocalVmRoute() { }
-    virtual std::string PeerInvalidMsg(const AgentRouteKey *key) const;
-    virtual bool IsPeerValid(const AgentRouteKey *key) const;
-
-private:
-    uint64_t sequence_number_;
-    const AgentXmppChannel *channel_;
-    DISALLOW_COPY_AND_ASSIGN(ControllerLocalVmRoute);
-};
-
-/*
- * Route data for adding Inet Interface route with BGP peer.
- * Send agent_xmpp_channel and sequence number to
- * validate peeer validity at the time of route operation
- */
-class ControllerInetInterfaceRoute : public InetInterfaceRoute {
-public:
-    ControllerInetInterfaceRoute(const InetInterfaceKey &intf, uint32_t label,
-                                 int tunnel_bmap, const VnListType &dest_vn_list,
-                                 uint64_t sequence_number,
-                                 const AgentXmppChannel *channel);
-    virtual ~ControllerInetInterfaceRoute() { }
-    virtual std::string PeerInvalidMsg(const AgentRouteKey *key) const;
-    virtual bool IsPeerValid(const AgentRouteKey *key) const;
-
-private:
-    uint64_t sequence_number_;
-    const AgentXmppChannel *channel_;
-    DISALLOW_COPY_AND_ASSIGN(ControllerInetInterfaceRoute);
-};
-
-/*
- * Route data for adding Vlan route with BGP peer.
- * Send agent_xmpp_channel and sequence number to
- * validate peeer validity at the time of route operation
- */
-class ControllerVlanNhRoute : public VlanNhRoute {
-public:
-    ControllerVlanNhRoute(const VmInterfaceKey &intf, uint32_t tag,
-                          uint32_t label,
-                          const VnListType &dest_vn_list,
-                          const SecurityGroupList &sg_list,
-                          const PathPreference &path_preference,
-                          uint64_t sequence_number,
-                          const AgentXmppChannel *channel);
-    virtual ~ControllerVlanNhRoute() { }
-    virtual std::string PeerInvalidMsg(const AgentRouteKey *key) const;
-    virtual bool IsPeerValid(const AgentRouteKey *key) const;
-
-private:
-    uint64_t sequence_number_;
-    const AgentXmppChannel *channel_;
-    DISALLOW_COPY_AND_ASSIGN(ControllerVlanNhRoute);
-};
-
-/*
  * ClonedLocalPath would be used to pick nexthop from the
  * local peer, instead of nexthop pointed by mpls label.
  * Currently it gets used in gateway interface. In case of
@@ -243,61 +148,41 @@ private:
  */
 class ClonedLocalPath : public AgentRouteData {
 public:
-    ClonedLocalPath(uint64_t seq, const AgentXmppChannel *channel,
-                    uint32_t label, const VnListType &vn_list,
+    ClonedLocalPath(uint32_t label, const VnListType &vn_list,
                     const SecurityGroupList &sg_list):
-        AgentRouteData(false), sequence_number_(seq),
-        channel_(channel), mpls_label_(label), vn_list_(vn_list), sg_list_(sg_list) {}
+        AgentRouteData(false), mpls_label_(label),
+        vn_list_(vn_list), sg_list_(sg_list) {}
     virtual ~ClonedLocalPath() {}
-    virtual std::string PeerInvalidMsg(const AgentRouteKey *key) const;
-    virtual bool IsPeerValid(const AgentRouteKey *key) const;
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
                                const AgentRoute *rt);
     virtual std::string ToString() const {
         return "Nexthop cloned from local path";
     }
 private:
-    uint64_t sequence_number_;
-    const AgentXmppChannel *channel_;
     uint32_t mpls_label_;
     const VnListType vn_list_;
     const SecurityGroupList sg_list_;
     DISALLOW_COPY_AND_ASSIGN(ClonedLocalPath);
 };
 
-class ControllerL2ReceiveRoute : public L2ReceiveRoute {
+/*
+ * In headless mode stale path is created when no CN server is present.
+ * Last peer going down marks its path as stale and keep route alive, till
+ * anothe CN takes over.
+ * There can be only one stale path as multiple does not make any sense.
+ * (Stale path is to keep traffic flowing).
+ */
+class StalePathData : public AgentRouteData {
 public:
-    ControllerL2ReceiveRoute(const std::string &dest_vn_name, uint32_t vxlan_id,
-                           uint32_t mpls_label,
-                           const PathPreference &path_preference,
-                           uint64_t sequence_number,
-                           const AgentXmppChannel *channel);
-    virtual ~ControllerL2ReceiveRoute() { }
-    virtual bool IsPeerValid(const AgentRouteKey *key) const;
+    StalePathData() : AgentRouteData(false) { }
+    virtual ~StalePathData() { }
+    virtual bool AddChangePath(Agent *agent, AgentPath *path,
+                               const AgentRoute *rt);
+    virtual std::string ToString() const {
+        return "Stale path marking(healdess mode)";
+    }
 
 private:
-    uint64_t sequence_number_;
-    const AgentXmppChannel *channel_;
-    DISALLOW_COPY_AND_ASSIGN(ControllerL2ReceiveRoute);
-};
-
-class ControllerMulticastRoute : public MulticastRoute {
-public:
-    ControllerMulticastRoute(const string &vn_name,
-                             uint32_t label,
-                             int vxlan_id,
-                             uint32_t tunnel_type,
-                             DBRequest &nh_req,
-                             COMPOSITETYPE comp_nh_type,
-                             uint64_t sequence_number,
-                             const AgentXmppChannel *channel);
-    virtual ~ControllerMulticastRoute() { }
-    virtual std::string PeerInvalidMsg(const AgentRouteKey *key) const;
-    virtual bool IsPeerValid(const AgentRouteKey *key) const;
-
-private:
-    uint64_t sequence_number_;
-    const AgentXmppChannel *channel_;
-    DISALLOW_COPY_AND_ASSIGN(ControllerMulticastRoute);
+    DISALLOW_COPY_AND_ASSIGN(StalePathData);
 };
 #endif //controller_route_path_hpp

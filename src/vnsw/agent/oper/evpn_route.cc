@@ -162,11 +162,8 @@ void EvpnAgentRouteTable::AddControllerReceiveRouteReq(const Peer *peer,
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip_addr,
                                    ethernet_tag));
-    req.data.reset(new ControllerL2ReceiveRoute(vn_name, ethernet_tag,
-                                              label, path_pref,
-                                              bgp_peer->GetBgpXmppPeerConst()->
-                                              unicast_sequence_number(),
-                                              bgp_peer->GetBgpXmppPeerConst()));
+    req.data.reset(new L2ReceiveRoute(vn_name, ethernet_tag,
+                                      label, path_pref));
     agent()->fabric_evpn_table()->Enqueue(&req);
 }
 

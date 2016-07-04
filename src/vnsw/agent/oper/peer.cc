@@ -98,12 +98,11 @@ const Ip4Address *Peer::NexthopIp(Agent *agent, const AgentPath *path) const {
 }
 
 BgpPeer::BgpPeer(const Ip4Address &server_ip, const std::string &name,
-                 boost::shared_ptr<AgentXmppChannel> bgp_xmpp_peer,
-                 DBTableBase::ListenerId id,
-                 Peer::Type bgp_peer_type)
-    : Peer(bgp_peer_type, name, false), server_ip_(server_ip), id_(id),
-    bgp_xmpp_peer_(bgp_xmpp_peer), 
-    route_walker_(new ControllerRouteWalker(bgp_xmpp_peer_.get()->agent(), this)) {
+                 Agent *agent, DBTableBase::ListenerId id,
+                 Peer::Type bgp_peer_type) :
+    DynamicPeer(agent, bgp_peer_type, name, false),
+    server_ip_(server_ip), id_(id),
+    route_walker_(new ControllerRouteWalker(agent, this)) {
         is_disconnect_walk_ = false;
         setup_time_ = UTCTimestampUsec();
 }
@@ -161,13 +160,10 @@ void BgpPeer::DeleteVrfState(DBTablePartBase *partition,
     if (vrf_state->exported_ == true) {
         // Check if the notification is for active bgp peer or not.
         // Send unsubscribe only for active bgp peer.
-        // Note that decommisioned bgp_peer_id can have reference to parent 
-        // agentxmppchannel, however agentzmppchannel wud have moved to some
-        // other new peer.
-        if (bgp_xmpp_peer_.get() &&
-            (bgp_xmpp_peer_.get()->bgp_peer_id() == this) &&
-            AgentXmppChannel::IsBgpPeerActive(agent(), bgp_xmpp_peer_.get())) {
-            AgentXmppChannel::ControllerSendSubscribe(bgp_xmpp_peer_.get(), vrf,
+        // If skip_add_change is set for this dynamic peer, then dont export.
+        if (SkipAddChangeRequest() == false) {
+            AgentXmppChannel::ControllerSendSubscribe(GetAgentXmppChannel(),
+                                                      vrf,
                                                       false); 
         }
     }
@@ -214,4 +210,15 @@ DBState *BgpPeer::GetRouteExportState(DBTablePartBase *partition,
 
 Agent *BgpPeer::agent() const {
     return route_walker_.get()->agent();
+}
+
+AgentXmppChannel *BgpPeer::GetAgentXmppChannel() const {
+    for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
+        AgentXmppChannel *channel =
+            agent()->controller_xmpp_channel(count);
+        if (channel && (channel->bgp_peer_id() == this)) {
+            return channel;
+        }
+    }
+    return NULL;
 }

@@ -202,13 +202,13 @@ public:
         VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, MakeUuid(intf_uuid), "");
         VnListType vn_list;
         vn_list.insert(vn);
-        ControllerLocalVmRoute *local_vm_route =
-            new ControllerLocalVmRoute(intf_key, vm_intf->label(),
+        LocalVmRoute *local_vm_route =
+            new LocalVmRoute(intf_key, vm_intf->label(),
                     VxLanTable::kInvalidvxlan_id, false, vn_list,
                     InterfaceNHFlags::INET4, SecurityGroupList(),
-                    PathPreference(), ControllerPeerPath::kInvalidPeerIdentifier,
-                    EcmpLoadBalance(),
-                    NULL);
+                    CommunityList(),
+                    PathPreference(),
+                    EcmpLoadBalance());
         InetUnicastAgentRouteTable *rt_table =
             agent_->vrf_table()->GetInet4UnicastRouteTable(vrf_name);
 

@@ -11,6 +11,7 @@
 #include <boost/shared_ptr.hpp>
 #include <controller/controller_cleanup_timer.h>
 #include "xmpp/xmpp_channel.h"
+#include <oper/peer.h>
 
 class AgentXmppChannel;
 class AgentDnsXmppChannel;
@@ -83,10 +84,9 @@ public:
     typedef boost::shared_ptr<ControllerDeletePeerData> ControllerDeletePeerDataType;
     typedef boost::shared_ptr<ControllerWorkQueueData> ControllerWorkQueueDataType;
     typedef boost::shared_ptr<ControllerDiscoveryData> ControllerDiscoveryDataType;
-    typedef boost::shared_ptr<BgpPeer> BgpPeerPtr; 
-    typedef std::list<boost::shared_ptr<BgpPeer> > BgpPeerList;
+    typedef std::list<PeerPtr> BgpPeerList;
     typedef BgpPeerList::const_iterator BgpPeerConstIterator;
-    typedef std::list<boost::shared_ptr<BgpPeer> >::iterator BgpPeerIterator;
+    typedef std::list<PeerPtr>::iterator BgpPeerIterator;
 
     struct FabricMulticastLabelRange {
         FabricMulticastLabelRange() : start(), end(), fabric_multicast_label_range_str() {};
@@ -126,7 +126,7 @@ public:
     uint32_t DecommissionedPeerListSize() const {
         return decommissioned_peer_list_.size();
     }
-    void AddToDecommissionedPeerList(boost::shared_ptr<BgpPeer> peer);
+    void AddToDecommissionedPeerList(PeerPtr peer);
     const BgpPeerList &decommissioned_peer_list() const {
         return decommissioned_peer_list_;
     }
@@ -190,7 +190,7 @@ private:
 
     Agent *agent_;
     uint64_t multicast_sequence_number_;
-    std::list<boost::shared_ptr<BgpPeer> > decommissioned_peer_list_;
+    std::list<PeerPtr> decommissioned_peer_list_;
     boost::scoped_ptr<AgentIfMapVmExport> agent_ifmap_vm_export_;
     UnicastCleanupTimer unicast_cleanup_timer_;
     MulticastCleanupTimer multicast_cleanup_timer_;
