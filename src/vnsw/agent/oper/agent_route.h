@@ -68,8 +68,6 @@ struct AgentRouteData : public AgentData {
     virtual AgentPath *CreateAgentPath(const Peer *peer, AgentRoute *rt) const;
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
                                const AgentRoute *rt) = 0;
-    virtual bool IsPeerValid(const AgentRouteKey *key) const;
-    virtual std::string InvalidPeerMsg(const AgentRouteKey *key) const;
     virtual bool UpdateRoute(AgentRoute *rt) {return false;}
 
     bool is_multicast() const {return is_multicast_;}
@@ -185,8 +183,6 @@ public:
                             AgentPath *path);
                             //const Peer *peer);
     //Stale path handling
-    void StalePathFromPeer(DBTablePartBase *part, AgentRoute *rt,
-                           const Peer *peer);
     void SquashStalePaths(AgentRoute *rt, const AgentPath *path);
     void EvaluateUnresolvedRoutes(void);
 
@@ -272,7 +268,7 @@ public:
     uint32_t vrf_id() const;
 
     AgentPath *FindLocalVmPortPath() const;
-    AgentPath *FindStalePath();
+    AgentPath *FindStalePath() const;
     const AgentPath *GetActivePath() const;
     const NextHop *GetActiveNextHop() const; 
     const std::string &dest_vn_name() const;
@@ -291,6 +287,7 @@ public:
     void FillTrace(RouteInfo &route, Trace event, const AgentPath *path);
     bool WaitForTraffic() const;
     virtual uint8_t plen() const { return 0; }
+
 protected:
     void SetVrf(VrfEntry *vrf) { vrf_ = vrf; }
     void RemovePathInternal(AgentPath *path);

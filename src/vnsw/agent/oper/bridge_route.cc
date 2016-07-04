@@ -216,12 +216,9 @@ AgentRouteData *BridgeAgentRouteTable::BuildBgpPeerData(const Peer *peer,
     nh_req.key.reset(new CompositeNHKey(type, false, component_nh_key_list,
                                         vrf_name));
     nh_req.data.reset(new CompositeNHData());
-    return (new ControllerMulticastRoute(vn_name, label,
+    return (new MulticastRoute(vn_name, label,
                                          ethernet_tag, tunnel_type,
-                                         nh_req, type,
-                                         bgp_peer->GetBgpXmppPeerConst()->
-                                         unicast_sequence_number(),
-                                         bgp_peer->GetBgpXmppPeerConst()));
+                                         nh_req, type));
 }
 
 void BridgeAgentRouteTable::AddBridgeBroadcastRoute(const Peer *peer,
@@ -247,19 +244,9 @@ void BridgeAgentRouteTable::DeleteBroadcastReq(const Peer *peer,
     //For same BGP peer type comp type helps in identifying if its a delete
     //for TOR or EVPN path.
     //Only ethernet tag is required, rest are dummy.
-    const BgpPeer *bgp_peer = dynamic_cast<const BgpPeer *>(peer);
-    if (bgp_peer) {
-        req.data.reset(new ControllerMulticastRoute("", 0,
-                                     ethernet_tag, TunnelType::AllType(),
-                                     nh_req, type,
-                                     bgp_peer->GetBgpXmppPeerConst()->
-                                         unicast_sequence_number(),
-                                     bgp_peer->GetBgpXmppPeerConst()));
-    } else {
-        req.data.reset(new MulticastRoute("", 0, ethernet_tag,
-                                          TunnelType::AllType(),
-                                          nh_req, type));
-    }
+    req.data.reset(new MulticastRoute("", 0, ethernet_tag,
+                                      TunnelType::AllType(),
+                                      nh_req, type));
 
     BridgeTableEnqueue(Agent::GetInstance(), &req);
 }
