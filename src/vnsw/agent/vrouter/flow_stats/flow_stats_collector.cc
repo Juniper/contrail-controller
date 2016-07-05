@@ -647,6 +647,29 @@ void FlowStatsCollector::SourceIpOverride(FlowExportInfo *info,
     }
 }
 
+void FlowStatsCollector::SetImplicitFlowDetails(FlowExportInfo *info,
+                                                FlowLogData &s_flow,
+                                                const RevFlowDepParams *params) {
+
+    FlowEntry *rflow = info->reverse_flow();
+
+    if (rflow) {
+        s_flow.set_flowuuid(to_string(rflow->egress_uuid()));
+        s_flow.set_vm(rflow->data().vm_cfg_name);
+        s_flow.set_sg_rule_uuid(rflow->sg_rule_uuid());
+        if (rflow->intf_entry()) {
+            s_flow.set_vmi_uuid(UuidToString(rflow->intf_entry()->GetUuid()));
+        }
+        s_flow.set_reverse_uuid(to_string(rflow->uuid()));
+    } else if (params) {
+        s_flow.set_flowuuid(to_string(params->rev_egress_uuid_));
+        s_flow.set_vm(params->vm_cfg_name_);
+        s_flow.set_sg_rule_uuid(params->sg_uuid_);
+        s_flow.set_reverse_uuid(to_string(params->rev_uuid_));
+        s_flow.set_vmi_uuid(params->vmi_uuid_);
+    }
+}
+
 void FlowStatsCollector::GetFlowSandeshActionParams
     (const FlowAction &action_info, std::string &action_str) {
     std::bitset<32> bs(action_info.action);
@@ -845,15 +868,27 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
          * direction as egress.
          */
         s_flow.set_direction_ing(1);
+        s_flow.set_reverse_uuid(to_string(flow->egress_uuid()));
         SourceIpOverride(info, s_flow, params);
         EnqueueFlowMsg();
+
         FlowLogData &s_flow2 = msg_list_[GetFlowMsgIdx()];
         s_flow2 = s_flow;
         s_flow2.set_direction_ing(0);
+        //Update the interface and VM name in this flow
+        //For the reverse flow this would be egress flow
+        //For example
+        //    VM1 A --> B is fwd flow
+        //    VM2 B --> A is rev flow
+        //
+        //Egress flow for fwd flow would be exported
+        //while exporting rev flow, this done so that
+        //key, stats and other stuff can be copied over
+        //from current flow
+        SetImplicitFlowDetails(info, s_flow2, params);
         //Export local flow of egress direction with a different UUID even when
         //the flow is same. Required for analytics module to query flows
         //irrespective of direction.
-        s_flow2.set_flowuuid(to_string(info->egress_uuid()));
         EnqueueFlowMsg();
         flow_stats_manager_->flow_export_count_ += 2;
     } else {
@@ -1049,8 +1084,6 @@ void FlowStatsCollector::AddFlow(FlowExportInfo info) {
 
     /* Invoke NewFlow only if the entry is not present in our tree */
     NewFlow(info);
-    /* Generate egress UUID only while adding into our tree */
-    info.set_egress_uuid(rand_gen());
     flow_tree_.insert(make_pair(info.flow(), info));
 }
 

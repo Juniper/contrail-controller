@@ -16,8 +16,7 @@ public:
 
     FlowEntry* flow() const { return flow_.get(); }
     FlowEntry* reverse_flow() const;
-    const boost::uuids::uuid &egress_uuid() const { return egress_uuid_; }
-    void set_egress_uuid(const boost::uuids::uuid &u) { egress_uuid_ = u; }
+    const boost::uuids::uuid &egress_uuid() const { return flow_->egress_uuid(); }
     uint64_t setup_time() const { return setup_time_; }
     uint64_t teardown_time() const { return teardown_time_; }
     void set_teardown_time(uint64_t time) { teardown_time_ = time; }
@@ -57,7 +56,6 @@ public:
     uint64_t evict_enqueue_time() const { return evict_enqueue_time_; }
 private:
     FlowEntryPtr flow_;
-    boost::uuids::uuid egress_uuid_; // used/applicable only for local flows
     uint64_t setup_time_;
     uint64_t teardown_time_;
     uint64_t last_modified_time_; //used for aging
