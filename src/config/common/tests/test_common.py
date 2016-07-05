@@ -686,6 +686,10 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
                 port.add_virtual_network(vn_obj)
                 port.add_port_tuple(pt)
                 self._vnc_lib.virtual_machine_interface_create(port)
+                # Let a chance to the API to create iip for the vmi of the pt
+                # before creating the si and the schema allocates an iip
+                # address to the service chain
+                gevent.sleep(0.1)
 
         return service_instance.get_fq_name_str()
 
