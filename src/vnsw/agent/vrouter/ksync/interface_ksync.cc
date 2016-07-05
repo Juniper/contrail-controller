@@ -492,7 +492,8 @@ bool IsValidOsIndex(size_t os_index, Interface::Type type, uint16_t vlan_id,
         return true;
     }
 
-    if (vmi_type == VmInterface::GATEWAY) {
+    if (vmi_type == VmInterface::L2GATEWAY ||
+        vmi_type == VmInterface::L3GATEWAY) {
         return true;
     }
 
@@ -546,7 +547,7 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         if (bridging_) {
             flags |= VIF_FLAG_L2_ENABLED;
         }
-        if (vmi_type_ == VmInterface::GATEWAY) {
+        if (vmi_type_ == VmInterface::L3GATEWAY) {
             flags |= VIF_FLAG_NO_ARP_PROXY;
         }
         if (flood_unknown_unicast_) {
@@ -555,7 +556,8 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         MacAddress mac;
         if (parent_.get() != NULL) {
             encoder.set_vifr_type(VIF_TYPE_VIRTUAL_VLAN);
-            if (vmi_type_ == VmInterface::GATEWAY &&
+            if ((vmi_type_ == VmInterface::L2GATEWAY ||
+                 vmi_type_ == VmInterface::L3GATEWAY) &&
                 tx_vlan_id_ == VmInterface::kInvalidVlanId) {
                 //By default in case of gateway, untagged packet
                 //would be considered as belonging to interface
@@ -604,7 +606,8 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             flags |= VIF_FLAG_VHOST_PHYS;
         }
 
-        if (subtype_ == PhysicalInterface::VMWARE) {
+        if (subtype_ == PhysicalInterface::VMWARE ||
+            ksync_obj_->ksync()->agent()->gateway_vrouter()) {
             flags |= VIF_FLAG_PROMISCOUS;
         }
         if (subtype_ == PhysicalInterface::CONFIG) {

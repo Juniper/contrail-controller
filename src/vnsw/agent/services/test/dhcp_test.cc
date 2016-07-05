@@ -79,7 +79,7 @@ public:
                 LOG(DEBUG, "DHCP test : interface deleted " << itf_id_[0]);
                 itf_id_.erase(itf_id_.begin()); // we delete in create order
             }
-            if (vmi && vmi->vmi_type() == VmInterface::GATEWAY)
+            if (vmi && vmi->vmi_type() == VmInterface::L3GATEWAY)
                 gw_itf_id_ = -1;
         } else {
             if (i == itf_id_.size()) {
@@ -87,7 +87,7 @@ public:
                 itf_id_.push_back(itf->id());
                 LOG(DEBUG, "DHCP test : interface added " << itf->id());
             }
-            if (vmi && vmi->vmi_type() == VmInterface::GATEWAY)
+            if (vmi && vmi->vmi_type() == VmInterface::L3GATEWAY)
                 gw_itf_id_ = itf->id();
         }
     }

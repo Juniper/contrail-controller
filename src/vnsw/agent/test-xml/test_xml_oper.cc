@@ -1091,7 +1091,7 @@ static string VmiTypeToString(VmInterface::VmiType type) {
         return "vm";
     if (type == VmInterface::BAREMETAL)
         return "Baremetal";
-    if (type == VmInterface::GATEWAY)
+    if (type == VmInterface::L3GATEWAY)
         return "Gateway";
 
     return "Invalid";

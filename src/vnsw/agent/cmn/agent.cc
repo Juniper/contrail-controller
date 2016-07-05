@@ -387,6 +387,7 @@ void Agent::CopyConfig(AgentParam *params) {
     test_mode_ = params_->test_mode();
     tsn_enabled_ = params_->isTsnAgent();
     tor_agent_enabled_ = params_->isTorAgent();
+    gateway_vrouter_ = params_->isGatewayVrouter();
     flow_thread_count_ = params_->flow_thread_count();
     flow_trace_enable_ = params_->flow_trace_enable();
     flow_add_tokens_ = params_->flow_add_tokens();
@@ -579,7 +580,7 @@ Agent::Agent() :
     connection_state_(NULL), test_mode_(false),
     xmpp_dns_test_mode_(false),
     init_done_(false), simulate_evpn_tor_(false), tsn_enabled_(false),
-    tor_agent_enabled_(false),
+    tor_agent_enabled_(false), gateway_vrouter_(false),
     flow_table_size_(0), flow_thread_count_(0), flow_trace_enable_(true),
     max_vm_flows_(0), ovsdb_client_(NULL), vrouter_server_ip_(0),
     vrouter_server_port_(0), vrouter_max_labels_(0), vrouter_max_nexthops_(0),

@@ -26,6 +26,7 @@ public:
         VROUTER_AGENT,
         TSN_AGENT,
         TOR_AGENT,
+        GATEWAY_VROUTER_AGENT,
     };
 
     // Hypervisor mode we are working on
@@ -231,6 +232,7 @@ public:
     AgentMode agent_mode() const { return agent_mode_; }
     bool isTsnAgent() const { return agent_mode_ == TSN_AGENT; }
     bool isTorAgent() const { return agent_mode_ == TOR_AGENT; }
+    bool isGatewayVrouter() const { return agent_mode_ == GATEWAY_VROUTER_AGENT; }
 
     const AddressList &compute_node_address_list() const {
         return compute_node_address_list_;
