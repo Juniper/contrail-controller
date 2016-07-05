@@ -36,7 +36,7 @@ bool QosConfigKSyncEntry::IsLess(const KSyncEntry &rhs) const {
 
 std::string QosConfigKSyncEntry::ToString() const {
     std::stringstream s;
-    s << "Forwarding class id " << uuid_;
+    s << "Qos Config class id " << uuid_;
     return s.str();
 }
 
@@ -88,6 +88,11 @@ bool QosConfigKSyncEntry::Sync(DBEntry *e) {
         ret = true;
     }
 
+    if (default_forwarding_class_ != qc->default_forwarding_class()) {
+        default_forwarding_class_ = qc->default_forwarding_class();
+        ret = true;
+    }
+
     return ret;
 }
 
@@ -101,11 +106,18 @@ int QosConfigKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     std::vector<int8_t> key;
     std::vector<int8_t> data;
     KSyncQosFcMap::const_iterator it = dscp_map_.begin();
-    for (;it != dscp_map_.end(); it++) {
-        ForwardingClassKSyncEntry *fc =
-            static_cast<ForwardingClassKSyncEntry *>(it->second.get());
-        key.push_back(it->first);
-        data.push_back(fc->id());
+    for (uint32_t index = 0;
+         index <= AgentQosConfigTable::kDscpEntries; index++) {
+        it = dscp_map_.find(index);
+        if (it != dscp_map_.end() && trusted_) {
+            ForwardingClassKSyncEntry *fc =
+                static_cast<ForwardingClassKSyncEntry *>(it->second.get());
+            key.push_back(index);
+            data.push_back(fc->id());
+        } else {
+            key.push_back(index);
+            data.push_back(default_forwarding_class_);
+        }
     }
 
     encoder.set_qmr_dscp(key);
@@ -114,11 +126,18 @@ int QosConfigKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     std::vector<int8_t> vlan_key;
     std::vector<int8_t> vlan_data;
     it = vlan_priority_map_.begin();
-    for (;it != vlan_priority_map_.end(); it++) {
-        ForwardingClassKSyncEntry *fc =
-            static_cast<ForwardingClassKSyncEntry *>(it->second.get());
-        vlan_key.push_back(it->first);
-        vlan_data.push_back(fc->id());
+    for (uint32_t index = 0;
+            index <= AgentQosConfigTable::k801pEntries; index++) {
+        it = vlan_priority_map_.find(index);
+        if (it != vlan_priority_map_.end() && trusted_) {
+            ForwardingClassKSyncEntry *fc =
+                static_cast<ForwardingClassKSyncEntry *>(it->second.get());
+            vlan_key.push_back(index);
+            vlan_data.push_back(fc->id());
+        } else {
+            vlan_key.push_back(index);
+            vlan_data.push_back(default_forwarding_class_);
+        }
     }
     encoder.set_qmr_dotonep(vlan_key);
     encoder.set_qmr_dotonep_fc_id(vlan_data);
@@ -126,11 +145,18 @@ int QosConfigKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     std::vector<int8_t> mpls_key;
     std::vector<int8_t> mpls_data;
     it = mpls_exp_map_.begin();
-    for (;it != mpls_exp_map_.end(); it++) {
-        ForwardingClassKSyncEntry *fc =
-            static_cast<ForwardingClassKSyncEntry *>(it->second.get());
-        mpls_key.push_back(it->first);
-        mpls_data.push_back(fc->id());
+    for (uint32_t index = 0;
+         index <= AgentQosConfigTable::kExpEntries; index++) {
+        it = mpls_exp_map_.find(index);
+        if (it != mpls_exp_map_.end() && trusted_) {
+            ForwardingClassKSyncEntry *fc =
+                static_cast<ForwardingClassKSyncEntry *>(it->second.get());
+            mpls_key.push_back(index);
+            mpls_data.push_back(fc->id());
+        } else {
+            mpls_key.push_back(index);
+            mpls_data.push_back(default_forwarding_class_);
+        }
     }
     encoder.set_qmr_mpls_qos(mpls_key);
     encoder.set_qmr_mpls_qos_fc_id(mpls_data);
@@ -177,11 +203,23 @@ KSyncEntry *QosConfigKSyncEntry::UnresolvedReference() {
         }
     }
 
+    if (default_forwarding_class_) {
+        ForwardingClassKSyncObject *fc_object =
+            static_cast<ForwardingClassKSyncObject *>(ksync_obj_)
+            ->ksync()->forwarding_class_ksync_obj();
+        ForwardingClassKSyncEntry fc_key(fc_object,
+                                         default_forwarding_class_);
+        KSyncEntryPtr ptr = fc_object->GetReference(&fc_key);
+        if (ptr && ptr->IsResolved() == false) {
+            return ptr.get();
+        }
+    }
+
     return NULL;
 }
 
 QosConfigKSyncObject::QosConfigKSyncObject(KSync *ksync):
-    KSyncDBObject("KSync Forwarding class object"), ksync_(ksync) {
+    KSyncDBObject("KSync Qos Config class object"), ksync_(ksync) {
 }
 
 QosConfigKSyncObject::~QosConfigKSyncObject() {

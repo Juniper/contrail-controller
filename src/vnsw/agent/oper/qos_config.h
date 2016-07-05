@@ -34,6 +34,7 @@ typedef std::map<uint32_t, uint32_t> AgentQosIdForwardingClassMap;
 class AgentQosConfig :
     AgentRefCount<AgentQosConfig>, public AgentOperDBEntry {
 public:
+    static const uint32_t kDefaultQosMsgSize = 4098;
     typedef enum {
         VHOST,
         FABRIC,
@@ -97,6 +98,12 @@ public:
         return type_;
     }
 
+    uint32_t default_forwarding_class() const {
+        return default_forwarding_class_;
+    }
+
+    int MsgLen() { return kDefaultQosMsgSize; }
+
 private:
     bool VerifyLinkToGlobalQosConfig(const Agent *agent,
                                      const AgentQosConfigData *data);
@@ -116,12 +123,13 @@ private:
     QosIdForwardingClassMap vlan_priority_map_;
     QosIdForwardingClassMap mpls_exp_map_;
     Type type_;
+    uint32_t default_forwarding_class_;
     DISALLOW_COPY_AND_ASSIGN(AgentQosConfig);
 };
 
 struct AgentQosConfigData : public AgentOperDBData {
     AgentQosConfigData(const Agent *agent, IFMapNode *node) :
-    AgentOperDBData(agent, node) {}
+    AgentOperDBData(agent, node), default_forwarding_class_(0) {}
 
     bool trusted_;
     std::string name_;
@@ -129,6 +137,7 @@ struct AgentQosConfigData : public AgentOperDBData {
     AgentQosIdForwardingClassMap vlan_priority_map_;
     AgentQosIdForwardingClassMap mpls_exp_map_;
     AgentQosConfig::Type type_;
+    uint32_t default_forwarding_class_;
 };
 
 class AgentQosConfigTable : public AgentOperDBTable {
@@ -139,6 +148,10 @@ public:
     AgentQosConfigTable(Agent *agent, DB *db, const std::string &name);
     virtual ~AgentQosConfigTable();
     static const uint32_t kInvalidIndex=0xFFFF;
+    static const uint32_t kDscpEntries = 63;
+    static const uint32_t k801pEntries = 7;
+    static const uint32_t kExpEntries = 7;
+
 
     static DBTableBase *CreateTable(Agent *agent, DB *db,
                                     const std::string &name);

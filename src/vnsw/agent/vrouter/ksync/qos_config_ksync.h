@@ -19,6 +19,7 @@ class QosConfigKSyncObject;
 
 class QosConfigKSyncEntry : public KSyncNetlinkDBEntry {
 public:
+    static const uint32_t kDefaultQosMsgSize = 4096;
     typedef std::pair<uint32_t, KSyncEntryPtr> KSyncQosFcPair;
     typedef std::map<uint32_t, KSyncEntryPtr> KSyncQosFcMap;
 
@@ -38,6 +39,7 @@ public:
     virtual int DeleteMsg(char *buf, int buf_len);
     boost::uuids::uuid uuid() const { return uuid_;}
     uint32_t id() const { return id_;}
+    int MsgLen() { return kDefaultQosMsgSize; }
 private:
     bool CopyQosMap(KSyncQosFcMap &ksync_map,
                     const AgentQosConfig::QosIdForwardingClassMap *map);
@@ -49,6 +51,7 @@ private:
     KSyncQosFcMap dscp_map_;
     KSyncQosFcMap vlan_priority_map_;
     KSyncQosFcMap mpls_exp_map_;
+    uint32_t default_forwarding_class_;
     int Encode(sandesh_op::type op, char *buf, int buf_len);
     DISALLOW_COPY_AND_ASSIGN(QosConfigKSyncEntry);
 };

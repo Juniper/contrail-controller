@@ -4152,6 +4152,9 @@ void AddQosConfig(struct TestQosConfigData &data) {
 
     str << "<qos-config-type>" << data.type_ << "</qos-config-type>";
 
+    str << "<default-forwarding-class-id>" << data.default_forwarding_class_
+        << "</default-forwarding-class-id>";
+
     if (data.dscp_.size()) {
         str << "<dscp-entries>";
     }
@@ -4255,6 +4258,8 @@ void VerifyQosConfig(Agent *agent, struct TestQosConfigData *data) {
     }
     EXPECT_TRUE(it == data->mpls_exp_.end());
     EXPECT_TRUE(qc_it == qc->mpls_exp_map().end());
+    EXPECT_TRUE(qc->default_forwarding_class() ==
+                data->default_forwarding_class_);
 }
 
 void AddGlobalConfig(struct TestForwardingClassData *data,
