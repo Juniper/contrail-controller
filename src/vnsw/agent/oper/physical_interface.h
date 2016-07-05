@@ -72,6 +72,8 @@ public:
     bool OnChange(PhysicalInterfaceData *data);
     friend class PhysicalInterfaceKey;
 private:
+    std::string GetPhysicalInterfaceName() const;
+
     bool persistent_;
     SubType subtype_;
     EncapType encap_type_;
