@@ -582,6 +582,8 @@ void AgentParam::set_agent_mode(const std::string &mode) {
         agent_mode_ = TSN_AGENT;
     else if (agent_mode == "tor")
         agent_mode_ = TOR_AGENT;
+    else if (agent_mode == "gateway-vrouter")
+        agent_mode_ = GATEWAY_VROUTER_AGENT;
     else
         agent_mode_ = VROUTER_AGENT;
 }
@@ -1228,6 +1230,8 @@ void AgentParam::LogConfig() const {
         LOG(DEBUG, "Agent Mode                  : TSN");
     else if (agent_mode_ == TOR_AGENT)
         LOG(DEBUG, "Agent Mode                  : TOR");
+    else if (agent_mode_ == GATEWAY_VROUTER_AGENT)
+        LOG(DEBUG, "Agent Mode                  : GATEWAY");
 
     LOG(DEBUG, "Headless Mode               : " << headless_mode_);
     LOG(DEBUG, "DHCP Relay Mode             : " << dhcp_relay_mode_);
@@ -1388,7 +1392,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         ("DEFAULT.tunnel_type", opt::value<string>()->default_value("MPLSoGRE"),
          "Tunnel Encapsulation type <MPLSoGRE|MPLSoUDP|VXLAN>")
         ("DEFAULT.agent_mode", opt::value<string>(),
-         "Run agent in vrouter / tsn / tor mode")
+         "Run agent in vrouter / tsn / tor / gateway mode")
         ("DEFAULT.agent_base_directory", opt::value<string>(),
          "Base directory used by the agent")
         ("DISCOVERY.port", opt::value<uint32_t>()->default_value(DISCOVERY_SERVER_PORT),

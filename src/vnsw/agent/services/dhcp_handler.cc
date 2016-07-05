@@ -417,7 +417,8 @@ bool DhcpHandler::HandleVmRequest() {
             DHCP_TRACE(Error, "DHCP Client declined the offer : vrf = " << 
                        pkt_info_->vrf << " ifindex = " << GetInterfaceIndex() <<
                        " Mac : " << request_.mac_addr.ToString());
-            if (vm_itf_->vmi_type() == VmInterface::GATEWAY) {
+            if (vm_itf_->vmi_type() == VmInterface::GATEWAY &&
+                vm_itf_->device_type() != VmInterface::GW_VLAN_ON_VMI) {
                 ReleaseGatewayInterfaceLease();
             }
             return true;
@@ -426,7 +427,8 @@ bool DhcpHandler::HandleVmRequest() {
             DHCP_TRACE(Error, "DHCP lease released : vrf = " <<
                        pkt_info_->vrf << " ifindex = " << GetInterfaceIndex() <<
                        " Mac : " << request_.mac_addr.ToString());
-            if (vm_itf_->vmi_type() == VmInterface::GATEWAY) {
+            if (vm_itf_->vmi_type() == VmInterface::GATEWAY &&
+                vm_itf_->device_type() != VmInterface::GW_VLAN_ON_VMI) {
                 ReleaseGatewayInterfaceLease();
             }
             dhcp_proto->IncrStatsRelease();
@@ -614,7 +616,8 @@ bool DhcpHandler::FindLeaseData() {
     if (vm_itf_->IsActive() || vm_itf_->device_type() == VmInterface::TOR) {
         // if the request is from a Gateway interface, get an address from the
         // relevant subnet
-        if (vm_itf_->vmi_type() == VmInterface::GATEWAY) {
+        if (vm_itf_->vmi_type() == VmInterface::GATEWAY &&
+            vm_itf_->device_type() != VmInterface::GW_VLAN_ON_VMI) {
             return GetGatewayInterfaceLease();
         }
 

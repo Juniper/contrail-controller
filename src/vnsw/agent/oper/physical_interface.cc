@@ -86,9 +86,12 @@ void PhysicalInterface::PostAdd() {
         return;
     }
 
-    // Interfaces in VMWARE must be put into promiscous mode
+    // Interfaces in VMWARE and in gateway mode must be put into promiscuous mode
     if (subtype_ != VMWARE) {
-        return;
+        if (!table->agent()->gateway_vrouter() ||
+            subtype_ == PhysicalInterface::FABRIC) {
+            return;
+        }
     }
 
     int fd = socket(AF_LOCAL, SOCK_STREAM, 0);

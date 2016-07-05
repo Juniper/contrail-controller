@@ -77,6 +77,8 @@ public:
                             // VMI is created based on the INSTANCE_MSG
         TOR,                // Baremetal connected to ToR
         LOCAL_DEVICE,       // VMI on a local port. Used in GATEWAY
+        GW_VLAN_ON_VMI,     // VMI on a local port with VLAN as classifier
+                            // Used in GATEWAY
         VM_SRIOV            // VMI on an SRIOV VM
     };
 

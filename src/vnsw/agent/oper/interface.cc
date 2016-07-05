@@ -651,6 +651,8 @@ static string DeviceTypeToString(VmInterface::DeviceType type) {
         return "Tap";
     } else if (type == VmInterface::VM_VLAN_ON_VMI) {
         return "VMI vlan-sub-if";
+    } else if (type == VmInterface::GW_VLAN_ON_VMI) {
+        return "Gateway";
     }
     return "Invalid";
 }

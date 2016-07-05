@@ -380,6 +380,29 @@ static void BuildResolveRoute(VmInterfaceConfigData *data, IFMapNode *node) {
     }
 }
 
+// Get VLAN if linked to physical interface and router
+static void BuildInterfaceConfigurationData(Agent *agent, VmInterfaceConfigData *data,
+                                            IFMapNode *node, uint16_t *vlan) {
+    IFMapNode *phy_node = agent->config_manager()->
+                          FindAdjacentIFMapNode(node, "physical-interface");
+
+    if (!phy_node) {
+        *vlan = VmInterface::kInvalidVlanId;
+        return;
+    }
+    if (!agent->config_manager()->FindAdjacentIFMapNode(phy_node,
+                                                        "physical-router")) {
+        *vlan = VmInterface::kInvalidVlanId;
+        return;
+    }
+
+    autogen::LogicalInterface *port =
+        static_cast <autogen::LogicalInterface *>(node->GetObject());
+    if (port->IsPropertySet(autogen::LogicalInterface::VLAN_TAG)) {
+        *vlan = port->vlan_tag();
+    }
+}
+
 static void BuildAllowedAddressPairRouteList(VirtualMachineInterface *cfg,
                                              VmInterfaceConfigData *data) {
     for (std::vector<AllowedAddressPair>::const_iterator it =
@@ -956,7 +979,11 @@ static void ComputeTypeInfo(Agent *agent, VmInterfaceConfigData *data,
         // VMI is either Baremetal or Gateway interface
         if (prouter->display_name() == agent->agent_name()) {
             // VMI connected to local vrouter. Treat it as GATEWAY 
-            data->device_type_ = VmInterface::LOCAL_DEVICE;
+            if (agent->gateway_vrouter()) {
+                data->device_type_ = VmInterface::GW_VLAN_ON_VMI;
+            } else {
+                data->device_type_ = VmInterface::LOCAL_DEVICE;
+            }
             data->vmi_type_ = VmInterface::GATEWAY;
             if (logical_node) {
                 autogen::LogicalInterface *port =
@@ -1072,6 +1099,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
     IFMapNode *vn_node = NULL;
     IFMapNode *li_node = NULL;
     IFMapNode *parent_vmi_node = NULL;
+    uint16_t vlan_id = VmInterface::kInvalidVlanId;
     std::list<IFMapNode *> bgp_as_a_service_node_list;
     for (DBGraphVertex::adjacency_iterator iter =
          node->begin(table->GetGraph()); 
@@ -1125,6 +1153,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
 
         if (adj_node->table() == agent_->cfg()->cfg_logical_port_table()) {
             li_node = adj_node;
+            BuildInterfaceConfigurationData(agent(), data, adj_node, &vlan_id);
         }
 
         if (adj_node->table() == agent_->cfg()->cfg_vm_interface_table()) {
@@ -1175,6 +1204,12 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
     if (data->device_type_ != VmInterface::DEVICE_TYPE_INVALID) {
         AddVmiToVmiType(u, data->device_type_);
     }
+
+    if (data->device_type_ == VmInterface::GW_VLAN_ON_VMI &&
+        vlan_id == VmInterface::kInvalidVlanId) {
+        return false;
+    }
+
     req.key.reset(key);
     req.data.reset(data);
 
@@ -1185,6 +1220,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
     }
     UpdatePhysicalDeviceVnEntry(u, dev, data->vn_uuid_, vn_node);
     vmi_ifnode_to_req_++;
+
     return true;
 }
 
@@ -1702,7 +1738,7 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,
         DeleteMulticastNextHop();
     }
 
-    if (vrf_ && vmi_type() == GATEWAY) {
+    if (vrf_ && vmi_type() == GATEWAY && device_type_ != GW_VLAN_ON_VMI) {
         vrf_->CreateTableLabel();
     }
 
@@ -1843,6 +1879,22 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
 VmInterface *VmInterfaceConfigData::OnAdd(const InterfaceTable *table,
                                           const VmInterfaceKey *key) const {
 
+    Interface *parent = NULL;
+    if (device_type_ == VmInterface::GW_VLAN_ON_VMI) {
+        if (rx_vlan_id_ == VmInterface::kInvalidVlanId ||
+            tx_vlan_id_ == VmInterface::kInvalidVlanId)
+            return NULL;
+
+        if (physical_interface_ != Agent::NullString()) {
+            PhysicalInterfaceKey key_1(physical_interface_);
+            parent = static_cast<Interface *>
+                (table->agent()->interface_table()->FindActiveEntry(&key_1));
+        }
+
+        if (parent == NULL)
+            return NULL;
+    }
+
     boost::system::error_code ec;
     MacAddress mac = MacAddress::FromString(vm_mac_, &ec);
     if (ec.value() != 0) {
@@ -1851,9 +1903,8 @@ VmInterface *VmInterfaceConfigData::OnAdd(const InterfaceTable *table,
 
     VmInterface *vmi =
         new VmInterface(key->uuid_, key->name_, addr_, mac, vm_name_,
-                        nil_uuid(), VmInterface::kInvalidVlanId,
-                        VmInterface::kInvalidVlanId, NULL, ip6_addr_,
-                        device_type_, vmi_type_);
+                        nil_uuid(), tx_vlan_id_, rx_vlan_id_, parent,
+                        ip6_addr_, device_type_, vmi_type_);
     vmi->SetConfigurer(VmInterface::CONFIG);
     return vmi;
 }
@@ -2193,7 +2244,8 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         ret = true;
     }
 
-    if (device_type_ == LOCAL_DEVICE || device_type_ == VM_VLAN_ON_VMI) {
+    if (device_type_ == LOCAL_DEVICE || device_type_ == GW_VLAN_ON_VMI ||
+        device_type_ == VM_VLAN_ON_VMI) {
         if (rx_vlan_id_ != data->rx_vlan_id_) {
             rx_vlan_id_ = data->rx_vlan_id_;
             ret = true;
@@ -2542,6 +2594,13 @@ bool VmInterface::IsActive()  const {
     //  paremt_vmi is present and not necessarily active)
     if (device_type_ == VM_VLAN_ON_VMI) {
         if (parent_.get() == NULL)
+            return false;
+    }
+
+    if (device_type_ == GW_VLAN_ON_VMI) {
+        if (tx_vlan_id_ == VmInterface::kInvalidVlanId ||
+            rx_vlan_id_ == VmInterface::kInvalidVlanId ||
+            parent_.get() == NULL)
             return false;
     }
 

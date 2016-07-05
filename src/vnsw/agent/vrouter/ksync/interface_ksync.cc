@@ -546,7 +546,8 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         if (bridging_) {
             flags |= VIF_FLAG_L2_ENABLED;
         }
-        if (vmi_type_ == VmInterface::GATEWAY) {
+        if (vmi_type_ == VmInterface::GATEWAY &&
+            vmi_device_type_ != VmInterface::GW_VLAN_ON_VMI) {
             flags |= VIF_FLAG_NO_ARP_PROXY;
         }
         if (flood_unknown_unicast_) {
@@ -604,7 +605,8 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             flags |= VIF_FLAG_VHOST_PHYS;
         }
 
-        if (subtype_ == PhysicalInterface::VMWARE) {
+        if (subtype_ == PhysicalInterface::VMWARE ||
+            ksync_obj_->ksync()->agent()->gateway_vrouter()) {
             flags |= VIF_FLAG_PROMISCOUS;
         }
         if (subtype_ == PhysicalInterface::CONFIG) {
