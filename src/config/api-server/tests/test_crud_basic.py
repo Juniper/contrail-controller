@@ -662,10 +662,18 @@ class TestCrud(test_case.ApiServerTestCase):
 class TestVncCfgApiServer(test_case.ApiServerTestCase):
     def _create_vn_ri_vmi(self, obj_count=1):
         vn_objs = []
+        ipam_objs = []
         ri_objs = []
         vmi_objs = []
         for i in range(obj_count):
             vn_obj = VirtualNetwork('%s-vn-%s' %(self.id(), i))
+            vn_obj.set_virtual_network_network_id(i)
+
+            ipam_obj = NetworkIpam('%s-ipam-%s' % (self.id(), i))
+            vn_obj.add_network_ipam(ipam_obj, VnSubnetsType())
+            self._vnc_lib.network_ipam_create(ipam_obj)
+            ipam_objs.append(ipam_obj)
+
             self._vnc_lib.virtual_network_create(vn_obj)
             vn_objs.append(vn_obj)
 
@@ -680,7 +688,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             self._vnc_lib.virtual_machine_interface_create(vmi_obj)
             vmi_objs.append(vmi_obj)
 
-        return vn_objs, ri_objs, vmi_objs
+        return vn_objs, ipam_objs, ri_objs, vmi_objs
     # end _create_vn_ri_vmi
 
     def test_fq_name_to_id_http_post(self):
@@ -1232,7 +1240,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         ri_uuids = []
         vmi_uuids = []
         logger.info("Creating %s VNs, RIs, VMIs.", obj_count)
-        vn_objs, ri_objs, vmi_objs = self._create_vn_ri_vmi(obj_count)
+        vn_objs, _, ri_objs, vmi_objs = self._create_vn_ri_vmi(obj_count)
 
         vn_uuids = [o.uuid for o in vn_objs]
         ri_uuids = [o.uuid for o in ri_objs]
@@ -1534,7 +1542,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
 
     def test_read_rest_api(self):
         logger.info("Creating VN, RI, VMI.")
-        vn_objs, ri_objs, vmi_objs = self._create_vn_ri_vmi()
+        vn_objs, ipam_objs, ri_objs, vmi_objs = self._create_vn_ri_vmi()
 
         listen_ip = self._api_server_ip
         listen_port = self._api_server._args.listen_port
@@ -1611,6 +1619,77 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         self.assertThat(ret_vn.keys(), Not(Contains('routing_instances')))
         self.assertThat(ret_vn.keys(), Not(Contains(
             'virtual_machine_interface_back_refs')))
+
+        logger.info("Reading VN with one specific property field.")
+        query_param_str = 'fields=virtual_network_network_id'
+        url = 'http://%s:%s/virtual-network/%s?%s' % (
+            listen_ip, listen_port, vn_objs[0].uuid, query_param_str)
+        resp = requests.get(url)
+        self.assertEqual(resp.status_code, 200)
+        ret_vn = json.loads(resp.text)['virtual-network']
+        self.assertThat(ret_vn.keys(), Contains('virtual_network_network_id'))
+        self.assertThat(ret_vn.keys(), Not(Contains('routing_instances')))
+        self.assertThat(ret_vn.keys(), Not(Contains('network_ipam_refs')))
+        self.assertThat(ret_vn.keys(), Not(Contains(
+            'virtual_machine_interface_back_refs')))
+
+        logger.info("Reading VN with one specific children field.")
+        query_param_str = 'fields=routing_instances'
+        url = 'http://%s:%s/virtual-network/%s?%s' % (
+            listen_ip, listen_port, vn_objs[0].uuid, query_param_str)
+        resp = requests.get(url)
+        self.assertEqual(resp.status_code, 200)
+        ret_vn = json.loads(resp.text)['virtual-network']
+        self.assertThat(ret_vn.keys(), Not(Contains(
+            'virtual_network_network_id')))
+        self.assertThat(ret_vn.keys(), Contains('routing_instances'))
+        self.assertThat(ret_vn.keys(), Not(Contains('network_ipam_refs')))
+        self.assertThat(ret_vn.keys(), Not(Contains(
+            'virtual_machine_interface_back_refs')))
+
+        logger.info("Reading VN with one specific ref field.")
+        query_param_str = 'fields=network_ipam_refs'
+        url = 'http://%s:%s/virtual-network/%s?%s' % (
+            listen_ip, listen_port, vn_objs[0].uuid, query_param_str)
+        resp = requests.get(url)
+        self.assertEqual(resp.status_code, 200)
+        ret_vn = json.loads(resp.text)['virtual-network']
+        self.assertThat(ret_vn.keys(), Not(Contains(
+            'virtual_network_network_id')))
+        self.assertThat(ret_vn.keys(), Not(Contains('routing_instances')))
+        self.assertThat(ret_vn.keys(), Contains('network_ipam_refs'))
+        self.assertThat(ret_vn.keys(), Not(Contains(
+            'virtual_machine_interface_back_refs')))
+
+        logger.info("Reading VN with one specific backref field.")
+        query_param_str = 'fields=virtual_machine_interface_back_refs'
+        url = 'http://%s:%s/virtual-network/%s?%s' % (
+            listen_ip, listen_port, vn_objs[0].uuid, query_param_str)
+        resp = requests.get(url)
+        self.assertEqual(resp.status_code, 200)
+        ret_vn = json.loads(resp.text)['virtual-network']
+        self.assertThat(ret_vn.keys(), Not(Contains(
+            'virtual_network_network_id')))
+        self.assertThat(ret_vn.keys(), Not(Contains('routing_instances')))
+        self.assertThat(ret_vn.keys(), Not(Contains('network_ipam_refs')))
+        self.assertThat(ret_vn.keys(), Contains(
+            'virtual_machine_interface_back_refs'))
+
+        logger.info("Reading VN with property, children, ref and backref "
+                    "fields.")
+        query_param_str = ('fields=virtual_network_network_id,'
+                           'routing_instances,network_ipam_refs,'
+                           'virtual_machine_interface_back_refs')
+        url = 'http://%s:%s/virtual-network/%s?%s' % (
+            listen_ip, listen_port, vn_objs[0].uuid, query_param_str)
+        resp = requests.get(url)
+        self.assertEqual(resp.status_code, 200)
+        ret_vn = json.loads(resp.text)['virtual-network']
+        self.assertThat(ret_vn.keys(), Contains('virtual_network_network_id'))
+        self.assertThat(ret_vn.keys(), Contains('routing_instances'))
+        self.assertThat(ret_vn.keys(), Contains('network_ipam_refs'))
+        self.assertThat(ret_vn.keys(), Contains(
+            'virtual_machine_interface_back_refs'))
     # end test_read_rest_api
 
     def test_delete_after_unref(self):
