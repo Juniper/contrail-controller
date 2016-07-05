@@ -899,7 +899,8 @@ bool PktHandler::IsGwPacket(const Interface *intf, const IpAddress &dst_ip) {
         return false;
 
     const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);
-    if (vm_intf->vmi_type() != VmInterface::GATEWAY) {
+    if (vm_intf->vmi_type() != VmInterface::L2GATEWAY &&
+        vm_intf->vmi_type() != VmInterface::L3GATEWAY) {
         //Gateway interface doesnt have IP address
         if (dst_ip.is_v6() && vm_intf->primary_ip6_addr().is_unspecified())
             return false;
@@ -914,13 +915,8 @@ bool PktHandler::IsGwPacket(const Interface *intf, const IpAddress &dst_ip) {
                 if (!ipam[i].IsV4()) {
                     continue;
                 }
-                IpAddress src_ip = vm_intf->primary_ip_addr();
-                if (vm_intf->vmi_type() == VmInterface::GATEWAY) {
-                    src_ip = vm_intf->subnet();
-                }
-
                 if (ipam[i].default_gw == dst_ip ||
-                        ipam[i].dns_server == dst_ip) {
+                    ipam[i].dns_server == dst_ip) {
                     return true;
                 }
             } else {

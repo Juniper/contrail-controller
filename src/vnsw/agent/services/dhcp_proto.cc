@@ -146,7 +146,7 @@ void DhcpProto::ItfNotify(DBEntryBase *entry) {
             set_pkt_interface_index(itf->id());
         } else if (itf->type() == Interface::VM_INTERFACE) {
             VmInterface *vmi = static_cast<VmInterface *>(itf);
-            if (vmi->vmi_type() == VmInterface::GATEWAY) {
+            if (vmi->vmi_type() == VmInterface::L3GATEWAY) {
                 DHCP_TRACE(Trace, "Gateway interface added: " << itf->name());
                 gw_vmi_list_.insert(vmi);
                 CreateLeaseDb(vmi);

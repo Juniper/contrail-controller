@@ -651,6 +651,8 @@ static string DeviceTypeToString(VmInterface::DeviceType type) {
         return "Tap";
     } else if (type == VmInterface::VM_VLAN_ON_VMI) {
         return "VMI vlan-sub-if";
+    } else if (type == VmInterface::GW_VLAN_ON_VMI) {
+        return "Gateway";
     }
     return "Invalid";
 }
@@ -664,8 +666,10 @@ static string VmiTypeToString(VmInterface::VmiType type) {
         return "Service Instance";
     } else if (type == VmInterface::BAREMETAL) {
         return "Baremetal";
-    } else if (type == VmInterface::GATEWAY) {
-        return "Gateway";
+    } else if (type == VmInterface::L2GATEWAY) {
+        return "L2 Gateway";
+    } else if (type == VmInterface::L3GATEWAY) {
+        return "L3 Gateway";
     } else if (type == VmInterface::SRIOV) {
         return "Sriov";
     }
