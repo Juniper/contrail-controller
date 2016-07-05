@@ -695,11 +695,11 @@ class VncCassandraClient(object):
 
         results = []
         for obj_uuid, obj_cols in obj_rows.items():
-            if obj_type != obj_cols['type'][0]:
+            if obj_type != obj_cols.pop('type')[0]:
                 continue
             result = {}
             result['uuid'] = obj_uuid
-            result['fq_name'] = obj_cols['fq_name'][0]
+            result['fq_name'] = obj_cols.pop('fq_name')[0]
             for col_name in obj_cols.keys():
                 if self._is_parent(col_name):
                     # non config-root child
@@ -717,13 +717,16 @@ class VncCassandraClient(object):
 
                 if self._is_prop(col_name):
                     (_, prop_name) = col_name.split(':')
-                    if prop_name not in prop_fields:
+                    if ((prop_name not in prop_fields) or
+                        (field_names and prop_name not in field_names)):
                         continue
                     result[prop_name] = obj_cols[col_name][0]
                     continue
 
                 if self._is_prop_list(col_name):
                     (_, prop_name, prop_elem_position) = col_name.split(':')
+                    if field_names and prop_name not in field_names:
+                        continue
                     if obj_class.prop_list_field_has_wrappers[prop_name]:
                         prop_field_types = obj_class.prop_field_types[prop_name]
                         wrapper_type = prop_field_types['xsd_type']
@@ -742,6 +745,8 @@ class VncCassandraClient(object):
 
                 if self._is_prop_map(col_name):
                     (_, prop_name, _) = col_name.split(':')
+                    if field_names and prop_name not in field_names:
+                        continue
                     if obj_class.prop_map_field_has_wrappers[prop_name]:
                         prop_field_types = obj_class.prop_field_types[prop_name]
                         wrapper_type = prop_field_types['xsd_type']
@@ -774,7 +779,8 @@ class VncCassandraClient(object):
 
                 if self._is_ref(col_name):
                     (_, ref_type, ref_uuid) = col_name.split(':')
-                    if ref_type+'_refs' not in ref_fields:
+                    if ((ref_type+'_refs' not in ref_fields) or
+                        (field_names and ref_type + '_refs' not in field_names)):
                         continue
                     self._read_ref(result, obj_uuid, ref_type, ref_uuid,
                                    obj_cols[col_name][0])

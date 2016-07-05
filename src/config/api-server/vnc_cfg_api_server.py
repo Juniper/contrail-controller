@@ -603,18 +603,18 @@ class VncApiServer(object):
         obj_ids = {'uuid': id}
 
         # Generate field list for db layer
+        obj_fields = r_class.prop_fields | r_class.ref_fields
         if 'fields' in get_request().query:
-            obj_fields = get_request().query.fields.split(',')
+            obj_fields |= set(get_request().query.fields.split(','))
         else: # default props + children + refs + backrefs
-            obj_fields = list(r_class.prop_fields) + list(r_class.ref_fields)
             if 'exclude_back_refs' not in get_request().query:
-                obj_fields = obj_fields + list(r_class.backref_fields)
+                obj_fields |= r_class.backref_fields
             if 'exclude_children' not in get_request().query:
-                obj_fields = obj_fields + list(r_class.children_fields)
+                obj_fields |= r_class.children_fields
 
         try:
             (ok, result) = db_conn.dbe_read(obj_type, obj_ids,
-                                            obj_fields)
+                                            list(obj_fields))
             if not ok:
                 self.config_object_error(id, None, obj_type, 'http_get', result)
         except NoIdError as e:
@@ -809,11 +809,8 @@ class VncApiServer(object):
 
         # read in obj from db (accepting error) to get details of it
         obj_ids = {'uuid': id}
-        obj_fields = list(r_class.children_fields) + \
-                     list(r_class.backref_fields)
         try:
-            (read_ok, read_result) = db_conn.dbe_read(
-                obj_type, obj_ids, obj_fields)
+            (read_ok, read_result) = db_conn.dbe_read(obj_type, obj_ids)
         except NoIdError as e:
             raise cfgm_common.exceptions.HttpError(404, str(e))
         if not read_ok:

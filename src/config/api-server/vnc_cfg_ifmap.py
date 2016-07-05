@@ -1543,7 +1543,7 @@ class VncDbClient(object):
         return False
     # end match_uuid
 
-    def update_subnet_uuid(self, vn_dict):
+    def update_subnet_uuid(self, vn_dict, do_update=False):
         vn_uuid = vn_dict.get('uuid')
 
         def _locate_subnet_uuid(subnet):
@@ -1562,12 +1562,13 @@ class VncDbClient(object):
         updated = False
         for ipam in vn_dict.get('network_ipam_refs', []):
             subnets = ipam['attr']['ipam_subnets']
-            for subnet in [subnet for subnet in subnets
-                           if 'subnet_uuid' not in subnet]:
+            for subnet in subnets:
+                if subnet.get('subnet_uuid'):
+                    continue
                 subnet['subnet_uuid'] = _locate_subnet_uuid(subnet)
                 updated = True
 
-        if updated:
+        if updated and do_update:
             self._cassandra_db.object_update('virtual_network', vn_uuid,
                                              vn_dict)
     # end update_subnet_uuid
@@ -1629,7 +1630,7 @@ class VncDbClient(object):
                                                        'logical_router',
                                                        router['uuid'])
                     if 'network_ipam_refs' in obj_dict:
-                        self.update_subnet_uuid(obj_dict)
+                        self.update_subnet_uuid(obj_dict, do_update=True)
 
                 # create new perms if upgrading
                 if 'perms2' not in obj_dict:

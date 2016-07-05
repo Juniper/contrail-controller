@@ -353,14 +353,12 @@ class DBInterface(object):
 
     def _virtual_machine_interface_read(self, port_id=None, fq_name=None,
                                         fields=None):
-        back_ref_fields = ['logical_router_back_refs', 'instance_ip_back_refs', 'floating_ip_back_refs']
-        if fields:
-            n_extra_fields = list(set(fields + back_ref_fields))
-        else:
-            n_extra_fields = back_ref_fields
+        fields = set(['logical_router_back_refs',
+                      'instance_ip_back_refs',
+                      'floating_ip_back_refs']) | set(fields or [])
 
         port_obj = self._vnc_lib.virtual_machine_interface_read(
-            id=port_id, fq_name=fq_name, fields=n_extra_fields)
+            id=port_id, fq_name=fq_name, fields=fields)
         return port_obj
     #end _virtual_machine_interface_read
 
@@ -697,7 +695,7 @@ class DBInterface(object):
         memo_req['virtual-machines'] = dict((vm_obj.uuid, vm_obj) for vm_obj in vm_objs)
 
         # Read only SIs associated with vm_objs
-        si_ids = [si_ref['uuid'] 
+        si_ids = [si_ref['uuid']
                     for vm_obj in vm_objs
                     for si_ref in vm_obj.get_service_instance_refs() or []]
         si_objs = self._vnc_lib.service_instances_list(
