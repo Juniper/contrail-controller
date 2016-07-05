@@ -699,7 +699,7 @@ class VncCassandraClient(object):
                 continue
             result = {}
             result['uuid'] = obj_uuid
-            result['fq_name'] = obj_cols['fq_name'][0]
+            result['fq_name'] = obj_cols.pop('fq_name')[0]
             for col_name in obj_cols.keys():
                 if self._is_parent(col_name):
                     # non config-root child
@@ -716,11 +716,17 @@ class VncCassandraClient(object):
                     continue
 
                 if self._is_prop(col_name):
+                    if (field_names and
+                            col_name[5:].partition(':')[0] not in field_names):
+                        continue
                     (_, prop_name) = col_name.split(':')
                     result[prop_name] = obj_cols[col_name][0]
                     continue
 
                 if self._is_prop_list(col_name):
+                    if (field_names and
+                            col_name[6:].partition(':')[0] not in field_names):
+                        continue
                     (_, prop_name, prop_elem_position) = col_name.split(':')
                     if obj_class.prop_list_field_has_wrappers[prop_name]:
                         prop_field_types = obj_class.prop_field_types[prop_name]
@@ -739,6 +745,9 @@ class VncCassandraClient(object):
                     continue
 
                 if self._is_prop_map(col_name):
+                    if (field_names and
+                            col_name[6:].partition(':')[0] not in field_names):
+                        continue
                     (_, prop_name, _) = col_name.split(':')
                     if obj_class.prop_map_field_has_wrappers[prop_name]:
                         prop_field_types = obj_class.prop_field_types[prop_name]
@@ -756,6 +765,10 @@ class VncCassandraClient(object):
                     continue
 
                 if self._is_children(col_name):
+                    if (field_names and
+                            col_name[9:].partition(':')[0] + 's' not in
+                            field_names):
+                        continue
                     (_, child_type, child_uuid) = col_name.split(':')
                     if field_names and '%ss' %(child_type) not in field_names:
                         continue
@@ -769,12 +782,20 @@ class VncCassandraClient(object):
                     continue
 
                 if self._is_ref(col_name):
+                    if (field_names and
+                            col_name[4:].partition(':')[0] + '_refs' not in
+                            field_names):
+                        continue
                     (_, ref_type, ref_uuid) = col_name.split(':')
                     self._read_ref(result, obj_uuid, ref_type, ref_uuid,
                                    obj_cols[col_name][0])
                     continue
 
                 if self._is_backref(col_name):
+                    if (field_names and
+                            col_name[8:].partition(':')[0] + '_back_refs' not
+                            in field_names):
+                        continue
                     (_, back_ref_type, back_ref_uuid) = col_name.split(':')
                     if (field_names and
                         '%s_back_refs' %(back_ref_type) not in field_names):
