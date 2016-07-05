@@ -28,6 +28,14 @@ public:
         TOR_AGENT,
     };
 
+    // Gateway mode that the agent is running in
+    enum GatewayMode {
+        VCPE,
+        REMOTE_VM,   // has VMs running on a remote machine and vrouter maps
+                     // vlans to VMIs.
+        NONE
+    };
+
     // Hypervisor mode we are working on
     enum HypervisorMode {
         MODE_INVALID,
@@ -231,6 +239,8 @@ public:
     AgentMode agent_mode() const { return agent_mode_; }
     bool isTsnAgent() const { return agent_mode_ == TSN_AGENT; }
     bool isTorAgent() const { return agent_mode_ == TOR_AGENT; }
+    bool isRemoteVmVrouter() const { return gateway_mode_ == REMOTE_VM; }
+    GatewayMode gateway_mode() const { return gateway_mode_; }
 
     const AddressList &compute_node_address_list() const {
         return compute_node_address_list_;
@@ -354,6 +364,7 @@ private:
     void ParsePlatform();
     void ParseServices();
     void set_agent_mode(const std::string &mode);
+    void set_gateway_mode(const std::string &mode);
 
     void ParseCollectorArguments
         (const boost::program_options::variables_map &v);
@@ -397,6 +408,7 @@ private:
     bool enable_hypervisor_options_;
     bool enable_service_options_;
     AgentMode agent_mode_;
+    GatewayMode gateway_mode_;
 
     Agent *agent_;
     PortInfo vhost_;

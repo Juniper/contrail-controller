@@ -570,6 +570,9 @@ void AgentParam::ParseAgentInfo() {
     GetValueFromTree<string>(mode, "DEFAULT.agent_mode");
     set_agent_mode(mode);
 
+    GetValueFromTree<string>(mode, "DEFAULT.gateway_mode");
+    set_gateway_mode(mode);
+
     if (!GetValueFromTree<string>(agent_base_dir_,
                                   "DEFAULT.agent_base_directory")) {
         agent_base_dir_ = "/var/lib/contrail";
@@ -584,6 +587,16 @@ void AgentParam::set_agent_mode(const std::string &mode) {
         agent_mode_ = TOR_AGENT;
     else
         agent_mode_ = VROUTER_AGENT;
+}
+
+void AgentParam::set_gateway_mode(const std::string &mode) {
+    std::string gateway_mode = boost::to_lower_copy(mode);
+    if (gateway_mode == "remote-vm")
+        gateway_mode_ = REMOTE_VM;
+    else if (gateway_mode == "vcpe")
+        gateway_mode_ = VCPE;
+    else
+        gateway_mode_ = NONE;
 }
 
 void AgentParam::ParseSimulateEvpnTor() {
@@ -824,6 +837,9 @@ void AgentParam::ParseAgentInfoArguments
     std::string mode;
     if (GetOptValue<string>(var_map, mode, "DEFAULT.agent_mode")) {
         set_agent_mode(mode);
+    }
+    if (GetOptValue<string>(var_map, mode, "DEFAULT.gateway_mode")) {
+        set_gateway_mode(mode);
     }
     GetOptValue<string>(var_map, agent_base_dir_,
                         "DEFAULT.agent_base_directory");
@@ -1229,6 +1245,13 @@ void AgentParam::LogConfig() const {
     else if (agent_mode_ == TOR_AGENT)
         LOG(DEBUG, "Agent Mode                  : TOR");
 
+    if (gateway_mode_ == REMOTE_VM)
+        LOG(DEBUG, "Gateway Mode                : Remote VM");
+    else if (gateway_mode_ == VCPE)
+        LOG(DEBUG, "Gateway Mode                : vCPE");
+    else if (gateway_mode_ == NONE)
+        LOG(DEBUG, "Gateway Mode                : None");
+
     LOG(DEBUG, "Headless Mode               : " << headless_mode_);
     LOG(DEBUG, "DHCP Relay Mode             : " << dhcp_relay_mode_);
     if (simulate_evpn_tor_) {
@@ -1306,7 +1329,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         enable_vhost_options_(enable_vhost_options),
         enable_hypervisor_options_(enable_hypervisor_options),
         enable_service_options_(enable_service_options),
-        agent_mode_(agent_mode), vhost_(),
+        agent_mode_(agent_mode), gateway_mode_(NONE), vhost_(),
         pkt0_tx_buffer_count_(Agent::kPkt0TxBufferCount),
         measure_queue_delay_(false),
         agent_name_(), eth_port_(),
