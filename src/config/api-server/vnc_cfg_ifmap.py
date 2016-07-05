@@ -1543,7 +1543,7 @@ class VncDbClient(object):
         return False
     # end match_uuid
 
-    def update_subnet_uuid(self, vn_dict):
+    def update_subnet_uuid(self, vn_dict, do_update=False):
         vn_uuid = vn_dict.get('uuid')
 
         def _locate_subnet_uuid(subnet):
@@ -1568,7 +1568,7 @@ class VncDbClient(object):
                 subnet['subnet_uuid'] = _locate_subnet_uuid(subnet)
                 updated = True
 
-        if updated:
+        if updated and do_update:
             self._cassandra_db.object_update('virtual_network', vn_uuid,
                                              vn_dict)
     # end update_subnet_uuid
@@ -1630,7 +1630,7 @@ class VncDbClient(object):
                                                        'logical_router',
                                                        router['uuid'])
                     if 'network_ipam_refs' in obj_dict:
-                        self.update_subnet_uuid(obj_dict)
+                        self.update_subnet_uuid(obj_dict, do_update=True)
                 elif obj_type == 'virtual_machine_interface':
                     device_owner = obj_dict.get('virtual_machine_interface_device_owner')
                     li_back_refs = obj_dict.get('logical_interface_back_refs', [])
