@@ -2,8 +2,7 @@
 #include <pkt/flow_table.h>
 
 FlowExportInfo::FlowExportInfo() :
-    flow_(), egress_uuid_(boost::uuids::nil_uuid()),
-    setup_time_(0), teardown_time_(0), last_modified_time_(0),
+    flow_(), setup_time_(0), teardown_time_(0), last_modified_time_(0),
     bytes_(0), packets_(0), prev_diff_bytes_(0), prev_diff_packets_(0),
     underlay_source_port_(0), changed_(false),
     tcp_flags_(0), delete_enqueue_time_(0), evict_enqueue_time_(0),
@@ -11,8 +10,7 @@ FlowExportInfo::FlowExportInfo() :
 }
 
 FlowExportInfo::FlowExportInfo(const FlowEntryPtr &fe) :
-    flow_(fe), egress_uuid_(boost::uuids::nil_uuid()),
-    setup_time_(0), teardown_time_(0), last_modified_time_(0),
+    flow_(fe), setup_time_(0), teardown_time_(0), last_modified_time_(0),
     bytes_(0), packets_(0), prev_diff_bytes_(0), prev_diff_packets_(0),
     underlay_source_port_(0), changed_(true),
     tcp_flags_(0), delete_enqueue_time_(0), evict_enqueue_time_(0),
@@ -20,8 +18,8 @@ FlowExportInfo::FlowExportInfo(const FlowEntryPtr &fe) :
 }
 
 FlowExportInfo::FlowExportInfo(const FlowEntryPtr &fe, uint64_t setup_time) :
-    flow_(fe), egress_uuid_(boost::uuids::nil_uuid()),
-    setup_time_(setup_time), teardown_time_(0), last_modified_time_(setup_time),
+    flow_(fe), setup_time_(setup_time),
+    teardown_time_(0), last_modified_time_(setup_time),
     bytes_(0), packets_(0), prev_diff_bytes_(0), prev_diff_packets_(0),
     underlay_source_port_(0), changed_(true),
     tcp_flags_(0), delete_enqueue_time_(0), evict_enqueue_time_(0),
