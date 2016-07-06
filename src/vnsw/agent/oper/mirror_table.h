@@ -17,22 +17,38 @@ struct MirrorEntryKey : public AgentKey {
 };
 
 struct MirrorEntryData : public AgentData {
+    enum MirrorEntryFlags {
+        DynamicNH_With_JuniperHdr = 1,
+        DynamicNH_Without_JuniperHdr = 2,
+        StaticNH_With_JuniperHdr = 3,
+        StaticNH_Without_JuniperHdr = 4
+
+    };
+
     MirrorEntryData(const std::string vrf_name, const IpAddress &sip,
                     const uint16_t sport, const IpAddress &dip,
-                    const uint16_t dport): vrf_name_(vrf_name),
-            sip_(sip), sport_(sport), dip_(dip), dport_(dport) { };
+                    const uint16_t dport, uint8_t mirror_flags,
+                    uint32_t vni, const MacAddress &mac, bool createdvrf):
+            vrf_name_(vrf_name), sip_(sip), sport_(sport), dip_(dip),
+            dport_(dport), mirror_flags_(mirror_flags), vni_(vni),
+            mac_(mac), createdvrf_(createdvrf){ };
+
     std::string vrf_name_;
     IpAddress sip_;
     uint16_t sport_;
     IpAddress dip_;
     uint16_t dport_;
+    uint8_t mirror_flags_;
+    uint32_t vni_;
+    MacAddress mac_; // can be type of vtep mac or analyzer-mac based on type NH
+    bool createdvrf_;
 };
 
 class MirrorEntry : AgentRefCount<MirrorEntry>, public AgentDBEntry {
 public:
     MirrorEntry(std::string analyzer_name) : 
            analyzer_name_(analyzer_name), vrf_(NULL, this), nh_(NULL),
-           vrf_name_("") { };
+           vrf_name_(""), createdvrf_(false) { };
     virtual ~MirrorEntry() { };
 
     virtual bool IsLess(const DBEntry &rhs) const;
@@ -57,7 +73,10 @@ public:
     uint16_t GetDPort() const {return dport_;}
     const NextHop *GetNH() const {return nh_.get();}
     const std::string vrf_name() const {return vrf_name_;}
-
+    uint32_t GetVni() const {return vni_;}
+    uint8_t GetMirrorFlag() const {return mirror_flags_;}
+    const MacAddress *GetMac() const { return &mac_;}
+    bool GetCreatedVrf() const {return createdvrf_;}
 private:
     std::string analyzer_name_;
     VrfEntryRef vrf_;
@@ -67,6 +86,12 @@ private:
     uint16_t dport_;
     NextHopRef nh_;
     std::string vrf_name_;
+    uint8_t mirror_flags_;
+    uint32_t vni_;
+    MacAddress mac_; // can be type of vtep mac or analyzer-mac based on type NH
+    // this vrf will be created if this mirror vrf is not known to compute node
+    // add it subscribes for the route information to get down loaded
+    bool createdvrf_;
     friend class MirrorTable;
 };
 
@@ -99,6 +124,12 @@ public:
                                const std::string &vrf_name,
                                const IpAddress &sip, uint16_t sport,
                                const IpAddress &dip, uint16_t dport);
+    static void AddMirrorEntry(const std::string &analyzer_name,
+                               const std::string &vrf_name,
+                               const IpAddress &sip, uint16_t sport,
+                               const IpAddress &dip, uint16_t dport,
+                               uint32_t vni, uint8_t mirror_flag,
+                               const MacAddress &mac);
     static void DelMirrorEntry(const std::string &analyzer_name);
     virtual void OnZeroRefcount(AgentDBEntry *e);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
@@ -118,6 +149,7 @@ public:
     void VrfNotify(DBTablePartBase *root, DBEntryBase *entry);
     void Shutdown();
     void Initialize();
+    bool OnChange(MirrorEntry *mirror_entry);
 
 private:
     std::auto_ptr<boost::asio::ip::udp::socket> udp_sock_;

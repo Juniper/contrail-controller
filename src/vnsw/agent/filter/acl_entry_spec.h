@@ -22,12 +22,22 @@ struct RangeSpec {
     uint16_t max;
 };
 
+struct StaticMirrorNhData {
+    IpAddress vtep_dst_ip;
+    uint16_t  vni;
+    MacAddress vtep_dst_mac;
+};
+
 struct MirrorActionSpec {
     std::string analyzer_name;
     std::string vrf_name;
     IpAddress ip;
+    MacAddress mac;
     uint16_t port;
     std::string encap;
+    bool juniper_header;
+    std::string nh_mode;
+    StaticMirrorNhData staticnhdata;
     bool operator == (const MirrorActionSpec &rhs) const {
         return analyzer_name == rhs.analyzer_name;
     }
@@ -138,6 +148,7 @@ public:
     void AddMirrorEntry(Agent *agent) const;
     void BuildAddressInfo(const std::string &prefix, int plen,
                           std::vector<AclAddressInfo> *list);
+    static uint8_t DecodeMirrorFlag (std::string nh_mode, bool juniper_header);
 };
 
 struct AclSpec {
