@@ -28,7 +28,7 @@ from alarm_prouter_connectivity.main import ProuterConnectivity
 from alarm_vrouter_interface.main import VrouterInterface
 from alarm_storage.main import StorageClusterState
 from alarm_disk_usage.main import DiskUsage
-
+from alarm_phyif_bandwidth.main import PhyifBandwidth
 
 logging.basicConfig(level=logging.DEBUG,
     format='%(asctime)s %(levelname)s %(message)s')
@@ -1270,6 +1270,98 @@ class TestAlarmPlugins(unittest.TestCase):
         ]
         self._verify(XmppConnectivity(), tests)
     # end test_alarm_xmpp_connectivity
+
+    def test_alarm_phyif_bandwidth(self):
+        tests = [
+            TestCase(
+                name='VrouterStatsAgent == null',
+                input=TestInput(uve_key='ObjectVRouter:host1',
+                    uve_data={}),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='VrouterStatsAgent.in_bps_ewm',
+                input=TestInput(uve_key='ObjectVRouter:host1',
+                    uve_data={
+                        'VrouterStatsAgent': {
+                            'in_bps_ewm': {
+                                'p4p1': { 'sigma': 2.11,
+                                          'samples': 10,
+                                          'stddev': 33238,
+                                          'mean': 16619 }
+                            }
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            ('VrouterStatsAgent.in_bps_ewm.*.sigma >= 2',
+                             ["VrouterStatsAgent.in_bps_ewm.__key"],
+                             [('2.11',
+                               None,
+                               {'VrouterStatsAgent.in_bps_ewm.__key':'"p4p1"'})])
+                        ]
+                    },
+                ])
+            ),
+            TestCase(
+                name='VrouterStatsAgent.out_bps_ewm',
+                input=TestInput(uve_key='ObjectVRouter:host1',
+                    uve_data={
+                        'VrouterStatsAgent': {
+                            'in_bps_ewm': {
+                                'p4p1': { 'sigma': 1.11,
+                                          'samples': 10,
+                                          'stddev': 33238,
+                                          'mean': 16619 }
+                            },
+                            'out_bps_ewm': {
+                                'p4p1': { 'sigma': -2.11,
+                                          'samples': 10,
+                                          'stddev': 3238,
+                                          'mean': 16619 }
+                            }
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            ('VrouterStatsAgent.out_bps_ewm.*.sigma <= -2',
+                             ["VrouterStatsAgent.out_bps_ewm.__key"],
+                             [('-2.11',
+                               None,
+                               {'VrouterStatsAgent.out_bps_ewm.__key':'"p4p1"'})])
+                        ]
+                    },
+                ])
+            ),
+            TestCase(
+                name='VrouterStatsAgent normal',
+                input=TestInput(uve_key='ObjectVRouter:host1',
+                    uve_data={
+                        'VrouterStatsAgent': {
+                            'in_bps_ewm': {
+                                'p4p1': { 'sigma': 1.11,
+                                          'samples': 10,
+                                          'stddev': 33238,
+                                          'mean': 16619 }
+                            },
+                            'out_bps_ewm': {
+                                'p4p1': { 'sigma': -0.11,
+                                          'samples': 10,
+                                          'stddev': 3238,
+                                          'mean': 16619 }
+                            }
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=None)
+            ),
+        ]
+        self._verify(PhyifBandwidth(), tests)
+    # end test_alarm_phyif_bandwidth
 
     def _verify(self, plugin, tests):
         for test in tests:
