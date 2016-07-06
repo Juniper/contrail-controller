@@ -696,12 +696,31 @@ static void ReadAnalyzerNameAndCreate(Agent *agent,
         } else {
             dport = ContrailPorts::AnalyzerUdpPort();
         }
+        uint8_t mirror_flag =
+            AclEntrySpec::DecodeMirrorFlag(mirror_to.nh_mode,
+                                           mirror_to.juniper_header);
         // not using the vrf coming in; by setting this to empty, -1 will be
         // configured so that current VRF will be used (for leaked routes).
-        agent->mirror_table()->AddMirrorEntry
-            (mirror_to.analyzer_name, std::string(),
-             agent->GetMirrorSourceIp(dip),
-             agent->mirror_port(), dip, dport);
+        if (mirror_flag == MirrorEntryData::DynamicNH_With_JuniperHdr) {
+            agent->mirror_table()->AddMirrorEntry
+                (mirror_to.analyzer_name, std::string(),
+                agent->GetMirrorSourceIp(dip),
+                agent->mirror_port(), dip, dport);
+        } else if (mirror_flag == MirrorEntryData::DynamicNH_Without_JuniperHdr) {
+            agent->mirror_table()->AddMirrorEntry(mirror_to.analyzer_name,
+                    mirror_to.routing_instance, agent->GetMirrorSourceIp(dip),
+                    agent->mirror_port(), dip, dport, 0, mirror_flag,
+                    MacAddress::FromString(mirror_to.analyzer_mac_address));
+        } else if (mirror_flag == MirrorEntryData::StaticNH_Without_JuniperHdr) {
+            agent->mirror_table()->AddMirrorEntry(mirror_to.analyzer_name,
+                    mirror_to.routing_instance, agent->GetMirrorSourceIp(dip),
+                    agent->mirror_port(),
+                    IpAddress::from_string(mirror_to.static_nh_header.vtep_dst_ip_address, ec),
+                    dport, mirror_to.static_nh_header.vni, mirror_flag,
+                    MacAddress::FromString(mirror_to.static_nh_header.vtep_dst_mac_address));
+        } else {
+            LOG(ERROR, "Mirror nh mode not upported");
+        }
         data.analyzer_name_ =  mirror_to.analyzer_name;
         string traffic_direction =
             cfg->properties().interface_mirror.traffic_direction;

@@ -935,6 +935,18 @@ bool AclEntrySpec::Populate(const MatchConditionType *match_condition) {
     return true;
 }
 
+uint8_t AclEntrySpec::DecodeMirrorFlag (std::string nh_mode, bool juniper_header) {
+    if (juniper_header) {
+        if (nh_mode.compare("static") == 0)
+            return MirrorEntryData::StaticNH_With_JuniperHdr;
+        return MirrorEntryData::DynamicNH_With_JuniperHdr;
+    } else {
+        if (nh_mode.compare("static") == 0)
+            return MirrorEntryData::StaticNH_Without_JuniperHdr;
+        return MirrorEntryData::DynamicNH_Without_JuniperHdr;
+    }
+}
+
 void AclEntrySpec::AddMirrorEntry(Agent *agent) const {
     std::vector<ActionSpec>::const_iterator it;
     for (it = action_l.begin(); it != action_l.end(); ++it) {
@@ -944,9 +956,27 @@ void AclEntrySpec::AddMirrorEntry(Agent *agent) const {
         }
 
         IpAddress sip = agent->GetMirrorSourceIp(action.ma.ip);
-        agent->mirror_table()->AddMirrorEntry(action.ma.analyzer_name,
-            action.ma.vrf_name, sip, agent->mirror_port(), action.ma.ip,
-            action.ma.port);
+        uint8_t mirror_flag = DecodeMirrorFlag(action.ma.nh_mode,
+                                                action.ma.juniper_header);
+        if (mirror_flag == MirrorEntryData::DynamicNH_With_JuniperHdr) {
+            agent->mirror_table()->AddMirrorEntry(action.ma.analyzer_name,
+                action.ma.vrf_name, sip, agent->mirror_port(), action.ma.ip,
+                action.ma.port);
+        } else if (mirror_flag == MirrorEntryData::DynamicNH_Without_JuniperHdr) {
+            // remote_vm_analyzer mac provided from the config
+            agent->mirror_table()->AddMirrorEntry(action.ma.analyzer_name,
+                    action.ma.vrf_name, sip, agent->mirror_port(), action.ma.ip,
+                    action.ma.port, 0, mirror_flag,  action.ma.mac);
+        } else if (mirror_flag == MirrorEntryData::StaticNH_Without_JuniperHdr) {
+            // Vtep dst ip & Vni will be provided from the config
+            agent->mirror_table()->AddMirrorEntry(action.ma.analyzer_name,
+                    action.ma.vrf_name, sip, agent->mirror_port(),
+                    action.ma.staticnhdata.vtep_dst_ip, action.ma.port,
+                    action.ma.staticnhdata.vni, mirror_flag,
+                    action.ma.staticnhdata.vtep_dst_mac);
+        } else {
+            LOG(ERROR, "Mirror nh mode not supported");
+        }
     }
 }
 
@@ -979,6 +1009,24 @@ void AclEntrySpec::PopulateAction(const AclTable *acl_table,
         maction.ma.analyzer_name = action_list.mirror_to.analyzer_name;
         maction.ma.ip =
             IpAddress::from_string(action_list.mirror_to.analyzer_ip_address, ec);
+        maction.ma.juniper_header = action_list.mirror_to.juniper_header;
+        maction.ma.nh_mode = action_list.mirror_to.nh_mode;
+        uint8_t mirror_flag = DecodeMirrorFlag (maction.ma.nh_mode,
+                                                 maction.ma.juniper_header);
+        if (mirror_flag == MirrorEntryData::StaticNH_Without_JuniperHdr) {
+            maction.ma.staticnhdata.vtep_dst_ip =
+                IpAddress::from_string(
+                action_list.mirror_to.static_nh_header.vtep_dst_ip_address, ec);
+            maction.ma.staticnhdata.vtep_dst_mac =
+               MacAddress::FromString(action_list.mirror_to.static_nh_header.vtep_dst_mac_address);
+            maction.ma.staticnhdata.vni =
+                action_list.mirror_to.static_nh_header.vni;
+        }  else if(mirror_flag == MirrorEntryData::DynamicNH_Without_JuniperHdr) {
+           maction.ma.vrf_name = action_list.mirror_to.routing_instance;
+           maction.ma.mac =
+               MacAddress::FromString(action_list.mirror_to.analyzer_mac_address);
+        }
+
         if (ec.value() == 0) {
             if (action_list.mirror_to.udp_port) {
                 maction.ma.port = action_list.mirror_to.udp_port;
