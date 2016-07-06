@@ -224,7 +224,7 @@ def update_ssl_config(haproxy_config, auth_conf, dest_dir):
     for line in haproxy_config.split('\n'):
         if 'ssl crt http' in line:
             try:
-                url_list = filter(lambda x: x.startswith('http:'), line.split(' '))
+                url_list = filter(lambda x: x.startswith('http'), line.split(' '))
             except IndexError:
                 return None
             for url in url_list or []:
