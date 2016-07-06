@@ -1073,6 +1073,11 @@ request sandesh MirrorCreateReq {
     // Time period for mirroring in seconds
     16: i32 time_period;
     17: string mirror_vrf;
+    18: optional string nhmode;         // dynamic or static NH
+    19: optional bool juniperheader;
+    20: optional string analyzer_vm_mac;  // analyzer mac
+    21: optional string vtep_dst_ip;
+    22: optional i32 vni;
 }
 
 /**
@@ -1249,6 +1254,11 @@ request sandesh IntfMirrorCreateReq {
     5: optional i32 udp_port;
     6: optional i32 time_period;
     7: optional string mirror_vrf;
+    8: optional string nhmode;         // dynamic or static NH
+    9: optional bool juniperheader;
+   10: optional string analyzer_vm_mac;  // analyzer mac
+   11: optional string vtep_dst_ip;
+   12: optional i32 vni;
 }
 
 /**
