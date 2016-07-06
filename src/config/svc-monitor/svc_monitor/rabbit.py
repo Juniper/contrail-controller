@@ -31,7 +31,11 @@ class RabbitConnection(object):
             rabbit_user, rabbit_password,
             rabbit_vhost, rabbit_ha_mode,
             q_name, self._vnc_subscribe_callback,
-            self.logger.log)
+            self.logger.log, rabbit_use_ssl = self._args.rabbit_use_ssl,
+            kombu_ssl_version = self._args.kombu_ssl_version,
+            kombu_ssl_keyfile = self._args.kombu_ssl_keyfile,
+            kombu_ssl_certfile = self._args.kombu_ssl_certfile,
+            kombu_ssl_ca_certs = self._args.kombu_ssl_ca_certs)
 
     def _vnc_subscribe_callback(self, oper_info):
         self._db_resync_done.wait()

@@ -206,7 +206,16 @@ class SchemaTransformer(object):
                                          rabbit_user, rabbit_password,
                                          rabbit_vhost, rabbit_ha_mode,
                                          q_name, self._vnc_subscribe_callback,
-                                         self.config_log)
+                                         self.config_log, rabbit_use_ssl =
+                                         self._args.rabbit_use_ssl,
+                                         kombu_ssl_version =
+                                         self._args.kombu_ssl_version,
+                                         kombu_ssl_keyfile =
+                                         self._args.kombu_ssl_keyfile,
+                                         kombu_ssl_certfile =
+                                         self._args.kombu_ssl_certfile,
+                                         kombu_ssl_ca_certs =
+                                         self._args.kombu_ssl_ca_certs)
         self._cassandra = SchemaTransformerDB(self, _zookeeper_client)
         DBBaseST.init(self, self._sandesh.logger(), self._cassandra)
         DBBaseST._sandesh = self._sandesh
@@ -657,6 +666,11 @@ def parse_args(args_str):
         'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
         'bgpaas_port_start': 50000,
         'bgpaas_port_end': 50256,
+        'rabbit_use_ssl': False,
+        'kombu_ssl_version': '',
+        'kombu_ssl_keyfile': '',
+        'kombu_ssl_certfile': '',
+        'kombu_ssl_ca_certs': '',
     }
     secopts = {
         'use_certs': False,
