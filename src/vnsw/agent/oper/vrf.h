@@ -41,6 +41,7 @@ struct VrfData : public AgentOperDBData {
     enum VrfEntryFlags {
         ConfigVrf = 1 << 0,     // vrf is received from config
         GwVrf     = 1 << 1,     // GW configured for this VRF
+        MirrorVrf = 1 << 2,     // internally Created VRF
     };
 
     VrfData(Agent *agent, IFMapNode *node, uint32_t flags,

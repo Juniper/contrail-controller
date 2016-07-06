@@ -57,7 +57,7 @@ protected:
     }
 
     virtual void TearDown() {
-        WAIT_FOR(1000, 1000, agent_->nexthop_table()->Size() == nh_count_);
+        WAIT_FOR(1002, 1000, agent_->nexthop_table()->Size() == nh_count_);
         WAIT_FOR(1000, 1000, agent_->vrf_table()->Size() == 1);
     }
 
@@ -426,6 +426,297 @@ TEST_F(MirrorTableTest, MirrorEntryAddDel_6) {
     MirrorTable::DelMirrorEntry(ana);
     MirrorTable::DelMirrorEntry(analyzer1);
     MirrorTable::DelMirrorEntry(analyzer2);
+    client->WaitForIdle();
+    mirr_entry = static_cast<const MirrorEntry *>
+                 (agent_->mirror_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(mirr_entry == NULL);
+    client->WaitForIdle();
+}
+
+//This test is to verify the Dynamic without Juniper header config
+//Add Mirror Entry and check it is attached to the existing
+//Tunnel NH created by BridgeTunnelRouteAdd
+// Check that Static NH changed to MirrorNH after moving the nh mode
+TEST_F(MirrorTableTest, StaticMirrorEntryAdd_6) {
+    Ip4Address vhost_ip(agent_->router_id());
+    Ip4Address remote_server = Ip4Address::from_string("1.1.1.1");
+    Ip4Address remote_vm_ip4_2 = Ip4Address::from_string("2.2.2.11");
+    //Add mirror entry pointing to same vhost IP
+    std::string ana = analyzer + "r";
+    std::string remote_vm_mac_str_;
+    MacAddress remote_vm_mac = MacAddress::FromString("00:00:01:01:01:11");
+    TunnelType::TypeBmap bmap;
+    bmap = 1 << TunnelType::VXLAN;
+    AddVrf("vrf3");
+    client->WaitForIdle();
+    BridgeTunnelRouteAdd(agent_->local_peer(), "vrf3", bmap, remote_server,
+                         1, remote_vm_mac, remote_vm_ip4_2, 32);
+    client->WaitForIdle();
+    MirrorTable::AddMirrorEntry(ana, "vrf3", vhost_ip, 0x1, remote_server,
+                                      0x2, 0 , 2, remote_vm_mac);
+    client->WaitForIdle();
+
+    MirrorEntryKey key(ana);
+    const MirrorEntry *mirr_entry = static_cast<const MirrorEntry *>
+                                    (agent_->mirror_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(mirr_entry != NULL);
+    const NextHop *mirr_nh = mirr_entry->GetNH();
+    EXPECT_TRUE(mirr_nh->GetType() == NextHop::TUNNEL);
+
+    EvpnAgentRouteTable::DeleteReq(agent_->local_peer(), "vrf3", remote_vm_mac,
+                                   remote_vm_ip4_2, 0, NULL);
+    MirrorTable::AddMirrorEntry(ana, "vrf3",
+                                vhost_ip, 0x1, remote_server, 0x2);
+    client->WaitForIdle();
+
+    mirr_entry = static_cast<const MirrorEntry *>
+        (agent_->mirror_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(mirr_entry != NULL);
+    mirr_nh = static_cast<const MirrorNH *>(mirr_entry->GetNH());
+    mirr_nh = mirr_entry->GetNH();
+    EXPECT_TRUE(mirr_nh->GetType() == NextHop::MIRROR);
+    DelVrf("vrf3");
+    client->WaitForIdle();
+    mirr_nh = mirr_entry->GetNH();
+    EXPECT_TRUE(mirr_nh->GetType() == NextHop::DISCARD);
+
+    MirrorTable::DelMirrorEntry(ana);
+    client->WaitForIdle();
+    mirr_entry = static_cast<const MirrorEntry *>
+                 (agent_->mirror_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(mirr_entry == NULL);
+    client->WaitForIdle();
+}
+
+//This test is to verify the Dynamic without Juniper header config
+//Add Mirror Entry without mirror VRF so that Mirror entry will create the
+//vrf and attach to the Tunnel NH created by BridgeTunnelRouteAdd
+// Change the VRF and check NH refrence is released 
+TEST_F(MirrorTableTest, StaticMirrorEntryAdd_7) {
+    Ip4Address vhost_ip(agent_->router_id());
+    Ip4Address remote_server = Ip4Address::from_string("1.1.1.1");
+    Ip4Address remote_vm_ip4_2 = Ip4Address::from_string("2.2.2.11");
+    //Add mirror entry pointing to same vhost IP
+    std::string ana = analyzer + "r";
+    MacAddress remote_vm_mac = MacAddress::FromString("00:00:01:01:01:11");
+    TunnelType::TypeBmap bmap;
+    bmap = 1 << TunnelType::VXLAN;
+    client->WaitForIdle();
+
+    MirrorTable::AddMirrorEntry(ana, "vrf3", vhost_ip, 0x1, remote_server,
+                                      0x2, 0 , 2, remote_vm_mac);
+
+    BridgeTunnelRouteAdd(agent_->local_peer(), "vrf3", bmap, remote_server,
+                         1, remote_vm_mac, remote_vm_ip4_2, 32);
+    client->WaitForIdle();
+
+    MirrorEntryKey key(ana);
+    const MirrorEntry *mirr_entry = static_cast<const MirrorEntry *>
+                                    (agent_->mirror_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(mirr_entry != NULL);
+    const NextHop *mirr_nh = mirr_entry->GetNH();
+    EXPECT_TRUE(mirr_nh->GetType() == NextHop::TUNNEL);
+
+    EvpnAgentRouteTable::DeleteReq(agent_->local_peer(), "vrf3", remote_vm_mac,
+                                   remote_vm_ip4_2, 0, NULL);
+    client->WaitForIdle();
+
+    MirrorTable::AddMirrorEntry(ana, "vrf4", vhost_ip, 0x1, remote_server,
+                                      0x2, 0 , 2, remote_vm_mac);
+    BridgeTunnelRouteAdd(agent_->local_peer(), "vrf4", bmap, remote_server,
+                         1, remote_vm_mac, remote_vm_ip4_2, 32);
+
+    client->WaitForIdle();
+    mirr_entry = static_cast<const MirrorEntry *>
+        (agent_->mirror_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(mirr_entry != NULL);
+    mirr_nh = mirr_entry->GetNH();
+    EXPECT_TRUE(mirr_nh->GetType() == NextHop::TUNNEL);
+    EvpnAgentRouteTable::DeleteReq(agent_->local_peer(), "vrf4", remote_vm_mac,
+                                   remote_vm_ip4_2, 0, NULL);
+    client->WaitForIdle();
+    MirrorTable::DelMirrorEntry(ana);
+    client->WaitForIdle();
+    mirr_entry = static_cast<const MirrorEntry *>
+                 (agent_->mirror_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(mirr_entry == NULL);
+    client->WaitForIdle();
+}
+
+static void CreateTunnelNH(const string &vrf_name, const Ip4Address &sip,
+                           const Ip4Address &dip, bool policy,
+                           TunnelType::TypeBmap bmap){
+    DBRequest req;
+    TunnelNHData *data = new TunnelNHData();
+
+    NextHopKey *key = new TunnelNHKey(vrf_name, sip, dip, policy,
+                                      TunnelType::ComputeType(bmap));
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(key);
+    req.data.reset(data);
+    Agent::GetInstance()->nexthop_table()->Enqueue(&req);
+}
+
+static void DeleteTunnelNH(const string &vrf_name, const Ip4Address &sip,
+                           const Ip4Address &dip, bool policy,
+                           TunnelType::TypeBmap bmap){
+    DBRequest req;
+    TunnelNHData *data = new TunnelNHData();
+
+    NextHopKey *key = new TunnelNHKey(vrf_name, sip, dip, policy,
+                                      TunnelType::ComputeType(bmap));
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    req.key.reset(key);
+    req.data.reset(data);
+    Agent::GetInstance()->nexthop_table()->Enqueue(&req);
+}
+
+void AddResolveRoute(const Ip4Address &server_ip, uint32_t plen) {
+        Agent* agent = Agent::GetInstance();
+        InetInterfaceKey vhost_key(agent->vhost_interface()->name());
+                agent->fabric_inet4_unicast_table()->AddResolveRoute(
+                agent->local_peer(),
+                agent->fabric_vrf_name(), server_ip, plen, vhost_key,
+                0, false, "", SecurityGroupList());
+        client->WaitForIdle();
+}
+
+void DeleteRoute(const Peer *peer, const std::string &vrf_name,
+                     const Ip4Address &addr, uint32_t plen) {
+    Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(peer, vrf_name,
+                                                                            addr, plen, NULL);
+    client->WaitForIdle();
+    client->WaitForIdle();
+}
+
+//This test is to verify the Static without Juniper header config
+//create a route & add tunnelnh through test
+//check that Mirror entry attached to vxlan tunnel nh
+TEST_F(MirrorTableTest, StaticMirrorEntryAdd_8) {
+    Ip4Address vhost_ip(agent_->router_id());
+    //Add mirror entry pointing to same vhost IP
+    Ip4Address remote_server = Ip4Address::from_string("8.8.8.8");
+    MacAddress remote_vm_mac = MacAddress::FromString("00:00:08:08:08:08");
+    std::string ana = analyzer + "r";
+    TunnelType::TypeBmap bmap;
+    bmap = 1 << TunnelType::VXLAN;
+    AddResolveRoute(remote_server, 32);
+    client->WaitForIdle();
+    AddArp("8.8.8.8", "00:00:08:08:08:08", agent_->fabric_interface_name().c_str());
+    client->WaitForIdle();
+    CreateTunnelNH(agent_->fabric_vrf_name(), vhost_ip, remote_server, false, bmap);
+    client->WaitForIdle();
+
+    MirrorTable::AddMirrorEntry(ana, "vrf3", vhost_ip, 0x1, remote_server,
+                                      0x2, 0 , 4, remote_vm_mac);
+    client->WaitForIdle();
+
+    MirrorEntryKey key(ana);
+    const MirrorEntry *mirr_entry = static_cast<const MirrorEntry *>
+                                    (agent_->mirror_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(mirr_entry != NULL);
+    const NextHop *mirr_nh = mirr_entry->GetNH();
+    EXPECT_TRUE(mirr_nh->GetType() == NextHop::TUNNEL);
+
+    client->WaitForIdle();
+    DeleteTunnelNH(agent_->fabric_vrf_name(), vhost_ip, remote_server, false, bmap);
+    client->WaitForIdle();
+    DelArp("8.8.8.8", "00:00:08:08:08:08", agent_->fabric_interface_name().c_str());
+    client->WaitForIdle();
+    DeleteRoute(agent_->local_peer(), agent_->fabric_vrf_name(), remote_server,
+                32);
+    client->WaitForIdle();
+    MirrorTable::DelMirrorEntry(ana);
+    client->WaitForIdle();
+
+    mirr_entry = static_cast<const MirrorEntry *>
+                 (agent_->mirror_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(mirr_entry == NULL);
+    client->WaitForIdle();
+}
+//This test is to verify the Static without Juniper header config 
+//create a route in resolved state and check that Mirror entry creates tunnel nh
+//and attaches to it.
+TEST_F(MirrorTableTest, StaticMirrorEntryAdd_9) {
+    Ip4Address vhost_ip(agent_->router_id());
+    //Add mirror entry pointing to same vhost IP
+    Ip4Address remote_server = Ip4Address::from_string("8.8.8.8");
+    MacAddress remote_vm_mac = MacAddress::FromString("00:00:08:08:08:08");
+    std::string ana = analyzer + "r";
+    AddResolveRoute(remote_server, 16);
+
+    client->WaitForIdle();
+
+    MirrorTable::AddMirrorEntry(ana, "vrf3", vhost_ip, 0x1, remote_server,
+                                      0x2, 2 , 4, remote_vm_mac);
+    client->WaitForIdle();
+    AddArp("8.8.8.8", "00:00:08:08:08:08", agent_->fabric_interface_name().c_str());
+    client->WaitForIdle();
+    MirrorEntryKey key(ana);
+    const MirrorEntry *mirr_entry = static_cast<const MirrorEntry *>
+                                    (agent_->mirror_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(mirr_entry != NULL);
+    const NextHop *mirr_nh = mirr_entry->GetNH();
+    EXPECT_TRUE(mirr_nh->GetType() == NextHop::TUNNEL);
+
+    DelArp("8.8.8.8", "00:00:08:08:08:08", agent_->fabric_interface_name().c_str());
+    client->WaitForIdle();
+    DeleteRoute(agent_->local_peer(), agent_->fabric_vrf_name(), remote_server,
+                16);
+    DeleteRoute(agent_->local_peer(), agent_->fabric_vrf_name(), remote_server,
+                32);
+    client->WaitForIdle();
+    MirrorTable::DelMirrorEntry(ana);
+    client->WaitForIdle();
+
+    mirr_entry = static_cast<const MirrorEntry *>
+                 (agent_->mirror_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(mirr_entry == NULL);
+    client->WaitForIdle();
+}
+// This test case is to move the mode from dynamic without juniper hdr
+// to dynamic with juniper header after moving see that internally created
+// VRF is deleted and check that MirrorNH points to discard NH
+TEST_F(MirrorTableTest, StaticMirrorEntryAdd_10) {
+    Ip4Address vhost_ip(agent_->router_id());
+    Ip4Address remote_server = Ip4Address::from_string("1.1.1.1");
+    Ip4Address remote_vm_ip4_2 = Ip4Address::from_string("2.2.2.11");
+    //Add mirror entry pointing to same vhost IP
+    std::string ana = analyzer + "r";
+    MacAddress remote_vm_mac = MacAddress::FromString("00:00:01:01:01:11");
+    TunnelType::TypeBmap bmap;
+    bmap = 1 << TunnelType::VXLAN;
+    client->WaitForIdle();
+
+    MirrorTable::AddMirrorEntry(ana, "vrf3", vhost_ip, 0x1, remote_server,
+                                      0x2, 0 , 2, remote_vm_mac);
+
+    BridgeTunnelRouteAdd(agent_->local_peer(), "vrf3", bmap, remote_server,
+                         1, remote_vm_mac, remote_vm_ip4_2, 32);
+    client->WaitForIdle();
+
+    MirrorEntryKey key(ana);
+    const MirrorEntry *mirr_entry = static_cast<const MirrorEntry *>
+                                    (agent_->mirror_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(mirr_entry != NULL);
+    const NextHop *mirr_nh = mirr_entry->GetNH();
+    EXPECT_TRUE(mirr_nh->GetType() == NextHop::TUNNEL);
+
+    EvpnAgentRouteTable::DeleteReq(agent_->local_peer(), "vrf3", remote_vm_mac,
+                                   remote_vm_ip4_2, 0, NULL);
+    client->WaitForIdle();
+    MirrorTable::AddMirrorEntry(ana, "vrf3",
+                                vhost_ip, 0x1, remote_server, 0x2);
+    client->WaitForIdle();
+
+    mirr_entry = static_cast<const MirrorEntry *>
+        (agent_->mirror_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(mirr_entry != NULL);
+    mirr_nh = static_cast<const MirrorNH *>(mirr_entry->GetNH());
+    mirr_nh = mirr_entry->GetNH();
+    EXPECT_TRUE(mirr_nh->GetType() == NextHop::DISCARD);
+    client->WaitForIdle();
+    MirrorTable::DelMirrorEntry(ana);
     client->WaitForIdle();
     mirr_entry = static_cast<const MirrorEntry *>
                  (agent_->mirror_table()->FindActiveEntry(&key));

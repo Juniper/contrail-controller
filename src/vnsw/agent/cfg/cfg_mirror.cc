@@ -98,12 +98,36 @@ const char *MirrorCfgTable::Add(const MirrorCreateReq &cfg) {
         return "Invalid mirror destination port ";
     }
 
-    IpAddress sip = agent_cfg_->agent()->GetMirrorSourceIp(dest_ip);
-    
-    MirrorTable::AddMirrorEntry(entry->key.handle,
-                                entry->data.mirror_vrf, sip, 
-                                agent_cfg_->agent()->mirror_port(), 
-                                dest_ip, entry->data.udp_port);
+   IpAddress sip = agent_cfg_->agent()->GetMirrorSourceIp(dest_ip);
+   MirrorEntryData::MirrorEntryFlags mirror_flag =
+       MirrorTable::DecodeMirrorFlag(cfg.get_nhmode(),
+                                     cfg.get_juniperheader());
+   if (mirror_flag == MirrorEntryData::DynamicNH_With_JuniperHdr) {
+        MirrorTable::AddMirrorEntry(entry->key.handle,
+                                    entry->data.mirror_vrf, sip,
+                                    agent_cfg_->agent()->mirror_port(),
+                                    dest_ip, entry->data.udp_port);
+    } else if (mirror_flag == MirrorEntryData::DynamicNH_Without_JuniperHdr) {
+       MacAddress mac = MacAddress::FromString(cfg.get_analyzer_vm_mac());
+        MirrorTable::AddMirrorEntry(entry->key.handle,entry->data.mirror_vrf,
+                                    sip, agent_cfg_->agent()->mirror_port(),
+                                    dest_ip, entry->data.udp_port, 0,
+                                    mirror_flag, mac);
+    } else if (mirror_flag == MirrorEntryData::StaticNH_Without_JuniperHdr) {
+
+        IpAddress dst_ip = IpAddress::from_string(cfg.get_vtep_dst_ip(), ec);
+        if (ec.value() != 0) {
+            delete entry;
+            return "Invalid mirror destination address ";
+        }
+        MirrorTable::AddMirrorEntry(entry->key.handle, entry->data.mirror_vrf,
+                                    sip, agent_cfg_->agent()->mirror_port(),
+                                    dst_ip, entry->data.udp_port,
+                                    cfg.get_vni(), mirror_flag,
+                                    MacAddress::ZeroMac());
+    } else {
+        return "Mode not supported";
+    }
 
     // Update ACL
     VnAclMap::iterator va_it;
@@ -432,12 +456,42 @@ const char *IntfMirrorCfgTable::Add(const IntfMirrorCreateReq &intf_mirror) {
     entry->data.mirror_dest.time_period = intf_mirror.get_time_period();
     entry->data.mirror_dest.mirror_vrf = intf_mirror.get_mirror_vrf();
 
-    MirrorTable::AddMirrorEntry(entry->key.handle,
-                                entry->data.mirror_dest.mirror_vrf,
-                                entry->data.mirror_dest.sip,
-                                entry->data.mirror_dest.sport,
-                                entry->data.mirror_dest.dip,
-                                entry->data.mirror_dest.dport);
+    MirrorEntryData::MirrorEntryFlags mirror_flag =
+        MirrorTable::DecodeMirrorFlag (intf_mirror.get_nhmode(),
+                                       intf_mirror.get_juniperheader());
+    if (mirror_flag == MirrorEntryData::DynamicNH_With_JuniperHdr) {
+         MirrorTable::AddMirrorEntry(entry->key.handle,
+                                     entry->data.mirror_dest.mirror_vrf,
+                                     entry->data.mirror_dest.sip,
+                                     entry->data.mirror_dest.sport,
+                                     entry->data.mirror_dest.dip,
+                                     entry->data.mirror_dest.dport);
+     } else if (mirror_flag == MirrorEntryData::DynamicNH_Without_JuniperHdr) {
+        MacAddress mac = MacAddress::FromString(intf_mirror.get_analyzer_vm_mac());
+        MirrorTable::AddMirrorEntry(entry->key.handle,
+                                    entry->data.mirror_dest.mirror_vrf,
+                                    entry->data.mirror_dest.sip,
+                                    entry->data.mirror_dest.sport,
+                                    entry->data.mirror_dest.dip,
+                                    entry->data.mirror_dest.dport, 0,
+                                    mirror_flag, mac);
+     } else if (mirror_flag == MirrorEntryData::StaticNH_Without_JuniperHdr) {
+         IpAddress dst_ip = IpAddress::from_string(intf_mirror.get_vtep_dst_ip(), ec);
+         if (ec.value() != 0) {
+             delete entry;
+             return "Invalid mirror destination address ";
+         }
+         MirrorTable::AddMirrorEntry(entry->key.handle,
+                                     entry->data.mirror_dest.mirror_vrf,
+                                     entry->data.mirror_dest.sip,
+                                     entry->data.mirror_dest.sport,
+                                     dst_ip, entry->data.mirror_dest.dport,
+                                     intf_mirror.get_vni(), mirror_flag,
+                                     MacAddress::ZeroMac());
+     } else {
+        return "not supported";
+     }
+
     intf_mc_tree_.insert(std::pair<MirrorCfgKey, IntfMirrorCfgEntry *>(key, entry));
 
     VmInterfaceKey *intf_key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
