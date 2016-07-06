@@ -19,7 +19,6 @@
 
 using namespace std;
 using namespace boost::asio;
-
 MirrorTable *MirrorTable::mirror_table_;
 
 MirrorTable::~MirrorTable() { 
@@ -58,8 +57,89 @@ DBEntry *MirrorTable::Add(const DBRequest *req) {
     return mirror_entry;
 }
 
+bool MirrorTable::OnChange(MirrorEntry *mirror_entry) {
+    Agent *agent = Agent::GetInstance();
+    bool ret = false;
+    NextHop *nh;
+    bool valid_nh = false;
+    if (mirror_entry->mirror_flags_ ==
+        MirrorEntryData::DynamicNH_Without_JuniperHdr) {
+        VrfEntry *vrf = agent->vrf_table()->FindVrfFromName(mirror_entry->vrf_name_);
+        // mirror vrf should have been created
+        assert(vrf != NULL);
+
+        BridgeRouteKey key(agent->local_vm_peer(), mirror_entry->vrf_name_,
+                           mirror_entry->mac_);
+        BridgeRouteEntry *rt =  static_cast<BridgeRouteEntry *>
+            (static_cast<BridgeAgentRouteTable *>
+             (vrf->GetBridgeRouteTable())->FindActiveEntry(&key));
+        // if route entry is preset assign the active nexthop to mirror entry
+        // if route entry & active apath is not preset create discard nh
+        //  and add it unresolved entry
+        if (rt != NULL) {
+            const AgentPath *path = rt->GetActivePath();
+            nh = path->nexthop();
+            if (nh != NULL) {
+                ret =true;
+                mirror_entry->vni_ = rt->GetActiveLabel();
+                AddResolvedVrfMirrorEntry(mirror_entry);
+                valid_nh = true;
+            }
+        }
+    } else { //StaticNH Without Juniper Hdr
+        InetUnicastRouteEntry *rt =
+            agent->fabric_inet4_unicast_table()->FindLPM(mirror_entry->dip_);
+        //if route entry is preset add the active next hop else add discard nh
+        if (rt != NULL) {
+            if (rt->GetActiveNextHop()->IsValid()) {
+            // if Vxlan tunnelnh is present, Mirror will point this NH
+            // else tunnel nh will be created
+                const TunnelNH *tnh =
+                   dynamic_cast<const TunnelNH *>(rt->GetActiveNextHop());
+                if (tnh && tnh->GetType() == NextHop::TUNNEL &&
+                    tnh->GetTunnelType().GetType() == TunnelType::VXLAN) {
+                    nh = const_cast<TunnelNH *>(tnh);
+                    valid_nh = true;
+                    AddResolvedVrfMirrorEntry(mirror_entry);
+                } else {
+                    DBRequest nh_req;
+                    nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+                    TunnelNHKey *nh_key =
+                        new TunnelNHKey(agent->fabric_vrf_name(),
+                                        mirror_entry->sip_.to_v4(),
+                                        mirror_entry->dip_.to_v4(),
+                                        false,
+                                        TunnelType::VXLAN);
+                    nh_req.key.reset(nh_key);
+                    nh_req.data.reset(NULL);
+                    agent->nexthop_table()->Process(nh_req);
+                    nh = static_cast<NextHop *>
+                        (agent->nexthop_table()->FindActiveEntry(nh_key));
+                    if (nh != NULL) {
+                        valid_nh = true;
+                        AddResolvedVrfMirrorEntry(mirror_entry);
+                    }
+                }
+            }
+        }
+    }
+
+    // if there is no Valid nh point it to discard nh
+    if (!valid_nh) {
+        DiscardNH key;
+        nh = static_cast<NextHop *>
+            (agent->nexthop_table()->FindActiveEntry(&key));
+            AddUnresolved(mirror_entry);
+    }
+
+    if (mirror_entry->nh_ != nh) {
+        mirror_entry->nh_ = nh;
+    }
+    return ret;
+}
+
 bool MirrorTable::OnChange(DBEntry *entry, const DBRequest *req) {
-    bool ret = false; 
+    bool ret = false;
     MirrorEntry *mirror_entry = static_cast<MirrorEntry *>(entry);
     MirrorEntryData *data = static_cast<MirrorEntryData *>(req->data.get());
 
@@ -68,6 +148,16 @@ bool MirrorTable::OnChange(DBEntry *entry, const DBRequest *req) {
     mirror_entry->sport_ = data->sport_;
     mirror_entry->dip_ = data->dip_;
     mirror_entry->dport_ = data->dport_;
+    mirror_entry->mirror_flags_ = data->mirror_flags_;
+    mirror_entry->vni_ = data->vni_;
+    mirror_entry->mac_ = data->mac_;
+    mirror_entry->createdvrf_ = data->createdvrf_;
+    if (mirror_entry->mirror_flags_ == MirrorEntryData::DynamicNH_Without_JuniperHdr ||
+        mirror_entry->mirror_flags_ == MirrorEntryData::StaticNH_Without_JuniperHdr)
+    {
+        ret = OnChange(mirror_entry);
+        return ret;
+    }
 
     DBRequest nh_req;
     nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -115,6 +205,8 @@ bool MirrorTable::Delete(DBEntry *entry, const DBRequest *request) {
     MirrorEntry *mirror_entry = static_cast<MirrorEntry *>(entry);
     RemoveUnresolved(mirror_entry);
     DeleteResolvedVrfMirrorEntry(mirror_entry);
+    if (mirror_entry->createdvrf_)
+        agent()->vrf_table()->DeleteVrfReq(mirror_entry->vrf_name_);
     return true;
 }
 
@@ -171,7 +263,9 @@ void MirrorTable::ResyncMirrorEntry(VrfMirrorEntryList &list,
                 *((*list_it)->GetSip()),
                 (*list_it)->GetSPort(),
                 *((*list_it)->GetDip()),
-                (*list_it)->GetDPort());
+                (*list_it)->GetDPort(), (*list_it)->GetMirrorFlag(),
+                 (*list_it)->GetVni(), *((*list_it)->GetMac()),
+                 (*list_it)->GetCreatedVrf());
         req.key.reset(key);
         req.data.reset(data);
         Enqueue(&req);
@@ -203,6 +297,35 @@ void MirrorTable::ResyncUnresolvedMirrorEntry(const VrfEntry *vrf) {
     ResyncMirrorEntry(unresolved_entry_list_, vrf);
 }
 
+
+void MirrorTable::AddMirrorEntry(const std::string &analyzer_name,
+                                       const std::string &vrf_name,
+                                       const IpAddress &sip, uint16_t sport,
+                                       const IpAddress &dip, uint16_t dport,
+                                       uint32_t vni, uint8_t mirror_flag,
+                                       const MacAddress &mac) {
+    Agent *agent = Agent::GetInstance();
+    bool createdvrf = false;
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    // if Mirror VRF is not preset create the vrf.
+    // creatation of VRF ensures all the routes will be dowloaded from control node.
+    if (mirror_flag == MirrorEntryData::DynamicNH_Without_JuniperHdr) {
+        VrfEntry *vrf = agent->vrf_table()->FindVrfFromName(vrf_name);
+        if (vrf == NULL) {
+            agent->vrf_table()->CreateVrfReq(vrf_name);
+            createdvrf = true;
+        }
+    }
+    MirrorEntryKey *key = new MirrorEntryKey(analyzer_name);
+    MirrorEntryData *data = new MirrorEntryData(vrf_name, sip, sport, dip,
+                                                dport, mirror_flag, vni, mac,
+                                                createdvrf);
+    req.key.reset(key);
+    req.data.reset(data);
+    mirror_table_->Enqueue(&req);
+}
+
 void MirrorTable::AddMirrorEntry(const std::string &analyzer_name,
                                  const std::string &vrf_name,
                                  const IpAddress &sip, uint16_t sport,
@@ -226,7 +349,8 @@ void MirrorTable::AddMirrorEntry(const std::string &analyzer_name,
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     MirrorEntryKey *key = new MirrorEntryKey(analyzer_name);
     MirrorEntryData *data = new MirrorEntryData(vrf_name, sip, 
-                                                sport, dip, dport);
+                                                sport, dip, dport, 1, 0 ,
+                                                MacAddress::ZeroMac(), false);
     req.key.reset(key);
     req.data.reset(data);
     mirror_table_->Enqueue(&req);
