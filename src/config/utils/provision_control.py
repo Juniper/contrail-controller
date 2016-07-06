@@ -23,14 +23,34 @@ class ControlProvisioner(object):
             self._args.admin_user, self._args.admin_password, self._args.admin_tenant_name,
             self._args.api_server_ip,
             self._args.api_server_port, '/')
+
             # Update global system config also with this ASN
             gsc_obj = self._vnc_lib.global_system_config_read(
                   fq_name=['default-global-system-config'])
             gsc_obj.set_autonomous_system(self._args.router_asn)
             if self._args.ibgp_auto_mesh is not None:
                 gsc_obj.set_ibgp_auto_mesh(self._args.ibgp_auto_mesh)
+
+            gr_params = GracefulRestartType()
+            gr_update = False
+            if self._args.graceful_restart_time:
+                gr_params.set_graceful_restart_time(
+                    int(self._args.graceful_restart_time))
+                gr_update = True
+            if self._args.long_lived_graceful_restart_time:
+                gr_params.set_long_lived_graceful_restart_time(
+                    int(self._args.long_lived_graceful_restart_time))
+                gr_update = True
+            if self._args.end_of_rib_receive_time:
+                gr_params.set_end_of_rib_receive_time(
+                    int(self._args.end_of_rib_receive_time))
+                gr_update = True
+
+            if gr_update:
+                gsc_obj.set_graceful_restart_params(gr_params)
+
             self._vnc_lib.global_system_config_update(gsc_obj)
-            return 
+            return
 
         bp_obj = BgpProvisioner(
             self._args.admin_user, self._args.admin_password,
@@ -58,6 +78,10 @@ class ControlProvisioner(object):
                                         --api_server_port 8082
                                         --oper <add | del>
                                         --md5 <key value>|None(optional)
+                                        --graceful-restart-time 100
+                                        --long-lived-graceful-restart-time 100
+                                        --end-of-rib-receive-time 30
+
         '''
 
         # Source any specified config/ini file
@@ -77,7 +101,10 @@ class ControlProvisioner(object):
             'admin_user': None,
             'admin_password': None,
             'admin_tenant_name': None,
-            'md5' : None
+            'md5' : None,
+            'graceful-restart-time': None,
+            'long_lived_graceful_restart_time': None,
+            'end_of_rib_receive_time': None
         }
 
         if args.conf_file:
@@ -116,7 +143,7 @@ class ControlProvisioner(object):
             "--api_server_ip", help="IP address of api server", required=True)
         parser.add_argument("--api_server_port", help="Port of api server", required=True)
         parser.add_argument(
-            "--oper", 
+            "--oper",
             help="Provision operation to be done(add or del)")
         parser.add_argument(
             "--admin_user", help="Name of keystone admin user")
@@ -124,6 +151,15 @@ class ControlProvisioner(object):
             "--admin_password", help="Password of keystone admin user")
         parser.add_argument(
             "--admin_tenant_name", help="Tenamt name for keystone admin user")
+        parser.add_argument(
+            "--graceful_restart_time", help="Graceful Restart Time interval in seconds",
+            required=False)
+        parser.add_argument(
+            "--long_lived_graceful_restart_time", help="Long Lived Graceful Restart Time interval in seconds",
+            required=False)
+        parser.add_argument(
+            "--end_of_rib_receive_time", help="EndOfRib receive timeout interval in seconds",
+            required=False)
 
         self._args = parser.parse_args(remaining_argv)
 
