@@ -58,6 +58,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("bgp::RouteAggregation")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ServiceChain")))
         (TaskExclusion(scheduler->GetTaskId("bgp::StaticRoute")))
+        (TaskExclusion(scheduler->GetTaskId("db::Walker")))
         (TaskExclusion(scheduler->GetTaskId("db::DBTable")));
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::ServiceChain"),
         static_service_chain_policy);
@@ -111,6 +112,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     // Policy for bgp::ResolverPath Task.
     TaskPolicy resolver_path_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
+        (TaskExclusion(scheduler->GetTaskId("db::Walker")))
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ResolverNexthop")))
         (TaskExclusion(scheduler->GetTaskId("bgp::RouteAggregation")))
@@ -131,6 +133,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     // Policy for bgp::RouteAggregation Task.
     TaskPolicy route_aggregation_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
+        (TaskExclusion(scheduler->GetTaskId("db::Walker")))
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ResolverNexthop")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ResolverPath")))
@@ -147,11 +150,22 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         db_ifmap_policy);
 
     // Policy for db::Walker Task.
+    // Rules:
+    // 1. All tasks that trigger WalkTable should be mutually exclusive to
+    // db::Walker task
+    // 2. All tasks that updates the db table partition should be mutually
+    // mutually exclusive
     TaskPolicy walker_policy = boost::assign::list_of
+        // Following tasks trigger WalkTable
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::RTFilter")))
+        // Following tasks updates db table partition
         (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
         (TaskExclusion(scheduler->GetTaskId("db::IFMapTable")))
-        (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")))
-        (TaskExclusion(scheduler->GetTaskId("bgp::RTFilter")));
+        (TaskExclusion(scheduler->GetTaskId("bgp::ResolverPath")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::RouteAggregation")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ServiceChain")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::StaticRoute")));
     scheduler->SetPolicy(scheduler->GetTaskId("db::Walker"), walker_policy);
 }

@@ -169,6 +169,7 @@ DBTableBase::DBTableBase(DB *db, const string &name)
     walk_request_count_ = 0;
     walk_complete_count_ = 0;
     walk_cancel_count_ = 0;
+    walk_again_count_ = 0;
     walk_count_ = 0;
 }
 
@@ -261,6 +262,7 @@ private:
 class DBTable::TableWalker {
 public:
     TableWalker(DBTable *table) : table_(table) {
+        pending_workers_ = 0;
     }
 
     void StartWalk();
@@ -269,9 +271,17 @@ public:
         return table_;
     }
 
+    void ClearWalkWorks() {
+        worker_tasks_.clear();
+    }
+
     DBTable *table_;
     // check whether iteration is completed on all Table Partition
     tbb::atomic<uint16_t> pending_workers_;
+    // For debugging purpose. Few of the tasks in this list could has finished
+    // executing and destroyed. List of workers are useful in debugging with
+    // gdb/gcore to see the current state of the walk and walk_context
+    std::list<Task *> worker_tasks_;
 };
 
 bool DBTable::WalkWorker::Run() {
@@ -327,12 +337,20 @@ DBTable::WalkWorker::WalkWorker(TableWalker *walker, int db_partition_id)
 }
 
 void DBTable::TableWalker::StartWalk() {
-    int num_worker = table_->PartitionCount();
-    pending_workers_ = num_worker;
-    for (int i = 0; i < num_worker; i++) {
-        WalkWorker *task = new WalkWorker(this, i);
+    CHECK_CONCURRENCY("db::Walker");
+    assert(pending_workers_ == 0);
+    for (int i = 0; i < table_->PartitionCount(); i++) {
+        DBTablePartition *partition = static_cast<DBTablePartition *>(
+            table_->GetTablePartition(i));
+        if (!partition->size()) continue;
+        worker_tasks_.push_back(new WalkWorker(this, i));
+        pending_workers_++;
+    }
+    if (pending_workers_ == 0) {
+        table_->WalkDone();
+    } else {
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        scheduler->Enqueue(task);
+        BOOST_FOREACH(Task *task, worker_tasks_) scheduler->Enqueue(task);
     }
 }
 
@@ -375,6 +393,7 @@ DBTablePartition *DBTable::AllocPartition(int index) {
 }
 
 void DBTable::StartWalk() {
+    CHECK_CONCURRENCY("db::Walker");
     incr_walk_count();
     walker_->StartWalk();
 }
@@ -590,6 +609,7 @@ bool DBTable::InvokeWalkCb(DBTablePartBase *part, DBEntryBase *entry) {
 
 void DBTable::WalkDone() {
     incr_walk_complete_count();
+    walker_->ClearWalkWorks();
     DBTableWalkMgr *walk_mgr = database()->GetWalkMgr();
     return walk_mgr->WalkDone();
 }

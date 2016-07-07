@@ -618,18 +618,18 @@ TEST_F(BgpTableWalkTest, StopWalk_2) {
         string prefix = string("10.1.1.") + integerToString(idx % 255) + "/32";
         AddInetRoute(red_, prefix, false);
     }
-    // Configure red table such that walk runs in context of bgp::ServiceChain
-    // Walk Pause task runs in the context of bgp::StaticRoute
+    // Configure red table such that walk runs in context of bgp::ResolverPath
+    // Walk Pause task runs in the context of bgp::ResolverNexthop
     // Walk is requested from bgp::RTFilter task
-    // Pause task will ensure that walk task is not started as bgp::ServiceChain
-    // and bgp:StaticRoute are mutually exclusive
-    red_->SetWalkTaskId(TaskScheduler::GetInstance()->GetTaskId("bgp::ServiceChain"));
+    // Pause task will ensure that walk task is not started as bgp::ResolverPath
+    // and bgp:ResolverNexthop are mutually exclusive
+    red_->SetWalkTaskId(TaskScheduler::GetInstance()->GetTaskId("bgp::ResolverPath"));
 
     // Pause the table walk
     PauseTableWalk();
 
     int pause_task =
-        TaskScheduler::GetInstance()->GetTaskId("bgp::StaticRoute");
+        TaskScheduler::GetInstance()->GetTaskId("bgp::ResolverNexthop");
     WalkPauseTask *task = new WalkPauseTask(this, pause_task);
     TaskScheduler::GetInstance()->Enqueue(task);
 
@@ -682,15 +682,15 @@ TEST_F(BgpTableWalkTest, StopWalk_3) {
               boost::bind(&BgpTableWalkTest::WalkTableCallback, this, _1, _2),
               boost::bind(&BgpTableWalkTest::WalkDone, this, _1, _2));
 
-    // Configure red table such that walk runs in context of bgp::ServiceChain
-    // Walk Pause task runs in the context of bgp::StaticRoute
+    // Configure red table such that walk runs in context of bgp::ResolverPath
+    // Walk Pause task runs in the context of bgp::ResolverNexthop
     // Walk is requested from bgp::RTFilter task
-    // Pause task will ensure that walk task is not started as bgp::ServiceChain
-    // and bgp:StaticRoute are mutually exclusive
-    red_->SetWalkTaskId(TaskScheduler::GetInstance()->GetTaskId("bgp::ServiceChain"));
+    // Pause task will ensure that walk task is not started as bgp::ResolverPath
+    // and bgp:ResolverNexthop are mutually exclusive
+    red_->SetWalkTaskId(TaskScheduler::GetInstance()->GetTaskId("bgp::ResolverPath"));
 
     int pause_task =
-        TaskScheduler::GetInstance()->GetTaskId("bgp::StaticRoute");
+        TaskScheduler::GetInstance()->GetTaskId("bgp::ResolverNexthop");
     // Pause RED table walk only
     // PauseTask and Walk task for RED table are mutually exclusive
     PauseTableWalk();
@@ -747,30 +747,37 @@ TEST_F(BgpTableWalkTest, WalkAgain) {
      boost::bind(&BgpTableWalkTest::WalkTableCallback, this, _1, _2),
      boost::bind(&BgpTableWalkTest::WalkDone, this, _1, _2));
 
-    // Configure red table such that walk runs in context of bgp::ServiceChain
-    // Walk Pause task runs in the context of bgp::StaticRoute
+    // Configure red table such that walk runs in context of bgp::ResolverPath
+    // Walk Pause task runs in the context of bgp::ResolverNexthop
     // Walk is requested from bgp::RTFilter task
-    // Pause task will ensure that walk task is not started as bgp::ServiceChain
-    // and bgp:StaticRoute are mutually exclusive
-    red_->SetWalkTaskId(TaskScheduler::GetInstance()->GetTaskId("bgp::ServiceChain"));
+    // Pause task will ensure that walk task is not started as bgp::ResolverPath
+    // and bgp:ResolverNexthop are mutually exclusive
+    red_->SetWalkTaskId(TaskScheduler::GetInstance()->GetTaskId("bgp::ResolverPath"));
 
     int pause_task =
-        TaskScheduler::GetInstance()->GetTaskId("bgp::StaticRoute");
+        TaskScheduler::GetInstance()->GetTaskId("bgp::ResolverNexthop");
     // Pause RED table walk
     // PauseTask and Walk task for RED table are mutually exclusive
     PauseTableWalk();
     WalkPauseTask *task = new WalkPauseTask(this, pause_task);
     TaskScheduler::GetInstance()->Enqueue(task);
 
+    // Disable the walk processing and start walk
+    DisableWalkProcessing();
     task_util::TaskFire(boost::bind(&DBTable::WalkTable, red_, walk_ref),
                         "bgp::RTFilter");
+    EnableWalkProcessing();
 
     TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
 
     // Call WalkAgain() and validate that table is walked mutliple times and
     // walk_done is invoked only once
+    DisableWalkProcessing();
     task_util::TaskFire(boost::bind(&DBTable::WalkAgain, red_, walk_ref),
                         "bgp::RTFilter");
+    EnableWalkProcessing();
+
+    // Stop the PauseTask to resume table walk
     ResumeTableWalk();
 
     TASK_UTIL_EXPECT_EQ(2, red_->walk_count());
@@ -930,28 +937,32 @@ TEST_F(BgpTableWalkTest, WalkInprogress) {
         AddInetRoute(red_, prefix, false);
     }
 
-    // Configure red table such that walk runs in context of bgp::ServiceChain
-    // Walk Pause task runs in the context of bgp::StaticRoute
+    // Configure red table such that walk runs in context of bgp::ResolverPath
+    // Walk Pause task runs in the context of bgp::ResolverNexthop
     // Walk is requested from bgp::RTFilter task
-    // Pause task will ensure that walk task is not started as bgp::ServiceChain
-    // and bgp:StaticRoute are mutually exclusive
-    red_->SetWalkTaskId(TaskScheduler::GetInstance()->GetTaskId("bgp::ServiceChain"));
+    // Pause task will ensure that walk task is not started as bgp::ResolverPath
+    // and bgp:ResolverNexthop are mutually exclusive
+    red_->SetWalkTaskId(TaskScheduler::GetInstance()->GetTaskId("bgp::ResolverPath"));
 
     int pause_task =
-        TaskScheduler::GetInstance()->GetTaskId("bgp::StaticRoute");
+        TaskScheduler::GetInstance()->GetTaskId("bgp::ResolverNexthop");
     // Pause RED table walk
     // PauseTask and Walk task for RED table are mutually exclusive
     PauseTableWalk();
     WalkPauseTask *task = new WalkPauseTask(this, pause_task);
     TaskScheduler::GetInstance()->Enqueue(task);
 
+    DisableWalkProcessing();
     task_util::TaskFire(boost::bind(&DBTable::WalkTable, red_, walk_ref),
                         "bgp::RTFilter");
+    EnableWalkProcessing();
 
     TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
 
+    DisableWalkProcessing();
     task_util::TaskFire(boost::bind(&DBTable::WalkTable, red_, walk_ref_1),
                         "bgp::RTFilter");
+    EnableWalkProcessing();
 
     // Resume the table walk
     ResumeTableWalk();
@@ -1008,6 +1019,52 @@ TEST_F(BgpTableWalkTest, WalkInprogress_1) {
     DeleteInetRoute(red_, "1.1.1.0/24");
     DeleteInetRoute(blue_, "2.2.2.0/24");
     DeleteInetRoute(purple_, "3.3.3.0/24");
+}
+
+//
+// Verify walk request on empty table
+//
+TEST_F(BgpTableWalkTest, WalkEmptyTable) {
+    DBTable::DBTableWalkRef walk_ref = red_->AllocWalker(
+     boost::bind(&BgpTableWalkTest::WalkTableCallback, this, _1, _2),
+     boost::bind(&BgpTableWalkTest::WalkDone, this, _1, _2));
+
+    // Configure red table such that walk runs in context of bgp::ResolverPath
+    // Walk Pause task runs in the context of bgp::ResolverNexthop
+    // Walk is requested from bgp::RTFilter task
+    // Pause task will ensure that walk task is not started as bgp::ResolverPath
+    // and bgp:ResolverNexthop are mutually exclusive
+    //
+    // Verify that Walk completes without starting Walk on any DB table
+    // partition
+    red_->SetWalkTaskId(TaskScheduler::GetInstance()->GetTaskId("bgp::ResolverPath"));
+
+    int pause_task =
+        TaskScheduler::GetInstance()->GetTaskId("bgp::ResolverNexthop");
+    // Pause RED table walk
+    // PauseTask and Walk task for RED table are mutually exclusive
+    PauseTableWalk();
+    WalkPauseTask *task = new WalkPauseTask(this, pause_task);
+    TaskScheduler::GetInstance()->Enqueue(task);
+
+    DisableWalkProcessing();
+    task_util::TaskFire(boost::bind(&DBTable::WalkTable, red_, walk_ref),
+                        "bgp::RTFilter");
+    EnableWalkProcessing();
+
+    TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1, red_->walk_complete_count());
+
+    // Resume the table walk
+    ResumeTableWalk();
+    task_util::WaitForIdle();
+
+    // Table is walked
+    TASK_UTIL_EXPECT_TRUE(walk_done_);
+    TASK_UTIL_EXPECT_EQ(0, walk_count_);
+    TASK_UTIL_EXPECT_EQ(1, walk_done_count_);
+    TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
+    TASK_UTIL_EXPECT_EQ(1, red_->walk_complete_count());
 }
 
 class TestEnvironment : public ::testing::Environment {
