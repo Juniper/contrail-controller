@@ -132,6 +132,7 @@ private:
             }
             // Send the flows periodically
             int lflow_cnt = 0;
+            int last_lflow_cnt = 0;
             uint64_t diff_time = 0;
             std::vector<FlowLogData>::iterator begin(mgen_->flows_.begin() +
                 mgen_->flow_counter_);
@@ -153,13 +154,14 @@ private:
                 mgen_->flow_counter_++;
                 if (lflow_cnt % mgen_->num_flow_samples_in_message_ == 0) {
                     FLOW_LOG_DATA_OBJECT_LOG("", SandeshLevel::SYS_NOTICE,
-                        std::vector<FlowLogData>(begin, it + 1));
+                        std::vector<FlowLogData>(begin+last_lflow_cnt, it + 1));
                     sent_message = true;
+                    last_lflow_cnt = lflow_cnt;
                 }
                 if (lflow_cnt == mgen_->num_flow_samples_per_sec_) {
                     if (!sent_message) {
                         FLOW_LOG_DATA_OBJECT_LOG("", SandeshLevel::SYS_NOTICE,
-                            std::vector<FlowLogData>(begin, it + 1));
+                            std::vector<FlowLogData>(begin+last_lflow_cnt, it + 1));
                     }
                     diff_time += UTCTimestampUsec() - stime;
                     usleep(1000000 - diff_time);
