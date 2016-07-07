@@ -57,10 +57,10 @@ class SchemaTransformerDB(VncCassandraClient):
             self._zk_path_pfx = ''
 
         keyspaces = {
-            self._KEYSPACE: [(self._RT_CF, None),
-                             (self._SC_IP_CF, None),
-                             (self._SERVICE_CHAIN_CF, None),
-                             (self._SERVICE_CHAIN_UUID_CF, None)]}
+            self._KEYSPACE: {self._RT_CF: {},
+                             self._SC_IP_CF: {},
+                             self._SERVICE_CHAIN_CF: {},
+                             self._SERVICE_CHAIN_UUID_CF: {}}}
         cass_server_list = self._args.cassandra_server_list
 
         cred = None

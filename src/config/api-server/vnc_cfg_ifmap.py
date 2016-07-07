@@ -793,8 +793,8 @@ class VncServerCassandraClient(VncCassandraClient):
                       cassandra_credential):
         self._db_client_mgr = db_client_mgr
         keyspaces = self._UUID_KEYSPACE.copy()
-        keyspaces[self._USERAGENT_KEYSPACE_NAME] = [
-            (self._USERAGENT_KV_CF_NAME, None)]
+        keyspaces[self._USERAGENT_KEYSPACE_NAME] = {
+            self._USERAGENT_KV_CF_NAME: {}}
         super(VncServerCassandraClient, self).__init__(
             cass_srv_list, db_prefix, keyspaces, None, self.config_log,
             generate_url=db_client_mgr.generate_url,

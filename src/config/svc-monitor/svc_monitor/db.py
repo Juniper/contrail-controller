@@ -22,10 +22,10 @@ class ServiceMonitorDB(VncCassandraClient):
         self._db_logger = logger
 
         keyspaces = {
-            self._KEYSPACE: [
-                (self._SVC_SI_CF, None),
-                (self._LB_CF, None)
-            ]
+            self._KEYSPACE: {
+                self._SVC_SI_CF: {},
+                self._LB_CF: {}
+            }
         }
 
         cred = None

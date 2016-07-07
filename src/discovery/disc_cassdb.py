@@ -39,9 +39,12 @@ class DiscoveryCassandraClient(VncCassandraClient):
         }
 
         keyspaces = {
-            self._DISCOVERY_KEYSPACE_NAME: [
-                (self._DISCOVERY_CF_NAME, CompositeType(AsciiType(), UTF8Type(), UTF8Type()))
-            ]
+            self._DISCOVERY_KEYSPACE_NAME: {
+                self._DISCOVERY_CF_NAME: {
+                    'comparator_type': CompositeType(
+                                           AsciiType(), UTF8Type(), UTF8Type())
+                }
+            }
         }
 
         super(DiscoveryCassandraClient, self).__init__(
