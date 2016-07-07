@@ -24,13 +24,13 @@ class PhyifBandwidth(AlarmBase):
                     vname:json.dumps(k)}))
 
         if len(match_list_o):
-            alm.append(AlarmRuleMatch(rule=[AlarmConditionMatch(
+            alm.append(AlarmAndList(and_list=[AlarmConditionMatch(
                 condition=AlarmCondition(operation=">=",
                     operand1=sname, operand2=json.dumps(thresh),
                     vars=[vname]),
                 match=match_list_o)]))
         if len(match_list_u):
-            alm.append(AlarmRuleMatch(rule=[AlarmConditionMatch(
+            alm.append(AlarmAndList(and_list=[AlarmConditionMatch(
                 condition=AlarmCondition(operation="<=",
                     operand1=sname, operand2=json.dumps(-thresh),
                     vars=[vname]),

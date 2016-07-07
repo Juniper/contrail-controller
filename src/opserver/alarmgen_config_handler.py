@@ -162,6 +162,10 @@ class AlarmGenConfigHandler(ConfigHandler):
         alarm_config_change_map = {}
         if operation == 'CREATE' or operation == 'UPDATE':
             if config_type == 'alarm':
+                if '_alarm_rules' not in config_obj.__dict__:
+                    self._logger('Ignoring conf for inbuilt alarm %s' % \
+                            fq_name, SandeshLevel.SYS_INFO)
+                    return
                 alarm_config = self._config_db[config_type].get(fq_name)
                 if alarm_config is None:
                     alarm_config_change_map = self._update_alarm_config_table(
