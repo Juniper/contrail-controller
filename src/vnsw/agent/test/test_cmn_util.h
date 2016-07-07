@@ -53,6 +53,7 @@ struct TestQosConfigData {
     uint32_t id_;
     std::string type_;
     bool trusted_;
+    uint32_t default_forwarding_class_;
 
     std::map<uint32_t, uint32_t> dscp_;
     std::map<uint32_t, uint32_t> vlan_priority_;

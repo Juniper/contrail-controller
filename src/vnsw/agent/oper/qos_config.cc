@@ -82,6 +82,8 @@ bool AgentQosConfig::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     data.set_dscp_list(dscp_list);
     data.set_vlan_priority_list(vlan_priority_list);
     data.set_mpls_exp_list(mpls_exp_list);
+    data.set_default_forwarding_class(default_forwarding_class_);
+    data.set_trusted(trusted_);
 
     std::vector<AgentQosConfigSandeshData> &list =
         const_cast<std::vector<AgentQosConfigSandeshData>&>(resp->get_qc_list());
@@ -241,6 +243,11 @@ bool AgentQosConfig::Change(const DBRequest *req) {
         HandleGlobalQosConfig(data);
     }
 
+    if (default_forwarding_class_ != data->default_forwarding_class_) {
+        default_forwarding_class_ = data->default_forwarding_class_;
+        ret = true;
+    }
+
     return ret;
 }
 
@@ -381,6 +388,8 @@ AgentQosConfigTable::BuildData(IFMapNode *node) {
     } else {
         qcd->type_ = AgentQosConfig::DEFAULT;
     }
+
+    qcd->default_forwarding_class_ = cfg->default_forwarding_class_id();
 
     return qcd;
 }

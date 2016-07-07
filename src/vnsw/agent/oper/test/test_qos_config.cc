@@ -62,7 +62,7 @@ protected:
 
 TEST_F(QosConfigClassTest, Test1) {
     TestQosConfigData data =
-        {"qos_config", 1, "vhost", false};
+        {"qos_config", 1, "vhost", false, 2};
     data.dscp_[1] = 1;
     data.dscp_[2] = 2;
 
@@ -81,7 +81,7 @@ TEST_F(QosConfigClassTest, Test1) {
 
 TEST_F(QosConfigClassTest, Test2) {
     TestQosConfigData data =
-        {"qos_config", 1, "vhost", false};
+        {"qos_config", 1, "vhost", false, 1};
     data.dscp_[1] = 1;
     data.dscp_[2] = 2;
     data.vlan_priority_[0] = 1;
@@ -93,6 +93,7 @@ TEST_F(QosConfigClassTest, Test2) {
     client->WaitForIdle();
     VerifyQosConfig(agent, &data);
 
+    data.default_forwarding_class_ = 2;
     data.dscp_[1] = 3;
     data.dscp_[2] = 4;
     data.vlan_priority_[0] = 4;
@@ -110,7 +111,7 @@ TEST_F(QosConfigClassTest, Test2) {
 
 TEST_F(QosConfigClassTest, Test3) {
     TestQosConfigData data =
-        {"qos_config", 1, "vhost", false};
+        {"qos_config", 1, "vhost", false, 2};
     data.dscp_[1] = 1;
     data.dscp_[2] = 2;
     data.vlan_priority_[0] = 1;
@@ -142,9 +143,9 @@ TEST_F(QosConfigClassTest, Test3) {
 
 TEST_F(QosConfigClassTest, Test4) {
     TestQosConfigData data =
-        {"qos_config", 1, "vhost", false};
+        {"qos_config", 1, "vhost", false, 2};
     TestQosConfigData data1 =
-        {"qos_config1", 2, "project", false};
+        {"qos_config1", 2, "project", false, 2};
 
     data.dscp_[1] = 1;
     data.dscp_[2] = 2;
@@ -175,9 +176,9 @@ TEST_F(QosConfigClassTest, Test5) {
     client->WaitForIdle();
 
     TestQosConfigData data =
-        {"qos_config", 1, "vhost", false};
+        {"qos_config", 1, "vhost", false, 2};
     TestQosConfigData data1 =
-        {"qos_config1", 2, "project", false};
+        {"qos_config1", 2, "project", false, 2};
 
     data.dscp_[1] = 2;
     data.dscp_[2] = 2;
@@ -210,7 +211,7 @@ TEST_F(QosConfigClassTest, Test5) {
 
 TEST_F(QosConfigClassTest, Test6) {
     TestQosConfigData data =
-        {"qos_config", 1, "vhost", false};
+        {"qos_config", 1, "vhost", false, 2};
 
     data.dscp_[1] = 2;
     data.dscp_[2] = 2;
@@ -239,7 +240,7 @@ TEST_F(QosConfigClassTest, Test6) {
 
 TEST_F(QosConfigClassTest, Test7) {
     TestQosConfigData data =
-        {"qos_config", 1, "vhost", false};
+        {"qos_config", 1, "vhost", false, 2};
 
     data.dscp_[1] = 2;
     data.dscp_[2] = 2;
@@ -272,7 +273,7 @@ TEST_F(QosConfigClassTest, Test8) {
     };
 
     TestQosConfigData data =
-        {"qos_config", 1, "vhost", false};
+        {"qos_config", 1, "vhost", false, 2};
 
     data.dscp_[1] = 2;
     data.dscp_[2] = 2;
@@ -300,7 +301,7 @@ TEST_F(QosConfigClassTest, Test8) {
 
 TEST_F(QosConfigClassTest, Test9) {
     TestQosConfigData data =
-        {"qos_config", 1, "vhost", false};
+        {"qos_config", 1, "vhost", false, 2};
 
     data.dscp_[1] = 2;
     data.dscp_[2] = 2;
@@ -344,7 +345,7 @@ TEST_F(QosConfigClassTest, Test9) {
 
 TEST_F(QosConfigClassTest, Test10) {
     TestQosConfigData data =
-        {"qos_config", 1, "fabric", false};
+        {"qos_config", 1, "fabric", false, 2};
 
     data.dscp_[1] = 2;
     data.dscp_[2] = 2;
@@ -386,10 +387,10 @@ TEST_F(QosConfigClassTest, Test10) {
 
 TEST_F(QosConfigClassTest, Test11) {
     TestQosConfigData data =
-        {"qos_config", 2, "fabric", false};
+        {"qos_config", 2, "fabric", false, 1};
 
     TestQosConfigData data1 =
-        {"qos_config1", 1, "fabric", false};
+        {"qos_config1", 1, "fabric", false, 2};
 
     data.dscp_[1] = 2;
     data.dscp_[2] = 2;

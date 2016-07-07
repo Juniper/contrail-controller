@@ -160,7 +160,7 @@ struct ItfSandeshData {
    52: list<string> fat_flow_list;
    54: optional string metadata_ip_active;
    55: optional string service_health_check_ip;
-   56: optional string qos_config; //QOS config uuid
+   56: optional string qos_config (link="AgentQosConfigSandeshReq"); //QOS config uuid
    57: list<AliasIpSandeshList> alias_ip_list;// Alias IP List
 }
 
@@ -2075,6 +2075,8 @@ struct AgentQosConfigSandeshData {
     5: optional list<QosForwardingClassSandeshPair> dscp_list;
     6: optional list<QosForwardingClassSandeshPair> vlan_priority_list;
     7: optional list<QosForwardingClassSandeshPair> mpls_exp_list;
+    8: u32 default_forwarding_class;
+    9: bool trusted;
 }
 
 /**

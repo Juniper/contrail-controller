@@ -17,8 +17,8 @@ struct PortInfo input[] = {
 };
 
 
-TestQosConfigData data1 = {"qos_config1", 1, "default", false};
-TestQosConfigData data2 = {"qos_config2", 2, "default", false};
+TestQosConfigData data1 = {"qos_config1", 1, "default", false, 1};
+TestQosConfigData data2 = {"qos_config2", 2, "default", false, 1};
 
 class FlowQosTest : public ::testing::Test {
 

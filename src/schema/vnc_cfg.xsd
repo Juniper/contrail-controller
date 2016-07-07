@@ -234,7 +234,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="alert" type="xsd:boolean" default="false"              required='optional'
              description='For internal use only'/>
         <xsd:element name="qos-action" type="xsd:string" required='optional'
-             description='Name of Qos configuration object for QoS marking'/>
+             description='FQN of Qos configuration object for QoS marking'/>
         <!-- More actions can come here. e.g. policer, QOS etc-->
     </xsd:all>
 </xsd:complexType>
@@ -1105,6 +1105,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Property('trusted', 'qos-config', 'CRUD',
               'Mode specifying if QoS bits in packet should be honoured or not.') -->
+<xsd:element name="default-forwarding-class-id" type="xsd:integer"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('default-forwarding-class-id', 'qos-config', 'CRUD',
+              'Default forwarding class used for all non-specified QOS bits') -->
 
 <xsd:element name="virtual-network-qos-config"/>
 <!--#IFMAP-SEMANTICS-IDL

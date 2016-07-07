@@ -70,9 +70,13 @@ bool ForwardingClassKSyncEntry::Sync(DBEntry *e) {
     QosQueueKSyncObject *qos_queue_object =
         (static_cast<QosQueueKSyncObject *>(ksync_obj_))->
         ksync()->qos_queue_ksync_obj();
-    QosQueueKSyncEntry qos_queue_ksync(qos_queue_object, fc->qos_queue_ref());
-    KSyncEntry *qos_queue_ksync_ptr =
-        qos_queue_object->GetReference(&qos_queue_ksync);
+
+    KSyncEntry *qos_queue_ksync_ptr = NULL;
+    if (fc->qos_queue_ref()) {
+        QosQueueKSyncEntry qos_queue_ksync(qos_queue_object,
+                                           fc->qos_queue_ref());
+        qos_queue_ksync_ptr = qos_queue_object->GetReference(&qos_queue_ksync);
+    }
 
     if (qos_queue_ksync_ptr != qos_queue_ksync_) {
         qos_queue_ksync_ = qos_queue_ksync_ptr;
@@ -106,7 +110,12 @@ int ForwardingClassKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_le
     std::vector<int8_t> qos_queue_list;
     const QosQueueKSyncEntry *qos_queue =
          static_cast<const QosQueueKSyncEntry *>(qos_queue_ksync_.get());
-    qos_queue_list.push_back(qos_queue->id());
+    if (qos_queue) {
+        qos_queue_list.push_back(qos_queue->id());
+    } else {
+        //Default for now
+        qos_queue_list.push_back(0);
+    }
     encoder.set_fmr_queue_id(qos_queue_list);
 
     int error = 0;
@@ -171,10 +180,5 @@ void vr_fc_map_req::Process(SandeshContext *context) {
 KSyncDBObject::DBFilterResp
 ForwardingClassKSyncObject::DBEntryFilter(const DBEntry *entry,
                                           const KSyncDBEntry *ksync) {
-    const ForwardingClass *fc = static_cast<const ForwardingClass *>(entry);
-    if (fc->qos_queue_ref() == NULL) {
-        return DBFilterIgnore;
-    }
-
     return DBFilterAccept;
 }
