@@ -44,51 +44,38 @@
 // Create an instance of PeerCloseManager with back reference to parent IPeer
 PeerCloseManager::PeerCloseManager(IPeerClose *peer_close,
                                    boost::asio::io_service &io_service) :
-        peer_close_(peer_close), stale_timer_(NULL), sweep_timer_(NULL),
-        stale_notify_timer_(NULL),
+        peer_close_(peer_close), stale_timer_(NULL),
+        event_queue_(new WorkQueue<Event *>(
+            TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
+            boost::bind(&PeerCloseManager::EventCallback, this, _1))),
         state_(NONE), close_again_(false), non_graceful_(false), gr_elapsed_(0),
         llgr_elapsed_(0), membership_state_(MEMBERSHIP_NONE) {
     stats_.init++;
     membership_req_pending_ = 0;
     stale_timer_ = TimerManager::CreateTimer(io_service,
-        "Graceful Restart StaleTimer",
-        TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0);
-    sweep_timer_ = TimerManager::CreateTimer(io_service,
-        "Graceful Restart SweepTimer",
-        TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0);
-    stale_notify_timer_ = TimerManager::CreateTimer(io_service,
-        "Graceful Restart StaleNotifyTimer",
-        TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0);
+                                             "Graceful Restart StaleTimer");
 }
 
 // Create an instance of PeerCloseManager with back reference to parent IPeer
 PeerCloseManager::PeerCloseManager(IPeerClose *peer_close) :
-        peer_close_(peer_close), stale_timer_(NULL), sweep_timer_(NULL),
-        stale_notify_timer_(NULL),
+        peer_close_(peer_close), stale_timer_(NULL),
+        event_queue_(new WorkQueue<Event *>(
+            TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
+            boost::bind(&PeerCloseManager::EventCallback, this, _1))),
         state_(NONE), close_again_(false), non_graceful_(false), gr_elapsed_(0),
         llgr_elapsed_(0), membership_state_(MEMBERSHIP_NONE) {
     stats_.init++;
     membership_req_pending_ = 0;
     if (peer_close->peer() && peer_close->peer()->server()) {
-        stale_timer_ = TimerManager::CreateTimer(
-            *peer_close->peer()->server()->ioservice(),
-            "Graceful Restart StaleTimer",
-            TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0);
-        sweep_timer_ = TimerManager::CreateTimer(
-            *peer_close->peer()->server()->ioservice(),
-            "Graceful Restart SweepTimer",
-            TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0);
-        stale_notify_timer_ = TimerManager::CreateTimer(
-            *peer_close->peer()->server()->ioservice(),
-            "Graceful Restart StaleNotifyTimer",
-            TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0);
+        stale_timer_ =
+           TimerManager::CreateTimer(*peer_close->peer()->server()->ioservice(),
+                                     "Graceful Restart StaleTimer");
     }
 }
 
 PeerCloseManager::~PeerCloseManager() {
+    event_queue_->Shutdown();
     TimerManager::DeleteTimer(stale_timer_);
-    TimerManager::DeleteTimer(sweep_timer_);
-    TimerManager::DeleteTimer(stale_notify_timer_);
 }
 
 std::string PeerCloseManager::GetStateName(State state) const {
@@ -134,23 +121,23 @@ std::string PeerCloseManager::GetMembershipStateName(
 //
 // Peer IsReady() in GR timer callback (or via reception of all EoRs)
 // RibIn Sweep and Ribout Generation        close_state_: SWEEP
-//   MembershipRequestCallback                 close_state_: NONE
+//   MembershipRequestCallback      close_state_: NONE
 //
 // Peer not IsReady() in GR timer callback
 // If LLGR supported                     close_state_: LLGR_STALE
 //   RibIn Stale marking with LLGR_STALE community close_state_: LLGR_TIMER
 //
 //     Peer not IsReady() in LLGR timer callback
-//       RibIn Delete                           close_state_: DELETE
+//       RibIn Delete                       close_state_: DELETE
 //       MembershipRequestCallback                 close_state_: NONE
 //
 //     Peer IsReady() in LLGR timer callback (or via reception of all EoRs)
-//     RibIn Sweep                              close_state_: SWEEP
-//       MembershipRequestCallback                 close_state_: NONE
+//     RibIn Sweep                          close_state_: SWEEP
+//       MembershipRequestCallback  close_state_: NONE
 //
 // If LLGR is not supported
-//     RibIn Delete                           close_state_: DELETE
-//     MembershipRequestCallback                 close_state_: NONE
+//     RibIn Delete                         close_state_: DELETE
+//     MembershipRequestCallback    close_state_: NONE
 //
 // Close() call during any state other than NONE and DELETE
 //     Cancel GR timer and restart GR Closure all over again
@@ -164,12 +151,15 @@ std::string PeerCloseManager::GetMembershipStateName(
 //
 // Use non_graceful as true for non-graceful closure
 void PeerCloseManager::Close(bool non_graceful) {
-    tbb::mutex::scoped_lock lock(mutex_);
+    EnqueueEvent(new Event(CLOSE, non_graceful));
+}
+
+void PeerCloseManager::Close(Event *event) {
 
     // Note down non-graceful close trigger. Once non-graceful closure is
     // triggered, it should remain so until close process is complete. Further
     // graceful closure calls until then should remain non-graceful.
-    non_graceful_ |= non_graceful;
+    non_graceful_ |= event->non_graceful;
     CloseInternal();
 }
 
@@ -214,20 +204,13 @@ void PeerCloseManager::CloseInternal() {
     }
 }
 
-bool PeerCloseManager::GRTimerFired() const {
-    return stale_timer_->fired();
+void PeerCloseManager::ProcessEORMarkerReceived(Address::Family family) {
+    EnqueueEvent(new Event(EOR_RECEIVED, family));
 }
 
-void PeerCloseManager::ProcessEORMarkerReceived(Address::Family family) {
-    if (GRTimerFired()) {
-        assert(state_ == GR_TIMER || state_ == LLGR_TIMER);
-        families_.erase(family);
-        return;
-    }
-
-    tbb::mutex::scoped_lock lock(mutex_);
+void PeerCloseManager::ProcessEORMarkerReceived(Event *event) {
     if ((state_ == GR_TIMER || state_ == LLGR_TIMER) && !families_.empty()) {
-        families_.erase(family);
+        families_.erase(event->family);
 
         // Start the timer if all EORs have been received.
         if (families_.empty())
@@ -246,14 +229,20 @@ void PeerCloseManager::StartRestartTimer(int time) {
 }
 
 bool PeerCloseManager::RestartTimerCallback() {
+    CHECK_CONCURRENCY("timer::TimerTask");
+    EnqueueEvent(new Event(TIMER_CALLBACK));
+    return false;
+}
+
+void PeerCloseManager::RestartTimerCallback(Event *event) {
     CHECK_CONCURRENCY("bgp::Config");
-    tbb::mutex::scoped_lock lock(mutex_);
 
     PEER_CLOSE_MANAGER_LOG("GR Timer callback started");
     if (state_ != GR_TIMER && state_ != LLGR_TIMER)
-        return false;
+        return;
 
     if (peer_close_->IsReady() && !families_.empty()) {
+
         // Fake reception of all EORs.
         for (IPeerClose::Families::iterator i = families_.begin(), next = i;
                 i != families_.end(); i = next) {
@@ -261,13 +250,9 @@ bool PeerCloseManager::RestartTimerCallback() {
             PEER_CLOSE_MANAGER_LOG("Simulate EoR reception for family " << *i);
             peer_close_->ReceiveEndOfRIB(*i);
         }
-
-        // Restart the timer to fire right away.
-        stale_timer_->Reschedule(0);
-        return true;
+    } else {
+        ProcessClosure();
     }
-    ProcessClosure();
-    return false;
 }
 
 // Route stale timer callback. If the peer has come back up, sweep routes for
@@ -327,13 +312,12 @@ void PeerCloseManager::ProcessClosure() {
 
     if (state_ == DELETE)
         peer_close_->CustomClose();
-    MembershipRequestInternal();
+    MembershipRequest();
 }
 
 void PeerCloseManager::CloseComplete() {
     MOVE_TO_STATE(NONE);
     stale_timer_->Cancel();
-    sweep_timer_->Cancel();
     families_.clear();
     stats_.init++;
 
@@ -344,43 +328,35 @@ void PeerCloseManager::CloseComplete() {
     }
 }
 
-bool PeerCloseManager::ProcessSweepStateActions() {
+void PeerCloseManager::TriggerSweepStateActions() {
     CHECK_CONCURRENCY("bgp::Config");
     assert(state_ == SWEEP);
 
     // Notify clients to trigger sweep as appropriate.
     peer_close_->GracefulRestartSweep();
     CloseComplete();
-    return false;
-}
-
-void PeerCloseManager::TriggerSweepStateActions() {
-    PEER_CLOSE_MANAGER_LOG("Sweep Timer started to fire right away");
-    sweep_timer_->Cancel();
-    sweep_timer_->Start(0,
-        boost::bind(&PeerCloseManager::ProcessSweepStateActions, this));
-}
-
-bool PeerCloseManager::NotifyStaleEvent() {
-    CHECK_CONCURRENCY("bgp::Config");
-
-    peer_close_->GracefulRestartStale();
-    MembershipRequestInternal();
-    return false;
 }
 
 // Notify clients about entering Stale event. Do this through a timer callback
 // off bgp::Config to solve concurrency issues in the client.
 void PeerCloseManager::StaleNotify() {
-    PEER_CLOSE_MANAGER_LOG("Stale Notify Timer started to fire right away");
-    stale_notify_timer_->Cancel();
-    stale_notify_timer_->Start(0,
-        boost::bind(&PeerCloseManager::NotifyStaleEvent, this));
+    CHECK_CONCURRENCY("bgp::Config");
+
+    peer_close_->GracefulRestartStale();
+    MembershipRequest(NULL);
 }
 
 void PeerCloseManager::MembershipRequest() {
-    tbb::mutex::scoped_lock lock(mutex_);
-    MembershipRequestInternal();
+    assert(membership_state_ != MEMBERSHIP_IN_USE);
+
+    // Pause if membership manager is not ready for usage.
+    if (!CanUseMembershipManager()) {
+        set_membership_state(MEMBERSHIP_IN_WAIT);
+        PEER_CLOSE_MANAGER_LOG("Wait for membership manager availability");
+        return;
+    }
+    set_membership_state(MEMBERSHIP_IN_USE);
+    EnqueueEvent(new Event(MEMBERSHIP_REQUEST));
 }
 
 bool PeerCloseManager::CanUseMembershipManager() const {
@@ -391,27 +367,20 @@ BgpMembershipManager *PeerCloseManager::membership_mgr() const {
     return peer_close_->peer()->server()->membership_mgr();
 }
 
-void PeerCloseManager::MembershipRequestInternal() {
-    assert(membership_state() != MEMBERSHIP_IN_USE);
+void PeerCloseManager::MembershipRequest(Event *evnet) {
+    CHECK_CONCURRENCY("bgp::Config");
 
-    // Pause if membership manager is not ready for usage.
-    if (!CanUseMembershipManager()) {
-        set_membership_state(MEMBERSHIP_IN_WAIT);
-        PEER_CLOSE_MANAGER_LOG("Wait for membership manager availability");
-        return;
-    }
     set_membership_state(MEMBERSHIP_IN_USE);
     assert(!membership_req_pending_);
     membership_req_pending_++;
     BgpMembershipManager *mgr = membership_mgr();
     if (!mgr)
         return;
-
     std::list<BgpTable *> tables;
     mgr->GetRegisteredRibs(peer_close_->peer(), &tables);
 
     if (tables.empty()) {
-        assert(MembershipRequestCompleteCallbackInternal());
+        assert(MembershipRequestCallback(NULL));
         return;
     }
 
@@ -446,30 +415,31 @@ void PeerCloseManager::MembershipRequestInternal() {
     }
 }
 
-// Concurrency: Runs in the context of the BGP peer rib membership task.
+void PeerCloseManager::MembershipRequestCallback() {
+    EnqueueEvent(new Event(MEMBERSHIP_REQUEST_COMPLETE_CALLBACK));
+}
+
+// Concurrency: Runs in the context of the bgp::Config task
 //
 // Close process for this peer in terms of walking RibIns and RibOuts are
 // complete. Do the final cleanups necessary and notify interested party
 //
 // Retrun true if we are done using membership manager, false otherwise.
-bool PeerCloseManager::MembershipRequestCallback() {
-    tbb::mutex::scoped_lock lock(mutex_);
-    return MembershipRequestCompleteCallbackInternal();
-}
+bool PeerCloseManager::MembershipRequestCallback(Event *event) {
+    CHECK_CONCURRENCY("bgp::Config");
 
-bool PeerCloseManager::MembershipRequestCompleteCallbackInternal() {
     assert(state_ == STALE || LLGR_STALE || state_ == SWEEP ||
            state_ == DELETE);
-    assert(membership_state() == MEMBERSHIP_IN_USE);
+    assert(membership_state_ == MEMBERSHIP_IN_USE);
     assert(membership_req_pending_ > 0);
 
     PEER_CLOSE_MANAGER_LOG("MembershipRequestCallback");
-    bool ret = false;
+    bool result = false;
     if (--membership_req_pending_)
-        return ret;
+        return result;
 
     // Indicate to the caller that we are done using the membership manager.
-    ret = true;
+    result = true;
     set_membership_state(MEMBERSHIP_NONE);
 
     if (state_ == DELETE) {
@@ -480,13 +450,13 @@ bool PeerCloseManager::MembershipRequestCompleteCallbackInternal() {
         stats_.init++;
         close_again_ = false;
         non_graceful_ = false;
-        return ret;
+        return result;
     }
 
     // Process nested closures.
     if (close_again_) {
         CloseComplete();
-        return ret;
+        return result;
     }
 
     // If any GR stale timer has to be launched, then to wait for some time
@@ -503,7 +473,7 @@ bool PeerCloseManager::MembershipRequestCompleteCallbackInternal() {
             time = 0;
         StartRestartTimer(time);
         stats_.gr_timer++;
-        return ret;
+        return result;
     }
 
     // From LLGR_STALE state, switch to LLGR_TIMER state. Typically this would
@@ -516,22 +486,20 @@ bool PeerCloseManager::MembershipRequestCompleteCallbackInternal() {
                 peer_close_->GetLongLivedGracefulRestartTime());
 
         // Offset restart time with elapsed time during nested closures.
-        int time = peer_close_->GetLongLivedGracefulRestartTime() *1000;
+        int time = peer_close_->GetLongLivedGracefulRestartTime() * 1000;
         time -= llgr_elapsed_;
         if (time < 0)
             time = 0;
         StartRestartTimer(time);
         stats_.llgr_timer++;
-        return ret;
+        return result;
     }
 
     TriggerSweepStateActions();
-    return ret;
+    return result;
 }
 
 void PeerCloseManager::FillCloseInfo(BgpNeighborResp *resp) const {
-    tbb::mutex::scoped_lock lock(mutex_);
-
     PeerCloseInfo peer_close_info;
     peer_close_info.state = GetStateName(state_);
     peer_close_info.membership_state =
@@ -553,6 +521,7 @@ void PeerCloseManager::FillCloseInfo(BgpNeighborResp *resp) const {
 
 bool PeerCloseManager::MembershipPathCallback(DBTablePartBase *root,
                                               BgpRoute *rt, BgpPath *path) {
+    CHECK_CONCURRENCY("db::DBTable");
     DBRequest::DBOperation oper;
     BgpAttrPtr attrs;
 
@@ -627,4 +596,38 @@ bool PeerCloseManager::MembershipPathCallback(DBTablePartBase *root,
     return table->InputCommon(root, rt, path, peer_close_->peer(), NULL, oper,
                               attrs, path->GetPathId(),
                               path->GetFlags() | stale, path->GetLabel());
+}
+
+//
+// Handler for an Event.
+//
+bool PeerCloseManager::EventCallback(Event *event) {
+    CHECK_CONCURRENCY("bgp::Config");
+    bool result;
+
+    switch (event->event_type) {
+    case EVENT_NONE:
+        break;
+    case CLOSE:
+        Close(event);
+        break;
+    case EOR_RECEIVED:
+        ProcessEORMarkerReceived(event);
+        break;
+    case MEMBERSHIP_REQUEST:
+        MembershipRequest(event);
+        break;
+    case MEMBERSHIP_REQUEST_COMPLETE_CALLBACK:
+        result = MembershipRequestCallback(event);
+
+        // Notify clients with the result of this processing.
+        peer_close_->MembershipRequestCallbackComplete(result);
+        break;
+    case TIMER_CALLBACK:
+        RestartTimerCallback(event);
+        break;
+    }
+
+    delete event;
+    return true;
 }

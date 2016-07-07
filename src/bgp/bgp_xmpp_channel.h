@@ -99,6 +99,7 @@ public:
 
     void set_peer_closed(bool flag);
     bool peer_deleted() const;
+    bool membership_in_use() const { return membership_in_use_; }
     uint64_t peer_closed_at() const;
     bool routingtable_membership_request_map_empty() const;
     size_t GetMembershipRequestQueueSize() const;
@@ -268,6 +269,7 @@ private:
     bool delete_in_progress_;
     bool deleted_;
     bool defer_peer_close_;
+    bool membership_in_use_;
     Timer *end_of_rib_timer_;
     WorkQueue<std::string> membership_response_worker_;
     SubscribedRoutingInstanceList routing_instances_;
