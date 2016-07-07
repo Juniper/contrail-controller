@@ -131,7 +131,7 @@ def set_perms(obj, owner=None, owner_access=None, share=None, global_access=None
     try:
         perms = obj.get_perms2()
     except AttributeError:
-        logger.info( '*** Unable to set perms2 in object %s' % obj.get_fq_name())
+        logger.info( 'Unable to set perms2 in object %s' % obj.get_fq_name())
         sys.exit()
     logger.info( 'Current perms %s = %s' % (obj.get_fq_name(), print_perms(perms)))
 
@@ -288,7 +288,7 @@ def token_from_user_info(user_name, tenant_name, domain_name, role_name,
         'X-Role': role_name,
     }
     rval = json.dumps(token_dict)
-    # logger.info( '**** Generate token %s ****' % rval)
+    # logger.info( 'Generate token %s' % rval)
     return rval
 
 class MyVncApi(VncApi):
@@ -423,7 +423,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         # bob - delete VN  ... should fail
         try:
             bob.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
-            self.assertTrue(False, '*** Bob Deleted VN ... test failed!')
+            self.assertTrue(False, 'Bob Deleted VN ... test failed!')
         except PermissionDenied as e:
             self.assertTrue(True, 'Error deleting VN ... test passed!')
 
@@ -432,7 +432,7 @@ class TestPermissions(test_case.ApiServerTestCase):
             alice.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
             self.assertTrue(True, 'Deleted VN ... test succeeded!')
         except PermissionDenied as e:
-            self.assertTrue(False, '*** Alice Error deleting VN ... test failed!')
+            self.assertTrue(False, 'Alice Error deleting VN ... test failed!')
     # end
 
     def test_delete_admin_role(self):
@@ -449,7 +449,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         # admin2 - delete VN  ... should fail
         try:
             self.admin2.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
-            self.assertTrue(False, '*** Deleted VN ... test failed!')
+            self.assertTrue(False, 'Deleted VN ... test failed!')
         except PermissionDenied as e:
             self.assertTrue(True, 'Error deleting VN ... test passed!')
 
@@ -458,7 +458,7 @@ class TestPermissions(test_case.ApiServerTestCase):
             self.admin1.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
             self.assertTrue(True, 'Deleted VN ... test succeeded!')
         except PermissionDenied as e:
-            self.assertTrue(False, '*** Error deleting VN ... test failed!')
+            self.assertTrue(False, 'Error deleting VN ... test failed!')
     # end
 
     # delete api-access-list for alice and bob and disallow api access to their projects
@@ -486,7 +486,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         vn = VirtualNetwork(self.vn_name, self.alice.project_obj)
         try:
             self.alice.vnc_lib.virtual_network_create(vn)
-            self.assertTrue(False, '*** Created virtual network ... test failed!')
+            self.assertTrue(False, 'Created virtual network ... test failed!')
         except PermissionDenied as e:
             self.assertTrue(True, 'Failed to create VN ... Test passes!')
 
@@ -515,7 +515,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         try:
             vn_fq_name = [self.domain_name, self.alice.project, self.vn_name]
             vn = vnc_read_obj(self.alice.vnc_lib, 'virtual-network', name = vn_fq_name)
-            self.assertTrue(False, '*** Read VN without read permission')
+            self.assertTrue(False, 'Read VN without read permission')
         except PermissionDenied as e:
             self.assertTrue(True, 'Unable to read VN ... test passed')
 
@@ -528,7 +528,7 @@ class TestPermissions(test_case.ApiServerTestCase):
             vn = vnc_read_obj(self.alice.vnc_lib, 'virtual-network', name = vn_fq_name)
             self.assertTrue(True, 'Read VN successfully ... test passed')
         except PermissionDenied as e:
-            self.assertTrue(False, '*** Read VN failed ... test failed!!!')
+            self.assertTrue(False, 'Read VN failed ... test failed!!!')
 
         logger.info('')
         logger.info( '########### API ACCESS (UPDATE) ##################')
@@ -536,7 +536,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         try:
             vn.display_name = "foobar"
             alice.vnc_lib.virtual_network_update(vn)
-            self.assertTrue(False, '*** Set field in VN ... test failed!')
+            self.assertTrue(False, 'Set field in VN ... test failed!')
             testfail += 1
         except PermissionDenied as e:
             self.assertTrue(True, 'Unable to update field in VN ... Test succeeded!')
@@ -553,7 +553,7 @@ class TestPermissions(test_case.ApiServerTestCase):
             alice.vnc_lib.virtual_network_update(vn)
             self.assertTrue(True, 'Set field in VN ... test passed!')
         except PermissionDenied as e:
-            self.assertTrue(False, '*** Failed to update field in VN ... Test failed!')
+            self.assertTrue(False, 'Failed to update field in VN ... Test failed!')
             testfail += 1
         if testfail > 0:
             sys.exit()
@@ -570,7 +570,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         try:
             vn.display_name = "alice"
             alice.vnc_lib.virtual_network_update(vn)
-            self.assertTrue(False, '*** Set field in VN  ... test failed!')
+            self.assertTrue(False, 'Set field in VN  ... test failed!')
         except PermissionDenied as e:
             self.assertTrue(True, 'Failed to update field in VN ... Test passed!')
 
@@ -582,7 +582,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         vn_fq_name = [self.domain_name, alice.project, self.vn_name]
         try:
             alice.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
-            self.assertTrue(False, '*** Deleted VN ... test failed!')
+            self.assertTrue(False, 'Deleted VN ... test failed!')
         except PermissionDenied as e:
             self.assertTrue(True, 'Error deleting VN ... test passed!')
 
@@ -599,7 +599,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         try:
             vn2 = VirtualNetwork('bob-vn-in-alice-project', alice.project_obj)
             bob.vnc_lib.virtual_network_create(vn2)
-            self.assertTrue(False, '*** Created virtual network ... test failed!')
+            self.assertTrue(False, 'Created virtual network ... test failed!')
         except PermissionDenied as e:
             self.assertTrue(True, 'Failed to create VN ... Test passed!')
 
@@ -614,7 +614,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         logger.info( 'Reading VN as bob ... should fail')
         try:
             net_obj = bob.vnc_lib.virtual_network_read(id=vn.get_uuid())
-            self.assertTrue(False, '*** Succeeded in reading VN. Test failed!')
+            self.assertTrue(False, 'Succeeded in reading VN. Test failed!')
         except PermissionDenied as e:
             self.assertTrue(True, 'Failed to read VN ... Test passed!')
 
@@ -627,7 +627,7 @@ class TestPermissions(test_case.ApiServerTestCase):
             net_obj = bob.vnc_lib.virtual_network_read(id=vn.get_uuid())
             self.assertTrue(True, 'Succeeded in reading VN. Test passed!')
         except PermissionDenied as e:
-            self.assertTrue(False, '*** Failed to read VN ... Test failed!')
+            self.assertTrue(False, 'Failed to read VN ... Test failed!')
 
         logger.info('')
         logger.info( '########### READ (DISABLE READ SHARING) ##################')
@@ -640,7 +640,7 @@ class TestPermissions(test_case.ApiServerTestCase):
             net_obj = bob.vnc_lib.virtual_network_read(id=vn.get_uuid())
             self.assertTrue(False, 'Succeeded in reading VN. Test failed!')
         except PermissionDenied as e:
-            self.assertTrue(True, '*** Failed to read VN ... Test passed!')
+            self.assertTrue(True, 'Failed to read VN ... Test passed!')
 
         logger.info('')
         logger.info( '########### READ (GLOBALLY SHARED) ##################')
@@ -653,14 +653,14 @@ class TestPermissions(test_case.ApiServerTestCase):
             net_obj = bob.vnc_lib.virtual_network_read(id=vn.get_uuid())
             self.assertTrue(True, 'Succeeded in reading VN. Test passed!')
         except PermissionDenied as e:
-            self.assertTrue(False, '*** Failed to read VN ... Test failed!')
+            self.assertTrue(False, 'Failed to read VN ... Test failed!')
 
         logger.info( '########### WRITE (GLOBALLY SHARED) ##################')
         logger.info( 'Writing shared VN as bob ... should fail')
         try:
             vn.display_name = "foobar"
             bob.vnc_lib.virtual_network_update(vn)
-            self.assertTrue(False, '*** Succeeded in updating VN. Test failed!!')
+            self.assertTrue(False, 'Succeeded in updating VN. Test failed!!')
         except PermissionDenied as e:
             self.assertTrue(True, 'Failed to update VN ... Test passed!')
 
@@ -676,7 +676,7 @@ class TestPermissions(test_case.ApiServerTestCase):
             bob.vnc_lib.virtual_network_update(vn)
             self.assertTrue(True, 'Succeeded in updating VN. Test passed!')
         except PermissionDenied as e:
-            self.assertTrue(False, '*** Failed to update VN ... Test failed!!')
+            self.assertTrue(False, 'Failed to update VN ... Test failed!!')
 
         logger.info( '')
         logger.info( '########################### COLLECTIONS #################')
@@ -686,7 +686,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         try:
             x = alice.vnc_lib.virtual_networks_list(parent_id = alice.project_uuid)
             self.assertTrue(False,
-                '*** Read VN collection without list permission ... test failed!')
+                'Read VN collection without list permission ... test failed!')
         except PermissionDenied as e:
             self.assertTrue(True, 'Failed to read VN collection ... test passed')
 

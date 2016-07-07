@@ -49,7 +49,7 @@ class ConfigTest(testtools.TestCase, fixtures.TestWithFixtures):
         Then it checks that the collector UVE (via redis)
         can be accessed from opserver.
         '''
-        logging.info("*** test_00_nocassandra ***")
+        logging.info("test_00_nocassandra")
 
         config_obj = self.useFixture(
             ConfigFixture(logging,
