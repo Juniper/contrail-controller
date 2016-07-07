@@ -115,6 +115,8 @@ class BgpPeer::PeerClose : public IPeerClose {
         peer_->ReceiveEndOfRIB(family, 0);
     }
 
+    virtual void MembershipRequestCallbackComplete(bool result) { }
+
     bool IsGRReady() const {
         // Check if GR helper mode is disabled.
         if (!peer_->server()->gr_helper_enable())
@@ -323,6 +325,8 @@ public:
 
     virtual bool MayDelete() const {
         CHECK_CONCURRENCY("bgp::Config");
+        if (!peer_->peer_close_->close_manager()->IsQueueEmpty())
+            return false;
         if (peer_->IsCloseInProgress())
             return false;
         if (!peer_->state_machine_->IsQueueEmpty())
@@ -344,8 +348,7 @@ public:
             peer_->server()->decrement_deleting_count();
         }
         assert(!peer_->membership_req_pending());
-        assert(peer_->peer_close()->close_manager()->membership_state() !=
-               PeerCloseManager::MEMBERSHIP_IN_USE);
+        assert(!peer_->peer_close_->close_manager()->IsMembershipInUse());
         peer_->rtinstance_->peer_manager()->DestroyIPeer(peer_);
     }
 
@@ -490,9 +493,8 @@ bool BgpPeer::CanUseMembershipManager() const {
 // in question.
 //
 void BgpPeer::MembershipRequestCallback(BgpTable *table) {
-    if (peer_close_->close_manager()->membership_state() ==
-            PeerCloseManager::MEMBERSHIP_IN_USE) {
-        (void) peer_close_->close_manager()->MembershipRequestCallback();
+    if (peer_close_->close_manager()->IsMembershipInUse()) {
+        peer_close_->close_manager()->MembershipRequestCallback();
         return;
     }
 
@@ -501,8 +503,7 @@ void BgpPeer::MembershipRequestCallback(BgpTable *table) {
 
     // Resume if CloseManager is waiting to use membership manager.
     if (!membership_req_pending_ &&
-             peer_close_->close_manager()->membership_state() ==
-                 PeerCloseManager::MEMBERSHIP_IN_WAIT) {
+        peer_close_->close_manager()->IsMembershipInWait()) {
         peer_close_->close_manager()->MembershipRequest();
     }
 
@@ -1037,8 +1038,7 @@ void BgpPeer::CustomClose() {
 //
 void BgpPeer::Close(bool non_graceful) {
     if (membership_req_pending_ &&
-        peer_close_->close_manager()->membership_state() !=
-            PeerCloseManager::MEMBERSHIP_IN_USE) {
+            !peer_close_->close_manager()->IsMembershipInUse()) {
         BGP_LOG_PEER(Event, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
             BGP_PEER_DIR_NA, "Close procedure deferred");
         defer_close_ = true;
@@ -1134,10 +1134,8 @@ bool BgpPeer::AcceptSession(BgpSession *session) {
 }
 
 void BgpPeer::Register(BgpTable *table, const RibExportPolicy &policy) {
-    assert(peer_close_->close_manager()->membership_state() !=
-               PeerCloseManager::MEMBERSHIP_IN_USE);
-    if (peer_close_->close_manager()->membership_state() ==
-            PeerCloseManager::MEMBERSHIP_IN_WAIT)
+    assert(!peer_close_->close_manager()->IsMembershipInUse());
+    if (peer_close_->close_manager()->IsMembershipInWait())
         assert(membership_req_pending_ > 0);
     BgpMembershipManager *membership_mgr = server_->membership_mgr();
     membership_req_pending_++;
@@ -1145,10 +1143,8 @@ void BgpPeer::Register(BgpTable *table, const RibExportPolicy &policy) {
 }
 
 void BgpPeer::Register(BgpTable *table) {
-    assert(peer_close_->close_manager()->membership_state() !=
-               PeerCloseManager::MEMBERSHIP_IN_USE);
-    if (peer_close_->close_manager()->membership_state() ==
-            PeerCloseManager::MEMBERSHIP_IN_WAIT)
+    assert(!peer_close_->close_manager()->IsMembershipInUse());
+    if (peer_close_->close_manager()->IsMembershipInWait())
         assert(membership_req_pending_ > 0);
     BgpMembershipManager *membership_mgr = server_->membership_mgr();
     membership_mgr->RegisterRibIn(this, table);
@@ -1649,10 +1645,8 @@ bool BgpPeer::SetGRCapabilities(BgpPeerInfoData *peer_info) {
     // If GR is no longer supported, terminate GR right away. This can happen
     // due to mis-match between gr and llgr afis. For now, we expect an
     // identical set.
-    if ((peer_close_->close_manager()->state() == PeerCloseManager::GR_TIMER &&
-            !peer_close_->IsCloseGraceful()) ||
-        (peer_close_->close_manager()->state() ==
-                PeerCloseManager::LLGR_TIMER &&
+    if (peer_close_->close_manager()->IsInGracefulRestartTimerWait() &&
+        (!peer_close_->IsCloseGraceful() ||
             !peer_close_->IsCloseLongLivedGraceful())) {
         Close(true);
         return false;
