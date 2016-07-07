@@ -55,9 +55,22 @@ class VncCassandraClient(object):
     # where type is entity object is being shared with. Project initially
     _OBJ_SHARED_CF_NAME = 'obj_shared_table'
 
-    _UUID_KEYSPACE = {_UUID_KEYSPACE_NAME:
-        [(_OBJ_UUID_CF_NAME, None), (_OBJ_FQ_NAME_CF_NAME, None),
-         (_OBJ_SHARED_CF_NAME, None)]}
+    _UUID_KEYSPACE = {
+        _UUID_KEYSPACE_NAME: {
+            _OBJ_UUID_CF_NAME: {
+                'cf_args': {
+                    'autopack_names': False,
+                    'autopack_values': False,
+                    },
+                },
+            _OBJ_FQ_NAME_CF_NAME: {
+                'cf_args': {
+                    'autopack_values': False,
+                    },
+                },
+            _OBJ_SHARED_CF_NAME: {}
+            }
+        }
 
     _MAX_COL = 10000000
 
@@ -418,11 +431,11 @@ class VncCassandraClient(object):
 
         self.sys_mgr = self._cassandra_system_manager()
         self.existing_keyspaces = self.sys_mgr.list_keyspaces()
-        for ks,cf_list in self._rw_keyspaces.items():
+        for ks,cf_dict in self._rw_keyspaces.items():
             keyspace = '%s%s' %(self._db_prefix, ks)
-            self._cassandra_ensure_keyspace(keyspace, cf_list)
+            self._cassandra_ensure_keyspace(keyspace, cf_dict)
 
-        for ks,cf_list in self._ro_keyspaces.items():
+        for ks,_ in self._ro_keyspaces.items():
             keyspace = '%s%s' %(self._db_prefix, ks)
             self._cassandra_wait_for_keyspace(keyspace)
 
@@ -456,7 +469,7 @@ class VncCassandraClient(object):
             self.existing_keyspaces = self.sys_mgr.list_keyspaces()
     # end _cassandra_wait_for_keyspace
 
-    def _cassandra_ensure_keyspace(self, keyspace_name, cf_info_list):
+    def _cassandra_ensure_keyspace(self, keyspace_name, cf_dict):
         if self._reset_config and keyspace_name in self.existing_keyspaces:
             try:
                 self.sys_mgr.drop_keyspace(keyspace_name)
@@ -474,29 +487,25 @@ class VncCassandraClient(object):
 
         gc_grace_sec = CASSANDRA_DEFAULT_GC_GRACE_SECONDS
 
-        for cf_info in cf_info_list:
+        for cf_name in cf_dict:
+            create_cf_kwargs = cf_dict[cf_name].get('create_cf_args', {})
             try:
-                (cf_name, comparator_type) = cf_info
-                if comparator_type:
-                    self.sys_mgr.create_column_family(
-                        keyspace_name, cf_name,
-                        comparator_type=comparator_type,
-                        gc_grace_seconds=gc_grace_sec,
-                        default_validation_class='UTF8Type')
-                else:
-                    self.sys_mgr.create_column_family(keyspace_name, cf_name,
-                        gc_grace_seconds=gc_grace_sec,
-                        default_validation_class='UTF8Type')
+                self.sys_mgr.create_column_family(
+                    keyspace_name, cf_name,
+                    gc_grace_seconds=gc_grace_sec,
+                    default_validation_class='UTF8Type',
+                    **create_cf_kwargs)
             except pycassa.cassandra.ttypes.InvalidRequestException as e:
                 # TODO verify only EEXISTS
                 self._logger("Warning! " + str(e), level=SandeshLevel.SYS_WARN)
                 self.sys_mgr.alter_column_family(keyspace_name, cf_name,
                     gc_grace_seconds=gc_grace_sec,
-                    default_validation_class='UTF8Type')
+                    default_validation_class='UTF8Type',
+                    **create_cf_kwargs)
     # end _cassandra_ensure_keyspace
 
     def _cassandra_init_conn_pools(self):
-        for ks,cf_list in itertools.chain(self._rw_keyspaces.items(),
+        for ks,cf_dict in itertools.chain(self._rw_keyspaces.items(),
                                           self._ro_keyspaces.items()):
             keyspace = '%s%s' %(self._db_prefix, ks)
             pool = pycassa.ConnectionPool(
@@ -507,11 +516,13 @@ class VncCassandraClient(object):
             rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
             wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
 
-            for (cf, _) in cf_list:
-                self._cf_dict[cf] = ColumnFamily(
-                    pool, cf, read_consistency_level=rd_consistency,
+            for cf_name in cf_dict:
+                cf_kwargs = cf_dict[cf_name].get('cf_args', {})
+                self._cf_dict[cf_name] = ColumnFamily(
+                    pool, cf_name, read_consistency_level=rd_consistency,
                     write_consistency_level=wr_consistency,
-                    dict_class=dict)
+                    dict_class=dict,
+                    **cf_kwargs)
 
         ConnectionState.update(conn_type = ConnType.DATABASE,
             name = 'Cassandra', status = ConnectionStatus.UP, message = '',
