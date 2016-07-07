@@ -190,6 +190,13 @@ static void process_command_line_args(int argc, char **argv) {
         n_peers.push_back(npeers);
     }
 
+    // Retrieve logging params.
+    if (vm.count("log-category"))
+        d_log_category_ = vm["log-category"].as<string>();
+
+    if (vm.count("log-level"))
+        d_log_level_ = vm["log-level"].as<string>();
+
     if (d_log_disable_) {
         SetLoggingDisabled(true);
     }
@@ -248,18 +255,15 @@ static vector<int> GetTargetParameters() {
 class PeerCloseManagerTest : public PeerCloseManager {
 public:
     explicit PeerCloseManagerTest(IPeerClose *peer_close) :
-            PeerCloseManager(peer_close), gr_timer_fired_(false) {
+            PeerCloseManager(peer_close) {
     }
     ~PeerCloseManagerTest() { last_stats_ = stats(); }
     static Stats &last_stats() { return last_stats_; }
     static void reset_last_stats() {
         memset(&last_stats_, 0, sizeof(PeerCloseManagerTest::last_stats()));
     }
-    virtual bool GRTimerFired() const { return gr_timer_fired_; }
-    void set_gr_timer_fired(bool flag) { gr_timer_fired_ = flag; }
 
 private:
-    bool gr_timer_fired_;
     static Stats last_stats_;
 };
 
@@ -1078,13 +1082,10 @@ bool GracefulRestartTest::SkipNotificationReceive(BgpPeerTest *peer,
 
 // Invoke stale timer callbacks directly to speed up.
 void GracefulRestartTest::GRTimerCallback(PeerCloseManagerTest *pc) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("timer::TimerTask");
 
     // Fire the timer.
-    pc->set_gr_timer_fired(true);
-    if (pc->RestartTimerCallback())
-        assert(!pc->RestartTimerCallback());
-    pc->set_gr_timer_fired(false);
+    assert(!pc->RestartTimerCallback());
 }
 
 void GracefulRestartTest::FireGRTimer(PeerCloseManagerTest *pc, bool is_ready) {
@@ -1093,7 +1094,7 @@ void GracefulRestartTest::FireGRTimer(PeerCloseManagerTest *pc, bool is_ready) {
     if (is_ready) {
         uint64_t sweep = pc->stats().sweep;
         TaskFire(boost::bind(&GracefulRestartTest::GRTimerCallback, this, pc),
-                 "bgp::Config");
+                 "timer::TimerTask");
         TASK_UTIL_EXPECT_EQ(sweep + 1, pc->stats().sweep);
         TASK_UTIL_EXPECT_EQ(PeerCloseManager::NONE, pc->state());
         WaitForIdle();
@@ -1109,7 +1110,7 @@ void GracefulRestartTest::FireGRTimer(PeerCloseManagerTest *pc, bool is_ready) {
         if (pc->state() == PeerCloseManager::GR_TIMER ||
                 pc->state() == PeerCloseManager::LLGR_TIMER)
             TaskFire(boost::bind(&GracefulRestartTest::GRTimerCallback,
-                                 this, pc), "bgp::Config");
+                                 this, pc), "timer::TimerTask");
         WaitForIdle();
         stats = is_xmpp ? PeerCloseManagerTest::last_stats() : pc->stats();
         if (stats.deletes > deletes)

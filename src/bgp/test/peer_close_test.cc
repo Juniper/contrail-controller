@@ -9,6 +9,7 @@
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_membership.h"
 #include "bgp/bgp_peer_close.h"
+#include "io/test/event_manager_test.h"
 
 class PeerCloseManagerTest;
 
@@ -16,7 +17,8 @@ class IPeerCloseTest : public IPeerClose {
 public:
     IPeerCloseTest() : graceful_(false), ll_graceful_(false), is_ready_(false),
                        close_graceful_(false), deleted_(false), swept_(false),
-                       stale_(false), llgr_stale_(false) {
+                       stale_(false), llgr_stale_(false),
+                       membership_request_complete_result_(false) {
     }
     virtual ~IPeerCloseTest() { }
 
@@ -35,6 +37,9 @@ public:
     virtual void GracefulRestartSweep() { swept_ = true; }
     virtual void GetGracefulRestartFamilies(Families *families) const {
         families->insert(Address::INET);
+    }
+    virtual void MembershipRequestCallbackComplete(bool result) {
+        membership_request_complete_result_ = result;
     }
     virtual const int GetGracefulRestartTime() const { return 123; }
     virtual const int GetLongLivedGracefulRestartTime() const { return 321; }
@@ -59,6 +64,9 @@ public:
     bool swept() const { return swept_; }
     bool stale() const { return stale_; }
     bool llgr_stale() const { return llgr_stale_; }
+    bool membership_request_complete_result() const {
+        return membership_request_complete_result_;
+    }
 
 private:
     PeerCloseManagerTest *close_manager_;
@@ -70,27 +78,18 @@ private:
     bool swept_;
     bool stale_;
     bool llgr_stale_;
+    bool membership_request_complete_result_;
 };
 
 class PeerCloseManagerTest : public PeerCloseManager {
 public:
-    enum Event {
-        BEGIN_EVENT,
-        CLOSE = BEGIN_EVENT,
-        EOR_RECEIVED,
-        MEMBERSHIP_REQUEST_COMPLETE_CALLBACK,
-        TIMER_CALLBACK,
-        END_EVENT = TIMER_CALLBACK
-    };
-
     PeerCloseManagerTest(IPeerClose *peer_close,
                          boost::asio::io_service &io_service) :
             PeerCloseManager(peer_close, io_service), restart_time_(0),
-            restart_timer_started_(false), restart_timer_fired_(false) {
+            restart_timer_started_(false) {
     }
     ~PeerCloseManagerTest() { }
     Timer *stale_timer() const { return stale_timer_; }
-    Timer *sweep_timer() const { return sweep_timer_; }
     int GetMembershipRequestCount() const {
         return membership_req_pending_;
     }
@@ -99,336 +98,381 @@ public:
     virtual void StartRestartTimer(int time) {
         restart_time_ = time;
         restart_timer_started_ = true;
+        PeerCloseManager::StartRestartTimer(time);
     }
-    virtual void TriggerSweepStateActions() {
-        ConcurrencyScope scope("bgp::Config");
-        ProcessSweepStateActions();
-    }
-    virtual void StaleNotify() {
-        ConcurrencyScope scope("bgp::Config");
-        PeerCloseManager::NotifyStaleEvent();
-    }
-    uint32_t restart_time() const { return restart_time_; }
+    int restart_time() const { return restart_time_; }
     bool restart_timer_started() const { return restart_timer_started_; }
-    bool GRTimerFired() const { return restart_timer_fired_; }
-    void set_restart_timer_fired(bool flag) { restart_timer_fired_ = flag; }
+    void Run();
+    static int GetBeginState() { return BEGIN_STATE; }
+    static int GetEndState() { return END_STATE; }
+    static int GetBeginEvent() { return BEGIN_EVENT; }
+    static int GetEndEvent() { return END_EVENT; }
 
-private:
-    friend class PeerCloseTest;
-    uint32_t restart_time_;
-    bool restart_timer_started_;
-    bool restart_timer_fired_;
-};
-
-void IPeerCloseTest::ReceiveEndOfRIB(Address::Family family) {
-    close_manager_->ProcessEORMarkerReceived(family);
-}
-
-typedef std::tr1::tuple<int, int, bool, bool, bool, bool, int> TestParams;
-class PeerCloseTest : public ::testing::TestWithParam<TestParams> {
-public:
-    virtual void SetUp() {
-        peer_close_.reset(new IPeerCloseTest());
-        close_manager_.reset(new PeerCloseManagerTest(peer_close_.get(),
-                                     io_service_));
-        peer_close_->set_close_manager(close_manager_.get());
-
-        state_ = static_cast<PeerCloseManagerTest::State>(
-                     std::tr1::get<0>(GetParam()));
-        event_ = static_cast<PeerCloseManagerTest::Event>(
-                     std::tr1::get<1>(GetParam()));
-        peer_close_->set_is_ready(std::tr1::get<2>(GetParam()));
-        peer_close_->set_graceful(std::tr1::get<3>(GetParam()));
-        peer_close_->set_ll_graceful(std::tr1::get<4>(GetParam()));
-        peer_close_->set_close_graceful(std::tr1::get<5>(GetParam()));
-        pending_requests_ = std::tr1::get<6>(GetParam());
-        membership_request_complete_result_ = false;
+    void SetUp(int state, int event, int pending_requests,
+               IPeerCloseTest *peer_close) {
+        test_state_ = static_cast<State>(state);
+        test_event_ = static_cast<EventType>(event);
+        pending_requests_ = pending_requests;
+        peer_close_ = peer_close;
     }
-    virtual void TearDown() { }
 
     void GotoState() {
-        close_manager_->set_state(state_);
-        switch (state_) {
-            case PeerCloseManager::NONE:
+        state_ = test_state_;
+        switch (test_state_) {
+            case NONE:
                 break;
-            case PeerCloseManager::GR_TIMER:
-                peer_close_->GetGracefulRestartFamilies(
-                    close_manager_->families());
+            case GR_TIMER:
+                peer_close_->GetGracefulRestartFamilies(families());
                 break;
-            case PeerCloseManager::LLGR_TIMER:
-                peer_close_->GetGracefulRestartFamilies(
-                    close_manager_->families());
+            case LLGR_TIMER:
+                peer_close_->GetGracefulRestartFamilies(families());
                 break;
-            case PeerCloseManager::SWEEP:
+            case SWEEP:
                 break;
-            case PeerCloseManager::DELETE:
+            case DELETE:
                 break;
-            case PeerCloseManager::STALE:
+            case STALE:
                 break;
-            case PeerCloseManager::LLGR_STALE:
+            case LLGR_STALE:
                 break;
         }
     }
 
+    virtual void MembershipRequestCallback() {
+        PeerCloseManager::MembershipRequestCallback();
+        task_util::WaitForIdle();
+    }
+
     void TriggerEvent() {
-        switch (event_) {
-        case PeerCloseManagerTest::CLOSE:
-            close_manager_->Close(!peer_close_->close_graceful());
+        switch (test_event_) {
+        case EVENT_NONE:
             break;
-        case PeerCloseManagerTest::EOR_RECEIVED:
-            close_manager_->ProcessEORMarkerReceived(Address::INET);
+        case CLOSE:
+            Close(!peer_close_->close_graceful());
             break;
-        case PeerCloseManagerTest::MEMBERSHIP_REQUEST_COMPLETE_CALLBACK:
-            close_manager_->set_membership_state(
-                PeerCloseManager::MEMBERSHIP_IN_USE);
-            close_manager_->set_membership_req_pending(pending_requests_);
-            if (!(close_manager_->state() == PeerCloseManager::STALE ||
-                  close_manager_->state() == PeerCloseManager::LLGR_STALE ||
-                  close_manager_->state() == PeerCloseManager::SWEEP ||
-                  close_manager_->state() == PeerCloseManager::DELETE)) {
-                TASK_UTIL_EXPECT_DEATH(
-                    close_manager_->MembershipRequestCallback(), ".*");
+        case EOR_RECEIVED:
+            ProcessEORMarkerReceived(Address::INET);
+            break;
+        case MEMBERSHIP_REQUEST:
+            break;
+        case MEMBERSHIP_REQUEST_COMPLETE_CALLBACK:
+            set_membership_state(MEMBERSHIP_IN_USE);
+            set_membership_req_pending(pending_requests_);
+            if (!(state() == STALE || state() == LLGR_STALE ||
+                  state() == SWEEP || state() == DELETE)) {
+                TASK_UTIL_EXPECT_DEATH(MembershipRequestCallback(), ".*");
             } else {
-                membership_request_complete_result_ =
-                    close_manager_->MembershipRequestCallback();
+                MembershipRequestCallback();
             }
             break;
-        case PeerCloseManagerTest::TIMER_CALLBACK:
-            ConcurrencyScope scope("bgp::Config");
-            close_manager_->set_restart_timer_fired(true);
-            if (close_manager_->RestartTimerCallback())
-                close_manager_->RestartTimerCallback();
-            close_manager_->set_restart_timer_fired(false);
+        case TIMER_CALLBACK:
+            task_util::TaskFire(
+                    boost::bind(&PeerCloseManager::RestartTimerCallback, this),
+                                "timer::TimerTask");
+            task_util::WaitForIdle();
             break;
         }
     }
 
     void check_close_at_start() {
         if (!peer_close_->graceful() || !peer_close_->close_graceful()) {
-            EXPECT_EQ(PeerCloseManager::DELETE, close_manager_->state());
-            EXPECT_FALSE(close_manager_->stale_timer()->running());
-            EXPECT_FALSE(close_manager_->sweep_timer()->running());
+            TASK_UTIL_EXPECT_EQ(DELETE, state());
+            TASK_UTIL_EXPECT_FALSE(stale_timer()->running());
 
             // Expect Membership (walk) request.
-            EXPECT_TRUE(close_manager_->GetMembershipRequestCount());
+            TASK_UTIL_EXPECT_TRUE(GetMembershipRequestCount());
 
             // Trigger unregister peer rib walks completion.
-            close_manager_->MembershipRequestCallback();
-            EXPECT_EQ(PeerCloseManager::NONE, close_manager_->state());
+            MembershipRequestCallback();
+            TASK_UTIL_EXPECT_EQ(NONE, state());
         } else {
 
             // Peer supports GR and Graceful closure has been triggered.
-            EXPECT_EQ(PeerCloseManager::STALE, close_manager_->state());
-            EXPECT_TRUE(peer_close_->stale());
-            EXPECT_FALSE(close_manager_->stale_timer()->running());
+            TASK_UTIL_EXPECT_EQ(STALE, state());
+            TASK_UTIL_EXPECT_TRUE(peer_close_->stale());
+            TASK_UTIL_EXPECT_FALSE(stale_timer()->running());
         }
     }
 
-protected:
-    boost::scoped_ptr<PeerCloseManagerTest> close_manager_;
-    boost::scoped_ptr<IPeerCloseTest> peer_close_;
-    boost::asio::io_service io_service_;
-    PeerCloseManagerTest::State state_;
-    PeerCloseManagerTest::Event event_;
+private:
+    friend class PeerCloseTest;
+    int restart_time_;
+    bool restart_timer_started_;
+    State test_state_;
+    EventType test_event_;
     int pending_requests_;
-    bool membership_request_complete_result_;
+    IPeerCloseTest *peer_close_;
 };
 
+void IPeerCloseTest::ReceiveEndOfRIB(Address::Family family) {
+    close_manager_->ProcessEORMarkerReceived(family);
+}
 PeerCloseManager *IPeerCloseTest::close_manager() { return close_manager_; }
 
-// Non graceful closure. Expect membership walk for ribin and ribout deletes.
-TEST_P(PeerCloseTest, Test) {
-    GotoState();
-    TriggerEvent();
-
-    switch (state_) {
-    case PeerCloseManagerTest::NONE:
-        switch (event_) {
-        case PeerCloseManagerTest::CLOSE:
+void PeerCloseManagerTest::Run() {
+    switch (test_state_) {
+    case NONE:
+        switch (test_event_) {
+        case EVENT_NONE:
+            break;
+        case MEMBERSHIP_REQUEST:
+            break;
+        case CLOSE:
             check_close_at_start();
             break;
-        case PeerCloseManagerTest::EOR_RECEIVED:
-            EXPECT_FALSE(close_manager_->stale_timer()->running());
-            EXPECT_FALSE(close_manager_->sweep_timer()->running());
+        case EOR_RECEIVED:
+            TASK_UTIL_EXPECT_FALSE(stale_timer()->running());
 
             // No change in state for eor reception in normal lifetime of peer.
-            EXPECT_EQ(PeerCloseManager::NONE, close_manager_->state());
+            TASK_UTIL_EXPECT_EQ(NONE, state());
             break;
-        case PeerCloseManagerTest::MEMBERSHIP_REQUEST_COMPLETE_CALLBACK:
+        case MEMBERSHIP_REQUEST_COMPLETE_CALLBACK:
             break;
-        case PeerCloseManagerTest::TIMER_CALLBACK:
-            EXPECT_EQ(PeerCloseManager::NONE, close_manager_->state());
+        case TIMER_CALLBACK:
+            TASK_UTIL_EXPECT_EQ(NONE, state());
             break;
         }
         break;
-    case PeerCloseManagerTest::STALE:
-        switch (event_) {
-        case PeerCloseManagerTest::CLOSE:
-            EXPECT_TRUE(close_manager_->close_again());
+    case STALE:
+        switch (test_event_) {
+        case EVENT_NONE:
             break;
-        case PeerCloseManagerTest::EOR_RECEIVED:
-            EXPECT_FALSE(close_manager_->stale_timer()->running());
-            EXPECT_FALSE(close_manager_->sweep_timer()->running());
+        case MEMBERSHIP_REQUEST:
+            break;
+        case CLOSE:
+            TASK_UTIL_EXPECT_TRUE(close_again());
+            break;
+        case EOR_RECEIVED:
+            TASK_UTIL_EXPECT_FALSE(stale_timer()->running());
 
             // No change in state for eor reception in normal lifetime of peer.
-            EXPECT_EQ(PeerCloseManager::STALE, close_manager_->state());
+            TASK_UTIL_EXPECT_EQ(STALE, state());
             break;
-        case PeerCloseManagerTest::MEMBERSHIP_REQUEST_COMPLETE_CALLBACK:
+        case MEMBERSHIP_REQUEST_COMPLETE_CALLBACK:
             if (pending_requests_ > 1) {
-                EXPECT_FALSE(membership_request_complete_result_);
+                TASK_UTIL_EXPECT_FALSE(
+                        peer_close_->membership_request_complete_result());
                 break;
             }
-            EXPECT_TRUE(membership_request_complete_result_);
-            EXPECT_EQ(PeerCloseManager::GR_TIMER, close_manager_->state());
-            EXPECT_TRUE(close_manager_->restart_timer_started());
-            EXPECT_EQ(1000 * peer_close_->GetGracefulRestartTime(),
-                      close_manager_->restart_time());
+            TASK_UTIL_EXPECT_TRUE(
+                    peer_close_->membership_request_complete_result());
+            TASK_UTIL_EXPECT_EQ(GR_TIMER, state());
+            TASK_UTIL_EXPECT_TRUE(restart_timer_started());
+            TASK_UTIL_EXPECT_EQ(1000 * peer_close_->GetGracefulRestartTime(),
+                      restart_time());
             break;
-        case PeerCloseManagerTest::TIMER_CALLBACK:
-            EXPECT_EQ(PeerCloseManager::STALE, close_manager_->state());
+        case TIMER_CALLBACK:
+            TASK_UTIL_EXPECT_EQ(STALE, state());
             break;
         }
         break;
-    case PeerCloseManagerTest::GR_TIMER:
-        switch (event_) {
-        case PeerCloseManagerTest::CLOSE:
+    case GR_TIMER:
+        switch (test_event_) {
+        case EVENT_NONE:
+            break;
+        case MEMBERSHIP_REQUEST:
+            break;
+        case CLOSE:
 
             // Nested closures trigger GR restart
             check_close_at_start();
             break;
-        case PeerCloseManagerTest::EOR_RECEIVED:
+        case EOR_RECEIVED:
 
             // Expect GR timer to start right away to exit from GR.
-            EXPECT_TRUE(close_manager_->restart_timer_started());
-            EXPECT_EQ(0, close_manager_->restart_time());
+            TASK_UTIL_EXPECT_TRUE(restart_timer_started());
+            TASK_UTIL_EXPECT_EQ(0, restart_time());
             break;
-        case PeerCloseManagerTest::MEMBERSHIP_REQUEST_COMPLETE_CALLBACK:
+        case MEMBERSHIP_REQUEST_COMPLETE_CALLBACK:
             break;
-        case PeerCloseManagerTest::TIMER_CALLBACK:
+        case TIMER_CALLBACK:
             if (peer_close_->IsReady()) {
-                EXPECT_EQ(PeerCloseManager::SWEEP, close_manager_->state());
+                TASK_UTIL_EXPECT_EQ(SWEEP, state());
                 break;
             }
 
             if (peer_close_->IsCloseLongLivedGraceful()) {
-                EXPECT_EQ(PeerCloseManager::LLGR_STALE,
-                          close_manager_->state());
-                EXPECT_TRUE(peer_close_->llgr_stale());
+                TASK_UTIL_EXPECT_EQ(LLGR_STALE,
+                          state());
+                TASK_UTIL_EXPECT_TRUE(peer_close_->llgr_stale());
                 break;
             }
 
-            EXPECT_EQ(PeerCloseManager::DELETE, close_manager_->state());
+            TASK_UTIL_EXPECT_EQ(DELETE, state());
             break;
         }
         break;
-    case PeerCloseManagerTest::LLGR_STALE:
-        switch (event_) {
-        case PeerCloseManagerTest::CLOSE:
-            EXPECT_TRUE(close_manager_->close_again());
+    case LLGR_STALE:
+        switch (test_event_) {
+        case EVENT_NONE:
             break;
-        case PeerCloseManagerTest::EOR_RECEIVED:
-            EXPECT_FALSE(close_manager_->stale_timer()->running());
-            EXPECT_FALSE(close_manager_->sweep_timer()->running());
+        case MEMBERSHIP_REQUEST:
             break;
-        case PeerCloseManagerTest::MEMBERSHIP_REQUEST_COMPLETE_CALLBACK:
+        case CLOSE:
+            TASK_UTIL_EXPECT_TRUE(close_again());
+            break;
+        case EOR_RECEIVED:
+            TASK_UTIL_EXPECT_FALSE(stale_timer()->running());
+            break;
+        case MEMBERSHIP_REQUEST_COMPLETE_CALLBACK:
             if (pending_requests_ > 1) {
-                EXPECT_FALSE(membership_request_complete_result_);
+                TASK_UTIL_EXPECT_FALSE(
+                        peer_close_->membership_request_complete_result());
                 break;
             }
-            EXPECT_TRUE(membership_request_complete_result_);
-            EXPECT_EQ(PeerCloseManager::LLGR_TIMER, close_manager_->state());
-            EXPECT_TRUE(close_manager_->restart_timer_started());
-            EXPECT_EQ(1000 * peer_close_->GetLongLivedGracefulRestartTime(),
-                      close_manager_->restart_time());
+            TASK_UTIL_EXPECT_TRUE(
+                    peer_close_->membership_request_complete_result());
+            TASK_UTIL_EXPECT_EQ(LLGR_TIMER, state());
+            TASK_UTIL_EXPECT_TRUE(restart_timer_started());
+            TASK_UTIL_EXPECT_EQ(
+                    1000 * peer_close_->GetLongLivedGracefulRestartTime(),
+                      restart_time());
             break;
-        case PeerCloseManagerTest::TIMER_CALLBACK:
-            EXPECT_EQ(PeerCloseManager::LLGR_STALE, close_manager_->state());
+        case TIMER_CALLBACK:
+            TASK_UTIL_EXPECT_EQ(LLGR_STALE, state());
             break;
         }
         break;
-    case PeerCloseManagerTest::LLGR_TIMER:
-        switch (event_) {
-        case PeerCloseManagerTest::CLOSE:
+    case LLGR_TIMER:
+        switch (test_event_) {
+        case EVENT_NONE:
+            break;
+        case MEMBERSHIP_REQUEST:
+            break;
+        case CLOSE:
 
             // Nested closures trigger GR restart
             check_close_at_start();
             break;
-        case PeerCloseManagerTest::EOR_RECEIVED:
+        case EOR_RECEIVED:
 
             // Expect GR timer to start right away to exit from GR.
-            EXPECT_TRUE(close_manager_->restart_timer_started());
-            EXPECT_EQ(0, close_manager_->restart_time());
+            TASK_UTIL_EXPECT_TRUE(restart_timer_started());
+            TASK_UTIL_EXPECT_EQ(0, restart_time());
             break;
-        case PeerCloseManagerTest::MEMBERSHIP_REQUEST_COMPLETE_CALLBACK:
+        case MEMBERSHIP_REQUEST_COMPLETE_CALLBACK:
             break;
-        case PeerCloseManagerTest::TIMER_CALLBACK:
+        case TIMER_CALLBACK:
             if (peer_close_->IsReady()) {
-                EXPECT_EQ(PeerCloseManager::SWEEP, close_manager_->state());
+                TASK_UTIL_EXPECT_EQ(SWEEP, state());
                 break;
             }
 
             if (peer_close_->IsCloseLongLivedGraceful()) {
-                EXPECT_EQ(PeerCloseManager::DELETE, close_manager_->state());
+                TASK_UTIL_EXPECT_EQ(DELETE, state());
                 break;
             }
 
-            EXPECT_EQ(PeerCloseManager::DELETE, close_manager_->state());
+            TASK_UTIL_EXPECT_EQ(DELETE, state());
             break;
         }
         break;
-    case PeerCloseManagerTest::SWEEP:
-        switch (event_) {
-        case PeerCloseManagerTest::CLOSE:
-            EXPECT_TRUE(close_manager_->close_again());
+    case SWEEP:
+        switch (test_event_) {
+        case EVENT_NONE:
             break;
-        case PeerCloseManagerTest::EOR_RECEIVED:
-            EXPECT_EQ(PeerCloseManager::SWEEP, close_manager_->state());
+        case MEMBERSHIP_REQUEST:
             break;
-        case PeerCloseManagerTest::MEMBERSHIP_REQUEST_COMPLETE_CALLBACK:
+        case CLOSE:
+            TASK_UTIL_EXPECT_TRUE(close_again());
+            break;
+        case EOR_RECEIVED:
+            TASK_UTIL_EXPECT_EQ(SWEEP, state());
+            break;
+        case MEMBERSHIP_REQUEST_COMPLETE_CALLBACK:
             if (pending_requests_ > 1) {
-                EXPECT_FALSE(membership_request_complete_result_);
+                TASK_UTIL_EXPECT_FALSE(
+                        peer_close_->membership_request_complete_result());
                 break;
             }
-            EXPECT_TRUE(membership_request_complete_result_);
-            EXPECT_EQ(PeerCloseManager::NONE, close_manager_->state());
-            EXPECT_TRUE(peer_close_->swept());
+            TASK_UTIL_EXPECT_TRUE(
+                    peer_close_->membership_request_complete_result());
+            TASK_UTIL_EXPECT_EQ(NONE, state());
+            TASK_UTIL_EXPECT_TRUE(peer_close_->swept());
             break;
-        case PeerCloseManagerTest::TIMER_CALLBACK:
-            EXPECT_EQ(PeerCloseManager::SWEEP, close_manager_->state());
+        case TIMER_CALLBACK:
+            TASK_UTIL_EXPECT_EQ(SWEEP, state());
             break;
         }
         break;
-    case PeerCloseManagerTest::DELETE:
-        switch (event_) {
-        case PeerCloseManagerTest::CLOSE:
-            EXPECT_TRUE(close_manager_->close_again());
+    case DELETE:
+        switch (test_event_) {
+        case EVENT_NONE:
             break;
-        case PeerCloseManagerTest::EOR_RECEIVED:
-            EXPECT_EQ(PeerCloseManager::DELETE, close_manager_->state());
+        case MEMBERSHIP_REQUEST:
             break;
-        case PeerCloseManagerTest::MEMBERSHIP_REQUEST_COMPLETE_CALLBACK:
+        case CLOSE:
+            TASK_UTIL_EXPECT_TRUE(close_again());
+            break;
+        case EOR_RECEIVED:
+            TASK_UTIL_EXPECT_EQ(DELETE, state());
+            break;
+        case MEMBERSHIP_REQUEST_COMPLETE_CALLBACK:
             if (pending_requests_ > 1) {
-                EXPECT_FALSE(membership_request_complete_result_);
+                TASK_UTIL_EXPECT_FALSE(
+                        peer_close_->membership_request_complete_result());
                 break;
             }
-            EXPECT_TRUE(membership_request_complete_result_);
-            EXPECT_EQ(PeerCloseManager::NONE, close_manager_->state());
-            EXPECT_TRUE(peer_close_->deleted());
+            TASK_UTIL_EXPECT_TRUE(
+                    peer_close_->membership_request_complete_result());
+            TASK_UTIL_EXPECT_EQ(NONE, state());
+            TASK_UTIL_EXPECT_TRUE(peer_close_->deleted());
             break;
-        case PeerCloseManagerTest::TIMER_CALLBACK:
-            EXPECT_EQ(PeerCloseManager::DELETE, close_manager_->state());
+        case TIMER_CALLBACK:
+            TASK_UTIL_EXPECT_EQ(DELETE, state());
             break;
         }
         break;
     }
 }
 
+typedef std::tr1::tuple<int, int, bool, bool, bool, bool, int> TestParams;
+class PeerCloseTest : public ::testing::TestWithParam<TestParams> {
+public:
+    PeerCloseTest() : thread_(&evm_) { }
+
+    virtual void SetUp() {
+        peer_close_.reset(new IPeerCloseTest());
+        close_manager_.reset(new PeerCloseManagerTest(peer_close_.get(),
+                                     *(evm_.io_service())));
+        peer_close_->set_close_manager(close_manager_.get());
+        close_manager_->SetUp(std::tr1::get<0>(GetParam()),
+                              std::tr1::get<1>(GetParam()),
+                              std::tr1::get<6>(GetParam()), peer_close_.get());
+        peer_close_->set_is_ready(std::tr1::get<2>(GetParam()));
+        peer_close_->set_graceful(std::tr1::get<3>(GetParam()));
+        peer_close_->set_ll_graceful(std::tr1::get<4>(GetParam()));
+        peer_close_->set_close_graceful(std::tr1::get<5>(GetParam()));
+
+        thread_.Start();
+    }
+
+    virtual void TearDown() {
+        evm_.Shutdown();
+        thread_.Join();
+        task_util::WaitForIdle();
+    }
+
+protected:
+    boost::scoped_ptr<PeerCloseManagerTest> close_manager_;
+    boost::scoped_ptr<IPeerCloseTest> peer_close_;
+    EventManager evm_;
+    ServerThread thread_;
+};
+
+// Non graceful closure. Expect membership walk for ribin and ribout deletes.
+TEST_P(PeerCloseTest, Test) {
+    close_manager_->GotoState();
+    close_manager_->TriggerEvent();
+    close_manager_->Run();
+}
+
 INSTANTIATE_TEST_CASE_P(PeerCloseTestWithParams, PeerCloseTest,
     ::testing::Combine(
-        ::testing::Range<int>(PeerCloseManagerTest::BEGIN_STATE,
-                              PeerCloseManagerTest::END_STATE + 1),
-        ::testing::Range<int>(PeerCloseManagerTest::BEGIN_EVENT,
-                              PeerCloseManagerTest::END_EVENT + 1),
+        ::testing::Range<int>(PeerCloseManagerTest::GetBeginState(),
+                              PeerCloseManagerTest::GetEndState() + 1),
+        ::testing::Range<int>(PeerCloseManagerTest::GetBeginEvent(),
+                              PeerCloseManagerTest::GetEndEvent() + 1),
         ::testing::Bool(), ::testing::Bool(), ::testing::Bool(),
         ::testing::Bool(), ::testing::Range<int>(1, 2)));
 
