@@ -35,6 +35,39 @@ class BgpTable;
 //
 class PeerCloseManager {
 public:
+    PeerCloseManager(IPeerClose *peer_close,
+                     boost::asio::io_service &io_service);
+    explicit PeerCloseManager(IPeerClose *peer_close);
+    virtual ~PeerCloseManager();
+
+    bool IsMembershipInUse() const {
+        return membership_state_ == MEMBERSHIP_IN_USE;
+    }
+    bool IsMembershipInWait() const {
+        return membership_state_ == MEMBERSHIP_IN_WAIT;
+    }
+    IPeerClose *peer_close() const { return peer_close_; }
+    IPeerClose::Families *families() { return &families_; }
+
+    bool IsCloseInProgress() const { return state_ != NONE; }
+    bool IsInGracefulRestartTimerWait() const {
+        return state_ == GR_TIMER || state_ == LLGR_TIMER;
+    }
+    bool IsQueueEmpty() const { return event_queue_->IsQueueEmpty(); }
+
+    void Close(bool non_graceful);
+    void ProcessEORMarkerReceived(Address::Family family);
+    void MembershipRequest();
+    virtual void MembershipRequestCallback();
+    void FillCloseInfo(BgpNeighborResp *resp) const;
+    bool MembershipPathCallback(DBTablePartBase *root, BgpRoute *rt,
+                                BgpPath *path);
+
+private:
+    friend class PeerCloseTest;
+    friend class PeerCloseManagerTest;
+    friend class GracefulRestartTest;
+
     enum State {
         BEGIN_STATE,
         NONE = BEGIN_STATE,
@@ -53,38 +86,34 @@ public:
         MEMBERSHIP_IN_WAIT
     };
 
-    explicit PeerCloseManager(IPeerClose *peer_close,
-                              boost::asio::io_service &io_service);
-    explicit PeerCloseManager(IPeerClose *peer_close);
-    virtual ~PeerCloseManager();
+    enum EventType {
+        BEGIN_EVENT,
+        EVENT_NONE = BEGIN_EVENT,
+        CLOSE,
+        EOR_RECEIVED,
+        MEMBERSHIP_REQUEST,
+        MEMBERSHIP_REQUEST_COMPLETE_CALLBACK,
+        TIMER_CALLBACK,
+        END_EVENT = TIMER_CALLBACK
+    };
 
-    MembershipState membership_state() const { return membership_state_; }
-    void set_membership_state(MembershipState state) {
-        membership_state_ = state;
-    }
+    struct Event {
+        Event(EventType event_type, bool non_graceful) :
+                event_type(event_type), non_graceful(non_graceful),
+                family(Address::UNSPEC) { }
+        Event(EventType event_type, Address::Family family) :
+                event_type(event_type), non_graceful(false),
+                family(family) { }
+        Event(EventType event_type) : event_type(event_type),
+                                      non_graceful(false),
+                                      family(Address::UNSPEC) { }
+        Event() : event_type(EVENT_NONE), non_graceful(false),
+                             family(Address::UNSPEC) { }
 
-    bool IsCloseInProgress() const {
-        tbb::mutex::scoped_lock lock(mutex_);
-        return state_ != NONE;
-    }
-
-    bool IsInGracefulRestartTimerWait() const {
-        tbb::mutex::scoped_lock lock(mutex_);
-        return state_ == GR_TIMER || state_ == LLGR_TIMER;
-    }
-
-    State state() const {
-        tbb::mutex::scoped_lock lock(mutex_);
-        return state_;
-    }
-
-    void set_state(State state) { state_ = state; }
-    void Close(bool non_graceful);
-    void ProcessEORMarkerReceived(Address::Family family);
-    void MembershipRequest();
-
-    bool RestartTimerCallback();
-    void FillCloseInfo(BgpNeighborResp *resp) const;
+        EventType event_type;
+        bool non_graceful;
+        Address::Family family;
+    };
 
     struct Stats {
         Stats() { memset(this, 0, sizeof(Stats)); }
@@ -99,43 +128,38 @@ public:
         uint64_t gr_timer;
         uint64_t llgr_timer;
     };
+
+    State state() const { return state_; }
     const Stats &stats() const { return stats_; }
-    bool MembershipRequestCallback();
-    bool MembershipPathCallback(DBTablePartBase *root, BgpRoute *rt,
-                                BgpPath *path);
-    IPeerClose *peer_close() const { return peer_close_; }
-    bool close_again() const { return close_again_; }
-    IPeerClose::Families *families() { return &families_; }
-    void set_membership_req_pending(int count) {
-        membership_req_pending_ = count;
-    }
-
-protected:
-    tbb::atomic<int> membership_req_pending_;
-
-private:
-    friend class PeerCloseManagerTest;
-
+    void Close(Event *event);
+    void ProcessEORMarkerReceived(Event *event);
     virtual void StartRestartTimer(int time);
+    bool RestartTimerCallback();
+    void RestartTimerCallback(Event *event);
     void ProcessClosure();
     void CloseComplete();
-    bool ProcessSweepStateActions();
-    virtual void TriggerSweepStateActions();
+    void TriggerSweepStateActions();
     std::string GetStateName(State state) const;
     std::string GetMembershipStateName(MembershipState state) const;
     void CloseInternal();
-    bool MembershipRequestCompleteCallbackInternal();
-    void MembershipRequestInternal();
+    void MembershipRequest(Event *event);
     virtual bool CanUseMembershipManager() const;
     virtual BgpMembershipManager *membership_mgr() const;
-    virtual bool GRTimerFired() const;
-    virtual void StaleNotify();
-    bool NotifyStaleEvent();
+    bool MembershipRequestCallback(Event *event);
+    void StaleNotify();
+    bool EventCallback(Event *event);
+    void EnqueueEvent(Event *event) { event_queue_->Enqueue(event); }
+    bool close_again() const { return close_again_; }
+    void set_membership_req_pending(int count) {
+        membership_req_pending_ = count;
+    }
+    void set_membership_state(MembershipState state) {
+        membership_state_ = state;
+    }
 
     IPeerClose *peer_close_;
     Timer *stale_timer_;
-    Timer *sweep_timer_;
-    Timer *stale_notify_timer_;
+    boost::scoped_ptr<WorkQueue<Event *> > event_queue_;
     State state_;
     bool close_again_;
     bool non_graceful_;
@@ -144,7 +168,7 @@ private:
     MembershipState membership_state_;
     IPeerClose::Families families_;
     Stats stats_;
-    mutable tbb::mutex mutex_;
+    tbb::atomic<int> membership_req_pending_;
 };
 
 #endif  // SRC_BGP_BGP_PEER_CLOSE_H_
