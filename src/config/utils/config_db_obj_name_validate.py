@@ -24,7 +24,7 @@ def validate_mandatory_fields(obj_uuid, obj_cols):
     for fname in ['fq_name', 'type', 'prop:id_perms']:
         fval = obj_cols.get(fname)
         if not fval:
-            raise Exception("*** Error, no %s. Row: %s Columns: %s" %(fname, obj_uuid, str(obj_cols)))
+            raise Exception("Error, no %s. Row: %s Columns: %s" %(fname, obj_uuid, str(obj_cols)))
 
 for row, cols in OBJ_UUID_TABLE.get_range():
     try:
@@ -35,7 +35,7 @@ for row, cols in OBJ_UUID_TABLE.get_range():
 
     fq_name = cols['fq_name']
     if illegal_xml_chars_RE.search(fq_name[-1]):
-        print "*** Error, illegal xml char in name %s" %(fq_name[-1])
+        print "Error, illegal xml char in name %s" %(fq_name[-1])
         continue
 
         if obj_type[:].replace('-','_') == 'route_target':
@@ -44,7 +44,7 @@ for row, cols in OBJ_UUID_TABLE.get_range():
             invalid_chars = INVALID_NAME_CHARS
 
         if any((c in invalid_chars) for c in fq_name[-1]):
-            print "*** Error, restricted xml characters %s in name %s" %(str(invalid_chars), fq_name[-1])
+            print "Error, restricted xml characters %s in name %s" %(str(invalid_chars), fq_name[-1])
             continue
 
 exit()

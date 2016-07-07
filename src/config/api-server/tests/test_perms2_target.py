@@ -8,6 +8,9 @@ import argparse
 import keystoneclient.exceptions as kc_exceptions
 import cfgm_common
 import pprint
+import logging
+
+logger = logging.getLogger(__name__)
 
 PERMS_NONE = 0
 PERMS_X = 1
@@ -30,8 +33,8 @@ class TestPerms():
                             help="API server port (default 8082)")
 
         self.args = parser.parse_args()
-        print 'API server = %s : %d'\
-            % (self.args.api_server_ip, self.args.api_server_port)
+        logger.info('API server = %s : %d'\
+            % (self.args.api_server_ip, self.args.api_server_port))
     # end parse_args
 
 # create users specified as array of tuples (name, password, role)
@@ -52,11 +55,11 @@ class User(object):
        kc_tenants = set([tenant.name for tenant in kc.tenants.list()])
 
        if self.role not in kc_roles:
-           print 'role %s missing from keystone ... creating' % self.role
+           logger.info('role %s missing from keystone ... creating' % self.role)
            kc.roles.create(self.role)
 
        if self.project not in kc_tenants:
-           print 'tenant %s missing from keystone ... creating' % self.project
+           logger.info('tenant %s missing from keystone ... creating' % self.project)
            kc.tenants.create(self.project)
 
        for tenant in kc.tenants.list():
@@ -65,14 +68,14 @@ class User(object):
        self.project_uuid = tenant.id
 
        if self.name not in kc_users:
-           print 'user %s missing from keystone ... creating' % self.name
+           logger.info('user %s missing from keystone ... creating' % self.name)
            user = kc.users.create(self.name, self.password, '', tenant_id=tenant.id)
 
        role_dict = {role.name:role for role in kc.roles.list()}
        user_dict = {user.name:user for user in kc.users.list()}
 
-       print 'Adding user %s with role %s to tenant %s' \
-            % (name, role, project)
+       logger.info('Adding user %s with role %s to tenant %s' \
+            % (name, role, project))
        try:
            kc.roles.add_user_role(user_dict[self.name], role_dict[self.role], tenant)
        except kc_exceptions.Conflict:
@@ -83,8 +86,8 @@ class User(object):
                tenant_name = self.project,
                api_server_host = apis_ip,api_server_port = apis_port)
        except cfgm_common.exceptions.PermissionDenied:
-           print 'Error creating API server client handle (VncApi)'
-           print '*** RBAC disabled or missing user-token middleware in Neutron pipeline? Please verify'
+           logger.error('Error creating API server client handle (VncApi)')
+           logger.error('RBAC disabled or missing user-token middleware in Neutron pipeline? Please verify')
            sys.exit(1)
    # end __init__
 
@@ -106,9 +109,9 @@ def set_perms(obj, owner=None, owner_access=None, share=None, global_access=None
     try:
         perms = obj.get_perms2()
     except AttributeError:
-        print '*** Unable to set perms2 in object %s' % obj.get_fq_name()
+        logger.error('Unable to set perms2 in object %s' % obj.get_fq_name())
         sys.exit()
-    print 'Current perms %s = %s' % (obj.get_fq_name(), print_perms(perms))
+    logger.info('Current perms %s = %s' % (obj.get_fq_name(), print_perms(perms)))
 
     if owner:
         perms.owner = owner
@@ -123,13 +126,13 @@ def set_perms(obj, owner=None, owner_access=None, share=None, global_access=None
         perms.global_access = global_access
 
     obj.set_perms2(perms)
-    print 'New perms %s = %s' % (obj.get_fq_name(), print_perms(perms))
+    logger.info('New perms %s = %s' % (obj.get_fq_name(), print_perms(perms)))
 # end set_perms
 
 # Read VNC object. Return None if object doesn't exists
 def vnc_read_obj(vnc, res_type, name = None, obj_uuid = None):
     if name is None and obj_uuid is None:
-        print 'Need FQN or UUID to read object'
+        logger.error('Need FQN or UUID to read object')
         return None
     method_name = res_type.replace('-', '_')
     method = getattr(vnc, "%s_read" % (method_name))
@@ -141,22 +144,22 @@ def vnc_read_obj(vnc, res_type, name = None, obj_uuid = None):
         else:
             return method(fq_name=name)
     except NoIdError:
-        print '%s %s not found!' % (res_type, name if name else obj_uuid)
+        logger.error('%s %s not found!' % (res_type, name if name else obj_uuid))
         return None
     except PermissionDenied:
-        print 'Permission denied reading %s %s' % (res_type, name)
+        logger.error('Permission denied reading %s %s' % (res_type, name))
         raise
 # end
 
 def show_rbac_rules(api_access_list_entries):
     if api_access_list_entries is None:
-        print 'Empty RBAC group!'
+        logger.info('Empty RBAC group!')
         return
 
     # {u'rbac_rule': [{u'rule_object': u'*', u'rule_perms': [{u'role_crud': u'CRUD', u'role_name': u'admin'}], u'rule_field': None}]}
     rule_list = api_access_list_entries.get_rbac_rule()
-    print 'Rules (%d):' % len(rule_list)
-    print '----------'
+    logger.info('Rules (%d):' % len(rule_list))
+    logger.info('----------')
     idx = 1
     for rule in rule_list:
             o = rule.rule_object
@@ -165,9 +168,9 @@ def show_rbac_rules(api_access_list_entries):
             for p in rule.rule_perms:
                 ps += p.role_name + ':' + p.role_crud + ','
             o_f = "%s.%s" % (o,f) if f else o
-            print '%2d %-32s   %s' % (idx, o_f, ps)
+            logger.info('%2d %-32s   %s' % (idx, o_f, ps))
             idx += 1
-    print ''
+    logger.info('')
 
 def build_rule(rule_str):
     r = rule_str.split(" ") if rule_str else []
@@ -246,7 +249,7 @@ def vnc_fix_api_access_list(vnc_lib, pobj, rule_str = None):
     rentry = RbacRuleEntriesType(rule_list)
     rg.set_api_access_list_entries(rentry)
     if create:
-        print 'API access list empty. Creating with default rule'
+        logger.info('API access list empty. Creating with default rule')
         vnc_lib.api_access_list_create(rg)
     else:
         vnc_lib.api_access_list_update(rg)
@@ -260,7 +263,7 @@ def all(ip='127.0.0.1', port=8082, domain_name='default-domain',
     fqdn = [domain_name]
     pobjs = {}
 
-    kc = client.Client(username='admin', password='contrail123',
+    kc = client.Client(username='admin', password='secret123',
                        tenant_name='admin',
                        auth_url='http://127.0.0.1:5000/v2.0')
 
@@ -275,17 +278,17 @@ def all(ip='127.0.0.1', port=8082, domain_name='default-domain',
         domain = Domain(domain_name)
         admin.vnc_lib.domain_create(domain)
         domain = vnc_read_obj(vnc_lib, 'domain', name = domain.get_fq_name())
-    print 'Created domain %s' % fqdn
+    logger.info('Created domain %s' % fqdn)
 
     # read projects
     alice.project_obj = vnc_read_obj(admin.vnc_lib, 'project', obj_uuid = alice.project_uuid)
-    print 'Created Project object for %s' % alice.project
+    logger.info('Created Project object for %s' % alice.project)
     bob.project_obj = vnc_read_obj(admin.vnc_lib, 'project', obj_uuid = bob.project_uuid)
-    print 'Created Project object for %s' % bob.project
+    logger.info('Created Project object for %s' % bob.project)
 
     # reassign ownership of projects to alice and bob (from admin)
     for user in [alice, bob]:
-        print 'Change owner of project %s to %s' % (user.project, user.project_uuid)
+        logger.info('Change owner of project %s to %s' % (user.project, user.project_uuid))
         set_perms(user.project_obj, owner=user.project_uuid, share = [])
         admin.vnc_lib.project_update(user.project_obj)
 
@@ -294,58 +297,55 @@ def all(ip='127.0.0.1', port=8082, domain_name='default-domain',
         vn_fq_name = [domain_name, alice.project, net_name]
         vn = vnc_read_obj(admin.vnc_lib, 'virtual-network', name = vn_fq_name)
         if vn:
-            print '%s exists ... deleting to start fresh' % vn_fq_name
+            logger.info('%s exists ... deleting to start fresh' % vn_fq_name)
             admin.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
 
-    print
-    print '########### API ACCESS (CREATE) ##################'
+    logger.info('########### API ACCESS (CREATE) ##################')
 
     # delete api-access-list for alice and bob and disallow api access to their projects
     for user in [alice, bob]:
-        print "Delete api-acl for project %s to disallow api access" % user.project
+        logger.info("Delete api-acl for project %s to disallow api access" % user.project)
         vnc_fix_api_access_list(admin.vnc_lib, user.project_obj, rule_str = None)
 
-    print 'alice: trying to create VN in her project'
+    logger.info('alice: trying to create VN in her project')
     vn = VirtualNetwork(vn_name, alice.project_obj)
     try:
         alice.vnc_lib.virtual_network_create(vn)
-        print '*** Created virtual network %s ... test failed!' % vn.get_fq_name()
+        logger.error('Created virtual network %s ... test failed!' % vn.get_fq_name())
         testfail += 1
     except PermissionDenied as e:
-        print 'Failed to create VN ... Test passes!'
+        logger.info('Failed to create VN ... Test passes!')
         testpass += 1
     if testfail > 0:
         sys.exit()
 
     # allow permission to create virtual-network
     for user in [alice, bob]:
-        print "%s: project %s to allow full access to role %s" % \
-            (user.name, user.project, user.role)
+        logger.info("%s: project %s to allow full access to role %s" % \
+            (user.name, user.project, user.role))
         # note that collection API is set for create operation
         vnc_fix_api_access_list(admin.vnc_lib, user.project_obj,
             rule_str = 'virtual-networks %s:C' % user.role)
 
-    print ''
-    print 'alice: trying to create VN in her project'
+    logger.info('alice: trying to create VN in her project')
     try:
         alice.vnc_lib.virtual_network_create(vn)
-        print 'Created virtual network %s ... test passed!' % vn.get_fq_name()
+        logger.info('Created virtual network %s ... test passed!' % vn.get_fq_name())
         testpass += 1
     except PermissionDenied as e:
-        print 'Failed to create VN ... Test failed!'
+        logger.error('Failed to create VN ... Test failed!')
         testfail += 1
     if testfail > 0:
         sys.exit()
 
-    print
-    print '########### API ACCESS (READ) ##################'
-    print 'alice: trying to read VN in her project (should fail)'
+    logger.info('########### API ACCESS (READ) ##################')
+    logger.info('alice: trying to read VN in her project (should fail)')
     try:
         vn2 = vnc_read_obj(alice.vnc_lib, 'virtual-network', name = vn.get_fq_name())
-        print '*** Read VN without read permission ... test failed!!!'
+        logger.error('Read VN without read permission ... test failed!!!')
         testfail += 1
     except PermissionDenied as e:
-        print 'Unable to read VN ... test passed'
+        logger.info('Unable to read VN ... test passed')
         testpass += 1
     if testfail > 0:
         sys.exit()
@@ -353,105 +353,99 @@ def all(ip='127.0.0.1', port=8082, domain_name='default-domain',
     # allow read access
     vnc_fix_api_access_list(admin.vnc_lib, alice.project_obj,
             rule_str = 'virtual-network %s:R' % alice.role)
-    print 'alice: added permission to read virtual-network'
-    print 'alice: trying to read VN in her project (should succeed)'
+    logger.info('alice: added permission to read virtual-network')
+    logger.info('alice: trying to read VN in her project (should succeed)')
     try:
         vn2 = vnc_read_obj(alice.vnc_lib, 'virtual-network', name = vn.get_fq_name())
-        print 'Read VN successfully ... test passed'
+        logger.info('Read VN successfully ... test passed')
         testpass += 1
     except PermissionDenied as e:
         testfail += 1
-        print '*** Read VN failed ... test failed!!!'
+        logger.info('Read VN failed ... test failed!!!')
     if testfail > 0:
         sys.exit()
 
-    print
-    print '########### API ACCESS (UPDATE) ##################'
-    print 'alice: trying to update VN in her project (should fail)'
+    logger.info('########### API ACCESS (UPDATE) ##################')
+    logger.info('alice: trying to update VN in her project (should fail)')
     try:
         vn.display_name = "foobar"
         alice.vnc_lib.virtual_network_update(vn)
-        print '*** Set field in virtual network %s ... test failed!' % vn.get_fq_name()
+        logger.error('Set field in virtual network %s ... test failed!' % vn.get_fq_name())
         testfail += 1
     except PermissionDenied as e:
-        print 'Unable to update field in VN ... Test succeeded!'
+        logger.info('Unable to update field in VN ... Test succeeded!')
         testpass += 1
     if testfail > 0:
         sys.exit()
 
     vnc_fix_api_access_list(admin.vnc_lib, alice.project_obj,
             rule_str = 'virtual-network %s:U' % alice.role)
-    print ''
-    print 'alice: added permission to update virtual-network'
-    print 'alice: trying to set field in her VN '
+    logger.info('alice: added permission to update virtual-network')
+    logger.info('alice: trying to set field in her VN ')
     try:
         vn.display_name = "foobar"
         alice.vnc_lib.virtual_network_update(vn)
-        print 'Set field in virtual network %s ... test passed!' % vn.get_fq_name()
+        logger.info('Set field in virtual network %s ... test passed!' % vn.get_fq_name())
         testpass += 1
     except PermissionDenied as e:
-        print '*** Failed to update field in VN ... Test failed!'
+        logger.error('Failed to update field in VN ... Test failed!')
         testfail += 1
     if testfail > 0:
         sys.exit()
 
     vn2 = vnc_read_obj(alice.vnc_lib, 'virtual-network', name = vn.get_fq_name())
-    print 'alice: display_name %s' % vn2.display_name
+    logger.info('alice: display_name %s' % vn2.display_name)
     if vn2.display_name != "foobar":
         testfail += 1
-        print '*** Failed to update shared field correctly in VN ... Test failed!'
+        logger.error('Failed to update shared field correctly in VN ... Test failed!')
     else:
         testpass += 1
-        print 'Updated shared field correctly in virtual network %s ... test passed!' % vn.get_fq_name()
+        logger.info('Updated shared field correctly in virtual network %s ... test passed!' % vn.get_fq_name())
     if testfail > 0:
         sys.exit()
 
-    print
-    print '########### API ACCESS (update field) ##################'
-    print 'Restricting update of field to admin only        '
+    logger.info('########### API ACCESS (update field) ##################')
+    logger.info('Restricting update of field to admin only        ')
     vnc_fix_api_access_list(admin.vnc_lib, alice.project_obj,
             rule_str = 'virtual-network.display_name admin:U')
     try:
         vn.display_name = "alice"
         alice.vnc_lib.virtual_network_update(vn)
-        print '*** Set field in virtual network %s ... test failed!' % vn.get_fq_name()
+        logger.error('Set field in virtual network %s ... test failed!' % vn.get_fq_name())
         testfail += 1
     except PermissionDenied as e:
-        print 'Failed to update field in VN ... Test passed!'
+        logger.info('Failed to update field in VN ... Test passed!')
         testpass += 1
     if testfail > 0:
         sys.exit()
 
-    print
-    print '########### API ACCESS (DELETE) ##################'
+    logger.info('########### API ACCESS (DELETE) ##################')
 
     # delete test VN  ... should fail
     vn_fq_name = [domain_name, alice.project, vn_name]
     try:
         alice.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
-        print '*** %s: Deleted VN %s ... test failed!' % (alice.name, vn_fq_name)
+        logger.error('%s: Deleted VN %s ... test failed!' % (alice.name, vn_fq_name))
         testfail += 1
     except PermissionDenied as e:
-        print '%s: Error deleting VN %s ... test passed!' % (alice.name, vn_fq_name)
+        logger.info('%s: Error deleting VN %s ... test passed!' % (alice.name, vn_fq_name))
         testpass += 1
     if testfail > 0:
         sys.exit()
 
-    print
-    print '############### PERMS2 ##########################'
-    print 'Giving bob API level access to perform all ops on virtual-network'
+    logger.info('############### PERMS2 ##########################')
+    logger.info( 'Giving bob API level access to perform all ops on virtual-network')
     vnc_fix_api_access_list(admin.vnc_lib, bob.project_obj,
             rule_str = 'virtual-network %s:RUD' % bob.role)
 
-    print ''
-    print 'bob: trying to create VN in alice project ... should fail'
+    logger.info('bob: trying to create VN in alice project ... should fail')
     try:
         vn2 = VirtualNetwork('bob-vn-in-alice-project', alice.project_obj)
         bob.vnc_lib.virtual_network_create(vn2)
-        print '*** Created virtual network %s ... test failed!' % vn2.get_fq_name()
+        logger.error('Created virtual network %s ... test failed!' % vn2.get_fq_name())
         testfail += 1
     except PermissionDenied as e:
-        print 'Failed to create VN ... Test passed!'
+        logger.info('Failed to create VN ... Test passed!')
         testpass += 1
     if testfail > 0:
         sys.exit()
@@ -459,120 +453,114 @@ def all(ip='127.0.0.1', port=8082, domain_name='default-domain',
 
     vn = vnc_read_obj(alice.vnc_lib, 'virtual-network', name = vn_fq_name)
 
-    print
-    print '########### READ (SHARED WITH TENANT) ##################'
-    print 'Disable share in virtual networks for others'
+    logger.info('########### READ (SHARED WITH TENANT) ##################')
+    logger.info('Disable share in virtual networks for others')
     set_perms(vn, share = [], global_access = PERMS_NONE)
     alice.vnc_lib.virtual_network_update(vn)
 
-    print 'Reading VN as bob ... should fail'
+    logger.info('Reading VN as bob ... should fail')
     try:
         net_obj = bob.vnc_lib.virtual_network_read(id=vn.get_uuid())
-        print '*** Succeeded in reading VN. Test failed!'
+        logger.error('Succeeded in reading VN. Test failed!')
         testfail += 1
     except PermissionDenied as e:
-        print 'Failed to read VN ... Test passed!'
+        logger.info('Failed to read VN ... Test passed!')
         testpass += 1
     if testfail > 0:
         sys.exit()
 
-    print 'Enable share in virtual network for bob project'
+    logger.info('Enable share in virtual network for bob project')
     set_perms(vn, share = [(bob.project_uuid, PERMS_R)])
     alice.vnc_lib.virtual_network_update(vn)
 
-    print 'Reading VN as bob ... should succeed'
+    logger.info('Reading VN as bob ... should succeed')
     try:
         net_obj = bob.vnc_lib.virtual_network_read(id=vn.get_uuid())
-        print 'Succeeded in reading VN. Test passed!'
+        logger.info('Succeeded in reading VN. Test passed!')
         testpass += 1
     except PermissionDenied as e:
-        print '*** Failed to read VN ... Test failed!'
+        logger.error('Failed to read VN ... Test failed!')
         testfail += 1
     if testfail > 0:
         sys.exit()
 
-    print
-    print '########### READ (GLOBALLY SHARED ) ##################'
-    print 'Disable share in virtual networks for others'
+    logger.info('########### READ (GLOBALLY SHARED ) ##################')
+    logger.info('Disable share in virtual networks for others')
     set_perms(vn, share = [])
     alice.vnc_lib.virtual_network_update(vn)
 
-    print 'Reading VN as bob ... should fail'
+    logger.info('Reading VN as bob ... should fail')
     try:
         net_obj = bob.vnc_lib.virtual_network_read(id=vn.get_uuid())
-        print 'Succeeded in reading VN. Test failed!'
+        logger.error('Succeeded in reading VN. Test failed!')
         testfail += 1
     except PermissionDenied as e:
-        print '*** Failed to read VN ... Test passed!'
+        logger.info('Failed to read VN ... Test passed!')
         testpass += 1
     if testfail > 0:
         sys.exit()
 
-    print
-    print 'Enable virtual networks in alice project for global sharing (read only)'
+    logger.info('Enable virtual networks in alice project for global sharing (read only)')
     set_perms(vn, share = [], global_access = PERMS_R)
     alice.vnc_lib.virtual_network_update(vn)
 
-    print 'Reading VN as bob ... should succeed'
+    logger.info('Reading VN as bob ... should succeed')
     try:
         net_obj = bob.vnc_lib.virtual_network_read(id=vn.get_uuid())
-        print 'Succeeded in reading VN. Test passed!'
+        logger.info('Succeeded in reading VN. Test passed!')
         testpass += 1
     except PermissionDenied as e:
-        print '*** Failed to read VN ... Test failed!'
+        logger.error('Failed to read VN ... Test failed!')
         testfail += 1
     if testfail > 0:
         sys.exit()
 
-    print 'Writing shared VN as bob ... should fail'
+    logger.info('Writing shared VN as bob ... should fail')
     try:
         vn.display_name = "foobar"
         bob.vnc_lib.virtual_network_update(vn)
-        print '*** Succeeded in updating VN. Test failed!!'
+        logger.error('Succeeded in updating VN. Test failed!!')
         testfail += 1
     except PermissionDenied as e:
-        print 'Failed to update VN ... Test passed!'
+        logger.info('Failed to update VN ... Test passed!')
         testpass += 1
     if testfail > 0:
         sys.exit()
 
-    print
-    print 'Enable virtual networks in alice project for global sharing (read, write)'
-    print 'Writing shared VN as bob ... should succeed'
+    logger.info('Enable virtual networks in alice project for global sharing (read, write)')
+    logger.info('Writing shared VN as bob ... should succeed')
     # important: read VN afresh to overwrite display_name update pending status
     vn = vnc_read_obj(alice.vnc_lib, 'virtual-network', name = vn_fq_name)
     set_perms(vn, global_access = PERMS_RW)
     alice.vnc_lib.virtual_network_update(vn)
     try:
         bob.vnc_lib.virtual_network_update(vn)
-        print 'Succeeded in updating VN. Test passed!'
+        logger.info('Succeeded in updating VN. Test passed!')
         testpass += 1
     except PermissionDenied as e:
-        print '*** Failed to update VN ... Test failed!!'
+        logger.error('Failed to update VN ... Test failed!!')
         testfail += 1
     if testfail > 0:
         sys.exit()
 
-    print ''
-    print '########################### Collections #################'
-    print 'User should be able to see VN in own project and any shared'
-    print ''
-    print 'alice: get virtual network collection ... should fail'
+    logger.info('########################### Collections #################')
+    logger.info('User should be able to see VN in own project and any shared')
+    logger.info('alice: get virtual network collection ... should fail')
 
     try:
         x = alice.vnc_lib.virtual_networks_list(parent_id = alice.project_uuid)
-        print '*** Read VN collection without list permission ... test failed!'
+        logger.error('Read VN collection without list permission ... test failed!')
         testfail += 1
     except PermissionDenied as e:
-        print 'Failed to read VN collection ... test passed'
+        logger.info('Failed to read VN collection ... test passed')
         testpass += 1
     if testfail > 0:
         sys.exit()
 
     # allow permission to read virtual-network collection
     for user in [alice, bob]:
-        print "%s: project %s to allow collection access to role %s" % \
-            (user.name, user.project, user.role)
+        logger.info("%s: project %s to allow collection access to role %s" % \
+            (user.name, user.project, user.role))
         # note that collection API is set for create operation
         vnc_fix_api_access_list(admin.vnc_lib, user.project_obj,
             rule_str = 'virtual-networks %s:CR' % user.role)
@@ -580,45 +568,50 @@ def all(ip='127.0.0.1', port=8082, domain_name='default-domain',
     # create one more VN in alice project to differentiate from what bob sees
     vn2 = VirtualNetwork('second-vn', alice.project_obj)
     alice.vnc_lib.virtual_network_create(vn2)
-    print 'Alice: created additional VN %s in her project' % vn2.get_fq_name()
+    logger.info('Alice: created additional VN %s in her project' % vn2.get_fq_name())
 
-    print 'Alice: network list'
+    logger.info('Alice: network list')
     x = alice.vnc_lib.virtual_networks_list(parent_id = alice.project_uuid)
     for item in x['virtual-networks']:
-        print '    %s: %s' % (item['uuid'], item['fq_name'])
+        logger.info('    %s: %s' % (item['uuid'], item['fq_name']))
     expected = set(['my-vn', 'second-vn'])
     received = set([item['fq_name'][-1] for item in x['virtual-networks']])
     if received != expected:
-        print 'Alice: *** Received incorrect VN list ... test failed!'
+        logger.error('Alice: Received incorrect VN list ... test failed!')
         testfail += 1
     else:
-        print 'Alice: Received correct VN list ... test passed'
+        logger.info('Alice: Received correct VN list ... test passed')
         testpass += 1
     if testfail > 0:
         sys.exit()
 
 
-    print
-    print 'Bob: network list'
+    logger.info('Bob: network list')
     y = bob.vnc_lib.virtual_networks_list(parent_id = bob.project_uuid)
     for item in y['virtual-networks']:
-        print '    %s: %s' % (item['uuid'], item['fq_name'])
+        logger.info('    %s: %s' % (item['uuid'], item['fq_name']))
     # need changes in auto code generation for lists
     expected = set(['my-vn'])
     received = set([item['fq_name'][-1] for item in y['virtual-networks']])
     if received != expected:
-        print 'Bob: *** Received incorrect VN list ... test failed!'
+        logger.error('Bob: Received incorrect VN list ... test failed!')
         testfail += 1
     else:
-        print 'Bob: Received correct VN list ... test passed'
+        logger.info('Bob: Received correct VN list ... test passed')
         testpass += 1
     if testfail > 0:
         sys.exit()
 
-    print
-    print 'Tests fail=%d, pass=%d' % (testfail, testpass)
+    logger.info('Tests fail=%d, pass=%d' % (testfail, testpass))
 
 if __name__ == '__main__':
     perms = TestPerms()
     perms.parse_args()
+    log_level = 'INFO'
+    logger.setLevel(log_level)
+    logformat = logging.Formatter("%(levelname)s: %(message)s")
+    stdout = logging.StreamHandler()
+    stdout.setLevel(log_level)
+    stdout.setFormatter(logformat)
+    logger.addHandler(stdout)
     all(ip=perms.args.api_server_ip, port=perms.args.api_server_port)

@@ -254,7 +254,7 @@ try:
     vnc = VncApi(username, password, tenant_name,
              api_server[0], api_server[1])
 except Exception as e:
-     print '*** %s' % str(e)
+     print 'Exception: %s' % str(e)
      sys.exit(1)
 
 headers = DEFAULT_HEADERS.copy()

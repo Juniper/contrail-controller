@@ -261,7 +261,7 @@ try:
     print 'Rbac is %s' % ('enabled' if rv['enabled'] else 'disabled')
 except Exception as e:
     print str(e)
-    print '*** Rbac not supported'
+    print 'Rbac not supported'
     sys.exit(1)
 
 if not vnc_op.args.uuid and not vnc_op.args.name:

@@ -50,7 +50,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         super(TestLogicalRouter, self).__init__(*args, **kwargs)
 
     def test_lr_v4_subnets(self):
-        logger.debug('*** test logical router creation and interface-add of v4 subnets ***')
+        logger.debug('test logical router creation and interface-add of v4 subnets')
 
         # Create Domain
         domain = Domain('my-lr-domain')
@@ -112,7 +112,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
                                   subnet.subnet.get_ip_prefix_len())
                 if IPNetwork(cidr).version is 4:
                     gateway_ip = subnet.get_default_gateway()
-                    logger.debug(' *** subnet gateway (%s)' %(gateway_ip))
+                    logger.debug(' subnet gateway (%s)' %(gateway_ip))
         port_id1 = self._vnc_lib.virtual_machine_interface_create(port_obj1)
         logger.debug('Created Virtual Machine Interface')
 
@@ -144,7 +144,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
                                   subnet.subnet.get_ip_prefix_len())
                 if IPNetwork(cidr).version is 4:
                     gateway_ip = subnet.get_default_gateway()
-                    logger.debug(' *** subnet gateway (%s)' %(gateway_ip))
+                    logger.debug(' subnet gateway (%s)' %(gateway_ip))
         port_id2 = self._vnc_lib.virtual_machine_interface_create(port_obj2)
         logger.debug('Created Virtual Machine Interface')
 
@@ -198,7 +198,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
     #end
     
     def test_lr_v6_subnets(self):
-        logger.debug('*** test logical router creation and interface-add of v6 subnets ***')
+        logger.debug('test logical router creation and interface-add of v6 subnets')
 
         # Create Domain
         domain = Domain('my-lr-domain')
@@ -260,7 +260,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
                                   subnet.subnet.get_ip_prefix_len())
                 if IPNetwork(cidr).version is 6:
                     gateway_ip = subnet.get_default_gateway()
-                    logger.debug(' *** subnet gateway (%s)' %(gateway_ip))
+                    logger.debug(' subnet gateway (%s)' %(gateway_ip))
         port_id1 = self._vnc_lib.virtual_machine_interface_create(port_obj1)
         logger.debug('Created Virtual Machine Interface')
 
@@ -293,7 +293,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
                                   subnet.subnet.get_ip_prefix_len())
                 if IPNetwork(cidr).version is 6:
                     gateway_ip = subnet.get_default_gateway()
-                    logger.debug(' *** subnet gateway (%s)' %(gateway_ip))
+                    logger.debug(' subnet gateway (%s)' %(gateway_ip))
         port_id2 = self._vnc_lib.virtual_machine_interface_create(port_obj2)
         logger.debug('Created Virtual Machine Interface')
 
@@ -383,8 +383,8 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
     #end test_route_table_prefixes
 
     def test_vm_port_not_added_to_lr(self):
-        logger.debug("*** test interface-add not allowing vm's port to be"
-                     "attached to logical router ***")
+        logger.debug("test interface-add not allowing vm's port to be"
+                     "attached to logical router")
 
         project = self._vnc_lib.project_read(fq_name=['default-domain',
                                                       'default-project'])
@@ -471,9 +471,9 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
     # end create_port
 
     def test_same_network_not_attached_to_lr(self):
-        logger.debug("*** test interface-add gateway-set not allowing"
+        logger.debug("test interface-add gateway-set not allowing"
                      "same network to be attached as both internal and external"
-                     "network of logical router ***")
+                     "network of logical router")
 
         project = self._vnc_lib.project_read(fq_name=['default-domain',
                                                       'default-project'])
