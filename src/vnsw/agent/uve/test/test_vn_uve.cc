@@ -42,6 +42,9 @@ struct PortInfo input[] = {
         {"flow0", 6, vm1_ip, "00:00:00:01:01:01", 5, 1},
         {"flow1", 7, vm2_ip, "00:00:00:01:01:02", 5, 2},
 };
+IpamInfo ipam_info[] = {
+    {"11.1.1.0", 24, "11.1.1.10"},
+};
 
 VmInterface *flow0;
 VmInterface *flow1;
@@ -88,6 +91,8 @@ public:
         client->Reset();
         CreateVmportEnv(input, 2, 1);
         client->WaitForIdle(5);
+        AddIPAM("vn5", ipam_info, 1);
+        client->WaitForIdle();
 
         EXPECT_TRUE(VmPortActive(input, 0));
         EXPECT_TRUE(VmPortActive(input, 1));
@@ -106,6 +111,8 @@ public:
         client->Reset();
         DeleteVmportEnv(input, 2, true, 1);
         client->WaitForIdle(3);
+        DelIPAM("vn5");
+        client->WaitForIdle();
         WAIT_FOR(1000, 1000, (VmPortFind(input, 0) == false));
         WAIT_FOR(1000, 1000, (VmPortFind(input, 1) == false));
         EXPECT_EQ(0U, flow_proto_->FlowCount());

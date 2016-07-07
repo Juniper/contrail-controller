@@ -37,11 +37,13 @@ struct VnIpam {
     bool       dhcp_enable;
     std::string ipam_name;
     OperDhcpOptions oper_dhcp_options;
+    uint32_t alloc_unit;
 
     VnIpam(const std::string& ip, uint32_t len, const std::string& gw,
            const std::string& dns, bool dhcp, const std::string &name,
            const std::vector<autogen::DhcpOptionType> &dhcp_options,
-           const std::vector<autogen::RouteType> &host_routes);
+           const std::vector<autogen::RouteType> &host_routes,
+           uint32_t alloc);
 
     bool IsV4() const {
         return ip_prefix.is_v4();
@@ -146,6 +148,7 @@ public:
     const VnIpam *GetIpam(const IpAddress &ip) const;
     IpAddress GetGatewayFromIpam(const IpAddress &ip) const;
     IpAddress GetDnsFromIpam(const IpAddress &ip) const;
+    uint32_t GetAllocUnitFromIpam(const IpAddress &ip) const;
     bool GetVnHostRoutes(const std::string &ipam,
                          std::vector<OperDhcpOptions::HostRoute> *routes) const;
     bool GetIpamName(const IpAddress &vm_addr, std::string *ipam_name) const;

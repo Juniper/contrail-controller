@@ -30,6 +30,10 @@
 using namespace std;
 using namespace boost::assign;
 
+IpamInfo ipam_info[] = {
+    {"1.1.1.0", 24, "1.1.1.10"},
+};
+
 void RouterIdDepInit(Agent *agent) {
 }
 
@@ -40,10 +44,14 @@ public:
         bgp_peer = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
                                  "xmpp channel");
         agent_ = Agent::GetInstance();
+        AddIPAM("vn1", ipam_info, 1);
+        client->WaitForIdle();
     }
     void TearDown() {
         WAIT_FOR(1000, 1000, agent_->vrf_table()->Size() == 1);
         DeleteBgpPeer(bgp_peer);
+        DelIPAM("vn1");
+        client->WaitForIdle();
     }
 
     Agent *agent_;

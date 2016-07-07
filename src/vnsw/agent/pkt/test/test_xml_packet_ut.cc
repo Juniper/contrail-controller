@@ -12,6 +12,10 @@
 using namespace std;
 namespace opt = boost::program_options;
 
+IpamInfo ipam_info[] = {
+    {"1.1.1.0", 24, "1.1.1.10"},
+};
+
 static void GetArgs(char *test_file, int argc, char *argv[]) {
     test_file[0] = '\0';
     opt::options_description desc("Options");
@@ -42,6 +46,8 @@ public:
         flow_stats_collector_ = agent_->flow_stats_manager()->
             default_flow_stats_collector();
         FlowStatsTimerStartStop(true);
+        AddIPAM("vn1", ipam_info, 1);
+        client->WaitForIdle();
     }
 
     virtual void TearDown() {
@@ -50,6 +56,8 @@ public:
         EXPECT_EQ(agent_->interface_table()->Size(), interface_count_);
         agent_->flow_stats_manager()->set_flow_export_count(0);
         FlowStatsTimerStartStop(false);
+        DelIPAM("vn1");
+        client->WaitForIdle();
     }
 
     void FlowStatsTimerStartStop(bool stop) {

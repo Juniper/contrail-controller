@@ -44,8 +44,10 @@ VnTable *VnTable::vn_table_;
 VnIpam::VnIpam(const std::string& ip, uint32_t len, const std::string& gw,
                const std::string& dns, bool dhcp, const std::string &name,
                const std::vector<autogen::DhcpOptionType> &dhcp_options,
-               const std::vector<autogen::RouteType> &host_routes)
-        : plen(len), installed(false), dhcp_enable(dhcp), ipam_name(name) {
+               const std::vector<autogen::RouteType> &host_routes,
+               uint32_t alloc)
+        : plen(len), installed(false), dhcp_enable(dhcp), ipam_name(name),
+          alloc_unit(alloc) {
     boost::system::error_code ec;
     ip_prefix = IpAddress::from_string(ip, ec);
     default_gw = IpAddress::from_string(gw, ec);
@@ -182,6 +184,14 @@ IpAddress VnEntry::GetDnsFromIpam(const IpAddress &ip) const {
         return ipam->dns_server;
     }
     return IpAddress();
+}
+
+uint32_t VnEntry::GetAllocUnitFromIpam(const IpAddress &ip) const {
+    const VnIpam *ipam = GetIpam(ip);
+    if (ipam) {
+        return ipam->alloc_unit;
+    }
+    return 1;//Default value
 }
 
 bool VnEntry::GetIpamVdnsData(const IpAddress &vm_addr,
@@ -729,7 +739,8 @@ VnTable::BuildVnIpamData(const std::vector<autogen::IpamSubnetType> &subnets,
                     dns_server_address,
                     subnets[i].enable_dhcp, ipam_name,
                     subnets[i].dhcp_option_list.dhcp_option,
-                    subnets[i].host_routes.route));
+                    subnets[i].host_routes.route,
+                    subnets[i].alloc_unit));
     }
 }
 

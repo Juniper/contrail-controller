@@ -19,6 +19,9 @@ struct PortInfo input[] = {
         {"vif0", 1, vm1_ip, "00:00:00:01:01:01", 1, 1},
         {"vif1", 2, vm2_ip, "00:00:00:01:01:02", 1, 2},
 };
+IpamInfo ipam_info[] = {
+    {"1.1.1.0", 24, "1.1.1.10"},
+};
 
 class FlowMgmtRouteTest : public ::testing::Test {
 public:
@@ -44,6 +47,8 @@ protected:
 
         CreateVmportEnv(input, 2, 1);
         client->WaitForIdle(5);
+        AddIPAM("vn1", ipam_info, 1);
+        client->WaitForIdle();
 
         EXPECT_TRUE(VmPortActive(input, 0));
         EXPECT_TRUE(VmPortActive(input, 1));
@@ -65,6 +70,8 @@ protected:
 
         DeleteVmportEnv(input, 2, true, 1);
         client->WaitForIdle(3);
+        DelIPAM("vn1");
+        client->WaitForIdle();
 
         EXPECT_FALSE(VmPortFind(input, 0));
         EXPECT_FALSE(VmPortFind(input, 1));

@@ -223,7 +223,12 @@ TEST_F(PolicyTest, IntfPolicyDisable_Vn) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
+    };
 
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
     CreateVmportEnv(input, 1, 1);
     client->WaitForIdle();
     EXPECT_TRUE(VmPortFind(1));
@@ -349,6 +354,8 @@ TEST_F(PolicyTest, IntfPolicyDisable_Vn) {
 
     DeleteVmportEnv(input, 1, true, 1);
     client->WaitForIdle();
+    DelIPAM("vn1");
+    client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(1));
     client->Reset();
 }
@@ -357,6 +364,12 @@ TEST_F(PolicyTest, IntfPolicyDisable_Fip) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
 
     //Add VN
     util_.VnAdd(input[0].vn_id);
@@ -574,6 +587,8 @@ TEST_F(PolicyTest, IntfPolicyDisable_Fip) {
     util_.VnDelete(input[0].vn_id);
     client->WaitForIdle(3);
     WAIT_FOR(1000, 500, (VnGet(input[0].vn_id) == NULL));
+    DelIPAM("vn1");
+    client->WaitForIdle();
 
     //clear counters at the end of test case
     client->Reset();
@@ -584,6 +599,11 @@ TEST_F(PolicyTest, IntfPolicyDisable_Flow) {
         {"flow0", 6, vm1_ip, "00:00:00:01:01:01", 5, 1},
         {"flow1", 7, vm2_ip, "00:00:00:01:01:02", 5, 2},
     };
+    IpamInfo ipam_info[] = {
+        {"11.1.1.0", 24, "11.1.1.10"},
+    };
+
+    AddIPAM("vn5", ipam_info, 1);
 
     VmInterface *flow0, *flow1;
 
@@ -670,6 +690,8 @@ TEST_F(PolicyTest, IntfPolicyDisable_Flow) {
 
     DeleteVmportEnv(input, 2, true, 1);
     client->WaitForIdle(3);
+    DelIPAM("vn5");
+    client->WaitForIdle();
     WAIT_FOR(1000, 1000, (VmPortFind(input, 0) == false));
     WAIT_FOR(1000, 1000, (VmPortFind(input, 1) == false));
     EXPECT_EQ(0U, flow_proto_->FlowCount());

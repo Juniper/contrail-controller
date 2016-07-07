@@ -39,6 +39,13 @@ struct PortInfo input[] = {
         {"vmi_2", 8, vm3_ip, "00:00:00:01:01:03", 5, 3},
         {"vmi_3", 9, vm4_ip, "00:00:00:01:01:04", 3, 4},
 };
+IpamInfo ipam_info[] = {
+    {"11.1.1.0", 24, "11.1.1.10"},
+    {"12.1.1.0", 24, "12.1.1.10"},
+};
+IpamInfo ipam_info2[] = {
+    {"13.1.1.0", 24, "13.1.1.10"},
+};
 
 typedef enum {
     INGRESS = 0,
@@ -148,6 +155,9 @@ protected:
         client->Reset();
         CreateVmportEnv(input, 4, 1);
         client->WaitForIdle(5);
+        AddIPAM("vn5", ipam_info, 2);
+        AddIPAM("vn3", ipam_info2, 1);
+        client->WaitForIdle();
 
         EXPECT_TRUE(VmPortActive(input, 0));
         EXPECT_TRUE(VmPortPolicyEnable(input, 0));
@@ -182,6 +192,9 @@ protected:
 
         DeleteVmportEnv(input, 4, true, 1);
         client->WaitForIdle(3);
+        DelIPAM("vn5");
+        DelIPAM("vn3");
+        client->WaitForIdle();
         EXPECT_FALSE(VmPortFind(input, 0));
         EXPECT_FALSE(VmPortFind(input, 1));
         EXPECT_FALSE(VmPortFind(input, 2));

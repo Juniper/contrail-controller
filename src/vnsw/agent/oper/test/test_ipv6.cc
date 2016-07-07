@@ -118,8 +118,14 @@ TEST_F(Ipv6Test, v4v6ip_2) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1, "fd11::2"},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
+        {"fd11::", 96, "fd11::1"},
+    };
 
     CreateV6VmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 2);
     client->WaitForIdle();
     WAIT_FOR(100, 1000, (VmPortActive(input, 0)) == true);
     WAIT_FOR(100, 1000, (VmPortV6Active(input, 0)) == true);
@@ -130,6 +136,8 @@ TEST_F(Ipv6Test, v4v6ip_2) {
     EXPECT_TRUE(rt != NULL);
     DeleteVmportEnv(input, 1, 1, 0, NULL, NULL, true, true);
     client->WaitForIdle();
+    DelIPAM("vn1");
+    client->WaitForIdle();
 }
 
 /* Create a VM interface with only v6 IP address
@@ -139,9 +147,15 @@ TEST_F(Ipv6Test, v6ip_2) {
     struct PortInfo input[] = {
         {"vnet1", 1, "0.0.0.0", "00:00:00:01:01:01", 1, 1, "fd11::2"},
     };
-
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
+        {"fd11::", 96, "fd11::1"},
+    };
     CreateV6VmportEnv(input, 1, 0, NULL, NULL, false);
     client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 2);
+    client->WaitForIdle();
+
     WAIT_FOR(100, 1000, (VmPortActive(input, 0)) == false);
     WAIT_FOR(100, 1000, (VmPortV6Active(input, 0)) == true);
 
@@ -151,6 +165,8 @@ TEST_F(Ipv6Test, v6ip_2) {
     EXPECT_TRUE(rt != NULL);
 
     DeleteVmportEnv(input, 1, 1, 0, NULL, NULL, false, true);
+    client->WaitForIdle();
+    DelIPAM("vn1");
     client->WaitForIdle();
 }
 
@@ -366,11 +382,17 @@ TEST_F(Ipv6Test, VlanNHRoute_1) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
+    };
+
     string service_vlan_ip("2.2.2.1");
     string service_vlan_ip6("fd12::1");
 
     client->Reset();
     CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
 
     //Verify that interface is IPv4 active.
@@ -411,6 +433,8 @@ TEST_F(Ipv6Test, VlanNHRoute_1) {
                     Ip6Address::from_string(service_vlan_ip6), 128)) == NULL);
 
     DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    DelIPAM("vn1");
     client->WaitForIdle();
 
     DelVrf("vrf2");
@@ -482,8 +506,14 @@ TEST_F(Ipv6Test, VlanNHRoute_3) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1, "fd11::2"},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
+        {"fd11::", 96, "fd11::1"},
+    };
 
     CreateV6VmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 2);
     client->WaitForIdle();
     WAIT_FOR(100, 1000, (VmPortActive(input, 0)) == true);
     WAIT_FOR(100, 1000, (VmPortV6Active(input, 0)) == true);
@@ -534,6 +564,8 @@ TEST_F(Ipv6Test, VlanNHRoute_3) {
 
     DeleteVmportEnv(input, 1, 1, 0, NULL, NULL, true, true);
     client->WaitForIdle();
+    DelIPAM("vn1");
+    client->WaitForIdle();
 
     DelVrf("vrf2");
     client->WaitForIdle();
@@ -545,11 +577,17 @@ TEST_F(Ipv6Test, VlanNHServiceIp_1) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
+    };
+
     string service_vlan_ip("2.2.2.1");
     string service_vlan_ip6("fd12::1");
 
     client->Reset();
     CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
 
     //Verify that interface is IPv4 active.
@@ -635,6 +673,8 @@ TEST_F(Ipv6Test, VlanNHServiceIp_1) {
 
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
+    DelIPAM("vn1");
+    client->WaitForIdle();
 
     DelVrf("vrf2");
     client->WaitForIdle();
@@ -644,11 +684,17 @@ TEST_F(Ipv6Test, VlanNHServiceIp_2) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
+    };
+
     string service_vlan_ip("2.2.2.1");
     string service_vlan_ip6("fd12::1");
 
     client->Reset();
     CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
 
     //Verify that interface is IPv4 active.
@@ -732,6 +778,8 @@ TEST_F(Ipv6Test, VlanNHServiceIp_2) {
                     Ip6Address::from_string(service_vlan_ip6), 128)) == NULL);
 
     DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    DelIPAM("vn1");
     client->WaitForIdle();
 
     DelVrf("vrf2");

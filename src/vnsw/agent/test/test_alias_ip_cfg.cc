@@ -95,6 +95,14 @@ TEST_F(CfgTest, AliasIp_1) {
         {"vnet2", 2, "2.2.2.2", "00:00:00:01:01:01", 2, 2},
     };
 
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"}
+    };
+
+    IpamInfo ipam_info2[] = {
+        {"2.2.2.0", 24, "2.2.2.10"}
+    };
+
     client->WaitForIdle();
     client->Reset();
     AddVm("vm1", 1);
@@ -125,6 +133,10 @@ TEST_F(CfgTest, AliasIp_1) {
     IntfCfgAdd(input, 1);
     client->WaitForIdle();
     EXPECT_TRUE(client->PortNotifyWait(2));
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+    AddIPAM("default-project:vn2", ipam_info2, 1);
+    client->WaitForIdle();
 
     AddPort(input[0].name, input[0].intf_id);
     AddPort(input[1].name, input[1].intf_id);
@@ -244,6 +256,11 @@ TEST_F(CfgTest, AliasIp_1) {
     IntfCfgDel(input, 0);
     IntfCfgDel(input, 1);
 
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    DelIPAM("default-project:vn2");
+    client->WaitForIdle();
+
     DelVn("vn1");
     DelVn("default-project:vn2");
 
@@ -272,7 +289,13 @@ TEST_F(AliasIPCfg, AliasIp_CfgOrder_1) {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
 
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
+    };
+
     IntfCfgAdd(input, 0);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
 
     AddPort(input[0].name, input[0].intf_id);
@@ -307,6 +330,8 @@ TEST_F(AliasIPCfg, AliasIp_CfgOrder_1) {
     EXPECT_TRUE(VmPortAliasIpCount(1, 0));
     client->WaitForIdle();
     IntfCfgDel(input, 0);
+    DelIPAM("vn1");
+    client->WaitForIdle();
 }
 
 // Intf config with FIP
@@ -314,6 +339,10 @@ TEST_F(AliasIPCfg, AliasIp_CfgOrder_1) {
 TEST_F(AliasIPCfg, AliasIp_CfgOrder_2) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
     };
 
     AddPort(input[0].name, input[0].intf_id);
@@ -329,6 +358,8 @@ TEST_F(AliasIPCfg, AliasIp_CfgOrder_2) {
 
     IntfCfgAdd(input, 0);
     client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
 
     // Port Active since VRF and VM already added
     EXPECT_TRUE(VmPortActive(input, 0));
@@ -340,6 +371,8 @@ TEST_F(AliasIPCfg, AliasIp_CfgOrder_2) {
     LOG(DEBUG, "Doing cleanup");
 
     IntfCfgDel(input, 0);
+    client->WaitForIdle();
+    DelIPAM("vn1");
     client->WaitForIdle();
 
     EXPECT_FALSE(VmPortFind(input, 0));
@@ -359,6 +392,10 @@ TEST_F(CfgTest, AliasIp_CfgOrder_3) {
 
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
     };
 
     AddAliasIpPool("aip-pool2", 1);
@@ -381,6 +418,8 @@ TEST_F(CfgTest, AliasIp_CfgOrder_3) {
     AddLink("virtual-machine-interface", input[0].name,
             "instance-ip", "instance0");
     IntfCfgAdd(input, 0);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
 
     // Add vm-port interface to vrf link
@@ -425,6 +464,8 @@ TEST_F(CfgTest, AliasIp_CfgOrder_3) {
     DelVn("default-project:vn2");
     IntfCfgDel(input, 0);
     client->WaitForIdle();
+    DelIPAM("vn1");
+    client->WaitForIdle();
 }
 
 TEST_F(CfgTest, AliasIp_CfgOrder_4) {
@@ -435,7 +476,13 @@ TEST_F(CfgTest, AliasIp_CfgOrder_4) {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
 
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
+    };
+
     IntfCfgAdd(input, 0);
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
     AddAliasIpPool("aip-pool2", 1);
     AddPort(input[0].name, input[0].intf_id);
     AddAliasIp("aip2", 2, "2.2.2.100");
@@ -506,12 +553,18 @@ TEST_F(CfgTest, AliasIp_CfgOrder_4) {
     DelVn("default-project:vn2");
     IntfCfgDel(input, 0);
     client->WaitForIdle();
+    DelIPAM("vn1");
+    client->WaitForIdle();
 }
 
 // Add of new FIP
 TEST_F(AliasIPCfg, AliasIp_Add_1) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
     };
 
     AddPort(input[0].name, input[0].intf_id);
@@ -526,6 +579,8 @@ TEST_F(AliasIPCfg, AliasIp_Add_1) {
     client->WaitForIdle();
 
     IntfCfgAdd(input, 0);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
 
     // Port Active since VRF and VM already added
@@ -547,6 +602,8 @@ TEST_F(AliasIPCfg, AliasIp_Add_1) {
     LOG(DEBUG, "Doing cleanup");
 
     IntfCfgDel(input, 0);
+    client->WaitForIdle();
+    DelIPAM("vn1");
     client->WaitForIdle();
 
     EXPECT_FALSE(VmPortFind(input, 0));

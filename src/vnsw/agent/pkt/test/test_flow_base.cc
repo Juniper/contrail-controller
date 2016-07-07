@@ -66,6 +66,23 @@ struct PortInfo input4[] = {
         {"flow6", 4, vm_b_ip, "00:00:00:01:01:08", 6, 7},
 };
 
+IpamInfo ipam_info[] = {
+    {"11.1.1.0", 24, "11.1.1.10"},
+    {"12.1.1.0", 24, "12.1.1.10"},
+};
+
+IpamInfo ipam_info2[] = {
+    {"13.1.1.0", 24, "13.1.1.10"},
+};
+
+IpamInfo ipam_info3[] = {
+    {"14.1.1.0", 24, "14.1.1.10"},
+};
+
+IpamInfo ipam_info4[] = {
+    {"16.1.1.0", 24, "16.1.1.10"},
+};
+
 typedef enum {
     INGRESS = 0,
     EGRESS = 1,
@@ -596,6 +613,8 @@ public:
     void FlowSetup() {
         CreateVmportEnv(input4, 2, 0);
         client->WaitForIdle(5);
+        AddIPAM("vn6", ipam_info4, 1);
+        client->WaitForIdle();
         flow5 = VmInterfaceGet(input4[0].intf_id);
         assert(flow5);
         flow6 = VmInterfaceGet(input4[1].intf_id);
@@ -606,6 +625,8 @@ public:
         client->Reset();
         DeleteVmportEnv(input4, 2, true, 0);
         client->WaitForIdle(5);
+        DelIPAM("vn6");
+        client->WaitForIdle();
         client->PortDelNotifyWait(2);
     }
 protected:
@@ -616,6 +637,8 @@ protected:
         client->Reset();
         CreateVmportEnv(input, 3, 1);
         client->WaitForIdle(5);
+        AddIPAM("vn5", ipam_info, 2);
+        client->WaitForIdle();
         vn_count++;
 
         EXPECT_TRUE(VmPortActive(input, 0));
@@ -640,6 +663,8 @@ protected:
         client->Reset();
         CreateVmportEnv(input2, 1, 2);
         client->WaitForIdle(5);
+        AddIPAM("vn3", ipam_info2, 1);
+        client->WaitForIdle();
         vn_count++;
         EXPECT_TRUE(VmPortActive(input2, 0));
         EXPECT_TRUE(VmPortPolicyEnable(input2, 0));
@@ -656,6 +681,8 @@ protected:
         client->Reset();
         CreateVmportFIpEnv(input3, 1);
         client->WaitForIdle(5);
+        AddIPAM("default-project:vn4", ipam_info3, 1);
+        client->WaitForIdle();
         vn_count++;
         EXPECT_TRUE(VmPortActive(input3, 0));
         EXPECT_EQ(9U, agent()->interface_table()->Size());
@@ -698,6 +725,8 @@ protected:
         client->WaitForIdle();
         DeleteVmportEnv(input, 3, true, 1);
         client->WaitForIdle(3);
+        DelIPAM("vn5");
+        client->WaitForIdle();
         client->PortDelNotifyWait(3);
         EXPECT_FALSE(VmPortFind(input, 0));
         EXPECT_FALSE(VmPortFind(input, 1));
@@ -708,6 +737,8 @@ protected:
         client->Reset();
         DeleteVmportEnv(input2, 1, true, 2);
         client->WaitForIdle(3);
+        DelIPAM("vn3");
+        client->WaitForIdle();
         client->PortDelNotifyWait(1);
         EXPECT_EQ(5U, agent()->interface_table()->Size());
         EXPECT_EQ(1U, agent()->interface_config_table()->Size());
@@ -716,6 +747,8 @@ protected:
         client->Reset();
         DeleteVmportFIpEnv(input3, 1, true);
         client->WaitForIdle(3);
+        DelIPAM("default-project:vn4");
+        client->WaitForIdle();
         client->PortDelNotifyWait(1);
         EXPECT_EQ(4U, agent()->interface_table()->Size());
         EXPECT_EQ(0U, agent()->interface_config_table()->Size());

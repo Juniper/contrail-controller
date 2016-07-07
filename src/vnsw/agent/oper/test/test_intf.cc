@@ -3350,9 +3350,14 @@ TEST_F(IntfTest, Layer2Mode_2) {
     struct PortInfo input1[] = {
         {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
     };
+    IpamInfo ipam_info[] = {
+        {"8.1.1.0", 24, "8.1.1.10", true},
+    };
 
     client->Reset();
     CreateVmportEnv(input1, 1, 1);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input1, 0));
     client->Reset();
@@ -3413,6 +3418,8 @@ TEST_F(IntfTest, Layer2Mode_2) {
 
     DeleteVmportEnv(input1, 1, true, 1);
     client->WaitForIdle();
+    DelIPAM("vn1");
+    client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(8));
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
     WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_table()->Find(&key, true)
@@ -3425,9 +3432,15 @@ TEST_F(IntfTest, Layer2Mode_3) {
         {"vnet1", 1, "0.0.0.0", "00:00:00:01:01:01", 1, 1, "fd11::2"},
     };
 
+    IpamInfo ipam_info[] = {
+        {"fd11::", 96, "fd11::1"},
+    };
+
     CreateV6VmportEnv(input, 1, 0, NULL, NULL, false);
     WAIT_FOR(100, 1000, (VmPortActive(input, 0)) == false);
     WAIT_FOR(100, 1000, (VmPortV6Active(input, 0)) == true);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
 
     boost::system::error_code ec;
@@ -3477,6 +3490,8 @@ TEST_F(IntfTest, Layer2Mode_3) {
 
     DeleteVmportEnv(input, 1, 1, 0, NULL, NULL, false, true);
     client->WaitForIdle();
+    DelIPAM("vn1");
+    client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(8));
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(1), "");
     WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_table()->Find(&key, true)
@@ -3490,8 +3505,15 @@ TEST_F(IntfTest, MultipleIp) {
         {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
     };
 
+    IpamInfo ipam_info[] = {
+        {"8.1.1.0", 24, "8.1.1.10"},
+        {"1.1.1.0", 24, "1.1.1.100"},
+    };
+
     client->Reset();
     CreateVmportEnv(input1, 1, 1);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 2);
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input1, 0));
     client->Reset();
@@ -3545,6 +3567,8 @@ TEST_F(IntfTest, MultipleIp) {
     DelInstanceIp("instance2");
     DeleteVmportEnv(input1, 1, true, 1);
     client->WaitForIdle();
+    DelIPAM("vn1");
+    client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(8));
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
     WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_table()->Find(&key, true)
@@ -3558,9 +3582,15 @@ TEST_F(IntfTest, MultipleIp1) {
         {"vnet1", 1, "0.0.0.0", "00:00:00:01:01:01", 1, 1, "fd11::2"},
     };
 
+    IpamInfo ipam_info[] = {
+        {"fd11::", 96, "fd11:1"},
+    };
+
     CreateV6VmportEnv(input, 1, 1, NULL, NULL, false);
     WAIT_FOR(100, 1000, (VmPortActive(input, 0)) == false);
     WAIT_FOR(100, 1000, (VmPortV6Active(input, 0)) == true);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
 
     boost::system::error_code ec;
@@ -3611,6 +3641,8 @@ TEST_F(IntfTest, MultipleIp1) {
     DelInstanceIp("instance2");
     DeleteVmportEnv(input, 1, 1, 1, NULL, NULL, false, true);
     client->WaitForIdle();
+    DelIPAM("vn1");
+    client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(8));
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
     WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_table()->Find(&key, true)
@@ -3625,8 +3657,15 @@ TEST_F(IntfTest, MultipleIp2) {
         {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
     };
 
+    IpamInfo ipam_info[] = {
+        {"8.1.1.0", 24, "8.1.1.10"},
+        {"1.1.1.0", 24, "1.1.1.100"},
+    };
+
     client->Reset();
     CreateVmportEnv(input1, 1, 1);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 2);
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input1, 0));
     client->Reset();
@@ -3723,6 +3762,8 @@ TEST_F(IntfTest, MultipleIp2) {
             "instance-ip", "instance2");
     DeleteVmportEnv(input1, 1, true, 1);
     client->WaitForIdle();
+    DelIPAM("vn1");
+    client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(8));
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
     WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_table()->Find(&key, true)
@@ -3737,8 +3778,15 @@ TEST_F(IntfTest, MultipleIp3) {
         {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
     };
 
+    IpamInfo ipam_info[] = {
+        {"8.1.1.0", 24, "8.1.1.10"},
+        {"1.1.1.0", 24, "1.1.1.100"},
+    };
+
     client->Reset();
     CreateVmportEnv(input1, 1, 1);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 2);
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input1, 0));
     client->Reset();
@@ -3808,6 +3856,8 @@ TEST_F(IntfTest, MultipleIp3) {
             "instance-ip", "instance2");
     DeleteVmportEnv(input1, 1, true, 1);
     client->WaitForIdle();
+    DelIPAM("vn1");
+    client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(8));
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
     WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_table()->Find(&key, true)
@@ -3821,8 +3871,15 @@ TEST_F(IntfTest, ServiceHealthCheckIP) {
         {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
     };
 
+    IpamInfo ipam_info[] = {
+        {"8.1.1.0", 24, "8.1.1.10"},
+        {"1.1.1.0", 24, "1.1.1.100"},
+    };
+
     client->Reset();
     CreateVmportEnv(input1, 1, 1);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 2);
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input1, 0));
     client->Reset();
@@ -3877,6 +3934,8 @@ TEST_F(IntfTest, ServiceHealthCheckIP) {
 
     DelInstanceIp("instance2");
     DeleteVmportEnv(input1, 1, true, 1);
+    client->WaitForIdle();
+    DelIPAM("vn1");
     client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(8));
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
@@ -3973,8 +4032,13 @@ TEST_F(IntfTest, IntfAddDel) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
+    };
 
     CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
     EXPECT_TRUE(VmPortFind(1));
 
@@ -3999,6 +4063,8 @@ TEST_F(IntfTest, IntfAddDel) {
     EXPECT_TRUE(RouteFind("vrf1", "1.1.1.1", 32));
 
     DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    DelIPAM("vn1");
     client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(1));
     client->Reset();

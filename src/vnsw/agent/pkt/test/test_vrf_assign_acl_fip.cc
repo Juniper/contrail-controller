@@ -17,6 +17,14 @@ struct PortInfo input1[] = {
     {"intf2", 2, "2.1.1.1", "00:00:00:01:01:01", 2, 2},
 };
 
+IpamInfo ipam_info[] = {
+    {"1.1.1.0", 24, "1.1.1.10"},
+};
+
+IpamInfo ipam_info2[] = {
+    {"2.1.1.0", 24, "2.1.1.10"},
+};
+
 class TestVrfAssignAclFlowFip : public ::testing::Test {
 public:
 protected:
@@ -31,6 +39,10 @@ protected:
         
         CreateVmportFIpEnv(input, 1);
         CreateVmportFIpEnv(input1, 1);
+        client->WaitForIdle();
+        AddIPAM("default-project:vn1", ipam_info, 1);
+        client->WaitForIdle();
+        AddIPAM("default-project:vn2", ipam_info2, 1);
         client->WaitForIdle();
 
         EXPECT_TRUE(VmPortActive(1));
@@ -93,6 +105,10 @@ protected:
         DelVrf("__internal__");
         DeleteVmportFIpEnv(input, 1, true);
         DeleteVmportFIpEnv(input1, 1, true);
+        client->WaitForIdle();
+        DelIPAM("default-project:vn1");
+        client->WaitForIdle();
+        DelIPAM("default-project:vn2");
         client->WaitForIdle();
         EXPECT_EQ(0U, flow_proto_->FlowCount());
     }

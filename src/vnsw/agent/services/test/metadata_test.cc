@@ -39,6 +39,10 @@
                       usleep(1000);                                            \
                     } while (condition);                                       \
 
+IpamInfo ipam_info[] = {
+    {"10.1.1.0", 24, "10.1.1.1"},
+};
+
 pthread_t curl_thread;
 // send multiple requests using curl
 void *SendMultiGetRequest(void *arg) {
@@ -99,9 +103,13 @@ public:
 
     void SetUp() {
         agent_ = Agent::GetInstance();
+        AddIPAM("vn1", ipam_info, 1);
+        client->WaitForIdle();
     }
 
     void TearDown() {
+        DelIPAM("vn1");
+        client->WaitForIdle();
     }
 
     MetadataTest() : nova_api_proxy_(NULL), vm_http_client_(NULL),

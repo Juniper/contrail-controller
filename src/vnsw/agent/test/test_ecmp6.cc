@@ -63,8 +63,14 @@ TEST_F(EcmpV6Test, EcmpNH_1) {
         {"vnet4", 4, "1.1.1.1", "00:00:00:02:02:04", 1, 4, "fd11::3"},
         {"vnet5", 5, "1.1.1.1", "00:00:00:02:02:05", 1, 5, "fd11::3"},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
+        {"fd11::", 96, "fd11::1"},
+    };
 
     CreateV6VmportWithEcmp(input, 5, 0);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 2);
     client->WaitForIdle();
 
     boost::system::error_code ec;
@@ -89,6 +95,8 @@ TEST_F(EcmpV6Test, EcmpNH_1) {
 
     //Cleanup
     DeleteVmportEnv(input, 5, 1, 0, NULL, NULL, true, true);
+    client->WaitForIdle();
+    DelIPAM("vn1");
     client->WaitForIdle();
 
     EXPECT_FALSE(RouteFindV6("vrf1", addr, 128));
@@ -120,9 +128,15 @@ TEST_F(EcmpV6Test, EcmpNH_2) {
     struct PortInfo input5[] = {
         {"vnet5", 5, "1.1.1.1", "00:00:00:02:02:05", 1, 5, "fd11::3"},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
+        {"fd11::", 96, "fd11::1"},
+    };
 
     //CreateVmportWithEcmp(input1, 1, 1);
     CreateV6VmportWithEcmp(input1, 1, 0);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 2);
     client->WaitForIdle();
 
     //First VM added, verify route points to Interface NH
@@ -245,6 +259,8 @@ TEST_F(EcmpV6Test, EcmpNH_2) {
     DeleteVmportEnv(input3, 1, 0, 0, NULL, NULL, true, true);
     DeleteVmportEnv(input5, 1, 0, 0, NULL, NULL, true, true);
     DeleteVmportEnv(input1, 1, 1, 0, NULL, NULL, true, true);
+    client->WaitForIdle();
+    DelIPAM("vn1");
     client->WaitForIdle();
     EXPECT_FALSE(RouteFindV6("vrf1", addr, 128));
     

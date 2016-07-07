@@ -44,6 +44,18 @@ struct PortInfo input2[] = {
         {"flow3", 9, vm4_ip, "00:00:00:01:01:04", 3, 4, ip6_vm4_ip},
 };
 
+IpamInfo ipam_info[] = {
+    {"11.1.1.0", 24, "11.1.1.10"},
+    {"12.1.1.0", 24, "12.1.1.10"},
+    {"::11.1.1.0", 120, "::11.1.1.10"},
+    {"::12.1.1.0", 120, "::12.1.1.10"},
+};
+
+IpamInfo ipam_info2[] = {
+    {"13.1.1.0", 24, "13.1.1.10"},
+    {"::13.1.1.0", 120, "::13.1.1.10"},
+};
+
 class FlowTestV6 : public ::testing::Test {
 public:
     FlowTestV6() : peer_(NULL), agent_(Agent::GetInstance()) {
@@ -109,6 +121,8 @@ public:
         client->Reset();
         CreateV6VmportEnv(input, 3, 1);
         client->WaitForIdle(5);
+        AddIPAM("vn5", ipam_info, 4);
+        client->WaitForIdle();
 
         WAIT_FOR(100, 1000, (VmPortActive(input, 0)) == true);
         WAIT_FOR(100, 1000, (VmPortV6Active(input, 0)) == true);
@@ -131,6 +145,8 @@ public:
         client->Reset();
         CreateV6VmportEnv(input2, 1, 2);
         client->WaitForIdle(5);
+        AddIPAM("vn3", ipam_info2, 2);
+        client->WaitForIdle();
         WAIT_FOR(100, 1000, (VmPortActive(input2, 0)) == true);
         WAIT_FOR(100, 1000, (VmPortV6Active(input2, 0)) == true);
         WAIT_FOR(100, 1000, (VmPortPolicyEnable(input2, 0)) == true);
@@ -147,6 +163,8 @@ public:
         client->Reset();
         DeleteVmportEnv(input, 3, true, 1, NULL, NULL, true, true);
         client->WaitForIdle(3);
+        DelIPAM("vn5");
+        client->WaitForIdle();
         client->PortDelNotifyWait(3);
         WAIT_FOR(100, 1000, (VmPortFind(input, 0)) == false);
         WAIT_FOR(100, 1000, (VmPortFind(input, 1)) == false);
@@ -155,6 +173,8 @@ public:
         client->Reset();
         DeleteVmportEnv(input2, 1, true, 2, NULL, NULL, true, true);
         client->WaitForIdle(3);
+        DelIPAM("vn3");
+        client->WaitForIdle();
         client->PortDelNotifyWait(1);
         WAIT_FOR(100, 1000, (VmPortFind(input2, 0)) == false);
 
