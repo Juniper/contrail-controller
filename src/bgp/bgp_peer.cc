@@ -1620,6 +1620,9 @@ bool BgpPeer::SetGRCapabilities(BgpPeerInfoData *peer_info) {
             &long_lived_graceful_restart_families_);
     peer_info->set_long_lived_graceful_restart_families(
             long_lived_graceful_restart_families_);
+    peer_info->set_graceful_restart_time(peer_close_->GetGracefulRestartTime());
+    peer_info->set_long_lived_graceful_restart_time(
+            peer_close_->GetLongLivedGracefulRestartTime());
     BGPPeerInfoSend(*peer_info);
 
     // If GR is no longer supported, terminate GR right away. This can happen
@@ -2356,6 +2359,10 @@ void BgpPeer::FillNeighborInfo(const BgpSandeshContext *bsc,
     bnr->set_graceful_restart_address_families(graceful_restart_families_);
     bnr->set_long_lived_graceful_restart_address_families(
             long_lived_graceful_restart_families_);
+    bnr->set_graceful_restart_time(peer_close_->GetGracefulRestartTime());
+    bnr->set_long_lived_graceful_restart_time(
+            peer_close_->GetLongLivedGracefulRestartTime());
+
     bnr->set_configured_hold_time(state_machine_->GetConfiguredHoldTime());
     FillBgpNeighborFamilyAttributes(bnr);
     FillBgpNeighborDebugState(bnr, peer_stats_.get());
