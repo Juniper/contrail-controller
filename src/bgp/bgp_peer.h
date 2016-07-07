@@ -93,6 +93,7 @@ public:
     // thread: bgp::SendTask
     // Used to send an UPDATE message on the socket.
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize);
+    virtual bool FlushUpdate();
 
     // thread: bgp::config
     void ConfigUpdate(const BgpNeighborConfig *config);
@@ -270,6 +271,9 @@ public:
     uint64_t get_open_error() const;
     uint64_t get_update_error() const;
 
+    uint64_t get_socket_reads() const;
+    uint64_t get_socket_writes() const;
+
     static void FillBgpNeighborDebugState(BgpNeighborResp *bnr,
         const IPeerDebugStats *peer);
 
@@ -342,6 +346,8 @@ private:
     friend class BgpPeerTest;
     friend class BgpServerUnitTest;
     friend class StateMachineUnitTest;
+
+    static const size_t kBufferSize = 32768;
 
     class DeleteActor;
     class PeerClose;
@@ -431,6 +437,8 @@ private:
     // and the io thread should need to lock it once every few seconds at
     // most.  Hence we choose a spin_mutex.
     tbb::spin_mutex spin_mutex_;
+    uint8_t buffer_[kBufferSize];
+    size_t buffer_len_;
     BgpSession *session_;
     Timer *keepalive_timer_;
     Timer *end_of_rib_timer_;

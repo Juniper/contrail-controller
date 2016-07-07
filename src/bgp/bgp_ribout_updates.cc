@@ -207,6 +207,7 @@ bool RibOutUpdates::TailDequeue(int queue_id, const RibPeerSet &msync,
     // Update send loop. Select next update to send, format a message.
     // Add other updates with the same attributes and replicate the
     // packet.
+    RibPeerSet members = start_marker->members;
     RouteUpdatePtr next_update;
     for (; update.get() != NULL; update = next_update) {
         if (!DequeueCommon(queue, start_marker, update.get(), blocked)) {
@@ -229,7 +230,10 @@ bool RibOutUpdates::TailDequeue(int queue_id, const RibPeerSet &msync,
         }
     }
 
-    return true;
+    // Request peers to flush accumulated update messages.
+    // Return false if all peers got blocked.
+    UpdateFlush(members, blocked);
+    return (members != *blocked);
 }
 
 //
@@ -282,7 +286,8 @@ bool RibOutUpdates::PeerDequeue(int queue_id, IPeerUpdate *peer,
     }
 
     // Update loop.  Keep going till we reach the tail marker or till all the
-    // peers get blocked.  In either case, we simply return from the loop.
+    // peers get blocked.
+    RibPeerSet members = start_marker->members;
     RouteUpdatePtr next_update;
     UpdateEntry *next_upentry;
     for (; upentry != NULL; upentry = next_upentry, update = next_update) {
@@ -295,7 +300,7 @@ bool RibOutUpdates::PeerDequeue(int queue_id, IPeerUpdate *peer,
                 stats_[queue_id].marker_merge_count_++;
                 queue->MarkerMerge(queue->tail_marker(), start_marker,
                         start_marker->members);
-                return true;
+                break;
             }
         } else {
             // The queue entry is a RouteUpdate. Go ahead and build an update
@@ -305,7 +310,7 @@ bool RibOutUpdates::PeerDequeue(int queue_id, IPeerUpdate *peer,
                 if (update->empty()) {
                     ClearUpdate(&update);
                 }
-                return false;
+                break;
             }
         }
 
@@ -323,6 +328,7 @@ bool RibOutUpdates::PeerDequeue(int queue_id, IPeerUpdate *peer,
             if  (!mmove.empty()) {
                 stats_[queue_id].marker_merge_count_++;
                 queue->MarkerMerge(start_marker, marker, mmove);
+                members |= mmove;
             }
         } else if (update->empty()) {
             // Be sure to get rid of the RouteUpdate since it's empty.
@@ -330,9 +336,10 @@ bool RibOutUpdates::PeerDequeue(int queue_id, IPeerUpdate *peer,
         }
     }
 
-    // Should never get here.
-    assert(false);
-    return false;
+    // Request peers to flush accumulated update messages.
+    // Return false if all peers got blocked.
+    UpdateFlush(members, blocked);
+    return (members != *blocked);
 }
 
 //
@@ -430,6 +437,32 @@ void RibOutUpdates::UpdateSend(int queue_id, Message *message,
         if (stats) {
             stats->UpdateTxReachRoute(message->num_reach_routes());
             stats->UpdateTxUnreachRoute(message->num_unreach_routes());
+        }
+    }
+}
+
+//
+// Concurrency: Called in the context of the scheduling group task.
+//
+// Go through all the peers in the specified RibPeerSet and ask them to flush
+// i.e. send immediately, any accumulated updates.  Update blocked RibPeerSet
+// with peers that become blocked after flushing.
+//
+// Skip if the RibOut is XMPP.
+//
+void RibOutUpdates::UpdateFlush(const RibPeerSet &dst, RibPeerSet *blocked) {
+    CHECK_CONCURRENCY("bgp::SendTask");
+
+    if (ribout_->IsEncodingXmpp())
+        return;
+
+    RibOut::PeerIterator iter(ribout_, dst);
+    while (iter.HasNext()) {
+        int ix_current = iter.index();
+        IPeerUpdate *peer = iter.Next();
+        bool more = peer->FlushUpdate();
+        if (!more) {
+            blocked->set(ix_current);
         }
     }
 }
