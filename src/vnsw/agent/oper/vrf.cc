@@ -385,6 +385,15 @@ bool VrfEntry::AllRouteTablesEmpty() const {
     return true;
 }
 
+InetUnicastAgentRouteTable *
+VrfEntry::GetInetUnicastRouteTable(const IpAddress &addr) const {
+    if (addr.is_v4())
+        return static_cast<InetUnicastAgentRouteTable *>
+            (GetInet4UnicastRouteTable());
+    return static_cast<InetUnicastAgentRouteTable *>
+        (GetInet6UnicastRouteTable());
+}
+
 std::auto_ptr<DBEntry> VrfTable::AllocEntry(const DBRequestKey *k) const {
     const VrfKey *key = static_cast<const VrfKey *>(k);
     VrfEntry *vrf = new VrfEntry(key->name_, 0, agent());
