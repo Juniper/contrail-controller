@@ -878,7 +878,7 @@ class DBInterface(object):
         try:
            subnets_info = memo_req['subnets'][net_obj.uuid]
            for subnet_info in subnets_info:
-               if IPAddress(ip_addr) in IPSet([subnet_info['cidr']]):
+               if ip_addr in IPNetwork(subnet_info['cidr']):
                    subnet_id = subnet_info['id']
                    return subnet_id
         except Exception:
@@ -889,7 +889,7 @@ class DBInterface(object):
                 for subnet_vnc in subnet_vncs:
                     cidr = '%s/%s' % (subnet_vnc.subnet.get_ip_prefix(),
                                       subnet_vnc.subnet.get_ip_prefix_len())
-                    if IPAddress(ip_addr) in IPSet([cidr]):
+                    if ip_addr in IPNetwork(subnet_info['cidr']):
                         subnet_id = subnet_vnc.subnet_uuid
                         return subnet_id
         return None
