@@ -2460,6 +2460,29 @@ void DelEncapList(Agent *agent) {
     DelNode(agent, "global-vrouter-config", "vrouter-config");
 }
 
+void DelHealthCheckService(const char *name) {
+    DelNode("service-health-check", name);
+}
+
+void AddHealthCheckService(const char *name, int id,
+                           const char *url_path,
+                           const char *monitor_type) {
+    char buf[1024];
+
+    sprintf(buf, "<service-health-check-properties>"
+                 "    <enabled>false</enabled>"
+                 "    <health-check-type>end-to-end</health-check-type>"
+                 "    <monitor-type>%s</monitor-type>"
+                 "    <delay>5</delay>"
+                 "    <timeout>5</timeout>"
+                 "    <max-retries>3</max-retries>"
+                 "    <http-method></http-method>"
+                 "    <url-path>%s</url-path>"
+                 "    <expected-codes></expected-codes>"
+                 "</service-health-check-properties>", monitor_type, url_path);
+    AddNode("service-health-check", name, id, buf);
+}
+
 void send_icmp(int fd, uint8_t smac, uint8_t dmac, uint32_t sip, uint32_t dip) {
     uint8_t dummy_dmac[6], dummy_smac[6];
 	memset(dummy_dmac, 0, sizeof(dummy_dmac));

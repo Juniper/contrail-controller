@@ -703,6 +703,12 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
     RegisterConfigHandler(this, "physical-router",
                           agent ? agent->physical_device_table() : NULL);
 
+    ////////////////////////////////////////////////////////////////////////
+    // virtual-machine-interface <----> service-health-check
+    ////////////////////////////////////////////////////////////////////////
+    AddDependencyPath("service-health-check",
+                      MakePath("service-port-health-check",
+                               "virtual-machine-interface", true));
     RegisterConfigHandler(this, "service-health-check",
                           agent ? agent->health_check_table() : NULL);
 

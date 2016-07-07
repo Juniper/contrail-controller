@@ -110,6 +110,12 @@ bool HealthCheckInstance::DestroyInstanceTask() {
 }
 
 void HealthCheckInstance::UpdateInstanceTaskCommand() {
+    if (service_->table_->agent()->test_mode()) {
+        // in test mode, set task instance to run no-op shell
+        task_->set_cmd("/bin/sh");
+        return;
+    }
+
     std::stringstream cmd_str;
     cmd_str << kHealthCheckCmd << " -m " << service_->monitor_type_;
     cmd_str << " -d " << ip_->GetLinkLocalIp().to_string();
@@ -314,15 +320,20 @@ bool HealthCheckService::Copy(HealthCheckTable *table,
                 VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, (*it_cfg), "");
                 VmInterface *intf = static_cast<VmInterface *>
                     (table_->agent()->interface_table()->Find(&key, false));
-                // interface should be available as config manager assures
-                // the order of creation of objects
-                assert(intf != NULL);
-                HealthCheckInstance *inst = new HealthCheckInstance
-                    (this, table_->agent()->metadata_ip_allocator(), intf);
-                intf_list_.insert(std::pair<boost::uuids::uuid,
-                        HealthCheckInstance *>(*(it_cfg), inst));
-                inst->ip_->set_destination_ip(dest_ip_);
-                ret = true;
+                // interface might be unavailable if config is received
+                // before nova message for interface creation, in such case
+                // skip adding instancee for this interface
+                // config dependency manager will then ensure re-notification
+                // of dependent config Health-Check-Service in this case to
+                // handle creation of interface later
+                if (intf != NULL) {
+                    HealthCheckInstance *inst = new HealthCheckInstance
+                        (this, table_->agent()->metadata_ip_allocator(), intf);
+                    intf_list_.insert(std::pair<boost::uuids::uuid,
+                            HealthCheckInstance *>(*(it_cfg), inst));
+                    inst->ip_->set_destination_ip(dest_ip_);
+                    ret = true;
+                }
             } else {
                 if (dest_ip_changed) {
                     // change in destination IP needs to be propagated
