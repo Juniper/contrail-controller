@@ -38,7 +38,8 @@ class StatQuerier(object):
             tab_url = "http://" + self._args.analytics_api_ip + ":" +\
                 self._args.analytics_api_port +\
                 "/analytics/table/StatTable." + self._args.table
-            schematxt = OpServerUtils.get_url_http(tab_url + "/schema")
+            schematxt = OpServerUtils.get_url_http(tab_url + "/schema",
+                self._args.admin_user, self._args.admin_password)
             schema = json.loads(schematxt.text)['columns']
             for pp in schema:
                 if pp.has_key('suffixes') and pp['suffixes']:
@@ -46,7 +47,9 @@ class StatQuerier(object):
                 else:
                     des = "%s" % pp['name']
                 if pp['index']:
-                    valuetxt = OpServerUtils.get_url_http(tab_url + "/column-values/" + pp['name'])
+                    valuetxt = OpServerUtils.get_url_http(
+                        tab_url + "/column-values/" + pp['name'],
+                        self._args.admin_user, self._args.admin_password)
                     print "%s : %s %s" % (des,pp['datatype'], valuetxt.text)
                 else:
                     print "%s : %s" % (des,pp['datatype'])
