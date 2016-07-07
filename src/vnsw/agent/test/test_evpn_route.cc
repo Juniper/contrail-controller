@@ -208,14 +208,17 @@ TEST_F(RouteTest, LocalVmRoute_without_ipam) {
 
     EvpnRouteEntry *evpn_rt = EvpnRouteGet("vrf1", local_vm_mac_,
                                            local_vm_ip4_, 0);
-    EXPECT_TRUE(evpn_rt != NULL);
+    EXPECT_TRUE(evpn_rt == NULL);
     InetUnicastRouteEntry *inet_rt = RouteGet("vrf1", local_vm_ip4_, 32);
-    EXPECT_TRUE(inet_rt != NULL);
-    EXPECT_TRUE(inet_rt->GetPathList().size() == 2);
-    AgentPath *evpn_inet_path = inet_rt->FindPath(agent_->inet_evpn_peer());
-    EXPECT_TRUE(evpn_inet_path != NULL);
-    EXPECT_TRUE(evpn_inet_path->nexthop() == NULL);
-    EXPECT_TRUE(inet_rt->GetActivePath() != evpn_inet_path);
+    EXPECT_TRUE(inet_rt == NULL);
+    InetUnicastRouteEntry *zero_ip_rt = RouteGet("vrf1",
+                                                 Ip4Address::from_string("0.0.0.0"),
+                                                 32);
+    EXPECT_TRUE(zero_ip_rt == NULL);
+    EvpnRouteEntry *zero_ip_evpn_rt = EvpnRouteGet("vrf1", local_vm_mac_,
+                                                   Ip4Address::from_string("0.0.0.0"),
+                                                   0);
+    EXPECT_TRUE(zero_ip_evpn_rt != NULL);
 
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
