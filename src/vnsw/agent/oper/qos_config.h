@@ -74,10 +74,6 @@ public:
         return id_;
     }
 
-    bool trusted() const {
-        return trusted_;
-    }
-
     std::string name() const {
         return name_;
     }
@@ -118,7 +114,6 @@ private:
     boost::uuids::uuid uuid_;
     std::string name_;
     uint32_t id_;
-    bool trusted_;
     QosIdForwardingClassMap dscp_map_;
     QosIdForwardingClassMap vlan_priority_map_;
     QosIdForwardingClassMap mpls_exp_map_;
@@ -131,7 +126,6 @@ struct AgentQosConfigData : public AgentOperDBData {
     AgentQosConfigData(const Agent *agent, IFMapNode *node) :
     AgentOperDBData(agent, node), default_forwarding_class_(0) {}
 
-    bool trusted_;
     std::string name_;
     AgentQosIdForwardingClassMap dscp_map_;
     AgentQosIdForwardingClassMap vlan_priority_map_;

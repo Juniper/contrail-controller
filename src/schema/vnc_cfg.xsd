@@ -1101,10 +1101,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      MapProperty('mpls-exp-entries', 'qos-config', 'key', 'CRUD',
                  'Map of MPLS EXP values to applicable forwarding class for packet.') -->
-<xsd:element name="trusted" type="xsd:boolean"/>
-<!--#IFMAP-SEMANTICS-IDL 
-     Property('trusted', 'qos-config', 'CRUD',
-              'Mode specifying if QoS bits in packet should be honoured or not.') -->
 <xsd:element name="default-forwarding-class-id" type="xsd:integer"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('default-forwarding-class-id', 'qos-config', 'CRUD',

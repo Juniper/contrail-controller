@@ -666,9 +666,9 @@ TEST_F(AclTest, QosActionChange_2) {
     client->AclNotifyWait(1);
     EXPECT_TRUE(VerifyQosAction(1, 0, "qos-config1"));
 
-    TestQosConfigData data = {"qos-config1", 1, "fabric", false, 1};
+    TestQosConfigData data = {"qos-config1", 1, "fabric", 1};
     AddQosConfig(data);
-    TestQosConfigData data1 = {"qos-config2", 2, "fabric", false, 1};
+    TestQosConfigData data1 = {"qos-config2", 2, "fabric", 1};
     AddQosConfig(data1);
     client->WaitForIdle();
     client->AclNotifyWait(2);

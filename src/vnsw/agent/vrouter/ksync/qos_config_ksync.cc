@@ -71,11 +71,6 @@ bool QosConfigKSyncEntry::Sync(DBEntry *e) {
     bool ret = false;
 
 
-    if (trusted_ != qc->trusted()) {
-        trusted_ = qc->trusted();
-        ret = true;
-    }
-
     if (CopyQosMap(dscp_map_, &(qc->dscp_map()))) {
         ret = true;
     }
@@ -109,7 +104,7 @@ int QosConfigKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     for (uint32_t index = 0;
          index <= AgentQosConfigTable::kDscpEntries; index++) {
         it = dscp_map_.find(index);
-        if (it != dscp_map_.end() && trusted_) {
+        if (it != dscp_map_.end()) {
             ForwardingClassKSyncEntry *fc =
                 static_cast<ForwardingClassKSyncEntry *>(it->second.get());
             key.push_back(index);
@@ -129,7 +124,7 @@ int QosConfigKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     for (uint32_t index = 0;
             index <= AgentQosConfigTable::k801pEntries; index++) {
         it = vlan_priority_map_.find(index);
-        if (it != vlan_priority_map_.end() && trusted_) {
+        if (it != vlan_priority_map_.end()) {
             ForwardingClassKSyncEntry *fc =
                 static_cast<ForwardingClassKSyncEntry *>(it->second.get());
             vlan_key.push_back(index);
@@ -148,7 +143,7 @@ int QosConfigKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     for (uint32_t index = 0;
          index <= AgentQosConfigTable::kExpEntries; index++) {
         it = mpls_exp_map_.find(index);
-        if (it != mpls_exp_map_.end() && trusted_) {
+        if (it != mpls_exp_map_.end()) {
             ForwardingClassKSyncEntry *fc =
                 static_cast<ForwardingClassKSyncEntry *>(it->second.get());
             mpls_key.push_back(index);

@@ -83,7 +83,6 @@ bool AgentQosConfig::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     data.set_vlan_priority_list(vlan_priority_list);
     data.set_mpls_exp_list(mpls_exp_list);
     data.set_default_forwarding_class(default_forwarding_class_);
-    data.set_trusted(trusted_);
 
     std::vector<AgentQosConfigSandeshData> &list =
         const_cast<std::vector<AgentQosConfigSandeshData>&>(resp->get_qc_list());
@@ -209,11 +208,6 @@ bool AgentQosConfig::Change(const DBRequest *req) {
     bool ret = false;
     const AgentQosConfigData *data =
         static_cast<const AgentQosConfigData *>(req->data.get());
-
-    if (trusted_ != data->trusted_) {
-        trusted_ = data->trusted_;
-        ret = true;
-    }
 
     if (name_ != data->name_) {
         name_ = data->name_;
@@ -363,7 +357,6 @@ AgentQosConfigTable::BuildData(IFMapNode *node) {
     AgentQosConfigData *qcd = new AgentQosConfigData(agent(), node);
     autogen::QosConfig *cfg = static_cast <autogen::QosConfig *> (node->GetObject());
 
-    qcd->trusted_ = cfg->trusted();
     std::vector<QosIdForwardingClassPair>::const_iterator it =
         cfg->dscp_entries().begin();
     for(; it != cfg->dscp_entries().end(); it++) {

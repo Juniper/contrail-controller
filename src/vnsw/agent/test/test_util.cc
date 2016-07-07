@@ -4214,8 +4214,6 @@ void VerifyQosConfig(Agent *agent, struct TestQosConfigData *data) {
     AgentQosConfig *qc = static_cast<AgentQosConfig *>(
             agent->qos_config_table()->FindActiveEntry(&key));
 
-    EXPECT_TRUE(qc->trusted() == data->trusted_);
-
     if (data->type_ == "vhost") {
         EXPECT_TRUE(qc->type() == AgentQosConfig::VHOST);
     } else if (data->type_ == "fabric") {

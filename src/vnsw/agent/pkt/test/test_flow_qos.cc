@@ -19,8 +19,8 @@ IpamInfo ipam_info[] = {
     {"1.1.1.0", 24, "1.1.1.10"},
 };
 
-TestQosConfigData data1 = {"qos_config1", 1, "default", false, 1};
-TestQosConfigData data2 = {"qos_config2", 2, "default", false, 1};
+TestQosConfigData data1 = {"qos_config1", 1, "default", 1};
+TestQosConfigData data2 = {"qos_config2", 2, "default", 1};
 
 class FlowQosTest : public ::testing::Test {
 

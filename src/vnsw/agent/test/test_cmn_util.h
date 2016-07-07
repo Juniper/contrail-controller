@@ -52,7 +52,6 @@ struct TestQosConfigData {
     std::string name_;
     uint32_t id_;
     std::string type_;
-    bool trusted_;
     uint32_t default_forwarding_class_;
 
     std::map<uint32_t, uint32_t> dscp_;
