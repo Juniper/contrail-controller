@@ -215,7 +215,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
             return orig_method(*args, **kwargs)
         with test_common.patch(
             neutron_db_obj, 'subnet_id_heal', verify_heal_invoked):
-            with CassandraCFs.get_cf(
+            with CassandraCFs.get_cf("useragent",
                 'useragent_keyval_table').patch_row(sn2_uuid, None):
                 # verify heal
                 rsp = self.list_resource('subnet',
