@@ -18,7 +18,7 @@ try:
     ruleengpy_found = 1
 except ImportError:
     print ""
-    print "*** Import ruleengpy failed, cannot add rulefiles"
+    print "*** Error: import ruleengpy failed, cannot add rulefiles"
     print ""
 
 pool = pycassa.ConnectionPool(keyspace='VizKeyspace')
