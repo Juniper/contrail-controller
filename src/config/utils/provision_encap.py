@@ -114,6 +114,8 @@ class EncapsulationProvision(object):
             "--admin_user", help="Name of keystone admin user", required=True)
         parser.add_argument(
             "--admin_password", help="Password of keystone admin user", required=True)
+        parser.add_argument(
+            "--admin_tenant_name", help="Tenant name for keystone admin user")
 
         self._args = parser.parse_args(remaining_argv)
         if not self._args.encap_priority:
