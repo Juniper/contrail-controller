@@ -82,6 +82,10 @@ class VncCassandraClient(object):
     # end get_db_info
 
     @staticmethod
+    def _is_metadata(column_name):
+        return column_name[:5] == 'META:'
+
+    @staticmethod
     def _is_parent(column_name):
         return column_name[:7] == 'parent:'
 
@@ -111,7 +115,7 @@ class VncCassandraClient(object):
 
     def __init__(self, server_list, db_prefix, rw_keyspaces, ro_keyspaces,
             logger, generate_url=None, reset_config=False, credential=None,
-            walk=True):
+            walk=True, obj_cache_entries=0, obj_cache_exclude_types=None):
         self._reset_config = reset_config
         if db_prefix:
             self._db_prefix = '%s_' %(db_prefix)
@@ -137,6 +141,9 @@ class VncCassandraClient(object):
         self._obj_uuid_cf = self._cf_dict[self._OBJ_UUID_CF_NAME]
         self._obj_fq_name_cf = self._cf_dict[self._OBJ_FQ_NAME_CF_NAME]
         self._obj_shared_cf = self._cf_dict[self._OBJ_SHARED_CF_NAME]
+        self._obj_cache_mgr = ObjectCacheManager(
+                                  self, max_entries=obj_cache_entries)
+        self._obj_cache_exclude_types = obj_cache_exclude_types or []
         if walk:
             self.walk()
     # end __init__
@@ -303,6 +310,11 @@ class VncCassandraClient(object):
         parent_col = {'parent:%s:%s' %
                       (parent_type, parent_uuid): json.dumps(None)}
         bch.insert(child_uuid, parent_col)
+
+        # update latest_col_ts on parent object
+        if parent_type not in self._obj_cache_exclude_types:
+            bch.insert(
+                parent_uuid, {'META:latest_col_ts': json.dumps(None)})
     # end _create_child
 
     def _delete_child(self, bch, parent_type, parent_uuid,
@@ -311,6 +323,11 @@ class VncCassandraClient(object):
                      (child_type, child_uuid): json.dumps(None)}
         bch.remove(parent_uuid, columns=[
                    'children:%s:%s' % (child_type, child_uuid)])
+
+        # update latest_col_ts on parent object
+        if parent_type not in self._obj_cache_exclude_types:
+            bch.insert(
+                parent_uuid, {'META:latest_col_ts': json.dumps(None)})
     # end _delete_child
 
     def _create_ref(self, bch, obj_type, obj_uuid, ref_obj_type, ref_uuid,
@@ -326,6 +343,16 @@ class VncCassandraClient(object):
             bch.insert(
                 ref_uuid, {'backref:%s:%s' %
                       (obj_type, obj_uuid): json.dumps(ref_data)})
+
+        # update latest_col_ts on referred object
+        if ref_obj_type not in self._obj_cache_exclude_types:
+            if ref_obj_type == obj_type:
+                # evict other side of ref since it is stale from
+                # GET /<old-ref-uuid> pov.
+                self._obj_cache_mgr.evict([ref_uuid])
+            else:
+                bch.insert(
+                    ref_uuid, {'META:latest_col_ts': json.dumps(None)})
     # end _create_ref
 
     def _update_ref(self, bch, obj_type, obj_uuid, ref_obj_type, old_ref_uuid,
@@ -363,6 +390,16 @@ class VncCassandraClient(object):
                      (obj_type, obj_uuid): json.dumps(new_ref_data)})
             # uuid has been accounted for, remove so only new ones remain
             del new_ref_infos[ref_obj_type][old_ref_uuid]
+
+        # update latest_col_ts on referred object
+        if ref_obj_type not in self._obj_cache_exclude_types:
+            if ref_obj_type == obj_type:
+                # evict other side of ref since it is stale from
+                # GET /<old-ref-uuid> pov.
+                self._obj_cache_mgr.evict([old_ref_uuid])
+            else:
+                bch.insert(
+                    old_ref_uuid, {'META:latest_col_ts': json.dumps(None)})
     # end _update_ref
 
     def _delete_ref(self, bch, obj_type, obj_uuid, ref_obj_type, ref_uuid):
@@ -377,6 +414,17 @@ class VncCassandraClient(object):
         else:
             bch.remove(ref_uuid, columns=[
                        'backref:%s:%s' % (obj_type, obj_uuid)])
+
+        # update latest_col_ts on referred object
+        if ref_obj_type not in self._obj_cache_exclude_types:
+            if ref_obj_type == obj_type:
+                # evict other side of ref since it is stale from
+                # GET /<old-ref-uuid> pov.
+                self._obj_cache_mgr.evict([ref_uuid])
+            else:
+                bch.insert(
+                    ref_uuid, {'META:latest_col_ts': json.dumps(None)})
+
         if send:
             bch.send()
     # end _delete_ref
@@ -559,6 +607,8 @@ class VncCassandraClient(object):
         obj_cols = {}
         obj_cols['fq_name'] = json.dumps(obj_dict['fq_name'])
         obj_cols['type'] = json.dumps(obj_type)
+        if obj_type not in self._obj_cache_exclude_types:
+            obj_cols['META:latest_col_ts'] = json.dumps(None)
         if 'parent_type' in obj_dict:
             # non config-root child
             parent_type = obj_dict['parent_type']
@@ -645,10 +695,12 @@ class VncCassandraClient(object):
         return (True, '')
     # end object_create
 
-    def object_read(self, obj_type, obj_uuids, field_names=None):
+    def object_read(self, obj_type, obj_uuids, field_names=None,
+                    ret_readonly=False):
         if not obj_uuids:
             return (True, [])
         # if field_names=None, all fields will be read/returned
+        req_fields = field_names
         obj_class = self._get_resource_class(obj_type)
         ref_fields = obj_class.ref_fields
         backref_fields = obj_class.backref_fields
@@ -656,192 +708,76 @@ class VncCassandraClient(object):
         list_fields = obj_class.prop_list_fields
         map_fields = obj_class.prop_map_fields
         prop_fields = obj_class.prop_fields - (list_fields | map_fields)
+        if ((ret_readonly == False) or
+            (obj_type in self._obj_cache_exclude_types)):
+            ignore_cache = True
+        else:
+            ignore_cache = False
 
         # optimize for common case of reading non-backref, non-children fields
         # ignoring columns starting from 'b' and 'c' - significant performance
         # impact in scaled setting. e.g. read of project
+        # For caching (when ret values will be used for readonly
+        # e.g. object read/list context):
+        #   1. pick the hits, and for the misses..
+        #   2. read from db, cache, filter with fields
+        #      else read from db with specified field filters
         obj_rows = {}
         if (field_names is None or
             set(field_names) & (backref_fields | children_fields)):
             # atleast one backref/children field is needed
-            obj_rows = self.multiget(self._OBJ_UUID_CF_NAME,
-                                     obj_uuids,
-                                     timestamp=True)
-        elif not set(field_names) & ref_fields:
-            # specific props have been asked fetch exactly those
-            columns = set(['type', 'fq_name', 'parent_type'])
-            for fname in set(field_names) & prop_fields:
-                columns.add('prop:' + fname)
-            obj_rows = self.multiget(self._OBJ_UUID_CF_NAME,
-                                     obj_uuids,
-                                     columns=list(columns),
-                                     start='parent:',
-                                     finish='parent;',
-                                     timestamp=True)
-            for fname in set(field_names) & list_fields:
-                merge_dict(obj_rows,
-                           self.multiget(self._OBJ_UUID_CF_NAME,
-                                         obj_uuids,
-                                         start='propl:%s:' % fname,
-                                         finish='propl:%s;' % fname,
-                                         timestamp=True))
-            for fname in set(field_names) & map_fields:
-                merge_dict(obj_rows,
-                           self.multiget(self._OBJ_UUID_CF_NAME,
-                                         obj_uuids,
-                                         start='propm:%s:' % fname,
-                                         finish='propm:%s;' % fname,
-                                         timestamp=True))
+            include_backrefs_children = True
+            if ignore_cache:
+                hit_obj_dicts = []
+                miss_uuids = obj_uuids
+            else:
+                hit_obj_dicts, miss_uuids = self._obj_cache_mgr.read(
+                    obj_uuids, field_names, include_backrefs_children)
+            miss_obj_rows = self.multiget(self._OBJ_UUID_CF_NAME, miss_uuids,
+                                   timestamp=True)
         else:
             # ignore reading backref + children columns
-            obj_rows = self.multiget(self._OBJ_UUID_CF_NAME,
-                                     obj_uuids,
-                                     start='d',
-                                     timestamp=True)
+            include_backrefs_children = False
+            if ignore_cache:
+                hit_obj_dicts = []
+                miss_uuids = obj_uuids
+            else:
+                hit_obj_dicts, miss_uuids = self._obj_cache_mgr.read(
+                    obj_uuids, field_names, include_backrefs_children)
+            miss_obj_rows = self.multiget(self._OBJ_UUID_CF_NAME,
+                                   miss_uuids,
+                                   start='d',
+                                   timestamp=True)
 
-        if not obj_rows:
+        if (ignore_cache or
+            self._obj_cache_mgr.max_entries < len(miss_uuids)):
+            # caller may modify returned value, or
+            # cannot fit in cache,
+            # just render with filter and don't cache
+            rendered_objs = self._render_obj_from_db(
+                obj_class, miss_obj_rows, req_fields,
+                include_backrefs_children)
+            obj_dicts = hit_obj_dicts + \
+                [v['obj_dict'] for k,v in rendered_objs.items()]
+        else:
+            # can fit and caller won't modify returned value,
+            # so render without filter, cache and return
+            # cached value
+            rendered_objs_to_cache = self._render_obj_from_db(
+                obj_class, miss_obj_rows, None,
+                include_backrefs_children)
+            field_filtered_objs = self._obj_cache_mgr.set(
+                obj_class, rendered_objs_to_cache, req_fields,
+                include_backrefs_children)
+            obj_dicts = hit_obj_dicts + field_filtered_objs
+
+        if not obj_dicts:
             if len(obj_uuids) == 1:
                 raise NoIdError(obj_uuids[0])
             else:
                 return (True, [])
 
-        results = []
-        for obj_uuid, obj_cols in obj_rows.items():
-            if obj_type != obj_cols.pop('type')[0]:
-                continue
-            result = {}
-            result['uuid'] = obj_uuid
-            result['fq_name'] = obj_cols.pop('fq_name')[0]
-            for col_name in obj_cols.keys():
-                if self._is_parent(col_name):
-                    # non config-root child
-                    (_, _, parent_uuid) = col_name.split(':')
-                    parent_res_type = obj_cols['parent_type'][0]
-                    result['parent_type'] = parent_res_type
-                    try:
-                        result['parent_uuid'] = parent_uuid
-                        result['parent_href'] = self._generate_url(parent_res_type,
-                                                                   parent_uuid)
-                    except NoIdError:
-                        err_msg = 'Unknown uuid for parent ' + result['fq_name'][-2]
-                        return (False, err_msg)
-                    continue
-
-                if self._is_prop(col_name):
-                    (_, prop_name) = col_name.split(':')
-                    if ((prop_name not in prop_fields) or
-                        (field_names and prop_name not in field_names)):
-                        continue
-                    result[prop_name] = obj_cols[col_name][0]
-                    continue
-
-                if self._is_prop_list(col_name):
-                    (_, prop_name, prop_elem_position) = col_name.split(':')
-                    if field_names and prop_name not in field_names:
-                        continue
-                    if obj_class.prop_list_field_has_wrappers[prop_name]:
-                        prop_field_types = obj_class.prop_field_types[prop_name]
-                        wrapper_type = prop_field_types['xsd_type']
-                        wrapper_cls = self._get_xsd_class(wrapper_type)
-                        wrapper_field = wrapper_cls.attr_fields[0]
-                        if prop_name not in result:
-                            result[prop_name] = {wrapper_field: []}
-                        result[prop_name][wrapper_field].append(
-                            (obj_cols[col_name][0], prop_elem_position))
-                    else:
-                        if prop_name not in result:
-                            result[prop_name] = []
-                        result[prop_name].append((obj_cols[col_name][0],
-                                                  prop_elem_position))
-                    continue
-
-                if self._is_prop_map(col_name):
-                    (_, prop_name, _) = col_name.split(':')
-                    if field_names and prop_name not in field_names:
-                        continue
-                    if obj_class.prop_map_field_has_wrappers[prop_name]:
-                        prop_field_types = obj_class.prop_field_types[prop_name]
-                        wrapper_type = prop_field_types['xsd_type']
-                        wrapper_cls = self._get_xsd_class(wrapper_type)
-                        wrapper_field = wrapper_cls.attr_fields[0]
-                        if prop_name not in result:
-                            result[prop_name] = {wrapper_field: []}
-                        result[prop_name][wrapper_field].append(
-                            obj_cols[col_name][0])
-                    else:
-                        if prop_name not in result:
-                            result[prop_name] = []
-                        result[prop_name].append(obj_cols[col_name][0])
-                    continue
-
-                if self._is_children(col_name):
-                    (_, child_type, child_uuid) = col_name.split(':')
-                    if field_names and '%ss' %(child_type) not in field_names:
-                        continue
-                    if child_type+'s' not in children_fields:
-                        continue
-
-                    child_tstamp = obj_cols[col_name][1]
-                    try:
-                        self._read_child(result, obj_uuid, child_type,
-                                         child_uuid, child_tstamp)
-                    except NoIdError:
-                        continue
-                    continue
-
-                if self._is_ref(col_name):
-                    (_, ref_type, ref_uuid) = col_name.split(':')
-                    if ((ref_type+'_refs' not in ref_fields) or
-                        (field_names and ref_type + '_refs' not in field_names)):
-                        continue
-                    self._read_ref(result, obj_uuid, ref_type, ref_uuid,
-                                   obj_cols[col_name][0])
-                    continue
-
-                if self._is_backref(col_name):
-                    (_, back_ref_type, back_ref_uuid) = col_name.split(':')
-                    if back_ref_type+'_back_refs' not in backref_fields:
-                        continue
-                    if (field_names and
-                        '%s_back_refs' %(back_ref_type) not in field_names):
-                        continue
-
-                    try:
-                        self._read_back_ref(result, obj_uuid, back_ref_type,
-                                            back_ref_uuid, obj_cols[col_name][0])
-                    except NoIdError:
-                        continue
-                    continue
-
-            # for all column names
-
-            # sort children by creation time
-            for child_field in obj_class.children_fields:
-                if child_field not in result:
-                    continue
-                sorted_children = sorted(result[child_field],
-                    key = itemgetter('tstamp'))
-                # re-write result's children without timestamp
-                result[child_field] = sorted_children
-                [child.pop('tstamp') for child in result[child_field]]
-            # for all children
-
-            # Ordering property lists by position attribute
-            for prop_name in (obj_class.prop_list_fields & set(result.keys())):
-                if isinstance(result[prop_name], list):
-                    result[prop_name] = [el[0] for el in
-                                         sorted(result[prop_name],
-                                                key=itemgetter(1))]
-                elif isinstance(result[prop_name], dict):
-                    wrapper, unsorted_list = result[prop_name].popitem()
-                    result[prop_name][wrapper] = [el[0] for el in
-                                                  sorted(unsorted_list,
-                                                         key=itemgetter(1))]
-
-            results.append(result)
-        # end for all rows
-
-        return (True, results)
+        return (True, obj_dicts)
     # end object_read
 
     def object_count_children(self, obj_type, obj_uuid, child_type):
@@ -862,13 +798,17 @@ class VncCassandraClient(object):
         return (True, num_children)
     # end object_count_children
 
-    def update_last_modified(self, bch, obj_uuid, id_perms=None):
+    def update_last_modified(self, bch, obj_type, obj_uuid, id_perms=None):
         if id_perms is None:
             id_perms = self.get_one_col(self._OBJ_UUID_CF_NAME,
                                         obj_uuid,
                                         'prop:id_perms')
         id_perms['last_modified'] = datetime.datetime.utcnow().isoformat()
         self._update_prop(bch, obj_uuid, 'id_perms', {'id_perms': id_perms})
+        if obj_type not in self._obj_cache_exclude_types:
+            bch.insert(
+                obj_uuid,
+                {'META:latest_col_ts': json.dumps(None)})
     # end update_last_modified
 
     def object_update(self, obj_type, obj_uuid, new_obj_dict,
@@ -923,9 +863,11 @@ class VncCassandraClient(object):
                     # get it from request dict(or from db if not in request dict)
                     new_id_perms = new_obj_dict.get(
                         prop_name, json.loads(col_value))
-                    self.update_last_modified(bch, obj_uuid, new_id_perms)
+                    self.update_last_modified(
+                        bch, obj_type, obj_uuid, new_id_perms)
                 elif prop_name in new_obj_dict:
-                    self._update_prop(bch, obj_uuid, prop_name, new_props)
+                    self._update_prop(
+                        bch, obj_uuid, prop_name, new_props)
 
             if self._is_prop_list(col_name):
                 (_, prop_name, prop_elem_position) = col_name.split(':')
@@ -992,7 +934,10 @@ class VncCassandraClient(object):
                 self._create_prop(bch, obj_uuid, prop_name, new_props[prop_name])
 
         if not uuid_batch:
-            bch.send()
+            try:
+                bch.send()
+            finally:
+                self._obj_cache_mgr.evict([obj_uuid])
 
         return (True, '')
     # end object_update
@@ -1183,7 +1128,10 @@ class VncCassandraClient(object):
             self._delete_ref(bch, None, backref_uuid, obj_type, obj_uuid)
 
         bch.remove(obj_uuid)
-        bch.send()
+        try:
+            bch.send()
+        finally:
+            self._obj_cache_mgr.evict([obj_uuid])
 
         # Update fqname table
         fq_name_str = ':'.join(fq_name)
@@ -1310,6 +1258,171 @@ class VncCassandraClient(object):
         col_name = '%s:%s:%s' % (share_type, share_id, obj_id)
         self._obj_shared_cf.remove(obj_type, columns=[col_name])
 
+    def _render_obj_from_db(self, obj_class, obj_rows, field_names=None,
+                            include_backrefs_children=False):
+        ref_fields = obj_class.ref_fields
+        backref_fields = obj_class.backref_fields
+        children_fields = obj_class.children_fields
+        list_fields = obj_class.prop_list_fields
+        map_fields = obj_class.prop_map_fields
+        prop_fields = obj_class.prop_fields - (list_fields | map_fields)
+
+        results = {}
+        for obj_uuid, obj_cols in obj_rows.items():
+            if obj_class.object_type != obj_cols.pop('type')[0]:
+                continue
+            id_perms_ts = 0
+            row_latest_ts = 0
+            result = {}
+            result['uuid'] = obj_uuid
+            result['fq_name'] = obj_cols.pop('fq_name')[0]
+            for col_name in obj_cols.keys():
+                if self._is_parent(col_name):
+                    # non config-root child
+                    (_, _, parent_uuid) = col_name.split(':')
+                    parent_res_type = obj_cols['parent_type'][0]
+                    result['parent_type'] = parent_res_type
+                    try:
+                        result['parent_uuid'] = parent_uuid
+                    except NoIdError:
+                        err_msg = 'Unknown uuid for parent ' + result['fq_name'][-2]
+                        return (False, err_msg)
+                    continue
+
+                if self._is_prop(col_name):
+                    (_, prop_name) = col_name.split(':')
+                    if prop_name == 'id_perms':
+                        id_perms_ts = obj_cols[col_name][1]
+                    if ((prop_name not in prop_fields) or
+                        (field_names and prop_name not in field_names)):
+                        continue
+                    result[prop_name] = obj_cols[col_name][0]
+                    continue
+
+                if self._is_prop_list(col_name):
+                    (_, prop_name, prop_elem_position) = col_name.split(':')
+                    if field_names and prop_name not in field_names:
+                        continue
+                    if obj_class.prop_list_field_has_wrappers[prop_name]:
+                        prop_field_types = obj_class.prop_field_types[prop_name]
+                        wrapper_type = prop_field_types['xsd_type']
+                        wrapper_cls = self._get_xsd_class(wrapper_type)
+                        wrapper_field = wrapper_cls.attr_fields[0]
+                        if prop_name not in result:
+                            result[prop_name] = {wrapper_field: []}
+                        result[prop_name][wrapper_field].append(
+                            (obj_cols[col_name][0], prop_elem_position))
+                    else:
+                        if prop_name not in result:
+                            result[prop_name] = []
+                        result[prop_name].append((obj_cols[col_name][0],
+                                                  prop_elem_position))
+                    continue
+
+                if self._is_prop_map(col_name):
+                    (_, prop_name, _) = col_name.split(':')
+                    if field_names and prop_name not in field_names:
+                        continue
+                    if obj_class.prop_map_field_has_wrappers[prop_name]:
+                        prop_field_types = obj_class.prop_field_types[prop_name]
+                        wrapper_type = prop_field_types['xsd_type']
+                        wrapper_cls = self._get_xsd_class(wrapper_type)
+                        wrapper_field = wrapper_cls.attr_fields[0]
+                        if prop_name not in result:
+                            result[prop_name] = {wrapper_field: []}
+                        result[prop_name][wrapper_field].append(
+                            obj_cols[col_name][0])
+                    else:
+                        if prop_name not in result:
+                            result[prop_name] = []
+                        result[prop_name].append(obj_cols[col_name][0])
+                    continue
+
+                if self._is_children(col_name):
+                    (_, child_type, child_uuid) = col_name.split(':')
+                    if field_names and '%ss' %(child_type) not in field_names:
+                        continue
+                    if child_type+'s' not in children_fields:
+                        continue
+
+                    child_tstamp = obj_cols[col_name][1]
+                    try:
+                        self._read_child(result, obj_uuid, child_type,
+                                         child_uuid, child_tstamp)
+                    except NoIdError:
+                        continue
+                    continue
+
+                if self._is_ref(col_name):
+                    (_, ref_type, ref_uuid) = col_name.split(':')
+                    if ((ref_type+'_refs' not in ref_fields) or
+                        (field_names and ref_type + '_refs' not in field_names)):
+                        continue
+                    self._read_ref(result, obj_uuid, ref_type, ref_uuid,
+                                   obj_cols[col_name][0])
+                    continue
+
+                if self._is_backref(col_name):
+                    (_, back_ref_type, back_ref_uuid) = col_name.split(':')
+                    if back_ref_type+'_back_refs' not in backref_fields:
+                        continue
+                    if (field_names and
+                        '%s_back_refs' %(back_ref_type) not in field_names):
+                        continue
+
+                    try:
+                        self._read_back_ref(result, obj_uuid, back_ref_type,
+                                            back_ref_uuid, obj_cols[col_name][0])
+                    except NoIdError:
+                        continue
+                    continue
+
+                if self._is_metadata(col_name):
+                    (_, meta_type) = col_name.split(':')
+                    if meta_type == 'latest_col_ts':
+                        row_latest_ts = obj_cols[col_name][1]
+                    continue
+
+            # for all column names
+
+            # sort children by creation time
+            for child_field in obj_class.children_fields:
+                if child_field not in result:
+                    continue
+                sorted_children = sorted(result[child_field],
+                    key = itemgetter('tstamp'))
+                # re-write result's children without timestamp
+                result[child_field] = sorted_children
+                [child.pop('tstamp') for child in result[child_field]]
+            # for all children
+
+            # Ordering property lists by position attribute
+            for prop_name in (obj_class.prop_list_fields & set(result.keys())):
+                if isinstance(result[prop_name], list):
+                    result[prop_name] = [el[0] for el in
+                                         sorted(result[prop_name],
+                                                key=itemgetter(1))]
+                elif isinstance(result[prop_name], dict):
+                    wrapper, unsorted_list = result[prop_name].popitem()
+                    result[prop_name][wrapper] = [el[0] for el in
+                                                  sorted(unsorted_list,
+                                                         key=itemgetter(1))]
+
+            # 'id_perms_ts' tracks timestamp of id-perms column
+            #  i.e. latest update of *any* prop or ref.
+            # 'row_latest_ts' tracks timestamp of last modified column
+            # so any backref/children column is also captured. 0=>unknown
+            results[obj_uuid] = {'obj_dict': result,
+                                 'id_perms_ts': id_perms_ts}
+            if include_backrefs_children:
+                # update our copy of ts only if we read the
+                # corresponding fields from db
+                results[obj_uuid]['row_latest_ts'] = row_latest_ts
+        # end for all rows
+
+        return results
+    # end _render_obj_from_db
+
     def _read_child(self, result, obj_uuid, child_obj_type, child_uuid,
                     child_tstamp):
         if '%ss' % (child_obj_type) not in result:
@@ -1318,7 +1431,6 @@ class VncCassandraClient(object):
 
         child_info = {}
         child_info['to'] = self.uuid_to_fq_name(child_uuid)
-        child_info['href'] = self._generate_url(child_res_type, child_uuid)
         child_info['uuid'] = child_uuid
         child_info['tstamp'] = child_tstamp
 
@@ -1344,7 +1456,6 @@ class VncCassandraClient(object):
                 # TODO remove backward compat old format had attr directly
                 ref_info['attr'] = ref_data
 
-        ref_info['href'] = self._generate_url(ref_res_type, ref_uuid)
         ref_info['uuid'] = ref_uuid
 
         result['%s_refs' % (ref_obj_type)].append(ref_info)
@@ -1366,7 +1477,6 @@ class VncCassandraClient(object):
                 # TODO remove backward compat old format had attr directly
                 back_ref_info['attr'] = back_ref_data
 
-        back_ref_info['href'] = self._generate_url(back_ref_res_type, back_ref_uuid)
         back_ref_info['uuid'] = back_ref_uuid
 
         result['%s_back_refs' % (back_ref_obj_type)].append(back_ref_info)
@@ -1409,3 +1519,158 @@ class VncCassandraClient(object):
 
         return walk_results
     # end walk
+# end class VncCassandraClient
+
+
+class ObjectCacheManager(object):
+    class CachedObject(object):
+        # provide a read-only copy in so far as
+        # top level keys cannot be add/mod/del
+        class RODict(dict):
+            def __readonly__(self, *args, **kwargs):
+                raise RuntimeError("Cannot modify ReadOnlyDict")
+            __setitem__ = __readonly__
+            __delitem__ = __readonly__
+            pop = __readonly__
+            popitem = __readonly__
+            clear = __readonly__
+            update = __readonly__
+            setdefault = __readonly__
+            del __readonly__
+        # end RODict
+
+        def __init__(self, obj_dict, id_perms_ts, row_latest_ts):
+            self.obj_dict = self.RODict(obj_dict)
+            self.id_perms_ts = id_perms_ts
+            self.row_latest_ts = row_latest_ts
+        # end __init__
+
+        def update_obj_dict(self, new_obj_dict):
+            self.obj_dict = self.RODict(new_obj_dict)
+        # end update_obj_dict
+
+        def get_filtered_copy(self, field_names=None):
+            if not field_names:
+                return self.obj_dict
+
+            # TODO filter with field_names
+            return {k:self.obj_dict[k]
+                for k in set(self.obj_dict.keys()) & set(field_names)}
+        # end get_filtered_copy
+
+    # end class CachedObject
+
+    def __init__(self, db_client, max_entries):
+        self.max_entries = max_entries
+        self._db_client = db_client
+        self._cache = {}
+    # end __init__
+
+    def evict(self, obj_uuids):
+         for obj_uuid in obj_uuids:
+             try:
+                 del self._cache[obj_uuid]
+             except KeyError:
+                 continue
+    # end evict
+
+    def set(self, obj_class, db_rendered_objs, req_fields,
+            include_backrefs_children):
+        # evict to accomodate new entries
+        new_size = len(set(self._cache.keys()) |
+                       set(db_rendered_objs.keys()))
+        if new_size > self.max_entries:
+            for i in range(new_size - self.max_entries):
+                self._cache.popitem()
+
+        # build up results with field filter
+        result_obj_dicts = []
+        if req_fields:
+            result_fields = set(req_fields) | set(['fq_name', 'uuid',
+                        'parent_type', 'parent_uuid'])
+        for obj_uuid, render_info in db_rendered_objs.items():
+            id_perms_ts = render_info.get('id_perms_ts', 0)
+            row_latest_ts = render_info.get('row_latest_ts', 0)
+            try:
+               # if we had stale, just update from new db value
+               cached_obj = self._cache[obj_uuid]
+               cached_obj.update_obj_dict(render_info['obj_dict'])
+               cached_obj.id_perms_ts = id_perms_ts
+               if include_backrefs_children:
+                   cached_obj.row_latest_ts = row_latest_ts
+            except KeyError:
+               # this was a miss in cache
+                cached_obj = self.CachedObject(
+                    render_info['obj_dict'],
+                    id_perms_ts,
+                    row_latest_ts)
+
+            self._cache[obj_uuid] = cached_obj
+
+            if req_fields:
+                obj_keys = render_info['obj_dict'].keys()
+                result_obj_dicts.append(
+                    self._cache[obj_uuid].get_filtered_copy(result_fields))
+            else:
+                result_obj_dicts.append(self._cache[obj_uuid].get_filtered_copy())
+        # end for all rendered objects
+
+        return result_obj_dicts
+    # end set
+
+    def read(self, obj_uuids, req_fields, include_backrefs_children):
+        # find which keys are a hit, find which hit keys are not stale
+        # return hit entries and miss+stale uuids.
+        cached_uuid_set = set(self._cache.keys())
+        request_uuid_set = set(obj_uuids)
+        hit_uuid_set = set(obj_uuids) & cached_uuid_set
+        miss_uuid_set = set(obj_uuids) - cached_uuid_set
+        stale_uuids = []
+
+        # staleness when include_backrefs_children is False = id_perms tstamp
+        #     when include_backrefs_children is True = latest_col_ts tstamp
+        if include_backrefs_children:
+            stale_check_col_name = 'META:latest_col_ts'
+            stale_check_ts_attr = 'row_latest_ts'
+        else:
+            stale_check_col_name = 'prop:id_perms'
+            stale_check_ts_attr = 'id_perms_ts'
+
+        hit_rows_in_db = self._db_client.multiget(
+                                   self._db_client._OBJ_UUID_CF_NAME,
+                                   list(hit_uuid_set),
+                                   columns=[stale_check_col_name],
+                                   timestamp=True)
+
+        obj_dicts = []
+        if req_fields:
+            result_fields = set(req_fields) | set(['fq_name', 'uuid',
+                'parent_type', 'parent_uuid'])
+        for hit_uuid in hit_uuid_set:
+            try:
+                obj_cols = hit_rows_in_db[hit_uuid]
+                cached_obj = self._cache[hit_uuid]
+            except KeyError:
+                # Either stale check column missing, treat as miss
+                # Or entry could have been evicted while context switched
+                # for reading stale-check-col, treat as miss
+                miss_uuid_set.add(hit_uuid)
+                continue
+
+            if (getattr(cached_obj, stale_check_ts_attr) !=
+                obj_cols[stale_check_col_name][1]):
+                miss_uuid_set.add(hit_uuid)
+                stale_uuids.append(hit_uuid)
+                continue
+
+            obj_keys = cached_obj.obj_dict.keys()
+            if req_fields:
+                obj_dicts.append(cached_obj.get_filtered_copy(result_fields))
+            else:
+                obj_dicts.append(cached_obj.get_filtered_copy())
+        # end for all hit in cache
+
+        self.evict(stale_uuids)
+        return obj_dicts, list(miss_uuid_set)
+    # end read
+# end class ObjectCacheManager

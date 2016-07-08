@@ -3796,6 +3796,262 @@ class TestBulk(test_case.ApiServerTestCase):
 # end class TestBulk
 
 
+class TestCacheWithMetadata(test_case.ApiServerTestCase):
+    def setUp(self):
+        self.uuid_cf = test_common.CassandraCFs.get_cf(
+            'config_db_uuid', 'obj_uuid_table')
+        self.cache_mgr = self._api_server._db_conn._cassandra_db._obj_cache_mgr
+        return super(TestCacheWithMetadata, self).setUp()
+    # end setUp
+
+    def create_test_object(self, name=None):
+        vn_name = name or 'vn-%s' %(self.id())
+        vn_obj = vnc_api.VirtualNetwork(vn_name)
+        vn_obj.display_name = 'test-cache-obj'
+        self._vnc_lib.virtual_network_create(vn_obj)
+        return vn_obj
+    # end create_object
+
+    def prime_test_object(self, vn_obj):
+        self._vnc_lib.virtual_networks_list(obj_uuids=[vn_obj.uuid])
+        return vn_obj
+    # end prime_test_object
+
+    def create_and_prime_test_object(self, name=None):
+        vn_name = name or 'vn-%s' %(self.id())
+        return self.prime_test_object(self.create_test_object(vn_name))
+    # end create_and_prime_test_object
+
+    def test_hit_and_fresh(self):
+        vn_obj = self.create_and_prime_test_object()
+
+        uuid_cf = self.uuid_cf
+        vn_row = uuid_cf.get(vn_obj.uuid, include_timestamp=True)
+        with uuid_cf.patch_row(vn_obj.uuid,
+            new_columns={'fq_name': vn_row['fq_name'],
+                         'prop:id_perms': vn_row['prop:id_perms'],
+                         'type': vn_row['type']}):
+            ret_vn_objs = self._vnc_lib.virtual_networks_list(
+                obj_uuids=[vn_obj.uuid], detail=True)
+            self.assertEqual(ret_vn_objs[0].display_name, vn_obj.display_name)
+    # end test_hit_and_fresh
+
+    def test_hit_and_stale(self):
+        vn_obj = self.create_and_prime_test_object()
+        cache_mgr = self.cache_mgr
+        self.assertIn(vn_obj.uuid, cache_mgr._cache.keys())
+
+        uuid_cf = self.uuid_cf
+        vn_row = uuid_cf.get(vn_obj.uuid)
+        with uuid_cf.patches([
+            ('column', (vn_obj.uuid, 'prop:display_name', 'stale-check-name')),
+            ('column', (vn_obj.uuid, 'prop:id_perms', vn_row['prop:id_perms'])),
+            ]):
+            ret_vn_objs = self._vnc_lib.virtual_networks_list(
+                obj_uuids=[vn_obj.uuid], detail=True)
+            self.assertEqual(
+                ret_vn_objs[0].display_name, 'stale-check-name')
+    # end test_hit_and_stale
+
+    def test_miss(self):
+        vn_obj = self.create_test_object()
+        cache_mgr = self.cache_mgr
+        self.assertNotIn(vn_obj.uuid, cache_mgr._cache.keys())
+
+        ret_vn_dicts = self._vnc_lib.virtual_networks_list(
+            obj_uuids=[vn_obj.uuid],
+            fields=['display_name'])['virtual-networks']
+        self.assertEqual(ret_vn_dicts[0]['display_name'],
+            vn_obj.display_name)
+    # end test_miss
+
+    def test_hits_stales_misses(self):
+        uuid_cf = self.uuid_cf
+        cache_mgr = self.cache_mgr
+
+        vn_hit_fresh_obj = self.create_and_prime_test_object(
+            'vn-hit-fresh-%s' %(self.id()))
+        vn_hit_stale_obj = self.create_and_prime_test_object(
+            'vn-hit-stale-%s' %(self.id()))
+        vn_miss_obj = self.create_test_object('vn-miss-%s' %(self.id()))
+
+        self.assertNotIn(vn_miss_obj.uuid, cache_mgr._cache.keys())
+        vn_hit_stale_row = uuid_cf.get(vn_hit_stale_obj.uuid)
+        with uuid_cf.patches([
+            ('column', (vn_hit_fresh_obj.uuid,
+                        'prop:display_name', 'fresh-check-name')),
+            ('column', (vn_hit_stale_obj.uuid,
+                        'prop:display_name', 'stale-check-name')),
+            ('column', (vn_hit_stale_obj.uuid,
+                        'prop:id_perms', vn_hit_stale_row['prop:id_perms'])),
+            ]):
+            vn_uuids = [vn_hit_fresh_obj.uuid, vn_hit_stale_obj.uuid,
+                        vn_miss_obj.uuid]
+            ret_vn_dicts = self._vnc_lib.virtual_networks_list(
+                obj_uuids=vn_uuids,
+                fields=['display_name'])['virtual-networks']
+            self.assertEqual(len(ret_vn_dicts), 3)
+            id_name_tuples = [(vn['uuid'], vn['display_name'])
+                              for vn in ret_vn_dicts]
+            self.assertIn(
+                (vn_hit_fresh_obj.uuid, vn_hit_fresh_obj.display_name),
+                id_name_tuples)
+            self.assertIn((vn_hit_stale_obj.uuid, 'stale-check-name'),
+                          id_name_tuples)
+            self.assertIn((vn_miss_obj.uuid, vn_miss_obj.display_name),
+                          id_name_tuples)
+    # end test_hits_stales_misses
+
+    def test_evict_on_ref_type_same(self):
+        cache_mgr = self._api_server._db_conn._cassandra_db._obj_cache_mgr
+
+        vn1_name = 'vn-1-%s' %(self.id())
+        vn2_name = 'vn-2-%s' %(self.id())
+        vn1_obj = self.create_test_object(vn1_name)
+        vn2_obj = self.create_test_object(vn2_name)
+        # prime RIs to cache
+        ri1_obj = self._vnc_lib.routing_instance_read(
+            fq_name=vn1_obj.fq_name+[vn1_name])
+        ri2_obj = self._vnc_lib.routing_instance_read(
+            fq_name=vn2_obj.fq_name+[vn2_name])
+
+        self.assertIn(ri1_obj.uuid, cache_mgr._cache.keys())
+        self.assertIn(ri2_obj.uuid, cache_mgr._cache.keys())
+
+        ri1_obj.add_routing_instance(ri2_obj, None)
+        self._vnc_lib.routing_instance_update(ri1_obj)
+        self.assertNotIn(ri2_obj.uuid, cache_mgr._cache.keys())
+    # end test_evict_on_ref_type_same
+
+    def test_stale_for_backref_on_ref_update(self):
+        uuid_cf = self.uuid_cf
+        cache_mgr = self.cache_mgr
+
+        vn_obj = VirtualNetwork('vn-%s' %(self.id()))
+        ipam_obj = NetworkIpam('ipam-%s' %(self.id()),
+                       display_name='ipam-name')
+        self._vnc_lib.network_ipam_create(ipam_obj)
+        self._vnc_lib.virtual_network_create(vn_obj)
+        # prime ipam in cache
+        self._vnc_lib.network_ipam_read(fq_name=ipam_obj.fq_name)
+        self.assertIn(ipam_obj.uuid, cache_mgr._cache.keys())
+
+        vn_obj.add_network_ipam(ipam_obj,
+            VnSubnetsType(
+                [IpamSubnetType(SubnetType('1.1.1.0', 28))]))
+        self._vnc_lib.virtual_network_update(vn_obj)
+        with uuid_cf.patches([
+            ('column',
+                 (ipam_obj.uuid, 'prop:display_name', 'stale-check-name'))]):
+            # access for ipam without children/backref should hit cache
+            ret_ipam_obj = self._vnc_lib.network_ipam_read(
+                fq_name=ipam_obj.fq_name)
+            self.assertEqual(ret_ipam_obj.display_name, ipam_obj.display_name)
+            # access for ipam with backref should hit cache but stale
+            ret_ipam_obj = self._vnc_lib.network_ipam_read(
+                fq_name=ipam_obj.fq_name, fields=['virtual_network_back_refs'])
+            self.assertEqual(ret_ipam_obj.display_name, 'stale-check-name')
+    # end test_stale_for_backref_on_ref_update
+
+    def test_read_for_delete_not_from_cache(self):
+        uuid_cf = self.uuid_cf
+        cache_mgr = self.cache_mgr
+
+        ipam_obj = NetworkIpam('ipam-%s' %(self.id()),
+                       display_name='ipam-name')
+        self._vnc_lib.network_ipam_create(ipam_obj)
+        # prime ipam in cache
+        self._vnc_lib.network_ipam_read(fq_name=ipam_obj.fq_name)
+        self.assertIn(ipam_obj.uuid, cache_mgr._cache.keys())
+
+        vn_obj = VirtualNetwork('vn-%s' %(self.id()))
+        self._vnc_lib.virtual_network_create(vn_obj)
+        with uuid_cf.patches([
+            ('column', (ipam_obj.uuid,
+                        'backref:virtual_network:%s' %(vn_obj.uuid),
+                        json.dumps(None)))
+            ]):
+            with ExpectedException(RefsExistError,
+                ".*Delete when resource still referred.*"):
+                self._vnc_lib.network_ipam_delete(id=ipam_obj.uuid)
+    # end test_read_for_delete_not_from_cache
+# end class TestCacheWithMetadata
+
+
+class TestCacheWithMetadataEviction(test_case.ApiServerTestCase):
+    @classmethod
+    def setUpClass(cls):
+        return super(TestCacheWithMetadataEviction, cls).setUpClass(
+            extra_config_knobs=[('DEFAULTS', 'object_cache_entries',
+            '2')])
+    # end setUpClass
+
+    def test_evict_on_full(self):
+        vn1_obj = vnc_api.VirtualNetwork('vn-1-%s' %(self.id()))
+        self._vnc_lib.virtual_network_create(vn1_obj)
+
+        vn2_obj = vnc_api.VirtualNetwork('vn-2-%s' %(self.id()))
+        self._vnc_lib.virtual_network_create(vn2_obj)
+
+        vn3_obj = vnc_api.VirtualNetwork('vn-3-%s' %(self.id()))
+        self._vnc_lib.virtual_network_create(vn3_obj)
+
+        # prime with vn-1 and vn-2
+        cache_mgr = self._api_server._db_conn._cassandra_db._obj_cache_mgr
+        self._vnc_lib.virtual_network_read(id=vn1_obj.uuid)
+        self._vnc_lib.virtual_network_read(id=vn2_obj.uuid)
+        cache_keys = cache_mgr._cache.keys()
+        self.assertIn(vn1_obj.uuid, cache_keys)
+        self.assertIn(vn2_obj.uuid, cache_keys)
+        self.assertNotIn(vn3_obj.uuid, cache_keys)
+
+        # prime vn-3 and test eviction
+        self._vnc_lib.virtual_network_read(id=vn3_obj.uuid)
+        cache_keys = cache_mgr._cache.keys()
+        self.assertIn(vn3_obj.uuid, cache_keys)
+        if vn1_obj.uuid in cache_keys:
+            self.assertNotIn(vn2_obj.uuid, cache_keys)
+        elif vn2_obj.uuid in cache_keys:
+            self.assertNotIn(vn1_obj.uuid, cache_keys)
+        else:
+            self.assertTrue(
+                False, 'Eviction failed, all VNs present in cache')
+    # end test_evict_on_full
+# end class TestCacheWithMetadataEviction
+
+
+class TestCacheWithMetadataExcludeTypes(test_case.ApiServerTestCase):
+    @classmethod
+    def setUpClass(cls):
+        return super(TestCacheWithMetadataExcludeTypes, cls).setUpClass(
+            extra_config_knobs=[('DEFAULTS', 'object_cache_exclude_types',
+            'project, network-ipam')])
+    # end setUpClass
+
+    def test_exclude_types_not_cached(self):
+        # verify not cached for configured types
+        obj = vnc_api.Project('proj-%s' %(self.id()))
+        self._vnc_lib.project_create(obj)
+        self._vnc_lib.project_read(id=obj.uuid)
+        cache_mgr = self._api_server._db_conn._cassandra_db._obj_cache_mgr
+        self.assertNotIn(obj.uuid, cache_mgr._cache.keys())
+
+        obj = vnc_api.NetworkIpam('ipam-%s' %(self.id()))
+        self._vnc_lib.network_ipam_create(obj)
+        self._vnc_lib.network_ipam_read(id=obj.uuid)
+        cache_mgr = self._api_server._db_conn._cassandra_db._obj_cache_mgr
+        self.assertNotIn(obj.uuid, cache_mgr._cache.keys())
+
+        # verify cached for others
+        obj = vnc_api.VirtualNetwork('vn-%s' %(self.id()))
+        self._vnc_lib.virtual_network_create(obj)
+        self._vnc_lib.virtual_network_read(id=obj.uuid)
+        cache_mgr = self._api_server._db_conn._cassandra_db._obj_cache_mgr
+        self.assertIn(obj.uuid, cache_mgr._cache.keys())
+    # end test_exclude_types_not_cached
+# end class TestCacheWithMetadataExcludeTypes
+
+
 if __name__ == '__main__':
     ch = logging.StreamHandler()
     ch.setLevel(logging.DEBUG)

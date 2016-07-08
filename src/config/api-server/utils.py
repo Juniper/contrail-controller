@@ -80,6 +80,8 @@ def parse_args(args_str):
         'kombu_ssl_keyfile': '',
         'kombu_ssl_certfile': '',
         'kombu_ssl_ca_certs': '',
+        'object_cache_entries': '10000', # max number of objects cached for read
+        'object_cache_exclude_types': '', # csv of object types to *not* cache
     }
     # ssl options
     secopts = {
@@ -298,6 +300,10 @@ def parse_args(args_str):
         help="Role name of cloud administrator")
     parser.add_argument( "--global_read_only_role",
         help="Role name of user with Read-Only access to all objects")
+    parser.add_argument("--object_cache_entries",
+            help="Maximum number of objects cached for read, default 10000")
+    parser.add_argument("--object_cache_exclude_types",
+            help="Comma separated values of object types to not cache")
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.config_sections = config
     if type(args_obj.cassandra_server_list) is str:
