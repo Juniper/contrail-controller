@@ -146,7 +146,7 @@ class VncApi(object):
                  auth_token=None, auth_host=None, auth_port=None,
                  auth_protocol = None, auth_url=None, auth_type=None,
                  wait_for_connect=False, api_server_use_ssl=False,
-                 domain_name=None):
+                 domain_name=None, exclude_hrefs=None):
         # TODO allow for username/password to be present in creds file
 
         self._obj_serializer = self._obj_serializer_diff
@@ -331,8 +331,7 @@ class VncApi(object):
             if 'role' in self._user_info:
                 self.set_user_roles([self._user_info['role']])
 
-        #self._http = HTTPClient(self._web_host, self._web_port,
-        #                        network_timeout = 300)
+        self._exclude_hrefs = exclude_hrefs
 
         self._create_api_server_session()
 
@@ -431,6 +430,10 @@ class VncApi(object):
         else:
             query_params = {'exclude_back_refs':True,
                             'exclude_children':True,}
+
+        if self._exclude_hrefs is not None:
+            query_params['exclude_hrefs'] = True
+
         response = self._request_server(rest.OP_GET, uri, query_params)
 
         obj_dict = response[res_type]
@@ -1147,6 +1150,9 @@ class VncApi(object):
             query_params['filters'] = ','.join(
                 '%s==%s' %(k,json.dumps(v)) for k,v in filters.items())
 
+        if self._exclude_hrefs is not None:
+            query_params['exclude_hrefs'] = True
+
         if do_post_for_list:
             uri = self._action_uri.get('list-bulk-collection')
             if not uri:
@@ -1194,6 +1200,10 @@ class VncApi(object):
         """
         self._headers['X-API-ROLE'] = (',').join(roles)
     #end set_user_roles
+
+    def set_exclude_hrefs(self):
+        self._exclude_hrefs = True
+    # end set_exclude_hrefs
 
     def obj_perms(self, token, obj_uuid=None):
         """

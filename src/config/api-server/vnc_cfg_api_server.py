@@ -396,7 +396,7 @@ class VncApiServer(object):
         try:
             resource_class = self.get_resource_class(type)
         except TypeError:
-            return False, (404, "Resouce type '%s' not found" % type)
+            return False, (404, "Resource type '%s' not found" % type)
         return True, resource_class.resource_type
 
     # http_resource_<oper> - handlers invoked from
@@ -642,7 +642,7 @@ class VncApiServer(object):
 
         try:
             (ok, result) = db_conn.dbe_read(obj_type, obj_ids,
-                                            list(obj_fields))
+                list(obj_fields), ret_readonly=True)
             if not ok:
                 self.config_object_error(id, None, obj_type, 'http_get', result)
         except NoIdError as e:
@@ -660,8 +660,9 @@ class VncApiServer(object):
 
         rsp_body = {}
         rsp_body['uuid'] = id
-        rsp_body['href'] = self.generate_url(resource_type, id)
         rsp_body['name'] = result['fq_name'][-1]
+        if 'exclude_hrefs' not in get_request().query:
+            result = self.generate_hrefs(resource_type, result)
         rsp_body.update(result)
         id_perms = result['id_perms']
         bottle.response.set_header('ETag', '"' + id_perms['last_modified'] + '"')
@@ -881,7 +882,8 @@ class VncApiServer(object):
             for child in read_result.get(child_field, []):
                 if child['to'][-1] == default_child_name:
                     continue
-                exist_hrefs.append(child['href'])
+                exist_hrefs.append(
+                    self.generate_url(child_type, child['uuid']))
             if exist_hrefs:
                 err_msg = 'Delete when children still present: %s' %(
                     exist_hrefs)
@@ -891,10 +893,11 @@ class VncApiServer(object):
 
         relaxed_refs = set(db_conn.dbe_get_relaxed_refs(id))
         for backref_field in r_class.backref_fields:
-            _, _, is_derived = r_class.backref_field_types[backref_field]
+            backref_type, _, is_derived = \
+                r_class.backref_field_types[backref_field]
             if is_derived:
                 continue
-            exist_hrefs = [backref['href']
+            exist_hrefs = [self.generate_url(backref_type, backref['uuid'])
                            for backref in read_result.get(backref_field, [])
                                if backref['uuid'] not in relaxed_refs]
             if exist_hrefs:
@@ -1035,9 +1038,14 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(
                 400, 'Invalid filter ' + get_request().query.filters)
 
+        if 'exclude_hrefs' in get_request().query:
+            exclude_hrefs = True
+        else:
+            exclude_hrefs = False
+
         return self._list_collection(obj_type, parent_uuids, back_ref_uuids,
                                      obj_uuids, is_count, is_detail, filters,
-                                     req_fields)
+                                     req_fields, exclude_hrefs)
     # end http_resource_list
 
     # internal_request_<oper> - handlers of internally generated requests
@@ -1182,7 +1190,7 @@ class VncApiServer(object):
             child_infos = parent_dict.get(child_field, [])
             for child_info in child_infos:
                 if child_info['to'][-1] == default_child_name:
-                    default_child_id = child_info['href'].split('/')[-1]
+                    default_child_id = child_info['uuid']
                     self.http_resource_delete(child_type, default_child_id)
                     break
     # end delete_default_children
@@ -2478,9 +2486,11 @@ class VncApiServer(object):
         if req_fields:
             req_fields = req_fields.split(',')
 
+        exclude_hrefs = get_request().json.get('exclude_hrefs', False)
+
         return self._list_collection(r_class.object_type, parent_uuids,
-                                     back_ref_uuids, obj_uuids, is_count,
-                                     is_detail, filters, req_fields)
+            back_ref_uuids, obj_uuids, is_count,
+            is_detail, filters, req_fields, exclude_hrefs)
     # end list_bulk_collection_http_post
 
     # Private Methods
@@ -2520,6 +2530,8 @@ class VncApiServer(object):
                                           /home/contrail/source/ifmap-server/]
                                          [--default_encoding ascii ]
                                          --ifmap_health_check_interval 60
+                                         --object_cache_size 10000
+                                         --object_cache_exclude_types ''
         '''
         self._args, _ = utils.parse_args(args_str)
     # end _parse_args
@@ -2576,6 +2588,10 @@ class VncApiServer(object):
         rabbit_ha_mode = self._args.rabbit_ha_mode
         cassandra_user = self._args.cassandra_user
         cassandra_password = self._args.cassandra_password
+        obj_cache_entries = int(self._args.object_cache_entries)
+        obj_cache_exclude_types = \
+            [t.replace('-', '_').strip() for t in
+             self._args.object_cache_exclude_types.split(',')]
         cred = None
         if cassandra_user is not None and cassandra_password is not None:
             cred = {'username':cassandra_user,'password':cassandra_password}
@@ -2588,7 +2604,9 @@ class VncApiServer(object):
             kombu_ssl_version=self._args.kombu_ssl_version,
             kombu_ssl_keyfile= self._args.kombu_ssl_keyfile,
             kombu_ssl_certfile=self._args.kombu_ssl_certfile,
-            kombu_ssl_ca_certs=self._args.kombu_ssl_ca_certs)
+            kombu_ssl_ca_certs=self._args.kombu_ssl_ca_certs,
+            obj_cache_entries=obj_cache_entries,
+            obj_cache_exclude_types=obj_cache_exclude_types)
     # end _db_connect
 
     def _ensure_id_perms_present(self, obj_uuid, obj_dict):
@@ -2861,7 +2879,7 @@ class VncApiServer(object):
     def _list_collection(self, obj_type, parent_uuids=None,
                          back_ref_uuids=None, obj_uuids=None,
                          is_count=False, is_detail=False, filters=None,
-                         req_fields=None):
+                         req_fields=None, exclude_hrefs=False):
         r_class = self.get_resource_class(obj_type)
         resource_type = r_class.resource_type
         (ok, result) = self._db_conn.dbe_list(obj_type,
@@ -2915,8 +2933,9 @@ class VncApiServer(object):
                             continue
                         obj_dict = {}
                         obj_dict['uuid'] = obj_result['uuid']
-                        obj_dict['href'] = self.generate_url(
-                            resource_type, obj_result['uuid'])
+                        if not exclude_hrefs:
+                            obj_dict['href'] = self.generate_url(
+                                resource_type, obj_result['uuid'])
                         obj_dict['fq_name'] = obj_result['fq_name']
                         for field in req_fields:
                             try:
@@ -2937,8 +2956,9 @@ class VncApiServer(object):
                 for fq_name, obj_uuid in fq_names_uuids:
                     obj_dict = {}
                     obj_dict['uuid'] = obj_uuid
-                    obj_dict['href'] = self.generate_url(resource_type,
-                                                         obj_uuid)
+                    if not exclude_hrefs:
+                        obj_dict['href'] = self.generate_url(resource_type,
+                                                             obj_uuid)
                     obj_dict['fq_name'] = fq_name
                     for field in req_fields or []:
                        try:
@@ -2964,8 +2984,8 @@ class VncApiServer(object):
             for obj_result in result:
                 obj_dict = {}
                 obj_dict['name'] = obj_result['fq_name'][-1]
-                obj_dict['href'] = self.generate_url(resource_type,
-                                                     obj_result['uuid'])
+                if not exclude_hrefs:
+                    obj_result = self.generate_hrefs(resource_type, obj_result)
                 obj_dict.update(obj_result)
                 if 'id_perms' not in obj_dict:
                     # It is possible that the object was deleted, but received
@@ -2997,6 +3017,100 @@ class VncApiServer(object):
         except Exception as e:
             return '%s/%s/%s' % (self._base_url, resource_type, obj_uuid)
     # end generate_url
+
+    def generate_hrefs(self, resource_type, obj_dict):
+        # return a copy of obj_dict with href keys for:
+        # self, parent, children, refs, backrefs
+        # don't update obj_dict as it may be cached object
+        obj_type = resource_type.replace('-', '_')
+        r_class = self.get_resource_class(obj_type)
+
+        ret_obj_dict = {
+            'uuid': obj_dict['uuid'],
+            'fq_name': obj_dict['fq_name'],
+            'href': self.generate_url(resource_type, obj_dict['uuid']),
+        }
+
+        try:
+            ret_obj_dict['parent_type'] = obj_dict['parent_type']
+            ret_obj_dict['parent_uuid'] = obj_dict['parent_uuid']
+            ret_obj_dict['parent_href'] = self.generate_url(
+                obj_dict['parent_type'], obj_dict['parent_uuid'])
+        except KeyError:
+            # No parent
+            pass
+
+        for prop_field in r_class.prop_fields:
+            try:
+                ret_obj_dict[prop_field] = obj_dict[prop_field]
+            except KeyError:
+                # prop doesn't exist in original
+                pass
+
+        for child_field, child_field_info in \
+                r_class.children_field_types.items():
+            try:
+                children = obj_dict[child_field]
+                ret_obj_dict[child_field] = []
+                child_type = child_field_info[0]
+                for child in children:
+                    ret_obj_dict[child_field].append({
+                        'to': child['to'],
+                        'uuid': child['uuid'],
+                        'href': self.generate_url(child_type, child['uuid']),
+                    })
+            except KeyError:
+                # child_field doesn't exist in original
+                pass
+        # end for all child fields
+
+        for ref_field, ref_field_info in r_class.ref_field_types.items():
+            try:
+                refs = obj_dict[ref_field]
+                ret_obj_dict[ref_field] = []
+                ref_type = ref_field_info[0]
+                for ref in refs:
+                    ret_ref = {
+                        'to': ref['to'],
+                        'uuid': ref['uuid'],
+                        'href': self.generate_url(ref_type, ref['uuid']),
+                    }
+                    try:
+                        ret_ref['attr'] = ref['attr']
+                    except KeyError:
+                        # ref without attr
+                        pass
+                    ret_obj_dict[ref_field].append(ret_ref)
+            except KeyError:
+                # ref_field doesn't exist in original
+                pass
+        # end for all ref fields
+
+        for backref_field, backref_field_info in \
+                r_class.backref_field_types.items():
+            try:
+                backrefs = obj_dict[backref_field]
+                ret_obj_dict[backref_field] = []
+                backref_type = backref_field_info[0]
+                for backref in backrefs:
+                    ret_backref = {
+                        'to': backref['to'],
+                        'uuid': backref['uuid'],
+                        'href': self.generate_url(backref_type, backref['uuid'])
+                    }
+                    try:
+                        ret_backref['attr'] = backref['attr']
+                    except KeyError:
+                        # ref without attr
+                        pass
+                    ret_obj_dict[backref_field].append(ret_backref)
+            except KeyError:
+                # backref_field doesn't exist in original
+                pass
+        # end for all backref fields
+
+        return ret_obj_dict
+    # end generate_hrefs
 
     def config_object_error(self, id, fq_name_str, obj_type,
                             operation, err_str):

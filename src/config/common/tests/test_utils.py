@@ -125,6 +125,77 @@ class FakeConnectionPool(object):
     # end __init__
 # end FakeConnectionPool
 
+class PatchContext(object):
+    def __init__(self, cf):
+        self.cf = cf
+        self.patches = [] # stack of patches
+    # end __init__
+
+    def patch(self, patch_list):
+        cf = self.cf
+        for patch_type, patch_info in patch_list:
+            patched = {}
+            if patch_type == 'row':
+                patched['type'] = 'row'
+                row_key, new_columns = patch_info
+                patched['row_key'] = row_key
+                if row_key in cf._rows:
+                    patched['row_existed'] = True
+                    patched['orig_cols'] = copy.deepcopy(cf._rows[row_key])
+                    if new_columns is None:
+                        # simulates absence of key in cf
+                        del cf._rows[row_key]
+                    else:
+                        cf._rows[row_key] = new_columns
+                else: # row didn't exist, create one
+                    patched['row_existed'] = False
+                    cf.insert(row_key, new_columns)
+            elif patch_type == 'column':
+                patched['type'] = 'column'
+                row_key, col_name, col_val = patch_info
+                patched['row_key'] = row_key
+                patched['col_name'] = col_name
+                if col_name in cf._rows[row_key]:
+                    patched['col_existed'] = True
+                    patched['orig_col_val'] = copy.deepcopy(
+                        cf._rows[row_key][col_name])
+                    if col_val is None:
+                        # simulates absence of col
+                        del cf._rows[row_key][col_name]
+                    else:
+                        cf.insert(row_key, {col_name: col_val})
+                else: # column didn't exist, create one
+                    patched['col_existed'] = False
+                    cf.insert(row_key, {col_name: col_val})
+            else:
+                raise Exception(
+                    "Unknown patch type %s in patching" %(patch_type))
+
+            self.patches.append(patched)
+    # end patch
+
+    def unpatch(self):
+        cf = self.cf
+        for patched in reversed(self.patches):
+            patch_type = patched['type']
+            row_key = patched['row_key']
+            if patch_type == 'row':
+                if patched['row_existed']:
+                    cf._rows[row_key] = patched['orig_cols']
+                else:
+                    del cf._rows[row_key]
+            elif patch_type == 'column':
+                col_name = patched['col_name']
+                if patched['col_existed']:
+                    cf._rows[row_key][col_name] = patched['orig_col_val']
+                else:
+                    del cf._rows[row_key][col_name]
+            else:
+                raise Exception(
+                    "Unknown patch type %s in un-patching" %(patch_type))
+    # end unpatch
+# end PatchContext
+
 class FakeCF(object):
 
     def __init__(*args, **kwargs):
@@ -303,26 +374,33 @@ class FakeCF(object):
 
     @contextlib.contextmanager
     def patch_row(self, key, new_columns=None):
-        if key in self._rows:
-            row_existed = True
-            orig_cols = self._rows[key]
-            if new_columns is None:
-                # simulates absence of key in cf
-                del self._rows[key]
-            else:
-                self._rows[key] = new_columns
-        else: # row didn't exist, create one
-            row_existed = False
-            self.insert(key, new_columns)
-
+        ctx = PatchContext(self)
         try:
+            ctx.patch([('row', (key, new_columns))])
             yield
         finally:
-            if row_existed:
-                self._rows[key] = orig_cols
-            else:
-                del self._rows[key]
+            ctx.unpatch()
     #end patch_row
+
+    @contextlib.contextmanager
+    def patch_column(self, key, col_name, col_val=None):
+        ctx = PatchContext(self)
+        try:
+            ctx.patch([('column', (key, col_name, col_val))])
+            yield
+        finally:
+            ctx.unpatch()
+    # end patch_column
+
+    @contextlib.contextmanager
+    def patches(self, patch_list):
+        ctx = PatchContext(self)
+        try:
+            ctx.patch(patch_list)
+            yield
+        finally:
+            ctx.unpatch()
+    # end patches
 # end class FakeCF
 
 

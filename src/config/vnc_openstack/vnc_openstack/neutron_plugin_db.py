@@ -50,7 +50,7 @@ class LocalVncApi(VncApi):
             self.api_server_routes = []
 
         self.api_server_obj = api_server_obj
-        return super(LocalVncApi, self).__init__(*args, **kwargs)
+        super(LocalVncApi, self).__init__(*args, **kwargs)
     # def __init__
 
     @use_context
@@ -154,7 +154,8 @@ class DBInterface(object):
                 self._vnc_lib = LocalVncApi(self._api_server_obj,
                                        admin_name, admin_password,
                                        admin_tenant_name, api_srvr_ip,
-                                       api_srvr_port, '/', user_info=user_info)
+                                       api_srvr_port, '/', user_info=user_info,
+                                       exclude_hrefs=True)
                 self._connected_to_api_server.set()
                 connected = True
             except requests.exceptions.RequestException as e:

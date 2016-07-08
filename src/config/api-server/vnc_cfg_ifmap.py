@@ -827,7 +827,8 @@ class VncServerCassandraClient(VncCassandraClient):
     # end get_db_info
 
     def __init__(self, db_client_mgr, cass_srv_list, reset_config, db_prefix,
-                      cassandra_credential, walk):
+                      cassandra_credential, walk, obj_cache_entries,
+                      obj_cache_exclude_types):
         self._db_client_mgr = db_client_mgr
         keyspaces = self._UUID_KEYSPACE.copy()
         keyspaces[self._USERAGENT_KEYSPACE_NAME] = {
@@ -835,7 +836,9 @@ class VncServerCassandraClient(VncCassandraClient):
         super(VncServerCassandraClient, self).__init__(
             cass_srv_list, db_prefix, keyspaces, None, self.config_log,
             generate_url=db_client_mgr.generate_url, reset_config=reset_config,
-            credential=cassandra_credential, walk=walk)
+            credential=cassandra_credential, walk=walk,
+            obj_cache_entries=obj_cache_entries,
+            obj_cache_exclude_types=obj_cache_exclude_types)
         self._useragent_kv_cf = self._cf_dict[self._USERAGENT_KV_CF_NAME]
     # end __init__
 
@@ -878,7 +881,7 @@ class VncServerCassandraClient(VncCassandraClient):
                         prop_name, position)
         # end for all updates
 
-        self.update_last_modified(bch, obj_uuid)
+        self.update_last_modified(bch, obj_type, obj_uuid)
         bch.send()
     # end prop_collection_update
 
@@ -892,7 +895,7 @@ class VncServerCassandraClient(VncCassandraClient):
             self._delete_ref(bch, obj_type, obj_uuid, ref_obj_type, ref_uuid)
         else:
             pass
-        self.update_last_modified(bch, obj_uuid)
+        self.update_last_modified(bch, obj_type, obj_uuid)
         bch.send()
     # end ref_update
 
@@ -1377,6 +1380,7 @@ class VncDbClient(object):
                  rabbit_servers, rabbit_port, rabbit_user, rabbit_password,
                  rabbit_vhost, rabbit_ha_mode, reset_config=False,
                  zk_server_ip=None, db_prefix='', cassandra_credential=None,
+                 obj_cache_entries=0, obj_cache_exclude_types=None,
                  **kwargs):
 
         self._api_svr_mgr = api_svr_mgr
@@ -1432,7 +1436,8 @@ class VncDbClient(object):
                 walk = True
             self._cassandra_db = VncServerCassandraClient(
                 self, cass_srv_list, reset_config, db_prefix,
-                cassandra_credential, walk=walk)
+                cassandra_credential, walk, obj_cache_entries,
+                obj_cache_exclude_types)
 
         self._zk_db.master_election(cassandra_client_init)
 
@@ -1905,10 +1910,12 @@ class VncDbClient(object):
     # end dbe_create
 
     # input id is ifmap-id + uuid
-    def dbe_read(self, obj_type, obj_ids, obj_fields=None):
+    def dbe_read(self, obj_type, obj_ids, obj_fields=None,
+                 ret_readonly=False):
         try:
             (ok, cassandra_result) = self._cassandra_db.object_read(
-                obj_type, [obj_ids['uuid']], obj_fields)
+                obj_type, [obj_ids['uuid']], obj_fields,
+                ret_readonly=ret_readonly)
         except NoIdError as e:
             # if NoIdError is for obj itself (as opposed to say for parent
             # or ref), let caller decide if this can be handled gracefully
@@ -1938,7 +1945,7 @@ class VncDbClient(object):
         try:
             (ok, cassandra_result) = self._cassandra_db.object_read(
                 obj_type, [obj_id['uuid'] for obj_id in obj_ids_list],
-                obj_fields)
+                obj_fields, ret_readonly=True)
         except NoIdError as e:
             return (False, str(e))
 
