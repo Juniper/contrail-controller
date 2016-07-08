@@ -85,7 +85,31 @@ def trace_msg(trace_obj, trace_name, sandesh_hdl, error_msg=None):
         trace_obj.trace_msg(name=trace_name, sandesh=sandesh_hdl)
 # end trace_msg
 
+def build_idperms_ifmap_obj(prop_field, values):
+    prop_xml = u'<uuid><uuid-mslong>'
+    prop_xml += unicode(json.dumps(values[u'uuid'][u'uuid_mslong']))
+    prop_xml += u'</uuid-mslong><uuid-lslong>'
+    prop_xml += unicode(json.dumps(values[u'uuid'][u'uuid_lslong']))
+    prop_xml += u'</uuid-lslong></uuid><enable>'
+    prop_xml += unicode(json.dumps(values[u'enable']))
+    prop_xml += u'</enable>'
+    return prop_xml
+
 class VncIfmapClient(object):
+
+    # * Not all properties in an object needs to be published
+    #   to IfMap.
+    # * In some properties, not all fields are relevant
+    #   to be publised to IfMap.
+
+    # If the property is not relevant at all, define the property
+    # with None. If it is partially relevant, then define the fn.
+    # which would handcraft the generated xml for the object.
+    IFMAP_PUBLISH_SKIP_LIST = {
+        # Format - <prop_field> : None | <Handler_fn>
+        u"perms2" : None,
+        u"id_perms" : build_idperms_ifmap_obj
+    }
 
     def handler(self, signum, frame):
         file = open("/tmp/api-server-ifmap-cache.txt", "w")
@@ -170,11 +194,28 @@ class VncIfmapClient(object):
             prop_type = prop_field_types['xsd_type']
             # e.g. virtual-network-properties
             prop_meta = obj_class.prop_field_metas[prop_field]
-            if is_simple:
+
+            if prop_field in VncIfmapClient.IFMAP_PUBLISH_SKIP_LIST:
+                # Field not relevant, skip publishing to IfMap
+                if not VncIfmapClient.IFMAP_PUBLISH_SKIP_LIST[prop_field]:
+                    continue
+                # Call the handler fn to generate the relevant fields.
+                if callable(VncIfmapClient.IFMAP_PUBLISH_SKIP_LIST[prop_field]):
+                    prop_xml = VncIfmapClient.IFMAP_PUBLISH_SKIP_LIST[prop_field](
+                                        prop_field, field)
+                    meta = Metadata(prop_meta, '',
+                        {'ifmap-cardinality':'singleValue'}, ns_prefix='contrail',
+                        elements=prop_xml)
+                else:
+                    log_str = '%s is marked for partial publish\
+                               to Ifmap but handler not defined' %(
+                                prop_field)
+                    self.config_log(log_str, level=SandeshLevel.SYS_DEBUG)
+                    continue
+            elif is_simple:
                 norm_str = escape(str(field))
                 meta = Metadata(prop_meta, norm_str,
                        {'ifmap-cardinality':'singleValue'}, ns_prefix = 'contrail')
-
             else: # complex type
                 prop_cls = cfgm_common.utils.str_to_class(prop_type,
                                                           __name__)
