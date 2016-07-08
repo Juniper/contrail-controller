@@ -662,11 +662,14 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path,
         policy = true;
     }
 
-    MacAddress mac = vm_port->vm_mac();
-    const InetUnicastRouteEntry *ip_rt =
-        dynamic_cast<const InetUnicastRouteEntry *>(rt);
-    if (ip_rt) {
-        mac = vm_port->GetIpMac(ip_rt->addr(), ip_rt->plen());
+    MacAddress mac = MacAddress::ZeroMac();
+    if (vm_port) {
+        mac = vm_port->vm_mac();
+        const InetUnicastRouteEntry *ip_rt =
+            dynamic_cast<const InetUnicastRouteEntry *>(rt);
+        if (ip_rt) {
+            mac = vm_port->GetIpMac(ip_rt->addr(), ip_rt->plen());
+        }
     }
 
     InterfaceNHKey key(intf_.Clone(), policy, flags_, mac);
