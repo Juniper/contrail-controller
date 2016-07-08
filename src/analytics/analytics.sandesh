@@ -162,8 +162,8 @@ struct UserDefinedCounter {
     1: string name (key="UserDefinedCounterTable")
     2: optional bool deleted
     3: optional u64 rx_event (hidden="yes")
-    4: optional uint64_t_P_ count (stats="rx_event:DSSum:", tags="")
-} (period="60")
+    4: optional uint64_t_P_ count /* (stats="rx_event:DSSum:", tags="") */
+} /* (period="60") */
 
 /**
  * @description: UVE to send UserDefinedCounter data
