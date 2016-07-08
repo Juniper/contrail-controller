@@ -45,7 +45,7 @@ logger.setLevel(logging.DEBUG)
 class TestLogicalRouter(test_case.ApiServerTestCase):
 
     def test_lr_v4_subnets(self):
-        print '*** test logical router creation and interface-add of v4 subnets ***'
+        print '%%% test logical router creation and interface-add of v4 subnets %%%'
 
         # Create Domain
         domain = Domain('my-lr-domain')
@@ -107,7 +107,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
                                   subnet.subnet.get_ip_prefix_len())
                 if IPNetwork(cidr).version is 4:
                     gateway_ip = subnet.get_default_gateway()
-                    print ' *** subnet gateway (%s)' %(gateway_ip)
+                    print ' %%%%%% subnet gateway (%s)' %(gateway_ip)
         port_id1 = self._vnc_lib.virtual_machine_interface_create(port_obj1)
         print 'Created Virtual Machine Interface'
 
@@ -139,7 +139,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
                                   subnet.subnet.get_ip_prefix_len())
                 if IPNetwork(cidr).version is 4:
                     gateway_ip = subnet.get_default_gateway()
-                    print ' *** subnet gateway (%s)' %(gateway_ip)
+                    print ' %%%%%% subnet gateway (%s)' %(gateway_ip)
         port_id2 = self._vnc_lib.virtual_machine_interface_create(port_obj2)
         print 'Created Virtual Machine Interface'
 
@@ -193,7 +193,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
     #end
     
     def test_lr_v6_subnets(self):
-        print '*** test logical router creation and interface-add of v6 subnets ***'
+        print '%%% test logical router creation and interface-add of v6 subnets %%%'
 
         # Create Domain
         domain = Domain('my-lr-domain')
@@ -255,7 +255,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
                                   subnet.subnet.get_ip_prefix_len())
                 if IPNetwork(cidr).version is 6:
                     gateway_ip = subnet.get_default_gateway()
-                    print ' *** subnet gateway (%s)' %(gateway_ip)
+                    print ' %%%%%% subnet gateway (%s)' %(gateway_ip)
         port_id1 = self._vnc_lib.virtual_machine_interface_create(port_obj1)
         print 'Created Virtual Machine Interface'
 
@@ -288,7 +288,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
                                   subnet.subnet.get_ip_prefix_len())
                 if IPNetwork(cidr).version is 6:
                     gateway_ip = subnet.get_default_gateway()
-                    print ' *** subnet gateway (%s)' %(gateway_ip)
+                    print ' %%%%%% subnet gateway (%s)' %(gateway_ip)
         port_id2 = self._vnc_lib.virtual_machine_interface_create(port_obj2)
         print 'Created Virtual Machine Interface'
 

@@ -75,7 +75,7 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
         Then it sends test stats to the collector
         and checks if they can be accessed from QE.
         '''
-        logging.info("*** test_00_basicsamples ***")
+        logging.info("%%% test_00_basicsamples %%%")
         if StatsTest._check_skip_test() is True:
             return True
 
@@ -128,7 +128,7 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
         Then it sends test stats to the collector
         and checks if they can be accessed from QE, using prefix-suffix indexes
         '''
-        logging.info("*** test_01_statprefix ***")
+        logging.info("%%% test_01_statprefix %%%")
         if StatsTest._check_skip_test() is True:
             return True
 
@@ -193,7 +193,7 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
         Then it sends test stats to the collector
         and checks if they can be accessed from QE.
         '''
-        logging.info("*** test_02_overflowsamples ***")
+        logging.info("%%% test_02_overflowsamples %%%")
         if StatsTest._check_skip_test() is True:
             return True
 
@@ -232,7 +232,7 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
         Then it feeds IPFIX packets to the collector
         and queries for them
         '''
-        logging.info("*** test_03_ipfix ***")
+        logging.info("%%% test_03_ipfix %%%")
         if StatsTest._check_skip_test() is True:
             return True
         
@@ -273,7 +273,7 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
         Then it inserts into the stat table rows 
         and queries MAX and MIN on them
         '''
-        logging.info("*** test_04_min_max_query ***")
+        logging.info("%%% test_04_min_max_query %%%")
         if StatsTest._check_skip_test() is True:
             return True
         vizd_obj = self.useFixture(
@@ -317,7 +317,7 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
         Then it sends test object stats to the collector
         and checks if they can be accessed from QE, using prefix-suffix indexes
         '''
-        logging.info("*** test_05_statprefix_obj ***")
+        logging.info("%%% test_05_statprefix_obj %%%")
         if StatsTest._check_skip_test() is True:
             return True
 
@@ -362,7 +362,7 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
         Then it sends test 2nd-level stats to the collector
         and checks if they can be accessed from QE, using prefix-suffix indexes
         '''
-        logging.info("*** test_06_statprefix_double ***")
+        logging.info("%%% test_06_statprefix_double %%%")
         if StatsTest._check_skip_test() is True:
             return True
 
