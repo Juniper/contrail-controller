@@ -103,6 +103,12 @@ string Inet6Route::ToString() const {
     return prefix_.ToString();
 }
 
+string Inet6Route::ToXmppIdString() const {
+    if (xmpp_id_str_.empty())
+        xmpp_id_str_ = prefix_.ToString();
+    return xmpp_id_str_;
+}
+
 // Check whether 'this' is more specific than rhs.
 bool Inet6Route::IsMoreSpecific(const string &match) const {
     error_code ec;
