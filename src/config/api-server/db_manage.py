@@ -1507,6 +1507,17 @@ def db_heal(args_str):
     db_healer.heal_security_groups_id()
 # end db_heal
 
+def db_touch_latest(args_str):
+    cgitb.enable(format='text')
+
+    db_mgr = DatabaseManager(args_str)
+    obj_uuid_table = db_mgr._cf_dict['obj_uuid_table']
+
+    for obj_uuid, cols in obj_uuid_table.get_range(column_count=1):
+        db_mgr._cf_dict['obj_uuid_table'].insert(obj_uuid,
+                    columns={'META:latest_col_ts': json.dumps(None)})
+# end db_touch_latest
+
 def main(verb, args_str):
     if 'db_%s' %(verb) in globals():
         return globals()['db_%s' %(verb)](' '.join(sys.argv[1:]))

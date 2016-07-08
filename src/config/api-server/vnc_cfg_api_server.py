@@ -642,7 +642,7 @@ class VncApiServer(object):
 
         try:
             (ok, result) = db_conn.dbe_read(obj_type, obj_ids,
-                                            list(obj_fields))
+                list(obj_fields), ret_readonly=True)
             if not ok:
                 self.config_object_error(id, None, obj_type, 'http_get', result)
         except NoIdError as e:
@@ -2520,6 +2520,8 @@ class VncApiServer(object):
                                           /home/contrail/source/ifmap-server/]
                                          [--default_encoding ascii ]
                                          --ifmap_health_check_interval 60
+                                         --object_cache_size 10000
+                                         --object_cache_exclude_types ''
         '''
         self._args, _ = utils.parse_args(args_str)
     # end _parse_args
@@ -2576,6 +2578,9 @@ class VncApiServer(object):
         rabbit_ha_mode = self._args.rabbit_ha_mode
         cassandra_user = self._args.cassandra_user
         cassandra_password = self._args.cassandra_password
+        obj_cache_entries = int(self._args.object_cache_entries)
+        obj_cache_exclude_types = \
+            self._args.object_cache_exclude_types.split(',')
         cred = None
         if cassandra_user is not None and cassandra_password is not None:
             cred = {'username':cassandra_user,'password':cassandra_password}
@@ -2588,7 +2593,9 @@ class VncApiServer(object):
             kombu_ssl_version=self._args.kombu_ssl_version,
             kombu_ssl_keyfile= self._args.kombu_ssl_keyfile,
             kombu_ssl_certfile=self._args.kombu_ssl_certfile,
-            kombu_ssl_ca_certs=self._args.kombu_ssl_ca_certs)
+            kombu_ssl_ca_certs=self._args.kombu_ssl_ca_certs,
+            obj_cache_entries=obj_cache_entries,
+            obj_cache_exclude_types=obj_cache_exclude_types)
     # end _db_connect
 
     def _ensure_id_perms_present(self, obj_uuid, obj_dict):
