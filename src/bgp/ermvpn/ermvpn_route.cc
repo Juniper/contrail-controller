@@ -265,7 +265,9 @@ string ErmVpnRoute::ToString() const {
 }
 
 string ErmVpnRoute::ToXmppIdString() const {
-    return prefix_.ToXmppIdString();
+    if (xmpp_id_str_.empty())
+        xmpp_id_str_ = prefix_.ToXmppIdString();
+    return xmpp_id_str_;
 }
 
 bool ErmVpnRoute::IsValid() const {

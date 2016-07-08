@@ -102,7 +102,7 @@ public:
     explicit EvpnRoute(const EvpnPrefix &prefix);
     virtual int CompareTo(const Route &rhs) const;
     virtual std::string ToString() const;
-    std::string ToXmppIdString() const;
+    virtual std::string ToXmppIdString() const;
     virtual bool IsValid() const;
 
     const EvpnPrefix &GetPrefix() const { return prefix_; }
@@ -127,6 +127,7 @@ public:
 
 private:
     EvpnPrefix prefix_;
+    mutable std::string xmpp_id_str_;
 
     DISALLOW_COPY_AND_ASSIGN(EvpnRoute);
 };
