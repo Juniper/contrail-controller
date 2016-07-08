@@ -421,6 +421,11 @@ void AddEncapList(Agent *agent, const char *encap1, const char *encap2,
                   const char *encap3);
 void DelEncapList();
 void DelEncapList(Agent *agent);
+
+void DelHealthCheckService(const char *name);
+void AddHealthCheckService(const char *name, int id, const char *url_path,
+                           const char *monitor_type);
+
 void VxLanNetworkIdentifierMode(bool config);
 void GlobalForwardingMode(std::string mode);
 int MplsToVrfId(int label);
