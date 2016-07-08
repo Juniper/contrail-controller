@@ -1379,6 +1379,9 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete2) {
             agent_b_, "blue", BuildPrefix(idx), "192.168.1.1", 100 + idx);
     }
 
+    // Pause update generation on X.
+    bs_x_->scheduling_group_manager()->DisableGroups();
+
     // Unregister to blue instance on agent B.
     agent_b_->Unsubscribe("blue");
 
@@ -1386,6 +1389,10 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete2) {
     for (int idx = 0; idx < kRouteCount; ++idx) {
         VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
     }
+
+    // Resume update generation on X.
+    bs_x_->scheduling_group_manager()->EnableGroups();
+    task_util::WaitForIdle();
 
     // Delete routes from agent A.
     for (int idx = 0; idx < kRouteCount; ++idx) {
