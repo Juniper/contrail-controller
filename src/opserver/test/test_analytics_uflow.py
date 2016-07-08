@@ -80,7 +80,7 @@ class AnalyticsUFlowTest(testtools.TestCase, fixtures.TestWithFixtures):
         and queries for them
         '''
 
-        logging.info('*** test_ipfix ***')
+        logging.info('%%% test_ipfix %%%')
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
                              self.__class__.redis_port,
@@ -114,7 +114,7 @@ class AnalyticsUFlowTest(testtools.TestCase, fixtures.TestWithFixtures):
         in the analytics db
         '''
 
-        logging.info('*** test_sflow ***')
+        logging.info('%%% test_sflow %%%')
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
                              self.__class__.redis_port,
