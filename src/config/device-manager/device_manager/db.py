@@ -154,8 +154,9 @@ class PhysicalRouterDM(DBBaseDM):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
+        if obj.is_vnc_managed() and obj.is_conf_sent():
+            obj.config_manager.delete_bgp_config()
         obj._cassandra.delete_pr(uuid)
-        obj.config_manager.delete_bgp_config()
         obj.uve_send(True)
         obj.update_single_ref('bgp_router', {})
         obj.update_multiple_refs('virtual_network', {})
