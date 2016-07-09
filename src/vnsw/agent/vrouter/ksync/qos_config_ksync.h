@@ -47,7 +47,6 @@ private:
     KSyncDBObject *ksync_obj_;
     boost::uuids::uuid uuid_;
     uint32_t id_;
-    bool trusted_;
     KSyncQosFcMap dscp_map_;
     KSyncQosFcMap vlan_priority_map_;
     KSyncQosFcMap mpls_exp_map_;
