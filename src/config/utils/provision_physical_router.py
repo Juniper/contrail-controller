@@ -2,7 +2,7 @@
 #Usage : # python provision_physical_router.py --api_server_ip <127.0.0.1> --api_server_port <8082> --admin_user <user1> --admin_password <password1> --admin_tenant_name default-domain --op {add_basic|remove_basic|fip_test|delete_fip_test}  {--public_vrf_test [True|False]} {--vxlan <vxlan-identifier>}
 #Note: make sure, api server authentication is disabled in contrail api server to run this script.
 #      To disable: Please set "multi_tenancy=False" in /etc/contrail/contrail-api.conf  and restart API server
-#      Please update right MX ip address in the script. 
+#      Please update right MX ip address and credentials in the script.
 #File name:   provision_physical_router.py
 #!/usr/bin/python
 #
@@ -67,7 +67,7 @@ class VncProvisioner(object):
         return rt_inst_obj
     # end _get_ip_fabric_ri_obj
 
-    def create_router(self, name, mgmt_ip):
+    def create_router(self, name, mgmt_ip, password):
         bgp_router = BgpRouter(name, parent_obj=self._get_ip_fabric_ri_obj())
         params = BgpRouterParams()
         params.address = mgmt_ip
@@ -84,7 +84,7 @@ class VncProvisioner(object):
         pr.physical_router_vendor_name = 'juniper'
         pr.physical_router_product_name = 'mx'
         pr.physical_router_vnc_managed = True 
-        uc = UserCredentials('root', 'Embe1mpls')
+        uc = UserCredentials('root', password)
         pr.set_physical_router_user_credentials(uc)
         pr.set_bgp_router(bgp_router)
         pr_id = self._vnc_lib.physical_router_create(pr)
@@ -127,7 +127,7 @@ class VncProvisioner(object):
             pass
  
         if pr is None:
-            bgp_router, pr = self.create_router('a7-mx-80', '10.84.63.133')
+            bgp_router, pr = self.create_router('a7-mx-80', '10.84.63.133', 'abc123')
             pr.set_virtual_network(vn1_obj)
             self._vnc_lib.physical_router_update(pr)
 
@@ -388,7 +388,7 @@ class VncProvisioner(object):
             pass
  
         if pr is None:
-            bgp_router, pr = self.create_router('a2-mx-80', '10.84.7.253')
+            bgp_router, pr = self.create_router('a2-mx-80', '10.84.7.253', 'abc123')
         pr.add_virtual_network(vn1_obj)
         junos_service_ports = JunosServicePorts()
         junos_service_ports.service_port.append("si-0/0/0")
@@ -405,7 +405,7 @@ class VncProvisioner(object):
         except NoIdError:
             pass
         if pr_tor is None:
-            bgp_router2, pr_tor = self.create_router('qfx-1', '2.2.2.2')
+            bgp_router2, pr_tor = self.create_router('qfx-1', '2.2.2.2', 'abc123')
         pr_tor.set_virtual_network(vn1_obj)
         pr_tor.physical_router_vendor_name = 'juniper'
         pr_tor.physical_router_product_name = 'qfx'
