@@ -89,6 +89,12 @@ string InetRoute::ToString() const {
     return prefix_.ToString();
 }
 
+string InetRoute::ToXmppIdString() const {
+    if (xmpp_id_str_.empty())
+        xmpp_id_str_ = prefix_.ToString();
+    return xmpp_id_str_;
+}
+
 // Check whether 'this' is more specific than rhs.
 bool InetRoute::IsMoreSpecific(const string &match) const {
     boost::system::error_code ec;

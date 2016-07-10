@@ -71,7 +71,6 @@ class ErmVpnRoute : public BgpRoute {
 public:
     explicit ErmVpnRoute(const ErmVpnPrefix &prefix);
     virtual int CompareTo(const Route &rhs) const;
-
     virtual std::string ToString() const;
     virtual std::string ToXmppIdString() const;
     virtual bool IsValid() const;
@@ -98,6 +97,8 @@ public:
 
 private:
     ErmVpnPrefix prefix_;
+    mutable std::string xmpp_id_str_;
+
     DISALLOW_COPY_AND_ASSIGN(ErmVpnRoute);
 };
 
