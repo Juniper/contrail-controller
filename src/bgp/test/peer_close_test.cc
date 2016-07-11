@@ -9,6 +9,7 @@
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_membership.h"
 #include "bgp/bgp_peer_close.h"
+#include "bgp/inet/inet_table.h"
 #include "io/test/event_manager_test.h"
 
 class PeerCloseManagerTest;
@@ -38,14 +39,17 @@ public:
     virtual void GetGracefulRestartFamilies(Families *families) const {
         families->insert(Address::INET);
     }
-    virtual void MembershipRequestCallbackComplete(bool result) {
-        membership_request_complete_result_ = result;
+    virtual void MembershipRequestCallbackComplete() {
+        membership_request_complete_result_ = true;
     }
     virtual const int GetGracefulRestartTime() const { return 123; }
     virtual const int GetLongLivedGracefulRestartTime() const { return 321; }
     virtual bool IsReady() const { return is_ready_; }
     virtual void UnregisterPeer() { }
     virtual void ReceiveEndOfRIB(Address::Family family);
+
+    virtual const char *GetTaskName() const { return "bgp::StateMachine"; }
+    virtual int GetTaskInstance() const { return 0; }
 
     void set_close_manager(PeerCloseManagerTest *close_manager) {
         close_manager_ = close_manager;
@@ -86,20 +90,40 @@ public:
     PeerCloseManagerTest(IPeerClose *peer_close,
                          boost::asio::io_service &io_service) :
             PeerCloseManager(peer_close, io_service), restart_time_(0),
-            restart_timer_started_(false) {
+            restart_timer_started_(false), can_use_membership_manager_(false),
+            is_registerd_(false), unregister_called_(false),
+            walk_rib_in_called_(false), unregister_ribout_called_(false),
+            unregister_ribin_called_(false), died_(false),
+            table_(new InetTable(&db_, "inet.0")) {
     }
     ~PeerCloseManagerTest() { }
     Timer *stale_timer() const { return stale_timer_; }
-    int GetMembershipRequestCount() const {
-        return membership_req_pending_;
+    virtual bool CanUseMembershipManager() const {
+        return can_use_membership_manager_;
     }
-    virtual bool CanUseMembershipManager() const { return true; }
-    virtual BgpMembershipManager *membership_mgr() const { return NULL; }
     virtual void StartRestartTimer(int time) {
         restart_time_ = time;
         restart_timer_started_ = true;
         PeerCloseManager::StartRestartTimer(time);
     }
+
+    void GetRegisteredRibs(std::list<BgpTable *> *tables) {
+        tables->push_back(table_.get());
+    }
+
+    virtual bool IsRegistered(BgpTable *table) const { return is_registerd_; }
+    virtual void Unregister(BgpTable *table) { unregister_called_ = true; }
+    virtual void WalkRibIn(BgpTable *table) { walk_rib_in_called_ = true; }
+    virtual void UnregisterRibOut(BgpTable *table) {
+        unregister_ribout_called_ = true;
+    }
+    virtual bool IsRibInRegistered(BgpTable *table) const {
+        return !is_registerd_;
+    }
+    virtual void UnregisterRibIn(BgpTable *table) {
+        unregister_ribin_called_ = true;
+    }
+
     int restart_time() const { return restart_time_; }
     bool restart_timer_started() const { return restart_timer_started_; }
     void Run();
@@ -107,17 +131,30 @@ public:
     static int GetEndState() { return END_STATE; }
     static int GetBeginEvent() { return BEGIN_EVENT; }
     static int GetEndEvent() { return END_EVENT; }
+    static int GetBeginMembershipState() { return BEGIN_MEMBERSHIP_STATE; }
+    static int GetEndMembershipState() { return END_MEMBERSHIP_STATE; }
 
     void SetUp(int state, int event, int pending_requests,
-               IPeerCloseTest *peer_close) {
+               bool can_use_membership_manager, int membership_state,
+               bool is_registerd, bool unregister_called,
+               bool walk_rib_in_called, bool unregister_ribout_called,
+               bool unregister_ribin_called, IPeerCloseTest *peer_close) {
         test_state_ = static_cast<State>(state);
         test_event_ = static_cast<EventType>(event);
+        test_membership_state_ = static_cast<MembershipState>(membership_state);
+        can_use_membership_manager_ = can_use_membership_manager;
         pending_requests_ = pending_requests;
         peer_close_ = peer_close;
+        is_registerd_ = is_registerd;
+        unregister_called_= unregister_called;
+        walk_rib_in_called_ = walk_rib_in_called;
+        unregister_ribout_called_ = unregister_ribout_called;
+        unregister_ribin_called_ = unregister_ribin_called;
     }
 
     void GotoState() {
         state_ = test_state_;
+        membership_state_ = test_membership_state_;
         switch (test_state_) {
             case NONE:
                 break;
@@ -138,9 +175,51 @@ public:
         }
     }
 
-    virtual void MembershipRequestCallback() {
-        PeerCloseManager::MembershipRequestCallback();
-        task_util::WaitForIdle();
+    virtual bool AssertMembershipState(bool do_assert) {
+        died_ = !PeerCloseManager::AssertMembershipState(false);
+        return !died_;
+    }
+
+    virtual bool AssertMembershipReqCount(bool do_assert) {
+        died_ = !PeerCloseManager::AssertMembershipReqCount(false);
+        return !died_;
+    }
+
+    virtual bool AssertSweepState(bool do_assert) {
+        died_ = !PeerCloseManager::AssertSweepState(false);
+        return !died_;
+    }
+
+    virtual bool AssertMembershipManagerInUse(bool do_assert) {
+        died_ = !PeerCloseManager::AssertMembershipManagerInUse(false);
+        return !died_;
+    }
+
+    void CloseAndDie() {
+        Close(!peer_close_->close_graceful());
+        TASK_UTIL_EXPECT_TRUE(died_);
+    }
+
+    void ProcessEORMarkerReceivedAndDie() {
+        ProcessEORMarkerReceived(Address::INET);
+        TASK_UTIL_EXPECT_TRUE(died_);
+    }
+
+    void MembershipRequestAndDie() {
+        MembershipRequest();
+        TASK_UTIL_EXPECT_TRUE(died_);
+    }
+
+    virtual void MembershipRequestCallbackAndDie() {
+        MembershipRequestCallback();
+        TASK_UTIL_EXPECT_TRUE(died_);
+    }
+
+    void TriggerTimerCallbackAndDie() {
+        task_util::TaskFire(
+                boost::bind(&PeerCloseManager::RestartTimerCallback, this),
+                            "timer::TimerTask");
+        TASK_UTIL_EXPECT_TRUE(died_);
     }
 
     void TriggerEvent() {
@@ -148,24 +227,51 @@ public:
         case EVENT_NONE:
             break;
         case CLOSE:
+            if ((test_state_ == NONE || test_state_ == GR_TIMER ||
+                        test_state_ == LLGR_TIMER) &&
+                    test_membership_state_ == MEMBERSHIP_IN_USE) {
+                CloseAndDie();
+                break;
+            }
             Close(!peer_close_->close_graceful());
             break;
         case EOR_RECEIVED:
+            if ((test_state_ == GR_TIMER || test_state_== LLGR_TIMER) &&
+                    test_membership_state_ == MEMBERSHIP_IN_USE) {
+                ProcessEORMarkerReceivedAndDie();
+                break;
+            }
             ProcessEORMarkerReceived(Address::INET);
             break;
         case MEMBERSHIP_REQUEST:
+            membership_req_pending_ = pending_requests_;
+            if (test_membership_state_ == MEMBERSHIP_IN_USE ||
+                    (can_use_membership_manager_ && pending_requests_)) {
+                MembershipRequestAndDie();
+                break;
+            }
+            MembershipRequest();
+            if (!can_use_membership_manager_)
+                TASK_UTIL_EXPECT_EQ(MEMBERSHIP_IN_WAIT, membership_state_);
+            else
+                TASK_UTIL_EXPECT_EQ(MEMBERSHIP_IN_USE, membership_state_);
             break;
         case MEMBERSHIP_REQUEST_COMPLETE_CALLBACK:
             set_membership_state(MEMBERSHIP_IN_USE);
-            set_membership_req_pending(pending_requests_);
+            membership_req_pending_ = pending_requests_;
             if (!(state() == STALE || state() == LLGR_STALE ||
                   state() == SWEEP || state() == DELETE)) {
-                TASK_UTIL_EXPECT_DEATH(MembershipRequestCallback(), ".*");
-            } else {
-                MembershipRequestCallback();
+                MembershipRequestCallbackAndDie();
+                break;
             }
+            MembershipRequestCallback();
             break;
         case TIMER_CALLBACK:
+            if ((test_state_ == GR_TIMER || test_state_== LLGR_TIMER) &&
+                    test_membership_state_ == MEMBERSHIP_IN_USE) {
+                TriggerTimerCallbackAndDie();
+                break;
+            }
             task_util::TaskFire(
                     boost::bind(&PeerCloseManager::RestartTimerCallback, this),
                                 "timer::TimerTask");
@@ -175,16 +281,22 @@ public:
     }
 
     void check_close_at_start() {
+        if (died_)
+            return;
         if (!peer_close_->graceful() || !peer_close_->close_graceful()) {
+            if (!can_use_membership_manager_) {
+                TASK_UTIL_EXPECT_EQ(MEMBERSHIP_IN_WAIT, membership_state_);
+                return;
+            }
+
             TASK_UTIL_EXPECT_EQ(DELETE, state());
             TASK_UTIL_EXPECT_FALSE(stale_timer()->running());
 
             // Expect Membership (walk) request.
-            TASK_UTIL_EXPECT_TRUE(GetMembershipRequestCount());
-
-            // Trigger unregister peer rib walks completion.
-            MembershipRequestCallback();
-            TASK_UTIL_EXPECT_EQ(NONE, state());
+            if (is_registerd_)
+                TASK_UTIL_EXPECT_TRUE(unregister_called_);
+            else
+                TASK_UTIL_EXPECT_TRUE(unregister_ribin_called_);
         } else {
 
             // Peer supports GR and Graceful closure has been triggered.
@@ -198,10 +310,22 @@ private:
     friend class PeerCloseTest;
     int restart_time_;
     bool restart_timer_started_;
+    bool can_use_membership_manager_;
     State test_state_;
     EventType test_event_;
+    MembershipState test_membership_state_;
     int pending_requests_;
+
+    bool is_registerd_;
+    bool unregister_called_;
+    bool walk_rib_in_called_;
+    bool unregister_ribout_called_;
+    bool unregister_ribin_called_;
+    bool died_;
+
     IPeerCloseTest *peer_close_;
+    DB db_;
+    boost::scoped_ptr<InetTable> table_;
 };
 
 void IPeerCloseTest::ReceiveEndOfRIB(Address::Family family) {
@@ -210,12 +334,30 @@ void IPeerCloseTest::ReceiveEndOfRIB(Address::Family family) {
 PeerCloseManager *IPeerCloseTest::close_manager() { return close_manager_; }
 
 void PeerCloseManagerTest::Run() {
+    if (died_)
+        return;
     switch (test_state_) {
     case NONE:
         switch (test_event_) {
         case EVENT_NONE:
             break;
         case MEMBERSHIP_REQUEST:
+            if (!can_use_membership_manager_)
+                break;
+
+            if (is_registerd_) {
+                TASK_UTIL_EXPECT_EQ(false, is_registerd_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_called_);
+                TASK_UTIL_EXPECT_EQ(false, walk_rib_in_called_);
+                TASK_UTIL_EXPECT_EQ(true, unregister_ribout_called_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_ribin_called_);
+            } else {
+                TASK_UTIL_EXPECT_EQ(false, is_registerd_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_called_);
+                TASK_UTIL_EXPECT_EQ(true, walk_rib_in_called_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_ribout_called_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_ribin_called_);
+            }
             break;
         case CLOSE:
             check_close_at_start();
@@ -238,6 +380,21 @@ void PeerCloseManagerTest::Run() {
         case EVENT_NONE:
             break;
         case MEMBERSHIP_REQUEST:
+            if (!can_use_membership_manager_)
+                break;
+            if (is_registerd_) {
+                TASK_UTIL_EXPECT_EQ(false, is_registerd_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_called_);
+                TASK_UTIL_EXPECT_EQ(false, walk_rib_in_called_);
+                TASK_UTIL_EXPECT_EQ(true, unregister_ribout_called_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_ribin_called_);
+            } else {
+                TASK_UTIL_EXPECT_EQ(false, is_registerd_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_called_);
+                TASK_UTIL_EXPECT_EQ(true, walk_rib_in_called_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_ribout_called_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_ribin_called_);
+            }
             break;
         case CLOSE:
             TASK_UTIL_EXPECT_TRUE(close_again());
@@ -271,6 +428,21 @@ void PeerCloseManagerTest::Run() {
         case EVENT_NONE:
             break;
         case MEMBERSHIP_REQUEST:
+            if (!can_use_membership_manager_)
+                break;
+            if (is_registerd_) {
+                TASK_UTIL_EXPECT_EQ(false, is_registerd_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_called_);
+                TASK_UTIL_EXPECT_EQ(false, walk_rib_in_called_);
+                TASK_UTIL_EXPECT_EQ(true, unregister_ribout_called_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_ribin_called_);
+            } else {
+                TASK_UTIL_EXPECT_EQ(false, is_registerd_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_called_);
+                TASK_UTIL_EXPECT_EQ(true, walk_rib_in_called_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_ribout_called_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_ribin_called_);
+            }
             break;
         case CLOSE:
 
@@ -307,6 +479,21 @@ void PeerCloseManagerTest::Run() {
         case EVENT_NONE:
             break;
         case MEMBERSHIP_REQUEST:
+            if (!can_use_membership_manager_)
+                break;
+            if (is_registerd_) {
+                TASK_UTIL_EXPECT_EQ(false, is_registerd_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_called_);
+                TASK_UTIL_EXPECT_EQ(false, walk_rib_in_called_);
+                TASK_UTIL_EXPECT_EQ(true, unregister_ribout_called_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_ribin_called_);
+            } else {
+                TASK_UTIL_EXPECT_EQ(false, is_registerd_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_called_);
+                TASK_UTIL_EXPECT_EQ(true, walk_rib_in_called_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_ribout_called_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_ribin_called_);
+            }
             break;
         case CLOSE:
             TASK_UTIL_EXPECT_TRUE(close_again());
@@ -338,6 +525,21 @@ void PeerCloseManagerTest::Run() {
         case EVENT_NONE:
             break;
         case MEMBERSHIP_REQUEST:
+            if (!can_use_membership_manager_)
+                break;
+            if (is_registerd_) {
+                TASK_UTIL_EXPECT_EQ(false, is_registerd_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_called_);
+                TASK_UTIL_EXPECT_EQ(false, walk_rib_in_called_);
+                TASK_UTIL_EXPECT_EQ(true, unregister_ribout_called_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_ribin_called_);
+            } else {
+                TASK_UTIL_EXPECT_EQ(false, is_registerd_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_called_);
+                TASK_UTIL_EXPECT_EQ(true, walk_rib_in_called_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_ribout_called_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_ribin_called_);
+            }
             break;
         case CLOSE:
 
@@ -372,6 +574,21 @@ void PeerCloseManagerTest::Run() {
         case EVENT_NONE:
             break;
         case MEMBERSHIP_REQUEST:
+            if (!can_use_membership_manager_)
+                break;
+            if (is_registerd_) {
+                TASK_UTIL_EXPECT_EQ(false, is_registerd_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_called_);
+                TASK_UTIL_EXPECT_EQ(true, walk_rib_in_called_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_ribout_called_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_ribin_called_);
+            } else {
+                TASK_UTIL_EXPECT_EQ(false, is_registerd_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_called_);
+                TASK_UTIL_EXPECT_EQ(true, walk_rib_in_called_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_ribout_called_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_ribin_called_);
+            }
             break;
         case CLOSE:
             TASK_UTIL_EXPECT_TRUE(close_again());
@@ -400,6 +617,21 @@ void PeerCloseManagerTest::Run() {
         case EVENT_NONE:
             break;
         case MEMBERSHIP_REQUEST:
+            if (!can_use_membership_manager_)
+                break;
+            if (is_registerd_) {
+                TASK_UTIL_EXPECT_EQ(false, is_registerd_);
+                TASK_UTIL_EXPECT_EQ(true, unregister_called_);
+                TASK_UTIL_EXPECT_EQ(false, walk_rib_in_called_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_ribout_called_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_ribin_called_);
+            } else {
+                TASK_UTIL_EXPECT_EQ(false, is_registerd_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_called_);
+                TASK_UTIL_EXPECT_EQ(false, walk_rib_in_called_);
+                TASK_UTIL_EXPECT_EQ(false, unregister_ribout_called_);
+                TASK_UTIL_EXPECT_EQ(true, unregister_ribin_called_);
+            }
             break;
         case CLOSE:
             TASK_UTIL_EXPECT_TRUE(close_again());
@@ -426,7 +658,8 @@ void PeerCloseManagerTest::Run() {
     }
 }
 
-typedef std::tr1::tuple<int, int, bool, bool, bool, bool, int> TestParams;
+typedef std::tr1::tuple<int, int, bool, bool, bool, bool, int, bool, int, bool>
+            TestParams;
 class PeerCloseTest : public ::testing::TestWithParam<TestParams> {
 public:
     PeerCloseTest() : thread_(&evm_) { }
@@ -438,7 +671,17 @@ public:
         peer_close_->set_close_manager(close_manager_.get());
         close_manager_->SetUp(std::tr1::get<0>(GetParam()),
                               std::tr1::get<1>(GetParam()),
-                              std::tr1::get<6>(GetParam()), peer_close_.get());
+                              std::tr1::get<6>(GetParam()),
+                              std::tr1::get<7>(GetParam()),
+                              std::tr1::get<8>(GetParam()),
+                              std::tr1::get<9>(GetParam()),
+
+                              // Reuse these params as gtest param limit is 10.
+                              std::tr1::get<2>(GetParam()),
+                              std::tr1::get<3>(GetParam()),
+                              std::tr1::get<4>(GetParam()),
+                              std::tr1::get<5>(GetParam()),
+                              peer_close_.get());
         peer_close_->set_is_ready(std::tr1::get<2>(GetParam()));
         peer_close_->set_graceful(std::tr1::get<3>(GetParam()));
         peer_close_->set_ll_graceful(std::tr1::get<4>(GetParam()));
@@ -474,7 +717,10 @@ INSTANTIATE_TEST_CASE_P(PeerCloseTestWithParams, PeerCloseTest,
         ::testing::Range<int>(PeerCloseManagerTest::GetBeginEvent(),
                               PeerCloseManagerTest::GetEndEvent() + 1),
         ::testing::Bool(), ::testing::Bool(), ::testing::Bool(),
-        ::testing::Bool(), ::testing::Range<int>(1, 2)));
+        ::testing::Bool(), ::testing::Range<int>(1, 2), ::testing::Bool(),
+        ::testing::Range<int>(PeerCloseManagerTest::GetBeginMembershipState(),
+                              PeerCloseManagerTest::GetEndMembershipState()+1),
+        ::testing::Bool()));
 
 static void SetUp() {
     bgp_log_test::init();

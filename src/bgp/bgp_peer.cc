@@ -115,7 +115,13 @@ class BgpPeer::PeerClose : public IPeerClose {
         peer_->ReceiveEndOfRIB(family, 0);
     }
 
-    virtual void MembershipRequestCallbackComplete(bool result) { }
+
+    virtual const char *GetTaskName() const { return "bgp::StateMachine"; }
+    virtual int GetTaskInstance() const { return peer_->GetTaskInstance(); }
+
+    virtual void MembershipRequestCallbackComplete() {
+        CHECK_CONCURRENCY("bgp::StateMachine");
+    }
 
     bool IsGRReady() const {
         // Check if GR helper mode is disabled.
@@ -1944,7 +1950,7 @@ void BgpPeer::EndOfRibTimerErrorHandler(string error_name,
 }
 
 void BgpPeer::RegisterToVpnTables() {
-    CHECK_CONCURRENCY("bgp::StateMachine", "bgp::RTFilter", "bgp::Config");
+    CHECK_CONCURRENCY("bgp::StateMachine", "bgp::RTFilter");
 
     if (vpn_tables_registered_)
         return;
