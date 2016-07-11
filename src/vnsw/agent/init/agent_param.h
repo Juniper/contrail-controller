@@ -143,9 +143,6 @@ public:
     std::string si_lb_ssl_cert_path() const {
         return si_lb_ssl_cert_path_;
     }
-    std::string si_lb_keystone_auth_conf_path() const {
-        return si_lb_keystone_auth_conf_path_;
-    }
     std::string si_lbaas_auth_conf() const {
         return si_lbaas_auth_conf_;
     }
@@ -475,7 +472,6 @@ private:
     int si_netns_workers_;
     int si_netns_timeout_;
     std::string si_lb_ssl_cert_path_;
-    std::string si_lb_keystone_auth_conf_path_;
     std::string si_lbaas_auth_conf_;
     VmwareMode vmware_mode_;
     // List of IP addresses on the compute node.

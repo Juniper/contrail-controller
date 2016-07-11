@@ -63,7 +63,7 @@ class NetnsManager(object):
     def __init__(self, vm_uuid, nic_left, nic_right, other_nics=None,
                  root_helper='sudo', cfg_file=None, update=False,
                  pool_id=None, gw_ip=None, namespace_name=None,
-                 keystone_auth_cfg_file=None, loadbalancer_id=None):
+                 loadbalancer_id=None):
         self.vm_uuid = vm_uuid
         if namespace_name is None:
             self.namespace = self.NETNS_PREFIX + self.vm_uuid
@@ -91,7 +91,6 @@ class NetnsManager(object):
         self.update = update
         self.gw_ip = gw_ip
         self.loadbalancer_id = loadbalancer_id
-        self.keystone_auth_cfg_file = keystone_auth_cfg_file
 
     def _get_tap_name(self, uuid_str):
             return (self.TAP_PREFIX + uuid_str)[:self.DEV_NAME_LEN]
@@ -170,7 +169,7 @@ class NetnsManager(object):
         if (lbaas_type == 'haproxy_config'):
             ret = haproxy_process.start_update_haproxy(
                           self.loadbalancer_id, self.cfg_file,
-                          self.namespace, True, self.keystone_auth_cfg_file)
+                          self.namespace, True)
             if (ret == False):
                 self.remove_cfg_file(self.cfg_file)
                 return False
@@ -370,10 +369,6 @@ class VRouterNetns(object):
             "--loadbalancer-id",
             default=None,
             help=("Loadbalancer"))
-        create_parser.add_argument(
-            "--keystone-auth-cfg-file",
-            default=None,
-            help=("Keystone auth config file for lbaas"))
         create_parser.set_defaults(func=self.create)
 
         destroy_parser = subparsers.add_parser('destroy')
@@ -440,8 +435,7 @@ class VRouterNetns(object):
                              cfg_file=self.args.cfg_file,
                              update=self.args.update, gw_ip=self.args.gw_ip,
                              pool_id=self.args.pool_id,
-                             loadbalancer_id=self.args.loadbalancer_id,
-                             keystone_auth_cfg_file=self.args.keystone_auth_cfg_file)
+                             loadbalancer_id=self.args.loadbalancer_id)
 
         if (self.args.update is False):
             if netns_mgr.is_netns_already_exists():

@@ -186,7 +186,7 @@ def stop_haproxy(loadbalancer_id, daemon_mode=False):
         remove_unmovable_files(old_scheme, loadbalancer_id)
 
 def start_update_haproxy(loadbalancer_id, cfg_file,
-        netns, daemon_mode=False, keystone_auth_conf_file=None):
+                         netns, daemon_mode=False):
     try:
         pool_id = loadbalancer_id
         dir_name = create_haproxy_dir(HAPROXY_DIR, loadbalancer_id)

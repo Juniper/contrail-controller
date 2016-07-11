@@ -43,10 +43,6 @@ InstanceTask* NetNSInstanceAdapter::CreateStartTask(const ServiceInstance::Prope
             return NULL;
         }
         cmd_str << " --loadbalancer-id " << props.loadbalancer_id;
-        if (!agent_->params()->si_lb_keystone_auth_conf_path().empty()) {
-            cmd_str << " --keystone-auth-cfg-file " <<
-                agent_->params()->si_lb_keystone_auth_conf_path();
-        }
         std::stringstream pathgen;
         pathgen << loadbalancer_config_path_
                 << props.loadbalancer_id << ".conf";
