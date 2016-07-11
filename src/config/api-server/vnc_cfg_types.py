@@ -995,6 +995,14 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         if not ok:
             return (ok, response)
 
+        # Allocate virtual network ID
+        vn_id = cls.vnc_zk_client.alloc_vn_id(':'.join(obj_dict['fq_name']))
+        def undo_vn_id():
+            cls.vnc_zk_client.free_vn_id(vn_id)
+            return True, ""
+        get_context().push_undo(undo_vn_id)
+        obj_dict['virtual_network_network_id'] = vn_id
+
         db_conn.update_subnet_uuid(obj_dict)
 
         (ok, result) = cls.addr_mgmt.net_check_subnet_overlap(obj_dict)
@@ -1056,7 +1064,9 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         if not ok:
             return (False, (409, error))
 
-        if 'network_ipam_refs' not in obj_dict:
+        new_vn_id = obj_dict.get('virtual_network_network_id')
+
+        if 'network_ipam_refs' not in obj_dict and new_vn_id is None:
             # NOP for addr-mgmt module
             return True,  ""
 
@@ -1064,6 +1074,12 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                                        obj_fields=['network_ipam_refs'])
         if not ok:
             return ok, read_result
+
+        # Does not authorize to update the virtual network ID as it's allocated
+        # by the vnc server
+        if (new_vn_id and
+                new_vn_id != read_result.get('virtual_network_network_id')):
+            return (False, (403, "Cannot update the virtual network ID"))
 
         (ok, response) = cls._is_multi_policy_service_chain_supported(obj_dict,
                                                                       read_result)
@@ -1149,6 +1165,10 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
         cls.server.internal_request_delete('routing-instance', ri_uuid)
 
+        # Deallocate the virtual network ID
+        cls.vnc_zk_client.free_vn_id(
+            obj_dict.get('virtual_network_network_id'))
+
         return True, ""
     # end post_dbe_delete
 
@@ -1188,6 +1208,20 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
     @classmethod
     def dbe_create_notification(cls, obj_ids, obj_dict):
+        # Allocate virtual network ID if not already set
+        # TODO(ethuleau): That check is just there for the upgrade from
+        #                 version where vni was allocated by the schema to the
+        #                 version where vni is allocated by the vnc api
+        #                 (so from 3.0 to 3.1, we can remove that in 3.2)
+        #                 Remove also unit test:
+        #                 - test_allocate_vn_id_on_create_notification
+        if obj_dict.get('virtual_network_network_id') is None:
+            vn_id = cls.vnc_zk_client.alloc_vn_id(':'.join(obj_dict['fq_name']))
+            db_conn = cls.server.get_db_connection()
+            db_conn.dbe_update('virtual_network',
+                               {'uuid': obj_dict['uuid']},
+                               {'virtual_network_network_id': vn_id})
+
         cls.addr_mgmt.net_create_notify(obj_ids, obj_dict)
     # end dbe_create_notification
 
@@ -1199,7 +1233,17 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
     @classmethod
     def dbe_delete_notification(cls, obj_ids, obj_dict):
         cls.addr_mgmt.net_delete_notify(obj_ids, obj_dict)
-    # end dbe_update_notification
+
+        # Deallocate virtual network ID if it's still there
+        # TODO(ethuleau): That check is just there for the upgrade from
+        #                 version where vni was allocated by the schema to the
+        #                 version where vni is allocated by the vnc api
+        #                 (so from 3.0 to 3.1, we can remove that in 3.2)
+        #                 Remove also unit test:
+        #                 - test_deallocate_vn_id_on_delete_notification
+        cls.vnc_zk_client.free_vn_id(
+            obj_dict.get('virtual_network_network_id'))
+    # end dbe_delete_notification
 
 # end class VirtualNetworkServer
 
