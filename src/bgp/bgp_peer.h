@@ -356,6 +356,8 @@ private:
     std::string peer_name_;
     std::string peer_basename_;
     std::string router_type_;         // bgp_schema.xsd:BgpRouterType
+    mutable std::string to_str_;
+    mutable std::string uve_key_str_;
     const BgpNeighborConfig *config_;
 
     // Global peer index
