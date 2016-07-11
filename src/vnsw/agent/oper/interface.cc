@@ -1063,6 +1063,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
 
         data.set_service_health_check_ip(
                 vintf->service_health_check_ip().to_string());
+        data.set_drop_new_flows(vintf->drop_new_flows());
 
         break;
     }

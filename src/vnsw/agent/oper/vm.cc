@@ -18,7 +18,8 @@ using namespace autogen;
 
 VmTable *VmTable::vm_table_;
 
-VmEntry::VmEntry(const uuid &id) : uuid_(id), name_("") {
+VmEntry::VmEntry(const uuid &id) : uuid_(id), name_(""),
+    drop_new_flows_(false) {
     flow_count_ = 0;
     linklocal_flow_count_ = 0;
 }
@@ -56,11 +57,55 @@ bool VmEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
         data.set_uuid(str_uuid);
         std::vector<VmSandeshData> &list =
                 const_cast<std::vector<VmSandeshData>&>(resp->get_vm_list());
+        data.set_drop_new_flows(drop_new_flows_);
         list.push_back(data);
         return true;
     }
 
     return false;
+}
+
+void VmEntry::update_flow_count(int val) const {
+    VmTable *vm_table = static_cast<VmTable *>(get_table());
+    int max_flows = vm_table->agent()->max_vm_flows();
+    int tmp = flow_count_.fetch_and_add(val);
+
+    if (max_flows == 0) {
+        // max_flows are not configured,
+        // disable drop new flows and return
+        SetInterfacesDropNewFlows(false);
+        return;
+    }
+
+    if (val < 0) {
+        assert(tmp >= val);
+        if ((tmp + val) < ((max_flows * kDropNewFlowsRecoveryThreshold)/100)) {
+            SetInterfacesDropNewFlows(false);
+        }
+    } else {
+        if ((tmp + val) >= max_flows) {
+            SetInterfacesDropNewFlows(true);
+        }
+    }
+}
+
+void VmEntry::SetInterfacesDropNewFlows(bool drop_new_flows) const {
+    if (drop_new_flows_ == drop_new_flows) {
+        return;
+    }
+    drop_new_flows_ = drop_new_flows;
+    VmTable *vm_table = static_cast<VmTable *>(get_table());
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    tbb::mutex::scoped_lock lock(back_ref_mutex_);
+    std::set<IntrusiveReferrer>::const_iterator it = back_ref_set_.begin();
+    for (; it != back_ref_set_.end(); it++) {
+        VmInterface *vm_intf = static_cast<VmInterface *>((*it).first);
+        req.key.reset(new VmInterfaceKey(AgentKey::RESYNC,
+                                         vm_intf->GetUuid(), ""));
+        req.data.reset(new VmInterfaceNewFlowDropData(drop_new_flows));
+        vm_table->agent()->interface_table()->Enqueue(&req);
+    }
 }
 
 void VmEntry::SendObjectLog(AgentLogEvent::type event) const {

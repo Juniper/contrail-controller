@@ -67,6 +67,7 @@ public:
     virtual int DeleteMsg(char *buf, int buf_len);
     virtual KSyncEntry *UnresolvedReference();
     void FillObjectLog(sandesh_op::type op, KSyncIntfInfo &info) const;
+    bool drop_new_flows() const {return drop_new_flows_;}
     bool dhcp_enable() const {return dhcp_enable_;}
     bool layer3_forwarding() const {return layer3_forwarding_;}
     bool bridging() const {return bridging_;}
@@ -78,6 +79,7 @@ private:
     int Encode(sandesh_op::type op, char *buf, int buf_len);
 
     string analyzer_name_;
+    bool drop_new_flows_;
     bool dhcp_enable_;
     uint32_t fd_;       // FD opened for this
     uint32_t flow_key_nh_id_;

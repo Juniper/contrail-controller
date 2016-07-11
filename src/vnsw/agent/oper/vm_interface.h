@@ -506,6 +506,7 @@ public:
     const MacAddress &vm_mac() const { return vm_mac_; }
     bool fabric_port() const { return fabric_port_; }
     bool need_linklocal_ip() const { return  need_linklocal_ip_; }
+    bool drop_new_flows() const { return drop_new_flows_; }
     bool dhcp_enable_config() const { return dhcp_enable_; }
     void set_dhcp_enable_config(bool dhcp_enable) {
         dhcp_enable_= dhcp_enable;
@@ -701,6 +702,7 @@ private:
     friend struct VmInterfaceMirrorData;
     friend struct VmInterfaceGlobalVrouterData;
     friend struct VmInterfaceHealthCheckData;
+    friend struct VmInterfaceNewFlowDropData;
 
     bool IsMetaDataIPActive() const;
     bool IsIpv4Active() const;
@@ -856,7 +858,7 @@ private:
     void CopyEcmpLoadBalance(EcmpLoadBalance &ecmp_load_balance);
     void UpdateCommonNextHop();
 
-    VmEntryRef vm_;
+    VmEntryBackRef vm_;
     VnEntryRef vn_;
     Ip4Address primary_ip_addr_;
     std::auto_ptr<MetaDataIp> mdata_ip_;
@@ -869,6 +871,7 @@ private:
     std::string cfg_name_;
     bool fabric_port_;
     bool need_linklocal_ip_;
+    bool drop_new_flows_;
     // DHCP flag - set according to the dhcp option in the ifmap subnet object.
     // It controls whether the vrouter sends the DHCP requests from VM interface
     // to agent or if it would flood the request in the VN.
@@ -978,7 +981,8 @@ struct VmInterfaceData : public InterfaceData {
         IP_ADDR,
         OS_OPER_STATE,
         GLOBAL_VROUTER,
-        HEALTH_CHECK
+        HEALTH_CHECK,
+        DROP_NEW_FLOWS
     };
 
     VmInterfaceData(Agent *agent, IFMapNode *node, Type type,
@@ -1164,6 +1168,15 @@ struct VmInterfaceHealthCheckData : public VmInterfaceData {
     virtual ~VmInterfaceHealthCheckData();
     virtual bool OnResync(const InterfaceTable *table, VmInterface *vmi,
                           bool *force_update) const;
+};
+
+struct VmInterfaceNewFlowDropData : public VmInterfaceData {
+    VmInterfaceNewFlowDropData(bool drop_new_flows);
+    virtual ~VmInterfaceNewFlowDropData();
+    virtual bool OnResync(const InterfaceTable *table, VmInterface *vmi,
+                          bool *force_update) const;
+
+    bool drop_new_flows_;
 };
 
 #endif // vnsw_agent_vm_interface_hpp

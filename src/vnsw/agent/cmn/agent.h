@@ -53,6 +53,10 @@ typedef boost::intrusive_ptr<VmEntry> VmEntryRef;
 typedef boost::intrusive_ptr<const VmEntry> VmEntryConstRef;
 void intrusive_ptr_release(const VmEntry* p);
 void intrusive_ptr_add_ref(const VmEntry* p);
+typedef IntrusivePtrRef<VmEntry> VmEntryBackRef;
+typedef IntrusivePtrRef<const VmEntry> VmEntryConstBackRef;
+void intrusive_ptr_add_back_ref(const IntrusiveReferrer ref, const VmEntry* p);
+void intrusive_ptr_del_back_ref(const IntrusiveReferrer ref, const VmEntry* p);
 
 class VnEntry;
 typedef boost::intrusive_ptr<VnEntry> VnEntryRef;

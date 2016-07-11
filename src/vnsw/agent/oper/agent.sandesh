@@ -162,6 +162,7 @@ struct ItfSandeshData {
    55: optional string service_health_check_ip;
    56: optional string qos_config (link="AgentQosConfigSandeshReq"); //QOS config uuid
    57: list<AliasIpSandeshList> alias_ip_list;// Alias IP List
+   58: bool drop_new_flows;
 }
 
 /**
@@ -232,6 +233,7 @@ struct VmSgUuid {
 struct VmSandeshData {
     1: string uuid;                   // VM uuid
     2: optional list<VmSgUuid> sg_uuid_list;
+    3: bool drop_new_flows;
 }
 
 /**
