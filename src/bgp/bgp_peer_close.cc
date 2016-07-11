@@ -46,8 +46,10 @@ PeerCloseManager::PeerCloseManager(IPeerClose *peer_close,
                                    boost::asio::io_service &io_service) :
         peer_close_(peer_close), stale_timer_(NULL),
         event_queue_(new WorkQueue<Event *>(
-            TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
-            boost::bind(&PeerCloseManager::EventCallback, this, _1))),
+                     TaskScheduler::GetInstance()->GetTaskId(
+                         peer_close_->GetTaskName()),
+                     peer_close_->GetTaskInstance(),
+                     boost::bind(&PeerCloseManager::EventCallback, this, _1))),
         state_(NONE), close_again_(false), non_graceful_(false), gr_elapsed_(0),
         llgr_elapsed_(0), membership_state_(MEMBERSHIP_NONE) {
     stats_.init++;
@@ -60,8 +62,10 @@ PeerCloseManager::PeerCloseManager(IPeerClose *peer_close,
 PeerCloseManager::PeerCloseManager(IPeerClose *peer_close) :
         peer_close_(peer_close), stale_timer_(NULL),
         event_queue_(new WorkQueue<Event *>(
-            TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
-            boost::bind(&PeerCloseManager::EventCallback, this, _1))),
+                     TaskScheduler::GetInstance()->GetTaskId(
+                         peer_close_->GetTaskName()),
+                     peer_close_->GetTaskInstance(),
+                     boost::bind(&PeerCloseManager::EventCallback, this, _1))),
         state_(NONE), close_again_(false), non_graceful_(false), gr_elapsed_(0),
         llgr_elapsed_(0), membership_state_(MEMBERSHIP_NONE) {
     stats_.init++;
@@ -235,7 +239,7 @@ bool PeerCloseManager::RestartTimerCallback() {
 }
 
 void PeerCloseManager::RestartTimerCallback(Event *event) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY(peer_close_->GetTaskName());
 
     PEER_CLOSE_MANAGER_LOG("GR Timer callback started");
     if (state_ != GR_TIMER && state_ != LLGR_TIMER)
@@ -328,26 +332,100 @@ void PeerCloseManager::CloseComplete() {
     }
 }
 
+bool PeerCloseManager::AssertSweepState(bool do_assert) {
+    bool check = (state_ == SWEEP);
+    if (do_assert)
+        assert(check);
+    return check;
+}
+
+bool PeerCloseManager::AssertMembershipManagerInUse(bool do_assert) {
+    bool check = false;
+    check |= (state_ == STALE || LLGR_STALE || state_ == SWEEP ||
+              state_ == DELETE);
+    check |= (membership_state_ == MEMBERSHIP_IN_USE);
+    check |= (membership_req_pending_ > 0);
+    if (do_assert)
+        assert(check);
+    return check;
+}
+
+bool PeerCloseManager::AssertMembershipState(bool do_assert) {
+    bool check = (membership_state_ != MEMBERSHIP_IN_USE);
+    if (do_assert)
+        assert(check);
+    return check;
+}
+
+bool PeerCloseManager::AssertMembershipReqCount(bool do_assert) {
+    bool check = !membership_req_pending_;
+    if (do_assert)
+        assert(check);
+    return check;
+}
+
 void PeerCloseManager::TriggerSweepStateActions() {
-    CHECK_CONCURRENCY("bgp::Config");
-    assert(state_ == SWEEP);
+    CHECK_CONCURRENCY(peer_close_->GetTaskName());
+    if (!AssertSweepState())
+        return;
 
     // Notify clients to trigger sweep as appropriate.
     peer_close_->GracefulRestartSweep();
     CloseComplete();
 }
 
-// Notify clients about entering Stale event. Do this through a timer callback
-// off bgp::Config to solve concurrency issues in the client.
+// Notify clients about entering Stale event.
 void PeerCloseManager::StaleNotify() {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY(peer_close_->GetTaskName());
 
     peer_close_->GracefulRestartStale();
+    if (!AssertMembershipState())
+        return;
     MembershipRequest(NULL);
 }
 
+bool PeerCloseManager::CanUseMembershipManager() const {
+    return peer_close_->peer()->CanUseMembershipManager();
+}
+
+void PeerCloseManager::GetRegisteredRibs(std::list<BgpTable *> *tables) {
+    BgpMembershipManager *mgr = peer_close_->peer()->server()->membership_mgr();
+    mgr->GetRegisteredRibs(peer_close_->peer(), tables);
+}
+
+bool PeerCloseManager::IsRegistered(BgpTable *table) const {
+    BgpMembershipManager *mgr = peer_close_->peer()->server()->membership_mgr();
+    return mgr->IsRegistered(peer_close_->peer(), table);
+}
+
+void PeerCloseManager::Unregister(BgpTable *table) {
+    BgpMembershipManager *mgr = peer_close_->peer()->server()->membership_mgr();
+    mgr->Unregister(peer_close_->peer(), table);
+}
+
+void PeerCloseManager::WalkRibIn(BgpTable *table) {
+    BgpMembershipManager *mgr = peer_close_->peer()->server()->membership_mgr();
+    mgr->WalkRibIn(peer_close_->peer(), table);
+}
+
+void PeerCloseManager::UnregisterRibOut(BgpTable *table) {
+    BgpMembershipManager *mgr = peer_close_->peer()->server()->membership_mgr();
+    mgr->UnregisterRibOut(peer_close_->peer(), table);
+}
+
+bool PeerCloseManager::IsRibInRegistered(BgpTable *table) const {
+    BgpMembershipManager *mgr = peer_close_->peer()->server()->membership_mgr();
+    return mgr->IsRibInRegistered(peer_close_->peer(), table);
+}
+
+void PeerCloseManager::UnregisterRibIn(BgpTable *table) {
+    BgpMembershipManager *mgr = peer_close_->peer()->server()->membership_mgr();
+    mgr->UnregisterRibIn(peer_close_->peer(), table);
+}
+
 void PeerCloseManager::MembershipRequest() {
-    assert(membership_state_ != MEMBERSHIP_IN_USE);
+    if (!AssertMembershipState())
+        return;
 
     // Pause if membership manager is not ready for usage.
     if (!CanUseMembershipManager()) {
@@ -359,25 +437,15 @@ void PeerCloseManager::MembershipRequest() {
     EnqueueEvent(new Event(MEMBERSHIP_REQUEST));
 }
 
-bool PeerCloseManager::CanUseMembershipManager() const {
-    return peer_close_->peer()->CanUseMembershipManager();
-}
-
-BgpMembershipManager *PeerCloseManager::membership_mgr() const {
-    return peer_close_->peer()->server()->membership_mgr();
-}
-
 void PeerCloseManager::MembershipRequest(Event *evnet) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY(peer_close_->GetTaskName());
 
     set_membership_state(MEMBERSHIP_IN_USE);
-    assert(!membership_req_pending_);
-    membership_req_pending_++;
-    BgpMembershipManager *mgr = membership_mgr();
-    if (!mgr)
+    if (!AssertMembershipReqCount())
         return;
+    membership_req_pending_++;
     std::list<BgpTable *> tables;
-    mgr->GetRegisteredRibs(peer_close_->peer(), &tables);
+    GetRegisteredRibs(&tables);
 
     if (tables.empty()) {
         assert(MembershipRequestCallback(NULL));
@@ -388,28 +456,28 @@ void PeerCloseManager::MembershipRequest(Event *evnet) {
     membership_req_pending_--;
     BOOST_FOREACH(BgpTable *table, tables) {
         membership_req_pending_++;
-        if (mgr->IsRegistered(peer_close_->peer(), table)) {
+        if (IsRegistered(table)) {
             if (state_ == PeerCloseManager::DELETE) {
                 PEER_CLOSE_MANAGER_TABLE_LOG(
                     "MembershipManager::Unregister");
-                mgr->Unregister(peer_close_->peer(), table);
+                Unregister(table);
             } else if (state_ == PeerCloseManager::SWEEP) {
                 PEER_CLOSE_MANAGER_TABLE_LOG("MembershipManager::WalkRibIn");
-                mgr->WalkRibIn(peer_close_->peer(), table);
+                WalkRibIn(table);
             } else {
                 PEER_CLOSE_MANAGER_TABLE_LOG(
                     "MembershipManager::UnregisterRibOut");
-                mgr->UnregisterRibOut(peer_close_->peer(), table);
+                UnregisterRibOut(table);
             }
         } else {
-            assert(mgr->IsRibInRegistered(peer_close_->peer(), table));
+            assert(IsRibInRegistered(table));
             if (state_ == PeerCloseManager::DELETE) {
                 PEER_CLOSE_MANAGER_TABLE_LOG(
                     "MembershipManager::UnregisterRibIn");
-                mgr->UnregisterRibIn(peer_close_->peer(), table);
+                UnregisterRibIn(table);
             } else {
                 PEER_CLOSE_MANAGER_TABLE_LOG("MembershipManager::WalkRibIn");
-                mgr->WalkRibIn(peer_close_->peer(), table);
+                WalkRibIn(table);
             }
         }
     }
@@ -419,22 +487,18 @@ void PeerCloseManager::MembershipRequestCallback() {
     EnqueueEvent(new Event(MEMBERSHIP_REQUEST_COMPLETE_CALLBACK));
 }
 
-// Concurrency: Runs in the context of the bgp::Config task
-//
 // Close process for this peer in terms of walking RibIns and RibOuts are
 // complete. Do the final cleanups necessary and notify interested party
 //
 // Retrun true if we are done using membership manager, false otherwise.
 bool PeerCloseManager::MembershipRequestCallback(Event *event) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY(peer_close_->GetTaskName());
 
-    assert(state_ == STALE || LLGR_STALE || state_ == SWEEP ||
-           state_ == DELETE);
-    assert(membership_state_ == MEMBERSHIP_IN_USE);
-    assert(membership_req_pending_ > 0);
-
-    PEER_CLOSE_MANAGER_LOG("MembershipRequestCallback");
     bool result = false;
+    PEER_CLOSE_MANAGER_LOG("MembershipRequestCallback");
+
+    if (!AssertMembershipManagerInUse())
+        return result;
     if (--membership_req_pending_)
         return result;
 
@@ -602,7 +666,7 @@ bool PeerCloseManager::MembershipPathCallback(DBTablePartBase *root,
 // Handler for an Event.
 //
 bool PeerCloseManager::EventCallback(Event *event) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY(peer_close_->GetTaskName());
     bool result;
 
     switch (event->event_type) {
@@ -620,8 +684,9 @@ bool PeerCloseManager::EventCallback(Event *event) {
     case MEMBERSHIP_REQUEST_COMPLETE_CALLBACK:
         result = MembershipRequestCallback(event);
 
-        // Notify clients with the result of this processing.
-        peer_close_->MembershipRequestCallbackComplete(result);
+        // Notify clients if we are no longer using the membership mgr.
+        if (result)
+            peer_close_->MembershipRequestCallbackComplete();
         break;
     case TIMER_CALLBACK:
         RestartTimerCallback(event);

@@ -58,7 +58,7 @@ public:
     void Close(bool non_graceful);
     void ProcessEORMarkerReceived(Address::Family family);
     void MembershipRequest();
-    virtual void MembershipRequestCallback();
+    void MembershipRequestCallback();
     void FillCloseInfo(BgpNeighborResp *resp) const;
     bool MembershipPathCallback(DBTablePartBase *root, BgpRoute *rt,
                                 BgpPath *path);
@@ -77,13 +77,15 @@ private:
         LLGR_TIMER,
         SWEEP,
         DELETE,
-        END_STATE = DELETE,
+        END_STATE = DELETE
     };
 
     enum MembershipState {
-        MEMBERSHIP_NONE,
+        BEGIN_MEMBERSHIP_STATE,
+        MEMBERSHIP_NONE = BEGIN_MEMBERSHIP_STATE,
         MEMBERSHIP_IN_USE,
-        MEMBERSHIP_IN_WAIT
+        MEMBERSHIP_IN_WAIT,
+        END_MEMBERSHIP_STATE = MEMBERSHIP_IN_WAIT
     };
 
     enum EventType {
@@ -143,19 +145,27 @@ private:
     std::string GetMembershipStateName(MembershipState state) const;
     void CloseInternal();
     void MembershipRequest(Event *event);
-    virtual bool CanUseMembershipManager() const;
-    virtual BgpMembershipManager *membership_mgr() const;
     bool MembershipRequestCallback(Event *event);
     void StaleNotify();
     bool EventCallback(Event *event);
     void EnqueueEvent(Event *event) { event_queue_->Enqueue(event); }
     bool close_again() const { return close_again_; }
-    void set_membership_req_pending(int count) {
-        membership_req_pending_ = count;
-    }
+    virtual bool AssertMembershipState(bool do_assert = true);
+    virtual bool AssertMembershipReqCount(bool do_assert = true);
+    virtual bool AssertSweepState(bool do_assert = true);
+    virtual bool AssertMembershipManagerInUse(bool do_assert = true);
     void set_membership_state(MembershipState state) {
         membership_state_ = state;
     }
+
+    virtual bool CanUseMembershipManager() const;
+    virtual void GetRegisteredRibs(std::list<BgpTable *> *tables);
+    virtual bool IsRegistered(BgpTable *table) const;
+    virtual void Unregister(BgpTable *table);
+    virtual void WalkRibIn(BgpTable *table);
+    virtual void UnregisterRibOut(BgpTable *table);
+    virtual bool IsRibInRegistered(BgpTable *table) const;
+    virtual void UnregisterRibIn(BgpTable *table);
 
     IPeerClose *peer_close_;
     Timer *stale_timer_;

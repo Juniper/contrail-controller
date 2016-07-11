@@ -209,11 +209,17 @@ public:
 
     // Process any pending subscriptions if close manager is now no longer
     // using membership manager.
-    virtual void MembershipRequestCallbackComplete(bool result) {
-        if (result && parent_) {
-            assert(parent_->membership_in_use());
+    virtual void MembershipRequestCallbackComplete() {
+        CHECK_CONCURRENCY("xmpp::StateMachine");
+        if (parent_) {
+            assert(parent_->membership_unavailable());
             parent_->ProcessPendingSubscriptions();
         }
+    }
+
+    virtual const char *GetTaskName() const { return "xmpp::StateMachine"; };
+    virtual int GetTaskInstance() const {
+        return parent_->channel()->GetTaskInstance();
     }
 
     virtual void CustomClose() {
@@ -593,7 +599,7 @@ BgpXmppChannel::BgpXmppChannel(XmppChannel *channel, BgpServer *bgp_server,
       delete_in_progress_(false),
       deleted_(false),
       defer_peer_close_(false),
-      membership_in_use_(false),
+      membership_unavailable_(false),
       end_of_rib_timer_(NULL),
       membership_response_worker_(
             TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"),
@@ -1905,7 +1911,7 @@ bool BgpXmppChannel::ResumeClose() {
 
 void BgpXmppChannel::RegisterTable(int line, BgpTable *table, int instance_id) {
     // Defer if Membership manager is in use (by close manager).
-    if (membership_in_use_) {
+    if (membership_unavailable_) {
         BGP_LOG_PEER_TABLE(Peer(), SandeshLevel::SYS_DEBUG,
                            BGP_LOG_FLAG_ALL, table, "RegisterTable deferred "
                            "from :" << line);
@@ -1924,7 +1930,7 @@ void BgpXmppChannel::RegisterTable(int line, BgpTable *table, int instance_id) {
 void BgpXmppChannel::UnregisterTable(int line, BgpTable *table) {
 
     // Defer if Membership manager is in use (by close manager).
-    if (membership_in_use_) {
+    if (membership_unavailable_) {
         BGP_LOG_PEER_TABLE(Peer(), SandeshLevel::SYS_DEBUG,
                            BGP_LOG_FLAG_ALL, table, "UnregisterTable deferred "
                            "from :" << line);
@@ -1943,8 +1949,12 @@ void BgpXmppChannel::UnregisterTable(int line, BgpTable *table) {
 #define UnregisterTable(table) UnregisterTable(__LINE__, table)
 
 // Process all pending membership requests of various tables.
+//
+// This must be done before opening gate for normal register and
+// unregister requessts. Hence membership_unavailable_ state is
+// maintained with the BgpXmppChannel object.
 void BgpXmppChannel::ProcessPendingSubscriptions() {
-    membership_in_use_ = false;
+    membership_unavailable_ = false;
     assert(!peer_close_->close_manager()->IsMembershipInUse());
     BOOST_FOREACH(RoutingTableMembershipRequestMap::value_type &i,
                   routingtable_membership_request_map_) {
@@ -1962,7 +1972,7 @@ void BgpXmppChannel::ProcessPendingSubscriptions() {
 
 bool BgpXmppChannel::MembershipResponseHandler(string table_name) {
     if (peer_close_->close_manager()->IsMembershipInUse()) {
-        membership_in_use_ = true;
+        membership_unavailable_ = true;
         Peer()->peer_close()->close_manager()->MembershipRequestCallback();
         return true;
     }
@@ -2189,7 +2199,7 @@ void BgpXmppChannel::UpdateRouteTargetRouteFlag(
 // Mark all current subscriptions as 'stale'. This is called when peer close
 // process is initiated by BgpXmppChannel via PeerCloseManager.
 void BgpXmppChannel::StaleCurrentSubscriptions() {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("xmpp::StateMachine");
     BOOST_FOREACH(SubscribedRoutingInstanceList::value_type &entry,
                   routing_instances_) {
         entry.second.SetStale();
@@ -2199,7 +2209,7 @@ void BgpXmppChannel::StaleCurrentSubscriptions() {
 
 // Mark all current subscriptions as 'llgr_stale'.
 void BgpXmppChannel::LlgrStaleCurrentSubscriptions() {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("xmpp::StateMachine");
     BOOST_FOREACH(SubscribedRoutingInstanceList::value_type &entry,
                   routing_instances_) {
         assert(entry.second.IsStale());
@@ -2209,7 +2219,7 @@ void BgpXmppChannel::LlgrStaleCurrentSubscriptions() {
 
 // Sweep all current subscriptions which are still marked as 'stale'.
 void BgpXmppChannel::SweepCurrentSubscriptions() {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("xmpp::StateMachine");
     for (SubscribedRoutingInstanceList::iterator i = routing_instances_.begin();
             i != routing_instances_.end();) {
         if (i->second.IsStale()) {
