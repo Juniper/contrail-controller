@@ -210,7 +210,7 @@ TEST_F(UveVnUveTest, VnIntfAddDel_1) {
 
     util_.EnqueueSendVnUveTask();
     client->WaitForIdle();
-    //Verify UVE 
+    //Verify UVE
     WAIT_FOR(1000, 500, (vnut->send_count() >= 2U));
     EXPECT_EQ(1U, uve1->get_virtualmachine_list().size()); 
     EXPECT_EQ(1U, uve1->get_interface_list().size()); 
@@ -242,7 +242,7 @@ TEST_F(UveVnUveTest, VnIntfAddDel_1) {
     client->WaitForIdle();
     WAIT_FOR(1000, 500, (vnut->VnUveCount() == 2U));
 
-    //Verify UVE 
+    //Verify UVE
     EXPECT_EQ(1U, vnut->delete_count());
 
     //other cleanup
@@ -1230,6 +1230,149 @@ TEST_F(UveVnUveTest, VnBandwidth) {
     WAIT_FOR(1000, 500, (vnut->VnUveObject("vn5") == NULL));
     vnut->ClearCount();
     EXPECT_EQ(0U, ksock->flow_map.size());
+}
+
+/* Change Vn for an Interface.  To verify VN change is handled as part of
+   interface notification */
+TEST_F(UveVnUveTest, VnChangeForIntf_1) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    VnUveTableTest *vnut = static_cast<VnUveTableTest *>
+        (Agent::GetInstance()->uve()->vn_uve_table());
+    int old_vn_uve_count = vnut->VnUveCount();
+    //Add VN
+    util_.VnAdd(input[0].vn_id);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (VnGet(1) != NULL));
+    WAIT_FOR(1000, 500, (vnut->VnUveCount() == (old_vn_uve_count + 1)));
+
+    util_.EnqueueSendVnUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (vnut->VnUveObject("vn1") != NULL));
+
+    UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn1");
+
+    // Nova Port add message
+    util_.NovaPortAdd(input);
+
+    // Config Port add
+    util_.ConfigPortAdd(input);
+
+    //Verify that the port is inactive
+    EXPECT_TRUE(VmPortInactive(input, 0));
+
+    //Add necessary objects and links to make vm-intf active
+    util_.VmAdd(input[0].vm_id);
+    util_.VrfAdd(input[0].vn_id);
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle();
+    AddLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    AddLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    AddVmPortVrf("vnet1", "", 0);
+    client->WaitForIdle();
+    AddInstanceIp("instance0", input[0].vm_id, input[0].addr);
+    AddLink("virtual-machine-interface", input[0].name,
+            "instance-ip", "instance0");
+    client->WaitForIdle();
+    AddLink("virtual-machine-interface-routing-instance", "vnet1",
+            "routing-instance", "vrf1");
+    client->WaitForIdle();
+    AddLink("virtual-machine-interface-routing-instance", "vnet1",
+            "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    /* Create a new VN and associate it with existing VMI. This should
+     * trigger change of VN for the VMI */
+    util_.VnAdd(2);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (VnGet(2) != NULL));
+    util_.VrfAdd(2);
+    client->WaitForIdle();
+
+    agent_->db()->SetQueueDisable(true);
+    DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
+    DelLink("virtual-machine-interface-routing-instance", "vnet1",
+            "routing-instance", "vrf1");
+    client->WaitForIdle();
+    AddLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    AddLink("virtual-network", "vn2", "virtual-machine-interface", "vnet1");
+    AddLink("virtual-machine-interface-routing-instance", "vnet1",
+            "routing-instance", "vrf2");
+    agent_->db()->SetQueueDisable(false);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 5000, (vnut->GetVnUveEntry("vn2") != NULL));
+
+    VmInterface *vmi = VmInterfaceGet(input[0].intf_id);
+    EXPECT_TRUE(vmi != NULL);
+    VnEntry *vn = VnGet(2);
+    EXPECT_TRUE(vn != NULL);
+    WAIT_FOR(1000, 5000, (vmi->vn() == vn));
+
+    util_.EnqueueSendVnUveTask();
+    client->WaitForIdle();
+    //Verify UVE
+    WAIT_FOR(1000, 500, (vnut->send_count() >= 2U));
+    EXPECT_EQ(0U, uve1->get_interface_list().size());
+
+    UveVirtualNetworkAgent *uve2 =  vnut->VnUveObject("vn2");
+    EXPECT_EQ(1U, uve2->get_interface_list().size());
+
+    // Delete virtual-machine-interface to vrf link attribute
+    DelLink("virtual-machine-interface-routing-instance", "vnet1",
+            "routing-instance", "vrf1");
+    DelLink("virtual-machine-interface-routing-instance", "vnet1",
+            "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+
+    DelLink("virtual-network", "vn2", "virtual-machine-interface", "vnet1");
+    DelLink("virtual-machine-interface-routing-instance", "vnet1",
+            "routing-instance", "vrf2");
+    DelLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    DelNode("virtual-network", "vn2");
+    DelNode("routing-instance", "vrf2");
+    client->WaitForIdle();
+    WAIT_FOR(1000, 5000, (VrfFind("vrf2") == false));
+
+    //Delete VN
+    util_.VnDelete(input[0].vn_id);
+
+    util_.EnqueueSendVnUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (vnut->VnUveCount() == old_vn_uve_count));
+
+    //Verify UVE
+    EXPECT_EQ(2U, vnut->delete_count());
+
+    //other cleanup
+    DelLink("virtual-machine-interface", input[0].name,
+            "instance-ip", "instance0");
+    DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
+    DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortInactive(input, 0));
+
+    DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    DelNode("virtual-machine-interface-routing-instance", "vnet1");
+    DelNode("virtual-machine", "vm1");
+    DelNode("routing-instance", "vrf1");
+    DelNode("virtual-network", "vn1");
+    DelNode("virtual-machine-interface", "vnet1");
+    DelInstanceIp("instance0");
+    client->WaitForIdle();
+    IntfCfgDel(input, 0);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 5000, (VrfFind("vrf1") == false));
+    WAIT_FOR(1000, 5000, (vnut->GetVnUveEntry("vn1") == NULL));
+    WAIT_FOR(1000, 5000, (vnut->GetVnUveEntry("vn2") == NULL));
+
+    //clear counters at the end of test case
+    client->Reset();
+    vnut->ClearCount();
 }
 
 int main(int argc, char **argv) {
