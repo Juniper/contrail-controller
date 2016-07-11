@@ -170,7 +170,9 @@ public:
     virtual bool IsReady() const = 0;
     virtual IPeer *peer() const = 0;
     virtual void ReceiveEndOfRIB(Address::Family family) = 0;
-    virtual void MembershipRequestCallbackComplete(bool result) = 0;
+    virtual void MembershipRequestCallbackComplete() = 0;
+    virtual const char *GetTaskName() const = 0;
+    virtual int GetTaskInstance() const = 0;
 };
 
 class IPeer : public IPeerUpdate {
