@@ -1190,7 +1190,8 @@ void VmInterface::UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
                                      policy_change,
                                      old_vrf, old_dhcp_addr);
         }
-        UpdateIpv4InstanceIp(force_update, policy_change, false, old_ethernet_tag);
+        UpdateIpv4InstanceIp(force_update, policy_change, false,
+                             old_ethernet_tag, old_vrf);
         UpdateMetadataRoute(old_ipv4_active, old_vrf);
         UpdateFloatingIp(force_update, policy_change, false, old_ethernet_tag);
         UpdateServiceVlan(force_update, policy_change);
@@ -1277,7 +1278,8 @@ void VmInterface::UpdateL2(bool old_l2_active, VrfEntry *old_vrf,
                            old_layer3_forwarding, policy_change,
                            Ip4Address(), Ip6Address(),
                            MacAddress::FromString(vm_mac_));
-    UpdateIpv4InstanceIp(force_update, policy_change, true, old_ethernet_tag);
+    UpdateIpv4InstanceIp(force_update, policy_change, true, old_ethernet_tag,
+                         old_vrf);
     UpdateIpv6InstanceIp(force_update, policy_change, true, old_ethernet_tag);
     UpdateFloatingIp(force_update, policy_change, true, old_ethernet_tag);
     UpdateAllowedAddressPair(force_update, policy_change, true, old_l2_active,
@@ -1341,7 +1343,7 @@ void VmInterface::ApplyConfigCommon(const VrfEntry *old_vrf,
 void VmInterface::ApplyMacVmBindingConfig(const VrfEntry *old_vrf,
                                           bool old_active,
                                           bool old_dhcp_enable) {
-    if (!IsActive()) {
+    if (!IsActive() || old_vrf != vrf()) {
         DeleteMacVmBinding(old_vrf);
         return;
     }
@@ -2951,6 +2953,10 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
         force_update = true;
     }
 
+    if (old_vrf && old_vrf != vrf()) {
+        force_update = true;
+    }
+
     //Encap change will result in force update of l2 routes.
     if (force_update) {
         DeleteL2InterfaceRoute(true, old_vrf, old_v4_addr,
@@ -4412,8 +4418,8 @@ bool VmInterface::CopyIp6Address(const Ip6Address &addr) {
 }
 
 void VmInterface::UpdateIpv4InstanceIp(bool force_update, bool policy_change,
-                                       bool l2,
-                                       uint32_t old_ethernet_tag) {
+                                       bool l2, uint32_t old_ethernet_tag,
+                                       VrfEntry *old_vrf) {
     if (l2 && old_ethernet_tag != ethernet_tag()) {
         force_update = true;
     }
@@ -4427,6 +4433,9 @@ void VmInterface::UpdateIpv4InstanceIp(bool force_update, bool policy_change,
                 instance_ipv4_list_.list_.erase(prev);
             }
         } else {
+            if (old_vrf && (old_vrf != vrf())) {
+                prev->DeActivate(this, l2, old_vrf, old_ethernet_tag);
+            }
             prev->Activate(this, force_update||policy_change, l2,
                            old_ethernet_tag);
         }

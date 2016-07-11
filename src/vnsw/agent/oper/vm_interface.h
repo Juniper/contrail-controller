@@ -697,12 +697,11 @@ private:
                                 int old_ethernet_tag,
                                 const MacAddress &mac) const;
 
-    void DeleteL2Route(const std::string &vrf_name,
-                       const MacAddress &mac);
     void UpdateVrfAssignRule();
     void DeleteVrfAssignRule();
     void UpdateIpv4InstanceIp(bool force_update, bool policy_change,
-                              bool l2, uint32_t old_ethernet_tag);
+                              bool l2, uint32_t old_ethernet_tag,
+                              VrfEntry *old_vrf);
     void DeleteIpv4InstanceIp(bool l2, uint32_t old_ethernet_tag,
                               VrfEntry *old_vrf);
     void UpdateIpv6InstanceIp(bool force_update, bool policy_change,
