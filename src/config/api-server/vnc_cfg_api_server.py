@@ -1129,6 +1129,12 @@ class VncApiServer(object):
                 return (ok, result)
             obj_ids = result
 
+            # For virtual networks, allocate an ID
+            if child_obj_type == 'virtual_network':
+                child_dict['virtual_network_network_id'] =\
+                    self._db_conn._zk_db.alloc_vn_id(
+                        child_obj.get_fq_name_str())
+
             (ok, result) = self._db_conn.dbe_create(child_obj_type, obj_ids,
                                                     child_dict)
             if not ok:
@@ -1444,7 +1450,6 @@ class VncApiServer(object):
         vnc_cfg_types.AliasIpServer.addr_mgmt = addr_mgmt
         vnc_cfg_types.InstanceIpServer.addr_mgmt = addr_mgmt
         vnc_cfg_types.VirtualNetworkServer.addr_mgmt = addr_mgmt
-        vnc_cfg_types.InstanceIpServer.manager = self
         self._addr_mgmt = addr_mgmt
 
         # Authn/z interface
@@ -1481,6 +1486,8 @@ class VncApiServer(object):
         self.re_uuid = re.compile('^[0-9A-F]{8}-?[0-9A-F]{4}-?4[0-9A-F]{3}-?[89AB][0-9A-F]{3}-?[0-9A-F]{12}$',
                                   re.IGNORECASE)
 
+        # VncZkClient client assignment
+        vnc_cfg_types.VirtualNetworkServer.vnc_zk_client = self._db_conn._zk_db
     # end __init__
 
     def sandesh_disc_client_subinfo_handle_request(self, req):
@@ -2809,6 +2816,11 @@ class VncApiServer(object):
             obj_dict['perms2'] = self._get_default_perms2()
             (ok, result) = self._db_conn.dbe_alloc(obj_type, obj_dict)
             obj_ids = result
+            # For virtual networks, allocate an ID
+            if obj_type == 'virtual_network':
+                vn_id = self._db_conn._zk_db.alloc_vn_id(
+                    s_obj.get_fq_name_str())
+                obj_dict['virtual_network_network_id'] = vn_id
             self._db_conn.dbe_create(obj_type, obj_ids, obj_dict)
             method = '_%s_create_default_children' %(obj_type)
             def_children_method = getattr(self, method)

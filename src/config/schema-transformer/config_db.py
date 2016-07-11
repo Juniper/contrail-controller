@@ -248,11 +248,6 @@ class VirtualNetworkST(DBBaseST):
         prop = self.obj.get_virtual_network_properties(
         ) or VirtualNetworkType()
         self.allow_transit = prop.allow_transit
-        nid = self.obj.get_virtual_network_network_id()
-        if nid is None:
-            nid = prop.network_id or self._cassandra.alloc_vn_id(name) + 1
-            self.obj.set_virtual_network_network_id(nid)
-            self._vnc_lib.virtual_network_update(self.obj)
         if self.obj.get_fq_name() == common.IP_FABRIC_VN_FQ_NAME:
             default_ri_fq_name = common.IP_FABRIC_RI_FQ_NAME
         elif self.obj.get_fq_name() == common.LINK_LOCAL_VN_FQ_NAME:
@@ -415,13 +410,6 @@ class VirtualNetworkST(DBBaseST):
             self._vnc_lib.access_control_list_delete(id=self.acl.uuid)
         if self.dynamic_acl:
             self._vnc_lib.access_control_list_delete(id=self.dynamic_acl.uuid)
-        nid = self.obj.get_virtual_network_network_id()
-        if nid is None:
-            props = self.obj.get_virtual_network_properties()
-            if props:
-                nid = props.network_id
-        if nid:
-            self._cassandra.free_vn_id(nid - 1)
 
         self.update_multiple_refs('route_table', {})
         self.uve_send(deleted=True)

@@ -1209,6 +1209,9 @@ class VncZkClient(object):
     _FQ_NAME_TO_UUID_PATH = "/fq-name-to-uuid"
     _MAX_SUBNET_ADDR_ALLOC = 65535
 
+    _VN_ID_ALLOC_PATH = "/id/virtual-networks/"
+    _VN_MAX_ID = 1 << 24
+
     def __init__(self, instance_id, zk_server_ip, reset_config, db_prefix,
                  sandesh_hdl):
         self._db_prefix = db_prefix
@@ -1222,6 +1225,7 @@ class VncZkClient(object):
         client_name = client_pfx + 'api-' + instance_id
         self._subnet_path = zk_path_pfx + self._SUBNET_PATH
         self._fq_name_to_uuid_path = zk_path_pfx + self._FQ_NAME_TO_UUID_PATH
+        _vn_id_alloc_path = zk_path_pfx + self._VN_ID_ALLOC_PATH
         self._zk_path_pfx = zk_path_pfx
 
         self._sandesh = sandesh_hdl
@@ -1237,9 +1241,16 @@ class VncZkClient(object):
                 pass
 
         if reset_config:
-            self._zk_client.delete_node(self._subnet_path, True);
-            self._zk_client.delete_node(self._fq_name_to_uuid_path, True);
+            self._zk_client.delete_node(self._subnet_path, True)
+            self._zk_client.delete_node(self._fq_name_to_uuid_path, True)
+            self._zk_client.delete_node(_vn_id_alloc_path, True)
+
         self._subnet_allocators = {}
+
+        # Initialize the virtual network ID allocator
+        self._vn_id_allocator = IndexAllocator(self._zk_client,
+                                               _vn_id_alloc_path,
+                                               self._VN_MAX_ID)
     # end __init__
 
     def master_election(self, func, *args):
@@ -1350,6 +1361,14 @@ class VncZkClient(object):
         return self._zk_client.is_connected()
     # end is_connected
 
+    def alloc_vn_id(self, name):
+        return self._vn_id_allocator.alloc(name)
+
+    def free_vn_id(self, vn_id):
+        self._vn_id_allocator.delete(vn_id)
+
+    def get_vn_from_id(self, vn_id):
+        return self._vn_id_allocator.read(vn_id)
 # end VncZkClient
 
 
