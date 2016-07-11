@@ -30,6 +30,11 @@ class AlarmBase(object):
         """
         return self._config
 
+    def description(self):
+        """Return alarm description
+        """
+        return self._config.get_id_perms().get_description()
+
     def severity(self):
         """Return the severity of the alarm
            This should not depend on UVE contents
