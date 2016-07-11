@@ -46,10 +46,20 @@ MacAddress::MacAddress(const std::string &s,
 }
 
 string MacAddress::ToString() const {
+    static char hexchars[] = {
+        '0', '1', '2', '3', '4', '5', '6', '7',
+        '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
+    };
     char temp[32];
-    const u_int8_t *a = (u_int8_t *)&addr_;
-    snprintf(temp, sizeof(temp), "%02x:%02x:%02x:%02x:%02x:%02x",
-        a[0], a[1], a[2], a[3], a[4], a[5]);
+    const u_int8_t *addr = (u_int8_t *) &addr_;
+    int tidx = 0;
+    for (int bidx = 0; bidx < 6; ++bidx) {
+        if (bidx != 0)
+            temp[tidx++] = ':';
+        temp[tidx++] = hexchars[(addr[bidx] >> 4) & 0x0F];
+        temp[tidx++] = hexchars[addr[bidx] & 0x0F];
+    }
+    temp[tidx] = '\0';
     return temp;
 }
 
