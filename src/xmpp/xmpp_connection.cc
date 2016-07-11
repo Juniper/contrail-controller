@@ -186,9 +186,12 @@ std::string XmppConnection::ToString() const {
 }
 
 std::string XmppConnection::ToUVEKey() const {
-    std::ostringstream out;
-    out << FromString() << ":" << endpoint().address().to_string();
-    return out.str();
+    if (uve_key_str_.empty()) {
+        std::ostringstream out;
+        out << FromString() << ":" << endpoint().address().to_string();
+        uve_key_str_ = out.str();
+    }
+    return uve_key_str_;
 }
 
 void XmppConnection::SetFrom(const string &from) {
