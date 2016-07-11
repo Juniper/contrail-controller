@@ -83,6 +83,7 @@ private:
     // Transmit the updates to a set of peers.
     void UpdateSend(Message *message, const RibPeerSet &dst,
                     RibPeerSet *blocked);
+    void UpdateFlush(const RibPeerSet &dst, RibPeerSet *blocked);
 
     // Remove the advertised bits on an update. This updates the history
     // information. Returns true if the UpdateInfo should be deleted.

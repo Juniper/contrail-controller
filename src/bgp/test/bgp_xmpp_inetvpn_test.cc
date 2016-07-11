@@ -1292,6 +1292,9 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete2) {
             agent_b_, "blue", BuildPrefix(idx), "192.168.1.1", 100 + idx);
     }
 
+    // Pause update generation on X.
+    bs_x_->scheduling_group_manager()->DisableGroups();
+
     // Unregister to blue instance on agent B.
     agent_b_->Unsubscribe("blue");
 
@@ -1299,6 +1302,10 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete2) {
     for (int idx = 0; idx < kRouteCount; ++idx) {
         VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
     }
+
+    // Resume update generation on X.
+    bs_x_->scheduling_group_manager()->EnableGroups();
+    task_util::WaitForIdle();
 
     // Delete routes from agent A.
     for (int idx = 0; idx < kRouteCount; ++idx) {
@@ -1312,6 +1319,23 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete2) {
 
     // Unregister to blue instance on agent A.
     agent_a_->Unsubscribe("blue");
+
+    // Verify bgp update and socket write counters.
+    // X->Y : 2 route-target (1 advertise, 1 withdraw) +
+    //        515 inet-vpn (512 advertise, 3 withdraw) +
+    //        2 end-of-rib (1 route-target, 1 inet-vpn)
+    // Y->X : 2 route-target (1 advertise, 1 withdraw) +
+    //        2 end-of-rib (1 route-target, 1 inet-vpn)
+    // Socket writes must be way fewer than kRouteCount
+    // since we coalesce many updates into fewer socket
+    // writes.
+    const BgpPeer *peer_xy = VerifyPeerExists(bs_x_, bs_y_);
+    const BgpPeer *peer_yx = VerifyPeerExists(bs_y_, bs_x_);
+    TASK_UTIL_EXPECT_EQ(peer_xy->get_rx_update(), peer_yx->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(peer_xy->get_tx_update(), peer_yx->get_rx_update());
+    TASK_UTIL_EXPECT_EQ(4 + 3 + kRouteCount, peer_xy->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(4, peer_yx->get_tx_update());
+    TASK_UTIL_EXPECT_GE(32, peer_xy->get_socket_writes());
 
     // Close the sessions.
     agent_a_->SessionDown();
