@@ -226,6 +226,8 @@ void Agent::SetAgentTaskPolicy() {
         // TODO(prabhjot): need to remove this task exclusion one dynamic peer
         // handling is done.
         "Agent::KSync",
+        kTaskFlowEvent,
+        kTaskFlowUpdate,
         AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
