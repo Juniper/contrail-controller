@@ -27,8 +27,7 @@ TEST_F(AgentDbEntry, db_entry_self_reference) {
     VmInterfaceKey *intf_key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                                   MakeUuid(1), "vnet1");
     InterfaceNHKey intf_nh_key(intf_key, false,
-                               (InterfaceNHFlags::INET4) |
-                               (InterfaceNHFlags::MULTICAST));
+                               (InterfaceNHFlags::INET4));
     NextHop *nh = GetNH(&intf_nh_key);
     EXPECT_TRUE(nh->GetRefCount() != 0);
     DeleteVmportEnv(input, 1, true);

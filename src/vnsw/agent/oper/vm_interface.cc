@@ -82,7 +82,6 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     l2_interface_nh_policy_.reset();
     l3_interface_nh_no_policy_.reset();
     l2_interface_nh_no_policy_.reset();
-    multicast_nh_.reset();
 }
 
 VmInterface::VmInterface(const boost::uuids::uuid &uuid,
@@ -1232,7 +1231,6 @@ bool VmInterface::Resync(const InterfaceTable *table,
     ipv4_active_ = IsIpv4Active();
     ipv6_active_ = IsIpv6Active();
     l2_active_ = IsL2Active();
-    bridging_ = (l2_active_ && is_hc_active_);
 
     if (metadata_ip_active_ != old_metadata_ip_active) {
         ret = true;
@@ -1404,12 +1402,12 @@ void VmInterface::AddL2ReceiveRoute(bool old_bridging) {
     }
 }
 
-void VmInterface::UpdateL2Bridging(bool old_bridging, VrfEntry *old_vrf,
-                                   int old_ethernet_tag,
-                                   bool force_update, bool policy_change,
-                                   const Ip4Address &old_v4_addr,
-                                   const Ip6Address &old_v6_addr,
-                                   bool old_layer3_forwarding) {
+void VmInterface::UpdateBridgeRoutes(bool old_bridging, VrfEntry *old_vrf,
+                                     int old_ethernet_tag,
+                                     bool force_update, bool policy_change,
+                                     const Ip4Address &old_v4_addr,
+                                     const Ip6Address &old_v6_addr,
+                                     bool old_layer3_forwarding) {
     if (device_type() == VmInterface::TOR ||
         device_type() == VmInterface::DEVICE_TYPE_INVALID)
         return;
@@ -1440,36 +1438,30 @@ void VmInterface::UpdateL2(bool old_l2_active, bool policy_change) {
         return;
 
     UpdateVxLan();
-    UpdateL2NextHop(old_l2_active);
     //Update label only if new entry is to be created, so
     //no force update on same.
     UpdateL2TunnelId(false, policy_change);
 }
 
-void VmInterface::UpdateL2(bool force_update) {
-    UpdateL2(l2_active_, false);
-    UpdateL2Bridging(bridging_, vrf_.get(), ethernet_tag_, force_update, false,
-                     primary_ip_addr_, primary_ip6_addr_, layer3_forwarding_);
-}
-
-void VmInterface::DeleteL2Bridging(bool old_briding, VrfEntry *old_vrf,
-                                   int old_ethernet_tag,
-                                   const Ip4Address &old_v4_addr,
-                                   const Ip6Address &old_v6_addr,
-                                   bool old_layer3_forwarding) {
+void VmInterface::DeleteBridgeRoutes(bool old_bridging, VrfEntry *old_vrf,
+                                     int old_ethernet_tag,
+                                     const Ip4Address &old_v4_addr,
+                                     const Ip6Address &old_v6_addr,
+                                     bool old_layer3_forwarding) {
     DeleteIpv4InstanceIp(true, old_ethernet_tag, old_vrf);
     DeleteIpv6InstanceIp(true, old_ethernet_tag, old_vrf);
-    DeleteL2InterfaceRoute(old_briding, old_vrf, Ip4Address(0),
-                           Ip6Address(), old_ethernet_tag,
-                           MacAddress::FromString(vm_mac_));
-    DeleteFloatingIp(true, old_ethernet_tag);
-    DeleteL2ReceiveRoute(old_vrf, old_briding);
-    DeleteAllowedAddressPair(true);
+    if (old_bridging) {
+        DeleteL2InterfaceRoute(old_bridging, old_vrf, Ip4Address(0),
+                               Ip6Address(), old_ethernet_tag,
+                               MacAddress::FromString(vm_mac_));
+        DeleteFloatingIp(true, old_ethernet_tag);
+        DeleteL2ReceiveRoute(old_vrf, old_bridging);
+        DeleteAllowedAddressPair(true);
+    }
 }
 
 void VmInterface::DeleteL2(bool old_l2_active) {
     DeleteL2TunnelId();
-    DeleteL2NextHop(old_l2_active);
 }
 
 const MacAddress& VmInterface::GetVifMac(const Agent *agent) const {
@@ -1485,6 +1477,10 @@ const MacAddress& VmInterface::GetVifMac(const Agent *agent) const {
     }
 }
 
+bool VmInterface::InstallBridgeRoutes() const {
+    return (l2_active_ & is_hc_active_);
+}
+
 void VmInterface::ApplyConfigCommon(const VrfEntry *old_vrf,
                                     bool old_l2_active,
                                     bool old_dhcp_enable) {
@@ -1497,6 +1493,21 @@ void VmInterface::ApplyConfigCommon(const VrfEntry *old_vrf,
     } else {
         DeleteSecurityGroup();
         DeleteFatFlow();
+    }
+}
+
+/*
+ * These L2 nexthop are used by multicast and bridge.
+ * Presence of multicast forces it to be present in
+ * ipv4 mode(l3-only).
+ */
+void VmInterface::UpdateCommonNextHop() {
+    if (IsActive()) {
+        UpdateL2NextHop();
+        return;
+    } else {
+        DeleteL2NextHop();
+        return;
     }
 }
 
@@ -1555,16 +1566,12 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,
 
     bool policy_change = (policy_enabled_ != old_policy);
 
-    if (ipv4_active_ == true || l2_active_ == true) {
-        UpdateMulticastNextHop(old_ipv4_active, old_l2_active);
-    } else {
-        DeleteMulticastNextHop();
-    }
-
     if (vrf_ && vmi_type() == GATEWAY) {
         vrf_->CreateTableLabel();
     }
 
+    //Update common prameters
+    UpdateCommonNextHop();
     // Add/Update L3 Metadata
     if (metadata_ip_active_) {
         UpdateL3MetadataIp(old_vrf, force_update, policy_change,
@@ -1593,13 +1600,13 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,
         UpdateL2(old_l2_active, policy_change);
     }
 
-    if (bridging_) {
-        UpdateL2Bridging(old_bridging, old_vrf, old_ethernet_tag, 
-                         force_update, policy_change, old_addr, old_v6_addr,
-                         old_layer3_forwarding);
-    } else if (old_bridging) {
-        DeleteL2Bridging(old_bridging, old_vrf, old_ethernet_tag, 
-                         old_addr, old_v6_addr, old_layer3_forwarding);
+    if (InstallBridgeRoutes()) {
+        UpdateBridgeRoutes(old_l2_active, old_vrf, old_ethernet_tag,
+                           force_update, policy_change, old_addr, old_v6_addr,
+                           old_layer3_forwarding);
+    } else {
+        DeleteBridgeRoutes(old_l2_active, old_vrf, old_ethernet_tag,
+                           old_addr, old_v6_addr, old_layer3_forwarding);
     }
 
     // Delete L2
@@ -1788,6 +1795,12 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         bool val = vn ? vn->layer3_forwarding() : false;
         if (layer3_forwarding_ != val) {
             layer3_forwarding_ = val;
+            ret = true;
+        }
+
+        val = vn ? vn->bridging() : false;
+        if (bridging_ != val) {
+            bridging_ = val;
             ret = true;
         }
 
@@ -2263,6 +2276,12 @@ bool VmInterfaceGlobalVrouterData::OnResync(const InterfaceTable *table,
         ret = true;
     }
 
+    if (bridging_ != vmi->bridging_) {
+        vmi->bridging_= bridging_;
+        *force_update = true;
+        ret = true;
+    }
+
     if (vxlan_id_ != vmi->vxlan_id_)
         ret = true;
 
@@ -2427,6 +2446,14 @@ bool VmInterface::IsIpv6Active() const {
 }
 
 bool VmInterface::IsL2Active() const {
+    if (!bridging()) {
+        return false;
+    }
+
+    if (!is_hc_active_) {
+        return false;
+    }
+
     return IsActive();
 }
 
@@ -2660,23 +2687,6 @@ bool VmInterface::Ipv6Deactivated(bool old_ipv6_active) {
     return false;
 }
 
-void VmInterface::UpdateMulticastNextHop(bool old_ipv4_active,
-                                         bool old_l2_active) {
-    if (Ipv4Activated(old_ipv4_active) || L2Activated(old_l2_active)) {
-        InterfaceNH::CreateMulticastVmInterfaceNH(GetUuid(),
-                                                  MacAddress::FromString(vm_mac_),
-                                                  vrf_->GetName());
-        InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
-        Agent *agent = table->agent();
-        InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
-                                              GetUuid(), ""),
-                          false, (InterfaceNHFlags::INET4 |
-                                  InterfaceNHFlags::MULTICAST));
-        multicast_nh_ = static_cast<NextHop *>(agent->
-                        nexthop_table()->FindActiveEntry(&key));
-    }
-}
-
 void VmInterface::UpdateFlowKeyNextHop() {
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     Agent *agent = table->agent();
@@ -2707,23 +2717,26 @@ void VmInterface::UpdateMacVmBinding() {
                                 this);
 }
 
-void VmInterface::UpdateL2NextHop(bool old_l2_active) {
+//Create these NH irrespective of mode, as multicast uses l2 NH.
+void VmInterface::UpdateL2NextHop() {
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     Agent *agent = table->agent();
-    if (L2Activated(old_l2_active)) {
+    if (l2_interface_nh_policy_.get() == NULL) {
         InterfaceNH::CreateL2VmInterfaceNH(GetUuid(),
                                            MacAddress::FromString(vm_mac_),
                                            vrf_->GetName());
-        InterfaceNHKey key1(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+        InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                               GetUuid(), ""),
                             true, InterfaceNHFlags::BRIDGE);
         l2_interface_nh_policy_ = static_cast<NextHop *>(agent->
-                      nexthop_table()->FindActiveEntry(&key1));
-        InterfaceNHKey key2(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                  nexthop_table()->FindActiveEntry(&key));
+    }
+    if (l2_interface_nh_no_policy_.get() == NULL) {
+        InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                               GetUuid(), ""),
                             false, InterfaceNHFlags::BRIDGE);
         l2_interface_nh_no_policy_ = static_cast<NextHop *>(agent->
-                      nexthop_table()->FindActiveEntry(&key2));
+                                     nexthop_table()->FindActiveEntry(&key));
     }
 }
 
@@ -2741,17 +2754,12 @@ void VmInterface::DeleteMacVmBinding(const VrfEntry *old_vrf) {
                                    this);
 }
 
-void VmInterface::DeleteL2NextHop(bool old_l2_active) {
-    if (L2Deactivated(old_l2_active)) {
-        InterfaceNH::DeleteL2InterfaceNH(GetUuid());
+void VmInterface::DeleteL2NextHop() {
+    InterfaceNH::DeleteL2InterfaceNH(GetUuid());
+    if (l2_interface_nh_policy_.get() != NULL)
         l2_interface_nh_policy_.reset();
+    if (l2_interface_nh_no_policy_.get() != NULL)
         l2_interface_nh_no_policy_.reset();
-    }
-}
-
-void VmInterface::DeleteMulticastNextHop() {
-    InterfaceNH::DeleteMulticastVmInterfaceNH(GetUuid());
-    multicast_nh_.reset();
 }
 
 void VmInterface::DeleteL2ReceiveRoute(const VrfEntry *old_vrf,
