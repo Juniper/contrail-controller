@@ -259,6 +259,7 @@ private:
     std::string from_; // bare jid
     std::string to_;
     bool auth_enabled_;
+    mutable std::string uve_key_str_;
 
     boost::scoped_ptr<XmppStateMachine> state_machine_;
     boost::scoped_ptr<XmppChannelMux> mux_;
