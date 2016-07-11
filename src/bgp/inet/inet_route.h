@@ -65,10 +65,9 @@ public:
     explicit InetRoute(const Ip4Prefix &prefix);
     virtual int CompareTo(const Route &rhs) const;
     virtual std::string ToString() const;
+    virtual std::string ToXmppIdString() const;
 
-    const Ip4Prefix &GetPrefix() const {
-        return prefix_;
-    }
+    const Ip4Prefix &GetPrefix() const { return prefix_; }
 
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SetKey(const DBRequestKey *reqkey);
@@ -92,6 +91,8 @@ public:
 
 private:
     Ip4Prefix prefix_;
+    mutable std::string xmpp_id_str_;
+
     DISALLOW_COPY_AND_ASSIGN(InetRoute);
 };
 

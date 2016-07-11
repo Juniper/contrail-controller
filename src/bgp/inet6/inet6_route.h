@@ -74,10 +74,9 @@ public:
     explicit Inet6Route(const Inet6Prefix &prefix);
     virtual int CompareTo(const Route &rhs) const;
     virtual std::string ToString() const;
+    virtual std::string ToXmppIdString() const;
 
-    const Inet6Prefix &GetPrefix() const {
-        return prefix_;
-    }
+    const Inet6Prefix &GetPrefix() const { return prefix_; }
 
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SetKey(const DBRequestKey *reqkey);
@@ -102,6 +101,8 @@ public:
 
 private:
     Inet6Prefix prefix_;
+    mutable std::string xmpp_id_str_;
+
     DISALLOW_COPY_AND_ASSIGN(Inet6Route);
 };
 
