@@ -979,6 +979,15 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         return (True, '')
 
     @classmethod
+    def _get_virtual_network_id(self, obj_dict):
+        vn_id = obj_dict.get('virtual_network_network_id')
+        if vn_id is None:
+            vn_properties = obj_dict.get('virtual_network_properties')
+            if vn_properties:
+                vn_id = vn_properties.get('network_id')
+        return vn_id
+
+    @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         (ok, response) = cls._is_multi_policy_service_chain_supported(obj_dict)
         if not ok:
@@ -994,6 +1003,14 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
             **verify_quota_kwargs)
         if not ok:
             return (ok, response)
+
+        # Allocate virtual network ID
+        vn_id = cls.vnc_zk_client.alloc_vn_id(':'.join(obj_dict['fq_name']))
+        def undo_vn_id():
+            cls.vnc_zk_client.free_vn_id(vn_id)
+            return True, ""
+        get_context().push_undo(undo_vn_id)
+        obj_dict['virtual_network_network_id'] = vn_id
 
         db_conn.update_subnet_uuid(obj_dict)
 
@@ -1043,6 +1060,8 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        # Does not authorize to update the virtual network ID as it's allocated
+        # by the vnc server
         if ((fq_name == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
                 (fq_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME)):
             # Ignore ip-fabric subnet updates
@@ -1056,7 +1075,9 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         if not ok:
             return (False, (409, error))
 
-        if 'network_ipam_refs' not in obj_dict:
+        new_vn_id = cls._get_virtual_network_id(obj_dict)
+
+        if 'network_ipam_refs' not in obj_dict and new_vn_id is None:
             # NOP for addr-mgmt module
             return True,  ""
 
@@ -1064,6 +1085,9 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                                        obj_fields=['network_ipam_refs'])
         if not ok:
             return ok, read_result
+
+        if new_vn_id and new_vn_id != cls._get_virtual_network_id(read_result):
+            return (False, (403, "Cannot update the virtual network ID"))
 
         (ok, response) = cls._is_multi_policy_service_chain_supported(obj_dict,
                                                                       read_result)
@@ -1148,6 +1172,11 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                                                    child['uuid'])
 
         cls.server.internal_request_delete('routing-instance', ri_uuid)
+
+        # Deallocate the virtual network ID
+        vn_id = cls._get_virtual_network_id(obj_dict)
+        if vn_id is not None:
+            cls.vnc_zk_client.free_vn_id(vn_id)
 
         return True, ""
     # end post_dbe_delete
