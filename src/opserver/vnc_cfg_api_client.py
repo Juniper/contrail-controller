@@ -51,12 +51,9 @@ class VncCfgApiClient(object):
                     auth_protocol=self._conf_info['auth_protocol'])
                 connected = True
                 self._update_connection_state(ConnectionStatus.UP)
-            except requests.exceptions.ConnectionError as e:
+            except Exception as e:
                 # Update connection info
                 self._update_connection_state(ConnectionStatus.DOWN, str(e))
-                time.sleep(3)
-            except vnc_api.ResourceExhaustionError as re:  # haproxy throws 503
-                self._update_connection_state(ConnectionStatus.DOWN, str(re))
                 time.sleep(3)
     # end connect
 
@@ -66,8 +63,18 @@ class VncCfgApiClient(object):
             self._logger.error(
                 'Token info for %s NOT FOUND' % str(user_token))
             return False
-        roles_list = [roles['name'] for roles in \
-            result['token_info']['access']['user']['roles']]
+        # Handle v2 and v3 responses
+        token_info = result['token_info']
+        if 'access' in token_info:
+            roles_list = [roles['name'] for roles in \
+                token_info['access']['user']['roles']]
+        elif 'token' in token_info:
+            roles_list = [roles['name'] for roles in \
+                token_info['token']['roles']]
+        else:
+            self._logger.error('Role info for %s NOT FOUND: %s' % \
+                (str(user_token), str(token_info)))
+            return False
         return self._conf_info['cloud_admin_role'] in roles_list
     # end is_role_cloud_admin
 
