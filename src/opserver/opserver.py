@@ -47,7 +47,8 @@ from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
      ModuleCategoryMap, Module2NodeType, NodeTypeNames, ModuleIds,\
      INSTANCE_ID_DEFAULT, COLLECTOR_DISCOVERY_SERVICE_NAME,\
      ANALYTICS_API_SERVER_DISCOVERY_SERVICE_NAME, ALARM_GENERATOR_SERVICE_NAME, \
-     OpServerAdminPort, CLOUD_ADMIN_ROLE
+     OpServerAdminPort, CLOUD_ADMIN_ROLE, AnalyticsAPIAAAModes, \
+     AAA_MODE_CLOUD_ADMIN_ONLY, AAA_MODE_NO_AUTH
 from sandesh.viz.constants import _TABLES, _OBJECT_TABLES,\
     _OBJECT_TABLE_SCHEMA, _OBJECT_TABLE_COLUMN_VALUES, \
     _STAT_TABLES, STAT_OBJECTID_FIELD, STAT_VT_PREFIX, \
@@ -777,7 +778,7 @@ class OpServer(object):
             'partitions'        : 15,
             'sandesh_send_rate_limit': SandeshSystem. \
                  get_sandesh_send_rate_limit(),
-            'multi_tenancy'     : False,
+            'aaa_mode'          : AAA_MODE_CLOUD_ADMIN_ONLY,
             'api_server'        : '127.0.0.1:8082',
             'admin_port'        : OpServerAdminPort,
             'cloud_admin_role'  : CLOUD_ADMIN_ROLE,
@@ -811,9 +812,6 @@ class OpServer(object):
             config.read(args.conf_file)
             if 'DEFAULTS' in config.sections():
                 defaults.update(dict(config.items("DEFAULTS")))
-                if 'multi_tenancy' in config.options('DEFAULTS'):
-                    defaults['multi_tenancy'] = config.getboolean(
-                        'DEFAULTS', 'multi_tenancy')
             if 'REDIS' in config.sections():
                 redis_opts.update(dict(config.items('REDIS')))
             if 'DISCOVERY' in config.sections():
@@ -909,8 +907,8 @@ class OpServer(object):
             help="Sandesh send rate limit in messages/sec")
         parser.add_argument("--cloud_admin_role",
             help="Name of cloud-admin role")
-        parser.add_argument("--multi_tenancy", action="store_true",
-            help="Validate resource permissions (implies token validation)")
+        parser.add_argument("--aaa_mode", choices=AnalyticsAPIAAAModes,
+            help="AAA mode")
         parser.add_argument("--auth_host",
             help="IP address of keystone server")
         parser.add_argument("--auth_protocol",
@@ -946,7 +944,7 @@ class OpServer(object):
             self._args.auth_host, self._args.auth_port)
         auth_conf_info['api_server_use_ssl'] = False
         auth_conf_info['cloud_admin_access_only'] = \
-            self._args.multi_tenancy
+            False if self._args.aaa_mode == AAA_MODE_NO_AUTH else True
         auth_conf_info['cloud_admin_role'] = self._args.cloud_admin_role
         auth_conf_info['admin_port'] = self._args.admin_port
         api_server_info = self._args.api_server.split(':')
@@ -1175,8 +1173,10 @@ class OpServer(object):
 
             if tabl == OVERLAY_TO_UNDERLAY_FLOW_MAP:
                 overlay_to_underlay_map = OverlayToUnderlayMapper(
-                    request.json, self._args.host_ip,
-                    self._args.rest_api_port, self._logger)
+                    request.json, 'localhost',
+                    self._args.auth_conf_info['admin_port'],
+                    self._args.auth_conf_info['admin_user'],
+                    self._args.auth_conf_info['admin_password'], self._logger)
                 try:
                     yield overlay_to_underlay_map.process_query()
                 except OverlayToUnderlayMapperError as e:
@@ -2001,8 +2001,10 @@ class OpServer(object):
         while True:
             trigger_purge = False
             db_node_usage = self._analytics_db.get_dbusage_info(
-                self._args.rest_api_ip,
-                self._args.rest_api_port)
+                'localhost',
+                self._args.auth_conf_info['admin_port'],
+                self._args.auth_conf_info['admin_user'],
+                self._args.auth_conf_info['admin_password'])
             self._logger.info("node usage:" + str(db_node_usage) )
             self._logger.info("threshold:" + str(self._args.db_purge_threshold))
 
