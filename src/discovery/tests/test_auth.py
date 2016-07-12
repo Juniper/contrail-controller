@@ -39,7 +39,7 @@ def token_from_user_info(user_name, tenant_name, domain_name, role_name,
         'X-Role': role_name,
     }
     rval = json.dumps(token_dict)
-    # logger.info( '**** Generate token %s ****' % rval)
+    # logger.info( '%%%* Generate token %s %%%*' % rval)
     return rval
 
 # This is needed for VncApi._authenticate invocation from within Api server.

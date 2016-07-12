@@ -64,7 +64,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         Then it checks that the collector UVE (via redis)
         can be accessed from opserver.
         '''
-        logging.info("*** test_00_nocassandra ***")
+        logging.info("%%% test_00_nocassandra %%%")
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir, self.__class__.redis_port, 0)) 
@@ -81,7 +81,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         Then it checks that the VM UVE (via redis) can be accessed from
         opserver.
         '''
-        logging.info("*** test_01_vm_uve ***")
+        logging.info("%%% test_01_vm_uve %%%")
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir, self.__class__.redis_port, 0))
@@ -125,7 +125,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         Then it checks that the VM UVE (via redis) can be accessed from
         opserver.
         '''
-        logging.info("*** test_02_vm_uve_with_password ***")
+        logging.info("%%% test_02_vm_uve_with_password %%%")
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir, -1, 0,
@@ -147,7 +147,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
 
     #@unittest.skip('verify redis-uve restart')
     def test_03_redis_uve_restart(self):
-        logging.info('*** test_03_redis_uve_restart ***')
+        logging.info('%%% test_03_redis_uve_restart %%%')
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir, -1, 0,
@@ -177,7 +177,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
 
     #@unittest.skip('verify redis-uve restart')
     def test_04_redis_uve_restart_with_password(self):
-        logging.info('*** test_03_redis_uve_restart_with_password ***')
+        logging.info('%%% test_03_redis_uve_restart_with_password %%%')
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging,
@@ -218,7 +218,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
 
     #@unittest.skip('Skipping contrail-collector HA test')
     def test_05_collector_ha(self):
-        logging.info('*** test_05_collector_ha ***')
+        logging.info('%%% test_05_collector_ha %%%')
         
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir, -1, 0,
@@ -341,7 +341,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         It enables partition 0 on alarmgen, and confirms
         that it got enabled
         '''
-        logging.info("*** test_06_alarmgen_basic ***")
+        logging.info("%%% test_06_alarmgen_basic %%%")
 
         if AnalyticsUveTest._check_skip_kafka() is True:
             return True
@@ -450,7 +450,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         test sends alarms from alarm generators and verifies the
         retrieval of alarms from analytics-api.
         '''
-        logging.info('*** test_07_alarm ***')
+        logging.info('%%% test_07_alarm %%%')
 
         if AnalyticsUveTest._check_skip_kafka() is True:
             return True
@@ -567,7 +567,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         This test verifies the filter options kfilt, sfilt, mfilt and cfilt
         in the UVE/Alarm GET and POST methods.
         '''
-        logging.info('*** test_08_uve_alarm_filter ***')
+        logging.info('%%% test_08_uve_alarm_filter %%%')
 
         if AnalyticsUveTest._check_skip_kafka() is True:
             return True

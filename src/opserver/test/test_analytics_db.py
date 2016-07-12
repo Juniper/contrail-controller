@@ -69,7 +69,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         and checks if database purge functonality is
         is working properly
         '''
-        logging.info("*** test_00_database_purge_query ***")
+        logging.info("%%% test_00_database_purge_query %%%")
         if AnalyticsDbTest._check_skip_test() is True:
             return True
 
@@ -94,7 +94,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         is working properly
         '''
         self.skipTest('Skipping test_01_database_purge_query')
-        logging.info("*** test_01_database_purge_query ***")
+        logging.info("%%% test_01_database_purge_query %%%")
         if AnalyticsDbTest._check_skip_test() is True:
             return True
 
@@ -118,7 +118,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         and checks if database purge functonality is
         is working properly
         '''
-        logging.info("*** test_02_database_purge_query ***")
+        logging.info("%%% test_02_database_purge_query %%%")
         if AnalyticsDbTest._check_skip_test() is True:
             return True
 
@@ -142,7 +142,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         and checks if database purge functonality is
         is working properly
         '''
-        logging.info("*** test_03_database_purge_query ***")
+        logging.info("%%% test_03_database_purge_query %%%")
         if AnalyticsDbTest._check_skip_test() is True:
             return True
 
@@ -166,7 +166,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         and checks if database purge functonality is
         is working properly
         '''
-        logging.info("*** test_04_database_purge_query ***")
+        logging.info("%%% test_04_database_purge_query %%%")
         if AnalyticsDbTest._check_skip_test() is True:
             return True
 
@@ -190,7 +190,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         and checks if database purge functonality is
         is working properly
         '''
-        logging.info("*** test_05_database_purge_query ***")
+        logging.info("%%% test_05_database_purge_query %%%")
         if AnalyticsDbTest._check_skip_test() is True:
             return True
 
@@ -215,7 +215,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         and checks if database purge functonality is
         is working properly
         '''
-        logging.info("*** test_06_database_purge_query ***")
+        logging.info("%%% test_06_database_purge_query %%%")
         if AnalyticsDbTest._check_skip_test() is True:
             return True
 
@@ -240,7 +240,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         and checks if database purge functonality is
         is working properly
         '''
-        logging.info("*** test_07_database_purge_query ***")
+        logging.info("%%% test_07_database_purge_query %%%")
         if AnalyticsDbTest._check_skip_test() is True:
             return True
 
@@ -265,7 +265,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         and checks if database purge functonality is
         is working properly
         '''
-        logging.info("*** test_08_database_purge_query ***")
+        logging.info("%%% test_08_database_purge_query %%%")
         if AnalyticsDbTest._check_skip_test() is True:
             return True
 
@@ -290,7 +290,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         and checks if database purge functonality is
         is working properly
         '''
-        logging.info("*** test_09_database_purge_query ***")
+        logging.info("%%% test_09_database_purge_query %%%")
         if AnalyticsDbTest._check_skip_test() is True:
             return True
 

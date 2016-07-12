@@ -182,7 +182,7 @@ if __name__ == '__main__':
 
     vn = vns.get_ops_vn(vn='abc-corp:vn02')
 
-    print "*** Verify VN Cfg ***"
+    print "%%% Verify VN Cfg %%%"
 
     print vn.get_attr('Config', 'attached_policies', 'abc-default-policy')
     '''
@@ -205,7 +205,7 @@ if __name__ == '__main__':
     60
     '''
 
-    print "*** Verify VN Agt ***"
+    print "%%% Verify VN Agt %%%"
 
     print vn.get_attr('Agent', 'total_acl_rules')
     '''
@@ -225,7 +225,7 @@ if __name__ == '__main__':
 
     vm = vns.get_ops_vm(vm='abc-corp:vm-web-fe01')
 
-    print "*** Verify VM Cfg ***"
+    print "%%% Verify VM Cfg %%%"
 
     print vm.get_attr('Config', 'vrouter')
     '''
@@ -243,7 +243,7 @@ if __name__ == '__main__':
       u'floating_ips': [u'67.1.1.2', u'67.1.1.3']}]
     '''
 
-    print "*** Verify VM Agt ***"
+    print "%%% Verify VM Agt %%%"
 
     print vm.get_attr('Agent', 'vrouter')
     '''
