@@ -70,8 +70,6 @@ public:
     }
     virtual void VrouterOpsMsgHandler(vrouter_ops *req) { }
 private:
-    AgentDropStats GetDropStats(vr_drop_stats_req *req);
-
     Agent *agent_;
     StatsManager *stats_;
     int marker_id_;

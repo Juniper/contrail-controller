@@ -134,58 +134,6 @@ uve sandesh UveVrouterAgent {
 }
 
 /**
- * Sandesh definition for agent drop stats
- */
-struct AgentDropStats {
-    1:  u64   ds_discard;
-    2:  u64   ds_pull;
-    3:  u64   ds_invalid_if;
-    5:  u64   ds_garp_from_vm;
-    6:  u64   ds_invalid_arp;
-    7:  u64   ds_trap_no_if;
-    8:  u64   ds_nowhere_to_go;
-    9:  u64   ds_flow_queue_limit_exceeded;
-    10: u64   ds_flow_no_memory;
-    11: u64   ds_flow_invalid_protocol;
-    12: u64   ds_flow_nat_no_rflow;
-    13: u64   ds_flow_action_drop;
-    14: u64   ds_flow_action_invalid;
-    15: u64   ds_flow_unusable;
-    16: u64   ds_flow_table_full;
-    17: u64   ds_interface_tx_discard;
-    18: u64   ds_interface_drop;
-    19: u64   ds_duplicated;
-    20: u64   ds_push;
-    21: u64   ds_ttl_exceeded;
-    22: u64   ds_invalid_nh;
-    23: u64   ds_invalid_label;
-    24: u64   ds_invalid_protocol;
-    25: u64   ds_interface_rx_discard;
-    26: u64   ds_invalid_mcast_source;
-    27: u64   ds_head_alloc_fail;
-    28: u64   ds_head_space_reserve_fail;
-    29: u64   ds_pcow_fail;
-    30: u64   ds_flood;
-    31: u64   ds_mcast_clone_fail;
-    33: u64   ds_rewrite_fail;
-    34: u64   ds_misc;
-    35: u64   ds_invalid_packet;
-    36: u64   ds_cksum_err;
-    37: u64   ds_clone_fail;
-    38: u64   ds_no_fmd;
-    39: u64   ds_cloned_original;
-    40: u64   ds_invalid_vnid;
-    41: u64   ds_frag_err;
-    42: u64   ds_invalid_source;
-    43: u64   ds_mcast_df_bit;
-    44: u64   ds_arp_no_where_to_go;
-    45: u64   ds_arp_no_route;
-    46: u64   ds_l2_no_route;
-    48: u64   ds_vlan_fwd_tx;
-    49: u64   ds_vlan_fwd_enq;
-}
-
-/**
  ** Sandesh definition for agent xmpp connection
  */
 struct AgentXmppStats {
@@ -282,7 +230,6 @@ struct VrouterStatsAgent {  // Agent stats
     39: optional list<u32>   udp_dport_bitmap;
     40: optional list<u32>   tcp_sport_bitmap;
     41: optional list<u32>   tcp_dport_bitmap;
-    42: optional AgentDropStats drop_stats;
     43: optional double total_in_bandwidth_utilization;
     44: optional double total_out_bandwidth_utilization;
     45: optional VrouterFlowRate flow_rate (tags="")
@@ -290,6 +237,8 @@ struct VrouterStatsAgent {  // Agent stats
     51: optional map<string,u64> phy_band_out_bps (tags="name:.__key")
     52: optional map<string,derived_stats_results.EWMResult> in_bps_ewm (mstats="phy_band_in_bps:DSEWM:0.2")
     53: optional map<string,derived_stats_results.EWMResult> out_bps_ewm (mstats="phy_band_out_bps:DSEWM:0.2")
+    54: optional derived_stats_results.CategoryResult drop_stats_agg (hidden="yes")
+    55: optional derived_stats_results.CategoryResult drop_stats_diff (stats="drop_stats_agg:DSCategoryCount:", tags="")
 }
 
 /**

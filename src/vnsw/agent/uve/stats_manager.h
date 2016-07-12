@@ -13,6 +13,7 @@
 #include <map>
 #include <utility>
 #include <uve/flow_ace_stats_request.h>
+#include <vr_types.h>
 
 // The container class for storing stats queried from vrouter
 // Defines routines for storing and managing (add, delete and query)
@@ -147,8 +148,9 @@ class StatsManager {
     explicit StatsManager(Agent *agent);
     virtual ~StatsManager();
 
-    AgentDropStats drop_stats() const { return drop_stats_; }
-    void set_drop_stats(const AgentDropStats &req) { drop_stats_ = req; }
+    vr_drop_stats_req drop_stats() const { return drop_stats_; }
+    void set_drop_stats(const vr_drop_stats_req &req) { drop_stats_ = req; }
+
     InterfaceStats* GetInterfaceStats(const Interface *intf);
     VrfStats* GetVrfStats(int vrf_id);
     std::string GetNamelessVrf() { return "__untitled__"; }
@@ -173,7 +175,7 @@ class StatsManager {
     VrfIdToVrfStatsTree vrf_stats_tree_;
     InterfaceStatsTree if_stats_tree_;
     FlowAceTree flow_ace_tree_;
-    AgentDropStats drop_stats_;
+    vr_drop_stats_req drop_stats_;
     DBTableBase::ListenerId vrf_listener_id_;
     DBTableBase::ListenerId intf_listener_id_;
     Agent *agent_;
