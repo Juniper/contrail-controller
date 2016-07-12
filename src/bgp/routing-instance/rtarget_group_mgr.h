@@ -236,8 +236,6 @@ public:
     }
 
 private:
-    static int rtfilter_task_id_;
-
     friend class BgpXmppRTargetTest;
     friend class ReplicationTest;
 
