@@ -170,6 +170,7 @@ public:
     virtual bool IsReady() const = 0;
     virtual IPeer *peer() const = 0;
     virtual void ReceiveEndOfRIB(Address::Family family) = 0;
+    virtual void MembershipRequestCallbackComplete(bool result) = 0;
 };
 
 class IPeer : public IPeerUpdate {
