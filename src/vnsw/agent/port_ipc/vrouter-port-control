@@ -120,13 +120,13 @@ class VrouterPortControl(object):
         parser.add_argument('--vm_name', help="VM Name")
         parser.add_argument('--mac', help="MAC address")
         parser.add_argument('--tap_name', help="System name of interface")
-        parser.add_argument("--port_type", help = "Port type")
+        parser.add_argument("--port_type", help = "Port type", default="NovaVMPort")
         parser.add_argument("--tx_vlan_id", help = "Transmit VLAN ID")
         parser.add_argument("--rx_vlan_id", help = "Receive VLAN ID")
         parser.add_argument("--no_persist", type = bool,
                             help = "Dont't store port information in files",
                             default=False)
-        parser.add_argument("--vif_type", help = "VIF type")
+        parser.add_argument("--vif_type", help = "VIF type", default="Vrouter")
 
         self._args = parser.parse_args(remaining_argv)
 
