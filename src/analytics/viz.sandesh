@@ -1906,7 +1906,7 @@ const list<stat_table> _STAT_TABLES  = [
       'obj_table' : COLLECTOR_INFO_TABLE,
       'attributes': [
           { 'name' : 'disk_usage_info.partition_type', 'datatype' : 'string', 'index' : false },
-          { 'name' : 'disk_usage_info.partition_name', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'disk_usage_info.__key', 'datatype' : 'string', 'index' : false },
           { 'name' : 'disk_usage_info.partition_space_used_1k', 'datatype' : 'int', 'index' : false },
           { 'name' : 'disk_usage_info.partition_space_available_1k', 'datatype' : 'int', 'index' : false },
         ]
@@ -1918,7 +1918,7 @@ const list<stat_table> _STAT_TABLES  = [
       'obj_table' : DATABASE_INFO_TABLE,
       'attributes': [
           { 'name' : 'disk_usage_info.partition_type', 'datatype' : 'string', 'index' : false },
-          { 'name' : 'disk_usage_info.partition_name', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'disk_usage_info.__key', 'datatype' : 'string', 'index' : false },
           { 'name' : 'disk_usage_info.partition_space_used_1k', 'datatype' : 'int', 'index' : false },
           { 'name' : 'disk_usage_info.partition_space_available_1k', 'datatype' : 'int', 'index' : false },
         ]
@@ -1930,7 +1930,7 @@ const list<stat_table> _STAT_TABLES  = [
       'obj_table' : CONFIG_NODE_TABLE,
       'attributes': [
           { 'name' : 'disk_usage_info.partition_type', 'datatype' : 'string', 'index' : false },
-          { 'name' : 'disk_usage_info.partition_name', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'disk_usage_info.__key', 'datatype' : 'string', 'index' : false },
           { 'name' : 'disk_usage_info.partition_space_used_1k', 'datatype' : 'int', 'index' : false },
           { 'name' : 'disk_usage_info.partition_space_available_1k', 'datatype' : 'int', 'index' : false },
         ]
@@ -1942,7 +1942,7 @@ const list<stat_table> _STAT_TABLES  = [
       'obj_table' : BGP_ROUTER_TABLE,
       'attributes': [
           { 'name' : 'disk_usage_info.partition_type', 'datatype' : 'string', 'index' : false },
-          { 'name' : 'disk_usage_info.partition_name', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'disk_usage_info.__key', 'datatype' : 'string', 'index' : false },
           { 'name' : 'disk_usage_info.partition_space_used_1k', 'datatype' : 'int', 'index' : false },
           { 'name' : 'disk_usage_info.partition_space_available_1k', 'datatype' : 'int', 'index' : false },
         ]
@@ -1954,7 +1954,7 @@ const list<stat_table> _STAT_TABLES  = [
       'obj_table' : VROUTER_TABLE,
       'attributes': [
           { 'name' : 'disk_usage_info.partition_type', 'datatype' : 'string', 'index' : false },
-          { 'name' : 'disk_usage_info.partition_name', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'disk_usage_info.__key', 'datatype' : 'string', 'index' : false },
           { 'name' : 'disk_usage_info.partition_space_used_1k', 'datatype' : 'int', 'index' : false },
           { 'name' : 'disk_usage_info.partition_space_available_1k', 'datatype' : 'int', 'index' : false },
         ]
@@ -1965,8 +1965,7 @@ const list<stat_table> _STAT_TABLES  = [
       'stat_attr' : 'process_mem_cpu_usage',
       'obj_table' : COLLECTOR_INFO_TABLE,
       'attributes': [
-          { 'name' : 'process_mem_cpu_usage.module_id', 'datatype' : 'string', 'index' : true, 'suffixes': ['process_mem_cpu_usage.inst_id']},
-          { 'name' : 'process_mem_cpu_usage.inst_id', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'process_mem_cpu_usage.__key', 'datatype' : 'string', 'index' : true},
           { 'name' : 'process_mem_cpu_usage.mem_virt', 'datatype' : 'int', 'index' : false },
           { 'name' : 'process_mem_cpu_usage.cpu_share', 'datatype' : 'double', 'index' : true},
           { 'name' : 'process_mem_cpu_usage.mem_res', 'datatype' : 'int', 'index' : false },
@@ -1978,8 +1977,7 @@ const list<stat_table> _STAT_TABLES  = [
       'stat_attr' : 'process_mem_cpu_usage',
       'obj_table' : DATABASE_INFO_TABLE,
       'attributes': [
-          { 'name' : 'process_mem_cpu_usage.module_id', 'datatype' : 'string', 'index' : true, 'suffixes': ['process_mem_cpu_usage.inst_id']},
-          { 'name' : 'process_mem_cpu_usage.inst_id', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'process_mem_cpu_usage.__key', 'datatype' : 'string', 'index' : true},
           { 'name' : 'process_mem_cpu_usage.mem_virt', 'datatype' : 'int', 'index' : false },
           { 'name' : 'process_mem_cpu_usage.cpu_share', 'datatype' : 'double', 'index' : true},
           { 'name' : 'process_mem_cpu_usage.mem_res', 'datatype' : 'int', 'index' : false },
@@ -1991,8 +1989,7 @@ const list<stat_table> _STAT_TABLES  = [
       'stat_attr' : 'process_mem_cpu_usage',
       'obj_table' : CONFIG_NODE_TABLE,
       'attributes': [
-          { 'name' : 'process_mem_cpu_usage.module_id', 'datatype' : 'string', 'index' : true, 'suffixes': ['process_mem_cpu_usage.inst_id']},
-          { 'name' : 'process_mem_cpu_usage.inst_id', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'process_mem_cpu_usage.__key', 'datatype' : 'string', 'index' : true},
           { 'name' : 'process_mem_cpu_usage.mem_virt', 'datatype' : 'int', 'index' : false },
           { 'name' : 'process_mem_cpu_usage.cpu_share', 'datatype' : 'double', 'index' : true},
           { 'name' : 'process_mem_cpu_usage.mem_res', 'datatype' : 'int', 'index' : false },
@@ -2004,8 +2001,7 @@ const list<stat_table> _STAT_TABLES  = [
       'stat_attr' : 'process_mem_cpu_usage',
       'obj_table' : BGP_ROUTER_TABLE,
       'attributes': [
-          { 'name' : 'process_mem_cpu_usage.module_id', 'datatype' : 'string', 'index' : true, 'suffixes': ['process_mem_cpu_usage.inst_id']},
-          { 'name' : 'process_mem_cpu_usage.inst_id', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'process_mem_cpu_usage.__key', 'datatype' : 'string', 'index' : true},
           { 'name' : 'process_mem_cpu_usage.mem_virt', 'datatype' : 'int', 'index' : false },
           { 'name' : 'process_mem_cpu_usage.cpu_share', 'datatype' : 'double', 'index' : true},
           { 'name' : 'process_mem_cpu_usage.mem_res', 'datatype' : 'int', 'index' : false },
@@ -2017,8 +2013,7 @@ const list<stat_table> _STAT_TABLES  = [
       'stat_attr' : 'process_mem_cpu_usage',
       'obj_table' : VROUTER_TABLE,
       'attributes': [
-          { 'name' : 'process_mem_cpu_usage.module_id', 'datatype' : 'string', 'index' : true, 'suffixes': ['process_mem_cpu_usage.inst_id']},
-          { 'name' : 'process_mem_cpu_usage.inst_id', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'process_mem_cpu_usage.__key', 'datatype' : 'string', 'index' : true},
           { 'name' : 'process_mem_cpu_usage.mem_virt', 'datatype' : 'int', 'index' : false },
           { 'name' : 'process_mem_cpu_usage.cpu_share', 'datatype' : 'double', 'index' : true},
           { 'name' : 'process_mem_cpu_usage.mem_res', 'datatype' : 'int', 'index' : false },
