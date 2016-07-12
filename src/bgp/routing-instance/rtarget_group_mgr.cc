@@ -21,8 +21,6 @@
 
 using std::pair;
 
-int RTargetGroupMgr::rtfilter_task_id_ = -1;
-
 void VpnRouteState::AddRouteTarget(RTargetGroupMgr *mgr, int part_id,
     BgpRoute *rt, RTargetList::const_iterator it) {
     pair<RTargetList::iterator, bool> result;
@@ -65,11 +63,6 @@ RTargetGroupMgr::RTargetGroupMgr(BgpServer *server) : server_(server),
            TaskScheduler::GetInstance()->GetTaskId("bgp::RTFilter"), 0)),
     rtarget_trigger_lists_(DB::PartitionCount()),
     master_instance_delete_ref_(this, NULL) {
-    if (rtfilter_task_id_ == -1) {
-        TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        rtfilter_task_id_ = scheduler->GetTaskId("bgp::RTFilter");
-    }
-
     for (int i = 0; i < DB::PartitionCount(); i++) {
         rtarget_dep_triggers_.push_back(boost::shared_ptr<TaskTrigger>(new
                TaskTrigger(boost::bind(&RTargetGroupMgr::ProcessRouteTargetList,
