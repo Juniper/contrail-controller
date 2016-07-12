@@ -211,8 +211,8 @@ public:
 
 class ArpDBState : public DBState {
 public:
-    static const uint32_t kMaxRetry = 10;
-    static const uint32_t kTimeout = 1000;
+    static const uint32_t kMaxRetry = 30;
+    static const uint32_t kTimeout = 2000;
     typedef std::map<uint32_t, uint32_t> WaitForTrafficIntfMap;
 
     ArpDBState(ArpVrfState *vrf_state, uint32_t vrf_id,

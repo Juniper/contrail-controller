@@ -557,7 +557,7 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         if (bridging_) {
             flags |= VIF_FLAG_L2_ENABLED;
         }
-        if (vmi_type_ == VmInterface::REMOTE_VM) {
+        if (vmi_type_ == VmInterface::GATEWAY) {
             flags |= VIF_FLAG_NO_ARP_PROXY;
         }
         if (flood_unknown_unicast_) {
