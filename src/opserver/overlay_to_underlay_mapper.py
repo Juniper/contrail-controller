@@ -27,10 +27,12 @@ class OverlayToUnderlayMapperError(Exception):
 class OverlayToUnderlayMapper(object):
 
     def __init__(self, query_json, analytics_api_ip,
-                 analytics_api_port, logger):
+                 analytics_api_port, user, password, logger):
         self.query_json = query_json
         self._analytics_api_ip = analytics_api_ip
         self._analytics_api_port = analytics_api_port
+        self._user = user
+        self._password = password
         self._logger = logger
         if self.query_json is not None:
             self._start_time = self.query_json['start_time']
@@ -233,7 +235,8 @@ class OverlayToUnderlayMapper(object):
         self._logger.debug('Sending query: %s' % (query))
         opserver_url = OpServerUtils.opserver_query_url(self._analytics_api_ip,
                            str(self._analytics_api_port))
-        resp = OpServerUtils.post_url_http(opserver_url, query, True)
+        resp = OpServerUtils.post_url_http(opserver_url, query, self._user,
+            self._password, True)
         try:
             resp = json.loads(resp)
             value = resp['value']

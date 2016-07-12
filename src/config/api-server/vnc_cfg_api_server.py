@@ -1692,10 +1692,10 @@ class VncApiServer(object):
     # end documentation_http_get
 
     def obj_perms_http_get(self):
-        if 'token' not in get_request().query:
+        if 'HTTP_X_USER_TOKEN' not in get_request().environ:
             raise cfgm_common.exceptions.HttpError(
                 400, 'User token needed for validation')
-        user_token = get_request().query.token.encode("ascii")
+        user_token = get_request().environ['HTTP_X_USER_TOKEN'].encode("ascii")
 
         # get permissions in internal context
         try:

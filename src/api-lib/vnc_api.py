@@ -1090,8 +1090,6 @@ class VncApi(object):
     #end virtual_network_subnet_ip_count
 
     def get_auth_token(self):
-        if self._auth_token:
-            return self._auth_token
         self._headers = self._authenticate(headers=self._headers)
         return self._auth_token
 
@@ -1200,14 +1198,16 @@ class VncApi(object):
         validate user token. Optionally, check token authorization for an object.
         rv {'token_info': <token-info>, 'permissions': 'RWX'}
         """
-        query = 'token=%s' % token
-        if obj_uuid:
-            query += '&uuid=%s' % obj_uuid
+        self._headers['X-USER-TOKEN'] = token
+        query = 'uuid=%s' % obj_uuid if obj_uuid else ''
         try:
-            rv = self._request_server(rest.OP_GET, "/obj-perms", data=query)
-            return json.loads(rv)
+            rv_json = self._request_server(rest.OP_GET, "/obj-perms", data=query)
+            rv = json.loads(rv_json)
         except PermissionDenied:
-            return None
+            rv = None
+        finally:
+            del self._headers['X-USER-TOKEN']
+        return rv
 
     # change object ownsership
     def chown(self, obj_uuid, owner):
