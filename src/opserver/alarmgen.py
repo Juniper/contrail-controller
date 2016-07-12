@@ -230,14 +230,17 @@ class AlarmProcessor(object):
             if or_list:
                 self.uve_alarms[alarm_name] = UVEAlarmInfo(type=alarm_name,
                     severity=sev, timestamp=0, token="",
-                    alarm_rules=AlarmRules(or_list), ack=False)
+                    alarm_rules=AlarmRules(or_list),
+                    description=alarm.description(), ack=False)
 	except Exception as ex:
 	    template = "Exception {0} in Alarm Processing. Arguments:\n{1!r}"
 	    messag = template.format(type(ex).__name__, ex.args)
 	    self._logger.error("%s : traceback %s" % \
 			      (messag, traceback.format_exc()))
-            self.uve_alarms[alarm_name] = UVEAlarmInfo(type=alarm_name, severity=sev,
-                                   timestamp=0, token="", rules=[], ack=False)
+            self.uve_alarms[alarm_name] = UVEAlarmInfo(type=alarm_name,
+                    severity=sev, timestamp=0, token="",
+                    alarm_rules=AlarmRules(None),
+                    description=alarm.description(), ack=False)
     # end process_alarms
 
     def _get_uve_attribute(self, tuve, puve, attr_list):
