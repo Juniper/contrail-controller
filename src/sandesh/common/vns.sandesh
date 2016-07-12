@@ -507,3 +507,11 @@ const list<string> ThreadPoolNames = [
 ]
 
 const string CLOUD_ADMIN_ROLE = "cloud-admin"
+
+const string AAA_MODE_NO_AUTH = "no-auth"
+const string AAA_MODE_CLOUD_ADMIN_ONLY = "cloud-admin-only"
+
+const list <string> AnalyticsAPIAAAModes = [
+    AAA_MODE_NO_AUTH,
+    AAA_MODE_CLOUD_ADMIN_ONLY,
+]
