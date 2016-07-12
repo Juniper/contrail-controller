@@ -385,7 +385,7 @@ class EventManager(object):
         return system_mem_cpu_usage_data.get_sys_mem_cpu_info()
 
     def get_all_processes_mem_cpu_usage(self):
-        process_mem_cpu_usage = []
+        process_mem_cpu_usage = {}
         for key in self.process_state_db:
             pstat = self.process_state_db[key]
             if (pstat.process_state == 'PROCESS_STATE_RUNNING'):
@@ -396,9 +396,8 @@ class EventManager(object):
                     sys.stderr.write("NoSuchProcess: process name:%s pid:%d\n"
                                      % (pstat.pname, pstat.pid))
                 else:
-                    process_mem_cpu.module_id = pstat.pname
-                    process_mem_cpu.inst_id = "0"   # ??
-                    process_mem_cpu_usage.append(process_mem_cpu)
+                    process_mem_cpu.__key = pstat.pname
+                    process_mem_cpu_usage[process_mem_cpu.__key] = process_mem_cpu
 
         # walk through all processes being monitored by nodemgr,
         # not spawned by supervisord
@@ -416,13 +415,12 @@ class EventManager(object):
                     sys.stderr.write("NoSuchProcess: process name:%s pid:%d\n"
                                      % (pname, pid))
                 else:
-                    process_mem_cpu.module_id = pname
-                    process_mem_cpu.inst_id = "0"
-                    process_mem_cpu_usage.append(process_mem_cpu)
+                    process_mem_cpu.__key = pname
+                    process_mem_cpu_usage[process_mem_cpu.__key] = process_mem_cpu
         return process_mem_cpu_usage
 
     def get_disk_usage(self):
-        disk_usage_info = []
+        disk_usage_info = {}
         partition = subprocess.Popen(
             "df -T -t ext2 -t ext3 -t ext4 -t xfs",
             shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -436,7 +434,7 @@ class EventManager(object):
             disk_usage_stat = DiskPartitionUsageStats()
             try:
                 disk_usage_stat.partition_type = str(partition_type)
-                disk_usage_stat.partition_name = str(partition_name)
+                disk_usage_stat.__key = str(partition_name)
                 disk_usage_stat.partition_space_used_1k = \
                     int(partition_space_used_1k)
                 disk_usage_stat.partition_space_available_1k = \
@@ -450,7 +448,7 @@ class EventManager(object):
             except ValueError:
                 sys.stderr.write("Failed to get local disk space usage" + "\n")
             else:
-                disk_usage_info.append(disk_usage_stat)
+                disk_usage_info[partition_name] = disk_usage_stat
         return disk_usage_info
     # end get_disk_usage
 
