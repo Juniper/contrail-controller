@@ -139,7 +139,7 @@ class VrouterPortControl(object):
         parser.add_argument("--no_persist", type = bool,
                             help = "Dont't store port information in files",
                             default=False)
-        parser.add_argument("--vif_type", help = "VIF type")
+        parser.add_argument("--vif_type", help = "VIF type", default="Vrouter")
         parser.add_argument("--vhostuser_socket", help = "Path of vhostuser socket file")
 
         self._args = parser.parse_args(remaining_argv)
