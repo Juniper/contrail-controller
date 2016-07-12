@@ -3810,7 +3810,7 @@ void DeleteBgpPeer(Peer *peer) {
     XmppChannelMock *xmpp_channel = NULL;
 
     if (bgp_peer) {
-        channel = bgp_peer->GetBgpXmppPeer();
+        channel = bgp_peer->GetAgentXmppChannel();
         AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel,
                                                             xmps::NOT_READY);
     }

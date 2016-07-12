@@ -2184,7 +2184,7 @@ TEST_F(RouteTest, verify_channel_delete_results_in_path_delete) {
     FillEvpnNextHop(peer, "vrf1", 1000, TunnelType::MplsType());
     client->WaitForIdle();
     //Get Channel and delete it.
-    AgentXmppChannel *ch = peer->GetBgpXmppPeer();
+    AgentXmppChannel *ch = peer->GetAgentXmppChannel();
     XmppChannelMock *xmpp_channel = static_cast<XmppChannelMock *>
         (ch->GetXmppChannel());
     AgentXmppChannel::HandleAgentXmppClientChannelEvent(ch, xmps::NOT_READY);
@@ -2312,7 +2312,7 @@ TEST_F(RouteTest, fip_evpn_route_local) {
     //Add a peer
     BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
     boost::shared_ptr<BgpPeer> bgp_peer =
-        bgp_peer_ptr->GetBgpXmppPeer()->bgp_peer_id_ref();
+        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
     client->WaitForIdle();
 
     //Search our evpn route
@@ -2342,7 +2342,7 @@ TEST_F(RouteTest, fip_evpn_route_local) {
     item.entry.med = 0;
 
 
-    bgp_peer_ptr->GetBgpXmppPeer()->AddEvpnRoute("default-project:vn1:vn1",
+    bgp_peer_ptr->GetAgentXmppChannel()->AddEvpnRoute("default-project:vn1:vn1",
                                                  "00:00:01:01:01:10",
                                                  &item);
     client->WaitForIdle();
