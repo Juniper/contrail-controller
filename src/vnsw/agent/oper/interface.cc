@@ -651,6 +651,8 @@ static string DeviceTypeToString(VmInterface::DeviceType type) {
         return "Tap";
     } else if (type == VmInterface::VM_VLAN_ON_VMI) {
         return "VMI vlan-sub-if";
+    } else if (type == VmInterface::REMOTE_VM_VLAN_ON_VMI) {
+        return "Remote VM";
     }
     return "Invalid";
 }
@@ -666,6 +668,8 @@ static string VmiTypeToString(VmInterface::VmiType type) {
         return "Baremetal";
     } else if (type == VmInterface::GATEWAY) {
         return "Gateway";
+    } else if (type == VmInterface::REMOTE_VM) {
+        return "Remote VM";
     } else if (type == VmInterface::SRIOV) {
         return "Sriov";
     }

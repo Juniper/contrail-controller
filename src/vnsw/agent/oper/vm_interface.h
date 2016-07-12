@@ -77,6 +77,7 @@ public:
                             // VMI is created based on the INSTANCE_MSG
         TOR,                // Baremetal connected to ToR
         LOCAL_DEVICE,       // VMI on a local port. Used in GATEWAY
+        REMOTE_VM_VLAN_ON_VMI, // VMI on a local phy-port with VLAN as classifier
         VM_SRIOV            // VMI on an SRIOV VM
     };
 
@@ -88,6 +89,7 @@ public:
         SERVICE_INSTANCE,
         BAREMETAL,
         GATEWAY,
+        REMOTE_VM,
         SRIOV
     };
 

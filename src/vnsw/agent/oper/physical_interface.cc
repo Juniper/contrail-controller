@@ -78,6 +78,14 @@ bool PhysicalInterface::Delete(const DBRequest *req) {
     return true;
 }
 
+std::string PhysicalInterface::GetPhysicalInterfaceName() const {
+    std::size_t pos = name_.find_last_of(":");
+    if (pos != string::npos) {
+        return name_.substr(pos + 1);
+    }
+    return name_;
+}
+
 void PhysicalInterface::PostAdd() {
     InterfaceNH::CreatePhysicalInterfaceNh(name_, mac_);
 
@@ -86,9 +94,16 @@ void PhysicalInterface::PostAdd() {
         return;
     }
 
-    // Interfaces in VMWARE must be put into promiscous mode
+    std::string interface_name = name_;
+    // Interfaces in VMWARE mode and having remote VMs
+    // must be put into promiscuous mode
     if (subtype_ != VMWARE) {
-        return;
+        if (!table->agent()->remote_vm_vrouter() ||
+            subtype_ == PhysicalInterface::FABRIC) {
+            return;
+        } else {
+            interface_name = GetPhysicalInterfaceName();
+        }
     }
 
     int fd = socket(AF_LOCAL, SOCK_STREAM, 0);
@@ -96,10 +111,10 @@ void PhysicalInterface::PostAdd() {
 
     struct ifreq ifr;
     memset(&ifr, 0, sizeof(ifr));
-    strncpy(ifr.ifr_name, name_.c_str(), IF_NAMESIZE);
+    strncpy(ifr.ifr_name, interface_name.c_str(), IF_NAMESIZE);
     if (ioctl(fd, SIOCGIFFLAGS, (void *)&ifr) < 0) {
         LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
-            "> setting promiscuous flag for interface <" << name_ << ">");
+            "> setting promiscuous flag for interface <" << interface_name << ">");
         close(fd);
         return;
     }
@@ -107,7 +122,7 @@ void PhysicalInterface::PostAdd() {
     ifr.ifr_flags |= IFF_PROMISC;
     if (ioctl(fd, SIOCSIFFLAGS, (void *)&ifr) < 0) {
         LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
-            "> setting promiscuous flag for interface <" << name_ << ">");
+            "> setting promiscuous flag for interface <" << interface_name << ">");
         close(fd);
         return;
     }

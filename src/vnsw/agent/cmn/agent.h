@@ -905,6 +905,8 @@ public:
     void set_tsn_enabled(bool val) {tsn_enabled_ = val;}
     bool tor_agent_enabled() const {return tor_agent_enabled_;}
     void set_tor_agent_enabled(bool val) {tor_agent_enabled_ = val;}
+    bool remote_vm_vrouter() const {return remote_vm_vrouter_;}
+    void set_remote_vm_vrouter(bool val) {remote_vm_vrouter_= val;}
 
     IFMapAgentParser *ifmap_parser() const {return ifmap_parser_;}
     void set_ifmap_parser(IFMapAgentParser *parser) {
@@ -1208,6 +1210,7 @@ private:
     bool simulate_evpn_tor_;
     bool tsn_enabled_;
     bool tor_agent_enabled_;
+    bool remote_vm_vrouter_;
 
     // Flow information
     uint32_t flow_table_size_;
