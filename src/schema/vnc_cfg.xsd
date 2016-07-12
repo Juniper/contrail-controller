@@ -1142,6 +1142,19 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      </xsd:restriction>
 </xsd:simpleType>
 
+<xsd:simpleType name="IpAllocationModeType" default="user-defined-ipam-preferred">
+    <xsd:restriction base='xsd:string'>
+        <xsd:enumeration value="user-defined-ipam-preferred"
+             description='Ip allocation will use user-defined-ipams, if not available or exhausted use flat-ipams'/>
+        <xsd:enumeration value="user-defined-ipam-only"
+             description='Ip allocation will use user-defined-ipams only, if not available or exhausted igonre flat-ipams'/>
+        <xsd:enumeration value="flat-ipam-preferred"
+             description='Ip allocation will use flat-ipams, if not available or exhausted use user-defined-ipams'/>
+        <xsd:enumeration value="flat-ipam-only"
+             description='Ip allocation will use flat-ipams only, if not available or exhausted igonre user-defined-ipams'/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name='VirtualNetworkType'>
     <xsd:all>
         <xsd:element name='allow-transit' type="xsd:boolean" required='optional'
@@ -1286,6 +1299,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     Property('multi-policy-service-chains-enabled', 'virtual-network', 'optional', 'CRUD',
              ['Allow multiple service chains within same two networks based on network policy.',
               'Current limitation is that both networks must reside within cluster, except when right most service is NAT.']) -->
+
+<xsd:element name="ip-alloc-mode" type="IpAllocationModeType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('ip-alloc-mode', 'virtual-network', 'optional', 'CRUD',
+               'Ip address allocation mode for virtual network.') -->
 
 <xsd:complexType name="IpamSubnets">
     <xsd:all>
