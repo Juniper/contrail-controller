@@ -507,4 +507,4 @@ const list<string> ThreadPoolNames = [
     COMPACTIONEXECUTOR,
 ]
 
-const string CLOUD_ADMIN_ROLE = "admin"
+const string CLOUD_ADMIN_ROLE = "cloud-admin"
