@@ -92,7 +92,7 @@ struct ProcessStatus {
  */
 struct DiskPartitionUsageStats {
     1: string                              partition_type
-    2: string                              partition_name
+    2: string                              partition_name       // deprecated
     3: u64                                 partition_space_used_1k
     4: u64                                 partition_space_available_1k
     5: u16                                 percentage_partition_space_used
