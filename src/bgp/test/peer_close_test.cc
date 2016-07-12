@@ -96,7 +96,11 @@ public:
             unregister_ribin_called_(false), died_(false),
             table_(new InetTable(&db_, "inet.0")) {
     }
-    ~PeerCloseManagerTest() { }
+
+    ~PeerCloseManagerTest() {
+        stale_timer_->Cancel();
+    }
+
     Timer *stale_timer() const { return stale_timer_; }
     virtual bool CanUseMembershipManager() const {
         return can_use_membership_manager_;
@@ -691,6 +695,9 @@ public:
     }
 
     virtual void TearDown() {
+        task_util::WaitForIdle();
+        close_manager_.reset();
+        task_util::WaitForIdle();
         evm_.Shutdown();
         thread_.Join();
         task_util::WaitForIdle();
