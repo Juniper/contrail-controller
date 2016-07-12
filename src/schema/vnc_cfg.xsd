@@ -1142,6 +1142,19 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      </xsd:restriction>
 </xsd:simpleType>
 
+<xsd:simpleType name="IpAllocationModeType" default="user-defined-ipam-preferred">
+    <xsd:restriction base='xsd:string' required='optional' operations='CRUD'> 
+        <xsd:enumeration value="user-defined-ipam-preferred"
+             description='Ip allocation will use user-defined-ipams, if not available or exhausted use flat-ipams'/>
+        <xsd:enumeration value="user-defined-ipam-only"
+             description='Ip allocation will use user-defined-ipams only, if not available or exhausted igonre flat-ipams'/>
+        <xsd:enumeration value="flat-ipam-preferred"
+             description='Ip allocation will use flat-ipams, if not available or exhausted use user-defined-ipams'/>
+        <xsd:enumeration value="flat-ipam-only"
+             description='Ip allocation will use flat-ipams only, if not available or exhausted igonre user-defined-ipams'/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name='VirtualNetworkType'>
     <xsd:all>
         <xsd:element name='allow-transit' type="xsd:boolean" required='optional'
@@ -1161,6 +1174,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <!-- Enable or disable unicast RPF for virtual-network -->
         <xsd:element name='rpf' type='RpfModeType' required='optional'
              description='Flag used to diable Reverse Path Forwarding(RPF) check for this network'/>
+        <!-- Ip address allocation mode for virtual-network  -->
+        <xsd:element name='ip-alloc-mode' type='IpAllocationModeType' required='optional'
+             description='Ip address allocation mode for this virtual network'/>
     </xsd:all>
 </xsd:complexType>
 
