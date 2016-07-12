@@ -262,6 +262,7 @@ class VirtualNetworkST(DictST):
         self._route_target = 0
         self.route_table_refs = set()
         self.route_table = {}
+        self.ip_routes = {}
         self.service_chains = {}
         prop = self.obj.get_virtual_network_properties(
         ) or VirtualNetworkType()
@@ -299,8 +300,37 @@ class VirtualNetworkST(DictST):
         for policy in NetworkPolicyST.values():
             if policy.internal and name in policy.network_back_ref:
                 self.add_policy(policy.name)
+        self.init_static_ip_routes()
         self.uve_send()
     # end __init__
+
+    def init_static_ip_routes(self):
+        primary_ri = self.get_primary_routing_instance()
+        if primary_ri is None:
+            return
+        static_route_entries = primary_ri.obj.get_static_route_entries(
+            ) or StaticRouteEntriesType()
+        for sr in static_route_entries.get_route() or []:
+            self.ip_routes[sr.prefix] = sr.next_hop
+    #end init_static_ip_routes
+
+    def update_static_ip_routes(self, new_ip_routes):
+        primary_ri = self.get_primary_routing_instance()
+        if primary_ri is None:
+            return
+
+        if self.ip_routes == new_ip_routes:
+            return
+
+        static_route_entries = StaticRouteEntriesType()
+        for prefix, next_hop_ip in new_ip_routes.items():
+            static_route = StaticRouteType(prefix=prefix, next_hop=next_hop_ip)
+            static_route_entries.add_route(static_route)
+
+        primary_ri.obj.set_static_route_entries(static_route_entries)
+        _vnc_lib.routing_instance_update(primary_ri.obj)
+        self.ip_routes = new_ip_routes
+    # end update_static_ip_routes
 
     @staticmethod
     def _get_service_id_from_ri(ri_name):
@@ -909,6 +939,7 @@ class VirtualNetworkST(DictST):
 
     def update_route_table(self):
         stale = {}
+        new_ip_map = {}
         for prefix in self.route_table:
             stale[prefix] = True
         for rt_name in self.route_table_refs:
@@ -922,11 +953,15 @@ class VirtualNetworkST(DictST):
                         continue
                     self.delete_route(route.prefix)
                 # end if route.prefix
-                self.add_route(route.prefix, route.next_hop)
+                if route.next_hop_type == "ip-address":
+                    new_ip_map[route.prefix] = route.next_hop
+                else:
+                    self.add_route(route.prefix, route.next_hop)
             # end for route
         # end for route_table
         for prefix in stale:
             self.delete_route(prefix)
+        #self.update_static_ip_routes(new_ip_map)
     # end update_route_table
 
     def uve_send(self, deleted=False):
