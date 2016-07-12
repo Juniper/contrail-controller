@@ -1038,8 +1038,6 @@ class VncApi(object):
     #end virtual_network_subnet_ip_count
 
     def get_auth_token(self):
-        if self._auth_token:
-            return self._auth_token
         self._headers = self._authenticate(headers=self._headers)
         return self._auth_token
 
