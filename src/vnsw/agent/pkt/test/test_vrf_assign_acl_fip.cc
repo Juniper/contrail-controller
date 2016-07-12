@@ -59,7 +59,8 @@ protected:
         agent_->fabric_inet4_unicast_table()->AddLocalVmRouteReq(vm_intf->peer(),
                 std::string("__internal__"), fip_src_ip, 32, vm_intf->GetUuid(), 
                 vn_list, vm_intf->label(), SecurityGroupList(), CommunityList(), 
-                false, PathPreference(), Ip4Address(0), EcmpLoadBalance());
+                false, PathPreference(), Ip4Address(0), EcmpLoadBalance(),
+                false);
         client->WaitForIdle();
 
         Inet4TunnelRouteAdd(bgp_peer_, "__internal__",

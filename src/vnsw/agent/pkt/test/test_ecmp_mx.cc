@@ -241,7 +241,8 @@ TEST_F(EcmpTest, EcmpTest_5) {
         AddLocalVmRouteReq(agent_->local_peer(),
                 "vrf2", ip, 32, MakeUuid(1), vn_list,
                 vm1_label, SecurityGroupList(), CommunityList(),
-                false, PathPreference(), Ip4Address(0), EcmpLoadBalance());
+                false, PathPreference(), Ip4Address(0), EcmpLoadBalance(),
+                false);
     client->WaitForIdle();
 
     AddVrfAssignNetworkAcl("Acl", 10, "vn1", "vn2", "pass", "vrf2");

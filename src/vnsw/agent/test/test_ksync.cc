@@ -58,7 +58,7 @@ public:
         agent_->fabric_inet4_unicast_table()->AddLocalVmRouteReq
             (peer_, vmi_->vrf()->GetName(), ip, 32, MakeUuid(1),
              vn_list, 10, SecurityGroupList(), CommunityList(),
-             false, PathPreference(), Ip4Address(0), EcmpLoadBalance());
+             false, PathPreference(), Ip4Address(0), EcmpLoadBalance(), false);
         client->WaitForIdle();
     }
 

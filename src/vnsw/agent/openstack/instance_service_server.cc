@@ -429,7 +429,7 @@ InstanceServiceAsyncHandler::AddLocalVmRoute(const std::string& ip_address,
                            vn_list, mpls_label, SecurityGroupList(),
                            CommunityList(),
                            false, PathPreference(), Ip4Address(0),
-                           ecmp_load_balance);
+                           ecmp_load_balance, false);
     return true;
 }
 
