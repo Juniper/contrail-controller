@@ -205,6 +205,8 @@ void Options::Initialize(EventManager &evm,
                     "tenant"), "Keystone tenant")
         ("KEYSTONE.insecure", opt::bool_switch(&ks_insecure_),
                     "keystone using tls")
+        ("KEYSTONE.auth_url", opt::value<string>()->default_value("a.com"),
+                    "keystone auth url")
         ("KEYSTONE.memcache_servers", opt::value<string>()->default_value(
                     "127.0.0.1:11211"), "memcache servers")
         ("KEYSTONE.certfile", opt::value<string>()->default_value(
@@ -381,6 +383,7 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<string>(var_map, ks_user_, "KEYSTONE.admin_user");
     GetOptValue<string>(var_map, ks_password_, "KEYSTONE.admin_password");
     GetOptValue<string>(var_map, ks_tenant_, "KEYSTONE.admin_tenant_name");
+    GetOptValue<string>(var_map, ks_authurl_, "KEYSTONE.auth_url");
     GetOptValue<string>(var_map, memcache_servers_, "KEYSTONE.memcache_servers");
     GetOptValue<string>(var_map, ks_cert_, "KEYSTONE.certfile");
     GetOptValue<string>(var_map, ks_key_, "KEYSTONE.keyfile");
