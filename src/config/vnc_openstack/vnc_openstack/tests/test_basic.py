@@ -264,9 +264,6 @@ class TestBasic(test_case.NeutronBackendTestCase):
                          vnc_api.SubnetType('1.1.1.0', 24))]))
         self._vnc_lib.virtual_network_create(vn_obj)
 
-        sg_obj = vnc_api.SecurityGroup('default')
-        self._vnc_lib.security_group_create(sg_obj)
-
         proj_uuid = self._vnc_lib.fq_name_to_id('project',
             fq_name=['default-domain', 'default-project'])
 

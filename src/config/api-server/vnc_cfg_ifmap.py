@@ -1562,8 +1562,9 @@ class VncDbClient(object):
         updated = False
         for ipam in vn_dict.get('network_ipam_refs', []):
             subnets = ipam['attr']['ipam_subnets']
-            for subnet in [subnet for subnet in subnets
-                           if 'subnet_uuid' not in subnet]:
+            for subnet in subnets:
+                if subnet.get('subnet_uuid'):
+                    continue
                 subnet['subnet_uuid'] = _locate_subnet_uuid(subnet)
                 updated = True
 
