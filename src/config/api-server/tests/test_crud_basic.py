@@ -40,6 +40,7 @@ from vnc_api.gen.resource_test import *
 import cfgm_common
 from cfgm_common import vnc_plugin_base
 from cfgm_common import imid
+from cfgm_common import SGID_MIN_ALLOC
 
 sys.path.append('../common/tests')
 from test_utils import *
@@ -1990,17 +1991,177 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         vn_id = vn_obj.virtual_network_network_id
         delete_vn_invoked = []
         def dont_deallocate_vn_id_on_deletion(orig_method, *args, **kwargs):
-            if args[0] == vn_obj.get_fq_name_str() and not delete_vn_invoked:
+            if args[0] == vn_id and not delete_vn_invoked:
                 delete_vn_invoked.append(True)
                 return
             return orig_method(*args, **kwargs)
 
-        with test_common.patch(mock_zk, 'alloc_vn_id',
+        with test_common.patch(mock_zk, 'free_vn_id',
                                dont_deallocate_vn_id_on_deletion):
             self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
             gevent.sleep(0.1)
 
         self.assertIsNone(mock_zk.get_vn_from_id(vn_id))
+
+    def test_allocate_sg_id(self):
+        mock_zk = self._api_server._db_conn._zk_db
+        sg_obj = SecurityGroup('%s-sg' % self.id())
+
+        self._vnc_lib.security_group_create(sg_obj)
+
+        sg_obj = self._vnc_lib.security_group_read(id=sg_obj.uuid)
+        sg_id = sg_obj.security_group_id
+        self.assertEqual(sg_obj.get_fq_name_str(),
+                         mock_zk.get_sg_from_id(sg_id - SGID_MIN_ALLOC))
+
+    def test_deallocate_sg_id(self):
+        mock_zk = self._api_server._db_conn._zk_db
+        sg_obj = SecurityGroup('%s-sg' % self.id())
+        self._vnc_lib.security_group_create(sg_obj)
+        sg_obj = self._vnc_lib.security_group_read(id=sg_obj.uuid)
+        sg_id = sg_obj.security_group_id
+
+        self._vnc_lib.security_group_delete(id=sg_obj.uuid)
+
+        self.assertIsNone(
+            mock_zk.get_sg_from_id(sg_id - SGID_MIN_ALLOC))
+
+    def test_cannot_update_sg_id(self):
+        sg_obj = SecurityGroup('%s-sg' % self.id())
+        self._vnc_lib.security_group_create(sg_obj)
+        sg_obj = self._vnc_lib.security_group_read(id=sg_obj.uuid)
+
+        sg_obj.set_security_group_id(42)
+        with ExpectedException(PermissionDenied):
+            self._vnc_lib.security_group_update(sg_obj)
+
+    def test_allocate_sg_id_on_create_notification(self):
+        mock_res_class =\
+            self._api_server.get_resource_class('security_group')
+        mock_zk = self._api_server._db_conn._zk_db
+        sg_obj = SecurityGroup('%s-sg' % self.id())
+
+        with test_common.flexmocks([(mock_res_class,
+                                   '_set_configured_security_group_id',
+                                   lambda x: (None, None))]):
+            self._vnc_lib.security_group_create(sg_obj)
+        gevent.sleep(0.1)
+
+        sg_obj = self._vnc_lib.security_group_read(id=sg_obj.uuid)
+        sg_id = sg_obj.security_group_id
+        self.assertEqual(sg_obj.get_fq_name_str(),
+                         mock_zk.get_sg_from_id(sg_id - SGID_MIN_ALLOC))
+
+    def test_deallocate_sg_id_on_delete_notification(self):
+        mock_zk = self._api_server._db_conn._zk_db
+        sg_obj = SecurityGroup('%s-sg' % self.id())
+        self._vnc_lib.security_group_create(sg_obj)
+        sg_obj = self._vnc_lib.security_group_read(id=sg_obj.uuid)
+        sg_id = sg_obj.security_group_id
+
+        with test_common.flexmocks([(mock_zk, 'free_sg_id',
+                                     lambda x: None)]):
+            self._vnc_lib.security_group_delete(id=sg_obj.uuid)
+        gevent.sleep(0.1)
+
+        self.assertIsNone(
+            mock_zk.get_sg_from_id(sg_id - SGID_MIN_ALLOC))
+
+    def test_create_sg_with_configured_id(self):
+        mock_zk = self._api_server._db_conn._zk_db
+        sg_obj = SecurityGroup('%s-sg' % self.id())
+        sg_obj.set_configured_security_group_id(42)
+
+        self._vnc_lib.security_group_create(sg_obj)
+
+        sg_obj = self._vnc_lib.security_group_read(id=sg_obj.uuid)
+        sg_id = sg_obj.security_group_id
+        configured_sg_id = sg_obj.configured_security_group_id
+        self.assertEqual(sg_id, 42)
+        self.assertEqual(configured_sg_id, 42)
+        self.assertIsNone(mock_zk.get_sg_from_id(sg_id))
+
+    def test_update_sg_with_configured_id(self):
+        mock_zk = self._api_server._db_conn._zk_db
+        sg_obj = SecurityGroup('%s-sg' % self.id())
+
+        self._vnc_lib.security_group_create(sg_obj)
+
+        sg_obj = self._vnc_lib.security_group_read(id=sg_obj.uuid)
+        allocated_sg_id = sg_obj.security_group_id
+        configured_sg_id = sg_obj.configured_security_group_id
+        self.assertEqual(
+            sg_obj.get_fq_name_str(),
+            mock_zk.get_sg_from_id(allocated_sg_id - SGID_MIN_ALLOC))
+        self.assertIsNone(configured_sg_id)
+
+        sg_obj.set_configured_security_group_id(42)
+        self._vnc_lib.security_group_update(sg_obj)
+
+        sg_obj = self._vnc_lib.security_group_read(id=sg_obj.uuid)
+        sg_id = sg_obj.security_group_id
+        configured_sg_id = sg_obj.configured_security_group_id
+        self.assertEqual(sg_id, 42)
+        self.assertEqual(configured_sg_id, 42)
+        self.assertIsNone(
+            mock_zk.get_sg_from_id(allocated_sg_id - SGID_MIN_ALLOC))
+
+        sg_obj.set_configured_security_group_id(0)
+        self._vnc_lib.security_group_update(sg_obj)
+
+        sg_obj = self._vnc_lib.security_group_read(id=sg_obj.uuid)
+        allocated_sg_id = sg_obj.security_group_id
+        configured_sg_id = sg_obj.configured_security_group_id
+        self.assertEqual(
+            sg_obj.get_fq_name_str(),
+            mock_zk.get_sg_from_id(allocated_sg_id - SGID_MIN_ALLOC))
+        self.assertEqual(configured_sg_id, 0)
+
+    def test_update_sg_with_configured_id_on_update_notification(self):
+        mock_res_class =\
+            self._api_server.get_resource_class('security_group')
+        mock_zk = self._api_server._db_conn._zk_db
+        sg_obj = SecurityGroup('%s-sg' % self.id())
+
+        self._vnc_lib.security_group_create(sg_obj)
+
+        sg_obj = self._vnc_lib.security_group_read(id=sg_obj.uuid)
+        allocated_sg_id = sg_obj.security_group_id
+        configured_sg_id = sg_obj.configured_security_group_id
+        self.assertEqual(
+            sg_obj.get_fq_name_str(),
+            mock_zk.get_sg_from_id(allocated_sg_id - SGID_MIN_ALLOC))
+        self.assertIsNone(configured_sg_id)
+
+        sg_obj.set_configured_security_group_id(42)
+        with test_common.flexmocks([(mock_res_class,
+                                   '_set_configured_security_group_id',
+                                   lambda x: (None, None))]):
+            self._vnc_lib.security_group_update(sg_obj)
+        gevent.sleep(0.1)
+
+        sg_obj = self._vnc_lib.security_group_read(id=sg_obj.uuid)
+        sg_id = sg_obj.security_group_id
+        configured_sg_id = sg_obj.configured_security_group_id
+        self.assertEqual(sg_id, 42)
+        self.assertEqual(configured_sg_id, 42)
+        self.assertIsNone(
+            mock_zk.get_sg_from_id(allocated_sg_id - SGID_MIN_ALLOC))
+
+        sg_obj.set_configured_security_group_id(0)
+        with test_common.flexmocks([(mock_res_class,
+                                   '_set_configured_security_group_id',
+                                   lambda x: (None, None))]):
+            self._vnc_lib.security_group_update(sg_obj)
+        gevent.sleep(0.1)
+
+        sg_obj = self._vnc_lib.security_group_read(id=sg_obj.uuid)
+        allocated_sg_id = sg_obj.security_group_id
+        configured_sg_id = sg_obj.configured_security_group_id
+        self.assertEqual(
+            sg_obj.get_fq_name_str(),
+            mock_zk.get_sg_from_id(allocated_sg_id - SGID_MIN_ALLOC))
+        self.assertEqual(configured_sg_id, 0)
 # end class TestVncCfgApiServer
 
 

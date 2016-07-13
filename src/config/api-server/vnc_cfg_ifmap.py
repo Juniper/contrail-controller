@@ -1157,7 +1157,7 @@ class VncServerKombuClient(VncKombuClient):
         try:
             r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
             if r_class:
-                r_class.dbe_update_notification(obj_info)
+                r_class.dbe_update_notification(obj_info, new_obj_dict)
         except:
             msg = "Failed to invoke type specific dbe_update_notification"
             self.config_log(msg, level=SandeshLevel.SYS_ERR)
@@ -1212,6 +1212,9 @@ class VncZkClient(object):
     _VN_ID_ALLOC_PATH = "/id/virtual-networks/"
     _VN_MAX_ID = 1 << 24
 
+    _SG_ID_ALLOC_PATH = "/id/security-groups/id/"
+    _SG_MAX_ID = 1 << 32
+
     def __init__(self, instance_id, zk_server_ip, reset_config, db_prefix,
                  sandesh_hdl):
         self._db_prefix = db_prefix
@@ -1226,6 +1229,7 @@ class VncZkClient(object):
         self._subnet_path = zk_path_pfx + self._SUBNET_PATH
         self._fq_name_to_uuid_path = zk_path_pfx + self._FQ_NAME_TO_UUID_PATH
         _vn_id_alloc_path = zk_path_pfx + self._VN_ID_ALLOC_PATH
+        _sg_id_alloc_path = zk_path_pfx + self._SG_ID_ALLOC_PATH
         self._zk_path_pfx = zk_path_pfx
 
         self._sandesh = sandesh_hdl
@@ -1244,6 +1248,7 @@ class VncZkClient(object):
             self._zk_client.delete_node(self._subnet_path, True)
             self._zk_client.delete_node(self._fq_name_to_uuid_path, True)
             self._zk_client.delete_node(_vn_id_alloc_path, True)
+            self._zk_client.delete_node(_vn_id_alloc_path, True)
 
         self._subnet_allocators = {}
 
@@ -1251,6 +1256,16 @@ class VncZkClient(object):
         self._vn_id_allocator = IndexAllocator(self._zk_client,
                                                _vn_id_alloc_path,
                                                self._VN_MAX_ID)
+
+        # Initialize the security group ID allocator
+        self._sg_id_allocator = IndexAllocator(self._zk_client,
+                                               _sg_id_alloc_path,
+                                               self._SG_MAX_ID)
+        # 0 is not a valid sg id any more. So, if it was previously allocated,
+        # delete it and reserve it
+        if self._sg_id_allocator.read(0) != '__reserved__':
+            self._sg_id_allocator.delete(0)
+        self._sg_id_allocator.reserve(0, '__reserved__')
     # end __init__
 
     def master_election(self, func, *args):
@@ -1372,6 +1387,18 @@ class VncZkClient(object):
     def get_vn_from_id(self, vn_id):
         if vn_id is not None:
             return self._vn_id_allocator.read(vn_id)
+
+    def alloc_sg_id(self, name):
+        if name is not None:
+            return self._sg_id_allocator.alloc(name)
+
+    def free_sg_id(self, sg_id):
+        if sg_id is not None:
+            self._sg_id_allocator.delete(sg_id)
+
+    def get_sg_from_id(self, sg_id):
+        if sg_id is not None:
+            return self._sg_id_allocator.read(sg_id)
 # end VncZkClient
 
 
