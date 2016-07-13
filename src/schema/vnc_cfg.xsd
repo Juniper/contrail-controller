@@ -2611,6 +2611,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('project-api-access-list',
                'project', 'api-access-list', ['has'], 'optional', 'CRUD',
                'API access list is list of rules that define role based access to each API and its properties at project level.') -->
+<xsd:element name="global-system-config-api-access-list"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('global-system-config-api-access-list',
+             'global-system-config', 'api-access-list', ['has'], 'required', 'CRUD',
+             'Global API access list applicable to all domain and projects') -->
 
 <!-- network.* => admin:CRUD (admin can perform all ops on networks) -->
 <xsd:element name="api-access-list-entries" type="RbacRuleEntriesType"/>

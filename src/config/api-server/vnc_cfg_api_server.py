@@ -2741,12 +2741,12 @@ class VncApiServer(object):
     # generate default rbac group rule
     def _create_default_rbac_rule(self):
         obj_type = 'api_access_list'
-        fq_name = ['default-domain', 'default-api-access-list']
+        fq_name = ['default-global-system-config', 'default-api-access-list']
         try:
             id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
             return
         except NoIdError:
-            self._create_singleton_entry(ApiAccessList(parent_type='domain', fq_name=fq_name))
+            self._create_singleton_entry(ApiAccessList(parent_type='global-system-config', fq_name=fq_name))
             id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
 
         (ok, obj_dict) = self._db_conn.dbe_read(obj_type, {'uuid': id})
