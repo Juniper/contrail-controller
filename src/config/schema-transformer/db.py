@@ -27,9 +27,6 @@ class SchemaTransformerDB(VncCassandraClient):
     _BGP_RTGT_MAX_ID = 1 << 24
     _BGP_RTGT_ALLOC_PATH = "/id/bgp/route-targets/"
 
-    _SECURITY_GROUP_MAX_ID = 1 << 32
-    _SECURITY_GROUP_ID_ALLOC_PATH = "/id/security-groups/id/"
-
     _SERVICE_CHAIN_MAX_VLAN = 4093
     _SERVICE_CHAIN_VLAN_ALLOC_PATH = "/id/service-chain/vlan/"
 
@@ -80,17 +77,13 @@ class SchemaTransformerDB(VncCassandraClient):
 
         # reset zookeeper config
         if self._args.reset_config:
-            zkclient.delete_node(self._zk_path_pfx + "/id", True)
-
-        self._sg_id_allocator = IndexAllocator(
-            zkclient, self._zk_path_pfx+self._SECURITY_GROUP_ID_ALLOC_PATH,
-            self._SECURITY_GROUP_MAX_ID)
-
-        # 0 is not a valid sg id any more. So, if it was previously allocated,
-        # delete it and reserve it
-        if self._sg_id_allocator.read(0) != '__reserved__':
-            self._sg_id_allocator.delete(0)
-        self._sg_id_allocator.reserve(0, '__reserved__')
+            zkclient.delete_node(
+                self._zk_path_pfx + self._BGP_RTGT_ALLOC_PATH, True)
+            zkclient.delete_node(
+                 self._zk_path_pfx + self._BGPAAS_PORT_ALLOC_PATH, True)
+            zkclient.delete_node(
+                self._zk_path_pfx + self._SERVICE_CHAIN_VLAN_ALLOC_PATH,
+                True)
 
         self._rt_allocator = IndexAllocator(
             zkclient, self._zk_path_pfx+self._BGP_RTGT_ALLOC_PATH,
@@ -254,15 +247,6 @@ class SchemaTransformerDB(VncCassandraClient):
             self._service_chain_uuid_cf.remove(name)
         except NotFoundException:
             pass
-
-    def get_sg_from_id(self, sg_id):
-        return self._sg_id_allocator.read(sg_id)
-
-    def alloc_sg_id(self, name):
-        return self._sg_id_allocator.alloc(name)
-
-    def free_sg_id(self, sg_id):
-        self._sg_id_allocator.delete(sg_id)
 
     def get_bgpaas_port(self, port):
         return self._bgpaas_allocator.read(port)

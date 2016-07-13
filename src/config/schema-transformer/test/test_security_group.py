@@ -387,7 +387,7 @@ class TestSecurityGroup(STTestCase, VerifySecurityGroup):
         # -ve security group id not allowed, should not get modified
         sg1_obj.set_configured_security_group_id(-100)
         self._vnc_lib.security_group_update(sg1_obj)
-        self.check_security_group_id(sg1_obj.get_fq_name(), -100)
+        self.check_security_group_id(sg1_obj.get_fq_name(), 8000001)
 
         self._vnc_lib.security_group_delete(id=sg1_obj.uuid)
         self._vnc_lib.security_group_delete(id=sg2_obj.uuid)

@@ -1558,8 +1558,6 @@ class SecurityGroupST(DBBaseST):
     def update(self, obj=None):
         self.obj = obj or self.read_vnc_obj(uuid=self.uuid)
         self.rule_entries = self.obj.get_security_group_entries()
-        config_id = self.obj.get_configured_security_group_id() or 0
-        self.set_configured_security_group_id(config_id)
         self.process_referred_sgs()
     # end update
 
@@ -1597,50 +1595,11 @@ class SecurityGroupST(DBBaseST):
         self.referred_sgs = sg_refer_set
     # end process_referred_sgs
 
-    def set_configured_security_group_id(self, config_id):
-        if self.config_sgid == config_id:
-            return
-        self.config_sgid = config_id
-        sg_id = self.obj.get_security_group_id()
-        if sg_id is not None:
-            sg_id = int(sg_id)
-        if config_id:
-            if sg_id is not None:
-                if sg_id > SGID_MIN_ALLOC:
-                    self._cassandra.free_sg_id(sg_id - SGID_MIN_ALLOC)
-                else:
-                    if self.name == self._cassandra.get_sg_from_id(sg_id):
-                        self._cassandra.free_sg_id(sg_id)
-            self.obj.set_security_group_id(str(config_id))
-        else:
-            do_alloc = False
-            if sg_id is not None:
-                if sg_id < SGID_MIN_ALLOC:
-                    if self.name == self._cassandra.get_sg_from_id(sg_id):
-                        self.obj.set_security_group_id(sg_id + SGID_MIN_ALLOC)
-                    else:
-                        do_alloc = True
-            else:
-                do_alloc = True
-            if do_alloc:
-                sg_id_num = self._cassandra.alloc_sg_id(self.name)
-                self.obj.set_security_group_id(sg_id_num + SGID_MIN_ALLOC)
-        if sg_id != int(self.obj.get_security_group_id()):
-            self._vnc_lib.security_group_update(self.obj)
-        self.sg_id = self.obj.get_security_group_id()
-    # end set_configured_security_group_id
-
     def delete_obj(self):
         if self.ingress_acl:
             self._vnc_lib.access_control_list_delete(id=self.ingress_acl.uuid)
         if self.egress_acl:
             self._vnc_lib.access_control_list_delete(id=self.egress_acl.uuid)
-        sg_id = self.obj.get_security_group_id()
-        if sg_id is not None and not self.config_sgid:
-            if sg_id < SGID_MIN_ALLOC:
-                self._cassandra.free_sg_id(sg_id)
-            else:
-                self._cassandra.free_sg_id(sg_id-SGID_MIN_ALLOC)
         self.rule_entries = None
         self.process_referred_sgs()
     # end delete_obj
