@@ -1775,8 +1775,6 @@ class Controller(object):
                     idx += 1
                 if partno in self._uveq:
                     status = True 
-                    if partno == 0:
-                        self._config_handler.set_config_ownership()
                 else:
                     # TODO: The partition has not started yet,
                     #       but it still might start later.
@@ -1811,8 +1809,6 @@ class Controller(object):
                     idx += 1
                 if partno not in self._uveq:
                     status = True 
-                    if partno == 0:
-                        self._config_handler.release_config_ownership()
                 else:
                     # TODO: The partition has not stopped yet
                     #       but it still might stop later.
