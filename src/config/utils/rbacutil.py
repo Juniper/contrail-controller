@@ -150,7 +150,7 @@ class VncRbac():
         # domain:default-project:default-virtual-network
 
         defaults = {
-            'name': 'default-domain:default-api-access-list'
+            'name': 'default-global-system-config:default-api-access-list'
         }
 
         parser = argparse.ArgumentParser(
@@ -165,7 +165,7 @@ class VncRbac():
             '--op', choices = valid_ops, help="Operation to perform")
         parser.add_argument(
             '--name', help="colon seperated fully qualified name",
-            default='default-domain:default-api-access-list')
+            default='default-global-system-config:default-api-access-list')
         parser.add_argument('--uuid', help="object UUID")
         parser.add_argument('--user',  help="User Name")
         parser.add_argument('--role',  help="Role Name")
