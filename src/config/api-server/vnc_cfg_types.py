@@ -996,13 +996,23 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         if not ok:
             return (ok, response)
 
-        # Allocate virtual network ID
-        vn_id = cls.vnc_zk_client.alloc_vn_id(':'.join(obj_dict['fq_name']))
-        def undo_vn_id():
-            cls.vnc_zk_client.free_vn_id(vn_id)
-            return True, ""
-        get_context().push_undo(undo_vn_id)
-        obj_dict['virtual_network_network_id'] = vn_id
+        # TODO(ethuleau): As we keep the virtual network ID allocation in
+        #                 schema and in the vnc API for one release overlap to
+        #                 prevent any upgrade issue, we still authorize to
+        #                 set or update the virtual network ID until release
+        #                 (3.2 + 1)
+        # # Does not authorize to set the virtual network ID as it's allocated
+        # # by the vnc server
+        # if obj_dict.get('virtual_network_network_id') is not None:
+        #     return (False, (403, "Cannot set the virtual network ID"))
+        if obj_dict.get('virtual_network_network_id') is None:
+            # Allocate virtual network ID
+            vn_id = cls.vnc_zk_client.alloc_vn_id(':'.join(obj_dict['fq_name']))
+            def undo_vn_id():
+                cls.vnc_zk_client.free_vn_id(vn_id)
+                return True, ""
+            get_context().push_undo(undo_vn_id)
+            obj_dict['virtual_network_network_id'] = vn_id
 
         db_conn.update_subnet_uuid(obj_dict)
 
@@ -1065,9 +1075,15 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         if not ok:
             return (False, (409, error))
 
-        new_vn_id = obj_dict.get('virtual_network_network_id')
-
-        if 'network_ipam_refs' not in obj_dict and new_vn_id is None:
+        # TODO(ethuleau): As we keep the virtual network ID allocation in
+        #                 schema and in the vnc API for one release overlap to
+        #                 prevent any upgrade issue, we still authorize to
+        #                 set or update the virtual network ID until release
+        #                 (3.2 + 1)
+        # new_vn_id = obj_dict.get('virtual_network_network_id')
+        #
+        # if 'network_ipam_refs' not in obj_dict and new_vn_id is None:
+        if 'network_ipam_refs' not in obj_dict:
             # NOP for addr-mgmt module
             return True,  ""
 
@@ -1077,11 +1093,17 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         if not ok:
             return ok, read_result
 
-        # Does not authorize to update the virtual network ID as it's allocated
-        # by the vnc server
-        if (new_vn_id and
-                new_vn_id != read_result.get('virtual_network_network_id')):
-            return (False, (403, "Cannot update the virtual network ID"))
+        # TODO(ethuleau): As we keep the virtual network ID allocation in
+        #                 schema and in the vnc API for one release overlap to
+        #                 prevent any upgrade issue, we still authorize to
+        #                 set or update the virtual network ID until release
+        #                 (3.2 + 1)
+        # new_vn_id = obj_dict.get('virtual_network_network_id')
+        # # Does not authorize to update the virtual network ID as it's allocated
+        # # by the vnc server
+        # if (new_vn_id is not None and
+        #         new_vn_id != read_result.get('virtual_network_network_id')):
+        #     return (False, (403, "Cannot update the virtual network ID"))
 
         (ok, response) = cls._is_multi_policy_service_chain_supported(obj_dict,
                                                                       read_result)
@@ -1210,41 +1232,17 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
     @classmethod
     def dbe_create_notification(cls, obj_ids, obj_dict):
-        # Allocate virtual network ID if not already set
-        # TODO(ethuleau): That check is just there for the upgrade from
-        #                 version where vni was allocated by the schema to the
-        #                 version where vni is allocated by the vnc api
-        #                 (so from 3.0 to 3.1, we can remove that in 3.2)
-        #                 Remove also unit test:
-        #                 - test_allocate_vn_id_on_create_notification
-        if obj_dict.get('virtual_network_network_id') is None:
-            vn_id = cls.vnc_zk_client.alloc_vn_id(':'.join(obj_dict['fq_name']))
-            db_conn = cls.server.get_db_connection()
-            db_conn.dbe_update('virtual_network',
-                               {'uuid': obj_dict['uuid']},
-                               {'virtual_network_network_id': vn_id})
-
         cls.addr_mgmt.net_create_notify(obj_ids, obj_dict)
     # end dbe_create_notification
 
     @classmethod
-    def dbe_update_notification(cls, obj_ids):
+    def dbe_update_notification(cls, obj_ids, new_obj_dict):
         cls.addr_mgmt.net_update_notify(obj_ids)
     # end dbe_update_notification
 
     @classmethod
     def dbe_delete_notification(cls, obj_ids, obj_dict):
         cls.addr_mgmt.net_delete_notify(obj_ids, obj_dict)
-
-        # Deallocate virtual network ID if it's still there
-        # TODO(ethuleau): That check is just there for the upgrade from
-        #                 version where vni was allocated by the schema to the
-        #                 version where vni is allocated by the vnc api
-        #                 (so from 3.0 to 3.1, we can remove that in 3.2)
-        #                 Remove also unit test:
-        #                 - test_deallocate_vn_id_on_delete_notification
-        cls.vnc_zk_client.free_vn_id(
-            obj_dict.get('virtual_network_network_id'))
     # end dbe_delete_notification
 
 # end class VirtualNetworkServer
@@ -1598,6 +1596,36 @@ class SecurityGroupServer(Resource, SecurityGroup):
     generate_default_instance = False
 
     @classmethod
+    def _set_configured_security_group_id(cls, obj_dict):
+        fq_name_str = ':'.join(obj_dict['fq_name'])
+        configured_sg_id = obj_dict.get('configured_security_group_id', 0)
+        sg_id = obj_dict.get('security_group_id')
+        if sg_id is not None:
+            sg_id = int(sg_id)
+
+        if configured_sg_id > 0:
+            if sg_id is not None:
+                cls.vnc_zk_client.free_sg_id(sg_id)
+                def undo_dealloacte_sg_id():
+                    cls.vnc_zk_client.alloc_sg_id(sg_id)
+                    return True, ""
+                get_context().push_undo(undo_dealloacte_sg_id)
+            obj_dict['security_group_id'] = configured_sg_id
+        else:
+            if (sg_id is not None and
+                    fq_name_str == cls.vnc_zk_client.get_sg_from_id(sg_id)):
+                obj_dict['security_group_id'] = sg_id
+            else:
+                sg_id_allocated = cls.vnc_zk_client.alloc_sg_id(fq_name_str)
+                def undo_allocate_sg_id():
+                    cls.vnc_zk_client.free_sg_id(sg_id_allocated)
+                    return True, ""
+                get_context().push_undo(undo_allocate_sg_id)
+                obj_dict['security_group_id'] = sg_id_allocated
+
+        return True, ''
+
+    @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         user_visibility = obj_dict['id_perms'].get('user_visible', True)
         verify_quota_kwargs = {'db_conn': db_conn,
@@ -1611,7 +1639,23 @@ class SecurityGroupServer(Resource, SecurityGroup):
         if not ok:
             return (ok, response)
 
-        return _check_policy_rules(obj_dict.get('security_group_entries'))
+        ok, response = _check_policy_rules(
+            obj_dict.get('security_group_entries'))
+        if not ok:
+            return (ok, response)
+
+        # TODO(ethuleau): As we keep the virtual network ID allocation in
+        #                 schema and in the vnc API for one release overlap to
+        #                 prevent any upgrade issue, we still authorize to
+        #                 set or update the virtual network ID until release
+        #                 (3.2 + 1)
+        # # Does not authorize to set the security group ID as it's allocated
+        # # by the vnc server
+        # if obj_dict.get('security_group_id') is not None:
+        #     return (False, (403, "Cannot set the security group ID"))
+
+        # Allocate security group ID if necessary
+        return cls._set_configured_security_group_id(obj_dict)
     # end pre_dbe_create
 
     @classmethod
@@ -1619,10 +1663,30 @@ class SecurityGroupServer(Resource, SecurityGroup):
         ok, result = cls.dbe_read(db_conn, 'security_group', id)
         if not ok:
             return ok, result
+        sg_dict = result
 
-        sec_dict = result
+        # TODO(ethuleau): As we keep the virtual network ID allocation in
+        #                 schema and in the vnc API for one release overlap to
+        #                 prevent any upgrade issue, we still authorize to
+        #                 set or update the virtual network ID until release
+        #                 (3.2 + 1)
+        # # Does not authorize to update the security group ID as it's allocated
+        # # by the vnc server
+        # new_sg_id = obj_dict.get('security_group_id')
+        # if new_sg_id is not None and new_sg_id != sg_dict['security_group_id']:
+        #     return (False, (403, "Cannot update the security group ID"))
+
+        # Update the configured security group ID
+        if 'configured_security_group_id' in obj_dict:
+            sg_dict['configured_security_group_id'] =\
+                obj_dict['configured_security_group_id']
+            ok, result = cls._set_configured_security_group_id(sg_dict)
+            if not ok:
+                return ok, result
+            obj_dict['security_group_id'] = sg_dict['security_group_id']
+
         (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(
-            sec_dict['parent_uuid'], db_conn)
+            sg_dict['parent_uuid'], db_conn)
         if not ok:
             return (False, (500, 'Bad Project error : ' + pformat(proj_dict)))
 
@@ -1631,13 +1695,13 @@ class SecurityGroupServer(Resource, SecurityGroup):
             QuotaHelper.get_quota_limit(proj_dict, obj_type) >= 0):
             rule_count = len(obj_dict['security_group_entries']['policy_rule'])
             for sg in proj_dict.get('security_groups', []):
-                if sg['uuid'] == sec_dict['uuid']:
+                if sg['uuid'] == sg_dict['uuid']:
                     continue
                 try:
                     ok, result = cls.dbe_read(db_conn, 'security_group',
                                               sg['uuid'])
-                    sg_dict = result
-                    sge = sg_dict.get('security_group_entries', {})
+                    remote_sg_dict = result
+                    sge = remote_sg_dict.get('security_group_entries', {})
                     rule_count += len(sge.get('policy_rule', []))
                 except Exception as e:
                     ok = False
@@ -1651,7 +1715,7 @@ class SecurityGroupServer(Resource, SecurityGroup):
                     continue
             # end for all sg in projects
 
-            if sec_dict['id_perms'].get('user_visible', True) is not False:
+            if sg_dict['id_perms'].get('user_visible', True) is not False:
                 (ok, quota_limit) = QuotaHelper.check_quota_limit(
                                         proj_dict, obj_type, rule_count-1)
                 if not ok:
@@ -1660,6 +1724,12 @@ class SecurityGroupServer(Resource, SecurityGroup):
         return _check_policy_rules(obj_dict.get('security_group_entries'))
     # end pre_dbe_update
 
+    @classmethod
+    def post_dbe_delete(cls, id, obj_dict, db_conn):
+        # Deallocate the security group ID
+        cls.vnc_zk_client.free_sg_id(obj_dict.get('security_group_id'))
+
+        return True, ""
 # end class SecurityGroupServer
 
 
