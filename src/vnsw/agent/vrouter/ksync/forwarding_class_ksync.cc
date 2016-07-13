@@ -180,5 +180,13 @@ void vr_fc_map_req::Process(SandeshContext *context) {
 KSyncDBObject::DBFilterResp
 ForwardingClassKSyncObject::DBEntryFilter(const DBEntry *entry,
                                           const KSyncDBEntry *ksync) {
+    const ForwardingClass *fc = static_cast<const ForwardingClass *>(entry);
+    if (ksync) {
+        const ForwardingClassKSyncEntry *ksync_entry =
+            static_cast<const ForwardingClassKSyncEntry *>(ksync);
+        if (fc->id() != ksync_entry->id()) {
+            return DBFilterDelAdd;
+        }
+    }
     return DBFilterAccept;
 }
