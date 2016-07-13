@@ -381,22 +381,48 @@ class AlarmProcessor(object):
                         and_list_fail = True
                         break
                     is_operand2_json_val = False
-                if isinstance(operand1_val, list):
+                if isinstance(operand1_val, list) or \
+                    (is_operand2_json_val is False and \
+                        isinstance(operand2_val, list)):
                     match_list = []
-                    val2 = operand2_val
-                    if not is_operand2_json_val:
-                        if isinstance(operand2_val, list):
-                            # TODO: Handle the case where both operand1_val and
-                            # operand2_val are lists
-                            and_list_fail = True
-                            break
-                        val2 = operand2_val['value']
-                    for val1 in operand1_val:
-                        if self._compare_operand_vals(val1['value'],
-                            operand2_val, exp.operation):
-                            match_list.append(self._get_alarm_match(
-                                uve, exp, val1, val2,
-                                is_operand2_json_val))
+                    # both operand1_val and operand2_val are list
+                    if isinstance(operand1_val, list) and \
+                        (is_operand2_json_val is False and \
+                            isinstance(operand2_val, list)):
+                            if len(operand1_val) != len(operand2_val):
+                                and_list_fail = True
+                                break
+                            for i in range(0, len(operand1_val)):
+                                if self._compare_operand_vals(
+                                    operand1_val[i]['value'],
+                                    operand2_val[i]['value'],
+                                    exp.operation):
+                                    match_list.append(
+                                        self._get_alarm_match(
+                                        uve, exp, operand1_val[i],
+                                        operand2_val[i],
+                                        is_operand2_json_val))
+                    # operand1_val is list and operand2_val is not list
+                    elif isinstance(operand1_val, list):
+                        val2 = operand2_val
+                        if not is_operand2_json_val:
+                            val2 = operand2_val['value']
+                        for val1 in operand1_val:
+                            if self._compare_operand_vals(val1['value'],
+                                val2, exp.operation):
+                                match_list.append(self._get_alarm_match(
+                                    uve, exp, val1, operand2_val,
+                                    is_operand2_json_val))
+                    # operand1_val is not list and operand2_val is list
+                    elif is_operand2_json_val is False and \
+                        isinstance(operand2_val, list):
+                        for val2 in operand2_val:
+                            if self._compare_operand_vals(
+                                operand1_val['value'], val2['value'],
+                                exp.operation):
+                                match_list.append(self._get_alarm_match(
+                                    uve, exp, operand1_val, val2,
+                                    is_operand2_json_val))
                     if match_list:
                         and_list.append(self._get_alarm_condition_match(
                             uve, exp, operand1_val, operand2_val,
@@ -404,15 +430,12 @@ class AlarmProcessor(object):
                     else:
                         and_list_fail = True
                         break
+                # Neither operand1_val nor operand2_val is a list
                 else:
                     val1 = operand1_val['value']
+                    val2 = operand2_val
                     if not is_operand2_json_val:
-                        if isinstance(operand2_val, list):
-                            and_list_fail = True
-                            break
                         val2 = operand2_val['value']
-                    else:
-                        val2 = operand2_val
                     if self._compare_operand_vals(val1, val2, exp.operation):
                         and_list.append(self._get_alarm_condition_match(
                             uve, exp, operand1_val, operand2_val,
