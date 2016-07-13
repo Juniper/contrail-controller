@@ -249,7 +249,10 @@ class DelayedApiServerConnectionTest(test_case.ResourceDriverTestCase):
     # end tearDown
 
     def test_post_project_create_default_sg(self):
-        proj_obj = Project('proj-%s' %(self.id()))
+        proj_id = str(uuid.uuid4())
+        proj_name = self.id()
+        test_case.get_keystone_client().tenants.add_tenant(proj_id, proj_name)
+        proj_obj = self._vnc_lib.project_read(id=proj_id)
         self._vnc_lib.project_create(proj_obj)
         sg_obj = self._vnc_lib.security_group_read(
             fq_name=proj_obj.fq_name+['default'])
