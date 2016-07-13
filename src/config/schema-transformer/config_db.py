@@ -248,6 +248,15 @@ class VirtualNetworkST(DBBaseST):
         prop = self.obj.get_virtual_network_properties(
         ) or VirtualNetworkType()
         self.allow_transit = prop.allow_transit
+        # TODO(ethuleau): We keep the virtual network and security group ID
+        #                 allocation in schema and in the vnc API for one
+        #                 release overlap to prevent any upgrade issue. So the
+        #                 following code need to be remove in release (3.2 + 1)
+        nid = self.obj.get_virtual_network_network_id()
+        if nid is None:
+            nid = prop.network_id or self._cassandra.alloc_vn_id(name) + 1
+            self.obj.set_virtual_network_network_id(nid)
+            self._vnc_lib.virtual_network_update(self.obj)
         if self.obj.get_fq_name() == common.IP_FABRIC_VN_FQ_NAME:
             default_ri_fq_name = common.IP_FABRIC_RI_FQ_NAME
         elif self.obj.get_fq_name() == common.LINK_LOCAL_VN_FQ_NAME:
@@ -410,6 +419,17 @@ class VirtualNetworkST(DBBaseST):
             self._vnc_lib.access_control_list_delete(id=self.acl.uuid)
         if self.dynamic_acl:
             self._vnc_lib.access_control_list_delete(id=self.dynamic_acl.uuid)
+        # TODO(ethuleau): We keep the virtual network and security group ID
+        #                 allocation in schema and in the vnc API for one
+        #                 release overlap to prevent any upgrade issue. So the
+        #                 following code need to be remove in release (3.2 + 1)
+        nid = self.obj.get_virtual_network_network_id()
+        if nid is None:
+            props = self.obj.get_virtual_network_properties()
+            if props:
+                nid = props.network_id
+        if nid:
+            self._cassandra.free_vn_id(nid - 1)
 
         self.update_multiple_refs('route_table', {})
         self.uve_send(deleted=True)
@@ -1559,6 +1579,10 @@ class SecurityGroupST(DBBaseST):
     def update(self, obj=None):
         self.obj = obj or self.read_vnc_obj(uuid=self.uuid)
         self.rule_entries = self.obj.get_security_group_entries()
+        # TODO(ethuleau): We keep the virtual network and security group ID
+        #                 allocation in schema and in the vnc API for one
+        #                 release overlap to prevent any upgrade issue. So the
+        #                 following code need to be remove in release (3.2 + 1)
         config_id = self.obj.get_configured_security_group_id() or 0
         self.set_configured_security_group_id(config_id)
         self.process_referred_sgs()
@@ -1598,6 +1622,10 @@ class SecurityGroupST(DBBaseST):
         self.referred_sgs = sg_refer_set
     # end process_referred_sgs
 
+    # TODO(ethuleau): We keep the virtual network and security group ID
+    #                 allocation in schema and in the vnc API for one
+    #                 release overlap to prevent any upgrade issue. So the
+    #                 following code need to be remove in release (3.2 + 1)
     def set_configured_security_group_id(self, config_id):
         if self.config_sgid == config_id:
             return
@@ -1636,6 +1664,10 @@ class SecurityGroupST(DBBaseST):
             self._vnc_lib.access_control_list_delete(id=self.ingress_acl.uuid)
         if self.egress_acl:
             self._vnc_lib.access_control_list_delete(id=self.egress_acl.uuid)
+        # TODO(ethuleau): We keep the virtual network and security group ID
+        #                 allocation in schema and in the vnc API for one
+        #                 release overlap to prevent any upgrade issue. So the
+        #                 following code need to be remove in release (3.2 + 1)
         sg_id = self.obj.get_security_group_id()
         if sg_id is not None and not self.config_sgid:
             if sg_id < SGID_MIN_ALLOC:
