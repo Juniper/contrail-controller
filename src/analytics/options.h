@@ -147,6 +147,7 @@ private:
     std::string ks_user_;
     std::string ks_password_;
     std::string ks_tenant_;
+    std::string ks_authurl_;
     bool        ks_insecure_;
     std::string memcache_servers_;
     std::string ks_cert_;
