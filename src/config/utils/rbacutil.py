@@ -140,6 +140,10 @@ class VncRbac():
         # Eg. python vnc_op.py VirtualNetwork
         # domain:default-project:default-virtual-network
 
+        defaults = {
+            'name': 'default-global-system-config:default-api-access-list'
+        }
+
         parser = argparse.ArgumentParser(
             description="Util to manage RBAC group and rules",
             formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -151,7 +155,8 @@ class VncRbac():
         parser.add_argument(
             '--op', choices = valid_ops, help="Operation to perform")
         parser.add_argument(
-            '--name', help="colon seperated fully qualified name")
+            '--name', help="colon seperated fully qualified name",
+            default='default-global-system-config:default-api-access-list')
         parser.add_argument('--uuid', help="object UUID")
         parser.add_argument('--user',  help="User Name")
         parser.add_argument('--role',  help="Role Name")
