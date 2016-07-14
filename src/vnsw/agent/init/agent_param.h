@@ -178,6 +178,7 @@ public:
         return collector_server_list_;
     }
     uint16_t http_server_port() const { return http_server_port_; }
+    uint32_t discovery_server_port() const { return dss_port_; }
     const std::string &host_name() const { return host_name_; }
     int agent_stats_interval() const { return agent_stats_interval_; }
     int flow_stats_interval() const { return flow_stats_interval_; }
@@ -430,7 +431,7 @@ private:
     uint16_t dns_client_port_;
     uint16_t mirror_client_port_;
     std::string dss_server_;
-    uint16_t dss_port_;
+    uint32_t dss_port_;
     Ip4Address mgmt_ip_;
     HypervisorMode hypervisor_mode_;
     PortInfo xen_ll_;
