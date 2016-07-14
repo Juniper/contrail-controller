@@ -45,16 +45,6 @@ class AlarmGenConfigHandler(ConfigHandler):
         return self._alarm_config_db
     # end alarm_config_db
 
-    def set_config_ownership(self):
-        self._config_ownership = True
-        # Create inbuilt alarms if not already created.
-        self._create_inbuilt_alarms()
-    # end set_config_ownership
-
-    def release_config_ownership(self):
-        self._config_ownership = False
-    # end release_config_ownership
-
     def _update_alarm_config_table(self, alarm_fqname, alarm_obj, uve_keys,
                                    operation):
         alarm_config_change_map = {}
@@ -74,8 +64,11 @@ class AlarmGenConfigHandler(ConfigHandler):
                 finally:
                     if operation == 'CREATE' or operation == 'UPDATE':
                         if not isinstance(alarm_obj, AlarmBase):
-                            alarm_base_obj = AlarmBase(config=alarm_obj)
-                            alarm_table[alarm_fqname] = alarm_base_obj
+                            if alarm_table.has_key(alarm_fqname):
+                                alarm_table[alarm_fqname].set_config(alarm_obj)
+                            else:
+                                alarm_base_obj = AlarmBase(config=alarm_obj)
+                                alarm_table[alarm_fqname] = alarm_base_obj
                         else:
                             alarm_table[alarm_fqname] = alarm_obj
                     elif operation == 'DELETE':
@@ -130,29 +123,6 @@ class AlarmGenConfigHandler(ConfigHandler):
                     uve_keys, 'CREATE')
     # end _create_inbuilt_alarms_config
 
-    def _create_inbuilt_alarms(self):
-        if not self._config_ownership or self._inbuilt_alarms_created:
-            return
-
-        try:
-            default_gsc = self._config_db['global-system-config']\
-                ['default-global-system-config']
-        except KeyError:
-            self._logger('No default-global-system-config object. Could not '
-                'create inbuilt alarms.', SandeshLevel.SYS_ERR)
-            return
-
-        for alarm_name, alarm_obj in self._inbuilt_alarms.iteritems():
-            self._logger('Create inbuilt alarm "%s"' % (alarm_name),
-                SandeshLevel.SYS_INFO)
-            status = self._create_config('alarm', alarm_obj)
-            if not status:
-                self._logger('Failed to create inbuilt alarm "%s"' %
-                    (alarm_name), SandeshLevel.SYS_ERR)
-                return
-        self._inbuilt_alarms_created = True
-    # end _create_inbuilt_alarms
-
     def _handle_config_update(self, config_type, fq_name, config_obj,
                               operation):
         self._logger('Handle config %s for %s:%s' % (operation, config_type,
@@ -177,18 +147,21 @@ class AlarmGenConfigHandler(ConfigHandler):
                     add_uve_keys = set(config_obj.uve_keys) - \
                         set(alarm_config.uve_keys)
                     if add_uve_keys:
-                        alarm_config_change_map.update(self._update_alarm_config_table(
-                            fq_name, config_obj, add_uve_keys, 'CREATE'))
+                        alarm_config_change_map.update(
+                            self._update_alarm_config_table(
+                                fq_name, config_obj, add_uve_keys, 'CREATE'))
                     del_uve_keys = set(alarm_config.uve_keys) - \
                         set(config_obj.uve_keys)
                     if del_uve_keys:
-                        alarm_config_change_map.update(self._update_alarm_config_table(
-                            fq_name, None, del_uve_keys, 'DELETE'))
+                        alarm_config_change_map.update(
+                            self._update_alarm_config_table(
+                                fq_name, None, del_uve_keys, 'DELETE'))
                     upd_uve_keys = set(config_obj.uve_keys).intersection(
                         set(alarm_config.uve_keys))
                     if upd_uve_keys:
-                        alarm_config_change_map.update(self._update_alarm_config_table(
-                            fq_name, config_obj, upd_uve_keys, 'UPDATE'))
+                        alarm_config_change_map.update(
+                            self._update_alarm_config_table(
+                                fq_name, config_obj, upd_uve_keys, 'UPDATE'))
             self._config_db[config_type][fq_name] = config_obj
         elif operation == 'DELETE':
             config_obj = self._config_db[config_type].get(fq_name)
@@ -214,7 +187,6 @@ class AlarmGenConfigHandler(ConfigHandler):
                 fq_name = self._fqname_to_str(cfg_obj.fq_name)
                 self._handle_config_update(cfg_type, fq_name, cfg_obj,
                     'UPDATE')
-        self._create_inbuilt_alarms()
     # end _handle_config_sync
 
 
