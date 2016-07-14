@@ -125,7 +125,8 @@ Address::Family PathResolver::family() const {
 //
 void PathResolver::StartPathResolution(int part_id, const BgpPath *path,
     BgpRoute *route, BgpTable *nh_table) {
-    CHECK_CONCURRENCY("db::DBTable", "bgp::RouteAggregation", "bgp::Config");
+    CHECK_CONCURRENCY("db::DBTable", "bgp::RouteAggregation",
+        "bgp::Config", "bgp::ConfigHelper");
 
     if (!nh_table)
         nh_table = table_;
@@ -158,7 +159,8 @@ void PathResolver::UpdatePathResolution(int part_id, const BgpPath *path,
 // needed when the BgpPath changes nexthop.
 //
 void PathResolver::StopPathResolution(int part_id, const BgpPath *path) {
-    CHECK_CONCURRENCY("db::DBTable", "bgp::RouteAggregation", "bgp::Config");
+    CHECK_CONCURRENCY("db::DBTable", "bgp::RouteAggregation",
+        "bgp::Config", "bgp::ConfigHelper");
 
     partitions_[part_id]->StopPathResolution(path);
 }
@@ -211,7 +213,8 @@ PathResolverPartition *PathResolver::GetPartition(int part_id) {
 //
 ResolverNexthop *PathResolver::LocateResolverNexthop(IpAddress address,
     BgpTable *table) {
-    CHECK_CONCURRENCY("db::DBTable", "bgp::RouteAggregation", "bgp::Config");
+    CHECK_CONCURRENCY("db::DBTable", "bgp::RouteAggregation",
+        "bgp::Config", "bgp::ConfigHelper");
 
     tbb::mutex::scoped_lock lock(mutex_);
     ResolverNexthopKey key(address, table);
@@ -677,7 +680,7 @@ void PathResolverPartition::StopPathResolution(const BgpPath *path) {
 //
 void PathResolverPartition::TriggerPathResolution(ResolverPath *rpath) {
     CHECK_CONCURRENCY("db::DBTable", "bgp::ResolverNexthop",
-                      "bgp::Config", "bgp::RouteAggregation");
+        "bgp::Config", "bgp::ConfigHelper", "bgp::RouteAggregation");
 
     rpath_update_list_.insert(rpath);
     rpath_update_trigger_->Set();
@@ -1121,7 +1124,8 @@ bool ResolverNexthop::Match(BgpServer *server, BgpTable *table,
 // Do not attempt to access other partitions due to concurrency issues.
 //
 void ResolverNexthop::AddResolverPath(int part_id, ResolverPath *rpath) {
-    CHECK_CONCURRENCY("db::DBTable", "bgp::RouteAggregation", "bgp::Config");
+    CHECK_CONCURRENCY("db::DBTable", "bgp::RouteAggregation",
+        "bgp::Config", "bgp::ConfigHelper");
 
     if (rpath_lists_[part_id].empty())
         resolver_->RegisterUnregisterResolverNexthop(this);

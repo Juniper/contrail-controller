@@ -6,9 +6,11 @@
 
 #include <boost/foreach.hpp>
 #include <boost/assign/list_of.hpp>
+#include <boost/functional/hash.hpp>
 
 #include "base/set_util.h"
 #include "base/task_annotations.h"
+#include "base/task_trigger.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
@@ -40,12 +42,12 @@ public:
           manager_(manager) {
     }
     virtual bool MayDelete() const {
-        return true;
+        return manager_->MayDelete();
     }
     virtual void Shutdown() {
+        manager_->Shutdown();
     }
     virtual void Destroy() {
-        // memory is deallocated by BgpServer scoped_ptr.
         manager_->server_delete_ref_.Reset(NULL);
     }
 
@@ -55,6 +57,9 @@ private:
 
 RoutingInstanceMgr::RoutingInstanceMgr(BgpServer *server) :
         server_(server),
+        instance_config_lists_(
+            TaskScheduler::GetInstance()->HardwareThreadCount()),
+        default_rtinstance_(NULL),
         deleted_count_(0),
         asn_listener_id_(server->RegisterASNUpdateCallback(
             boost::bind(&RoutingInstanceMgr::ASNUpdateCallback, this, _1, _2))),
@@ -63,16 +68,44 @@ RoutingInstanceMgr::RoutingInstanceMgr(BgpServer *server) :
                 this, _1))),
         deleter_(new DeleteActor(this)),
         server_delete_ref_(this, server->deleter()) {
+    int task_id = TaskScheduler::GetInstance()->GetTaskId("bgp::ConfigHelper");
+    int hw_thread_count = TaskScheduler::GetInstance()->HardwareThreadCount();
+    for (int idx = 0; idx < hw_thread_count; ++idx) {
+        instance_config_triggers_.push_back(new TaskTrigger(boost::bind(
+            &RoutingInstanceMgr::ProcessInstanceConfigList, this, idx),
+            task_id, idx));
+    }
+    neighbor_config_trigger_.reset(new TaskTrigger(
+        boost::bind(&RoutingInstanceMgr::ProcessNeighborConfigList, this),
+        TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0));
 }
 
 RoutingInstanceMgr::~RoutingInstanceMgr() {
     assert(deleted_count_ == 0);
     server_->UnregisterASNUpdateCallback(asn_listener_id_);
     server_->UnregisterIdentifierUpdateCallback(identifier_listener_id_);
+    STLDeleteValues(&instance_config_triggers_);
 }
 
 void RoutingInstanceMgr::ManagedDelete() {
     deleter_->Delete();
+}
+
+void RoutingInstanceMgr::Shutdown() {
+    for (RoutingInstanceIterator it = begin(); it != end(); ++it) {
+        InstanceTargetRemove(it.operator->());
+        InstanceVnIndexRemove(it.operator->());
+    }
+}
+
+bool RoutingInstanceMgr::MayDelete() const {
+    if (!neighbor_config_list_.empty())
+        return false;
+    for (size_t idx = 0; idx < instance_config_lists_.size(); ++idx) {
+        if (!instance_config_lists_[idx].empty())
+            return false;
+    }
+    return true;
 }
 
 LifetimeActor *RoutingInstanceMgr::deleter() {
@@ -84,13 +117,6 @@ bool RoutingInstanceMgr::deleted() {
 }
 
 //
-// Return the default routing instance.
-//
-const RoutingInstance *RoutingInstanceMgr::GetDefaultRoutingInstance() const {
-    return instances_.Find(BgpConfigManager::kMasterInstance);
-}
-
-//
 // Go through all export targets for the RoutingInstance and add an entry for
 // each one to the InstanceTargetMap.
 //
@@ -99,6 +125,7 @@ const RoutingInstance *RoutingInstanceMgr::GetDefaultRoutingInstance() const {
 // be configured on multiple virtual networks.
 //
 void RoutingInstanceMgr::InstanceTargetAdd(RoutingInstance *rti) {
+    tbb::mutex::scoped_lock lock(mutex_);
     for (RoutingInstance::RouteTargetList::const_iterator it =
          rti->GetExportList().begin(); it != rti->GetExportList().end(); ++it) {
         if (rti->GetImportList().find(*it) == rti->GetImportList().end())
@@ -117,6 +144,7 @@ void RoutingInstanceMgr::InstanceTargetAdd(RoutingInstance *rti) {
 // in the map because of the same check in InstanceTargetAdd.
 //
 void RoutingInstanceMgr::InstanceTargetRemove(const RoutingInstance *rti) {
+    tbb::mutex::scoped_lock lock(mutex_);
     for (RoutingInstance::RouteTargetList::const_iterator it =
          rti->GetExportList().begin(); it != rti->GetExportList().end(); ++it) {
         if (rti->GetImportList().find(*it) == rti->GetImportList().end())
@@ -147,6 +175,7 @@ const RoutingInstance *RoutingInstanceMgr::GetInstanceByTarget(
 // Add an entry for the vn index to the VnIndexMap.
 //
 void RoutingInstanceMgr::InstanceVnIndexAdd(RoutingInstance *rti) {
+    tbb::mutex::scoped_lock lock(mutex_);
     if (rti->virtual_network_index())
         vn_index_map_.insert(make_pair(rti->virtual_network_index(), rti));
 }
@@ -157,6 +186,7 @@ void RoutingInstanceMgr::InstanceVnIndexAdd(RoutingInstance *rti) {
 // need to make sure that we remove the entry that matches the RoutingInstance.
 //
 void RoutingInstanceMgr::InstanceVnIndexRemove(const RoutingInstance *rti) {
+    tbb::mutex::scoped_lock lock(mutex_);
     if (!rti->virtual_network_index())
         return;
 
@@ -242,7 +272,7 @@ int RoutingInstanceMgr::GetVnIndexByExtCommunity(
 
 int
 RoutingInstanceMgr::RegisterInstanceOpCallback(RoutingInstanceCb callback) {
-    tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
+    tbb::mutex::scoped_lock lock(mutex_);
     size_t i = bmap_.find_first();
     if (i == bmap_.npos) {
         i = callbacks_.size();
@@ -258,7 +288,7 @@ RoutingInstanceMgr::RegisterInstanceOpCallback(RoutingInstanceCb callback) {
 }
 
 void RoutingInstanceMgr::UnregisterInstanceOpCallback(int listener) {
-    tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
+    tbb::mutex::scoped_lock lock(mutex_);
     callbacks_[listener] = NULL;
     if ((size_t) listener == callbacks_.size() - 1) {
         while (!callbacks_.empty() && callbacks_.back() == NULL) {
@@ -276,7 +306,7 @@ void RoutingInstanceMgr::UnregisterInstanceOpCallback(int listener) {
 }
 
 void RoutingInstanceMgr::NotifyInstanceOp(string name, Operation op) {
-    tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
+    tbb::mutex::scoped_lock lock(mutex_);
     for (InstanceOpListenersList::iterator iter = callbacks_.begin();
          iter != callbacks_.end(); ++iter) {
         if (*iter != NULL) {
@@ -286,31 +316,92 @@ void RoutingInstanceMgr::NotifyInstanceOp(string name, Operation op) {
     }
 }
 
-RoutingInstance *RoutingInstanceMgr::CreateRoutingInstance(
-        const BgpInstanceConfig *config) {
-    RoutingInstance *rtinstance = GetRoutingInstance(config->name());
+bool RoutingInstanceMgr::ProcessInstanceConfigList(int idx) {
+    if (deleted()) {
+        deleter()->RetryDelete();
+    } else {
+        BOOST_FOREACH(const string &name, instance_config_lists_[idx]) {
+            const BgpInstanceConfig *config =
+                server()->config_manager()->FindInstance(name);
+            if (!config)
+                continue;
+            LocateRoutingInstance(config);
+        }
+    }
 
+    instance_config_lists_[idx].clear();
+    return true;
+}
+
+RoutingInstance *RoutingInstanceMgr::GetDefaultRoutingInstance() {
+    return default_rtinstance_;
+}
+
+const RoutingInstance *RoutingInstanceMgr::GetDefaultRoutingInstance() const {
+    return default_rtinstance_;
+}
+
+RoutingInstance *RoutingInstanceMgr::GetRoutingInstance(const string &name) {
+    return instances_.Find(name);
+}
+
+const RoutingInstance *RoutingInstanceMgr::GetRoutingInstance(
+    const string &name) const {
+    return instances_.Find(name);
+}
+
+RoutingInstance *RoutingInstanceMgr::GetRoutingInstanceLocked(
+    const string &name) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    return instances_.Find(name);
+}
+
+void RoutingInstanceMgr::InsertRoutingInstance(RoutingInstance *rtinstance) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    int index = instances_.Insert(rtinstance->config()->name(), rtinstance);
+    rtinstance->set_index(index);
+}
+
+void RoutingInstanceMgr::LocateRoutingInstance(
+    const BgpInstanceConfig *config) {
+    RoutingInstance *rtinstance = GetRoutingInstanceLocked(config->name());
     if (rtinstance) {
         if (rtinstance->deleted()) {
             RTINSTANCE_LOG_MESSAGE(server_,
                 SandeshLevel::SYS_WARN, RTINSTANCE_LOG_FLAG_ALL, config->name(),
-                "Instance is recreated before pending deletion is complete");
-            return NULL;
+                "Instance recreated before pending deletion is complete");
         } else {
-            // Duplicate instance creation request can be safely ignored
-            RTINSTANCE_LOG_MESSAGE(server_,
-                SandeshLevel::SYS_WARN, RTINSTANCE_LOG_FLAG_ALL, config->name(),
-                "Instance already found during creation");
+            UpdateRoutingInstance(rtinstance, config);
         }
-        return rtinstance;
+    } else {
+        rtinstance = CreateRoutingInstance(config);
     }
+}
 
-    rtinstance = BgpObjectFactory::Create<RoutingInstance>(
+void RoutingInstanceMgr::LocateRoutingInstance(const string &name) {
+    static boost::hash<string> string_hash;
+
+    if (name == BgpConfigManager::kMasterInstance) {
+        const BgpInstanceConfig *config =
+            server()->config_manager()->FindInstance(name);
+        assert(config);
+        LocateRoutingInstance(config);
+    } else {
+        size_t idx = string_hash(name) % instance_config_lists_.size();
+        instance_config_lists_[idx].insert(name);
+        instance_config_triggers_[idx]->Set();
+    }
+}
+
+RoutingInstance *RoutingInstanceMgr::CreateRoutingInstance(
+    const BgpInstanceConfig *config) {
+    RoutingInstance *rtinstance = BgpObjectFactory::Create<RoutingInstance>(
         config->name(), server_, this, config);
-    int index = instances_.Insert(config->name(), rtinstance);
-    rtinstance->set_index(index);
-
+    if (config->name() == BgpConfigManager::kMasterInstance)
+        default_rtinstance_ = rtinstance;
     rtinstance->ProcessConfig();
+    InsertRoutingInstance(rtinstance);
+
     InstanceTargetAdd(rtinstance);
     InstanceVnIndexAdd(rtinstance);
     rtinstance->InitAllRTargetRoutes(server_->local_autonomous_system());
@@ -327,26 +418,14 @@ RoutingInstance *RoutingInstanceMgr::CreateRoutingInstance(
         import_rt, export_rt,
         rtinstance->virtual_network(), rtinstance->virtual_network_index());
 
+    // Schedule creation of neighbors for this instance.
+    CreateRoutingInstanceNeighbors(config);
+
     return rtinstance;
 }
 
-void RoutingInstanceMgr::UpdateRoutingInstance(
-        const BgpInstanceConfig *config) {
-    CHECK_CONCURRENCY("bgp::Config");
-
-    RoutingInstance *rtinstance = GetRoutingInstance(config->name());
-    if (rtinstance && rtinstance->deleted()) {
-        RTINSTANCE_LOG_MESSAGE(server_,
-            SandeshLevel::SYS_WARN, RTINSTANCE_LOG_FLAG_ALL, config->name(),
-            "Instance is updated before pending deletion is complete");
-        return;
-    } else if (!rtinstance) {
-        RTINSTANCE_LOG_MESSAGE(server_,
-            SandeshLevel::SYS_WARN, RTINSTANCE_LOG_FLAG_ALL, config->name(),
-            "Instance not found during update");
-        return;
-    }
-
+void RoutingInstanceMgr::UpdateRoutingInstance(RoutingInstance *rtinstance,
+    const BgpInstanceConfig *config) {
     bool old_always_subscribe = rtinstance->always_subscribe();
 
     // Note that InstanceTarget[Remove|Add] depend on the RouteTargetList in
@@ -433,8 +512,10 @@ void RoutingInstanceMgr::DestroyRoutingInstance(RoutingInstance *rtinstance) {
     if (deleted())
         return;
 
-    if (name == BgpConfigManager::kMasterInstance)
+    if (rtinstance == default_rtinstance_) {
+        default_rtinstance_ = NULL;
         return;
+    }
 
     const BgpInstanceConfig *config
         = server()->config_manager()->FindInstance(name);
@@ -442,6 +523,31 @@ void RoutingInstanceMgr::DestroyRoutingInstance(RoutingInstance *rtinstance) {
         CreateRoutingInstance(config);
         return;
     }
+}
+
+void RoutingInstanceMgr::CreateRoutingInstanceNeighbors(
+    const BgpInstanceConfig *config) {
+    if (config->neighbor_list().empty())
+        return;
+    tbb::mutex::scoped_lock lock(mutex_);
+    neighbor_config_list_.insert(config->name());
+    neighbor_config_trigger_->Set();
+}
+
+bool RoutingInstanceMgr::ProcessNeighborConfigList() {
+    if (deleted()) {
+        deleter()->RetryDelete();
+    } else {
+        BOOST_FOREACH(const string &name, neighbor_config_list_) {
+            RoutingInstance *rtinstance = GetRoutingInstance(name);
+            if (!rtinstance || rtinstance->deleted())
+                continue;
+            rtinstance->CreateNeighbors();
+        }
+    }
+
+    neighbor_config_list_.clear();
+    return true;
 }
 
 void RoutingInstanceMgr::ASNUpdateCallback(as_t old_asn, as_t old_local_asn) {
@@ -458,6 +564,42 @@ void RoutingInstanceMgr::IdentifierUpdateCallback(Ip4Address old_identifier) {
         it->FlushAllRTargetRoutes(server_->local_autonomous_system());
         it->InitAllRTargetRoutes(server_->local_autonomous_system());
     }
+}
+
+//
+// Disable processing of all instance config lists.
+// For testing only.
+//
+void RoutingInstanceMgr::DisableInstanceConfigListProcessing() {
+    for (size_t idx = 0; idx < instance_config_triggers_.size(); ++idx) {
+        instance_config_triggers_[idx]->set_disable();
+    }
+}
+
+//
+// Enable processing of all instance config lists.
+// For testing only.
+//
+void RoutingInstanceMgr::EnableInstanceConfigListProcessing() {
+    for (size_t idx = 0; idx < instance_config_triggers_.size(); ++idx) {
+        instance_config_triggers_[idx]->set_enable();
+    }
+}
+
+//
+// Disable processing of neighbor config list.
+// For testing only.
+//
+void RoutingInstanceMgr::DisableNeighborConfigListProcessing() {
+    neighbor_config_trigger_->set_disable();
+}
+
+//
+// Enable processing of neighbor config list.
+// For testing only.
+//
+void RoutingInstanceMgr::EnableNeighborConfigListProcessing() {
+    neighbor_config_trigger_->set_enable();
 }
 
 class RoutingInstance::DeleteActor : public LifetimeActor {
@@ -491,10 +633,25 @@ RoutingInstance::RoutingInstance(string name, BgpServer *server,
       virtual_network_allow_transit_(false),
       vxlan_id_(0),
       deleter_(new DeleteActor(server, this)),
-      manager_delete_ref_(this, mgr->deleter()) {
+      manager_delete_ref_(this, NULL) {
+    tbb::mutex::scoped_lock lock(mgr->mutex());
+    manager_delete_ref_.Reset(mgr->deleter());
 }
 
 RoutingInstance::~RoutingInstance() {
+}
+
+void RoutingInstance::CreateNeighbors() {
+    CHECK_CONCURRENCY("bgp::Config");
+
+    if (config_->neighbor_list().empty())
+        return;
+    PeerManager *peer_manager = LocatePeerManager();
+    BOOST_FOREACH(const string &name, config_->neighbor_list()) {
+        if (peer_manager->PeerLookup(name))
+            continue;
+        peer_manager->PeerResurrect(name);
+    }
 }
 
 void RoutingInstance::ProcessRoutingPolicyConfig() {
@@ -520,7 +677,7 @@ void RoutingInstance::ProcessRoutingPolicyConfig() {
 // routes in the BgpTables of this routing instance with new set of policies
 //
 void RoutingInstance::UpdateRoutingPolicyConfig() {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
     RoutingPolicyMgr *policy_mgr = server()->routing_policy_mgr();
     if (policy_mgr->UpdateRoutingPolicyList(config_->routing_policy_list(),
                                             routing_policies())) {
@@ -530,6 +687,9 @@ void RoutingInstance::UpdateRoutingPolicyConfig() {
 }
 
 void RoutingInstance::ProcessServiceChainConfig() {
+    if (is_master_)
+        return;
+
     vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
     BOOST_FOREACH(Address::Family family, families) {
         const ServiceChainConfig *sc_config =
@@ -666,7 +826,7 @@ void RoutingInstance::ProcessConfig() {
 
     // Create BGP Table
     if (name_ == BgpConfigManager::kMasterInstance) {
-        assert(mgr_->count() == 1);
+        assert(mgr_->count() == 0);
         is_master_ = true;
 
         LocatePeerManager();
@@ -701,7 +861,7 @@ void RoutingInstance::ProcessConfig() {
 }
 
 void RoutingInstance::UpdateConfig(const BgpInstanceConfig *cfg) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
 
     // This is a noop in production code. However unit tests may pass a
     // new object.
@@ -872,7 +1032,7 @@ void RoutingInstance::ClearFamilyRouteTarget(Address::Family vrf_family,
 
 void RoutingInstance::AddRTargetRoute(uint32_t asn,
     const RouteTarget &rtarget) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
 
     if (asn == 0 || !always_subscribe_)
         return;
@@ -880,11 +1040,12 @@ void RoutingInstance::AddRTargetRoute(uint32_t asn,
     RTargetPrefix prefix(asn, rtarget);
     RTargetRoute rt_key(prefix);
 
-    RoutingInstance *master =
-        mgr_->GetRoutingInstance(BgpConfigManager::kMasterInstance);
+    RoutingInstance *master = mgr_->GetDefaultRoutingInstance();
     BgpTable *table = master->GetTable(Address::RTARGET);
     DBTablePartition *tbl_partition =
         static_cast<DBTablePartition *>(table->GetTablePartition(0));
+
+    tbb::mutex::scoped_lock lock(mgr_->mutex());
     RTargetRoute *route =
         static_cast<RTargetRoute *>(tbl_partition->Find(&rt_key));
     if (!route) {
@@ -913,7 +1074,7 @@ void RoutingInstance::AddRTargetRoute(uint32_t asn,
 
 void RoutingInstance::DeleteRTargetRoute(as4_t asn,
     const RouteTarget &rtarget) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
 
     if (asn == 0)
         return;
@@ -921,11 +1082,12 @@ void RoutingInstance::DeleteRTargetRoute(as4_t asn,
     RTargetPrefix prefix(asn, rtarget);
     RTargetRoute rt_key(prefix);
 
-    RoutingInstance *master =
-        mgr_->GetRoutingInstance(BgpConfigManager::kMasterInstance);
+    RoutingInstance *master = mgr_->GetDefaultRoutingInstance();
     BgpTable *table = master->GetTable(Address::RTARGET);
     DBTablePartition *tbl_partition =
         static_cast<DBTablePartition *>(table->GetTablePartition(0));
+
+    tbb::mutex::scoped_lock lock(mgr_->mutex());
     RTargetRoute *route =
         static_cast<RTargetRoute *>(tbl_partition->Find(&rt_key));
     if (!route || !route->RemovePath(BgpPath::Local, index_))
@@ -941,12 +1103,20 @@ void RoutingInstance::DeleteRTargetRoute(as4_t asn,
 }
 
 void RoutingInstance::InitAllRTargetRoutes(as4_t asn) {
+    if (is_master_)
+        return;
+
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
     BOOST_FOREACH(RouteTarget rtarget, import_) {
         AddRTargetRoute(asn, rtarget);
     }
 }
 
 void RoutingInstance::FlushAllRTargetRoutes(as4_t asn) {
+    if (is_master_)
+        return;
+
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
     BOOST_FOREACH(RouteTarget rtarget, import_) {
         DeleteRTargetRoute(asn, rtarget);
     }
@@ -1303,10 +1473,14 @@ int RoutingInstance::GetOriginVnForAggregateRoute(Address::Family fmly) const {
         config_ ? config_->service_chain_info(fmly) : NULL;
     if (sc_config && !sc_config->routing_instance.empty()) {
         RoutingInstance *dest =
-            mgr_->GetRoutingInstance(sc_config->routing_instance);
+            mgr_->GetRoutingInstanceLocked(sc_config->routing_instance);
         if (dest) return dest->virtual_network_index();
     }
     return virtual_network_index_;
+}
+
+size_t RoutingInstance::peer_manager_size() const {
+    return (peer_manager_ ? peer_manager_->size() : 0);
 }
 
 PeerManager *RoutingInstance::LocatePeerManager() {

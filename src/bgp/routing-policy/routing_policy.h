@@ -9,6 +9,7 @@
 #include <boost/intrusive_ptr.hpp>
 #include <boost/shared_ptr.hpp>
 #include <tbb/atomic.h>
+#include <tbb/mutex.h>
 
 #include <map>
 #include <string>
@@ -37,6 +38,8 @@ class TaskTrigger;
 // This class implements the routing policy for control node.
 // It maintains the list of routing policies configured on the system
 // It provides API to lookup the routing policy by name.
+//
+// A mutex is used to serialize access from multiple bgp::ConfigHelper tasks.
 //
 // It provides two APIs to apply routing policy on the routes belonging to given
 // routing instance.
@@ -361,10 +364,12 @@ private:
     class DeleteActor;
 
     BgpServer *server_;
+    tbb::mutex mutex_;
     RoutingPolicyList routing_policies_;
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<RoutingPolicyMgr> server_delete_ref_;
     RoutingPolicyWalkRequests routing_policy_sync_;
     SandeshTraceBufferPtr trace_buf_;
 };
+
 #endif // SRC_BGP_ROUTING_POLICY_ROUTING_POLICY_H_

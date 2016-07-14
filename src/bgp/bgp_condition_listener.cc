@@ -137,8 +137,9 @@ bool BgpConditionListener::PurgeTableState() {
 void BgpConditionListener::AddMatchCondition(BgpTable *table,
                                              ConditionMatch *obj,
                                              RequestDoneCb cb) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
 
+    tbb::mutex::scoped_lock lock(mutex_);
     ConditionMatchTableState *ts = NULL;
     TableMap::iterator loc = map_.find(table);
     if (loc == map_.end()) {
@@ -167,7 +168,9 @@ void BgpConditionListener::AddMatchCondition(BgpTable *table,
 void BgpConditionListener::RemoveMatchCondition(BgpTable *table,
                                                 ConditionMatch *obj,
                                                 RequestDoneCb cb) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
+
+    tbb::mutex::scoped_lock lock(mutex_);
     obj->SetDeleted();
 
     TableMap::iterator loc = map_.find(table);
@@ -292,7 +295,7 @@ void BgpConditionListener::RemoveMatchState(BgpTable *table, BgpRoute *route,
 
 void BgpConditionListener::TableWalk(ConditionMatchTableState *ts,
                  ConditionMatch *obj, BgpConditionListener::RequestDoneCb cb) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
 
     if (ts->walk_ref() == NULL) {
         DBTable::DBTableWalkRef walk_ref = ts->table()->AllocWalker(

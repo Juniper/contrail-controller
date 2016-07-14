@@ -4,6 +4,7 @@
 
 #include "bgp/routing-instance/rtarget_group.h"
 
+#include <boost/assign/list_of.hpp>
 #include <boost/foreach.hpp>
 
 #include <utility>
@@ -17,30 +18,33 @@
 #include "bgp/rtarget/rtarget_route.h"
 #include "db/db.h"
 
+using boost::assign::list_of;
 using std::pair;
 using std::string;
 using std::vector;
 
 RtGroup::RtGroup(const RouteTarget &rt)
     : rt_(rt), dep_(RTargetDepRouteList(DB::PartitionCount())) {
+    vector<Address::Family> vpn_family_list = list_of
+        (Address::INETVPN)(Address::INET6VPN)(Address::ERMVPN)(Address::EVPN);
+    BOOST_FOREACH(Address::Family vpn_family, vpn_family_list) {
+        import_[vpn_family] = RtGroupMemberList();
+        export_[vpn_family] = RtGroupMemberList();
+    }
 }
 
 bool RtGroup::MayDelete() const {
     return !HasImportExportTables() && !HasInterestedPeers() && !HasDepRoutes();
 }
 
-const RtGroup::RtGroupMemberList RtGroup::GetImportTables(
+const RtGroup::RtGroupMemberList &RtGroup::GetImportTables(
     Address::Family family) const {
-    RtGroupMembers::const_iterator loc = import_.find(family);
-    if (loc == import_.end()) return RtGroupMemberList();
-    return loc->second;
+    return import_.at(family);
 }
 
-const RtGroup::RtGroupMemberList RtGroup::GetExportTables(
+const RtGroup::RtGroupMemberList &RtGroup::GetExportTables(
     Address::Family family) const {
-    RtGroupMembers::const_iterator loc = export_.find(family);
-    if (loc == export_.end()) return RtGroupMemberList();
-    return loc->second;
+    return export_.at(family);
 }
 
 bool RtGroup::AddImportTable(Address::Family family, BgpTable *tbl) {
@@ -65,19 +69,6 @@ bool RtGroup::RemoveExportTable(Address::Family family, BgpTable *tbl) {
     return export_[family].empty();
 }
 
-bool RtGroup::HasImportExportTables(Address::Family family) const {
-    RtGroupMembers::const_iterator it_import = import_.find(family);
-    RtGroupMembers::const_iterator it_export = export_.find(family);
-    bool import_empty = true;
-    bool export_empty = true;
-    if (it_import != import_.end())
-        import_empty = it_import->second.empty();
-    if (it_export != export_.end())
-        export_empty = it_export->second.empty();
-
-    return (import_empty && export_empty);
-}
-
 bool RtGroup::HasImportExportTables() const {
     BOOST_FOREACH(const RtGroupMembers::value_type &family_members, import_) {
         if (!family_members.second.empty())
@@ -91,23 +82,21 @@ bool RtGroup::HasImportExportTables() const {
 }
 
 bool RtGroup::HasVrfTables(Address::Family family) const {
-    RtGroupMembers::const_iterator it_import = import_.find(family);
-    if (it_import != import_.end()) {
-        if (it_import->second.size() > 1)
-            return true;
-        const BgpTable *table = *it_import->second.begin();
-        if (table && !table->IsVpnTable())
-            return true;
-    }
+    const BgpTable *table;
 
-    RtGroupMembers::const_iterator it_export = export_.find(family);
-    if (it_export != export_.end()) {
-        if (it_export->second.size() > 1)
-            return true;
-        const BgpTable *table = *it_export->second.begin();
-        if (table && !table->IsVpnTable())
-            return true;
-    }
+    const RtGroupMemberList &import_list = import_.at(family);
+    if (import_list.size() > 1)
+        return true;
+    table = *import_list.begin();
+    if (table && !table->IsVpnTable())
+        return true;
+
+    const RtGroupMemberList &export_list = export_.at(family);
+    if (export_list.size() > 1)
+        return true;
+    table = *export_list.begin();
+    if (table && !table->IsVpnTable())
+        return true;
 
     return false;
 }

@@ -98,6 +98,7 @@ DBTableBase *DB::CreateTable(const string &name) {
         FactoryMap::iterator loc = factory_map->find(prefix);
         if (loc != factory_map->end()) {
             DBTableBase *tbl_base = (loc->second)(this, name);
+            tbb::mutex::scoped_lock lock(mutex_);
             tables_.insert(make_pair(name, tbl_base));
             return tbl_base;
         }

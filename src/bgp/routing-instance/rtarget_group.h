@@ -72,14 +72,13 @@ public:
     std::string ToString() const { return rt_.ToString(); }
     bool MayDelete() const;
 
-    const RtGroupMemberList GetImportTables(Address::Family family) const;
-    const RtGroupMemberList GetExportTables(Address::Family family) const;
+    const RtGroupMemberList &GetImportTables(Address::Family family) const;
+    const RtGroupMemberList &GetExportTables(Address::Family family) const;
 
     bool AddImportTable(Address::Family family, BgpTable *tbl);
     bool AddExportTable(Address::Family family, BgpTable *tbl);
     bool RemoveImportTable(Address::Family family, BgpTable *tbl);
     bool RemoveExportTable(Address::Family family, BgpTable *tbl);
-    bool HasImportExportTables(Address::Family family) const;
     bool HasImportExportTables() const;
     bool HasVrfTables(Address::Family family) const;
 

@@ -41,6 +41,7 @@ typedef ip::tcp::socket Socket;
 BgpServerTest::BgpServerTest(EventManager *evm, const string &localname,
                              DB *config_db, DBGraph *config_graph) :
     BgpServer(evm), config_db_(config_db), config_graph_(config_graph) {
+    ConcurrencyScope scope("bgp::Config");
     BgpIfmapConfigManager *config_manager =
             static_cast<BgpIfmapConfigManager *>(config_mgr_.get());
     config_manager->Initialize(config_db_.get(), config_graph_.get(),
@@ -55,6 +56,7 @@ BgpServerTest::BgpServerTest(EventManager *evm, const string &localname)
       config_db_(
           new DB(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"))),
       config_graph_(new DBGraph()) {
+    ConcurrencyScope scope("bgp::Config");
     cleanup_config_ = true;
     IFMapLinkTable_Init(config_db_.get(), config_graph_.get());
     vnc_cfg_Server_ModuleInit(config_db_.get(), config_graph_.get());
