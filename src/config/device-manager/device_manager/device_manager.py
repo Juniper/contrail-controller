@@ -175,7 +175,16 @@ class DeviceManager(object):
                                          rabbit_user, rabbit_password,
                                          rabbit_vhost, rabbit_ha_mode,
                                          q_name, self._vnc_subscribe_callback,
-                                         self.config_log)
+                                         self.config_log, rabbit_use_ssl =
+                                         self._args.rabbit_use_ssl,
+                                         kombu_ssl_version =
+                                         self._args.kombu_ssl_version,
+                                         kombu_ssl_keyfile =
+                                         self._args.kombu_ssl_keyfile,
+                                         kombu_ssl_certfile =
+                                         self._args.kombu_ssl_certfile,
+                                         kombu_ssl_ca_certs =
+                                         self._args.kombu_ssl_ca_certs)
 
         self._cassandra = DMCassandraDB.getInstance(self)
 
@@ -418,6 +427,11 @@ def parse_args(args_str):
         'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
         'cluster_id': '',
         'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
+        'rabbit_use_ssl': False,
+        'kombu_ssl_version': '',
+        'kombu_ssl_keyfile': '',
+        'kombu_ssl_certfile': '',
+        'kombu_ssl_ca_certs': '',
     }
     secopts = {
         'use_certs': False,
