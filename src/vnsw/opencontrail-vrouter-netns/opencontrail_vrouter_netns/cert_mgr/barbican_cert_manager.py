@@ -41,7 +41,7 @@ class BarbicanKeystoneSession(object):
         auth_version = tmp_auth_url.split('/')[-1]
         if (auth_version.lower() == 'v2.0'):
             self.auth_version = '2'
-        elif (auth_version.lower() == 'v3.0'):
+        elif (auth_version.lower() == 'v3'):
             self.auth_version = '3'
             self.admin_user_domain = config.get('BARBICAN', 'admin_user_domain')
             self.admin_project_domain = config.get('BARBICAN', 'admin_project_domain')
