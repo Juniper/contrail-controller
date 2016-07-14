@@ -37,3 +37,4 @@ kombu==3.0.9
 ../opserver/plugins/alarm_vrouter_interface/dist/alarm_vrouter_interface-0.1dev.tar.gz
 ../opserver/plugins/alarm_phyif_bandwidth/dist/alarm_phyif_bandwidth-0.1dev.tar.gz
 ../opserver/plugins/alarm_xmpp_connectivity/dist/alarm_xmpp_connectivity-0.1dev.tar.gz
+../opserver/plugins/alarm_node_status/dist/alarm_node_status-0.1dev.tar.gz

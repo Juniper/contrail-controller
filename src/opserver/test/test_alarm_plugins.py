@@ -29,6 +29,8 @@ from alarm_vrouter_interface.main import VrouterInterface
 from alarm_storage.main import StorageClusterState
 from alarm_disk_usage.main import DiskUsage
 from alarm_phyif_bandwidth.main import PhyifBandwidth
+from alarm_node_status.main import NodeStatus
+
 
 logging.basicConfig(level=logging.DEBUG,
     format='%(asctime)s %(levelname)s %(message)s')
@@ -1362,6 +1364,48 @@ class TestAlarmPlugins(unittest.TestCase):
         ]
         self._verify(PhyifBandwidth(), tests)
     # end test_alarm_phyif_bandwidth
+
+    def test_alarm_node_status(self):
+        tests = [
+            TestCase(
+                name='NodeStatus == null',
+                input=TestInput(uve_key='ObjectCollectorInfo:host2',
+                    uve_data={
+                        'ContrailConfig': {
+                            'elements': {
+                                'fq_name': ['global-sys-config', 'host2']
+                            }
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            ('NodeStatus == null', None,
+                             [('null', None, None)])
+                        ]
+                    }
+                ])
+            ),
+            TestCase(
+                name='NodeStatus != null',
+                input=TestInput(uve_key='ObjectCollectorInfo:host2',
+                    uve_data={
+                        'NodeStatus': {
+                            'process_info': [
+                                {
+                                    'name': 'contrail-topology',
+                                    'state': 'RUNNING'
+                                }
+                            ]
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=None)
+            )
+        ]
+        self._verify(NodeStatus(), tests)
+    # end test_alarm_node_status
 
     def _verify(self, plugin, tests):
         for test in tests:
