@@ -131,6 +131,7 @@ public:
     virtual KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index);
     virtual KSyncEntry *DBToKSyncEntry(const DBEntry *e);
     void RegisterDBClients();
+    DBFilterResp DBEntryFilter(const DBEntry *e, const KSyncDBEntry *k);
 
 private:
     KSync *ksync_;

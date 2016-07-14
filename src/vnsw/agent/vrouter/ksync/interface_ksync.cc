@@ -829,6 +829,40 @@ void InterfaceKSyncObject::InitTest() {
     ksync_->agent()->set_test_mode(true);
 }
 
+KSyncDBObject::DBFilterResp
+InterfaceKSyncObject::DBEntryFilter(const DBEntry *entry,
+                                    const KSyncDBEntry *ksync) {
+
+    const Interface *intf = dynamic_cast<const Interface *>(entry);
+    const VmInterface *vm_intf = dynamic_cast<const VmInterface *>(intf);
+
+    uint32_t rx_vlan_id = VmInterface::kInvalidVlanId;
+    VmInterface::VmiType vmi_type = VmInterface::VMI_TYPE_INVALID;
+
+    if (vm_intf) {
+        rx_vlan_id = vm_intf->rx_vlan_id();
+        vmi_type = vm_intf->vmi_type();
+    }
+
+    if (IsValidOsIndex(intf->os_index(), intf->type(), rx_vlan_id,
+                       vmi_type, intf->transport()) == false) {
+        return DBFilterIgnore;
+    }
+
+    if (intf->type() == Interface::LOGICAL ||
+        intf->type() == Interface::REMOTE_PHYSICAL) {
+        return DBFilterIgnore;
+    }
+
+    // No need to add VLAN sub-interface if there is no parent
+    if (vm_intf && vm_intf->device_type() == VmInterface::VM_VLAN_ON_VMI &&
+        vm_intf->parent() == NULL) {
+        return DBFilterIgnore;
+    }
+
+    return DBFilterAccept;
+}
+
 //////////////////////////////////////////////////////////////////////////////
 // sandesh routines
 //////////////////////////////////////////////////////////////////////////////
