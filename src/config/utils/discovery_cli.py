@@ -283,7 +283,7 @@ elif args.op == 'load-balance':
         print 'Specific service id %s ignored for this operation' % args.service_id
     url = "http://%s:%s/load-balance/%s" % (server_ip, server_port, args.service_type)
     payload = { 'type': args.load_balance }
-    r = requests.post(url, headers=headers, data=payload)
+    r = requests.post(url, headers=headers, data=json.dumps(payload))
     if r.status_code != 200:
         print "Operation status %d" % r.status_code
     sys.exit(0)
