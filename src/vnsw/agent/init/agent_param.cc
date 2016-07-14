@@ -297,7 +297,7 @@ void AgentParam::ParseVirtualHost() {
 
 void AgentParam::ParseDiscovery() {
     GetValueFromTree<string>(dss_server_, "DISCOVERY.server");
-    GetValueFromTree<uint16_t>(dss_port_, "DISCOVERY.port");
+    GetValueFromTree<uint32_t>(dss_port_, "DISCOVERY.port");
     GetValueFromTree<uint16_t>(xmpp_instance_count_,
                                "DISCOVERY.max_control_nodes");
 }
@@ -594,7 +594,7 @@ void AgentParam::ParseVirtualHostArguments
 void AgentParam::ParseDiscoveryArguments
     (const boost::program_options::variables_map &var_map) {
     GetOptValue<string>(var_map, dss_server_, "DISCOVERY.server");
-    GetOptValue<uint16_t>(var_map, dss_port_, "DISCOVERY.port");
+    GetOptValue<uint32_t>(var_map, dss_port_, "DISCOVERY.port");
     if (!GetOptValue<uint16_t>(var_map, xmpp_instance_count_,
                                "DISCOVERY.max_control_nodes")) {
         xmpp_instance_count_ = MAX_XMPP_SERVERS;
@@ -1142,7 +1142,7 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         eth_port_no_arp_(false), eth_port_encap_type_(),
         xmpp_instance_count_(),
         dns_port_1_(ContrailPorts::DnsServerPort()),
-        dns_port_2_(ContrailPorts::DnsServerPort()),
+        dns_port_2_(ContrailPorts::DnsServerPort()), dss_port_(0),
         mgmt_ip_(), hypervisor_mode_(MODE_KVM), xen_ll_(),
         tunnel_type_(), metadata_shared_secret_(), max_vm_flows_(),
         linklocal_system_flows_(), linklocal_vm_flows_(),
@@ -1211,7 +1211,7 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
          "Run agent in vrouter / tsn / tor mode")
         ("DEFAULT.agent_base_directory", opt::value<string>(),
          "Base directory used by the agent")
-        ("DISCOVERY.port", opt::value<uint16_t>()->default_value(DISCOVERY_SERVER_PORT),
+        ("DISCOVERY.port", opt::value<uint32_t>()->default_value(DISCOVERY_SERVER_PORT),
          "Listen port of discovery server")
         ("DISCOVERY.server", opt::value<string>()->default_value("127.0.0.1"),
          "IP address of discovery server")
