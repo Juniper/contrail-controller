@@ -23,6 +23,8 @@ public:
             // cancelled task .. ignore
             if (task_cancelled()) {
                 // Cancelled timer's task releases the ownership of the timer
+
+                lock.release();
                 timer_ = NULL;
                 return true;
             }
