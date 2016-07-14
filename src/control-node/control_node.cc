@@ -29,6 +29,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     // Policy for bgp::Config Task.
     TaskPolicy config_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")))
         (TaskExclusion(scheduler->GetTaskId("bgp::RTFilter")))
         (TaskExclusion(scheduler->GetTaskId("bgp::SendTask")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ServiceChain")))
@@ -50,9 +51,36 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("bgp::ResolverNexthop")));
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::Config"), config_policy);
 
+    // Policy for bgp::ConfigHelper Task.
+    // It's the same as that for bgp:Config Task except that bgp:ConfigHelper
+    // is not exclusive with db::IFMapTable.
+    TaskPolicy config_helper_policy = boost::assign::list_of
+        (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::RTFilter")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::SendTask")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ServiceChain")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::StateMachine")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")))
+        (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
+        (TaskExclusion(scheduler->GetTaskId("db::Walker")))
+        (TaskExclusion(scheduler->GetTaskId("io::ReaderTask")))
+        (TaskExclusion(scheduler->GetTaskId("ifmap::StateMachine")))
+        (TaskExclusion(scheduler->GetTaskId("xmpp::StateMachine")))
+        (TaskExclusion(scheduler->GetTaskId("timer::TimerTask")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ShowCommand")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::SendReadyTask")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::StaticRoute")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::Uve")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::RouteAggregation")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ResolverPath")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ResolverNexthop")));
+    scheduler->SetPolicy(scheduler->GetTaskId("bgp::ConfigHelper"),
+        config_helper_policy);
+
     // Policy for bgp::ServiceChain and bgp::StaticRoute Tasks.
     TaskPolicy static_service_chain_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")))
         (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ResolverPath")))
         (TaskExclusion(scheduler->GetTaskId("bgp::RouteAggregation")))
@@ -71,6 +99,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     // bgp/xmpp StateMachine tasks with the same task instance.
     TaskPolicy sm_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")))
         (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ShowCommand")))
         (TaskExclusion(scheduler->GetTaskId("bgp::RTFilter")));
@@ -85,6 +114,8 @@ void ControlNode::SetDefaultSchedulingPolicy() {
 
     // Policy for bgp::PeerMembership Task.
     TaskPolicy peer_membership_policy = boost::assign::list_of
+        (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")))
         (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
         (TaskExclusion(scheduler->GetTaskId("db::Walker")))
         (TaskExclusion(scheduler->GetTaskId("bgp::SendTask")))
@@ -98,6 +129,8 @@ void ControlNode::SetDefaultSchedulingPolicy() {
 
     // Policy for bgp::SendReadyTask Task.
     TaskPolicy send_ready_policy = boost::assign::list_of
+        (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")))
         (TaskExclusion(scheduler->GetTaskId("bgp::SendTask")))
         (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")));
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::SendReadyTask"),
@@ -108,7 +141,8 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
         (TaskExclusion(scheduler->GetTaskId("db::Walker")))
         (TaskExclusion(scheduler->GetTaskId("bgp::StateMachine")))
-        (TaskExclusion(scheduler->GetTaskId("bgp::Config")));
+        (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")));
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::RTFilter"),
         rtfilter_policy);
 
@@ -117,6 +151,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
         (TaskExclusion(scheduler->GetTaskId("db::Walker")))
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ResolverNexthop")))
         (TaskExclusion(scheduler->GetTaskId("bgp::RouteAggregation")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ServiceChain")))
@@ -128,6 +163,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     TaskPolicy resolver_nexthop_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ResolverPath")))
         (TaskExclusion(scheduler->GetTaskId("bgp::RouteAggregation")));
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::ResolverNexthop"),
@@ -138,6 +174,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
         (TaskExclusion(scheduler->GetTaskId("db::Walker")))
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ResolverNexthop")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ResolverPath")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ServiceChain")))
@@ -161,6 +198,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     TaskPolicy walker_policy = boost::assign::list_of
         // Following tasks trigger WalkTable
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")))
         (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")))
         (TaskExclusion(scheduler->GetTaskId("bgp::RTFilter")))
         // Following tasks updates db table partition

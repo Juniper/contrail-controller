@@ -11,7 +11,7 @@
 #include <boost/intrusive_ptr.hpp>
 #include <boost/iterator/iterator_facade.hpp>
 #include <boost/scoped_ptr.hpp>
-#include <tbb/spin_rw_mutex.h>
+#include <tbb/mutex.h>
 
 #include <list>
 #include <map>
@@ -44,6 +44,7 @@ class ExtCommunity;
 class LifetimeActor;
 class PeerManager;
 class ShowRouteTable;
+class TaskTrigger;
 
 class RoutingInstance {
 public:
@@ -130,6 +131,8 @@ public:
     // and Leave corresponding RtGroup
     void ClearRouteTarget();
 
+    void CreateNeighbors();
+
     IStaticRouteMgr *static_route_mgr(Address::Family family) {
         if (family == Address::INET)
             return inet_static_route_mgr_.get();
@@ -153,6 +156,7 @@ public:
     IRouteAggregator *LocateRouteAggregator(Address::Family family);
     void DestroyRouteAggregator(Address::Family family);
 
+    size_t peer_manager_size() const;
     PeerManager *peer_manager() { return peer_manager_.get(); }
     const PeerManager *peer_manager() const { return peer_manager_.get(); }
     PeerManager *LocatePeerManager();
@@ -229,8 +233,29 @@ private:
 class RoutingInstanceSet : public BitSet {
 };
 
+//
+// This class is responsible for life cycle management of RoutingInstances.
+//
+// In order to speed up creation of RoutingInstances at startup, multiple
+// bgp::ConfigHelper tasks running in parallel are used instead of creating
+// from the bgp::Config task directly.  A hash of the RoutingInstance name
+// is calculated and the name is added to one of the instance_config_lists_.
+// Each list is processed independently in a bgp::ConfigHelper task.
+//
+// As RoutingInstance creation doesn't happen in-line from bgp::Config task,
+// creation of BgpPeers in non-master RoutingInstances needs to be deferred
+// till after RoutingInstance itself is created.  This is handled by adding
+// the RoutingInstance name to neighbor_config_list_ and creating BgpPeers
+// from bgp::Config task. Assumption is that there will be a small number of
+// RoutingInstances with BgpPeers.
+//
+// As RoutingInstances can be created from parallel bgp::ConfigHelper tasks,
+// a mutex is used to serialize access to shared data structures such as the
+// instances_ map, target_map_ and vn_index_map_.
+//
 class RoutingInstanceMgr {
 public:
+    typedef std::set<std::string> RoutingInstanceConfigList;
     typedef IndexMap<std::string, RoutingInstance,
             RoutingInstanceSet> RoutingInstanceList;
     typedef RoutingInstanceList::iterator name_iterator;
@@ -298,52 +323,52 @@ public:
         return instances_.lower_bound(name);
     }
 
-    const RoutingInstance *GetDefaultRoutingInstance() const;
-    RoutingInstance *GetRoutingInstance(const std::string &name) {
-        return instances_.Find(name);
-    }
-    const RoutingInstance *GetRoutingInstance(const std::string &name) const {
-        return instances_.Find(name);
-    }
-
     int RegisterInstanceOpCallback(RoutingInstanceCb cb);
     void NotifyInstanceOp(std::string name, Operation deleted);
     void UnregisterInstanceOpCallback(int id);
-
-    RoutingInstance *GetRoutingInstance(int index) {
-        return instances_.At(index);
-    }
-    const RoutingInstance *GetRoutingInstance(int index) const {
-        return instances_.At(index);
-    }
 
     const RoutingInstance *GetInstanceByTarget(const RouteTarget &target) const;
     std::string GetVirtualNetworkByVnIndex(int vn_index) const;
     int GetVnIndexByExtCommunity(const ExtCommunity *community) const;
 
-    // called from the BgpServer::ConfigUpdater
-    virtual RoutingInstance *CreateRoutingInstance(
-                const BgpInstanceConfig *config);
-    void UpdateRoutingInstance(const BgpInstanceConfig *config);
+    RoutingInstance *GetDefaultRoutingInstance();
+    const RoutingInstance *GetDefaultRoutingInstance() const;
+    RoutingInstance *GetRoutingInstance(const std::string &name);
+    const RoutingInstance *GetRoutingInstance(const std::string &name) const;
+    RoutingInstance *GetRoutingInstanceLocked(const std::string &name);
+    void InsertRoutingInstance(RoutingInstance *rtinstance);
+    void LocateRoutingInstance(const BgpInstanceConfig *config);
+    void LocateRoutingInstance(const std::string &name);
+    RoutingInstance *CreateRoutingInstance(const BgpInstanceConfig *config);
+    void UpdateRoutingInstance(RoutingInstance *rtinstance,
+        const BgpInstanceConfig *config);
     virtual void DeleteRoutingInstance(const std::string &name);
+    void DestroyRoutingInstance(RoutingInstance *rtinstance);
 
     bool deleted();
+    bool MayDelete() const;
     void ManagedDelete();
+    void Shutdown();
 
-    void DestroyRoutingInstance(RoutingInstance *rtinstance);
+    void CreateRoutingInstanceNeighbors(const BgpInstanceConfig *config);
 
     size_t count() const { return instances_.count(); }
     BgpServer *server() { return server_; }
     const BgpServer *server() const { return server_; }
     LifetimeActor *deleter();
+    tbb::mutex &mutex() { return mutex_; }
 
     uint32_t deleted_count() const { return deleted_count_; }
     void increment_deleted_count() { deleted_count_++; }
     void decrement_deleted_count() { deleted_count_--; }
 
 private:
+    friend class BgpConfigTest;
     friend class RoutingInstanceMgrTest;
     class DeleteActor;
+
+    bool ProcessInstanceConfigList(int idx);
+    bool ProcessNeighborConfigList();
 
     void InstanceTargetAdd(RoutingInstance *rti);
     void InstanceTargetRemove(const RoutingInstance *rti);
@@ -356,7 +381,18 @@ private:
     void ASNUpdateCallback(as_t old_asn, as_t old_local_asn);
     void IdentifierUpdateCallback(Ip4Address old_identifier);
 
+    void DisableInstanceConfigListProcessing();
+    void EnableInstanceConfigListProcessing();
+    void DisableNeighborConfigListProcessing();
+    void EnableNeighborConfigListProcessing();
+
     BgpServer *server_;
+    mutable tbb::mutex mutex_;
+    std::vector<RoutingInstanceConfigList> instance_config_lists_;
+    std::vector<TaskTrigger *> instance_config_triggers_;
+    RoutingInstanceConfigList neighbor_config_list_;
+    boost::scoped_ptr<TaskTrigger> neighbor_config_trigger_;
+    RoutingInstance *default_rtinstance_;
     RoutingInstanceList instances_;
     InstanceTargetMap target_map_;
     VnIndexMap vn_index_map_;
@@ -366,7 +402,6 @@ private:
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<RoutingInstanceMgr> server_delete_ref_;
     boost::dynamic_bitset<> bmap_;      // free list.
-    tbb::spin_rw_mutex rw_mutex_;
     InstanceOpListenersList callbacks_;
 };
 

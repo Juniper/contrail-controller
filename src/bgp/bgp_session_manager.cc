@@ -105,7 +105,7 @@ BgpPeer *BgpSessionManager::FindPeer(Endpoint remote) {
     BgpPeer *peer = NULL;
     const RoutingInstance *instance =
         server_->routing_instance_mgr()->GetDefaultRoutingInstance();
-    if (instance) {
+    if (instance && !instance->deleted()) {
         peer = instance->peer_manager()->PeerLookup(remote);
     }
     if (!peer) {

@@ -421,7 +421,8 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
     BGP_DEBUG_UT("Update the import of orange");
     BgpTestUtil::UpdateBgpInstanceConfig(orange_cfg_.get(),
             "target:1:2", "target:1:2");
-    server_.routing_instance_mgr()->UpdateRoutingInstance(orange_cfg_.get());
+    server_.routing_instance_mgr()->UpdateRoutingInstance(
+        orange, orange_cfg_.get());
     ClearCounters();
     scheduler->Start();
     task_util::WaitForIdle();
@@ -438,7 +439,8 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
     BGP_DEBUG_UT("Update the import/export of Green");
     BgpTestUtil::UpdateBgpInstanceConfig(green_cfg_.get(),
             "target:1:2 target:1.2.3.4:1", "target:1:2 target:1.2.3.4:1");
-    server_.routing_instance_mgr()->UpdateRoutingInstance(green_cfg_.get());
+    server_.routing_instance_mgr()->UpdateRoutingInstance(
+        green, green_cfg_.get());
     ClearCounters();
     scheduler->Start();
     task_util::WaitForIdle();
@@ -454,7 +456,8 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
     scheduler->Stop();
     BGP_DEBUG_UT("Remove the import/export of Green");
     BgpTestUtil::UpdateBgpInstanceConfig(green_cfg_.get(), "", "");
-    server_.routing_instance_mgr()->UpdateRoutingInstance(green_cfg_.get());
+    server_.routing_instance_mgr()->UpdateRoutingInstance(
+        green, green_cfg_.get());
     ClearCounters();
     scheduler->Start();
     task_util::WaitForIdle();

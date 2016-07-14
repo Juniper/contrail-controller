@@ -231,8 +231,7 @@ public:
             return;
         BgpServer *server = parent_->bgp_server_;
         RoutingInstanceMgr *instance_mgr = server->routing_instance_mgr();
-        RoutingInstance *master =
-            instance_mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
+        RoutingInstance *master = instance_mgr->GetDefaultRoutingInstance();
         assert(master);
         BgpTable *rtarget_table = master->GetTable(Address::RTARGET);
         assert(rtarget_table);
@@ -703,8 +702,7 @@ void BgpXmppChannel::ASNUpdateCallback(as_t old_asn, as_t old_local_asn) {
 
     RoutingInstanceMgr *instance_mgr = bgp_server_->routing_instance_mgr();
     assert(instance_mgr);
-    RoutingInstance *master =
-        instance_mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
+    RoutingInstance *master = instance_mgr->GetDefaultRoutingInstance();
     assert(master);
     BgpTable *rtarget_table = master->GetTable(Address::RTARGET);
     assert(rtarget_table);
@@ -731,8 +729,7 @@ void BgpXmppChannel::IdentifierUpdateCallback(Ip4Address old_identifier) {
 
     RoutingInstanceMgr *instance_mgr = bgp_server_->routing_instance_mgr();
     assert(instance_mgr);
-    RoutingInstance *master =
-        instance_mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
+    RoutingInstance *master = instance_mgr->GetDefaultRoutingInstance();
     assert(master);
     BgpTable *rtarget_table = master->GetTable(Address::RTARGET);
     assert(rtarget_table);
@@ -818,8 +815,7 @@ void BgpXmppChannel::RoutingInstanceCallback(string vrf_name, int op) {
 
         // Prepare for route add to rtarget table
         // get rtarget_table and locate the attr
-        RoutingInstance *master =
-            instance_mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
+        RoutingInstance *master = instance_mgr->GetDefaultRoutingInstance();
         assert(master);
         BgpTable *rtarget_table = master->GetTable(Address::RTARGET);
         assert(rtarget_table);
@@ -2183,8 +2179,7 @@ void BgpXmppChannel::FlushDeferQ(string vrf_name) {
 void BgpXmppChannel::UpdateRouteTargetRouteFlag(
     const SubscriptionState *sub_state, bool llgr) {
     RoutingInstanceMgr *instance_mgr = bgp_server_->routing_instance_mgr();
-    RoutingInstance *master =
-        instance_mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
+    RoutingInstance *master = instance_mgr->GetDefaultRoutingInstance();
     assert(master);
     BgpTable *rtarget_table = master->GetTable(Address::RTARGET);
     BOOST_FOREACH(RouteTarget rtarget, sub_state->targets) {
@@ -2280,8 +2275,7 @@ void BgpXmppChannel::PublishRTargetRoute(RoutingInstance *rt_instance,
     bool add_change, int index) {
     // Add rtarget route for import route target of the routing instance.
     RoutingInstanceMgr *instance_mgr = bgp_server_->routing_instance_mgr();
-    RoutingInstance *master =
-        instance_mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
+    RoutingInstance *master = instance_mgr->GetDefaultRoutingInstance();
     assert(master);
     BgpTable *rtarget_table = master->GetTable(Address::RTARGET);
     assert(rtarget_table);
@@ -2704,7 +2698,7 @@ void BgpXmppChannelManager::IdentifierUpdateCallback(
 }
 
 void BgpXmppChannelManager::RoutingInstanceCallback(string vrf_name, int op) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
     BOOST_FOREACH(XmppChannelMap::value_type &i, channel_map_) {
         i.second->RoutingInstanceCallback(vrf_name, op);
     }

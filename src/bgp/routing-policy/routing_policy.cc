@@ -139,6 +139,9 @@ void RoutingPolicyMgr::DestroyRoutingPolicy(RoutingPolicy *policy) {
 // This function puts the table into the walk request queue and triggers the
 // task to start the actual walk
 void RoutingPolicyMgr::ApplyRoutingPolicy(RoutingInstance *instance) {
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
+
+    tbb::mutex::scoped_lock lock(mutex_);
     BOOST_FOREACH(RoutingInstance::RouteTableList::value_type &entry,
                   instance->GetTables()) {
         BgpTable *table = entry.second;
@@ -195,7 +198,9 @@ bool RoutingPolicyMgr::EvaluateRoutingPolicy(DBTablePartBase *root,
 bool RoutingPolicyMgr::UpdateRoutingPolicyList(
                                         const RoutingPolicyConfigList &cfg_list,
                                         RoutingPolicyAttachList *oper_list) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
+
+    tbb::mutex::scoped_lock lock(mutex_);
     bool update_policy = false;
     // Number of routing policies is different
     if (oper_list->size() != cfg_list.size())
@@ -252,7 +257,7 @@ bool RoutingPolicyMgr::UpdateRoutingPolicyList(
 
 void
 RoutingPolicyMgr::RequestWalk(BgpTable *table) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
     RoutingPolicyWalkRequests::iterator it = routing_policy_sync_.find(table);
     if (it == routing_policy_sync_.end()) {
         DBTable::DBTableWalkRef walk_ref = table->AllocWalker(

@@ -63,8 +63,7 @@ public:
         server_->global_config()->set_eor_rx_time(system->eor_rx_time());
 
         RoutingInstanceMgr *ri_mgr = server_->routing_instance_mgr();
-        RoutingInstance *rti =
-            ri_mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
+        RoutingInstance *rti = ri_mgr->GetDefaultRoutingInstance();
         assert(rti);
         PeerManager *peer_manager = rti->LocatePeerManager();
         peer_manager->ClearAllPeers();
@@ -195,9 +194,10 @@ public:
         string instance_name = neighbor_config->instance_name();
         RoutingInstanceMgr *ri_mgr = server_->routing_instance_mgr();
         RoutingInstance *rti = ri_mgr->GetRoutingInstance(instance_name);
-        assert(rti);
-        PeerManager *peer_manager = rti->LocatePeerManager();
+        if (!rti)
+            return;
 
+        PeerManager *peer_manager = rti->LocatePeerManager();
         if (event == BgpConfigManager::CFG_ADD ||
             event == BgpConfigManager::CFG_CHANGE) {
             BgpPeer *peer = peer_manager->PeerLocate(server_, neighbor_config);
@@ -229,10 +229,9 @@ public:
     void ProcessInstanceConfig(const BgpInstanceConfig *instance_config,
                                BgpConfigManager::EventType event) {
         RoutingInstanceMgr *mgr = server_->routing_instance_mgr();
-        if (event == BgpConfigManager::CFG_ADD) {
-            mgr->CreateRoutingInstance(instance_config);
-        } else if (event == BgpConfigManager::CFG_CHANGE) {
-            mgr->UpdateRoutingInstance(instance_config);
+        if (event == BgpConfigManager::CFG_ADD ||
+            event == BgpConfigManager::CFG_CHANGE) {
+            mgr->LocateRoutingInstance(instance_config->name());
         } else if (event == BgpConfigManager::CFG_DELETE) {
             mgr->DeleteRoutingInstance(instance_config->name());
         }
@@ -697,17 +696,20 @@ void BgpServer::NotifyIdentifierUpdate(Ip4Address old_identifier) {
 }
 
 void BgpServer::InsertStaticRouteMgr(IStaticRouteMgr *srt_manager) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
+    tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
     srt_manager_list_.insert(srt_manager);
 }
 
 void BgpServer::RemoveStaticRouteMgr(IStaticRouteMgr *srt_manager) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
+    tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
     srt_manager_list_.erase(srt_manager);
 }
 
 void BgpServer::NotifyAllStaticRoutes() {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
+    tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
     for (StaticRouteMgrList::iterator it = srt_manager_list_.begin();
          it != srt_manager_list_.end(); ++it) {
         IStaticRouteMgr *srt_manager = *it;

@@ -9,6 +9,8 @@
 #include <vector>
 
 #include <boost/function.hpp>
+#include <tbb/mutex.h>
+
 #include "base/util.h"
 
 class DBGraph;
@@ -82,6 +84,7 @@ private:
     static int partition_count_;
     static FactoryMap *factories();
 
+    tbb::mutex mutex_;
     int task_id_;
     std::vector<DBPartition *> partitions_;
     TableMap tables_;

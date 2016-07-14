@@ -178,6 +178,9 @@ public:
     virtual void UpdateAggregateRouteConfig();
     virtual void FlushAggregateRouteConfig();
 
+    virtual uint32_t GetAggregateRouteCount() const {
+        return aggregate_route_map_.size();
+    }
     const AggregateRouteMap &aggregate_route_map() const {
         return aggregate_route_map_;
     }

@@ -401,7 +401,7 @@ void StaticRoute<T>::RemoveStaticRoute() {
 // UpdateStaticRoute
 template <typename T>
 void StaticRoute<T>::UpdateStaticRoute() {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
     RouteT rt_key(prefix_);
     DBTablePartition *partition =
        static_cast<DBTablePartition *>(bgp_table()->GetTablePartition(&rt_key));
@@ -724,7 +724,7 @@ void StaticRouteMgr<T>::UnregisterAndResolveStaticRoute(StaticRoutePtr entry) {
 template <typename T>
 void StaticRouteMgr<T>::LocateStaticRoutePrefix(
     const StaticRouteConfig &config) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
     AddressT address = this->GetAddress(config.address);
     PrefixT prefix(address, config.prefix_length);
 
@@ -789,7 +789,7 @@ void StaticRouteMgr<T>::StopStaticRouteDone(BgpTable *table,
 
 template <typename T>
 void StaticRouteMgr<T>::RemoveStaticRoutePrefix(const PrefixT &static_route) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
     typename StaticRouteMap::iterator it = static_route_map_.find(static_route);
     if (it == static_route_map_.end()) return;
 
@@ -804,7 +804,7 @@ void StaticRouteMgr<T>::RemoveStaticRoutePrefix(const PrefixT &static_route) {
 
 template <typename T>
 void StaticRouteMgr<T>::ProcessStaticRouteConfig() {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
     if (routing_instance()->deleted() || !routing_instance()->config()) return;
     const BgpInstanceConfig::StaticRouteList &list =
         routing_instance()->config()->static_routes(GetFamily());
@@ -829,7 +829,7 @@ bool CompareStaticRouteConfig(const StaticRouteConfig &lhs,
 
 template <typename T>
 void StaticRouteMgr<T>::UpdateStaticRouteConfig() {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
     StaticRouteConfigList config_list =
         routing_instance()->config()->static_routes(GetFamily());
     sort(config_list.begin(), config_list.end(), CompareStaticRouteConfig);
@@ -879,7 +879,7 @@ void StaticRouteMgr<T>::UpdateStaticRoute(typename StaticRouteMap::iterator loc,
 
 template <typename T>
 void StaticRouteMgr<T>::NotifyAllRoutes() {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
     for (typename StaticRouteMap::iterator it = static_route_map_.begin();
          it != static_route_map_.end(); ++it) {
         StaticRouteT *static_route =
@@ -890,7 +890,7 @@ void StaticRouteMgr<T>::NotifyAllRoutes() {
 
 template <typename T>
 void StaticRouteMgr<T>::UpdateAllRoutes() {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
     for (typename StaticRouteMap::iterator it = static_route_map_.begin();
          it != static_route_map_.end(); ++it) {
         StaticRouteT *static_route =
