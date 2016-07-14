@@ -64,6 +64,7 @@ bool FlowHandler::Run() {
         pkt_info_->tcp_ack = fe->is_flags_set(FlowEntry::TcpAckFlow);
         pkt_info_->vrf = fe->data().vrf;
         pkt_info_->l3_forwarding = fe->l3_flow();
+        info.out_component_nh_idx = fe->data().component_nh_idx;
         info.l3_flow = fe->l3_flow();
     } 
 

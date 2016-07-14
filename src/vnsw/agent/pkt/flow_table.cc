@@ -1243,6 +1243,7 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
     info.set_mirror_vrf(data_.mirror_vrf);
     info.set_implicit_deny(ImplicitDenyFlow());
     info.set_short_flow(is_flags_set(FlowEntry::ShortFlow));
+    info.set_short_flow_reason(short_flow_reason_);
     if (is_flags_set(FlowEntry::EcmpFlow) && 
             data_.component_nh_idx != CompositeNH::kInvalidComponentNHIdx) {
         info.set_ecmp_index(data_.component_nh_idx);
@@ -1375,13 +1376,6 @@ bool FlowEntry::SetRpfNHState(FlowTable *ft, const NextHop *nh) {
         }
     }
 
-    if (data_.nh_state_ && nh) {
-        if (data_.nh_state_->nh()->GetType() != NextHop::COMPOSITE &&
-                nh->GetType() == NextHop::COMPOSITE) {
-            set_flags(FlowEntry::Trap);
-        }
-    }
-
     if (data_.nh_state_ != nh_state) {
         data_.nh_state_ = nh_state;
         return true;
@@ -1509,8 +1503,6 @@ bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
     l3_flow_ = info->l3_flow;
     data_.vrouter_evicted_flow_ = false;
     data_.ecmp_rpf_nh_ = 0;
-    data_.acl_assigned_vrf_index_ = VrfEntry::kInvalidIndex;
-
     return true;
 }
 
@@ -2310,8 +2302,8 @@ void InetRouteFlowUpdate::RouteDel(AgentRoute *entry) {
 
     RouteFlowInfo rt_key(RouteFlowKey(route->vrf()->vrf_id(), route->addr(),
                                       route->plen()));
-    RouteFlowInfo *rt_info =
-        agent->pkt()->flow_table()->FindRouteFlowInfo(&rt_key);
+    FlowTable *table = agent->pkt()->flow_table();
+    RouteFlowInfo *rt_info = table->route_flow_tree_.Find(&rt_key);
     agent->pkt()->flow_table()->FlowRecompute(rt_info, NULL);
 }
 
