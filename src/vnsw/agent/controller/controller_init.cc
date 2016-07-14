@@ -368,6 +368,11 @@ void VNController::Cleanup() {
 
     agent_->controller()->increment_multicast_sequence_number();
     agent_->set_cn_mcast_builder(NULL);
+    for (BgpPeerIterator it  = decommissioned_peer_list_.begin();
+         it != decommissioned_peer_list_.end(); ++it) {
+        BgpPeer *peer = static_cast<BgpPeer *>((*it).get());
+        DynamicPeer::ProcessDelete(peer);
+    }
     decommissioned_peer_list_.clear();
     agent_ifmap_vm_export_.reset();
 }
@@ -673,7 +678,8 @@ AgentXmppChannel *VNController::GetActiveXmppChannel() {
     return NULL;
 }
 
-void VNController::AddToDecommissionedPeerList(BgpPeerPtr peer) {
+void VNController::AddToDecommissionedPeerList(PeerPtr peer) {
+    (static_cast<BgpPeer *>(peer.get()))->StopRouteExports();
     decommissioned_peer_list_.push_back(peer);
 }
 
@@ -701,6 +707,7 @@ bool VNController::ControllerPeerHeadlessAgentDelDone(BgpPeer *bgp_peer) {
             //Release BGP peer, ideally this should be the last reference being
             //released for peer.
             decommissioned_peer_list_.remove(*it);
+            DynamicPeer::ProcessDelete(bgp_peer);
             break;
         }
     }
