@@ -40,7 +40,7 @@ setuptools.setup(
     name='svc_monitor',
     version='0.1dev',
     packages=setuptools.find_packages(),
-    package_data={'': ['*.html', '*.css', '*.xml']},
+    package_data={'': ['*.html', '*.css', '*.xml', '*.yml']},
 
     # metadata
     author="OpenContrail",
