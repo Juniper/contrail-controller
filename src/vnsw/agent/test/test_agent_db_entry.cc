@@ -28,7 +28,8 @@ TEST_F(AgentDbEntry, db_entry_self_reference) {
                                                   MakeUuid(1), "vnet1");
     InterfaceNHKey intf_nh_key(intf_key, false,
                                (InterfaceNHFlags::INET4) |
-                               (InterfaceNHFlags::MULTICAST));
+                               (InterfaceNHFlags::MULTICAST),
+                               MacAddress::BroadcastMac());
     NextHop *nh = GetNH(&intf_nh_key);
     EXPECT_TRUE(nh->GetRefCount() != 0);
     DeleteVmportEnv(input, 1, true);

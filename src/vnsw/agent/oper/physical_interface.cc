@@ -74,7 +74,7 @@ bool PhysicalInterface::OnChange(const InterfaceTable *table,
 }
 
 bool PhysicalInterface::Delete(const DBRequest *req) {
-    InterfaceNH::DeletePhysicalInterfaceNh(name_);
+    InterfaceNH::DeletePhysicalInterfaceNh(name_, mac_);
     return true;
 }
 

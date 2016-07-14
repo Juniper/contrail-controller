@@ -175,7 +175,8 @@ bool AgentPath::UpdateNHPolicy(Agent *agent) {
         //Make path point to policy enabled interface
         InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                               vm_port->GetUuid(), ""),
-                           policy, intf_nh->GetFlags());
+                           policy, intf_nh->GetFlags(),
+                           intf_nh->GetDMac());
         nh = static_cast<NextHop *>
             (agent->nexthop_table()->FindActiveEntry(&key));
         // If NH is not found, point route to discard NH
@@ -466,7 +467,9 @@ bool HostRoute::AddChangePath(Agent *agent, AgentPath *path,
                               const AgentRoute *rt) {
     bool ret = false;
     NextHop *nh = NULL;
-    InterfaceNHKey key(intf_.Clone(), false, InterfaceNHFlags::INET4);
+
+    InterfaceNHKey key(intf_.Clone(), false, InterfaceNHFlags::INET4,
+                       agent->pkt_interface_mac());
     nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
     VnListType dest_vn_list;
     dest_vn_list.insert(dest_vn_name_);
@@ -568,7 +571,8 @@ bool InetInterfaceRoute::AddChangePath(Agent *agent, AgentPath *path,
                                        const AgentRoute *rt) {
     bool ret = false;
     NextHop *nh = NULL;
-    InterfaceNHKey key(intf_.Clone(), false, InterfaceNHFlags::INET4);
+    InterfaceNHKey key(intf_.Clone(), false, InterfaceNHFlags::INET4,
+                       agent->pkt_interface_mac());
     nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
     if (path->dest_vn_list() != dest_vn_list_) {
         path->set_dest_vn_list(dest_vn_list_);
@@ -652,7 +656,18 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path,
     if (force_policy_) {
         policy = true;
     }
-    InterfaceNHKey key(intf_.Clone(), policy, flags_);
+
+    MacAddress mac = MacAddress::kZeroMac;
+    if (vm_port) {
+        mac = vm_port->vm_mac();
+        const InetUnicastRouteEntry *ip_rt =
+            dynamic_cast<const InetUnicastRouteEntry *>(rt);
+        if (ip_rt) {
+            mac = vm_port->GetIpMac(ip_rt->addr(), ip_rt->plen());
+        }
+    }
+
+    InterfaceNHKey key(intf_.Clone(), policy, flags_, mac);
     nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
 
     if (path->label() != mpls_label_) {

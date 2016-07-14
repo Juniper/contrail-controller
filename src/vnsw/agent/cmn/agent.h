@@ -297,6 +297,7 @@ public:
     static const std::string &NullString() {return null_string_;}
     static const std::set<std::string> &NullStringList() {return null_string_list_;}
     static const MacAddress &vrrp_mac() {return vrrp_mac_;}
+    static const MacAddress &pkt_interface_mac() {return pkt_interface_mac_;}
     static const std::string &BcastMac() {return bcast_mac_;}
     static const std::string &xmpp_dns_server_prefix() {
         return xmpp_dns_server_connection_name_prefix_;
@@ -1200,6 +1201,7 @@ public:
     static const std::string link_local_vrf_name_;
     static const std::string link_local_vn_name_;
     static const MacAddress vrrp_mac_;
+    static const MacAddress pkt_interface_mac_;
     static const std::string bcast_mac_;
     static const std::string xmpp_dns_server_connection_name_prefix_;
     static const std::string xmpp_control_node_connection_name_prefix_;
