@@ -5,6 +5,8 @@
 #ifndef SRC_BGP_ROUTING_INSTANCE_RTARGET_GROUP_H_
 #define SRC_BGP_ROUTING_INSTANCE_RTARGET_GROUP_H_
 
+#include <tbb/mutex.h>
+
 #include <map>
 #include <set>
 #include <string>
@@ -79,7 +81,6 @@ public:
     bool AddExportTable(Address::Family family, BgpTable *tbl);
     bool RemoveImportTable(Address::Family family, BgpTable *tbl);
     bool RemoveExportTable(Address::Family family, BgpTable *tbl);
-    bool HasImportExportTables(Address::Family family) const;
     bool HasImportExportTables() const;
     bool HasVrfTables(Address::Family family) const;
 

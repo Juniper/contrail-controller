@@ -152,15 +152,6 @@ private:
     BgpServer *server_;
 };
 
-class RoutingInstanceManagerTest : public RoutingInstanceMgr {
-public:
-    explicit RoutingInstanceManagerTest(BgpServer *server) :
-        RoutingInstanceMgr(server) {
-    }
-    virtual ~RoutingInstanceManagerTest() { }
-private:
-};
-
 class BgpMembershipManagerTest : public BgpMembershipManager {
 public:
     explicit BgpMembershipManagerTest(BgpServer *server) :
@@ -204,8 +195,6 @@ public:
 protected:
     virtual void SetUp() {
         ConcurrencyScope scope("bgp::Config");
-        BgpObjectFactory::Register<RoutingInstanceMgr>(
-                boost::factory<RoutingInstanceManagerTest *>());
         BgpObjectFactory::Register<BgpMembershipManager>(
                 boost::factory<BgpMembershipManagerTest *>());
         server_.reset(new BgpServer(&evm_));

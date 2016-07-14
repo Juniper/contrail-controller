@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <virtual-network name="red-vn">
+        <network-id>102</network-id>
+    </virtual-network>
+    <routing-instance name="red">
+        <virtual-network>red-vn</virtual-network>
+        <vrf-target>target:1:1</vrf-target> 
+    </routing-instance>
+</config>

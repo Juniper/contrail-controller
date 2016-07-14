@@ -204,6 +204,7 @@ protected:
     }
 
     virtual void SetUp() {
+        ConcurrencyScope scope("bgp::Config");
         IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
         vnc_cfg_ParserInit(parser);
         bgp_schema_ParserInit(parser);

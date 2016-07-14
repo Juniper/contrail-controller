@@ -67,8 +67,6 @@ private:
 class BgpMembershipTest : public ::testing::Test {
 protected:
     virtual void SetUp() {
-        ConcurrencyScope scope("bgp::Config");
-
         gbl_index = 0;
         evm_.reset(new EventManager());
         server_.reset(new BgpServerTest(evm_.get(), "Local"));
@@ -76,7 +74,15 @@ protected:
         mgr_ = server_->membership_mgr();
         walker_ = mgr_->walker();
 
+        ConcurrencyScope scope("bgp::Config");
         RoutingInstance *rtinstance = NULL;
+
+        // Get default routing instance.
+        rtinstance =
+            server_->routing_instance_mgr()->GetDefaultRoutingInstance();
+        assert(rtinstance);
+        inet_tbl_ = rtinstance->GetTable(Address::INET);
+        vpn_tbl_ = rtinstance->GetTable(Address::INETVPN);
 
         // Create red routing instance.
         BgpInstanceConfig red_config("red");
@@ -95,13 +101,6 @@ protected:
         rtinstance = server_->routing_instance_mgr()->CreateRoutingInstance(
             &blue_config);
         blue_tbl_ = rtinstance->GetTable(Address::INET);
-
-        // Create default routing instance.
-        BgpInstanceConfig default_config(BgpConfigManager::kMasterInstance);
-        rtinstance = server_->routing_instance_mgr()->CreateRoutingInstance(
-            &default_config);
-        inet_tbl_ = rtinstance->GetTable(Address::INET);
-        vpn_tbl_ = rtinstance->GetTable(Address::INETVPN);
 
         CreatePeers();
         task_util::WaitForIdle();

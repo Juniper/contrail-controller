@@ -47,7 +47,9 @@ protected:
         ConcurrencyScope scope("bgp::Config");
 
         TaskScheduler::GetInstance()->Stop();
-        ri_mgr_->UpdateRoutingInstance(cfg);
+        RoutingInstance *rtinstance = ri_mgr_->GetRoutingInstance(cfg->name());
+        assert(rtinstance);
+        ri_mgr_->UpdateRoutingInstance(rtinstance, cfg);
         TaskScheduler::GetInstance()->Start();
         task_util::WaitForIdle();
     }

@@ -19,6 +19,7 @@ public:
     virtual void ProcessAggregateRouteConfig() = 0;
     virtual void UpdateAggregateRouteConfig() = 0;
     virtual void FlushAggregateRouteConfig() = 0;
+    virtual uint32_t GetAggregateRouteCount() const = 0;
 
     virtual bool IsAggregateRoute(const BgpRoute *route) const = 0;
     virtual bool IsContributingRoute(const BgpRoute *route) const = 0;

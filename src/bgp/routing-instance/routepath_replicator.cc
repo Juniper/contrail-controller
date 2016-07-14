@@ -179,11 +179,9 @@ RoutePathReplicator::~RoutePathReplicator() {
 
 void RoutePathReplicator::Initialize() {
     assert(!vpn_table_);
-
     RoutingInstanceMgr *mgr = server_->routing_instance_mgr();
     assert(mgr);
-    RoutingInstance *master =
-        mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
+    RoutingInstance *master = mgr->GetDefaultRoutingInstance();
     assert(master);
     vpn_table_ = master->GetTable(family_);
     assert(vpn_table_);
@@ -243,7 +241,7 @@ const TableState *RoutePathReplicator::FindTableState(
 
 void
 RoutePathReplicator::RequestWalk(BgpTable *table) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
     TableState *ts = FindTableState(table);
     assert(ts);
     if (!ts->walk_ref()) {
@@ -267,7 +265,7 @@ RoutePathReplicator::BulkReplicationDone(DBTableBase *dbtable) {
 }
 
 void RoutePathReplicator::JoinVpnTable(RtGroup *group) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
     TableState *vpn_ts = FindTableState(vpn_table_);
     if (!vpn_ts || vpn_ts->FindGroup(group))
         return;
@@ -279,7 +277,7 @@ void RoutePathReplicator::JoinVpnTable(RtGroup *group) {
 }
 
 void RoutePathReplicator::LeaveVpnTable(RtGroup *group) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
     TableState *vpn_ts = FindTableState(vpn_table_);
     if (!vpn_ts)
         return;
@@ -297,8 +295,9 @@ void RoutePathReplicator::LeaveVpnTable(RtGroup *group) {
 //
 void RoutePathReplicator::Join(BgpTable *table, const RouteTarget &rt,
                                bool import) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
 
+    tbb::mutex::scoped_lock lock(mutex_);
     RPR_TRACE(TableJoin, table->name(), rt.ToString(), import);
 
     bool first = false;
@@ -333,8 +332,9 @@ void RoutePathReplicator::Join(BgpTable *table, const RouteTarget &rt,
 //
 void RoutePathReplicator::Leave(BgpTable *table, const RouteTarget &rt,
                                 bool import) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
 
+    tbb::mutex::scoped_lock lock(mutex_);
     RtGroup *group = server()->rtarget_group_mgr()->GetRtGroup(rt);
     assert(group);
     RPR_TRACE(TableLeave, table->name(), rt.ToString(), import);

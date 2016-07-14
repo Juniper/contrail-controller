@@ -17,6 +17,7 @@
 #include "base/map_util.h"
 #include "base/task_annotations.h"
 #include "base/task_trigger.h"
+#include "bgp/bgp_log.h"
 #include "bgp/bgp_server.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/path_resolver.h"
@@ -431,12 +432,16 @@ void AggregateRoute<T>::AddAggregateRoute() {
     aggregate_route->InsertPath(new_path);
     partition->Notify(aggregate_route);
     set_aggregate_route(aggregate_route);
+
+    BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
+        "Added aggregate path " << aggregate_route_->ToString() <<
+        " in table " << partition->table()->name());
 }
 
 // UpdateAggregateRoute
 template <typename T>
 void AggregateRoute<T>::UpdateAggregateRoute() {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
 
     if (aggregate_route_ == NULL) return;
 
@@ -467,6 +472,10 @@ void AggregateRoute<T>::UpdateAggregateRoute() {
     aggregate_route_->InsertPath(new_path);
 
     partition->Notify(aggregate_route_);
+
+    BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
+        "Updated aggregate path " << aggregate_route_->ToString() <<
+        " in table " << partition->table()->name());
 }
 
 // RemoveAggregateRoute
@@ -486,6 +495,10 @@ void AggregateRoute<T>::RemoveAggregateRoute() {
     bgp_table()->path_resolver()->StopPathResolution(partition->index(),
                                                      existing_path);
     aggregate_route->RemovePath(BgpPath::Aggregate);
+
+    BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
+        "Removed aggregate path " << aggregate_route_->ToString() <<
+        " in table " << partition->table()->name());
 
     if (!aggregate_route->BestPath()) {
         partition->Delete(aggregate_route);
@@ -586,7 +599,7 @@ RouteAggregator<T>::~RouteAggregator() {
 
 template <typename T>
 void RouteAggregator<T>::ProcessAggregateRouteConfig() {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
     const AggregateRouteConfigList &list =
         routing_instance()->config()->aggregate_routes(GetFamily());
     typedef AggregateRouteConfigList::const_iterator iterator_t;
@@ -604,7 +617,7 @@ bool CompareAggregateRouteConfig(const AggregateRouteConfig &lhs,
 
 template <typename T>
 void RouteAggregator<T>::UpdateAggregateRouteConfig() {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
     AggregateRouteConfigList config_list =
         routing_instance()->config()->aggregate_routes(GetFamily());
     sort(config_list.begin(), config_list.end(), CompareAggregateRouteConfig);
@@ -773,7 +786,7 @@ void RouteAggregator<T>::UpdateAggregateRoute(
 template <typename T>
 void RouteAggregator<T>::LocateAggregateRoutePrefix(const AggregateRouteConfig
                                                     &cfg) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
     AddressT address = this->GetAddress(cfg.aggregate);
     PrefixT prefix(address, cfg.prefix_length);
 
@@ -808,7 +821,7 @@ void RouteAggregator<T>::LocateAggregateRoutePrefix(const AggregateRouteConfig
 
 template <typename T>
 void RouteAggregator<T>::RemoveAggregateRoutePrefix(const PrefixT &aggregate) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
     typename AggregateRouteMap::iterator it =
         aggregate_route_map_.find(aggregate);
     if (it == aggregate_route_map_.end()) return;

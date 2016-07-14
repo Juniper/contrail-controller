@@ -151,6 +151,8 @@ class ConditionMatchTableState;
 // to start applying the match condition on all BgpRoutes
 // Provides an interface to add/remove module specific data on each BgpRoute
 //
+// A mutex is used to serialize access from multiple bgp::ConfigHelper tasks.
+//
 class BgpConditionListener {
 public:
     typedef std::map<BgpTable *, ConditionMatchTableState *> TableMap;
@@ -200,12 +202,6 @@ private:
     template <typename U> friend class PathResolverTest;
     typedef std::set<ConditionMatchTableState *> PurgeTableStateList;
 
-    BgpServer *server_;
-
-    TableMap map_;
-
-    PurgeTableStateList purge_list_;
-
     // Table listener
     bool BgpRouteNotify(BgpServer *server, DBTablePartBase *root,
                         DBEntryBase *entry);
@@ -222,7 +218,12 @@ private:
     void DisableTableWalkProcessing();
     void EnableTableWalkProcessing();
 
+    BgpServer *server_;
+    tbb::mutex mutex_;
+    TableMap map_;
+    PurgeTableStateList purge_list_;
     boost::scoped_ptr<TaskTrigger> purge_trigger_;
+
     DISALLOW_COPY_AND_ASSIGN(BgpConditionListener);
 };
 
