@@ -1741,6 +1741,8 @@ class SecurityGroupST(DBBaseST):
                     # If no dst port is specified, assume 0-65535
                     for dp in prule.dst_ports or [PortType()]:
                         action = ActionListType(simple_action='pass')
+                        if prule.action_list and prule.action_list.qos_action:
+                            action.set_qos_action(prule.action_list.qos_action)
                         match = MatchConditionType(arule_proto,
                                                    saddr_match, sp,
                                                    daddr_match, dp,
