@@ -167,7 +167,7 @@ class BgpPeer::PeerClose : public IPeerClose {
     virtual bool IsCloseGraceful() const {
         if (peer_->IsDeleted() || peer_->IsAdminDown())
             return false;
-        if (peer_->server()->IsDeleted())
+        if (peer_->server()->IsDeleted() || peer_->server()->admin_down())
             return false;
         if (!IsGRReady())
             return false;
