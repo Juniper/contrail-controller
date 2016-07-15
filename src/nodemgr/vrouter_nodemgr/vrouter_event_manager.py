@@ -60,7 +60,8 @@ class VrouterEventManager(EventManager):
         sandesh_global.init_generator(
             self.module_id, socket.gethostname(),
             node_type_name, self.instance_id, self.collector_addr,
-            self.module_id, 8102, ['nodemgr.common.sandesh'], _disc)
+            self.module_id, 8102, ['vrouter.loadbalancer',
+                'nodemgr.common.sandesh'], _disc)
         sandesh_global.set_logging_params(enable_local_log=True)
         self.supervisor_serverurl = "unix:///var/run/supervisord_vrouter.sock"
         self.add_current_process()
