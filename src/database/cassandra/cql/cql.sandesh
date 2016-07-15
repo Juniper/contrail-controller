@@ -42,6 +42,8 @@ struct Metrics {
 
 struct DbStats {
     1: double requests_one_minute_rate;
+    /** @display_name:Collector Database CQL Cluster Statistics*/
     2: ClusterStats stats (tags="");
+    /** @display_name:Collector Database CQL Errors*/
     3: ClusterErrors errors (tags="");
 }

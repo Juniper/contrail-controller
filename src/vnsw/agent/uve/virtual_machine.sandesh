@@ -54,6 +54,7 @@ uve sandesh UveVirtualMachineAgentTrace {
 struct VirtualMachineStats {
     1: string         name (key="ObjectVMTable")
     2: optional bool  deleted
+    /** @display_name:VM CPU Stats*/
     5: optional list<VmCpuStats> cpu_stats (tags="")
 }
 

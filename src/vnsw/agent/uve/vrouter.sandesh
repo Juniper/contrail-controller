@@ -285,8 +285,11 @@ struct VrouterStatsAgent {  // Agent stats
     42: optional AgentDropStats drop_stats;
     43: optional double total_in_bandwidth_utilization;
     44: optional double total_out_bandwidth_utilization;
+    /** @display_name:Vrouter Flow Setup Statistics*/
     45: optional VrouterFlowRate flow_rate (tags="")
+    /** @display_name:Vrouter Physical Interface Input bandwidth Statistics*/
     50: optional map<string,u64> phy_band_in_bps  (tags="name:.__key")
+    /** @display_name:Vrouter Physical Interface Output bandwidth Statistics*/
     51: optional map<string,u64> phy_band_out_bps (tags="name:.__key")
     52: optional map<string,derived_stats_results.EWMResult> in_bps_ewm (mstats="phy_band_in_bps:DSEWM:0.2")
     53: optional map<string,derived_stats_results.EWMResult> out_bps_ewm (mstats="phy_band_out_bps:DSEWM:0.2")
@@ -316,6 +319,7 @@ struct VrouterCpuInfo {
 struct ComputeCpuState {
     1: string                         name (key="ObjectVRouter")
     2: optional bool                  deleted
+    /** @display_name:Compute CPU Information*/
     3: optional list<VrouterCpuInfo>  cpu_info (tags=".mem_virt,.cpu_share,.mem_res", aggtype="union")
 }
 

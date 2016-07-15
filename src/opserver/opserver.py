@@ -597,8 +597,41 @@ class OpServer(object):
                 columnvalues=_OBJECT_TABLE_COLUMN_VALUES)
             self._VIRTUAL_TABLES.append(obj)
 
+	# read the stat table schemas from vizd first
         for t in _STAT_TABLES:
-            stat_id = t.stat_type + "." + t.stat_attr
+            attributes = []
+            for attr in t.attributes:
+                suffixes = []
+                if attr.suffixes:
+                    for suffix in attr.suffixes:
+                        suffixes.append(suffix)
+                attributes.append({"name":attr.name,"datatype":attr.datatype,"index":attr.index,"suffixes":suffixes})
+            new_table = {"stat_type":t.stat_type,
+                         "stat_attr":t.stat_attr,
+                         "display_name":t.display_name,
+                         "obj_table":t.obj_table,
+                         "attributes":attributes}
+            stat_tables.append(new_table)
+
+        # read all the json files for remaining stat table schema
+        topdir = '/usr/share/doc/contrail-docs/html/messages/'
+        extn = '.json'
+        stat_schema_files = []
+        for dirpath, dirnames, files in os.walk(topdir):
+            for name in files:
+                if name.lower().endswith(extn):
+                    stat_schema_files.append(os.path.join(dirpath, name))
+        stat_tables = []
+        for schema_file in stat_schema_files:
+            with open(schema_file) as data_file:
+                data = json.load(data_file)
+            for _, tables in data.iteritems():
+                for table in tables:
+                    if table not in stat_tables:
+                        stat_tables.append(table)
+
+        for table in stat_tables:
+            stat_id = table["stat_type"] + "." + table["stat_attr"]
             scols = []
 
             keyln = stat_query_column(name=STAT_SOURCE_FIELD, datatype='string', index=True)
@@ -621,35 +654,39 @@ class OpServer(object):
             uln = stat_query_column(name=STAT_UUID_FIELD, datatype='uuid', index=False)
             scols.append(uln)
 
-            cln = stat_query_column(name="COUNT(" + t.stat_attr + ")",
+            cln = stat_query_column(name="COUNT(" + table["stat_attr"] + ")",
                     datatype='int', index=False)
             scols.append(cln)
 
             isname = False
-            for aln in t.attributes:
-                if aln.name==STAT_OBJECTID_FIELD:
+            for aln in table["attributes"]:
+                if aln["name"]==STAT_OBJECTID_FIELD:
                     isname = True
-                scols.append(aln)
-                if aln.datatype in ['int','double']:
-                    sln = stat_query_column(name= "SUM(" + aln.name + ")",
-                            datatype=aln.datatype, index=False)
+                if "suffixes" in aln.keys():
+                    aln_col = stat_query_column(name=aln["name"], datatype=aln["datatype"], index=aln["index"], suffixes=aln["suffixes"]);
+                else:
+                    aln_col = stat_query_column(name=aln["name"], datatype=aln["datatype"], index=aln["index"]);
+                scols.append(aln_col)
+
+                if aln["datatype"] in ['int','double']:
+                    sln = stat_query_column(name= "SUM(" + aln["name"] + ")",
+                            datatype=aln["datatype"], index=False)
                     scols.append(sln)
-                    scln = stat_query_column(name= "CLASS(" + aln.name + ")",
-                            datatype=aln.datatype, index=False)
+                    scln = stat_query_column(name= "CLASS(" + aln["name"] + ")",
+                            datatype=aln["datatype"], index=False)
                     scols.append(scln)
-                    sln = stat_query_column(name= "MAX(" + aln.name + ")",
-                            datatype=aln.datatype, index=False)
+                    sln = stat_query_column(name= "MAX(" + aln["name"] + ")",
+                            datatype=aln["datatype"], index=False)
                     scols.append(sln)
-                    scln = stat_query_column(name= "MIN(" + aln.name + ")",
-                            datatype=aln.datatype, index=False)
+                    scln = stat_query_column(name= "MIN(" + aln["name"] + ")",
+                            datatype=aln["datatype"], index=False)
                     scols.append(scln)
-                    scln = stat_query_column(name= "PERCENTILES(" + aln.name + ")",
+                    scln = stat_query_column(name= "PERCENTILES(" + aln["name"] + ")",
                             datatype='percentiles', index=False)
                     scols.append(scln)
-                    scln = stat_query_column(name= "AVG(" + aln.name + ")",
+                    scln = stat_query_column(name= "AVG(" + aln["name"] + ")",
                             datatype='avg', index=False)
                     scols.append(scln)
-
             if not isname: 
                 keyln = stat_query_column(name=STAT_OBJECTID_FIELD, datatype='string', index=True)
                 scols.append(keyln)
@@ -658,7 +695,7 @@ class OpServer(object):
 
             stt = query_table(
                 name = STAT_VT_PREFIX + "." + stat_id,
-                display_name = t.display_name,
+                display_name = table["display_name"],
                 schema = sch,
                 columnvalues = [STAT_OBJECTID_FIELD, SOURCE])
             self._VIRTUAL_TABLES.append(stt)
@@ -2144,7 +2181,9 @@ class OpServer(object):
             return self._LEVEL_LIST
         elif (column == STAT_OBJECTID_FIELD):
             objtab = None
-            for t in _STAT_TABLES:
+            for t in self._VIRTUAL_TABLES:
+              if t.schema.type == 'STAT':
+                self._logger.error("found stat table %s" % t)
                 stat_table = STAT_VT_PREFIX + "." + \
                     t.stat_type + "." + t.stat_attr
                 if (table == stat_table):

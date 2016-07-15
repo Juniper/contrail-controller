@@ -70,17 +70,21 @@ struct file_system_view {
         5: optional u32 used_percentage
         6: optional string mountpoint
         7: optional string type
+        /** @display_name:Server Monitoring File System Stats Info*/
         8: optional list <physical_disk_view> physical_disks (tags=".disk_name,.disk_used_percentage")
 }
 
 struct ServerMonitoringInfo {
     1: string name               (key="ObjectServerTable")
     2: optional bool             deleted
+    /** @display_name:Server Monitoring Sensor Stats Info*/
     3: optional list<IpmiSensor> sensor_stats (tags=".sensor,.sensor_type")
     4: optional IpmiChassis_status_info chassis_state
+    /** @display_name:Server Monitoring Disk Stats Info*/
     5: optional list<Disk> disk_usage_stats (tags=".disk_name")
     6: optional list<Disk_totals> disk_usage_totals
     7: optional list<network_info_totals> network_info_totals
+    /** @display_name:Server Monitoring File System View Stats Info*/
     8: optional list<file_system_view> file_system_view_stats (tags="name:.fs_name,.used_percentage")
 }
 
@@ -91,7 +95,9 @@ uve sandesh ServerMonitoringInfoUve {
 struct ServerMonitoringSummary {
     1: string name               (key="ObjectServerTable")
     2: optional bool             deleted
+    /** @display_name:Server Monitoring Resource Stats Info*/
     3: optional resource_info resource_info_stats (tags="")
+    /** @display_name:Server Monitoring Interface Stats Info*/
     4: optional list<network_info> network_info_stats (tags=".interface_name")
 }
 

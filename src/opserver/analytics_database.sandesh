@@ -34,5 +34,6 @@ struct DatabasePurgeStats {
  */
 objectlog sandesh DatabasePurgeInfo {
     1: string name (key="ObjectDatabaseInfo")
+    /** @display_name:Database Purge Statistics*/
     2: DatabasePurgeStats stats (tags=".purge_id, .purge_status, .request_time, .rows_deleted, .duration")
 }
