@@ -743,7 +743,7 @@ uint32_t BgpServer::SendTableStatsUve(bool first) const {
          rit != inst_mgr_->end(); ++rit) {
         RoutingInstanceStatsData instance_info;
         RoutingInstance::RouteTableList const rt_list = rit->GetTables();
-        std::vector<BgpTableStats> tables_stats;
+        std::map<string, BgpTableStats> tables_stats;
 
         for (RoutingInstance::RouteTableList::const_iterator it =
              rt_list.begin(); it != rt_list.end(); ++it) {
@@ -754,10 +754,6 @@ uint32_t BgpServer::SendTableStatsUve(bool first) const {
             string family = Address::FamilyToString(table->family());
 
             bool changed = false;
-            if (first || table->stats()->get_address_family() != family) {
-                changed = true;
-                table->stats()->set_address_family(family);
-            }
 
             if (first || table->stats()->get_prefixes() != table->Size()) {
                 changed = true;
@@ -786,7 +782,11 @@ uint32_t BgpServer::SendTableStatsUve(bool first) const {
             }
 
             if (changed) {
-                tables_stats.push_back(*table->stats());
+
+                // Set the address family to be able to find to which family,
+                // the associated updated stats are applicable.
+                table->stats()->set_address_family(family);
+                tables_stats.insert(make_pair(family, *table->stats()));
 
                 // Reset changed flags in the uve structure.
                 memset(&(table->stats()->__isset), 0,
