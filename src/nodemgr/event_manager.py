@@ -331,7 +331,7 @@ class EventManager(object):
     def send_disk_usage_info_base(self, NodeStatusUVE, NodeStatus,
                                   DiskPartitionUsageStats):
         partition = subprocess.Popen(
-            "df -T -t ext2 -t ext3 -t ext4 -t xfs",
+            "df -PT -t ext2 -t ext3 -t ext4 -t xfs",
             shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         disk_usage_infos = []
         for line in partition.stdout:
