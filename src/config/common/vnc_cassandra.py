@@ -943,7 +943,8 @@ class VncCassandraClient(object):
                 # iterate on wrapped element or directly on prop field
                 # for wrapped lists, store without the wrapper. regenerate
                 # wrapper on read
-                if obj_class.prop_list_field_has_wrappers[prop_name]:
+                if (obj_class.prop_list_field_has_wrappers[prop_name] and
+                    new_props[prop_name]):
                     wrapper_field = new_props[prop_name].keys()[0]
                     list_coll = new_props[prop_name][wrapper_field]
                 else:
@@ -957,7 +958,8 @@ class VncCassandraClient(object):
                 # iterate on wrapped element or directly on prop field
                 # for wrapped lists, store without the wrapper. regenerate
                 # wrapper on read
-                if obj_class.prop_map_field_has_wrappers[prop_name]:
+                if (obj_class.prop_map_field_has_wrappers[prop_name] and
+                    new_props[prop_name]):
                     wrapper_field = new_props[prop_name].keys()[0]
                     map_coll = new_props[prop_name][wrapper_field]
                 else:
