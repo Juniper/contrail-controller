@@ -2505,11 +2505,7 @@ void BgpStressTest::UpdateSocketBufferSize() {
 // system() call which is platform specific, wrt signal handling.
 void BgpStressTest::Pause() {
     BGP_DEBUG_UT("Test PAUSED. Exit (Ctrl-d) from python shell to resume");
-    pid_t pid;
-    if (!(pid = fork()))
-        execl("/usr/bin/python", "/usr/bin/python", NULL);
-    int status;
-    waitpid(pid, &status, 0);
+    TASK_UTIL_EXEC_AND_WAIT(evm_, "/usr/bin/python");
 }
 
 TEST_P(BgpStressTest, RandomEvents) {
