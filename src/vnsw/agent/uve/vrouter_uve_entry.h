@@ -12,6 +12,9 @@
 //required for sending VRouter UVE.
 class VrouterUveEntry : public VrouterUveEntryBase {
 public:
+    typedef std::map<string, uint64_t> DerivedStatsMap;
+    typedef std::pair<string, uint64_t> DerivedStatsPair;
+
     VrouterUveEntry(Agent *agent);
     virtual ~VrouterUveEntry();
     L4PortBitmap port_bitmap() { return port_bitmap_; }
@@ -27,7 +30,7 @@ protected:
     uint64_t prev_flow_aged_;
 private:
     void InitPrevStats() const;
-    void FetchDropStats(AgentDropStats &ds) const;
+    void FetchDropStats(DerivedStatsMap &ds) const;
     bool SetVrouterPortBitmap(VrouterStatsAgent &vr_stats);
     uint64_t CalculateBandwitdh(uint64_t bytes, int speed_mbps,
                                int diff_seconds, double *utilization_bps) const;

@@ -190,143 +190,144 @@ public:
         return false;
     }
 
-    bool DropStatsEqual(const AgentDropStats &d1, const vr_drop_stats_req &d2) const {
-        if (d1.get_ds_discard() != (uint64_t)d2.get_vds_discard()) {
+    bool DropStatsEqual(const CategoryResult &cr, const vr_drop_stats_req &d2) const {
+        VrouterUveEntry::DerivedStatsMap d1 = cr.get_counters();
+        if (d1["discard"] != (uint64_t)d2.get_vds_discard()) {
             return false;
         }
-        if (d1.get_ds_pull() != (uint64_t)d2.get_vds_pull()) {
+        if (d1["pull"] != (uint64_t)d2.get_vds_pull()) {
             return false;
         }
-        if (d1.get_ds_invalid_if() != (uint64_t)d2.get_vds_invalid_if()) {
+        if (d1["invalid_if"] != (uint64_t)d2.get_vds_invalid_if()) {
             return false;
         }
-        if (d1.get_ds_garp_from_vm() != (uint64_t)d2.get_vds_garp_from_vm()) {
+        if (d1["get_ds_garp_from_vm"] != (uint64_t)d2.get_vds_garp_from_vm()) {
             return false;
         }
-        if (d1.get_ds_invalid_arp() != (uint64_t)d2.get_vds_invalid_arp()) {
+        if (d1["invalid_arp"] != (uint64_t)d2.get_vds_invalid_arp()) {
             return false;
         }
-        if (d1.get_ds_trap_no_if() != (uint64_t)d2.get_vds_trap_no_if()) {
+        if (d1["trap_no_if"] != (uint64_t)d2.get_vds_trap_no_if()) {
             return false;
         }
-        if (d1.get_ds_nowhere_to_go() != (uint64_t)d2.get_vds_nowhere_to_go()) {
+        if (d1["nowhere_to_go"] != (uint64_t)d2.get_vds_nowhere_to_go()) {
             return false;
         }
-        if (d1.get_ds_flow_queue_limit_exceeded() != (uint64_t)d2.get_vds_flow_queue_limit_exceeded()) {
+        if (d1["flow_queue_limit_exceeded"] != (uint64_t)d2.get_vds_flow_queue_limit_exceeded()) {
             return false;
         }
-        if (d1.get_ds_flow_no_memory() != (uint64_t)d2.get_vds_flow_no_memory()) {
+        if (d1["flow_no_memory"] != (uint64_t)d2.get_vds_flow_no_memory()) {
             return false;
         }
-        if (d1.get_ds_flow_invalid_protocol() != (uint64_t)d2.get_vds_flow_invalid_protocol()) {
+        if (d1["flow_invalid_protocol"] != (uint64_t)d2.get_vds_flow_invalid_protocol()) {
             return false;
         }
-        if (d1.get_ds_flow_nat_no_rflow() != (uint64_t)d2.get_vds_flow_nat_no_rflow()) {
+        if (d1["flow_nat_no_rflow"] != (uint64_t)d2.get_vds_flow_nat_no_rflow()) {
             return false;
         }
-        if (d1.get_ds_flow_action_drop() != (uint64_t)d2.get_vds_flow_action_drop()) {
+        if (d1["flow_action_drop"] != (uint64_t)d2.get_vds_flow_action_drop()) {
             return false;
         }
-        if (d1.get_ds_flow_action_invalid() != (uint64_t)d2.get_vds_flow_action_invalid()) {
+        if (d1["flow_action_invalid"] != (uint64_t)d2.get_vds_flow_action_invalid()) {
             return false;
         }
-        if (d1.get_ds_flow_unusable() != (uint64_t)d2.get_vds_flow_unusable()) {
+        if (d1["flow_unusable"] != (uint64_t)d2.get_vds_flow_unusable()) {
             return false;
         }
-        if (d1.get_ds_flow_table_full() != (uint64_t)d2.get_vds_flow_table_full()) {
+        if (d1["flow_table_full"] != (uint64_t)d2.get_vds_flow_table_full()) {
             return false;
         }
-        if (d1.get_ds_interface_tx_discard() != (uint64_t)d2.get_vds_interface_tx_discard()) {
+        if (d1["interface_tx_discard"] != (uint64_t)d2.get_vds_interface_tx_discard()) {
             return false;
         }
-        if (d1.get_ds_interface_drop() != (uint64_t)d2.get_vds_interface_drop()) {
+        if (d1["interface_drop"] != (uint64_t)d2.get_vds_interface_drop()) {
             return false;
         }
-        if (d1.get_ds_duplicated() != (uint64_t)d2.get_vds_duplicated()) {
+        if (d1["ds_duplicated"] != (uint64_t)d2.get_vds_duplicated()) {
             return false;
         }
-        if (d1.get_ds_push() != (uint64_t)d2.get_vds_push()) {
+        if (d1["push"] != (uint64_t)d2.get_vds_push()) {
             return false;
         }
-        if (d1.get_ds_ttl_exceeded() != (uint64_t)d2.get_vds_ttl_exceeded()) {
+        if (d1["ttl_exceeded"] != (uint64_t)d2.get_vds_ttl_exceeded()) {
             return false;
         }
-        if (d1.get_ds_invalid_nh() != (uint64_t)d2.get_vds_invalid_nh()) {
+        if (d1["invalid_nh"] != (uint64_t)d2.get_vds_invalid_nh()) {
             return false;
         }
-        if (d1.get_ds_invalid_label() != (uint64_t)d2.get_vds_invalid_label()) {
+        if (d1["invalid_label"] != (uint64_t)d2.get_vds_invalid_label()) {
             return false;
         }
-        if (d1.get_ds_invalid_protocol() != (uint64_t)d2.get_vds_invalid_protocol()) {
+        if (d1["invalid_protocol"] != (uint64_t)d2.get_vds_invalid_protocol()) {
             return false;
         }
-        if (d1.get_ds_interface_rx_discard() != (uint64_t)d2.get_vds_interface_rx_discard()) {
+        if (d1["interface_rx_discard"] != (uint64_t)d2.get_vds_interface_rx_discard()) {
             return false;
         }
-        if (d1.get_ds_invalid_mcast_source() != (uint64_t)d2.get_vds_invalid_mcast_source()) {
+        if (d1["invalid_mcast_source"] != (uint64_t)d2.get_vds_invalid_mcast_source()) {
             return false;
         }
-        if (d1.get_ds_head_alloc_fail() != (uint64_t)d2.get_vds_head_alloc_fail()) {
+        if (d1["head_alloc_fail"] != (uint64_t)d2.get_vds_head_alloc_fail()) {
             return false;
         }
-        if (d1.get_ds_head_space_reserve_fail() != (uint64_t)d2.get_vds_head_space_reserve_fail()) {
+        if (d1["head_space_reserve_fail"] != (uint64_t)d2.get_vds_head_space_reserve_fail()) {
             return false;
         }
-        if (d1.get_ds_pcow_fail() != (uint64_t)d2.get_vds_pcow_fail()) {
+        if (d1["pcow_fail"] != (uint64_t)d2.get_vds_pcow_fail()) {
             return false;
         }
-        if (d1.get_ds_flood() != (uint64_t)d2.get_vds_flood()) {
+        if (d1["flood"] != (uint64_t)d2.get_vds_flood()) {
             return false;
         }
-        if (d1.get_ds_mcast_clone_fail() != (uint64_t)d2.get_vds_mcast_clone_fail()) {
+        if (d1["mcast_clone_fail"] != (uint64_t)d2.get_vds_mcast_clone_fail()) {
             return false;
         }
-        if (d1.get_ds_rewrite_fail() != (uint64_t)d2.get_vds_rewrite_fail()) {
+        if (d1["rewrite_fail"] != (uint64_t)d2.get_vds_rewrite_fail()) {
             return false;
         }
-        if (d1.get_ds_misc() != (uint64_t)d2.get_vds_misc()) {
+        if (d1["misc"] != (uint64_t)d2.get_vds_misc()) {
             return false;
         }
-        if (d1.get_ds_invalid_packet() != (uint64_t)d2.get_vds_invalid_packet()) {
+        if (d1["invalid_packet"] != (uint64_t)d2.get_vds_invalid_packet()) {
             return false;
         }
-        if (d1.get_ds_cksum_err() != (uint64_t)d2.get_vds_cksum_err()) {
+        if (d1["cksum_err"] != (uint64_t)d2.get_vds_cksum_err()) {
             return false;
         }
-        if (d1.get_ds_clone_fail() != (uint64_t)d2.get_vds_clone_fail()) {
+        if (d1["clone_fail"] != (uint64_t)d2.get_vds_clone_fail()) {
             return false;
         }
-        if (d1.get_ds_no_fmd() != (uint64_t)d2.get_vds_no_fmd()) {
+        if (d1["no_fmd"] != (uint64_t)d2.get_vds_no_fmd()) {
             return false;
         }
-        if (d1.get_ds_cloned_original() != (uint64_t)d2.get_vds_cloned_original()) {
+        if (d1["cloned_original"] != (uint64_t)d2.get_vds_cloned_original()) {
             return false;
         }
-        if (d1.get_ds_invalid_vnid() != (uint64_t)d2.get_vds_invalid_vnid()) {
+        if (d1["invalid_vnid"] != (uint64_t)d2.get_vds_invalid_vnid()) {
             return false;
         }
-        if (d1.get_ds_frag_err() != (uint64_t)d2.get_vds_frag_err()) {
+        if (d1["frag_err"] != (uint64_t)d2.get_vds_frag_err()) {
             return false;
         }
-        if (d1.get_ds_invalid_source() != (uint64_t)d2.get_vds_invalid_source()) {
+        if (d1["invalid_source"] != (uint64_t)d2.get_vds_invalid_source()) {
             return false;
         }
-        if (d1.get_ds_mcast_df_bit() != (uint64_t)d2.get_vds_mcast_df_bit()) {
+        if (d1["mcast_df_bit"] != (uint64_t)d2.get_vds_mcast_df_bit()) {
             return false;
         }
-        if (d1.get_ds_arp_no_where_to_go() != (uint64_t)d2.get_vds_arp_no_where_to_go()) {
+        if (d1["arp_no_where_to_go"] != (uint64_t)d2.get_vds_arp_no_where_to_go()) {
             return false;
         }
-        if (d1.get_ds_arp_no_route() != (uint64_t)d2.get_vds_arp_no_route()) {
+        if (d1["arp_no_route"] != (uint64_t)d2.get_vds_arp_no_route()) {
             return false;
         }
-        if (d1.get_ds_l2_no_route() != (uint64_t)d2.get_vds_l2_no_route()) {
+        if (d1["l2_no_route"] != (uint64_t)d2.get_vds_l2_no_route()) {
             return false;
         }
-        if (d1.get_ds_vlan_fwd_tx() != (uint64_t)d2.get_vds_vlan_fwd_tx()) {
+        if (d1["vlan_fwd_tx"] != (uint64_t)d2.get_vds_vlan_fwd_tx()) {
             return false;
         }
-        if (d1.get_ds_vlan_fwd_enq() != (uint64_t)d2.get_vds_vlan_fwd_enq()) {
+        if (d1["vlan_fwd_enq"] != (uint64_t)d2.get_vds_vlan_fwd_enq()) {
             return false;
         }
         return true;
@@ -587,7 +588,7 @@ TEST_F(UveVrouterUveTest, DropStatsAddChange) {
 
     const VrouterStatsAgent &uve = vr->last_sent_stats();
     const vr_drop_stats_req ds_null;
-    const AgentDropStats ds = uve.get_drop_stats();
+    const CategoryResult ds = uve.get_drop_stats_agg();
     EXPECT_TRUE(DropStatsEqual(ds, ds_null));
     vr->clear_count();
 
@@ -601,8 +602,8 @@ TEST_F(UveVrouterUveTest, DropStatsAddChange) {
     client->WaitForIdle();
 
     //Verify drop stats in agent_stats_collector
-    AgentDropStats fetched_ds = sm->drop_stats();
-    EXPECT_TRUE(DropStatsEqual(fetched_ds, ds2));
+    vr_drop_stats_req fetched_ds = sm->drop_stats();
+    EXPECT_TRUE((fetched_ds == ds2));
 
     //Trigger vrouter stats collection
     u->vrouter_stats_collector()->run_counter_ = 0;
@@ -613,7 +614,7 @@ TEST_F(UveVrouterUveTest, DropStatsAddChange) {
     //Verify UVE and send count
     EXPECT_TRUE(vr->vrouter_stats_msg_count() >= 1U);
     const VrouterStatsAgent &uve2 = vr->last_sent_stats();
-    const AgentDropStats ds3 = uve2.get_drop_stats();
+    const CategoryResult ds3 = uve2.get_drop_stats_agg();
     EXPECT_TRUE(DropStatsEqual(ds3, ds2));
 
     //Update drop-stats in mock kernel
@@ -633,7 +634,7 @@ TEST_F(UveVrouterUveTest, DropStatsAddChange) {
     //Verify UVE and send count
     EXPECT_TRUE(vr->vrouter_stats_msg_count() >= 2U);
     const VrouterStatsAgent &uve3 = vr->last_sent_stats();
-    const AgentDropStats ds4 = uve3.get_drop_stats();
+    const CategoryResult ds4 = uve3.get_drop_stats_agg();
     EXPECT_TRUE(DropStatsEqual(ds4, ds2));
 
     //cleanup
