@@ -12,9 +12,6 @@ setup(
               'control_node.control_node.cpuinfo', 
               'control_node.control_node.ifmap_server_show',
               'control_node.control_node.process_info', 
-              'control_node.control_node.nodeinfo',
-              'control_node.control_node.nodeinfo.cpuinfo',
-              'control_node.control_node.nodeinfo.process_info'
              ],
     package_data={'':['*.html', '*.css', '*.xml']},
     zip_safe=False,
