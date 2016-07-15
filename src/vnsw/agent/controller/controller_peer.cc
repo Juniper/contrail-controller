@@ -938,7 +938,7 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                              label, false, vn_list,
                              InterfaceNHFlags::BRIDGE,
                              sg_list, CommunityList(), path_preference,
-                             Ip4Address(0), ecmp_load_balance);
+                             Ip4Address(0), ecmp_load_balance, false);
     } else {
         local_vm_route =
             new LocalVmRoute(intf_key,
@@ -947,7 +947,7 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                              false, vn_list,
                              InterfaceNHFlags::BRIDGE,
                              sg_list, CommunityList(), path_preference,
-                             Ip4Address(0), ecmp_load_balance);
+                             Ip4Address(0), ecmp_load_balance, false);
     }
     rt_table->AddLocalVmRouteReq(bgp_peer_id(), vrf_name, mac,
                                  ip_addr, item->entry.nlri.ethernet_tag,
@@ -1032,7 +1032,7 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
                              CommunityList(),
                              path_preference,
                              Ip4Address(0),
-                             ecmp_load_balance);
+                             ecmp_load_balance, false);
                 rt_table->AddLocalVmRouteReq(bgp_peer, vrf_name,
                                              prefix_addr, prefix_len,
                                              static_cast<LocalVmRoute *>(local_vm_route));

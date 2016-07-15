@@ -39,7 +39,7 @@ AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     is_subnet_discard_(false), dependant_rt_(rt), path_preference_(),
     local_ecmp_mpls_label_(rt), composite_nh_key_(NULL), subnet_service_ip_(),
     arp_mac_(), arp_interface_(NULL), arp_valid_(false),
-    ecmp_suppressed_(false) {
+    ecmp_suppressed_(false), is_local_(false) {
 }
 
 AgentPath::~AgentPath() {
@@ -758,6 +758,11 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path,
 
     if (path->ChangeNH(agent, nh) == true)
         ret = true;
+
+    if (is_local_ != path->is_local()) {
+        path->set_is_local(is_local_);
+        ret = true;
+    }
 
     return ret;
 }

@@ -129,7 +129,7 @@ public:
             AddLocalVmRouteReq(NULL, vrf, addr, 32, intf->GetUuid(),
                                vn_list, label,
                                SecurityGroupList(), CommunityList(), false, PathPreference(),
-                               Ip4Address(0), EcmpLoadBalance());
+                               Ip4Address(0), EcmpLoadBalance(), false);
         client->WaitForIdle();
         EXPECT_TRUE(RouteFind(vrf, addr, 32));
     }
