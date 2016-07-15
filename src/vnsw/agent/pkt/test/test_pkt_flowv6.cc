@@ -80,7 +80,7 @@ public:
                                      SecurityGroupList(), CommunityList(), false,
                                      PathPreference(),
                                      Ip6Address(),
-                                     EcmpLoadBalance());
+                                     EcmpLoadBalance(), false);
         client->WaitForIdle();
         EXPECT_TRUE(RouteFindV6(vrf, addr, 128));
     }

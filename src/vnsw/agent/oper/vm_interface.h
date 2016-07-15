@@ -377,7 +377,8 @@ public:
         InstanceIp();
         InstanceIp(const InstanceIp &rhs);
         InstanceIp(const IpAddress &ip, uint8_t plen, bool ecmp,
-                   bool is_primary, bool is_service_health_check_ip);
+                   bool is_primary, bool is_service_health_check_ip,
+                   bool is_local);
         ~InstanceIp();
         bool operator == (const InstanceIp &rhs) const;
         bool operator() (const InstanceIp &lhs,
@@ -408,6 +409,7 @@ public:
         mutable bool old_ecmp_;
         mutable bool is_primary_;
         mutable bool is_service_health_check_ip_;
+        mutable bool is_local_;
     };
     typedef std::set<InstanceIp, InstanceIp> InstanceIpSet;
 
@@ -711,7 +713,7 @@ private:
     bool PolicyEnabled() const;
     void AddRoute(const std::string &vrf_name, const IpAddress &ip,
                   uint32_t plen, const std::string &vn_name, bool policy,
-                  bool ecmp, const IpAddress &service_ip,
+                  bool ecmp, bool is_local, const IpAddress &service_ip,
                   const IpAddress &dependent_ip,
                   const CommunityList &communties, uint32_t label);
     void DeleteRoute(const std::string &vrf_name, const IpAddress &ip,

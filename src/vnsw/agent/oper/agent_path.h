@@ -286,6 +286,14 @@ public:
         ecmp_load_balance_ = ecmp_load_balance;
     }
 
+    bool is_local() const {
+        return is_local_;
+    }
+
+    void set_is_local(bool is_local) {
+        is_local_ = is_local;
+    }
+
 private:
     PeerConstPtr peer_;
     // Nexthop for route. Not used for gateway routes
@@ -352,6 +360,9 @@ private:
     // by taking only one of the nexthop from the path
     bool ecmp_suppressed_;
     EcmpLoadBalance ecmp_load_balance_;
+    // if the path is marked local do no export it to BGP and do not
+    // program it to vrouter
+    bool is_local_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
 };
 
@@ -458,7 +469,7 @@ public:
                  const CommunityList &communities,
                  const PathPreference &path_preference,
                  const IpAddress &subnet_service_ip,
-                 const EcmpLoadBalance &ecmp_load_balance) :
+                 const EcmpLoadBalance &ecmp_load_balance, bool is_local) :
         AgentRouteData(false), intf_(intf), mpls_label_(mpls_label),
         vxlan_id_(vxlan_id), force_policy_(force_policy),
         dest_vn_list_(vn_list), proxy_arp_(false), sync_route_(false),
@@ -466,7 +477,7 @@ public:
         tunnel_bmap_(TunnelType::MplsType()),
         path_preference_(path_preference),
         subnet_service_ip_(subnet_service_ip),
-        ecmp_load_balance_(ecmp_load_balance) {
+        ecmp_load_balance_(ecmp_load_balance), is_local_(is_local) {
     }
     virtual ~LocalVmRoute() { }
     void DisableProxyArp() {proxy_arp_ = false;}
@@ -499,6 +510,7 @@ private:
     PathPreference path_preference_;
     IpAddress subnet_service_ip_;
     EcmpLoadBalance ecmp_load_balance_;
+    bool is_local_;
     DISALLOW_COPY_AND_ASSIGN(LocalVmRoute);
 };
 
