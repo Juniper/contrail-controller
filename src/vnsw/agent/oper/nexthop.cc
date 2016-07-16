@@ -1828,6 +1828,25 @@ void CompositeNHKey::erase(ComponentNHKeyPtr nh_key) {
     }
 }
 
+bool CompositeNH::UpdateComponentNHKey(uint32_t label, NextHopKey *nh_key,
+                              ComponentNHKeyList &component_nh_key_list) const {
+    bool ret = false;
+    ComponentNHKeyList::const_iterator it = component_nh_key_list_.begin();
+    for (;it != component_nh_key_list_.end(); it++) {
+        const NextHopKey *lhs = (*it)->nh_key();
+        uint32_t new_label = (*it)->label();
+        if((*it) && (*it)->label() != label && lhs->IsEqual(*nh_key)) {
+            new_label = label;
+            ret = true;
+        }
+        std::auto_ptr<const NextHopKey> nh_akey(lhs->Clone());
+        ComponentNHKeyPtr comp_nh_key_ptr(new ComponentNHKey(new_label,
+                                                             nh_akey));
+        component_nh_key_list.push_back(comp_nh_key_ptr);
+    }
+    return ret;
+}
+
 ComponentNHKeyList CompositeNH::AddComponentNHKey(ComponentNHKeyPtr cnh) const {
     Agent *agent = static_cast<NextHopTable *>(get_table())->agent();
     const NextHop *nh = static_cast<const NextHop *>(agent->nexthop_table()->
