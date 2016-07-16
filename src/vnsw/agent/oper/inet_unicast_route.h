@@ -73,6 +73,7 @@ public:
     virtual bool EcmpDeletePath(AgentPath *path);
     void AppendEcmpPath(Agent *agent, AgentPath *path);
     void DeleteComponentNH(Agent *agent, AgentPath *path);
+    bool UpdateComponentNH(Agent *agent, AgentPath *ecmp_path, AgentPath *path);
 
     AgentPath *AllocateEcmpPath(Agent *agent, const AgentPath *path1,
                                 const AgentPath *path2);

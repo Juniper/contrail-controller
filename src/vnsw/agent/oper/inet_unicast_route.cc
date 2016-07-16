@@ -761,10 +761,14 @@ bool InetUnicastRouteEntry::EcmpAddPath(AgentPath *path) {
         ret = true;
     } else if (ecmp) {
         AgentPath *ecmp_path = FindPath(agent->ecmp_peer());
+        bool updated = UpdateComponentNH(agent, ecmp_path, path);
         ret = SyncEcmpPath(ecmp_path, path->sg_list(),
                            path->communities(), path->path_preference(),
                            path->tunnel_bmap(),
                            path->ecmp_load_balance());
+        if (updated) {
+            ret = true;
+        }
     }
 
     return ret;
@@ -811,6 +815,59 @@ void InetUnicastRouteEntry::AppendEcmpPath(Agent *agent,
     OPER_TRACE_ROUTE_ENTRY(Route, table, rt_info);
     AGENT_ROUTE_LOG(table, "Path change", ToString(), vrf()->GetName(),
                     GETPEERNAME(agent->ecmp_peer()));
+}
+
+/* When label of VMI changes and if that VMI (ie VMI's InterfaceNH) is part of
+ * ECMP, then update the CompositeNH for ECMP route to point to right label for
+ * that VMI. Label of VMI can change when policy-status of VMI changes */
+bool InetUnicastRouteEntry::UpdateComponentNH(Agent *agent,
+                                              AgentPath *ecmp_path,
+                                              AgentPath *path) {
+    if (!ecmp_path) {
+        return false;
+    }
+    //Build ComponentNHKey for new path
+    DBEntryBase::KeyPtr key = path->ComputeNextHop(agent)->GetDBRequestKey();
+    NextHopKey *nh_key = static_cast<NextHopKey *>(key.release());
+    nh_key->SetPolicy(false);
+
+    ComponentNHKeyList component_nh_key_list;
+    const CompositeNH *comp_nh =
+        static_cast<const CompositeNH *>(ecmp_path->ComputeNextHop(agent));
+    bool updated = comp_nh->UpdateComponentNHKey(path->label(), nh_key,
+                                                 component_nh_key_list);
+
+    if (!updated) {
+        return false;
+    }
+
+    // Form the request for Inet4UnicastEcmpRoute and invoke AddChangePath
+    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    nh_req.key.reset(new CompositeNHKey(Composite::LOCAL_ECMP,
+                                        false, component_nh_key_list,
+                                        vrf()->GetName()));
+    nh_req.data.reset(new CompositeNHData());
+
+    InetUnicastRouteEntry::ModifyEcmpPath(addr_, plen_,
+                               ecmp_path->dest_vn_list(),
+                               ecmp_path->label(), true, vrf()->GetName(),
+                               ecmp_path->sg_list(), ecmp_path->communities(),
+                               ecmp_path->path_preference(),
+                               ecmp_path->tunnel_bmap(),
+                               ecmp_path->ecmp_load_balance(),
+                               nh_req, agent, ecmp_path);
+
+    //Make MPLS label point to updated composite NH
+    MplsLabel::CreateEcmpLabel(agent, ecmp_path->label(), Composite::LOCAL_ECMP,
+                               component_nh_key_list, vrf()->GetName());
+
+    RouteInfo rt_info;
+    FillTrace(rt_info, AgentRoute::CHANGE_PATH, path);
+    AgentRouteTable *table = static_cast<AgentRouteTable *>(get_table());
+    OPER_TRACE_ROUTE_ENTRY(Route, table, rt_info);
+    AGENT_ROUTE_LOG(table, "Path Update", ToString(), vrf()->GetName(),
+                    GETPEERNAME(agent->ecmp_peer()));
+    return true;
 }
 
 void InetUnicastRouteEntry::DeleteComponentNH(Agent *agent, AgentPath *path) {

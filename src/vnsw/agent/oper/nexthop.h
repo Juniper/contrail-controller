@@ -1359,6 +1359,8 @@ public:
                                          component_nh_key) const;
     ComponentNHKeyList DeleteComponentNHKey(ComponentNHKeyPtr
                                             component_nh_key) const;
+    bool UpdateComponentNHKey(uint32_t label, NextHopKey *nh_key,
+                              ComponentNHKeyList &component_nh_key_list) const;
     ComponentNHList& component_nh_list() {
         return component_nh_list_;
     }
