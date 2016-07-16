@@ -1631,6 +1631,13 @@ class VncDbClient(object):
                                                        router['uuid'])
                     if 'network_ipam_refs' in obj_dict:
                         self.update_subnet_uuid(obj_dict)
+                elif obj_type == 'virtual_machine_interface':
+                    device_owner = obj_dict.get('virtual_machine_interface_device_owner')
+                    li_back_refs = obj_dict.get('logical_interface_back_refs', [])
+                    if not device_owner and li_back_refs:
+                        obj_dict['virtual_machine_interface_device_owner'] = 'PhysicalRouter'
+                        self._cassandra_db.object_update('virtual_machine_interface',
+                                                    obj_uuid, obj_dict)
 
                 # create new perms if upgrading
                 if 'perms2' not in obj_dict:
