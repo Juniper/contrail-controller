@@ -2520,8 +2520,11 @@ void BgpStressTest::Pause(string message) {
         return;
     cout << message;
     BGP_DEBUG_UT(message);
-
-    TASK_UTIL_EXEC_AND_WAIT(evm_, "/usr/bin/python");
+    pid_t pid;
+    if (!(pid = fork()))
+        execl("/usr/bin/python", "/usr/bin/python", NULL);
+    int status;
+    waitpid(pid, &status, 0);
     HEAP_PROFILER_DUMP("bgp_stress_test");
 }
 
