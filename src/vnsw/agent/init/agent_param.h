@@ -31,8 +31,7 @@ public:
     // Gateway mode that the agent is running in
     enum GatewayMode {
         VCPE,
-        REMOTE_VM,   // has VMs running on a remote machine and vrouter maps
-                     // vlans to VMIs.
+        SERVER, // also has VMs on a remote server & vrouter maps vlans to VMIs
         NONE
     };
 
@@ -240,7 +239,7 @@ public:
     AgentMode agent_mode() const { return agent_mode_; }
     bool isTsnAgent() const { return agent_mode_ == TSN_AGENT; }
     bool isTorAgent() const { return agent_mode_ == TOR_AGENT; }
-    bool isRemoteVmVrouter() const { return gateway_mode_ == REMOTE_VM; }
+    bool isServerGatewayMode() const { return gateway_mode_ == SERVER; }
     GatewayMode gateway_mode() const { return gateway_mode_; }
 
     const AddressList &compute_node_address_list() const {

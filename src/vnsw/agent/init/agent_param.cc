@@ -592,8 +592,8 @@ void AgentParam::set_agent_mode(const std::string &mode) {
 
 void AgentParam::set_gateway_mode(const std::string &mode) {
     std::string gateway_mode = boost::to_lower_copy(mode);
-    if (gateway_mode == "remote-vm")
-        gateway_mode_ = REMOTE_VM;
+    if (gateway_mode == "server")
+        gateway_mode_ = SERVER;
     else if (gateway_mode == "vcpe")
         gateway_mode_ = VCPE;
     else
@@ -1247,8 +1247,8 @@ void AgentParam::LogConfig() const {
     else if (agent_mode_ == TOR_AGENT)
         LOG(DEBUG, "Agent Mode                  : TOR");
 
-    if (gateway_mode_ == REMOTE_VM)
-        LOG(DEBUG, "Gateway Mode                : Remote VM");
+    if (gateway_mode_ == SERVER)
+        LOG(DEBUG, "Gateway Mode                : Server");
     else if (gateway_mode_ == VCPE)
         LOG(DEBUG, "Gateway Mode                : vCPE");
     else if (gateway_mode_ == NONE)

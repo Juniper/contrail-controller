@@ -582,7 +582,7 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         }
 
         if (subtype_ == PhysicalInterface::VMWARE ||
-            ksync_obj_->ksync()->agent()->remote_vm_vrouter()) {
+            ksync_obj_->ksync()->agent()->server_gateway_mode()) {
             flags |= VIF_FLAG_PROMISCOUS;
         }
         if (subtype_ == PhysicalInterface::CONFIG) {

@@ -98,7 +98,7 @@ void PhysicalInterface::PostAdd() {
     // Interfaces in VMWARE mode and having remote VMs
     // must be put into promiscuous mode
     if (subtype_ != VMWARE) {
-        if (!table->agent()->remote_vm_vrouter() ||
+        if (!table->agent()->server_gateway_mode() ||
             subtype_ == PhysicalInterface::FABRIC) {
             return;
         } else {
