@@ -421,12 +421,10 @@ TEST_F(DnsTest, VirtualDnsReqTest) {
     usleep(1000);
     client->WaitForIdle();
     SendDnsResp(1, a_items, 1, auth_items, 1, add_items);
-    usleep(1000);
     CHECK_CONDITION(stats.resolved < 1);
     CHECK_STATS(stats, 3, 1, 2, 0, 0, 0);
     g_xid++;
     SendDnsResp(1, a_items, 1, auth_items, 1, add_items);
-    usleep(1000);
     CHECK_CONDITION(stats.resolved < 1);
     CHECK_STATS(stats, 3, 1, 2, 0, 0, 0);
 
