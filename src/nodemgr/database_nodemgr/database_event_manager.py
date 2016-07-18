@@ -18,6 +18,7 @@ import ConfigParser
 import yaml
 
 from nodemgr.common.event_manager import EventManager
+from nodemgr.database_nodemgr.common import CassandraManager
 
 from ConfigParser import NoOptionError
 
@@ -59,6 +60,7 @@ class DatabaseEventManager(EventManager):
         self.contrail_databases = contrail_databases
         self.cassandra_repair_interval = cassandra_repair_interval
         self.cassandra_repair_logdir = cassandra_repair_logdir
+        self.cassandra_mgr = CassandraManager(cassandra_repair_logdir)
         self.supervisor_serverurl = "unix:///var/run/supervisord_database.sock"
         self.add_current_process()
         node_type = Module2NodeType[self.module]
@@ -245,9 +247,7 @@ class DatabaseEventManager(EventManager):
         # Send cassandra nodetool information
         self.send_database_status()
         # Record cluster status and shut down cassandra if needed
-        subprocess.Popen(["contrail-cassandra-status",
-                          "--log-file", "/var/log/cassandra/status.log",
-                          "--debug"])
+        self.cassandra_mgr.status()
     # end database_periodic
 
     def send_database_status(self):
@@ -309,15 +309,8 @@ class DatabaseEventManager(EventManager):
         return thread_pool_stats_list
     # end get_tp_status
 
-    def cassandra_repair(self):
-        logdir = self.cassandra_repair_logdir + "repair.log"
-        subprocess.Popen(["contrail-cassandra-repair",
-                          "--log-file", logdir,
-                          "--debug"])
-    #end cassandra_repair
-
     def runforever(self, test=False):
-        prev_current_time = int(time.time())
+        self.prev_current_time = int(time.time())
         while 1:
             # we explicitly use self.stdin, self.stdout, and self.stderr
             # instead of sys.* so we can unit test this code
@@ -340,8 +333,8 @@ class DatabaseEventManager(EventManager):
             # do periodic events
             if headers['eventname'].startswith("TICK_60"):
                 self.database_periodic()
-                prev_current_time = self.event_tick_60(prev_current_time)
+                self.event_tick_60()
                 # Perform nodetool repair every cassandra_repair_interval hours
                 if self.tick_count % (60 * self.cassandra_repair_interval) == 0:
-                    self.cassandra_repair()
+                    self.cassandra_mgr.repair()
             self.listener_nodemgr.ok(self.stdout)
