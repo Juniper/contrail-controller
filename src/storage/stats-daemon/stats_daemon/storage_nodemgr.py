@@ -107,6 +107,30 @@ class EventManager:
         ret = ret[:-1]
         return ret
 
+    def cleanup_pid(self, pid):
+        pid_list = []
+        proc_run = self.exec_local('ps -ef | grep -w %s | grep -v grep | wc -l'
+                                    %(pid))
+        if proc_run != '0':
+            my_pid = os.getpid()
+            procs = self.exec_local('ps -ef | grep -w %s | grep -v grep'
+                                    %(pid))
+            lines = procs.splitlines()
+            for line in lines:
+                pid = line.split()[1]
+                pid_list.append(pid)
+            while len(pid_list) != 0:
+                for pid in pid_list:
+                    running = self.exec_local('ps -ef | grep -w %s | \
+                                    grep -v grep | awk \'{print $2}\' | \
+                                    grep -w %s | wc -l' %(pid, pid))
+                    if running != '0':
+                        self.exec_local('kill -9 %s' %(pid))
+                    else:
+                        pid_list.remove(pid)
+                time.sleep(5)
+    #end cleanup_pid
+
     def init_units(self):
         units = dict();
         units['K'] = 1024
@@ -139,11 +163,12 @@ class EventManager:
                 now = datetime.datetime.now()
                 diff = now - times
                 if diff.seconds > 5:
-                    os.kill(p.pid, signal.SIGKILL)
+                    #os.kill(p.pid, signal.SIGKILL)
                     os.waitpid(-1, os.WNOHANG)
                     message = "command:" + cmd + " ---> hanged"
                     ssdlog = StorageStatsDaemonLog(message = message)
                     self.call_send(ssdlog)
+                    self.cleanup_pid(p.pid)
                     return None
         except:
             pass
@@ -630,32 +655,33 @@ class EventManager:
         # raw disk
         # cd to /etc/ceph so that ceph-deploy command logs output to
         # /var/log/ceph and not /root
-        pattern = 'cd /etc/ceph && ceph-deploy disk list' + \
-            self._hostname
+        # pattern = 'cd /etc/ceph && ceph-deploy disk list %s 2>&1' \
+        #             %(self._hostname)
+        pattern = 'cat /proc/mounts | grep "\/var\/lib\/ceph\/osd\/ceph"'
         res = self.call_subprocess(pattern)
         if res is None:
             return
         osd_list = res.splitlines()
+        osd_map = []
+        for line in osd_list:
+            arr1 = line.split()
+            osd_map_obj = osdMap()
+            osd_map_obj.osd_disk = arr1[0]
+            osd_map_obj.osd = 'osd.%s' %(arr1[1].split('-')[1])
+            cmd = 'ls -l %s/journal | awk \'{print $11}\'' %(arr1[1])
+            journal_uuid = self.call_subprocess(cmd).strip('\r\n')
+            cmd = 'ls -l %s | awk \'{print $11}\'' %(journal_uuid)
+            journal_disk = self.call_subprocess(cmd).strip('\r\n')
+            if journal_disk[0] != '/':
+                journal_disk = '/dev/%s' %(journal_disk.split('/')[2])
+            osd_map_obj.osd_journal = journal_disk
+            osd_map.append(osd_map_obj)
+
         # df used to get the free space of all disks
         res1 = self.call_subprocess('df -hl')
         if res1 is None:
             return
         df_list = res1.splitlines()
-        osd_map = []
-        for line in osd_list:
-            if line.find('ceph data, active') != -1:
-                # replace multiple spaces to single
-                # space here
-                result = re.sub(
-                    '\s+', ' ', line).strip()
-                arr1 = result.split()
-                osd_map_obj = osdMap()
-                osd_map_obj.osd_disk = arr1[2]
-                osd_map_obj.osd = arr1[8]
-                if len(arr1) > 11:
-                    osd_map_obj.journal = arr1[10]
-                osd_map.append(osd_map_obj)
-
         disk_usage = []
         for line in df_list:
             if line.find('sda') != -1 or \
