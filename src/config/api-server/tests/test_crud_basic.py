@@ -1931,6 +1931,76 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                              resources['%ss' % test_obj.get_type()]]
         self.assertEqual([test_obj.uuid], resource_ids)
 
+    def test_allocate_vn_id(self):
+        mock_zk = self._api_server._db_conn._zk_db
+        vn_obj = VirtualNetwork('%s-vn' % self.id())
+
+        self._vnc_lib.virtual_network_create(vn_obj)
+
+        vn_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+        vn_id = vn_obj.virtual_network_network_id
+        self.assertEqual(vn_obj.get_fq_name_str(),
+                         mock_zk.get_vn_from_id(vn_id))
+
+    def test_deallocate_vn_id(self):
+        mock_zk = self._api_server._db_conn._zk_db
+        vn_obj = VirtualNetwork('%s-vn' % self.id())
+        self._vnc_lib.virtual_network_create(vn_obj)
+        vn_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+        vn_id = vn_obj.virtual_network_network_id
+
+        self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
+
+        self.assertIsNone(mock_zk.get_vn_from_id(vn_id))
+
+    def test_cannot_update_vn_id(self):
+        vn_obj = VirtualNetwork('%s-vn' % self.id())
+        self._vnc_lib.virtual_network_create(vn_obj)
+        vn_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+
+        vn_obj.set_virtual_network_network_id(42)
+        with ExpectedException(PermissionDenied):
+            self._vnc_lib.virtual_network_update(vn_obj)
+
+    def test_allocate_vn_id_on_create_notification(self):
+        mock_zk = self._api_server._db_conn._zk_db
+        vn_obj = VirtualNetwork('%s-vn' % self.id())
+        create_vn_invoked = []
+        def dont_allocate_vn_id_on_creation(orig_method, *args, **kwargs):
+            if args[0] == vn_obj.get_fq_name_str() and not create_vn_invoked:
+                create_vn_invoked.append(True)
+                return
+            return orig_method(*args, **kwargs)
+
+        with test_common.patch(mock_zk, 'alloc_vn_id',
+                               dont_allocate_vn_id_on_creation):
+            self._vnc_lib.virtual_network_create(vn_obj)
+            gevent.sleep(0.1)
+
+        vn_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+        vn_id = vn_obj.virtual_network_network_id
+        self.assertEqual(vn_obj.get_fq_name_str(),
+                         mock_zk.get_vn_from_id(vn_id))
+
+    def test_deallocate_vn_id_on_delete_notification(self):
+        mock_zk = self._api_server._db_conn._zk_db
+        vn_obj = VirtualNetwork('%s-vn' % self.id())
+        self._vnc_lib.virtual_network_create(vn_obj)
+        vn_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+        vn_id = vn_obj.virtual_network_network_id
+        delete_vn_invoked = []
+        def dont_deallocate_vn_id_on_deletion(orig_method, *args, **kwargs):
+            if args[0] == vn_obj.get_fq_name_str() and not delete_vn_invoked:
+                delete_vn_invoked.append(True)
+                return
+            return orig_method(*args, **kwargs)
+
+        with test_common.patch(mock_zk, 'alloc_vn_id',
+                               dont_deallocate_vn_id_on_deletion):
+            self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
+            gevent.sleep(0.1)
+
+        self.assertIsNone(mock_zk.get_vn_from_id(vn_id))
 # end class TestVncCfgApiServer
 
 
