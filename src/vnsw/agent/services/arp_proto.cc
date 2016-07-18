@@ -112,15 +112,18 @@ bool ArpDBState::SendArpRequest() {
 
     WaitForTrafficIntfMap::iterator it = wait_for_traffic_map_.begin();
     for (;it != wait_for_traffic_map_.end(); it++) {
-        if (it->second >= kMaxRetry) {
-            continue;
-        }
-
         const VmInterface *vm_intf = static_cast<const VmInterface *>(
                 vrf_state_->agent->interface_table()->FindInterface(it->first));
         if (!vm_intf) {
             continue;
         }
+
+        if (it->second >= kMaxRetry) {
+            // In gateway mode with remote VMIs, send regular ARP requests
+            if (vm_intf->vmi_type() != VmInterface::REMOTE_VM)
+                continue;
+        }
+
         MacAddress smac = vm_intf->GetVifMac(vrf_state_->agent);
         it->second++;
         arp_handler.SendArp(ARPOP_REQUEST, smac,
@@ -175,9 +178,11 @@ void ArpDBState::SendArpRequestForAllIntf(const InetUnicastRouteEntry *route) {
             }
             gw_ip_ = path->subnet_service_ip();
             uint32_t intf_id = intf->id();
+            const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);
             bool wait_for_traffic = path->path_preference().wait_for_traffic();
             //Build new list of interfaces in active state
-            if (wait_for_traffic == true) {
+            if (wait_for_traffic == true ||
+                vm_intf->vmi_type() == VmInterface::REMOTE_VM) {
                 WaitForTrafficIntfMap::const_iterator wait_for_traffic_it =
                     wait_for_traffic_map_.find(intf_id);
                 if (wait_for_traffic_it == wait_for_traffic_map_.end()) {
