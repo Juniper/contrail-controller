@@ -394,6 +394,7 @@ void ServiceChain<T>::AddServiceChainRoute(PrefixT prefix,
     bool load_balance_present = false;
     const Community *orig_community = NULL;
     const OriginVnPath *orig_ovnpath = NULL;
+    RouteDistinguisher orig_rd;
     if (orig_route) {
         const BgpPath *orig_path = orig_route->BestPath();
         const BgpAttr *orig_attr = NULL;
@@ -404,6 +405,7 @@ void ServiceChain<T>::AddServiceChainRoute(PrefixT prefix,
             orig_community = orig_attr->community();
             ext_community = orig_attr->ext_community();
             orig_ovnpath = orig_attr->origin_vn_path();
+            orig_rd = orig_attr->source_rd();
         }
         if (ext_community) {
             BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
@@ -452,6 +454,7 @@ void ServiceChain<T>::AddServiceChainRoute(PrefixT prefix,
             continue;
 
         const BgpAttr *attr = connected_path->GetAttr();
+
         ExtCommunityPtr new_ext_community;
 
         // Strip any RouteTargets from the connected attributes.
@@ -509,6 +512,7 @@ void ServiceChain<T>::AddServiceChainRoute(PrefixT prefix,
             RouteDistinguisher connected_rd = attr->source_rd();
             if (connected_rd.Type() != RouteDistinguisher::TypeIpAddressBased)
                 continue;
+
             RouteDistinguisher rd(connected_rd.GetAddress(), instance_id);
             new_attr = attr_db->ReplaceSourceRdAndLocate(new_attr.get(), rd);
         }
@@ -526,6 +530,10 @@ void ServiceChain<T>::AddServiceChainRoute(PrefixT prefix,
                     vpn_route->GetPrefix().route_distinguisher());
             }
         }
+
+        // Skip paths with Source RD same as source RD of the connected path
+        if (!orig_rd.IsZero() && new_attr->source_rd() == orig_rd)
+            continue;
 
         // Check whether we already have a path with the associated path id.
         uint32_t path_id =
