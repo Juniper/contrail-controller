@@ -211,7 +211,8 @@ protected:
                       set<string> encap = set<string>(),
                       const SiteOfOrigin &soo = SiteOfOrigin(),
                       string nexthop = "7.8.9.1",
-                      uint32_t flags = 0, int label = 0) {
+                      uint32_t flags = 0, int label = 0,
+                      const RouteDistinguisher &rd = RouteDistinguisher()) {
         boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
@@ -228,6 +229,11 @@ protected:
         boost::scoped_ptr<BgpAttrNextHop> nexthop_attr(
                 new BgpAttrNextHop(chain_addr.to_v4().to_ulong()));
         attr_spec.push_back(nexthop_attr.get());
+
+        BgpAttrSourceRd source_rd(rd);
+        if (!rd.IsZero()) {
+            attr_spec.push_back(&source_rd);
+        }
 
         CommunitySpec comm;
         if (!commlist.empty()) {
@@ -288,7 +294,8 @@ protected:
                          vector<uint32_t> sglist = vector<uint32_t>(),
                          set<string> encap = set<string>(),
                          string nexthop = "7.8.9.1",
-                         uint32_t flags = 0, int label = 0) {
+                         uint32_t flags = 0, int label = 0,
+                         const RouteDistinguisher &rd = RouteDistinguisher()) {
         BgpTable *table = static_cast<BgpTable *>(
             bgp_server_->database()->FindTable(instance_name + ".inet.0"));
         ASSERT_TRUE(table != NULL);
@@ -297,11 +304,11 @@ protected:
         int rti_index = rtinstance->index();
 
         string vpn_prefix;
-        if (peer) {
-            vpn_prefix = peer->ToString() + ":" + integerToString(rti_index) +
-                ":" + prefix;
+        if (!rd.IsZero()) {
+            vpn_prefix = rd.ToString() + ":" + prefix;
         } else {
-            vpn_prefix = "7.7.7.7:" + integerToString(rti_index) + ":" + prefix;
+            string peer_str = peer ? peer->ToString() : "7.7.7.7";
+            vpn_prefix = peer_str + ":" + integerToString(rti_index) + ":" + prefix;
         }
 
         boost::system::error_code error;
@@ -354,18 +361,19 @@ protected:
     void AddInetVpnRoute(IPeer *peer, const vector<string> &instance_names,
                          const string &prefix, int localpref,
                          string nexthop = "7.8.9.1",
-                         uint32_t flags = 0, int label = 0) {
+                         uint32_t flags = 0, int label = 0,
+                         const RouteDistinguisher &rd = RouteDistinguisher()) {
         RoutingInstance *rtinstance =
             ri_mgr_->GetRoutingInstance(instance_names[0]);
         ASSERT_TRUE(rtinstance != NULL);
         int rti_index = rtinstance->index();
 
         string vpn_prefix;
-        if (peer) {
-            vpn_prefix = peer->ToString() + ":" + integerToString(rti_index) +
-                ":" + prefix;
+        if (!rd.IsZero()) {
+            vpn_prefix = rd.ToString() + ":" + prefix;
         } else {
-            vpn_prefix = "7.7.7.7:" + integerToString(rti_index) + ":" + prefix;
+            string peer_str = peer ? peer->ToString() : "7.7.7.7";
+            vpn_prefix = peer_str + ":" + integerToString(rti_index) + ":" + prefix;
         }
 
         boost::system::error_code error;
@@ -405,7 +413,8 @@ protected:
     }
 
     void DeleteInetVpnRoute(IPeer *peer, const string &instance_name,
-                            const string &prefix) {
+                        const string &prefix,
+                        const RouteDistinguisher &rd = RouteDistinguisher()) {
         BgpTable *table = static_cast<BgpTable *>(
             bgp_server_->database()->FindTable(instance_name + ".inet.0"));
         ASSERT_TRUE(table != NULL);
@@ -414,11 +423,11 @@ protected:
         int rti_index = rtinstance->index();
 
         string vpn_prefix;
-        if (peer) {
-            vpn_prefix = peer->ToString() + ":" + integerToString(rti_index) +
-                ":" + prefix;
+        if (!rd.IsZero()) {
+            vpn_prefix = rd.ToString() + ":" + prefix;
         } else {
-            vpn_prefix = "7.7.7.7:" + integerToString(rti_index) + ":" + prefix;
+            string peer_str = peer ? peer->ToString() : "7.7.7.7";
+            vpn_prefix = peer_str + ":" + integerToString(rti_index) + ":" + prefix;
         }
 
         boost::system::error_code error;
@@ -439,15 +448,16 @@ protected:
                    int localpref, string nexthop = "7.8.9.1",
                    uint32_t flags = 0, int label = 0,
                    vector<uint32_t> sglist = vector<uint32_t>(),
-                   set<string> encap = set<string>()) {
+                   set<string> encap = set<string>(),
+                   const RouteDistinguisher &rd = RouteDistinguisher()) {
         string connected_table = service_is_transparent_ ? "blue-i1" : "blue";
         if (connected_rt_is_inetvpn_) {
             AddInetVpnRoute(peer, connected_table, prefix, localpref,
-                sglist, encap, nexthop, flags, label);
+                sglist, encap, nexthop, flags, label, rd);
         } else {
             AddInetRoute(peer, connected_table, prefix, localpref,
                 vector<uint32_t>(), sglist, encap, SiteOfOrigin(), nexthop,
-                flags, label);
+                flags, label, rd);
         }
         task_util::WaitForIdle();
     }
@@ -456,7 +466,8 @@ protected:
                    int localpref, string nexthop = "7.8.9.1",
                    uint32_t flags = 0, int label = 0,
                    vector<uint32_t> sglist = vector<uint32_t>(),
-                   set<string> encap = set<string>()) {
+                   set<string> encap = set<string>(),
+                   const RouteDistinguisher &rd = RouteDistinguisher()) {
         assert(1 <= chain_idx && chain_idx <= 3);
         string connected_table;
         if (chain_idx == 1) {
@@ -468,26 +479,28 @@ protected:
         }
         if (connected_rt_is_inetvpn_) {
             AddInetVpnRoute(peer, connected_table, prefix,
-                    localpref, sglist, encap, nexthop, flags, label);
+                    localpref, sglist, encap, nexthop, flags, label, rd);
         } else {
             AddInetRoute(peer, connected_table, prefix, localpref,
                 vector<uint32_t>(), sglist, encap, SiteOfOrigin(), nexthop,
-                flags, label);
+                flags, label, rd);
         }
         task_util::WaitForIdle();
     }
 
-    void DeleteConnectedRoute(IPeer *peer, const string &prefix) {
+    void DeleteConnectedRoute(IPeer *peer, const string &prefix,
+                          const RouteDistinguisher &rd = RouteDistinguisher()) {
         string connected_table = service_is_transparent_ ? "blue-i1" : "blue";
         if (connected_rt_is_inetvpn_) {
-            DeleteInetVpnRoute(peer, connected_table, prefix);
+            DeleteInetVpnRoute(peer, connected_table, prefix, rd);
         } else {
             DeleteInetRoute(peer, connected_table, prefix);
         }
         task_util::WaitForIdle();
     }
 
-    void DeleteConnectedRoute(int chain_idx, IPeer *peer, const string &prefix) {
+    void DeleteConnectedRoute(int chain_idx, IPeer *peer, const string &prefix,
+                          const RouteDistinguisher &rd = RouteDistinguisher()) {
         assert(1 <= chain_idx && chain_idx <= 3);
         string connected_table;
         if (chain_idx == 1) {
@@ -498,7 +511,7 @@ protected:
             connected_table = service_is_transparent_ ? "core-i5" : "core";
         }
         if (connected_rt_is_inetvpn_) {
-            DeleteInetVpnRoute(peer, connected_table, prefix);
+            DeleteInetVpnRoute(peer, connected_table, prefix, rd);
         } else {
             DeleteInetRoute(peer, connected_table, prefix);
         }
@@ -3444,6 +3457,48 @@ TEST_P(ServiceChainParamTest, TransitNetworkOriginVnLoop) {
     DeleteInetRoute(NULL, "red", "10.1.3.2/32");
     DeleteConnectedRoute(1, NULL, "192.168.1.253/32");
     DeleteConnectedRoute(2, NULL, "192.168.2.253/32");
+}
+
+//
+// Verify that routes are not re-originated when source RD of the route matches
+// connected path's source RD
+//
+TEST_P(ServiceChainParamTest, ExtConnectRouteSourceRDSame) {
+    vector<string> instance_names =
+        list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    NetworkConfig(instance_names, connections);
+    VerifyNetworkConfig(instance_names);
+
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
+
+    // Add Connected
+    AddConnectedRoute(NULL, "1.1.2.3/32", 100,
+                            "3.4.5.6",
+                            0, 0, vector<uint32_t>(), set<string>(),
+                            RouteDistinguisher::FromString("192.168.1.1:2"));
+
+    // Add Ext connect route with targets of red
+    vector<string> instances = list_of("red");
+    AddInetVpnRoute(NULL, instances, "10.1.1.0/24", 100,
+                      "1.2.3.4",
+                      0, 0, RouteDistinguisher::FromString("192.168.1.1:2"));
+
+    // Verify that MX leaked route is present in red
+    VerifyInetRouteExists("red", "10.1.1.0/24");
+
+    // Verify that ExtConnect route is NOT present in blue
+    // Verify that re-origination skipped as original route has same source RD
+    // as connected route source RD
+    VerifyInetRouteNoExists("blue", "10.1.1.0/24");
+
+    // Delete ExtRoute and connected route
+    DeleteInetVpnRoute(NULL, "red", "10.1.1.0/24",
+                         RouteDistinguisher::FromString("192.168.1.1:2"));
+    DeleteConnectedRoute(NULL, "1.1.2.3/32",
+                         RouteDistinguisher::FromString("192.168.1.1:2"));
 }
 
 INSTANTIATE_TEST_CASE_P(Instance, ServiceChainParamTest,
