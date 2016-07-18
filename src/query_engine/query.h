@@ -323,6 +323,7 @@ public:
     QueryUnit(QueryUnit *p_query, QueryUnit *m_query);
     virtual ~QueryUnit();
     virtual query_status_t process_query() = 0;
+    //virtual query_status_t process_query_async();
 
     typedef QEOpServerProxy::BufferT BufT;
     typedef QEOpServerProxy::OutRowMultimapT MapBufT;
@@ -346,7 +347,7 @@ public:
 
     // After query is processed following vector is populated
     WhereResultT query_result;
-}; 
+};
 
 class QueryResultMetaData {
 public:
@@ -388,6 +389,42 @@ public:
     GenDb::DbDataValueVec row_key_suffix;
     bool t_only_col;    // only T is in column name
     bool t_only_row;    // only T2 is in row key
+    int sub_query_id;
+    typedef std::vector<query_result_unit_t> q_result;
+    struct Input {
+        tbb::atomic<uint32_t> row_count;
+        tbb::atomic<uint32_t> total_rows;
+        string cf_name;
+        GenDb::ColumnNameRange cr;
+        std::vector<GenDb::DbDataValueVec> keys;
+        GenDb::GenDbIf::DbGetRowCb cb;
+    };
+    struct Stage0Merge {
+        std::vector<query_result_unit_t> query_result;
+    };
+    struct Output {
+        std::vector<query_result_unit_t> query_result;
+    };
+    struct Stage0Out {
+        std::vector<query_result_unit_t> query_result;
+        uint32_t current_row;
+    };
+    ExternalBase::Efn QueryExec(uint32_t inst,
+        const vector<q_result *> & exts,
+        const Input & inp, Stage0Out & res);
+    typedef WorkPipeline<Input, Output> QEPipeT;
+    bool QueryMerge(const std::vector<boost::shared_ptr<Stage0Out> > & subs,
+         const boost::shared_ptr<Input> & inp, Output & res);
+    void cb(GenDb::DbOpResult::type dresult, std::auto_ptr<GenDb::NewColVec>
+         columns, const void * get_row_ctx, void * privdata);
+    void WPCompleteCb(QEPipeT *wp, bool ret_code);
+    std::vector<GenDb::DbDataValueVec> populate_row_keys();
+};
+
+struct GetRowInput {
+    GenDb::DbDataValueVec rowkey;
+    string cfname;
+    GenDb::ColumnNameRange crange;
 };
 
 struct SetOperationUnit {
@@ -419,6 +456,7 @@ public:
     WhereQuery(const std::string& where_json_string, int direction,
             int32_t or_number, QueryUnit *main_query);
     virtual query_status_t process_query();
+    virtual void subquery_processed(QueryUnit *subquery);
 
     
     // 0 is for egress and 1 for ingress
@@ -426,6 +464,9 @@ public:
     const std::string json_string_;
     uint32_t wterms_;
     std::auto_ptr<WhereResultT> where_result_;
+    void sub_query_processed(query_status_t status);
+    // Used to store the sub_query(Each DbQueryUnits) results
+    vector<WhereResultT*> inp;
 private:
 };
 
@@ -722,12 +763,14 @@ public:
             EventManager *evm, std::vector<std::string> cassandra_ips, 
             std::vector<int> cassandra_ports, int batch,
             int total_batches, const std::string& cassandra_user,
-            const std::string &cassandra_password);
+            const std::string &cassandra_password,
+            QueryEngine *qe, void * pipeline_handle = NULL);
     AnalyticsQuery(std::string qid, GenDbIfPtr dbif, 
             std::map<std::string, std::string> json_api_data,
             int or_number,
             const std::vector<query_result_unit_t> * where_info,
-            const TtlMap& ttlmap, int batch, int total_batches);
+            const TtlMap& ttlmap, int batch, int total_batches,
+            QueryEngine *qe, void * pipeline_handle = NULL);
     virtual ~AnalyticsQuery() {}
 
     virtual query_status_t process_query();
@@ -780,6 +823,11 @@ public:
     bool processing_needed;
     // time slice for each parallel instance
     uint64_t time_slice;
+    // shared ptr to query engine needed when where_query winds up
+    QueryEngine* qe_;
+    // outer pipeline handle, needed while calling the QEResult from
+    // where_query context
+    void *handle_;
     // this is for merge between multiple instances running on same core
     bool merge_processing(const QEOpServerProxy::BufferT& input,
                             QEOpServerProxy::BufferT& output);
@@ -878,6 +926,7 @@ public:
     };
 
     uint64_t stime;
+    int max_tasks_;
 
     QueryEngine(EventManager *evm,
             std::vector<std::string> cassandra_ips,
@@ -910,6 +959,8 @@ public:
     bool
     QueryExecWhere(void * handle, QueryParams qp, uint32_t chunk,
             uint32_t or_number);
+    void
+    WhereQueryResult(AnalyticsQuery *q);
 
     // Query Execution of SELECT and post-processing
     bool

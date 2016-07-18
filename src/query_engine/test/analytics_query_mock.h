@@ -13,7 +13,7 @@ public:
         AnalyticsQuery(std::string(""),
                        GenDbIfPtr(new CqlIfMock()),
                        std::map<std::string, std::string>(), -1, NULL,
-                       TtlMap(), int(0), int(0)) {
+                       TtlMap(), int(0), int(0), NULL) {
     }
     
     ~AnalyticsQueryMock() {
@@ -33,4 +33,5 @@ public:
     MOCK_METHOD0(is_query_parallelized, bool());
     MOCK_METHOD4(Init, void(GenDb::GenDbIf*, std::string, 
                  std::map<std::string, std::string>&, uint64_t));
+    MOCK_METHOD1(subquery_processed, void(QueryUnit *));
 };

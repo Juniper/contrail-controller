@@ -986,6 +986,61 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
     }
 }
 
+void WhereQuery::subquery_processed(QueryUnit *subquery) {
+    AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
+    int sub_query_no = inp.size();
+    if (subquery->query_status == QUERY_FAILURE) {
+        //sub query failed so mark the parent query as failed
+        // and return
+        QE_LOG(INFO,  "QUERY failed to get rows");
+        m_query->query_status = subquery->query_status;
+        status_details = 1;
+        m_query->qe_->WhereQueryResult(m_query);
+    }
+    inp.push_back(&sub_queries[sub_query_no]->query_result);
+    if (sub_queries.size() == inp.size()) {
+        SetOperationUnit::op_and(((AnalyticsQuery *)(this->main_query))->query_id,
+	    *where_result_, inp);
+        m_query->query_status = query_status;
+
+	QE_TRACE(DEBUG, "Set ops returns # of rows:" << where_result_->size());
+
+        if (m_query->table() == g_viz_constants.FLOW_TABLE) {
+            // weed out duplicates
+            QE_TRACE(DEBUG,
+                "Weeding out duplicates for the Flow Records Table query");
+		std::vector<query_result_unit_t> uniqued_result;
+		std::map<boost::uuids::uuid, int> uuid_list;
+
+		// reverse iterate to make sure the latest entries are there
+		for (int i = (int)(where_result_->size() -1); i>=0; i--)
+		{
+		    boost::uuids::uuid u; flow_stats stats;
+		    where_result_->at(i).get_uuid_stats(u, stats);
+		    std::map<boost::uuids::uuid, int>::iterator it;
+		    it = uuid_list.find(u);
+		    if (it == uuid_list.end())
+		    {
+			uuid_list.insert(std::pair<boost::uuids::uuid, int>(u, 0));
+			// this is first instance of the UUID, hence insert in the
+			// results table
+			uniqued_result.push_back(where_result_->at(i));
+		    }
+		}
+		*where_result_ = uniqued_result;
+	    }
+
+	    // Have the result ready and processing is done
+	    QE_TRACE(DEBUG, "WHERE processing done row #s:" <<
+                     where_result_->size());
+	    status_details = 0;
+	    parent_query->subquery_processed(this);
+            // Processing done call WhereQueryResult
+            m_query->qe_->WhereQueryResult(m_query);
+    }
+
+}
+
 query_status_t WhereQuery::process_query()
 {
     AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
@@ -1014,51 +1069,9 @@ query_status_t WhereQuery::process_query()
     for (unsigned int i = 0; i < sub_queries.size(); i++)
     {
         query_status_t query_status = sub_queries[i]->process_query();
-
-        if (query_status == QUERY_FAILURE)
-        {
-            status_details = sub_queries[i]->status_details;
-            parent_query->subquery_processed(this);
-            return QUERY_FAILURE;
-        } else {
-            inp.push_back(&sub_queries[i]->query_result);
+        if (query_status == QUERY_FAILURE) {
+            return query_status;
         }
     }
-
-    SetOperationUnit::op_and(((AnalyticsQuery *)(this->main_query))->query_id,
-            *where_result_, inp);
-
-    QE_TRACE(DEBUG, "Set ops returns # of rows:" << where_result_->size());
-
-    if (m_query->table() == g_viz_constants.FLOW_TABLE)
-    {
-        // weed out duplicates
-        QE_TRACE(DEBUG, 
-                "Weeding out duplicates for the Flow Records Table query");
-        std::vector<query_result_unit_t> uniqued_result;
-        std::map<boost::uuids::uuid, int> uuid_list;
-
-        // reverse iterate to make sure the latest entries are there
-        for (int i = (int)(where_result_->size() -1); i>=0; i--)
-        {
-            boost::uuids::uuid u; flow_stats stats;
-            where_result_->at(i).get_uuid_stats(u, stats);
-            std::map<boost::uuids::uuid, int>::iterator it;
-            it = uuid_list.find(u);
-            if (it == uuid_list.end())
-            {
-                uuid_list.insert(std::pair<boost::uuids::uuid, int>(u, 0));
-                // this is first instance of the UUID, hence insert in the 
-                // results table
-                uniqued_result.push_back(where_result_->at(i));
-            }
-        }
-        *where_result_ = uniqued_result;
-    }
-
-    // Have the result ready and processing is done
-    QE_TRACE(DEBUG, "WHERE processing done row #s:" << where_result_->size());
-    status_details = 0;
-    parent_query->subquery_processed(this);
-    return QUERY_SUCCESS;
+    return query_status;
 }

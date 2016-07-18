@@ -3,21 +3,77 @@
  */
 
 #include "query.h"
+#include "base/work_pipeline.h"
 
-query_status_t DbQueryUnit::process_query()
-{
+typedef std::pair<GenDb::DbOpResult::type,
+                  std::auto_ptr<GenDb::NewColVec> > CassReplyT;
+
+/*
+ * This function performs GetRowAsync for each row key
+ * Input: It takes rowkeys for which we have to get col
+          values.Multiple instances execute this call
+          simultaneously and possibly multiple times(steps)
+          The instances store intermediate result in exts
+          res stores consolidated result/instance
+ * Ouput: Keeps calling itself for as many rowkeys involved
+          Returns NULL if no more row key to be queried
+*/
+ExternalBase::Efn DbQueryUnit::QueryExec(uint32_t inst,
+    const vector<q_result *> & exts,
+    const Input & inp, Stage0Out & res) {
+
+    uint32_t step = exts.size();
+    AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
+    Input & cinp = const_cast<Input &> (inp);
+    if (step) {
+        res.query_result.insert(res.query_result.end(),
+                                exts[step-1]->begin(),
+                                exts[step-1]->end());
+    }
+    res.current_row = cinp.row_count.fetch_and_increment();
+    // continue as long as we have not reached end of rows
+    if (res.current_row < inp.total_rows) {
+        // Frame the getrow context
+        GetRowInput *ip_ctx = new GetRowInput();
+        ip_ctx->rowkey = cinp.keys[res.current_row];
+        ip_ctx->cfname = cinp.cf_name;
+        ip_ctx->crange = cinp.cr;
+        return boost::bind(&GenDb::GenDbIf::Db_GetRowAsync, m_query->dbif_,
+                           cinp.cf_name, cinp.keys[res.current_row], cinp.cr,
+                           cinp.cb, ip_ctx, _1);
+    } else {
+        // done processing fetching all rows
+        return NULL;
+    }
+}
+
+/*
+ * This function merges all the instance's results into the res
+ */
+bool DbQueryUnit::QueryMerge(const std::vector<boost::shared_ptr<Stage0Out> >
+                                  & subs,
+                             const boost::shared_ptr<Input> & inp,
+                             Output & res) {
+    // Merge all the instances result. Each instance is a vector of
+    // query_results from steps
+    for (vector<boost::shared_ptr<Stage0Out> >::const_iterator it =
+             subs.begin(); it!=subs.end(); it++) {
+        res.query_result.insert(res.query_result.end(),
+                                (*it)->query_result.begin(),
+                                (*it)->query_result.end());
+    }
+    return true;
+}
+
+/*
+ * This function populates the rowkeys that have to be used
+ * in querying.It populates it based on the cftype and the t2
+ * and t1 values
+ */
+std::vector<GenDb::DbDataValueVec> DbQueryUnit::populate_row_keys() {
     AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
     uint32_t t2_start = m_query->from_time() >> g_viz_constants.RowTimeInBits;
     uint32_t t2_end = m_query->end_time() >> g_viz_constants.RowTimeInBits;
-
-    QE_TRACE(DEBUG,  " Database query for " << 
-            (t2_end - t2_start + 1) << " rows");
-    QE_TRACE(DEBUG,  " Database query for T2_start:"
-            << t2_start
-            << " T2_end:" << t2_end
-            << " cf:" << cfname
-            << " column_start size:" << cr.start_.size()
-            << " column_end size:" << cr.finish_.size());
 
     if (m_query->is_object_table_query(m_query->table()))
     {
@@ -39,7 +95,7 @@ query_status_t DbQueryUnit::process_query()
         rowkey.push_back(t2);
         if (m_query->is_flow_query(m_query->table()) ||
                 m_query->is_stat_table_query(m_query->table()) ||
-                (m_query->is_object_table_query(m_query->table()) && 
+                (m_query->is_object_table_query(m_query->table()) &&
                  cfname == g_viz_constants.OBJECT_TABLE)) {
             uint8_t partition_no = 0;
             rowkey.push_back(partition_no);
@@ -67,147 +123,81 @@ query_status_t DbQueryUnit::process_query()
             keys.push_back(rowkey);
         }
     }
+    return keys;
+}
 
-    if (!m_query->dbif_->Db_GetMultiRow(&mget_res, cfname, keys, cr)) {
-        std::stringstream tempstr;
-        for (size_t i = 0; i < cr.start_.size(); i++)
-            tempstr << "cr_s(" << i << "): " << cr.start_.at(i) << ", ";
-        for (size_t i = 0; i < cr.finish_.size(); i++)
-            tempstr << "cr_f(" << i << "): " << cr.finish_.at(i) << ", ";
-        QE_TRACE(DEBUG, "GetMultiRow failed:keys count:"<< keys.size() <<" :cr_s(size):"<<cr.start_.size()<<" :cr_f(size):"<<cr.finish_.size() << tempstr.str());
+/*
+ * This function calls the GetRowAsync based on the input
+ * passed to it. It creates a pipeline which executes
+ * the multiple GetRow calls asynchronously. It also
+ * provides a callback which is used to collect the
+ * results from the GetRow operation
+ */
+query_status_t DbQueryUnit::process_query()
+{
+    AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
+    uint32_t t2_start = m_query->from_time() >> g_viz_constants.RowTimeInBits;
+    uint32_t t2_end = m_query->end_time() >> g_viz_constants.RowTimeInBits;
 
-        for (size_t i = 0; i < keys.size(); i++) {
-            std::stringstream tempstr1;
-            for (size_t j = 0; j < keys[i].size(); j++)
-                tempstr1 << "keys[" << i << "][" << j << "]=" << keys[i].at(j) << ", ";
-            QE_TRACE(DEBUG, "GetMultiRow failed:keys:"<<i<<":"<<tempstr1.str());
-        }
-   
-        QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
+    QE_TRACE(DEBUG,  " Async Database query for " <<
+            (t2_end - t2_start + 1) << " rows");
+    QE_TRACE(DEBUG,  " Async Database query for T2_start:"
+            << t2_start
+            << " T2_end:" << t2_end
+            << " cf:" << cfname
+            << " column_start size:" << cr.start_.size()
+            << " column_end size:" << cr.finish_.size());
+    std::vector<GenDb::DbDataValueVec> keys = populate_row_keys();
 
-    } else {
-        for (GenDb::ColListVec::iterator it = mget_res.begin();
-                it != mget_res.end(); it++) {
-            uint32_t t2;
-            assert(it->rowkey_.size()!=0);
-            try {
-                t2 = boost::get<uint32_t>(it->rowkey_.at(0));
-            } catch (boost::bad_get& ex) {
-                assert(0);
-            }
-
-            GenDb::NewColVec::iterator i;
-
-            QE_TRACE(DEBUG, "For " << cfname << " T2:" << t2 <<
-                " Database returned " << it->columns_.size() << " cols");
-
-            for (i = it->columns_.begin(); i != it->columns_.end(); i++)
-            {
-                {
-                    query_result_unit_t result_unit;
-                    uint32_t t1;
-                    
-                    if (m_query->is_stat_table_query(m_query->table())) {
-                        assert(i->value->size()==1);
-                        assert((i->name->size()==4)||(i->name->size()==3));
-                        try {
-                            t1 = boost::get<uint32_t>(i->name->at(i->name->size()-2));
-                        } catch (boost::bad_get& ex) {
-                            assert(0);
-                        }
-                    } else if (m_query->is_flow_query(m_query->table())) {
-                        int ts_at = i->name->size() - 2;
-                        assert(ts_at >= 0);
-                        
-                        try {
-                            t1 = boost::get<uint32_t>(i->name->at(ts_at));
-                        } catch (boost::bad_get& ex) {
-                            assert(0);
-                        }
-                    } else {
-                        // For MessageIndex tables t1 is stored in the first column
-                        // except for timestamp table
-                        int ts_at = 0;
-                        if (t_only_col) {
-                            ts_at = i->name->size() - 2;
-                        } else {
-                            ts_at = i->name->size() - 1;
-                        }
-                        assert(ts_at >= 0);
-                        try {
-                            t1 = boost::get<uint32_t>(i->name->at(ts_at));
-                        } catch (boost::bad_get& ex) {
-                            assert(0);
-                        }
-                    }
-                    result_unit.timestamp = TIMESTAMP_FROM_T2T1(t2, t1);
-
-                    if 
-                    ((result_unit.timestamp < m_query->from_time()) ||
-                     (result_unit.timestamp > m_query->end_time()))
-                    {
-                        //QE_TRACE(DEBUG, "Discarding timestamp "
-                        //        << result_unit.timestamp);
-                        // got a result outside of the time range
-                        continue;
-                    }
-
-                    // Add to result vector
-                    if (m_query->is_stat_table_query(m_query->table())) {
-                        std::string attribstr;
-                        boost::uuids::uuid uuid;
-
-                        try {
-                            uuid = boost::get<boost::uuids::uuid>(i->name->at(i->name->size()-1));
-                        } catch (boost::bad_get& ex) {
-                            QE_ASSERT(0);
-                        } catch (const std::out_of_range& oor) {
-                            QE_ASSERT(0);
-                        }
-
-                        try {
-                            attribstr = boost::get<std::string>(i->value->at(0));
-                        } catch (boost::bad_get& ex) {
-                            QE_ASSERT(0);
-                        } catch (const std::out_of_range& oor) {
-                            QE_ASSERT(0);
-                        }
-
-                        result_unit.set_stattable_info(
-                            attribstr,
-                            uuid);
-                    } else {
-                        // If message index table uuid is not the value, but
-                        // column name
-                        if (t_only_col) {
-                            GenDb::DbDataValueVec uuid_val;
-                            uuid_val.push_back(i->name->at(i->name->size() - 1)                             );
-                            result_unit.info = uuid_val;
-                        } else {
-                            result_unit.info = *i->value;
-                        }
-                    }
-
-                    query_result.push_back(result_unit);
-                }
-            }
-        } // TBD handle database query errors
+    /* Create a pipeline to fetch all rows corresponding to keys */
+    int max_tasks = m_query->qe_->max_tasks_;
+    std::vector<std::pair<int,int> > tinfo;
+    for (uint idx=0; idx<(uint)max_tasks; idx++) {
+        tinfo.push_back(make_pair(0, -1));
     }
 
+    QEPipeT * wp = new QEPipeT(
+        new WorkStage<Input, Output, q_result, Stage0Out>(
+            tinfo,
+            boost::bind(&DbQueryUnit::QueryExec, this, _1, _2, _3, _4),
+            boost::bind(&DbQueryUnit::QueryMerge, this, _1, _2, _3)));
+
+    // Populate the input to the pipeline
+    boost::shared_ptr<Input> inp(new Input());
+    inp.get()->row_count = 0;
+    inp.get()->total_rows = keys.size();
+    inp.get()->cf_name = cfname;
+    inp.get()->cr = cr;
+    inp.get()->keys = keys;
+    inp.get()->cb = boost::bind(&DbQueryUnit::cb, this, _1, _2, _3, _4);
+    // Start the pipeline with callback and input
+    wp->Start(boost::bind(&DbQueryUnit::WPCompleteCb, this, wp, _1), inp);
+    return QUERY_IN_PROGRESS;
+}
+
+/*
+ * This is called after getting all the results from
+ * all the row keys. It copies result to the query_result
+ * and deletes the pipeline
+ */
+void DbQueryUnit::WPCompleteCb(QEPipeT *wp, bool ret_code) {
+    boost::shared_ptr<Output> res = wp->Result();
+    //copy pipeline output to DbQueryUnit query_output
+    query_result = res->query_result;
+    int size = res->query_result.size();
+    QE_TRACE(DEBUG,  " Database query completed with Async"
+            << size << " rows");
     // Have the result ready and processing is done
     // sort the result before returning
     std::sort(query_result.begin(), query_result.end());
-
-    QE_TRACE(DEBUG,  " Database query completed with "
-            << query_result.size() << " rows");
     if (IS_TRACE_ENABLED(WHERE_RESULT_TRACE)) {
         std::stringstream ss;
-        for (std::vector<query_result_unit_t>::const_iterator it = 
+        for (std::vector<query_result_unit_t>::const_iterator it =
              query_result.begin(); it != query_result.end(); it++) {
             const query_result_unit_t &result_unit(*it);
             ss << "T: " << result_unit.timestamp << ": ";
-            for (GenDb::DbDataValueVec::const_iterator rt = 
-                 result_unit.info.begin(); rt != result_unit.info.end(); 
+            for (GenDb::DbDataValueVec::const_iterator rt =
+                 result_unit.info.begin(); rt != result_unit.info.end();
                  rt++) {
                 ss << " " << *rt;
             }
@@ -215,8 +205,129 @@ query_status_t DbQueryUnit::process_query()
         }
         QE_TRACE(DEBUG, "Result: " << cfname << ": " << ss.str());
     }
+    delete wp;
+    if (ret_code) {
+        status_details = 0;
+        query_status = QUERY_SUCCESS;
+        parent_query->subquery_processed(this);
+    } else {
+        query_status = QUERY_FAILURE;
+        parent_query->subquery_processed(this);
+    }
+}
 
-    status_details = 0;
-    parent_query->subquery_processed(this);
-    return QUERY_SUCCESS;
+void DbQueryUnit::cb(GenDb::DbOpResult::type dresult,
+                     std::auto_ptr<GenDb::NewColVec> columns,
+                     const void * get_row_ctx, void * privdata) {
+    std::auto_ptr<q_result> q_result_ptr(new q_result);
+    GetRowInput *gr = (reinterpret_cast<GetRowInput* >(const_cast<void *>(get_row_ctx)));
+    std::auto_ptr<GetRowInput>  gri(gr);
+    uint32_t t2;
+    try {
+        GenDb::DbDataValueVec val = gri.get()->rowkey;
+        t2 = boost::get<uint32_t>(val.at(0));
+    } catch (boost::bad_get& ex) {
+	assert(0);
+    }
+
+    GenDb::NewColVec::iterator i;
+
+    AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
+
+    for (i = columns->begin(); i != columns->end(); i++) {
+        {
+            query_result_unit_t result_unit;
+            uint32_t t1;
+            if (m_query->is_stat_table_query(m_query->table())) {
+                assert(i->value->size()==1);
+                assert((i->name->size()==4)||(i->name->size()==3));
+                try {
+                    t1 = boost::get<uint32_t>(i->name->at(i->name->size()-2));
+                } catch (boost::bad_get& ex) {
+                    assert(0);
+                }
+            } else if (m_query->is_flow_query(m_query->table())) {
+                int ts_at = i->name->size() - 2;
+                assert(ts_at >= 0);
+                try {
+                    t1 = boost::get<uint32_t>(i->name->at(ts_at));
+                } catch (boost::bad_get& ex) {
+                    assert(0);
+                }
+            } else {
+                // For MessageIndex tables t1 is stored in the first column
+                // except for timestamp table
+                int ts_at = 0;
+                if (t_only_col) {
+                    ts_at = i->name->size() - 2;
+                } else {
+                    ts_at = i->name->size() - 1;
+                }
+                assert(ts_at >= 0);
+                try {
+                    t1 = boost::get<uint32_t>(i->name->at(ts_at));
+                } catch (boost::bad_get& ex) {
+                    assert(0);
+                }
+            }
+            result_unit.timestamp = TIMESTAMP_FROM_T2T1(t2, t1);
+
+            if 
+            ((result_unit.timestamp < m_query->from_time()) ||
+             (result_unit.timestamp > m_query->end_time()))
+            {
+                //QE_TRACE(DEBUG, "Discarding timestamp "
+                //        << result_unit.timestamp);
+                // got a result outside of the time range
+                continue;
+            }
+
+           // Add to result vector
+            if (m_query->is_stat_table_query(m_query->table())) {
+                std::string attribstr;
+                boost::uuids::uuid uuid;
+
+                try {
+                    uuid = boost::get<boost::uuids::uuid>(i->name->at(i->name->size()-1));
+                } catch (boost::bad_get& ex) {
+                    QE_ASSERT(0);
+                } catch (const std::out_of_range& oor) {
+                    QE_ASSERT(0);
+                }
+
+                try {
+                    attribstr = boost::get<std::string>(i->value->at(0));
+                } catch (boost::bad_get& ex) {
+                    QE_ASSERT(0);
+                } catch (const std::out_of_range& oor) {
+                    QE_ASSERT(0);
+                }
+
+                result_unit.set_stattable_info(
+                    attribstr,
+                    uuid);
+            } else {
+                // If message index table uuid is not the value, but
+                // column name
+                if (t_only_col) {
+                    GenDb::DbDataValueVec uuid_val;
+                    uuid_val.push_back(i->name->at(i->name->size() - 1)                             );
+                    result_unit.info = uuid_val;
+                } else {
+                    result_unit.info = *i->value;
+                }
+            }
+            q_result_ptr->push_back(result_unit);
+        }
+
+    }
+
+    ExternalProcIf<q_result> * rpi = NULL;
+    if (privdata) {
+        rpi = reinterpret_cast<ExternalProcIf<q_result> *>(privdata);
+    }
+    if (rpi) {
+        rpi->Response(q_result_ptr);
+    }
+
 }
