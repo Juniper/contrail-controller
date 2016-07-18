@@ -1547,26 +1547,28 @@ bool BgpPeer::ReceiveMsg(BgpSession *session, const u_int8_t *msg,
 }
 
 string BgpPeer::ToString() const {
-    ostringstream out;
-
-    out << peer_key_.endpoint.address();
-    if (peer_key_.endpoint.port() != BgpConfigManager::kDefaultPort) {
-        out << ":" << static_cast<unsigned short>(peer_key_.endpoint.port());
+    if (to_str_.empty()) {
+        ostringstream out;
+        out << peer_key_.endpoint.address();
+        if (peer_key_.endpoint.port() != BgpConfigManager::kDefaultPort) {
+            out << ":" << dec << peer_key_.endpoint.port();
+        }
+        to_str_ = out.str();
     }
-    return out.str();
+    return to_str_;
 }
 
 string BgpPeer::ToUVEKey() const {
-    ostringstream out;
-
-    // XXX Skip master instance names from the logs and uves.
-    if (true || !rtinstance_->IsMasterRoutingInstance()) {
-        out << rtinstance_->name() << ":";
+    if (uve_key_str_.empty()) {
+        ostringstream out;
+        if (rtinstance_) {
+            out << rtinstance_->name() << ":";
+        }
+        out << server_->localname() << ":";
+        out << peer_name();
+        uve_key_str_ = out.str();
     }
-    // out << peer_key_.endpoint.address();
-    out << server_->localname() << ":";
-    out << peer_name();
-    return out.str();
+    return uve_key_str_;
 }
 
 //
