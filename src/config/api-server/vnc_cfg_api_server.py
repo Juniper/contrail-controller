@@ -2741,15 +2741,12 @@ class VncApiServer(object):
     # generate default rbac group rule
     def _create_default_rbac_rule(self):
         obj_type = 'api_access_list'
-        fq_name = ['default-domain', 'default-api-access-list']
+        fq_name = ['default-global-system-config', 'default-api-access-list']
         try:
             id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
             return
         except NoIdError:
-            self._create_singleton_entry(ApiAccessList(parent_type='domain', fq_name=fq_name))
-            id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
-
-        (ok, obj_dict) = self._db_conn.dbe_read(obj_type, {'uuid': id})
+            pass
 
         # allow full access to cloud admin
         rbac_rules = [
@@ -2770,8 +2767,23 @@ class VncApiServer(object):
             },
         ]
 
-        obj_dict['api_access_list_entries'] = {'rbac_rule' : rbac_rules}
-        self._db_conn.dbe_update(obj_type, {'uuid': id}, obj_dict)
+        rge = RbacRuleEntriesType([])
+        for rule in rbac_rules:
+            rule_perms = [RbacPermType(role_name=p['role_name'], role_crud=p['role_crud']) for p in rule['rule_perms']]
+            rbac_rule = RbacRuleType(rule_object=rule['rule_object'],
+                rule_field=rule['rule_field'], rule_perms=rule_perms)
+            rge.add_rbac_rule(rbac_rule)
+
+        rge_dict = rge.exportDict('')
+        glb_rbac_cfg = ApiAccessList(parent_type='global-system-config',
+            fq_name=fq_name, api_access_list_entries = rge_dict)
+
+        try:
+            self._create_singleton_entry(glb_rbac_cfg)
+        except Exception as e:
+            err_msg = 'Error creating default api access list object'
+            err_msg += cfgm_common.utils.detailed_traceback()
+            self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
     # end _create_default_rbac_rule
 
     def _resync_domains_projects(self, ext):
