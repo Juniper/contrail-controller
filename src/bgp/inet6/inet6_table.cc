@@ -62,13 +62,17 @@ BgpRoute *Inet6Table::RouteReplicate(BgpServer *server, BgpTable *src_table,
 
     Inet6Route *source = dynamic_cast<Inet6Route *>(src_rt);
 
+    RouteDistinguisher rd;
+
     boost::scoped_ptr<Inet6Prefix> prefix;
     if (source) {
         prefix.reset(new Inet6Prefix(source->GetPrefix().ip6_addr(),
                                      source->GetPrefix().prefixlen()));
+        rd = RouteDistinguisher::kZeroRd;
     } else {
         Inet6VpnRoute *vpn_route = dynamic_cast<Inet6VpnRoute *> (src_rt);
         assert(vpn_route);
+        rd = vpn_route->GetPrefix().route_distinguisher();
         prefix.reset(new Inet6Prefix(vpn_route->GetPrefix().addr(),
                                      vpn_route->GetPrefix().prefixlen()));
     }
@@ -85,9 +89,13 @@ BgpRoute *Inet6Table::RouteReplicate(BgpServer *server, BgpTable *src_table,
     }
 
     // Replace the extended community with the one provided.
-    BgpAttrPtr new_attr =
-        server->attr_db()->ReplaceExtCommunityAndLocate(path->GetAttr(),
-                                                        community);
+    BgpAttrDB *attr_db = server->attr_db();
+    BgpAttrPtr new_attr = attr_db->ReplaceExtCommunityAndLocate(path->GetAttr(),
+                                                                community);
+
+    if (!source) {
+        new_attr = attr_db->ReplaceSourceRdAndLocate(new_attr.get(), rd);
+    }
 
     // Check whether there's already a path with the given peer and path id.
     BgpPath *dest_path =
