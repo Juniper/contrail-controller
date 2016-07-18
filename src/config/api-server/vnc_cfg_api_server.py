@@ -291,12 +291,19 @@ class VncApiServer(object):
             is_list_prop = prop_name in resource_class.prop_list_fields
             is_map_prop = prop_name in resource_class.prop_map_fields
 
-            # TODO validate primitive types
-            if is_simple and (not is_list_prop) and (not is_map_prop):
-                continue
             prop_value = obj_dict.get(prop_name)
             if not prop_value:
                 continue
+
+            if is_simple and (not is_list_prop) and (not is_map_prop):
+                try:
+                    self._validate_simple_type(prop_name, prop_type,
+                                               simple_type, prop_value,
+                                               restrictions)
+                except Exception as e:
+                    return False, str(e)
+                else:
+                    continue
 
             prop_cls = cfgm_common.utils.str_to_class(prop_type, __name__)
             if isinstance(prop_value, dict):
