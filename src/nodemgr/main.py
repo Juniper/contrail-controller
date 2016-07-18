@@ -164,9 +164,12 @@ def main(args_str=' '.join(sys.argv[1:])):
             rule_file, discovery_server,
             discovery_port, collector_addr)
     elif (node_type == 'contrail-config'):
+        cassandra_repair_interval = _args.cassandra_repair_interval
+	cassandra_repair_logdir = _args.cassandra_repair_logdir
         prog = ConfigEventManager(
             rule_file, discovery_server,
-            discovery_port, collector_addr)
+            discovery_port, collector_addr,
+            cassandra_repair_interval, cassandra_repair_logdir)
     elif (node_type == 'contrail-control'):
         prog = ControlEventManager(
             rule_file, discovery_server,
