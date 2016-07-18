@@ -64,7 +64,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         and checks if database purge functonality is
         is working properly
         '''
-        logging.info("*** test_00_database_purge_query ***")
+        logging.info("%%% test_00_database_purge_query %%%")
         if AnalyticsDbTest._check_skip_test() is True:
             return True
 
@@ -83,7 +83,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         and checks if database purge functonality is
         is working properly with redis password
         '''
-        logging.info("*** test_01_database_purge_query_with_redis_password ***")
+        logging.info("%%% test_01_database_purge_query_with_redis_password %%%")
         if AnalyticsDbTest._check_skip_test() is True:
             return True
 
