@@ -74,7 +74,9 @@ struct UveVMInterfaceAgent {
    15: optional list<VmFloatingIPAgent> floating_ips;
        /* List of Floating Ips along with total stats */
    16: optional list<VmFloatingIPStats> fip_agg_stats;
+    /** @display_name:Virtual Machine Floating IP Statistics*/
    17: optional list<VmFloatingIPStats> fip_diff_stats (tags=".virtual_network,.ip_address")
+    /** @display_name:Virtual Machine Interface Statistics*/
    18: optional VmInterfaceStats if_stats (tags="vm_name,vm_uuid")
    19: string vm_uuid;
    20: optional u64 in_bw_usage;
@@ -82,6 +84,7 @@ struct UveVMInterfaceAgent {
    22: optional bool ip4_active;
    23: optional bool is_health_check_active;
    24: optional list<VmHealthCheckInstance> health_check_instance_list;
+    /** @display_name:VMI ACL Rule Statistics*/
    25: optional list<SgAclRuleStats> sg_rule_stats (tags=".rule");
 }
 

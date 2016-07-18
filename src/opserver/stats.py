@@ -11,6 +11,7 @@
 #
 
 import sys
+import os
 import argparse
 import json
 import datetime
@@ -20,9 +21,6 @@ from sandesh_common.vns.constants import ModuleNames, NodeTypeNames
 import sandesh.viz.constants as VizConstants
 from pysandesh.gen_py.sandesh.ttypes import SandeshType, SandeshLevel
 
-STAT_TABLE_LIST = [xx.stat_type + "." + xx.stat_attr for xx in VizConstants._STAT_TABLES]
-
-
 class StatQuerier(object):
 
     def __init__(self):
@@ -31,7 +29,26 @@ class StatQuerier(object):
 
     # Public functions
     def run(self):
-        if self.parse_args() != 0:
+        topdir = '/usr/share/doc/contrail-docs/html/messages/'
+        extn = '.json'
+        stat_schema_files = []
+        for dirpath, dirnames, files in os.walk(topdir):
+            for name in files:
+                if name.lower().endswith(extn):
+                    stat_schema_files.append(os.path.join(dirpath, name))
+        stat_tables = []
+        for schema_file in stat_schema_files:
+            with open(schema_file) as data_file:
+                data = json.load(data_file)
+            for _, tables in data.iteritems():
+                for table in tables:
+                    if table not in stat_tables:
+                        stat_tables.append(table)
+        stat_table_list = [xx.stat_type + "." + xx.stat_attr for xx in VizConstants._STAT_TABLES]
+        stat_table_list.extend([xx["stat_type"] + "." + xx["stat_attr"] for xx
+            in stat_tables])
+
+        if self.parse_args(stat_table_list) != 0:
             return
 
         if len(self._args.select)==0 and self._args.dtable is None: 
@@ -57,7 +74,7 @@ class StatQuerier(object):
             result = self.query()
             self.display(result)
 
-    def parse_args(self):
+    def parse_args(self, stat_table_list):
         """ 
         Eg. python stats.py --analytics-api-ip 127.0.0.1
                           --analytics-api-port 8181
@@ -90,7 +107,7 @@ class StatQuerier(object):
         parser.add_argument(
             "--last", help="Logs from last time period (format 10m, 1d)")
         parser.add_argument(
-            "--table", help="StatTable to query", choices=STAT_TABLE_LIST)
+            "--table", help="StatTable to query", choices=stat_table_list)
         parser.add_argument(
             "--dtable", help="Dynamic StatTable to query")
         parser.add_argument(

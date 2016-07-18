@@ -146,9 +146,11 @@ struct UveVirtualNetworkAgent {
     20: optional u64                       in_bandwidth_usage (aggtype="sum")
     21: optional u64                       out_bandwidth_usage (aggtype="sum")
     22: optional list<UveVrfStats>         vrf_stats_list (aggtype="append")
+    /** @display_name:VN Agent*/
     23: optional list<InterVnStats>        vn_stats (tags=".other_vn,.vrouter")
     24: optional u32                       ingress_flow_count (aggtype="sum")
     25: optional u32                       egress_flow_count (aggtype="sum")
+    /** @display_name:VN ACL Rule Statistics*/
     26: optional list<NetworkPolicyRuleStats> policy_rule_stats (tags=".rule",aggtype="union")
 }
 
