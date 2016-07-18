@@ -62,6 +62,7 @@ BgpRoute *InetTable::RouteReplicate(BgpServer *server,
     InetRoute *inet= dynamic_cast<InetRoute *> (src_rt);
 
     boost::scoped_ptr<Ip4Prefix> inet_prefix;
+    RouteDistinguisher rd;
 
     if (inet) {
         inet_prefix.reset(new Ip4Prefix(inet->GetPrefix().ip4_addr(),
@@ -69,6 +70,7 @@ BgpRoute *InetTable::RouteReplicate(BgpServer *server,
     } else {
         InetVpnRoute *inetvpn = dynamic_cast<InetVpnRoute *> (src_rt);
         assert(inetvpn);
+        rd = inetvpn->GetPrefix().route_distinguisher();
         inet_prefix.reset(new Ip4Prefix(inetvpn->GetPrefix().addr(),
                                   inetvpn->GetPrefix().prefixlen()));
     }
@@ -85,8 +87,14 @@ BgpRoute *InetTable::RouteReplicate(BgpServer *server,
     }
 
     // Replace the extended community with the one provided.
-    BgpAttrPtr new_attr = server->attr_db()->ReplaceExtCommunityAndLocate(
-        path->GetAttr(), community);
+    BgpAttrDB *attr_db = server->attr_db();
+    BgpAttrPtr new_attr = attr_db->ReplaceExtCommunityAndLocate(path->GetAttr(),
+                                                                community);
+
+    // Set the RD attr if route is replicated from vpn table
+    if (!inet) {
+        new_attr = attr_db->ReplaceSourceRdAndLocate(new_attr.get(), rd);
+    }
 
     // Check whether there's already a path with the given peer and path id.
     BgpPath *dest_path = dest_route->FindSecondaryPath(src_rt,
