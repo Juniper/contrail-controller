@@ -145,6 +145,15 @@ class EventManager(object):
             self.fail_status_bits &= ~self.FAIL_STATUS_NTP_SYNC
         self.send_nodemgr_process_status()
 
+
+    def package_installed(self, pkg):
+        if distribution == 'debian':
+            cmd = "dpkg -l " + pkg
+        else:
+            cmd = "rpm -q " + pkg
+        with open(os.devnull, "w") as fnull:
+            return (not subprocess.call(cmd.split(), stdout=fnull, stderr=fnull))
+
     def get_build_info(self):
         # Retrieve build_info from package/rpm and cache it
         if self.curr_build_info is None:
@@ -520,7 +529,7 @@ class EventManager(object):
                     cmd_and_args = ['/usr/bin/bash', '-c', rules['action']]
                     subprocess.Popen(cmd_and_args)
 
-    def event_tick_60(self, prev_current_time):
+    def event_tick_60(self):
         self.tick_count += 1
         # get disk usage info periodically
         disk_usage_info = self.get_disk_usage()
@@ -553,29 +562,29 @@ class EventManager(object):
         node_status_uve.send()
 
         current_time = int(time.time())
-        if ((abs(current_time - prev_current_time)) > 300):
+        if ((abs(current_time - self.prev_current_time)) > 300):
             # update all process start_times with the updated time
             # Compute the elapsed time and subtract them from
             # current time to get updated values
             sys.stderr.write(
                 "Time lapse detected " +
-                str(abs(current_time - prev_current_time)) + "\n")
+                str(abs(current_time - self.prev_current_time)) + "\n")
             for key in self.process_state_db:
                 pstat = self.process_state_db[key]
                 if pstat.start_time is not '':
                     pstat.start_time = str(
-                        (int(current_time - (prev_current_time -
+                        (int(current_time - (self.prev_current_time -
                              ((int)(pstat.start_time)) / 1000000))) * 1000000)
                 if (pstat.process_state == 'PROCESS_STATE_STOPPED'):
                     if pstat.stop_time is not '':
                         pstat.stop_time = str(
-                            int(current_time - (prev_current_time -
+                            int(current_time - (self.prev_current_time -
                                 ((int)(pstat.stop_time)) / 1000000)) *
                             1000000)
                 if (pstat.process_state == 'PROCESS_STATE_EXITED'):
                     if pstat.exit_time is not '':
                         pstat.exit_time = str(
-                            int(current_time - (prev_current_time -
+                            int(current_time - (self.prev_current_time -
                                 ((int)(pstat.exit_time)) / 1000000)) *
                             1000000)
                 # update process state database
@@ -592,11 +601,13 @@ class EventManager(object):
                 sys.stderr.write("Unable to write json")
                 pass
             self.send_process_state_db(self.group_names)
-        prev_current_time = int(time.time())
-        return prev_current_time
+        self.prev_current_time = int(time.time())
+
+    def do_periodic_events(self):
+        self.event_tick_60()
 
     def runforever(self, test=False):
-        prev_current_time = int(time.time())
+        self.prev_current_time = int(time.time())
         while 1:
             # we explicitly use self.stdin, self.stdout, and self.stderr
             # instead of sys.* so we can unit test this code
@@ -612,5 +623,5 @@ class EventManager(object):
                 self.event_process_communication(pdata)
             # do periodic events
             if headers['eventname'].startswith("TICK_60"):
-                prev_current_time = self.event_tick_60(prev_current_time)
+                self.do_periodic_events()
             self.listener_nodemgr.ok(self.stdout)
