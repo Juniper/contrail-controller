@@ -23,7 +23,7 @@ class BroadviewTest(unittest.TestCase):
         #mockcassandra.stop_cassandra(cls.cassandra_port)
 
     def test_000_bv(self):
-        #logging.info("*** test_000_snmp_devcfg ***")
+        #logging.info("%%% test_000_snmp_devcfg %%%")
         self.assertEqual(1, 1)
 
 

@@ -76,7 +76,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         queries to opserver
         The idea is to use this to monitor/improve qed performance
         '''
-        logging.info("*** test_00_startup ***")
+        logging.info("%%% test_00_startup %%%")
         if AnalyticsTest._check_skip_test() == True:
             return True
 
