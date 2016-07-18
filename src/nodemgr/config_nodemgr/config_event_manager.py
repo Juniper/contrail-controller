@@ -17,6 +17,7 @@ import gevent
 import ConfigParser
 
 from nodemgr.common.event_manager import EventManager
+from nodemgr.database_nodemgr.common import CassandraManager
 
 from ConfigParser import NoOptionError
 
@@ -39,11 +40,16 @@ from pysandesh.connection_info import ConnectionState
 
 class ConfigEventManager(EventManager):
     def __init__(self, rule_file, discovery_server,
-                 discovery_port, collector_addr):
+                 discovery_port, collector_addr,
+                 cassandra_repair_interval,
+                 cassandra_repair_logdir):
         self.node_type = "contrail-config"
         self.table = "ObjectConfigNode"
         self.module = Module.CONFIG_NODE_MGR
         self.module_id = ModuleNames[self.module]
+        self.cassandra_repair_interval = cassandra_repair_interval
+        self.cassandra_repair_logdir = cassandra_repair_logdir
+        self.cassandra_mgr = CassandraManager(cassandra_repair_logdir)
         self.supervisor_serverurl = "unix:///var/run/supervisord_config.sock"
         self.add_current_process()
         node_type = Module2NodeType[self.module]
@@ -87,3 +93,15 @@ class ConfigEventManager(EventManager):
     def get_process_state(self, fail_status_bits):
         return self.get_process_state_base(
             fail_status_bits, ProcessStateNames, ProcessState)
+
+    def do_periodic_events(self):
+        db = package_installed('contrail-opesntack-database')
+        config_db = package_installed('contrail-database-common')
+        if not db and config_db:
+            # Record cluster status and shut down cassandra if needed
+            self.cassandra_mgr.status()
+        self.event_tick_60()
+        if not db and config_db:
+            # Perform nodetool repair every cassandra_repair_interval hours
+            if self.tick_count % (60 * self.cassandra_repair_interval) == 0:
+                self.cassandra_mgr.repair()
