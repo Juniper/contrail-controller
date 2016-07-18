@@ -1538,9 +1538,15 @@ void XmppStateMachine::set_last_event(const std::string &event) {
 
     if (!logUVE()) return;
 
-    // ignore logging keepalive event
-    if (event == "xmsm::EvXmppKeepalive") {
-	    return;
+    // Skip iq and message events.
+    if (event == "xmsm::EvXmppIqReceive" ||
+        event == "xmsm::EvXmppMessageReceive") {
+        return;
+    }
+
+    // Skip keepalive events after we've reached established state.
+    if (state_ == xmsm::ESTABLISHED && event == "xmsm::EvXmppKeepalive") {
+        return;
     }
 
     XmppPeerInfoData peer_info;
