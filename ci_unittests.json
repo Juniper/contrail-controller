@@ -31,6 +31,7 @@
             "controller/src/api-lib:test",
             "controller/src/discovery:test",
             "controller/src/config/api-server:test"
+            "controller/src/config/vnc_openstack:test"
         ],
         "misc_test_targets" : [ ]
     },
