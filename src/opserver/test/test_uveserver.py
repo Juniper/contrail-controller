@@ -200,7 +200,7 @@ class UVEServerTest(unittest.TestCase):
         del self._oss
 
     def test_simple(self):
-        logging.info("*** Running test_simple ***")
+        logging.info("%%% Running test_simple %%%")
 
         uvevn = MakeUVEVirtualNetwork(
             None, "abc-corp:vn-00", "10.10.10.10",
@@ -214,7 +214,7 @@ class UVEServerTest(unittest.TestCase):
         logging.info(json.dumps(res, indent=4, sort_keys=True))
 
     def test_default_agg(self):
-        logging.info("*** Running test_default_agg ***")
+        logging.info("%%% Running test_default_agg %%%")
 
         uvevn = MakeUVEVirtualNetwork(
             None, "abc-corp:vn-00", "10.10.10.10",
@@ -257,7 +257,7 @@ class UVEServerTest(unittest.TestCase):
         logging.info(json.dumps(res, indent=4, sort_keys=True))
 
     def test_union_agg(self):
-        logging.info("*** Running test_union_agg ***")
+        logging.info("%%% Running test_union_agg %%%")
 
         uvevn = MakeUVEVirtualNetwork(
             None, "abc-corp:vn-00", "10.10.10.10",
@@ -291,7 +291,7 @@ class UVEServerTest(unittest.TestCase):
         self.assertEqual(cn, res['UVEVirtualNetwork']['connected_networks'])
 
     def test_href_agg(self):
-        logging.info("*** Running test_href_agg ***")
+        logging.info("%%% Running test_href_agg %%%")
 
         uvevn = MakeUVEVirtualNetwork(
             None, "abc-corp:vn-00", "10.10.10.10",
@@ -315,7 +315,7 @@ class UVEServerTest(unittest.TestCase):
         self.assertEqual(cn, res['UVEVirtualNetwork']['ifs'])
 
     def test_sum_agg(self):
-        logging.info("*** Running test_sum_agg ***")
+        logging.info("%%% Running test_sum_agg %%%")
 
         uvevn = MakeUVEVirtualNetwork(
             None, "abc-corp:vn-00", "10.10.10.10",
@@ -343,7 +343,7 @@ class UVEServerTest(unittest.TestCase):
             cnt1, res['UVEVirtualNetwork']['total_virtual_machines'])
 
     def test_counter_agg(self):
-        logging.info("*** Running test_counter_agg ***")
+        logging.info("%%% Running test_counter_agg %%%")
 
         uvevn = MakeUVEVirtualNetwork(
             None, "abc-corp:vn-00", "previous",
@@ -374,7 +374,7 @@ class UVEServerTest(unittest.TestCase):
         self.assertEqual(in_tpkts, res['UVEVirtualNetwork']['in_tpkts'])
 
     def test_append_agg(self):
-        logging.info("*** Running test_append_agg ***")
+        logging.info("%%% Running test_append_agg %%%")
 
         uvevn = MakeUVEVirtualNetwork(
             None, "abc-corp:vn-00", "previous",
