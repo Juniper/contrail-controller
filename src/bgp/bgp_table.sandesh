@@ -7,6 +7,7 @@ include "bgp/table_info.sandesh"
 struct RoutingInstanceStatsData {
     1: string name (key="ObjectRoutingInstance");
     2: optional bool deleted
+    /** @display_name:Routung Instance Information*/
     3: optional map<string, table_info.BgpTableStats> table_stats (tags=".__key");
 }
 

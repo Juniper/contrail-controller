@@ -17,6 +17,8 @@ sources += env.SandeshGenPy(
     'storage.sandesh',
     'stats_daemon/sandesh/', False)
 
+StorageDocFiles = []
+StorageDocFiles += env.SandeshGenDoc('storage.sandesh')
 
 test_sources = sources
 packages = [
@@ -63,6 +65,9 @@ if 'install_stats_daemon' in BUILD_TARGETS:
               env.Command(None, sources,
                           cd_cmd + 'python setup.py install %s' %
                           env['PYTHON_INSTALL_OPT']))
+    env.Alias('install', env.Install(
+        env['INSTALL_MESSAGE_DOC'] + '/contrail-storage/',
+        StorageDocFiles))
 env.Alias('install_stats_daemon', env.Install(env['INSTALL_CONF'], 'stats-daemon.conf'))
 
 # Local Variables:

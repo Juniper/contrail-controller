@@ -175,7 +175,9 @@ objectlog sandesh AlarmgenUpdate {
     1: string             name (key="ObjectGeneratorInfo")
     3: u32                partition
     4: string             table
+    /** @display_name:Alarmgen UVE Key Stats */
     5: UVETableCount      o    (tags="partition,table")
+    /** @display_name:Alarmgen Input Stats */
     6: list<UVETypeInfo>  i    (tags="partition,table,.collector,.generator,.type")
 }
 
@@ -191,6 +193,7 @@ struct AlarmgenStats {
  */
 struct AlarmgenStatus {
     1: string                      name (key="ObjectCollectorInfo")
+    /** @display_name:Alarmgen Counters*/
     2: list<AlarmgenStats>         counters (tags="name:.instance",aggtype="union")
     4: list<string>                alarmgens (aggtype="union",ulink="ObjectGeneratorInfo:ModuleClientState")
     3: optional bool               deleted

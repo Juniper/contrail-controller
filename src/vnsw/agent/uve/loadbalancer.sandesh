@@ -37,8 +37,11 @@ struct LoadbalancerStats {
 struct UveLoadbalancerStats {
     10: string          name (key="ObjectLBTable")
     11: optional bool   deleted
+    /** @display_name:Loadbalancer Listener Stats */
     12: optional map<string, LoadbalancerStats>     listener    (tags=".__key,.obj_name,.vrouter",aggtype="union");
+    /** @display_name:Loadbalancer Pool Stats */
     13: optional map<string, LoadbalancerStats>     pool        (tags=".__key,.obj_name,.vrouter",aggtype="union");
+    /** @display_name:Loadbalancer Member Stats */
     14: optional map<string, LoadbalancerStats>     member      (tags=".__key,.obj_name,.vrouter",aggtype="union");
 }
 
