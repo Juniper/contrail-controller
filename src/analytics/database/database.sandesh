@@ -26,6 +26,7 @@ struct DatabaseUsageStats {
 struct DatabaseUsageInfo {
     1: string                              name (key="ObjectDatabaseInfo")
     2: optional bool                       deleted
+    /** @display_name:Database Usage Statistics*/
     3: optional list<DatabaseUsageStats>   database_usage (tags="")
 }
 
@@ -51,7 +52,9 @@ struct CassandraCompactionTask {
 struct CassandraStatusData {
     1: string name (key="ObjectDatabaseInfo")
     2: optional bool deleted
+    /** @display_name:Cassandra Compaction Info*/
     3: CassandraCompactionTask cassandra_compaction_task (tags="")
+    /** @display_name:Cassandra Thread Pool Info*/
     4: list<CassandraThreadPoolStats>  thread_pool_stats (tags=".pool_name")
 }
 

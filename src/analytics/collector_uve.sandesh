@@ -64,8 +64,11 @@ struct GeneratorInfo {
  */
 objectlog sandesh GeneratorDbStats {
     1: string                             name (key="ObjectGeneratorInfo")
+    /** @display_name:Generator Database Table Statistics*/
     2: optional list<gendb.DbTableInfo>   table_info (tags=".table_name")
+    /** @display_name:Generator Database Errors*/
     3: optional gendb.DbErrors            errors (tags="")
+    /** @display_name:Generator Statistics Database Table*/
     4: optional list<gendb.DbTableInfo>   statistics_table_info (tags=".table_name")
 }
 
@@ -133,9 +136,13 @@ struct CollectorStats {
  */
 objectlog sandesh CollectorDbStats {
     1: string                             name (key="ObjectCollectorInfo")
+    /** @display_name:Collector Database Table Statistics*/
     2: optional list<gendb.DbTableInfo>   table_info (tags=".table_name")
+    /** @display_name:Collector Database Errors*/
     3: optional gendb.DbErrors            errors (tags="")
+    /** @display_name:Collector Statistics Database Table*/
     4: optional list<gendb.DbTableInfo>   statistics_table_info (tags=".table_name")
+    /** @display_name:Collector Database CQL Request Statistics*/
     5: optional cql.DbStats               cql_stats (tags="")
 }
 
@@ -146,11 +153,17 @@ objectlog sandesh CollectorDbStats {
  */
 objectlog sandesh ProtobufCollectorStats {
     1: string                                       name (key="ObjectCollectorInfo")
+    /** @display_name:Analytics Protobuf Collector Receive Socket Statistics*/
     2: optional list<io.SocketIOStats>              rx_socket_stats (tags="")
+    /** @display_name:Analytics Protobuf Collector Transmit Socket Statistics*/
     3: optional list<io.SocketIOStats>              tx_socket_stats (tags="")
+    /** @display_name:Analytics Protobuf Collector Receive Message Statistics*/
     4: optional list<io.SocketEndpointMessageStats> rx_message_stats (tags=".endpoint_name,.message_name")
+    /** @display_name:Analytics Protobuf Collector Database Table*/
     5: optional list<gendb.DbTableInfo>             db_table_info (tags=".table_name")
+    /** @display_name:Analytics Protobuf Collector Database Errors*/
     6: optional list<gendb.DbErrors>                db_errors (tags="")
+    /** @display_name:Analytics Protobuf Collector Statistics Database Table*/
     7: optional list<gendb.DbTableInfo>             db_statistics_table_info (tags=".table_name")
     8: optional u64                                 db_queue_count
     9: optional u64                                 db_enqueues
@@ -317,6 +330,7 @@ struct SandeshMessageInfo {
  */
 objectlog sandesh SandeshMessageStat {
     1: string                            name (key="ObjectGeneratorInfo")
+    /** @display_name:Collector Message Stats*/
     2: optional list<SandeshMessageInfo> msg_info (tags=".type,.level")
 }
 
