@@ -57,7 +57,7 @@ class SnmpTest(unittest.TestCase):
         self.delete_file(self.cfgfl)
 
     def test_000_snmp_devcfg(self):
-        #logging.info("*** test_000_snmp_devcfg ***")
+        #logging.info("%%% test_000_snmp_devcfg %%%")
         self.assertEqual(1, 1)
 
 

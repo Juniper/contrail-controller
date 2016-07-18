@@ -85,7 +85,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         and syslog (via cassandra) can be accessed from
         opserver.
         '''
-        logging.info("*** test_01_startup ***")
+        logging.info("%%% test_01_startup %%%")
         if AnalyticsTest._check_skip_test() is True:
             return True
 
@@ -106,7 +106,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         and syslog (via cassandra) can be accessed from
         opserver.
         '''
-        logging.info("*** test_02_message_table_query ***")
+        logging.info("%%% test_02_message_table_query %%%")
         if AnalyticsTest._check_skip_test() is True:
             return True
 
@@ -137,7 +137,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         and checks if flow stats can be accessed from
         QE.
         '''
-        logging.info("*** test_03_flow_query ***")
+        logging.info("%%% test_03_flow_query %%%")
         if AnalyticsTest._check_skip_test() is True:
             return True
 
@@ -182,7 +182,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         and checks if intervn stats can be accessed from
         QE.
         '''
-        logging.info("*** test_04_intervn_query ***")
+        logging.info("%%% test_04_intervn_query %%%")
         if AnalyticsTest._check_skip_test() is True:
             return True
 
@@ -219,7 +219,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         It then queries the stats table for messagetypes
         and objecttypes
         '''
-        logging.info("*** test_05_fieldname_query ***")
+        logging.info("%%% test_05_fieldname_query %%%")
         start_time = UTCTimestampUsec() - 3600 * 1000 * 1000
         self._update_analytics_start_time(start_time)
         vizd_obj = self.useFixture(
@@ -251,7 +251,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         analytics db. Verify that the trace messages are written in
         the analytics db.
         '''
-        logging.info('*** test_06_send_tracebuffer ***')
+        logging.info('%%% test_06_send_tracebuffer %%%')
         if AnalyticsTest._check_skip_test() is True:
             return True
         
@@ -296,7 +296,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         This test verifies /analytics/table/<table>/column-values/Source
         and /analytics/table/<table>/column-values/ModuleId
         '''
-        logging.info('*** test_07_table_source_module_list ***')
+        logging.info('%%% test_07_table_source_module_list %%%')
         if AnalyticsTest._check_skip_test() is True:
             return True
 
@@ -331,7 +331,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         This test is used to check the working of integer 
         fields in the where query 
         '''
-        logging.info("*** test_08_where_clause_query ***")
+        logging.info("%%% test_08_where_clause_query %%%")
 
         if AnalyticsTest._check_skip_test() is True:
             return True
@@ -362,7 +362,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         '''
         This test verifies the Object Table query.
         '''
-        logging.info('*** test_09_verify_object_table_query ***')
+        logging.info('%%% test_09_verify_object_table_query %%%')
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
                              self.__class__.redis_port,
@@ -384,7 +384,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         '''
         This test verifies the ObjectValueTable query.
         '''
-        logging.info('*** test_10_verify_object_value_table_query ***')
+        logging.info('%%% test_10_verify_object_value_table_query %%%')
         
         if AnalyticsTest._check_skip_test() is True:
             return True
@@ -417,7 +417,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         This test verifies the Syslog query.
         '''
         import logging.handlers
-        logging.info('*** test_11_verify_syslog_table_query ***')
+        logging.info('%%% test_11_verify_syslog_table_query %%%')
 
         if AnalyticsTest._check_skip_test() is True:
             return True

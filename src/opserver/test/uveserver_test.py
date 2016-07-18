@@ -171,7 +171,7 @@ class UVEServerTest(unittest.TestCase):
         del self._oss
 
     def test_simple(self):
-        print "*** Running test_simple ***"
+        print "%%% Running test_simple %%%"
 
         uvevn = MakeUVEVirtualNetwork(
             None, "abc-corp:vn-00", "10.10.10.10",
@@ -185,7 +185,7 @@ class UVEServerTest(unittest.TestCase):
         print json.dumps(res, indent=4, sort_keys=True)
 
     def test_default_agg(self):
-        print "*** Running test_default_agg ***"
+        print "%%% Running test_default_agg %%%"
 
         uvevn = MakeUVEVirtualNetwork(
             None, "abc-corp:vn-00", "10.10.10.10",
@@ -228,7 +228,7 @@ class UVEServerTest(unittest.TestCase):
         print json.dumps(res, indent=4, sort_keys=True)
 
     def test_union_agg(self):
-        print "*** Running test_union_agg ***"
+        print "%%% Running test_union_agg %%%"
 
         uvevn = MakeUVEVirtualNetwork(
             None, "abc-corp:vn-00", "10.10.10.10",
@@ -262,7 +262,7 @@ class UVEServerTest(unittest.TestCase):
         self.assertEqual(cn, res['UVEVirtualNetwork']['connected_networks'])
 
     def test_sum_agg(self):
-        print "*** Running test_sum_agg ***"
+        print "%%% Running test_sum_agg %%%"
 
         uvevn = MakeUVEVirtualNetwork(
             None, "abc-corp:vn-00", "10.10.10.10",
@@ -290,7 +290,7 @@ class UVEServerTest(unittest.TestCase):
             cnt1, res['UVEVirtualNetwork']['total_virtual_machines'])
 
     def test_counter_agg(self):
-        print "*** Running test_counter_agg ***"
+        print "%%% Running test_counter_agg %%%"
 
         uvevn = MakeUVEVirtualNetwork(
             None, "abc-corp:vn-00", "previous",
@@ -321,7 +321,7 @@ class UVEServerTest(unittest.TestCase):
         self.assertEqual(in_tpkts, res['UVEVirtualNetwork']['in_tpkts'])
 
     def test_append_agg(self):
-        print "*** Running test_append_agg ***"
+        print "%%% Running test_append_agg %%%"
 
         uvevn = MakeUVEVirtualNetwork(
             None, "abc-corp:vn-00", "previous",
