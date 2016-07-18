@@ -47,11 +47,11 @@ class StatQuerierTest(unittest.TestCase):
         test_num = 1
 
         argv = sys.argv
-        sys.argv = "contrail-stats --table AnalyticsCpuState.cpu_info --select T=60 SUM(cpu_info.cpu_share) --where name=*".split()
+        sys.argv = "contrail-stats --table NodeStatus.process_mem_cpu_usage --select T=60 SUM(process_mem_cpu_usage.cpu_share) --where name=*".split()
         self._querier.run()
         sys.argv = argv
 
-        expected_result_str = '{"start_time": "now-10m", "end_time": "now", "select_fields": ["T=60", "SUM(cpu_info.cpu_share)"], "table": "StatTable.AnalyticsCpuState.cpu_info", "where": [[{"suffix": null, "value2": null, "name": "name", "value": "", "op": 7}]]}'
+        expected_result_str = '{"start_time": "now-10m", "end_time": "now", "select_fields": ["T=60", "SUM(process_mem_cpu_usage.cpu_share)"], "table": "StatTable.NodeStatus.process_mem_cpu_usage", "where": [[{"suffix": null, "value2": null, "name": "name", "value": "", "op": 7}]]}'
         expected_result_dict = json.loads(expected_result_str)
         for key in expected_result_dict:
             self.assertTrue(key in query_dict)

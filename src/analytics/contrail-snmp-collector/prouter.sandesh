@@ -216,6 +216,7 @@ struct PRouterEntry {
     4: optional list<ArpTable> arpTable
     5: optional list<IfTable> ifTable
     6: optional list<IfXTable> ifXTable
+    /** @display_name:Physical Router Interface Statistics*/
     7: optional list<IfStats> ifStats (tags="name:.ifIndex,name:.ifName")
     8: optional list<IpMib> ipMib
     9: optional list<dot1qTpFdbPortTable> fdbPortTable

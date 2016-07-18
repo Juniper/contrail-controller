@@ -72,14 +72,24 @@ objectlog sandesh PRouterBroadViewInfo {
     1: string name (key="ObjectPRouter")
     2: string asic_id
     3: Device device
+    /** @display_name:Broadview ingress-port-priority-group*/
     4: list<IngressPortPriorityGroup> ingressPortPriorityGroup (tags="name,asic_id,.port,.priorityGroup")
+    /** @display_name:Broadview ingress-port-service-pool*/
     5: list<IngressPortServicePool> ingressPortServicePool (tags="name,asic_id,.port,.servicePool")
+    /** @display_name:Broadview ingress-service-pool*/
     6: list<IngressServicePool> ingressServicePool (tags="name,asic_id,.servicePool")
+    /** @display_name:Broadview egress-port-service-pool*/
     7: list<EgressPortServicePool> egressPortServicePool (tags="name,asic_id,.port,.servicePool")
+    /** @display_name:Broadview egress-service-pool*/
     8: list<EgressServicePool> egressServicePool (tags="name,asic_id,.servicePool")
+    /** @display_name:Broadview egress-uc-queue*/
     9: list<EgressUcQueue> egressUcQueue (tags="name,asic_id,.queue")
+    /** @display_name:Broadview egress-uc-queue-group*/
    10: list<EgressUcQueueGroup> egressUcQueueGroup (tags="name,asic_id,.queueGroup")
+    /** @display_name:Broadview egress-mc-queue*/
    11: list<EgressMcQueue> egressMcQueue (tags="name,asic_id,.queue")
+    /** @display_name:Broadview egress-cpu-queue*/
    12: list<EgressCpuQueue> egressCpuQueue (tags="name,asic_id,.queue")
+    /** @display_name:Broadview egress-rqe-queue*/
    13: list<EgressRqeQueue> egressRqeQueue (tags="name,asic_id,.queue")
 }

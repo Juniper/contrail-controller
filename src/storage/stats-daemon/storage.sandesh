@@ -12,6 +12,7 @@ struct PoolStats {
 struct ComputeStoragePool {
     1: string name (key="ObjectPoolTable")
     2: optional bool                deleted
+    /** @display_name:Storage Pool Info*/
     3: optional list<PoolStats> info_stats (tags="")
 }
 
@@ -40,6 +41,7 @@ struct ComputeStorageOsd {
     1: string name (key="ObjectOsdTable")
     2: optional bool deleted
     3: string uuid;
+    /** @display_name:Storage Device Info*/
     4: optional list<OsdStats> info_stats (tags="uuid")
     5: optional ComputeStorageOsdState info_state
 }
@@ -63,6 +65,7 @@ struct ComputeStorageDisk {
     1: string name (key="ObjectDiskTable")
     2: optional bool deleted
     3: string uuid;
+    /** @display_name:Storage Raw Device Info*/
     4: optional list<DiskStats> info_stats (tags="uuid")
     5: optional string is_osd_disk;
     6: optional u64 current_disk_usage;
@@ -94,6 +97,7 @@ struct StorageCluster {
     1: string name (key="ObjectStorageClusterTable")
     2: optional bool                deleted
     3: string cluster_id;
+    /** @display_name:Storage Cluster Info*/
     4: optional list<ClusterInfo> info_stats (tags="")
 }
 
