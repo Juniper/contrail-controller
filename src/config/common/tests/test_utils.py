@@ -1031,7 +1031,7 @@ class FakeAuthProtocol(object):
             'X-Role': 'cloud-admin',
         }
         rval = json.dumps(token_dict)
-        # print '**** generated admin token %s ****' % rval
+        # print '%%%% generated admin token %s %%%%' % rval
         return rval
 
     def _header_to_env_var(self, key):
@@ -1101,7 +1101,7 @@ class FakeAuthProtocol(object):
         # print 'FakeAuthProtocol: Authenticating user token'
         user_token = self._get_header(env, 'X-Auth-Token')
         if user_token:
-            # print '****** user token %s ***** ' % user_token
+            # print '%%%%%% user token %s %%%%% ' % user_token
             pass
         elif self.delay_auth_decision:
             self._add_headers(env, {'X-Identity-Status': 'Invalid'})
