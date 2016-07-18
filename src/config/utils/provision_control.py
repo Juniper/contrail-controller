@@ -103,7 +103,7 @@ class ControlProvisioner(object):
         args, remaining_argv = conf_parser.parse_known_args(args_str.split())
 
         defaults = {
-            'router_asn': '64512',
+            'router_asn': 64512,
             'ibgp_auto_mesh': None,
             'api_server_ip': '127.0.0.1',
             'api_server_port': '8082',
@@ -138,7 +138,8 @@ class ControlProvisioner(object):
             "--host_name", help="hostname name of control-node")
         parser.add_argument("--host_ip", help="IP address of control-node")
         parser.add_argument(
-            "--router_asn", help="AS Number the control-node is in", required=True)
+            "--router_asn", help="AS Number the control-node is in", type=int,
+            required=True)
         parser.add_argument(
             "--address_families", help="Address family list",
             choices=["route-target", "inet-vpn", "e-vpn", "erm-vpn", "inet6-vpn"],
