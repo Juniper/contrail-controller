@@ -66,6 +66,7 @@ for file in vrouter_sources:
 database_sources = [
            '__init__.py',
            'database_nodemgr/database_event_manager.py'
+           'database_nodemgr/common.py'
           ]
 database_sources_rules = []
 for file in database_sources:
