@@ -986,7 +986,7 @@ static void ComputeTypeInfo(Agent *agent, VmInterfaceConfigData *data,
         // VMI is either Baremetal or Gateway interface
         if (prouter->display_name() == agent->agent_name()) {
             // VMI connected to local vrouter. Treat it as GATEWAY / Remote VM.
-            if (agent->remote_vm_vrouter()) {
+            if (agent->server_gateway_mode()) {
                 data->device_type_ = VmInterface::REMOTE_VM_VLAN_ON_VMI;
                 data->vmi_type_ = VmInterface::REMOTE_VM;
             } else {
