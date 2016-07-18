@@ -372,6 +372,7 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
     traversal_white_list_->include_vertex.insert("qos-queue");
     traversal_white_list_->include_vertex.insert("forwarding-class");
     traversal_white_list_->include_vertex.insert("global-qos-config");
+    traversal_white_list_->include_vertex.insert("project");
 }
 
 void IFMapGraphWalker::AddLinksToWhitelist() {
@@ -493,5 +494,9 @@ void IFMapGraphWalker::AddLinksToWhitelist() {
                     "source=virtual-machine-interface,target=qos-config");
     traversal_white_list_->include_edge.insert(
                     "source=virtual-network,target=qos-config");
+    traversal_white_list_->include_edge.insert(
+                    "source=virtual-machine-interface,target=project");
+    traversal_white_list_->include_edge.insert(
+                    "source=project,target=qos-config");
 }
 

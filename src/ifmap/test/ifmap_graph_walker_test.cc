@@ -505,6 +505,44 @@ TEST_F(IFMapGraphWalkerTest, Cli2Vn3Vm6Np2Add) {
     c2.PrintLinks();
 }
 
+//Test case to verify that all qos-config linked to a
+//project are downloaded to agent.
+//In the ifmap capture file, it creates a VM in VN1 under project
+//default-domain:demo and qos_config1 is attached to
+//project default-domain:demo
+TEST_F(IFMapGraphWalkerTest, Cli1Vn1Vm1QosConfigAdd) {
+    string content =
+        FileRead("controller/src/ifmap/testdata/cli1_vn1_vm1_qos_config.xml");
+    assert(content.size() != 0);
+    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    task_util::WaitForIdle();
+
+    IFMapClientMock
+        c1("default-global-system-config:nodec30");
+    server_.AddClient(&c1);
+    server_.ProcessVmSubscribe(
+        "default-global-system-config:nodec30",
+        "c23c3b55-1782-4dd5-ae8e-97b90923ea08", true, 1);
+
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_NE(0, c1.count());
+    TASK_UTIL_EXPECT_NE(0, c1.node_count());
+    TASK_UTIL_EXPECT_NE(0, c1.link_count());
+
+    TASK_UTIL_EXPECT_TRUE(c1.NodeExists("virtual-network",
+                                        "default-domain:demo:vn1"));
+    TASK_UTIL_EXPECT_TRUE(c1.NodeExists("project",
+                                         "default-domain:demo"));
+    TASK_UTIL_EXPECT_TRUE(c1.NodeExists("qos-config",
+                                         "default-domain:demo:qos_config1"));
+
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-network"), 1);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine"), 1);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine-interface"), 1);
+    //Default qos-config + qos-config project demo
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("qos-config"), 2);
+}
+
 // Receive config and then VR-subscribe
 TEST_F(IFMapGraphWalkerTest, ConfigVrsub) {
     // Config
