@@ -4,28 +4,29 @@
 <xsd:schema
         xmlns:xsd="http://www.w3.org/2001/XMLSchema">
 
-<xsd:complexType name="UserDefinedCounter">
+<xsd:complexType name="UserDefinedLogStat">
     <xsd:all>
         <xsd:element name="name" type="xsd:string" required="true"
-                                        description="Name of the counter"/>
+                                        description="Name of the stat"/>
         <xsd:element name="pattern" type="xsd:string" required="true"
               description="Perl type regular expression pattern to match"/>
     </xsd:all>
 </xsd:complexType>
 
-<xsd:complexType name="UserDefinedCounterList">
-    <xsd:element name="counter" type="UserDefinedCounter"
+<xsd:complexType name="UserDefinedLogStatList">
+    <xsd:element name="statlist" type="UserDefinedStats"
                                                     maxOccurs="unbounded"/>
 </xsd:complexType>
 
-<xsd:element name="user-defined-counter" type="UserDefinedCounterList"
-    description_1='User will create some user-defined-counter, identified by '
-    description_2='its name with a perl type regular expression to match log '
-    description_3='messages. This will result in creating a counter which will '
-    description_4='increment every time any log message matches the given '
-    description_5='pattern. There will be APIs to retrive and clear the '
-    description_6='counter by name.'/>
+<xsd:element name="user-defined-log-statistics" type="UserDefinedLogStatList"
+    description_1='User will create some user-defined-log-statistics,'
+    description_2='identified by its name with a perl type regular expression.'
+    description_3='The regular expression will match all the log and update'
+    description_4='messages. This will result in creating an object which will '
+    description_5='update every time any log message matches for the given '
+    description_6='pattern. There are APIs to retrive and the '
+    description_7='stats by name.'/>
 <!--#IFMAP-SEMANTICS-IDL
-    MapProperty('user-defined-counter', 'global-system-config', 'name',
-           'optional', 'CRUD', 'counter name and patterns') -->
+    MapProperty('user-defined-log-statistics', 'global-system-config', 'name',
+           'optional', 'CRUD', 'stats name and patterns') -->
 </xsd:schema>
