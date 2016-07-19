@@ -52,8 +52,8 @@ response sandesh CpuLoadInfoResp {
  * this is used to store cpu and memory statistics on a per process basis
  */
 struct ProcessCpuInfo {
-    1: string                              module_id
-    2: string                              inst_id
+    1: string                              module_id        // deprecated
+    2: string                              inst_id          // deprecated
     3: u32                                 mem_virt
     4: double                              cpu_share
     5: u32                                 mem_res
