@@ -115,8 +115,8 @@ objectlog sandesh AnalyticsApiStats {
 }
 
 /**
- * This structure is used to send UserDefinedCounter data
- * - name: user given name to identify the counter
+ * This structure is used to send UserDefinedLogStatistics data
+ * - name: user given name to identify the LogStatistics object
  * - rx_event it is hit everytime conter is hit
  * - count total number of hits happened
  *
@@ -127,17 +127,17 @@ struct uint64_t_P_ {
     2: optional u64 value
 }
 
-struct UserDefinedCounter {
-    1: string name (key="UserDefinedCounterTable")
+struct UserDefinedLogStatistics {
+    1: string name (key="UserDefinedLogStatisticsTable")
     2: optional bool deleted
     3: optional u64 rx_event (hidden="yes")
     4: optional uint64_t_P_ count (stats="rx_event:DSSum:", tags="")
 } (period="60")
 
 /**
- * @description: UVE to send UserDefinedCounter data
+ * @description: UVE to send UserDefinedLogStatistics data
  * @object: analytics-node
  */
-uve sandesh UserDefinedCounterUVE {
-    1: UserDefinedCounter data
+uve sandesh UserDefinedLogStatisticsUVE {
+    1: UserDefinedLogStatistics data
 }
