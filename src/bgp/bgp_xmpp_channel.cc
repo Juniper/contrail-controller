@@ -5,10 +5,11 @@
 #include "bgp/bgp_xmpp_channel.h"
 
 #include <boost/foreach.hpp>
+#include <boost/regex.hpp>
 
 #include <limits>
-#include <vector>
 #include <sstream>
+#include <vector>
 
 #include "base/task_annotations.h"
 #include "bgp/bgp_config.h"
@@ -52,6 +53,9 @@ using autogen::SecurityGroupListType;
 using autogen::CommunityTagListType;
 using autogen::TunnelEncapsulationListType;
 
+using boost::regex;
+using boost::regex_search;
+using boost::smatch;
 using boost::system::error_code;
 using pugi::xml_node;
 using std::auto_ptr;
@@ -536,23 +540,33 @@ private:
     uint64_t closed_at_;
 };
 
-static bool SkipUpdateSend() {
-    static bool init_;
-    static bool skip_;
+// Skip sending updates if the destinatin matches against the pattern.
+// XX Used in test environments only
+bool BgpXmppChannel::SkipUpdateSend() const {
+    static char *skip_env_ = getenv("XMPP_SKIP_UPDATE_SEND");
+    if (!skip_env_)
+        return false;
 
-    if (init_) return skip_;
+    // Use XMPP_SKIP_UPDATE_SEND as a regex pattern to match against destination
+    static std::map<std::string, bool> skip_cache_;
+    std::map<std::string, bool>::iterator iter = skip_cache_.find(ToString());
 
-    skip_ = getenv("XMPP_SKIP_UPDATE_SEND") != NULL;
-    init_ = true;
+    // Retur we already know the match result.
+    if (iter != skip_cache_.end())
+        return iter->second;
 
-    return skip_;
+    smatch matches;
+    bool matched = regex_search(ToString(), matches, regex(skip_env_));
+    skip_cache_.insert(make_pair(ToString(), matched));
+    return matched;
 }
 
 bool BgpXmppChannel::XmppPeer::SendUpdate(const uint8_t *msg, size_t msgsize) {
     XmppChannel *channel = parent_->channel_;
     if (channel->GetPeerState() == xmps::READY) {
         parent_->stats_[TX].rt_updates++;
-        if (SkipUpdateSend()) return true;
+        if (parent_->SkipUpdateSend())
+            return true;
         send_ready_ = channel->Send(msg, msgsize, xmps::BGP,
                 boost::bind(&BgpXmppChannel::XmppPeer::WriteReadyCb, this, _1));
         if (!send_ready_) {

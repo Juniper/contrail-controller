@@ -131,6 +131,7 @@ public:
     uint64_t get_tx_route_reach() const { return stats_[TX].reach; }
     uint64_t get_tx_route_unreach() const { return stats_[TX].unreach; }
     uint64_t get_tx_update() const { return stats_[TX].rt_updates; }
+    bool SkipUpdateSend() const;
 
 protected:
     XmppChannel *channel_;
