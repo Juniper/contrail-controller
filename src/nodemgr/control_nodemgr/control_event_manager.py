@@ -56,7 +56,7 @@ class ControlEventManager(EventManager):
         sandesh_global.init_generator(
             self.module_id, socket.gethostname(),
             node_type_name, self.instance_id, self.collector_addr,
-            self.module_id, 8101, ['control_node.control_node'], _disc)
+            self.module_id, 8101, ['nodemgr.common.sandesh'], _disc)
         sandesh_global.set_logging_params(enable_local_log=True)
         ConnectionState.init(sandesh_global, socket.gethostname(), self.module_id,
             self.instance_id,
