@@ -48,6 +48,9 @@ void RouterIdDepInit(Agent *agent) {
 struct PortInfo input[] = {
     {"intf1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1, "fd10::2"},
 };
+IpamInfo ipam_info[] = {
+    {"1.1.1.0", 24, "1.1.1.10"},
+};
 
 class TestAap : public ::testing::Test {
 public:
@@ -143,6 +146,8 @@ public:
         CreateVmportEnv(input, 1);
         client->WaitForIdle();
         EXPECT_TRUE(VmPortActive(1));
+        AddIPAM("vn1", ipam_info, 1);
+        client->WaitForIdle();
     }
 
     virtual void TearDown() {
@@ -150,6 +155,8 @@ public:
         client->WaitForIdle();
         EXPECT_FALSE(VmPortFindRetDel(1));
         EXPECT_FALSE(VrfFind("vrf1", true));
+        client->WaitForIdle();
+        DelIPAM("vn1");
         client->WaitForIdle();
     }
 protected:
@@ -1233,6 +1240,29 @@ TEST_F(TestAap, StateMachine_20) {
    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
    EXPECT_TRUE(path->path_preference().ecmp() == true);
    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+}
+
+//Change Aap mode from default to active-active and verify ecmp route exists
+TEST_F(TestAap, AapModeChange) {
+    Ip4Address aap_ip = Ip4Address::from_string("10.10.10.10");
+    AddAap("intf1", 1, aap_ip, zero_mac.ToString());
+
+    VmInterface *vm_intf = VmInterfaceGet(1);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", aap_ip, 32);
+    const AgentPath *path = rt->FindPath(vm_intf->peer());
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
+
+    AddEcmpAap("intf1", 1, aap_ip);
+    EXPECT_TRUE(RouteFind("vrf1", aap_ip, 32));
+    rt = RouteGet("vrf1", aap_ip, 32);
+    path = rt->FindPath(vm_intf->peer());
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
+    EXPECT_TRUE(path->path_preference().ecmp() == true);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
 }
 
 int main(int argc, char *argv[]) {

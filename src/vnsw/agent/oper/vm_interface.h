@@ -251,9 +251,10 @@ public:
         mutable std::string vrf_;
         IpAddress   addr_;
         uint32_t    plen_;
-        bool        ecmp_;
+        mutable bool ecmp_;
         MacAddress  mac_;
         mutable bool        l2_entry_installed_;
+        mutable bool        ecmp_config_changed_;
         mutable uint32_t    ethernet_tag_;
         mutable VrfEntryRef vrf_ref_;
         mutable IpAddress  service_ip_;
