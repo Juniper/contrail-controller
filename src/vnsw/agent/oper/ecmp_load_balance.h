@@ -6,6 +6,7 @@
 #define vnsw_agent_ecmp_load_balance_hpp
 
 #include <vnc_cfg_types.h>
+#include "vr_defs.h"
 
 using namespace boost::uuids;
 using namespace std;
@@ -14,6 +15,7 @@ namespace autogen {
     struct EcmpHashingIncludeFields;
 }
 
+//Sequence should match with kHashingFields
 static const std::string HashingFieldsStr[] = {
     "l3-source-address",
     "l3-destination-address",
@@ -21,6 +23,16 @@ static const std::string HashingFieldsStr[] = {
     "l4-source-port",
     "l4-destination-port"
 };
+
+//Sequence should match with kHashingFields
+static const uint8_t HashingFieldsBytePosition[] = {
+    ECMP_HASH_FIELD_SOURCE_IP,
+    ECMP_HASH_FIELD_DESTINATION_IP,
+    ECMP_HASH_FIELD_PROTOCOL,
+    ECMP_HASH_FIELD_SOURCE_PORT,
+    ECMP_HASH_FIELD_DESTINATION_PORT
+};
+
 static const std::string LoadBalanceDecision = "field-hash";
 
 class EcmpLoadBalance {
@@ -195,6 +207,18 @@ public:
             ret = true;
         }
         return ret;
+    }
+    uint8_t GetHashFieldsInByte() const {
+        uint8_t hash_fields_in_byte = 0;
+        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::SOURCE_IP);
+             field_type < ((uint8_t) EcmpLoadBalance::NUM_HASH_FIELDS);
+             field_type++) {
+            if (hash_fields_to_use_[field_type]) {
+                hash_fields_in_byte |=
+                    (1 << HashingFieldsBytePosition[(uint8_t)field_type]);
+            }
+        }
+        return hash_fields_in_byte;
     }
 
 private:    

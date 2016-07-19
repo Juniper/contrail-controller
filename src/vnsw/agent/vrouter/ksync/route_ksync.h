@@ -85,6 +85,7 @@ private:
     bool local_vm_peer_route_;
     bool flood_;
     uint32_t ethernet_tag_;
+    uint8_t ecmp_hash_fields_;
     //////////////////////////////////////////////////////////////////
     // NOTE: Please update CopyReplacmenetData when any new field is added
     // here

@@ -45,7 +45,8 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj,
     tunnel_type_(entry->tunnel_type_),
     wait_for_traffic_(entry->wait_for_traffic_),
     local_vm_peer_route_(entry->local_vm_peer_route_),
-    flood_(entry->flood_), ethernet_tag_(entry->ethernet_tag_) {
+    flood_(entry->flood_), ethernet_tag_(entry->ethernet_tag_),
+    ecmp_hash_fields_(entry->ecmp_hash_fields_) {
 }
 
 RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
@@ -53,7 +54,7 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
     vrf_id_(rt->vrf_id()), mac_(), nh_(NULL), label_(0), proxy_arp_(false),
     flood_dhcp_(false), tunnel_type_(TunnelType::DefaultType()),
     wait_for_traffic_(false), local_vm_peer_route_(false),
-    flood_(false), ethernet_tag_(0) {
+    flood_(false), ethernet_tag_(0), ecmp_hash_fields_(0) {
     boost::system::error_code ec;
     rt_type_ = rt->GetTableType();
     switch (rt_type_) {
@@ -367,6 +368,8 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
     bool ret = false;
     Agent *agent = ksync_obj_->ksync()->agent();
     const AgentRoute *route = static_cast<AgentRoute *>(e);
+    const NextHop *route_nh =
+        static_cast<const NextHop *>(route-> GetActiveNextHop());
 
     const AgentPath *path = GetActivePath(route);
     if (path->peer() == agent->local_vm_peer())
@@ -422,6 +425,15 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
         MacAddress mac = MacAddress::ZeroMac();
         if (obj->RouteNeedsMacBinding(uc_rt)) {
             mac = obj->GetIpMacBinding(uc_rt->vrf(), addr_);
+        }
+        //Expected to be ECMP nexthop
+        if (route_nh->GetType() == NextHop::COMPOSITE) {
+            uint8_t ecmp_hash_fields =
+                route->GetActivePath()->ecmp_load_balance().GetHashFieldsInByte();
+            if (ecmp_hash_fields != ecmp_hash_fields_) {
+                ecmp_hash_fields_ = ecmp_hash_fields;
+                ret = true;
+            }
         }
 
         if (mac != mac_) {
@@ -548,6 +560,8 @@ int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
         if (flood_) {
             flags |= VR_RT_ARP_FLOOD_FLAG;
         }
+
+        encoder.set_rtr_ecmp_hash_fields(ecmp_hash_fields_);
     }
 
     encoder.set_rtr_label_flags(flags);
