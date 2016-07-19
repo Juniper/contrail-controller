@@ -1618,6 +1618,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('instance-ip-secondary', 'instance-ip', 'optional', 'CRUD',
               'This instance ip is secondary ip of the interface.') -->
+<xsd:element name="instance-ip-local-ip" type="xsd:boolean" default='false'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('instance-ip-local-ip', 'instance-ip', 'optional', 'CRUD',
+              'This instance ip is local to compute and will not be exported to other nodes.') -->
 <xsd:element name="service-instance-ip" type="xsd:boolean" default='false'/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('service-instance-ip', 'instance-ip', 'system-only', 'CRUD',

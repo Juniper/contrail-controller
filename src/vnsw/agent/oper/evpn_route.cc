@@ -236,7 +236,7 @@ void EvpnAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                           sg_id_list, CommunityList(),
                                           path_pref,
                                           IpAddress(),
-                                          EcmpLoadBalance());
+                                          EcmpLoadBalance(), false);
     data->set_tunnel_bmap(TunnelType::AllType());
 
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
