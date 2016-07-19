@@ -86,7 +86,7 @@ const string CONFIG_OBJECT_TABLE_USER = "ConfigObjectTableByUser"
 const string PHYSICAL_IF_TABLE      = "ObjectPhysicalInterfaceTable"
 const string LOGICAL_IF_TABLE       = "ObjectLogicalInterfaceTable"
 const string STORAGE_CLUSTER_TABLE  = "ObjectStorageClusterTable"
-const string USR_DEF_COUNTER_TABLE  = "UserDefinedCounterTable"
+const string USR_DEF_LOG_STAT_TABLE  = "UserDefinedLogStatTable"
 
 const string VN_DISPLAY_NAME        = "Virtual Network"
 const string VM_DISPLAY_NAME        = "Virtual Machine"
@@ -117,7 +117,7 @@ const string CONFIG_OBJECT_USER_DISPLAY_NAME = "Config Object by User Table"
 const string LOGICAL_IF_DISPLAY_NAME       = "Logical Interface"
 const string PHYSICAL_IF_DISPLAY_NAME      = "Physical Interface"
 const string STORAGE_CLUSTER_DISPLAY_NAME  = "Storage Cluster"
-const string USR_DEF_COUNTER_DISPLAY_NAME  = "User Defined Counters"
+const string USR_DEF_LOG_STAT_DISPLAY_NAME  = "User Defined Log Statistic"
 
 const string SYSTEM_LOG             = "SystemLog"
 const string OBJECT_LOG             = "ObjectLog"
@@ -412,7 +412,7 @@ const map<string, string> UVE_MAP = {
     "physical-interface" : PHYSICAL_IF_TABLE,
     "logical-interface" : LOGICAL_IF_TABLE,
     "storage-cluster" : STORAGE_CLUSTER_TABLE,
-    "user-defined-counter" : USR_DEF_COUNTER_TABLE
+    "user-defined-log-statistic" : USR_DEF_LOG_STAT_TABLE
 }
 
 struct objtable_info {
@@ -536,9 +536,9 @@ const map<string, objtable_info> _OBJECT_TABLES = {
         'objtable_display_name' : STORAGE_CLUSTER_DISPLAY_NAME
         'log_query_name'        : "storage-cluster"
     }
-    USR_DEF_COUNTER_TABLE   : {
-        'objtable_display_name' : USR_DEF_COUNTER_DISPLAY_NAME
-        'log_query_name'        : "user-defined-counter-node"
+    USR_DEF_LOG_STAT_TABLE   : {
+        'objtable_display_name' : USR_DEF_LOG_STAT_DISPLAY_NAME
+        'log_query_name'        : "user-defined-log-statistic"
     }
 }
 
@@ -2230,12 +2230,12 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
-      'display_name' : 'User defined counters',
-      'stat_type' : 'UserDefinedCounter',
+      'display_name' : 'User defined log statistics',
+      'stat_type' : 'UserDefinedLogStat',
       'stat_attr' : 'count',
-      'obj_table' : USR_DEF_COUNTER_TABLE,
+      'obj_table' : USR_DEF_LOG_STAT_TABLE,
       'attributes': [
-          { 'name' : 'count.previous',  'datatype' : 'int',    'index' : false},
+          { 'name' : 'count.value',  'datatype' : 'int',    'index' : false},
         ]
     },
 

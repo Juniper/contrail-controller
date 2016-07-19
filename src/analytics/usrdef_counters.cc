@@ -46,7 +46,7 @@ UserDefinedCounters::ReadConfig()
         std::vector<std::string> refs;
         std::vector<std::string> fields;
 
-        fields.push_back("user_defined_counter");
+        fields.push_back("user_defined_log_statistics");
 
         vnc_->GetConfig("global-system-config", ids, filters, parents, refs,
                 fields, boost::bind(&UserDefinedCounters::UDCHandler, this,
@@ -63,10 +63,10 @@ UserDefinedCounters::UDCHandler(rapidjson::Document &jdoc,
     if (jdoc.IsObject() && jdoc.HasMember("global-system-configs")) {
         for (rapidjson::SizeType j=0;
                     j < jdoc["global-system-configs"].Size(); j++) {
-            if (jdoc["global-system-configs"][j]["user_defined_counter"].
+            if (jdoc["global-system-configs"][j]["user_defined_log_statistics"].
                     IsObject()) {
                 const rapidjson::Value& gsc = jdoc["global-system-configs"][j]
-                        ["user_defined_counter"]["counter"];
+                        ["user_defined_log_statistics"]["statlist"];
                 if (gsc.IsArray()) {
                     for (rapidjson::SizeType i = 0; i < gsc.Size(); i++) {
                         AddConfig(gsc[i]["name"].GetString(),
@@ -90,10 +90,10 @@ UserDefinedCounters::MatchFilter(std::string text, LineParser::WordListType *w)
 {
     for(Cfg_t::iterator it=config_.begin(); it != config_.end(); ++it) {
         if (LineParser::SearchPattern(it->second->regexp(), text)) {
-            UserDefinedCounter udc;
+            UserDefinedLogStatistic udc;
             udc.set_name(it->first);
             udc.set_rx_event(1);
-            UserDefinedCounterUVE::Send(udc);
+            UserDefinedLogStatisticUVE::Send(udc);
             w->insert(it->first);
         }
     }
