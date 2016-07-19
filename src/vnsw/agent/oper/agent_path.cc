@@ -249,19 +249,50 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
     }
 
     //Check if there was a change in local ecmp composite nexthop
-    if (nh_ && nh_->GetType() == NextHop::COMPOSITE &&
-        composite_nh_key_.get() != NULL &&
-        local_ecmp_mpls_label_.get() != NULL) {
-        boost::scoped_ptr<CompositeNHKey> composite_nh_key(composite_nh_key_->Clone());
-        if (ReorderCompositeNH(agent, composite_nh_key.get())) {
-            if (ChangeCompositeNH(agent, composite_nh_key.get())) {
-                ret = true;
+    if (nh_ && nh_->GetType() == NextHop::COMPOSITE) {
+        if ((composite_nh_key_.get() != NULL) &&
+            (local_ecmp_mpls_label_.get() != NULL)) {
+            boost::scoped_ptr<CompositeNHKey> composite_nh_key(composite_nh_key_->Clone());
+            if (ReorderCompositeNH(agent, composite_nh_key.get())) {
+                if (ChangeCompositeNH(agent, composite_nh_key.get())) {
+                    ret = true;
+                }
+            }
+        } else if (peer() == agent->ecmp_peer()) {
+            CompositeNH *comp_nh = static_cast<CompositeNH *>(nexthop());
+            DBEntryBase::KeyPtr ckey = comp_nh->GetDBRequestKey();
+            CompositeNHKey *cnh_key = static_cast<CompositeNHKey *>(ckey.get());
+            bool changed = comp_nh->UpdatedCompositeNHKey(cnh_key);
+            if (changed) {
+                if (ChangeCompositeNH(agent, cnh_key)) {
+                    ret = true;
+                }
+                ComponentNHKeyList new_list = cnh_key->component_nh_key_list();
+                //Make MPLS label point to updated composite NH
+                MplsLabel::CreateEcmpLabel(agent, label(), Composite::LOCAL_ECMP,
+                                           new_list,
+                                           comp_nh->vrf()->GetName());
             }
         }
     }
 
     if (nh_ && nh_->GetType() == NextHop::ARP) {
         if (CopyArpData()) {
+            ret = true;
+        }
+    }
+
+    /* Whenever policy status of VMI changes, its label also changes. Update the
+     * path to point to right label
+     */
+    const InetUnicastRouteEntry *ip_rt =
+        dynamic_cast<const InetUnicastRouteEntry *>(sync_route);
+    if (ip_rt && nh_ && nh_->GetType() == NextHop::INTERFACE) {
+        const InterfaceNH *nh =
+            static_cast<const InterfaceNH *>(nh_.get());
+        const Interface* itf = nh->GetInterface();
+        if (itf && itf->label() != label()) {
+            set_label(itf->label());
             ret = true;
         }
     }

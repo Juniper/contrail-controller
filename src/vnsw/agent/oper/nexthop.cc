@@ -1828,6 +1828,40 @@ void CompositeNHKey::erase(ComponentNHKeyPtr nh_key) {
     }
 }
 
+bool CompositeNH::UpdatedCompositeNHKey(CompositeNHKey *key) {
+    bool changed = false;
+    for (ComponentNHList::const_iterator it = begin(); it != end(); it++) {
+        const ComponentNH *component_nh = (*it).get();
+        if (component_nh == NULL) {
+            continue;
+        }
+        if (component_nh->nh()->GetType() == NextHop::INTERFACE) {
+            const InterfaceNH *sub_nh =
+                static_cast<const InterfaceNH *>(component_nh->nh());
+            const Interface *itf = sub_nh->GetInterface();
+            if (itf && itf->label() != component_nh->label()) {
+                //Remove ComponentNHKey with old label.
+                DBEntryBase::KeyPtr sub_nh_key = sub_nh->GetDBRequestKey();
+                NextHopKey *nh_key = static_cast
+                    <NextHopKey *>(sub_nh_key.release());
+                std::auto_ptr<const NextHopKey> old_key(nh_key);
+                std::auto_ptr<const NextHopKey> new_key(nh_key->Clone());
+                ComponentNHKeyPtr old_comp_nh_key_ptr
+                    (new ComponentNHKey(component_nh->label(), old_key));
+                key->erase(old_comp_nh_key_ptr);
+
+
+                //Insert ComponentNHKey with new label
+                ComponentNHKeyPtr new_comp_nh_key_ptr
+                    (new ComponentNHKey(itf->label(), new_key));
+                key->insert(new_comp_nh_key_ptr);
+                changed = true;
+            }
+        }
+    }
+    return changed;
+}
+
 bool CompositeNH::UpdateComponentNHKey(uint32_t label, NextHopKey *nh_key,
                               ComponentNHKeyList &component_nh_key_list) const {
     bool ret = false;
