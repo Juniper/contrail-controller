@@ -1302,7 +1302,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="address-allocation-mode" type="AddressAllocationModeType"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('ip-alloc-mode', 'virtual-network', 'optional', 'CRUD',
+     Property('address-allocation-mode', 'virtual-network', 'optional', 'CRUD',
                'Address allocation mode for virtual network.') -->
 
 <xsd:complexType name="IpamSubnets">
