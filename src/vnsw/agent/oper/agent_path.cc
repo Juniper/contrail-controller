@@ -266,6 +266,19 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
         }
     }
 
+    /* Whenever policy status of VMI changes, its label also changes. Update the
+     * path to point to right label
+     */
+    if (nh_ && nh_->GetType() == NextHop::INTERFACE) {
+        const InterfaceNH *nh =
+            static_cast<const InterfaceNH *>(nh_.get());
+        const Interface* itf = nh->GetInterface();
+        if (itf && itf->label() != label()) {
+            set_label(itf->label());
+            ret = true;
+        }
+    }
+
     if (vrf_name_ == Agent::NullString()) {
         return ret;
     }
