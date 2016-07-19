@@ -76,12 +76,14 @@ def match_rule(r1, r2):
 
     diffs = {}
     for role, cruds in d2.items():
-        diffs[role] = cruds - d1[role]
-    merge = {}
-    for role, cruds in d2.items():
-        merge[role] = cruds|d1[role]
+        diffs[role] = cruds - d1.get(role, set([]))
+    diffs = {role:crud for role,crud in diffs.items() if len(crud) != 0}
 
-    return [True, s1<=s2, diffs, merge]
+    merge = d2.copy()
+    for role, cruds in d1.items():
+        merge[role] = cruds|d2.get(role, set([]))
+
+    return [True, s1==s2, diffs, merge]
 # end
 
 # check if rule already exists in rule list and returns its index if it does
@@ -105,7 +107,7 @@ def build_perms(rule, perm_dict):
 # build rule object from string form
 # "useragent-kv *:CRUD" (Allow all operation on /useragent-kv API)
 def build_rule(rule_str):
-    r = rule_str.split(" ") if rule_str else []
+    r = rule_str.split(" ", 1) if rule_str else []
     if len(r) < 2:
         return None
 
@@ -121,7 +123,7 @@ def build_rule(rule_str):
     # perms eg ['foo:CRU', 'bar:CR']
     rule_perms = []
     for perm in perms:
-        p = perm.split(":")
+        p = perm.strip().split(":")
         rule_perms.append(RbacPermType(role_name = p[0], role_crud = p[1]))
 
     # build rule
@@ -254,6 +256,9 @@ if vnc_op.args.on or vnc_op.args.off:
     except PermissionDenied:
         print 'Permission denied'
         sys.exit(1)
+elif vnc_op.args.uuid and vnc_op.args.name:
+    print 'Only one of uuid and fqname should be specified'
+    sys.exit(1)
 
 try:
     rv_json = vnc._request_server(rest.OP_GET, url)
@@ -392,10 +397,12 @@ elif vnc_op.args.op == 'del-rule':
         if del_idx > rc or del_idx < 1:
             print 'Invalid rule index to delete. Value must be 1-%d' % rc
             sys.exit(1)
+        match = (del_idx, True)
+    else:
+        rule = build_rule(vnc_op.args.rule)
+        match = find_rule(rge, rule)
 
-    rule = build_rule(vnc_op.args.rule)
-    match = find_rule(rge, rule)
-    if not match or not match[1]:
+    if not match:
         print 'Rule not found. Unchanged'
         sys.exit(1)
     elif match[1]:
