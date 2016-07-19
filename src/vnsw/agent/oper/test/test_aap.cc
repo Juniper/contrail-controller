@@ -48,6 +48,9 @@ void RouterIdDepInit(Agent *agent) {
 struct PortInfo input[] = {
     {"intf1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
 };
+IpamInfo ipam_info[] = {
+    {"1.1.1.0", 24, "1.1.1.10"},
+};
 
 class TestAap : public ::testing::Test {
 public:
@@ -103,6 +106,26 @@ public:
         client->WaitForIdle();
     }
 
+    void AddEcmpAap(std::string intf_name, int intf_id, Ip4Address ip) {
+        std::ostringstream buf;
+        buf << "<virtual-machine-interface-allowed-address-pairs>";
+        buf << "<allowed-address-pair>";
+        buf << "<ip>";
+        buf << "<ip-prefix>" << ip.to_string() <<"</ip-prefix>";
+        buf << "<ip-prefix-len>"<< 32 << "</ip-prefix-len>";
+        buf << "</ip>";
+        buf << "<mac><mac-address>" << "00:00:00:00:00:00"
+            << "</mac-address></mac>";
+        buf << "<address-mode>" << "active-active" << "</address-mode>";
+        buf << "</allowed-address-pair>";
+        buf << "</virtual-machine-interface-allowed-address-pairs>";
+        char cbuf[10000];
+        strcpy(cbuf, buf.str().c_str());
+        AddNode("virtual-machine-interface", intf_name.c_str(),
+                intf_id, cbuf);
+        client->WaitForIdle();
+    }
+
     void AddStaticPreference(std::string intf_name, int intf_id,
                              uint32_t value) {
         std::ostringstream buf;
@@ -136,6 +159,8 @@ public:
         CreateVmportEnv(input, 1);
         client->WaitForIdle();
         EXPECT_TRUE(VmPortActive(1));
+        AddIPAM("vn1", ipam_info, 1);
+        client->WaitForIdle();
     }
 
     virtual void TearDown() {
@@ -143,6 +168,8 @@ public:
         client->WaitForIdle();
         EXPECT_FALSE(VmPortFindRetDel(1));
         EXPECT_FALSE(VrfFind("vrf1", true));
+        client->WaitForIdle();
+        DelIPAM("vn1");
         client->WaitForIdle();
     }
 protected:
@@ -925,6 +952,29 @@ TEST_F(TestAap, StateMachine_16) {
     client->WaitForIdle();
 }
 
+
+//Change Aap mode from default to active-active and verify ecmp route exists
+TEST_F(TestAap, AapModeChange) {
+    Ip4Address aap_ip = Ip4Address::from_string("10.10.10.10");
+    AddAap("intf1", 1, aap_ip, zero_mac.ToString());
+
+    VmInterface *vm_intf = VmInterfaceGet(1);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", aap_ip, 32);
+    const AgentPath *path = rt->FindPath(vm_intf->peer());
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
+
+    AddEcmpAap("intf1", 1, aap_ip);
+    EXPECT_TRUE(RouteFind("vrf1", aap_ip, 32));
+    rt = RouteGet("vrf1", aap_ip, 32);
+    path = rt->FindPath(vm_intf->peer());
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+    EXPECT_TRUE(path->path_preference().ecmp() == true);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+}
 
 int main(int argc, char *argv[]) {
     GETUSERARGS();

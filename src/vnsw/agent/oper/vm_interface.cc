@@ -3591,15 +3591,18 @@ void VmInterface::StaticRouteList::Remove(StaticRouteSet::iterator &it) {
 ///////////////////////////////////////////////////////////////////////////////
 VmInterface::AllowedAddressPair::AllowedAddressPair() :
     ListEntry(), vrf_(""), addr_(0), plen_(0), ecmp_(false), mac_(),
-    l2_entry_installed_(false), ethernet_tag_(0), vrf_ref_(NULL), gw_ip_(0) {
+    l2_entry_installed_(false), ecmp_config_changed_(false), ethernet_tag_(0),
+    vrf_ref_(NULL), gw_ip_(0) {
 }
 
 VmInterface::AllowedAddressPair::AllowedAddressPair(
     const AllowedAddressPair &rhs) : ListEntry(rhs.installed_,
     rhs.del_pending_), vrf_(rhs.vrf_), addr_(rhs.addr_), plen_(rhs.plen_),
     ecmp_(rhs.ecmp_), mac_(rhs.mac_),
-    l2_entry_installed_(rhs.l2_entry_installed_), ethernet_tag_(rhs.ethernet_tag_),
-    vrf_ref_(rhs.vrf_ref_), gw_ip_(rhs.gw_ip_) {
+    l2_entry_installed_(rhs.l2_entry_installed_), 
+    ecmp_config_changed_(rhs.ecmp_config_changed_),
+    ethernet_tag_(rhs.ethernet_tag_), vrf_ref_(rhs.vrf_ref_),
+    gw_ip_(rhs.gw_ip_) {
 }
 
 VmInterface::AllowedAddressPair::AllowedAddressPair(const std::string &vrf,
@@ -3607,7 +3610,8 @@ VmInterface::AllowedAddressPair::AllowedAddressPair(const std::string &vrf,
                                                     uint32_t plen, bool ecmp,
                                                     const MacAddress &mac) :
     ListEntry(), vrf_(vrf), addr_(addr), plen_(plen), ecmp_(ecmp), mac_(mac),
-    l2_entry_installed_(false), ethernet_tag_(0), vrf_ref_(NULL) {
+    l2_entry_installed_(false), ecmp_config_changed_(false), ethernet_tag_(0),
+    vrf_ref_(NULL) {
 }
 
 VmInterface::AllowedAddressPair::~AllowedAddressPair() {
@@ -3647,7 +3651,8 @@ void VmInterface::AllowedAddressPair::L2Activate(VmInterface *interface,
 
     if (l2_entry_installed_ && force_update == false &&
         policy_change == false && ethernet_tag_ == interface->ethernet_tag() &&
-        old_layer3_forwarding == interface->layer3_forwarding()) {
+        old_layer3_forwarding == interface->layer3_forwarding() &&
+        ecmp_config_changed_ == false) {
         return;
     }
 
@@ -3657,7 +3662,7 @@ void VmInterface::AllowedAddressPair::L2Activate(VmInterface *interface,
 
     vrf_ref_ = interface->vrf();
     if (old_layer3_forwarding != interface->layer3_forwarding() ||
-        l2_entry_installed_ == false) {
+        l2_entry_installed_ == false || ecmp_config_changed_) {
         force_update = true;
     }
 
@@ -3680,6 +3685,7 @@ void VmInterface::AllowedAddressPair::L2Activate(VmInterface *interface,
         } else {
             l2_entry_installed_ = false;
         }
+        ecmp_config_changed_ = false;
     }
 }
 
@@ -3705,7 +3711,7 @@ void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
     ip = interface->GetGateway(addr_);
 
     if (installed_ && force_update == false && policy_change == false &&
-        gw_ip_ == ip) {
+        gw_ip_ == ip && ecmp_config_changed_ == false) {
         return;
     }
 
@@ -3716,13 +3722,15 @@ void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
     if (installed_ == true && policy_change) {
         InetUnicastAgentRouteTable::ReEvaluatePaths(interface->agent(),
                                                     vrf_, addr_, plen_);
-    } else if (installed_ == false || force_update || gw_ip_ != ip) {
+    } else if (installed_ == false || force_update || gw_ip_ != ip ||
+               ecmp_config_changed_) {
         gw_ip_ = ip;
         interface->AddRoute(vrf_, addr_, plen_, interface->vn_->GetName(),
                             interface->policy_enabled(),
                             ecmp_, gw_ip_);
     }
     installed_ = true;
+    ecmp_config_changed_ = false;
 }
 
 void VmInterface::AllowedAddressPair::DeActivate(VmInterface *interface) const {
@@ -3739,6 +3747,10 @@ void VmInterface::AllowedAddressPairList::Insert(const AllowedAddressPair *rhs) 
 void VmInterface::AllowedAddressPairList::Update(const AllowedAddressPair *lhs,
                                           const AllowedAddressPair *rhs) {
     lhs->set_del_pending(false);
+    if (lhs->ecmp_ != rhs->ecmp_) {
+        lhs->ecmp_ = rhs->ecmp_;
+        lhs->ecmp_config_changed_ = true;
+    }
 }
 
 void VmInterface::AllowedAddressPairList::Remove(AllowedAddressPairSet::iterator &it) {
