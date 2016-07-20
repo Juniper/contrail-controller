@@ -177,39 +177,13 @@ int QosConfigKSyncEntry::DeleteMsg(char *buf, int buf_len) {
 
 KSyncEntry *QosConfigKSyncEntry::UnresolvedReference() {
 
-    KSyncQosFcMap::const_iterator it = dscp_map_.begin();
-    for (; it != dscp_map_.end(); it++) {
-        if (it->second.get()->IsResolved() == false) {
-            return it->second.get();
-        }
-    }
-
-    it = vlan_priority_map_.begin();
-    for (; it != vlan_priority_map_.end(); it++) {
-        if (it->second.get()->IsResolved() == false) {
-            return it->second.get();
-        }
-    }
-
-    it = mpls_exp_map_.begin();
-    for (; it != mpls_exp_map_.end(); it++) {
-        if (it->second.get()->IsResolved() == false) {
-            return it->second.get();
-        }
-    }
-
-    if (default_forwarding_class_) {
-        ForwardingClassKSyncObject *fc_object =
-            static_cast<ForwardingClassKSyncObject *>(ksync_obj_)
-            ->ksync()->forwarding_class_ksync_obj();
-        ForwardingClassKSyncEntry fc_key(fc_object,
-                                         default_forwarding_class_);
-        KSyncEntryPtr ptr = fc_object->GetReference(&fc_key);
-        if (ptr && ptr->IsResolved() == false) {
-            return ptr.get();
-        }
-    }
-
+    //QOS config has forwarding-class ID
+    //And qos-config may have a forwarding-class ID which
+    //is not present, in that case unresolved dependency
+    //would never resolve and all dependent object like
+    //VMI also would not be programmed. vrouter also
+    //doesnt cross check for forwarding-class
+    //Hence not checking for any forwarding class reference
     return NULL;
 }
 
