@@ -541,15 +541,20 @@ private:
 };
 
 // Skip sending updates if the destinatin matches against the pattern.
-// XX Used in test environments only
-bool BgpXmppChannel::SkipUpdateSend() const {
+// XXX Used in test environments only
+bool BgpXmppChannel::SkipUpdateSend() {
     static char *skip_env_ = getenv("XMPP_SKIP_UPDATE_SEND");
     if (!skip_env_)
         return false;
 
     // Use XMPP_SKIP_UPDATE_SEND as a regex pattern to match against destination
-    smatch matches;
-    return regex_search(ToString(), matches, regex(skip_env_));
+    // Cache the result to avoid redundant regex evaluation
+    if (!skip_update_send_cached_) {
+        smatch matches;
+        skip_update_send_ = regex_search(ToString(), matches, regex(skip_env_));
+        skip_update_send_cached_ = true;
+    }
+    return skip_update_send_;
 }
 
 bool BgpXmppChannel::XmppPeer::SendUpdate(const uint8_t *msg, size_t msgsize) {
@@ -605,6 +610,8 @@ BgpXmppChannel::BgpXmppChannel(XmppChannel *channel, BgpServer *bgp_server,
       deleted_(false),
       defer_peer_close_(false),
       membership_unavailable_(false),
+      skip_update_send_(false),
+      skip_update_send_cached_(false),
       end_of_rib_timer_(NULL),
       membership_response_worker_(
             TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"),
