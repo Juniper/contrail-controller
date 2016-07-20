@@ -1174,6 +1174,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <!-- Enable or disable unicast RPF for virtual-network -->
         <xsd:element name='rpf' type='RpfModeType' required='optional'
              description='Flag used to diable Reverse Path Forwarding(RPF) check for this network'/>
+         <!-- Enable or disable Mirroring for virtual-network -->
+         <xsd:element name='mirror-destination' type="xsd:boolean" default="false" required='optional'
+             description='Flag to mark the virtual network as mirror destination network'/>
     </xsd:all>
 </xsd:complexType>
 
