@@ -1730,7 +1730,7 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(
                 400, 'Object uuid needed for validation')
         obj_uuid = get_request().query.uuid
-        user_token = get_request().query.token
+        user_token = get_request().query.token.encode("ascii")
 
         result = {'permissions' : ''}
 
