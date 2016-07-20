@@ -548,8 +548,17 @@ bool BgpXmppChannel::SkipUpdateSend() const {
         return false;
 
     // Use XMPP_SKIP_UPDATE_SEND as a regex pattern to match against destination
+    static std::map<std::string, bool> skip_cache_;
+    std::map<std::string, bool>::iterator iter = skip_cache_.find(ToString());
+
+    // Retur we already know the match result.
+    if (iter != skip_cache_.end())
+        return iter->second;
+
     smatch matches;
-    return regex_search(ToString(), matches, regex(skip_env_));
+    bool matched = regex_search(ToString(), matches, regex(skip_env_));
+    skip_cache_.insert(make_pair(ToString(), matched));
+    return matched;
 }
 
 bool BgpXmppChannel::XmppPeer::SendUpdate(const uint8_t *msg, size_t msgsize) {
