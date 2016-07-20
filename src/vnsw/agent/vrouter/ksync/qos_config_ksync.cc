@@ -177,6 +177,8 @@ int QosConfigKSyncEntry::DeleteMsg(char *buf, int buf_len) {
 
 KSyncEntry *QosConfigKSyncEntry::UnresolvedReference() {
 
+    return NULL;
+
     KSyncQosFcMap::const_iterator it = dscp_map_.begin();
     for (; it != dscp_map_.end(); it++) {
         if (it->second.get()->IsResolved() == false) {
