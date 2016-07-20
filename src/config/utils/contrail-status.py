@@ -373,7 +373,8 @@ def supervisor_status(nodetype, options):
     elif nodetype == 'webui':
         print "== Contrail Web UI =="
         check_status('supervisor-webui', options)
-    elif nodetype == 'support-service':
+    elif nodetype == 'support-service' and \
+         distribution == 'debian':
         print "== Contrail Support Services =="
         check_status('supervisor-support-service', options)
 
