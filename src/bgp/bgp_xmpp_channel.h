@@ -131,7 +131,7 @@ public:
     uint64_t get_tx_route_reach() const { return stats_[TX].reach; }
     uint64_t get_tx_route_unreach() const { return stats_[TX].unreach; }
     uint64_t get_tx_update() const { return stats_[TX].rt_updates; }
-    bool SkipUpdateSend() const;
+    bool SkipUpdateSend();
 
 protected:
     XmppChannel *channel_;
@@ -271,6 +271,7 @@ private:
     bool deleted_;
     bool defer_peer_close_;
     bool membership_unavailable_;
+    int skip_update_send_;
     Timer *end_of_rib_timer_;
     WorkQueue<std::string> membership_response_worker_;
     SubscribedRoutingInstanceList routing_instances_;
