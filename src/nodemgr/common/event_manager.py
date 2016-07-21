@@ -422,7 +422,7 @@ class EventManager(object):
     def get_disk_usage(self):
         disk_usage_info = {}
         partition = subprocess.Popen(
-            "df -T -t ext2 -t ext3 -t ext4 -t xfs",
+            "df -PT -t ext2 -t ext3 -t ext4 -t xfs",
             shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         for line in partition.stdout:
             if 'Filesystem' in line:
