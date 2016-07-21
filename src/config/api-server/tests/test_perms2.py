@@ -731,6 +731,31 @@ class TestPermissions(test_case.ApiServerTestCase):
             self.assertEquals(perms, ExpectedPerms[user.name])
 
 
+    def test_bug_1604986(self):
+        """
+        1) Create a VN
+        2) Make is globally shared
+        3) list of virtual-networks should not return VN information twice
+        """
+        admin = self.admin
+        vn_name = "test-vn-1604986"
+        vn_fq_name = [self.domain_name, admin.project, vn_name]
+
+        test_vn = VirtualNetwork(vn_name, admin.project_obj)
+        self.admin.vnc_lib.virtual_network_create(test_vn)
+
+        z = self.admin.vnc_lib.resource_list('virtual-network')
+        test_vn_list = [vn for vn in z['virtual-networks'] if vn['fq_name'][-1] == vn_name]
+        self.assertEquals(len(test_vn_list), 1)
+
+        test_vn = vnc_read_obj(self.admin.vnc_lib, 'virtual-network', name = vn_fq_name)
+        set_perms(test_vn, global_access = PERMS_RWX)
+        admin.vnc_lib.virtual_network_update(test_vn)
+
+        z = self.admin.vnc_lib.resource_list('virtual-network')
+        test_vn_list = [vn for vn in z['virtual-networks'] if vn['fq_name'][-1] == vn_name]
+        self.assertEquals(len(test_vn_list), 1)
+
     def tearDown(self):
         self._api_svr_greenlet.kill()
         self._api_server._db_conn._msgbus.shutdown()
