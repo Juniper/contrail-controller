@@ -58,7 +58,8 @@ class TestAlarmPlugins(unittest.TestCase):
                 for exp in and_list['and_list']:
                     alarm_and_list.append(AlarmExpression(
                         operation=exp['operation'], operand1=exp['operand1'],
-                        operand2=exp['operand2'], vars=exp.get('vars')))
+                        operand2=exp['operand2'],
+                        variables=exp.get('variables')))
                 alarm_or_list.append(AlarmAndList(alarm_and_list))
         alarm_name = camel_case_to_hyphen(plugin.__class__.__name__)
         kwargs = {'parent_type': 'global-system-config',

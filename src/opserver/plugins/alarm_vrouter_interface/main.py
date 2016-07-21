@@ -13,8 +13,8 @@ class VrouterInterface(AlarmBase):
                         'operand1': 'VrouterAgent.down_interface_count',
                         'operation': '>=',
                         'operand2': '1',
-                        'vars': ['VrouterAgent.error_intf_list', \
-                                 'VrouterAgent.no_config_intf_list']
+                        'variables': ['VrouterAgent.error_intf_list', \
+                            'VrouterAgent.no_config_intf_list']
                     },
                 ]
             }
