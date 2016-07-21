@@ -409,7 +409,8 @@ MulticastHandler::GetInterfaceComponentNHKeyList(MulticastGroupObject *obj,
     for (std::list<uuid>::const_iterator it = obj->GetLocalOlist().begin();
             it != obj->GetLocalOlist().end(); it++) {
         ComponentNHKeyPtr component_nh_key(new ComponentNHKey(0, (*it),
-                                                              interface_flags));
+                                                        interface_flags,
+                                                        MacAddress::ZeroMac()));
         component_nh_key_list.push_back(component_nh_key);
     }
     return component_nh_key_list;

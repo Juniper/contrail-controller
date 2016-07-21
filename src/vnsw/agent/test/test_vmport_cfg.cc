@@ -99,7 +99,7 @@ TEST_F(CfgTest, AddDelExport) {
     CfgIntKey *key = new CfgIntKey(MakeUuid(1)); 
     CfgIntData *data = new CfgIntData();
     boost::system::error_code ec;
-    IpAddress ip = Ip4Address::from_string("1.1.1.1", ec);
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1", ec);
     data->Init(MakeUuid(1), MakeUuid(1), MakeUuid(kProjectUuid),
                "vnet1", ip, Ip6Address(), "00:00:00:01:01:01", "",
                VmInterface::kInvalidVlanId, VmInterface::kInvalidVlanId,

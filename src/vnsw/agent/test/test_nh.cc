@@ -1720,12 +1720,14 @@ TEST_F(CfgTest, EcmpNH_15) {
 //Add the interface, trigger route change and verify that component NH
 //list get populated
 TEST_F(CfgTest, EcmpNH_16) {
+    MacAddress mac1 = MacAddress::FromString("00:00:00:01:01:01");
     AddVrf("vrf2");
     client->WaitForIdle();
     Ip4Address remote_vm_ip = Ip4Address::from_string("1.1.1.1");
     //Transition remote VM route to ECMP route
     ComponentNHKeyPtr nh_data1(new ComponentNHKey(15, MakeUuid(1),
-                                                  InterfaceNHFlags::INET4));
+                                                  InterfaceNHFlags::INET4,
+                                                  mac1));
     ComponentNHKeyList comp_nh_list;
     //Insert new NH first and then existing route NH
     comp_nh_list.push_back(nh_data1);
@@ -2296,13 +2298,13 @@ TEST_F(CfgTest, Nexthop_invalid_vrf) {
                                               MakeUuid(11), "vrf11");
     DBRequest intf_nh_req;
     intf_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    intf_nh_req.key.reset(new InterfaceNHKey(intf_key, true, 5));
-    intf_nh_req.data.reset(new InterfaceNHData("vrf11", intf_vm_mac));
+    intf_nh_req.key.reset(new InterfaceNHKey(intf_key, true, 5, intf_vm_mac));
+    intf_nh_req.data.reset(new InterfaceNHData("vrf11"));
     agent_->nexthop_table()->Enqueue(&intf_nh_req);
     client->WaitForIdle();
     VmInterfaceKey *find_intf_key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                                        MakeUuid(11), "vrf11");
-    InterfaceNHKey find_intf_nh_key(find_intf_key, true, 5);
+    InterfaceNHKey find_intf_nh_key(find_intf_key, true, 5, intf_vm_mac);
     EXPECT_TRUE(agent_->nexthop_table()->
                 FindActiveEntry(&find_intf_nh_key) == NULL);
 

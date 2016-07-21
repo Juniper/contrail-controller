@@ -1528,21 +1528,25 @@ TEST_F(IntfTest, IntfActivateDeactivate_1) {
     EXPECT_FALSE(RouteFind("vrf1", "1.1.1.10", 32));
 
     uuid intf_uuid = MakeUuid(1);
+    MacAddress mac = MacAddress::FromString("00:00:00:01:01:01");
     VmInterfaceKey *intf_key1 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     VmInterfaceKey *intf_key2 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     VmInterfaceKey *intf_key4 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     VmInterfaceKey *intf_key5 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
 
-    InterfaceNHKey unicast_nh_key(intf_key1, false, InterfaceNHFlags::INET4);
+    InterfaceNHKey unicast_nh_key(intf_key1, false, InterfaceNHFlags::INET4, mac);
     EXPECT_FALSE(FindNH(&unicast_nh_key));
 
-    InterfaceNHKey unicast_policy_nh_key(intf_key2, true, InterfaceNHFlags::INET4);
+    InterfaceNHKey unicast_policy_nh_key(intf_key2, true, InterfaceNHFlags::INET4,
+                                         mac);
     EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
 
-    InterfaceNHKey bridge_nh_key(intf_key4, false, InterfaceNHFlags::BRIDGE);
+
+    InterfaceNHKey bridge_nh_key(intf_key4, false, InterfaceNHFlags::BRIDGE, mac);
     EXPECT_FALSE(FindNH(&bridge_nh_key));
 
-    InterfaceNHKey bridge_policy_nh_key(intf_key5, true, InterfaceNHFlags::BRIDGE);
+    InterfaceNHKey bridge_policy_nh_key(intf_key5, true,
+                                        InterfaceNHFlags::BRIDGE, mac);
     EXPECT_FALSE(FindNH(&bridge_policy_nh_key));
 
     AddPort(input[0].name, 1);
@@ -1578,15 +1582,19 @@ TEST_F(IntfTest, IntfActivateDeactivate_2) {
     EXPECT_TRUE(VmPortActive(input, 0));
 
     uuid intf_uuid = MakeUuid(1);
+    MacAddress mac = MacAddress::FromString("00:00:00:01:01:01");
     VmInterfaceKey *intf_key1 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     VmInterfaceKey *intf_key2 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     VmInterfaceKey *intf_key4 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     VmInterfaceKey *intf_key5 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
 
-    InterfaceNHKey unicast_nh_key(intf_key1, false, InterfaceNHFlags::INET4);
-    InterfaceNHKey unicast_policy_nh_key(intf_key2, true, InterfaceNHFlags::INET4);
-    InterfaceNHKey bridge_nh_key(intf_key4, false, InterfaceNHFlags::BRIDGE);
-    InterfaceNHKey bridge_policy_nh_key(intf_key5, true, InterfaceNHFlags::BRIDGE);
+    InterfaceNHKey unicast_nh_key(intf_key1, false, InterfaceNHFlags::INET4, mac);
+    InterfaceNHKey unicast_policy_nh_key(intf_key2, true, InterfaceNHFlags::INET4,
+                                         mac);
+    InterfaceNHKey bridge_nh_key(intf_key4, false, InterfaceNHFlags::BRIDGE,
+                                 mac);
+    InterfaceNHKey bridge_policy_nh_key(intf_key5, true, InterfaceNHFlags::BRIDGE,
+                                        mac);
 
     client->WaitForIdle();
     EXPECT_TRUE(FindNH(&unicast_nh_key));
@@ -1636,15 +1644,18 @@ TEST_F(IntfTest, IntfActivateDeactivate_5) {
     client->WaitForIdle();
 
     uuid intf_uuid = MakeUuid(1);
+    MacAddress mac = MacAddress::FromString("00:00:00:01:01:01");
     VmInterfaceKey *intf_key1 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     VmInterfaceKey *intf_key2 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     VmInterfaceKey *intf_key4 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     VmInterfaceKey *intf_key5 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
 
-    InterfaceNHKey unicast_nh_key(intf_key1, false, InterfaceNHFlags::INET4);
-    InterfaceNHKey unicast_policy_nh_key(intf_key2, true, InterfaceNHFlags::INET4);
-    InterfaceNHKey bridge_nh_key(intf_key4, false, InterfaceNHFlags::BRIDGE);
-    InterfaceNHKey bridge_policy_nh_key(intf_key5, true, InterfaceNHFlags::BRIDGE);
+    InterfaceNHKey unicast_nh_key(intf_key1, false, InterfaceNHFlags::INET4, mac);
+    InterfaceNHKey unicast_policy_nh_key(intf_key2, true,
+                                         InterfaceNHFlags::INET4, mac);
+    InterfaceNHKey bridge_nh_key(intf_key4, false, InterfaceNHFlags::BRIDGE, mac);
+    InterfaceNHKey bridge_policy_nh_key(intf_key5, true,
+                                        InterfaceNHFlags::BRIDGE, mac);
 
     client->WaitForIdle();
     EXPECT_FALSE(FindNH(&unicast_nh_key));
@@ -2731,7 +2742,7 @@ TEST_F(IntfTest, vm_interface_change_req) {
     EXPECT_TRUE(VmPortActive(input1, 0));
     EXPECT_TRUE(VmPortFind(8));
     VmInterface *vm_interface = static_cast<VmInterface *>(VmPortGet(8));
-    EXPECT_TRUE(vm_interface->vm_mac() == "00:00:00:01:01:01");
+    EXPECT_TRUE(vm_interface->vm_mac().ToString() == "00:00:00:01:01:01");
     client->Reset();
 
     CreateVmportEnv(input1_mac_changed, 1);
@@ -2740,7 +2751,7 @@ TEST_F(IntfTest, vm_interface_change_req) {
     EXPECT_TRUE(VmPortFind(8));
     client->Reset();
     //No change expected as vm interface change results in no modifications
-    EXPECT_TRUE(vm_interface->vm_mac() == "00:00:00:01:01:01");
+    EXPECT_TRUE(vm_interface->vm_mac().ToString() == "00:00:00:01:01:01");
 
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
