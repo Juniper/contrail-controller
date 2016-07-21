@@ -13,7 +13,8 @@ class StorageClusterState(AlarmBase):
                         'operand1': 'StorageCluster.info_stats.status',
                         'operation': '!=',
                         'operand2': '0',
-                        'vars': ['StorageCluster.info_stats.health_summary']
+                        'variables': \
+                            ['StorageCluster.info_stats.health_summary']
                     }
                 ]
             }

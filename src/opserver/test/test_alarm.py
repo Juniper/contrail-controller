@@ -20,7 +20,7 @@ from kafka.common import OffsetAndMessage,Message
 
 from vnc_api.gen.resource_client import Alarm
 from vnc_api.gen.resource_xsd import AlarmExpression, AlarmAndList, \
-    AlarmOrList
+    AlarmOrList, UveKeysType
 from pysandesh.util import UTCTimestampUsec
 from pysandesh.gen_py.sandesh_alarm.ttypes import SandeshAlarmAckRequest, \
     SandeshAlarmAckResponseCode
@@ -321,10 +321,10 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                     operation=exp['operation'],
                     operand1=exp['operand1'],
                     operand2=exp['operand2'],
-                    vars=exp.get('vars')))
+                    variables=exp.get('variables')))
             alarm_or_list.append(AlarmAndList(alarm_and_list))
         return Alarm(name=config_dict['name'],
-                     uve_keys=config_dict['uve_keys'],
+                     uve_keys=UveKeysType(config_dict['uve_keys']),
                      alarm_severity=config_dict['alarm_severity'],
                      alarm_rules=AlarmOrList(alarm_or_list),
                      **config_dict['kwargs'])
@@ -877,7 +877,7 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                                     'operand1': 'A.B',
                                     'operation': '<=',
                                     'operand2': 'A.C.D',
-                                    'vars': ['A.C.N']
+                                    'variables': ['A.C.N']
                                 }
                             ]
                         }
@@ -903,13 +903,13 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                                     'operand1': 'A.B',
                                     'operation': '<=',
                                     'operand2': 'A.C.D',
-                                    'vars': ['A.C.N']
+                                    'variables': ['A.C.N']
                                 },
                                 {
                                     'operand1': 'A.B',
                                     'operation': '>=',
                                     'operand2': 'A.C.E',
-                                    'vars': ['A.C.N']
+                                    'variables': ['A.C.N']
                                 }
                             ]
                         }
