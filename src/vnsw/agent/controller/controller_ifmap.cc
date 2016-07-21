@@ -16,6 +16,7 @@
 #include <sandesh/sandesh_types.h>
 
 #include <cmn/agent_cmn.h>
+#include <cmn/agent_stats.h>
 #include <cfg/cfg_interface.h>
 
 #include <controller/controller_init.h>
@@ -88,6 +89,8 @@ void AgentIfMapXmppChannel::ReceiveConfigMessage(std::auto_ptr<XmlBase> impl) {
 }
 
 void AgentIfMapXmppChannel::ReceiveInternal(const XmppStanza::XmppMessage *msg) {
+    if (agent_->stats())
+        agent_->stats()->incr_xmpp_config_in_msgs(GetXmppServerIdx());
     ReceiveUpdate(msg);
 }
 
