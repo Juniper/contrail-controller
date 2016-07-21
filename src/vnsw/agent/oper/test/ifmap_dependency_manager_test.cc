@@ -506,6 +506,39 @@ TEST_F(IFMapDependencyManagerTest, OperDBNotifyDisable) {
     task_util::WaitForIdle();
 }
 
+TEST_F(IFMapDependencyManagerTest, OperSeesDeletedConfigNode) {
+    dependency_manager_->disable_trigger();
+    ifmap_test_util::IFMapMsgNodeAdd(database_, "service-instance", "si-1");
+    ifmap_test_util::IFMapMsgNodeAdd(database_, "virtual-machine", "vm-1");
+    ifmap_test_util::IFMapMsgNodeAdd(database_,
+            "virtual-machine-interface", "vmi-1");
+    task_util::WaitForIdle();
+
+    ifmap_test_util::IFMapMsgLink(database_, "service-instance", "si-1",
+                                  "virtual-machine", "vm-1",
+                                  "virtual-machine-service-instance");
+    task_util::WaitForIdle();
+
+    ifmap_test_util::IFMapMsgNodeDelete(database_, "service-instance", "si-1");
+    //Delete service-instance node
+    dependency_manager_->enable_trigger();
+
+    //Remove our change event handle get back the original
+    ifmap_test_util::IFMapMsgUnlink(database_, "service-instance", "si-1",
+                                  "virtual-machine", "vm-1",
+                                  "virtual-machine-service-instance");
+
+    ifmap_test_util::IFMapMsgUnlink(database_, "virtual-machine", "vm-1",
+                                  "virtual-machine-interface", "vmi-1",
+                                  "virtual-machine-interface-virtual-machine");
+    ifmap_test_util::IFMapMsgNodeDelete(database_, "service-instance", "si-1");
+    ifmap_test_util::IFMapMsgNodeDelete(database_, "virtual-machine", "vm-1");
+    ifmap_test_util::IFMapMsgNodeDelete(database_,
+            "virtual-machine-interface", "vmi-1");
+
+    task_util::WaitForIdle();
+}
+
 static void SetUp() {
 }
 
