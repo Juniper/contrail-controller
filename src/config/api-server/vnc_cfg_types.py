@@ -1942,3 +1942,19 @@ class RouteAggregateServer(Resource, RouteAggregate):
         return cls._check(obj_dict, db_conn)
 
 # end class RouteAggregateServer
+
+class AlarmServer(Resource, Alarm):
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        return cls._check_alarm_rules(obj_dict)
+    # end pre_dbe_create
+
+    @classmethod
+    def _check_alarm_rules(cls, obj_dict):
+        if 'alarm_rules' not in obj_dict:
+            return (False, (403, 'alarm_rules not specified'))
+        return True, ''
+    # end _check_alarm_rules
+
+# end class AlarmServer
