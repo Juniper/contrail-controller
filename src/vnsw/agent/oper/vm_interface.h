@@ -698,6 +698,10 @@ public:
         return (static_cast<InterfaceTable *>(get_table()))->agent();
     }
 
+    bool is_vn_qos_config() const {
+        return is_vn_qos_config_;
+    }
+
 private:
     friend struct VmInterfaceConfigData;
     friend struct VmInterfaceNovaData;
@@ -945,6 +949,7 @@ private:
     NextHopRef l2_interface_nh_policy_;
     NextHopRef l3_interface_nh_no_policy_;
     NextHopRef l2_interface_nh_no_policy_;
+    bool is_vn_qos_config_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 

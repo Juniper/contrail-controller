@@ -38,13 +38,15 @@ public:
 
     struct VmIntfFlowHandlerState : public FlowMgmtState {
         VmIntfFlowHandlerState(const VnEntry *vn) : vn_(vn),
-            vrf_assign_acl_(NULL) { }
+            vrf_assign_acl_(NULL), is_vn_qos_config_(false) { }
         virtual ~VmIntfFlowHandlerState() { }
 
         VnEntryConstRef vn_;
         bool policy_;
         VmInterface::SecurityGroupEntryList sg_l_;
         AclDBEntryConstRef vrf_assign_acl_;
+        bool is_vn_qos_config_;
+        AgentQosConfigConstRef qos_config_;
     };
 
     struct VrfFlowHandlerState : public FlowMgmtState {

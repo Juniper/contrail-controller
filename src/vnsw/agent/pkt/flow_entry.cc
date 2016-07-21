@@ -1957,10 +1957,15 @@ bool FlowEntry::SetQosConfigIndex() {
     uint32_t i = AgentQosConfigTable::kInvalidIndex;
     MatchAclParamsList::const_iterator it;
 
+    //Priority of QOS config
+    // 1> SG
+    // 2> Interface
+    // 3> ACL
+    // 4> VN
     if (is_flags_set(FlowEntry::ReverseFlow) &&
         data_.match_p.sg_action_summary & 1 << TrafficAction::APPLY_QOS) {
         i = reverse_flow_entry()->data().qos_config_idx;
-    } if (data_.match_p.sg_action & 1 << TrafficAction::APPLY_QOS) {
+    } else if (data_.match_p.sg_action & 1 << TrafficAction::APPLY_QOS) {
         for(it = data_.match_p.m_sg_acl_l.begin();
                 it != data_.match_p.m_sg_acl_l.end(); it++) {
             if (it->action_info.action & 1 << TrafficAction::APPLY_QOS &&
@@ -2002,10 +2007,20 @@ bool FlowEntry::SetQosConfigIndex() {
         }
     }
 
+    const VmInterface *intf =
+        dynamic_cast<const VmInterface*>(data_.intf_entry.get());
+    if (intf && intf->qos_config()) {
+        if (intf->is_vn_qos_config() == false ||
+                i == AgentQosConfigTable::kInvalidIndex) {
+            i = intf->qos_config()->id();
+        }
+    }
+
     if (i != data_.qos_config_idx) {
         data_.qos_config_idx = i;
         return true;
     }
+
     return false;
 }
 
@@ -2047,12 +2062,8 @@ bool FlowEntry::ActionRecompute() {
         action |= (1 << TrafficAction::DENY);
     }
 
-    if (action & (1 << TrafficAction::APPLY_QOS)) {
-        if (SetQosConfigIndex()) {
-            ret = true;
-        }
-    } else {
-        data_.qos_config_idx = AgentQosConfigTable::kInvalidIndex;
+    if (SetQosConfigIndex()) {
+        ret = true;
     }
 
     // check for conflicting actions and remove allowed action
