@@ -246,7 +246,12 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         }
 
         req.set_fr_ftable_size(0);
-        req.set_fr_ecmp_nh_index(flow_entry_->data().component_nh_idx);
+        if (flow_entry_->data().component_nh_idx !=
+                (uint32_t)CompositeNH::kInvalidComponentNHIdx) {
+            req.set_fr_ecmp_nh_index(flow_entry_->data().component_nh_idx);
+        } else {
+            req.set_fr_ecmp_nh_index(0);
+        }
 
         if (action == VR_FLOW_ACTION_NAT) {
             FlowEntry *nat_flow = flow_entry_->reverse_flow_entry();
