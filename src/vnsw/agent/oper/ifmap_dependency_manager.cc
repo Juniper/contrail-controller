@@ -390,6 +390,10 @@ bool IFMapDependencyManager::IsRegistered(const IFMapNode *node) {
     return (it != event_map_.end());
 }
 
+bool IFMapDependencyManager::IsNodeIdentifiedByUuid(const IFMapNode *node) {
+    return (strcmp(node->table()->Typename(), "routing-instance") != 0);
+}
+
 IFMapDependencyManager::Path MakePath
 (const char *link1,        const char *node1,        bool interest1,
  const char *link2 = NULL, const char *node2 = NULL, bool interest2 = false,

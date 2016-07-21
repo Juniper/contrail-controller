@@ -22,6 +22,7 @@ class IFMapDependencyTracker;
 class IFMapNode;
 class TaskTrigger;
 class IFMapDependencyManager;
+class IFMapDependencyManagerTest;
 
 //IFMapNodeState is a DBState for IFMapNode with listener ID
 // of IFMapDependency Manager. DBState is created when the first
@@ -155,6 +156,12 @@ public:
 
     // Check if a IFMapNode type is registerd with dependency manager
     bool IsRegistered(const IFMapNode *node);
+    bool IsNodeIdentifiedByUuid(const IFMapNode *node);
+
+    //Routines used by unit-test
+    void enable_trigger() {trigger_->set_enable();}
+    void disable_trigger() {trigger_->set_disable();}
+
 private:
     /*
      * IFMapNodeState (DBState) should exist:
