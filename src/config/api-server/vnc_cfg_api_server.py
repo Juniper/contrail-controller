@@ -2868,7 +2868,11 @@ class VncApiServer(object):
             shares = self._db_conn.get_shared_objects(obj_type, tenant_uuid)
         except NoIdError:
             shares = []
+        owned_objs = set([obj_uuid for (fq_name, obj_uuid) in result])
         for (obj_uuid, obj_perm) in shares:
+            # skip owned objects already included in results
+            if obj_uuid in owned_objs:
+                continue
             try:
                 fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
                 result.append((fq_name, obj_uuid))
