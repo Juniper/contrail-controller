@@ -21,6 +21,7 @@ IpamInfo ipam_info[] = {
 
 TestQosConfigData data1 = {"qos_config1", 1, "default", 1};
 TestQosConfigData data2 = {"qos_config2", 2, "default", 1};
+TestQosConfigData data3 = {"qos_config3", 3, "default", 1};
 
 class FlowQosTest : public ::testing::Test {
 
@@ -37,6 +38,7 @@ public:
         client->WaitForIdle();
         AddQosConfig(data1);
         AddQosConfig(data2);
+        AddQosConfig(data3);
         AddQosAcl("acl1", 1, "vn1", "vn1", "pass", "qos_config1");
         AddLink("virtual-network", "vn1", "access-control-list", "acl1");
         client->WaitForIdle();
@@ -56,8 +58,9 @@ public:
         client->WaitForIdle();
         DelIPAM("vn1");
         client->WaitForIdle();
-        DelNode("qos-config", "qos_config");
         DelNode("qos-config", "qos_config1");
+        DelNode("qos-config", "qos_config2");
+        DelNode("qos-config", "qos_config3");
         client->WaitForIdle();
         EXPECT_FALSE(VmPortFindRetDel(1));
         EXPECT_FALSE(VrfFind("vrf1", true));
@@ -133,9 +136,11 @@ TEST_F(FlowQosTest, Test_3) {
 
     FlowEntry *flow = FlowGet(0, "1.1.1.1", "1.1.1.2", 1, 0, 0,
                               intf1->flow_key_nh()->id());
+    FlowEntry *rflow = flow->reverse_flow_entry();
+
     EXPECT_TRUE(QosConfigGetByIndex(flow->data().qos_config_idx)->name() ==
                 "qos_config2");
-    EXPECT_TRUE(QosConfigGetByIndex(flow->data().qos_config_idx)->name() ==
+    EXPECT_TRUE(QosConfigGetByIndex(rflow->data().qos_config_idx)->name() ==
                 "qos_config2");
 }
 
@@ -160,6 +165,126 @@ TEST_F(FlowQosTest, Test_4) {
                               intf1->flow_key_nh()->id());
     EXPECT_TRUE(flow->data().qos_config_idx == AgentQosConfigTable::kInvalidIndex);
     EXPECT_TRUE(flow->data().qos_config_idx == AgentQosConfigTable::kInvalidIndex);
+}
+
+TEST_F(FlowQosTest, Test_5) {
+    //Verify that interface qos config takes precedence
+    TestFlow tflow[] = {
+        //Send an ICMP flow from VM1 to VM2
+        {
+            TestFlowPkt(Address::INET, "1.1.1.1", "1.1.1.2", 1, 0, 0, "vrf1",
+                    intf1->id()),
+            {
+                new VerifyVn("vn1", "vn1"),
+                new VerifyQosAction("qos_config1", "qos_config1")
+            }
+        }
+    };
+
+    CreateFlow(tflow, 1);
+    client->WaitForIdle();
+
+    AddLink("virtual-machine-interface", "intf1",
+            "qos-config", "qos_config2");
+    AddLink("virtual-machine-interface", "intf2",
+            "qos-config", "qos_config1");
+    client->WaitForIdle();
+
+    FlowEntry *flow = FlowGet(0, "1.1.1.1", "1.1.1.2", 1, 0, 0,
+                              intf1->flow_key_nh()->id());
+    FlowEntry *rflow = flow->reverse_flow_entry();
+
+    EXPECT_TRUE(QosConfigGetByIndex(flow->data().qos_config_idx)->name() ==
+                "qos_config2");
+    EXPECT_TRUE(QosConfigGetByIndex(rflow->data().qos_config_idx)->name() ==
+                "qos_config1");
+
+    DelLink("virtual-machine-interface", "intf1",
+            "qos-config", "qos_config1");
+    DelLink("virtual-machine-interface", "intf2",
+            "qos-config", "qos_config1");
+    client->WaitForIdle();
+}
+
+TEST_F(FlowQosTest, Test_6) {
+    //Verify that interface qos config takes precedence
+    TestFlow tflow[] = {
+        //Send an ICMP flow from VM1 to VM2
+        {
+            TestFlowPkt(Address::INET, "1.1.1.1", "1.1.1.2", 1, 0, 0, "vrf1",
+                    intf1->id()),
+            {
+                new VerifyVn("vn1", "vn1"),
+                new VerifyQosAction("qos_config1", "qos_config1")
+            }
+        }
+    };
+
+    CreateFlow(tflow, 1);
+    client->WaitForIdle();
+
+    DelLink("virtual-network", "vn1", "access-control-list", "acl1");
+    AddLink("virtual-network", "vn1",
+            "qos-config", "qos_config2");
+    client->WaitForIdle();
+
+    FlowEntry *flow = FlowGet(0, "1.1.1.1", "1.1.1.2", 1, 0, 0,
+                              intf1->flow_key_nh()->id());
+    FlowEntry *rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(QosConfigGetByIndex(flow->data().qos_config_idx)->name() ==
+                "qos_config2");
+    EXPECT_TRUE(QosConfigGetByIndex(rflow->data().qos_config_idx)->name() ==
+                "qos_config2");
+
+    DelLink("virtual-network", "vn1", "qos-config", "qos_config1");
+    client->WaitForIdle();
+}
+
+TEST_F(FlowQosTest, Test_7) {
+    AddLink("virtual-machine-interface", "intf1",
+            "qos-config", "qos_config3");
+    AddLink("virtual-machine-interface", "intf2",
+            "qos-config", "qos_config3");
+    AddLink("virtual-network", "vn1",
+            "qos-config", "qos_config2");
+    client->WaitForIdle();
+
+
+    //Verify that interface qos config takes precedence
+    TestFlow tflow[] = {
+        //Send an ICMP flow from VM1 to VM2
+        {
+            TestFlowPkt(Address::INET, "1.1.1.1", "1.1.1.2", 1, 0, 0, "vrf1",
+                    intf1->id()),
+            {
+                new VerifyVn("vn1", "vn1"),
+                new VerifyQosAction("qos_config3", "qos_config3")
+            }
+        }
+    };
+
+    CreateFlow(tflow, 1);
+    client->WaitForIdle();
+
+    DelLink("virtual-machine-interface", "intf1",
+            "qos-config", "qos_config3");
+    DelLink("virtual-machine-interface", "intf2",
+            "qos-config", "qos_config3");
+    DelLink("virtual-network", "vn1", "access-control-list", "acl1");
+    AddLink("virtual-network", "vn1",
+            "qos-config", "qos_config2");
+    client->WaitForIdle();
+
+    FlowEntry *flow = FlowGet(0, "1.1.1.1", "1.1.1.2", 1, 0, 0,
+                              intf1->flow_key_nh()->id());
+    FlowEntry *rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(QosConfigGetByIndex(flow->data().qos_config_idx)->name() ==
+                "qos_config2");
+    EXPECT_TRUE(QosConfigGetByIndex(rflow->data().qos_config_idx)->name() ==
+                "qos_config2");
+
+    DelLink("virtual-network", "vn1", "qos-config", "qos_config1");
+    client->WaitForIdle();
 }
 
 int main(int argc, char *argv[]) {

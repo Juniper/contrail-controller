@@ -74,7 +74,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     configurer_(0), subnet_(0), subnet_plen_(0), ethernet_tag_(0),
     logical_interface_(nil_uuid()), nova_ip_addr_(0), nova_ip6_addr_(),
     dhcp_addr_(0), metadata_ip_map_(), hc_instance_set_(),
-    ecmp_load_balance_(), service_health_check_ip_() {
+    ecmp_load_balance_(), service_health_check_ip_(), is_vn_qos_config_(false) {
     metadata_ip_active_ = false;
     ipv4_active_ = false;
     ipv6_active_ = false;
@@ -111,7 +111,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     vmi_type_(vmi_type), configurer_(0), subnet_(0),
     subnet_plen_(0), ethernet_tag_(0), logical_interface_(nil_uuid()),
     nova_ip_addr_(0), nova_ip6_addr_(), dhcp_addr_(0), metadata_ip_map_(),
-    hc_instance_set_(), service_health_check_ip_() {
+    hc_instance_set_(), service_health_check_ip_(), is_vn_qos_config_(false) {
     metadata_ip_active_ = false;
     ipv4_active_ = false;
     ipv6_active_ = false;
@@ -2043,12 +2043,19 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
             qos_table->FindActiveEntry(&qos_key));
         if (qos_config_.get() != qos_config) {
             qos_config_ = qos_config;
+            is_vn_qos_config_ = false;
             ret = true;
         }
 
-        if (qos_config_.get() == NULL && vn && vn->qos_config()) {
-            qos_config_ = vn->qos_config();
-            ret = true;
+        if (qos_config_.get() == NULL) {
+            if (vn && vn->qos_config()) {
+                qos_config_ = vn->qos_config();
+                is_vn_qos_config_ = true;
+                ret = true;
+            } else if (is_vn_qos_config_ == true) {
+                is_vn_qos_config_ = false;
+                ret = true;
+            }
         }
     }
 
