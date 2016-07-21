@@ -142,6 +142,10 @@ public:
             req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         } else {
             req.oper = DBRequest::DB_ENTRY_DELETE;
+            if (old_uuid == boost::uuids::nil_uuid()) {
+                //Node was never added so no point sending delete
+                return;
+            }
             new_uuid = old_uuid;
             if (state) {
                 state->set_oper_db_request_enqueued(false);

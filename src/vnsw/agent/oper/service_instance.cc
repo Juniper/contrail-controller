@@ -896,6 +896,10 @@ void ServiceInstanceTable::ChangeEventHandler(IFMapNode *node, DBEntry *entry) {
         state->set_uuid(new_uuid);
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     } else {
+        if (old_uuid == boost::uuids::nil_uuid()) {
+            //Node was never added so no point sending delete
+            return;
+        }
         req.oper = DBRequest::DB_ENTRY_DELETE;
         new_uuid = old_uuid;
     }
