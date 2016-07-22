@@ -828,7 +828,7 @@ bool InetUnicastRouteEntry::UpdateComponentNH(Agent *agent,
     }
     //Build ComponentNHKey for new path
     DBEntryBase::KeyPtr key = path->ComputeNextHop(agent)->GetDBRequestKey();
-    NextHopKey *nh_key = static_cast<NextHopKey *>(key.release());
+    NextHopKey *nh_key = static_cast<NextHopKey *>(key.get());
     nh_key->SetPolicy(false);
 
     ComponentNHKeyList component_nh_key_list;
