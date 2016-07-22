@@ -466,7 +466,8 @@ class InstanceIpServer(Resource, InstanceIp):
         # if instance-ip is of g/w ip, it cannot refer to non router port
         req_iip_dict = obj_dict
         ok, result = cls.dbe_read(db_conn, 'instance_ip', id,
-                                  obj_fields=['virtual_network_refs'])
+                                  obj_fields=['instance_ip_address',
+                                              'virtual_network_refs'])
         if not ok:
             return ok, result
         db_iip_dict = result
@@ -1060,8 +1061,9 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
             # NOP for addr-mgmt module
             return True,  ""
 
+        fields = ['network_ipam_refs', 'virtual_network_network_id']
         ok, read_result = cls.dbe_read(db_conn, 'virtual_network', id,
-                                       obj_fields=['network_ipam_refs'])
+                                       obj_fields=fields)
         if not ok:
             return ok, read_result
 
