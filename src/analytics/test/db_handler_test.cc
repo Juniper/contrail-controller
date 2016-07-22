@@ -597,12 +597,43 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
         rowkey.push_back("FieldNames");
         rowkey.push_back("fields");
         rowkey.push_back("name");
+        DbDataValueVec *colname(new DbDataValueVec());
+        colname->reserve(3);
+        colname->push_back("ObjectTableInsertTest:ObjectId");
+        colname->push_back((uint32_t)(hdr.get_Timestamp() & g_viz_constants.RowTimeInMask));
+        colname->push_back(0); //uuid
+
+        DbDataValueVec *colname(new DbDataValueVec(1,
+            (uint32_t)(hdr.get_Timestamp() & g_viz_constants.RowTimeInMask)));
+        DbDataValueVec *colvalue(new DbDataValueVec(1,
+            "ObjectTableInsertTestRowkey"));
+        boost::ptr_vector<GenDb::NewCol> expected_vector =
+            boost::assign::ptr_list_of<GenDb::NewCol>
+            (GenDb::NewCol(colname, colvalue, ttl));
+        EXPECT_CALL(*dbif_mock(),
+                Db_AddColumnProxy(
+                    Pointee(
+                        AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.STATS_TABLE_BY_STR_TAG),
+                            Field(&GenDb::ColList::rowkey_, rowkey),
+                            Field(&GenDb::ColList::columns_,
+                                expected_vector))))
+            .Times(1)
+            .WillRepeatedly(Return(true));
+      }
+
+      {
+        GenDb::DbDataValueVec rowkey;
+        rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
+        rowkey.push_back((uint8_t)0);
+        rowkey.push_back("FieldNames");
+        rowkey.push_back("fields");
+        rowkey.push_back("name");
         EXPECT_CALL(*dbif_mock(),
                 Db_AddColumnProxy(
                     Pointee(
                         AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.STATS_TABLE_BY_STR_TAG),
                             Field(&GenDb::ColList::rowkey_, rowkey),_))))
-            .Times(5)
+            .Times(4)
             .WillRepeatedly(Return(true));
       }
 

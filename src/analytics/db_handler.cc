@@ -658,7 +658,7 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp,
         //Insert only if sandesh type is a SYSTEM LOG or SYSLOG
         //Insert into the FieldNames stats table entries for Messagetype and Module ID
         int ttl = GetTtl(TtlType::GLOBAL_TTL);
-        FieldNamesTableInsert(header.get_Timestamp(),
+	FieldNamesTableInsert(header.get_Timestamp(),
             g_viz_constants.COLLECTOR_GLOBAL_TABLE,
             ":Messagetype", message_type, ttl, db_cb);
         FieldNamesTableInsert(header.get_Timestamp(),
@@ -683,6 +683,7 @@ void DbHandler::FieldNamesTableInsert(uint64_t timestamp,
      * Construct the atttributes,attrib_tags before inserting
      * to the StatTableInsert
      */
+    
     uint32_t temp_u32 = timestamp >> g_viz_constants.RowTimeInBits;
     std::string table_name(table_prefix);
     table_name.append(field_name);
@@ -771,6 +772,7 @@ void DbHandler::GetRuleMap(RuleMap& rulemap) {
 void DbHandler::ObjectTableInsert(const std::string &table, const std::string &objectkey_str,
         uint64_t &timestamp, const boost::uuids::uuid& unm, const VizMsg *vmsgp,
         GenDb::GenDbIf::DbAddColumnCb db_cb) {
+    //assert(table!="string");
     uint32_t T2(timestamp >> g_viz_constants.RowTimeInBits);
     uint32_t T1(timestamp & g_viz_constants.RowTimeInMask);
     const std::string &message_type(vmsgp->msg->GetMessageType());
@@ -790,6 +792,7 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
         rowkey.push_back(T2);
         rowkey.push_back(partition_no);
         rowkey.push_back(table);
+	//assert(table!="string");
         
         GenDb::DbDataValueVec *col_name(new GenDb::DbDataValueVec());
         col_name->reserve(2);
@@ -835,7 +838,9 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
         const SandeshHeader &header(vmsgp->msg->GetHeader());
         const std::string &message_type(vmsgp->msg->GetMessageType());
         //Insert into the FieldNames stats table entries for Messagetype and Module ID
-        FieldNamesTableInsert(timestamp,
+	//assert (table!="string");
+	LOG(ERROR,"ObjectId:" << objectkey_str << "Messagetype:" << message_type << "ModuleId:" << header.get_Module() << "Source:" << header.get_Source() << "Object:" << table);
+	FieldNamesTableInsert(timestamp,
                 table, ":ObjectId", objectkey_str, ttl, db_cb);
         FieldNamesTableInsert(timestamp,
                 table, ":Messagetype", message_type, ttl, db_cb);
@@ -961,6 +966,11 @@ bool DbHandler::StatTableWrite(uint32_t t2,
     GenDb::DbDataValueVec *col_value(new GenDb::DbDataValueVec(1, jsonline));
     GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value, ttl));
     columns.push_back(col);
+
+    DB_LOG(ERROR, "cfname: " << cfname);
+    DB_LOG(ERROR, "rowkey: " << t2 << " " << part << " " << statName << " " << statAttr << " " << ptag.first << " " << stag.first);
+    DB_LOG(ERROR, "colname: " << pg << " " << sg << " " << t1 << " " << unm);
+    DB_LOG(ERROR, "colvalue: " << jsonline);
 
     if (!dbif_->Db_AddColumn(col_list, db_cb)) {
         DB_LOG(ERROR, "Addition of " << statName <<
