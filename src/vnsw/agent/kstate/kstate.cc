@@ -448,8 +448,8 @@ void KState::QosConfigMsgHandler(vr_qos_map_req *r) {
     qos_it = r->get_qmr_mpls_qos().begin();
     fc_it = r->get_qmr_mpls_qos_fc_id().begin();
     std::vector<kQosIdFowardingClassPair> mpls_list;
-    for(;qos_it != r->get_qmr_dscp().end() &&
-         fc_it != r->get_qmr_dscp_fc_id().end(); qos_it++, fc_it++) {
+    for(;qos_it != r->get_qmr_mpls_qos().end() &&
+         fc_it != r->get_qmr_mpls_qos_fc_id().end(); qos_it++, fc_it++) {
         kQosIdFowardingClassPair pair;
         pair.set_qos(*qos_it);
         pair.set_fc_id(*fc_it);
