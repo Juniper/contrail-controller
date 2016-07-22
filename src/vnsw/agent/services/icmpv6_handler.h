@@ -23,7 +23,7 @@ public:
     bool Run();
     bool RouterAdvertisement(Icmpv6Proto *proto);
     void SendNeighborSolicit(const Ip6Address &sip, const Ip6Address &dip,
-                             uint32_t itf, uint32_t vrf);
+                             const VmInterface *vmi, uint32_t vrf);
 
 private:
     bool CheckPacket();
