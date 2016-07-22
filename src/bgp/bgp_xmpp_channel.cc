@@ -5,6 +5,7 @@
 #include "bgp/bgp_xmpp_channel.h"
 
 #include <boost/foreach.hpp>
+#include <boost/regex.hpp>
 
 #include <limits>
 #include <vector>
@@ -52,6 +53,9 @@ using autogen::SecurityGroupListType;
 using autogen::CommunityTagListType;
 using autogen::TunnelEncapsulationListType;
 
+using boost::regex;
+using boost::regex_search;
+using boost::smatch;
 using boost::system::error_code;
 using pugi::xml_node;
 using std::auto_ptr;
@@ -536,23 +540,29 @@ private:
     uint64_t closed_at_;
 };
 
-static bool SkipUpdateSend() {
-    static bool init_;
-    static bool skip_;
+// Skip sending updates if the destinatin matches against the pattern.
+// XXX Used in test environments only
+bool BgpXmppChannel::SkipUpdateSend() {
+    static char *skip_env_ = getenv("XMPP_SKIP_UPDATE_SEND");
+    if (!skip_env_)
+        return false;
 
-    if (init_) return skip_;
-
-    skip_ = getenv("XMPP_SKIP_UPDATE_SEND") != NULL;
-    init_ = true;
-
-    return skip_;
+    // Use XMPP_SKIP_UPDATE_SEND as a regex pattern to match against destination
+    // Cache the result to avoid redundant regex evaluation
+    if (!skip_update_send_cached_) {
+        smatch matches;
+        skip_update_send_ = regex_search(ToString(), matches, regex(skip_env_));
+        skip_update_send_cached_ = true;
+    }
+    return skip_update_send_;
 }
 
 bool BgpXmppChannel::XmppPeer::SendUpdate(const uint8_t *msg, size_t msgsize) {
     XmppChannel *channel = parent_->channel_;
     if (channel->GetPeerState() == xmps::READY) {
         parent_->stats_[TX].rt_updates++;
-        if (SkipUpdateSend()) return true;
+        if (parent_->SkipUpdateSend())
+            return true;
         send_ready_ = channel->Send(msg, msgsize, xmps::BGP,
                 boost::bind(&BgpXmppChannel::XmppPeer::WriteReadyCb, this, _1));
         if (!send_ready_) {
@@ -599,6 +609,8 @@ BgpXmppChannel::BgpXmppChannel(XmppChannel *channel, BgpServer *bgp_server,
       delete_in_progress_(false),
       deleted_(false),
       defer_peer_close_(false),
+      skip_update_send_(false),
+      skip_update_send_cached_(false),
       membership_unavailable_(false),
       end_of_rib_timer_(NULL),
       membership_response_worker_(
