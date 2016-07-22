@@ -112,7 +112,21 @@ void AgentDnsXmppChannel::HandleXmppClientChannelEvent(AgentDnsXmppChannel *peer
     } else if (state == xmps::TIMEDOUT) {
         DiscoveryAgentClient *dac = Agent::GetInstance()->discovery_client();
         if (dac) {
-            dac->ReDiscoverDNS();
+            std::vector<DSResponse> resp =
+                Agent::GetInstance()->GetDiscoveryServerResponseList();
+            std::vector<DSResponse>::iterator iter;
+            for (iter = resp.begin(); iter != resp.end(); iter++) {
+                DSResponse dr = *iter;
+                if (peer->GetXmppServer().compare(
+                    dr.ep.address().to_string()) == 0) {
+
+                    // Add the TIMEDOUT server to the end.
+                    resp.erase(iter);
+                    resp.push_back(dr);
+                    Agent::GetInstance()->controller()->ApplyDiscoveryDnsXmppServices(resp);
+                    break; 
+                }
+            }
         }
     }
 }

@@ -33,39 +33,6 @@ using namespace pugi;
 void RouterIdDepInit(Agent *agent) {
 }
 
-class AgentBgpXmppPeerTest : public AgentXmppChannel {
-public:
-    AgentBgpXmppPeerTest(std::string xs, uint8_t xs_idx) :
-        AgentXmppChannel(Agent::GetInstance(), xs, "0", xs_idx),
-        rx_count_(0), stop_scheduler_(false), rx_channel_event_queue_(
-            TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"), 0,
-            boost::bind(&AgentBgpXmppPeerTest::ProcessChannelEvent, this, _1)) {
-    }
-
-    virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
-        rx_count_++;
-        AgentXmppChannel::ReceiveUpdate(msg);
-    }
-
-    bool ProcessChannelEvent(xmps::PeerState state) {
-        AgentXmppChannel::HandleAgentXmppClientChannelEvent(static_cast<AgentXmppChannel *>(this), state);
-        return true;
-    }
-
-    void HandleXmppChannelEvent(xmps::PeerState state) {
-        rx_channel_event_queue_.Enqueue(state);
-    }
-
-    size_t Count() const { return rx_count_; }
-    virtual ~AgentBgpXmppPeerTest() { }
-    void stop_scheduler(bool stop) {stop_scheduler_ = stop;}
-
-private:
-    size_t rx_count_;
-    bool stop_scheduler_;
-    WorkQueue<xmps::PeerState> rx_channel_event_queue_;
-};
-
 class ControlNodeMockBgpXmppPeer {
 public:
     ControlNodeMockBgpXmppPeer() : channel_ (NULL), rx_count_(0) {
@@ -543,6 +510,257 @@ TEST_F(AgentXmppUnitTest, XmppConnection_Discovery_TimedOut) {
         agent_->controller_xmpp_channel(1)->GetXmppChannel()->GetPeerState()
         == xmps::NOT_READY);
 
+    xs6->Shutdown();
+    client->WaitForIdle();
+
+    //wait for connection establishment
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState()
+        == xmps::NOT_READY);
+
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(1)->GetXmppChannel()->GetPeerState()
+        == xmps::NOT_READY);
+}
+
+TEST_F(AgentXmppUnitTest, XmppConnection_ApplyDiscovery_OrderedList) {
+
+    client->Reset();
+    client->WaitForIdle();
+
+    XmppServerConnectionInit();
+
+    // Simulate Discovery response for Xmpp Server
+    std::vector<DSResponse> ds_response;
+    DSResponse resp;
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.1"));
+    resp.ep.port(xs1->GetPort());
+    ds_response.push_back(resp);
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.2"));
+    resp.ep.port(xs2->GetPort());
+    ds_response.push_back(resp);
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.3"));
+    resp.ep.port(xs3->GetPort());
+    ds_response.push_back(resp);
+
+    agent_->controller()->ApplyDiscoveryXmppServices(ds_response);
+    client->WaitForIdle();
+
+    //wait for connection establishment
+    ASSERT_STREQ(agent_->controller_ifmap_xmpp_server(0).c_str(), "127.0.0.1");
+    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(0) ==
+                (uint32_t)xs1->GetPort());
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState()
+        == xmps::READY);
+
+    ASSERT_STREQ(agent_->controller_ifmap_xmpp_server(1).c_str(), "127.0.0.2");
+    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(1) ==
+                (uint32_t)xs2->GetPort());
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(1)->GetXmppChannel()->GetPeerState()
+        == xmps::READY);
+
+    // Simulate Discovery response for Xmpp Server
+    ds_response.clear();
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.4"));
+    resp.ep.port(xs4->GetPort());
+    ds_response.push_back(resp);
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.1"));
+    resp.ep.port(xs1->GetPort());
+    ds_response.push_back(resp);
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.2"));
+    resp.ep.port(xs2->GetPort());
+    ds_response.push_back(resp);
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.3"));
+    resp.ep.port(xs3->GetPort());
+    ds_response.push_back(resp);
+
+    agent_->controller()->ApplyDiscoveryXmppServices(ds_response);
+    client->WaitForIdle();
+
+    //wait for connection establishment
+    ASSERT_STREQ(agent_->controller_ifmap_xmpp_server(0).c_str(), "127.0.0.1");
+    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(0) ==
+                (uint32_t)xs1->GetPort());
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState()
+        == xmps::READY);
+
+    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(1) ==
+                (uint32_t)xs4->GetPort());
+    ASSERT_STREQ(agent_->controller_ifmap_xmpp_server(1).c_str(), "127.0.0.4");
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(1)->GetXmppChannel()->GetPeerState()
+        == xmps::READY);
+
+    // Wait until older XmppClient, XmppChannel is cleaned
+    client->WaitForIdle();
+
+    // Simulate Discovery response for Xmpp Server
+    ds_response.clear();
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.3"));
+    resp.ep.port(xs3->GetPort());
+    ds_response.push_back(resp);
+
+    agent_->controller()->ApplyDiscoveryXmppServices(ds_response);
+    client->WaitForIdle();
+
+    //wait for connection establishment
+    ASSERT_STREQ(agent_->controller_ifmap_xmpp_server(0).c_str(), "127.0.0.3");
+    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(0) ==
+                (uint32_t)xs3->GetPort());
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState()
+        == xmps::READY);
+
+    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(1) ==
+                (uint32_t)xs4->GetPort());
+    ASSERT_STREQ(agent_->controller_ifmap_xmpp_server(1).c_str(), "127.0.0.4");
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(1)->GetXmppChannel()->GetPeerState()
+        == xmps::READY);
+
+    // Wait until older XmppClient, XmppChannel is cleaned
+    client->WaitForIdle();
+
+    // Simulate Discovery response for Xmpp Server
+    ds_response.clear();
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.3"));
+    resp.ep.port(xs3->GetPort());
+    ds_response.push_back(resp);
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.4"));
+    resp.ep.port(xs4->GetPort());
+    ds_response.push_back(resp);
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.5"));
+    resp.ep.port(xs5->GetPort());
+    ds_response.push_back(resp);
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.6"));
+    resp.ep.port(xs6->GetPort());
+    ds_response.push_back(resp);
+
+    agent_->controller()->ApplyDiscoveryXmppServices(ds_response);
+    client->WaitForIdle();
+
+    //wait for connection establishment
+    ASSERT_STREQ(agent_->controller_ifmap_xmpp_server(0).c_str(), "127.0.0.3");
+    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(0) ==
+                (uint32_t)xs3->GetPort());
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState()
+        == xmps::READY);
+
+    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(1) ==
+                (uint32_t)xs4->GetPort());
+    ASSERT_STREQ(agent_->controller_ifmap_xmpp_server(1).c_str(), "127.0.0.4");
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(1)->GetXmppChannel()->GetPeerState()
+        == xmps::READY);
+
+    // Increment connection attempts to simulate TIMEDOUT state 
+    XmppConnection *connection = 
+       const_cast<XmppConnection *>
+       (agent_->controller_xmpp_channel(0)->GetXmppChannel()->connection());
+    XmppStateMachine *sm = connection->state_machine();
+    uint8_t count = 0;
+    while (count++ < XmppStateMachine::kMaxAttempts) {
+        sm->connect_attempts_inc();
+    }
+
+    // Bring the connected Server Down, to trigger Discovery Server list walk
+    xs3->Shutdown();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState()
+        == xmps::NOT_READY);
+
+    // Agent to walk the discovery list and apply new published service
+    WAIT_FOR(1000, 10000,
+        agent_->controller_ifmap_xmpp_port(0) == (uint32_t)xs5->GetPort());
+    //wait for connection establishment
+    ASSERT_STREQ(agent_->controller_ifmap_xmpp_server(0).c_str(), "127.0.0.5");
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState()
+        == xmps::READY);
+
+    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(1) ==
+                (uint32_t)xs4->GetPort());
+    ASSERT_STREQ(agent_->controller_ifmap_xmpp_server(1).c_str(), "127.0.0.4");
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(1)->GetXmppChannel()->GetPeerState()
+        == xmps::READY);
+
+    // Increment connection attempts to simulate TIMEDOUT state 
+    connection = const_cast<XmppConnection *>
+       (agent_->controller_xmpp_channel(0)->GetXmppChannel()->connection());
+    sm = connection->state_machine();
+    count = 0;
+    while (count++ < XmppStateMachine::kMaxAttempts) {
+        sm->connect_attempts_inc();
+    }
+
+    // Bring the connected Server Down, to trigger Discovery Server list walk
+    xs5->Shutdown();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState()
+        == xmps::NOT_READY);
+
+    // Agent to walk the discovery list and apply new published service
+    WAIT_FOR(1000, 10000,
+        agent_->controller_ifmap_xmpp_port(0) == (uint32_t)xs6->GetPort());
+    //wait for connection establishment
+    ASSERT_STREQ(agent_->controller_ifmap_xmpp_server(0).c_str(), "127.0.0.6");
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState()
+        == xmps::READY);
+
+    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(1) ==
+                (uint32_t)xs4->GetPort());
+    ASSERT_STREQ(agent_->controller_ifmap_xmpp_server(1).c_str(), "127.0.0.4");
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(1)->GetXmppChannel()->GetPeerState()
+        == xmps::READY);
+
+    // Simulate Discovery response for Xmpp Server
+    ds_response.clear();
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.1"));
+    resp.ep.port(xs1->GetPort());
+    ds_response.push_back(resp);
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.2"));
+    resp.ep.port(xs2->GetPort());
+    ds_response.push_back(resp);
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.4"));
+    resp.ep.port(xs4->GetPort());
+    ds_response.push_back(resp);
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.6"));
+    resp.ep.port(xs6->GetPort());
+    ds_response.push_back(resp);
+
+    agent_->controller()->ApplyDiscoveryXmppServices(ds_response);
+    client->WaitForIdle();
+
+    //wait for connection establishment
+    ASSERT_STREQ(agent_->controller_ifmap_xmpp_server(0).c_str(), "127.0.0.1");
+    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(0) ==
+                (uint32_t)xs1->GetPort());
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState()
+        == xmps::READY);
+
+    ASSERT_STREQ(agent_->controller_ifmap_xmpp_server(1).c_str(), "127.0.0.2");
+    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(1) ==
+                (uint32_t)xs2->GetPort());
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(1)->GetXmppChannel()->GetPeerState()
+        == xmps::READY);
+
+
+    xs1->Shutdown();
+    xs2->Shutdown();
+    xs3->Shutdown();
+    xs4->Shutdown();
+    xs5->Shutdown();
     xs6->Shutdown();
     client->WaitForIdle();
 

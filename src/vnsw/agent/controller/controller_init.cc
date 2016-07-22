@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <algorithm>
 #include "base/logging.h"
 #include "base/timer.h"
 #include "base/contrail_ports.h"
@@ -451,6 +452,24 @@ bool VNController::AgentXmppServerExists(const std::string &server_ip,
     return false;
 }
 
+bool VNController::AgentXmppServerConnectedExists(
+                                 const std::string &server_ip,
+                                 std::vector<DSResponse> resp) {
+
+    std::vector<DSResponse>::iterator iter;
+    int8_t count = -1;
+    int8_t min_iter = std::min(static_cast<int>(resp.size()), MAX_XMPP_SERVERS);
+    for (iter = resp.begin(); ++count < min_iter; iter++) {
+        DSResponse dr = *iter;
+        if (dr.ep.address().to_string().compare(server_ip) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
+
 void VNController::ApplyDiscoveryXmppServices(std::vector<DSResponse> resp) {
     ControllerDiscoveryDataType data(new ControllerDiscoveryData(xmps::BGP, resp));
     ControllerWorkQueueDataType base_data =
@@ -462,15 +481,17 @@ bool VNController::ApplyDiscoveryXmppServicesInternal(std::vector<DSResponse> re
     std::vector<DSResponse>::iterator iter;
     int8_t count = -1;
     agent_->UpdateDiscoveryServerResponseList(resp);
-    for (iter = resp.begin(); iter != resp.end(); iter++) {
+
+    /* Apply only MAX_XMPP_SERVERS from list as the list is ordered */
+    int8_t min_iter = std::min(static_cast<int>(resp.size()), MAX_XMPP_SERVERS);
+    for (iter = resp.begin(); ++count < min_iter; iter++) {
         DSResponse dr = *iter;
-        count ++;
 
         CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection, "XMPP Discovery Server Response",
             count, dr.ep.address().to_string(), integerToString(dr.ep.port()));
 
         AgentXmppChannel *chnl = FindAgentXmppChannel(dr.ep.address().to_string());
-        if (chnl) { 
+        if (chnl) {
             if (chnl->GetXmppChannel() &&
                 chnl->GetXmppChannel()->GetPeerState() == xmps::READY) {
                 CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection, 
@@ -502,7 +523,7 @@ bool VNController::ApplyDiscoveryXmppServicesInternal(std::vector<DSResponse> re
 
                 } else if (agent_->controller_xmpp_channel(xs_idx)) {
 
-                    if (AgentXmppServerExists(
+                    if (AgentXmppServerConnectedExists(
                         agent_->controller_ifmap_xmpp_server(xs_idx), resp)) {
 
                         CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection,
@@ -580,16 +601,18 @@ bool VNController::ApplyDiscoveryDnsXmppServicesInternal(
     std::vector<DSResponse>::iterator iter;
     int8_t count = -1;
     agent_->UpdateDiscoveryDnsServerResponseList(resp);
-    for (iter = resp.begin(); iter != resp.end(); iter++) {
+
+    /* Apply only MAX_XMPP_SERVERS from list as the list is ordered */
+    int8_t min_iter = std::min(static_cast<int>(resp.size()), MAX_XMPP_SERVERS);
+    for (iter = resp.begin(); ++count < min_iter; iter++) {
         DSResponse dr = *iter;
-        count++;
 
         CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection,
                                    "DNS Discovery Server Response", count,
             dr.ep.address().to_string(), integerToString(dr.ep.port()));
 
         AgentDnsXmppChannel *chnl = FindAgentDnsXmppChannel(dr.ep.address().to_string());
-        if (chnl) { 
+        if (chnl) {
             if (chnl->GetXmppChannel() &&
                 chnl->GetXmppChannel()->GetPeerState() == xmps::READY) {
                 CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection, 
@@ -619,7 +642,7 @@ bool VNController::ApplyDiscoveryDnsXmppServicesInternal(
             
                 } else if (agent_->dns_xmpp_channel(xs_idx)) {
 
-                    if (AgentXmppServerExists(
+                    if (AgentXmppServerConnectedExists(
                         agent_->dns_server(xs_idx), resp)) {
 
                         CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection,

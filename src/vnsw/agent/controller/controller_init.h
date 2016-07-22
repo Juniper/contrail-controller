@@ -185,6 +185,8 @@ private:
     const std::string MakeConnectionPrefix(bool is_dns) const;
     bool AgentXmppServerExists(const std::string &server_ip,
                                std::vector<DSResponse> resp);
+    bool AgentXmppServerConnectedExists(const std::string &server_ip,
+                               std::vector<DSResponse> resp);
     bool  ApplyDiscoveryXmppServicesInternal(std::vector<DSResponse> resp);
     bool  ApplyDiscoveryDnsXmppServicesInternal(std::vector<DSResponse> resp);
 
