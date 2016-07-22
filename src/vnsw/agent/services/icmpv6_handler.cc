@@ -156,8 +156,12 @@ bool Icmpv6Handler::RouterAdvertisement(Icmpv6Proto *proto) {
             pkt_info_->AllocPacketBuffer(agent(), PktHandler::ICMPV6, ICMP_PKT_SIZE, 0);
             pkt_info_->eth = (struct ether_header *)(pkt_info_->pkt);
             pkt_info_->ip6 = (ip6_hdr *)(pkt_info_->pkt + sizeof(struct ether_header));
+            uint32_t vlan_offset = 0;
+            if (vmi->tx_vlan_id() != VmInterface::kInvalidVlanId)
+                vlan_offset += 4;
             icmp_ = pkt_info_->transp.icmp6 =
-                (icmp6_hdr *)(pkt_info_->pkt + sizeof(struct ether_header) + sizeof(ip6_hdr));
+                (icmp6_hdr *)(pkt_info_->pkt + sizeof(struct ether_header) +
+                              vlan_offset + sizeof(ip6_hdr));
             Ip6Address prefix;
             uint8_t plen;
             if (vmi->vn()->GetPrefix(vmi->primary_ip6_addr(), &prefix, &plen)) {
@@ -352,7 +356,8 @@ void Icmpv6Handler::SolicitedMulticastIpAndMac(const Ip6Address &dip,
 }
 
 void Icmpv6Handler::SendNeighborSolicit(const Ip6Address &sip,
-                                        const Ip6Address &dip, uint32_t itf,
+                                        const Ip6Address &dip,
+                                        const VmInterface *vmi,
                                         uint32_t vrf) {
     if (pkt_info_->packet_buffer() == NULL) {
         pkt_info_->AllocPacketBuffer(agent(), PktHandler::ICMPV6, ICMP_PKT_SIZE,
@@ -361,16 +366,20 @@ void Icmpv6Handler::SendNeighborSolicit(const Ip6Address &sip,
 
     pkt_info_->eth = (struct ether_header *)(pkt_info_->pkt);
     pkt_info_->ip6 = (ip6_hdr *)(pkt_info_->pkt + sizeof(struct ether_header));
+    uint32_t vlan_offset = 0;
+    if (vmi->tx_vlan_id() != VmInterface::kInvalidVlanId)
+        vlan_offset += 4;
     icmp_ = pkt_info_->transp.icmp6 =
             (icmp6_hdr *)(pkt_info_->pkt + sizeof(struct ether_header) +
-                          sizeof(ip6_hdr));
+                          vlan_offset + sizeof(ip6_hdr));
     uint8_t solicited_mcast_ip[16], source_ip[16];
     MacAddress dmac;
     memcpy(source_ip, sip.to_bytes().data(), sizeof(source_ip));
     SolicitedMulticastIpAndMac(dip, solicited_mcast_ip, dmac);
     uint16_t len = FillNeighborSolicit((uint8_t *)icmp_, dip, source_ip,
                                        solicited_mcast_ip);
-    SendIcmpv6Response(itf, vrf, source_ip, solicited_mcast_ip, dmac, len);
+    SendIcmpv6Response(vmi->id(), vrf, source_ip,
+                       solicited_mcast_ip, dmac, len);
 }
 
 bool Icmpv6Handler::IsDefaultGatewayConfigured(uint32_t ifindex,
