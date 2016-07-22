@@ -970,7 +970,9 @@ class VncApiServer(object):
         if (('parent_fq_name_str' in get_request().query) and
             ('parent_type' in get_request().query)):
             parent_fq_name = get_request().query.parent_fq_name_str.split(':')
-            parent_type = get_request().query.parent_type
+            parent_res_type = get_request().query.parent_type
+            parent_class = self.get_resource_class(parent_res_type)
+            parent_type = parent_class.object_type
             parent_uuids = [self._db_conn.fq_name_to_uuid(parent_type, parent_fq_name)]
         elif 'parent_id' in get_request().query:
             parent_ids = get_request().query.parent_id.split(',')
