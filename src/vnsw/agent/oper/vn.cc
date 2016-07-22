@@ -96,7 +96,8 @@ VnEntry::VnEntry(Agent *agent, uuid id) :
     admin_state_(true), table_label_(0), enable_rpf_(true),
     flood_unknown_unicast_(false), old_vxlan_id_(0),
     forwarding_mode_(Agent::L2_L3),
-    route_resync_walker_(new AgentRouteResync(agent)) {
+    route_resync_walker_(new AgentRouteResync(agent)), mirror_destination_(false)
+{
     route_resync_walker_.get()->
         set_walkable_route_tables((1 << Agent::INET4_UNICAST) |
                                   (1 << Agent::INET6_UNICAST));
@@ -343,7 +344,8 @@ bool VnTable::RebakeVxlan(VnEntry *vn, bool op_del) {
     if (vxlan) {
         vn->old_vxlan_id_ = vxlan;
         vn->vxlan_id_ref_ = table->Locate(vxlan, vn->uuid_, vn->vrf_->GetName(),
-                                          vn->flood_unknown_unicast_);
+                                          vn->flood_unknown_unicast_,
+                                          vn->mirror_destination_);
     }
 
     return (old_vxlan != vn->vxlan_id_ref_.get());
@@ -578,6 +580,12 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
         ret = true;
     }
 
+    if (vn->mirror_destination_ != data->mirror_destination_) {
+        vn->mirror_destination_ = data->mirror_destination_;
+        rebake_vxlan = true;
+        ret = true;
+    }
+
     if (rebake_vxlan) {
         ret |= RebakeVxlan(vn, false);
     }
@@ -684,7 +692,8 @@ int VnTable::ComputeCfgVxlanId(IFMapNode *node) {
 
 void VnTable::CfgForwardingFlags(IFMapNode *node, bool *l2, bool *l3,
                                  bool *rpf, bool *flood_unknown_unicast,
-                                 Agent::ForwardingMode *forwarding_mode) {
+                                 Agent::ForwardingMode *forwarding_mode,
+                                 bool *mirror_destination) {
     *rpf = true;
 
     VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
@@ -695,7 +704,7 @@ void VnTable::CfgForwardingFlags(IFMapNode *node, bool *l2, bool *l3,
     }
 
     *flood_unknown_unicast = cfg->flood_unknown_unicast();
-
+    *mirror_destination = properties.mirror_destination;
     //dervived forwarding mode is resultant of configured VN forwarding and global
     //configure forwarding mode. It is then used to setup the VN forwarding
     //mode.
@@ -832,16 +841,18 @@ VnData *VnTable::BuildData(IFMapNode *node) {
     bool layer3_forwarding;
     bool enable_rpf;
     bool flood_unknown_unicast;
+    bool mirror_destination;
     Agent::ForwardingMode forwarding_mode;
     CfgForwardingFlags(node, &bridging, &layer3_forwarding, &enable_rpf,
-                       &flood_unknown_unicast, &forwarding_mode);
+                       &flood_unknown_unicast, &forwarding_mode,
+                       &mirror_destination);
     return new VnData(agent(), node, node->name(), acl_uuid, vrf_name,
                       mirror_acl_uuid, mirror_cfg_acl_uuid, vn_ipam,
                       vn_ipam_data, cfg->properties().vxlan_network_identifier,
                       GetCfgVnId(cfg), bridging, layer3_forwarding,
                       cfg->id_perms().enable, enable_rpf,
                       flood_unknown_unicast, forwarding_mode,
-                      qos_config_uuid);
+                      qos_config_uuid, mirror_destination);
 }
 
 bool VnTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
@@ -888,13 +899,15 @@ void VnTable::AddVn(const uuid &vn_uuid, const string &name,
                     const VnData::VnIpamDataMap &vn_ipam_data, int vn_id,
                     int vxlan_id, bool admin_state, bool enable_rpf,
                     bool flood_unknown_unicast) {
+    bool mirror_destination = false;
     DBRequest req;
     VnKey *key = new VnKey(vn_uuid);
     VnData *data = new VnData(agent(), NULL, name, acl_id, vrf_name, nil_uuid(), 
                               nil_uuid(), ipam, vn_ipam_data,
                               vn_id, vxlan_id, true, true,
                               admin_state, enable_rpf,
-                              flood_unknown_unicast, Agent::NONE, nil_uuid());
+                              flood_unknown_unicast, Agent::NONE, nil_uuid(),
+                              mirror_destination);
  
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
@@ -1182,7 +1195,6 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
     data.set_admin_state(admin_state());
     data.set_enable_rpf(enable_rpf());
     data.set_flood_unknown_unicast(flood_unknown_unicast());
-
     std::vector<VnSandeshData> &list =
         const_cast<std::vector<VnSandeshData>&>(resp->get_vn_list());
     list.push_back(data);
