@@ -698,7 +698,7 @@ bool FlowTableKSyncObject::AuditProcess() {
                 FlowEntryPtr flow(ksync_->agent()->pkt()->flow_table()->
                                   Allocate(key));
                 flow->InitAuditFlow(flow_idx);
-                AGENT_ERROR(FlowLog, flow_idx, "FlowAudit : Converting HOLD "
+                AGENT_LOG(FlowLog, flow_idx, "FlowAudit : Converting HOLD "
                             "entry to short flow");
                 ksync_->agent()->pkt()->flow_table()->Add(flow.get(), NULL,
                                                           false);
