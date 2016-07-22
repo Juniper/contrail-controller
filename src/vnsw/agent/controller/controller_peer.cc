@@ -296,7 +296,8 @@ GetEnetTypeBitmap(const EnetTunnelEncapsulationListType &encap) {
          iter != encap.end(); iter++) {
         TunnelEncapType::Encap encap =
             TunnelEncapType::TunnelEncapFromString(*iter);
-        if (encap == TunnelEncapType::MPLS_O_GRE)
+        if ((encap == TunnelEncapType::GRE) ||
+            (encap == TunnelEncapType::MPLS_O_GRE))
             bmap |= (1 << TunnelType::MPLS_GRE);
         if (encap == TunnelEncapType::MPLS_O_UDP)
             bmap |= (1 << TunnelType::MPLS_UDP);
@@ -313,7 +314,8 @@ GetTypeBitmap(const TunnelEncapsulationListType &encap) {
          iter != encap.end(); iter++) {
         TunnelEncapType::Encap encap =
             TunnelEncapType::TunnelEncapFromString(*iter);
-        if (encap == TunnelEncapType::MPLS_O_GRE)
+        if ((encap == TunnelEncapType::GRE) ||
+            (encap == TunnelEncapType::MPLS_O_GRE))
             bmap |= (1 << TunnelType::MPLS_GRE);
         if (encap == TunnelEncapType::MPLS_O_UDP)
             bmap |= (1 << TunnelType::MPLS_UDP);
@@ -327,7 +329,8 @@ GetMcastTypeBitmap(const McastTunnelEncapsulationListType &encap) {
          iter != encap.end(); iter++) {
         TunnelEncapType::Encap encap =
             TunnelEncapType::TunnelEncapFromString(*iter);
-        if (encap == TunnelEncapType::MPLS_O_GRE)
+        if ((encap == TunnelEncapType::GRE) ||
+            (encap == TunnelEncapType::MPLS_O_GRE))
             bmap |= (1 << TunnelType::MPLS_GRE);
         if (encap == TunnelEncapType::MPLS_O_UDP)
             bmap |= (1 << TunnelType::MPLS_UDP);
