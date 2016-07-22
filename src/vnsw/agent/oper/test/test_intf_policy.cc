@@ -675,6 +675,126 @@ TEST_F(PolicyTest, IntfPolicyDisable_Flow) {
     EXPECT_EQ(0U, flow_proto_->FlowCount());
 }
 
+//When policy is enabled/disabled on VMI, label of VMI changes. When a VMI
+//has static_route associated with it and its policy-status changes verify that
+//the label of the static-route's path is updated accordingly.
+TEST_F(PolicyTest, IntfStaticRoute) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1}
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+    const VmInterface *intf1 = VmInterfaceGet(input[0].intf_id);
+    EXPECT_TRUE(intf1 != NULL);
+
+   //Add a static route
+   struct TestIp4Prefix static_route[] = {
+       { Ip4Address::from_string("2.1.1.10"), 32}
+   };
+
+   AddInterfaceRouteTable("static_route", 1, static_route, 1);
+   AddLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   client->WaitForIdle();
+
+   InetUnicastRouteEntry *rt = RouteGet("vrf1", static_route[0].addr_,
+                                        static_route[0].plen_);
+   EXPECT_TRUE(rt != NULL);
+   const AgentPath *path = rt->GetActivePath();
+   EXPECT_TRUE(path != NULL);
+   EXPECT_TRUE(path->label() == intf1->label());
+   uint32_t vmi_label = intf1->label();
+
+   WAIT_FOR(100, 1000, ((VmPortPolicyEnabled(input, 0)) == true));
+
+   //Disable policy on vnet1 VMI
+   SetPolicyDisabledStatus(&input[0], true);
+   client->WaitForIdle();
+
+   //Verify that policy status of interface
+   WAIT_FOR(100, 1000, ((VmPortPolicyEnabled(input, 0)) == false));
+
+   //Verify that vnet1's label has changed after disabling policy on it.
+   EXPECT_TRUE(vmi_label != intf1->label());
+
+   //Verify that label of static_route's path is updated with new label of VMI
+   EXPECT_TRUE(path->label() == intf1->label());
+
+   //Delete the link between interface and route table
+   DelLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   client->WaitForIdle();
+   EXPECT_FALSE(RouteFind("vrf1", static_route[0].addr_,
+                          static_route[0].plen_));
+
+   DelNode("interface-route-table", "static_route");
+   client->WaitForIdle();
+   DeleteVmportEnv(input, 1, true, 1);
+   client->WaitForIdle();
+   WAIT_FOR(100, 1000, (VrfFind("vrf1") == false));
+}
+
+//Add and delete allowed address pair route
+TEST_F(PolicyTest, AapRoute) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1}
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+    const VmInterface *intf1 = VmInterfaceGet(input[0].intf_id);
+    EXPECT_TRUE(intf1 != NULL);
+
+   //Add an AAP route
+   Ip4Address ip = Ip4Address::from_string("10.10.10.10");
+   std::vector<Ip4Address> v;
+   v.push_back(ip);
+
+   AddAap("vnet1", 1, v);
+   EXPECT_TRUE(RouteFind("vrf1", ip, 32));
+
+   InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+   EXPECT_TRUE(rt != NULL);
+   const AgentPath *path = rt->GetActivePath();
+   EXPECT_TRUE(path != NULL);
+   EXPECT_TRUE(path->label() == intf1->label());
+   uint32_t vmi_label = intf1->label();
+
+   WAIT_FOR(100, 1000, ((VmPortPolicyEnabled(input, 0)) == true));
+
+   //Disable policy on vnet1 VMI
+   AddAapWithDisablePolicy("vnet1", 1, v, true);
+   client->WaitForIdle();
+
+   //Verify that policy status of interface
+   WAIT_FOR(100, 1000, ((VmPortPolicyEnabled(input, 0)) == false));
+
+   //Verify that vnet1's label has changed after disabling policy on it.
+   EXPECT_TRUE(vmi_label != intf1->label());
+
+   //Verify that label of aap_route's path is updated with new label of VMI
+   rt = RouteGet("vrf1", ip, 32);
+   EXPECT_TRUE(rt != NULL);
+   path = rt->GetActivePath();
+   EXPECT_TRUE(path != NULL);
+   EXPECT_TRUE(path->label() == intf1->label());
+
+   //Remove AAP route
+   v.clear();
+   AddAap("vnet1", 1, v);
+   EXPECT_FALSE(RouteFind("vrf1", ip, 32));
+
+   //cleanup
+   DeleteVmportEnv(input, 1, true, 1);
+   client->WaitForIdle();
+   WAIT_FOR(100, 1000, (VrfFind("vrf1") == false));
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 
