@@ -94,7 +94,7 @@ struct VnData : public AgentOperDBData {
            int vxlan_id, int vnid, bool bridging,
            bool layer3_forwarding, bool admin_state, bool enable_rpf,
            bool flood_unknown_unicast, Agent::ForwardingMode forwarding_mode,
-           const boost::uuids::uuid &qos_config_uuid) :
+           const boost::uuids::uuid &qos_config_uuid, bool mirror_destination) :
         AgentOperDBData(agent, node), name_(name), vrf_name_(vrf_name),
         acl_id_(acl_id), mirror_acl_id_(mirror_acl_id),
         mirror_cfg_acl_id_(mc_acl_id), ipam_(ipam), vn_ipam_data_(vn_ipam_data),
@@ -102,7 +102,8 @@ struct VnData : public AgentOperDBData {
         layer3_forwarding_(layer3_forwarding), admin_state_(admin_state),
         enable_rpf_(enable_rpf),
         flood_unknown_unicast_(flood_unknown_unicast),
-        forwarding_mode_(forwarding_mode), qos_config_uuid_(qos_config_uuid) {
+        forwarding_mode_(forwarding_mode), qos_config_uuid_(qos_config_uuid),
+        mirror_destination_(mirror_destination){
     };
     virtual ~VnData() { }
 
@@ -122,6 +123,7 @@ struct VnData : public AgentOperDBData {
     bool flood_unknown_unicast_;
     Agent::ForwardingMode forwarding_mode_;
     boost::uuids::uuid qos_config_uuid_;
+    bool mirror_destination_;
 };
 
 class VnEntry : AgentRefCount<VnEntry>, public AgentOperDBEntry {
@@ -192,6 +194,10 @@ public:
         return qos_config_.get();
     }
 
+    const bool mirror_destination() const {
+        return mirror_destination_;
+    }
+
 private:
     friend class VnTable;
 
@@ -217,6 +223,7 @@ private:
     Agent::ForwardingMode forwarding_mode_;
     boost::scoped_ptr<AgentRouteResync> route_resync_walker_;
     AgentQosConfigConstRef qos_config_;
+    bool mirror_destination_;
     DISALLOW_COPY_AND_ASSIGN(VnEntry);
 };
 
@@ -246,7 +253,8 @@ public:
     int ComputeCfgVxlanId(IFMapNode *node);
     void CfgForwardingFlags(IFMapNode *node, bool *l2, bool *l3, bool *rpf,
                             bool *flood_unknown_unicast,
-                            Agent::ForwardingMode *forwarding_mode);
+                            Agent::ForwardingMode *forwarding_mode,
+                            bool *mirror_destination);
 
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);

@@ -12,6 +12,7 @@
 #include <oper/vxlan.h>
 #include <oper/mirror_table.h>
 #include <oper/agent_sandesh.h>
+#include <oper/multicast.h>
 
 using namespace std;
 
@@ -30,6 +31,96 @@ void VxLanId::SetKey(const DBRequestKey *k) {
     const VxLanIdKey *key = static_cast<const VxLanIdKey *>(k);
     vxlan_id_ = key->vxlan_id();
 }
+
+void VxLanTable::Initialize() {
+    Register();
+}
+
+void VxLanTable::Register() {
+    interface_listener_id_ = agent()->interface_table()->Register(
+        boost::bind(&VxLanTable::VmInterfaceNotify, this, _1, _2));
+
+}
+
+void VxLanTable::Shutdown() {
+    agent()->interface_table()->Unregister(interface_listener_id_);
+}
+
+void VxLanTable::VmInterfaceNotify(DBTablePartBase *partition, DBEntryBase *e) {
+    const Interface *intf = static_cast<const Interface *>(e);
+    const VmInterface *vm_itf;
+    bool composite_nh_modified = false;
+    if (intf->type() != Interface::VM_INTERFACE) {
+        return;
+    }
+
+    vm_itf = static_cast<const VmInterface *>(intf);
+
+    if (vm_itf->vn() == NULL) {
+        return;
+    }
+
+    const VnEntry *vn = vm_itf->vn();
+    if (!vn->mirror_destination()) {
+        return;
+    }
+
+    ComponentNHKeyPtr nh_key(new ComponentNHKey(vm_itf->label(),vm_itf->GetUuid(),
+                                                InterfaceNHFlags::BRIDGE,
+                                                vm_itf->mac()));
+    // if the interface deleted remove the entry from map
+    // else add it to composite NH list
+    if (intf->IsDeleted() || ((vm_itf->l2_active() == false) &&
+                              (vm_itf->ipv4_active() == false) &&
+                              (vm_itf->ipv6_active() == false))) {
+        composite_nh_modified = DeleteCompositeNH(vm_itf->vxlan_id(), nh_key);
+    } else {
+        composite_nh_modified = AddCompositeNH(vm_itf->vxlan_id(), nh_key);
+    }
+
+    if (composite_nh_modified) {
+        Create(vm_itf->vxlan_id(), vm_itf->vrf()->GetName(),
+               vn->flood_unknown_unicast(), vn->mirror_destination());
+    }
+    return;
+}
+
+bool VxLanTable::DeleteCompositeNH(uint32_t vxlan_id,
+                                   ComponentNHKeyPtr nh_key) {
+    VxlanCompositeNHList::iterator it = vxlan_composite_nh_map_.find(vxlan_id);
+    if (it != vxlan_composite_nh_map_.end()) {
+        ComponentNHKeyList::iterator list_it = it->second.begin();
+        for (; list_it != it->second.end(); list_it++) {
+            if (**list_it == *nh_key) {
+                // release the ComponentNHKeyPtr
+                (*list_it).reset();
+                return true;
+            }
+        }
+        return false;
+    }
+    return false;
+}
+
+bool VxLanTable::AddCompositeNH(uint32_t vxlan_id, ComponentNHKeyPtr nh_key) {
+    VxlanCompositeNHList::iterator it = vxlan_composite_nh_map_.find(vxlan_id);
+    if (it != vxlan_composite_nh_map_.end()) {
+        ComponentNHKeyList::const_iterator list_it = it->second.begin();
+        for (; list_it != it->second.end(); list_it++) {
+            if (**list_it == *nh_key) {
+                // already there no modification
+                return false;
+            }
+        }
+        it->second.push_back(nh_key);
+        return true;
+    }
+    ComponentNHKeyList list;
+    list.push_back(nh_key);
+    vxlan_composite_nh_map_.insert(VxlanCompositeNHEntry(vxlan_id, list));
+    return true;
+}
+
 
 std::auto_ptr<DBEntry> VxLanTable::AllocEntry(const DBRequestKey *k) const {
     const VxLanIdKey *key = static_cast<const VxLanIdKey *>(k);
@@ -67,10 +158,33 @@ bool VxLanTable::ChangeHandler(VxLanId *vxlan_id, const DBRequest *req) {
     VxLanIdData *data = static_cast<VxLanIdData *>(req->data.get());
 
     Agent::GetInstance()->nexthop_table()->Process(data->nh_req());
-
-    VrfNHKey nh_key(data->vrf_name(), false, true);
-    NextHop *nh = static_cast<NextHop *>
-        (Agent::GetInstance()->nexthop_table()->FindActiveEntry(&nh_key));
+    NextHop *nh;
+    // if VN is enabled with mirror destination point the vxlan nh
+    // to CompositeNH
+    if (data->mirror_destination()) {
+        VxlanCompositeNHList::iterator it =
+            vxlan_composite_nh_map_.find(vxlan_id->vxlan_id());
+        if (it != vxlan_composite_nh_map_.end()) {
+             CompositeNHKey nh_key(Composite::L2INTERFACE, false, it->second,
+                                   data->vrf_name());
+            nh = static_cast<NextHop *>
+                (Agent::GetInstance()->nexthop_table()->FindActiveEntry(&nh_key));
+        } else {
+            // vm interface notification arraived at so create dummy CompositeNH
+            ComponentNHKeyPtr nh_ptr;
+            nh_ptr.reset();
+            ComponentNHKeyList list;
+            list.push_back(nh_ptr);
+            CompositeNHKey nh_key(Composite::L2INTERFACE, false, list,
+                                  data->vrf_name());
+            nh = static_cast<NextHop *>
+                (agent()->nexthop_table()->FindActiveEntry(&nh_key));
+        }
+    } else {
+        VrfNHKey nh_key(data->vrf_name(), false, true);
+        nh = static_cast<NextHop *>
+            (Agent::GetInstance()->nexthop_table()->FindActiveEntry(&nh_key));
+    }
 
     if (vxlan_id->nh_ != nh) {
         vxlan_id->nh_ = nh;
@@ -106,7 +220,8 @@ void VxLanTable::OnZeroRefcount(AgentDBEntry *e) {
 //    - vxlan dbentry if "vn" is "active"
 //    - NULL if "vn" is "inactive"
 VxLanId *VxLanTable::Locate(uint32_t vxlan_id, const boost::uuids::uuid &vn,
-                            const std::string &vrf, bool flood_unknown_unicast){
+                            const std::string &vrf, bool flood_unknown_unicast,
+                            bool mirror_destination){
     // Treat a request without VRF as delete of config entry
     if (vrf.empty()) {
         Delete(vxlan_id, vn);
@@ -121,8 +236,8 @@ VxLanId *VxLanTable::Locate(uint32_t vxlan_id, const boost::uuids::uuid &vn,
     if (it == config_tree_.end() || it->first.vxlan_id_ != vxlan_id) {
         config_tree_.insert(make_pair(ConfigKey(vxlan_id, vn),
                                       ConfigEntry(vrf, flood_unknown_unicast,
-                                                  true)));
-        Create(vxlan_id, vrf, flood_unknown_unicast);
+                                                  true, mirror_destination)));
+        Create(vxlan_id, vrf, flood_unknown_unicast, mirror_destination);
         return Find(vxlan_id);
     }
 
@@ -131,10 +246,11 @@ VxLanId *VxLanTable::Locate(uint32_t vxlan_id, const boost::uuids::uuid &vn,
     if (it != config_tree_.end()) {
         it->second.vrf_ = vrf;
         it->second.flood_unknown_unicast_ = flood_unknown_unicast;
+        it->second.mirror_destination_ = mirror_destination;
 
         // If entry is active, update vxlan dbentry with new information
         if (it->second.active_) {
-            Create(vxlan_id, vrf, flood_unknown_unicast);
+            Create(vxlan_id, vrf, flood_unknown_unicast, mirror_destination);
             return Find(vxlan_id);
         }
         // If entry inactive, return NULL
@@ -144,7 +260,7 @@ VxLanId *VxLanTable::Locate(uint32_t vxlan_id, const boost::uuids::uuid &vn,
     // Entry not present, add it to config-tree
     config_tree_.insert(make_pair(ConfigKey(vxlan_id, vn),
                                   ConfigEntry(vrf, flood_unknown_unicast,
-                                              false)));
+                                              false, mirror_destination)));
     // Return NULL since the VN is active
     return NULL;
 }
@@ -168,7 +284,8 @@ VxLanId *VxLanTable::Delete(uint32_t vxlan_id, const boost::uuids::uuid &vn) {
         return NULL;
 
     it->second.active_ = true;
-    Create(vxlan_id, it->second.vrf_, it->second.flood_unknown_unicast_);
+    Create(vxlan_id, it->second.vrf_, it->second.flood_unknown_unicast_,
+           it->second.mirror_destination_);
     agent()->vn_table()->ResyncVxlan(it->first.vn_);
     return NULL;
 }
@@ -180,23 +297,42 @@ DBTableBase *VxLanTable::CreateTable(DB *db, const std::string &name) {
 }
 
 void VxLanTable::Create(uint32_t vxlan_id, const string &vrf_name,
-                        bool flood_unknown_unicast) {
+                        bool flood_unknown_unicast, bool mirror_destination) {
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    nh_req.key.reset(new VrfNHKey(vrf_name, false, true));
-    nh_req.data.reset(new VrfNHData(flood_unknown_unicast));
-
+    if (mirror_destination) {
+        VxlanCompositeNHList::iterator it =
+            vxlan_composite_nh_map_.find(vxlan_id);
+        if (it != vxlan_composite_nh_map_.end()) {
+            nh_req.key.reset(new CompositeNHKey(Composite::L2INTERFACE, false,
+                                                it->second, vrf_name));
+        } else {
+            ComponentNHKeyPtr nh_ptr;
+            nh_ptr.reset();
+            ComponentNHKeyList list;
+            list.push_back(nh_ptr);
+            nh_req.key.reset(new CompositeNHKey(Composite::L2INTERFACE, false,
+                                                list, vrf_name));
+        }
+        nh_req.data.reset(new CompositeNHData());
+    } else {
+        nh_req.key.reset(new VrfNHKey(vrf_name, false, true));
+        nh_req.data.reset(new VrfNHData(flood_unknown_unicast));
+    }
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VxLanIdKey(vxlan_id));
-    req.data.reset(new VxLanIdData(vrf_name, nh_req));
-
+    req.data.reset(new VxLanIdData(vrf_name, nh_req, mirror_destination));
     Process(req);
     return;
 }
-                                   
+
 void VxLanTable::Delete(uint32_t vxlan_id) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new VxLanIdKey(vxlan_id));
     req.data.reset(NULL);
+    VxlanCompositeNHList::iterator it = vxlan_composite_nh_map_.find(vxlan_id);
+    if (it != vxlan_composite_nh_map_.end()) {
+        vxlan_composite_nh_map_.erase(it);
+    }
     Process(req);
 }
 
