@@ -7,7 +7,7 @@ import socket
 
 from vnc_api.gen.resource_client import Alarm
 from vnc_api.gen.resource_xsd import IdPermsType, AlarmExpression, \
-    AlarmAndList, AlarmOrList
+    AlarmAndList, AlarmOrList, UveKeysType
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from config_handler import ConfigHandler
 from opserver_util import camel_case_to_hyphen, inverse_dict
@@ -90,7 +90,7 @@ class AlarmGenConfigHandler(ConfigHandler):
                     extn.obj.__class__.__name__)
                 if self._inbuilt_alarms.has_key(alarm_name):
                     uve_keys = self._inbuilt_alarms[alarm_name].get_uve_keys()
-                    uve_keys.append(_INVERSE_UVE_MAP[table])
+                    uve_keys.uve_key.append(_INVERSE_UVE_MAP[table])
                     self._inbuilt_alarms[alarm_name].set_uve_keys(uve_keys)
                 else:
                     alarm_or_list = None
@@ -103,7 +103,7 @@ class AlarmGenConfigHandler(ConfigHandler):
                                     operation=exp['operation'],
                                     operand1=exp['operand1'],
                                     operand2=exp['operand2'],
-                                    vars=exp.get('vars')))
+                                    variables=exp.get('variables')))
                             alarm_or_list.append(AlarmAndList(alarm_and_list))
                     desc = ' '.join([l.strip() \
                         for l in extn.obj.__doc__.splitlines()])
@@ -112,7 +112,7 @@ class AlarmGenConfigHandler(ConfigHandler):
                         'fq_name': ['default-global-system-config',
                             alarm_name]}
                     self._inbuilt_alarms[alarm_name] = Alarm(name=alarm_name,
-                        uve_keys=[_INVERSE_UVE_MAP[table]],
+                        uve_keys=UveKeysType([_INVERSE_UVE_MAP[table]]),
                         alarm_severity=extn.obj.severity(),
                         alarm_rules=AlarmOrList(alarm_or_list),
                         id_perms=id_perms, **kwargs)
@@ -139,25 +139,27 @@ class AlarmGenConfigHandler(ConfigHandler):
                 alarm_config = self._config_db[config_type].get(fq_name)
                 if alarm_config is None:
                     alarm_config_change_map = self._update_alarm_config_table(
-                        fq_name, config_obj, config_obj.uve_keys, 'CREATE')
+                        fq_name, config_obj, config_obj.uve_keys.uve_key,
+                        'CREATE')
                 else:
                     # If the alarm config already exists, then check for
-                    # addition/deletion of elements from uve_keys[] and
+                    # addition/deletion of elements from uve_keys and
                     # update the alarm_config_db appropriately.
-                    add_uve_keys = set(config_obj.uve_keys) - \
-                        set(alarm_config.uve_keys)
+                    add_uve_keys = set(config_obj.uve_keys.uve_key) - \
+                        set(alarm_config.uve_keys.uve_key)
                     if add_uve_keys:
                         alarm_config_change_map.update(
                             self._update_alarm_config_table(
                                 fq_name, config_obj, add_uve_keys, 'CREATE'))
-                    del_uve_keys = set(alarm_config.uve_keys) - \
-                        set(config_obj.uve_keys)
+                    del_uve_keys = set(alarm_config.uve_keys.uve_key) - \
+                        set(config_obj.uve_keys.uve_key)
                     if del_uve_keys:
                         alarm_config_change_map.update(
                             self._update_alarm_config_table(
                                 fq_name, None, del_uve_keys, 'DELETE'))
-                    upd_uve_keys = set(config_obj.uve_keys).intersection(
-                        set(alarm_config.uve_keys))
+                    upd_uve_keys = \
+                        set(config_obj.uve_keys.uve_key).intersection(
+                            set(alarm_config.uve_keys.uve_key))
                     if upd_uve_keys:
                         alarm_config_change_map.update(
                             self._update_alarm_config_table(
@@ -168,7 +170,7 @@ class AlarmGenConfigHandler(ConfigHandler):
             if config_obj is not None:
                 if config_type == 'alarm':
                     alarm_config_change_map = self._update_alarm_config_table(
-                        fq_name, None, config_obj.uve_keys, 'DELETE')
+                        fq_name, None, config_obj.uve_keys.uve_key, 'DELETE')
                 del self._config_db[config_type][fq_name]
             if not len(self._config_db[config_type]):
                 del self._config_db[config_type]

@@ -276,10 +276,10 @@ class AlarmProcessor(object):
             return val
     # end _get_json_value
 
-    def _get_json_vars(self, uve, exp, operand1_val,
-                       operand2_val, is_operand2_json_val):
+    def _get_json_variables(self, uve, exp, operand1_val,
+                            operand2_val, is_operand2_json_val):
         json_vars = {}
-        for var in exp.vars:
+        for var in exp.variables:
             # If var and operand1/operand2 are at the same hirerarchy in
             # the uve struture, then get the value of var from parent_attr of
             # the corresponding operand_val
@@ -295,7 +295,7 @@ class AlarmProcessor(object):
                 var_val = self._get_operand_value(uve, var)['value']
             json_vars[var] = self._get_json_value(var_val)
         return json_vars
-    # end _get_json_vars
+    # end _get_json_variables
 
     def _compare_operand_vals(self, val1, val2, operation):
         try:
@@ -334,7 +334,7 @@ class AlarmProcessor(object):
 
     def _get_alarm_match(self, uve, exp, operand1_val, operand2_val,
                          is_operand2_json_val):
-        json_vars = self._get_json_vars(uve, exp, operand1_val,
+        json_vars = self._get_json_variables(uve, exp, operand1_val,
             operand2_val, is_operand2_json_val)
         json_operand1_val = self._get_json_value(operand1_val['value'])
         if not is_operand2_json_val:
@@ -352,7 +352,8 @@ class AlarmProcessor(object):
                 operand2_val, is_operand2_json_val)]
         return AlarmConditionMatch(
             condition=AlarmCondition(operation=exp.operation,
-                operand1=exp.operand1, operand2=exp.operand2, vars=exp.vars),
+                operand1=exp.operand1, operand2=exp.operand2,
+                vars=exp.variables),
             match=match_list)
     # end _get_alarm_condition_match
 
