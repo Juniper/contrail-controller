@@ -177,6 +177,15 @@ int QosConfigKSyncEntry::DeleteMsg(char *buf, int buf_len) {
 
 KSyncEntry *QosConfigKSyncEntry::UnresolvedReference() {
 
+    //QOS config has forwarding-class ID
+    //And qos-config may have a forwarding-class ID which
+    //is not present, in that case unresolved dependency
+    //would never resolve and all dependent object like
+    //VMI also would not be programmed. vrouter also
+    //doesnt cross check for forwarding-class
+    //Hence not checking for any forwarding class reference
+    return NULL;
+
     KSyncQosFcMap::const_iterator it = dscp_map_.begin();
     for (; it != dscp_map_.end(); it++) {
         if (it->second.get()->IsResolved() == false) {
