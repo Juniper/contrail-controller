@@ -4507,10 +4507,7 @@ void VmInterface::StaticRoute::Activate(VmInterface *interface,
         vrf_ = interface->vrf()->GetName();
     }
 
-    if (installed_ == true && policy_change) {
-        InetUnicastAgentRouteTable::ReEvaluatePaths(interface->agent(),
-                                                    vrf_, addr_, plen_);
-    } else if (installed_ == false || force_update) {
+    if (installed_ == false || force_update || policy_change) {
         Ip4Address gw_ip(0);
         if (gw_.is_v4() && addr_.is_v4() && gw_.to_v4() != gw_ip) {
             SecurityGroupList sg_id_list;
