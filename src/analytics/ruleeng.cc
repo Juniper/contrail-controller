@@ -555,23 +555,25 @@ static size_t DomObjectWalk(const pugi::xml_node& parent, const VizMsg *rmsg,
     std::map<std::string, std::string> keymap;
     std::map<std::string, std::string>::iterator it;
     const char *table;
+    const char *nodetype;
     std::string rowkey;
 
     for (pugi::xml_node node = parent.first_child(); node;
          node = node.next_sibling()) {
         table = node.attribute("key").value();
-        if (strcmp(table, "")) {
+        nodetype = node.attribute("type").value();
+        if (strcmp(table, "") && strcmp(nodetype, "")) { //Messages with "type" node attribute that are null should not be added to keymap; "key" attribute of these nodes equal "string"
             rowkey = std::string(node.child_value());
-            TXMLProtocol::unescapeXMLControlChars(rowkey);
+	    TXMLProtocol::unescapeXMLControlChars(rowkey);
             it = keymap.find(table);
             if (it != keymap.end()) {
                 std::string tempstr(it->second);
                 tempstr.append(":");
                 tempstr.append(rowkey);
-                keymap.erase(it);
+		keymap.erase(it);
                 keymap.insert(std::pair<std::string, std::string>(table, tempstr));
             } else {
-                keymap.insert(std::pair<std::string, std::string>(table, rowkey));
+		keymap.insert(std::pair<std::string, std::string>(table, rowkey));
             }
         }
     }
@@ -829,7 +831,6 @@ bool Ruleeng::rule_execute(const VizMsg *vmsgp, bool uveproc, DbHandler *db,
     const SandeshXMLMessage *sxmsg = 
         static_cast<const SandeshXMLMessage *>(vmsgp->msg);
     const pugi::xml_node &parent(sxmsg->GetMessageNode());
-
     remove_identifier(parent);
 
     handle_object_log(parent, vmsgp, db, header, db_cb);
