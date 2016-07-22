@@ -3,7 +3,6 @@
  */
 
 struct BgpTableStats {
-    1: optional string address_family;
     2: optional u64 prefixes;
     3: optional u64 primary_paths;
     4: optional u64 secondary_paths;

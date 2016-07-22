@@ -782,10 +782,6 @@ uint32_t BgpServer::SendTableStatsUve(bool first) const {
             }
 
             if (changed) {
-
-                // Set the address family to be able to find to which family,
-                // the associated updated stats are applicable.
-                table->stats()->set_address_family(family);
                 tables_stats.insert(make_pair(family, *table->stats()));
 
                 // Reset changed flags in the uve structure.
