@@ -1046,7 +1046,9 @@ const AgentPath *InetEvpnRoutePath::UsablePath() const {
     //In InetEvpnRoutePath nexthop will always be NULL.
     //Valid NH is dependant on parent route(subnet).
     if (dependant_rt()) {
-        return dependant_rt()->GetActivePath();
+        const AgentPath *path = dependant_rt()->GetActivePath();
+        if (path != NULL)
+            return path;
     }
     return this;
 }
