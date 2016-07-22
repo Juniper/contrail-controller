@@ -120,6 +120,8 @@ void FlowMgmtDbClient::InterfaceNotify(DBTablePartBase *part, DBEntryBase *e) {
         state->sg_l_ = new_sg_l;
         state->vn_ = new_vn;
         state->vrf_assign_acl_ = vm_port->vrf_assign_acl();
+        state->is_vn_qos_config_ = vm_port->is_vn_qos_config();
+        state->qos_config_ = vm_port->qos_config();
         changed = true;
     } else {
         if (state->deleted_) {
@@ -142,6 +144,14 @@ void FlowMgmtDbClient::InterfaceNotify(DBTablePartBase *part, DBEntryBase *e) {
         if (state->vrf_assign_acl_.get() != vm_port->vrf_assign_acl()) {
             changed = true;
             state->vrf_assign_acl_ = vm_port->vrf_assign_acl();
+        }
+        if (state->is_vn_qos_config_ != vm_port->is_vn_qos_config()) {
+            state->is_vn_qos_config_ = vm_port->is_vn_qos_config();
+            changed = true;
+        }
+        if (state->qos_config_.get() != vm_port->qos_config()) {
+            state->qos_config_ = vm_port->qos_config();
+            changed = true;
         }
     }
 
