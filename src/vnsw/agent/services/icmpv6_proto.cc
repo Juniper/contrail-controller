@@ -272,7 +272,7 @@ bool Icmpv6RouteState::SendNeighborSolicit() {
             continue;
         }
         it->second++;
-        handler.SendNeighborSolicit(gw_ip_.to_v6(), vm_ip_.to_v6(), it->first,
+        handler.SendNeighborSolicit(gw_ip_.to_v6(), vm_ip_.to_v6(), vm_intf,
                                     vrf_id_);
         vrf_state_->icmp_proto()->IncrementStatsNeighborSolicit(vm_intf);
         ret = true;
