@@ -64,6 +64,7 @@ public:
         flow_tcp_syn_age_time_ = interval;
     }
     void UpdateFlowMultiplier();
+    bool ProcessFlowAging(FlowEntry *flow, uint64_t curr_time);
     bool Run();
     void UpdateFlowAgeTime(uint64_t usecs) {
         flow_age_time_intvl_ = usecs;

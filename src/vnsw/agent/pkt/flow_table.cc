@@ -1098,6 +1098,12 @@ void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
 
     if (flow_rev && (flow_rev->reverse_flow_entry() == NULL)) {
         flow_rev->MakeShortFlow(FlowEntry::SHORT_NO_REVERSE_FLOW);
+        // Action recompute due to short flow
+        flow_rev->ActionRecompute();
+        // update ksync with new action and drop reason
+        flow_rev->UpdateKSync(this, true);
+        // Trigger stats manager to act on short flow
+        agent_->flow_stats_manager()->AddEvent(flow_rev);
         if (ValidFlowMove(rflow, flow_rev)== false) {
             flow->MakeShortFlow(FlowEntry::SHORT_REVERSE_FLOW_CHANGE);
         }
@@ -1105,6 +1111,12 @@ void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
 
     if (rflow_rev && (rflow_rev->reverse_flow_entry() == NULL)) {
         rflow_rev->MakeShortFlow(FlowEntry::SHORT_NO_REVERSE_FLOW);
+        // Action recompute due to short flow
+        rflow_rev->ActionRecompute();
+        // update ksync with new action and drop reason
+        rflow_rev->UpdateKSync(this, true);
+        // Trigger stats manager to act on short flow
+        agent_->flow_stats_manager()->AddEvent(rflow_rev);
         if (ValidFlowMove(flow, rflow_rev) == false) {
             flow->MakeShortFlow(FlowEntry::SHORT_REVERSE_FLOW_CHANGE);
         }

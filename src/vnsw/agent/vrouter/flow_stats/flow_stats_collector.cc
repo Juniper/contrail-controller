@@ -651,6 +651,11 @@ bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> &req) {
 }
 
 void FlowStatsCollector::AddFlow(FlowEntryPtr ptr) {
+    if (flow_stats_manager_->delete_short_flow() &&
+        ptr->is_flags_set(FlowEntry::ShortFlow)) {
+        uint64_t curr_time = UTCTimestampUsec();
+        ProcessFlowAging(ptr.get(), curr_time);
+    }
     flow_tree_.insert(make_pair(ptr.get(), ptr));
 }
 
@@ -731,12 +736,84 @@ uint32_t FlowStatsCollector::threshold() const {
     return flow_stats_manager_->threshold();
 }
 
+bool FlowStatsCollector::ProcessFlowAging(FlowEntry *entry,
+                                          uint64_t curr_time) {
+    FlowStats *stats = &(entry->stats_);
+    bool deleted = false;
+
+    if (entry->deleted()) {
+        return deleted;
+    }
+
+    FlowTableKSyncObject *ksync_obj =
+        Agent::GetInstance()->ksync()->flowtable_ksync_obj();
+    const vr_flow_entry *k_flow = ksync_obj->GetValidKFlowEntry(entry);
+    FlowEntry *reverse_flow = entry->reverse_flow_entry();
+    if (k_flow && ksync_obj->IsEvictionMarked(k_flow)) {
+        deleted = true;
+    }
+    // Can the flow be aged?
+    if (!deleted && ShouldBeAged(stats, k_flow, curr_time, entry)) {
+        // If reverse_flow is present, wait till both are aged
+        if (reverse_flow) {
+            const vr_flow_entry *k_flow_rev;
+            k_flow_rev = ksync_obj->GetValidKFlowEntry(reverse_flow);
+            if (ShouldBeAged(&(reverse_flow->stats_), k_flow_rev,
+                        curr_time, entry)) {
+                deleted = true;
+            }
+        } else {
+            deleted = true;
+        }
+    }
+
+    if (deleted == true) {
+        Agent::GetInstance()->pkt()->flow_table()->
+            DeleteEnqueue(entry);
+        entry = NULL;
+    }
+
+    if (deleted == false && k_flow) {
+        uint64_t k_bytes, bytes;
+        k_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow,
+                k_flow->fe_stats.flow_bytes);
+        bytes = 0x0000ffffffffffffULL & stats->bytes;
+        /* Always copy udp source port even though vrouter does not change
+         * it. Vrouter many change this behavior and recompute source port
+         * whenever flow action changes. To keep agent independent of this,
+         * always copy UDP source port */
+        entry->set_underlay_source_port(k_flow->fe_udp_src_port);
+        entry->set_tcp_flags(k_flow->fe_tcp_flags);
+        /* Don't account for agent overflow bits while comparing change in
+         * stats */
+        if (bytes != k_bytes) {
+            UpdateAndExportInternal(entry, k_flow->fe_stats.flow_bytes,
+                    k_flow->fe_stats.flow_bytes_oflow,
+                    k_flow->fe_stats.flow_packets,
+                    k_flow->fe_stats.flow_packets_oflow,
+                    curr_time, false, NULL);
+        } else if (!stats->exported && !entry->deleted()) {
+            /* export flow (reverse) for which traffic is not seen yet. */
+            FlowExport(entry, 0, 0, NULL);
+        }
+    }
+
+    if ((!deleted) && (flow_stats_manager_->delete_short_flow() == true) &&
+            entry->is_flags_set(FlowEntry::ShortFlow)) {
+        deleted = true;
+        Agent::GetInstance()->pkt()->flow_table()->
+            DeleteEnqueue(entry);
+        entry = NULL;
+    }
+
+    return deleted;
+}
+
 bool FlowStatsCollector::Run() {
     FlowEntryTree::iterator it;
     FlowEntry *entry = NULL, *reverse_flow;
-    FlowStats *stats = NULL;
     uint32_t count = 0;
-    bool key_updation_reqd = true, deleted;
+    bool key_updation_reqd = true;
 
     run_counter_++;
     if (!flow_tree_.size()) {
@@ -747,102 +824,41 @@ bool FlowStatsCollector::Run() {
     if (it == flow_tree_.end()) {
         it = flow_tree_.begin();
     }
-    FlowTableKSyncObject *ksync_obj =
-        Agent::GetInstance()->ksync()->flowtable_ksync_obj();
 
     while (it != flow_tree_.end()) {
         entry = it->second.get();
-        stats = &(entry->stats_);
         it++;
         assert(entry);
-        deleted = false;
-
         if (entry->deleted()) {
             continue;
         }
 
-        flow_iteration_key_ = entry;
-        const vr_flow_entry *k_flow = ksync_obj->GetValidKFlowEntry(entry);
-        reverse_flow = entry->reverse_flow_entry();
-        if (k_flow && ksync_obj->IsEvictionMarked(k_flow)) {
-            deleted = true;
-        }
-        // Can the flow be aged?
-        if (!deleted && ShouldBeAged(stats, k_flow, curr_time, entry)) {
-            // If reverse_flow is present, wait till both are aged
-            if (reverse_flow) {
-                const vr_flow_entry *k_flow_rev;
-                k_flow_rev = ksync_obj->GetValidKFlowEntry(reverse_flow);
-                if (ShouldBeAged(&(reverse_flow->stats_), k_flow_rev,
-                                 curr_time, entry)) {
-                    deleted = true;
-                }
-            } else {
-                deleted = true;
-            }
-        }
-
-        if (deleted == true) {
-            if (it != flow_tree_.end()) {
-                if (it->second == reverse_flow) {
-                    it++;
-                }
-            }
-            Agent::GetInstance()->pkt()->flow_table()->
-                DeleteEnqueue(entry);
-            entry = NULL;
-            if (reverse_flow) {
-                count++;
-                if (count == flow_count_per_pass_) {
-                    break;
-                }
-            }
-        }
-
-        if (deleted == false && k_flow) {
-            uint64_t k_bytes, bytes;
-            k_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow,
-                                   k_flow->fe_stats.flow_bytes);
-            bytes = 0x0000ffffffffffffULL & stats->bytes;
-            /* Always copy udp source port even though vrouter does not change
-             * it. Vrouter many change this behavior and recompute source port
-             * whenever flow action changes. To keep agent independent of this,
-             * always copy UDP source port */
-            entry->set_underlay_source_port(k_flow->fe_udp_src_port);
-            entry->set_tcp_flags(k_flow->fe_tcp_flags);
-            /* Don't account for agent overflow bits while comparing change in
-             * stats */
-            if (bytes != k_bytes) {
-                UpdateAndExportInternal(entry, k_flow->fe_stats.flow_bytes,
-                                        k_flow->fe_stats.flow_bytes_oflow,
-                                        k_flow->fe_stats.flow_packets,
-                                        k_flow->fe_stats.flow_packets_oflow,
-                                        curr_time, false, NULL);
-            } else if (!stats->exported && !entry->deleted()) {
-                /* export flow (reverse) for which traffic is not seen yet. */
-                FlowExport(entry, 0, 0, NULL);
-            }
-        }
-
-        if ((!deleted) && (flow_stats_manager_->delete_short_flow() == true) &&
-            entry->is_flags_set(FlowEntry::ShortFlow)) {
-            if (it != flow_tree_.end()) {
-                if (it->second == reverse_flow) {
-                    it++;
-                }
-            }
-            Agent::GetInstance()->pkt()->flow_table()->
-                DeleteEnqueue(entry);
-            entry = NULL;
-            if (reverse_flow) {
-                count++;
-                if (count == flow_count_per_pass_) {
-                    break;
-                }
-            }
-        }
-
         count++;
+        flow_iteration_key_ = entry;
+
+        FlowEntryTree::iterator it_next = it;
+        bool next_flow_is_rev = false;
+        reverse_flow = entry->reverse_flow_entry();
+        if (it != flow_tree_.end()) {
+            if (it->second == reverse_flow) {
+                next_flow_is_rev = true;
+                it_next++;
+            }
+        }
+        if (ProcessFlowAging(entry, curr_time)) {
+            // if entry is deleted as part of this process
+            // and next flow was reverse, move the iterator
+            // to next iterator.
+            if (next_flow_is_rev) {
+                it = it_next;
+            }
+
+            // count if reverse flow is also deleted
+            if (reverse_flow != NULL) {
+                count++;
+            }
+        }
+
         if (count == flow_count_per_pass_) {
             break;
         }
