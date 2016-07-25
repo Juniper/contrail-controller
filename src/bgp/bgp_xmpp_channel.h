@@ -165,17 +165,26 @@ private:
 
     // Map of routing instances to which this BgpXmppChannel is subscribed.
     struct SubscriptionState {
-        enum State { NONE, STALE };
+        enum State {
+            NONE = 0,
+            GR_STALE = 1 << 0,
+            LLGR_STALE = 1 << 1
+        };
         SubscriptionState(const RoutingInstance::RouteTargetList &targets,
                           int index)
                 : targets(targets), index(index), state(NONE) { }
-        const bool IsStale() const { return(state == STALE); }
-        void SetStale() { state = STALE; }
-        void ClearStale() { state = NONE; }
+
+        bool IsGrStale() const { return((state & GR_STALE) != 0); }
+        void SetGrStale() { state |= GR_STALE; }
+
+        void SetLlgrStale() { state |= LLGR_STALE; }
+        bool IsLlgrStale() const { return((state & LLGR_STALE) != 0); }
+
+        void ClearStale() { state &= ~(GR_STALE | LLGR_STALE); }
 
         RoutingInstance::RouteTargetList targets;
         int index;
-        State state;
+        uint32_t state;
     };
     typedef std::map<RoutingInstance *, SubscriptionState>
         SubscribedRoutingInstanceList;
@@ -217,12 +226,14 @@ private:
     void PublishRTargetRoute(RoutingInstance *instance, bool add_change,
                              int index);
     void RTargetRouteOp(BgpTable *rtarget_table, as4_t asn,
-                    const RouteTarget &rt, BgpAttrPtr attr, bool add_change);
+                        const RouteTarget &rt, BgpAttrPtr attr,
+                        bool add_change, uint32_t flags = 0);
     void AddNewRTargetRoute(BgpTable *rtarget_table,
         RoutingInstance *rtinstance, const RouteTarget &rtarget,
         BgpAttrPtr attr);
     void DeleteRTargetRoute(BgpTable *rtarget_table,
         RoutingInstance *rtinstance, const RouteTarget &rtarget);
+    uint32_t GetRTargetRouteFlag(const RouteTarget &rtarget) const;
     void ProcessASUpdate(as4_t old_as);
     void ProcessSubscriptionRequest(std::string rt_instance,
                                     const XmppStanza::XmppMessageIq *iq,
@@ -244,8 +255,9 @@ private:
     void ClearStaledSubscription(BgpTable *rtarget_table,
             RoutingInstance *rt_instance, BgpAttrPtr attr,
             SubscriptionState *sub_state);
-    void UpdateRouteTargetRouteFlag(const SubscriptionState *sub_state,
-        bool llgr);
+    void UpdateRouteTargetRouteFlag(RoutingInstance *routing_instance,
+                                    const SubscriptionState *sub_state,
+                                    uint32_t flags);
     const BgpXmppChannelManager *manager() const { return manager_; }
     bool ProcessMembershipResponse(std::string table_name,
              RoutingTableMembershipRequestMap::iterator loc);
@@ -253,6 +265,7 @@ private:
     void EndOfRibTimerErrorHandler(std::string error_name,
                                    std::string error_message);
     bool EndOfRibTimerExpired();
+    BgpAttrPtr GetRouteTargetRouteAttr();
 
     xmps::PeerId peer_id_;
     BgpServer *bgp_server_;
