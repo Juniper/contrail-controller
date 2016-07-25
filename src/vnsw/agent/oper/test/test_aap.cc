@@ -13,6 +13,7 @@
 
 #include <cmn/agent_cmn.h>
 
+#include "test_cmn_util.h"
 #include "cfg/cfg_init.h"
 #include "cfg/cfg_interface.h"
 #include "oper/operdb_init.h"
@@ -29,7 +30,6 @@
 #include "oper/vn.h"
 #include "oper/path_preference.h"
 #include "filter/acl.h"
-#include "test_cmn_util.h"
 #include "vr_types.h"
 #include <controller/controller_export.h>
 #include <ksync/ksync_sock_user.h>
@@ -59,71 +59,6 @@ public:
     ~TestAap() {
         DeleteBgpPeer(peer_);
     }
-    void AddAap(std::string intf_name, int intf_id,
-            std::vector<Ip4Address> aap_list) {
-        std::ostringstream buf;
-        buf << "<virtual-machine-interface-allowed-address-pairs>";
-        std::vector<Ip4Address>::iterator it = aap_list.begin();
-        while (it != aap_list.end()) {
-            buf << "<allowed-address-pair>";
-            buf << "<ip>";
-            buf << "<ip-prefix>" << it->to_string()<<"</ip-prefix>";
-            buf << "<ip-prefix-len>"<< 32 << "</ip-prefix-len>";
-            buf << "</ip>";
-            buf << "<mac><mac-address>" << "00:00:00:00:00:00"
-                << "</mac-address></mac>";
-            buf << "<flag>" << "act-stby" << "</flag>";
-            buf << "</allowed-address-pair>";
-            it++;
-        }
-        buf << "</virtual-machine-interface-allowed-address-pairs>";
-        char cbuf[10000];
-        strcpy(cbuf, buf.str().c_str());
-        AddNode("virtual-machine-interface", intf_name.c_str(),
-                intf_id, cbuf);
-        client->WaitForIdle();
-    }
-
-    void AddAap(std::string intf_name, int intf_id, Ip4Address ip,
-                const std::string &mac) {
-        std::ostringstream buf;
-        buf << "<virtual-machine-interface-allowed-address-pairs>";
-        buf << "<allowed-address-pair>";
-        buf << "<ip>";
-        buf << "<ip-prefix>" << ip.to_string() <<"</ip-prefix>";
-        buf << "<ip-prefix-len>"<< 32 << "</ip-prefix-len>";
-        buf << "</ip>";
-        buf << "<mac>" << mac << "</mac>";
-        buf << "<flag>" << "act-stby" << "</flag>";
-        buf << "</allowed-address-pair>";
-        buf << "</virtual-machine-interface-allowed-address-pairs>";
-        char cbuf[10000];
-        strcpy(cbuf, buf.str().c_str());
-        AddNode("virtual-machine-interface", intf_name.c_str(),
-                intf_id, cbuf);
-        client->WaitForIdle();
-    }
-
-    void AddEcmpAap(std::string intf_name, int intf_id, Ip4Address ip) {
-        std::ostringstream buf;
-        buf << "<virtual-machine-interface-allowed-address-pairs>";
-        buf << "<allowed-address-pair>";
-        buf << "<ip>";
-        buf << "<ip-prefix>" << ip.to_string() <<"</ip-prefix>";
-        buf << "<ip-prefix-len>"<< 32 << "</ip-prefix-len>";
-        buf << "</ip>";
-        buf << "<mac><mac-address>" << "00:00:00:00:00:00"
-            << "</mac-address></mac>";
-        buf << "<address-mode>" << "active-active" << "</address-mode>";
-        buf << "</allowed-address-pair>";
-        buf << "</virtual-machine-interface-allowed-address-pairs>";
-        char cbuf[10000];
-        strcpy(cbuf, buf.str().c_str());
-        AddNode("virtual-machine-interface", intf_name.c_str(),
-                intf_id, cbuf);
-        client->WaitForIdle();
-    }
-
 
     void AddVlan(std::string intf_name, int intf_id, uint32_t vlan) {
         std::ostringstream buf;

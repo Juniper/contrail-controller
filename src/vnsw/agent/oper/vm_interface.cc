@@ -1508,8 +1508,8 @@ void VmInterface::UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
                            const Ip4Address &old_dhcp_addr) {
     if (ipv4_active_) {
         if (do_dhcp_relay_) {
-            UpdateIpv4InterfaceRoute(old_ipv4_active, force_update,
-                                     policy_change,
+            UpdateIpv4InterfaceRoute(old_ipv4_active,
+                                     force_update||policy_change,
                                      old_vrf, old_dhcp_addr);
         }
         UpdateIpv4InstanceIp(force_update, policy_change, false,
@@ -1526,7 +1526,7 @@ void VmInterface::UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
                       old_ipv6_active);
     UpdateAllowedAddressPair(force_update, policy_change, false, false, false);
     UpdateVrfAssignRule();
-    UpdateStaticRoute(force_update, policy_change);
+    UpdateStaticRoute(force_update||policy_change);
 }
 
 void VmInterface::DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
@@ -3125,16 +3125,16 @@ IpAddress VmInterface::GetServiceIp(const IpAddress &vm_ip) const {
 }
 
 // Add/Update route. Delete old route if VRF or address changed
-void VmInterface::UpdateIpv4InterfaceRoute(bool old_ipv4_active, bool force_update,
-                            bool policy_change,
-                            VrfEntry * old_vrf,
-                            const Ip4Address &old_addr) {
+void VmInterface::UpdateIpv4InterfaceRoute(bool old_ipv4_active,
+                                           bool force_update,
+                                           VrfEntry * old_vrf,
+                                           const Ip4Address &old_addr) {
     Ip4Address ip = GetServiceIp(primary_ip_addr_).to_v4();
 
     // If interface was already active earlier and there is no force_update or
     // policy_change, return
     if (old_ipv4_active == true && force_update == false
-        && policy_change == false && old_addr == primary_ip_addr_ &&
+        && old_addr == primary_ip_addr_ &&
         vm_ip_service_addr_ == ip) {
         return;
     }
@@ -3148,12 +3148,6 @@ void VmInterface::UpdateIpv4InterfaceRoute(bool old_ipv4_active, bool force_upda
             AddRoute(vrf_->GetName(), primary_ip_addr_, 32, vn_->GetName(),
                      policy_enabled_, ecmp_, false, vm_ip_service_addr_,
                      Ip4Address(0), CommunityList(), label_);
-        } else if (policy_change) {
-            // If old-l3-active and there is change in policy, invoke RESYNC of
-            // route to account for change in NH policy
-            InetUnicastAgentRouteTable::ReEvaluatePaths(agent(),
-                                                        vrf_->GetName(),
-                                                        primary_ip_addr_, 32);
         }
     }
 
@@ -3341,7 +3335,7 @@ void VmInterface::DeleteServiceVlan() {
     }
 } 
 
-void VmInterface::UpdateStaticRoute(bool force_update, bool policy_change) {
+void VmInterface::UpdateStaticRoute(bool force_update) {
     StaticRouteSet::iterator it = static_route_list_.list_.begin();
     while (it != static_route_list_.list_.end()) {
         StaticRouteSet::iterator prev = it++;
@@ -3356,7 +3350,7 @@ void VmInterface::UpdateStaticRoute(bool force_update, bool policy_change) {
             prev->DeActivate(this);
             static_route_list_.list_.erase(prev);
         } else {
-            prev->Activate(this, force_update, policy_change);
+            prev->Activate(this, force_update);
         }
     }
 }
@@ -3399,7 +3393,7 @@ void VmInterface::UpdateAllowedAddressPair(bool force_update, bool policy_change
             it->L2Activate(this, force_update, policy_change,
                     old_layer2_forwarding, old_layer3_forwarding);
         } else {
-           it->Activate(this, force_update, policy_change);
+           it->Activate(this, (force_update || policy_change));
         }
     }
 }
@@ -4475,16 +4469,15 @@ bool VmInterface::StaticRoute::IsLess(const StaticRoute *rhs) const {
 }
 
 void VmInterface::StaticRoute::Activate(VmInterface *interface,
-                                        bool force_update,
-                                        bool policy_change) const {
-    if (installed_ && force_update == false && policy_change == false)
+                                        bool force_update) const {
+    if (installed_ && force_update == false)
         return;
 
     if (vrf_ != interface->vrf()->GetName()) {
         vrf_ = interface->vrf()->GetName();
     }
 
-    if (installed_ == false || force_update || policy_change) {
+    if (installed_ == false || force_update) {
         Ip4Address gw_ip(0);
         if (gw_.is_v4() && addr_.is_v4() && gw_.to_v4() != gw_ip) {
             SecurityGroupList sg_id_list;
@@ -4717,12 +4710,10 @@ void VmInterface::AllowedAddressPair::CreateLabelAndNH(Agent *agent,
 }
 
 void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
-                                               bool force_update,
-                                               bool policy_change) const {
+                                               bool force_update) const {
     IpAddress ip = interface->GetServiceIp(addr_);
 
-    if (installed_ && force_update == false && policy_change == false &&
-        service_ip_ == ip) {
+    if (installed_ && force_update == false && service_ip_ == ip) {
         return;
     }
 
@@ -4731,10 +4722,7 @@ void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
         vrf_ = interface->vrf()->GetName();
     }
 
-    if (installed_ == true && policy_change) {
-        InetUnicastAgentRouteTable::ReEvaluatePaths(agent,
-                                                    vrf_, addr_, plen_);
-    } else if (installed_ == false || force_update || service_ip_ != ip) {
+    if (installed_ == false || force_update || service_ip_ != ip) {
         service_ip_ = ip;
         IpAddress dependent_rt;
         if (ecmp_ == true) {
@@ -4984,7 +4972,8 @@ VmInterface::GetIpMac(const IpAddress &ip, uint8_t plen) const {
     AllowedAddressPairSet::const_iterator it =
         allowed_address_pair_list_.list_.begin();
     while (it != allowed_address_pair_list_.list_.end()) {
-        if (it->addr_ == ip && it->plen_ == plen) {
+        if (it->addr_ == ip && it->plen_ == plen &&
+            it->mac_ != MacAddress::kZeroMac) {
             return it->mac_;
         }
         it++;
