@@ -3185,8 +3185,10 @@ class VncApiServer(object):
 
         # Ensure object has at least default permissions set
         self._ensure_id_perms_present(obj_type, None, obj_dict)
-        self._ensure_perms2_present(obj_type, None, obj_dict,
+        (ok, result) = self._ensure_perms2_present(obj_type, None, obj_dict,
             request.headers.environ.get('HTTP_X_PROJECT_ID', None))
+        if not ok:
+            return (False, result)
 
         # TODO check api + resource perms etc.
 

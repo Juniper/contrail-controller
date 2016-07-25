@@ -973,7 +973,6 @@ class TestPermissions(test_case.ApiServerTestCase):
         self.assertEquals(vn.get_is_shared(), False)
         self.admin.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
 
-        """
         # create VN with inconsistent global_access and is_shared set
         vn = VirtualNetwork(self.vn_name, self.alice.project_obj)
         perms = PermType2('cloud-admin', PERMS_RWX, PERMS_RWX, [])
@@ -986,11 +985,9 @@ class TestPermissions(test_case.ApiServerTestCase):
         vn.set_is_shared(True);
         with ExpectedException(BadRequest) as e:
             self.alice.vnc_lib.virtual_network_create(vn)
-        """
 
         # update VN with inconsistent global_access and is_shared set
-        vn = VirtualNetwork(self.vn_name, self.alice.project_obj)
-        perms = PermType2('cloud-admin', PERMS_RWX, PERMS_RWX, [])
+        perms.global_access = PERMS_RWX
         vn.set_perms2(perms)
         vn.set_is_shared(True);
         self.alice.vnc_lib.virtual_network_create(vn)
