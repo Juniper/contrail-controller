@@ -65,6 +65,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     // There should be exclusion between Reader and StateMachine
     // tasks with the same index only (as opposed to all indices).
     TaskPolicy sm_policy = boost::assign::list_of
+        (TaskExclusion(scheduler->GetTaskId("bgp::ShowCommand")))
         (TaskExclusion(scheduler->GetTaskId("io::ReaderTask")));
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::StateMachine"),
         sm_policy);
