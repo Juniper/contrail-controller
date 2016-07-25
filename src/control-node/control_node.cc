@@ -72,6 +72,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     TaskPolicy sm_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
         (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ShowCommand")))
         (TaskExclusion(scheduler->GetTaskId("bgp::RTFilter")));
     for (int idx = 0; idx < scheduler->HardwareThreadCount(); ++idx) {
         sm_policy.push_back(
