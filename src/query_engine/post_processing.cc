@@ -659,6 +659,11 @@ query_status_t PostProcessingQuery::process_query() {
         if (raw_result->size() > (size_t)limit) {
             raw_result->resize(limit);
         }
+        if (mresult_->size() > (size_t)limit) {
+	    MapBufT::iterator it = mresult_->begin();
+            std::advance(it, limit);
+            mresult_->erase(it, mresult_->end());
+        }
     }
 
     if (IS_TRACE_ENABLED(POSTPROCESS_RESULT_TRACE))
