@@ -42,6 +42,7 @@ import test_case
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+from vnc_api.gen.resource_xsd import PermType, PermType2, IdPermsType
 PERMS_NONE = 0
 PERMS_X = 1
 PERMS_W = 2
@@ -316,7 +317,7 @@ class TestPermissions(test_case.ApiServerTestCase):
                 rule_str = '* %s:CRUD' % user.role)
 
         """
-        global_rg = vnc_read_obj(self.admin.vnc_lib, 'api-access-list', 
+        global_rg = vnc_read_obj(self.admin.vnc_lib, 'api-access-list',
             name = ['default-global-system-config', 'default-api-access-list'])
         vnc_aal_add_rule(self.admin.vnc_lib, global_rg, "obj-perms *:R")
         """
@@ -921,6 +922,93 @@ class TestPermissions(test_case.ApiServerTestCase):
         z = self.admin.vnc_lib.resource_list('virtual-network')
         test_vn_list = [vn for vn in z['virtual-networks'] if vn['fq_name'][-1] == vn_name]
         self.assertEquals(len(test_vn_list), 1)
+
+    def test_shared_network(self):
+        alice = self.alice
+        bob   = self.bob
+        admin = self.admin
+        self.vn_name = "alice-vn-%s" % self.id()
+        vn_fq_name = [self.domain_name, alice.project, self.vn_name]
+
+        # create VN with 'is_shared' set - validate global_access set in vnc
+        vn = VirtualNetwork(self.vn_name, self.alice.project_obj)
+        vn.set_is_shared(True)
+        self.alice.vnc_lib.virtual_network_create(vn)
+        vn = vnc_read_obj(self.admin.vnc_lib, 'virtual-network', name = vn_fq_name)
+        self.assertEquals(vn.get_perms2().global_access, PERMS_RWX)
+        self.admin.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
+
+        # create VN with global_access set - validate 'is_shared' gets set
+        vn = VirtualNetwork(self.vn_name, self.alice.project_obj)
+        perms = PermType2('cloud-admin', PERMS_RWX, PERMS_RWX, [])
+        vn.set_perms2(perms)
+        self.alice.vnc_lib.virtual_network_create(vn)
+        vn = vnc_read_obj(self.admin.vnc_lib, 'virtual-network', name = vn_fq_name)
+        self.assertEquals(vn.get_is_shared(), True)
+        self.admin.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
+
+        # update VN 'is_shared' after initial create - ensure reflectd in global_access
+        vn = VirtualNetwork(self.vn_name, self.alice.project_obj)
+        self.alice.vnc_lib.virtual_network_create(vn)
+        vn = vnc_read_obj(self.admin.vnc_lib, 'virtual-network', name = vn_fq_name)
+        self.assertEquals(vn.get_perms2().global_access, 0)
+        vn.set_is_shared(True); self.alice.vnc_lib.virtual_network_update(vn)
+        vn = vnc_read_obj(self.admin.vnc_lib, 'virtual-network', name = vn_fq_name)
+        self.assertEquals(vn.get_perms2().global_access, PERMS_RWX)
+        vn.set_is_shared(False); self.alice.vnc_lib.virtual_network_update(vn)
+        vn = vnc_read_obj(self.admin.vnc_lib, 'virtual-network', name = vn_fq_name)
+        self.assertEquals(vn.get_perms2().global_access, 0)
+        self.admin.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
+
+        # VN global_access is reset after initial create - ensure reflected in 'is_shared'
+        vn = VirtualNetwork(self.vn_name, self.alice.project_obj)
+        self.alice.vnc_lib.virtual_network_create(vn)
+        vn = vnc_read_obj(self.admin.vnc_lib, 'virtual-network', name = vn_fq_name)
+        self.assertEquals(vn.get_is_shared(), False or None)
+        perms = vn.get_perms2()
+        perms.global_access = PERMS_RWX
+        vn.set_perms2(perms); self.alice.vnc_lib.virtual_network_update(vn)
+        vn = vnc_read_obj(self.admin.vnc_lib, 'virtual-network', name = vn_fq_name)
+        self.assertEquals(vn.get_is_shared(), True)
+        perms = vn.get_perms2()
+        perms.global_access = 0
+        vn.set_perms2(perms); self.alice.vnc_lib.virtual_network_update(vn)
+        vn = vnc_read_obj(self.admin.vnc_lib, 'virtual-network', name = vn_fq_name)
+        self.assertEquals(vn.get_is_shared(), False)
+        self.admin.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
+
+        # create VN with inconsistent global_access and is_shared set
+        vn = VirtualNetwork(self.vn_name, self.alice.project_obj)
+        perms = PermType2('cloud-admin', PERMS_RWX, PERMS_RWX, [])
+        vn.set_perms2(perms)
+        vn.set_is_shared(False);
+        with ExpectedException(BadRequest) as e:
+            self.alice.vnc_lib.virtual_network_create(vn)
+        perms.global_access = PERMS_NONE
+        vn.set_perms2(perms)
+        vn.set_is_shared(True);
+        with ExpectedException(BadRequest) as e:
+            self.alice.vnc_lib.virtual_network_create(vn)
+
+        # update VN with inconsistent global_access and is_shared set
+        perms.global_access = PERMS_RWX
+        vn.set_perms2(perms)
+        vn.set_is_shared(True);
+        self.alice.vnc_lib.virtual_network_create(vn)
+        vn = vnc_read_obj(self.admin.vnc_lib, 'virtual-network', name = vn_fq_name)
+        self.assertEquals(vn.get_is_shared(), True)
+        self.assertEquals(vn.get_perms2().global_access, PERMS_RWX)
+        perms.global_access = PERMS_NONE
+        vn.set_perms2(perms)
+        vn.set_is_shared(True);
+        with ExpectedException(BadRequest) as e:
+            self.alice.vnc_lib.virtual_network_update(vn)
+        perms.global_access = PERMS_RWX
+        vn.set_perms2(perms)
+        vn.set_is_shared(False);
+        with ExpectedException(BadRequest) as e:
+            self.alice.vnc_lib.virtual_network_update(vn)
+        # self.admin.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
 
     def tearDown(self):
         super(TestPermissions, self).tearDown()
