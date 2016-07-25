@@ -659,6 +659,21 @@ query_status_t PostProcessingQuery::process_query() {
         if (raw_result->size() > (size_t)limit) {
             raw_result->resize(limit);
         }
+        if (mresult_->size() > (size_t)limit) {
+            MapBufT::iterator kt = mresult_->end();
+            int count = 0;
+            MapBufT::iterator it = mresult_->begin();
+            for (it = mresult_->begin();
+                    it!= mresult_->end(); it++) {
+                count++;
+                if (count > limit) {
+                    break;
+                }
+            }
+            if (it != mresult_->end()) {
+                mresult_->erase(it, mresult_->end());
+            }
+        }
     }
 
     if (IS_TRACE_ENABLED(POSTPROCESS_RESULT_TRACE))
