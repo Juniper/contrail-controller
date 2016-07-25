@@ -41,6 +41,7 @@ import test_case
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+from vnc_api.gen.resource_xsd import PermType, PermType2, IdPermsType
 PERMS_NONE = 0
 PERMS_X = 1
 PERMS_W = 2
@@ -328,7 +329,6 @@ def ks_admin_authenticate(self, response=None, headers=None):
 class TestPermissions(test_case.ApiServerTestCase):
     domain_name = 'default-domain'
     fqdn = [domain_name]
-    vn_name='alice-vn'
 
     @classmethod
     def setUpClass(cls):
@@ -384,13 +384,6 @@ class TestPermissions(test_case.ApiServerTestCase):
             set_perms(user.project_obj, owner=user.project_uuid, share = [])
             self.admin.vnc_lib.project_update(user.project_obj)
 
-        # delete test VN if it exists
-        vn_fq_name = [self.domain_name, self.alice.project, self.vn_name]
-        vn = vnc_read_obj(self.admin.vnc_lib, 'virtual-network', name = vn_fq_name)
-        if vn:
-            logger.info( '%s exists ... deleting to start fresh' % vn_fq_name)
-            self.admin.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
-
         # allow permission to create objects
         for user in self.users:
             logger.info( "%s: project %s to allow full access to role %s" % \
@@ -402,6 +395,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         alice = self.alice
         bob   = self.bob
         admin = self.admin
+        self.vn_name = "alice-vn-%s" % self.id()
 
         # allow permission to create all objects
         for user in self.users:
@@ -470,6 +464,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         alice = self.alice
         bob   = self.bob
         admin = self.admin
+        self.vn_name = "alice-vn-%s" % self.id()
 
         rv_json = admin.vnc_lib._request(rest.OP_GET, '/multi-tenancy-with-rbac')
         rv = json.loads(rv_json)
@@ -707,7 +702,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         x = alice.vnc_lib.virtual_networks_list(parent_id = alice.project_uuid)
         for item in x['virtual-networks']:
             logger.info( '    %s: %s' % (item['uuid'], item['fq_name']))
-        expected = set(['alice-vn', 'second-vn'])
+        expected = set([self.vn_name, 'second-vn'])
         received = set([item['fq_name'][-1] for item in x['virtual-networks']])
         self.assertEquals(expected, received)
 
@@ -717,7 +712,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         for item in y['virtual-networks']:
             logger.info( '    %s: %s' % (item['uuid'], item['fq_name']))
         # need changes in auto code generation for lists
-        expected = set(['alice-vn'])
+        expected = set([self.vn_name])
         received = set([item['fq_name'][-1] for item in y['virtual-networks']])
 
         self.assertEquals(expected, received)
@@ -729,6 +724,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         alice = self.alice
         bob   = self.bob
         admin = self.admin
+        self.vn_name = "alice-vn-%s" % self.id()
 
         # allow permission to create virtual-network
         for user in self.users:
@@ -811,6 +807,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         alice = self.alice
         bob   = self.bob
         admin = self.admin
+        self.vn_name = "alice-vn-%s" % self.id()
 
         # allow permission to create virtual-network
         for user in self.users:
@@ -841,6 +838,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         alice = self.alice
         bob   = self.bob
         admin = self.admin
+        self.vn_name = "alice-vn-%s" % self.id()
 
         logger.info( 'alice: create VN in her project')
         vn_fq_name = [self.domain_name, alice.project, self.vn_name]
@@ -901,6 +899,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         alice = self.alice
         bob   = self.bob
         admin = self.admin
+        self.vn_name = "alice-vn-%s" % self.id()
 
         logger.info( 'alice: create VN in her project')
         vn_fq_name = [self.domain_name, alice.project, self.vn_name]
@@ -966,6 +965,59 @@ class TestPermissions(test_case.ApiServerTestCase):
         admin.vnc_lib.chmod(vn.get_uuid(), owner=alice.project_uuid)
         alice.vnc_lib.chmod(vn.get_uuid(), owner=valid_uuid_2)
         admin.vnc_lib.chmod(vn.get_uuid(), owner=alice.project_uuid)
+
+    def test_shared_network(self):
+        alice = self.alice
+        bob   = self.bob
+        admin = self.admin
+        self.vn_name = "alice-vn-%s" % self.id()
+        vn_fq_name = [self.domain_name, alice.project, self.vn_name]
+
+        # create VN with 'is_shared' set - validate global_access set in vnc
+        vn = VirtualNetwork(self.vn_name, self.alice.project_obj)
+        vn.set_is_shared(True)
+        self.alice.vnc_lib.virtual_network_create(vn)
+        vn = vnc_read_obj(self.admin.vnc_lib, 'virtual-network', name = vn_fq_name)
+        self.assertEquals(vn.get_perms2().global_access, PERMS_RWX)
+        self.admin.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
+
+        # create VN with global_access set - validate 'is_shared' gets set
+        vn = VirtualNetwork(self.vn_name, self.alice.project_obj)
+        perms = PermType2('cloud-admin', PERMS_RWX, PERMS_RWX, [])
+        vn.set_perms2(perms)
+        self.alice.vnc_lib.virtual_network_create(vn)
+        vn = vnc_read_obj(self.admin.vnc_lib, 'virtual-network', name = vn_fq_name)
+        self.assertEquals(vn.get_is_shared(), True)
+        self.admin.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
+
+        # update VN 'is_shared' after initial create - ensure reflectd in global_access
+        vn = VirtualNetwork(self.vn_name, self.alice.project_obj)
+        self.alice.vnc_lib.virtual_network_create(vn)
+        vn = vnc_read_obj(self.admin.vnc_lib, 'virtual-network', name = vn_fq_name)
+        self.assertEquals(vn.get_perms2().global_access, 0)
+        vn.set_is_shared(True); self.alice.vnc_lib.virtual_network_update(vn)
+        vn = vnc_read_obj(self.admin.vnc_lib, 'virtual-network', name = vn_fq_name)
+        self.assertEquals(vn.get_perms2().global_access, PERMS_RWX)
+        vn.set_is_shared(False); self.alice.vnc_lib.virtual_network_update(vn)
+        vn = vnc_read_obj(self.admin.vnc_lib, 'virtual-network', name = vn_fq_name)
+        self.assertEquals(vn.get_perms2().global_access, 0)
+        self.admin.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
+
+        # VN global_access is reset after initial create - ensure reflected in 'is_shared'
+        vn = VirtualNetwork(self.vn_name, self.alice.project_obj)
+        self.alice.vnc_lib.virtual_network_create(vn)
+        vn = vnc_read_obj(self.admin.vnc_lib, 'virtual-network', name = vn_fq_name)
+        self.assertEquals(vn.get_is_shared(), False or None)
+        perms = vn.get_perms2()
+        perms.global_access = PERMS_RWX
+        vn.set_perms2(perms); self.alice.vnc_lib.virtual_network_update(vn)
+        vn = vnc_read_obj(self.admin.vnc_lib, 'virtual-network', name = vn_fq_name)
+        self.assertEquals(vn.get_is_shared(), True)
+        perms = vn.get_perms2()
+        perms.global_access = 0
+        vn.set_perms2(perms); self.alice.vnc_lib.virtual_network_update(vn)
+        vn = vnc_read_obj(self.admin.vnc_lib, 'virtual-network', name = vn_fq_name)
+        self.assertEquals(vn.get_is_shared(), False)
 
     def tearDown(self):
         super(TestPermissions, self).tearDown()
