@@ -1833,6 +1833,14 @@ bool CompositeNH::UpdateComponentNHKey(uint32_t label, NextHopKey *nh_key,
     bool ret = false;
     ComponentNHKeyList::const_iterator it = component_nh_key_list_.begin();
     for (;it != component_nh_key_list_.end(); it++) {
+        //If there is a empty slot, in component key list retain the empty slot
+        //in new list
+        if ((*it) == NULL) {
+            ComponentNHKeyPtr dummy_ptr;
+            dummy_ptr.reset();
+            component_nh_key_list.push_back(dummy_ptr);
+            continue;
+        }
         const NextHopKey *lhs = (*it)->nh_key();
         uint32_t new_label = (*it)->label();
         if((*it) && (*it)->label() != label && lhs->IsEqual(*nh_key)) {
@@ -1855,11 +1863,23 @@ ComponentNHKeyList CompositeNH::AddComponentNHKey(ComponentNHKeyPtr cnh) const {
 
     ComponentNHKeyList component_nh_key_list = component_nh_key_list_;
     ComponentNHList::const_iterator it = begin();
+    int index = 0;
     //Make sure new entry is not already present
-    for (;it != end(); it++) {
-        if((*it) && (*it)->label() == cnh->label() && (*it)->nh() == nh) {
-            //Entry already present, return old component nh key list
-            return component_nh_key_list;
+    for (;it != end(); it++, index++) {
+        if((*it) && (*it)->nh() == nh) {
+            if ((*it)->label() == cnh->label()) {
+                //Entry already present, return old component nh key list
+                return component_nh_key_list;
+            } else {
+                /* If the label of VMI has changed (due to policy change),
+                 * reset the position of the VMI in component_nh_key_list */
+                if (nh && nh->GetType() == NextHop::INTERFACE) {
+                    ComponentNHKeyPtr dummy_ptr;
+                    dummy_ptr.reset();
+                    component_nh_key_list[index] = dummy_ptr;
+                    break;
+                }
+            }
         }
     }
 
