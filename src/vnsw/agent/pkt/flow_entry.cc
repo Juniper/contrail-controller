@@ -2390,6 +2390,7 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
     info.set_l3_flow(l3_flow_);
     info.set_smac(data_.smac.ToString());
     info.set_dmac(data_.dmac.ToString());
+    info.set_short_flow_reason(FlowEntry::DropReasonStr(short_flow_reason_));
     info.set_drop_reason(FlowEntry::DropReasonStr(data_.drop_reason));
     if (flow_table_) {
         info.set_table_id(flow_table_->table_index());
