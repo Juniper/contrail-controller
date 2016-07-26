@@ -27,6 +27,7 @@ env.Append(CPPPATH = [env['TOP'] + '/io'])
 env.Append(CPPPATH = [env['TOP'] + '/db'])
 env.Append(CPPPATH = [env['TOP'] + '/ifmap'])
 env.Append(CPPPATH = [env['TOP'] + '/base/sandesh'])
+env.Append(CPPPATH = [env['TOP'] + '/tools/sandesh/library/common'])
 
 SandeshPeerFiles = env.SandeshGenCpp('peer_info.sandesh')
 SandeshPeerGenSrcs = env.ExtractCpp(SandeshPeerFiles)
