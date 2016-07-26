@@ -726,7 +726,7 @@ class PhysicalRouterDM(DBBaseDM):
             ip_address=self.management_ip,
             connected_bgp_router=self.bgp_router,
             auto_conf_enabled=self.vnc_managed,
-            product_info=self.vendor + ':' + self.product)
+            product_info=str(self.vendor) + ':' + str(self.product))
         if deleted:
             pr_trace.deleted = True
             pr_msg = UvePhysicalRouterConfigTrace(
