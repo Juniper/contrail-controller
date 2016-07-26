@@ -1446,7 +1446,7 @@ AgentParam::AgentParam(bool enable_flow_options,
          "Mode in which vrouter is running, option are dpdk or vnic")
         ("DEFAULT.sandesh_send_rate_limit",
          opt::value<uint32_t>()->default_value(
-         Sandesh::get_send_rate_limit()),
+         g_sandesh_constants.DEFAULT_SANDESH_SEND_RATELIMIT),
          "Sandesh send rate limit in messages/sec")
         ("DEFAULT.subnet_hosts_resolvable",
           opt::value<bool>()->default_value(true))
