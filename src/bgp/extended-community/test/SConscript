@@ -10,6 +10,7 @@ env = BuildEnv.Clone()
 env.Append(CPPPATH = [ env['TOP'] ])
 env.Append(CPPPATH = [ env['TOP'] + '/db' ])
 env.Append(CPPPATH = [ env['TOP'] + '/io' ])
+env.Append(CPPPATH = [env['TOP'] + '/tools/sandesh/library/common'])
 
 env.Append(LIBPATH = env['TOP'] + '/bgp/extended-community')
 env.Append(LIBPATH = env['TOP'] + '/net')

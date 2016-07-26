@@ -11,8 +11,10 @@
 
 class PeerStats {
 public:
-    static void FillPeerDebugStats(const IPeerDebugStats *peer_state,
+    static void FillPeerDebugStats(const IPeerDebugStats *peer_stats,
                                    PeerStatsInfo *stats);
+    static void FillPeerUpdateStats(const IPeerDebugStats *peer_stats,
+                                    PeerStatsData *peer_stats_data);
 
 private:
     static void FillProtoStats(const IPeerDebugStats::ProtoStats &stats,
@@ -23,6 +25,9 @@ private:
                                  PeerRxErrorStats *dest);
     static void FillRxRouteStats(const IPeerDebugStats::RxRouteStats &src,
                                  PeerRxRouteStats *dest);
+    static void FillPeerUpdateStats(const IPeerDebugStats *peer_stats,
+                                    PeerUpdateStats *rt_stats_rx,
+                                    PeerUpdateStats *rt_stats_tx);
 };
 
 #endif  // SRC_BGP_PEER_STATS_H_

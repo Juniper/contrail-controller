@@ -361,7 +361,7 @@ private:
     friend class BgpXmppChannelManagerMock;
     friend class BgpXmppUnitTest;
 
-    void FillPeerStats(const BgpXmppChannel *channel) const;
+    void FillPeerInfo(const BgpXmppChannel *channel) const;
 
     XmppServer *xmpp_server_;
     BgpServer *bgp_server_;
