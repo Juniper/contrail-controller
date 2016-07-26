@@ -9,7 +9,8 @@ import sys
 env = BuildEnv.Clone()
 env.Prepend(CPPPATH = [env['TOP'],
                        env['TOP'] + '/db',
-                       env['TOP'] + '/io'
+                       env['TOP'] + '/io',
+                       env['TOP'] + '/tools/sandesh/library/common'
                       ])
 
 libcontrol_test = env.Library('control_test',
