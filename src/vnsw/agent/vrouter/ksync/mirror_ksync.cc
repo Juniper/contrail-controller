@@ -13,7 +13,8 @@ MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj,
                                    uint32_t index) : 
     KSyncNetlinkDBEntry(index), ksync_obj_(obj), vrf_id_(entry->vrf_id_), 
     sip_(entry->sip_), sport_(entry->sport_), dip_(entry->dip_), 
-    dport_(entry->dport_), analyzer_name_(entry->analyzer_name_) {
+    dport_(entry->dport_), analyzer_name_(entry->analyzer_name_),
+    mirror_flag_(entry->mirror_flag_), vni_(entry->vni_) {
 }
 
 MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj, 
@@ -29,7 +30,8 @@ MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj,
     vrf_id_(mirror_entry->vrf_id()), sip_(*mirror_entry->GetSip()), 
     sport_(mirror_entry->GetSPort()), dip_(*mirror_entry->GetDip()), 
     dport_(mirror_entry->GetDPort()), nh_(NULL),
-    analyzer_name_(mirror_entry->GetAnalyzerName()) {
+    analyzer_name_(mirror_entry->GetAnalyzerName()),
+    mirror_flag_(mirror_entry->GetMirrorFlag()), vni_(mirror_entry->GetVni()) {
 }
 
 MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj,
@@ -90,6 +92,8 @@ int MirrorKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     encoder.set_mirr_index(GetIndex());
     encoder.set_mirr_rid(0);
     encoder.set_mirr_nhid(nh_entry->nh_id());
+    encoder.set_mirr_vni(vni_);
+    encoder.set_mirr_flags(mirror_flag_);
     int error = 0;
     encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
     assert(error == 0);
