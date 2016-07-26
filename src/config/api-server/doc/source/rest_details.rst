@@ -441,8 +441,8 @@ To read a resource, a ``GET`` has to be issued on the resource URL.
     * *BODY*: None
     * *RESPONSE*: json representation of the resource
 
-Update a resource
------------------
+Updating a resource
+--------------------
 To update a resource, a ``PUT`` has to be issued on the resource URL.
 
     * *METHOD*: PUT
