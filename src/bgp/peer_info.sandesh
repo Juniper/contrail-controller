@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
+include "sandesh/library/common/derived_stats_results.sandesh"
 
 struct PeerProtoStats {
     1: u64 total;
@@ -68,4 +69,43 @@ struct PeerStatsInfo {
     6: optional PeerSocketStats tx_socket_stats;
     7: optional PeerRxErrorStats rx_error_stats;
     8: optional PeerRxRouteStats rx_route_stats;
+}
+
+struct PeerStatsData {
+    1: string name (key="");
+    2: optional bool deleted;
+    3: optional PeerUpdateStats rx_update_stats(metric="agg",tags="");
+    4: optional PeerUpdateStats tx_update_stats(metric="agg",tags="");
+    5: optional derived_stats_results.AnomalyResult rx_update_stats_ewm (stats="rx_update_stats.total:DSAnomaly:EWM:0.2");
+    6: optional derived_stats_results.AnomalyResult tx_update_stats_ewm (stats="tx_update_stats.total:DSAnomaly:EWM:0.2");
+}
+
+uve sandesh PeerStatsUve {
+    1: PeerStatsData data;
+}
+
+typedef u64 flap_u64
+
+struct flap_u64_P_ {
+    1: optional flap_u64 value;
+    2: optional flap_u64 staging;
+}
+
+struct PeerFlapData {
+     1: string name (key=""); // Control-node-ip:Agent-ip
+     2: optional bool deleted;
+     3: optional PeerFlapInfo flap_info (metric="agg");
+     4: optional flap_u64_P_ flap_10m
+            (stats="1-flap_info.flap_count:DSSum:");
+     5: optional flap_u64_P_ flap_1h
+            (stats="6-flap_info.flap_count:DSSum:",hidden="yes");
+} (period="600")
+
+/**
+ * @description: Peer specific information
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
+uve sandesh PeerFlap {
+     1: PeerFlapData data;
 }

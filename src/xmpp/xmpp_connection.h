@@ -347,7 +347,8 @@ public:
     uint32_t flap_count() const;
     void increment_flap_count();
     uint64_t last_flap() const;
-    const std::string last_flap_at() const;
+    std::string last_flap_at() const;
+    std::string client() const;
     XmppConnection *connection();
     const XmppConnection *connection() const;
     void set_connection(XmppConnection *connection);

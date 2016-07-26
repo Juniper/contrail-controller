@@ -774,6 +774,11 @@ void XmppServerConnection::increment_flap_count() {
     flap_info.set_flap_time(conn_endpoint->last_flap());
     peer_info.set_flap_info(flap_info);
     XMPPPeerInfoSend(peer_info);
+
+    PeerFlapData peer_flap_data;
+    peer_flap_data.set_name(ToUVEKey());
+    peer_flap_data.set_flap_info(flap_info);
+    PeerFlap::Send(peer_flap_data, "ObjectXmppPeerInfo");
 }
 
 const std::string XmppServerConnection::last_flap_at() const {
@@ -931,7 +936,11 @@ uint64_t XmppConnectionEndpoint::last_flap() const {
     return last_flap_;
 }
 
-const std::string XmppConnectionEndpoint::last_flap_at() const {
+std::string XmppConnectionEndpoint::client() const {
+    return client_;
+}
+
+std::string XmppConnectionEndpoint::last_flap_at() const {
     return last_flap_ ? integerToString(UTCUsecToPTime(last_flap_)) : "";
 }
 
