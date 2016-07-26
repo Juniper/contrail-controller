@@ -419,10 +419,16 @@ public:
 
     virtual ~XmppPeer() {
         assert(GetTotalPathCount() == 0);
+
         XmppPeerInfoData peer_info;
         peer_info.set_name(ToUVEKey());
         peer_info.set_deleted(true);
         parent_->XMPPPeerInfoSend(peer_info);
+
+        PeerStatsData peer_stats_data;
+        peer_stats_data.set_name(ToUVEKey());
+        peer_stats_data.set_deleted(true);
+        PeerStatsUve::Send(peer_stats_data, "ObjectXmppPeerInfo");
     }
 
     virtual bool MembershipPathCallback(DBTablePartBase *tpart, BgpRoute *rt,
@@ -2818,7 +2824,7 @@ void BgpXmppChannelManager::XmppHandleChannelEvent(XmppChannel *channel,
     }
 }
 
-void BgpXmppChannelManager::FillPeerStats(const BgpXmppChannel *channel) const {
+void BgpXmppChannelManager::FillPeerInfo(const BgpXmppChannel *channel) const {
     PeerStatsInfo stats;
     PeerStats::FillPeerDebugStats(channel->Peer()->peer_stats(), &stats);
 
@@ -2826,13 +2832,19 @@ void BgpXmppChannelManager::FillPeerStats(const BgpXmppChannel *channel) const {
     peer_info.set_name(channel->Peer()->ToUVEKey());
     peer_info.set_peer_stats_info(stats);
     XMPPPeerInfo::Send(peer_info);
+
+    PeerStatsData peer_stats_data;
+    peer_stats_data.set_name(channel->Peer()->ToUVEKey());
+    PeerStats::FillPeerUpdateStats(channel->Peer()->peer_stats(),
+                                   &peer_stats_data);
+    PeerStatsUve::Send(peer_stats_data, "ObjectXmppPeerInfo");
 }
 
 bool BgpXmppChannelManager::CollectStats(BgpRouterState *state, bool first)
          const {
     CHECK_CONCURRENCY("bgp::Uve");
 
-    VisitChannels(boost::bind(&BgpXmppChannelManager::FillPeerStats, this, _1));
+    VisitChannels(boost::bind(&BgpXmppChannelManager::FillPeerInfo, this, _1));
     bool change = false;
     uint32_t num_xmpp = count();
     if (first || num_xmpp != state->get_num_xmpp_peer()) {

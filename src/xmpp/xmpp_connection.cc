@@ -931,7 +931,11 @@ uint64_t XmppConnectionEndpoint::last_flap() const {
     return last_flap_;
 }
 
-const std::string XmppConnectionEndpoint::last_flap_at() const {
+std::string XmppConnectionEndpoint::client() const {
+    return client_;
+}
+
+std::string XmppConnectionEndpoint::last_flap_at() const {
     return last_flap_ ? integerToString(UTCUsecToPTime(last_flap_)) : "";
 }
 

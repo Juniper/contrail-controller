@@ -538,7 +538,7 @@ void XmppServer::RemoveDeletedConnection(XmppServerConnection *connection) {
 }
 
 XmppConnectionEndpoint *XmppServer::FindConnectionEndpoint(
-    const string &endpoint_name) {
+    const string &endpoint_name) const {
     tbb::mutex::scoped_lock lock(endpoint_map_mutex_);
     ConnectionEndpointMap::const_iterator loc =
         connection_endpoint_map_.find(endpoint_name);

@@ -72,7 +72,7 @@ public:
     size_t ConnectionCount() const;
 
     XmppConnectionEndpoint *FindConnectionEndpoint(
-            const std::string &endpoint_name);
+            const std::string &endpoint_name) const;
     XmppConnectionEndpoint *LocateConnectionEndpoint(
         XmppServerConnection *connection, bool &created);
     void ReleaseConnectionEndpoint(XmppServerConnection *connection);
@@ -113,7 +113,7 @@ private:
     ConnectionSet deleted_connection_set_;
     size_t max_connections_;
 
-    tbb::mutex endpoint_map_mutex_;
+    mutable tbb::mutex endpoint_map_mutex_;
     ConnectionEndpointMap connection_endpoint_map_;
 
     tbb::mutex deletion_mutex_;

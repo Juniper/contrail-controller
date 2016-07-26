@@ -13,6 +13,7 @@ env.Append(CPPPATH = [env['TOP'] + '/db'])
 env.Append(CPPPATH = [env['TOP'] + '/io'])
 env.Append(CPPPATH = [env['TOP'] + '/ifmap'])
 env.Append(CPPPATH = [env['TOP'] + '/base/sandesh'])
+env.Append(CPPPATH = [env['TOP'] + '/tools/sandesh/library/common'])
 
 # Generate the source files
 SandeshGenFiles = env.SandeshGenCpp('routing_instance_analytics.sandesh')
