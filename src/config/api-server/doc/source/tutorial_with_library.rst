@@ -52,7 +52,7 @@ To associate the *policy-red-blue* with the virtual networks:
     >>> vnc_lib.virtual_network_update(vn_red_obj)
     u'{"virtual-network": {"href": "http://10.84.14.2:8082/virtual-network/5de3af3e-269f-40be-b0f6-69d6bb962a9f", "uuid": "5de3af3e-269f-40be-b0f6-69d6bb962a9f"}}'
 
-Reading the objects to verify
+Read the objects to verify
 -----------------------------
 An object can be read by using its uuid returned by create...    
 
@@ -85,7 +85,7 @@ A subset collection of objects anchored by a parent can be listed by
     >>> print vnc_lib.virtual_networks_list(parent_id='83a4bea4-ec45-4670-950c-d7f0f98e0e4f')
 
 
-Deleting the objects
+Delete the objects
 --------------------
 An object can be deleted using its uuid...
 
