@@ -14,6 +14,7 @@ env.Append(CPPPATH = [env['TOP'],
                       env['TOP'] + '/bgp',
                       env['TOP'] + '/db',
                       env['TOP'] + '/io',
+                      env['TOP'] + '/tools/sandesh/library/common',
                       env['TOP'] + '/xmpp'
                      ])
 env.Append(LIBPATH = ['#/' + Dir('..').path,

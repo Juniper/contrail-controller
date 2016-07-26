@@ -31,6 +31,7 @@ class XmppServerConnection;
 class XmppServer : public XmppConnectionManager {
 public:
     typedef boost::asio::ip::tcp::endpoint Endpoint;
+    typedef boost::function<void(XmppConnectionEndpoint *)> VisitorFn;
 
     XmppServer(EventManager *evm, const std::string &server_addr,
                const XmppChannelConfig *config);
@@ -70,9 +71,10 @@ public:
 
     const std::string &ServerAddr() const { return server_addr_; }
     size_t ConnectionCount() const;
+    void VisitEndpoints(VisitorFn fn) const;
 
     XmppConnectionEndpoint *FindConnectionEndpoint(
-            const std::string &endpoint_name);
+            const std::string &endpoint_name) const;
     XmppConnectionEndpoint *LocateConnectionEndpoint(
         XmppServerConnection *connection, bool &created);
     void ReleaseConnectionEndpoint(XmppServerConnection *connection);
@@ -113,7 +115,7 @@ private:
     ConnectionSet deleted_connection_set_;
     size_t max_connections_;
 
-    tbb::mutex endpoint_map_mutex_;
+    mutable tbb::mutex endpoint_map_mutex_;
     ConnectionEndpointMap connection_endpoint_map_;
 
     tbb::mutex deletion_mutex_;
