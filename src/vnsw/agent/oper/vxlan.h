@@ -9,7 +9,7 @@
 #include <cmn/agent_cmn.h>
 #include <cmn/agent.h>
 #include <agent_types.h>
-
+#include <oper/nexthop.h>
 using namespace std;
 
 class VxLanId : AgentRefCount<VxLanId>, public AgentDBEntry {
@@ -56,17 +56,19 @@ private:
 
 class VxLanIdData : public AgentData {
 public:
-    VxLanIdData(const string &vrf_name, DBRequest &req) :
+    VxLanIdData(const string &vrf_name, DBRequest &req, bool mirror_destination) :
         vrf_name_(vrf_name) { 
             nh_req_.Swap(&req);
+            mirror_destination_ = mirror_destination;
         }; 
     virtual ~VxLanIdData() { };
     string &vrf_name() {return vrf_name_;}
     DBRequest &nh_req() {return nh_req_;}
-
+    bool mirror_destination() const {return mirror_destination_;}
 private:
     string vrf_name_;
     DBRequest nh_req_;
+    bool mirror_destination_;
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -114,17 +116,19 @@ public:
 
     struct ConfigEntry {
         ConfigEntry(const std::string &vrf, bool flood_unknown_unicast,
-                    bool active) :
+                    bool active, bool mirror_destination) :
             vrf_(vrf), flood_unknown_unicast_(flood_unknown_unicast),
-            active_(active) {
+            active_(active), mirror_destination_(mirror_destination) {
         }
 
         std::string vrf_;
         bool flood_unknown_unicast_;
         bool active_;
+        bool mirror_destination_;
     };
     typedef std::map<ConfigKey, ConfigEntry, ConfigKey> ConfigTree;
-
+    typedef std::map<uint32_t, ComponentNHKeyList>VxlanCompositeNHList;
+    typedef std::pair<uint32_t , ComponentNHKeyList> VxlanCompositeNHEntry;
     static const uint32_t kInvalidvxlan_id = 0;
     VxLanTable(DB *db, const std::string &name) : AgentDBTable(db, name) { };
     virtual ~VxLanTable() { };
@@ -143,21 +147,29 @@ public:
     void Process(DBRequest &req);
 
     void Create(uint32_t vxlan_id, const std::string &vrf_name,
-                bool flood_unknown_unicast);
+                bool flood_unknown_unicast, bool mirror_destination);
     void Delete(uint32_t vxlan_id);
 
     VxLanId *Find(uint32_t vxlan_id);
     VxLanId *FindNoLock(uint32_t vxlan_id);
     VxLanId *Locate(uint32_t vxlan_id, const boost::uuids::uuid &vn,
-                    const std::string &vrf, bool flood_unknown_unicast);
+                    const std::string &vrf, bool flood_unknown_unicast,
+                    bool mirror_destination);
     VxLanId *Delete(uint32_t vxlan_id, const boost::uuids::uuid &vn);
     const ConfigTree &config_tree() const { return config_tree_; }
     static DBTableBase *CreateTable(DB *db, const std::string &name);
-
+    void Initialize();
+    void Register();
+    void Shutdown();
+    void VmInterfaceNotify(DBTablePartBase *partition, DBEntryBase *e);
+    bool AddCompositeNH(uint32_t vxlan_id, ComponentNHKeyPtr nh_key);
+    bool DeleteCompositeNH(uint32_t vxlan_id, ComponentNHKeyPtr nh_key);
 private:
     bool ChangeHandler(VxLanId *vxlan_id, const DBRequest *req);
     ConfigTree config_tree_;
     DBTableBase::ListenerId vn_table_listener_id_;
+    DBTableBase::ListenerId interface_listener_id_;
+    VxlanCompositeNHList vxlan_composite_nh_map_;
     DISALLOW_COPY_AND_ASSIGN(VxLanTable);
 };
 
