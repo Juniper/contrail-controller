@@ -2002,3 +2002,12 @@ class AlarmServer(Resource, Alarm):
     # end pre_dbe_update
 
 # end class AlarmServer
+
+
+class QosConfigServer(Resource, QosConfig):
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        obj_dict['global_system_config_refs'] = [{'to': ['default-global-system-config']}]
+        return True, ''
+
+# end QosConfigServer
