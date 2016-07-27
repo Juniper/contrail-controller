@@ -1991,6 +1991,22 @@ class RouteAggregateServer(Resource, RouteAggregate):
 
 class ForwardingClassServer(Resource, ForwardingClass):
     @classmethod
+    def _check_fc_data_value(cls, obj_dict, db_conn):
+        if obj_dict.get('forwarding_class_dscp') > 63:
+            return (False, (400, "Invalid DSCP value %d"
+                                  % obj_dict.get('forwarding_class_dscp')))
+
+        if obj_dict.get('forwarding_class_vlan_priority') > 7:
+            return (False, (400, "Invalid 802.1p value %d"
+                            % obj_dict.get('forwarding_class_vlan_priority')))
+
+        if obj_dict.get('forwarding_class_mpls_exp') > 7:
+            return (False, (400, "Invalid MPLS value %d"
+                           % obj_dict.get('forwarding_class_mpls_exp')))
+
+        return (True, '')
+
+    @classmethod
     def _check_fc_id(cls, obj_dict, db_conn):
         if obj_dict.get('forwarding_class_id') == None:
             return (True, '')
@@ -2010,12 +2026,20 @@ class ForwardingClassServer(Resource, ForwardingClass):
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        (ok, result) = cls._check_fc_data_value(obj_dict, db_conn)
+        if not ok:
+            return (ok, result)
+
         if 'forwarding_class_id' in obj_dict:
             return cls._check_fc_id(obj_dict, db_conn)
         return (True, '')
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        (ok, result) = cls._check_fc_data_value(obj_dict, db_conn)
+        if not ok:
+            return (ok, result)
+
         ok, forwarding_class = cls.dbe_read(db_conn, 'forwarding_class', id)
         if not ok:
             return ok, read_result
@@ -2027,3 +2051,35 @@ class ForwardingClassServer(Resource, ForwardingClass):
                     return cls._check_fc_id(obj_dict, db_conn)
         return (True, '')
 # end class ForwardingClassServer
+
+class QosConfigServer(Resource, QosConfig):
+    @classmethod
+    def _check_qos_values(cls, obj_dict, db_conn):
+        fc_pair = 'qos_id_forwarding_class_pair'
+        if 'dscp_entries' in obj_dict:
+            for qos_id_pair in obj_dict['dscp_entries'].get(fc_pair) or []:
+                if qos_id_pair.get('key') > 63:
+                    return (False, (400, "Invalid DSCP value %d"
+                                   % qos_id_pair.get('key')))
+
+        if 'vlan_priority_entries' in obj_dict:
+            for qos_id_pair in obj_dict['vlan_priority_entries'].get(fc_pair) or []:
+                if qos_id_pair.get('key') > 7:
+                    return (False, (400, "Invalid 802.1p value %d"
+                                    % qos_id_pair.get('key')))
+
+        if 'mpls_exp_entries' in obj_dict:
+            for qos_id_pair in obj_dict['mpls_exp_entries'].get(fc_pair) or []:
+                if qos_id_pair.get('key') > 7:
+                    return (False, (400, "Invalid MPLS EXP value %d"
+                                          % qos_id_pair.get('key')))
+        return (True, '')
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        return cls._check_qos_values(obj_dict, db_conn)
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        return cls._check_qos_values(obj_dict, db_conn)
+#end class QosConfigServer
