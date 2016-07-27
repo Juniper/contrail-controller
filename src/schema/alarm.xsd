@@ -22,7 +22,7 @@
         <xsd:element name="operation" type="AlarmOperation" required="true" description="operation to compare operand1 and operand2"/>
         <xsd:element name="operand1" type="xsd:string" required="true" description="UVE attribute specified in the dotted format. Example: NodeStatus.process_info.process_state"/>
         <xsd:element name="operand2" type="xsd:string" required="true" description="UVE attribute or a json value to compare with the UVE attribute in operand1. null value can be specified to check if operand1 exists using the operator != or =="/>
-        <xsd:element name="vars" type="xsd:string" required="optional" maxOccurs="unbounded" description="List of UVE attributes that would be useful when the alarm is raised. For example, user may want to raise an alarm if the NodeStatus.process_info.process_state != PROCESS_STATE_RUNNING. But, it would be useful to know the process_name whose state != PROCESS_STATE_RUNNING. This UVE attribute which is neither part of operand1 nor operand2 may be specified in vars"/>
+        <xsd:element name="variables" type="xsd:string" required="optional" maxOccurs="unbounded" description="List of UVE attributes that would be useful when the alarm is raised. For example, user may want to raise an alarm if the NodeStatus.process_info.process_state != PROCESS_STATE_RUNNING. But, it would be useful to know the process_name whose state != PROCESS_STATE_RUNNING. This UVE attribute which is neither part of operand1 nor operand2 may be specified in variables"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -45,6 +45,12 @@
     </xsd:restriction>
 </xsd:simpleType>
 
+<xsd:complexType name="UveKeysType">
+    <xsd:all>
+        <xsd:element name="uve-key" type="xsd:string" required="true" maxOccurs="unbounded" description="List of UVE tables where this alarm config should be applied"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:element name="alarm-enable" type="xsd:boolean"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('alarm-enable', 'global-system-config', 'optional', 'CRUD',
@@ -64,10 +70,10 @@
      Link('project-alarm', 'project', 'alarm', ['has'], 'optional', 'CRUD',
           'List of alarms that are applicable to objects anchored under the project.') -->
 
-<xsd:element name="uve-keys" type="xsd:string" maxOccurs="unbounded"/>
+<xsd:element name="uve-keys" type="UveKeysType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('uve-keys', 'alarm', 'required', 'CRUD',
-              'List of UVE tables or UVE objects where this alarm config should be applied. For example, rules based on NodeStatus UVE can be applied to multiple object types such as analytics-node, config-node, control-node, etc., Alarm config may also be applied to specific objects that can be specified as <uve-table-name>.<uve-name>') -->
+              'List of UVE tables where this alarm config should be applied. For example, rules based on NodeStatus UVE can be applied to multiple object types such as analytics-node, config-node, control-node, etc.,') -->
 <xsd:element name="alarm-severity" type="AlarmSeverity"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('alarm-severity', 'alarm', 'required', 'CRUD',

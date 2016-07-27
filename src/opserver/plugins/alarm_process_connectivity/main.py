@@ -22,7 +22,7 @@ class ProcessConnectivity(AlarmBase):
                         'operand1': 'NodeStatus.process_status.state',
                         'operation': '!=',
                         'operand2': '"Functional"',
-                        'vars': ['NodeStatus.process_status.module_id',
+                        'variables': ['NodeStatus.process_status.module_id',
                             'NodeStatus.process_status.instance_id']
                     }
                 ]

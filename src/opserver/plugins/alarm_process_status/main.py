@@ -22,7 +22,7 @@ class ProcessStatus(AlarmBase):
                         'operand1': 'NodeStatus.process_info.process_state',
                         'operation': '!=',
                         'operand2': '"PROCESS_STATE_RUNNING"',
-                        'vars': ['NodeStatus.process_info.process_name']
+                        'variables': ['NodeStatus.process_info.process_name']
                     }
                 ]
             }
