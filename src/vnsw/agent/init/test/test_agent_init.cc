@@ -12,6 +12,8 @@
 #include <cfg/cfg_init.h>
 
 namespace opt = boost::program_options;
+using std::map;
+using std::string;
 
 class FlowTest : public ::testing::Test {
 public:
@@ -242,6 +244,7 @@ TEST_F(FlowTest, Agent_Param_1) {
         (char *) "--config_file", 
                         (char *)"controller/src/vnsw/agent/init/test/cfg.ini",
         (char *) "--DEFAULT.collectors",     (char *)"1.1.1.1:1000",
+        (char *) "--DEFAULT.derived_stats",  (char *)"DSStruct.dsattr:dsparam",
         (char *) "--DEFAULT.log_local",
         (char *) "--DEFAULT.log_flow",
         (char *) "--DEFAULT.log_level",     (char *)"SYS_DEBUG",
@@ -266,6 +269,12 @@ TEST_F(FlowTest, Agent_Param_1) {
     vector<string> collector_list = param.collector_server_list();
     string first_collector = collector_list.at(0);
     EXPECT_STREQ(first_collector.c_str(), "1.1.1.1:1000");
+
+    EXPECT_EQ(param.collector_server_list().size(), 1);
+    map<string, map<string, string> > dsmap = param.derived_stats_map();
+    string dsparam = dsmap.at("DSStruct").at("dsattr");
+    EXPECT_STREQ(dsparam.c_str(), "dsparam");
+
     EXPECT_EQ(param.http_server_port(), 8000);
     EXPECT_STREQ(param.host_name().c_str(), "vhost-1");
     EXPECT_EQ(param.dhcp_relay_mode(), true);
