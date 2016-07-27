@@ -3,6 +3,7 @@
  */
 
 include "vnsw/agent/uve/port_bmap.sandesh"
+include "sandesh/library/common/derived_stats_results.sandesh"
 
 /**
  * Uve definitions for interface
@@ -76,8 +77,14 @@ struct UveVMInterfaceAgent {
    16: optional list<VmFloatingIPStats> fip_agg_stats;
     /** @display_name:Virtual Machine Floating IP Statistics*/
    17: optional list<VmFloatingIPStats> fip_diff_stats (tags=".virtual_network,.ip_address")
+
+   18: optional VmInterfaceStats raw_if_stats (hidden="yes")
     /** @display_name:Virtual Machine Interface Statistics*/
-   18: optional VmInterfaceStats if_stats (tags="vm_name,vm_uuid")
+   30: optional VmInterfaceStats if_stats     (stats="raw_if_stats:DSNon0:", tags="vm_name,vm_uuid")
+   31: optional derived_stats_results.AnomalyResult if_in_pkts_ewm 
+                    (stats="raw_if_stats.in_pkts:DSAnomaly:EWM:0.2")
+   32: optional derived_stats_results.AnomalyResult if_out_pkts_ewm
+                    (stats="raw_if_stats.out_pkts:DSAnomaly:EWM:0.2")
    19: string vm_uuid;
    20: optional u64 in_bw_usage;
    21: optional u64 out_bw_usage;

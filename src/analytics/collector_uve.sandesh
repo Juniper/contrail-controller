@@ -11,6 +11,7 @@ include "io/io.sandesh"
 include "sandesh/library/common/sandesh_uve.sandesh"
 include "database/gendb.sandesh"
 include "database/cassandra/cql/cql.sandesh"
+include "sandesh/library/common/derived_stats_results.sandesh"
 
 /**
  * structure to store sandesh stats on a per message type
@@ -134,16 +135,33 @@ struct CollectorStats {
  * database operations in the contrail-collector
  * @object: analytics-node
  */
-objectlog sandesh CollectorDbStats {
-    1: string                             name (key="ObjectCollectorInfo")
-    /** @display_name:Collector Database Table Statistics*/
-    2: optional list<gendb.DbTableInfo>   table_info (tags=".table_name")
-    /** @display_name:Collector Database Errors*/
-    3: optional gendb.DbErrors            errors (tags="")
-    /** @display_name:Collector Statistics Database Table*/
-    4: optional list<gendb.DbTableInfo>   statistics_table_info (tags=".table_name")
-    /** @display_name:Collector Database CQL Request Statistics*/
-    5: optional cql.DbStats               cql_stats (tags="")
+
+struct CollectorDbStats {
+    1: string                                  name (key="ObjectCollectorInfo")
+   99: optional bool                           deleted
+    2: optional map<string, gendb.DbTableStat> table_info (tags=".__key", metric="diff")
+    3: optional gendb.DbErrors                 errors (tags="")
+    4: optional map<string, gendb.DbTableStat> stats_info (tags=".__key", metric="diff")
+    5: optional cql.DbStats                    cql_stats (tags="")
+
+   10: optional map<string, gendb.DbTableStat_P_>
+         table_info_1h   (mstats="60-table_info:DSSum:", hidden="yes") 
+   11: optional map<string, gendb.DbTableStat_P_>
+         table_info_10m  (mstats="10-table_info:DSSum:")
+   12: optional map<string, derived_stats_results.AnomalyResult>
+         table_writes_anomaly (mstats="0-table_info.writes:DSAnomaly:EWM:0.2")
+
+   20: optional map<string, gendb.DbTableStat_P_>
+           stats_info_1h (mstats="60-stats_info:DSSum:", hidden="yes")
+   21: optional map<string, gendb.DbTableStat_P_>
+         stats_info_10m  (mstats="10-stats_info:DSSum:")
+   22: optional map<string, derived_stats_results.AnomalyResult>
+         stats_writes_anomaly (mstats="0-stats_info.writes:DSAnomaly:EWM:0.2")
+
+} (period="60")
+
+uve sandesh CollectorDbStatsTrace {
+    1: CollectorDbStats data
 }
 
 /**

@@ -31,6 +31,19 @@ struct DbTableInfo {
     6: u64                                 write_back_pressure_fails
 }
 
+struct DbTableStat {
+    2: u64                                 reads
+    3: u64                                 read_fails
+    4: u64                                 writes
+    5: u64                                 write_fails
+    6: u64                                 write_back_pressure_fails
+}
+
+struct DbTableStat_P_ {
+    1: optional DbTableStat value
+    2: optional DbTableStat staging
+}
+
 struct DbErrors {
     1: u64                                write_tablespace_fails
     2: u64                                read_tablespace_fails
