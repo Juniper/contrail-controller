@@ -124,6 +124,7 @@ public:
         uint64_t timestamp, GenDb::GenDbIf::DbAddColumnCb db_cb);
 
     bool GetStats(uint64_t *queue_count, uint64_t *enqueues) const;
+
     bool GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
         GenDb::DbErrors *dbe, std::vector<GenDb::DbTableInfo> *vstats_dbti);
     bool GetCumulativeStats(std::vector<GenDb::DbTableInfo> *vdbti,

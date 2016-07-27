@@ -174,6 +174,9 @@ public:
     const std::vector<std::string> collector_server_list() const {
         return collector_server_list_;
     }
+    const std::map<string, std::map<string, string> > derived_stats_map() const {
+        return derived_stats_map_;
+    }
     uint16_t http_server_port() const { return http_server_port_; }
     uint32_t discovery_server_port() const { return dss_port_; }
     const std::string &host_name() const { return host_name_; }
@@ -342,7 +345,9 @@ private:
     friend class AgentParamTest;
     void UpdateBgpAsaServicePortRange();
     void ComputeFlowLimits();
-    void ParseCollector();
+    static std::map<string, std::map<string, string> > ParseDerivedStats(
+        const std::vector<std::string> &dsvec);
+    void ParseCollectorDS();
     void ParseVirtualHost();
     void ParseDns();
     void ParseDiscovery();
@@ -363,7 +368,7 @@ private:
     void set_agent_mode(const std::string &mode);
     void set_gateway_mode(const std::string &mode);
 
-    void ParseCollectorArguments
+    void ParseCollectorDSArguments
         (const boost::program_options::variables_map &v);
     void ParseVirtualHostArguments
         (const boost::program_options::variables_map &v);
@@ -459,6 +464,7 @@ private:
     bool use_syslog_;
     std::string syslog_facility_;
     std::vector<std::string> collector_server_list_;
+    std::map<string, std::map<string, string> > derived_stats_map_;
     uint16_t http_server_port_;
     std::string host_name_;
     int agent_stats_interval_;
