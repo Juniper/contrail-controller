@@ -1447,52 +1447,32 @@ const list<stat_table> _STAT_TABLES  = [
     {
       'display_name' : 'Sandesh Client Message Stats',
       'stat_type' : 'ModuleClientState',
-      'stat_attr' : 'tx_msg_agg_diff.counters',
+      'stat_attr' : 'tx_msg_diff',
       'obj_table' : GENERATOR_INFO_TABLE,
       'attributes': [
-          { 'name' : 'tx_msg_agg_diff.counters.__key', 'datatype' : 'string', 'index' : true},
-          { 'name' : 'tx_msg_agg_diff.counters.__value', 'datatype' : 'string', 'index' : false},
+          { 'name' : 'tx_msg_diff.__key',   'datatype' : 'string', 'index' : true},
+          { 'name' : 'tx_msg_diff.__value', 'datatype' : 'string', 'index' : false},
       ]
     },
     {
-      'display_name' : 'Generator Database Table Statistics',
-      'stat_type' : 'GeneratorDbStats',
-      'stat_attr' : 'table_info',
+      'display_name' : 'Sandesh Client Message-Type Stats',
+      'stat_type' : 'ModuleClientState',
+      'stat_attr' : 'msg_type_diff',
       'obj_table' : GENERATOR_INFO_TABLE,
       'attributes': [
-          { 'name' : 'table_info.table_name', 'datatype' : 'string', 'index' : true},
-          { 'name' : 'table_info.reads', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'table_info.read_fails', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'table_info.writes', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'table_info.write_fails', 'datatype' : 'int', 'index' : false},
-      ]
-    },
-    {
-      'display_name' : 'Generator Statistics Database Table',
-      'stat_type' : 'GeneratorDbStats',
-      'stat_attr' : 'statistics_table_info',
-      'obj_table' : GENERATOR_INFO_TABLE,
-      'attributes': [
-          { 'name' : 'statistics_table_info.table_name', 'datatype' : 'string', 'index' : true},
-          { 'name' : 'statistics_table_info.reads', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'statistics_table_info.read_fails', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'statistics_table_info.writes', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'statistics_table_info.write_fails', 'datatype' : 'int', 'index' : false},
-      ]
-    },
-    {
-      'display_name' : 'Generator Database Errors',
-      'stat_type' : 'GeneratorDbStats',
-      'stat_attr' : 'errors',
-      'obj_table' : GENERATOR_INFO_TABLE,
-      'attributes': [
-          { 'name' : 'errors.write_tablespace_fails', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'errors.read_tablespace_fails', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'errors.write_table_fails', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'errors.read_table_fails', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'errors.write_column_fails', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'errors.write_batch_column_fails', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'errors.read_column_fails', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'msg_type_diff.__key', 'datatype' : 'string', 'index' : true},
+          { 'name' : 'msg_type_diff.messages_sent', 'datatype' : 'string', 'index' : false},
+          { 'name' : 'msg_type_diff.messages_sent_dropped_no_queue', 'datatype' : 'string', 'index' : false},
+          { 'name' : 'msg_type_diff.messages_sent_dropped_no_client', 'datatype' : 'string', 'index' : false},
+          { 'name' : 'msg_type_diff.messages_sent_dropped_no_session', 'datatype' : 'string', 'index' : false},
+          { 'name' : 'msg_type_diff.messages_sent_dropped_queue_level', 'datatype' : 'string', 'index' : false},
+          { 'name' : 'msg_type_diff.messages_sent_dropped_client_send_failed', 'datatype' : 'string', 'index' : false},
+          { 'name' : 'msg_type_diff.messages_sent_dropped_session_not_connected', 'datatype' : 'string', 'index' : false},
+          { 'name' : 'msg_type_diff.messages_sent_dropped_header_write_failed', 'datatype' : 'string', 'index' : false},
+          { 'name' : 'msg_type_diff.messages_sent_dropped_write_failed', 'datatype' : 'string', 'index' : false},
+          { 'name' : 'msg_type_diff.messages_sent_dropped_wrong_client_sm_state', 'datatype' : 'string', 'index' : false},
+          { 'name' : 'msg_type_diff.messages_sent_dropped_validation_failed', 'datatype' : 'string', 'index' : false},
+          { 'name' : 'msg_type_diff.messages_sent_dropped_rate_limited', 'datatype' : 'string', 'index' : false},
       ]
     },
     {
@@ -1501,7 +1481,7 @@ const list<stat_table> _STAT_TABLES  = [
       'stat_attr' : 'table_info',
       'obj_table' : COLLECTOR_INFO_TABLE,
       'attributes': [
-          { 'name' : 'table_info.table_name', 'datatype' : 'string', 'index' : true},
+          { 'name' : 'table_info.__key', 'datatype' : 'string', 'index' : true},
           { 'name' : 'table_info.reads', 'datatype' : 'int', 'index' : false},
           { 'name' : 'table_info.read_fails', 'datatype' : 'int', 'index' : false},
           { 'name' : 'table_info.writes', 'datatype' : 'int', 'index' : false},
@@ -1512,15 +1492,15 @@ const list<stat_table> _STAT_TABLES  = [
     {
       'display_name' : 'Collector Statistics Database Table',
       'stat_type' : 'CollectorDbStats',
-      'stat_attr' : 'statistics_table_info',
+      'stat_attr' : 'stats_info',
       'obj_table' : COLLECTOR_INFO_TABLE,
       'attributes': [
-          { 'name' : 'statistics_table_info.table_name', 'datatype' : 'string', 'index' : true},
-          { 'name' : 'statistics_table_info.reads', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'statistics_table_info.read_fails', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'statistics_table_info.writes', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'statistics_table_info.write_fails', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'statistics_table_info.write_back_pressure_fails', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'stats_info.__key', 'datatype' : 'string', 'index' : true},
+          { 'name' : 'stats_info.reads', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'stats_info.read_fails', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'stats_info.writes', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'stats_info.write_fails', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'stats_info.write_back_pressure_fails', 'datatype' : 'int', 'index' : false},
       ]
     },
     {
@@ -2221,7 +2201,7 @@ const list<stat_table> _STAT_TABLES  = [
       'stat_attr' : 'table_stats',
       'obj_table' : ROUTING_INSTANCE_TABLE,
       'attributes': [
-          { 'name' : 'table_stats.address_family', 'datatype' : 'string',    'index' : true},
+          { 'name' : 'table_stats.__key', 'datatype' : 'string',    'index' : true},
           { 'name' : 'table_stats.prefixes', 'datatype' : 'int', 'index' : false},
           { 'name' : 'table_stats.primary_paths', 'datatype' : 'int', 'index' : false},
           { 'name' : 'table_stats.secondary_paths', 'datatype' : 'int', 'index' : false},
