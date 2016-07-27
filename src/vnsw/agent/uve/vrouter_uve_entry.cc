@@ -214,11 +214,9 @@ bool VrouterUveEntry::SendVrouterMsg() {
 
     AgentDropStats drop_stats;
     FetchDropStats(drop_stats);
-    if (prev_stats_.get_drop_stats() != drop_stats) {
-        stats.set_drop_stats(drop_stats);
-        prev_stats_.set_drop_stats(drop_stats);
-        change = true;
-    }
+    change = true;
+    stats.set_raw_drop_stats(drop_stats);
+
     if (first) {
         stats.set_uptime(start_time_);
     }

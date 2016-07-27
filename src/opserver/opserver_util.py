@@ -156,8 +156,9 @@ class OpServerUtils(object):
                 for idx in range(0,int(inp['map']['@size'])):
                     m_attr = inp['map']['element'][idx]
                     subst = {}
-                    for sk,sv in inp['map'][sname][idx].iteritems():
-                        subst[sk] = OpServerUtils.uve_attr_flatten(sv)
+                    if inp['map'][sname][idx]:
+                        for sk,sv in inp['map'][sname][idx].iteritems():
+                            subst[sk] = OpServerUtils.uve_attr_flatten(sv)
                     fmap[m_attr] = subst
             return fmap
         else:
@@ -554,6 +555,8 @@ class OpServerUtils(object):
     @staticmethod
     def _data_dict_to_str(data_dict, sandesh_type):
         data_str = None
+        if not data_dict:
+            return ''
         for key, value in data_dict.iteritems():
             # Ignore if type is sandesh
             if '@type' == key and value == 'sandesh':

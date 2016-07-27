@@ -130,7 +130,8 @@ void DiscoveryAgentClient::DiscoverServices() {
                                        agent->introspect_port(),
                                        csf,
                                        list,
-                                       NULL);
+                                       NULL,
+                                       param_->derived_stats_map());
             }
 
             //subscribe to Xmpp Server on controller
