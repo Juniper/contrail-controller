@@ -233,11 +233,43 @@ bool AgentParam::ParseServerListArguments
     return true;
 }
 
-void AgentParam::ParseCollector() {
+std::map<string, std::map<string, string> >
+AgentParam::ParseDerivedStats(const std::vector<std::string> &dsvec) {
+    std::map<string, std::map<string, string> > dsmap;
+    std::map<string, std::map<string, string> >::iterator dsiter;
+    
+    for (size_t idx=0; idx!=dsvec.size(); idx++) {
+        size_t pos = dsvec[idx].find(':');
+        assert(pos != string::npos);
+        string dsfull = dsvec[idx].substr(0,pos);
+        string dsarg = dsvec[idx].substr(pos+1, string::npos);
+        
+        size_t dpos = dsfull.find('.');
+        assert(dpos != string::npos);
+        string dsstruct = dsfull.substr(0,dpos);
+        string dsattr = dsfull.substr(dpos+1, string::npos);
+
+        dsiter = dsmap.find(dsstruct);
+        std::map<string, string> dselem;
+        if (dsiter!=dsmap.end()) dselem = dsiter->second;
+        dselem[dsattr] = dsarg;
+        
+        dsmap[dsstruct] = dselem;
+    }
+    return dsmap;
+}
+
+void AgentParam::ParseCollectorDS() {
     optional<string> opt_str;
     if (opt_str = tree_.get_optional<string>("DEFAULT.collectors")) {
         boost::split(collector_server_list_, opt_str.get(),
                      boost::is_any_of(" "));
+    }
+    if (opt_str = tree_.get_optional<string>("DEFAULT.derived_stats")) {
+        vector<string> dsvec;
+        boost::split(dsvec, opt_str.get(),
+                     boost::is_any_of(" "));
+        derived_stats_map_ = ParseDerivedStats(dsvec);
     }
 }
 
@@ -639,10 +671,15 @@ void AgentParam::ParseServices() {
     GetValueFromTree<uint32_t>(services_queue_limit_, "SERVICES.queue_limit");
 }
 
-void AgentParam::ParseCollectorArguments
+void AgentParam::ParseCollectorDSArguments
     (const boost::program_options::variables_map &var_map) {
     GetOptValue< vector<string> >(var_map, collector_server_list_,
                                       "DEFAULT.collectors");
+    vector<string> dsvec;
+    if (GetOptValue< vector<string> >(var_map, dsvec,
+                                      "DEFAULT.derived_stats")) {
+        derived_stats_map_ = ParseDerivedStats(dsvec);
+    }
 }
 
 void AgentParam::ParseVirtualHostArguments
@@ -926,7 +963,7 @@ void AgentParam::InitFromConfig() {
         return;
     }
 
-    ParseCollector();
+    ParseCollectorDS();
     ParseVirtualHost();
     ParseServerList("CONTROL-NODE.server", &xmpp_server_1_, &xmpp_server_2_);
     ParseDns();
@@ -950,7 +987,7 @@ void AgentParam::InitFromConfig() {
 }
 
 void AgentParam::InitFromArguments() {
-    ParseCollectorArguments(var_map_);
+    ParseCollectorDSArguments(var_map_);
     ParseVirtualHostArguments(var_map_);
     ParseServerListArguments(var_map_, xmpp_server_1_, xmpp_server_2_,
                              "CONTROL-NODE.server");
@@ -1394,6 +1431,9 @@ AgentParam::AgentParam(bool enable_flow_options,
         ("DEFAULT.collectors",
          opt::value<std::vector<std::string> >()->multitoken(),
          "Collector server list")
+        ("DEFAULT.derived_stats",
+         opt::value<std::vector<std::string> >()->multitoken(),
+         "Derived Stats Parameters")
         ("DEFAULT.flow_cache_timeout",
          opt::value<uint16_t>()->default_value(Agent::kDefaultFlowCacheTimeout),
          "Flow aging time in seconds")
