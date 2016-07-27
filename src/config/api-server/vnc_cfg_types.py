@@ -2027,3 +2027,11 @@ class ForwardingClassServer(Resource, ForwardingClass):
                     return cls._check_fc_id(obj_dict, db_conn)
         return (True, '')
 # end class ForwardingClassServer
+
+class QosConfigServer(Resource, QosConfig):
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        obj_dict['global_system_config_refs'] = [{'to': ['default-global-system-config']}]
+        return True, ''
+
+# end QosConfigServer
