@@ -282,14 +282,28 @@ struct VrouterStatsAgent {  // Agent stats
     39: optional list<u32>   udp_dport_bitmap;
     40: optional list<u32>   tcp_sport_bitmap;
     41: optional list<u32>   tcp_dport_bitmap;
-    42: optional AgentDropStats drop_stats;
+
+    42: optional AgentDropStats raw_drop_stats (metric="agg", hidden="yes")
+    60: optional AgentDropStats drop_stats     (stats="raw_drop_stats:DSNon0:")
+    61: optional AgentDropStats drop_stats_1h  (stats="raw_drop_stats:DSSum:120")
+
     43: optional double total_in_bandwidth_utilization;
     44: optional double total_out_bandwidth_utilization;
+
     45: optional VrouterFlowRate flow_rate (tags="")
+    65: optional derived_stats_results.AnomalyResult added_flows_ewm
+                     (stats="flow_rate.added_flows:DSAnomaly:EWM:0.2")
+    66: optional derived_stats_results.AnomalyResult deleted_flows_ewm
+                     (stats="flow_rate.deleted_flows:DSAnomaly:EWM:0.2")
+    67: optional derived_stats_results.AnomalyResult active_flows_ewm
+                     (stats="flow_rate.active_flows:DSAnomaly:EWM:0.2")
+
     50: optional map<string,u64> phy_band_in_bps  (tags="name:.__key")
     51: optional map<string,u64> phy_band_out_bps (tags="name:.__key")
-    52: optional map<string,derived_stats_results.EWMResult> in_bps_ewm (mstats="phy_band_in_bps:DSEWM:0.2")
-    53: optional map<string,derived_stats_results.EWMResult> out_bps_ewm (mstats="phy_band_out_bps:DSEWM:0.2")
+    52: optional map<string,derived_stats_results.EWMResult> in_bps_ewm
+                     (mstats="phy_band_in_bps:DSEWM:0.2")
+    53: optional map<string,derived_stats_results.EWMResult> out_bps_ewm
+                     (mstats="phy_band_out_bps:DSEWM:0.2")
 }
 
 /**
