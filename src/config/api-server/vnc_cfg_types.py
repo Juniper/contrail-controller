@@ -1983,3 +1983,22 @@ class ForwardingClassServer(Resource, ForwardingClass):
                     return cls._check_fc_id(obj_dict, db_conn)
         return (True, '')
 # end class ForwardingClassServer
+
+
+class AlarmServer(Resource, Alarm):
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        if 'alarm_rules' not in obj_dict or obj_dict['alarm_rules'] is None:
+            return (False, (400, 'alarm_rules not specified or null'))
+        return True, ''
+    # end pre_dbe_create
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        if 'alarm_rules' in obj_dict and obj_dict['alarm_rules'] is None:
+            return (False, (400, 'alarm_rules cannot be removed'))
+        return True, ''
+    # end pre_dbe_update
+
+# end class AlarmServer
