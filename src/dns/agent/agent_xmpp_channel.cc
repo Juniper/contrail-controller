@@ -192,6 +192,13 @@ DnsAgentXmppChannelManager::HandleXmppChannelEvent(XmppChannel *channel,
             DnsAgentXmppChannel *agent_xmpp_channel = 
                             new DnsAgentXmppChannel(channel, this);
             channel_map_.insert(std::make_pair(channel, agent_xmpp_channel));
+            IFMapManager *ifmap_manager =
+                Dns::GetDnsManager()->get_ifmap_manager();
+            if (ifmap_manager && !ifmap_manager->GetEndOfRibComputed()) {
+                DNS_XMPP_TRACE(DnsXmppTrace, "Peer:" + channel->PeerAddress() +
+                               " Close due to EndofRib not computed");
+                channel->Close();
+            }
         }
     } else if (state == xmps::NOT_READY) {
         if (it != channel_map_.end()) {
