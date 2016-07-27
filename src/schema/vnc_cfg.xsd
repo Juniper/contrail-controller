@@ -788,6 +788,27 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:simpleType name="DscpValueType">
+    <xsd:restriction base="xsd:integer">
+        <xsd:minInclusive value="0"/>
+        <xsd:maxInclusive value="63"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="VlanPriorityType">
+    <xsd:restriction base="xsd:integer">
+        <xsd:minInclusive value="0"/>
+        <xsd:maxInclusive value="7"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="MplsExpType">
+    <xsd:restriction base="xsd:integer">
+        <xsd:minInclusive value="0"/>
+        <xsd:maxInclusive value="7"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name="QosIdForwardingClassPair">
     <xsd:all>
         <xsd:element name="key" type="xsd:integer"
@@ -1041,15 +1062,15 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('forwarding-class-id', 'forwarding-class', 'required', 'CRUD',
               'Unique ID for this forwarding class.') -->
-<xsd:element name="forwarding-class-dscp" type="xsd:integer"/>
+<xsd:element name="forwarding-class-dscp" type="DscpValueType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('forwarding-class-dscp', 'forwarding-class', 'required', 'CRUD',
               'DSCP value to be written on outgoing packet for this forwarding-class.') -->
-<xsd:element name="forwarding-class-vlan-priority" type="xsd:integer"/>
+<xsd:element name="forwarding-class-vlan-priority" type="VlanPriorityType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('forwarding-class-vlan-priority', 'forwarding-class', 'required', 'CRUD',
               '802.1p value to be written on outgoing packet for this forwarding-class.') -->
-<xsd:element name="forwarding-class-mpls-exp" type="xsd:integer"/>
+<xsd:element name="forwarding-class-mpls-exp" type="MplsExpType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('forwarding-class-mpls-exp', 'forwarding-class', 'required', 'CRUD',
               'MPLS exp value to be written on outgoing packet for this forwarding-class.') -->
