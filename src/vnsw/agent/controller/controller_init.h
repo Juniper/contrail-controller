@@ -183,7 +183,7 @@ private:
     AgentDnsXmppChannel *FindAgentDnsXmppChannel(const std::string &server_ip);
     void DeleteConnectionInfo(const std::string &addr, bool is_dns) const;
     const std::string MakeConnectionPrefix(bool is_dns) const;
-    bool AgentXmppServerExists(const std::string &server_ip,
+    bool AgentXmppServerConnectedExists(const std::string &server_ip,
                                std::vector<DSResponse> resp);
     bool  ApplyDiscoveryXmppServicesInternal(std::vector<DSResponse> resp);
     bool  ApplyDiscoveryDnsXmppServicesInternal(std::vector<DSResponse> resp);

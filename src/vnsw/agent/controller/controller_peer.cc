@@ -1612,7 +1612,21 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
                          "NULL", "Connection to Xmpp Server, Timed out");
         DiscoveryAgentClient *dac = Agent::GetInstance()->discovery_client();
         if (dac) {
-            dac->ReDiscoverController();
+            std::vector<DSResponse> resp =
+                Agent::GetInstance()->GetDiscoveryServerResponseList();
+            std::vector<DSResponse>::iterator iter;
+            for (iter = resp.begin(); iter != resp.end(); iter++) {
+                DSResponse dr = *iter;
+                if (peer->GetXmppServer().compare(
+                    dr.ep.address().to_string()) == 0) {
+
+                    // Add the TIMEDOUT server to the end.
+                    if (iter+1 == resp.end()) break;
+                    std::rotate(iter, iter+1, resp.end());
+                    agent->controller()->ApplyDiscoveryXmppServices(resp);
+                    break;
+                }
+            }
         }
     }
 }
