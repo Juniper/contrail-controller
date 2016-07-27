@@ -17,7 +17,7 @@ InterfaceUveStatsTable::~InterfaceUveStatsTable() {
 bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
                                             UveVMInterfaceAgent *uve) const {
     uint64_t in_band = 0, out_band = 0;
-    bool changed = false, diff_fip_list_non_zero = false;
+    bool diff_fip_list_non_zero = false;
     VmInterfaceStats if_stats;
     vector<VmFloatingIPStats> agg_fip_list;
     vector<VmFloatingIPStats> diff_fip_list;
@@ -43,14 +43,13 @@ bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
     uint64_t in_b, in_p, out_b, out_p;
     s->GetDiffStats(&in_b, &in_p, &out_b, &out_p);
 
-    if ((in_b != 0) || (in_p != 0) || (out_b != 0) || (out_p != 0)) {
-        if_stats.set_in_pkts(in_p);
-        if_stats.set_in_bytes(in_b);
-        if_stats.set_out_pkts(out_p);
-        if_stats.set_out_bytes(out_b);
-        uve->set_if_stats(if_stats);
-        changed = true;
+    if_stats.set_in_pkts(in_p);
+    if_stats.set_in_bytes(in_b);
+    if_stats.set_out_pkts(out_p);
+    if_stats.set_out_bytes(out_b);
+    uve->set_raw_if_stats(if_stats);
 
+    if ((in_b != 0) || (in_p != 0) || (out_b != 0) || (out_p != 0)) {
         in_band = GetVmPortBandwidth(s, true);
         out_band = GetVmPortBandwidth(s, false);
     }
@@ -58,12 +57,10 @@ bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
     if (entry->InBandChanged(in_band)) {
         uve->set_in_bw_usage(in_band);
         entry->uve_info_.set_in_bw_usage(in_band);
-        changed = true;
     }
     if (entry->OutBandChanged(out_band)) {
         uve->set_out_bw_usage(out_band);
         entry->uve_info_.set_out_bw_usage(out_band);
-        changed = true;
     }
     s->stats_time = UTCTimestampUsec();
 
@@ -78,7 +75,6 @@ bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
     if (entry->PortBitmapChanged(map)) {
         uve->set_port_bucket_bmap(map);
         entry->uve_info_.set_port_bucket_bmap(map);
-        changed = true;
     }
 
     FrameFipStatsMsg(vm_intf, agg_fip_list, diff_fip_list,
@@ -86,17 +82,15 @@ bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
     if (entry->FipAggStatsChanged(agg_fip_list)) {
         uve->set_fip_agg_stats(agg_fip_list);
         entry->uve_info_.set_fip_agg_stats(agg_fip_list);
-        changed = true;
     }
     /* Diff stats need not be sent if the value of the stats is 0.
      * If any of the entry in diff_fip_list has non-zero stats, then
      * diff_fip_list_non_zero is expected to be true */
     if (diff_fip_list_non_zero) {
         uve->set_fip_diff_stats(diff_fip_list);
-        changed = true;
     }
 
-    return changed;
+    return true;
 }
 
 void InterfaceUveStatsTable::SendInterfaceStatsMsg(UveInterfaceEntry* entry) {
