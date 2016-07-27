@@ -4584,7 +4584,8 @@ VmInterface::GetIpMac(const IpAddress &ip, uint8_t plen) const {
     AllowedAddressPairSet::const_iterator it =
         allowed_address_pair_list_.list_.begin();
     while (it != allowed_address_pair_list_.list_.end()) {
-        if (it->addr_ == ip && it->plen_ == plen) {
+        if (it->addr_ == ip && it->plen_ == plen &&
+            it->mac_ != MacAddress::kZeroMac) {
             return it->mac_;
         }
         it++;
