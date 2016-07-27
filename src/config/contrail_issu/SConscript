@@ -1,0 +1,63 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+import os
+
+Import('CfgmEnv')
+env = CfgmEnv.Clone()
+
+setup_sources = [
+           'setup.py',
+           #'MANIFEST.in',
+           'requirements.txt',
+          ]
+
+
+setup_sources_rules = []
+for file in setup_sources:
+    setup_sources_rules.append(
+        env.Install(Dir('.'), "#controller/src/config/contrail_issu/" + file))
+
+local_sources = [
+           '__init__.py',
+           'issu_contrail_common.py',
+           'issu_contrail_config.py',
+           'issu_contrail_post_sync.py',
+           'issu_contrail_pre_sync.py',
+           'issu_contrail_run_sync.py',
+           'issu_contrail_zk_sync.py',
+          ]
+
+local_sources_rules = []
+for file in local_sources:
+    local_sources_rules.append(
+        env.Install("contrail_issu", "#controller/src/config/contrail_issu/contrail_issu/" + file))
+
+cd_cmd = 'cd ' + Dir('.').path + ' && '
+sdist_depends = []
+sdist_depends.extend(setup_sources_rules)
+sdist_depends.extend(local_sources_rules)
+sdist_gen = env.Command('dist/contrail_issu-0.1dev.tar.gz', 'setup.py',
+                        cd_cmd + 'python setup.py sdist')
+
+env.Depends(sdist_gen, sdist_depends)
+env.Default(sdist_gen)
+
+if 'install' in BUILD_TARGETS:
+    install_cmd = env.Command(None, 'setup.py',
+                              cd_cmd + 'python setup.py install %s' %
+                              env['PYTHON_INSTALL_OPT'])
+    env.Depends(install_cmd, sdist_depends)
+    env.Alias('install', install_cmd)
+
+buildspace_link = os.environ.get('CONTRAIL_REPO')
+if buildspace_link:
+    # in CI environment shebang limit exceeds for python
+    # in easy_install/pip, reach to it via symlink
+    top_path = buildspace_link + '/' + Dir('.').path
+    top_dir = Dir(top_path)
+else:
+    top_dir = Dir('.')
+
