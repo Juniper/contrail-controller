@@ -23,6 +23,7 @@ const string NamedConfig::NamedZoneFileSuffix = "zone";
 const string NamedConfig::NamedZoneNSPrefix = "contrail-ns";
 const string NamedConfig::NamedZoneMXPrefix = "contrail-mx";
 const char NamedConfig::pid_file_name[] = "contrail-named.pid";
+const char NamedConfig::sessionkey_file_name[] = "session.key";
 
 void NamedConfig::Init(const std::string& named_config_dir,
                        const std::string& named_config_file,
@@ -178,6 +179,7 @@ void NamedConfig::WriteOptionsConfig() {
     file_ << "    managed-keys-directory \"" << named_config_dir_ << "\";" << endl;
     file_ << "    empty-zones-enable no;" << endl;
     file_ << "    pid-file \"" << GetPidFilePath() << "\";" << endl;
+    file_ << "    session-keyfile \"" << GetSessionKeyFilePath() << "\";" << endl;
     file_ << "    listen-on port " << Dns::GetDnsPort() << " { any; };" << endl;
     file_ << "    allow-query { any; };" << endl;
     file_ << "    allow-recursion { any; };" << endl;
@@ -351,6 +353,10 @@ string NamedConfig::GetZoneFilePath(const string &vdns, const string &name) {
 
 string NamedConfig::GetPidFilePath() {
     return (named_config_dir_ + pid_file_name);
+}
+
+string NamedConfig::GetSessionKeyFilePath() {
+    return (named_config_dir_ + sessionkey_file_name);
 }
 
 string NamedConfig::GetZoneNSName(const string domain_name) {
