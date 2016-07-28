@@ -219,8 +219,7 @@ void StatsSelect::Merge(const MapBufT& input, MapBufT& output) {
 StatsSelect::StatsSelect(AnalyticsQuery * m_query,
 		const std::vector<std::string> & select_fields) :
 			main_query(m_query), select_fields_(select_fields),
-			ts_period_(0), isT_(false),
-                        isTC_(false), isTBC_(false), count_field_() {
+			ts_period_(0), isT_(false), count_field_() {
 
     QE_ASSERT(main_query->is_stat_table_query(main_query->table()));
     status_ = false;
@@ -228,7 +227,7 @@ StatsSelect::StatsSelect(AnalyticsQuery * m_query,
     for (size_t j=0; j<select_fields_.size(); j++) {
 
         if (select_fields_[j] == g_viz_constants.STAT_TIME_FIELD) {
-            if (ts_period_ || isTBC_) {
+            if (ts_period_) {
                 QE_LOG(INFO, "StatsSelect cannot accept both T and T="); 
                 return;
             }
@@ -238,7 +237,7 @@ StatsSelect::StatsSelect(AnalyticsQuery * m_query,
 
         } else if (select_fields_[j].substr(0, g_viz_constants.STAT_TIMEBIN_FIELD.size()) ==
                 g_viz_constants.STAT_TIMEBIN_FIELD) {
-            if (isT_ || isTC_) { 
+            if (isT_) {
                 QE_LOG(INFO, "StatsSelect cannot accept both T and T="); 
                 return;
             }
@@ -254,35 +253,9 @@ StatsSelect::StatsSelect(AnalyticsQuery * m_query,
             std::string sfield = select_fields_[j];
             QEOpServerProxy::AggOper agg =
                 StatsQuery::ParseAgg(select_fields_[j], sfield);
-            if (main_query->stats().is_stat_table_static()) {
-                if (agg != QEOpServerProxy::COUNT) {
-                    StatsQuery::column_t c = main_query->stats().get_column_desc(sfield);
-                    if (sfield == g_viz_constants.STAT_TIME_FIELD) {
-                        if (ts_period_ || isTBC_) { 
-                            QE_TRACE(DEBUG, "StatsSelect cannot aggregate " <<
-                                sfield << "with T=");
-                        }
-                        isTC_ = true;
-                    } else if (sfield == g_viz_constants.STAT_TIMEBIN_FIELD) {
-                        if (isT_ || isTC_) { 
-                            QE_TRACE(DEBUG, "StatsSelect cannot aggregate " <<
-                                sfield << " with T");
-                        }
-                        isTBC_ = true;
-                    } else if (c.datatype == QEOpServerProxy::BLANK) {
-                        QE_TRACE(DEBUG, "StatsSelect unknown field " << select_fields_[j]);
-                        return;
-                    }
-                } else {
-                    if (sfield != main_query->stats().attr()) {
-                        QE_TRACE(DEBUG,"StatsSelect Invalid COUNT field " << sfield);
-                        return;
-                    }
-                }
-            }
             if (agg == QEOpServerProxy::INVALID) {
                 unik_cols_.insert(select_fields_[j]);
-                QE_TRACE(DEBUG, "StatsSelect unik field " << select_fields_[j]);                 
+                QE_TRACE(DEBUG, "StatsSelect unik field " << select_fields_[j]);
             } else if (agg == QEOpServerProxy::COUNT) {
                 count_field_ = sfield;
                 QE_TRACE(DEBUG, "StatsSelect COUNT " << sfield);
