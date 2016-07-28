@@ -430,10 +430,10 @@ class InstanceIpServer(Resource, InstanceIp):
         # for g/w ip, creation allowed but only can ref to router port.
         if req_ip and cls.addr_mgmt.is_ip_allocated(req_ip, vn_fq_name):
             if not cls._is_gateway_ip(vn_dict, req_ip):
-                return (False, (403, 'Ip address already in use'))
+                return (False, (400, 'Ip address already in use'))
             elif cls._vmi_has_vm_ref(db_conn, obj_dict):
                 return (False,
-                    (403, 'Gateway IP cannot be used by VM port'))
+                    (400, 'Gateway IP cannot be used by VM port'))
         # end if request has ip addr
 
         try:
