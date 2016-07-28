@@ -211,7 +211,7 @@ class DBInterface(object):
 
         try:
             self._vnc_lib.security_group_update(sg_vnc)
-        except PermissionDenied as e:
+        except (BadRequest, PermissionDenied) as e:
             self._raise_contrail_exception('BadRequest',
                 resource='security_group_rule', msg=str(e))
         except OverQuota as e:
@@ -3527,8 +3527,14 @@ class DBInterface(object):
                     elif (IPAddress(fixed_ip['ip_address']).version == 6):
                         ip_family="v6"
                 subnet_id = fixed_ip.get('subnet_id')
-                ip_id = self._create_instance_ip(net_obj, port_obj, ip_addr,
+                try:
+                    ip_id = self._create_instance_ip(net_obj, port_obj, ip_addr,
                                                  subnet_id, ip_family)
+                except BadRequest as e:
+                    self._raise_contrail_exception(
+                            'IpAddressInUse', net_id=net_obj.uuid,
+                            ip_address=ip_addr)
+
                 created_iip_ids.append(ip_id)
             except vnc_exc.HttpError as e:
                 # Resources are not available
