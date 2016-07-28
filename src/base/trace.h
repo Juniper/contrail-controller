@@ -24,8 +24,8 @@ public:
           trace_buf_(trace_buf_size_),
           write_index_(0),
           read_index_(0),
-          wrap_(false),
-          seqno_(0) {
+          wrap_(false) {
+        seqno_ = 0;
         trace_enable_ = trace_enable;
     }
 
@@ -54,7 +54,7 @@ public:
         return trace_buf_size_; 
     }
 
-    uint32_t TraceWrite(TraceEntryT *trace_entry) {
+    void TraceWrite(TraceEntryT *trace_entry) {
         tbb::mutex::scoped_lock lock(mutex_);
        
         // Add the trace
@@ -90,13 +90,15 @@ public:
                 read_context_map_.erase(it); 
             }
         }
+    }
 
+    uint32_t GetNextSeqNum() {
+        uint32_t nseqno(seqno_.fetch_and_increment());
         // Reset seqno_ if it reaches max value
-        if (++seqno_  > kMaxSeqno) {
+        if (nseqno > kMaxSeqno) {
             seqno_ = kMinSeqno;
         }
-
-        return seqno_; 
+        return nseqno;
     }
 
     void TraceRead(const std::string& context, const int count, 
@@ -166,7 +168,7 @@ private:
                      // trace message in the trace buffer
     bool wrap_; // indicates if the trace buffer is wrapped
     ReadContextMap read_context_map_; // stores the read context  
-    uint32_t seqno_;
+    tbb::atomic<uint32_t> seqno_;
     tbb::mutex mutex_;
     
     // Reserve 0 and max(uint32_t)
