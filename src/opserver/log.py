@@ -39,10 +39,39 @@ class LogQuerier(object):
     def __init__(self):
         self._args = None
         self._slogger = None
+        self._defaults = {
+            'analytics_api_ip': '127.0.0.1',
+            'analytics_api_port': '8081',
+            'username': 'admin',
+            'password': 'contrail123',
+        }
     # end __init__
 
     def run(self):
         try:
+	    index = 0
+	    analytics_api_ip = self._defaults['analytics_api_ip']
+	    analytics_api_port = self._defaults['analytics_api_port']
+	    username = self._defaults['username']
+	    password = self._defaults['password']
+	    for arg in sys.argv:
+		index = index + 1
+		if arg == "--analytics-api-ip":
+		    analytics_api_ip = sys.argv[index]
+		elif arg == "--analytics-api-port":
+		    analytics_api_port = sys.argv[index]
+		elif arg == "--admin-user":
+		    username = sys.argv[index]
+		elif arg == "--admin-password":
+		    password = sys.argv[index]
+            tab_url = "http://" + analytics_api_ip + ":" +\
+                analytics_api_port + "/analytics/tables"
+            tables = OpServerUtils.get_url_http(tab_url,
+                username, password)
+            table_list = json.loads(tables.text)
+            for table in table_list:
+                if table['type'] == 'OBJECT':
+                    OBJECT_TYPE_LIST.append(str(table['display_name']))
             if self.parse_args() != 0:
                 return
             if self._args.tail:
@@ -103,14 +132,10 @@ class LogQuerier(object):
                           --syslog-port 514
                           --keywords comma,seperated,list
         """
-        defaults = {
-            'analytics_api_ip': '127.0.0.1',
-            'analytics_api_port': '8181',
-        }
 
         parser = argparse.ArgumentParser(
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-        parser.set_defaults(**defaults)
+        parser.set_defaults(**(self._defaults))
         parser.add_argument("--analytics-api-ip", help="IP address of Analytics API Server")
         parser.add_argument("--analytics-api-port", help="Port of Analytics API Server")
         parser.add_argument(
@@ -158,9 +183,10 @@ class LogQuerier(object):
         parser.add_argument("--output-file", "-o", help="redirect output to file")
         parser.add_argument("--json", help="Dump output as json", action="store_true")
         parser.add_argument("--all", action="store_true", help=argparse.SUPPRESS)
-        parser.add_argument("--admin-user", help="Name of admin user", default="admin")
+        parser.add_argument("--admin-user", help="Name of admin user", \
+            default=self._defaults['username'])
         parser.add_argument("--admin-password", help="Password of admin user",
-            default="contrail123")
+            default=self._defaults['password'])
         self._args = parser.parse_args()
         return 0
     # end parse_args
