@@ -31,7 +31,6 @@ class XmppServerConnection;
 class XmppServer : public XmppConnectionManager {
 public:
     typedef boost::asio::ip::tcp::endpoint Endpoint;
-    typedef boost::function<void(XmppConnectionEndpoint *)> VisitorFn;
 
     XmppServer(EventManager *evm, const std::string &server_addr,
                const XmppChannelConfig *config);
@@ -71,7 +70,6 @@ public:
 
     const std::string &ServerAddr() const { return server_addr_; }
     size_t ConnectionCount() const;
-    void VisitEndpoints(VisitorFn fn) const;
 
     XmppConnectionEndpoint *FindConnectionEndpoint(
             const std::string &endpoint_name) const;
