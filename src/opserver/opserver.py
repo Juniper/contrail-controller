@@ -1189,6 +1189,46 @@ class OpServer(object):
                 if self._VIRTUAL_TABLES[i].name == tabl:
                     tabn = i
 
+            isT_ = False
+            isT = False
+            if (tabn is not None) and (tabl.find("StatTable") == 0):
+                for key, value in request.json.iteritems():
+                    if key == "select_fields":
+                        for select_field in value:
+                            if select_field == STAT_TIME_FIELD:
+                                isT = True
+                            elif select_field.find(STAT_TIMEBIN_FIELD) == 0:
+                                isT_ = True
+                            else:
+                                agg_field = select_field.split('(')
+                                if len(agg_field) == 2:
+                                    oper = agg_field[0]
+                                    field = agg_field[1].split(')')[0]
+                                    if oper != "COUNT":
+                                        if field == STAT_TIME_FIELD:
+                                            isT = True
+                                        elif field == STAT_TIMEBIN_FIELD:
+                                            isT_ = True
+                                        else:
+                                            field_found = False
+                                            for column in self._VIRTUAL_TABLES[tabn].schema.columns:
+                                                if column.name == field:
+                                                    if column.datatype != "":
+                                                        field_found = True
+                                            if field_found == False:
+                                                yield bottle.HTTPError(_ERRORS[errno.EINVAL], \
+                                                            'Unknown field %s' %field)
+                                                return
+                                    elif field != tabl.split('.')[2]:
+                                        yield bottle.HTTPError(_ERRORS[errno.EINVAL], \
+                                            'Invalid COUNT field %s' %field)
+                                        return
+
+                            if isT and isT_:
+                                yield bottle.HTTPError(_ERRORS[errno.EINVAL], \
+                                        "Stats query cannot have both T and T=")
+                                return
+
             if (tabn is not None):
                 tabtypes = {}
                 for cols in self._VIRTUAL_TABLES[tabn].schema.columns:
