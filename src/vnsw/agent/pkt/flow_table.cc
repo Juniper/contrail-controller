@@ -1023,18 +1023,28 @@ bool FlowTable::ValidFlowMove(const FlowEntry *new_flow,
         return false;
     }
 
-    if (new_flow->is_flags_set(FlowEntry::EcmpFlow) == false) {
-        return false;
+    if (new_flow->data().flow_source_vrf == old_flow->data().flow_source_vrf &&
+        new_flow->key().src_addr == old_flow->key().src_addr &&
+        new_flow->data().source_plen == old_flow->data().source_plen) {
+        // Check if both flow originate from same source route
+        // valid move for ecmp flow
+        if (new_flow->is_flags_set(FlowEntry::EcmpFlow)) {
+            return true;
+        }
+
+        // if all the fields for flow Key remains same except NH
+        // consider it a valid move to handle VRRP master switch-over
+        // cases with AAP.
+        if (new_flow->key().family == old_flow->key().family &&
+            new_flow->key().dst_addr == old_flow->key().dst_addr &&
+            new_flow->key().protocol == old_flow->key().protocol &&
+            new_flow->key().src_port == old_flow->key().src_port &&
+            new_flow->key().dst_port == old_flow->key().dst_port) {
+            return true;
+        }
     }
 
-     if (new_flow->data().flow_source_vrf == old_flow->data().flow_source_vrf &&
-         new_flow->key().src_addr == old_flow->key().src_addr &&
-         new_flow->data().source_plen == old_flow->data().source_plen) {
-         //Check if both flow originate from same source route
-         return true;
-     }
-
-     return false;
+    return false;
 }
 
 void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
@@ -1061,15 +1071,31 @@ void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
 
     if (flow_rev && (flow_rev->reverse_flow_entry() == NULL)) {
         flow_rev->MakeShortFlow(FlowEntry::SHORT_NO_REVERSE_FLOW);
+        // flow_rev is not in active processing so we need to trigger
+        // action recompute due to short flow and update ksync with
+        // new action and reason
+        flow_rev->ActionRecompute();
+        flow_rev->UpdateKSync(this, true);
         if (ValidFlowMove(rflow, flow_rev)== false) {
             flow->MakeShortFlow(FlowEntry::SHORT_REVERSE_FLOW_CHANGE);
+        } else {
+            // for valid move delete the flow_rev
+            DeleteEnqueue(flow_rev);
         }
     }
 
     if (rflow_rev && (rflow_rev->reverse_flow_entry() == NULL)) {
         rflow_rev->MakeShortFlow(FlowEntry::SHORT_NO_REVERSE_FLOW);
+        // rflow_rev is not in active processing so we need to trigger
+        // action recompute due to short flow and update ksync with
+        // new action and reason
+        rflow_rev->ActionRecompute();
+        rflow_rev->UpdateKSync(this, true);
         if (ValidFlowMove(flow, rflow_rev) == false) {
             flow->MakeShortFlow(FlowEntry::SHORT_REVERSE_FLOW_CHANGE);
+        } else {
+            // for valid move delete the rflow_rev
+            DeleteEnqueue(rflow_rev);
         }
     }
 
