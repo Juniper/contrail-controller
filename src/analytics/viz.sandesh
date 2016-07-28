@@ -1663,6 +1663,27 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
+      'display_name' : 'Database Compaction Statistics',
+      'stat_type' : 'CassandraStatusData'
+      'stat_attr' : 'cassandra_compaction_task',
+      'obj_table' : DATABASE_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'cassandra_compaction_task.pending_compaction_tasks', 'datatype' : 'int', 'index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Database Threadpool Statistics',
+      'stat_type' : 'CassandraStatusData'
+      'stat_attr' : 'thread_pool_stats',
+      'obj_table' : DATABASE_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'thread_pool_stats.pool_name', 'datatype' : 'int', 'index' : true},
+          { 'name' : 'thread_pool_stats.active', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'thread_pool_stats.pending', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'thread_pool_stats.all_time_blocked', 'datatype' : 'int', 'index' : false},
+        ]
+    },
+    {
       'display_name' : 'Analytics Protobuf Collector Transmit Socket Statistics',
       'stat_type' : 'ProtobufCollectorStats'
       'stat_attr' : 'tx_socket_stats',
