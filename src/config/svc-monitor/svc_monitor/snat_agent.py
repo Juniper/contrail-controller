@@ -218,6 +218,15 @@ class SNATAgent(Agent):
         # Delete service instance
         if si_obj:
             self._vnc_lib.service_instance_delete(id=si_uuid)
+
+        # Delete left network
+        vn_name = '%s_%s' % (svc_info.get_snat_left_vn_prefix(),
+                             si_obj.name)
+        vn_fq_name = si_obj.fq_name[:-1] + [vn_name]
+        try:
+            self._vnc_lib.virtual_network_delete(fq_name=vn_fq_name)
+        except (RefsExistError, NoIdError):
+            pass
     # end delete_snat_instance
 
     def cleanup_snat_instance(self, lr_id, si_id):
