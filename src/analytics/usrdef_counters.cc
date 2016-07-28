@@ -69,11 +69,23 @@ UserDefinedCounters::UDCHandler(rapidjson::Document &jdoc,
                         ["user_defined_counter"]["counter"];
                 if (gsc.IsArray()) {
                     for (rapidjson::SizeType i = 0; i < gsc.Size(); i++) {
-                        AddConfig(gsc[i]["name"].GetString(),
-                                gsc[i]["pattern"].GetString());
-                        std::cout << "\nname: " << gsc[i]["name"].GetString()
-                        << "\npattern: " << gsc[i]["pattern"].GetString()
-                        << "\n";
+                        std::string name = gsc[i]["name"].GetString(),
+                                    patrn = gsc[i]["pattern"].GetString();
+                        AddConfig(name, patrn);
+                        std::cout << "\nname: " << name << "\npattern: "
+                            << patrn << "\n";
+                    }
+                    for(Cfg_t::iterator cit=config_.begin();
+                            cit != config_.end(); ++cit) {
+                        Cfg_t::iterator dit = cit;
+                        ++cit;
+                        if (!dit->second->IsRefreshed()) {
+                            UserDefinedLogStatistic udc;
+                            udc.set_name(dit->first);
+                            udc.set_deleted(true);
+                            UserDefinedLogStatisticUVE::Send(udc);
+                            config_.erase(dit);
+                        }
                     }
                 }
             }
@@ -109,6 +121,7 @@ UserDefinedCounters::AddConfig(std::string name, std::string pattern)
         } else {
             it->second->SetPattern(pattern);
         }
+        it->second->Refresh();
     } else {
         boost::shared_ptr<UserDefinedCounterData> c(new UserDefinedCounterData(
                     name, pattern));
