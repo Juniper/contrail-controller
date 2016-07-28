@@ -363,7 +363,6 @@ private:
     friend class BgpXmppUnitTest;
 
     void FillPeerInfo(const BgpXmppChannel *channel) const;
-    void FillPeerStats(const XmppConnectionEndpoint *endp) const;
 
     XmppServer *xmpp_server_;
     BgpServer *bgp_server_;

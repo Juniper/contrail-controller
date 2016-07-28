@@ -2840,28 +2840,11 @@ void BgpXmppChannelManager::FillPeerInfo(const BgpXmppChannel *channel) const {
     PeerStatsUve::Send(peer_stats_data, "ObjectXmppPeerInfo");
 }
 
-void BgpXmppChannelManager::FillPeerStats(const XmppConnectionEndpoint *endp)
-    const {
-    if (!endp)
-        return;
-
-    PeerFlapInfo flap_info;
-    flap_info.set_flap_count(endp->flap_count());
-    flap_info.set_flap_time(endp->last_flap());
-
-    PeerFlapData peer_flap_data;
-    peer_flap_data.set_name(endp->client());
-    peer_flap_data.set_flap_info(flap_info);
-    PeerFlap::Send(peer_flap_data, "ObjectXmppPeerInfo");
-}
-
 bool BgpXmppChannelManager::CollectStats(BgpRouterState *state, bool first)
          const {
     CHECK_CONCURRENCY("bgp::Uve");
 
     VisitChannels(boost::bind(&BgpXmppChannelManager::FillPeerInfo, this, _1));
-    xmpp_server_->VisitEndpoints(
-            boost::bind(&BgpXmppChannelManager::FillPeerStats, this, _1));
     bool change = false;
     uint32_t num_xmpp = count();
     if (first || num_xmpp != state->get_num_xmpp_peer()) {
