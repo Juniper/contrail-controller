@@ -3092,7 +3092,7 @@ void VmInterface::DeleteL2NextHop() {
 
 void VmInterface::DeleteL2ReceiveRoute(const VrfEntry *old_vrf,
                                        bool old_bridging) {
-    if (BridgingDeactivated(old_bridging) && old_vrf) {
+    if (old_vrf) {
         InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
         Agent *agent = table->agent();
         BridgeAgentRouteTable::Delete(peer_.get(), old_vrf->GetName(),
