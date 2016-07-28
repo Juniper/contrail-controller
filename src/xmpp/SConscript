@@ -63,6 +63,7 @@ xmpp_include = '#/' + Dir('.').path
 env.Append(CPPPATH=xmpp_include)
 env.Append(CPPPATH = [env['TOP'] + '/bgp'])
 env.Append(CPPPATH = [env['TOP'] + '/io'])
+env.Append(CPPPATH = [env['TOP'] + '/tools/sandesh/library/common'])
 
 xmppd = env.Program(target = 'xmppd',
                    source = ['main.cc'])

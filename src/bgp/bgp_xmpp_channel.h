@@ -38,6 +38,7 @@ class BgpXmppChannelManager;
 class BgpXmppChannelManagerMock;
 class Timer;
 class XmppConfigUpdater;
+class XmppConnectionEndpoint;
 class XmppPeerInfoData;
 class XmppSession;
 
@@ -361,7 +362,8 @@ private:
     friend class BgpXmppChannelManagerMock;
     friend class BgpXmppUnitTest;
 
-    void FillPeerStats(const BgpXmppChannel *channel) const;
+    void FillPeerInfo(const BgpXmppChannel *channel) const;
+    void FillPeerStats(const XmppConnectionEndpoint *endp) const;
 
     XmppServer *xmpp_server_;
     BgpServer *bgp_server_;

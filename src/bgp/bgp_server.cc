@@ -809,6 +809,11 @@ void BgpServer::FillPeerStats(const BgpPeer *peer) const {
     peer_info.set_name(peer->ToUVEKey());
     peer_info.set_peer_stats_info(stats);
     BGPPeerInfo::Send(peer_info);
+
+    PeerStatsData peer_stats_data;
+    peer_stats_data.set_name(peer->ToUVEKey());
+    PeerStats::FillPeerUpdateStats(peer->peer_stats(), &peer_stats_data);
+    PeerStatsUve::Send(peer_stats_data, "ObjectBgpPeer");
 }
 
 bool BgpServer::CollectStats(BgpRouterState *state, bool first) const {
