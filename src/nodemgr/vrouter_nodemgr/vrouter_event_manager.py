@@ -112,7 +112,7 @@ class VrouterEventManager(EventManager):
     # end delete_process_handler
 
     def runforever(self, test=False):
-        prev_current_time = int(time.time())
+        self.prev_current_time = int(time.time())
         while 1:
             # we explicitly use self.stdin, self.stdout, and self.stderr
             # instead of sys.* so we can unit test this code
@@ -138,7 +138,7 @@ class VrouterEventManager(EventManager):
                 self.event_process_communication(pdata)
             # do periodic events
             if headers['eventname'].startswith("TICK_60"):
-                prev_current_time = self.event_tick_60(prev_current_time)
+                self.event_tick_60()
 
                 # loadbalancer processing
                 self.lb_stats.send_loadbalancer_stats()
