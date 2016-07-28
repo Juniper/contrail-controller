@@ -160,20 +160,8 @@ public:
             }
         }
         if (!found) {
-            if (g_viz_constants.OBJECT_VALUE_TABLE == table) {
-                found = true;
-                columns = g_viz_constants._OBJECT_TABLE_SCHEMA.columns; 
-            }
-        }
-        if (!found) {
-            for (std::map<std::string, objtable_info>::const_iterator it =
-                    g_viz_constants._OBJECT_TABLES.begin();
-                    it != g_viz_constants._OBJECT_TABLES.end(); it++) {
-                if (it->first == table) {
-                    found = true;
-                    columns = g_viz_constants._OBJECT_TABLE_SCHEMA.columns;
-                }
-            }
+            found = true;
+            columns = g_viz_constants._OBJECT_TABLE_SCHEMA.columns;
         }
         assert(found || map_output);
 

@@ -1203,10 +1203,12 @@ class OpServer(object):
 
             if (tabn is None):
                 if not tabl.startswith("StatTable."):
-                    reply = bottle.HTTPError(_ERRORS[errno.ENOENT], 
+                    tables = self._uve_server.get_tables()
+                    if not tabl in tables:
+                        reply = bottle.HTTPError(_ERRORS[errno.ENOENT],
                                 'Table %s not found' % tabl)
-                    yield reply
-                    return
+                        yield reply
+                        return
                 else:
                     self._logger.info("Schema not known for dynamic table %s" % tabl)
 
@@ -1843,7 +1845,9 @@ class OpServer(object):
         base_url = bottle.request.urlparts.scheme + '://' + \
             bottle.request.urlparts.netloc + '/analytics/table/'
         json_links = []
+        known = set()
         for i in range(0, len(self._VIRTUAL_TABLES)):
+            known.add(self._VIRTUAL_TABLES[i].name)
             link = LinkObject(self._VIRTUAL_TABLES[
                               i].name, base_url + self._VIRTUAL_TABLES[i].name)
             tbl_info = obj_to_dict(link)
@@ -1852,6 +1856,16 @@ class OpServer(object):
                     tbl_info['display_name'] =\
                         self._VIRTUAL_TABLES[i].display_name
             json_links.append(tbl_info)
+
+        # Show the list of UVE table-types based on actual raw UVE contents
+        tables = self._uve_server.get_tables()
+        for rawname in tables:
+            if not rawname in known:
+                link = LinkObject(rawname, base_url + rawname)
+                tbl_info = obj_to_dict(link)
+                tbl_info['type'] = 'OBJECT'
+                tbl_info['display_name'] = rawname
+                json_links.append(tbl_info)
 
         bottle.response.set_header('Content-Type', 'application/json')
         return json.dumps(json_links)
@@ -2103,6 +2117,15 @@ class OpServer(object):
                     json_links.append(obj_to_dict(link))
                 break
 
+        if(len(json_links) == 0):
+            # search the UVE table in raw UVE content
+            tables = self._uve_server.get_tables()
+            if table in tables:
+                link = LinkObject('schema', base_url + 'schema')
+                json_links.append(obj_to_dict(link))
+                link = LinkObject('column-values', base_url + 'column-values')
+                json_links.append(obj_to_dict(link))
+
         bottle.response.set_header('Content-Type', 'application/json')
         return json.dumps(json_links)
     # end table_process
@@ -2118,6 +2141,12 @@ class OpServer(object):
         for i in range(0, len(self._VIRTUAL_TABLES)):
             if (self._VIRTUAL_TABLES[i].name == table):
                 return json.dumps(self._VIRTUAL_TABLES[i].schema,
+                                  default=lambda obj: obj.__dict__)
+
+        # Also check for the table in actual raw UVE contents
+        tables = self._uve_server.get_tables()
+        if table in tables:
+            return json.dumps(_OBJECT_TABLE_SCHEMA,
                                   default=lambda obj: obj.__dict__)
 
         return (json.dumps({}))
@@ -2136,12 +2165,22 @@ class OpServer(object):
 
         bottle.response.set_header('Content-Type', 'application/json')
         json_links = []
+        found_table = False
         for i in range(0, len(self._VIRTUAL_TABLES)):
             if (self._VIRTUAL_TABLES[i].name == table):
+                found_table = True
                 for col in self._VIRTUAL_TABLES[i].columnvalues:
                     link = LinkObject(col, base_url + col)
                     json_links.append(obj_to_dict(link))
                 break
+
+        if (found_table == False):
+            # Also check for the table in actual raw UVE contents
+            tables = self._uve_server.get_tables()
+            if table in tables:
+                for col in _OBJECT_TABLE_COLUMN_VALUES:
+                    link = LinkObject(col, base_url + col)
+                    json_links.append(obj_to_dict(link))
 
         return (json.dumps(json_links))
     # end column_values_process
@@ -2151,7 +2190,7 @@ class OpServer(object):
             sources = []
             moduleids = []
             if self.disc:
-                ulist = self._uve_server._redis_uve_list
+                ulist = self._uve_server._redis_uve_map
             else:
                 ulist = self.redis_uve_list
             
@@ -2208,6 +2247,10 @@ class OpServer(object):
                 if self._VIRTUAL_TABLES[i].columnvalues.count(column) > 0:
                     return (json.dumps(self.generator_info(table, column)))
 
+        # Also check for the table in actual raw UVE contents
+        tables = self._uve_server.get_tables()
+        if table in tables:
+            return (json.dumps(self.generator_info(table, column)))
         return (json.dumps([]))
     # end column_process
 

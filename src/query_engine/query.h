@@ -820,7 +820,6 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
     }
     
     // validation functions
-    bool is_valid_from_field(const std::string& from_field);
     static bool is_object_table_query(const std::string& tname);
     static bool is_stat_table_query(const std::string& tname);
     static bool is_flow_query(const std::string& tname); // either flow-series or flow-records query

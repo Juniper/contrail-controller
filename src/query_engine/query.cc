@@ -121,9 +121,8 @@ PostProcessingQuery::PostProcessingQuery(
                 std::string sort_str(json_sort_fields[i].GetString());
                 QE_TRACE(DEBUG, sort_str);
                 std::string datatype(m_query->get_column_field_datatype(sort_str));
-                if (!m_query->is_stat_table_query(m_query->table())) {
-                    QE_INVALIDARG_ERROR(datatype != std::string(""));
-                } else if (m_query->stats().is_stat_table_static()) {
+                if (m_query->is_stat_table_query(m_query->table()) &&
+                       (m_query->stats().is_stat_table_static())) {
                     // This is a static StatTable. We can check the schema
                     std::string sfield;
                     
@@ -438,7 +437,6 @@ void AnalyticsQuery::Init(std::string qid,
         if (is_stat_table_query(table_)) {
             stats_.reset(new StatsQuery(table_));
         }
-        QE_INVALIDARG_ERROR(is_valid_from_field(table_));
     }
 
     uint64_t ttl;
@@ -1393,27 +1391,6 @@ bool AnalyticsQuery::is_object_table_query(const std::string & tname)
         !is_stat_table_query(tname));
 }
 
-
-bool AnalyticsQuery::is_valid_from_field(const std::string& from_field)
-{
-    for(size_t i = 0; i < g_viz_constants._TABLES.size(); i++)
-    {
-        if (g_viz_constants._TABLES[i].name == from_field)
-            return true;
-    }
-
-    for (std::map<std::string, objtable_info>::const_iterator it =
-            g_viz_constants._OBJECT_TABLES.begin();
-            it != g_viz_constants._OBJECT_TABLES.end(); it++) {
-        if (it->first == from_field)
-            return true;
-    }
-    if (is_stat_table_query(table_))
-        return true;
-
-    return false;
-}
-
 bool AnalyticsQuery::is_valid_where_field(const std::string& where_field)
 {
     for(size_t i = 0; i < g_viz_constants._TABLES.size(); i++)
@@ -1431,21 +1408,6 @@ bool AnalyticsQuery::is_valid_where_field(const std::string& where_field)
             return false;
         }
     }
-    for (std::map<std::string, objtable_info>::const_iterator it =
-            g_viz_constants._OBJECT_TABLES.begin();
-            it != g_viz_constants._OBJECT_TABLES.end(); it++) {
-        if (it->first == table_)
-        {
-            for (size_t j = 0; j < g_viz_constants._OBJECT_TABLE_SCHEMA.columns.size(); j++)
-            {
-                if ((g_viz_constants._OBJECT_TABLE_SCHEMA.columns[j].name == where_field) &&
-                        g_viz_constants._OBJECT_TABLE_SCHEMA.columns[j].index)
-                    return true;
-            }
-            return false;
-        }
-    }
-
     if (is_stat_table_query(table_)) {
         AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
         if (m_query->stats().is_stat_table_static()) {
@@ -1456,7 +1418,7 @@ bool AnalyticsQuery::is_valid_where_field(const std::string& where_field)
             return true;
         }
     }
-    return false;
+    return true;
 }
 
 bool AnalyticsQuery::is_valid_sort_field(const std::string& sort_field) {
@@ -1480,18 +1442,6 @@ std::string AnalyticsQuery::get_column_field_datatype(
                 if (g_viz_constants._TABLES[i].schema.columns[j].name == 
                         column_field) {
                     return g_viz_constants._TABLES[i].schema.columns[j].datatype;
-                }
-            }
-            return std::string("");
-        }
-    }
-    for (std::map<std::string, objtable_info>::const_iterator it =
-            g_viz_constants._OBJECT_TABLES.begin();
-            it != g_viz_constants._OBJECT_TABLES.end(); it++) {
-        if (it->first == table_) {
-            for (size_t j = 0; j < g_viz_constants._OBJECT_TABLE_SCHEMA.columns.size(); j++) {
-                if (g_viz_constants._OBJECT_TABLE_SCHEMA.columns[j].name == column_field) {
-                    return g_viz_constants._OBJECT_TABLE_SCHEMA.columns[j].datatype;
                 }
             }
             return std::string("");
