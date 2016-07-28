@@ -17,16 +17,6 @@ import test_case
 logger = logging.getLogger(__name__)
 
 class NBTestNaming(test_case.NeutronBackendTestCase):
-    def _create_project(self, proj_name):
-        proj_obj = Project(proj_name)
-        self.addDetail('creating-project', content.text_content(proj_name))
-        self._vnc_lib.project_create(proj_obj)
-        #default_sg_obj = SecurityGroup('default', parent_obj=proj_obj)
-        #import pdb; pdb.et_trace()
-        #self._vnc_lib.security_group_create(default_sg_obj)
-        return proj_obj
-    # end _create_project
-        
     def _create_resource(self, res_type, proj_id, name=None, extra_res_fields=None):
         context = {'operation': 'CREATE',
                    'user_id': '',
@@ -91,8 +81,7 @@ class NBTestNaming(test_case.NeutronBackendTestCase):
     # end _list_resources
 
     def test_name_change(self):
-        proj_name = 'project-%s' %(str(uuid.uuid4()))
-        proj_obj = self._create_project(proj_name)
+        proj_obj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
         for res_type in ['network', 'subnet', 'security_group', 'port', 'router']:
             # create a resource
             res_name, res_q = getattr(self, '_create_' + res_type, lambda x:self._create_resource(res_type, x))(proj_obj.uuid)
@@ -115,8 +104,7 @@ class NBTestNaming(test_case.NeutronBackendTestCase):
     # end test_name_change
 
     def test_duplicate_name(self):
-        proj_name = 'project-%s' %(str(uuid.uuid4()))
-        proj_obj = self._create_project(proj_name)
+        proj_obj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
         for res_type in ['network', 'subnet', 'security_group', 'port', 'router']:
             # create a resource
             res_name, res_q = getattr(self, '_create_' + res_type, lambda x:self._create_resource(res_type, x))(proj_obj.uuid)

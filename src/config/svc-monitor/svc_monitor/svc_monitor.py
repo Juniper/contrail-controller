@@ -591,8 +591,6 @@ def timer_callback(monitor):
                 continue
             if vn.name in svc_info.get_shared_vn_list():
                 monitor._delete_shared_vn(vn.uuid)
-            elif vn.name.startswith(svc_info.get_snat_left_vn_prefix()):
-                monitor._delete_shared_vn(vn.uuid)
 
 
 def launch_timer(monitor):

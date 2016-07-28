@@ -1051,7 +1051,7 @@ class AddrMgmt(object):
                     raise AddrMgmtAllocUnitInvalid(
                         subnet_obj._name,
                         subnet_obj._prefix+'/'+subnet_obj._prefix_len,
-                        ip_alloc_unit)
+                        subnet_obj.alloc_unit)
 
                 return subnet_obj.ip_reserve(ipaddr=asked_ip_addr,
                                              value=alloc_id)
