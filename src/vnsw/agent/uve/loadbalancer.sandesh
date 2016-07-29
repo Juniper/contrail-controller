@@ -50,3 +50,31 @@ struct UveLoadbalancerStats {
 uve sandesh UveLoadbalancerTrace {
     1: UveLoadbalancerStats data
 }
+
+/**
+ * Sandesh definition for loadbalancer config
+ */
+struct LoadbalancerConfig {
+    10: optional list<string> pool_uuid;
+    11: optional list<string> member_uuid;
+}
+
+/**
+ * Sandesh definition for loadbalancer config uve
+ */
+struct UveLoadbalancerConfig {
+    10: string          name (key="ObjectLBTable")
+    11: optional bool   deleted
+    12: optional map<string, LoadbalancerConfig> listener    (tags=".__key");
+    13: optional map<string, LoadbalancerConfig> pool        (tags=".__key");
+}
+
+/**
+ * @description: Trace message for loadbalancer config
+ * @type: uve
+ * @object: Loadbalancer
+ */
+uve sandesh UveLoadbalancerConfigTrace {
+    1: UveLoadbalancerConfig data
+}
+

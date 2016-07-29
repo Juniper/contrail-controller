@@ -66,6 +66,8 @@ sources = [
 
 sources += env.SandeshGenPy('svc_mon_introspect.sandesh',
                             'svc_monitor/sandesh/', False)
+sources += env.SandeshGenPy('#controller/src/vnsw/agent/uve/loadbalancer.sandesh',
+                            'svc_monitor/sandesh/', False)
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_gen = env.Command('dist', sources, cd_cmd + 'python setup.py sdist')
@@ -93,6 +95,8 @@ def BuildPyTestSetup(env, target, source):
 # Documentation
 doc_files = []
 doc_files += env.SandeshGenDoc('svc_mon_introspect.sandesh')
+doc_files += env['CFGM_DOC_FILES']
+doc_files += env.SandeshGenDoc('#controller/src/vnsw/agent/uve/loadbalancer.sandesh')
 doc_files += env['CFGM_DOC_FILES']
 
 if 'install' in BUILD_TARGETS:
