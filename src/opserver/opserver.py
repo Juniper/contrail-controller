@@ -575,9 +575,8 @@ class OpServer(object):
                 message = 'Partitions:%d' % self._args.partitions)
             self._uvepartitions_state = ConnectionStatus.UP
 
-        self._analytics_links = ['uves', 'tables', 'queries',\
-                'alarm-types', 'alarms',\
-                'uve-stream', 'alarm-stream']
+        self._analytics_links = ['uves', 'uve-types', 'tables',
+            'queries', 'alarm-types', 'alarms', 'uve-stream', 'alarm-stream']
 
         self._VIRTUAL_TABLES = copy.deepcopy(_TABLES)
 
@@ -674,6 +673,7 @@ class OpServer(object):
         bottle.route('/', 'GET', self.homepage_http_get)
         bottle.route('/analytics', 'GET', self.analytics_http_get)
         bottle.route('/analytics/uves', 'GET', self.uves_http_get)
+        bottle.route('/analytics/uve-types', 'GET', self.uve_types_http_get)
         bottle.route('/analytics/alarms/acknowledge', 'POST',
             self.alarms_ack_http_post)
         bottle.route('/analytics/query', 'POST', self.query_process)
@@ -1719,6 +1719,22 @@ class OpServer(object):
         else:
 	    return bottle.HTTPError(_ERRORS[errno.EIO],json.dumps(uvetype_links))
     # end _uves_http_get
+
+    @validate_user_token
+    def uve_types_http_get(self):
+        # common handling for all resource get
+        (ok, result) = self._get_common(bottle.request)
+        if not ok:
+            (code, msg) = result
+            bottle.abort(code, msg)
+        uve_types = {}
+        for name, info in _OBJECT_TABLES.iteritems():
+            if info.is_uve:
+                uve_types[info.log_query_name] = {
+                    'global_system_object': info.global_system_object}
+        bottle.response.set_header('Content-Type', 'application/json')
+        return json.dumps(uve_types)
+    # end uve_types_http_get
 
     @validate_user_token
     def alarms_ack_http_post(self):
