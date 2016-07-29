@@ -331,30 +331,6 @@ class InstanceIpServer(Resource, InstanceIp):
     generate_default_instance = False
 
     @classmethod
-    def _get_subnet_name(cls, vn_dict, subnet_uuid):
-        ipam_refs = vn_dict.get('network_ipam_refs', [])
-        subnet_name = None
-        for ipam in ipam_refs:
-            ipam_subnets = ipam['attr'].get('ipam_subnets', [])
-            for subnet in ipam_subnets:
-                if subnet['subnet_uuid'] == subnet_uuid:
-                    subnet_dict = subnet['subnet']
-                    subnet_name = subnet_dict['ip_prefix'] + '/' + str(
-                                  subnet_dict['ip_prefix_len'])
-                    return subnet_name
-
-    @classmethod
-    def _is_gateway_ip(cls, vn_dict, ip_addr):
-        ipam_refs = vn_dict.get('network_ipam_refs', [])
-        for ipam in ipam_refs:
-            ipam_subnets = ipam['attr'].get('ipam_subnets', [])
-            for subnet in ipam_subnets:
-                if subnet['default_gateway'] == ip_addr:
-                    return True
-
-        return False
-
-    @classmethod
     def _vmi_has_vm_ref(cls, db_conn, iip_dict):
         # is this iip linked to a vmi that is not ref'd by a router
         vmi_refs = iip_dict.get('virtual_machine_interface_refs')
@@ -392,7 +368,7 @@ class InstanceIpServer(Resource, InstanceIp):
         if not ok:
             return False
 
-        return cls._is_gateway_ip(vn_dict, iip_addr)
+        return cls.addr_mgmt.is_gateway_ip(vn_dict, iip_addr)
     # end is_gateway_ip
 
     @classmethod
@@ -407,29 +383,22 @@ class InstanceIpServer(Resource, InstanceIp):
 
         vn_id = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
         ok, result = cls.dbe_read(db_conn, 'virtual_network', vn_id,
-                         obj_fields=['router_external', 'network_ipam_refs'])
+                         obj_fields=['router_external', 'network_ipam_refs',
+                                     'address_allocation_mode'])
         if not ok:
             return ok, result
 
         vn_dict = result
         subnet_uuid = obj_dict.get('subnet_uuid', None)
-        sub = cls._get_subnet_name(vn_dict, subnet_uuid) if subnet_uuid else None
-        if subnet_uuid and not sub:
-            return (False, (404, "Subnet id " + subnet_uuid + " not found"))
 
         req_ip_family = obj_dict.get("instance_ip_family", None)
-        if req_ip is None and subnet_uuid:
-            # pickup the version from subnet
-            req_ip_version = IPNetwork(sub).version
-        else:
-            req_ip_version = 4 # default ip v4
-
+        req_ip_version = 4 # default ip v4
         if req_ip_family == "v6": req_ip_version = 6
 
         # if request has ip and not g/w ip, report if already in use.
         # for g/w ip, creation allowed but only can ref to router port.
         if req_ip and cls.addr_mgmt.is_ip_allocated(req_ip, vn_fq_name):
-            if not cls._is_gateway_ip(vn_dict, req_ip):
+            if not cls.addr_mgmt.is_gateway_ip(vn_dict, req_ip):
                 return (False, (403, 'Ip address already in use'))
             elif cls._vmi_has_vm_ref(db_conn, obj_dict):
                 return (False,
@@ -438,7 +407,8 @@ class InstanceIpServer(Resource, InstanceIp):
 
         try:
             ip_addr = cls.addr_mgmt.ip_alloc_req(
-                vn_fq_name, vn_dict=vn_dict, sub=sub, asked_ip_addr=req_ip,
+                vn_fq_name, vn_dict=vn_dict, sub=subnet_uuid,
+                asked_ip_addr=req_ip,
                 asked_ip_version=req_ip_version,
                 alloc_id=obj_dict['uuid'])
 
@@ -465,9 +435,8 @@ class InstanceIpServer(Resource, InstanceIp):
                        prop_collection_updates=None, **kwargs):
         # if instance-ip is of g/w ip, it cannot refer to non router port
         req_iip_dict = obj_dict
-        ok, result = cls.dbe_read(db_conn, 'instance_ip', id,
-                                  obj_fields=['instance_ip_address',
-                                              'virtual_network_refs'])
+        ok, result = cls.dbe_read(db_conn, 'instance_ip', id)
+
         if not ok:
             return ok, result
         db_iip_dict = result
@@ -479,6 +448,13 @@ class InstanceIpServer(Resource, InstanceIp):
             # Ignore ip-fabric and link-local address allocations
             return True,  ""
 
+        #instance-ip-address change is not allowed.
+        req_ip_addr = obj_dict.get('instance_ip_address')
+        db_ip_addr = db_iip_dict.get('instance_ip_address')
+
+        if req_ip_addr and req_ip_addr != db_ip_addr:
+            return (False, (403, 'Instance IP Address can not be changed'))
+
         ok, result = cls.dbe_read(db_conn, 'virtual_network',
                                   vn_uuid,
                                   obj_fields=['network_ipam_refs'])
@@ -486,8 +462,8 @@ class InstanceIpServer(Resource, InstanceIp):
             return ok, result
 
         vn_dict = result
-        if cls._is_gateway_ip(vn_dict,
-                              db_iip_dict.get('instance_ip_address')):
+        if cls.addr_mgmt.is_gateway_ip(
+               vn_dict, db_iip_dict.get('instance_ip_address')):
             if cls._vmi_has_vm_ref(db_conn, req_iip_dict):
                 return (False, (403, 'Gateway IP cannot be used by VM port'))
         # end if gateway ip
@@ -1004,15 +980,71 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         get_context().push_undo(undo_vn_id)
         obj_dict['virtual_network_network_id'] = vn_id
 
-        db_conn.update_subnet_uuid(obj_dict)
+        vn_uuid = obj_dict.get('uuid')
+        net_mode = None
+        virtual_network_properties = obj_dict.get('virtual_network_properties') or None
+        if virtual_network_properties is not None:
+           net_mode = virtual_network_properties.get('forwarding_mode') or None
 
-        (ok, result) = cls.addr_mgmt.net_check_subnet_overlap(obj_dict)
+        # if Network has subnets in network_ipam_refs, it should refer to
+        # atleast one pam with user-defined-subnet method. If network is
+        # attached to all "flat-subnet", vn can not have any VnSubnetType cidrs
+        ipam_refs = obj_dict.get('network_ipam_refs', [])
+        ipam_subnets_list = []
+        for ipam in ipam_refs:
+            ipam_fq_name = ipam['to']
+            ipam_fq_name_str = ':'.join(ipam['to'])
+            ipam_uuid = db_conn.fq_name_to_uuid('network_ipam',
+                                                ipam_fq_name)
+            (ok, ipam_dict) = db_conn.dbe_read(
+                               obj_type='network_ipam',
+                               obj_ids={'uuid': ipam_uuid})
+            if not ok:
+                return (ok, (409, ipam_dict))
+
+            subnet_method = ipam_dict.get('ipam_subnet_method') or None
+            if subnet_method is None:
+                subnet_method = 'user-defined-subnet'
+
+            if subnet_method == 'flat-subnet':
+                subnets_list = cls.addr_mgmt._ipam_to_subnets(ipam_dict)
+                if not subnets_list:
+                    subnets_list = []
+                ipam_subnets_list = ipam_subnets_list + subnets_list
+
+            # get user-defined-subnet information to validate
+            # that there is cidr configured if subnet_method is 'flat-subnet'
+
+            vnsn = ipam['attr']
+            ipam_subnets = vnsn['ipam_subnets']
+            for ipam_subnet in ipam_subnets:
+                subnet_dict = copy.deepcopy(ipam_subnet['subnet'])
+                ip_prefix = subnet_dict.get('ip_prefix') or None
+                if subnet_method == 'flat-subnet' and ip_prefix is not None:
+                    return (False, (403,
+                        "with flat-subnet, netowrk can not have user-defined subnet"))
+
+            if ((subnet_method == 'flat-subnet') and (net_mode != 'l3')):
+                return (False,
+                        (403,
+                         "non l3 only network not allowed with flat-subnet"))
+
+        vn_subnets_list = cls.addr_mgmt._vn_to_subnets(obj_dict)
+        if not vn_subnets_list:
+            vn_subnets_list = []
+        (ok, result) = cls.addr_mgmt.net_check_subnet_overlap(vn_subnets_list,
+                                                              ipam_subnets_list)
         if not ok:
             return (ok, (409, result))
 
-        (ok, result) = cls.addr_mgmt.net_check_subnet(obj_dict)
-        if not ok:
-            return (ok, (409, result))
+        for ipam_ref in ipam_refs:
+            if (cls.addr_mgmt._ipam_is_flat_subnet(ipam_ref)):
+                continue
+            vnsn_data = ipam_ref['attr']
+            ipam_subnets = vnsn_data['ipam_subnets']
+            (ok, result) = cls.addr_mgmt.net_check_subnet(ipam_subnets)
+            if not ok:
+                return (ok, (409, result))
 
         (ok, error) =  cls._check_route_targets(obj_dict, db_conn)
         if not ok:
@@ -1022,14 +1054,43 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         if not ok:
             return (False, (400, error))
 
+        for ipam in ipam_refs:
+            vnsn = ipam['attr']
+            ipam_subnets = vnsn['ipam_subnets']
+            if (db_conn.update_subnet_uuid(ipam_subnets)):
+                db_conn.config_log(
+                    'AddrMgmt: subnet uuid is updated for vn %s'
+                        % (vn_uuid), level=SandeshLevel.SYS_DEBUG)
         try:
             cls.addr_mgmt.net_create_req(obj_dict)
+            #for all ipams which are flat, we need to write a unique id as
+            # subnet uuid for all cidrs in flat-ipam
+            for ipam in ipam_refs:
+                ipam_fq_name = ipam['to']
+                ipam_fq_name_str = ':'.join(ipam['to'])
+                ipam_uuid = db_conn.fq_name_to_uuid('network_ipam',
+                                                    ipam_fq_name)
+                (ok, ipam_dict) = db_conn.dbe_read(
+                                      obj_type='network_ipam',
+                                      obj_ids={'uuid': ipam_uuid})
+                if not ok:
+                    return (ok, (409, ipam_dict))
+
+                subnet_method = ipam_dict.get('ipam_subnet_method') or None
+                if (subnet_method != None and\
+                    subnet_method == 'flat-subnet'):
+                    subnet_dict = {}
+                    flat_subnet_uuid = str(uuid.uuid4())
+                    subnet_dict['subnet_uuid'] = flat_subnet_uuid
+                    ipam['attr']['ipam_subnets'].insert(0, subnet_dict)
+
             def undo():
                 cls.addr_mgmt.net_delete_req(obj_dict)
                 return True, ""
             get_context().push_undo(undo)
         except Exception as e:
             return (False, (500, str(e)))
+
 
         return True, ""
     # end pre_dbe_create
@@ -1056,7 +1117,6 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                 (fq_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME)):
             # Ignore ip-fabric subnet updates
             return True,  ""
-
         (ok, error) =  cls._check_route_targets(obj_dict, db_conn)
         if not ok:
             return (False, (400, error))
@@ -1065,13 +1125,59 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         if not ok:
             return (False, (409, error))
 
+        net_mode = None
+        virtual_network_properties = obj_dict.get('virtual_network_properties') or None
+        if virtual_network_properties is not None:
+           net_mode = virtual_network_properties.get('forwarding_mode') or None
+
+        ipam_subnets_list = []
+        ipam_refs = obj_dict.get('network_ipam_refs', [])
+        for ipam in ipam_refs:
+            ipam_fq_name = ipam['to']
+            ipam_fq_name_str = ':'.join(ipam['to'])
+            ipam_uuid = db_conn.fq_name_to_uuid('network_ipam',
+                                                ipam_fq_name)
+            (ok, ipam_dict) = db_conn.dbe_read(
+                               obj_type='network_ipam',
+                               obj_ids={'uuid': ipam_uuid})
+            if not ok:
+                return (ok, (409, ipam_dict))
+
+            subnet_method = ipam_dict.get('ipam_subnet_method') or None
+            if subnet_method is None:
+                subnet_method = 'user-defined-sunbet'
+
+            if subnet_method == 'flat-subnet':
+                subnets_list = cls.addr_mgmt._ipam_to_subnets(ipam_dict)
+                if not subnets_list:
+                    subnets_list = []
+                ipam_subnets_list = ipam_subnets_list + subnets_list
+
+ 
+            vnsn = ipam['attr']
+            ipam_subnets = vnsn['ipam_subnets']
+            for ipam_subnet in ipam_subnets:
+                #subnet_dict = copy.deepcopy(ipam_subnet['subnet'])
+                subnet_dict = ipam_subnet.get('subnet', None)
+                if subnet_dict:
+                    ip_prefix = subnet_dict.get('ip_prefix') or None
+                    if subnet_method == 'flat-subnet' and ip_prefix is not None:
+                        return (False, (403,
+                            "with flat-subnet, netowrk can not have user-defined subnet"))
+
+            if ((subnet_method == 'flat-subnet') and (net_mode != 'l3')):
+                return (False,
+                        (403,
+                         "non l3 only network not allowed with flat-subnet"))
+
         new_vn_id = obj_dict.get('virtual_network_network_id')
 
         if 'network_ipam_refs' not in obj_dict and new_vn_id is None:
             # NOP for addr-mgmt module
             return True,  ""
 
-        fields = ['network_ipam_refs', 'virtual_network_network_id']
+        fields = ['network_ipam_refs', 'virtual_network_network_id',
+                  'address_allocation_mode']
         ok, read_result = cls.dbe_read(db_conn, 'virtual_network', id,
                                        obj_fields=fields)
         if not ok:
@@ -1088,15 +1194,25 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         if not ok:
             return (ok, response)
 
-        (ok, result) = cls.addr_mgmt.net_check_subnet(obj_dict)
-        if not ok:
-            return (ok, (409, result))
+        for ipam_ref in ipam_refs:
+            if (cls.addr_mgmt._ipam_is_flat_subnet(ipam_ref)):
+                continue
+            vnsn_data = ipam_ref['attr']
+            ipam_subnets = vnsn_data['ipam_subnets']
+            (ok, result) = cls.addr_mgmt.net_check_subnet(ipam_subnets)
+            if not ok:
+                return (ok, (409, result))
 
         (ok, result) = cls.addr_mgmt.net_check_subnet_quota(read_result,
                                                             obj_dict, db_conn)
         if not ok:
             return (ok, (vnc_quota.QUOTA_OVER_ERROR_CODE, result))
-        (ok, result) = cls.addr_mgmt.net_check_subnet_overlap(obj_dict)
+
+        vn_subnets_list = cls.addr_mgmt._vn_to_subnets(obj_dict)
+        if not vn_subnets_list:
+            vn_subnets_list = []
+        (ok, result) = cls.addr_mgmt.net_check_subnet_overlap(vn_subnets_list,
+                                                              ipam_subnets_list)
         if not ok:
             return (ok, (409, result))
         (ok, result) = cls.addr_mgmt.net_check_subnet_delete(read_result,
@@ -1104,10 +1220,47 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         if not ok:
             return (ok, (409, result))
 
-        db_conn.update_subnet_uuid(obj_dict)
+        ipam_refs = obj_dict.get('network_ipam_refs', [])
+        for ipam in ipam_refs:
+            if cls.addr_mgmt._ipam_is_flat_subnet(ipam):
+                continue
+
+            vnsn = ipam['attr']
+            ipam_subnets = vnsn['ipam_subnets']
+            if (db_conn.update_subnet_uuid(ipam_subnets)):
+                db_conn.config_log(
+                    'AddrMgmt: subnet uuid is updated for vn %s'
+                        % (new_vn_id), level=SandeshLevel.SYS_DEBUG)
 
         try:
             cls.addr_mgmt.net_update_req(fq_name, read_result, obj_dict, id)
+            #update link with a subnet_uuid if ipam in read_result or obj_dict
+            # does not have it already
+
+            for ipam in ipam_refs:
+                ipam_fq_name = ipam['to']
+                ipam_fq_name_str = ':'.join(ipam['to'])
+                ipam_uuid = db_conn.fq_name_to_uuid('network_ipam',
+                                                    ipam_fq_name)
+                (ok, ipam_dict) = db_conn.dbe_read(
+                                      obj_type='network_ipam',
+                                      obj_ids={'uuid': ipam_uuid})
+                if not ok:
+                    return (ok, (409, ipam_dict))
+
+                subnet_method = ipam_dict.get('ipam_subnet_method') or None
+                if (subnet_method != None and\
+                    subnet_method == 'flat-subnet'):
+                    vnsn_data = ipam.get('attr', {}) 
+                    ipam_subnets = vnsn_data.get('ipam_subnets', [])
+                    if (len(ipam_subnets) == 1):
+                        continue
+                    
+                    if (len(ipam_subnets) == 0):
+                        subnet_dict = {}
+                        flat_subnet_uuid = str(uuid.uuid4())
+                        subnet_dict['subnet_uuid'] = flat_subnet_uuid
+                        ipam['attr']['ipam_subnets'].insert(0, subnet_dict)
             def undo():
                 # failed => update with flipped values for db_dict and req_dict
                 cls.addr_mgmt.net_update_req(fq_name, obj_dict, read_result, id)
@@ -1177,11 +1330,51 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
     @classmethod
     def ip_alloc(cls, vn_fq_name, subnet_name, count, family=None):
+        #db_conn = cls.server.get_db_connection()
         if family:
             ip_version = 6 if family == 'v6' else 4
         else:
             ip_version = None
-        ip_list = [cls.addr_mgmt.ip_alloc_req(vn_fq_name, sub=subnet_name,
+        vn_uuid = cls.addr_mgmt._db_conn.fq_name_to_uuid('virtual_network',
+                                                         vn_fq_name)
+        (ok, result) = cls.addr_mgmt._db_conn.dbe_read(
+                           obj_type='virtual_network',
+                           obj_ids={'uuid': vn_uuid},
+                           obj_fields=['network_ipam_refs'])
+
+        if not ok:
+            raise VncError(result)
+        vn_dict = result
+        subnet_uuid = None
+
+        ipam_refs = vn_dict.get('network_ipam_refs', [])
+        for ipam in ipam_refs:
+            # Currently ip_alloc api is not supported for flat-ipam 
+            # only to user-defined-ipam, we need to skip 
+            # any flat ipam
+            vnsn_data = ipam['attr']
+            ipam_subnets = vnsn_data.get('ipam_subnets', [])
+            if len(ipam_subnets) is 0:
+                continue
+            first_ipam_subnet = ipam_subnets[0]
+            subnet = first_ipam_subnet.get('subnet', {})
+            if ('ip_prefix' not in subnet):
+                continue
+
+            ipam_subnets = ipam['attr'].get('ipam_subnets', [])
+            for ipam_subnet in ipam_subnets:
+                subnet = ipam_subnet.get('subnet', {})
+                if 'ip_prefix' in subnet:
+                    ipam_subnet_name = subnet['ip_prefix'] + '/' +\
+                                       str(subnet['ip_prefix_len'])
+                    if ipam_subnet_name == subnet_name:
+                        subnet_uuid = ipam_subnet.get('subnet_uuid', None)
+                        break
+
+        if subnet_uuid == None:
+            return {'ip_addr' : []}
+ 
+        ip_list = [cls.addr_mgmt.ip_alloc_req(vn_fq_name, sub=subnet_uuid,
                                               asked_ip_version=ip_version,
                                               alloc_id=str(uuid.uuid4()))
                    for i in range(count)]
@@ -1260,8 +1453,56 @@ class NetworkIpamServer(Resource, NetworkIpam):
                                'obj_type': 'network_ipam',
                                'user_visibility': user_visibility}
 
-        return QuotaHelper.verify_quota_for_resource(
-            **verify_quota_kwargs)
+        try:
+            QuotaHelper.verify_quota_for_resource(
+                **verify_quota_kwargs)
+        except Exception as e:
+            return (False, (500, str(e)))
+
+        if 'ipam_subnet_method' not in obj_dict:
+            subnet_method = 'user-defined-subnet'
+        else:
+            subnet_method = obj_dict.get('ipam_subnet_method', None)
+
+        if subnet_method is None:
+            subnet_method = 'user-defined-subnet'
+
+        ipam_subnets = obj_dict.get('ipam_subnets', None)        
+        if ((ipam_subnets != None) and (subnet_method != 'flat-subnet')):
+        #if 'ipam_subnets' in obj_dict and subnet_method != 'flat-subnet':
+            return (False, (403, 'ipam-subnets are allowed only with flat-subnet'))
+
+        if  (subnet_method != 'flat-subnet'):
+            return True, ""
+
+        ipam_uuid = obj_dict.get('uuid')
+        ipam_subnets = obj_dict.get('ipam_subnets')
+        if ipam_subnets is None:
+            return True, ""
+
+        ipam_subnets_list = cls.addr_mgmt._ipam_to_subnets(obj_dict)
+        if not ipam_subnets_list:
+            ipam_subnets_list = []
+
+        (ok, result) = cls.addr_mgmt.net_check_subnet_overlap(ipam_subnets_list)
+        if not ok:
+            return (ok, (409, result))
+
+        subnets = ipam_subnets.get('subnets', [])
+        (ok, result) = cls.addr_mgmt.net_check_subnet(subnets)
+        if not ok:
+            return (ok, (409, result))
+
+        try:
+            cls.addr_mgmt.ipam_create_req(obj_dict)
+            def undo():
+                cls.addr_mgmt.ipam_delete_req(obj_dict)
+                return True, ""
+            get_context().push_undo(undo)
+        except Exception as e:
+            return (False, (500, str(e)))
+
+        return True, ""
     # end pre_dbe_create
 
     @classmethod
@@ -1269,19 +1510,108 @@ class NetworkIpamServer(Resource, NetworkIpam):
         ok, read_result = cls.dbe_read(db_conn, 'network_ipam', id)
         if not ok:
             return ok, read_result
+        def ipam_mgmt_check():
+            old_ipam_mgmt = read_result.get('network_ipam_mgmt')
+            new_ipam_mgmt = obj_dict.get('network_ipam_mgmt')
+            if not old_ipam_mgmt or not new_ipam_mgmt:
+                return True, ""
 
-        old_ipam_mgmt = read_result.get('network_ipam_mgmt')
-        new_ipam_mgmt = obj_dict.get('network_ipam_mgmt')
-        if not old_ipam_mgmt or not new_ipam_mgmt:
+            old_dns_method = old_ipam_mgmt.get('ipam_dns_method')
+            new_dns_method = new_ipam_mgmt.get('ipam_dns_method')
+            if not cls.is_change_allowed(old_dns_method, new_dns_method,
+                                         read_result, db_conn):
+                return (False, (409, "Cannot change DNS Method " +
+                        " with active VMs referring to the IPAM"))
+        # end ipam_mgmt_check
+
+        ok, result = ipam_mgmt_check()
+        if not ok:
+            return ok, result
+
+        old_subnet_method = read_result.get('ipam_subnet_method') or None
+        new_subnet_method = obj_dict.get('ipam_subnet_method') or None
+        if new_subnet_method is not None:
+            if (old_subnet_method != new_subnet_method):
+                return (False, (403, 'ipam_subnet_method can not be changed'))
+
+        if ((old_subnet_method is not None) and
+            (old_subnet_method != 'flat-subnet')):
             return True, ""
-        old_dns_method = old_ipam_mgmt.get('ipam_dns_method')
-        new_dns_method = new_ipam_mgmt.get('ipam_dns_method')
-        if not cls.is_change_allowed(old_dns_method, new_dns_method,
-                                     read_result, db_conn):
-            return (False, (409, "Cannot change DNS Method " +
-                    " with active VMs referring to the IPAM"))
+
+        db_subnets_list = cls.addr_mgmt._ipam_to_subnets(read_result)
+        req_subnets_list = cls.addr_mgmt._ipam_to_subnets(obj_dict)
+
+        (ok, result) = cls.addr_mgmt.net_check_subnet_overlap(req_subnets_list)
+        if not ok:
+            return (ok, (409, result))
+
+        ipam_subnets = obj_dict.get('ipam_subnets')
+        if ipam_subnets != None:
+            subnets = ipam_subnets.get('subnets', [])
+            (ok, result) = cls.addr_mgmt.net_check_subnet(subnets)
+            if not ok:
+                return (ok, (409, result))
+
+        (ok, result) = cls.addr_mgmt.ipam_check_subnet_delete(read_result,
+                                                              obj_dict)
+        if not ok:
+            return (ok, (409, result))
+
+        '''
+        (ok, result) = cls.addr_mgmt.ipam_check_subnet_quota(read_result,
+                                                            obj_dict, db_conn)
+        if not ok:
+            return (ok, (vnc_quota.QUOTA_OVER_ERROR_CODE, result))
+        '''
+
+        try:
+            cls.addr_mgmt.ipam_update_req(fq_name, read_result, obj_dict, id)
+            def undo():
+                # failed => update with flipped values for db_dict and req_dict
+                cls.addr_mgmt.ipam_update_req(fq_name, obj_dict, read_result, id)
+            # end undo
+            get_context().push_undo(undo)
+        except Exception as e:
+            return (False, (500, str(e)))
+
         return True, ""
     # end pre_dbe_update
+
+    @classmethod
+    def pre_dbe_delete(cls, id, obj_dict, db_conn):
+        ok, read_result = cls.dbe_read(db_conn, 'network_ipam', id)
+        if not ok:
+            return ok, read_result
+
+        subnet_method = read_result.get('ipam_subnet_method')
+        if subnet_method is None or subnet_method != 'flat-subnet':
+            return True, ""
+
+        ipam_subnets = read_result.get('ipam_subnets')
+        if ipam_subnets is None:
+            return True, ""
+
+        cls.addr_mgmt.ipam_delete_req(obj_dict)
+        def undo():
+            cls.addr_mgmt.ipam_create_req(obj_dict)
+        get_context().push_undo(undo)
+        return True, ""
+    # end pre_dbe_delete
+
+    @classmethod
+    def dbe_create_notification(cls, obj_ids, obj_dict):
+        cls.addr_mgmt.ipam_create_notify(obj_ids, obj_dict)
+    # end dbe_create_notification
+
+    @classmethod
+    def dbe_update_notification(cls, obj_ids):
+        cls.addr_mgmt.ipam_update_notify(obj_ids)
+    # end dbe_update_notification
+
+    @classmethod
+    def dbe_delete_notification(cls, obj_ids, obj_dict):
+        cls.addr_mgmt.ipam_delete_notify(obj_ids, obj_dict)
+    # end dbe_update_notification
 
     @classmethod
     def is_change_allowed(cls, old, new, obj_dict, db_conn):

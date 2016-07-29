@@ -1565,6 +1565,22 @@ class VncDbClient(object):
         return False
     # end match_uuid
 
+    def update_subnet_uuid(self, subnets):
+        updated = False
+        if subnets is None:
+            return updated;
+
+        for subnet in subnets:
+            if subnet.get('subnet_uuid'):
+                continue
+            subnet_uuid = str(uuid.uuid4())
+            subnet['subnet_uuid'] = subnet_uuid
+            updated = True
+
+        return updated;
+    # end update_subnet_uuid
+
+    '''
     def update_subnet_uuid(self, vn_dict, do_update=False):
         vn_uuid = vn_dict.get('uuid')
 
@@ -1594,6 +1610,7 @@ class VncDbClient(object):
             self._cassandra_db.object_update('virtual_network', vn_uuid,
                                              vn_dict)
     # end update_subnet_uuid
+     '''
 
     def update_bgp_router_type(self, obj_dict):
         """ Sets router_type property based on the vendor property only
@@ -1652,7 +1669,18 @@ class VncDbClient(object):
                                                        'logical_router',
                                                        router['uuid'])
                     if 'network_ipam_refs' in obj_dict:
-                        self.update_subnet_uuid(obj_dict, do_update=True)
+                        ipam_refs = obj_dict['network_ipam_refs']
+                        do_update = False
+                        for ipam in ipam_refs:
+                            vnsn = ipam['attr']
+                            ipam_subnets = vnsn['ipam_subnets']
+                            if (self.update_subnet_uuid(ipam_subnets)):
+                                if not do_update:
+                                    do_update = True
+                        if do_update:
+                            self.cassandra_db.object_update(
+                                'virtual_network', obj_uuid, obj_dict)
+ 
                 elif obj_type == 'virtual_machine_interface':
                     device_owner = obj_dict.get('virtual_machine_interface_device_owner')
                     li_back_refs = obj_dict.get('logical_interface_back_refs', [])
