@@ -700,7 +700,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
 
         ok, result = cls.dbe_read(db_conn, 'virtual_network', vn_uuid,
-                                  obj_fields=['parent_uuid'])
+                                  obj_fields=['parent_uuid', 'provider_properties'])
         if not ok:
             return ok, result
 
