@@ -2071,11 +2071,17 @@ class DBInterface(object):
             for aap in allowed_address_pairs.allowed_address_pair:
                 pair = {}
                 pair["mac_address"] = aap.mac
-                if aap.ip.get_ip_prefix_len() == 32:
+
+                if IPAddress(aap.ip.get_ip_prefix()).version is 4:
+                    ip_len = 32
+                elif IPAddress(aap.ip.get_ip_prefix()).version is 6:
+                    ip_len = 128
+
+                if aap.ip.get_ip_prefix_len() == ip_len:
                     pair["ip_address"] = '%s' % (aap.ip.get_ip_prefix())
                 else:
                     pair["ip_address"] = '%s/%s' % (aap.ip.get_ip_prefix(),
-                                                 aap.ip.get_ip_prefix_len()),
+                                                 aap.ip.get_ip_prefix_len())
                 address_pairs.append(pair)
             port_q_dict['allowed_address_pairs'] = address_pairs
 
