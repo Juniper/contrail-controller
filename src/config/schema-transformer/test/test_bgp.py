@@ -337,8 +337,14 @@ class TestBgp(STTestCase, VerifyBgp):
         self.check_v6_bgp_gateway(router1_name,
             '1000:ffff:ffff:ffff:ffff:ffff:ffff:fffe')
 
+        self._vnc_lib.instance_ip_delete(id=v4_obj.uuid)
+        v4_obj = InstanceIp(name=port_name+'-v4')
+        v4_obj.set_virtual_machine_interface(port_obj)
+        v4_obj.set_virtual_network(vn1_obj)
+        v4_obj.set_instance_ip_family('v4')
         v4_obj.set_instance_ip_address('10.0.0.60')
-        self._vnc_lib.instance_ip_update(v4_obj)
+        self._vnc_lib.instance_ip_create(v4_obj)
+
         self.check_bgp_router_ip(router1_name, '10.0.0.60')
         self.check_bgp_router_identifier(router1_name, '10.0.0.60')
 
