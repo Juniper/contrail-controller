@@ -745,16 +745,15 @@ class PhysicalRouterConfig(object):
         if external:
             etree.SubElement(bgp_config, "name").text = "__contrail_external__"
             etree.SubElement(bgp_config, "type").text = "external"
+            etree.SubElement(bgp_config, "multihop")
         else:
             etree.SubElement(bgp_config, "name").text = "__contrail__"
             etree.SubElement(bgp_config, "type").text = "internal"
-        etree.SubElement(bgp_config, "multihop")
         local_address = etree.SubElement(bgp_config, "local-address")
         local_address.text = self.bgp_params['address']
         self._add_family_etree(bgp_config, self.bgp_params)
         self.add_bgp_auth_config(bgp_config, self.bgp_params)
         self.add_bgp_hold_time_config(bgp_config, self.bgp_params)
-        etree.SubElement(bgp_config, "keep").text = "all"
         return bgp_config
     # end _get_bgp_config_xml
 
