@@ -2030,6 +2030,7 @@ class QosConfigServer(Resource, QosConfig):
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        obj_dict['global_system_config_refs'] = [{'to': ['default-global-system-config']}]
         return cls._check_qos_values(obj_dict, db_conn)
 
     @classmethod
