@@ -416,129 +416,192 @@ const map<string, string> UVE_MAP = {
 }
 
 struct objtable_info {
-    1: string objtable_display_name;
-    2: string log_query_name;
+    1: string objtable_display_name
+    2: string log_query_name
+    3: bool is_uve
+    4: bool is_infra_object
 }
 
 const map<string, objtable_info> _OBJECT_TABLES = {
     CONFIG_OBJECT_TABLE    : {
         'objtable_display_name' : CONFIG_OBJECT_DISPLAY_NAME
         'log_query_name'        : "config"
+        'is_uve'                : false
+        'is_infra_object'       : true
     }
     VN_TABLE               : {
         'objtable_display_name' : VN_DISPLAY_NAME
         'log_query_name'        : "virtual-network"
+        'is_uve'                : true
+        'is_infra_object'       : false
     }
     VM_TABLE               : {
         'objtable_display_name' : VM_DISPLAY_NAME
         'log_query_name'        : "virtual-machine"
+        'is_uve'                : true
+        'is_infra_object'       : false
     }
     VMI_TABLE              : {
         'objtable_display_name' : VMI_DISPLAY_NAME
         'log_query_name'        : "virtual-machine-interface"
+        'is_uve'                : true
+        'is_infra_object'       : false
     }
     SI_TABLE               : {
         'objtable_display_name' : SI_DISPLAY_NAME
         'log_query_name'        : "service-instance"
+        'is_uve'                : true
+        'is_infra_object'       : false
     }
     LB_TABLE               : {
         'objtable_display_name' : LB_DISPLAY_NAME
         'log_query_name'        : "loadbalancer"
+        'is_uve'                : true
+        'is_infra_object'       : false
     }
     VROUTER_TABLE          : {
         'objtable_display_name' : VROUTER_DISPLAY_NAME
         'log_query_name'        : "vrouter"
+        'is_uve'                : true
+        'is_infra_object'       : true
     }
     PROUTER_TABLE          : {
         'objtable_display_name' : PROUTER_DISPLAY_NAME
         'log_query_name'        : "prouter"
+        'is_uve'                : true
+        'is_infra_object'       : true
     }
     BGP_PEER_TABLE         : {
         'objtable_display_name' : BGP_PEER_DISPLAY_NAME
         'log_query_name'        : "bgp-peer"
+        'is_uve'                : true
+        'is_infra_object'       : true
     }
     BGP_ROUTER_TABLE       : {
         'objtable_display_name' : BGP_ROUTER_DISPLAY_NAME
         'log_query_name'        : "control-node"
+        'is_uve'                : true
+        'is_infra_object'       : true
     }
     ROUTING_INSTANCE_TABLE : {
         'objtable_display_name' : ROUTING_INSTANCE_DISPLAY_NAME
         'log_query_name'        : "routing-instance"
+        'is_uve'                : true
+        'is_infra_object'       : false
     }
     XMPP_CONNECTION_TABLE  : {
         'objtable_display_name' : XMPP_CONNECTION_DISPLAY_NAME
         'log_query_name'        : "xmpp-connection"
+        'is_uve'                : false
+        'is_infra_object'       : true
     }
     XMPP_PEER_INFO_TABLE  : {
         'objtable_display_name' : XMPP_PEER_INFO_DISPLAY_NAME
         'log_query_name'        : "xmpp-peer"
+        'is_uve'                : true
+        'is_infra_object'       : true
     }
     COLLECTOR_INFO_TABLE   : {
         'objtable_display_name' : COLLECTOR_INFO_DISPLAY_NAME
         'log_query_name'        : "analytics-node"
+        'is_uve'                : true
+        'is_infra_object'       : true
     }
     DATABASE_INFO_TABLE   : {
         'objtable_display_name' : DATABASE_INFO_DISPLAY_NAME
         'log_query_name'        : "database-node"
+        'is_uve'                : true
+        'is_infra_object'       : true
     }
     GENERATOR_INFO_TABLE   : {
         'objtable_display_name' : GENERATOR_INFO_DISPLAY_NAME
         'log_query_name'        : "generator"
+        'is_uve'                : true
+        'is_infra_object'       : true
     }
     CONFIG_NODE_TABLE      : {
         'objtable_display_name' : CONFIG_NODE_DISPLAY_NAME
         'log_query_name'        : "config-node"
+        'is_uve'                : true
+        'is_infra_object'       : true
     }
     SERVICE_CHAIN          : {
         'objtable_display_name' : SERVICE_CHAIN_DISPLAY_NAME
         'log_query_name'        : "service-chain"
+        'is_uve'                : true
+        'is_infra_object'       : false
     }
     DNS_TABLE       : {
         'objtable_display_name' : DNS_DISPLAY_NAME
         'log_query_name'        : "dns-node"
+        'is_uve'                : true
+        'is_infra_object'       : true
     }
     QUERY_TABLE_OBJECT       : {
         'objtable_display_name' : QUERY_TABLE_DISPLAY_NAME
         'log_query_name'        : "analytics-query"
+        'is_uve'                : false
+        'is_infra_object'       : true
     }
     QUERY_QID_OBJECT       : {
         'objtable_display_name' : QUERY_QID_DISPLAY_NAME
         'log_query_name'        : "analytics-query-id"
+        'is_uve'                : false
+        'is_infra_object'       : true
     }
     POOL_TABLE          : {
         'objtable_display_name' : STORAGE_POOL_DISPLAY_NAME
         'log_query_name'        : "storage-pool"
+        'is_uve'                : true
+        'is_infra_object'       : true
     }
     OSD_TABLE          : {
         'objtable_display_name' : STORAGE_OSD_DISPLAY_NAME
         'log_query_name'        : "storage-osd"
+        'is_uve'                : true
+        'is_infra_object'       : true
     }
     DISK_TABLE          : {
         'objtable_display_name' : STORAGE_DISK_DISPLAY_NAME
         'log_query_name'        : "storage-disk"
+        'is_uve'                : true
+        'is_infra_object'       : true
     }
     SERVER_TABLE          : {
         'objtable_display_name' : SERVER_TABLE_DISPLAY_NAME
+        'log_query_name'        : "server"
+        'is_uve'                : true
+        'is_infra_object'       : true
     }
     CONFIG_OBJECT_TABLE_USER    : {
         'objtable_display_name' : CONFIG_OBJECT_USER_DISPLAY_NAME
         'log_query_name'        : "config-user"
+        'is_uve'                : false
+        'is_infra_object'       : true
     }
     PHYSICAL_IF_TABLE    : {
         'objtable_display_name' : PHYSICAL_IF_DISPLAY_NAME
         'log_query_name'        : "physical-interface"
+        'is_uve'                : true
+        'is_infra_object'       : true
     }
     LOGICAL_IF_TABLE   : {
         'objtable_display_name' : LOGICAL_IF_DISPLAY_NAME
         'log_query_name'        : "logical-interface"
+        'is_uve'                : true
+        'is_infra_object'       : true
     }
     STORAGE_CLUSTER_TABLE    : {
         'objtable_display_name' : STORAGE_CLUSTER_DISPLAY_NAME
         'log_query_name'        : "storage-cluster"
+        'is_uve'                : true
+        'is_infra_object'       : true
     }
     USR_DEF_LOG_STAT_TABLE   : {
         'objtable_display_name' : USR_DEF_LOG_STAT_DISPLAY_NAME
         'log_query_name'        : "user-defined-log-statistic"
+        'is_uve'                : true
+        'is_infra_object'       : true
     }
 }
 
