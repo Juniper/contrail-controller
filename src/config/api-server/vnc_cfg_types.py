@@ -619,8 +619,8 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                 return (False, (400, msg))
             vn_uuid = db_conn.fq_name_to_uuid('virtual-network', vn_fq_name)
 
-        ok, result = cls.dbe_read(db_conn, 'virtual-network', vn_uuid,
-                                  obj_fields=['parent_uuid'])
+        ok, result = cls.dbe_read(db_conn, 'virtual_network', vn_uuid,
+                                  obj_fields=['parent_uuid', 'provider_properties'])
         if not ok:
             return ok, result
 
