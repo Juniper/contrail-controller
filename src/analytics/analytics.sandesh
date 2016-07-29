@@ -9,7 +9,6 @@
 
 include "base/sandesh/cpuinfo.sandesh"
 include "base/sandesh/process_info.sandesh"
-include "sandesh/library/common/derived_stats_results.sandesh"
 
 /**
  * This structure carries process's memory and cpu information on
