@@ -22,14 +22,14 @@ env.Prepend(CPPPATH = env['TOP'] + '/discovery/client')
 env.Prepend(CPPPATH = env['TOP'] + '/http/client')
 
 env.Prepend(LIBS=['ifmap_vnc', 'ifmap_server', 'ifmap_common', 'net', 'ifmapio',
-                  'xmpp', 'ds', 'sandeshvns', 'sandesh', 'peer_sandesh', 'table_sandesh',
-                  'httpc', 'http', 'http_parser', 'curl', 'process_info',
+                  'xmpp', 'ds', 'sandeshvns', 'peer_sandesh', 'table_sandesh',
+                  'httpc', 'curl', 'process_info',
                   'db', 'io', 'base', 'xml', 'pugixml', 'libxml2',
                   'boost_regex', 'boost_chrono', 'boost_program_options',
                   'crypto', 'ssl',
                   'boost_filesystem'])
-
 env.Prepend(LIBS=['dns_cfg', 'cmn', 'mgr', 'agent_xmpp', 'bind_interface', 'dns_uve'])
+env.Append(LIBS=['sandesh', 'http', 'http_parser'])
 
 if sys.platform != 'darwin':
     env.Append(LIBS=['rt'])
