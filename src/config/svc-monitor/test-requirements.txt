@@ -4,6 +4,7 @@ junitxml
 testrepository
 mock
 bitarray
+kombu
 gevent==1.1a2
 cfgm_common
 vnc_api
