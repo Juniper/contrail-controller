@@ -61,8 +61,8 @@ const string MirrorKState::FlagsToString(int flags) const {
     if (flags == 0) {
         return "NIL";
     }
-    if (flags & VR_MIRROR_FLAG_MARKED_DELETE) {
-        return "MARKED_DELETE";
+    if (flags & VR_MIRROR_FLAG_DYNAMIC) {
+        return "Dynamic";
     }
     return "INVALID";
 }
