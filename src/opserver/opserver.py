@@ -47,8 +47,8 @@ from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
      ModuleCategoryMap, Module2NodeType, NodeTypeNames, ModuleIds,\
      INSTANCE_ID_DEFAULT, COLLECTOR_DISCOVERY_SERVICE_NAME,\
      ANALYTICS_API_SERVER_DISCOVERY_SERVICE_NAME, ALARM_GENERATOR_SERVICE_NAME, \
-     OpServerAdminPort, CLOUD_ADMIN_ROLE, AnalyticsAPIAAAModes, \
-     AAA_MODE_CLOUD_ADMIN_ONLY, AAA_MODE_NO_AUTH
+     OpServerAdminPort, CLOUD_ADMIN_ROLE, APIAAAModes, \
+     AAA_MODE_CLOUD_ADMIN, AAA_MODE_NO_AUTH
 from sandesh.viz.constants import _TABLES, _OBJECT_TABLES,\
     _OBJECT_TABLE_SCHEMA, _OBJECT_TABLE_COLUMN_VALUES, \
     _STAT_TABLES, STAT_OBJECTID_FIELD, STAT_VT_PREFIX, \
@@ -778,7 +778,7 @@ class OpServer(object):
             'partitions'        : 15,
             'sandesh_send_rate_limit': SandeshSystem. \
                  get_sandesh_send_rate_limit(),
-            'aaa_mode'          : AAA_MODE_CLOUD_ADMIN_ONLY,
+            'aaa_mode'          : AAA_MODE_CLOUD_ADMIN,
             'api_server'        : '127.0.0.1:8082',
             'admin_port'        : OpServerAdminPort,
             'cloud_admin_role'  : CLOUD_ADMIN_ROLE,
@@ -907,7 +907,7 @@ class OpServer(object):
             help="Sandesh send rate limit in messages/sec")
         parser.add_argument("--cloud_admin_role",
             help="Name of cloud-admin role")
-        parser.add_argument("--aaa_mode", choices=AnalyticsAPIAAAModes,
+        parser.add_argument("--aaa_mode", choices=APIAAAModes,
             help="AAA mode")
         parser.add_argument("--auth_host",
             help="IP address of keystone server")
