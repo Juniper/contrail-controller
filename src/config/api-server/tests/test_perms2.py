@@ -200,6 +200,21 @@ def vnc_aal_add_rule(vnc, rg, rule_str):
     rg.set_api_access_list_entries(rge)
     vnc.api_access_list_update(rg)
 
+def vnc_aal_del_rule(vnc, rg, rule_str):
+    rule = build_rule(rule_str)
+    rg = vnc_read_obj(vnc, 'api-access-list', rg.get_fq_name())
+    rge = rg.get_api_access_list_entries()
+    match = find_rule(rge, rule)
+    if not match:
+        return
+    elif match[1]:
+        rge.rbac_rule.pop(match[0]-1)
+    else:
+        build_perms(rge.rbac_rule[match[0]-1], match[2])
+
+    rg.set_api_access_list_entries(rge)
+    vnc.api_access_list_update(rg)
+
 def token_from_user_info(user_name, tenant_name, domain_name, role_name,
         tenant_id = None):
     token_dict = {
@@ -315,11 +330,10 @@ class TestPermissions(test_case.ApiServerTestCase):
             vnc_aal_add_rule(self.admin.vnc_lib, user.proj_rg,
                 rule_str = '* %s:CRUD' % user.role)
 
-        """
-        global_rg = vnc_read_obj(self.admin.vnc_lib, 'api-access-list', 
-            name = ['default-global-system-config', 'default-api-access-list'])
-        vnc_aal_add_rule(self.admin.vnc_lib, global_rg, "obj-perms *:R")
-        """
+        # disallow full-access from global access-list
+        glb_sys_cfg = vnc_read_obj(self.admin.vnc_lib, "global-system-config",
+            name = ['default-global-system-config'])
+        vnc_aal_del_rule(self.admin.vnc_lib, glb_sys_cfg, rule_str = '* *:CRUD')
 
     def test_delete_non_admin_role(self):
         alice = self.alice

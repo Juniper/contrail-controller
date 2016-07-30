@@ -2759,29 +2759,18 @@ class VncApiServer(object):
             pass
 
         # allow full access to cloud admin
+        # rule_object, rule_field, rule_perms
         rbac_rules = [
-            {
-                'rule_object':'fqname-to-id',
-                'rule_field': '',
-                'rule_perms': [{'role_name':'*', 'role_crud':'CRUD'}]
-            },
-            {
-                'rule_object':'id-to-fqname',
-                'rule_field': '',
-                'rule_perms': [{'role_name':'*', 'role_crud':'CRUD'}]
-            },
-            {
-                'rule_object':'documentation',
-                'rule_field': '',
-                'rule_perms': [{'role_name':'*', 'role_crud':'R'}]
-            },
+            ('*',             '', [('*','CRUD')]),
+            ('fqname-to-id',  '', [('*','CRUD')]),
+            ('id-to-fqname',  '', [('*','CRUD')]),
+            ('documentation', '', [('*','CRUD')]),
         ]
 
         rge = RbacRuleEntriesType([])
-        for rule in rbac_rules:
-            rule_perms = [RbacPermType(role_name=p['role_name'], role_crud=p['role_crud']) for p in rule['rule_perms']]
-            rbac_rule = RbacRuleType(rule_object=rule['rule_object'],
-                rule_field=rule['rule_field'], rule_perms=rule_perms)
+        for (r_obj, r_field, r_perms) in rbac_rules:
+            rule_perms = [RbacPermType(role_name=role, role_crud=crud) for (role,crud) in r_perms]
+            rbac_rule = RbacRuleType(rule_object=r_obj, rule_field=r_field, rule_perms=rule_perms)
             rge.add_rbac_rule(rbac_rule)
 
         rge_dict = rge.exportDict('')
