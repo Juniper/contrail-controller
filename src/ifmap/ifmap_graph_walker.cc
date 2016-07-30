@@ -493,5 +493,7 @@ void IFMapGraphWalker::AddLinksToWhitelist() {
                     "source=virtual-machine-interface,target=qos-config");
     traversal_white_list_->include_edge.insert(
                     "source=virtual-network,target=qos-config");
+    traversal_white_list_->include_edge.insert(
+                    "source=global-system-config,target=qos-config");
 }
 
