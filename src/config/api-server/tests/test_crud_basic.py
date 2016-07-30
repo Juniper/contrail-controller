@@ -2078,6 +2078,14 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             gevent.sleep(0.1)
 
         self.assertIsNone(mock_zk.get_vn_from_id(vn_id))
+
+    def test_qos_config(self):
+        project = Project()
+        qc = QosConfig('test-qos-config', parent_obj=project)
+        self._vnc_lib.qos_config_create(qc)
+        qc = self._vnc_lib.qos_config_read(fq_name=qc.get_fq_name())
+        self.assertEqual(len(qc.get_global_system_config_refs()), 1)
+
 # end class TestVncCfgApiServer
 
 

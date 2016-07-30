@@ -1085,6 +1085,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('project-qos-config',
           'project', 'qos-config', ['has'], 'optional', 'CRUD'
           'QOS configuration specifying marking and queueing value for various QoS values') -->
+
+<xsd:element name="qos-config-global-system-config"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('qos-config-global-system-config',
+          'qos-config', 'global-system-config', ['ref'], 'system-only', 'CR',
+          'This link is internally created and may be removed in future. End users should not set this link or assume it to be there') -->
 <xsd:element name="qos-config-type" type="QosConfigType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('qos-config-type', 'qos-config', 'CRUD',
