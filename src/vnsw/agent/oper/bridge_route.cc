@@ -394,7 +394,7 @@ void BridgeRouteEntry::DeletePathUsingKeyData(const AgentRouteKey *key,
     std::list<AgentPath *> to_be_deleted_path_list;
     Route::PathList::iterator it;
     //If peer in key is deleted, set force_delete to true.
-    if (key->peer()->IsDeleted()) {
+    if (key->peer()->IsDeleted() || key->peer()->SkipAddChangeRequest()) {
         force_delete = true;
     }
 
