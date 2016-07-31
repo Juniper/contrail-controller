@@ -1341,6 +1341,10 @@ class VncApiServer(object):
         self.get_resource_class('routing-policy').generate_default_instance = False
         self.get_resource_class('route-aggregate').generate_default_instance = False
         self.get_resource_class('alarm').generate_default_instance = False
+        self.get_resource_class('qos-config').generate_default_instance = False
+        self.get_resource_class('qos-queue').generate_default_instance = False
+        self.get_resource_class('forwarding-class').generate_default_instance = False
+        self.get_resource_class('global-qos-config').generate_default_instance = False
 
         for act_res in _ACTION_RESOURCES:
             link = LinkObject('action', self._base_url, act_res['uri'],
@@ -2736,6 +2740,7 @@ class VncApiServer(object):
             RoutingInstance('default-virtual-network',
                 routing_instance_is_default=True))
         self._create_singleton_entry(DiscoveryServiceAssignment())
+        self._create_singleton_entry(GlobalQosConfig())
 
         self._db_conn.db_resync()
         try:
