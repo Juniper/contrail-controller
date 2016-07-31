@@ -3388,6 +3388,8 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(403, " Permission denied")
 
         self.aaa_mode = aaa_mode
+        if self.is_rbac_enabled():
+            self._create_default_rbac_rule()
         return {'aaa-mode': self.aaa_mode}
     # end
 
