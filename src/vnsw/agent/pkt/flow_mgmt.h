@@ -989,6 +989,7 @@ private:
 
 class BgpAsAServiceFlowMgmtTree : public FlowMgmtTree {
 public:
+    static const int kInvalidCnIndex = -1;
     BgpAsAServiceFlowMgmtTree(FlowMgmtManager *mgr) : FlowMgmtTree(mgr) {}
     virtual ~BgpAsAServiceFlowMgmtTree() {}
 
@@ -998,7 +999,7 @@ public:
                              const FlowMgmtRequest *req);
     void DeleteAll();
     //Gets CN index from flow.
-    static uint8_t GetCNIndex(const FlowEntry *flow);
+    static int GetCNIndex(const FlowEntry *flow);
     // Called just before entry is deleted. Used to implement cleanup operations
     virtual void FreeNotify(FlowMgmtKey *key, uint32_t gen_id);
 private:
