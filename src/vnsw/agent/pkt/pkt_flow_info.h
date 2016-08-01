@@ -54,7 +54,7 @@ public:
         trap_rev_flow(false), fip_snat(false), fip_dnat(false), snat_fip(),
         short_flow_reason(0), peer_vrouter(), tunnel_type(TunnelType::INVALID),
         flood_unknown_unicast(false), bgp_router_service_flow(false),
-        alias_ip_flow(false) {
+        alias_ip_flow(false), ttl(0) {
     }
 
     static bool ComputeDirection(const Interface *intf);
@@ -190,6 +190,8 @@ public:
 
     // Alias IP flow
     bool                 alias_ip_flow;
+    //TTL of nat'd flow especially bgp-service flows
+    uint8_t              ttl;
 };
 
 #endif // __agent_pkt_flow_info_h_

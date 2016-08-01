@@ -822,6 +822,7 @@ void PktFlowInfo::BgpRouterServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
     out->rt_ = FlowEntry::GetUcRoute(out->vrf_, nat_server);
     out->intf_ = agent->vhost_interface();
     out->nh_ = out->intf_->flow_key_nh()->id();
+    ttl = pkt->ttl;
     return;
 }
 
