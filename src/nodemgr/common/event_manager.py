@@ -162,7 +162,10 @@ class EventManager(object):
         if self.curr_build_info is None:
             command = "contrail-version contrail-nodemgr | grep contrail-nodemgr"
             version = os.popen(command).read()
-            _, rpm_version, build_num = version.split()
+            try:
+                _, rpm_version, build_num = version.split()
+            except Exception as e:
+                sys.stderr.write('Could not parse package version %s with exception: %s\n' % (version, e))
             self.new_build_info = build_info + '"build-id" : "' + \
                 rpm_version + '", "build-number" : "' + \
                 build_num + '"}]}'
