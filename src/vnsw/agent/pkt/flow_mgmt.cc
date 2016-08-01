@@ -39,7 +39,7 @@ FlowMgmtManager::FlowMgmtManager(Agent *agent, uint16_t table_index) :
     log_queue_.set_name("Flow Log Queue");
     for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
         bgp_as_a_service_flow_mgmt_tree_[count].reset(
-            new BgpAsAServiceFlowMgmtTree(this));
+            new BgpAsAServiceFlowMgmtTree(this, count));
     }
 }
 
@@ -342,7 +342,7 @@ void BgpAsAServiceFlowMgmtTree::ExtractKeys(FlowEntry *flow,
     BgpAsAServiceFlowMgmtKey *key =
         new BgpAsAServiceFlowMgmtKey(vm_intf->GetUuid(),
                                  flow->bgp_as_a_service_port(),
-                                 BgpAsAServiceFlowMgmtTree::GetCNIndex(flow));
+                                 index_);
     AddFlowMgmtKey(tree, key);
 }
 
@@ -371,11 +371,14 @@ void BgpAsAServiceFlowMgmtTree::DeleteAll() {
     }
 }
 
-uint8_t BgpAsAServiceFlowMgmtTree::GetCNIndex(const FlowEntry *flow) {
+int BgpAsAServiceFlowMgmtTree::GetCNIndex(const FlowEntry *flow) {
     IpAddress dest_ip = IpAddress();
     if (flow->is_flags_set(FlowEntry::ReverseFlow)) {
         dest_ip = flow->key().src_addr;
     } else {
+        //No reverse flow means no CN to map to so dont add flow key.
+        if (flow->reverse_flow_entry() == NULL)
+            return BgpAsAServiceFlowMgmtTree::kInvalidCnIndex;
         dest_ip = flow->reverse_flow_entry()->key().src_addr;
     }
     for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
@@ -384,7 +387,7 @@ uint8_t BgpAsAServiceFlowMgmtTree::GetCNIndex(const FlowEntry *flow) {
             return count;
         }
     }
-    return 0;
+    return BgpAsAServiceFlowMgmtTree::kInvalidCnIndex;
 }
 
 bool
@@ -545,9 +548,11 @@ void FlowMgmtManager::MakeFlowMgmtKeyTree(FlowEntry *flow,
     bridge_route_flow_mgmt_tree_.ExtractKeys(flow, tree);
     nh_flow_mgmt_tree_.ExtractKeys(flow, tree);
     if (flow->is_flags_set(FlowEntry::BgpRouterService)) {
-        uint8_t count = BgpAsAServiceFlowMgmtTree::GetCNIndex(flow);
-        bgp_as_a_service_flow_mgmt_tree_[count].get()->
-            ExtractKeys(flow, tree);
+        int cn_index = BgpAsAServiceFlowMgmtTree::GetCNIndex(flow);
+        if (cn_index != BgpAsAServiceFlowMgmtTree::kInvalidCnIndex) {
+            bgp_as_a_service_flow_mgmt_tree_[cn_index].get()->
+                ExtractKeys(flow, tree);
+        }
     }
 }
 
@@ -791,9 +796,11 @@ void FlowMgmtManager::AddFlowMgmtKey(FlowEntry *flow, FlowEntryInfo *info,
         break;
 
     case FlowMgmtKey::BGPASASERVICE: {
-        uint8_t count = BgpAsAServiceFlowMgmtTree::GetCNIndex(flow);
-        bgp_as_a_service_flow_mgmt_tree_[count].get()->Add(key, flow,
+        int cn_index = BgpAsAServiceFlowMgmtTree::GetCNIndex(flow);
+        if (cn_index != BgpAsAServiceFlowMgmtTree::kInvalidCnIndex) {
+            bgp_as_a_service_flow_mgmt_tree_[cn_index].get()->Add(key, flow,
                                                   (ret.second)? node : NULL);
+        }
         break;
     }
 
