@@ -76,6 +76,7 @@ public:
     static const int kMinEndOfRibSendTimeUsecs = 10000000;  // 10 Seconds
     static const int kMaxEndOfRibSendTimeUsecs = 60000000;  // 60 Seconds
     static const int kEndOfRibSendRetryTimeMsecs = 2000;    // 2 Seconds
+    static const size_t kBufferSize = 32768;
 
     typedef std::set<Address::Family> AddressFamilyList;
     typedef AuthenticationData::KeyType KeyType;
@@ -164,6 +165,7 @@ public:
     uint16_t hold_time() const { return hold_time_; }
     as_t local_as() const { return local_as_; }
     as_t peer_as() const { return peer_as_; }
+    size_t buffer_len() const { return buffer_len_; }
 
     // The BGP Identifier in host byte order.
     virtual uint32_t local_bgp_identifier() const;
@@ -346,8 +348,6 @@ private:
     friend class BgpPeerTest;
     friend class BgpServerUnitTest;
     friend class StateMachineUnitTest;
-
-    static const size_t kBufferSize = 32768;
 
     class DeleteActor;
     class PeerClose;
