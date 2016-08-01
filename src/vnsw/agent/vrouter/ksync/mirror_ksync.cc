@@ -68,6 +68,8 @@ bool MirrorKSyncEntry::Sync(DBEntry *e) {
     bool ret = false;
     const MirrorEntry *mirror = static_cast<MirrorEntry *>(e);
 
+    vni_ = mirror->GetVni();
+    mirror_flag_ = mirror->GetMirrorFlag();
     NHKSyncObject *nh_object = ksync_obj_->ksync()->nh_ksync_obj();
     if (mirror->GetNH() == NULL) {
         LOG(DEBUG, "nexthop in Mirror entry is null");
