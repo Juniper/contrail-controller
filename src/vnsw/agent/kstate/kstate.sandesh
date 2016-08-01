@@ -64,6 +64,7 @@ struct KInterfaceInfo {
    18: byte         mirror_id;
    19: i32          speed;
    20: i32          duplexity;
+   21: i32          qos_map_index;
 }
 
 /**
