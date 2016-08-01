@@ -157,7 +157,12 @@ protected:
     static const int kVrfId = 1;
     static const int kVnIndex = 1;
 
-    BgpEvpnManagerTest() : thread_(&evm_), tag_(0) {
+    BgpEvpnManagerTest()
+        : thread_(&evm_),
+          blue_(NULL),
+          master_(NULL),
+          blue_manager_(NULL),
+          tag_(0) {
     }
 
     virtual void SetUp() {
@@ -537,6 +542,91 @@ protected:
     void VerifyAllXmppPeersNoUpdateInfo() {
         BOOST_FOREACH(PeerMock *peer, xmpp_peers_) {
             TASK_UTIL_EXPECT_TRUE(VerifyPeerNoUpdateInfo(peer));
+        }
+    }
+
+    void AddXmppPeerUnicastMacRoute(PeerMock *peer, string prefix_str,
+        string nexthop_str = "", uint32_t label = 0) {
+        EXPECT_TRUE(peer->IsXmppPeer());
+
+        boost::system::error_code ec;
+        MacAddress mac_addr = MacAddress::FromString(prefix_str, &ec);
+        assert(ec.value() == 0);
+        RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
+        EvpnPrefix prefix(rd, tag_, mac_addr, IpAddress());
+
+        BgpAttrSpec attr_spec;
+        ExtCommunitySpec ext_comm;
+        OriginVn origin_vn(server_->autonomous_system(), kVnIndex);
+        ext_comm.communities.push_back(origin_vn.GetExtCommunityValue());
+        BOOST_FOREACH(string encap, peer->encap()) {
+            TunnelEncap tun_encap(encap);
+            ext_comm.communities.push_back(tun_encap.GetExtCommunityValue());
+        }
+        attr_spec.push_back(&ext_comm);
+
+        Ip4Address nexthop_address;
+        if (!nexthop_str.empty()) {
+            nexthop_address = Ip4Address::from_string(nexthop_str, ec);
+            assert(ec.value() == 0);
+        } else {
+            nexthop_address = peer->address();
+        }
+        BgpAttrNextHop nexthop(nexthop_address.to_ulong());
+        attr_spec.push_back(&nexthop);
+
+        BgpAttrPtr attr = server_->attr_db()->Locate(attr_spec);
+
+        DBRequest addReq;
+        addReq.key.reset(new EvpnTable::RequestKey(prefix, peer));
+        addReq.data.reset(
+            new EvpnTable::RequestData(attr, 0, label ? label : peer->label()));
+        addReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+        blue_->Enqueue(&addReq);
+        task_util::WaitForIdle();
+    }
+
+    void AddXmppPeersUnicastMacRouteCommon(bool odd, bool even) {
+        BOOST_FOREACH(PeerMock *peer, xmpp_peers_) {
+            string prefix_str = "09:ab:0:0:0:" + integerToString(peer->index());
+            if ((odd && peer->index() % 2 != 0) ||
+                (even && peer->index() % 2 == 0)) {
+                AddXmppPeerUnicastMacRoute(peer, prefix_str);
+            }
+        }
+    }
+
+    void AddOddXmppPeersUnicastMacRoute() {
+        AddXmppPeersUnicastMacRouteCommon(true, false);
+    }
+
+    void AddEvenXmppPeersUnicastMacRoute() {
+        AddXmppPeersUnicastMacRouteCommon(false, true);
+    }
+
+    void AddAllXmppPeersUnicastMacRoute() {
+        AddXmppPeersUnicastMacRouteCommon(true, true);
+    }
+
+    void DelXmppPeerUnicastMacRoute(PeerMock *peer, string prefix_str) {
+        EXPECT_TRUE(peer->IsXmppPeer());
+        boost::system::error_code ec;
+        MacAddress mac_addr = MacAddress::FromString(prefix_str, &ec);
+        assert(ec.value() == 0);
+        RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
+        EvpnPrefix prefix(rd, tag_, mac_addr, IpAddress());
+
+        DBRequest delReq;
+        delReq.key.reset(new EvpnTable::RequestKey(prefix, peer));
+        delReq.oper = DBRequest::DB_ENTRY_DELETE;
+        blue_->Enqueue(&delReq);
+        task_util::WaitForIdle();
+    }
+
+    void DelAllXmppPeersUnicastMacRoute() {
+        BOOST_FOREACH(PeerMock *peer, xmpp_peers_) {
+            string prefix_str = "09:ab:0:0:0:" + integerToString(peer->index());
+            DelXmppPeerUnicastMacRoute(peer, prefix_str);
         }
     }
 
@@ -3594,6 +3684,136 @@ TEST_P(BgpEvpnManagerTest, AssistedReplicationWithIngressReplication3) {
     VerifyAllReplicatorPeersNoInclusiveMulticastRoute();
     TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
     TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
+}
+
+// Add Inclusive Multicast route from all BGP peers.
+// Add Broadcast MAC routes from all XMPP peers.
+// Add Unicast MAC routes from all XMPP peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Verify UpdateInfo for Broadcast MAC routes from all XMPP peers.
+TEST_P(BgpEvpnManagerTest, UnicastAndMulticast1) {
+    AddAllBgpPeersInclusiveMulticastRoute();
+    AddAllXmppPeersBroadcastMacRoute();
+    AddAllXmppPeersUnicastMacRoute();
+    VerifyAllXmppPeersInclusiveMulticastRoute();
+    VerifyAllXmppPeersAllUpdateInfo();
+
+    DelAllXmppPeersUnicastMacRoute();
+    DelAllXmppPeersBroadcastMacRoute();
+    DelAllBgpPeersInclusiveMulticastRoute();
+    VerifyAllXmppPeersNoInclusiveMulticastRoute();
+    VerifyAllXmppPeersNoUpdateInfo();
+}
+
+// Add Inclusive Multicast route from all BGP peers.
+// Add Broadcast MAC routes from odd XMPP peers.
+// Add Unicast MAC routes from odd XMPP peers.
+// Add Broadcast MAC routes from even XMPP peers.
+// Add Unicast MAC routes from even XMPP peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Verify UpdateInfo for Broadcast MAC routes from all XMPP peers.
+TEST_P(BgpEvpnManagerTest, UnicastAndMulticast2) {
+    AddAllBgpPeersInclusiveMulticastRoute();
+    AddOddXmppPeersBroadcastMacRoute();
+    AddOddXmppPeersUnicastMacRoute();
+    AddEvenXmppPeersBroadcastMacRoute();
+    AddEvenXmppPeersUnicastMacRoute();
+    VerifyAllXmppPeersInclusiveMulticastRoute();
+    VerifyAllXmppPeersAllUpdateInfo();
+
+    DelAllXmppPeersUnicastMacRoute();
+    DelAllXmppPeersBroadcastMacRoute();
+    DelAllBgpPeersInclusiveMulticastRoute();
+    VerifyAllXmppPeersNoInclusiveMulticastRoute();
+    VerifyAllXmppPeersNoUpdateInfo();
+}
+
+// Add Inclusive Multicast route from all BGP peers.
+// Add Broadcast MAC routes from even XMPP peers.
+// Add Unicast MAC routes from even XMPP peers.
+// Add Broadcast MAC routes from odd XMPP peers.
+// Add Unicast MAC routes from odd XMPP peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Verify UpdateInfo for Broadcast MAC routes from all XMPP peers.
+TEST_P(BgpEvpnManagerTest, UnicastAndMulticast3) {
+    AddAllBgpPeersInclusiveMulticastRoute();
+    AddEvenXmppPeersBroadcastMacRoute();
+    AddEvenXmppPeersUnicastMacRoute();
+    AddOddXmppPeersBroadcastMacRoute();
+    AddOddXmppPeersUnicastMacRoute();
+    VerifyAllXmppPeersInclusiveMulticastRoute();
+    VerifyAllXmppPeersAllUpdateInfo();
+
+    DelAllXmppPeersUnicastMacRoute();
+    DelAllXmppPeersBroadcastMacRoute();
+    DelAllBgpPeersInclusiveMulticastRoute();
+    VerifyAllXmppPeersNoInclusiveMulticastRoute();
+    VerifyAllXmppPeersNoUpdateInfo();
+}
+
+// Add Inclusive Multicast route from all BGP peers.
+// Add Unicast MAC routes from all XMPP peers.
+// Add Broadcast MAC routes from all XMPP peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Verify UpdateInfo for Broadcast MAC routes from all XMPP peers.
+TEST_P(BgpEvpnManagerTest, UnicastAndMulticast4) {
+    AddAllBgpPeersInclusiveMulticastRoute();
+    AddAllXmppPeersUnicastMacRoute();
+    AddAllXmppPeersBroadcastMacRoute();
+    VerifyAllXmppPeersInclusiveMulticastRoute();
+    VerifyAllXmppPeersAllUpdateInfo();
+
+    DelAllXmppPeersBroadcastMacRoute();
+    DelAllXmppPeersUnicastMacRoute();
+    DelAllBgpPeersInclusiveMulticastRoute();
+    VerifyAllXmppPeersNoInclusiveMulticastRoute();
+    VerifyAllXmppPeersNoUpdateInfo();
+}
+
+// Add Inclusive Multicast route from all BGP peers.
+// Add Unicast MAC routes from odd XMPP peers.
+// Add Broadcast MAC routes from odd XMPP peers.
+// Add Unicast MAC routes from even XMPP peers.
+// Add Broadcast MAC routes from even XMPP peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Verify UpdateInfo for Broadcast MAC routes from all XMPP peers.
+TEST_P(BgpEvpnManagerTest, UnicastAndMulticast5) {
+    AddAllBgpPeersInclusiveMulticastRoute();
+    AddOddXmppPeersUnicastMacRoute();
+    AddOddXmppPeersBroadcastMacRoute();
+    AddEvenXmppPeersUnicastMacRoute();
+    AddEvenXmppPeersBroadcastMacRoute();
+    VerifyAllXmppPeersInclusiveMulticastRoute();
+    VerifyAllXmppPeersAllUpdateInfo();
+
+    DelAllXmppPeersUnicastMacRoute();
+    DelAllXmppPeersBroadcastMacRoute();
+    DelAllBgpPeersInclusiveMulticastRoute();
+    VerifyAllXmppPeersNoInclusiveMulticastRoute();
+    VerifyAllXmppPeersNoUpdateInfo();
+}
+
+// Add Inclusive Multicast route from all BGP peers.
+// Add Unicast MAC routes from even XMPP peers.
+// Add Broadcast MAC routes from even XMPP peers.
+// Add Unicast MAC routes from odd XMPP peers.
+// Add Broadcast MAC routes from odd XMPP peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Verify UpdateInfo for Broadcast MAC routes from all XMPP peers.
+TEST_P(BgpEvpnManagerTest, UnicastAndMulticast6) {
+    AddAllBgpPeersInclusiveMulticastRoute();
+    AddEvenXmppPeersUnicastMacRoute();
+    AddEvenXmppPeersBroadcastMacRoute();
+    AddOddXmppPeersUnicastMacRoute();
+    AddOddXmppPeersBroadcastMacRoute();
+    VerifyAllXmppPeersInclusiveMulticastRoute();
+    VerifyAllXmppPeersAllUpdateInfo();
+
+    DelAllXmppPeersUnicastMacRoute();
+    DelAllXmppPeersBroadcastMacRoute();
+    DelAllBgpPeersInclusiveMulticastRoute();
+    VerifyAllXmppPeersNoInclusiveMulticastRoute();
+    VerifyAllXmppPeersNoUpdateInfo();
 }
 
 INSTANTIATE_TEST_CASE_P(Default, BgpEvpnManagerTest, ::testing::Values(0, 4094));
