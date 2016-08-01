@@ -15,7 +15,8 @@ class TestBasic(test_case.NeutronBackendTestCase):
     def read_resource(self, url_pfx, id):
         context = {'operation': 'READ',
                    'user_id': '',
-                   'roles': ''}
+                   'roles': '',
+                   'is_admin': True}
         data = {'fields': None,
                 'id': id}
         body = {'context': context, 'data': data}
@@ -137,7 +138,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         # for collections that are objects in contrail model
         for (objects, res_url_pfx, res_xlate_name) in collection_types:
             res_dicts = list_resource(res_url_pfx)
-            present_ids = [r['id'] for r in res_dicts] 
+            present_ids = [r['id'] for r in res_dicts]
             for obj in objects:
                 self.assertIn(obj.uuid, present_ids)
 
@@ -153,11 +154,11 @@ class TestBasic(test_case.NeutronBackendTestCase):
             with test_common.patch(
                 neutron_db_obj, res_xlate_name, err_on_object_2):
                 res_dicts = list_resource(res_url_pfx)
-                present_ids = [r['id'] for r in res_dicts] 
+                present_ids = [r['id'] for r in res_dicts]
                 self.assertNotIn(objects[2].uuid, present_ids)
 
             res_dicts = list_resource(res_url_pfx)
-            present_ids = [r['id'] for r in res_dicts] 
+            present_ids = [r['id'] for r in res_dicts]
             for obj in objects:
                 self.assertIn(obj.uuid, present_ids)
         # end for collections that are objects in contrail model
@@ -176,7 +177,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         with test_common.patch(
             neutron_db_obj, '_subnet_vnc_to_neutron', err_on_sn2):
             res_dicts = list_resource('subnet')
-            present_ids = [r['id'] for r in res_dicts] 
+            present_ids = [r['id'] for r in res_dicts]
             self.assertNotIn(sn2_id, present_ids)
     # end test_list_with_inconsistent_members
 
@@ -287,6 +288,102 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self.assertTrue(isinstance(port_dict['binding:profile'], dict))
         self.assertTrue(isinstance(port_dict['binding:host_id'], basestring))
     # end test_port_bindings
+
+    def test_sg_rules_delete_when_peer_group_deleted_on_read_sg(self):
+        sg1_obj = vnc_api.SecurityGroup('sg1-%s' %(self.id()))
+        self._vnc_lib.security_group_create(sg1_obj)
+        sg1_obj = self._vnc_lib.security_group_read(sg1_obj.fq_name)
+        sg2_obj = vnc_api.SecurityGroup('sg2-%s' %(self.id()))
+        self._vnc_lib.security_group_create(sg2_obj)
+        sg2_obj = self._vnc_lib.security_group_read(sg2_obj.fq_name)
+        sgr_uuid = str(uuid.uuid4())
+        local = [vnc_api.AddressType(security_group='local')]
+        remote = [vnc_api.AddressType(security_group=sg2_obj.get_fq_name_str())]
+        sgr_obj = vnc_api.PolicyRuleType(rule_uuid=sgr_uuid,
+                                         direction='>',
+                                         protocol='any',
+                                         src_addresses=remote,
+                                         src_ports=[vnc_api.PortType(0, 255)],
+                                         dst_addresses=local,
+                                         dst_ports=[vnc_api.PortType(0, 255)],
+                                         ethertype='IPv4')
+        rules = vnc_api.PolicyEntriesType([sgr_obj])
+        sg1_obj.set_security_group_entries(rules)
+        self._vnc_lib.security_group_update(sg1_obj)
+
+        self._vnc_lib.security_group_delete(fq_name=sg2_obj.fq_name)
+
+        sg_dict = self.read_resource('security_group', sg1_obj.uuid)
+        sgr = [rule['id'] for rule in sg_dict.get('security_group_rules', [])]
+        self.assertNotIn(sgr_uuid, sgr)
+        sg1_obj = self._vnc_lib.security_group_read(sg1_obj.fq_name)
+        sgr = [rule.rule_uuid for rule in
+               sg1_obj.get_security_group_entries().get_policy_rule() or []]
+        self.assertIn(sgr_uuid, sgr)
+
+    def test_sg_rules_delete_when_peer_group_deleted_on_read_rule(self):
+        sg1_obj = vnc_api.SecurityGroup('sg1-%s' %(self.id()))
+        self._vnc_lib.security_group_create(sg1_obj)
+        sg1_obj = self._vnc_lib.security_group_read(sg1_obj.fq_name)
+        sg2_obj = vnc_api.SecurityGroup('sg2-%s' %(self.id()))
+        self._vnc_lib.security_group_create(sg2_obj)
+        sg2_obj = self._vnc_lib.security_group_read(sg2_obj.fq_name)
+        sgr_uuid = str(uuid.uuid4())
+        local = [vnc_api.AddressType(security_group='local')]
+        remote = [vnc_api.AddressType(
+            security_group=sg2_obj.get_fq_name_str())]
+        sgr_obj = vnc_api.PolicyRuleType(rule_uuid=sgr_uuid,
+                                         direction='>',
+                                         protocol='any',
+                                         src_addresses=remote,
+                                         src_ports=[vnc_api.PortType(0, 255)],
+                                         dst_addresses=local,
+                                         dst_ports=[vnc_api.PortType(0, 255)],
+                                         ethertype='IPv4')
+        rules = vnc_api.PolicyEntriesType([sgr_obj])
+        sg1_obj.set_security_group_entries(rules)
+        self._vnc_lib.security_group_update(sg1_obj)
+
+        self._vnc_lib.security_group_delete(fq_name=sg2_obj.fq_name)
+
+        with ExpectedException(webtest.app.AppError):
+            self.read_resource('security_group_rule', sgr_uuid)
+        sg1_obj = self._vnc_lib.security_group_read(sg1_obj.fq_name)
+        sgr = [rule.rule_uuid for rule in
+               sg1_obj.get_security_group_entries().get_policy_rule() or []]
+        self.assertIn(sgr_uuid, sgr)
+
+    def test_sg_rules_delete_when_peer_group_deleted_on_list_rules(self):
+        sg1_obj = vnc_api.SecurityGroup('sg1-%s' %(self.id()))
+        self._vnc_lib.security_group_create(sg1_obj)
+        sg1_obj = self._vnc_lib.security_group_read(sg1_obj.fq_name)
+        sg2_obj = vnc_api.SecurityGroup('sg2-%s' %(self.id()))
+        self._vnc_lib.security_group_create(sg2_obj)
+        sg2_obj = self._vnc_lib.security_group_read(sg2_obj.fq_name)
+        sgr_uuid = str(uuid.uuid4())
+        local = [vnc_api.AddressType(security_group='local')]
+        remote = [vnc_api.AddressType(
+            security_group=sg2_obj.get_fq_name_str())]
+        sgr_obj = vnc_api.PolicyRuleType(rule_uuid=sgr_uuid,
+                                         direction='>',
+                                         protocol='any',
+                                         src_addresses=remote,
+                                         src_ports=[vnc_api.PortType(0, 255)],
+                                         dst_addresses=local,
+                                         dst_ports=[vnc_api.PortType(0, 255)],
+                                         ethertype='IPv4')
+        rules = vnc_api.PolicyEntriesType([sgr_obj])
+        sg1_obj.set_security_group_entries(rules)
+        self._vnc_lib.security_group_update(sg1_obj)
+
+        self._vnc_lib.security_group_delete(fq_name=sg2_obj.fq_name)
+
+        sgr_dict = self.list_resource('security_group_rule')
+        self.assertNotIn(sgr_uuid, [rule['id'] for rule in sgr_dict])
+        sg1_obj = self._vnc_lib.security_group_read(sg1_obj.fq_name)
+        sgr = [rule.rule_uuid for rule in
+               sg1_obj.get_security_group_entries().get_policy_rule() or []]
+        self.assertIn(sgr_uuid, sgr)
 # end class TestBasic
 
 class TestExtraFieldsPresenceByKnob(test_case.NeutronBackendTestCase):
