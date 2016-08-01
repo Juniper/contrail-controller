@@ -1088,16 +1088,18 @@ class DBInterface(object):
                                      addr.get_subnet().get_ip_prefix_len())
         elif addr.get_security_group():
             if (addr.get_security_group() != 'any' and
-                addr.get_security_group() != 'local'):
+                    addr.get_security_group() != 'local'):
                 remote_sg = addr.get_security_group()
-                try:
-                    if remote_sg != ':'.join(sg_obj.get_fq_name()):
-                        remote_sg_obj = self._vnc_lib.security_group_read(fq_name_str=remote_sg)
-                    else:
-                        remote_sg_obj = sg_obj
-                    remote_sg_uuid = remote_sg_obj.uuid
-                except NoIdError:
-                    pass
+                if remote_sg != ':'.join(sg_obj.get_fq_name()):
+                    try:
+                        remote_sg_obj = self._vnc_lib.security_group_read(
+                            fq_name_str=remote_sg)
+                    except NoIdError:
+                        self._security_group_rule_delete(sg_obj, sg_rule)
+                        return sgr_q_dict
+                else:
+                    remote_sg_obj = sg_obj
+                remote_sg_uuid = remote_sg_obj.uuid
 
         sgr_q_dict['id'] = sg_rule.get_rule_uuid()
         sgr_q_dict['tenant_id'] = sg_obj.parent_uuid.replace('-', '')
@@ -4010,9 +4012,11 @@ class DBInterface(object):
 
         sg_obj, sg_rule = self._security_group_rule_find(sgr_id, project_uuid)
         if sg_obj and sg_rule:
-            return self._security_group_rule_vnc_to_neutron(sg_obj.uuid,
-                                                            sg_rule, sg_obj)
-
+            sgr_info = self._security_group_rule_vnc_to_neutron(sg_obj.uuid,
+                                                                sg_rule,
+                                                                sg_obj)
+            if sgr_info:
+                return sg_info
         self._raise_contrail_exception('SecurityGroupRuleNotFound', id=sgr_id)
     #end security_group_rule_read
 
@@ -4044,7 +4048,8 @@ class DBInterface(object):
                 sg_info = self._security_group_rule_vnc_to_neutron(sg_obj.uuid,
                                                                    sg_rule,
                                                                    sg_obj)
-                sg_rules.append(sg_info)
+                if not sg_info:
+                    sg_rules.append(sg_info)
         except NoIdError:
             self._raise_contrail_exception('SecurityGroupNotFound', id=sg_id)
 
