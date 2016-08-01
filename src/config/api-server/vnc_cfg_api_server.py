@@ -2682,14 +2682,13 @@ class VncApiServer(object):
             # Resource creation
             if obj_uuid is None:
                 obj_dict['perms2'] = perms2
-                return
+                return (True, "")
             # Resource already exist
             try:
                 obj_dict['perms2'] = self._db_conn.uuid_to_obj_perms2(obj_uuid)
             except NoIdError:
                 obj_dict['perms2'] = perms2
-
-            return
+            return (True, "")
 
         # retrieve the previous version of the perms2
         # from the database and update the perms2 with
@@ -2710,6 +2709,14 @@ class VncApiServer(object):
         # TODO handle perms2 present in req_perms2
 
         obj_dict['perms2'] = perms2
+
+        # ensure is_shared and global_access are consistent
+        shared = obj_dict.get('is_shared', None)
+        gaccess = obj_dict['perms2'].get('global_access', None)
+        if gaccess is not None and shared is not None and shared != (gaccess != 0):
+            error = "Inconsistent is_shared (%s a) and global_access (%s)" % (shared, gaccess)
+            return (False, (400, error))
+        return (True, "")
     # end _ensure_perms2_present
 
     def _get_default_perms2(self):
@@ -3202,8 +3209,10 @@ class VncApiServer(object):
 
         # Ensure object has at least default permissions set
         self._ensure_id_perms_present(None, obj_dict)
-        self._ensure_perms2_present(obj_type, None, obj_dict,
+        (ok, result) = self._ensure_perms2_present(obj_type, None, obj_dict,
             request.headers.environ.get('HTTP_X_PROJECT_ID', None))
+        if not ok:
+            return (False, result)
 
         # TODO check api + resource perms etc.
 

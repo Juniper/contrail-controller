@@ -24,6 +24,7 @@ from gen.resource_common import *
 from netaddr import IPNetwork
 from pprint import pformat
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from provision_defaults import *
 
 
 def _parse_rt(rt):
@@ -985,6 +986,11 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         if not ok:
             return (ok, response)
         user_visibility = obj_dict['id_perms'].get('user_visible', True)
+        # neutorn <-> vnc sharing
+        if obj_dict['perms2']['global_access']:
+            obj_dict['is_shared'] = True
+        elif obj_dict.get('is_shared'):
+            obj_dict['perms2']['global_access'] = PERMS_RWX
         verify_quota_kwargs = {'db_conn': db_conn,
                                'fq_name': obj_dict['fq_name'],
                                'resource': 'virtual_networks',
@@ -1048,6 +1054,26 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                 (fq_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME)):
             # Ignore ip-fabric subnet updates
             return True,  ""
+
+        # neutron <-> vnc sharing
+        try:
+            global_access =  obj_dict['perms2']['global_access']
+        except KeyError:
+            global_access = None
+        is_shared = obj_dict.get('is_shared', None)
+        if global_access is not None or is_shared is not None:
+            if global_access is not None and is_shared is not None:
+                if is_shared != (global_access != 0):
+                    error = "Inconsistent is_shared (%s a) and global_access (%s)" % (is_shared, global_access)
+                    return (False, (400, error))
+            elif global_access is not None:
+                obj_dict['is_shared'] = (global_access != 0)
+            else:
+                ok, result = cls.dbe_read(db_conn, 'virtual_network', id, obj_fields=['perms2'])
+                if not ok:
+                    return ok, result
+                obj_dict['perms2'] = result['perms2']
+                obj_dict['perms2']['global_access'] = PERMS_RWX if is_shared else 0
 
         (ok, error) =  cls._check_route_targets(obj_dict, db_conn)
         if not ok:
