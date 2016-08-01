@@ -1434,10 +1434,6 @@ class VncApiServer(object):
                 staticmethod(ConnectionState.get_process_state_cb),
                 NodeStatusUVE, NodeStatus, self.table)
 
-        # Load extensions
-        self._extension_mgrs = {}
-        self._load_extensions()
-
         # Address Management interface
         addr_mgmt = vnc_addr_mgmt.AddrMgmt(self)
         vnc_cfg_types.LogicalRouterServer.addr_mgmt = addr_mgmt
@@ -1448,15 +1444,6 @@ class VncApiServer(object):
         vnc_cfg_types.InstanceIpServer.addr_mgmt = addr_mgmt
         vnc_cfg_types.VirtualNetworkServer.addr_mgmt = addr_mgmt
         self._addr_mgmt = addr_mgmt
-
-        # Authn/z interface
-        if self._args.auth == 'keystone':
-            auth_svc = vnc_auth_keystone.AuthServiceKeystone(self, self._args)
-        else:
-            auth_svc = vnc_auth.AuthService(self, self._args)
-
-        self._pipe_start_app = auth_svc.get_middleware_app()
-        self._auth_svc = auth_svc
 
         # DB interface initialization
         if self._args.wipe_config:
@@ -1485,6 +1472,19 @@ class VncApiServer(object):
 
         # VncZkClient client assignment
         vnc_cfg_types.VirtualNetworkServer.vnc_zk_client = self._db_conn._zk_db
+
+        # Load extensions
+        self._extension_mgrs = {}
+        self._load_extensions()
+
+        # Authn/z interface
+        if self._args.auth == 'keystone':
+            auth_svc = vnc_auth_keystone.AuthServiceKeystone(self, self._args)
+        else:
+            auth_svc = vnc_auth.AuthService(self, self._args)
+
+        self._pipe_start_app = auth_svc.get_middleware_app()
+        self._auth_svc = auth_svc
     # end __init__
 
     def sandesh_disc_client_subinfo_handle_request(self, req):
