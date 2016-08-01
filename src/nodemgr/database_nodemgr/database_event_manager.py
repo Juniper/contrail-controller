@@ -86,7 +86,9 @@ class DatabaseEventManager(EventManager):
             staticmethod(ConnectionState.get_process_state_cb),
             NodeStatusUVE, NodeStatus, self.table)
         self.send_system_cpu_info()
-        self.third_party_process_list = [ "cassandra", "zookeeper" ]
+        self.third_party_process_dict = {}
+        self.third_party_process_dict["cassandra"] = "-Dcassandra-pidfile=.*cassandra\.pid"
+        self.third_party_process_dict["zookeeper"] = "org.apache.zookeeper.server.quorum.QuorumPeerMain"
     # end __init__
 
     def _get_cassandra_config_option(self, config):
@@ -164,8 +166,8 @@ class DatabaseEventManager(EventManager):
         self.send_nodemgr_process_status_base(
             ProcessStateNames, ProcessState, ProcessStatus)
 
-    def get_node_third_party_process_list(self):
-        return self.third_party_process_list 
+    def get_node_third_party_process_dict(self):
+        return self.third_party_process_dict 
 
     def get_process_state(self, fail_status_bits):
         return self.get_process_state_base(
