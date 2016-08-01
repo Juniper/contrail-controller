@@ -4,6 +4,9 @@
 
 #include "bgp/bgp_update_queue.h"
 
+#include <boost/tuple/tuple.hpp>
+
+using boost::tie;
 
 //
 // Initialize the UpdateQueue and add the tail marker to the FIFO.
@@ -47,7 +50,10 @@ bool UpdateQueue::Enqueue(RouteUpdate *rt_update) {
     for (UpdateInfoSList::List::iterator iter = uinfo_slist->begin();
          iter != uinfo_slist->end(); ++iter) {
         iter->update = rt_update;
-        attr_set_.insert(*iter);
+        UpdatesByAttr::iterator set_iter;
+        bool result;
+        tie(set_iter, result) = attr_set_.insert(*iter);
+        assert(result);
     }
     return need_tail_dequeue;
 }

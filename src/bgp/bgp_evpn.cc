@@ -274,7 +274,7 @@ UpdateInfo *EvpnLocalMcastNode::GetUpdateInfo() {
 
     UpdateInfo *uinfo = new UpdateInfo;
     uinfo->roattr =
-        RibOutAttr(partition_->table(), route_, attr.get(), 0, false);
+        RibOutAttr(partition_->table(), route_, attr.get(), 0, false, true);
     return uinfo;
 }
 
