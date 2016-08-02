@@ -788,11 +788,18 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:simpleType name="ForwardingClassId">
+    <xsd:restriction base="xsd:integer">
+        <xsd:minInclusive value="0"/>
+        <xsd:maxInclusive value="255"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name="QosIdForwardingClassPair">
     <xsd:all>
         <xsd:element name="key" type="xsd:integer"
             description="QoS bit value (DSCP or Vlan priority or EXP bit value"/>
-        <xsd:element name="forwarding-class-id" type="xsd:integer"/>
+        <xsd:element name="forwarding-class-id" type="ForwardingClassId"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -1037,7 +1044,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
           'Virtual network is collection of end points (interface or ip(s) or MAC(s)) that can talk to each other by default. It is collection of subnets connected by implicit router which default gateway in each subnet.') -->
 
 <xsd:element name="forwarding-class" type="ifmap:IdentityType"/>
-<xsd:element name="forwarding-class-id" type="xsd:integer"/>
+<xsd:element name="forwarding-class-id" type="ForwardingClassId" required='true' default="0"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('forwarding-class-id', 'forwarding-class', 'required', 'CRUD',
               'Unique ID for this forwarding class.') -->
@@ -1107,7 +1114,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      MapProperty('mpls-exp-entries', 'qos-config', 'key', 'CRUD',
                  'Map of MPLS EXP values to applicable forwarding class for packet.') -->
-<xsd:element name="default-forwarding-class-id" type="xsd:integer"/>
+<xsd:element name="default-forwarding-class-id" type="ForwardingClassId" required='true' default="0"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('default-forwarding-class-id', 'qos-config', 'CRUD',
               'Default forwarding class used for all non-specified QOS bits') -->
