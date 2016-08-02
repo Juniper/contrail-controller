@@ -12,6 +12,7 @@ from vnc_api.vnc_api import *
 from vnc_api.gen.resource_xsd import *
 from cfgm_common.exceptions import *
 from cfgm_common.rbaclib import *
+import cfgm_common
 
 example_usage = \
 """
@@ -78,6 +79,7 @@ class VncRbac():
         # domain:default-project:default-virtual-network
 
         defaults = {
+            'aaa_mode': None,
             'name': 'default-global-system-config:default-api-access-list'
         }
 
@@ -99,9 +101,7 @@ class VncRbac():
         parser.add_argument('--role',  help="Role Name")
         parser.add_argument('--rule',  help="Rule to add or delete")
         parser.add_argument(
-            '--on',  help="Enable RBAC", action="store_true")
-        parser.add_argument(
-            '--off',  help="Disable RBAC", action="store_true")
+            '--aaa_mode', choices = cfgm_common.AAA_MODE_VALID_VALUES, help="AAA mode")
         parser.add_argument(
             '--os-username',  help="Keystone User Name", default=None)
         parser.add_argument(
@@ -159,10 +159,6 @@ password = conf['password']
 tenant_name = conf['tenant_name']
 obj_type = 'api-access-list'
 
-if vnc_op.args.on and vnc_op.args.off:
-    print 'Only one of --on or --off must be specified'
-    sys.exit(1)
-
 ui = {}
 if vnc_op.args.user:
     ui['user'] = vnc_op.args.user
@@ -174,11 +170,10 @@ if ui:
 vnc = VncApi(username, password, tenant_name,
              server[0], server[1], user_info=ui)
 
-url = '/multi-tenancy-with-rbac'
-if vnc_op.args.on or vnc_op.args.off:
-    data = {'enabled': vnc_op.args.on}
+url = '/aaa-mode'
+if vnc_op.args.aaa_mode:
     try:
-        rv = vnc._request_server(rest.OP_PUT, url, json.dumps(data))
+        rv = vnc.set_aaa_mode(vnc_op.args.aaa_mode)
     except PermissionDenied:
         print 'Permission denied'
         sys.exit(1)
@@ -189,7 +184,7 @@ elif vnc_op.args.uuid and vnc_op.args.name:
 try:
     rv_json = vnc._request_server(rest.OP_GET, url)
     rv = json.loads(rv_json)
-    print 'Rbac is %s' % ('enabled' if rv['enabled'] else 'disabled')
+    print 'AAA mode is %s' % rv['aaa-mode']
 except Exception as e:
     print str(e)
     print 'Rbac not supported'
@@ -225,7 +220,11 @@ if vnc_op.args.op == 'create':
     name = fq_name[-1]
 
     if len(fq_name) == 2:
-       pobj = vnc.domain_read(fq_name = fq_name[0:1])
+       # could be in domain or global config
+       if fq_name[0] == 'default-global-system-config':
+           pobj = vnc.global_system_config_read(fq_name = fq_name[0:1])
+       else:
+           pobj = vnc.domain_read(fq_name = fq_name[0:1])
     else:
        pobj = vnc.project_read(fq_name = fq_name[0:2])
 
