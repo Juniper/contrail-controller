@@ -628,6 +628,35 @@ TEST_F(ReplicationTest, NoExtCommunities) {
     VERIFY_EQ(0, RouteCount("red"));
 }
 
+//
+// Verify that when route is replicated form vpn table, source RD attribute
+// is added to replicated route with RouteDistinguisher of the vpn prefix
+//
+TEST_F(ReplicationTest, SourceRD) {
+    vector<string> instance_names = list_of("blue")("red")("green");
+    multimap<string, string> connections = map_list_of("blue", "red");
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    // VPN route with target "blue".
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, list_of("blue"));
+    task_util::WaitForIdle();
+    VERIFY_EQ(1, RouteCount("blue"));
+
+    BgpRoute *rt = InetRouteLookup("blue", "10.0.1.1/32");
+    TASK_UTIL_EXPECT_TRUE(RouteDistinguisher::FromString("192.168.0.1:1") ==
+              rt->BestPath()->GetAttr()->source_rd());
+
+    DeleteVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32");
+    task_util::WaitForIdle();
+    VERIFY_EQ(0, RouteCount("blue"));
+    VERIFY_EQ(0, RouteCount("red"));
+}
+
 TEST_F(ReplicationTest, Delete) {
     vector<string> instance_names = list_of("blue")("red")("green");
     multimap<string, string> connections = map_list_of("blue", "red");
