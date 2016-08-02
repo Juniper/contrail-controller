@@ -223,6 +223,7 @@ public:
     void increment_flap_count();
     void reset_flap_count();
     uint64_t flap_count() const { return flap_count_; }
+    uint64_t last_flap() const { return last_flap_; }
     uint64_t total_flap_count() const { return total_flap_count_; }
 
     std::string last_flap_at() const;
