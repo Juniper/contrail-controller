@@ -34,6 +34,7 @@ from cassandra.io.geventreactor import GeventConnection
 from cassandra.query import named_tuple_factory
 from cassandra.query import PreparedStatement, tuple_factory
 import platform
+from opserver_util import OpServerUtils
 
 class AnalyticsDb(object):
     def __init__(self, logger, cassandra_server_list,
