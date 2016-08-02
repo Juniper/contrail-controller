@@ -83,42 +83,19 @@ TcpSession::Socket *SslSession::socket() const {
     return &ssl_socket_->next_layer();
 }
 
-bool SslSession::AsyncReadHandlerProcess(mutable_buffer buffer,
-                                         size_t *bytes_transferred,
-                                         error_code &error) {
-    // no processing needed if ssl handshake is not complete.
+size_t SslSession::ReadSome(mutable_buffer buffer, error_code &error) {
+    // Read data from the normal or ssl socket, as appropriate.
     if (!IsSslHandShakeSuccessLocked()) {
-        return false;
+        assert(!ssl_handshake_in_progress_);
+        return TcpSession::ReadSome(buffer, error);
     }
 
     // do ssl read here in IO context, ignore errors
-    *bytes_transferred = ssl_socket_->read_some(mutable_buffers_1(buffer),
-                                                error);
-
-    return true;
-}
-
-void SslSession::AsyncReadSome(mutable_buffer buffer) {
-    if (IsSslHandShakeSuccessLocked()) {
-        // trigger read with null buffer to get indication for data available
-        // on the socket and then do the actuall socket read in
-        // AsyncReadHandlerProcess
-        socket()->async_read_some(null_buffers(),
-            bind(&TcpSession::AsyncReadHandler, SslSessionPtr(this), buffer,
-                 placeholders::error, placeholders::bytes_transferred));
-    } else {
-        // No tcp socket read/write while ssl handshake is ongoing
-        if (!ssl_handshake_in_progress_) {
-            socket()->async_read_some(mutable_buffers_1(buffer),
-                bind(&TcpSession::AsyncReadHandler, SslSessionPtr(this),
-                     buffer, placeholders::error,
-                     placeholders::bytes_transferred));
-        }
-    }
+    return ssl_socket_->read_some(mutable_buffers_1(buffer), error);
 }
 
 size_t SslSession::WriteSome(const uint8_t *data, size_t len,
-                                  error_code &error) {
+                             error_code &error) {
 
     if (IsSslHandShakeSuccessLocked()) {
         return ssl_socket_->write_some(buffer(data, len), error);
@@ -130,16 +107,16 @@ size_t SslSession::WriteSome(const uint8_t *data, size_t len,
 void SslSession::AsyncWrite(const u_int8_t *data, size_t size) {
     if (IsSslHandShakeSuccessLocked()) {
         async_write(*ssl_socket_.get(), buffer(data, size),
-                    bind(&TcpSession::AsyncWriteHandler,
-                         TcpSessionPtr(this), placeholders::error));
+                bind(&TcpSession::AsyncWriteHandler,
+                TcpSessionPtr(this), placeholders::error));
     } else {
         return (TcpSession::AsyncWrite(data, size));
     }
 }
 
 void SslSession::SslHandShakeCallback(SslHandShakeCallbackHandler cb,
-    SslSessionPtr session,
-    const error_code &error) {
+                                      SslSessionPtr session,
+                                      const error_code &error) {
 
     session->ssl_handshake_in_progress_ = false;
     if (!error) {

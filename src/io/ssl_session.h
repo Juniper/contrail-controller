@@ -64,11 +64,8 @@ private:
     // SslSession do actual ssl socket read for data in this context with
     // session mutex held, to avoid concurrent read and write operations
     // on same socket.
-    bool AsyncReadHandlerProcess(boost::asio::mutable_buffer buffer,
-                                 size_t *bytes_transferred,
-                                 boost::system::error_code &error);
-
-    void AsyncReadSome(boost::asio::mutable_buffer buffer);
+    size_t ReadSome(boost::asio::mutable_buffer buffer,
+                    boost::system::error_code &error);
     std::size_t WriteSome(const uint8_t *data, std::size_t len,
                           boost::system::error_code &error);
     void AsyncWrite(const u_int8_t *data, std::size_t size);
