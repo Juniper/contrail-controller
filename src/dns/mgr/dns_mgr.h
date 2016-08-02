@@ -93,6 +93,10 @@ public:
     }
     PendingListMap GetDeportedPendingListMap() { return dp_pending_map_; }
     void NotifyThrottledDnsRecords();
+    static void DnsConfigMsgHandler(std::string key, std::string context);
+    static void VdnsRecordsMsgHandler(std::string key, std::string context);
+    static void BindPendingMsgHandler(std::string key, std::string context);
+    static void VdnsServersMsgHandler(std::string key, std::string context);
 
 private:
     friend class DnsBindTest;

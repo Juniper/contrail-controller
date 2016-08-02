@@ -31,6 +31,7 @@ class DiscoveryServiceClient;
 
 class Dns {
 public:
+    static const uint16_t kEntriesPerPage = 100;
     static EventManager *GetEventManager() { return event_mgr_; }
     static void SetEventManager(EventManager *evm) { event_mgr_ = evm; }
 

@@ -90,6 +90,23 @@ struct AgentDnsData {
 request sandesh ShowVirtualDnsServers {
 }
 
+request sandesh PageReq {
+    1: string key;
+}
+
+struct PageReqData {
+    1: string prev_page (link="PageReq");
+    2: string next_page (link="PageReq");
+    3: string first_page (link="PageReq");
+    4: string all (link="PageReq");
+    5: u32 table_size;
+    6: string entries;
+}
+
+response sandesh Pagination {
+    1: PageReqData req;
+}
+
 response sandesh VirtualDnsServersResponse {
     1: list<VirtualDnsServersSandesh> virtual_dns_servers;
 }
@@ -101,7 +118,6 @@ request sandesh ShowVirtualDnsRecords {
 response sandesh VirtualDnsRecordsResponse {
     1: string virtual_dns_server;
     2: list<VirtualDnsRecordTraceData> records;
-    3: string getnext_record_set (link="ShowVirtualDnsRecords");
 }
 
 request sandesh ShowDnsConfig {
