@@ -413,9 +413,10 @@ class EventManager(object):
 
         # walk through all processes being monitored by nodemgr,
         # not spawned by supervisord
-        third_party_process_list = self.get_node_third_party_process_list()
-        for pname in third_party_process_list:
-            cmd = "ps -aux | grep -v grep | grep " + str(pname) + " | awk '{print $2}' | head -n1"
+        third_party_process_dict = self.get_node_third_party_process_dict()
+        for pname in third_party_process_dict:
+            pattern = third_party_process_dict[pname]
+            cmd = "ps -aux | grep " + pattern + " | awk '{print $2}' | head -n1"
             proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             stdout, stderr = proc.communicate()
             if (stdout != ''):
