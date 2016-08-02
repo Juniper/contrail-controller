@@ -2053,6 +2053,8 @@ class DBInterface(object):
             port_q_dict['binding:vif_type'] = 'vrouter'
         if 'binding:vnic_type' not in port_q_dict:
             port_q_dict['binding:vnic_type'] = 'normal'
+        if 'binding:host_id' not in port_q_dict:
+            port_q_dict['binding:host_id'] = None
 
         dhcp_options_list = port_obj.get_virtual_machine_interface_dhcp_option_list()
         if dhcp_options_list and dhcp_options_list.dhcp_option:
