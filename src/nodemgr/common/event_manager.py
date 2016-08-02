@@ -47,6 +47,7 @@ class EventManager(object):
     rules_data = []
     group_names = []
     process_state_db = {}
+    third_party_process_state_db = {}
     FAIL_STATUS_DUMMY = 0x1
     FAIL_STATUS_DISK_SPACE = 0x2
     FAIL_STATUS_SERVER_PORT = 0x4
@@ -78,6 +79,8 @@ class EventManager(object):
         self.curr_build_info = None
         self.new_build_info = None
         self.send_build_info = send_build_info
+        self.last_cpu = None
+        self.last_time = 0
 
     # Get all the current processes in the node
     def get_current_process(self):
@@ -380,7 +383,7 @@ class EventManager(object):
             node_status_uve.send()
 
     def send_system_cpu_info(self):
-        mem_cpu_usage_data = MemCpuUsageData(os.getpid())
+        mem_cpu_usage_data = MemCpuUsageData(os.getpid(), self.last_cpu, self.last_time)
         sys_cpu = SystemCpuInfo()
         sys_cpu.num_socket = mem_cpu_usage_data.get_num_socket()
         sys_cpu.num_cpu = mem_cpu_usage_data.get_num_cpu()
@@ -393,8 +396,11 @@ class EventManager(object):
         node_status_uve.send()
 
     def get_system_mem_cpu_usage(self):
-        system_mem_cpu_usage_data = MemCpuUsageData(os.getpid())
-        return system_mem_cpu_usage_data.get_sys_mem_cpu_info()
+        system_mem_cpu_usage_data = MemCpuUsageData(os.getpid(), self.last_cpu, self.last_time)
+        system_mem_cpu_usage = system_mem_cpu_usage_data.get_sys_mem_cpu_info()
+        self.last_cpu = system_mem_cpu_usage_data.last_cpu
+        self.last_time = system_mem_cpu_usage_data.last_time
+        return system_mem_cpu_usage
 
     def get_all_processes_mem_cpu_usage(self):
         process_mem_cpu_usage = {}
@@ -402,7 +408,7 @@ class EventManager(object):
             pstat = self.process_state_db[key]
             if (pstat.process_state == 'PROCESS_STATE_RUNNING'):
                 try:
-                    mem_cpu_usage_data = MemCpuUsageData(pstat.pid)
+                    mem_cpu_usage_data = MemCpuUsageData(pstat.pid, pstat.last_cpu, pstat.last_time)
                     process_mem_cpu = mem_cpu_usage_data.get_process_mem_cpu_info()
                 except psutil.NoSuchProcess:
                     sys.stderr.write("NoSuchProcess: process name:%s pid:%d\n"
@@ -410,6 +416,8 @@ class EventManager(object):
                 else:
                     process_mem_cpu.__key = pstat.pname
                     process_mem_cpu_usage[process_mem_cpu.__key] = process_mem_cpu
+                    pstat.last_cpu = mem_cpu_usage_data.last_cpu
+                    pstat.last_time = mem_cpu_usage_data.last_time
 
         # walk through all processes being monitored by nodemgr,
         # not spawned by supervisord
@@ -421,15 +429,24 @@ class EventManager(object):
             stdout, stderr = proc.communicate()
             if (stdout != ''):
                 pid = int(stdout.strip('\n'))
+                if pname in self.third_party_process_state_db:
+                    pstat = self.third_party_process_state_db[pname]
+                else:
+                    pstat = self.get_process_stat_object(pname)
+                    pstat.pid = pid
+                    self.third_party_process_state_db[pname] = pstat
                 try:
-                    mem_cpu_usage_data = MemCpuUsageData(pid)
+                    mem_cpu_usage_data = MemCpuUsageData(pstat.pid, pstat.last_cpu, pstat.last_time)
                     process_mem_cpu = mem_cpu_usage_data.get_process_mem_cpu_info()
                 except psutil.NoSuchProcess:
                     sys.stderr.write("NoSuchProcess: process name:%s pid:%d\n"
-                                     % (pname, pid))
+                                     % (pstat.pname, pstat.pid))
+                    self.third_party_process_state_db.pop(pstat.name)
                 else:
                     process_mem_cpu.__key = pname
                     process_mem_cpu_usage[process_mem_cpu.__key] = process_mem_cpu
+                    pstat.last_cpu = mem_cpu_usage_data.last_cpu
+                    pstat.last_time = mem_cpu_usage_data.last_time
         return process_mem_cpu_usage
 
     def get_disk_usage(self):

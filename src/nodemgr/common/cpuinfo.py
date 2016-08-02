@@ -11,8 +11,10 @@ from sandesh.nodeinfo.cpuinfo.ttypes import *
 
 class MemCpuUsageData(object):
 
-    def __init__(self, pid):
+    def __init__(self, pid, last_cpu, last_time):
         self.pid = pid
+        self.last_cpu = last_cpu
+        self.last_time = last_time
         try:
             self._process = psutil.Process(self.pid)
         except psutil.NoSuchProcess:
@@ -20,8 +22,6 @@ class MemCpuUsageData(object):
         else:
             if not hasattr(self._process, 'get_memory_info'):
                 self._process.get_memory_info = self._process.memory_info
-            if not hasattr(self._process, 'get_cpu_percent'):
-                self._process.get_cpu_percent = self._process.cpu_percent
     #end __init__
 
     def get_num_socket(self):
@@ -68,22 +68,71 @@ class MemCpuUsageData(object):
         return cpu_load_avg
     #end _get_cpu_load_avg
 
-    def _get_cpu_share(self):
-        cpu_percent = self._process.get_cpu_percent(interval=0.1)
-        return cpu_percent/self.get_num_cpu()
-    #end _get_cpu_share
+    def _get_sys_cpu_share(self):
+        last_cpu = self.last_cpu
+        last_time = self.last_time
+
+        current_cpu = psutil.cpu_times()
+        current_time = 0.00
+        for i in range(0, len(current_cpu)-1):
+            current_time += current_cpu[i]
+
+        # tracking system/user time only
+        interval_time = 0
+        if last_cpu and (last_time != 0):
+            sys_time = current_cpu.system - last_cpu.system
+            usr_time = current_cpu.user - last_cpu.user
+            interval_time = current_time - last_time
+
+        self.last_cpu = current_cpu
+        self.last_time = current_time
+
+        if interval_time > 0:
+            sys_percent = 100 * sys_time / interval_time
+            usr_percent = 100 * usr_time / interval_time
+            cpu_share = round((sys_percent + usr_percent)/self.get_num_cpu(), 2)
+            return cpu_share
+        else:
+            return 0
+    #end _get_sys_cpu_share
 
     def get_sys_mem_cpu_info(self):
         sys_mem_cpu = SystemMemCpuUsage()
         sys_mem_cpu.cpu_load = self._get_cpu_load_avg()
         sys_mem_cpu.mem_info = self._get_sys_mem_info()
-        sys_mem_cpu.cpu_share = self._get_cpu_share()
+        sys_mem_cpu.cpu_share = self._get_sys_cpu_share()
         return sys_mem_cpu
     #end get_sys_mem_cpu_info
 
+    def _get_process_cpu_share(self):
+        last_cpu = self.last_cpu
+        last_time = self.last_time
+
+        current_cpu = self._process.get_cpu_times()
+        current_time = os.times()[4]
+
+        # tracking system/user time only
+        interval_time = 0
+        if last_cpu and (last_time != 0):
+            sys_time = current_cpu.system - last_cpu.system
+            usr_time = current_cpu.user - last_cpu.user
+            interval_time = current_time - last_time
+
+        self.last_cpu = current_cpu
+        self.last_time = current_time
+
+        if interval_time > 0:
+            sys_percent = 100 * sys_time / interval_time
+            usr_percent = 100 * usr_time / interval_time
+            cpu_share = round((sys_percent + usr_percent)/self.get_num_cpu(), 2)
+            return cpu_share
+        else:
+            return 0
+    #end _get_process_cpu_share
+
     def get_process_mem_cpu_info(self):
         process_mem_cpu           = ProcessCpuInfo()
-        process_mem_cpu.cpu_share = self._process.get_cpu_percent(interval=0.1)/psutil.NUM_CPUS
+        process_mem_cpu.cpu_share = self._get_process_cpu_share()
         process_mem_cpu.mem_virt  = self._process.get_memory_info().vms/1024
         process_mem_cpu.mem_res   = self._process.get_memory_info().rss/1024
         return process_mem_cpu
