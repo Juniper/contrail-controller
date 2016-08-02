@@ -92,7 +92,7 @@ int ForwardingClassKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_le
     encoder.set_fmr_rid(0);
 
     std::vector<int16_t> id_list;
-    id_list.push_back((int8_t)id_);
+    id_list.push_back((int16_t)id_);
     encoder.set_fmr_id(id_list);
 
     std::vector<int8_t> dscp_list;
