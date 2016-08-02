@@ -20,7 +20,7 @@ class Options;
 class UserDefinedCounterData {
     public:
         explicit UserDefinedCounterData(std::string name, std::string pat):
-            name_(name) {
+            refreshed_(true), name_(name) {
             SetPattern(pat);
         }
         void SetPattern(std::string pat) {
@@ -35,7 +35,10 @@ class UserDefinedCounterData {
         bool IsMe(std::string name) const { return name == name_; }
         void Update(Options *o, DiscoveryServiceClient *c);
         const std::string pattern() const { return regexp_str_; }
+        void Refresh() { refreshed_ = true; }
+        bool IsRefreshed() { bool r = refreshed_; refreshed_ = false; return r;}
     private:
+        bool                   refreshed_;
         std::string            name_;
         std::string            regexp_str_;
         boost::regex           regexp_;
