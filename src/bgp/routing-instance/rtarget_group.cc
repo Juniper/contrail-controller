@@ -122,7 +122,7 @@ void RtGroup::NotifyDepRoutes(int part_id) {
 
 bool RtGroup::HasDepRoutes() const {
     for (RTargetDepRouteList::const_iterator it = dep_.begin();
-         it != dep_.end(); it++) {
+         it != dep_.end(); ++it) {
         if (!it->empty()) {
             return true;
         }

@@ -568,6 +568,9 @@ void DBTable::WalkCompleteCallback(DBTableBase *tbl_base) {
 void DBTable::NotifyAllEntries() {
     CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper", "bgp::RTFilter");
 
+    if (empty())
+        return;
+
     if (walk_ref_ == NULL) {
         walk_ref_ =
             AllocWalker(boost::bind(&DBTable::WalkCallback, this, _1, _2),
