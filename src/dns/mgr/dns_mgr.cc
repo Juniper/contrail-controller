@@ -725,7 +725,97 @@ bool DnsManager::EndofConfigTimerExpiry() {
     return true;
 }
 
+static void DoSandesh(std::string key, std::string context) {
+    VirtualDnsServersResponse *resp;
+    int count = 0;
+    VirtualDnsConfig::DataMap vdns = VirtualDnsConfig::GetVirtualDnsMap();
+    int size = vdns.size();
+    VirtualDnsConfig::DataMap::iterator vdns_it, vdns_iter;
+    std::vector<VirtualDnsServersSandesh> vdns_list_sandesh;
+    if(key != "") {
+       vdns_it = vdns.find(key);
+    }
+    else {
+        vdns_it = vdns.begin();
+    }
+    for (vdns_iter= vdns_it; vdns_iter != vdns.end(); ++vdns_iter) {
 
+        if(count <= (Dns::kEntriesPerPage-1) ) {
+            VirtualDnsConfig *vdns_config = vdns_iter->second;
+            VirtualDnsServersSandesh vdns_sandesh;
+            VirtualDnsTraceData vdns_trace_data;
+            vdns_config->VirtualDnsTrace(vdns_trace_data);
+
+            std::vector<std::string> net_list_sandesh;
+        for (VirtualDnsConfig::IpamList::iterator ipam_iter =
+            vdns_config->ipams_.begin();
+            ipam_iter != vdns_config->ipams_.end(); ++ipam_iter) {
+            IpamConfig *ipam = *ipam_iter;
+            const IpamConfig::VnniList &vnni = ipam->GetVnniList();
+            for (IpamConfig::VnniList::iterator vnni_it = vnni.begin();
+                vnni_it != vnni.end(); ++vnni_it) {
+                Subnets &subnets = (*vnni_it)->GetSubnets();
+                for (unsigned int i = 0; i < subnets.size(); i++) {
+                    std::stringstream str;
+                    str << subnets[i].prefix.to_string();
+                    str << "/";
+                    str << subnets[i].plen;
+                    net_list_sandesh.push_back(str.str());
+                }
+            }
+        }
+
+        vdns_sandesh.set_virtual_dns(vdns_trace_data);
+        vdns_sandesh.set_records(vdns_config->GetName());
+        vdns_sandesh.set_num_records(vdns_config->virtual_dns_records_.size());
+        vdns_sandesh.set_subnets(net_list_sandesh);
+        vdns_list_sandesh.push_back(vdns_sandesh);
+        count++;
+        }
+
+        else {
+        break;
+        }
+
+    }
+
+    resp = new VirtualDnsServersResponse();
+    resp->set_context(context);
+    resp->set_virtual_dns_servers(vdns_list_sandesh);
+    resp->set_more(true);
+    resp->Response();
+
+    Pagination *page = new Pagination();
+    PageReqData req;
+
+    // Set table size
+    req.set_table_size(size);
+
+    //Next page link
+    if(vdns_iter != vdns.end()) {
+        req.set_next_page(vdns_iter->first);
+    }
+    else {
+        req.set_next_page("No more entries to show");
+    }
+
+    // First page link
+    if(vdns.begin() != vdns.end()) {
+        req.set_first_page((vdns.begin())->first);
+    }
+
+    // Previous page link
+    if((key != (vdns.begin())->first) && key!="") {
+        for (int i=0; i <= (Dns::kEntriesPerPage-1); i++) {
+            vdns_it--;
+        }
+        req.set_prev_page(vdns_it->first);
+    }
+    page->set_context(context);
+    page->set_req(req);
+    page->Response();
+
+}
 
 void ShowDnsConfig::HandleRequest() const {
     DnsConfigResponse *resp = new DnsConfigResponse();
@@ -779,46 +869,12 @@ void ShowDnsConfig::HandleRequest() const {
 }
 
 void ShowVirtualDnsServers::HandleRequest() const {
-    VirtualDnsServersResponse *resp = new VirtualDnsServersResponse();
-    resp->set_context(context());
-    VirtualDnsConfig::DataMap vdns = VirtualDnsConfig::GetVirtualDnsMap();
+    DoSandesh("", context());
 
-    std::vector<VirtualDnsServersSandesh> vdns_list_sandesh;
-    for (VirtualDnsConfig::DataMap::iterator vdns_it = vdns.begin();
-         vdns_it != vdns.end(); ++vdns_it) {
-        VirtualDnsConfig *vdns_config = vdns_it->second;
-        VirtualDnsServersSandesh vdns_sandesh;
-        VirtualDnsTraceData vdns_trace_data;
-        vdns_config->VirtualDnsTrace(vdns_trace_data);
+}
 
-        std::vector<std::string> net_list_sandesh;
-        for (VirtualDnsConfig::IpamList::iterator ipam_iter =
-             vdns_config->ipams_.begin();
-             ipam_iter != vdns_config->ipams_.end(); ++ipam_iter) {
-            IpamConfig *ipam = *ipam_iter;
-            const IpamConfig::VnniList &vnni = ipam->GetVnniList();
-            for (IpamConfig::VnniList::iterator vnni_it = vnni.begin();
-                 vnni_it != vnni.end(); ++vnni_it) {
-                Subnets &subnets = (*vnni_it)->GetSubnets();
-                for (unsigned int i = 0; i < subnets.size(); i++) {
-                    std::stringstream str;
-                    str << subnets[i].prefix.to_string();
-                    str << "/";
-                    str << subnets[i].plen;
-                    net_list_sandesh.push_back(str.str());
-                }
-            }
-        }
-
-        vdns_sandesh.set_virtual_dns(vdns_trace_data);
-        vdns_sandesh.set_records(vdns_config->GetName());
-        vdns_sandesh.set_num_records(vdns_config->virtual_dns_records_.size());
-        vdns_sandesh.set_subnets(net_list_sandesh);
-        vdns_list_sandesh.push_back(vdns_sandesh);
-    }
-
-    resp->set_virtual_dns_servers(vdns_list_sandesh);
-    resp->Response();
+void PageReq::HandleRequest() const {
+    DoSandesh(get_key(), context());
 }
 
 void ShowVirtualDnsRecords::HandleRequest() const {

@@ -90,6 +90,21 @@ struct AgentDnsData {
 request sandesh ShowVirtualDnsServers {
 }
 
+request sandesh PageReq {
+    1: string key;
+}
+
+struct PageReqData {
+    1: string next_page (link="PageReq");
+    2: string first_page (link="PageReq");
+    3: string prev_page (link="PageReq");
+    4: u32 table_size;
+}
+
+response sandesh Pagination {
+    1: PageReqData req;
+}
+
 response sandesh VirtualDnsServersResponse {
     1: list<VirtualDnsServersSandesh> virtual_dns_servers;
 }
