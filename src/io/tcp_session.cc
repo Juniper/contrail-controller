@@ -142,12 +142,6 @@ void TcpSession::ReleaseBufferLocked(Buffer buffer) {
     assert(false);
 }
 
-bool TcpSession::AsyncReadHandlerProcess(mutable_buffer buffer,
-                                         size_t *bytes_transferred,
-                                         error_code &error) {
-    return false;
-}
-
 void TcpSession::AsyncReadStartInternal(TcpSessionPtr session) {
     // Update socket read block time.
     if (stats_.read_block_start_time) {
@@ -157,19 +151,13 @@ void TcpSession::AsyncReadStartInternal(TcpSessionPtr session) {
         stats_.read_blocked_duration_usecs += blocked_usecs;
         server_->stats_.read_blocked_duration_usecs += blocked_usecs;
     }
-    mutable_buffer buffer = AllocateBuffer();
-    tbb::mutex::scoped_lock lock(mutex_);
-    if (!established_) {
-        ReleaseBufferLocked(buffer);
-        return;
-    }
-    AsyncReadSome(buffer);
+    AsyncReadSome();
 }
 
 void TcpSession::AsyncReadStart() {
     if (io_strand_) {
         io_strand_->post(bind(&TcpSession::AsyncReadStartInternal, this,
-                              TcpSessionPtr(this)));
+                         TcpSessionPtr(this)));
     }
 }
 
@@ -193,12 +181,12 @@ void TcpSession::DeferWriter() {
                                placeholders::error, UTCTimestampUsec()));
 }
 
-void TcpSession::AsyncReadSome(mutable_buffer buffer) {
-    socket()->async_read_some(mutable_buffers_1(buffer),
-                              bind(&TcpSession::AsyncReadHandler,
-                                   TcpSessionPtr(this), buffer,
-                                   placeholders::error,
-                                   placeholders::bytes_transferred));
+void TcpSession::AsyncReadSome() {
+    tbb::mutex::scoped_lock lock(mutex_);
+    if (established_) {
+        socket()->async_read_some(null_buffers(),
+            bind(&TcpSession::AsyncReadHandler, TcpSessionPtr(this)));
+    }
 }
 
 size_t TcpSession::WriteSome(const uint8_t *data, size_t len,
@@ -208,8 +196,8 @@ size_t TcpSession::WriteSome(const uint8_t *data, size_t len,
 
 void TcpSession::AsyncWrite(const u_int8_t *data, size_t size) {
     async_write(*socket(), buffer(data, size),
-                bind(&TcpSession::AsyncWriteHandler, TcpSessionPtr(this),
-                     placeholders::error));
+        bind(&TcpSession::AsyncWriteHandler, TcpSessionPtr(this),
+             placeholders::error));
 }
 
 TcpSession::Endpoint TcpSession::local_endpoint() const {
@@ -416,7 +404,8 @@ bool TcpSession::Send(const u_int8_t *data, size_t size, size_t *sent) {
             CloseInternal(error, true);
             return false;
         }
-        if (len < 0 || (size_t)len != size) ret = false;
+        if ((size_t) len != size)
+            ret = false;
         if (sent) *sent = (len > 0) ? len : 0;
     } else {
         AsyncWrite(data, size);
@@ -434,9 +423,14 @@ Task* TcpSession::CreateReaderTask(mutable_buffer buffer,
     return (task);
 }
 
-void TcpSession::AsyncReadHandler(
-    TcpSessionPtr session, mutable_buffer buffer,
-    const error_code &error, size_t bytes_transferred) {
+bool TcpSession::ReadSome(mutable_buffer buffer, size_t *bytes_transferred,
+                          error_code &error) {
+    *bytes_transferred = socket()->read_some(mutable_buffers_1(buffer), error);
+    return true;
+}
+
+void TcpSession::AsyncReadHandler(TcpSessionPtr session) {
+    mutable_buffer buffer = session->AllocateBuffer();
 
     tbb::mutex::scoped_lock lock(session->mutex_);
     if (session->closed_) {
@@ -444,34 +438,25 @@ void TcpSession::AsyncReadHandler(
         return;
     }
 
-    if (IsSocketErrorHard(error)) {
+    size_t bytes_transferred;
+    error_code error;
+    if (!session->ReadSome(buffer, &bytes_transferred, error)) {
         session->ReleaseBufferLocked(buffer);
-	// eof is returned when the peer closed the socket, no need to log err
-	if (error != error::eof) {
-	    TCP_SESSION_LOG_ERROR(session, TCP_DIR_IN,
-                              "Read failed due to error " << error.value()
-                              << " : " << error.message());
-	}
-        lock.release();
-        session->CloseInternal(error, true);
         return;
     }
 
-    error_code err;
-    if (session->AsyncReadHandlerProcess(buffer, &bytes_transferred, err)) {
-        // check error code if session needs to be closed
-        if (IsSocketErrorHard(err)) {
-            session->ReleaseBufferLocked(buffer);
-	    // eof is returned when the peer has closed the socket
-	    if (err != error::eof) {
-		TCP_SESSION_LOG_ERROR(session, TCP_DIR_IN,
-                                  "Read failed due to error " << err.value()
-                                  << " : " << err.message());
-	    }
-            lock.release();
-            session->CloseInternal(err, true);
-            return;
+    if (IsSocketErrorHard(error)) {
+        session->ReleaseBufferLocked(buffer);
+        // eof is returned when the peer closed the socket, no need to log err
+        if (error != error::eof) {
+            TCP_SESSION_LOG_ERROR(session, TCP_DIR_IN,
+                    "Read failed due to error " << error.value()
+                    << " : " << error.message());
         }
+
+        lock.release();
+        session->CloseInternal(error, true);
+        return;
     }
 
     // Update read statistics.
