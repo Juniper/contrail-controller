@@ -5,8 +5,8 @@
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 
-#include "ssl_server.h"
-#include "ssl_session.h"
+#include "io/ssl_server.h"
+#include "io/ssl_session.h"
 
 #include "io/event_manager.h"
 #include "io/io_utils.h"
@@ -49,8 +49,8 @@ TcpSession *SslServer::AllocSession(bool server_session) {
     return session;
 }
 
-void SslServer::AcceptHandlerComplete(TcpSessionPtr &session) {
-    SslSession *ssl= static_cast<SslSession*>(session.get());
+void SslServer::AcceptHandlerComplete(TcpSessionPtr session) {
+    SslSession *ssl = static_cast<SslSession*>(session.get());
     if (ssl->IsSslDisabled() || ssl->IsSslHandShakeDelayed()) {
         TcpServer::AcceptHandlerComplete(session);
     } else {
@@ -87,8 +87,8 @@ void SslServer::AcceptHandShakeHandler(TcpServerPtr server,
     }
 }
 
-void SslServer::ConnectHandlerComplete(TcpSessionPtr &session) {
-    SslSession *ssl= static_cast<SslSession*>(session.get());
+void SslServer::ConnectHandlerComplete(TcpSessionPtr session) {
+    SslSession *ssl = static_cast<SslSession*>(session.get());
     if (ssl->IsSslDisabled() || ssl->IsSslHandShakeDelayed()) {
         TcpServer::ConnectHandlerComplete(session);
     } else {
@@ -104,8 +104,7 @@ void SslServer::ConnectHandlerComplete(TcpSessionPtr &session) {
 }
 
 void SslServer::ConnectHandShakeHandler(TcpServerPtr server,
-                                        TcpSessionPtr session,
-                                        const boost::system::error_code& error) {
+        TcpSessionPtr session, const boost::system::error_code& error) {
     SslServer *ssl_server = static_cast<SslServer *>(server.get());
     SslSession *ssl_session = static_cast<SslSession *>(session.get());
     ssl_session->ssl_handshake_in_progress_ = false;

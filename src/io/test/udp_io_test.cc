@@ -30,7 +30,7 @@ class EchoServer: public UdpServer {
 
     ~EchoServer() { }
 
-    void HandleReceive(boost::asio::const_buffer &recv_buffer,
+    void HandleReceive(const boost::asio::const_buffer &recv_buffer,
             udp::endpoint remote_endpoint, std::size_t bytes_transferred,
             const boost::system::error_code& error) {
         UDP_UT_LOG_DEBUG("EchoServer rx " << bytes_transferred << "(" <<
@@ -116,7 +116,7 @@ class EchoClient : public UdpServer {
             error << ")\n");
     }
 
-    void HandleReceive(boost::asio::const_buffer &recv_buffer,
+    void HandleReceive(const boost::asio::const_buffer &recv_buffer,
             udp::endpoint remote_endpoint, std::size_t bytes_transferred,
             const boost::system::error_code& error) {
         rx_count_ += bytes_transferred;
@@ -246,7 +246,7 @@ class UdpRecvServerTest: public UdpServer {
 
     ~UdpRecvServerTest() { }
 
-    void OnRead(boost::asio::const_buffer &recv_buffer,
+    void OnRead(const boost::asio::const_buffer &recv_buffer,
                 const udp::endpoint &remote_endpoint) {
         UDP_UT_LOG_DEBUG("Received " << boost::asio::buffer_size(recv_buffer)
             << " bytes from " << remote_endpoint);
@@ -348,7 +348,7 @@ TEST_F(UdpRecvTest, Basic) {
     TASK_UTIL_EXPECT_EQ((int) 2 * sizeof(msg), len);
     TASK_UTIL_EXPECT_EQ(2, server_->GetNumRecvMsg());
     SocketIOStats rx_stats;
-    server_->GetRxSocketStats(rx_stats);
+    server_->GetRxSocketStats(&rx_stats);
     EXPECT_EQ(2, rx_stats.calls);
     EXPECT_EQ(len, rx_stats.bytes);
     client.Close();

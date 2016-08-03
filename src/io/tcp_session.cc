@@ -4,6 +4,9 @@
 
 #include "io/tcp_session.h"
 
+#include <algorithm>
+#include <string>
+
 #include <boost/asio.hpp>
 #include <boost/asio/detail/socket_option.hpp>
 #include <boost/bind.hpp>
@@ -31,19 +34,27 @@ using boost::scoped_array;
 using boost::system::error_code;
 using std::min;
 using std::ostringstream;
-using std::size_t;
 using std::string;
 
-using namespace boost::asio;
+using boost::asio::error::eof;
+using boost::asio::error::try_again;
+using boost::asio::error::would_block;
+using boost::asio::error::in_progress;
+using boost::asio::error::interrupted;
+using boost::asio::error::network_down;
+using boost::asio::error::network_reset;
+using boost::asio::error::network_unreachable;
+using boost::asio::error::no_buffer_space;
+using boost::asio::placeholders::error;
 
 int TcpSession::reader_task_id_ = -1;
 
 class TcpSession::Reader : public Task {
-public:
+ public:
     typedef function<void(Buffer)> ReadHandler;
 
-    Reader(TcpSessionPtr session, ReadHandler read_fn, Buffer buffer) 
-        : Task(session->reader_task_id(), session->GetSessionInstance()), 
+    Reader(TcpSessionPtr session, ReadHandler read_fn, Buffer buffer)
+        : Task(session->reader_task_id(), session->GetSessionInstance()),
           session_(session), read_fn_(read_fn), buffer_(buffer) {
     }
     virtual bool Run() {
@@ -61,7 +72,8 @@ public:
         return true;
     }
     string Description() const { return "TcpSession::Reader"; }
-private:
+
+ private:
     TcpSessionPtr session_;
     ReadHandler read_fn_;
     Buffer buffer_;
@@ -177,8 +189,8 @@ void TcpSession::DeferWriter() {
     server_->stats_.write_blocked++;
     socket()->async_write_some(null_buffers(),
                                bind(&TcpSession::WriteReadyInternal,
-                               TcpSessionPtr(this),
-                               placeholders::error, UTCTimestampUsec()));
+                                    TcpSessionPtr(this),
+                                    error, UTCTimestampUsec()));
 }
 
 void TcpSession::AsyncReadSome() {
@@ -190,14 +202,14 @@ void TcpSession::AsyncReadSome() {
 }
 
 size_t TcpSession::WriteSome(const uint8_t *data, size_t len,
-                             error_code &error) {
-    return socket()->write_some(buffer(data, len), error);
+                             error_code *error) {
+    return socket()->write_some(buffer(data, len), *error);
 }
 
 void TcpSession::AsyncWrite(const u_int8_t *data, size_t size) {
     async_write(*socket(), buffer(data, size),
         bind(&TcpSession::AsyncWriteHandler, TcpSessionPtr(this),
-             placeholders::error));
+             error));
 }
 
 TcpSession::Endpoint TcpSession::local_endpoint() const {
@@ -205,9 +217,9 @@ TcpSession::Endpoint TcpSession::local_endpoint() const {
     if (!established_)
         return Endpoint();
 
-    error_code err;
-    Endpoint local = socket()->local_endpoint(err);
-    if (err) {
+    error_code error;
+    Endpoint local = socket()->local_endpoint(error);
+    if (error) {
         return Endpoint();
     }
     return local;
@@ -220,10 +232,10 @@ void TcpSession::set_observer(EventObserver observer) {
 
 void TcpSession::SetName() {
     ostringstream out;
-    error_code err;
+    error_code error;
     Endpoint local;
 
-    local = socket()->local_endpoint(err);
+    local = socket()->local_endpoint(error);
     out << local.address().to_string() << ":" << local.port() << "::";
     out << remote_.address().to_string() << ":" << remote_.port();
 
@@ -294,8 +306,8 @@ void TcpSession::CloseInternal(const error_code &ec,
     tbb::mutex::scoped_lock lock(mutex_);
 
     if (socket() != NULL && !closed_) {
-        error_code err;
-        socket()->close(err);
+        error_code error;
+        socket()->close(error);
     }
     closed_ = true;
     if (!established_) {
@@ -352,7 +364,7 @@ void TcpSession::WriteReadyInternal(TcpSessionPtr session,
     //
     if (session->IsClosedLocked()) return;
 
-    session->writer_->HandleWriteReady(ec);
+    session->writer_->HandleWriteReady(&ec);
     if (session->IsSocketErrorHard(ec)) {
         goto session_error;
     }
@@ -394,7 +406,7 @@ bool TcpSession::Send(const u_int8_t *data, size_t size, size_t *sent) {
 
     if (socket()->non_blocking()) {
         error_code error;
-        int len = writer_->Send(data, size, error);
+        int len = writer_->Send(data, size, &error);
         lock.release();
         if (len < 0) {
             TCP_SESSION_LOG_ERROR(this, TCP_DIR_OUT,
@@ -416,15 +428,14 @@ bool TcpSession::Send(const u_int8_t *data, size_t size, size_t *sent) {
 
 Task* TcpSession::CreateReaderTask(mutable_buffer buffer,
                                   size_t bytes_transferred) {
-
     Buffer rdbuf(buffer_cast<const uint8_t *>(buffer), bytes_transferred);
     Reader *task = new Reader(TcpSessionPtr(this),
                               bind(&TcpSession::OnRead, this, _1), rdbuf);
     return (task);
 }
 
-size_t TcpSession::ReadSome(mutable_buffer buffer, error_code &error) {
-    return socket()->read_some(mutable_buffers_1(buffer), error);
+size_t TcpSession::ReadSome(mutable_buffer buffer, error_code *error) {
+    return socket()->read_some(mutable_buffers_1(buffer), *error);
 }
 
 void TcpSession::AsyncReadHandler(TcpSessionPtr session) {
@@ -437,11 +448,11 @@ void TcpSession::AsyncReadHandler(TcpSessionPtr session) {
     }
 
     error_code error;
-    size_t bytes_transferred = session->ReadSome(buffer, error);
+    size_t bytes_transferred = session->ReadSome(buffer, &error);
     if (IsSocketErrorHard(error)) {
         session->ReleaseBufferLocked(buffer);
-        // eof is returned when the peer closed the socket, no need to log err
-        if (error != error::eof) {
+        // eof is returned when the peer closed the socket, no need to log error
+        if (error != eof) {
             TCP_SESSION_LOG_ERROR(session, TCP_DIR_IN,
                     "Read failed due to error " << error.value()
                     << " : " << error.message());
@@ -503,7 +514,7 @@ int TcpSession::ClearMd5SocketOption(uint32_t peer_ip) {
     return server()->SetMd5SocketOption(socket_->native_handle(), peer_ip, "");
 }
 
-TcpMessageReader::TcpMessageReader(TcpSession *session, 
+TcpMessageReader::TcpMessageReader(TcpSession *session,
                                    ReceiveCallback callback)
     : session_(session), callback_(callback), offset_(0), remain_(-1) {
 }
@@ -518,8 +529,8 @@ int TcpMessageReader::AllocBufferSize(int length) {
         return kMaxMessageSize;
     }
     int bufsize = 1 << 8;
-    for (; bufsize < kMaxMessageSize && bufsize < length;
-         bufsize <<= 1);
+    for (; bufsize < kMaxMessageSize && bufsize < length; bufsize <<= 1) {
+    }
     return bufsize;
 }
 
@@ -606,7 +617,7 @@ void TcpMessageReader::OnRead(Buffer buffer) {
         int msglength = MsgLength(queue_.front(), offset_);
         if (msglength < 0) {
             int queuelen = QueueByteLength();
-            if (queuelen + (int) size < kHeaderLenSize) {
+            if (queuelen + static_cast<int>(size) < kHeaderLenSize) {
                 queue_.push_back(buffer);
                 return;
             }
@@ -671,21 +682,21 @@ void TcpMessageReader::OnRead(Buffer buffer) {
 bool TcpSession::IsSocketErrorHard(const error_code &ec) {
     if (!ec)
         return false;
-    if (ec == error::try_again)
+    if (ec == try_again)
         return false;
-    if (ec == error::would_block)
+    if (ec == would_block)
         return false;
-    if (ec == error::in_progress)
+    if (ec == in_progress)
         return false;
-    if (ec == error::interrupted)
+    if (ec == interrupted)
         return false;
-    if (ec == error::network_down)
+    if (ec == network_down)
         return false;
-    if (ec == error::network_reset)
+    if (ec == network_reset)
         return false;
-    if (ec == error::network_unreachable)
+    if (ec == network_unreachable)
         return false;
-    if (ec == error::no_buffer_space)
+    if (ec == no_buffer_space)
         return false;
 
     return true;
@@ -772,9 +783,8 @@ error_code TcpSession::SetSocketOptions() {
     char *buffer_size_str = getenv("TCP_SESSION_SOCKET_BUFFER_SIZE");
     if (!buffer_size_str) return ec;
 
-    unsigned long int sz = strtoul(buffer_size_str, NULL, 0);
+    uint64_t sz = strtoul(buffer_size_str, NULL, 0);
     if (sz) {
-
         //
         // Set socket send and receive buffer size
         //
@@ -801,11 +811,11 @@ error_code TcpSession::SetSocketOptions() {
     return ec;
 }
 
-void TcpSession::GetRxSocketStats(SocketIOStats &socket_stats) const {
+void TcpSession::GetRxSocketStats(SocketIOStats *socket_stats) const {
     stats_.GetRxStats(socket_stats);
 }
 
-void TcpSession::GetTxSocketStats(SocketIOStats &socket_stats) const {
+void TcpSession::GetTxSocketStats(SocketIOStats *socket_stats) const {
     stats_.GetTxStats(socket_stats);
 }
 

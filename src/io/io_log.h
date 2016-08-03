@@ -2,9 +2,9 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef __IO_LOG_H__
+#ifndef SRC_IO_IO_LOG_H_
 
-#define __IO_LOG_H__
+#define SRC_IO_IO_LOG_H_
 
 #include "base/logging.h"
 #include "sandesh/sandesh_types.h"
@@ -180,5 +180,5 @@ do {                                                                           \
 #define UDP_UT_LOG_DEBUG(arg)                                                  \
      IO_UT_LOG_DEBUG(UdpMessage, "UDP", UDP_DIR_NA, arg)
 
-#endif // __IO_LOG_H__
+#endif  // SRC_IO_IO_LOG_H_
 

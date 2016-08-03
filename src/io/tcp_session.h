@@ -2,11 +2,15 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef __TCP_SESSION_H__
-#define __TCP_SESSION_H__
+#ifndef SRC_IO_TCP_SESSION_H_
+#define SRC_IO_TCP_SESSION_H_
 
-#include <list>
+#include <tbb/mutex.h>
+#include <tbb/task.h>
+
 #include <deque>
+#include <list>
+#include <string>
 
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/io_service.hpp>
@@ -16,8 +20,6 @@
 #include <boost/function.hpp>
 #include <boost/scoped_ptr.hpp>
 
-#include <tbb/mutex.h>
-#include <tbb/task.h>
 #ifndef _LIBCPP_VERSION
 #include <tbb/compat/condition_variable>
 #endif
@@ -36,7 +38,7 @@ class TcpMessageWriter;
 // also invokes the AsyncHandlers. ReleaseBuffer and Send will typically be
 // invoked by a different thread.
 class TcpSession {
-public:
+ public:
     static const int kDefaultBufferSize = 4 * 1024;
 
     enum Event {
@@ -92,14 +94,14 @@ public:
     virtual void ReleaseBuffer(Buffer buffer);
 
     // This function returns the instance to run SessionTask.
-    // Returning Task::kTaskInstanceAny would allow multiple session tasks to 
+    // Returning Task::kTaskInstanceAny would allow multiple session tasks to
     // run in parallel.
-    // Derived class may override implementation if it expects the all the 
+    // Derived class may override implementation if it expects the all the
     // Tasks of the session to run in specific instance
-    // Note: Two tasks of same task ID and task instance can't run 
+    // Note: Two tasks of same task ID and task instance can't run
     //       at in parallel
-    // E.g. BgpSession is created per BgpPeer and to ensure that 
-    //      there is one SessionTask per peer, PeerIndex is returned 
+    // E.g. BgpSession is created per BgpPeer and to ensure that
+    //      there is one SessionTask per peer, PeerIndex is returned
     //      from this function
     virtual int GetSessionInstance() const;
 
@@ -149,12 +151,21 @@ public:
     }
 
     const io::SocketStats &GetSocketStats() const { return stats_; }
-    void GetRxSocketStats(SocketIOStats &socket_stats) const;
-    void GetTxSocketStats(SocketIOStats &socket_stats) const;
+    void GetRxSocketStats(SocketIOStats *socket_stats) const;
+    void GetTxSocketStats(SocketIOStats *socket_stats) const;
+
+    void GetRxSocketStats(SocketIOStats &socket_stats) const {
+        GetRxSocketStats(&socket_stats);
+    }
+
+    void GetTxSocketStats(SocketIOStats &socket_stats) const {
+        GetTxSocketStats(&socket_stats);
+    }
+
     int SetMd5SocketOption(uint32_t peer_ip, const std::string &md5_password);
     int ClearMd5SocketOption(uint32_t peer_ip);
 
-protected:
+ protected:
     typedef boost::intrusive_ptr<TcpSession> TcpSessionPtr;
     static void AsyncReadHandler(TcpSessionPtr session);
     static void AsyncWriteHandler(TcpSessionPtr session,
@@ -172,9 +183,9 @@ protected:
 
     void AsyncReadSome();
     virtual size_t ReadSome(boost::asio::mutable_buffer buffer,
-                            boost::system::error_code &error);
+                            boost::system::error_code *error);
     virtual std::size_t WriteSome(const uint8_t *data, std::size_t len,
-                                  boost::system::error_code &error);
+                                  boost::system::error_code *error);
     virtual void AsyncWrite(const u_int8_t *data, std::size_t size);
 
     virtual int reader_task_id() const {
@@ -183,7 +194,8 @@ protected:
 
     EventObserver observer() { return observer_; }
     boost::system::error_code SetSocketKeepaliveOptions(int keepalive_time,
-            int keepalive_intvl, int keepalive_probes, int tcp_user_timeout_val = 0);
+            int keepalive_intvl, int keepalive_probes,
+            int tcp_user_timeout_val = 0);
 
     void CloseInternal(const boost::system::error_code &ec,
                        bool call_observer, bool notify_server = true);
@@ -191,7 +203,7 @@ protected:
     // Protects session state and buffer queue.
     mutable tbb::mutex mutex_;
 
-private:
+ private:
     class Reader;
     friend class TcpServer;
     friend class TcpMessageWriter;
@@ -266,7 +278,7 @@ inline void intrusive_ptr_release(TcpSession *session) {
 // fixed message header length
 //
 class TcpMessageReader {
-public:
+ public:
     typedef boost::asio::const_buffer Buffer;
     typedef boost::function<bool(const u_int8_t *, size_t)> ReceiveCallback;
 
@@ -274,12 +286,12 @@ public:
     virtual ~TcpMessageReader();
     virtual void OnRead(Buffer buffer);
 
-protected:
+ protected:
     virtual int MsgLength(Buffer buffer, int offset) = 0;
     virtual const int GetHeaderLenSize() = 0;
     virtual const int GetMaxMessageSize() = 0;
 
-private:
+ private:
     typedef std::deque<Buffer> BufferQueue;
 
     // Copy the queue into one contiguous buffer.
@@ -300,4 +312,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(TcpMessageReader);
 };
 
-#endif // __TCP_SESSION_H__
+#endif  // SRC_IO_TCP_SESSION_H_

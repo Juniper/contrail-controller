@@ -340,7 +340,7 @@ TEST_F(EchoServerTest, DeferRead) {
     server_->GetSession()->ResetTotal();
     // Verify read statistics
     SocketIOStats rx_stats;
-    server_->GetSession()->GetRxSocketStats(rx_stats);
+    server_->GetSession()->GetRxSocketStats(&rx_stats);
     EXPECT_EQ(1, rx_stats.blocked_count);
     EXPECT_EQ(sizeof(msg), rx_stats.bytes);
     EXPECT_EQ("00:00:00", rx_stats.blocked_duration);
@@ -356,7 +356,7 @@ TEST_F(EchoServerTest, DeferRead) {
     TASK_UTIL_ASSERT_EQ(sizeof(msg1), server_->GetSession()->GetTotal());
     // Verify read statistics
     SocketIOStats rx_stats1;
-    server_->GetSession()->GetRxSocketStats(rx_stats1);
+    server_->GetSession()->GetRxSocketStats(&rx_stats1);
     EXPECT_EQ(1, rx_stats1.blocked_count);
     EXPECT_EQ(sizeof(msg) + sizeof(msg1), rx_stats1.bytes);
     EXPECT_NE("00:00:00", rx_stats1.blocked_duration);
