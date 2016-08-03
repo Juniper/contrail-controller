@@ -24,40 +24,40 @@ SocketStats::SocketStats() {
     read_blocked_duration_usecs = 0;
 }
 
-void SocketStats::GetRxStats(SocketIOStats &socket_stats) const {
-    socket_stats.calls = read_calls;
-    socket_stats.bytes = read_bytes;
+void SocketStats::GetRxStats(SocketIOStats *socket_stats) const {
+    socket_stats->calls = read_calls;
+    socket_stats->bytes = read_bytes;
     if (read_calls) {
-        socket_stats.average_bytes = read_bytes/read_calls;
+        socket_stats->average_bytes = read_bytes/read_calls;
     }
-    socket_stats.blocked_count = read_blocked;
-    socket_stats.blocked_duration = duration_usecs_to_string(
+    socket_stats->blocked_count = read_blocked;
+    socket_stats->blocked_duration = duration_usecs_to_string(
         read_blocked_duration_usecs);
     if (read_blocked) {
-        socket_stats.average_blocked_duration =
+        socket_stats->average_blocked_duration =
                  duration_usecs_to_string(
                      read_blocked_duration_usecs/
                      read_blocked);
     }
-    socket_stats.errors = read_errors;
+    socket_stats->errors = read_errors;
 }
 
-void SocketStats::GetTxStats(SocketIOStats &socket_stats) const {
-    socket_stats.calls = write_calls;
-    socket_stats.bytes = write_bytes;
+void SocketStats::GetTxStats(SocketIOStats *socket_stats) const {
+    socket_stats->calls = write_calls;
+    socket_stats->bytes = write_bytes;
     if (write_calls) {
-        socket_stats.average_bytes = write_bytes/write_calls;
+        socket_stats->average_bytes = write_bytes/write_calls;
     }
-    socket_stats.blocked_count = write_blocked;
-    socket_stats.blocked_duration = duration_usecs_to_string(
+    socket_stats->blocked_count = write_blocked;
+    socket_stats->blocked_duration = duration_usecs_to_string(
         write_blocked_duration_usecs);
     if (write_blocked) {
-        socket_stats.average_blocked_duration =
+        socket_stats->average_blocked_duration =
                  duration_usecs_to_string(
                      write_blocked_duration_usecs/
                      write_blocked);
     }
-    socket_stats.errors = write_errors;
+    socket_stats->errors = write_errors;
 }
 
 }  // namespace io

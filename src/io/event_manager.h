@@ -2,10 +2,13 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#ifndef SRC_IO_EVENT_MANAGER_H_
+#define SRC_IO_EVENT_MANAGER_H_
+
 #pragma once
 
-#include <boost/asio/io_service.hpp>
 #include <tbb/spin_mutex.h>
+#include <boost/asio/io_service.hpp>
 
 #include "base/util.h"
 
@@ -42,3 +45,5 @@ private:
 
     DISALLOW_COPY_AND_ASSIGN(EventManager);
 };
+
+#endif  // SRC_IO_EVENT_MANAGER_H_

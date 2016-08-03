@@ -272,10 +272,10 @@ public:
         // Socket statistics
         SocketIOStats rx_socket_stats;
         Collector *collector(vsc->Analytics()->GetCollector());
-        collector->GetRxSocketStats(rx_socket_stats);
+        collector->GetRxSocketStats(&rx_socket_stats);
         resp->set_rx_socket_stats(rx_socket_stats);
         SocketIOStats tx_socket_stats;
-        collector->GetTxSocketStats(tx_socket_stats);
+        collector->GetTxSocketStats(&tx_socket_stats);
         resp->set_tx_socket_stats(tx_socket_stats);
         // Collector statistics
         resp->set_stats(vsc->Analytics()->GetCollector()->GetStats());

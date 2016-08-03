@@ -2,11 +2,11 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef IO_SERVER_MANAGER_H_
-#define IO_SERVER_MANAGER_H_
+#ifndef SRC_IO_SERVER_MANAGER_H_
+#define SRC_IO_SERVER_MANAGER_H_
 
-#include <set>
 #include <tbb/mutex.h>
+#include <set>
 
 //
 // ServerManager is the place holder for all the TcpServer and UdpServer
@@ -67,4 +67,4 @@ typename ServerManager<ServerType, ServerPtrType>::ServerSet
 template <typename ServerType, typename ServerPtrType>
 tbb::mutex ServerManager<ServerType, ServerPtrType>::mutex_;
 
-#endif  // IO_SERVER_MANAGER_H_
+#endif  // SRC_IO_SERVER_MANAGER_H_

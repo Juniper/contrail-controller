@@ -2,11 +2,13 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "io/udp_server.h"
+
 #include <boost/bind.hpp>
-#include <base/logging.h>
-#include <io/udp_server.h>
-#include <io/io_log.h>
-#include <io/io_utils.h>
+
+#include "base/logging.h"
+#include "io/io_log.h"
+#include "io/io_utils.h"
 
 using boost::asio::buffer_cast;
 using boost::asio::mutable_buffer;
@@ -19,7 +21,7 @@ int UdpServer::reader_task_id_ = -1;
 class UdpServer::Reader : public Task {
 public:
     Reader(UdpServerPtr server, const udp::endpoint &remote_endpoint,
-        const_buffer &buffer)
+        const const_buffer &buffer)
         : Task(server->reader_task_id(),
                server->reader_task_instance(remote_endpoint)),
         server_(server),
@@ -163,7 +165,7 @@ mutable_buffer UdpServer::AllocateBuffer() {
     return AllocateBuffer(buffer_size_);
 }
 
-void UdpServer::DeallocateBuffer(const_buffer &buffer) {
+void UdpServer::DeallocateBuffer(const const_buffer &buffer) {
     const u_int8_t *p = buffer_cast<const uint8_t *>(buffer);
     {
         tbb::mutex::scoped_lock lock(mutex_);
@@ -191,7 +193,7 @@ void UdpServer::StartSend(udp::endpoint ep, std::size_t bytes_to_send,
     }
 }
 
-void UdpServer::HandleSendInternal(const_buffer send_buffer,
+void UdpServer::HandleSendInternal(const const_buffer send_buffer,
     udp::endpoint remote_endpoint, std::size_t bytes_transferred,
     const boost::system::error_code& error) {
     if (state_ != OK) {
@@ -257,7 +259,7 @@ void UdpServer::HandleReceiveInternal(const_buffer recv_buffer,
     StartReceive();
 }
 
-void UdpServer::HandleReceive(const_buffer &recv_buffer,
+void UdpServer::HandleReceive(const const_buffer &recv_buffer,
     udp::endpoint remote_endpoint, std::size_t bytes_transferred,
     const boost::system::error_code& error) {
     const_buffer rdbuf(buffer_cast<const uint8_t *>(recv_buffer),
@@ -269,7 +271,7 @@ void UdpServer::HandleReceive(const_buffer &recv_buffer,
     scheduler->Enqueue(task);
 }
 
-void UdpServer::OnRead(const_buffer &recv_buffer,
+void UdpServer::OnRead(const const_buffer &recv_buffer,
     const udp::endpoint &remote_endpoint) {
     UDP_SERVER_LOG_ERROR(this, UDP_DIR_IN, "Receive UDP: " <<
         "Default implementation of OnRead does NOT process received message");
@@ -302,11 +304,11 @@ int UdpServer::GetLocalEndpointPort() {
     return ep.port();
 }
 
-void UdpServer::GetRxSocketStats(SocketIOStats &socket_stats) const {
+void UdpServer::GetRxSocketStats(SocketIOStats *socket_stats) const {
     stats_.GetRxStats(socket_stats);
 }
 
-void UdpServer::GetTxSocketStats(SocketIOStats &socket_stats) const {
+void UdpServer::GetTxSocketStats(SocketIOStats *socket_stats) const {
     stats_.GetTxStats(socket_stats);
 }
 
