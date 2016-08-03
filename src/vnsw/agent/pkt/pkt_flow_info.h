@@ -20,7 +20,7 @@ typedef map<int, int> FlowRouteRefMap;
 struct PktControlInfo {
     PktControlInfo() : 
         vrf_(NULL), intf_(NULL), rt_(NULL), vn_(NULL), vm_(NULL), 
-        vlan_nh_(false), vlan_tag_(0) { }
+        vlan_nh_(false), vlan_tag_(0), route_lookup(false) { }
     virtual ~PktControlInfo() { }
 
     const VrfEntry *vrf_;
@@ -32,6 +32,9 @@ struct PktControlInfo {
     uint16_t vlan_tag_;
     // The NH-ID field used as key in the flow
     uint32_t nh_;
+
+    // Force Route lookup after flow for IP Translation
+    bool route_lookup;
 };
 
 class PktFlowInfo {
