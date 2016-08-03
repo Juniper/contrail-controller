@@ -1782,7 +1782,7 @@ class VncApiServer(object):
     def invalid_uuid(self, uuid):
         return self.re_uuid.match(uuid) == None
     def invalid_access(self, access):
-        return type(access) is not int or access not in range(0,7)
+        return type(access) is not int or access not in range(0,8)
 
     # change ownership of an object
     def obj_chown_http_post(self):

@@ -939,6 +939,13 @@ class TestPermissions(test_case.ApiServerTestCase):
             perms = user.check_perms(vn.get_uuid())
             self.assertEquals(perms, ExpectedPerms[user.name])
 
+        logger.info( 'Enable virtual networks in alice project for global sharing (read, write, link)')
+        alice.vnc_lib.chmod(vn.get_uuid(), global_access=7)
+        ExpectedPerms = {'admin':'RWX', 'alice':'RWX', 'bob':'RWX'}
+        for user in [alice, bob, admin]:
+            perms = user.check_perms(vn.get_uuid())
+            self.assertEquals(perms, ExpectedPerms[user.name])
+
         # negative test cases
         invalid_uuid = '7a574f27-6934-4970-C767-b4996bd30f36'
         valid_uuid_1 = '7a574f27-6934-4970-8767-b4996bd30f36'
