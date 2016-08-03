@@ -12,7 +12,9 @@ class XmppConnectivity(AlarmBase):
                     {
                         'operand1': 'BgpRouterState.num_up_xmpp_peer',
                         'operation': '==',
-                        'operand2': 'null'
+                        'operand2': {
+                            'json_value': 'null'
+                        }
                     }
                 ]
             },
@@ -21,7 +23,9 @@ class XmppConnectivity(AlarmBase):
                     {
                         'operand1': 'BgpRouterState.num_up_xmpp_peer',
                         'operation': '!=',
-                        'operand2': 'BgpRouterState.num_xmpp_peer'
+                        'operand2': {
+                            'uve_attribute': 'BgpRouterState.num_xmpp_peer'
+                        }
                     }
                 ]
             }
@@ -29,4 +33,4 @@ class XmppConnectivity(AlarmBase):
     }
 
     def __init__(self):
-        AlarmBase.__init__(self, AlarmBase.SYS_WARN)
+        AlarmBase.__init__(self, AlarmBase.ALARM_MAJOR)

@@ -19,14 +19,15 @@ from collections import namedtuple
 from kafka.common import OffsetAndMessage,Message
 
 from vnc_api.gen.resource_client import Alarm
-from vnc_api.gen.resource_xsd import AlarmExpression, AlarmAndList, \
-    AlarmOrList, UveKeysType
+from vnc_api.gen.resource_xsd import AlarmExpression, AlarmOperand2, \
+    AlarmAndList, AlarmOrList, UveKeysType
 from pysandesh.util import UTCTimestampUsec
 from pysandesh.gen_py.sandesh_alarm.ttypes import SandeshAlarmAckRequest, \
     SandeshAlarmAckResponseCode
 from opserver.sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import \
-    UVEAlarmInfo, UVEAlarmConfig, UVEAlarms, AlarmRules, AlarmAndList, \
-    AlarmCondition, AlarmMatch, AlarmConditionMatch
+    UVEAlarmInfo, UVEAlarmConfig, UVEAlarms, AlarmRules, \
+    AlarmAndList as SandeshAlarmAndList, AlarmCondition, AlarmMatch, \
+    AlarmConditionMatch, AlarmOperand2 as SandeshAlarmOperand2
 from opserver.sandesh.alarmgen_ctrl.ttypes import UVEAlarmOperState, \
     UVEAlarmStateMachineInfo, UVEAlarmState
 from opserver.uveserver import UVEServer
@@ -34,6 +35,7 @@ from opserver.partition_handler import PartitionHandler, UveStreamProc, \
     UveStreamer, UveStreamPart, PartInfo
 from opserver.alarmgen import Controller, AlarmStateMachine, AlarmProcessor
 from opserver.alarmgen_cfg import CfgParser
+from opserver.plugins.alarm_base import AlarmBase
 
 logging.basicConfig(level=logging.DEBUG,
     format='%(asctime)s %(levelname)s %(message)s')
@@ -279,10 +281,10 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
         or_list = []
         condition_match = AlarmConditionMatch(
             condition=AlarmCondition(operation="!=", operand1="dummytoken",
-                operand2=json.dumps("UP")),
+                operand2=SandeshAlarmOperand2(json_value=json.dumps("UP"))),
             match=[AlarmMatch(json_operand1_value=json.dumps("DOWN"))])
-        or_list.append(AlarmAndList([condition_match]))
-        uai = UVEAlarmInfo(type=alarm_type, severity=1,
+        or_list.append(SandeshAlarmAndList([condition_match]))
+        uai = UVEAlarmInfo(type=alarm_type, severity=AlarmBase.ALARM_MAJOR,
                            timestamp=UTCTimestampUsec(),
                            token="dummytoken",
                            alarm_rules=AlarmRules(or_list), ack=False)
@@ -320,7 +322,9 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                 alarm_and_list.append(AlarmExpression(
                     operation=exp['operation'],
                     operand1=exp['operand1'],
-                    operand2=exp['operand2'],
+                    operand2=AlarmOperand2(uve_attribute=exp['operand2'].get(
+                        'uve_attribute'), json_value=exp['operand2'].get(
+                        'json_value')),
                     variables=exp.get('variables')))
             alarm_or_list.append(AlarmAndList(alarm_and_list))
         return Alarm(name=config_dict['name'],
@@ -768,7 +772,7 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
             {
                 'name': 'alarm1',
                 'uve_keys': ['key1', 'key2'],
-                'alarm_severity': 3,
+                'alarm_severity': AlarmBase.ALARM_MINOR,
                 'alarm_rules': {
                     'or_list': [
                         {
@@ -776,7 +780,9 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                                 {
                                     'operand1': 'A',
                                     'operation': '==',
-                                    'operand2': 'null'
+                                    'operand2': {
+                                        'json_value': 'null'
+                                    }
                                 }
                             ]
                         }
@@ -793,7 +799,7 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
             {
                 'name': 'alarm2',
                 'uve_keys': ['key1'],
-                'alarm_severity': 3,
+                'alarm_severity': AlarmBase.ALARM_MAJOR,
                 'alarm_rules': {
                     'or_list': [
                         {
@@ -801,7 +807,9 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                                 {
                                     'operand1': 'A.B.C',
                                     'operation': 'not in',
-                                    'operand2': 'X.Y'
+                                    'operand2': {
+                                        'uve_attribute': 'X.Y'
+                                    }
                                 }
                             ]
                         }
@@ -818,7 +826,7 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
             {
                 'name': 'alarm3',
                 'uve_keys': ['key1'],
-                'alarm_severity': 1,
+                'alarm_severity': AlarmBase.ALARM_CRITICAL,
                 'alarm_rules': {
                     'or_list': [
                         {
@@ -826,7 +834,9 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                                 {
                                     'operand1': 'A.B',
                                     'operation': '!=',
-                                    'operand2': 'A.C'
+                                    'operand2': {
+                                        'uve_attribute': 'A.C'
+                                    }
                                 }
                             ]
                         }
@@ -843,7 +853,7 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
             {
                 'name': 'alarm4',
                 'uve_keys': ['key1'],
-                'alarm_severity': 2,
+                'alarm_severity': AlarmBase.ALARM_MAJOR,
                 'alarm_rules': {
                     'or_list': [
                         {
@@ -851,7 +861,9 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                                 {
                                     'operand1': 'A.B',
                                     'operation': '!=',
-                                    'operand2': '2'
+                                    'operand2': {
+                                        'json_value': '2'
+                                    }
                                 }
                             ]
                         }
@@ -868,7 +880,7 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
             {
                 'name': 'alarm5',
                 'uve_keys': ['key5'],
-                'alarm_severity': 5,
+                'alarm_severity': AlarmBase.ALARM_MINOR,
                 'alarm_rules': {
                     'or_list': [
                         {
@@ -876,7 +888,9 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                                 {
                                     'operand1': 'A.B',
                                     'operation': '<=',
-                                    'operand2': 'A.C.D',
+                                    'operand2': {
+                                        'uve_attribute': 'A.C.D'
+                                    },
                                     'variables': ['A.C.N']
                                 }
                             ]
@@ -894,7 +908,7 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
             {
                 'name': 'alarm6',
                 'uve_keys': ['key1'],
-                'alarm_severity': 2,
+                'alarm_severity': AlarmBase.ALARM_MAJOR,
                 'alarm_rules': {
                     'or_list': [
                         {
@@ -902,13 +916,17 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                                 {
                                     'operand1': 'A.B',
                                     'operation': '<=',
-                                    'operand2': 'A.C.D',
+                                    'operand2': {
+                                        'uve_attribute': 'A.C.D'
+                                    },
                                     'variables': ['A.C.N']
                                 },
                                 {
                                     'operand1': 'A.B',
                                     'operation': '>=',
-                                    'operand2': 'A.C.E',
+                                    'operand2': {
+                                        'uve_attribute': 'A.C.E'
+                                    },
                                     'variables': ['A.C.N']
                                 }
                             ]
@@ -926,7 +944,7 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
             {
                 'name': 'alarm7',
                 'uve_keys': ['key1'],
-                'alarm_severity': 2,
+                'alarm_severity': AlarmBase.ALARM_CRITICAL,
                 'alarm_rules': {
                     'or_list': [
                         {
@@ -934,12 +952,16 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                                 {
                                     'operand1': 'A',
                                     'operation': '!=',
-                                    'operand2': 'null'
+                                    'operand2': {
+                                        'json_value': 'null'
+                                    }
                                 },
                                 {
                                     'operand1': 'A.B',
                                     'operation': 'not in',
-                                    'operand2': '["abc", "def"]'
+                                    'operand2': {
+                                        'json_value': '["abc", "def"]'
+                                    }
                                 }
                             ]
                         },
@@ -948,12 +970,16 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                                 {
                                     'operand1': 'A',
                                     'operation': '!=',
-                                    'operand2': 'null'
+                                    'operand2': {
+                                        'json_value': 'null'
+                                    }
                                 },
                                 {
                                     'operand1': 'A.B',
                                     'operation': '==',
-                                    'operand2': 'A.D'
+                                    'operand2': {
+                                        'uve_attribute': 'A.D'
+                                    }
                                 }
                             ]
                         }
@@ -977,7 +1003,9 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                             {
                                 'condition': {
                                     'operand1': 'A',
-                                    'operand2': 'null',
+                                    'operand2': {
+                                        'json_value': 'null'
+                                    },
                                     'operation': '=='
                                 },
                                 'match': [
@@ -1010,7 +1038,9 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                             {
                                 'condition': {
                                     'operand1': 'A.B.C',
-                                    'operand2': 'X.Y',
+                                    'operand2': {
+                                        'uve_attribute': 'X.Y'
+                                    },
                                     'operation': 'not in'
                                 },
                                 'match': [
@@ -1087,7 +1117,9 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                             {
                                 'condition': {
                                     'operand1': 'A.B',
-                                    'operand2': 'A.C',
+                                    'operand2': {
+                                        'uve_attribute': 'A.C'
+                                    },
                                     'operation': '!='
                                 },
                                 'match': [
@@ -1136,7 +1168,9 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                             {
                                 'condition': {
                                     'operand1': 'A.B',
-                                    'operand2': '2',
+                                    'operand2': {
+                                        'json_value': '2'
+                                    },
                                     'operation': '!='
                                 },
                                 'match': [
@@ -1197,7 +1231,9 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                             {
                                 'condition': {
                                     'operand1': 'A.B',
-                                    'operand2': '2',
+                                    'operand2': {
+                                        'json_value': '2'
+                                    },
                                     'operation': '!='
                                 },
                                 'match': [
@@ -1265,7 +1301,9 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                             {
                                 'condition': {
                                     'operand1': 'A.B.C',
-                                    'operand2': 'X.Y',
+                                    'operand2': {
+                                        'uve_attribute': 'X.Y'
+                                    },
                                     'operation': 'not in'
                                 },
                                 'match': [
@@ -1343,7 +1381,9 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                             {
                                 'condition': {
                                     'operand1': 'A.B',
-                                    'operand2': 'A.C',
+                                    'operand2': {
+                                        'uve_attribute': 'A.C'
+                                    },
                                     'operation': '!='
                                 },
                                 'match': [
@@ -1417,22 +1457,24 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                             {
                                 'condition': {
                                     'operand1': 'A.B',
-                                    'operand2': 'A.C.D',
+                                    'operand2': {
+                                        'uve_attribute': 'A.C.D'
+                                    },
                                     'operation': '<=',
-                                    'vars': ['A.C.N']
+                                    'variables': ['A.C.N']
                                 },
                                 'match': [
                                     {
                                         'json_operand1_val': '10',
                                         'json_operand2_val': '11',
-                                        'json_vars': {
+                                        'json_variables': {
                                             'A.C.N': '"abc"'
                                         }
                                     },
                                     {
                                         'json_operand1_val': '10',
                                         'json_operand2_val': '25',
-                                        'json_vars': {
+                                        'json_variables': {
                                             'A.C.N': 'null'
                                         }
                                     }
@@ -1495,22 +1537,24 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                             {
                                 'condition': {
                                     'operand1': 'A.B',
-                                    'operand2': 'A.C.D',
+                                    'operand2': {
+                                        'uve_attribute': 'A.C.D'
+                                    },
                                     'operation': '<=',
-                                    'vars': ['A.C.N']
+                                    'variables': ['A.C.N']
                                 },
                                 'match': [
                                     {
                                         'json_operand1_val': '5',
                                         'json_operand2_val': '5',
-                                        'json_vars': {
+                                        'json_variables': {
                                             'A.C.N': '"abc"'
                                         }
                                     },
                                     {
                                         'json_operand1_val': '5',
                                         'json_operand2_val': '10',
-                                        'json_vars': {
+                                        'json_variables': {
                                             'A.C.N': '"hjk"'
                                         }
                                     }
@@ -1519,22 +1563,24 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                             {
                                 'condition': {
                                     'operand1': 'A.B',
-                                    'operand2': 'A.C.E',
+                                    'operand2': {
+                                        'uve_attribute': 'A.C.E'
+                                    },
                                     'operation': '>=',
-                                    'vars': ['A.C.N']
+                                    'variables': ['A.C.N']
                                 },
                                 'match': [
                                     {
                                         'json_operand1_val': '5',
                                         'json_operand2_val': '5',
-                                        'json_vars': {
+                                        'json_variables': {
                                             'A.C.N': '"abc"'
                                         }
                                     },
                                     {
                                         'json_operand1_val': '5',
                                         'json_operand2_val': '4',
-                                        'json_vars': {
+                                        'json_variables': {
                                             'A.C.N': '"hjk"'
                                         }
                                     }
@@ -1574,7 +1620,9 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                             {
                                 'condition': {
                                     'operand1': 'A',
-                                    'operand2': 'null',
+                                    'operand2': {
+                                        'json_value': 'null'
+                                    },
                                     'operation': '!='
                                 },
                                 'match': [
@@ -1587,7 +1635,9 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                             {
                                 'condition': {
                                     'operand1': 'A.B',
-                                    'operand2': 'A.D',
+                                    'operand2': {
+                                        'uve_attribute': 'A.D'
+                                    },
                                     'operation': '=='
                                 },
                                 'match': [
@@ -1619,7 +1669,9 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                             {
                                 'condition': {
                                     'operand1': 'A',
-                                    'operand2': 'null',
+                                    'operand2': {
+                                        'json_value': 'null'
+                                    },
                                     'operation': '!='
                                 },
                                 'match': [
@@ -1632,7 +1684,9 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                             {
                                 'condition': {
                                     'operand1': 'A.B',
-                                    'operand2': '["abc", "def"]',
+                                    'operand2': {
+                                        'json_value': '["abc", "def"]'
+                                    },
                                     'operation': 'not in'
                                 },
                                 'match': [
@@ -1648,7 +1702,9 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                             {
                                 'condition': {
                                     'operand1': 'A',
-                                    'operand2': 'null',
+                                    'operand2': {
+                                        'json_value': 'null'
+                                    },
                                     'operation': '!='
                                 },
                                 'match': [
@@ -1661,7 +1717,9 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                             {
                                 'condition': {
                                     'operand1': 'A.B',
-                                    'operand2': 'A.D',
+                                    'operand2': {
+                                        'uve_attribute': 'A.D'
+                                    },
                                     'operation': '=='
                                 },
                                 'match': [
@@ -1685,20 +1743,24 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                 for elt in test.output.or_list:
                     and_list = []
                     for and_elt in elt['and_list']:
-                        condition = and_elt['condition']
+                        cond = and_elt['condition']
                         match = and_elt['match']
                         and_list.append(AlarmConditionMatch(
                             condition=AlarmCondition(
-                                operation=condition['operation'],
-                                operand1=condition['operand1'],
-                                operand2=condition['operand2'],
-                                vars=condition.get('vars') or []),
+                                operation=cond['operation'],
+                                operand1=cond['operand1'],
+                                operand2=SandeshAlarmOperand2(
+                                    uve_attribute=cond['operand2'].get(
+                                        'uve_attribute'),
+                                    json_value=cond['operand2'].get(
+                                        'json_value')),
+                                variables=cond.get('variables') or []),
                             match=[AlarmMatch(
                                 json_operand1_value=m['json_operand1_val'],
                                 json_operand2_value=m.get('json_operand2_val'),
-                                json_vars=m.get('json_vars') or {}) \
+                                json_variables=m.get('json_variables') or {}) \
                                     for m in match]))
-                    exp_or_list.append(AlarmAndList(and_list))
+                    exp_or_list.append(SandeshAlarmAndList(and_list))
             alarm_processor = AlarmProcessor(logging)
             or_list = alarm_processor._evaluate_uve_for_alarms(
                 test.input.alarm_cfg, test.input.uve_key, test.input.uve)

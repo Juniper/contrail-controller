@@ -7,12 +7,15 @@
 import signal
 import unittest
 import logging
+import json
 from collections import namedtuple
 
 from vnc_api.gen.resource_client import Alarm
 from vnc_api.gen.resource_xsd import IdPermsType, AlarmExpression, \
-    AlarmAndList, AlarmOrList
-from opserver.sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import *
+    AlarmOperand2, AlarmAndList, AlarmOrList
+from opserver.sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import \
+    AlarmOperand2 as SandeshAlarmOperand2, AlarmCondition, AlarmMatch, \
+    AlarmConditionMatch, AlarmAndList as SandeshAlarmAndList
 from opserver.alarmgen import AlarmProcessor
 from opserver.opserver_util import camel_case_to_hyphen
 from alarm_process_status.main import ProcessStatus
@@ -58,7 +61,9 @@ class TestAlarmPlugins(unittest.TestCase):
                 for exp in and_list['and_list']:
                     alarm_and_list.append(AlarmExpression(
                         operation=exp['operation'], operand1=exp['operand1'],
-                        operand2=exp['operand2'],
+                        operand2=AlarmOperand2(uve_attribute=
+                            exp['operand2'].get('uve_attribute'),
+                            json_value=exp['operand2'].get('json_value')),
                         variables=exp.get('variables')))
                 alarm_or_list.append(AlarmAndList(alarm_and_list))
         alarm_name = camel_case_to_hyphen(plugin.__class__.__name__)
@@ -1416,18 +1421,24 @@ class TestAlarmPlugins(unittest.TestCase):
                 exp_or_list = []
                 for elt in test.output.or_list:
                     and_list = []
-                    for condition, vars, match in elt['and_list']:
+                    for condition, variables, match in elt['and_list']:
                         oper1, tmp = condition.split(' ', 1)
                         oper, oper2 = tmp.rsplit(' ', 1)
+                        try:
+                            json.loads(oper2)
+                        except ValueError:
+                            oper2 = SandeshAlarmOperand2(uve_attribute=oper2)
+                        else:
+                            oper2 = SandeshAlarmOperand2(json_value=oper2)
                         and_list.append(AlarmConditionMatch(
                             condition=AlarmCondition(
                                 operation=oper, operand1=oper1,
-                                operand2=oper2, vars=vars or []),
+                                operand2=oper2, variables=variables or []),
                             match=[AlarmMatch(
                                 json_operand1_value=e[0],
                                 json_operand2_value=e[1],
-                                json_vars=e[2] or {}) for e in match]))
-                    exp_or_list.append(AlarmAndList(and_list))
+                                json_variables=e[2] or {}) for e in match]))
+                    exp_or_list.append(SandeshAlarmAndList(and_list))
             if hasattr(plugin, '__call__'):
                 or_list = plugin.__call__(test.input.uve_key,
                     test.input.uve_data)

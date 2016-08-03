@@ -2010,23 +2010,52 @@ class ForwardingClassServer(Resource, ForwardingClass):
         return (True, '')
 # end class ForwardingClassServer
 
+
 class AlarmServer(Resource, Alarm):
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         if 'alarm_rules' not in obj_dict or obj_dict['alarm_rules'] is None:
             return (False, (400, 'alarm_rules not specified or null'))
+        (ok, error) = cls._check_alarm_rules(obj_dict['alarm_rules'])
+        if not ok:
+            return (False, error)
         return True, ''
     # end pre_dbe_create
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
-        if 'alarm_rules' in obj_dict and obj_dict['alarm_rules'] is None:
-            return (False, (400, 'alarm_rules cannot be removed'))
+        if 'alarm_rules' in obj_dict:
+            if obj_dict['alarm_rules'] is None:
+                return (False, (400, 'alarm_rules cannot be removed'))
+            (ok, error) = cls._check_alarm_rules(obj_dict['alarm_rules'])
+            if not ok:
+                return (False, error)
         return True, ''
     # end pre_dbe_update
 
+    @classmethod
+    def _check_alarm_rules(cls, alarm_rules):
+        try:
+            for and_list in alarm_rules['or_list']:
+                for and_cond in and_list['and_list']:
+                    if 'json_value' in and_cond['operand2']:
+                        if 'uve_attribute' in and_cond['operand2']:
+                            return (False, (400, 'operand2 should have either '
+                                '"uve_attribute" or "json_value", not both'))
+                        try:
+                            json.loads(and_cond['operand2']['json_value'])
+                        except ValueError:
+                            return (False, (400, 'Invalid json_value %s '
+                                'specified in alarm_rules' %
+                                (and_cond['operand2']['json_value'])))
+        except Exception as e:
+            return (False, (400, 'Invalid alarm_rules'))
+        return (True, '')
+    # end _check_alarm_rules
+
 # end class AlarmServer
+
 
 class QosConfigServer(Resource, QosConfig):
     @classmethod

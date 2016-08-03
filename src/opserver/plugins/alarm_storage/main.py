@@ -12,7 +12,9 @@ class StorageClusterState(AlarmBase):
                     {
                         'operand1': 'StorageCluster.info_stats.status',
                         'operation': '!=',
-                        'operand2': '0',
+                        'operand2': {
+                            'json_value': '0'
+                        },
                         'variables': \
                             ['StorageCluster.info_stats.health_summary']
                     }
@@ -22,4 +24,4 @@ class StorageClusterState(AlarmBase):
     }
 
     def __init__(self):
-        AlarmBase.__init__(self, AlarmBase.SYS_ERR)
+        AlarmBase.__init__(self, AlarmBase.ALARM_MAJOR)
