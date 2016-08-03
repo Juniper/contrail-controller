@@ -20,7 +20,7 @@ NexthopDBServer::NexthopDBServer(boost::asio::io_service &io,
   : io_service_(io), endpoint_path_(path), nexthop_table_(), client_table_()
 {
     std::remove(endpoint_path_.c_str());
-    io_server_.reset(new UnixDomainSocketServer(io_service_, endpoint_path_));
+    io_server_.reset(new UnixDomainSocketServer(&io_service_, endpoint_path_));
     io_server_->set_observer(boost::bind(&NexthopDBServer::EventHandler, this,
                                          _1, _2, _3));
 }

@@ -4,11 +4,13 @@
 
 #include "Thrift.h"
 
+#include <string>
+
 #include "io/event_manager.h"
 #include "base/logging.h"
 #include "io/io_log.h"
 
-using namespace boost::asio;
+using boost::asio::io_service;
 
 SandeshTraceBufferPtr IOTraceBuf(SandeshTraceBufferCreate(IO_TRACE_BUF, 1000));
 
@@ -18,13 +20,11 @@ EventManager::EventManager() {
 
 void EventManager::Shutdown() {
     shutdown_ = true;
-
-    // TODO: make sure that are no users of this event manager.
     io_service_.stop();
 }
 
 void EventManager::Run() {
-    using namespace apache::thrift;
+    using apache::thrift::TException;
 
     assert(mutex_.try_lock());
     io_service::work work(io_service_);

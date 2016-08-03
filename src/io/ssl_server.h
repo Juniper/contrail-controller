@@ -2,8 +2,8 @@
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef __src_io_ssl_server_h__
-#define __src_io_ssl_server_h__
+#ifndef SRC_IO_SSL_SERVER_H_
+#define SRC_IO_SSL_SERVER_H_
 
 #include <boost/asio/ssl.hpp>
 
@@ -12,7 +12,7 @@
 class SslSession;
 
 class SslServer : public TcpServer {
-public:
+ public:
     typedef boost::asio::ssl::stream<boost::asio::ip::tcp::socket> SslSocket;
 
     explicit SslServer(EventManager *evm, boost::asio::ssl::context::method m,
@@ -20,14 +20,14 @@ public:
                        bool ssl_handshake_delayed = false);
     virtual ~SslServer();
 
-protected:
+ protected:
     // given SSL socket, Create a session object.
     virtual SslSession *AllocSession(SslSocket *socket) = 0;
 
     // boost ssl context accessor to setup ssl context variables.
     boost::asio::ssl::context *context();
 
-private:
+ private:
     friend class SslSession;
 
     static void AcceptHandShakeHandler(TcpServerPtr server,
@@ -44,19 +44,19 @@ private:
     TcpSession *AllocSession(bool server_session);
 
     // override accept complete handler to trigger handshake
-    virtual void AcceptHandlerComplete(TcpSessionPtr &session);
+    virtual void AcceptHandlerComplete(TcpSessionPtr session);
 
     // override connect complete handler to trigger handshake
-    void ConnectHandlerComplete(TcpSessionPtr &session);
+    void ConnectHandlerComplete(TcpSessionPtr session);
 
     Socket *accept_socket() const;
     void set_accept_socket();
 
     boost::asio::ssl::context context_;
-    std::auto_ptr<SslSocket> so_ssl_accept_;       // SSL socket used in async_accept
+    std::auto_ptr<SslSocket> so_ssl_accept_;  // SSL socket used in async_accept
     bool ssl_enabled_;
     bool ssl_handshake_delayed_;
     DISALLOW_COPY_AND_ASSIGN(SslServer);
 };
 
-#endif  //__src_io_ssl_server_h__
+#endif  // SRC_IO_SSL_SERVER_H_
