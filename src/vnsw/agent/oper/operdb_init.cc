@@ -179,6 +179,7 @@ void OperDB::CreateDBTables(DB *db) {
     assert(vxlan_table);
     agent_->set_vxlan_table(vxlan_table);
     vxlan_table->set_agent(agent_);
+    vxlan_table->Initialize();
 
     QosQueueTable *qos_queue_table;
     qos_queue_table =
@@ -323,6 +324,10 @@ void OperDB::Shutdown() {
     vrouter_.reset();
     if (agent()->mirror_table()) {
         agent()->mirror_table()->Shutdown();
+    }
+
+    if (agent()->vxlan_table()) {
+        agent()->vxlan_table()->Shutdown();
     }
 
     profile_.reset();
