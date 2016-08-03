@@ -1371,8 +1371,10 @@ static bool SkipUpdateSend() {
 //
 bool BgpPeer::SendUpdate(const uint8_t *msg, size_t msgsize) {
     bool send_ready = true;
-    if (buffer_len_ + msgsize > kBufferSize)
+    if (buffer_len_ + msgsize > kBufferSize) {
         send_ready = FlushUpdate();
+        assert(buffer_len_ == 0);
+    }
     copy(msg, msg + msgsize, buffer_ + buffer_len_);
     buffer_len_ += msgsize;
     inc_tx_update();
@@ -1387,8 +1389,10 @@ bool BgpPeer::FlushUpdate() {
         return true;
 
     // Bail if there's no session for the peer anymore.
-    if (!session_)
+    if (!session_) {
+        buffer_len_ = 0;
         return true;
+    }
 
     if (!SkipUpdateSend()) {
         send_ready_ = session_->Send(buffer_, buffer_len_, NULL);
