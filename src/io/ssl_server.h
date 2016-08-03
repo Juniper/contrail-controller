@@ -2,8 +2,8 @@
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef __src_io_ssl_server_h__
-#define __src_io_ssl_server_h__
+#ifndef SRC_IO_SSL_SERVER_H_
+#define SRC_IO_SSL_SERVER_H_
 
 #include <boost/asio/ssl.hpp>
 
@@ -44,19 +44,19 @@ private:
     TcpSession *AllocSession(bool server_session);
 
     // override accept complete handler to trigger handshake
-    virtual void AcceptHandlerComplete(TcpSessionPtr &session);
+    virtual void AcceptHandlerComplete(TcpSessionPtr session);
 
     // override connect complete handler to trigger handshake
-    void ConnectHandlerComplete(TcpSessionPtr &session);
+    void ConnectHandlerComplete(TcpSessionPtr session);
 
     Socket *accept_socket() const;
     void set_accept_socket();
 
     boost::asio::ssl::context context_;
-    std::auto_ptr<SslSocket> so_ssl_accept_;       // SSL socket used in async_accept
+    std::auto_ptr<SslSocket> so_ssl_accept_;  // SSL socket used in async_accept
     bool ssl_enabled_;
     bool ssl_handshake_delayed_;
     DISALLOW_COPY_AND_ASSIGN(SslServer);
 };
 
-#endif  //__src_io_ssl_server_h__
+#endif  // SRC_IO_SSL_SERVER_H_

@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef __IO_NETLINK_H__
-#define __IO_NETLINK_H__
+#ifndef SRC_IO_NETLINK_HPP_
+#define SRC_IO_NETLINK_HPP_
 #include <sys/socket.h>
 #include <net/if.h>
 #include <net/route.h>
@@ -14,23 +14,21 @@
 #include <boost/bind.hpp>
 #include <boost/asio/netlink_protocol.hpp>
 
-using namespace boost::asio;
-
 class EventManager;
 
-struct	RtMsg{
-    struct	rt_msghdr m_rtm;
-	char	m_space[512];
+struct    RtMsg{
+    struct rt_msghdr m_rtm;
+    char   m_space[512];
 };
 
 class netlink_sock {
 public:
-    netlink_sock(boost::asio::io_service &ios) : socket_(ios) {
+    explicit netlink_sock(boost::asio::io_service &ios) : socket_(ios) {
         socket_.open();
         RtMsgTest();
     }
 
-    netlink_sock(boost::asio::io_service &ios, int proto) : 
+    netlink_sock(const boost::asio::io_service &ios, int proto) :
         socket_(ios, proto) {
         RtMsgTest();
     }
@@ -62,14 +60,14 @@ public:
         socket_.async_send(boost::asio::buffer(&msg_, len),
                    boost::bind(&netlink_sock::write_handler, this,
                                placeholders::error,
-                               placeholders::bytes_transferred)
-                );
+                               placeholders::bytes_transferred));
     }
 
 
     void read_handler(const boost::system::error_code& error,
                       size_t bytes_transferred) {
-        std::cout << "Came in READ_HANDLER. Bytes read " << bytes_transferred << std::endl;
+        std::cout << "Came in READ_HANDLER. Bytes read "
+                  << bytes_transferred << std::endl;
         if (error) {
             std::cerr << "read error: " <<
                 boost::system::system_error(error).what() << std::endl;
@@ -87,15 +85,13 @@ public:
         socket_.async_receive(boost::asio::buffer(&msg_, 200),
                    boost::bind(&netlink_sock::read_handler, this,
                                placeholders::error,
-                               placeholders::bytes_transferred)
-                );
+                               placeholders::bytes_transferred));
     }
 
     boost::asio::netlink::raw::socket socket_;
     boost::array<char, 200> buff_;
     RtMsg msg_;
     int seqno_;
-    
 };
 
-#endif
+#endif  // SRC_IO_NETLINK_HPP_

@@ -114,10 +114,10 @@ bool CollectorSummaryLogger(Collector *collector, const string & hostname,
 
     // Get socket stats
     SocketIOStats rx_stats;
-    collector->GetRxSocketStats(rx_stats);
+    collector->GetRxSocketStats(&rx_stats);
     state.set_rx_socket_stats(rx_stats);
     SocketIOStats tx_stats;
-    collector->GetTxSocketStats(tx_stats);
+    collector->GetTxSocketStats(&tx_stats);
     state.set_tx_socket_stats(tx_stats);
 
     CollectorInfo::Send(state);
