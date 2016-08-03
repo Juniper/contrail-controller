@@ -202,7 +202,8 @@ public:
                        const IpAddress &addr, uint8_t plen);
     static void AddHostRoute(const string &vrf_name,
                              const IpAddress &addr, uint8_t plen,
-                             const std::string &dest_vn_name);
+                             const std::string &dest_vn_name,
+                             bool relaxed_policy);
     void AddLocalVmRouteReq(const Peer *peer, const string &vm_vrf,
                             const IpAddress &addr, uint8_t plen,
                             LocalVmRoute *data);

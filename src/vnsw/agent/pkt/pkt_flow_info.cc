@@ -720,6 +720,12 @@ void PktFlowInfo::LinkLocalServiceFromHost(const PktInfo *pkt, PktControlInfo *i
     out->vrf_ = vm_port->vrf();
 
     linklocal_flow = true;
+    // force out flow to do route lookup since vrouter otherwise will
+    // ignore VRF translation from VRF 0 to 0, where as route lookup
+    // is needed to change destination of reverse NAT'd packet from
+    // pkt0 to vhost0
+    out->route_lookup = true;
+
     nat_done = true;
     // Get NAT source/destination IP from MetadataIP retrieved from interface
     nat_ip_saddr = mip->service_ip();

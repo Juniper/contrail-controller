@@ -474,6 +474,7 @@ class FlowEntry {
         TcpAckFlow      = 1 << 10,
         UnknownUnicastFlood = 1 << 11,
         BgpRouterService   = 1 << 12,
+        RouteLookup     = 1 << 14
     };
 
     FlowEntry(FlowTable *flow_table);

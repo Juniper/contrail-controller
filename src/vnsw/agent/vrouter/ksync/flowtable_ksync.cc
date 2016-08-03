@@ -348,6 +348,10 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             action = VR_FLOW_ACTION_HOLD;
         }
 
+        if (flow_entry_->is_flags_set(FlowEntry::RouteLookup)) {
+            flags |= VR_FLOW_FLAG_ROUTE_LOOKUP;
+        }
+
         if (enable_rpf_) {
             req.set_fr_src_nh_index(src_nh_id_);
         } else {
