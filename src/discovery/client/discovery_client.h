@@ -246,6 +246,7 @@ private:
     std::string subscriber_name_;
     int heartbeat_interval_;
     std::string local_addr_;
+    tbb::mutex mutex_;
 };
 
 #endif  // __DISCOVERY_SERVICE_CLIENT_H__
