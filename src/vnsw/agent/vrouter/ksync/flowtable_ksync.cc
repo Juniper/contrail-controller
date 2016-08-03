@@ -350,7 +350,6 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         }
 
         if (flow_entry_->is_flags_set(FlowEntry::Trap)) {
-            flags |= VR_FLOW_FLAG_TRAP_ECMP;
             action = VR_FLOW_ACTION_HOLD;
         }
 
