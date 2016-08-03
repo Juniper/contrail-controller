@@ -732,6 +732,7 @@ void PktFlowInfo::LinkLocalServiceFromHost(const PktInfo *pkt, PktControlInfo *i
     out->vrf_ = vm_port->vrf();
 
     linklocal_flow = true;
+    route_lookup = true;
     nat_done = true;
     // Get NAT source/destination IP from MetadataIP retrieved from interface
     nat_ip_saddr = mip->service_ip();

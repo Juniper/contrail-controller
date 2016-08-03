@@ -54,7 +54,7 @@ public:
         trap_rev_flow(false), fip_snat(false), fip_dnat(false), snat_fip(),
         short_flow_reason(0), peer_vrouter(), tunnel_type(TunnelType::INVALID),
         flood_unknown_unicast(false), bgp_router_service_flow(false),
-        alias_ip_flow(false) {
+        alias_ip_flow(false), route_lookup(false) {
     }
 
     static bool ComputeDirection(const Interface *intf);
@@ -190,6 +190,9 @@ public:
 
     // Alias IP flow
     bool                 alias_ip_flow;
+
+    // Force Route lookup after flow for IP Translation
+    bool                 route_lookup;
 };
 
 #endif // __agent_pkt_flow_info_h_
