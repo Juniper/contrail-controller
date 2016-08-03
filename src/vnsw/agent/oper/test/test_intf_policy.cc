@@ -827,6 +827,175 @@ TEST_F(PolicyTest, IntfStaticRoute) {
    WAIT_FOR(100, 1000, (VrfFind("vrf1") == false));
 }
 
+TEST_F(PolicyTest, EcmpNH_2) {
+    //Create mutliple VM interface with same IP
+    struct PortInfo input1[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+        {"vnet2", 2, "1.1.1.1", "00:00:00:02:02:01", 1, 2},
+        {"vnet3", 3, "1.1.1.1", "00:00:00:02:02:03", 1, 3},
+        {"vnet4", 4, "1.1.1.1", "00:00:00:02:02:04", 1, 4},
+        {"vnet5", 5, "1.1.1.1", "00:00:00:02:02:05", 1, 5}
+    };
+
+    struct PortInfo input2[] = {
+        {"vnet3", 3, "1.1.1.1", "00:00:00:02:02:03", 1, 3}
+    };
+
+    struct PortInfo input3[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+        {"vnet2", 2, "1.1.1.1", "00:00:00:02:02:01", 1, 2},
+        {"vnet4", 4, "1.1.1.1", "00:00:00:02:02:04", 1, 4},
+        {"vnet5", 5, "1.1.1.1", "00:00:00:02:02:05", 1, 5}
+    };
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+
+    CreateVmportWithEcmp(input1, 5, 1);
+    client->WaitForIdle();
+
+    //Check that route points to composite NH,
+    //with 5 members
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    EXPECT_TRUE(rt != NULL);
+    const NextHop *nh = rt->GetActiveNextHop();
+    EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
+    const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
+    EXPECT_TRUE(comp_nh->ActiveComponentNHCount() == 5);
+
+    //Delete one of the interface
+    DeleteVmportEnv(input2, 1, 0);
+    client->WaitForIdle();
+
+    WAIT_FOR(100, 1000, (VmInterfaceGet(input2[0].intf_id)) == NULL);
+
+    //Verify that ComponentNH count is 4
+    nh = rt->GetActiveNextHop();
+    EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
+    comp_nh = static_cast<const CompositeNH *>(nh);
+    EXPECT_TRUE(comp_nh->ActiveComponentNHCount() == 4);
+
+    const VmInterface *intf1 = VmInterfaceGet(input1[0].intf_id);
+    EXPECT_TRUE(intf1 != NULL);
+    uint32_t vmi_label = intf1->label();
+
+    WAIT_FOR(100, 1000, ((VmPortPolicyEnabled(input1, 0)) == true));
+
+    //Disable policy on vnet1 VMI
+    SetPolicyDisabledStatus(&input1[0], true);
+    client->WaitForIdle();
+
+    //Verify that policy status of interface
+    WAIT_FOR(100, 1000, ((VmPortPolicyEnabled(input1, 0)) == false));
+
+    //Verify that vnet1's label has changed after disabling policy on it.
+    EXPECT_TRUE(vmi_label != intf1->label());
+
+    //Verify that ComponentNH count is still 5 after policy change
+    nh = rt->GetActiveNextHop();
+    EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
+    comp_nh = static_cast<const CompositeNH *>(nh);
+    EXPECT_TRUE(comp_nh->ActiveComponentNHCount() == 4);
+
+    //DeleteVmportEnv(input3, 4, 1);
+    DeleteVmportEnv(input3, 4, 1, 1, NULL, NULL, true, false);
+    client->WaitForIdle();
+
+    DelIPAM("vn1");
+    client->WaitForIdle(3);
+
+    WAIT_FOR(100, 1000, (VrfFind("vrf1") == false));
+    EXPECT_FALSE(RouteFind("vrf1", ip, 32));
+}
+
+TEST_F(PolicyTest, EcmpNH_3) {
+    //Create mutliple VM interface with same IP
+    struct PortInfo input1[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+        {"vnet2", 2, "1.1.1.1", "00:00:00:02:02:01", 1, 2},
+        {"vnet3", 3, "1.1.1.1", "00:00:00:02:02:03", 1, 3}
+    };
+
+    struct PortInfo input2[] = {
+        {"vnet2", 2, "1.1.1.1", "00:00:00:02:02:01", 1, 2}
+    };
+
+    struct PortInfo input3[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+        {"vnet3", 3, "1.1.1.1", "00:00:00:02:02:03", 1, 3}
+    };
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+    CreateVmportWithEcmp(input1, 3, 1);
+    client->WaitForIdle();
+
+    //Check that route points to composite NH,
+    //with 2 members
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    EXPECT_TRUE(rt != NULL);
+    const NextHop *nh = rt->GetActiveNextHop();
+    EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
+    const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
+    EXPECT_TRUE(comp_nh->ActiveComponentNHCount() == 3);
+    uint32_t label1 = comp_nh->Get(0)->label();
+
+    //Delete one of the interface
+    DeleteVmportEnv(input2, 1, 0);
+    client->WaitForIdle();
+
+    WAIT_FOR(100, 1000, (VmInterfaceGet(input2[0].intf_id)) == NULL);
+
+    //Verify that ComponentNH count is 2
+    nh = rt->GetActiveNextHop();
+    EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
+    comp_nh = static_cast<const CompositeNH *>(nh);
+    EXPECT_TRUE(comp_nh->ActiveComponentNHCount() == 2);
+
+    const VmInterface *intf1 = VmInterfaceGet(input1[0].intf_id);
+    EXPECT_TRUE(intf1 != NULL);
+    uint32_t vmi_label = intf1->label();
+
+    WAIT_FOR(100, 1000, ((VmPortPolicyEnabled(input1, 0)) == true));
+
+    //Disable policy on vnet1 VMI
+    SetPolicyDisabledStatus(&input1[0], true);
+    client->WaitForIdle();
+
+    //Verify that policy status of interface
+    WAIT_FOR(100, 1000, ((VmPortPolicyEnabled(input1, 0)) == false));
+
+    //Verify that vnet1's label has changed after disabling policy on it.
+    EXPECT_TRUE(vmi_label != intf1->label());
+
+    nh = rt->GetActiveNextHop();
+    EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
+    comp_nh = static_cast<const CompositeNH *>(nh);
+    //Verify that Component NH part of CompositeNH has its label updated after
+    //policy status change on vnet1
+    EXPECT_TRUE(label1 != comp_nh->Get(0)->label());
+    EXPECT_TRUE(comp_nh->Get(0)->label() == intf1->label());
+
+    DeleteVmportEnv(input3, 2, 1, 1, NULL, NULL, true, false);
+    client->WaitForIdle();
+
+    DelIPAM("vn1");
+    client->WaitForIdle(3);
+
+    WAIT_FOR(100, 1000, (VrfFind("vrf1") == false));
+    EXPECT_FALSE(RouteFind("vrf1", ip, 32));
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 
