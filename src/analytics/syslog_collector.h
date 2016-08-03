@@ -56,7 +56,7 @@ class SyslogUDPListener: public UdpServer
       virtual void Shutdown ();
 
     private:
-      void HandleReceive (boost::asio::const_buffer &recv_buffer,
+      void HandleReceive(const boost::asio::const_buffer &recv_buffer,
             boost::asio::ip::udp::endpoint remote_endpoint,
             std::size_t bytes_transferred,
             const boost::system::error_code& error);

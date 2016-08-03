@@ -26,7 +26,7 @@ static map<string,string> uflowfields_ = boost::assign::map_list_of(
      "ingressInterface","pifindex");
 
 
-void IpfixCollector::HandleReceive(boost::asio::const_buffer& buffer,
+void IpfixCollector::HandleReceive(const boost::asio::const_buffer& buffer,
             boost::asio::ip::udp::endpoint remote_endpoint,
             size_t bytes_transferred,
             const boost::system::error_code& error) {

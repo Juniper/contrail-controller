@@ -2,16 +2,18 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef __TCPSERVER_H__
-#define __TCPSERVER_H__
+#ifndef SRC_IO_TCP_SERVER_H_
+#define SRC_IO_TCP_SERVER_H_
+
+#include <tbb/compat/condition_variable>
+#include <tbb/mutex.h>
 
 #include <map>
 #include <set>
+#include <string>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/intrusive_ptr.hpp>
 #include <boost/scoped_ptr.hpp>
-#include <tbb/mutex.h>
-#include <tbb/compat/condition_variable>
 
 #include "base/util.h"
 #include "io/server_manager.h"
@@ -76,8 +78,16 @@ public:
     // wait until the server has deleted all sessions.
     void WaitForEmpty();
 
-    void GetRxSocketStats(SocketIOStats &socket_stats) const;
-    void GetTxSocketStats(SocketIOStats &socket_stats) const;
+    void GetRxSocketStats(SocketIOStats *socket_stats) const;
+    void GetTxSocketStats(SocketIOStats *socket_stats) const;
+
+    void GetRxSocketStats(SocketIOStats &socket_stats) const {
+        GetRxSocketStats(&socket_stats);
+    }
+
+    void GetTxSocketStats(SocketIOStats &socket_stats) const {
+        GetTxSocketStats(&socket_stats);
+    }
 
     int SetMd5SocketOption(int fd, uint32_t peer_ip,
                            const std::string &md5_password);
@@ -113,8 +123,8 @@ protected:
 
     Endpoint LocalEndpoint() const;
 
-    virtual void AcceptHandlerComplete(TcpSessionPtr &session);
-    virtual void ConnectHandlerComplete(TcpSessionPtr &session);
+    virtual void AcceptHandlerComplete(TcpSessionPtr session);
+    virtual void ConnectHandlerComplete(TcpSessionPtr session);
 
 
 private:
@@ -188,4 +198,4 @@ private:
     static ServerManager<TcpServer, TcpServerPtr> impl_;
 };
 
-#endif // __TCPSERVER_H__
+#endif  // SRC_IO_TCP_SERVER_H_

@@ -383,7 +383,7 @@ void ProcessProtobufMessage(const Message& message,
 }  // namespace impl
 
 class ProtobufServer::ProtobufServerImpl {
- public:
+public:
     ProtobufServerImpl(EventManager *evm, uint16_t udp_server_port,
         StatWalker::StatTableInsertFn stat_db_callback) :
         udp_server_(new ProtobufUdpServer(evm, udp_server_port,
@@ -417,12 +417,12 @@ class ProtobufServer::ProtobufServerImpl {
         return udp_server_->GetReceivedMessageStatistics(v_rx_msg_stats);
     }
 
- private:
+private:
     //
     // ProtobufUdpServer
     //
     class ProtobufUdpServer : public UdpServer {
-     public:
+    public:
         ProtobufUdpServer(EventManager *evm, uint16_t port,
             StatWalker::StatTableInsertFn stat_db_callback) :
             UdpServer(evm, kBufferSize),
@@ -447,7 +447,7 @@ class ProtobufServer::ProtobufServerImpl {
             return true;
         }
 
-        virtual void OnRead(boost::asio::const_buffer &recv_buffer,
+        virtual void OnRead(const boost::asio::const_buffer &recv_buffer,
             const boost::asio::ip::udp::endpoint &remote_endpoint) {
             uint64_t timestamp;
             Message *message = NULL;
@@ -476,12 +476,12 @@ class ProtobufServer::ProtobufServerImpl {
             std::vector<SocketEndpointMessageStats> *v_rx_msg_stats) {
             if (v_tx_stats != NULL) {
                 SocketIOStats tx_stats;
-                GetTxSocketStats(tx_stats);
+                GetTxSocketStats(&tx_stats);
                 v_tx_stats->push_back(tx_stats);
             }
             if (v_rx_stats != NULL) {
                 SocketIOStats rx_stats;
-                GetRxSocketStats(rx_stats);
+                GetRxSocketStats(&rx_stats);
                 v_rx_stats->push_back(rx_stats);
             }
             if (v_rx_msg_stats != NULL) {
@@ -494,12 +494,12 @@ class ProtobufServer::ProtobufServerImpl {
             msg_stats_.GetRx(v_rx_msg_stats);
         }
 
-     private:
+    private:
         //
         // MessageStatistics
         //
         class MessageStatistics {
-         public:
+        public:
             void UpdateRx(
                 const boost::asio::ip::udp::endpoint &remote_endpoint,
                 const std::string &message_name,
@@ -519,7 +519,7 @@ class ProtobufServer::ProtobufServerImpl {
                 std::vector<SocketEndpointMessageStats> *semsv) {
                 GetRxInternal(semsv, false);
             }
-         private:
+        private:
             class MessageInfo;
 
             void GetRxInternal(
@@ -567,7 +567,7 @@ class ProtobufServer::ProtobufServerImpl {
             // MessageInfo
             //
             class MessageInfo {
-             public:
+            public:
                 MessageInfo() :
                     messages_(0),
                     bytes_(0),
@@ -598,7 +598,7 @@ class ProtobufServer::ProtobufServerImpl {
                     sems->set_last_timestamp(last_timestamp_);
                 }
 
-             private:
+            private:
                 uint64_t messages_;
                 uint64_t bytes_;
                 uint64_t errors_;

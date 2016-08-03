@@ -407,10 +407,10 @@ public:
 
         ShowBgpServerResp *resp = new ShowBgpServerResp;
         SocketIOStats peer_socket_stats;
-        bsc->bgp_server->session_manager()->GetRxSocketStats(peer_socket_stats);
+        bsc->bgp_server->session_manager()->GetRxSocketStats(&peer_socket_stats);
         resp->set_rx_socket_stats(peer_socket_stats);
 
-        bsc->bgp_server->session_manager()->GetTxSocketStats(peer_socket_stats);
+        bsc->bgp_server->session_manager()->GetTxSocketStats(&peer_socket_stats);
         resp->set_tx_socket_stats(peer_socket_stats);
 
         resp->set_context(req->context());

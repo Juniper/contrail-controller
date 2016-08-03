@@ -26,7 +26,7 @@ void UDPConnectionManager::UDPRecvServer::RegisterCallback(
 }
 
 void UDPConnectionManager::UDPRecvServer::HandleReceive(
-        boost::asio::const_buffer &recv_buffer,
+        const boost::asio::const_buffer &recv_buffer,
         boost::asio::ip::udp::endpoint remote_endpoint,
         std::size_t bytes_transferred,
         const boost::system::error_code& error) {

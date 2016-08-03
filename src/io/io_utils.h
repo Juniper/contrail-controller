@@ -2,8 +2,8 @@
 // Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 //
 
-#ifndef IO_IO_UTILS_H_
-#define IO_IO_UTILS_H_
+#ifndef SRC_IO_IO_UTILS_H_
+#define SRC_IO_IO_UTILS_H_
 
 #include <tbb/atomic.h>
 
@@ -14,8 +14,8 @@ namespace io {
 struct SocketStats {
     SocketStats();
 
-    void GetRxStats(SocketIOStats &socket_stats) const;
-    void GetTxStats(SocketIOStats &socket_stats) const;
+    void GetRxStats(SocketIOStats *socket_stats) const;
+    void GetTxStats(SocketIOStats *socket_stats) const;
 
     tbb::atomic<uint64_t> read_calls;
     tbb::atomic<uint64_t> read_bytes;
@@ -32,4 +32,4 @@ struct SocketStats {
 
 }  // namespace io
 
-#endif  // IO_IO_UTILS_H_
+#endif  // SRC_IO_IO_UTILS_H_

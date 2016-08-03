@@ -35,7 +35,7 @@ void SFlowCollector::Shutdown() {
     }
 }
 
-void SFlowCollector::HandleReceive(boost::asio::const_buffer& buffer,
+void SFlowCollector::HandleReceive(const boost::asio::const_buffer& buffer,
             boost::asio::ip::udp::endpoint remote_endpoint,
             size_t bytes_transferred,
             const boost::system::error_code& error) {
