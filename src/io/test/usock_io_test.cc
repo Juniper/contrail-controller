@@ -13,7 +13,7 @@ namespace {
 
 class UsockServer: public UnixDomainSocketServer {
 public:
-    UsockServer(boost::asio::io_service & io_service, const char *path)
+    UsockServer(boost::asio::io_service *io_service, const char *path)
       : UnixDomainSocketServer(io_service, path) {
       set_observer(boost::bind(&UsockServer::EventHandler, this, _1, _2, _3));
     }
@@ -32,7 +32,7 @@ public:
 };
 
 class UsockClient {
- public:
+public:
     explicit UsockClient(const std::string &path) :
         sock_path_(path),
         socket_(-1) {
@@ -69,20 +69,20 @@ class UsockClient {
         assert(res == 0);
     }
 
-  private:
+private:
     std::string sock_path_;
     int socket_;
 };
 
 class UsockTest : public ::testing::Test {
- protected:
+protected:
     UsockTest() :
         evm_(new EventManager()) {
     }
     virtual void SetUp() {
         snprintf(socket_path_, 512, "/tmp/contrail-iotest-%u.sock", getpid());
         std::remove(socket_path_);
-        server_.reset(new UsockServer(*evm_->io_service(), socket_path_));
+        server_.reset(new UsockServer(evm_->io_service(), socket_path_));
         thread_.reset(new ServerThread(evm_.get()));
     }
 

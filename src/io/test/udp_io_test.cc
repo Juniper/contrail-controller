@@ -23,14 +23,14 @@ using boost::asio::mutable_buffer;
 using boost::asio::ip::udp;
 
 class EchoServer: public UdpServer {
- public:
+public:
     explicit EchoServer(EventManager *evm) : UdpServer(evm),
         tx_count_(0), rx_count_(0) {
     }
 
     ~EchoServer() { }
 
-    void HandleReceive(boost::asio::const_buffer &recv_buffer,
+    void HandleReceive(const boost::asio::const_buffer &recv_buffer,
             udp::endpoint remote_endpoint, std::size_t bytes_transferred,
             const boost::system::error_code& error) {
         UDP_UT_LOG_DEBUG("EchoServer rx " << bytes_transferred << "(" <<
@@ -78,13 +78,13 @@ class EchoServer: public UdpServer {
     int GetTxBytes() { return tx_count_; }
     int GetRxBytes() { return rx_count_; }
 
- private:
+private:
     int tx_count_;
     int rx_count_;
 };
 
 class EchoClient : public UdpServer {
- public:
+public:
     explicit EchoClient(boost::asio::io_service *io_service,
             int buffer_size = kDefaultBufferSize) :
         UdpServer(io_service, buffer_size),
@@ -116,7 +116,7 @@ class EchoClient : public UdpServer {
             error << ")\n");
     }
 
-    void HandleReceive(boost::asio::const_buffer &recv_buffer,
+    void HandleReceive(const boost::asio::const_buffer &recv_buffer,
             udp::endpoint remote_endpoint, std::size_t bytes_transferred,
             const boost::system::error_code& error) {
         rx_count_ += bytes_transferred;
@@ -133,7 +133,7 @@ class EchoClient : public UdpServer {
     int GetRxBytes() { return rx_count_; }
     bool client_rx_done() { return client_rx_done_; }
 
- private:
+private:
     int tx_count_;
     int rx_count_;
     std::string snd_buf_;
@@ -141,7 +141,7 @@ class EchoClient : public UdpServer {
 };
 
 class EchoServerTest : public ::testing::Test {
- protected:
+protected:
     EchoServerTest() { }
 
     virtual void SetUp() {
@@ -177,7 +177,7 @@ class EchoServerTest : public ::testing::Test {
 
 
 class EchoServerBranchTest : public ::testing::Test {
- protected:
+protected:
     EchoServerBranchTest() : _test_run(false) {}
 
     virtual void SetUp() {
@@ -205,7 +205,7 @@ class EchoServerBranchTest : public ::testing::Test {
         UDP_UT_LOG_DEBUG("UDP branch test Shutdown: " << _test_run);
     }
 
- private:
+private:
     bool _test_run;
 };
 
@@ -238,7 +238,7 @@ TEST_F(EchoServerBranchTest, Basic) {
 }
 
 class UdpRecvServerTest: public UdpServer {
- public:
+public:
     explicit UdpRecvServerTest(EventManager *evm) :
         UdpServer(evm),
         recv_msg_(0) {
@@ -246,7 +246,7 @@ class UdpRecvServerTest: public UdpServer {
 
     ~UdpRecvServerTest() { }
 
-    void OnRead(boost::asio::const_buffer &recv_buffer,
+    void OnRead(const boost::asio::const_buffer &recv_buffer,
                 const udp::endpoint &remote_endpoint) {
         UDP_UT_LOG_DEBUG("Received " << boost::asio::buffer_size(recv_buffer)
             << " bytes from " << remote_endpoint);
@@ -258,12 +258,12 @@ class UdpRecvServerTest: public UdpServer {
         return recv_msg_;
     }
 
- private:
+private:
     int recv_msg_;
 };
 
 class UdpLocalClient {
- public:
+public:
     explicit UdpLocalClient(int port) :
         dst_port_(port),
         socket_(-1) {
@@ -298,13 +298,13 @@ class UdpLocalClient {
         int res = shutdown(socket_, SHUT_RDWR);
         assert(res == 0);
     }
-  private:
+private:
     int dst_port_;
     int socket_;
 };
 
 class UdpRecvTest : public ::testing::Test {
- protected:
+protected:
     UdpRecvTest() :
         evm_(new EventManager()) {
     }
@@ -348,7 +348,7 @@ TEST_F(UdpRecvTest, Basic) {
     TASK_UTIL_EXPECT_EQ((int) 2 * sizeof(msg), len);
     TASK_UTIL_EXPECT_EQ(2, server_->GetNumRecvMsg());
     SocketIOStats rx_stats;
-    server_->GetRxSocketStats(rx_stats);
+    server_->GetRxSocketStats(&rx_stats);
     EXPECT_EQ(2, rx_stats.calls);
     EXPECT_EQ(len, rx_stats.bytes);
     client.Close();
