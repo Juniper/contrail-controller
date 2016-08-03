@@ -294,7 +294,8 @@ def parse_search_result(search_result_str):
     return result_list
 # end parse_search_result
 
-def ifmap_read(mapclient, ifmap_id, srch_meta, result_meta, field_names=None):
+def ifmap_read(mapclient, ifmap_id, srch_meta=None, result_meta=None,
+               max_depth=10):
     start_id = str(
         Identity(name=ifmap_id, type='other', other_type='extended'))
 
@@ -326,13 +327,22 @@ def ifmap_read(mapclient, ifmap_id, srch_meta, result_meta, field_names=None):
         return result
     # end _search
 
-    return _search(start_id, srch_meta, result_meta, max_depth=10)
+    return _search(start_id, srch_meta, result_meta, max_depth=max_depth)
 # end ifmap_read
 
 def ifmap_read_all(mapclient, srch_meta=None, result_meta='all'):
     return ifmap_read(mapclient, 'contrail:config-root:root',
                       srch_meta, result_meta)
 # end ifmap_read_all
+
+def entity_is_present(mapclient, entity_name):
+    id_perms_str = 'contrail:id-perms'
+    try:
+        search_results = parse_search_result(
+            ifmap_read(mapclient, entity_name, result_meta=id_perms_str))
+        return id_perms_str == search_results[0][2]._Metadata__name
+    except Exception:
+        return False
 
 def escape(data):
     if _XML_ESCAPE_SEARCH_PATTERN(data):
