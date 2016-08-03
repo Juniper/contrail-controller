@@ -294,7 +294,8 @@ def parse_search_result(search_result_str):
     return result_list
 # end parse_search_result
 
-def ifmap_read(mapclient, ifmap_id, srch_meta, result_meta, field_names=None):
+def ifmap_read(mapclient, ifmap_id, srch_meta=None, result_meta=None,
+               max_depth=10):
     start_id = str(
         Identity(name=ifmap_id, type='other', other_type='extended'))
 
@@ -308,15 +309,11 @@ def ifmap_read(mapclient, ifmap_id, srch_meta, result_meta, field_names=None):
         if match_meta is not None:
             srch_params['match-links'] = match_meta
 
-        if result_meta is not None:
-            # all => don't set result-filter, so server returns all id + meta
-            if result_meta == "all":
-                pass
-            else:
-                srch_params['result-filter'] = result_meta
+        # all => don't set result-filter, so server returns all id + meta
+        if result_meta is None or result_meta == "all":
+            pass
         else:
-            # default to return match_meta metadata types only
-            srch_params['result-filter'] = match_meta
+            srch_params['result-filter'] = result_meta
 
         srch_req = SearchRequest(mapclient.get_session_id(), start_id,
                                  search_parameters=srch_params
@@ -326,13 +323,34 @@ def ifmap_read(mapclient, ifmap_id, srch_meta, result_meta, field_names=None):
         return result
     # end _search
 
-    return _search(start_id, srch_meta, result_meta, max_depth=10)
+    return _search(start_id, srch_meta, result_meta, max_depth=max_depth)
 # end ifmap_read
 
 def ifmap_read_all(mapclient, srch_meta=None, result_meta='all'):
     return ifmap_read(mapclient, 'contrail:config-root:root',
                       srch_meta, result_meta)
 # end ifmap_read_all
+
+
+def entity_is_present(mapclient, type, fq_name):
+    ifmap_id = get_ifmap_id_from_fq_name(type, fq_name)
+    try:
+        search_results = parse_search_result(ifmap_read(mapclient, ifmap_id,
+                                                        max_depth=1))
+        for ident, meta in search_results:
+            if (type == ident.keys()[0] and
+                    ident.values()[0].split(':') == fq_name and
+                    'id-perms' in [c.xpath('local-name()') for c in meta]):
+                return True
+    except Exception:
+        return False
+
+
+def ifmap_wipe(mapclient):
+    purge_req = PurgeRequest(mapclient.get_session_id(),
+                             mapclient.get_publisher_id())
+    return mapclient.call('purge', purge_req)
+
 
 def escape(data):
     if _XML_ESCAPE_SEARCH_PATTERN(data):
