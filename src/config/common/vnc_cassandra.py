@@ -489,7 +489,7 @@ class VncCassandraClient(object):
                         default_validation_class='UTF8Type')
             except pycassa.cassandra.ttypes.InvalidRequestException as e:
                 # TODO verify only EEXISTS
-                self._logger("Warning! " + str(e), level=SandeshLevel.SYS_WARN)
+                self._logger("Info! " + str(e), level=SandeshLevel.SYS_INFO)
                 self.sys_mgr.alter_column_family(keyspace_name, cf_name,
                     gc_grace_seconds=gc_grace_sec,
                     default_validation_class='UTF8Type')
