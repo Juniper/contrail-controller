@@ -2195,14 +2195,17 @@ class TestStaleLockRemoval(test_case.ApiServerTestCase):
 
 # end TestStaleLockRemoval
 
-class TestIfmapHealthCheck(test_case.ApiServerTestCase):
+class TestIfmapErrors(test_case.ApiServerTestCase):
     """ Tests to verify re-seeding of ifmap once it does down->up move. """
     HEALTH_CHECK_INTERVAL = '0.5'
+
     @classmethod
     def setUpClass(cls):
-        super(TestIfmapHealthCheck, cls).setUpClass(extra_config_knobs=[
-            ('DEFAULTS', 'ifmap_health_check_interval',
-                         cls.HEALTH_CHECK_INTERVAL)])
+        super(TestIfmapErrors, cls).setUpClass(
+            extra_config_knobs=[
+                ('DEFAULTS', 'ifmap_health_check_interval',
+                 cls.HEALTH_CHECK_INTERVAL),
+            ])
     # end setUpClass
 
     def test_periodic_check(self):
@@ -2211,25 +2214,42 @@ class TestIfmapHealthCheck(test_case.ApiServerTestCase):
         self.assertIsNot(health_check_node, None)
     # end test_periodic_check
 
-    def test_reseed_after_error(self):
+    def test_ifmap_reseed_after_restarted(self):
+        self.wait_till_api_server_idle()
+        test_obj = self._create_test_object()
+        self.assertTill(self.ifmap_has_ident, obj=test_obj)
+        FakeIfmapClient.reset('8443') # feign ifmap restart
+        self.assertTill(self.ifmap_has_ident, obj=test_obj)
+    # end test_ifmap_reseed_after_restarted
+
+    def test_ifmap_ident_publish_after_connection_lost(self):
         self.ignore_err_in_log = True
         api_server = self._server_info['api_server']
-        err_invokes = []
+        mapclient = api_server._db_conn._ifmap_db._mapclient
+        db_client = api_server._db_conn
+        err_on_publish_raised = []
         def err_on_publish(orig_method, *args, **kwargs):
-            if not err_invokes:
-                err_invokes.append(True)
+            if not err_on_publish_raised:
+                err_on_publish_raised.append(True)
                 raise socket.error
-            orig_method(*args, **kwargs)
+            return orig_method(*args, **kwargs)
+        db_resync_called = []
+        def assert_on_call(orig_method, *args, **kwargs):
+            db_resync_called.append(True)
+            return orig_method(*args, **kwargs)
 
         self.wait_till_api_server_idle()
-        with test_common.patch(api_server._db_conn._ifmap_db._mapclient,
-            'call', err_on_publish):
-            test_obj = self._create_test_object()
-            self.assertTill(self.ifmap_has_ident, obj=test_obj)
+        with test_common.patch(mapclient, 'call', err_on_publish):
+            with test_common.patch(db_client, 'db_resync', assert_on_call):
+                test_obj = self._create_test_object()
+                while not err_on_publish_raised:
+                    gevent.sleep(0.001)
 
-        self.assertNotEqual(len(err_invokes), 0)
-    # end test_reseed_after_error
-# end class TestIfmapHealthCheck
+        self.assertNotEqual(len(err_on_publish_raised), 0)
+        self.assertTill(self.ifmap_has_ident, obj=test_obj)
+        self.assertEqual(len(db_resync_called), 0)
+    # end test_ifmap_ident_publish_after_connection_error
+# end class TestIfmapErrors
 
 class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
     """ Tests to verify the max_requests config parameter of api-server."""
