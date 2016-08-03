@@ -29,7 +29,8 @@ from cfgm_common.ifmap.operations import PublishUpdateOperation,\
     PublishDeleteOperation
 from cfgm_common.ifmap.response import newSessionResult
 from cfgm_common.ifmap.metadata import Metadata
-from cfgm_common.imid import escape
+from cfgm_common.imid import escape, entity_is_present,\
+    get_ifmap_id_from_fq_name, get_fq_name_from_ifmap_id
 from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
 from cfgm_common.vnc_cassandra import VncCassandraClient
 from cfgm_common.vnc_kombu import VncKombuClient
@@ -52,7 +53,6 @@ import signal, os
 
 #from cfgm_common import vnc_type_conv
 from provision_defaults import *
-import cfgm_common.imid
 from cfgm_common.exceptions import *
 from vnc_quota import *
 from pysandesh.connection_info import ConnectionState
@@ -265,8 +265,7 @@ class VncIfmapClient(object):
                 ref_res_type = ref_fld_types_list[0]
                 ref_link_type = ref_fld_types_list[1]
                 ref_meta = obj_class.ref_field_metas[ref_field]
-                ref_imid = cfgm_common.imid.get_ifmap_id_from_fq_name(
-                    ref_res_type, ref_fq_name)
+                ref_imid = get_ifmap_id_from_fq_name(ref_res_type, ref_fq_name)
                 ref_data = ref.get('attr')
                 if ref_data:
                     buf = cStringIO.StringIO()
@@ -351,8 +350,7 @@ class VncIfmapClient(object):
             ref_obj_type = self._db_client_mgr.get_resource_class(
                 ref_res_type).object_type
             for ref in new_obj_dict.get(ref_obj_type+'_refs', []):
-                to_imid = cfgm_common.imid.get_ifmap_id_from_fq_name(
-                    ref_res_type, ref['to'])
+                to_imid = get_ifmap_id_from_fq_name(ref_res_type, ref['to'])
                 new_set.add(to_imid)
 
             for inact_ref in old_set - new_set:
@@ -559,13 +557,32 @@ class VncIfmapClient(object):
                                   %(req_xml, resp_xml)
                         self.config_log(log_str, level=SandeshLevel.SYS_ERR)
 
+                    ConnectionState.update(
+                        conn_type = ConnType.IFMAP,
+                        name = 'IfMap',
+                        status = ConnectionStatus.INIT,
+                        message = 'Session lost, renew it',
+                        server_addrs = ["%s:%s" % (self._ifmap_srv_ip,
+                                                   self._ifmap_srv_port)])
+                    self._conn_state = ConnectionStatus.INIT
+                    self._is_ifmap_up = False
                     retry_count = retry_count + 1
-                    result = self._mapclient.call('newSession',
-                                                  NewSessionRequest())
-                    sess_id = newSessionResult(result).get_session_id()
-                    pub_id = newSessionResult(result).get_publisher_id()
-                    self._mapclient.set_session_id(sess_id)
-                    self._mapclient.set_publisher_id(pub_id)
+                    self._init_conn()
+
+                    if self._ifmap_restarted():
+                        msg = "IF-MAP servers restarted, re-populate it"
+                        self.config_log(msg, level=SandeshLevel.SYS_ERR)
+
+                        self.reset()
+                        self._get_api_server().un_publish_ifmap_to_discovery()
+
+                        self._publish_config_root()
+                        self._db_client_mgr.db_resync()
+                        self._publish_to_ifmap_enqueue('publish_discovery', 1)
+                    else:
+                        # TODO
+                self._conn_state = ConnectionStatus.DOWN
+
                 else: # successful publish
                     not_published = False
                     break
@@ -698,10 +715,11 @@ class VncIfmapClient(object):
         requests = []
         self_metas = self._id_to_metas.setdefault(self_imid, {})
         for id2, metalist in update.items():
-            requests.append(self._build_request(self_imid, id2, metalist))
+            request = append(self._build_request(self_imid, id2, metalist))
 
             # remember what we wrote for diffing during next update
             for m in metalist:
+                old_metalist = []
                 meta_name = m._Metadata__name[9:]
 
                 # Objects have two types of members - Props and refs/links.
@@ -718,6 +736,7 @@ class VncIfmapClient(object):
                     continue
 
                 if meta_name in self_metas:
+                    old_metalist.append(self_metas[meta_name])
                     # Update the link/ref
                     self_metas[meta_name][id2] = m
                 else:
@@ -732,9 +751,17 @@ class VncIfmapClient(object):
                 else:
                     self._id_to_metas[id2][meta_name] = {self_imid : m}
 
+            old_request = append(
+                self._build_request(self_imid, id2, old_metalist))
+            if resquest != old_request:
+                resuests.append(request)
+
         upd_str = ''.join(requests)
         self._publish_to_ifmap_enqueue('update', upd_str)
     # end _publish_update
+
+    def _ifmap_restarted(self):
+        return not entity_is_present('contrail:config-root:root')
 
     def _health_checker(self):
         while True:
@@ -750,41 +777,9 @@ class VncIfmapClient(object):
 
                 # Confirm the existence of the following default global entities in IFMAP.
                 search_list = ['contrail:global-system-config:default-global-system-config']
-                mapclient = self._mapclient
-                srch_params = {}
-                srch_params['max-depth'] = '0'
-                srch_params['max-size'] = '500000'
-                srch_params['result-filter'] = None
-
-                for each_entity in search_list:
-                    start_id = str(
-                        Identity(name = each_entity,
-                        type='other', other_type='extended'))
-
-                    srch_req = SearchRequest(mapclient.get_session_id(), start_id,
-                                             search_parameters = srch_params)
-
-                    result = mapclient.call('search', srch_req)
-                    soap_doc = etree.fromstring(result)
-                    result_items = soap_doc.xpath(
-                        '/env:Envelope/env:Body/ifmap:response/searchResult/resultItem',
-                        namespaces=self._NAMESPACES)
-
-                    # The above IFMAP search call does not return the success of
-                    # the search query. To determine the success of the query
-                    # we verify whether the response has a 'metadata' child
-                    # and that in turn has "perms" sub children, then we can assume
-                    # that the query has succeeded. If not, we raise an
-                    # exception that the IFMAP does not contain basic Contrail
-                    # entities.
-                    for each_result in result_items:
-                        result_children = each_result.getchildren()
-                        metadata = [x for x in result_children if x.tag == 'metadata']
-                        if len(metadata) != 0:
-                            perms = [x for x in metadata[0] if "perms" in x.tag]
-                            if len(perms) != 0:
-                                continue
-                        raise Exception("%s not found in IFMAP DB" % each_entity)
+                for entity in search_list:
+                    if not entity_is_present(self._mapclient, entity):
+                        raise Exception("%s not found in IFMAP DB" % entity)
 
                 # If we had unpublished the IFMAP server to discovery server earlier
                 # publish it back now since it is valid now.
@@ -1977,7 +1972,7 @@ class VncDbClient(object):
         self._msgbus.dbe_delete_publish(obj_type, obj_ids, obj_dict)
 
         # finally remove mapping in zk
-        fq_name = cfgm_common.imid.get_fq_name_from_ifmap_id(obj_ids['imid'])
+        fq_name = get_fq_name_from_ifmap_id(obj_ids['imid'])
         self.dbe_release(obj_type, fq_name)
 
         return ok, cassandra_result
@@ -2049,7 +2044,7 @@ class VncDbClient(object):
 
     def uuid_to_ifmap_id(self, res_type, id):
         fq_name = self.uuid_to_fq_name(id)
-        return cfgm_common.imid.get_ifmap_id_from_fq_name(res_type, fq_name)
+        return get_ifmap_id_from_fq_name(res_type, fq_name)
     # end uuid_to_ifmap_id
 
     def fq_name_to_uuid(self, obj_type, fq_name):
