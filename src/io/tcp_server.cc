@@ -2,12 +2,13 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "tcp_server.h"
+#include "io/tcp_server.h"
+
+#include <errno.h>
 
 #include <boost/asio/connect.hpp>
 #include <boost/asio/placeholders.hpp>
 #include <boost/bind.hpp>
-#include <errno.h>
 
 #include "base/logging.h"
 #include "io/event_manager.h"
@@ -20,8 +21,10 @@ using boost::asio::socket_base;
 using boost::bind;
 using boost::system::error_code;
 
-using namespace boost::asio::ip;
-using namespace std;
+using boost::asio::ip::tcp;
+using boost::asio::socket_base;
+using std::ostringstream;
+using std::string;
 
 TcpServer::TcpServer(EventManager *evm)
     : evm_(evm), socket_open_failure_(false) {
@@ -248,7 +251,7 @@ bool TcpServer::HasSessionReadAvailable() const {
     if (accept_socket()->available(error) > 0) {
         return  true;
     }
-    for (SessionMap::const_iterator iter = session_map_.begin(); 
+    for (SessionMap::const_iterator iter = session_map_.begin();
          iter != session_map_.end();
          ++iter) {
         if (iter->second->socket()->available(error) > 0) {
@@ -357,7 +360,7 @@ done:
     AsyncAccept();
 }
 
-void TcpServer::AcceptHandlerComplete(TcpSessionPtr &session) {
+void TcpServer::AcceptHandlerComplete(TcpSessionPtr session) {
     tcp::endpoint remote = session->remote_endpoint();
     {
         tbb::mutex::scoped_lock lock(mutex_);
@@ -403,7 +406,7 @@ void TcpServer::ConnectHandler(TcpServerPtr server, TcpSessionPtr session,
     ConnectHandlerComplete(session);
 }
 
-void TcpServer::ConnectHandlerComplete(TcpSessionPtr &session) {
+void TcpServer::ConnectHandlerComplete(TcpSessionPtr session) {
     error_code ec;
     Endpoint remote = session->socket()->remote_endpoint(ec);
     if (ec) {
@@ -435,7 +438,7 @@ void TcpServer::Connect(TcpSession *session, Endpoint remote) {
 }
 
 int TcpServer::SetMd5SocketOption(int fd, uint32_t peer_ip,
-                                  const std::string &md5_password) {
+                                  const string &md5_password) {
     assert(md5_password.size() <= TCP_MD5SIG_MAXKEYLEN);
     if (!peer_ip) {
         TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "Invalid peer IP");
@@ -470,7 +473,7 @@ int TcpServer::SetMd5SocketOption(int fd, uint32_t peer_ip,
 }
 
 int TcpServer::SetListenSocketMd5Option(uint32_t peer_ip,
-                                        const std::string &md5_password) {
+                                        const string &md5_password) {
     int retval = 0;
     if (acceptor_) {
         retval = SetMd5SocketOption(acceptor_->native_handle(), peer_ip,
@@ -479,11 +482,11 @@ int TcpServer::SetListenSocketMd5Option(uint32_t peer_ip,
     return retval;
 }
 
-void TcpServer::GetRxSocketStats(SocketIOStats &socket_stats) const {
+void TcpServer::GetRxSocketStats(SocketIOStats *socket_stats) const {
     stats_.GetRxStats(socket_stats);
 }
 
-void TcpServer::GetTxSocketStats(SocketIOStats &socket_stats) const {
+void TcpServer::GetTxSocketStats(SocketIOStats *socket_stats) const {
     stats_.GetTxStats(socket_stats);
 }
 
