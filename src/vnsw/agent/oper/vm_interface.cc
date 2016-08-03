@@ -4792,6 +4792,8 @@ void VmInterface::AllowedAddressPair::DeActivate(VmInterface *interface) const {
     interface->DeleteRoute(vrf_, addr_, plen_);
     MplsLabel::Delete(interface->agent(), label_);
     label_ = MplsTable::kInvalidLabel;
+    policy_enabled_nh_ = NULL;
+    policy_disabled_nh_ = NULL;
     installed_ = false;
 }
 
