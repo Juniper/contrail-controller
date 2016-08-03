@@ -57,7 +57,7 @@ class ControlProvisioner(object):
             self._args.admin_tenant_name,
             self._args.api_server_ip, self._args.api_server_port)
         if self._args.oper == 'add':
-            bp_obj.add_bgp_router('contrail', self._args.host_name,
+            bp_obj.add_bgp_router('control-node', self._args.host_name,
                                   self._args.host_ip, self._args.router_asn,
                                   self._args.address_families, self._args.md5)
         elif self._args.oper == 'del':

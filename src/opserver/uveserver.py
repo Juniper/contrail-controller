@@ -321,22 +321,7 @@ class UVEServer(object):
 
                         if value[0] == '<':
                             snhdict = xmltodict.parse(value)
-                            # TODO: This is a hack for separating external
-                            # bgp routers from control-nodes
-                            if snhdict[attr]['@type'] == 'map':
-                                if typ == 'ContrailConfig' and \
-                                        tab == 'ObjectBgpRouter' and \
-                                        attr == 'elements':
-                                    try:
-                                        elem = OpServerUtils.uve_attr_flatten(\
-                                            snhdict[attr])
-                                        vendor = json.loads(\
-                                            elem['bgp_router_parameters'])["vendor"]
-                                        if vendor != "contrail":
-                                            continue
-                                    except:
-                                        pass
-                            elif snhdict[attr]['@type'] == 'list':
+                            if snhdict[attr]['@type'] == 'list':
                                 sname = ParallelAggregator.get_list_name(
                                         snhdict[attr])
                                 if snhdict[attr]['list']['@size'] == '0':
