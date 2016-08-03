@@ -116,6 +116,7 @@ void KState::IfMsgHandler(vr_interface_req *r) {
     data.set_duplexity(r->get_vifr_duplex());
 
     data.set_mac(ist->MacToString(r->get_vifr_mac()));
+    data.set_qos_map_index(r->get_vifr_qos_map_index());
     list.push_back(data);
 
     UpdateContext(reinterpret_cast<void *>(r->get_vifr_idx()));
