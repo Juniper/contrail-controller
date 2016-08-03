@@ -372,10 +372,10 @@ void Collector::GetGeneratorUVEInfo(vector<ModuleServerState> &genlist) {
         if (session) {
             ginfo.set_session_stats(session->GetStats());
             SocketIOStats rx_stats;
-            session->GetRxSocketStats(rx_stats);
+            session->GetRxSocketStats(&rx_stats);
             ginfo.set_session_rx_socket_stats(rx_stats);
             SocketIOStats tx_stats;
-            session->GetTxSocketStats(tx_stats);
+            session->GetTxSocketStats(&tx_stats);
             ginfo.set_session_tx_socket_stats(tx_stats);
         }
 

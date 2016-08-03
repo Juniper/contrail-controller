@@ -611,9 +611,9 @@ void XmppServer::FillShowConnections(
 
 void XmppServer::FillShowServer(ShowXmppServerResp *resp) const {
     SocketIOStats peer_socket_stats;
-    GetRxSocketStats(peer_socket_stats);
+    GetRxSocketStats(&peer_socket_stats);
     resp->set_rx_socket_stats(peer_socket_stats);
-    GetTxSocketStats(peer_socket_stats);
+    GetTxSocketStats(&peer_socket_stats);
     resp->set_tx_socket_stats(peer_socket_stats);
     resp->set_current_connections(connection_map_.size());
     resp->set_max_connections(max_connections_);
