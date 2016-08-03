@@ -30,8 +30,8 @@ from pysandesh.connection_info import ConnectionState
 from pysandesh.sandesh_logger import SandeshLogger
 from pysandesh.gen_py.sandesh_alarm.ttypes import SandeshAlarmAckResponseCode
 from sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import AlarmTrace, \
-    UVEAlarms, UVEAlarmInfo, UVEAlarmConfig, AlarmCondition, AlarmMatch, \
-    AlarmConditionMatch, AlarmAndList, AlarmRules
+    UVEAlarms, UVEAlarmInfo, UVEAlarmConfig, AlarmOperand2, AlarmCondition, \
+    AlarmMatch, AlarmConditionMatch, AlarmAndList, AlarmRules
 from sandesh.analytics.ttypes import *
 from sandesh.nodeinfo.ttypes import NodeStatusUVE, NodeStatus
 from sandesh.nodeinfo.cpuinfo.ttypes import *
@@ -288,7 +288,8 @@ class AlarmProcessor(object):
                 var_val = \
                     operand1_val['parent_attr'].get(var.rsplit('.', 1)[1])
             elif not is_operand2_json_val and \
-                var.rsplit('.', 1)[0] == exp.operand2.rsplit('.', 1)[0]:
+                var.rsplit('.', 1)[0] == exp.operand2.uve_attribute.rsplit(
+                    '.', 1)[0]:
                 var_val = \
                     operand2_val['parent_attr'].get(var.rsplit('.', 1)[1])
             else:
@@ -342,7 +343,7 @@ class AlarmProcessor(object):
         else:
             json_operand2_val = None
         return AlarmMatch(json_operand1_value=json_operand1_val,
-            json_operand2_value=json_operand2_val, json_vars=json_vars)
+            json_operand2_value=json_operand2_val, json_variables=json_vars)
     # end _get_alarm_match
 
     def _get_alarm_condition_match(self, uve, exp, operand1_val, operand2_val,
@@ -352,8 +353,10 @@ class AlarmProcessor(object):
                 operand2_val, is_operand2_json_val)]
         return AlarmConditionMatch(
             condition=AlarmCondition(operation=exp.operation,
-                operand1=exp.operand1, operand2=exp.operand2,
-                vars=exp.variables),
+                operand1=exp.operand1, operand2=AlarmOperand2(
+                    uve_attribute=exp.operand2.uve_attribute,
+                    json_value=exp.operand2.json_value),
+                variables=exp.variables),
             match=match_list)
     # end _get_alarm_condition_match
 
@@ -375,11 +378,12 @@ class AlarmProcessor(object):
                     operand1_val['status'] is False:
                     and_list_fail = True
                     break
-                try:
-                    operand2_val = json.loads(exp.operand2)
+                if exp.operand2.json_value is not None:
+                    operand2_val = json.loads(exp.operand2.json_value)
                     is_operand2_json_val = True
-                except ValueError:
-                    operand2_val = self._get_operand_value(uve, exp.operand2)
+                else:
+                    operand2_val = self._get_operand_value(uve,
+                        exp.operand2.uve_attribute)
                     if isinstance(operand2_val, dict) and \
                         operand2_val['status'] is False:
                         and_list_fail = True

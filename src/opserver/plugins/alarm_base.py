@@ -5,14 +5,13 @@ class AlarmBase(object):
     """Base class for Alarms
     """
 
-    SYS_EMERG, SYS_ALERT, SYS_CRIT, SYS_ERR,\
-        SYS_WARN, SYS_NOTICE, SYS_INFO, SYS_DEBUG = range(8)
+    ALARM_CRITICAL, ALARM_MAJOR, ALARM_MINOR = range(3)
 
     _RULES = None
 
     def __init__(self, sev=None, at=0, it=0, fec=False,
                  fcs=0, fct=0, config=None):
-        self._sev = sev or self.SYS_ERR
+        self._sev = sev or self.ALARM_MAJOR
         self._ActiveTimer = at
         self._IdleTimer = it
         self._FreqExceededCheck = fec
@@ -89,5 +88,5 @@ class AlarmBase(object):
         alarm processing engine.
         :param uve_key: Key of the UVE (a string)
         :param uve_data: UVE Contents
-        :returns: list of AlarmRuleMatch
+        :returns: list of AlarmAndList
         """

@@ -4,7 +4,7 @@ from opserver.sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import *
 class PartialSysinfo(AlarmBase):
 
     def __init__(self):
-	AlarmBase.__init__(self, AlarmBase.SYS_WARN)
+	AlarmBase.__init__(self, AlarmBase.ALARM_MAJOR)
 
 
 class PartialSysinfoCompute(PartialSysinfo):
@@ -18,7 +18,9 @@ class PartialSysinfoCompute(PartialSysinfo):
                     {
                         'operand1': 'VrouterAgent.build_info',
                         'operation': '==',
-                        'operand2': 'null'
+                        'operand2': {
+                            'json_value': 'null'
+                        }
                     }
                 ]
             }
@@ -37,7 +39,9 @@ class PartialSysinfoAnalytics(PartialSysinfo):
                     {
                         'operand1': 'CollectorState.build_info',
                         'operation': '==',
-                        'operand2': 'null'
+                        'operand2': {
+                            'json_value': 'null'
+                        }
                     }
                 ]
             }
@@ -56,7 +60,9 @@ class PartialSysinfoConfig(PartialSysinfo):
                     {
                         'operand1': 'ModuleCpuState.build_info',
                         'operation': '==',
-                        'operand2': 'null'
+                        'operand2': {
+                            'json_value': 'null'
+                        }
                     }
                 ]
             }
@@ -75,7 +81,9 @@ class PartialSysinfoControl(PartialSysinfo):
                     {
                         'operand1': 'BgpRouterState.build_info',
                         'operation': '==',
-                        'operand2': 'null'
+                        'operand2': {
+                            'json_value': 'null'
+                        }
                     }
                 ]
             }
