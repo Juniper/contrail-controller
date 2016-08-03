@@ -112,7 +112,7 @@ protected:
         VrfEntry *vrf = VrfGet("vrf5");
         static_cast<InetUnicastAgentRouteTable *>(
                 vrf->GetInet4UnicastRouteTable())->AddHostRoute("vrf5",
-                gw_ip, 32, "vn5");
+                gw_ip, 32, "vn5", false);
         client->WaitForIdle();
     }
 

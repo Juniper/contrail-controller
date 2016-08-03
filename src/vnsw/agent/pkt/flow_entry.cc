@@ -508,6 +508,11 @@ bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
     } else {
         reset_flags(FlowEntry::LinkLocalFlow);
     }
+    if (ctrl->route_lookup) {
+        set_flags(FlowEntry::RouteLookup);
+    } else {
+        reset_flags(FlowEntry::RouteLookup);
+    }
     if (info->nat_done) {
         set_flags(FlowEntry::NatFlow);
     } else {

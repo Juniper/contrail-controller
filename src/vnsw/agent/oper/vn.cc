@@ -914,11 +914,11 @@ void VnTable::DelVn(const uuid &vn_uuid) {
 
 void VnTable::UpdateHostRoute(const IpAddress &old_address, 
                               const IpAddress &new_address,
-                              VnEntry *vn) {
+                              VnEntry *vn, bool relaxed_policy) {
     VrfEntry *vrf = vn->GetVrf();
 
     if (vrf && (vrf->GetName() != agent()->linklocal_vrf_name())) {
-        AddHostRoute(vn, new_address);
+        AddHostRoute(vn, new_address, relaxed_policy);
         DelHostRoute(vn, old_address);
     }
 }
@@ -958,12 +958,12 @@ bool VnTable::IpamChangeNotify(std::vector<VnIpam> &old_ipam,
                 if (gateway_changed) {
                     if (IsGwHostRouteRequired()) {
                         UpdateHostRoute((*it_old).default_gw,
-                                        (*it_new).default_gw, vn);
+                                        (*it_new).default_gw, vn, false);
                     }
                 }
                 if (service_address_changed) {
                     UpdateHostRoute((*it_old).dns_server,
-                                    (*it_new).dns_server, vn);
+                                    (*it_new).dns_server, vn, true);
                 }
             } else {
                 AddIPAMRoutes(vn, *it_new);
@@ -1033,8 +1033,8 @@ void VnTable::AddIPAMRoutes(VnEntry *vn, VnIpam &ipam) {
             return;
         }
         if (IsGwHostRouteRequired())
-            AddHostRoute(vn, ipam.default_gw);
-        AddHostRoute(vn, ipam.dns_server);
+            AddHostRoute(vn, ipam.default_gw, false);
+        AddHostRoute(vn, ipam.dns_server, true);
         AddSubnetRoute(vn, ipam);
         ipam.installed = true;
     }
@@ -1056,16 +1056,17 @@ bool VnTable::IsGwHostRouteRequired() {
 }
 
 // Add receive route for default gw
-void VnTable::AddHostRoute(VnEntry *vn, const IpAddress &address) {
+void VnTable::AddHostRoute(VnEntry *vn, const IpAddress &address,
+                           bool relaxed_policy) {
     VrfEntry *vrf = vn->GetVrf();
     if (address.is_v4()) {
         static_cast<InetUnicastAgentRouteTable *>(vrf->
             GetInet4UnicastRouteTable())->AddHostRoute(vrf->GetName(),
-                address.to_v4(), 32, vn->GetName());
+                address.to_v4(), 32, vn->GetName(), relaxed_policy);
     } else if (address.is_v6()) {
         static_cast<InetUnicastAgentRouteTable *>(vrf->
             GetInet6UnicastRouteTable())->AddHostRoute(vrf->GetName(),
-                address.to_v6(), 128, vn->GetName());
+                address.to_v6(), 128, vn->GetName(), relaxed_policy);
     }
 }
 
