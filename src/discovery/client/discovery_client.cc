@@ -825,6 +825,7 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName) {
                 }
             }
 
+            tbb::mutex::scoped_lock lock(mutex_);
             if (resp->inuse_service_list_.size()) {
                 pugi::xml_node node_service = pugi->FindNode(serviceName);
                 if (!pugi->IsNull(node_service)) {
@@ -1235,6 +1236,7 @@ void DiscoveryServiceClient::AddSubscribeInUseServiceList(
 
     DSSubscribeResponse *resp = GetSubscribeResponse(serviceName);
     if (resp) {
+        tbb::mutex::scoped_lock lock(mutex_);
         resp->AddInUseServiceList(ep);
     }
 }
@@ -1244,6 +1246,7 @@ void DiscoveryServiceClient::DeleteSubscribeInUseServiceList(
 
     DSSubscribeResponse *resp = GetSubscribeResponse(serviceName);
     if (resp) {
+        tbb::mutex::scoped_lock lock(mutex_);
         resp->DeleteInUseServiceList(ep);
     }
 }
