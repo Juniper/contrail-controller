@@ -12,12 +12,14 @@ class ConfIncorrect(AlarmBase):
                     {
                         'operand1': 'ContrailConfig',
                         'operation': '==',
-                        'operand2': 'null'
+                        'operand2': {
+                            'json_value': 'null'
+                        }
                     }
                 ]
             }
         ]
     }
 
-    def __init__(self, sev = AlarmBase.SYS_ERR):
+    def __init__(self, sev = AlarmBase.ALARM_MAJOR):
         AlarmBase.__init__(self, sev)

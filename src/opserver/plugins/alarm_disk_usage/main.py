@@ -13,7 +13,9 @@ class DiskUsage(AlarmBase):
                         'operand1': 'NodeStatus.disk_usage_info.' + \
                             'percentage_partition_space_used',
                         'operation': '>=',
-                        'operand2': '90',
+                        'operand2': {
+                            'json_value': '90'
+                        },
                         'variables': \
                             ['NodeStatus.disk_usage_info.partition_name']
                     }
@@ -23,4 +25,4 @@ class DiskUsage(AlarmBase):
     }
 
     def __init__(self):
-        AlarmBase.__init__(self, AlarmBase.SYS_ERR)
+        AlarmBase.__init__(self, AlarmBase.ALARM_CRITICAL)

@@ -14,7 +14,9 @@ class AddressMismatchCompute(AlarmBase):
                         'operand1': 'ContrailConfig.elements.' + \
                             'virtual_router_ip_address',
                         'operation': 'not in',
-                        'operand2': 'VrouterAgent.self_ip_list'
+                        'operand2': {
+                            'uve_attribute': 'VrouterAgent.self_ip_list'
+                        }
                     }
                 ]
             },
@@ -24,7 +26,9 @@ class AddressMismatchCompute(AlarmBase):
                         'operand1': 'ContrailConfig.elements.' + \
                             'virtual_router_ip_address',
                         'operation': '!=',
-                        'operand2': 'VrouterAgent.control_ip'
+                        'operand2': {
+                            'uve_attribute': 'VrouterAgent.control_ip'
+                        }
                     }
                 ]
             }
@@ -32,7 +36,7 @@ class AddressMismatchCompute(AlarmBase):
     }
 
     def __init__(self):
-        AlarmBase.__init__(self, AlarmBase.SYS_ERR)
+        AlarmBase.__init__(self, AlarmBase.ALARM_MAJOR)
 
        
 class AddressMismatchControl(AlarmBase):
@@ -48,7 +52,10 @@ class AddressMismatchControl(AlarmBase):
                         'operand1': 'ContrailConfig.elements.' + \
                             'bgp_router_parameters.address',
                         'operation': 'not in',
-                        'operand2': 'BgpRouterState.bgp_router_ip_list'
+                        'operand2': {
+                            'uve_attribute':
+                                'BgpRouterState.bgp_router_ip_list'
+                        }
                     }
                 ]
             }
@@ -56,4 +63,4 @@ class AddressMismatchControl(AlarmBase):
     }
 
     def __init__(self):
-        AlarmBase.__init__(self, AlarmBase.SYS_ERR)
+        AlarmBase.__init__(self, AlarmBase.ALARM_MAJOR)

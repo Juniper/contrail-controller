@@ -12,7 +12,9 @@ class VrouterInterface(AlarmBase):
                     {
                         'operand1': 'VrouterAgent.down_interface_count',
                         'operation': '>=',
-                        'operand2': '1',
+                        'operand2': {
+                            'json_value': '1'
+                        },
                         'variables': ['VrouterAgent.error_intf_list', \
                             'VrouterAgent.no_config_intf_list']
                     },
@@ -22,4 +24,4 @@ class VrouterInterface(AlarmBase):
     }
 
     def __init__(self):
-        AlarmBase.__init__(self, AlarmBase.SYS_WARN)
+        AlarmBase.__init__(self, AlarmBase.ALARM_MAJOR)
