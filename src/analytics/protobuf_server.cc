@@ -476,12 +476,12 @@ class ProtobufServer::ProtobufServerImpl {
             std::vector<SocketEndpointMessageStats> *v_rx_msg_stats) {
             if (v_tx_stats != NULL) {
                 SocketIOStats tx_stats;
-                GetTxSocketStats(tx_stats);
+                GetTxSocketStats(&tx_stats);
                 v_tx_stats->push_back(tx_stats);
             }
             if (v_rx_stats != NULL) {
                 SocketIOStats rx_stats;
-                GetRxSocketStats(rx_stats);
+                GetRxSocketStats(&rx_stats);
                 v_rx_stats->push_back(rx_stats);
             }
             if (v_rx_msg_stats != NULL) {

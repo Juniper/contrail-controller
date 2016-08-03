@@ -9,8 +9,10 @@
 #include "io/tcp_session.h"
 #include "io/io_log.h"
 
-using namespace boost::asio;
-using namespace boost::system;
+using boost::asio::buffer;
+using boost::asio::buffer_cast;
+using boost::asio::mutable_buffer;
+using boost::system::error_code;
 using tbb::mutex;
 
 TcpMessageWriter::TcpMessageWriter(TcpSession *session) :
@@ -25,7 +27,7 @@ TcpMessageWriter::~TcpMessageWriter() {
     buffer_queue_.clear();
 }
 
-int TcpMessageWriter::Send(const uint8_t *data, size_t len, error_code &ec) {
+int TcpMessageWriter::Send(const uint8_t *data, size_t len, error_code *ec) {
     int wrote = 0;
 
     // Update socket write call statistics.
@@ -37,7 +39,7 @@ int TcpMessageWriter::Send(const uint8_t *data, size_t len, error_code &ec) {
 
     if (buffer_queue_.empty()) {
         wrote = session_->WriteSome(data, len, ec);
-        if (TcpSession::IsSocketErrorHard(ec)) return -1;
+        if (TcpSession::IsSocketErrorHard(*ec)) return -1;
         assert(wrote >= 0);
 
         if ((size_t)wrote != len) {
@@ -56,13 +58,13 @@ int TcpMessageWriter::Send(const uint8_t *data, size_t len, error_code &ec) {
 }
 
 // Socket is ready for write. Flush any pending data
-void TcpMessageWriter::HandleWriteReady(error_code &error) {
+void TcpMessageWriter::HandleWriteReady(error_code *error) {
     while (!buffer_queue_.empty()) {
         boost::asio::mutable_buffer head = buffer_queue_.front();
         const uint8_t *data = buffer_cast<const uint8_t *>(head) + offset_;
         int remaining = buffer_size(head) - offset_;
         int wrote = session_->WriteSome(data, remaining, error);
-        if (TcpSession::IsSocketErrorHard(error)) {
+        if (TcpSession::IsSocketErrorHard(*error)) {
             return;
         }
         assert(wrote >= 0);

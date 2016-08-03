@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
+ */
+
+/*
  * The primary method implemented here is Send(), to transmit a
  * message over the Unix socket. It uses boost::asio::async_write to
  * send one message at a time over the socket, that is transmitted
@@ -6,14 +10,13 @@
  * buffers are tail-queued. Upon write_complete callback, the next
  * message from the front of the queue is sent.
  */
-#include "usock_server.h"
+#include "io/usock_server.h"
 
 using boost::asio::buffer_cast;
 using boost::asio::buffer;
 using boost::asio::mutable_buffer;
 
-UnixDomainSocketSession::~UnixDomainSocketSession()
-{
+UnixDomainSocketSession::~UnixDomainSocketSession() {
     if (observer_) {
         observer_(this, CLOSE);
     }
@@ -26,9 +29,7 @@ UnixDomainSocketSession::~UnixDomainSocketSession()
     buffer_queue_.clear();
 }
 
-void
-UnixDomainSocketSession::Start()
-{
+void UnixDomainSocketSession::Start() {
     if (observer_) {
         observer_(this, READY);
     }
@@ -41,9 +42,7 @@ UnixDomainSocketSession::Start()
                                         bytes_transferred));
 }
 
-void
-UnixDomainSocketSession::Send(const uint8_t * data, int data_len)
-{
+void UnixDomainSocketSession::Send(const uint8_t * data, int data_len) {
     if (!data || !data_len) {
         return;
     }
@@ -54,9 +53,7 @@ UnixDomainSocketSession::Send(const uint8_t * data, int data_len)
     }
 }
 
-void
-UnixDomainSocketSession::WriteToSocket()
-{
+void UnixDomainSocketSession::WriteToSocket() {
     if (buffer_queue_.empty()) {
         return;
     }
@@ -70,9 +67,7 @@ UnixDomainSocketSession::WriteToSocket()
                                          boost::asio::placeholders::error));
 }
 
-void
-UnixDomainSocketSession::AppendBuffer(const uint8_t *src, int bytes)
-{
+void UnixDomainSocketSession::AppendBuffer(const uint8_t *src, int bytes) {
     u_int8_t *data = new u_int8_t[bytes];
     memcpy(data, src, bytes);
     boost::asio::mutable_buffer buffer =
@@ -80,18 +75,14 @@ UnixDomainSocketSession::AppendBuffer(const uint8_t *src, int bytes)
     buffer_queue_.push_back(buffer);
 }
 
-void
-UnixDomainSocketSession::DeleteBuffer(boost::asio::mutable_buffer buffer)
-{
+void UnixDomainSocketSession::DeleteBuffer(boost::asio::mutable_buffer buffer) {
     const uint8_t *data = buffer_cast <const uint8_t *>(buffer);
     delete []data;
     return;
 }
 
-void
-UnixDomainSocketSession::HandleRead(const boost::system::error_code &error,
-                                    size_t bytes_transferred)
-{
+void UnixDomainSocketSession::HandleRead(const boost::system::error_code &error,
+                                         size_t bytes_transferred) {
     if (error) {
         return;
     }
@@ -100,9 +91,8 @@ UnixDomainSocketSession::HandleRead(const boost::system::error_code &error,
     }
 }
 
-void
-UnixDomainSocketSession::HandleWrite(const boost::system::error_code &error)
-{
+void UnixDomainSocketSession::HandleWrite(
+        const boost::system::error_code &error) {
     /*
      * async_write() is atomic in that it returns success once the entire message
      * is sent. If there is an error, it's okay to return from here so that the
@@ -134,12 +124,11 @@ UnixDomainSocketSession::HandleWrite(const boost::system::error_code &error)
                                         bytes_transferred));
 }
 
-UnixDomainSocketServer::UnixDomainSocketServer(boost::asio::io_service &io,
-                                               const std::string &file)
+UnixDomainSocketServer::UnixDomainSocketServer(
+        boost::asio::io_service *io, const std::string &file)
   : io_service_(io),
-    acceptor_(io, boost::asio::local::stream_protocol::endpoint(file)),
-    session_idspace_(0)
-{
+    acceptor_(*io, boost::asio::local::stream_protocol::endpoint(file)),
+    session_idspace_(0) {
     SessionPtr new_session(new UnixDomainSocketSession(io_service_));
     acceptor_.async_accept(new_session->socket(),
                            boost::bind(&UnixDomainSocketServer::
@@ -149,8 +138,7 @@ UnixDomainSocketServer::UnixDomainSocketServer(boost::asio::io_service &io,
 
 void
 UnixDomainSocketServer::HandleAccept(SessionPtr session,
-                                     const boost::system::error_code &error)
-{
+                                     const boost::system::error_code &error) {
     UnixDomainSocketSession *socket_session = session.get();
 
     if (error) {
