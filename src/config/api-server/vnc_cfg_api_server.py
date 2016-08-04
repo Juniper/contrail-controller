@@ -2743,9 +2743,15 @@ class VncApiServer(object):
         self._create_singleton_entry(
             RoutingInstance('__link_local__', link_local_vn,
                 routing_instance_is_default=True))
-        self._create_singleton_entry(
-            RoutingInstance('default-virtual-network',
-                routing_instance_is_default=True))
+        try:
+            self._create_singleton_entry(
+                RoutingInstance('default-virtual-network',
+                    routing_instance_is_default=True))
+        except Exception as e:
+            self.config_log('error while creating primary routing instance for'
+                            'default-virtual-network: ' + str(e),
+                            level=SandeshLevel.SYS_NOTICE)
+
         self._create_singleton_entry(DiscoveryServiceAssignment())
         self._create_singleton_entry(GlobalQosConfig())
 
