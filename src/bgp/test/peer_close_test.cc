@@ -98,7 +98,6 @@ public:
     }
 
     ~PeerCloseManagerTest() {
-        stale_timer_->Cancel();
     }
 
     Timer *stale_timer() const { return stale_timer_; }
@@ -695,6 +694,8 @@ public:
     }
 
     virtual void TearDown() {
+        task_util::WaitForIdle();
+        close_manager_->stale_timer()->Cancel();
         task_util::WaitForIdle();
         close_manager_.reset();
         task_util::WaitForIdle();
