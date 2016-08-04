@@ -180,8 +180,8 @@ def set_defaults(custom_attr_dict, custom_attrs):
 def set_v1_frontend_backend(pool, custom_attr_dict, custom_attrs):
     conf = []
     vip = VirtualIpSM.get(pool.virtual_ip)
-    if not vip and not vip.params['admin_state']:
-        return
+    if not vip or not vip.params['admin_state']:
+        return "\n"
 
     ssl = ''
     if vip.params['protocol'] == PROTO_HTTPS:
