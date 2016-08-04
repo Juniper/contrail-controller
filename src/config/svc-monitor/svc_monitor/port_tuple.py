@@ -116,7 +116,7 @@ class PortTupleAgent(Agent):
                 continue
             if if_type['interface_type'] != vmi.if_type:
                 continue
-            if health.params['health_check_type'] != 'end-to-end':
+            if health.params.get('health_check_type', None) != 'end-to-end':
                 continue
             allocate_hc_iip = True
             break
