@@ -370,7 +370,7 @@ class SchemaTransformer(object):
         BgpRouterST.reinit()
         LogicalRouterST.reinit()
         vn_list = list(VirtualNetworkST.list_vnc_obj())
-        vn_id_list = [vn.uuid for vn in vn_list]
+        vn_id_list = set([vn.uuid for vn in vn_list])
         ri_dict = {}
         service_ri_dict = {}
         ri_deleted = {}
