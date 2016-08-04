@@ -52,8 +52,8 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::Config"), config_policy);
 
     // Policy for bgp::ConfigHelper Task.
-    // It's the same as that for bgp:Config Task except that bgp:ConfigHelper
-    // is not exclusive with db::IFMapTable.
+    // Same as that for bgp:Config Task except that bgp:ConfigHelper
+    // is not exclusive with db::IFMapTable and ifmap::StateMachine.
     TaskPolicy config_helper_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
         (TaskExclusion(scheduler->GetTaskId("bgp::RTFilter")))
@@ -64,7 +64,6 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
         (TaskExclusion(scheduler->GetTaskId("db::Walker")))
         (TaskExclusion(scheduler->GetTaskId("io::ReaderTask")))
-        (TaskExclusion(scheduler->GetTaskId("ifmap::StateMachine")))
         (TaskExclusion(scheduler->GetTaskId("xmpp::StateMachine")))
         (TaskExclusion(scheduler->GetTaskId("timer::TimerTask")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ShowCommand")))

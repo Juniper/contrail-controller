@@ -304,7 +304,8 @@ void RoutePathReplicator::Join(BgpTable *table, const RouteTarget &rt,
     RtGroup *group = server()->rtarget_group_mgr()->LocateRtGroup(rt);
     if (import) {
         first = group->AddImportTable(family(), table);
-        server()->rtarget_group_mgr()->NotifyRtGroup(rt);
+        if (group->HasDepRoutes())
+            server()->rtarget_group_mgr()->NotifyRtGroup(rt);
         if (family_ == Address::INETVPN)
             server_->NotifyAllStaticRoutes();
         BOOST_FOREACH(BgpTable *sec_table, group->GetExportTables(family())) {
@@ -341,7 +342,8 @@ void RoutePathReplicator::Leave(BgpTable *table, const RouteTarget &rt,
 
     if (import) {
         group->RemoveImportTable(family(), table);
-        server()->rtarget_group_mgr()->NotifyRtGroup(rt);
+        if (group->HasDepRoutes())
+            server()->rtarget_group_mgr()->NotifyRtGroup(rt);
         if (family_ == Address::INETVPN)
             server_->NotifyAllStaticRoutes();
         BOOST_FOREACH(BgpTable *sec_table, group->GetExportTables(family())) {
