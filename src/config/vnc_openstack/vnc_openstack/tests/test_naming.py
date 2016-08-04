@@ -17,16 +17,11 @@ import test_case
 logger = logging.getLogger(__name__)
 
 class NBTestNaming(test_case.NeutronBackendTestCase):
-    def _create_project(self, proj_name):
-        proj_obj = Project(proj_name)
-        self.addDetail('creating-project', content.text_content(proj_name))
-        self._vnc_lib.project_create(proj_obj)
-        #default_sg_obj = SecurityGroup('default', parent_obj=proj_obj)
-        #import pdb; pdb.et_trace()
-        #self._vnc_lib.security_group_create(default_sg_obj)
-        return proj_obj
-    # end _create_project
-        
+    def _get_default_project_uuid(self):
+        default_project_fq_name = ['default-domain', 'default-project']
+        return self._vnc_lib.fq_name_to_id('project',
+                                           fq_name=default_project_fq_name)
+
     def _create_resource(self, res_type, proj_id, name=None, extra_res_fields=None):
         context = {'operation': 'CREATE',
                    'user_id': '',
@@ -62,7 +57,7 @@ class NBTestNaming(test_case.NeutronBackendTestCase):
         context = {'operation': 'UPDATE',
                    'user_id': '',
                    'roles': ''}
-        data = {'resource': {'name': new_res_name}, 
+        data = {'resource': {'name': new_res_name},
                 'id': res_q['id']}
         body = {'context': context, 'data': data}
         resp = self._api_svr_app.post_json('/neutron/%s' %(res_type), body)
@@ -91,11 +86,10 @@ class NBTestNaming(test_case.NeutronBackendTestCase):
     # end _list_resources
 
     def test_name_change(self):
-        proj_name = 'project-%s' %(str(uuid.uuid4()))
-        proj_obj = self._create_project(proj_name)
+        proj_uuid = self._get_default_project_uuid()
         for res_type in ['network', 'subnet', 'security_group', 'port', 'router']:
             # create a resource
-            res_name, res_q = getattr(self, '_create_' + res_type, lambda x:self._create_resource(res_type, x))(proj_obj.uuid)
+            res_name, res_q = getattr(self, '_create_' + res_type, lambda x:self._create_resource(res_type, x))(proj_uuid)
             self.assertThat(res_q['name'], Equals(res_name))
             if res_type != 'subnet':
                 self.assertThat(res_q['contrail:fq_name'], Contains(res_name))
@@ -108,28 +102,27 @@ class NBTestNaming(test_case.NeutronBackendTestCase):
                 self.assertThat(res_q['contrail:fq_name'], Not(Contains(new_res_name)))
 
             # list by filter of new name
-            res_list = self._list_resources(res_type, tenant_id=proj_obj.uuid, name=new_res_name)
+            res_list = self._list_resources(res_type, tenant_id=proj_uuid, name=new_res_name)
             self.assertThat(len(res_list), Equals(1))
             self.assertThat(res_list[0]['name'], Equals(new_res_name))
 
     # end test_name_change
 
     def test_duplicate_name(self):
-        proj_name = 'project-%s' %(str(uuid.uuid4()))
-        proj_obj = self._create_project(proj_name)
+        proj_uuid = self._get_default_project_uuid()
         for res_type in ['network', 'subnet', 'security_group', 'port', 'router']:
             # create a resource
-            res_name, res_q = getattr(self, '_create_' + res_type, lambda x:self._create_resource(res_type, x))(proj_obj.uuid)
+            res_name, res_q = getattr(self, '_create_' + res_type, lambda x:self._create_resource(res_type, x))(proj_uuid)
             self.assertThat(res_q['name'], Equals(res_name))
 
             # create another resource
-            res_name, res_q = getattr(self, '_create_' + res_type, lambda x,name:self._create_resource(res_type, x, name))(proj_obj.uuid, res_name)
+            res_name, res_q = getattr(self, '_create_' + res_type, lambda x,name:self._create_resource(res_type, x, name))(proj_uuid, res_name)
             self.assertThat(res_q['name'], Equals(res_name))
             if res_type != 'subnet':
                 self.assertThat(res_q['contrail:fq_name'][-1], Not(Equals(res_name)))
 
             # list by filter of new name
-            res_list = self._list_resources(res_type, tenant_id=proj_obj.uuid, name=res_name)
+            res_list = self._list_resources(res_type, tenant_id=proj_uuid, name=res_name)
             self.assertThat(len(res_list), Equals(2))
 # end class NBTestNaming
 
