@@ -546,7 +546,7 @@ def timer_callback(monitor):
             continue
         iip_delete_list.append(iip)
     for iip in iip_delete_list:
-        monitor.port_tuple_agent.delete_shared_iip(iip.uuid)
+        monitor.port_tuple_agent.delete_shared_iip(iip)
 
     # delete vms without si
     vm_delete_list = []
