@@ -232,23 +232,21 @@ private:
 // TableState. Requests are enqueued from the db::DBTable task when a table
 // walk finishes and the TableState is empty.
 //
+// A mutex is used to serialize access from multiple bgp::ConfigHelper tasks.
+//
 class RoutePathReplicator {
 public:
     RoutePathReplicator(BgpServer *server, Address::Family family);
     virtual ~RoutePathReplicator();
 
     void Initialize();
-    void DeleteVpnTableState();
-
     void Join(BgpTable *table, const RouteTarget &rt, bool import);
     void Leave(BgpTable *table, const RouteTarget &rt, bool import);
 
-    const RtReplicated *GetReplicationState(BgpTable *table,
-                                            BgpRoute *rt) const;
     std::vector<std::string> GetReplicatedTableNameList(const BgpTable *table,
         const BgpRoute *route, const BgpPath *path) const;
-
-    SandeshTraceBufferPtr trace_buffer() const { return trace_buf_; }
+    const RtReplicated *GetReplicationState(BgpTable *table,
+                                            BgpRoute *rt) const;
 
 private:
     friend class ReplicationTest;
@@ -284,8 +282,9 @@ private:
     Address::Family family() const { return family_; }
     const BgpServer *server() const { return server_; }
 
-    TableStateList table_state_list_;
     BgpServer *server_;
+    tbb::mutex mutex_;
+    TableStateList table_state_list_;
     Address::Family family_;
     BgpTable *vpn_table_;
     SandeshTraceBufferPtr trace_buf_;

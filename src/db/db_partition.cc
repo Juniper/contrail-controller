@@ -91,12 +91,17 @@ public:
         return success;
     }
 
+    void MaybeStartRunnerUnlocked();
     void MaybeStartRunner();
     bool RunnerDone();
 
+    // Normally called from single task that either runs in DB context or is
+    // exclusive with DB task, but can be called concurrently from multiple
+    // bgp::ConfigHelper tasks.
     void SetActive(DBTablePartBase *tpart) {
+        tbb::mutex::scoped_lock lock(mutex_);
         change_list_.push_back(tpart);
-        MaybeStartRunner();
+        MaybeStartRunnerUnlocked();
     }
 
     DBTablePartBase *GetActiveTable() {
@@ -231,8 +236,7 @@ private:
     WorkQueue *queue_;
 };
 
-void DBPartition::WorkQueue::MaybeStartRunner() {
-    tbb::mutex::scoped_lock lock(mutex_);
+void DBPartition::WorkQueue::MaybeStartRunnerUnlocked() {
     if (running_) {
         return;
     }
@@ -240,6 +244,11 @@ void DBPartition::WorkQueue::MaybeStartRunner() {
     QueueRunner *runner = new QueueRunner(this);
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Enqueue(runner);
+}
+
+void DBPartition::WorkQueue::MaybeStartRunner() {
+    tbb::mutex::scoped_lock lock(mutex_);
+    MaybeStartRunnerUnlocked();
 }
 
 bool DBPartition::WorkQueue::RunnerDone() {

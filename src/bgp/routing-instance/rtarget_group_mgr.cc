@@ -44,13 +44,13 @@ void RTargetState::AddInterestedPeer(RTargetGroupMgr *mgr, RtGroup *rtgroup,
     result = list_.insert(*it);
     assert(result.second);
     rtgroup->AddInterestedPeer(it->first, rt);
-    mgr->NotifyRtGroup(rtgroup->rt());
+    mgr->NotifyRtGroupUnlocked(rtgroup->rt());
 }
 
 void RTargetState::DeleteInterestedPeer(RTargetGroupMgr *mgr, RtGroup *rtgroup,
     RTargetRoute *rt, RtGroup::InterestedPeerList::iterator it) {
     rtgroup->RemoveInterestedPeer(it->first, rt);
-    mgr->NotifyRtGroup(rtgroup->rt());
+    mgr->NotifyRtGroupUnlocked(rtgroup->rt());
     list_.erase(it);
 }
 
@@ -183,8 +183,7 @@ bool RTargetGroupMgr::ProcessRTargetRouteList() {
     CHECK_CONCURRENCY("bgp::RTFilter");
 
     RoutingInstanceMgr *mgr = server()->routing_instance_mgr();
-    RoutingInstance *master =
-        mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
+    RoutingInstance *master = mgr->GetDefaultRoutingInstance();
     BgpTable *table = master->GetTable(Address::RTARGET);
 
     // Get the Listener id
@@ -214,8 +213,7 @@ bool RTargetGroupMgr::IsRTargetRouteOnList(RTargetRoute *rt) const {
 void RTargetGroupMgr::Initialize() {
     assert(table_state_.empty());
     RoutingInstanceMgr *mgr = server()->routing_instance_mgr();
-    RoutingInstance *master =
-        mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
+    RoutingInstance *master = mgr->GetDefaultRoutingInstance();
     assert(master);
 
     master_instance_delete_ref_.Reset(master->deleter());
@@ -379,7 +377,9 @@ RtGroup *RTargetGroupMgr::LocateRtGroup(const RouteTarget &rt) {
     return group;
 }
 
-void RTargetGroupMgr::NotifyRtGroup(const RouteTarget &rt) {
+void RTargetGroupMgr::NotifyRtGroupUnlocked(const RouteTarget &rt) {
+    CHECK_CONCURRENCY("bgp::RTFilter", "bgp::Config", "bgp::ConfigHelper");
+
     AddRouteTargetToLists(rt);
     if (!rt.IsNull())
         return;
@@ -391,6 +391,12 @@ void RTargetGroupMgr::NotifyRtGroup(const RouteTarget &rt) {
             continue;
         table->NotifyAllEntries();
     }
+}
+
+void RTargetGroupMgr::NotifyRtGroup(const RouteTarget &rt) {
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
+    tbb::mutex::scoped_lock lock(mutex_);
+    NotifyRtGroupUnlocked(rt);
 }
 
 void RTargetGroupMgr::RemoveRtGroup(const RouteTarget &rt) {
@@ -436,8 +442,7 @@ void RTargetGroupMgr::UnregisterTables() {
 
     if (rtgroup_map_.empty()) {
         RoutingInstanceMgr *mgr = server()->routing_instance_mgr();
-        RoutingInstance *master =
-            mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
+        RoutingInstance *master = mgr->GetDefaultRoutingInstance();
         if (master && master->deleted()) {
             for (RtGroupMgrTableStateList::iterator it =
                  table_state_.begin(), itnext; it != table_state_.end();

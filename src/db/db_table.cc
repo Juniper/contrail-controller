@@ -566,7 +566,7 @@ void DBTable::WalkCompleteCallback(DBTableBase *tbl_base) {
 // is invoked to trigger walk on current walk completion.
 //
 void DBTable::NotifyAllEntries() {
-    CHECK_CONCURRENCY("bgp::Config", "bgp::RTFilter");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper", "bgp::RTFilter");
 
     if (walk_ref_ == NULL) {
         walk_ref_ =

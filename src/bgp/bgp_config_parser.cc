@@ -360,6 +360,22 @@ static bool ParseStaticRoute(const string &instance, const xml_node &node,
     return true;
 }
 
+static bool ParseInstanceHasPnf(const string &instance, const xml_node &node,
+    bool add_change, BgpConfigParser::RequestList *requests) {
+    auto_ptr<autogen::RoutingInstance::OolProperty> property(
+        new autogen::RoutingInstance::OolProperty);
+    property->data = (string(node.child_value()) == "true");
+    if (add_change) {
+        MapObjectSetProperty("routing-instance", instance,
+            "routing-instance-has-pnf", property.release(), requests);
+    } else {
+        MapObjectClearProperty("routing-instance", instance,
+            "routing-instance-has-pnf", requests);
+    }
+
+    return true;
+}
+
 static bool ParseBgpRouter(const string &instance, const xml_node &node,
                            bool add_change, string *nodename,
                            SessionMap *sessions,
@@ -517,6 +533,8 @@ bool BgpConfigParser::ParseRoutingInstance(const xml_node &parent,
             ParseInstanceRoutingPolicy(instance, node, add_change, requests);
         } else if (strcmp(node.name(), "static-route-entries") == 0) {
             ParseStaticRoute(instance, node, add_change, requests);
+        } else if (strcmp(node.name(), "routing-instance-has-pnf") == 0) {
+            ParseInstanceHasPnf(instance, node, add_change, requests);
         }
     }
 

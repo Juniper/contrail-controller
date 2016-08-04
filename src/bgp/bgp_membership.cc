@@ -107,7 +107,8 @@ void BgpMembershipManager::NotifyPeerRegistration(IPeer *peer, BgpTable *table,
 //
 void BgpMembershipManager::Register(IPeer *peer, BgpTable *table,
     const RibExportPolicy &policy, int instance_id) {
-    CHECK_CONCURRENCY("bgp::Config", "bgp::StateMachine", "xmpp::StateMachine");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper",
+        "bgp::StateMachine", "xmpp::StateMachine");
 
     tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
     current_jobs_count_++;

@@ -971,8 +971,10 @@ bool ServiceChainMgr<T>::FillServiceChainInfo(RoutingInstance *rtinstance,
 template <typename T>
 bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
     const ServiceChainConfig &config) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
+
     // Verify whether the entry already exists
+    tbb::mutex::scoped_lock lock(mutex_);
     ServiceChainMap::iterator it = chain_set_.find(rtinstance);
     if (it != chain_set_.end()) {
         ServiceChainT *chain = static_cast<ServiceChainT *>(it->second.get());
@@ -1005,6 +1007,7 @@ bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
 
     RoutingInstanceMgr *mgr = server_->routing_instance_mgr();
     RoutingInstance *dest = mgr->GetRoutingInstance(config.routing_instance);
+
     //
     // Destination routing instance is not yet created.
     // Or Destination routing instance is deleted Or
@@ -1071,7 +1074,6 @@ bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
     DeletePendingServiceChain(rtinstance);
     return true;
 }
-
 
 template <typename T>
 ServiceChain<T> *ServiceChainMgr<T>::FindServiceChain(
@@ -1140,7 +1142,10 @@ void ServiceChainMgr<T>::StopServiceChainDone(BgpTable *table,
 
 template <typename T>
 void ServiceChainMgr<T>::StopServiceChain(RoutingInstance *rtinstance) {
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
+
     // Remove the routing instance from pending chains list.
+    tbb::mutex::scoped_lock lock(mutex_);
     pending_chains_.erase(rtinstance);
 
     ServiceChainMap::iterator it = chain_set_.find(rtinstance);
