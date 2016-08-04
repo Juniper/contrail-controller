@@ -114,6 +114,7 @@ public:
     bool ipv6_active() const {return ipv6_active_;}
     bool is_hc_active() const { return is_hc_active_; }
     bool metadata_ip_active() const {return metadata_ip_active_;}
+    bool metadata_l2_active() const {return metadata_l2_active_;}
     bool ip_active(Address::Family family) const;
     bool l2_active() const {return l2_active_;}
     const uint32_t id() const {return id_;}
@@ -151,6 +152,7 @@ protected:
     bool is_hc_active_;
     // interface has metadata ip active
     bool metadata_ip_active_;
+    bool metadata_l2_active_;
     bool l2_active_;
     size_t id_;
     bool dhcp_enabled_;
