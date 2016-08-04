@@ -613,7 +613,7 @@ TEST_F(UveVrouterUveTest, DropStatsAddChange) {
     //Verify UVE and send count
     EXPECT_TRUE(vr->vrouter_stats_msg_count() >= 1U);
     const VrouterStatsAgent &uve2 = vr->last_sent_stats();
-    const AgentDropStats ds3 = uve2.get_drop_stats();
+    const AgentDropStats ds3 = uve2.get_raw_drop_stats();
     EXPECT_TRUE(DropStatsEqual(ds3, ds2));
 
     //Update drop-stats in mock kernel
@@ -633,7 +633,7 @@ TEST_F(UveVrouterUveTest, DropStatsAddChange) {
     //Verify UVE and send count
     EXPECT_TRUE(vr->vrouter_stats_msg_count() >= 2U);
     const VrouterStatsAgent &uve3 = vr->last_sent_stats();
-    const AgentDropStats ds4 = uve3.get_drop_stats();
+    const AgentDropStats ds4 = uve3.get_raw_drop_stats();
     EXPECT_TRUE(DropStatsEqual(ds4, ds2));
 
     //cleanup
