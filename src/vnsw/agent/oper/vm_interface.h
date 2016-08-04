@@ -644,6 +644,7 @@ public:
     bool OnResyncServiceVlan(VmInterfaceConfigData *data);
     void UpdateAllRoutes();
 
+    bool IsL2InactiveDueToHealthCheck() const;
     bool IsL2Active() const;
     bool IsIpv6Active() const;
     bool NeedDevice() const;

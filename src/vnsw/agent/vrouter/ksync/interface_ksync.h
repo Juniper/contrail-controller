@@ -91,6 +91,7 @@ private:
     bool layer3_forwarding_;
     InterfaceKSyncObject *ksync_obj_;
     bool l2_active_;
+    bool l2_inactive_due_to_health_check_;
     bool bridging_;
     MacAddress mac_;
     MacAddress smac_;

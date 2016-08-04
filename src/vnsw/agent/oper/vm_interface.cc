@@ -2762,11 +2762,15 @@ bool VmInterface::IsIpv6Active() const {
 }
 
 bool VmInterface::IsL2Active() const {
-    if (!bridging()) {
+    if (!is_hc_active_) {
         return false;
     }
 
-    if (!is_hc_active_) {
+    return IsL2InactiveDueToHealthCheck();
+}
+
+bool VmInterface::IsL2InactiveDueToHealthCheck() const {
+    if (!bridging()) {
         return false;
     }
 
@@ -3017,7 +3021,9 @@ void VmInterface::UpdateFlowKeyNextHop() {
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     Agent *agent = table->agent();
 
-    if (ipv4_active_ || ipv6_active_) {
+    //If Layer3 forwarding is configured irrespective of ipv4/v6 status,
+    //flow_key_nh should be l3 based.
+    if (layer3_forwarding()) {
         InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                               GetUuid(), ""), true,
                                               InterfaceNHFlags::INET4,
@@ -3027,6 +3033,7 @@ void VmInterface::UpdateFlowKeyNextHop() {
         return;
     }
 
+    //L2 mode is identified if layer3_forwarding is diabled.
     InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                           GetUuid(), ""), true,
                                           InterfaceNHFlags::BRIDGE,
@@ -5438,7 +5445,7 @@ void VmInterface::DeleteIpv4InstanceIp(bool l2, uint32_t old_ethernet_tag,
             // interface itself is not active
             bool interface_active = false;
             if (l2) {
-                interface_active = l2_active_;
+                interface_active = IsL2InactiveDueToHealthCheck();
             } else {
                 interface_active = metadata_ip_active_;
             }
@@ -5493,7 +5500,7 @@ void VmInterface::DeleteIpv6InstanceIp(bool l2, uint32_t old_ethernet_tag,
             // interface itself is not active
             bool interface_active = false;
             if (l2) {
-                interface_active = l2_active_;
+                interface_active = IsL2InactiveDueToHealthCheck();
             } else {
                 interface_active = metadata_ip_active_;
             }
