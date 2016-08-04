@@ -1375,14 +1375,14 @@ class AnalyticsFixture(fixtures.Fixture):
                              start_time=str(generator_obj.flow_start_time),
                              end_time=str(generator_obj.flow_end_time),
                              select_fields=['UuidKey', 'sport', 'protocol'],
-                             where_clause='sport=13 AND protocol=1 AND vrouter=%s'% vrouter)
+                             where_clause='sport=32777 AND protocol=1 AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == 1)
         res = vns.post_query('FlowSeriesTable',
                              start_time=str(generator_obj.flow_start_time),
                              end_time=str(generator_obj.flow_end_time),
                              select_fields=['sport', 'protocol'],
-                             where_clause='sport=13 AND protocol=1 AND vrouter=%s'% vrouter)
+                             where_clause='sport=32777 AND protocol=1 AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == 5)
         # give no-existent values in the where clause
@@ -1512,6 +1512,17 @@ class AnalyticsFixture(fixtures.Fixture):
                   filter='drop_reason=Reason1', dir=0)
         self.logger.info(str(res))
         assert(len(res) == 1)
+
+        # Range query on sport
+        res = vns.post_query('FlowRecordTable',
+                  start_time=str(generator_obj.flow_start_time),
+                  end_time=str(generator_obj.flow_end_time),
+                  select_fields=['UuidKey', 'sport', 'protocol'],
+                  where_clause='(sport=32747<32787 AND protocol=0 AND \
+                      vrouter=%s)' % vrouter)
+        self.logger.info(str(res))
+        assert(len(res) == 2)
+
         return True
     # end verify_flow_table
 
@@ -2003,8 +2014,6 @@ class AnalyticsFixture(fixtures.Fixture):
 
         # 15 vrouter
         self.logger.info("Flowseries: [sourcevn, destvn, vrouter]")
-        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port,
-            self.admin_user, self.admin_password)
         generator_obj1 = generator_object[1]
         res = vns.post_query('FlowSeriesTable',
                              start_time=str(generator_obj1.flow_start_time),
