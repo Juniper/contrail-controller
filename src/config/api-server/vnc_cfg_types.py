@@ -185,7 +185,7 @@ class FloatingIpServer(Resource, FloatingIp):
         vn_fq_name = obj_dict['fq_name'][:-2]
         req_ip = obj_dict.get("floating_ip_address")
         if req_ip and cls.addr_mgmt.is_ip_allocated(req_ip, vn_fq_name):
-            return (False, (403, 'Ip address already in use'))
+            return (False, (400, 'Ip address already in use'))
         try:
             fip_addr = cls.addr_mgmt.ip_alloc_req(vn_fq_name,
                                                   asked_ip_addr=req_ip,
@@ -271,7 +271,7 @@ class AliasIpServer(Resource, AliasIp):
         vn_fq_name = obj_dict['fq_name'][:-2]
         req_ip = obj_dict.get("alias_ip_address")
         if req_ip and cls.addr_mgmt.is_ip_allocated(req_ip, vn_fq_name):
-            return (False, (403, 'Ip address already in use'))
+            return (False, (400, 'Ip address already in use'))
         try:
             aip_addr = cls.addr_mgmt.ip_alloc_req(vn_fq_name,
                                                   asked_ip_addr=req_ip,
@@ -430,10 +430,10 @@ class InstanceIpServer(Resource, InstanceIp):
         # for g/w ip, creation allowed but only can ref to router port.
         if req_ip and cls.addr_mgmt.is_ip_allocated(req_ip, vn_fq_name):
             if not cls._is_gateway_ip(vn_dict, req_ip):
-                return (False, (403, 'Ip address already in use'))
+                return (False, (400, 'Ip address already in use'))
             elif cls._vmi_has_vm_ref(db_conn, obj_dict):
                 return (False,
-                    (403, 'Gateway IP cannot be used by VM port'))
+                    (400, 'Gateway IP cannot be used by VM port'))
         # end if request has ip addr
 
         try:
@@ -451,7 +451,7 @@ class InstanceIpServer(Resource, InstanceIp):
             # end undo
             get_context().push_undo(undo)
         except Exception as e:
-            return (False, (500, str(e)))
+            return (False, (400, str(e)))
         obj_dict['instance_ip_address'] = ip_addr
         db_conn.config_log('AddrMgmt: alloc %s for vn=%s, tenant=%s, askip=%s'
             % (obj_dict['instance_ip_address'],
@@ -489,7 +489,7 @@ class InstanceIpServer(Resource, InstanceIp):
         if cls._is_gateway_ip(vn_dict,
                               db_iip_dict.get('instance_ip_address')):
             if cls._vmi_has_vm_ref(db_conn, req_iip_dict):
-                return (False, (403, 'Gateway IP cannot be used by VM port'))
+                return (False, (400, 'Gateway IP cannot be used by VM port'))
         # end if gateway ip
 
         return True, ""
@@ -553,7 +553,7 @@ class LogicalRouterServer(Resource, LogicalRouter):
                     read_result.get('virtual_machine_refs')):
                 msg = "Port(%s) already in use by virtual-machine(%s)" %\
                       (vmi_id, read_result['parent_uuid'])
-                return (False, (403, msg))
+                return (False, (400, msg))
         return (True, '')
 
     @classmethod
@@ -570,7 +570,7 @@ class LogicalRouterServer(Resource, LogicalRouter):
                 if vn_ref['uuid'] in interface_vn_uuids:
                     msg = "Logical router interface and gateway cannot be in VN(%s)" %\
                           (vn_ref['uuid'])
-                    return (False, (403, msg))
+                    return (False, (400, msg))
         return (True, '')
 
     @classmethod
@@ -810,13 +810,13 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         if (read_result.get('logical_router_back_refs') and
                 obj_dict.get('virtual_machine_refs')):
             return (False,
-                    (403, 'Logical router interface cannot be used by VM'))
+                    (400, 'Logical router interface cannot be used by VM'))
         # check if vmi is going to point to vm and if its using
         # gateway address in iip, disallow
         for iip_ref in read_result.get('instance_ip_back_refs') or []:
             if (obj_dict.get('virtual_machine_refs') and
                 InstanceIpServer.is_gateway_ip(db_conn, iip_ref['uuid'])):
-                return (False, (403, 'Gateway IP cannot be used by VM port'))
+                return (False, (400, 'Gateway IP cannot be used by VM port'))
 
         if ('virtual_machine_interface_refs' in obj_dict and
                 'virtual_machine_interface_refs' in read_result):
@@ -1424,7 +1424,7 @@ class VirtualDnsServer(Resource, VirtualDns):
 
         ttl = vdns_data['default_ttl_seconds']
         if ttl < 0 or ttl > 2147483647:
-            return (False, (403, "Invalid value for TTL"))
+            return (False, (400, "Invalid value for TTL"))
 
         if 'next_virtual_DNS' in vdns_data:
             vdns_next = vdns_data['next_virtual_DNS']
@@ -1440,7 +1440,7 @@ class VirtualDnsServer(Resource, VirtualDns):
                         vdns_data['next_virtual_DNS']):
                     return (
                         False,
-                        (403,
+                        (400,
                          "Invalid Virtual Forwarder(next virtual dns server)"))
                 else:
                     return True, ""

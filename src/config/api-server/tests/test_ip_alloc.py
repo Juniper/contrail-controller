@@ -145,11 +145,9 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
         logger.debug('Wrong ip address request,not aligned with alloc-unit')
         ipv4_obj1.set_instance_ip_address('11.1.1.249') 
-        try:
+        with ExpectedException(BadRequest,
+                               'Virtual-Network\(my-v4-v6-domain:my-v4-v6-proj:my-v4-v6-vn:11.1.1.0/24\) has invalid alloc_unit\(4\) in subnet\(11.1.1.0/24\)') as e:
             ipv4_id1 = self._vnc_lib.instance_ip_create(ipv4_obj1)
-        except HttpError:
-            logger.debug('requested ipaddr is not aligned with alloc-unit')
-            pass
          
         ipv4_obj1.set_instance_ip_address(None) 
         logger.debug('Allocating an IP4 address for first VM')
@@ -753,12 +751,10 @@ class TestIpAlloc(test_case.ApiServerTestCase):
             logger.debug('Created extra instance')
 
             logger.debug('Allocating an IP4 address for extra instance')
-            try:
+            with ExpectedException(BadRequest,
+                'Virtual-Network\(\[\'v4-domain\', \'v4-proj\', \'v4-vn\'\]\) has exhausted subnet\(all\)') as e:
                 ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1)
-            except HttpError:
-                logger.debug('alloc pool is exhausted')
-                pass
-
+        
             # cleanup for negative test
             self._vnc_lib.virtual_machine_interface_delete(id=port_obj1.uuid)
             self._vnc_lib.virtual_machine_delete(id=vm_inst_obj1.uuid)
@@ -1015,13 +1011,13 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         iip2_obj = InstanceIp('clashing-iip-%s' %(self.id()),
                               instance_ip_address=iip_obj.instance_ip_address)
         iip2_obj.add_virtual_network(vn_obj)
-        with ExpectedException(cfgm_common.exceptions.PermissionDenied,
+        with ExpectedException(cfgm_common.exceptions.BadRequest,
                                'Ip address already in use') as e:
             self._vnc_lib.instance_ip_create(iip2_obj)
         
         # allocate instance-ip clashing with existing floating-ip
         iip2_obj.set_instance_ip_address(fip_obj.floating_ip_address)
-        with ExpectedException(cfgm_common.exceptions.PermissionDenied,
+        with ExpectedException(cfgm_common.exceptions.BadRequest,
                                'Ip address already in use') as e:
             self._vnc_lib.instance_ip_create(iip2_obj)
 
@@ -1029,7 +1025,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         fip2_obj = FloatingIp('clashing-fip-%s' %(self.id()), fip_pool_obj,
                               floating_ip_address=fip_obj.floating_ip_address)
         fip2_obj.add_project(proj_obj)
-        with ExpectedException(cfgm_common.exceptions.PermissionDenied,
+        with ExpectedException(cfgm_common.exceptions.BadRequest,
                                'Ip address already in use') as e:
             self._vnc_lib.floating_ip_create(fip2_obj)
 
@@ -1037,37 +1033,37 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         aip2_obj = AliasIp('clashing-aip-%s' %(self.id()), aip_pool_obj,
                            alias_ip_address=aip_obj.alias_ip_address)
         aip2_obj.add_project(proj_obj)
-        with ExpectedException(cfgm_common.exceptions.PermissionDenied,
+        with ExpectedException(cfgm_common.exceptions.BadRequest,
                                'Ip address already in use') as e:
             self._vnc_lib.alias_ip_create(aip2_obj)
 
         # allocate floating-ip clashing with existing instance-ip
         fip2_obj.set_floating_ip_address(iip_obj.instance_ip_address)
-        with ExpectedException(cfgm_common.exceptions.PermissionDenied,
+        with ExpectedException(cfgm_common.exceptions.BadRequest,
                                'Ip address already in use') as e:
             self._vnc_lib.floating_ip_create(fip2_obj)
 
         # allocate alias-ip clashing with existing instance-ip
         aip2_obj.set_alias_ip_address(iip_obj.instance_ip_address)
-        with ExpectedException(cfgm_common.exceptions.PermissionDenied,
+        with ExpectedException(cfgm_common.exceptions.BadRequest,
                                'Ip address already in use') as e:
             self._vnc_lib.alias_ip_create(aip2_obj)
 
         # allocate alias-ip clashing with existing floating-ip
         aip2_obj.set_alias_ip_address(fip_obj.floating_ip_address)
-        with ExpectedException(cfgm_common.exceptions.PermissionDenied,
+        with ExpectedException(cfgm_common.exceptions.BadRequest,
                                'Ip address already in use') as e:
             self._vnc_lib.alias_ip_create(aip2_obj)
 
         # allocate floating-ip with gateway ip and verify failure
         fip2_obj.set_floating_ip_address('11.1.1.254')
-        with ExpectedException(cfgm_common.exceptions.PermissionDenied,
+        with ExpectedException(cfgm_common.exceptions.BadRequest,
                                'Ip address already in use') as e:
             self._vnc_lib.floating_ip_create(fip2_obj)
 
         # allocate alias-ip with gateway ip and verify failure
         aip2_obj.set_alias_ip_address('11.1.1.254')
-        with ExpectedException(cfgm_common.exceptions.PermissionDenied,
+        with ExpectedException(cfgm_common.exceptions.BadRequest,
                                'Ip address already in use') as e:
             self._vnc_lib.alias_ip_create(aip2_obj)
 
@@ -1085,7 +1081,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.instance_ip_create(iip2_gw_ip)
 
         iip_gw_ip.add_virtual_machine_interface(vm_vmi_obj)
-        with ExpectedException(cfgm_common.exceptions.PermissionDenied,
+        with ExpectedException(cfgm_common.exceptions.BadRequest,
                  'Gateway IP cannot be used by VM port') as e:
             self._vnc_lib.instance_ip_update(iip_gw_ip)
 
@@ -1097,7 +1093,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.instance_ip_update(iip2_gw_ip)
 
         isolated_vmi_obj.add_virtual_machine(vm_obj)
-        with ExpectedException(cfgm_common.exceptions.PermissionDenied,
+        with ExpectedException(cfgm_common.exceptions.BadRequest,
                  'Gateway IP cannot be used by VM port') as e:
             self._vnc_lib.virtual_machine_interface_update(
                 isolated_vmi_obj)

@@ -109,7 +109,7 @@ class InstanceManager(object):
                 self._vnc_lib.instance_ip_create(iip_obj)
             except RefsExistError:
                 iip_obj = self._vnc_lib.instance_ip_read(fq_name=[iip_name])
-            except HttpError:
+            except BadRequest:
                 return None
 
         InstanceIpSM.locate(iip_obj.uuid)
