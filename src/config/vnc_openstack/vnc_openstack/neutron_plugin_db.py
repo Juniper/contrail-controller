@@ -2826,20 +2826,20 @@ class DBInterface(object):
                             if not net_obj.is_shared:
                                 continue
                         elif filters:
-                            if not self._filters_is_present(filters, 'id',
-                                                            sn_id):
+                            if not self._filters_is_present(
+                                    filters, 'id', sn_id):
                                 continue
-                            if not self._filters_is_present(filters,
-                                                            'tenant_id',
-                                                            str(uuid.UUID(sn_proj_id))):
+                            if not self._filters_is_present(
+                                    filters, 'tenant_id', str(uuid.UUID(sn_proj_id))):
                                 continue
-                            if not self._filters_is_present(filters,
-                                                            'network_id',
-                                                            sn_net_id):
+                            if not self._filters_is_present(
+                                    filters, 'network_id', sn_net_id):
                                 continue
-                            if not self._filters_is_present(filters,
-                                                            'name',
-                                                            sn_name):
+                            if not self._filters_is_present(
+                                    filters, 'name', sn_name):
+                                continue
+                            if not self._filters_is_present(
+                                    filters, 'cidr', sn_info['cidr']):
                                 continue
 
                         ret_subnets.append(sn_info)
