@@ -304,13 +304,11 @@ class CassStatementIndexBinder : public boost::static_visitor<> {
         assert(rc == CASS_OK);
     }
     void operator()(const uint8_t &tu8, size_t index) const {
-        CassError rc(cass_statement_bind_int32(statement_, index,
-            (cass_int8_t)tu8));
+        CassError rc(cass_statement_bind_int32(statement_, index, tu8));
         assert(rc == CASS_OK);
     }
     void operator()(const uint16_t &tu16, size_t index) const {
-        CassError rc(cass_statement_bind_int32(statement_, index,
-            (cass_int16_t)tu16));
+        CassError rc(cass_statement_bind_int32(statement_, index, tu16));
         assert(rc == CASS_OK);
     }
     void operator()(const uint32_t &tu32, size_t index) const {
@@ -366,12 +364,12 @@ class CassStatementNameBinder : public boost::static_visitor<> {
     }
     void operator()(const uint8_t &tu8, const char *name) const {
         CassError rc(cass_statement_bind_int32_by_name(statement_, name,
-            (cass_int8_t)tu8));
+            tu8));
         assert(rc == CASS_OK);
     }
     void operator()(const uint16_t &tu16, const char *name) const {
         CassError rc(cass_statement_bind_int32_by_name(statement_, name,
-            (cass_int16_t)tu16));
+            tu16));
         assert(rc == CASS_OK);
     }
     void operator()(const uint32_t &tu32, const char *name) const {
