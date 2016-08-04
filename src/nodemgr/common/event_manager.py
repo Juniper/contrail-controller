@@ -441,7 +441,7 @@ class EventManager(object):
                 except psutil.NoSuchProcess:
                     sys.stderr.write("NoSuchProcess: process name:%s pid:%d\n"
                                      % (pstat.pname, pstat.pid))
-                    self.third_party_process_state_db.pop(pstat.name)
+                    self.third_party_process_state_db.pop(pstat.pname)
                 else:
                     process_mem_cpu.__key = pname
                     process_mem_cpu_usage[process_mem_cpu.__key] = process_mem_cpu
