@@ -2868,9 +2868,10 @@ class BgpRouterST(DBBaseST):
             return
         router_obj = self.read_vnc_obj(fq_name=self.name)
         params = router_obj.get_bgp_router_parameters()
-        params.autonomous_system = int(asn)
-        router_obj.set_bgp_router_parameters(params)
-        self._vnc_lib.bgp_router_update(router_obj)
+        if params.autonomous_system != int(asn):
+            params.autonomous_system = int(asn)
+            router_obj.set_bgp_router_parameters(params)
+            self._vnc_lib.bgp_router_update(router_obj)
         self.update_autonomous_system(asn)
     # end update_global_asn
 
