@@ -48,7 +48,7 @@ class BadRequest(Exception):
     # end __init__
 
     def __str__(self):
-        return 'HTTP Status: %s Content: %s' % (self.status_code, self.content)
+        return self.content
     # end __str__
 # end class BadRequest
 

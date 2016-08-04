@@ -134,7 +134,6 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
 
         self._vnc_lib.virtual_network_delete(fq_name=vn1.get_fq_name())
         self._vnc_lib.virtual_network_delete(fq_name=vn2.get_fq_name())
-        gevent.sleep(2)
         self._vnc_lib.route_table_delete(fq_name=rt.get_fq_name())
     # test_add_delete_static_route
 

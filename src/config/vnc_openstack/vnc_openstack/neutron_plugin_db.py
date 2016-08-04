@@ -45,12 +45,14 @@ class DBInterface(object):
                  api_srvr_ip, api_srvr_port, user_info=None,
                  contrail_extensions_enabled=True,
                  list_optimization_enabled=False,
-                 apply_subnet_host_routes=False):
+                 apply_subnet_host_routes=False,
+                 strict_compliance=False):
         self._manager = manager
         self.logger = manager.logger
         self._api_srvr_ip = api_srvr_ip
         self._api_srvr_port = api_srvr_port
         self._apply_subnet_host_routes = apply_subnet_host_routes
+        self._strict_compliance = strict_compliance
 
         self._contrail_extensions_enabled = contrail_extensions_enabled
         self._list_optimization_enabled = list_optimization_enabled
@@ -211,7 +213,7 @@ class DBInterface(object):
 
         try:
             self._vnc_lib.security_group_update(sg_vnc)
-        except PermissionDenied as e:
+        except (BadRequest, PermissionDenied) as e:
             self._raise_contrail_exception('BadRequest',
                 resource='security_group_rule', msg=str(e))
         except OverQuota as e:
@@ -1394,6 +1396,7 @@ class DBInterface(object):
         sn_name=subnet_q.get('name')
         subnet_vnc = IpamSubnetType(subnet=SubnetType(pfx, pfx_len),
                                     default_gateway=default_gw,
+                                    dns_server_address='0.0.0.0' if self._strict_compliance else None,
                                     enable_dhcp=dhcp_config,
                                     dns_nameservers=None,
                                     allocation_pools=alloc_pools,
@@ -3537,6 +3540,7 @@ class DBInterface(object):
                 subnet_id = fixed_ip.get('subnet_id')
                 ip_id = self._create_instance_ip(net_obj, port_obj, ip_addr,
                                                  subnet_id, ip_family)
+
                 created_iip_ids.append(ip_id)
             except vnc_exc.HttpError as e:
                 # Resources are not available
@@ -3603,6 +3607,10 @@ class DBInterface(object):
                          {'fixed_ips':[{'ip_address': None,
                                         'subnet_id':subnet_id}]},
                                                   ip_family="v6")
+        except BadRequest as e:
+            # failure in creating the instance ip. Roll back
+            self._virtual_machine_interface_delete(port_id=port_id)
+            self._raise_contrail_exception('BadRequest', resource='port', msg=str(e))
         except vnc_exc.HttpError:
             # failure in creating the instance ip. Roll back
             self._virtual_machine_interface_delete(port_id=port_id)

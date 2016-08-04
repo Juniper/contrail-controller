@@ -432,7 +432,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         # Add Router Interface
         lr.add_virtual_machine_interface(vm_port_obj)
         logger.debug("Trying to Link VM's VMI object and LR object")
-        with ExpectedException(cfgm_common.exceptions.PermissionDenied) as e:
+        with ExpectedException(cfgm_common.exceptions.BadRequest) as e:
             self._vnc_lib.logical_router_update(lr)
         logger.debug("Linking VM's VMI object and LR object failed as expected")
         lr.del_virtual_machine_interface(vm_port_obj)
@@ -443,10 +443,11 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         lr.add_virtual_machine_interface(port_obj)
         self._vnc_lib.logical_router_update(lr)
         logger.debug("Link VM to internal interface of a LR")
-        with ExpectedException(cfgm_common.exceptions.PermissionDenied) as e:
+        with ExpectedException(cfgm_common.exceptions.BadRequest) as e:
             port_obj.add_virtual_machine(vm_inst_obj)
             self._vnc_lib.virtual_machine_interface_update(port_obj)
         logger.debug("Linking VM to internal interface of LR failed as expected")
+        self._vnc_lib.logical_router_delete(id=lr.uuid)
     # end test_vm_port_not_added_to_lr
 
     def create_port(self, project, vn):
@@ -513,7 +514,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         self._vnc_lib.virtual_network_update(net_obj)
 
         logger.debug("Try adding gateway from same network as of interface to LR object")
-        with ExpectedException(cfgm_common.exceptions.PermissionDenied) as e:
+        with ExpectedException(cfgm_common.exceptions.BadRequest) as e:
             lr.add_virtual_network(net_obj)
             self._vnc_lib.logical_router_update(lr)
         logger.debug("Adding gateway from same network as of interface to LR object failed as expected")
@@ -529,11 +530,11 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         # Create Port
         port_obj = self.create_port(project, net_obj)
         logger.debug("Try adding interafce from same network as of gateway to LR object")
-        with ExpectedException(cfgm_common.exceptions.PermissionDenied) as e:
+        with ExpectedException(cfgm_common.exceptions.BadRequest) as e:
             lr.add_virtual_machine_interface(port_obj)
             self._vnc_lib.logical_router_update(lr)
         logger.debug("Adding interface from same network as of gateway to LR object failed as expected")
-
+        self._vnc_lib.logical_router_delete(id=lr.uuid)
 
     # end test_same_network_not_attached_to_lr
 #end class TestLogicalRouter
