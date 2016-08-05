@@ -198,6 +198,73 @@ class TestAlarmPlugins(unittest.TestCase):
                     }
                 ),
                 output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='ContrailConfig.elements is list of list - no match',
+                input=TestInput(uve_key='ObjectBgpRouter:host1',
+                    uve_data={
+                        'BgpRouterState': {
+                            'bgp_router_ip_list': ['10.1.1.1']
+                        },
+                        'ContrailConfig': {
+                            'elements': [
+                                [
+                                    {
+                                        'bgp_router_parameters':
+                                            '{"address": "10.1.1.1"}'
+                                    },
+                                    'host1:Config:contrail-api:0'
+                                ],
+                                [
+                                    {
+                                        'display_name': '"host1"',
+                                        'bgp_router_parameters':
+                                            '{"address": "10.1.1.1"}'
+                                    },
+                                    'host2:Config:contrail-api:0'
+                                ]
+                            ]
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='ContrailConfig.elements is list of list - match',
+                input=TestInput(uve_key='ObjectBgpRouter:host1',
+                    uve_data={
+                        'BgpRouterState': {
+                            'bgp_router_ip_list': ['10.1.1.1']
+                        },
+                        'ContrailConfig': {
+                            'elements': [
+                                [
+                                    {
+                                        'display_name': '"host1"',
+                                    },
+                                    'host1:Config:contrail-api:0'
+                                ],
+                                [
+                                    {
+                                        'bgp_router_parameters':
+                                            '{"address": "10.1.1.1"}'
+                                    },
+                                    'host2:Config:contrail-api:0'
+                                ]
+                            ]
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            ('ContrailConfig.elements.bgp_router_parameters'
+                                '.address not in BgpRouterState.'
+                                'bgp_router_ip_list', None,
+                             [('null', '["10.1.1.1"]', None)])
+                        ]
+                    }
+                ])
             )
         ]
         self._verify(AddressMismatchControl(), tests)
@@ -417,6 +484,87 @@ class TestAlarmPlugins(unittest.TestCase):
                     }
                 ),
                 output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='ContrailConfig.elements is a list of list - no match',
+                input=TestInput(uve_key='ObjectVRouter:host1',
+                    uve_data={
+                        'VrouterAgent': {
+                            'self_ip_list': ['1.1.1.1', '10.1.1.1'],
+                            'control_ip': '10.1.1.1'
+                        },
+                        'ContrailConfig': {
+                            'elements': [
+                                [
+                                    {
+                                        'virtual_router_ip_address':
+                                            '"10.1.1.1"',
+                                        'display_name': '"host1"'
+                                    },
+                                    'host1:Config:contrail-api:0',
+                                    'host2:Config:contrail-api:0'
+                                ],
+                                [
+                                    {
+                                        'virtual_router_ip_address':
+                                            '"10.1.1.1"'
+                                    },
+                                    'host3:Config:contrail-api:0',
+                                ]
+                            ]
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='ContrailConfig.elements is a list of list - match',
+                input=TestInput(uve_key='ObjectVRouter:host1',
+                    uve_data={
+                        'VrouterAgent': {
+                            'self_ip_list': ['1.1.1.1', '10.1.1.1'],
+                            'control_ip': '10.1.1.1'
+                        },
+                        'ContrailConfig': {
+                            'elements': [
+                                [
+                                    {
+                                        'virtual_router_ip_address':
+                                            '"10.1.1.2"',
+                                        'display_name': '"host1"'
+                                    },
+                                    'host1:Config:contrail-api:0',
+                                    'host2:Config:contrail-api:0'
+                                ],
+                                [
+                                    {
+                                        'virtual_router_ip_address':
+                                            '"10.1.1.2"'
+                                    },
+                                    'host3:Config:contrail-api:0',
+                                ]
+                            ]
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            ('ContrailConfig.elements.' +\
+                                'virtual_router_ip_address not in '
+                                'VrouterAgent.self_ip_list', None,
+                             [('"10.1.1.2"', '["1.1.1.1", "10.1.1.1"]', None)])
+                        ]
+                    },
+                    {
+                        'and_list': [
+                            ('ContrailConfig.elements.' +\
+                                'virtual_router_ip_address != '
+                                'VrouterAgent.control_ip', None,
+                             [('"10.1.1.2"', '"10.1.1.1"', None)])
+                        ]
+                    }
+                ])
             )
         ]
         self._verify(AddressMismatchCompute(), tests)
