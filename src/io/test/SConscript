@@ -72,15 +72,15 @@ env.Alias('src/io:usock_io_test', usock_io_test)
 
 test_suite = [
     event_manager_test,
+    ssl_server_test,
+    tcp_io_test,
+    tcp_server_test,
+    tcp_stress_test,
     udp_io_test,
     usock_io_test,
 ]
 
 flaky_test_suite = [
-    ssl_server_test,
-    tcp_io_test,
-    tcp_server_test,
-    tcp_stress_test,
 ]
 
 def clean_coverage(env, target, source):
