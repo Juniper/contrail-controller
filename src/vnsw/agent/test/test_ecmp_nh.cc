@@ -217,9 +217,6 @@ TEST_F(EcmpNhTest, EcmpNH_2) {
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(nh->GetType() == NextHop::INTERFACE);
     EXPECT_TRUE(nh->PolicyEnabled() == true);
-    VmInterface *intf = VmInterfaceGet(input1[0].intf_id);
-    EXPECT_TRUE(intf != NULL);
-    EXPECT_TRUE(intf->policy_enabled());
 
     //Second VM added, route should point to composite NH
     CreateVmportWithEcmp(input2, 1);
@@ -227,7 +224,7 @@ TEST_F(EcmpNhTest, EcmpNH_2) {
     nh = rt->GetActiveNextHop();
     EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
-    EXPECT_TRUE(comp_nh->PolicyEnabled() == true);
+    EXPECT_TRUE(comp_nh->PolicyEnabled() == false);
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 2);
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(comp_nh->Get(0)->nh());
     EXPECT_TRUE(intf_nh->PolicyEnabled() == false);
@@ -248,7 +245,7 @@ TEST_F(EcmpNhTest, EcmpNH_2) {
     comp_nh = static_cast<const CompositeNH *>(rt->GetActiveNextHop());
     EXPECT_TRUE(comp_nh->GetType() == NextHop::COMPOSITE);
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 5);
-    EXPECT_TRUE(comp_nh->PolicyEnabled() == true);
+    EXPECT_TRUE(comp_nh->PolicyEnabled() == false);
 
     //Verify all the component NH have right label and nexthop
     ComponentNHList::const_iterator component_nh_it =
@@ -308,7 +305,7 @@ TEST_F(EcmpNhTest, EcmpNH_2) {
 
     //Verify all the component NH have right label and nexthop
     comp_nh = static_cast<const CompositeNH *>(rt->GetActiveNextHop());
-    EXPECT_TRUE(comp_nh->PolicyEnabled() == true);
+    EXPECT_TRUE(comp_nh->PolicyEnabled() == false);
     component_nh_it = comp_nh->begin();
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");

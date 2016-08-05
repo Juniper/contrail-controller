@@ -202,7 +202,7 @@ void MplsLabel::CreateVPortLabel(const Agent *agent,
 }
 
 void MplsLabel::CreateEcmpLabel(const Agent *agent,
-                                uint32_t label, COMPOSITETYPE type, bool policy,
+                                uint32_t label, COMPOSITETYPE type,
                                 ComponentNHKeyList &component_nh_key_list,
                                 const std::string vrf_name) {
     DBRequest req;
@@ -211,7 +211,7 @@ void MplsLabel::CreateEcmpLabel(const Agent *agent,
     MplsLabelKey *key = new MplsLabelKey(MplsLabel::VPORT_NH, label);
     req.key.reset(key);
 
-    MplsLabelData *data = new MplsLabelData(type, policy, component_nh_key_list,
+    MplsLabelData *data = new MplsLabelData(type, false, component_nh_key_list,
                                             vrf_name);
     req.data.reset(data);
 
