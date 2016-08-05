@@ -166,7 +166,7 @@ protected:
     // returns true if Processing done, used by SslSession to do actual
     // synchronous read for data.
     virtual bool AsyncReadHandlerProcess(boost::asio::mutable_buffer buffer,
-                                         size_t &bytes_transferred,
+                                         size_t *bytes_transferred,
                                          boost::system::error_code &error);
 
     void AsyncReadStartInternal(TcpSessionPtr session);

@@ -65,7 +65,7 @@ private:
     // session mutex held, to avoid concurrent read and write operations
     // on same socket.
     bool AsyncReadHandlerProcess(boost::asio::mutable_buffer buffer,
-                                 size_t &bytes_transferred,
+                                 size_t *bytes_transferred,
                                  boost::system::error_code &error);
 
     void AsyncReadSome(boost::asio::mutable_buffer buffer);
