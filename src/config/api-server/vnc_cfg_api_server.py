@@ -57,7 +57,7 @@ bottle.BaseRequest.MEMFILE_MAX = 1024000
 
 import utils
 import context
-from context import get_request, get_context, set_context
+from context import get_request, get_context, set_context, use_context
 from context import ApiContext
 import vnc_cfg_types
 from vnc_cfg_ifmap import VncDbClient
@@ -1558,10 +1558,10 @@ class VncApiServer(object):
 
     # Public Methods
     def route(self, uri, method, handler):
+        @use_context
         def handler_trap_exception(*args, **kwargs):
-            set_context(ApiContext(external_req=bottle.request))
-            trace = None
             try:
+                trace = None
                 self._extensions_transform_request(get_request())
                 self._extensions_validate_request(get_request())
 
@@ -1646,6 +1646,10 @@ class VncApiServer(object):
                 return self.cloud_admin_role in [x.lower() for x in roles]
         return False
 
+    def get_auth_headers_from_token(self, token):
+        return self._auth_svc.get_auth_headers_from_token(token)
+    # end get_auth_headers_from_token
+
     # Check for the system created VN. Disallow such VN delete
     def virtual_network_http_delete(self, id):
         db_conn = self._db_conn
@@ -1667,8 +1671,8 @@ class VncApiServer(object):
         super(VncApiServer, self).virtual_network_http_delete(id)
    # end
 
+    @use_context
     def homepage_http_get(self):
-        set_context(ApiContext(external_req=bottle.request))
         json_body = {}
         json_links = []
         # strip trailing '/' in url
