@@ -30,7 +30,8 @@ class NeutronPluginInterface(object):
     An instance of this class receives requests from Contrail Neutron Plugin
     """
 
-    def __init__(self, api_server_ip, api_server_port, conf_sections, sandesh):
+    def __init__(self, api_server_ip, api_server_port, conf_sections, sandesh,
+                 api_server_obj=None):
         if api_server_ip == '0.0.0.0':
             self._vnc_api_ip = '127.0.0.1'
         else:
@@ -40,6 +41,7 @@ class NeutronPluginInterface(object):
         self._auth_user = conf_sections.get('KEYSTONE', 'admin_user')
         self._auth_passwd = conf_sections.get('KEYSTONE', 'admin_password')
         self._auth_tenant = conf_sections.get('KEYSTONE', 'admin_tenant_name')
+        self._api_server_obj = api_server_obj
 
         try:
             exts_enabled = conf_sections.getboolean('NEUTRON',
@@ -101,6 +103,7 @@ class NeutronPluginInterface(object):
                                       self._auth_tenant,
                                       self._vnc_api_ip,
                                       self._vnc_api_port,
+                                      api_server_obj=self._api_server_obj,
                                       contrail_extensions_enabled=exts_enabled,
                                       list_optimization_enabled=\
                                       self._list_optimization_enabled,
