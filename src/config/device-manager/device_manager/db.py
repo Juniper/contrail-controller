@@ -1334,8 +1334,8 @@ class DMCassandraDB(VncCassandraClient):
         self._args = manager._args
 
         keyspaces = {
-            self._KEYSPACE: [(self._PR_VN_IP_CF, None),
-                             (self._PNF_RESOURCE_CF, None)]}
+            self._KEYSPACE: {self._PR_VN_IP_CF: {},
+                             self._PNF_RESOURCE_CF: {}}}
 
         cass_server_list = self._args.cassandra_server_list
         cred = None
