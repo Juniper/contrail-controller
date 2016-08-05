@@ -216,6 +216,19 @@ void NextHop::FillObjectLogMac(const unsigned char *m,
     info.set_mac(mac);
 }
 
+bool NextHop::NexthopToInterfacePolicy() const {
+    if (GetType() == NextHop::INTERFACE) {
+        const InterfaceNH *intf_nh =
+            static_cast<const InterfaceNH *>(this);
+        const VmInterface *intf = dynamic_cast<const VmInterface *>
+            (intf_nh->GetInterface());
+        if (intf && intf->policy_enabled()) {
+            return true;
+        }
+    }
+    return false;
+}
+
 std::auto_ptr<DBEntry> NextHopTable::AllocEntry(const DBRequestKey *k) const {
     return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(AllocWithKey(k)));
 }
@@ -1901,7 +1914,8 @@ ComponentNHKeyList CompositeNH::AddComponentNHKey(ComponentNHKeyPtr cnh) const {
 }
 
 ComponentNHKeyList
-CompositeNH::DeleteComponentNHKey(ComponentNHKeyPtr cnh) const {
+CompositeNH::DeleteComponentNHKey(ComponentNHKeyPtr cnh,
+                                  bool &comp_nh_new_policy) const {
     Agent *agent = static_cast<NextHopTable *>(get_table())->agent();
     const NextHop *nh = static_cast<const NextHop *>(agent->nexthop_table()->
                                        FindActiveEntry(cnh->nh_key()));
@@ -1910,12 +1924,31 @@ CompositeNH::DeleteComponentNHKey(ComponentNHKeyPtr cnh) const {
     ComponentNHKeyList component_nh_key_list = component_nh_key_list_;
     ComponentNHKeyPtr component_nh_key;
     ComponentNHList::const_iterator it = begin();
+    comp_nh_new_policy = false;
+    bool removed = false;
     int index = 0;
     for (;it != end(); it++, index++) {
         ComponentNHKeyPtr dummy_ptr;
         dummy_ptr.reset();
         if ((*it) && ((*it)->label() == cnh->label() && (*it)->nh() == nh)) {
             component_nh_key_list[index] = dummy_ptr;
+            removed = true;
+        } else {
+            /* Go through all the component Interface Nexthops of this
+             * CompositeNH to figure out the new policy status of this
+             * CompositeNH. Ignore the component NH being deleted while
+             * iterating. */
+            if ((*it) && (*it)->nh() && !comp_nh_new_policy) {
+                /* If any one of component NH's interface has policy enabled,
+                 * the policy-status of compositeNH is true. So we need to
+                 * look only until we find the first Interface which has
+                 * policy enabled */
+                comp_nh_new_policy = (*it)->nh()->NexthopToInterfacePolicy();
+            }
+        }
+        if (removed && comp_nh_new_policy) {
+            /* No need to iterate further if we done with both deleting key and
+             * figuring out policy-status */
             break;
         }
     }

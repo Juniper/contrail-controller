@@ -465,15 +465,22 @@ AgentPath *InetUnicastRouteEntry::AllocateEcmpPath(Agent *agent,
     // Allocate a new label for the ECMP path
     uint32_t label = agent->mpls_table()->AllocLabel();
 
+    const NextHop* path1_nh = path1->ComputeNextHop(agent);
+    bool composite_nh_policy = path1_nh->NexthopToInterfacePolicy();
+
     // Create Component NH to be added to ECMP path
-    DBEntryBase::KeyPtr key1 = path1->ComputeNextHop(agent)->GetDBRequestKey();
+    DBEntryBase::KeyPtr key1 = path1_nh->GetDBRequestKey();
     NextHopKey *nh_key1 = static_cast<NextHopKey *>(key1.release());
     std::auto_ptr<const NextHopKey> nh_akey1(nh_key1);
     nh_key1->SetPolicy(false);
     ComponentNHKeyPtr component_nh_data1(new ComponentNHKey(path1->label(),
                                                             nh_akey1));
 
-    DBEntryBase::KeyPtr key2 = path2->ComputeNextHop(agent)->GetDBRequestKey();
+    const NextHop* path2_nh = path2->ComputeNextHop(agent);
+    if (!composite_nh_policy) {
+        composite_nh_policy = path2_nh->NexthopToInterfacePolicy();
+    }
+    DBEntryBase::KeyPtr key2 = path2_nh->GetDBRequestKey();
     NextHopKey *nh_key2 = static_cast<NextHopKey *>(key2.release());
     std::auto_ptr<const NextHopKey> nh_akey2(nh_key2);
     nh_key2->SetPolicy(false);
@@ -488,21 +495,22 @@ AgentPath *InetUnicastRouteEntry::AllocateEcmpPath(Agent *agent,
     // It will also create CompositeNH if necessary
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(new CompositeNHKey(Composite::LOCAL_ECMP,
-                                        false, component_nh_list,
+                                        composite_nh_policy, component_nh_list,
                                         vrf()->GetName()));
     nh_req.data.reset(new CompositeNHData());
 
     InetUnicastRouteEntry::ModifyEcmpPath(addr_, plen_, path2->dest_vn_list(),
-                                           label, true, vrf()->GetName(),
-                                           path2->sg_list(),
-                                           path2->communities(),
-                                           path2->path_preference(),
-                                           path2->tunnel_bmap(),
-                                           path2->ecmp_load_balance(),
-                                           nh_req, agent, path);
+                                          label, true, vrf()->GetName(),
+                                          path2->sg_list(),
+                                          path2->communities(),
+                                          path2->path_preference(),
+                                          path2->tunnel_bmap(),
+                                          path2->ecmp_load_balance(),
+                                          nh_req, agent, path);
 
     //Make MPLS label point to Composite NH
-    MplsLabel::CreateEcmpLabel(agent, label, Composite::LOCAL_ECMP, component_nh_list,
+    MplsLabel::CreateEcmpLabel(agent, label, Composite::LOCAL_ECMP,
+                               composite_nh_policy, component_nh_list,
                                vrf()->GetName());
 
     RouteInfo rt_info;
@@ -779,7 +787,8 @@ void InetUnicastRouteEntry::AppendEcmpPath(Agent *agent,
     AgentPath *ecmp_path = FindPath(agent->ecmp_peer());
     assert(ecmp_path);
 
-    DBEntryBase::KeyPtr key = path->ComputeNextHop(agent)->GetDBRequestKey();
+    const NextHop* path_nh = path->ComputeNextHop(agent);
+    DBEntryBase::KeyPtr key = path_nh->GetDBRequestKey();
     NextHopKey *nh_key = static_cast<NextHopKey *>(key.release());
     std::auto_ptr<const NextHopKey> nh_akey(nh_key);
     nh_key->SetPolicy(false);
@@ -789,11 +798,16 @@ void InetUnicastRouteEntry::AppendEcmpPath(Agent *agent,
     const CompositeNH *comp_nh =
         static_cast<const CompositeNH *>(ecmp_path->ComputeNextHop(agent));
     component_nh_key_list = comp_nh->AddComponentNHKey(comp_nh_key_ptr);
+    bool composite_nh_policy = comp_nh->PolicyEnabled();
 
+    if (!composite_nh_policy) {
+        composite_nh_policy = path_nh->NexthopToInterfacePolicy();
+    }
     // Form the request for Inet4UnicastEcmpRoute and invoke AddChangePath
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(new CompositeNHKey(Composite::LOCAL_ECMP,
-                                        false, component_nh_key_list,
+                                        composite_nh_policy,
+                                        component_nh_key_list,
                                         vrf()->GetName()));
     nh_req.data.reset(new CompositeNHData());
 
@@ -807,7 +821,8 @@ void InetUnicastRouteEntry::AppendEcmpPath(Agent *agent,
 
     //Make MPLS label point to composite NH
     MplsLabel::CreateEcmpLabel(agent, ecmp_path->label(), Composite::LOCAL_ECMP,
-                               component_nh_key_list, vrf()->GetName());
+                               composite_nh_policy, component_nh_key_list,
+                               vrf()->GetName());
 
     RouteInfo rt_info;
     FillTrace(rt_info, AgentRoute::CHANGE_PATH, path);
@@ -827,7 +842,8 @@ bool InetUnicastRouteEntry::UpdateComponentNH(Agent *agent,
         return false;
     }
     //Build ComponentNHKey for new path
-    DBEntryBase::KeyPtr key = path->ComputeNextHop(agent)->GetDBRequestKey();
+    const NextHop* path_nh = path->ComputeNextHop(agent);
+    DBEntryBase::KeyPtr key = path_nh->GetDBRequestKey();
     NextHopKey *nh_key = static_cast<NextHopKey *>(key.get());
     nh_key->SetPolicy(false);
 
@@ -841,10 +857,16 @@ bool InetUnicastRouteEntry::UpdateComponentNH(Agent *agent,
         return false;
     }
 
+    bool composite_nh_policy = comp_nh->PolicyEnabled();
+
+    if (!composite_nh_policy) {
+        composite_nh_policy = path_nh->NexthopToInterfacePolicy();
+    }
     // Form the request for Inet4UnicastEcmpRoute and invoke AddChangePath
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(new CompositeNHKey(Composite::LOCAL_ECMP,
-                                        false, component_nh_key_list,
+                                        composite_nh_policy,
+                                        component_nh_key_list,
                                         vrf()->GetName()));
     nh_req.data.reset(new CompositeNHData());
 
@@ -859,7 +881,8 @@ bool InetUnicastRouteEntry::UpdateComponentNH(Agent *agent,
 
     //Make MPLS label point to updated composite NH
     MplsLabel::CreateEcmpLabel(agent, ecmp_path->label(), Composite::LOCAL_ECMP,
-                               component_nh_key_list, vrf()->GetName());
+                               composite_nh_policy, component_nh_key_list,
+                               vrf()->GetName());
 
     RouteInfo rt_info;
     FillTrace(rt_info, AgentRoute::CHANGE_PATH, path);
@@ -881,14 +904,16 @@ void InetUnicastRouteEntry::DeleteComponentNH(Agent *agent, AgentPath *path) {
     ComponentNHKeyPtr comp_nh_key_ptr(new ComponentNHKey(path->label(), nh_akey));
 
     ComponentNHKeyList component_nh_key_list;
+    bool comp_nh_policy = false;
     const CompositeNH *comp_nh =
         static_cast<const CompositeNH *>(ecmp_path->ComputeNextHop(agent));
-    component_nh_key_list = comp_nh->DeleteComponentNHKey(comp_nh_key_ptr);
+    component_nh_key_list = comp_nh->DeleteComponentNHKey(comp_nh_key_ptr,
+                                                          comp_nh_policy);
 
     // Form the request for Inet4UnicastEcmpRoute and invoke AddChangePath
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(new CompositeNHKey(Composite::LOCAL_ECMP,
-                                        false, component_nh_key_list,
+                                        comp_nh_policy, component_nh_key_list,
                                         vrf()->GetName()));
     nh_req.data.reset(new CompositeNHData());
 
@@ -905,7 +930,8 @@ void InetUnicastRouteEntry::DeleteComponentNH(Agent *agent, AgentPath *path) {
 
     //Make MPLS label point to composite NH
     MplsLabel::CreateEcmpLabel(agent, ecmp_path->label(), Composite::LOCAL_ECMP,
-                               component_nh_key_list, vrf()->GetName());
+                               comp_nh_policy, component_nh_key_list,
+                               vrf()->GetName());
 
     RouteInfo rt_info;
     FillTrace(rt_info, AgentRoute::CHANGE_PATH, path);
