@@ -42,7 +42,7 @@ bool CfgFilter::CheckIdPermsProperty(DBTable *table,
 
     if (req_id->IsPropertySet(property_id)) {
         return true;
-    } 
+    }
 
     // When ID_PERMS is not present, ignore the request
     IFMapAgentTable::RequestKey *key =
@@ -69,6 +69,12 @@ int CfgFilter::GetIdPermsPropertyId(DBTable *table) const {
         return LogicalInterface::ID_PERMS;
     if (table == agent_cfg_->cfg_physical_device_table())
         return PhysicalRouter::ID_PERMS;
+    if (table == agent_cfg_->cfg_qos_table())
+        return autogen::QosConfig::ID_PERMS;
+    if (table == agent_cfg_->cfg_qos_queue_table())
+       return autogen::QosQueue::ID_PERMS;
+    if (table == agent_cfg_->cfg_forwarding_class_table())
+        return autogen::ForwardingClass::ID_PERMS;
     return -1;
 }
 
@@ -139,6 +145,15 @@ void CfgFilter::Init() {
 
     agent_cfg_->cfg_physical_device_table()->RegisterPreFilter
         (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3));
+
+    agent_cfg_->cfg_qos_table()->RegisterPreFilter
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3));
+
+    agent_cfg_->cfg_forwarding_class_table()->RegisterPreFilter
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3));
+
+    agent_cfg_->cfg_qos_queue_table()->RegisterPreFilter
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3));
 }
 
 void CfgFilter::Shutdown() {
@@ -150,4 +165,7 @@ void CfgFilter::Shutdown() {
     agent_cfg_->cfg_security_group_table()->RegisterPreFilter(NULL);
     agent_cfg_->cfg_logical_port_table()->RegisterPreFilter(NULL);
     agent_cfg_->cfg_physical_device_table()->RegisterPreFilter(NULL);
+    agent_cfg_->cfg_qos_table()->RegisterPreFilter(NULL);
+    agent_cfg_->cfg_forwarding_class_table()->RegisterPreFilter(NULL);
+    agent_cfg_->cfg_qos_queue_table()->RegisterPreFilter(NULL);
 }

@@ -449,6 +449,18 @@ TEST_F(QosConfigClassTest, Test11) {
     client->WaitForIdle();
 }
 
+TEST_F(QosConfigClassTest, Test12) {
+
+    AddNode("qos-config", "qos_config", 0, NULL, true);
+    AddNode("forwarding-class", "fc1", 0, NULL, true);
+    AddNode("qos-queue", "queue1", 0, NULL, true);
+    client->WaitForIdle();
+
+    DelNode("qos-config", "qos_config");
+    DelNode("forwarding-class", "fc1");
+    DelNode("qos-queue", "queue1");
+    client->WaitForIdle();
+}
 
 int main(int argc, char **argv) {
     GETUSERARGS();
