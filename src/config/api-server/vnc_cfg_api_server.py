@@ -168,6 +168,10 @@ def error_409(err):
     return err.body
 # end error_409
 
+@bottle.error(412)
+def error_412(err):
+    return err.body
+# end error_412
 
 @bottle.error(500)
 def error_500(err):

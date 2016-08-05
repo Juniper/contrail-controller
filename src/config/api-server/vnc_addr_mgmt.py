@@ -711,7 +711,12 @@ class AddrMgmt(object):
     # end _vn_to_subnets
 
     def net_check_subnet_quota(self, db_vn_dict, req_vn_dict, db_conn):
-        proj_uuid = db_vn_dict['parent_uuid']
+        if 'parent_uuid' not in db_vn_dict:
+            proj_fq_name = db_vn_dict['fq_name'][:-1]
+            proj_uuid = db_conn.fq_name_to_uuid('project', proj_fq_name)
+        else:
+            proj_uuid = db_vn_dict['parent_uuid']
+
         (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(proj_uuid,
                                                                  db_conn)
         if not ok:

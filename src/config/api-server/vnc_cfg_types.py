@@ -16,6 +16,7 @@ import cfgm_common.utils
 import cfgm_common.exceptions
 import netaddr
 import uuid
+import vnc_quota
 from vnc_quota import QuotaHelper
 
 from context import get_context
@@ -1004,6 +1005,12 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
         db_conn.update_subnet_uuid(obj_dict)
 
+        (ok, result) = cls.addr_mgmt.net_check_subnet_quota(obj_dict,
+                                                            obj_dict, db_conn)
+
+        if not ok:
+            return (ok, (vnc_quota.QUOTA_OVER_ERROR_CODE, result))
+
         (ok, result) = cls.addr_mgmt.net_check_subnet_overlap(obj_dict)
         if not ok:
             return (ok, (409, result))
@@ -1106,6 +1113,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                                                             obj_dict, db_conn)
         if not ok:
             return (ok, (vnc_quota.QUOTA_OVER_ERROR_CODE, result))
+
         (ok, result) = cls.addr_mgmt.net_check_subnet_overlap(obj_dict)
         if not ok:
             return (ok, (409, result))
