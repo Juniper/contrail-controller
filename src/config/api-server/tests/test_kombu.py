@@ -93,13 +93,15 @@ class TestIfmapKombuClient(unittest.TestCase):
     @unittest.skipIf(is_kombu_client_v1,
                      "skipping because kombu client is older")
     def test_connection_monitor(self):
-        flexmock(self.mock_connect).should_receive("close").twice()
+        flexmock(self.mock_connect).should_receive("close").times(3)
         flexmock(self.mock_connect).should_receive("connect").twice()
         flexmock(self.mock_connect).should_receive("ensure_connection").twice()
         flexmock(self.mock_connect).should_receive("channel").twice()
         flexmock(self.db_client_mgr).should_receive("wait_for_resync_done"). \
             with_args().once()
         flexmock(self.mock_consumer).should_receive("consume").twice()
+        flexmock(self.mock_consumer).should_receive("close").once()
+        flexmock(self.mock_producer).should_receive("close").once()
 
         _lock = gevent.lock.Semaphore()
         _lock.acquire()
@@ -119,6 +121,7 @@ class TestIfmapKombuClient(unittest.TestCase):
                                      self.password,
                                      self.vhost, False)
         _lock.wait()
+        kc.shutdown()
 
     @unittest.skipIf(is_kombu_client_v1,
                      "skipping because kombu client is older")
@@ -129,7 +132,7 @@ class TestIfmapKombuClient(unittest.TestCase):
         flexmock(self.mock_connect).should_receive("channel").twice()
         flexmock(self.db_client_mgr).should_receive("wait_for_resync_done"). \
             with_args().once()
-        flexmock(self.mock_consumer).should_receive("consume").twice()
+        flexmock(self.mock_consumer).should_receive("consume").once()
 
         _lock = gevent.lock.Semaphore()
         _lock.acquire()
