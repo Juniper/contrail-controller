@@ -55,8 +55,7 @@ public:
                                          bool policy,
                                          InterfaceNHFlags::Type type,
                                          const MacAddress &mac);
-    static void CreateEcmpLabel(const Agent *agent, uint32_t label,
-                                COMPOSITETYPE type, bool policy,
+    static void CreateEcmpLabel(const Agent *agent, uint32_t label, COMPOSITETYPE type,
                                 ComponentNHKeyList &component_nh_key_list,
                                 const std::string vrf_name);
     // Delete MPLS Label entry

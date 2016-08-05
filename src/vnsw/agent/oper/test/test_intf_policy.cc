@@ -723,7 +723,7 @@ TEST_F(PolicyTest, EcmpNH_1) {
     EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     comp_nh = static_cast<const CompositeNH *>(nh);
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 2);
-    EXPECT_TRUE(comp_nh->PolicyEnabled() == true);
+    EXPECT_TRUE(comp_nh->PolicyEnabled() == false);
 
     uint32_t label1 = comp_nh->Get(0)->label();
     uint32_t label2 = comp_nh->Get(1)->label();
