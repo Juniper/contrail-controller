@@ -46,6 +46,277 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         logger.addHandler(ch)
         super(TestIpAlloc, self).__init__(*args, **kwargs)
 
+    def test_subnet_quota(self):
+        domain = Domain('v4-domain')
+        self._vnc_lib.domain_create(domain)
+
+        # Create Project
+        project = Project('v4-proj', domain)
+        self._vnc_lib.project_create(project)
+        project = self._vnc_lib.project_read(fq_name=['v4-domain', 'v4-proj'])
+
+        ipam1_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 28))
+        ipam2_sn_v4 = IpamSubnetType(subnet=SubnetType('12.1.1.0', 28))
+        ipam3_sn_v4 = IpamSubnetType(subnet=SubnetType('13.1.1.0', 28))
+        ipam4_sn_v4 = IpamSubnetType(subnet=SubnetType('14.1.1.0', 28))
+
+        #create two ipams
+        ipam1 = NetworkIpam('ipam1', project, IpamType("dhcp"))
+        self._vnc_lib.network_ipam_create(ipam1)
+        ipam1 = self._vnc_lib.network_ipam_read(fq_name=['v4-domain',
+                                                        'v4-proj', 'ipam1'])
+
+        ipam2 = NetworkIpam('ipam2', project, IpamType("dhcp"))
+        self._vnc_lib.network_ipam_create(ipam2)
+        ipam2 = self._vnc_lib.network_ipam_read(fq_name=['v4-domain',
+                                                        'v4-proj', 'ipam2'])
+
+        #create virtual network with unlimited subnet quota without any subnets
+        vn = VirtualNetwork('my-vn', project)
+        vn.add_network_ipam(ipam1, VnSubnetsType([]))
+        vn.add_network_ipam(ipam2, VnSubnetsType([]))
+        self._vnc_lib.virtual_network_create(vn)
+        net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
+        #inspect net_obj to make sure we have 0 cidrs
+        ipam_refs = net_obj.__dict__.get('network_ipam_refs', [])
+
+        def _get_total_subnets_count(ipam_refs):
+            subnet_count = 0
+            for ipam_ref in ipam_refs:
+                vnsn_data = ipam_ref['attr'].__dict__
+                ipam_subnets = vnsn_data.get('ipam_subnets', [])
+                for ipam_subnet in ipam_subnets:
+                    subnet_dict = ipam_subnet.__dict__.get('subnet', {})
+                    if 'ip_prefix' in subnet_dict.__dict__:
+                        subnet_count += 1
+            return subnet_count
+
+        total_subnets = _get_total_subnets_count(ipam_refs)
+        if total_subnets:
+            raise Exception("No Subnets expected in Virtual Network")
+        self._vnc_lib.virtual_network_delete(id=vn.uuid)
+
+        #keep subnet quota unlimited and have 4 cidrs in two ipams
+        vn = VirtualNetwork('my-vn', project)
+        vn.add_network_ipam(ipam1, VnSubnetsType([ipam1_sn_v4, ipam3_sn_v4]))
+        vn.add_network_ipam(ipam2, VnSubnetsType([ipam2_sn_v4, ipam4_sn_v4]))
+        self._vnc_lib.virtual_network_create(vn)
+        net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
+        #inspect net_obj to make sure we have 4 cidrs
+        ipam_refs = net_obj.__dict__.get('network_ipam_refs', [])
+        total_subnets = _get_total_subnets_count(ipam_refs)
+        if total_subnets != 4:
+            raise Exception("4 Subnets expected in Virtual Network")
+
+        #Delete vn and create new one with a subnet quota of 1
+        self._vnc_lib.virtual_network_delete(id=vn.uuid)
+        quota_type = QuotaType()
+        quota_type.set_subnet(1)
+        project.set_quota(quota_type)
+        self._vnc_lib.project_update(project)
+
+        vn = VirtualNetwork('my-new-vn', project)
+        vn.add_network_ipam(ipam1, VnSubnetsType([ipam1_sn_v4]))
+        vn.add_network_ipam(ipam2, VnSubnetsType([ipam2_sn_v4]))
+
+        with ExpectedException(cfgm_common.exceptions.OverQuota,
+                               '\\[\'v4-domain\', \'v4-proj\', \'my-new-vn\'\\] : quota limit \\(1\\) exceeded for resource subnet') as e:
+            self._vnc_lib.virtual_network_create(vn)
+
+        #increase subnet quota to 2, and network_create will go through..
+        quota_type.set_subnet(2)
+        project.set_quota(quota_type)
+        self._vnc_lib.project_update(project)
+        self._vnc_lib.virtual_network_create(vn)
+        net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
+        ipam_refs = net_obj.__dict__.get('network_ipam_refs', [])
+        total_subnets = _get_total_subnets_count(ipam_refs)
+
+        if total_subnets != 2:
+            raise Exception("2 Subnets expected in Virtual Network")
+
+        #test quota through network_update
+        vn.add_network_ipam(ipam1, VnSubnetsType([ipam1_sn_v4, ipam3_sn_v4]))
+        vn.add_network_ipam(ipam2, VnSubnetsType([ipam2_sn_v4]))
+        with ExpectedException(cfgm_common.exceptions.OverQuota,
+                               '\\[\'v4-domain\', \'v4-proj\', \'my-new-vn\'\\] : quota limit \\(2\\) exceeded for resource subnet') as e:
+            self._vnc_lib.virtual_network_update(vn)
+
+        self._vnc_lib.virtual_network_delete(id=vn.uuid)
+        quota_type.set_subnet(4)
+        project.set_quota(quota_type)
+        self._vnc_lib.project_update(project)
+
+
+        vn = VirtualNetwork('my-new-vn', project)
+        vn.add_network_ipam(ipam1, VnSubnetsType([ipam1_sn_v4]))
+        vn.add_network_ipam(ipam2, VnSubnetsType([ipam2_sn_v4]))
+        self._vnc_lib.virtual_network_create(vn)
+        vn.add_network_ipam(ipam1, VnSubnetsType([ipam1_sn_v4, ipam3_sn_v4]))
+        vn.add_network_ipam(ipam2, VnSubnetsType([ipam2_sn_v4, ipam4_sn_v4]))
+        self._vnc_lib.virtual_network_update(vn)
+        net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
+        ipam_refs = net_obj.__dict__.get('network_ipam_refs', [])
+        total_subnets = _get_total_subnets_count(ipam_refs)
+        if total_subnets != 4:
+            raise Exception("4 Subnets expected in Virtual Network")
+
+        self._vnc_lib.virtual_network_delete(id=vn.uuid)
+        self._vnc_lib.network_ipam_delete(id=ipam1.uuid)
+        self._vnc_lib.network_ipam_delete(id=ipam2.uuid)
+        self._vnc_lib.project_delete(id=project.uuid)
+
+
+    def test_subnet_alloc_unit(self):
+
+        # Create Domain
+        domain = Domain('my-v4-v6-domain')
+        self._vnc_lib.domain_create(domain)
+        logger.debug('Created domain ')
+
+        # Create Project
+        project = Project('my-v4-v6-proj', domain)
+        self._vnc_lib.project_create(project)
+        logger.debug('Created Project')
+
+        # Create NetworkIpam
+        ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
+        self._vnc_lib.network_ipam_create(ipam)
+        logger.debug('Created network ipam')
+
+        ipam = self._vnc_lib.network_ipam_read(fq_name=['my-v4-v6-domain',
+                                                        'my-v4-v6-proj',
+                                                        'default-network-ipam'])
+        logger.debug('Read network ipam')
+
+        # create ipv4 subnet with alloc_unit not power of 2
+        ipam_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24),
+                                    alloc_unit=3)
+        vn = VirtualNetwork('my-v4-v6-vn', project)
+        vn.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4]))
+        try:
+            self._vnc_lib.virtual_network_create(vn)
+        except HttpError:
+            logger.debug('alloc-unit is not power of 2')
+            pass
+
+        vn.del_network_ipam(ipam)
+        # create ipv6 subnet with alloc_unit not power of 2
+        ipam_sn_v6 = IpamSubnetType(subnet=SubnetType('fd14::', 120),
+                                    alloc_unit=3)
+        vn.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v6]))
+
+        try:
+            self._vnc_lib.virtual_network_create(vn)
+        except HttpError:
+            logger.debug('alloc-unit is not power of 2')
+            pass
+
+        vn.del_network_ipam(ipam)
+        # Create subnets
+        ipam_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24),
+                                    alloc_unit=4)
+        ipam_sn_v6 = IpamSubnetType(subnet=SubnetType('fd14::', 120),
+                                    alloc_unit=4)
+
+        vn.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4, ipam_sn_v6]))
+        self._vnc_lib.virtual_network_create(vn)
+        logger.debug('Created Virtual Network object %s', vn.uuid)
+        net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
+
+        # Create v4 Ip objects
+        ipv4_obj1 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4')
+        ipv4_obj1.uuid = ipv4_obj1.name
+        logger.debug('Created Instance IPv4 object 1 %s', ipv4_obj1.uuid)
+
+        ipv4_obj2 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4')
+        ipv4_obj2.uuid = ipv4_obj2.name
+        logger.debug('Created Instance IPv4 object 2 %s', ipv4_obj2.uuid)
+
+        # Create v6 Ip object
+        ipv6_obj1 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v6')
+        ipv6_obj1.uuid = ipv6_obj1.name
+        logger.debug('Created Instance IPv6 object 2 %s', ipv6_obj1.uuid)
+
+        ipv6_obj2 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v6')
+        ipv6_obj2.uuid = ipv6_obj2.name
+        logger.debug('Created Instance IPv6 object 2 %s', ipv6_obj2.uuid)
+
+        # Create VM
+        vm_inst_obj1 = VirtualMachine(str(uuid.uuid4()))
+        vm_inst_obj1.uuid = vm_inst_obj1.name
+        self._vnc_lib.virtual_machine_create(vm_inst_obj1)
+
+        id_perms = IdPermsType(enable=True)
+        port_obj1 = VirtualMachineInterface(
+            str(uuid.uuid4()), vm_inst_obj1, id_perms=id_perms)
+        port_obj1.uuid = port_obj1.name
+        port_obj1.set_virtual_network(vn)
+        ipv4_obj1.set_virtual_machine_interface(port_obj1)
+        ipv4_obj1.set_virtual_network(net_obj)
+        ipv4_obj2.set_virtual_machine_interface(port_obj1)
+        ipv4_obj2.set_virtual_network(net_obj)
+
+        ipv6_obj1.set_virtual_machine_interface(port_obj1)
+        ipv6_obj1.set_virtual_network(net_obj)
+        ipv6_obj2.set_virtual_machine_interface(port_obj1)
+        ipv6_obj2.set_virtual_network(net_obj)
+
+        port_id1 = self._vnc_lib.virtual_machine_interface_create(port_obj1)
+
+        logger.debug('Wrong ip address request,not aligned with alloc-unit')
+        ipv4_obj1.set_instance_ip_address('11.1.1.249') 
+        with ExpectedException(BadRequest,
+                               'Virtual-Network\(my-v4-v6-domain:my-v4-v6-proj:my-v4-v6-vn:11.1.1.0/24\) has invalid alloc_unit\(4\) in subnet\(11.1.1.0/24\)') as e:
+            ipv4_id1 = self._vnc_lib.instance_ip_create(ipv4_obj1)
+         
+        ipv4_obj1.set_instance_ip_address(None) 
+        logger.debug('Allocating an IP4 address for first VM')
+        ipv4_id1 = self._vnc_lib.instance_ip_create(ipv4_obj1)
+        ipv4_obj1 = self._vnc_lib.instance_ip_read(id=ipv4_id1)
+        ipv4_addr1 = ipv4_obj1.get_instance_ip_address()
+        logger.debug('  got v4 IP Address for first instance %s', ipv4_addr1)
+        if ipv4_addr1 != '11.1.1.248':
+            logger.debug('Allocation failed, expected v4 IP Address 11.1.1.248')
+
+        logger.debug('Allocating an IPV4 address for second VM')
+        ipv4_id2 = self._vnc_lib.instance_ip_create(ipv4_obj2)
+        ipv4_obj2 = self._vnc_lib.instance_ip_read(id=ipv4_id2)
+        ipv4_addr2 = ipv4_obj2.get_instance_ip_address()
+        logger.debug('  got v6 IP Address for first instance %s', ipv4_addr2)
+        if ipv4_addr2 != '11.1.1.244':
+            logger.debug('Allocation failed, expected v4 IP Address 11.1.1.244')
+
+        logger.debug('Allocating an IP6 address for first VM')
+        ipv6_id1 = self._vnc_lib.instance_ip_create(ipv6_obj1)
+        ipv6_obj1 = self._vnc_lib.instance_ip_read(id=ipv6_id1)
+        ipv6_addr1 = ipv6_obj1.get_instance_ip_address()
+        logger.debug('  got v6 IP Address for first instance %s', ipv6_addr1)
+        if ipv6_addr1 != 'fd14::f8':
+            logger.debug('Allocation failed, expected v6 IP Address fd14::f8')
+
+        logger.debug('Allocating an IP6 address for second VM')
+        ipv6_id2 = self._vnc_lib.instance_ip_create(ipv6_obj2)
+        ipv6_obj2 = self._vnc_lib.instance_ip_read(id=ipv6_id2)
+        ipv6_addr2 = ipv6_obj2.get_instance_ip_address()
+        logger.debug('  got v6 IP Address for first instance %s', ipv6_addr2)
+        if ipv6_addr2 != 'fd14::f4':
+            logger.debug('Allocation failed, expected v6 IP Address fd14::f4')
+
+        #cleanup
+        logger.debug('Cleaning up')
+        self._vnc_lib.instance_ip_delete(id=ipv4_id1)
+        self._vnc_lib.instance_ip_delete(id=ipv4_id2)
+        self._vnc_lib.instance_ip_delete(id=ipv6_id1)
+        self._vnc_lib.instance_ip_delete(id=ipv6_id2)
+        self._vnc_lib.virtual_machine_interface_delete(id=port_obj1.uuid)
+        self._vnc_lib.virtual_machine_delete(id=vm_inst_obj1.uuid)
+        self._vnc_lib.virtual_network_delete(id=vn.uuid)
+        self._vnc_lib.network_ipam_delete(id=ipam.uuid)
+        self._vnc_lib.project_delete(id=project.uuid)
+        self._vnc_lib.domain_delete(id=domain.uuid)
+    #end
+
     def test_ip_alloction(self):
         # Create Domain
         domain = Domain('my-v4-v6-domain')
