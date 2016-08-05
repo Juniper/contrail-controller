@@ -380,6 +380,7 @@ public:
                                   NextHopObjectLogInfo &info);
     static void FillObjectLogMac(const unsigned char *m,
                                  NextHopObjectLogInfo &info);
+    bool NexthopToInterfacePolicy() const;
 protected:
     void FillObjectLog(AgentLogEvent::type event,
                        NextHopObjectLogInfo &info) const;
@@ -1358,7 +1359,8 @@ public:
     ComponentNHKeyList AddComponentNHKey(ComponentNHKeyPtr
                                          component_nh_key) const;
     ComponentNHKeyList DeleteComponentNHKey(ComponentNHKeyPtr
-                                            component_nh_key) const;
+                                            component_nh_key,
+                                            bool &comp_nh_new_policy) const;
     bool UpdateComponentNHKey(uint32_t label, NextHopKey *nh_key,
                               ComponentNHKeyList &component_nh_key_list) const;
     ComponentNHList& component_nh_list() {
