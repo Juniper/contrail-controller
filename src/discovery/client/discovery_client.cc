@@ -825,19 +825,22 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName) {
                 }
             }
 
-            if (resp->inuse_service_list_.size()) {
-                pugi::xml_node node_service = pugi->FindNode(serviceName);
-                if (!pugi->IsNull(node_service)) {
-                    pugi->ReadNode(serviceName); //SetContext
-                    pugi->AddChildNode("service-in-use-list", "");
-                    std::vector<boost::asio::ip::tcp::endpoint>::iterator it;
-                    for (it = resp->inuse_service_list_.begin();
-                         it != resp->inuse_service_list_.end(); it++) {
-                        boost::asio::ip::tcp::endpoint ep = *it;
-                        std::string pub_id =
-                            resp->GetPublisherId(ep.address().to_string());
-                        pugi->AddChildNode("publisher-id", pub_id);
-                        pugi->ReadNode("service-in-use-list");
+            {
+                tbb::mutex::scoped_lock lock(mutex_);
+                if (resp->inuse_service_list_.size()) {
+                    pugi::xml_node node_service = pugi->FindNode(serviceName);
+                    if (!pugi->IsNull(node_service)) {
+                        pugi->ReadNode(serviceName); //SetContext
+                        pugi->AddChildNode("service-in-use-list", "");
+                        std::vector<boost::asio::ip::tcp::endpoint>::iterator it;
+                        for (it = resp->inuse_service_list_.begin();
+                             it != resp->inuse_service_list_.end(); it++) {
+                            boost::asio::ip::tcp::endpoint ep = *it;
+                            std::string pub_id =
+                                resp->GetPublisherId(ep.address().to_string());
+                            pugi->AddChildNode("publisher-id", pub_id);
+                            pugi->ReadNode("service-in-use-list");
+                        }
                     }
                 }
             }
@@ -1235,6 +1238,7 @@ void DiscoveryServiceClient::AddSubscribeInUseServiceList(
 
     DSSubscribeResponse *resp = GetSubscribeResponse(serviceName);
     if (resp) {
+        tbb::mutex::scoped_lock lock(mutex_);
         resp->AddInUseServiceList(ep);
     }
 }
@@ -1244,6 +1248,7 @@ void DiscoveryServiceClient::DeleteSubscribeInUseServiceList(
 
     DSSubscribeResponse *resp = GetSubscribeResponse(serviceName);
     if (resp) {
+        tbb::mutex::scoped_lock lock(mutex_);
         resp->DeleteInUseServiceList(ep);
     }
 }
