@@ -461,8 +461,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         bob   = self.bob
         admin = self.admin
 
-        rv_json = admin.vnc_lib._request(rest.OP_GET, '/multi-tenancy-with-rbac')
-        rv = json.loads(rv_json)
+        rv = admin.vnc_lib._request(rest.OP_GET, '/multi-tenancy-with-rbac')
         self.assertEquals(rv["enabled"], True)
 
         # disable rbac
