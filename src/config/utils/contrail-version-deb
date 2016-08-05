@@ -46,7 +46,7 @@ for i in $pkg_list; do
   fi
   # Only Installed packages are displayed
   if [[ -n $rr ]]; then
-      printf "%-39s%-31s%-20s\n" $i $v $rr
+      printf "%-39s%-37s%-20s\n" $i $v $rr
       unset rr
   fi
 done
