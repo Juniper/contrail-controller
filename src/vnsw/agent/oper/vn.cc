@@ -1400,7 +1400,35 @@ bool DomainConfig::IpamChanged(const autogen::IpamType &old,
         old.cidr_block.ip_prefix_len != cur.cidr_block.ip_prefix_len)
         return true;
 
-    //ignoring changes to dhcp_option_list and host_routes
+    if (old.dhcp_option_list.dhcp_option.size() !=
+        cur.dhcp_option_list.dhcp_option.size())
+        return true;
+
+    for (uint32_t i = 0; i < old.dhcp_option_list.dhcp_option.size(); i++) {
+        if ((old.dhcp_option_list.dhcp_option[i].dhcp_option_name !=
+             cur.dhcp_option_list.dhcp_option[i].dhcp_option_name) ||
+            (old.dhcp_option_list.dhcp_option[i].dhcp_option_value !=
+             cur.dhcp_option_list.dhcp_option[i].dhcp_option_value) ||
+            (old.dhcp_option_list.dhcp_option[i].dhcp_option_value_bytes !=
+             cur.dhcp_option_list.dhcp_option[i].dhcp_option_value_bytes))
+            return true;
+    }
+
+    if (old.host_routes.route.size() != cur.host_routes.route.size())
+        return true;
+
+    for (uint32_t i = 0; i < old.host_routes.route.size(); i++) {
+        if ((old.host_routes.route[i].prefix !=
+             cur.host_routes.route[i].prefix) ||
+            (old.host_routes.route[i].next_hop !=
+             cur.host_routes.route[i].next_hop) ||
+            (old.host_routes.route[i].next_hop_type !=
+             cur.host_routes.route[i].next_hop_type) ||
+            (old.host_routes.route[i].community_attributes.community_attribute !=
+             cur.host_routes.route[i].community_attributes.community_attribute))
+            return true;
+    }
+
     return false;
 }
 
