@@ -3188,7 +3188,7 @@ void VmInterface::UpdateIpv4InterfaceRoute(bool old_ipv4_active,
             old_addr != primary_ip_addr_ || vm_ip_service_addr_ != ip) {
             vm_ip_service_addr_ = ip;
             AddRoute(vrf_->GetName(), primary_ip_addr_, 32, vn_->GetName(),
-                     policy_enabled_, ecmp_, false, vm_ip_service_addr_,
+                     false, ecmp_, false, vm_ip_service_addr_,
                      Ip4Address(0), CommunityList(), label_);
         }
     }
@@ -3830,7 +3830,7 @@ void VmInterface::CopyEcmpLoadBalance(EcmpLoadBalance &ecmp_load_balance) {
 //If ECMP route, add new composite NH and mpls label for same
 void VmInterface::AddRoute(const std::string &vrf_name, const IpAddress &addr,
                            uint32_t plen, const std::string &dest_vn,
-                           bool policy, bool ecmp, bool is_local,
+                           bool force_policy, bool ecmp, bool is_local,
                            const IpAddress &service_ip,
                            const IpAddress &dependent_rt,
                            const CommunityList &communities, uint32_t label) {
@@ -3847,7 +3847,8 @@ void VmInterface::AddRoute(const std::string &vrf_name, const IpAddress &addr,
     InetUnicastAgentRouteTable::AddLocalVmRoute(peer_.get(), vrf_name, addr,
                                                  plen, GetUuid(),
                                                  vn_list, label,
-                                                 sg_id_list, communities, false,
+                                                 sg_id_list, communities,
+                                                 force_policy,
                                                  path_preference, service_ip,
                                                  ecmp_load_balance, is_local);
     return;
@@ -3989,12 +3990,14 @@ void VmInterface::InstanceIp::L3Activate(VmInterface *interface,
 
     if (ip_.is_v4()) {
         interface->AddRoute(interface->vrf()->GetName(), ip_.to_v4(), plen_,
-                            interface->vn()->GetName(), true, ecmp_, is_local_,
+                            interface->vn()->GetName(), is_force_policy(),
+                            ecmp_, is_local_,
                             interface->GetServiceIp(ip_), Ip4Address(0),
                             CommunityList(), interface->label());
     } else if (ip_.is_v6()) {
         interface->AddRoute(interface->vrf()->GetName(), ip_.to_v6(), plen_,
-                            interface->vn()->GetName(), true, ecmp_, is_local_,
+                            interface->vn()->GetName(), is_force_policy(),
+                            ecmp_, is_local_,
                             interface->GetServiceIp(ip_), Ip6Address(),
                             CommunityList(), interface->label());
     }
@@ -4197,7 +4200,7 @@ void VmInterface::FloatingIp::L3Activate(VmInterface *interface,
 
     if (floating_ip_.is_v4()) {
         interface->AddRoute(vrf_.get()->GetName(), floating_ip_.to_v4(),
-                        Address::kMaxV4PrefixLen, vn_->GetName(), true,
+                        Address::kMaxV4PrefixLen, vn_->GetName(), false,
                         interface->ecmp(), false, Ip4Address(0),
                         GetFixedIp(interface), CommunityList(),
                         interface->label());
@@ -4207,7 +4210,7 @@ void VmInterface::FloatingIp::L3Activate(VmInterface *interface,
         }
     } else if (floating_ip_.is_v6()) {
         interface->AddRoute(vrf_.get()->GetName(), floating_ip_.to_v6(),
-                        Address::kMaxV6PrefixLen, vn_->GetName(), true,
+                        Address::kMaxV6PrefixLen, vn_->GetName(), false,
                         interface->ecmp6(), false, Ip6Address(),
                         GetFixedIp(interface), CommunityList(),
                         interface->label());
@@ -4416,12 +4419,12 @@ void VmInterface::AliasIp::Activate(VmInterface *interface,
 
     if (alias_ip_.is_v4()) {
         interface->AddRoute(vrf_.get()->GetName(), alias_ip_.to_v4(), 32,
-                            vn_->GetName(), true, interface->ecmp(), false,
+                            vn_->GetName(), false, interface->ecmp(), false,
                             Ip4Address(0), Ip4Address(0), CommunityList(),
                             interface->label());
     } else if (alias_ip_.is_v6()) {
         interface->AddRoute(vrf_.get()->GetName(), alias_ip_.to_v6(), 128,
-                            vn_->GetName(), true, interface->ecmp6(), false,
+                            vn_->GetName(), false, interface->ecmp6(), false,
                             Ip6Address(), Ip6Address(), CommunityList(),
                             interface->label());
     }
@@ -4541,7 +4544,7 @@ void VmInterface::StaticRoute::Activate(VmInterface *interface,
             }
             interface->AddRoute(vrf_, addr_, plen_,
                                 interface->vn_->GetName(),
-                                interface->policy_enabled(), ecmp, false,
+                                false, ecmp, false,
                                 IpAddress(), dependent_ip, communities_,
                                 interface->label());
         }
@@ -4790,15 +4793,13 @@ void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
         if (mac_ == MacAddress::kZeroMac ||
             mac_ == interface->vm_mac_) {
             interface->AddRoute(vrf_, addr_, plen_, interface->vn_->GetName(),
-                    interface->policy_enabled(), ecmp_, false,
-                    service_ip_, dependent_rt, CommunityList(),
-                    interface->label());
+                                false, ecmp_, false, service_ip_, dependent_rt,
+                                CommunityList(), interface->label());
         } else {
             CreateLabelAndNH(agent, interface);
             interface->AddRoute(vrf_, addr_, plen_, interface->vn_->GetName(),
-                                interface->policy_enabled(), ecmp_, false,
-                                service_ip_, dependent_rt, CommunityList(),
-                                label_);
+                                false, ecmp_, false, service_ip_, dependent_rt,
+                                CommunityList(), label_);
         }
     }
     installed_ = true;
