@@ -1417,14 +1417,7 @@ class DBInterface(object):
         sn_q_dict['cidr'] = cidr
         sn_q_dict['ip_version'] = IPNetwork(cidr).version # 4 or 6
 
-        # read from useragent kv only for old subnets created
-        # before schema had uuid in subnet
         sn_id = subnet_vnc.subnet_uuid
-        if not sn_id:
-            subnet_key = self._subnet_vnc_get_key(subnet_vnc, net_obj.uuid)
-            sn_id = self._subnet_vnc_read_mapping(id=subnet_vnc.subnet_uuid,
-                                                            key=subnet_key)
-
         sn_q_dict['id'] = sn_id
 
         sn_q_dict['gateway_ip'] = subnet_vnc.default_gateway
@@ -2202,8 +2195,7 @@ class DBInterface(object):
                 host_routes = subnet.get_host_routes()
                 if host_routes is None:
                     continue
-                subnet_key = self._subnet_vnc_get_key(subnet, net_obj.uuid)
-                sn_id = self._subnet_vnc_read_mapping(key=subnet_key)
+                sn_id = subnet.subnet_uuid
                 subnet_cidr = '%s/%s' % (subnet.subnet.get_ip_prefix(),
                                          subnet.subnet.get_ip_prefix_len())
 
@@ -2603,7 +2595,7 @@ class DBInterface(object):
         else:  # virtual-network already linked to this ipam
             for subnet in net_ipam_ref['attr'].get_ipam_subnets():
                 if subnet_key == self._subnet_vnc_get_key(subnet, net_id):
-                    existing_sn_id = self._subnet_vnc_read_mapping(key=subnet_key)
+                    existing_sn_id = subnet.subnet_uuid
                     # duplicate !!
                     msg = _("Cidr %s overlaps with another subnet of subnet %s"
                             ) % (subnet_q['cidr'], existing_sn_id)
@@ -2642,8 +2634,7 @@ class DBInterface(object):
             for ipam_ref in ipam_refs:
                 subnet_vncs = ipam_ref['attr'].get_ipam_subnets()
                 for subnet_vnc in subnet_vncs:
-                    if (self._subnet_vnc_get_key(subnet_vnc, net_id) ==
-                        subnet_key):
+                    if subnet_vnc.subnet_uuid == subnet_id:
                         ret_subnet_q = self._subnet_vnc_to_neutron(
                             subnet_vnc, net_obj, ipam_ref['to'])
                         return ret_subnet_q
@@ -2678,8 +2669,7 @@ class DBInterface(object):
             for ipam_ref in ipam_refs:
                 subnets = ipam_ref['attr'].get_ipam_subnets()
                 for subnet_vnc in subnets:
-                    if self._subnet_vnc_get_key(subnet_vnc,
-                               net_id) == subnet_key:
+                    if subnet_vnc.subnet_uuid == subnet_id:
                         subnet_found = True
                         break
                 if subnet_found:
@@ -2750,8 +2740,7 @@ class DBInterface(object):
             for ipam_ref in ipam_refs:
                 orig_subnets = ipam_ref['attr'].get_ipam_subnets()
                 new_subnets = [subnet_vnc for subnet_vnc in orig_subnets
-                               if self._subnet_vnc_get_key(subnet_vnc,
-                               net_id) != subnet_key]
+                               if subnet_vnc.subnet_uuid != subnet_id]
                 if len(orig_subnets) != len(new_subnets):
                     # matched subnet to be deleted
                     ipam_ref['attr'].set_ipam_subnets(new_subnets)
