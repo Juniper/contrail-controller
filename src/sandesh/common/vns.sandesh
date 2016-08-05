@@ -511,10 +511,8 @@ const string CLOUD_ADMIN_ROLE = "admin"
 
 const string AAA_MODE_NO_AUTH = "no-auth"
 const string AAA_MODE_CLOUD_ADMIN = "cloud-admin"
-const string AAA_MODE_CLOUD_ADMIN_ONLY = "cloud-admin-only"
 
 const list <string> APIAAAModes = [
     AAA_MODE_NO_AUTH,
     AAA_MODE_CLOUD_ADMIN,
-    AAA_MODE_CLOUD_ADMIN_ONLY,
 ]
