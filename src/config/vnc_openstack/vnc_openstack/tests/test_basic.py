@@ -328,3 +328,73 @@ class TestExtraFieldsAbsenceByKnob(test_case.NeutronBackendTestCase):
         self.assertNotIn('contrail:fq_name', net_dict)
     # end test_extra_fields_on_network
 # end class TestExtraFieldsAbsenceByKnob
+
+
+class TestListWithFilters(test_case.NeutronBackendTestCase):
+    def test_filters_with_id(self):
+        neutron_api_obj = FakeExtensionManager.get_extension_objects(
+            'vnc_cfg_api.neutronApi')[0]
+        neutron_api_obj._npi._connect_to_db()
+        neutron_db_obj = neutron_api_obj._npi._cfgdb
+
+        proj_obj = self._vnc_lib.project_read(
+            fq_name=['default-domain', 'default-project'])
+        sg_obj = vnc_api.SecurityGroup('sg-%s' %(self.id()), proj_obj)
+        self._vnc_lib.security_group_create(sg_obj)
+
+        vn_obj = vnc_api.VirtualNetwork('vn-%s' %(self.id()), proj_obj)
+        vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
+            vnc_api.VnSubnetsType(
+                [vnc_api.IpamSubnetType(vnc_api.SubnetType('1.1.1.0', 28))]))
+        self._vnc_lib.virtual_network_create(vn_obj)
+        fip_pool_obj = vnc_api.FloatingIpPool('fip-pool-%s' %(self.id()),
+                                               vn_obj)
+        self._vnc_lib.floating_ip_pool_create(fip_pool_obj)
+        fip_obj = vnc_api.FloatingIp('fip-%s' %(self.id()), fip_pool_obj)
+        fip_obj.add_project(proj_obj)
+        self._vnc_lib.floating_ip_create(fip_obj)
+
+        def spy_list(orig_method, *args, **kwargs):
+            self.assertIn(sg_obj.uuid, kwargs['obj_uuids'])
+            return orig_method(*args, **kwargs)
+        with test_common.patch(
+            neutron_db_obj._vnc_lib, 'security_groups_list', spy_list):
+            context = {'operation': 'READALL',
+                       'user_id': '',
+                       'tenant_id': proj_obj.uuid,
+                       'roles': '',
+                       'is_admin': 'False'}
+            data = {'filters': {'id':[sg_obj.uuid]}}
+            body = {'context': context, 'data': data}
+            resp = self._api_svr_app.post_json(
+                '/neutron/security_group', body)
+
+        sg_neutron_list = json.loads(resp.text)
+        self.assertEqual(len(sg_neutron_list), 1)
+        self.assertEqual(sg_neutron_list[0]['id'], sg_obj.uuid)
+
+        def spy_list(orig_method, *args, **kwargs):
+            self.assertIn(fip_obj.uuid, kwargs['obj_uuids'])
+            return orig_method(*args, **kwargs)
+        with test_common.patch(
+            neutron_db_obj._vnc_lib, 'floating_ips_list', spy_list):
+            context = {'operation': 'READALL',
+                       'user_id': '',
+                       'tenant_id': proj_obj.uuid,
+                       'roles': '',
+                       'is_admin': 'False'}
+            data = {'filters': {'id':[fip_obj.uuid]}}
+            body = {'context': context, 'data': data}
+            resp = self._api_svr_app.post_json(
+                '/neutron/floatingip', body)
+
+        fip_neutron_list = json.loads(resp.text)
+        self.assertEqual(len(fip_neutron_list), 1)
+        self.assertEqual(fip_neutron_list[0]['id'], fip_obj.uuid)
+
+        self._vnc_lib.security_group_delete(id=sg_obj.uuid)
+        self._vnc_lib.floating_ip_delete(id=fip_obj.uuid)
+        self._vnc_lib.floating_ip_pool_delete(id=fip_pool_obj.uuid)
+        self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
+    # end test_filters_with_id
+# end class TestListWithFilters

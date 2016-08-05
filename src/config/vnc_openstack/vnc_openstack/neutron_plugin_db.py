@@ -582,8 +582,9 @@ class DBInterface(object):
             self._raise_contrail_exception('RouterInUse', router_id=rtr_id)
     #end _logical_router_delete
 
-    def _floatingip_list(self, back_ref_id=None):
-        return self._vnc_lib.floating_ips_list(back_ref_id=back_ref_id,
+    def _floatingip_list(self, obj_uuids=None, back_ref_id=None):
+        return self._vnc_lib.floating_ips_list(obj_uuids=obj_uuids,
+                                               back_ref_id=back_ref_id,
                                                detail=True)
     #end _floatingip_list
 
@@ -3433,8 +3434,11 @@ class DBInterface(object):
 
         proj_ids = None
         port_ids = None
+        fip_ids = None
         if filters:
-            if 'tenant_id' in filters:
+            if 'id' in filters:
+                fip_ids = filters['id']
+            elif 'tenant_id' in filters:
                 proj_ids = self._validate_project_ids(context,
                                                       filters['tenant_id'])
             elif 'port_id' in filters:
@@ -3443,7 +3447,9 @@ class DBInterface(object):
             if not context['is_admin']:
                 proj_ids = [str(uuid.UUID(context['tenant']))]
 
-        if port_ids:
+        if fip_ids:
+            fip_objs = self._floatingip_list(obj_uuids=fip_ids)
+        elif port_ids:
             fip_objs = self._floatingip_list(back_ref_id=port_ids)
         elif proj_ids:
             fip_objs = self._floatingip_list(back_ref_id=proj_ids)
@@ -3935,7 +3941,11 @@ class DBInterface(object):
         self._ensure_default_security_group_exists(context['tenant_id'])
 
         all_sgs = []  # all sgs in all projects
-        if context and not context['is_admin']:
+        if filters and 'id' in filters:
+            all_sgs.append(
+                self._vnc_lib.security_groups_list(obj_uuids=filters['id'],
+                                                   detail=True))
+        elif context and not context['is_admin']:
             project_sgs = self._security_group_list_project(str(uuid.UUID(context['tenant'])), filters)
             all_sgs.append(project_sgs)
         else: # admin context
