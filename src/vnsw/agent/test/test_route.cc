@@ -134,7 +134,8 @@ protected:
 
     void AddHostRoute(Ip4Address addr) {
         Agent::GetInstance()->fabric_inet4_unicast_table()->AddHostRoute(
-               vrf_name_, addr, 32, Agent::GetInstance()->fabric_vn_name());
+               vrf_name_, addr, 32, Agent::GetInstance()->fabric_vn_name(),
+               false);
         client->WaitForIdle();
     }
 
