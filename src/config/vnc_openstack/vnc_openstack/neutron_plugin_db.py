@@ -3728,95 +3728,72 @@ class DBInterface(object):
 
     @wait_for_api_server_connection
     def port_list(self, context=None, filters=None):
-        project_obj = None
-        ret_q_ports = []
-        all_project_ids = []
         if not context:
             context = {'is_admin': True}
 
-        # TODO used to find dhcp server field. support later...
         if (filters.get('device_owner') == 'network:dhcp' or
             'network:dhcp' in filters.get('device_owner', [])):
-             return ret_q_ports
+             return []
 
         if not context['is_admin']:
-            project_id = str(uuid.UUID(context['tenant']))
+            project_ids = [str(uuid.UUID(context['tenant']))]
         else:
-            project_id = None
+            project_ids = filters.get('tenant_id')
 
-        if not 'device_id' in filters:
-            # Listing from back references
-            # TODO once vmi is linked to project in schema, use project_id
-            # to limit scope of list
-            if 'tenant_id' in filters:
-                all_project_ids = self._validate_project_ids(context,
-                                                             filters['tenant_id'])
-            elif 'name' in filters or 'device_owner' in filters:
-                all_project_ids = [str(uuid.UUID(context['tenant']))]
-            elif 'id' in filters:
-                # TODO optimize
-                for port_id in filters['id']:
-                    try:
-                        port_obj = self._virtual_machine_interface_read(
-                                       port_id=port_id)
-                        port_info = self._port_vnc_to_neutron(port_obj)
-                    except NoIdError:
-                        continue
-                    ret_q_ports.append(port_info)
-            else:
-                ret_q_ports = self._port_list_project(project_id,
-                                                  is_admin=context['is_admin'])
+        port_objs = []
+        if filters.get('device_id'):
+            # Get all VM port
+            port_objs_filter_by_device_id =\
+                self._virtual_machine_interface_list(
+                    obj_uuids=filters.get('id'),
+                    back_ref_id=filters.get('device_id'))
+            # Filter it with project ids
+            for port_obj in port_objs_filter_by_device_id:
+                if project_ids and port_obj.parent_uuid in project_ids:
+                    port_objs.append(port_obj)
 
-            if all_project_ids:
-                ret_q_ports = []
-                for proj_id in all_project_ids:
-                    # Get data from filter tenant-ids
-                    ret_q_ports.extend(self._port_list_project(proj_id))
+            # Port has a back_ref to logical router, so need to read in
+            # logical routers based on device ids
+            router_objs = self._logical_router_list(
+                obj_uuids=filters.get('device_id'),
+                parent_id=project_ids,
+                fields=['virtual_machine_interface_back_refs'])
+            router_port_ids = [
+                vmi['uuid']
+                for router_obj in router_objs
+                for vmi in router_obj.get_virtual_machine_interface_refs() or []
+            ]
+            # Read all logical router ports and add it to the list
+            port_objs.extend(self._virtual_machine_interface_list(
+                                 obj_uuids=router_port_ids,
+                                 parent_id=project_ids))
+        else:
+            port_objs_filter_by_project_id =\
+                self._virtual_machine_interface_list(
+                    obj_uuids=filters.get('id'),
+                    parent_id=project_ids)
+            port_objs = port_objs_filter_by_project_id
 
-            # prune phase
-            ret_list = []
-            for port_obj in ret_q_ports:
-                if not self._filters_is_present(filters, 'name',
-                                                port_obj['name']):
-                    continue
-                if not self._filters_is_present(filters, 'device_owner',
-                                                port_obj["device_owner"]):
-                    continue
-                if ('fixed_ips' in filters and
-                    not self._port_fixed_ips_is_present(filters['fixed_ips'],
-                                                        port_obj['fixed_ips'])):
-                    continue
-                if not self._filters_is_present(filters,'network_id',
-                                                port_obj['network_id']):
-                    continue
+        neutron_ports = self._port_list(port_objs)
 
-                ret_list.append(port_obj)
-            return ret_list
+        ret_list = []
+        for neutron_port in neutron_ports:
+            if not self._filters_is_present(filters, 'name',
+                                            neutron_port['name']):
+                continue
+            if not self._filters_is_present(filters, 'device_owner',
+                                            neutron_port["device_owner"]):
+                continue
+            if ('fixed_ips' in filters and
+                not self._port_fixed_ips_is_present(filters['fixed_ips'],
+                                                    neutron_port['fixed_ips'])):
+                continue
+            if not self._filters_is_present(filters,'network_id',
+                                            neutron_port['network_id']):
+                continue
 
-        # Listing from parent to children
-
-        # port has a back_ref to LR, so need to read in LRs based on device id
-        device_ids = filters['device_id']
-        router_objs = self._logical_router_list(obj_uuids=device_ids)
-        more_ports = []
-        for router_obj in router_objs:
-            intfs = router_obj.get_virtual_machine_interface_refs()
-            for intf in (intfs or []):
-                more_ports.append(intf['uuid'])
-
-        # gather all ports from an anchor of virtual-machine (backref in
-        # current schema and parent in < 1.06 schema)
-        port_objs = self._virtual_machine_interface_list(parent_id=device_ids,
-                                                    back_ref_id=device_ids)
-
-        if len(more_ports):
-            rtr_port_objs = self._virtual_machine_interface_list(obj_uuids=more_ports)
-            port_objs.extend(rtr_port_objs)
-
-        ret_q_ports = self._port_list(port_objs)
-
-        return ret_q_ports
-    #end port_list
+            ret_list.append(neutron_port)
+        return ret_list
 
     @wait_for_api_server_connection
     def port_count(self, filters=None):
