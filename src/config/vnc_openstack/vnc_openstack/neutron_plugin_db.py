@@ -4,6 +4,7 @@
 """
 .. attention:: Fix the license string
 """
+import sys
 import copy
 import requests
 import re
@@ -22,6 +23,7 @@ from cfgm_common import exceptions as vnc_exc
 from vnc_api.vnc_api import *
 from cfgm_common import SG_NO_RULE_FQ_NAME, SG_NO_RULE_NAME, UUID_PATTERN
 import vnc_openstack
+from vnc_cfg_api_server import context
 
 _DEFAULT_HEADERS = {
     'Content-type': 'application/json; charset="UTF-8"', }
@@ -43,7 +45,8 @@ class DBInterface(object):
     Q_URL_PREFIX = '/extensions/ct'
 
     def __init__(self, manager, admin_name, admin_password, admin_tenant_name,
-                 api_srvr_ip, api_srvr_port, user_info=None,
+                 api_srvr_ip, api_srvr_port, 
+                 api_server_obj=None, user_info=None,
                  contrail_extensions_enabled=True,
                  list_optimization_enabled=False,
                  apply_subnet_host_routes=False,
@@ -52,6 +55,7 @@ class DBInterface(object):
         self.logger = manager.logger
         self._api_srvr_ip = api_srvr_ip
         self._api_srvr_port = api_srvr_port
+        self._api_server_obj = api_server_obj
         self._apply_subnet_host_routes = apply_subnet_host_routes
         self._strict_compliance = strict_compliance
 
@@ -67,6 +71,9 @@ class DBInterface(object):
                 self._vnc_lib = VncApi(admin_name, admin_password,
                                        admin_tenant_name, api_srvr_ip,
                                        api_srvr_port, '/', user_info=user_info)
+                if self._api_server_obj:
+                    self._localize_vnc_lib_request()
+             
                 self._connected_to_api_server.set()
                 connected = True
             except requests.exceptions.RequestException as e:
@@ -75,6 +82,69 @@ class DBInterface(object):
     #end __init__
 
     # Helper routines
+    def _localize_vnc_lib_request(self):
+        # Override vnc_lib._request so that list requests can reach
+        # api_server_obj methods directly instead of system call
+        self._api_server_routes = dict((r.rule, r.callback)
+            for r in self._api_server_obj.api_bottle.routes
+            if r.method == 'GET')
+        self._api_lib_request = self._vnc_lib._request
+        # always fetch via 'GET' which has been over-ridden
+        self._vnc_lib.POST_FOR_LIST_THRESHOLD = sys.maxsize
+
+        def _local_request(op, url, data=None, *args, **kwargs):
+            if op != rest.OP_GET or url not in self._api_server_routes:
+                return self._api_lib_request(op, url, data, *args, **kwargs)
+
+            server_method = self._api_server_routes[url]
+            q_str = '&'.join(['%s=%s' %(k,v) for k,v in data.items()])
+
+            user_token = bottle.request.headers.get('X_AUTH_TOKEN')
+            if user_token:
+                auth_hdrs = self._api_server_obj.get_auth_headers_from_token(
+                    bottle.request, user_token)
+            else:
+                auth_hdrs = {}
+
+            try:
+                environ = {
+                    'PATH_INFO': url,
+                    'QUERY_STRING': q_str,
+                    'bottle.app': self._api_server_obj.api_bottle
+                }
+                environ.update(auth_hdrs)
+                context.set_context(
+                    context.ApiContext(
+                        external_req=bottle.BaseRequest(environ))
+                        )
+
+                ret_val = server_method()
+                # make deepcopy of ref['attr'] as from_dict will update
+                # in-place and change the cached value
+                try:
+                    # strip / in /virtual-networks
+                    coll_key = url[1:]
+                    item_key = url[1:-1]
+                    ret_list = ret_val[coll_key]
+                    for ret_item in ret_list:
+                        if not isinstance(ret_item, dict):
+                            continue
+                        ref_backrefs = [f for f in ret_item[item_key]
+                                        if f.endswith('_refs')]
+                        for rb in ref_backrefs:
+                            # TODO optimize to deepcopy only if 'attr' is there
+                            ret_item[item_key][rb] = copy.deepcopy(
+                                ret_item[item_key][rb])
+                except KeyError:
+                    pass
+                return ret_val
+            finally:
+                pass
+        # end _local_request
+
+        self._vnc_lib._request = _local_request
+    # end _localize_vnc_lib_request
+
     def _request_api_server(self, url, method, data=None, headers=None):
         from eventlet.greenthread import getcurrent
         token = getcurrent().contrail_vars.token

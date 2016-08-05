@@ -991,9 +991,10 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
 class NeutronApiDriver(vnc_plugin_base.NeutronApi):
     def __init__(self, api_server_ip, api_server_port, conf_sections, sandesh, **kwargs):
         self._logger = sandesh.logger()
-        self._npi = npi.NeutronPluginInterface(api_server_ip, api_server_port,
-                                               conf_sections, sandesh)
         self.api_server_obj = kwargs.get('api_server_obj')
+        self._npi = npi.NeutronPluginInterface(api_server_ip, api_server_port,
+            conf_sections, sandesh, api_server_obj=self.api_server_obj)
+
         # Bottle callbacks for network operations
         self.route('/neutron/network',
                      'POST', self._npi.plugin_http_post_network)

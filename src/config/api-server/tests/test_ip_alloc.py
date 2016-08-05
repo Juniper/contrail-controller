@@ -48,13 +48,9 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         super(TestIpAlloc, self).__init__(*args, **kwargs)
 
     def test_subnet_quota(self):
-        domain = Domain('v4-domain')
-        self._vnc_lib.domain_create(domain)
-
         # Create Project
-        project = Project('v4-proj', domain)
+        project = Project('v4-proj-%s' %(self.id()), Domain())
         self._vnc_lib.project_create(project)
-        project = self._vnc_lib.project_read(fq_name=['v4-domain', 'v4-proj'])
 
         ipam1_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 28))
         ipam2_sn_v4 = IpamSubnetType(subnet=SubnetType('12.1.1.0', 28))
@@ -64,13 +60,9 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         #create two ipams
         ipam1 = NetworkIpam('ipam1', project, IpamType("dhcp"))
         self._vnc_lib.network_ipam_create(ipam1)
-        ipam1 = self._vnc_lib.network_ipam_read(fq_name=['v4-domain',
-                                                        'v4-proj', 'ipam1'])
 
         ipam2 = NetworkIpam('ipam2', project, IpamType("dhcp"))
         self._vnc_lib.network_ipam_create(ipam2)
-        ipam2 = self._vnc_lib.network_ipam_read(fq_name=['v4-domain',
-                                                        'v4-proj', 'ipam2'])
 
         #create virtual network with unlimited subnet quota without any subnets
         vn = VirtualNetwork('my-vn', project)
@@ -162,26 +154,18 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.network_ipam_delete(id=ipam1.uuid)
         self._vnc_lib.network_ipam_delete(id=ipam2.uuid)
         self._vnc_lib.project_delete(id=project.uuid)
-        self._vnc_lib.domain_delete(id=domain.uuid)
     #end test_subnet_quota
 
     def test_flat_subnet_ipam_crud(self):
-        # Create Domain
-        domain = Domain('flat-subnet-domain')
-        self._vnc_lib.domain_create(domain)
-        logger.debug('Created domain ')
-
         # Create Project
-        project = Project('flat-subnet-proj', domain)
+        project = Project('flat-subnet-proj-%s' %(self.id()), Domain())
         self._vnc_lib.project_create(project)
         logger.debug('Created Project')
 
         # create ipam without any subnets or subnet_method
         ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
         self._vnc_lib.network_ipam_create(ipam)
-        ipam = self._vnc_lib.network_ipam_read(fq_name=['flat-subnet-domain',
-                                                        'flat-subnet-proj',
-                                                        'default-network-ipam'])
+        ipam = self._vnc_lib.network_ipam_read(id=ipam.uuid)
         self.assertEqual(ipam.get_ipam_subnet_method(), None)
 
         # try changing subnet-method from None to flat-subnet, vnc_lib should reject
@@ -208,9 +192,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         #update ipam to add subnets
         self._vnc_lib.network_ipam_update(ipam)
         #read ipam back and inspect ipam_subnets
-        ipam = self._vnc_lib.network_ipam_read(fq_name=['flat-subnet-domain',
-                                                        'flat-subnet-proj',
-                                                        'default-network-ipam'])
+        ipam = self._vnc_lib.network_ipam_read(id=ipam.uuid)
         # delete ipam before creating one with flat-subnet
         self._vnc_lib.network_ipam_delete(id=ipam.uuid)
         ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"),
@@ -220,14 +202,11 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
         self._vnc_lib.network_ipam_delete(id=ipam.uuid)
         self._vnc_lib.project_delete(id=project.uuid)
-        self._vnc_lib.domain_delete(id=domain.uuid)
     #end test_flat_subnet_ipam_crud
 
     def test_flat_subnet_ipam_user_defined_network(self):
         #retest failing
-        domain = Domain('flat-subnet-domain')
-        self._vnc_lib.domain_create(domain)
-        project = Project('flat-subnet-proj', domain)
+        project = Project('flat-subnet-proj-%s' %(self.id()), Domain())
         self._vnc_lib.project_create(project)
         logger.debug('Created Project')
 
@@ -260,20 +239,16 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.network_ipam_create(ipam)
         logger.debug('Created network ipam')
 
-        ipam = self._vnc_lib.network_ipam_read(fq_name=['flat-subnet-domain',
-                                                        'flat-subnet-proj',
-                                                        'default-network-ipam'])
-        logger.debug('create default virtual network')
         vn = VirtualNetwork('my-v4-v6-vn', project)
         vn.add_network_ipam(ipam, VnSubnetsType([ipam3_sn_v4]))
         with ExpectedException(cfgm_common.exceptions.BadRequest,
-                               'with flat-subnet, netowrk can not have user-defined subnet') as e:
+                               'with flat-subnet, network can not have user-defined subnet') as e:
             self._vnc_lib.virtual_network_create(vn)
 
         #add another ipam in VnSubnetType, should fail again
         vn.set_network_ipam(ipam, VnSubnetsType([ipam3_sn_v4, ipam4_sn_v4]))
         with ExpectedException(cfgm_common.exceptions.BadRequest,
-                               'with flat-subnet, netowrk can not have user-defined subnet') as e:
+                               'with flat-subnet, network can not have user-defined subnet') as e:
             self._vnc_lib.virtual_network_create(vn)
 
         logger.debug('create l2 virtual network')
@@ -299,7 +274,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         # as flat-subnet ipam can not have cidrs in the network-ipam link
         vn.set_network_ipam(ipam, VnSubnetsType([ipam3_sn_v4, ipam4_sn_v4]))
         with ExpectedException(cfgm_common.exceptions.BadRequest,
-                               'with flat-subnet, netowrk can not have user-defined subnet') as e:
+                               'with flat-subnet, network can not have user-defined subnet') as e:
             self._vnc_lib.virtual_network_update(vn)
 
         vn.set_network_ipam(ipam, VnSubnetsType([]))
@@ -368,7 +343,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
         ipv4_obj1.set_instance_ip_address(None)
         with ExpectedException(cfgm_common.exceptions.BadRequest,
-                               'Virtual-Network\(\[\'flat-subnet-domain\', \'flat-subnet-proj\', \'my-v4-v6-vn\'\]\) has exhausted subnet\(all\)') as e:
+                               'Virtual-Network\(\[\'default-domain\', \'flat-subnet-proj-%s\', \'my-v4-v6-vn\'\]\) has exhausted subnet\(all\)' %(self.id())) as e:
             ipv4_id1 = self._vnc_lib.instance_ip_create(ipv4_obj1)
 
         # update allocation_mode to get ip_addresses from ipam_subnets
@@ -419,7 +394,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
         logger.debug('Allocating an IPV4 address for Fifth VM')
         with ExpectedException(cfgm_common.exceptions.BadRequest,
-                               'Virtual-Network\(\[\'flat-subnet-domain\', \'flat-subnet-proj\', \'my-v4-v6-vn\'\]\) has exhausted subnet\(all\)') as e:
+                               'Virtual-Network\(\[\'default-domain\', \'flat-subnet-proj-%s\', \'my-v4-v6-vn\'\]\) has exhausted subnet\(all\)' %(self.id())) as e:
             ipv4_id5 = self._vnc_lib.instance_ip_create(ipv4_obj5)
 
         #cleanup
@@ -431,13 +406,10 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.virtual_machine_delete(id=vm_inst_obj1.uuid)
         self._vnc_lib.virtual_network_delete(id=vn.uuid)
         self._vnc_lib.project_delete(id=project.uuid)
-        self._vnc_lib.domain_delete(id=domain.uuid)
     #end test_flat_subnet_ipam_user_defined_network
 
     def test_flat_subnet_ipam_flat_subnet_network(self):
-        domain = Domain('flat-subnet-domain')
-        self._vnc_lib.domain_create(domain)
-        project = Project('flat-subnet-proj', domain)
+        project = Project('flat-subnet-proj-%s' %(self.id()), Domain())
         self._vnc_lib.project_create(project)
         logger.debug('Created Project')
 
@@ -453,11 +425,6 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.network_ipam_create(ipam)
         logger.debug('Created network ipam')
 
-        ipam = self._vnc_lib.network_ipam_read(fq_name=['flat-subnet-domain',
-                                                        'flat-subnet-proj',
-                                                        'default-network-ipam'])
-        logger.debug('Read network ipam')
-
         # try updating ipam_subnet_method from flat-subnet to
         # user-defined-subnet, vnc_lib should reject
         ipam.set_ipam_subnet_method('user-defined-subnet')
@@ -466,10 +433,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
             self._vnc_lib.network_ipam_update(ipam)
 
         # restore flat-subnet as a subnet_method in ipam
-        logger.debug('Read network ipam')
-        ipam = self._vnc_lib.network_ipam_read(fq_name=['flat-subnet-domain',
-                                                        'flat-subnet-proj',
-                                                        'default-network-ipam'])
+        ipam = self._vnc_lib.network_ipam_read(id=ipam.uuid)
         logger.debug('create l3 virtual network')
         vn = VirtualNetwork('my-v4-v6-vn', project,
                             virtual_network_properties=VirtualNetworkType(forwarding_mode='l3'),
@@ -532,23 +496,18 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         logger.debug('Allocating an IPV4 address for Third VM')
 
         with ExpectedException(cfgm_common.exceptions.BadRequest,
-            'Virtual-Network\(\[\'flat-subnet-domain\', \'flat-subnet-proj\', \'my-v4-v6-vn\'\]\) has exhausted subnet\(all\)') as e:
+            'Virtual-Network\(\[\'default-domain\', \'flat-subnet-proj-%s\', \'my-v4-v6-vn\'\]\) has exhausted subnet\(all\)' %(self.id())) as e:
             ipv4_id3 = self._vnc_lib.instance_ip_create(ipv4_obj3)
 
         # update ipam with additional subnet
         ipam.set_ipam_subnets(IpamSubnets([ipam1_sn_v4, ipam2_sn_v4]))
         self._vnc_lib.network_ipam_update(ipam)
-        #read ipam from the vnc_lib
-        ipam = self._vnc_lib.network_ipam_read(fq_name=['flat-subnet-domain',
-                                                        'flat-subnet-proj',
-                                                        'default-network-ipam'])
-
         #change allocation_mode to
         vn.set_address_allocation_mode('user-defined-subnet-only')
         self._vnc_lib.virtual_network_update(vn)
 
         with ExpectedException(cfgm_common.exceptions.BadRequest,
-            'Virtual-Network\(\[\'flat-subnet-domain\', \'flat-subnet-proj\', \'my-v4-v6-vn\'\]\) has exhausted subnet\(all\)') as e:
+            'Virtual-Network\(\[\'default-domain\', \'flat-subnet-proj-%s\', \'my-v4-v6-vn\'\]\) has exhausted subnet\(all\)' %(self.id())) as e:
             ipv4_id3 = self._vnc_lib.instance_ip_create(ipv4_obj3)
 
         #restore allocation_mode to flat-subnet-preferred
@@ -614,13 +573,10 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.virtual_network_delete(id=vn.uuid)
         self._vnc_lib.network_ipam_delete(id=ipam.uuid)
         self._vnc_lib.project_delete(id=project.uuid)
-        self._vnc_lib.domain_delete(id=domain.uuid)
     #end test_flat_subnet_ipam_flat_subnet_network
 
     def test_hybrid_subnet_ipam_flat_subnet_network(self):
-        domain = Domain('flat-subnet-domain')
-        self._vnc_lib.domain_create(domain)
-        project = Project('flat-subnet-proj', domain)
+        project = Project('flat-subnet-proj-%s' %(self.id()), Domain())
         self._vnc_lib.project_create(project)
         ipam1_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 28),
                                      alloc_unit=4)
@@ -638,19 +594,11 @@ class TestIpAlloc(test_case.ApiServerTestCase):
                            ipam_subnets=IpamSubnets([ipam1_sn_v4, ipam2_sn_v4]))
         self._vnc_lib.network_ipam_create(ipam1)
         logger.debug('Created network ipam')
-        ipam1 = self._vnc_lib.network_ipam_read(fq_name=['flat-subnet-domain',
-                                                        'flat-subnet-proj',
-                                                        'flat-ipam'])
-        logger.debug('Read network ipam1')
 
         ipam2 = NetworkIpam('user-defined-ipam', project, IpamType("dhcp"),
                            ipam_subnet_method="user-defined-subnet")
         self._vnc_lib.network_ipam_create(ipam2)
         logger.debug('Created network ipam')
-        ipam2 = self._vnc_lib.network_ipam_read(fq_name=['flat-subnet-domain',
-                                                        'flat-subnet-proj',
-                                                        'user-defined-ipam'])
-        logger.debug('Read network ipam2')
 
         vn = VirtualNetwork('my-v4-v6-vn', project,
                             virtual_network_properties=VirtualNetworkType(forwarding_mode='l3'),
@@ -734,7 +682,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ipv4_obj5.set_virtual_network(net_obj)
 
         with ExpectedException(cfgm_common.exceptions.BadRequest,
-            'Virtual-Network\(\[\'flat-subnet-domain\', \'flat-subnet-proj\', \'my-v4-v6-vn\'\]\) has exhausted subnet\(all\)') as e:
+            'Virtual-Network\(\[\'default-domain\', \'flat-subnet-proj-%s\', \'my-v4-v6-vn\'\]\) has exhausted subnet\(all\)' %(self.id())) as e:
             ipv4_id5 = self._vnc_lib.instance_ip_create(ipv4_obj5)
 
         #try allocating specific ip, which has been assigned already
@@ -784,14 +732,11 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.network_ipam_delete(id=ipam1.uuid)
         self._vnc_lib.network_ipam_delete(id=ipam2.uuid)
         self._vnc_lib.project_delete(id=project.uuid)
-        self._vnc_lib.domain_delete(id=domain.uuid)
         #failing in 2-3 attempts
     #end test_hybrid_subnet_ipam_flat_subnet_network
 
     def test_hybrid_subnet_ipam_user_subnet_network(self):
-        domain = Domain('flat-subnet-domain')
-        self._vnc_lib.domain_create(domain)
-        project = Project('flat-subnet-proj', domain)
+        project = Project('flat-subnet-proj-%s' %(self.id()), Domain())
         self._vnc_lib.project_create(project)
         ipam1_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 28),
                                      alloc_unit=4)
@@ -809,19 +754,10 @@ class TestIpAlloc(test_case.ApiServerTestCase):
                            ipam_subnets=IpamSubnets([ipam1_sn_v4, ipam2_sn_v4]))
         self._vnc_lib.network_ipam_create(ipam1)
         logger.debug('Created network ipam')
-        ipam1 = self._vnc_lib.network_ipam_read(fq_name=['flat-subnet-domain',
-                                                        'flat-subnet-proj',
-                                                        'flat-ipam'])
-        logger.debug('Read network ipam1')
-
         ipam2 = NetworkIpam('user-defined-ipam', project, IpamType("dhcp"),
                            ipam_subnet_method="user-defined-subnet")
         self._vnc_lib.network_ipam_create(ipam2)
         logger.debug('Created network ipam')
-        ipam2 = self._vnc_lib.network_ipam_read(fq_name=['flat-subnet-domain',
-                                                        'flat-subnet-proj',
-                                                        'user-defined-ipam'])
-        logger.debug('Read network ipam2')
 
         vn = VirtualNetwork('my-v4-v6-vn', project,
                             virtual_network_properties=VirtualNetworkType(forwarding_mode='l3'),
@@ -894,7 +830,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         logger.debug('Allocating an IP4 address for Next VM')
         ipv4_obj5.set_virtual_network(net_obj)
         with ExpectedException(cfgm_common.exceptions.BadRequest,
-            'Virtual-Network\(\[\'flat-subnet-domain\', \'flat-subnet-proj\', \'my-v4-v6-vn\'\]\) has exhausted subnet\(all\)') as e:
+            'Virtual-Network\(\[\'default-domain\', \'flat-subnet-proj-%s\', \'my-v4-v6-vn\'\]\) has exhausted subnet\(all\)' %(self.id())) as e:
             ipv4_id5 = self._vnc_lib.instance_ip_create(ipv4_obj5)
 
         #try allocating specific ip, which has been assigned already
@@ -945,13 +881,10 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.network_ipam_delete(id=ipam1.uuid)
         self._vnc_lib.network_ipam_delete(id=ipam2.uuid)
         self._vnc_lib.project_delete(id=project.uuid)
-        self._vnc_lib.domain_delete(id=domain.uuid)
     #end test_hybrid_subnet_ipam_user_subnet_network
 
     def test_hybrid_subnet_ipam_ask_ip(self):
-        domain = Domain('flat-subnet-domain')
-        self._vnc_lib.domain_create(domain)
-        project = Project('flat-subnet-proj', domain)
+        project = Project('flat-subnet-proj-%s' %(self.id()), Domain())
         self._vnc_lib.project_create(project)
         ipam1_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 28),
                                      alloc_unit=4)
@@ -969,17 +902,12 @@ class TestIpAlloc(test_case.ApiServerTestCase):
                            ipam_subnets=IpamSubnets([ipam1_sn_v4, ipam2_sn_v4]))
         self._vnc_lib.network_ipam_create(ipam1)
         logger.debug('Created network ipam')
-        ipam1 = self._vnc_lib.network_ipam_read(fq_name=['flat-subnet-domain',
-                                                        'flat-subnet-proj',
-                                                        'flat-ipam'])
 
         ipam2 = NetworkIpam('user-defined-ipam', project, IpamType("dhcp"),
                            ipam_subnet_method="user-defined-subnet")
         self._vnc_lib.network_ipam_create(ipam2)
         logger.debug('Created network ipam')
-        ipam2 = self._vnc_lib.network_ipam_read(fq_name=['flat-subnet-domain',
-                                                        'flat-subnet-proj',
-                                                        'user-defined-ipam'])
+
         vn = VirtualNetwork('my-v4-v6-vn', project,
                             virtual_network_properties=VirtualNetworkType(forwarding_mode='l3'),
                             address_allocation_mode='flat-subnet-only')
@@ -1083,13 +1011,10 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.network_ipam_delete(id=ipam1.uuid)
         self._vnc_lib.network_ipam_delete(id=ipam2.uuid)
         self._vnc_lib.project_delete(id=project.uuid)
-        self._vnc_lib.domain_delete(id=domain.uuid)
     #end test_hybrid_subnet_ipam_ask_ip
 
     def test_hybrid_subnet_ipam_ip_alloc_from_subnet_uuid(self):
-        domain = Domain('flat-subnet-domain')
-        self._vnc_lib.domain_create(domain)
-        project = Project('flat-subnet-proj', domain)
+        project = Project('flat-subnet-proj-%s' %(self.id()), Domain())
         self._vnc_lib.project_create(project)
         ipam1_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 28),
                                      alloc_unit=4)
@@ -1107,17 +1032,12 @@ class TestIpAlloc(test_case.ApiServerTestCase):
                            ipam_subnets=IpamSubnets([ipam1_sn_v4, ipam2_sn_v4]))
         self._vnc_lib.network_ipam_create(ipam1)
         logger.debug('Created network ipam')
-        ipam1 = self._vnc_lib.network_ipam_read(fq_name=['flat-subnet-domain',
-                                                        'flat-subnet-proj',
-                                                        'flat-ipam'])
 
         ipam2 = NetworkIpam('user-defined-ipam', project, IpamType("dhcp"),
                            ipam_subnet_method="user-defined-subnet")
         self._vnc_lib.network_ipam_create(ipam2)
         logger.debug('Created network ipam')
-        ipam2 = self._vnc_lib.network_ipam_read(fq_name=['flat-subnet-domain',
-                                                        'flat-subnet-proj',
-                                                        'user-defined-ipam'])
+
         vn = VirtualNetwork('my-v4-v6-vn', project,
                             virtual_network_properties=VirtualNetworkType(forwarding_mode='l3'),
                             address_allocation_mode='flat-subnet-only')
@@ -1186,29 +1106,16 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.network_ipam_delete(id=ipam1.uuid)
         self._vnc_lib.network_ipam_delete(id=ipam2.uuid)
         self._vnc_lib.project_delete(id=project.uuid)
-        self._vnc_lib.domain_delete(id=domain.uuid)
     #end test_hybrid_subnet_ipam_ip_alloc_from_subnet_uuid
 
     def test_subnet_alloc_unit(self):
-        # Create Domain
-        domain = Domain('my-v4-v6-domain')
-        self._vnc_lib.domain_create(domain)
-        logger.debug('Created domain ')
-
         # Create Project
-        project = Project('my-v4-v6-proj', domain)
+        project = Project('my-v4-v6-proj-%s' %(self.id()), Domain())
         self._vnc_lib.project_create(project)
-        logger.debug('Created Project')
 
         # Create NetworkIpam
         ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
         self._vnc_lib.network_ipam_create(ipam)
-        logger.debug('Created network ipam')
-
-        ipam = self._vnc_lib.network_ipam_read(fq_name=['my-v4-v6-domain',
-                                                        'my-v4-v6-proj',
-                                                        'default-network-ipam'])
-        logger.debug('Read network ipam')
 
         # create ipv4 subnet with alloc_unit not power of 2
         ipam_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24),
@@ -1288,7 +1195,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         logger.debug('Wrong ip address request,not aligned with alloc-unit')
         ipv4_obj1.set_instance_ip_address('11.1.1.249') 
         with ExpectedException(BadRequest,
-                               'Virtual-Network\(my-v4-v6-domain:my-v4-v6-proj:my-v4-v6-vn:11.1.1.0/24\) has invalid alloc_unit\(4\) in subnet\(11.1.1.0/24\)') as e:
+            'Virtual-Network\(default-domain:my-v4-v6-proj-%s:my-v4-v6-vn:11.1.1.0/24\) has invalid alloc_unit\(4\) in subnet\(11.1.1.0/24\)' %(self.id())) as e:
             ipv4_id1 = self._vnc_lib.instance_ip_create(ipv4_obj1)
          
         ipv4_obj1.set_instance_ip_address(None) 
@@ -1335,28 +1242,16 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.virtual_network_delete(id=vn.uuid)
         self._vnc_lib.network_ipam_delete(id=ipam.uuid)
         self._vnc_lib.project_delete(id=project.uuid)
-        self._vnc_lib.domain_delete(id=domain.uuid)
     #end
 
     def test_ip_alloction(self):
-        # Create Domain
-        domain = Domain('my-v4-v6-domain')
-        self._vnc_lib.domain_create(domain)
-        logger.debug('Created domain ')
-
         # Create Project
-        project = Project('my-v4-v6-proj', domain)
+        project = Project('my-v4-v6-proj-%s' %(self.id()), Domain())
         self._vnc_lib.project_create(project)
-        logger.debug('Created Project')
 
         # Create NetworkIpam
         ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
         self._vnc_lib.network_ipam_create(ipam)
-        logger.debug('Created network ipam')
-
-        ipam = self._vnc_lib.network_ipam_read(fq_name=['my-v4-v6-domain', 'my-v4-v6-proj',
-                                                        'default-network-ipam'])
-        logger.debug('Read network ipam')
 
         # Create subnets
         ipam_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24))
@@ -1431,28 +1326,16 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.virtual_network_delete(id=vn.uuid)
         self._vnc_lib.network_ipam_delete(id=ipam.uuid)
         self._vnc_lib.project_delete(id=project.uuid)
-        self._vnc_lib.domain_delete(id=domain.uuid)
     #end
 
     def test_ip_alloction_pools(self):
-        # Create Domain
-        domain = Domain('my-v4-v6-domain')
-        self._vnc_lib.domain_create(domain)
-        logger.debug('Created domain ')
-
         # Create Project
-        project = Project('my-v4-v6-proj', domain)
+        project = Project('my-v4-v6-proj-%s' %(self.id()), Domain())
         self._vnc_lib.project_create(project)
-        logger.debug('Created Project')
 
         # Create NetworkIpam
         ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
         self._vnc_lib.network_ipam_create(ipam)
-        logger.debug('Created network ipam')
-
-        ipam = self._vnc_lib.network_ipam_read(fq_name=['my-v4-v6-domain', 'my-v4-v6-proj',
-                                                        'default-network-ipam'])
-        logger.debug('Read network ipam')
 
         # Create subnets
         alloc_pool_list = []
@@ -1536,28 +1419,16 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.virtual_network_delete(id=vn.uuid)
         self._vnc_lib.network_ipam_delete(id=ipam.uuid)
         self._vnc_lib.project_delete(id=project.uuid)
-        self._vnc_lib.domain_delete(id=domain.uuid)
     #end
 
     def test_subnet_gateway_ip_alloc(self):
-        # Create Domain
-        domain = Domain('my-v4-v6-domain')
-        self._vnc_lib.domain_create(domain)
-        logger.debug('Created domain ')
-
         # Create Project
-        project = Project('my-v4-v6-proj', domain)
+        project = Project('my-v4-v6-proj-%s' %(self.id()), Domain())
         self._vnc_lib.project_create(project)
-        logger.debug('Created Project')
 
         # Create NetworkIpam
         ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
         self._vnc_lib.network_ipam_create(ipam)
-        logger.debug('Created network ipam')
-
-        ipam = self._vnc_lib.network_ipam_read(fq_name=['my-v4-v6-domain', 'my-v4-v6-proj',
-                                                        'default-network-ipam'])
-        logger.debug('Read network ipam')
 
         # Create subnets
         alloc_pool_list = []
@@ -1600,28 +1471,16 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.virtual_network_delete(id=vn.uuid)
         self._vnc_lib.network_ipam_delete(id=ipam.uuid)
         self._vnc_lib.project_delete(id=project.uuid)
-        self._vnc_lib.domain_delete(id=domain.uuid)
     #end
 
     def test_bulk_ip_alloc_free(self):
-        # Create Domain
-        domain_name = 'v4-domain-%s' % self.id()
-        domain = Domain(domain_name)
-        self._vnc_lib.domain_create(domain)
-        logger.debug('Created domain ')
-
         # Create Project
-        project = Project('v4-proj', domain)
+        project = Project('v4-proj-%s' %(self.id()), Domain())
         self._vnc_lib.project_create(project)
-        logger.debug('Created Project')
 
         # Create NetworkIpam
         ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
         self._vnc_lib.network_ipam_create(ipam)
-        logger.debug('Created network ipam')
-        ipam = self._vnc_lib.network_ipam_read(fq_name=[domain_name, 'v4-proj',
-                                                        'default-network-ipam'])
-        logger.debug('Read network ipam')
 
         # Create subnets
         ipam_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24))
@@ -1698,29 +1557,16 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.virtual_network_delete(id=vn.uuid)
         self._vnc_lib.network_ipam_delete(id=ipam.uuid)
         self._vnc_lib.project_delete(id=project.uuid)
-        self._vnc_lib.domain_delete(id=domain.uuid)
     #end
 
     def test_v4_ip_allocation_exhaust(self):
-        # Create Domain
-        domain_name = 'v4-domain-test-v4-ip-allocation-exhaust'
-        domain = Domain(domain_name)
-        self._vnc_lib.domain_create(domain)
-        logger.debug('Created domain ')
-
         # Create Project
-        project = Project('v4-proj', domain)
+        project = Project('v4-proj-%s' %(self.id()), Domain())
         self._vnc_lib.project_create(project)
-        logger.debug('Created Project')
 
         # Create NetworkIpam
         ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
         self._vnc_lib.network_ipam_create(ipam)
-        logger.debug('Created network ipam')
-
-        ipam = self._vnc_lib.network_ipam_read(fq_name=[domain_name, 'v4-proj',
-                                                        'default-network-ipam'])
-        logger.debug('Read network ipam')
 
         ip_alloc_from_start = [True, False]
         for from_start in ip_alloc_from_start:
@@ -1896,7 +1742,8 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
             logger.debug('Allocating an IP4 address for extra instance')
             with ExpectedException(BadRequest,
-                'Virtual-Network\(\[\'v4-domain-test-v4-ip-allocation-exhaust\', \'v4-proj\', \'v4-vn\'\]\) has exhausted subnet\(all\)') as e:
+                'Virtual-Network\(\[\'default-domain\', \'v4-proj-%s\', \'v4-vn\'\]\) has exhausted subnet\(all\)' %(
+                self.id())) as e:
                 ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1)
         
             # cleanup for negative test
@@ -1949,29 +1796,16 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         logger.debug('Cleaning up')
         self._vnc_lib.network_ipam_delete(id=ipam.uuid)
         self._vnc_lib.project_delete(id=project.uuid)
-        self._vnc_lib.domain_delete(id=domain.uuid)
     #end
 
     def test_req_ip_allocation(self):
-        # Create Domain
-        domain = Domain('my-v4-v6-req-ip-domain')
-        self._vnc_lib.domain_create(domain)
-        logger.debug('Created domain ')
-
         # Create Project
-        project = Project('my-v4-v6-req-ip-proj', domain)
+        project = Project('my-v4-v6-req-ip-proj-%s' %(self.id()), Domain())
         self._vnc_lib.project_create(project)
-        logger.debug('Created Project')
 
         # Create NetworkIpam
         ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
         self._vnc_lib.network_ipam_create(ipam)
-        logger.debug('Created network ipam')
-
-        ipam = self._vnc_lib.network_ipam_read(fq_name=['my-v4-v6-req-ip-domain',
-                                                        'my-v4-v6-req-ip-proj',
-                                                        'default-network-ipam'])
-        logger.debug('Read network ipam')
 
         # Create subnets
         ipam_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24))
@@ -2048,7 +1882,6 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.virtual_network_delete(id=vn.uuid)
         self._vnc_lib.network_ipam_delete(id=ipam.uuid)
         self._vnc_lib.project_delete(id=project.uuid)
-        self._vnc_lib.domain_delete(id=domain.uuid)
     #end
 
     def test_notify_doesnt_persist(self):
