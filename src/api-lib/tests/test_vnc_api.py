@@ -23,8 +23,8 @@ class TestVncApi(test_common.TestCase):
         uri_with_auth = '/try-after-auth'
         url_with_auth = 'http://127.0.0.1:8082/try-after-auth'
         httpretty.register_uri(httpretty.GET, url_with_auth,
-            responses=[httpretty.Response(status=401, body=''),
-                       httpretty.Response(status=200, body='')])
+            responses=[httpretty.Response(status=401, body='""'),
+                       httpretty.Response(status=200, body='""')])
 
         auth_url = "http://127.0.0.1:35357/v2.0/tokens"
 
@@ -41,7 +41,7 @@ class TestVncApi(test_common.TestCase):
         uri_with_auth = '/try-after-auth'
         url_with_auth = 'http://127.0.0.1:8082/try-after-auth'
         httpretty.register_uri(httpretty.GET, url_with_auth,
-            responses=[httpretty.Response(status=401, body='')])
+            responses=[httpretty.Response(status=401, body='""')])
 
         auth_url = "http://127.0.0.1:35357/v2.0/tokens"
 
