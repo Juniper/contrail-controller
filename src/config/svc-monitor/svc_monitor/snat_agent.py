@@ -216,8 +216,10 @@ class SNATAgent(Agent):
             self._vnc_lib.route_table_delete(id=rt_obj.uuid)
 
         # Delete service instance
-        if si_obj:
-            self._vnc_lib.service_instance_delete(id=si_uuid)
+        if not si_obj:
+            return
+
+        self._vnc_lib.service_instance_delete(id=si_uuid)
 
         # Delete left network
         vn_name = '%s_%s' % (svc_info.get_snat_left_vn_prefix(),
