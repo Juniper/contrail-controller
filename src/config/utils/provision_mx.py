@@ -24,7 +24,7 @@ class MxProvisioner(object):
             self._args.api_server_ip, self._args.api_server_port)
 
         if self._args.oper == 'add':
-            bp_obj.add_bgp_router('mx', self._args.router_name,
+            bp_obj.add_bgp_router('router', self._args.router_name,
                                   self._args.router_ip, self._args.router_asn,
                                   self._args.address_families)
         elif self._args.oper == 'del':

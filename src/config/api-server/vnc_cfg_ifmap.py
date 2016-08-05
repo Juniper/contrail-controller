@@ -1750,6 +1750,12 @@ class VncDbClient(object):
         if type not in self._UVEMAP:
             return
 
+        if type == 'bgp_router':
+            if 'bgp_router_parameters' not in obj_dict or\
+               'router_type' not in obj_dict['bgp_router_parameters'] or\
+               obj_dict['bgp_router_parameters']['router_type'] != 'control-node':
+                return
+
         oper = oper.upper()
         req_id = get_trace_id()
         if 'fq_name' not in obj_dict:

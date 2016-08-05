@@ -46,10 +46,10 @@ class BgpProvisioner(object):
         if not address_families:
             address_families = ['route-target', 'inet-vpn', 'e-vpn', 'erm-vpn',
                                 'inet6-vpn']
-            if router_type != 'contrail':
+            if router_type != 'control-node':
                 address_families.remove('erm-vpn')
 
-        if router_type != 'contrail':
+        if router_type != 'control-node':
             if 'erm-vpn' in address_families:
                 raise RuntimeError("Only contrail bgp routers can support "
                                    "family 'erm-vpn'")
@@ -65,8 +65,15 @@ class BgpProvisioner(object):
 
         vnc_lib = self._vnc_lib
 
-        router_params = BgpRouterParams(
-            vendor=router_type, autonomous_system=int(router_asn),
+        if router_type == 'control-node':
+            vendor = 'contrail'
+        elif router_type == 'router':
+            vendor = 'mx'
+        else:
+            vendor = 'unknown'
+
+        router_params = BgpRouterParams(router_type=router_type,
+            vendor=vendor, autonomous_system=int(router_asn),
             identifier=get_ip(router_ip),
             address=get_ip(router_ip),
             port=179, address_families=bgp_addr_fams)
