@@ -116,7 +116,6 @@ class User(object):
    def check_perms(self, obj_uuid):
        query = 'token=%s&uuid=%s' % (self.vnc_lib.get_token(), obj_uuid)
        rv = self.vnc_lib._request_server(rest.OP_GET, "/obj-perms", data=query)
-       rv = json.loads(rv)
        return rv['permissions']
 
 # display resource id-perms
@@ -472,8 +471,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         bob   = self.bob
         admin = self.admin
 
-        rv_json = admin.vnc_lib._request(rest.OP_GET, '/multi-tenancy-with-rbac')
-        rv = json.loads(rv_json)
+        rv = admin.vnc_lib._request(rest.OP_GET, '/multi-tenancy-with-rbac')
         self.assertEquals(rv["enabled"], True)
 
         # disable rbac
