@@ -97,7 +97,7 @@ fi
 IFS=,
 skip_keyspaces_list=($skip_keyspaces)
 
-data_dirs="`find $ss_dir -name $ss` "
+data_dirs="`find $ss_dir -name $ss`"
 # Get directories with snapshots
 # expected format ss_dir/keyspace_dir/column_family_dir/snapshots/*.db
 # reverse output dirs & cut 3 fields of interest
@@ -166,6 +166,11 @@ do
         mkdir -p $dest_path
     fi
 	cp $src_path/*.db $dest_path
+    if [ $? -ne 0 ]
+    then
+        echo "=====ERROR: Unable to restore $src_path/*.db to $dest_path====="
+        exit 1
+    fi
 	echo "=======check $dest_path ==============="
 	ls $dest_path
 done
