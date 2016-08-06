@@ -1961,7 +1961,10 @@ class RouteAggregateServer(Resource, RouteAggregate):
         family = None
         entries = obj_dict.get('aggregate_route_entries', {})
         for route in entries.get('route', []):
-            route_family = IPNetwork(route).version
+            try:
+                route_family = IPNetwork(route).version
+            except TypeError:
+                return (False, (400, 'Invalid route: %s' % route))
             if family and route_family != family:
                 return (False, (400, 'All prefixes in a route aggregate '
                                 'object must be of same ip family'))
