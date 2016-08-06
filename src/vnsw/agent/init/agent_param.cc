@@ -352,7 +352,7 @@ void AgentParam::ParseHypervisor() {
         }
     }
 
-    if (opt_str = tree_.get_optional<string>("HYPERVISOR.vmware_mode")) {
+    if ((opt_str = tree_.get_optional<string>("HYPERVISOR.vmware_mode")) && opt_str.get() != "") {
         if (opt_str.get() == "vcenter") {
             vmware_mode_ = VCENTER;
         } else if (opt_str.get() == "esxi_neutron") {
