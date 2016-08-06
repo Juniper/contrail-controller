@@ -877,7 +877,7 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
                 prefix = subnet_dict['ip_prefix']
                 prefix_len = subnet_dict['ip_prefix_len']
                 network = IPNetwork('%s/%s' % (prefix, prefix_len))
-                subnet_name = vn_dict['uuid'] + ' ' + subnet_dict['ip_prefix'] + '/' + str(
+                subnet_name = vn_dict['uuid'] + ' ' + str(network.ip) + '/' + str(
                     subnet_dict['ip_prefix_len'])
                 subnet_uuid = ipam_subnet['subnet_uuid']
                 self._vnc_lib.kv_store(subnet_uuid, subnet_name)
