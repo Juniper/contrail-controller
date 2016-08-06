@@ -1499,6 +1499,11 @@ class VncApiServer(object):
         self.re_uuid = re.compile('^[0-9A-F]{8}-?[0-9A-F]{4}-?4[0-9A-F]{3}-?[89AB][0-9A-F]{3}-?[0-9A-F]{12}$',
                                   re.IGNORECASE)
 
+        # following allowed without authentication
+        self.white_list = [
+            '^/documentation',  # allow all documentation
+            '^/$',              # allow discovery
+        ]
     # end __init__
 
     def sandesh_disc_client_subinfo_handle_request(self, req):
@@ -2794,6 +2799,11 @@ class VncApiServer(object):
             },
             {
                 'rule_object':'documentation',
+                'rule_field': '',
+                'rule_perms': [{'role_name':'*', 'role_crud':'R'}]
+            },
+            {
+                'rule_object':'/',
                 'rule_field': '',
                 'rule_perms': [{'role_name':'*', 'role_crud':'R'}]
             },

@@ -25,6 +25,7 @@ from lxml import etree
 import inspect
 import requests
 import stevedore
+import bottle
 
 from vnc_api.vnc_api import *
 import keystoneclient.exceptions as kc_exceptions
@@ -92,10 +93,6 @@ class User(object):
 
        role_dict = {role.name:role for role in kc.roles.list()}
        user_dict = {user.name:user for user in kc.users.list()}
-       self.user = user_dict[self.name]
-
-       # update tenant ID (needed if user entry already existed in keystone)
-       self.user.tenant_id = tenant.id
 
        logger.info( 'Adding user %s with role %s to tenant %s' \
             % (name, role, project))
@@ -105,7 +102,7 @@ class User(object):
            pass
 
        self.vnc_lib = MyVncApi(username = self.name, password = self.password,
-            tenant_name = self.project,
+            tenant_name = self.project, tenant_id = self.project_uuid, user_role = role,
             api_server_host = apis_ip, api_server_port = apis_port)
    # end __init__
 
@@ -115,7 +112,7 @@ class User(object):
        return rg_name
 
    def check_perms(self, obj_uuid):
-       query = 'token=%s&uuid=%s' % (self.vnc_lib.get_token(), obj_uuid)
+       query = 'token=%s&uuid=%s' % (self.vnc_lib.get_auth_token(), obj_uuid)
        rv = self.vnc_lib._request_server(rest.OP_GET, "/obj-perms", data=query)
        rv = json.loads(rv)
        return rv['permissions']
@@ -217,29 +214,23 @@ def token_from_user_info(user_name, tenant_name, domain_name, role_name,
 
 class MyVncApi(VncApi):
     def __init__(self, username = None, password = None,
-        tenant_name = None, api_server_host = None, api_server_port = None):
+        tenant_name = None, tenant_id = None, user_role = None,
+        api_server_host = None, api_server_port = None):
         self._username = username
         self._tenant_name = tenant_name
-        self.auth_token = None
-        self._kc = keystone.Client(username='admin', password='contrail123',
-                       tenant_name='admin',
-                       auth_url='http://127.0.0.1:5000/v2.0')
+        self._tenant_id = tenant_id
+        self._user_role = user_role
         VncApi.__init__(self, username = username, password = password,
             tenant_name = tenant_name, api_server_host = api_server_host,
             api_server_port = api_server_port)
 
     def _authenticate(self, response=None, headers=None):
-        role_name = self._kc.user_role(self._username, self._tenant_name)
-        uobj = self._kc.users.get(self._username)
         rval = token_from_user_info(self._username, self._tenant_name,
-            'default-domain', role_name, uobj.tenant_id)
+            'default-domain', self._user_role, self._tenant_id)
         new_headers = headers or {}
         new_headers['X-AUTH-TOKEN'] = rval
-        self.auth_token = rval
+        self._auth_token = rval
         return new_headers
-
-    def get_token(self):
-        return self.auth_token
 
 # This is needed for VncApi._authenticate invocation from within Api server.
 # We don't have access to user information so we hard code admin credentials.
@@ -1016,6 +1007,27 @@ class TestPermissions(test_case.ApiServerTestCase):
         with ExpectedException(BadRequest) as e:
             self.alice.vnc_lib.virtual_network_update(vn)
         # self.admin.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
+
+    def test_doc_auth(self):
+        alice = self.alice
+
+        # delete api-access-list for alice project
+        # disallow access to all API except globally allowed
+        rg_name = list(alice.project_obj.get_fq_name())
+        rg_name.append('default-api-access-list')
+        self.admin.vnc_lib.api_access_list_delete(fq_name = rg_name)
+
+        def fake_static_file(*args, **kwargs):
+            return
+        with test_common.patch(bottle, 'static_file', fake_static_file):
+            status_code, result = alice.vnc_lib._http_get('/documentation/index.html')
+            self.assertThat(status_code, Equals(200))
+
+        status_code, result = alice.vnc_lib._http_get('/')
+        self.assertThat(status_code, Equals(200))
+
+        status_code, result = alice.vnc_lib._http_get('/virtual-networks')
+        self.assertThat(status_code, Equals(401))
 
     def tearDown(self):
         super(TestPermissions, self).tearDown()

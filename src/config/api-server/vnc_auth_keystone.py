@@ -14,7 +14,7 @@ import ConfigParser
 import bottle
 import time
 import base64
-
+import re
 try:
     from keystoneclient.middleware import auth_token
 except ImportError:
@@ -93,8 +93,18 @@ class AuthPreKeystone(object):
     def set_mt(self, value):
         self.mt = value
 
+    def path_in_white_list(self, path):
+        for pattern in self.conf['api_server'].white_list:
+            if re.search(pattern, path):
+                return True
+        return False
+
     def __call__(self, env, start_response):
-        app = self.app if self.mt else bottle.app()
+        if self.path_in_white_list(env['PATH_INFO']):
+            env['HTTP_X_ROLE'] = ''
+            app = bottle.app()
+        else:
+            app = self.app if self.mt else bottle.app()
 
         return app(env, start_response)
 
@@ -201,7 +211,7 @@ class AuthServiceKeystone(object):
         # allow multi tenancy to be updated dynamically
         app = AuthPreKeystone(
             auth_middleware,
-            None,
+            { 'api_server': self._server_mgr },
             self._multi_tenancy)
 
         return app
