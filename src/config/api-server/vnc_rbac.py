@@ -194,6 +194,10 @@ class VncRbac(object):
         user, roles = self.get_user_roles(request)
         is_admin = self.cloud_admin_role in [x.lower() for x in roles]
 
+        # skip rule gathering and matching if we are admin
+        if is_admin:
+            return (True, '')
+
         # rule list for project/domain of the request
         rule_list = self.get_rbac_rules(request)
         if len(rule_list) == 0:
@@ -252,9 +256,6 @@ class VncRbac(object):
         if len(result) > 0:
             x = sorted(result.items(), reverse = True)
             ok = x[0][1][1]
-
-        # temporarily allow all access to admin till we figure out default creation of rbac group in domain
-        ok = ok or is_admin
 
         msg = "rbac: %s admin=%s, u=%s, r='%s'" \
             % ('+++' if ok else '\n---',

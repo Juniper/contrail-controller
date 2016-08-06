@@ -25,6 +25,7 @@ from lxml import etree
 import inspect
 import requests
 import stevedore
+import bottle
 
 from vnc_api.vnc_api import *
 import keystoneclient.exceptions as kc_exceptions
@@ -1009,6 +1010,23 @@ class TestPermissions(test_case.ApiServerTestCase):
         with ExpectedException(BadRequest) as e:
             self.alice.vnc_lib.virtual_network_update(vn)
         # self.admin.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
+
+    def test_doc_auth(self):
+        alice = self.alice
+
+        # delete api-access-list for alice project
+        rg_name = list(alice.project_obj.get_fq_name())
+        rg_name.append('default-api-access-list')
+        self.admin.vnc_lib.api_access_list_delete(fq_name = rg_name)
+
+        with ExpectedException(PermissionDenied) as e:
+            alice.vnc_lib.virtual_networks_list()
+
+        def fake_static_file(*args, **kwargs):
+            return
+        with test_common.patch(bottle, 'static_file', fake_static_file):
+            status_code, result = alice.vnc_lib._http_get('/documentation/index.html')
+            self.assertThat(status_code, Equals(200))
 
     def tearDown(self):
         super(TestPermissions, self).tearDown()
