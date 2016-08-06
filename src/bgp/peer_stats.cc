@@ -40,7 +40,30 @@ void PeerStats::FillRxRouteStats(const IPeerDebugStats::RxRouteStats &src,
     dest->primary_path_count = src.primary_path_count;
 }
 
-void PeerStats::FillPeerDebugStats(const IPeerDebugStats *peer_state,
+void PeerStats::FillPeerUpdateStats(const IPeerDebugStats *peer_stats,
+                                    PeerUpdateStats *rt_stats_rx,
+                                    PeerUpdateStats *rt_stats_tx) {
+
+    IPeerDebugStats::UpdateStats update_stats_rx;
+    peer_stats->GetRxRouteUpdateStats(&update_stats_rx);
+    FillRouteUpdateStats(update_stats_rx, rt_stats_rx);
+
+    IPeerDebugStats::UpdateStats update_stats_tx;
+    peer_stats->GetTxRouteUpdateStats(&update_stats_tx);
+    FillRouteUpdateStats(update_stats_tx, rt_stats_tx);
+}
+
+void PeerStats::FillPeerUpdateStats(const IPeerDebugStats *peer_stats,
+                                    PeerStatsData *peer_stats_data) {
+    PeerUpdateStats stats_rx;
+    PeerUpdateStats stats_tx;
+
+    FillPeerUpdateStats(peer_stats, &stats_rx, &stats_tx);
+    peer_stats_data->set_rx_update_stats(stats_rx);
+    peer_stats_data->set_tx_update_stats(stats_tx);
+}
+
+void PeerStats::FillPeerDebugStats(const IPeerDebugStats *peer_stats,
                                    PeerStatsInfo *stats) {
     PeerProtoStats proto_stats_tx;
     PeerProtoStats proto_stats_rx;
@@ -50,27 +73,21 @@ void PeerStats::FillPeerDebugStats(const IPeerDebugStats *peer_state,
     PeerRxRouteStats dest_route_stats_rx;
 
     IPeerDebugStats::ProtoStats stats_rx;
-    peer_state->GetRxProtoStats(&stats_rx);
+    peer_stats->GetRxProtoStats(&stats_rx);
     FillProtoStats(stats_rx, &proto_stats_rx);
 
     IPeerDebugStats::ProtoStats stats_tx;
-    peer_state->GetTxProtoStats(&stats_tx);
+    peer_stats->GetTxProtoStats(&stats_tx);
     FillProtoStats(stats_tx, &proto_stats_tx);
 
-    IPeerDebugStats::UpdateStats update_stats_rx;
-    peer_state->GetRxRouteUpdateStats(&update_stats_rx);
-    FillRouteUpdateStats(update_stats_rx, &rt_stats_rx);
-
-    IPeerDebugStats::UpdateStats update_stats_tx;
-    peer_state->GetTxRouteUpdateStats(&update_stats_tx);
-    FillRouteUpdateStats(update_stats_tx, &rt_stats_tx);
+    FillPeerUpdateStats(peer_stats, &rt_stats_rx, &rt_stats_tx);
 
     IPeerDebugStats::RxErrorStats src_error_stats_rx;
-    peer_state->GetRxErrorStats(&src_error_stats_rx);
+    peer_stats->GetRxErrorStats(&src_error_stats_rx);
     FillRxErrorStats(src_error_stats_rx, &dest_error_stats_rx);
 
     IPeerDebugStats::RxRouteStats src_route_stats_rx;
-    peer_state->GetRxRouteStats(&src_route_stats_rx);
+    peer_stats->GetRxRouteStats(&src_route_stats_rx);
     FillRxRouteStats(src_route_stats_rx, &dest_route_stats_rx);
 
     stats->set_rx_proto_stats(proto_stats_rx);
