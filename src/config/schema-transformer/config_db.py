@@ -1230,6 +1230,7 @@ class VirtualNetworkST(DBBaseST):
             ri = RoutingInstanceST.get(ri_name)
             if ri:
                 ri.update_routing_policy_and_aggregates()
+        self.uve_send()
     # end evaluate
 
     def get_prefixes(self, ip_version):
