@@ -656,6 +656,7 @@ void AgentXmppChannel::AddEcmpRoute(string vrf_name, IpAddress prefix_addr,
     }
 
     ComponentNHKeyList comp_nh_list;
+    bool comp_nh_policy = false;
     for (uint32_t i = 0; i < item->entry.next_hops.next_hop.size(); i++) {
         std::string nexthop_addr =
             item->entry.next_hops.next_hop[i].address;
@@ -689,7 +690,8 @@ void AgentXmppChannel::AddEcmpRoute(string vrf_name, IpAddress prefix_addr,
                     return;
                 }
 
-                DBEntryBase::KeyPtr key = mpls->nexthop()->GetDBRequestKey();
+                const NextHop *mpls_nh = mpls->nexthop();
+                DBEntryBase::KeyPtr key = mpls_nh->GetDBRequestKey();
                 NextHopKey *nh_key = static_cast<NextHopKey *>(key.release());
                 if (nh_key->GetType() != NextHop::COMPOSITE) {
                     //By default all component members of composite NH
@@ -701,6 +703,9 @@ void AgentXmppChannel::AddEcmpRoute(string vrf_name, IpAddress prefix_addr,
                 ComponentNHKeyPtr component_nh_key(new ComponentNHKey(label,
                                                    nh_key_ptr));
                 comp_nh_list.push_back(component_nh_key);
+                if (!comp_nh_policy) {
+                    comp_nh_policy = mpls_nh->NexthopToInterfacePolicy();
+                }
             }
         } else {
             encap = GetTypeBitmap
@@ -718,7 +723,7 @@ void AgentXmppChannel::AddEcmpRoute(string vrf_name, IpAddress prefix_addr,
 
     // Build the NH request and then create route data to be passed
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    nh_req.key.reset(new CompositeNHKey(Composite::ECMP, false,
+    nh_req.key.reset(new CompositeNHKey(Composite::ECMP, comp_nh_policy,
                                         comp_nh_list, vrf_name));
     nh_req.data.reset(new CompositeNHData());
     ControllerEcmpRoute *data =

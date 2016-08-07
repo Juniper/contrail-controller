@@ -253,7 +253,9 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
         composite_nh_key_.get() != NULL &&
         local_ecmp_mpls_label_.get() != NULL) {
         boost::scoped_ptr<CompositeNHKey> composite_nh_key(composite_nh_key_->Clone());
-        if (ReorderCompositeNH(agent, composite_nh_key.get())) {
+        bool comp_nh_policy = false;
+        if (ReorderCompositeNH(agent, composite_nh_key.get(), comp_nh_policy)) {
+            composite_nh_key->SetPolicy(comp_nh_policy);
             if (ChangeCompositeNH(agent, composite_nh_key.get())) {
                 ret = true;
             }
@@ -1269,7 +1271,8 @@ const MplsLabel* AgentPath::local_ecmp_mpls_label() const {
 }
 
 bool AgentPath::ReorderCompositeNH(Agent *agent,
-                                   CompositeNHKey *composite_nh_key) {
+                                   CompositeNHKey *composite_nh_key,
+                                   bool &comp_nh_policy) {
     //Find local composite mpls label, if present
     //This has to be done, before expanding component NH
     BOOST_FOREACH(ComponentNHKeyPtr component_nh_key,
@@ -1317,7 +1320,8 @@ bool AgentPath::ReorderCompositeNH(Agent *agent,
     //in that exact order,If B gets deleted,
     //the new composite NH created should be A <NULL> C in that order,
     //irrespective of the order user passed it in
-    composite_nh_key->Reorder(agent, label_, ComputeNextHop(agent));
+    comp_nh_policy = composite_nh_key->Reorder(agent, label_,
+                                               ComputeNextHop(agent));
     //Copy the unchanged component NH list to path data
     set_composite_nh_key(comp_key);
     return true;

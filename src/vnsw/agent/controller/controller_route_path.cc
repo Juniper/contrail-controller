@@ -35,8 +35,13 @@ bool ControllerEcmpRoute::AddChangePath(Agent *agent, AgentPath *path,
     CompositeNHKey *comp_key = static_cast<CompositeNHKey *>(nh_req_.key.get());
     //Reorder the component NH list, and add a reference to local composite mpls
     //label if any
-    if (path->ReorderCompositeNH(agent, comp_key) == false)
+    bool comp_nh_policy = comp_key->GetPolicy();
+    bool new_comp_nh_policy = false;
+    if (path->ReorderCompositeNH(agent, comp_key, new_comp_nh_policy) == false)
         return false;
+    if (!comp_nh_policy) {
+        comp_key->SetPolicy(new_comp_nh_policy);
+    }
     return InetUnicastRouteEntry::ModifyEcmpPath(dest_addr_, plen_, vn_list_,
                                                  label_, local_ecmp_nh_,
                                                  vrf_name_, sg_list_,
