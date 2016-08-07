@@ -255,7 +255,8 @@ public:
     CompositeNHKey* composite_nh_key() {
         return composite_nh_key_.get();
     }
-    bool ReorderCompositeNH(Agent *agent, CompositeNHKey *nh);
+    bool ReorderCompositeNH(Agent *agent, CompositeNHKey *nh,
+                            bool &comp_nh_policy);
     bool ChangeCompositeNH(Agent *agent, CompositeNHKey *nh);
     // Get nexthop-ip address to be used for path
     const Ip4Address *NexthopIp(Agent *agent) const;

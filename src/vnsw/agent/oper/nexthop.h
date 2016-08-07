@@ -380,6 +380,7 @@ public:
                                   NextHopObjectLogInfo &info);
     static void FillObjectLogMac(const unsigned char *m,
                                  NextHopObjectLogInfo &info);
+    bool NexthopToInterfacePolicy() const;
 protected:
     void FillObjectLog(AgentLogEvent::type event,
                        NextHopObjectLogInfo &info) const;
@@ -1259,14 +1260,14 @@ public:
     const ComponentNHKeyList& component_nh_key_list() const {
         return component_nh_key_list_;
     }
-    void Reorder(Agent *agent, uint32_t label, const NextHop *nh);
+    bool Reorder(Agent *agent, uint32_t label, const NextHop *nh);
     void CreateTunnelNH(Agent *agent);
     void CreateTunnelNHReq(Agent *agent);
     void ChangeTunnelType(TunnelType::Type tunnel_type);
     COMPOSITETYPE composite_nh_type() const {return composite_nh_type_;}
 private:
     friend class CompositeNH;
-    void ExpandLocalCompositeNH(Agent *agent);
+    bool ExpandLocalCompositeNH(Agent *agent);
     void insert(ComponentNHKeyPtr nh_key);
     void erase(ComponentNHKeyPtr nh_key);
     bool find(ComponentNHKeyPtr nh_key);
@@ -1361,13 +1362,14 @@ public:
         return;
     }
     uint32_t GetRemoteLabel(const Ip4Address &ip) const;
-    ComponentNHKeyList AddComponentNHKey(ComponentNHKeyPtr
-                                         component_nh_key) const;
+    ComponentNHKeyList AddComponentNHKey(ComponentNHKeyPtr component_nh_key,
+                                         bool &comp_nh_policy) const;
     ComponentNHKeyList DeleteComponentNHKey(ComponentNHKeyPtr
-                                            component_nh_key) const;
+                                            component_nh_key,
+                                            bool &comp_nh_new_policy) const;
     bool UpdateComponentNHKey(uint32_t label, NextHopKey *nh_key,
-                              ComponentNHKeyList &component_nh_key_list) const;
-    ComponentNHList& component_nh_list() {
+        ComponentNHKeyList &component_nh_key_list, bool &comp_nh_policy) const;
+    const ComponentNHList& component_nh_list() const {
         return component_nh_list_;
     }
     const ComponentNHKeyList& component_nh_key_list() const {

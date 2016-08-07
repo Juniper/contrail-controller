@@ -216,6 +216,19 @@ void NextHop::FillObjectLogMac(const unsigned char *m,
     info.set_mac(mac);
 }
 
+bool NextHop::NexthopToInterfacePolicy() const {
+    if (GetType() == NextHop::INTERFACE) {
+        const InterfaceNH *intf_nh =
+            static_cast<const InterfaceNH *>(this);
+        const VmInterface *intf = dynamic_cast<const VmInterface *>
+            (intf_nh->GetInterface());
+        if (intf && intf->policy_enabled()) {
+            return true;
+        }
+    }
+    return false;
+}
+
 std::auto_ptr<DBEntry> NextHopTable::AllocEntry(const DBRequestKey *k) const {
     return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(AllocWithKey(k)));
 }
@@ -1848,65 +1861,89 @@ void CompositeNHKey::erase(ComponentNHKeyPtr nh_key) {
 }
 
 bool CompositeNH::UpdateComponentNHKey(uint32_t label, NextHopKey *nh_key,
-                              ComponentNHKeyList &component_nh_key_list) const {
+    ComponentNHKeyList &component_nh_key_list, bool &comp_nh_policy) const {
     bool ret = false;
-    ComponentNHKeyList::const_iterator it = component_nh_key_list_.begin();
-    for (;it != component_nh_key_list_.end(); it++) {
-        //If there is a empty slot, in component key list retain the empty slot
-        //in new list
-        if ((*it) == NULL) {
+    comp_nh_policy = false;
+    BOOST_FOREACH(ComponentNHPtr it, component_nh_list_) {
+        if (it.get() == NULL) {
             ComponentNHKeyPtr dummy_ptr;
             dummy_ptr.reset();
             component_nh_key_list.push_back(dummy_ptr);
             continue;
         }
-        const NextHopKey *lhs = (*it)->nh_key();
-        uint32_t new_label = (*it)->label();
-        if((*it) && (*it)->label() != label && lhs->IsEqual(*nh_key)) {
+        const ComponentNH *component_nh = it.get();
+        uint32_t new_label = component_nh->label();
+        DBEntryBase::KeyPtr key = component_nh->nh()->GetDBRequestKey();
+        NextHopKey *lhs = static_cast<NextHopKey *>(key.release());
+
+        if (new_label != label && lhs->IsEqual(*nh_key)) {
             new_label = label;
             ret = true;
         }
-        std::auto_ptr<const NextHopKey> nh_akey(lhs->Clone());
-        ComponentNHKeyPtr comp_nh_key_ptr(new ComponentNHKey(new_label,
-                                                             nh_akey));
-        component_nh_key_list.push_back(comp_nh_key_ptr);
+        std::auto_ptr<const NextHopKey> nh_key_ptr(lhs);
+        ComponentNHKeyPtr component_nh_key(
+            new ComponentNHKey(new_label, nh_key_ptr));
+        component_nh_key_list.push_back(component_nh_key);
+        if (!comp_nh_policy) {
+            comp_nh_policy = component_nh->nh()->NexthopToInterfacePolicy();
+        }
     }
     return ret;
 }
 
-ComponentNHKeyList CompositeNH::AddComponentNHKey(ComponentNHKeyPtr cnh) const {
+ComponentNHKeyList CompositeNH::AddComponentNHKey(ComponentNHKeyPtr cnh,
+                                                  bool &comp_nh_policy) const {
     Agent *agent = static_cast<NextHopTable *>(get_table())->agent();
     const NextHop *nh = static_cast<const NextHop *>(agent->nexthop_table()->
                                        FindActiveEntry(cnh->nh_key()));
     assert(nh);
 
     ComponentNHKeyList component_nh_key_list = component_nh_key_list_;
-    ComponentNHList::const_iterator it = begin();
     int index = 0;
-    //Make sure new entry is not already present
-    for (;it != end(); it++, index++) {
-        if((*it) && (*it)->nh() == nh) {
-            if ((*it)->label() == cnh->label()) {
+
+    comp_nh_policy = false;
+    bool made_cnh_list = false;
+    BOOST_FOREACH(ComponentNHPtr it, component_nh_list_) {
+        const ComponentNH *component_nh = it.get();
+        if (component_nh == NULL) {
+            index++;
+            continue;
+        }
+        if (component_nh->nh() == nh) {
+            if (component_nh->label() == cnh->label()) {
                 //Entry already present, return old component nh key list
+                comp_nh_policy = PolicyEnabled();
                 return component_nh_key_list;
             } else {
-                /* If the label of VMI has changed (due to policy change),
-                 * reset the position of the VMI in component_nh_key_list */
-                if (nh && nh->GetType() == NextHop::INTERFACE) {
+                if (nh->GetType() == NextHop::INTERFACE) {
                     component_nh_key_list[index] = cnh;
-                    return component_nh_key_list;
+                    made_cnh_list = true;
+                }
+                if (!comp_nh_policy) {
+                    comp_nh_policy = nh->NexthopToInterfacePolicy();
                 }
             }
+        } else if (!comp_nh_policy) {
+            comp_nh_policy = component_nh->nh()->NexthopToInterfacePolicy();
         }
+        if (comp_nh_policy && made_cnh_list) {
+            break;
+        }
+        index++;
+    }
+
+    if (made_cnh_list) {
+        return component_nh_key_list;
     }
 
     bool inserted = false;
+    index = 0;
     ComponentNHKeyList::const_iterator key_it = component_nh_key_list.begin();
-    for (;key_it != component_nh_key_list.end(); key_it++) {
+    for (;key_it != component_nh_key_list.end(); key_it++, index++) {
         //If there is a empty slot, in
         //component key list insert the element there.
         if ((*key_it) == NULL) {
-            component_nh_key_list.push_back(cnh);
+            component_nh_key_list[index] = cnh;
             inserted = true;
             break;
         }
@@ -1916,11 +1953,16 @@ ComponentNHKeyList CompositeNH::AddComponentNHKey(ComponentNHKeyPtr cnh) const {
     if (inserted == false) {
         component_nh_key_list.push_back(cnh);
     }
+    comp_nh_policy = PolicyEnabled();
+    if (!comp_nh_policy && (nh->GetType() == NextHop::INTERFACE)) {
+        comp_nh_policy = nh->NexthopToInterfacePolicy();
+    }
     return component_nh_key_list;
 }
 
 ComponentNHKeyList
-CompositeNH::DeleteComponentNHKey(ComponentNHKeyPtr cnh) const {
+CompositeNH::DeleteComponentNHKey(ComponentNHKeyPtr cnh,
+                                  bool &comp_nh_new_policy) const {
     Agent *agent = static_cast<NextHopTable *>(get_table())->agent();
     const NextHop *nh = static_cast<const NextHop *>(agent->nexthop_table()->
                                        FindActiveEntry(cnh->nh_key()));
@@ -1929,12 +1971,31 @@ CompositeNH::DeleteComponentNHKey(ComponentNHKeyPtr cnh) const {
     ComponentNHKeyList component_nh_key_list = component_nh_key_list_;
     ComponentNHKeyPtr component_nh_key;
     ComponentNHList::const_iterator it = begin();
+    comp_nh_new_policy = false;
+    bool removed = false;
     int index = 0;
     for (;it != end(); it++, index++) {
         ComponentNHKeyPtr dummy_ptr;
         dummy_ptr.reset();
         if ((*it) && ((*it)->label() == cnh->label() && (*it)->nh() == nh)) {
             component_nh_key_list[index] = dummy_ptr;
+            removed = true;
+        } else {
+            /* Go through all the component Interface Nexthops of this
+             * CompositeNH to figure out the new policy status of this
+             * CompositeNH. Ignore the component NH being deleted while
+             * iterating. */
+            if ((*it) && (*it)->nh() && !comp_nh_new_policy) {
+                /* If any one of component NH's interface has policy enabled,
+                 * the policy-status of compositeNH is true. So we need to
+                 * look only until we find the first Interface which has
+                 * policy enabled */
+                comp_nh_new_policy = (*it)->nh()->NexthopToInterfacePolicy();
+            }
+        }
+        if (removed && comp_nh_new_policy) {
+            /* No need to iterate further if we done with both deleting key and
+             * figuring out policy-status */
             break;
         }
     }
@@ -1992,7 +2053,7 @@ bool CompositeNHKey::NextHopKeyIsLess(const NextHopKey &rhs) const {
     return false;
 }
 
-void CompositeNHKey::ExpandLocalCompositeNH(Agent *agent) {
+bool CompositeNHKey::ExpandLocalCompositeNH(Agent *agent) {
     uint32_t label = MplsTable::kInvalidLabel;
     //Find local composite ecmp label
     BOOST_FOREACH(ComponentNHKeyPtr component_nh_key,
@@ -2009,32 +2070,46 @@ void CompositeNHKey::ExpandLocalCompositeNH(Agent *agent) {
 
      //No Local composite NH found
     if (label ==  MplsTable::kInvalidLabel) {
-        return;
+        return false;
     }
 
     MplsLabel *mpls = agent->mpls_table()->FindMplsLabel(label);
     if (mpls == NULL) {
-        return;
+        return false;
     }
 
-    DBEntryBase::KeyPtr key = mpls->nexthop()->GetDBRequestKey();
-    NextHopKey *nh_key = static_cast<NextHopKey *>(key.get());
-    assert(nh_key->GetType() == NextHop::COMPOSITE);
-    CompositeNHKey *local_composite_nh_key =
-        static_cast<CompositeNHKey *>(nh_key);
-    //Insert individual entries
-    BOOST_FOREACH(ComponentNHKeyPtr component_nh_key,
-                  local_composite_nh_key->component_nh_key_list()) {
+    const NextHop *mpls_nh = mpls->nexthop();
+    assert(mpls_nh->GetType() == NextHop::COMPOSITE);
+    const CompositeNH *cnh = static_cast<const CompositeNH *>(mpls_nh);
+
+    bool comp_nh_new_policy = false;
+    BOOST_FOREACH(ComponentNHPtr it, cnh->component_nh_list()) {
+        if (it.get() == NULL) {
+            ComponentNHKeyPtr dummy_ptr;
+            dummy_ptr.reset();
+            insert(dummy_ptr);
+            continue;
+        }
+        const ComponentNH *component_nh = it.get();
+        DBEntryBase::KeyPtr key = component_nh->nh()->GetDBRequestKey();
+        NextHopKey *nh_key = static_cast<NextHopKey *>(key.release());
+        std::auto_ptr<const NextHopKey> nh_key_ptr(nh_key);
+        ComponentNHKeyPtr component_nh_key(
+            new ComponentNHKey(component_nh->label(), nh_key_ptr));
         insert(component_nh_key);
+        if (!comp_nh_new_policy) {
+            comp_nh_new_policy = component_nh->nh()->NexthopToInterfacePolicy();
+        }
     }
+    return comp_nh_new_policy;
 }
 
-void CompositeNHKey::Reorder(Agent *agent,
+bool CompositeNHKey::Reorder(Agent *agent,
                              uint32_t label, const NextHop *nh) {
     //Enqueue request to create Tunnel NH
     CreateTunnelNH(agent);
     //First expand local composite NH, if any
-    ExpandLocalCompositeNH(agent);
+    bool policy = ExpandLocalCompositeNH(agent);
     //Order the component NH entries, so that previous position of
     //component NH are maintained.
     //For example, if previous composite NH consisted of A, B and C
@@ -2050,7 +2125,7 @@ void CompositeNHKey::Reorder(Agent *agent,
     //Then new composite NH has to be A, B, C, D in that order, such that
     //A, B, C nexthop retain there position
     if (!nh) {
-        return;
+        return policy;
     }
 
     if (nh->GetType() != NextHop::COMPOSITE) {
@@ -2071,7 +2146,7 @@ void CompositeNHKey::Reorder(Agent *agent,
             insert(component_nh_key);
             insert(first_entry);
         }
-        return;
+        return policy;
     }
 
     CompositeNHKey *composite_nh_key;
@@ -2095,6 +2170,7 @@ void CompositeNHKey::Reorder(Agent *agent,
     }
     //Copy over the list
     component_nh_key_list_ = composite_nh_key->component_nh_key_list();
+    return policy;
 }
 
 ComponentNHKey::ComponentNHKey(int label, Composite::Type type, bool policy,
