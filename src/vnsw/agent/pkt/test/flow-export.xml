@@ -37,18 +37,18 @@
      sip="1.1.1.1" dip="1.1.1.2" proto="udp" sport="1" dport="12"
      type="flow" />
     <validate name="validate-3">
-        <flow name="l2-udp-from-vm-2" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.1"
+        <flow name="l2-udp-from-vm-2" uuid="1" vrf="vrf1" nh="13" sip="1.1.1.1"
          dip="1.1.1.2" proto="udp" sport="1" dport="11" svn="vn1"
-         dvn="vn1" action="pass" rpf_nh="13"/>
-        <flow name="l2-udp-from-vm-2" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.1"
+         dvn="vn1" action="pass" rpf_nh="14"/>
+        <flow name="l2-udp-from-vm-2" uuid="1" vrf="vrf1" nh="13" sip="1.1.1.1"
          dip="1.1.1.2" proto="udp" sport="1" dport="12" svn="vn1"
-         dvn="vn1" action="pass" rpf_nh="13"/>
+         dvn="vn1" action="pass" rpf_nh="14"/>
     </validate>
 
-    <flow-export name="l2-udp-from-vm-2" uuid="1" vrf="vrf1" nh="12"
+    <flow-export name="l2-udp-from-vm-2" uuid="1" vrf="vrf1" nh="13"
      sip="1.1.1.1" dip="1.1.1.2" proto="udp" sport="1" dport="11"
      bytes = "10000" pkts="100" />
-    <flow-export name="l2-udp-from-vm-2" uuid="1" vrf="vrf1" nh="12"
+    <flow-export name="l2-udp-from-vm-2" uuid="1" vrf="vrf1" nh="13"
      sip="1.1.1.1" dip="1.1.1.2" proto="udp" sport="1" dport="12"
      bytes = "10000" pkts="100" />
 
