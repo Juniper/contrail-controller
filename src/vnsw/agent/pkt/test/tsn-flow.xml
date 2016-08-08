@@ -46,7 +46,7 @@
      sip="1.1.1.1" dip="1.1.1.2" proto="udp" sport="1" dport="11"
      type="flow" />
     <validate name="validate-4">
-        <flow name="l2-udp-to-vm-vxlan-1" uuid="1" vrf="vrf1" nh="13"
+        <flow name="l2-udp-to-vm-vxlan-1" uuid="1" vrf="vrf1" nh="14"
          sip="1.1.1.1" dip="1.1.1.2" proto="udp" sport="1" dport="11"
          svn="vn1" dvn="vn1" action="pass"/> 
     </validate>

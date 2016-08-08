@@ -385,7 +385,7 @@ InstanceServiceAsyncHandler::AddHostRoute(const std::string& ip_address,
     }
 
     agent_->fabric_inet4_unicast_table()->
-        AddHostRoute(vrf, ip.to_v4(), 32, agent_->fabric_vn_name());
+        AddHostRoute(vrf, ip.to_v4(), 32, agent_->fabric_vn_name(), false);
 
     return true;
 }

@@ -35,8 +35,8 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
     interface_(entry->interface_), sip_(entry->sip_), dip_(entry->dip_),
     sport_(entry->sport_), dport_(entry->dport_), smac_(entry->smac_),
     dmac_(entry->dmac_), valid_(entry->valid_), policy_(entry->policy_),
-    is_mcast_nh_(entry->is_mcast_nh_), defer_(entry->defer_),
-    component_nh_list_(entry->component_nh_list_),
+    relaxed_policy_(false), is_mcast_nh_(entry->is_mcast_nh_),
+    defer_(entry->defer_), component_nh_list_(entry->component_nh_list_),
     nh_(entry->nh_), vlan_tag_(entry->vlan_tag_),
     is_local_ecmp_nh_(entry->is_local_ecmp_nh_),
     is_bridge_(entry->is_bridge_), comp_type_(entry->comp_type_),
@@ -50,7 +50,8 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
 NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), type_(nh->GetType()),
     vrf_id_(0), interface_(NULL), valid_(nh->IsValid()),
-    policy_(nh->PolicyEnabled()), is_mcast_nh_(false), nh_(nh),
+    policy_(nh->PolicyEnabled()), relaxed_policy_(false),
+    is_mcast_nh_(false), nh_(nh),
     vlan_tag_(VmInterface::kInvalidVlanId), is_bridge_(false),
     tunnel_type_(TunnelType::INVALID), prefix_len_(32), nh_id_(nh->id()),
     vxlan_nh_(false), flood_unknown_unicast_(false) {
@@ -72,7 +73,8 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
         assert(interface_);
         is_mcast_nh_ = if_nh->is_multicastNH();
         is_bridge_ = if_nh->IsBridge();
-        vrf_id_ = if_nh->GetVrf()->vrf_id();
+        const VrfEntry * vrf = if_nh->GetVrf();
+        vrf_id_ = (vrf != NULL) ? vrf->vrf_id() : VrfEntry::kInvalidIndex;
         dmac_ = if_nh->GetDMac();
         // VmInterface can potentially have vlan-tags. Get tag in such case
         if (if_nh->GetInterface()->type() == Interface::VM_INTERFACE) {
@@ -471,6 +473,10 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
                          (intf_nh->GetInterface()))->tx_vlan_id();
             ret = vlan_tag != vlan_tag_;
         }
+        if (intf_nh->relaxed_policy() != relaxed_policy_) {
+            relaxed_policy_ = intf_nh->relaxed_policy();
+            ret = true;
+        }
         break;
     }
 
@@ -677,7 +683,11 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     }
 
     if (policy_) {
-        flags |= NH_FLAG_POLICY_ENABLED;
+        if (relaxed_policy_) {
+            flags |= NH_FLAG_FLOW_LOOKUP;
+        } else {
+            flags |= NH_FLAG_POLICY_ENABLED;
+        }
     }
     if_ksync = interface();
 
@@ -785,7 +795,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 //resulting flow with key NH of resolve NH
                 //followed by next packet with ARP NH as key
                 //resulting in flow drops
-                flags &= ~NH_FLAG_POLICY_ENABLED;
+                flags &= ~(NH_FLAG_POLICY_ENABLED | NH_FLAG_RELAXED_POLICY);
             }
             encoder.set_nhr_type(NH_RESOLVE);
             break;
