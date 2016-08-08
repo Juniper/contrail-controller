@@ -294,6 +294,10 @@ bool VrfEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
             data.set_vn("N/A");
         }
         data.set_table_label(table_label());
+        VrfTable *table = static_cast<VrfTable *>(get_table());
+        stringstream rd;
+        rd << table->agent()->compute_node_ip().to_string() << ":" << vrf_id();
+        data.set_RD(rd.str());
 
         std::vector<VrfSandeshData> &list = 
                 const_cast<std::vector<VrfSandeshData>&>(resp->get_vrf_list());
