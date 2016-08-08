@@ -782,6 +782,7 @@ class OpServer(object):
             'api_server'        : '127.0.0.1:8082',
             'admin_port'        : OpServerAdminPort,
             'cloud_admin_role'  : CLOUD_ADMIN_ROLE,
+            'api_server_use_ssl': False,
         }
         redis_opts = {
             'redis_server_port'  : 6379,
@@ -925,6 +926,8 @@ class OpServer(object):
             help="Address of VNC API server in ip:port format")
         parser.add_argument("--admin_port",
             help="Port with local auth for admin access")
+        parser.add_argument("--api_server_use_ssl",
+            help="Use SSL to connect with API server")
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
@@ -942,7 +945,7 @@ class OpServer(object):
         auth_conf_info['auth_port'] = self._args.auth_port
         auth_conf_info['auth_uri'] = '%s://%s:%d' % (self._args.auth_protocol,
             self._args.auth_host, self._args.auth_port)
-        auth_conf_info['api_server_use_ssl'] = False
+        auth_conf_info['api_server_use_ssl'] = self._args.api_server_use_ssl
         auth_conf_info['cloud_admin_access_only'] = \
             False if self._args.aaa_mode == AAA_MODE_NO_AUTH else True
         auth_conf_info['cloud_admin_role'] = self._args.cloud_admin_role
