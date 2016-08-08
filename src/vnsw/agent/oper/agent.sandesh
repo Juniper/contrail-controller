@@ -423,6 +423,7 @@ struct VrfSandeshData {
     9: i32 vxlan_id;                         // VRF Label used for the VRF
    10: i32 evpnindex  (link="EvpnRouteReq"); // VRF Index evpn Table
    11: i32 brindex  (link="BridgeRouteReq"); // VRF Index L2 Table
+   12: string RD;                            // Route-Distinguisher
 }
 
 /**
