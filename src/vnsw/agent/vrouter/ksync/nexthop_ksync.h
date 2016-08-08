@@ -84,6 +84,7 @@ private:
     MacAddress dmac_;
     bool valid_;
     bool policy_;
+    bool relaxed_policy_;
     bool is_mcast_nh_;
     bool defer_;
     KSyncComponentNHList component_nh_list_;
