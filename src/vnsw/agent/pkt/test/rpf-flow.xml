@@ -76,18 +76,18 @@
      sip="1.1.1.6" dip="1.1.1.2" proto="udp" sport="1" dport="14"
      type="flow" />
     <validate name="validate-1">
-        <flow name="l2-udp-from-vm" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.1"
+        <flow name="l2-udp-from-vm" uuid="1" vrf="vrf1" nh="13" sip="1.1.1.1"
          dip="1.1.1.2" proto="udp" sport="1" dport="11" svn="vn1"
          dvn="vn1" action="pass" rpf_nh="2"/>
-        <flow name="l2-udp-from-vm-flow1" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.4"
+        <flow name="l2-udp-from-vm-flow1" uuid="1" vrf="vrf1" nh="13" sip="1.1.1.4"
          dip="1.1.1.5" proto="udp" sport="1" dport="12" svn="vn1"
-         dvn="vn1" action="pass" rpf_nh="13"/>
-        <flow name="l3-udp-from-vm" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.4"
-         dip="1.1.1.5" proto="udp" sport="1" dport="11" svn="vn1"
-         dvn="vn1" action="pass" rpf_nh="13"/>
-        <flow name="l3-udp-from-ecmp-vm" uuid="1" vrf="vrf1" nh="22" sip="1.1.1.6"
-         dip="1.1.1.2" proto="udp" sport="1" dport="14" svn="vn1"
          dvn="vn1" action="pass" rpf_nh="14"/>
+        <flow name="l3-udp-from-vm" uuid="1" vrf="vrf1" nh="13" sip="1.1.1.4"
+         dip="1.1.1.5" proto="udp" sport="1" dport="11" svn="vn1"
+         dvn="vn1" action="pass" rpf_nh="14"/>
+        <flow name="l3-udp-from-ecmp-vm" uuid="1" vrf="vrf1" nh="23" sip="1.1.1.6"
+         dip="1.1.1.2" proto="udp" sport="1" dport="14" svn="vn1"
+         dvn="vn1" action="pass" rpf_nh="15"/>
     </validate>
 
     <!-- Update SG of the interface and verify RPF NH gets
@@ -116,15 +116,15 @@
 
     <!-- RPF nexthop gets set to policy enabled unicast nexthop -->
     <validate name="validate-2">
-        <flow name="l2-udp-from-vm-flow1" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.1"
+        <flow name="l2-udp-from-vm-flow1" uuid="1" vrf="vrf1" nh="13" sip="1.1.1.1"
          dip="1.1.1.2" proto="udp" sport="1" dport="11" svn="vn1"
          dvn="vn1" action="pass" rpf_nh="2"/>
-        <flow name="l2-udp-from-vm-flow2" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.4"
+        <flow name="l2-udp-from-vm-flow2" uuid="1" vrf="vrf1" nh="13" sip="1.1.1.4"
          dip="1.1.1.5" proto="udp" sport="1" dport="12" svn="vn1"
-         dvn="vn1" action="pass" rpf_nh="12"/>
-        <flow name="l3-udp-from-vm-1" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.4"
+         dvn="vn1" action="pass" rpf_nh="13"/>
+        <flow name="l3-udp-from-vm-1" uuid="1" vrf="vrf1" nh="13" sip="1.1.1.4"
          dip="1.1.1.5" proto="udp" sport="1" dport="11" svn="vn1"
-         dvn="vn1" action="pass" rpf_nh="12"/>
+         dvn="vn1" action="pass" rpf_nh="13"/>
     </validate>
 
     <!-- Explictly change fdb entry of interface,
@@ -134,15 +134,15 @@
         label="5" />
 
     <validate name="validate-3">
-        <flow name="l2-udp-from-vm-flow1" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.1"
+        <flow name="l2-udp-from-vm-flow1" uuid="1" vrf="vrf1" nh="13" sip="1.1.1.1"
          dip="1.1.1.2" proto="udp" sport="1" dport="11" svn="vn1"
          dvn="vn1" action="deny"/>
-         <flow name="l3-udp-from-vm-1" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.4"
+         <flow name="l3-udp-from-vm-1" uuid="1" vrf="vrf1" nh="13" sip="1.1.1.4"
          dip="1.1.1.5" proto="udp" sport="1" dport="12" svn="vn1"
-         dvn="vn1" action="deny" rpf_nh="12"/>
-         <flow name="l3-udp-from-vm-2" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.4"
+         dvn="vn1" action="deny" rpf_nh="13"/>
+         <flow name="l3-udp-from-vm-2" uuid="1" vrf="vrf1" nh="13" sip="1.1.1.4"
          dip="1.1.1.5" proto="udp" sport="1" dport="11" svn="vn1"
-         dvn="vn1" action="pass" rpf_nh="12"/>
+         dvn="vn1" action="pass" rpf_nh="13"/>
     </validate>
 
     <l3-route uuid="1" id="1" name="route_1" src-ip="1.1.1.4" plen="32" vrf="vrf1"
@@ -150,29 +150,29 @@
     <l3-route uuid="2" id="2" name="route_2" src-ip="0.0.0.0" plen="0" vrf="vrf1"
         vn="vn1" tunnel-dest="6.5.5.5" sg="2" label="5"/>
     <validate name="validate-4">
-        <flow name="l2-udp-from-vm-flow1" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.1"
+        <flow name="l2-udp-from-vm-flow1" uuid="1" vrf="vrf1" nh="13" sip="1.1.1.1"
          dip="1.1.1.2" proto="udp" sport="1" dport="11" svn="vn1"
          dvn="vn1" action="deny" rpf_nh="2"/>
-        <flow name="l2-udp-from-vm-flow2" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.4"
+        <flow name="l2-udp-from-vm-flow2" uuid="1" vrf="vrf1" nh="13" sip="1.1.1.4"
          dip="1.1.1.5" proto="udp" sport="1" dport="12" svn="vn1"
-         dvn="vn1" action="deny" rpf_nh="25"/>
-        <flow name="l3-udp-from-vm-1" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.4"
+         dvn="vn1" action="deny" rpf_nh="26"/>
+        <flow name="l3-udp-from-vm-1" uuid="1" vrf="vrf1" nh="13" sip="1.1.1.4"
          dip="1.1.1.5" proto="udp" sport="1" dport="11" svn="vn1"
-         dvn="vn1" action="deny" rpf_nh="25"/>
+         dvn="vn1" action="deny" rpf_nh="26"/>
     </validate>
 
      <l3-route delete="1" uuid="1" id="1" name="route_1" src-ip="1.1.1.4" plen="32"
          vrf="vrf1" vn="vn1" tunnel-dest="5.5.5.5" sg="2" label="5"/>
      <validate name="validate-5">
-        <flow name="l2-udp-from-vm-flow1" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.1"
+        <flow name="l2-udp-from-vm-flow1" uuid="1" vrf="vrf1" nh="13" sip="1.1.1.1"
          dip="1.1.1.2" proto="udp" sport="1" dport="11" svn="vn1"
          dvn="vn1" action="deny" rpf_nh="2"/>
-        <flow name="l2-udp-from-vm-flow2" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.4"
+        <flow name="l2-udp-from-vm-flow2" uuid="1" vrf="vrf1" nh="13" sip="1.1.1.4"
          dip="1.1.1.5" proto="udp" sport="1" dport="12" svn="vn1"
-         dvn="vn1" action="deny" rpf_nh="12"/>
-        <flow name="l3-udp-from-vm-1" uuid="1" vrf="vrf1" nh="12" sip="1.1.1.4"
+         dvn="vn1" action="deny" rpf_nh="13"/>
+        <flow name="l3-udp-from-vm-1" uuid="1" vrf="vrf1" nh="13" sip="1.1.1.4"
          dip="1.1.1.5" proto="udp" sport="1" dport="11" svn="vn1"
-         dvn="vn1" action="pass" rpf_nh="12"/>
+         dvn="vn1" action="pass" rpf_nh="13"/>
     </validate>
 
     <l3-route delete="1" uuid="2" id="2" name="route_2" src-ip="0.0.0.0" plen="0"

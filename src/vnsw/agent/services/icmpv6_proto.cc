@@ -86,12 +86,12 @@ void Icmpv6Proto::VnNotify(DBEntryBase *entry) {
         static_cast<InetUnicastAgentRouteTable *>
             (vrf->GetInet6UnicastRouteTable())->AddHostRoute(vrf->GetName(),
                                                              addr, 128,
-                                                             vn->GetName());
+                                                             vn->GetName(), false);
         addr = Ip6Address::from_string(IPV6_ALL_NODES_ADDRESS, ec);
         static_cast<InetUnicastAgentRouteTable *>
             (vrf->GetInet6UnicastRouteTable())->AddHostRoute(vrf->GetName(),
                                                              addr, 128,
-                                                             vn->GetName());
+                                                             vn->GetName(), false);
         /* We need route for PKT0_LINKLOCAL_ADDRESS so that vrouter can respond
          * to NDP requests for PKT0_LINKLOCAL_ADDRESS. Even though the nexthop
          * for this route is pkt0, vrouter never sends pkts pointing to this
@@ -101,7 +101,7 @@ void Icmpv6Proto::VnNotify(DBEntryBase *entry) {
         static_cast<InetUnicastAgentRouteTable *>
             (vrf->GetInet6UnicastRouteTable())->AddHostRoute(vrf->GetName(),
                                                              addr, 128,
-                                                             vn->GetName());
+                                                             vn->GetName(), false);
         state->set_default_routes_added(true);
     }
 }

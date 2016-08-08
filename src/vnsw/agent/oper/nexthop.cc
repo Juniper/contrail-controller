@@ -489,6 +489,11 @@ bool InterfaceNH::Change(const DBRequest *req) {
         ret = true;
     }
 
+    if (relaxed_policy_ != data->relaxed_policy_) {
+        relaxed_policy_ = data->relaxed_policy_;
+        ret = true;
+    }
+
     return ret;
 }
 
@@ -602,24 +607,38 @@ void InterfaceNH::DeleteInetInterfaceNextHop(const string &ifname,
 void InterfaceNH::CreatePacketInterfaceNh(Agent *agent, const string &ifname) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
 
+    // create nexthop without policy
     req.key.reset(new InterfaceNHKey(new PacketInterfaceKey(nil_uuid(), ifname),
                                      false, InterfaceNHFlags::INET4,
                                      agent->pkt_interface_mac()));
-    req.data.reset(new InterfaceNHData(agent->fabric_vrf_name()));
-    NextHopTable::GetInstance()->Process(req);
+    req.data.reset(new InterfaceNHData(""));
+    agent->nexthop_table()->Process(req);
+
+    // create nexthop with relaxed policy
+    req.key.reset(new InterfaceNHKey(new PacketInterfaceKey(nil_uuid(), ifname),
+                                     true, InterfaceNHFlags::INET4,
+                                     agent->pkt_interface_mac()));
+    req.data.reset(new InterfaceNHData("", true));
+    agent->nexthop_table()->Process(req);
 }
 
 void InterfaceNH::DeleteHostPortReq(Agent *agent, const string &ifname) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
-    NextHopKey *key = new InterfaceNHKey(new PacketInterfaceKey(nil_uuid(), ifname),
-                                         false, InterfaceNHFlags::INET4,
-                                         agent->pkt_interface_mac());
-    req.key.reset(key);
-
+    // delete NH without policy
+    req.key.reset(new InterfaceNHKey(new PacketInterfaceKey(nil_uuid(), ifname),
+                                     false, InterfaceNHFlags::INET4,
+                                     agent->pkt_interface_mac()));
     req.data.reset(NULL);
-    NextHopTable::GetInstance()->Enqueue(&req);
+    agent->nexthop_table()->Enqueue(&req);
+
+    // delete NH with policy
+    req.key.reset(new InterfaceNHKey(new PacketInterfaceKey(nil_uuid(), ifname),
+                                     true, InterfaceNHFlags::INET4,
+                                     agent->pkt_interface_mac()));
+    req.data.reset(NULL);
+    agent->nexthop_table()->Enqueue(&req);
 }
 
 void InterfaceNH::CreatePhysicalInterfaceNh(const string &ifname,

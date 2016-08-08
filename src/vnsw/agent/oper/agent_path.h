@@ -540,10 +540,13 @@ class HostRoute : public AgentRouteData {
 public:
     HostRoute(const PacketInterfaceKey &intf, const std::string &dest_vn_name):
         AgentRouteData(false), intf_(intf), dest_vn_name_(dest_vn_name),
-        proxy_arp_(false) {
+        proxy_arp_(false), relaxed_policy_(false) {
     }
     virtual ~HostRoute() { }
     void set_proxy_arp() {proxy_arp_ = true;}
+    void set_relaxed_policy(bool relaxed_policy) {
+        relaxed_policy_ = relaxed_policy;
+    }
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
                                const AgentRoute *rt);
     virtual std::string ToString() const {return "host";}
@@ -553,6 +556,7 @@ private:
     PacketInterfaceKey intf_;
     std::string dest_vn_name_;
     bool proxy_arp_;
+    bool relaxed_policy_;
     DISALLOW_COPY_AND_ASSIGN(HostRoute);
 };
 
