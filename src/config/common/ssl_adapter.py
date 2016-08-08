@@ -16,6 +16,7 @@ except ImportError:
 class SSLAdapter(HTTPAdapter):
     '''An HTTPS Transport Adapter that can be configured with SSL/TLS
        version.'''
+    HTTPAdapter.__attrs__.extend(['ssl_version'])
 
     def __init__(self, ssl_version=None, **kwargs):
         self.ssl_version = ssl_version
