@@ -2046,19 +2046,26 @@ class AlarmServer(Resource, Alarm):
 
     @classmethod
     def _check_alarm_rules(cls, alarm_rules):
+        operand2_fields = ['uve_attribute', 'json_value']
         try:
             for and_list in alarm_rules['or_list']:
                 for and_cond in and_list['and_list']:
-                    if 'json_value' in and_cond['operand2']:
-                        if 'uve_attribute' in and_cond['operand2']:
-                            return (False, (400, 'operand2 should have either '
-                                '"uve_attribute" or "json_value", not both'))
-                        try:
-                            json.loads(and_cond['operand2']['json_value'])
-                        except ValueError:
-                            return (False, (400, 'Invalid json_value %s '
-                                'specified in alarm_rules' %
-                                (and_cond['operand2']['json_value'])))
+                    if any(k in and_cond['operand2'] for k in operand2_fields):
+                        uve_attr = and_cond['operand2'].get('uve_attribute')
+                        json_val = and_cond['operand2'].get('json_value')
+                        if uve_attr is not None and json_val is not None:
+                            return (False, (400, 'operand2 should have '
+                                'either "uve_attribute" or "json_value", '
+                                'not both'))
+                        if json_val is not None:
+                            try:
+                                json.loads(json_val)
+                            except ValueError:
+                                return (False, (400, 'Invalid json_value %s '
+                                    'specified in alarm_rules' % (json_val)))
+                    else:
+                        return (False, (400, 'operand2 should have '
+                            '"uve_attribute" or "json_value"'))
         except Exception as e:
             return (False, (400, 'Invalid alarm_rules'))
         return (True, '')
