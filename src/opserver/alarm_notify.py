@@ -22,6 +22,7 @@ import getpass
 from sseclient import SSEClient
 from email.MIMEMultipart import MIMEMultipart
 from email.MIMEText import MIMEText
+from requests.auth import HTTPBasicAuth
 
 from sandesh.viz.constants import UVE_MAP
 
@@ -93,7 +94,9 @@ class ContrailAlarmNotifier(object):
     def _parse_args(self):
         defaults = {
             'analytics_api_server': '127.0.0.1',
-            'analytics_api_server_port': '8081',
+            'analytics_api_server_port': '8181',
+            'admin_user': 'admin',
+            'admin_password': 'contrail123',
             'smtp_server': None,
             'smtp_server_port': None,
             'sender_email': None,
@@ -109,6 +112,10 @@ class ContrailAlarmNotifier(object):
         parser.add_argument('--analytics-api-server-port',
                             type=int,
                             help='Port of Analytics API Server')
+        parser.add_argument("--admin-user",
+                            help="Name of admin user")
+        parser.add_argument("--admin-password",
+                            help="Password of admin user")
         parser.add_argument('--smtp-server',
                             required=True,
                             help='Name (or) IP Address of SMTP Server')
@@ -169,7 +176,8 @@ class ContrailAlarmNotifier(object):
                     'http://{0}:{1}/analytics/alarm-stream'.format(
                         self._args.analytics_api_server,
                         self._args.analytics_api_server_port)
-                alarm_stream = SSEClient(alarm_stream_url)
+                alarm_stream = SSEClient(alarm_stream_url, auth=HTTPBasicAuth(
+                    self._args.admin_user, self._args.admin_password))
                 for alarm in alarm_stream:
                     if alarm.event != 'update':
                         continue
