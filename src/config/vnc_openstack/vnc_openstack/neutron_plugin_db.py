@@ -20,7 +20,7 @@ from neutron.common import constants
 
 from cfgm_common import exceptions as vnc_exc
 from vnc_api.vnc_api import *
-from cfgm_common import SG_NO_RULE_FQ_NAME, SG_NO_RULE_NAME
+from cfgm_common import SG_NO_RULE_FQ_NAME, SG_NO_RULE_NAME, UUID_PATTERN
 import vnc_openstack
 
 _DEFAULT_HEADERS = {
@@ -34,6 +34,8 @@ DELETE = 4
 
 # SNAT defines
 _IFACE_ROUTE_TABLE_NAME_PREFIX = 'NEUTRON_IFACE_RT'
+_IFACE_ROUTE_TABLE_NAME_PREFIX_REGEX = re.compile(
+    '%s_%s_%s' % (_IFACE_ROUTE_TABLE_NAME_PREFIX, UUID_PATTERN, UUID_PATTERN))
 
 class DBInterface(object):
     """
@@ -3698,12 +3700,15 @@ class DBInterface(object):
         tenant_id = self._get_obj_tenant_id('port', port_id)
         self._virtual_machine_interface_delete(port_id=port_id)
 
-        # delete any interface route table associatd with the port
+        # delete any interface route table associated with the port to handle
+        # subnet host route Neutron extension, un-reference others
         for rt_ref in port_obj.get_interface_route_table_refs() or []:
-            try:
-                self._vnc_lib.interface_route_table_delete(id=rt_ref['uuid'])
-            except (NoIdError, RefsExistError) as e:
-                pass
+            if _IFACE_ROUTE_TABLE_NAME_PREFIX_REGEX.match(rt_ref['to'][-1]):
+                try:
+                    self._vnc_lib.interface_route_table_delete(
+                        id=rt_ref['uuid'])
+                except (NoIdError, RefsExistError) as e:
+                    pass
 
         # delete instance if this was the last port
         try:
