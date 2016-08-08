@@ -1151,6 +1151,9 @@ class FakeKeystoneClient(object):
             self.name = name
             self._tenants[id] = self
 
+        def delete_tenant(self, id):
+            del self._tenants[id]
+
         def create(self, name, id=None):
             self.name = name
             self.id = str(id or uuid.uuid4())
