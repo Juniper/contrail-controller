@@ -6,12 +6,22 @@ from testtools import ExpectedException
 import webtest.app
 
 sys.path.append('../common/tests')
+from cfgm_common.exceptions import NoIdError
 from test_utils import *
 import test_common
 
 import test_case
 
+_IFACE_ROUTE_TABLE_NAME_PREFIX = 'NEUTRON_IFACE_RT'
+
 class TestBasic(test_case.NeutronBackendTestCase):
+    @classmethod
+    def setUpClass(cls):
+        super(TestBasic, cls).setUpClass(
+            extra_config_knobs=[
+                ('DEFAULTS', 'apply_subnet_host_routes', True)
+            ])
+
     def read_resource(self, url_pfx, id):
         context = {'operation': 'READ',
                    'user_id': '',
@@ -41,6 +51,38 @@ class TestBasic(test_case.NeutronBackendTestCase):
             '/neutron/%s' %(url_pfx), body)
         return json.loads(resp.text)
     # end list_resource
+
+    def create_resource(self, res_type, proj_id, name=None,
+                        extra_res_fields=None):
+        context = {'operation': 'CREATE',
+                   'user_id': '',
+                   'is_admin': False,
+                   'roles': '',
+                   'tenant_id': proj_id}
+        if name:
+            res_name = name
+        else:
+            res_name = '%s-%s-%s' % (res_type, self.id())
+        data = {'resource': {'name': res_name,
+                             'tenant_id': proj_id}}
+        if extra_res_fields:
+            data['resource'].update(extra_res_fields)
+
+        body = {'context': context, 'data': data}
+        resp = self._api_svr_app.post_json('/neutron/%s' %(res_type), body)
+        return json.loads(resp.text)
+
+    def delete_resource(self, res_type, proj_id, id):
+        context = {'operation': 'DELETE',
+                   'user_id': '',
+                   'is_admin': False,
+                   'roles': '',
+                   'tenant_id': proj_id}
+
+        data = {'id': id}
+
+        body = {'context': context, 'data': data}
+        self._api_svr_app.post_json('/neutron/%s' %(res_type), body)
 
     def test_list_with_inconsistent_members(self):
         # 1. create collection
@@ -384,6 +426,65 @@ class TestBasic(test_case.NeutronBackendTestCase):
         sgr = [rule.rule_uuid for rule in
                sg1_obj.get_security_group_entries().get_policy_rule() or []]
         self.assertIn(sgr_uuid, sgr)
+
+    def test_delete_irt_for_subnet_host_route(self):
+        proj_obj = self._vnc_lib.project_read(
+            fq_name=['default-domain', 'default-project'])
+        ipam_obj = vnc_api.NetworkIpam('ipam-%s' % self.id())
+        self._vnc_lib.network_ipam_create(ipam_obj)
+        vn_obj = vnc_api.VirtualNetwork('vn-%s' % self.id())
+        sn_uuid = str(uuid.uuid4())
+        vn_obj.add_network_ipam(
+            ipam_obj,
+            vnc_api.VnSubnetsType([
+                vnc_api.IpamSubnetType(
+                    vnc_api.SubnetType('1.1.1.0', 28),
+                    subnet_uuid=sn_uuid,
+                    host_routes=vnc_api.RouteTableType([
+                        vnc_api.RouteType(
+                            prefix='2.2.2.0/28',
+                            next_hop='1.1.1.3'
+                        )
+                    ])
+                )
+            ])
+        )
+        self._vnc_lib.virtual_network_create(vn_obj)
+        # Create default sg as vnc_openstack hooks are disabled in that ut
+        sg_obj = vnc_api.SecurityGroup('default')
+        self._vnc_lib.security_group_create(sg_obj)
+        port_dict = self.create_resource('port',
+                                         proj_obj.uuid,
+                                         'vmi-%s' % self.id(),
+                                         extra_res_fields={
+                                             'network_id': vn_obj.uuid,
+                                             'fixed_ips': [{
+                                                 'ip_address': '1.1.1.3'
+                                             }]
+                                         })
+        route_table = vnc_api.RouteTableType('irt-%s' % self.id())
+        route_table.set_route([])
+        irt_obj = vnc_api.InterfaceRouteTable(
+            interface_route_table_routes=route_table,
+            name='irt-%s' % self.id())
+        self._vnc_lib.interface_route_table_create(irt_obj)
+        vmi_obj = self._vnc_lib.virtual_machine_interface_read(
+            id=port_dict['id'])
+        vmi_obj.add_interface_route_table(irt_obj)
+        self._vnc_lib.virtual_machine_interface_update(vmi_obj)
+
+        self.delete_resource('port', vmi_obj.parent_uuid, vmi_obj.uuid)
+
+        host_route_irt_fq_name = proj_obj.fq_name + ['%s_%s_%s' % (
+            _IFACE_ROUTE_TABLE_NAME_PREFIX, sn_uuid, vmi_obj.uuid)]
+        with ExpectedException(NoIdError):
+            self._vnc_lib.interface_route_table_read(host_route_irt_fq_name)
+        try:
+            irt_obj = self._vnc_lib.interface_route_table_read(id=irt_obj.uuid)
+        except NoIdError:
+            self.fail("The manually added interface route table as been "
+                      "automatically removed")
+        self.assertIsNone(irt_obj.get_virtual_machine_interface_back_refs())
 # end class TestBasic
 
 class TestExtraFieldsPresenceByKnob(test_case.NeutronBackendTestCase):

@@ -48,3 +48,9 @@ if sys.maxunicode >= 0x10000:  # not narrow build
 _illegal_ranges = ["%s-%s" % (unichr(low), unichr(high))
                    for (low, high) in _illegal_unichrs]
 illegal_xml_chars_RE = re.compile(u'[%s]' % u''.join(_illegal_ranges))
+
+HEX_ELEM = '[0-9A-Fa-f]'
+UUID_PATTERN = '-'.join([HEX_ELEM + '{8}', HEX_ELEM + '{4}',
+                         HEX_ELEM + '{4}', HEX_ELEM + '{4}',
+                         HEX_ELEM + '{12}'])
+
