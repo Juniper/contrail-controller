@@ -50,7 +50,10 @@ HealthCheckInstance::HealthCheckInstance(HealthCheckService *service,
                                          VmInterface *intf) :
     service_(NULL), intf_(intf), ip_(new MetaDataIp(allocator, intf)),
     task_(NULL), last_update_time_("-"), deleted_(false) {
-    active_ = false;
+    // start with health check instance state as active, unless reported
+    // down by the attached health check service, so that the existing
+    // running traffic is not affected by attaching health check service
+    active_ = true;
     ip_->set_active(true);
     intf->InsertHealthCheckInstance(this);
     ResyncInterface(service);
