@@ -468,7 +468,7 @@ bool HostRoute::AddChangePath(Agent *agent, AgentPath *path,
     bool ret = false;
     NextHop *nh = NULL;
 
-    InterfaceNHKey key(intf_.Clone(), false, InterfaceNHFlags::INET4,
+    InterfaceNHKey key(intf_.Clone(), relaxed_policy_, InterfaceNHFlags::INET4,
                        agent->pkt_interface_mac());
     nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
     VnListType dest_vn_list;

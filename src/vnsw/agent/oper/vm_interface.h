@@ -660,7 +660,7 @@ private:
     bool IsIpv4Active() const;
     bool PolicyEnabled() const;
     void AddRoute(const std::string &vrf_name, const IpAddress &ip,
-                  uint32_t plen, const std::string &vn_name, bool policy,
+                  uint32_t plen, const std::string &vn_name, bool force_policy,
                   bool ecmp, const IpAddress &service_ip,
                   const IpAddress &dependent_ip,
                   const CommunityList &communties, uint32_t label);
