@@ -22,6 +22,7 @@ import getpass
 from sseclient import SSEClient
 from email.MIMEMultipart import MIMEMultipart
 from email.MIMEText import MIMEText
+from requests.auth import HTTPBasicAuth
 
 from sandesh.viz.constants import UVE_MAP
 
@@ -61,7 +62,6 @@ class ContrailAlarmNotifier(object):
         self._args = None
         self._email_server = None
         self._sender_email_pwd = None
-        self._alarm_types = None
         self._analytics_api_name_to_table_name = UVE_MAP
         self._table_name_to_analytics_api_name = \
             {v: k for k, v in UVE_MAP.iteritems()}
@@ -70,9 +70,6 @@ class ContrailAlarmNotifier(object):
     def run(self):
         try:
             if self._parse_args() != 0:
-                return
-            self._alarm_types = self._get_alarm_types()
-            if not self._alarm_types:
                 return
             if not self._connect_to_smtp_server():
                 return
@@ -97,7 +94,9 @@ class ContrailAlarmNotifier(object):
     def _parse_args(self):
         defaults = {
             'analytics_api_server': '127.0.0.1',
-            'analytics_api_server_port': '8081',
+            'analytics_api_server_port': '8181',
+            'admin_user': 'admin',
+            'admin_password': 'contrail123',
             'smtp_server': None,
             'smtp_server_port': None,
             'sender_email': None,
@@ -113,6 +112,10 @@ class ContrailAlarmNotifier(object):
         parser.add_argument('--analytics-api-server-port',
                             type=int,
                             help='Port of Analytics API Server')
+        parser.add_argument("--admin-user",
+                            help="Name of admin user")
+        parser.add_argument("--admin-password",
+                            help="Password of admin user")
         parser.add_argument('--smtp-server',
                             required=True,
                             help='Name (or) IP Address of SMTP Server')
@@ -166,26 +169,6 @@ class ContrailAlarmNotifier(object):
         return False
     # end _login_to_smtp_server
 
-    def _get_alarm_types(self):
-        alarm_types_url = 'http://{0}:{1}/analytics/alarm-types'.format(
-            self._args.analytics_api_server,
-            self._args.analytics_api_server_port)
-        alarm_types = None
-        try:
-            resp = requests.get(alarm_types_url)
-        except requests.ConnectionError:
-            print 'Could not connect to analytics-api {0}:{1}'.format(
-                self._args.analytics_api_server,
-                self._args.analytics_api_server_port)
-        else:
-            if resp.status_code == 200:
-                try:
-                    alarm_types = json.loads(resp.text)
-                except ValueError:
-                    pass
-        return alarm_types
-    # end _get_alarm_types
-
     def _listen_and_notify_alarms(self):
         while True:
             try:
@@ -193,7 +176,8 @@ class ContrailAlarmNotifier(object):
                     'http://{0}:{1}/analytics/alarm-stream'.format(
                         self._args.analytics_api_server,
                         self._args.analytics_api_server_port)
-                alarm_stream = SSEClient(alarm_stream_url)
+                alarm_stream = SSEClient(alarm_stream_url, auth=HTTPBasicAuth(
+                    self._args.admin_user, self._args.admin_password))
                 for alarm in alarm_stream:
                     if alarm.event != 'update':
                         continue
@@ -247,29 +231,29 @@ class ContrailAlarmNotifier(object):
                     alarm_info = ContrailAlarmInfo()
                     try:
                         alarm_info.type = alarm_elt['type']
+                        alarm_description = alarm_elt.get('description')
+                        if alarm_description:
+                            desc = alarm_description.split('.', 1)
+                            alarm_info.summary = desc[0]
+                            if len(desc) == 2:
+                                alarm_info.description = desc[1]
+                            else:
+                                alarm_info.description = desc[0]
+                        else:
+                            alarm_info.summary = alarm_info.type
+                            alarm_info.description = ''
                         alarm_info.severity = alarm_elt['severity']
                         alarm_info.timestamp = datetime.datetime.fromtimestamp(
                             alarm_elt['timestamp']/1000000.0).strftime(
                                 '%Y-%m-%d %H:%M:%S')
                         alarm_info.ack = 'Acknowledged' if alarm_elt['ack'] \
                             else 'Unacknowledged'
-                        alarm_info.details = json.dumps(alarm_elt['any_of'],
-                                                        indent=4)
+                        alarm_info.details = json.dumps(
+                            alarm_elt['alarm_rules'], indent=4)
                     except KeyError:
                         print 'Error parsing alarm'
                         self._log_alarm(alarm_elt)
                     else:
-                        try:
-                            alarm_tbl_info = \
-                                self._alarm_types[alarm_data.table]
-                            alarm_info.summary, alarm_info.description = tuple(
-                                alarm_tbl_info[alarm_info.type].split('.', 1))
-                        except KeyError:
-                            alarm_info.summary = alarm_type
-                            alarm_info.description = ''
-                        alarm_info.summary = alarm_info.summary.lstrip()
-                        alarm_info.description = \
-                            alarm_info.description.lstrip()
                         alarm_data.alarms.append(alarm_info)
             return alarm_data
         return None
