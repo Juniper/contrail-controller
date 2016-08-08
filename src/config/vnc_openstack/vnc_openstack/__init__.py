@@ -113,6 +113,19 @@ def fill_keystone_opts(obj, conf_sections):
     obj._resync_number_workers = int(resync_workers)
 
     try:
+        # If new project with same name as an orphan project 
+        # (gone in keystone, present in # contrail with resources within)
+        # is encountered,
+        # a. proceed with unique ified name (new_unique_fqn)
+        # b. refuse to sync (new_fail)
+        # c. cascade delete (TODO)
+        resync_mode = conf_sections.get('DEFAULTS',
+                                        'keystone_resync_stale_mode')
+    except ConfigParser.NoOptionError:
+        resync_mode = 'new_unique_fqn'
+    obj._resync_stale_mode = resync_mode
+
+    try:
         # Get the domain_id for keystone v3
         obj._domain_id = conf_sections.get('KEYSTONE', 'admin_domain_id')
     except ConfigParser.NoOptionError:
@@ -332,6 +345,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         self._get_vnc_conn()
         ks_project = self._ks_project_get(id=id.replace('-', ''))
         display_name = ks_project['name']
+        proj_name = display_name
 
         # if earlier project exists with same name but diff id,
         # create with uniqified fq_name
@@ -341,9 +355,25 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             if old_id == id:
                 self._vnc_project_ids.add(id)
                 return
-            proj_name = '%s-%s' %(display_name, str(uuid.uuid4()))
+            # Project might have been quickly deleted + added.
+            # Since project delete sync happens only in timer(polling),
+            # try deleting old one synchronously. If delete fails due
+            # to resources being present in project, proceed/fail
+            # based on configuration
+            try:
+                self._vnc_lib.project_delete(fq_name=fq_name)
+            except vnc_api.NoIdError:
+                pass
+            except vnc_api.RefsExistError:
+                if self._resync_stale_mode == 'new_unique_fqn':
+                    proj_name = '%s-%s' %(display_name, str(uuid.uuid4()))
+                else:
+                    errmsg = "Old project %s fqn %s exists and not empty" %(
+                        old_id, fq_name)
+                    self._sandesh_logger.error(errmsg)
+                    raise Exception(errmsg)
         except vnc_api.NoIdError:
-            proj_name = display_name
+            pass
 
         proj_obj = vnc_api.Project(proj_name)
         proj_obj.uuid = id
@@ -479,7 +509,23 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             if old_id == project_id:
                 self._vnc_project_ids.add(project_id)
                 return
-            project_name = '%s-%s' %(display_name, str(uuid.uuid4()))
+            # Project might have been quickly deleted + added.
+            # Since project delete sync happens only in timer(polling),
+            # try deleting old one synchronously. If delete fails due
+            # to resources being present in project, proceed/fail
+            # based on configuration
+            try:
+                self._vnc_lib.project_delete(fq_name=fq_name)
+            except vnc_api.NoIdError:
+                pass
+            except vnc_api.RefsExistError:
+                if self._resync_stale_mode == 'new_unique_fqn':
+                    project_name = '%s-%s' %(display_name, str(uuid.uuid4()))
+                else:
+                    errmsg = "Old project %s fqn %s exists and not empty" %(
+                        old_id, fq_name)
+                    self._sandesh_logger.error(errmsg)
+                    raise Exception(errmsg)
         except vnc_api.NoIdError:
             project_name = display_name
 
@@ -731,7 +777,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                                         obj_type)
                 else:
                     raise KeyError("An invalid operation was specified: %s", oper)
-            except (ValueError, KeyError):
+            except (ValueError, KeyError, Exception):
                 # For an unpack error or and invalid kind.
                 self.log_exception()
             finally:
