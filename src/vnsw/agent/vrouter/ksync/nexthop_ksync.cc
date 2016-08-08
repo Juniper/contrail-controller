@@ -684,7 +684,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
     if (policy_) {
         if (relaxed_policy_) {
-            flags |= NH_FLAG_RELAXED_POLICY;
+            flags |= NH_FLAG_FLOW_LOOKUP;
         } else {
             flags |= NH_FLAG_POLICY_ENABLED;
         }
@@ -795,7 +795,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 //resulting flow with key NH of resolve NH
                 //followed by next packet with ARP NH as key
                 //resulting in flow drops
-                flags &= ~(NH_FLAG_POLICY_ENABLED | NH_FLAG_RELAXED_POLICY);
+                flags &= ~(NH_FLAG_POLICY_ENABLED | NH_FLAG_FLOW_LOOKUP);
             }
             encoder.set_nhr_type(NH_RESOLVE);
             break;
