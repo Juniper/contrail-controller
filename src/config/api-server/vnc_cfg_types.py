@@ -2049,16 +2049,23 @@ class AlarmServer(Resource, Alarm):
         try:
             for and_list in alarm_rules['or_list']:
                 for and_cond in and_list['and_list']:
-                    if 'json_value' in and_cond['operand2']:
-                        if 'uve_attribute' in and_cond['operand2']:
+                    if 'uve_attribute' in and_cond['operand2'] and \
+                        and_cond['operand2']['uve_attribute'] is not None:
+                        if 'json_value' in and_cond['operand2'] and \
+                            and_cond['operand2']['json_value'] is not None:
                             return (False, (400, 'operand2 should have either '
                                 '"uve_attribute" or "json_value", not both'))
-                        try:
-                            json.loads(and_cond['operand2']['json_value'])
-                        except ValueError:
-                            return (False, (400, 'Invalid json_value %s '
-                                'specified in alarm_rules' %
-                                (and_cond['operand2']['json_value'])))
+                    else:
+                        if 'json_value' in and_cond['operand2']:
+                            try:
+                                json.loads(and_cond['operand2']['json_value'])
+                            except ValueError:
+                                return (False, (400, 'Invalid json_value %s '
+                                    'specified in alarm_rules' %
+                                    (and_cond['operand2']['json_value'])))
+                        else:
+                            return (False, (400, 'operand2 should have '
+                                '"uve_attribute" or "json_value"'))
         except Exception as e:
             return (False, (400, 'Invalid alarm_rules'))
         return (True, '')
