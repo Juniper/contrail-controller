@@ -1494,7 +1494,7 @@ class VncApiServer(object):
                                   re.IGNORECASE)
 
         # VncZkClient client assignment
-        vnc_cfg_types.VirtualNetworkServer.vnc_zk_client = self._db_conn._zk_db
+        vnc_cfg_types.Resource.vnc_zk_client = self._db_conn._zk_db
     # end __init__
 
     def sandesh_disc_client_subinfo_handle_request(self, req):

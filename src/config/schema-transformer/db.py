@@ -27,6 +27,9 @@ class SchemaTransformerDB(VncCassandraClient):
     _BGP_RTGT_MAX_ID = 1 << 24
     _BGP_RTGT_ALLOC_PATH = "/id/bgp/route-targets/"
 
+    _VN_MAX_ID = 1 << 24
+    _VN_ID_ALLOC_PATH = "/id/virtual-networks/"
+
     _SECURITY_GROUP_MAX_ID = 1 << 32
     _SECURITY_GROUP_ID_ALLOC_PATH = "/id/security-groups/id/"
 
@@ -80,8 +83,19 @@ class SchemaTransformerDB(VncCassandraClient):
 
         # reset zookeeper config
         if self._args.reset_config:
-            zkclient.delete_node(self._zk_path_pfx + "/id", True)
+            zkclient.delete_node(
+                self._zk_path_pfx + self._BGP_RTGT_ALLOC_PATH, True)
+            zkclient.delete_node(
+                 self._zk_path_pfx + self._BGPAAS_PORT_ALLOC_PATH, True)
+            zkclient.delete_node(
+                self._zk_path_pfx + self._SERVICE_CHAIN_VLAN_ALLOC_PATH, True)
 
+        # TODO(ethuleau): We keep the virtual network and security group ID
+        #                 allocation in schema and in the vnc API for one
+        #                 release overlap to prevent any upgrade issue. So the
+        #                 following code need to be remove in release (3.2 + 1)
+        self._vn_id_allocator = IndexAllocator(
+            zkclient, self._zk_path_pfx+self._VN_ID_ALLOC_PATH, self._VN_MAX_ID)
         self._sg_id_allocator = IndexAllocator(
             zkclient, self._zk_path_pfx+self._SECURITY_GROUP_ID_ALLOC_PATH,
             self._SECURITY_GROUP_MAX_ID)
@@ -255,6 +269,10 @@ class SchemaTransformerDB(VncCassandraClient):
         except NotFoundException:
             pass
 
+    # TODO(ethuleau): We keep the virtual network and security group ID
+    #                 allocation in schema and in the vnc API for one
+    #                 release overlap to prevent any upgrade issue. So the
+    #                 following code need to be remove in release (3.2 + 1)
     def get_sg_from_id(self, sg_id):
         return self._sg_id_allocator.read(sg_id)
 
@@ -263,6 +281,15 @@ class SchemaTransformerDB(VncCassandraClient):
 
     def free_sg_id(self, sg_id):
         self._sg_id_allocator.delete(sg_id)
+
+    def get_vn_from_id(self, vn_id):
+        return self._vn_id_allocator.read(vn_id)
+
+    def alloc_vn_id(self, name):
+        return self._vn_id_allocator.alloc(name)
+
+    def free_vn_id(self, vn_id):
+        self._vn_id_allocator.delete(vn_id)
 
     def get_bgpaas_port(self, port):
         return self._bgpaas_allocator.read(port)
