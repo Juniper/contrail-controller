@@ -684,7 +684,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
     if (policy_) {
         if (relaxed_policy_) {
-            flags |= NH_FLAG_RELAXED_POLICY;
+            flags |= NH_FLAG_FLOW_LOOKUP;
         } else {
             flags |= NH_FLAG_POLICY_ENABLED;
         }
