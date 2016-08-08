@@ -613,6 +613,15 @@ static void BuildInstanceIp(Agent *agent, VmInterfaceConfigData *data,
         ecmp = true;
     }
 
+    IpAddress tracking_ip = Ip4Address(0);
+    if (ip->secondary() || ip->service_instance_ip()) {
+        tracking_ip = IpAddress::from_string(
+                ip->secondary_ip_tracking_ip().ip_prefix, err);
+        if (err.value() != 0) {
+            tracking_ip = Ip4Address(0);
+        }
+    }
+
     if (ip->service_health_check_ip()) {
         // if instance ip is service health check ip along with adding
         // it to instance ip list to allow route export and save it
@@ -626,13 +635,13 @@ static void BuildInstanceIp(Agent *agent, VmInterfaceConfigData *data,
                 VmInterface::InstanceIp(addr, Address::kMaxV4PrefixLen, ecmp,
                                         is_primary,
                                         ip->service_health_check_ip(),
-                                        ip->local_ip()));
+                                        ip->local_ip(), tracking_ip));
     } else {
         data->instance_ipv6_list_.list_.insert(
                 VmInterface::InstanceIp(addr, Address::kMaxV6PrefixLen, ecmp,
                                         is_primary,
                                         ip->service_health_check_ip(),
-                                        ip->local_ip()));
+                                        ip->local_ip(), tracking_ip));
     }
 }
 
@@ -2258,7 +2267,8 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         data->vrf_name_ != Agent::NullString()) {
         new_ipv4_list.insert(
             VmInterface::InstanceIp(nova_ip_addr_, Address::kMaxV4PrefixLen,
-                                    data->ecmp_, true, false, false));
+                                    data->ecmp_, true, false, false,
+                                    Ip4Address(0)));
     }
     if (AuditList<InstanceIpList, InstanceIpSet::iterator>
         (instance_ipv4_list_, old_ipv4_list.begin(), old_ipv4_list.end(),
@@ -2272,7 +2282,8 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
             data->vrf_name_ != Agent::NullString()) {
         new_ipv6_list.insert(
             VmInterface::InstanceIp(nova_ip6_addr_, Address::kMaxV6PrefixLen,
-                                    data->ecmp6_, true, false, false));
+                                    data->ecmp6_, true, false, false,
+                                    Ip4Address(0)));
     }
 
     if (AuditList<InstanceIpList, InstanceIpSet::iterator>
@@ -3935,7 +3946,8 @@ bool VmInterface::GetIpamDhcpOptions(
 /////////////////////////////////////////////////////////////////////////////
 VmInterface::InstanceIp::InstanceIp() :
     ListEntry(), ip_(), plen_(), ecmp_(false), l2_installed_(false), old_ecmp_(false),
-    is_primary_(false), is_service_health_check_ip_(false), is_local_(false) {
+    is_primary_(false), is_service_health_check_ip_(false), is_local_(false),
+    old_tracking_ip_(), tracking_ip_() {
 }
 
 VmInterface::InstanceIp::InstanceIp(const InstanceIp &rhs) :
@@ -3944,17 +3956,19 @@ VmInterface::InstanceIp::InstanceIp(const InstanceIp &rhs) :
     l2_installed_(rhs.l2_installed_), old_ecmp_(rhs.old_ecmp_),
     is_primary_(rhs.is_primary_),
     is_service_health_check_ip_(rhs.is_service_health_check_ip_),
-    is_local_(rhs.is_local_) {
+    is_local_(rhs.is_local_), old_tracking_ip_(rhs.old_tracking_ip_),
+    tracking_ip_(rhs.tracking_ip_) {
 }
 
 VmInterface::InstanceIp::InstanceIp(const IpAddress &addr, uint8_t plen,
                                     bool ecmp, bool is_primary,
                                     bool is_service_health_check_ip,
-                                    bool is_local) :
+                                    bool is_local,
+                                    const IpAddress &tracking_ip) :
     ListEntry(), ip_(addr), plen_(plen), ecmp_(ecmp),
     l2_installed_(false), old_ecmp_(false), is_primary_(is_primary),
     is_service_health_check_ip_(is_service_health_check_ip),
-    is_local_(is_local) {
+    is_local_(is_local), tracking_ip_(tracking_ip) {
 }
 
 VmInterface::InstanceIp::~InstanceIp() {
@@ -3975,6 +3989,11 @@ void VmInterface::InstanceIp::L3Activate(VmInterface *interface,
         force_update = true;
         old_ecmp_ = ecmp_;
     }
+
+    if (old_tracking_ip_ != tracking_ip_) {
+        force_update = true;
+    }
+
     // Add route if not installed or if force requested
     if (installed_ && force_update == false) {
         return;
@@ -3992,13 +4011,13 @@ void VmInterface::InstanceIp::L3Activate(VmInterface *interface,
         interface->AddRoute(interface->vrf()->GetName(), ip_.to_v4(), plen_,
                             interface->vn()->GetName(), is_force_policy(),
                             ecmp_, is_local_,
-                            interface->GetServiceIp(ip_), Ip4Address(0),
+                            interface->GetServiceIp(ip_), tracking_ip_,
                             CommunityList(), interface->label());
     } else if (ip_.is_v6()) {
         interface->AddRoute(interface->vrf()->GetName(), ip_.to_v6(), plen_,
                             interface->vn()->GetName(), is_force_policy(),
                             ecmp_, is_local_,
-                            interface->GetServiceIp(ip_), Ip6Address(),
+                            interface->GetServiceIp(ip_), tracking_ip_,
                             CommunityList(), interface->label());
     }
     installed_ = true;
@@ -4039,13 +4058,17 @@ void VmInterface::InstanceIp::L2Activate(VmInterface *interface,
         ipv6 = ip_.to_v6();
     }
 
+    if (tracking_ip_ != old_tracking_ip_) {
+        force_update = true;
+    }
+
     if (l2_installed_ == false || force_update) {
         interface->UpdateL2InterfaceRoute(false, force_update,
                                interface->vrf(), ipv4, ipv6,
                                old_ethernet_tag, false,
                                false, ipv4, ipv6,
                                interface->vm_mac(),
-                               Ip4Address(0));
+                               tracking_ip_);
         l2_installed_ = true;
     }
 }
@@ -4120,6 +4143,10 @@ void VmInterface::InstanceIpList::Update(const InstanceIp *lhs,
 
     lhs->is_service_health_check_ip_ = rhs->is_service_health_check_ip_;
     lhs->is_local_ = rhs->is_local_;
+
+    lhs->old_tracking_ip_ = lhs->tracking_ip_;
+    lhs->tracking_ip_ = rhs->tracking_ip_;
+
     lhs->set_del_pending(false);
 }
 

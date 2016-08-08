@@ -612,7 +612,7 @@ TEST_F(Ipv6Test, VlanNHServiceIp_1) {
         Ip6Address::from_string(service_vlan_ip6), 128);
     EXPECT_TRUE(rt6 != NULL);
 
-    AddServiceInstanceIp("serviceip1", 100, "1.1.1.100", false);
+    AddServiceInstanceIp("serviceip1", 100, "1.1.1.100", false, NULL);
     AddLink("virtual-machine-interface", "vnet1", "instance-ip", "serviceip1");
     client->WaitForIdle();
     EXPECT_TRUE(rt->GetActivePath()->path_preference().dependent_ip() ==
@@ -622,7 +622,7 @@ TEST_F(Ipv6Test, VlanNHServiceIp_1) {
                 Ip6Address());
     EXPECT_TRUE(rt6->GetActivePath()->path_preference().ecmp() == false);
 
-    AddServiceInstanceIp("serviceip1", 100, "1.1.1.100", true);
+    AddServiceInstanceIp("serviceip1", 100, "1.1.1.100", true, NULL);
     client->WaitForIdle();
 
     EXPECT_TRUE(rt->GetActivePath()->path_preference().dependent_ip() ==
@@ -643,7 +643,7 @@ TEST_F(Ipv6Test, VlanNHServiceIp_1) {
                 Ip6Address());
     EXPECT_TRUE(rt6->GetActivePath()->path_preference().ecmp() == false);
 
-    AddServiceInstanceIp("serviceip1", 100, "fd23::1", true);
+    AddServiceInstanceIp("serviceip1", 100, "fd23::1", true, NULL);
     AddLink("virtual-machine-interface", "vnet1", "instance-ip", "serviceip1");
     client->WaitForIdle();
     EXPECT_TRUE(rt->GetActivePath()->path_preference().dependent_ip() ==
@@ -719,8 +719,8 @@ TEST_F(Ipv6Test, VlanNHServiceIp_2) {
         Ip6Address::from_string(service_vlan_ip6), 128);
     EXPECT_TRUE(rt6 != NULL);
 
-    AddServiceInstanceIp("serviceip1", 100, "1.1.1.100", false);
-    AddServiceInstanceIp("serviceip2", 100, "fd11::1", true);
+    AddServiceInstanceIp("serviceip1", 100, "1.1.1.100", false, NULL);
+    AddServiceInstanceIp("serviceip2", 100, "fd11::1", true, NULL);
     AddLink("virtual-machine-interface", "vnet1", "instance-ip", "serviceip1");
     AddLink("virtual-machine-interface", "vnet1", "instance-ip", "serviceip2");
     client->WaitForIdle();
@@ -731,7 +731,7 @@ TEST_F(Ipv6Test, VlanNHServiceIp_2) {
                 Ip6Address::from_string("fd11::1"));
     EXPECT_TRUE(rt6->GetActivePath()->path_preference().ecmp() == true);
 
-    AddServiceInstanceIp("serviceip1", 100, "1.1.1.100", true);
+    AddServiceInstanceIp("serviceip1", 100, "1.1.1.100", true, NULL);
     client->WaitForIdle();
 
     EXPECT_TRUE(rt->GetActivePath()->path_preference().dependent_ip() ==

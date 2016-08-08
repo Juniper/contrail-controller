@@ -50,6 +50,7 @@ struct PortInfo input[] = {
 };
 IpamInfo ipam_info[] = {
     {"1.1.1.0", 24, "1.1.1.10"},
+    {"2.2.2.0", 24, "2.2.2.10"}
 };
 
 class TestAap : public ::testing::Test {
@@ -81,7 +82,7 @@ public:
         CreateVmportEnv(input, 1);
         client->WaitForIdle();
         EXPECT_TRUE(VmPortActive(1));
-        AddIPAM("vn1", ipam_info, 1);
+        AddIPAM("vn1", ipam_info, 2);
         client->WaitForIdle();
     }
 
@@ -1153,7 +1154,7 @@ TEST_F(TestAap, StateMachine_20) {
    EXPECT_TRUE(path->path_preference().ecmp() == false);
    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
 
-   AddServiceInstanceIp("instaneip100", 100, "2.2.2.2", false);
+   AddServiceInstanceIp("instaneip100", 100, "2.2.2.2", false, NULL);
    AddLink("virtual-machine-interface", "intf1", "instance-ip", "instaneip100");
    client->WaitForIdle();
    EXPECT_TRUE(path->path_preference().sequence() == 0);
@@ -1161,7 +1162,7 @@ TEST_F(TestAap, StateMachine_20) {
    EXPECT_TRUE(path->path_preference().ecmp() == false);
    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
 
-   AddServiceInstanceIp("instaneip100", 100, "2.2.2.2", true);
+   AddServiceInstanceIp("instaneip100", 100, "2.2.2.2", true, NULL);
    client->WaitForIdle();
    EXPECT_TRUE(path->path_preference().sequence() == 0);
    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
@@ -1200,6 +1201,110 @@ TEST_F(TestAap, AapModeChange) {
     EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
     EXPECT_TRUE(path->path_preference().ecmp() == true);
     EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
+}
+
+TEST_F(TestAap, ServiceIpTrackingIp_1) {
+    Ip4Address aap_ip = Ip4Address::from_string("10.10.10.10");
+    Ip4Address aap_ip1 = Ip4Address::from_string("10.10.10.11");
+    Ip4Address service_ip = Ip4Address::from_string("2.2.2.2");
+    AddAap("intf1", 1, aap_ip, zero_mac.ToString());
+
+    AddServiceInstanceIp("instanceip100", 100, "2.2.2.2", false,
+                         "10.10.10.10");
+    AddLink("virtual-machine-interface", "intf1",
+            "instance-ip", "instanceip100");
+    client->WaitForIdle();
+
+    VmInterface *vm_intf = VmInterfaceGet(1);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", service_ip, 32);
+    const AgentPath *path = rt->FindPath(vm_intf->peer());
+
+    EvpnRouteEntry *evpn_rt = EvpnRouteGet("vrf1",
+                                           vm_intf->vm_mac(), service_ip, 0);
+    const AgentPath *evpn_path = evpn_rt->FindPath(vm_intf->peer());
+
+    Agent::GetInstance()->oper_db()->route_preference_module()->
+       EnqueueTrafficSeen(aap_ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id(),
+                          vm_intf->vm_mac());
+   client->WaitForIdle();
+
+   EXPECT_TRUE(path->path_preference().sequence() == 0);
+   EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+   EXPECT_TRUE(path->path_preference().ecmp() == false);
+   EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+
+   EXPECT_TRUE(evpn_path->path_preference().sequence() == 0);
+   EXPECT_TRUE(evpn_path->path_preference().preference() == PathPreference::HIGH);
+   EXPECT_TRUE(evpn_path->path_preference().ecmp() == false);
+   EXPECT_TRUE(evpn_path->path_preference().wait_for_traffic() == false);
+
+   //Change the tracking ip, and verify previous tracking ip is deleted
+   AddAap("intf1", 1, aap_ip1, zero_mac.ToString());
+   EXPECT_TRUE(path->path_preference().sequence() == 0);
+   EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
+   EXPECT_TRUE(path->path_preference().ecmp() == false);
+   EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
+
+   EXPECT_TRUE(evpn_path->path_preference().sequence() == 0);
+   EXPECT_TRUE(evpn_path->path_preference().preference() == PathPreference::LOW);
+   EXPECT_TRUE(evpn_path->path_preference().ecmp() == false);
+   EXPECT_TRUE(evpn_path->path_preference().wait_for_traffic() == true);
+}
+
+TEST_F(TestAap, ServiceIpTrackingIp_2) {
+    Ip4Address aap_ip = Ip4Address::from_string("10.10.10.10");
+    Ip4Address aap_ip1 = Ip4Address::from_string("10.10.10.11");
+    Ip4Address service_ip = Ip4Address::from_string("2.2.2.2");
+    AddAap("intf1", 1, aap_ip, zero_mac.ToString());
+
+    AddServiceInstanceIp("instanceip100", 100, "2.2.2.2", false,
+                         "10.10.10.10");
+    AddLink("virtual-machine-interface", "intf1",
+            "instance-ip", "instanceip100");
+    client->WaitForIdle();
+
+    VmInterface *vm_intf = VmInterfaceGet(1);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", service_ip, 32);
+    const AgentPath *path = rt->FindPath(vm_intf->peer());
+
+    EvpnRouteEntry *evpn_rt = EvpnRouteGet("vrf1",
+                                           vm_intf->vm_mac(), service_ip, 0);
+    const AgentPath *evpn_path = evpn_rt->FindPath(vm_intf->peer());
+
+    Agent::GetInstance()->oper_db()->route_preference_module()->
+       EnqueueTrafficSeen(aap_ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id(),
+                          vm_intf->vm_mac());
+   client->WaitForIdle();
+
+   EXPECT_TRUE(path->path_preference().sequence() == 0);
+   EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+   EXPECT_TRUE(path->path_preference().ecmp() == false);
+   EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+
+   EXPECT_TRUE(evpn_path->path_preference().sequence() == 0);
+   EXPECT_TRUE(evpn_path->path_preference().preference() == PathPreference::HIGH);
+   EXPECT_TRUE(evpn_path->path_preference().ecmp() == false);
+   EXPECT_TRUE(evpn_path->path_preference().wait_for_traffic() == false);
+
+   AddServiceInstanceIp("instanceip100", 100, "2.2.2.2", false,
+                         "10.10.10.11");
+   client->WaitForIdle();
+
+   evpn_rt = EvpnRouteGet("vrf1", vm_intf->vm_mac(), service_ip, 0);
+   evpn_path = evpn_rt->FindPath(vm_intf->peer());
+
+   EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
+   EXPECT_TRUE(evpn_path->path_preference().preference() == PathPreference::LOW);
+
+   //Change the tracking ip, and verify previous tracking ip is deleted
+   AddAap("intf1", 1, aap_ip1, zero_mac.ToString());
+   Agent::GetInstance()->oper_db()->route_preference_module()->
+       EnqueueTrafficSeen(aap_ip1, 32, vm_intf->id(), vm_intf->vrf()->vrf_id(),
+               vm_intf->vm_mac());
+   client->WaitForIdle();
+
+   EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+   EXPECT_TRUE(evpn_path->path_preference().preference() == PathPreference::HIGH);
 }
 
 int main(int argc, char *argv[]) {
