@@ -868,12 +868,15 @@ private:
 class InterfaceNHData : public NextHopData {
 public:
     InterfaceNHData(const string vrf_name) :
-        NextHopData(), vrf_key_(vrf_name) { }
+        NextHopData(), vrf_key_(vrf_name), relaxed_policy_(false) { }
+    InterfaceNHData(const string vrf_name, bool relaxed_policy) :
+        NextHopData(), vrf_key_(vrf_name), relaxed_policy_(relaxed_policy) { }
     virtual ~InterfaceNHData() { }
 
 private:
     friend class InterfaceNH;
     VrfKey vrf_key_;
+    bool relaxed_policy_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceNHData);
 };
 
@@ -883,11 +886,11 @@ public:
                 const MacAddress &mac) :
         NextHop(INTERFACE, true, policy), interface_(intf),
         flags_(flags), dmac_(mac), vrf_(NULL, this),
-        delete_on_zero_refcount_(false) { };
+        delete_on_zero_refcount_(false), relaxed_policy_(false) { };
     InterfaceNH(Interface *intf, bool policy, const MacAddress &mac) :
         NextHop(INTERFACE, true, policy), interface_(intf),
         flags_(InterfaceNHFlags::INET4), dmac_(mac), vrf_(NULL, this),
-        delete_on_zero_refcount_(false) {};
+        delete_on_zero_refcount_(false), relaxed_policy_(false) {};
     virtual ~InterfaceNH() { };
 
     virtual std::string ToString() const {
@@ -946,12 +949,15 @@ public:
         delete_on_zero_refcount_ = val;
     }
 
+    bool relaxed_policy() const { return relaxed_policy_; }
+
 private:
     InterfaceRef interface_;
     uint8_t flags_;
     MacAddress dmac_;
     VrfEntryRef vrf_; 
     bool delete_on_zero_refcount_;
+    bool relaxed_policy_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceNH);
 };
 
