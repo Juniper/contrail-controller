@@ -4158,7 +4158,7 @@ class PortTupleST(DBBaseST):
     def get_vmi_by_service_type(self, service_type):
         for vmi_name in self.virtual_machine_interfaces:
             vmi = VirtualMachineInterfaceST.get(vmi_name)
-            if vmi.service_interface_type == service_type:
+            if vmi and vmi.service_interface_type == service_type:
                 return vmi
         return None
 
