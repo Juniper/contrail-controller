@@ -87,3 +87,6 @@ class ControlEventManager(EventManager):
     def get_process_state(self, fail_status_bits):
         return self.get_process_state_base(
             fail_status_bits, ProcessStateNames, ProcessState)
+
+    def get_package_name(self):
+        return self.node_type

@@ -337,3 +337,6 @@ class DatabaseEventManager(EventManager):
                 self.database_periodic()
                 self.event_tick_60()
             self.listener_nodemgr.ok(self.stdout)
+
+    def get_package_name(self):
+        return self.node_type + '-common'
