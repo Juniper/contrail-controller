@@ -620,6 +620,10 @@ static void BuildInstanceIp(Agent *agent, VmInterfaceConfigData *data,
         if (err.value() != 0) {
             tracking_ip = Ip4Address(0);
         }
+
+        if (tracking_ip == addr) {
+            tracking_ip = Ip4Address(0);
+        }
     }
 
     if (ip->service_health_check_ip()) {
