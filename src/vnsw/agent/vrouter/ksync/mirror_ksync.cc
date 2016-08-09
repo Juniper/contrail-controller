@@ -7,6 +7,7 @@
 #include "vrouter/ksync/nexthop_ksync.h"
 #include "vrouter/ksync/ksync_init.h"
 #include <ksync/ksync_sock.h>
+#include "vr_mirror.h"
 
 MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj, 
                                    const MirrorKSyncEntry *entry,
@@ -103,7 +104,9 @@ int MirrorKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     encoder.set_mirr_rid(0);
     encoder.set_mirr_nhid(nh_entry->nh_id());
     encoder.set_mirr_vni(vni_);
-    encoder.set_mirr_flags(mirror_flag_);
+    if (mirror_flag_ == MirrorEntryData::DynamicNH_With_JuniperHdr) {
+        encoder.set_mirr_flags(VR_MIRROR_FLAG_DYNAMIC);
+    }
     int error = 0;
     encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
     assert(error == 0);
