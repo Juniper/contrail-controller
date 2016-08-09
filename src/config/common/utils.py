@@ -21,6 +21,7 @@
 # @author: Numan Siddique, eNovance.
 
 
+import os
 import re
 import urllib
 from collections import OrderedDict
@@ -194,10 +195,13 @@ def obj_type_to_vnc_class(obj_type, module_name):
 
 
 def getCertKeyCaBundle(bundle, certs):
+    if os.path.isfile(bundle):
+        return bundle
     with open(bundle, 'w') as ofile:
         for cert in certs:
             with open(cert) as ifile:
                 for line in ifile:
                     ofile.write(line)
+    os.chmod(bundle,0o777)
     return bundle
 # end CreateCertKeyCaBundle
