@@ -51,12 +51,9 @@ class VncCfgApiClient(object):
                     auth_protocol=self._conf_info['auth_protocol'])
                 connected = True
                 self._update_connection_state(ConnectionStatus.UP)
-            except requests.exceptions.ConnectionError as e:
+            except Exception as e:
                 # Update connection info
                 self._update_connection_state(ConnectionStatus.DOWN, str(e))
-                time.sleep(3)
-            except vnc_api.ResourceExhaustionError as re:  # haproxy throws 503
-                self._update_connection_state(ConnectionStatus.DOWN, str(re))
                 time.sleep(3)
     # end connect
 
