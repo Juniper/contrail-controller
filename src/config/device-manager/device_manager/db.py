@@ -548,10 +548,13 @@ class PhysicalRouterDM(DBBaseDM):
                 vrf_name = self.get_pnf_vrf_name(
                     si_obj, if_type, is_left_first_vrf)
                 vrf_interfaces = pnf_inters
-                self.config_manager.add_routing_instance(
-                    vrf_name, False, False, import_set,
-                    export_set, [], [], False, vrf_interfaces,
-                    None, None, None, static_routes, True)
+                ri_conf = { 'ri_name': vrf_name }
+                ri_conf['import_targets'] = import_set
+                ri_conf['export_targets'] = export_set
+                ri_conf['interfaces'] = vrf_interfaces
+                ri_conf['static_routes'] = static_routes
+                ri_conf['no_vrf_table_label'] = True
+                self.config_manager.add_routing_instance(ri_conf)
 
     def push_config(self):
         if self.delete_config() or not self.is_vnc_managed():
@@ -623,19 +626,19 @@ class PhysicalRouterDM(DBBaseDM):
                         irb_ips = None
                         if vn_obj.get_forwarding_mode() == 'l2_l3':
                             irb_ips = vn_irb_ip_map.get(vn_id, [])
-                        self.config_manager.add_routing_instance(
-                            vrf_name_l2,
-                            True,
-                            vn_obj.get_forwarding_mode() == 'l2_l3',
-                            import_set,
-                            export_set,
-                            vn_obj.get_prefixes(),
-                            irb_ips,
-                            vn_obj.router_external,
-                            interfaces,
-                            vn_obj.get_vxlan_vni(),
-                            None,
-                            vn_obj.vn_network_id)
+
+                        ri_conf = { 'ri_name': vrf_name_l2 }
+                        ri_conf['is_l2'] = True
+                        ri_conf['is_l2_l3'] = (vn_obj.get_forwarding_mode() == 'l2_l3')
+                        ri_conf['import_targets'] = import_set
+                        ri_conf['export_targets'] = export_set
+                        ri_conf['prefixes'] = vn_obj.get_prefixes()
+                        ri_conf['gateways'] = irb_ips
+                        ri_conf['router_external'] = vn_obj.router_external
+                        ri_conf['interfaces'] = interfaces
+                        ri_conf['vni'] = vn_obj.get_vxlan_vni()
+                        ri_conf['network_id'] = vn_obj.vn_network_id
+                        self.config_manager.add_routing_instance(ri_conf)
 
                     if vn_obj.get_forwarding_mode() in ['l3', 'l2_l3']:
                         interfaces = []
@@ -644,17 +647,14 @@ class PhysicalRouterDM(DBBaseDM):
                                  JunosInterface(
                                 'irb.' + str(vn_obj.vn_network_id),
                                 'l3', 0)]
-                        self.config_manager.add_routing_instance(
-                            vrf_name_l3,
-                            False,
-                            vn_obj.get_forwarding_mode() == 'l2_l3',
-                            import_set,
-                            export_set,
-                            vn_obj.get_prefixes(),
-                            None,
-                            vn_obj.router_external,
-                            interfaces)
-
+                        ri_conf = { 'ri_name': vrf_name_l3 }
+                        ri_conf['is_l2_l3'] = (vn_obj.get_forwarding_mode() == 'l2_l3')
+                        ri_conf['import_targets'] = import_set
+                        ri_conf['export_targets'] = export_set
+                        ri_conf['prefixes'] = vn_obj.get_prefixes()
+                        ri_conf['router_external'] = vn_obj.router_external
+                        ri_conf['interfaces'] = interfaces
+                        self.config_manager.add_routing_instance(ri_conf)
                     break
 
             if (export_set is not None and
@@ -679,19 +679,12 @@ class PhysicalRouterDM(DBBaseDM):
                         JunosInterface(
                             service_ports[0] + "." + str(service_port_id + 1),
                             'l3', 0))
-                    self.config_manager.add_routing_instance(
-                        vrf_name,
-                        False,
-                        False,
-                        import_set,
-                        set(),
-                        None,
-                        None,
-                        False,
-                        interfaces,
-                        None,
-                        vn_obj.instance_ip_map,
-                        vn_obj.vn_network_id)
+                    ri_conf = { 'ri_name': vrf_name }
+                    ri_conf['import_targets'] = import_set
+                    ri_conf['interfaces'] = interfaces
+                    ri_conf['fip_map'] = vn_obj.instance_ip_map
+                    ri_conf['network_id'] = vn_obj.vn_network_id
+                    self.config_manager.add_routing_instance(ri_conf)
         # Add PNF ri configuration
         self.add_pnf_vrfs(first_vrf, pnf_dict, pnf_ris)
 
