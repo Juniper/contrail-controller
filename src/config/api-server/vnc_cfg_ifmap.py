@@ -839,8 +839,8 @@ class VncServerCassandraClient(VncCassandraClient):
             self._USERAGENT_KV_CF_NAME: {}}
         super(VncServerCassandraClient, self).__init__(
             cass_srv_list, db_prefix, keyspaces, None, self.config_log,
-            generate_url=db_client_mgr.generate_url,
-            reset_config=reset_config,credential=cassandra_credential)
+            generate_url=db_client_mgr.generate_url, reset_config=reset_config,
+            credential=cassandra_credential, walk=False)
         self._useragent_kv_cf = self._cf_dict[self._USERAGENT_KV_CF_NAME]
     # end __init__
 
@@ -988,41 +988,6 @@ class VncServerCassandraClient(VncCassandraClient):
         self._useragent_kv_cf.remove(key)
     # end useragent_kv_delete
 
-    def walk(self, fn):
-        type_to_object = {}
-        for obj_uuid, obj_col in self._obj_uuid_cf.get_range(
-                columns=['type', 'fq_name']):
-            try:
-                obj_type = json.loads(obj_col['type'])
-                obj_fq_name = json.loads(obj_col['fq_name'])
-                # prep cache to avoid n/w round-trip in db.read for ref
-                self.cache_uuid_to_fq_name_add(obj_uuid, obj_fq_name, obj_type)
-
-                try:
-                    type_to_object[obj_type].append(obj_uuid)
-                except KeyError:
-                    type_to_object[obj_type] = [obj_uuid]
-            except Exception as e:
-                self.config_log('Error in db walk read %s' %(str(e)),
-                                level=SandeshLevel.SYS_ERR)
-                continue
-
-        walk_results = []
-        for obj_type, uuid_list in type_to_object.items():
-            try:
-                self.config_log('Resync: obj_type %s len %s'
-                                %(obj_type, len(uuid_list)),
-                                level=SandeshLevel.SYS_INFO)
-                result = fn(obj_type, uuid_list)
-                if result:
-                    walk_results.append(result)
-            except Exception as e:
-                self.config_log('Error in db walk invoke %s' %(str(e)),
-                                level=SandeshLevel.SYS_ERR)
-                continue
-
-        return walk_results
-    # end walk
 # end class VncCassandraClient
 
 
