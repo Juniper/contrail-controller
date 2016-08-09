@@ -363,7 +363,7 @@ class VirtualNetworkST(DBBase):
     #end add_policy
 
     def get_primary_routing_instance(self):
-        return self.rinst[self._default_ri_name]
+        return self.rinst.get(self._default_ri_name)
     # end get_primary_routing_instance
 
     def add_connection(self, vn_name):
@@ -1157,7 +1157,7 @@ class RouteTableST(DBBase):
         rt_list = [route.next_hop for route in routes]
         for route in self.routes or []:
             if route.next_hop not in rt_list:
-                del _si_dict[route.next_hop]
+                del self._si_dict[route.next_hop]
         self.routes = routes
         for route in self.routes or []:
             self._si_dict[route.next_hop] = self
@@ -1460,7 +1460,13 @@ class RoutingInstanceST(object):
 
     def delete(self, vn_obj=None):
         # refresh the ri object because it could have changed
-        self.obj = _vnc_lib.routing_instance_read(id=self.obj.uuid)
+        try:
+            self.obj = _vnc_lib.routing_instance_read(id=self.obj.uuid)
+        except NoIdError:
+            _sandesh._logger.error(
+                "NoIdError while reading routing instance: %s/%s" % (
+                 self.name, self.obj.uuid))
+            return
         rtgt_list = self.obj.get_route_target_refs()
         ri_fq_name_str = self.obj.get_fq_name_str()
         DBBase._cassandra.free_route_target(ri_fq_name_str)
@@ -2193,16 +2199,21 @@ class VirtualMachineInterfaceST(DBBase):
         virtual_network = VirtualNetworkST.locate(vn_name)
         if virtual_network is None:
             return
-        ri = virtual_network.get_primary_routing_instance().obj
-        refs = self.obj.get_routing_instance_refs()
-        if ri.get_fq_name() not in [r['to'] for r in (refs or [])]:
-            self.obj.add_routing_instance(
-                ri, PolicyBasedForwardingRuleType(direction="both"))
-            try:
-                _vnc_lib.virtual_machine_interface_update(self.obj)
-            except NoIdError:
-                _sandesh._logger.error("NoIdError while updating interface " +
-                                       self.name)
+        ri_vnc_obj = virtual_network.get_primary_routing_instance()
+        if ri_vnc_obj:
+            ri = ri_vnc_obj.obj
+            refs = self.obj.get_routing_instance_refs()
+            if ri.get_fq_name() not in [r['to'] for r in (refs or [])]:
+                self.obj.add_routing_instance(
+                    ri, PolicyBasedForwardingRuleType(direction="both"))
+                try:
+                    _vnc_lib.virtual_machine_interface_update(self.obj)
+                except NoIdError:
+                    _sandesh._logger.error(
+                        "NoIdError while updating interface " + self.name)
+        else:
+            _sandesh._logger.error(
+                "Error while getting default RI for " + virtual_network.name)
 
         for lr in LogicalRouterST.values():
             if self.name in lr.interfaces:
