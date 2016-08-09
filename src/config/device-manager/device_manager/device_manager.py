@@ -312,6 +312,8 @@ class DeviceManager(object):
             if oper_info['oper'] == 'CREATE':
                 obj_dict = oper_info['obj_dict']
                 obj_id = obj_dict['uuid']
+                self._cassandra.cache_uuid_to_fq_name_add(
+                    obj_id, obj_dict['fq_name'], obj_type)
                 obj = obj_class.locate(obj_id, obj_dict)
                 dependency_tracker = DependencyTracker(
                     DBBaseDM.get_obj_type_map(), self._REACTION_MAP)
@@ -340,6 +342,7 @@ class DeviceManager(object):
                                 set(ids))
             elif oper_info['oper'] == 'DELETE':
                 obj_id = oper_info['uuid']
+                self._cassandra.cache_uuid_to_fq_name_del(obj_id)
                 obj = obj_class.get(obj_id)
                 if obj is None:
                     return
