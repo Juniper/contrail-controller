@@ -1307,6 +1307,27 @@ TEST_F(TestAap, ServiceIpTrackingIp_2) {
    EXPECT_TRUE(evpn_path->path_preference().preference() == PathPreference::HIGH);
 }
 
+TEST_F(TestAap, ServiceIpTrackingIp_3) {
+    AddServiceInstanceIp("instanceip100", 100, "2.2.2.2", false,
+                         "2.2.2.2");
+    AddLink("virtual-machine-interface", "intf1",
+            "instance-ip", "instanceip100");
+    client->WaitForIdle();
+
+    Ip4Address service_ip = Ip4Address::from_string("2.2.2.2");
+
+    VmInterface *vm_intf = VmInterfaceGet(1);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", service_ip, 32);
+    const AgentPath *path = rt->FindPath(vm_intf->peer());
+    EXPECT_TRUE(path->path_preference().dependent_ip() == Ip4Address(0));
+
+    EvpnRouteEntry *evpn_rt = EvpnRouteGet("vrf1",
+                                           vm_intf->vm_mac(), service_ip, 0);
+    const AgentPath *evpn_path = evpn_rt->FindPath(vm_intf->peer());
+    EXPECT_TRUE(evpn_path->path_preference().dependent_ip() == Ip4Address(0));
+}
+
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
