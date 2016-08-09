@@ -44,6 +44,8 @@
 class TaskGroup;
 class TaskEntry;
 class SandeshTaskScheduler;
+class EventManager;
+class Timer;
 
 struct TaskStats {
     int     wait_count_;                // #Entries in waitq
@@ -150,6 +152,8 @@ public:
 
     static void Initialize(uint32_t thread_count = 0);
     static TaskScheduler *GetInstance();
+    bool StartTbbKeepAwakeTask(EventManager *mgr,
+                               uint32_t tbbKeepawakeTimeout = 20);
 
     // Enqueue a task. This may result in the task being immedietly added to
     // the run queue or to a pending queue. Tasks may not be added to the
@@ -226,6 +230,7 @@ public:
     // following function allows one to increase max num of threads used by
     // TBB
     static void SetThreadAmpFactor(int n);
+    bool TbbKeepAwake();
 
 private:
     friend class ConcurrencyScope;
@@ -273,6 +278,8 @@ private:
     // following variable allows one to increase max num of threads used by
     // TBB
     static int ThreadAmpFactor_;
+    Timer *tbb_awake_timer_;
+    uint64_t tbb_awake_count_;
     DISALLOW_COPY_AND_ASSIGN(TaskScheduler);
 };
 

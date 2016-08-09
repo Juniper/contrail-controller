@@ -13,7 +13,6 @@
 #include <base/intrusive_ptr_back_ref.h>
 #include <cmn/agent_cmn.h>
 #include <base/connection_info.h>
-#include <base/timer.h>
 #include "net/mac_address.h"
 #include "oper/agent_types.h"
 
@@ -319,7 +318,6 @@ public:
 
     Agent();
     virtual ~Agent();
-    void Shutdown();
 
     static Agent *GetInstance() {return singleton_;}
     static const std::string &NullString() {return null_string_;}
@@ -1070,7 +1068,6 @@ public:
                    const char *description, uint32_t delay);
 
     static uint16_t ProtocolStringToInt(const std::string &str);
-    bool TbbKeepAwake();
     VrouterObjectLimits GetVrouterObjectLimits();
 private:
 
@@ -1265,8 +1262,6 @@ private:
     FlowStatsReqHandler flow_stats_req_handler_;
 
     uint32_t tbb_keepawake_timeout_;
-    Timer *tbb_awake_timer_;
-    uint64_t tbb_awake_count_;
     // Constants
 public:
     static const std::string config_file_;

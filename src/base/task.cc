@@ -14,6 +14,7 @@
 #include "base/logging.h"
 #include "base/task.h"
 #include "base/task_annotations.h"
+#include <io/event_manager.h>
 
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
@@ -343,7 +344,8 @@ TaskScheduler::TaskScheduler(int task_count) :
     task_scheduler_(GetThreadCount(task_count) + 1),
     running_(true), seqno_(0), id_max_(0), log_fn_(), track_run_time_(false),
     measure_delay_(false), schedule_delay_(0), execute_delay_(0),
-    enqueue_count_(0), done_count_(0), cancel_count_(0) {
+    enqueue_count_(0), done_count_(0), cancel_count_(0), tbb_awake_timer_(NULL),
+    tbb_awake_count_(0) {
     hw_thread_count_ = GetThreadCount(task_count);
     task_group_db_.resize(TaskScheduler::kVectorGrowSize);
     stop_entry_ = new TaskEntry(-1);
@@ -371,6 +373,11 @@ TaskScheduler::~TaskScheduler() {
     task_group_db_.clear();
 
     return;
+}
+
+bool TaskScheduler::TbbKeepAwake() {
+    tbb_awake_count_++;
+    return true;
 }
 
 void TaskScheduler::Initialize(uint32_t thread_count) {
@@ -407,6 +414,18 @@ TaskScheduler *TaskScheduler::GetInstance() {
         singleton_.reset(new TaskScheduler());
     }
     return singleton_.get();
+}
+
+bool TaskScheduler::StartTbbKeepAwakeTask(EventManager *event_mgr,
+                                          uint32_t tbbKeepawakeTimeout) {
+    uint32_t task_id = GetTaskId("TaskScheduler::TbbKeepAwake");
+    tbb_awake_timer_ = TimerManager::CreateTimer(*event_mgr->io_service(),
+                                                 "TBB Keep Awake",
+                                                 task_id, 0);
+
+    bool ret = tbb_awake_timer_->Start(tbbKeepawakeTimeout,
+                   boost::bind(&TaskScheduler::TbbKeepAwake,this));
+    return ret;
 }
 
 // Get TaskGroup for a task_id. Grows task_entry_db_ if necessary
@@ -869,6 +888,11 @@ void TaskScheduler::WaitForTerminateCompletion() {
 }
 
 void TaskScheduler::Terminate() {
+    if (tbb_awake_timer_) {
+        tbb_awake_timer_->Cancel();
+        TimerManager::DeleteTimer(tbb_awake_timer_);
+    }
+
     for (int i = 0; i < 10000; i++) {
         if (IsEmpty()) break;
         usleep(1000);
