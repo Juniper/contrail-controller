@@ -303,13 +303,22 @@ class PhysicalRouterConfig(object):
      no_vrf_table_label: if this is set to True will not generate vrf table label knob
     '''
 
-    def add_routing_instance(self, ri_name, is_l2, is_l2_l3,
-                             import_targets, export_targets,
-                             prefixes=[], gateways=[],
-                             router_external=False,
-                             interfaces=[], vni=None,
-                             fip_map=None, network_id=None,
-                             static_routes={}, no_vrf_table_label=False):
+    def add_routing_instance(self, ri_conf):
+        ri_name = ri_conf.get_param("ri_name")
+        is_l2 = ri_conf.get_param("is_l2", False)
+        is_l2_l3 = ri_conf.get_param("is_l2_l3", False)
+        import_targets = ri_conf.get_param("import_targets", set())
+        export_targets = ri_conf.get_param("export_targets", set())
+        prefixes = ri_conf.get_param("prefixes", [])
+        gateways = ri_conf.get_param("gateways", [])
+        router_external = ri_conf.get_param("router_external", False)
+        interfaces = ri_conf.get_param("interfaces", [])
+        vni = ri_conf.get_param("vni", None)
+        fip_map = ri_conf.get_param("fip_map", None)
+        network_id = ri_conf.get_param("network_id", None)
+        static_routes = ri_conf.get_param("static_routes", {})
+        no_vrf_table_label = ri_conf.get_param("no_vrf_table_label", False)
+
         self.routing_instances[ri_name] = {'import_targets': import_targets,
                                            'export_targets': export_targets,
                                            'prefixes': prefixes,
