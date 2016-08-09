@@ -189,7 +189,10 @@ class VncRbac(object):
         err_msg = (403, 'Permission Denied')
 
         user, roles = self.get_user_roles(request)
-        is_admin = 'admin' in [x.lower() for x in roles]
+        is_admin = self.cloud_admin_role in [x.lower() for x in roles]
+        # other checks redundant if admin
+        if is_admin:
+            return (True, '')
 
         # rule list for project/domain of the request
         rule_list = self.get_rbac_rules(request)
@@ -244,10 +247,7 @@ class VncRbac(object):
         x = sorted(result.items(), reverse = True)
         ok = x[0][1][1]
 
-        # temporarily allow all access to admin till we figure out default creation of rbac group in domain
-        ok = ok or is_admin
-
-        msg = "%s admin=%s, u=%s, r='%s'" \
+        msg = "rbac: %s admin=%s, u=%s, r='%s'" \
             % ('+++' if ok else '\n---',
                'yes' if is_admin else 'no',
                user, string.join(roles, ',')
