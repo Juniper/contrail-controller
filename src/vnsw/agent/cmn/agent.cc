@@ -39,6 +39,7 @@
 #include <filter/acl.h>
 
 #include <cmn/agent_factory.h>
+#include <base/task_tbbkeepawake.h>
 
 const std::string Agent::null_string_ = "";
 const std::set<std::string> Agent::null_string_list_;
@@ -446,28 +447,18 @@ void Agent::InitCollector() {
 
 }
 
-bool Agent::TbbKeepAwake() {
-    tbb_awake_count_++;
-    return true;
-}
-
 void Agent::InitDone() {
     // Its observed that sometimes TBB doesnt scheduler misses spawn events
     // and doesnt schedule a task till its triggered again. As a work around
     // start a dummy timer that fires and awake TBB periodically
     if (tbb_keepawake_timeout_) {
-        uint32_t task_id = task_scheduler_->GetTaskId("Agent::TbbKeepAwake");
-        tbb_awake_timer_ = TimerManager::CreateTimer(*event_mgr_->io_service(),
-                                                     "TBB Keep Awake",
-                                                     task_id, 0);
-        tbb_awake_timer_->Start(tbb_keepawake_timeout_,
-                                boost::bind(&Agent::TbbKeepAwake, this));
+        tbb_awake_task_->StartTbbKeepAwakeTask(TaskScheduler::GetInstance(),
+                             event_manager(),tbb_keepawake_timeout_);
     }
 }
 
 void Agent::Shutdown() {
-    if (tbb_awake_timer_)
-        TimerManager::DeleteTimer(tbb_awake_timer_);
+    tbb_awake_task_->ShutTbbKeepAwakeTask();
 }
 
 static bool interface_exist(string &name) {
@@ -544,11 +535,12 @@ Agent::Agent() :
     stats_collector_(NULL), flow_stats_manager_(NULL), pkt_(NULL),
     services_(NULL), vgw_(NULL), rest_server_(NULL), oper_db_(NULL),
     diag_table_(NULL), controller_(NULL), event_mgr_(NULL),
-    agent_xmpp_channel_(), ifmap_channel_(), xmpp_client_(), xmpp_init_(),
-    dns_xmpp_channel_(), dns_xmpp_client_(), dns_xmpp_init_(),
-    agent_stale_cleaner_(NULL), cn_mcast_builder_(NULL), ds_client_(NULL),
-    metadata_server_port_(0), host_name_(""), agent_name_(""), prog_name_(""),
-    introspect_port_(0), instance_id_(g_vns_constants.INSTANCE_ID_DEFAULT),
+    tbb_awake_task_(NULL), agent_xmpp_channel_(), ifmap_channel_(),
+    xmpp_client_(), xmpp_init_(), dns_xmpp_channel_(), dns_xmpp_client_(),
+    dns_xmpp_init_(), agent_stale_cleaner_(NULL), cn_mcast_builder_(NULL),
+    ds_client_(NULL), metadata_server_port_(0), host_name_(""), agent_name_(""),
+    prog_name_(""), introspect_port_(0),
+    instance_id_(g_vns_constants.INSTANCE_ID_DEFAULT),
     module_type_(Module::VROUTER_AGENT), module_name_(), send_ratelimit_(0),
     db_(NULL), task_scheduler_(NULL), agent_init_(NULL), fabric_vrf_(NULL),
     intf_table_(NULL), health_check_table_(NULL), metadata_ip_allocator_(NULL),
@@ -587,8 +579,7 @@ Agent::Agent() :
     vrouter_max_interfaces_(0), vrouter_max_vrfs_(0),
     vrouter_max_mirror_entries_(0), vrouter_max_bridge_entries_(0),
     vrouter_max_oflow_bridge_entries_(0), flow_stats_req_handler_(NULL),
-    tbb_keepawake_timeout_(kDefaultTbbKeepawakeTimeout), tbb_awake_timer_(NULL),
-    tbb_awake_count_(0) {
+    tbb_keepawake_timeout_(kDefaultTbbKeepawakeTimeout) {
 
     assert(singleton_ == NULL);
     singleton_ = this;
@@ -597,6 +588,9 @@ Agent::Agent() :
 
     event_mgr_ = new EventManager();
     assert(event_mgr_);
+
+    tbb_awake_task_ = new TaskTbbKeepAwake();
+    assert(tbb_awake_task_);
 
     SetAgentTaskPolicy();
     CreateLifetimeManager();
