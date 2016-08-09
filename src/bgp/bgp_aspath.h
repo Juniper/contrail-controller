@@ -25,6 +25,9 @@ class BgpServer;
 struct AsPathSpec : public BgpAttribute {
     static const int kSize = -1;
     static const uint8_t kFlags = Transitive;
+    static const as_t kMinPrivateAs = 64512;
+    static const as_t kMaxPrivateAs = 65535;
+
     AsPathSpec() : BgpAttribute(BgpAttribute::AsPath, kFlags) {}
     explicit AsPathSpec(const BgpAttribute &rhs) : BgpAttribute(rhs) {}
     explicit AsPathSpec(const AsPathSpec &rhs) :
@@ -56,6 +59,9 @@ struct AsPathSpec : public BgpAttribute {
     as_t AsLeftMost() const;
     bool AsLeftMostMatch(as_t as) const;
     bool AsPathLoop(as_t as, uint8_t max_loop_count = 0) const;
+    static bool AsIsPrivate(as_t as) {
+        return as >= kMinPrivateAs && as <= kMaxPrivateAs;
+    }
 
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
     virtual void ToCanonical(BgpAttr *attr);
@@ -63,6 +69,8 @@ struct AsPathSpec : public BgpAttribute {
     virtual std::string ToString() const;
     AsPathSpec *Add(as_t asn) const;
     AsPathSpec *Replace(as_t old_asn, as_t asn) const;
+    AsPathSpec *RemovePrivate(bool all, as_t asn, as_t peer_as) const;
+
     std::vector<PathSegment *> path_segments;
 };
 

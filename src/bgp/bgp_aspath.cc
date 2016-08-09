@@ -149,6 +149,56 @@ AsPathSpec *AsPathSpec::Replace(as_t old_asn, as_t asn) const {
     return new_spec;
 }
 
+//
+// Create a new AsPathSpec by removing private asns. Stop looking for private
+// asns when we encounter the first non-private asn or the peer asn.
+// If all is true, remove all private asns not just the leftmost one. Also do
+// not stop when we encounter the first non-private asn or the peer asn.
+// If asn is non-zero then replace private asns instead of removing them.
+// If peer asn is non-zero, do not remove/replace it.
+//
+AsPathSpec *AsPathSpec::RemovePrivate(bool all, as_t asn, as_t peer_asn) const {
+    bool remove_replace_done = false;
+    AsPathSpec *new_spec = new AsPathSpec;
+    for (size_t i = 0; i < path_segments.size(); ++i) {
+        PathSegment *ps = path_segments[i];
+        PathSegment *new_ps = new PathSegment;
+
+        // We've already removed/replaced the first private asn or have
+        // decided not to remove/replace any private asns.
+        // Copy the entire segment instead of copying one as_t at a time.
+        if (remove_replace_done) {
+            *new_ps = *ps;
+            new_spec->path_segments.push_back(new_ps);
+            continue;
+        }
+
+        // Examine each as_t in the path segment to build a modified version.
+        // Do not remove/replace non-private asns and peer asn.
+        // Otherwise remove/replace private asns as specified.
+        new_ps->path_segment_type = ps->path_segment_type;
+        for (size_t j = 0; j < ps->path_segment.size(); ++j) {
+            if (remove_replace_done ||
+                !AsIsPrivate(ps->path_segment[j]) ||
+                ps->path_segment[j] == peer_asn) {
+                new_ps->path_segment.push_back(ps->path_segment[j]);
+            } else if (asn) {
+                new_ps->path_segment.push_back(asn);
+            }
+            remove_replace_done = !all;
+        }
+
+        // Get rid of the new path segment if it's empty.
+        // Otherwise add it to the new spec.
+        if (new_ps->path_segment.empty()) {
+            delete new_ps;
+        } else {
+            new_spec->path_segments.push_back(new_ps);
+        }
+    }
+    return new_spec;
+}
+
 void AsPath::Remove() {
     aspath_db_->Delete(this);
 }
