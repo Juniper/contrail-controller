@@ -33,6 +33,7 @@ from alarm_storage.main import StorageClusterState
 from alarm_disk_usage.main import DiskUsage
 from alarm_phyif_bandwidth.main import PhyifBandwidth
 from alarm_node_status.main import NodeStatus
+from alarm_package_version.main import PackageVersion
 
 
 logging.basicConfig(level=logging.DEBUG,
@@ -1412,6 +1413,47 @@ class TestAlarmPlugins(unittest.TestCase):
         ]
         self._verify(NodeStatus(), tests)
     # end test_alarm_node_status
+
+    def test_alarm_package_version(self):
+        tests = [
+            TestCase(
+                name='NodeStatus.package_version != ' +\
+                     'NodeStatus.installed_package_version',
+                input=TestInput(uve_key='ObjectCollectorInfo:host1',
+                    uve_data={
+                        'NodeStatus': {
+                            'package_version': '"3.1.0.0-2740"',
+                            'installed_package_version': '"3.1.0.0-18"'
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            ('NodeStatus.package_version != ' +\
+                                'NodeStatus.installed_package_version', [],
+                             [('"3.1.0.0-2740"', '"3.1.0.0-18"', None)])
+                        ]
+                    }
+                ])
+            ),
+            TestCase(
+                name='NodeStatus.package_version == ' +\
+                     'NodeStatus.installed_package_version',
+                input=TestInput(uve_key='ObjectCollectorInfo:host1',
+                    uve_data={
+                        'NodeStatus': {
+                            'package_version': '"3.1.0.0-2740"',
+                            'installed_package_version': '"3.1.0.0-2740"'
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=None)
+            )
+        ]
+        self._verify(PackageVersion(), tests)
+    # end test_alarm_package_version
+
 
     def _verify(self, plugin, tests):
         for test in tests:

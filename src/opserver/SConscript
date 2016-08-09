@@ -1,7 +1,7 @@
 # -*- mode: python; -*-
 
 #
-# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+# Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
 import os
@@ -126,6 +126,7 @@ OpEnv.SConscript('plugins/alarm_storage/SConscript', exports='OpEnv', duplicate 
 OpEnv.SConscript('plugins/alarm_disk_usage/SConscript', exports='OpEnv', duplicate = 0)
 OpEnv.SConscript('plugins/alarm_prouter_connectivity/SConscript', exports='OpEnv', duplicate = 0)
 OpEnv.SConscript('plugins/alarm_node_status/SConscript', exports='OpEnv', duplicate = 0)
+OpEnv.SConscript('plugins/alarm_package_version/SConscript', exports='OpEnv', duplicate = 0)
 OpEnv.SConscript('docs/SConscript', exports='OpEnv', duplicate = 0)
 
 OpEnv.Default(sdist_gen)
@@ -267,6 +268,7 @@ test_depends = [
         '/opserver/plugins/alarm_disk_usage/dist/alarm_disk_usage-0.1dev.tar.gz',
         '/opserver/plugins/alarm_prouter_connectivity/dist/alarm_prouter_connectivity-0.1dev.tar.gz',
         '/opserver/plugins/alarm_node_status/dist/alarm_node_status-0.1dev.tar.gz',
+        '/opserver/plugins/alarm_package_version/dist/alarm_package_version-0.1dev.tar.gz',
                ]
 
 if OpEnv['OPT'] == 'coverage':

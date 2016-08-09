@@ -31,6 +31,7 @@ import discoveryclient.client as client
 from buildinfo import build_info
 from pysandesh.sandesh_logger import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from nodemgr.utils import NodeMgrUtils
 
 
 def package_installed(pkg):
@@ -81,6 +82,8 @@ class EventManager(object):
         self.send_build_info = send_build_info
         self.last_cpu = None
         self.last_time = 0
+        self.curr_package_version = None
+        self.new_package_version = None
 
     # Get all the current processes in the node
     def get_current_process(self):
@@ -244,6 +247,10 @@ class EventManager(object):
             node_status = NodeStatus()
             node_status.name = name
             node_status.deleted = delete_status
+            self.curr_package_version = NodeMgrUtils.get_package_version(self.get_package_name())
+            self.new_package_version = self.curr_package_version
+            node_status.installed_package_version = self.curr_package_version
+            node_status.package_version = self.curr_package_version
             node_status.process_info = process_infos
             if (self.send_build_info):
                 node_status.build_info = self.get_build_info()
@@ -579,6 +586,9 @@ class EventManager(object):
         # encode other core file
         if self.update_all_core_file():
             node_status.all_core_file_list = self.all_core_file_list
+        self.new_package_version = NodeMgrUtils.get_package_version(self.get_package_name())
+        if (self.new_package_version != self.curr_package_version):
+            node_status.installed_package_version = self.new_package_version
         if (self.send_build_info):
             node_status.build_info = self.get_build_info()
         node_status_uve = NodeStatusUVE(table=self.table,

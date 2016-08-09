@@ -105,3 +105,6 @@ class ConfigEventManager(EventManager):
             # Perform nodetool repair every cassandra_repair_interval hours
             if self.tick_count % (60 * self.cassandra_repair_interval) == 0:
                 self.cassandra_mgr.repair()
+
+    def get_package_name(self):
+        return self.node_type

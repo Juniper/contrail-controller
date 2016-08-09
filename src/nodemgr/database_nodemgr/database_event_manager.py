@@ -340,3 +340,6 @@ class DatabaseEventManager(EventManager):
                 if self.tick_count % (60 * self.cassandra_repair_interval) == 0:
                     self.cassandra_mgr.repair()
             self.listener_nodemgr.ok(self.stdout)
+
+    def get_package_name(self):
+        return self.node_type + '-common'
