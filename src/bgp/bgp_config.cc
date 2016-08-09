@@ -159,6 +159,9 @@ BgpNeighborConfig::BgpNeighborConfig()
           loop_count_(0),
           local_as_(0),
           local_identifier_(0),
+          remove_private_enabled_(false),
+          remove_private_all_(false),
+          remove_private_replace_(false),
           last_change_at_(UTCTimestampUsec()) {
 }
 
@@ -180,6 +183,9 @@ void BgpNeighborConfig::CopyValues(const BgpNeighborConfig &rhs) {
     loop_count_ = rhs.loop_count_;
     local_as_ = rhs.local_as_;
     local_identifier_ = rhs.local_identifier_;
+    remove_private_enabled_  = rhs.remove_private_enabled_;
+    remove_private_all_  = rhs.remove_private_all_;
+    remove_private_replace_  = rhs.remove_private_replace_;
     auth_data_ = rhs.auth_data_;
     family_attributes_list_ = rhs.family_attributes_list_;
 }
@@ -204,6 +210,9 @@ int BgpNeighborConfig::CompareTo(const BgpNeighborConfig &rhs) const {
     KEY_COMPARE(local_as_, rhs.local_as_);
     KEY_COMPARE(local_identifier_, rhs.local_identifier_);
     KEY_COMPARE(auth_data_, rhs.auth_data_);
+    KEY_COMPARE(remove_private_enabled_, rhs.remove_private_enabled_);
+    KEY_COMPARE(remove_private_all_, rhs.remove_private_all_);
+    KEY_COMPARE(remove_private_replace_, rhs.remove_private_replace_);
     return STLSortedCompare(
         family_attributes_list_.begin(), family_attributes_list_.end(),
         rhs.family_attributes_list_.begin(), rhs.family_attributes_list_.end(),

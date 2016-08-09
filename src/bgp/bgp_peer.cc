@@ -385,18 +385,25 @@ BgpPeerFamilyAttributes::BgpPeerFamilyAttributes(
 }
 
 RibExportPolicy BgpPeer::BuildRibExportPolicy(Address::Family family) const {
+    RibExportPolicy policy;
     BgpPeerFamilyAttributes *family_attributes =
         family_attributes_list_[family];
     if (!family_attributes ||
         family_attributes->gateway_address.is_unspecified()) {
-        return RibExportPolicy(peer_type_, RibExportPolicy::BGP, peer_as_,
+        policy = RibExportPolicy(peer_type_, RibExportPolicy::BGP, peer_as_,
             as_override_, peer_close_->IsCloseLongLivedGraceful(), -1, 0);
     } else {
         IpAddress nexthop = family_attributes->gateway_address;
-        return RibExportPolicy(peer_type_, RibExportPolicy::BGP, peer_as_,
+        policy = RibExportPolicy(peer_type_, RibExportPolicy::BGP, peer_as_,
             as_override_, peer_close_->IsCloseLongLivedGraceful(), nexthop,
             -1, 0);
     }
+    if (remove_private_enabled_) {
+        policy.SetRemovePrivatePolicy(
+            remove_private_all_, remove_private_replace_, false);
+    }
+
+    return policy;
 }
 
 void BgpPeer::ReceiveEndOfRIB(Address::Family family, size_t msgsize) {
@@ -577,6 +584,9 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           passive_(config->passive()),
           resolve_paths_(config->router_type() == "bgpaas-client"),
           as_override_(config->as_override()),
+          remove_private_enabled_(config->remove_private_enabled()),
+          remove_private_all_(config->remove_private_all()),
+          remove_private_replace_(config->remove_private_replace()),
           defer_close_(false),
           non_graceful_close_(false),
           vpn_tables_registered_(false),
@@ -794,6 +804,27 @@ void BgpPeer::LogInstallAuthKeys(const string &socket_name,
 }
 
 //
+// Process remove private configuration.
+// Return true is there's a change, false otherwise.
+//
+bool BgpPeer::ProcessRemovePrivateConfig(const BgpNeighborConfig *config) {
+    bool changed = false;
+    if (remove_private_enabled_ != config->remove_private_enabled()) {
+        remove_private_enabled_ = config->remove_private_enabled();
+        changed = true;
+    }
+    if (remove_private_all_ != config->remove_private_all()) {
+        remove_private_all_ = config->remove_private_all();
+        changed = true;
+    }
+    if (remove_private_replace_ != config->remove_private_replace()) {
+        remove_private_replace_ = config->remove_private_replace();
+        changed = true;
+    }
+    return changed;
+}
+
+//
 // Process family attributes configuration and update the family attributes
 // list.
 //
@@ -924,6 +955,11 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
     if (old_type != PeerType()) {
         peer_info.set_peer_type(
             PeerType() == BgpProto::IBGP ? "internal" : "external");
+        clear_session = true;
+    }
+
+    // Check if there is any change in remove private configuration.
+    if (ProcessRemovePrivateConfig(config)) {
         clear_session = true;
     }
 
@@ -2422,6 +2458,11 @@ void BgpPeer::FillNeighborInfo(const BgpSandeshContext *bsc,
     mgr->FillPeerMembershipInfo(this, bnr);
     bnr->set_routing_instances(vector<BgpNeighborRoutingInstance>());
     FillCloseInfo(bnr);
+    ShowRemovePrivateAs remove_private_as;
+    remove_private_as.set_enabled(remove_private_enabled_);
+    remove_private_as.set_all(remove_private_all_);
+    remove_private_as.set_replace(remove_private_replace_);
+    bnr->set_remove_private_as(remove_private_as);
 }
 
 void BgpPeer::inc_rx_open() {

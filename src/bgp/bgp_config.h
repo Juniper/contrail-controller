@@ -218,6 +218,15 @@ public:
         return Ip4Address(ntohl(local_identifier_)).to_string();
     }
 
+    bool remove_private_enabled() const { return remove_private_enabled_; }
+    void set_remove_private_enabled(bool val) { remove_private_enabled_ = val; }
+
+    bool remove_private_all() const { return remove_private_all_; }
+    void set_remove_private_all(bool val) { remove_private_all_ = val; }
+
+    bool remove_private_replace() const { return remove_private_replace_; }
+    void set_remove_private_replace(bool val) { remove_private_replace_ = val; }
+
     const AuthenticationData &auth_data() const {
         return auth_data_;
     }
@@ -269,6 +278,9 @@ private:
     uint8_t loop_count_;
     uint32_t local_as_;
     uint32_t local_identifier_;
+    bool remove_private_enabled_;
+    bool remove_private_all_;
+    bool remove_private_replace_;
     mutable uint64_t last_change_at_;
     AuthenticationData auth_data_;
     FamilyAttributesList family_attributes_list_;

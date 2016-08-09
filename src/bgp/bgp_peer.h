@@ -222,6 +222,10 @@ public:
 
     void NotifyEstablished(bool established);
 
+    bool remove_private_enabled() const { return remove_private_enabled_; }
+    bool remove_private_all() const { return remove_private_all_; }
+    bool remove_private_replace() const { return remove_private_replace_; }
+
     void increment_flap_count();
     void reset_flap_count();
     uint64_t flap_count() const { return flap_count_; }
@@ -393,6 +397,7 @@ private:
     void SetInuseAuthKeyInfo(const AuthenticationKey &key, KeyType type);
     void ResetInuseAuthKeyInfo();
 
+    bool ProcessRemovePrivateConfig(const BgpNeighborConfig *config);
     bool ProcessFamilyAttributesConfig(const BgpNeighborConfig *config);
     void ProcessEndpointConfig(const BgpNeighborConfig *config);
 
@@ -453,6 +458,9 @@ private:
     bool passive_;
     bool resolve_paths_;
     bool as_override_;
+    bool remove_private_enabled_;
+    bool remove_private_all_;
+    bool remove_private_replace_;
 
     tbb::atomic<int> membership_req_pending_;
     bool defer_close_;

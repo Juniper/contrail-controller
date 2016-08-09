@@ -90,12 +90,127 @@ protected:
         task_util::WaitForIdle();
     }
 
+    bool ProcessRemovePrivateConfig(const BgpNeighborConfig *config) {
+        return peer_->ProcessRemovePrivateConfig(config);
+    }
+
+    RibExportPolicy BuildRibExportPolicy() {
+        return peer_->BuildRibExportPolicy(Address::INETVPN);
+    }
+
     BgpNeighborConfig config_;
     BgpServer server_;
     EventManager evm_;
     boost::scoped_ptr<BgpSessionMock> session_;
     boost::scoped_ptr<BgpPeerMock> peer_;
 };
+
+//
+// Verify that remove private configuration is processed properly.
+//
+TEST_F(BgpPeerTest, RemovePrivate1) {
+    BgpNeighborConfig config;
+    EXPECT_FALSE(ProcessRemovePrivateConfig(&config));
+    EXPECT_FALSE(peer_->remove_private_enabled());
+    EXPECT_FALSE(peer_->remove_private_all());
+    EXPECT_FALSE(peer_->remove_private_replace());
+
+    config.set_remove_private_enabled(true);
+    EXPECT_TRUE(ProcessRemovePrivateConfig(&config));
+    EXPECT_TRUE(peer_->remove_private_enabled());
+    EXPECT_FALSE(peer_->remove_private_all());
+    EXPECT_FALSE(peer_->remove_private_replace());
+    EXPECT_FALSE(ProcessRemovePrivateConfig(&config));
+
+    config.set_remove_private_all(true);
+    EXPECT_TRUE(ProcessRemovePrivateConfig(&config));
+    EXPECT_TRUE(peer_->remove_private_enabled());
+    EXPECT_TRUE(peer_->remove_private_all());
+    EXPECT_FALSE(peer_->remove_private_replace());
+    EXPECT_FALSE(ProcessRemovePrivateConfig(&config));
+
+    config.set_remove_private_replace(true);
+    EXPECT_TRUE(ProcessRemovePrivateConfig(&config));
+    EXPECT_TRUE(peer_->remove_private_enabled());
+    EXPECT_TRUE(peer_->remove_private_all());
+    EXPECT_TRUE(peer_->remove_private_replace());
+    EXPECT_FALSE(ProcessRemovePrivateConfig(&config));
+
+    config.set_remove_private_replace(false);
+    EXPECT_TRUE(ProcessRemovePrivateConfig(&config));
+    EXPECT_TRUE(peer_->remove_private_enabled());
+    EXPECT_TRUE(peer_->remove_private_all());
+    EXPECT_FALSE(peer_->remove_private_replace());
+    EXPECT_FALSE(ProcessRemovePrivateConfig(&config));
+
+    config.set_remove_private_all(false);
+    EXPECT_TRUE(ProcessRemovePrivateConfig(&config));
+    EXPECT_TRUE(peer_->remove_private_enabled());
+    EXPECT_FALSE(peer_->remove_private_all());
+    EXPECT_FALSE(peer_->remove_private_replace());
+    EXPECT_FALSE(ProcessRemovePrivateConfig(&config));
+
+    config.set_remove_private_enabled(false);
+    EXPECT_TRUE(ProcessRemovePrivateConfig(&config));
+    EXPECT_FALSE(peer_->remove_private_enabled());
+    EXPECT_FALSE(peer_->remove_private_all());
+    EXPECT_FALSE(peer_->remove_private_replace());
+    EXPECT_FALSE(ProcessRemovePrivateConfig(&config));
+}
+
+//
+// Verify that remove private configuration is used when building the
+// RibExportPolicy.
+//
+TEST_F(BgpPeerTest, RemovePrivate2) {
+    BgpNeighborConfig config;
+    RibExportPolicy policy = BuildRibExportPolicy();
+    EXPECT_FALSE(policy.remove_private.enabled);
+    EXPECT_FALSE(policy.remove_private.all);
+    EXPECT_FALSE(policy.remove_private.replace);
+
+    config.set_remove_private_enabled(true);
+    EXPECT_TRUE(ProcessRemovePrivateConfig(&config));
+    policy = BuildRibExportPolicy();
+    EXPECT_TRUE(policy.remove_private.enabled);
+    EXPECT_FALSE(policy.remove_private.all);
+    EXPECT_FALSE(policy.remove_private.replace);
+
+    config.set_remove_private_all(true);
+    EXPECT_TRUE(ProcessRemovePrivateConfig(&config));
+    policy = BuildRibExportPolicy();
+    EXPECT_TRUE(policy.remove_private.enabled);
+    EXPECT_TRUE(policy.remove_private.all);
+    EXPECT_FALSE(policy.remove_private.replace);
+
+    config.set_remove_private_replace(true);
+    EXPECT_TRUE(ProcessRemovePrivateConfig(&config));
+    policy = BuildRibExportPolicy();
+    EXPECT_TRUE(policy.remove_private.enabled);
+    EXPECT_TRUE(policy.remove_private.all);
+    EXPECT_TRUE(policy.remove_private.replace);
+
+    config.set_remove_private_replace(false);
+    EXPECT_TRUE(ProcessRemovePrivateConfig(&config));
+    policy = BuildRibExportPolicy();
+    EXPECT_TRUE(policy.remove_private.enabled);
+    EXPECT_TRUE(policy.remove_private.all);
+    EXPECT_FALSE(policy.remove_private.replace);
+
+    config.set_remove_private_all(false);
+    EXPECT_TRUE(ProcessRemovePrivateConfig(&config));
+    policy = BuildRibExportPolicy();
+    EXPECT_TRUE(policy.remove_private.enabled);
+    EXPECT_FALSE(policy.remove_private.all);
+    EXPECT_FALSE(policy.remove_private.replace);
+
+    config.set_remove_private_enabled(false);
+    EXPECT_TRUE(ProcessRemovePrivateConfig(&config));
+    policy = BuildRibExportPolicy();
+    EXPECT_FALSE(policy.remove_private.enabled);
+    EXPECT_FALSE(policy.remove_private.all);
+    EXPECT_FALSE(policy.remove_private.replace);
+}
 
 //
 // FlushUpdate with an empty buffer does not cause any problems.

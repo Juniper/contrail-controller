@@ -338,7 +338,13 @@ static void FillBgpNeighborConfigInfo(ShowBgpNeighborConfig *sbnc,
     sbnc->set_address_families(neighbor->GetAddressFamilies());
     sbnc->set_hold_time(neighbor->hold_time());
     sbnc->set_loop_count(neighbor->loop_count());
+    sbnc->set_loop_count(neighbor->loop_count());
     sbnc->set_last_change_at(UTCUsecToString(neighbor->last_change_at()));
+    ShowRemovePrivateAs remove_private_as;
+    remove_private_as.set_enabled(neighbor->remove_private_enabled());
+    remove_private_as.set_all(neighbor->remove_private_all());
+    remove_private_as.set_replace(neighbor->remove_private_replace());
+    sbnc->set_remove_private_as(remove_private_as);
     sbnc->set_auth_type(neighbor->auth_data().KeyTypeToString());
     if (bsc->test_mode()) {
         sbnc->set_auth_keys(neighbor->auth_data().KeysToStringDetail());

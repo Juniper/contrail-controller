@@ -58,6 +58,12 @@ struct PeerCloseInfo {
     14: u64 llgr_timer;
 }
 
+struct ShowRemovePrivateAs {
+   1: bool enabled;
+   2: bool all;
+   3: bool replace;
+}
+
 struct BgpNeighborResp {
     53: string instance_name;
     1: string peer (link="BgpNeighborReq"); // Peer name
@@ -108,6 +114,7 @@ struct BgpNeighborResp {
     34: optional peer_info.PeerSocketStats rx_socket_stats;
     35: optional peer_info.PeerSocketStats tx_socket_stats;
     42: optional peer_info.PeerRxErrorStats rx_error_stats;
+    61: optional ShowRemovePrivateAs remove_private_as;
 }
 
 response sandesh BgpNeighborListResp {
@@ -617,6 +624,7 @@ struct ShowBgpNeighborConfig {
     14: i32 hold_time;
     16: i32 loop_count;
     10: string last_change_at;
+    21: ShowRemovePrivateAs remove_private_as;
     11: optional string auth_type;
     12: optional list<string> auth_keys;
     7: list<string> address_families;

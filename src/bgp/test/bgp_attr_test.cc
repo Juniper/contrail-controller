@@ -863,6 +863,29 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate9) {
     EXPECT_EQ(0, result->CompareTo(expected));
 }
 
+//
+// All ASes are private.
+// All is true, AS and Peer AS are both 0 i.e. not specified.
+// Verify that we get an empty AsPath.
+//
+TEST_F(BgpAttrTest, AsPathRemovePrivate10) {
+    AsPathSpec original;
+    AsPathSpec::PathSegment *ops1 = new AsPathSpec::PathSegment;
+    original.path_segments.push_back(ops1);
+    ops1->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    ops1->path_segment.push_back(64512);
+    ops1->path_segment.push_back(65000);
+    ops1->path_segment.push_back(65535);
+
+    AsPathSpec expected;
+    bool all;
+    as_t asn, peer_asn;
+    all = true; asn = 0; peer_asn = 0;
+    boost::scoped_ptr<AsPathSpec> result;
+    result.reset(original.RemovePrivate(all, asn, peer_asn));
+    EXPECT_EQ(0, result->CompareTo(expected));
+}
+
 TEST_F(BgpAttrTest, AsPathFormat1) {
     AsPathSpec spec;
 

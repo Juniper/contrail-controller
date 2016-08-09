@@ -251,6 +251,16 @@ static void NeighborSetSessionAttributes(
         if (attributes->hold_time) {
             neighbor->set_hold_time(attributes->hold_time);
         }
+        neighbor->set_remove_private_enabled(
+            attributes->remove_private_as.enabled);
+        if (attributes->remove_private_as.enabled) {
+            neighbor->set_remove_private_all(
+                attributes->remove_private_as.all);
+            if (attributes->remove_private_as.all) {
+                neighbor->set_remove_private_replace(
+                    attributes->remove_private_as.replace);
+            }
+        }
         BuildFamilyAttributesList(neighbor, attributes);
         BuildKeyChain(neighbor, attributes->auth_data);
     }
