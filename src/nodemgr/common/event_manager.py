@@ -81,6 +81,9 @@ class EventManager(object):
         self.send_build_info = send_build_info
         self.last_cpu = None
         self.last_time = 0
+        self.package_version = None
+        self.curr_package_version = None
+        self.new_package_version = None
 
     # Get all the current processes in the node
     def get_current_process(self):
@@ -109,6 +112,15 @@ class EventManager(object):
             process_state_db[proc_name] = process_stat_ent
         return process_state_db
     # end get_current_process
+
+    def get_package_version(self, pkg):
+        if(pkg=='contrail-database' or pkg=='contrail-vrouter'):
+            pkg = pkg + '-common'
+        (pdist, _, _) = platform.dist()
+        if pdist == 'Ubuntu':
+            cmd = 'dpkg-query -W -f=\'${VERSION}\' ' + pkg
+            with open(os.devnull, "w") as fnull:
+                return (subprocess.check_output(cmd.split(), stderr=fnull))[1:-1]
 
     # Add the current processes in the node to db
     def add_current_process(self):
@@ -244,6 +256,12 @@ class EventManager(object):
             node_status = NodeStatus()
             node_status.name = name
             node_status.deleted = delete_status
+            self.package_version = self.get_package_version(self.node_type)
+            self.curr_package_version = self.package_version
+            self.new_package_version = self.package_version 
+            node_status.installed_package_version = self.package_version
+            node_status.package_version = self.package_version
+            
             node_status.process_info = process_infos
             if (self.send_build_info):
                 node_status.build_info = self.get_build_info()
@@ -579,6 +597,9 @@ class EventManager(object):
         # encode other core file
         if self.update_all_core_file():
             node_status.all_core_file_list = self.all_core_file_list
+        self.new_package_version = self.get_package_version(self.node_type)
+        if (self.new_package_version != self.curr_package_version):
+            node_status.installed_package_version = self.new_package_version
         if (self.send_build_info):
             node_status.build_info = self.get_build_info()
         node_status_uve = NodeStatusUVE(table=self.table,
