@@ -2169,7 +2169,8 @@ void AddHealthCheckServiceInstanceIp(const char *name, int id,
     AddNode("instance-ip", name, id, buf);
 }
 
-void AddServiceInstanceIp(const char *name, int id, const char *addr, bool ecmp) {
+void AddServiceInstanceIp(const char *name, int id, const char *addr, bool ecmp,
+                          const char *tracking_ip) {
     char buf[256];
     char mode[256];
 
@@ -2179,9 +2180,19 @@ void AddServiceInstanceIp(const char *name, int id, const char *addr, bool ecmp)
         sprintf(mode, "active-backup");
     }
 
+    char tracking_ip_buf[256] = "0.0.0.0";
+    if (tracking_ip) {
+        sprintf(tracking_ip_buf, "%s", tracking_ip);
+    }
+
     sprintf(buf, "<instance-ip-address>%s</instance-ip-address>"
                  "<service-instance-ip>true</service-instance-ip>"
-                 "<instance-ip-mode>%s</instance-ip-mode>", addr, mode);
+                 "<instance-ip-mode>%s</instance-ip-mode>"
+                 "<secondary-ip-tracking-ip>"
+                 "    <ip-prefix>%s</ip-prefix>"
+                 "    <ip-prefix-len>32</ip-prefix-len>"
+                 "</secondary-ip-tracking-ip>", addr, mode,
+                 tracking_ip_buf);
     AddNode("instance-ip", name, id, buf);
 }
 

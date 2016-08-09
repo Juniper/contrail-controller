@@ -2124,7 +2124,7 @@ TEST_F(IntfTest, VmPortServiceVlanServiceIp_1) {
     EXPECT_TRUE(rt->GetActivePath()->path_preference().dependent_ip() ==
                 Ip4Address::from_string("1.1.1.10"));
 
-    AddServiceInstanceIp("serviceip1", 100, "1.1.1.100", false);
+    AddServiceInstanceIp("serviceip1", 100, "1.1.1.100", false, NULL);
     AddLink("virtual-machine-interface", "vnet1", "instance-ip", "serviceip1");
     client->WaitForIdle();
 
@@ -2132,7 +2132,7 @@ TEST_F(IntfTest, VmPortServiceVlanServiceIp_1) {
                 Ip4Address::from_string("1.1.1.100"));
     EXPECT_TRUE(rt->GetActivePath()->path_preference().ecmp() == false);
 
-    AddServiceInstanceIp("serviceip1", 100, "1.1.1.100", true);
+    AddServiceInstanceIp("serviceip1", 100, "1.1.1.100", true, NULL);
     client->WaitForIdle();
     EXPECT_TRUE(rt->GetActivePath()->path_preference().ecmp() == true);
 
