@@ -211,7 +211,7 @@ public:
         void V6RouteDelete(const Peer *peer) const;
 
         uint16_t tag_;
-        std::string vrf_name_;
+        mutable std::string vrf_name_;
         Ip4Address addr_;
         Ip6Address addr6_;
         MacAddress smac_;
