@@ -221,22 +221,28 @@ TEST_F(IFMapStateMachineTest, ErrorlessRun) {
         .WillOnce(InvokeWithoutArgs(boost::bind(
                         &IFMapStateMachine::ProcHandshakeResponse,
                         state_machine(), success_ec())));
-    // end the test after sending the second poll request
+    // end the test after sending the fourth poll request
     EXPECT_CALL(*mock_channel(), SendPollRequest())
-        .Times(2)
+        .Times(4)
+        .WillOnce(InvokeWithoutArgs(boost::bind(
+                        &IFMapStateMachine::ProcPollWrite,
+                        state_machine(), success_ec(), kReturnBytes)))
+        .WillOnce(InvokeWithoutArgs(boost::bind(
+                        &IFMapStateMachine::ProcPollWrite,
+                        state_machine(), success_ec(), kReturnBytes)))
         .WillOnce(InvokeWithoutArgs(boost::bind(
                         &IFMapStateMachine::ProcPollWrite,
                         state_machine(), success_ec(), kReturnBytes)))
         // Just to end the test somewhere, return i.e. no action
         .WillOnce(Return());
     EXPECT_CALL(*mock_channel(), PollResponseWait())
-        .Times(1)
-        .WillOnce(InvokeWithoutArgs(boost::bind(
+        .Times(3)
+        .WillRepeatedly(InvokeWithoutArgs(boost::bind(
                         &IFMapStateMachine::ProcPollResponseRead,
                         state_machine(), success_ec(), kReturnBytes)));
     EXPECT_CALL(*mock_channel(), ReadPollResponse())
-        .Times(1)
-        .WillOnce(Return(kOpSuccess));
+        .Times(3)
+        .WillRepeatedly(Return(kOpSuccess));
 
     Start("10.1.2.3", "8443");
     // Wait for the sequence of events to occur
@@ -302,9 +308,14 @@ TEST_F(IFMapStateMachineTest, ReadPollRespError) {
         .WillRepeatedly(InvokeWithoutArgs(boost::bind(
                         &IFMapStateMachine::ProcHandshakeResponse,
                         state_machine(), success_ec())));
-    // end the test after sending the third poll request
+    // End the test after sending the third poll request.
+    // 2 calls happen in the first iteration when there's a read error.
+    // 1 call happens in the second iteration and causes test to end.
     EXPECT_CALL(*mock_channel(), SendPollRequest())
-        .Times(2)
+        .Times(3)
+        .WillOnce(InvokeWithoutArgs(boost::bind(
+                        &IFMapStateMachine::ProcPollWrite,
+                        state_machine(), success_ec(), kReturnBytes)))
         .WillOnce(InvokeWithoutArgs(boost::bind(
                         &IFMapStateMachine::ProcPollWrite,
                         state_machine(), success_ec(), kReturnBytes)))
@@ -423,10 +434,17 @@ TEST_F(IFMapStateMachineTest, MessageContentError) {
         .WillRepeatedly(InvokeWithoutArgs(boost::bind(
                         &IFMapStateMachine::ProcHandshakeResponse,
                         state_machine(), success_ec())));
-    // End the test after sending the second poll request. Hence one more call
-    // than the other mock functions below
+    // End the test after sending the fourth poll request.
+    // 2 calls happen in the first iteration when there's a message error.
+    // 2 calls happen in the second iteration when there's no message error.
+    // Each iteration needs 1 call to PollResponseWait and ReadPollResponse.
+    // Hence SendPollRequest has two more calls than the other mock functions
+    // below.
     EXPECT_CALL(*mock_channel(), SendPollRequest())
-        .Times(3)
+        .Times(4)
+        .WillOnce(InvokeWithoutArgs(boost::bind(
+                  &IFMapStateMachine::ProcPollWrite,
+                  state_machine(), success_ec(), kReturnBytes)))
         .WillOnce(InvokeWithoutArgs(boost::bind(
                   &IFMapStateMachine::ProcPollWrite,
                   state_machine(), success_ec(), kReturnBytes)))

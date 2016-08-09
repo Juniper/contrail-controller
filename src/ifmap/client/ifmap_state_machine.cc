@@ -198,8 +198,6 @@ struct SsrcStart : sc::state<SsrcStart, IFMapStateMachine> {
     > reactions;
     SsrcStart(my_context ctx) : my_base(ctx) {
         IFMapStateMachine *sm = &context<IFMapStateMachine>();
-        // Since we are restarting the SM, log all transitions.
-        sm->set_log_all_transitions(true);
         sm->set_state(IFMapStateMachine::SSRCSTART);
         sm->channel()->ReconnectPreparation();
     }
@@ -629,6 +627,8 @@ struct PollResponseWait :
     typedef mpl::list<
         sc::custom_reaction<EvReadSuccess>,
         sc::custom_reaction<EvReadFailed>,
+        sc::custom_reaction<EvWriteSuccess>,
+        sc::custom_reaction<EvWriteFailed>,
         sc::custom_reaction<EvProcResponseSuccess>,
         sc::custom_reaction<EvProcResponseFailed>,
         sc::custom_reaction<EvConnectionResetReq>
@@ -642,14 +642,23 @@ struct PollResponseWait :
     sc::result react(const EvReadSuccess &event) {
         // the header of the response to 'poll' has been read successfully
         IFMapStateMachine *sm = &context<IFMapStateMachine>();
+        sm->channel()->SendPollRequest();
         int failure = sm->channel()->ReadPollResponse();
         if (failure) {
             return transit<SsrcStart>();
         } else {
-            return transit<SendPoll>();
+            return discard_event();
         }
     }
     sc::result react(const EvReadFailed &event) {
+        return transit<SsrcStart>();
+    }
+    sc::result react(const EvWriteSuccess &event) {
+        IFMapStateMachine *sm = &context<IFMapStateMachine>();
+        sm->channel()->PollResponseWait();
+        return discard_event();
+    }
+    sc::result react(const EvWriteFailed &event) {
         return transit<SsrcStart>();
     }
     sc::result react(const EvProcResponseSuccess &event) {
@@ -682,8 +691,7 @@ IFMapStateMachine::IFMapStateMachine(IFMapManager *manager,
       channel_(NULL), state_(IDLE), last_state_(IDLE), last_state_change_at_(0),
       last_event_at_(0), max_connect_wait_interval_ms_(kConnectWaitIntervalMs),
       max_response_wait_interval_ms_(
-          config_options.peer_response_wait_time*1000), // ms
-      log_all_transitions_(true) {
+          config_options.peer_response_wait_time*1000) {
 }
 
 void IFMapStateMachine::Initialize() {
@@ -865,7 +873,7 @@ void IFMapStateMachine::ProcSubscribeResponse(
     }
 }
 
-// current state: SendPoll
+// current state: SendPoll or PollResponseWait
 void IFMapStateMachine::ProcPollWrite(
         const boost::system::error_code& error, size_t bytes_transferred) {
     CHECK_CONCURRENCY_MAIN_THR();
@@ -945,25 +953,9 @@ bool IFMapStateMachine::DequeueEvent(
 }
 
 void IFMapStateMachine::LogSmTransition() {
-    switch (state_) {
-    case SENDPOLL:
-    case POLLRESPONSEWAIT:
-        // Log these states only once for each connection attempt. This helps
-        // since we will keep circling between them once the connection has
-        // been established and we dont need to print them for every new VM 
-        // that comes up.
-        if (log_all_transitions()) {
-            IFMAP_SM_DEBUG(IFMapSmTransitionMessage, StateName(last_state_),
-                           "===>", StateName(state_));
-            if (state_ == POLLRESPONSEWAIT) {
-                set_log_all_transitions(false);
-            }
-        }
-        break;
-    default:
+    if (state_ != POLLRESPONSEWAIT || state_ != last_state_) {
         IFMAP_SM_DEBUG(IFMapSmTransitionMessage, StateName(last_state_), "===>",
                     StateName(state_));
-        break;
     }
 }
 
