@@ -4,6 +4,13 @@
 
 #include "bgp/bgp_rib_policy.h"
 
+RibExportPolicy::RemovePrivatePolicy::RemovePrivatePolicy()
+    : enabled(false),
+      all(false),
+      replace(false),
+      peer_loop_check(false) {
+}
+
 RibExportPolicy::RibExportPolicy()
     : type(BgpProto::IBGP),
       encoding(BGP),
@@ -60,6 +67,14 @@ RibExportPolicy::RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
     assert(encoding == BGP);
 }
 
+void RibExportPolicy::SetRemovePrivatePolicy(bool all, bool replace,
+    bool peer_loop_check) {
+    remove_private.enabled = true;
+    remove_private.all = all;
+    remove_private.replace = replace;
+    remove_private.peer_loop_check = peer_loop_check;
+}
+
 //
 // Implement operator< for RibExportPolicy by comparing each of the fields.
 //
@@ -72,5 +87,10 @@ bool RibExportPolicy::operator<(const RibExportPolicy &rhs) const {
     BOOL_KEY_COMPARE(affinity, rhs.affinity);
     BOOL_KEY_COMPARE(llgr, rhs.llgr);
     BOOL_KEY_COMPARE(cluster_id, rhs.cluster_id);
+    BOOL_KEY_COMPARE(remove_private.enabled, rhs.remove_private.enabled);
+    BOOL_KEY_COMPARE(remove_private.all, rhs.remove_private.all);
+    BOOL_KEY_COMPARE(remove_private.replace, rhs.remove_private.replace);
+    BOOL_KEY_COMPARE(
+        remove_private.peer_loop_check, rhs.remove_private.peer_loop_check);
     return false;
 }

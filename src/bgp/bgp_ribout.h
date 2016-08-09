@@ -301,6 +301,16 @@ public:
     std::string EncodingString() const {
         return IsEncodingXmpp() ? "XMPP" : "BGP";
     }
+    bool remove_private_enabled() const {
+        return policy_.remove_private.enabled;
+    }
+    bool remove_private_all() const { return policy_.remove_private.all; }
+    bool remove_private_replace() const {
+        return policy_.remove_private.replace;
+    }
+    bool remove_private_peer_loop_check() const {
+        return policy_.remove_private.peer_loop_check;
+    }
 
     void FillStatisticsInfo(std::vector<ShowRibOutStatistics> *sros_list) const;
 

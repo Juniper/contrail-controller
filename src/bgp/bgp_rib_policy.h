@@ -42,6 +42,15 @@ struct RibExportPolicy {
         XMPP,
     };
 
+    struct RemovePrivatePolicy {
+        RemovePrivatePolicy();
+
+        bool enabled;
+        bool all;
+        bool replace;
+        bool peer_loop_check;
+    };
+
     RibExportPolicy();
     RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
         int affinity, u_int32_t cluster_id);
@@ -52,6 +61,7 @@ struct RibExportPolicy {
         as_t as_number, bool as_override, bool llgr, IpAddress nexthop,
         int affinity, u_int32_t cluster_id);
 
+    void SetRemovePrivatePolicy(bool all, bool replace, bool peer_loop_check);
     bool operator<(const RibExportPolicy &rhs) const;
 
     BgpProto::BgpPeerType type;
@@ -62,6 +72,7 @@ struct RibExportPolicy {
     int affinity;
     bool llgr;
     uint32_t cluster_id;
+    RemovePrivatePolicy remove_private;
 };
 
 #endif  // SRC_BGP_BGP_RIB_POLICY_H_
