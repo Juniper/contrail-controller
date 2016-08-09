@@ -4928,18 +4928,18 @@ void VmInterface::ServiceVlan::Activate(VmInterface *interface,
         return;
     }
 
+    //Change in VRF, delete and readd the entry
+    if (vrf_.get() != vrf) {
+        DeActivate(interface);
+        vrf_ = vrf;
+    }
+
     if (label_ == MplsTable::kInvalidLabel) {
         VlanNH::Create(interface->GetUuid(), tag_, vrf_name_, smac_, dmac_);
         label_ = table->agent()->mpls_table()->AllocLabel();
         MplsLabel::CreateVlanNh(table->agent(), label_,
                                 interface->GetUuid(), tag_);
         VrfAssignTable::CreateVlan(interface->GetUuid(), vrf_name_, tag_);
-    }
-
-    if (vrf_.get() != vrf) {
-        interface->ServiceVlanRouteDel(*this);
-        vrf_ = vrf;
-        installed_ = false;
     }
 
     if (!interface->ipv4_active() && !interface->ipv6_active() &&
@@ -4997,6 +4997,7 @@ void VmInterface::ServiceVlanList::Insert(const ServiceVlan *rhs) {
 
 void VmInterface::ServiceVlanList::Update(const ServiceVlan *lhs,
                                           const ServiceVlan *rhs) {
+    lhs->vrf_name_ = rhs->vrf_name_;
     lhs->set_del_pending(false);
 }
 
