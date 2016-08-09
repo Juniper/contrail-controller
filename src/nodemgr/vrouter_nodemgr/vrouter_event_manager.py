@@ -144,3 +144,6 @@ class VrouterEventManager(EventManager):
                 self.lb_stats.send_loadbalancer_stats()
 
             self.listener_nodemgr.ok(self.stdout)
+
+    def get_package_name(self):
+        return self.node_type + '-common'

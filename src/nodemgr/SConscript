@@ -21,7 +21,8 @@ for file in setup_sources:
 
 local_sources = [
            '__init__.py',
-           'main.py'
+           'main.py',
+           'utils.py'
           ]
 
 local_sources_rules = []
@@ -86,7 +87,6 @@ for file in common_sources:
 cpuinfo_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'nodemgr/common/sandesh/nodeinfo/', False)
 process_info_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'nodemgr/common/sandesh/nodeinfo/', False)
 nodeinfo_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/nodeinfo.sandesh', 'nodemgr/common/sandesh/', False)
-
 
 rel_path = Dir('nodemgr/common').path
 def BuildInfoAction(target, source, env):
