@@ -134,6 +134,7 @@ class AuthServiceKeystone(object):
            and args.auth_protocol == 'https':
                certs=[args.certfile, args.keyfile, args.cafile]
                _kscertbundle=cfgmutils.getCertKeyCaBundle(_DEFAULT_KS_CERT_BUNDLE,certs)
+        identity_uri = '%s://%s:%s' % (args.auth_protocol, args.auth_host, args.auth_port)
         self._conf_info = {
             'auth_host': args.auth_host,
             'auth_port': args.auth_port,
@@ -145,10 +146,12 @@ class AuthServiceKeystone(object):
             'max_requests': args.max_requests,
             'region_name': args.region_name,
             'insecure':args.insecure,
+            'identity_uri': identity_uri,
         }
         try:
             if 'v3' in args.auth_url:
                 self._conf_info['auth_version'] = 'v3.0'
+            self._conf_info['auth_uri'] = args.auth_url
         except AttributeError:
             pass
         if _kscertbundle:
