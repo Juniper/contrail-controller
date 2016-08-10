@@ -89,7 +89,7 @@ class DeviceConfig(object):
     def get_vnc(usr, passwd, tenant, api_servers, auth_host=None,
             auth_port=None, auth_protocol=None, notifycb=None):
         e = IOError('Api servers (%s) not reachable' % ','.join(api_servers))
-        for rt in (5, 2, 7, 9, 16, 25):
+        while True:
           for api_server in api_servers:
             srv = api_server.split(':')
             if len(srv) == 2:
@@ -108,19 +108,26 @@ class DeviceConfig(object):
                 if callable(notifycb):
                     notifycb('api', 'Not connected', servers=api_server,
                             up=False)
-                time.sleep(rt)
-        raise e
+                time.sleep(3)
 
     @staticmethod
     def fom_api_server(api_servers, usr, passwd, tenant, auth_host=None,
             auth_port=None, auth_protocol=None, notifycb=None):
-        vnc = DeviceConfig.get_vnc(usr, passwd, tenant, api_servers,
-                auth_host=auth_host, auth_port=auth_port,
-                auth_protocol=auth_protocol, notifycb=notifycb)
-        devices = map(lambda e: DeviceDict(e['fq_name'][-1], vnc, **e),
-                                           vnc.physical_routers_list()[
-                        'physical-routers'])
-        return devices
+        while True:
+            try:
+                vnc = DeviceConfig.get_vnc(usr, passwd, tenant, api_servers,
+                        auth_host=auth_host, auth_port=auth_port,
+                        auth_protocol=auth_protocol, notifycb=notifycb)
+                devices = map(lambda e: DeviceDict(e['fq_name'][-1], vnc, **e),
+                                                   vnc.physical_routers_list()[
+                                'physical-routers'])
+                return devices
+            except Exception as e:
+                traceback.print_exc()
+                if callable(notifycb):
+                    notifycb('api', 'Not connected', servers=','.join(
+                             api_servers), up=False)
+                time.sleep(3)
 
     @staticmethod
     def populate_cfg(devicelist):
