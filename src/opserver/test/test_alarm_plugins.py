@@ -33,6 +33,7 @@ from alarm_storage.main import StorageClusterState
 from alarm_disk_usage.main import DiskUsage
 from alarm_phyif_bandwidth.main import PhyifBandwidth
 from alarm_node_status.main import NodeStatus
+from alarm_core_files.main import CoreFiles
 
 
 logging.basicConfig(level=logging.DEBUG,
@@ -1412,6 +1413,75 @@ class TestAlarmPlugins(unittest.TestCase):
         ]
         self._verify(NodeStatus(), tests)
     # end test_alarm_node_status
+
+    def test_alarm_core_files(self):
+        tests = [
+            TestCase(
+                name='NodeStatus == null',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={}),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='NodeStatus.all_core_file_list == null',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={
+                        'NodeStatus': {
+                            'all_core_file_list':'[]'
+                        },
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            ('NodeStatus.all_core_file_list != null',
+                             None, [('[]', None, None)]
+                            )
+                        ]
+                    }
+                ])
+            ),
+            TestCase(
+                name='NodeStatus.all_core_file_list != null',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={
+                        'NodeStatus': {
+                            'all_core_file_list': ['core-file1']
+                        },
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            ('NodeStatus.all_core_file_list != null',
+                             None, [('["core-file1"]', None, None)]
+                            )
+                        ]
+                    }
+                ])
+            ),
+            TestCase(
+                name='NodeStatus.all_core_file_list != null',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={
+                        'NodeStatus': {
+                            'all_core_file_list': ['core-file1', 'core-file2', 'core-file3']
+                        },
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            ('NodeStatus.all_core_file_list != null',
+                             None, [('["core-file1", "core-file2", "core-file3"]', None, None)]
+                            )
+                        ]
+                    }
+                ])
+            ),
+        ]
+        self._verify(CoreFiles(), tests)
+    # end test_alarm_core_files
 
     def _verify(self, plugin, tests):
         for test in tests:
