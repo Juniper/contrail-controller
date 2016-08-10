@@ -1025,9 +1025,9 @@ TEST_F(CfgTest, EcmpNH_20) {
     CreateVmportWithEcmp(input, 2);
     client->WaitForIdle();
 
-    AddServiceInstanceIp("instance1", 100, "1.1.1.10", false);
+    AddServiceInstanceIp("instance1", 100, "1.1.1.10", false, NULL);
     AddLink("virtual-machine-interface", "vnet1", "instance-ip", "instance1");
-    AddServiceInstanceIp("instance2", 101, "1.1.1.10", false);
+    AddServiceInstanceIp("instance2", 101, "1.1.1.10", false, NULL);
     AddLink("virtual-machine-interface", "vnet2", "instance-ip", "instance2");
     client->WaitForIdle();
 
@@ -1036,15 +1036,15 @@ TEST_F(CfgTest, EcmpNH_20) {
     EXPECT_TRUE(rt != NULL);
     EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
 
-    AddServiceInstanceIp("instance1", 100, "1.1.1.10", true);
+    AddServiceInstanceIp("instance1", 100, "1.1.1.10", true, NULL);
     client->WaitForIdle();
     EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
 
-    AddServiceInstanceIp("instance2", 101, "1.1.1.10", true);
+    AddServiceInstanceIp("instance2", 101, "1.1.1.10", true, NULL);
     client->WaitForIdle();
     EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
 
-    AddServiceInstanceIp("instance2", 101, "1.1.1.10", false);
+    AddServiceInstanceIp("instance2", 101, "1.1.1.10", false, NULL);
     client->WaitForIdle();
     EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
 

@@ -377,7 +377,7 @@ public:
         InstanceIp(const InstanceIp &rhs);
         InstanceIp(const IpAddress &ip, uint8_t plen, bool ecmp,
                    bool is_primary, bool is_service_health_check_ip,
-                   bool is_local);
+                   bool is_local, const IpAddress &tracking_ip);
         ~InstanceIp();
         bool operator == (const InstanceIp &rhs) const;
         bool operator() (const InstanceIp &lhs,
@@ -413,6 +413,8 @@ public:
         mutable bool is_primary_;
         mutable bool is_service_health_check_ip_;
         mutable bool is_local_;
+        mutable IpAddress old_tracking_ip_;
+        mutable IpAddress tracking_ip_;
     };
     typedef std::set<InstanceIp, InstanceIp> InstanceIpSet;
 
