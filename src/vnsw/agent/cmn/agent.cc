@@ -146,7 +146,7 @@ void Agent::SetAgentTaskPolicy() {
         AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME,
         AGENT_SANDESH_TASKNAME,
-        kTaskConfigManager
+        kTaskConfigManager,
         INSTANCE_MANAGER_TASK_NAME
     };
     SetTaskPolicyOne("db::DBTable", db_exclude_list, 
