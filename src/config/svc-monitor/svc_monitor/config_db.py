@@ -662,6 +662,7 @@ class VirtualNetworkSM(DBBaseSM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
+        self.instance_ips = set()
         obj_dict = self.update(obj_dict)
         self.add_to_parent(obj_dict)
     # end __init__
@@ -672,6 +673,7 @@ class VirtualNetworkSM(DBBaseSM):
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
         self.update_multiple_refs('virtual_machine_interface', obj)
+        self.update_multiple_refs('instance_ip', obj)
         return obj
     # end update
 
@@ -681,6 +683,7 @@ class VirtualNetworkSM(DBBaseSM):
             return
         obj = cls._dict[uuid]
         obj.update_multiple_refs('virtual_machine_interface', {})
+        obj.update_multiple_refs('instance_ip', {})
         obj.remove_from_parent()
         del cls._dict[uuid]
     # end delete
@@ -747,6 +750,7 @@ class InstanceIpSM(DBBaseSM):
         self.instance_ip_secondary = None
         self.secondary_tracking_ip = None
         self.virtual_machine_interfaces = set()
+        self.virtual_networks = set()
         self.update(obj_dict)
     # end __init__
 
@@ -762,6 +766,7 @@ class InstanceIpSM(DBBaseSM):
         self.family = obj.get('instance_ip_family', 'v4')
         self.address = obj.get('instance_ip_address', None)
         self.update_multiple_refs('virtual_machine_interface', obj)
+        self.update_multiple_refs('virtual_network', obj)
         self.update_single_ref('service_instance', obj)
     # end update
 
@@ -772,6 +777,7 @@ class InstanceIpSM(DBBaseSM):
         obj = cls._dict[uuid]
         obj.update_single_ref('service_instance', {})
         obj.update_multiple_refs('virtual_machine_interface', {})
+        obj.update_multiple_refs('virtual_network', {})
         del cls._dict[uuid]
     # end delete
 
