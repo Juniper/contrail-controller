@@ -33,6 +33,7 @@ from alarm_storage.main import StorageClusterState
 from alarm_disk_usage.main import DiskUsage
 from alarm_phyif_bandwidth.main import PhyifBandwidth
 from alarm_node_status.main import NodeStatus
+from alarm_pending_compaction_tasks.main import PendingCompactionTasks
 
 
 logging.basicConfig(level=logging.DEBUG,
@@ -1412,6 +1413,88 @@ class TestAlarmPlugins(unittest.TestCase):
         ]
         self._verify(NodeStatus(), tests)
     # end test_alarm_node_status
+
+    def test_alarm_pending_compaction_tasks(self):
+        tests = [
+            TestCase(
+                name='CassandraStatusData == null',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={}),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='CassandraStatusData.cassandra_compaction_task == null',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={
+                        'CassandraStatusData': {}
+                    }
+                ),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='CassandraStatusData.cassandra_compaction_task.pending_compaction_tasks < threshold',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={
+                        'CassandraStatusData': {
+                            'cassandra_compaction_task': [
+                                {
+                                    'pending_compaction_tasks': 10,
+                                }
+                            ]
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='CassandraStatusData.cassandra_compaction_task.pending_compaction_tasks == threshold',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={
+                        'CassandraStatusData': {
+                            'cassandra_compaction_task': [
+                                {
+                                    'pending_compaction_tasks': '100',
+                                }
+                            ]
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            ('CassandraStatusData.cassandra_compaction_task.pending_compaction_tasks >= 100',
+                             None, [('100', None, None)]
+                            )
+                        ]
+                    }
+                ])
+            ),
+            TestCase(
+                name='CassandraStatusData.cassandra_compaction_task.pending_compaction_tasks > threshold',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={
+                        'CassandraStatusData': {
+                            'cassandra_compaction_task': [
+                                {
+                                    'pending_compaction_tasks': '120',
+                                }
+                            ]
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            ('CassandraStatusData.cassandra_compaction_task.pending_compaction_tasks >= 100',
+                             None, [('120', None, None)]
+                            )
+                        ]
+                    }
+                ])
+            ),
+        ]
+        self._verify(PendingCompactionTasks(), tests)
+    # end test_alarm_pending_compaction_tasks
 
     def _verify(self, plugin, tests):
         for test in tests:
