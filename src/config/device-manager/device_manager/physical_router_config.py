@@ -594,6 +594,7 @@ class PhysicalRouterConfig(object):
                 "outside-service-interface").text = interfaces[1].name
 
             nat = etree.SubElement(services_config, "nat")
+            etree.SubElement(nat, "allow-overlapping-nat-pools")
             snat_rule = etree.SubElement(nat, "rule")
             etree.SubElement(
                 snat_rule, "name").text = service_name + "-sn-rule"
