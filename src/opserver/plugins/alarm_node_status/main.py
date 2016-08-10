@@ -12,7 +12,9 @@ class NodeStatus(AlarmBase):
                     {
                         'operand1': 'NodeStatus',
                         'operation': '==',
-                        'operand2': 'null'
+                        'operand2': {
+                            'json_value': 'null'
+                        }
                     }
                 ]
             }
@@ -20,4 +22,4 @@ class NodeStatus(AlarmBase):
     }
 
     def __init__(self):
-        AlarmBase.__init__(self, AlarmBase.SYS_CRIT)
+        AlarmBase.__init__(self, AlarmBase.ALARM_CRITICAL)

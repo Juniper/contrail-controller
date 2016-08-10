@@ -17,11 +17,16 @@
     </xsd:restriction>
 </xsd:simpleType>
 
+<xsd:complexType name="AlarmOperand2">
+    <xsd:element name="uve_attribute" type="xsd:string" required="exclusive" description="UVE attribute specified in the dotted format. Example: NodeStatus.process_info.process_state"/>
+    <xsd:element name="json_value" type="xsd:string" required="exclusive" description="json value as string"/>
+</xsd:complexType>
+
 <xsd:complexType name="AlarmExpression">
     <xsd:all>
         <xsd:element name="operation" type="AlarmOperation" required="true" description="operation to compare operand1 and operand2"/>
         <xsd:element name="operand1" type="xsd:string" required="true" description="UVE attribute specified in the dotted format. Example: NodeStatus.process_info.process_state"/>
-        <xsd:element name="operand2" type="xsd:string" required="true" description="UVE attribute or a json value to compare with the UVE attribute in operand1. null value can be specified to check if operand1 exists using the operator != or =="/>
+        <xsd:element name="operand2" type="AlarmOperand2" required="true" description="UVE attribute or a json value to compare with the UVE attribute in operand1"/>
         <xsd:element name="variables" type="xsd:string" required="optional" maxOccurs="unbounded" description="List of UVE attributes that would be useful when the alarm is raised. For example, user may want to raise an alarm if the NodeStatus.process_info.process_state != PROCESS_STATE_RUNNING. But, it would be useful to know the process_name whose state != PROCESS_STATE_RUNNING. This UVE attribute which is neither part of operand1 nor operand2 may be specified in variables"/>
     </xsd:all>
 </xsd:complexType>
@@ -39,9 +44,9 @@
 </xsd:complexType>
 
 <xsd:simpleType name="AlarmSeverity">
-    <xsd:restriction base="xsd:integer" required="true" description="value 0 denotes highest severity and 7 denotes the lowest severity level">
+    <xsd:restriction base="xsd:integer" required="true" description="0 - CRITICAL, 1 - MAJOR and 2 - MINOR">
         <xsd:minInclusive value="0"/>
-        <xsd:maxInclusive value="7"/>
+        <xsd:maxInclusive value="2"/>
     </xsd:restriction>
 </xsd:simpleType>
 

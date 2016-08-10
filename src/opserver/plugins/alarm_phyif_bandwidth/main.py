@@ -7,7 +7,7 @@ class PhyifBandwidth(AlarmBase):
        Physical Bandwidth usage anomaly as per VrouterStatsAgent.out_bps_ewm or VrouterStatsAgent.in_bps_ewm"""
 
     def __init__(self):
-        AlarmBase.__init__(self, AlarmBase.SYS_WARN)
+        AlarmBase.__init__(self, AlarmBase.ALARM_MINOR)
 
     def checkbw(self, stat, sname, vname, thresh):
         alm = []
@@ -16,24 +16,26 @@ class PhyifBandwidth(AlarmBase):
         for k,val in stat.iteritems(): 
             if val["sigma"] >= thresh:
                 match_list_o.append(AlarmMatch(json_operand1_value=json.dumps(
-                    val["sigma"]), json_vars={
+                    val["sigma"]), json_variables={
                     vname:json.dumps(k)}))
             if val["sigma"] <= (-thresh):
                 match_list_u.append(AlarmMatch(json_operand1_value=json.dumps(
-                    val["sigma"]), json_vars={
+                    val["sigma"]), json_variables={
                     vname:json.dumps(k)}))
 
         if len(match_list_o):
             alm.append(AlarmAndList(and_list=[AlarmConditionMatch(
                 condition=AlarmCondition(operation=">=",
-                    operand1=sname, operand2=json.dumps(thresh),
-                    vars=[vname]),
+                    operand1=sname, operand2=AlarmOperand2(
+                        json_value=json.dumps(thresh)),
+                    variables=[vname]),
                 match=match_list_o)]))
         if len(match_list_u):
             alm.append(AlarmAndList(and_list=[AlarmConditionMatch(
                 condition=AlarmCondition(operation="<=",
-                    operand1=sname, operand2=json.dumps(-thresh),
-                    vars=[vname]),
+                    operand1=sname, operand2=AlarmOperand2(
+                        json_value=json.dumps(-thresh)),
+                    variables=[vname]),
                 match=match_list_u)]))
         return alm
  

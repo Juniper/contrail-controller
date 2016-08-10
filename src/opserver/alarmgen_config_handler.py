@@ -7,7 +7,7 @@ import socket
 
 from vnc_api.gen.resource_client import Alarm
 from vnc_api.gen.resource_xsd import IdPermsType, AlarmExpression, \
-    AlarmAndList, AlarmOrList, UveKeysType
+    AlarmOperand2, AlarmAndList, AlarmOrList, UveKeysType
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from config_handler import ConfigHandler
 from opserver_util import camel_case_to_hyphen, inverse_dict
@@ -102,7 +102,10 @@ class AlarmGenConfigHandler(ConfigHandler):
                                 alarm_and_list.append(AlarmExpression(
                                     operation=exp['operation'],
                                     operand1=exp['operand1'],
-                                    operand2=exp['operand2'],
+                                    operand2=AlarmOperand2(uve_attribute=
+                                        exp['operand2'].get('uve_attribute'),
+                                        json_value=exp['operand2'].get(
+                                            'json_value')),
                                     variables=exp.get('variables')))
                             alarm_or_list.append(AlarmAndList(alarm_and_list))
                     desc = ' '.join([l.strip() \

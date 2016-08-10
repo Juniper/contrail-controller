@@ -79,7 +79,7 @@ class TestAlarmGenConfigHandler(unittest.TestCase):
             {
                 'name': 'alarm1',
                 'uve_keys': ['analytics-node', 'control-node'],
-                'alarm_severity': 3,
+                'alarm_severity': AlarmBase.ALARM_CRITICAL,
                 'alarm_rules': {
                     'or_list': [
                         {
@@ -103,7 +103,7 @@ class TestAlarmGenConfigHandler(unittest.TestCase):
             {
                 'name': 'alarm1',
                 'uve_keys': ['invalid', 'control-node', 'config-node'],
-                'alarm_severity': 3,
+                'alarm_severity': AlarmBase.ALARM_CRITICAL,
                 'alarm_rules': {
                     'or_list': [
                         {
@@ -127,7 +127,7 @@ class TestAlarmGenConfigHandler(unittest.TestCase):
             {
                 'name': 'alarm1',
                 'uve_keys': ['virtual-network', 'invalid'],
-                'alarm_severity': 4,
+                'alarm_severity': AlarmBase.ALARM_MINOR,
                 'alarm_rules': {
                     'or_list': [
                         {
@@ -151,7 +151,7 @@ class TestAlarmGenConfigHandler(unittest.TestCase):
             {
                 'name': 'alarm1',
                 'uve_keys': ['virtual-network'],
-                'alarm_severity': 4,
+                'alarm_severity': AlarmBase.ALARM_MINOR,
                 'alarm_rules': {
                     'or_list': [
                         {
@@ -175,7 +175,7 @@ class TestAlarmGenConfigHandler(unittest.TestCase):
             {
                 'name': 'alarm1',
                 'uve_keys': ['virtual-network'],
-                'alarm_severity': 4,
+                'alarm_severity': AlarmBase.ALARM_MAJOR,
                 'alarm_rules': {
                     'or_list': [
                         {

@@ -12,7 +12,9 @@ class ProcessConnectivity(AlarmBase):
                     {
                         'operand1': 'NodeStatus.process_status',
                         'operation': '==',
-                        'operand2': 'null'
+                        'operand2': {
+                            'json_value': 'null'
+                        }
                     }
                 ]
             },
@@ -21,7 +23,9 @@ class ProcessConnectivity(AlarmBase):
                     {
                         'operand1': 'NodeStatus.process_status.state',
                         'operation': '!=',
-                        'operand2': '"Functional"',
+                        'operand2': {
+                            'json_value': '"Functional"'
+                        },
                         'variables': ['NodeStatus.process_status.module_id',
                             'NodeStatus.process_status.instance_id']
                     }
@@ -31,4 +35,4 @@ class ProcessConnectivity(AlarmBase):
     }
 
     def __init__(self):
-        AlarmBase.__init__(self, AlarmBase.SYS_ERR)
+        AlarmBase.__init__(self, AlarmBase.ALARM_CRITICAL)

@@ -12,7 +12,9 @@ class ProcessStatus(AlarmBase):
                     {
                         'operand1': 'NodeStatus.process_info',
                         'operation': '==',
-                        'operand2': 'null'
+                        'operand2': {
+                            'json_value': 'null'
+                        }
                     }
                 ]
             },
@@ -21,7 +23,9 @@ class ProcessStatus(AlarmBase):
                     {
                         'operand1': 'NodeStatus.process_info.process_state',
                         'operation': '!=',
-                        'operand2': '"PROCESS_STATE_RUNNING"',
+                        'operand2': {
+                            'json_value': '"PROCESS_STATE_RUNNING"'
+                        },
                         'variables': ['NodeStatus.process_info.process_name']
                     }
                 ]
@@ -30,5 +34,5 @@ class ProcessStatus(AlarmBase):
     }
 
     def __init__(self):
-	AlarmBase.__init__(self, AlarmBase.SYS_ERR, at=10, it=10, fec=True,
+	AlarmBase.__init__(self, AlarmBase.ALARM_CRITICAL, at=10, it=10, fec=True,
                 fcs=300, fct=4)

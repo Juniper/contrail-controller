@@ -369,7 +369,9 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                 "condition": {
                     "operation": "==",
                     "operand1": "ObjectVRouter.build_info",
-                    "operand2": "null"
+                    "operand2": {
+                        "json_value": "null"
+                    }
                 },
                 "match": [{"json_operand1_value": "null"}]
             }]}]
@@ -474,8 +476,6 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         # send process state alarm for analytics-node
         alarms = alarm_gen1.create_process_state_alarm(
                     'contrail-query-engine')
-        alarms += alarm_gen1.create_process_state_alarm(
-                    'contrail-snmp-collector')
         alarm_gen1.send_alarm(socket.gethostname()+'_1', alarms,
                               COLLECTOR_INFO_TABLE)
         analytics_tbl = _OBJECT_TABLES[COLLECTOR_INFO_TABLE].log_query_name
