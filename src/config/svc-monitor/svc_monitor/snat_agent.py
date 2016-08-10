@@ -183,6 +183,38 @@ class SNATAgent(Agent):
         self._vnc_lib.logical_router_update(vnc_rtr_obj)
     # end add_snat_instance
 
+    def delete_snat_vn(self, si_obj):
+        vn_name = '%s_%s' % (svc_info.get_snat_left_vn_prefix(),
+                             si_obj.name)
+        vn_fq_name = si_obj.fq_name[:-1] + [vn_name]
+        try:
+            vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn_fq_name)
+        except NoIdError:
+            return
+
+        vn = VirtualNetworkSM.get(vn_obj.uuid)
+        if not vn:
+            return
+
+        for vmi_id in vn.virtual_machine_interfaces:
+            try:
+                self._vnc_lib.ref_update('virtual-machine-interface',
+                    vmi_id, 'virtual-network', vn.uuid, None, 'DELETE')
+            except NoIdError:
+                pass
+
+        for iip_id in vn.instance_ips:
+            try:
+                self._vnc_lib.ref_update('instance-ip',
+                    iip_id, 'virtual-network', vn.uuid, None, 'DELETE')
+            except NoIdError:
+                pass
+
+        try:
+            self._vnc_lib.virtual_network_delete(id=vn.uuid)
+        except (RefsExistError, NoIdError):
+            pass
+
     def delete_snat_instance(self, router_obj):
         try:
             vnc_rtr_obj = self._vnc_lib.logical_router_read(id=router_obj.uuid)
@@ -219,16 +251,11 @@ class SNATAgent(Agent):
         if not si_obj:
             return
 
-        self._vnc_lib.service_instance_delete(id=si_uuid)
-
         # Delete left network
-        vn_name = '%s_%s' % (svc_info.get_snat_left_vn_prefix(),
-                             si_obj.name)
-        vn_fq_name = si_obj.fq_name[:-1] + [vn_name]
-        try:
-            self._vnc_lib.virtual_network_delete(fq_name=vn_fq_name)
-        except (RefsExistError, NoIdError):
-            pass
+        self.delete_snat_vn(si_obj)
+
+        # Delete service instance
+        self._vnc_lib.service_instance_delete(id=si_uuid)
     # end delete_snat_instance
 
     def cleanup_snat_instance(self, lr_id, si_id):
