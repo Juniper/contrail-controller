@@ -1244,7 +1244,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
     # end dbe_create_notification
 
     @classmethod
-    def dbe_update_notification(cls, obj_ids, new_obj_dict):
+    def dbe_update_notification(cls, obj_ids):
         cls.addr_mgmt.net_update_notify(obj_ids)
     # end dbe_update_notification
 
