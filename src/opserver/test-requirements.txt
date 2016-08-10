@@ -38,3 +38,5 @@ kombu==3.0.9
 ../opserver/plugins/alarm_phyif_bandwidth/dist/alarm_phyif_bandwidth-0.1dev.tar.gz
 ../opserver/plugins/alarm_xmpp_connectivity/dist/alarm_xmpp_connectivity-0.1dev.tar.gz
 ../opserver/plugins/alarm_node_status/dist/alarm_node_status-0.1dev.tar.gz
+../opserver/plugins/alarm_core_files/dist/alarm_core_files-0.1dev.tar.gz
+../opserver/plugins/alarm_pending_cassandra_compaction_tasks/dist/alarm_pending_cassandra_compaction_tasks-0.1dev.tar.gz

@@ -33,6 +33,8 @@ from alarm_storage.main import StorageClusterState
 from alarm_disk_usage.main import DiskUsage
 from alarm_phyif_bandwidth.main import PhyifBandwidth
 from alarm_node_status.main import NodeStatus
+from alarm_core_files.main import CoreFiles
+from alarm_pending_cassandra_compaction_tasks.main import PendingCassandraCompactionTasks
 
 
 logging.basicConfig(level=logging.DEBUG,
@@ -1412,6 +1414,163 @@ class TestAlarmPlugins(unittest.TestCase):
         ]
         self._verify(NodeStatus(), tests)
     # end test_alarm_node_status
+
+    def test_alarm_core_files(self):
+        tests = [
+            TestCase(
+                name='NodeStatus == null',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={}),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='NodeStatus.all_core_file_list == []',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={
+                        'NodeStatus': {
+                            'all_core_file_list': []
+                        },
+                    }
+                ),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='NodeStatus.all_core_file_list != null 1 core',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={
+                        'NodeStatus': {
+                            'all_core_file_list': ['core-file1']
+                        },
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            ('NodeStatus.all_core_file_list != null',
+                             None, [('["core-file1"]', None, None)]
+                            ),
+                            ('NodeStatus.all_core_file_list size!= 0',
+                             None, [('["core-file1"]', None, None)]
+                            )
+                        ]
+                    }
+                ])
+            ),
+            TestCase(
+                name='NodeStatus.all_core_file_list != null 3 cores',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={
+                        'NodeStatus': {
+                            'all_core_file_list': ['core-file1', 'core-file2', \
+                                                   'core-file3']
+                        },
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            ('NodeStatus.all_core_file_list != null',
+                             None,[('["core-file1", "core-file2", "core-file3"]',\
+                                    None, None)]
+                            ),
+                            ('NodeStatus.all_core_file_list size!= 0',
+                             None,[('["core-file1", "core-file2", "core-file3"]',\
+                                    None, None)]
+                            )
+                        ]
+                    }
+                ])
+            ),
+        ]
+        self._verify(CoreFiles(), tests)
+    # end test_alarm_core_files
+
+    def test_alarm_pending_cassandra_compaction_tasks(self):
+        tests = [
+            TestCase(
+                name='CassandraStatusData == null',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={}),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='CassandraStatusData.cassandra_compaction_task == null',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={
+                        'CassandraStatusData': {}
+                    }
+                ),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='CassandraStatusData.cassandra_compaction_task.' +\
+                     'pending_compaction_tasks < threshold',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={
+                        'CassandraStatusData': {
+                            'cassandra_compaction_task': [
+                                {
+                                    'pending_compaction_tasks': 10,
+                                }
+                            ]
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='CassandraStatusData.cassandra_compaction_task.' +\
+                     'pending_compaction_tasks == threshold',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={
+                        'CassandraStatusData': {
+                            'cassandra_compaction_task': [
+                                {
+                                    'pending_compaction_tasks': '300',
+                                }
+                            ]
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            ('CassandraStatusData.cassandra_compaction_task.'\
+                             'pending_compaction_tasks >= 300',
+                             None, [('300', None, None)]
+                            )
+                        ]
+                    }
+                ])
+            ),
+            TestCase(
+                name='CassandraStatusData.cassandra_compaction_task.' +\
+                     'pending_compaction_tasks > threshold',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={
+                        'CassandraStatusData': {
+                            'cassandra_compaction_task': [
+                                {
+                                    'pending_compaction_tasks': '320',
+                                }
+                            ]
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            ('CassandraStatusData.cassandra_compaction_task.'\
+                             'pending_compaction_tasks >= 300',
+                             None, [('320', None, None)]
+                            )
+                        ]
+                    }
+                ])
+            ),
+        ]
+        self._verify(PendingCassandraCompactionTasks(), tests)
+    # end test_alarm_pending_cassandra_compaction_tasks
 
     def _verify(self, plugin, tests):
         for test in tests:
