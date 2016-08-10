@@ -33,7 +33,7 @@ SFlowGenerator::SFlowGenerator(const std::string& ip_address,
 SFlowGenerator::~SFlowGenerator() {
 }
 
-bool SFlowGenerator::EnqueueSFlowPacket(boost::asio::const_buffer& buffer,
+bool SFlowGenerator::EnqueueSFlowPacket(const boost::asio::const_buffer& buffer,
                                         size_t length, uint64_t timestamp) {
     num_packets_++;
     time_last_pkt_seen_ = timestamp;

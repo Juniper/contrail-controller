@@ -24,11 +24,11 @@ public:
     virtual void Shutdown();
 
 private:
-    void HandleReceive(boost::asio::const_buffer& buffer,
+    void HandleReceive(const boost::asio::const_buffer& buffer,
                        boost::asio::ip::udp::endpoint remote_endpoint,
                        size_t bytes_transferred,
                        const boost::system::error_code& error);
-    void ProcessSFlowPacket(boost::asio::const_buffer& buffer,
+    void ProcessSFlowPacket(const boost::asio::const_buffer& buffer,
                             size_t length,
                             const std::string& generator_ip);
     SFlowGenerator* GetSFlowGenerator(const std::string& generator_ip);

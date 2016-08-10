@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef IO_UDP_SERVER_H_
-#define IO_UDP_SERVER_H_
+#ifndef SRC_IO_UDP_SERVER_H_
+#define SRC_IO_UDP_SERVER_H_
 
 #include <string>
 #include <vector>
@@ -16,7 +16,7 @@
 class SocketIOStats;
 
 class UdpServer {
- public:
+public:
     enum ServerState {
         OK = 42,
         Uninitialized,
@@ -48,22 +48,22 @@ class UdpServer {
     // buffers
     boost::asio::mutable_buffer AllocateBuffer();
     boost::asio::mutable_buffer AllocateBuffer(std::size_t s);
-    void DeallocateBuffer(boost::asio::const_buffer &buffer);
+    void DeallocateBuffer(const boost::asio::const_buffer &buffer);
     // statistics
     const io::SocketStats &GetSocketStats() const { return stats_; }
-    void GetRxSocketStats(SocketIOStats &socket_stats) const;
-    void GetTxSocketStats(SocketIOStats &socket_stats) const;
+    void GetRxSocketStats(SocketIOStats *socket_stats) const;
+    void GetTxSocketStats(SocketIOStats *socket_stats) const;
 
- protected:
+protected:
     EventManager *event_manager() { return evm_; }
     virtual bool DisableSandeshLogMessages() { return false; }
     virtual std::string ToString() { return name_; }
     virtual void HandleReceive(
-            boost::asio::const_buffer &recv_buffer,
+            const boost::asio::const_buffer &recv_buffer,
             boost::asio::ip::udp::endpoint remote_endpoint,
             std::size_t bytes_transferred,
             const boost::system::error_code& error);
-    virtual void OnRead(boost::asio::const_buffer &recv_buffer,
+    virtual void OnRead(const boost::asio::const_buffer &recv_buffer,
         const boost::asio::ip::udp::endpoint &remote_endpoint);
     virtual int reader_task_id() const {
         return reader_task_id_;
@@ -84,7 +84,7 @@ class UdpServer {
             std::size_t bytes_transferred,
             const boost::system::error_code& error);
 
- private:
+private:
     class Reader;
     friend void intrusive_ptr_add_ref(UdpServer *server);
     friend void intrusive_ptr_release(UdpServer *server);
@@ -135,4 +135,4 @@ private:
     static ServerManager<UdpServer, UdpServerPtr> impl_;
 };
 
-#endif  // IO_UDP_SERVER_H_
+#endif  // SRC_IO_UDP_SERVER_H_

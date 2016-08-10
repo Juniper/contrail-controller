@@ -63,7 +63,7 @@ class SyslogTcpSession : public TcpSession
     typedef boost::intrusive_ptr<SyslogTcpSession> SyslogTcpSessionPtr;
 
     SyslogTcpSession (SyslogTcpListener *server, Socket *socket);
-    virtual void OnRead (boost::asio::const_buffer buf);
+    virtual void OnRead (const boost::asio::const_buffer buf);
 };
 
 class TCPSyslogQueueEntry : public SyslogQueueEntry
@@ -91,7 +91,7 @@ class UDPSyslogQueueEntry : public SyslogQueueEntry
     public:
 
     UDPSyslogQueueEntry (SyslogUDPListener* svr, udp::endpoint ep,
-            boost::asio::const_buffer &d, size_t l):
+            const boost::asio::const_buffer &d, size_t l):
         SyslogQueueEntry (d, l, ep.address ().to_string (), ep.port ()),
         ep_ (ep), b_(d), server_ (svr)
     {
@@ -612,7 +612,7 @@ void SyslogUDPListener::Start (std::string ipaddress, int port)
 }
 
 void SyslogUDPListener::HandleReceive (
-            boost::asio::const_buffer &recv_buffer,
+            const boost::asio::const_buffer &recv_buffer,
             udp::endpoint remote_endpoint,
             std::size_t bytes_transferred,
             const boost::system::error_code& error)
@@ -705,7 +705,7 @@ SyslogTcpSession::SyslogTcpSession (SyslogTcpListener *server, Socket *socket) :
           //set_observer(boost::bind(&SyslogTcpSession::OnEvent, this, _1, _2));
 }
 void
-SyslogTcpSession::OnRead (boost::asio::const_buffer buf)
+SyslogTcpSession::OnRead (const boost::asio::const_buffer buf)
 {
     boost::system::error_code ec;
     // TODO: handle error

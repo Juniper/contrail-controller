@@ -45,13 +45,13 @@ private:
     std::map<std::string,std::string> uflowfields_;
     boost::scoped_ptr<ipfix_col_info> colinfo_;
 
-    void HandleReceive(boost::asio::const_buffer& buffer,
+    void HandleReceive(const boost::asio::const_buffer& buffer,
                        boost::asio::ip::udp::endpoint remote_endpoint,
                        size_t bytes_transferred,
                        const boost::system::error_code& error);
-    void ProcessIpfixPacket(boost::asio::const_buffer& buffer,
-                                    size_t length,
-                                    boost::asio::ip::udp::endpoint generator_ip);
+    void ProcessIpfixPacket(const boost::asio::const_buffer& buffer,
+                            size_t length,
+                            boost::asio::ip::udp::endpoint generator_ip);
 
     int RegisterCb(void);
 

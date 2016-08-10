@@ -28,7 +28,7 @@ public:
                             SFlowCollector* sflow_collector,
                             DbHandlerPtr db_handler);
     ~SFlowGenerator();
-    bool EnqueueSFlowPacket(boost::asio::const_buffer& buffer,
+    bool EnqueueSFlowPacket(const boost::asio::const_buffer& buffer,
                             size_t length, uint64_t timestamp);
 private:
     bool ProcessSFlowPacket(boost::shared_ptr<SFlowQueueEntry>);
