@@ -118,7 +118,6 @@ public:
     void UpdateFloatingIpStats(const FlowEntry *flow, uint64_t bytes,
                                uint64_t pkts);
     void Shutdown();
-    void set_delete_short_flow(bool val) { delete_short_flow_ = val; }
     void AddEvent(const FlowEntryPtr &flow);
     void DeleteEvent(const FlowEntryPtr &flow, const RevFlowDepParams &params);
     void SourceIpOverride(FlowExportInfo *info, FlowLogData &s_flow,
@@ -157,6 +156,7 @@ protected:
     virtual void DispatchFlowMsg(const std::vector<FlowLogData> &lst);
 
 private:
+    uint32_t flow_export_count() const;
     static uint64_t GetCurrentTime();
     void ExportFlowLocked(FlowExportInfo *info, uint64_t diff_bytes,
                           uint64_t diff_pkts, const RevFlowDepParams *params);
@@ -232,9 +232,6 @@ private:
     uint64_t flow_age_time_intvl_;
     // Number of entries pending to be visited
     uint32_t entries_to_visit_;
-    // Should short-flow be deleted immediately?
-    // Value will be set to false for test cases
-    bool delete_short_flow_;
     uint64_t flow_tcp_syn_age_time_;
 
     FlowEntryTree flow_tree_;
