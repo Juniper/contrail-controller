@@ -1655,8 +1655,8 @@ TEST_F(IntfTest, IntfActivateDeactivate_5) {
     InterfaceNHKey bridge_policy_nh_key(intf_key5, true,
                                         InterfaceNHFlags::BRIDGE, mac);
     client->WaitForIdle();
-    EXPECT_FALSE(FindNH(&unicast_nh_key));
-    EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
+    EXPECT_TRUE(FindNH(&unicast_nh_key));
+    EXPECT_TRUE(FindNH(&unicast_policy_nh_key));
     EXPECT_TRUE(FindNH(&bridge_nh_key));
     EXPECT_TRUE(FindNH(&bridge_policy_nh_key));
 
