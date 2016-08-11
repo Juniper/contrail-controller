@@ -60,7 +60,6 @@ public:
             BgpConfigManager::EventType event) {
         server_->global_config()->set_gr_time(system->gr_time());
         server_->global_config()->set_llgr_time(system->llgr_time());
-        server_->global_config()->set_eor_rx_time(system->eor_rx_time());
 
         RoutingInstanceMgr *ri_mgr = server_->routing_instance_mgr();
         RoutingInstance *rti =
@@ -328,6 +327,7 @@ BgpServer::BgpServer(EventManager *evm)
       bgp_identifier_(0),
       hold_time_(0),
       gr_helper_enable_(getenv("GR_HELPER_BGP_ENABLE") != NULL),
+      end_of_rib_timeout_(30),
       lifetime_manager_(BgpObjectFactory::Create<BgpLifetimeManager>(this,
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)),
@@ -503,7 +503,7 @@ uint32_t BgpServer::GetLongLivedGracefulRestartTime() const {
 }
 
 uint32_t BgpServer::GetEndOfRibReceiveTime() const {
-    return global_config_->eor_rx_time();
+    return end_of_rib_timeout_;
 }
 
 uint32_t BgpServer::num_routing_instance() const {

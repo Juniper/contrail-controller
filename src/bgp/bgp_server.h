@@ -248,6 +248,9 @@ public:
     void set_gr_helper_enable(bool gr_helper_enable) {
         gr_helper_enable_ = gr_helper_enable;
     }
+    void set_end_of_rib_timeout(uint32_t end_of_rib_timeout) {
+        end_of_rib_timeout_ = end_of_rib_timeout;
+    }
     bool CollectStats(BgpRouterState *state, bool first) const;
 
 private:
@@ -279,6 +282,7 @@ private:
     boost::dynamic_bitset<> id_bmap_;      // free list.
     uint32_t hold_time_;
     bool gr_helper_enable_;
+    uint32_t end_of_rib_timeout_;
     StaticRouteMgrList srt_manager_list_;
 
     DB db_;
