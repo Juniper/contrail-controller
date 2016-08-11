@@ -7,7 +7,7 @@
 
 #include <map>
 #include <tbb/atomic.h>
-#include <boost/scoped_ptr.hpp>
+#include <boost/shared_ptr.hpp>
 #include <boost/regex.hpp>
 #include "discovery/client/discovery_client.h"
 #include "http/client/vncapi.h"
@@ -70,7 +70,7 @@ class UserDefinedCounters {
 
         Cfg_t config_;
         std::string call_str_;
-        boost::scoped_ptr<VncApi> vnc_;
+        boost::shared_ptr<VncApi> vnc_;
         EventManager *evm_;
         VncApiConfig vnccfg_;
         std::vector<DSResponse> api_svr_list_;
