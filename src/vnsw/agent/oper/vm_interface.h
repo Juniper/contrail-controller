@@ -717,6 +717,7 @@ private:
     friend struct VmInterfaceHealthCheckData;
     friend struct VmInterfaceNewFlowDropData;
 
+    bool IsMetaDataL2Active() const;
     bool IsMetaDataIPActive() const;
     bool IsIpv4Active() const;
     bool PolicyEnabled() const;
