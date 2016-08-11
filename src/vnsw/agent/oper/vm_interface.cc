@@ -1502,26 +1502,7 @@ bool VmInterface::Delete(const DBRequest *req) {
 void VmInterface::UpdateL3MetadataIp(VrfEntry *old_vrf, bool force_update,
                                      bool policy_change,
                                      bool old_metadata_ip_active) {
-    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
-    Agent *agent = table->agent();
     assert(metadata_ip_active_);
-    if (!old_metadata_ip_active) {
-        InterfaceNH::CreateL3VmInterfaceNH(GetUuid(),
-                                           vm_mac_,
-                                           vrf_->GetName());
-        InterfaceNHKey key1(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
-                                              GetUuid(), ""),
-                            true, InterfaceNHFlags::INET4,
-                            vm_mac_);
-        l3_interface_nh_policy_ = static_cast<NextHop *>(agent->
-                      nexthop_table()->FindActiveEntry(&key1));
-        InterfaceNHKey key2(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
-                                              GetUuid(), ""),
-                            false, InterfaceNHFlags::INET4,
-                            vm_mac_);
-        l3_interface_nh_no_policy_ = static_cast<NextHop *>(agent->
-                      nexthop_table()->FindActiveEntry(&key2));
-    }
     UpdateL3TunnelId(force_update, policy_change);
     UpdateMetadataRoute(old_metadata_ip_active, old_vrf);
 }
@@ -1531,12 +1512,6 @@ void VmInterface::DeleteL3MetadataIp(VrfEntry *old_vrf, bool force_update,
                                      bool old_metadata_ip_active,
                                      bool old_need_linklocal_ip) {
     assert(!metadata_ip_active_);
-    if (old_metadata_ip_active) {
-        InterfaceNH::DeleteL3InterfaceNH(GetUuid(),
-                                         vm_mac_);
-        l3_interface_nh_policy_.reset();
-        l3_interface_nh_no_policy_.reset();
-    }
     DeleteL3TunnelId();
     DeleteMetadataRoute(old_metadata_ip_active, old_vrf,
                         old_need_linklocal_ip);
@@ -1725,18 +1700,31 @@ void VmInterface::ApplyConfigCommon(const VrfEntry *old_vrf,
 }
 
 /*
+ * L2 nexthops:
  * These L2 nexthop are used by multicast and bridge.
  * Presence of multicast forces it to be present in
  * ipv4 mode(l3-only).
+ *
+ * L3 nexthops:
+ * Also creates L3 interface NH, if layer3_forwarding is set.
+ * It does not depend on oper state of ip forwarding.
+ * Needed as health check can disable oper ip_active and will result in flow key
+ * pointing to L2 interface NH. This has to be avoided as interface still points
+ * to l3 nh and flow should use same. For this fix it is also required that l3
+ * i/f nh is also created on seeing config and not oper state of l3. Reason
+ * being if vmi(irrespective of health check) is coming up and transitioning
+ * from ipv4_inactive to ip4_active and during this transition a flow is added
+ * then flow_key in vmi will return null because l3 config is set and interface
+ * nh not created yet.
  */
 void VmInterface::UpdateCommonNextHop() {
-    if (IsActive()) {
-        UpdateL2NextHop();
-        return;
-    } else {
-        DeleteL2NextHop();
-        return;
-    }
+    UpdateL2NextHop();
+    UpdateL3NextHop();
+}
+
+void VmInterface::DeleteCommonNextHop() {
+    DeleteL2NextHop();
+    DeleteL3NextHop();
 }
 
 void VmInterface::ApplyMacVmBindingConfig(const VrfEntry *old_vrf,
@@ -1799,7 +1787,9 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,
     }
 
     //Update common prameters
-    UpdateCommonNextHop();
+    if (IsActive()) {
+        UpdateCommonNextHop();
+    }
     // Add/Update L3 Metadata
     if (metadata_ip_active_) {
         UpdateL3MetadataIp(old_vrf, force_update, policy_change,
@@ -1852,6 +1842,9 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,
     // Remove Alias-ip entries marked for deletion
     CleanupAliasIpList();
 
+    if (!IsActive()) {
+        DeleteCommonNextHop();
+    }
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     if (old_l2_active != l2_active_) {
         if (l2_active_) {
@@ -3045,6 +3038,10 @@ bool VmInterface::Ipv6Deactivated(bool old_ipv6_active) {
 }
 
 void VmInterface::UpdateFlowKeyNextHop() {
+    if (!IsActive()) {
+        flow_key_nh_.reset();
+        return;
+    }
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     Agent *agent = table->agent();
 
@@ -3077,6 +3074,41 @@ void VmInterface::UpdateMacVmBinding() {
                                 vrf_->GetName(),
                                 vm_mac_,
                                 this);
+}
+
+void VmInterface::UpdateL3NextHop() {
+    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+    Agent *agent = table->agent();
+    //layer3_forwarding config is not set, so delete as i/f is active.
+    if (!layer3_forwarding_) {
+        if ((l3_interface_nh_policy_.get() != NULL) ||
+            (l3_interface_nh_no_policy_.get() != NULL)) {
+            DeleteL3NextHop();
+        }
+        return;
+    }
+
+    InterfaceNH::CreateL3VmInterfaceNH(GetUuid(),
+                                       vm_mac_,
+                                       vrf_->GetName());
+    InterfaceNHKey key1(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                           GetUuid(), ""),
+                        true, InterfaceNHFlags::INET4,
+                        vm_mac_);
+    l3_interface_nh_policy_ =
+        static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key1));
+    InterfaceNHKey key2(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                           GetUuid(), ""),
+                        false, InterfaceNHFlags::INET4,
+                        vm_mac_);
+    l3_interface_nh_no_policy_ =
+        static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key2));
+}
+
+void VmInterface::DeleteL3NextHop() {
+    InterfaceNH::DeleteL3InterfaceNH(GetUuid(), vm_mac_);
+    l3_interface_nh_policy_.reset();
+    l3_interface_nh_no_policy_.reset();
 }
 
 //Create these NH irrespective of mode, as multicast uses l2 NH.
