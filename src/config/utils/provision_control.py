@@ -41,10 +41,6 @@ class ControlProvisioner(object):
                 gr_params.set_long_lived_graceful_restart_time(
                     int(self._args.long_lived_graceful_restart_time))
                 gr_update = True
-            if self._args.end_of_rib_receive_time:
-                gr_params.set_end_of_rib_receive_time(
-                    int(self._args.end_of_rib_receive_time))
-                gr_update = True
 
             if gr_update:
                 gsc_obj.set_graceful_restart_params(gr_params)
@@ -80,12 +76,6 @@ class ControlProvisioner(object):
             raise argparse.ArgumentTypeError("long_lived_graceful_restart_time %s must be in range (0..16777215)" % value)
         return time
 
-    def eor_receive_time_type(self, value):
-        time = int(value)
-        if time < 0 or time > 4095:
-            raise argparse.ArgumentTypeError("end_of_rib_receive_time %s must be in range (0..4095)" % value)
-        return time
-
     def _parse_args(self, args_str):
         '''
         Eg. python provision_control.py --host_name a3s30.contrail.juniper.net
@@ -98,7 +88,6 @@ class ControlProvisioner(object):
                                         --md5 <key value>|None(optional)
                                         --graceful-restart-time 100
                                         --long-lived-graceful-restart-time 100
-                                        --end-of-rib-receive-time 30
 
         '''
 
@@ -122,7 +111,6 @@ class ControlProvisioner(object):
             'md5' : None,
             'graceful-restart-time': None,
             'long_lived_graceful_restart_time': None,
-            'end_of_rib_receive_time': None
         }
 
         if args.conf_file:
@@ -178,11 +166,6 @@ class ControlProvisioner(object):
             "--long_lived_graceful_restart_time",
             help="Long Lived Graceful Restart Time in seconds (0..16777215)",
             type=self.llgr_time_type,
-            required=False)
-        parser.add_argument(
-            "--end_of_rib_receive_time",
-            help="EndOfRib receive timeout in seconds (0..4095)",
-            type=self.eor_receive_time_type,
             required=False)
 
         self._args = parser.parse_args(remaining_argv)

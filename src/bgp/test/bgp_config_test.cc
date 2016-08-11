@@ -3307,41 +3307,6 @@ TEST_F(BgpConfigTest, BgpRouterLongLivedGracefulRestartTimeChange) {
     TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
 }
 
-TEST_F(BgpConfigTest, BgpRouterEndOfRibReceiveTimeChange) {
-    string content_a =
-        FileRead("controller/src/bgp/testdata/config_test_eor_a.xml");
-    EXPECT_TRUE(parser_.Parse(content_a));
-    task_util::WaitForIdle();
-
-    RoutingInstance *rti = server_.routing_instance_mgr()->GetRoutingInstance(
-        BgpConfigManager::kMasterInstance);
-    TASK_UTIL_ASSERT_TRUE(rti != NULL);
-    TASK_UTIL_EXPECT_EQ(1, rti->peer_manager()->size());
-    string name = rti->name() + ":" + "remote";
-
-    TASK_UTIL_EXPECT_EQ(0, server_.GetEndOfRibReceiveTime());
-
-    // End of Rib Receive time should change to 100.
-    string content_b =
-        FileRead("controller/src/bgp/testdata/config_test_eor_b.xml");
-    EXPECT_TRUE(parser_.Parse(content_b));
-    TASK_UTIL_EXPECT_EQ(100, server_.GetEndOfRibReceiveTime());
-
-    // EndOfRibReceive time should change to 200.
-    string content_c =
-        FileRead("controller/src/bgp/testdata/config_test_eor_c.xml");
-    EXPECT_TRUE(parser_.Parse(content_c));
-    TASK_UTIL_EXPECT_EQ(200, server_.GetEndOfRibReceiveTime());
-
-    boost::replace_all(content_c, "<config>", "<delete>");
-    boost::replace_all(content_c, "</config>", "</delete>");
-    EXPECT_TRUE(parser_.Parse(content_c));
-    task_util::WaitForIdle();
-
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
-    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
-}
-
 int main(int argc, char **argv) {
     bgp_log_test::init();
     ControlNode::SetDefaultSchedulingPolicy();
