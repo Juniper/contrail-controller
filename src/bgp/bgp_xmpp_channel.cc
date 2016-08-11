@@ -623,6 +623,7 @@ BgpXmppChannel::BgpXmppChannel(XmppChannel *channel, BgpServer *bgp_server,
             channel->GetTaskInstance(),
             boost::bind(&BgpXmppChannel::MembershipResponseHandler, this, _1)),
       lb_mgr_(new LabelBlockManager()) {
+    end_of_rib_timer_started_ = 0;
     if (bgp_server) {
         end_of_rib_timer_ = TimerManager::CreateTimer(*bgp_server->ioservice(),
                                 "EndOfRib timer",
@@ -1924,10 +1925,6 @@ bool BgpXmppChannel::ResumeClose() {
 }
 
 void BgpXmppChannel::RegisterTable(int line, BgpTable *table, int instance_id) {
-    // Reset EndOfRib timer as membership registration is in progress.
-    if (end_of_rib_timer_->running())
-        StartEndOfRibTimer();
-
     // Defer if Membership manager is in use (by close manager).
     if (membership_unavailable_) {
         BGP_LOG_PEER_TABLE(Peer(), SandeshLevel::SYS_DEBUG,
@@ -1946,10 +1943,6 @@ void BgpXmppChannel::RegisterTable(int line, BgpTable *table, int instance_id) {
 }
 
 void BgpXmppChannel::UnregisterTable(int line, BgpTable *table) {
-    // Reset EndOfRib timer as membership registration is in progress.
-    if (end_of_rib_timer_->running())
-        StartEndOfRibTimer();
-
     // Defer if Membership manager is in use (by close manager).
     if (membership_unavailable_) {
         BGP_LOG_PEER_TABLE(Peer(), SandeshLevel::SYS_DEBUG,
@@ -2541,6 +2534,25 @@ void BgpXmppChannel::EndOfRibTimerErrorHandler(string error_name,
 }
 
 bool BgpXmppChannel::EndOfRibTimerExpired() {
+    if (!peer_->IsReady())
+        return false;
+
+    uint32_t timeout = manager() && manager()->xmpp_server() ?
+        manager()->xmpp_server()->GetEndOfRibReceiveTime() : kEndOfRibTime;
+
+    // If max timeout has not reached yet, check if we can exit GR sooner by
+    // looking at the activity in the channel.
+    if (UTCTimestampUsec() - end_of_rib_timer_started_ < timeout * 1000000) {
+
+        // If there is some send or receive activity in the channel in last few
+        // seconds, delay EoR receive event.
+        if (channel_->LastReceived(kEndOfRibSendRetryTimeMsecs * 3) ||
+                channel_->LastSent(kEndOfRibSendRetryTimeMsecs * 3)) {
+            end_of_rib_timer_->Reschedule(kEndOfRibSendRetryTimeMsecs);
+            return true;
+        }
+    }
+
     ReceiveEndOfRIB(Address::UNSPEC);
     return false;
 }
@@ -2549,9 +2561,9 @@ void BgpXmppChannel::StartEndOfRibTimer() {
     uint32_t timeout = manager() && manager()->xmpp_server() ?
                            manager()->xmpp_server()->GetEndOfRibReceiveTime() :
                            kEndOfRibTime;
-
+    end_of_rib_timer_started_ = UTCTimestampUsec();
     end_of_rib_timer_->Cancel();
-    end_of_rib_timer_->Start(timeout * 1000,
+    end_of_rib_timer_->Start((timeout * 1000)/2,
         boost::bind(&BgpXmppChannel::EndOfRibTimerExpired, this),
         boost::bind(&BgpXmppChannel::EndOfRibTimerErrorHandler, this, _1, _2));
 }

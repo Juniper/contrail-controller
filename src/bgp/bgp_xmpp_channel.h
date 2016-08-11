@@ -44,6 +44,7 @@ class XmppSession;
 class BgpXmppChannel {
 public:
     static const int kEndOfRibTime = 30; // seconds
+    static const int kEndOfRibSendRetryTimeMsecs = 2000; // 2 Seconds
     enum StatsIndex {
         RX,
         TX,
@@ -274,6 +275,7 @@ private:
     bool skip_update_send_;
     bool skip_update_send_cached_;
     Timer *end_of_rib_timer_;
+    tbb::atomic<uint64_t> end_of_rib_timer_started_;
     WorkQueue<std::string> membership_response_worker_;
     SubscribedRoutingInstanceList routing_instances_;
     PublishedRTargetRoutes rtarget_routes_;

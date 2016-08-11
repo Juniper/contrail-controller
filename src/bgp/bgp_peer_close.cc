@@ -214,10 +214,11 @@ void PeerCloseManager::ProcessEORMarkerReceived(Address::Family family) {
 
 void PeerCloseManager::ProcessEORMarkerReceived(Event *event) {
     if ((state_ == GR_TIMER || state_ == LLGR_TIMER) && !families_.empty()) {
-        if (event->family == Address::UNSPEC)
+        if (event->family == Address::UNSPEC) {
             families_.clear();
-        else
+        } else {
             families_.erase(event->family);
+        }
 
         // Start the timer if all EORs have been received.
         if (families_.empty())
