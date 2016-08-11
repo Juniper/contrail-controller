@@ -337,10 +337,12 @@ void FlowStatsCollector::FlowDeleteEnqueue(FlowExportInfo *info, uint64_t t) {
     }
 }
 
-void FlowStatsCollector::FlowEvictEnqueue(FlowExportInfo *info, uint64_t t) {
+void FlowStatsCollector::FlowEvictEnqueue(FlowExportInfo *info, uint64_t t,
+                                          uint32_t flow_handle,
+                                          uint16_t gen_id) {
     FlowEntry *fe = info->flow();
     agent_uve_->agent()->pkt()->get_flow_proto()->EvictFlowRequest
-        (fe, fe->flow_handle(), fe->gen_id(), (fe->gen_id() + 1));
+        (fe, flow_handle, gen_id, (gen_id + 1));
     info->set_evict_enqueue_time(t);
 }
 
@@ -419,6 +421,18 @@ uint32_t FlowStatsCollector::RunAgeing(uint32_t max_count) {
         info = &it->second;
         FlowEntry *fe = info->flow();
         FlowEntry *rfe = info->reverse_flow();
+        uint32_t flow_handle;
+        uint16_t gen_id;
+        {
+            FLOW_LOCK(fe, NULL, FlowEvent::FLOW_MESSAGE);
+            // since flow processing and stats collector can run in parallel
+            // flow handle and gen id not being the key for flow entry can
+            // change while processing, so flow handle and gen id should be
+            // fetched by holding an lock and should not be re-fetched again
+            // during the entry processing
+            flow_handle = fe->flow_handle();
+            gen_id = fe->gen_id();
+        }
         it++;
 
         // if we come across deleted entry, retry flow deletion after some time
@@ -434,18 +448,18 @@ uint32_t FlowStatsCollector::RunAgeing(uint32_t max_count) {
 
         count++;
         const vr_flow_entry *k_flow = ksync_obj->GetValidKFlowEntry
-            (fe->key(), fe->flow_handle(), fe->gen_id());
+            (fe->key(), flow_handle, gen_id);
 
         if ((fe->key().protocol == IPPROTO_TCP) &&
             ksync_obj->IsEvictionMarked(k_flow)) {
             uint64_t evict_time = info->evict_enqueue_time();
             if (evict_time) {
                 if ((curr_time - evict_time) > kFlowDeleteRetryTime) {
-                    FlowEvictEnqueue(info, curr_time);
+                    FlowEvictEnqueue(info, curr_time, flow_handle, gen_id);
                 }
                 continue;
             }
-            FlowEvictEnqueue(info, curr_time);
+            FlowEvictEnqueue(info, curr_time, flow_handle, gen_id);
             continue;
         }
 
