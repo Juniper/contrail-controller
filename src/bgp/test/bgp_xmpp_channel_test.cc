@@ -96,6 +96,8 @@ public:
     virtual void RegisterTxMessageTraceCallback(TxMessageTraceCb cb) {
         return;
     }
+    virtual bool LastReceived(uint64_t durationMsec) const { return false; }
+    virtual bool LastSent(uint64_t durationMsec) const { return false; }
 };
 
 class BgpXmppChannelMock : public BgpXmppChannel {
