@@ -519,6 +519,8 @@ public:
     virtual std::string PeerAddress() const {
         return "";
     }
+    virtual bool LastReceived(uint64_t durationMsec) const { return false; }
+    virtual bool LastSent(uint64_t durationMsec) const { return false; }
 };
 
 BgpPeer *CreateBgpPeer(std::string addr, std::string name);

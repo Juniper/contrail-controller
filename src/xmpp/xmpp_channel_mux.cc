@@ -16,6 +16,8 @@ XmppChannelMux::XmppChannelMux(XmppConnection *connection)
     : connection_(connection), rx_message_trace_cb_(NULL),
       tx_message_trace_cb_(NULL) {
         closing_count_ = 0;
+        last_received_ = 0;
+        last_sent_ = 0;
 }
 
 XmppChannelMux::~XmppChannelMux() {
@@ -52,6 +54,14 @@ bool XmppChannelMux::InitializeClosingCount() {
 // Check if the channel is being closed (Graceful Restart)
 bool XmppChannelMux::IsCloseInProgress() const {
     return closing_count_ != 0;
+}
+
+bool XmppChannelMux::LastReceived(uint64_t durationMsec) const {
+    return (UTCTimestampUsec() - last_received_) <= durationMsec * 1000;
+}
+
+bool XmppChannelMux::LastSent(uint64_t durationMsec) const {
+    return (UTCTimestampUsec() - last_sent_) <= durationMsec * 1000;
 }
 
 // API for the clients to indicate GR Closure is complete
@@ -91,6 +101,7 @@ bool XmppChannelMux::Send(const uint8_t *msg, size_t msgsize,
     if (!connection_) return false;
 
     tbb::mutex::scoped_lock lock(mutex_);
+    last_sent_ = UTCTimestampUsec();
     bool res = connection_->Send(msg, msgsize);
     if (res == false) {
         RegisterWriteReady(id, cb);
@@ -181,6 +192,7 @@ inline bool MatchCallback(string to, xmps::PeerId peer) {
 }
 
 void XmppChannelMux::ProcessXmppMessage(const XmppStanza::XmppMessage *msg) {
+    last_received_ = UTCTimestampUsec();
     ReceiveCbMap::iterator iter = rxmap_.begin();
     for (; iter != rxmap_.end(); ++iter) {
         if (MatchCallback(msg->to, iter->first)) {
