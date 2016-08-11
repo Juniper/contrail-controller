@@ -30,6 +30,7 @@ public:
     std::string path_to_ca_cert;
     int tcp_hold_time;
     bool gr_helper_enable;
+    uint32_t end_of_rib_timeout;
 
     int CompareTo(const XmppChannelConfig &rhs) const;
     static int const default_client_port = 5269;

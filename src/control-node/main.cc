@@ -91,6 +91,7 @@ static XmppServer *CreateXmppServer(EventManager *evm, Options *options,
     xmpp_cfg->auth_enabled = options->xmpp_auth_enabled();
     xmpp_cfg->tcp_hold_time = options->tcp_hold_time();
     xmpp_cfg->gr_helper_enable = options->gr_helper_xmpp_enable();
+    xmpp_cfg->end_of_rib_timeout = options->xmpp_end_of_rib_timeout();
 
     if (xmpp_cfg->auth_enabled) {
         xmpp_cfg->path_to_server_cert = options->xmpp_server_cert();
@@ -381,6 +382,7 @@ int main(int argc, char *argv[]) {
     sandesh_context.set_test_mode(ControlNode::GetTestMode());
     sandesh_context.bgp_server = bgp_server.get();
     bgp_server->set_gr_helper_enable(options.gr_helper_bgp_enable());
+    bgp_server->set_end_of_rib_timeout(options.xmpp_end_of_rib_timeout());
 
     DB config_db(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"));
     DBGraph config_graph;

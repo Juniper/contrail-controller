@@ -528,7 +528,7 @@ private:
 class BgpGlobalSystemConfig {
 public:
     BgpGlobalSystemConfig() :
-            last_change_at_(0), gr_time_(0), llgr_time_(0), eor_rx_time_(0) {
+            last_change_at_(0), gr_time_(0), llgr_time_(0) {
     }
     ~BgpGlobalSystemConfig() { }
 
@@ -536,8 +536,6 @@ public:
     void set_gr_time(uint16_t gr_time) { gr_time_ = gr_time;}
     uint32_t llgr_time() const { return llgr_time_;}
     void set_llgr_time(uint64_t llgr_time) { llgr_time_ = llgr_time;}
-    uint32_t eor_rx_time() const { return eor_rx_time_;}
-    void set_eor_rx_time(uint64_t eor_rx_time) { eor_rx_time_ = eor_rx_time;}
     uint32_t last_change_at() const { return last_change_at_; }
     void set_last_change_at(uint32_t tstamp) const { last_change_at_ = tstamp; }
 
@@ -545,7 +543,6 @@ private:
     mutable uint64_t last_change_at_;
     uint16_t gr_time_;
     uint32_t llgr_time_;
-    uint32_t eor_rx_time_;
     DISALLOW_COPY_AND_ASSIGN(BgpGlobalSystemConfig);
 };
 
