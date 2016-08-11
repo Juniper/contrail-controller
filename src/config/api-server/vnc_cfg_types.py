@@ -474,6 +474,8 @@ class InstanceIpServer(Resource, InstanceIp):
             return ok, result
         db_iip_dict = result
 
+        if 'virtual_network_refs' not in db_iip_dict:
+            return True, ''
         vn_uuid = db_iip_dict['virtual_network_refs'][0]['uuid']
         vn_fq_name = db_iip_dict['virtual_network_refs'][0]['to']
         if ((vn_fq_name == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
