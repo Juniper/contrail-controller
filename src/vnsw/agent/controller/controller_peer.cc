@@ -1550,6 +1550,7 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
 
         // Switch-over Config Control-node
         if (peer_is_config_server) {
+            bool new_peer_selected = false;
             //send cfg subscribe to other peer if exists
             uint8_t idx = ((agent->ifmap_active_xmpp_server_index() == 0) ? 1: 0);
             agent->reset_ifmap_active_xmpp_server();
@@ -1557,6 +1558,7 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
 
             if (IsBgpPeerActive(agent, new_cfg_peer) &&
                 AgentXmppChannel::SetConfigPeer(new_cfg_peer)) {
+                new_peer_selected = true;
                 AgentXmppChannel::CleanConfigStale(new_cfg_peer);
                 CONTROLLER_TRACE(Session, new_cfg_peer->GetXmppServer(),
                                  "NOT_READY", "NULL", "BGP peer selected as" 
@@ -1574,7 +1576,8 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
             if (!headless_mode) {
                 // For old config peer increment sequence number and remove
                 // entries
-                AgentIfMapXmppChannel::NewSeqNumber();
+                if (!new_peer_selected)
+                    AgentIfMapXmppChannel::NewSeqNumber();
                 agent->ifmap_parser()->reset_statistics();
                 AgentXmppChannel::CleanConfigStale(peer);
             }
