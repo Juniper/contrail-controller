@@ -797,6 +797,8 @@ private:
     void UpdateL3TunnelId(bool force_update, bool policy_change);
     void DeleteL3TunnelId();
     void UpdateMacVmBinding();
+    void UpdateL3NextHop();
+    void DeleteL3NextHop();
     void UpdateL2NextHop();
     void UpdateFlowKeyNextHop();
     void DeleteL2NextHop();
@@ -871,6 +873,7 @@ private:
     bool UpdateIsHealthCheckActive();
     void CopyEcmpLoadBalance(EcmpLoadBalance &ecmp_load_balance);
     void UpdateCommonNextHop();
+    void DeleteCommonNextHop();
 
     VmEntryBackRef vm_;
     VnEntryRef vn_;
