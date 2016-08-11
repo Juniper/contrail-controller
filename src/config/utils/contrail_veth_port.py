@@ -134,6 +134,11 @@ class ContrailVethPort(object):
             help=("API server port."
                   + "  Default: CONTRAIL_API_PORT from env or 8082"))
         parser.add_argument(
+            "--api-server-use-ssl",
+            default=os.environ.get('CONTRAIL_API_SERVER_USE_SSL', False),
+            help=("API server use ssl."
+                  + "  Default: CONTRAIL_API_SERVER_USE_SSL from env or False"))
+        parser.add_argument(
             "--project",
             default=os.environ.get('CONTRAIL_PROJECT',
                                    'default-domain:default-project'),
@@ -168,7 +173,8 @@ class ContrailVethPort(object):
         if not self.vnc_client:
             self.vnc_client = vnc_api.VncApi(
                 api_server_host=self.args['api_server'],
-                api_server_port=self.args['api_port'])
+                api_server_port=self.args['api_port'],
+                api_server_use_ssl=self.args['api_server_use_ssl'])
         return self.vnc_client
         
     def create(self):

@@ -30,7 +30,8 @@ class VncProvisioner(object):
             self._args.admin_user, self._args.admin_password,
             self._args.admin_tenant_name,
             self._args.api_server_ip,
-            self._args.api_server_port, '/')
+            self._args.api_server_port, '/',
+            api_server_use_ssl=self._args.api_server_use_ssl)
         vnc_lib = self._vnc_lib
 
         fq_name = self._args.project_name.split(':')
@@ -56,6 +57,7 @@ class VncProvisioner(object):
         --floating_ip_pool_name default-domain:default-proj:pub-vn:fip_pool
         --api_server_ip 127.0.0.1
         --api_server_port 8082
+        --api_server_use_ssl False
         '''
 
         # Source any specified config/ini file
@@ -72,6 +74,7 @@ class VncProvisioner(object):
             'floating_ip_pool_name': 'fip_pool',
             'api_server_ip': '127.0.0.1',
             'api_server_port': '8082',
+            'api_server_use_ssl': False,
         }
         ksopts = {
             'admin_user': 'user1',
