@@ -381,6 +381,9 @@ def supervisor_status(nodetype, options):
 def package_installed(pkg):
     if distribution == 'debian':
         cmd = "dpkg-query -W -f=${VERSION} " + pkg
+        # Handling virtual package in ubuntu
+        if pkg == 'contrail-vrouter':
+            cmd = "dpkg -l " + pkg
     else:
         cmd = "rpm -q --qf %{V} " + pkg
     with open(os.devnull, "w") as fnull:
