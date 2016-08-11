@@ -12,6 +12,7 @@
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 #include <boost/algorithm/string.hpp>
+#include <boost/enable_shared_from_this.hpp>
 
 struct VncApiConfig {
     std::string  cfg_srv_ip;
@@ -49,7 +50,7 @@ class RespBlock {
 };
 
 
-class VncApi {
+class VncApi : public boost::enable_shared_from_this<VncApi> {
     private:
     EventManager *evm_;
     VncApiConfig *cfg_;
@@ -71,6 +72,7 @@ class VncApi {
     bool CondTest(std::string s);
     public:
     VncApi(EventManager *evm, VncApiConfig *cfg);
+    virtual ~VncApi() { Stop(); }
     void Stop();
     void GetConfig(std::string type, std::vector<std::string> ids,
             std::vector<std::string> filters, std::vector<std::string> parents,

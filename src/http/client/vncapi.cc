@@ -118,8 +118,8 @@ VncApi::Reauthenticate(RespBlock *orb)
         cfg_->user << "\", \"password\": \"" << cfg_->password <<
         "\"}, \"tenantName\": \"" << cfg_->tenant << "\"}}";
     rb->GetConnection()->HttpPost(pstrm.str(), rb->GetUri(), false, false,
-            true, kshdr_, boost::bind(&VncApi::KsRespHandler, this, rb, orb,
-                _1, _2));
+            true, kshdr_, boost::bind(&VncApi::KsRespHandler,
+            shared_from_this(), rb, orb, _1, _2));
 }
 
 bool
@@ -141,12 +141,12 @@ VncApi::KsRespHandler(RespBlock *rb, RespBlock *orb, std::string &str,
                 std::string token = jdoc["access"]["token"]["id"].GetString();
                 if (!token.empty()) {
                     hdr_.erase(std::remove_if(hdr_.begin(), hdr_.end(),
-                            boost::bind(&VncApi::CondTest, this, _1)),
-                        hdr_.end());
+                        boost::bind(&VncApi::CondTest,
+                            shared_from_this(), _1)), hdr_.end());
                     hdr_.push_back(std::string("X-AUTH-TOKEN: ") + token);
                     orb->GetConnection()->HttpGet(orb->GetUri(), false, false,
-                                true, hdr_, boost::bind(&VncApi::RespHandler,
-                                    this, orb, _1, _2));
+                            true, hdr_, boost::bind(&VncApi::RespHandler,
+                            shared_from_this(), orb, _1, _2));
                     client_->RemoveConnection(rb->GetConnection());
                     delete rb;
                     return;
@@ -237,7 +237,8 @@ VncApi::GetConfig(std::string type, std::vector<std::string> ids,
     RespBlock *rb = new RespBlock(client_->CreateConnection(api_ep_),
             MakeUri(type, ids, filters, parents, refs, fields), cb);
     rb->GetConnection()->HttpGet(rb->GetUri(), false, false, true, hdr_,
-            boost::bind(&VncApi::RespHandler, this, rb, _1, _2));
+            boost::bind(&VncApi::RespHandler, shared_from_this(),
+                        rb, _1, _2));
 }
 
 void
