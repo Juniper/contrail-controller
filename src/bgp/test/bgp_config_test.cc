@@ -320,7 +320,7 @@ TEST_F(BgpConfigTest, BgpRouterHoldTimeChange) {
     TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
 }
 
-TEST_F(BgpConfigTest, MasterNeighbors) {
+TEST_F(BgpConfigTest, MasterNeighbors1) {
     string content = FileRead("controller/src/bgp/testdata/config_test_5.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
@@ -352,6 +352,62 @@ TEST_F(BgpConfigTest, MasterNeighbors) {
     EXPECT_TRUE(parser_.Parse(config_delete));
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(2, rti->peer_manager_size());
+}
+
+//
+// Verify remove-private-as configuration.
+//
+TEST_F(BgpConfigTest, MasterNeighbors2) {
+    string content;
+    content = FileRead("controller/src/bgp/testdata/config_test_43a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    RoutingInstance *rti =
+        server_.routing_instance_mgr()->GetDefaultRoutingInstance();
+    TASK_UTIL_ASSERT_TRUE(rti != NULL);
+    TASK_UTIL_EXPECT_EQ(3, rti->peer_manager_size());
+    TASK_UTIL_EXPECT_EQ(3, server_.num_bgp_peer());
+
+    string name1 = string(BgpConfigManager::kMasterInstance) + ":remote1:0";
+    TASK_UTIL_EXPECT_TRUE(rti->peer_manager()->PeerLookup(name1) != NULL);
+    BgpPeer *peer1 = rti->peer_manager()->PeerLookup(name1);
+    TASK_UTIL_EXPECT_EQ("10.1.1.1", peer1->peer_address_string());
+    TASK_UTIL_EXPECT_EQ("replace-all", peer1->private_as_action());
+
+    string name2 = string(BgpConfigManager::kMasterInstance) + ":remote2:0";
+    TASK_UTIL_EXPECT_TRUE(rti->peer_manager()->PeerLookup(name2) != NULL);
+    BgpPeer *peer2 = rti->peer_manager()->PeerLookup(name2);
+    TASK_UTIL_EXPECT_EQ("10.1.1.2", peer2->peer_address_string());
+    TASK_UTIL_EXPECT_EQ("remove-all", peer2->private_as_action());
+
+    string name3 = string(BgpConfigManager::kMasterInstance) + ":remote3:0";
+    TASK_UTIL_EXPECT_TRUE(rti->peer_manager()->PeerLookup(name3) != NULL);
+    BgpPeer *peer3 = rti->peer_manager()->PeerLookup(name3);
+    TASK_UTIL_EXPECT_EQ("10.1.1.3", peer3->peer_address_string());
+    TASK_UTIL_EXPECT_EQ("remove", peer3->private_as_action());
+
+    // Disable remove-private-as for all peers.
+    content = FileRead("controller/src/bgp/testdata/config_test_43b.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(peer1, rti->peer_manager()->PeerLookup(name1));
+    TASK_UTIL_EXPECT_EQ("", peer1->private_as_action());
+
+    TASK_UTIL_EXPECT_EQ(peer2, rti->peer_manager()->PeerLookup(name2));
+    TASK_UTIL_EXPECT_EQ("", peer2->private_as_action());
+
+    TASK_UTIL_EXPECT_EQ(peer3, rti->peer_manager()->PeerLookup(name3));
+    TASK_UTIL_EXPECT_EQ("", peer3->private_as_action());
+
+    // Cleanup.
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
 }
 
 TEST_F(BgpConfigTest, BGPaaSNeighbors1) {

@@ -90,12 +90,76 @@ protected:
         task_util::WaitForIdle();
     }
 
+    RibExportPolicy BuildRibExportPolicy() {
+        ConcurrencyScope scope("bgp::Config");
+        return peer_->BuildRibExportPolicy(Address::INETVPN);
+    }
+
+    void UpdateConfig(BgpNeighborConfig *config) {
+        ConcurrencyScope scope("bgp::Config");
+        peer_->ConfigUpdate(config);
+    }
+
     BgpNeighborConfig config_;
     BgpServer server_;
     EventManager evm_;
     boost::scoped_ptr<BgpSessionMock> session_;
     boost::scoped_ptr<BgpPeerMock> peer_;
 };
+
+//
+// Verify that private-as-action configuration is used when building the
+// RibExportPolicy.
+//
+TEST_F(BgpPeerTest, PrivateAsAction) {
+    BgpNeighborConfig config;
+    RibExportPolicy policy = BuildRibExportPolicy();
+    EXPECT_FALSE(policy.remove_private.enabled);
+    EXPECT_FALSE(policy.remove_private.all);
+    EXPECT_FALSE(policy.remove_private.replace);
+
+    config.set_private_as_action("remove");
+    UpdateConfig(&config);
+    policy = BuildRibExportPolicy();
+    EXPECT_TRUE(policy.remove_private.enabled);
+    EXPECT_FALSE(policy.remove_private.all);
+    EXPECT_FALSE(policy.remove_private.replace);
+
+    config.set_private_as_action("remove-all");
+    UpdateConfig(&config);
+    policy = BuildRibExportPolicy();
+    EXPECT_TRUE(policy.remove_private.enabled);
+    EXPECT_TRUE(policy.remove_private.all);
+    EXPECT_FALSE(policy.remove_private.replace);
+
+    config.set_private_as_action("replace-all");
+    UpdateConfig(&config);
+    policy = BuildRibExportPolicy();
+    EXPECT_TRUE(policy.remove_private.enabled);
+    EXPECT_TRUE(policy.remove_private.all);
+    EXPECT_TRUE(policy.remove_private.replace);
+
+    config.set_private_as_action("remove-all");
+    UpdateConfig(&config);
+    policy = BuildRibExportPolicy();
+    EXPECT_TRUE(policy.remove_private.enabled);
+    EXPECT_TRUE(policy.remove_private.all);
+    EXPECT_FALSE(policy.remove_private.replace);
+
+    config.set_private_as_action("remove");
+    UpdateConfig(&config);
+    policy = BuildRibExportPolicy();
+    EXPECT_TRUE(policy.remove_private.enabled);
+    EXPECT_FALSE(policy.remove_private.all);
+    EXPECT_FALSE(policy.remove_private.replace);
+
+    config.set_private_as_action("");
+    UpdateConfig(&config);
+    policy = BuildRibExportPolicy();
+    EXPECT_FALSE(policy.remove_private.enabled);
+    EXPECT_FALSE(policy.remove_private.all);
+    EXPECT_FALSE(policy.remove_private.replace);
+}
 
 //
 // FlushUpdate with an empty buffer does not cause any problems.

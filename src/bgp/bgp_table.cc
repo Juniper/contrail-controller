@@ -132,6 +132,8 @@ void BgpTable::RibOutDelete(const RibExportPolicy &policy) {
 // Process Remove Private information.
 //
 void BgpTable::ProcessRemovePrivate(const RibOut *ribout, BgpAttr *attr) const {
+    if (!ribout->IsEncodingBgp())
+        return;
     if (!ribout->remove_private_enabled())
         return;
 
@@ -139,10 +141,17 @@ void BgpTable::ProcessRemovePrivate(const RibOut *ribout, BgpAttr *attr) const {
     bool replace = ribout->remove_private_replace();
     bool peer_loop_check = ribout->remove_private_peer_loop_check();
 
-    as_t replace_asn = replace ? server()->local_autonomous_system() : 0;
-    as_t peer_asn = peer_loop_check ? ribout->peer_as() : 0;
-
     const AsPathSpec &spec = attr->as_path()->path();
+    as_t peer_asn = peer_loop_check ? ribout->peer_as() : 0;
+    as_t replace_asn = 0;
+    if (replace) {
+        if (ribout->peer_type() == BgpProto::EBGP) {
+            replace_asn = server()->local_autonomous_system();
+        } else {
+            replace_asn = spec.AsLeftMostPublic();
+        }
+    }
+
     AsPathSpec *new_spec = spec.RemovePrivate(all, replace_asn, peer_asn);
     attr->set_as_path(new_spec);
     delete new_spec;
