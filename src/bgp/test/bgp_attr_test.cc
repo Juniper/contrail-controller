@@ -1131,7 +1131,11 @@ TEST_F(BgpAttrTest, OriginVnPathPrepend) {
     EXPECT_EQ(0, ovnpath2.CompareTo(ovnpath1));
 }
 
-TEST_F(BgpAttrTest, OriginVnPathContains) {
+//
+// Both AS and VN index are compared for OriginVns with index from non-global
+// range.
+//
+TEST_F(BgpAttrTest, OriginVnPathContains1) {
     OriginVnPathSpec spec;
     for (int idx = 9; idx >= 1; idx -= 2) {
         OriginVn origin_vn(64512, 100 * idx);
@@ -1156,6 +1160,36 @@ TEST_F(BgpAttrTest, OriginVnPathContains) {
     for (int idx = 1; idx <= 9; idx++) {
         OriginVn origin_vn(64512, 100 * idx);
         EXPECT_TRUE(ovnpath.Contains(origin_vn.GetExtCommunity()));
+    }
+}
+
+//
+// OriginVns with matching VN index from global range are treated as equal
+// even if the AS numbers are different.
+// OriginVns with matching VN index from non-global range are treated as not
+// equal because AS numbers are different.
+//
+TEST_F(BgpAttrTest, OriginVnPathContains2) {
+    OriginVnPathSpec spec;
+    for (int idx = 9; idx >= 1; idx--) {
+        if (idx % 2 == 1) {
+            OriginVn origin_vn(64512, OriginVn::kMinGlobalId + 100 * idx);
+            spec.origin_vns.push_back(origin_vn.GetExtCommunityValue());
+        } else {
+            OriginVn origin_vn(64512, 100 * idx);
+            spec.origin_vns.push_back(origin_vn.GetExtCommunityValue());
+        }
+    }
+    OriginVnPath ovnpath(ovnpath_db_, spec);
+
+    for (int idx = 1; idx <= 9; idx++) {
+        if (idx % 2 == 1) {
+            OriginVn origin_vn(64513, OriginVn::kMinGlobalId + 100 * idx);
+            EXPECT_TRUE(ovnpath.Contains(origin_vn.GetExtCommunity()));
+        } else {
+            OriginVn origin_vn(64513, OriginVn::kMinGlobalId + 100 * idx);
+            EXPECT_FALSE(ovnpath.Contains(origin_vn.GetExtCommunity()));
+        }
     }
 }
 
