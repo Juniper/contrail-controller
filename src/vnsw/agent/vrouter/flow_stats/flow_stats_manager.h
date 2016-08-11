@@ -13,6 +13,13 @@
 #include <vrouter/ksync/flowtable_ksync.h>
 #include <sandesh/common/flow_types.h>
 
+extern SandeshTraceBufferPtr FlowExportStatsTraceBuf;
+
+#define FLOW_EXPORT_STATS_TRACE(...)\
+do {\
+    FlowExportStatsTrace::TraceMsg(FlowExportStatsTraceBuf, __FILE__, __LINE__, __VA_ARGS__);\
+} while(0);
+
 class FlowStatsCollector;
 
 struct FlowAgingTableKey {
@@ -62,6 +69,7 @@ public:
     static const uint8_t kCatchAllProto = 0x0;
     static const uint64_t FlowThresoldUpdateTime = 1000 * 2;
     static const uint32_t kDefaultFlowSamplingThreshold = 500;
+    static const uint32_t kMinFlowSamplingThreshold = 20;
 
     typedef boost::shared_ptr<FlowStatsCollector> FlowAgingTablePtr;
 
@@ -125,6 +133,10 @@ public:
         return flow_export_count_.fetch_and_store(0);
     }
 
+    uint32_t flow_export_without_sampling_reset() {
+        return flow_export_without_sampling_.fetch_and_store(0);
+    }
+
     uint32_t flow_export_disable_drops() const {
         return flow_export_disable_drops_;
     }
@@ -145,11 +157,14 @@ public:
     void set_delete_short_flow(bool val) {
         delete_short_flow_ = val;
     }
-
+    void set_flows_sampled_atleast_once() {
+        flows_sampled_atleast_once_ = true;
+    }
     static void FlowStatsReqHandler(Agent *agent, uint32_t proto,
                                     uint32_t port,
                                     uint64_t protocol);
     void FreeIndex(uint32_t idx);
+    void UpdateFlowExportStats(uint32_t count, bool sampled_flow);
 
     void SetProfileData(ProfileData *data);
     friend class AgentUtXmlFlowThreshold;
@@ -169,7 +184,9 @@ private:
     uint32_t threshold_;
     tbb::atomic<uint64_t> flow_export_disable_drops_;
     tbb::atomic<uint64_t> flow_export_sampling_drops_;
+    tbb::atomic<uint32_t> flow_export_without_sampling_;
     tbb::atomic<uint64_t> flow_export_drops_;
+    tbb::atomic<bool> flows_sampled_atleast_once_;
     uint32_t prev_cfg_flow_export_rate_;
     Timer* timer_;
     bool delete_short_flow_;
