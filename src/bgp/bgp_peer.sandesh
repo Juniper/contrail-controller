@@ -73,6 +73,7 @@ struct BgpNeighborResp {
     47: bool admin_down;
     48: bool passive;
     55: bool as_override;
+    61: string private_as_action;
     50: u32 peer_port;
     51: string transport_address;
     4: string local_address;    // local ip address and port
@@ -606,6 +607,7 @@ struct ShowBgpNeighborConfig {
     13: bool admin_down;
     15: bool passive;
     20: bool as_override;
+    21: string private_as_action;
     18: string router_type;
     8: string local_identifier;
     9: i32 local_as;

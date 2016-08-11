@@ -665,7 +665,7 @@ TEST_P(BgpTableExportParamTest1, AsOverride) {
 TEST_P(BgpTableExportParamTest1, RemovePrivateAll) {
     RibExportPolicy policy(
         BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, -1, 0);
-    bool all = true; bool replace = false; bool peer_loop_check = false;
+    bool all = true; bool replace = false; bool peer_loop_check = true;
     policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
     CreateRibOut(policy);
 
@@ -688,10 +688,10 @@ TEST_P(BgpTableExportParamTest1, RemovePrivateAll) {
 // Intent: Remove private all (w/ replace) replaces all private ASes with
 //         the local as.
 //
-TEST_P(BgpTableExportParamTest1, RemovePrivateAllReplace) {
+TEST_P(BgpTableExportParamTest1, RemovePrivateAllReplace1) {
     RibExportPolicy policy(
         BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, -1, 0);
-    bool all = true; bool replace = true; bool peer_loop_check = false;
+    bool all = true; bool replace = true; bool peer_loop_check = true;
     policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
     CreateRibOut(policy);
 
@@ -703,6 +703,36 @@ TEST_P(BgpTableExportParamTest1, RemovePrivateAllReplace) {
     VerifyAttrAsPrepend();
     VerifyAttrAsPathCount(PeerIsInternal() ? 3 : 4);
     VerifyAttrAsPathAsCount(LocalAsNumber(), 3);
+    if (!PeerIsInternal())
+        VerifyAttrAsPathAsCount(PeerAsNumber(), 1);
+}
+
+//
+// Table : inet.0, bgp.l3vpn.0
+// Source: eBGP, iBGP
+// RibOut: eBGP
+// Intent: Remove private all (w/ replace) replaces all private ASes. All
+//         private ASes up to the first public AS are replaced with the local
+//         as. Remaining private ASes are replaced with the nearest public AS.
+//
+TEST_P(BgpTableExportParamTest1, RemovePrivateAllReplace2) {
+    RibExportPolicy policy(
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, -1, 0);
+    bool all = true; bool replace = true; bool peer_loop_check = true;
+    policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
+    CreateRibOut(policy);
+
+    SetAttrAsPath(65535);  // replaced by nearest public as (500)
+    SetAttrAsPath(500);
+    SetAttrAsPath(64512);  // replaced by local as
+    SetAttrAsPath(64513);  // replaced by local as
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrAsPrepend();
+    VerifyAttrAsPathCount(PeerIsInternal() ? 5 : 6);
+    VerifyAttrAsPathAsCount(LocalAsNumber(), 3);
+    VerifyAttrAsPathAsCount(500, 2);
     if (!PeerIsInternal())
         VerifyAttrAsPathAsCount(PeerAsNumber(), 1);
 }
@@ -1036,7 +1066,7 @@ TEST_P(BgpTableExportParamTest3, AsOverrideAndRewriteNexthop) {
 TEST_P(BgpTableExportParamTest3, RemovePrivateAll) {
     RibExportPolicy policy(BgpProto::IBGP, RibExportPolicy::BGP,
         LocalAsNumber(), false, false, -1, 0);
-    bool all = true; bool replace = false; bool peer_loop_check = false;
+    bool all = true; bool replace = false; bool peer_loop_check = true;
     policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
     CreateRibOut(policy);
 
@@ -1047,6 +1077,95 @@ TEST_P(BgpTableExportParamTest3, RemovePrivateAll) {
     VerifyExportAccept();
     VerifyAttrAsPathCount(1);
     VerifyAttrAsPathAsCount(PeerAsNumber(), 1);
+}
+
+//
+// Table : inet.0, bgp.l3vpn.0
+// Source: eBGP
+// RibOut: iBGP
+// Intent: Remove private all (w/ replace) replaces all private ASes with
+//         leftmost public AS.
+//
+TEST_P(BgpTableExportParamTest3, RemovePrivateAllReplace1) {
+    RibExportPolicy policy(BgpProto::IBGP, RibExportPolicy::BGP,
+        LocalAsNumber(), false, false, -1, 0);
+    bool all = true; bool replace = true; bool peer_loop_check = true;
+    policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
+    CreateRibOut(policy);
+
+    SetAttrAsPath(65535);
+    SetAttrAsPath(64512);
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrAsPathCount(3);
+    VerifyAttrAsPathAsCount(100, 3);
+}
+
+//
+// Table : inet.0, bgp.l3vpn.0
+// Source: eBGP
+// RibOut: iBGP
+// Intent: Remove private all (w/ replace) replaces all private ASes.
+//         first public AS.
+// Intent: Remove private all (w/ replace) replaces all private ASes. All
+//         private ASes up to the first public AS are replaced with the
+//         leftmost public as. Remaining private ASes are replaced with the
+//         nearest public AS, which will be the same as leftmost public AS.
+//
+TEST_P(BgpTableExportParamTest3, RemovePrivateAllReplace2) {
+    RibExportPolicy policy(BgpProto::IBGP, RibExportPolicy::BGP,
+        LocalAsNumber(), false, false, -1, 0);
+    bool all = true; bool replace = true; bool peer_loop_check = true;
+    policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
+    CreateRibOut(policy);
+
+    SetAttrAsPath(65535);  // replaced by nearest public as (500)
+    SetAttrAsPath(500);
+    SetAttrAsPath(64512);  // replaced by leftmost public as (500)
+    SetAttrAsPath(64513);  // replaced by leftmost public as (500)
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrAsPathCount(5);
+    VerifyAttrAsPathAsCount(500, 4);
+    VerifyAttrAsPathAsCount(100, 1);
+}
+
+//
+// Table : inet.0, bgp.l3vpn.0
+// Source: eBGP
+// RibOut: iBGP
+// Intent: Remove private all (w/ replace) replaces all private ASes.
+//         first public AS.
+// Intent: Remove private all (w/ replace) replaces all private ASes. All
+//         private ASes up to the first public AS are replaced with the
+//         leftmost public as. Remaining private ASes are replaced with the
+//         nearest public AS, which will not always be the same as leftmost
+//         public AS.
+//
+TEST_P(BgpTableExportParamTest3, RemovePrivateAllReplace3) {
+    RibExportPolicy policy(BgpProto::IBGP, RibExportPolicy::BGP,
+        LocalAsNumber(), false, false, -1, 0);
+    bool all = true; bool replace = true; bool peer_loop_check = true;
+    policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
+    CreateRibOut(policy);
+
+    SetAttrAsPath(65535);  // replaced by nearest public as (500)
+    SetAttrAsPath(500);
+    SetAttrAsPath(64512);  // replaced by nearest public as (600)
+    SetAttrAsPath(64513);  // replaced by nearest public as (600)
+    SetAttrAsPath(600);
+    SetAttrAsPath(64514);  // replaced by leftmost public as (600)
+    SetAttrAsPath(64515);  // replaced by leftmost public as (600)
+    SetAttrAsPath(64516);  // replaced by leftmost public as (600)
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrAsPathCount(9);
+    VerifyAttrAsPathAsCount(600, 6);
+    VerifyAttrAsPathAsCount(500, 2);
+    VerifyAttrAsPathAsCount(100, 1);
 }
 
 //

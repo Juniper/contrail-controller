@@ -169,6 +169,7 @@ void BgpNeighborConfig::CopyValues(const BgpNeighborConfig &rhs) {
     admin_down_ = rhs.admin_down_;
     passive_ = rhs.passive_;
     as_override_ = rhs.as_override_;
+    private_as_action_  = rhs.private_as_action_;
     peer_as_ = rhs.peer_as_;
     identifier_ = rhs.identifier_;
     address_ = rhs.address_;
@@ -192,6 +193,7 @@ int BgpNeighborConfig::CompareTo(const BgpNeighborConfig &rhs) const {
     KEY_COMPARE(admin_down_, rhs.admin_down_);
     KEY_COMPARE(passive_, rhs.passive_);
     KEY_COMPARE(as_override_, rhs.as_override_);
+    KEY_COMPARE(private_as_action_, rhs.private_as_action_);
     KEY_COMPARE(peer_as_, rhs.peer_as_);
     KEY_COMPARE(identifier_, rhs.identifier_);
     KEY_COMPARE(address_, rhs.address_);

@@ -58,6 +58,7 @@ struct AsPathSpec : public BgpAttribute {
 
     as_t AsLeftMost() const;
     bool AsLeftMostMatch(as_t as) const;
+    as_t AsLeftMostPublic() const;
     bool AsPathLoop(as_t as, uint8_t max_loop_count = 0) const;
     static bool AsIsPrivate(as_t as) {
         return as >= kMinPrivateAs && as <= kMaxPrivateAs;
