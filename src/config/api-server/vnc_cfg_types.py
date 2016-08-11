@@ -2073,10 +2073,11 @@ class RouteAggregateServer(Resource, RouteAggregate):
 class ForwardingClassServer(Resource, ForwardingClass):
     @classmethod
     def _check_fc_id(cls, obj_dict, db_conn):
-        if obj_dict.get('forwarding_class_id') == None:
-            return (True, '')
+        fc_id = 0
+        if obj_dict.get('forwarding_class_id'):
+            fc_id = obj_dict.get('forwarding_class_id')
 
-        id_filters = {'forwarding_class_id' : [obj_dict['forwarding_class_id']]}
+        id_filters = {'forwarding_class_id' : [fc_id]}
         (ok, forwarding_class_list) = db_conn.dbe_list('forwarding_class',
                                                        filters = id_filters)
         if not ok:
@@ -2085,15 +2086,13 @@ class ForwardingClassServer(Resource, ForwardingClass):
         if len(forwarding_class_list) != 0:
             return (False, (400, "Forwarding class %s is configured "
                     "with a id %d" % (forwarding_class_list[0][0],
-                     obj_dict.get('forwarding_class_id'))))
+                     fc_id)))
         return (True, '')
     # end _check_fc_id
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        if 'forwarding_class_id' in obj_dict:
-            return cls._check_fc_id(obj_dict, db_conn)
-        return (True, '')
+        return cls._check_fc_id(obj_dict, db_conn)
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
