@@ -191,6 +191,7 @@ public:
     virtual BgpProto::BgpPeerType PeerType() const {
         return peer_type_;
     }
+    const string &private_as_action() const { return private_as_action_; }
 
     const BgpNeighborConfig *config() const { return config_; }
 
@@ -453,6 +454,7 @@ private:
     bool passive_;
     bool resolve_paths_;
     bool as_override_;
+    string private_as_action_;
 
     tbb::atomic<int> membership_req_pending_;
     bool defer_close_;
