@@ -40,7 +40,8 @@ class ServiceTemplateCmd(object):
 
         self._vnc_lib = VncApi('u', 'p',
                                api_server_host=self._args.api_server_ip,
-                               api_server_port=self._args.api_server_port)
+                               api_server_port=self._args.api_server_port,
+                               api_server_use_ssl=self._args.api_server_use_ssl)
     # end __init__
 
     def _parse_args(self, args_str):
@@ -60,6 +61,7 @@ class ServiceTemplateCmd(object):
             'svc_type': 'firewall',
             'api_server_ip': '127.0.0.1',
             'api_server_port': '8082',
+            'api_server_use_ssl': False,
         }
 
         if not args.conf_file:

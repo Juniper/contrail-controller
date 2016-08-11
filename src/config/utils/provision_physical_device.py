@@ -28,6 +28,7 @@ class VrouterProvisioner(object):
                     self._args.admin_tenant_name,
                     self._args.api_server_ip,
                     self._args.api_server_port, '/',
+                    api_server_use_ssl=self._args.api_server_use_ssl,
                     auth_host=self._args.openstack_ip)
                 connected = True
             except ResourceExhaustionError: # haproxy throws 503
@@ -58,6 +59,7 @@ class VrouterProvisioner(object):
                                                 --device_tsn nodec45 
                                                 --api_server_ip 10.204.221.33 
                                                 --api_server_port 8082 
+                                                --api_server_use_ssl False
                                                 --oper <add | del>
                                                 --admin_user admin 
                                                 --admin_password contrail123 
@@ -79,6 +81,7 @@ class VrouterProvisioner(object):
         defaults = {
             'api_server_ip': '127.0.0.1',
             'api_server_port': '8082',
+            'api_server_use_ssl': False,
             'oper': 'add',
         }
         ksopts = {
@@ -131,6 +134,8 @@ class VrouterProvisioner(object):
             "--api_server_ip", help="IP address of api server", required=True)
         parser.add_argument(
             "--api_server_port", help="Port of api server")
+        parser.add_argument("--api_server_use_ssl",
+            help="Use SSL to connect with API server")
         parser.add_argument(
             "--openstack_ip", help="Openstack node ip")
         parser.add_argument(

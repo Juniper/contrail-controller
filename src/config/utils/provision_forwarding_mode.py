@@ -21,7 +21,8 @@ class ForwardingModeSetup(object):
             self._args.admin_user, self._args.admin_password,
             self._args.admin_tenant_name,
             self._args.api_server_ip,
-            self._args.api_server_port, '/')
+            self._args.api_server_port, '/',
+            api_server_use_ssl=self._args.api_server_use_ssl)
         
         #import pdb;pdb.set_trace()
         vxlan_id = self._args.vxlan_id
@@ -75,6 +76,7 @@ class ForwardingModeSetup(object):
         defaults = {
             'api_server_ip': '127.0.0.1',
             'api_server_port': '8082',
+            'api_server_use_ssl': False,
             'oper': 'add',
             'control_names': [],
             'route_table_name': 'CustomRouteTable',

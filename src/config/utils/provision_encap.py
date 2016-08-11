@@ -21,7 +21,8 @@ class EncapsulationProvision(object):
             self._args.admin_user, self._args.admin_password,
             self._args.admin_tenant_name,
             self._args.api_server_ip,
-            self._args.api_server_port, '/')
+            self._args.api_server_port, '/',
+            api_server_use_ssl=self._args.api_server_use_ssl)
         encap_obj=EncapsulationPrioritiesType(encapsulation=self._args.encap_priority.split(","))
         try:
             current_config=self._vnc_lib.global_vrouter_config_read(
@@ -55,6 +56,7 @@ class EncapsulationProvision(object):
         Eg. python provision_encap.py 
                                         --api_server_ip 127.0.0.1
                                         --api_server_port 8082
+                                        --api_server_use_ssl False
                                         --encap_priority "MPLSoUDP,MPLSoGRE,VXLAN"
                                         --vxlan_vn_id_mode "automatic"
                                         --oper <add | delete>
@@ -71,6 +73,7 @@ class EncapsulationProvision(object):
         defaults = {
             'api_server_ip': '127.0.0.1',
             'api_server_port': '8082',
+            'api_server_use_ssl': False,
             'oper': 'add',
             'encap_priority': 'MPLSoUDP,MPLSoGRE,VXLAN',
             'vxlan_vn_id_mode' : 'automatic'
@@ -104,6 +107,8 @@ class EncapsulationProvision(object):
         parser.add_argument(
             "--api_server_ip", help="IP address of api server")
         parser.add_argument("--api_server_port", help="Port of api server")
+        parser.add_argument("--api_server_use_ssl",
+                        help="Use SSL to connect with API server")
         parser.add_argument(
             "--encap_priority", help="List of Encapsulation priority", required=True)
         parser.add_argument(

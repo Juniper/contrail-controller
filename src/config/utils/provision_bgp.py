@@ -18,16 +18,19 @@ def get_ip(ip_w_pfx):
 
 class BgpProvisioner(object):
 
-    def __init__(self, user, password, tenant, api_server_ip, api_server_port):
+    def __init__(self, user, password, tenant, api_server_ip, api_server_port,
+                 api_server_use_ssl=False):
         self._admin_user = user
         self._admin_password = password
         self._admin_tenant_name = tenant
         self._api_server_ip = api_server_ip
         self._api_server_port = api_server_port
+        self._api_server_use_ssl = api_server_use_ssl
         self._vnc_lib = VncApi(
             self._admin_user, self._admin_password, self._admin_tenant_name,
             self._api_server_ip,
-            self._api_server_port, '/')
+            self._api_server_port, '/',
+            api_server_use_ssl=self._api_server_use_ssl)
     # end __init__
 
     def _get_rt_inst_obj(self):
