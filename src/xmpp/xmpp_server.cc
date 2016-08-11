@@ -88,7 +88,11 @@ XmppServer::XmppServer(EventManager *evm, const string &server_addr,
 
             // Verify peer has CA signed certificate
             ctx->set_verify_mode(boost::asio::ssl::verify_peer, ec);
-            assert(ec.value() == 0);
+            if (ec.value() != 0) {
+                LOG(ERROR, "Error : " << ec.message()
+                    << ", while setting ssl verification mode");
+                exit(EINVAL);
+            }
 
             ctx->load_verify_file(config->path_to_ca_cert, ec);
             if (ec.value() != 0) {
