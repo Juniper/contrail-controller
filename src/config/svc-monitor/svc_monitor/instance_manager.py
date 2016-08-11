@@ -539,6 +539,30 @@ class InstanceManager(object):
 
         return vmi_obj
 
+    def _update_si_ip_props(self, si):
+        try:
+            vm_uuid = list(si.virtual_machines)[0]
+        except KeyError:
+            return
+
+        si_obj = self._vnc_lib.service_instance_read(id=si.uuid)
+        props = si_obj.get_service_instance_properties()
+
+        vm = VirtualMachineSM.get(vm_uuid)
+        for vmi_uuid in vm.virtual_machine_interfaces:
+            vmi = VirtualMachineInterfaceSM(vmi_uuid)
+            iip = InstanceIpSM.get(vmi.instance_ip)
+            getattr(props, "set_%s_ip_address" % vmi.if_type)(iip.address)
+            intf_list = []
+            for intf_type, intf in zip(['right', 'left'], props.get_interface_list() or []):
+                if vmi.if_type == intf_type:
+                    intf.set_ip_address(iip.address)
+                intf_list.append(intf)
+            props.set_interface_list(intf_list)
+
+        si_obj.set_service_instance_properties(props)
+        self._vnc_lib.service_instance_update(si_obj)
+
     def _associate_vrouter(self, si, vm):
         vrouter_name = None
         if not vm.virtual_router:
@@ -655,6 +679,8 @@ class NetworkNamespaceManager(VRouterHostedManager):
             else:
                 ha = ("active: %s" % (si.local_preference[index]))
             instances.append({'uuid': vm.uuid, 'vr_name': vr_name, 'ha': ha})
+
+        self._update_si_ip_props(si)
 
         # uve trace
         si.state = 'active'

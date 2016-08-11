@@ -277,8 +277,9 @@ class SvcMonitor(object):
         for si_id in dependency_tracker.resources.get('service_instance', []):
             si = ServiceInstanceSM.get(si_id)
             if si:
-                si.state = 'launch'
-                self._create_service_instance(si)
+                if oper_info['oper'] == 'CREATE':
+                    si.state = 'launch'
+                    self._create_service_instance(si)
             else:
                 self.logger.log_info("Deleting SI %s" % si_id)
                 for vm_id in dependency_tracker.resources.get(
