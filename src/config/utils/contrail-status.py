@@ -380,11 +380,15 @@ def supervisor_status(nodetype, options):
 
 def package_installed(pkg):
     if distribution == 'debian':
-        cmd = "dpkg -l " + pkg
+        cmd = "dpkg-query -W -f=${VERSION} " + pkg
     else:
-        cmd = "rpm -q " + pkg
+        cmd = "rpm -q --qf %{V} " + pkg
     with open(os.devnull, "w") as fnull:
-        return (not subprocess.call(cmd.split(), stdout=fnull, stderr=fnull))
+        try:
+            out = subprocess.check_output(cmd.split(), stderr=fnull)
+            return True if out else False
+        except subprocess.CalledProcessError:
+            return False
 
 def main():
     parser = OptionParser()
