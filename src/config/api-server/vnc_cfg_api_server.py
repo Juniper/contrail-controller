@@ -2602,22 +2602,16 @@ class VncApiServer(object):
         cred = None
         if cassandra_user is not None and cassandra_password is not None:
             cred = {'username':cassandra_user,'password':cassandra_password}
-        db_conn = VncDbClient(self, ifmap_ip, ifmap_port, user, passwd,
-                              cass_server_list, rabbit_servers, rabbit_port,
-                              rabbit_user, rabbit_password, rabbit_vhost,
-                              rabbit_ha_mode, reset_config,
-                              zk_server, self._args.cluster_id,
-                              cassandra_credential=cred,
-                              rabbit_use_ssl = self._args.rabbit_use_ssl,
-                              kombu_ssl_version =
-                              self._args.kombu_ssl_version,
-                              kombu_ssl_keyfile =
-                              self._args.kombu_ssl_keyfile,
-                              kombu_ssl_certfile =
-                              self._args.kombu_ssl_certfile,
-                              kombu_ssl_ca_certs =
-                              self._args.kombu_ssl_ca_certs)
-        self._db_conn = db_conn
+        self._db_conn = VncDbClient(
+            self, ifmap_ip, ifmap_port, user, passwd, cass_server_list,
+            rabbit_servers, rabbit_port, rabbit_user, rabbit_password,
+            rabbit_vhost, rabbit_ha_mode, reset_config, zk_server,
+            self._args.cluster_id, cassandra_credential=cred,
+            rabbit_use_ssl=self._args.rabbit_use_ssl,
+            kombu_ssl_version=self._args.kombu_ssl_version,
+            kombu_ssl_keyfile= self._args.kombu_ssl_keyfile,
+            kombu_ssl_certfile=self._args.kombu_ssl_certfile,
+            kombu_ssl_ca_certs=self._args.kombu_ssl_ca_certs)
     # end _db_connect
 
     def _ensure_id_perms_present(self, obj_uuid, obj_dict):

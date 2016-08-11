@@ -266,6 +266,8 @@ class SchemaTransformer(object):
             if oper == 'CREATE':
                 obj_dict = oper_info['obj_dict']
                 obj_fq_name = ':'.join(obj_dict['fq_name'])
+                self._cassandra.cache_uuid_to_fq_name_add(
+                    obj_id, obj_dict['fq_name'], obj_type)
                 obj = obj_class.locate(obj_fq_name)
                 if obj is None:
                     self.config_log('%s id %s fq_name %s not found' % (
@@ -304,6 +306,7 @@ class SchemaTransformer(object):
                                 set(dependency_tracker.resources[resource]) |
                                 set(ids))
             elif oper == 'DELETE':
+                self._cassandra.cache_uuid_to_fq_name_del(obj_id)
                 obj = obj_class.get_by_uuid(obj_id)
                 if obj is None:
                     return
