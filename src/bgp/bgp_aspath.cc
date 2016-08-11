@@ -155,9 +155,9 @@ AsPathSpec *AsPathSpec::Replace(as_t old_asn, as_t asn) const {
 
 //
 // Create a new AsPathSpec by removing private asns. Stop looking for private
-// asns when we encounter the first non-private asn or the peer asn.
-// If all is true, remove all private asns not just the leftmost one. Also do
-// not stop when we encounter the first non-private asn or the peer asn.
+// asns when we encounter the first public asn or the peer asn.
+// If all is true, remove all private asns i.e. do not stop when we encounter
+// the first public asn or the peer asn.
 // If asn is non-zero then replace private asns instead of removing them.
 // If peer asn is non-zero, do not remove/replace it.
 //
@@ -168,8 +168,7 @@ AsPathSpec *AsPathSpec::RemovePrivate(bool all, as_t asn, as_t peer_asn) const {
         PathSegment *ps = path_segments[i];
         PathSegment *new_ps = new PathSegment;
 
-        // We've already removed/replaced the first private asn or have
-        // decided not to remove/replace any private asns.
+        // We've already removed/replaced all private asns that we can.
         // Copy the entire segment instead of copying one as_t at a time.
         if (remove_replace_done) {
             *new_ps = *ps;
@@ -178,18 +177,18 @@ AsPathSpec *AsPathSpec::RemovePrivate(bool all, as_t asn, as_t peer_asn) const {
         }
 
         // Examine each as_t in the path segment to build a modified version.
-        // Do not remove/replace non-private asns and peer asn.
-        // Otherwise remove/replace private asns as specified.
+        // Note down that we're done removing/replacing when we see a public
+        // asn or the peer asn.
         new_ps->path_segment_type = ps->path_segment_type;
         for (size_t j = 0; j < ps->path_segment.size(); ++j) {
             if (remove_replace_done ||
                 !AsIsPrivate(ps->path_segment[j]) ||
                 ps->path_segment[j] == peer_asn) {
                 new_ps->path_segment.push_back(ps->path_segment[j]);
+                remove_replace_done = !all;
             } else if (asn) {
                 new_ps->path_segment.push_back(asn);
             }
-            remove_replace_done = !all;
         }
 
         // Get rid of the new path segment if it's empty.
@@ -200,6 +199,7 @@ AsPathSpec *AsPathSpec::RemovePrivate(bool all, as_t asn, as_t peer_asn) const {
             new_spec->path_segments.push_back(new_ps);
         }
     }
+
     return new_spec;
 }
 
