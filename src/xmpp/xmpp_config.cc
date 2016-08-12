@@ -11,11 +11,12 @@ using namespace boost::asio::ip;
 using namespace boost::property_tree;
 using namespace std;
 
-XmppChannelConfig::XmppChannelConfig(bool isClient) : 
+XmppChannelConfig::XmppChannelConfig(bool isClient) :
      ToAddr(""), FromAddr(""), NodeAddr(""), logUVE(false), auth_enabled(false),
      path_to_server_cert(""), path_to_server_priv_key(""), path_to_ca_cert(""),
      tcp_hold_time(XmppChannelConfig::kTcpHoldTime),
      gr_helper_enable(getenv("GR_HELPER_XMPP_ENABLE") != NULL),
+     end_of_rib_timeout(30),
      isClient_(isClient)  {
 }
 

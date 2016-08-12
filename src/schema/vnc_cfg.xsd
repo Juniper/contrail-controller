@@ -845,18 +845,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      </xsd:restriction>
 </xsd:simpleType>
 
-<xsd:simpleType name="EndOfRibReceiveTimeType">
-     <xsd:restriction base="xsd:integer">
-         <xsd:minInclusive value="0"/>
-         <xsd:maxInclusive value="4095"/>
-     </xsd:restriction>
-</xsd:simpleType>
-
 <xsd:complexType name="GracefulRestartType">
     <xsd:all>
         <xsd:element name="graceful-restart-time" type="GracefulRestartTimeType" default="0"/>
         <xsd:element name="long-lived-graceful-restart-time" type="LongLivedGracefulRestartTimeType" default="0"/>
-        <xsd:element name="end-of-rib-receive-time" type="EndOfRibReceiveTimeType" default="30"/>
     </xsd:all>
 </xsd:complexType>
 

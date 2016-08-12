@@ -1212,7 +1212,7 @@ void BgpPeer::RegisterAllTables() {
     BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
         table, "Register peer with the table");
     Register(table, BuildRibExportPolicy(family));
-    StartEndOfRibTimer();
+    StartEndOfRouteTargetRibTimer();
 
     vector<Address::Family> vpn_family_list = list_of
         (Address::INETVPN)(Address::INET6VPN)(Address::ERMVPN)(Address::EVPN);
@@ -1984,6 +1984,13 @@ void BgpPeer::RegisterToVpnTables() {
     }
 }
 
+void BgpPeer::StartEndOfRibTimer() {
+    uint32_t timeout = server_->GetEndOfRibReceiveTime();
+    end_of_rib_timer_->Start(timeout * 1000,
+        boost::bind(&BgpPeer::EndOfRibTimerExpired, this),
+        boost::bind(&BgpPeer::EndOfRibTimerErrorHandler, this, _1, _2));
+}
+
 void BgpPeer::KeepaliveTimerErrorHandler(string error_name,
                                          string error_message) {
     BGP_LOG_PEER(Timer, this, SandeshLevel::SYS_CRIT, BGP_LOG_FLAG_ALL,
@@ -1992,6 +1999,13 @@ void BgpPeer::KeepaliveTimerErrorHandler(string error_name,
 }
 
 bool BgpPeer::EndOfRibTimerExpired() {
+
+    // Fake reception of EoRs to exit from GR states and sweep all stale routes.
+    peer_close_->close_manager()->ProcessEORMarkerReceived(Address::UNSPEC);
+    return false;
+}
+
+bool BgpPeer::EndOfRouteTargetRibTimerExpired() {
     RegisterToVpnTables();
     return false;
 }
@@ -2008,14 +2022,14 @@ bool BgpPeer::KeepaliveTimerExpired() {
     return true;
 }
 
-void BgpPeer::StartEndOfRibTimer() {
-    uint32_t timeout = server_->GetEndOfRibReceiveTime();
+void BgpPeer::StartEndOfRouteTargetRibTimer() {
+    uint32_t timeout = 30;
     char *time_str = getenv("BGP_RTFILTER_EOR_TIMEOUT");
     if (time_str) {
         timeout = strtoul(time_str, NULL, 0);
     }
     end_of_rib_timer_->Start(timeout * 1000,
-        boost::bind(&BgpPeer::EndOfRibTimerExpired, this),
+        boost::bind(&BgpPeer::EndOfRouteTargetRibTimerExpired, this),
         boost::bind(&BgpPeer::EndOfRibTimerErrorHandler, this, _1, _2));
 }
 
