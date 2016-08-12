@@ -38,6 +38,7 @@ class LibvirtInstanceAdapter : public InstanceManagerAdapter {
         bool Run();
         void Stop() {}
         void Terminate() {}
+        void Shutdown() {}
 
         const std::string &cmd() const {
             static const std::string cmdstr =

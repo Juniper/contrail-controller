@@ -28,6 +28,7 @@ class InstanceTask {
     virtual bool Run() = 0;
     virtual void Stop() = 0;
     virtual void Terminate() = 0;
+    virtual void Shutdown() = 0;
 
     // TODO reimplement instance_manager.cc to remove these two?
     virtual pid_t pid() const = 0;
@@ -77,6 +78,7 @@ class InstanceTaskExecvp : public InstanceTask {
     bool Run();
     void Stop();
     void Terminate();
+    void Shutdown();
 
     pid_t pid() const {
         return pid_;

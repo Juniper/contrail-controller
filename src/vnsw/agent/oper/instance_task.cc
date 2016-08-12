@@ -25,6 +25,13 @@ void InstanceTaskExecvp::ReadErrors(const boost::system::error_code &ec,
     }
 
     if (ec) {
+        if (ec == boost::system::errc::operation_canceled ||
+            ec == boost::asio::error::operation_aborted) {
+            // when InstanceTaskExecvp is Shutdown, it results in
+            // operation_canceled. Nothing to do in that case.
+            return;
+        }
+
         boost::system::error_code close_ec;
         errors_.close(close_ec);
 
@@ -39,7 +46,8 @@ void InstanceTaskExecvp::ReadErrors(const boost::system::error_code &ec,
                     errors_,
                     boost::asio::buffer(rx_buff_, kBufLen),
                     boost::bind(&InstanceTaskExecvp::ReadErrors,
-                                this, boost::asio::placeholders::error,
+                                boost::shared_ptr<InstanceTaskExecvp>(this),
+                                boost::asio::placeholders::error,
                                 boost::asio::placeholders::bytes_transferred));
 }
 
@@ -53,6 +61,10 @@ void InstanceTaskExecvp::Terminate() {
     kill(pid_, SIGKILL);
 }
 
+void InstanceTaskExecvp::Shutdown() {
+    boost::system::error_code ec;
+    errors_.cancel(ec);
+}
 
 // If there is an error before the fork, task is set to "not running"
 // and "false" is returned to caller so that caller can take appropriate
@@ -121,7 +133,8 @@ bool InstanceTaskExecvp::Run() {
     bzero(rx_buff_, sizeof(rx_buff_));
     boost::asio::async_read(errors_, boost::asio::buffer(rx_buff_, kBufLen),
             boost::bind(&InstanceTaskExecvp::ReadErrors,
-                        this, boost::asio::placeholders::error,
+                        boost::shared_ptr<InstanceTaskExecvp>(this),
+                        boost::asio::placeholders::error,
                         boost::asio::placeholders::bytes_transferred));
     return true;
 
