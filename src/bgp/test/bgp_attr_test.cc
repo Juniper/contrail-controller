@@ -812,6 +812,103 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate7) {
     EXPECT_EQ(0, result->CompareTo(expected));
 }
 
+//
+// Original spec has multiple segments.
+// ASs are being removed, not replaced.
+// After the first segment is modified, remaining segments should be copied
+// over unchanged since all is not true.
+//
+TEST_F(BgpAttrTest, AsPathRemovePrivate8) {
+    AsPathSpec original;
+    AsPathSpec::PathSegment *ops1 = new AsPathSpec::PathSegment;
+    original.path_segments.push_back(ops1);
+    ops1->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    ops1->path_segment.push_back(64512);
+    ops1->path_segment.push_back(100);
+    ops1->path_segment.push_back(65000);
+    AsPathSpec::PathSegment *ops2 = new AsPathSpec::PathSegment;
+    original.path_segments.push_back(ops2);
+    ops2->path_segment_type = AsPathSpec::PathSegment::AS_SET;
+    ops2->path_segment.push_back(64512);
+    ops2->path_segment.push_back(64513);
+    AsPathSpec::PathSegment *ops3 = new AsPathSpec::PathSegment;
+    original.path_segments.push_back(ops3);
+    ops3->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    ops3->path_segment.push_back(500);
+
+    AsPathSpec expected;
+    AsPathSpec::PathSegment *eps1 = new AsPathSpec::PathSegment;
+    expected.path_segments.push_back(eps1);
+    eps1->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    eps1->path_segment.push_back(100);
+    eps1->path_segment.push_back(65000);
+    AsPathSpec::PathSegment *eps2 = new AsPathSpec::PathSegment;
+    expected.path_segments.push_back(eps2);
+    eps2->path_segment_type = AsPathSpec::PathSegment::AS_SET;
+    eps2->path_segment.push_back(64512);
+    eps2->path_segment.push_back(64513);
+    AsPathSpec::PathSegment *eps3 = new AsPathSpec::PathSegment;
+    expected.path_segments.push_back(eps3);
+    eps3->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    eps3->path_segment.push_back(500);
+
+    bool all;
+    as_t asn, peer_asn;
+    boost::scoped_ptr<AsPathSpec> result;
+    all = false; asn = 0; peer_asn = 0;
+    result.reset(original.RemovePrivate(all, asn, peer_asn));
+    EXPECT_EQ(0, result->CompareTo(expected));
+}
+
+//
+// Original spec has multiple segments.
+// ASs are being replaced, not removed.
+// After the first segment is modified, remaining segments should be copied
+// over unchanged since all is not true.
+//
+TEST_F(BgpAttrTest, AsPathRemovePrivate9) {
+    AsPathSpec original;
+    AsPathSpec::PathSegment *ops1 = new AsPathSpec::PathSegment;
+    original.path_segments.push_back(ops1);
+    ops1->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    ops1->path_segment.push_back(64512);
+    ops1->path_segment.push_back(100);
+    ops1->path_segment.push_back(65000);
+    AsPathSpec::PathSegment *ops2 = new AsPathSpec::PathSegment;
+    original.path_segments.push_back(ops2);
+    ops2->path_segment_type = AsPathSpec::PathSegment::AS_SET;
+    ops2->path_segment.push_back(64512);
+    ops2->path_segment.push_back(64513);
+    AsPathSpec::PathSegment *ops3 = new AsPathSpec::PathSegment;
+    original.path_segments.push_back(ops3);
+    ops3->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    ops3->path_segment.push_back(500);
+
+    AsPathSpec expected;
+    AsPathSpec::PathSegment *eps1 = new AsPathSpec::PathSegment;
+    expected.path_segments.push_back(eps1);
+    eps1->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    eps1->path_segment.push_back(300);
+    eps1->path_segment.push_back(100);
+    eps1->path_segment.push_back(65000);
+    AsPathSpec::PathSegment *eps2 = new AsPathSpec::PathSegment;
+    expected.path_segments.push_back(eps2);
+    eps2->path_segment_type = AsPathSpec::PathSegment::AS_SET;
+    eps2->path_segment.push_back(64512);
+    eps2->path_segment.push_back(64513);
+    AsPathSpec::PathSegment *eps3 = new AsPathSpec::PathSegment;
+    expected.path_segments.push_back(eps3);
+    eps3->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    eps3->path_segment.push_back(500);
+
+    bool all;
+    as_t asn, peer_asn;
+    boost::scoped_ptr<AsPathSpec> result;
+    all = false; asn = 300; peer_asn = 0;
+    result.reset(original.RemovePrivate(all, asn, peer_asn));
+    EXPECT_EQ(0, result->CompareTo(expected));
+}
+
 TEST_F(BgpAttrTest, AsPathFormat1) {
     AsPathSpec spec;
 

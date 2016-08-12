@@ -166,6 +166,11 @@ protected:
         return server_.local_autonomous_system();
     }
 
+    as_t PeerAsNumber() const {
+        assert(!internal_);
+        return 100;
+    }
+
     bool PeerIsInternal() {
         return internal_;
     }
@@ -212,6 +217,11 @@ protected:
         DB *db = server_.database();
         table_ = static_cast<BgpTable *>(db->FindTable(table_name_));
         ASSERT_TRUE(table_ != NULL);
+    }
+
+    void CreateRibOut(RibExportPolicy &policy) {
+        ribout_ = table_->RibOutLocate(&mgr_, policy);
+        RegisterRibOutPeers();
     }
 
     void CreateRibOut(BgpProto::BgpPeerType type,
@@ -412,6 +422,15 @@ protected:
         const BgpAttr *attr = uinfo.roattr.attr();
         const AsPath *as_path = attr->as_path();
         EXPECT_FALSE(as_path->path().AsPathLoop(as_number, 0));
+    }
+
+    void VerifyAttrAsPathAsCount(as_t as_number, uint8_t count) {
+        const UpdateInfo &uinfo = uinfo_slist_->front();
+        const BgpAttr *attr = uinfo.roattr.attr();
+        const AsPath *as_path = attr->as_path();
+        EXPECT_FALSE(as_path->path().AsPathLoop(as_number, count));
+        if (count)
+            EXPECT_TRUE(as_path->path().AsPathLoop(as_number, count - 1));
     }
 
     void VerifyAttrNoClusterList() {
@@ -635,6 +654,79 @@ TEST_P(BgpTableExportParamTest1, AsOverride) {
     VerifyExportAccept();
     VerifyAttrAsPrepend();
     VerifyAttrAsPathCount(PeerIsInternal() ? 1 : 2);
+}
+
+//
+// Table : inet.0, bgp.l3vpn.0
+// Source: eBGP, iBGP
+// RibOut: eBGP
+// Intent: Remove private all (w/o replace) removes all private ASes.
+//
+TEST_P(BgpTableExportParamTest1, RemovePrivateAll) {
+    RibExportPolicy policy(
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, -1, 0);
+    bool all = true; bool replace = false; bool peer_loop_check = false;
+    policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
+    CreateRibOut(policy);
+
+    SetAttrAsPath(65535);
+    SetAttrAsPath(64512);
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrAsPrepend();
+    VerifyAttrAsPathCount(PeerIsInternal() ? 1 : 2);
+    VerifyAttrAsPathAsCount(LocalAsNumber(), 1);
+    if (!PeerIsInternal())
+        VerifyAttrAsPathAsCount(PeerAsNumber(), 1);
+}
+
+//
+// Table : inet.0, bgp.l3vpn.0
+// Source: eBGP, iBGP
+// RibOut: eBGP
+// Intent: Remove private all (w/ replace) replaces all private ASes with
+//         the local as.
+//
+TEST_P(BgpTableExportParamTest1, RemovePrivateAllReplace) {
+    RibExportPolicy policy(
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, -1, 0);
+    bool all = true; bool replace = true; bool peer_loop_check = false;
+    policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
+    CreateRibOut(policy);
+
+    SetAttrAsPath(65535);
+    SetAttrAsPath(64512);
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrAsPrepend();
+    VerifyAttrAsPathCount(PeerIsInternal() ? 3 : 4);
+    VerifyAttrAsPathAsCount(LocalAsNumber(), 3);
+    if (!PeerIsInternal())
+        VerifyAttrAsPathAsCount(PeerAsNumber(), 1);
+}
+
+//
+// Table : inet.0, bgp.l3vpn.0
+// Source: eBGP, iBGP
+// RibOut: eBGP
+// Intent: Private ASes are not removed if there's no remove private config.
+//
+TEST_P(BgpTableExportParamTest1, NoRemovePrivate) {
+    CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 300, true, IpAddress());
+    SetAttrAsPath(65535);
+    SetAttrAsPath(64512);
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrAsPrepend();
+    VerifyAttrAsPathCount(PeerIsInternal() ? 3 : 4);
+    VerifyAttrAsPathAsCount(LocalAsNumber(), 1);
+    VerifyAttrAsPathAsCount(64512, 1);
+    VerifyAttrAsPathAsCount(65535, 1);
+    if (!PeerIsInternal())
+        VerifyAttrAsPathAsCount(PeerAsNumber(), 1);
 }
 
 INSTANTIATE_TEST_CASE_P(Instance, BgpTableExportParamTest1,
@@ -933,6 +1025,47 @@ TEST_P(BgpTableExportParamTest3, AsOverrideAndRewriteNexthop) {
     VerifyAttrAsPathCount(PeerIsInternal() ? 1 : 2);
     VerifyAttrNoAsPathLoop(100);
     UnregisterRibOut();
+}
+
+//
+// Table : inet.0, bgp.l3vpn.0
+// Source: eBGP
+// RibOut: iBGP
+// Intent: Remove private all (w/o replace) removes all private ASes.
+//
+TEST_P(BgpTableExportParamTest3, RemovePrivateAll) {
+    RibExportPolicy policy(BgpProto::IBGP, RibExportPolicy::BGP,
+        LocalAsNumber(), false, false, -1, 0);
+    bool all = true; bool replace = false; bool peer_loop_check = false;
+    policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
+    CreateRibOut(policy);
+
+    SetAttrAsPath(65535);
+    SetAttrAsPath(64512);
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrAsPathCount(1);
+    VerifyAttrAsPathAsCount(PeerAsNumber(), 1);
+}
+
+//
+// Table : inet.0, bgp.l3vpn.0
+// Source: eBGP
+// RibOut: iBGP
+// Intent: Private ASes are not removed if there's no remove private config.
+//
+TEST_P(BgpTableExportParamTest3, NoRemovePrivate) {
+    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, LocalAsNumber());
+    SetAttrAsPath(65535);
+    SetAttrAsPath(64512);
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrAsPathCount(3);
+    VerifyAttrAsPathAsCount(64512, 1);
+    VerifyAttrAsPathAsCount(65535, 1);
+    VerifyAttrAsPathAsCount(PeerAsNumber(), 1);
 }
 
 INSTANTIATE_TEST_CASE_P(Instance, BgpTableExportParamTest3,

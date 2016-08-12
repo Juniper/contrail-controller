@@ -90,6 +90,10 @@ size_t AsPathSpec::EncodeLength() const {
     return sz;
 }
 
+//
+// Check AsPathSpec for loops for the given as.
+// Return true if the number of occurrences of as exceeds given max loop count.
+//
 bool AsPathSpec::AsPathLoop(as_t as, uint8_t max_loop_count) const {
     uint8_t loop_count = 0;
     for (size_t i = 0; i < path_segments.size(); ++i) {

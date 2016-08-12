@@ -165,6 +165,7 @@ private:
 
     class DeleteActor;
 
+    void ProcessRemovePrivate(const RibOut *ribout, BgpAttr *attr) const;
     void ProcessLlgrState(const RibOut *ribout, const BgpPath *path,
                           BgpAttr *attr);
     virtual BgpRoute *TableFind(DBTablePartition *rtp,

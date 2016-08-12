@@ -129,6 +129,26 @@ void BgpTable::RibOutDelete(const RibExportPolicy &policy) {
 }
 
 //
+// Process Remove Private information.
+//
+void BgpTable::ProcessRemovePrivate(const RibOut *ribout, BgpAttr *attr) const {
+    if (!ribout->remove_private_enabled())
+        return;
+
+    bool all = ribout->remove_private_all();
+    bool replace = ribout->remove_private_replace();
+    bool peer_loop_check = ribout->remove_private_peer_loop_check();
+
+    as_t replace_asn = replace ? server()->local_autonomous_system() : 0;
+    as_t peer_asn = peer_loop_check ? ribout->peer_as() : 0;
+
+    const AsPathSpec &spec = attr->as_path()->path();
+    AsPathSpec *new_spec = spec.RemovePrivate(all, replace_asn, peer_asn);
+    attr->set_as_path(new_spec);
+    delete new_spec;
+}
+
+//
 // Process Long Lived Graceful Restart state information.
 //
 // For LLGR_STALE paths, if the peer supports LLGR then attach LLGR_STALE
@@ -247,6 +267,10 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
             if (clone->local_pref() == 0)
                 clone->set_local_pref(100);
 
+            // Should not normally be needed for iBGP, but there could be
+            // complex configurations where this is useful.
+            ProcessRemovePrivate(ribout, clone);
+
             // If the route is locally originated i.e. there's no AsPath,
             // then generate a Nil AsPath i.e. one with 0 length. No need
             // to modify the AsPath if it already exists since this is an
@@ -320,6 +344,9 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
                 delete as_path_ptr;
             }
 
+            // Remove private processing must happen before local AS prepend.
+            ProcessRemovePrivate(ribout, clone);
+
             // Prepend the local AS to AsPath.
             if (clone->as_path() != NULL) {
                 const AsPathSpec &as_path = clone->as_path()->path();
@@ -335,9 +362,9 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
         }
 
         assert(clone);
-
-        // Process LLGR information.
         ProcessLlgrState(ribout, path, clone);
+
+        // Locate the new BgpAttrPtr.
         attr_ptr = clone->attr_db()->Locate(clone);
         attr = attr_ptr.get();
     }
