@@ -106,7 +106,7 @@ public:
           communities(community) {
     }
     RouteAttributes(const LoadBalance::LoadBalanceAttribute &lba)
-        : local_pref(kDefaultLocalPref), sequence(kDefaultSequence),
+        : local_pref(kDefaultLocalPref), med(0), sequence(kDefaultSequence),
           loadBalanceAttribute(lba) {
     }
     RouteAttributes(const RouteParams &params)
