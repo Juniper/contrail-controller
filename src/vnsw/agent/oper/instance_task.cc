@@ -13,23 +13,34 @@ InstanceTask::InstanceTask()
 
 InstanceTaskExecvp::InstanceTaskExecvp(const std::string &cmd,
                             int cmd_type, EventManager *evm) :
-        cmd_(cmd), errors_(*(evm->io_service())),
+        cmd_(cmd), valid_fd_(false), errors_(*(evm->io_service())),
         pid_(0), cmd_type_(cmd_type) {
 }
 
-void InstanceTaskExecvp::ReadErrors(const boost::system::error_code &ec,
-                                                   size_t read_bytes) {
+void InstanceTaskExecvp::ReadErrors(InstanceTaskPtr ptr,
+                                    const boost::system::error_code &ec,
+                                    size_t read_bytes) {
     if (read_bytes) {
         if (!on_error_cb_.empty())
-            on_error_cb_(this, rx_buff_);
+            on_error_cb_(ptr, rx_buff_);
     }
 
     if (ec) {
-        boost::system::error_code close_ec;
-        errors_.close(close_ec);
+        if (ec == boost::system::errc::operation_canceled ||
+            ec == boost::asio::error::operation_aborted) {
+            // when InstanceTaskExecvp is Shutdown, it results in
+            // operation_canceled. Nothing to do in that case.
+            return;
+        }
+
+        if (valid_fd_) {
+            boost::system::error_code close_ec;
+            errors_.close(close_ec);
+            valid_fd_ = false;
+        }
 
         if (!on_exit_cb_.empty()) {
-            on_exit_cb_(this, ec);
+            on_exit_cb_(ptr, ec);
         }
         return;
     }
@@ -38,8 +49,8 @@ void InstanceTaskExecvp::ReadErrors(const boost::system::error_code &ec,
     boost::asio::async_read(
                     errors_,
                     boost::asio::buffer(rx_buff_, kBufLen),
-                    boost::bind(&InstanceTaskExecvp::ReadErrors,
-                                this, boost::asio::placeholders::error,
+                    boost::bind(&InstanceTaskExecvp::ReadErrors, this,
+                                ptr, boost::asio::placeholders::error,
                                 boost::asio::placeholders::bytes_transferred));
 }
 
@@ -53,6 +64,12 @@ void InstanceTaskExecvp::Terminate() {
     kill(pid_, SIGKILL);
 }
 
+void InstanceTaskExecvp::Shutdown() {
+    if (valid_fd_) {
+        boost::system::error_code ec;
+        errors_.cancel(ec);
+    }
+}
 
 // If there is an error before the fork, task is set to "not running"
 // and "false" is returned to caller so that caller can take appropriate
@@ -117,11 +134,13 @@ bool InstanceTaskExecvp::Run() {
         //the task again
         return false;
     }
+    valid_fd_ = true;
 
     bzero(rx_buff_, sizeof(rx_buff_));
     boost::asio::async_read(errors_, boost::asio::buffer(rx_buff_, kBufLen),
-            boost::bind(&InstanceTaskExecvp::ReadErrors,
-                        this, boost::asio::placeholders::error,
+            boost::bind(&InstanceTaskExecvp::ReadErrors, this,
+                        InstanceTaskPtr(this),
+                        boost::asio::placeholders::error,
                         boost::asio::placeholders::bytes_transferred));
     return true;
 
@@ -169,6 +188,6 @@ void InstanceTaskQueue::Clear() {
     while(!task_queue_.empty()) {
         InstanceTask *task = task_queue_.front();
         task_queue_.pop();
-        delete task;
+        task->Shutdown();
     }
 }

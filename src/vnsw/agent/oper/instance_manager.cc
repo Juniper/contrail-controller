@@ -229,7 +229,7 @@ void InstanceManager::OnTaskTimeoutEventHandler(InstanceManagerChildEvent event)
 }
 
 void InstanceManager::OnErrorEventHandler(InstanceManagerChildEvent event) {
-    ServiceInstance *svc_instance = GetSvcInstance(event.task);
+    ServiceInstance *svc_instance = GetSvcInstance(event.task.get());
     if (!svc_instance) {
        return;
     }
@@ -245,13 +245,13 @@ void InstanceManager::OnErrorEventHandler(InstanceManagerChildEvent event) {
 }
 
 void InstanceManager::OnExitEventHandler(InstanceManagerChildEvent event) {
-    ServiceInstance *svc_instance = GetSvcInstance(event.task);
+    ServiceInstance *svc_instance = GetSvcInstance(event.task.get());
     if (!svc_instance) {
        return;
     }
 
     std::stringstream ss;
-    ss << "Exit event for the Task " << event.task;
+    ss << "Exit event for the Task " << event.task.get();
     INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
 
     UpdateStateStatusType(event);
@@ -260,9 +260,9 @@ void InstanceManager::OnExitEventHandler(InstanceManagerChildEvent event) {
           iter != task_queues_.end(); ++iter) {
          InstanceTaskQueue *task_queue = *iter;
          if (!task_queue->Empty()) {
-             if (task_queue->Front() == event.task) {
+             if (task_queue->Front() == event.task.get()) {
                  task_queue->Pop();
-                 delete event.task;
+                 event.task->Shutdown();
                  task_queue->StopTimer();
                  DeleteState(svc_instance);
                  ScheduleNextTask(task_queue);
@@ -285,7 +285,7 @@ bool InstanceManager::DequeueEvent(InstanceManagerChildEvent event) {
 }
 
 void InstanceManager::UpdateStateStatusType(InstanceManagerChildEvent event) {
-    ServiceInstance* svc_instance = UnregisterSvcInstance(event.task);
+    ServiceInstance* svc_instance = UnregisterSvcInstance(event.task.get());
     if (svc_instance) {
         InstanceState *state = GetState(svc_instance);
 
@@ -325,7 +325,7 @@ void InstanceManager::UpdateStateStatusType(InstanceManagerChildEvent event) {
             }
 
             std::stringstream ss;
-            ss << "For the task " << event.task << " error status " <<
+            ss << "For the task " << event.task.get() << " error status " <<
                 error_status << " status type " << state->status_type();
             INSTANCE_MANAGER_TRACE(Trace, ss.str().c_str());
         }
@@ -537,7 +537,7 @@ void InstanceManager::ScheduleNextTask(InstanceTaskQueue *task_queue) {
 
         DeleteState(svc_instance);
 
-        delete task;
+        task->Shutdown();
     }
 }
 
@@ -669,7 +669,7 @@ void InstanceManager::StopServiceInstance(ServiceInstance *svc_instance,
     }
 }
 
-void InstanceManager::OnError(InstanceTask *task,
+void InstanceManager::OnError(InstanceTaskPtr task,
                               const std::string errors) {
 
     InstanceManagerChildEvent event;
@@ -680,8 +680,8 @@ void InstanceManager::OnError(InstanceTask *task,
     work_queue_.Enqueue(event);
 }
 
-void InstanceManager::OnExit(InstanceTask *task,
-                    const boost::system::error_code &ec) {
+void InstanceManager::OnExit(InstanceTaskPtr task,
+                             const boost::system::error_code &ec) {
 
     InstanceManagerChildEvent event;
     event.type = OnExitEvent;

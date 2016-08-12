@@ -17,6 +17,7 @@ class LoadbalancerHaproxy;
 class InstanceState;
 class InstanceTask;
 class InstanceTaskQueue;
+typedef boost::shared_ptr<InstanceTask> InstanceTaskPtr;
 
 extern SandeshTraceBufferPtr InstanceManagerTraceBuf;
 #define INSTANCE_MANAGER_TRACE(obj, ...)                                                     \
@@ -50,7 +51,7 @@ class InstanceManager {
         /*
          * OnError variables
          */
-        InstanceTask *task;
+        InstanceTaskPtr task;
         std::string errors;
         int error_val;
 
@@ -95,8 +96,8 @@ class InstanceManager {
 
     void StopStaleNetNS(ServiceInstance::Properties &props);
 
-    void OnError(InstanceTask *task, const std::string errors);
-    void OnExit(InstanceTask *task, const boost::system::error_code &ec);
+    void OnError(InstanceTaskPtr task, const std::string errors);
+    void OnExit(InstanceTaskPtr task, const boost::system::error_code &ec);
     void RegisterSvcInstance(InstanceTask *task,
                              ServiceInstance *svc_instance);
     void UnregisterSvcInstance(ServiceInstance *svc_instance);

@@ -17,9 +17,10 @@ class EventManager;
 
 class InstanceTask {
  public:
-    typedef boost::function<void(InstanceTask *task, const std::string errors)>
+    typedef boost::shared_ptr<InstanceTask> InstanceTaskPtr;
+    typedef boost::function<void(InstanceTaskPtr task, const std::string errors)>
         OnErrorCallback;
-    typedef boost::function<void(InstanceTask *task,
+    typedef boost::function<void(InstanceTaskPtr task,
             const boost::system::error_code &ec)>OnExitCallback;
 
     InstanceTask();
@@ -28,6 +29,7 @@ class InstanceTask {
     virtual bool Run() = 0;
     virtual void Stop() = 0;
     virtual void Terminate() = 0;
+    virtual void Shutdown() = 0;
 
     // TODO reimplement instance_manager.cc to remove these two?
     virtual pid_t pid() const = 0;
@@ -74,9 +76,11 @@ class InstanceTaskExecvp : public InstanceTask {
     InstanceTaskExecvp(const std::string &cmd,
         int cmd_type, EventManager *evm);
 
+
     bool Run();
     void Stop();
     void Terminate();
+    void Shutdown();
 
     pid_t pid() const {
         return pid_;
@@ -92,8 +96,10 @@ class InstanceTaskExecvp : public InstanceTask {
 
 
  private:
-    void ReadErrors(const boost::system::error_code &ec, size_t read_bytes);
+    void ReadErrors(InstanceTaskPtr ptr, const boost::system::error_code &ec,
+                    size_t read_bytes);
     const std::string cmd_;
+    bool valid_fd_;
     boost::asio::posix::stream_descriptor errors_;
     std::stringstream errors_data_;
     char rx_buff_[kBufLen];
