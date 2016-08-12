@@ -115,6 +115,11 @@ public:
 
         XmlPugi *pugi = static_cast<XmlPugi *>(msg->dom.get());
         xml_node items = pugi->FindNode("items");
+
+        // Empty items denotes EoR marker.
+        if (!items.first_child())
+            return;
+
         xml_attribute node = items.attribute("node");
 
         std::string nodename(node.value());

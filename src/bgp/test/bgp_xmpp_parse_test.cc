@@ -39,6 +39,7 @@ public:
     string AuthType() const { return "NIL"; }
     string PeerAddress() const { return "127.0.0.1"; }
     const XmppConnection *connection() const { return NULL; }
+    virtual XmppConnection *connection() { return NULL; }
 
     virtual string LastStateName() const {
         return "";

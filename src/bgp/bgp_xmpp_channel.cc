@@ -34,6 +34,7 @@
 #include "schema/xmpp_multicast_types.h"
 #include "schema/xmpp_enet_types.h"
 #include "xml/xml_pugi.h"
+#include "xmpp/xmpp_init.h"
 #include "xmpp/xmpp_connection.h"
 #include "xmpp/xmpp_server.h"
 #include "xmpp/sandesh/xmpp_peer_info_types.h"
@@ -181,8 +182,10 @@ public:
     // Delete all current subscriptions which are still stale.
     // Concurrency: Protected with a mutex from peer close manager
     virtual void GracefulRestartSweep() {
-        if (parent_)
+        if (parent_) {
             parent_->SweepCurrentSubscriptions();
+            parent_->SendEndOfRIB();
+        }
     }
 
     virtual bool IsCloseGraceful() const {
@@ -2566,6 +2569,24 @@ void BgpXmppChannel::StartEndOfRibTimer() {
     end_of_rib_timer_->Start((timeout * 1000)/2,
         boost::bind(&BgpXmppChannel::EndOfRibTimerExpired, this),
         boost::bind(&BgpXmppChannel::EndOfRibTimerErrorHandler, this, _1, _2));
+}
+
+/*
+ * Empty items list constitute eor marker.
+ */
+void BgpXmppChannel::SendEndOfRIB() {
+    string msg;
+    msg += "\n<message from=\"";
+    msg += XmppInit::kControlNodeJID;
+    msg += "\" to=\"";
+    msg += peer_->ToString();
+    msg += "/";
+    msg += XmppInit::kBgpPeer;
+    msg += "\">";
+    msg += "\n\t<event xmlns=\"http://jabber.org/protocol/pubsub\">";
+    msg += "\n<items></items>\n\t</event>\n</message>\n";
+
+    channel_->connection()->Send((const uint8_t *) msg.data(), msg.size());
 }
 
 void BgpXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {

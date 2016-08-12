@@ -254,6 +254,7 @@ private:
     void EndOfRibTimerErrorHandler(std::string error_name,
                                    std::string error_message);
     bool EndOfRibTimerExpired();
+    void SendEndOfRIB();
 
     xmps::PeerId peer_id_;
     BgpServer *bgp_server_;

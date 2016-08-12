@@ -469,6 +469,7 @@ public:
     xmps::PeerState GetPeerState() const { return xmps::READY; }
     std::string FromString() const  { return string("fake-from"); }
     const XmppConnection *connection() const { return NULL; }
+    virtual XmppConnection *connection() { return NULL; }
 
     virtual void RegisterRxMessageTraceCallback(RxMessageTraceCb cb) {
     }

@@ -549,9 +549,6 @@ bool PeerCloseManager::MembershipRequestCallback(Event *event) {
     // expires.
     if (state_ == LLGR_STALE) {
         MOVE_TO_STATE(LLGR_TIMER);
-        peer_close_->GetGracefulRestartFamilies(&families_);
-        StartRestartTimer(1000 *
-                peer_close_->GetLongLivedGracefulRestartTime());
 
         // Offset restart time with elapsed time during nested closures.
         int time = peer_close_->GetLongLivedGracefulRestartTime() * 1000;
