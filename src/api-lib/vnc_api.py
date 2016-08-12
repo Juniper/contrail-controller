@@ -258,15 +258,15 @@ class VncApi(object):
                           ' "password":{' + \
                             ' "user":{' + \
                                ' "name": "%s",' % (self._username) + \
-                               ' "domain": { "id": "%s" },' % (self._domain_name) + \
+                               ' "domain": { "name": "%s" },' % (self._domain_name) + \
                                ' "password": "%s"' % (self._password) + \
                              '}' + \
                             '}' + \
                           '},' + \
                           ' "scope":{' + \
                             ' "project":{' + \
-                              ' "domain": { "id": "%s" },' % (self._domain_name) + \
-                              ' "name": "%s"' % (self._username) + \
+                              ' "domain": { "name": "%s" },' % (self._domain_name) + \
+                              ' "name": "%s"' % (self._tenant_name) + \
                             '}' + \
                           '}' + \
                         '}' + \
