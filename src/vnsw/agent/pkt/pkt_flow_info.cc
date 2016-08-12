@@ -1825,6 +1825,7 @@ void PktFlowInfo::RewritePktInfo(uint32_t flow_index) {
     pkt->sport = key.src_port;
     pkt->dport = key.dst_port;
     pkt->agent_hdr.vrf = flow->data().vrf;
+    pkt->vrf = flow->data().vrf;
     pkt->agent_hdr.nh = key.nh;
     // If component_nh_idx is not set, assume that NH transitioned from 
     // Non ECMP to ECMP. The old Non-ECMP NH would always be placed at index 0
