@@ -9,6 +9,7 @@
 #include <string>
 
 #include "bgp/bgp_proto.h"
+#include "bgp/origin-vn/origin_vn.h"
 
 using std::string;
 using std::vector;
@@ -59,9 +60,16 @@ void OriginVnPath::Prepend(const OriginVnValue &value) {
 }
 
 bool OriginVnPath::Contains(const OriginVnValue &val) const {
+    OriginVn in_origin_vn(val);
+    int in_vn_index = in_origin_vn.IsGlobal() ? in_origin_vn.vn_index() : 0;
     for (OriginVnList::const_iterator it = origin_vns_.begin();
          it != origin_vns_.end(); ++it) {
         if (*it == val)
+            return true;
+        if (in_vn_index == 0)
+            continue;
+        OriginVn origin_vn(*it);
+        if (origin_vn.vn_index() == in_vn_index)
             return true;
     }
     return false;

@@ -110,6 +110,10 @@ int OriginVn::vn_index() const {
     return 0;
 }
 
+bool OriginVn::IsGlobal() const {
+    return (vn_index() >= kMinGlobalId);
+}
+
 string OriginVn::ToString() {
     char temp[50];
     snprintf(temp, sizeof(temp), "originvn:%u:%u", as_number(), vn_index());
