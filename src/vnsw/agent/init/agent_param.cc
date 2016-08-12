@@ -1410,6 +1410,8 @@ AgentParam::AgentParam(bool enable_flow_options,
          "Tunnel Encapsulation type <MPLSoGRE|MPLSoUDP|VXLAN>")
         ("DEFAULT.agent_mode", opt::value<string>(),
          "Run agent in vrouter / tsn / tor mode")
+        ("DEFAULT.gateway_mode", opt::value<string>(),
+          "Set gateway mode to server/ vcpe")
         ("DEFAULT.agent_base_directory", opt::value<string>(),
          "Base directory used by the agent")
         ("DISCOVERY.port", opt::value<uint32_t>()->default_value(DISCOVERY_SERVER_PORT),
