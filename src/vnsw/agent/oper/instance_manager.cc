@@ -262,7 +262,7 @@ void InstanceManager::OnExitEventHandler(InstanceManagerChildEvent event) {
          if (!task_queue->Empty()) {
              if (task_queue->Front() == event.task) {
                  task_queue->Pop();
-                 delete event.task;
+                 event.task->Shutdown();
                  task_queue->StopTimer();
                  DeleteState(svc_instance);
                  ScheduleNextTask(task_queue);
@@ -537,7 +537,7 @@ void InstanceManager::ScheduleNextTask(InstanceTaskQueue *task_queue) {
 
         DeleteState(svc_instance);
 
-        delete task;
+        task->Shutdown();
     }
 }
 

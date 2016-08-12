@@ -17,14 +17,22 @@ InstanceTaskExecvp::InstanceTaskExecvp(const std::string &cmd,
         pid_(0), cmd_type_(cmd_type) {
 }
 
-void InstanceTaskExecvp::ReadErrors(const boost::system::error_code &ec,
-                                                   size_t read_bytes) {
+void InstanceTaskExecvp::ReadErrors(boost::shared_ptr<InstanceTaskExecvp> ptr,
+                                    const boost::system::error_code &ec,
+                                    size_t read_bytes) {
     if (read_bytes) {
         if (!on_error_cb_.empty())
             on_error_cb_(this, rx_buff_);
     }
 
     if (ec) {
+        if (ec == boost::system::errc::operation_canceled ||
+            ec == boost::asio::error::operation_aborted) {
+            // when InstanceTaskExecvp is Shutdown, it results in
+            // operation_canceled. Nothing to do in that case.
+            return;
+        }
+
         boost::system::error_code close_ec;
         errors_.close(close_ec);
 
@@ -38,8 +46,8 @@ void InstanceTaskExecvp::ReadErrors(const boost::system::error_code &ec,
     boost::asio::async_read(
                     errors_,
                     boost::asio::buffer(rx_buff_, kBufLen),
-                    boost::bind(&InstanceTaskExecvp::ReadErrors,
-                                this, boost::asio::placeholders::error,
+                    boost::bind(&InstanceTaskExecvp::ReadErrors, this,
+                                ptr, boost::asio::placeholders::error,
                                 boost::asio::placeholders::bytes_transferred));
 }
 
@@ -53,6 +61,10 @@ void InstanceTaskExecvp::Terminate() {
     kill(pid_, SIGKILL);
 }
 
+void InstanceTaskExecvp::Shutdown() {
+    boost::system::error_code ec;
+    errors_.cancel(ec);
+}
 
 // If there is an error before the fork, task is set to "not running"
 // and "false" is returned to caller so that caller can take appropriate
@@ -120,8 +132,9 @@ bool InstanceTaskExecvp::Run() {
 
     bzero(rx_buff_, sizeof(rx_buff_));
     boost::asio::async_read(errors_, boost::asio::buffer(rx_buff_, kBufLen),
-            boost::bind(&InstanceTaskExecvp::ReadErrors,
-                        this, boost::asio::placeholders::error,
+            boost::bind(&InstanceTaskExecvp::ReadErrors, this,
+                        boost::shared_ptr<InstanceTaskExecvp>(this),
+                        boost::asio::placeholders::error,
                         boost::asio::placeholders::bytes_transferred));
     return true;
 

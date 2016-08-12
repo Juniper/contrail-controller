@@ -33,7 +33,7 @@ public:
     }
 
     virtual void TearDown() {
-        delete task_;
+        task_->Shutdown();
         remove(tmpfilename);
     }
 

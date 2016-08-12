@@ -28,6 +28,7 @@ class InstanceTask {
     virtual bool Run() = 0;
     virtual void Stop() = 0;
     virtual void Terminate() = 0;
+    virtual void Shutdown() = 0;
 
     // TODO reimplement instance_manager.cc to remove these two?
     virtual pid_t pid() const = 0;
@@ -74,9 +75,11 @@ class InstanceTaskExecvp : public InstanceTask {
     InstanceTaskExecvp(const std::string &cmd,
         int cmd_type, EventManager *evm);
 
+
     bool Run();
     void Stop();
     void Terminate();
+    void Shutdown();
 
     pid_t pid() const {
         return pid_;
@@ -92,7 +95,8 @@ class InstanceTaskExecvp : public InstanceTask {
 
 
  private:
-    void ReadErrors(const boost::system::error_code &ec, size_t read_bytes);
+    void ReadErrors(boost::shared_ptr<InstanceTaskExecvp> ptr,
+                    const boost::system::error_code &ec, size_t read_bytes);
     const std::string cmd_;
     boost::asio::posix::stream_descriptor errors_;
     std::stringstream errors_data_;
