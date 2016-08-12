@@ -301,6 +301,8 @@ class PhysicalRouterConfig(object):
      network_id : this is used for configuraing irb interfaces
      static_routes: this is used for add PNF vrf static routes
      no_vrf_table_label: if this is set to True will not generate vrf table label knob
+     restrict_proxy_arp: proxy-arp restriction config is generated for irb interfaces
+                         only if vn is external and has fip map
     '''
 
     def add_routing_instance(self, ri_conf):
@@ -318,6 +320,7 @@ class PhysicalRouterConfig(object):
         network_id = ri_conf.get("network_id", None)
         static_routes = ri_conf.get("static_routes", {})
         no_vrf_table_label = ri_conf.get("no_vrf_table_label", False)
+        restrict_proxy_arp = ri_conf.get("restrict_proxy_arp", False)
 
         self.routing_instances[ri_name] = {'import_targets': import_targets,
                                            'export_targets': export_targets,
@@ -506,6 +509,9 @@ class PhysicalRouterConfig(object):
             etree.SubElement(irb_intf, "name").text = "irb"
             intf_unit = etree.SubElement(irb_intf, "unit")
             etree.SubElement(intf_unit, "name").text = str(network_id)
+            if restrict_proxy_arp:
+                proxy_arp = etree.SubElement(intf_unit, "proxy-arp")
+                etree.SubElement(proxy_arp, "restricted")
             family = etree.SubElement(intf_unit, "family")
             inet = etree.SubElement(family, "inet")
             f = etree.SubElement(inet, "filter")

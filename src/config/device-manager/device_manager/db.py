@@ -684,6 +684,7 @@ class PhysicalRouterDM(DBBaseDM):
                     ri_conf['interfaces'] = interfaces
                     ri_conf['fip_map'] = vn_obj.instance_ip_map
                     ri_conf['network_id'] = vn_obj.vn_network_id
+                    ri_conf['restrict_proxy_arp'] = vn_obj.router_external
                     self.config_manager.add_routing_instance(ri_conf)
         # Add PNF ri configuration
         self.add_pnf_vrfs(first_vrf, pnf_dict, pnf_ris)
