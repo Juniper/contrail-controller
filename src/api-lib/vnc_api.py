@@ -140,7 +140,7 @@ class VncApi(object):
     _DEFAULT_MAX_CONNS_PER_POOL = 100
 
     def __init__(self, username=None, password=None, tenant_name=None,
-                 api_server_host='127.0.0.1', api_server_port='8082',
+                 api_server_host=None, api_server_port=None,
                  api_server_url=None, conf_file=None, user_info=None,
                  auth_token=None, auth_host=None, auth_port=None,
                  auth_protocol = None, auth_url=None, auth_type=None,
