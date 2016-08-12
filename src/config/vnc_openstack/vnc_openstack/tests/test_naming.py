@@ -4,7 +4,7 @@ import uuid
 import logging
 
 from testtools.matchers import Equals, Contains, Not
-from testtools import content, content_type
+from testtools import content, content_type, ExpectedException
 
 from vnc_api.vnc_api import *
 
@@ -122,13 +122,17 @@ class NBTestNaming(test_case.NeutronBackendTestCase):
 # end class NBTestNaming
 
 class KeystoneSync(test_case.KeystoneSyncTestCase):
-    def test_dup_project(self):
+    def test_dup_project_new_unique_fqn(self):
         logger.info('Creating first project in "keystone"')
         proj_id = str(uuid.uuid4())
         proj_name = self.id()
         test_case.get_keystone_client().tenants.add_tenant(proj_id, proj_name)
         proj_obj = self._vnc_lib.project_read(id=proj_id)
         self.assertThat(proj_obj.name, Equals(proj_name))
+        # create a VN in it so old isn't removed (due to synchronous delete)
+        # when new with same name is created
+        vn_obj = vnc_api.VirtualNetwork('vn-%s' %(self.id()), proj_obj)
+        self._vnc_lib.virtual_network_create(vn_obj)
 
         logger.info('Creating second project with same name diff id in "keystone"')
         new_proj_id = str(uuid.uuid4())
@@ -136,9 +140,66 @@ class KeystoneSync(test_case.KeystoneSyncTestCase):
         new_proj_obj = self._vnc_lib.project_read(id=new_proj_id)
         self.assertThat(new_proj_obj.name, Not(Equals(proj_name)))
         self.assertThat(new_proj_obj.name, Contains(proj_name))
+        self.assertThat(new_proj_obj.display_name, Equals(proj_name))
 
+        self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
         self._vnc_lib.project_delete(id=proj_id)
         self._vnc_lib.project_delete(id=new_proj_id)
+
+    def test_dup_project_fails(self):
+        openstack_driver = FakeExtensionManager.get_extension_objects(
+            'vnc_cfg_api.resync')[0]
+        logger.info('Creating first project in "keystone"')
+        proj_id = str(uuid.uuid4())
+        proj_name = self.id()
+        test_case.get_keystone_client().tenants.add_tenant(proj_id, proj_name)
+        proj_obj = self._vnc_lib.project_read(id=proj_id)
+        self.assertThat(proj_obj.name, Equals(proj_name))
+        # create a VN in it so old isn't removed (due to synchronous delete)
+        # when new with same name is created
+        vn_obj = vnc_api.VirtualNetwork('vn-%s' %(self.id()), proj_obj)
+        self._vnc_lib.virtual_network_create(vn_obj)
+
+        stale_mode = openstack_driver._resync_stale_mode
+        openstack_driver._resync_stale_mode = 'new_fails'
+        try:
+            logger.info('Creating second project with same name diff id in "keystone"')
+            new_proj_id = str(uuid.uuid4())
+            test_case.get_keystone_client().tenants.add_tenant(new_proj_id, proj_name)
+            with ExpectedException(vnc_api.NoIdError):
+                self._vnc_lib.project_read(id=new_proj_id)
+
+            self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
+            self._vnc_lib.project_delete(id=proj_id)
+        finally:
+            openstack_driver._resync_stale_mode = stale_mode
+
+    def test_delete_synchronous_on_dup(self):
+        openstack_driver = FakeExtensionManager.get_extension_objects(
+            'vnc_cfg_api.resync')[0]
+
+        logger.info('Creating project in "keystone" and syncing')
+        proj_id1 = str(uuid.uuid4())
+        proj_name = self.id()
+        test_case.get_keystone_client().tenants.add_tenant(proj_id1, proj_name)
+        proj_obj = self._vnc_lib.project_read(id=proj_id1)
+        self.assertThat(proj_obj.name, Equals(proj_name))
+
+        logger.info('Deleting project in keystone and immediately re-creating')
+        def stub(*args, **kwargs):
+            return
+        with test_common.patch(openstack_driver,
+            '_del_project_from_vnc', stub):
+            test_case.get_keystone_client().tenants.delete_tenant(proj_id1)
+            proj_id2 = str(uuid.uuid4())
+            test_case.get_keystone_client().tenants.add_tenant(
+                proj_id2, proj_name)
+            proj_obj = self._vnc_lib.project_read(id=proj_id2)
+            self.assertThat(proj_obj.uuid, Equals(proj_id2))
+            with ExpectedException(vnc_api.NoIdError):
+                self._vnc_lib.project_read(id=proj_id1)
+
+        self._vnc_lib.project_delete(id=proj_id2)
 
     def test_dup_domain(self):
         openstack_driver = FakeExtensionManager.get_extension_objects(
@@ -154,6 +215,9 @@ class KeystoneSync(test_case.KeystoneSyncTestCase):
             test_case.get_keystone_client().domains.add_domain(dom_id, dom_name)
             dom_obj = self._vnc_lib.domain_read(id=dom_id)
             self.assertThat(dom_obj.name, Equals(dom_name))
+            # create a project under domain so synch delete of domain fails
+            proj_obj = vnc_api.Project('proj-%s' %(self.id()), dom_obj)
+            self._vnc_lib.project_create(proj_obj)
 
             logger.info('Creating second domain with same name diff id in "keystone"')
             new_dom_id = str(uuid.uuid4())
@@ -161,7 +225,9 @@ class KeystoneSync(test_case.KeystoneSyncTestCase):
             new_dom_obj = self._vnc_lib.domain_read(id=new_dom_id)
             self.assertThat(new_dom_obj.name, Not(Equals(dom_name)))
             self.assertThat(new_dom_obj.name, Contains(dom_name))
+            self.assertThat(new_dom_obj.display_name, Equals(dom_name))
 
+            self._vnc_lib.project_delete(id=proj_obj.uuid)
             self._vnc_lib.domain_delete(id=dom_id)
             self._vnc_lib.domain_delete(id=new_dom_id)
         finally:
