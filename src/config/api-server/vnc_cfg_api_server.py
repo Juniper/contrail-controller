@@ -189,7 +189,12 @@ class VncApiServer(object):
     This is the manager class co-ordinating all classes present in the package
     """
     _INVALID_NAME_CHARS = set(':')
-
+    _GENERATE_DEFAULT_INSTANCE = [
+        'namespace',
+        'project',
+        'virtual_network', 'virtual-network',
+        'network_ipam', 'network-ipam',
+    ]
     def __new__(cls, *args, **kwargs):
         obj = super(VncApiServer, cls).__new__(cls, *args, **kwargs)
         bottle.route('/', 'GET', obj.homepage_http_get)
@@ -901,10 +906,8 @@ class VncApiServer(object):
                 child_type, is_derived = r_class.children_field_types[child_field]
                 if is_derived:
                     continue
-                cr_class = self.get_resource_class(child_type)
-                if not cr_class.generate_default_instance:
-                    continue
-                self.delete_default_children(child_type, read_result)
+                if child_field in self._GENERATE_DEFAULT_INSTANCE:
+                    self.delete_default_children(child_type, read_result)
 
             callable = getattr(r_class, 'http_delete_fail', None)
             if callable:
@@ -1119,9 +1122,9 @@ class VncApiServer(object):
                 r_class.children_field_types[child_fields]
             if is_derived:
                 continue
-            child_cls = self.get_resource_class(child_res_type)
-            if not child_cls.generate_default_instance:
+            if child_res_type not in self._GENERATE_DEFAULT_INSTANCE:
                 continue
+            child_cls = self.get_resource_class(child_res_type)
             child_obj_type = child_cls.object_type
             child_obj = child_cls(parent_obj=parent_obj)
             child_dict = child_obj.__dict__
@@ -1155,17 +1158,16 @@ class VncApiServer(object):
         for child_field in r_class.children_fields:
             # Delete a default child only if provisioned for
             child_type, is_derived = r_class.children_field_types[child_field]
+            if child_type not in self._GENERATE_DEFAULT_INSTANCE:
+               continue
             child_cls = self.get_resource_class(child_type)
-            if not child_cls.generate_default_instance:
-                continue
             # first locate default child then delete it")
             default_child_name = 'default-%s' %(child_type)
             child_infos = parent_dict.get(child_field, [])
             for child_info in child_infos:
                 if child_info['to'][-1] == default_child_name:
                     default_child_id = has_info['href'].split('/')[-1]
-                    del_method = getattr(self, '%s_http_delete' %(child_type))
-                    del_method(default_child_id)
+                    self.http_resource_delete(child_type, default_child_id)
                     break
     # end delete_default_children
 
@@ -1196,20 +1198,6 @@ class VncApiServer(object):
                                             object_type)
             functools.update_wrapper(list_method, obj.http_resource_list)
             setattr(obj, '%ss_http_get' %(object_type), list_method)
-
-            default_children_method = functools.partial(
-                obj.create_default_children, object_type)
-            functools.update_wrapper(default_children_method,
-                obj.create_default_children)
-            setattr(obj, '_%s_create_default_children' %(object_type),
-                    default_children_method)
-
-            default_children_method = functools.partial(
-                obj.delete_default_children, object_type)
-            functools.update_wrapper(default_children_method,
-                obj.delete_default_children)
-            setattr(obj, '_%s_delete_default_children' %(object_type),
-                    default_children_method)
     # end _generate_resource_crud_methods
 
     @classmethod
@@ -1266,14 +1254,14 @@ class VncApiServer(object):
 
         for _, resource_type in all_resource_type_tuples:
             link = LinkObject('collection',
-                           self._base_url , '/%ss' %(resource_type),
-                           '%s' %(resource_type))
+                              self._base_url , '/%ss' %(resource_type),
+                              '%s' %(resource_type))
             links.append(link)
 
         for _, resource_type in all_resource_type_tuples:
             link = LinkObject('resource-base',
-                           self._base_url , '/%s' %(resource_type),
-                           '%s' %(resource_type))
+                              self._base_url , '/%s' %(resource_type),
+                              '%s' %(resource_type))
             links.append(link)
 
         self._homepage_links = links
@@ -1289,61 +1277,6 @@ class VncApiServer(object):
         self._delete_common = self._http_delete_common
         self._post_validate = self._http_post_validate
         self._post_common = self._http_post_common
-
-        # TODO default-generation-setting can be from ini file
-        self.get_resource_class('bgp-router').generate_default_instance = False
-        self.get_resource_class(
-            'virtual-router').generate_default_instance = False
-        self.get_resource_class(
-            'access-control-list').generate_default_instance = False
-        self.get_resource_class(
-            'floating-ip-pool').generate_default_instance = False
-        self.get_resource_class(
-            'alias-ip-pool').generate_default_instance = False
-        self.get_resource_class('instance-ip').generate_default_instance = False
-        self.get_resource_class('logical-router').generate_default_instance = False
-        self.get_resource_class('security-group').generate_default_instance = False
-        self.get_resource_class(
-            'virtual-machine').generate_default_instance = False
-        self.get_resource_class(
-            'virtual-machine-interface').generate_default_instance = False
-        self.get_resource_class(
-            'service-template').generate_default_instance = False
-        self.get_resource_class(
-            'service-instance').generate_default_instance = False
-        self.get_resource_class(
-            'virtual-DNS-record').generate_default_instance = False
-        self.get_resource_class('virtual-DNS').generate_default_instance = False
-        self.get_resource_class(
-            'global-vrouter-config').generate_default_instance = False
-        self.get_resource_class(
-            'loadbalancer-pool').generate_default_instance = False
-        self.get_resource_class(
-            'loadbalancer-member').generate_default_instance = False
-        self.get_resource_class(
-            'loadbalancer-healthmonitor').generate_default_instance = False
-        self.get_resource_class(
-            'virtual-ip').generate_default_instance = False
-        self.get_resource_class(
-            'loadbalancer').generate_default_instance = False
-        self.get_resource_class(
-            'loadbalancer-listener').generate_default_instance = False
-        self.get_resource_class('config-node').generate_default_instance = False
-        self.get_resource_class('analytics-node').generate_default_instance = False
-        self.get_resource_class('database-node').generate_default_instance = False
-        self.get_resource_class('physical-router').generate_default_instance = False
-        self.get_resource_class('physical-interface').generate_default_instance = False
-        self.get_resource_class('logical-interface').generate_default_instance = False
-        self.get_resource_class('api-access-list').generate_default_instance = False
-        self.get_resource_class('dsa-rule').generate_default_instance = False
-        self.get_resource_class('bgp-as-a-service').generate_default_instance = False
-        self.get_resource_class('routing-policy').generate_default_instance = False
-        self.get_resource_class('route-aggregate').generate_default_instance = False
-        self.get_resource_class('alarm').generate_default_instance = False
-        self.get_resource_class('qos-config').generate_default_instance = False
-        self.get_resource_class('qos-queue').generate_default_instance = False
-        self.get_resource_class('forwarding-class').generate_default_instance = False
-        self.get_resource_class('global-qos-config').generate_default_instance = False
 
         for act_res in _ACTION_RESOURCES:
             link = LinkObject('action', self._base_url, act_res['uri'],
@@ -2843,9 +2776,7 @@ class VncApiServer(object):
                     s_obj.get_fq_name_str())
                 obj_dict['virtual_network_network_id'] = vn_id
             self._db_conn.dbe_create(obj_type, obj_ids, obj_dict)
-            method = '_%s_create_default_children' %(obj_type)
-            def_children_method = getattr(self, method)
-            def_children_method(s_obj)
+            self.create_default_children(obj_type, s_obj)
 
         return s_obj
     # end _create_singleton_entry
