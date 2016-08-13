@@ -42,6 +42,8 @@ class VncChmod():
             '--os-password',  help="Keystone User Password", default=None)
         parser.add_argument(
             '--os-tenant-name',  help="Keystone Tenant Name", default=None)
+        parser.add_argument(
+            '--os-domain-name',  help="Keystone Domain Name", default=None)
 
         self.args = parser.parse_args()
         self.opts = vars(self.args)
@@ -109,7 +111,7 @@ elif not chmod.args.name:
     sys.exit(1)
 
 # Validate keystone credentials
-for name in ['username', 'password', 'tenant_name']:
+for name in ['username', 'password', 'tenant_name', 'domain_name']:
     val, rsp = chmod.get_ks_var(name)
     if val is None:
         print rsp
@@ -134,11 +136,11 @@ if chmod.args.role:
 if ui:
     print 'Sending user, role as %s/%s' % (chmod.args.user, chmod.args.role)
 
-print 'Keystone credentials %s/%s/%s' % (conf['username'],
+print 'Keystone credentials %s/%s/%s/%s' % (conf['username'],
                                          conf['password'],
-                                         conf['tenant_name'])
+                                         conf['tenant_name'], conf['domain_name'])
 vnc = VncApi(conf['username'], conf['password'], conf[
-             'tenant_name'], server[0], server[1], user_info=ui)
+             'tenant_name'], server[0], server[1], domain_name = conf['domain_name'], user_info=ui)
 
 if chmod.args.uuid:
     if '-' not in chmod.args.uuid:
