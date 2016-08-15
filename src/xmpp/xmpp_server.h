@@ -82,9 +82,10 @@ public:
     void FillShowServer(ShowXmppServerResp *resp) const;
     void CreateConfigUpdater(BgpConfigManager *config_manager);
     bool IsPeerCloseGraceful() const;
-    const uint16_t GetGracefulRestartTime() const;
-    const uint32_t GetLongLivedGracefulRestartTime() const;
-    const uint32_t GetEndOfRibReceiveTime() const;
+    uint16_t GetGracefulRestartTime() const;
+    uint32_t GetLongLivedGracefulRestartTime() const;
+    uint32_t GetEndOfRibReceiveTime() const;
+    uint32_t GetEndOfRibSendTime() const;
     bool gr_helper_enable() const { return gr_helper_enable_; }
     void set_gr_helper_enable(bool flag) { gr_helper_enable_ = flag; }
 

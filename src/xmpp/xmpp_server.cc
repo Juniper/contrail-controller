@@ -188,15 +188,19 @@ void XmppServer::CreateConfigUpdater(BgpConfigManager *config_manager) {
     xmpp_config_updater_.reset(new XmppConfigUpdater(this, config_manager));
 }
 
-const uint16_t XmppServer::GetGracefulRestartTime() const {
+uint16_t XmppServer::GetGracefulRestartTime() const {
     return xmpp_config_updater_ ? xmpp_config_updater_->config().gr_time() : 0;
 }
 
-const uint32_t XmppServer::GetLongLivedGracefulRestartTime() const {
+uint32_t XmppServer::GetLongLivedGracefulRestartTime() const {
     return xmpp_config_updater_ ? xmpp_config_updater_->config().llgr_time():0;
 }
 
-const uint32_t XmppServer::GetEndOfRibReceiveTime() const {
+uint32_t XmppServer::GetEndOfRibReceiveTime() const {
+    return end_of_rib_timeout_;
+}
+
+uint32_t XmppServer::GetEndOfRibSendTime() const {
     return end_of_rib_timeout_;
 }
 
