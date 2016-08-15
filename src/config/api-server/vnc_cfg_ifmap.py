@@ -985,7 +985,10 @@ class VncServerCassandraClient(VncCassandraClient):
     # end useragent_kv_retrieve
 
     def useragent_kv_delete(self, key):
-        self._useragent_kv_cf.remove(key)
+        try:
+            self._useragent_kv_cf.remove(key)
+        except pycassa.NotFoundException:
+            raise NoUserAgentKey
     # end useragent_kv_delete
 
 # end class VncCassandraClient
