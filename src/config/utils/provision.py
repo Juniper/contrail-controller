@@ -40,7 +40,8 @@ class VncProvisioner(object):
                                self._args.admin_password,
                                self._args.admin_tenant_name,
                                self._args.api_server_ip,
-                               self._args.api_server_port, '/')
+                               self._args.api_server_port, '/',
+                               api_server_use_ssl=self._args.api_server_use_ssl)
         vnc_lib = self._vnc_lib
 
         gsc_obj = vnc_lib.global_system_config_read(
@@ -117,6 +118,7 @@ class VncProvisioner(object):
         Eg. python provision.py --prov_data_file provision.json
                                 --api_server_ip 127.0.0.1
                                 --api_server_port 8082
+                                --api_server_use_ssl False
         '''
 
         # Source any specified config/ini file
@@ -131,6 +133,7 @@ class VncProvisioner(object):
             'prov_data_file': 'provision.json',
             'api_server_ip': '127.0.0.1',
             'api_server_port': '8082',
+            'api_server_use_ssl': False,
         }
         ksopts = {
             'admin_user': 'user1',
@@ -163,6 +166,8 @@ class VncProvisioner(object):
         parser.add_argument(
             "--api_server_ip", help="IP address of api server")
         parser.add_argument("--api_server_port", help="Port of api server")
+        parser.add_argument("--api_server_use_ssl",
+                        help="Use SSL to connect with API server")
         parser.add_argument(
             "--admin_user", help="Name of keystone admin user")
         parser.add_argument(

@@ -27,7 +27,8 @@ class StaticRouteProvisioner(object):
             self._args.user, self._args.password,
             self._args.tenant_name,
             self._args.api_server_ip,
-            self._args.api_server_port, '/')
+            self._args.api_server_port, '/',
+            api_server_use_ssl=self._args.api_server_use_ssl)
         
         prefix = self._args.prefix
         vmi_id_got = self._args.virtual_machine_interface_id
@@ -123,6 +124,7 @@ class StaticRouteProvisioner(object):
         Eg. python provision_static_route.py 
                                         --api_server_ip 127.0.0.1
                                         --api_server_port 8082
+                                        --api_server_use_ssl False
                                         --prefix 2.2.2.0/24
                                         --virtual_machine_interface_id 242717c9-8e78-4c67-94a8-5fbef1f2f096 
                                         --route_table_name "MyRouteTable" 
@@ -141,6 +143,7 @@ class StaticRouteProvisioner(object):
         defaults = {
             'api_server_ip': '127.0.0.1',
             'api_server_port': '8082',
+            'api_server_use_ssl': False,
             'oper': 'add',
             'control_names': [],
             'route_table_name': 'CustomRouteTable',
@@ -176,6 +179,8 @@ class StaticRouteProvisioner(object):
         parser.add_argument(
             "--api_server_ip", help="IP address of api server")
         parser.add_argument("--api_server_port", help="Port of api server")
+        parser.add_argument("--api_server_use_ssl",
+                        help="Use SSL to connect with API server")
         parser.add_argument(
             "--oper", default='add',
             help="Provision operation to be done(add or del)")

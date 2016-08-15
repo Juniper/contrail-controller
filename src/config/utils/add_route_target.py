@@ -21,7 +21,8 @@ class MxProvisioner(object):
         bp_obj = BgpProvisioner(
             self._args.admin_user, self._args.admin_password,
             self._args.admin_tenant_name,
-            self._args.api_server_ip, self._args.api_server_port)
+            self._args.api_server_ip, self._args.api_server_port,
+            self._args.api_server_use_ssl)
         bp_obj.add_route_target(self._args.routing_instance_name.split(':'),
                                 self._args.router_asn,
                                 self._args.route_target_number)
@@ -33,6 +34,7 @@ class MxProvisioner(object):
                                        --router_asn 64512
                                        --api_server_ip 127.0.0.1
                                        --api_server_port 8082
+                                       --api_server_use_ssl False
         '''
 
         # Source any specified config/ini file
@@ -50,6 +52,7 @@ class MxProvisioner(object):
             'router_asn': '64513',
             'api_server_ip': '127.0.0.1',
             'api_server_port': '8082',
+            'api_server_use_ssl': False, 
             'admin_user': None,
             'admin_password': None,
             'admin_tenant_name': None
@@ -82,6 +85,8 @@ class MxProvisioner(object):
         parser.add_argument(
             "--api_server_ip", help="IP address of api server",required=True)
         parser.add_argument("--api_server_port", help="Port of api server",required=True)
+        parser.add_argument("--api_server_use_ssl",
+                        help="Use SSL to connect with API server")
         parser.add_argument(
             "--admin_user", help="Name of keystone admin user",required=True)
         parser.add_argument(
