@@ -7,7 +7,7 @@ if len(sys.argv) < 6:
     sys.exit(0)
 
 if __name__ == "__main__":
-    handle= VncApi(username=sys.argv[2], password= sys.argv[3], tenant_name=sys.argv[4], api_server_host= sys.argv[5], api_server_port= '8082')
+    handle= VncApi(username=sys.argv[2], password= sys.argv[3], tenant_name=sys.argv[4], api_server_host= sys.argv[5], api_server_port= '8082', api_server_use_ssl=sys.argv[6])
     encap_obj=EncapsulationPrioritiesType(encapsulation=['MPLSoGRE','MPLSoUDP','VXLAN'])
     conf_obj=GlobalVrouterConfig(encapsulation_priorities=encap_obj, evpn_status='true')
     #conf_obj=GlobalVrouterConfig(encapsulation_priorities=encap_obj,vxlan_network_identifier_mode='automatic')

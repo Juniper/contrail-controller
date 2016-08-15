@@ -21,7 +21,8 @@ class MxProvisioner(object):
         bp_obj = BgpProvisioner(
             self._args.admin_user, self._args.admin_password,
             self._args.admin_tenant_name,
-            self._args.api_server_ip, self._args.api_server_port)
+            self._args.api_server_ip, self._args.api_server_port,
+            self._args.api_server_use_ssl)
 
         if self._args.oper == 'add':
             bp_obj.add_bgp_router('mx', self._args.router_name,
@@ -42,6 +43,7 @@ class MxProvisioner(object):
                                    --router_asn 64512
                                    --api_server_ip 127.0.0.1
                                    --api_server_port 8082
+                                   --api_server_use_ssl False
                                    --oper <add | del>
         '''
 
@@ -57,6 +59,7 @@ class MxProvisioner(object):
             'router_asn': '64512',
             'api_server_ip': '127.0.0.1',
             'api_server_port': '8082',
+            'api_server_use_ssl': False,
             'oper': 'add',
             'admin_user': None,
             'admin_password': None,
@@ -90,6 +93,8 @@ class MxProvisioner(object):
         parser.add_argument(
             "--api_server_ip", help="IP address of api server")
         parser.add_argument("--api_server_port", help="Port of api server")
+        parser.add_argument("--api_server_use_ssl",
+                        help="Use SSL to connect with API server")
         parser.add_argument(
             "--oper", default='add',
             help="Provision operation to be done(add or del)")
