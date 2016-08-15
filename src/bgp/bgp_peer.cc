@@ -102,12 +102,12 @@ class BgpPeer::PeerClose : public IPeerClose {
     }
 
     // Return the time to wait for, in seconds to exit GR_TIMER state.
-    virtual const int GetGracefulRestartTime() const {
+    virtual int GetGracefulRestartTime() const {
         return  peer_->gr_params_.time;
     }
 
     // Return the time to wait for, in seconds to exit LLGR_TIMER state.
-    virtual const int GetLongLivedGracefulRestartTime() const {
+    virtual int GetLongLivedGracefulRestartTime() const {
         return peer_->llgr_params_.time;
     }
 
@@ -451,23 +451,27 @@ bool BgpPeer::EndOfRibSendTimerExpired(Address::Family family) {
     if (!IsReady())
         return false;
 
-    uint64_t elapsed = GetElapsedTimeSinceLastStateChange();
+    uint32_t timeout = server_->GetEndOfRibSendTime();
+    uint32_t elapsed = (UTCTimestampUsec() - eor_send_timer_started_[family]);
 
-    // Wait for atleast kMinEndOfRibSendTimeUsecs duration.
-    if (elapsed < kMinEndOfRibSendTimeUsecs)
-        return true;
-
-    // Retry if wait time has not exceeded kMaxEndOfRibSendTimeUsecs and output
-    // queue has not been fully drained yet.
-    if (elapsed < kMaxEndOfRibSendTimeUsecs && GetOutputQueueDepth(family))
-        return true;
+    // Retry if wait time has not exceeded the max and the output queue has not
+    // been fully drained yet.
+    if (elapsed < timeout * 1000000) {
+        if (GetOutputQueueDepth(family)) {
+            end_of_rib_send_timer_[family]->Reschedule(
+                    kEndOfRibSendRetryTimeMsecs);
+            return true;
+        }
+    }
 
     SendEndOfRIBActual(family);
     return false;
 }
 
 void BgpPeer::SendEndOfRIB(Address::Family family) {
-    end_of_rib_send_timer_[family]->Start(kEndOfRibSendRetryTimeMsecs,
+    uint32_t timeout = server_->GetEndOfRibReceiveTime();
+    eor_send_timer_started_[family] = UTCTimestampUsec();
+    end_of_rib_send_timer_[family]->Start((timeout * 1000) * 0.10,
         boost::bind(&BgpPeer::EndOfRibSendTimerExpired, this, family),
         boost::bind(&BgpPeer::EndOfRibTimerErrorHandler, this, _1, _2));
 }
@@ -612,7 +616,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
         end_of_rib_send_timer_[family] = TimerManager::CreateTimer(
                 *server->ioservice(), "BGP EndOfRib Send timer " +
                                       Address::FamilyToString(family),
-                   TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
+                   TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
                    GetTaskInstance());
     }
 

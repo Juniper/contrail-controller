@@ -161,6 +161,10 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
     pugi::xml_node node = pugi->FindNode("items");
     pugi::xml_attribute attr = node.attribute("node");
 
+    // Empty items denotes EoR marker.
+    if (!node.first_child())
+        return;
+
     char *saveptr;
     strtok_r(const_cast<char *>(attr.value()), "/", &saveptr);
     strtok_r(NULL, "/", &saveptr);

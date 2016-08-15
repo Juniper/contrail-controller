@@ -318,16 +318,16 @@ TEST_P(BgpPeerParamTest, SendEndOfRib) {
         return;
     }
 
-    // If elapsed time is less than the kMinEndOfRibSendTimeUsecs, then the timer
-    // should fire again.
-    if (elapsed_ < BgpPeer::kMinEndOfRibSendTimeUsecs) {
+    // If elapsed time is less than the 10 % of configured time, then the
+    // timer should fire again.
+    if (elapsed_ < BgpServer::kEndOfRibTime * 0.10) {
         EXPECT_TRUE(peer_->EndOfRibSendTimerExpired(Address::INET));
         EXPECT_FALSE(peer_->sent_eor_);
         return;
     }
 
     // If elapsed time is more the max time, eor must be sent out.
-    if (elapsed_ >= BgpPeer::kMaxEndOfRibSendTimeUsecs) {
+    if (elapsed_ >= BgpServer::kEndOfRibTime) {
         EXPECT_FALSE(peer_->EndOfRibSendTimerExpired(Address::INET));
         EXPECT_TRUE(peer_->sent_eor_);
         return;
