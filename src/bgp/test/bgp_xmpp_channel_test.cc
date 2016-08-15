@@ -44,6 +44,7 @@ public:
     xmps::PeerState GetPeerState() const { return xmps::READY; }
     std::string FromString() const  { return string("fake-from"); }
     const XmppConnection *connection() const { return NULL; }
+    virtual XmppConnection *connection() { return NULL; }
 
     virtual std::string LastStateName() const {
         return "";
@@ -96,6 +97,8 @@ public:
     virtual void RegisterTxMessageTraceCallback(TxMessageTraceCb cb) {
         return;
     }
+    virtual bool LastReceived(uint64_t durationMsec) const { return false; }
+    virtual bool LastSent(uint64_t durationMsec) const { return false; }
 };
 
 class BgpXmppChannelMock : public BgpXmppChannel {

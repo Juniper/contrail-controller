@@ -102,12 +102,12 @@ class BgpPeer::PeerClose : public IPeerClose {
     }
 
     // Return the time to wait for, in seconds to exit GR_TIMER state.
-    virtual const int GetGracefulRestartTime() const {
+    virtual int GetGracefulRestartTime() const {
         return  peer_->gr_params_.time;
     }
 
     // Return the time to wait for, in seconds to exit LLGR_TIMER state.
-    virtual const int GetLongLivedGracefulRestartTime() const {
+    virtual int GetLongLivedGracefulRestartTime() const {
         return peer_->llgr_params_.time;
     }
 
@@ -400,12 +400,6 @@ RibExportPolicy BgpPeer::BuildRibExportPolicy(Address::Family family) const {
 }
 
 void BgpPeer::ReceiveEndOfRIB(Address::Family family, size_t msgsize) {
-    inc_rx_end_of_rib();
-    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_INFO,
-        BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_IN,
-        "EndOfRib marker family " << Address::FamilyToString(family) <<
-        " size " << msgsize);
-
     peer_close_->close_manager()->ProcessEORMarkerReceived(family);
     if (family != Address::RTARGET)
         return;
@@ -451,23 +445,37 @@ bool BgpPeer::EndOfRibSendTimerExpired(Address::Family family) {
     if (!IsReady())
         return false;
 
-    uint64_t elapsed = GetElapsedTimeSinceLastStateChange();
-
-    // Wait for atleast kMinEndOfRibSendTimeUsecs duration.
-    if (elapsed < kMinEndOfRibSendTimeUsecs)
-        return true;
-
-    // Retry if wait time has not exceeded kMaxEndOfRibSendTimeUsecs and output
-    // queue has not been fully drained yet.
-    if (elapsed < kMaxEndOfRibSendTimeUsecs && GetOutputQueueDepth(family))
-        return true;
+    // Retry if wait time has not exceeded the max and the output queue has not
+    // been fully drained yet.
+    if (GetElapsedTimeSinceLastStateChange() <
+            server_->GetEndOfRibSendTime() * 1000000) {
+        uint32_t output_depth = GetOutputQueueDepth(family);
+        if (output_depth) {
+            end_of_rib_send_timer_[family]->Reschedule(
+                    kEndOfRibSendRetryTimeMsecs);
+            BGP_LOG_PEER(Message, this, SandeshLevel::SYS_INFO,
+                    BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_OUT,
+                    "EndOfRib Send Timer rescheduled for family " <<
+                    Address::FamilyToString(family) << " to fire after " <<
+                    kEndOfRibSendRetryTimeMsecs/1000 << " seconds " <<
+                    "due to non-empty output queue (" << output_depth << ")");
+            return true;
+        }
+    }
 
     SendEndOfRIBActual(family);
     return false;
 }
 
 void BgpPeer::SendEndOfRIB(Address::Family family) {
-    end_of_rib_send_timer_[family]->Start(kEndOfRibSendRetryTimeMsecs,
+    uint32_t timeout = server_->GetEndOfRibReceiveTime();
+
+    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_INFO,
+        BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_OUT,
+        "EndOfRib Send Timer scheduled for family " <<
+        Address::FamilyToString(family) <<
+        " to fire after " << timeout * 0.10 << " seconds");
+    end_of_rib_send_timer_[family]->Start((timeout * 1000) * 0.10,
         boost::bind(&BgpPeer::EndOfRibSendTimerExpired, this, family),
         boost::bind(&BgpPeer::EndOfRibTimerErrorHandler, this, _1, _2));
 }
@@ -612,7 +620,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
         end_of_rib_send_timer_[family] = TimerManager::CreateTimer(
                 *server->ioservice(), "BGP EndOfRib Send timer " +
                                       Address::FamilyToString(family),
-                   TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
+                   TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
                    GetTaskInstance());
     }
 
@@ -1903,6 +1911,12 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
 
         // Handle EndOfRib marker.
         if (oper == DBRequest::DB_ENTRY_DELETE && nlri->nlri.empty()) {
+            inc_rx_end_of_rib();
+            BGP_LOG_PEER(Message, this, SandeshLevel::SYS_INFO,
+                         BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_IN,
+                         "EndOfRib marker family " <<
+                         Address::FamilyToString(family) <<
+                         " size " << msgsize);
             ReceiveEndOfRIB(family, msgsize);
             return;
         }

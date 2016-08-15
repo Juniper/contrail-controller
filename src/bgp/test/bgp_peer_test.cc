@@ -55,7 +55,7 @@ public:
 
     virtual void StartKeepaliveTimerUnlocked() { }
     virtual uint64_t GetElapsedTimeSinceLastStateChange() const {
-        return elapsed_;
+        return elapsed_ * 1000000;
     }
     virtual bool IsReady() const { return is_ready_; }
     virtual void SendEndOfRIBActual(Address::Family family) {
@@ -318,16 +318,8 @@ TEST_P(BgpPeerParamTest, SendEndOfRib) {
         return;
     }
 
-    // If elapsed time is less than the kMinEndOfRibSendTimeUsecs, then the timer
-    // should fire again.
-    if (elapsed_ < BgpPeer::kMinEndOfRibSendTimeUsecs) {
-        EXPECT_TRUE(peer_->EndOfRibSendTimerExpired(Address::INET));
-        EXPECT_FALSE(peer_->sent_eor_);
-        return;
-    }
-
     // If elapsed time is more the max time, eor must be sent out.
-    if (elapsed_ >= BgpPeer::kMaxEndOfRibSendTimeUsecs) {
+    if (elapsed_ >= BgpServer::kEndOfRibTime) {
         EXPECT_FALSE(peer_->EndOfRibSendTimerExpired(Address::INET));
         EXPECT_TRUE(peer_->sent_eor_);
         return;
@@ -347,13 +339,12 @@ TEST_P(BgpPeerParamTest, SendEndOfRib) {
 
 INSTANTIATE_TEST_CASE_P(BgpPeerTestWithParams, BgpPeerParamTest,
     testing::Combine(::testing::Values(
-        0,
-        BgpPeer::kMinEndOfRibSendTimeUsecs/2,
-        BgpPeer::kMinEndOfRibSendTimeUsecs,
-        (BgpPeer::kMinEndOfRibSendTimeUsecs +
-            BgpPeer::kMaxEndOfRibSendTimeUsecs)/2,
-        BgpPeer::kMaxEndOfRibSendTimeUsecs,
-        BgpPeer::kMaxEndOfRibSendTimeUsecs * 2),
+            0,
+            BgpServer::kEndOfRibTime * 0.10/2,
+            BgpServer::kEndOfRibTime * 0.10,
+            BgpServer::kEndOfRibTime * 0.50,
+            BgpServer::kEndOfRibTime,
+            BgpServer::kEndOfRibTime * 2),
         ::testing::Values(0, 100),
         ::testing::Bool()));
 
