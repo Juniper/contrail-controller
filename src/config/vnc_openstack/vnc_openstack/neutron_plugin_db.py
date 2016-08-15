@@ -27,7 +27,6 @@ from context import get_context
 _DEFAULT_HEADERS = {
     'Content-type': 'application/json; charset="UTF-8"', }
 
-# TODO find if there is a common definition
 CREATE = 1
 READ = 2
 UPDATE = 3
@@ -242,7 +241,6 @@ class DBInterface(object):
                 rule_uuid = None
             self._raise_contrail_exception('SecurityGroupRuleExists',
                 resource='security_group_rule', id=rule_uuid)
-        return
     #end _security_group_rule_create
 
     def _security_group_rule_find(self, sgr_id, project_uuid=None):
@@ -267,7 +265,6 @@ class DBInterface(object):
         rules.get_policy_rule().remove(sg_rule)
         sg_obj.set_security_group_entries(rules)
         self._vnc_lib.security_group_update(sg_obj)
-        return
     #end _security_group_rule_delete
 
     def _security_group_delete(self, sg_id):
@@ -781,88 +778,38 @@ class DBInterface(object):
     def _network_read(self, net_uuid):
         net_obj = self._virtual_network_read(net_id=net_uuid)
         return net_obj
-    #end _network_read
+    # end _network_read
 
-    def subnet_id_heal(self, req_subnet_id=None):
-        ret_subnet_key = None
-        # resolve/heal all useragent-kv subnet entries
-        # since the walk is expensive
-        all_net_objs = self._virtual_network_list(detail=True)
-        for net_obj in all_net_objs:
-            ipam_refs = net_obj.get_network_ipam_refs()
-            net_uuid = net_obj.uuid
-            for ipam_ref in ipam_refs or []:
-                subnet_vncs = ipam_ref['attr'].get_ipam_subnets()
-                for subnet_vnc in subnet_vncs or []:
-                    subnet_key = self._subnet_vnc_get_key(
-                        subnet_vnc, net_uuid)
-                    subnet_uuid = subnet_vnc.subnet_uuid
-                    if not subnet_uuid: # can't do much
-                        continue
-                    if subnet_uuid == req_subnet_id:
-                        ret_subnet_key = subnet_key
-                    # check and heal key->id mapping
-                    try:
-                        self._vnc_lib.kv_retrieve(subnet_key)
-                    except NoIdError:
-                        self._vnc_lib.kv_store(subnet_key, subnet_uuid)
-                    # check and heal id->key mapping
-                    try:
-                        self._vnc_lib.kv_retrieve(subnet_uuid)
-                    except NoIdError:
-                        self._vnc_lib.kv_store(subnet_uuid, subnet_key)
+    def _subnet_vnc_read_mapping(self, id):
+        try:
+            return self._vnc_lib.kv_retrieve(id)
+        except NoIdError:
+            return None
+    # end _subnet_vnc_read_mapping
 
-        return ret_subnet_key
-    # subnet_id_heal
-
-    def _subnet_vnc_read_mapping(self, id=None, key=None):
-        if id:
-            try:
-                subnet_key = self._vnc_lib.kv_retrieve(id)
-            except NoIdError:
-                # contrail UI/api might have been used to create the subnet
-                # and useragent-kv index might be out of date, try to recover.
-                subnet_key = self.subnet_id_heal(id)
-            return subnet_key
-
-        if key:
-            try:
-                subnet_id = self._vnc_lib.kv_retrieve(key)
-            except NoIdError:
-                subnet_id = None
-            return subnet_id
-    #end _subnet_vnc_read_mapping
-
-
-    def _subnet_vnc_get_key(self, subnet_vnc, net_id):
+    def _subnet_vnc_get_prefix(self, subnet_vnc):
         pfx = subnet_vnc.subnet.get_ip_prefix()
         pfx_len = subnet_vnc.subnet.get_ip_prefix_len()
 
         network = IPNetwork('%s/%s' % (pfx, pfx_len))
-        return '%s %s/%s' % (net_id, str(network.ip), pfx_len)
-    #end _subnet_vnc_get_key
+        return str(network)
+    # end _subnet_vnc_get_prefix
 
-    def _subnet_read(self, subnet_key):
-        net_uuid = subnet_key.split(' ')[0]
+    def _subnet_read(self, net_uuid, prefix):
         try:
             net_obj = self._virtual_network_read(net_id=net_uuid)
         except NoIdError:
             return None
 
         ipam_refs = net_obj.get_network_ipam_refs()
-        if not ipam_refs:
-            return None
-
-        # TODO scope for optimization
-        for ipam_ref in ipam_refs:
+        for ipam_ref in ipam_refs or []:
             subnet_vncs = ipam_ref['attr'].get_ipam_subnets()
             for subnet_vnc in subnet_vncs:
-                if self._subnet_vnc_get_key(subnet_vnc,
-                                            net_uuid) == subnet_key:
+                if self._subnet_vnc_get_prefix(subnet_vnc) == prefix:
                     return subnet_vnc
 
         return None
-    #end _subnet_read
+    # end _subnet_read
 
     def _ip_address_to_subnet_id(self, ip_addr, net_obj, memo_req=None):
         # find subnet-id for ip-addr, called when instance-ip created
@@ -880,9 +827,8 @@ class DBInterface(object):
             for ipam_ref in ipam_refs or []:
                 subnet_vncs = ipam_ref['attr'].get_ipam_subnets()
                 for subnet_vnc in subnet_vncs:
-                    cidr = '%s/%s' % (subnet_vnc.subnet.get_ip_prefix(),
-                                      subnet_vnc.subnet.get_ip_prefix_len())
-                    if IPAddress(ip_addr) in IPSet([cidr]):
+                    cidr = self._subnet_vnc_get_prefix(subnet_vnc)
+                    if ip_addr in IPNetwork(subnet_info['cidr']):
                         subnet_id = subnet_vnc.subnet_uuid
                         return subnet_id
         return None
@@ -898,8 +844,7 @@ class DBInterface(object):
                 subnet_vncs = ipam_ref['attr'].get_ipam_subnets()
                 for subnet_vnc in subnet_vncs:
                     subnet_id = subnet_vnc.subnet_uuid
-                    cidr = '%s/%s' % (subnet_vnc.subnet.get_ip_prefix(),
-                                      subnet_vnc.subnet.get_ip_prefix_len())
+                    cidr = self._subnet_vnc_get_prefix(subnet_vnc)
                     ret_subnets.append({'id': subnet_id, 'cidr': cidr})
 
         return ret_subnets
@@ -2619,7 +2564,7 @@ class DBInterface(object):
             ipam_fq_name = netipam_obj.get_fq_name()
 
         subnet_vnc = self._subnet_neutron_to_vnc(subnet_q)
-        subnet_key = self._subnet_vnc_get_key(subnet_vnc, net_id)
+        subnet_prefix = self._subnet_vnc_get_prefix(subnet_vnc)
 
         # Locate list of subnets to which this subnet has to be appended
         net_ipam_ref = None
@@ -2636,7 +2581,7 @@ class DBInterface(object):
             net_obj.add_network_ipam(netipam_obj, vnsn_data)
         else:  # virtual-network already linked to this ipam
             for subnet in net_ipam_ref['attr'].get_ipam_subnets():
-                if subnet_key == self._subnet_vnc_get_key(subnet, net_id):
+                if subnet_prefix == self._subnet_vnc_get_prefix(subnet):
                     existing_sn_id = subnet.subnet_uuid
                     # duplicate !!
                     msg = _("Cidr %s overlaps with another subnet of subnet %s"
@@ -2650,7 +2595,7 @@ class DBInterface(object):
         self._virtual_network_update(net_obj)
 
         # Read in subnet from server to get updated values for gw etc.
-        subnet_vnc = self._subnet_read(subnet_key)
+        subnet_vnc = self._subnet_read(net_id, subnet_prefix)
         subnet_info = self._subnet_vnc_to_neutron(subnet_vnc, net_obj,
                                                   ipam_fq_name)
 
@@ -2702,7 +2647,7 @@ class DBInterface(object):
         subnet_key = self._subnet_vnc_read_mapping(id=subnet_id)
         if not subnet_key:
             self._raise_contrail_exception('SubnetNotFound',
-                                           subnet_id)
+                                           subnet_id=subnet_id)
         net_id = subnet_key.split()[0]
         net_obj = self._network_read(net_id)
         ipam_refs = net_obj.get_network_ipam_refs()
