@@ -982,11 +982,9 @@ class VncApiServer(object):
             parent_type = parent_class.object_type
             parent_uuids = [self._db_conn.fq_name_to_uuid(parent_type, parent_fq_name)]
         elif 'parent_id' in get_request().query:
-            parent_ids = get_request().query.parent_id.split(',')
-            parent_uuids = [str(uuid.UUID(p_uuid)) for p_uuid in parent_ids]
+            parent_uuids = get_request().query.parent_id.split(',')
         if 'back_ref_id' in get_request().query:
-            back_ref_ids = get_request().query.back_ref_id.split(',')
-            back_ref_uuids = [str(uuid.UUID(b_uuid)) for b_uuid in back_ref_ids]
+            back_ref_uuids = get_request().query.back_ref_id.split(',')
         if 'obj_uuids' in get_request().query:
             obj_uuids = get_request().query.obj_uuids.split(',')
 
@@ -2406,20 +2404,17 @@ class VncApiServer(object):
                 "Bad Request, Unknown type %s in POST body" % (resource_type))
 
         try:
-            parent_ids = get_request().json['parent_id'].split(',')
-            parent_uuids = [str(uuid.UUID(p_uuid)) for p_uuid in parent_ids]
+            parent_uuids = get_request().json['parent_id'].split(',')
         except KeyError:
             parent_uuids = None
 
         try:
-            back_ref_ids = get_request().json['back_ref_id'].split(',')
-            back_ref_uuids = [str(uuid.UUID(b_uuid)) for b_uuid in back_ref_ids]
+            back_ref_uuids = get_request().json['back_ref_id'].split(',')
         except KeyError:
             back_ref_uuids = None
 
         try:
-            obj_ids = get_request().json['obj_uuids'].split(',')
-            obj_uuids = [str(uuid.UUID(b_uuid)) for b_uuid in obj_ids]
+            obj_uuids = get_request().json['obj_uuids'].split(',')
         except KeyError:
             obj_uuids = None
 

@@ -1313,6 +1313,42 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         self.assertThat(set(vmi_uuids), Equals(set(ret_vmi_uuids)))
     # end test_list_bulk_collection
 
+    def test_list_bulk_collection_with_malformed_filters(self):
+        obj_count = self._vnc_lib.POST_FOR_LIST_THRESHOLD + 1
+        vn_objs, _, _, _ = self._create_vn_ri_vmi()
+        vn_uuid = vn_objs[0].uuid
+        vn_uuids = [vn_uuid] +\
+                   ['bad-uuid'] * self._vnc_lib.POST_FOR_LIST_THRESHOLD
+
+        try:
+            results = self._vnc_lib.resource_list('virtual-network',
+                                                  obj_uuids=vn_uuids)
+            self.assertEqual(len(results['virtual-networks']), 1)
+            self.assertEqual(results['virtual-networks'][0]['uuid'], vn_uuid)
+        except HttpError:
+            self.fail('Malformed object UUID filter was not ignored')
+
+        try:
+            results = self._vnc_lib.resource_list('routing-instance',
+                                                  parent_id=vn_uuids,
+                                                  detail=True)
+            self.assertEqual(len(results), 2)
+            for ri_obj in results:
+                self.assertEqual(ri_obj.parent_uuid, vn_uuid)
+        except HttpError:
+            self.fail('Malformed parent UUID filter was not ignored')
+
+        try:
+            results = self._vnc_lib.resource_list('virtual-machine-interface',
+                                                  back_ref_id=vn_uuids,
+                                                  detail=True)
+            self.assertEqual(len(results), 1)
+            vmi_obj = results[0]
+            self.assertEqual(vmi_obj.get_virtual_network_refs()[0]['uuid'],
+                             vn_uuid)
+        except HttpError:
+            self.fail('Malformed back-ref UUID filter was not ignored')
+
     def test_list_lib_api(self):
         num_objs = 5
         proj_obj = Project('%s-project' %(self.id()))
@@ -1522,8 +1558,41 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             self.assertEqual(read_vn_dicts[0]['uuid'], vn1_obj.uuid)
             self.assertEqual(read_vn_dicts[0]['is_shared'], True)
             self.assertEqual(read_vn_dicts[0]['router_external'], False)
-
     # end test_list_for_coverage
+
+    def test_list_with_malformed_filters(self):
+        vn_objs, _, _, _ = self._create_vn_ri_vmi()
+        vn_uuid = vn_objs[0].uuid
+        vn_uuids = [vn_uuid, 'bad-uuid']
+
+        try:
+            results = self._vnc_lib.resource_list('virtual-network',
+                                                  obj_uuids=vn_uuids)
+            self.assertEqual(len(results['virtual-networks']), 1)
+            self.assertEqual(results['virtual-networks'][0]['uuid'], vn_uuid)
+        except HttpError:
+            self.fail('Malformed object UUID filter was not ignored')
+
+        try:
+            results = self._vnc_lib.resource_list('routing-instance',
+                                                  parent_id=vn_uuids,
+                                                  detail=True)
+            self.assertEqual(len(results), 2)
+            for ri_obj in results:
+                self.assertEqual(ri_obj.parent_uuid, vn_uuid)
+        except HttpError:
+            self.fail('Malformed parent UUID filter was not ignored')
+
+        try:
+            results = self._vnc_lib.resource_list('virtual-machine-interface',
+                                                  back_ref_id=vn_uuids,
+                                                  detail=True)
+            self.assertEqual(len(results), 1)
+            vmi_obj = results[0]
+            self.assertEqual(vmi_obj.get_virtual_network_refs()[0]['uuid'],
+                             vn_uuid)
+        except HttpError:
+            self.fail('Malformed back-ref UUID filter was not ignored')
 
     def test_create_with_wrong_type(self):
         vn_obj = VirtualNetwork('%s-bad-prop-type' %(self.id()))
