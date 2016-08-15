@@ -22,7 +22,8 @@ class ControlProvisioner(object):
             self._vnc_lib = VncApi(
             self._args.admin_user, self._args.admin_password, self._args.admin_tenant_name,
             self._args.api_server_ip,
-            self._args.api_server_port, '/')
+            self._args.api_server_port, '/',
+            api_server_use_ssl=self._args.api_server_use_ssl)
 
             # Update global system config also with this ASN
             gsc_obj = self._vnc_lib.global_system_config_read(
@@ -51,7 +52,8 @@ class ControlProvisioner(object):
         bp_obj = BgpProvisioner(
             self._args.admin_user, self._args.admin_password,
             self._args.admin_tenant_name,
-            self._args.api_server_ip, self._args.api_server_port)
+            self._args.api_server_ip, self._args.api_server_port,
+            api_server_use_ssl=self._args.api_server_use_ssl)
         if self._args.oper == 'add':
             bp_obj.add_bgp_router('contrail', self._args.host_name,
                                   self._args.host_ip, self._args.router_asn,
@@ -84,6 +86,7 @@ class ControlProvisioner(object):
                                         --ibgp_auto_mesh|--no_ibgp_auto_mesh
                                         --api_server_ip 127.0.0.1
                                         --api_server_port 8082
+                                        --api_server_use_ssl False
                                         --oper <add | del>
                                         --md5 <key value>|None(optional)
                                         --graceful-restart-time 100
@@ -104,6 +107,7 @@ class ControlProvisioner(object):
             'ibgp_auto_mesh': None,
             'api_server_ip': '127.0.0.1',
             'api_server_port': '8082',
+            'api_server_use_ssl': False,
             'oper': None,
             'admin_user': None,
             'admin_password': None,
@@ -148,6 +152,8 @@ class ControlProvisioner(object):
         parser.add_argument(
             "--api_server_ip", help="IP address of api server", required=True)
         parser.add_argument("--api_server_port", help="Port of api server", required=True)
+        parser.add_argument("--api_server_use_ssl",
+                        help="Use SSL to connect with API server")
         parser.add_argument(
             "--oper",
             help="Provision operation to be done(add or del)")
