@@ -308,6 +308,7 @@ public:
     Type type() const { return type_; }
     const DBEntry *db_entry() const { return db_entry_; }
     void set_db_entry(const DBEntry *db_entry) { db_entry_ = db_entry; }
+    bool NeedsReCompute(const FlowEntry *flow);
 
 protected:
     Type type_;
@@ -742,6 +743,20 @@ public:
         return NULL;
     }
 
+	bool Match(const IpAddress &match_ip) const {
+        if (ip_.is_v4()) {
+            return (Address::GetIp4SubnetAddress(ip_.to_v4(), plen_) ==
+                    Address::GetIp4SubnetAddress(match_ip.to_v4(), plen_));
+        } else if (ip_.is_v6()) {
+            return (Address::GetIp6SubnetAddress(ip_.to_v6(), plen_) ==
+                    Address::GetIp6SubnetAddress(match_ip.to_v6(), plen_));
+        }
+        assert(0);
+        return false;
+    }
+
+
+
 private:
     friend class InetRouteFlowMgmtTree;
     IpAddress ip_;
@@ -798,6 +813,7 @@ public:
             delete rt_key;
         }
     }
+
 private:
     LpmTree lpm_tree_;
     DISALLOW_COPY_AND_ASSIGN(InetRouteFlowMgmtTree);
