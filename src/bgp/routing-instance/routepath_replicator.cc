@@ -399,14 +399,17 @@ static ExtCommunityPtr UpdateExtCommunity(BgpServer *server,
     if (!ext_community)
         return ExtCommunityPtr(NULL);
 
-    // Nothing to do if we already have the OriginVn community with our AS.
+    // Nothing to do if we already have the OriginVn community with our AS
+    // or with a vn index from the global range.
     BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
                   ext_community->communities()) {
         if (!ExtCommunity::is_origin_vn(comm))
             continue;
         OriginVn origin_vn(comm);
-        if (origin_vn.as_number() != server->autonomous_system())
+        if (!origin_vn.IsGlobal() &&
+            origin_vn.as_number() != server->autonomous_system()) {
             continue;
+        }
         return ExtCommunityPtr(ext_community);
     }
 

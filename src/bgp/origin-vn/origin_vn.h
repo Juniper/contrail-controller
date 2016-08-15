@@ -16,6 +16,7 @@
 class OriginVn {
 public:
     static const int kSize = 8;
+    static const int kMinGlobalId = 8000000;
     static OriginVn null_originvn;
     typedef boost::array<uint8_t, kSize> bytes_type;
 
@@ -24,6 +25,7 @@ public:
     explicit OriginVn(const bytes_type &data);
 
     bool IsNull() { return operator==(OriginVn::null_originvn); }
+    bool IsGlobal() const;
 
     as_t as_number() const;
     int vn_index() const;
