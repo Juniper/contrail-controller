@@ -326,7 +326,7 @@ BgpServer::BgpServer(EventManager *evm)
       bgp_identifier_(0),
       hold_time_(0),
       gr_helper_enable_(getenv("GR_HELPER_BGP_ENABLE") != NULL),
-      end_of_rib_timeout_(30),
+      end_of_rib_timeout_(kEndOfRibTime),
       lifetime_manager_(BgpObjectFactory::Create<BgpLifetimeManager>(this,
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)),
@@ -502,6 +502,10 @@ uint32_t BgpServer::GetLongLivedGracefulRestartTime() const {
 }
 
 uint32_t BgpServer::GetEndOfRibReceiveTime() const {
+    return end_of_rib_timeout_;
+}
+
+uint32_t BgpServer::GetEndOfRibSendTime() const {
     return end_of_rib_timeout_;
 }
 
