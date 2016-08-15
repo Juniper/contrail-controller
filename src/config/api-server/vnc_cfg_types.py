@@ -45,8 +45,6 @@ def _parse_rt(rt):
 
 
 class ResourceDbMixin(object):
-    generate_default_instance = True
-
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         return True, ''
@@ -159,8 +157,6 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
 
 
 class FloatingIpServer(Resource, FloatingIp):
-    generate_default_instance = False
-
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         if 'project_refs' not in obj_dict:
@@ -245,8 +241,6 @@ class FloatingIpServer(Resource, FloatingIp):
 
 
 class InstanceIpServer(Resource, InstanceIp):
-    generate_default_instance = False
-
     @classmethod
     def _get_subnet_name(cls, vn_dict, subnet_uuid):
         ipam_refs = vn_dict.get('network_ipam_refs', [])
@@ -455,8 +449,6 @@ class InstanceIpServer(Resource, InstanceIp):
 
 
 class LogicalRouterServer(Resource, LogicalRouter):
-    generate_default_instance = False
-
     @classmethod
     def is_port_in_use_by_vm(cls, obj_dict, db_conn):
         for vmi_ref in obj_dict.get('virtual_machine_interface_refs', []):
@@ -558,8 +550,6 @@ class LogicalRouterServer(Resource, LogicalRouter):
 
 
 class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
-    generate_default_instance = False
-
     portbindings = {}
     portbindings['VIF_TYPE_VROUTER'] = 'vrouter'
     portbindings['VIF_TYPE_HW_VEB'] = 'hw_veb'
@@ -1190,8 +1180,6 @@ class NetworkIpamServer(Resource, NetworkIpam):
 
 
 class VirtualDnsServer(Resource, VirtualDns):
-    generate_default_instance = False
-
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         return cls.validate_dns_server(obj_dict, db_conn)
@@ -1335,8 +1323,6 @@ class VirtualDnsServer(Resource, VirtualDns):
 
 
 class VirtualDnsRecordServer(Resource, VirtualDnsRecord):
-    generate_default_instance = False
-
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         return cls.validate_dns_record(obj_dict, db_conn)
@@ -1465,8 +1451,6 @@ def _check_policy_rules(entries, network_policy_rule=False):
 # end _check_policy_rules
 
 class SecurityGroupServer(Resource, SecurityGroup):
-    generate_default_instance = False
-
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         user_visibility = obj_dict['id_perms'].get('user_visible', True)
