@@ -518,8 +518,8 @@ void InstanceManager::ScheduleNextTask(InstanceTaskQueue *task_queue) {
                task->Terminate();
             } else {
                task->Stop();
-               return;
             }
+            return;
         }
 
         task_queue->StopTimer();
