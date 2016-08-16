@@ -60,7 +60,7 @@ class InstanceManager {
         InstanceTaskQueue *task_queue;
     };
 
-    static const int kTimeoutDefault = 30;
+    static const int kTimeoutDefault = 3;
     static const int kWorkersDefault = 1;
     static const int kReattemptsDefault = 2;
 
