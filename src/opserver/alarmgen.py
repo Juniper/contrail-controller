@@ -461,6 +461,7 @@ class AlarmProcessor(object):
 
 class AlarmStateMachine:
     tab_alarms_timer = {}
+    last_timers_run = None
     def __init__(self, tab, uv, nm, sandesh, activeTimer, idleTimer,
             freqCheck_Times, freqCheck_Seconds, freqExceededCheck):
         self._sandesh = sandesh
@@ -711,24 +712,28 @@ class AlarmStateMachine:
                             'delete_alarm', 'timeout_val', 'old_to'])
         delete_alarms = []
         update_alarms = []
-        if curr_time in AlarmStateMachine.tab_alarms_timer:
+        if AlarmStateMachine.last_timers_run is None:
+            AlarmStateMachine.last_timers_run = curr_time
+        for next_timer in range(AlarmStateMachine.last_timers_run, curr_time + 1):
+          if next_timer in AlarmStateMachine.tab_alarms_timer:
             update_timers = []
-            for (tab, uv, nm) in AlarmStateMachine.tab_alarms_timer[curr_time]:
+            for (tab, uv, nm) in AlarmStateMachine.tab_alarms_timer[next_timer]:
                 asm = tab_alarms[tab][uv][nm]
                 delete_alarm, update_alarm, timeout_val = \
-                                asm.run_uve_soaking_timer(curr_time)
+                                asm.run_uve_soaking_timer(next_timer)
                 if delete_alarm:
                     delete_alarms.append((asm.tab, asm.uv, asm.nm))
                 if update_alarm:
                     update_alarms.append((asm.tab, asm.uv, asm.nm))
                 update_timers.append(inputs(tab=asm.tab, uv=asm.uv, nm=asm.nm,
                                     delete_alarm=delete_alarm,
-                                    timeout_val=timeout_val, old_to=curr_time))
+                                    timeout_val=timeout_val, old_to=next_timer))
             for timer in update_timers:
                 if timer.timeout_val is not None or timer.delete_alarm:
                     AlarmStateMachine.update_tab_alarms_timer(timer.tab,
                                     timer.uv, timer.nm, timer.old_to, 
                                     timer.timeout_val, tab_alarms)
+        AlarmStateMachine.last_timers_run = curr_time + 1
         return delete_alarms, update_alarms
 
     @staticmethod
