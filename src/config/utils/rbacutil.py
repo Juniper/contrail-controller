@@ -98,11 +98,10 @@ def find_rule(rge, rule):
     return None
 # end
 
-def build_perms(rule, perm_set):
+def build_perms(rule, perm_dict):
     rule.rule_perms = []
-    for perm in perm_set:
-        p = perm.split(":")
-        rule.rule_perms.append(RbacPermType(role_name = p[0], role_crud = p[1]))
+    for role_name, role_crud in perm_dict.items():
+        rule.rule_perms.append(RbacPermType(role_name, "".join(role_crud)))
 # end
 
 # build rule object from string form
@@ -152,6 +151,10 @@ class VncRbac():
         # Eg. python vnc_op.py VirtualNetwork
         # domain:default-project:default-virtual-network
 
+        defaults = {
+            'name': 'default-domain:default-api-access-list'
+        }
+
         parser = argparse.ArgumentParser(
             description="Util to manage RBAC group and rules",
             formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -163,7 +166,8 @@ class VncRbac():
         parser.add_argument(
             '--op', choices = valid_ops, help="Operation to perform")
         parser.add_argument(
-            '--name', help="colon seperated fully qualified name")
+            '--name', help="colon seperated fully qualified name",
+            default='default-domain:default-api-access-list')
         parser.add_argument('--uuid', help="object UUID")
         parser.add_argument('--user',  help="User Name")
         parser.add_argument('--role',  help="Role Name")
@@ -252,9 +256,6 @@ if vnc_op.args.on or vnc_op.args.off:
     except PermissionDenied:
         print 'Permission denied'
         sys.exit(1)
-elif vnc_op.args.uuid and vnc_op.args.name:
-    print 'Only one of uuid and fqname should be specified'
-    sys.exit(1)
 
 try:
     rv_json = vnc._request_server(rest.OP_GET, url)
@@ -348,7 +349,10 @@ elif vnc_op.args.op == 'add-rule':
         sys.exit(1)
 
     # rbac rule entry consists of one or more rules
-    rg = vnc.api_access_list_read(fq_name = fq_name)
+    rg = vnc_read_obj(vnc, 'api-access-list', fq_name)
+    if rg == None:
+        sys.exit(1)
+
     rge = rg.get_api_access_list_entries()
     if rge is None:
         rge = RbacRuleEntriesType([])
@@ -358,9 +362,6 @@ elif vnc_op.args.op == 'add-rule':
     match = find_rule(rge, rule)
     if not match:
         rge.add_rbac_rule(rule)
-    elif len(match[2]):
-        print 'Rule already exists at position %d. Not adding' % match[0]
-        sys.exit(1)
     else:
         build_perms(rge.rbac_rule[match[0]-1], match[3])
 
@@ -380,7 +381,9 @@ elif vnc_op.args.op == 'del-rule':
         print 'eg virtual-network.subnet admin:CRUD,member:R'
         sys.exit(1)
 
-    rg = vnc.api_access_list_read(fq_name = fq_name)
+    rg = vnc_read_obj(vnc, 'api-access-list', fq_name)
+    if rg == None:
+        sys.exit(1)
     rge = rg.get_api_access_list_entries()
     show_rbac_rules(rge)
 

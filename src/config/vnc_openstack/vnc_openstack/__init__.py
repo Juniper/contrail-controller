@@ -180,6 +180,8 @@ def _create_default_security_group(vnc_lib, proj_obj):
                                    security_group_entries=sg_rules)
 
     vnc_lib.security_group_create(sg_obj)
+    # neutron doesn't propagate user token
+    vnc_lib.chown(sg_obj.get_uuid(), proj_obj.get_uuid())
 
 
 def ensure_default_security_group(vnc_lib, proj_obj):
