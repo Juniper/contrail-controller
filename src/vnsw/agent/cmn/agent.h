@@ -13,7 +13,6 @@
 #include <base/intrusive_ptr_back_ref.h>
 #include <cmn/agent_cmn.h>
 #include <base/connection_info.h>
-#include <base/timer.h>
 #include "net/mac_address.h"
 #include "oper/agent_types.h"
 
@@ -197,6 +196,7 @@ class AgentIfMapXmppChannel;
 class AgentDnsXmppChannel;
 class DiscoveryServiceClient;
 class EventManager;
+class TaskTbbKeepAwake;
 class IFMapAgentStaleCleaner;
 
 class ArpProto;
@@ -1070,7 +1070,6 @@ public:
                    const char *description, uint32_t delay);
 
     static uint16_t ProtocolStringToInt(const std::string &str);
-    bool TbbKeepAwake();
     VrouterObjectLimits GetVrouterObjectLimits();
 private:
 
@@ -1091,6 +1090,7 @@ private:
     VNController *controller_;
 
     EventManager *event_mgr_;
+    TaskTbbKeepAwake *tbb_awake_task_;
     boost::shared_ptr<AgentXmppChannel> agent_xmpp_channel_[MAX_XMPP_SERVERS];
     AgentIfMapXmppChannel *ifmap_channel_[MAX_XMPP_SERVERS];
     XmppClient *xmpp_client_[MAX_XMPP_SERVERS];
@@ -1265,8 +1265,6 @@ private:
     FlowStatsReqHandler flow_stats_req_handler_;
 
     uint32_t tbb_keepawake_timeout_;
-    Timer *tbb_awake_timer_;
-    uint64_t tbb_awake_count_;
     // Constants
 public:
     static const std::string config_file_;
