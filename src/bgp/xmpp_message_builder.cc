@@ -243,13 +243,13 @@ void BgpXmppMessage::AddIpReach(const BgpRoute *route,
         EncodeNextHop(route, nexthop, &item);
     }
 
-    for (vector<int>::iterator it = security_group_list_.begin();
-         it !=  security_group_list_.end(); ++it) {
+    for (vector<int>::const_iterator it = security_group_list_.begin();
+         it != security_group_list_.end(); ++it) {
         item.entry.security_group_list.security_group.push_back(*it);
     }
 
-    for (vector<string>::iterator it = community_list_.begin();
-         it !=  community_list_.end(); ++it) {
+    for (vector<string>::const_iterator it = community_list_.begin();
+         it != community_list_.end(); ++it) {
         item.entry.community_tag_list.community_tag.push_back(*it);
     }
 
@@ -342,8 +342,8 @@ void BgpXmppMessage::AddEnetReach(const BgpRoute *route,
     item.entry.med = roattr->attr()->med();
     item.entry.sequence_number = sequence_number_;
 
-    for (vector<int>::iterator it = security_group_list_.begin();
-         it !=  security_group_list_.end(); ++it) {
+    for (vector<int>::const_iterator it = security_group_list_.begin();
+         it != security_group_list_.end(); ++it) {
         item.entry.security_group_list.security_group.push_back(*it);
     }
 
