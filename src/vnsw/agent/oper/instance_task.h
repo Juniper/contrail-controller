@@ -28,6 +28,7 @@ class InstanceTask {
     virtual bool Run() = 0;
     virtual void Stop() = 0;
     virtual void Terminate() = 0;
+    virtual bool IsSetup() = 0;
 
     // TODO reimplement instance_manager.cc to remove these two?
     virtual pid_t pid() const = 0;
@@ -77,6 +78,7 @@ class InstanceTaskExecvp : public InstanceTask {
     bool Run();
     void Stop();
     void Terminate();
+    bool IsSetup();
 
     pid_t pid() const {
         return pid_;
@@ -95,6 +97,7 @@ class InstanceTaskExecvp : public InstanceTask {
     void ReadErrors(const boost::system::error_code &ec, size_t read_bytes);
     const std::string cmd_;
     boost::asio::posix::stream_descriptor errors_;
+    bool setup_done_; // indicates whether errors_ has a valid descriptor or not
     std::stringstream errors_data_;
     char rx_buff_[kBufLen];
 
