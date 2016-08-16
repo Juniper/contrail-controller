@@ -38,6 +38,7 @@ class LibvirtInstanceAdapter : public InstanceManagerAdapter {
         bool Run();
         void Stop() {}
         void Terminate() {}
+        bool IsSetup() { return true; }
 
         const std::string &cmd() const {
             static const std::string cmdstr =
@@ -77,6 +78,7 @@ class LibvirtInstanceAdapter : public InstanceManagerAdapter {
         bool Run();
         void Stop() {}
         void Terminate() {}
+        bool IsSetup() { return true; }
 
         const std::string &cmd() const {
             static const std::string cmdstr =
