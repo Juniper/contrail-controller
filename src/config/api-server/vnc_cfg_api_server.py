@@ -1091,7 +1091,7 @@ class VncApiServer(object):
             child_infos = parent_dict.get(child_field, [])
             for child_info in child_infos:
                 if child_info['to'][-1] == default_child_name:
-                    default_child_id = has_info['href'].split('/')[-1]
+                    default_child_id = child_info['href'].split('/')[-1]
                     del_method = getattr(self, '%s_http_delete' %(child_type))
                     del_method(default_child_id)
                     break
