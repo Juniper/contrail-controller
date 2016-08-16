@@ -15,7 +15,7 @@ InstanceTaskExecvp::InstanceTaskExecvp(const std::string &name,
                                        const std::string &cmd,
                                        int cmd_type, EventManager *evm) :
         name_(name), cmd_(cmd), input_(*(evm->io_service())),
-        pid_(0), cmd_type_(cmd_type), pipe_stdout_(false) {
+        setup_done_(false), pid_(0), cmd_type_(cmd_type), pipe_stdout_(false) {
 }
 
 void InstanceTaskExecvp::ReadData(const boost::system::error_code &ec,
@@ -54,6 +54,9 @@ void InstanceTaskExecvp::Terminate() {
     kill(pid_, SIGKILL);
 }
 
+bool InstanceTaskExecvp::IsSetup() {
+    return setup_done_;
+}
 
 // If there is an error before the fork, task is set to "not running"
 // and "false" is returned to caller so that caller can take appropriate
@@ -124,6 +127,7 @@ bool InstanceTaskExecvp::Run() {
         //the task again
         return false;
     }
+    setup_done_ = true;
 
     bzero(rx_buff_, sizeof(rx_buff_));
     input_.async_read_some(boost::asio::buffer(rx_buff_, kBufLen),
