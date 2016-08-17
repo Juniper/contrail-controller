@@ -168,3 +168,15 @@ request sandesh DeleteAgingConfig {
     1: u32 protocol;
     2: u32 port;
 }
+
+/**
+ * @description: Trace message for agent flow sampling export rate
+ * @type: Trace
+ * @severity: DEBUG
+ */
+traceobject sandesh FlowExportStatsTrace {
+    1: u32 export_rate;
+    2: u32 export_rate_without_sampling;
+    3: u32 old_threshold;
+    4: u32 new_threshold;
+}

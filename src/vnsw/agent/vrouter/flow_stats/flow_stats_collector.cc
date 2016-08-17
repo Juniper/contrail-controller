@@ -761,7 +761,8 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
 
     /* Subject a flow to sampling algorithm only when all of below is met:-
      * a. if Log is not configured as action for flow
-     * b. actual flow-export-rate is >= 80% of configured flow-export-rate
+     * b. actual flow-export-rate is >= 80% of configured flow-export-rate. This
+     *    is done only for first time.
      * c. diff_bytes is lesser than the threshold
      * d. Flow-sampling is not disabled
      * e. Flow-sample does not have teardown time or the sample for the flow is
@@ -771,8 +772,11 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
     if (!info->IsActionLog() && (diff_bytes < threshold()) &&
         (cfg_rate != GlobalVrouter::kDisableSampling) &&
         (!info->teardown_time() || !info->exported_atleast_once()) &&
-        flow_stats_manager_->flow_export_rate() >= ((double)cfg_rate) * 0.8) {
+        ((!flow_stats_manager_->flows_sampled_atleast_once_ &&
+         flow_stats_manager_->flow_export_rate() >= ((double)cfg_rate) * 0.8)
+         || flow_stats_manager_->flows_sampled_atleast_once_)) {
         subject_flows_to_algorithm = true;
+        flow_stats_manager_->set_flows_sampled_atleast_once();
     }
 
     if (subject_flows_to_algorithm) {
@@ -890,7 +894,8 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
         //the flow is same. Required for analytics module to query flows
         //irrespective of direction.
         EnqueueFlowMsg();
-        flow_stats_manager_->flow_export_count_ += 2;
+        flow_stats_manager_->UpdateFlowExportStats(2,
+                                                   subject_flows_to_algorithm);
     } else {
         if (flow->is_flags_set(FlowEntry::IngressDir)) {
             s_flow.set_direction_ing(1);
@@ -899,13 +904,15 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
             s_flow.set_direction_ing(0);
         }
         EnqueueFlowMsg();
-        flow_stats_manager_->flow_export_count_++;
+        flow_stats_manager_->UpdateFlowExportStats(1,
+                                                   subject_flows_to_algorithm);
     }
 }
 
 bool FlowStatsManager::UpdateFlowThreshold() {
     uint64_t curr_time = FlowStatsCollector::GetCurrentTime();
     bool export_rate_calculated = false;
+    uint32_t exp_rate_without_sampling = 0;
 
     /* If flows are not being exported, no need to update threshold */
     if (!flow_export_count_) {
@@ -923,6 +930,8 @@ bool FlowStatsManager::UpdateFlowThreshold() {
         if (diff_secs) {
             uint32_t flow_export_count = flow_export_count_reset();
             flow_export_rate_ = flow_export_count/diff_secs;
+            exp_rate_without_sampling =
+                flow_export_without_sampling_reset()/diff_secs;
             prev_flow_export_rate_compute_time_ = curr_time;
             export_rate_calculated = true;
         }
@@ -940,9 +949,25 @@ bool FlowStatsManager::UpdateFlowThreshold() {
         (cfg_rate == prev_cfg_flow_export_rate_)) {
         return true;
     }
+    uint32_t cur_t = threshold(), new_t = 0;
     // Update sampling threshold based on flow_export_rate_
     if (flow_export_rate_ < ((double)cfg_rate) * 0.8) {
-        UpdateThreshold(kDefaultFlowSamplingThreshold);
+        /* There are two reasons why we can be here.
+         * 1. None of the flows were sampled because we never crossed
+         *    80% of configured flow-export-rate.
+         * 2. In scale setups, the threshold was updated to high value because
+         *    of which flow-export-rate has dropped drastically.
+         * Threshold should be updated here depending on which of the above two
+         * situations we are in. */
+        if (!flows_sampled_atleast_once_) {
+            UpdateThreshold(kDefaultFlowSamplingThreshold);
+        } else {
+            if (flow_export_rate_ < ((double)cfg_rate) * 0.5) {
+                UpdateThreshold((threshold_ / 4));
+            } else {
+                UpdateThreshold((threshold_ / 2));
+            }
+        }
     } else if (flow_export_rate_ > (cfg_rate * 3)) {
         UpdateThreshold((threshold_ * 4));
     } else if (flow_export_rate_ > (cfg_rate * 2)) {
@@ -951,11 +976,18 @@ bool FlowStatsManager::UpdateFlowThreshold() {
         UpdateThreshold((threshold_ * 2));
     }
     prev_cfg_flow_export_rate_ = cfg_rate;
+    new_t = threshold();
+    FLOW_EXPORT_STATS_TRACE(flow_export_rate_, exp_rate_without_sampling, cur_t,
+                            new_t);
     return true;
 }
 
 uint32_t FlowStatsCollector::threshold() const {
     return flow_stats_manager_->threshold();
+}
+
+uint32_t FlowStatsCollector::flow_export_count() const {
+    return flow_stats_manager_->flow_export_count();
 }
 
 bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
