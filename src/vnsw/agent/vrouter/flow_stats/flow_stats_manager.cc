@@ -30,10 +30,14 @@
 #include <oper/global_vrouter.h>
 #include <init/agent_param.h>
 
+SandeshTraceBufferPtr FlowExportStatsTraceBuf(SandeshTraceBufferCreate(
+    "FlowExportStats", 3000));
 const uint8_t FlowStatsManager::kCatchAllProto;
 
 void FlowStatsManager::UpdateThreshold(uint32_t new_value) {
-    if (new_value != 0) {
+    if (new_value < kMinFlowSamplingThreshold) {
+        threshold_ = kMinFlowSamplingThreshold;
+    } else {
         threshold_ = new_value;
     }
 }
@@ -83,6 +87,7 @@ FlowStatsManager::FlowStatsManager(Agent *agent) : agent_(agent),
     flow_export_disable_drops_ = 0;
     flow_export_sampling_drops_ = 0;
     flow_export_drops_ = 0;
+    flows_sampled_atleast_once_ = false;
     request_queue_.set_measure_busy_time(agent->MeasureQueueDelay());
 }
 
@@ -419,5 +424,13 @@ void FlowStatsManager::SetProfileData(ProfileData *data) {
                       &data->flow_.flow_stats_queue_[i]);
         i++;
         it++;
+    }
+}
+
+void FlowStatsManager::UpdateFlowExportStats(uint32_t count,
+                                             bool sampled_flow) {
+    flow_export_count_ += count;
+    if (!sampled_flow) {
+        flow_export_without_sampling_ += count;
     }
 }

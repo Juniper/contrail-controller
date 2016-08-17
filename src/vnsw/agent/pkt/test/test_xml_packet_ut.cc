@@ -193,13 +193,11 @@ TEST_F(TestPkt, flow_eviction) {
         test.Run();
     }
     client->WaitForIdle();
-    client->agent()->flow_stats_manager()->
-        default_flow_stats_collector()->set_delete_short_flow(true);
+    client->agent()->flow_stats_manager()->set_delete_short_flow(true);
     client->EnqueueFlowAge();
     client->WaitForIdle();
     WAIT_FOR(0, 1000, (0U == proto_->FlowCount()));
-    client->agent()->flow_stats_manager()->
-        default_flow_stats_collector()->set_delete_short_flow(false);
+    client->agent()->flow_stats_manager()->set_delete_short_flow(false);
 }
 
 
