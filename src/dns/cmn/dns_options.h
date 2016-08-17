@@ -20,6 +20,9 @@ public:
     std::string discovery_server() const { return discovery_server_; }
     uint16_t discovery_port() const { return discovery_port_; }
     const std::string & named_config_file() const { return named_config_file_; }
+    const std::string & named_base_config_file() const {
+        return named_base_config_file_;
+    }
     const std::string & named_config_dir() const { return named_config_dir_; }
     const std::string & named_log_file() const { return named_log_file_; }
     const std::string & rndc_config_file() const { return rndc_config_file_; }
@@ -100,6 +103,7 @@ private:
     uint16_t discovery_port_;
 
     std::string named_config_file_;
+    std::string named_base_config_file_;
     std::string named_config_dir_;
     std::string named_log_file_;
     std::string rndc_config_file_;

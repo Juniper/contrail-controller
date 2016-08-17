@@ -191,6 +191,7 @@ int main(int argc, char *argv[]) {
     dns_manager.Initialize(&config_db, &config_graph,
                            options.named_config_dir(),
                            options.named_config_file(),
+                           options.named_base_config_file(),
                            options.named_log_file(),
                            options.rndc_config_file(),
                            options.rndc_secret(),
