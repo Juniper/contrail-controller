@@ -27,12 +27,14 @@ const char NamedConfig::sessionkey_file_name[] = "session.key";
 
 void NamedConfig::Init(const std::string& named_config_dir,
                        const std::string& named_config_file,
+                       const std::string& named_base_config_file,
                        const std::string& named_log_file,
                        const std::string& rndc_config_file,
                        const std::string& rndc_secret,
                        const std::string& named_max_cache_size) {
     assert(singleton_ == NULL);
     singleton_ = new NamedConfig(named_config_dir, named_config_file,
+                                 named_base_config_file,
                                  named_log_file, rndc_config_file, rndc_secret,
                                  named_max_cache_size);
     singleton_->Reset();
@@ -146,9 +148,22 @@ void NamedConfig::CreateNamedConf(const VirtualDnsConfig *updated_vdns) {
      GetDefaultForwarders();
      file_.open(named_config_file_.c_str());
     
-     WriteOptionsConfig();
-     WriteRndcConfig();
-     WriteLoggingConfig();
+     std::ifstream cfgfile;
+     cfgfile.open(named_base_config_file_.c_str());
+     if (cfgfile.is_open()) {
+         file_ << "/* Build contrail-named.conf dynamically */" << endl;
+         string str;
+         while (getline(cfgfile, str)) {
+             file_ << str << endl;
+         }
+         cfgfile.close();
+     } else {
+         file_ << "/* Build default contrail-named.conf */" << endl;
+         WriteOptionsConfig();
+         WriteRndcConfig();
+         WriteLoggingConfig();
+     }
+
      WriteViewConfig(updated_vdns);
 
      file_.flush();
