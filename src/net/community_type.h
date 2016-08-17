@@ -13,11 +13,11 @@ public:
     enum WellKnownCommunity {
         AcceptOwn = 0xFFFF0001,
         NoReOriginate = 0xFFFFF000,
+        LlgrStale = 0xFFFF0006,
+        NoLlgr = 0xFFFF0007,
         NoExport = 0xFFFFFF01,
         NoAdvertise = 0xFFFFFF02,
         NoExportSubconfed = 0xFFFFFF03,
-        LlgrStale = 0xFFFFFF06,
-        NoLlgr = 0xFFFFFF07,
         AcceptOwnNexthop = 0xFFFF0008,
     };
 
