@@ -55,7 +55,9 @@ public:
         Close();
     }
 
-    virtual void ReceiveConfigUpdate(const XmppStanza::XmppMessage *msg) {
+    virtual void ReceiveConfigUpdate(XmppMessageConstPtr m) {
+        const XmppStanza::XmppMessage *msg =
+            static_cast<const XmppStanza::XmppMessage *>(m.get());
         if (parent_->down()) return;
         tbb::mutex::scoped_lock lock(parent_->get_mutex());
         if (parent_->down()) return;
@@ -108,7 +110,9 @@ public:
         }
     }
 
-    virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
+    virtual void ReceiveUpdate(XmppMessageConstPtr m) {
+        const XmppStanza::XmppMessage *msg =
+            static_cast<const XmppStanza::XmppMessage *>(m.get());
         if (parent_->down()) return;
         tbb::mutex::scoped_lock lock(parent_->get_mutex());
         if (parent_->down()) return;
@@ -751,7 +755,7 @@ public:
         tbb::mutex::scoped_lock lock(mutex_);
         XmppChannelMux::UnRegisterReceive(id);
     }
-    void ProcessXmppMessage(const XmppStanza::XmppMessage *msg) {
+    void ProcessXmppMessage(XmppMessageConstPtr msg) {
         tbb::mutex::scoped_lock lock(mutex_);
         XmppChannelMux::ProcessXmppMessage(msg);
     }

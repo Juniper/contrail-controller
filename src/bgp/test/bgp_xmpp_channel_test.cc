@@ -111,12 +111,12 @@ public:
     virtual ~BgpXmppChannelMock() {
     }
 
-    bool ProcessUpdate(const XmppStanza::XmppMessage *msg) {
+    bool ProcessUpdate(XmppMessageConstPtr msg) {
         ReceiveUpdate(msg);
         return true;
     }
 
-    virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
+    virtual void ReceiveUpdate(XmppMessageConstPtr msg) {
         count_++;
         BgpXmppChannel::ReceiveUpdate(msg);
     }
@@ -300,7 +300,7 @@ protected:
         return mgr_->FindChannel(ch);
     }
 
-    void ReceiveUpdate(XmppChannelMock *channel, XmppStanza::XmppMessage *msg) {
+    void ReceiveUpdate(XmppChannelMock *channel, XmppMessageConstPtr msg) {
         BgpXmppChannelMock *tmp =
             static_cast<BgpXmppChannelMock *>(FindChannel(channel));
         ASSERT_FALSE(tmp == NULL);

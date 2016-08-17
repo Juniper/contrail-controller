@@ -1146,26 +1146,24 @@ void AgentXmppChannel::AddRoute(string vrf_name, IpAddress prefix_addr,
     }
 }
 
-void AgentXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
+void AgentXmppChannel::ReceiveUpdate(XmppMessageConstPtr m) {
+    const XmppStanza::XmppMessage *msg =
+        static_cast<const XmppStanza::XmppMessage *>(m.get());
     if (msg && msg->type == XmppStanza::MESSAGE_STANZA) {
-        auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
-        XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
-        XmlPugi *msg_pugi = reinterpret_cast<XmlPugi *>(msg->dom.get());
-        pugi->LoadXmlDoc(msg_pugi->doc());
         boost::shared_ptr<ControllerXmppData> data(new ControllerXmppData(xmps::BGP,
-                                                                          xmps::UNKNOWN,
-                                                                          xs_idx_,
-                                                                          impl,
-                                                                          true));
+                                                       xmps::UNKNOWN,
+                                                       xs_idx_,
+                                                       m,
+                                                       true));
         agent_->controller()->Enqueue(data);
     }
 }
 
-void AgentXmppChannel::ReceiveBgpMessage(std::auto_ptr<XmlBase> impl) {
+void AgentXmppChannel::ReceiveBgpMessage(XmlBase *impl) {
     if (agent_->stats())
         agent_->stats()->incr_xmpp_in_msgs(xs_idx_);
 
-    XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+    XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl);
     pugi->FindNode("items");
     pugi->ReadNode("items"); //sets the context
     std::string nodename = pugi->ReadAttrib("node");
@@ -1200,7 +1198,7 @@ void AgentXmppChannel::ReceiveBgpMessage(std::auto_ptr<XmlBase> impl) {
                       "Error Route update, Unknown Address Family or safi");
 }
 
-void AgentXmppChannel::ReceiveInternal(const XmppStanza::XmppMessage *msg) {
+void AgentXmppChannel::ReceiveInternal(XmppMessageConstPtr msg) {
     ReceiveUpdate(msg);
 }
 
@@ -1397,11 +1395,9 @@ void AgentXmppChannel::SetMulticastPeer(AgentXmppChannel *old_peer,
 
 void AgentXmppChannel::XmppClientChannelEvent(AgentXmppChannel *peer,
                                               xmps::PeerState state) {
-    std::auto_ptr<XmlBase> dummy_dom;
     boost::shared_ptr<ControllerXmppData> data(new ControllerXmppData(xmps::BGP,
                                                    state,
                                                    peer->GetXmppServerIdx(),
-                                                   dummy_dom,
                                                    false));
     peer->agent()->controller()->Enqueue(data);
 }

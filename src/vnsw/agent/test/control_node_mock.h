@@ -51,7 +51,7 @@ public:
 private: 
     pugi::xml_node AddXmppHdr();
     void SendUpdate(xmps::PeerId id);
-    void ReceiveUpdate(const XmppStanza::XmppMessage *msg);
+    void ReceiveUpdate(XmppMessageConstPtr msg);
     void XmppChannelEvent(XmppChannel *channel, xmps::PeerState state);
     RouteEntry* InsertRoute(std::string &vrf, std::string &address, 
             std::string &nh, int label, std::string &vn);

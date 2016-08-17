@@ -64,13 +64,18 @@ VNController::VNController(Agent *agent)
     work_queue_(agent->task_scheduler()->GetTaskId("Agent::ControllerXmpp"), 0,
                 boost::bind(&VNController::ControllerWorkQueueProcess, this,
                             _1)),
+    cfg_work_queue_(agent->task_scheduler()->GetTaskId("db::IFMapTable"), 0,
+                boost::bind(&VNController::ControllerWorkQueueProcess, this,
+                            _1)),
     fabric_multicast_label_range_(), xmpp_channel_down_cb_() {
     work_queue_.set_name("Controller Queue");
+    cfg_work_queue_.set_name("Controller Config Queue");
     decommissioned_peer_list_.clear();
 }
 
 VNController::~VNController() {
     work_queue_.Shutdown();
+    cfg_work_queue_.Shutdown();
 }
 
 void VNController::FillMcastLabelRange(uint32_t *start_idx,
@@ -834,7 +839,7 @@ bool VNController::XmppMessageProcess(ControllerXmppDataType data) {
             AgentXmppChannel *peer =
                 agent_->controller_xmpp_channel(data->channel_id());
             if (peer) {
-                peer->ReceiveBgpMessage(data->dom());
+                peer->ReceiveBgpMessage(data->msg().get()->dom.get());
             }
         } else {
             AgentXmppChannel *peer =
@@ -848,14 +853,14 @@ bool VNController::XmppMessageProcess(ControllerXmppDataType data) {
         AgentIfMapXmppChannel *peer =
             agent_->ifmap_xmpp_channel(data->channel_id());
         if (peer) {
-            peer->ReceiveConfigMessage(data->dom());
+            peer->ReceiveConfigMessage(data->msg().get()->dom.get());
         }
     } else if (data->peer_id() == xmps::DNS) {
         AgentDnsXmppChannel *peer =
             agent_->dns_xmpp_channel(data->channel_id());
         if (data->config()) {
             if (peer) {
-                peer->ReceiveDnsMessage(data->dom());
+                peer->ReceiveDnsMessage(data->msg().get()->dom.get());
             }
         } else {
             if (peer) {
@@ -870,6 +875,10 @@ bool VNController::XmppMessageProcess(ControllerXmppDataType data) {
 
 void VNController::Enqueue(ControllerWorkQueueDataType data) {
     work_queue_.Enqueue(data);
+}
+
+void VNController::ConfigEnqueue(ControllerWorkQueueDataType data) {
+    cfg_work_queue_.Enqueue(data);
 }
 
 bool VNController::RxXmppMessageTrace(uint8_t peer_index,

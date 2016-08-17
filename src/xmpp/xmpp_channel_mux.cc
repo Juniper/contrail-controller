@@ -180,10 +180,10 @@ inline bool MatchCallback(string to, xmps::PeerId peer) {
     return false;
 }
 
-void XmppChannelMux::ProcessXmppMessage(const XmppStanza::XmppMessage *msg) {
+void XmppChannelMux::ProcessXmppMessage(XmppMessageConstPtr msg) {
     ReceiveCbMap::iterator iter = rxmap_.begin();
     for (; iter != rxmap_.end(); ++iter) {
-        if (MatchCallback(msg->to, iter->first)) {
+        if (MatchCallback(msg.get()->to, iter->first)) {
             ReceiveCb cb = iter->second;
             cb(msg, GetPeerState());
         }

@@ -2556,7 +2556,9 @@ void BgpXmppChannel::StartEndOfRibTimer() {
         boost::bind(&BgpXmppChannel::EndOfRibTimerErrorHandler, this, _1, _2));
 }
 
-void BgpXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
+void BgpXmppChannel::ReceiveUpdate(XmppMessageConstPtr m) {
+    const XmppStanza::XmppMessage *msg =
+        static_cast<const XmppStanza::XmppMessage *>(m.get());
     CHECK_CONCURRENCY("xmpp::StateMachine");
 
     // Bail if the connection is being deleted. It's not safe to assert

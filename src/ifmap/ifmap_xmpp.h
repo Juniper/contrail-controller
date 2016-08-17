@@ -46,7 +46,7 @@ public:
     std::string ToString() const { return channel_->ToString(); } // hostname
     IFMapClient *Sender();
 
-    virtual void ReceiveUpdate(const XmppStanza::XmppMessage *);
+    virtual void ReceiveUpdate(XmppMessageConstPtr m);
     XmppChannel *channel() { return channel_; }
 
     void ClearCounters();

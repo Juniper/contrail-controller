@@ -40,7 +40,7 @@ public:
            boost::bind(&AgentBgpXmppPeerTest::ProcessChannelEvent, this, _1)) {
     }
 
-    virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
+    virtual void ReceiveUpdate(XmppMessageConstPtr msg) {
         rx_count_++;
         AgentXmppChannel::ReceiveUpdate(msg);
     }
@@ -78,7 +78,9 @@ public:
     l2_flood_route_seen_(false) {
     }
 
-    void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
+    void ReceiveUpdate(XmppMessageConstPtr m) {
+        const XmppStanza::XmppMessage *msg =
+            static_cast<const XmppStanza::XmppMessage *>(m.get());
         if (msg->type == XmppStanza::IQ_STANZA) {
             const XmppStanza::XmppMessageIq *iq =
                 static_cast<const XmppStanza::XmppMessageIq *>(msg);
