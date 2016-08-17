@@ -100,6 +100,7 @@ private:
     uint16_t discovery_port_;
 
     std::string named_config_file_;
+    std::string named_base_config_file_;
     std::string named_config_dir_;
     std::string named_log_file_;
     std::string rndc_config_file_;
