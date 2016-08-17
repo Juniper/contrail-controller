@@ -75,7 +75,9 @@ XmppChannelConfig *IFMapXmppClientMock::CreateXmppChannelCfg(
     return cfg;
 }
 
-void IFMapXmppClientMock::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
+void IFMapXmppClientMock::ReceiveUpdate(XmppMessageConstPtr m) {
+    const XmppStanza::XmppMessage *msg =
+        static_cast<const XmppStanza::XmppMessage *>(m.get());
     ++count_;
 
     assert(msg->type == XmppStanza::IQ_STANZA);

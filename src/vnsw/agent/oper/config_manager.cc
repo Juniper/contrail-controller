@@ -9,6 +9,7 @@
 
 #include <ifmap/ifmap_node.h>
 #include <cmn/agent_cmn.h>
+#include <base/task_context_changer.h>
 #include <oper/operdb_init.h>
 #include <oper/ifmap_dependency_manager.h>
 #include <oper/config_manager.h>
@@ -57,6 +58,7 @@ public:
     }
 
     bool Add(Agent *agent, ConfigManager *mgr, IFMapNode *node) {
+        CHECK_CONCURRENCY("db::IFMapTable");
         IFMapDependencyManager *dep = agent->oper_db()->dependency_manager();
         Node n(dep->SetState(node));
         list_.insert(n);
@@ -66,6 +68,7 @@ public:
     }
 
     bool Delete(Agent *agent, ConfigManager *mgr, IFMapNode *node) {
+        CHECK_CONCURRENCY("db::IFMapTable");
         IFMapDependencyManager *dep = agent->oper_db()->dependency_manager();
         IFMapNodeState *state = dep->IFMapNodeGet(node);
         if (state == NULL)
@@ -76,6 +79,7 @@ public:
     }
 
     uint32_t Process(uint32_t weight) {
+        CHECK_CONCURRENCY("db::IFMapTable");
         uint32_t count = 0;
         NodeListIterator it = list_.begin();
         while (weight && (it != list_.end())) {
@@ -144,6 +148,7 @@ public:
 
     bool Add(Agent *agent, ConfigManager *mgr, const boost::uuids::uuid &dev,
              const boost::uuids::uuid &vn) {
+        CHECK_CONCURRENCY("db::IFMapTable");
         list_.insert(DeviceVnEntry(dev, vn));
         enqueue_count_++;
         mgr->Start();
@@ -152,11 +157,13 @@ public:
 
     bool Delete(Agent *agent, ConfigManager *mgr, const boost::uuids::uuid &dev,
                 const boost::uuids::uuid &vn) {
+        CHECK_CONCURRENCY("db::IFMapTable");
         list_.erase(DeviceVnEntry(dev, vn));
         return true;
     }
 
     uint32_t Process(uint32_t weight) {
+        CHECK_CONCURRENCY("db::IFMapTable");
         uint32_t count = 0;
         DeviceVnIterator it = list_.begin();
         while (weight && (it != list_.end())) {
@@ -185,7 +192,8 @@ private:
 ConfigManager::ConfigManager(Agent *agent) :
     agent_(agent), trigger_(NULL), timer_(NULL), timeout_(kMinTimeout) {
 
-    int task_id = TaskScheduler::GetInstance()->GetTaskId("db::DBTable");
+    int task_id = TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable");
+    task_context_changer_.reset(new TaskContextChanger(task_id, 0));
     trigger_.reset
         (new TaskTrigger(boost::bind(&ConfigManager::TriggerRun, this),
                          task_id, 0));

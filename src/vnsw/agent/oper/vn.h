@@ -317,7 +317,21 @@ public:
     typedef std::pair<std::string, autogen::IpamType> IpamDomainConfigPair;
     typedef std::map<std::string, autogen::VirtualDnsType> VdnsDomainConfigMap;
     typedef std::pair<std::string, autogen::VirtualDnsType> VdnsDomainConfigPair;
-    typedef boost::function<void(IFMapNode *)> Callback;
+
+    // IPAM/DNS domain config handling
+    struct IpamConfigData : public TaskContextChanger::ClientData {
+       typedef boost::shared_ptr<IpamConfigData> Type;
+       autogen::IpamType ipam_type_;
+       std::string name_;
+       bool deleted_;
+    };
+    struct DnsConfigData : public TaskContextChanger::ClientData {
+       typedef boost::shared_ptr<DnsConfigData> Type;
+       autogen::VirtualDnsType dns_type_;
+       std::string name_;
+       bool deleted_;
+    };
+    typedef boost::function<void(TaskContextChanger::ClientData::Type)> Callback;
     
     DomainConfig(Agent *);
     virtual ~DomainConfig();
@@ -325,14 +339,18 @@ public:
     void Terminate();
     void RegisterIpamCb(Callback cb);
     void RegisterVdnsCb(Callback cb);
+    void IpamConfigListener(DBTablePartBase *partition, DBEntryBase *dbe);
+    void VDnsConfigListener(DBTablePartBase *partition, DBEntryBase *dbe);
     void IpamSync(DBTablePartBase *partition, DBEntryBase *dbe);
     void VDnsSync(DBTablePartBase *partition, DBEntryBase *dbe);
     bool GetIpam(const std::string &name, autogen::IpamType *ipam);
     bool GetVDns(const std::string &vdns, autogen::VirtualDnsType *vdns_type);
+    void ProcessIpamConfig(TaskContextChanger::ClientData::Type data);
+    void ProcessDnsConfig(TaskContextChanger::ClientData::Type data);
 
 private:
-    void CallVdnsCb(IFMapNode *node);
-    void CallIpamCb(IFMapNode *node);
+    void CallVdnsCb(TaskContextChanger::ClientData::Type d);
+    void CallIpamCb(TaskContextChanger::ClientData::Type d);
     bool IpamChanged(const autogen::IpamType &old,
                      const autogen::IpamType &cur) const;
 

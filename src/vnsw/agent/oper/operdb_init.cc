@@ -32,6 +32,7 @@
 #include <filter/acl.h>
 #include <oper/ifmap_dependency_manager.h>
 #include <base/task_trigger.h>
+#include <base/task_context_changer.h>
 #include <oper/instance_manager.h>
 #include <oper/physical_device.h>
 #include <oper/physical_device_vn.h>
@@ -272,7 +273,7 @@ OperDB::OperDB(Agent *agent)
         : agent_(agent),
           dependency_manager_(
               AgentObjectFactory::Create<IFMapDependencyManager>(
-                  agent->db(), agent->cfg()->cfg_graph())),
+                  agent->cfg_db(), agent->cfg()->cfg_graph())),
           instance_manager_(
                   AgentObjectFactory::Create<InstanceManager>(agent)) {
     if (agent_->params() &&
@@ -282,6 +283,9 @@ OperDB::OperDB(Agent *agent)
     }
 
     agent_sandesh_manager_.reset(new AgentSandeshManager(agent));
+    task_context_changer_.reset(new TaskContextChanger(TaskScheduler::GetInstance()->
+                                                       GetTaskId("db::DBTable"),
+                                                       0));
 }
 
 OperDB::~OperDB() {

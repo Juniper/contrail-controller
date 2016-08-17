@@ -90,6 +90,10 @@ public:
     IFMapNode * FindAdjacentIFMapNode(IFMapNode *node,
             const char *type);
     void NodeResync(IFMapNode *node);
+    TaskContextChanger *task_context_changer() {
+        return task_context_changer_.get();
+    }
+
     Agent *agent() { return agent_; }
 
 private:
@@ -111,6 +115,7 @@ private:
     std::auto_ptr<ConfigManagerNodeList> qos_queue_list_;
     std::auto_ptr<ConfigManagerNodeList> forwarding_class_list_;
     std::auto_ptr<ConfigManagerDeviceVnList> device_vn_list_;
+    std::auto_ptr<TaskContextChanger> task_context_changer_;
 
     uint64_t process_config_count_[kMaxTimeout + 1];
     DISALLOW_COPY_AND_ASSIGN(ConfigManager);
