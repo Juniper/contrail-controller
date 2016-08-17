@@ -228,7 +228,9 @@ void ControlNodeMock::GetRoutes(string vrf, const XmppStanza::XmppMessage *msg) 
     }
 }
 
-void ControlNodeMock::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
+void ControlNodeMock::ReceiveUpdate(XmppMessageConstPtr m) {
+    const XmppStanza::XmppMessage *msg =
+        static_cast<const XmppStanza::XmppMessage *>(m.get());
     if (msg->type == XmppStanza::IQ_STANZA) {
         const XmppStanza::XmppMessageIq *iq =
                    static_cast<const XmppStanza::XmppMessageIq *>(msg);

@@ -230,24 +230,24 @@ void DnsProto::VrfNotify(DBEntryBase *entry) {
     }
 }
 
-void DnsProto::IpamNotify(IFMapNode *node) {
-    if (node->IsDeleted())
+void DnsProto::IpamNotify(TaskContextChanger::ClientData::Type d) {
+    DomainConfig::IpamConfigData *data =
+        static_cast<DomainConfig::IpamConfigData *>(d.get());
+    if (data->deleted_)
         return;
-    DNS_BIND_TRACE(DnsBindTrace, "Ipam Notify : " << node->name());
-    ProcessNotify(node->name(), node->IsDeleted(), true);
+    DNS_BIND_TRACE(DnsBindTrace, "Ipam Notify : " << data->name_);
+    ProcessNotify(data->name_, data->deleted_, true);
 }
 
-void DnsProto::VdnsNotify(IFMapNode *node) {
-    DNS_BIND_TRACE(DnsBindTrace, "Vdns Notify : " << node->name());
+void DnsProto::VdnsNotify(TaskContextChanger::ClientData::Type d) {
+    DomainConfig::DnsConfigData *data =
+        static_cast<DomainConfig::DnsConfigData *>(d.get());
+    DNS_BIND_TRACE(DnsBindTrace, "Vdns Notify : " << data->name_);
     // Update any existing records prior to checking for new ones
-    if (!node->IsDeleted()) {
-        autogen::VirtualDns *virtual_dns =
-                 static_cast <autogen::VirtualDns *> (node->GetObject());
-        autogen::VirtualDnsType vdns_type = virtual_dns->data();
-        std::string name = node->name();
-        MoveVDnsEntry(NULL, name, name, vdns_type, false);
+    if (!data->deleted_) {
+        MoveVDnsEntry(NULL, data->name_, data->name_, data->dns_type_, false);
     }
-    ProcessNotify(node->name(), node->IsDeleted(), false);
+    ProcessNotify(data->name_, data->deleted_, false);
 }
 
 void DnsProto::ProcessNotify(std::string name, bool is_deleted, bool is_ipam) {

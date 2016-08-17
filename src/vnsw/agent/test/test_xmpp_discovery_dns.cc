@@ -35,7 +35,7 @@ public:
     ControlNodeMockDnsXmppPeer() : channel_ (NULL), rx_count_(0) {
     }
 
-    void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
+    void ReceiveUpdate(XmppMessageConstPtr m) {
         rx_count_++;
     }
 

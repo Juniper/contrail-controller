@@ -37,15 +37,17 @@ class IFMapDependencyManagerTest;
 class IFMapNodeState : public DBState {
   public:
     IFMapNodeState(IFMapDependencyManager *manager, IFMapNode *node)
-            : manager_(manager), node_(node), object_(NULL),
-            uuid_(boost::uuids::nil_uuid()), refcount_(0),
+            : manager_(manager), node_(node),
+            uuid_(boost::uuids::nil_uuid()),
             notify_(true), oper_db_request_enqueued_(false) {
+                object_.fetch_and_store(NULL);
+                refcount_ = 0;
     }
 
     IFMapNode *node() { return node_; }
     DBEntry *object() { return object_; }
     void set_object(DBEntry *object) {
-        object_ = object;
+        object_.fetch_and_store(object);
     }
 
     void set_uuid(const boost::uuids::uuid &u) {
@@ -65,7 +67,7 @@ class IFMapNodeState : public DBState {
     boost::uuids::uuid uuid() { return uuid_; }
 
     void clear_object() {
-        object_ = NULL;
+        object_.fetch_and_store(NULL);
     }
 
     bool oper_db_request_enqueued() const {
@@ -78,9 +80,9 @@ class IFMapNodeState : public DBState {
 
     IFMapDependencyManager *manager_;
     IFMapNode *node_;
-    DBEntry *object_;
+    tbb::atomic<DBEntry *> object_;
     boost::uuids::uuid uuid_;
-    int refcount_;
+    tbb::atomic<int> refcount_;
     bool notify_;
     bool oper_db_request_enqueued_;
 };
@@ -90,6 +92,13 @@ class IFMapDependencyManager {
 public:
     typedef boost::intrusive_ptr<IFMapNodeState> IFMapNodePtr;
     typedef boost::function<void(IFMapNode *, DBEntry *)> ChangeEventHandler;
+
+    struct ContextChangerData {
+        IFMapDependencyManager::IFMapNodePtr node_;
+        bool propagate_change_;
+        bool add_node_;
+    };
+    typedef boost::shared_ptr<ContextChangerData> ContextChangerDataType;
 
     struct Link {
         Link(const std::string &edge, const std::string &vertex, bool interest):
@@ -158,6 +167,12 @@ public:
     bool IsRegistered(const IFMapNode *node);
     bool IsNodeIdentifiedByUuid(const IFMapNode *node);
 
+    //Changes the context from oper db to cfg db
+    bool ContextChangerCallback(ContextChangerDataType data);
+    void ChangeContext(IFMapNodePtr node, bool propagate_change,
+                       bool add_node);
+    void ReleaseIFMapNodeState(IFMapNodePtr node);
+
     //Routines used by unit-test
     void enable_trigger() {trigger_->set_enable();}
     void disable_trigger() {trigger_->set_disable();}
@@ -190,6 +205,7 @@ private:
     TableMap table_map_;
     EventMap event_map_;
     ChangeList change_list_;
+    WorkQueue<ContextChangerDataType> context_changer_;
 };
 
 #endif

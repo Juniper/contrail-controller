@@ -860,7 +860,7 @@ TEST_F(CfgTest, CfgUuidNullDelete) {
 
     //Get the config table
     IFMapTable *table =
-        IFMapTable::FindTable(Agent::GetInstance()->db(),"virtual-network");
+        IFMapTable::FindTable(Agent::GetInstance()->cfg_db(),"virtual-network");
     ASSERT_TRUE(table != NULL);
 
     //Get the config node
@@ -896,7 +896,7 @@ TEST_F(CfgTest, CfgUuidChange) {
 
     //Get the config table
     IFMapTable *table =
-        IFMapTable::FindTable(Agent::GetInstance()->db(),"virtual-network");
+        IFMapTable::FindTable(Agent::GetInstance()->cfg_db(),"virtual-network");
     ASSERT_TRUE(table != NULL);
 
     //Get the config node

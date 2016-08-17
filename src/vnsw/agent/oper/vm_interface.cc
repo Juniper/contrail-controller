@@ -1419,15 +1419,27 @@ bool VmInterface::OnChange(VmInterfaceData *data) {
 // RESYNC is called
 void VmInterface::PostAdd() {
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
-    DBRequest req;
     IFMapNode *node = ifmap_node();
     if (node == NULL)
         return;
 
-    boost::uuids::uuid u;
-    table->IFNodeToUuid(node, u);
-    if (table->IFNodeToReq(ifmap_node(), req, u) == true) {
-        table->Process(req);
+    //enqueue request in config
+    VmInterface::PostAddConfigData::Type data(new VmInterface::PostAddConfigData());
+    data->ifmap_node_state_ = ifmap_node_state();
+    table->IFNodeToUuid(node, data->u);
+    table->agent()->config_manager()->task_context_changer()->Enqueue(
+           boost::bind(&VmInterface::ProcessPostAddConfig,
+                       this, _1), data);
+}
+
+void VmInterface::ProcessPostAddConfig
+(TaskContextChanger::ClientData::Type d) {
+    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+    PostAddConfigData *data = static_cast<PostAddConfigData *>(d.get());
+    DBRequest req;
+    if (table->IFNodeToReq(data->ifmap_node_state_.get()->node(), req, data->u)
+        == true) {
+        table->Enqueue(&req);
     }
 }
 

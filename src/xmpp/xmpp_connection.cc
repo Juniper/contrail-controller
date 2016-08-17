@@ -609,13 +609,12 @@ error:
     return NULL;
 }
 
-int XmppConnection::ProcessXmppChatMessage(
-        const XmppStanza::XmppChatMessage *msg) {
+int XmppConnection::ProcessXmppChatMessage(XmppMessageConstPtr msg) {
     mux_->ProcessXmppMessage(msg);
     return 0;
 }
 
-int XmppConnection::ProcessXmppIqMessage(const XmppStanza::XmppMessage *msg) {
+int XmppConnection::ProcessXmppIqMessage(XmppMessageConstPtr msg) {
     mux_->ProcessXmppMessage(msg);
     return 0;
 }

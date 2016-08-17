@@ -29,13 +29,13 @@ namespace xmps {
     std::string PeerIdToName(PeerId id);
 }
 
+typedef boost::shared_ptr<const XmppStanza::XmppMessage> XmppMessageConstPtr;
 class XmppChannel {
 public:
     typedef boost::function<void(const boost::system::error_code &)> 
         SendReadyCb;
     typedef boost::function<
-        void(const XmppStanza::XmppMessage *, xmps::PeerState state)
-        > ReceiveCb;
+        void(XmppMessageConstPtr, xmps::PeerState state)> ReceiveCb;
     typedef boost::function<bool(const std::string &,
                                  int,
                                  int,

@@ -38,7 +38,7 @@ public:
     static XmppChannelConfig *CreateXmppChannelCfg(const char *saddr,
         const char *laddr, int sport, const std::string &to,
         const std::string &from);
-    virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg);
+    virtual void ReceiveUpdate(XmppMessageConstPtr m);
     virtual void WriteReadyCb(const boost::system::error_code &ec);
     void SendDocument(const pugi::xml_document &xdoc);
     pugi::xml_node PubSubHeader(pugi::xml_document *xdoc);

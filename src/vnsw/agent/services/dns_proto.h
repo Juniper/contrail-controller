@@ -159,8 +159,8 @@ public:
                             bool is_floating, bool is_delete);
     bool UpdateFloatingIp(const VmInterface *vmitf, const VnEntry *vn,
                           const Ip4Address &ip, bool is_deleted);
-    void IpamNotify(IFMapNode *node);
-    void VdnsNotify(IFMapNode *node);
+    void IpamNotify(TaskContextChanger::ClientData::Type d);
+    void VdnsNotify(TaskContextChanger::ClientData::Type d);
     uint16_t GetTransId();
 
     void SendDnsIpc(uint8_t *pkt, std::size_t length);

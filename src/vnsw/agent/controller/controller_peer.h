@@ -36,12 +36,12 @@ public:
 
     virtual std::string ToString() const;
     virtual bool SendUpdate(uint8_t *msg, size_t msgsize);
-    virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg);
+    virtual void ReceiveUpdate(XmppMessageConstPtr msg);
     virtual void ReceiveEvpnUpdate(XmlPugi *pugi);
     virtual void ReceiveMulticastUpdate(XmlPugi *pugi);
     virtual void ReceiveV4V6Update(XmlPugi *pugi);
     XmppChannel *GetXmppChannel() { return channel_; }
-    void ReceiveBgpMessage(std::auto_ptr<XmlBase> impl);
+    void ReceiveBgpMessage(XmlBase *impl);
 
     //Helper to identify if specified peer has active BGP peer attached
     static bool IsXmppChannelActive(const Agent *agent, AgentXmppChannel *peer);
@@ -167,7 +167,7 @@ protected:
 private:
     InetUnicastAgentRouteTable *PrefixToRouteTable(const std::string &vrf_name,
                                                    const IpAddress &prefix_addr);
-    void ReceiveInternal(const XmppStanza::XmppMessage *msg);
+    void ReceiveInternal(XmppMessageConstPtr msg);
     void AddRoute(std::string vrf_name, IpAddress ip, uint32_t plen,
                   autogen::ItemType *item);
     void AddMulticastEvpnRoute(const std::string &vrf_name,

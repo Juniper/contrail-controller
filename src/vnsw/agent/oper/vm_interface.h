@@ -745,6 +745,13 @@ public:
     bool is_vn_qos_config() const {
         return is_vn_qos_config_;
     }
+    //Context changer to enqueue config change from Oper.
+    struct PostAddConfigData : public TaskContextChanger::ClientData {
+        typedef boost::shared_ptr<PostAddConfigData> Type;
+        IFMapDependencyManager::IFMapNodePtr ifmap_node_state_;
+        boost::uuids::uuid u;
+    };
+    void ProcessPostAddConfig(TaskContextChanger::ClientData::Type data);
 
     const NextHop* l3_interface_nh_no_policy() const {
         return l3_interface_nh_no_policy_.get();

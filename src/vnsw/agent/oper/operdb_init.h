@@ -23,6 +23,7 @@ class AgentProfile;
 class VRouter;
 class BgpAsAService;
 class GlobalQosConfig;
+class TaskContextChanger;
 
 class OperDB {
 public:
@@ -39,7 +40,7 @@ public:
 
     Agent *agent() const { return agent_; }
     MulticastHandler *multicast() const { return multicast_.get(); }
-    GlobalVrouter *global_vrouter() const { return global_vrouter_.get(); }
+    GlobalVrouter *global_vrouter() { return global_vrouter_.get(); }
     PathPreferenceModule *route_preference_module() const {
         return route_preference_module_.get();
     }
@@ -66,6 +67,11 @@ public:
     GlobalQosConfig* global_qos_config() const {
         return global_qos_config_.get();
     }
+
+    TaskContextChanger *task_context_changer() {
+        return task_context_changer_.get();
+    }
+
 private:
     OperDB();
 
@@ -82,6 +88,7 @@ private:
     std::auto_ptr<VRouter> vrouter_;
     std::auto_ptr<BgpAsAService> bgp_as_a_service_;
     std::auto_ptr<GlobalQosConfig> global_qos_config_;
+    std::auto_ptr<TaskContextChanger> task_context_changer_;
     DISALLOW_COPY_AND_ASSIGN(OperDB);
 };
 #endif

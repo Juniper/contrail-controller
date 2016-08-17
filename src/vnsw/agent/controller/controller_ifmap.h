@@ -29,8 +29,8 @@ public:
 
     virtual std::string ToString() const;
     virtual bool SendUpdate(const std::string &msg);
-    void ReceiveConfigMessage(std::auto_ptr<XmlBase> impl);
-    virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg);
+    void ReceiveConfigMessage(XmlBase *impl);
+    virtual void ReceiveUpdate(boost::shared_ptr<const XmppStanza::XmppMessage> msg);
     uint8_t GetXmppServerIdx() { return xs_idx_; }
     static uint64_t GetSeqNumber() { return seq_number_; }
     static uint64_t NewSeqNumber(); 
@@ -39,7 +39,7 @@ protected:
     virtual void WriteReadyCb(const boost::system::error_code &ec);
 
 private:
-    void ReceiveInternal(const XmppStanza::XmppMessage *msg);
+    void ReceiveInternal(boost::shared_ptr<const XmppStanza::XmppMessage> msg);
     XmppChannel *channel_;
     std::string identifier_;
     uint8_t xs_idx_;

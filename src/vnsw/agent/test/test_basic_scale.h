@@ -120,13 +120,13 @@ public:
             boost::bind(&AgentBgpXmppPeerTest::ProcessChannelEvent, this, _1)) {
     }
 
-    virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
+    virtual void ReceiveUpdate(XmppMessageConstPtr m) {
         if (GetXmppChannel() && GetXmppChannel()->GetPeerState() != xmps::READY) {
             return;
         }
 
         rx_count_++;
-        AgentXmppChannel::ReceiveUpdate(msg);
+        AgentXmppChannel::ReceiveUpdate(m);
     }
 
     bool ProcessChannelEvent(xmps::PeerState state) {
@@ -428,7 +428,9 @@ public:
         SendDocument(xdoc);
     }
 
-    void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
+    void ReceiveUpdate(XmppMessageConstPtr m) {
+        const XmppStanza::XmppMessage *msg =
+            static_cast<const XmppStanza::XmppMessage *>(m.get());
         rx_count_++;
 
         if (!channel_ ||

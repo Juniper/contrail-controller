@@ -24,6 +24,7 @@ using ::testing::_;
 using ::testing::Invoke;
 using ::testing::Return;
 
+typedef boost::shared_ptr<XmppStanza::XmppMessage> XmppMessagePtr;
 class XmppChannelMock : public XmppChannel {
 public:
     XmppChannelMock() : fake_to_("fake"), fake_from_("fake-from") { }
@@ -118,17 +119,17 @@ public:
     virtual ~BgpXmppChannelMock() {
     }
 
-    bool ProcessUpdate(const XmppStanza::XmppMessage *msg) {
+    bool ProcessUpdate(XmppMessageConstPtr msg) {
         ReceiveUpdate(msg);
         return true;
     }
 
-    virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
+    virtual void ReceiveUpdate(XmppMessageConstPtr msg) {
         count_++;
         BgpXmppChannel::ReceiveUpdate(msg);
     }
 
-    void Enqueue(XmppStanza::XmppMessage *message) {
+    void Enqueue(XmppMessageConstPtr message) {
         receive_updates_queue_.Enqueue(message);
     }
 
@@ -137,7 +138,7 @@ public:
 
 private:
     size_t count_;
-    WorkQueue<const XmppStanza::XmppMessage *> receive_updates_queue_;
+    WorkQueue<XmppMessageConstPtr> receive_updates_queue_;
 };
 
 class BgpXmppChannelManagerMock : public BgpXmppChannelManager {
@@ -269,36 +270,42 @@ protected:
         return content;
     }
 
-    std::auto_ptr<XmppStanza::XmppMessageIq> GetSubscribe(string rt_instance_name,
-                                          bool subscribe) {
-        std::auto_ptr<XmppStanza::XmppMessageIq> msg(AllocIq());
+    XmppMessagePtr GetSubscribe(string rt_instance_name,
+                                bool subscribe) {
+        XmppMessagePtr m(AllocIq());
+        XmppStanza::XmppMessageIq *msg =
+            static_cast<XmppStanza::XmppMessageIq *>(m.get());
         pugi::xml_document *doc = subscribe ? enc_->SubscribeXmlDoc(rt_instance_name, 1) :
             enc_->UnsubscribeXmlDoc(rt_instance_name, 1);
         msg->action = string(subscribe ? "subscribe" : "unsubscribe");
         msg->node = rt_instance_name;
         msg->dom.reset(GetXmlDoc(doc));
 
-        return msg;
+        return m;
     }
 
-    std::auto_ptr<XmppStanza::XmppMessageIq> RouteAddMsg(string rt_instance_name,
-                                         const string &ipa) {
-        std::auto_ptr<XmppStanza::XmppMessageIq> msg(AllocIq());
+    XmppMessagePtr RouteAddMsg(string rt_instance_name,
+                               const string &ipa) {
+        XmppMessagePtr m(AllocIq());
+        XmppStanza::XmppMessageIq *msg =
+            static_cast<XmppStanza::XmppMessageIq *>(m.get());
         pugi::xml_document *doc = enc_->RouteAddXmlDoc(rt_instance_name, ipa);
         msg->dom.reset(GetXmlDoc(doc));
         msg->node = rt_instance_name;
         msg->is_as_node = true;
-        return msg;
+        return m;
     }
 
-    std::auto_ptr<XmppStanza::XmppMessageIq> RouteDelMsg(string rt_instance_name,
-                                         const string &ipa) {
-        std::auto_ptr<XmppStanza::XmppMessageIq> msg(AllocIq());
+    XmppMessagePtr RouteDelMsg(string rt_instance_name,
+                               const string &ipa) {
+        XmppMessagePtr m(AllocIq());
+        XmppStanza::XmppMessageIq *msg =
+            static_cast<XmppStanza::XmppMessageIq *>(m.get());
         pugi::xml_document *doc = enc_->RouteDeleteXmlDoc(rt_instance_name, ipa);
         msg->dom.reset(GetXmlDoc(doc));
         msg->node = rt_instance_name;
         msg->is_as_node = false;
-        return msg;
+        return m;
     }
 
     BgpServer *server() { return server_.get(); }
@@ -307,7 +314,7 @@ protected:
         return mgr_->FindChannel(ch);
     }
 
-    void ReceiveUpdate(XmppChannelMock *channel, XmppStanza::XmppMessage *msg) {
+    void ReceiveUpdate(XmppChannelMock *channel, XmppMessageConstPtr msg) {
         BgpXmppChannelMock *tmp =
             static_cast<BgpXmppChannelMock *>(FindChannel(channel));
         ASSERT_FALSE(tmp == NULL);
@@ -396,32 +403,35 @@ TEST_F(BgpXmppChannelTest, Connection) {
         ;
 
     // subscribe to routing instance purple
-    std::auto_ptr<XmppStanza::XmppMessageIq> msg;
+    XmppMessagePtr msg;
     msg = GetSubscribe("purple", true);
-    this->ReceiveUpdate(a.get(), msg.get());
+    XmppStanza::XmppMessageIq *iq_msg =
+        static_cast<XmppStanza::XmppMessageIq *>(msg.get());
+    this->ReceiveUpdate(a.get(), msg);
 
     BgpXmppChannel *channel = this->FindChannel(a.get());
     ASSERT_FALSE(channel == NULL);
 
-    std::string instname = msg->node;
+    std::string instname = iq_msg->node;
     task_util::WaitForCondition(&evm_,
             boost::bind(&BgpXmppChannelTest::PeerRegistered, this,
                         channel, instname, true), 1 /* seconds */);
 
     // Publish route to instance 'purple'
     msg = RouteAddMsg("purple", "10.1.1.2");
-    this->ReceiveUpdate(a.get(), msg.get());
+    this->ReceiveUpdate(a.get(), msg);
 
     // Delete route from 'purple' instance
     msg = RouteDelMsg("purple", "10.1.1.2");
-    this->ReceiveUpdate(a.get(), msg.get());
+    this->ReceiveUpdate(a.get(), msg);
 
     // Unsubscribe from 'purple' instance
     msg = GetSubscribe("purple", false);
-    this->ReceiveUpdate(a.get(), msg.get());
+    this->ReceiveUpdate(a.get(), msg);
 
     // Wait until unregsiter go through
-    instname = msg->node;
+    iq_msg = static_cast<XmppStanza::XmppMessageIq *>(msg.get());
+    instname = iq_msg->node;
     task_util::WaitForCondition(&evm_,
             boost::bind(&BgpXmppChannelTest::PeerRegistered, this,
                         channel, instname, false), 1 /* seconds */);
@@ -452,14 +462,16 @@ TEST_F(BgpXmppChannelTest, EndOfRibSend_1) {
     EXPECT_FALSE(channel_a_->eor_sent());
 
     // subscribe to routing instance purple
-    std::auto_ptr<XmppStanza::XmppMessageIq> msg;
+    XmppMessagePtr msg;
     msg = GetSubscribe("purple", true);
-    this->ReceiveUpdate(a.get(), msg.get());
+    XmppStanza::XmppMessageIq *iq_msg =
+        static_cast<XmppStanza::XmppMessageIq *>(msg.get());
+    this->ReceiveUpdate(a.get(), msg);
 
     // Verify that EoR Send timer is no longer running.
     TASK_UTIL_EXPECT_FALSE(channel_a_->eor_send_timer()->running());
 
-    std::string instname = msg->node;
+    std::string instname = iq_msg->node;
     task_util::WaitForCondition(&evm_,
             boost::bind(&BgpXmppChannelTest::PeerRegistered, this,
                         channel_a_, instname, true), 1 /* seconds */);
@@ -490,11 +502,11 @@ TEST_F(BgpXmppChannelTest, EndOfRibSend_1) {
 
     // Publish route to instance 'purple'
     msg = RouteAddMsg("purple", "10.1.1.2");
-    this->ReceiveUpdate(a.get(), msg.get());
+    this->ReceiveUpdate(a.get(), msg);
 
     // Delete route from 'purple' instance
     msg = RouteDelMsg("purple", "10.1.1.2");
-    this->ReceiveUpdate(a.get(), msg.get());
+    this->ReceiveUpdate(a.get(), msg);
 
     // Trigger EndOfRib timer callback
     task_util::TaskFire(boost::bind(&BgpXmppChannel::EndOfRibSendTimerExpired,
@@ -504,7 +516,7 @@ TEST_F(BgpXmppChannelTest, EndOfRibSend_1) {
 
     // Unsubscribe from 'purple' instance
     msg = GetSubscribe("purple", false);
-    this->ReceiveUpdate(a.get(), msg.get());
+    this->ReceiveUpdate(a.get(), msg);
 
     // Trigger membership registration completion for all families.
     task_util::TaskFire(boost::bind(&BgpXmppChannel::MembershipResponseHandler,
@@ -517,7 +529,8 @@ TEST_F(BgpXmppChannelTest, EndOfRibSend_1) {
                         channel_a_, "purple.ermvpn.0"), "xmpp::StateMachine");
 
     // Wait until unregister go through
-    instname = msg->node;
+    iq_msg = static_cast<XmppStanza::XmppMessageIq *>(msg.get());
+    instname = iq_msg->node;
     task_util::WaitForCondition(&evm_,
             boost::bind(&BgpXmppChannelTest::PeerRegistered, this,
                         channel_a_, instname, false), 1 /* seconds */);
@@ -544,14 +557,16 @@ TEST_F(BgpXmppChannelTest, EndOfRibSend_2) {
     EXPECT_FALSE(channel_a_->eor_sent());
 
     // subscribe to routing instance purple
-    std::auto_ptr<XmppStanza::XmppMessageIq> msg;
+    XmppMessagePtr msg;
     msg = GetSubscribe("purple", true);
-    this->ReceiveUpdate(a.get(), msg.get());
+    XmppStanza::XmppMessageIq *iq_msg =
+        static_cast<XmppStanza::XmppMessageIq *>(msg.get());
+    this->ReceiveUpdate(a.get(), msg);
 
     // Verify that EoR Send timer is no longer running.
     TASK_UTIL_EXPECT_FALSE(channel_a_->eor_send_timer()->running());
 
-    std::string instname = msg->node;
+    std::string instname = iq_msg->node;
     task_util::WaitForCondition(&evm_,
             boost::bind(&BgpXmppChannelTest::PeerRegistered, this,
                         channel_a_, instname, true), 1 /* seconds */);
@@ -582,15 +597,15 @@ TEST_F(BgpXmppChannelTest, EndOfRibSend_2) {
 
     // Publish route to instance 'purple'
     msg = RouteAddMsg("purple", "10.1.1.2");
-    this->ReceiveUpdate(a.get(), msg.get());
+    this->ReceiveUpdate(a.get(), msg);
 
     // Delete route from 'purple' instance
     msg = RouteDelMsg("purple", "10.1.1.2");
-    this->ReceiveUpdate(a.get(), msg.get());
+    this->ReceiveUpdate(a.get(), msg);
 
     // Unsubscribe from 'purple' instance
     msg = GetSubscribe("purple", false);
-    this->ReceiveUpdate(a.get(), msg.get());
+    this->ReceiveUpdate(a.get(), msg);
 
     // Trigger membership registration completion for all families.
     task_util::TaskFire(boost::bind(&BgpXmppChannel::MembershipResponseHandler,
@@ -603,7 +618,8 @@ TEST_F(BgpXmppChannelTest, EndOfRibSend_2) {
                         channel_a_, "purple.ermvpn.0"), "xmpp::StateMachine");
 
     // Wait until unregister go through
-    instname = msg->node;
+    iq_msg = static_cast<XmppStanza::XmppMessageIq *>(msg.get());
+    instname = iq_msg->node;
     task_util::WaitForCondition(&evm_,
             boost::bind(&BgpXmppChannelTest::PeerRegistered, this,
                         channel_a_, instname, false), 1 /* seconds */);

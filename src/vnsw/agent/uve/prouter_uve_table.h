@@ -132,7 +132,7 @@ class ProuterUveTable {
     bool SendProuterMsg(ProuterUveEntry *entry);
     void SendProuterMsgFromPhyInterface(const Interface *pi);
     void PhysicalDeviceNotify(DBTablePartBase *partition, DBEntryBase *e);
-    void PhysicalInterfaceHandler(const Interface *i, const boost::uuids::uuid &u);
+    void PhysicalInterfaceHandler(DBEntryBase *e, const boost::uuids::uuid &u);
     void MarkDeletedPhysical(const Interface *pintf);
     void DeletePhysicalFromProuter(const Interface *i,
                                    const boost::uuids::uuid &u);
@@ -165,6 +165,7 @@ class ProuterUveTable {
     void SendLogicalInterfaceDeleteMsg(const std::string &config_name);
     void SendLogicalInterfaceMsg(const boost::uuids::uuid &u,
                                  LogicalInterfaceUveEntry *entry);
+    PhysicalDevice *GetPhysicalDevice(Interface *intf);
 
     Agent *agent_;
     DBTableBase::ListenerId physical_device_listener_id_;

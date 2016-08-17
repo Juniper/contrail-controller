@@ -556,8 +556,7 @@ void ProuterUveTable::DeleteProuterLogicalInterface
     }
 }
 
-void ProuterUveTable::PhysicalDeviceNotify(DBTablePartBase *partition,
-                                           DBEntryBase *e) {
+void ProuterUveTable::PhysicalDeviceNotify(DBTablePartBase *partition, DBEntryBase *e) {
     const PhysicalDevice *pr = static_cast<const PhysicalDevice *>(e);
     PhysicalDeviceState *state = static_cast<PhysicalDeviceState *>
         (e->GetState(partition->parent(), physical_device_listener_id_));
@@ -605,8 +604,23 @@ void ProuterUveTable::AddUpdatePhysicalInterface(const Interface *intf) {
     entry->Update(intf);
 }
 
-void ProuterUveTable::PhysicalInterfaceHandler(const Interface *intf,
+PhysicalDevice *ProuterUveTable::GetPhysicalDevice(Interface *intf) {
+   RemotePhysicalInterface *remote_phy_intf =
+       dynamic_cast<RemotePhysicalInterface *>(intf);
+   if (remote_phy_intf)
+       return remote_phy_intf->physical_device();
+
+   PhysicalInterface *phy_intf =
+       dynamic_cast<PhysicalInterface *>(intf);
+   if (phy_intf)
+       return phy_intf->physical_device();
+
+   return NULL;
+}
+
+void ProuterUveTable::PhysicalInterfaceHandler(DBEntryBase *e,
                                                const boost::uuids::uuid &u) {
+    const Interface *intf = static_cast<const Interface *>(e);
     if (intf->IsDeleted()) {
         MarkDeletedPhysical(intf);
     }
@@ -617,9 +631,18 @@ void ProuterUveTable::PhysicalInterfaceHandler(const Interface *intf,
     }
     ProuterUveEntry *entry = PDEntryToProuterUveEntry(u);
     if (entry == NULL) {
-        /* We hit this condition when physical-device is deleted before
-         * physical interface */
-        return;
+        //Lets see if physical_device is present and same can be used to create
+        //map.
+        PhysicalDevice *phy_dev =
+            dynamic_cast<PhysicalDevice *>(GetPhysicalDevice
+                                           (static_cast<Interface *>(e)));
+        if (phy_dev == NULL) {
+            /* We hit this condition when physical-device is deleted before
+             * physical interface */
+            return;
+        }
+        PhysicalDeviceNotify(phy_dev->get_table_partition(), phy_dev);
+        entry = PDEntryToProuterUveEntry(u);
     }
     if (intf->IsDeleted()) {
         entry->DeletePhysicalInterface(intf);
@@ -731,9 +754,9 @@ void ProuterUveTable::InterfaceNotify(DBTablePartBase *partition,
     if (e->IsDeleted()) {
         if (state) {
             if (pintf) {
-                PhysicalInterfaceHandler(pintf, state->physical_device_);
+                PhysicalInterfaceHandler(e, state->physical_device_);
             } else if (rpintf) {
-                PhysicalInterfaceHandler(rpintf, state->physical_device_);
+                PhysicalInterfaceHandler(e, state->physical_device_);
             } else if (lintf) {
                 if (!state->physical_interface_.empty()) {
                     DeleteLogicalFromPhysical(state->physical_interface_,
@@ -790,9 +813,9 @@ void ProuterUveTable::InterfaceNotify(DBTablePartBase *partition,
                 }
                 if (pde) {
                     if (pintf) {
-                        PhysicalInterfaceHandler(pintf, pde->uuid());
+                        PhysicalInterfaceHandler(e, pde->uuid());
                     } else if (rpintf) {
-                        PhysicalInterfaceHandler(rpintf, pde->uuid());
+                        PhysicalInterfaceHandler(e, pde->uuid());
                     }
                 }
                 state->physical_device_ = pde_uuid;
