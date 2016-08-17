@@ -163,7 +163,8 @@ protected:
 
     void AddInetRoute(IPeer *peer, const string &instance_name,
                       const string &prefix, int localpref, string rd = "",
-                      const vector<string> &rtarget_list = vector<string>()) {
+                      const vector<string> &rtarget_list = vector<string>(),
+                      uint32_t flags = 0, uint32_t label = 0) {
         boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
@@ -188,7 +189,7 @@ protected:
         }
 
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);
-        request.data.reset(new BgpTable::RequestData(attr, 0, 0));
+        request.data.reset(new BgpTable::RequestData(attr, flags, label));
         BgpTable *table = static_cast<BgpTable *>(
             bgp_server_->database()->FindTable(instance_name + ".inet.0"));
         ASSERT_TRUE(table != NULL);
@@ -722,6 +723,129 @@ TEST_F(ReplicationTest, MultiplePaths)  {
     task_util::WaitForIdle();
     VERIFY_EQ(0, RouteCount("blue"));
     VERIFY_EQ(0, RouteCount("red"));
+}
+
+TEST_F(ReplicationTest, UpdatePathData)  {
+    vector<string> instance_names = list_of("blue")("red")("green");
+    multimap<string, string> connections = map_list_of("blue", "red")
+            ("blue", "green");
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.3", ec)));
+
+    AddInetRoute(peers_[0], "blue", "10.0.1.1/32", 100);
+    task_util::WaitForIdle();
+
+    // Replicated to both green and red.
+    VERIFY_EQ(1, RouteCount("blue"));
+    VERIFY_EQ(1, RouteCount("red"));
+    VERIFY_EQ(1, RouteCount("green"));
+
+    BgpRoute *rt_blue = InetRouteLookup("blue", "10.0.1.1/32");
+    BgpRoute *rt_red = InetRouteLookup("red", "10.0.1.1/32");
+    BgpRoute *rt_green = InetRouteLookup("green", "10.0.1.1/32");
+
+    VERIFY_EQ(1, rt_blue->count());
+    VERIFY_EQ(1, rt_red->count());
+    VERIFY_EQ(1, rt_green->count());
+
+    EXPECT_EQ(0, rt_blue->BestPath()->GetFlags());
+    EXPECT_EQ(0, rt_green->BestPath()->GetFlags());
+    EXPECT_EQ(0, rt_red->BestPath()->GetFlags());
+
+    EXPECT_EQ(0, rt_blue->BestPath()->GetLabel());
+    EXPECT_EQ(0, rt_green->BestPath()->GetLabel());
+    EXPECT_EQ(0, rt_red->BestPath()->GetLabel());
+
+    // Update primary path's flag.
+    AddInetRoute(peers_[0], "blue", "10.0.1.1/32", 100, "", vector<string>(),
+                 BgpPath::Stale);
+    task_util::WaitForIdle();
+
+    rt_blue = InetRouteLookup("blue", "10.0.1.1/32");
+    rt_red = InetRouteLookup("red", "10.0.1.1/32");
+    rt_green = InetRouteLookup("green", "10.0.1.1/32");
+
+    VERIFY_EQ(1, rt_blue->count());
+    VERIFY_EQ(1, rt_red->count());
+    VERIFY_EQ(1, rt_green->count());
+
+    EXPECT_EQ(BgpPath::Stale, rt_blue->BestPath()->GetFlags());
+    EXPECT_EQ(BgpPath::Stale, rt_green->BestPath()->GetFlags());
+    EXPECT_EQ(BgpPath::Stale, rt_red->BestPath()->GetFlags());
+
+    // Update primary path's label.
+    AddInetRoute(peers_[0], "blue", "10.0.1.1/32", 100, "", vector<string>(),
+                 0, 200);
+    task_util::WaitForIdle();
+
+    rt_blue = InetRouteLookup("blue", "10.0.1.1/32");
+    rt_red = InetRouteLookup("red", "10.0.1.1/32");
+    rt_green = InetRouteLookup("green", "10.0.1.1/32");
+
+    VERIFY_EQ(1, rt_blue->count());
+    VERIFY_EQ(1, rt_red->count());
+    VERIFY_EQ(1, rt_green->count());
+
+    EXPECT_EQ(200, rt_blue->BestPath()->GetLabel());
+    EXPECT_EQ(200, rt_green->BestPath()->GetLabel());
+    EXPECT_EQ(200, rt_red->BestPath()->GetLabel());
+
+    // Update primary path's flag and label.
+    AddInetRoute(peers_[0], "blue", "10.0.1.1/32", 100, "", vector<string>(),
+                 BgpPath::LlgrStale, 200);
+    task_util::WaitForIdle();
+
+    rt_blue = InetRouteLookup("blue", "10.0.1.1/32");
+    rt_red = InetRouteLookup("red", "10.0.1.1/32");
+    rt_green = InetRouteLookup("green", "10.0.1.1/32");
+
+    VERIFY_EQ(1, rt_blue->count());
+    VERIFY_EQ(1, rt_red->count());
+    VERIFY_EQ(1, rt_green->count());
+
+    EXPECT_EQ(BgpPath::LlgrStale, rt_blue->BestPath()->GetFlags());
+    EXPECT_EQ(BgpPath::LlgrStale, rt_green->BestPath()->GetFlags());
+    EXPECT_EQ(BgpPath::LlgrStale, rt_red->BestPath()->GetFlags());
+
+    EXPECT_EQ(200, rt_blue->BestPath()->GetLabel());
+    EXPECT_EQ(200, rt_green->BestPath()->GetLabel());
+    EXPECT_EQ(200, rt_red->BestPath()->GetLabel());
+
+    // Reset path's label and flag
+    AddInetRoute(peers_[0], "blue", "10.0.1.1/32", 100, "", vector<string>(),
+                 0, 0);
+    task_util::WaitForIdle();
+
+    rt_blue = InetRouteLookup("blue", "10.0.1.1/32");
+    rt_red = InetRouteLookup("red", "10.0.1.1/32");
+    rt_green = InetRouteLookup("green", "10.0.1.1/32");
+
+    VERIFY_EQ(1, rt_blue->count());
+    VERIFY_EQ(1, rt_red->count());
+    VERIFY_EQ(1, rt_green->count());
+
+    EXPECT_EQ(0, rt_blue->BestPath()->GetFlags());
+    EXPECT_EQ(0, rt_green->BestPath()->GetFlags());
+    EXPECT_EQ(0, rt_red->BestPath()->GetFlags());
+
+    EXPECT_EQ(0, rt_blue->BestPath()->GetLabel());
+    EXPECT_EQ(0, rt_green->BestPath()->GetLabel());
+    EXPECT_EQ(0, rt_red->BestPath()->GetLabel());
+
+    DeleteInetRoute(peers_[0], "blue", "10.0.1.1/32");
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(0, RouteCount("green"));
+    VERIFY_EQ(0, RouteCount("red"));
+    VERIFY_EQ(0, RouteCount("blue"));
 }
 
 TEST_F(ReplicationTest, IdentifySecondary)  {
