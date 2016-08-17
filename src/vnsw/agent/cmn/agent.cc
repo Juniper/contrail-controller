@@ -161,7 +161,7 @@ void Agent::SetAgentTaskPolicy() {
         AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
-    SetTaskPolicyOne(kTaskConfigManager, config_manager_exclude_list,
+    SetTaskPolicyOne("db::IFMapTable", config_manager_exclude_list,
                      sizeof(config_manager_exclude_list) / sizeof(char *));
 
     const char *flow_table_exclude_list[] = {
@@ -595,6 +595,8 @@ Agent::Agent() :
     singleton_ = this;
     db_ = new DB();
     assert(db_);
+    cfg_db_ = new DB(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"));
+    assert(cfg_db_);
 
     event_mgr_ = new EventManager();
     assert(event_mgr_);

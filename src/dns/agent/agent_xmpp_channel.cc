@@ -39,7 +39,9 @@ void DnsAgentXmppChannel::Close() {
         mgr_->RemoveChannel(channel_);
 }
 
-void DnsAgentXmppChannel::ReceiveReq(const XmppStanza::XmppMessage *msg) {
+void DnsAgentXmppChannel::ReceiveReq(XmppMessageConstPtr m) {
+    const XmppStanza::XmppMessage *msg =
+        static_cast<const XmppStanza::XmppMessage *>(m.get());
     if (msg && msg->type == XmppStanza::IQ_STANZA) {
         XmlBase *impl = msg->dom.get();
         XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl);

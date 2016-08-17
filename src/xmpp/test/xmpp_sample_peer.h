@@ -21,7 +21,7 @@ public:
 
     virtual std::string ToString() const;
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize);
-    virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg);
+    virtual void ReceiveUpdate(XmppMessageConstPtr m);
     XmppChannel *GetXmppChannel() { return channel_; }
 
 protected:
@@ -29,7 +29,7 @@ protected:
 
 private:
     XmppChannel *channel_;
-    void ReceiveInternal(const XmppStanza::XmppMessage *msg);
+    void ReceiveInternal(XmppMessageConstPtr m);
 };
 
 class XmppPeerManager {

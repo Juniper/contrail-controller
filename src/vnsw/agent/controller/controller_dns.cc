@@ -51,27 +51,23 @@ bool AgentDnsXmppChannel::SendMsg(uint8_t *msg, std::size_t len) {
             boost::bind(&AgentDnsXmppChannel::WriteReadyCb, this, _1));
 }
 
-void AgentDnsXmppChannel::ReceiveMsg(const XmppStanza::XmppMessage *msg) {
-    if (msg && msg->type == XmppStanza::IQ_STANZA) {
-        std::auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
-        XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
-        XmlPugi *msg_pugi = reinterpret_cast<XmlPugi *>(msg->dom.get());
-        pugi->LoadXmlDoc(msg_pugi->doc()); //Verify Xmpp message format 
+void AgentDnsXmppChannel::ReceiveMsg(XmppMessageConstPtr msg) {
+    if (msg.get() && msg.get()->type == XmppStanza::IQ_STANZA) {
         boost::shared_ptr<ControllerXmppData> data(new ControllerXmppData(xmps::DNS,
-                                                                          xmps::UNKNOWN,
-                                                                          xs_idx_,
-                                                                          impl,
-                                                                          true));
+                                                   xmps::UNKNOWN,
+                                                   xs_idx_,
+                                                   msg,
+                                                   true));
         agent_->controller()->Enqueue(data);
     }
 }
 
-void AgentDnsXmppChannel::ReceiveInternal(const XmppStanza::XmppMessage *msg) {
+void AgentDnsXmppChannel::ReceiveInternal(XmppMessageConstPtr msg) {
     ReceiveMsg(msg);
 }
 
-void AgentDnsXmppChannel::ReceiveDnsMessage(std::auto_ptr<XmlBase> impl) {
-    XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+void AgentDnsXmppChannel::ReceiveDnsMessage(XmlBase *impl) {
+    XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl);
     pugi::xml_node node = pugi->FindNode("dns");
     DnsAgentXmpp::XmppType xmpp_type;
     uint32_t xid;
@@ -94,11 +90,9 @@ void AgentDnsXmppChannel::WriteReadyCb(const boost::system::error_code &ec) {
 
 void AgentDnsXmppChannel::XmppClientChannelEvent(AgentDnsXmppChannel *peer,
                                                  xmps::PeerState state) {
-    std::auto_ptr<XmlBase> dummy_dom;
     boost::shared_ptr<ControllerXmppData> data(new ControllerXmppData(xmps::DNS,
                                                                       state,
                                                                       peer->GetXmppServerIdx(),
-                                                                      dummy_dom,
                                                                       false));
     peer->agent()->controller()->Enqueue(data);
 }

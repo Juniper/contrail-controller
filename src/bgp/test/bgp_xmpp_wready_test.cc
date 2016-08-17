@@ -64,7 +64,7 @@ public:
                                           RibExportPolicy::XMPP, -1, 0);
     }
 
-    virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
+    virtual void ReceiveUpdate(XmppMessageConstPtr msg) {
         count_ ++;
         BgpXmppChannel::ReceiveUpdate(msg);
     }
@@ -84,7 +84,7 @@ public:
                            BgpXmppChannelManager *channel_manager)
         : BgpXmppChannel(channel, bgp_server, channel_manager), count_(0) { }
 
-    virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
+    virtual void ReceiveUpdate(XmppMessageConstPtr msg) {
         count_++;
     }
     size_t Count() const { return count_; }
