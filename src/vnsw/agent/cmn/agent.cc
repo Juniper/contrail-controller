@@ -453,7 +453,8 @@ void Agent::InitDone() {
     // start a dummy timer that fires and awake TBB periodically
     if (tbb_keepawake_timeout_) {
         tbb_awake_task_->StartTbbKeepAwakeTask(TaskScheduler::GetInstance(),
-                             event_manager(),tbb_keepawake_timeout_);
+                             event_manager(), "Agent::TbbKeepAwake",
+                             tbb_keepawake_timeout_);
     }
 }
 
