@@ -75,6 +75,9 @@ void Options::Initialize(EventManager &evm,
         ("DEFAULT.named_config_file",
              opt::value<string>()->default_value("contrail-named.conf"),
              "Named Configuration file")
+        ("DEFAULT.named_base_config_file",
+             opt::value<string>()->default_value("contrail-named-base.conf"),
+             "Named Base Configuration file")
         ("DEFAULT.named_config_directory",
              opt::value<string>()->default_value("/etc/contrail/dns"),
              "Named Configuration directory")
@@ -261,6 +264,8 @@ void Options::Process(int argc, char *argv[],
 
     GetOptValue<string>(var_map, named_config_file_,
                         "DEFAULT.named_config_file");
+    GetOptValue<string>(var_map, named_base_config_file_,
+                        "DEFAULT.named_base_config_file");
     GetOptValue<string>(var_map, named_config_dir_,
                         "DEFAULT.named_config_directory");
     GetOptValue<string>(var_map, named_log_file_, "DEFAULT.named_log_file");

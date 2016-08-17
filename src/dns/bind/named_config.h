@@ -67,6 +67,7 @@ public:
 
     NamedConfig(const std::string& named_config_dir,
                 const std::string& named_config_file,
+                const std::string& named_base_config_file,
                 const std::string& named_log_file,
                 const std::string& rndc_config_file,
                 const std::string& rndc_secret,
@@ -76,6 +77,12 @@ public:
         reset_flag_(false), all_zone_files_(false) {
             named_config_dir_ = named_config_dir + "/";
             named_config_file_ = named_config_dir_ + named_config_file;
+            if (named_base_config_file.empty()) {
+                named_base_config_file_ = "";
+            } else {
+                named_base_config_file_ = named_config_dir_ +
+                                          named_base_config_file;
+            }
             rndc_config_file_ = named_config_dir_ + rndc_config_file;
     }
 
@@ -83,6 +90,7 @@ public:
     static NamedConfig *GetNamedConfigObject() { return singleton_; }
     static void Init(const std::string& named_config_dir,
                      const std::string& named_config_file,
+                     const std::string& named_base_config_file,
                      const std::string& named_log_file,
                      const std::string& rndc_config_file,
                      const std::string& rndc_secret,
@@ -107,6 +115,9 @@ public:
     std::string GetSessionKeyFilePath();
     const std::string &named_config_dir() const { return named_config_dir_; }
     const std::string &named_config_file() const { return named_config_file_; }
+    const std::string &named_base_config_file() const {
+        return named_base_config_file_;
+    }
     const std::string &named_sessionkey_file() const {
         return named_sessionkey_file_;
     }
@@ -134,6 +145,7 @@ protected:
 
     std::ofstream file_;
     std::string named_config_file_;
+    std::string named_base_config_file_;
     std::string named_config_dir_;
     std::string named_sessionkey_file_;
     std::string named_log_file_;
