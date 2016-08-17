@@ -29,7 +29,7 @@ class IFMapDependencyManagerTest : public ::testing::Test {
 
     virtual void SetUp() {
         agent_ = Agent::GetInstance();
-        database_ = agent_->db();
+        database_ = agent_->cfg_db();
         dependency_manager_ = agent_->oper_db()->dependency_manager();
     }
 

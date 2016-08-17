@@ -877,6 +877,7 @@ public:
     uint32_t sandesh_send_rate_limit() { return send_ratelimit_; }
 
     DB *db() const {return db_;}
+    DB *cfg_db() const {return cfg_db_;}
 
     TaskScheduler *task_scheduler() const { return task_scheduler_; }
     void set_task_scheduler(TaskScheduler *t) { task_scheduler_ = t; }
@@ -1117,6 +1118,7 @@ private:
     uint32_t send_ratelimit_;
     // DB handles
     DB *db_;
+    DB *cfg_db_;
     TaskScheduler *task_scheduler_;
     AgentInit *agent_init_;
     VrfEntry *fabric_vrf_;

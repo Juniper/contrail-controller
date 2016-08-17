@@ -280,7 +280,9 @@ void IFMapXmppChannel::EnqueueVmSubUnsub(bool subscribe,
 
 // This runs in the context of the "xmpp::StateMachine" and queues all requests
 // which are then processed in the context of "db::IFMapTable"
-void IFMapXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
+void IFMapXmppChannel::ReceiveUpdate(XmppMessageConstPtr m) {
+    const XmppStanza::XmppMessage *msg =
+        static_cast<const XmppStanza::XmppMessage *>(m.get());
 
     if (msg->type == XmppStanza::IQ_STANZA) {
         const XmppStanza::XmppMessageIq *iq =

@@ -300,7 +300,7 @@ void ShowIFMapAgentReq::HandleRequest() const {
 
     // 2 stages - first: gather/read, second: send
 
-    s0.taskId_ = scheduler->GetTaskId("db::DBTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
     s0.allocFn_ = boost::bind(&ShowIFMapAgentTable::AllocData, &show_table, _1);
     s0.cbFn_ = boost::bind(&ShowIFMapAgentTable::BufferStage, &show_table,
                            _1, _2, _3, _4, _5);

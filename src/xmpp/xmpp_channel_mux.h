@@ -52,7 +52,7 @@ public:
     virtual std::string AuthType() const;
     virtual std::string PeerAddress() const;
 
-    virtual void ProcessXmppMessage(const XmppStanza::XmppMessage *msg);
+    virtual void ProcessXmppMessage(XmppMessageConstPtr msg);
     void WriteReady(const boost::system::error_code &ec);
     virtual void UnRegisterWriteReady(xmps::PeerId id);
 

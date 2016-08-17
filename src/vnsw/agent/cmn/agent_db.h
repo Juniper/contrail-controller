@@ -111,6 +111,7 @@ struct AgentKey : public DBRequestKey {
 // VNSwitch DB Entry Data base class
 /////////////////////////////////////////////////////////////////////////////
 struct AgentData : public DBRequestData {
+    typedef boost::shared_ptr<AgentData> AgentDataType;
     AgentData() : DBRequestData() { };
     virtual ~AgentData() { };
 };

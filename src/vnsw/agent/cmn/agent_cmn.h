@@ -33,6 +33,7 @@
 #include <base/task_annotations.h>
 #include <base/dependency.h>
 #include <base/lifetime.h>
+#include <base/task_context_changer.h>
 
 #include <ifmap/ifmap_agent_parser.h>
 #include <ifmap/ifmap_agent_table.h>

@@ -95,10 +95,10 @@ public:
         const boost::system::error_code& error);
 
     // PubSub Messages
-    int ProcessXmppIqMessage(const XmppStanza::XmppMessage *);
+    int ProcessXmppIqMessage(XmppMessageConstPtr msg);
 
     // chat messages
-    int ProcessXmppChatMessage(const XmppStanza::XmppChatMessage *);
+    int ProcessXmppChatMessage(XmppMessageConstPtr msg);
 
     void StartKeepAliveTimer();
     void StopKeepAliveTimer();

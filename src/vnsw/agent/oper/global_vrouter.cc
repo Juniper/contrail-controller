@@ -57,11 +57,8 @@ static int ProtocolToString(const std::string proto) {
     return atoi(proto.c_str());
 }
 
-void GlobalVrouter::UpdateFlowAging(autogen::GlobalVrouterConfig *cfg) {
-    if (oper_->agent()->flow_stats_req_handler() == NULL) {
-        return;
-    }
-
+void GlobalVrouter::GetFlowAgingConfig(autogen::GlobalVrouterConfig *cfg,
+                                       GlobalVrouterConfigData::Type data) {
     std::vector<autogen::FlowAgingTimeout>::const_iterator new_list_it =
         cfg->flow_aging_timeout_list().begin();
     FlowAgingTimeoutMap new_flow_aging_timeout_map;
@@ -73,26 +70,30 @@ void GlobalVrouter::UpdateFlowAging(autogen::GlobalVrouterConfig *cfg) {
             continue;
         }
         FlowAgingTimeoutKey key(proto, new_list_it->port);
-        oper_->agent()->flow_stats_req_handler()(oper_->agent(),
-                proto, new_list_it->port,
-                new_list_it->timeout_in_seconds);
-
-        flow_aging_timeout_map_.erase(key);
-        new_flow_aging_timeout_map.insert(
+        data->flow_aging_timeout_map_.insert(
                 FlowAgingTimeoutPair(key, new_list_it->timeout_in_seconds));
         new_list_it++;
     }
+}
 
-    FlowAgingTimeoutMap::const_iterator old_list_it =
-        flow_aging_timeout_map_.begin();
-    while (old_list_it != flow_aging_timeout_map_.end()) {
-        oper_->agent()->flow_stats_req_handler()(oper_->agent(),
-                                                 old_list_it->first.protocol,
-                                                 old_list_it->first.port,
-                                                 0);
-        old_list_it++;
+void GlobalVrouter::UpdateFlowAging(GlobalVrouterConfigData* data) {
+    if (oper_->agent()->flow_stats_req_handler() == NULL) {
+        return;
     }
-    flow_aging_timeout_map_ = new_flow_aging_timeout_map;
+
+    FlowAgingTimeoutMap::const_iterator it =
+        data->flow_aging_timeout_map_.begin();
+    while (it != data->flow_aging_timeout_map_.end()) {
+        oper_->agent()->flow_stats_req_handler()(oper_->agent(),
+                                                 it->first.protocol,
+                                                 it->first.port,
+                                                 it->second);
+        it++;
+    }
+
+    //Delete from old map before replacing it with new one
+    DeleteFlowAging();
+    flow_aging_timeout_map_ = data->flow_aging_timeout_map_;
 }
 
 void GlobalVrouter::DeleteFlowAging() {
@@ -165,7 +166,8 @@ public:
         // start timer to re-resolve the DNS names to IP addresses
         timer_ = TimerManager::CreateTimer(io_, "DnsHandlerTimer");
         timer_->Start(kDnsTimeout,
-                      boost::bind(&GlobalVrouter::FabricDnsResolver::OnTimeout, this));
+                      boost::bind(&GlobalVrouter::FabricDnsResolver::OnTimeout,
+                                  this));
     }
     virtual ~FabricDnsResolver() {
         timer_->Cancel();
@@ -471,16 +473,16 @@ GlobalVrouter::GlobalVrouter(OperDB *oper)
       forwarding_mode_(Agent::L2_L3), flow_export_rate_(kDefaultFlowExportRate),
       ecmp_load_balance_() {
 
-    DBTableBase *cfg_db = IFMapTable::FindTable(oper->agent()->db(),
+    DBTableBase *cfg_db = IFMapTable::FindTable(oper->agent()->cfg_db(),
               "global-vrouter-config");
     assert(cfg_db);
 
     global_vrouter_listener_id_ = cfg_db->Register(boost::bind(
-                &GlobalVrouter::GlobalVrouterConfig, this, _1, _2));
+                &GlobalVrouter::GlobalVrouterConfig, _1, _2, oper));
 }
 
 GlobalVrouter::~GlobalVrouter() {
-    DBTableBase *cfg_db = IFMapTable::FindTable(oper_->agent()->db(),
+    DBTableBase *cfg_db = IFMapTable::FindTable(oper_->agent()->cfg_db(),
               "global-vrouter-config");
     if (cfg_db)
         cfg_db->Unregister(global_vrouter_listener_id_);
@@ -497,59 +499,81 @@ void GlobalVrouter::CreateDBClients() {
 
 // Handle incoming global vrouter configuration
 void GlobalVrouter::GlobalVrouterConfig(DBTablePartBase *partition,
-        DBEntryBase *dbe) {
+        DBEntryBase *dbe, OperDB *oper_db) {
     IFMapNode *node = static_cast <IFMapNode *> (dbe);
-    Agent::VxLanNetworkIdentifierMode cfg_vxlan_network_identifier_mode = 
-                                            Agent::AUTOMATIC;
+    autogen::GlobalVrouterConfig *cfg = 
+        static_cast<autogen::GlobalVrouterConfig *>(node->GetObject());
+
+    GlobalVrouterConfigData::Type config_data(new GlobalVrouterConfigData());
+    //Push defaults
+    config_data->vxlan_id_mode_ = Agent::AUTOMATIC;
+    config_data->forwarding_mode_ = Agent::NONE;
+    if (node->IsDeleted()) {
+        config_data->flow_export_rate_ = kDefaultFlowExportRate;
+        config_data->encap_list_.clear();
+    } else {
+        //forwarding mode
+        config_data->forwarding_mode_ = cfg->forwarding_mode(); 
+        //Vxlan id mode
+        if (cfg->vxlan_network_identifier_mode() == "configured") {
+            config_data->vxlan_id_mode_ = Agent::CONFIGURED;
+        }
+        //Encap priorities
+        config_data->encap_list_ = cfg->encapsulation_priorities();
+        //flow export rate
+        if (cfg->IsPropertySet
+            (autogen::GlobalVrouterConfig::FLOW_EXPORT_RATE)) {
+            config_data->flow_export_rate_ = cfg->flow_export_rate();
+        } else {
+            config_data->flow_export_rate_ = kDefaultFlowExportRate;
+        }
+        //ecmp hashing fields
+        if (cfg->ecmp_hashing_include_fields().hashing_configured) {
+            config_data->ecmp_load_balance_.UpdateFields(cfg->
+                                           ecmp_hashing_include_fields());
+        }
+        //Flow aging
+        GlobalVrouter::GetFlowAgingConfig(cfg, config_data);
+        //link local services
+        GlobalVrouter::GetLinkLocalServiceConfig(cfg, config_data);
+    }
+
+    //Enqueue
+    oper_db->task_context_changer()->
+        Enqueue(boost::bind(&GlobalVrouter::ProcessConfig,
+                            oper_db->global_vrouter(), _1),
+                            config_data);
+}
+
+void GlobalVrouter::ProcessConfig(TaskContextChanger::ClientData::Type d) {
+    GlobalVrouterConfigData *data =
+        static_cast<GlobalVrouterConfigData *>(d.get());
     bool resync_vn = false; //resync_vn walks internally calls VMI walk.
     bool resync_route = false;
 
-    if (node->IsDeleted() == false) {
-        autogen::GlobalVrouterConfig *cfg = 
-            static_cast<autogen::GlobalVrouterConfig *>(node->GetObject());
-        resync_route =
-            TunnelType::EncapPrioritySync(cfg->encapsulation_priorities());
-        if (cfg->vxlan_network_identifier_mode() == "configured") {
-            cfg_vxlan_network_identifier_mode = Agent::CONFIGURED;
-        }
-        UpdateLinkLocalServiceConfig(cfg->linklocal_services());
+    resync_route =
+        TunnelType::EncapPrioritySync(data->encap_list_);
+    UpdateLinkLocalServiceConfig(data);
 
-        //Take the forwarding mode if its set, else fallback to l2_l3.
-        Agent::ForwardingMode new_forwarding_mode =
-            oper_->agent()->TranslateForwardingMode(cfg->forwarding_mode());
-        if (new_forwarding_mode != forwarding_mode_) {
-            forwarding_mode_ = new_forwarding_mode;
-            resync_route = true;
-            resync_vn = true;
-        }
-        if (cfg->IsPropertySet
-                (autogen::GlobalVrouterConfig::FLOW_EXPORT_RATE)) {
-            flow_export_rate_ = cfg->flow_export_rate();
-        } else {
-            flow_export_rate_ = kDefaultFlowExportRate;
-        }
-        UpdateFlowAging(cfg);
-        EcmpLoadBalance ecmp_load_balance;
-        if (cfg->ecmp_hashing_include_fields().hashing_configured) {
-            ecmp_load_balance.UpdateFields(cfg->
-                                           ecmp_hashing_include_fields());
-        }
-        if (ecmp_load_balance_ != ecmp_load_balance) {
-            ecmp_load_balance_ = ecmp_load_balance;
-            resync_vn = true;
-        }
-    } else {
-        DeleteLinkLocalServiceConfig();
-        TunnelType::DeletePriorityList();
+    //Take the forwarding mode if its set, else fallback to l2_l3.
+    Agent::ForwardingMode new_forwarding_mode =
+        oper_->agent()->TranslateForwardingMode(data->forwarding_mode_);
+    if (new_forwarding_mode != forwarding_mode_) {
+        forwarding_mode_ = new_forwarding_mode;
         resync_route = true;
-        flow_export_rate_ = kDefaultFlowExportRate;
-        DeleteFlowAging();
+        resync_vn = true;
+    }
+    flow_export_rate_ = data->flow_export_rate_;
+    UpdateFlowAging(data);
+    if (ecmp_load_balance_ != data->ecmp_load_balance_) {
+        ecmp_load_balance_ = data->ecmp_load_balance_;
+        resync_vn = true;
     }
 
-    if (cfg_vxlan_network_identifier_mode !=                             
+    if (data->vxlan_id_mode_ !=                             
         oper_->agent()->vxlan_network_identifier_mode()) {
         oper_->agent()->
-            set_vxlan_network_identifier_mode(cfg_vxlan_network_identifier_mode);
+            set_vxlan_network_identifier_mode(data->vxlan_id_mode_);
         resync_vn = true;
     }
 
@@ -692,10 +716,16 @@ bool GlobalVrouter::FindLinkLocalService(const Ip4Address &service_ip,
 
 // Handle changes to link local service configuration
 void GlobalVrouter::UpdateLinkLocalServiceConfig(
-    const LinkLocalServiceList &linklocal_list) {
+                    GlobalVrouterConfigData* data) {
+    linklocal_services_map_.swap(data->linklocal_services_map_);
+    fabric_dns_resolver_->ResolveList(data->dns_name_list_);
+    ChangeNotify(&data->linklocal_services_map_, &linklocal_services_map_);
+}
 
+void GlobalVrouter::GetLinkLocalServiceConfig(autogen::GlobalVrouterConfig *cfg,
+                                              GlobalVrouterConfigData::Type data) {
+    const LinkLocalServiceList linklocal_list = cfg->linklocal_services();
     std::vector<std::string> dns_name_list;
-    LinkLocalServicesMap linklocal_services_map;
     for (std::vector<autogen::LinklocalServiceEntryType>::const_iterator it =
          linklocal_list.begin(); it != linklocal_list.end(); it++) {
         boost::system::error_code ec;
@@ -707,17 +737,14 @@ void GlobalVrouter::UpdateLinkLocalServiceConfig(
             fabric_ip.push_back(ip);
         }
         std::string name = boost::to_lower_copy(it->linklocal_service_name);
-        linklocal_services_map.insert(LinkLocalServicesPair(
+        data->linklocal_services_map_.insert(LinkLocalServicesPair(
             LinkLocalServiceKey(llip, it->linklocal_service_port),
             LinkLocalService(name, it->ip_fabric_DNS_service_name,
                              fabric_ip, it->ip_fabric_service_port)));
         if (!it->ip_fabric_DNS_service_name.empty())
-            dns_name_list.push_back(it->ip_fabric_DNS_service_name);
+            data->dns_name_list_.push_back(it->ip_fabric_DNS_service_name);
     }
 
-    linklocal_services_map_.swap(linklocal_services_map);
-    fabric_dns_resolver_->ResolveList(dns_name_list);
-    ChangeNotify(&linklocal_services_map, &linklocal_services_map_);
 }
 
 void GlobalVrouter::DeleteLinkLocalServiceConfig() {

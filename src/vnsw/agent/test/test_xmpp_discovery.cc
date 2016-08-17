@@ -42,7 +42,7 @@ public:
             boost::bind(&AgentBgpXmppPeerTest::ProcessChannelEvent, this, _1)) {
     }
 
-    virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
+    virtual void ReceiveUpdate(XmppMessageConstPtr msg) {
         rx_count_++;
         AgentXmppChannel::ReceiveUpdate(msg);
     }
@@ -71,7 +71,7 @@ public:
     ControlNodeMockBgpXmppPeer() : channel_ (NULL), rx_count_(0) {
     }
 
-    void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
+    void ReceiveUpdate(XmppMessageConstPtr msg) {
         rx_count_++;
     }
 

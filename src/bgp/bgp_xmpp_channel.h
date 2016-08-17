@@ -197,7 +197,7 @@ private:
     typedef std::pair<const std::string, const std::string> VrfTableName;
     typedef std::multimap<VrfTableName, DBRequest *> DeferQ;
 
-    virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg);
+    virtual void ReceiveUpdate(XmppMessageConstPtr msg);
 
     virtual bool GetMembershipInfo(BgpTable *table,
         int *instance_id, uint64_t *subscribed_at, RequestType *req_type);

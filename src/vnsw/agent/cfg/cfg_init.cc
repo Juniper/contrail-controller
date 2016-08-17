@@ -103,111 +103,111 @@ void AgentConfig::Register(const char *node_name, AgentDBTable *table,
 void AgentConfig::RegisterDBClients(DB *db) {
 
     cfg_vm_interface_table_ = (static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(agent_->db(), "virtual-machine-interface")));
+        (IFMapTable::FindTable(agent_->cfg_db(), "virtual-machine-interface")));
     assert(cfg_vm_interface_table_);
 
     cfg_acl_table_ = (static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(agent_->db(), "access-control-list")));
+        (IFMapTable::FindTable(agent_->cfg_db(), "access-control-list")));
     assert(cfg_acl_table_);
 
     cfg_vm_table_ = (static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(agent_->db(), "virtual-machine")));
+        (IFMapTable::FindTable(agent_->cfg_db(), "virtual-machine")));
     assert(cfg_vm_table_);
 
     cfg_vn_table_ = (static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(agent_->db(), "virtual-network")));
+        (IFMapTable::FindTable(agent_->cfg_db(), "virtual-network")));
     assert(cfg_vn_table_);
 
     cfg_sg_table_ = (static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(agent_->db(), "security-group")));
+        (IFMapTable::FindTable(agent_->cfg_db(), "security-group")));
     assert(cfg_sg_table_);         
 
     cfg_vrf_table_ = (static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(agent_->db(), "routing-instance")));
+        (IFMapTable::FindTable(agent_->cfg_db(), "routing-instance")));
     assert(cfg_vrf_table_);
 
     cfg_instanceip_table_ = (static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(agent_->db(), "instance-ip")));
+        (IFMapTable::FindTable(agent_->cfg_db(), "instance-ip")));
     assert(cfg_instanceip_table_);
 
     cfg_floatingip_table_ = (static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(agent_->db(), "floating-ip")));
+        (IFMapTable::FindTable(agent_->cfg_db(), "floating-ip")));
     assert(cfg_floatingip_table_);
 
     cfg_aliasip_table_ = (static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(agent_->db(), "alias-ip")));
+        (IFMapTable::FindTable(agent_->cfg_db(), "alias-ip")));
     assert(cfg_aliasip_table_);
 
     cfg_floatingip_pool_table_ = (static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(agent_->db(), "floating-ip-pool")));
+        (IFMapTable::FindTable(agent_->cfg_db(), "floating-ip-pool")));
     assert(cfg_floatingip_pool_table_);
 
     cfg_aliasip_pool_table_ = (static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(agent_->db(), "alias-ip-pool")));
+        (IFMapTable::FindTable(agent_->cfg_db(), "alias-ip-pool")));
     assert(cfg_aliasip_pool_table_);
 
     cfg_network_ipam_table_ = (static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(agent_->db(), "network-ipam")));
+        (IFMapTable::FindTable(agent_->cfg_db(), "network-ipam")));
     assert(cfg_network_ipam_table_);
 
     cfg_vn_network_ipam_table_ = (static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(agent_->db(), 
+        (IFMapTable::FindTable(agent_->cfg_db(), 
                                "virtual-network-network-ipam")));
     assert(cfg_vn_network_ipam_table_);
 
     cfg_vm_port_vrf_table_ = (static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(agent_->db(), 
+        (IFMapTable::FindTable(agent_->cfg_db(), 
                                "virtual-machine-interface-routing-instance")));
     assert(cfg_vm_port_vrf_table_);
 
     cfg_route_table_ = (static_cast<IFMapAgentTable *>
-         (IFMapTable::FindTable(agent_->db(),
+         (IFMapTable::FindTable(agent_->cfg_db(),
                                "interface-route-table")));
     assert(cfg_route_table_);
 
     cfg_service_instance_table_ = (static_cast<IFMapAgentTable *>
-         (IFMapTable::FindTable(agent_->db(),
+         (IFMapTable::FindTable(agent_->cfg_db(),
                                "service_instance")));
     assert(cfg_service_instance_table_);
 
     cfg_security_group_table_ = (static_cast<IFMapAgentTable *>
-         (IFMapTable::FindTable(agent_->db(),
+         (IFMapTable::FindTable(agent_->cfg_db(),
                                "security_group")));
     assert(cfg_security_group_table_);
 
     cfg_subnet_table_ = (static_cast<IFMapAgentTable *>
-                    (IFMapTable::FindTable(agent_->db(),
+                    (IFMapTable::FindTable(agent_->cfg_db(),
                       "subnet")));
     assert(cfg_route_table_);
 
     cfg_logical_port_table_ = (static_cast<IFMapAgentTable *>
-                                (IFMapTable::FindTable(agent_->db(),
+                                (IFMapTable::FindTable(agent_->cfg_db(),
                                                        "logical-interface")));
     assert(cfg_logical_port_table_);
 
     cfg_physical_device_table_ = (static_cast<IFMapAgentTable *>
-                                (IFMapTable::FindTable(agent_->db(),
+                                (IFMapTable::FindTable(agent_->cfg_db(),
                                                        "physical-router")));
     assert(cfg_physical_device_table_);
 
 
     cfg_qos_table_ = (static_cast<IFMapAgentTable *>
-                      (IFMapTable::FindTable(agent_->db(),
+                      (IFMapTable::FindTable(agent_->cfg_db(),
                                              "qos-config")));
     assert(cfg_qos_table_);
 
     cfg_global_qos_table_ = (static_cast<IFMapAgentTable *>
-                            (IFMapTable::FindTable(agent_->db(),
+                            (IFMapTable::FindTable(agent_->cfg_db(),
                                                    "global-qos-config")));
     assert(cfg_global_qos_table_);
 
     cfg_qos_queue_table_ = (static_cast<IFMapAgentTable *>
-                            (IFMapTable::FindTable(agent_->db(),
+                            (IFMapTable::FindTable(agent_->cfg_db(),
                                                    "qos-queue")));
     assert(cfg_qos_queue_table_);
 
     cfg_forwarding_class_table_ = (static_cast<IFMapAgentTable *>
-                            (IFMapTable::FindTable(agent_->db(),
+                            (IFMapTable::FindTable(agent_->cfg_db(),
                                                    "forwarding-class")));
     assert(cfg_forwarding_class_table_);
 

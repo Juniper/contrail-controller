@@ -63,7 +63,7 @@ protected:
     }
 
     virtual void TearDown() {
-        IFMapAgentStaleCleaner *cl = new IFMapAgentStaleCleaner(agent_->db(),
+        IFMapAgentStaleCleaner *cl = new IFMapAgentStaleCleaner(agent_->cfg_db(),
                     agent_->cfg()->cfg_graph());
         cl->StaleTimeout(1);
         task_util::WaitForIdle();
@@ -82,9 +82,9 @@ protected:
 
 
     boost::uuids::uuid AddServiceInstance(const string &name) {
-        ifmap_test_util::IFMapMsgNodeAdd(agent_->db(), "service-instance", name);
+        ifmap_test_util::IFMapMsgNodeAdd(agent_->cfg_db(), "service-instance", name);
         task_util::WaitForIdle();
-        IFMapTable *table = IFMapTable::FindTable(agent_->db(),
+        IFMapTable *table = IFMapTable::FindTable(agent_->cfg_db(),
                                                   "service-instance");
         ServiceInstanceTable *si_table = agent_->service_instance_table();
         IFMapNode *node = table->FindNode(name);
@@ -117,7 +117,7 @@ protected:
     }
 
     void DeleteServiceInstance(const string &name) {
-        ifmap_test_util::IFMapMsgNodeDelete(agent_->db(), "service-instance", name);
+        ifmap_test_util::IFMapMsgNodeDelete(agent_->cfg_db(), "service-instance", name);
     }
 
     void MarkServiceInstanceAsDeleted(boost::uuids::uuid id) {
@@ -239,7 +239,7 @@ TEST_F(InstanceManagerTest, ExecTrue) {
             boost::bind(&InstanceManagerTest::IsExpectedStatusType, this, ns_state, InstanceState::Stopped),
             kTimeoutSeconds);
     task_util::WaitForIdle();
-    IFMapTable *table = IFMapTable::FindTable(agent_->db(),
+    IFMapTable *table = IFMapTable::FindTable(agent_->cfg_db(),
                                                   "service-instance");
     IFMapNode *node = table->FindNode("exec-true");
     ASSERT_TRUE(node == NULL);
@@ -271,7 +271,7 @@ TEST_F(InstanceManagerTest, ExecNotExisting) {
             boost::bind(&InstanceManagerTest::IsExpectedStatusType, this, ns_state, InstanceState::Stopped),
             kTimeoutSeconds);
     task_util::WaitForIdle();
-    IFMapTable *table = IFMapTable::FindTable(agent_->db(),
+    IFMapTable *table = IFMapTable::FindTable(agent_->cfg_db(),
                                                   "service-instance");
     IFMapNode *node = table->FindNode("exec-false");
     ASSERT_TRUE(node == NULL);
@@ -311,7 +311,7 @@ TEST_F(InstanceManagerTest, Update) {
             boost::bind(&InstanceManagerTest::IsExpectedStatusType, this, ns_state, InstanceState::Stopped),
             kTimeoutSeconds);
     task_util::WaitForIdle();
-    IFMapTable *table = IFMapTable::FindTable(agent_->db(),
+    IFMapTable *table = IFMapTable::FindTable(agent_->cfg_db(),
                                                   "service-instance");
     IFMapNode *node = table->FindNode("exec-update");
     ASSERT_TRUE(node == NULL);
@@ -355,7 +355,7 @@ TEST_F(InstanceManagerTest, UpdateProperties) {
             boost::bind(&InstanceManagerTest::IsExpectedStatusType, this, ns_state, InstanceState::Stopped),
             kTimeoutSeconds);
     task_util::WaitForIdle();
-    IFMapTable *table = IFMapTable::FindTable(agent_->db(),
+    IFMapTable *table = IFMapTable::FindTable(agent_->cfg_db(),
                                                   "service-instance");
     IFMapNode *node = table->FindNode("exec-update");
     ASSERT_TRUE(node == NULL);
@@ -428,7 +428,7 @@ TEST_F(InstanceManagerTest, TaskQueue) {
             boost::bind(&InstanceManagerTest::IsExpectedStatusType, this, ns_state, InstanceState::Stopped),
             kTimeoutSeconds);
     task_util::WaitForIdle();
-    IFMapTable *table = IFMapTable::FindTable(agent_->db(),
+    IFMapTable *table = IFMapTable::FindTable(agent_->cfg_db(),
                                                   "service-instance");
     IFMapNode *node = table->FindNode("exec-queue");
     ASSERT_TRUE(node == NULL);
@@ -470,7 +470,7 @@ TEST_F(InstanceManagerTest, Usable) {
             boost::bind(&InstanceManagerTest::IsExpectedStatusType, this, ns_state, InstanceState::Stopped),
             kTimeoutSeconds);
     task_util::WaitForIdle();
-    IFMapTable *table = IFMapTable::FindTable(agent_->db(),
+    IFMapTable *table = IFMapTable::FindTable(agent_->cfg_db(),
                                                   "service-instance");
     IFMapNode *node = table->FindNode("exec-usable");
     ASSERT_TRUE(node == NULL);

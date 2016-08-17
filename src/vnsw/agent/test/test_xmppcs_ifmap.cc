@@ -59,7 +59,7 @@ public:
                                  this, _1));
     }
 
-    void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
+    void ReceiveUpdate(XmppMessageConstPtr msg) {
         rx_count_++;
     }    
 
