@@ -31,7 +31,7 @@ public:
                                           RibExportPolicy::XMPP, -1, 0);
     }
 
-    virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
+    virtual void ReceiveUpdate(XmppMessageConstPtr msg) {
         count_ ++;
         BgpXmppChannel::ReceiveUpdate(msg);
     }

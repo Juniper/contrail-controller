@@ -2668,11 +2668,11 @@ TEST_F(IntfTest, IntfStaticRoute_3) {
    AddAcl("Acl", 1, "vn1", "vn1", "pass");
    AddLink("virtual-network", "vn1", "access-control-list", "Acl");
    client->WaitForIdle();
-   WAIT_FOR(100, 1000, (GetNhPolicy("vrf1", static_route[0].addr_,
-                                    static_route[0].plen_) == true));
+   WAIT_FOR(1000, 1000, (GetNhPolicy("vrf1", static_route[0].addr_,
+                                     static_route[0].plen_) == true));
 
-   WAIT_FOR(100, 1000, (GetNhPolicy("vrf1", static_route[1].addr_,
-                                    static_route[1].plen_) == true));
+   WAIT_FOR(1000, 1000, (GetNhPolicy("vrf1", static_route[1].addr_,
+                                     static_route[1].plen_) == true));
    DelLink("virtual-network", "vn1", "access-control-list", "Acl");
    DelLink("virtual-machine-interface", "vnet1",
            "interface-route-table", "static_route");
@@ -2810,7 +2810,7 @@ TEST_F(IntfTest, vm_interface_change_req) {
     client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(8));
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
-    WAIT_FOR(100, 1000, (agent->interface_table()->Find(&key, true)
+    WAIT_FOR(1000, 1000, (agent->interface_table()->Find(&key, true)
                 == NULL));
     client->Reset();
 }

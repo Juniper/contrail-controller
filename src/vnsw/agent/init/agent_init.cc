@@ -205,7 +205,7 @@ void AgentInit::CreateModulesBase() {
 
 void AgentInit::CreateDBTablesBase() {
     if (cfg_.get()) {
-        cfg_->CreateDBTables(agent_->db());
+        cfg_->CreateDBTables(agent_->cfg_db());
     }
 
     if (oper_.get()) {

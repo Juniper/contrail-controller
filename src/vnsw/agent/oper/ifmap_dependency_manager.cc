@@ -41,11 +41,11 @@ typedef IFMapDependencyTracker::NodeEventPolicy NodeEventPolicy;
 typedef IFMapDependencyTracker::PropagateList PropagateList;
 
 void intrusive_ptr_add_ref(IFMapNodeState *state) {
-    ++state->refcount_;
+    state->refcount_.fetch_and_increment();
 }
 
 void intrusive_ptr_release(IFMapNodeState *state) {
-    if (--state->refcount_ ==  0) {
+    if (state->refcount_.fetch_and_decrement() ==  1) {
         assert(state->object_ == NULL);
         state->manager_->IFMapNodeReset(state->node_);
         delete state;
@@ -54,20 +54,26 @@ void intrusive_ptr_release(IFMapNodeState *state) {
 
 IFMapDependencyManager::IFMapDependencyManager(DB *database, DBGraph *graph)
         : database_(database),
-          graph_(graph) {
+          graph_(graph),
+          context_changer_(TaskScheduler::GetInstance()->
+                           GetTaskId("db::IFMapTable"), 0,
+                  boost::bind(&IFMapDependencyManager::ContextChangerCallback, this,
+                              _1)) {
     tracker_.reset(
         new IFMapDependencyTracker(
             database, graph,
             boost::bind(&IFMapDependencyManager::ChangeListAdd, this, _1)));
-    int task_id = TaskScheduler::GetInstance()->GetTaskId("db::DBTable");
+    int task_id = TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable");
     trigger_.reset(
         new TaskTrigger(
             boost::bind(&IFMapDependencyManager::ProcessChangeList, this),
             task_id, 0));
+    context_changer_.set_name("IFMapDependencyManager context changer");
 }
 
 IFMapDependencyManager::~IFMapDependencyManager() {
     // TODO: Unregister from all tables.
+    context_changer_.Shutdown();
 }
 
 void IFMapDependencyManager::Initialize(Agent *agent) {
@@ -115,7 +121,8 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
     const int n_types = sizeof(ifmap_types) / sizeof(const char *);
     for (int i = 0; i < n_types; i++) {
         const char *id_typename = ifmap_types[i];
-        IFMapTable *table = IFMapTable::FindTable(database_, id_typename);
+        IFMapAgentTable *table = static_cast<IFMapAgentTable *>
+            (IFMapTable::FindTable(database_, id_typename));
         assert(table);
         DBTable::ListenerId id = table->Register(
             boost::bind(&IFMapDependencyManager::NodeObserver, this, _1, _2));
@@ -307,6 +314,7 @@ void IFMapDependencyManager::IFMapNodeReset(IFMapNode *node) {
  */
 void IFMapDependencyManager::SetObject(IFMapNode *node, DBEntry *entry) {
 
+    bool propagate_change = false;
     IFMapNodeState *state = IFMapNodeGet(node);
     assert(state);
 
@@ -316,10 +324,10 @@ void IFMapDependencyManager::SetObject(IFMapNode *node, DBEntry *entry) {
         state->clear_object();
 
     if (entry) {
+        propagate_change = true;
         state->set_object(entry);
-        tracker_->NodeEvent(node);
-        trigger_->Set();
     }
+    ChangeContext(state, propagate_change);
 }
 
 void IFMapDependencyManager::SetNotify(IFMapNode *node, bool notify_flag) {
@@ -393,6 +401,26 @@ bool IFMapDependencyManager::IsRegistered(const IFMapNode *node) {
 
 bool IFMapDependencyManager::IsNodeIdentifiedByUuid(const IFMapNode *node) {
     return (strcmp(node->table()->Typename(), "routing-instance") != 0);
+}
+
+bool IFMapDependencyManager::ContextChangerCallback(ContextChangerDataType data) {
+    if (data->propagate_change_) {
+        tracker_->NodeEvent(data->node_->node());
+        trigger_->Set();
+    }
+    return true;
+}
+
+void IFMapDependencyManager::ChangeContext(IFMapNodePtr state,
+                                           bool propagate_change) {
+    ContextChangerDataType data(new ContextChangerData());
+    data->propagate_change_ = propagate_change;
+    data->node_ = state;
+    context_changer_.Enqueue(data);
+}
+
+void IFMapDependencyManager::ReleaseIFMapNodeState(IFMapNodePtr state) {
+    ChangeContext(state, false);
 }
 
 IFMapDependencyManager::Path MakePath

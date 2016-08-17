@@ -28,7 +28,7 @@ public:
                         DnsAgentXmppChannelManager *mgr);
     virtual ~DnsAgentXmppChannel();
     void Close();
-    void ReceiveReq(const XmppStanza::XmppMessage *msg);
+    void ReceiveReq(XmppMessageConstPtr m);
     void GetAgentDnsData(AgentDnsData &data);
     void UpdateDnsRecords(BindUtil::Operation op);
 

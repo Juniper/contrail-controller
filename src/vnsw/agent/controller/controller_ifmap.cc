@@ -59,36 +59,35 @@ bool AgentIfMapXmppChannel::SendUpdate(const std::string &msg) {
                            boost::bind(&AgentIfMapXmppChannel::WriteReadyCb, this, _1));
 }
 
-void AgentIfMapXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
-    if (msg && msg->type == XmppStanza::IQ_STANZA) {
-        std::auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
-        XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
-        XmlPugi *msg_pugi = reinterpret_cast<XmlPugi *>(msg->dom.get());
-        pugi->LoadXmlDoc(msg_pugi->doc());
+void AgentIfMapXmppChannel::ReceiveUpdate
+(boost::shared_ptr<const XmppStanza::XmppMessage> msg) {
+    if (msg.get() && msg.get()->type == XmppStanza::IQ_STANZA) {
         boost::shared_ptr<ControllerXmppData> data(new ControllerXmppData(xmps::CONFIG,
-                                                                          xmps::UNKNOWN,
-                                                                          xs_idx_,
-                                                                          impl,
-                                                                          true));
-        agent_->controller()->Enqueue(data);
+                                                   xmps::UNKNOWN,
+                                                   xs_idx_,
+                                                   msg,
+                                                   true));
+        agent_->controller()->ConfigEnqueue(data);
     }
 }
 
-void AgentIfMapXmppChannel::ReceiveConfigMessage(std::auto_ptr<XmlBase> impl) {
+void AgentIfMapXmppChannel::ReceiveConfigMessage(XmlBase *impl) {
 
     if (GetXmppServerIdx() != agent_->ifmap_active_xmpp_server_index()) {
         LOG(WARN, "IFMap config on non primary channel");
         return;
     }
 
-    XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+    XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl);
     pugi::xml_node node = pugi->FindNode("config");
     IFMapAgentParser *parser = agent_->ifmap_parser();
     assert(parser);
     parser->ConfigParse(node, seq_number_);
 }
 
-void AgentIfMapXmppChannel::ReceiveInternal(const XmppStanza::XmppMessage *msg) {
+void
+AgentIfMapXmppChannel::ReceiveInternal
+(boost::shared_ptr<const XmppStanza::XmppMessage> msg) {
     if (agent_->stats())
         agent_->stats()->incr_xmpp_config_in_msgs(GetXmppServerIdx());
     ReceiveUpdate(msg);

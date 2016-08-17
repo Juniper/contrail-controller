@@ -163,7 +163,7 @@ TEST_F(VrfAssignTest, Check_key_manipulations) {
 }
 
 TEST_F(VrfAssignTest, AddDelete) {
-    IFMapTable *table = IFMapTable::FindTable(agent_->db(),
+    IFMapTable *table = IFMapTable::FindTable(agent_->cfg_db(),
                                               "virtual-machine-interface");
     IFMapNode *node = table->FindNode("vnet1");
     if (node == NULL) {

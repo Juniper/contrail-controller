@@ -59,7 +59,7 @@ public:
     virtual bool LastReceived(uint64_t durationMsec) const;
     virtual bool LastSent(uint64_t durationMsec) const;
 
-    virtual void ProcessXmppMessage(const XmppStanza::XmppMessage *msg);
+    virtual void ProcessXmppMessage(XmppMessageConstPtr msg);
     void WriteReady(const boost::system::error_code &ec);
     virtual void UnRegisterWriteReady(xmps::PeerId id);
 

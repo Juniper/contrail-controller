@@ -45,24 +45,30 @@ private:
 class ControllerXmppData : public ControllerWorkQueueData {
 public:
     ControllerXmppData(xmps::PeerId peer_id, xmps::PeerState peer_state,
-                       uint8_t channel_id, std::auto_ptr<XmlBase> dom,
+                       uint8_t channel_id, bool config) :
+        ControllerWorkQueueData(),
+        peer_id_(peer_id), peer_state_(peer_state), channel_id_(channel_id),
+        config_(config) { }
+
+    ControllerXmppData(xmps::PeerId peer_id, xmps::PeerState peer_state,
+                       uint8_t channel_id, XmppMessageConstPtr msg,
                        bool config) :
         ControllerWorkQueueData(),
         peer_id_(peer_id), peer_state_(peer_state), channel_id_(channel_id),
-        dom_(dom), config_(config) { }
+        msg_(msg), config_(config) { }
     virtual ~ControllerXmppData() { }
 
     xmps::PeerId peer_id() const {return peer_id_;}
     xmps::PeerState peer_state() const {return peer_state_;}
     uint8_t channel_id() const {return channel_id_;}
-    std::auto_ptr<XmlBase> dom() {return dom_;}
+    XmppMessageConstPtr msg() {return msg_;}
     bool config() const {return config_;}
 
 private:
     xmps::PeerId peer_id_;
     xmps::PeerState peer_state_;
     uint8_t channel_id_;
-    std::auto_ptr<XmlBase> dom_;
+    XmppMessageConstPtr msg_;
     bool config_;
     DISALLOW_COPY_AND_ASSIGN(ControllerXmppData);
 };
@@ -156,6 +162,7 @@ public:
     bool XmppMessageProcess(ControllerXmppDataType data);
     Agent *agent() {return agent_;}
     void Enqueue(ControllerWorkQueueDataType data);
+    void ConfigEnqueue(ControllerWorkQueueDataType data);
     void DeleteAgentXmppChannel(uint8_t idx);
     void SetAgentMcastLabelRange(uint8_t idx);
     void FillMcastLabelRange(uint32_t *star_idx,
@@ -196,6 +203,7 @@ private:
     MulticastCleanupTimer multicast_cleanup_timer_;
     ConfigCleanupTimer config_cleanup_timer_;
     WorkQueue<ControllerWorkQueueDataType> work_queue_;
+    WorkQueue<ControllerWorkQueueDataType> cfg_work_queue_;
     FabricMulticastLabelRange fabric_multicast_label_range_[MAX_XMPP_SERVERS];
     XmppChannelDownCb xmpp_channel_down_cb_;
 };

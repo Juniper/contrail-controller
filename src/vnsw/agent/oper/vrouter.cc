@@ -9,7 +9,7 @@
 
 VRouter::VRouter(OperDB *oper)
     : oper_(oper) {
-    DBTableBase *cfg_db = IFMapTable::FindTable(oper->agent()->db(),
+    DBTableBase *cfg_db = IFMapTable::FindTable(oper->agent()->cfg_db(),
         "virtual-router");
     assert(cfg_db);
 
@@ -18,7 +18,7 @@ VRouter::VRouter(OperDB *oper)
 }
 
 VRouter::~VRouter() {
-    DBTableBase *cfg_db = IFMapTable::FindTable(oper_->agent()->db(),
+    DBTableBase *cfg_db = IFMapTable::FindTable(oper_->agent()->cfg_db(),
         "virtual-router");
     if (cfg_db)
         cfg_db->Unregister(vrouter_listener_id_);

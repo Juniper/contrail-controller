@@ -1295,22 +1295,23 @@ DomainConfig::~DomainConfig() {
 }
 
 void DomainConfig::Init() {
-    DBTableBase *cfg_db = IFMapTable::FindTable(agent_->db(), "network-ipam");
+    DBTableBase *cfg_db = IFMapTable::FindTable(agent_->cfg_db(), "network-ipam");
     assert(cfg_db);
     network_ipam_listener_id_ = cfg_db->Register
-                (boost::bind(&DomainConfig::IpamSync, this, _1, _2));
+                (boost::bind(&DomainConfig::IpamConfigListener, this, _1, _2));
 
-    cfg_db = IFMapTable::FindTable(agent_->db(), "virtual-DNS");
+    cfg_db = IFMapTable::FindTable(agent_->cfg_db(), "virtual-DNS");
     assert(cfg_db);
     vdns_listener_id_ =
-        cfg_db->Register(boost::bind(&DomainConfig::VDnsSync, this, _1, _2));
+        cfg_db->Register(boost::bind(&DomainConfig::VDnsConfigListener, this,
+                                     _1, _2));
 }
 
 void DomainConfig::Terminate() {
-    DBTableBase *cfg_db = IFMapTable::FindTable(agent_->db(), "network-ipam");
+    DBTableBase *cfg_db = IFMapTable::FindTable(agent_->cfg_db(), "network-ipam");
     cfg_db->Unregister(network_ipam_listener_id_);
 
-    cfg_db = IFMapTable::FindTable(agent_->db(), "virtual-DNS");
+    cfg_db = IFMapTable::FindTable(agent_->cfg_db(), "virtual-DNS");
     cfg_db->Unregister(vdns_listener_id_);
 }
 
@@ -1324,64 +1325,93 @@ void DomainConfig::RegisterVdnsCb(Callback cb) {
 
 // Callback is invoked only if there is change in IPAM properties.
 // In case of change in a link with IPAM, callback is not invoked.
-void DomainConfig::IpamSync(DBTablePartBase *partition, DBEntryBase *dbe) {
+void DomainConfig::IpamConfigListener(DBTablePartBase *partition,
+                                      DBEntryBase *dbe) {
     IFMapNode *node = static_cast <IFMapNode *> (dbe);
     autogen::NetworkIpam *network_ipam =
             static_cast <autogen::NetworkIpam *> (node->GetObject());
     assert(network_ipam);
 
-    if (!node->IsDeleted()) {
+    DomainConfig::IpamConfigData::Type ipam_config_data(
+                                     new DomainConfig::IpamConfigData());
+    ipam_config_data->deleted_ = node->IsDeleted();
+    ipam_config_data->name_ = node->name();
+    ipam_config_data->ipam_type_ = network_ipam->mgmt();
+    //Enqueue
+    agent_->oper_db()->task_context_changer()->Enqueue(boost::bind(
+                       &DomainConfig::ProcessIpamConfig, this, _1),
+                                                 ipam_config_data);
+}
+
+void DomainConfig::ProcessIpamConfig(TaskContextChanger::ClientData::Type d) {
+    DomainConfig::IpamConfigData *data =
+        static_cast<DomainConfig::IpamConfigData *>(d.get());
+    if (!data->deleted_) {
         bool change = false;
-        IpamDomainConfigMap::iterator it = ipam_config_.find(node->name());
+        IpamDomainConfigMap::iterator it = ipam_config_.find(data->name_);
         if (it != ipam_config_.end()) {
-            if (IpamChanged(it->second, network_ipam->mgmt())) {
-                it->second = network_ipam->mgmt();
+            if (IpamChanged(it->second, data->ipam_type_)) {
+                it->second = data->ipam_type_;
                 change = true;
             }
         } else {
-            ipam_config_.insert(IpamDomainConfigPair(node->name(),
-                                                     network_ipam->mgmt()));
+            ipam_config_.insert(IpamDomainConfigPair(data->name_,
+                                                     data->ipam_type_));
             change = true;
         }
         if (change)
-            CallIpamCb(node);
+            CallIpamCb(d);
     } else {
-        CallIpamCb(node);
-        ipam_config_.erase(node->name());
+        CallIpamCb(d);
+        ipam_config_.erase(data->name_);
     }
-
 }
 
-void DomainConfig::VDnsSync(DBTablePartBase *partition, DBEntryBase *dbe) {
+void DomainConfig::VDnsConfigListener(DBTablePartBase *partition,
+                                      DBEntryBase *dbe) {
     IFMapNode *node = static_cast <IFMapNode *> (dbe);
     autogen::VirtualDns *virtual_dns =
             static_cast <autogen::VirtualDns *> (node->GetObject());
     assert(virtual_dns);
 
-    if (!node->IsDeleted()) {
-        VdnsDomainConfigMap::iterator it = vdns_config_.find(node->name());
+    DomainConfig::DnsConfigData::Type dns_config_data(
+                                 new DomainConfig::DnsConfigData());
+    dns_config_data->deleted_ = node->IsDeleted();
+    dns_config_data->name_ = node->name();
+    dns_config_data->dns_type_ = virtual_dns->data();
+    //Enqueue
+    agent_->oper_db()->task_context_changer()->Enqueue(boost::bind(
+                       &DomainConfig::ProcessDnsConfig, this, _1),
+                                                dns_config_data);
+}
+
+void DomainConfig::ProcessDnsConfig(TaskContextChanger::ClientData::Type d) {
+    DomainConfig::DnsConfigData *data =
+        static_cast<DomainConfig::DnsConfigData *>(d.get());
+    if (!data->deleted_) {
+        VdnsDomainConfigMap::iterator it = vdns_config_.find(data->name_);
         if (it != vdns_config_.end()) {
-            it->second = virtual_dns->data();
+            it->second = data->dns_type_;
         } else {
-            vdns_config_.insert(VdnsDomainConfigPair(node->name(),
-                                                     virtual_dns->data()));
+            vdns_config_.insert(VdnsDomainConfigPair(data->name_,
+                                                     data->dns_type_));
         }
-        CallVdnsCb(node);
+        CallVdnsCb(d);
     } else {
-        CallVdnsCb(node);
-        vdns_config_.erase(node->name());
+        CallVdnsCb(d);
+        vdns_config_.erase(data->name_);
     }
 }
 
-void DomainConfig::CallIpamCb(IFMapNode *node) {
+void DomainConfig::CallIpamCb(TaskContextChanger::ClientData::Type d) {
     for (unsigned int i = 0; i < ipam_callback_.size(); ++i) {
-        ipam_callback_[i](node);
+        ipam_callback_[i](d);
     }
 }
 
-void DomainConfig::CallVdnsCb(IFMapNode *node) {
+void DomainConfig::CallVdnsCb(TaskContextChanger::ClientData::Type d) {
     for (unsigned int i = 0; i < vdns_callback_.size(); ++i) {
-        vdns_callback_[i](node);
+        vdns_callback_[i](d);
     }
 }
 

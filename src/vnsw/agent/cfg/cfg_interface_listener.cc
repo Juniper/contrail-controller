@@ -165,14 +165,14 @@ void InterfaceCfgClient::Init() {
     table->Register(boost::bind(&InterfaceCfgClient::Notify, this, _1, _2));
 
     // Register with config DB table for vm-port UUID to IFNode mapping
-    DBTableBase *cfg_db = IFMapTable::FindTable(agent_cfg_->agent()->db(), 
+    DBTableBase *cfg_db = IFMapTable::FindTable(agent_cfg_->agent()->cfg_db(), 
                                                 "virtual-machine-interface");
     assert(cfg_db);
     cfg_listener_id_ = cfg_db->Register
         (boost::bind(&InterfaceCfgClient::CfgNotify, this, _1, _2));
 
     // Register with config DB table for static route table changes
-    DBTableBase *cfg_route_db = IFMapTable::FindTable(agent_cfg_->agent()->db(), 
+    DBTableBase *cfg_route_db = IFMapTable::FindTable(agent_cfg_->agent()->cfg_db(), 
                                                       "interface-route-table");
     assert(cfg_route_db);
     cfg_route_table_listener_id_ = cfg_route_db->Register
@@ -180,12 +180,12 @@ void InterfaceCfgClient::Init() {
 }
 
 void InterfaceCfgClient::Shutdown() {
-    IFMapTable *cfg_db = IFMapTable::FindTable(agent_cfg_->agent()->db(), 
+    IFMapTable *cfg_db = IFMapTable::FindTable(agent_cfg_->agent()->cfg_db(), 
                                                 "virtual-machine-interface");
     DBTable::DBStateClear(cfg_db, cfg_listener_id_);
     cfg_db->Unregister(cfg_listener_id_);
 
-    DBTableBase *cfg_route_db = IFMapTable::FindTable(agent_cfg_->agent()->db(), 
+    DBTableBase *cfg_route_db = IFMapTable::FindTable(agent_cfg_->agent()->cfg_db(), 
                                                       "interface-route-table");
     cfg_route_db->Unregister(cfg_route_table_listener_id_);
 }
