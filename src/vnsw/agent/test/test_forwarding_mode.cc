@@ -214,15 +214,9 @@ protected:
         InetUnicastRouteEntry* local_vm_rt = RouteGet("vrf1", local_vm_ip4_,
                                                        32);
         BridgeRouteEntry* local_vm_l2_rt = L2RouteGet("vrf1", local_vm_mac_);
-        if (dhcp_external) {
-            WAIT_FOR(1000, 1000,(
-                     (local_vm_l2_rt->FindMacVmBindingPath()->flood_dhcp()
-                      == true)));
-        } else {
-            WAIT_FOR(1000, 1000,
-                     (local_vm_l2_rt->FindMacVmBindingPath()->flood_dhcp()
-                      == false));
-        }
+        WAIT_FOR(1000,
+                 1000,((local_vm_l2_rt->FindMacVmBindingPath()->flood_dhcp() ==
+                        dhcp_external)));
         VrfEntry *vrf = local_vm_rt->vrf();
         AgentRouteTable *vrf_l2_table =
             static_cast<AgentRouteTable *>(vrf->GetBridgeRouteTable());

@@ -36,7 +36,7 @@ public:
         XmppSamplePeer(channel) , count_(0) {
     }
 
-    virtual void ReceiveUpdate(const XmppStanza::XmppMessage *) {
+    virtual void ReceiveUpdate(XmppMessageConstPtr m) {
         count_ ++;
     }
 

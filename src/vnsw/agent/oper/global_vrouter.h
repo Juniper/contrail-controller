@@ -33,6 +33,9 @@ struct LinkLocalDBState : DBState {
     void Delete(const Ip4Address &address) { addresses_.erase(address); }
 };
 
+struct GlobaVrouterData : public AgentData {
+};
+
 // Handle Global Vrouter configuration
 class GlobalVrouter {
 public:
@@ -89,6 +92,18 @@ public:
     typedef std::map<FlowAgingTimeoutKey, uint32_t> FlowAgingTimeoutMap;
     typedef std::pair<FlowAgingTimeoutKey, uint32_t> FlowAgingTimeoutPair;
 
+    struct GlobalVrouterConfigData : public TaskContextChanger::ClientData {
+       typedef boost::shared_ptr<GlobalVrouterConfigData> Type;
+       Agent::VxLanNetworkIdentifierMode vxlan_id_mode_;
+       std::string forwarding_mode_;
+       int flow_export_rate_;
+       EcmpLoadBalance ecmp_load_balance_;
+       FlowAgingTimeoutMap flow_aging_timeout_map_;
+       LinkLocalServicesMap linklocal_services_map_;
+       std::vector<std::string> dns_name_list_;
+       std::vector<std::string> encap_list_;
+    };
+
     GlobalVrouter(OperDB *oper);
     virtual ~GlobalVrouter();
     void CreateDBClients();
@@ -99,7 +114,9 @@ public:
     }
     int32_t flow_export_rate() const { return flow_export_rate_; }
 
-    void GlobalVrouterConfig(DBTablePartBase *partition, DBEntryBase *dbe);
+    static void GlobalVrouterConfig(DBTablePartBase *partition, DBEntryBase *dbe,
+                                    OperDB *oper_db);
+    void ProcessConfig(TaskContextChanger::ClientData::Type data);
     bool FindLinkLocalService(const std::string &service_name,
                               Ip4Address *service_ip, uint16_t *service_port,
                               Ip4Address *fabric_ip, uint16_t *fabric_port) const;
@@ -126,16 +143,20 @@ private:
     typedef std::vector<autogen::LinklocalServiceEntryType> LinkLocalServiceList;
     typedef std::vector<autogen::FlowAgingTimeout> FlowAgingTimeoutList;
 
-    void UpdateLinkLocalServiceConfig(const LinkLocalServiceList &linklocal_list);
+    void UpdateLinkLocalServiceConfig(GlobalVrouterConfigData* data);
     void DeleteLinkLocalServiceConfig();
+    static void GetLinkLocalServiceConfig(autogen::GlobalVrouterConfig *cfg,
+                                          GlobalVrouterConfigData::Type data);
     bool ChangeNotify(LinkLocalServicesMap *old_value,
                       LinkLocalServicesMap *new_value);
     void AddLinkLocalService(const LinkLocalServicesMap::iterator &it);
     void DeleteLinkLocalService(const LinkLocalServicesMap::iterator &it);
     void ChangeLinkLocalService(const LinkLocalServicesMap::iterator &old_it,
                                 const LinkLocalServicesMap::iterator &new_it);
-    void UpdateFlowAging(autogen::GlobalVrouterConfig *cfg);
+    void UpdateFlowAging(GlobalVrouterConfigData* data);
     void DeleteFlowAging();
+    static void GetFlowAgingConfig(autogen::GlobalVrouterConfig *cfg,
+                                   GlobalVrouterConfigData::Type data);
 
     OperDB *oper_;
     DBTableBase::ListenerId global_vrouter_listener_id_;

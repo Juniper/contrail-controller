@@ -56,7 +56,7 @@ public:
         return true;
     }
 
-    virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
+    virtual void ReceiveUpdate(XmppMessageConstPtr msg) {
 
         //
         // Inject virtual-machine and virtual-router configurations so that
@@ -86,7 +86,9 @@ public:
         uuid_lsb = os.str();
     }
 
-    virtual void CreatefmapConfig(const XmppStanza::XmppMessage *msg) {
+    virtual void CreatefmapConfig(XmppMessageConstPtr m) {
+        const XmppStanza::XmppMessage *msg =
+            static_cast<const XmppStanza::XmppMessage *>(m.get());
         if (msg->type != XmppStanza::IQ_STANZA) return;
 
         const char* const vr_string = "virtual-router:";

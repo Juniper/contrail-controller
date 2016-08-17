@@ -33,7 +33,7 @@ public:
 
     virtual std::string ToString() const;
     virtual bool SendMsg(uint8_t *msg, std::size_t len);
-    virtual void ReceiveMsg(const XmppStanza::XmppMessage *msg);
+    virtual void ReceiveMsg(XmppMessageConstPtr msg);
     std::string GetXmppServer() { return xmpp_server_; }
     uint8_t GetXmppServerIdx() { return xs_idx_; }
     XmppChannel *GetXmppChannel() { return channel_; }
@@ -46,13 +46,13 @@ public:
     static void set_dns_xmpp_event_handler_cb(DnsXmppEventHandler cb);
     Agent *agent() const {return agent_;}
     void RegisterXmppChannel(XmppChannel *channel);
-    void ReceiveDnsMessage(std::auto_ptr<XmlBase> impl);
+    void ReceiveDnsMessage(XmlBase *impl);
 
 protected:
     virtual void WriteReadyCb(const boost::system::error_code &ec);
 
 private:
-    void ReceiveInternal(const XmppStanza::XmppMessage *msg);
+    void ReceiveInternal(XmppMessageConstPtr msg);
     XmppChannel *channel_;
     std::string xmpp_server_;
     uint8_t xs_idx_;

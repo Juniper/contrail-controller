@@ -1295,22 +1295,22 @@ DomainConfig::~DomainConfig() {
 }
 
 void DomainConfig::Init() {
-    DBTableBase *cfg_db = IFMapTable::FindTable(agent_->db(), "network-ipam");
+    DBTableBase *cfg_db = IFMapTable::FindTable(agent_->cfg_db(), "network-ipam");
     assert(cfg_db);
     network_ipam_listener_id_ = cfg_db->Register
                 (boost::bind(&DomainConfig::IpamSync, this, _1, _2));
 
-    cfg_db = IFMapTable::FindTable(agent_->db(), "virtual-DNS");
+    cfg_db = IFMapTable::FindTable(agent_->cfg_db(), "virtual-DNS");
     assert(cfg_db);
     vdns_listener_id_ =
         cfg_db->Register(boost::bind(&DomainConfig::VDnsSync, this, _1, _2));
 }
 
 void DomainConfig::Terminate() {
-    DBTableBase *cfg_db = IFMapTable::FindTable(agent_->db(), "network-ipam");
+    DBTableBase *cfg_db = IFMapTable::FindTable(agent_->cfg_db(), "network-ipam");
     cfg_db->Unregister(network_ipam_listener_id_);
 
-    cfg_db = IFMapTable::FindTable(agent_->db(), "virtual-DNS");
+    cfg_db = IFMapTable::FindTable(agent_->cfg_db(), "virtual-DNS");
     cfg_db->Unregister(vdns_listener_id_);
 }
 

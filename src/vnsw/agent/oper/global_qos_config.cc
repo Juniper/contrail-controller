@@ -10,14 +10,14 @@
 
 GlobalQosConfig::GlobalQosConfig(OperDB *oper) :
     oper_db_(oper) {
-    DBTableBase *cfg_db = IFMapTable::FindTable(oper_db_->agent()->db(),
+    DBTableBase *cfg_db = IFMapTable::FindTable(oper_db_->agent()->cfg_db(),
                                                 "global-qos-config");
     global_qos_config_listener_id_ =
         cfg_db->Register(boost::bind(&GlobalQosConfig::ConfigHandler, this, _1, _2));
 };
 
 GlobalQosConfig::~GlobalQosConfig() {
-    DBTableBase *cfg_db = IFMapTable::FindTable(oper_db_->agent()->db(),
+    DBTableBase *cfg_db = IFMapTable::FindTable(oper_db_->agent()->cfg_db(),
                                                 "global-qos-config");
     cfg_db->Unregister(global_qos_config_listener_id_);
 }

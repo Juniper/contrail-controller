@@ -185,7 +185,7 @@ private:
 ConfigManager::ConfigManager(Agent *agent) :
     agent_(agent), trigger_(NULL), timer_(NULL), timeout_(kMinTimeout) {
 
-    int task_id = TaskScheduler::GetInstance()->GetTaskId("db::DBTable");
+    int task_id = TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable");
     trigger_.reset
         (new TaskTrigger(boost::bind(&ConfigManager::TriggerRun, this),
                          task_id, 0));

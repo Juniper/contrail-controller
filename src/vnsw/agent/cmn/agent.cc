@@ -594,6 +594,8 @@ Agent::Agent() :
     singleton_ = this;
     db_ = new DB();
     assert(db_);
+    cfg_db_ = new DB(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"));
+    assert(cfg_db_);
 
     event_mgr_ = new EventManager();
     assert(event_mgr_);

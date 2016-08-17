@@ -597,7 +597,7 @@ class IFMapAgentStaleCleaner::IFMapAgentStaleCleanerWorker : public Task {
 public:
 
     IFMapAgentStaleCleanerWorker(DB *db, DBGraph *graph, uint64_t seq):
-        Task(TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0),
+        Task(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"), 0),
         db_(db), graph_(graph), seq_(seq) { 
     }
 

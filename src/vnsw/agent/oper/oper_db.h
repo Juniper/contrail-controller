@@ -41,6 +41,13 @@ struct AgentOperDBData : public AgentData {
 
 
     void SetIFMapNode(IFMapNode *node) {
+        IFMapDependencyManager *dep = NULL;
+        if (agent_ && agent_->oper_db()) {
+            dep = agent_->oper_db()->dependency_manager();
+        }
+
+        if (dep && ifmap_node_state_)
+            dep->ReleaseIFMapNodeState(ifmap_node_state_);
 
         if (node == NULL) {
             ifmap_node_state_ = NULL;
@@ -52,8 +59,7 @@ struct AgentOperDBData : public AgentData {
         // We dont allow changing the node
         assert(!ifmap_node_state_);
 
-        IFMapDependencyManager *dep = agent_->oper_db()->dependency_manager();
-        ifmap_node_state_ = dep->SetState(node);
+        ifmap_node_state_ = dep->IFMapNodeGet(node);
     }
 
     IFMapNode *ifmap_node() const {
@@ -181,7 +187,7 @@ protected:
         }
 
         if (node) {
-            entry->SetIFMapNodeState(dep->SetState(node));
+            entry->SetIFMapNodeState(dep->IFMapNodeGet(node));
             dep->SetObject(node, entry);
         }
     }

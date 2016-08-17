@@ -1002,8 +1002,7 @@ struct XmppStreamEstablished :
         }
         SM_LOG(state_machine, "EvXmppMessageReceive in (Established) State");
         state_machine->StartHoldTimer();
-        state_machine->connection()->ProcessXmppChatMessage(
-            static_cast<const XmppStanza::XmppChatMessage *>(event.msg.get()));
+        state_machine->connection()->ProcessXmppChatMessage(event.msg);
         return discard_event();
     }
 
@@ -1014,8 +1013,7 @@ struct XmppStreamEstablished :
         }
         SM_LOG(state_machine, "EvXmppIqMessageReceive in (Established) State");
         state_machine->StartHoldTimer();
-        state_machine->connection()->ProcessXmppIqMessage(
-            static_cast<const XmppStanza::XmppMessage *>(event.msg.get()));
+        state_machine->connection()->ProcessXmppIqMessage(event.msg);
         return discard_event();
     }
 

@@ -29,12 +29,12 @@ bool XmppSamplePeer::SendUpdate(const uint8_t *msg, size_t size) {
          xmps::OTHER, boost::bind(&XmppSamplePeer::WriteReadyCb, this, _1));
 }
 
-void XmppSamplePeer::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
+void XmppSamplePeer::ReceiveUpdate(XmppMessageConstPtr m) {
 
 }
 
-void XmppSamplePeer::ReceiveInternal(const XmppStanza::XmppMessage *msg) {
-    ReceiveUpdate(msg);
+void XmppSamplePeer::ReceiveInternal(XmppMessageConstPtr m) {
+    ReceiveUpdate(m);
 }
 
 std::string XmppSamplePeer::ToString() const {
