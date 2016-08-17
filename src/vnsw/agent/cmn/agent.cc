@@ -856,3 +856,19 @@ void Agent::TaskTrace(const char *file_name, uint32_t line_no,
 bool Agent::MeasureQueueDelay() {
     return params_->measure_queue_delay();
 }
+
+VrouterObjectLimits Agent::GetVrouterObjectLimits() {
+   VrouterObjectLimits vr_limits;
+   vr_limits.set_max_labels(vrouter_max_labels());
+   vr_limits.set_max_nexthops(vrouter_max_nexthops());
+   vr_limits.set_max_interfaces(vrouter_max_interfaces());
+   vr_limits.set_max_vrfs(vrouter_max_vrfs());
+   vr_limits.set_max_mirror_entries(vrouter_max_mirror_entries());
+   vr_limits.set_vrouter_max_bridge_entries(vrouter_max_bridge_entries());
+   vr_limits.set_vrouter_max_oflow_bridge_entries(
+           vrouter_max_oflow_bridge_entries());
+   vr_limits.set_vrouter_build_info(vrouter_build_info());
+   vr_limits.set_vrouter_max_flow_entries(vrouter_max_flow_entries());
+   vr_limits.set_vrouter_max_oflow_entries(vrouter_max_oflow_entries());
+   return vr_limits;
+}
