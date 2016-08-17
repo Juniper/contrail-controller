@@ -1036,9 +1036,10 @@ TEST_F(BgpAttrTest, CommunityBuildStringList1) {
     Community comm(comm_db_, spec);
 
     vector<string> expected_list = list_of("65535:0")
-        ("accept-own")("accept-own-nexthop")
-        ("no-export")("no-advertise")("no-export-subconfed")
-        ("llgr-stale")("no-llgr");
+        ("accept-own")
+        ("llgr-stale")("no-llgr")
+        ("accept-own-nexthop")
+        ("no-export")("no-advertise")("no-export-subconfed");
     vector<string> result_list;
     comm.BuildStringList(&result_list);
     EXPECT_EQ(expected_list, result_list);
@@ -1057,9 +1058,10 @@ TEST_F(BgpAttrTest, CommunityBuildStringList2) {
     Community comm(comm_db_, spec);
 
     vector<string> expected_list = list_of("65535:0")
-        ("accept-own")("accept-own-nexthop")
-        ("no-export")("no-advertise")("no-export-subconfed")
-        ("llgr-stale")("no-llgr");
+        ("accept-own")
+        ("llgr-stale")("no-llgr")
+        ("accept-own-nexthop")
+        ("no-export")("no-advertise")("no-export-subconfed");
     vector<string> result_list;
     comm.BuildStringList(&result_list);
     EXPECT_EQ(expected_list, result_list);
