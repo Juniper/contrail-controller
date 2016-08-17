@@ -33,7 +33,7 @@ using namespace std;
 class NamedConfigTest : public NamedConfig {
 public:
     NamedConfigTest(const std::string &conf_dir, const std::string &conf_file) :
-                    NamedConfig(conf_dir, conf_file, "/var/log/named/bind.log",
+                    NamedConfig(conf_dir, conf_file, "", "/var/log/named/bind.log",
                                 "rndc.conf", "xvysmOR8lnUQRBcunkC6vg==", "100M") {}
     static void Init() {
         assert(singleton_ == NULL);
