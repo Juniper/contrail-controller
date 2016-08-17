@@ -111,15 +111,17 @@ VncApi::hex_dump(std::string s)
 void
 VncApi::Reauthenticate(RespBlock *orb)
 {
-    RespBlock *rb = new RespBlock(client_->CreateConnection(ks_ep_),
-            "v2.0/tokens", 0);
-    std::ostringstream pstrm;
-    pstrm << "{\"auth\": {\"passwordCredentials\": {\"username\": \"" <<
-        cfg_->user << "\", \"password\": \"" << cfg_->password <<
-        "\"}, \"tenantName\": \"" << cfg_->tenant << "\"}}";
-    rb->GetConnection()->HttpPost(pstrm.str(), rb->GetUri(), false, false,
-            true, kshdr_, boost::bind(&VncApi::KsRespHandler,
-            shared_from_this(), rb, orb, _1, _2));
+    if (client_) {
+        RespBlock *rb = new RespBlock(client_->CreateConnection(ks_ep_),
+                "v2.0/tokens", 0);
+        std::ostringstream pstrm;
+        pstrm << "{\"auth\": {\"passwordCredentials\": {\"username\": \"" <<
+            cfg_->user << "\", \"password\": \"" << cfg_->password <<
+            "\"}, \"tenantName\": \"" << cfg_->tenant << "\"}}";
+        rb->GetConnection()->HttpPost(pstrm.str(), rb->GetUri(), false, false,
+                true, kshdr_, boost::bind(&VncApi::KsRespHandler,
+                shared_from_this(), rb, orb, _1, _2));
+    }
 }
 
 bool
@@ -147,15 +149,18 @@ VncApi::KsRespHandler(RespBlock *rb, RespBlock *orb, std::string &str,
                     orb->GetConnection()->HttpGet(orb->GetUri(), false, false,
                             true, hdr_, boost::bind(&VncApi::RespHandler,
                             shared_from_this(), orb, _1, _2));
-                    client_->RemoveConnection(rb->GetConnection());
+                    if (client_)
+                        client_->RemoveConnection(rb->GetConnection());
                     delete rb;
                     return;
                 }
             }
         }
-        client_->RemoveConnection(orb->GetConnection());
+        if (client_)
+            client_->RemoveConnection(orb->GetConnection());
         delete orb;
-        client_->RemoveConnection(rb->GetConnection());
+        if (client_)
+            client_->RemoveConnection(rb->GetConnection());
         delete rb;
     } else {
         rb->AddBody(str);
@@ -219,6 +224,7 @@ VncApi::Stop()
 {
     std::cout  << "VncApi::Stop\n";
     TcpServerManager::DeleteServer(client_);
+    client_ = 0;
     {
         hdr_.clear();
         kshdr_.clear();
@@ -234,11 +240,13 @@ VncApi::GetConfig(std::string type, std::vector<std::string> ids,
             std::string reason,
             std::map<std::string, std::string> *headers)> cb)
 {
-    RespBlock *rb = new RespBlock(client_->CreateConnection(api_ep_),
-            MakeUri(type, ids, filters, parents, refs, fields), cb);
-    rb->GetConnection()->HttpGet(rb->GetUri(), false, false, true, hdr_,
-            boost::bind(&VncApi::RespHandler, shared_from_this(),
+    if (client_) {
+        RespBlock *rb = new RespBlock(client_->CreateConnection(api_ep_),
+                MakeUri(type, ids, filters, parents, refs, fields), cb);
+        rb->GetConnection()->HttpGet(rb->GetUri(), false, false, true, hdr_,
+                boost::bind(&VncApi::RespHandler, shared_from_this(),
                         rb, _1, _2));
+    }
 }
 
 void
@@ -266,7 +274,8 @@ VncApi::RespHandler(RespBlock *rb, std::string &str,
                     rb->GetConnection()->Status(),
                     rb->GetConnection()->Reason(),
                     rb->GetConnection()->Headers());
-            client_->RemoveConnection(rb->GetConnection());
+            if (client_)
+                client_->RemoveConnection(rb->GetConnection());
             delete rb;
         }
     } else {
