@@ -52,6 +52,7 @@
 #include "xmpp/xmpp_init.h"
 #include "xmpp/xmpp_sandesh.h"
 #include "xmpp/xmpp_server.h"
+#include "base/task_tbbkeepawake.h"
 
 using namespace std;
 using namespace boost::asio::ip;
@@ -462,6 +463,12 @@ int main(int argc, char *argv[]) {
                     bgp_server.get(), ifmap_manager, _1, _2, _3,
                     expected_connections), "ObjectBgpRouter");
 
+    // Start TbbKeepAwake Task which makes scheduler always active,
+    // for it to not miss any spawn events
+    TaskTbbKeepAwake tbb_awake_task;
+    tbb_awake_task.StartTbbKeepAwakeTask(TaskScheduler::GetInstance(), &evm,
+                                         "bgp::TbbKeepAwake");
+
     // Parse discovery server configuration.
     DiscoveryServiceClient *ds_client = NULL;
     tcp::endpoint dss_ep;
@@ -515,6 +522,7 @@ int main(int argc, char *argv[]) {
             if (!success) {
                 LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
                 ShutdownServers(&bgp_peer_manager, ds_client, NULL);
+                tbb_awake_task.ShutTbbKeepAwakeTask();
                 exit(1);
             }
         }
@@ -553,5 +561,6 @@ int main(int argc, char *argv[]) {
     evm.Run();
 
     ShutdownServers(&bgp_peer_manager, ds_client, node_info_log_timer.get());
+    tbb_awake_task.ShutTbbKeepAwakeTask();
     return 0;
 }
