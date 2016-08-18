@@ -168,6 +168,16 @@ struct AgentIfBandwidth {
 }
 
 /**
+ * Sandesh definition of Agent IFMap parse statistics
+ */
+struct AgentIFMapStats {
+    1: u64 node_update_parse_errors;
+    2: u64 link_update_parse_errors;
+    3: u64 node_delete_parse_errors;
+    4: u64 link_delete_parse_errors;
+}
+
+/**
  * Sandesh definition for vrouter flow rate
  */
 struct VrouterFlowRate {
@@ -244,6 +254,7 @@ struct VrouterStatsAgent {  // Agent stats
     53: optional map<string,derived_stats_results.EWMResult> out_bps_ewm (mstats="phy_band_out_bps:DSEWM:0.2")
     54: optional derived_stats_results.CategoryResult drop_stats_agg (hidden="yes")
     55: optional derived_stats_results.CategoryResult drop_stats_diff (stats="drop_stats_agg:DSCategoryCount:", tags="")
+    56: optional AgentIFMapStats ifmap_stats (tags="")
 }
 
 /**

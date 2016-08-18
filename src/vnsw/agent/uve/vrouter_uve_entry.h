@@ -45,8 +45,10 @@ private:
     bool BuildPhysicalInterfaceList(std::vector<AgentIfStats> &list) const;
     std::string GetMacAddress(const MacAddress &mac) const;
     void BuildXmppStatsList(std::vector<AgentXmppStats> &list) const;
+    bool BuildIFMapStats(AgentIFMapStats &s);
 
     uint64_t start_time_;
+    AgentIFMapStats prev_ifmap_stats_;
     DISALLOW_COPY_AND_ASSIGN(VrouterUveEntry);
 };
 
