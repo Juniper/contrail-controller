@@ -411,14 +411,14 @@ class AnalyticsDb(object):
             uve_url = "http://" + ip + ":" + str(port) + \
                 "/analytics/uves/database-nodes?cfilt=DatabaseUsageInfo"
             data = OpServerUtils.get_url_http(uve_url, user, password)
-            node_dburls = json.loads(data)
+            node_dburls = json.loads(data.text)
 
             for node_dburl in node_dburls:
                 # calculate disk usage percentage for analytics in each
                 # cassandra node
                 db_uve_data = OpServerUtils.get_url_http(node_dburl['href'],
                     user, password)
-                db_uve_state = json.loads(db_uve_data)
+                db_uve_state = json.loads(db_uve_data.text)
                 db_usage_in_perc = (100*
                         float(db_uve_state['DatabaseUsageInfo']['database_usage'][0]['analytics_db_size_1k'])/
                         float(db_uve_state['DatabaseUsageInfo']['database_usage'][0]['disk_space_available_1k'] +
