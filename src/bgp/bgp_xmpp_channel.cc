@@ -1928,6 +1928,10 @@ bool BgpXmppChannel::ResumeClose() {
 }
 
 void BgpXmppChannel::RegisterTable(int line, BgpTable *table, int instance_id) {
+    // Reset EndOfRib timer as membership registration is in progress.
+    if (end_of_rib_timer_->running())
+        StartEndOfRibTimer();
+
     // Defer if Membership manager is in use (by close manager).
     if (membership_unavailable_) {
         BGP_LOG_PEER_TABLE(Peer(), SandeshLevel::SYS_DEBUG,
@@ -1946,6 +1950,9 @@ void BgpXmppChannel::RegisterTable(int line, BgpTable *table, int instance_id) {
 }
 
 void BgpXmppChannel::UnregisterTable(int line, BgpTable *table) {
+    // Reset EndOfRib timer as membership registration is in progress.
+    if (end_of_rib_timer_->running())
+        StartEndOfRibTimer();
 
     // Defer if Membership manager is in use (by close manager).
     if (membership_unavailable_) {

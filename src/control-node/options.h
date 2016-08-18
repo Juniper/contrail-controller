@@ -67,6 +67,10 @@ public:
     bool optimize_snat() const { return optimize_snat_; }
     bool gr_helper_bgp_enable() const { return gr_helper_bgp_enable_; }
     bool gr_helper_xmpp_enable() const { return gr_helper_xmpp_enable_; }
+    uint32_t bgp_end_of_rib_timeout() const { return bgp_end_of_rib_timeout_; }
+    uint32_t xmpp_end_of_rib_timeout() const {
+        return xmpp_end_of_rib_timeout_;
+    }
     uint32_t sandesh_send_rate_limit() const { return sandesh_ratelimit_; }
 
 private:
@@ -120,6 +124,8 @@ private:
     uint32_t sandesh_ratelimit_;
     bool gr_helper_bgp_enable_;
     bool gr_helper_xmpp_enable_;
+    uint32_t bgp_end_of_rib_timeout_;
+    uint32_t xmpp_end_of_rib_timeout_;
     std::vector<std::string> default_collector_server_list_;
     boost::program_options::options_description config_file_options_;
 };

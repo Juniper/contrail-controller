@@ -64,6 +64,7 @@ XmppServer::XmppServer(EventManager *evm, const string &server_addr,
       auth_enabled_(config->auth_enabled),
       tcp_hold_time_(config->tcp_hold_time),
       gr_helper_enable_(config->gr_helper_enable),
+      end_of_rib_timeout_(config->end_of_rib_timeout),
       connection_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
           0, boost::bind(&XmppServer::DequeueConnection, this, _1)) {
 
@@ -138,7 +139,6 @@ public:
             BgpConfigManager::EventType event) {
         config_.set_gr_time(system->gr_time());
         config_.set_llgr_time(system->llgr_time());
-        config_.set_eor_rx_time(system->eor_rx_time());
         server_->ClearAllConnections();
     }
 
@@ -158,6 +158,7 @@ XmppServer::XmppServer(EventManager *evm, const string &server_addr)
       auth_enabled_(false),
       tcp_hold_time_(XmppChannelConfig::kTcpHoldTime),
       gr_helper_enable_(false),
+      end_of_rib_timeout_(30),
       xmpp_config_updater_(NULL),
       connection_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
           0, boost::bind(&XmppServer::DequeueConnection, this, _1)) {
@@ -174,6 +175,7 @@ XmppServer::XmppServer(EventManager *evm)
       auth_enabled_(false),
       tcp_hold_time_(XmppChannelConfig::kTcpHoldTime),
       gr_helper_enable_(false),
+      end_of_rib_timeout_(30),
       connection_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
           0, boost::bind(&XmppServer::DequeueConnection, this, _1)) {
 }
@@ -191,8 +193,7 @@ const uint32_t XmppServer::GetLongLivedGracefulRestartTime() const {
 }
 
 const uint32_t XmppServer::GetEndOfRibReceiveTime() const {
-    return xmpp_config_updater_ ?
-               xmpp_config_updater_->config().eor_rx_time() : 0;
+    return end_of_rib_timeout_;
 }
 
 bool XmppServer::IsPeerCloseGraceful() const {

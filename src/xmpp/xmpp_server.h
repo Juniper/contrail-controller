@@ -128,6 +128,7 @@ private:
     bool auth_enabled_;
     int tcp_hold_time_;
     bool gr_helper_enable_;
+    uint32_t end_of_rib_timeout_;
     boost::scoped_ptr<XmppConfigUpdater> xmpp_config_updater_;
     WorkQueue<XmppServerConnection *> connection_queue_;
 

@@ -74,6 +74,8 @@ void Options::Initialize(EventManager &evm,
         ("DEFAULT.bgp_config_file",
              opt::value<string>()->default_value("bgp_config.xml"),
              "BGP Configuration file")
+        ("DEFAULT.bgp_end_of_rib_timeout", opt::value<uint32_t>()->default_value(30),
+             "BGP end of rib timeout")
         ("DEFAULT.bgp_port",
              opt::value<uint16_t>()->default_value(default_bgp_port),
              "BGP listener port")
@@ -129,6 +131,8 @@ void Options::Initialize(EventManager &evm,
         ("DEFAULT.optimize_snat", opt::bool_switch(&optimize_snat_),
              "Enable control-node optimizations for SNAT (deprecated)")
 
+        ("DEFAULT.xmpp_end_of_rib_timeout",
+             opt::value<uint32_t>()->default_value(30), "XMPP end of rib timeout")
         ("DEFAULT.xmpp_server_port",
              opt::value<uint16_t>()->default_value(default_xmpp_port),
              "XMPP listener port")
@@ -286,6 +290,10 @@ bool Options::Process(int argc, char *argv[],
     GetOptValue<string>(var_map, xmpp_server_cert_, "DEFAULT.xmpp_server_cert");
     GetOptValue<string>(var_map, xmpp_server_key_, "DEFAULT.xmpp_server_key");
     GetOptValue<string>(var_map, xmpp_ca_cert_, "DEFAULT.xmpp_ca_cert");
+    GetOptValue<uint32_t>(var_map, bgp_end_of_rib_timeout_,
+                              "DEFAULT.bgp_end_of_rib_timeout");
+    GetOptValue<uint32_t>(var_map, xmpp_end_of_rib_timeout_,
+                              "DEFAULT.xmpp_end_of_rib_timeout");
     GetOptValue<uint32_t>(var_map, sandesh_ratelimit_,
                               "DEFAULT.sandesh_send_rate_limit");
 

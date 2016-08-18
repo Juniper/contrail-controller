@@ -366,6 +366,8 @@ private:
     void ReceiveEndOfRIB(Address::Family family, size_t msgsize);
     void StartEndOfRibTimer();
     bool EndOfRibTimerExpired();
+    void StartEndOfRouteTargetRibTimer();
+    bool EndOfRouteTargetRibTimerExpired();
     void EndOfRibTimerErrorHandler(std::string error_name,
                                    std::string error_message);
 
