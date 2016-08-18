@@ -111,6 +111,11 @@ contrail_vrouter_agent = env.Program(target = 'contrail-vrouter-agent',
 env.Alias('contrail-vrouter-agent', contrail_vrouter_agent)
 env.Default(contrail_vrouter_agent)
 
+utils_scripts = [
+  'contrail-vrouter-agent-health-check.py',
+  'agent_dissector.lua',
+  'mpls_dissector.lua']
+
 # Documentation
 doc_files = []
 doc_files += env['AGENT_COMMON_DOC_FILES']
@@ -120,8 +125,8 @@ doc_files += env['AGENT_FLOW_DOC_FILES']
 
 # Please update sandesh/common/vns.sandesh on process name change
 env.Alias('install', env.Install(env['INSTALL_BIN'], contrail_vrouter_agent))
-env.Alias('install', env.Install(env['INSTALL_EXAMPLE'],
-          'contrail-vrouter-agent-health-check.py'))
+for utils in utils_scripts:
+  env.Alias('install', env.Install(env['INSTALL_EXAMPLE'], utils))
 env.Alias('install', env.Install(env['INSTALL_CONF'],
           '../contrail-vrouter-agent.conf'))
 env.Alias('install',
