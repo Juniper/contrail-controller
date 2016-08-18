@@ -78,7 +78,7 @@
 <xsd:element name="uve-keys" type="UveKeysType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('uve-keys', 'alarm', 'required', 'CRUD',
-              'List of UVE tables where this alarm config should be applied. For example, rules based on NodeStatus UVE can be applied to multiple object types such as analytics-node, config-node, control-node, etc.,') -->
+              'List of UVE tables or UVE objects where this alarm config should be applied. For example, rules based on NodeStatus UVE can be applied to multiple object types or specific uve objects such as analytics-node, config-node, control-node:<hostname>, etc.,') -->
 <xsd:element name="alarm-severity" type="AlarmSeverity"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('alarm-severity', 'alarm', 'required', 'CRUD',
