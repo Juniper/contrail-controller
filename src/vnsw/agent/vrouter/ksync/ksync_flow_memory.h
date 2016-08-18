@@ -26,6 +26,8 @@ public:
     static const uint32_t kAuditTimeout = (5 * 1000 * 1000); // in usec
     // Upper limit on number of entries to visit per timer
     static const uint32_t kAuditYieldMax = (1024);
+    // Lower limit on number of entries to visit per timer
+    static const uint32_t kAuditYieldMin = (100);
 
     KSyncFlowMemory(KSync *ksync);
     ~KSyncFlowMemory();
