@@ -78,7 +78,8 @@ class TestAlarmGenConfigHandler(unittest.TestCase):
         alarm_config1 = self._get_config_object('alarm',
             {
                 'name': 'alarm1',
-                'uve_keys': ['analytics-node', 'control-node'],
+                'uve_keys': ['analytics-node', 'control-node',
+                    'vrouter:host1'],
                 'alarm_severity': AlarmBase.ALARM_CRITICAL,
                 'alarm_rules': {
                     'or_list': [
@@ -102,7 +103,8 @@ class TestAlarmGenConfigHandler(unittest.TestCase):
         alarm_config1_1 = self._get_config_object('alarm',
             {
                 'name': 'alarm1',
-                'uve_keys': ['invalid', 'control-node', 'config-node'],
+                'uve_keys': ['invalid', 'control-node', 'config-node',
+                    'vrouter:host2'],
                 'alarm_severity': AlarmBase.ALARM_CRITICAL,
                 'alarm_rules': {
                     'or_list': [
@@ -240,6 +242,10 @@ class TestAlarmGenConfigHandler(unittest.TestCase):
                         'ObjectBgpRouter': {
                             'global-syscfg-default:alarm1':
                                 AlarmBase(config=alarm_config1)
+                        },
+                        'ObjectVRouter:host1': {
+                            'global-syscfg-default:alarm1':
+                                AlarmBase(config=alarm_config1)
                         }
                     },
                     alarm_config_change_map={
@@ -247,6 +253,9 @@ class TestAlarmGenConfigHandler(unittest.TestCase):
                             'global-syscfg-default:alarm1': 'CREATE'
                         },
                         'ObjectBgpRouter': {
+                            'global-syscfg-default:alarm1': 'CREATE'
+                        },
+                        'ObjectVRouter:host1': {
                             'global-syscfg-default:alarm1': 'CREATE'
                         }
                     }
@@ -278,6 +287,10 @@ class TestAlarmGenConfigHandler(unittest.TestCase):
                         'ObjectConfigNode': {
                             'global-syscfg-default:alarm1':
                                 AlarmBase(config=alarm_config1_1)
+                        },
+                        'ObjectVRouter:host2': {
+                            'global-syscfg-default:alarm1':
+                                AlarmBase(config=alarm_config1_1)
                         }
                     },
                     alarm_config_change_map={
@@ -288,6 +301,12 @@ class TestAlarmGenConfigHandler(unittest.TestCase):
                             'global-syscfg-default:alarm1': 'UPDATE'
                         },
                         'ObjectConfigNode': {
+                            'global-syscfg-default:alarm1': 'CREATE'
+                        },
+                        'ObjectVRouter:host1': {
+                            'global-syscfg-default:alarm1': 'DELETE'
+                        },
+                        'ObjectVRouter:host2': {
                             'global-syscfg-default:alarm1': 'CREATE'
                         }
                     }
@@ -324,6 +343,10 @@ class TestAlarmGenConfigHandler(unittest.TestCase):
                         'ObjectVNTable': {
                             'default-domain:admin:alarm1':
                                 AlarmBase(config=alarm_config2)
+                        },
+                        'ObjectVRouter:host2': {
+                            'global-syscfg-default:alarm1':
+                                AlarmBase(config=alarm_config1_1)
                         }
                     },
                     alarm_config_change_map={
@@ -367,6 +390,10 @@ class TestAlarmGenConfigHandler(unittest.TestCase):
                                 AlarmBase(config=alarm_config2),
                             'default-domain:demo:alarm1':
                                 AlarmBase(config=alarm_config3)
+                        },
+                        'ObjectVRouter:host2': {
+                            'global-syscfg-default:alarm1':
+                                AlarmBase(config=alarm_config1_1)
                         }
                     },
                     alarm_config_change_map={
@@ -409,6 +436,10 @@ class TestAlarmGenConfigHandler(unittest.TestCase):
                                 AlarmBase(config=alarm_config2_1),
                             'default-domain:demo:alarm1':
                                 AlarmBase(config=alarm_config3)
+                        },
+                        'ObjectVRouter:host2': {
+                            'global-syscfg-default:alarm1':
+                                AlarmBase(config=alarm_config1_1)
                         }
                     },
                     alarm_config_change_map={
@@ -449,6 +480,9 @@ class TestAlarmGenConfigHandler(unittest.TestCase):
                             'global-syscfg-default:alarm1': 'DELETE'
                         },
                         'ObjectConfigNode': {
+                            'global-syscfg-default:alarm1': 'DELETE'
+                        },
+                        'ObjectVRouter:host2': {
                             'global-syscfg-default:alarm1': 'DELETE'
                         }
                     }
