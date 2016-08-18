@@ -1549,7 +1549,6 @@ void VmInterface::ApplyMacVmBindingConfig(const VrfEntry *old_vrf,
                                           bool old_dhcp_enable) {
     if (!IsActive() || old_vrf != vrf()) {
         DeleteMacVmBinding(old_vrf);
-        return;
     }
 
     //Update DHCP and DNS flag in Interface Class.
@@ -1560,6 +1559,9 @@ void VmInterface::ApplyMacVmBindingConfig(const VrfEntry *old_vrf,
         dhcp_enabled_ = false;
         dns_enabled_ = false;
     }
+
+    if (!IsActive())
+        return;
 
     UpdateMacVmBinding();
 }
