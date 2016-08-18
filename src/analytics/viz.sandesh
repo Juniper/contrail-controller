@@ -2008,6 +2008,18 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
+          'display_name' : 'Vrouter IFMAP Parse Error Statistics',
+          'stat_type'    : 'VrouterStatsAgent'
+          'stat_attr'    : 'ifmap_stats',
+          'obj_table'    : VROUTER_TABLE,
+          'attributes': [
+              { 'name' : 'ifmap_stats.node_update_parse_errors', 'datatype' : 'int', 'index' : false },
+              { 'name' : 'ifmap_stats.link_update_parse_errors', 'datatype' : 'int', 'index' : false },
+              { 'name' : 'ifmap_stats.node_delete_parse_errors', 'datatype' : 'int', 'index' : false },
+              { 'name' : 'ifmap_stats.link_delete_parse_errors', 'datatype' : 'int', 'index' : false }
+          ]
+    },
+    {
       'display_name' : 'Analytics API Statistics',
       'stat_type' : 'AnalyticsApiStats',
       'stat_attr' : 'api_stats',
