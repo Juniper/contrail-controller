@@ -15,6 +15,7 @@
 #include <base/connection_info.h>
 #include <base/timer.h>
 #include "net/mac_address.h"
+#include "oper/agent_types.h"
 
 class Agent;
 class AgentParam;
@@ -1034,6 +1035,19 @@ public:
         vrouter_max_oflow_bridge_entries_ = oflow_bridge_entries;
     }
 
+    uint32_t vrouter_max_flow_entries() const {
+        return vrouter_max_flow_entries_;
+    }
+    void set_vrouter_max_flow_entries(uint32_t value) {
+        vrouter_max_flow_entries_ = value;
+    }
+
+    uint32_t vrouter_max_oflow_entries() const {
+        return vrouter_max_oflow_entries_;
+    }
+    void set_vrouter_max_oflow_entries(uint32_t value) {
+        vrouter_max_oflow_entries_ = value;
+    }
     void set_vrouter_build_info(std::string version) {
         vrouter_build_info_ = version;
     }
@@ -1057,6 +1071,7 @@ public:
 
     static uint16_t ProtocolStringToInt(const std::string &str);
     bool TbbKeepAwake();
+    VrouterObjectLimits GetVrouterObjectLimits();
 private:
 
     AgentParam *params_;
@@ -1242,6 +1257,10 @@ private:
     //Bridge entries that can be porgrammed in vrouter
     uint32_t vrouter_max_bridge_entries_;
     uint32_t vrouter_max_oflow_bridge_entries_;
+    //Max Flow entries
+    uint32_t vrouter_max_flow_entries_;
+    //Max OverFlow entries
+    uint32_t vrouter_max_oflow_entries_;
     std::string vrouter_build_info_;
     FlowStatsReqHandler flow_stats_req_handler_;
 

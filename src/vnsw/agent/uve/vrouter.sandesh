@@ -13,6 +13,7 @@
 include "base/sandesh/cpuinfo.sandesh"
 include "base/sandesh/process_info.sandesh"
 include "sandesh/library/common/derived_stats_results.sandesh"
+include "vnsw/agent/oper/agent.sandesh"
 
 /**
  * Sandesh definition for agent's xen server config
@@ -123,6 +124,7 @@ struct VrouterAgent {  // Agent info
    49: optional list<string> unmanaged_if_list;
    50: optional u32 vn_count; //being sent for UI dashboard optimization
    51: optional string platform;
+   52: optional agent.VrouterObjectLimits vr_limits;
 }
 
 /**
