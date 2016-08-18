@@ -525,6 +525,8 @@ void InstanceManager::ScheduleNextTask(InstanceTaskQueue *task_queue) {
 
             if (delay >= (netns_timeout_ * 2)) {
                task->Terminate();
+               if (task->IsSetup())
+                   return;
             } else {
                task->Stop();
                return;
