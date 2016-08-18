@@ -77,6 +77,8 @@ void KSyncFlowMemory::Init() {
     audit_yield_ = flow_table_count / timer_per_sweep;
     if (audit_yield_ > kAuditYieldMax)
         audit_yield_ = kAuditYieldMax;
+    if (audit_yield_ < kAuditYieldMin)
+        audit_yield_ = kAuditYieldMin;
 
     audit_timer_->Start(audit_interval_,
                         boost::bind(&KSyncFlowMemory::AuditProcess, this));
