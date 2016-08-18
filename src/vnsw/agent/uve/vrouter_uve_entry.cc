@@ -263,6 +263,16 @@ bool VrouterUveEntry::SendVrouterMsg() {
         prev_flow_setup_rate_export_time_ = cur_time;
     }
 
+    DerivedStatsMap ifmap_stats;
+    FetchIFMapStats(ifmap_stats);
+    if (prev_stats_.get_ifmap_stats_agg().get_counters() != ifmap_stats) {
+        CategoryResult cr;
+        cr.set_counters(ifmap_stats);
+        stats.set_ifmap_stats_agg(cr);
+        prev_stats_.set_ifmap_stats_agg(cr);
+        change = true;
+    }
+
     if (change) {
         DispatchVrouterStatsMsg(stats);
     }
@@ -481,6 +491,20 @@ void VrouterUveEntry::FetchDropStats(DerivedStatsMap &ds) const {
     ds.insert(DerivedStatsPair("l2_no_route", req.get_vds_l2_no_route()));
     ds.insert(DerivedStatsPair("vlan_fwd_tx", req.get_vds_vlan_fwd_tx()));
     ds.insert(DerivedStatsPair("vlan_fwd_enq", req.get_vds_vlan_fwd_enq()));
+}
+
+void VrouterUveEntry::FetchIFMapStats(DerivedStatsMap &ds) const {
+    IFMapAgentParser *parser = agent_->cfg()->cfg_parser();
+    if (parser) {
+        ds.insert(DerivedStatsPair("node_update_parse_errors",
+                                   parser->node_update_parse_errors()));
+        ds.insert(DerivedStatsPair("link_update_parse_errors",
+                                   parser->link_update_parse_errors()));
+        ds.insert(DerivedStatsPair("node_delete_parse_errors",
+                                   parser->node_delete_parse_errors()));
+        ds.insert(DerivedStatsPair("link_delete_parse_errors",
+                                   parser->link_delete_parse_errors()));
+    }
 }
 
 void VrouterUveEntry::BuildXmppStatsList(vector<AgentXmppStats> &list) const {

@@ -244,6 +244,8 @@ struct VrouterStatsAgent {  // Agent stats
     53: optional map<string,derived_stats_results.EWMResult> out_bps_ewm (mstats="phy_band_out_bps:DSEWM:0.2")
     54: optional derived_stats_results.CategoryResult drop_stats_agg (hidden="yes")
     55: optional derived_stats_results.CategoryResult drop_stats_diff (stats="drop_stats_agg:DSCategoryCount:", tags="")
+    56: optional derived_stats_results.CategoryResult ifmap_stats_agg (hidden="yes")
+    57: optional derived_stats_results.CategoryResult ifmap_stats_diff (stats="ifmap_stats_agg:DSCategoryCount:", tags="")
 }
 
 /**
