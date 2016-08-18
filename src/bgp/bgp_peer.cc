@@ -660,6 +660,11 @@ BgpPeer::~BgpPeer() {
     peer_stats_data.set_deleted(true);
     PeerStatsUve::Send(peer_stats_data, "ObjectBgpPeer");
 
+    PeerFlapData peer_flap_data;
+    peer_flap_data.set_name(ToUVEKey());
+    peer_flap_data.set_deleted(true);
+    PeerFlap::Send(peer_flap_data, "ObjectBgpPeer");
+
     BGP_LOG_PEER(Event, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
         BGP_PEER_DIR_NA, "Deleted");
 }
