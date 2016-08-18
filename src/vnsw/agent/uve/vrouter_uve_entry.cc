@@ -271,11 +271,55 @@ bool VrouterUveEntry::SendVrouterMsg() {
         prev_flow_setup_rate_export_time_ = cur_time;
     }
 
+    AgentIFMapStats ifmap_stats;
+    if (BuildIFMapStats(ifmap_stats)) {
+        change = true;
+        stats.set_ifmap_stats(ifmap_stats);
+    }
+
     if (change) {
         DispatchVrouterStatsMsg(stats);
     }
     first = false;
     return true;
+}
+
+bool VrouterUveEntry::BuildIFMapStats(AgentIFMapStats &s) {
+    uint64_t node_updates, link_updates, node_deletes, link_deletes;
+    IFMapAgentParser *parser = agent_->cfg()->cfg_parser();
+    if (parser) {
+        uint64_t total_node_updates = parser->node_update_parse_errors();
+        uint64_t total_link_updates = parser->link_update_parse_errors();
+        uint64_t total_node_deletes = parser->node_delete_parse_errors();
+        uint64_t total_link_deletes = parser->link_delete_parse_errors();
+
+        node_updates = total_node_updates -
+            prev_ifmap_stats_.node_update_parse_errors;
+
+        link_updates = total_link_updates -
+            prev_ifmap_stats_.link_update_parse_errors;
+
+        node_deletes = total_node_deletes -
+            prev_ifmap_stats_.node_delete_parse_errors;
+
+        link_deletes = total_link_deletes -
+            prev_ifmap_stats_.link_delete_parse_errors;
+
+        if (node_updates || link_updates || node_deletes || link_deletes) {
+            s.set_node_update_parse_errors(node_updates);
+            s.set_link_update_parse_errors(link_updates);
+            s.set_node_delete_parse_errors(node_deletes);
+            s.set_link_delete_parse_errors(link_deletes);
+            /* Update the prev stats */
+            prev_ifmap_stats_.set_node_update_parse_errors(total_node_updates);
+            prev_ifmap_stats_.set_link_update_parse_errors(total_link_updates);
+            prev_ifmap_stats_.set_node_delete_parse_errors(total_node_deletes);
+            prev_ifmap_stats_.set_link_delete_parse_errors(total_link_deletes);
+
+            return true;
+        }
+    }
+    return false;
 }
 
 uint64_t VrouterUveEntry::CalculateBandwitdh(uint64_t bytes, int speed_mbps,
