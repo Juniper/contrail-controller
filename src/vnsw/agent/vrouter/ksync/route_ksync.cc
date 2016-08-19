@@ -617,7 +617,7 @@ int RouteKSyncEntry::DeleteMsg(char *buf, int buf_len) {
             route = static_cast<RouteKSyncEntry *>(found);
             if (route->IsResolved()) {
                 ksync_nh = route->nh();
-                if(ksync_nh && ksync_nh->IsResolved()) {
+                if(ksync_nh) {
                     return DeleteInternal(ksync_nh, route, buf, buf_len);
                 }
                 ksync_nh = NULL;
