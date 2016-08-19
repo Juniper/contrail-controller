@@ -80,6 +80,7 @@ public:
     uint8_t evict_gen_id() { return evict_gen_id_; }
     void set_evict_gen_id(uint8_t gen_id) { evict_gen_id_ = gen_id; }
     uint8_t vrouter_gen_id() { return vrouter_gen_id_; }
+    uint32_t vrouter_hash_id() const { return vrouter_hash_id_; }
     FlowEvent::Event last_event() const { return last_event_; }
     void ReleaseToken();
     void ResetKSyncResponseInfo() {
@@ -114,6 +115,12 @@ private:
     uint8_t gen_id_;  // contains the last propagated genid from flow module
     uint8_t evict_gen_id_;  // contains current active gen-id in vrouter
     uint8_t vrouter_gen_id_;  // Used to identify the last genid sent to vrouter
+
+    // used to identify last flow index sent to vrouter
+    // helps in knowing whether the vrouter response is index
+    // allocation or not
+    uint32_t vrouter_hash_id_;
+
     uint32_t hash_id_;
     uint32_t old_reverse_flow_id_;
     uint32_t old_action_;
