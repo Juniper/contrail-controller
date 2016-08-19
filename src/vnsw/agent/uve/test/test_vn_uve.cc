@@ -53,6 +53,7 @@ class UveVnUveTest : public ::testing::Test {
 public:
     UveVnUveTest() : util_() {
         peer_ = CreateBgpPeer("127.0.0.1", "Bgp Peer");
+        agent_ = Agent::GetInstance();
     }
     virtual ~UveVnUveTest() {
         DeleteBgpPeer(peer_);
@@ -60,7 +61,7 @@ public:
     bool InterVnStatsMatch(const string &svn, const string &dvn, uint32_t pkts,
                            uint32_t bytes, bool out) {
         VnUveTableTest *vut = static_cast<VnUveTableTest *>
-        (Agent::GetInstance()->uve()->vn_uve_table());
+        (agent_->uve()->vn_uve_table());
         const VnUveEntry::VnStatsSet *stats_set = vut->FindInterVnStats(svn);
 
         if (!stats_set) {
@@ -82,7 +83,7 @@ public:
         return false;
     }
     void FlowSetUp() {
-        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+        EXPECT_EQ(0U, agent_->pkt()->flow_table()->Size());
         client->Reset();
         CreateVmportEnv(input, 2, 1);
         client->WaitForIdle(5);
@@ -106,27 +107,28 @@ public:
         client->WaitForIdle(3);
         WAIT_FOR(1000, 1000, (VmPortFind(input, 0) == false));
         WAIT_FOR(1000, 1000, (VmPortFind(input, 1) == false));
-        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+        EXPECT_EQ(0U, agent_->pkt()->flow_table()->Size());
     }
 
     void AclAdd(int id) {
         char acl_name[80];
 
         sprintf(acl_name, "acl%d", id);
-        uint32_t count = Agent::GetInstance()->acl_table()->Size();
+        uint32_t count = agent_->acl_table()->Size();
         client->Reset();
         AddAcl(acl_name, id);
         EXPECT_TRUE(client->AclNotifyWait(1));
-        EXPECT_EQ((count + 1), Agent::GetInstance()->acl_table()->Size());
+        EXPECT_EQ((count + 1), agent_->acl_table()->Size());
     }
 
     TestUveUtil util_;
     BgpPeer *peer_;
+    Agent *agent_;
 };
 
 TEST_F(UveVnUveTest, VnAddDel_1) {
     VnUveTableTest *vnut = static_cast<VnUveTableTest *>
-        (Agent::GetInstance()->uve()->vn_uve_table());
+        (agent_->uve()->vn_uve_table());
     //Add VN
     util_.VnAdd(1);
     client->WaitForIdle();
@@ -160,7 +162,7 @@ TEST_F(UveVnUveTest, VnIntfAddDel_1) {
     };
 
     VnUveTableTest *vnut = static_cast<VnUveTableTest *>
-        (Agent::GetInstance()->uve()->vn_uve_table());
+        (agent_->uve()->vn_uve_table());
     //Add VN
     util_.VnAdd(input[0].vn_id);
     client->WaitForIdle();
@@ -273,7 +275,7 @@ TEST_F(UveVnUveTest, VnIntfAddDel_1) {
 
 TEST_F(UveVnUveTest, VnChange_1) {
     VnUveTableTest *vnut = static_cast<VnUveTableTest *>
-        (Agent::GetInstance()->uve()->vn_uve_table());
+        (agent_->uve()->vn_uve_table());
     //Add VN
     util_.VnAdd(1);
     client->WaitForIdle();
@@ -354,7 +356,7 @@ TEST_F(UveVnUveTest, VnUVE_2) {
     };
 
     VnUveTableTest *vnut = static_cast<VnUveTableTest *>
-        (Agent::GetInstance()->uve()->vn_uve_table());
+        (agent_->uve()->vn_uve_table());
     //Create VM, VN, VRF and Vmport
     CreateVmportEnv(input, 2);
     client->WaitForIdle();
@@ -431,7 +433,7 @@ TEST_F(UveVnUveTest, VnUVE_3) {
     };
 
     VnUveTableTest *vnut = static_cast<VnUveTableTest *>
-        (Agent::GetInstance()->uve()->vn_uve_table());
+        (agent_->uve()->vn_uve_table());
     vnut->ClearCount();
     //Create VM, VN, VRF and Vmport
     CreateVmportEnv(input, 2);
@@ -530,7 +532,7 @@ TEST_F(UveVnUveTest, FlowCount_1) {
     KSyncSockTypeMap *ksock = KSyncSockTypeMap::GetKSyncSockTypeMap();
     EXPECT_EQ(0U, ksock->flow_map.size());
     VnUveTableTest *vnut = static_cast<VnUveTableTest *>
-        (Agent::GetInstance()->uve()->vn_uve_table());
+        (agent_->uve()->vn_uve_table());
     vnut->ClearCount();
     FlowSetUp();
     TestFlow flow[] = {
@@ -553,13 +555,13 @@ TEST_F(UveVnUveTest, FlowCount_1) {
     };
 
     CreateFlow(flow, 2);
-    EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(4U, agent_->pkt()->flow_table()->Size());
 
     //Verify the ingress and egress flow counts
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
     const VnEntry *vn = fe->data().vn_entry.get();
-    Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
+    agent_->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(4U, in_count);
     EXPECT_EQ(4U, out_count);
 
@@ -574,7 +576,7 @@ TEST_F(UveVnUveTest, FlowCount_1) {
 
     DeleteFlow(flow, 1);
     WAIT_FOR(1000, 1000,
-             ((Agent::GetInstance()->pkt()->flow_table()->Size() == 2U)));
+             ((agent_->pkt()->flow_table()->Size() == 2U)));
     vnut->SendVnStats(false);
     EXPECT_EQ(2U, uve1->get_ingress_flow_count());
     EXPECT_EQ(2U, uve1->get_egress_flow_count());
@@ -598,7 +600,7 @@ TEST_F(UveVnUveTest, FlowCount_2) {
     KSyncSockTypeMap *ksock = KSyncSockTypeMap::GetKSyncSockTypeMap();
     EXPECT_EQ(0U, ksock->flow_map.size());
     VnUveTableTest *vnut = static_cast<VnUveTableTest *>
-        (Agent::GetInstance()->uve()->vn_uve_table());
+        (agent_->uve()->vn_uve_table());
     vnut->ClearCount();
     FlowSetUp();
 
@@ -633,7 +635,7 @@ TEST_F(UveVnUveTest, FlowCount_2) {
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
     const VnEntry *vn = fe->data().vn_entry.get();
-    Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
+    agent_->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
@@ -652,7 +654,7 @@ TEST_F(UveVnUveTest, FlowCount_2) {
     //Delete a flow
     DeleteFlow(flow, 1);
     WAIT_FOR(1000, 1000,
-             ((Agent::GetInstance()->pkt()->flow_table()->Size() == 2U)));
+             ((agent_->pkt()->flow_table()->Size() == 2U)));
 
     //Trigger VN UVE send
     vnut->SendVnStats(false);
@@ -685,7 +687,7 @@ TEST_F(UveVnUveTest, FipCount) {
     };
 
     VnUveTableTest *vnut = static_cast<VnUveTableTest *>
-        (Agent::GetInstance()->uve()->vn_uve_table());
+        (agent_->uve()->vn_uve_table());
     //Add VN
     util_.VnAdd(input[0].vn_id);
     // Nova Port add message
@@ -871,7 +873,7 @@ TEST_F(UveVnUveTest, VnVrfAssoDisassoc_1) {
     };
 
     VnUveTableTest *vnut = static_cast<VnUveTableTest *>
-        (Agent::GetInstance()->uve()->vn_uve_table());
+        (agent_->uve()->vn_uve_table());
     //Add VN
     util_.VnAdd(input[0].vn_id);
     client->WaitForIdle();
@@ -940,7 +942,7 @@ TEST_F(UveVnUveTest, LinkLocalVn_Xen) {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
 
-    Agent *agent = Agent::GetInstance();
+    Agent *agent = agent_;
     VnUveTableTest *vnut = static_cast<VnUveTableTest *>
         (agent->uve()->vn_uve_table());
     //Add VN
@@ -1060,7 +1062,7 @@ TEST_F(UveVnUveTest, InterVnStats_1) {
     EXPECT_EQ(0U, ksock->flow_map.size());
 
     VnUveTableTest *vnut = static_cast<VnUveTableTest *>
-        (Agent::GetInstance()->uve()->vn_uve_table());
+        (agent_->uve()->vn_uve_table());
     vnut->ClearCount();
     FlowSetUp();
     TestFlow flow[] = {
@@ -1083,7 +1085,7 @@ TEST_F(UveVnUveTest, InterVnStats_1) {
     };
 
     CreateFlow(flow, 2);
-    EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(4U, agent_->pkt()->flow_table()->Size());
 
     //Invoke FlowStatsCollector to update the stats
     util_.EnqueueFlowStatsCollectorTask();
@@ -1159,7 +1161,7 @@ TEST_F(UveVnUveTest, VnBandwidth) {
     EXPECT_EQ(0U, ksock->flow_map.size());
 
     VnUveTableTest *vnut = static_cast<VnUveTableTest *>
-        (Agent::GetInstance()->uve()->vn_uve_table());
+        (agent_->uve()->vn_uve_table());
     vnut->ClearCount();
     FlowSetUp();
     TestFlow flow[] = {
@@ -1182,7 +1184,7 @@ TEST_F(UveVnUveTest, VnBandwidth) {
     };
 
     CreateFlow(flow, 2);
-    EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(4U, agent_->pkt()->flow_table()->Size());
 
     //Invoke FlowStatsCollector to update the stats
     util_.EnqueueFlowStatsCollectorTask();
@@ -1240,7 +1242,7 @@ TEST_F(UveVnUveTest, VnChangeForIntf_1) {
     };
 
     VnUveTableTest *vnut = static_cast<VnUveTableTest *>
-        (Agent::GetInstance()->uve()->vn_uve_table());
+        (agent_->uve()->vn_uve_table());
     int old_vn_uve_count = vnut->VnUveCount();
     //Add VN
     util_.VnAdd(input[0].vn_id);
