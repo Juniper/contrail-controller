@@ -277,8 +277,14 @@ void VnUveTableBase::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e)
             e->SetState(partition->parent(), intf_listener_id_, state);
             InterfaceAddHandler(vn, vm_port, vm_name, state);
         } else {
-            /* Change in VN name is not supported now */
-            assert(state->vn_name_.compare(vn->GetName()) == 0);
+            if (state->vn_name_.compare(vn->GetName()) != 0) {
+                InterfaceDeleteHandler(state->vm_name_, state->vn_name_,
+                                       vm_port);
+                state->vm_name_ = vm_name;
+                state->vn_name_ = vn->GetName();
+                InterfaceAddHandler(vn, vm_port, vm_name, state);
+                return;
+            }
             if (state->vm_name_.compare(vm_name) != 0) {
                 InterfaceAddHandler(vn, vm_port, vm_name, state);
                 state->vm_name_ = vm_name;
