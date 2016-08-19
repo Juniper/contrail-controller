@@ -1779,6 +1779,8 @@ class VncApiServer(object):
         return self.re_uuid.match(uuid) == None
     def invalid_access(self, access):
         return type(access) is not int or access not in range(0,8)
+    def invalid_share_type(self, share_type):
+        return share_type not in cfgm_common.PERMS2_VALID_SHARE_TYPES
 
     # change ownership of an object
     def obj_chown_http_post(self):
@@ -1862,7 +1864,12 @@ class VncApiServer(object):
         if share is not None:
             try:
                 for item in share:
-                    if self.invalid_uuid(item['tenant']) or self.invalid_access(item['tenant_access']):
+                    """
+                    item['tenant'] := [<share_type>:] <uuid>
+                    share_type := ['domain' | 'tenant']
+                    """
+                    (share_type, share_id) = cfgm_common.utils.shareinfo_from_perms2_tenant(item['tenant'])
+                    if self.invalid_share_type(share_type) or self.invalid_uuid(share_id) or self.invalid_access(item['tenant_access']):
                         raise cfgm_common.exceptions.HttpError(
                             400, "Bad Request, invalid share list")
             except Exception as e:
@@ -3435,6 +3442,15 @@ class VncApiServer(object):
     @property
     def global_read_only_role(self):
         return self._args.global_read_only_role
+
+    def keystone_version(self):
+        k_v = 'v2.0'
+        try:
+            if 'v3' in self._args.auth_url:
+                k_v = 'v3'
+        except AttributeError:
+            pass
+        return k_v
 
     def publish_self_to_discovery(self):
         # publish API server

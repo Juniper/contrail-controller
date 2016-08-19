@@ -1592,10 +1592,35 @@ class NetworkIpamServer(Resource, NetworkIpam):
 
 # end class NetworkIpamServer
 
+class ServiceTemplateServer(Resource, ServiceTemplate):
+    generate_default_instance = False
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        # enable domain level sharing for service template
+        domain_uuid = obj_dict.get('parent_uuid')
+        if domain_uuid is None:
+            domain_uuid = db_conn.fq_name_to_uuid('domain', obj_dict['fq_name'][0:1])
+        share_item = {
+            'tenant': 'domain:%s' % domain_uuid,
+            'tenant_access': PERMS_R
+        }
+        obj_dict['perms2']['share'].append(share_item)
+        return (True, "")
+    # end pre_dbe_create
 
 class VirtualDnsServer(Resource, VirtualDns):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        # enable domain level sharing for virtual DNS
+        domain_uuid = obj_dict.get('parent_uuid')
+        if domain_uuid is None:
+            domain_uuid = db_conn.fq_name_to_uuid('domain', obj_dict['fq_name'][0:1])
+        share_item = {
+            'tenant': 'domain:%s' % domain_uuid,
+            'tenant_access': PERMS_R
+        }
+        obj_dict['perms2']['share'].append(share_item)
         return cls.validate_dns_server(obj_dict, db_conn)
     # end pre_dbe_create
 

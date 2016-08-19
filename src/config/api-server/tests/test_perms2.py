@@ -197,12 +197,13 @@ def vnc_aal_add_rule(vnc, rg, rule_str):
     vnc.api_access_list_update(rg)
 
 def token_from_user_info(user_name, tenant_name, domain_name, role_name,
-        tenant_id = None):
+        tenant_id = None, domain_id = None):
     token_dict = {
         'X-User': user_name,
         'X-User-Name': user_name,
         'X-Project-Name': tenant_name,
         'X-Project-Id': tenant_id or '',
+        'X-Domain-Id' : domain_id or '',
         'X-Domain-Name' : domain_name,
         'X-Role': role_name,
     }
@@ -218,13 +219,17 @@ class MyVncApi(VncApi):
         self._tenant_name = tenant_name
         self._tenant_id = tenant_id
         self._user_role = user_role
+        self._domain_id = None
         VncApi.__init__(self, username = username, password = password,
             tenant_name = tenant_name, api_server_host = api_server_host,
             api_server_port = api_server_port)
 
+    def set_domain_id(self, domain_id):
+        self._domain_id = domain_id
+
     def _authenticate(self, response=None, headers=None):
         rval = token_from_user_info(self._username, self._tenant_name,
-            'default-domain', self._user_role, self._tenant_id)
+            'default-domain', self._user_role, self._tenant_id, self._domain_id)
         new_headers = headers or {}
         new_headers['X-AUTH-TOKEN'] = rval
         self._auth_token = rval
@@ -294,6 +299,8 @@ class TestPermissions(test_case.ApiServerTestCase):
             # read projects back
             user.project_obj = vnc_read_obj(self.admin.vnc_lib,
                 'project', obj_uuid = user.project_uuid)
+            user.domain_id = user.project_obj.parent_uuid
+            user.vnc_lib.set_domain_id(user.project_obj.parent_uuid)
 
             logger.info( 'Change owner of project %s to %s' % (user.project, user.project_uuid))
             set_perms(user.project_obj, owner=user.project_uuid, share = [])
@@ -647,6 +654,112 @@ class TestPermissions(test_case.ApiServerTestCase):
         expected = set([self.vn_name])
         received = set([item['fq_name'][-1] for item in y['virtual-networks']])
         self.assertEquals(expected, received)
+
+    def test_shared_access(self):
+        logger.info('')
+        logger.info( '########### API ACCESS (CREATE) ##################')
+
+        alice = self.alice
+        bob   = self.bob
+        admin = self.admin
+        self.vn_name = "alice-vn-%s" % self.id()
+
+        # allow permission to create virtual-network
+        for user in self.users:
+            logger.info( "%s: project %s to allow full access to role %s" % \
+                (user.name, user.project, user.role))
+            # note that collection API is set for create operation
+            user.proj_rg = vnc_aal_create(self.admin.vnc_lib, user.project_obj)
+            vnc_aal_add_rule(self.admin.vnc_lib, user.proj_rg,
+                rule_str = '* %s:CRUD' % user.role)
+
+        logger.info( 'alice: create VN in her project')
+        vn = VirtualNetwork(self.vn_name, self.alice.project_obj)
+        self.alice.vnc_lib.virtual_network_create(vn)
+        vn = vnc_read_obj(self.alice.vnc_lib, 'virtual-network', name = vn.get_fq_name())
+
+        logger.info( 'Reading VN as bob ... should fail')
+        try:
+            net_obj = bob.vnc_lib.virtual_network_read(id=vn.get_uuid())
+            self.assertTrue(False, 'Succeeded in reading VN. Test failed!')
+        except PermissionDenied as e:
+            self.assertTrue(True, 'Failed to read VN ... Test passed!')
+
+        logger.info( 'Enable default share in virtual network for bob project')
+        set_perms(vn, share = [(bob.project_uuid, PERMS_R)])
+        alice.vnc_lib.virtual_network_update(vn)
+
+        logger.info( 'Reading VN as bob ... should succeed')
+        try:
+            net_obj = bob.vnc_lib.virtual_network_read(id=vn.get_uuid())
+            self.assertTrue(True, 'Succeeded in reading VN. Test passed!')
+        except PermissionDenied as e:
+            self.assertTrue(False, 'Failed to read VN ... Test failed!')
+
+        logger.info('')
+        logger.info( 'Disable share in virtual networks for others')
+        set_perms(vn, share = [])
+        alice.vnc_lib.virtual_network_update(vn)
+
+        logger.info( 'Reading VN as bob ... should fail')
+        try:
+            net_obj = bob.vnc_lib.virtual_network_read(id=vn.get_uuid())
+            self.assertTrue(False, 'Succeeded in reading VN. Test failed!')
+        except PermissionDenied as e:
+            self.assertTrue(True, 'Failed to read VN ... Test passed!')
+
+        logger.info( 'Enable "tenant" scope share in virtual network for bob project')
+        set_perms(vn, share = [('tenant:'+bob.project_uuid, PERMS_R)])
+        alice.vnc_lib.virtual_network_update(vn)
+
+        logger.info( 'Reading VN as bob ... should succeed')
+        try:
+            net_obj = bob.vnc_lib.virtual_network_read(id=vn.get_uuid())
+            self.assertTrue(True, 'Succeeded in reading VN. Test passed!')
+        except PermissionDenied as e:
+            self.assertTrue(False, 'Failed to read VN ... Test failed!')
+
+        logger.info('')
+        logger.info( '########### READ (DISABLE READ SHARING) ##################')
+        logger.info( 'Disable share in virtual networks for others')
+        set_perms(vn, share = [])
+        alice.vnc_lib.virtual_network_update(vn)
+
+        logger.info( 'Reading VN as bob ... should fail')
+        try:
+            net_obj = bob.vnc_lib.virtual_network_read(id=vn.get_uuid())
+            self.assertTrue(False, 'Succeeded in reading VN. Test failed!')
+        except PermissionDenied as e:
+            self.assertTrue(True, 'Failed to read VN ... Test passed!')
+
+        logger.info( 'Enable domain scope share in virtual network for bob domain')
+        set_perms(vn, share = [('domain:'+bob.domain_id, PERMS_R)])
+        alice.vnc_lib.virtual_network_update(vn)
+
+        logger.info( 'Reading VN as bob ... should succeed')
+        try:
+            net_obj = bob.vnc_lib.virtual_network_read(id=vn.get_uuid())
+            self.assertTrue(True, 'Succeeded in reading VN. Test passed!')
+        except PermissionDenied as e:
+            self.assertTrue(False, 'Failed to read VN ... Test failed!')
+
+        # validate virtual-dns enabled domain sharing by default
+        vdns = VirtualDns(name = "my-vDNS")
+        d = VirtualDnsType(domain_name = "test-domain", record_order = "fixed", default_ttl_seconds = 3600)
+        vdns.set_virtual_DNS_data(d)
+        admin.vnc_lib.virtual_DNS_create(vdns)
+        vdns = vnc_read_obj(admin.vnc_lib, 'virtual-DNS', name = vdns.get_fq_name())
+        dom = vnc_read_obj(admin.vnc_lib, 'domain', name = ['default-domain'])
+        share_set = set(["%s:%d" % (item.tenant, item.tenant_access) for item in vdns.get_perms2().share])
+        self.assertTrue('domain:%s:%d' % (dom.uuid, PERMS_R) in share_set, "Domain scope not set in VDNS share list")
+
+        # validate service template enabled domain sharing by default
+        st = ServiceTemplate(name = "my-st")
+        admin.vnc_lib.service_template_create(st)
+        st = vnc_read_obj(admin.vnc_lib, 'service-template', name = st.get_fq_name())
+        dom = vnc_read_obj(admin.vnc_lib, 'domain', name = ['default-domain'])
+        share_set = set(["%s:%d" % (item.tenant, item.tenant_access) for item in vdns.get_perms2().share])
+        self.assertTrue('domain:%s:%d' % (dom.uuid, PERMS_R) in share_set, "Domain scope not set in VDNS share list")
 
     def test_check_obj_perms_api(self):
         logger.info('')
