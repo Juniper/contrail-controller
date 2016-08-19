@@ -111,15 +111,17 @@ VncApi::hex_dump(std::string s)
 void
 VncApi::Reauthenticate(RespBlock *orb)
 {
-    RespBlock *rb = new RespBlock(client_->CreateConnection(ks_ep_),
-            "v2.0/tokens", 0);
-    std::ostringstream pstrm;
-    pstrm << "{\"auth\": {\"passwordCredentials\": {\"username\": \"" <<
-        cfg_->user << "\", \"password\": \"" << cfg_->password <<
-        "\"}, \"tenantName\": \"" << cfg_->tenant << "\"}}";
-    rb->GetConnection()->HttpPost(pstrm.str(), rb->GetUri(), false, false,
-            true, kshdr_, boost::bind(&VncApi::KsRespHandler,
-            shared_from_this(), rb, orb, _1, _2));
+    if (client_) {
+        RespBlock *rb = new RespBlock(client_->CreateConnection(ks_ep_),
+                "v2.0/tokens", 0);
+        std::ostringstream pstrm;
+        pstrm << "{\"auth\": {\"passwordCredentials\": {\"username\": \"" <<
+            cfg_->user << "\", \"password\": \"" << cfg_->password <<
+            "\"}, \"tenantName\": \"" << cfg_->tenant << "\"}}";
+        rb->GetConnection()->HttpPost(pstrm.str(), rb->GetUri(), false, false,
+                true, kshdr_, boost::bind(&VncApi::KsRespHandler,
+                shared_from_this(), rb, orb, _1, _2));
+    }
 }
 
 bool
@@ -133,32 +135,39 @@ void
 VncApi::KsRespHandler(RespBlock *rb, RespBlock *orb, std::string &str,
         boost::system::error_code &ec)
 {
-    if (str == "") {
-        if (rb->GetConnection()->Status() == 200) {
-            rapidjson::Document jdoc;
-            jdoc.Parse<0>(rb->GetBody().c_str());
-            if (jdoc.IsObject() && jdoc.HasMember("access")) {
-                std::string token = jdoc["access"]["token"]["id"].GetString();
-                if (!token.empty()) {
-                    hdr_.erase(std::remove_if(hdr_.begin(), hdr_.end(),
-                        boost::bind(&VncApi::CondTest,
-                            shared_from_this(), _1)), hdr_.end());
-                    hdr_.push_back(std::string("X-AUTH-TOKEN: ") + token);
-                    orb->GetConnection()->HttpGet(orb->GetUri(), false, false,
-                            true, hdr_, boost::bind(&VncApi::RespHandler,
-                            shared_from_this(), orb, _1, _2));
-                    client_->RemoveConnection(rb->GetConnection());
-                    delete rb;
-                    return;
+    if (client_) {
+        if (str == "") {
+            if (rb->GetConnection()->Status() == 200) {
+                rapidjson::Document jdoc;
+                jdoc.Parse<0>(rb->GetBody().c_str());
+                if (jdoc.IsObject() && jdoc.HasMember("access")) {
+                    std::string token = jdoc["access"]["token"]["id"]
+                        .GetString();
+                    if (!token.empty()) {
+                        hdr_.erase(std::remove_if(hdr_.begin(), hdr_.end(),
+                            boost::bind(&VncApi::CondTest,
+                                shared_from_this(), _1)), hdr_.end());
+                        hdr_.push_back(std::string("X-AUTH-TOKEN: ") + token);
+                        orb->GetConnection()->HttpGet(orb->GetUri(), false,
+                                false, true, hdr_, boost::bind(
+                                    &VncApi::RespHandler,
+                                shared_from_this(), orb, _1, _2));
+                        client_->RemoveConnection(rb->GetConnection());
+                        delete rb;
+                        return;
+                    }
                 }
             }
+            client_->RemoveConnection(orb->GetConnection());
+            delete orb;
+            client_->RemoveConnection(rb->GetConnection());
+            delete rb;
+        } else {
+            rb->AddBody(str);
         }
-        client_->RemoveConnection(orb->GetConnection());
-        delete orb;
-        client_->RemoveConnection(rb->GetConnection());
-        delete rb;
     } else {
-        rb->AddBody(str);
+        delete orb;
+        delete rb;
     }
 }
 
@@ -219,6 +228,7 @@ VncApi::Stop()
 {
     std::cout  << "VncApi::Stop\n";
     TcpServerManager::DeleteServer(client_);
+    client_ = 0;
     {
         hdr_.clear();
         kshdr_.clear();
@@ -234,42 +244,48 @@ VncApi::GetConfig(std::string type, std::vector<std::string> ids,
             std::string reason,
             std::map<std::string, std::string> *headers)> cb)
 {
-    RespBlock *rb = new RespBlock(client_->CreateConnection(api_ep_),
-            MakeUri(type, ids, filters, parents, refs, fields), cb);
-    rb->GetConnection()->HttpGet(rb->GetUri(), false, false, true, hdr_,
-            boost::bind(&VncApi::RespHandler, shared_from_this(),
+    if (client_) {
+        RespBlock *rb = new RespBlock(client_->CreateConnection(api_ep_),
+                MakeUri(type, ids, filters, parents, refs, fields), cb);
+        rb->GetConnection()->HttpGet(rb->GetUri(), false, false, true, hdr_,
+                boost::bind(&VncApi::RespHandler, shared_from_this(),
                         rb, _1, _2));
+    }
 }
 
 void
 VncApi::RespHandler(RespBlock *rb, std::string &str,
         boost::system::error_code &ec)
 {
-    hex_dump(str);
 #ifdef __DEBUG__
+    hex_dump(str);
     rb->ShowDetails();
     std::cout << "\n" << str << "\nErr: " << ec << std::endl;
 #endif // __DEBUG__
-    if (str == "") {
-        if (rb->GetConnection()->Status() == 401) {
-            // retry
-            // client_->RemoveConnection(rb->GetConnection());
-            // rb->Clear(client_->CreateConnection(api_ep_));
-            rb->Clear();
-            Reauthenticate(rb);
+    if (client_) {
+        if (str == "") {
+            if (rb->GetConnection()->Status() == 401) {
+                // retry
+                // client_->RemoveConnection(rb->GetConnection());
+                // rb->Clear(client_->CreateConnection(api_ep_));
+                rb->Clear();
+                Reauthenticate(rb);
+            } else {
+                rapidjson::Document jdoc;
+                if (rb->GetConnection()->Status() == 200)
+                    jdoc.Parse<0>(rb->GetBody().c_str());
+                rb->GetCallBack()(jdoc, ec,
+                        rb->GetConnection()->Version(),
+                        rb->GetConnection()->Status(),
+                        rb->GetConnection()->Reason(),
+                        rb->GetConnection()->Headers());
+                client_->RemoveConnection(rb->GetConnection());
+                delete rb;
+            }
         } else {
-            rapidjson::Document jdoc;
-            if (rb->GetConnection()->Status() == 200)
-                jdoc.Parse<0>(rb->GetBody().c_str());
-            rb->GetCallBack()(jdoc, ec,
-                    rb->GetConnection()->Version(),
-                    rb->GetConnection()->Status(),
-                    rb->GetConnection()->Reason(),
-                    rb->GetConnection()->Headers());
-            client_->RemoveConnection(rb->GetConnection());
-            delete rb;
+            rb->AddBody(str);
         }
     } else {
-        rb->AddBody(str);
+        delete rb;
     }
 }
