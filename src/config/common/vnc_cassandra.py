@@ -225,7 +225,7 @@ class VncCassandraClient(object):
                            "(error: %s). Use it as is: %s" %
                            (cf_name, key, str(e),
                             val if not timestamp else val[0]))
-                    self._logger(msg, level=SandeshLevel.SYS_WARN)
+                    self._logger(msg, level=SandeshLevel.SYS_INFO)
                     results[key][col] = val
 
         return results
