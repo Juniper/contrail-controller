@@ -2,6 +2,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 import sys
+import cfgm_common
 from cfgm_common import jsonutils as json
 import string
 import uuid
@@ -98,11 +99,16 @@ class VncPermissions(object):
 
         env = request.headers.environ
         tenant = env.get('HTTP_X_PROJECT_ID', None)
+        domain = env.get('HTTP_X_DOMAIN_ID', None)
         tenant_name = env.get('HTTP_X_PROJECT_NAME', '*')
         if tenant is None:
             msg = "rbac: Unable to find tenant id in headers"
             self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
             return (False, err_msg)
+
+        tenant = tenant.replace('-','')
+        if domain:
+            domain = domain.replace('-','')
 
         owner = perms2['owner']
         perms = perms2['owner_access'] << 6
@@ -110,13 +116,15 @@ class VncPermissions(object):
 
         # build perms
         mask = 07
-        if tenant.replace('-','') == owner.replace('-',''):
+        if tenant == owner.replace('-',''):
             mask |= 0700
 
         share = perms2['share']
         tenants = [item['tenant'] for item in share]
         for item in share:
-            if tenant.replace('-','') == item['tenant'].replace('-',''):
+            si = cfgm_common.utils.perms2_split_share_tenant(item['tenant'])
+            si[1] = si[1].replace('-','')
+            if ((si[0] == 'tenant' and tenant == si[1]) or (si[0] == 'domain' and domain == si[1])):
                 perms = perms | item['tenant_access'] << 3
                 mask |= 0070
                 break
