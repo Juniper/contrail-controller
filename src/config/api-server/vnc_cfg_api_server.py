@@ -1793,6 +1793,8 @@ class VncApiServer(object):
         return self.re_uuid.match(uuid) == None
     def invalid_access(self, access):
         return type(access) is not int or access not in range(0,8)
+    def invalid_share_type(self, share_type):
+        return share_type not in cfgm_common.PERMS2_VALID_SHARE_TYPES
 
     # change ownership of an object
     def obj_chown_http_post(self):
@@ -1876,7 +1878,8 @@ class VncApiServer(object):
         if share is not None:
             try:
                 for item in share:
-                    if self.invalid_uuid(item['tenant']) or self.invalid_access(item['tenant_access']):
+                    si = cfgm_common.utils.shareinfo_from_perms2_tenant(item['tenant'])
+                    if self.invalid_share_type(si[0]) or self.invalid_uuid(si[1]) or self.invalid_access(item['tenant_access']):
                         raise cfgm_common.exceptions.HttpError(
                             400, "Bad Request, invalid share list")
             except Exception as e:
@@ -2850,8 +2853,9 @@ class VncApiServer(object):
 
         # include objects shared with tenant
         env = get_request().headers.environ
-        tenant_uuid = env.get('HTTP_X_PROJECT_ID', None)
-        shares = self._db_conn.get_shared_objects(obj_type, tenant_uuid) if tenant_uuid else []
+        tenant_uuid = env.get('HTTP_X_PROJECT_ID')
+        domain_uuid = env.get('HTTP_X_DOMAIN_ID')
+        shares = self._db_conn.get_shared_objects(obj_type, tenant_uuid, domain_uuid) if tenant_uuid else []
         owned_objs = set([obj_uuid for (fq_name, obj_uuid) in result])
         for (obj_uuid, obj_perm) in shares:
             # skip owned objects already included in results

@@ -201,3 +201,19 @@ def getCertKeyCaBundle(bundle, certs):
                     ofile.write(line)
     return bundle
 # end CreateCertKeyCaBundle
+
+# <uuid> | "tenant-"<uuid> | "domain-"<uuid>
+def shareinfo_from_perms2_tenant(field):
+    x = field.split(":")
+    if len(x) == 1:
+        x.insert(0, "tenant")
+    return x
+# end
+
+def shareinfo_from_perms2(field):
+    x = field.split(":")
+    if len(x) == 2:
+        x.insert(0, "tenant")
+    return x
+# end
+
