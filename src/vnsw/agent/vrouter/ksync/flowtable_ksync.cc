@@ -121,6 +121,7 @@ void FlowTableKSyncEntry::Reset() {
     gen_id_ = 0;
     evict_gen_id_ = 0;
     vrouter_gen_id_ = 0;
+    vrouter_hash_id_ = FlowEntry::kInvalidFlowHandle;
     old_reverse_flow_id_ = FlowEntry::kInvalidFlowHandle;
     old_action_ = 0;
     old_component_nh_idx_ = 0xFFFF;
@@ -405,6 +406,11 @@ bool FlowTableKSyncEntry::Sync() {
 
     if (vrouter_gen_id_ != gen_id_) {
         vrouter_gen_id_ = gen_id_;
+        changed = true;
+    }
+
+    if (vrouter_hash_id_ != hash_id_) {
+        vrouter_hash_id_ = hash_id_;
         changed = true;
     }
 
