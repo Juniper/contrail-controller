@@ -2,6 +2,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 import sys
+import cfgm_common
 from cfgm_common import jsonutils as json
 import string
 import uuid
@@ -97,12 +98,19 @@ class VncPermissions(object):
             return (True, 'RWX')
 
         env = request.headers.environ
-        tenant = env.get('HTTP_X_PROJECT_ID', None)
+        tenant = env.get('HTTP_X_PROJECT_ID')
         tenant_name = env.get('HTTP_X_PROJECT_NAME', '*')
         if tenant is None:
             msg = "rbac: Unable to find tenant id in headers"
             self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
-            return (False, err_msg)
+
+        # grant access to default domain for keystone v2.0
+        domain = env.get('HTTP_X_DOMAIN_ID')
+        if domain is None and 'v2.0' in self._server_mgr._args.auth_url:
+            domain = self._db_conn.fq_name_to_uuid('domain', domain_name)
+
+        tenant = tenant.replace('-','')
+        domain = domain.replace('-','')
 
         owner = perms2['owner']
         perms = perms2['owner_access'] << 6
@@ -110,13 +118,17 @@ class VncPermissions(object):
 
         # build perms
         mask = 07
-        if tenant.replace('-','') == owner.replace('-',''):
+        if tenant == owner.replace('-',''):
             mask |= 0700
 
         share = perms2['share']
         tenants = [item['tenant'] for item in share]
         for item in share:
-            if tenant.replace('-','') == item['tenant'].replace('-',''):
+            # item['tenant'] => [share-type, uuid]
+            # allow access if domain or project from token matches configured sharing information
+            (share_type, share_uuid) = cfgm_common.utils.shareinfo_from_perms2_tenant(item['tenant'])
+            share_uuid = share_uuid.replace('-','')
+            if ((share_type == 'tenant' and tenant == share_uuid) or (share_type == 'domain' and domain == share_uuid)):
                 perms = perms | item['tenant_access'] << 3
                 mask |= 0070
                 break
