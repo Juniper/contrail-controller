@@ -1850,15 +1850,16 @@ class VncDbClient(object):
 
                 # delete sharing if no longer in shared list
                 for share_info in cur_shared_list - new_shared_list:
-                    share_info = share_info.split(":")
+                    # sharing information => [share-type, uuid, rwx bits]
+                    si = cfgm_common.utils.shareinfo_from_perms2(share_info)
                     self._cassandra_db.del_shared(obj_type, obj_uuid,
-                        share_id = share_info[0], share_type = 'tenant')
+                        share_id = si[1], share_type = si[0])
 
                 # share this object with specified tenants
                 for share_info in new_shared_list - cur_shared_list:
-                    share_info = share_info.split(":")
+                    si = cfgm_common.utils.shareinfo_from_perms2(share_info)
                     self._cassandra_db.set_shared(obj_type, obj_uuid,
-                        share_id = share_info[0], share_type = 'tenant', rwx = int(share_info[1]))
+                        share_id = si[1], share_type = si[0], rwx = int(si[2]))
 
                 return (ok, result)
             return wrapper2
@@ -2116,12 +2117,19 @@ class VncDbClient(object):
 
     # return all objects shared with us (tenant)
     # useful for collections
-    def get_shared_objects(self, obj_type, obj_uuid):
+    def get_shared_objects(self, obj_type, tenant_uuid, domain_uuid):
         shared = []
         # specifically shared with us
-        l1 = self._cassandra_db.get_shared(obj_type, share_id = obj_uuid, share_type = 'tenant')
-        if l1:
-            shared.extend(l1)
+        if tenant_uuid:
+            l1 = self._cassandra_db.get_shared(obj_type, share_id = tenant_uuid, share_type = 'tenant')
+            if l1:
+                shared.extend(l1)
+
+        # shared at domain level
+        if domain_uuid:
+            l1 = self._cassandra_db.get_shared(obj_type, share_id = domain_uuid, share_type = 'domain')
+            if l1:
+                shared.extend(l1)
 
         # globally shared
         l2 = self._cassandra_db.get_shared(obj_type)
