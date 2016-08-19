@@ -37,7 +37,6 @@ bool VrouterUveEntry::SendVrouterMsg() {
     static bool first = true;
     uint64_t max_add_rate = 0, min_add_rate = 0;
     uint64_t max_del_rate = 0, min_del_rate = 0;
-    bool change = false;
     VrouterStatsAgent stats;
 
     VrouterUveEntryBase::SendVrouterMsg();
@@ -48,28 +47,24 @@ bool VrouterUveEntry::SendVrouterMsg() {
         agent_->stats()->in_pkts() || first) {
         stats.set_in_tpkts(agent_->stats()->in_pkts());
         prev_stats_.set_in_tpkts(agent_->stats()->in_pkts());
-        change = true;
     }
 
     if (prev_stats_.get_in_bytes() !=
         agent_->stats()->in_bytes() || first) {
         stats.set_in_bytes(agent_->stats()->in_bytes());
         prev_stats_.set_in_bytes(agent_->stats()->in_bytes());
-        change = true;
     }
 
     if (prev_stats_.get_out_tpkts() !=
         agent_->stats()->out_pkts() || first) {
         stats.set_out_tpkts(agent_->stats()->out_pkts());
         prev_stats_.set_out_tpkts(agent_->stats()->out_pkts());
-        change = true;
     }
 
     if (prev_stats_.get_out_bytes() !=
         agent_->stats()->out_bytes() || first) {
         stats.set_out_bytes(agent_->stats()->out_bytes());
         prev_stats_.set_out_bytes(agent_->stats()->out_bytes());
-        change = true;
     }
 
     vector<AgentXmppStats> xmpp_list;
@@ -77,14 +72,12 @@ bool VrouterUveEntry::SendVrouterMsg() {
     if (prev_stats_.get_xmpp_stats_list() != xmpp_list) {
         stats.set_xmpp_stats_list(xmpp_list);
         prev_stats_.set_xmpp_stats_list(xmpp_list);
-        change = true;
     }
 
     if (prev_stats_.get_exception_packets() !=
         agent_->stats()->pkt_exceptions() || first) {
         stats.set_exception_packets(agent_->stats()->pkt_exceptions());
         prev_stats_.set_exception_packets(agent_->stats()->pkt_exceptions());
-        change = true;
     }
 
     if (prev_stats_.get_exception_packets_dropped() !=
@@ -92,7 +85,6 @@ bool VrouterUveEntry::SendVrouterMsg() {
         stats.set_exception_packets_dropped(agent_->stats()->pkt_dropped());
         prev_stats_.set_exception_packets_dropped(agent_->stats()->
                                                   pkt_dropped());
-        change = true;
     }
 
     uint64_t e_pkts_allowed = (agent_->stats()->pkt_exceptions() -
@@ -100,7 +92,6 @@ bool VrouterUveEntry::SendVrouterMsg() {
     if (prev_stats_.get_exception_packets_allowed() != e_pkts_allowed) {
         stats.set_exception_packets_allowed(e_pkts_allowed);
         prev_stats_.set_exception_packets_allowed(e_pkts_allowed);
-        change = true;
     }
 
     if (prev_stats_.get_total_flows() !=
@@ -108,14 +99,12 @@ bool VrouterUveEntry::SendVrouterMsg() {
         stats.set_total_flows(agent_->stats()->flow_created());
         prev_stats_.set_total_flows(agent_->stats()->
                                     flow_created());
-        change = true;
     }
 
     if (prev_stats_.get_aged_flows() !=
             agent_->stats()->flow_aged() || first) {
         stats.set_aged_flows(agent_->stats()->flow_aged());
         prev_stats_.set_aged_flows(agent_->stats()->flow_aged());
-        change = true;
     }
     uint64_t disable_drops =
         agent_->flow_stats_manager()->flow_export_disable_drops();
@@ -123,7 +112,6 @@ bool VrouterUveEntry::SendVrouterMsg() {
         first) {
         stats.set_flow_export_disable_drops(disable_drops);
         prev_stats_.set_flow_export_disable_drops(disable_drops);
-        change = true;
     }
     uint64_t sampling_drops =
         agent_->flow_stats_manager()->flow_export_sampling_drops();
@@ -131,14 +119,12 @@ bool VrouterUveEntry::SendVrouterMsg() {
         first) {
         stats.set_flow_export_sampling_drops(sampling_drops);
         prev_stats_.set_flow_export_sampling_drops(sampling_drops);
-        change = true;
     }
     uint64_t flow_drops =
         agent_->flow_stats_manager()->flow_export_drops();
     if ((prev_stats_.get_flow_export_drops() != flow_drops) || first) {
         stats.set_flow_export_drops(flow_drops);
         prev_stats_.set_flow_export_drops(flow_drops);
-        change = true;
     }
 
     vector<AgentIfStats> phy_if_list;
@@ -146,7 +132,6 @@ bool VrouterUveEntry::SendVrouterMsg() {
     if (prev_stats_.get_phy_if_stats_list() != phy_if_list) {
         stats.set_phy_if_stats_list(phy_if_list);
         prev_stats_.set_phy_if_stats_list(phy_if_list);
-        change = true;
     }
     bandwidth_count_++;
     if (first) {
@@ -164,7 +149,6 @@ bool VrouterUveEntry::SendVrouterMsg() {
          * always regardless of change in bandwidth or not */
         stats.set_phy_band_in_bps(inb);
         stats.set_phy_band_out_bps(outb);
-        change = true;
         if (in_util != prev_stats_.get_total_in_bandwidth_utilization()) {
             stats.set_total_in_bandwidth_utilization(in_util);
             prev_stats_.set_total_in_bandwidth_utilization(in_util);
@@ -182,7 +166,6 @@ bool VrouterUveEntry::SendVrouterMsg() {
         if (prev_stats_.get_phy_if_5min_usage() != phy_if_blist) {
             stats.set_phy_if_5min_usage(phy_if_blist);
             prev_stats_.set_phy_if_5min_usage(phy_if_blist);
-            change = true;
         }
     }
 
@@ -204,13 +187,10 @@ bool VrouterUveEntry::SendVrouterMsg() {
         if (prev_stats_.get_vhost_stats() != vhost_stats) {
             stats.set_vhost_stats(vhost_stats);
             prev_stats_.set_vhost_stats(vhost_stats);
-            change = true;
         }
     }
 
-    if (SetVrouterPortBitmap(stats)) {
-        change = true;
-    }
+    SetVrouterPortBitmap(stats);
 
     DerivedStatsMap ds;
     FetchDropStats(ds);
@@ -219,7 +199,6 @@ bool VrouterUveEntry::SendVrouterMsg() {
         cr.set_counters(ds);
         stats.set_drop_stats_agg(cr);
         prev_stats_.set_drop_stats_agg(cr);
-        change = true;
     }
     if (first) {
         stats.set_uptime(start_time_);
@@ -252,7 +231,6 @@ bool VrouterUveEntry::SendVrouterMsg() {
             flow_rate.set_active_flows(agent_->pkt()->get_flow_proto()->
                                        FlowCount());
             stats.set_flow_rate(flow_rate);
-            change = true;
             agent_->stats()->ResetFlowAddMinMaxStats(cur_time);
             agent_->stats()->ResetFlowDelMinMaxStats(cur_time);
             prev_flow_setup_rate_export_time_ = cur_time;
@@ -263,9 +241,11 @@ bool VrouterUveEntry::SendVrouterMsg() {
         prev_flow_setup_rate_export_time_ = cur_time;
     }
 
-    if (change) {
-        DispatchVrouterStatsMsg(stats);
-    }
+    DerivedStatsMap ifmap_stats;
+    FetchIFMapStats(ifmap_stats);
+    stats.set_raw_ifmap_stats(ifmap_stats);
+
+    DispatchVrouterStatsMsg(stats);
     first = false;
     return true;
 }
@@ -481,6 +461,20 @@ void VrouterUveEntry::FetchDropStats(DerivedStatsMap &ds) const {
     ds.insert(DerivedStatsPair("l2_no_route", req.get_vds_l2_no_route()));
     ds.insert(DerivedStatsPair("vlan_fwd_tx", req.get_vds_vlan_fwd_tx()));
     ds.insert(DerivedStatsPair("vlan_fwd_enq", req.get_vds_vlan_fwd_enq()));
+}
+
+void VrouterUveEntry::FetchIFMapStats(DerivedStatsMap &ds) const {
+    IFMapAgentParser *parser = agent_->cfg()->cfg_parser();
+    if (parser) {
+        ds.insert(DerivedStatsPair("node_update_parse_errors",
+                                   parser->node_update_parse_errors()));
+        ds.insert(DerivedStatsPair("link_update_parse_errors",
+                                   parser->link_update_parse_errors()));
+        ds.insert(DerivedStatsPair("node_delete_parse_errors",
+                                   parser->node_delete_parse_errors()));
+        ds.insert(DerivedStatsPair("link_delete_parse_errors",
+                                   parser->link_delete_parse_errors()));
+    }
 }
 
 void VrouterUveEntry::BuildXmppStatsList(vector<AgentXmppStats> &list) const {
