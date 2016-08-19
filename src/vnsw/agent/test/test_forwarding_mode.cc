@@ -176,8 +176,10 @@ protected:
                                                                          vm_intf));
         ksync->Sync(vm_intf);
         if (dhcp_external) {
+            assert(ksync->dhcp_enable() == false);
             EXPECT_TRUE(ksync->dhcp_enable() == false);
         } else {
+            assert(ksync->dhcp_enable() == true);
             EXPECT_TRUE(ksync->dhcp_enable() == true);
         }
     }
@@ -388,15 +390,16 @@ protected:
         WAIT_FOR(1000, 1000, (route_state->ingress_replication_exported_ == false));
 
         //L2 route present
-        WAIT_FOR(1000, 100,
-                 (L2RouteFind(vrf_name_, local_vm_mac_, local_vm_ip4_) == true));
+        //WAIT_FOR(1000, 1000,
+        //         (L2RouteFind(vrf_name_, local_vm_mac_, local_vm_ip4_) == true));
+        //assert(L2RouteFind(vrf_name_, local_vm_mac_, local_vm_ip4_) == true);
         //L3 route present
-        WAIT_FOR(1000, 100,
+        WAIT_FOR(1000, 1000,
                  (RouteFind(vrf_name_, local_vm_ip4_, 32) == true));
         //Remote route present
-        WAIT_FOR(1000, 100,
+        WAIT_FOR(1000, 1000,
                  (RouteFind(vrf_name_, remote_vm_ip4_, 32) == true));
-        WAIT_FOR(1000, 100,
+        WAIT_FOR(1000, 1000,
                  (L2RouteFind(vrf_name_, remote_vm_mac_, remote_vm_ip4_) == true));
 
         //Ksync validation
@@ -438,13 +441,13 @@ protected:
 
     void WaitForSetup(std::string type) {
         if (type == "l2_l3") {
-            WAIT_FOR(1000, 100, (VmPortL2Active(input, 0) == true)); //l2 active
-            WAIT_FOR(1000, 100, (VmPortActive(input, 0) == true)); //v4 active
+            WAIT_FOR(1000, 1000, (VmPortL2Active(input, 0) == true)); //l2 active
+            WAIT_FOR(1000, 1000, (VmPortActive(input, 0) == true)); //v4 active
         } else if (type == "l2") {
-            WAIT_FOR(1000, 100, (VmPortL2Active(input, 0) == true)); //l2 active
+            WAIT_FOR(1000, 1000, (VmPortL2Active(input, 0) == true)); //l2 active
             EXPECT_TRUE(VmPortActive(input, 0) == false);
         } else if (type == "l3") {
-            WAIT_FOR(1000, 100, (VmPortActive(input, 0) == true)); //v4 active
+            WAIT_FOR(1000, 1000, (VmPortActive(input, 0) == true)); //v4 active
             EXPECT_TRUE(VmPortL2Active(input, 0) == true);
         }
     }
@@ -555,6 +558,7 @@ TEST_F(ForwardingModeTest, default_forwarding_mode_l2) {
 
 TEST_F(ForwardingModeTest, default_forwarding_mode_l3) {
     SetupSingleVmEnvironment("l3");
+    client->WaitForIdle();
     VerifyL3OnlyMode();
     DeleteSingleVmEnvironment();
 }
@@ -593,6 +597,7 @@ TEST_F(ForwardingModeTest, change_forwarding_mode_l2_to_l3) {
 
 TEST_F(ForwardingModeTest, change_forwarding_mode_l3_to_l2_l3) {
     SetupSingleVmEnvironment("l3");
+    client->WaitForIdle();
     VerifyL3OnlyMode();
     SetupSingleVmEnvironment("l2_l3");
     VerifyL2L3Mode();
@@ -601,6 +606,7 @@ TEST_F(ForwardingModeTest, change_forwarding_mode_l3_to_l2_l3) {
 
 TEST_F(ForwardingModeTest, change_forwarding_mode_l3_to_l2) {
     SetupSingleVmEnvironment("l3");
+    client->WaitForIdle();
     VerifyL3OnlyMode();
     SetupSingleVmEnvironment("l2");
     VerifyL2OnlyMode();
@@ -632,6 +638,7 @@ TEST_F(ForwardingModeTest, global_default_to_l2) {
 TEST_F(ForwardingModeTest, global_default_to_l3) {
     GlobalForwardingMode("l3");
     SetupSingleVmEnvironment("l2_l3", true, "l3");
+    client->WaitForIdle();
     VerifyL3OnlyMode();
     DeleteSingleVmEnvironment();
 }
