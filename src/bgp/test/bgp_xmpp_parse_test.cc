@@ -336,6 +336,30 @@ TEST_F(BgpXmppParseTest, McastItemError11) {
      EXPECT_FALSE(ProcessMcastItem(item));
 }
 
+// Error in nexthop label with min label as 0
+TEST_F(BgpXmppParseTest, McastItemError12) {
+     string data = FileRead("controller/src/bgp/testdata/bad_mcast_item_12.xml");
+     impl_->LoadDoc(data);
+     xml_node item = pugi_->FindNode("item");
+     EXPECT_FALSE(ProcessMcastItem(item));
+}
+
+// Error in nexthop label with both labels as 0
+TEST_F(BgpXmppParseTest, McastItemError13) {
+     string data = FileRead("controller/src/bgp/testdata/bad_mcast_item_13.xml");
+     impl_->LoadDoc(data);
+     xml_node item = pugi_->FindNode("item");
+     EXPECT_FALSE(ProcessMcastItem(item));
+}
+
+// Error in nexthop label with right label in the range less then left label
+TEST_F(BgpXmppParseTest, McastItemError14) {
+     string data = FileRead("controller/src/bgp/testdata/bad_mcast_item_14.xml");
+     impl_->LoadDoc(data);
+     xml_node item = pugi_->FindNode("item");
+     EXPECT_FALSE(ProcessMcastItem(item));
+}
+
 // Error in parsing message, XML document is fine.
 TEST_F(BgpXmppParseTest, EnetItemError1) {
      string data = FileRead("controller/src/bgp/testdata/bad_enet_item_1.xml");

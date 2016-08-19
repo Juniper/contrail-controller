@@ -1128,6 +1128,14 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
             return false;
         }
 
+        if (!labels[0] || !labels[1] || labels[1] < labels[0]) {
+            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                "Bad label range " << label_range <<
+                " for multicast route " << mc_prefix.ToString());
+            return false;
+        }
+
         BgpAttrSpec attrs;
         LabelBlockPtr lbptr = lb_mgr_->LocateBlock(labels[0], labels[1]);
 
