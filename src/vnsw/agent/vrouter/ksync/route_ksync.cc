@@ -622,7 +622,10 @@ int RouteKSyncEntry::DeleteMsg(char *buf, int buf_len) {
             route = static_cast<RouteKSyncEntry *>(found);
             if (route->IsResolved()) {
                 ksync_nh = route->nh();
-                if(ksync_nh && ksync_nh->IsResolved()) {
+                //There is no need to check if VRF is resolved since
+                //route is resolved and its corresponding NH would be
+                //programmed
+                if(ksync_nh) {
                     return DeleteInternal(ksync_nh, route, buf, buf_len);
                 }
                 ksync_nh = NULL;
