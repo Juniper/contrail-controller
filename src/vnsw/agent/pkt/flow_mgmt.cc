@@ -1564,8 +1564,7 @@ bool InetRouteFlowMgmtTree::OperEntryAdd(const FlowMgmtRequest *req,
                                      rt_key->plen_ - 1);
         InetRouteFlowMgmtKey *covering_route = LPM(&lpm_key);
         if (covering_route != NULL) {
-            FlowMgmtRequest rt_req(FlowMgmtRequest::ADD_DBENTRY, NULL, 0);
-            RouteFlowMgmtTree::OperEntryAdd(&rt_req, covering_route);
+            ret = RecomputeCoveringRoute(covering_route, rt_key);
         }
         rt_key->plen_ += 1;
     }
@@ -1573,11 +1572,65 @@ bool InetRouteFlowMgmtTree::OperEntryAdd(const FlowMgmtRequest *req,
     return ret;
 }
 
+bool InetRouteFlowMgmtTree::RecomputeCoveringRoute
+(InetRouteFlowMgmtKey *covering_route, InetRouteFlowMgmtKey *key) {
+    InetRouteFlowMgmtEntry *entry = dynamic_cast<InetRouteFlowMgmtEntry *>
+                                    (Find(covering_route));
+    if (entry == NULL) {
+        return true;
+    }
+
+    return entry->RecomputeCoveringRouteEntry(mgr_, covering_route, key);
+}
+
+bool InetRouteFlowMgmtEntry::RecomputeCoveringRouteEntry
+(FlowMgmtManager *mgr, InetRouteFlowMgmtKey *covering_route,
+ InetRouteFlowMgmtKey *key){
+    FlowList::iterator it = flow_list_.begin();
+    while (it != flow_list_.end()) {
+        FlowMgmtKeyNode *node = &(*it);
+        // Queue the DB Event only route key  matches src or dst ip matches.
+        if (key->NeedsReCompute(node->flow_entry())) {
+            mgr->DBEntryEvent(FlowEvent::RECOMPUTE_FLOW, covering_route,
+                              node->flow_entry());
+        }
+        it++;
+    }
+
+    return true;
+}
+
 bool InetRouteFlowMgmtTree::OperEntryDelete(const FlowMgmtRequest *req,
                                             FlowMgmtKey *key) {
     InetRouteFlowMgmtKey *rt_key = static_cast<InetRouteFlowMgmtKey *>(key);
     DelFromLPMTree(rt_key);
     return RouteFlowMgmtTree::OperEntryDelete(req, key);
+}
+
+bool InetRouteFlowMgmtKey::NeedsReCompute(const FlowEntry *flow) {
+
+
+    if (Match(flow->key().src_addr)) {
+        return true;
+    }
+
+    if (Match(flow->key().dst_addr)) {
+        return true;
+    }
+
+    const FlowEntry *rflow = flow->reverse_flow_entry();
+    if (rflow == NULL)
+        return true;
+
+    if (Match(rflow->key().src_addr)) {
+        return true;
+    }
+
+    if (Match(rflow->key().dst_addr)) {
+        return true;
+    }
+
+    return false;
 }
 
 /////////////////////////////////////////////////////////////////////////////
