@@ -4432,7 +4432,8 @@ void AddAap(std::string intf_name, int intf_id, Ip4Address ip,
     client->WaitForIdle();
 }
 
-void AddEcmpAap(std::string intf_name, int intf_id, Ip4Address ip) {
+void AddEcmpAap(std::string intf_name, int intf_id, Ip4Address ip,
+                const std::string &mac) {
     std::ostringstream buf;
     buf << "<virtual-machine-interface-allowed-address-pairs>";
     buf << "<allowed-address-pair>";
@@ -4440,8 +4441,7 @@ void AddEcmpAap(std::string intf_name, int intf_id, Ip4Address ip) {
     buf << "<ip-prefix>" << ip.to_string() <<"</ip-prefix>";
     buf << "<ip-prefix-len>"<< 32 << "</ip-prefix-len>";
     buf << "</ip>";
-    buf << "<mac><mac-address>" << "00:00:00:00:00:00"
-        << "</mac-address></mac>";
+    buf << "<mac>" << mac << "</mac>";
     buf << "<address-mode>" << "active-active" << "</address-mode>";
     buf << "</allowed-address-pair>";
     buf << "</virtual-machine-interface-allowed-address-pairs>";

@@ -1748,9 +1748,12 @@ bool CompositeNH::GetIndex(ComponentNH &component_nh, uint32_t &idx) const {
             continue;
         }
 
-        if (it->nh() == component_nh.nh() &&
-            it->label() == component_nh.label()) {
-            return true;
+        if (it->nh() && component_nh.nh()) {
+            if (it->nh()->MatchEgressData(component_nh.nh())) {
+                return true;
+            } else if (it->nh() == component_nh.nh()) {
+                return true;
+            }
         }
         idx++;
     }

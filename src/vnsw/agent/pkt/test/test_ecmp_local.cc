@@ -146,6 +146,43 @@ TEST_F(EcmpTest, EcmpTest_1) {
     WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
 }
 
+//Send packet from ECMP of AAP and verify ECMP index and
+//RPF nexthop is set fine
+TEST_F(EcmpTest, EcmpTest_2) {
+    Ip4Address ip = Ip4Address::from_string("1.1.1.10");
+    std::string mac("0a:0b:0c:0d:0e:0f");
+
+    AddEcmpAap("vnet1", 1, ip, mac);
+    AddEcmpAap("vnet2", 2, ip, mac);
+    AddRemoteEcmpRoute("vrf1", "0.0.0.0", 0, "vn1", 4);
+    client->WaitForIdle();
+
+    TxIpPacket(VmPortGetId(1), "1.1.1.10", "2.1.1.1", 1);
+    client->WaitForIdle();
+
+    AgentRoute *rt = RouteGet("vrf1", Ip4Address::from_string("0.0.0.0"), 0);
+    InetUnicastRouteEntry *src_rt = static_cast<InetUnicastRouteEntry *>(
+            RouteGet("vrf1", Ip4Address::from_string("1.1.1.10"), 32));
+
+    FlowEntry *entry = FlowGet(VrfGet("vrf1")->vrf_id(),
+                               "1.1.1.10", "2.1.1.1", 1, 0, 0, GetFlowKeyNH(1));
+    EXPECT_TRUE(entry != NULL);
+    EXPECT_TRUE(entry->data().component_nh_idx !=
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(entry->data().nh.get() == src_rt->GetLocalNextHop());
+
+    FlowEntry *rev_entry = entry->reverse_flow_entry();
+    EXPECT_TRUE(rev_entry->data().component_nh_idx !=
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(rev_entry->data().nh.get() == rt->GetActiveNextHop());
+
+    DeleteRoute("vrf1", "0.0.0.0", 0, bgp_peer);
+    client->WaitForIdle();
+    sleep(1);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, true, true, true, 100*1000);
