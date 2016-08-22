@@ -703,9 +703,12 @@ class DBInterface(object):
         si_ids = [si_ref['uuid']
                     for vm_obj in vm_objs
                     for si_ref in vm_obj.get_service_instance_refs() or []]
-        si_objs = self._vnc_lib.service_instances_list(
-            obj_uuids=si_ids, fields=['logical_router_back_refs'], detail=True)
-        memo_req['service-instances'] = dict((si_obj.uuid, si_obj) for si_obj in si_objs)
+        if si_ids:
+            si_objs = self._vnc_lib.service_instances_list(
+                obj_uuids=si_ids, fields=['logical_router_back_refs'],
+                detail=True)
+            memo_req['service-instances'] = dict(
+                (si_obj.uuid, si_obj) for si_obj in si_objs)
 
         # Convert port from contrail to neutron repr with the memo cache
         for port_obj in port_objs:
