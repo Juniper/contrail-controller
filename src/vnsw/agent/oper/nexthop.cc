@@ -1748,9 +1748,34 @@ bool CompositeNH::GetIndex(ComponentNH &component_nh, uint32_t &idx) const {
             continue;
         }
 
-        if (it->nh() == component_nh.nh() &&
-            it->label() == component_nh.label()) {
-            return true;
+        if (it->nh() && component_nh.nh()) {
+            if (component_nh.nh()->GetType() ==  it->nh()->GetType()) {
+                if (it->nh()->GetType() == NextHop::INTERFACE) {
+                    const InterfaceNH *lnh =
+                        static_cast<const InterfaceNH *>(it->nh());
+                    const InterfaceNH *rnh =
+                        static_cast<const InterfaceNH *>(component_nh.nh());
+                    if (lnh->GetInterface() == rnh->GetInterface()) {
+                        return true;
+                    }
+                } else if (it->nh()->GetType() == NextHop::INTERFACE) {
+                    const VlanNH *lnh = static_cast<const VlanNH*>(it->nh());
+                    const VlanNH *rnh =
+                        static_cast<const VlanNH*>(component_nh.nh());
+                    if (lnh->GetInterface() == rnh->GetInterface()) {
+                        return true;
+                    }
+                } else if (it->nh()->GetType() == NextHop::TUNNEL) {
+                    const TunnelNH *lnh = static_cast<const TunnelNH *>(it->nh());
+                    const TunnelNH *rnh =
+                        static_cast<const TunnelNH *>(component_nh.nh());
+                    if (lnh->GetDip() == rnh->GetDip()) {
+                        return true;
+                    }
+                } else if (it->nh() == component_nh.nh()) {
+                    return true;
+                }
+            }
         }
         idx++;
     }

@@ -1803,13 +1803,6 @@ void FlowEntry::SetComponentIndex(const NextHopKey *nh_key,
     }
 
     const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
-    //If remote destination is TUNNEL nexthop frame the key by
-    //getting the reverse path mpls label that would be used to
-    //send the packet back
-    if (nh_key->GetType() == NextHop::TUNNEL) {
-        const TunnelNHKey *tun_nh = static_cast<const TunnelNHKey *>(nh_key);
-        label = comp_nh->GetRemoteLabel(tun_nh->dip());
-    }
 
     const NextHop *component_nh_ptr = static_cast<NextHop *>(
         flow_table()->agent()->nexthop_table()->FindActiveEntry(nh_key));

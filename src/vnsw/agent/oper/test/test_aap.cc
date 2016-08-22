@@ -901,7 +901,7 @@ TEST_F(TestAap, StateMachine_15) {
 
 TEST_F(TestAap, StateMachine_16) {
     Ip4Address aap_ip = Ip4Address::from_string("10.10.10.10");
-    AddEcmpAap("intf1", 1, aap_ip);
+    AddEcmpAap("intf1", 1, aap_ip, MacAddress::ZeroMac().ToString());
     EXPECT_TRUE(RouteFind("vrf1", aap_ip, 32));
 
     VmInterface *vm_intf = VmInterfaceGet(1);
@@ -1193,7 +1193,7 @@ TEST_F(TestAap, AapModeChange) {
     EXPECT_TRUE(path->path_preference().ecmp() == false);
     EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
 
-    AddEcmpAap("intf1", 1, aap_ip);
+    AddEcmpAap("intf1", 1, aap_ip, MacAddress::ZeroMac().ToString());
     EXPECT_TRUE(RouteFind("vrf1", aap_ip, 32));
     rt = RouteGet("vrf1", aap_ip, 32);
     path = rt->FindPath(vm_intf->peer());

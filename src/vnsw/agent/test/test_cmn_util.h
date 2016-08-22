@@ -442,7 +442,8 @@ void AddInterfaceRouteTableV6(const char *name, int id, TestIp6Prefix *addr,
 void ShutdownAgentController(Agent *agent);
 void AddAap(std::string intf_name, int intf_id,
             std::vector<Ip4Address> aap_list);
-void AddEcmpAap(std::string intf_name, int intf_id, Ip4Address ip);
+void AddEcmpAap(std::string intf_name, int intf_id, Ip4Address ip,
+                const std::string &mac);
 void AddAap(std::string intf_name, int intf_id, Ip4Address ip,
             const std::string &mac);
 void AddAapWithDisablePolicy(std::string intf_name, int intf_id,
