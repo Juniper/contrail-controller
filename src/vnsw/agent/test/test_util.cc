@@ -4070,3 +4070,24 @@ void AddAddressVrfAssignAcl(const char *intf_name, int intf_id,
     AddNode("virtual-machine-interface", intf_name, intf_id, buf);
     client->WaitForIdle();
 }
+
+void AddEcmpAap(std::string intf_name, int intf_id, Ip4Address ip,
+		const std::string &mac) {
+	std::ostringstream buf;
+	buf << "<virtual-machine-interface-allowed-address-pairs>";
+	buf << "<allowed-address-pair>";
+	buf << "<ip>";
+	buf << "<ip-prefix>" << ip.to_string() <<"</ip-prefix>";
+	buf << "<ip-prefix-len>"<< 32 << "</ip-prefix-len>";
+	buf << "</ip>";
+	buf << "<mac><mac-address>" << mac
+		<< "</mac-address></mac>";
+	buf << "<address-mode>" << "active-active" << "</address-mode>";
+	buf << "</allowed-address-pair>";
+	buf << "</virtual-machine-interface-allowed-address-pairs>";
+	char cbuf[10000];
+	strcpy(cbuf, buf.str().c_str());
+	AddNode("virtual-machine-interface", intf_name.c_str(),
+			intf_id, cbuf);
+	client->WaitForIdle();
+}
