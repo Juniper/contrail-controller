@@ -87,7 +87,7 @@ class DatabaseEventManager(EventManager):
             NodeStatusUVE, NodeStatus, self.table)
         self.send_system_cpu_info()
         self.third_party_process_dict = {}
-        self.third_party_process_dict["cassandra"] = "-Dcassandra-pidfile=.*cassandra\.pid"
+        self.third_party_process_dict["cassandra"] = "Dcassandra-pidfile=.*cassandra\.pid"
         self.third_party_process_dict["zookeeper"] = "org.apache.zookeeper.server.quorum.QuorumPeerMain"
     # end __init__
 
