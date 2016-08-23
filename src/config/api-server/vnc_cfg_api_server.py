@@ -62,6 +62,7 @@ from context import ApiContext
 import vnc_cfg_types
 from vnc_cfg_ifmap import VncDbClient
 
+import cfgm_common
 from cfgm_common import ignore_exceptions, imid
 from cfgm_common.uve.vnc_api.ttypes import VncApiCommon, VncApiConfigLog,\
     VncApiError
@@ -140,8 +141,8 @@ _ACTION_RESOURCES = [
      'method': 'POST', 'method_name': 'obj_chmod_http_post'},
     {'uri': '/multi-tenancy', 'link_name': 'multi-tenancy',
      'method': 'PUT', 'method_name': 'mt_http_put'},
-    {'uri': '/multi-tenancy-with-rbac', 'link_name': 'rbac',
-     'method': 'PUT', 'method_name': 'rbac_http_put'},
+    {'uri': '/aaa-mode', 'link_name': 'aaa-mode',
+     'method': 'PUT', 'method_name': 'aaa_mode_http_put'},
 ]
 
 
@@ -987,7 +988,7 @@ class VncApiServer(object):
                 {'PATH_INFO': '/%ss' %(resource_type),
                  'bottle.app': orig_request.environ['bottle.app'],
                  'HTTP_X_USER': 'contrail-api',
-                 'HTTP_X_ROLE': 'admin'})
+                 'HTTP_X_ROLE': self.cloud_admin_role})
             json_as_dict = {'%s' %(resource_type): obj_json}
             i_req = context.ApiInternalRequest(
                 b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
@@ -1007,7 +1008,7 @@ class VncApiServer(object):
                 {'PATH_INFO': '/%ss' %(resource_type),
                  'bottle.app': orig_request.environ['bottle.app'],
                  'HTTP_X_USER': 'contrail-api',
-                 'HTTP_X_ROLE': 'admin'})
+                 'HTTP_X_ROLE': self.cloud_admin_role})
             json_as_dict = {'%s' %(resource_type): obj_json}
             i_req = context.ApiInternalRequest(
                 b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
@@ -1027,7 +1028,7 @@ class VncApiServer(object):
                 {'PATH_INFO': '/%s/%s' %(resource_type, obj_uuid),
                  'bottle.app': orig_request.environ['bottle.app'],
                  'HTTP_X_USER': 'contrail-api',
-                 'HTTP_X_ROLE': 'admin'})
+                 'HTTP_X_ROLE': self.cloud_admin_role})
             i_req = context.ApiInternalRequest(
                 b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
                 None, None)
@@ -1053,7 +1054,7 @@ class VncApiServer(object):
                 {'PATH_INFO': '/ref-update',
                  'bottle.app': orig_request.environ['bottle.app'],
                  'HTTP_X_USER': 'contrail-api',
-                 'HTTP_X_ROLE': 'admin'})
+                 'HTTP_X_ROLE': self.cloud_admin_role})
             i_req = context.ApiInternalRequest(
                 b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
                 req_dict, None)
@@ -1208,6 +1209,16 @@ class VncApiServer(object):
         if not args_str:
             args_str = ' '.join(sys.argv[1:])
         self._parse_args(args_str)
+
+        # aaa-mode is ignored if multi_tenancy is configured by user
+        if self._args.multi_tenancy is None:
+            # MT unconfigured by user - determine from aaa-mode
+            if self.aaa_mode not in cfgm_common.AAA_MODE_VALID_VALUES:
+                self.aaa_mode = cfgm_common.AAA_MODE_DEFAULT_VALUE
+            self._args.multi_tenancy = self.aaa_mode != 'no-auth'
+        else:
+            # MT configured by user - ignore aaa-mode
+            self.aaa_mode = "cloud-admin" if self._args.multi_tenancy else "no-auth"
 
         # set python logging level from logging_level cmdline arg
         if not self._args.logging_conf:
@@ -1377,8 +1388,8 @@ class VncApiServer(object):
         # Enable/Disable multi tenancy
         self.route('/multi-tenancy', 'GET', self.mt_http_get)
         self.route('/multi-tenancy', 'PUT', self.mt_http_put)
-        self.route('/multi-tenancy-with-rbac', 'GET', self.rbac_http_get)
-        self.route('/multi-tenancy-with-rbac', 'PUT', self.rbac_http_put)
+        self.route('/aaa-mode',      'GET', self.aaa_mode_http_get)
+        self.route('/aaa-mode',      'PUT', self.aaa_mode_http_put)
 
         # Initialize discovery client
         self._disc = None
@@ -1469,7 +1480,7 @@ class VncApiServer(object):
         # after db init (uses db_conn)
         self._rbac = vnc_rbac.VncRbac(self, self._db_conn)
         self._permissions = vnc_perms.VncPermissions(self, self._args)
-        if self._args.multi_tenancy_with_rbac:
+        if self.is_rbac_enabled():
             self._create_default_rbac_rule()
 
         # Cpuinfo interface
@@ -1483,6 +1494,11 @@ class VncApiServer(object):
         self.re_uuid = re.compile('^[0-9A-F]{8}-?[0-9A-F]{4}-?4[0-9A-F]{3}-?[89AB][0-9A-F]{3}-?[0-9A-F]{12}$',
                                   re.IGNORECASE)
 
+        # following allowed without authentication
+        self.white_list = [
+            '^/documentation',  # allow all documentation
+            '^/$',              # allow discovery
+        ]
     # end __init__
 
     def sandesh_disc_client_subinfo_handle_request(self, req):
@@ -1686,7 +1702,7 @@ class VncApiServer(object):
         for field in ('HTTP_X_API_ROLE', 'HTTP_X_ROLE'):
             if field in env:
                 roles = env[field].split(',')
-                return 'admin' in [x.lower() for x in roles]
+                return self.cloud_admin_role in [x.lower() for x in roles]
         return False
 
     # Check for the system created VN. Disallow such VN delete
@@ -1743,13 +1759,7 @@ class VncApiServer(object):
         if 'token' not in get_request().query:
             raise cfgm_common.exceptions.HttpError(
                 400, 'User token needed for validation')
-        if 'uuid' not in get_request().query:
-            raise cfgm_common.exceptions.HttpError(
-                400, 'Object uuid needed for validation')
-        obj_uuid = get_request().query.uuid
         user_token = get_request().query.token.encode("ascii")
-
-        result = {'permissions' : ''}
 
         # get permissions in internal context
         try:
@@ -1764,18 +1774,25 @@ class VncApiServer(object):
             i_req = context.ApiInternalRequest(
                 b_req.url, b_req.urlparts, b_req.environ, b_req.headers, None, None)
             set_context(context.ApiContext(internal_req=i_req))
-            if self._auth_svc.validate_user_token(get_request()):
-                result['permissions']= self._permissions.obj_perms(get_request(), obj_uuid)
+            token_info = self._auth_svc.validate_user_token(get_request())
         finally:
             set_context(orig_context)
 
+        # roles in result['token_info']['access']['user']['roles']
+        if token_info:
+            result = {'token_info' : token_info}
+            if 'uuid' in get_request().query:
+                obj_uuid = get_request().query.uuid
+                result['permissions'] = self._permissions.obj_perms(get_request(), obj_uuid)
+        else:
+            raise cfgm_common.exceptions.HttpError(403, " Permission denied")
         return result
     #end check_obj_perms_http_get
 
     def invalid_uuid(self, uuid):
         return self.re_uuid.match(uuid) == None
     def invalid_access(self, access):
-        return type(access) is not int or access not in range(0,7)
+        return type(access) is not int or access not in range(0,8)
 
     # change ownership of an object
     def obj_chown_http_post(self):
@@ -2292,15 +2309,22 @@ class VncApiServer(object):
         ok, result = self._permissions.check_perms_read(bottle.request, id)
         if not ok:
             err_code, err_msg = result
-            bottle.abort(err_code, err_msg)
+            raise cfgm_common.exceptions.HttpError(err_code, err_msg)
 
         return {'uuid': id}
     # end fq_name_to_id_http_post
 
     def id_to_fq_name_http_post(self):
         self._post_common(get_request(), None, None)
+        obj_uuid = get_request().json['uuid']
+
+        # ensure user has access to this id
+        ok, result = self._permissions.check_perms_read(get_request(), obj_uuid)
+        if not ok:
+            err_code, err_msg = result
+            raise cfgm_common.exceptions.HttpError(err_code, err_msg)
+
         try:
-            obj_uuid = get_request().json['uuid']
             fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
         except NoIdError:
             raise cfgm_common.exceptions.HttpError(
@@ -2607,7 +2631,8 @@ class VncApiServer(object):
         return id_perms_dict
     # end _get_default_id_perms
 
-    def _ensure_perms2_present(self, obj_type, obj_uuid, obj_dict, project_id=None):
+    def _ensure_perms2_present(self, obj_type, obj_uuid, obj_dict,
+                               project_id=None):
         """
         Called at resource creation to ensure that id_perms is present in obj
         """
@@ -2625,14 +2650,13 @@ class VncApiServer(object):
             # Resource creation
             if obj_uuid is None:
                 obj_dict['perms2'] = perms2
-                return
+                return (True, "")
             # Resource already exist
             try:
                 obj_dict['perms2'] = self._db_conn.uuid_to_obj_perms2(obj_uuid)
             except NoIdError:
                 obj_dict['perms2'] = perms2
-
-            return
+            return (True, "")
 
         # retrieve the previous version of the perms2
         # from the database and update the perms2 with
@@ -2653,6 +2677,14 @@ class VncApiServer(object):
         # TODO handle perms2 present in req_perms2
 
         obj_dict['perms2'] = perms2
+
+        # ensure is_shared and global_access are consistent
+        shared = obj_dict.get('is_shared', None)
+        gaccess = obj_dict['perms2'].get('global_access', None)
+        if gaccess is not None and shared is not None and shared != (gaccess != 0):
+            error = "Inconsistent is_shared (%s a) and global_access (%s)" % (shared, gaccess)
+            return (False, (400, error))
+        return (True, "")
     # end _ensure_perms2_present
 
     def _get_default_perms2(self, obj_type):
@@ -2703,35 +2735,55 @@ class VncApiServer(object):
 
     # generate default rbac group rule
     def _create_default_rbac_rule(self):
-        obj_type = 'api-access-list'
-        fq_name = ['default-domain', 'default-api-access-list']
+        obj_type = 'api_access_list'
+        fq_name = ['default-global-system-config', 'default-api-access-list']
         try:
             id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
-            msg = 'RBAC: %s already exists ... leaving rules intact' % fq_name
-            self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
             return
         except NoIdError:
-            self._create_singleton_entry(ApiAccessList(parent_type='domain', fq_name=fq_name))
-
-        id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
-        (ok, obj_dict) = self._db_conn.dbe_read(obj_type, {'uuid': id})
+            pass
 
         # allow full access to cloud admin
         rbac_rules = [
-            {
-                'rule_object':'*',
-                'rule_field': '',
-                'rule_perms': [{'role_name':'admin', 'role_crud':'CRUD'}]
-            },
             {
                 'rule_object':'fqname-to-id',
                 'rule_field': '',
                 'rule_perms': [{'role_name':'*', 'role_crud':'CRUD'}]
             },
+            {
+                'rule_object':'id-to-fqname',
+                'rule_field': '',
+                'rule_perms': [{'role_name':'*', 'role_crud':'CRUD'}]
+            },
+            {
+                'rule_object':'documentation',
+                'rule_field': '',
+                'rule_perms': [{'role_name':'*', 'role_crud':'R'}]
+            },
+            {
+                'rule_object':'/',
+                'rule_field': '',
+                'rule_perms': [{'role_name':'*', 'role_crud':'R'}]
+            },
         ]
 
-        obj_dict['api_access_list_entries'] = {'rbac_rule' : rbac_rules}
-        self._db_conn.dbe_update(obj_type, {'uuid': id}, obj_dict)
+        rge = RbacRuleEntriesType([])
+        for rule in rbac_rules:
+            rule_perms = [RbacPermType(role_name=p['role_name'], role_crud=p['role_crud']) for p in rule['rule_perms']]
+            rbac_rule = RbacRuleType(rule_object=rule['rule_object'],
+                rule_field=rule['rule_field'], rule_perms=rule_perms)
+            rge.add_rbac_rule(rbac_rule)
+
+        rge_dict = rge.exportDict('')
+        glb_rbac_cfg = ApiAccessList(parent_type='global-system-config',
+            fq_name=fq_name, api_access_list_entries = rge_dict)
+
+        try:
+            self._create_singleton_entry(glb_rbac_cfg)
+        except Exception as e:
+            err_msg = 'Error creating default api access list object'
+            err_msg += cfgm_common.utils.detailed_traceback()
+            self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
     # end _create_default_rbac_rule
 
     def _resync_domains_projects(self, ext):
@@ -2800,7 +2852,11 @@ class VncApiServer(object):
         env = get_request().headers.environ
         tenant_uuid = env.get('HTTP_X_PROJECT_ID', None)
         shares = self._db_conn.get_shared_objects(obj_type, tenant_uuid) if tenant_uuid else []
+        owned_objs = set([obj_uuid for (fq_name, obj_uuid) in result])
         for (obj_uuid, obj_perm) in shares:
+            # skip owned objects already included in results
+            if obj_uuid in owned_objs:
+                continue
             try:
                 fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
                 result.append((fq_name, obj_uuid))
@@ -3263,18 +3319,14 @@ class VncApiServer(object):
     # end
 
     def is_multi_tenancy_set(self):
-        return self._args.multi_tenancy or self._args.multi_tenancy_with_rbac
+        return self._args.multi_tenancy or self.aaa_mode != 'no-auth'
 
-    def is_multi_tenancy_with_rbac_set(self):
-        return self._args.multi_tenancy_with_rbac
-
-    def set_multi_tenancy_with_rbac(self, rbac_flag):
-        self._args.multi_tenancy_with_rbac = rbac_flag
-    # end
+    def is_rbac_enabled(self):
+        return self.aaa_mode == 'rbac'
 
     def mt_http_get(self):
         pipe_start_app = self.get_pipe_start_app()
-        mt = False
+        mt = self.is_multi_tenancy_set()
         try:
             mt = pipe_start_app.get_mt()
         except AttributeError:
@@ -3296,19 +3348,32 @@ class VncApiServer(object):
         return {'enabled': self.is_multi_tenancy_set()}
     # end
 
-    # indication if multi tenancy with rbac is enabled or disabled
-    def rbac_http_get(self):
-        return {'enabled': self._args.multi_tenancy_with_rbac}
+    @property
+    def aaa_mode(self):
+        return self._args.aaa_mode
 
-    def rbac_http_put(self):
-        multi_tenancy_with_rbac = get_request().json['enabled']
+    @aaa_mode.setter
+    def aaa_mode(self, mode):
+        self._args.aaa_mode = mode
+
+    # indication if multi tenancy with rbac is enabled or disabled
+    def aaa_mode_http_get(self):
+        return {'aaa-mode': self.aaa_mode}
+
+    def aaa_mode_http_put(self):
+        aaa_mode = get_request().json['aaa-mode']
+        if aaa_mode not in cfgm_common.AAA_MODE_VALID_VALUES:
+            raise ValueError('Invalid aaa-mode %s' % aaa_mode)
+
         if not self._auth_svc.validate_user_token(get_request()):
             raise cfgm_common.exceptions.HttpError(403, " Permission denied")
         if not self.is_admin_request():
             raise cfgm_common.exceptions.HttpError(403, " Permission denied")
 
-        self.set_multi_tenancy_with_rbac(multi_tenancy_with_rbac)
-        return {'enabled': self.is_multi_tenancy_with_rbac_set()}
+        self.aaa_mode = aaa_mode
+        if self.is_rbac_enabled():
+            self._create_default_rbac_rule()
+        return {'aaa-mode': self.aaa_mode}
     # end
 
     @property

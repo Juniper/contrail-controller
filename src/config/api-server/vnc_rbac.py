@@ -14,14 +14,19 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 class VncRbac(object):
 
     op_str = {'GET': 'R', 'POST': 'C', 'PUT': 'U', 'DELETE': 'D'}
+    op_str2 = {'GET': 'read', 'POST': 'create', 'PUT': 'update', 'DELETE': 'delete'}
 
     def __init__(self, server_mgr, db_conn):
         self._db_conn = db_conn
         self._server_mgr = server_mgr
     # end __init__
 
+    @property
+    def cloud_admin_role(self):
+        return self._server_mgr.cloud_admin_role
+
     def multi_tenancy_with_rbac(self):
-        return self._server_mgr.is_multi_tenancy_with_rbac_set()
+        return self._server_mgr.is_rbac_enabled()
     # end
 
     def validate_user_visible_perm(self, id_perms, is_admin):
@@ -65,6 +70,26 @@ class VncRbac(object):
             rbac_rules.append(rule)
         return rbac_rules
 
+    def get_rbac_rules_object(self, obj_type, obj_uuid):
+        obj_ids = {'uuid' : obj_uuid}
+        obj_fields = ['api_access_lists']
+        try:
+            (ok, result) = self._db_conn.dbe_read(obj_type, obj_ids, obj_fields)
+        except NoIdError:
+            ok = False
+        if not ok or 'api_access_lists' not in result:
+            return []
+        api_access_lists = result['api_access_lists']
+
+        obj_fields = ['api_access_list_entries']
+        obj_ids = {'uuid' : api_access_lists[0]['uuid']}
+        (ok, result) = self._db_conn.dbe_read('api_access_list', obj_ids, obj_fields)
+        if not ok or 'api_access_list_entries' not in result:
+            return rule_list
+        # {u'rbac_rule': [{u'rule_object': u'*', u'rule_perms': [{u'role_crud': u'CRUD', u'role_name': u'admin'}], u'rule_field': None}]}
+        api_access_list_entries = result['api_access_list_entries']
+        return api_access_list_entries['rbac_rule']
+
     def get_rbac_rules(self, request):
         rule_list = []
         env = request.headers.environ
@@ -94,44 +119,21 @@ class VncRbac(object):
 
         # print 'project:%s, domain:%s  ' % (project_id, domain_id)
 
-        # get domain rbac group
-        obj_fields = ['api_access_lists']
-        obj_ids = {'uuid' : domain_id}
-        (ok, result) = self._db_conn.dbe_read('domain', obj_ids, obj_fields)
-        if not ok or 'api_access_lists' not in result:
-            return rule_list
-        api_access_lists = result['api_access_lists']
+        # get global rbac group
+        config_uuid = self._db_conn.fq_name_to_uuid('global_system_config', ['default-global-system-config'])
+        rules = self.get_rbac_rules_object('global_system_config', config_uuid)
+        rule_list.extend(rules)
 
-        obj_fields = ['api_access_list_entries']
-        obj_ids = {'uuid' : api_access_lists[0]['uuid']}
-        (ok, result) = self._db_conn.dbe_read('api-access-list', obj_ids, obj_fields)
-        if not ok or 'api_access_list_entries' not in result:
-            return rule_list
-        # {u'rbac_rule': [{u'rule_object': u'*', u'rule_perms': [{u'role_crud': u'CRUD', u'role_name': u'admin'}], u'rule_field': None}]}
-        api_access_list_entries = result['api_access_list_entries']
-        rule_list.extend(api_access_list_entries['rbac_rule'])
+        # get domain rbac group
+        rules = self.get_rbac_rules_object('domain', domain_id)
+        rule_list.extend(rules)
 
         # get project rbac group
         if project_id is None:
             return rule_list
 
-        obj_fields = ['api_access_lists']
-        obj_ids = {'uuid' : project_id}
-        try:
-            (ok, result) = self._db_conn.dbe_read('project', obj_ids, obj_fields)
-        except Exception as e:
-            ok = False
-        if not ok or 'api_access_lists' not in result:
-            return rule_list
-        api_access_lists = result['api_access_lists']
-
-        obj_fields = ['api_access_list_entries']
-        obj_ids = {'uuid' : api_access_lists[0]['uuid']}
-        (ok, result) = self._db_conn.dbe_read('api-access-list', obj_ids, obj_fields)
-        if not ok or 'api_access_list_entries' not in result:
-            return rule_list
-        api_access_list_entries = result['api_access_list_entries']
-        rule_list.extend(api_access_list_entries['rbac_rule'])
+        rules = self.get_rbac_rules_object('project', project_id)
+        rule_list.extend(rules)
 
         # [{u'rule_object': u'*', u'rule_perms': [{u'role_crud': u'CRUD', u'role_name': u'admin'}], u'rule_field': None}]
 
@@ -179,6 +181,7 @@ class VncRbac(object):
     def validate_request(self, request):
         domain_id = request.headers.environ.get('HTTP_X_DOMAIN_ID', None)
         project_id = request.headers.environ.get('HTTP_X_PROJECT_ID', None)
+        project_name = request.headers.environ.get('HTTP_X_PROJECT_NAME', '*')
 
         app = request.environ['bottle.app']
         if app.config.local_auth or self._server_mgr.is_auth_disabled():
@@ -189,12 +192,15 @@ class VncRbac(object):
         err_msg = (403, 'Permission Denied')
 
         user, roles = self.get_user_roles(request)
-        is_admin = 'admin' in [x.lower() for x in roles]
+        is_admin = self.cloud_admin_role in [x.lower() for x in roles]
+        # other checks redundant if admin
+        if is_admin:
+            return (True, '')
 
         # rule list for project/domain of the request
         rule_list = self.get_rbac_rules(request)
         if len(rule_list) == 0:
-            msg = 'Error: RBAC rule list empty!!'
+            msg = 'rbac: rule list empty!!'
             self._server_mgr.config_log(msg, level=SandeshLevel.SYS_NOTICE)
             return (False, err_msg)
 
@@ -209,8 +215,8 @@ class VncRbac(object):
         except Exception:
             obj_dict = {}
 
-        msg = 'u=%s, r=%s, o=%s, op=%s, rules=%d, proj:%s, dom:%s' \
-            % (user, roles, obj_type, api_op, len(rule_list), project_id, domain_id)
+        msg = 'rbac: u=%s, r=%s, o=%s, op=%s, rules=%d, proj:%s(%s), dom:%s' \
+            % (user, roles, obj_type, api_op, len(rule_list), project_id, project_name, domain_id)
         self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
 
         # match all rules - longest prefix match wins
@@ -225,6 +231,7 @@ class VncRbac(object):
                 ps += perm['role_name'] + ':' + perm['role_crud'] + ','
             o_f = "%s.%s" % (o,f) if f else o
             # check CRUD perms if object and field matches
+            length = -1; match = False
             if o == '*' or \
                 (o == obj_type and (f is None or f == '*' or f == '')) or \
                 (o == obj_type and (f is not None and f in obj_dict)):
@@ -234,6 +241,9 @@ class VncRbac(object):
                     length = 2
                 else:
                     length = 1
+                # skip rule with no matching op
+                if True not in [api_op in rc['role_crud'] for rc in p]:
+                    continue
                 role_match = [rc['role_name'] in (roles + ['*']) and api_op in rc['role_crud'] for rc in p]
                 match = True if True in role_match else False
                 result[length] = (idx, match)
@@ -241,18 +251,20 @@ class VncRbac(object):
             self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
             idx += 1
 
-        x = sorted(result.items(), reverse = True)
-        ok = x[0][1][1]
+        ok = False
+        if len(result) > 0:
+            x = sorted(result.items(), reverse = True)
+            ok = x[0][1][1]
 
-        # temporarily allow all access to admin till we figure out default creation of rbac group in domain
-        ok = ok or is_admin
-
-        msg = "%s admin=%s, u=%s, r='%s'" \
+        msg = "rbac: %s admin=%s, u=%s, r='%s'" \
             % ('+++' if ok else '\n---',
                'yes' if is_admin else 'no',
                user, string.join(roles, ',')
                )
         self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+        if not ok:
+            msg = "rbac: %s doesn't have %s permission for %s" % (user, self.op_str2[request.method], obj_type)
+            self._server_mgr.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
         return (True, '') if ok else (False, err_msg)
     # end validate_request

@@ -13,19 +13,26 @@ class VncPermissions(object):
 
     mode_str = {PERMS_R: 'R', PERMS_W: 'W', PERMS_X: 'X',
                 PERMS_WX: 'WX', PERMS_RX: 'RX', PERMS_RW: 'RW', PERMS_RWX: 'RWX'}
+    mode_str2 = {PERMS_R: 'read', PERMS_W: 'write', PERMS_X: 'link',
+                PERMS_WX: 'write,link', PERMS_RX: 'read,link', PERMS_RW: 'read,write',
+                PERMS_RWX: 'read,write,link'}
 
     def __init__(self, server_mgr, args):
         self._server_mgr = server_mgr
     # end __init__
 
     @property
+    def cloud_admin_role(self):
+        return self._server_mgr.cloud_admin_role
+
+    @property
     def _multi_tenancy(self):
-        return self._server_mgr._args.multi_tenancy
+        return self._server_mgr.is_multi_tenancy_set()
     # end
 
     @property
     def _rbac(self):
-        return self._server_mgr._args.multi_tenancy_with_rbac
+        return self._server_mgr.is_rbac_enabled()
     # end
 
     def validate_user_visible_perm(self, id_perms, is_admin):
@@ -43,7 +50,7 @@ class VncPermissions(object):
         err_msg = (403, 'Permission Denied')
 
         user, roles = self.get_user_roles(request)
-        is_admin = 'admin' in [x.lower() for x in roles]
+        is_admin = self.cloud_admin_role in [x.lower() for x in roles]
         if is_admin:
             return (True, 'RWX')
 
@@ -77,18 +84,24 @@ class VncPermissions(object):
 
         # retrieve object and permissions
         try:
-            perms2 = self._server_mgr._db_conn.uuid_to_obj_perms2(obj_uuid)
+            config = self._server_mgr._db_conn.uuid_to_obj_dict(obj_uuid)
+            perms2 = json.loads(config.get('prop:perms2'))
+            obj_name = config.get("fq_name")
+            obj_type = config.get("type")
         except NoIdError:
             return (True, '')
 
         user, roles = self.get_user_roles(request)
-        is_admin = 'admin' in [x.lower() for x in roles]
+        is_admin = self.cloud_admin_role in [x.lower() for x in roles]
         if is_admin:
             return (True, 'RWX')
 
         env = request.headers.environ
         tenant = env.get('HTTP_X_PROJECT_ID', None)
+        tenant_name = env.get('HTTP_X_PROJECT_NAME', '*')
         if tenant is None:
+            msg = "rbac: Unable to find tenant id in headers"
+            self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
             return (False, err_msg)
 
         owner = perms2['owner']
@@ -112,12 +125,15 @@ class VncPermissions(object):
         ok = (mask & perms & mode_mask)
         granted = ok & 07 | (ok >> 3) & 07 | (ok >> 6) & 07
 
-        msg = '%s %s %s admin=%s, mode=%03o mask=%03o perms=%03o, \
-            (usr=%s/own=%s/sh=%s)' \
-            % ('+++' if ok else '---', self.mode_str[mode], obj_uuid,
+        msg = 'rbac: %s (%s:%s) %s %s admin=%s, mode=%03o mask=%03o perms=%03o, \
+            (usr=%s(%s)/own=%s/sh=%s)' \
+            % ('+++' if ok else '---', self.mode_str[mode], obj_uuid, obj_type, obj_name,
                'yes' if is_admin else 'no', mode_mask, mask, perms,
-               tenant, owner, tenants)
+               tenant, tenant_name, owner, tenants)
         self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+        if not ok:
+            msg = "rbac: %s doesn't have %s permission in tenant %s" % (user, self.mode_str2[mode], owner)
+            self._server_mgr.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
         return (True, self.mode_str[granted]) if ok else (False, err_msg)
     # end validate_perms
@@ -199,5 +215,3 @@ class VncPermissions(object):
 
         return perms if ok else ''
     # end obj_perms
-
-
