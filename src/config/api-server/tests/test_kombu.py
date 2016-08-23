@@ -89,7 +89,7 @@ class TestIfmapKombuClient(unittest.TestCase):
                                          servers, self.port,
                                          None, self.username,
                                          self.password,
-                                         self.vhost, False)
+                                         self.vhost, 0, False)
 
     @unittest.skipIf(is_kombu_client_v1,
                      "skipping because kombu client is older")
@@ -120,7 +120,7 @@ class TestIfmapKombuClient(unittest.TestCase):
                                      servers, self.port,
                                      None, self.username,
                                      self.password,
-                                     self.vhost, False)
+                                     self.vhost, 0, False)
         _lock.wait()
         kc.shutdown()
 
@@ -156,7 +156,7 @@ class TestIfmapKombuClient(unittest.TestCase):
                                      servers, self.port,
                                      None, self.username,
                                      self.password,
-                                     self.vhost, False)
+                                     self.vhost, 0, False)
         gevent.sleep(0)
         kc.dbe_create_publish("network", [], {})
         _lock.wait()
