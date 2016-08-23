@@ -507,4 +507,12 @@ const list<string> ThreadPoolNames = [
     COMPACTIONEXECUTOR,
 ]
 
-const string CLOUD_ADMIN_ROLE = "cloud-admin"
+const string CLOUD_ADMIN_ROLE = "admin"
+
+const string AAA_MODE_NO_AUTH = "no-auth"
+const string AAA_MODE_CLOUD_ADMIN = "cloud-admin"
+
+const list <string> APIAAAModes = [
+    AAA_MODE_NO_AUTH,
+    AAA_MODE_CLOUD_ADMIN,
+]
