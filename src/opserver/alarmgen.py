@@ -1373,15 +1373,18 @@ class Controller(object):
     def examine_uve_for_alarms(self, uve_key, uve):
         table = uve_key.split(':', 1)[0]
         alarm_cfg = self._config_handler.alarm_config_db()
-        if not alarm_cfg.has_key(table):
-            new_uve_alarms = {}
-        else:
-            prevt = UTCTimestampUsec()
-            aproc = AlarmProcessor(self._logger)
-            for alarm_fqname, alarm_obj in alarm_cfg[table].iteritems():
-                aproc.process_alarms(alarm_fqname, alarm_obj, uve_key, uve)
-            new_uve_alarms = aproc.uve_alarms
-            self.tab_perf[table].record_call(UTCTimestampUsec() - prevt)
+        prevt = UTCTimestampUsec()
+        aproc = AlarmProcessor(self._logger)
+        # Process all alarms configured for this uve-type
+        for alarm_fqname, alarm_obj in \
+            alarm_cfg.get(table, {}).iteritems():
+            aproc.process_alarms(alarm_fqname, alarm_obj, uve_key, uve)
+        # Process all alarms configured for this uve-key
+        for alarm_fqname, alarm_obj in \
+            alarm_cfg.get(uve_key, {}).iteritems():
+            aproc.process_alarms(alarm_fqname, alarm_obj, uve_key, uve)
+        new_uve_alarms = aproc.uve_alarms
+        self.tab_perf[table].record_call(UTCTimestampUsec() - prevt)
 
         del_types = []
         if not self.tab_alarms.has_key(table):
@@ -1436,18 +1439,24 @@ class Controller(object):
         self._logger.debug('Alarm config change worker for partition %d'
             % (partition))
         try:
-            for table, alarm_map in alarm_config_change_map.iteritems():
+            for uve_key, alarm_map in alarm_config_change_map.iteritems():
                 self._logger.debug('Handle alarm config change for '
-                    '[partition:table:{alarms}] -> [%d:%s:%s]' %
-                    (partition, table, str(alarm_map)))
+                    '[partition:uve_key:{alarms}] -> [%d:%s:%s]' %
+                    (partition, uve_key, str(alarm_map)))
+                uve_type_name = uve_key.split(':', 1)
                 try:
-                    uves = self.ptab_info[partition][table]
+                    if len(uve_type_name) == 1:
+                        uves = self.ptab_info[partition][uve_type_name[0]]
+                    else:
+                        uve = self.ptab_info[partition][uve_type_name[0]]\
+                                [uve_type_name[1]]
+                        uves = {uve_type_name[1]: uve}
                 except KeyError:
                     continue
                 else:
-                    for uve, data in uves.iteritems():
-                        self._logger.debug('process alarm for uve %s' % (uve))
-                        self.examine_uve_for_alarms(table+':'+uve,
+                    for name, data in uves.iteritems():
+                        self._logger.debug('process alarm for uve %s' % (name))
+                        self.examine_uve_for_alarms(uve_type_name[0]+':'+name,
                             data.values())
                     gevent.sleep(0)
         except Exception as e:

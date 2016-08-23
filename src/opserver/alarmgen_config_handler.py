@@ -49,18 +49,23 @@ class AlarmGenConfigHandler(ConfigHandler):
                                    operation):
         alarm_config_change_map = {}
         for key in uve_keys:
+            uve_type_name = key.split(':', 1)
             try:
-                table = UVE_MAP[key]
+                table = UVE_MAP[uve_type_name[0]]
             except KeyError:
-                self._logger('Invalid table name "%s" specified in '
+                self._logger('Invalid uve_key "%s" specified in '
                     'alarm config "%s"' % (key, alarm_fqname),
                     SandeshLevel.SYS_ERR)
             else:
+                if len(uve_type_name) == 2:
+                    uve_key = table+':'+uve_type_name[1]
+                else:
+                    uve_key = table
                 try:
-                    alarm_table = self._alarm_config_db[table]
+                    alarm_table = self._alarm_config_db[uve_key]
                 except KeyError:
-                    self._alarm_config_db[table] = {}
-                    alarm_table = self._alarm_config_db[table]
+                    self._alarm_config_db[uve_key] = {}
+                    alarm_table = self._alarm_config_db[uve_key]
                 finally:
                     if operation == 'CREATE' or operation == 'UPDATE':
                         if not isinstance(alarm_obj, AlarmBase):
@@ -75,10 +80,10 @@ class AlarmGenConfigHandler(ConfigHandler):
                         if alarm_table.has_key(alarm_fqname):
                             del alarm_table[alarm_fqname]
                         if not len(alarm_table):
-                            del self._alarm_config_db[table]
+                            del self._alarm_config_db[uve_key]
                     else:
                         assert(0)
-                    alarm_config_change_map[table] = {alarm_fqname:operation}
+                    alarm_config_change_map[uve_key] = {alarm_fqname:operation}
         return alarm_config_change_map
     # end _update_alarm_config_table
 
