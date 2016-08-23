@@ -1696,6 +1696,10 @@ class VncApiServer(object):
         return float(self._args.ifmap_health_check_interval)
     # end get_ifmap_health_check_interval
 
+    def get_rabbit_health_check_interval(self):
+        return float(self._args.rabbit_health_check_interval)
+    # end get_rabbit_health_check_interval
+
     def is_auth_disabled(self):
         return self._args.auth is None
 
@@ -2510,6 +2514,7 @@ class VncApiServer(object):
                                          --disc_server_port 5998
                                          --worker_id 1
                                          --rabbit_max_pending_updates 4096
+                                         --rabbit_health_check_interval 120.0
                                          --cluster_id <testbed-name>
                                          [--auth keystone]
                                          [--ifmap_server_loc
