@@ -385,18 +385,29 @@ BgpPeerFamilyAttributes::BgpPeerFamilyAttributes(
 }
 
 RibExportPolicy BgpPeer::BuildRibExportPolicy(Address::Family family) const {
+    RibExportPolicy policy;
     BgpPeerFamilyAttributes *family_attributes =
         family_attributes_list_[family];
     if (!family_attributes ||
         family_attributes->gateway_address.is_unspecified()) {
-        return RibExportPolicy(peer_type_, RibExportPolicy::BGP, peer_as_,
+        policy = RibExportPolicy(peer_type_, RibExportPolicy::BGP, peer_as_,
             as_override_, peer_close_->IsCloseLongLivedGraceful(), -1, 0);
     } else {
         IpAddress nexthop = family_attributes->gateway_address;
-        return RibExportPolicy(peer_type_, RibExportPolicy::BGP, peer_as_,
+        policy = RibExportPolicy(peer_type_, RibExportPolicy::BGP, peer_as_,
             as_override_, peer_close_->IsCloseLongLivedGraceful(), nexthop,
             -1, 0);
     }
+
+    if (private_as_action_ == "remove") {
+        policy.SetRemovePrivatePolicy(false, false, true);
+    } else if (private_as_action_ == "remove-all") {
+        policy.SetRemovePrivatePolicy(true, false, true);
+    } else if (private_as_action_ == "replace-all") {
+        policy.SetRemovePrivatePolicy(true, true, true);
+    }
+
+    return policy;
 }
 
 void BgpPeer::ReceiveEndOfRIB(Address::Family family, size_t msgsize) {
@@ -924,6 +935,12 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
     if (old_type != PeerType()) {
         peer_info.set_peer_type(
             PeerType() == BgpProto::IBGP ? "internal" : "external");
+        clear_session = true;
+    }
+
+    // Check if there is any change in private-as-action configuration.
+    if (private_as_action_ != config->private_as_action()) {
+        private_as_action_ = config->private_as_action();
         clear_session = true;
     }
 
@@ -2380,6 +2397,7 @@ void BgpPeer::FillNeighborInfo(const BgpSandeshContext *bsc,
     bnr->set_admin_down(admin_down_);
     bnr->set_passive(passive_);
     bnr->set_as_override(as_override_);
+    bnr->set_private_as_action(private_as_action_);
     bnr->set_peer_address(peer_address_string());
     bnr->set_peer_id(bgp_identifier_string());
     bnr->set_peer_asn(peer_as());

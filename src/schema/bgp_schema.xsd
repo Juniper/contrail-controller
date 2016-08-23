@@ -142,6 +142,25 @@
          description='The ipv6-gateway-addreess field is used only for router-type bgpaas-client. It holds ipv6 gateway address for ipv6 subnet from which the client has IP address. The value is used as nexthop when advertising routes to the client via bgp.  Note that the ipv6-gateway-address can be a regular ipv6 address or a ipv4-mapped-ipv6 adddress.'/>
 </xsd:complexType>
 
+<xsd:simpleType name='BgpPrivateAsAction'>
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="remove"
+             description='Remove private ASes, stopping at the first public
+                 AS.'/>
+        <xsd:enumeration value="remove-all"
+             description='Remove all private ASes i.e. do not stop at the first
+                 public AS.'/>
+        <xsd:enumeration value="replace-all"
+             description='Replace all private ASes instead of removing them.
+                 Replace private ASes after the first public AS with the
+                 nearest public AS i.e. the last public AS seen as the AS Path
+                 is processed from left to right. Replace private ASes before
+                 the first public AS with the local bgp router AS in the case
+                 of eBGP and the first public AS in the AS Path in the case of
+                 iBGP.'/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:element name='instance-bgp-router'/>
 <!-- #IFMAP-SEMANTICS-IDL
      Link('instance-bgp-router', 'routing-instance',
@@ -205,6 +224,8 @@
     <xsd:element name='family-attributes' type='BgpFamilyAttributes' maxOccurs='unbounded' 
                  required='optional' operations='CRUD'
                  description='Session attributes over ride per BGP address family. Attributes like address family, loop-count and prefix-limit.'/>
+    <xsd:element name='private-as-action' type='BgpPrivateAsAction' required='optional' operations='CRUD'
+         description='Remove or replace private ASes from AS Path attributes advertised to this session.'/>
 </xsd:complexType>
 
 <xsd:complexType name='BgpFamilyAttributes'>

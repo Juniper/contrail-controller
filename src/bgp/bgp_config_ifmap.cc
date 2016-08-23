@@ -244,6 +244,7 @@ static void NeighborSetSessionAttributes(
     if (attributes != NULL) {
         neighbor->set_passive(attributes->passive);
         neighbor->set_as_override(attributes->as_override);
+        neighbor->set_private_as_action(attributes->private_as_action);
         neighbor->set_loop_count(attributes->loop_count);
         if (attributes->admin_down) {
             neighbor->set_admin_down(true);
