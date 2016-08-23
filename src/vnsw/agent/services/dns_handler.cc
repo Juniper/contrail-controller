@@ -203,6 +203,7 @@ bool DnsHandler::HandleDefaultDnsRequest(const VmInterface *vmitf) {
                                " interface = " << vmitf->vm_name() <<
                                " Ignoring unsupported type : " << 
                                it->type);
+                delete resolv;
                 continue;
         }
         resolv_list_.push_back(resolv);
