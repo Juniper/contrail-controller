@@ -547,7 +547,10 @@ class VncApiServer(VncApiServerGen):
         return self._pipe_start_app
     # end get_pipe_start_app
 
-    # Check for the system created VN. Disallow such VN delete
+    def get_rabbit_health_check_interval(self):
+        return float(self._args.rabbit_health_check_interval)
+    # end get_rabbit_health_check_interval
+
     def virtual_network_http_delete(self, id):
         db_conn = self._db_conn
         # if obj doesn't exist return early
@@ -897,6 +900,7 @@ class VncApiServer(VncApiServerGen):
                                          --disc_server_port 5998
                                          --worker_id 1
                                          --rabbit_max_pending_updates 4096
+                                         --rabbit_health_check_interval 120.0
                                          --cluster_id <testbed-name>
                                          [--auth keystone]
                                          [--ifmap_server_loc

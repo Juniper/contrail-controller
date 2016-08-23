@@ -40,7 +40,8 @@ class VncKombuClientBase(object):
         exit()
 
     def __init__(self, rabbit_ip, rabbit_port, rabbit_user, rabbit_password,
-                 rabbit_vhost, rabbit_ha_mode, q_name, subscribe_cb, logger):
+                 rabbit_vhost, rabbit_ha_mode, q_name, subscribe_cb, logger,
+                 heartbeat_seconds=0):
         self._rabbit_ip = rabbit_ip
         self._rabbit_port = rabbit_port
         self._rabbit_user = rabbit_user
@@ -50,6 +51,7 @@ class VncKombuClientBase(object):
         self._logger = logger
         self._publish_queue = Queue()
         self._conn_lock = Semaphore()
+        self._heartbeat_seconds = heartbeat_seconds
 
         self.obj_upd_exchange = kombu.Exchange('vnc_config.object-update', 'fanout',
                                                durable=False)
@@ -147,6 +149,18 @@ class VncKombuClientBase(object):
                 connected = False
     # end _connection_watch_forever
 
+    def _connection_heartbeat(self):
+        while True:
+            try:
+                if self._conn.connected:
+                    self._conn.heartbeat_check()
+            except Exception as e:
+                msg = 'Error in rabbitmq heartbeat greenlet: %s' %(str(e))
+                self._logger(msg, level=SandeshLevel.SYS_ERR)
+            finally:
+                gevent.sleep(float(self._heartbeat_seconds/2))
+    # end _connection_heartbeat
+
     def _publisher(self):
         message = None
         connected = True
@@ -186,10 +200,17 @@ class VncKombuClientBase(object):
 
         self._publisher_greenlet = gevent.spawn(self._publisher)
         self._connection_monitor_greenlet = gevent.spawn(self._connection_watch_forever)
+        if self._heartbeat_seconds:
+            self._connection_heartbeat_greenlet = gevent.spawn(
+                self._connection_heartbeat)
+        else:
+            self._connection_heartbeat_greenlet = None
 
     def shutdown(self):
         self._publisher_greenlet.kill()
         self._connection_monitor_greenlet.kill()
+        if self._connection_heartbeat_greenlet:
+            self._connection_heartbeat_greenlet.kill()
         self._producer.close()
         self._consumer.close()
         self._delete_queue()
@@ -238,7 +259,8 @@ class VncKombuClientV2(VncKombuClientBase):
         super(VncKombuClientV2, self).__init__(rabbit_hosts, rabbit_port,
                                                rabbit_user, rabbit_password,
                                                rabbit_vhost, rabbit_ha_mode,
-                                               q_name, subscribe_cb, logger)
+                                               q_name, subscribe_cb, logger,
+                                               heartbeat_seconds=0)
 
         _hosts = self._parse_rabbit_hosts(rabbit_hosts)
         self._urls = []
@@ -251,7 +273,7 @@ class VncKombuClientV2(VncKombuClientBase):
         self._logger(msg, level=SandeshLevel.SYS_NOTICE)
         self._update_sandesh_status(ConnectionStatus.INIT)
         self._conn_state = ConnectionStatus.INIT
-        self._conn = kombu.Connection(self._urls)
+        self._conn = kombu.Connection(self._urls, heartbeat=heartbeat_seconds)
         queue_args = {"x-ha-policy": "all"} if rabbit_ha_mode else None
         self._update_queue_obj = kombu.Queue(q_name, self.obj_upd_exchange,
                                              durable=False,
