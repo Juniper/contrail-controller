@@ -29,6 +29,7 @@ from pysandesh.sandesh_base import *
 from pysandesh.connection_info import ConnectionState
 from pysandesh.sandesh_logger import SandeshLogger
 from pysandesh.gen_py.sandesh_alarm.ttypes import SandeshAlarmAckResponseCode
+import sandesh.viz.constants as viz_constants
 from sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import AlarmTrace, \
     UVEAlarms, UVEAlarmInfo, UVEAlarmConfig, AlarmOperand2, AlarmCondition, \
     AlarmMatch, AlarmConditionMatch, AlarmAndList, AlarmRules
@@ -360,12 +361,26 @@ class AlarmProcessor(object):
             match=match_list)
     # end _get_alarm_condition_match
 
+    def _get_uve_parent_fqname(self, table, uve_name, uve):
+        try:
+            # virtual-machine UVE key doesn't have project name in the prefix.
+            # Hence extract the project name from the interface_list.
+            if table == viz_constants.VM_TABLE:
+                return uve['UveVirtualMachineAgent']['interface_list'][0].\
+                    rsplit(':', 1)[0]
+            else:
+                return uve_name.rsplit(':', 1)[0]
+        except (KeyError, IndexError):
+            return None
+    # end _get_uve_parent_fqname
+
     def _evaluate_uve_for_alarms(self, alarm_cfg, uve_key, uve):
         table, uve_name = uve_key.split(':', 1)
         # For alarms configured under project, the parent fq_name of the uve
         # should match with that of the alarm config
         if alarm_cfg.parent_type == 'project':
-            uve_parent_fqname = uve_name.rsplit(':', 1)[0]
+            uve_parent_fqname = self._get_uve_parent_fqname(table,
+                uve_name, uve)
             if uve_parent_fqname != alarm_cfg.get_parent_fq_name_str():
                 return None
         or_list = []
