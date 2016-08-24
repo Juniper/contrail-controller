@@ -129,6 +129,16 @@ void KSyncFlowIndexManager::UpdateFlowHandle(FlowTableKSyncEntry *kentry,
                                              uint32_t index,
                                              uint8_t gen_id) {
     assert(index != FlowEntry::kInvalidFlowHandle);
+
+    // Check if index and gen id is corresponding to the info sent
+    // to vrouter, if vrouter has allocated flow index, following
+    // check will fail and it will follow through
+    // to process index allocation
+    if (kentry->vrouter_hash_id() == index &&
+        kentry->vrouter_gen_id() == gen_id) {
+        return;
+    }
+
     FlowEntry *flow = kentry->flow_entry().get();
     FlowTableKSyncObject *object = flow->flow_table()->ksync_object();
     uint8_t evict_gen_id;
@@ -137,13 +147,6 @@ void KSyncFlowIndexManager::UpdateFlowHandle(FlowTableKSyncEntry *kentry,
         // ksync entry only
         assert(kentry == flow->ksync_entry_);
         FlowEntry *rflow = flow->reverse_flow_entry();
-        // Check if index and gen id is corresponding to the info sent
-        // to vrouter, if vrouter has allocated flow index, following
-        // check will fail and it will follow through
-        if (kentry->hash_id() == index &&
-            kentry->vrouter_gen_id() == gen_id) {
-            return;
-        }
 
         // Index allocation should happen only if flow_handle is
         // kInvalidFlowHandle
