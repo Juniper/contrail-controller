@@ -992,6 +992,34 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
             }
         )
 
+        alarm_config8 = self.get_alarm_config_object(
+            {
+                'name': 'alarm8',
+                'uve_keys': ['key8'],
+                'alarm_severity': AlarmBase.ALARM_MINOR,
+                'alarm_rules': {
+                    'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'operand1': 'A.B',
+                                    'operation': '<=',
+                                    'operand2': {
+                                        'uve_attribute': 'A.C.D'
+                                    },
+                                    'variables': ['A.C.N']
+                                }
+                            ]
+                        }
+                    ]
+                },
+                'kwargs': {
+                    'parent_type': 'project',
+                    'fq_name': ['default-domain', 'admin', 'alarm8']
+                }
+            }
+        )
+
         tests = [
             TestCase(name='operand1 not present/null in UVE',
                 input=TestInput(alarm_cfg=alarm_config1,
@@ -1726,6 +1754,219 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                                     {
                                         'json_operand1_val': '"xyz"',
                                         'json_operand2_val': '"xyz"'
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ])
+            ),
+            TestCase(
+                name='alarm config parent type is project. project fqname '
+                    'not present in the uve name',
+                input=TestInput(alarm_cfg=alarm_config8,
+                    uve_key='table8:host1',
+                    uve={
+                        'A': {
+                            'B': 5,
+                            'C': [
+                                {
+                                    'D': 7
+                                }
+                            ]
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='alarm config parent type is project. project fqname '
+                    'present in the uve name',
+                input=TestInput(alarm_cfg=alarm_config8,
+                    uve_key='table8:default-domain:admin:host1',
+                    uve={
+                        'A': {
+                            'B': 5,
+                            'C': [
+                                {
+                                    'D': 7
+                                }
+                            ]
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            {
+                                'condition': {
+                                    'operand1': 'A.B',
+                                    'operand2': {
+                                        'uve_attribute': 'A.C.D'
+                                    },
+                                    'operation': '<=',
+                                    'variables': ['A.C.N']
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '5',
+                                        'json_operand2_val': '7',
+                                        'json_variables': {
+                                            'A.C.N': 'null'
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ])
+            ),
+            TestCase(
+                name='virtual-machine alarm configured under project - '
+                    'interface_list has matching project name',
+                input=TestInput(alarm_cfg=alarm_config8,
+                    uve_key='ObjectVMTable:vm1',
+                    uve={
+                        'A': {
+                            'B': 5,
+                            'C': [
+                                {
+                                    'D': 7
+                                }
+                            ]
+                        },
+                        'UveVirtualMachineAgent': {
+                            'interface_list': [
+                                'default-domain:admin:if1',
+                                'default-domain:admin:if2'
+                            ]
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            {
+                                'condition': {
+                                    'operand1': 'A.B',
+                                    'operand2': {
+                                        'uve_attribute': 'A.C.D'
+                                    },
+                                    'operation': '<=',
+                                    'variables': ['A.C.N']
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '5',
+                                        'json_operand2_val': '7',
+                                        'json_variables': {
+                                            'A.C.N': 'null'
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ])
+            ),
+            TestCase(
+                name='virtual-machine alarm configured under project - '
+                    'interface_list has no matching project name',
+                input=TestInput(alarm_cfg=alarm_config8,
+                    uve_key='ObjectVMTable:vm1',
+                    uve={
+                        'A': {
+                            'B': 5,
+                            'C': [
+                                {
+                                    'D': 7
+                                }
+                            ]
+                        },
+                        'UveVirtualMachineAgent': {
+                            'interface_list': [
+                                'default-domain:demo:if1'
+                            ]
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='virtual-machine alarm configured under project - '
+                    'UveVirtualMachineAgent UVE not present',
+                input=TestInput(alarm_cfg=alarm_config8,
+                    uve_key='ObjectVMTable:vm1',
+                    uve={
+                        'A': {
+                            'B': 5,
+                            'C': [
+                                {
+                                    'D': 7
+                                }
+                            ]
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='virtual-machine alarm configured under project - '
+                    'interface_list not present in UveVirtualMachineAgent UVE',
+                input=TestInput(alarm_cfg=alarm_config8,
+                    uve_key='ObjectVMTable:vm1',
+                    uve={
+                        'A': {
+                            'B': 5,
+                            'C': [
+                                {
+                                    'D': 7
+                                }
+                            ]
+                        },
+                        'UveVirtualMachineAgent': {
+                            'vm_name': 'vm1'
+                        }
+                    },
+                ),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='virtual-machine alarm configured under global - '
+                    'UveVirtualMachineAgent UVE not present',
+                input=TestInput(alarm_cfg=alarm_config5,
+                    uve_key='ObjectVMTable:vm1',
+                    uve={
+                        'A': {
+                            'B': 5,
+                            'C': [
+                                {
+                                    'D': 7,
+                                    'N': 'test'
+                                }
+                            ]
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            {
+                                'condition': {
+                                    'operand1': 'A.B',
+                                    'operand2': {
+                                        'uve_attribute': 'A.C.D'
+                                    },
+                                    'operation': '<=',
+                                    'variables': ['A.C.N']
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '5',
+                                        'json_operand2_val': '7',
+                                        'json_variables': {
+                                            'A.C.N': '"test"'
+                                        }
                                     }
                                 ]
                             }
