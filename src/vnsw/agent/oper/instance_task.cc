@@ -13,7 +13,7 @@ InstanceTask::InstanceTask()
 
 InstanceTaskExecvp::InstanceTaskExecvp(const std::string &cmd,
                             int cmd_type, EventManager *evm) :
-        cmd_(cmd), errors_(*(evm->io_service())),
+        cmd_(cmd), errors_(*(evm->io_service())), setup_done_(false),
         pid_(0), cmd_type_(cmd_type) {
 }
 
@@ -53,6 +53,9 @@ void InstanceTaskExecvp::Terminate() {
     kill(pid_, SIGKILL);
 }
 
+bool InstanceTaskExecvp::IsSetup() {
+    return setup_done_;
+}
 
 // If there is an error before the fork, task is set to "not running"
 // and "false" is returned to caller so that caller can take appropriate
@@ -117,6 +120,7 @@ bool InstanceTaskExecvp::Run() {
         //the task again
         return false;
     }
+    setup_done_ = true;
 
     bzero(rx_buff_, sizeof(rx_buff_));
     boost::asio::async_read(errors_, boost::asio::buffer(rx_buff_, kBufLen),
