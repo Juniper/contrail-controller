@@ -57,7 +57,7 @@ class StatQuerier(object):
     def parse_args(self):
         """ 
         Eg. python stats.py --analytics-api-ip 127.0.0.1
-                          --analytics-api-port 8081
+                          --analytics-api-port 8181
                           --table AnalyticsCpuState.cpu_info
                           --where name=a6s40 cpu_info.module_id=Collector
                           --select "T=60 SUM(cpu_info.cpu_share)"
@@ -68,7 +68,7 @@ class StatQuerier(object):
         """
         defaults = {
             'analytics_api_ip': '127.0.0.1',
-            'analytics_api_port': '8081',
+            'analytics_api_port': '8181',
             'start_time': 'now-10m',
             'end_time': 'now',
             'select' : [],
@@ -96,6 +96,11 @@ class StatQuerier(object):
             "--where", help="List of Where Terms to be ANDed", nargs='+')
         parser.add_argument(
             "--sort", help="List of Sort Terms", nargs='+')
+        parser.add_argument(
+            "--admin-user", help="Name of admin user", default="admin")
+        parser.add_argument(
+            "--admin-password", help="Password of admin user",
+            default="contrail123")
         self._args = parser.parse_args()
 
         if self._args.table is None and self._args.dtable is None:
@@ -132,7 +137,8 @@ class StatQuerier(object):
         
         print json.dumps(query_dict)
         resp = OpServerUtils.post_url_http(
-            query_url, json.dumps(query_dict), sync = True)
+            query_url, json.dumps(query_dict), self._args.admin_user,
+            self._args.admin_password, sync = True)
 
         res = None
         if resp is not None:

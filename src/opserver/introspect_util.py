@@ -2,28 +2,37 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-import urllib, urllib2
+import urllib
 import xmltodict
 import json
 import requests
 from lxml import etree
 import socket
-
+from requests.auth import HTTPBasicAuth
 
 class JsonDrv (object):
 
-    def _http_con(self, url):
-        return urllib2.urlopen(url)
-
-    def load(self, url):
-        return json.load(self._http_con(url))
-
+    def load(self, url, user, password):
+        try:
+            if user and password:
+                auth=HTTPBasicAuth(user, password)
+            else:
+                auth=None
+            resp = requests.get(url, auth=auth)
+            return json.loads(resp.text)
+        except requests.ConnectionError, e:
+            print "Socket Connection error : " + str(e)
+            return None
 
 class XmlDrv (object):
 
-    def load(self, url):
+    def load(self, url, user, password):
         try:
-            resp = requests.get(url)
+            if user and password:
+                auth=HTTPBasicAuth(user, password)
+            else:
+                auth=None
+            resp = requests.get(url, auth=auth)
             return etree.fromstring(resp.text)
         except requests.ConnectionError, e:
             print "Socket Connection error : " + str(e)
@@ -54,14 +63,14 @@ class IntrospectUtilBase (object):
                 return path+query_str
             return "http://%s:%d/%s%s" % (self._ip, self._port, path, query_str)
 
-    def dict_get(self, path='', query=None, drv=None):
-        try:
-            if path:
-                if drv is not None:
-                    return drv().load(self._mk_url_str(path, query))
-                return self._drv.load(self._mk_url_str(path, query))
-        except urllib2.HTTPError:
-            return None
+    def dict_get(self, path='', query=None, drv=None, user=None,
+                 password=None):
+        if path:
+            if drv is not None:
+                return drv().load(self._mk_url_str(path, query), user,
+                    password)
+            return self._drv.load(self._mk_url_str(path, query), user,
+                password)
     # end dict_get
 
 
