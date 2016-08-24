@@ -28,6 +28,8 @@
 
 using std::stringstream;
 using std::string;
+using std::map;
+using std::make_pair;
 using boost::system::error_code;
 
 VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
@@ -237,16 +239,42 @@ void VizCollector::SendDbStatistics() {
     std::vector<GenDb::DbTableInfo> vdbti, vstats_dbti;
     GenDb::DbErrors dbe;
     db_handler->GetStats(&vdbti, &dbe, &vstats_dbti);
-    CollectorDbStats *snh(COLLECTOR_DB_STATS_CREATE());
-    snh->set_name(name_);
-    snh->set_table_info(vdbti);
-    snh->set_errors(dbe);
-    snh->set_statistics_table_info(vstats_dbti);
+
+    // TODO: Change DBStats to return a map directly
+    map<string,GenDb::DbTableStat> mtstat, msstat;
+
+    for (size_t idx=0; idx<vdbti.size(); idx++) {
+        GenDb::DbTableStat dtis;
+        dtis.set_reads(vdbti[idx].get_reads());
+        dtis.set_read_fails(vdbti[idx].get_read_fails());
+        dtis.set_writes(vdbti[idx].get_writes());
+        dtis.set_write_fails(vdbti[idx].get_write_fails());
+        dtis.set_write_back_pressure_fails(vdbti[idx].get_write_back_pressure_fails());
+        mtstat.insert(make_pair(vdbti[idx].get_table_name(), dtis));
+    } 
+
+    for (size_t idx=0; idx<vstats_dbti.size(); idx++) {
+        GenDb::DbTableStat dtis;
+        dtis.set_reads(vstats_dbti[idx].get_reads());
+        dtis.set_read_fails(vstats_dbti[idx].get_read_fails());
+        dtis.set_writes(vstats_dbti[idx].get_writes());
+        dtis.set_write_fails(vstats_dbti[idx].get_write_fails());
+        dtis.set_write_back_pressure_fails(
+            vstats_dbti[idx].get_write_back_pressure_fails());
+        msstat.insert(make_pair(vstats_dbti[idx].get_table_name(), dtis));
+    } 
+    
+    CollectorDbStats cds;
+    cds.set_name(name_);
+    cds.set_table_info(mtstat);
+    cds.set_errors(dbe);
+    cds.set_stats_info(msstat);
+
     cass::cql::DbStats cql_stats;
     if (db_handler->GetCqlStats(&cql_stats)) {
-        snh->set_cql_stats(cql_stats);
+        cds.set_cql_stats(cql_stats);
     }
-    COLLECTOR_DB_STATS_SEND_SANDESH(snh);
+    CollectorDbStatsTrace::Send(cds);
 }
 
 bool VizCollector::GetCqlMetrics(cass::cql::Metrics *metrics) {

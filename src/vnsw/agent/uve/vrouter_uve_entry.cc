@@ -194,12 +194,8 @@ bool VrouterUveEntry::SendVrouterMsg() {
 
     DerivedStatsMap ds;
     FetchDropStats(ds);
-    if (prev_stats_.get_drop_stats_agg().get_counters() != ds) {
-        CategoryResult cr;
-        cr.set_counters(ds);
-        stats.set_drop_stats_agg(cr);
-        prev_stats_.set_drop_stats_agg(cr);
-    }
+    stats.set_raw_drop_stats(ds);
+
     if (first) {
         stats.set_uptime(start_time_);
     }

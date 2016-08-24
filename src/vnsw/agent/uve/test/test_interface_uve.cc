@@ -1235,16 +1235,6 @@ TEST_F(InterfaceUveTest, IntfStatsTest) {
     //UVEs to be sent for each VMI
     EXPECT_EQ(2U, vmut->send_count());
 
-    // Trigger stats collection again without change in stats
-    vmut->ClearCount();
-    collector->interface_stats_responses_ = 0;
-    util_.EnqueueAgentStatsCollectorTask(1);
-    //Wait until agent_stats_collector() is run
-    WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
-    client->WaitForIdle(3);
-
-    //Verify that no UVE sends have happened
-    EXPECT_EQ(0U, vmut->send_count());
     InterfaceCleanup();
 }
 
