@@ -52,6 +52,7 @@
 #include "xmpp/xmpp_init.h"
 #include "xmpp/xmpp_sandesh.h"
 #include "xmpp/xmpp_server.h"
+#include "base/task_tbbkeepawake.h"
 
 using namespace std;
 using namespace boost::asio::ip;
@@ -132,7 +133,8 @@ static void ShutdownDiscoveryClient(DiscoveryServiceClient *client) {
 static void ShutdownServers(
     boost::scoped_ptr<BgpXmppChannelManager> *channel_manager,
     DiscoveryServiceClient *dsclient,
-    Timer *node_info_log_timer) {
+    Timer *node_info_log_timer,
+    TaskTbbKeepAwake *tbb_awake_task) {
 
     // Bring down bgp server, xmpp server, etc. in the right order.
     BgpServer *bgp_server = (*channel_manager)->bgp_server();
@@ -168,6 +170,8 @@ static void ShutdownServers(
 
     ConnectionStateManager::
         GetInstance()->Shutdown();
+
+    tbb_awake_task->ShutTbbKeepAwakeTask();
 
     // Do sandesh cleanup.
     Sandesh::Uninit();
@@ -462,6 +466,12 @@ int main(int argc, char *argv[]) {
                     bgp_server.get(), ifmap_manager, _1, _2, _3,
                     expected_connections), "ObjectBgpRouter");
 
+    // Start TbbKeepAwake Task which makes scheduler always active,
+    // for it to not miss any spawn events
+    TaskTbbKeepAwake tbb_awake_task;
+    tbb_awake_task.StartTbbKeepAwakeTask(TaskScheduler::GetInstance(), &evm,
+                                         "bgp::TbbKeepAwake");
+
     // Parse discovery server configuration.
     DiscoveryServiceClient *ds_client = NULL;
     tcp::endpoint dss_ep;
@@ -514,7 +524,8 @@ int main(int argc, char *argv[]) {
                                    &sandesh_context));
             if (!success) {
                 LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
-                ShutdownServers(&bgp_peer_manager, ds_client, NULL);
+                ShutdownServers(&bgp_peer_manager, ds_client, NULL,
+                                &tbb_awake_task);
                 exit(1);
             }
         }
@@ -552,6 +563,7 @@ int main(int argc, char *argv[]) {
     // Event loop.
     evm.Run();
 
-    ShutdownServers(&bgp_peer_manager, ds_client, node_info_log_timer.get());
+    ShutdownServers(&bgp_peer_manager, ds_client, node_info_log_timer.get(),
+                    &tbb_awake_task);
     return 0;
 }
