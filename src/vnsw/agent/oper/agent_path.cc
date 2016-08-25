@@ -1305,8 +1305,10 @@ bool AgentPath::ReorderCompositeNH(Agent *agent,
              static_cast<const NextHopKey*>(mpls->nexthop()->
                                       GetDBRequestKey().release());
          if (nh_key_1->IsEqual(*nh_key_2) == false) {
+             delete nh_key_2;
              return false;
          }
+         delete nh_key_2;
          break;
      }
 
