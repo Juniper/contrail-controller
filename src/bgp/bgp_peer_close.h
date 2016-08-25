@@ -148,7 +148,8 @@ private:
     bool MembershipRequestCallback(Event *event);
     void StaleNotify();
     bool EventCallback(Event *event);
-    void EnqueueEvent(Event *event) { event_queue_->Enqueue(event); }
+    std::string GetEventName(EventType eventType) const;
+    void EnqueueEvent(Event *event);
     bool close_again() const { return close_again_; }
     virtual bool AssertMembershipState(bool do_assert = true);
     virtual bool AssertMembershipReqCount(bool do_assert = true);

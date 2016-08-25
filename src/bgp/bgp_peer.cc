@@ -102,12 +102,12 @@ class BgpPeer::PeerClose : public IPeerClose {
     }
 
     // Return the time to wait for, in seconds to exit GR_TIMER state.
-    virtual const int GetGracefulRestartTime() const {
+    virtual int GetGracefulRestartTime() const {
         return  peer_->gr_params_.time;
     }
 
     // Return the time to wait for, in seconds to exit LLGR_TIMER state.
-    virtual const int GetLongLivedGracefulRestartTime() const {
+    virtual int GetLongLivedGracefulRestartTime() const {
         return peer_->llgr_params_.time;
     }
 
@@ -411,17 +411,12 @@ RibExportPolicy BgpPeer::BuildRibExportPolicy(Address::Family family) const {
 }
 
 void BgpPeer::ReceiveEndOfRIB(Address::Family family, size_t msgsize) {
-    inc_rx_end_of_rib();
-    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_INFO,
-        BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_IN,
-        "EndOfRib marker family " << Address::FamilyToString(family) <<
-        " size " << msgsize);
-
     peer_close_->close_manager()->ProcessEORMarkerReceived(family);
-    if (family != Address::RTARGET)
-        return;
-    end_of_rib_timer_->Cancel();
-    RegisterToVpnTables();
+    eor_receive_timer_[family]->Cancel();
+
+    // If EoR for RTarget is received, start registration for other families.
+    if (family == Address::RTARGET)
+        RegisterToVpnTables();
 }
 
 void BgpPeer::SendEndOfRIBActual(Address::Family family) {
@@ -454,31 +449,45 @@ uint32_t BgpPeer::GetOutputQueueDepth(Address::Family family) const {
     return server_->membership_mgr()->GetRibOutQueueDepth(this, table);
 }
 
-uint64_t BgpPeer::GetElapsedTimeSinceLastStateChange() const {
-    return UTCTimestampUsec() - state_machine_->last_state_change_usecs_at();
+uint64_t BgpPeer::GetEorSendTimerElapsedTimeUsecs() const {
+    return UTCTimestampUsec() - eor_send_timer_start_time_;
 }
 
 bool BgpPeer::EndOfRibSendTimerExpired(Address::Family family) {
     if (!IsReady())
         return false;
 
-    uint64_t elapsed = GetElapsedTimeSinceLastStateChange();
-
-    // Wait for atleast kMinEndOfRibSendTimeUsecs duration.
-    if (elapsed < kMinEndOfRibSendTimeUsecs)
-        return true;
-
-    // Retry if wait time has not exceeded kMaxEndOfRibSendTimeUsecs and output
-    // queue has not been fully drained yet.
-    if (elapsed < kMaxEndOfRibSendTimeUsecs && GetOutputQueueDepth(family))
-        return true;
+    // Retry if wait time has not exceeded the max and the output queue has not
+    // been fully drained yet.
+    if (GetEorSendTimerElapsedTimeUsecs() <
+            server_->GetEndOfRibSendTime() * 1000000) {
+        uint32_t output_depth = GetOutputQueueDepth(family);
+        if (output_depth) {
+            eor_send_timer_[family]->Reschedule(kEndOfRibSendRetryTimeMsecs);
+            BGP_LOG_PEER(Message, this, SandeshLevel::SYS_INFO,
+                    BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_OUT,
+                    "EndOfRib Send Timer rescheduled for family " <<
+                    Address::FamilyToString(family) << " to fire after " <<
+                    kEndOfRibSendRetryTimeMsecs/1000 << " seconds " <<
+                    "due to non-empty output queue (" << output_depth << ")");
+            return true;
+        }
+    }
 
     SendEndOfRIBActual(family);
     return false;
 }
 
 void BgpPeer::SendEndOfRIB(Address::Family family) {
-    end_of_rib_send_timer_[family]->Start(kEndOfRibSendRetryTimeMsecs,
+    uint32_t timeout = server_->GetEndOfRibSendTime();
+
+    eor_send_timer_start_time_ = UTCTimestampUsec();
+    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_INFO,
+        BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_OUT,
+        "EndOfRib Send Timer scheduled for family " <<
+        Address::FamilyToString(family) <<
+        " to fire after " << timeout * 100 << " milliseconds");
+    eor_send_timer_[family]->Start(timeout * 100, // 10% msecs
         boost::bind(&BgpPeer::EndOfRibSendTimerExpired, this, family),
         boost::bind(&BgpPeer::EndOfRibTimerErrorHandler, this, _1, _2));
 }
@@ -579,10 +588,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
                      "BGP keepalive timer",
                    TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
                    GetTaskInstance())),
-          end_of_rib_timer_(TimerManager::CreateTimer(*server->ioservice(),
-                   "BGP RTarget EndOfRib timer",
-                   TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
-                   GetTaskInstance())),
+          eor_send_timer_start_time_(0),
           send_ready_(true),
           admin_down_(config->admin_down()),
           passive_(config->passive()),
@@ -620,11 +626,17 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
     for (Address::Family family = Address::UNSPEC;
             family < Address::NUM_FAMILIES;
             family = static_cast<Address::Family>(family + 1)) {
-        end_of_rib_send_timer_[family] = TimerManager::CreateTimer(
-                *server->ioservice(), "BGP EndOfRib Send timer " +
-                                      Address::FamilyToString(family),
-                   TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
-                   GetTaskInstance());
+         eor_send_timer_[family] =
+             TimerManager::CreateTimer(*server->ioservice(),
+                 "BGP EoR Send timer for " + Address::FamilyToString(family),
+                 TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
+                 GetTaskInstance());
+
+         eor_receive_timer_[family] =
+             TimerManager::CreateTimer(*server->ioservice(),
+                 "BGP EoR Receive timer for " + Address::FamilyToString(family),
+                 TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
+                 GetTaskInstance());
     }
 
     total_path_count_ = 0;
@@ -997,12 +1009,12 @@ void BgpPeer::PostCloseRelease() {
         index_ = -1;
     }
     TimerManager::DeleteTimer(keepalive_timer_);
-    TimerManager::DeleteTimer(end_of_rib_timer_);
 
     for (Address::Family family = Address::UNSPEC;
             family < Address::NUM_FAMILIES;
             family = static_cast<Address::Family>(family + 1)) {
-        TimerManager::DeleteTimer(end_of_rib_send_timer_[family]);
+        TimerManager::DeleteTimer(eor_send_timer_[family]);
+        TimerManager::DeleteTimer(eor_receive_timer_[family]);
     }
 }
 
@@ -1058,12 +1070,12 @@ void BgpPeer::CustomClose() {
     negotiated_families_.clear();
     ResetCapabilities();
     keepalive_timer_->Cancel();
-    end_of_rib_timer_->Cancel();
 
     for (Address::Family family = Address::UNSPEC;
             family < Address::NUM_FAMILIES;
             family = static_cast<Address::Family>(family + 1)) {
-        end_of_rib_send_timer_[family]->Cancel();
+        eor_send_timer_[family]->Cancel();
+        eor_receive_timer_[family]->Cancel();
     }
 }
 
@@ -1174,6 +1186,9 @@ void BgpPeer::Register(BgpTable *table, const RibExportPolicy &policy) {
     BgpMembershipManager *membership_mgr = server_->membership_mgr();
     membership_req_pending_++;
     membership_mgr->Register(this, table, policy);
+
+    // Start EndOfRib receive timer.
+    StartEndOfRibReceiveTimer(table->family());
 }
 
 void BgpPeer::Register(BgpTable *table) {
@@ -1182,6 +1197,9 @@ void BgpPeer::Register(BgpTable *table) {
         assert(membership_req_pending_ > 0);
     BgpMembershipManager *membership_mgr = server_->membership_mgr();
     membership_mgr->RegisterRibIn(this, table);
+
+    // Start EndOfRib receive timer.
+    StartEndOfRibReceiveTimer(table->family());
 }
 
 //
@@ -1229,7 +1247,6 @@ void BgpPeer::RegisterAllTables() {
     BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
         table, "Register peer with the table");
     Register(table, BuildRibExportPolicy(family));
-    StartEndOfRouteTargetRibTimer();
 
     vector<Address::Family> vpn_family_list = list_of
         (Address::INETVPN)(Address::INET6VPN)(Address::ERMVPN)(Address::EVPN);
@@ -1920,6 +1937,12 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
 
         // Handle EndOfRib marker.
         if (oper == DBRequest::DB_ENTRY_DELETE && nlri->nlri.empty()) {
+            inc_rx_end_of_rib();
+            BGP_LOG_PEER(Message, this, SandeshLevel::SYS_INFO,
+                         BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_IN,
+                         "EndOfRib marker family " <<
+                         Address::FamilyToString(family) <<
+                         " size " << msgsize);
             ReceiveEndOfRIB(family, msgsize);
             return;
         }
@@ -2001,10 +2024,16 @@ void BgpPeer::RegisterToVpnTables() {
     }
 }
 
-void BgpPeer::StartEndOfRibTimer() {
+void BgpPeer::StartEndOfRibReceiveTimer(Address::Family family) {
     uint32_t timeout = server_->GetEndOfRibReceiveTime();
-    end_of_rib_timer_->Start(timeout * 1000,
-        boost::bind(&BgpPeer::EndOfRibTimerExpired, this),
+
+    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_INFO,
+        BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_OUT,
+        "EndOfRib Receive Timer scheduled for family " <<
+        Address::FamilyToString(family) <<
+        " to fire after " << timeout * 1000 << " milliseconds");
+    eor_receive_timer_[family]->Start(timeout * 1000,
+        boost::bind(&BgpPeer::EndOfRibReceiveTimerExpired, this, family),
         boost::bind(&BgpPeer::EndOfRibTimerErrorHandler, this, _1, _2));
 }
 
@@ -2015,15 +2044,12 @@ void BgpPeer::KeepaliveTimerErrorHandler(string error_name,
                  "Timer error: " << error_name << " " << error_message);
 }
 
-bool BgpPeer::EndOfRibTimerExpired() {
+bool BgpPeer::EndOfRibReceiveTimerExpired(Address::Family family) {
+    if (family == Address::RTARGET)
+        RegisterToVpnTables();
 
     // Fake reception of EoRs to exit from GR states and sweep all stale routes.
-    peer_close_->close_manager()->ProcessEORMarkerReceived(Address::UNSPEC);
-    return false;
-}
-
-bool BgpPeer::EndOfRouteTargetRibTimerExpired() {
-    RegisterToVpnTables();
+    peer_close_->close_manager()->ProcessEORMarkerReceived(family);
     return false;
 }
 
@@ -2037,17 +2063,6 @@ bool BgpPeer::KeepaliveTimerExpired() {
     // Start the timer again, by returning true
     //
     return true;
-}
-
-void BgpPeer::StartEndOfRouteTargetRibTimer() {
-    uint32_t timeout = 30;
-    char *time_str = getenv("BGP_RTFILTER_EOR_TIMEOUT");
-    if (time_str) {
-        timeout = strtoul(time_str, NULL, 0);
-    }
-    end_of_rib_timer_->Start(timeout * 1000,
-        boost::bind(&BgpPeer::EndOfRouteTargetRibTimerExpired, this),
-        boost::bind(&BgpPeer::EndOfRibTimerErrorHandler, this, _1, _2));
 }
 
 void BgpPeer::StartKeepaliveTimerUnlocked() {

@@ -44,6 +44,9 @@ public:
     xmps::PeerState GetPeerState() const { return xmps::READY; }
     std::string FromString() const  { return string("fake-from"); }
     const XmppConnection *connection() const { return NULL; }
+    virtual XmppConnection *connection() { return NULL; }
+    virtual bool LastReceived(uint64_t durationMsec) const { return false; }
+    virtual bool LastSent(uint64_t durationMsec) const { return false; }
 
     virtual std::string LastStateName() const {
         return "";
@@ -428,6 +431,238 @@ TEST_F(BgpXmppChannelTest, Connection) {
     delete FindChannel(b.get());
     mgr_->RemoveChannel(b.get());
     EXPECT_EQ(0, Count(mgr_.get()));
+}
+
+// Test for EndOfRib Send timer start logic.
+//
+// Session is closed after eor is sent.
+TEST_F(BgpXmppChannelTest, EndOfRibSend_1) {
+    // Generate 1 channel READY event to BgpXmppChannelManagerMock
+    mgr_->XmppHandleChannelEvent(a.get(), xmps::READY);
+    EXPECT_EQ(1, Count(mgr_.get()));
+
+    BgpXmppChannel *channel_a_ = FindChannel(a.get());
+
+    // Verify that EndOfRib Send timer is started after the channel is UP.
+    EXPECT_TRUE(channel_a_->eor_send_timer()->running());
+    EXPECT_FALSE(channel_a_->eor_sent());
+
+    // subscribe to routing instance purple
+    std::auto_ptr<XmppStanza::XmppMessageIq> msg;
+    msg = GetSubscribe("purple", true);
+    this->ReceiveUpdate(a.get(), msg.get());
+
+    // Verify that EoR Send timer is no longer running.
+    TASK_UTIL_EXPECT_FALSE(channel_a_->eor_send_timer()->running());
+
+    std::string instname = msg->node;
+    task_util::WaitForCondition(&evm_,
+            boost::bind(&BgpXmppChannelTest::PeerRegistered, this,
+                        channel_a_, instname, true), 1 /* seconds */);
+
+    // Trigger membership registration completion for all families.
+    task_util::TaskFire(boost::bind(&BgpXmppChannel::MembershipResponseHandler,
+                        channel_a_, "purple.inet.0"), "xmpp::StateMachine");
+
+    // Verify that EoR Send timer is not longer running.
+    TASK_UTIL_EXPECT_FALSE(channel_a_->eor_send_timer()->running());
+
+    task_util::TaskFire(boost::bind(&BgpXmppChannel::MembershipResponseHandler,
+                        channel_a_, "purple.inet6.0"), "xmpp::StateMachine");
+
+    // Verify that EoR Send timer is not longer running.
+    TASK_UTIL_EXPECT_FALSE(channel_a_->eor_send_timer()->running());
+
+    task_util::TaskFire(boost::bind(&BgpXmppChannel::MembershipResponseHandler,
+                        channel_a_, "purple.evpn.0"), "xmpp::StateMachine");
+
+    // Verify that EoR Send timer is not longer running.
+    TASK_UTIL_EXPECT_FALSE(channel_a_->eor_send_timer()->running());
+    task_util::TaskFire(boost::bind(&BgpXmppChannel::MembershipResponseHandler,
+                        channel_a_, "purple.ermvpn.0"), "xmpp::StateMachine");
+
+    // Verify that EoR Send timer is running again now.
+    TASK_UTIL_EXPECT_TRUE(FindChannel(a.get())->eor_send_timer()->running());
+
+    // Publish route to instance 'purple'
+    msg = RouteAddMsg("purple", "10.1.1.2");
+    this->ReceiveUpdate(a.get(), msg.get());
+
+    // Delete route from 'purple' instance
+    msg = RouteDelMsg("purple", "10.1.1.2");
+    this->ReceiveUpdate(a.get(), msg.get());
+
+    // Trigger EndOfRib timer callback
+    task_util::TaskFire(boost::bind(&BgpXmppChannel::EndOfRibSendTimerExpired,
+                        channel_a_), "xmpp::StateMachine");
+    TASK_UTIL_EXPECT_TRUE(channel_a_->eor_sent());
+    TASK_UTIL_EXPECT_FALSE(channel_a_->eor_send_timer()->running());
+
+    // Unsubscribe from 'purple' instance
+    msg = GetSubscribe("purple", false);
+    this->ReceiveUpdate(a.get(), msg.get());
+
+    // Trigger membership registration completion for all families.
+    task_util::TaskFire(boost::bind(&BgpXmppChannel::MembershipResponseHandler,
+                        channel_a_, "purple.inet.0"), "xmpp::StateMachine");
+    task_util::TaskFire(boost::bind(&BgpXmppChannel::MembershipResponseHandler,
+                        channel_a_, "purple.inet6.0"), "xmpp::StateMachine");
+    task_util::TaskFire(boost::bind(&BgpXmppChannel::MembershipResponseHandler,
+                        channel_a_, "purple.evpn.0"), "xmpp::StateMachine");
+    task_util::TaskFire(boost::bind(&BgpXmppChannel::MembershipResponseHandler,
+                        channel_a_, "purple.ermvpn.0"), "xmpp::StateMachine");
+
+    // Wait until unregister go through
+    instname = msg->node;
+    task_util::WaitForCondition(&evm_,
+            boost::bind(&BgpXmppChannelTest::PeerRegistered, this,
+                        channel_a_, instname, false), 1 /* seconds */);
+    TASK_UTIL_EXPECT_EQ(0, channel_a_->membership_requests());
+
+    mgr_->XmppHandleChannelEvent(a.get(), xmps::NOT_READY);
+
+    delete FindChannel(a.get());
+    mgr_->RemoveChannel(a.get());
+}
+
+// Test for EndOfRib Send timer start logic.
+//
+// Session is closed before eor is sent.
+TEST_F(BgpXmppChannelTest, EndOfRibSend_2) {
+    // Generate 1 channel READY event to BgpXmppChannelManagerMock
+    mgr_->XmppHandleChannelEvent(a.get(), xmps::READY);
+    EXPECT_EQ(1, Count(mgr_.get()));
+
+    BgpXmppChannel *channel_a_ = FindChannel(a.get());
+
+    // Verify that EndOfRib Send timer is started after the channel is UP.
+    EXPECT_TRUE(channel_a_->eor_send_timer()->running());
+    EXPECT_FALSE(channel_a_->eor_sent());
+
+    // subscribe to routing instance purple
+    std::auto_ptr<XmppStanza::XmppMessageIq> msg;
+    msg = GetSubscribe("purple", true);
+    this->ReceiveUpdate(a.get(), msg.get());
+
+    // Verify that EoR Send timer is no longer running.
+    TASK_UTIL_EXPECT_FALSE(channel_a_->eor_send_timer()->running());
+
+    std::string instname = msg->node;
+    task_util::WaitForCondition(&evm_,
+            boost::bind(&BgpXmppChannelTest::PeerRegistered, this,
+                        channel_a_, instname, true), 1 /* seconds */);
+
+    // Trigger membership registration completion for all families.
+    task_util::TaskFire(boost::bind(&BgpXmppChannel::MembershipResponseHandler,
+                        channel_a_, "purple.inet.0"), "xmpp::StateMachine");
+
+    // Verify that EoR Send timer is not longer running.
+    TASK_UTIL_EXPECT_FALSE(channel_a_->eor_send_timer()->running());
+
+    task_util::TaskFire(boost::bind(&BgpXmppChannel::MembershipResponseHandler,
+                        channel_a_, "purple.inet6.0"), "xmpp::StateMachine");
+
+    // Verify that EoR Send timer is not longer running.
+    TASK_UTIL_EXPECT_FALSE(channel_a_->eor_send_timer()->running());
+
+    task_util::TaskFire(boost::bind(&BgpXmppChannel::MembershipResponseHandler,
+                        channel_a_, "purple.evpn.0"), "xmpp::StateMachine");
+
+    // Verify that EoR Send timer is not longer running.
+    TASK_UTIL_EXPECT_FALSE(channel_a_->eor_send_timer()->running());
+    task_util::TaskFire(boost::bind(&BgpXmppChannel::MembershipResponseHandler,
+                        channel_a_, "purple.ermvpn.0"), "xmpp::StateMachine");
+
+    // Verify that EoR Send timer is running again now.
+    TASK_UTIL_EXPECT_TRUE(FindChannel(a.get())->eor_send_timer()->running());
+
+    // Publish route to instance 'purple'
+    msg = RouteAddMsg("purple", "10.1.1.2");
+    this->ReceiveUpdate(a.get(), msg.get());
+
+    // Delete route from 'purple' instance
+    msg = RouteDelMsg("purple", "10.1.1.2");
+    this->ReceiveUpdate(a.get(), msg.get());
+
+    // Unsubscribe from 'purple' instance
+    msg = GetSubscribe("purple", false);
+    this->ReceiveUpdate(a.get(), msg.get());
+
+    // Trigger membership registration completion for all families.
+    task_util::TaskFire(boost::bind(&BgpXmppChannel::MembershipResponseHandler,
+                        channel_a_, "purple.inet.0"), "xmpp::StateMachine");
+    task_util::TaskFire(boost::bind(&BgpXmppChannel::MembershipResponseHandler,
+                        channel_a_, "purple.inet6.0"), "xmpp::StateMachine");
+    task_util::TaskFire(boost::bind(&BgpXmppChannel::MembershipResponseHandler,
+                        channel_a_, "purple.evpn.0"), "xmpp::StateMachine");
+    task_util::TaskFire(boost::bind(&BgpXmppChannel::MembershipResponseHandler,
+                        channel_a_, "purple.ermvpn.0"), "xmpp::StateMachine");
+
+    // Wait until unregister go through
+    instname = msg->node;
+    task_util::WaitForCondition(&evm_,
+            boost::bind(&BgpXmppChannelTest::PeerRegistered, this,
+                        channel_a_, instname, false), 1 /* seconds */);
+    TASK_UTIL_EXPECT_EQ(0, channel_a_->membership_requests());
+
+    mgr_->XmppHandleChannelEvent(a.get(), xmps::NOT_READY);
+    TASK_UTIL_EXPECT_FALSE(channel_a_->eor_sent());
+
+    delete FindChannel(a.get());
+    mgr_->RemoveChannel(a.get());
+}
+
+// Test for EndOfRib Send timer start logic.
+//
+// No subscribes from the agent for any instance and session is closed after
+// the timer expires
+TEST_F(BgpXmppChannelTest, EndOfRibSend_3) {
+    // Generate 1 channel READY event to BgpXmppChannelManagerMock
+    mgr_->XmppHandleChannelEvent(a.get(), xmps::READY);
+    EXPECT_EQ(1, Count(mgr_.get()));
+
+    BgpXmppChannel *channel_a_ = FindChannel(a.get());
+
+    // Verify that EndOfRib Send timer is started after the channel is UP.
+    EXPECT_TRUE(channel_a_->eor_send_timer()->running());
+    EXPECT_FALSE(channel_a_->eor_sent());
+
+    // Trigger EndOfRib timer callback
+    task_util::TaskFire(boost::bind(&BgpXmppChannel::EndOfRibSendTimerExpired,
+                        channel_a_), "xmpp::StateMachine");
+    TASK_UTIL_EXPECT_TRUE(channel_a_->eor_sent());
+    TASK_UTIL_EXPECT_FALSE(channel_a_->eor_send_timer()->running());
+
+    TASK_UTIL_EXPECT_EQ(0, channel_a_->membership_requests());
+
+    mgr_->XmppHandleChannelEvent(a.get(), xmps::NOT_READY);
+    TASK_UTIL_EXPECT_TRUE(channel_a_->eor_sent());
+
+    delete FindChannel(a.get());
+    mgr_->RemoveChannel(a.get());
+}
+
+// Test for EndOfRib Send timer start logic.
+//
+// No subscribes from the agent for any instance and session is closed before
+// the timer expires
+TEST_F(BgpXmppChannelTest, EndOfRibSend_4) {
+    // Generate 1 channel READY event to BgpXmppChannelManagerMock
+    mgr_->XmppHandleChannelEvent(a.get(), xmps::READY);
+    EXPECT_EQ(1, Count(mgr_.get()));
+
+    BgpXmppChannel *channel_a_ = FindChannel(a.get());
+
+    // Verify that EndOfRib Send timer is started after the channel is UP.
+    EXPECT_TRUE(channel_a_->eor_send_timer()->running());
+    EXPECT_FALSE(channel_a_->eor_sent());
+    TASK_UTIL_EXPECT_EQ(0, channel_a_->membership_requests());
+
+    mgr_->XmppHandleChannelEvent(a.get(), xmps::NOT_READY);
+    TASK_UTIL_EXPECT_FALSE(channel_a_->eor_sent());
+
+    delete FindChannel(a.get());
+    mgr_->RemoveChannel(a.get());
 }
 
 }
