@@ -156,9 +156,9 @@ class VncIfmapClient(object):
                                          self._health_checker)
     # end __init__
 
-    def object_alloc(self, obj_type, parent_res_type, fq_name):
-        res_type =\
-            self._db_client_mgr.get_resource_class(obj_type).resource_type
+    @classmethod
+    def object_alloc(cls, obj_class, parent_res_type, fq_name):
+        res_type = obj_class.resource_type
         my_fqn = ':'.join(fq_name)
         parent_fqn = ':'.join(fq_name[:-1])
 
@@ -832,7 +832,7 @@ class VncServerCassandraClient(VncCassandraClient):
     # end get_db_info
 
     def __init__(self, db_client_mgr, cass_srv_list, reset_config, db_prefix,
-                      cassandra_credential):
+                      cassandra_credential, walk):
         self._db_client_mgr = db_client_mgr
         keyspaces = self._UUID_KEYSPACE.copy()
         keyspaces[self._USERAGENT_KEYSPACE_NAME] = {
@@ -840,7 +840,7 @@ class VncServerCassandraClient(VncCassandraClient):
         super(VncServerCassandraClient, self).__init__(
             cass_srv_list, db_prefix, keyspaces, None, self.config_log,
             generate_url=db_client_mgr.generate_url, reset_config=reset_config,
-            credential=cassandra_credential, walk=False)
+            credential=cassandra_credential, walk=walk)
         self._useragent_kv_cf = self._cf_dict[self._USERAGENT_KV_CF_NAME]
     # end __init__
 
@@ -1195,7 +1195,7 @@ class VncZkClient(object):
             client_pfx = ''
             zk_path_pfx = ''
 
-        client_name = client_pfx + 'api-' + instance_id
+        client_name = '%sapi-%s' %(client_pfx, instance_id)
         self._subnet_path = zk_path_pfx + self._SUBNET_PATH
         self._fq_name_to_uuid_path = zk_path_pfx + self._FQ_NAME_TO_UUID_PATH
         _vn_id_alloc_path = zk_path_pfx + self._VN_ID_ALLOC_PATH
@@ -1412,24 +1412,32 @@ class VncDbClient(object):
 
         self._db_resync_done = gevent.event.Event()
 
-        msg = "Connecting to ifmap on %s:%s as %s" \
-              % (ifmap_srv_ip, ifmap_srv_port, uname)
-        self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
+        if api_svr_mgr.get_worker_id() == 0:
+            msg = "Connecting to ifmap on %s:%s as %s" \
+                  % (ifmap_srv_ip, ifmap_srv_port, uname)
+            self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
-        self._ifmap_db = VncIfmapClient(
-            self, ifmap_srv_ip, ifmap_srv_port, uname, passwd, ssl_options)
+            self._ifmap_db = VncIfmapClient(
+                self, ifmap_srv_ip, ifmap_srv_port, uname, passwd, ssl_options)
+        else:
+            self._ifmap_db = None
 
         msg = "Connecting to zookeeper on %s" % (zk_server_ip)
         self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
-        self._zk_db = VncZkClient(api_svr_mgr._args.worker_id, zk_server_ip,
+        self._zk_db = VncZkClient(api_svr_mgr.get_worker_id(), zk_server_ip,
                                   reset_config, db_prefix, self.config_log)
 
         def cassandra_client_init():
             msg = "Connecting to cassandra on %s" % (cass_srv_list)
             self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
+            if api_svr_mgr.get_worker_id() == 0:
+                walk = False # done as part of db_resync()
+            else:
+                walk = True
             self._cassandra_db = VncServerCassandraClient(
-                self, cass_srv_list, reset_config, db_prefix, cassandra_credential)
+                self, cass_srv_list, reset_config, db_prefix,
+                cassandra_credential, walk=walk)
 
         self._zk_db.master_election(cassandra_client_init)
 
@@ -1682,7 +1690,7 @@ class VncDbClient(object):
                 # Ifmap alloc
                 parent_res_type = obj_dict.get('parent_type', None)
                 (ok, result) = self._ifmap_db.object_alloc(
-                    obj_type, parent_res_type, obj_dict['fq_name'])
+                    obj_class, parent_res_type, obj_dict['fq_name'])
                 if not ok:
                     msg = "%s(%s), dbe_resync:ifmap_alloc error: %s" % (
                             obj_type, obj_uuid, result[1])
@@ -1760,7 +1768,8 @@ class VncDbClient(object):
             return (False, (409, str(e)))
 
         parent_res_type = obj_dict.get('parent_type')
-        (ok, result) = self._ifmap_db.object_alloc(obj_type, parent_res_type,
+        obj_class = self.get_resource_class(obj_type)
+        (ok, result) = VncIfmapClient.object_alloc(obj_class, parent_res_type,
                                                    obj_dict['fq_name'])
         if not ok:
             self.dbe_release(obj_type, obj_dict['fq_name'])
@@ -2160,7 +2169,13 @@ class VncDbClient(object):
     # end get_shared_objects
 
     def reset(self):
-        self._ifmap_db.reset(drain_inflight=True)
+        if self.get_worker_id() == 0:
+            self._ifmap_db.reset(drain_inflight=True)
         self._msgbus.reset()
     # end reset
+
+    def get_worker_id(self):
+        return self._api_svr_mgr.get_worker_id()
+    # end get_worker_id
+
 # end class VncDbClient

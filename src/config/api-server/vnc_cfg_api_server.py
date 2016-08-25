@@ -1619,6 +1619,10 @@ class VncApiServer(object):
         return self._args.listen_port
     # end get_server_port
 
+    def get_worker_id(self):
+        return int(self._args.worker_id)
+    # end get_worker_id
+
     def get_pipe_start_app(self):
         return self._pipe_start_app
     # end get_pipe_start_app
@@ -2691,7 +2695,16 @@ class VncApiServer(object):
         self._create_singleton_entry(DiscoveryServiceAssignment())
         self._create_singleton_entry(GlobalQosConfig())
 
-        self._db_conn.db_resync()
+        if int(self._args.worker_id) == 0:
+            self._db_conn.db_resync()
+            try:
+                self._extension_mgrs['resync'].map(self._resync_domains_projects)
+            except RuntimeError:
+                # lack of registered extension leads to RuntimeError
+                pass
+            except Exception as e:
+                err_msg = cfgm_common.utils.detailed_traceback()
+                self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
     # end _db_init_entries
 
     # generate default rbac group rule
@@ -3384,7 +3397,8 @@ def main(args_str=None, server=None):
 
     # Advertise services
     if (vnc_api_server._args.disc_server_ip and
-            vnc_api_server._args.disc_server_port):
+            vnc_api_server._args.disc_server_port and
+            vnc_api_server.get_worker_id() == 0):
         vnc_api_server.publish_self_to_discovery()
 
     """ @sigchld
