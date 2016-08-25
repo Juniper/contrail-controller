@@ -44,6 +44,7 @@ class XmppSession;
 class BgpXmppChannel {
 public:
     static const int kEndOfRibTime = 30; // seconds
+    static const int kEndOfRibSendRetryTimeMsecs = 2000; // 2 Seconds
     enum StatsIndex {
         RX,
         TX,
@@ -53,6 +54,7 @@ public:
         uint64_t rt_updates;
         uint64_t reach;
         uint64_t unreach;
+        uint64_t end_of_rib;
     };
     struct ChannelStats {
         ChannelStats();
@@ -122,7 +124,14 @@ public:
     void SweepCurrentSubscriptions();
     void XMPPPeerInfoSend(const XmppPeerInfoData &peer_info) const;
     const XmppChannel *channel() const { return channel_; }
-    void StartEndOfRibTimer();
+    void StartEndOfRibReceiveTimer();
+    void StartEndOfRibSendTimer();
+    bool EndOfRibSendTimerExpired();
+    bool MembershipResponseHandler(std::string table_name);
+    Timer *eor_send_timer() const { return eor_send_timer_; }
+    bool eor_sent() const { return eor_sent_; }
+    size_t membership_requests() const;
+    void ClearEndOfRibState();
 
     uint64_t get_rx_route_reach() const { return stats_[RX].reach; }
     uint64_t get_rx_route_unreach() const { return stats_[RX].unreach; }
@@ -241,7 +250,6 @@ private:
 
     void RegisterTable(int line, BgpTable *table, int instance_id);
     void UnregisterTable(int line, BgpTable *table);
-    bool MembershipResponseHandler(std::string table_name);
     void MembershipRequestCallback(BgpTable *table);
     void ProcessPendingSubscriptions();
     void DequeueRequest(const std::string &table_name, DBRequest *request);
@@ -262,9 +270,11 @@ private:
     bool ProcessMembershipResponse(std::string table_name,
              RoutingTableMembershipRequestMap::iterator loc);
     void ReceiveEndOfRIB(Address::Family family);
+    bool EndOfRibReceiveTimerExpired();
     void EndOfRibTimerErrorHandler(std::string error_name,
                                    std::string error_message);
     bool EndOfRibTimerExpired();
+    void SendEndOfRIB();
     BgpAttrPtr GetRouteTargetRouteAttr();
 
     xmps::PeerId peer_id_;
@@ -286,7 +296,11 @@ private:
     bool membership_unavailable_;
     bool skip_update_send_;
     bool skip_update_send_cached_;
-    Timer *end_of_rib_timer_;
+    bool eor_sent_;
+    Timer *eor_receive_timer_;
+    Timer *eor_send_timer_;
+    uint64_t eor_receive_timer_start_time_;
+    uint64_t eor_send_timer_start_time_;
     WorkQueue<std::string> membership_response_worker_;
     SubscribedRoutingInstanceList routing_instances_;
     PublishedRTargetRoutes rtarget_routes_;

@@ -1184,6 +1184,11 @@ void AgentXmppChannel::ReceiveBgpMessage(std::auto_ptr<XmlBase> impl) {
         return;
     }
 
+    // If EndOfRib marker is received, process it accordingly.
+    if (nodename == XmppInit::kEndOfRibMarker) {
+        return;
+    }
+
     if (atoi(af) == BgpAf::IPv4 && atoi(safi) == BgpAf::Mcast) {
         ReceiveMulticastUpdate(pugi);
         return;
