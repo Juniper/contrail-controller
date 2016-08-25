@@ -42,8 +42,8 @@ public:
     virtual void MembershipRequestCallbackComplete() {
         membership_request_complete_result_ = true;
     }
-    virtual const int GetGracefulRestartTime() const { return 123; }
-    virtual const int GetLongLivedGracefulRestartTime() const { return 321; }
+    virtual int GetGracefulRestartTime() const { return 123; }
+    virtual int GetLongLivedGracefulRestartTime() const { return 321; }
     virtual bool IsReady() const { return is_ready_; }
     virtual void UnregisterPeer() { }
     virtual void ReceiveEndOfRIB(Address::Family family);

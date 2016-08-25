@@ -165,8 +165,8 @@ public:
     virtual void LongLivedGracefulRestartStale() = 0;
     virtual void GracefulRestartSweep() = 0;
     virtual void GetGracefulRestartFamilies(Families *) const = 0;
-    virtual const int GetGracefulRestartTime() const = 0;
-    virtual const int GetLongLivedGracefulRestartTime() const = 0;
+    virtual int GetGracefulRestartTime() const = 0;
+    virtual int GetLongLivedGracefulRestartTime() const = 0;
     virtual bool IsReady() const = 0;
     virtual IPeer *peer() const = 0;
     virtual void ReceiveEndOfRIB(Address::Family family) = 0;

@@ -39,6 +39,7 @@ public:
     string AuthType() const { return "NIL"; }
     string PeerAddress() const { return "127.0.0.1"; }
     const XmppConnection *connection() const { return NULL; }
+    virtual XmppConnection *connection() { return NULL; }
 
     virtual string LastStateName() const {
         return "";
@@ -85,6 +86,8 @@ public:
     virtual void RegisterTxMessageTraceCallback(TxMessageTraceCb cb) {
         return;
     }
+    virtual bool LastReceived(uint64_t durationMsec) const { return false; }
+    virtual bool LastSent(uint64_t durationMsec) const { return false; }
 };
 
 class BgpXmppChannelMock : public BgpXmppChannel {

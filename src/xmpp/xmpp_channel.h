@@ -81,6 +81,9 @@ public:
     virtual std::string AuthType() const = 0;
     virtual std::string PeerAddress() const = 0;
     virtual const XmppConnection *connection() const = 0;
+    virtual XmppConnection *connection() = 0;
+    virtual bool LastReceived(uint64_t durationMsec) const = 0;
+    virtual bool LastSent(uint64_t durationMsec) const = 0;
 };
 
 #endif // __XMPP_CHANNEL_INTERFACE_H__

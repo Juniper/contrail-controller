@@ -31,6 +31,7 @@ const char *XmppInit::kFqnPrependAgentNodeJID =
     "default-global-system-config:";
 const char *XmppInit::kConfigPeer = "config";
 const char *XmppInit::kBgpPeer = "bgp-peer";
+const char *XmppInit::kEndOfRibMarker = "0/0/EndOfRib";
 const char *XmppInit::kDnsPeer = "dns-peer";
 const char *XmppInit::kOtherPeer = "other-peer";
 
