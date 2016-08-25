@@ -100,19 +100,23 @@ class VncKombuClientBase(object):
             self._logger(msg, level=SandeshLevel.SYS_NOTICE)
 
             self._channel = self._conn.channel()
-            if delete_old_q:
-                # delete the old queue in first-connect context
-                # as db-resync would have caught up with history.
-                try:
-                    bound_q = self._update_queue_obj(self._channel)
-                    bound_q.delete()
-                except Exception as e:
-                    msg = 'Unable to delete the old ampq queue: %s' %(str(e))
-                    self._logger(msg, level=SandeshLevel.SYS_ERR)
+            if self._subscribe_cb is not None:
+                if delete_old_q:
+                    # delete the old queue in first-connect context
+                    # as db-resync would have caught up with history.
+                    try:
+                        bound_q = self._update_queue_obj(self._channel)
+                        bound_q.delete()
+                    except Exception as e:
+                        msg = 'Unable to delete the old ampq queue: %s' %(str(e))
+                        self._logger(msg, level=SandeshLevel.SYS_ERR)
 
-            self._consumer = kombu.Consumer(self._channel,
-                                           queues=self._update_queue_obj,
-                                           callbacks=[self._subscribe])
+                self._consumer = kombu.Consumer(self._channel,
+                                               queues=self._update_queue_obj,
+                                               callbacks=[self._subscribe])
+            else: # only a producer
+                self._consumer = None
+
             self._producer = kombu.Producer(self._channel, exchange=self.obj_upd_exchange)
     # end _reconnect
 
@@ -226,8 +230,9 @@ class VncKombuClientBase(object):
         if self._connection_heartbeat_greenlet:
             self._connection_heartbeat_greenlet.kill()
         self._producer.close()
-        self._consumer.close()
-        self._delete_queue()
+        if self._consumer:
+            self._consumer.close()
+            self._delete_queue()
         self._conn.close()
 
     def reset(self):
@@ -282,7 +287,8 @@ class VncKombuClientV1(VncKombuClientBase):
                                       userid=self._rabbit_user,
                                       password=self._rabbit_password,
                                       virtual_host=self._rabbit_vhost)
-        self._update_queue_obj = kombu.Queue(q_name, self.obj_upd_exchange, durable=False)
+        if q_name:
+            self._update_queue_obj = kombu.Queue(q_name, self.obj_upd_exchange, durable=False)
         self._start(q_name)
     # end __init__
 
@@ -331,10 +337,10 @@ class VncKombuClientV2(VncKombuClientBase):
         self._conn = kombu.Connection(self._urls, ssl=self._ssl_params,
                                       heartbeat=heartbeat_seconds)
         queue_args = {"x-ha-policy": "all"} if rabbit_ha_mode else None
-        self._update_queue_obj = kombu.Queue(q_name, self.obj_upd_exchange,
-                                             durable=False,
-                                             queue_arguments=queue_args)
-
+        if q_name:
+            self._update_queue_obj = kombu.Queue(q_name, self.obj_upd_exchange,
+                                                 durable=False,
+                                                 queue_arguments=queue_args)
         self._start(q_name)
     # end __init__
 
