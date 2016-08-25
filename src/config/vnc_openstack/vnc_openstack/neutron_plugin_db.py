@@ -1597,6 +1597,7 @@ class DBInterface(object):
             fip_obj = FloatingIp(fip_name, fip_pool_obj,
                                  floating_ip_address = floating_ip_addr)
             fip_obj.uuid = fip_name
+            fip_obj.parent_uuid = fip_pool_obj.uuid
 
             proj_id = str(uuid.UUID(fip_q['tenant_id']))
             proj_obj = self._project_read(proj_id=proj_id)
@@ -1614,13 +1615,58 @@ class DBInterface(object):
                 port_obj = self._virtual_machine_interface_read(port_id=port_id)
                 if context and not context['is_admin']:
                     port_tenant_id = self._get_obj_tenant_id('port', port_id)
-                    if port_tenant_id.replace('-', '') != context['tenant']:
+                    if port_tenant_id != context['tenant'].replace('-', ''):
                         raise NoIdError(port_id)
             except NoIdError:
                 self._raise_contrail_exception('PortNotFound',
                                                resource='floatingip',
                                                port_id=port_id)
             fip_obj.set_virtual_machine_interface(port_obj)
+            #check for strict_compliance
+            if self._strict_compliance:
+                port_net_id = port_obj.get_virtual_network_refs()[0]['uuid']
+                pvt_net_obj = self._vnc_lib.virtual_network_read(id=port_net_id)
+                pvt_subnet_info = self._virtual_network_to_subnets(pvt_net_obj)
+                pvt_subnet_id = pvt_subnet_info[0]['id']
+
+                try:
+                    fip_pool_obj = self._vnc_lib.floating_ip_pool_read(id=fip_obj.parent_uuid)
+                except:
+                    msg = "Network %s doesn't provide a floatingip pool" % port_net_id
+                    self._raise_contrail_exception('BadRequest',
+                                                   resource="floatingip", msg=msg)
+                try:
+                    ext_vn_obj = self._vnc_lib.virtual_network_read(id=fip_pool_obj.parent_uuid)
+                except:
+                    self._raise_contrail_exception('ExternalGatewayForFloatingIPNotFound',
+                                                   subnet_id=pvt_subnet_id,
+                                                   external_network_id=ext_vn_obj.uuid,
+                                                   port_id=port_id)
+
+                logical_router_refs = ext_vn_obj.get_logical_router_back_refs()
+                ext_ports_uuid_list = []
+
+                if logical_router_refs:
+                    try:
+                        for router_ref in (logical_router_refs):
+                            ext_router_obj = self._vnc_lib.logical_router_read(id=router_ref['uuid'])
+                            ext_ports_uuid_list += [vmi['uuid'] for vmi in (ext_router_obj.get_virtual_machine_interface_refs()or [])]
+                    except:
+                        self._raise_contrail_exception('ExternalGatewayForFloatingIPNotFound',
+                                                       subnet_id=pvt_subnet_id,
+                                                       external_network_id=ext_vn_obj.uuid,
+                                                       port_id=port_id)
+
+                pvt_port_objs = self._virtual_machine_interface_list(back_ref_id=port_net_id)
+                pvt_ports_uuid_list = [port_obj.get_uuid() for port_obj in pvt_port_objs]
+                pvt_net_port_set = set(pvt_ports_uuid_list)
+                ext_net_port_set = set(ext_ports_uuid_list)
+
+                if not pvt_net_port_set.intersection(ext_net_port_set):
+                    self._raise_contrail_exception('ExternalGatewayForFloatingIPNotFound',
+                                                   subnet_id=pvt_subnet_id,
+                                                   external_network_id=ext_vn_obj.uuid,
+                                                   port_id=port_id)
         else:
             fip_obj.set_virtual_machine_interface_list([])
 
@@ -3325,15 +3371,7 @@ class DBInterface(object):
     # floatingip api handlers
     @wait_for_api_server_connection
     def floatingip_create(self, context, fip_q):
-        try:
-            fip_obj = self._floatingip_neutron_to_vnc(context, fip_q, CREATE)
-        except Exception, e:
-            #logging.exception(e)
-            msg = _('Internal error when trying to create floating ip. '
-                    'Please be sure the network %s is an external '
-                    'network.') % (fip_q['floating_network_id'])
-            self._raise_contrail_exception('BadRequest',
-                                           resource='floatingip', msg=msg)
+        fip_obj = self._floatingip_neutron_to_vnc(context, fip_q, CREATE)
         try:
             fip_uuid = self._vnc_lib.floating_ip_create(fip_obj)
         except OverQuota as e:
