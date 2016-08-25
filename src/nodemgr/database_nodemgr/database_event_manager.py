@@ -336,7 +336,4 @@ class DatabaseEventManager(EventManager):
             if headers['eventname'].startswith("TICK_60"):
                 self.database_periodic()
                 self.event_tick_60()
-                # Perform nodetool repair every cassandra_repair_interval hours
-                if self.tick_count % (60 * self.cassandra_repair_interval) == 0:
-                    self.cassandra_mgr.repair()
             self.listener_nodemgr.ok(self.stdout)
