@@ -289,6 +289,18 @@ public:
     void set_pkt0_tx_buffer_count(uint32_t val) { pkt0_tx_buffer_count_ = val; }
     bool measure_queue_delay() const { return measure_queue_delay_; }
     void set_measure_queue_delay(bool val) { measure_queue_delay_ = val; }
+    uint16_t get_nic_queue(uint16_t queue) {
+        std::map<uint16_t, uint16_t>::iterator it = qos_queue_map_.find(queue);
+        if (it != qos_queue_map_.end()) {
+            return it->second;
+        }
+        return default_nic_queue_;
+    }
+
+    void add_nic_queue(uint16_t queue, uint16_t nic_queue) {
+        qos_queue_map_[queue] = nic_queue;
+    }
+
 protected:
     void set_hypervisor_mode(HypervisorMode m) { hypervisor_mode_ = m; }
     virtual void InitFromSystem();
@@ -367,6 +379,7 @@ private:
     void ParseNexthopServer();
     void ParsePlatform();
     void ParseServices();
+    void ParseQueue();
     void set_agent_mode(const std::string &mode);
     void set_gateway_mode(const std::string &mode);
 
@@ -519,6 +532,8 @@ private:
     uint32_t tbb_exec_delay_;
     uint32_t tbb_schedule_delay_;
     uint32_t tbb_keepawake_timeout_;
+    std::map<uint16_t, uint16_t> qos_queue_map_;
+    uint16_t default_nic_queue_;
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
 

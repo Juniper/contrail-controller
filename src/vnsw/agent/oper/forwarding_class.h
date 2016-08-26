@@ -82,6 +82,10 @@ class ForwardingClass :
         return name_;
     }
 
+    uint16_t nic_queue_id() const {
+        return nic_queue_id_;
+    }
+
 private:
     boost::uuids::uuid uuid_;
     uint32_t id_;
@@ -90,6 +94,7 @@ private:
     uint32_t mpls_exp_;
     QosQueueConstRef qos_queue_ref_;
     std::string name_;
+    uint16_t nic_queue_id_;
     DISALLOW_COPY_AND_ASSIGN(ForwardingClass);
 };
 

@@ -1098,6 +1098,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Property('max-bandwidth', 'qos-queue', 'required', 'CRUD',
               'Maximum bandwidth for this queue.') -->
+<xsd:element name="qos-queue-identifier" type="xsd:integer"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('qos-queue-identifier', 'qos-queue', 'required', 'CRUD',
+              'Unique id for this queue.') -->
 
 <xsd:element name="qos-config" type="ifmap:IdentityType"/>
 <xsd:element name="project-qos-config"/>
