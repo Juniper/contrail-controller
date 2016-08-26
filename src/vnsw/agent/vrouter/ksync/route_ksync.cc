@@ -294,13 +294,21 @@ bool RouteKSyncEntry::BuildArpFlags(const DBEntry *e, const AgentPath *path,
             break;
         }
 
-        if (rt->FindLocalVmPortPath()) {
-            // Local port without MAC stitching should only be a transition
-            // case. In the meanwhile, flood ARP so that VM can respond
-            // Note: In case VN is in L3 forwarding mode flags will be reset.
-            // This is done below when VN entry is extracted.
-            proxy_arp_ = false;
-            flood = true;
+        AgentPath *local_vm_path = rt->FindLocalVmPortPath();
+        if (local_vm_path != NULL) {
+            if (local_vm_path->is_health_check_service()) {
+                // for local vm path exported by health check service
+                // set proxy arp to be true to arp with vrouter MAC
+                proxy_arp = true;
+                flood = false;
+            } else {
+                // Local port without MAC stitching should only be a transition
+                // case. In the meanwhile, flood ARP so that VM can respond
+                // Note: In case VN is in L3 forwarding mode flags will be reset
+                // This is done below when VN entry is extracted.
+                proxy_arp_ = false;
+                flood = true;
+            }
         } else {
             // Non local-route. Set flags based on the route
             proxy_arp = rt->proxy_arp();
