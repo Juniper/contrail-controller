@@ -158,7 +158,8 @@ class HttpClient : public TcpServer {
 public:
     static const uint32_t kDefaultTimeout = 1;  // one millisec
 
-    explicit HttpClient(EventManager *evm);
+    explicit HttpClient(EventManager *evm, std::string task_name=std::string(
+                "http client"));
     virtual ~HttpClient();
 
     void Init();
