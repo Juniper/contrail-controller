@@ -28,9 +28,11 @@ struct QosQueueKey : public AgentOperDBKey {
 
 struct QosQueueData : public AgentOperDBData {
 
-    QosQueueData(const Agent *agent, IFMapNode *node, const std::string &name):
-    AgentOperDBData(agent, node), name_(name) {}
+    QosQueueData(const Agent *agent, IFMapNode *node, const std::string &name,
+                 uint16_t id):
+    AgentOperDBData(agent, node), name_(name), id_(id) {}
     std::string name_;
+    uint16_t id_;
 };
 
 class QosQueue :
@@ -47,6 +49,7 @@ public:
     virtual bool Change(const DBRequest *req);
     virtual void Delete(const DBRequest *req);
     virtual void SetKey(const DBRequestKey *key);
+    virtual void PostAdd();
 
     virtual bool DeleteOnZeroRefCount() const {
         return false;
@@ -67,10 +70,16 @@ public:
     const std::string& name() const {
         return name_;
     }
+
+    uint16_t nic_queue_id() const {
+        return nic_queue_id_;
+    }
+
 private:
     boost::uuids::uuid uuid_;
-    uint32_t id_;
+    uint16_t id_;
     std::string name_;
+    uint16_t nic_queue_id_;
     DISALLOW_COPY_AND_ASSIGN(QosQueue);
 };
 

@@ -96,6 +96,12 @@ bool ForwardingClass::Change(const DBRequest *req) {
         ret = true;
     }
 
+    if (qos_queue_ref_.get()) {
+        if (nic_queue_id_ != qos_queue_ref_->nic_queue_id()) {
+            nic_queue_id_ = qos_queue_ref_->nic_queue_id();
+            ret = true;
+        }
+    }
     return ret;
 }
 

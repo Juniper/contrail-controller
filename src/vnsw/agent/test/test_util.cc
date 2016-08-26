@@ -4299,6 +4299,20 @@ void VerifyQosConfig(Agent *agent, struct TestQosConfigData *data) {
                 data->default_forwarding_class_);
 }
 
+void AddQosQueue(const char *name, uint32_t id, uint32_t qos_queue_id) {
+
+    std::stringstream str;
+    str << "<qos-queue-identifier>" << qos_queue_id << "</qos-queue-identifier>";
+
+    char buf[10000];
+    int len = 0;
+    memset(buf, 0, 10000);
+    AddXmlHdr(buf, len);
+    AddNodeString(buf, len, "qos-queue", name, id, str.str().c_str());
+    AddXmlTail(buf, len);
+    ApplyXmlString(buf);
+}
+
 void AddGlobalConfig(struct TestForwardingClassData *data,
                      uint32_t count) {
     std::stringstream str;

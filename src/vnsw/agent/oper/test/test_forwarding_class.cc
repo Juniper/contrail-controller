@@ -111,6 +111,32 @@ TEST_F(FwdClassTest, Test3) {
     EXPECT_TRUE(agent->forwarding_class_table()->Size() == 0);
 }
 
+TEST_F(FwdClassTest, Test4) {
+    TestForwardingClassData data[] = {
+        {1, 1, 1, 1, 1},
+    };
+
+    Agent::GetInstance()->params()->add_nic_queue(10, 100);
+
+    AddGlobalConfig(data, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(agent->forwarding_class_table()->Size() == 1);
+    VerifyForwardingClass(agent, data, 1);
+
+    ForwardingClassKey key(MakeUuid(data[0].id_));
+    ForwardingClass *fc = static_cast<ForwardingClass *>(
+            agent->forwarding_class_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(fc->nic_queue_id() == Agent::kInvalidQueueId);
+
+    AddQosQueue("qosqueue1", 1, 10);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(fc->nic_queue_id() == 100);
+
+    DelGlobalConfig(data, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(agent->forwarding_class_table()->Size() == 0);
+}
 int main(int argc, char **argv) {
     GETUSERARGS();
 

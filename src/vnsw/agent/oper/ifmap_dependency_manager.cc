@@ -716,13 +716,18 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
     RegisterConfigHandler(this, "service-health-check",
                           agent ? agent->health_check_table() : NULL);
 
-     AddDependencyPath("qos-config",
-                       MakePath("global-qos-config",
+    AddDependencyPath("qos-config",
+                       MakePath("global-qos-config-qos-config",
                                 "qos-config", true));
     RegisterConfigHandler(this, "qos-config",
                           agent ? agent->qos_config_table() : NULL);
+
     RegisterConfigHandler(this, "qos-queue",
                           agent ? agent->qos_queue_table() : NULL);
+
+    AddDependencyPath("forwarding-class",
+                       MakePath("forwarding-class-qos-queue",
+                                "qos-queue", true));
     RegisterConfigHandler(this, "forwarding-class",
                           agent ? agent->forwarding_class_table() : NULL);
 }

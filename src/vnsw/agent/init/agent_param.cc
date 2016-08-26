@@ -677,6 +677,53 @@ void AgentParam::ParseServices() {
     GetValueFromTree<uint32_t>(services_queue_limit_, "SERVICES.queue_limit");
 }
 
+void AgentParam::ParseQueue() {
+    GetValueFromTree<uint16_t>(default_nic_queue_, "QUEUE.default_nic_queue");
+
+    if (!tree_.get_child_optional("QUEUE")) {
+        return;
+    }
+
+    BOOST_FOREACH(ptree::value_type &v, tree_.get_child("QUEUE")) {
+        std::string nic_queue = v.first;
+        std::string input =  v.second.get_value<string>();
+        std::vector<std::string> tokens;
+        std::string sep = "[],";
+        boost::split(tokens, input, boost::is_any_of(sep),
+                     boost::token_compress_on);
+
+        uint16_t queue;
+        if (sscanf(nic_queue.c_str(), "NIC-QUEUE-%hu", &queue) != 1) {
+            continue;
+        }
+
+        for (std::vector<string>::const_iterator it = tokens.begin();
+             it != tokens.end(); it++) {
+
+            if (*it == Agent::NullString()) {
+                continue;
+            }
+
+            string range = *it;
+            std::vector<uint16_t> range_value;
+            if (stringToIntegerList(range, "-", range_value)) {
+                if (range_value.size() == 1) {
+                    qos_queue_map_[range_value[0]] = queue;
+                    continue;
+                }
+
+                if (range_value[0] > range_value[1]) {
+                    continue;
+                }
+
+                for (uint16_t i = range_value[0]; i <= range_value[1]; i++) {
+                    qos_queue_map_[i] = queue;
+                }
+            }
+        }
+    }
+}
+
 void AgentParam::ParseCollectorDSArguments
     (const boost::program_options::variables_map &var_map) {
     GetOptValue< vector<string> >(var_map, collector_server_list_,
@@ -990,6 +1037,7 @@ void AgentParam::InitFromConfig() {
     ParseNexthopServer();
     ParsePlatform();
     ParseServices();
+    ParseQueue();
     cout << "Config file <" << config_file_ << "> parsing completed.\n";
     return;
 }
@@ -1427,7 +1475,8 @@ AgentParam::AgentParam(bool enable_flow_options,
         tbb_thread_count_(Agent::kMaxTbbThreads),
         tbb_exec_delay_(0),
         tbb_schedule_delay_(0),
-        tbb_keepawake_timeout_(Agent::kDefaultTbbKeepawakeTimeout) {
+        tbb_keepawake_timeout_(Agent::kDefaultTbbKeepawakeTimeout),
+        default_nic_queue_(Agent::kInvalidQueueId) {
     // Set common command line arguments supported
     boost::program_options::options_description generic("Generic options");
     generic.add_options()

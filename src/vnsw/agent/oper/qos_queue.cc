@@ -9,15 +9,13 @@
 #include <oper_db.h>
 #include <oper/config_manager.h>
 #include <qos_queue.h>
+#include <init/agent_param.h>
 
 QosQueue::QosQueue(const boost::uuids::uuid &uuid):
     uuid_(uuid), id_(QosQueueTable::kInvalidIndex) {
 }
 
 QosQueue::~QosQueue() {
-    if (id_ != QosQueueTable::kInvalidIndex) {
-        static_cast<QosQueueTable *>(get_table())->ReleaseIndex(this);
-    }
 }
 
 DBEntryBase::KeyPtr QosQueue::GetDBRequestKey() const {
@@ -49,13 +47,30 @@ bool QosQueue::IsLess(const DBEntry &rhs) const {
     return (uuid_ < qos_q.uuid_);
 }
 
+void QosQueue::PostAdd() {
+    AgentDBTable *table = static_cast<AgentDBTable *>(get_table());
+    nic_queue_id_ = table->agent()->params()->get_nic_queue(id_);
+}
+
 bool QosQueue::Change(const DBRequest *req) {
+    const AgentDBTable *table = static_cast<const AgentDBTable *>(get_table());
     const QosQueueData *data = static_cast<const QosQueueData *>(req->data.get());
+    bool ret = false;
 
     if (name_ != data->name_) {
         name_ = data->name_;
+        ret = true;
     }
-    return false;
+
+    if (id_ != data->id_) {
+        id_ = data->id_;
+        if (table) {
+            nic_queue_id_ = table->agent()->params()->get_nic_queue(id_);
+        }
+        ret = true;
+    }
+
+    return ret;
 }
 
 void QosQueue::Delete(const DBRequest *req) {
@@ -142,17 +157,16 @@ bool QosQueueTable::ProcessConfig(IFMapNode *node, DBRequest &req,
         return false;
     }
 
+    autogen::QosQueue *cfg = static_cast <autogen::QosQueue *> (node->GetObject());
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(new QosQueueKey(u));
-    req.data.reset(new QosQueueData(agent(), node, node->name()));
+    req.data.reset(new QosQueueData(agent(), node, node->name(),
+                                    cfg->identifier()));
     Enqueue(&req);
     return false;
 }
 
 void QosQueueTable::ReleaseIndex(QosQueue *qos_q) {
-    if (qos_q->id() != kInvalidIndex) {
-        index_table_.Remove(qos_q->id());
-    }
 }
 
 AgentSandeshPtr
@@ -181,7 +195,7 @@ void AddQosQueue::HandleRequest() const {
     boost::uuids::uuid u1 = StringToUuid(std::string(str));
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(new QosQueueKey(u1));
-    req.data.reset(new QosQueueData(NULL, NULL, get_name()));
+    req.data.reset(new QosQueueData(NULL, NULL, get_name(), get_id()));
     table->Enqueue(&req);
     resp->Response();
 }
