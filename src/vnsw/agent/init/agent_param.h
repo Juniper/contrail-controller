@@ -135,6 +135,9 @@ public:
     uint32_t flow_ksync_tokens() const {return flow_ksync_tokens_;}
     uint32_t flow_del_tokens() const {return flow_del_tokens_;}
     uint32_t flow_update_tokens() const {return flow_update_tokens_;}
+    uint32_t stale_interface_cleanup_timeout() const {
+        return stale_interface_cleanup_timeout_;
+    }
     bool headless_mode() const {return headless_mode_;}
     bool dhcp_relay_mode() const {return dhcp_relay_mode_;}
     bool xmpp_auth_enabled() const {return xmpp_auth_enable_;}
@@ -447,6 +450,7 @@ private:
     uint32_t flow_ksync_tokens_;
     uint32_t flow_del_tokens_;
     uint32_t flow_update_tokens_;
+    uint32_t stale_interface_cleanup_timeout_;
 
     // Parameters configured from command line arguments only (for now)
     std::string config_file_;
