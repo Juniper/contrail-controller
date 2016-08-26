@@ -334,11 +334,11 @@ size_t HttpConnection::GetOffset() {
     return offset_;
 }
 
-HttpClient::HttpClient(EventManager *evm) : 
-  TcpServer(evm) , 
-  curl_timer_(TimerManager::CreateTimer(*evm->io_service(), "http client",
-              TaskScheduler::GetInstance()->GetTaskId("http client"), 0)),
-  id_(0), work_queue_(TaskScheduler::GetInstance()->GetTaskId("http client"), 0,
+HttpClient::HttpClient(EventManager *evm, std::string task_name) :
+  TcpServer(evm),
+  curl_timer_(TimerManager::CreateTimer(*evm->io_service(), task_name,
+              TaskScheduler::GetInstance()->GetTaskId(task_name), 0)),
+  id_(0), work_queue_(TaskScheduler::GetInstance()->GetTaskId(task_name), 0,
               boost::bind(&HttpClient::DequeueEvent, this, _1)),
   shutdown_(false) {
     gi_ = (struct _GlobalInfo *)malloc(sizeof(struct _GlobalInfo));
