@@ -78,7 +78,7 @@ DbHandler::DbHandler(EventManager *evm,
     udc_(new UserDefinedCounters(evm, 0)),
     udc_cfg_poll_timer_(TimerManager::CreateTimer(*evm->io_service(),
         "udc config poll timer",
-        TaskScheduler::GetInstance()->GetTaskId("UDC_cfg_poll_timer"))) {
+        TaskScheduler::GetInstance()->GetTaskId("vnc-api http client"))) {
     dbif_.reset(new cass::cql::CqlIf(evm, cassandra_ips,
         cassandra_ports[0], cassandra_user, cassandra_password));
     tablespace_ = g_viz_constants.COLLECTOR_KEYSPACE_CQL;

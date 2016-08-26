@@ -21,8 +21,13 @@ UserDefinedCounters::UserDefinedCounters(EventManager *evm,
 void
 UserDefinedCounters::InitVnc(EventManager *evm, VncApiConfig *vnccfg)
 {
-    VncApi *v = vnccfg?new VncApi(evm, vnccfg):0;
-    vnc_.reset(v);
+    if (vnccfg) {
+        if (!vnc_) {
+            vnc_.reset(new VncApi(evm, vnccfg));
+        } else {
+            vnc_->SetApiServerAddress();
+        }
+    }
 }
 
 UserDefinedCounters::~UserDefinedCounters()
@@ -157,6 +162,9 @@ UserDefinedCounters::APIfromDisc(Options *o, std::vector<DSResponse> response)
 
             RetryNextApi();
         }
+    } else {
+        api_svr_list_.erase(api_svr_list_.begin(), api_svr_list_.end());
+        api_svr_list_ = response;
     }
 }
 
