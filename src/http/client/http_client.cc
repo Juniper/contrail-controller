@@ -355,6 +355,10 @@ void HttpClient::ShutdownInternal() {
 
     curl_multi_cleanup(gi_->multi);
     TimerManager::DeleteTimer(curl_timer_);
+
+    /* No two http client tasks can run in parallel as instance=0,
+       cleanup work_queue_ */
+    work_queue_.Shutdown();
     SessionShutdown();
     
     shutdown_ = true;
