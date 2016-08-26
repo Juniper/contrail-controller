@@ -205,7 +205,7 @@ VncApi::MakeUri(std::string type, std::vector<std::string> ids,
 }
 
 VncApi::VncApi(EventManager *evm, VncApiConfig *cfg) : evm_(evm), cfg_(cfg),
-        client_(new HttpClient(evm_))
+        client_(new HttpClient(evm_, "vnc-api http client"))
 {
     client_->Init();
     hdr_.push_back(std::string(
@@ -217,10 +217,17 @@ VncApi::VncApi(EventManager *evm, VncApiConfig *cfg) : evm_(evm), cfg_(cfg),
 
 
     boost::system::error_code ec;
-    api_ep_.address(boost::asio::ip::address::from_string(cfg_->cfg_srv_ip, ec));
-    api_ep_.port(cfg_->cfg_srv_port);
+    SetApiServerAddress();
     ks_ep_.address(boost::asio::ip::address::from_string(cfg_->ks_srv_ip, ec));
     ks_ep_.port(cfg_->ks_srv_port);
+}
+
+void
+VncApi::SetApiServerAddress() {
+    boost::system::error_code ec;
+    api_ep_.address(boost::asio::ip::address::from_string(cfg_->cfg_srv_ip,
+                ec));
+    api_ep_.port(cfg_->cfg_srv_port);
 }
 
 void
