@@ -104,8 +104,9 @@ libbgp_ifmap_config = env.Library('bgp_ifmap_config',
 libbgp_xmpp = env.Library('bgp_xmpp',
                           [
                               'bgp_xmpp_channel.cc',
-                              'xmpp_message_builder.cc',
                               'bgp_xmpp_sandesh.cc',
+                              'xmpp_message_builder.cc',
+                              'xmpp_rtarget_manager.cc',
                           ])
 
 libbgp_yaml_config = env.Library('bgp_yaml_config',
