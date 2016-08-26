@@ -101,35 +101,44 @@ BgpPeer::BgpPeer(const Ip4Address &server_ip, const std::string &name,
                  Agent *agent, DBTableBase::ListenerId id,
                  Peer::Type bgp_peer_type) :
     DynamicPeer(agent, bgp_peer_type, name, false),
-    server_ip_(server_ip), id_(id),
-    route_walker_(new ControllerRouteWalker(agent, this)) {
+    server_ip_(server_ip), id_(id) {
+        route_walker_ = agent->oper_db()->agent_route_walk_manager()->
+            AllocWalker<ControllerRouteWalker>(AgentRouteWalker::ALL,
+                                               server_ip.to_string());
+        route_walker()->set_peer(this);
         is_disconnect_walk_ = false;
         setup_time_ = UTCTimestampUsec();
 }
 
 BgpPeer::~BgpPeer() {
+    const Agent *agent = route_walker()->agent();
     // TODO verify if this unregister can be done in walkdone callback 
     // for delpeer
-    if ((id_ != -1) && route_walker_->agent()->vrf_table()) {
-        route_walker_->agent()->vrf_table()->Unregister(id_);
+    if ((id_ != -1) && agent->vrf_table()) {
+        agent->vrf_table()->Unregister(id_);
     }
+    agent->oper_db()->agent_route_walk_manager()->ReleaseWalker(route_walker());
 }
 
 void BgpPeer::DelPeerRoutes(DelPeerDone walk_done_cb) {
-    route_walker_->Start(ControllerRouteWalker::DELPEER, false, walk_done_cb);
+    route_walker()->Start(ControllerRouteWalker::DELPEER, false, walk_done_cb);
 }
 
 void BgpPeer::PeerNotifyRoutes() {
-    route_walker_->Start(ControllerRouteWalker::NOTIFYALL, true, NULL);
+    route_walker()->Start(ControllerRouteWalker::NOTIFYALL, true, NULL);
 }
 
 void BgpPeer::PeerNotifyMulticastRoutes(bool associate) {
-    route_walker_->Start(ControllerRouteWalker::NOTIFYMULTICAST, associate, 
-                         NULL);
+    route_walker()->Start(ControllerRouteWalker::NOTIFYMULTICAST, associate, 
+                          NULL);
 }
 
 void BgpPeer::StalePeerRoutes() {
-    route_walker_->Start(ControllerRouteWalker::STALE, true, NULL);
+    route_walker()->Start(ControllerRouteWalker::STALE, true, NULL);
+}
+
+ControllerRouteWalker *BgpPeer::route_walker() const {
+    return static_cast<ControllerRouteWalker *>(route_walker_.get());
 }
 
 /*

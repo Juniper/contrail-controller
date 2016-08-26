@@ -53,7 +53,8 @@ public:
     bool DeleteState(DBTablePartBase *partition, DBEntryBase *entry);
 
     bool MulticastRouteCanDissociate(const AgentRoute *route);
-    static void Walkdone(DBTableBase *partition, RouteExport *rt);
+    static void Walkdone(DBTable::DBTableWalkRef walk_ref, DBTableBase *table,
+                         RouteExport *rt);
     static RouteExport* Init(AgentRouteTable *table, 
                              AgentXmppChannel *bgp_xmpp_peer);
 private:    
@@ -75,6 +76,7 @@ private:
                                      AgentRoute *route,
                                      RouteExport::State *state);
     LifetimeRef<RouteExport> table_delete_ref_;
+    DBTable::DBTableWalkRef walk_ref_;
 };
 
 #endif // __CONTROLLER_EXPORT_H__

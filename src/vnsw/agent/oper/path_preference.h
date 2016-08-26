@@ -193,7 +193,8 @@ struct PathPreferenceRouteListener : public DBState {
     void Notify(DBTablePartBase *partition, DBEntryBase *e);
     void Init();
     bool DeleteState(DBTablePartBase *partition, DBEntryBase *e);
-    void Walkdone(DBTableBase *partition, PathPreferenceRouteListener *state);
+    void Walkdone(DBTable::DBTableWalkRef walk_ref, DBTableBase *partition,
+                  PathPreferenceRouteListener *state);
     DBTableBase::ListenerId id() const { return id_;}
     void ManagedDelete();
     void set_deleted() {deleted_ = true;}
@@ -204,6 +205,7 @@ private:
     DBTableBase::ListenerId id_;
     LifetimeRef<PathPreferenceRouteListener> table_delete_ref_;
     bool deleted_;
+    DBTable::DBTableWalkRef managed_delete_walk_ref_;
 };
 
 class PathPreferenceModule {

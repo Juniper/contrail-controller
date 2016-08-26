@@ -205,7 +205,7 @@ public:
     DBTableBase::ListenerId route_table_listener_id;
     LifetimeRef<ArpVrfState> table_delete_ref;
     bool deleted;
-    DBTableWalker::WalkId walk_id_;
+    DBTable::DBTableWalkRef managed_delete_walk_ref;
     friend class ArpProto;
 };
 

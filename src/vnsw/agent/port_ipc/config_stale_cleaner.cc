@@ -44,36 +44,29 @@ bool ConfigStaleCleaner::StaleEntryTimeout(int32_t version, Timer *timer) {
 ////////////////////////////////////////////////////////////////////////////////
 
 InterfaceConfigStaleCleaner::InterfaceConfigStaleCleaner(Agent *agent) :
-    ConfigStaleCleaner(agent, NULL), walkid_(DBTableWalker::kInvalidWalkerId) {
+    ConfigStaleCleaner(agent, NULL), version_(0) {
+    walk_ref_ = agent->interface_config_table()->AllocWalker(
+              boost::bind(&InterfaceConfigStaleCleaner::CfgIntfWalk, this,
+                          _1, _2),
+              boost::bind(&InterfaceConfigStaleCleaner::CfgIntfWalkDone, this));
 }
 
 InterfaceConfigStaleCleaner::~InterfaceConfigStaleCleaner() {
-    if (walkid_ != DBTableWalker::kInvalidWalkerId) {
-        CFG_TRACE(IntfInfo, "InterfaceConfigStaleCleaner Walk cancelled.");
-        agent_->db()->GetWalker()->WalkCancel(walkid_);
-    }
+    agent_->interface_config_table()->ReleaseWalker(walk_ref_);
+    CFG_TRACE(IntfInfo, "InterfaceConfigStaleCleaner Walk cancelled.");
 }
 
 bool
-InterfaceConfigStaleCleaner::OnInterfaceConfigStaleTimeout(int32_t version) {
-    DBTableWalker *walker = agent_->db()->GetWalker();
-    if (walkid_ != DBTableWalker::kInvalidWalkerId) {
-        CFG_TRACE(IntfInfo, "InterfaceConfigStaleCleaner Walk cancelled.");
-        walker->WalkCancel(walkid_);
-    }
-
-    walkid_ = walker->WalkTable(agent_->interface_config_table(), NULL,
-              boost::bind(&InterfaceConfigStaleCleaner::CfgIntfWalk, this,
-                          _1, _2, version),
-              boost::bind(&InterfaceConfigStaleCleaner::CfgIntfWalkDone, this,
-                          version));
+InterfaceConfigStaleCleaner::OnInterfaceConfigStaleTimeout(int32_t version,
+                                                           const Agent *agent) {
+    version_ = version;
+    agent->interface_config_table()->WalkAgain(walk_ref_);
     CFG_TRACE(IntfInfo, "InterfaceConfigStaleCleaner Walk invoked.");
     return false;
 }
 
 bool InterfaceConfigStaleCleaner::CfgIntfWalk(DBTablePartBase *partition,
-                                              DBEntryBase *entry,
-                                              int32_t version) {
+                                              DBEntryBase *entry) {
     const CfgIntEntry *cfg_intf = static_cast<const CfgIntEntry *>(entry);
 
     if (cfg_intf->port_type() == CfgIntEntry::CfgIntNameSpacePort) {
@@ -83,7 +76,7 @@ bool InterfaceConfigStaleCleaner::CfgIntfWalk(DBTablePartBase *partition,
         return true;
     }
 
-    if (cfg_intf->GetVersion() < version) {
+    if (cfg_intf->GetVersion() < version_) {
         PortIpcHandler *pih = agent_->port_ipc_handler();
         if (!pih) {
             return true;
@@ -94,7 +87,6 @@ bool InterfaceConfigStaleCleaner::CfgIntfWalk(DBTablePartBase *partition,
     return true;
 }
 
-void InterfaceConfigStaleCleaner::CfgIntfWalkDone(int32_t version) {
-    walkid_ = DBTableWalker::kInvalidWalkerId;
-    CFG_TRACE(IntfWalkDone, version);
+void InterfaceConfigStaleCleaner::CfgIntfWalkDone() {
+    CFG_TRACE(IntfWalkDone, version_);
 }

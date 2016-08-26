@@ -26,17 +26,20 @@ public:
         DELPEER,
         STALE,
     };
-    ControllerRouteWalker(Agent *agent, Peer *peer);
+    //Ctor is private to keep instantiation via agent route walker mgr.
+    ControllerRouteWalker(WalkType walk_type,
+                          const std::string &name,
+                          AgentRouteWalkerManager *mgr);
     virtual ~ControllerRouteWalker() { }
 
     //Starts the walk- walk_done_cb is used to get callback when walk is over
     //i.e. all VRF and all corresponding route walks are over.
     void Start(Type type, bool associate, 
                AgentRouteWalker::WalkDone walk_done_cb);
-    void Cancel();
     //Callback for identifying walk complete of all route tables for given vrf
     void RouteWalkDoneForVrf(VrfEntry *vrf);
     void set_type(Type type) {type_ = type;}
+    void set_peer(Peer *peer) {peer_ = peer;}
 
     //Override vrf notification
     virtual bool VrfWalkNotify(DBTablePartBase *partition, DBEntryBase *e);

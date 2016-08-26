@@ -286,7 +286,8 @@ private:
 class GlobalVrouter::LinkLocalRouteManager {
 public:
     LinkLocalRouteManager(GlobalVrouter *vrouter) 
-        : global_vrouter_(vrouter), vn_id_(DBTableBase::kInvalidId) {}
+        : global_vrouter_(vrouter), vn_id_(DBTableBase::kInvalidId){
+    }
 
     virtual ~LinkLocalRouteManager() {
         DeleteDBClients();
@@ -302,7 +303,7 @@ public:
 private:
     bool VnUpdateWalk(DBEntryBase *entry, const LinkLocalServiceKey key,
                       bool is_add);
-    void VnWalkDone();
+    void VnWalkDone(DBTable::DBTableWalkRef ref);
     bool VnNotify(DBTablePartBase *partition, DBEntryBase *entry);
 
     GlobalVrouter *global_vrouter_;
@@ -350,11 +351,13 @@ void GlobalVrouter::LinkLocalRouteManager::UpdateAllVns(
     }
 
     Agent *agent = global_vrouter_->oper_db()->agent();
-    DBTableWalker *walker = agent->db()->GetWalker();
-    walker->WalkTable(VnTable::GetInstance(), NULL,
-      boost::bind(&GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk,
-                  this, _2, key, is_add),
-      boost::bind(&GlobalVrouter::LinkLocalRouteManager::VnWalkDone, this));
+    DBTable::DBTableWalkRef walk_ref =
+        global_vrouter_->oper_db()->agent()->vn_table()->AllocWalker(
+                boost::bind(&GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk,
+                            this, _2, key, is_add),
+                boost::bind(&GlobalVrouter::LinkLocalRouteManager::VnWalkDone,
+                            this, _1));
+    agent->vn_table()->WalkAgain(walk_ref);
 }
 
 // Vn Walk method
@@ -405,7 +408,9 @@ bool GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk(
     return true;
 }
 
-void GlobalVrouter::LinkLocalRouteManager::VnWalkDone() {
+void
+GlobalVrouter::LinkLocalRouteManager::VnWalkDone(DBTable::DBTableWalkRef ref) {
+    global_vrouter_->oper_db()->agent()->vn_table()->ReleaseWalker(ref);
 }
 
 // VN notify handler
@@ -467,9 +472,11 @@ GlobalVrouter::GlobalVrouter(OperDB *oper)
       linklocal_route_mgr_(new LinkLocalRouteManager(this)),
       fabric_dns_resolver_(new FabricDnsResolver(this,
                            *(oper->agent()->event_manager()->io_service()))),
-      agent_route_resync_walker_(new AgentRouteResync(oper->agent())),
       forwarding_mode_(Agent::L2_L3), flow_export_rate_(kDefaultFlowExportRate),
       ecmp_load_balance_() {
+    agent_route_resync_walker_.reset(oper->agent_route_walk_manager()->
+                       AllocWalker<AgentRouteResync>(AgentRouteWalker::ALL,
+                                   "GlobalVrouterRouteWalker"));
 
     DBTableBase *cfg_db = IFMapTable::FindTable(oper->agent()->db(),
               "global-vrouter-config");
@@ -484,6 +491,8 @@ GlobalVrouter::~GlobalVrouter() {
               "global-vrouter-config");
     if (cfg_db)
         cfg_db->Unregister(global_vrouter_listener_id_);
+    oper_->agent_route_walk_manager()->
+        ReleaseWalker(agent_route_resync_walker_.get());
 }
 
 
@@ -831,7 +840,8 @@ bool GlobalVrouter::IsLinkLocalAddressInUse(const Ip4Address &ip) const {
 }
 
 void GlobalVrouter::ResyncRoutes() {
-    agent_route_resync_walker_.get()->Update();
+    (static_cast<AgentRouteResync *>(agent_route_resync_walker_.get()))->
+        Update();
 }
 
 const EcmpLoadBalance &GlobalVrouter::ecmp_load_balance() const {
