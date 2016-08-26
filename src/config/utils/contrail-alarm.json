@@ -1,0 +1,45 @@
+{
+    "alarm_core_files" : {
+        "description" : "This alarm is raised when a core file is generated.",
+        "or_list": [
+            {
+                "and_list": [
+                    {
+                        "operand1": "NodeStatus.all_core_file_list",
+                        "operation": "!=",
+                        "operand2": {
+                            "json_value": "null"
+                        }
+                    },
+                    {
+                        "operand1": "NodeStatus.all_core_file_list",
+                        "operation": "size!=",
+                        "operand2": {
+                            "json_value": "0"
+                        }
+                    }
+                ]
+            }
+        ],
+        "alarm_severity" : 0,
+        "uve_keys" : [ "analytics-node",  "config-node", "control-node", "database-node", "vrouter" ]
+    },
+    "alarm_pending_cassandra_compaction_tasks" : {
+        "description" : "Pending compaction tasks in cassandra crosses the configured threshold.",
+        "or_list": [
+            {
+                "and_list": [
+                    {
+                        "operand1": "CassandraStatusData.cassandra_compaction_task.pending_compaction_tasks",
+                        "operation": ">=",
+                        "operand2": {
+                            "json_value": "300"
+                        }
+                    }
+                ]
+            }
+        ],
+        "alarm_severity" : 1,
+        "uve_keys" : [ "database-node" ]
+    }
+}
