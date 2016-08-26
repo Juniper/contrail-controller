@@ -38,9 +38,8 @@ class UpdateQueue;
 // A RouteUpdatePtr with a NULL RouteUpdate indicates either the end of an
 // UpdateQueue or the presence of an UpdateMarker.
 //
-// A RouteUpdatePtr is typically used by the task doing update dequeue from
-// the UpdateQueue.  The task is associated with the scheduling group that
-// covers the RibOut in question.
+// A RouteUpdatePtr is typically used by bgp::SendUpdate task that's dequeuing
+// updates from the UpdateQueue.
 //
 // Movable semantics implemented in c++03.
 //
@@ -130,7 +129,7 @@ private:
 // This class implements the concurrency interface between the export module
 // which generates updates and the update dequeue process which consumes them.
 // Export processing runs under multiple table shards; update dequeue runs
-// under a task that is associated with a scheduling group.
+// under the bgp::SendUpdate task.
 //
 // The goal of this class is to ensure that both ends of the interface (export
 // and dequeue) always see entries in a consistent state.

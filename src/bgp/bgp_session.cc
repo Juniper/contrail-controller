@@ -11,7 +11,7 @@
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_session_manager.h"
-#include "bgp/scheduling_group.h"
+#include "bgp/bgp_update_sender.h"
 
 using std::string;
 
@@ -63,15 +63,15 @@ bool BgpSession::ReceiveMsg(const u_int8_t *msg, size_t size) {
 //
 // Process write ready callback.
 //
-// 1. Tell SchedulingGroupManager that the IPeer is send ready.
+// 1. Tell BgpUpdateSender that the IPeer is send ready.
 // 2. Tell BgpPeer that it's send ready so that it can resume Keepalives.
 //
 void BgpSession::ProcessWriteReady() {
     if (!peer_)
         return;
     BgpServer *server = peer_->server();
-    SchedulingGroupManager *sg_mgr = server->scheduling_group_manager();
-    sg_mgr->SendReady(peer_);
+    BgpUpdateSender *sender = server->update_sender();
+    sender->PeerSendReady(peer_);
     peer_->SetSendReady();
 }
 

@@ -91,12 +91,12 @@ public:
     virtual std::string ToString() const;
     virtual std::string ToUVEKey() const;
 
-    // thread: bgp::SendTask
+    // Task: bgp::SendUpdate
     // Used to send an UPDATE message on the socket.
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize);
     virtual bool FlushUpdate();
 
-    // thread: bgp::config
+    // Task: bgp::Config
     void ConfigUpdate(const BgpNeighborConfig *config);
     void ClearConfig();
 
@@ -358,6 +358,7 @@ private:
     typedef std::map<Address::Family, const uint8_t *> FamilyToCapabilityMap;
     typedef std::vector<BgpPeerFamilyAttributes *> FamilyAttributesList;
 
+    bool FlushUpdateUnlocked();
     void KeepaliveTimerErrorHandler(std::string error_name,
                                     std::string error_message);
     virtual void StartKeepaliveTimerUnlocked();

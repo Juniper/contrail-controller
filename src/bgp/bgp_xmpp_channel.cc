@@ -18,6 +18,7 @@
 #include "bgp/bgp_membership.h"
 #include "bgp/bgp_peer_close.h"
 #include "bgp/bgp_server.h"
+#include "bgp/bgp_update_sender.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/inet6/inet6_table.h"
 #include "bgp/extended-community/load_balance.h"
@@ -26,7 +27,6 @@
 #include "bgp/evpn/evpn_table.h"
 #include "bgp/peer_stats.h"
 #include "bgp/rtarget/rtarget_table.h"
-#include "bgp/scheduling_group.h"
 #include "bgp/security_group/security_group.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "control-node/sandesh/control_node_types.h"
@@ -525,10 +525,10 @@ public:
 private:
     void WriteReadyCb(const boost::system::error_code &ec) {
         if (!server_) return;
-        SchedulingGroupManager *sg_mgr = server_->scheduling_group_manager();
+        BgpUpdateSender *sender = server_->update_sender();
         BGP_LOG_PEER(Event, this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
                      BGP_PEER_DIR_NA, "Send ready");
-        sg_mgr->SendReady(this);
+        sender->PeerSendReady(this);
         send_ready_ = true;
         XmppPeerInfoData peer_info;
         peer_info.set_name(ToUVEKey());

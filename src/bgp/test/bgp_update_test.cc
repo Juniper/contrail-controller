@@ -14,8 +14,8 @@
 #include "bgp/bgp_ribout_updates.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_update_queue.h"
+#include "bgp/bgp_update_sender.h"
 #include "bgp/message_builder.h"
-#include "bgp/scheduling_group.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "control-node/control_node.h"
 
@@ -70,17 +70,17 @@ public:
         return !send_block;
     }
 
-    void WriteActive(SchedulingGroupManager *mgr) {
-        mgr->SendReady(this);
+    void WriteActive(BgpUpdateSender *sender) {
+        sender->PeerSendReady(this);
     }
 
-    void WaitOnBlocked(SchedulingGroupManager *mgr) {
+    void WaitOnBlocked(BgpUpdateSender *sender) {
         // wait until the SendUpdate method returns false
         cond_var_.WaitAndClear();
-        // wait until the SchedulingGroup code updates its state
+        // wait until the BgpUpdateSender code updates its state
         ConcurrencyScope scope("bgp::PeerMembership");
         task_util::WaitForIdle();
-        TASK_UTIL_EXPECT_TRUE(!mgr->PeerGroup(this)->IsSendReady(this));
+        TASK_UTIL_EXPECT_FALSE(sender->partition(0)->PeerIsSendReady(this));
     }
 
     void set_block_at(int step) {
@@ -115,27 +115,27 @@ public:
     }
 };
 
-static RouteUpdate *BuildUpdate(BgpRoute *route, const RibOut &ribout,
+static RouteUpdate *BuildUpdate(BgpRoute *route, const RibOut *ribout,
         BgpAttrPtr attrp) {
     RouteUpdate *update = new RouteUpdate(route, RibOutUpdates::QUPDATE);
     UpdateInfoSList ulist;
     UpdateInfo *info = new UpdateInfo();
     info->roattr.set_attr(static_cast<const BgpTable *>(route->get_table()),
                           attrp);
-    info->target = ribout.PeerSet();
+    info->target = ribout->PeerSet();
     ulist->push_front(*info);
     update->SetUpdateInfo(ulist);
     return update;
 }
 
-static RouteUpdate *BuildWithdraw(BgpRoute *route, const RibOut &ribout) {
+static RouteUpdate *BuildWithdraw(BgpRoute *route, const RibOut *ribout) {
     const DBState *state =
-        route->GetState(ribout.table(), ribout.listener_id());
+        route->GetState(ribout->table(), ribout->listener_id());
     const RouteState *rs = dynamic_cast<const RouteState *>(state);
     RouteUpdate *update = new RouteUpdate(route, RibOutUpdates::QUPDATE);
     UpdateInfoSList ulist;
     UpdateInfo *info = new UpdateInfo();
-    info->target = ribout.PeerSet();
+    info->target = ribout->PeerSet();
     ulist->push_front(*info);
     update->SetUpdateInfo(ulist);
     const_cast<RouteState *>(rs)->MoveHistory(update);
@@ -149,21 +149,28 @@ protected:
     static const int kAttrCount = 20;
     BgpUpdateTest()
         : server_(&evm_),
-          inetvpn_table_(static_cast<InetVpnTable *>(db_.CreateTable("bgp.l3vpn.0"))),
-          tbl1_(inetvpn_table_, &mgr_, RibExportPolicy()) {
-        tbl1_.updates()->SetMessageBuilder(&builder_);
+          sender_(server_.update_sender()),
+          inetvpn_table_(
+              static_cast<InetVpnTable *>(db_.CreateTable("bgp.l3vpn.0"))),
+          ribout1_(inetvpn_table_->RibOutLocate(sender_, RibExportPolicy(1))) {
+        ribout1_->updates(0)->SetMessageBuilder(&builder_);
     }
 
     virtual void SetUp() {
         gbl_index = 0;
-        for (int i = 0; i < kPeerCount; i++) {
+        for (int idx = 0; idx < kPeerCount; ++idx) {
             CreatePeer();
+            RibOutRegister(ribout1_, &peers_[idx]);
         }
 
         CreateAttrs();
     }
 
     virtual void TearDown() {
+        for (int idx = 0; idx < kPeerCount; ++idx) {
+            RibOutDeactivate(ribout1_, &peers_[idx]);
+            RibOutUnregister(ribout1_, &peers_[idx]);
+        }
         server_.Shutdown();
         task_util::WaitForIdle();
     }
@@ -171,15 +178,21 @@ protected:
     void RibOutRegister(RibOut *ribout, IPeerUpdate *peer) {
         ConcurrencyScope scope("bgp::PeerMembership");
         ribout->Register(peer);
-        int bit = ribout->GetPeerIndex(peer);
-        ribout->updates()->QueueJoin(RibOutUpdates::QUPDATE, bit);
+    }
+
+    void RibOutDeactivate(RibOut *ribout, IPeerUpdate *peer) {
+        ConcurrencyScope scope("bgp::PeerMembership");
+        ribout->Deactivate(peer);
+    }
+
+    void RibOutUnregister(RibOut *ribout, IPeerUpdate *peer) {
+        ConcurrencyScope scope("bgp::PeerMembership");
+        ribout->Unregister(peer);
     }
 
     void CreatePeer() {
         BgpTestPeer *peer = new BgpTestPeer();
         peers_.push_back(peer);
-        RibOutRegister(&tbl1_, peer);
-        ASSERT_TRUE(tbl1_.GetSchedulingGroup() != NULL);
     }
 
     void CreateAttrs() {
@@ -212,8 +225,8 @@ protected:
         for (int i = 0; i < count; i++) {
             InetVpnRoute *rt = new InetVpnRoute(prefix);
             routes->push_back(rt);
-            RouteUpdate *update = BuildUpdate(rt, *ribout, attr_[i]);
-            ribout->updates()->Enqueue(rt, update);
+            RouteUpdate *update = BuildUpdate(rt, ribout, attr_[i]);
+            ribout->updates(0)->Enqueue(rt, update);
         }
     }
 
@@ -235,12 +248,12 @@ protected:
     }
 
     EventManager evm_;
-    BgpServer server_;
     DB db_;
+    BgpServer server_;
+    BgpUpdateSender *sender_;
     InetVpnTable *inetvpn_table_;
-    SchedulingGroupManager mgr_;
     MsgBuilderMock builder_;
-    RibOut tbl1_;
+    RibOut *ribout1_;
     BgpAttrPtr a1_, a2_, a3_;
     std::vector<BgpAttrPtr> attr_;
     boost::ptr_vector<BgpTestPeer> peers_;
@@ -249,48 +262,48 @@ protected:
 // Create a positive route update, observe that it gets sent.
 // Then generate a corresponding delete.
 TEST_F(BgpUpdateTest, Basic) {
-    RibOutUpdates *updates = tbl1_.updates();
+    RibOutUpdates *updates = ribout1_->updates(0);
     InetVpnPrefix prefix(InetVpnPrefix::FromString("0:0:192.168.24.0/24"));
     InetVpnRoute rt1(prefix);
-    RouteUpdate *u1 = BuildUpdate(&rt1, tbl1_, a1_);
+    RouteUpdate *u1 = BuildUpdate(&rt1, ribout1_, a1_);
     EnqueueOneUpdate(updates, &rt1, u1);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_TRUE(tbl1_.updates()->Empty());
+    TASK_UTIL_EXPECT_TRUE(ribout1_->updates(0)->Empty());
     TASK_UTIL_EXPECT_EQ(1, peers_[0].update_count());
-    DBState *state = rt1.GetState(tbl1_.table(), tbl1_.listener_id());
+    DBState *state = rt1.GetState(ribout1_->table(), ribout1_->listener_id());
     ASSERT_TRUE(state != NULL);
     RouteState *rs = static_cast<RouteState *>(state);
     const AdvertiseSList &adv_slist = rs->Advertised();
     TASK_UTIL_EXPECT_EQ(1, adv_slist->size());
     const AdvertiseInfo &ainfo = *adv_slist->begin();
-    TASK_UTIL_EXPECT_TRUE(tbl1_.PeerSet() == ainfo.bitset);
+    TASK_UTIL_EXPECT_TRUE(ribout1_->PeerSet() == ainfo.bitset);
 
     // delete
-    u1 = BuildWithdraw(&rt1, tbl1_);
+    u1 = BuildWithdraw(&rt1, ribout1_);
     EnqueueOneUpdate(updates, &rt1, u1);
     task_util::WaitForIdle();
 
-    TASK_UTIL_EXPECT_TRUE(tbl1_.updates()->Empty());
+    TASK_UTIL_EXPECT_TRUE(ribout1_->updates(0)->Empty());
     TASK_UTIL_EXPECT_EQ(2, peers_[0].update_count());
-    state = rt1.GetState(tbl1_.table(), tbl1_.listener_id());
+    state = rt1.GetState(ribout1_->table(), ribout1_->listener_id());
     TASK_UTIL_EXPECT_TRUE(state == NULL);
 
     // Cleanup RouteState on all routes.
-    DeleteRouteState(&tbl1_, &rt1);
+    DeleteRouteState(ribout1_, &rt1);
 }
 
 // 2. Verify that update with same attribute end up in the same packet.
 TEST_F(BgpUpdateTest, UpdatePack) {
     InetVpnPrefix prefix(InetVpnPrefix::FromString("0:0:192.168.24.0/24"));
     InetVpnRoute rt1(prefix), rt2(prefix), rt3(prefix), rt4(prefix);
-    RouteUpdate *u1 = BuildUpdate(&rt1, tbl1_, a1_);
-    RouteUpdate *u2 = BuildUpdate(&rt2, tbl1_, a2_);
-    RouteUpdate *u3 = BuildUpdate(&rt3, tbl1_, a1_);
-    RouteUpdate *u4 = BuildUpdate(&rt4, tbl1_, a3_);
+    RouteUpdate *u1 = BuildUpdate(&rt1, ribout1_, a1_);
+    RouteUpdate *u2 = BuildUpdate(&rt2, ribout1_, a2_);
+    RouteUpdate *u3 = BuildUpdate(&rt3, ribout1_, a1_);
+    RouteUpdate *u4 = BuildUpdate(&rt4, ribout1_, a3_);
 
     TaskScheduler::GetInstance()->Stop();
-    RibOutUpdates *updates = tbl1_.updates();
+    RibOutUpdates *updates = ribout1_->updates(0);
     EnqueueOneUpdate(updates, &rt1, u1);
     EnqueueOneUpdate(updates, &rt2, u2);
     EnqueueOneUpdate(updates, &rt3, u3);
@@ -298,58 +311,59 @@ TEST_F(BgpUpdateTest, UpdatePack) {
     TaskScheduler::GetInstance()->Start();
 
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_TRUE(tbl1_.updates()->Empty());
+    TASK_UTIL_EXPECT_TRUE(ribout1_->updates(0)->Empty());
     TASK_UTIL_EXPECT_EQ(3, peers_[0].update_count());
 
     // Cleanup RouteState on all routes.
-    DeleteRouteState(&tbl1_, &rt1);
-    DeleteRouteState(&tbl1_, &rt2);
-    DeleteRouteState(&tbl1_, &rt3);
-    DeleteRouteState(&tbl1_, &rt4);
+    DeleteRouteState(ribout1_, &rt1);
+    DeleteRouteState(ribout1_, &rt2);
+    DeleteRouteState(ribout1_, &rt3);
+    DeleteRouteState(ribout1_, &rt4);
 }
 
 // 3. Peer send blocks
 TEST_F(BgpUpdateTest, SendBlock) {
     InetVpnPrefix prefix(InetVpnPrefix::FromString("0:0:192.168.24.0/24"));
     InetVpnRoute rt1(prefix), rt2(prefix), rt3(prefix), rt4(prefix);
-    RouteUpdate *u1 = BuildUpdate(&rt1, tbl1_, a1_);
-    RouteUpdate *u2 = BuildUpdate(&rt2, tbl1_, a2_);
-    RouteUpdate *u3 = BuildUpdate(&rt3, tbl1_, a1_);
-    RouteUpdate *u4 = BuildUpdate(&rt4, tbl1_, a3_);
+    RouteUpdate *u1 = BuildUpdate(&rt1, ribout1_, a1_);
+    RouteUpdate *u2 = BuildUpdate(&rt2, ribout1_, a2_);
+    RouteUpdate *u3 = BuildUpdate(&rt3, ribout1_, a1_);
+    RouteUpdate *u4 = BuildUpdate(&rt4, ribout1_, a3_);
 
     BgpTestPeer *peer1 = &peers_[1];
     peer1->set_block_at(1);
 
     TaskScheduler::GetInstance()->Stop();
-    RibOutUpdates *updates = tbl1_.updates();
+    RibOutUpdates *updates = ribout1_->updates(0);
     EnqueueOneUpdate(updates, &rt1, u1);
     EnqueueOneUpdate(updates, &rt2, u2);
     EnqueueOneUpdate(updates, &rt3, u3);
     EnqueueOneUpdate(updates, &rt4, u4);
     TaskScheduler::GetInstance()->Start();
 
-    peer1->WaitOnBlocked(&mgr_);
-    peer1->WriteActive(&mgr_);
+    peer1->WaitOnBlocked(sender_);
+    peer1->WriteActive(sender_);
 
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_TRUE(tbl1_.updates()->Empty());
+    TASK_UTIL_EXPECT_TRUE(ribout1_->updates(0)->Empty());
     TASK_UTIL_EXPECT_EQ(3, peers_[0].update_count());
     TASK_UTIL_EXPECT_EQ(3, peers_[1].update_count());
 
-    UpdateQueue *queue = tbl1_.updates()->queue(RibOutUpdates::QUPDATE);
+    UpdateQueue *queue = ribout1_->updates(0)->queue(RibOutUpdates::QUPDATE);
     RibPeerSet &bitset = queue->tail_marker()->members;
-    TASK_UTIL_EXPECT_TRUE(bitset == tbl1_.PeerSet());
+    TASK_UTIL_EXPECT_TRUE(bitset == ribout1_->PeerSet());
 
     // Cleanup RouteState on all routes.
-    DeleteRouteState(&tbl1_, &rt1);
-    DeleteRouteState(&tbl1_, &rt2);
-    DeleteRouteState(&tbl1_, &rt3);
-    DeleteRouteState(&tbl1_, &rt4);
+    DeleteRouteState(ribout1_, &rt1);
+    DeleteRouteState(ribout1_, &rt2);
+    DeleteRouteState(ribout1_, &rt3);
+    DeleteRouteState(ribout1_, &rt4);
 }
 
 TEST_F(BgpUpdateTest, MultipleMarkers) {
-    for (int i = 0; i < 4; i++) {
+    for (int idx = 0; idx < 4; ++idx) {
         CreatePeer();
+        RibOutRegister(ribout1_, &peers_[kPeerCount + idx]);
     }
 
     // Configure block policies.
@@ -364,26 +378,25 @@ TEST_F(BgpUpdateTest, MultipleMarkers) {
     // Enqueue updates
     vector<InetVpnRoute *> routes;
     TaskScheduler::GetInstance()->Stop();
-    EnqueueUpdates(&tbl1_, &routes, 10);
+    EnqueueUpdates(ribout1_, &routes, 10);
     TaskScheduler::GetInstance()->Start();
 
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(peers_[0].update_count() == 10);
 
-    // peers_[1].WaitOnBlocked(&mgr_);
-    peers_[1].WriteActive(&mgr_);
-    peers_[2].WriteActive(&mgr_);
+    peers_[1].WriteActive(sender_);
+    peers_[2].WriteActive(sender_);
 
-    peers_[3].WaitOnBlocked(&mgr_);
-    peers_[3].WriteActive(&mgr_);
+    peers_[3].WaitOnBlocked(sender_);
+    peers_[3].WriteActive(sender_);
 
-    peers_[4].WaitOnBlocked(&mgr_);
-    peers_[4].WriteActive(&mgr_);
+    peers_[4].WaitOnBlocked(sender_);
+    peers_[4].WriteActive(sender_);
 
-    peers_[2].WaitOnBlocked(&mgr_);
-    peers_[3].WaitOnBlocked(&mgr_);
-    peers_[3].WriteActive(&mgr_);
-    peers_[2].WriteActive(&mgr_);
+    peers_[2].WaitOnBlocked(sender_);
+    peers_[3].WaitOnBlocked(sender_);
+    peers_[3].WriteActive(sender_);
+    peers_[2].WriteActive(sender_);
 
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(peers_[2].update_count() == 10);
@@ -392,79 +405,91 @@ TEST_F(BgpUpdateTest, MultipleMarkers) {
 
     task_util::WaitForIdle();
     BOOST_FOREACH(BgpRoute *route, routes) {
-        DeleteRouteState(&tbl1_, route);
+        DeleteRouteState(ribout1_, route);
     }
     STLDeleteValues(&routes);
+    for (int idx = 0; idx < 4; ++idx) {
+        RibOutDeactivate(ribout1_, &peers_[kPeerCount + idx]);
+        RibOutUnregister(ribout1_, &peers_[kPeerCount + idx]);
+    }
 }
 
 class BgpUpdate2RibTest : public BgpUpdateTest {
 protected:
     typedef BgpUpdateTest Base;
+    static const int kPeerCount2 = 2;
 
     BgpUpdate2RibTest()
-        : tbl2_(inetvpn_table_, &mgr_, RibExportPolicy()) {
-        tbl2_.updates()->SetMessageBuilder(&builder_);
+      : ribout2_(inetvpn_table_->RibOutLocate(sender_, RibExportPolicy(2))) {
+        ribout2_->updates(0)->SetMessageBuilder(&builder_);
     }
 
     virtual void SetUp() {
         Base::SetUp();
-
-        for (int i = 0; i < 2; i++) {
-            BgpTestPeer *peer = new BgpTestPeer();
-            peers_.push_back(peer);
-            RibOutRegister(&tbl2_, peer);
+        for (int idx = 0; idx < kPeerCount2; ++idx) {
+            CreatePeer();
+            RibOutRegister(ribout2_, &peers_[kPeerCount + idx]);
         }
     }
 
-    RibOut tbl2_;
+    virtual void TearDown() {
+        for (int idx = 0; idx < kPeerCount2; ++idx) {
+            RibOutDeactivate(ribout2_, &peers_[kPeerCount + idx]);
+            RibOutUnregister(ribout2_, &peers_[kPeerCount + idx]);
+        }
+        Base::TearDown();
+    }
+
+    RibOut *ribout2_;
 };
 
 // 4. Multiple ribs (in sync)
 TEST_F(BgpUpdate2RibTest, Basic) {
-    RibOutRegister(&tbl2_, &peers_[0]);
-    ASSERT_EQ(tbl1_.GetSchedulingGroup(), tbl2_.GetSchedulingGroup());
+    RibOutRegister(ribout2_, &peers_[0]);
 
     InetVpnPrefix prefix(InetVpnPrefix::FromString("0:0:192.168.24.0/24"));
     InetVpnRoute rt1(prefix), rt2(prefix), rt3(prefix), rt4(prefix);
-    RouteUpdate *u1 = BuildUpdate(&rt1, tbl1_, a1_);
-    RouteUpdate *u2 = BuildUpdate(&rt2, tbl1_, a2_);
-    RouteUpdate *u3 = BuildUpdate(&rt3, tbl2_, a1_);
-    RouteUpdate *u4 = BuildUpdate(&rt4, tbl2_, a3_);
+    RouteUpdate *u1 = BuildUpdate(&rt1, ribout1_, a1_);
+    RouteUpdate *u2 = BuildUpdate(&rt2, ribout1_, a2_);
+    RouteUpdate *u3 = BuildUpdate(&rt3, ribout2_, a1_);
+    RouteUpdate *u4 = BuildUpdate(&rt4, ribout2_, a3_);
 
     TaskScheduler::GetInstance()->Stop();
     {
-        RibOutUpdates *updates = tbl1_.updates();
+        RibOutUpdates *updates = ribout1_->updates(0);
         EnqueueOneUpdate(updates, &rt1, u1);
         EnqueueOneUpdate(updates, &rt2, u2);
     }
     {
-        RibOutUpdates *updates = tbl2_.updates();
+        RibOutUpdates *updates = ribout2_->updates(0);
         EnqueueOneUpdate(updates, &rt3, u3);
         EnqueueOneUpdate(updates, &rt4, u4);
     }
     TaskScheduler::GetInstance()->Start();
 
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_TRUE(tbl1_.updates()->Empty());
-    TASK_UTIL_EXPECT_TRUE(tbl2_.updates()->Empty());
+    TASK_UTIL_EXPECT_TRUE(ribout1_->updates(0)->Empty());
+    TASK_UTIL_EXPECT_TRUE(ribout2_->updates(0)->Empty());
     TASK_UTIL_EXPECT_EQ(4, peers_[0].update_count());
     TASK_UTIL_EXPECT_EQ(2, peers_[1].update_count());
     TASK_UTIL_EXPECT_EQ(2, peers_[2].update_count());
 
     // Cleanup RouteState on all routes.
-    DeleteRouteState(&tbl1_, &rt1);
-    DeleteRouteState(&tbl1_, &rt2);
-    DeleteRouteState(&tbl2_, &rt3);
-    DeleteRouteState(&tbl2_, &rt4);
+    DeleteRouteState(ribout1_, &rt1);
+    DeleteRouteState(ribout1_, &rt2);
+    DeleteRouteState(ribout2_, &rt3);
+    DeleteRouteState(ribout2_, &rt4);
+
+    RibOutDeactivate(ribout2_, &peers_[0]);
+    RibOutUnregister(ribout2_, &peers_[0]);
 }
 
 // 5. Multiple ribs (send block and catch up)
 TEST_F(BgpUpdate2RibTest, WithBlock) {
-    for (int i = 0; i < 4; i++) {
-        BgpTestPeer *peer = new BgpTestPeer();
-        peers_.push_back(peer);
-        RibOutRegister(&tbl1_, peer);
-        RibOutRegister(&tbl2_, peer);
+    for (int idx = 0; idx < 4; ++idx) {
+        CreatePeer();
+        RibOutRegister(ribout1_, &peers_[kPeerCount + kPeerCount2 + idx]);
+        RibOutRegister(ribout2_, &peers_[kPeerCount + kPeerCount2 + idx]);
     }
 
     // set blocking points
@@ -478,8 +503,8 @@ TEST_F(BgpUpdate2RibTest, WithBlock) {
     // Enqueue the updates
     vector<InetVpnRoute *> routes;
     TaskScheduler::GetInstance()->Stop();
-    EnqueueUpdates(&tbl1_, &routes, 10);
-    EnqueueUpdates(&tbl2_, &routes, 10);
+    EnqueueUpdates(ribout1_, &routes, 10);
+    EnqueueUpdates(ribout2_, &routes, 10);
     TaskScheduler::GetInstance()->Start();
 
     task_util::WaitForIdle();
@@ -487,23 +512,23 @@ TEST_F(BgpUpdate2RibTest, WithBlock) {
     TASK_UTIL_EXPECT_EQ(10, peers_[2].update_count());
     TASK_UTIL_EXPECT_EQ(20, peers_[4].update_count());
 
-    peers_[1].WaitOnBlocked(&mgr_);
-    peers_[1].WriteActive(&mgr_);
+    peers_[1].WaitOnBlocked(sender_);
+    peers_[1].WriteActive(sender_);
 
-    peers_[3].WaitOnBlocked(&mgr_);
-    peers_[3].WriteActive(&mgr_);
+    peers_[3].WaitOnBlocked(sender_);
+    peers_[3].WriteActive(sender_);
 
-    peers_[5].WaitOnBlocked(&mgr_);
-    peers_[6].WaitOnBlocked(&mgr_);
-    peers_[7].WaitOnBlocked(&mgr_);
+    peers_[5].WaitOnBlocked(sender_);
+    peers_[6].WaitOnBlocked(sender_);
+    peers_[7].WaitOnBlocked(sender_);
 
-    peers_[5].WriteActive(&mgr_);
-    peers_[6].WriteActive(&mgr_);
-    peers_[7].WriteActive(&mgr_);
+    peers_[5].WriteActive(sender_);
+    peers_[6].WriteActive(sender_);
+    peers_[7].WriteActive(sender_);
 
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_TRUE(tbl1_.updates()->Empty());
-    TASK_UTIL_EXPECT_TRUE(tbl2_.updates()->Empty());
+    TASK_UTIL_EXPECT_TRUE(ribout1_->updates(0)->Empty());
+    TASK_UTIL_EXPECT_TRUE(ribout2_->updates(0)->Empty());
 
     TASK_UTIL_EXPECT_EQ(10, peers_[1].update_count());
     TASK_UTIL_EXPECT_EQ(10, peers_[3].update_count());
@@ -513,10 +538,16 @@ TEST_F(BgpUpdate2RibTest, WithBlock) {
     TASK_UTIL_EXPECT_EQ(20, peers_[7].update_count());
 
     BOOST_FOREACH(BgpRoute *route, routes) {
-        DeleteRouteState(&tbl1_, route);
-        DeleteRouteState(&tbl2_, route);
+        DeleteRouteState(ribout1_, route);
+        DeleteRouteState(ribout2_, route);
     }
     STLDeleteValues(&routes);
+    for (int idx = 0; idx < 4; ++idx) {
+        RibOutDeactivate(ribout1_, &peers_[kPeerCount + kPeerCount2 + idx]);
+        RibOutUnregister(ribout1_, &peers_[kPeerCount + kPeerCount2 + idx]);
+        RibOutDeactivate(ribout2_, &peers_[kPeerCount + kPeerCount2 + idx]);
+        RibOutUnregister(ribout2_, &peers_[kPeerCount + kPeerCount2 + idx]);
+    }
 }
 
 static void SetUp() {

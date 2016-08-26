@@ -84,10 +84,10 @@ libbgp = env.Library('bgp',
                       'bgp_update.cc',
                       'bgp_update_monitor.cc',
                       'bgp_update_queue.cc',
+                      'bgp_update_sender.cc',
                       'community.cc',
                       'message_builder.cc',
                       'peer_stats.cc',
-                      'scheduling_group.cc',
                       'state_machine.cc',
                       ])
 
