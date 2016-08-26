@@ -691,10 +691,10 @@ systemlog sandesh BgpPeerInstanceLog {
 }
 
 /**
- * @description: BGP Peer outboud scheduling-group message
+ * @description: BGP Peer outboud send update message
  * @severity: DEBUG / ERROR
  */
-trace sandesh BgpPeerSchedulingGroupTrace {
+trace sandesh BgpPeerSendUpdateTrace {
     1: "BGP Peer"
     2: string Peer (key="ObjectBgpPeer");
     /** Direction is send '>' or receive '<' */
@@ -704,12 +704,12 @@ trace sandesh BgpPeerSchedulingGroupTrace {
 }
 
 /**
- * @description: BGP Peer outboud scheduling-group message
+ * @description: BGP Peer outboud send update message
  * @severity: DEBUG / ERROR
  * @cause: Normal operation / An internal software failure occurred
  * @action: Contact your technical support representative in case of Error. Peer clear might also help as a work around.
  */
-systemlog sandesh BgpPeerSchedulingGroupLog {
+systemlog sandesh BgpPeerSendUpdateLog {
     1: "BGP Peer"
     2: string Peer (key="ObjectBgpPeer");
     /** Direction is send '>' or receive '<' */
@@ -951,10 +951,10 @@ systemlog sandesh XmppPeerInstanceLog {
 }
 
 /**
- * @description: Xmpp peer outbound scheduling group message
+ * @description: Xmpp peer outbound send update message
  * @severity: DEBUG / ERROR
  */
-trace sandesh XmppPeerSchedulingGroupTrace {
+trace sandesh XmppPeerSendUpdateTrace {
     1: "XMPP Peer"
     2: string Peer (key="ObjectVRouter");
     /** Direction is send '>' or receive '<' */
@@ -964,12 +964,12 @@ trace sandesh XmppPeerSchedulingGroupTrace {
 }
 
 /**
- * @description: Xmpp peer outbound scheduling group message
+ * @description: Xmpp peer outbound send update message
  * @severity: DEBUG / ERROR
  * @cause: Normal operation / An internal software failure occurred
  * @action: Contact your technical support representative in case of Error. Peer clear might also help as a work around.
  */
-systemlog sandesh XmppPeerSchedulingGroupLog {
+systemlog sandesh XmppPeerSendUpdateLog {
     1: "XMPP Peer"
     2: string Peer (key="ObjectVRouter");
     /** Direction is send '>' or receive '<' */

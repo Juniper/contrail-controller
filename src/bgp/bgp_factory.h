@@ -43,11 +43,9 @@ class RoutingInstanceMgr;
 class RoutingPolicy;
 class RoutingPolicyMgr;
 class RTargetGroupMgr;
-class SchedulingGroup;
 class StateMachine;
 
 class BgpObjectFactory : public Factory<BgpObjectFactory> {
-    FACTORY_TYPE_N0(BgpObjectFactory, SchedulingGroup);
     FACTORY_TYPE_N1(BgpObjectFactory, BgpConfigManager, BgpServer *);
     FACTORY_TYPE_N1(BgpObjectFactory, BgpMembershipManager, BgpServer *);
     FACTORY_TYPE_N1(BgpObjectFactory, BgpExport, RibOut *);
@@ -55,7 +53,6 @@ class BgpObjectFactory : public Factory<BgpObjectFactory> {
     FACTORY_TYPE_N1(BgpObjectFactory, McastTreeManager, ErmVpnTable *);
     FACTORY_TYPE_N1(BgpObjectFactory, PeerCloseManager, IPeerClose *);
     FACTORY_TYPE_N1(BgpObjectFactory, PeerManager, RoutingInstance *);
-    FACTORY_TYPE_N1(BgpObjectFactory, RibOutUpdates, RibOut *);
     FACTORY_TYPE_N1(BgpObjectFactory, RoutingInstanceMgr, BgpServer *);
     FACTORY_TYPE_N1(BgpObjectFactory, RoutingPolicyMgr, BgpServer *);
     FACTORY_TYPE_N1(BgpObjectFactory, RTargetGroupMgr, BgpServer *);
@@ -63,6 +60,7 @@ class BgpObjectFactory : public Factory<BgpObjectFactory> {
     FACTORY_TYPE_N2(BgpObjectFactory, BgpLifetimeManager, BgpServer *, int);
     FACTORY_TYPE_N2(BgpObjectFactory, BgpSessionManager,
                     EventManager *, BgpServer *);
+    FACTORY_TYPE_N2(BgpObjectFactory, RibOutUpdates, RibOut *, int);
     FACTORY_TYPE_N3(BgpObjectFactory, BgpPeer,
                     BgpServer *, RoutingInstance *, const BgpNeighborConfig *);
     FACTORY_TYPE_N4(BgpObjectFactory, RoutingInstance,

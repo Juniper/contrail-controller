@@ -14,8 +14,8 @@
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_update_queue.h"
 #include "bgp/bgp_update_monitor.h"
+#include "bgp/bgp_update_sender.h"
 #include "bgp/message_builder.h"
-#include "bgp/scheduling_group.h"
 
 using std::auto_ptr;
 
@@ -23,7 +23,9 @@ using std::auto_ptr;
 // Create a new RibOutUpdates.  Also create the necessary UpdateQueue and
 // add them to the vector.
 //
-RibOutUpdates::RibOutUpdates(RibOut *ribout) : ribout_(ribout) {
+RibOutUpdates::RibOutUpdates(RibOut *ribout, int index)
+    : ribout_(ribout),
+      index_(index) {
     for (int i = 0; i < QCOUNT; i++) {
         UpdateQueue *queue = new UpdateQueue(ribout, i);
         queue_vec_.push_back(queue);
@@ -48,7 +50,7 @@ RibOutUpdates::~RibOutUpdates() {
 // the concurrency issues are handled by going through the monitor.
 //
 // If the UpdateQueue corresponding to the RouteUpdate previously had no
-// updates after the tail marker, we kick the scheduling group to perform
+// updates after the tail marker, we kick the BgpUpdateSender to perform
 // a tail dequeue for the RibOut.
 //
 void RibOutUpdates::Enqueue(DBEntryBase *db_entry, RouteUpdate *rt_update) {
@@ -56,14 +58,12 @@ void RibOutUpdates::Enqueue(DBEntryBase *db_entry, RouteUpdate *rt_update) {
 
     bool need_tail_dequeue = monitor_->EnqueueUpdate(db_entry, rt_update);
     if (need_tail_dequeue) {
-        SchedulingGroup *group = ribout_->GetSchedulingGroup();
-        assert(group != NULL);
-        group->RibOutActive(ribout_, rt_update->queue_id());
+        ribout_->sender()->RibOutActive(index_, ribout_, rt_update->queue_id());
     }
 }
 
 //
-// Concurrency: Called in the context of the scheduling group task.
+// Concurrency: Called in the context of the bgp::SendUpdate task.
 //
 // Common dequeue routine invoked by tail dequeue and peer dequeue. It builds
 // and sends updates for each UpdateInfo element in the list hanging off the
@@ -86,7 +86,7 @@ void RibOutUpdates::Enqueue(DBEntryBase *db_entry, RouteUpdate *rt_update) {
 //
 bool RibOutUpdates::DequeueCommon(UpdateQueue *queue, UpdateMarker *marker,
         RouteUpdate *rt_update, RibPeerSet *blocked) {
-    CHECK_CONCURRENCY("bgp::SendTask");
+    CHECK_CONCURRENCY("bgp::SendUpdate");
 
     // Pass a hint to the Message telling it whether it needs to cache the
     // formatted version of each route. This is used only for xmpp messages.
@@ -166,7 +166,7 @@ bool RibOutUpdates::DequeueCommon(UpdateQueue *queue, UpdateMarker *marker,
 }
 
 //
-// Concurrency: Called in the context of the scheduling group task.
+// Concurrency: Called in the context of the bgp::SendUpdate task.
 //
 // Dequeue and build updates for the in-sync peers in the RibPeerSet of the
 // tail marker for the given queue id.
@@ -176,7 +176,7 @@ bool RibOutUpdates::DequeueCommon(UpdateQueue *queue, UpdateMarker *marker,
 //
 bool RibOutUpdates::TailDequeue(int queue_id, const RibPeerSet &msync,
         RibPeerSet *blocked) {
-    CHECK_CONCURRENCY("bgp::SendTask");
+    CHECK_CONCURRENCY("bgp::SendUpdate");
 
     stats_[queue_id].tail_dequeue_count_++;
     UpdateQueue *queue = queue_vec_[queue_id];
@@ -189,7 +189,7 @@ bool RibOutUpdates::TailDequeue(int queue_id, const RibPeerSet &msync,
 
     // Intersect marker membership and in-sync peers to come up with the
     // unsync peers. If all the peers are unsync return right away. The
-    // SchedulingGroup will take care of triggering a TailDequeue again
+    // BgpUpdateSender will take care of triggering a TailDequeue again
     // when at least one peer becomes in-sync.
     RibPeerSet unsync;
     unsync.BuildComplement(start_marker->members, msync);
@@ -237,7 +237,7 @@ bool RibOutUpdates::TailDequeue(int queue_id, const RibPeerSet &msync,
 }
 
 //
-// Concurrency: Called in the context of the scheduling group task.
+// Concurrency: Called in the context of the bgp::SendUpdate task.
 //
 // Dequeue and build updates for all the peers that share the same marker as
 // the specified peer.  This routine has some extra intelligence beyond the
@@ -252,7 +252,7 @@ bool RibOutUpdates::TailDequeue(int queue_id, const RibPeerSet &msync,
 bool RibOutUpdates::PeerDequeue(int queue_id, IPeerUpdate *peer,
         const RibPeerSet &mready,
         RibPeerSet *blocked) {
-    CHECK_CONCURRENCY("bgp::SendTask");
+    CHECK_CONCURRENCY("bgp::SendUpdate");
 
     stats_[queue_id].peer_dequeue_count_++;
     UpdateQueue *queue = queue_vec_[queue_id];
@@ -343,7 +343,7 @@ bool RibOutUpdates::PeerDequeue(int queue_id, IPeerUpdate *peer,
 }
 
 //
-// Concurrency: Called in the context of the scheduling group task.
+// Concurrency: Called in the context of the bgp::SendUpdate task.
 //
 // Go through all the UpdateInfo elements that have the same attribute as
 // the start parameter and pack the corresponding prefixes into the Message.
@@ -357,7 +357,7 @@ bool RibOutUpdates::PeerDequeue(int queue_id, IPeerUpdate *peer,
 //
 void RibOutUpdates::UpdatePack(int queue_id, Message *message,
         UpdateInfo *start_uinfo, const RibPeerSet &msgset) {
-    CHECK_CONCURRENCY("bgp::SendTask");
+    CHECK_CONCURRENCY("bgp::SendUpdate");
 
     UpdateInfo *uinfo, *next_uinfo;
     RouteUpdatePtr next_update;
@@ -399,7 +399,7 @@ void RibOutUpdates::UpdatePack(int queue_id, Message *message,
 }
 
 //
-// Concurrency: Called in the context of the scheduling group task.
+// Concurrency: Called in the context of the bgp::SendUpdate task.
 //
 // Go through all the peers in the specified RibPeerSet and send the given
 // message to each of them.  Update the blocked RibPeerSet with peers that
@@ -407,7 +407,7 @@ void RibOutUpdates::UpdatePack(int queue_id, Message *message,
 //
 void RibOutUpdates::UpdateSend(int queue_id, Message *message,
         const RibPeerSet &dst, RibPeerSet *blocked) {
-    CHECK_CONCURRENCY("bgp::SendTask");
+    CHECK_CONCURRENCY("bgp::SendUpdate");
 
     RibOut::PeerIterator iter(ribout_, dst);
     while (iter.HasNext()) {
@@ -442,7 +442,7 @@ void RibOutUpdates::UpdateSend(int queue_id, Message *message,
 }
 
 //
-// Concurrency: Called in the context of the scheduling group task.
+// Concurrency: Called in the context of the bgp::SendUpdate task.
 //
 // Go through all the peers in the specified RibPeerSet and ask them to flush
 // i.e. send immediately, any accumulated updates.  Update blocked RibPeerSet
@@ -451,7 +451,7 @@ void RibOutUpdates::UpdateSend(int queue_id, Message *message,
 // Skip if the RibOut is XMPP.
 //
 void RibOutUpdates::UpdateFlush(const RibPeerSet &dst, RibPeerSet *blocked) {
-    CHECK_CONCURRENCY("bgp::SendTask");
+    CHECK_CONCURRENCY("bgp::SendUpdate");
 
     if (ribout_->IsEncodingXmpp())
         return;
@@ -475,7 +475,7 @@ void RibOutUpdates::UpdateFlush(const RibPeerSet &dst, RibPeerSet *blocked) {
 // listener state for the Route.
 //
 void RibOutUpdates::StoreHistory(RouteUpdate *rt_update) {
-    CHECK_CONCURRENCY("bgp::SendTask");
+    CHECK_CONCURRENCY("bgp::SendUpdate");
 
     BgpRoute *route = rt_update->route();
     RouteState *rstate = new RouteState();
@@ -490,7 +490,7 @@ void RibOutUpdates::StoreHistory(RouteUpdate *rt_update) {
 // of the RouteUpdate.
 //
 void RibOutUpdates::ClearState(RouteUpdate *rt_update) {
-    CHECK_CONCURRENCY("bgp::SendTask");
+    CHECK_CONCURRENCY("bgp::SendUpdate");
 
     BgpRoute *route = rt_update->route();
     monitor_->ClearEntryState(route);
@@ -504,7 +504,7 @@ void RibOutUpdates::ClearState(RouteUpdate *rt_update) {
 // RouteUpdate, as well as any associated UpdateList if appropriate.
 //
 void RibOutUpdates::ClearUpdate(RouteUpdatePtr *update) {
-    CHECK_CONCURRENCY("bgp::SendTask");
+    CHECK_CONCURRENCY("bgp::SendUpdate");
 
     // Dequeue the route update.
     RouteUpdate *rt_update = update->get();
@@ -555,7 +555,7 @@ void RibOutUpdates::ClearUpdate(RouteUpdatePtr *update) {
 //
 bool RibOutUpdates::ClearAdvertisedBits(RouteUpdate *rt_update,
         UpdateInfo *uinfo, const RibPeerSet &isect, bool update_history) {
-    CHECK_CONCURRENCY("bgp::SendTask");
+    CHECK_CONCURRENCY("bgp::SendUpdate");
 
     if (update_history) {
         rt_update->UpdateHistory(ribout_, &uinfo->roattr, isect);
@@ -570,7 +570,7 @@ bool RibOutUpdates::ClearAdvertisedBits(RouteUpdate *rt_update,
 }
 
 //
-// Concurrency: Called in the context of the scheduling group task.
+// Concurrency: Called in the context of the bgp::SendUpdate task.
 //
 // Update the markers for all the peers in the blocked RibPeerSet.  In the
 // general case we clear the blocked RibPeerSet from the UpdateMarker and
@@ -582,7 +582,7 @@ bool RibOutUpdates::ClearAdvertisedBits(RouteUpdate *rt_update,
 bool RibOutUpdates::UpdateMarkersOnBlocked(UpdateMarker *marker,
         RouteUpdate *rt_update,
         const RibPeerSet *blocked) {
-    CHECK_CONCURRENCY("bgp::SendTask");
+    CHECK_CONCURRENCY("bgp::SendUpdate");
 
     assert(!blocked->empty());
     int queue_id = rt_update->queue_id();
@@ -618,6 +618,16 @@ bool RibOutUpdates::Empty() const {
     return true;
 }
 
+size_t RibOutUpdates::queue_size(int queue_id) const {
+    const UpdateQueue *queue = queue_vec_[queue_id];
+    return queue->size();
+}
+
+size_t RibOutUpdates::queue_marker_count(int queue_id) const {
+    const UpdateQueue *queue = queue_vec_[queue_id];
+    return queue->marker_count();
+}
+
 bool RibOutUpdates::QueueJoin(int queue_id, int bit) {
     UpdateQueue *queue = queue_vec_[queue_id];
     return queue->Join(bit);
@@ -629,20 +639,16 @@ void RibOutUpdates::QueueLeave(int queue_id, int bit) {
 }
 
 //
-// Fill introspect information.
+// Add statistics information to the provided Stats structure.
 //
-void RibOutUpdates::FillStatisticsInfo(int queue_id,
-    ShowRibOutStatistics *sros) const {
-    sros->set_queue(queue_id == QBULK ? "BULK" : "UPDATE");
-    sros->set_pending_updates(queue_vec_[queue_id]->size());
-    sros->set_markers(queue_vec_[queue_id]->marker_count());
-    sros->set_messages_built(stats_[queue_id].messages_built_count_);
-    sros->set_messages_sent(stats_[queue_id].messages_sent_count_);
-    sros->set_reach(stats_[queue_id].reach_count_);
-    sros->set_unreach(stats_[queue_id].unreach_count_);
-    sros->set_tail_dequeues(stats_[queue_id].tail_dequeue_count_);
-    sros->set_peer_dequeues(stats_[queue_id].peer_dequeue_count_);
-    sros->set_marker_splits(stats_[queue_id].marker_split_count_);
-    sros->set_marker_merges(stats_[queue_id].marker_merge_count_);
-    sros->set_marker_moves(stats_[queue_id].marker_move_count_);
+void RibOutUpdates::AddStatisticsInfo(int queue_id, Stats *stats) const {
+    stats->messages_built_count_ += stats_[queue_id].messages_built_count_;
+    stats->messages_sent_count_  += stats_[queue_id].messages_sent_count_;
+    stats->reach_count_          += stats_[queue_id].reach_count_;
+    stats->unreach_count_        += stats_[queue_id].unreach_count_;
+    stats->tail_dequeue_count_   += stats_[queue_id].tail_dequeue_count_;
+    stats->peer_dequeue_count_   += stats_[queue_id].peer_dequeue_count_;
+    stats->marker_split_count_   += stats_[queue_id].marker_split_count_;
+    stats->marker_merge_count_   += stats_[queue_id].marker_merge_count_;
+    stats->marker_move_count_    += stats_[queue_id].marker_move_count_;
 }

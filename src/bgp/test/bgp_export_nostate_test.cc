@@ -112,6 +112,7 @@ TEST_F(BgpExportNoStateTest, Reject2) {
 
     ExpectNullDBState(&rt_);
     DrainAndVerifyNoState(&rt_);
+    ReactivatePeers(0, kPeerCount-1);
 }
 
 //

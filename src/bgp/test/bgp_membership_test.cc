@@ -12,7 +12,6 @@
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_membership.h"
 #include "bgp/bgp_session_manager.h"
-#include "bgp/scheduling_group.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "db/db_partition.h"
 
@@ -242,7 +241,6 @@ protected:
     BgpTable *inet_tbl_;
     BgpTable *vpn_tbl_;
     BgpTable *red_tbl_, *gray_tbl_, *blue_tbl_;
-    SchedulingGroupManager sg_mgr_;
 };
 
 //

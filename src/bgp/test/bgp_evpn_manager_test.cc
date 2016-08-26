@@ -160,6 +160,7 @@ protected:
           blue_(NULL),
           master_(NULL),
           blue_manager_(NULL),
+          blue_ribout_(NULL),
           tag_(0) {
     }
 
@@ -177,8 +178,7 @@ protected:
         blue_ = static_cast<EvpnTable *>(db->FindTable("blue.evpn.0"));
         blue_manager_ = blue_->GetEvpnManager();
         RibExportPolicy policy(BgpProto::XMPP, RibExportPolicy::XMPP, 0, 0);
-        blue_ribout_.reset(
-            new RibOut(blue_, server_->scheduling_group_manager(), policy));
+        blue_ribout_ = blue_->RibOutLocate(server_->update_sender(), policy);
 
         CreateAllBgpPeers();
         CreateAllXmppPeers();
@@ -187,24 +187,27 @@ protected:
     }
 
     virtual void TearDown() {
+        DeleteAllLeafPeers();
+        DeleteAllReplicatorPeers();
+        DeleteAllXmppPeers();
+        DeleteAllBgpPeers();
+
         server_->Shutdown();
         task_util::WaitForIdle();
         evm_.Shutdown();
         thread_.Join();
         task_util::WaitForIdle();
-
-        STLDeleteValues(&bgp_peers_);
-        STLDeleteValues(&xmpp_peers_);
-        STLDeleteValues(&leaf_peers_);
-        STLDeleteValues(&replicator_peers_);
     }
 
     void RibOutRegister(RibOut *ribout, PeerMock *peer) {
         ConcurrencyScope scope("bgp::PeerMembership");
         ribout->Register(peer);
-        int bit = ribout->GetPeerIndex(peer);
-        ribout->updates()->QueueJoin(RibOutUpdates::QUPDATE, bit);
-        ribout->updates()->QueueJoin(RibOutUpdates::QBULK, bit);
+    }
+
+    void RibOutUnregister(RibOut *ribout, PeerMock *peer) {
+        ConcurrencyScope scope("bgp::PeerMembership");
+        ribout->Deactivate(peer);
+        ribout->Unregister(peer);
     }
 
     bool VerifyPeerInOListCommon(PeerMock *peer, UpdateInfoPtr uinfo,
@@ -338,8 +341,15 @@ protected:
             assert(ec.value() == 0);
             PeerMock *peer = new PeerMock(idx, address, true, 100 + idx);
             xmpp_peers_.push_back(peer);
-            RibOutRegister(blue_ribout_.get(), peer);
+            RibOutRegister(blue_ribout_, peer);
         }
+    }
+
+    void DeleteAllXmppPeers() {
+        for (int idx = 0; idx < 16; ++idx) {
+            RibOutUnregister(blue_ribout_, xmpp_peers_[idx]);
+        }
+        STLDeleteValues(&xmpp_peers_);
     }
 
     void ChangeXmppPeersLabelCommon(bool odd, bool even) {
@@ -637,6 +647,10 @@ protected:
             PeerMock *peer = new PeerMock(idx, address, false, 200 + idx);
             bgp_peers_.push_back(peer);
         }
+    }
+
+    void DeleteAllBgpPeers() {
+        STLDeleteValues(&bgp_peers_);
     }
 
     void ChangeBgpPeersLabelCommon(bool odd, bool even) {
@@ -949,8 +963,15 @@ protected:
             size_t rep_idx = (idx % 2 != 0) ? 0 : 1;
             peer->set_replicator_address(replicator_peers_[rep_idx]->address());
             leaf_peers_.push_back(peer);
-            RibOutRegister(blue_ribout_.get(), peer);
+            RibOutRegister(blue_ribout_, peer);
         }
+    }
+
+    void DeleteAllLeafPeers() {
+        for (int idx = 0; idx < 8; ++idx) {
+            RibOutUnregister(blue_ribout_, leaf_peers_[idx]);
+        }
+        STLDeleteValues(&leaf_peers_);
     }
 
     void ChangeLeafPeersLabelCommon(bool odd, bool even) {
@@ -1250,8 +1271,15 @@ protected:
             peer->set_assisted_replication_supported(true);
             peer->set_edge_replication_supported(true);
             replicator_peers_.push_back(peer);
-            RibOutRegister(blue_ribout_.get(), peer);
+            RibOutRegister(blue_ribout_, peer);
         }
+    }
+
+    void DeleteAllReplicatorPeers() {
+        for (int idx = 0; idx < 2; ++idx) {
+            RibOutUnregister(blue_ribout_, replicator_peers_[idx]);
+        }
+        STLDeleteValues(&replicator_peers_);
     }
 
     void AddReplicatorPeerBroadcastMacRoute(PeerMock *peer,
@@ -1476,7 +1504,7 @@ protected:
     EvpnTable *blue_;
     EvpnTable *master_;
     EvpnManager *blue_manager_;
-    boost::scoped_ptr<RibOut> blue_ribout_;
+    RibOut *blue_ribout_;
     vector<PeerMock *> bgp_peers_;
     vector<PeerMock *> xmpp_peers_;
     vector<PeerMock *> leaf_peers_;

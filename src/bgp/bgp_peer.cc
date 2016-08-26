@@ -1412,12 +1412,13 @@ static bool SkipUpdateSend() {
 //
 // Accumulate the message in the update buffer.
 // Flush the existing buffer if the message can't fit.
-// Note that FlushUpdate resets buffer_len_ to 0.
+// Note that FlushUpdateUnlocked resets buffer_len_ to 0.
 //
 bool BgpPeer::SendUpdate(const uint8_t *msg, size_t msgsize) {
+    tbb::spin_mutex::scoped_lock lock(spin_mutex_);
     bool send_ready = true;
     if (buffer_len_ + msgsize > kBufferSize) {
-        send_ready = FlushUpdate();
+        send_ready = FlushUpdateUnlocked();
         assert(buffer_len_ == 0);
     }
     copy(msg, msg + msgsize, buffer_ + buffer_len_);
@@ -1426,9 +1427,7 @@ bool BgpPeer::SendUpdate(const uint8_t *msg, size_t msgsize) {
     return send_ready;
 }
 
-bool BgpPeer::FlushUpdate() {
-    tbb::spin_mutex::scoped_lock lock(spin_mutex_);
-
+bool BgpPeer::FlushUpdateUnlocked() {
     // Bail if the update buffer is empty.
     if (buffer_len_ == 0)
         return true;
@@ -1460,6 +1459,11 @@ bool BgpPeer::FlushUpdate() {
         BGPPeerInfoSend(peer_info);
     }
     return send_ready_;
+}
+
+bool BgpPeer::FlushUpdate() {
+    tbb::spin_mutex::scoped_lock lock(spin_mutex_);
+    return FlushUpdateUnlocked();
 }
 
 //

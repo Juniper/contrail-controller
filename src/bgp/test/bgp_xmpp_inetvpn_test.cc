@@ -9,8 +9,8 @@
 #include "base/task_annotations.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_session_manager.h"
+#include "bgp/bgp_update_sender.h"
 #include "bgp/bgp_xmpp_channel.h"
-#include "bgp/scheduling_group.h"
 #include "bgp/security_group/security_group.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/xmpp_message_builder.h"
@@ -1390,7 +1390,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete2) {
     }
 
     // Pause update generation on X.
-    bs_x_->scheduling_group_manager()->DisableGroups();
+    bs_x_->update_sender()->DisableProcessing();
 
     // Unregister to blue instance on agent B.
     agent_b_->Unsubscribe("blue");
@@ -1400,8 +1400,12 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete2) {
         VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
     }
 
+    // Verify that bgp.l3vpn.0 output queues have built up on X.
+    VerifyOutputQueueDepth(bs_x_, kRouteCount);
+    task_util::WaitForIdle();
+
     // Resume update generation on X.
-    bs_x_->scheduling_group_manager()->EnableGroups();
+    bs_x_->update_sender()->EnableProcessing();
     task_util::WaitForIdle();
 
     // Delete routes from agent A.
@@ -1477,7 +1481,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete3) {
     task_util::WaitForIdle();
 
     // Pause update generation on X.
-    bs_x_->scheduling_group_manager()->DisableGroups();
+    bs_x_->update_sender()->DisableProcessing();
 
     // Add routes from agent A.
     for (int idx = 0; idx < kRouteCount; ++idx) {
@@ -1490,10 +1494,10 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete3) {
     task_util::WaitForIdle();
 
     // Pause update generation on Y.
-    bs_y_->scheduling_group_manager()->DisableGroups();
+    bs_y_->update_sender()->DisableProcessing();
 
     // Resume update generation on X.
-    bs_x_->scheduling_group_manager()->EnableGroups();
+    bs_x_->update_sender()->EnableProcessing();
     task_util::WaitForIdle();
 
     // Verify that blue.inet.0 and bgp.l3vpn.0 output queues are drained on X.
@@ -1505,7 +1509,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete3) {
     task_util::WaitForIdle();
 
     // Resume update generation on Y.
-    bs_y_->scheduling_group_manager()->EnableGroups();
+    bs_y_->update_sender()->EnableProcessing();
     task_util::WaitForIdle();
 
     // Verify that blue.inet.0 output queues are drained on Y.
@@ -1519,7 +1523,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete3) {
     }
 
     // Pause update generation on server X.
-    bs_x_->scheduling_group_manager()->DisableGroups();
+    bs_x_->update_sender()->DisableProcessing();
 
     // Delete routes from agent A.
     for (int idx = 0; idx < kRouteCount; ++idx) {
@@ -1532,10 +1536,10 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete3) {
     task_util::WaitForIdle();
 
     // Pause update generation on Y.
-    bs_y_->scheduling_group_manager()->DisableGroups();
+    bs_y_->update_sender()->DisableProcessing();
 
     // Resume update generation on server X.
-    bs_x_->scheduling_group_manager()->EnableGroups();
+    bs_x_->update_sender()->EnableProcessing();
     task_util::WaitForIdle();
 
     // Verify that blue.inet.0 and bgp.l3vpn.0 output queues are drained on X.
@@ -1546,7 +1550,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete3) {
     task_util::WaitForIdle();
 
     // Resume update generation on Y.
-    bs_y_->scheduling_group_manager()->EnableGroups();
+    bs_y_->update_sender()->EnableProcessing();
     task_util::WaitForIdle();
 
     // Verify that blue.inet.0 output queues are drained on Y.
@@ -1670,7 +1674,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete4) {
     task_util::WaitForIdle();
 
     // Pause update generation on X.
-    bs_x_->scheduling_group_manager()->DisableGroups();
+    bs_x_->update_sender()->DisableProcessing();
 
     // Add routes from agent A.
     for (int idx = 0; idx < kRouteCount; ++idx) {
@@ -1685,10 +1689,10 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete4) {
     task_util::WaitForIdle();
 
     // Pause update generation on Y.
-    bs_y_->scheduling_group_manager()->DisableGroups();
+    bs_y_->update_sender()->DisableProcessing();
 
     // Resume update generation on X.
-    bs_x_->scheduling_group_manager()->EnableGroups();
+    bs_x_->update_sender()->EnableProcessing();
     task_util::WaitForIdle();
 
     // Verify that blue.inet.0 and bgp.l3vpn.0 output queues are drained on X.
@@ -1700,7 +1704,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete4) {
     task_util::WaitForIdle();
 
     // Resume update generation on Y.
-    bs_y_->scheduling_group_manager()->EnableGroups();
+    bs_y_->update_sender()->EnableProcessing();
     task_util::WaitForIdle();
 
     // Verify that blue.inet.0 output queues are drained on Y.
@@ -1714,7 +1718,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete4) {
     }
 
     // Pause update generation on server X.
-    bs_x_->scheduling_group_manager()->DisableGroups();
+    bs_x_->update_sender()->DisableProcessing();
 
     // Delete routes from agent A.
     for (int idx = 0; idx < kRouteCount; ++idx) {
@@ -1727,10 +1731,10 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete4) {
     task_util::WaitForIdle();
 
     // Pause update generation on Y.
-    bs_y_->scheduling_group_manager()->DisableGroups();
+    bs_y_->update_sender()->DisableProcessing();
 
     // Resume update generation on server X.
-    bs_x_->scheduling_group_manager()->EnableGroups();
+    bs_x_->update_sender()->EnableProcessing();
     task_util::WaitForIdle();
 
     // Verify that blue.inet.0 and bgp.l3vpn.0 output queues are drained on X.
@@ -1741,7 +1745,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete4) {
     task_util::WaitForIdle();
 
     // Resume update generation on Y.
-    bs_y_->scheduling_group_manager()->EnableGroups();
+    bs_y_->update_sender()->EnableProcessing();
     task_util::WaitForIdle();
 
     // Verify that blue.inet.0 output queues are drained on Y.
@@ -1864,7 +1868,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete5) {
     task_util::WaitForIdle();
 
     // Pause update generation on Y.
-    bs_y_->scheduling_group_manager()->DisableGroups();
+    bs_y_->update_sender()->DisableProcessing();
 
     // Add even routes from agent A.
     for (int idx = 0; idx < kRouteCount; idx += 2) {
@@ -1879,7 +1883,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete5) {
     task_util::WaitForIdle();
 
     // Resume update generation on Y.
-    bs_y_->scheduling_group_manager()->EnableGroups();
+    bs_y_->update_sender()->EnableProcessing();
     task_util::WaitForIdle();
 
     // Verify that blue.inet.0 output queues are drained on Y.
@@ -1892,7 +1896,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete5) {
     }
 
     // Pause update generation on Y.
-    bs_y_->scheduling_group_manager()->DisableGroups();
+    bs_y_->update_sender()->DisableProcessing();
 
     // Add odd route and delete even routes from agent A.
     for (int idx = 0; idx < kRouteCount; ++idx) {
@@ -1911,7 +1915,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete5) {
     task_util::WaitForIdle();
 
     // Resume update generation on Y.
-    bs_y_->scheduling_group_manager()->EnableGroups();
+    bs_y_->update_sender()->EnableProcessing();
     task_util::WaitForIdle();
 
     // Verify that blue.inet.0 output queues are drained on Y.
@@ -1929,7 +1933,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete5) {
     }
 
     // Pause update generation on Y.
-    bs_y_->scheduling_group_manager()->DisableGroups();
+    bs_y_->update_sender()->DisableProcessing();
 
     // Delete odd routes from agent A.
     for (int idx = 1; idx < kRouteCount; idx += 2) {
@@ -1942,7 +1946,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete5) {
     task_util::WaitForIdle();
 
     // Resume update generation on Y.
-    bs_y_->scheduling_group_manager()->EnableGroups();
+    bs_y_->update_sender()->EnableProcessing();
     task_util::WaitForIdle();
 
     // Verify that blue.inet.0 output queues are drained on Y.
@@ -2018,7 +2022,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete6) {
     task_util::WaitForIdle();
 
     // Pause update generation on X.
-    bs_x_->scheduling_group_manager()->DisableGroups();
+    bs_x_->update_sender()->DisableProcessing();
 
     // Add routes from agent A.
     test::NextHops next_hops;
@@ -2044,10 +2048,10 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete6) {
     task_util::WaitForIdle();
 
     // Pause update generation on Y.
-    bs_y_->scheduling_group_manager()->DisableGroups();
+    bs_y_->update_sender()->DisableProcessing();
 
     // Resume update generation on X.
-    bs_x_->scheduling_group_manager()->EnableGroups();
+    bs_x_->update_sender()->EnableProcessing();
     task_util::WaitForIdle();
 
     // Verify that blue.inet.0 and bgp.l3vpn.0 output queues are drained on X.
@@ -2059,7 +2063,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete6) {
     task_util::WaitForIdle();
 
     // Resume update generation on Y.
-    bs_y_->scheduling_group_manager()->EnableGroups();
+    bs_y_->update_sender()->EnableProcessing();
     task_util::WaitForIdle();
 
     // Verify that blue.inet.0 output queues are drained on Y.
@@ -2084,7 +2088,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete6) {
     }
 
     // Pause update generation on server X.
-    bs_x_->scheduling_group_manager()->DisableGroups();
+    bs_x_->update_sender()->DisableProcessing();
 
     // Delete routes from agent A.
     for (int idx = 0; idx < kRouteCount; ++idx) {
@@ -2097,10 +2101,10 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete6) {
     task_util::WaitForIdle();
 
     // Pause update generation on Y.
-    bs_y_->scheduling_group_manager()->DisableGroups();
+    bs_y_->update_sender()->DisableProcessing();
 
     // Resume update generation on server X.
-    bs_x_->scheduling_group_manager()->EnableGroups();
+    bs_x_->update_sender()->EnableProcessing();
     task_util::WaitForIdle();
 
     // Verify that blue.inet.0 and bgp.l3vpn.0 output queues are drained on X.
@@ -2111,7 +2115,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete6) {
     task_util::WaitForIdle();
 
     // Resume update generation on Y.
-    bs_y_->scheduling_group_manager()->EnableGroups();
+    bs_y_->update_sender()->EnableProcessing();
     task_util::WaitForIdle();
 
     // Verify that blue.inet.0 output queues are drained on Y.
@@ -2355,12 +2359,10 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, BigUpdateMessage2) {
 }
 
 //
-// SchedulingGroup WorkQueue processing code should not crash if a RibOut
+// BgpUpdateSender WorkQueue processing code should not crash if a RibOut
 // gets deleted while there's a WorkRibOut for the RibOut on the WorkQueue.
-// The pink instance is used to ensure that the SchedulingGroup containing
-// agent B does not get deleted when agent B unsubscribes from blue.
 //
-TEST_F(BgpXmppInetvpn2ControlNodeTest, SchedulingGroupRibOutInvalidate) {
+TEST_F(BgpXmppInetvpn2ControlNodeTest, UpdateSenderRibOutInvalidate) {
     Configure(config_2_control_nodes_no_rtf);
     task_util::WaitForIdle();
 
@@ -2402,7 +2404,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, SchedulingGroupRibOutInvalidate) {
     task_util::WaitForIdle();
 
     // Pause update generation on Y.
-    bs_y_->scheduling_group_manager()->DisableGroups();
+    bs_y_->update_sender()->DisableProcessing();
 
     // Add blue routes from agent A.
     for (int idx = 0; idx < 4; ++idx) {
@@ -2423,7 +2425,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, SchedulingGroupRibOutInvalidate) {
 
     // Resume update generation on Y.
     // Should not crash even though the XMPP RibOut for blue.inet.0 is gone.
-    bs_y_->scheduling_group_manager()->EnableGroups();
+    bs_y_->update_sender()->EnableProcessing();
     task_util::WaitForIdle();
 
     // Close the sessions.
@@ -3793,6 +3795,7 @@ int main(int argc, char **argv) {
     bgp_log_test::init();
     ::testing::InitGoogleTest(&argc, argv);
     ::testing::AddGlobalTestEnvironment(new TestEnvironment());
+    DB::SetPartitionCount(1);
     SetUp();
     int result = RUN_ALL_TESTS();
     TearDown();

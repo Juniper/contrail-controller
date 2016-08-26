@@ -2,8 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/scheduling_group.h"
-
 #include <string>
 #include <vector>
 
@@ -14,6 +12,7 @@
 #include "bgp/bgp_ribout.h"
 #include "bgp/bgp_ribout_updates.h"
 #include "bgp/bgp_server.h"
+#include "bgp/bgp_update_sender.h"
 #include "bgp/inet/inet_table.h"
 #include "control-node/control_node.h"
 
@@ -33,11 +32,10 @@ static void SchedulerTerminate() {
 }
 
 static int gbl_peer_index;
-static int gbl_ribout_index;
 
 class RibOutUpdatesMock : public RibOutUpdates {
 public:
-    explicit RibOutUpdatesMock(RibOut *ribout) : RibOutUpdates(ribout) { }
+    RibOutUpdatesMock(RibOut *ribout, int idx) : RibOutUpdates(ribout, idx) { }
 
     MOCK_METHOD3(TailDequeue, bool(int,
                                    const RibPeerSet &, RibPeerSet *));
@@ -66,11 +64,13 @@ private:
     int index_;
 };
 
-class SGTest : public ::testing::Test {
+class BgpUpdateSenderTest : public ::testing::Test {
 protected:
 
-    SGTest()
-        : server_(&evm_),
+    BgpUpdateSenderTest()
+      : server_(&evm_),
+        sender_(server_.update_sender()),
+        spartition_(sender_->partition(0)),
         table_(&db_, "inet.0") {
         table_.Init();
     }
@@ -78,20 +78,19 @@ protected:
     virtual void SetUp() {
         SchedulerStop();
 
-        gbl_ribout_index = 0;
-        CreateRibOut();
+        CreateRibOut(0);
 
         gbl_peer_index = 0;
-        for (int idx = 0; idx < kPeerCount; idx++) {
+        for (int pidx = 0; pidx < kPeerCount; ++pidx) {
             CreatePeer();
+            for (int ro_idx = 0; ro_idx < (int) ribouts_.size(); ++ro_idx) {
+                RibOutRegister(ribouts_[ro_idx], peers_[pidx]);
+            }
         }
 
-        ASSERT_EQ(1, mgr_.size());
-        sg_ = mgr_.RibOutGroup(ribouts_[0]);
-        ASSERT_TRUE(sg_ != NULL);
         ASSERT_EQ(kPeerCount, PeerStateCount());
         ASSERT_EQ(1, RibStateCount());
-        sg_->CheckInvariants();
+        sender_->CheckInvariants();
 
         SchedulerStart();
 
@@ -101,8 +100,14 @@ protected:
 
     virtual void TearDown() {
         task_util::WaitForIdle();
+        for (int pidx = 0; pidx < kPeerCount; ++pidx) {
+            for (int ro_idx = 0; ro_idx < (int) ribouts_.size(); ++ro_idx) {
+                RibOutUnregister(ribouts_[ro_idx], peers_[pidx]);
+            }
+            ConcurrencyScope scope("bgp::PeerMembership");
+            ASSERT_FALSE(spartition_->PeerIsRegistered(peers_[pidx]));
+        }
         CheckInvariants();
-        STLDeleteValues(&ribouts_);
         STLDeleteValues(&peers_);
 
         server_.Shutdown();
@@ -112,23 +117,24 @@ protected:
 
     void RibOutActive(RibOut *ribout, int qid) {
         ConcurrencyScope scope("db::DBTable");
-        sg_->RibOutActive(ribout, qid);
+        spartition_->RibOutActive(ribout, qid);
     }
 
     void RibOutRegister(RibOut *ribout, IPeerUpdate *peer) {
         ConcurrencyScope scope("bgp::PeerMembership");
         ribout->Register(peer);
-        int bit = ribout->GetPeerIndex(peer);
-        ribout->updates()->QueueJoin(RibOutUpdates::QUPDATE, bit);
-        ribout->updates()->QueueJoin(RibOutUpdates::QBULK, bit);
     }
 
-    void CreateRibOut() {
-        RibExportPolicy policy;
-        policy.affinity = gbl_ribout_index;
-        RibOut *ribout = new RibOut(&table_, &mgr_, policy);
+    void RibOutUnregister(RibOut *ribout, IPeerUpdate *peer) {
+        ConcurrencyScope scope("bgp::PeerMembership");
+        ribout->Deactivate(peer);
+        ribout->Unregister(peer);
+    }
+
+    void CreateRibOut(int index) {
+        RibOut *ribout = table_.RibOutLocate(sender_, RibExportPolicy(index));
         RibOutUpdatesMock *updates =
-            dynamic_cast<RibOutUpdatesMock *>(ribout->updates());
+            dynamic_cast<RibOutUpdatesMock *>(ribout->updates(0));
         assert(updates != NULL);
         ribouts_.push_back(ribout);
         updates_.push_back(updates);
@@ -137,9 +143,6 @@ protected:
     void CreatePeer() {
         BgpTestPeer *peer = new BgpTestPeer();
         peers_.push_back(peer);
-        for (int idx = 0; idx < (int) ribouts_.size(); idx++) {
-            RibOutRegister(ribouts_[idx], peer);
-        }
     }
 
     void BuildOddEvenPeerSet(RibPeerSet &peerset, int ro_idx,
@@ -179,7 +182,7 @@ protected:
         ASSERT_TRUE(end_idx < (int) peers_.size());
         for (int idx = start_idx; idx <= end_idx; idx++) {
             if ((idx % 2 == 0) == even || (idx % 2 == 1) == odd)
-                sg_->SendReady(peers_[idx]);
+                spartition_->PeerSendReady(peers_[idx]);
         }
     }
 
@@ -206,7 +209,7 @@ protected:
         ASSERT_TRUE(end_idx < (int) peers_.size());
         for (int idx = start_idx; idx <= end_idx; idx++) {
             if ((idx % 2 == 0) == even || (idx % 2 == 1) == odd)
-                EXPECT_EQ(blocked, !sg_->IsSendReady(peers_[idx]));
+                EXPECT_EQ(blocked, !spartition_->PeerIsSendReady(peers_[idx]));
         }
     }
 
@@ -233,7 +236,7 @@ protected:
         ASSERT_TRUE(end_idx < (int) peers_.size());
         for (int idx = start_idx; idx <= end_idx; idx++) {
             if ((idx % 2 == 0) == even || (idx % 2 == 1) == odd)
-                EXPECT_EQ(in_sync, sg_->PeerInSync(peers_[idx]));
+                EXPECT_EQ(in_sync, spartition_->PeerInSync(peers_[idx]));
         }
     }
 
@@ -249,31 +252,31 @@ protected:
         VerifyOddEvenPeerInSync(start_idx, end_idx, false, true, in_sync);
     }
 
-    int PeerStateCount() { return sg_->peer_state_imap_.count(); }
-    int RibStateCount() { return sg_->rib_state_imap_.count(); }
+    int PeerStateCount() { return spartition_->peer_state_imap_.count(); }
+    int RibStateCount() { return spartition_->rib_state_imap_.count(); }
 
     void CheckInvariants() {
-        mgr_.CheckInvariants();
+        sender_->CheckInvariants();
     }
 
     EventManager evm_;
     BgpServer server_;
+    BgpUpdateSender *sender_;
+    BgpSenderPartition *spartition_;
     DB db_;
     InetTable table_;
-    SchedulingGroupManager mgr_;
-    SchedulingGroup *sg_;
     std::vector<BgpTestPeer *> peers_;
     std::vector<RibOut *> ribouts_;
     std::vector<RibOutUpdatesMock *> updates_;
 };
 
-TEST_F(SGTest, Noop) {
+TEST_F(BgpUpdateSenderTest, Noop) {
 }
 
 //
 // One call to RibOutActive causes one call to TailDequeue.
 //
-TEST_F(SGTest, TailDequeueBasic1a) {
+TEST_F(BgpUpdateSenderTest, TailDequeueBasic1a) {
     RibPeerSet peerset;
     BuildPeerSet(peerset, 0, 0, kPeerCount-1);
 
@@ -290,7 +293,7 @@ TEST_F(SGTest, TailDequeueBasic1a) {
 //
 // N calls to RibOutActive cause N calls to TailDequeue.
 //
-TEST_F(SGTest, TailDequeueBasic1b) {
+TEST_F(BgpUpdateSenderTest, TailDequeueBasic1b) {
     const int kTailCount = 5;
     RibPeerSet peerset;
     BuildPeerSet(peerset, 0, 0, kPeerCount-1);
@@ -310,7 +313,7 @@ TEST_F(SGTest, TailDequeueBasic1b) {
 //
 // Calling RibOutActive for each qid causes TailDequeue for that qid.
 //
-TEST_F(SGTest, TailDequeueBasic2a) {
+TEST_F(BgpUpdateSenderTest, TailDequeueBasic2a) {
     RibPeerSet peerset;
     BuildPeerSet(peerset, 0, 0, kPeerCount-1);
 
@@ -331,7 +334,7 @@ TEST_F(SGTest, TailDequeueBasic2a) {
 //
 // Multiple calls to RibOutActive for each qid.
 //
-TEST_F(SGTest, TailDequeueBasic2b) {
+TEST_F(BgpUpdateSenderTest, TailDequeueBasic2b) {
     const int kTailCount = 5;
     RibPeerSet peerset;
     BuildPeerSet(peerset, 0, 0, kPeerCount-1);
@@ -354,7 +357,7 @@ TEST_F(SGTest, TailDequeueBasic2b) {
 //
 // Setting the blocked mask to include all peers causes them to get blocked.
 //
-TEST_F(SGTest, TailDequeueAllBlock1) {
+TEST_F(BgpUpdateSenderTest, TailDequeueAllBlock1) {
     RibPeerSet peerset;
     BuildPeerSet(peerset, 0, 0, kPeerCount-1);
 
@@ -378,7 +381,7 @@ TEST_F(SGTest, TailDequeueAllBlock1) {
 // qid causes TailDequeue for the next qid to be invoked with an empty msync
 // mask.
 //
-TEST_F(SGTest, TailDequeueAllBlock2) {
+TEST_F(BgpUpdateSenderTest, TailDequeueAllBlock2) {
     RibPeerSet peerset;
     BuildPeerSet(peerset, 0, 0, kPeerCount-1);
 
@@ -408,7 +411,7 @@ TEST_F(SGTest, TailDequeueAllBlock2) {
 // for a qid causes subsequent TailDequeues for the same qid to be invoked with
 // an empty msync mask.
 //
-TEST_F(SGTest, TailDequeueAllBlock3) {
+TEST_F(BgpUpdateSenderTest, TailDequeueAllBlock3) {
     const int kTailCount = 5;
     RibPeerSet peerset;
     BuildPeerSet(peerset, 0, 0, kPeerCount-1);
@@ -441,7 +444,7 @@ TEST_F(SGTest, TailDequeueAllBlock3) {
 // repeatedly, the msync mask for the next call reflects the blocked peers
 // till the mysnc mask is empty.
 //
-TEST_F(SGTest, TailDequeueProgressiveBlock1) {
+TEST_F(BgpUpdateSenderTest, TailDequeueProgressiveBlock1) {
 
     // Expect successive calls to TailDequeue with a msync mask that keeps
     // shrinking one bit at a time.
@@ -483,7 +486,7 @@ TEST_F(SGTest, TailDequeueProgressiveBlock1) {
 // second TailDequeue blocks the even numbered peers, all peers are now blocked
 // at this point.
 //
-TEST_F(SGTest, TailDequeueProgressiveBlock2) {
+TEST_F(BgpUpdateSenderTest, TailDequeueProgressiveBlock2) {
     InSequence seq;
     RibPeerSet peerset, even_peerset, odd_peerset;
     BuildPeerSet(peerset, 0, 0, kPeerCount-1);
@@ -521,7 +524,7 @@ TEST_F(SGTest, TailDequeueProgressiveBlock2) {
 // be one automatic call to TailDequeue.
 // All blocked peers are unblocked in this test.
 //
-TEST_F(SGTest, PeerDequeueBasic1a) {
+TEST_F(BgpUpdateSenderTest, PeerDequeueBasic1a) {
     RibPeerSet peerset;
     BuildPeerSet(peerset, 0, 0, kPeerCount-1);
 
@@ -569,7 +572,7 @@ TEST_F(SGTest, PeerDequeueBasic1a) {
 // be one automatic call to TailDequeue.
 // Subset of blocked peers are unblocked in this test.
 //
-TEST_F(SGTest, PeerDequeueBasic1b) {
+TEST_F(BgpUpdateSenderTest, PeerDequeueBasic1b) {
     RibPeerSet peerset;
     BuildPeerSet(peerset, 0, 0, kPeerCount-1);
     RibPeerSet odd_peerset;
@@ -621,7 +624,7 @@ TEST_F(SGTest, PeerDequeueBasic1b) {
 // Since the peer gets in sync after the calls to PeerDequeue, there will
 // be one automatic call to TailDequeue.
 //
-TEST_F(SGTest, PeerDequeueBasic1c) {
+TEST_F(BgpUpdateSenderTest, PeerDequeueBasic1c) {
     RibPeerSet peerset;
     BuildPeerSet(peerset, 0, 0, kPeerCount-1);
 
@@ -669,7 +672,7 @@ TEST_F(SGTest, PeerDequeueBasic1c) {
 // If all the peers stay unsynced after the calls to PeerDequeue, there will
 // be no automatic call to TailDequeue.
 //
-TEST_F(SGTest, PeerDequeueBasic1d) {
+TEST_F(BgpUpdateSenderTest, PeerDequeueBasic1d) {
     RibPeerSet peerset;
     BuildPeerSet(peerset, 0, 0, kPeerCount-1);
 
@@ -716,7 +719,7 @@ TEST_F(SGTest, PeerDequeueBasic1d) {
 // Since all peers get in sync after the calls to PeerDequeue, there will
 // be one automatic call to TailDequeue for each qid.
 //
-TEST_F(SGTest, PeerDequeueBasic2a) {
+TEST_F(BgpUpdateSenderTest, PeerDequeueBasic2a) {
     RibPeerSet peerset;
     BuildPeerSet(peerset, 0, 0, kPeerCount-1);
 
@@ -780,7 +783,7 @@ TEST_F(SGTest, PeerDequeueBasic2a) {
 // Since some peers get in sync after the calls to PeerDequeue, there will
 // be one automatic call to TailDequeue for each qid.
 //
-TEST_F(SGTest, PeerDequeueBasic2b) {
+TEST_F(BgpUpdateSenderTest, PeerDequeueBasic2b) {
     RibPeerSet peerset;
     BuildPeerSet(peerset, 0, 0, kPeerCount-1);
 
@@ -848,7 +851,7 @@ TEST_F(SGTest, PeerDequeueBasic2b) {
 // If all the peers stay unsynced after the calls to PeerDequeue, there will
 // be no automatic call to TailDequeue.
 //
-TEST_F(SGTest, PeerDequeueBasic2d) {
+TEST_F(BgpUpdateSenderTest, PeerDequeueBasic2d) {
     RibPeerSet peerset;
     BuildPeerSet(peerset, 0, 0, kPeerCount-1);
 
@@ -917,7 +920,7 @@ TEST_F(SGTest, PeerDequeueBasic2d) {
 // Should only get called for peers that were blocked in the first place.
 // Subset of blocked peers are blocked/unblocked in this test.
 //
-TEST_F(SGTest, PeerDequeueBasic3a) {
+TEST_F(BgpUpdateSenderTest, PeerDequeueBasic3a) {
     RibPeerSet peerset, odd_peerset;
     BuildPeerSet(peerset, 0, 0, kPeerCount-1);
     BuildOddPeerSet(odd_peerset, 0, 0, kPeerCount-1);
@@ -966,7 +969,7 @@ TEST_F(SGTest, PeerDequeueBasic3a) {
 // Should only get called for peers that were blocked in the first place.
 // Subset of blocked peers are blocked/unblocked in this test.
 //
-TEST_F(SGTest, PeerDequeueBasic3b) {
+TEST_F(BgpUpdateSenderTest, PeerDequeueBasic3b) {
     RibPeerSet peerset, odd_peerset, even_peerset;
     BuildPeerSet(peerset, 0, 0, kPeerCount-1);
     BuildOddPeerSet(odd_peerset, 0, 0, kPeerCount-1);
@@ -1034,7 +1037,7 @@ TEST_F(SGTest, PeerDequeueBasic3b) {
 // for peer 1. The call for peer 0 blocks both peers, so PeerDequeue should
 // not be called for peer 1.
 //
-TEST_F(SGTest, PeerDequeueAlreadyBlocked) {
+TEST_F(BgpUpdateSenderTest, PeerDequeueAlreadyBlocked) {
     RibPeerSet peerset, peer01;
     BuildPeerSet(peerset, 0, 0, kPeerCount-1);
     BuildPeerSet(peer01, 0, 0, 1);
@@ -1079,11 +1082,11 @@ TEST_F(SGTest, PeerDequeueAlreadyBlocked) {
 }
 
 // Peer 0 is blocked and has qids 0 and 1 as active.
-class SGPeerDequeueBlocks1 : public SGTest {
+class BgpUpdateSenderPeerDequeueBlocks1 : public BgpUpdateSenderTest {
 protected:
 
     virtual void SetUp() {
-        SGTest::SetUp();
+        BgpUpdateSenderTest::SetUp();
 
         RibPeerSet peerset, peer0, others;
         BuildPeerSet(peerset, 0, 0, kPeerCount-1);
@@ -1111,7 +1114,7 @@ protected:
     }
 
     virtual void TearDown() {
-        SGTest::TearDown();
+        BgpUpdateSenderTest::TearDown();
     }
 };
 
@@ -1120,7 +1123,7 @@ protected:
 // If that call blocks the peer again, PeerDequeue for other active qids is
 // not called.
 //
-TEST_F(SGPeerDequeueBlocks1, BlockFirstQid) {
+TEST_F(BgpUpdateSenderPeerDequeueBlocks1, BlockFirstQid) {
     RibPeerSet peerset, peer0;
     BuildPeerSet(peerset, 0, 0, kPeerCount-1);
     BuildPeerSet(peer0, 0, 0, 0);
@@ -1153,7 +1156,7 @@ TEST_F(SGPeerDequeueBlocks1, BlockFirstQid) {
 // PeerDequeue is called for all active qids when peer gets unblocked.  If
 // the call for the last qid blocks the peer again, it's not marked in sync.
 //
-TEST_F(SGPeerDequeueBlocks1, BlockLastQid1) {
+TEST_F(BgpUpdateSenderPeerDequeueBlocks1, BlockLastQid1) {
     RibPeerSet peerset, peer0;
     BuildPeerSet(peerset, 0, 0, kPeerCount-1);
     BuildPeerSet(peer0, 0, 0, 0);
@@ -1188,7 +1191,7 @@ TEST_F(SGPeerDequeueBlocks1, BlockLastQid1) {
 // because some other peers got merged with the tail marker, the peer does
 // not get marked in sync.
 //
-TEST_F(SGPeerDequeueBlocks1, BlockLastQid2) {
+TEST_F(BgpUpdateSenderPeerDequeueBlocks1, BlockLastQid2) {
     RibPeerSet peerset, peer0;
     BuildPeerSet(peerset, 0, 0, kPeerCount-1);
     BuildPeerSet(peer0, 0, 0, 0);
@@ -1219,35 +1222,34 @@ TEST_F(SGPeerDequeueBlocks1, BlockLastQid2) {
 
 static const int kRiboutCount = 4;
 
-class SGMultiRibOutTest : public SGTest {
+class BgpUpdateSenderMultiRibOutTest : public BgpUpdateSenderTest {
 protected:
 
     virtual void SetUp() {
         SchedulerStop();
 
-        gbl_ribout_index = 0;
-        for (int ro_idx = 0; ro_idx < kPeerCount; ro_idx++) {
-            CreateRibOut();
+        for (int ro_idx = 0; ro_idx < kRiboutCount; ++ro_idx) {
+            CreateRibOut(ro_idx);
         }
 
         gbl_peer_index = 0;
-        for (int idx = 0; idx < kPeerCount; idx++) {
+        for (int pidx = 0; pidx < kPeerCount; ++pidx) {
             CreatePeer();
+            for (int ro_idx = 0; ro_idx < (int) ribouts_.size(); ++ro_idx) {
+                RibOutRegister(ribouts_[ro_idx], peers_[pidx]);
+            }
         }
 
-        ASSERT_EQ(1, mgr_.size());
-        sg_ = mgr_.RibOutGroup(ribouts_[0]);
-        ASSERT_TRUE(sg_ != NULL);
         ASSERT_EQ(kPeerCount, PeerStateCount());
         ASSERT_EQ(kRiboutCount, RibStateCount());
-        sg_->CheckInvariants();
+        spartition_->CheckInvariants();
 
         SchedulerStart();
         Initialize();
     }
 
     virtual void TearDown() {
-        SGTest::TearDown();
+        BgpUpdateSenderTest::TearDown();
     }
 
     void Initialize() {
@@ -1260,14 +1262,14 @@ protected:
     }
 };
 
-TEST_F(SGMultiRibOutTest, Noop1) {
+TEST_F(BgpUpdateSenderMultiRibOutTest, Noop1) {
 }
 
 //
 // Calling RibOutActive once for each RibOutUpdates results in a TailDequeue
 // for the RibOutUpdates.
 //
-TEST_F(SGMultiRibOutTest, TailDequeueBasic1a) {
+TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueBasic1a) {
 
     // Expect 1 call to TailDequeue for each RibOut.
     InSequence seq;
@@ -1291,7 +1293,7 @@ TEST_F(SGMultiRibOutTest, TailDequeueBasic1a) {
 // Calling RibOutActive once for even RibOutUpdates results in a TailDequeue
 // for the even RibOutUpdates.
 //
-TEST_F(SGMultiRibOutTest, TailDequeueBasic1b) {
+TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueBasic1b) {
 
     // Expect 1 call to TailDequeue for even RibOuts.
     InSequence seq;
@@ -1319,7 +1321,7 @@ TEST_F(SGMultiRibOutTest, TailDequeueBasic1b) {
 // Calling RibOutActive once for each RibOutUpdates for each qid results in a
 // TailDequeue for the RibOutUpdates for those qids.
 //
-TEST_F(SGMultiRibOutTest, TailDequeueBasic2a) {
+TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueBasic2a) {
 
     // Expect 1 call to TailDequeue for each RibOut for each qid.
     InSequence seq;
@@ -1346,7 +1348,7 @@ TEST_F(SGMultiRibOutTest, TailDequeueBasic2a) {
 // Calling RibOutActive once for odd RibOutUpdates for each qid results in a
 // TailDequeue for the odd RibOutUpdates for those qids.
 //
-TEST_F(SGMultiRibOutTest, TailDequeueBasic2b) {
+TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueBasic2b) {
 
     // Expect 1 call to TailDequeue for odd RibOuts for each qid.
     InSequence seq;
@@ -1379,7 +1381,7 @@ TEST_F(SGMultiRibOutTest, TailDequeueBasic2b) {
 // next TailDequeue call to all the RibOutUpdates reflects the blocked peers
 // till the mysnc mask becomes empty.
 //
-TEST_F(SGMultiRibOutTest, TailDequeueProgressiveBlock1) {
+TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueProgressiveBlock1) {
 
     // Expect successive calls to TailDequeue with a msync mask that keeps
     // shrinking one bit at a time.  We block one peer when processing the
@@ -1420,7 +1422,7 @@ TEST_F(SGMultiRibOutTest, TailDequeueProgressiveBlock1) {
 // If the call to TailDequeue for the first RibOutUpdates blocks all peers,
 // this is reflected in the calls to TailDequeue for the other RibOutUpdates.
 //
-TEST_F(SGMultiRibOutTest, TailDequeueAllBlock1a) {
+TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueAllBlock1a) {
     RibPeerSet peerset;
     BuildPeerSet(peerset, 0, 0, kPeerCount-1);
 
@@ -1458,7 +1460,7 @@ TEST_F(SGMultiRibOutTest, TailDequeueAllBlock1a) {
 // peers, this is reflected in the calls to TailDequeue for all RibOutUpdates
 // for a different qid.
 //
-TEST_F(SGMultiRibOutTest, TailDequeueAllBlock1b) {
+TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueAllBlock1b) {
     RibPeerSet peerset;
     BuildPeerSet(peerset, 0, 0, kPeerCount-1);
 
@@ -1497,7 +1499,7 @@ TEST_F(SGMultiRibOutTest, TailDequeueAllBlock1b) {
 // peers, this is reflected in the calls to TailDequeue for all RibOutUpdates
 // for all qids.
 //
-TEST_F(SGMultiRibOutTest, TailDequeueAllBlock1c) {
+TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueAllBlock1c) {
     RibPeerSet peerset;
     BuildPeerSet(peerset, 0, 0, kPeerCount-1);
 
@@ -1552,7 +1554,7 @@ TEST_F(SGMultiRibOutTest, TailDequeueAllBlock1c) {
 // Since all peers get in sync after the calls to PeerDequeue, there will
 // be one automatic call to TailDequeue per RibOut for the qid in question.
 //
-TEST_F(SGMultiRibOutTest, PeerDequeueBasic1a) {
+TEST_F(BgpUpdateSenderMultiRibOutTest, PeerDequeueBasic1a) {
     for (int qid = RibOutUpdates::QFIRST; qid < RibOutUpdates::QCOUNT; qid++) {
         Initialize();
 
@@ -1625,7 +1627,7 @@ TEST_F(SGMultiRibOutTest, PeerDequeueBasic1a) {
 // Since all peers get in sync after the calls to PeerDequeue, there will
 // be 1 automatic call to TailDequeue per even RibOut for the qid in question.
 //
-TEST_F(SGMultiRibOutTest, PeerDequeueBasic1b) {
+TEST_F(BgpUpdateSenderMultiRibOutTest, PeerDequeueBasic1b) {
     for (int qid = RibOutUpdates::QFIRST; qid < RibOutUpdates::QCOUNT; qid++) {
         Initialize();
 
@@ -1710,7 +1712,7 @@ TEST_F(SGMultiRibOutTest, PeerDequeueBasic1b) {
 // Assumes that PeerDequeue will be called in order of peer index.
 // Assumes that RibOuts will be processed in order of ribout index.
 //
-TEST_F(SGMultiRibOutTest, PeerDequeueBlocks1a) {
+TEST_F(BgpUpdateSenderMultiRibOutTest, PeerDequeueBlocks1a) {
     for (int qid = RibOutUpdates::QFIRST; qid < RibOutUpdates::QCOUNT; qid++) {
         Initialize();
 
@@ -1821,7 +1823,7 @@ TEST_F(SGMultiRibOutTest, PeerDequeueBlocks1a) {
 // Assumes that PeerDequeue will be called in order of peer index.
 // Assumes that RibOuts will be processed in order of ribout index.
 //
-TEST_F(SGMultiRibOutTest, PeerDequeueBlocks1b) {
+TEST_F(BgpUpdateSenderMultiRibOutTest, PeerDequeueBlocks1b) {
     for (int qid = RibOutUpdates::QFIRST; qid <= RibOutUpdates::QFIRST; qid++) {
         Initialize();
 

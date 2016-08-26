@@ -18,7 +18,7 @@
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_table_types.h"
-#include "bgp/bgp_update_queue.h"
+#include "bgp/bgp_update.h"
 #include "bgp/routing-instance/iroute_aggregator.h"
 #include "bgp/routing-instance/path_resolver.h"
 #include "bgp/routing-instance/routing_instance.h"
@@ -106,11 +106,11 @@ RibOut *BgpTable::RibOutFind(const RibExportPolicy &policy) {
 // If a new RibOut is created, an entry for the pair gets added to the
 // RibOutMap.
 //
-RibOut *BgpTable::RibOutLocate(SchedulingGroupManager *mgr,
+RibOut *BgpTable::RibOutLocate(BgpUpdateSender *sender,
                                const RibExportPolicy &policy) {
     RibOutMap::iterator loc = ribout_map_.find(policy);
     if (loc == ribout_map_.end()) {
-        RibOut *ribout = new RibOut(this, mgr, policy);
+        RibOut *ribout = new RibOut(this, sender, policy);
         ribout_map_.insert(make_pair(policy, ribout));
         return ribout;
     }
@@ -682,13 +682,14 @@ size_t BgpTable::GetPendingRiboutsCount(size_t *markers) const {
     size_t count = 0;
     *markers = 0;
 
-    BOOST_FOREACH(const RibOutMap::value_type &i, ribout_map_) {
-        const RibOut *ribout = i.second;
-        if (ribout->updates()) {
-            BOOST_FOREACH(const UpdateQueue *queue,
-                          ribout->updates()->queue_vec()) {
-                count += queue->size();
-                *markers += queue->marker_count();
+    BOOST_FOREACH(const RibOutMap::value_type &value, ribout_map_) {
+        const RibOut *ribout = value.second;
+        for (int idx = 0; idx < DB::PartitionCount(); ++idx) {
+            const RibOutUpdates *updates = ribout->updates(idx);
+            for (int qid = RibOutUpdates::QFIRST; qid < RibOutUpdates::QCOUNT;
+                 ++qid) {
+                count += updates->queue_size(qid);
+                *markers += updates->queue_marker_count(qid);
             }
         }
     }

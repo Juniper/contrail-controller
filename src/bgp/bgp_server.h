@@ -31,6 +31,7 @@ class BgpOListDB;
 class BgpPeer;
 class BgpRouterState;
 class BgpSessionManager;
+class BgpUpdateSender;
 class ClusterListDB;
 class CommunityDB;
 class EdgeDiscoveryDB;
@@ -46,7 +47,6 @@ class RoutePathReplicator;
 class RoutingInstanceMgr;
 class RoutingPolicyMgr;
 class RTargetGroupMgr;
-class SchedulingGroupManager;
 
 class BgpServer {
 public:
@@ -82,9 +82,7 @@ public:
 
     // accessors
     BgpSessionManager *session_manager() { return session_mgr_; }
-    SchedulingGroupManager *scheduling_group_manager() {
-        return sched_mgr_.get();
-    }
+    BgpUpdateSender *update_sender() { return update_sender_.get(); }
     LifetimeManager *lifetime_manager() { return lifetime_manager_.get(); }
     BgpConfigManager *config_manager() { return config_mgr_.get(); }
     const BgpConfigManager *config_manager() const { return config_mgr_.get(); }
@@ -317,7 +315,7 @@ private:
 
     // sessions and state managers
     BgpSessionManager *session_mgr_;
-    boost::scoped_ptr<SchedulingGroupManager> sched_mgr_;
+    boost::scoped_ptr<BgpUpdateSender> update_sender_;
     boost::scoped_ptr<RoutingInstanceMgr> inst_mgr_;
     boost::scoped_ptr<RoutingPolicyMgr> policy_mgr_;
     boost::scoped_ptr<RTargetGroupMgr> rtarget_group_mgr_;

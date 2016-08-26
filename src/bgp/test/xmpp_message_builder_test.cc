@@ -56,7 +56,7 @@ protected:
             bs_x_->database()->FindTable("blue.inet.0") != NULL);
         table_ = static_cast<BgpTable *>(
             bs_x_->database()->FindTable("blue.inet.0"));
-        ribout_ = table_->RibOutLocate(bs_x_->scheduling_group_manager(),
+        ribout_ = table_->RibOutLocate(bs_x_->update_sender(),
             RibExportPolicy(BgpProto::XMPP, RibExportPolicy::XMPP, -1, 0));
         builder_ = MessageBuilder::GetInstance(RibExportPolicy::XMPP);
 

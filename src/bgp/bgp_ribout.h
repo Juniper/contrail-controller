@@ -23,12 +23,11 @@
 class IPeer;
 class IPeerUpdate;
 class RibOutUpdates;
-class SchedulingGroup;
-class SchedulingGroupManager;
 class ShowRibOutStatistics;
 class BgpTable;
 class BgpExport;
 class BgpRoute;
+class BgpUpdateSender;
 class RouteUpdate;
 class UpdateInfoSList;
 
@@ -223,8 +222,8 @@ private:
 //
 // This class represents per-table state for a collection of peers with the
 // same export policy.  It is effectively a combination of RibExportPolicy
-// and BgpTable. A RibOut has a 1:1 association with RibOutUpdates to which
-// it maintains a smart pointer.
+// and BgpTable. A RibOut has a 1:N association with RibOutUpdates wherein
+// one entry is created per DB partition.
 //
 // A RibOut maintains a PeerStateMap to facilitate allocation and lookup of
 // a bit index per peer in the RibOut.
@@ -253,7 +252,7 @@ public:
         size_t index_;
     };
 
-    RibOut(BgpTable *table, SchedulingGroupManager *mgr,
+    RibOut(BgpTable *table, BgpUpdateSender *sender,
            const RibExportPolicy &policy);
     ~RibOut();
 
@@ -264,8 +263,6 @@ public:
     void Deactivate(IPeerUpdate *peer);
     bool IsActive(IPeerUpdate *peer) const;
 
-    SchedulingGroup *GetSchedulingGroup();
-
     IPeerUpdate *GetPeer(int index) const;
     int GetPeerIndex(IPeerUpdate *peer) const;
 
@@ -273,18 +270,20 @@ public:
     const RibPeerSet &PeerSet() const;
     void GetSubsetPeerSet(RibPeerSet *peerset, const IPeerUpdate *cpeer) const;
 
-    BgpTable* table() { return table_; }
-    const BgpTable* table() const { return table_; }
+    BgpTable *table() { return table_; }
+    const BgpTable *table() const { return table_; }
+    BgpUpdateSender *sender() { return sender_; }
 
     const RibExportPolicy &ExportPolicy() const { return policy_; }
 
     int RouteAdvertiseCount(const BgpRoute *rt) const;
+    uint32_t GetQueueSize() const;
 
     DBTableBase::ListenerId listener_id() const { return listener_id_; }
     const std::string &ToString() const { return name_; }
 
-    RibOutUpdates *updates() { return updates_.get(); }
-    const RibOutUpdates *updates() const { return updates_.get(); }
+    RibOutUpdates *updates(int idx) { return updates_[idx]; }
+    const RibOutUpdates *updates(int idx) const { return updates_[idx]; }
     BgpExport *bgp_export() { return bgp_export_.get(); }
 
     BgpProto::BgpPeerType peer_type() const { return policy_.type; }
@@ -325,13 +324,13 @@ private:
     typedef IndexMap<IPeerUpdate *, PeerState, RibPeerSet> PeerStateMap;
 
     BgpTable *table_;
-    SchedulingGroupManager *mgr_;
+    BgpUpdateSender *sender_;
     RibExportPolicy policy_;
     std::string name_;
     PeerStateMap state_map_;
     RibPeerSet active_peerset_;
     int listener_id_;
-    boost::scoped_ptr<RibOutUpdates> updates_;
+    std::vector<RibOutUpdates *> updates_;
     boost::scoped_ptr<BgpExport> bgp_export_;
 
     DISALLOW_COPY_AND_ASSIGN(RibOut);

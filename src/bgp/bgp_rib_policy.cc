@@ -21,8 +21,18 @@ RibExportPolicy::RibExportPolicy()
       cluster_id(0) {
 }
 
+RibExportPolicy::RibExportPolicy(uint32_t cluster_id)
+    : type(BgpProto::IBGP),
+      encoding(BGP),
+      as_number(0),
+      as_override(false),
+      affinity(-1),
+      llgr(false),
+      cluster_id(cluster_id) {
+}
+
 RibExportPolicy::RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
-    int affinity, u_int32_t cluster_id)
+    int affinity, uint32_t cluster_id)
     : type(type),
       encoding(encoding),
       as_number(0),
@@ -38,7 +48,7 @@ RibExportPolicy::RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
 
 RibExportPolicy::RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
     as_t as_number, bool as_override, bool llgr, int affinity,
-    u_int32_t cluster_id)
+    uint32_t cluster_id)
     : type(type),
       encoding(encoding),
       as_number(as_number),
@@ -54,7 +64,7 @@ RibExportPolicy::RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
 
 RibExportPolicy::RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
     as_t as_number, bool as_override, bool llgr, IpAddress nexthop,
-    int affinity, u_int32_t cluster_id)
+    int affinity, uint32_t cluster_id)
     : type(type),
       encoding(BGP),
       as_number(as_number),

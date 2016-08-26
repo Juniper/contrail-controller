@@ -11,7 +11,7 @@
 #include "bgp/bgp_table.h"
 #include "bgp/bgp_update.h"
 #include "bgp/bgp_update_monitor.h"
-#include "bgp/scheduling_group.h"
+#include "bgp/bgp_update_sender.h"
 
 BgpExport::BgpExport(RibOut *ribout)
     : ribout_(ribout) {
@@ -55,7 +55,7 @@ void BgpExport::Export(DBTablePartBase *root, DBEntryBase *db_entry) {
 
     // Find and dequeue any existing DBState.
     bool duplicate = false;
-    RibOutUpdates *updates = ribout_->updates();
+    RibOutUpdates *updates = ribout_->updates(root->index());
     RibUpdateMonitor *monitor = updates->monitor();
     DBState *dbstate = monitor->GetDBStateAndDequeue(db_entry,
             boost::bind(IsDuplicate, _1, &uinfo_slist),
@@ -177,7 +177,7 @@ void BgpExport::Export(DBTablePartBase *root, DBEntryBase *db_entry) {
 //
 bool BgpExport::Join(DBTablePartBase *root, const RibPeerSet &mjoin,
         DBEntryBase *db_entry) {
-    RibOutUpdates *updates = ribout_->updates();
+    RibOutUpdates *updates = ribout_->updates(root->index());
     RibUpdateMonitor *monitor = updates->monitor();
 
     // Bail if the route is already deleted.
@@ -214,13 +214,12 @@ bool BgpExport::Join(DBTablePartBase *root, const RibPeerSet &mjoin,
     rt_update->SetUpdateInfo(uinfo_slist);
 
     // Merge the update into the BULK queue. If there is an entry present
-    // already then the update info is merged.  Kick the scheduling group
+    // already then the update info is merged.  Kick the BgpUpdateSender
     // machinery if needed.
     bool need_tail_dequeue = monitor->MergeUpdate(db_entry, rt_update);
     if (need_tail_dequeue) {
-        SchedulingGroup *group = ribout_->GetSchedulingGroup();
-        assert(group != NULL);
-        group->RibOutActive(ribout_, RibOutUpdates::QBULK);
+        BgpUpdateSender *sender = ribout_->sender();
+        sender->RibOutActive(root->index(), ribout_, RibOutUpdates::QBULK);
     }
 
     return true;
@@ -234,7 +233,7 @@ bool BgpExport::Join(DBTablePartBase *root, const RibPeerSet &mjoin,
 //
 bool BgpExport::Leave(DBTablePartBase *root, const RibPeerSet &mleave,
         DBEntryBase *db_entry) {
-    RibOutUpdates *updates = ribout_->updates();
+    RibOutUpdates *updates = ribout_->updates(root->index());
     RibUpdateMonitor *monitor = updates->monitor();
 
     // Nothing to do if there are no current or scheduled updates for any

@@ -6,7 +6,7 @@
 #include "control-node/control_node.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
-#include "bgp/scheduling_group.h"
+#include "bgp/bgp_update_sender.h"
 #include "bgp/xmpp_message_builder.h"
 #include "bgp/inet/inet_table.h"
 #include "db/db.h"
@@ -14,12 +14,13 @@
 class BgpTableTest : public ::testing::Test {
 protected:
     BgpTableTest()
-        : rt_table_(static_cast<InetTable *>(db_.CreateTable("inet.0"))) {
+        : sender_(NULL),
+          rt_table_(static_cast<InetTable *>(db_.CreateTable("inet.0"))) {
     }
 
     DB db_;
+    BgpUpdateSender sender_;
     InetTable *rt_table_;
-    SchedulingGroupManager mgr_;
 };
 
 // Basic tests for RibOut find/locate/delete.
@@ -30,11 +31,11 @@ TEST_F(BgpTableTest, RiboutBasic) {
     RibExportPolicy policy3(BgpProto::IBGP, RibExportPolicy::BGP, 3, 0);
 
     // Create 3 ribouts.
-    ribout2 = rt_table_->RibOutLocate(&mgr_, policy2);
+    ribout2 = rt_table_->RibOutLocate(&sender_, policy2);
     ASSERT_TRUE(ribout2 != NULL);
-    ribout3 = rt_table_->RibOutLocate(&mgr_, policy3);
+    ribout3 = rt_table_->RibOutLocate(&sender_, policy3);
     ASSERT_TRUE(ribout3 != NULL);
-    ribout1 = rt_table_->RibOutLocate(&mgr_, policy1);
+    ribout1 = rt_table_->RibOutLocate(&sender_, policy1);
     ASSERT_TRUE(ribout1 != NULL);
     ASSERT_EQ(rt_table_->ribout_map().size(), 3);
 
@@ -59,14 +60,14 @@ TEST_F(BgpTableTest, RiboutBasic) {
     ASSERT_EQ(temp, ribout3);
 
     // Add ribout2 again and make sure we can find it.
-    ribout2 = rt_table_->RibOutLocate(&mgr_, policy2);
+    ribout2 = rt_table_->RibOutLocate(&sender_, policy2);
     ASSERT_TRUE(ribout2 != NULL);
     temp = rt_table_->RibOutFind(policy2);
     ASSERT_EQ(temp, ribout2);
     ASSERT_EQ(rt_table_->ribout_map().size(), 3);
 
     // Call locate again and make sure we didn't add a new one.
-    temp = rt_table_->RibOutLocate(&mgr_, policy2);
+    temp = rt_table_->RibOutLocate(&sender_, policy2);
     ASSERT_EQ(temp, ribout2);
     ASSERT_EQ(rt_table_->ribout_map().size(), 3);
 
@@ -91,11 +92,11 @@ TEST_F(BgpTableTest, RiboutBasic) {
     ASSERT_TRUE(ribout3 == NULL);
 
     // Create them again but in a different order.
-    ribout3 = rt_table_->RibOutLocate(&mgr_, policy3);
+    ribout3 = rt_table_->RibOutLocate(&sender_, policy3);
     ASSERT_TRUE(ribout3 != NULL);
-    ribout1 = rt_table_->RibOutLocate(&mgr_, policy1);
+    ribout1 = rt_table_->RibOutLocate(&sender_, policy1);
     ASSERT_TRUE(ribout1 != NULL);
-    ribout2 = rt_table_->RibOutLocate(&mgr_, policy2);
+    ribout2 = rt_table_->RibOutLocate(&sender_, policy2);
     ASSERT_TRUE(ribout2 != NULL);
     ASSERT_EQ(rt_table_->ribout_map().size(), 3);
 
@@ -108,7 +109,7 @@ TEST_F(BgpTableTest, RiboutBasic) {
     ASSERT_EQ(temp, ribout3);
 
     // Call locate again and make sure we didn't add a new one.
-    temp = rt_table_->RibOutLocate(&mgr_, policy3);
+    temp = rt_table_->RibOutLocate(&sender_, policy3);
     ASSERT_EQ(temp, ribout3);
     ASSERT_EQ(rt_table_->ribout_map().size(), 3);
 
@@ -135,11 +136,11 @@ TEST_F(BgpTableTest, RiboutEncoding1) {
     RibExportPolicy policy3(BgpProto::XMPP, RibExportPolicy::XMPP, -1, 0);
 
     // Create 3 ribouts.
-    ribout1 = rt_table_->RibOutLocate(&mgr_, policy1);
+    ribout1 = rt_table_->RibOutLocate(&sender_, policy1);
     ASSERT_TRUE(ribout1 != NULL);
-    ribout2 = rt_table_->RibOutLocate(&mgr_, policy2);
+    ribout2 = rt_table_->RibOutLocate(&sender_, policy2);
     ASSERT_TRUE(ribout2 != NULL);
-    ribout3 = rt_table_->RibOutLocate(&mgr_, policy3);
+    ribout3 = rt_table_->RibOutLocate(&sender_, policy3);
     ASSERT_TRUE(ribout3 != NULL);
     ASSERT_EQ(rt_table_->ribout_map().size(), 3);
 
@@ -174,11 +175,11 @@ TEST_F(BgpTableTest, RiboutEncoding2) {
     RibExportPolicy policy3(BgpProto::XMPP, RibExportPolicy::XMPP, -1, 0);
 
     // Create 3 ribouts.
-    ribout1 = rt_table_->RibOutLocate(&mgr_, policy1);
+    ribout1 = rt_table_->RibOutLocate(&sender_, policy1);
     ASSERT_TRUE(ribout1 != NULL);
-    ribout3 = rt_table_->RibOutLocate(&mgr_, policy3);
+    ribout3 = rt_table_->RibOutLocate(&sender_, policy3);
     ASSERT_TRUE(ribout3 != NULL);
-    ribout2 = rt_table_->RibOutLocate(&mgr_, policy2);
+    ribout2 = rt_table_->RibOutLocate(&sender_, policy2);
     ASSERT_TRUE(ribout2 != NULL);
     ASSERT_EQ(rt_table_->ribout_map().size(), 3);
 
@@ -213,11 +214,11 @@ TEST_F(BgpTableTest, RiboutClusterId) {
     RibExportPolicy policy3(BgpProto::EBGP, RibExportPolicy::BGP, -1, 3);
 
     // Create 3 ribouts.
-    ribout2 = rt_table_->RibOutLocate(&mgr_, policy2);
+    ribout2 = rt_table_->RibOutLocate(&sender_, policy2);
     ASSERT_TRUE(ribout2 != NULL);
-    ribout1 = rt_table_->RibOutLocate(&mgr_, policy1);
+    ribout1 = rt_table_->RibOutLocate(&sender_, policy1);
     ASSERT_TRUE(ribout1 != NULL);
-    ribout3 = rt_table_->RibOutLocate(&mgr_, policy3);
+    ribout3 = rt_table_->RibOutLocate(&sender_, policy3);
     ASSERT_TRUE(ribout3 != NULL);
     ASSERT_EQ(rt_table_->ribout_map().size(), 3);
 
@@ -255,11 +256,11 @@ TEST_F(BgpTableTest, RiboutAS) {
         BgpProto::EBGP, RibExportPolicy::BGP, 103, false, false, -1, 0);
 
     // Create 3 ribouts.
-    ribout1 = rt_table_->RibOutLocate(&mgr_, policy1);
+    ribout1 = rt_table_->RibOutLocate(&sender_, policy1);
     ASSERT_TRUE(ribout1 != NULL);
-    ribout2 = rt_table_->RibOutLocate(&mgr_, policy2);
+    ribout2 = rt_table_->RibOutLocate(&sender_, policy2);
     ASSERT_TRUE(ribout2 != NULL);
-    ribout3 = rt_table_->RibOutLocate(&mgr_, policy3);
+    ribout3 = rt_table_->RibOutLocate(&sender_, policy3);
     ASSERT_TRUE(ribout3 != NULL);
     ASSERT_EQ(rt_table_->ribout_map().size(), 3);
 
@@ -295,9 +296,9 @@ TEST_F(BgpTableTest, RiboutASOverride) {
         BgpProto::EBGP, RibExportPolicy::BGP, 100, false, false, -1, 0);
 
     // Create 2 ribouts.
-    ribout1 = rt_table_->RibOutLocate(&mgr_, policy1);
+    ribout1 = rt_table_->RibOutLocate(&sender_, policy1);
     ASSERT_TRUE(ribout1 != NULL);
-    ribout2 = rt_table_->RibOutLocate(&mgr_, policy2);
+    ribout2 = rt_table_->RibOutLocate(&sender_, policy2);
     ASSERT_TRUE(ribout2 != NULL);
     ASSERT_EQ(rt_table_->ribout_map().size(), 2);
 
@@ -334,11 +335,11 @@ TEST_F(BgpTableTest, RiboutNexthop) {
                             false, nexthop3, -1, 0);
 
     // Create 3 ribouts.
-    ribout1 = rt_table_->RibOutLocate(&mgr_, policy1);
+    ribout1 = rt_table_->RibOutLocate(&sender_, policy1);
     ASSERT_TRUE(ribout1 != NULL);
-    ribout2 = rt_table_->RibOutLocate(&mgr_, policy2);
+    ribout2 = rt_table_->RibOutLocate(&sender_, policy2);
     ASSERT_TRUE(ribout2 != NULL);
-    ribout3 = rt_table_->RibOutLocate(&mgr_, policy3);
+    ribout3 = rt_table_->RibOutLocate(&sender_, policy3);
     ASSERT_TRUE(ribout3 != NULL);
     ASSERT_EQ(rt_table_->ribout_map().size(), 3);
 
@@ -374,9 +375,9 @@ TEST_F(BgpTableTest, RiboutLlgrDisabled) {
         BgpProto::EBGP, RibExportPolicy::BGP, 100, false, false, -1, 0);
 
     // Create 2 ribouts.
-    ribout1 = rt_table_->RibOutLocate(&mgr_, policy1);
+    ribout1 = rt_table_->RibOutLocate(&sender_, policy1);
     ASSERT_TRUE(ribout1 != NULL);
-    ribout2 = rt_table_->RibOutLocate(&mgr_, policy2);
+    ribout2 = rt_table_->RibOutLocate(&sender_, policy2);
     ASSERT_TRUE(ribout2 != NULL);
     ASSERT_EQ(rt_table_->ribout_map().size(), 1);
     EXPECT_EQ(ribout1, ribout2);
@@ -407,9 +408,9 @@ TEST_F(BgpTableTest, RiboutLlgrEnabled) {
         BgpProto::EBGP, RibExportPolicy::BGP, 100, false, false, -1, 0);
 
     // Create 2 ribouts.
-    ribout1 = rt_table_->RibOutLocate(&mgr_, policy1);
+    ribout1 = rt_table_->RibOutLocate(&sender_, policy1);
     ASSERT_TRUE(ribout1 != NULL);
-    ribout2 = rt_table_->RibOutLocate(&mgr_, policy2);
+    ribout2 = rt_table_->RibOutLocate(&sender_, policy2);
     ASSERT_TRUE(ribout2 != NULL);
     ASSERT_EQ(rt_table_->ribout_map().size(), 2);
     EXPECT_NE(ribout1, ribout2);
