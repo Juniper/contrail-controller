@@ -54,6 +54,8 @@ parser.add_argument(
 parser.add_argument(
     "--api_port", default=8082,
     help="Port of api server")
+parser.add_argument("--api_server_use_ssl", default=False,
+    help="Use SSL to connect with API server")
 parser.add_argument("net1_uuid", help="UUIDs of subnets to join")
 parser.add_argument("net2_uuid")
 parser.set_defaults(**arg_defaults)
@@ -65,6 +67,7 @@ auth_host, auth_port = urlparts.netloc.split(':')
 
 vnc_lib = vnc_api.VncApi(api_server_host=args.api_host,
                          api_server_port=args.api_port,
+                         api_server_use_ssl=args.api_server_use_ssl,
                          tenant_name=args.auth_tenant,
                          username=args.auth_user,
                          password=args.auth_password,

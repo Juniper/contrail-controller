@@ -31,7 +31,8 @@ class ContrailConfigCmd(object):
         # connect to vnc server
         self._vnc_lib = VncApi('u', 'p',
                                api_server_host=self._args.listen_ip_addr,
-                               api_server_port=self._args.listen_port)
+                               api_server_port=self._args.listen_port,
+                               api_server_use_ssl=self._args.api_server_use_ssl)
 
         self.re_parser = re.compile('[ \t\n]+')
         self.final_list = []
