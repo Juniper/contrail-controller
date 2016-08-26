@@ -1206,7 +1206,8 @@ class VncApi(object):
         except PermissionDenied:
             rv = None
         finally:
-            del self._headers['X-USER-TOKEN']
+            if 'X-USER-TOKEN' in self._headers:
+                del self._headers['X-USER-TOKEN']
         return rv
 
     # change object ownsership
