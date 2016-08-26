@@ -66,6 +66,7 @@ def parse_args(args_str):
         'rabbit_vhost': None,
         'rabbit_ha_mode': False,
         'rabbit_max_pending_updates': '4096',
+        'rabbit_health_check_interval': '120.0', # in seconds
         'cluster_id': '',
         'max_requests': 1024,
         'region_name': 'RegionOne',
@@ -275,6 +276,9 @@ def parse_args(args_str):
     parser.add_argument(
         "--rabbit_max_pending_updates",
         help="Max updates before stateful changes disallowed")
+    parser.add_argument(
+        "--rabbit_health_check_interval",
+        help="Interval seconds between consumer heartbeats to rabbitmq")
     parser.add_argument(
         "--cluster_id",
         help="Used for database keyspace separation")

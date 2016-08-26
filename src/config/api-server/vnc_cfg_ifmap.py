@@ -997,7 +997,7 @@ class VncServerCassandraClient(VncCassandraClient):
 class VncServerKombuClient(VncKombuClient):
     def __init__(self, db_client_mgr, rabbit_ip, rabbit_port, ifmap_db,
                  rabbit_user, rabbit_password, rabbit_vhost, rabbit_ha_mode,
-                 **kwargs):
+                 rabbit_health_check_interval, **kwargs):
         self._db_client_mgr = db_client_mgr
         self._sandesh = db_client_mgr._sandesh
         self._ifmap_db = ifmap_db
@@ -1006,7 +1006,8 @@ class VncServerKombuClient(VncKombuClient):
         super(VncServerKombuClient, self).__init__(
             rabbit_ip, rabbit_port, rabbit_user, rabbit_password, rabbit_vhost,
             rabbit_ha_mode, q_name, self._dbe_subscribe_callback,
-            self.config_log, **kwargs)
+            self.config_log, heartbeat_seconds=rabbit_health_check_interval,
+            **kwargs)
 
     # end __init__
 
@@ -1433,10 +1434,11 @@ class VncDbClient(object):
         self._zk_db.master_election(cassandra_client_init)
 
         self._msgbus = VncServerKombuClient(self, rabbit_servers,
-                                            rabbit_port, self._ifmap_db,
-                                            rabbit_user, rabbit_password,
-                                            rabbit_vhost, rabbit_ha_mode,
-                                            **kwargs)
+            rabbit_port, self._ifmap_db,
+            rabbit_user, rabbit_password,
+            rabbit_vhost, rabbit_ha_mode,
+            api_svr_mgr.get_rabbit_health_check_interval(),
+            **kwargs)
     # end __init__
 
     def _update_default_quota(self):
