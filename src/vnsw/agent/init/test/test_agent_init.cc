@@ -59,6 +59,7 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
     EXPECT_EQ(param.linklocal_system_flows(), 1024);
     EXPECT_EQ(param.linklocal_vm_flows(), 512);
     EXPECT_EQ(param.flow_cache_timeout(), 30);
+    EXPECT_EQ(param.stale_interface_cleanup_timeout(), 120);
     EXPECT_STREQ(param.config_file().c_str(), 
                  "controller/src/vnsw/agent/init/test/cfg.ini");
     EXPECT_STREQ(param.program_name().c_str(), "test-param");
@@ -69,6 +70,16 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
     const std::vector<uint16_t> &ports = param.bgp_as_a_service_port_range_value();
     EXPECT_EQ(ports[0], 100);
     EXPECT_EQ(ports[1], 199);
+    EXPECT_STREQ(param.config_file().c_str(),
+                 "controller/src/vnsw/agent/init/test/cfg.ini");
+    EXPECT_STREQ(param.program_name().c_str(), "test-param");
+    EXPECT_EQ(param.agent_mode(), AgentParam::VROUTER_AGENT);
+    EXPECT_STREQ(param.agent_base_dir().c_str(), "/var/lib/contrail");
+    EXPECT_EQ(param.subnet_hosts_resolvable(), true);
+
+    const std::vector<uint16_t> &ports2 = param.bgp_as_a_service_port_range_value();
+    EXPECT_EQ(ports2[0], 100);
+    EXPECT_EQ(ports2[1], 199);
     EXPECT_EQ(param.services_queue_limit(), 8192);
 
     // By default, flow-tracing must be enabled
@@ -348,6 +359,7 @@ TEST_F(FlowTest, Default_Cmdline_arg1) {
     param.Init("controller/src/vnsw/agent/init/test/cfg-default1.ini",
                "test-param");
     EXPECT_EQ(param.flow_cache_timeout(), 60);
+    EXPECT_EQ(param.stale_interface_cleanup_timeout(), 60);
     EXPECT_EQ(param.http_server_port(), 10001);
     EXPECT_STREQ(param.log_category().c_str(), "abc");
     EXPECT_STREQ(param.log_file().c_str(), "/var/log/contrail/vrouter2.log");
@@ -366,6 +378,7 @@ TEST_F(FlowTest, Default_Cmdline_arg2) {
     param.Init("controller/src/vnsw/agent/init/test/cfg-default2.ini",
                "test-param");
     EXPECT_EQ(param.flow_cache_timeout(), flow_timeout);
+    EXPECT_EQ(param.stale_interface_cleanup_timeout(), 60);
     EXPECT_EQ(param.http_server_port(), http_server_port);
     EXPECT_STREQ(param.log_category().c_str(), "");
     EXPECT_STREQ(param.log_file().c_str(),
@@ -379,10 +392,11 @@ TEST_F(FlowTest, Default_Cmdline_arg2) {
  * values for these command line args and has also specified values in config 
  * file, then values specified on command line should be taken */
 TEST_F(FlowTest, Default_Cmdline_arg3) {
-    int argc = 9;
+    int argc = 11;
     char *argv[] = {
         (char *) "",
         (char *) "--DEFAULT.flow_cache_timeout", (char *)"100",
+        (char *) "--DEFAULT.stale_interface_cleanup_timeout", (char *)"200",
         (char *) "--DEFAULT.http_server_port", (char *)"20001",
         (char *) "--DEFAULT.log_file", (char *)"3.log",
         (char *) "--HYPERVISOR.type", (char *)"vmware",
@@ -393,6 +407,7 @@ TEST_F(FlowTest, Default_Cmdline_arg3) {
     param.Init("controller/src/vnsw/agent/init/test/cfg-default1.ini",
                "test-param");
     EXPECT_EQ(param.flow_cache_timeout(), 100);
+    EXPECT_EQ(param.stale_interface_cleanup_timeout(), 200);
     EXPECT_EQ(param.http_server_port(), 20001);
     EXPECT_STREQ(param.log_file().c_str(), "3.log");
     EXPECT_TRUE(param.isVmwareMode());
