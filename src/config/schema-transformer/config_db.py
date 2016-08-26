@@ -440,47 +440,49 @@ class VirtualNetworkST(DBBaseST):
                                        common.LINK_LOCAL_VN_FQ_NAME]):
             # for ip-fabric and link-local VN, we don't need to update asn
             return
-        ri = self.get_primary_routing_instance()
-        if ri is None:
+        if int(new_asn) == cls._autonomous_system:
             return
-        ri_fq_name = ri.get_fq_name_str()
-        rtgt_num = self._cassandra.get_route_target(ri_fq_name)
-        old_rtgt_name = self._route_target
-        new_rtgt_name = "target:%s:%d" % (new_asn, rtgt_num)
-        if old_rtgt_name == new_rtgt_name:
-            return
-        new_rtgt_obj = RouteTargetST.locate(new_rtgt_name)
-        old_rtgt_obj = RouteTarget(old_rtgt_name)
-        inst_tgt_data = InstanceTargetType()
-        ri.obj = ri.read_vnc_obj(fq_name=ri_fq_name)
-        ri.obj.del_route_target(old_rtgt_obj)
-        ri.obj.add_route_target(new_rtgt_obj.obj, inst_tgt_data)
-        self._vnc_lib.routing_instance_update(ri.obj)
-        ri.route_target = new_rtgt_name
-        self._route_target = new_rtgt_name
-        for route in self.get_routes():
-            prefix = route.prefix
-            nexthop = route.next_hop
-            (left_ri, si) = self._get_routing_instance_from_route(nexthop)
-            if left_ri is None:
+
+        # From the global route target list, pick ones with the
+        # changed ASN, and update the routing instances' referred 
+        # by the route target
+        for route_tgt in _vnc_lib.route_targets_list(detail=True):
+            _,asn,target = route_tgt.name.split(':')
+            if int(asn) != cls.get_autonomous_system():
                 continue
-            left_ri.update_route_target_list(rt_add_import=[new_rtgt_name],
-                                             rt_del=[old_rtgt_name])
-            static_route_entries = left_ri.obj.get_static_route_entries()
-            if static_route_entries is None:
+            if int(target) < common.BGP_RTGT_MIN_ID:
                 continue
-            for static_route in static_route_entries.get_route() or []:
-                if old_rtgt_name in static_route.route_target:
-                    static_route.route_target.remove(old_rtgt_name)
-                    static_route.route_target.append(new_rtgt_name)
-            left_ri.obj.set_static_route_entries(static_route_entries)
-            self._vnc_lib.routing_instance_update(left_ri.obj)
-        try:
-            RouteTargetST.delete(old_rtgt_obj.get_fq_name()[0])
-        except RefsExistError:
-            # if other routing instances are referring to this target,
-            # it will be deleted when those instances are deleted
-            pass
+            
+            new_rtgt_name = "target:%s:%s" % (new_asn, target)
+            new_rtgt_obj = RouteTargetST.locate(new_rtgt_name)
+            old_rtgt_name = "target:%d:%s" % (cls.get_autonomous_system(), target)
+            old_rtgt_obj = RouteTarget(old_rtgt_name)
+
+            for ri_ref in route_tgt.get_routing_instance_back_refs() or []:
+                ri = _vnc_lib.routing_instance_read(id=ri_ref['uuid'])
+                ri_fq_name = ri.get_fq_name_str()
+                rtgt_num = int(cls._rt_cf.get(ri_fq_name)['rtgt_num'])
+                inst_tgt_data = InstanceTargetType()
+                ri.del_route_target(old_rtgt_obj)
+                ri.add_route_target(new_rtgt_obj.obj, inst_tgt_data)
+                _vnc_lib.routing_instance_update(ri)
+                self._route_target = new_rtgt_name
+                static_route_entries = ri.get_static_route_entries()
+                if static_route_entries is None:
+                    continue
+                for static_route in static_route_entries.get_route() or []:
+                   if old_rtgt_name in static_route.route_target:
+                        static_route.route_target.remove(old_rtgt_name)
+                        static_rotue.route_target.append(new_rtgt_name)
+                    ri.set_static_route_entries(static_route_entries)
+                    _vnc_lib.routing_instance_update(ri)
+        
+            try:
+                RouteTargetST.delete(old_rtgt_obj.get_fq_name()[0])
+            except RefsExistError:
+                # if other routing instances are referring to this target,
+                # it will be deleted when those instances are deleted
+                pass
     # end update_autonomous_system
 
     def add_policy(self, policy_name, attrib=None):
