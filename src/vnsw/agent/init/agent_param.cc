@@ -435,6 +435,12 @@ void AgentParam::ParseDefaultSection() {
         flow_cache_timeout_ = Agent::kDefaultFlowCacheTimeout;
     }
 
+    if (!GetValueFromTree<uint32_t>(stale_interface_cleanup_timeout_,
+                                   "DEFAULT.stale_interface_cleanup_timeout")) {
+        stale_interface_cleanup_timeout_ =
+            Agent::kDefaultStaleInterfaceCleanupTimeout;
+    }
+
     if (!GetValueFromTree<string>(log_level_, "DEFAULT.log_level")) {
         log_level_ = "SYS_DEBUG";
     }
@@ -769,6 +775,8 @@ void AgentParam::ParseDefaultSectionArguments
 
     GetOptValue<uint16_t>(var_map, flow_cache_timeout_,
                           "DEFAULT.flow_cache_timeout");
+    GetOptValue<uint32_t>(var_map, stale_interface_cleanup_timeout_,
+                          "DEFAULT.stale_interface_cleanup_timeout");
     GetOptValue<string>(var_map, host_name_, "DEFAULT.hostname");
     GetOptValue<string>(var_map, agent_name_, "DEFAULT.agent_name");
     GetOptValue<uint16_t>(var_map, http_server_port_,
@@ -1265,6 +1273,8 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Linklocal Max System Flows  : " << linklocal_system_flows_);
     LOG(DEBUG, "Linklocal Max Vm Flows      : " << linklocal_vm_flows_);
     LOG(DEBUG, "Flow cache timeout          : " << flow_cache_timeout_);
+    LOG(DEBUG, "Stale Interface cleanup timeout  : "
+        << stale_interface_cleanup_timeout_);
     LOG(DEBUG, "Flow thread count           : " << flow_thread_count_);
     LOG(DEBUG, "Flow latency limit          : " << flow_latency_limit_);
     LOG(DEBUG, "Flow index-mgr sm log count : " << flow_index_sm_log_count_);
@@ -1382,6 +1392,8 @@ AgentParam::AgentParam(bool enable_flow_options,
         flow_ksync_tokens_(Agent::kFlowKSyncTokens),
         flow_del_tokens_(Agent::kFlowDelTokens),
         flow_update_tokens_(Agent::kFlowUpdateTokens),
+        stale_interface_cleanup_timeout_
+        (Agent::kDefaultStaleInterfaceCleanupTimeout),
         config_file_(), program_name_(),
         log_file_(), log_local_(false), log_flow_(false), log_level_(),
         log_category_(), use_syslog_(false),
@@ -1437,6 +1449,9 @@ AgentParam::AgentParam(bool enable_flow_options,
         ("DEFAULT.flow_cache_timeout",
          opt::value<uint16_t>()->default_value(Agent::kDefaultFlowCacheTimeout),
          "Flow aging time in seconds")
+        ("DEFAULT.stale_interface_cleanup_timeout",
+         opt::value<uint32_t>(),
+         "Stale Interface cleanup timeout")
         ("DEFAULT.hostname", opt::value<string>(),
          "Hostname of compute-node")
         ("DEFAULT.headless_mode", opt::value<bool>(),

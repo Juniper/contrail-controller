@@ -73,6 +73,10 @@ PortIpcHandler::PortIpcHandler(Agent *agent, const std::string &dir)
         string err_msg = "Creating directory " + ports_dir_ + " failed";
         CONFIG_TRACE(PortInfo, err_msg.c_str());
     }
+
+    uint32_t timeout_secs = agent->params()->stale_interface_cleanup_timeout();
+    //Set timeout in milliseconds
+    interface_stale_cleaner_->set_timeout(timeout_secs * 1000);
 }
 
 PortIpcHandler::~PortIpcHandler() {

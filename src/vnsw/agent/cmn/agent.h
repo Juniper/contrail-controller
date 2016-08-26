@@ -285,6 +285,8 @@ public:
     static const uint32_t kDefaultTbbKeepawakeTimeout = (20); //time-millisecs
     // Default number of tx-buffers on pkt0 interface
     static const uint32_t kPkt0TxBufferCount = 1000;
+    // Default value for cleanup of stale interface entries
+    static const uint32_t kDefaultStaleInterfaceCleanupTimeout = 60;
 
     static const uint32_t kFlowAddTokens = 50;
     static const uint32_t kFlowKSyncTokens = 25;
