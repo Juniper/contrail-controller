@@ -295,6 +295,14 @@ public:
         is_local_ = is_local;
     }
 
+    bool is_health_check_service() const {
+        return is_health_check_service_;
+    }
+
+    void set_is_health_check_service(bool val) {
+        is_health_check_service_ = val;
+    }
+
 private:
     PeerConstPtr peer_;
     // Nexthop for route. Not used for gateway routes
@@ -364,6 +372,10 @@ private:
     // if the path is marked local do no export it to BGP and do not
     // program it to vrouter
     bool is_local_;
+    // if the path is marked service health check set vrouter to do proxy arp
+    // TODO(prabhjot) need to find more genric solution for marking proxy arp
+    // to move all the logic of identifing proxy arp in one place
+    bool is_health_check_service_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
 };
 
@@ -470,7 +482,8 @@ public:
                  const CommunityList &communities,
                  const PathPreference &path_preference,
                  const IpAddress &subnet_service_ip,
-                 const EcmpLoadBalance &ecmp_load_balance, bool is_local) :
+                 const EcmpLoadBalance &ecmp_load_balance, bool is_local,
+                 bool is_health_check_service) :
         AgentRouteData(false), intf_(intf), mpls_label_(mpls_label),
         vxlan_id_(vxlan_id), force_policy_(force_policy),
         dest_vn_list_(vn_list), proxy_arp_(false), sync_route_(false),
@@ -478,7 +491,8 @@ public:
         tunnel_bmap_(TunnelType::MplsType()),
         path_preference_(path_preference),
         subnet_service_ip_(subnet_service_ip),
-        ecmp_load_balance_(ecmp_load_balance), is_local_(is_local) {
+        ecmp_load_balance_(ecmp_load_balance), is_local_(is_local),
+        is_health_check_service_(is_health_check_service) {
     }
     virtual ~LocalVmRoute() { }
     void DisableProxyArp() {proxy_arp_ = false;}
@@ -512,6 +526,7 @@ private:
     IpAddress subnet_service_ip_;
     EcmpLoadBalance ecmp_load_balance_;
     bool is_local_;
+    bool is_health_check_service_;
     DISALLOW_COPY_AND_ASSIGN(LocalVmRoute);
 };
 

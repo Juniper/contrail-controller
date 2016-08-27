@@ -3965,8 +3965,7 @@ TEST_F(IntfTest, ServiceHealthCheckIP) {
 
     //Verify service health check IP route is found
     evpn_rt = EvpnRouteGet("vrf1", mac, service_hc_ip, vm_intf->ethernet_tag());
-    EXPECT_TRUE(evpn_rt != NULL);
-    EXPECT_TRUE(evpn_rt->GetActiveNextHop()->PolicyEnabled() == true);
+    EXPECT_TRUE(evpn_rt == NULL);
     EXPECT_TRUE(RouteFind("vrf1", service_hc_ip, 32));
     EXPECT_TRUE(vm_intf->instance_ipv4_list().list_.size() == 2);
     EXPECT_TRUE(vm_intf->service_health_check_ip().to_v4() == service_hc_ip);
