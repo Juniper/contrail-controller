@@ -624,6 +624,9 @@ Agent::~Agent() {
 
     delete event_mgr_;
     event_mgr_ = NULL;
+
+    delete tbb_awake_task_;
+    tbb_awake_task_ = NULL;
 }
 
 AgentConfig *Agent::cfg() const {
