@@ -11,6 +11,7 @@
 #include "uve/agent_uve_stats.h"
 #include "vrouter/flow_stats/flow_stats_collector.h"
 
+FlowMgmtManager::FlowMgmtQueue *FlowMgmtManager::log_queue_;
 /////////////////////////////////////////////////////////////////////////////
 // FlowMgmtManager methods
 /////////////////////////////////////////////////////////////////////////////
@@ -26,17 +27,16 @@ FlowMgmtManager::FlowMgmtManager(Agent *agent, uint16_t table_index) :
     vrf_flow_mgmt_tree_(this),
     nh_flow_mgmt_tree_(this),
     flow_mgmt_dbclient_(new FlowMgmtDbClient(agent, this)),
-    request_queue_(agent_->task_scheduler()->GetTaskId(kTaskFlowMgmt), 0,
+    request_queue_(agent_->task_scheduler()->GetTaskId(kTaskFlowMgmt),
+                   table_index,
                    boost::bind(&FlowMgmtManager::RequestHandler, this, _1)),
-    db_event_queue_(agent_->task_scheduler()->GetTaskId(kTaskFlowMgmt), 0,
+    db_event_queue_(agent_->task_scheduler()->GetTaskId(kTaskFlowMgmt),
+                    table_index,
                     boost::bind(&FlowMgmtManager::DBRequestHandler, this, _1),
-                    db_event_queue_.kMaxSize, 1),
-    log_queue_(agent_->task_scheduler()->GetTaskId(kTaskFlowMgmt), 1,
-               boost::bind(&FlowMgmtManager::LogHandler, this, _1)) {
+                    db_event_queue_.kMaxSize, 1) {
     request_queue_.set_name("Flow management");
     request_queue_.set_measure_busy_time(agent->MeasureQueueDelay());
     db_event_queue_.set_name("Flow DB Event Queue");
-    log_queue_.set_name("Flow Log Queue");
     for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
         bgp_as_a_service_flow_mgmt_tree_[count].reset(
             new BgpAsAServiceFlowMgmtTree(this, count));
@@ -61,8 +61,21 @@ void FlowMgmtManager::Init() {
 void FlowMgmtManager::Shutdown() {
     request_queue_.Shutdown();
     db_event_queue_.Shutdown();
-    log_queue_.Shutdown();
     flow_mgmt_dbclient_->Shutdown();
+}
+
+void FlowMgmtManager::InitLogQueue(Agent *agent) {
+    uint32_t task_id = agent->task_scheduler()->GetTaskId(kTaskFlowLogging);
+    log_queue_ = new FlowMgmtQueue(task_id, 0,
+                                   boost::bind(&FlowMgmtManager::LogHandler,
+                                               _1));
+    log_queue_->set_name("Flow Log Queue");
+    log_queue_->SetBounded(true);
+}
+
+void FlowMgmtManager::ShutdownLogQueue() {
+    log_queue_->Shutdown();
+    delete log_queue_;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -429,14 +442,28 @@ bool FlowMgmtManager::RequestHandler(FlowMgmtRequestPtr req) {
             FlowMgmtRequestPtr log_req(new FlowMgmtRequest
                                        (FlowMgmtRequest::ADD_FLOW,
                                         req->flow().get()));
-            log_queue_.Enqueue(log_req);
+            log_queue_->Enqueue(log_req);
+
+            //Enqueue Add request to flow-stats-collector
+            agent_->flow_stats_manager()->AddEvent(req->flow());
+
+            //Enqueue Add request to UVE module for ACE stats
+            EnqueueUveAddEvent(flow);
+
             AddFlow(req->flow());
 
         } else {
             FlowMgmtRequestPtr log_req(new FlowMgmtRequest
                                        (FlowMgmtRequest::DELETE_FLOW,
                                         req->flow().get(), req->params()));
-            log_queue_.Enqueue(log_req);
+            log_queue_->Enqueue(log_req);
+
+            //Enqueue Delete request to flow-stats-collector
+            agent_->flow_stats_manager()->DeleteEvent(flow, req->params());
+
+            //Enqueue Delete request to UVE module for ACE stats
+            EnqueueUveDeleteEvent(flow);
+
             DeleteFlow(req->flow(), req->params());
         }
         break;
@@ -493,25 +520,11 @@ bool FlowMgmtManager::LogHandler(FlowMgmtRequestPtr req) {
     switch (req->event()) {
     case FlowMgmtRequest::ADD_FLOW: {
         LogFlowUnlocked(flow, "ADD");
-
-        //Enqueue Add request to flow-stats-collector
-        agent_->flow_stats_manager()->AddEvent(req->flow());
-
-        //Enqueue Add request to UVE module for ACE stats
-        EnqueueUveAddEvent(flow);
-
         break;
     }
 
     case FlowMgmtRequest::DELETE_FLOW: {
         LogFlowUnlocked(flow, "DEL");
-
-        //Enqueue Delete request to flow-stats-collector
-        agent_->flow_stats_manager()->DeleteEvent(flow, req->params());
-
-        //Enqueue Delete request to UVE module for ACE stats
-        EnqueueUveDeleteEvent(flow);
-
         break;
     }
 
