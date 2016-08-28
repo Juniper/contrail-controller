@@ -147,6 +147,15 @@ KSyncObject *FlowTableKSyncEntry::GetObject() {
     return ksync_obj_;
 }
 
+KSyncObject *FlowTableKSyncEntry::GetObject() const {
+    return ksync_obj_;
+}
+
+int FlowTableKSyncEntry::IoContextType() const {
+    FlowTableKSyncObject *obj =
+        static_cast<FlowTableKSyncObject *>(GetObject());
+    return (obj->flow_table()->table_index() % 2) + 1;
+}
 void FlowTableKSyncEntry::ReleaseToken() {
     if (token_.get())
         token_.reset();
