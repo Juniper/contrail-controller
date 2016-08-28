@@ -44,7 +44,7 @@ public:
     KSyncVxlanBridgeEntry(KSyncVxlanBridgeObject *obj, const VxLanId *vxlan);
     ~KSyncVxlanBridgeEntry();
 
-    KSyncDBObject *GetObject();
+    KSyncDBObject *GetObject() const;
 
     virtual std::string ToString() const;
     virtual bool Sync(DBEntry *e);

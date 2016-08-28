@@ -44,7 +44,7 @@ public:
     virtual bool Delete();
 
     struct ovsdb_idl_row *ovs_entry() {return ovs_entry_;}
-    KSyncObject* GetObject();
+    KSyncObject* GetObject() const;
     void Ack(bool success);
 
 protected:
@@ -92,7 +92,7 @@ public:
 
     OvsdbDBObject *table() { return table_;}
 
-    KSyncObject* GetObject();
+    KSyncObject* GetObject() const;
     virtual void Ack(bool success);
 
     void TriggerDeleteAdd();

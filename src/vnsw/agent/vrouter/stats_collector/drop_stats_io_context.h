@@ -11,7 +11,7 @@ class DropStatsIoContext: public IoContext {
 public:
     DropStatsIoContext(int msg_len, char *msg, uint32_t seqno,
                        AgentStatsSandeshContext *ctx,
-                       IoContext::IoContextWorkQId id);
+                       IoContext::Type type);
     virtual ~DropStatsIoContext();
     virtual void Handler();
     virtual void ErrorHandler(int err);

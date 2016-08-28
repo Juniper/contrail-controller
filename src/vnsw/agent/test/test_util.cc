@@ -2171,7 +2171,7 @@ void AddHealthCheckServiceInstanceIp(const char *name, int id,
 
 void AddServiceInstanceIp(const char *name, int id, const char *addr, bool ecmp,
                           const char *tracking_ip) {
-    char buf[256];
+    char buf[512];
     char mode[256];
 
     if (ecmp) {

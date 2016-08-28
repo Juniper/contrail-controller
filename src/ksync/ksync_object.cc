@@ -1641,7 +1641,7 @@ public:
     bool Add() { return false;}
     bool Change() { return false; }
     bool Delete() { return false; }
-    KSyncObject *GetObject() { return NULL; }
+    KSyncObject *GetObject() const { return NULL; }
     KSyncEntry *UnresolvedReference() { return NULL; }
     bool IsDataResolved() {return false;}
 private:

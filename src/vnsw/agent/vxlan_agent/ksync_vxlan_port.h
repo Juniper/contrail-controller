@@ -47,7 +47,7 @@ public:
     KSyncVxlanPortEntry(KSyncVxlanPortObject *obj, const Interface *interface);
     virtual ~KSyncVxlanPortEntry();
 
-    KSyncDBObject *GetObject();
+    KSyncDBObject *GetObject() const;
 
     virtual std::string ToString() const;
     virtual bool Sync(DBEntry *e);

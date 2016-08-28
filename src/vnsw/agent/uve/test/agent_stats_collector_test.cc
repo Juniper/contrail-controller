@@ -27,17 +27,17 @@ IoContext *AgentStatsCollectorTest::AllocateIoContext(char* buf, uint32_t buf_le
         case InterfaceStatsType:
             return (new InterfaceStatsIoContextTest(buf_len, buf, seq, 
                                          intf_stats_sandesh_ctx_.get(),
-                                         IoContext::UVE_Q_ID));
+                                         IoContext::IOC_UVE));
             break;
        case VrfStatsType:
             return (new VrfStatsIoContextTest(buf_len, buf, seq, 
                                         vrf_stats_sandesh_ctx_.get(), 
-                                        IoContext::UVE_Q_ID));
+                                        IoContext::IOC_UVE));
             break;
        case DropStatsType:
             return (new DropStatsIoContextTest(buf_len, buf, seq, 
                                          drop_stats_sandesh_ctx_.get(), 
-                                         IoContext::UVE_Q_ID));
+                                         IoContext::IOC_UVE));
             break;
        default:
             return NULL;

@@ -26,7 +26,7 @@ MplsKSyncEntry::MplsKSyncEntry(MplsKSyncObject* obj, const MplsLabel *mpls) :
 MplsKSyncEntry::~MplsKSyncEntry() {
 }
 
-KSyncDBObject *MplsKSyncEntry::GetObject() {
+KSyncDBObject *MplsKSyncEntry::GetObject() const {
     return ksync_obj_;
 }
 

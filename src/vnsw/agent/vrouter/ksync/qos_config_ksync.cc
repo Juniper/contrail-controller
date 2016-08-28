@@ -25,7 +25,7 @@ QosConfigKSyncEntry::QosConfigKSyncEntry(QosConfigKSyncObject *obj,
 QosConfigKSyncEntry::~QosConfigKSyncEntry() {
 }
 
-KSyncDBObject *QosConfigKSyncEntry::GetObject() {
+KSyncDBObject *QosConfigKSyncEntry::GetObject() const {
     return ksync_obj_;
 }
 

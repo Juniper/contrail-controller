@@ -189,7 +189,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
 NHKSyncEntry::~NHKSyncEntry() {
 }
 
-KSyncDBObject *NHKSyncEntry::GetObject() {
+KSyncDBObject *NHKSyncEntry::GetObject() const {
     return ksync_obj_;
 }
 

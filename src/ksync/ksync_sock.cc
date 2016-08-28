@@ -45,13 +45,17 @@ typedef boost::asio::detail::socket_option::integer<SOL_SOCKET,
         SO_RCVBUFFORCE> ReceiveBuffForceSize;
 
 int KSyncSock::vnsw_netlink_family_id_;
-AgentSandeshContext *KSyncSock::agent_sandesh_ctx_;
+AgentSandeshContext *KSyncSock::agent_sandesh_ctx_[kRxWorkQueueCount];
 std::auto_ptr<KSyncSock> KSyncSock::sock_;
 pid_t KSyncSock::pid_;
 tbb::atomic<bool> KSyncSock::shutdown_;
 
+// Name of task used in KSync Response work-queues
 const char* IoContext::io_wq_names[IoContext::MAX_WORK_QUEUES] = 
-                                                {"Agent::KSync", "Agent::Uve"};
+                                                {
+                                                    "Agent::Uve",
+                                                    "Agent::KSync"
+                                                };
 
 static uint32_t IoVectorLength(KSyncBufferList *iovec) {
     KSyncBufferList::iterator it = iovec->begin();
@@ -188,23 +192,25 @@ static void DecodeSandeshMessages(char *buf, uint32_t buf_len,
 // KSyncSock routines
 /////////////////////////////////////////////////////////////////////////////
 KSyncSock::KSyncSock() :
-    send_queue_(this),
+    nl_client_(NULL), wait_tree_(), send_queue_(this),
     max_bulk_msg_count_(kMaxBulkMsgCount), max_bulk_buf_size_(kMaxBulkMsgSize),
-    bulk_seq_no_(kInvalidBulkSeqNo), tx_count_(0), err_count_(0),
-    read_inline_(true) {
+    bulk_seq_no_(kInvalidBulkSeqNo), bulk_buf_size_(0), bulk_msg_count_(0),
+    rx_buff_(NULL), read_inline_(true), bulk_msg_context_(NULL),
+    ksync_bulk_sandesh_context_(), uve_bulk_sandesh_context_(),
+    tx_count_(0), ack_count_(0), err_count_(0) {
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
-    uint32_t task_id = 0;
-    for(int i = 0; i < IoContext::MAX_WORK_QUEUES; i++) {
-        task_id = scheduler->GetTaskId(IoContext::io_wq_names[i]);
-        receive_work_queue[i] =
-            new WorkQueue<char *>(task_id, 0,
-                                  boost::bind(&KSyncSock::ProcessKernelData,
-                                              this, _1));
-        char name[128];
-        sprintf(name, "KSync Receive Queue-%d", i);
-        receive_work_queue[i]->set_name(name);
+
+    uint32_t uve_task_id =
+        scheduler->GetTaskId(IoContext::io_wq_names[IoContext::IOC_UVE]);
+    uint32_t ksync_task_id =
+        scheduler->GetTaskId(IoContext::io_wq_names[IoContext::IOC_KSYNC]);
+    for(uint32_t i = 0; i < kRxWorkQueueCount; i++) {
+        ksync_rx_queue[i] = AllocQueue(ksync_bulk_sandesh_context_,
+                                       ksync_task_id, i, "KSync Receive Queue");
+        uve_rx_queue[i] = AllocQueue(uve_bulk_sandesh_context_,
+                                     uve_task_id, i, "KSync UVE Receive Queue");
     }
-    task_id = scheduler->GetTaskId("Ksync::AsyncSend");
+
     nl_client_ = (nl_client *)malloc(sizeof(nl_client));
     bzero(nl_client_, sizeof(nl_client));
     rx_buff_ = NULL;
@@ -220,9 +226,12 @@ KSyncSock::~KSyncSock() {
         rx_buff_ = NULL;
     }
 
-    for(int i = 0; i < IoContext::MAX_WORK_QUEUES; i++) {
-        receive_work_queue[i]->Shutdown();
-        delete receive_work_queue[i];
+    for(int i = 0; i < kRxWorkQueueCount; i++) {
+        ksync_rx_queue[i]->Shutdown();
+        delete ksync_rx_queue[i];
+
+        uve_rx_queue[i]->Shutdown();
+        delete uve_rx_queue[i];
     }
 
     if (nl_client_->cl_buf) {
@@ -243,10 +252,23 @@ void KSyncSock::Init(bool use_work_queue) {
     shutdown_ = false;
 }
 
+KSyncSock::KSyncReceiveQueue *KSyncSock::AllocQueue
+(KSyncBulkSandeshContext ctxt[], uint32_t task_id, uint32_t instance,
+ const char *name) {
+    KSyncReceiveQueue *queue;
+    queue = new KSyncReceiveQueue
+        (task_id, instance, boost::bind(&KSyncSock::ProcessKernelData, this,
+                                        &ctxt[instance], _1));
+    char tmp[128];
+    sprintf(tmp, "%s-%d", name, instance);
+    queue->set_name(tmp);
+    return queue;
+}
+
 void KSyncSock::SetMeasureQueueDelay(bool val) {
     sock_->send_queue_.set_measure_busy_time(val);
-    for (int i = 0; i < IoContext::MAX_WORK_QUEUES; i++) {
-        receive_work_queue[i]->set_measure_busy_time(val);
+    for (int i = 0; i < kRxWorkQueueCount; i++) {
+        ksync_rx_queue[i]->set_measure_busy_time(val);
     }
 }
 
@@ -281,18 +303,44 @@ void KSyncSock::SetSeqno(uint32_t seq) {
     uve_seqno_ = seq;
 }
 
-uint32_t KSyncSock::AllocSeqNo(bool is_uve) {
+uint32_t KSyncSock::AllocSeqNo(IoContext::Type type, uint32_t instance) {
     uint32_t seq;
-    if (is_uve) {
-        seq = uve_seqno_.fetch_and_add(2);
+    if (type == IoContext::IOC_UVE) {
+        seq = uve_seqno_.fetch_and_add(1);
+        seq = (seq * kRxWorkQueueCount + (instance % kRxWorkQueueCount)) << 1;
     } else {
-        seq = seqno_.fetch_and_add(2);
+        seq = seqno_.fetch_and_add(1);
+        seq = (seq * kRxWorkQueueCount + (instance % kRxWorkQueueCount)) << 1;
         seq |= KSYNC_DEFAULT_Q_ID_SEQ;
     }
     if (seq == kInvalidBulkSeqNo) {
-        return AllocSeqNo(is_uve);
+        return AllocSeqNo(type, instance);
     }
     return seq;
+}
+
+uint32_t KSyncSock::AllocSeqNo(IoContext::Type type) {
+    return AllocSeqNo(type, 0);
+}
+
+KSyncSock::KSyncReceiveQueue *KSyncSock::GetReceiveQueue(IoContext::Type type,
+                                                         uint32_t instance) {
+    if (type == IoContext::IOC_UVE) {
+        return uve_rx_queue[instance % kRxWorkQueueCount];
+    } else {
+        return ksync_rx_queue[instance % kRxWorkQueueCount];
+    }
+}
+
+KSyncSock::KSyncReceiveQueue *KSyncSock::GetReceiveQueue(uint32_t seqno) {
+    IoContext::Type type;
+    if (seqno & KSYNC_DEFAULT_Q_ID_SEQ)
+        type = IoContext::IOC_UVE;
+    else
+        type = IoContext::IOC_KSYNC;
+
+    uint32_t instance = (seqno >> 1) % kRxWorkQueueCount;
+    return GetReceiveQueue(type, instance);
 }
 
 KSyncSock *KSyncSock::Get(DBTablePartBase *partition) {
@@ -304,16 +352,17 @@ KSyncSock *KSyncSock::Get(int idx) {
     return sock_.get();
 }
 
-bool KSyncSock::ValidateAndEnqueue(char *data) {
+bool KSyncSock::ValidateAndEnqueue(char *data, KSyncBulkMsgContext *context) {
     Validate(data);
-    IoContext::IoContextWorkQId q_id;
-    if ((GetSeqno(data) & KSYNC_DEFAULT_Q_ID_SEQ) ==
-        KSYNC_DEFAULT_Q_ID_SEQ) {
-        q_id = IoContext::DEFAULT_Q_ID;
+
+    KSyncReceiveQueue *queue;
+    if (context) {
+        queue = GetReceiveQueue(context->io_context_type(),
+                                context->work_queue_index());
     } else {
-        q_id = IoContext::UVE_Q_ID;
+        queue = GetReceiveQueue(GetSeqno(data));
     }
-    receive_work_queue[q_id]->Enqueue(data);
+    queue->Enqueue(KSyncRxData(data, context));
     return true;
 }
 
@@ -329,7 +378,7 @@ void KSyncSock::ReadHandler(const boost::system::error_code& error,
         return;
     }
 
-    ValidateAndEnqueue(rx_buff_);
+    ValidateAndEnqueue(rx_buff_, NULL);
 
     rx_buff_ = new char[kBufLen];
     AsyncReceive(boost::asio::buffer(rx_buff_, kBufLen),
@@ -340,26 +389,36 @@ void KSyncSock::ReadHandler(const boost::system::error_code& error,
 
 // Process kernel data - executes in the task specified by IoContext
 // Currently only Agent::KSync and Agent::Uve are possibilities
-bool KSyncSock::ProcessKernelData(char *data) {
-    uint32_t seqno = GetSeqno(data);
+bool KSyncSock::ProcessKernelData(KSyncBulkSandeshContext *bulk_sandesh_context,
+                                  const KSyncRxData &data) {
+    KSyncBulkMsgContext *bulk_message_context = data.bulk_msg_context_;
     WaitTree::iterator it;
-    {
-        tbb::mutex::scoped_lock lock(mutex_);
-        it = wait_tree_.find(seqno);
+    if (data.bulk_msg_context_ == NULL) {
+        uint32_t seqno = GetSeqno(data.buff_);
+        {
+            tbb::mutex::scoped_lock lock(mutex_);
+            it = wait_tree_.find(seqno);
+        }
+        if (it == wait_tree_.end()) {
+            LOG(ERROR, "KSync error in finding for sequence number : "
+                << seqno);
+            assert(0);
+        }
+        bulk_message_context = &(it->second);
     }
-    if (it == wait_tree_.end()) {
-        LOG(ERROR, "KSync error in finding for sequence number : " << seqno);
-        assert(0);
-    }
-    KSyncBulkSandeshContext *bulk_context = &(it->second);
 
-    BulkDecoder(data, bulk_context);
+    bulk_sandesh_context->set_bulk_message_context(bulk_message_context);
+    BulkDecoder(data.buff_, bulk_sandesh_context);
     // Remove the IoContext only on last netlink message
-    if (IsMoreData(data) == false) {
-        tbb::mutex::scoped_lock lock(mutex_);
-        wait_tree_.erase(it);
+    if (IsMoreData(data.buff_) == false) {
+        if (data.bulk_msg_context_ != NULL) {
+            delete data.bulk_msg_context_;
+        } else {
+            tbb::mutex::scoped_lock lock(mutex_);
+            wait_tree_.erase(it);
+        }
     }
-    delete[] data;
+    delete[] data.buff_;
     return true;
 }
 
@@ -369,7 +428,7 @@ bool KSyncSock::BlockingRecv() {
 
     do {
         Receive(boost::asio::buffer(data, kBufLen));
-        AgentSandeshContext *ctxt = KSyncSock::GetAgentSandeshContext();
+        AgentSandeshContext *ctxt = KSyncSock::GetAgentSandeshContext(0);
         ctxt->SetErrno(0);
         // BlockingRecv used only during Init and doesnt support bulk messages
         // Use non-bulk version of decoder
@@ -401,8 +460,12 @@ void KSyncSock::GenericSend(IoContext *ioc) {
 
 void KSyncSock::SendAsync(KSyncEntry *entry, int msg_len, char *msg,
                           KSyncEntry::KSyncEvent event) {
-    uint32_t seq = AllocSeqNo(false);
-    KSyncIoContext *ioc = new KSyncIoContext(entry, msg_len, msg, seq, event);
+    KSyncIoContext *ioc = new KSyncIoContext(this, entry, msg_len, msg, event);
+    // Pre-allocate buffers to minimize processing in KSyncTxQueue context
+    if (entry->pre_alloc_rx_buffer()) {
+        ioc->rx_buffer1_ = new char [kBufLen];
+        ioc->rx_buffer2_ = new char [kBufLen];
+    }
     send_queue_.Enqueue(ioc);
 }
 
@@ -422,19 +485,26 @@ void KSyncSock::WriteHandler(const boost::system::error_code& error,
 void KSyncSock::OnEmptyQueue(bool done) {
     if (bulk_seq_no_ == kInvalidBulkSeqNo)
         return;
-    tbb::mutex::scoped_lock lock(mutex_);
-    WaitTree::iterator it = wait_tree_.find(bulk_seq_no_);
-    assert(it != wait_tree_.end());
-    KSyncBulkSandeshContext *bulk_context = &it->second;
-    SendBulkMessage(bulk_context, bulk_seq_no_);
+
+    KSyncBulkMsgContext *bulk_message_context = NULL;
+    if (read_inline_ == false) {
+        tbb::mutex::scoped_lock lock(mutex_);
+        WaitTree::iterator it = wait_tree_.find(bulk_seq_no_);
+        assert(it != wait_tree_.end());
+        bulk_message_context = &it->second;
+    } else {
+        bulk_message_context = bulk_msg_context_;
+    }
+
+    SendBulkMessage(bulk_message_context, bulk_seq_no_);
 }
 
 // Send messages accumilated in bulk context
-int KSyncSock::SendBulkMessage(KSyncBulkSandeshContext *bulk_context,
+int KSyncSock::SendBulkMessage(KSyncBulkMsgContext *bulk_message_context,
                                uint32_t seqno) {
     KSyncBufferList iovec;
     // Get all buffers to send into single io-vector
-    bulk_context->Data(&iovec);
+    bulk_message_context->Data(&iovec);
     tx_count_++;
 
     if (!read_inline_) {
@@ -446,27 +516,42 @@ int KSyncSock::SendBulkMessage(KSyncBulkSandeshContext *bulk_context,
         SendTo(&iovec, seqno);
         bool more_data = false;
         do {
-            int len = kBufLen;
-            char *rxbuf = new char[len];
+            char *rxbuf = bulk_message_context->GetReceiveBuffer();
             Receive(boost::asio::buffer(rxbuf, kBufLen));
             more_data = IsMoreData(rxbuf);
-            ValidateAndEnqueue(rxbuf);
+            ValidateAndEnqueue(rxbuf, bulk_message_context);
         } while(more_data);
     }
+
+    bulk_msg_context_ = NULL;
     bulk_seq_no_ = kInvalidBulkSeqNo;
     return true;
 }
 
 // Get the bulk-context for sequence-number
-KSyncBulkSandeshContext *KSyncSock::LocateBulkContext(uint32_t seqno,
-                              IoContext::IoContextWorkQId io_context_type) {
+KSyncBulkMsgContext *KSyncSock::LocateBulkContext
+(uint32_t seqno, IoContext::Type io_context_type,
+ uint32_t work_queue_index) {
+    if (read_inline_) {
+        if (bulk_seq_no_ == kInvalidBulkSeqNo) {
+            assert(bulk_msg_context_ == NULL);
+            bulk_seq_no_ = seqno;
+            bulk_buf_size_ = 0;
+            bulk_msg_count_ = 0;
+            bulk_msg_context_ = new KSyncBulkMsgContext(io_context_type,
+                                                        work_queue_index);
+        }
+        return bulk_msg_context_;
+    }
+
     tbb::mutex::scoped_lock lock(mutex_);
     if (bulk_seq_no_ == kInvalidBulkSeqNo) {
         bulk_seq_no_ = seqno;
         bulk_buf_size_ = 0;
         bulk_msg_count_ = 0;
         wait_tree_.insert(WaitTreePair(seqno,
-                              KSyncBulkSandeshContext(io_context_type)));
+                                       KSyncBulkMsgContext(io_context_type,
+                                                           work_queue_index)));
     }
 
     WaitTree::iterator it = wait_tree_.find(bulk_seq_no_);
@@ -477,7 +562,7 @@ KSyncBulkSandeshContext *KSyncSock::LocateBulkContext(uint32_t seqno,
 // Try adding an io-context to bulk context. Returns
 //  - true  : if message can be added to bulk context
 //  - false : if message cannot be added to bulk context
-bool KSyncSock::TryAddToBulk(KSyncBulkSandeshContext *bulk_context,
+bool KSyncSock::TryAddToBulk(KSyncBulkMsgContext *bulk_message_context,
                              IoContext *ioc) {
     if ((bulk_buf_size_ + ioc->GetMsgLen()) > max_bulk_buf_size_)
         return false;
@@ -485,35 +570,47 @@ bool KSyncSock::TryAddToBulk(KSyncBulkSandeshContext *bulk_context,
     if (bulk_msg_count_ >= max_bulk_msg_count_)
         return false;
 
-    if (bulk_context->io_context_type() !=
-        ioc->GetWorkQId())
+    if (bulk_message_context->io_context_type() != ioc->type())
+        return false;
+
+    if (bulk_message_context->work_queue_index() != ioc->index())
         return false;
 
     bulk_buf_size_ += ioc->GetMsgLen();
     bulk_msg_count_++;
 
-    bulk_context->Insert(ioc);
+    bulk_message_context->Insert(ioc);
+    if (ioc->rx_buffer1()) {
+        bulk_message_context->AddReceiveBuffer(ioc->rx_buffer1());
+        ioc->reset_rx_buffer1();
+
+    }
+    if (ioc->rx_buffer2()) {
+        bulk_message_context->AddReceiveBuffer(ioc->rx_buffer2());
+        ioc->reset_rx_buffer2();
+    }
     return true;
 }
 
 bool KSyncSock::SendAsyncImpl(IoContext *ioc) {
-    KSyncBulkSandeshContext *bulk_context = LocateBulkContext(ioc->GetSeqno(),
-                                            ioc->GetWorkQId());
+    KSyncBulkMsgContext *bulk_message_context =
+        LocateBulkContext(ioc->GetSeqno(), ioc->type(), ioc->index());
     // Try adding message to bulk-message list
-    if (TryAddToBulk(bulk_context, ioc)) {
+    if (TryAddToBulk(bulk_message_context, ioc)) {
         // Message added to bulk-list. Nothing more to do
         return true;
     }
 
     // Message cannot be added to bulk-list. Send the current list
-    SendBulkMessage(bulk_context, bulk_seq_no_);
+    SendBulkMessage(bulk_message_context, bulk_seq_no_);
 
     // Allocate a new context and add message to it
-    bulk_context = LocateBulkContext(ioc->GetSeqno(),
-                                     ioc->GetWorkQId());
-    assert(TryAddToBulk(bulk_context, ioc));
+    bulk_message_context = LocateBulkContext(ioc->GetSeqno(), ioc->type(),
+                                             ioc->index());
+    assert(TryAddToBulk(bulk_message_context, ioc));
     return true;
 }
+
 
 /////////////////////////////////////////////////////////////////////////////
 // KSyncSockNetlink routines
@@ -600,18 +697,18 @@ void KSyncSockNetlink::NetlinkBulkDecoder(char *data, SandeshContext *ctxt,
     char *buf = NULL;
     uint32_t buf_len = 0;
     GetNetlinkPayload(data, &buf, &buf_len);
-    KSyncBulkSandeshContext *bulk_context =
+    KSyncBulkSandeshContext *bulk_sandesh_context =
         dynamic_cast<KSyncBulkSandeshContext *>(ctxt);
-    bulk_context->Decoder(buf, buf_len, NLA_ALIGNTO, more);
+    bulk_sandesh_context->Decoder(buf, buf_len, NLA_ALIGNTO, more);
 }
 
 bool KSyncSockNetlink::BulkDecoder(char *data,
-                                   KSyncBulkSandeshContext *bulk_context) {
+                                   KSyncBulkSandeshContext *bulk_sandesh_context) {
     // Get sandesh buffer and buffer-length
     uint32_t buf_len = 0;
     char *buf = NULL;
     GetNetlinkPayload(data, &buf, &buf_len);
-    return bulk_context->Decoder(buf, buf_len, NLA_ALIGNTO, IsMoreData(data));
+    return bulk_sandesh_context->Decoder(buf, buf_len, NLA_ALIGNTO, IsMoreData(data));
 }
 
 void KSyncSockNetlink::AsyncReceive(mutable_buffers_1 buf, HandlerCb cb) {
@@ -658,11 +755,11 @@ bool KSyncSockUdp::Decoder(char *data, AgentSandeshContext *context) {
 }
 
 bool KSyncSockUdp::BulkDecoder(char *data,
-                               KSyncBulkSandeshContext *bulk_context) {
+                               KSyncBulkSandeshContext *bulk_sandesh_context) {
     struct uvr_msg_hdr *hdr = (struct uvr_msg_hdr *)data;
     uint32_t buf_len = hdr->msg_len;
     char *buf = data + sizeof(struct uvr_msg_hdr);
-    return bulk_context->Decoder(buf, buf_len, 1, IsMoreData(data));
+    return bulk_sandesh_context->Decoder(buf, buf_len, 1, IsMoreData(data));
 }
 
 void KSyncSockUdp::AsyncSendTo(KSyncBufferList *iovec, uint32_t seq_no,
@@ -770,12 +867,12 @@ bool KSyncSockTcp::Decoder(char *data, AgentSandeshContext *context) {
 }
 
 bool KSyncSockTcp::BulkDecoder(char *data,
-                               KSyncBulkSandeshContext *bulk_context) {
+                               KSyncBulkSandeshContext *bulk_sandesh_context) {
     // Get sandesh buffer and buffer-length
     uint32_t buf_len = 0;
     char *buf = NULL;
     GetNetlinkPayload(data, &buf, &buf_len);
-    return bulk_context->Decoder(buf, buf_len, NLA_ALIGNTO, IsMoreData(data));
+    return bulk_sandesh_context->Decoder(buf, buf_len, NLA_ALIGNTO, IsMoreData(data));
 }
 
 void KSyncSockTcp::AsyncReceive(mutable_buffers_1 buf, HandlerCb cb) {
@@ -834,7 +931,7 @@ void KSyncSockTcp::Receive(mutable_buffers_1 buf) {
 bool KSyncSockTcp::ReceiveMsg(const u_int8_t *msg, size_t size) {
     char *rx_buff = new char[kBufLen];
     memcpy(rx_buff, msg, size);
-    ValidateAndEnqueue(rx_buff);
+    ValidateAndEnqueue(rx_buff, NULL);
     return true;
 }
 
@@ -896,10 +993,14 @@ int KSyncSockTcpSessionReader::MsgLength(Buffer buffer, int offset) {
 /////////////////////////////////////////////////////////////////////////////
 // KSyncIoContext routines
 /////////////////////////////////////////////////////////////////////////////
-KSyncIoContext::KSyncIoContext(KSyncEntry *sync_entry, int msg_len, char *msg,
-                               uint32_t seqno, KSyncEntry::KSyncEvent event) :
-    IoContext(msg, msg_len, seqno, KSyncSock::GetAgentSandeshContext(),
-              IoContext::DEFAULT_Q_ID), entry_(sync_entry), event_(event) {
+KSyncIoContext::KSyncIoContext(KSyncSock *sock, KSyncEntry *sync_entry,
+                               int msg_len, char *msg,
+                               KSyncEntry::KSyncEvent event) :
+    IoContext(msg, msg_len, 0,
+              sock->GetAgentSandeshContext(sync_entry->GetTableIndex()),
+              IoContext::IOC_KSYNC, sync_entry->GetTableIndex()),
+    entry_(sync_entry), event_(event) {
+    SetSeqno(sock->AllocSeqNo(type(), index()));
 }
 
 void KSyncIoContext::Handler() {
@@ -915,43 +1016,15 @@ void KSyncIoContext::ErrorHandler(int err) {
 /////////////////////////////////////////////////////////////////////////////
 // Routines for KSyncBulkSandeshContext
 /////////////////////////////////////////////////////////////////////////////
-KSyncBulkSandeshContext::KSyncBulkSandeshContext
-(IoContext::IoContextWorkQId io_context_type) :
-    AgentSandeshContext(), vr_response_count_(0), io_context_list_it_(),
-    io_context_list_(), io_context_type_(io_context_type) {
-}
-
-KSyncBulkSandeshContext::KSyncBulkSandeshContext
-(const KSyncBulkSandeshContext &rhs) :
-    AgentSandeshContext(), vr_response_count_(0), io_context_list_it_(),
-    io_context_list_(), io_context_type_(rhs.io_context_type_) {
-}
-
-struct IoContextDisposer {
-    void operator() (IoContext *io_context) { delete io_context; }
-};
+KSyncBulkSandeshContext::KSyncBulkSandeshContext() :
+    AgentSandeshContext(), bulk_msg_context_(NULL)  { }
 
 KSyncBulkSandeshContext::~KSyncBulkSandeshContext() {
-    assert(vr_response_count_ == io_context_list_.size());
-    io_context_list_.clear_and_dispose(IoContextDisposer());
-}
-
-void KSyncBulkSandeshContext::Insert(IoContext *ioc) {
-    io_context_list_.push_back(*ioc);
-    return;
-}
-
-void KSyncBulkSandeshContext::Data(KSyncBufferList *iovec) {
-    IoContextList::iterator it = io_context_list_.begin();
-    while (it != io_context_list_.end()) {
-        iovec->push_back(buffer(it->GetMsg(), it->GetMsgLen()));
-        it++;
-    }
 }
 
 // Sandesh responses for old context are done. Check for any errors
 void KSyncBulkSandeshContext::IoContextDone() {
-    IoContext *io_context = &(*io_context_list_it_);
+    IoContext *io_context = &(*bulk_msg_context_->io_context_list_it_);
     AgentSandeshContext *sandesh_context = io_context->GetSandeshContext();
 
     sandesh_context->set_ksync_io_ctx(NULL);
@@ -963,8 +1036,8 @@ void KSyncBulkSandeshContext::IoContextDone() {
 }
 
 void KSyncBulkSandeshContext::IoContextStart() {
-    vr_response_count_++;
-    IoContext &io_context = *io_context_list_it_;
+    bulk_msg_context_->vr_response_count_++;
+    IoContext &io_context = *bulk_msg_context_->io_context_list_it_;
     AgentSandeshContext *sandesh_context = io_context.GetSandeshContext();
     sandesh_context->set_ksync_io_ctx
         (static_cast<KSyncIoContext *>(&io_context));
@@ -976,7 +1049,8 @@ void KSyncBulkSandeshContext::IoContextStart() {
 bool KSyncBulkSandeshContext::Decoder(char *data, uint32_t len,
                                       uint32_t alignment, bool more) {
     DecodeSandeshMessages(data, len, this, alignment);
-    assert(io_context_list_it_ != io_context_list_.end());
+    assert(bulk_msg_context_->io_context_list_it_ !=
+           bulk_msg_context_->io_context_list_.end());
     if (more == true)
         return false;
 
@@ -984,8 +1058,9 @@ bool KSyncBulkSandeshContext::Decoder(char *data, uint32_t len,
 
     // No more netlink messages. Validate that iterator points to last element
     // in IoContextList
-    io_context_list_it_++;
-    assert(io_context_list_it_ == io_context_list_.end());
+    bulk_msg_context_->io_context_list_it_++;
+    assert(bulk_msg_context_->io_context_list_it_ ==
+           bulk_msg_context_->io_context_list_.end());
     return true;
 }
 
@@ -995,8 +1070,8 @@ void KSyncBulkSandeshContext::SetErrno(int err) {
 }
 
 AgentSandeshContext *KSyncBulkSandeshContext::GetSandeshContext() {
-    assert(vr_response_count_);
-    return io_context_list_it_->GetSandeshContext();
+    assert(bulk_msg_context_->vr_response_count_);
+    return bulk_msg_context_->io_context_list_it_->GetSandeshContext();
 }
 
 void KSyncBulkSandeshContext::IfMsgHandler(vr_interface_req *req) {
@@ -1035,18 +1110,22 @@ int KSyncBulkSandeshContext::VrResponseMsgHandler(vr_response *resp) {
     AgentSandeshContext *sandesh_context = NULL;
     // If this is first vr_reponse received, move io-context to first entry in
     // bulk context
-    if (vr_response_count_ == 0) {
-        io_context_list_it_ = io_context_list_.begin();
-        sandesh_context = io_context_list_it_->GetSandeshContext();
+    if (bulk_msg_context_->vr_response_count_ == 0) {
+        bulk_msg_context_->io_context_list_it_ =
+            bulk_msg_context_->io_context_list_.begin();
+        sandesh_context =
+            bulk_msg_context_->io_context_list_it_->GetSandeshContext();
         IoContextStart();
     } else {
         // Sandesh responses for old io-context are done.
         // Check for any errors and trigger state-machine for old io-context
         IoContextDone();
         // Move to the next io-context
-        io_context_list_it_++;
-        assert(io_context_list_it_ != io_context_list_.end());
-        sandesh_context = io_context_list_it_->GetSandeshContext();
+        bulk_msg_context_->io_context_list_it_++;
+        assert(bulk_msg_context_->io_context_list_it_ !=
+               bulk_msg_context_->io_context_list_.end());
+        sandesh_context =
+            bulk_msg_context_->io_context_list_it_->GetSandeshContext();
         IoContextStart();
     }
     return sandesh_context->VrResponseMsgHandler(resp);
@@ -1085,4 +1164,59 @@ void KSyncBulkSandeshContext::VxLanMsgHandler(vr_vxlan_req *req) {
 void KSyncBulkSandeshContext::VrouterOpsMsgHandler(vrouter_ops *req) {
     AgentSandeshContext *context = GetSandeshContext();
     context->VrouterOpsMsgHandler(req);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// KSyncBulkMsgContext routines
+/////////////////////////////////////////////////////////////////////////////
+KSyncBulkMsgContext::KSyncBulkMsgContext(IoContext::Type type,
+                                         uint32_t index) :
+    io_context_list_(), io_context_type_(type), work_queue_index_(index),
+    rx_buffer_index_(0), vr_response_count_(0), io_context_list_it_() {
+}
+
+KSyncBulkMsgContext::KSyncBulkMsgContext(const KSyncBulkMsgContext &rhs) :
+    io_context_list_(), io_context_type_(rhs.io_context_type_),
+    work_queue_index_(rhs.work_queue_index_),
+    rx_buffer_index_(0), vr_response_count_(0), io_context_list_it_() {
+    assert(rhs.vr_response_count_ == 0);
+    assert(rhs.rx_buffer_index_ == 0);
+    assert(rhs.io_context_list_.size() == 0);
+}
+
+struct IoContextDisposer {
+    void operator() (IoContext *io_context) { delete io_context; }
+};
+
+KSyncBulkMsgContext::~KSyncBulkMsgContext() {
+    assert(vr_response_count_ == io_context_list_.size()); 
+    io_context_list_.clear_and_dispose(IoContextDisposer());
+    for (uint32_t i = 0; i < rx_buffer_index_; i++) {
+        delete rx_buffers_[i];
+    }
+}
+
+char *KSyncBulkMsgContext::GetReceiveBuffer() {
+    if (rx_buffer_index_ == 0)
+        return new char[KSyncSock::kBufLen];
+
+    return rx_buffers_[--rx_buffer_index_];
+}
+
+void KSyncBulkMsgContext::AddReceiveBuffer(char *buff) {
+    assert(rx_buffer_index_ < kMaxRxBufferCount);
+    rx_buffers_[rx_buffer_index_++] = buff;
+}
+
+void KSyncBulkMsgContext::Insert(IoContext *ioc) {
+    io_context_list_.push_back(*ioc);
+    return;
+}
+
+void KSyncBulkMsgContext::Data(KSyncBufferList *iovec) {
+    IoContextList::iterator it = io_context_list_.begin();
+    while (it != io_context_list_.end()) {
+        iovec->push_back(buffer(it->GetMsg(), it->GetMsgLen()));
+        it++;
+    }
 }

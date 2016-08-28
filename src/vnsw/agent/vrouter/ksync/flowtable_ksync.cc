@@ -143,10 +143,15 @@ void FlowTableKSyncEntry::Reset(FlowEntry *flow, uint32_t hash_id) {
     gen_id_ = flow->gen_id();
 }
 
-KSyncObject *FlowTableKSyncEntry::GetObject() {
+KSyncObject *FlowTableKSyncEntry::GetObject() const {
     return ksync_obj_;
 }
 
+uint32_t FlowTableKSyncEntry::GetTableIndex() const {
+    FlowTableKSyncObject *obj =
+        static_cast<FlowTableKSyncObject *>(GetObject());
+    return (obj->flow_table()->table_index());
+}
 void FlowTableKSyncEntry::ReleaseToken() {
     if (token_.get())
         token_.reset();

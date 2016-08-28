@@ -34,7 +34,7 @@ public:
     InterfaceKSyncEntry *interface() const { 
         return static_cast<InterfaceKSyncEntry *>(interface_.get());
     }
-    KSyncDBObject *GetObject();
+    KSyncDBObject *GetObject() const;
 
     virtual bool IsLess(const KSyncEntry &rhs) const;
     virtual std::string ToString() const;

@@ -26,7 +26,7 @@ public:
     NHKSyncEntry *nh() const {
         return static_cast<NHKSyncEntry *>(nh_.get());
     }
-    KSyncDBObject *GetObject();
+    KSyncDBObject *GetObject() const;
 
     virtual bool IsLess(const KSyncEntry &rhs) const;
     virtual std::string ToString() const;

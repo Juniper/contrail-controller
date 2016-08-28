@@ -45,7 +45,7 @@ KSyncVxlanRouteEntry::KSyncVxlanRouteEntry(KSyncVxlanRouteObject *obj,
 KSyncVxlanRouteEntry::~KSyncVxlanRouteEntry() {
 }
 
-KSyncDBObject *KSyncVxlanRouteEntry::GetObject() {
+KSyncDBObject *KSyncVxlanRouteEntry::GetObject() const {
     return ksync_obj_;
 }
 

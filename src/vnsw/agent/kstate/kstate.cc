@@ -66,8 +66,9 @@ void KState::EncodeAndSend(Sandesh &encoder) {
     encode_len = encoder.WriteBinary(buf, KSYNC_DEFAULT_MSG_SIZE, &error);
 
     AgentSandeshContext *sctx = static_cast<AgentSandeshContext *>(this);
-    KStateIoContext *ioc = new KStateIoContext(encode_len, (char *)buf,
-                                               sock->AllocSeqNo(false), sctx);
+    KStateIoContext *ioc =
+        new KStateIoContext(encode_len, (char *)buf,
+                            sock->AllocSeqNo(IoContext::IOC_KSYNC, 0), sctx);
     sock->GenericSend(ioc);
 }
 

@@ -117,7 +117,7 @@ public:
     virtual bool Delete() = 0;
 
     // KSyncObject for this entry. Used to release the index
-    virtual KSyncObject *GetObject() = 0;
+    virtual KSyncObject *GetObject() const = 0;
     // Get an unresolved reference. 
     // This entry will be added into resolveq_ of unresolved-entry
     virtual KSyncEntry *UnresolvedReference() = 0;
@@ -140,6 +140,14 @@ public:
     // Error message for vrouter returned errors
     virtual std::string VrouterError(uint32_t error) const;
     static std::string VrouterErrorToString(uint32_t error);
+
+    // Every ksync operation needs an rx-buffer to read response. The rx buffer
+    // are pre-allocated to minimize compuation in ksync-tx-queue
+    // pre-allocation is enabled only for flows for now
+    virtual bool pre_alloc_rx_buffer() const { return false; }
+    // ksync-tx supports multiple queues for KSync events. Get index of queue
+    // to use
+    virtual uint32_t GetTableIndex() const { return 0; }
 
     size_t GetIndex() const {return index_;};
     KSyncState GetState() const {return state_;};

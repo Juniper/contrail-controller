@@ -36,7 +36,7 @@ bool OvsdbEntry::Delete() {
     return true;
 }
 
-KSyncObject *OvsdbEntry::GetObject() {
+KSyncObject *OvsdbEntry::GetObject() const {
     return table_;
 }
 
@@ -191,7 +191,7 @@ void OvsdbDBEntry::NotifyDelete(struct ovsdb_idl_row *row) {
     ovs_entry_ = NULL;
 }
 
-KSyncObject *OvsdbDBEntry::GetObject() {
+KSyncObject *OvsdbDBEntry::GetObject() const {
     return table_;
 }
 

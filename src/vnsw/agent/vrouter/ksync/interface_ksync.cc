@@ -162,7 +162,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
 InterfaceKSyncEntry::~InterfaceKSyncEntry() {
 }
 
-KSyncDBObject *InterfaceKSyncEntry::GetObject() {
+KSyncDBObject *InterfaceKSyncEntry::GetObject() const {
     return ksync_obj_;
 }
 

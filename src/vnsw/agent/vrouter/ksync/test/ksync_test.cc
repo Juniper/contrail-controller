@@ -96,8 +96,10 @@ void KSyncTest::NetlinkInitTest() {
     boost::asio::io_service &io = *event_mgr->io_service();
 
     KSyncSockTypeMap::Init(io);
-    KSyncSock::SetAgentSandeshContext(new KSyncSandeshContext
-                                                (ksync_flow_memory_.get()));
+    for (int i = 0; i < KSyncSock::kRxWorkQueueCount; i++) {
+        KSyncSock::SetAgentSandeshContext
+            (new KSyncSandeshContext(ksync_flow_memory_.get()), i);
+    }
 
     GenericNetlinkInitTest();
     KSyncSock::Start(agent_->ksync_sync_mode());
@@ -105,6 +107,8 @@ void KSyncTest::NetlinkInitTest() {
 
 void KSyncTest::NetlinkShutdownTest() {
     KSyncSock::Shutdown();
-    delete KSyncSock::GetAgentSandeshContext();
-    KSyncSock::SetAgentSandeshContext(NULL);
+    for (int i = 0; i < KSyncSock::kRxWorkQueueCount; i++) {
+        delete KSyncSock::GetAgentSandeshContext(i);
+        KSyncSock::SetAgentSandeshContext(NULL, i);
+    }
 }

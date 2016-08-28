@@ -101,7 +101,7 @@ public:
     virtual bool IsLess(const KSyncEntry &rhs) const;
     virtual bool CompareRoute(const KSyncVxlanRouteEntry &rhs) const = 0;
 
-    KSyncDBObject *GetObject();
+    KSyncDBObject *GetObject() const;
     uint32_t vrf_id() const { return vrf_id_; }
     KSyncVxlanRouteObject *ksync_object() const { return ksync_obj_; }
 private:

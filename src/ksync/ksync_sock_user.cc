@@ -218,7 +218,7 @@ void KSyncSockTypeMap::SimulateResponse(uint32_t seq_num, int code, int flags) {
 
 void KSyncSockTypeMap::DisableReceiveQueue(bool disable) {
     for(int i = 0; i < IoContext::MAX_WORK_QUEUES; i++) {
-        receive_work_queue[i]->set_disable(disable);
+        ksync_rx_queue[i]->set_disable(disable);
     }
 }
 

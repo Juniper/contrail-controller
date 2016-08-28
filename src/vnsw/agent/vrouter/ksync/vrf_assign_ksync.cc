@@ -57,7 +57,7 @@ VrfAssignKSyncEntry::VrfAssignKSyncEntry(VrfAssignKSyncObject* obj,
 VrfAssignKSyncEntry::~VrfAssignKSyncEntry() {
 }
 
-KSyncDBObject *VrfAssignKSyncEntry::GetObject() {
+KSyncDBObject *VrfAssignKSyncEntry::GetObject() const {
     return ksync_obj_; 
 }
 

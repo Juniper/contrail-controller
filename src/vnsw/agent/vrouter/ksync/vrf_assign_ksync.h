@@ -28,7 +28,7 @@ public:
     uint16_t vlan_tag() const {return vlan_tag_;};
     InterfaceKSyncEntry *interface() const;
     NHKSyncEntry *nh() const;
-    KSyncDBObject *GetObject();
+    KSyncDBObject *GetObject() const;
 
     virtual bool IsLess(const KSyncEntry &rhs) const;
     virtual std::string ToString() const;

@@ -62,7 +62,7 @@ public:
         hash_id_ = hash_id;
     }
     int Encode(sandesh_op::type op, char *buf, int buf_len);
-    KSyncObject *GetObject();
+    KSyncObject *GetObject() const;
 
     std::string ToString() const;
     bool IsLess(const KSyncEntry &rhs) const;
@@ -70,6 +70,11 @@ public:
     int ChangeMsg(char *buf, int buf_len);
     int DeleteMsg(char *buf, int buf_len);
     void SetPcapData(FlowEntryPtr fe, std::vector<int8_t> &data);
+    // For flows allocate buffers in ksync-sock context
+    virtual bool pre_alloc_rx_buffer() const { return true; }
+    // KSync flow responses must be processed in multiple ksync response queues
+    // to support scaling. Distribute the flows based on flow-table index
+    virtual uint32_t GetTableIndex() const;
     virtual bool Sync();
     virtual KSyncEntry *UnresolvedReference();
     bool AllowDeleteStateComp() {return false;}
