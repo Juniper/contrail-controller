@@ -1074,10 +1074,13 @@ public:
 
     void Init();
     void Shutdown();
+    static void InitLogQueue(Agent *agent);
+    static void ShutdownLogQueue();
+    static void LogFlowUnlocked(FlowEntry *flow, const std::string &op);
+    static bool LogHandler(FlowMgmtRequestPtr req);
 
     bool RequestHandler(FlowMgmtRequestPtr req);
     bool DBRequestHandler(FlowMgmtRequestPtr req);
-    bool LogHandler(FlowMgmtRequestPtr req);
 
     bool DBRequestHandler(FlowMgmtRequest *req, const DBEntry *entry);
     bool BgpAsAServiceRequestHandler(FlowMgmtRequest *req);
@@ -1113,7 +1116,7 @@ public:
     }
 
     const FlowMgmtQueue *request_queue() const { return &request_queue_; }
-    const FlowMgmtQueue *log_queue() const { return &log_queue_; }
+    const FlowMgmtQueue *log_queue() const { return log_queue_; }
     void DisableWorkQueue(bool disable) { request_queue_.set_disable(disable); }
     void BgpAsAServiceNotify(const boost::uuids::uuid &vm_uuid,
                              uint32_t source_port);
@@ -1143,7 +1146,6 @@ private:
     FlowEntryInfo *LocateFlowEntryInfo(FlowEntryPtr &flow);
     void DeleteFlowEntryInfo(FlowEntryPtr &flow);
     void MakeFlowMgmtKeyTree(FlowEntry *flow, FlowMgmtKeyTree *tree);
-    void LogFlowUnlocked(FlowEntry *flow, const std::string &op);
     void SetAceSandeshData(const AclDBEntry *acl, AclFlowCountResp &data,
                            int ace_id);
     void SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data,
@@ -1165,7 +1167,7 @@ private:
     std::auto_ptr<FlowMgmtDbClient> flow_mgmt_dbclient_;
     FlowMgmtQueue request_queue_;
     FlowMgmtQueue db_event_queue_;
-    FlowMgmtQueue log_queue_;
+    static FlowMgmtQueue *log_queue_;
     DISALLOW_COPY_AND_ASSIGN(FlowMgmtManager);
 };
 

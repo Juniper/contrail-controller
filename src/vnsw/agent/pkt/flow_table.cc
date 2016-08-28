@@ -303,10 +303,6 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
 
 void FlowTable::DeleteInternal(FlowEntry *fe, uint64_t time,
                                const RevFlowDepParams &params) {
-    if (fe->deleted()) {
-        /* Already deleted return from here. */
-        return;
-    }
     fe->set_deleted(true);
 
     // Unlink the reverse flow, if one exists
@@ -327,19 +323,23 @@ bool FlowTable::DeleteFlows(FlowEntry *flow, FlowEntry *rflow) {
     uint64_t time = UTCTimestampUsec();
 
     /* Fetch reverse-flow info for both flows before their reverse-flow
-     * links are broken. This info is required during FlowExport */
+     * links are broken. This info is required during FlowExport
+     *
+     * DeleteFlows() is invoked for both forward and reverse flows. So, get
+     * reverse-flow info only when flows are not deleted
+     */
     RevFlowDepParams r_params;
-    if (rflow) {
+    if (rflow && rflow->deleted() == false) {
         rflow->RevFlowDepInfo(&r_params);
     }
-    if (flow) {
+    if (flow && flow->deleted() == false) {
         RevFlowDepParams f_params;
         flow->RevFlowDepInfo(&f_params);
         /* Delete the forward flow */
         DeleteInternal(flow, time, f_params);
     }
 
-    if (rflow) {
+    if (rflow && rflow->deleted() == false) {
         DeleteInternal(rflow, time, r_params);
     }
     return true;
