@@ -30,6 +30,7 @@ class KSyncEntry;
 class KSyncIoContext;
 class KSyncSockTcpSession;
 struct nl_client;
+class KSyncBulkSandeshContext;
 
 typedef std::vector<boost::asio::mutable_buffers_1> KSyncBufferList;
 
@@ -71,25 +72,36 @@ private:
  */
 class  IoContext {
 public:
+    // The work-queueues allocated to process KSync Responses
+    // UVE_Q_ID : Used for UVEs
+    // KSYNC_QUEUE_1 and KSYNC_QUEUE_2
+    //   The 2 queueues KSYNC_QUEUE_1 and KSYNC_QUEUE_2 are allocated for
+    //   oper-entries. All objects other than flow use only KSYNC_QUEUE_1
+    //   For flow, objects are split between KSYNC_QUEUE_1 and KSYNC_QUEUE_2
+    //   Flows are distributed based on modulo of flow-table-index
     enum IoContextWorkQId {
-        DEFAULT_Q_ID,
         UVE_Q_ID,
+        KSYNC_QUEUE_1,
+        KSYNC_QUEUE_2,
         MAX_WORK_QUEUES // This should always be last
     };
+    // Work-queue neames used for the ksync receive work-queues
     static const char *io_wq_names[MAX_WORK_QUEUES];
 
     IoContext() :
         sandesh_context_(NULL), msg_(NULL), msg_len_(0), seqno_(0),
-        work_q_id_(DEFAULT_Q_ID) {
+        work_q_id_(KSYNC_QUEUE_1), rx_buffer1_(NULL), rx_buffer2_(NULL) {
     }
     IoContext(char *msg, uint32_t len, uint32_t seq, AgentSandeshContext *ctx, 
               IoContextWorkQId id) :
         sandesh_context_(ctx), msg_(msg), msg_len_(len), seqno_(seq),
-        work_q_id_(id) {
+        work_q_id_(id), rx_buffer1_(NULL), rx_buffer2_(NULL) {
     }
     virtual ~IoContext() { 
         if (msg_ != NULL)
             free(msg_);
+        assert(rx_buffer1_ == NULL);
+        assert(rx_buffer2_ == NULL);
     }
 
     bool operator<(const IoContext &rhs) const {
@@ -106,6 +118,10 @@ public:
     uint32_t GetSeqno() const {return seqno_;}
     char *GetMsg() const { return msg_; }
     uint32_t GetMsgLen() const { return msg_len_; }
+    char *rx_buffer1() const { return rx_buffer1_; }
+    void reset_rx_buffer1() { rx_buffer1_ = NULL; }
+    char *rx_buffer2() { return rx_buffer2_; }
+    void reset_rx_buffer2() { rx_buffer2_ = NULL; }
 
     boost::intrusive::list_member_hook<> node_;
 
@@ -117,6 +133,11 @@ private:
     uint32_t msg_len_;
     uint32_t seqno_;
     IoContextWorkQId work_q_id_;
+    // Buffers allocated to read the ksync responses for this IoContext.
+    // As an optimization, KSync Tx Queue will use these buffers to minimize
+    // computation in KSync Tx Queue context.
+    char *rx_buffer1_;
+    char *rx_buffer2_;
 
     friend class KSyncSock;
 };
@@ -125,8 +146,10 @@ private:
 class  KSyncIoContext : public IoContext {
 public:
     KSyncIoContext(KSyncEntry *sync_entry, int msg_len, char *msg,
-                   uint32_t seqno, KSyncEntry::KSyncEvent event);
-    virtual ~KSyncIoContext() { }
+                   uint32_t seqno, KSyncEntry::KSyncEvent event,
+                   IoContext::IoContextWorkQId type);
+    virtual ~KSyncIoContext() {
+    }
 
     virtual void Handler();
 
@@ -136,43 +159,94 @@ public:
 private:
     KSyncEntry *entry_;
     KSyncEntry::KSyncEvent event_;
+    AgentSandeshContext *agent_sandesh_ctx_;
 };
 
+/*
+ * KSync implementation of bunching messages.
+ *
+ * Message bunching has two parts,
+ * Encoding messages
+ *   KSyncTxQueue is responsible to bunch KSync requests into single message
+ *
+ *   KSyncTxQueue uses KSyncBulkMsgContext to bunch KSync events.
+ *   The IoContext for bunched KSync events are stored as list inside
+ *   KSyncBulkMessageContext
+ *
+ *   KSync Events are bunched if pass following constraints,
+ *   - Number of KSync events is less than max_bulk_msg_count_
+ *   - Total size of buffer for events is less than max_bulk_buf_size_
+ *   - Type of IoContext is same.
+ *     When type of IoContext is same, it also ensures that KSync Responses
+ *     are processed in same WorkQueue.
+ *     Flows can be sprayed into 2 IoContext types (KSYNC_QUEUE_1 and
+ *     KSYNC_QUEUE_2) based on flow-table index. This also ensures that flows
+ *     from a flow-table partition are processed in single KSync Response
+ *     Work-Queues
+ *   - The input queue for KSyncTxQueue is not empty.
+ *
+ * Decoding messages
+ *   KSync response are processed in context of KSyncSock::receive_work_queue_.
+ *   Each IoContext type has its own receive work-queue.
+ *   To support flow-scaling, two request-queue are allocated -
+ *   KSYNC_QUEUE_1 and KSYNC_QUEUE_2.
+ *
+ *   Bulk decoder works on following assumption,
+ *   - Expects KSync Responses for each IoContext in KSyncBulkMsgContext
+ *   - Response for each IoContext can itself be more than one Sandesh Response.
+ *   - The sequence of response is same as sequence of IoContext entries
+ *   - Response for each IoContext starts with VrResponseMsg followed
+ *     optionally by other response. Hence, decoder moves to next IoContext
+ *     after getting VrResponse message
+ *
+ *     class KSyncBulkSandeshContext is used to decode the Sandesh Responses
+ *     and move the IoContext on getting VrResponse
+ */
 typedef boost::intrusive::member_hook<IoContext,
         boost::intrusive::list_member_hook<>,
         &IoContext::node_> KSyncSockNode;
 typedef boost::intrusive::list<IoContext, KSyncSockNode> IoContextList;
 
-/*
- * SandeshContext implementation to handle IoContextList
- *
- * When we do bulk sandesh messaging, netlink request and response will contain
- * more than one sandesh message. KSyncBulkSandeshContext is used to,
- * - Build the bulk context before sending. The list of IoContext bunched is
- *   stored in IoContextList
- * - Maps the sanesh response to the right IoContext in the list
- *
- * The KSync entries are bunched from KSyncTxQueue. The bunching
- * is capped by,
- * - Number of KSync entries
- * - Size of buffer
- * Bunching is also limited by the task spawned for the WorkQueue. When task
- * exits, all entries pending bunching are sent to VRouter.
- *
- * When response is received from VRouter we assume following,
- * - The sequence of response is same as sequence of IoContext entries
- * - Response for each IoContext can itself be more than one Sandesh Response.
- * - Response for each IoContext starts with VrResponseMsg followed optionally
- *   by other response
- *
- * In KSyncBulkSandeshContext, we store IoContextList and iterate thru the
- * responses seeking VrResponseMsg. For ever VrResponseMsg, we take-out one
- * IoContext from the list
- */
+class KSyncBulkMsgContext {
+public:
+    const static unsigned kMaxRxBufferCount = 64;
+    KSyncBulkMsgContext(IoContext::IoContextWorkQId type);
+    KSyncBulkMsgContext(const KSyncBulkMsgContext &rhs);
+    ~KSyncBulkMsgContext();
+
+    void Insert(IoContext *ioc);
+    void Data(KSyncBufferList *iovec);
+    IoContext::IoContextWorkQId io_context_type() const {
+        return io_context_type_;
+    }
+    void AddReceiveBuffer(char *buff);
+    char *GetReceiveBuffer();
+private:
+    friend class KSyncBulkSandeshContext;
+    // List of IoContext to be processed in this context
+    IoContextList io_context_list_;
+    // Type of message
+    IoContext::IoContextWorkQId io_context_type_;
+    // List of rx-buffers
+    // The buffers are taken from IoContext added to the list above
+    // If IoContext does not have buffer, then it dyamically allocates
+    // buffer
+    char *rx_buffers_[kMaxRxBufferCount];
+    // Index of next buffer to process
+    uint32_t rx_buffer_index_;
+
+    ///////////////////////////////////////////////////////////////////////
+    // Following fields are used for decode processing
+    ///////////////////////////////////////////////////////////////////////
+    // Number of responses already processed
+    uint32_t vr_response_count_;
+    // Iterator to IoContext being processed
+    IoContextList::iterator io_context_list_it_;
+};
+
 class KSyncBulkSandeshContext : public AgentSandeshContext {
 public:
-    KSyncBulkSandeshContext(IoContext::IoContextWorkQId io_context_type);
-    KSyncBulkSandeshContext(const KSyncBulkSandeshContext &rhs);
+    KSyncBulkSandeshContext();
     virtual ~KSyncBulkSandeshContext();
 
     void IfMsgHandler(vr_interface_req *req);
@@ -193,29 +267,22 @@ public:
 
     bool Decoder(char *buff, uint32_t buff_len, uint32_t alignment, bool more);
     AgentSandeshContext *GetSandeshContext();
+    void set_bulk_message_context(KSyncBulkMsgContext *bulk_context) {
+        bulk_msg_context_ = bulk_context;
+    }
+
     void IoContextStart();
     void IoContextDone();
-    void Insert(IoContext *ioc);
-    void Data(KSyncBufferList *iovec);
-    IoContext::IoContextWorkQId io_context_type() const {
-        return io_context_type_;
-    }
-    void set_io_context_type(IoContext::IoContextWorkQId io_context_type) {
-        io_context_type_ = io_context_type;
-    }
-private:
 
-    // Number of VrResponseMsg seen
-    uint32_t vr_response_count_;
-    // Iterator to IoContext being processed
-    IoContextList::iterator io_context_list_it_;
-    // List of IoContext to be processed in this context
-    IoContextList io_context_list_;
-    IoContext::IoContextWorkQId io_context_type_;
+private:
+    KSyncBulkMsgContext *bulk_msg_context_;
+    DISALLOW_COPY_AND_ASSIGN(KSyncBulkSandeshContext);
 };
 
 class KSyncSock {
 public:
+    // Number of flow receive queues
+    const static int kFlowReceiveQueueCount = 2;
     const static int kMsgGrowSize = 16;
     const static unsigned kBufLen = (4*1024);
 
@@ -226,11 +293,27 @@ public:
     // Sequence number to denote invalid builk-context
     const static unsigned kInvalidBulkSeqNo = 0xFFFFFFFF;
 
-    typedef std::map<uint32_t, KSyncBulkSandeshContext> WaitTree;
-    typedef std::pair<uint32_t, KSyncBulkSandeshContext> WaitTreePair;
+    typedef std::map<uint32_t, KSyncBulkMsgContext> WaitTree;
+    typedef std::pair<uint32_t, KSyncBulkMsgContext> WaitTreePair;
     typedef boost::function<void(const boost::system::error_code &, size_t)>
         HandlerCb;
-    typedef WorkQueue<char *> KSyncReceiveQueue;
+
+    // Request structure in the KSync Response Queue
+    struct KSyncRxData {
+        // buffer having KSync response
+        char *buff_;
+        // bulk context for decoding response
+        KSyncBulkMsgContext *bulk_msg_context_;
+
+        KSyncRxData() : buff_(NULL), bulk_msg_context_(NULL) { }
+        KSyncRxData(const KSyncRxData &rhs) :
+            buff_(rhs.buff_), bulk_msg_context_(rhs.bulk_msg_context_) {
+        }
+        KSyncRxData(char *buff, KSyncBulkMsgContext *ctxt) :
+            buff_(buff), bulk_msg_context_(ctxt) {
+        }
+    };
+    typedef WorkQueue<KSyncRxData> KSyncReceiveQueue;
 
     KSyncSock();
     virtual ~KSyncSock();
@@ -243,15 +326,15 @@ public:
     void SendAsync(KSyncEntry *entry, int msg_len, char *msg,
                    KSyncEntry::KSyncEvent event);
     std::size_t BlockingSend(char *msg, int msg_len);
-    void GenericSend(IoContext *ctx);
     bool BlockingRecv();
+    void GenericSend(IoContext *ctx);
     uint32_t AllocSeqNo(bool is_uve);
 
     // Bulk Messaging methods
-    KSyncBulkSandeshContext *LocateBulkContext(uint32_t seqno,
+    KSyncBulkMsgContext *LocateBulkContext(uint32_t seqno,
                              IoContext::IoContextWorkQId io_context_type);
-    int SendBulkMessage(KSyncBulkSandeshContext *bulk_context, uint32_t seqno);
-    bool TryAddToBulk(KSyncBulkSandeshContext *bulk_context, IoContext *ioc);
+    int SendBulkMessage(KSyncBulkMsgContext *bulk_context, uint32_t seqno);
+    bool TryAddToBulk(KSyncBulkMsgContext *bulk_context, IoContext *ioc);
     void OnEmptyQueue(bool done);
     int tx_count() const { return tx_count_; }
 
@@ -267,11 +350,11 @@ public:
     static int GetNetlinkFamilyId() {return vnsw_netlink_family_id_;}
     static void SetNetlinkFamilyId(int id);
 
-    static AgentSandeshContext *GetAgentSandeshContext() {
-        return agent_sandesh_ctx_;
+    static AgentSandeshContext *GetAgentSandeshContext(uint32_t type) {
+        return agent_sandesh_ctx_[type % IoContext::MAX_WORK_QUEUES];
     }
-    static void SetAgentSandeshContext(AgentSandeshContext *ctx) {
-        agent_sandesh_ctx_ = ctx;
+    static void SetAgentSandeshContext(AgentSandeshContext *ctx, uint32_t idx) {
+        agent_sandesh_ctx_[idx] = ctx;
     }
 
     const KSyncTxQueue *send_queue() const { return &send_queue_; }
@@ -285,13 +368,13 @@ public:
 protected:
     static void Init(bool use_work_queue);
     static void SetSockTableEntry(KSyncSock *sock);
-    bool ValidateAndEnqueue(char *data);
+    bool ValidateAndEnqueue(char *data, KSyncBulkMsgContext *context);
 
+    tbb::mutex mutex_;
     nl_client *nl_client_;
-    // Tree of all KSyncEntries pending ack from Netlink socket
+    // Tree of all IoContext pending ksync response
     WaitTree wait_tree_;
     KSyncTxQueue send_queue_;
-    tbb::mutex mutex_;
     KSyncReceiveQueue *receive_work_queue[IoContext::MAX_WORK_QUEUES];
 
     // Information maintained for bulk processing
@@ -328,7 +411,8 @@ private:
     void WriteHandler(const boost::system::error_code& error,
                       size_t bytes_transferred);
 
-    bool ProcessKernelData(char *data);
+    bool ProcessKernelData(KSyncBulkSandeshContext *ksync_context,
+                           const KSyncRxData &data);
     bool SendAsyncImpl(IoContext *ioc);
     bool SendAsyncStart() {
         tbb::mutex::scoped_lock lock(mutex_);
@@ -339,17 +423,25 @@ private:
     char *rx_buff_;
     tbb::atomic<uint32_t> seqno_;
     tbb::atomic<uint32_t> uve_seqno_;
+    // Read ksync responses inline
+    // The IoContext WaitTree is not used when response is read-inline
+    bool read_inline_;
+    KSyncBulkMsgContext *bulk_msg_context_;
+    KSyncBulkSandeshContext bulk_sandesh_context_[IoContext::MAX_WORK_QUEUES];
 
     // Debug stats
     int tx_count_;
     int ack_count_;
     int err_count_;
-    bool read_inline_;
 
     static std::auto_ptr<KSyncSock> sock_;
     static pid_t pid_;
     static int vnsw_netlink_family_id_;
-    static AgentSandeshContext *agent_sandesh_ctx_;
+    // AgentSandeshContext used for KSync response handling
+    // AgentSandeshContext used for decode is picked based on IoContext type
+    // Picking AgentSandeshContext based on IoContext type is thread safe
+    // since we have one ksync response work-queue per IoContext type
+    static AgentSandeshContext *agent_sandesh_ctx_[IoContext::MAX_WORK_QUEUES];
     static tbb::atomic<bool> shutdown_;
 
     DISALLOW_COPY_AND_ASSIGN(KSyncSock);

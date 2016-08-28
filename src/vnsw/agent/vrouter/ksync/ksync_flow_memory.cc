@@ -122,7 +122,7 @@ void KSyncFlowMemory::InitFlowMem() {
 
     while ((ret = nl_recvmsg(cl)) > 0) {
         KSyncSockNetlink::NetlinkDecoder(cl->cl_buf,
-                                         KSyncSock::GetAgentSandeshContext());
+                                         KSyncSock::GetAgentSandeshContext(0));
     }
     nl_free_client(cl);
 
@@ -378,7 +378,7 @@ void KSyncFlowMemory::GetFlowTableSize() {
     }
 
     KSyncSockNetlink::NetlinkDecoder(cl->cl_buf,
-                                     KSyncSock::GetAgentSandeshContext());
+                                     KSyncSock::GetAgentSandeshContext(0));
     nl_free_client(cl);
 }
 

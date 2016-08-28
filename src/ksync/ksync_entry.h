@@ -141,6 +141,15 @@ public:
     virtual std::string VrouterError(uint32_t error) const;
     static std::string VrouterErrorToString(uint32_t error);
 
+    // Every ksync operation needs an rx-buffer to read response. The rx buffer
+    // are pre-allocated to minimize compuation in ksync-tx-queue
+    // pre-allocation is enabled only for flows for now
+    virtual bool pre_alloc_rx_buffer() const { return false; }
+    // ksync-tx supports multiple type of IoContext. Returns the type of
+    // IoContext to use.
+    // Return -1 to use default value. Value of >=0 over-rides default
+    virtual int IoContextType() const { return -1; }
+
     size_t GetIndex() const {return index_;};
     KSyncState GetState() const {return state_;};
     bool del_add_pending() const {return del_add_pending_;}
