@@ -19,7 +19,7 @@ struct VirtualDnsRecordConfig;
 
 class DnsManager {
 public:
-    static const int max_records_per_sandesh = 200;
+    static const int max_records_per_sandesh = 100;
     static const int kEndOfConfigCheckTime = 3000; // msec
     static const uint16_t kMaxRetransmitCount = 6;
     static const uint16_t kPendingRecordReScheduleTime = 1000; //msec
@@ -93,7 +93,12 @@ public:
     }
     PendingListMap GetDeportedPendingListMap() { return dp_pending_map_; }
     void NotifyThrottledDnsRecords();
-
+    void DnsConfigMsgHandler(const std::string &key, const std::string &context) const;
+    void VdnsRecordsMsgHandler(const std::string &key, const std::string &context, bool show_all = false) const;
+    void BindPendingMsgHandler(const std::string &key, const std::string &context) const;
+    void VdnsServersMsgHandler(const std::string &key, const std::string &context) const;
+    void MakeSandeshPageReq(PageReqData *req, VirtualDnsConfig::DataMap &vdns, VirtualDnsConfig::DataMap::iterator vdns_it,
+                        VirtualDnsConfig::DataMap::iterator vdns_iter, const std::string &key, const std::string &req_name) const;
 private:
     friend class DnsBindTest;
     friend class DnsManagerTest;
