@@ -29,7 +29,7 @@ kombu==3.0.9
 ../opserver/plugins/alarm_bgp_connectivity/dist/alarm_bgp_connectivity-0.1dev.tar.gz
 ../opserver/plugins/alarm_config_incorrect/dist/alarm_config_incorrect-0.1dev.tar.gz
 ../opserver/plugins/alarm_disk_usage/dist/alarm_disk_usage-0.1dev.tar.gz
-../opserver/plugins/alarm_partial_sysinfo/dist/alarm_partial_sysinfo-0.1dev.tar.gz
+../opserver/plugins/alarm_build_info/dist/alarm_build_info-0.1dev.tar.gz
 ../opserver/plugins/alarm_process_connectivity/dist/alarm_process_connectivity-0.1dev.tar.gz
 ../opserver/plugins/alarm_process_status/dist/alarm_process_status-0.1dev.tar.gz
 ../opserver/plugins/alarm_prouter_connectivity/dist/alarm_prouter_connectivity-0.1dev.tar.gz

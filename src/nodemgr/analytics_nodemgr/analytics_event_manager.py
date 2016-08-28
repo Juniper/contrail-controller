@@ -35,7 +35,8 @@ class AnalyticsEventManager(EventManager):
                  discovery_port, collector_addr):
         EventManager.__init__(
             self, rule_file, discovery_server,
-            discovery_port, collector_addr, sandesh_global)
+            discovery_port, collector_addr, sandesh_global,
+            send_build_info = True)
         self.node_type = 'contrail-analytics'
         self.table = "ObjectCollectorInfo"
         self.module = Module.ANALYTICS_NODE_MGR

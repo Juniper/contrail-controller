@@ -78,13 +78,10 @@ class StatQuerier(object):
         """ 
         Eg. python stats.py --analytics-api-ip 127.0.0.1
                           --analytics-api-port 8181
-                          --table AnalyticsCpuState.cpu_info
                           --where name=a6s40 cpu_info.module_id=Collector
                           --select "T=60 SUM(cpu_info.cpu_share)"
                           --sort "SUM(cpu_info.cpu_share)"
                           [--start-time now-10m --end-time now] | --last 10m
-
-            python stats.py --table AnalyticsCpuState.cpu_info
         """
         defaults = {
             'analytics_api_ip': '127.0.0.1',

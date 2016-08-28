@@ -16,7 +16,7 @@ setup_sources = [
 setup_sources_rules = []
 for file in setup_sources:
     setup_sources_rules.append(env.Install(".",
-        "#/controller/src/opserver/plugins/alarm_partial_sysinfo/" + file))
+        "#/controller/src/opserver/plugins/alarm_build_info/" + file))
 
 local_sources = [
     '__init__.py',
@@ -24,15 +24,15 @@ local_sources = [
 ]
 local_sources_rules = []
 for file in local_sources:
-    local_sources_rules.append(env.Install(Dir("alarm_partial_sysinfo"), file))
+    local_sources_rules.append(env.Install(Dir("alarm_build_info"), file))
 
 sdist_depends = [setup_sources_rules, local_sources_rules]
 cd_cmd = 'cd ' + Dir('.').path + ' && '
-sdist_gen = env.Command('dist/alarm_partial_sysinfo-0.1dev.tar.gz', 'setup.py',
+sdist_gen = env.Command('dist/alarm_build_info-0.1dev.tar.gz', 'setup.py',
                         cd_cmd + 'python setup.py sdist')
 env.Depends(sdist_gen, sdist_depends)
 env.Default(sdist_gen)
-OpEnv['ALARM_PARTIAL_SYSINFO_PKG'] = sdist_gen
+OpEnv['ALARM_BUILD_INFO_PKG'] = sdist_gen
 
 if 'install' in BUILD_TARGETS:
     install_cmd = env.Command(None,

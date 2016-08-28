@@ -22,8 +22,7 @@ from alarm_process_status.main import ProcessStatus
 from alarm_process_connectivity.main import ProcessConnectivity
 from alarm_bgp_connectivity.main import BgpConnectivity
 from alarm_xmpp_connectivity.main import XmppConnectivity
-from alarm_partial_sysinfo.main import PartialSysinfoCompute,\
-    PartialSysinfoAnalytics, PartialSysinfoConfig, PartialSysinfoControl
+from alarm_build_info.main import BuildInfoNode
 from alarm_config_incorrect.main import ConfIncorrect
 from alarm_address_mismatch.main import AddressMismatchControl,\
     AddressMismatchCompute
@@ -605,37 +604,36 @@ class TestAlarmPlugins(unittest.TestCase):
         self._verify(DiskUsage(), tests)
     # end test_alarm_disk_usage
 
-    def test_alarm_partial_sysinfo(self):
+    def test_alarm_build_info(self):
         tests = [
             TestCase(
-                name='CollectorState == null',
+                name='NodeStatus == null',
                 input=TestInput(uve_key='ObjectCollectorInfo:host1',
                     uve_data={}),
                 output=TestOutput(or_list=None)
             ),
             TestCase(
-                name='CollectorState.build_info == null',
+                name='NodeStatus.build_info == null',
                 input=TestInput(uve_key='ObjectCollectorInfo:host1',
                     uve_data={
-                        'CollectorState': {
-                            'self_ip_list': ['10.10.10.1']
+                        'NodeStatus': {
+                            'build_info': ''
                         }
                     }
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'and_list': [('CollectorState.build_info == null',
+                        'and_list': [('NodeStatus.build_info == null',
                             None, [('null', None, None)])
                         ]
                     }
                 ])
             ),
             TestCase(
-                name='CollectorState.build_info != null',
+                name='NodeStatus.build_info != null',
                 input=TestInput(uve_key='ObjectCollectorInfo:host1',
                     uve_data={
-                        'CollectorState': {
-                            'self_ip_list': ['10.10.10.1'],
+                        'NodeStatus': {
                             'build_info': '"{"build-number":"100"}"'
                         }
                     }
@@ -643,127 +641,9 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             )
         ]
-        self._verify(PartialSysinfoAnalytics(), tests)
+        self._verify(BuildInfoNode(), tests)
 
-        tests = [
-            TestCase(
-                name='ModuleCpuState == null',
-                input=TestInput(uve_key='ObjectConfigNode:host1',
-                    uve_data={}),
-                output=TestOutput(or_list=None)
-            ),
-            TestCase(
-                name='ModuleCpuState.build_info == null',
-                input=TestInput(uve_key='ObjectConfigNode:host2',
-                    uve_data={
-                        'ModuleCpuState': {
-                            'config_node_ip': ['192.168.1.1']
-                        }
-                    }
-                ),
-                output=TestOutput(or_list=[
-                    {
-                        'and_list': [('ModuleCpuState.build_info == null',
-                            None, [('null', None, None)])
-                        ]
-                    }
-                ])
-            ),
-            TestCase(
-                name='ModuleCpuState.build_info != null',
-                input=TestInput(uve_key='ObjectConfigNode:host1',
-                    uve_data={
-                        'ModuleCpuState': {
-                            'config_node_ip': ['10.10.10.1'],
-                            'build_info': '"{"build-number":"2729"}"'
-                        }
-                    }
-                ),
-                output=TestOutput(or_list=None)
-            )
-        ]
-        self._verify(PartialSysinfoConfig(), tests)
-
-        tests = [
-            TestCase(
-                name='BgpRouterState == null',
-                input=TestInput(uve_key='ObjectBgpRouter:host1',
-                    uve_data={}),
-                output=TestOutput(or_list=None)
-            ),
-            TestCase(
-                name='BgpRouterState.build_info == null',
-                input=TestInput(uve_key='ObjectBgpRouter:host2',
-                    uve_data={
-                        'BgpRouterState': {
-                            'bgp_router_ip_list': ['192.168.1.1']
-                        }
-                    }
-                ),
-                output=TestOutput(or_list=[
-                    {
-                        'and_list': [('BgpRouterState.build_info == null',
-                            None, [('null', None, None)])
-                        ]
-                    }
-                ])
-            ),
-            TestCase(
-                name='BgpRouterState.build_info != null',
-                input=TestInput(uve_key='ObjectBgpRouter:host3',
-                    uve_data={
-                        'BgpRouterState': {
-                            'bgp_router_ip_list': ['10.10.10.1'],
-                            'build_info': '"{"build-number":"2121"}"'
-                        }
-                    }
-                ),
-                output=TestOutput(or_list=None)
-            )
-        ]
-        self._verify(PartialSysinfoControl(), tests)
-
-        tests = [
-            TestCase(
-                name='VrouterAgent == null',
-                input=TestInput(uve_key='ObjectVRouter:host1',
-                    uve_data={}),
-                output=TestOutput(or_list=None)
-            ),
-            TestCase(
-                name='VrouterAgent.build_info == null',
-                input=TestInput(uve_key='ObjectVRouter:host2',
-                    uve_data={
-                        'VrouterAgent': {
-                            'control_ip': '192.168.1.1'
-                        }
-                    }
-                ),
-                output=TestOutput(or_list=[
-                    {
-                        'and_list': [('VrouterAgent.build_info == null',
-                            None, [('null', None, None)])
-                        ]
-                    }
-                ])
-            ),
-            TestCase(
-                name='VrouterAgent.build_info != null',
-                input=TestInput(uve_key='ObjectVRouter:host3',
-                    uve_data={
-                        'VrouterAgent': {
-                            'control_ip': '10.10.10.1',
-                            'build_info': '"{"build-number":"2829"}"'
-                        },
-                        'ContrailConfig': {
-                        }
-                    }
-                ),
-                output=TestOutput(or_list=None)
-            )
-        ]
-        self._verify(PartialSysinfoCompute(), tests)
-    # end test_alarm_partial_sysinfo
+    # end test_alarm_build_info
 
     def test_alarm_process_connectivity(self):
         tests = [

@@ -17,7 +17,6 @@ from webtest import TestApp
 import contextlib
 
 from vnc_api.vnc_api import *
-import cfgm_common.vnc_cpu_info
 import cfgm_common.ifmap.client as ifmap_client
 import kombu
 import discoveryclient.client as disc_client
@@ -391,7 +390,6 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         ]
 
     mocks = [
-        (cfgm_common.vnc_cpu_info.CpuInfo, '__init__', stub),
         (novaclient.client, 'Client', FakeNovaClient.initialize),
         (ifmap_client.client, '__init__', FakeIfmapClient.initialize),
         (ifmap_client.client, 'call', FakeIfmapClient.call),

@@ -53,7 +53,8 @@ class VrouterEventManager(EventManager):
         node_type_name = NodeTypeNames[node_type]
         self.sandesh_global = sandesh_global
         EventManager.__init__(self, rule_file, discovery_server,
-                              discovery_port, collector_addr, sandesh_global)
+                              discovery_port, collector_addr, sandesh_global,
+                              send_build_info = True)
         self.node_type = "contrail-vrouter"
         self.table = "ObjectVRouter"
         _disc = self.get_discovery_client()

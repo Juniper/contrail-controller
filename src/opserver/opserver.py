@@ -63,7 +63,6 @@ from sandesh.discovery.ttypes import CollectorTrace
 import discoveryclient.client as discovery_client
 from opserver_util import OpServerUtils
 from opserver_util import ServicePoller
-from cpuinfo import CpuInfoData
 from sandesh_req_impl import OpserverSandeshReqImpl
 from sandesh.analytics_database.ttypes import *
 from sandesh.analytics_database.constants import PurgeStatusString
@@ -2293,45 +2292,6 @@ class OpServer(object):
             sys.exit()
     # end start_webserver
 
-    def cpu_info_logger(self):
-        opserver_cpu_info = CpuInfoData()
-        while True:
-            mod_cpu_info = ModuleCpuInfo()
-            mod_cpu_info.module_id = self._moduleid
-            mod_cpu_info.instance_id = self._instance_id
-            mod_cpu_info.cpu_info = opserver_cpu_info.get_cpu_info(
-                system=False)
-            mod_cpu_state = ModuleCpuState()
-            mod_cpu_state.name = self._hostname
-
-            # At some point, the following attributes will be deprecated in favor of cpu_info
-            mod_cpu_state.module_cpu_info = [mod_cpu_info]
-            opserver_cpu_state_trace = ModuleCpuStateTrace(
-                    data=mod_cpu_state,
-                    sandesh=self._sandesh
-                    )
-            opserver_cpu_state_trace.send(sandesh=self._sandesh)
-
-            aly_cpu_state = AnalyticsCpuState()
-            aly_cpu_state.name = self._hostname
-
-            aly_cpu_info = ProcessCpuInfo()
-            aly_cpu_info.module_id= self._moduleid
-            aly_cpu_info.inst_id = self._instance_id
-            aly_cpu_info.cpu_share = mod_cpu_info.cpu_info.cpu_share
-            aly_cpu_info.mem_virt = mod_cpu_info.cpu_info.meminfo.virt
-            aly_cpu_info.mem_res = mod_cpu_info.cpu_info.meminfo.res
-            aly_cpu_state.cpu_info = [aly_cpu_info]
-
-            aly_cpu_state_trace = AnalyticsCpuStateTrace(
-                    data=aly_cpu_state,
-                    sandesh=self._sandesh
-                    )
-            aly_cpu_state_trace.send(sandesh=self._sandesh)
-
-            gevent.sleep(60)
-    #end cpu_info_logger
-
     def disc_cb(self, clist):
         '''
         Analytics node may be brought up/down any time. For UVE aggregation,
@@ -2389,7 +2349,6 @@ class OpServer(object):
         self.gevs += [
             self._uvedbstream,
             gevent.spawn(self.start_webserver),
-            gevent.spawn(self.cpu_info_logger),
             gevent.spawn(self.start_uve_server),
             ]
 

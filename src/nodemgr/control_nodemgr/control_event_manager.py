@@ -51,7 +51,8 @@ class ControlEventManager(EventManager):
         self.sandesh_global = sandesh_global;
         EventManager.__init__(
             self, rule_file, discovery_server,
-            discovery_port, collector_addr, sandesh_global)
+            discovery_port, collector_addr, sandesh_global,
+            send_build_info = True)
         _disc = self.get_discovery_client()
         sandesh_global.init_generator(
             self.module_id, socket.gethostname(),
