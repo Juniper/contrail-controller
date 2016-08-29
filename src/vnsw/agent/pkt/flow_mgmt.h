@@ -565,6 +565,8 @@ public:
     InterfaceFlowMgmtEntry() : FlowMgmtEntry() { }
     virtual ~InterfaceFlowMgmtEntry() { }
 
+    bool Add(Agent* agent, FlowEntry *flow, FlowMgmtKeyNode *node);
+    bool Delete(Agent* agent, FlowEntry *flow, FlowMgmtKeyNode *node);
 private:
     DISALLOW_COPY_AND_ASSIGN(InterfaceFlowMgmtEntry);
 };
@@ -576,6 +578,9 @@ public:
 
     void ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree);
     FlowMgmtEntry *Allocate(const FlowMgmtKey *key);
+    bool Add(FlowMgmtKey *key, FlowEntry *flow, FlowMgmtKeyNode *node);
+    bool Delete(FlowMgmtKey *key, FlowEntry *flow, FlowMgmtKeyNode *node);
+    void InterfaceFlowCount(const Interface *intf, uint32_t *count);
 private:
     DISALLOW_COPY_AND_ASSIGN(InterfaceFlowMgmtTree);
 };
@@ -1106,6 +1111,7 @@ public:
     void VnFlowCounters(const VnEntry *vn,
                         uint32_t *ingress_flow_count,
                         uint32_t *egress_flow_count);
+    void InterfaceFlowCount(const Interface *intf, uint32_t *count);
     bool HasVrfFlows(uint32_t vrf);
 
     FlowMgmtDbClient *flow_mgmt_dbclient() const {

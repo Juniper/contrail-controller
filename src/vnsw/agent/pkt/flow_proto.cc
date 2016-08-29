@@ -276,6 +276,20 @@ void FlowProto::VnFlowCounters(const VnEntry *vn, uint32_t *in_count,
     }
 }
 
+uint32_t FlowProto::InterfaceFlowCount(const Interface *intf) const {
+    if (intf == NULL)
+        return 0;
+    uint32_t count = 0;
+    std::vector<FlowMgmtManager *> mgr_list =
+        agent_->pkt()->flow_mgmt_manager_list();
+    std::vector<FlowMgmtManager *>::iterator it = mgr_list.begin();
+    while (it != mgr_list.end()) {
+        (*it)->InterfaceFlowCount(intf, &count);
+        it++;
+    }
+    return count;
+}
+
 FlowEntry *FlowProto::Find(const FlowKey &key, uint32_t table_index) const {
     return GetTable(table_index)->Find(key);
 }

@@ -6,6 +6,7 @@
 #define _ROOT_STATS_MANAGER_H_
 
 #include <cmn/agent_cmn.h>
+#include <cmn/agent_stats.h>
 #include <oper/vrf.h>
 #include <oper/interface.h>
 #include <vrouter_types.h>
@@ -14,6 +15,16 @@
 #include <utility>
 #include <uve/flow_ace_stats_request.h>
 #include <vr_types.h>
+
+struct FlowRateComputeInfo {
+    uint64_t prev_time_;
+    uint64_t prev_flow_created_;
+    uint64_t prev_flow_aged_;
+
+    FlowRateComputeInfo() : prev_time_(UTCTimestampUsec()),
+        prev_flow_created_(0), prev_flow_aged_(0) {
+    }
+};
 
 // The container class for storing stats queried from vrouter
 // Defines routines for storing and managing (add, delete and query)
@@ -42,6 +53,9 @@ class StatsManager {
         uint64_t prev_5min_in_bytes;
         uint64_t prev_5min_out_bytes;
         uint64_t stats_time;
+        FlowRateComputeInfo flow_info;
+        AgentStats::FlowCounters created;
+        AgentStats::FlowCounters aged;
     };
     struct VrfStats {
         VrfStats();
@@ -152,6 +166,8 @@ class StatsManager {
     void set_drop_stats(const vr_drop_stats_req &req) { drop_stats_ = req; }
 
     InterfaceStats* GetInterfaceStats(const Interface *intf);
+    void UpdateInterfaceFlowStats(const Interface *intf, uint64_t time,
+                                  bool add);
     VrfStats* GetVrfStats(int vrf_id);
     std::string GetNamelessVrf() { return "__untitled__"; }
     int GetNamelessVrfId() { return -1; }
@@ -159,6 +175,10 @@ class StatsManager {
     void RegisterDBClients();
     bool RequestHandler(boost::shared_ptr<FlowAceStatsRequest> req);
     void EnqueueEvent(const boost::shared_ptr<FlowAceStatsRequest> &req);
+    bool BuildFlowRate(AgentStats::FlowCounters &created,
+                       AgentStats::FlowCounters &aged,
+                       FlowRateComputeInfo &flow_info,
+                       VrouterFlowRate &flow_rate);
     friend class AgentStatsCollectorTest;
 
  private:

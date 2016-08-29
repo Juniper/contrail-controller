@@ -199,7 +199,8 @@ StatsManager::InterfaceStats::InterfaceStats()
     : name(""), speed(0), duplexity(0), in_pkts(0), in_bytes(0),
     out_pkts(0), out_bytes(0), prev_in_bytes(0),
     prev_out_bytes(0), prev_in_pkts(0), prev_out_pkts(0),
-    prev_5min_in_bytes(0), prev_5min_out_bytes(0), stats_time(0) {
+    prev_5min_in_bytes(0), prev_5min_out_bytes(0), stats_time(0), flow_info(),
+    created(), aged() {
 }
 
 void StatsManager::InterfaceStats::UpdateStats
@@ -307,4 +308,64 @@ bool StatsManager::RequestHandler(boost::shared_ptr<FlowAceStatsRequest> req) {
         assert(0);
     }
     return true;
+}
+
+void StatsManager::UpdateInterfaceFlowStats(const Interface *intf,
+                                            uint64_t time, bool add) {
+    InterfaceStats* s = GetInterfaceStats(intf);
+    if (!s) {
+        return;
+    }
+    if (add) {
+        agent_->stats()->UpdateFlowStats(s->created, time);
+    } else {
+        agent_->stats()->UpdateFlowStats(s->aged, time);
+    }
+}
+
+bool StatsManager::BuildFlowRate(AgentStats::FlowCounters &created_stats,
+                                 AgentStats::FlowCounters &aged_stats,
+                                 FlowRateComputeInfo &flow_info,
+                                 VrouterFlowRate &flow_rate) {
+    uint64_t max_add_rate = 0, min_add_rate = 0;
+    uint64_t max_del_rate = 0, min_del_rate = 0;
+    /* Copy stats to local variable to avoid the case of stats being updated
+     * while they are being read */
+    AgentStats::FlowCounters created = created_stats;
+    AgentStats::FlowCounters aged = aged_stats;
+    uint64_t cur_time = UTCTimestampUsec();
+    if (flow_info.prev_time_) {
+        uint64_t diff_time = cur_time - flow_info.prev_time_;
+        uint64_t created_flows = created.total_flows -
+            flow_info.prev_flow_created_;
+        uint64_t aged_flows = aged.total_flows - flow_info.prev_flow_aged_;
+        uint64_t diff_secs = diff_time / 1000000;
+        if (diff_secs) {
+            //Flow setup/delete rate are always sent
+            if (created_flows) {
+                max_add_rate = created.max_flows_per_second;
+                min_add_rate = created.min_flows_per_second;
+            }
+            if (aged_flows) {
+                max_del_rate = aged.max_flows_per_second;
+                min_del_rate = aged.min_flows_per_second;
+            }
+
+            flow_rate.set_added_flows(created_flows);
+            flow_rate.set_max_flow_adds_per_second(max_add_rate);
+            flow_rate.set_min_flow_adds_per_second(min_add_rate);
+            flow_rate.set_deleted_flows(aged_flows);
+            flow_rate.set_max_flow_deletes_per_second(max_del_rate);
+            flow_rate.set_min_flow_deletes_per_second(min_del_rate);
+            agent_->stats()->ResetFlowMinMaxStats(created_stats, cur_time);
+            agent_->stats()->ResetFlowMinMaxStats(aged_stats, cur_time);
+            flow_info.prev_time_ = cur_time;
+            flow_info.prev_flow_created_ = created.total_flows;
+            flow_info.prev_flow_aged_ = aged.total_flows;
+            return true;
+        }
+    } else {
+        flow_info.prev_time_ = cur_time;
+    }
+    return false;
 }

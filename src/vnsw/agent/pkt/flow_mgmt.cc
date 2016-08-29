@@ -702,6 +702,11 @@ void FlowMgmtManager::VnFlowCounters(const VnEntry *vn, uint32_t *ingress_flow_c
                                       egress_flow_count);
 }
 
+void FlowMgmtManager::InterfaceFlowCount(const Interface *intf,
+                                         uint32_t *count) {
+    interface_flow_mgmt_tree_.InterfaceFlowCount(intf, count);
+}
+
 FlowEntryInfo *
 FlowMgmtManager::FindFlowEntryInfo(const FlowEntryPtr &flow) {
     return flow->flow_mgmt_info();
@@ -1385,6 +1390,63 @@ void VnFlowMgmtTree::VnFlowCounters(const VnEntry *vn,
 /////////////////////////////////////////////////////////////////////////////
 // Interface Flow Management
 /////////////////////////////////////////////////////////////////////////////
+bool InterfaceFlowMgmtEntry::Add(Agent *agent, FlowEntry *flow,
+                                 FlowMgmtKeyNode *node) {
+    bool added = FlowMgmtEntry::Add(flow, node);
+    if (added) {
+        AgentUveStats *uve = static_cast<AgentUveStats *>(agent->uve());
+        uve->stats_manager()->UpdateInterfaceFlowStats(flow->intf_entry(),
+                                                       UTCTimestampUsec(),
+                                                       true);
+    }
+    return added;
+}
+
+bool InterfaceFlowMgmtEntry::Delete(Agent* agent, FlowEntry *flow,
+                                    FlowMgmtKeyNode *node) {
+    AgentUveStats *uve = static_cast<AgentUveStats *>(agent->uve());
+    uve->stats_manager()->UpdateInterfaceFlowStats(flow->intf_entry(),
+                                                   UTCTimestampUsec(),
+                                                   false);
+    return FlowMgmtEntry::Delete(flow, node);
+}
+
+bool InterfaceFlowMgmtTree::Add(FlowMgmtKey *key, FlowEntry *flow,
+                                FlowMgmtKeyNode *node) {
+    InterfaceFlowMgmtEntry *entry = static_cast<InterfaceFlowMgmtEntry *>
+        (Locate(key));
+    if (entry == NULL) {
+        return false;
+    }
+
+    return entry->Add(mgr_->agent(), flow, node);
+}
+
+bool InterfaceFlowMgmtTree::Delete(FlowMgmtKey *key, FlowEntry *flow,
+                                   FlowMgmtKeyNode *node) {
+    Tree::iterator it = tree_.find(key);
+    if (it == tree_.end()) {
+        return false;
+    }
+
+    InterfaceFlowMgmtEntry *entry = static_cast<InterfaceFlowMgmtEntry *>
+        (it->second);
+    bool ret = entry->Delete(mgr_->agent(), flow, node);
+
+    TryDelete(it->first, entry);
+    return ret;
+}
+
+void InterfaceFlowMgmtTree::InterfaceFlowCount(const Interface *intf,
+                                               uint32_t *count) {
+    InterfaceFlowMgmtKey key(intf);
+    InterfaceFlowMgmtEntry *entry = static_cast<InterfaceFlowMgmtEntry *>
+        (Find(&key));
+    if (entry) {
+        count += entry->Size();
+    }
+}
+
 void InterfaceFlowMgmtTree::ExtractKeys(FlowEntry *flow,
                                         FlowMgmtKeyTree *tree) {
     if (flow->intf_entry() == NULL)
