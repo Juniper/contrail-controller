@@ -1301,6 +1301,23 @@ class RouteTargetST(DBBaseST):
     _dict = {}
     obj_type = 'route_target'
 
+    @classmethod
+    def reinit(cls):
+        for obj in cls.list_vnc_obj():
+            if (obj.get_routing_instance_back_refs() or
+                    obj.get_logical_router_back_refs()):
+                cls.locate(obj.get_fq_name_str(), obj)
+            else:
+                cls._vnc_lib.route_target_delete(id=obj.uuid)
+        for ri, val in cls._cassandra._rt_cf.get_range():
+            rt = val['rtgt_num']
+            asn = GlobalSystemConfigST.get_autonomous_system()
+            rt_key = "target:%s:%s" % (
+                GlobalSystemConfigST.get_autonomous_system(), rt)
+            if rt_key not in cls:
+                cls._cassandra.free_route_target(ri)
+    # reinit
+
     def __init__(self, rt_key, obj=None):
         self.name = rt_key
         try:
