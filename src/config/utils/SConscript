@@ -47,6 +47,7 @@ utils_scripts = [
   'provision_config_node.py',
   'discovery_cli.py',
   'provision_user_defined_log_statistics.py',
+  'provision_alarm.py',
 ]
 
 for utils in utils_scripts:
