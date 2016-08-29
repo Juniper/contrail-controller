@@ -166,12 +166,9 @@ void FlowKState::SetFlowData(vector<KFlowInfo> &list,
                              const int index) const {
     KFlowInfo data;
     bool action_drop = false;
-    int family = (k_flow->fe_key.flow_family == AF_INET)? Address::INET :
-        Address::INET6;
+    KSyncFlowMemory *flow_mem = agent_->ksync()->ksync_flow_memory();
     IpAddress sip, dip;
-    CharArrayToIp(k_flow->fe_key.flow_ip, sizeof(k_flow->fe_key.flow_ip),
-                  family, &sip, &dip);
-
+    flow_mem->VrFlowToIp(k_flow, &sip, &dip);
     string action_str;
     string flag_str, tcp_flags;
     data.set_index((unsigned int)index);

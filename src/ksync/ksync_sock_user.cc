@@ -172,8 +172,17 @@ void KSyncSockTypeMap::FlowNatResponse(uint32_t seq_num, vr_flow_req *req) {
 
     buf += encode_len;
     buf_len -= encode_len;
-    req->set_fr_op(flow_op::FLOW_SET);
-    encode_len += req->WriteBinary(buf, buf_len, &error);
+
+    vr_flow_response resp;
+    resp.set_fresp_op(flow_op::FLOW_SET);
+    resp.set_fresp_flags(req->get_fr_flags());
+    resp.set_fresp_index(req->get_fr_index());
+    resp.set_fresp_gen_id(req->get_fr_gen_id());
+    resp.set_fresp_bytes(0);
+    resp.set_fresp_packets(0);
+    resp.set_fresp_stats_oflow(0);
+
+    encode_len += resp.WriteBinary(buf, buf_len, &error);
     if (error != 0) {
         SimulateResponse(seq_num, -ENOENT, 0);
         nl_free(&cl);
@@ -612,8 +621,11 @@ void KSyncSockTypeMap::SetFlowEntry(vr_flow_req *req, bool set) {
 
     int family = (req->get_fr_family() == AF_INET)? Address::INET :
         Address::INET6;
-    IpAddress sip, dip;
-    VectorToIp(req->get_fr_flow_ip(), family, &sip, &dip);
+    IpAddress sip;
+    IpAddress dip;
+    U64ToIp(req->get_fr_flow_sip_u(), req->get_fr_flow_sip_l(),
+            req->get_fr_flow_dip_u(), req->get_fr_flow_dip_l(),
+            family, &sip, &dip);
     f->fe_flags = VR_FLOW_FLAG_ACTIVE;
     f->fe_stats.flow_bytes = 30;
     f->fe_stats.flow_packets = 1;

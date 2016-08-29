@@ -38,6 +38,8 @@
 
 #include "ksync_init.h"
 #include "ksync_flow_memory.h"
+#include "sandesh_ksync.h"
+
 using namespace boost::asio::ip;
 static const int kTestFlowTableSize = 131072 * sizeof(vr_flow_entry);
 
@@ -90,7 +92,7 @@ void KSyncFlowMemory::Init() {
 // - Map device memory
 void KSyncFlowMemory::InitFlowMem() {
     struct nl_client *cl;
-    vr_flow_req req;
+    vr_flow_table_data info;
     int attr_len;
     int encode_len, error, ret;
 
@@ -104,13 +106,17 @@ void KSyncFlowMemory::InitFlowMem() {
 
     attr_len = nl_get_attr_hdr_size();
 
-    req.set_fr_op(flow_op::FLOW_TABLE_GET);
-    req.set_fr_rid(0);
-    req.set_fr_index(0);
-    req.set_fr_action(0);
-    req.set_fr_flags(0);
-    req.set_fr_ftable_size(0);
-    encode_len = req.WriteBinary(nl_get_buf_ptr(cl) + attr_len,
+    info.set_ftable_op(flow_op::FLOW_TABLE_GET);
+    info.set_ftable_size(0);
+    info.set_ftable_dev(0);
+    info.set_ftable_file_path("");
+    info.set_ftable_processed(0);
+    info.set_ftable_hold_oflows(0);
+    info.set_ftable_added(0);
+    info.set_ftable_cpus(0);
+    info.set_ftable_created(0);
+    info.set_ftable_oflow_entries(0);
+    encode_len = info.WriteBinary(nl_get_buf_ptr(cl) + attr_len,
                                  nl_get_buf_len(cl), &error);
     nl_build_attr(cl, encode_len, NL_ATTR_VR_MESSAGE_PROTOCOL);
     nl_update_nlh(cl);
@@ -184,13 +190,31 @@ void KSyncFlowMemory::Shutdown() {
     UnmapFlowMemTest();
 }
 
+void KSyncFlowMemory::VrFlowToIp(const vr_flow_entry *kflow, IpAddress *sip,
+                                 IpAddress *dip) {
+    if (kflow->fe_key.flow_family == AF_INET) {
+        *sip = Ip4Address(ntohl(kflow->fe_key.key_u.ip4_key.ip4_sip));
+        *dip = Ip4Address(ntohl(kflow->fe_key.key_u.ip4_key.ip4_dip));
+    } else {
+        const unsigned char *k_sip = kflow->fe_key.key_u.ip6_key.ip6_sip;
+        const unsigned char *k_dip = kflow->fe_key.key_u.ip6_key.ip6_dip;
+        boost::array<unsigned char, 16> sbytes;
+        boost::array<unsigned char, 16> dbytes;
+        for (int i = 0; i < 16; i++) {
+            sbytes[i] = k_sip[i];
+            dbytes[i] = k_dip[i];
+        }
+        *sip = Ip6Address(sbytes);
+        *dip = Ip6Address(dbytes);
+    }
+}
+
 void KSyncFlowMemory::KFlow2FlowKey(const vr_flow_entry *kflow,
                                     FlowKey *key) const {
     key->nh = kflow->fe_key.flow4_nh_id;
     Address::Family family = (kflow->fe_key.flow_family == AF_INET)?
                               Address::INET : Address::INET6;
-    CharArrayToIp(kflow->fe_key.flow_ip, sizeof(kflow->fe_key.flow_ip),
-                  family, &key->src_addr, &key->dst_addr);
+    VrFlowToIp(kflow, &key->src_addr, &key->dst_addr);
     key->src_port = ntohs(kflow->fe_key.flow4_sport);
     key->dst_port = ntohs(kflow->fe_key.flow4_dport);
     key->protocol = kflow->fe_key.flow4_proto;
@@ -246,8 +270,7 @@ bool KSyncFlowMemory::GetFlowKey(uint32_t index, FlowKey *key) {
     key->nh = kflow->fe_key.flow4_nh_id;
     Address::Family family = (kflow->fe_key.flow_family == AF_INET)?
                               Address::INET : Address::INET6;
-    CharArrayToIp(kflow->fe_key.flow_ip, sizeof(kflow->fe_key.flow_ip),
-                  family, &key->src_addr, &key->dst_addr);
+    VrFlowToIp(kflow, &key->src_addr, &key->dst_addr);
     key->src_port = ntohs(kflow->fe_key.flow4_sport);
     key->dst_port = ntohs(kflow->fe_key.flow4_dport);
     key->protocol = kflow->fe_key.flow4_proto;
@@ -288,12 +311,8 @@ bool KSyncFlowMemory::AuditProcess() {
         // Audit and remove flow entry if its still in HOLD state
         if (vflow_entry && vflow_entry->fe_gen_id == gen_id &&
             vflow_entry->fe_action == VR_FLOW_ACTION_HOLD) {
-            int family = (vflow_entry->fe_key.flow_family == AF_INET)?
-                Address::INET : Address::INET6;
             IpAddress sip, dip;
-            CharArrayToIp(vflow_entry->fe_key.flow_ip,
-                          sizeof(vflow_entry->fe_key.flow_ip), family, &sip,
-                          &dip);
+            VrFlowToIp(vflow_entry, &sip, &dip);
             FlowKey key(vflow_entry->fe_key.flow_nh_id, sip, dip,
                         vflow_entry->fe_key.flow_proto,
                         ntohs(vflow_entry->fe_key.flow_sport),
@@ -326,7 +345,7 @@ bool KSyncFlowMemory::AuditProcess() {
 
 void KSyncFlowMemory::GetFlowTableSize() {
     struct nl_client *cl;
-    vr_flow_req req;
+    vr_flow_table_data info;
     int attr_len;
     int encode_len, error;
 
@@ -336,13 +355,17 @@ void KSyncFlowMemory::GetFlowTableSize() {
     assert(nl_build_genlh(cl, SANDESH_REQUEST, 0) == 0);
 
     attr_len = nl_get_attr_hdr_size();
-    req.set_fr_op(flow_op::FLOW_TABLE_GET);
-    req.set_fr_rid(0);
-    req.set_fr_index(0);
-    req.set_fr_action(0);
-    req.set_fr_flags(0);
-    req.set_fr_ftable_size(0);
-    encode_len = req.WriteBinary(nl_get_buf_ptr(cl) + attr_len,
+    info.set_ftable_op(flow_op::FLOW_TABLE_GET);
+    info.set_ftable_size(0);
+    info.set_ftable_dev(0);
+    info.set_ftable_file_path("");
+    info.set_ftable_processed(0);
+    info.set_ftable_hold_oflows(0);
+    info.set_ftable_added(0);
+    info.set_ftable_cpus(0);
+    info.set_ftable_created(0);
+    info.set_ftable_oflow_entries(0);
+    encode_len = info.WriteBinary(nl_get_buf_ptr(cl) + attr_len,
                                  nl_get_buf_len(cl), &error);
     nl_build_attr(cl, encode_len, NL_ATTR_VR_MESSAGE_PROTOCOL);
     nl_update_nlh(cl);
@@ -408,4 +431,14 @@ void KSyncFlowMemory::MapSharedMemory() {
 void vr_flow_req::Process(SandeshContext *context) {
     AgentSandeshContext *ioc = static_cast<AgentSandeshContext *>(context);
     ioc->FlowMsgHandler(this);
+}
+
+void vr_flow_response::Process(SandeshContext *context) {
+    AgentSandeshContext *ioc = static_cast<AgentSandeshContext *>(context);
+    ioc->FlowResponseHandler(this);
+}
+
+void vr_flow_table_data::Process(SandeshContext *context) {
+    AgentSandeshContext *ioc = static_cast<AgentSandeshContext *>(context);
+    ioc->FlowTableInfoHandler(this);
 }

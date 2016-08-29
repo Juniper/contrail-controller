@@ -38,12 +38,13 @@ IpAddress PrefixToIpNetmask(uint32_t prefix_len);
 uint32_t NetmaskToPrefix(uint32_t netmask);
 
 IpAddress PrefixToIp6Netmask(uint32_t plen);
-void VectorToIp(const std::vector<int8_t> &ip, int family, IpAddress *sip,
-                IpAddress *dip);
-std::vector<int8_t> IpToVector(const IpAddress &sip, const IpAddress &dip,
-                               Address::Family fam);
-void CharArrayToIp(const unsigned char *ip, int size, int family,
-                   IpAddress *sip, IpAddress *dip);
+
+void IpToU64(const IpAddress &sip, const IpAddress &dip,
+             uint64_t *sip_u, uint64_t *sip_l,
+             uint64_t *dip_u, uint64_t *dip_l);
+void U64ToIpv6(uint64_t upper, uint64_t lower, IpAddress *ip);
+void U64ToIp(uint64_t sip_u, uint64_t sip_l, uint64_t dip_u, uint64_t dip_l,
+             int family, IpAddress *sip, IpAddress *dip);
 void Ip6AddressToU64Array(const Ip6Address &addr, uint64_t *arr, int size);
 
 bool ValidateServerEndpoints(std::vector<std::string> list,
