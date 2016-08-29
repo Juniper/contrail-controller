@@ -48,8 +48,8 @@ public:
     uint32_t HashValUdpSourcePort();
     void FillOamPktHeader(OverlayOamPktData *pktdata, uint32_t vxlan_id);
 protected:
-    Ip4Address sip_;
-    Ip4Address dip_;
+    IpAddress sip_;
+    IpAddress dip_;
     uint8_t    proto_;
     uint16_t   sport_;
     uint16_t   dport_;
