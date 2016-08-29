@@ -12,6 +12,9 @@
 //required for sending VRouter UVE.
 class VrouterUveEntry : public VrouterUveEntryBase {
 public:
+    typedef std::map<string, uint64_t> DerivedStatsMap;
+    typedef std::pair<string, uint64_t> DerivedStatsPair;
+
     VrouterUveEntry(Agent *agent);
     virtual ~VrouterUveEntry();
     L4PortBitmap port_bitmap() { return port_bitmap_; }
@@ -42,6 +45,7 @@ private:
     bool BuildPhysicalInterfaceList(std::vector<AgentIfStats> &list) const;
     std::string GetMacAddress(const MacAddress &mac) const;
     void BuildXmppStatsList(std::vector<AgentXmppStats> &list) const;
+    void FetchIFMapStats(DerivedStatsMap &ds) const;
 
     uint64_t start_time_;
     DISALLOW_COPY_AND_ASSIGN(VrouterUveEntry);

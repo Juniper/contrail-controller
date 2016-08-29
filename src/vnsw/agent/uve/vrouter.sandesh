@@ -306,6 +306,12 @@ struct VrouterStatsAgent {  // Agent stats
                      (mstats="phy_band_in_bps:DSEWM:0.2")
     53: optional map<string,derived_stats_results.EWMResult> out_bps_ewm
                      (mstats="phy_band_out_bps:DSEWM:0.2")
+    54: optional map<string, u64> raw_ifmap_stats (metric="agg", hidden="yes")
+    /** @display_name:Vrouter IFMAP Parse Error Statistics*/
+    55: optional map<string, u64> ifmap_stats
+                     (mstats="raw_ifmap_stats:DSNon0:", tags=".__key")
+    56: optional map<string, u64> ifmap_stats_1h
+                     (mstats="raw_ifmap_stats:DSSum:120")
 }
 
 /**

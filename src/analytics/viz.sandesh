@@ -2222,6 +2222,16 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
+       'display_name' : 'Vrouter IFMAP Parse Error Statistics',
+       'stat_type' : 'VrouterStatsAgent'
+       'stat_attr' : 'ifmap_stats',
+       'obj_table' : VROUTER_TABLE,
+       'attributes': [
+           { 'name' : 'ifmap_stats.__key',   'datatype' : 'string', 'index' : true },
+           { 'name' : 'ifmap_stats.__value', 'datatype' : 'int', 'index' : false }
+         ]
+    },
+    {
       'display_name' : 'Analytics API Statistics',
       'stat_type' : 'AnalyticsApiStats',
       'stat_attr' : 'api_stats',
