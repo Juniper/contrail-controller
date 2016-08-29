@@ -12,8 +12,10 @@ StatsManager::StatsManager(Agent* agent)
     : vrf_listener_id_(DBTableBase::kInvalidId),
       intf_listener_id_(DBTableBase::kInvalidId), agent_(agent),
       request_queue_(agent->task_scheduler()->GetTaskId("Agent::Uve"), 0,
-                     boost::bind(&StatsManager::RequestHandler, this, _1)) {
-
+                     boost::bind(&StatsManager::RequestHandler, this, _1)),
+      timer_(TimerManager::CreateTimer
+        (*(agent->event_manager())->io_service(), "IntfFlowStatsUpdateTimer",
+         TaskScheduler::GetInstance()->GetTaskId(kTaskFlowStatsUpdate), 1)) {
     AddNamelessVrfStatsEntry();
 }
 
@@ -193,13 +195,18 @@ void StatsManager::Shutdown(void) {
     agent_->vrf_table()->Unregister(vrf_listener_id_);
     agent_->interface_table()->Unregister(intf_listener_id_);
     request_queue_.Shutdown();
+    if (timer_) {
+        timer_->Cancel();
+        TimerManager::DeleteTimer(timer_);
+    }
 }
 
 StatsManager::InterfaceStats::InterfaceStats()
     : name(""), speed(0), duplexity(0), in_pkts(0), in_bytes(0),
     out_pkts(0), out_bytes(0), prev_in_bytes(0),
     prev_out_bytes(0), prev_in_pkts(0), prev_out_pkts(0),
-    prev_5min_in_bytes(0), prev_5min_out_bytes(0), stats_time(0) {
+    prev_5min_in_bytes(0), prev_5min_out_bytes(0), stats_time(0), flow_info(),
+    created(), aged() {
 }
 
 void StatsManager::InterfaceStats::UpdateStats
@@ -307,4 +314,84 @@ bool StatsManager::RequestHandler(boost::shared_ptr<FlowAceStatsRequest> req) {
         assert(0);
     }
     return true;
+}
+
+bool StatsManager::BuildFlowRate(AgentStats::FlowCounters &created,
+                                 AgentStats::FlowCounters &aged,
+                                 FlowRateComputeInfo &flow_info,
+                                 VrouterFlowRate &flow_rate) {
+    uint64_t max_add_rate = 0, min_add_rate = 0;
+    uint64_t max_del_rate = 0, min_del_rate = 0;
+    /* Copy stats to local variable to avoid the case of stats being updated
+     * while they are being read */
+    uint64_t total_created_flows = created.total_flows;
+    uint64_t total_aged_flows = aged.total_flows;
+    uint64_t cur_time = UTCTimestampUsec();
+    if (flow_info.prev_time_) {
+        uint64_t diff_time = cur_time - flow_info.prev_time_;
+        uint64_t diff_secs = diff_time / 1000000;
+        if (diff_secs) {
+            uint64_t created_flows = total_created_flows -
+                flow_info.prev_flow_created_;
+            uint64_t aged_flows = total_aged_flows - flow_info.prev_flow_aged_;
+            //Flow setup/delete rate are always sent
+            if (created_flows) {
+                max_add_rate = created.max_flows_per_second;
+                min_add_rate = created.min_flows_per_second;
+            }
+            if (aged_flows) {
+                max_del_rate = aged.max_flows_per_second;
+                min_del_rate = aged.min_flows_per_second;
+            }
+
+            flow_rate.set_added_flows(created_flows);
+            flow_rate.set_max_flow_adds_per_second(max_add_rate);
+            flow_rate.set_min_flow_adds_per_second(min_add_rate);
+            flow_rate.set_deleted_flows(aged_flows);
+            flow_rate.set_max_flow_deletes_per_second(max_del_rate);
+            flow_rate.set_min_flow_deletes_per_second(min_del_rate);
+            agent_->stats()->ResetFlowMinMaxStats(created);
+            agent_->stats()->ResetFlowMinMaxStats(aged);
+            flow_info.prev_time_ = cur_time;
+            flow_info.prev_flow_created_ = created.total_flows;
+            flow_info.prev_flow_aged_ = aged.total_flows;
+            return true;
+        }
+    } else {
+        flow_info.prev_time_ = cur_time;
+    }
+    return false;
+}
+
+void StatsManager::incr_flow_created(const Interface *intf) {
+    InterfaceStats* s = GetInterfaceStats(intf);
+    if (!s) {
+        return;
+    }
+    s->created.total_flows.fetch_and_increment();
+}
+
+void StatsManager::incr_flow_aged(const Interface *intf) {
+    InterfaceStats* s = GetInterfaceStats(intf);
+    if (!s) {
+        return;
+    }
+    s->aged.total_flows.fetch_and_increment();
+}
+
+bool StatsManager::FlowStatsUpdate() {
+    InterfaceStatsTree::iterator it;
+    it = if_stats_tree_.begin();
+    while (it != if_stats_tree_.end()) {
+        InterfaceStats &s = it->second;
+        ++it;
+        agent_->stats()->UpdateFlowMinMaxStats(s.created);
+        agent_->stats()->UpdateFlowMinMaxStats(s.aged);
+    }
+    return true;
+}
+
+void StatsManager::InitDone() {
+    timer_->Start(agent_->stats()->flow_stats_update_timeout(),
+        boost::bind(&StatsManager::FlowStatsUpdate, this));
 }
