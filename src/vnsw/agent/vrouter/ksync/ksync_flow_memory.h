@@ -9,6 +9,7 @@
  * Module responsible to manage the VRouter memory mapped to agent
  */
 #include <list>
+#include <net/address.h>
 
 class Timer;
 class KSync;
@@ -37,6 +38,8 @@ public:
     void InitTest();
     void Shutdown();
 
+    static void VrFlowToIp(const vr_flow_entry *kflow, IpAddress *sip,
+                           IpAddress *dip);
     const vr_flow_entry *GetKernelFlowEntry(uint32_t idx,
                                             bool ignore_active_status) const;
     const vr_flow_entry *GetValidKFlowEntry(const FlowKey &key,

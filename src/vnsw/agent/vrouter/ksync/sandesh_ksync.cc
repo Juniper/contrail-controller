@@ -50,43 +50,34 @@ int KSyncSandeshContext::VrResponseMsgHandler(vr_response *r) {
     return 0;
 }
 
-static void LogFlowError(vr_flow_req *r, int err) {
+void KSyncSandeshContext::FlowTableInfoHandler(vr_flow_table_data *r) {
+    assert(r->get_ftable_op() == flow_op::FLOW_TABLE_GET);
+    flow_ksync_->set_major_devid(r->get_ftable_dev());
+    flow_ksync_->set_flow_table_size(r->get_ftable_size());
+    flow_ksync_->set_flow_table_path(r->get_ftable_file_path());
+    LOG(DEBUG, "Flow table size : " << r->get_ftable_size());
+    return;
+}
+
+static void LogFlowError(vr_flow_response *r, int err) {
     string op;
-    if (r->get_fr_flags() != 0) {
+    if (r->get_fresp_flags() != 0) {
         op = "Add/Update";
     } else {
         op = "Delete";
     }
 
-    int family = (r->get_fr_family() == AF_INET)? Address::INET :
-        Address::INET6;
-    IpAddress sip, dip;
-    VectorToIp(r->get_fr_flow_ip(), family, &sip, &dip);
     LOG(ERROR, "Error Flow entry op = " << op
-        << " nh = " << (int) r->get_fr_flow_nh_id()
-        << " src = " << sip.to_string() << ":"
-        << ntohs(r->get_fr_flow_sport())
-        << " dst = " << dip.to_string()
-        << ntohs(r->get_fr_flow_dport())
-        << " proto = " << (int)r->get_fr_flow_proto()
-        << " flow_handle = " << (int) r->get_fr_index());
+        << " flow_handle = " << (int) r->get_fresp_index()
+        << " gen-id = " << (int) r->get_fresp_gen_id());
 }
 
 // Handle vr_flow response from VRouter
 // We combine responses from both vr_flow and vr_response messages and
 // generate single event. Copy the results in vr_flow in KSync entry.
 // On receiving vr_response message, event will be generated for both messages
-void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
-    assert(r->get_fr_op() == flow_op::FLOW_TABLE_GET || 
-           r->get_fr_op() == flow_op::FLOW_SET);
-
-    if (r->get_fr_op() == flow_op::FLOW_TABLE_GET) {
-        flow_ksync_->set_major_devid(r->get_fr_ftable_dev());
-        flow_ksync_->set_flow_table_size(r->get_fr_ftable_size());
-        flow_ksync_->set_flow_table_path(r->get_fr_file_path());
-        LOG(DEBUG, "Flow table size : " << r->get_fr_ftable_size());
-        return;
-    } 
+void KSyncSandeshContext::FlowResponseHandler(vr_flow_response *r) {
+    assert(r->get_fresp_op() == flow_op::FLOW_SET);
 
     const KSyncIoContext *ioc = ksync_io_ctx();
     FlowTableKSyncEntry *ksync_entry =
@@ -97,7 +88,7 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
     // be filled below as necessary
     ksync_entry->ResetKSyncResponseInfo();
 
-    assert(r->get_fr_op() == flow_op::FLOW_SET);
+    assert(r->get_fresp_op() == flow_op::FLOW_SET);
     int err = GetErrno();
     if (err == EBADF) {
         LogFlowError(r, err);
@@ -108,12 +99,16 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
         return;
     }
 
-    ksync_entry->SetKSyncResponseInfo(err, r->get_fr_index(),
-                                      r->get_fr_gen_id(),
-                                      r->get_fr_flow_bytes(),
-                                      r->get_fr_flow_packets(),
-                                      r->get_fr_flow_stats_oflow());
+    ksync_entry->SetKSyncResponseInfo(err, r->get_fresp_index(),
+                                      r->get_fresp_gen_id(),
+                                      r->get_fresp_bytes(),
+                                      r->get_fresp_packets(),
+                                      r->get_fresp_stats_oflow());
     return;
+}
+
+void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
+    assert(0);
 }
 
 void KSyncSandeshContext::IfMsgHandler(vr_interface_req *r) {

@@ -315,7 +315,13 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
         break;
     }
 
-    case FlowEvent::EVICT_FLOW:
+    case FlowEvent::EVICT_FLOW: {
+        FlowEntry *flow = event->flow();
+        FlowTable *table = flow->flow_table();
+        queue = flow_ksync_queue_[table->table_index()];
+        break;
+    }
+
     case FlowEvent::FREE_FLOW_REF: {
         FlowEntry *flow = event->flow();
         FlowTable *table = flow->flow_table();
@@ -341,10 +347,7 @@ void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
             (static_cast<FlowTableKSyncEntry *> (ksync_event->ksync_entry()));
         FlowEntry *flow = ksync_entry->flow_entry().get();
         FlowTable *table = flow->flow_table();
-        if (flow->flow_handle() == FlowEntry::kInvalidFlowHandle)
-            queue = flow_ksync_queue_[table->table_index()];
-        else
-            queue = flow_tokenless_queue_[table->table_index()];
+        queue = flow_ksync_queue_[table->table_index()];
         break;
     }
 
@@ -444,8 +447,7 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
 
     // Check if flow-handle changed. This can happen if vrouter tries to
     // setup the flow which was evicted earlier
-    case FlowEvent::UNRESOLVED_FLOW_ENTRY:
-    case FlowEvent::EVICT_FLOW: {
+    case FlowEvent::UNRESOLVED_FLOW_ENTRY: {
         FlowEntry *flow = req->flow();
         flow->flow_table()->ProcessFlowEvent(req, flow,
                                              flow->reverse_flow_entry());
@@ -486,6 +488,13 @@ bool FlowProto::FlowKSyncMsgHandler(FlowEvent *req, FlowTable *table) {
         FlowTableKSyncEntry *ksync_entry =
             (static_cast<FlowTableKSyncEntry *> (ksync_event->ksync_entry()));
         FlowEntry *flow = ksync_entry->flow_entry().get();
+        flow->flow_table()->ProcessFlowEvent(req, flow,
+                                             flow->reverse_flow_entry());
+        break;
+    }
+
+    case FlowEvent::EVICT_FLOW: {
+        FlowEntry *flow = req->flow();
         flow->flow_table()->ProcessFlowEvent(req, flow,
                                              flow->reverse_flow_entry());
         break;

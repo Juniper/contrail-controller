@@ -213,96 +213,83 @@ std::string GetVNFromRoutingInstance(const std::string &vn) {
     return tokens[0] + ":" + tokens[1] + ":" + tokens[2];
 }
 
-/* The sandesh data-structure used for communicating flows between agent and
- * vrouter represents source and destination IP (both v4 and v6) as a vector
- * of bytes. The below API is used to convert source and destination IP from
- * vector to either Ip4Address or Ip6Address based on family.
- */
-void VectorToIp(const std::vector<int8_t> &ip, int family, IpAddress *sip,
-                IpAddress *dip) {
-    if (family == Address::INET) {
-        assert(ip.size() >= 8);
-        boost::array<unsigned char, 4> sbytes;
-        boost::array<unsigned char, 4> dbytes;
-        for (int i = 0; i < 4; i++) {
-            sbytes[i] = ip.at(i);
-            dbytes[i] = ip.at((i + 4));
-        }
-        *sip = Ip4Address(sbytes);
-        *dip = Ip4Address(dbytes);
+void IpToU64(const IpAddress &sip, const IpAddress &dip,
+             uint64_t *sip_u, uint64_t *sip_l,
+             uint64_t *dip_u, uint64_t *dip_l) {
+    if (sip.is_v4()) {
+        *sip_l = htonl(sip.to_v4().to_ulong());
+        *sip_u = 0;
     } else {
-        boost::array<unsigned char, 16> sbytes;
-        boost::array<unsigned char, 16> dbytes;
-        assert(ip.size() >= 32);
-        for (int i = 0; i < 16; i++) {
-            sbytes[i] = ip.at(i);
-            dbytes[i] = ip.at((i + 16));
-        }
-        *sip = Ip6Address(sbytes);
-        *dip = Ip6Address(dbytes);
+        uint64_t data[2];
+        Ip6AddressToU64Array(sip.to_v6(), data, 2);
+        *sip_u = data[0];
+        *sip_l = data[1];
+    }
+
+    if (dip.is_v4()) {
+        *dip_l = htonl(dip.to_v4().to_ulong());
+        *dip_u = 0;
+    } else {
+        uint64_t data[2];
+        Ip6AddressToU64Array(dip.to_v6(), data, 2);
+        *dip_u = data[0];
+        *dip_l = data[1];
     }
 }
 
-std::vector<int8_t> IpToVector(const IpAddress &sip, const IpAddress &dip,
-                               Address::Family family) {
-    if (family == Address::INET) {
-        boost::array<unsigned char, 4> sbytes = sip.to_v4().to_bytes();
-        boost::array<unsigned char, 4> dbytes = dip.to_v4().to_bytes();
-        std::vector<int8_t> ip_vect(sbytes.begin(), sbytes.end());
-        std::vector<int8_t>::iterator it = ip_vect.begin();
-
-        ip_vect.insert(it + 4, dbytes.begin(), dbytes.end());
-        assert(ip_vect.size() == 8);
-        return ip_vect;
-    } else {
-        boost::array<unsigned char, 16> sbytes = sip.to_v6().to_bytes();
-        boost::array<unsigned char, 16> dbytes = dip.to_v6().to_bytes();
-        std::vector<int8_t> ip_vect(sbytes.begin(), sbytes.end());
-        std::vector<int8_t>::iterator it = ip_vect.begin();
-
-        ip_vect.insert(it + 16, dbytes.begin(), dbytes.end());
-        assert(ip_vect.size() == 32);
-        return ip_vect;
+void U64ToIpv6(uint64_t upper, uint64_t lower, IpAddress *ip) {
+    boost::asio::ip::address_v6::bytes_type bytes;
+    const unsigned char *ptr = (const unsigned char *)&lower;
+    for (unsigned int i = 0; i < sizeof(uint64_t); i++) {
+        bytes[i] = ptr[i];
     }
+    ptr = (const unsigned char *)&upper;
+    for (unsigned int i = 0; i < sizeof(uint64_t); i++) {
+        bytes[8 + i] = ptr[i];
+    }
+    *ip = Ip6Address(bytes);
 }
 
-/* The flow data-structure represented by vrouter has source and destination IP
- * address as single char array for both V4 and V6. The below API is used to
- * convert Source IP and destination IP from char array to either Ip4Address
- * or Ip6Address based on family.
- */
-void  CharArrayToIp(const unsigned char *ip, int size, int family,
-                    IpAddress *sip, IpAddress *dip) {
+void U64ToIp(uint64_t sip_u, uint64_t sip_l, uint64_t dip_u, uint64_t dip_l,
+             int family, IpAddress *sip, IpAddress *dip) {
     if (family == Address::INET) {
-        assert(size >= 8);
-        boost::array<unsigned char, 4> sbytes;
-        boost::array<unsigned char, 4> dbytes;
-        for (int i = 0; i < 4; i++) {
-            sbytes[i] = ip[i];
-            dbytes[i] = ip[i + 4];
-        }
-        *sip = Ip4Address(sbytes);
-        *dip = Ip4Address(dbytes);
+        *sip = Ip4Address(ntohl(sip_l & 0xFFFFFFFF));
+        *dip = Ip4Address(ntohl(dip_l & 0xFFFFFFFF));
     } else {
-        assert(size >= 32);
-        boost::array<unsigned char, 16> sbytes;
-        boost::array<unsigned char, 16> dbytes;
-        for (int i = 0; i < 16; i++) {
-            sbytes[i] = ip[i];
-            dbytes[i] = ip[i + 16];
-        }
-        *sip = Ip6Address(sbytes);
-        *dip = Ip6Address(dbytes);
+        U64ToIpv6(sip_u, sip_l, sip);
+        U64ToIpv6(dip_u, dip_l, dip);
     }
 }
 
 void Ip6AddressToU64Array(const Ip6Address &addr, uint64_t *arr, int size) {
-    uint32_t *words;
+    unsigned char *b;
+    uint64_t ip;
+    unsigned int i, j, k;
+
     if (size != 2)
         return;
-    words = (uint32_t *) (addr.to_bytes().c_array());
-    arr[0] = (((uint64_t)words[0] << 32) & 0xFFFFFFFF00000000U) |
-             ((uint64_t)words[1] & 0x00000000FFFFFFFFU);
-    arr[1] = (((uint64_t)words[2] << 32) & 0xFFFFFFFF00000000U) |
-             ((uint64_t)words[3] & 0x00000000FFFFFFFFU);
+
+    b = addr.to_bytes().c_array();
+
+    for (i = 0, j = 0, k = 0; i < 4; i++, j = j+4) {
+        ip = 0;
+
+        ip = ((((uint32_t)b[j]) << 24) & 0xFF000000) |
+             ((((uint32_t)b[j+1]) << 16) & 0x00FF0000) |
+             ((((uint32_t)b[j+2]) << 8) & 0x0000FF00) |
+             (((uint32_t)b[j+3]) & 0x000000FF);
+
+        if (i >= 2)
+            k = 1;
+
+        if (i%2) {
+            arr[k] = arr[k] | (ip & 0x00000000FFFFFFFFU);
+        } else {
+            arr[k] = (ip << 32) & 0xFFFFFFFF00000000U;
+        }
+    }
+
+
+    arr[0] = htobe64(arr[0]);
+    arr[1] = htobe64(arr[1]);
 }
