@@ -276,7 +276,7 @@ public:
         FlowStatsCollector *table = agent->flow_stats_manager()->
             default_flow_stats_collector_obj()->GetCollector(0);
         FlowExportInfo info(f, UTCTimestampUsec());
-        table->NewFlow(info);
+        table->NewFlow(info.flow());
     }
 
     void DeleteFlow(FlowEntry *f) {
