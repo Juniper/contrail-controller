@@ -49,6 +49,8 @@ public:
     virtual int VrResponseMsgHandler(vr_response *resp) = 0;
     virtual void MirrorMsgHandler(vr_mirror_req *req) = 0;
     virtual void FlowMsgHandler(vr_flow_req *req) = 0;
+    virtual void FlowResponseHandler(vr_flow_response *req) { assert(0); }
+    virtual void FlowTableInfoHandler(vr_flow_table_data *r) { assert(0); }
     virtual void VrfAssignMsgHandler(vr_vrf_assign_req *req) = 0;
     virtual void VrfStatsMsgHandler(vr_vrf_stats_req *req) = 0;
     virtual void DropStatsMsgHandler(vr_drop_stats_req *req) = 0;
@@ -256,6 +258,7 @@ public:
     int VrResponseMsgHandler(vr_response *resp);
     void MirrorMsgHandler(vr_mirror_req *req);
     void FlowMsgHandler(vr_flow_req *req);
+    void FlowResponseHandler(vr_flow_response *req);
     void VrfAssignMsgHandler(vr_vrf_assign_req *req);
     void VrfStatsMsgHandler(vr_vrf_stats_req *req);
     void DropStatsMsgHandler(vr_drop_stats_req *req);

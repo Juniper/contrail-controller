@@ -107,7 +107,18 @@ public:
         req.set_fr_index(hash_id);
         IpAddress saddr = IpAddress::from_string(sip);
         IpAddress daddr = IpAddress::from_string(dip);
-        req.set_fr_flow_ip(IpToVector(saddr, daddr, Address::INET));
+
+        uint64_t supper;
+        uint64_t slower;
+        uint64_t dupper;
+        uint64_t dlower;
+
+        IpToU64(saddr, daddr, &supper, &slower, &dupper, &dlower);
+        req.set_fr_flow_sip_l(slower);
+        req.set_fr_flow_sip_u(supper);
+        req.set_fr_flow_dip_l(dlower);
+        req.set_fr_flow_dip_u(dupper);
+
         req.set_fr_flow_proto(proto);
         req.set_fr_family(AF_INET);
         req.set_fr_flow_sport(htons(sport));

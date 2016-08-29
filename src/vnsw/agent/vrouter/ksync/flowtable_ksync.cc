@@ -197,6 +197,19 @@ void FlowTableKSyncEntry::SetPcapData(FlowEntryPtr fe,
     data.push_back(0x0);
 }
 
+static void EncodeKSyncIp(vr_flow_req *req, const IpAddress &sip,
+                          const IpAddress &dip) {
+    uint64_t supper, dupper, slower, dlower;
+
+
+    IpToU64(sip, dip, &supper, &slower, &dupper, &dlower);
+    req->set_fr_flow_sip_l(slower);
+    req->set_fr_flow_sip_u(supper);
+    req->set_fr_flow_dip_l(dlower);
+    req->set_fr_flow_dip_u(dupper);
+
+}
+
 int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     vr_flow_req &req = ksync_obj_->flow_req();
     int encode_len;
@@ -220,8 +233,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     req.set_fr_index(hash_id_);
     req.set_fr_gen_id(gen_id_);
     const FlowKey *fe_key = &flow_entry_->key();
-    req.set_fr_flow_ip(IpToVector(fe_key->src_addr, fe_key->dst_addr,
-                                  flow_entry_->key().family));
+    EncodeKSyncIp(&req, fe_key->src_addr, fe_key->dst_addr);
     req.set_fr_flow_proto(fe_key->protocol);
     req.set_fr_flow_sport(htons(fe_key->src_port));
     req.set_fr_flow_dport(htons(fe_key->dst_port));
@@ -243,12 +255,6 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         // the right token
         last_event_ = (FlowEvent::Event)flow_entry_->last_event();
     } else {
-        FlowEntry *rev_flow = flow_entry_->reverse_flow_entry();
-        if (rev_flow &&
-            rev_flow->flow_handle() == FlowEntry::kInvalidFlowHandle) {
-            return 0;
-        }
-
         flags = VR_FLOW_FLAG_ACTIVE;
         uint32_t fe_action = flow_entry_->match_p().action_info.action;
         if ((fe_action) & (1 << TrafficAction::PASS)) {
@@ -314,7 +320,6 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             req.set_fr_pcap_meta_data(pcap_data);
         }
 
-        req.set_fr_ftable_size(0);
         req.set_fr_ecmp_nh_index(flow_entry_->data().component_nh_idx);
 
         if (action == VR_FLOW_ACTION_NAT) {
@@ -370,9 +375,25 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             req.set_fr_src_nh_index(0);
         }
 
+        FlowEntry *rev_flow = flow_entry_->reverse_flow_entry();
         if (rev_flow) {
             flags |= VR_RFLOW_VALID;
             req.set_fr_rindex(rev_flow->flow_handle());
+            if (rev_flow->flow_handle() == FlowEntry::kInvalidFlowHandle) {
+                const FlowKey &rkey = rev_flow->key();
+                req.set_fr_rflow_nh_id(rkey.nh);
+                uint64_t supper, dupper, slower, dlower;
+
+                IpToU64(rkey.src_addr, rkey.dst_addr, &supper, &slower,
+                        &dupper, &dlower);
+                req.set_fr_rflow_sip_l(slower);
+                req.set_fr_rflow_sip_u(supper);
+                req.set_fr_rflow_dip_l(dlower);
+                req.set_fr_rflow_dip_u(dupper);
+
+                req.set_fr_rflow_sport(htons(rkey.src_port));
+                req.set_fr_rflow_dport(htons(rkey.dst_port));
+            }
         }
 
         req.set_fr_flags(flags);
@@ -394,8 +415,9 @@ bool FlowTableKSyncEntry::Sync() {
     FlowEntry *rev_flow = flow_entry_->reverse_flow_entry();   
     if (rev_flow) {
         if (old_reverse_flow_id_ != rev_flow->flow_handle()) {
+            if (old_reverse_flow_id_ != FlowEntry::kInvalidFlowHandle)
+                changed = true;
             old_reverse_flow_id_ = rev_flow->flow_handle();
-            changed = true;
         }
     }
 

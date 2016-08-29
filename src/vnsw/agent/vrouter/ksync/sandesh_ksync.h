@@ -57,7 +57,9 @@ public:
     }
 
     virtual int VrResponseMsgHandler(vr_response *r);
+    virtual void FlowTableInfoHandler(vr_flow_table_data *r);
     virtual void FlowMsgHandler(vr_flow_req *r);
+    virtual void FlowResponseHandler(vr_flow_response *r);
     virtual void VrouterOpsMsgHandler(vrouter_ops *r);
     
     int response_code() const { return response_code_; }
