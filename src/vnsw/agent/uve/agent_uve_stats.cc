@@ -47,6 +47,10 @@ void AgentUveStats::RegisterDBClients() {
     stats_manager_->RegisterDBClients();
 }
 
+void AgentUveStats::InitDone() {
+    stats_manager_->InitDone();
+}
+
 // The following is deprecated and is present only for backward compatibility
 void GetStatsInterval::HandleRequest() const {
     StatsIntervalResp_InSeconds *resp = new StatsIntervalResp_InSeconds();

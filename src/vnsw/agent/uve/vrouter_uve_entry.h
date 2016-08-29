@@ -6,7 +6,7 @@
 #define vnsw_agent_vrouter_uve_entry_h
 
 #include <uve/vrouter_uve_entry_base.h>
-#include <uve/stats_manager.h>
+#include <uve/agent_uve_stats.h>
 
 //The class that defines data-structures to store VRouter information
 //required for sending VRouter UVE.
@@ -25,9 +25,7 @@ public:
 protected:
     uint8_t bandwidth_count_;
     L4PortBitmap port_bitmap_;
-    uint64_t prev_flow_setup_rate_export_time_;
-    uint64_t prev_flow_created_;
-    uint64_t prev_flow_aged_;
+    FlowRateComputeInfo flow_info_;
 private:
     void InitPrevStats() const;
     void FetchDropStats(DerivedStatsMap &ds) const;
@@ -42,7 +40,10 @@ private:
                                          map<string,uint64_t> &omp, 
                                          uint8_t mins, double &in_util,
                                          double &out_util) const;
-    bool BuildPhysicalInterfaceList(std::vector<AgentIfStats> &list) const;
+    bool BuildPhysicalInterfaceFlowRate(std::map<std::string,
+                                        VrouterFlowRate> *rate) const;
+    bool BuildPhysicalInterfaceList(std::map<std::string, PhyIfStats> &list,
+                                    std::map<std::string, PhyIfInfo> info)const;
     std::string GetMacAddress(const MacAddress &mac) const;
     void BuildXmppStatsList(std::vector<AgentXmppStats> &list) const;
     void FetchIFMapStats(DerivedStatsMap &ds) const;

@@ -90,6 +90,19 @@ bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
         uve->set_fip_diff_stats(diff_fip_list);
     }
 
+    VrouterFlowRate flow_rate;
+    uint64_t created = 0, aged = 0;
+    uint32_t active_flows = 0;
+    agent_->pkt()->get_flow_proto()->InterfaceFlowCount(vm_intf, &created,
+                                                        &aged, &active_flows);
+    bool built = agent_uve->stats_manager()->BuildFlowRate(created, aged,
+                                                           s->added, s->deleted,
+                                                           s->flow_info,
+                                                           flow_rate);
+    if (built) {
+        flow_rate.set_active_flows(active_flows);
+        uve->set_flow_rate(flow_rate);
+    }
     return true;
 }
 
