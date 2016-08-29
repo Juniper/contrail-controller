@@ -164,6 +164,13 @@ def launch_disc_server(test_id, listen_ip, listen_port, http_server_port, conf_s
         disc_server.main(args_str)
 #end launch_disc_server
 
+class VncTestApp(TestApp):
+    def post_json(self, *args, **kwargs):
+        resp = super(VncTestApp, self).post_json(*args, **kwargs)
+        resp.charset = 'UTF-8'
+        return resp
+#end class VncTestApp
+
 def create_api_server_instance(test_id, config_knobs):
     ret_server_info = {}
     allocated_sockets = []
@@ -180,17 +187,20 @@ def create_api_server_instance(test_id, config_knobs):
         ret_server_info['service_port'])
     extra_env = {'HTTP_HOST': ret_server_info['ip'],
                  'SERVER_PORT': str(ret_server_info['service_port'])}
-    ret_server_info['app'] = TestApp(bottle.app(), extra_environ=extra_env)
+    api_server_obj = ret_server_info['greenlet'].api_server
+    ret_server_info['app'] = VncTestApp(api_server_obj.api_bottle,
+                                        extra_environ=extra_env)
     ret_server_info['api_conn'] = VncApi('u', 'p',
         api_server_host=ret_server_info['ip'],
         api_server_port=ret_server_info['service_port'])
 
-    FakeNovaClient.vnc_lib = ret_server_info['api_conn']
+    if FakeNovaClient.vnc_lib is None:
+        FakeNovaClient.vnc_lib = ret_server_info['api_conn']
     ret_server_info['api_session'] = requests.Session()
     adapter = requests.adapters.HTTPAdapter()
     ret_server_info['api_session'].mount("http://", adapter)
     ret_server_info['api_session'].mount("https://", adapter)
-    ret_server_info['api_server'] = vnc_cfg_api_server.server
+    ret_server_info['api_server'] = api_server_obj
     ret_server_info['api_server']._sandesh.set_logging_level(level="SYS_DEBUG")
 
     return ret_server_info
@@ -199,12 +209,21 @@ def create_api_server_instance(test_id, config_knobs):
 def destroy_api_server_instance(server_info):
     server_info['greenlet'].kill()
     server_info['api_server']._db_conn._msgbus.shutdown()
-    vhost_url = vnc_cfg_api_server.server._db_conn._msgbus._urls
+    vhost_url = server_info['api_server']._db_conn._msgbus._urls
     FakeKombu.reset(vhost_url)
-    FakeIfmapClient.reset()
+    FakeNovaClient.reset()
+    FakeIfmapClient.reset('8443')
     CassandraCFs.reset()
     FakeKazooClient.reset()
     FakeExtensionManager.reset()
+    for sock in server_info['allocated_sockets']:
+        sock.close()
+# end destroy_api_server_instance
+
+def destroy_api_server_instance_issu(server_info):
+    server_info['greenlet'].kill()
+    server_info['api_server']._db_conn._msgbus.shutdown()
+    vhost_url = server_info['api_server']._db_conn._msgbus._urls
     for sock in server_info['allocated_sockets']:
         sock.close()
 # end destroy_api_server_instance
@@ -234,7 +253,9 @@ def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
 
         args_str = args_str + "--conf_file %s " %(conf.name)
         args_str = args_str + "--logging_conf %s " %(logconf.name)
-        vnc_cfg_api_server.main(args_str)
+        server = vnc_cfg_api_server.VncApiServer(args_str)
+        gevent.getcurrent().api_server = server
+        vnc_cfg_api_server.main(args_str, server)
 #end launch_api_server
 
 def launch_svc_monitor(test_id, api_server_ip, api_server_port):
@@ -513,7 +534,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
     def _delete_test_object(self, obj):
         self._vnc_lib.virtual_network_delete(id=obj.uuid)
 
-    def ifmap_has_ident(self, obj=None, id=None):
+    def ifmap_has_ident(self, obj=None, id=None, port='8443'):
         if obj:
             _type = obj.get_type()
             _fq_name = obj.get_fq_name()
@@ -522,7 +543,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
             _fq_name = self._vnc_lib.id_to_fq_name(id)
 
         ifmap_id = imid.get_ifmap_id_from_fq_name(_type, _fq_name)
-        if ifmap_id in FakeIfmapClient._graph:
+        if ifmap_id in FakeIfmapClient._graph[port]:
             return True
 
         return False
@@ -600,7 +621,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         # wait for in-flight messages to be processed
         while self._api_server._db_conn._msgbus.num_pending_messages() > 0:
             gevent.sleep(0.001)
-        vhost_url = vnc_cfg_api_server.server._db_conn._msgbus._urls
+        vhost_url = self._api_server._db_conn._msgbus._urls
         while not FakeKombu.is_empty(vhost_url, 'vnc_config'):
             gevent.sleep(0.001)
         while self._api_server._db_conn._ifmap_db._queue.qsize() > 0:
