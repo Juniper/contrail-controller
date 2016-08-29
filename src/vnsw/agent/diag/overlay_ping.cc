@@ -62,15 +62,25 @@ void OverlayPingReq::HandleRequest() const {
     {
     Agent *agent = Agent::GetInstance();
     uuid vn_uuid = StringToUuid(get_vn_uuid());
-    Ip4Address sip(Ip4Address::from_string(get_source_ip(), ec));
+    IpAddress sip(IpAddress::from_string(get_source_ip(), ec));
     if (ec != 0) {
         err_str = "Invalid source IP";
         goto error;
     }
 
-    Ip4Address dip(Ip4Address::from_string(get_dest_ip(), ec));
+    if (!sip.is_v4()) {
+        err_str = "V6 is not supported";
+        goto error;
+    }
+
+    IpAddress dip(IpAddress::from_string(get_dest_ip(), ec));
     if (ec != 0) {
         err_str = "Invalid destination IP";
+        goto error;
+    }
+
+    if (!dip.is_v4()) {
+        err_str = "V6 is not supported";
         goto error;
     }
 
@@ -94,7 +104,7 @@ void OverlayPingReq::HandleRequest() const {
         goto error;
     }
 
-    BridgeRouteEntry *rt = OverlayPing::L2RouteGet(vxlan, get_vm_remote_mac(), 
+    BridgeRouteEntry *rt = OverlayPing::L2RouteGet(vxlan, get_vm_remote_mac(),
                                                    agent);
     if (!rt) {
         err_str = "Invalid remote mac";
@@ -163,7 +173,7 @@ void OverlayPing::SendRequest() {
     uint8_t  len;
     len = data_len_+2 * sizeof(udphdr)+sizeof(VxlanHdr)+
                             sizeof(struct ip) + sizeof(struct ether_header);
-    pkt_handler->UdpHdr(len, ntohl(tunnelsrc.to_ulong()), HashValUdpSourcePort(), 
+    pkt_handler->UdpHdr(len, ntohl(tunnelsrc.to_ulong()), HashValUdpSourcePort(),
                         ntohl(tunneldst.to_ulong()), VXLAN_UDP_DEST_PORT);
 
     pkt_handler->IpHdr(len + sizeof(struct ip), ntohl(tunnelsrc.to_ulong()),
@@ -185,9 +195,9 @@ void OverlayPing::SendRequest() {
     Ip4Address dip = Ip4Address::from_string("127.0.0.1", ec);
     pkt_info->transp.udp = (struct udphdr *)(pkt_info->ip + 1);
     len = data_len_+sizeof(struct udphdr);
-    pkt_handler->UdpHdr(len, sip_.to_ulong(), sport_, dip.to_ulong(), 
+    pkt_handler->UdpHdr(len, sip_.to_v4().to_ulong(), sport_, dip.to_ulong(),
                         VXLAN_UDP_DEST_PORT);
-    pkt_handler->IpHdr(len + sizeof(struct ip), ntohl(sip_.to_ulong()),
+    pkt_handler->IpHdr(len + sizeof(struct ip), ntohl(sip_.to_v4().to_ulong()),
                        ntohl(dip.to_ulong()), proto_, 
                        DEFAULT_IP_ID, DEFAULT_IP_TTL);
     //pkt_handler->SetDiagChkSum();
@@ -196,7 +206,7 @@ void OverlayPing::SendRequest() {
     Interface *intf = static_cast<Interface *>
                 (agent->interface_table()->Find(&key1, true));
     pkt_handler->Send(intf->id(), agent->fabric_vrf()->vrf_id(),
-                      AgentHdr::TX_SWITCH, CMD_PARAM_PACKET_CTRL, 
+                      AgentHdr::TX_SWITCH, CMD_PARAM_PACKET_CTRL,
                       CMD_PARAM_1_DIAG, PktHandler::DIAG);
 
     delete pkt_handler;

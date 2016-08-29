@@ -43,26 +43,55 @@ Ping::FillAgentHeader(AgentDiagPktData *ad) {
 DiagPktHandler*
 Ping::CreateTcpPkt(Agent *agent) {
     //Allocate buffer to hold packet
-    len_ = KPingTcpHdr + data_len_;
+    if (sip_.is_v4()) {
+        len_ = KPingTcpHdr + data_len_;
+    } else {
+        len_ = KPing6TcpHdr + data_len_;
+    }
     boost::shared_ptr<PktInfo> pkt_info(new PktInfo(agent, len_,
                                                     PktHandler::DIAG, 0));
     uint8_t *msg = pkt_info->packet_buffer()->data();
     memset(msg, 0, len_);
 
-    AgentDiagPktData *ad = (AgentDiagPktData *)(msg + KPingTcpHdr);
+    AgentDiagPktData *ad;
+    if (sip_.is_v4()) {
+        ad = (AgentDiagPktData *)(msg + KPingTcpHdr);
+    } else {
+        ad = (AgentDiagPktData *)(msg + KPing6TcpHdr);
+    }
+
     FillAgentHeader(ad);
     DiagPktHandler *pkt_handler = new DiagPktHandler(diag_table_->agent(), pkt_info,
                                    *(diag_table_->agent()->event_manager())->io_service());
 
     //Update pointers to ethernet header, ip header and l4 header
-    pkt_info->UpdateHeaderPtr();
-    pkt_handler->TcpHdr(htonl(sip_.to_ulong()), sport_,  htonl(dip_.to_ulong()),
-                        dport_, false, rand(), data_len_ + sizeof(tcphdr));
-    pkt_handler->IpHdr(data_len_ + sizeof(tcphdr) + sizeof(struct ip),
-                       ntohl(sip_.to_ulong()), ntohl(dip_.to_ulong()),
-                       IPPROTO_TCP, DEFAULT_IP_ID, DEFAULT_IP_TTL);
-    pkt_handler->EthHdr(agent->vhost_interface()->mac(),
-                        agent->vrrp_mac(), ETHERTYPE_IP);
+    if (sip_.is_v4()) {
+        pkt_info->UpdateHeaderPtr();
+        pkt_handler->TcpHdr(htonl(sip_.to_v4().to_ulong()), sport_,
+                            htonl(dip_.to_v4().to_ulong()), dport_, false, rand(),
+                            data_len_ + sizeof(tcphdr));
+        pkt_handler->IpHdr(data_len_ + sizeof(tcphdr) + sizeof(struct ip),
+                           ntohl(sip_.to_v4().to_ulong()),
+                           ntohl(dip_.to_v4().to_ulong()), IPPROTO_TCP,
+                           DEFAULT_IP_ID, DEFAULT_IP_TTL);
+        pkt_handler->EthHdr(agent->vhost_interface()->mac(),
+                            agent->vrrp_mac(), ETHERTYPE_IP);
+    }else {
+        pkt_info->eth = (struct ether_header *)(pkt_info->pkt);
+        pkt_info->ip6 = (struct ip6_hdr *)(pkt_info->eth + 1);
+        pkt_info->transp.tcp = (struct tcphdr *)(pkt_info->ip6 + 1);
+        pkt_handler->TcpHdr(data_len_ + sizeof(tcphdr),
+                            (uint8_t *)sip_.to_v6().to_string().c_str(), sport_,
+                            (uint8_t *)dip_.to_v6().to_string().c_str(), dport_,
+                            false, rand(), IPPROTO_TCP);
+        pkt_handler->Ip6Hdr(pkt_info->ip6,
+                            data_len_ + sizeof(tcphdr) + sizeof(struct ip6_hdr),
+                            IPPROTO_TCP, DEFAULT_IP_TTL,
+                            sip_.to_v6().to_bytes().data(),
+                            dip_.to_v6().to_bytes().data());
+        pkt_handler->EthHdr(agent->vhost_interface()->mac(),
+                            agent->vrrp_mac(), ETHERTYPE_IPV6);
+    }
 
     return pkt_handler;
 }
@@ -70,28 +99,55 @@ Ping::CreateTcpPkt(Agent *agent) {
 DiagPktHandler*
 Ping::CreateUdpPkt(Agent *agent) {
     //Allocate buffer to hold packet
-    len_ = KPingUdpHdr + data_len_;
+    if (sip_.is_v4()) {
+        len_ = KPingUdpHdr + data_len_;
+    } else {
+        len_ = KPing6UdpHdr + data_len_;
+    }
     boost::shared_ptr<PktInfo> pkt_info(new PktInfo(agent, len_,
                                                     PktHandler::DIAG, 0));
     uint8_t *msg = pkt_info->packet_buffer()->data();
     memset(msg, 0, len_);
 
-    AgentDiagPktData *ad = (AgentDiagPktData *)(msg + KPingUdpHdr);
+    AgentDiagPktData *ad;
+    if (sip_.is_v4()) {
+        ad = (AgentDiagPktData *)(msg + KPingUdpHdr);
+    } else {
+        ad = (AgentDiagPktData *)(msg + KPing6UdpHdr);
+    }
+
     FillAgentHeader(ad);
 
     DiagPktHandler *pkt_handler = new DiagPktHandler(diag_table_->agent(), pkt_info,
                                     *(diag_table_->agent()->event_manager())->io_service());
 
     //Update pointers to ethernet header, ip header and l4 header
-    pkt_info->UpdateHeaderPtr();
-    pkt_handler->UdpHdr(data_len_+ sizeof(udphdr), sip_.to_ulong(), sport_,
-                        dip_.to_ulong(), dport_);
-    pkt_handler->IpHdr(data_len_ + sizeof(udphdr) + sizeof(struct ip),
-                       ntohl(sip_.to_ulong()), ntohl(dip_.to_ulong()),
-                       IPPROTO_UDP, DEFAULT_IP_ID, DEFAULT_IP_TTL);
-    pkt_handler->EthHdr(agent->vhost_interface()->mac(),
-                        agent->vrrp_mac(), ETHERTYPE_IP);
-
+    if (sip_.is_v4()) {
+        pkt_info->UpdateHeaderPtr();
+        pkt_handler->UdpHdr(data_len_+ sizeof(udphdr), sip_.to_v4().to_ulong(), sport_,
+                            dip_.to_v4().to_ulong(), dport_);
+        pkt_handler->IpHdr(data_len_ + sizeof(udphdr) + sizeof(struct ip),
+                           ntohl(sip_.to_v4().to_ulong()), 
+                           ntohl(dip_.to_v4().to_ulong()), IPPROTO_UDP,
+                           DEFAULT_IP_ID, DEFAULT_IP_TTL);
+        pkt_handler->EthHdr(agent->vhost_interface()->mac(),
+                            agent->vrrp_mac(), ETHERTYPE_IP);
+    } else {
+        pkt_info->eth = (struct ether_header *)(pkt_info->pkt);
+        pkt_info->ip6 = (struct ip6_hdr *)(pkt_info->eth + 1);
+        pkt_info->transp.udp = (struct udphdr *)(pkt_info->ip6 + 1);
+        pkt_handler->UdpHdr(data_len_ + sizeof(udphdr),
+                            sip_.to_v6().to_bytes().data(), sport_,
+                            dip_.to_v6().to_bytes().data(), dport_,
+                            IPPROTO_UDP);
+        pkt_handler->Ip6Hdr(pkt_info->ip6,
+                            data_len_ + sizeof(udphdr) + sizeof(struct ip6_hdr),
+                            IPPROTO_UDP, DEFAULT_IP_TTL,
+                            sip_.to_v6().to_bytes().data(),
+                            dip_.to_v6().to_bytes().data());
+        pkt_handler->EthHdr(agent->vhost_interface()->mac(),
+                            agent->vrrp_mac(), ETHERTYPE_IPV6);
+    }
     return pkt_handler;
 }
 
@@ -110,8 +166,12 @@ void Ping::SendRequest() {
         break;
     }
 
-    InetUnicastAgentRouteTable *table =
-        agent->vrf_table()->GetInet4UnicastRouteTable(vrf_name_);
+    InetUnicastAgentRouteTable *table;
+    if (sip_.is_v4()) {
+        table = agent->vrf_table()->GetInet4UnicastRouteTable(vrf_name_);
+    } else {
+        table = agent->vrf_table()->GetInet6UnicastRouteTable(vrf_name_);
+    }
     AgentRoute *rt = table->FindRoute(sip_);
     if (!rt) {
         delete pkt_handler;
@@ -211,13 +271,13 @@ void PingReq::HandleRequest() const {
     Ping *ping = NULL;
 
     {
-    Ip4Address sip(Ip4Address::from_string(get_source_ip(), ec));
+    IpAddress sip(IpAddress::from_string(get_source_ip(), ec));
     if (ec != 0) {
         err_str = "Invalid source IP";
         goto error;
     }
 
-    Ip4Address dip(Ip4Address::from_string(get_dest_ip(), ec));
+    IpAddress dip(IpAddress::from_string(get_dest_ip(), ec));
     if (ec != 0) {
         err_str = "Invalid destination IP";
         goto error;
@@ -236,8 +296,12 @@ void PingReq::HandleRequest() const {
 
     const NextHop *nh = NULL;
     Agent *agent = Agent::GetInstance();
-    InetUnicastAgentRouteTable *table =
-        agent->vrf_table()->GetInet4UnicastRouteTable(get_vrf_name());
+    InetUnicastAgentRouteTable *table;
+    if (sip.is_v4()) {
+        table = agent->vrf_table()->GetInet4UnicastRouteTable(get_vrf_name());
+    } else {
+        table = agent->vrf_table()->GetInet6UnicastRouteTable(get_vrf_name());
+    }
     AgentRoute *rt = table->FindRoute(sip);
     if (rt) {
         nh = rt->GetActiveNextHop();

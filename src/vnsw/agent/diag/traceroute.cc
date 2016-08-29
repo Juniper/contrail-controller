@@ -16,7 +16,7 @@
 #include "diag/diag_types.h"
 #include "diag/diag.h"
 #include "diag/traceroute.h"
-
+#include <netinet/icmp6.h>
 void 
 TraceRoute::SendSandeshReply(const std::string &address,
                              const std::string &context,
@@ -54,8 +54,12 @@ void TraceRoute::FillHeader(AgentDiagPktData *data) {
 void TraceRoute::SendRequest() {
     Agent *agent = diag_table_->agent();
 
-    InetUnicastAgentRouteTable *table =
-        agent->vrf_table()->GetInet4UnicastRouteTable(vrf_name_);
+    InetUnicastAgentRouteTable *table;
+    if (sip_.is_v4()) {
+        table = agent->vrf_table()->GetInet4UnicastRouteTable(vrf_name_);
+    } else {
+        table = agent->vrf_table()->GetInet6UnicastRouteTable(vrf_name_);
+    }
     AgentRoute *rt = table->FindRoute(sip_);
     if (!rt) return;
 
@@ -77,45 +81,89 @@ void TraceRoute::SendRequest() {
     DiagPktHandler *pkt_handler =
         new DiagPktHandler(agent, pkt_info,
                            *(agent->event_manager())->io_service());
-
-    //Update pointers to ethernet header, ip header and l4 header
-    pkt_info->UpdateHeaderPtr();
     uint16_t len = sizeof(AgentDiagPktData);
     uint8_t *data = NULL;
-    switch (proto_) {
-        case IPPROTO_TCP:
-            len += sizeof(tcphdr);
-            data = (uint8_t *)pkt_handler->pkt_info()->transp.tcp + sizeof(tcphdr);
-            pkt_handler->TcpHdr(htonl(sip_.to_ulong()), sport_,
-                                htonl(dip_.to_ulong()), dport_,
-                                false, rand(), len);
-            pkt_handler->pkt_info()->transp.tcp->check = 0xffff;
-            break;
+    if (sip_.is_v4()) {
+    //Update pointers to ethernet header, ip header and l4 header
+        pkt_info->UpdateHeaderPtr();
+        switch (proto_) {
+            case IPPROTO_TCP:
+                len += sizeof(tcphdr);
+                data = (uint8_t *)pkt_handler->pkt_info()->transp.tcp + sizeof(tcphdr);
+                pkt_handler->TcpHdr(htonl(sip_.to_v4().to_ulong()), sport_,
+                                    htonl(dip_.to_v4().to_ulong()), dport_,
+                                    false, rand(), len);
+                pkt_handler->pkt_info()->transp.tcp->check = 0xffff;
+                break;
 
-        case IPPROTO_UDP:
-            len += sizeof(udphdr);
-            data = (uint8_t *)pkt_handler->pkt_info()->transp.udp + sizeof(udphdr);
-            pkt_handler->UdpHdr(len, sip_.to_ulong(), sport_,
-                                dip_.to_ulong(), dport_);
-            pkt_handler->pkt_info()->transp.udp->check = 0xffff;
-            break;
+            case IPPROTO_UDP:
+                len += sizeof(udphdr);
+                data = (uint8_t *)pkt_handler->pkt_info()->transp.udp + sizeof(udphdr);
+                pkt_handler->UdpHdr(len, sip_.to_v4().to_ulong(), sport_,
+                                    dip_.to_v4().to_ulong(), dport_);
+                pkt_handler->pkt_info()->transp.udp->check = 0xffff;
+                break;
 
-        case IPPROTO_ICMP:
-            len += 8;
-            data = (uint8_t *)pkt_handler->pkt_info()->transp.icmp + 8;
-            pkt_handler->pkt_info()->transp.icmp->icmp_type = ICMP_ECHO;
-            pkt_handler->pkt_info()->transp.icmp->icmp_code = 0;
-            pkt_handler->pkt_info()->transp.icmp->icmp_cksum = 0xffff;
-            break;
+            case IPPROTO_ICMP:
+                len += 8;
+                data = (uint8_t *)pkt_handler->pkt_info()->transp.icmp + 8;
+                pkt_handler->pkt_info()->transp.icmp->icmp_type = ICMP_ECHO;
+                pkt_handler->pkt_info()->transp.icmp->icmp_code = 0;
+                pkt_handler->pkt_info()->transp.icmp->icmp_cksum = 0xffff;
+                break;
+        }
+        FillHeader((AgentDiagPktData *)data);
+        len += sizeof(struct ip);
+        pkt_handler->IpHdr(len, ntohl(sip_.to_v4().to_ulong()),
+                           ntohl(dip_.to_v4().to_ulong()),
+                           proto_, key_, ttl_);
+        len += sizeof(ether_header);
+        pkt_handler->EthHdr(agent->vhost_interface()->mac(),
+                            agent->vrrp_mac(), ETHERTYPE_IP);
+    } else {
+        pkt_info->eth = (struct ether_header *)(pkt_handler->pkt_info()->pkt);
+        pkt_info->ip6 = (struct ip6_hdr *)(pkt_info->eth + 1);
+        switch (proto_) {
+            case IPPROTO_TCP:
+                pkt_info->transp.tcp = (struct tcphdr *)(pkt_info->ip6 + 1);
+                len += sizeof(tcphdr);
+                data = (uint8_t *)pkt_handler->pkt_info()->transp.tcp + sizeof(tcphdr);
+                pkt_handler->TcpHdr(len+sizeof(tcphdr),
+                                    sip_.to_v6().to_bytes().data(), sport_,
+                                    dip_.to_v6().to_bytes().data(), dport_,
+                                    false, rand(), IPPROTO_TCP);
+                pkt_handler->pkt_info()->transp.tcp->check = 0xffff;
+                break;
+
+            case IPPROTO_UDP:
+                pkt_info->transp.udp = (struct udphdr *)(pkt_info->ip6 + 1);
+                len += sizeof(udphdr);
+                data = (uint8_t *)pkt_handler->pkt_info()->transp.udp + sizeof(udphdr);
+                pkt_handler->UdpHdr(len + sizeof(udphdr),
+                                    sip_.to_v6().to_bytes().data(), sport_,
+                                    dip_.to_v6().to_bytes().data(), dport_,
+                                    IPPROTO_UDP);
+                pkt_handler->pkt_info()->transp.udp->check = 0xffff;
+                break;
+
+            case IPPROTO_ICMPV6:
+                len += 8;
+                data = (uint8_t *)pkt_handler->pkt_info()->transp.icmp + 8;
+                pkt_handler->pkt_info()->transp.icmp6->icmp6_type = ICMP6_ECHO_REQUEST;
+                pkt_handler->pkt_info()->transp.icmp6->icmp6_code = 0;
+                pkt_handler->pkt_info()->transp.icmp6->icmp6_cksum = 0xffff;
+                break;
+        }
+        FillHeader((AgentDiagPktData *)data);
+        len += sizeof(struct ip6_hdr);
+        pkt_handler->Ip6Hdr(pkt_info->ip6,
+                            len + sizeof(udphdr) + sizeof(struct ip6_hdr),
+                            IPPROTO_UDP, ttl_, sip_.to_v6().to_bytes().data(),
+                            dip_.to_v6().to_bytes().data());
+        len += sizeof(ether_header);
+        pkt_handler->EthHdr(agent->vhost_interface()->mac(),
+                            agent->vrrp_mac(), ETHERTYPE_IPV6);
     }
-    FillHeader((AgentDiagPktData *)data);
-    len += sizeof(struct ip);
-    pkt_handler->IpHdr(len, ntohl(sip_.to_ulong()), ntohl(dip_.to_ulong()),
-                       proto_, key_, ttl_);
-    len += sizeof(ether_header);
-    pkt_handler->EthHdr(agent->vhost_interface()->mac(),
-                        agent->vrrp_mac(), ETHERTYPE_IP);
-
     //Increment the attempt count
     seq_no_++;
 
@@ -174,13 +222,13 @@ void TraceRouteReq::HandleRequest() const {
     TraceRoute *trace_route = NULL;
 
     {
-        Ip4Address sip(Ip4Address::from_string(get_source_ip(), ec));
+        IpAddress sip(IpAddress::from_string(get_source_ip(), ec));
         if (ec != 0) {
             err_str = "Invalid source IP";
             goto error;
         }
 
-        Ip4Address dip(Ip4Address::from_string(get_dest_ip(), ec));
+        IpAddress dip(IpAddress::from_string(get_dest_ip(), ec));
         if (ec != 0) {
             err_str = "Invalid destination IP";
             goto error;
@@ -199,8 +247,12 @@ void TraceRouteReq::HandleRequest() const {
 
         const NextHop *nh = NULL;
         Agent *agent = Agent::GetInstance();
-        InetUnicastAgentRouteTable *table =
-            agent->vrf_table()->GetInet4UnicastRouteTable(get_vrf_name());
+        InetUnicastAgentRouteTable *table;
+        if (sip.is_v4()) {
+            table = agent->vrf_table()->GetInet4UnicastRouteTable(get_vrf_name());
+        } else {
+            table = agent->vrf_table()->GetInet6UnicastRouteTable(get_vrf_name());
+        }
         AgentRoute *rt = table->FindRoute(sip);
         if (rt) {
             nh = rt->GetActiveNextHop();
