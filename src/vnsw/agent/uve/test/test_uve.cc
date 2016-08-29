@@ -482,7 +482,7 @@ TEST_F(UveTest, SandeshTest) {
 
     int agent_stats_interval = collector->expiry_time();
     int flow_stats_interval = agent->flow_stats_manager()->
-        default_flow_stats_collector()->expiry_time();
+        default_flow_stats_collector_obj()->GetExpiryTime();
 
     //Set Flow stats interval to invalid value
     ClearCounters();
@@ -492,7 +492,7 @@ TEST_F(UveTest, SandeshTest) {
     EXPECT_EQ(1, error_responses_);
     EXPECT_EQ(0, success_responses_);
     EXPECT_EQ(flow_stats_interval, agent->flow_stats_manager()->
-              default_flow_stats_collector()->expiry_time());
+              default_flow_stats_collector_obj()->GetExpiryTime());
 
     //Set Agent stats interval to invalid value
     ClearCounters();
@@ -511,7 +511,7 @@ TEST_F(UveTest, SandeshTest) {
     EXPECT_EQ(0, error_responses_);
     EXPECT_EQ(1, success_responses_);
     EXPECT_EQ((3 * 1000), agent->flow_stats_manager()->
-                          default_flow_stats_collector()->expiry_time());
+                          default_flow_stats_collector_obj()->GetExpiryTime());
 
     //Set Agent stats interval to a valid value
     ClearCounters();

@@ -142,8 +142,11 @@ public:
     FlowAge() : Task((TaskScheduler::GetInstance()->GetTaskId(kTaskFlowStatsCollector)), 0) {
     }
     virtual bool Run() {
-        Agent::GetInstance()->flow_stats_manager()->
-            default_flow_stats_collector()->Run();
+        FlowStatsCollectorObject *obj = Agent::GetInstance()->
+            flow_stats_manager()->default_flow_stats_collector_obj();
+        for (int i = 0; i < FlowStatsCollectorObject::kMaxCollectors; i++) {
+            obj->GetCollector(i)->Run();
+        }
         return true;
     }
     std::string Description() const { return "FlowAge"; }

@@ -49,7 +49,6 @@ VmInterface *test0, *test1;
 class StatsTestMock : public ::testing::Test {
 public:
     StatsTestMock() : util_(), agent_(Agent::GetInstance()) {
-        col_ = agent_->flow_stats_manager()->default_flow_stats_collector();
         flow_proto_ = agent_->pkt()->get_flow_proto();
     }
     bool InterVnStatsMatch(const string &svn, const string &dvn, uint32_t pkts,
@@ -125,7 +124,7 @@ public:
 
         //To disable flow aging set the flow age time to high value
         Agent::GetInstance()->flow_stats_manager()->
-            default_flow_stats_collector()->UpdateFlowAgeTime(1000000 * 60 * 10);
+            default_flow_stats_collector_obj()->SetFlowAgeTime(1000000 * 60 * 10);
 
     }
     static void TestTeardown() {
@@ -190,7 +189,6 @@ public:
     }
     TestUveUtil util_;
     Agent* agent_;
-    FlowStatsCollector *col_;
     FlowProto *flow_proto_;
 };
 
@@ -510,11 +508,11 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
     int tmp_age_time = 1000 * 1000;
     Agent* agent = Agent::GetInstance();
     int bkp_age_time = agent->flow_stats_manager()->
-                           default_flow_stats_collector()->flow_age_time_intvl();
+                           default_flow_stats_collector_obj()->GetFlowAgeTime();
 
     //Set the flow age time to 1000 microsecond
-    agent->flow_stats_manager()->default_flow_stats_collector()->
-        UpdateFlowAgeTime(tmp_age_time);
+    agent->flow_stats_manager()->default_flow_stats_collector_obj()->
+        SetFlowAgeTime(tmp_age_time);
 
     usleep(tmp_age_time + 10);
     client->EnqueueFlowAge();
@@ -522,8 +520,8 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
     WAIT_FOR(100, 10000, (flow_proto_->FlowCount() == 0U));
 
     //Restore flow aging time
-    agent->flow_stats_manager()->default_flow_stats_collector()->
-        UpdateFlowAgeTime(bkp_age_time);
+    agent->flow_stats_manager()->default_flow_stats_collector_obj()->
+        SetFlowAgeTime(bkp_age_time);
 }
 
 TEST_F(StatsTestMock, FlowStatsTest_tcp_flags) {
@@ -541,8 +539,10 @@ TEST_F(StatsTestMock, FlowStatsTest_tcp_flags) {
     EXPECT_TRUE(f2 != NULL);
     FlowEntry *f2_rev = f2->reverse_flow_entry();
     EXPECT_TRUE(f2_rev != NULL);
-    FlowExportInfo *info = col_->FindFlowExportInfo(f2);
-    FlowExportInfo *rinfo = col_->FindFlowExportInfo(f2_rev);
+    FlowStatsCollector *fsc = f2->fsc();
+    EXPECT_TRUE(fsc != NULL);
+    FlowExportInfo *info = fsc->FindFlowExportInfo(f2);
+    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(f2_rev);
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
 
@@ -563,8 +563,8 @@ TEST_F(StatsTestMock, FlowStatsTest_tcp_flags) {
     util_.EnqueueFlowStatsCollectorTask();
     client->WaitForIdle(10);
 
-    info = col_->FindFlowExportInfo(f2);
-    rinfo = col_->FindFlowExportInfo(f2_rev);
+    info = fsc->FindFlowExportInfo(f2);
+    rinfo = fsc->FindFlowExportInfo(f2_rev);
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
     //Verify flow TCP flags
@@ -579,8 +579,8 @@ TEST_F(StatsTestMock, FlowStatsTest_tcp_flags) {
     util_.EnqueueFlowStatsCollectorTask();
     client->WaitForIdle(10);
 
-    info = col_->FindFlowExportInfo(f2);
-    rinfo = col_->FindFlowExportInfo(f2_rev);
+    info = fsc->FindFlowExportInfo(f2);
+    rinfo = fsc->FindFlowExportInfo(f2_rev);
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
     //Verify the updated flow TCP flags
@@ -910,8 +910,11 @@ TEST_F(StatsTestMock, Underlay_1) {
 
     FlowEntry *fe = flow[0].pkt_.FlowFetch();
     FlowEntry *rfe = fe->reverse_flow_entry();
-    FlowExportInfo *info = col_->FindFlowExportInfo(fe);
-    FlowExportInfo *rinfo = col_->FindFlowExportInfo(rfe);
+    EXPECT_TRUE(fe != NULL);
+    FlowStatsCollector *fsc = fe->fsc();
+    EXPECT_TRUE(fsc != NULL);
+    FlowExportInfo *info = fsc->FindFlowExportInfo(fe);
+    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rfe);
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
 
@@ -953,8 +956,11 @@ TEST_F(StatsTestMock, Underlay_2) {
 
     FlowEntry *fe = flow[0].pkt_.FlowFetch();
     FlowEntry *rfe = fe->reverse_flow_entry();
-    FlowExportInfo *info = col_->FindFlowExportInfo(fe);
-    FlowExportInfo *rinfo = col_->FindFlowExportInfo(rfe);
+    EXPECT_TRUE(fe != NULL);
+    FlowStatsCollector *fsc = fe->fsc();
+    EXPECT_TRUE(fsc != NULL);
+    FlowExportInfo *info = fsc->FindFlowExportInfo(fe);
+    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rfe);
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
 
@@ -997,8 +1003,11 @@ TEST_F(StatsTestMock, Underlay_3) {
 
     FlowEntry *fe = flow[0].pkt_.FlowFetch();
     FlowEntry *rfe = fe->reverse_flow_entry();
-    FlowExportInfo *info = col_->FindFlowExportInfo(fe);
-    FlowExportInfo *rinfo = col_->FindFlowExportInfo(rfe);
+    EXPECT_TRUE(fe != NULL);
+    FlowStatsCollector *fsc = fe->fsc();
+    EXPECT_TRUE(fsc != NULL);
+    FlowExportInfo *info = fsc->FindFlowExportInfo(fe);
+    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rfe);
     EXPECT_TRUE(info != NULL);
     EXPECT_TRUE(rinfo != NULL);
     client->WaitForIdle();
@@ -1030,9 +1039,7 @@ TEST_F(StatsTestMock, Underlay_3) {
 
     //Since encap type is MPLS_GRE verify that exported flow has
     //0 as underlay source port
-    FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>
-        (Agent::GetInstance()->flow_stats_manager()->
-         default_flow_stats_collector());
+    FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>(fsc);
     FlowLogData flow_log = f->last_sent_flow_log();
     EXPECT_EQ(flow_log.get_underlay_source_port(), 0);
 
@@ -1272,11 +1279,12 @@ TEST_F(StatsTestMock, FlowSyncFlow) {
     //Verify flow count
     EXPECT_EQ(2U, flow_proto_->FlowCount());
 
+    FlowStatsCollector *fsc = f2->fsc();
+    EXPECT_TRUE(fsc != NULL);
     KSyncSockTypeMap::IncrFlowStats(hash_id, 1, 30);
     KSyncSockTypeMap::SetTcpFlag(hash_id, VR_FLOW_TCP_SYN);
     KSyncSockTypeMap::SetTcpFlag(f2_rev->flow_handle(), VR_FLOW_TCP_SYN_R);
-    Agent::GetInstance()->flow_stats_manager()->default_flow_stats_collector()->
-         set_flow_tcp_syn_age_time(1000000 * 1);
+    fsc->set_flow_tcp_syn_age_time(1000000 * 1);
     sleep(1);
     //Invoke FlowStatsCollector to update the stats
     util_.EnqueueFlowStatsCollectorTask();

@@ -21,6 +21,7 @@ do {\
 } while(0);
 
 class FlowStatsCollector;
+class FlowStatsCollectorObject;
 
 struct FlowAgingTableKey {
     FlowAgingTableKey(const uint8_t &protocol, const uint16_t &dst_port):
@@ -71,7 +72,7 @@ public:
     static const uint32_t kDefaultFlowSamplingThreshold = 500;
     static const uint32_t kMinFlowSamplingThreshold = 20;
 
-    typedef boost::shared_ptr<FlowStatsCollector> FlowAgingTablePtr;
+    typedef boost::shared_ptr<FlowStatsCollectorObject> FlowAgingTablePtr;
 
     typedef std::map<const FlowAgingTableKey, FlowAgingTablePtr>
                      FlowAgingTableMap;
@@ -82,8 +83,8 @@ public:
     ~FlowStatsManager();
 
     Agent* agent() { return agent_; }
-    FlowStatsCollector* default_flow_stats_collector() {
-        return default_flow_stats_collector_.get();
+    FlowStatsCollectorObject* default_flow_stats_collector_obj() {
+        return default_flow_stats_collector_obj_.get();
     }
 
     //Add protocol + port based flow aging table
@@ -112,7 +113,7 @@ public:
     }
 
     FlowStatsCollector* GetFlowStatsCollector(const FlowEntry *p) const;
-    const FlowStatsCollector* Find(uint32_t proto, uint32_t port) const;
+    const FlowStatsCollectorObject* Find(uint32_t proto, uint32_t port) const;
 
     bool RequestHandler(boost::shared_ptr<FlowStatsCollectorReq> req);
     void AddReqHandler(boost::shared_ptr<FlowStatsCollectorReq> req);
@@ -164,6 +165,7 @@ public:
                                     uint32_t port,
                                     uint64_t protocol);
     void FreeIndex(uint32_t idx);
+    uint32_t AllocateIndex();
     void UpdateFlowExportStats(uint32_t count, bool sampled_flow);
 
     void SetProfileData(ProfileData *data);
@@ -174,10 +176,12 @@ private:
     friend class FlowStatsCollector;
     bool UpdateFlowThreshold(void);
     void UpdateThreshold(uint32_t new_value);
+    FlowStatsCollectorObject* GetFlowStatsCollectorObject(const FlowEntry *flow)
+        const;
     Agent *agent_;
     WorkQueue<boost::shared_ptr<FlowStatsCollectorReq> > request_queue_;
     FlowAgingTableMap flow_aging_table_map_;
-    FlowAgingTablePtr default_flow_stats_collector_;
+    FlowAgingTablePtr default_flow_stats_collector_obj_;
     tbb::atomic<uint32_t> flow_export_count_;
     uint64_t prev_flow_export_rate_compute_time_;
     uint32_t flow_export_rate_;
@@ -191,7 +195,7 @@ private:
     Timer* timer_;
     bool delete_short_flow_;
     //Protocol based array for minimal tree comparision
-    FlowStatsCollector* protocol_list_[256];
+    FlowStatsCollectorObject* protocol_list_[256];
     IndexVector<FlowStatsCollector> instance_table_;
 };
 #endif //vnsw_agent_flow_stats_manager_h

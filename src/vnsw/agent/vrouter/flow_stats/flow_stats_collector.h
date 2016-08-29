@@ -152,6 +152,7 @@ public:
     friend class FlowStatsRecordsReq;
     friend class FetchFlowStatsRecord;
     friend class FlowStatsManager;
+    friend class FlowStatsCollectorObject;
 protected:
     virtual void DispatchFlowMsg(const std::vector<FlowLogData> &lst);
 
@@ -249,4 +250,30 @@ private:
     uint32_t timers_per_scan_;
     DISALLOW_COPY_AND_ASSIGN(FlowStatsCollector);
 };
+
+class FlowStatsCollectorObject {
+public:
+    static const int kMaxCollectors = 2;
+    typedef boost::shared_ptr<FlowStatsCollector> FlowStatsCollectorPtr;
+    FlowStatsCollectorObject(Agent *agent, FlowStatsCollectorReq *req,
+                             FlowStatsManager *mgr);
+    FlowStatsCollector* GetCollector(uint8_t idx) const;
+    void SetExpiryTime(int time);
+    int GetExpiryTime() const;
+    void MarkDelete();
+    void ClearDelete();
+    bool IsDeleted() const;
+    void SetFlowAgeTime(uint64_t value);
+    uint64_t GetFlowAgeTime() const;
+    bool CanDelete() const;
+    void Shutdown();
+    FlowStatsCollector* FlowToCollector(const FlowEntry *flow);
+    void UpdateAgeTimeInSeconds(uint32_t age_time);
+    uint32_t GetAgeTimeInSeconds() const;
+    size_t Size() const;
+private:
+    FlowStatsCollectorPtr collectors[kMaxCollectors];
+    DISALLOW_COPY_AND_ASSIGN(FlowStatsCollectorObject);
+};
+
 #endif //vnsw_agent_flow_stats_collector_h

@@ -15,9 +15,9 @@
 
 TEST_F(FlowTest, Nat_FlowAge_1) {
     int tmp_age_time = 10 * 1000;
-    int bkp_age_time = flow_stats_collector_->flow_age_time_intvl();
+    int bkp_age_time = flow_stats_collector_->GetFlowAgeTime();
     //Set the flow age time to 100 microsecond
-    flow_stats_collector_->UpdateFlowAgeTime(tmp_age_time);
+    flow_stats_collector_->SetFlowAgeTime(tmp_age_time);
 
     TestFlow flow[] = {
         {
@@ -53,7 +53,7 @@ TEST_F(FlowTest, Nat_FlowAge_1) {
     WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0U));
 
     //Restore flow aging time
-    flow_stats_collector_->UpdateFlowAgeTime(bkp_age_time);
+    flow_stats_collector_->SetFlowAgeTime(bkp_age_time);
 }
 
 TEST_F(FlowTest, NonNatFlowAdd_1) {

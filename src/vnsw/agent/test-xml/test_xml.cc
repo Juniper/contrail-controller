@@ -28,8 +28,10 @@ public:
         fe_(fe), bytes_(bytes), pkts_(pkts) {
     }
     virtual bool Run() {
-        FlowStatsCollector *fec = Agent::GetInstance()->flow_stats_manager()->
-                                      default_flow_stats_collector();
+        FlowStatsCollector *fec = fe_->fsc();
+        if (!fec) {
+            return true;
+        }
         FlowExportInfo *info = fec->FindFlowExportInfo(fe_);
         if (!info) {
             return true;

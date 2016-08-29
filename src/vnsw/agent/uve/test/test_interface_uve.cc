@@ -114,10 +114,16 @@ public:
 
     virtual void SetUp() {
         agent_->flow_stats_manager()->set_delete_short_flow(false);
-        FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>
-            (agent_->flow_stats_manager()->default_flow_stats_collector());
-        f->ClearList();
-        EXPECT_EQ(0U, f->ingress_flow_log_list().size());
+        FlowStatsCollectorObject *obj = agent_->flow_stats_manager()->
+            default_flow_stats_collector_obj();
+        FlowStatsCollectorTest *f1 = static_cast<FlowStatsCollectorTest *>
+            (obj->GetCollector(0));
+        FlowStatsCollectorTest *f2 = static_cast<FlowStatsCollectorTest *>
+            (obj->GetCollector(1));
+        f1->ClearList();
+        EXPECT_EQ(0U, f1->ingress_flow_log_list().size());
+        f2->ClearList();
+        EXPECT_EQ(0U, f2->ingress_flow_log_list().size());
         AddIPAM("vn5", ipam_info, 1);
         client->WaitForIdle();
         AddIPAM("default-project:vn4", ipam_info2, 1);
@@ -728,8 +734,6 @@ TEST_F(InterfaceUveTest, FipStats_1) {
     //Verify that stats FIP entry is created on FIP config add
     EXPECT_EQ(1U, vmut->GetVmIntfFipCount(flow0));
 
-    FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_manager()->
-                                  default_flow_stats_collector();
     TestFlow flow[] = {
         {
             TestFlowPkt(Address::INET, vm1_ip, vm4_ip, 1, 0, 0, "vrf5",
@@ -758,6 +762,8 @@ TEST_F(InterfaceUveTest, FipStats_1) {
     WAIT_FOR(100, 1000, (fip->in_packets_ == 1U));
     WAIT_FOR(100, 1000, (fip->out_packets_ == 1U));
 
+    FlowStatsCollector *fsc = f1->fsc();
+    EXPECT_TRUE(fsc != NULL);
     FlowExportInfo *info = fsc->FindFlowExportInfo(f1);
     FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev);
     EXPECT_TRUE(info != NULL);
@@ -793,8 +799,6 @@ TEST_F(InterfaceUveTest, FipStats_2) {
     //Verify that stats FIP entry is created on FIP config add
     EXPECT_EQ(1U, vmut->GetVmIntfFipCount(flow0));
 
-    FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_manager()->
-                                  default_flow_stats_collector();
     TestFlow flow[] = {
         {
             TestFlowPkt(Address::INET, vm1_ip, vm4_ip, 1, 0, 0, "vrf5",
@@ -816,6 +820,8 @@ TEST_F(InterfaceUveTest, FipStats_2) {
     EXPECT_TRUE(FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(), vm4_ip,
                         vm1_fip, 1, 0, 0, rev->key().nh));
 
+    FlowStatsCollector *fsc = f1->fsc();
+    EXPECT_TRUE(fsc != NULL);
     FlowExportInfo *info = fsc->FindFlowExportInfo(f1);
     FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev);
     EXPECT_TRUE(info != NULL);
@@ -852,8 +858,6 @@ TEST_F(InterfaceUveTest, FipStats_3) {
     //Verify that stats FIP entry is created on FIP config add
     EXPECT_EQ(1U, vmut->GetVmIntfFipCount(flow0));
 
-    FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_manager()->
-                                  default_flow_stats_collector();
     TestFlow flow[] = {
         {
             TestFlowPkt(Address::INET, vm1_ip, vm4_ip, 1, 0, 0, "vrf5",
@@ -889,6 +893,8 @@ TEST_F(InterfaceUveTest, FipStats_3) {
     WAIT_FOR(100, 1000, (fip->in_packets_ == 1U));
     WAIT_FOR(100, 1000, (fip->out_packets_ == 1U));
 
+    FlowStatsCollector *fsc = f1->fsc();
+    EXPECT_TRUE(fsc != NULL);
     FlowExportInfo *info = fsc->FindFlowExportInfo(f1);
     FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev);
     EXPECT_TRUE(info != NULL);
@@ -949,8 +955,6 @@ TEST_F(InterfaceUveTest, FipStats_4) {
     //Verify that stats FIP entry is created on FIP config add
     EXPECT_EQ(1U, vmut->GetVmIntfFipCount(flowa));
 
-    FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_manager()->
-                                  default_flow_stats_collector();
     TestFlow flow[] = {
         {
             TestFlowPkt(Address::INET, vm_a_ip, vm_c_fip2, 1, 0, 0, "vrf6",
@@ -978,6 +982,8 @@ TEST_F(InterfaceUveTest, FipStats_4) {
     EXPECT_TRUE(fip != NULL);
     WAIT_FOR(100, 1000, (fip->in_packets_ == 1U));
     WAIT_FOR(100, 1000, (fip->out_packets_ == 1U));
+    FlowStatsCollector *fsc = f1->fsc();
+    EXPECT_TRUE(fsc != NULL);
 
     FlowExportInfo *info = fsc->FindFlowExportInfo(f1);
     FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev);
@@ -1037,8 +1043,6 @@ TEST_F(InterfaceUveTest, FipStats_5) {
     //Verify that stats FIP entry is created on FIP config add
     EXPECT_EQ(1U, vmut->GetVmIntfFipCount(flow0));
 
-    FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_manager()->
-                                  default_flow_stats_collector();
     CreatePeer();
     util_.CreateRemoteRoute("default-project:vn4:vn4", remote_vm_fip,
                       remote_router_ip, 30, "default-project:vn4", peer_);
@@ -1069,6 +1073,8 @@ TEST_F(InterfaceUveTest, FipStats_5) {
     WAIT_FOR(100, 1000, (fip->in_packets_ == 1U));
     WAIT_FOR(100, 1000, (fip->out_packets_ == 1U));
 
+    FlowStatsCollector *fsc = f1->fsc();
+    EXPECT_TRUE(fsc != NULL);
     FlowExportInfo *info = fsc->FindFlowExportInfo(f1);
     FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rev);
     EXPECT_TRUE(info != NULL);

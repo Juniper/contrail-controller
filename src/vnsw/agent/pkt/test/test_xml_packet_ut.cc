@@ -32,8 +32,12 @@ static void GetArgs(char *test_file, int argc, char *argv[]) {
     return;
 }
 
-static bool FlowStatsTimerStartStopTrigger(FlowStatsCollector *fsc, bool stop) {
-    fsc->TestStartStopTimer(stop);
+static bool FlowStatsTimerStartStopTrigger(FlowStatsCollectorObject *obj,
+                                           bool stop) {
+    for (int i = 0; i < FlowStatsCollectorObject::kMaxCollectors; i++) {
+        FlowStatsCollector *fsc = obj->GetCollector(i);
+        fsc->TestStartStopTimer(stop);
+    }
     return true;
 }
 
@@ -44,7 +48,7 @@ public:
         proto_ = agent_->pkt()->get_flow_proto();
         interface_count_ = agent_->interface_table()->Size();
         flow_stats_collector_ = agent_->flow_stats_manager()->
-            default_flow_stats_collector();
+            default_flow_stats_collector_obj();
         FlowStatsTimerStartStop(true);
         AddIPAM("vn1", ipam_info, 1);
         client->WaitForIdle();
@@ -74,7 +78,7 @@ public:
     Agent *agent_;
     FlowProto *proto_;
     uint32_t interface_count_;
-    FlowStatsCollector* flow_stats_collector_;
+    FlowStatsCollectorObject* flow_stats_collector_;
 };
 
 TEST_F(TestPkt, parse_1) {
@@ -266,7 +270,7 @@ int main(int argc, char *argv[]) {
 
     client = XmlPktParseTestInit(init_file, ksync_init);
     client->agent()->flow_stats_manager()->
-        default_flow_stats_collector()->set_expiry_time(1000*1000);
+        default_flow_stats_collector_obj()->SetExpiryTime(1000*1000);
     client->agent()->flow_stats_manager()->set_delete_short_flow(false);
     boost::system::error_code ec;
     bgp_peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),

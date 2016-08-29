@@ -107,8 +107,12 @@ static void NHNotify(DBTablePartBase *partition, DBEntryBase *entry) {
 }
 
 static bool FlowStatsTimerStartStopTrigger (bool stop) {
-    Agent::GetInstance()->flow_stats_manager()->\
-        default_flow_stats_collector()->TestStartStopTimer(stop);
+    FlowStatsCollectorObject *obj = Agent::GetInstance()->flow_stats_manager()->
+        default_flow_stats_collector_obj();
+    for (int i = 0; i < FlowStatsCollectorObject::kMaxCollectors; i++) {
+        FlowStatsCollector *fsc = obj->GetCollector(i);
+        fsc->TestStartStopTimer(stop);
+    }
     return true;
 }
 
@@ -128,7 +132,7 @@ public:
         vhost = static_cast<InetInterface *>(Agent::GetInstance()->
                 interface_table()->FindActiveEntry(key.get()));
         flow_stats_collector_ = Agent::GetInstance()->flow_stats_manager()->
-                                    default_flow_stats_collector();
+                                    default_flow_stats_collector_obj();
     }
 
     bool FlowTableWait(size_t count) {
@@ -804,7 +808,7 @@ protected:
 public:
     Agent *agent_;
     FlowProto *flow_proto_;
-    FlowStatsCollector* flow_stats_collector_;
+    FlowStatsCollectorObject* flow_stats_collector_;
 };
 
 bool FlowTest::ksync_init_;

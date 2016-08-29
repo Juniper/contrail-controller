@@ -181,8 +181,9 @@ TEST_F(FlowStatsTest, FlowTreeSize) {
     FlowEntry *rfe = fe->reverse_flow_entry();
     EXPECT_TRUE(fe != NULL);
     EXPECT_TRUE(rfe != NULL);
-    FlowStatsCollector *col =
-        agent_->flow_stats_manager()->default_flow_stats_collector();
+    FlowStatsCollector *col = fe->fsc();
+    EXPECT_TRUE(col != NULL);
+
     FlowExportInfo *info = col->FindFlowExportInfo(fe);
     FlowExportInfo *rinfo = col->FindFlowExportInfo(rfe);
     EXPECT_TRUE(info != NULL);

@@ -19,8 +19,7 @@ public:
             return true;
         }
         FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>
-                                    (Agent::GetInstance()->flow_stats_manager()
-                                     ->default_flow_stats_collector());
+                                    (fe_->fsc());
         FlowExportInfo *info = f->FindFlowExportInfo(fe_);
         if (info) {
             info->SetActionLog();
@@ -93,8 +92,11 @@ public:
               0) {
     }
     virtual bool Run() {
-        Agent::GetInstance()->flow_stats_manager()->
-            default_flow_stats_collector()->Run();
+        FlowStatsCollectorObject *obj = Agent::GetInstance()->
+            flow_stats_manager()->default_flow_stats_collector_obj();
+        for (int i = 0; i < FlowStatsCollectorObject::kMaxCollectors; i++) {
+            obj->GetCollector(i)->Run();
+        }
     }
     std::string Description() const { return "FlowStatsCollectorTask"; }
 };
@@ -153,8 +155,12 @@ public:
     std::string Description() const { return "VmiUveSendTask"; }
 };
 
-static bool FlowStatsTimerStartStopTrigger(FlowStatsCollector *fsc, bool stop) {
-    fsc->TestStartStopTimer(stop);
+static bool FlowStatsTimerStartStopTrigger(FlowStatsCollectorObject *obj,
+                                           bool stop) {
+    for (int i = 0; i < FlowStatsCollectorObject::kMaxCollectors; i++) {
+        FlowStatsCollector *fsc = obj->GetCollector(i);
+        fsc->TestStartStopTimer(stop);
+    }
     return true;
 }
 
@@ -219,13 +225,13 @@ public:
 
     void FlowStatsTimerStartStop(bool stop) {
         Agent *agent = Agent::GetInstance();
-        FlowStatsCollector* fsc = agent->flow_stats_manager()->
-            default_flow_stats_collector();
+        FlowStatsCollectorObject* obj = agent->flow_stats_manager()->
+            default_flow_stats_collector_obj();
         int task_id =
             agent->task_scheduler()->GetTaskId(kTaskFlowStatsCollector);
         std::auto_ptr<TaskTrigger> trigger_
             (new TaskTrigger(boost::bind(FlowStatsTimerStartStopTrigger,
-                                         fsc, stop),
+                                         obj, stop),
                              task_id, 0));
         trigger_->Set();
         client->WaitForIdle();

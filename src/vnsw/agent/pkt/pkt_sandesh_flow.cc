@@ -432,17 +432,17 @@ void FlowAgeTimeReq::HandleRequest() const {
     Agent *agent = Agent::GetInstance();
     uint32_t age_time = get_new_age_time();
 
-    FlowStatsCollector *collector =
-        agent->flow_stats_manager()->default_flow_stats_collector();
+    FlowStatsCollectorObject *obj =
+        agent->flow_stats_manager()->default_flow_stats_collector_obj();
 
     FlowAgeTimeResp *resp = new FlowAgeTimeResp();
-    if (collector == NULL) {
+    if (obj == NULL) {
         goto done;
     }
-    resp->set_old_age_time(collector->flow_age_time_intvl_in_secs());
+    resp->set_old_age_time(obj->GetAgeTimeInSeconds());
 
     if (age_time && age_time != resp->get_old_age_time()) {
-        collector->UpdateFlowAgeTimeInSecs(age_time);
+        obj->UpdateAgeTimeInSeconds(age_time);
         resp->set_new_age_time(age_time);
     } else {
         resp->set_new_age_time(resp->get_old_age_time());
@@ -495,8 +495,8 @@ bool PktSandeshFlowStats::Run() {
 
     FlowTable *flow_obj = agent_->pkt()->flow_table(partition_id_);
     FlowStatsManager *fm = agent_->flow_stats_manager();
-    const FlowStatsCollector *fsc = fm->Find(proto_, port_);
-    if (!fsc) {
+    const FlowStatsCollectorObject *fsc_obj = fm->Find(proto_, port_);
+    if (!fsc_obj) {
         FlowErrorResp *resp = new FlowErrorResp();
         SendResponse(resp);
         return true;
@@ -519,7 +519,10 @@ bool PktSandeshFlowStats::Run() {
 
     while (it != flow_obj->flow_entry_map_.end()) {
         FlowEntry *fe = it->second;
-        const FlowExportInfo *info = fsc->FindFlowExportInfo(fe);
+        const FlowExportInfo *info = NULL;
+        if (fe->fsc()) {
+            info = fe->fsc()->FindFlowExportInfo(fe);
+        }
         SetSandeshFlowData(list, fe, info);
         ++it;
         count++;

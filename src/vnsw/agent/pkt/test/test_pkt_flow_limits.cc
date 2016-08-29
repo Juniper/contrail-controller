@@ -61,9 +61,12 @@ VmInterface *vmi_3;
 std::string eth_itf;
 
 static bool FlowStatsTimerStartStopTrigger (Agent *agent, bool stop) {
-    FlowStatsCollector *stats =
-        agent->flow_stats_manager()->default_flow_stats_collector();
-    stats->TestStartStopTimer(stop);
+    FlowStatsCollectorObject *obj = agent->flow_stats_manager()->
+        default_flow_stats_collector_obj();
+    for (int i = 0; i < FlowStatsCollectorObject::kMaxCollectors; i++) {
+        FlowStatsCollector *fsc = obj->GetCollector(i);
+        fsc->TestStartStopTimer(stop);
+    }
     return true;
 }
 
