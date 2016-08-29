@@ -28,6 +28,7 @@ local_sources = [
     'device_manager/__init__.py',
     'device_manager/device_manager.py',
     'device_manager/db.py',
+    'device_manager/dm_utils.py',
     'device_manager/physical_router_config.py',
 ]
 
