@@ -17,6 +17,10 @@ public:
                                         sizeof(struct ip) + sizeof(udphdr);
     static const uint32_t KPingTcpHdr = sizeof(struct ether_header) +
                                         sizeof(struct ip) + sizeof(tcphdr);
+    static const uint32_t KPing6UdpHdr = sizeof(struct ether_header) +
+                                        sizeof(struct ip6_hdr) + sizeof(udphdr);
+    static const uint32_t KPing6TcpHdr = sizeof(struct ether_header) +
+                                        sizeof(struct ip6_hdr) + sizeof(tcphdr);
     Ping(const PingReq *pr,DiagTable *diag_table);
     virtual ~Ping();
     virtual void SendRequest();

@@ -16,6 +16,9 @@
 #include "diag/overlay_ping.h"
 #include "oper/mirror_table.h"
 #include <oper/vxlan.h>
+#include <netinet/icmp6.h>
+#include "services/icmpv6_handler.h"
+
 using namespace boost::posix_time; 
 void DiagPktHandler::SetReply() {
     AgentDiagPktData *ad = (AgentDiagPktData *)pkt_info_->data;
@@ -23,7 +26,13 @@ void DiagPktHandler::SetReply() {
 }
 
 void DiagPktHandler::SetDiagChkSum() {
-    switch(pkt_info_->ip->ip_p) {
+    uint8_t proto;
+    if (pkt_info_->ip) {
+        proto = pkt_info_->ip->ip_p;
+    } else {
+        proto = pkt_info_->ip6->ip6_nxt;
+    }
+    switch(proto) {
         case IPPROTO_TCP:
             pkt_info_->transp.tcp->th_sum = 0xffff;
             break;
@@ -34,6 +43,9 @@ void DiagPktHandler::SetDiagChkSum() {
 
         case IPPROTO_ICMP:
             pkt_info_->transp.icmp->icmp_cksum = 0xffff;
+            break;
+        case IPPROTO_ICMPV6:
+            pkt_info_->transp.icmp6->icmp6_cksum = 0xffff;
             break;
 
         default:
@@ -66,12 +78,16 @@ bool DiagPktHandler::IsOverlayPingPacket() {
 bool DiagPktHandler::HandleTraceRoutePacket() {
 
     uint32_t rabit =0;
-    if (pkt_info_->ip == NULL) {
-        // we only send IPv4 trace route packets; ignore other packets
+    uint8_t ttl;
+    if (pkt_info_->ether_type == ETHERTYPE_IP) {
+        ttl = pkt_info_->ip->ip_ttl;
+    } else if (pkt_info_->ether_type == ETHERTYPE_IPV6) {
+        ttl = pkt_info_->ip6->ip6_ctlun.ip6_un1.ip6_un1_hlim;
+    } else {
         return true;
     }
 
-    if (pkt_info_->ip->ip_ttl == 0) {
+    if (ttl == 0 ) {
         if (pkt_info_->dport == VXLAN_UDP_DEST_PORT) {
             VxlanHdr *vxlan = (VxlanHdr *)(pkt_info_->transp.udp + 1);
             rabit = ntohl(vxlan->reserved) & OverlayPing::kVxlanRABit;
@@ -80,11 +96,14 @@ bool DiagPktHandler::HandleTraceRoutePacket() {
         if (rabit) {
            SendOverlayResponse(); 
         } else {
-            SendTimeExceededPacket();
+            if (pkt_info_->ether_type == ETHERTYPE_IP) {
+                SendTimeExceededPacket();
+            } else {
+                SendTimeExceededV6Packet();
+            }
         }
         return true;
     }
-
     return HandleTraceRouteResponse();
 }
 
@@ -97,7 +116,7 @@ void DiagPktHandler::SendTimeExceededPacket() {
     uint8_t icmp_payload[icmp_len];
     memcpy(icmp_payload, pkt_info_->ip, icmp_len);
     DiagEntry::DiagKey key = -1;
-    if (!ParseIcmpData(icmp_payload, icmp_len, (uint16_t *)&key))
+    if (!ParseIcmpData(icmp_payload, icmp_len, (uint16_t *)&key, true))
         return;
 
     char *ptr = (char *)pkt_info_->pkt;
@@ -131,23 +150,90 @@ void DiagPktHandler::SendTimeExceededPacket() {
          PktHandler::ICMP);
 }
 
+
+void DiagPktHandler::SendTimeExceededV6Packet() {
+    uint8_t icmp_payload[icmp_payload_len];
+    uint16_t  icmp_len = ntohs(pkt_info_->ip6->ip6_plen);
+
+    if (icmp_len > icmp_payload_len)
+        icmp_len = icmp_payload_len;
+    memcpy(icmp_payload, pkt_info_->ip6, icmp_len);
+
+    DiagEntry::DiagKey key = -1;
+    if (!ParseIcmpData(icmp_payload, icmp_len, (uint16_t *)&key, false))
+        return;
+
+    char *buff = (char *)pkt_info_->pkt;
+    uint16_t buff_len = pkt_info_->max_pkt_len;
+    // Retain the agent-header before ethernet header
+
+    uint16_t eth_len = EthHdr(buff, buff_len, GetInterfaceIndex(),
+                              agent()->vhost_interface()->mac(),
+                              MacAddress(pkt_info_->eth->ether_shost),
+                              ETHERTYPE_IPV6);
+
+    VmInterface *vm_itf = dynamic_cast<VmInterface *>
+        (agent()->interface_table()->FindInterface(GetInterfaceIndex()));
+    if (vm_itf == NULL || vm_itf->layer3_forwarding() == false ||
+        vm_itf->vn() == NULL) {
+        return;
+    }
+
+    const VnIpam *ipam = vm_itf->vn()->GetIpam(pkt_info_->ip_saddr.to_v6());
+    if (ipam == NULL)
+        return ;
+
+    pkt_info_->ip6 = (struct ip6_hdr *)(buff + eth_len);
+    Ip6Hdr(pkt_info_->ip6, icmp_len+ICMP_UNREACH_HDR_LEN, IPV6_ICMP_NEXT_HEADER,
+           DEFAULT_IP_TTL, ipam->default_gw.to_v6().to_bytes().data(),
+           pkt_info_->ip_saddr.to_v6().to_bytes().data());
+
+    icmp6_hdr *icmp = pkt_info_->transp.icmp6 =
+        (icmp6_hdr *)(pkt_info_->pkt + eth_len
+                      + sizeof(ip6_hdr));
+    icmp->icmp6_type = ICMP_TIME_EXCEEDED;
+    icmp->icmp6_code = ICMP_EXC_TTL;
+    icmp->icmp6_mtu = 0;
+    icmp->icmp6_cksum = 0;
+    icmp->icmp6_cksum =
+        Icmpv6Csum(ipam->default_gw.to_v6().to_bytes().data(),
+                   pkt_info_->ip_saddr.to_v6().to_bytes().data(),
+                   icmp, icmp_len);
+    memcpy(buff + sizeof(ip6_hdr) + eth_len+ICMP_UNREACH_HDR_LEN,
+           icmp_payload, icmp_len);
+    pkt_info_->set_len(icmp_len + sizeof(ip6_hdr) + eth_len+ICMP_UNREACH_HDR_LEN);
+
+    uint16_t command =
+        (pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
+        (uint16_t)AgentHdr::TX_ROUTE : AgentHdr::TX_SWITCH;
+
+    Send(GetInterfaceIndex(), pkt_info_->vrf, command,
+         PktHandler::ICMPV6);
+
+}
+
 bool DiagPktHandler::HandleTraceRouteResponse() {
     uint8_t *data = (uint8_t *)(pkt_info_->transp.icmp) + 8;
     uint16_t len = pkt_info_->len - (data - pkt_info_->pkt);
+    bool is_v4 = pkt_info_->ether_type == ETHERTYPE_IP;
     DiagEntry::DiagKey key = -1;
-    // if it is Overlay packet get the key from Oam data 
+    // if it is Overlay packet get the key from Oam data
     if (IsOverlayPingPacket()) {
         OverlayOamPktData *oamdata = (OverlayOamPktData * )pkt_info_->data;
         key = ntohs(oamdata->org_handle_); 
     } else {
-        if (!ParseIcmpData(data, len, (uint16_t *)&key))
+        if (!ParseIcmpData(data, len, (uint16_t *)&key, is_v4))
             return true;
     }
 
     DiagEntry *entry = diag_table_->Find(key);
     if (!entry) return true;
 
-    address_ = pkt_info_->ip_saddr.to_v4().to_string();
+    if (is_v4)
+        address_ = pkt_info_->ip_saddr.to_v4().to_string();
+    else {
+        address_ =  pkt_info_->ip_saddr.to_v6().to_string();
+    }
     entry->HandleReply(this);
 
     DiagEntryOp *op;
@@ -162,12 +248,13 @@ bool DiagPktHandler::HandleTraceRouteResponse() {
 }
 
 bool DiagPktHandler::ParseIcmpData(const uint8_t *data, uint16_t data_len,
-                                   uint16_t *key) {
+                                   uint16_t *key, bool is_v4) {
     if (data_len < sizeof(struct ip))
         return false;
     struct ip *ip_hdr = (struct ip *)(data);
     *key = ntohs(ip_hdr->ip_id);
     uint16_t len = sizeof(struct ip);
+    uint8_t protocol; 
 
     if (ip_hdr->ip_src.s_addr == htonl(agent()->router_id().to_ulong()) ||
         ip_hdr->ip_dst.s_addr == htonl(agent()->router_id().to_ulong())) {
@@ -192,11 +279,20 @@ bool DiagPktHandler::ParseIcmpData(const uint8_t *data, uint16_t data_len,
             }
         }
         len += sizeof(MplsHdr);
-        if (data_len < len + sizeof(struct ip))
-            return true;
-        ip_hdr = (struct ip *)(data + len);
-        len += sizeof(struct ip);
-        switch (ip_hdr->ip_p) {
+        if (is_v4) {
+            if (data_len < len + sizeof(struct ip))
+                return true;
+            ip_hdr = (struct ip *)(data + len);
+            len += sizeof(struct ip);
+            protocol = ip_hdr->ip_p;
+        } else {
+            if (data_len < len + sizeof(struct ip6_hdr))
+                return true;
+            struct ip6_hdr *ip6_hdr = (struct ip6_hdr *)(data + len);
+            len += sizeof(struct ip6_hdr);
+            protocol = ip6_hdr->ip6_nxt;
+        }
+        switch (protocol) {
             case IPPROTO_TCP:
                 len += sizeof(tcphdr);
                 break;
@@ -208,7 +304,9 @@ bool DiagPktHandler::ParseIcmpData(const uint8_t *data, uint16_t data_len,
             case IPPROTO_ICMP:
                 len += 8;
                 break;
-
+            case IPPROTO_ICMPV6:
+                len += 8;
+                break;
             default:
                 return true;
         }
@@ -257,10 +355,7 @@ bool DiagPktHandler::Run() {
         //Ignore if packet doesnt have proper L4 header
         return true;
     }
-    if (pkt_info_->ether_type == ETHERTYPE_IPV6) {
-        //Ignore IPv6 packets until it is supported
-        return true;
-    }
+
     if (ntohl(ad->op_) == AgentDiagPktData::DIAG_REQUEST) {
         //Request received swap the packet
         //and dump the packet back
@@ -318,6 +413,29 @@ void DiagPktHandler::TcpHdr(in_addr_t src, uint16_t sport, in_addr_t dst,
     tcp->th_sum = TcpCsum(src, dst, len, tcp);
 }
 
+void DiagPktHandler::TcpHdr(uint16_t len, const uint8_t *src, uint16_t sport,
+                            const uint8_t *dest, uint16_t dport, bool is_syn,
+                            uint32_t seq_no, uint8_t next_hdr){
+    struct tcphdr *tcp = pkt_info_->transp.tcp;
+    tcp->th_sport = htons(sport);
+    tcp->th_dport = htons(dport);
+
+    if (is_syn) {
+        tcp->th_flags &= ~TH_ACK;
+    } else {
+        //If not sync, by default we are sending an ack
+        tcp->th_flags &= ~TH_SYN;
+    }
+
+    tcp->th_seq = htons(seq_no);
+    tcp->th_ack = htons(seq_no + 1);
+    //Just a random number;
+    tcp->th_win = htons(1000);
+    tcp->th_off = 5;
+    tcp->th_sum = 0;
+    tcp->th_sum = Ipv6Csum(src, dest, len, next_hdr, (uint16_t *)tcp);
+}
+
 uint16_t DiagPktHandler::TcpCsum(in_addr_t src, in_addr_t dest, uint16_t len,
                                  tcphdr *tcp) {
     uint32_t sum = 0;
@@ -330,16 +448,31 @@ void DiagPktHandler::SwapL4() {
     if (pkt_info_->ip_proto == IPPROTO_TCP) {
         tcphdr *tcp = pkt_info_->transp.tcp;
         TcpHdr(htonl(pkt_info_->ip_daddr.to_v4().to_ulong()),
-               ntohs(tcp->th_dport),
-               htonl(pkt_info_->ip_saddr.to_v4().to_ulong()),
-               ntohs(tcp->th_sport), false, ntohs(tcp->th_ack),
-               ntohs(pkt_info_->ip->ip_len) - sizeof(struct ip));
-
-    } else if(pkt_info_->ip_proto == IPPROTO_UDP) {
+                ntohs(tcp->th_dport),
+                htonl(pkt_info_->ip_saddr.to_v4().to_ulong()),
+                ntohs(tcp->th_sport), false, ntohs(tcp->th_ack),
+                ntohs(pkt_info_->ip->ip_len) - sizeof(struct ip));
+    }
+     else if(pkt_info_->ip_proto == IPPROTO_UDP) {
         udphdr *udp = pkt_info_->transp.udp;
         UdpHdr(ntohs(udp->uh_ulen), pkt_info_->ip_daddr.to_v4().to_ulong(),
                ntohs(udp->uh_dport), pkt_info_->ip_saddr.to_v4().to_ulong(),
                ntohs(udp->uh_sport));
+    }
+}
+
+void DiagPktHandler::Swapv6L4() {
+    if (pkt_info_->ip_proto == IPPROTO_TCP) {
+        tcphdr *tcp = pkt_info_->transp.tcp;
+        TcpHdr(ntohs(pkt_info_->ip6->ip6_ctlun.ip6_un1.ip6_un1_plen) - sizeof(struct ip6_hdr),
+               pkt_info_->ip_daddr.to_v6().to_bytes().data(), ntohs(tcp->th_dport),
+               pkt_info_->ip_saddr.to_v6().to_bytes().data(), ntohs(tcp->th_sport),
+               false, ntohs(tcp->th_ack), IPPROTO_TCP);
+    } else if (pkt_info_->ip_proto == IPPROTO_UDP) {
+        udphdr *udp = pkt_info_->transp.udp;
+        UdpHdr(ntohs(udp->uh_ulen), pkt_info_->ip_daddr.to_v6().to_bytes().data(),
+               ntohs(udp->uh_dport), pkt_info_->ip_saddr.to_v6().to_bytes().data(),
+               ntohs(udp->uh_sport), IPPROTO_UDP);
     }
 }
 
@@ -350,14 +483,27 @@ void DiagPktHandler::SwapIpHdr() {
           ip->ip_src.s_addr, ip->ip_p, DEFAULT_IP_ID, DEFAULT_IP_TTL);
 }
 
+void DiagPktHandler::SwapIp6Hdr() {
+    //Ip6Hdr expects IPv6 address to be in network format
+    struct ip6_hdr  *ip6 = pkt_info_->ip6;
+    Ip6Hdr(ip6, ntohl(ip6->ip6_ctlun.ip6_un1.ip6_un1_plen), 
+            ip6->ip6_ctlun.ip6_un1.ip6_un1_nxt, DEFAULT_IP_TTL, ip6->ip6_dst.s6_addr,
+           ip6->ip6_src.s6_addr);
+}
+
 void DiagPktHandler::SwapEthHdr() {
     struct ether_header *eth = pkt_info_->eth;
     EthHdr(MacAddress(eth->ether_dhost), MacAddress(eth->ether_shost), ntohs(eth->ether_type));
 }
 
 void DiagPktHandler::Swap() {
-    SwapL4();
-    SwapIpHdr();
+    if (pkt_info_->ether_type == ETHERTYPE_IPV6) {
+        Swapv6L4();
+        SwapIp6Hdr();
+    } else {
+        SwapL4();
+        SwapIpHdr();
+    }
     SwapEthHdr();
 }
 

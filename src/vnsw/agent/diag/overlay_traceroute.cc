@@ -99,9 +99,9 @@ void OverlayTraceRoute::SendRequest()
     Ip4Address dip = Ip4Address::from_string("127.0.0.1", ec);
     pkt_info->transp.udp = (struct udphdr *)(pkt_info->ip + 1);
     len = data_len+sizeof(struct udphdr);
-    pkt_handler->UdpHdr(len, sip_.to_ulong(), sport_, dip.to_ulong(), 
-                        VXLAN_UDP_DEST_PORT);
-    pkt_handler->IpHdr(len + sizeof(struct ip), ntohl(sip_.to_ulong()),
+    pkt_handler->UdpHdr(len, sip_.to_v4().to_ulong(), sport_, 
+                        dip.to_ulong(), VXLAN_UDP_DEST_PORT);
+    pkt_handler->IpHdr(len + sizeof(struct ip), ntohl(sip_.to_v4().to_ulong()),
                        ntohl(dip.to_ulong()), proto_, 
                        DEFAULT_IP_ID, DEFAULT_IP_TTL);
     //pkt_handler->SetDiagChkSum();
@@ -125,15 +125,25 @@ void OverlayTraceReq::HandleRequest() const {
     {
         Agent *agent = Agent::GetInstance();
         uuid vn_uuid = StringToUuid(get_vn_uuid());
-        Ip4Address sip(Ip4Address::from_string(get_source_ip(), ec));
+        IpAddress sip(IpAddress::from_string(get_source_ip(), ec));
         if (ec != 0) {
             err_str = "Invalid source IP";
             goto error;
         }
 
-        Ip4Address dip(Ip4Address::from_string(get_dest_ip(), ec));
+        if (!sip.is_v4()) {
+            err_str = "V6 is not supported";
+            goto error;
+        }
+
+        IpAddress dip(IpAddress::from_string(get_dest_ip(), ec));
         if (ec != 0) {
             err_str = "Invalid destination IP";
+            goto error;
+        }
+
+        if (!dip.is_v4()) {
+            err_str = "V6 is not supported";
             goto error;
         }
 

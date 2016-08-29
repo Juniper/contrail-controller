@@ -24,8 +24,8 @@ DiagEntry::DiagEntry(const std::string &sip, const std::string &dip,
                      uint8_t proto, uint16_t sport, uint16_t dport,
                      const std::string &vrf_name, int timeout,
                      int attempts, DiagTable *diag_table) :
-    sip_(Ip4Address::from_string(sip, ec_)),
-    dip_(Ip4Address::from_string(dip, ec_)),
+    sip_(IpAddress::from_string(sip, ec_)),
+    dip_(IpAddress::from_string(dip, ec_)),
     proto_(proto), sport_(sport), dport_(dport),
     vrf_name_(vrf_name), diag_table_(diag_table), timeout_(timeout),
     timer_(TimerManager::CreateTimer(*(diag_table->agent()->event_manager())->io_service(), 
@@ -141,8 +141,8 @@ void DiagTable::Enqueue(DiagEntryOp *op) {
 
 uint32_t DiagEntry::HashValUdpSourcePort() {
     std::size_t seed = 0;
-    boost::hash_combine(seed, sip_.to_ulong());
-    boost::hash_combine(seed, dip_.to_ulong());
+    boost::hash_combine(seed, sip_.to_v4().to_ulong());
+    boost::hash_combine(seed, dip_.to_v4().to_ulong());
     boost::hash_combine(seed, proto_);
     boost::hash_combine(seed, sport_);
     boost::hash_combine(seed, dport_);
@@ -160,5 +160,5 @@ void DiagEntry::FillOamPktHeader(OverlayOamPktData *pktdata, uint32_t vxlan_id) 
        seconds(pktdata->timesent_sec_).total_microseconds();
    pktdata->vxlanoamtlv_.type_ = AgentDiagPktData::DIAG_REQUEST;
    pktdata->vxlanoamtlv_.vxlan_id_ = htonl(vxlan_id);
-   pktdata->vxlanoamtlv_.sip_ = sip_;
+   pktdata->vxlanoamtlv_.sip_ = sip_.to_v4();
 }
