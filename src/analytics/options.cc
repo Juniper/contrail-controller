@@ -171,7 +171,7 @@ void Options::Initialize(EventManager &evm,
              "Enable collector to run in test-mode")
         ("DEFAULT.sandesh_send_rate_limit",
               opt::value<uint32_t>()->default_value(
-              Sandesh::get_send_rate_limit()),
+              g_sandesh_constants.DEFAULT_SANDESH_SEND_RATELIMIT),
               "Sandesh send rate limit in messages/sec")
         ("DEFAULT.disable_flow_collection",
             opt::bool_switch(&disable_flow_collection_),

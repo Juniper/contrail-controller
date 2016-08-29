@@ -82,7 +82,8 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.bgp_end_of_rib_timeout(), 30);
     EXPECT_EQ(options_.xmpp_end_of_rib_timeout(), 30);
     EXPECT_EQ(options_.test_mode(), false);
-    EXPECT_EQ(options_.sandesh_send_rate_limit(), 0);
+    EXPECT_EQ(options_.sandesh_send_rate_limit(),
+              g_sandesh_constants.DEFAULT_SANDESH_SEND_RATELIMIT);
     EXPECT_EQ(options_.gr_helper_bgp_enable(), false);
     EXPECT_EQ(options_.gr_helper_xmpp_enable(), false);
 }
