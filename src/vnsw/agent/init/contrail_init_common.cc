@@ -251,6 +251,10 @@ void ContrailInitCommon::InitDone() {
         agent()->pkt()->InitDone();
     }
 
+    if (agent()->uve()) {
+        agent()->uve()->InitDone();
+    }
+
     if (agent()->ksync()) {
         agent()->ksync()->InitDone();
     }

@@ -115,6 +115,7 @@ public:
     bool TokenCheck(const FlowTokenPool *pool);
     bool ShouldTrace(const FlowEntry *flow, const FlowEntry *rflow);
     void EnqueueUnResolvedFlowEntry(FlowEntry *flow);
+    uint32_t InterfaceFlowCount(const Interface *intf) const;
 
 private:
     friend class SandeshIPv4FlowFilterRequest;
@@ -127,6 +128,7 @@ private:
     FlowTraceFilter *ipv6_trace_filter() { return &ipv6_trace_filter_; }
 
     bool ProcessFlowEvent(const FlowEvent &req, FlowTable *table);
+    bool FlowStatsUpdate();
 
     FlowTokenPool add_tokens_;
     FlowTokenPool ksync_tokens_;
@@ -143,6 +145,7 @@ private:
     FlowTraceFilter ipv4_trace_filter_;
     FlowTraceFilter ipv6_trace_filter_;
     FlowStats stats_;
+    Timer *stats_update_timer_;
 };
 
 extern SandeshTraceBufferPtr PktFlowTraceBuf;

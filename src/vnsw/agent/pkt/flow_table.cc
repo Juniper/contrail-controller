@@ -150,8 +150,8 @@ FlowEntry *FlowTable::Locate(FlowEntry *flow, uint64_t time) {
     std::pair<FlowEntryMap::iterator, bool> ret;
     ret = flow_entry_map_.insert(FlowEntryMapPair(flow->key(), flow));
     if (ret.second == true) {
+        agent_->stats()->incr_flow_count();
         agent_->stats()->incr_flow_created();
-        agent_->stats()->UpdateFlowAddMinMaxStats(time);
         ret.first->second->set_on_tree();
         return flow;
     }
@@ -320,7 +320,6 @@ void FlowTable::DeleteInternal(FlowEntry *fe, uint64_t time,
     DeleteKSync(fe);
 
     agent_->stats()->incr_flow_aged();
-    agent_->stats()->UpdateFlowDelMinMaxStats(time);
 }
 
 bool FlowTable::DeleteFlows(FlowEntry *flow, FlowEntry *rflow) {

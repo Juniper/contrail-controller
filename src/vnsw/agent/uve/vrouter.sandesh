@@ -158,6 +158,18 @@ struct AgentIfStats {
     7: i32 duplexity;
 }
 
+struct PhyIfStats {
+    2: u64 in_pkts;
+    3: u64 in_bytes;
+    4: u64 out_pkts;
+    5: u64 out_bytes;
+}
+
+struct PhyIfInfo {
+    6: i32 speed;
+    7: i32 duplexity;
+}
+
 /**
  * Sandesh definition for agent vhost interface bandwidth
  */
@@ -171,13 +183,13 @@ struct AgentIfBandwidth {
  * Sandesh definition for vrouter flow rate
  */
 struct VrouterFlowRate {
-    1: u32 added_flows;
-    2: u32 max_flow_adds_per_second;
-    3: u32 min_flow_adds_per_second;
-    4: u32 deleted_flows;
-    5: u32 max_flow_deletes_per_second;
-    6: u32 min_flow_deletes_per_second;
-    7: optional u64 active_flows; //'dial' type. So no diff. Always aggregate
+    1: optional u32 added_flows;
+    2: optional u32 max_flow_adds_per_second;
+    3: optional u32 min_flow_adds_per_second;
+    4: optional u32 deleted_flows;
+    5: optional u32 max_flow_deletes_per_second;
+    6: optional u32 min_flow_deletes_per_second;
+    7: optional u32 active_flows; //'dial' type. So no diff. Always aggregate
 }
 
 /**
@@ -225,7 +237,7 @@ struct VrouterStatsAgent {  // Agent stats
     30: optional u64 packets_no_mpls_dp; 
     31: optional u64 packets_no_flow_dp; 
     32: optional u64 uptime;
-    33: optional list<AgentIfStats> phy_if_stats_list;
+    33: optional map<string, PhyIfInfo> phy_if_info
     34: optional AgentIfStats vhost_stats;
     36: optional list<AgentIfBandwidth> phy_if_5min_usage; 
     38: optional list<u32>   udp_sport_bitmap;
@@ -234,7 +246,8 @@ struct VrouterStatsAgent {  // Agent stats
     41: optional list<u32>   tcp_dport_bitmap;
 
     42: optional map<string, u64> raw_drop_stats (metric="agg", hidden="yes")
-    60: optional map<string, u64> drop_stats     (mstats="raw_drop_stats:DSNon0:")
+    /** @display_name:Vrouter Packet drop Statistics*/
+    60: optional map<string, u64> drop_stats     (mstats="raw_drop_stats:DSNon0:", tags=".__key")
     61: optional map<string, u64> drop_stats_1h  (mstats="raw_drop_stats:DSSum:120")
 
     43: optional double total_in_bandwidth_utilization;
@@ -249,21 +262,34 @@ struct VrouterStatsAgent {  // Agent stats
     67: optional derived_stats_results.AnomalyResult active_flows_ewm
                      (stats="flow_rate.active_flows:DSAnomaly:EWM:0.2")
 
-    /** @display_name:Vrouter Physical Interface Input bandwidth Statistics*/
-    50: optional map<string,u64> phy_band_in_bps  (tags="name:.__key")
-    /** @display_name:Vrouter Physical Interface Output bandwidth Statistics*/
-    51: optional map<string,u64> phy_band_out_bps (tags="name:.__key")
+    50: optional map<string,u64> phy_band_in_bps
+    51: optional map<string,u64> phy_band_out_bps
     52: optional map<string,derived_stats_results.EWMResult> in_bps_ewm
                      (mstats="phy_band_in_bps:DSEWM:0.2")
     53: optional map<string,derived_stats_results.EWMResult> out_bps_ewm
                      (mstats="phy_band_out_bps:DSEWM:0.2")
-
 
     56: optional map<string, u64> raw_ifmap_stats (metric="agg", hidden="yes")
     /** @display_name:Vrouter IFMAP Parse Error Statistics*/
     57: optional map<string, u64> ifmap_stats (mstats="raw_ifmap_stats:DSNon0:", tags=".__key")
     58: optional map<string, u64> ifmap_stats_1h (mstats="raw_ifmap_stats:DSSum:120")
 
+    /** @display_name:Physical Interface Flow Setup Statistics*/
+    68: optional map<string, VrouterFlowRate> phy_flow_rate  (tags="name:.__key")
+    69: optional map<string, derived_stats_results.AnomalyResult> phy_added_flows_ewm
+                     (mstats="phy_flow_rate.added_flows:DSAnomaly:EWM:0.2")
+    70: optional map<string, derived_stats_results.AnomalyResult> phy_deleted_flows_ewm
+                     (mstats="phy_flow_rate.deleted_flows:DSAnomaly:EWM:0.2")
+    71: optional map<string, derived_stats_results.AnomalyResult> phy_active_flows_ewm
+                     (mstats="phy_flow_rate.active_flows:DSAnomaly:EWM:0.2")
+
+    72: optional map<string, PhyIfStats> raw_phy_if_stats (metric="agg", hidden="yes")
+    /** @display_name:Vrouter Physical Interface Traffic Statistics*/
+    73: optional map<string, PhyIfStats> phy_if_stats (mstats="raw_phy_if_stats:DSNon0:", tags="name:.__key")
+    74: optional map<string, derived_stats_results.AnomalyResult> in_pkts_ewm
+                     (mstats="raw_phy_if_stats.in_pkts:DSAnomaly:EWM:0.2")
+    75: optional map<string, derived_stats_results.AnomalyResult> out_pkts_ewm
+                     (mstats="raw_phy_if_stats.out_pkts:DSAnomaly:EWM:0.2")
 }
 
 /**
