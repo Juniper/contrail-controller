@@ -702,6 +702,11 @@ void FlowMgmtManager::VnFlowCounters(const VnEntry *vn, uint32_t *ingress_flow_c
                                       egress_flow_count);
 }
 
+void FlowMgmtManager::InterfaceFlowCount(const Interface *itf,
+                                         uint64_t *created, uint64_t *aged) {
+    interface_flow_mgmt_tree_.InterfaceFlowCount(itf, created, aged);
+}
+
 FlowEntryInfo *
 FlowMgmtManager::FindFlowEntryInfo(const FlowEntryPtr &flow) {
     return flow->flow_mgmt_info();
@@ -1385,6 +1390,44 @@ void VnFlowMgmtTree::VnFlowCounters(const VnEntry *vn,
 /////////////////////////////////////////////////////////////////////////////
 // Interface Flow Management
 /////////////////////////////////////////////////////////////////////////////
+bool InterfaceFlowMgmtEntry::Add(FlowEntry *flow, FlowMgmtKeyNode *node) {
+    bool added = FlowMgmtEntry::Add(flow, node);
+    if (added) {
+        flow_created_++;
+    }
+    return added;
+}
+
+bool InterfaceFlowMgmtEntry::Delete(FlowEntry *flow, FlowMgmtKeyNode *node) {
+    flow_aged_++;
+    return FlowMgmtEntry::Delete(flow, node);
+}
+
+bool InterfaceFlowMgmtTree::Add(FlowMgmtKey *key, FlowEntry *flow,
+                                FlowMgmtKeyNode *node) {
+    tbb::mutex::scoped_lock mutex(mutex_);
+    return FlowMgmtTree::Add(key, flow, node);
+}
+
+bool InterfaceFlowMgmtTree::Delete(FlowMgmtKey *key, FlowEntry *flow,
+                                   FlowMgmtKeyNode *node) {
+    tbb::mutex::scoped_lock mutex(mutex_);
+    return FlowMgmtTree::Delete(key, flow, node);
+}
+
+void InterfaceFlowMgmtTree::InterfaceFlowCount(const Interface *itf,
+                                               uint64_t *created,
+                                               uint64_t *aged) {
+    tbb::mutex::scoped_lock mutex(mutex_);
+    InterfaceFlowMgmtKey key(itf);
+    InterfaceFlowMgmtEntry *entry = static_cast<InterfaceFlowMgmtEntry *>
+        (Find(&key));
+    if (entry) {
+        *created += entry->flow_created();
+        *aged += entry->flow_aged();
+    }
+}
+
 void InterfaceFlowMgmtTree::ExtractKeys(FlowEntry *flow,
                                         FlowMgmtKeyTree *tree) {
     if (flow->intf_entry() == NULL)
