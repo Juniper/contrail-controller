@@ -33,7 +33,7 @@ def install_redis():
 
     if not os.path.exists(redis_url):
         process = subprocess.Popen(['wget', '-P', redis_bdir,
-                                    'https://redis.googlecode.com/files/redis-'\
+                                    'https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/redis/redis-'\
                                     + redis_ver + '.tar.gz'],
                                    cwd=redis_bdir)
         process.wait()
