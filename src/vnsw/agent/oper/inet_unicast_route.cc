@@ -1411,7 +1411,8 @@ InetUnicastAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
                                                &path_preference,
                                                const IpAddress &subnet_service_ip,
                                                const EcmpLoadBalance &ecmp_load_balance,
-                                               bool is_local)
+                                               bool is_local,
+                                               bool is_health_check_service)
 {
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     LocalVmRoute *data = new LocalVmRoute(intf_key, label,
@@ -1419,7 +1420,7 @@ InetUnicastAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
                                     vn_list, InterfaceNHFlags::INET4, sg_list,
                                     communities, path_preference,
                                     subnet_service_ip, ecmp_load_balance,
-                                    is_local);
+                                    is_local, is_health_check_service);
 
     AddLocalVmRouteReq(peer, vm_vrf, addr, plen, data);
 }
@@ -1453,7 +1454,8 @@ InetUnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                             &path_preference,
                                             const IpAddress &subnet_service_ip,
                                             const EcmpLoadBalance &ecmp_load_balance,
-                                            bool is_local)
+                                            bool is_local,
+                                            bool is_health_check_service)
 {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new InetUnicastRouteKey(peer, vm_vrf, addr, plen));
@@ -1463,7 +1465,8 @@ InetUnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                     force_policy, vn_list,
                                     InterfaceNHFlags::INET4, sg_list, communities,
                                     path_preference, subnet_service_ip,
-                                    ecmp_load_balance, is_local));
+                                    ecmp_load_balance, is_local,
+                                    is_health_check_service));
     InetUnicastTableProcess(Agent::GetInstance(), vm_vrf, req);
 }
 

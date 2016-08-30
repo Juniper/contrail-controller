@@ -216,7 +216,8 @@ public:
                             const PathPreference &path_preference,
                             const IpAddress &subnet_service_ip,
                             const EcmpLoadBalance &ecmp_load_balance,
-                            bool is_local);
+                            bool is_local,
+                            bool is_health_check_service);
     static void AddLocalVmRoute(const Peer *peer, const string &vm_vrf,
                                 const IpAddress &addr, uint8_t plen,
                                 const uuid &intf_uuid,
@@ -228,7 +229,7 @@ public:
                                 const PathPreference &path_preference,
                                 const IpAddress &subnet_service_ip,
                                 const EcmpLoadBalance &ecmp_load_balance,
-                                bool is_local);
+                                bool is_local, bool is_health_check_service);
     static void AddRemoteVmRouteReq(const Peer *peer, const string &vm_vrf,
                                     const IpAddress &vm_addr,uint8_t plen,
                                     AgentRouteData *data);

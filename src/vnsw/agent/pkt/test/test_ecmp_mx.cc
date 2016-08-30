@@ -242,7 +242,7 @@ TEST_F(EcmpTest, EcmpTest_5) {
                 "vrf2", ip, 32, MakeUuid(1), vn_list,
                 vm1_label, SecurityGroupList(), CommunityList(),
                 false, PathPreference(), Ip4Address(0), EcmpLoadBalance(),
-                false);
+                false, false);
     client->WaitForIdle();
 
     AddVrfAssignNetworkAcl("Acl", 10, "vn1", "vn2", "pass", "vrf2");

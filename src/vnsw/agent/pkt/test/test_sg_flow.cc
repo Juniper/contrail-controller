@@ -560,7 +560,7 @@ TEST_F(SgTest, Fwd_Sg_Change_2) {
         AddLocalVmRouteReq(bgp_peer_, "vrf1", vm_ip, 32,
                 vm_intf->GetUuid(), vn_list, vm_intf->label(),
                 sg_list, CommunityList(), false, PathPreference(), Ip4Address(0),
-                EcmpLoadBalance());
+                EcmpLoadBalance(), false, false);
     client->WaitForIdle();
 
     //Packet egress from vnet2, so that its the first entry in flow route map
@@ -578,7 +578,7 @@ TEST_F(SgTest, Fwd_Sg_Change_2) {
         AddLocalVmRouteReq(bgp_peer_, "vrf1", vm_ip, 32,
                 vm_intf->GetUuid(), vn_list, vm_intf->label(),
                 SecurityGroupList(), CommunityList(), false, PathPreference(),
-                Ip4Address(0), EcmpLoadBalance());
+                Ip4Address(0), EcmpLoadBalance(), false, false);
     client->WaitForIdle();
 
     FlowEntry *fe = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
@@ -629,7 +629,7 @@ TEST_F(SgTest, Fwd_Sg_Change_3) {
         AddLocalVmRouteReq(bgp_peer_, "vrf1", vm_ip, 32,
                 vm_intf->GetUuid(), vn_list, vm_intf->label(),
                 SecurityGroupList(), CommunityList(), false, PathPreference(),
-                Ip4Address(0), EcmpLoadBalance());
+                Ip4Address(0), EcmpLoadBalance(), false, false);
     client->WaitForIdle();
 
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
@@ -654,7 +654,7 @@ TEST_F(SgTest, Fwd_Sg_Change_3) {
         AddLocalVmRouteReq(bgp_peer_, "vrf1", vm_ip, 32,
                 vm_intf->GetUuid(), vn_list, vm_intf->label(),
                 sg_list, CommunityList(), false, PathPreference(),
-                Ip4Address(0), EcmpLoadBalance());
+                Ip4Address(0), EcmpLoadBalance(), false, false);
     client->WaitForIdle();
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
