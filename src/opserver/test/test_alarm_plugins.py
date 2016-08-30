@@ -18,22 +18,9 @@ from opserver.sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import \
     AlarmConditionMatch, AlarmAndList as SandeshAlarmAndList
 from opserver.alarmgen import AlarmProcessor
 from opserver.opserver_util import camel_case_to_hyphen
-from alarm_process_status.main import ProcessStatus
-from alarm_process_connectivity.main import ProcessConnectivity
-from alarm_bgp_connectivity.main import BgpConnectivity
-from alarm_xmpp_connectivity.main import XmppConnectivity
-from alarm_partial_sysinfo.main import PartialSysinfoCompute,\
-    PartialSysinfoAnalytics, PartialSysinfoConfig, PartialSysinfoControl
-from alarm_config_incorrect.main import ConfIncorrect
-from alarm_address_mismatch.main import AddressMismatchControl,\
-    AddressMismatchCompute
-from alarm_prouter_connectivity.main import ProuterConnectivity
-from alarm_vrouter_interface.main import VrouterInterface
-from alarm_storage.main import StorageClusterState
-from alarm_disk_usage.main import DiskUsage
-from alarm_phyif_bandwidth.main import PhyifBandwidth
-from alarm_node_status.main import NodeStatus
 
+from cfgm_common.exceptions import *
+from contrail_alarm import alarm_list
 
 logging.basicConfig(level=logging.DEBUG,
     format='%(asctime)s %(levelname)s %(message)s')
@@ -72,6 +59,15 @@ class TestAlarmPlugins(unittest.TestCase):
         return Alarm(name=alarm_name, alarm_rules=AlarmOrList(alarm_or_list),
             **kwargs)
     # end get_alarm_config
+
+    def get_alarm_config_by_name(self, alarm_name):
+
+        for alarm in alarm_list:
+            if ((alarm['fq_name'])[1] == alarm_name):
+                alarm['uuid'] = None
+                return Alarm.from_dict(**alarm)
+        return None
+    # end get_alarm_config_by_name
 
     def test_alarm_address_mismatch(self):
         tests = [
@@ -267,7 +263,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ])
             )
         ]
-        self._verify(AddressMismatchControl(), tests)
+        self._verify(alarm_name="address-mismatch-control", tests=tests)
 
         tests = [
             TestCase(
@@ -417,7 +413,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ])
             )
         ]
-        self._verify(AddressMismatchCompute(), tests)
+        self._verify(alarm_name="address-mismatch-compute", tests=tests)
     # end test_alarm_address_mismatch
 
     def test_alarm_bgp_connectivity(self):
@@ -488,7 +484,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             )
         ]
-        self._verify(BgpConnectivity(), tests)
+        self._verify(alarm_name="bgp-connectivity", tests=tests)
     # end test_alarm_bgp_connectivity
 
     def test_alarm_incorrect_config(self):
@@ -519,7 +515,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             )
         ]
-        self._verify(ConfIncorrect(), tests)
+        self._verify(alarm_name="conf-incorrect", tests=tests)
     # end test_alarm_incorrect_config
 
     def test_alarm_disk_usage(self):
@@ -600,7 +596,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ])
             )
         ]
-        self._verify(DiskUsage(), tests)
+        self._verify(alarm_name="disk-usage", tests=tests)
     # end test_alarm_disk_usage
 
     def test_alarm_partial_sysinfo(self):
@@ -641,7 +637,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             )
         ]
-        self._verify(PartialSysinfoAnalytics(), tests)
+        self._verify(alarm_name="partial-sysinfo-analytics", tests=tests)
 
         tests = [
             TestCase(
@@ -680,7 +676,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             )
         ]
-        self._verify(PartialSysinfoConfig(), tests)
+        self._verify(alarm_name="partial-sysinfo-config", tests=tests)
 
         tests = [
             TestCase(
@@ -719,7 +715,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             )
         ]
-        self._verify(PartialSysinfoControl(), tests)
+        self._verify(alarm_name="partial-sysinfo-control", tests=tests)
 
         tests = [
             TestCase(
@@ -760,7 +756,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             )
         ]
-        self._verify(PartialSysinfoCompute(), tests)
+        self._verify(alarm_name="partial-sysinfo-compute", tests=tests)
     # end test_alarm_partial_sysinfo
 
     def test_alarm_process_connectivity(self):
@@ -876,7 +872,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ])
             ),
         ]
-        self._verify(ProcessConnectivity(), tests)
+        self._verify(alarm_name="process-connectivity", tests=tests)
     # end test_alarm_process_connectivity
 
     def test_alarm_process_status(self):
@@ -980,7 +976,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ])
             )
         ]
-        self._verify(ProcessStatus(), tests)
+        self._verify(alarm_name="process-status", tests=tests)
     # end test_alarm_process_status
 
     def test_alarm_prouter_connectivity(self):
@@ -1094,7 +1090,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             )
         ]
-        self._verify(ProuterConnectivity(), tests)
+        self._verify(alarm_name="prouter-connectivity", tests=tests)
     # end test_alarm_prouter_connectivity
 
     def test_alarm_storage(self):
@@ -1142,7 +1138,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ])
             ),
         ]
-        self._verify(StorageClusterState(), tests)
+        self._verify(alarm_name="storage-cluster-state", tests=tests)
     # end test_alarm_storage
 
     def test_alarm_vrouter_interface(self):
@@ -1203,7 +1199,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ])
             )
         ]
-        self._verify(VrouterInterface(), tests)
+        self._verify(alarm_name="vrouter-interface", tests=tests)
     # end test_alarm_vrouter_interface
 
     def test_alarm_xmpp_connectivity(self):
@@ -1274,7 +1270,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             )
         ]
-        self._verify(XmppConnectivity(), tests)
+        self._verify(alarm_name="xmpp-connectivity", tests=tests)
     # end test_alarm_xmpp_connectivity
 
     def test_alarm_phyif_bandwidth(self):
@@ -1366,7 +1362,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             ),
         ]
-        self._verify(PhyifBandwidth(), tests)
+        self._verify(alarm_name="phyif-bandwidth", tests=tests)
     # end test_alarm_phyif_bandwidth
 
     def test_alarm_node_status(self):
@@ -1408,10 +1404,167 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             )
         ]
-        self._verify(NodeStatus(), tests)
+        self._verify(alarm_name="node-status", tests=tests)
     # end test_alarm_node_status
 
-    def _verify(self, plugin, tests):
+    def test_alarm_core_files(self):
+        tests = [
+            TestCase(
+                name='NodeStatus == null',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={}),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='NodeStatus.all_core_file_list == []',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={
+                        'NodeStatus': {
+                            'all_core_file_list': []
+                        },
+                    }
+                ),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='NodeStatus.all_core_file_list != null 1 core',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={
+                        'NodeStatus': {
+                            'all_core_file_list': ['core-file1']
+                        },
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            ('NodeStatus.all_core_file_list != null',
+                             None, [('["core-file1"]', None, None)]
+                            ),
+                            ('NodeStatus.all_core_file_list size!= 0',
+                             None, [('["core-file1"]', None, None)]
+                            )
+                        ]
+                    }
+                ])
+            ),
+            TestCase(
+                name='NodeStatus.all_core_file_list != null 3 cores',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={
+                        'NodeStatus': {
+                            'all_core_file_list': ['core-file1', 'core-file2', \
+                                                   'core-file3']
+                        },
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            ('NodeStatus.all_core_file_list != null',
+                             None,[('["core-file1", "core-file2", "core-file3"]',\
+                                    None, None)]
+                            ),
+                            ('NodeStatus.all_core_file_list size!= 0',
+                             None,[('["core-file1", "core-file2", "core-file3"]',\
+                                    None, None)]
+                            )
+                        ]
+                    }
+                ])
+            ),
+        ]
+        self._verify(alarm_name="core-files", tests=tests)
+    # end test_alarm_core_files
+
+    def test_alarm_pending_cassandra_compaction_tasks(self):
+        tests = [
+            TestCase(
+                name='CassandraStatusData == null',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={}),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='CassandraStatusData.cassandra_compaction_task == null',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={
+                        'CassandraStatusData': {}
+                    }
+                ),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='CassandraStatusData.cassandra_compaction_task.' +\
+                     'pending_compaction_tasks < threshold',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={
+                        'CassandraStatusData': {
+                            'cassandra_compaction_task': [
+                                {
+                                    'pending_compaction_tasks': 10,
+                                }
+                            ]
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='CassandraStatusData.cassandra_compaction_task.' +\
+                     'pending_compaction_tasks == threshold',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={
+                        'CassandraStatusData': {
+                            'cassandra_compaction_task': [
+                                {
+                                    'pending_compaction_tasks': '300',
+                                }
+                            ]
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            ('CassandraStatusData.cassandra_compaction_task.'\
+                             'pending_compaction_tasks >= 300',
+                             None, [('300', None, None)]
+                            )
+                        ]
+                    }
+                ])
+            ),
+            TestCase(
+                name='CassandraStatusData.cassandra_compaction_task.' +\
+                     'pending_compaction_tasks > threshold',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={
+                        'CassandraStatusData': {
+                            'cassandra_compaction_task': [
+                                {
+                                    'pending_compaction_tasks': '320',
+                                }
+                            ]
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            ('CassandraStatusData.cassandra_compaction_task.'\
+                             'pending_compaction_tasks >= 300',
+                             None, [('320', None, None)]
+                            )
+                        ]
+                    }
+                ])
+            ),
+        ]
+        self._verify(alarm_name="pending-cassandra-compaction-tasks", tests=tests)
+    # end test_alarm_pending_cassandra_compaction_tasks
+
+    def _verify(self, tests, plugin=None, alarm_name=None):
         for test in tests:
             logging.info('Test: %s' % (test.name))
             exp_or_list = None
@@ -1437,12 +1590,15 @@ class TestAlarmPlugins(unittest.TestCase):
                                 json_operand2_value=e[1],
                                 json_variables=e[2] or {}) for e in match]))
                     exp_or_list.append(SandeshAlarmAndList(and_list))
-            if hasattr(plugin, '__call__'):
+            if ((plugin != None) and hasattr(plugin, '__call__')):
                 or_list = plugin.__call__(test.input.uve_key,
                     test.input.uve_data)
             else:
                 alarm_processor = AlarmProcessor(logging)
-                alarm_cfg = self.get_alarm_config(plugin)
+                if (plugin != None):
+                    alarm_cfg = self.get_alarm_config(plugin)
+                else:
+                    alarm_cfg = self.get_alarm_config_by_name(alarm_name)
                 or_list = alarm_processor._evaluate_uve_for_alarms(
                     alarm_cfg, test.input.uve_key, test.input.uve_data)
             logging.info('exp_or_list: %s' % (str(exp_or_list)))
