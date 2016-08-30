@@ -960,6 +960,11 @@ class VncApiServer(object):
         else:
             req_fields = []
 
+        if 'shared' in get_request().query:
+            include_shared = 'true' in get_request().query.shared.lower()
+        else:
+            include_shared = False
+
         filter_params = get_request().query.filters
         if filter_params:
             try:
@@ -975,7 +980,7 @@ class VncApiServer(object):
 
         return self._list_collection(resource_type,
             parent_uuids, back_ref_uuids, obj_uuids, is_count, is_detail,
-            filters, req_fields)
+            filters, req_fields, include_shared)
     # end http_resource_list
 
     # internal_request_<oper> - handlers of internally generated requests
@@ -2452,6 +2457,7 @@ class VncApiServer(object):
 
         is_count = get_request().json.get('count', False)
         is_detail = get_request().json.get('detail', False)
+        include_shared = get_request().json.get('shared', False)
 
         filter_params = get_request().json.get('filters', {})
         if filter_params:
@@ -2472,7 +2478,7 @@ class VncApiServer(object):
 
         return self._list_collection(res_type, parent_uuids, back_ref_uuids,
                                      obj_uuids, is_count, is_detail, filters,
-                                     req_fields)
+                                     req_fields, include_shared)
     # end list_bulk_collection_http_post
 
     # Private Methods
@@ -2839,7 +2845,7 @@ class VncApiServer(object):
     def _list_collection(self, resource_type, parent_uuids=None,
                          back_ref_uuids=None, obj_uuids=None,
                          is_count=False, is_detail=False, filters=None,
-                         req_fields=None):
+                         req_fields=None, include_shared=False):
         obj_type = resource_type.replace('-', '_') # e.g. virtual_network
 
         (ok, result) = self._db_conn.dbe_list(obj_type,
@@ -2856,24 +2862,33 @@ class VncApiServer(object):
 
 
         # include objects shared with tenant
-        env = get_request().headers.environ
-        tenant_uuid = env.get('HTTP_X_PROJECT_ID')
-        domain_uuid = env.get('HTTP_X_DOMAIN_ID')
-        # implicit access to default domain for keystone v2.0
-        if domain_uuid is None and self.keystone_version == 'v2.0':
-            domain_id = self._db_conn.fq_name_to_uuid('domain', ['default-domain'])
-        shares = self._db_conn.get_shared_objects(obj_type, tenant_uuid, domain_uuid) if tenant_uuid else []
-        owned_objs = set([obj_uuid for (fq_name, obj_uuid) in result])
-        for (obj_uuid, obj_perm) in shares:
-            # skip owned objects already included in results
-            if obj_uuid in owned_objs:
-                continue
-            try:
-                fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
-                result.append((fq_name, obj_uuid))
-            except NoIdError:
-                # uuid no longer valid. Delete?
-                pass
+        if include_shared:
+            env = get_request().headers.environ
+            tenant_uuid = env.get('HTTP_X_PROJECT_ID')
+            domain = env.get('HTTP_X_DOMAIN_ID')
+            if domain is None:
+                domain = env.get('HTTP_X_USER_DOMAIN_ID')
+                try:
+                    domain = str(uuid.UUID(domain))
+                except ValueError:
+                    if domain == 'default':
+                        domain = 'default-domain'
+                    domain = self._db_conn.fq_name_to_uuid('domain', [domain])
+            if domain:
+                domain = domain.replace('-','')
+            shares = self._db_conn.get_shared_objects(obj_type, tenant_uuid, domain)
+            owned_objs = set([obj_uuid for (fq_name, obj_uuid) in result])
+            for (obj_uuid, obj_perm) in shares:
+                # skip owned objects already included in results
+                if obj_uuid in owned_objs:
+                    continue
+                try:
+                    fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
+                    result.append((fq_name, obj_uuid))
+                except NoIdError:
+                    # uuid no longer valid. Delete?
+                    pass
+        # end shared
 
         fq_names_uuids = result
         obj_dicts = []

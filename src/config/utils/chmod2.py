@@ -176,10 +176,10 @@ if args.owner or args.owner_access or args.global_access is not None or args.sha
        # reset share list
        share_list = []
     if args.share_list and args.share_list != '':
-       "tenantA:rwx, tenantB:rwx, ...."
+       "tenantA:rwx, tenantB:rwx, tenant:tenantA:rwx, domain:domainA:rwx ...."
        shares = args.share_list.split(",")
        for item in shares:
-           x = item.split(":")
+           x = item.rsplit(":", 1)
            try:
                share_list.append((x[0], int(x[1])))
            except ValueError:
