@@ -1518,7 +1518,7 @@ TEST_F(EcmpNhTest, EcmpNH_17) {
             AddLocalVmRouteReq(agent_->local_peer(), "vrf1", ip, 32,
             MakeUuid(1), vn_list, intf->label(),
             SecurityGroupList(), CommunityList(), false, PathPreference(),
-            Ip4Address(0), EcmpLoadBalance(), false);
+            Ip4Address(0), EcmpLoadBalance(), false, false);
     client->WaitForIdle();
 
     InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);

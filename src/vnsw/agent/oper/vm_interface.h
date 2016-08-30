@@ -405,6 +405,10 @@ public:
             return is_service_health_check_ip_;
         }
 
+        bool IsL3Only() const {
+            return is_service_health_check_ip_;
+        }
+
         const IpAddress ip_;
         mutable uint8_t plen_;
         mutable bool ecmp_;
@@ -723,8 +727,8 @@ private:
     bool PolicyEnabled() const;
     void AddRoute(const std::string &vrf_name, const IpAddress &ip,
                   uint32_t plen, const std::string &vn_name, bool force_policy,
-                  bool ecmp, bool is_local, const IpAddress &service_ip,
-                  const IpAddress &dependent_ip,
+                  bool ecmp, bool is_local, bool proxy_arp,
+                  const IpAddress &service_ip, const IpAddress &dependent_ip,
                   const CommunityList &communties, uint32_t label);
     void DeleteRoute(const std::string &vrf_name, const IpAddress &ip,
                      uint32_t plen);
