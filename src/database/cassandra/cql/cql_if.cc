@@ -304,21 +304,21 @@ class CassStatementIndexBinder : public boost::static_visitor<> {
         assert(rc == CASS_OK);
     }
     void operator()(const uint8_t &tu8, size_t index) const {
-        CassError rc(cass_statement_bind_int32(statement_, index,
-            (cass_int8_t)tu8));
+        CassError rc(cass_statement_bind_int32(statement_, index, tu8));
         assert(rc == CASS_OK);
     }
     void operator()(const uint16_t &tu16, size_t index) const {
-        CassError rc(cass_statement_bind_int32(statement_, index,
-            (cass_int16_t)tu16));
+        CassError rc(cass_statement_bind_int32(statement_, index, tu16));
         assert(rc == CASS_OK);
     }
     void operator()(const uint32_t &tu32, size_t index) const {
+        assert(tu32 <= (uint32_t)std::numeric_limits<int32_t>::max());
         CassError rc(cass_statement_bind_int32(statement_, index,
             (cass_int32_t)tu32));
         assert(rc == CASS_OK);
     }
     void operator()(const uint64_t &tu64, size_t index) const {
+        assert(tu64 <= (uint64_t)std::numeric_limits<int64_t>::max());
         CassError rc(cass_statement_bind_int64(statement_, index,
             (cass_int64_t)tu64));
         assert(rc == CASS_OK);
@@ -366,20 +366,22 @@ class CassStatementNameBinder : public boost::static_visitor<> {
     }
     void operator()(const uint8_t &tu8, const char *name) const {
         CassError rc(cass_statement_bind_int32_by_name(statement_, name,
-            (cass_int8_t)tu8));
+            tu8));
         assert(rc == CASS_OK);
     }
     void operator()(const uint16_t &tu16, const char *name) const {
         CassError rc(cass_statement_bind_int32_by_name(statement_, name,
-            (cass_int16_t)tu16));
+            tu16));
         assert(rc == CASS_OK);
     }
     void operator()(const uint32_t &tu32, const char *name) const {
+        assert(tu32 <= (uint32_t)std::numeric_limits<int32_t>::max());
         CassError rc(cass_statement_bind_int32_by_name(statement_, name,
             (cass_int32_t)tu32));
         assert(rc == CASS_OK);
     }
     void operator()(const uint64_t &tu64, const char *name) const {
+        assert(tu64 <= (uint64_t)std::numeric_limits<int64_t>::max());
         CassError rc(cass_statement_bind_int64_by_name(statement_, name,
             (cass_int64_t)tu64));
         assert(rc == CASS_OK);
