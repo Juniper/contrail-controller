@@ -1029,6 +1029,11 @@ class VncApiServer(object):
         else:
             req_fields = []
 
+        if 'shared' in get_request().query:
+            include_shared = 'true' in get_request().query.shared.lower()
+        else:
+            include_shared = False
+
         try:
             filters = utils.get_filters(get_request().query.filters)
         except Exception as e:
@@ -1037,7 +1042,7 @@ class VncApiServer(object):
 
         return self._list_collection(obj_type, parent_uuids, back_ref_uuids,
                                      obj_uuids, is_count, is_detail, filters,
-                                     req_fields)
+                                     req_fields, include_shared)
     # end http_resource_list
 
     # internal_request_<oper> - handlers of internally generated requests
@@ -2467,6 +2472,7 @@ class VncApiServer(object):
 
         is_count = get_request().json.get('count', False)
         is_detail = get_request().json.get('detail', False)
+        include_shared = get_request().json.get('shared', False)
 
         try:
             filters = utils.get_filters(get_request().json.get('filters'))
@@ -2480,7 +2486,7 @@ class VncApiServer(object):
 
         return self._list_collection(r_class.object_type, parent_uuids,
                                      back_ref_uuids, obj_uuids, is_count,
-                                     is_detail, filters, req_fields)
+                                     is_detail, filters, req_fields, include_shared)
     # end list_bulk_collection_http_post
 
     # Private Methods
@@ -2861,7 +2867,7 @@ class VncApiServer(object):
     def _list_collection(self, obj_type, parent_uuids=None,
                          back_ref_uuids=None, obj_uuids=None,
                          is_count=False, is_detail=False, filters=None,
-                         req_fields=None):
+                         req_fields=None, include_shared=False):
         r_class = self.get_resource_class(obj_type)
         resource_type = r_class.resource_type
         (ok, result) = self._db_conn.dbe_list(obj_type,
@@ -2877,20 +2883,33 @@ class VncApiServer(object):
             return {'%ss' %(resource_type): {'count': result}}
 
         # include objects shared with tenant
-        env = get_request().headers.environ
-        tenant_uuid = env.get('HTTP_X_PROJECT_ID', None)
-        shares = self._db_conn.get_shared_objects(obj_type, tenant_uuid) if tenant_uuid else []
-        owned_objs = set([obj_uuid for (fq_name, obj_uuid) in result])
-        for (obj_uuid, obj_perm) in shares:
-            # skip owned objects already included in results
-            if obj_uuid in owned_objs:
-                continue
-            try:
-                fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
-                result.append((fq_name, obj_uuid))
-            except NoIdError:
-                # uuid no longer valid. Delete?
-                pass
+        if include_shared:
+            env = get_request().headers.environ
+            tenant_uuid = env.get('HTTP_X_PROJECT_ID')
+            domain = env.get('HTTP_X_DOMAIN_ID')
+            if domain is None:
+                domain = env.get('HTTP_X_USER_DOMAIN_ID')
+                try:
+                    domain = str(uuid.UUID(domain))
+                except ValueError:
+                    if domain == 'default':
+                        domain = 'default-domain'
+                    domain = self._db_conn.fq_name_to_uuid('domain', [domain])
+            if domain:
+                domain = domain.replace('-','')
+            shares = self._db_conn.get_shared_objects(obj_type, tenant_uuid, domain)
+            owned_objs = set([obj_uuid for (fq_name, obj_uuid) in result])
+            for (obj_uuid, obj_perm) in shares:
+                # skip owned objects already included in results
+                if obj_uuid in owned_objs:
+                    continue
+                try:
+                    fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
+                    result.append((fq_name, obj_uuid))
+                except NoIdError:
+                    # uuid no longer valid. Delete?
+                    pass
+        # end shared
 
         fq_names_uuids = result
         obj_dicts = []

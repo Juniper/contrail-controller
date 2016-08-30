@@ -103,6 +103,19 @@ class VncPermissions(object):
             msg = "rbac: Unable to find tenant id in headers"
             self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
             return (False, err_msg)
+        tenant = tenant.replace('-','')
+
+        # grant access if shared with domain
+        domain = env.get('HTTP_X_DOMAIN_ID') or env.get('HTTP_X_DOMAIN_NAME') or \
+            env.get('HTTP_X_USER_DOMAIN_ID') or 'default-domain'
+        try:
+            domain = str(uuid.UUID(domain))
+        except ValueError, TypeError:
+            if domain == 'default':
+                domain = 'default-domain'
+            domain = self._server_mgr._db_conn.fq_name_to_uuid('domain', [domain])
+        if domain:
+            domain = domain.replace('-','')
 
         owner = perms2['owner']
         perms = perms2['owner_access'] << 6
