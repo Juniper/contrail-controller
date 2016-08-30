@@ -93,8 +93,8 @@ def set_defaults():
 def set_v1_frontend_backend(pool):
     conf = []
     vip = VirtualIpSM.get(pool.virtual_ip)
-    if not vip and not vip.params['admin_state']:
-        return
+    if not vip or not vip.params['admin_state']:
+        return "\n"
 
     ssl = ''
     if vip.params['protocol'] == PROTO_HTTPS:
