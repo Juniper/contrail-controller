@@ -37,6 +37,11 @@ public:
     void UpdateRouteTargetRouteFlag(RoutingInstance *routing_instance,
              const RouteTargetList &targets, uint32_t flags) const;
 
+protected:
+    virtual void RTargetRouteOp(as4_t asn, const RouteTarget &rtarget,
+                                BgpAttrPtr attr, bool add_change,
+                                uint32_t flags = 0) const;
+
 private:
     typedef std::set<RoutingInstance *> RoutingInstanceList;
     typedef std::map<RouteTarget, RoutingInstanceList> PublishedRTargetRoutes;
@@ -48,8 +53,6 @@ private:
 
     BgpTable *GetRouteTargetTable() const;
     uint32_t GetRTargetRouteFlag(const RouteTarget &rtarget) const;
-    void RTargetRouteOp(as4_t asn, const RouteTarget &rtarget, BgpAttrPtr attr,
-                        bool add_change, uint32_t flags = 0) const;
 
     virtual BgpAttrPtr GetRouteTargetRouteAttr() const;
     virtual bool IsSubscriptionEmpty() const;
