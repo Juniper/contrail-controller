@@ -689,6 +689,30 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 flags |= VIF_FLAG_MIRROR_TX;
             }
             encoder.set_vifr_mir_id(idx);
+
+            const VrfEntry* vrf =
+                ksync_obj_->ksync()->agent()->vrf_table()->FindVrfFromId(vrf_id_);
+            if (vrf && vrf->vn()) {
+                const std::string &vn_name = vrf->vn()->GetName() ;
+                // TLV for RX Mirror
+                std::vector<int8_t> srcdata;
+                srcdata.push_back(FlowEntry::PCAP_SOURCE_VN);
+                srcdata.push_back(vn_name.size());
+                srcdata.insert(srcdata.end(), vn_name.begin(),
+                               vn_name.end());
+                srcdata.push_back(FlowEntry::PCAP_TLV_END);
+                srcdata.push_back(0x0);
+                encoder.set_vifr_in_mirror_md(srcdata);
+                // TLV for TX Mirror
+                std::vector<int8_t> destdata;
+                destdata.push_back(FlowEntry::PCAP_DEST_VN);
+                destdata.push_back(vn_name.size());
+                destdata.insert(destdata.end(), vn_name.begin(),
+                                vn_name.end());
+                destdata.push_back(FlowEntry::PCAP_TLV_END);
+                destdata.push_back(0x0);
+                encoder.set_vifr_out_mirror_md(destdata);
+            }
         }
 
         if (has_service_vlan_) {
