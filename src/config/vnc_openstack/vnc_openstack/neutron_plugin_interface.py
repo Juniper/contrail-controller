@@ -57,7 +57,7 @@ class NeutronPluginInterface(object):
         try:
             self._multi_tenancy = conf_sections.get('DEFAULTS', 'multi_tenancy')
         except ConfigParser.NoOptionError:
-            self._multi_tenancy = False
+            self._multi_tenancy = True
 
         try:
             self._list_optimization_enabled = \
