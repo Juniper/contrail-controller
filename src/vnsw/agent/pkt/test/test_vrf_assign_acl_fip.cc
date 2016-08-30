@@ -60,7 +60,7 @@ protected:
                 std::string("__internal__"), fip_src_ip, 32, vm_intf->GetUuid(), 
                 vn_list, vm_intf->label(), SecurityGroupList(), CommunityList(), 
                 false, PathPreference(), Ip4Address(0), EcmpLoadBalance(),
-                false);
+                false, false);
         client->WaitForIdle();
 
         Inet4TunnelRouteAdd(bgp_peer_, "__internal__",

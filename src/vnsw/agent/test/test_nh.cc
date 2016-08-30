@@ -970,7 +970,7 @@ TEST_F(CfgTest, EcmpNH_18) {
         AddLocalVmRouteReq(bgp_peer, "vrf1", ip, 32,
                 MakeUuid(1), vn_list, vm_intf->label(),
                 SecurityGroupList(), CommunityList(), false, PathPreference(),
-                Ip4Address(0), EcmpLoadBalance());
+                Ip4Address(0), EcmpLoadBalance(), false, false);
     client->WaitForIdle();
     EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
 

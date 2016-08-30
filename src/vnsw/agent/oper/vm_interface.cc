@@ -3237,7 +3237,7 @@ void VmInterface::UpdateIpv4InterfaceRoute(bool old_ipv4_active,
             old_addr != primary_ip_addr_ || vm_ip_service_addr_ != ip) {
             vm_ip_service_addr_ = ip;
             AddRoute(vrf_->GetName(), primary_ip_addr_, 32, vn_->GetName(),
-                     false, ecmp_, false, vm_ip_service_addr_,
+                     false, ecmp_, false, false, vm_ip_service_addr_,
                      Ip4Address(0), CommunityList(), label_);
         }
     }
@@ -3880,6 +3880,7 @@ void VmInterface::CopyEcmpLoadBalance(EcmpLoadBalance &ecmp_load_balance) {
 void VmInterface::AddRoute(const std::string &vrf_name, const IpAddress &addr,
                            uint32_t plen, const std::string &dest_vn,
                            bool force_policy, bool ecmp, bool is_local,
+                           bool is_health_check_service,
                            const IpAddress &service_ip,
                            const IpAddress &dependent_rt,
                            const CommunityList &communities, uint32_t label) {
@@ -3899,7 +3900,8 @@ void VmInterface::AddRoute(const std::string &vrf_name, const IpAddress &addr,
                                                  sg_id_list, communities,
                                                  force_policy,
                                                  path_preference, service_ip,
-                                                 ecmp_load_balance, is_local);
+                                                 ecmp_load_balance, is_local,
+                                                 is_health_check_service);
     return;
 }
 
@@ -4048,13 +4050,13 @@ void VmInterface::InstanceIp::L3Activate(VmInterface *interface,
     if (ip_.is_v4()) {
         interface->AddRoute(interface->vrf()->GetName(), ip_.to_v4(), plen_,
                             interface->vn()->GetName(), is_force_policy(),
-                            ecmp_, is_local_,
+                            ecmp_, is_local_, is_service_health_check_ip_,
                             interface->GetServiceIp(ip_), tracking_ip_,
                             CommunityList(), interface->label());
     } else if (ip_.is_v6()) {
         interface->AddRoute(interface->vrf()->GetName(), ip_.to_v6(), plen_,
                             interface->vn()->GetName(), is_force_policy(),
-                            ecmp_, is_local_,
+                            ecmp_, is_local_, is_service_health_check_ip_,
                             interface->GetServiceIp(ip_), tracking_ip_,
                             CommunityList(), interface->label());
     }
@@ -4081,6 +4083,10 @@ void VmInterface::InstanceIp::L2Activate(VmInterface *interface,
 
     Ip4Address ipv4(0);
     Ip6Address ipv6;
+
+    if (IsL3Only()) {
+        return;
+    }
 
     if (ip_.is_v4()) {
         // check if L3 route is already installed or not 
@@ -4266,7 +4272,7 @@ void VmInterface::FloatingIp::L3Activate(VmInterface *interface,
     if (floating_ip_.is_v4()) {
         interface->AddRoute(vrf_.get()->GetName(), floating_ip_.to_v4(),
                         Address::kMaxV4PrefixLen, vn_->GetName(), false,
-                        interface->ecmp(), false, Ip4Address(0),
+                        interface->ecmp(), false, false, Ip4Address(0),
                         GetFixedIp(interface), CommunityList(),
                         interface->label());
         if (table->update_floatingip_cb().empty() == false) {
@@ -4276,7 +4282,7 @@ void VmInterface::FloatingIp::L3Activate(VmInterface *interface,
     } else if (floating_ip_.is_v6()) {
         interface->AddRoute(vrf_.get()->GetName(), floating_ip_.to_v6(),
                         Address::kMaxV6PrefixLen, vn_->GetName(), false,
-                        interface->ecmp6(), false, Ip6Address(),
+                        interface->ecmp6(), false, false, Ip6Address(),
                         GetFixedIp(interface), CommunityList(),
                         interface->label());
         //TODO:: callback for DNS handling
@@ -4485,12 +4491,12 @@ void VmInterface::AliasIp::Activate(VmInterface *interface,
     if (alias_ip_.is_v4()) {
         interface->AddRoute(vrf_.get()->GetName(), alias_ip_.to_v4(), 32,
                             vn_->GetName(), false, interface->ecmp(), false,
-                            Ip4Address(0), Ip4Address(0), CommunityList(),
-                            interface->label());
+                            false, Ip4Address(0), Ip4Address(0),
+                            CommunityList(), interface->label());
     } else if (alias_ip_.is_v6()) {
         interface->AddRoute(vrf_.get()->GetName(), alias_ip_.to_v6(), 128,
                             vn_->GetName(), false, interface->ecmp6(), false,
-                            Ip6Address(), Ip6Address(), CommunityList(),
+                            false, Ip6Address(), Ip6Address(), CommunityList(),
                             interface->label());
     }
 
@@ -4609,7 +4615,7 @@ void VmInterface::StaticRoute::Activate(VmInterface *interface,
             }
             interface->AddRoute(vrf_, addr_, plen_,
                                 interface->vn_->GetName(),
-                                false, ecmp, false,
+                                false, ecmp, false, false,
                                 IpAddress(), dependent_ip, communities_,
                                 interface->label());
         }
@@ -4858,13 +4864,14 @@ void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
         if (mac_ == MacAddress::kZeroMac ||
             mac_ == interface->vm_mac_) {
             interface->AddRoute(vrf_, addr_, plen_, interface->vn_->GetName(),
-                                false, ecmp_, false, service_ip_, dependent_rt,
-                                CommunityList(), interface->label());
+                                false, ecmp_, false, false, service_ip_,
+                                dependent_rt, CommunityList(),
+                                interface->label());
         } else {
             CreateLabelAndNH(agent, interface);
             interface->AddRoute(vrf_, addr_, plen_, interface->vn_->GetName(),
-                                false, ecmp_, false, service_ip_, dependent_rt,
-                                CommunityList(), label_);
+                                false, ecmp_, false, false, service_ip_,
+                                dependent_rt, CommunityList(), label_);
         }
     }
     installed_ = true;
