@@ -113,19 +113,8 @@ if 'install' in BUILD_TARGETS:
     OpEnv.Alias('install', install_cmd)
 
 OpEnv['OPSERVER_PKG'] = sdist_gen
-OpEnv.SConscript('plugins/alarm_process_status/SConscript', exports='OpEnv', duplicate = 0)
-OpEnv.SConscript('plugins/alarm_process_connectivity/SConscript', exports='OpEnv', duplicate = 0)
-OpEnv.SConscript('plugins/alarm_partial_sysinfo/SConscript', exports='OpEnv', duplicate = 0)
-OpEnv.SConscript('plugins/alarm_bgp_connectivity/SConscript', exports='OpEnv', duplicate = 0)
-OpEnv.SConscript('plugins/alarm_xmpp_connectivity/SConscript', exports='OpEnv', duplicate = 0)
-OpEnv.SConscript('plugins/alarm_vrouter_interface/SConscript', exports='OpEnv', duplicate = 0)
-OpEnv.SConscript('plugins/alarm_phyif_bandwidth/SConscript', exports='OpEnv', duplicate = 0)
-OpEnv.SConscript('plugins/alarm_config_incorrect/SConscript', exports='OpEnv', duplicate = 0)
-OpEnv.SConscript('plugins/alarm_address_mismatch/SConscript', exports='OpEnv', duplicate = 0)
-OpEnv.SConscript('plugins/alarm_storage/SConscript', exports='OpEnv', duplicate = 0)
-OpEnv.SConscript('plugins/alarm_disk_usage/SConscript', exports='OpEnv', duplicate = 0)
-OpEnv.SConscript('plugins/alarm_prouter_connectivity/SConscript', exports='OpEnv', duplicate = 0)
-OpEnv.SConscript('plugins/alarm_node_status/SConscript', exports='OpEnv', duplicate = 0)
+OpEnv.SConscript('plugins/test/alarm_process_status/SConscript', exports='OpEnv', duplicate = 0)
+OpEnv.SConscript('plugins/test/alarm_partial_sysinfo/SConscript', exports='OpEnv', duplicate = 0)
 OpEnv.SConscript('docs/SConscript', exports='OpEnv', duplicate = 0)
 
 OpEnv.Default(sdist_gen)
@@ -190,6 +179,7 @@ test_sources = [
     '.testr.conf',
     '.coveragerc',
     'test',
+    '../config/utils/contrail_alarm.py',
     ]
 
 test_sources_rules = []
@@ -254,19 +244,8 @@ test_depends = [
         '/discovery/client/dist/discoveryclient-0.1dev.tar.gz',
         '/analytics/vizd',
         '/query_engine/qedt',
-        '/opserver/plugins/alarm_bgp_connectivity/dist/alarm_bgp_connectivity-0.1dev.tar.gz',
-        '/opserver/plugins/alarm_partial_sysinfo/dist/alarm_partial_sysinfo-0.1dev.tar.gz',
-        '/opserver/plugins/alarm_process_connectivity/dist/alarm_process_connectivity-0.1dev.tar.gz',
-        '/opserver/plugins/alarm_process_status/dist/alarm_process_status-0.1dev.tar.gz',
-        '/opserver/plugins/alarm_vrouter_interface/dist/alarm_vrouter_interface-0.1dev.tar.gz',
-        '/opserver/plugins/alarm_phyif_bandwidth/dist/alarm_phyif_bandwidth-0.1dev.tar.gz',
-        '/opserver/plugins/alarm_xmpp_connectivity/dist/alarm_xmpp_connectivity-0.1dev.tar.gz',
-        '/opserver/plugins/alarm_config_incorrect/dist/alarm_config_incorrect-0.1dev.tar.gz',
-        '/opserver/plugins/alarm_address_mismatch/dist/alarm_address_mismatch-0.1dev.tar.gz',
-        '/opserver/plugins/alarm_storage/dist/alarm_storage-0.1dev.tar.gz',
-        '/opserver/plugins/alarm_disk_usage/dist/alarm_disk_usage-0.1dev.tar.gz',
-        '/opserver/plugins/alarm_prouter_connectivity/dist/alarm_prouter_connectivity-0.1dev.tar.gz',
-        '/opserver/plugins/alarm_node_status/dist/alarm_node_status-0.1dev.tar.gz',
+        '/opserver/plugins/test/alarm_partial_sysinfo/dist/alarm_partial_sysinfo-0.1dev.tar.gz',
+        '/opserver/plugins/test/alarm_process_status/dist/alarm_process_status-0.1dev.tar.gz',
                ]
 
 if OpEnv['OPT'] == 'coverage':

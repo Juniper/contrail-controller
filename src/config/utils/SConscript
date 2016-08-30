@@ -48,6 +48,7 @@ utils_scripts = [
   'discovery_cli.py',
   'provision_user_defined_log_statistics.py',
   'provision_alarm.py',
+  'contrail_alarm.py',
 ]
 
 for utils in utils_scripts:
