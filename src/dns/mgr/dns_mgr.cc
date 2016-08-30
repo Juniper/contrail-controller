@@ -725,25 +725,177 @@ bool DnsManager::EndofConfigTimerExpiry() {
     return true;
 }
 
+void SandeshError(const std::string &msg, const std::string &context) {
+    ErrorResp *resp = new ErrorResp();
+    resp->set_resp(msg);
+    resp->set_context(context);
+    resp->Response();
+}
 
+void ShowVirtualDnsServers::HandleRequest() const {
+    DnsManager *dns_manager = Dns::GetDnsManager();
+    if(dns_manager) {
+        dns_manager->VdnsServersMsgHandler("", context());
+    } else {
+        SandeshError("Invalid Request No DnsManager Object", context());
+    }
+}
+
+void DnsManager::MakeSandeshPageReq(PageReqData *req, VirtualDnsConfig::DataMap &vdns,
+                                    VirtualDnsConfig::DataMap::iterator vdns_it,
+                                    VirtualDnsConfig::DataMap::iterator vdns_iter,
+                                    const std::string &key, const std::string &req_name) const {
+    // Set table size
+    req->set_table_size(vdns.size());
+
+    //Next page link
+    if(vdns_iter != vdns.end()) {
+        req->set_next_page(vdns_iter->first + req_name);
+    }
+
+    // First page link
+    if(vdns.size() != 0) {
+        req->set_first_page((vdns.begin())->first + req_name);
+    }
+
+    // Set Entries
+    uint16_t start_entry=0, end_entry=0;
+    std::stringstream ss1, ss2;
+    if(vdns.size() != 0) {
+        start_entry = std::distance(vdns.begin(), vdns_it);
+        start_entry++;
+        if(start_entry != vdns.size()) {
+            end_entry = std::distance(vdns.begin(), --vdns_iter);
+            end_entry++;
+        } else {
+            end_entry = start_entry;
+        }
+    }
+    ss1 << start_entry;
+    ss2 << end_entry;
+    req->set_entries(ss1.str() + " - " + ss2.str());
+
+    // Previous page link
+    if(vdns_it != vdns.begin()) {
+        for (int i=0; i < (DnsManager::max_records_per_sandesh); i++) {
+            vdns_it--;
+            if(vdns_it == vdns.begin())
+                break;
+        }
+        req->set_prev_page(vdns_it->first + req_name);
+    }
+
+    // Set link to show all entries in a single page
+    req->set_all("AllEntries" + req_name);
+}
+
+void DnsManager::VdnsServersMsgHandler(const std::string &key,
+                                       const std::string &context) const {
+    VirtualDnsServersResponse *resp;
+    uint16_t count = 0;
+    uint16_t sandesh_msg_limit = DnsManager::max_records_per_sandesh;
+    VirtualDnsConfig::DataMap vdns = VirtualDnsConfig::GetVirtualDnsMap();
+    VirtualDnsConfig::DataMap::iterator vdns_it, vdns_iter;
+    std::vector<VirtualDnsServersSandesh> vdns_list_sandesh;
+    if(key == "AllEntries") {
+        sandesh_msg_limit = vdns.size();
+        vdns_it = vdns.begin();
+    } else if(key != "") {
+        vdns_it = vdns.lower_bound(key);
+    } else {
+        vdns_it = vdns.begin();
+    }
+
+    for (vdns_iter= vdns_it; vdns_iter != vdns.end(); ++vdns_iter) {
+
+        if (count++ == sandesh_msg_limit) {
+            break;
+        }
+        VirtualDnsConfig *vdns_config = vdns_iter->second;
+        VirtualDnsServersSandesh vdns_sandesh;
+        VirtualDnsTraceData vdns_trace_data;
+        vdns_config->VirtualDnsTrace(vdns_trace_data);
+
+        std::vector<std::string> net_list_sandesh;
+        for (VirtualDnsConfig::IpamList::iterator ipam_iter =
+            vdns_config->ipams_.begin();
+            ipam_iter != vdns_config->ipams_.end(); ++ipam_iter) {
+            IpamConfig *ipam = *ipam_iter;
+            const IpamConfig::VnniList &vnni = ipam->GetVnniList();
+            for (IpamConfig::VnniList::iterator vnni_it = vnni.begin();
+                vnni_it != vnni.end(); ++vnni_it) {
+                Subnets &subnets = (*vnni_it)->GetSubnets();
+                for (unsigned int i = 0; i < subnets.size(); i++) {
+                    std::stringstream str;
+                    str << subnets[i].prefix.to_string();
+                    str << "/";
+                    str << subnets[i].plen;
+                    net_list_sandesh.push_back(str.str());
+                }
+            }
+        }
+
+        vdns_sandesh.set_virtual_dns(vdns_trace_data);
+        vdns_sandesh.set_records(vdns_config->GetName());
+        vdns_sandesh.set_num_records(vdns_config->virtual_dns_records_.size());
+        vdns_sandesh.set_subnets(net_list_sandesh);
+        vdns_list_sandesh.push_back(vdns_sandesh);
+    }
+
+    resp = new VirtualDnsServersResponse();
+    resp->set_context(context);
+    resp->set_virtual_dns_servers(vdns_list_sandesh);
+    resp->set_more(true);
+    resp->Response();
+
+    Pagination *page = new Pagination();
+    PageReqData req;
+    MakeSandeshPageReq(&req, vdns, vdns_it, vdns_iter, key, " VdnsServersReq");
+    page->set_context(context);
+    page->set_req(req);
+    page->Response();
+
+}
 
 void ShowDnsConfig::HandleRequest() const {
-    DnsConfigResponse *resp = new DnsConfigResponse();
-    resp->set_context(context());
-    VirtualDnsConfig::DataMap vdns = VirtualDnsConfig::GetVirtualDnsMap();
+    DnsManager *dns_manager = Dns::GetDnsManager();
+    if(dns_manager) {
+        dns_manager->DnsConfigMsgHandler("", context());
+    } else {
+        SandeshError("Invalid Request No DnsManager Object", context());
+    }
+}
 
+void DnsManager::DnsConfigMsgHandler(const std::string &key,
+                                     const std::string &context) const {
+    DnsConfigResponse *resp = new DnsConfigResponse();
+    uint16_t count = 0;
+    uint16_t sandesh_msg_limit = DnsManager::max_records_per_sandesh;
+    VirtualDnsConfig::DataMap vdns = VirtualDnsConfig::GetVirtualDnsMap();
+    VirtualDnsConfig::DataMap::iterator vdns_it, vdns_iter;
     std::vector<VirtualDnsSandesh> vdns_list_sandesh;
-    for (VirtualDnsConfig::DataMap::iterator vdns_it = vdns.begin();
-         vdns_it != vdns.end(); ++vdns_it) {
-        VirtualDnsConfig *vdns_config = vdns_it->second;
+    if(key == "AllEntries") {
+        sandesh_msg_limit = vdns.size();
+        vdns_it = vdns.begin();
+    } else if(key != "") {
+        vdns_it = vdns.lower_bound(key);
+    } else {
+        vdns_it = vdns.begin();
+    }
+
+    for (vdns_iter = vdns_it; vdns_iter != vdns.end(); ++vdns_iter) {
+        if (count++ == sandesh_msg_limit) {
+            break;
+        }
+        VirtualDnsConfig *vdns_config = vdns_iter->second;
         VirtualDnsSandesh vdns_sandesh;
         VirtualDnsTraceData vdns_trace_data;
         vdns_config->VirtualDnsTrace(vdns_trace_data);
 
         std::vector<VirtualDnsRecordTraceData> rec_list_sandesh;
         for (VirtualDnsConfig::VDnsRec::iterator rec_it =
-             vdns_config->virtual_dns_records_.begin();
-             rec_it != vdns_config->virtual_dns_records_.end(); ++rec_it) {
+              vdns_config->virtual_dns_records_.begin();
+            rec_it != vdns_config->virtual_dns_records_.end(); ++rec_it) {
             VirtualDnsRecordTraceData rec_trace_data;
             (*rec_it)->VirtualDnsRecordTrace(rec_trace_data);
             rec_list_sandesh.push_back(rec_trace_data);
@@ -752,7 +904,7 @@ void ShowDnsConfig::HandleRequest() const {
         std::vector<std::string> net_list_sandesh;
         for (VirtualDnsConfig::IpamList::iterator ipam_iter =
              vdns_config->ipams_.begin();
-             ipam_iter != vdns_config->ipams_.end(); ++ipam_iter) {
+            ipam_iter != vdns_config->ipams_.end(); ++ipam_iter) {
             IpamConfig *ipam = *ipam_iter;
             const IpamConfig::VnniList &vnni = ipam->GetVnniList();
             for (IpamConfig::VnniList::iterator vnni_it = vnni.begin();
@@ -774,62 +926,40 @@ void ShowDnsConfig::HandleRequest() const {
         vdns_list_sandesh.push_back(vdns_sandesh);
     }
 
+    resp->set_context(context);
     resp->set_virtual_dns(vdns_list_sandesh);
+    resp->set_more(true);
     resp->Response();
-}
 
-void ShowVirtualDnsServers::HandleRequest() const {
-    VirtualDnsServersResponse *resp = new VirtualDnsServersResponse();
-    resp->set_context(context());
-    VirtualDnsConfig::DataMap vdns = VirtualDnsConfig::GetVirtualDnsMap();
-
-    std::vector<VirtualDnsServersSandesh> vdns_list_sandesh;
-    for (VirtualDnsConfig::DataMap::iterator vdns_it = vdns.begin();
-         vdns_it != vdns.end(); ++vdns_it) {
-        VirtualDnsConfig *vdns_config = vdns_it->second;
-        VirtualDnsServersSandesh vdns_sandesh;
-        VirtualDnsTraceData vdns_trace_data;
-        vdns_config->VirtualDnsTrace(vdns_trace_data);
-
-        std::vector<std::string> net_list_sandesh;
-        for (VirtualDnsConfig::IpamList::iterator ipam_iter =
-             vdns_config->ipams_.begin();
-             ipam_iter != vdns_config->ipams_.end(); ++ipam_iter) {
-            IpamConfig *ipam = *ipam_iter;
-            const IpamConfig::VnniList &vnni = ipam->GetVnniList();
-            for (IpamConfig::VnniList::iterator vnni_it = vnni.begin();
-                 vnni_it != vnni.end(); ++vnni_it) {
-                Subnets &subnets = (*vnni_it)->GetSubnets();
-                for (unsigned int i = 0; i < subnets.size(); i++) {
-                    std::stringstream str;
-                    str << subnets[i].prefix.to_string();
-                    str << "/";
-                    str << subnets[i].plen;
-                    net_list_sandesh.push_back(str.str());
-                }
-            }
-        }
-
-        vdns_sandesh.set_virtual_dns(vdns_trace_data);
-        vdns_sandesh.set_records(vdns_config->GetName());
-        vdns_sandesh.set_num_records(vdns_config->virtual_dns_records_.size());
-        vdns_sandesh.set_subnets(net_list_sandesh);
-        vdns_list_sandesh.push_back(vdns_sandesh);
-    }
-
-    resp->set_virtual_dns_servers(vdns_list_sandesh);
-    resp->Response();
+    Pagination *page = new Pagination();
+    PageReqData req;
+    MakeSandeshPageReq(&req, vdns, vdns_it, vdns_iter, key, " DnsConfigReq");
+    page->set_context(context);
+    page->set_req(req);
+    page->Response();
 }
 
 void ShowVirtualDnsRecords::HandleRequest() const {
+    DnsManager *dns_manager = Dns::GetDnsManager();
+    if(dns_manager) {
+        dns_manager->VdnsRecordsMsgHandler(get_virtual_dns_server(), context());
+    } else {
+        SandeshError("Invalid Request No DnsManager Object", context());
+    }
+}
+
+void DnsManager::VdnsRecordsMsgHandler(const std::string &key,
+                                       const std::string &context, bool show_all) const {
     VirtualDnsRecordsResponse *resp = new VirtualDnsRecordsResponse();
     VirtualDnsConfig::DataMap vdns = VirtualDnsConfig::GetVirtualDnsMap();
 
-    std::stringstream ss(get_virtual_dns_server());
+    std::stringstream ss(key);
+    std::stringstream str;
     std::string vdns_server, next_iterator;
     VirtualDnsRecordConfig *next_iterator_key = NULL;
     std::getline(ss, vdns_server, '@');
     std::getline(ss, next_iterator);
+    uint16_t sandesh_msg_limit = DnsManager::max_records_per_sandesh;
     if (!next_iterator.empty()) {
         std::stringstream next_iter(next_iterator);
         uint64_t value = 0;
@@ -837,57 +967,240 @@ void ShowVirtualDnsRecords::HandleRequest() const {
         next_iterator_key = (VirtualDnsRecordConfig *) value;
     }
     std::vector<VirtualDnsRecordTraceData> rec_list_sandesh;
+    VirtualDnsConfig::VDnsRec::iterator rec_it, rec_it1;
     VirtualDnsConfig::DataMap::iterator vdns_it = vdns.find(vdns_server);
     if (vdns_it != vdns.end()) {
         VirtualDnsConfig *vdns_config = vdns_it->second;
-        int count = 0;
-        for (VirtualDnsConfig::VDnsRec::iterator rec_it =
-             vdns_config->virtual_dns_records_.lower_bound(next_iterator_key);
+        uint16_t count = 0;
+        uint16_t size = vdns_config->virtual_dns_records_.size();
+        if(show_all) {
+            rec_it1 = vdns_config->virtual_dns_records_.begin();
+            sandesh_msg_limit = size;
+        } else {
+            rec_it1 = vdns_config->virtual_dns_records_.lower_bound(next_iterator_key);
+        }
+        for(rec_it = rec_it1;
              rec_it != vdns_config->virtual_dns_records_.end(); ++rec_it) {
             VirtualDnsRecordTraceData rec_trace_data;
             (*rec_it)->VirtualDnsRecordTrace(rec_trace_data);
             rec_list_sandesh.push_back(rec_trace_data);
-            if (++count == DnsManager::max_records_per_sandesh) {
+            if (++count == sandesh_msg_limit) {
                 if (++rec_it == vdns_config->virtual_dns_records_.end())
                     break;
-                std::stringstream str;
                 uint64_t value = (uint64_t)(*rec_it);
                 str << vdns_server << "@" << value;
-                resp->set_getnext_record_set(str.str());
                 break;
             }
         }
-    }
 
-    resp->set_context(context());
-    resp->set_virtual_dns_server(vdns_server);
-    resp->set_records(rec_list_sandesh);
-    resp->Response();
+        resp->set_context(context);
+        resp->set_virtual_dns_server(vdns_server);
+        resp->set_records(rec_list_sandesh);
+        resp->set_more(true);
+        resp->Response();
+
+        Pagination *page = new Pagination();
+        PageReqData req;
+
+        // Set table size
+        req.set_table_size(size);
+
+        //Next page link
+        if(rec_it != vdns_config->virtual_dns_records_.end()) {
+            req.set_next_page(str.str() + " VdnsRecordsReq");
+        }
+
+        // First page link
+        if(size != 0) {
+            std::stringstream str;
+            uint64_t value = (uint64_t)(*(vdns_config->virtual_dns_records_.begin()));
+            str << vdns_server << "@" << value;
+            req.set_first_page(str.str() + " VdnsRecordsReq");
+        }
+
+        // Set Entries
+        int start_entry=0, end_entry=0;
+        std::stringstream ss1, ss2;
+        if( size != 0) {
+            start_entry = std::distance(vdns_config->virtual_dns_records_.begin(), rec_it1);
+            start_entry++;
+            if(start_entry != size) {
+                end_entry = std::distance(vdns_config->virtual_dns_records_.begin(), --rec_it);
+                end_entry++;
+            } else {
+                end_entry = start_entry;
+            }
+        }
+
+        ss1 << start_entry;
+        ss2 << end_entry;
+        req.set_entries(ss1.str() + " - " + ss2.str());
+
+        // Previous page link
+        if(rec_it1 != vdns_config->virtual_dns_records_.begin()) {
+            for (int i=0; i < (sandesh_msg_limit); i++) {
+                rec_it1--;
+                if(rec_it1 == vdns_config->virtual_dns_records_.begin())
+                    break;
+            }
+            std::stringstream str;
+            uint64_t value = (uint64_t)(*rec_it1);
+            str << vdns_server << "@" << value;
+            req.set_prev_page(str.str() + " VdnsRecordsReq");
+        }
+
+        // Set link to show all entries in a single page
+        std::stringstream str;
+        uint64_t value = 0;
+        str << vdns_server << "@" << value;
+        req.set_all(str.str() + " AllEntriesVdnsRecordsReq");
+
+        page->set_context(context);
+        page->set_req(req);
+        page->Response();
+
+    } else {
+        SandeshError("Invalid Request Enter Vdns Server Name", context);
+    }
 }
 
 void ShowBindPendingList::HandleRequest() const {
-    BindPendingListResponse *resp = new BindPendingListResponse();
-    resp->set_context(context());
+    DnsManager *dns_manager = Dns::GetDnsManager();
+    if(dns_manager) {
+        dns_manager->BindPendingMsgHandler("", context());
+    } else {
+        SandeshError("Invalid Request No DnsManager Object", context());
+    }
+}
 
+void DnsManager::BindPendingMsgHandler(const std::string &key,
+                                       const std::string &context) const {
+    BindPendingListResponse *resp = new BindPendingListResponse();
     DnsManager *dns_manager = Dns::GetDnsManager();
     if (dns_manager) {
-
+        uint16_t count =0;
+        uint16_t index=0;
+        stringToInteger(key, index);
+        uint16_t sandesh_msg_limit = DnsManager::max_records_per_sandesh;
         DnsManager::PendingListMap map =
             dns_manager->GetDeportedPendingListMap();
+        uint16_t size = map.size();
         std::vector<PendingListEntry> &pending_list =
             const_cast<std::vector<PendingListEntry>&>(resp->get_data());
-        for (DnsManager::PendingListMap::iterator it = map.begin();
-             it != map.end(); ) {
+        DnsManager::PendingListMap::iterator map_it, map_iter;
+        if(key == "AllEntries") {
+            sandesh_msg_limit = size;
+            map_it = map.begin();
+        }
+        else if(key != "") {
+            map_it = map.lower_bound(index);
+        }
+        else {
+            map_it = map.begin();
+        }
+
+        for (map_iter = map_it; map_iter!= map.end(); ++map_iter) {
+            if (count++ == sandesh_msg_limit) {
+                break;
+            }
             PendingListEntry entry;
-            entry.set_xid(it->second.xid);
-            entry.set_view(it->second.view);
-            entry.set_zone(it->second.zone);
-            entry.set_retry_count(it->second.retransmit_count);
-            entry.set_items(DnsItemsToString(it->second.items));
+            entry.set_xid(map_iter->second.xid);
+            entry.set_view(map_iter->second.view);
+            entry.set_zone(map_iter->second.zone);
+            entry.set_retry_count(map_iter->second.retransmit_count);
+            entry.set_items(DnsItemsToString(map_iter->second.items));
 
             pending_list.push_back(entry);
-            it++;
         }
+
+        resp->set_context(context);
+        resp->set_more(true);
+        resp->Response();
+
+        Pagination *page = new Pagination();
+        PageReqData req;
+
+        // Set table size
+        req.set_table_size(size);
+
+        //Next page link
+        if(map_iter != map.end()) {
+            std::stringstream ss;
+            ss << map_iter->first;
+            req.set_next_page(ss.str() + " BindPendingListReq");
+        }
+
+        // First page link
+        if(size != 0) {
+            std::stringstream ss;
+            ss << map.begin()->first;
+            req.set_first_page(ss.str()+ " BindPendingListReq");
+        }
+
+        // Set Entries
+        int start_entry=0, end_entry=0;
+        std::stringstream ss1, ss2;
+        if(size != 0) {
+            start_entry = std::distance(map.begin(), map_it);
+            start_entry++;
+            if(start_entry != size) {
+                end_entry = std::distance(map.begin(), --map_iter);
+                end_entry++;
+            } else {
+                end_entry = start_entry;
+            }
+
+        }
+        ss1 << start_entry;
+        ss2 << end_entry;
+        req.set_entries(ss1.str() + " - " + ss2.str());
+
+        // Previous page link
+        if(map_it != map.begin()) {
+            for (int i=0; i < (sandesh_msg_limit); i++) {
+                map_it--;
+                if(map_it == map.begin())
+                    break;
+            }
+            std::stringstream ss;
+            ss << map_it->first;
+            req.set_prev_page(ss.str() + " BindPendingListReq");
+        }
+
+        // Set link to show all entries in a single page
+        req.set_all("AllEntries BindPendingListReq");
+
+        page->set_context(context);
+        page->set_req(req);
+        page->Response();
+
+    } else {
+        SandeshError("Invalid Request No DnsManager Object ", context);
     }
-    resp->Response();
+}
+
+void PageReq::HandleRequest() const {
+    string req_name, search_key;
+    vector<string> tokens;
+    boost::split(tokens, get_key(), boost::is_any_of(" "));
+    search_key = tokens[0];
+    req_name = tokens[1];
+    DnsManager *dns_manager = Dns::GetDnsManager();
+    if(dns_manager && (tokens.size() == 2)) {
+        if(req_name == "VdnsServersReq") {
+            dns_manager->VdnsServersMsgHandler(search_key, context());
+        } else if(req_name == "DnsConfigReq") {
+            dns_manager->DnsConfigMsgHandler(search_key, context());
+        } else if(req_name == "VdnsRecordsReq") {
+            dns_manager->VdnsRecordsMsgHandler(search_key, context());
+        } else if(req_name == "AllEntriesVdnsRecordsReq") {
+            dns_manager->VdnsRecordsMsgHandler(search_key, context(), true);
+        } else if (req_name == "BindPendingListReq") {
+            dns_manager->BindPendingMsgHandler(search_key, context());
+        } else {
+            SandeshError("Invalid Request", context());
+        }
+    } else {
+        SandeshError("Invalid Request", context());
+    }
 }
