@@ -2899,10 +2899,10 @@ class VncApiServer(object):
         # include objects shared with tenant
         env = get_request().headers.environ
         tenant_uuid = env.get('HTTP_X_PROJECT_ID')
-        domain_uuid = env.get('HTTP_X_DOMAIN_ID')
+        domain_uuid = env.get('HTTP_X_DOMAIN_ID') or env.get('HTTP_X_USER_DOMAIN_ID')
         # implicit access to default domain for keystone v2.0
         if domain_uuid is None and self.keystone_version == 'v2.0':
-            domain_id = self._db_conn.fq_name_to_uuid('domain', ['default-domain'])
+            domain_uuid = self._db_conn.fq_name_to_uuid('domain', ['default-domain'])
         shares = self._db_conn.get_shared_objects(obj_type, tenant_uuid, domain_uuid) if tenant_uuid else []
         owned_objs = set([obj_uuid for (fq_name, obj_uuid) in result])
         for (obj_uuid, obj_perm) in shares:
