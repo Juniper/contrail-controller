@@ -329,7 +329,6 @@ public:
 	    for (size_t or_idx=0; or_idx<inp.wterms; or_idx++) {
                 res.welem[or_idx].reset();
             }
-
             // Start the SELECT and POST-processing
             return boost::bind(&QueryEngine::QueryExec, qosp_->qe_,
                    _1, inp.qp, res.current_chunk, res.wresult.get());
@@ -395,7 +394,7 @@ public:
                 string rkey = "REPLY:" + res.inp.qp.qid;
                 char stat[40];
                 uint prg = 10 + (chunknum * 75)/inp.chunk_size.size();
-                QE_LOG_NOQID(DEBUG,  "QueryExec for inst " << inst <<
+                QE_LOG_NOQID(INFO,  "QueryExec for new chunk inst " << inst <<
                     " step " << step << " PROGRESS " << prg);
                 sprintf(stat,"{\"progress\":%d}", prg);
                 RedisAsyncArgCommand(rac, NULL, 
@@ -407,7 +406,6 @@ public:
             }            
         } else {
             // We are in the middle of doing WHERE processing for a chunk
-
             res.welem[substep-1] = exts[step-1]->wres;
 
             return boost::bind(&QueryEngine::QueryExecWhere, qosp_->qe_,
