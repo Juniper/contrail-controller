@@ -271,30 +271,6 @@ class TestAlarmPlugins(unittest.TestCase):
 
         tests = [
             TestCase(
-                name='ContrailConfig == null',
-                input=TestInput(uve_key='ObjectVRouter:host1',
-                    uve_data={
-                        'VrouterAgent': {
-                            'self_ip_list': ['10.1.1.1']
-                        }
-                    }
-                ),
-                output=TestOutput(or_list=None)
-            ),
-            TestCase(
-                name='VrouterAgent == null',
-                input=TestInput(uve_key='ObjectVRouter:host1',
-                    uve_data={
-                        'ContrailConfig': {
-                            'elements': {
-                                'virtual_router_ip_address': '"10.1.1.1"'
-                            }
-                        }
-                    }
-                ),
-                output=TestOutput(or_list=None)
-            ),
-            TestCase(
                 name='ContrailConfig.elements.virtual_router_ip_address ' +\
                     '== null',
                 input=TestInput(uve_key='ObjectVRouter:host1',
@@ -313,42 +289,9 @@ class TestAlarmPlugins(unittest.TestCase):
                     {
                         'and_list': [
                             ('ContrailConfig.elements.' +\
-                                'virtual_router_ip_address not in '
-                                'VrouterAgent.self_ip_list', None,
-                             [('null', '["10.1.1.1"]', None)])
-                        ]
-                    },
-                    {
-                        'and_list': [
-                            ('ContrailConfig.elements.' +\
                                 'virtual_router_ip_address != '
                                 'VrouterAgent.control_ip', None,
                              [('null', '"10.1.1.1"', None)])
-                        ]
-                    }
-                ])
-            ),
-            TestCase(
-                name='VrouterAgent.self_ip_list == null',
-                input=TestInput(uve_key='ObjectVRouter:host1',
-                    uve_data={
-                        'VrouterAgent': {
-                            'control_ip': '10.1.1.1'
-                        },
-                        'ContrailConfig': {
-                            'elements': {
-                                'virtual_router_ip_address': '"10.1.1.1"'
-                            }
-                        }
-                    }
-                ),
-                output=TestOutput(or_list=[
-                    {
-                        'and_list': [
-                            ('ContrailConfig.elements.' +\
-                                'virtual_router_ip_address not in '
-                                'VrouterAgent.self_ip_list', None,
-                             [('"10.1.1.1"', 'null', None)])
                         ]
                     }
                 ])
@@ -368,39 +311,6 @@ class TestAlarmPlugins(unittest.TestCase):
                     }
                 ),
                 output=TestOutput(or_list=[
-                    {
-                        'and_list': [
-                            ('ContrailConfig.elements.' +\
-                                'virtual_router_ip_address != '
-                                'VrouterAgent.control_ip', None,
-                             [('"10.1.1.1"', 'null', None)])
-                        ]
-                    }
-                ])
-            ),
-            TestCase(
-                name='VrouterAgent.control_ip == null, ' +\
-                    'VrouterAgent.self_ip_list == null',
-                input=TestInput(uve_key='ObjectVRouter:host1',
-                    uve_data={
-                        'VrouterAgent': {
-                        },
-                        'ContrailConfig': {
-                            'elements': {
-                                'virtual_router_ip_address': '"10.1.1.1"'
-                            }
-                        }
-                    }
-                ),
-                output=TestOutput(or_list=[
-                    {
-                        'and_list': [
-                            ('ContrailConfig.elements.' +\
-                                'virtual_router_ip_address not in '
-                                'VrouterAgent.self_ip_list', None,
-                             [('"10.1.1.1"', 'null', None)])
-                        ]
-                    },
                     {
                         'and_list': [
                             ('ContrailConfig.elements.' +\
@@ -434,33 +344,6 @@ class TestAlarmPlugins(unittest.TestCase):
                                 'virtual_router_ip_address != '
                                 'VrouterAgent.control_ip', None,
                              [('"1.1.1.2"', '"1.1.1.1"', None)])
-                        ]
-                    }
-                ])
-            ),
-            TestCase(
-                name='ContrailConfig.elements.virtual_router_ip_address ' +\
-                    'not in VrouterAgent.self_ip_list',
-                input=TestInput(uve_key='ObjectVRouter:host1',
-                    uve_data={
-                        'VrouterAgent': {
-                            'self_ip_list': ['10.1.1.1'],
-                            'control_ip': '1.1.1.2'
-                        },
-                        'ContrailConfig': {
-                            'elements': {
-                                'virtual_router_ip_address': '"1.1.1.2"'
-                            }
-                        }
-                    }
-                ),
-                output=TestOutput(or_list=[
-                    {
-                        'and_list': [
-                            ('ContrailConfig.elements.' +\
-                                'virtual_router_ip_address not in '
-                                'VrouterAgent.self_ip_list', None,
-                             [('"1.1.1.2"', '["10.1.1.1"]', None)])
                         ]
                     }
                 ])
