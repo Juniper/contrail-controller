@@ -385,7 +385,7 @@ static void Setup() {
     assert(ret == true);
 
     Agent::GetInstance()->flow_stats_manager()->
-        default_flow_stats_collector()->UpdateFlowAgeTime(AGE_TIME);
+        default_flow_stats_collector_obj()->SetFlowAgeTime(AGE_TIME);
     AddAllowAcl("acl1", 1);
     client->WaitForIdle();
 }
@@ -1095,8 +1095,8 @@ TEST_F(FlowTest, Nat2NonNat) {
 // Non-Nat to Nat flow conversion test for traffic from VM to local VM
 TEST_F(FlowTest, NonNat2Nat) {
     Agent::GetInstance()->flow_stats_manager()->
-        default_flow_stats_collector()->
-        UpdateFlowAgeTime(FlowStatsCollector::FlowAgeTime);
+        default_flow_stats_collector_obj()->
+        SetFlowAgeTime(FlowStatsCollector::FlowAgeTime);
     Ip4Address addr = Ip4Address::from_string("2.1.1.1");
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
     Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr, 32, gw,
@@ -1145,7 +1145,7 @@ TEST_F(FlowTest, NonNat2Nat) {
                 fe->short_flow_reason() == FlowEntry::SHORT_REVERSE_FLOW_CHANGE);
 
     Agent::GetInstance()->flow_stats_manager()->
-        default_flow_stats_collector()->UpdateFlowAgeTime(AGE_TIME);
+        default_flow_stats_collector_obj()->SetFlowAgeTime(AGE_TIME);
     client->EnqueueFlowAge();
     client->WaitForIdle();
     vnet_table[1]->DeleteReq(bgp_peer_, "vrf1", addr, 32, NULL);
@@ -1705,7 +1705,7 @@ TEST_F(FlowTest, fixed_ip_fip_dnat) {
 
 TEST_F(FlowTest, fip_fixed_ip_change_1) {
     agent_->flow_stats_manager()->\
-        default_flow_stats_collector()->UpdateFlowAgeTime(100000 * AGE_TIME);
+        default_flow_stats_collector_obj()->SetFlowAgeTime(100000 * AGE_TIME);
     TxIpPacket(vnet[1]->id(), "1.1.1.10", vnet_addr[3], 1);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGet(vnet[1]->flow_key_nh()->id(), "1.1.1.10",
@@ -1726,13 +1726,13 @@ TEST_F(FlowTest, fip_fixed_ip_change_1) {
     AddFloatingIp("fip_fixed_ip", 4, "2.1.1.101", "1.1.1.10");
     client->WaitForIdle();
     agent_->flow_stats_manager()->\
-        default_flow_stats_collector()->UpdateFlowAgeTime(AGE_TIME);
+        default_flow_stats_collector_obj()->SetFlowAgeTime(AGE_TIME);
 }
 
 TEST_F(FlowTest, fip_fixed_ip_change_2) {
 
     agent_->flow_stats_manager()->\
-        default_flow_stats_collector()->UpdateFlowAgeTime(100000 * AGE_TIME);
+        default_flow_stats_collector_obj()->SetFlowAgeTime(100000 * AGE_TIME);
     TxIpPacket(vnet[3]->id(), vnet_addr[3], "2.1.1.101", 1);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGet(vnet[1]->flow_key_nh()->id(), "1.1.1.10",
@@ -1754,7 +1754,7 @@ TEST_F(FlowTest, fip_fixed_ip_change_2) {
     AddFloatingIp("fip_fixed_ip", 4, "2.1.1.101", "1.1.1.10");
     client->WaitForIdle();
     agent_->flow_stats_manager()->\
-        default_flow_stats_collector()->UpdateFlowAgeTime(AGE_TIME);
+        default_flow_stats_collector_obj()->SetFlowAgeTime(AGE_TIME);
 }
 
 // negative test scenario where VM tries to ping its own floating IP

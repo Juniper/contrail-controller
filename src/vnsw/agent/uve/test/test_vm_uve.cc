@@ -106,10 +106,16 @@ public:
     }
     virtual void SetUp() {
         agent_->flow_stats_manager()->set_delete_short_flow(false);
-        FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>
-            (agent_->flow_stats_manager()->default_flow_stats_collector());
-        f->ClearList();
-        EXPECT_EQ(0U, f->ingress_flow_log_list().size());
+        FlowStatsCollectorObject *obj = agent_->flow_stats_manager()->
+            default_flow_stats_collector_obj();
+        FlowStatsCollectorTest *f1 = static_cast<FlowStatsCollectorTest *>
+            (obj->GetCollector(0));
+        FlowStatsCollectorTest *f2 = static_cast<FlowStatsCollectorTest *>
+            (obj->GetCollector(1));
+        f1->ClearList();
+        EXPECT_EQ(0U, f1->ingress_flow_log_list().size());
+        f2->ClearList();
+        EXPECT_EQ(0U, f2->ingress_flow_log_list().size());
         AddIPAM("vn5", ipam_info, 1);
         client->WaitForIdle();
         AddIPAM("vn4", ipam_info2, 1);
@@ -1032,9 +1038,11 @@ TEST_F(UveVmUveTest, SIP_override) {
     EXPECT_TRUE(FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(), vm4_ip,
                         vm1_fip, 1, 0, 0, rev->key().nh));
 
-    FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>
-        (Agent::GetInstance()->flow_stats_manager()->
-         default_flow_stats_collector());
+    EXPECT_TRUE(f1 != NULL);
+    FlowStatsCollector *fsc = f1->fsc();
+    EXPECT_TRUE(fsc != NULL);
+
+    FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>(fsc);
     FlowExportInfo *info = f->FindFlowExportInfo(f1);
     FlowExportInfo *rinfo = f->FindFlowExportInfo(rev);
     EXPECT_TRUE(info != NULL);

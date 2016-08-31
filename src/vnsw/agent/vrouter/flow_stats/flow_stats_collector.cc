@@ -553,7 +553,6 @@ uint32_t FlowStatsCollector::RunAgeing(uint32_t max_count) {
 // Timer fired for ageing. Update the number of entries to visit and start the
 // task if its already not ruuning
 bool FlowStatsCollector::Run() {
-    run_counter_++;
     if (flow_tree_.size() == 0) {
         return true;
      }
@@ -1223,23 +1222,26 @@ static void FlowExportInfoToSandesh(const FlowExportInfo &value,
 void FlowStatsRecordsReq::HandleRequest() const {
     FlowStatsCollector::FlowEntryTree::iterator it;
     vector<FlowStatsRecord> list;
-    FlowStatsCollector *col = Agent::GetInstance()->
-        flow_stats_manager()->default_flow_stats_collector();
     FlowStatsRecordsResp *resp = new FlowStatsRecordsResp();
-    it = col->flow_tree_.begin();
-    while (it != col->flow_tree_.end()) {
-        const FlowExportInfo &value = it->second;
-        ++it;
+    for (int i = 0; i < FlowStatsCollectorObject::kMaxCollectors; i++) {
+        FlowStatsCollector *col = Agent::GetInstance()->
+            flow_stats_manager()->default_flow_stats_collector_obj()->
+            GetCollector(i);
+        it = col->flow_tree_.begin();
+        while (it != col->flow_tree_.end()) {
+            const FlowExportInfo &value = it->second;
+            ++it;
 
-        SandeshFlowKey skey;
-        KeyToSandeshFlowKey(value.flow()->key(), skey);
+            SandeshFlowKey skey;
+            KeyToSandeshFlowKey(value.flow()->key(), skey);
 
-        SandeshFlowExportInfo info;
-        FlowExportInfoToSandesh(value, info);
+            SandeshFlowExportInfo info;
+            FlowExportInfoToSandesh(value, info);
 
-        FlowStatsRecord rec;
-        rec.set_info(info);
-        list.push_back(rec);
+            FlowStatsRecord rec;
+            rec.set_info(info);
+            list.push_back(rec);
+        }
     }
     resp->set_records_list(list);
 
@@ -1264,4 +1266,120 @@ std::string FlowStatsCollector::AgeingTask::Description() const {
 
 bool FlowStatsCollector::AgeingTask::Run() {
     return fsc_->RunAgeingTask();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// FlowStatsCollectorObject methods
+/////////////////////////////////////////////////////////////////////////////
+FlowStatsCollectorObject::FlowStatsCollectorObject(Agent *agent,
+                                                   FlowStatsCollectorReq *req,
+                                                   FlowStatsManager *mgr) {
+    FlowAgingTableKey *key = &(req->key);
+    for (int i = 0; i < kMaxCollectors; i++) {
+        uint32_t instance_id = mgr->AllocateIndex();
+        collectors[i].reset(
+            AgentObjectFactory::Create<FlowStatsCollector>(
+                *(agent->event_manager()->io_service()),
+                req->flow_stats_interval, req->flow_cache_timeout,
+                agent->uve(), instance_id, key, mgr));
+    }
+}
+
+FlowStatsCollector* FlowStatsCollectorObject::GetCollector(uint8_t idx) const {
+    if (idx >= 0 && idx < kMaxCollectors) {
+        return collectors[idx].get();
+    }
+    return NULL;
+}
+
+void FlowStatsCollectorObject::SetExpiryTime(int time) {
+    for (int i = 0; i < kMaxCollectors; i++) {
+        collectors[i]->set_expiry_time(time);
+    }
+}
+
+int FlowStatsCollectorObject::GetExpiryTime() const {
+    /* Same expiry time would be configured for all the collectors. Pick value
+     * from any one of them */
+    return collectors[0]->expiry_time();
+}
+
+void FlowStatsCollectorObject::MarkDelete() {
+    for (int i = 0; i < kMaxCollectors; i++) {
+        collectors[i]->set_deleted(true);
+    }
+}
+
+void FlowStatsCollectorObject::ClearDelete() {
+    for (int i = 0; i < kMaxCollectors; i++) {
+        collectors[i]->set_deleted(false);
+    }
+}
+
+bool FlowStatsCollectorObject::IsDeleted() const {
+    for (int i = 0; i < kMaxCollectors; i++) {
+        if (!collectors[i]->deleted()) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void FlowStatsCollectorObject::SetFlowAgeTime(uint64_t value) {
+    for (int i = 0; i < kMaxCollectors; i++) {
+        collectors[i]->set_flow_age_time_intvl(value);
+    }
+}
+
+uint64_t FlowStatsCollectorObject::GetFlowAgeTime() const {
+    /* Same age time would be configured for all the collectors. Pick value
+     * from any one of them */
+    return collectors[0]->flow_age_time_intvl();
+}
+
+bool FlowStatsCollectorObject::CanDelete() const {
+    for (int i = 0; i < kMaxCollectors; i++) {
+        if (collectors[i]->flow_tree_.size() != 0 ||
+            collectors[i]->request_queue_.IsQueueEmpty() == false) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void FlowStatsCollectorObject::Shutdown() {
+    for (int i = 0; i < kMaxCollectors; i++) {
+        collectors[i]->Shutdown();
+        collectors[i].reset();
+    }
+}
+
+FlowStatsCollector* FlowStatsCollectorObject::FlowToCollector
+    (const FlowEntry *flow) {
+    uint8_t idx = 0;
+    FlowTable *table = flow->flow_table();
+    if (table) {
+        idx = table->table_index() % kMaxCollectors;
+    }
+    return collectors[idx].get();
+}
+
+void FlowStatsCollectorObject::UpdateAgeTimeInSeconds(uint32_t age_time) {
+    for (int i = 0; i < kMaxCollectors; i++) {
+        collectors[i]->UpdateFlowAgeTimeInSecs(age_time);
+    }
+}
+
+uint32_t FlowStatsCollectorObject::GetAgeTimeInSeconds() const {
+    /* Same age time would be configured for all the collectors. Pick value
+     * from any one of them */
+    return collectors[0]->flow_age_time_intvl_in_secs();
+}
+
+size_t FlowStatsCollectorObject::Size() const {
+    size_t size = 0;
+    for (int i = 0; i < kMaxCollectors; i++) {
+        size += collectors[i]->Size();
+    }
+    return size;
 }

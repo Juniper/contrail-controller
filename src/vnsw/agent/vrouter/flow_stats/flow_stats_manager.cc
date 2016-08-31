@@ -46,9 +46,9 @@ void SetFlowStatsInterval_InSeconds::HandleRequest() const {
     SandeshResponse *resp;
     if (get_interval() > 0) {
         FlowStatsManager *fam = Agent::GetInstance()->flow_stats_manager();
-        FlowStatsCollector *fsc = fam->default_flow_stats_collector();
-        if (fsc) {
-            fsc->set_expiry_time(get_interval() * 1000);
+        FlowStatsCollectorObject *obj = fam->default_flow_stats_collector_obj();
+        if (obj) {
+            obj->SetExpiryTime(get_interval() * 1000);
         }
         resp = new FlowStatsCfgResp();
     } else {
@@ -64,7 +64,7 @@ void GetFlowStatsInterval::HandleRequest() const {
     FlowStatsIntervalResp_InSeconds *resp =
         new FlowStatsIntervalResp_InSeconds();
     resp->set_flow_stats_interval((Agent::GetInstance()->flow_stats_manager()->
-                default_flow_stats_collector()->expiry_time())/1000);
+                default_flow_stats_collector_obj()->GetExpiryTime())/1000);
 
     resp->set_context(context());
     resp->Response();
@@ -122,25 +122,21 @@ bool FlowStatsManager::RequestHandler(boost::shared_ptr<FlowStatsCollectorReq>
 }
 
 void FlowStatsManager::AddReqHandler(boost::shared_ptr<FlowStatsCollectorReq>
-                                    req) {
+                                     req) {
     FlowAgingTableMap::iterator it = flow_aging_table_map_.find(req->key);
     if (it != flow_aging_table_map_.end()) {
-        it->second->set_flow_age_time_intvl(
+        it->second->SetFlowAgeTime(
                 1000000L * (uint64_t)req->flow_cache_timeout);
-        it->second->set_deleted(false);
+        it->second->ClearDelete();
         return;
     }
 
-    uint32_t instance_id = instance_table_.Insert(NULL);
-    FlowAgingTablePtr aging_table(
-        AgentObjectFactory::Create<FlowStatsCollector>(
-        *(agent()->event_manager()->io_service()),
-        req->flow_stats_interval, req->flow_cache_timeout,
-        agent()->uve(), instance_id, &(req->key), this));
-
+    FlowAgingTablePtr aging_table(new FlowStatsCollectorObject(agent(),
+                                                               req.get(),
+                                                               this));
     flow_aging_table_map_.insert(FlowAgingTableEntry(req->key, aging_table));
     if (req->key.proto == kCatchAllProto && req->key.port == 0) {
-        default_flow_stats_collector_ = aging_table;
+        default_flow_stats_collector_obj_ = aging_table;
     }
 
     if (req->key.port == 0) {
@@ -156,10 +152,9 @@ void FlowStatsManager::DeleteReqHandler(boost::shared_ptr<FlowStatsCollectorReq>
     }
 
     FlowAgingTablePtr flow_aging_table_ptr = it->second;
-    flow_aging_table_ptr->set_deleted(true);
+    flow_aging_table_ptr->MarkDelete();
 
-    if (flow_aging_table_ptr->flow_tree_.size() == 0 &&
-        flow_aging_table_ptr->request_queue_.IsQueueEmpty() == true) {
+    if (flow_aging_table_ptr->CanDelete()) {
         flow_aging_table_map_.erase(it);
         protocol_list_[req->key.proto] = NULL;
     }
@@ -173,11 +168,10 @@ void FlowStatsManager::FreeReqHandler(boost::shared_ptr<FlowStatsCollectorReq>
     }
 
     FlowAgingTablePtr flow_aging_table_ptr = it->second;
-    if (flow_aging_table_ptr->deleted() == false) {
+    if (flow_aging_table_ptr->IsDeleted() == false) {
         return;
     }
-    assert(flow_aging_table_ptr->flow_tree_.size() == 0);
-    assert(flow_aging_table_ptr->request_queue_.IsQueueEmpty() == true);
+    assert(flow_aging_table_ptr->CanDelete());
     flow_aging_table_ptr->Shutdown();
     flow_aging_table_map_.erase(it);
     protocol_list_[req->key.proto] = NULL;
@@ -212,7 +206,7 @@ void FlowStatsManager::Free(const FlowAgingTableKey &key) {
     request_queue_.Enqueue(req);
 }
 
-const FlowStatsCollector*
+const FlowStatsCollectorObject*
 FlowStatsManager::Find(uint32_t proto, uint32_t port) const {
 
      FlowAgingTableKey key1(proto, port);
@@ -225,6 +219,38 @@ FlowStatsManager::Find(uint32_t proto, uint32_t port) const {
      return key1_it->second.get();
 }
 
+FlowStatsCollectorObject*
+FlowStatsManager::GetFlowStatsCollectorObject(const FlowEntry *flow) const {
+    FlowStatsCollectorObject* col = NULL;
+
+    const FlowKey &key = flow->key();
+    FlowAgingTableKey key1(key.protocol, key.src_port);
+    FlowAgingTableMap::const_iterator key1_it =
+        flow_aging_table_map_.find(key1);
+
+    if (key1_it != flow_aging_table_map_.end()) {
+        col = key1_it->second.get();
+        if (!col->IsDeleted())
+            return col;
+    }
+
+    FlowAgingTableKey key2(key.protocol, key.dst_port);
+    FlowAgingTableMap::const_iterator key2_it =
+        flow_aging_table_map_.find(key2);
+    if (key2_it != flow_aging_table_map_.end()) {
+        col = key2_it->second.get();
+        if (!col->IsDeleted())
+            return col;
+    }
+
+    if (protocol_list_[key.protocol] != NULL) {
+        col = protocol_list_[key.protocol];
+        if (!col->IsDeleted())
+            return col;
+    }
+    return default_flow_stats_collector_obj_.get();
+}
+
 FlowStatsCollector*
 FlowStatsManager::GetFlowStatsCollector(const FlowEntry *flow) const {
     /* If the reverse flow already has FlowStatsCollector assigned, return
@@ -234,34 +260,9 @@ FlowStatsManager::GetFlowStatsCollector(const FlowEntry *flow) const {
     if (rflow && rflow->fsc()) {
         return rflow->fsc();
     }
-    FlowStatsCollector* col = NULL;
+    FlowStatsCollectorObject* obj = GetFlowStatsCollectorObject(flow);
 
-    const FlowKey &key = flow->key();
-    FlowAgingTableKey key1(key.protocol, key.src_port);
-    FlowAgingTableMap::const_iterator key1_it =
-        flow_aging_table_map_.find(key1);
-
-    if (key1_it != flow_aging_table_map_.end()) {
-        col = key1_it->second.get();
-        if (!col->deleted())
-            return col;
-    }
-
-    FlowAgingTableKey key2(key.protocol, key.dst_port);
-    FlowAgingTableMap::const_iterator key2_it =
-        flow_aging_table_map_.find(key2);
-    if (key2_it != flow_aging_table_map_.end()) {
-        col = key2_it->second.get();
-        if (!col->deleted())
-            return col;
-    }
-
-    if (protocol_list_[key.protocol] != NULL) {
-        col = protocol_list_[key.protocol];
-        if (!col->deleted())
-            return col;
-    }
-    return default_flow_stats_collector_.get();
+    return obj->FlowToCollector(flow);
 }
 
 void FlowStatsManager::AddEvent(FlowEntryPtr &flow) {
@@ -310,6 +311,10 @@ void FlowStatsManager::UpdateStatsEvent(const FlowEntryPtr &flow,
     fsc->UpdateStatsEvent(flow, bytes, packets, oflow_bytes);
 }
 
+uint32_t FlowStatsManager::AllocateIndex() {
+    return instance_table_.Insert(NULL);
+}
+
 void FlowStatsManager::FreeIndex(uint32_t idx) {
     instance_table_.Remove(idx);
 }
@@ -349,11 +354,13 @@ void FlowStatsManager::InitDone() {
 }
 
 void FlowStatsManager::Shutdown() {
-    default_flow_stats_collector_->Shutdown();
-    default_flow_stats_collector_.reset();
+    default_flow_stats_collector_obj_->Shutdown();
+    default_flow_stats_collector_obj_.reset();
     flow_aging_table_map_.clear();
+    protocol_list_[0] = NULL;
     timer_->Cancel();
-
+    TimerManager::DeleteTimer(timer_);
+    request_queue_.Shutdown();
 }
 
 void ShowAgingConfig::HandleRequest() const {
@@ -367,7 +374,7 @@ void ShowAgingConfig::HandleRequest() const {
         AgingConfig cfg;
         cfg.set_protocol(it->first.proto);
         cfg.set_port(it->first.port);
-        cfg.set_cache_timeout(it->second->flow_age_time_intvl_in_secs());
+        cfg.set_cache_timeout(it->second->GetAgeTimeInSeconds());
         cfg.set_stats_interval(0);
         std::vector<AgingConfig> &list =
             const_cast<std::vector<AgingConfig>&>(
@@ -416,13 +423,18 @@ static void SetQueueStats(Agent *agent, FlowStatsCollector *fsc,
 }
 
 void FlowStatsManager::SetProfileData(ProfileData *data) {
-    data->flow_.flow_stats_queue_.resize(flow_aging_table_map_.size());
+    uint32_t qsize = flow_aging_table_map_.size() *
+        FlowStatsCollectorObject::kMaxCollectors;
+    data->flow_.flow_stats_queue_.resize(qsize);
     int i = 0;
     FlowAgingTableMap::iterator it = flow_aging_table_map_.begin();
     while (it != flow_aging_table_map_.end()) {
-        SetQueueStats(agent(), it->second.get(),
-                      &data->flow_.flow_stats_queue_[i]);
-        i++;
+        FlowStatsCollectorObject *obj = it->second.get();
+        for (int j = 0; j < FlowStatsCollectorObject::kMaxCollectors; j++) {
+            SetQueueStats(agent(), obj->GetCollector(j),
+                          &data->flow_.flow_stats_queue_[i]);
+            i++;
+        }
         it++;
     }
 }

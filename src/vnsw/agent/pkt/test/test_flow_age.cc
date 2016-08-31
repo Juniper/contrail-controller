@@ -15,9 +15,9 @@
 
 TEST_F(FlowTest, FlowAge_1) {
     int tmp_age_time = 10 * 1000;
-    int bkp_age_time = flow_stats_collector_->flow_age_time_intvl();
+    int bkp_age_time = flow_stats_collector_->GetFlowAgeTime();
     //Set the flow age time to 100 microsecond
-    flow_stats_collector_->UpdateFlowAgeTime(tmp_age_time);
+    flow_stats_collector_->SetFlowAgeTime(tmp_age_time);
 
     //Create bidirectional flow
     TestFlow flow[] = {
@@ -74,15 +74,15 @@ TEST_F(FlowTest, FlowAge_1) {
     WAIT_FOR(100, 1, (0U == get_flow_proto()->FlowCount()));
 
     //Restore flow aging time
-    flow_stats_collector_->UpdateFlowAgeTime(bkp_age_time);
+    flow_stats_collector_->SetFlowAgeTime(bkp_age_time);
 }
 
 // Aging with more than 2 entries
 TEST_F(FlowTest, FlowAge_3) {
     int tmp_age_time = 10 * 1000;
-    int bkp_age_time = flow_stats_collector_->flow_age_time_intvl();
+    int bkp_age_time = flow_stats_collector_->GetFlowAgeTime();
     //Set the flow age time to 100 microsecond
-    flow_stats_collector_->UpdateFlowAgeTime(tmp_age_time);
+    flow_stats_collector_->SetFlowAgeTime(tmp_age_time);
 
     //Create bidirectional flow
     TestFlow flow[] = {
@@ -157,53 +157,7 @@ TEST_F(FlowTest, FlowAge_3) {
     EXPECT_EQ(0U, get_flow_proto()->FlowCount());
 
     //Restore flow aging time
-    flow_stats_collector_->UpdateFlowAgeTime(bkp_age_time);
-}
-
-TEST_F(FlowTest, DISABLED_ScaleFlowAge_1) {
-    int tmp_age_time = 200 * 1000;
-    int bkp_age_time = flow_stats_collector_->flow_age_time_intvl();
-    int total_flows = 200;
-
-    for (int i = 0; i < total_flows; i++) {
-        Ip4Address dip(0x1010101 + i);
-        //Add route for all of them
-        CreateRemoteRoute("vrf5", dip.to_string().c_str(), remote_router_ip, 
-                10, "vn5");
-        TestFlow flow[]=  {
-            {
-                TestFlowPkt(Address::INET, vm1_ip, dip.to_string(), 1, 0, 0, "vrf5", 
-                        flow0->id(), i),
-                { }
-            },
-            {
-                TestFlowPkt(Address::INET, dip.to_string(), vm1_ip, 1, 0, 0, "vrf5",
-                        flow0->id(), i + 100),
-                { }
-            }
-        };
-        CreateFlow(flow, 2);
-    }
-    EXPECT_EQ((total_flows * 2), 
-            get_flow_proto()->FlowCount());
-    //Set the flow age time to 200 milliseconds
-    flow_stats_collector_->UpdateFlowAgeTime(tmp_age_time);
-
-    flow_stats_collector_->run_counter_ = 0;
-
-    int passes = GetFlowPassCount((total_flows * 2), tmp_age_time);
-    client->EnqueueFlowAge();
-    client->WaitForIdle(5);
-    WAIT_FOR(5000, 1000, (flow_stats_collector_->run_counter_ >= passes));
-    usleep(tmp_age_time + 1000);
-        WAIT_FOR(5000, 1000, (flow_stats_collector_->run_counter_ >= (passes * 2)));
-        client->WaitForIdle(2);
-
-    WAIT_FOR(5000, 500, (0U == get_flow_proto()->FlowCount()));
-    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
-
-    //Restore flow aging time
-    flow_stats_collector_->UpdateFlowAgeTime(bkp_age_time);
+    flow_stats_collector_->SetFlowAgeTime(bkp_age_time);
 }
 
 TEST_F(FlowTest, Flow_introspect_delete_all) {
