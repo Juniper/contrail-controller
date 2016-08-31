@@ -17,6 +17,13 @@ srcs = gen_srcs + local_srcs
 DbEnv.Append(CPPPATH = [ DbEnv['TOP'],
                          DbEnv['TOP'] + '/database'
                        ])
+
+def MapBuildDir(list):
+    return map(lambda x: '#/' + Dir('.').path + '/../' + x, list)
+
+includes = MapBuildDir(['analytics'])
+DbEnv.Append(CPPPATH = includes)
+
 libgendb = DbEnv.Library('gendb', source = srcs)
 DbEnv.Install(DbEnv['TOP_LIB'], libgendb)
 
