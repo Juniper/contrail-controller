@@ -13,18 +13,6 @@ class AddressMismatchCompute(AlarmBase):
                     {
                         'operand1': 'ContrailConfig.elements.' + \
                             'virtual_router_ip_address',
-                        'operation': 'not in',
-                        'operand2': {
-                            'uve_attribute': 'VrouterAgent.self_ip_list'
-                        }
-                    }
-                ]
-            },
-            {
-                'and_list': [
-                    {
-                        'operand1': 'ContrailConfig.elements.' + \
-                            'virtual_router_ip_address',
                         'operation': '!=',
                         'operand2': {
                             'uve_attribute': 'VrouterAgent.control_ip'
