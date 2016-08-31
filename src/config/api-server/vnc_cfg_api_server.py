@@ -493,7 +493,7 @@ class VncApiServer(object):
             obj_ids.update(result)
 
             env = get_request().headers.environ
-            tenant_name = env.get(hdr_server_tenant(), 'default-project')
+            tenant_name = env.get(hdr_server_tenant()) or 'default-project'
 
             get_context().set_state('PRE_DBE_CREATE')
             # type-specific hook
@@ -971,7 +971,6 @@ class VncApiServer(object):
 
         db_conn = self._db_conn
         env = get_request().headers.environ
-        tenant_name = env.get(hdr_server_tenant(), 'default-project')
         parent_uuids = None
         back_ref_uuids = None
         obj_uuids = None
@@ -2814,13 +2813,8 @@ class VncApiServer(object):
 
         # include objects shared with tenant
         env = get_request().headers.environ
-        tenant_name = env.get(hdr_server_tenant(), 'default-project')
-        tenant_fq_name = ['default-domain', tenant_name]
-        try:
-            tenant_uuid = self._db_conn.fq_name_to_uuid('project', tenant_fq_name)
-            shares = self._db_conn.get_shared_objects(obj_type, tenant_uuid)
-        except NoIdError:
-            shares = []
+        tenant_uuid = env.get('HTTP_X_PROJECT_ID', None)
+        shares = self._db_conn.get_shared_objects(obj_type, tenant_uuid) if tenant_uuid else []
         owned_objs = set([obj_uuid for (fq_name, obj_uuid) in result])
         for (obj_uuid, obj_perm) in shares:
             # skip owned objects already included in results
