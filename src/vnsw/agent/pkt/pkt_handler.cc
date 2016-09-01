@@ -254,7 +254,7 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
         return ICMP_ERROR;
     }
 
-    if (hdr.cmd == AgentHdr::TRAP_DIAG && pkt_info->ip) {
+    if (hdr.cmd == AgentHdr::TRAP_DIAG && (pkt_info->ip || pkt_info->ip6)) {
         return DIAG;
     }
 

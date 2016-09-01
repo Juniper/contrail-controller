@@ -28,6 +28,7 @@ struct PseudoTcpHdr {
 
 class DiagPktHandler : public ProtoHandler {
 public:
+    static const uint8_t icmp_payload_len = 128;
     DiagPktHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
                    boost::asio::io_service &io) :
         ProtoHandler(agent, info, io), done_(false),
@@ -35,6 +36,7 @@ public:
     virtual bool Run();
     void SetReply();
     void SetDiagChkSum();
+    void SetDiagChkSumV6();
     void Reply();
     void SendOverlayResponse();
     const std::string &GetAddress() const { return address_; }
@@ -44,21 +46,26 @@ public:
     bool IsDone() const { return done_; }
     void set_done(bool done) { done_ = done; }
     void TcpHdr(in_addr_t, uint16_t, in_addr_t, uint16_t, bool , uint32_t, uint16_t);
-
+    void TcpHdr(uint16_t len, const uint8_t *src, uint16_t sport,
+                const uint8_t *dest, uint16_t dport, bool is_syn,
+                uint32_t seq_no, uint8_t next_hdr);
 private:
     bool IsTraceRoutePacket();
     bool IsOverlayPingPacket();
     void SetReturnCode(uint8_t *retcode);
     bool HandleTraceRoutePacket();
     void SendTimeExceededPacket();
+    void SendTimeExceededV6Packet();
     bool HandleTraceRouteResponse();
     bool ParseIcmpData(const uint8_t *data, uint16_t data_len,
-                       uint16_t *key);
+                       uint16_t *key, bool is_v4);
     uint16_t TcpCsum(in_addr_t, in_addr_t, uint16_t , tcphdr *);
     void Swap();
     void TunnelHdrSwap();
     void SwapL4();
+    void Swapv6L4();
     void SwapIpHdr();
+    void SwapIp6Hdr();
     void SwapEthHdr();
 
     bool done_;

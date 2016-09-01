@@ -15,7 +15,7 @@
 #include <test/test_cmn_util.h>
 #include <diag/diag_types.h>
 
-#define DIAG_MSG_LEN 2000
+#define DIAG_MSG_LEN  1000
 #define MAX_WAIT_COUNT 5000
 #define DIAG_CHECK(condition)                                                  \
     do {                                                                       \
@@ -225,6 +225,48 @@ TEST_F(DiagTest, DiagReqTest) {
     DIAG_CHECK(count() < 3);
     EXPECT_TRUE(count() == 3);
 
+    client->Reset();
+    DeleteVmportEnv(input, 2, 1, 0);
+    client->WaitForIdle();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+}
+
+TEST_F(DiagTest, DiagReq6Test) {
+    struct PortInfo input[] = {
+        {"vnet1", 4, "1.1.1.1", "00:00:00:01:01:01", 1, 2, "2001::3"},
+        {"vnet2", 5, "1.1.1.2", "00:00:00:02:02:02", 1, 3, "2001::4"},
+    };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200", true},
+        {"2001::", 64, "::", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 2);
+    client->WaitForIdle();
+    CreateVmportEnv(input, 2, 0);
+    client->WaitForIdle();
+    client->Reset();
+    uint32_t try_count = 0;
+    set_count(0);
+    try_count = 0;
+    SendDiag("2001::3", 1000, "2001::4", 1000, IPPROTO_UDP, "vrf1", DIAG_MSG_LEN, 1, 1);
+    client->WaitForIdle();
+    DIAG_CHECK(count() < 1);
+    EXPECT_TRUE(count() == 1);
+    set_count(0);
+    try_count = 0;
+    SendDiag("2001::3", 1000, "2001::4", 1000, IPPROTO_UDP, "vrf1", DIAG_MSG_LEN, 4, 2);
+    client->WaitForIdle();
+    DIAG_CHECK(count() < 4);
+    EXPECT_TRUE(count() == 4);
+
+    set_count(0);
+    try_count = 0;
+    SendDiag("2001::3", 1000, "2001::4", 1000, IPPROTO_TCP, "vrf1", DIAG_MSG_LEN, 3, 2);
+    client->WaitForIdle();
+    DIAG_CHECK(count() < 3);
+    EXPECT_TRUE(count() == 3);
     client->Reset();
     DeleteVmportEnv(input, 2, 1, 0);
     client->WaitForIdle();
