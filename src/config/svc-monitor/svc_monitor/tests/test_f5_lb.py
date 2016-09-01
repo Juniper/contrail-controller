@@ -281,7 +281,7 @@ OpencontrailLoadbalancerDriver")
                                             'subnet_id': 'vip_subnet_id',
                                             'protocol': 'HTTP',
                                             'admin_state': True,
-                                            'connection_limit': '-1',
+                                            'connection_limit': -1,
                                             'persistence_type': None,
                                             'persistence_cookie_name': None,
                                             'address': '1.1.1.1'}
