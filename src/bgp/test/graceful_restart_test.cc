@@ -323,7 +323,7 @@ protected:
     void AddRoutes();
     void CreateAgents();
     void Subscribe();
-    void UnSubscribe();
+    void Unsubscribe();
     test::NextHops GetNextHops(test::NetworkAgentMock *agent, int instance_id);
     void AddOrDeleteXmppRoutes(bool add, int nroutes = -1,
                                int down_agents = -1);
@@ -861,7 +861,7 @@ void GracefulRestartTest::Subscribe() {
     WaitForIdle();
 }
 
-void GracefulRestartTest::UnSubscribe() {
+void GracefulRestartTest::Unsubscribe() {
 
     BOOST_FOREACH(test::NetworkAgentMock *agent, xmpp_agents_) {
         agent->Unsubscribe(BgpConfigManager::kMasterInstance);
@@ -1036,7 +1036,7 @@ void GracefulRestartTest::DeleteRoutingInstances(vector<int> instances,
                 continue;
             if (std::find(dont_unsubscribe.begin(), dont_unsubscribe.end(),
                           agent) == dont_unsubscribe.end())
-                agent->Unsubscribe(instance_name);
+                agent->Unsubscribe(instance_name, -1, true, false);
         }
 
         BOOST_FOREACH(BgpPeerTest *peer, bgp_peers_) {
@@ -1460,6 +1460,7 @@ void GracefulRestartTest::GracefulRestartTestRun () {
     BOOST_FOREACH(test::NetworkAgentMock *agent, n_down_from_agents_) {
         WaitForAgentToBeEstablished(agent);
         agent->SessionDown();
+        dont_unsubscribe.push_back(agent);
         TASK_UTIL_EXPECT_FALSE(agent->IsEstablished());
         total_routes -= remaining_instances * n_routes_;
     }
@@ -1577,7 +1578,7 @@ void GracefulRestartTest::GracefulRestartTestRun () {
                     instances_to_delete_before_gr_.end())
                 continue;
             if (std::find(instances_to_delete_during_gr_.begin(),
-                          instances_to_delete_during_gr_.end(), instance_id) !=
+                         instances_to_delete_during_gr_.end(), instance_id) !=
                     instances_to_delete_during_gr_.end())
                 continue;
             string instance_name = "instance" +

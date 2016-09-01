@@ -1034,7 +1034,7 @@ TEST_F(BgpXmppUnitTest, UnregisterWithDeletedRoutingInstance) {
 
     // Unsubscribe from the blue instance and make sure that the unsubscribe
     // message has been processed on the bgp server.
-    agent_a_->Unsubscribe("blue");
+    agent_a_->Unsubscribe("blue", -1, true, false);
     TASK_UTIL_EXPECT_EQ(3, bgp_channel_manager_->channel_->Count());
     TASK_UTIL_EXPECT_TRUE(
         PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
@@ -1091,7 +1091,7 @@ TEST_F(BgpXmppUnitTest, RegisterUnregisterWithDeletedRoutingInstance) {
 
     // Unsubscribe from the blue instance and make sure that the unsubscribe
     // message has been processed on the bgp server.
-    agent_a_->Unsubscribe("blue");
+    agent_a_->Unsubscribe("blue", -1, true, false);
     TASK_UTIL_EXPECT_EQ(3, bgp_channel_manager_->channel_->Count());
     TASK_UTIL_EXPECT_TRUE(
         PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
@@ -1312,7 +1312,7 @@ TEST_F(BgpXmppUnitTest, DuplicateRegisterWithDeletedRoutingInstance2) {
     TASK_UTIL_EXPECT_TRUE(blue->deleted());
 
     // Send unsubscribe for the blue instance.
-    agent_a_->Unsubscribe("blue", -1);
+    agent_a_->Unsubscribe("blue", -1, -1, true, false);
     TASK_UTIL_EXPECT_FALSE(
         PeerRegistered(bgp_channel_manager_->channel_, "blue", 1));
 
@@ -2072,7 +2072,7 @@ TEST_F(BgpXmppUnitTest, RegisterUnregisterWithDeletedBgpTableThenRegisterAgain1)
         PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
 
     // Unsubscribe for the old incarnation.
-    agent_a_->Unsubscribe("blue", -1, false);
+    agent_a_->Unsubscribe("blue", -1, false, false);
     TASK_UTIL_EXPECT_EQ(3, bgp_channel_manager_->channel_->Count());
     TASK_UTIL_EXPECT_NE(0,
         PeerTableUnsubscribeComplete(bgp_channel_manager_->channel_));
@@ -2188,7 +2188,7 @@ TEST_F(BgpXmppUnitTest, RegisterUnregisterWithDeletedBgpTableThenRegisterAgain2)
 
     // Unsubscribe for the old incarnation.  The unsubscribe request will get
     // enqueued in the membership manager, but won't be processed.
-    agent_a_->Unsubscribe("blue", -1, false);
+    agent_a_->Unsubscribe("blue", -1, false, false);
     TASK_UTIL_EXPECT_EQ(3, bgp_channel_manager_->channel_->Count());
     TASK_UTIL_EXPECT_TRUE(
         PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
@@ -3171,11 +3171,11 @@ TEST_F(BgpXmppSerializeMembershipReqTest, FlushDeferQForVrfAndTable1) {
     TASK_UTIL_EXPECT_EQ(6, bgp_channel_manager_->channel_->Count());
     TASK_UTIL_EXPECT_EQ(4, PeerDeferQSize(bgp_channel_manager_->channel_));
 
-    agent_a_->Unsubscribe("blue", -1, false);
+    agent_a_->Unsubscribe("blue", -1, false, false);
     TASK_UTIL_EXPECT_EQ(7, bgp_channel_manager_->channel_->Count());
     TASK_UTIL_EXPECT_EQ(2, PeerDeferQSize(bgp_channel_manager_->channel_));
 
-    agent_a_->Unsubscribe("red", -1, false);
+    agent_a_->Unsubscribe("red", -1, false, false);
     TASK_UTIL_EXPECT_EQ(8, bgp_channel_manager_->channel_->Count());
     TASK_UTIL_EXPECT_EQ(0, PeerDeferQSize(bgp_channel_manager_->channel_));
 
@@ -3208,11 +3208,11 @@ TEST_F(BgpXmppSerializeMembershipReqTest, FlushDeferQForVrfAndTable2) {
     TASK_UTIL_EXPECT_EQ(6, bgp_channel_manager_->channel_->Count());
     TASK_UTIL_EXPECT_EQ(4, PeerDeferQSize(bgp_channel_manager_->channel_));
 
-    agent_a_->Unsubscribe("red", -1, false);
+    agent_a_->Unsubscribe("red", -1, false, false);
     TASK_UTIL_EXPECT_EQ(7, bgp_channel_manager_->channel_->Count());
     TASK_UTIL_EXPECT_EQ(2, PeerDeferQSize(bgp_channel_manager_->channel_));
 
-    agent_a_->Unsubscribe("blue", -1, false);
+    agent_a_->Unsubscribe("blue", -1, false, false);
     TASK_UTIL_EXPECT_EQ(8, bgp_channel_manager_->channel_->Count());
     TASK_UTIL_EXPECT_EQ(0, PeerDeferQSize(bgp_channel_manager_->channel_));
 
@@ -3246,15 +3246,15 @@ TEST_F(BgpXmppSerializeMembershipReqTest, FlushDeferQForVrf1) {
     TASK_UTIL_EXPECT_EQ(9, bgp_channel_manager_->channel_->Count());
     TASK_UTIL_EXPECT_EQ(6, PeerDeferQSize(bgp_channel_manager_->channel_));
 
-    agent_a_->Unsubscribe("red1", -1, false);
+    agent_a_->Unsubscribe("red1", -1, false, false);
     TASK_UTIL_EXPECT_EQ(10, bgp_channel_manager_->channel_->Count());
     TASK_UTIL_EXPECT_EQ(4, PeerDeferQSize(bgp_channel_manager_->channel_));
 
-    agent_a_->Unsubscribe("red2", -1, false);
+    agent_a_->Unsubscribe("red2", -1, false, false);
     TASK_UTIL_EXPECT_EQ(11, bgp_channel_manager_->channel_->Count());
     TASK_UTIL_EXPECT_EQ(2, PeerDeferQSize(bgp_channel_manager_->channel_));
 
-    agent_a_->Unsubscribe("red3", -1, false);
+    agent_a_->Unsubscribe("red3", -1, false, false);
     TASK_UTIL_EXPECT_EQ(12, bgp_channel_manager_->channel_->Count());
     TASK_UTIL_EXPECT_EQ(0, PeerDeferQSize(bgp_channel_manager_->channel_));
 }
@@ -3282,15 +3282,15 @@ TEST_F(BgpXmppSerializeMembershipReqTest, FlushDeferQForVrf2) {
     TASK_UTIL_EXPECT_EQ(9, bgp_channel_manager_->channel_->Count());
     TASK_UTIL_EXPECT_EQ(6, PeerDeferQSize(bgp_channel_manager_->channel_));
 
-    agent_a_->Unsubscribe("red2", -1, false);
+    agent_a_->Unsubscribe("red2", -1, false, false);
     TASK_UTIL_EXPECT_EQ(10, bgp_channel_manager_->channel_->Count());
     TASK_UTIL_EXPECT_EQ(4, PeerDeferQSize(bgp_channel_manager_->channel_));
 
-    agent_a_->Unsubscribe("red1", -1, false);
+    agent_a_->Unsubscribe("red1", -1, false, false);
     TASK_UTIL_EXPECT_EQ(11, bgp_channel_manager_->channel_->Count());
     TASK_UTIL_EXPECT_EQ(2, PeerDeferQSize(bgp_channel_manager_->channel_));
 
-    agent_a_->Unsubscribe("red3", -1, false);
+    agent_a_->Unsubscribe("red3", -1, false, false);
     TASK_UTIL_EXPECT_EQ(12, bgp_channel_manager_->channel_->Count());
     TASK_UTIL_EXPECT_EQ(0, PeerDeferQSize(bgp_channel_manager_->channel_));
 }
