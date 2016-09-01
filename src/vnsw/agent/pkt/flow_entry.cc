@@ -899,13 +899,6 @@ void FlowEntry::UpdateRpf() {
 //Given a NH take reference on the NH and set the RPF
 bool FlowEntry::SetRpfNHState(FlowTable *ft, const NextHop *nh) {
 
-    if (data_.nh.get() && nh) {
-        if (data_.nh->GetType() != NextHop::COMPOSITE &&
-            nh->GetType() == NextHop::COMPOSITE) {
-            set_flags(FlowEntry::Trap);
-        }
-    }
-
     if (data_.nh.get() != nh) {
         data_.nh = nh;
         return true;
