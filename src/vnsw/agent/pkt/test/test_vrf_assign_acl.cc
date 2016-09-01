@@ -53,14 +53,16 @@ protected:
                                vn_list,
                                16, SecurityGroupList(),
                                CommunityList(), false,
-                               PathPreference(), Ip4Address(0), EcmpLoadBalance());
+                               PathPreference(), Ip4Address(0),
+                               EcmpLoadBalance(), false, false);
         agent_->fabric_inet4_unicast_table()->
             AddLocalVmRouteReq(agent_->local_peer(),
                                "default-project:vn3:vn3", ip2, 24, MakeUuid(1),
                                vn_list,
                                16, SecurityGroupList(),
                                CommunityList(), false,
-                               PathPreference(), Ip4Address(0), EcmpLoadBalance());
+                               PathPreference(), Ip4Address(0),
+                               EcmpLoadBalance(), false, false);
         client->WaitForIdle();
     }
 
@@ -144,7 +146,8 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl3) {
                            "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
                            vn_list, 16, SecurityGroupList(),
                            CommunityList(), false,
-                           PathPreference(), Ip4Address(0), EcmpLoadBalance());
+                           PathPreference(), Ip4Address(0), EcmpLoadBalance(),
+                           false, false);
     AddAddressVrfAssignAcl("intf1", 1, "1.1.1.0", "2.1.1.0", 6, 1, 65535,
                            1, 65535, "vrf4", "true");
     TestFlow flow[] = {
@@ -405,7 +408,8 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAclWithMirror1) {
                            "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
                            vn_list, 16, SecurityGroupList(),
                            CommunityList(), false,
-                           PathPreference(), Ip4Address(0), EcmpLoadBalance());
+                           PathPreference(), Ip4Address(0), EcmpLoadBalance(),
+                           false, false);
     client->WaitForIdle();
 
     AddMirrorAcl("Acl", 10, "default-project:vn1", "default-project:vn2", "pass",
@@ -452,7 +456,8 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAclWithMirror2) {
                            "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
                            vn_list, 16, SecurityGroupList(),
                            CommunityList(), false,
-                           PathPreference(), Ip4Address(0), EcmpLoadBalance());
+                           PathPreference(), Ip4Address(0), EcmpLoadBalance(),
+                           false, false);
 
     client->WaitForIdle();
     // pushing more DB Request so just before addin mirror entry 

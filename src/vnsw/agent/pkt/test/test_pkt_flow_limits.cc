@@ -114,7 +114,7 @@ public:
                                intf->GetUuid(), vn_list, label,
                                SecurityGroupList(), CommunityList(), false,
                                PathPreference(), Ip4Address(0),
-                               EcmpLoadBalance(), false);
+                               EcmpLoadBalance(), false, false);
         client->WaitForIdle();
         EXPECT_TRUE(RouteFind(vrf, addr, 32));
     }
