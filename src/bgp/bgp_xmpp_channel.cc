@@ -575,7 +575,7 @@ bool BgpXmppChannel::XmppPeer::SendUpdate(const uint8_t *msg, size_t msgsize) {
 
             // If EndOfRib Send timer is running, cancel it and reschedule it
             // after socket gets unblocked.
-            if (parent_->eor_send_timer_->running())
+            if (parent_->eor_send_timer_ && parent_->eor_send_timer_->running())
                 parent_->eor_send_timer_->Cancel();
         }
         return send_ready_;

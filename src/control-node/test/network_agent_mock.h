@@ -91,6 +91,13 @@ public:
           sgids(std::vector<int>()),
           communities(std::vector<std::string>()) {
     }
+    RouteAttributes(uint32_t lpref, const std::vector<int> &sg)
+        : local_pref(lpref),
+          med(0),
+          sequence(kDefaultSequence),
+          sgids(sg),
+          communities(std::vector<std::string>()) {
+    }
     RouteAttributes(const std::vector<int> &sg)
         : local_pref(kDefaultLocalPref),
           med(0),
@@ -304,6 +311,7 @@ public:
         void Clear();
         int Count() const;
         const T *Lookup(const std::string &node) const;
+        const TableMap &table() const { return table_; }
     private:
         size_t count_;
         TableMap table_;
@@ -414,6 +422,8 @@ public:
                   const NextHops &nexthops, int local_pref = 0);
     void AddRoute(const std::string &network, const std::string &prefix,
                   const NextHops &nexthops, const RouteAttributes &attributes);
+    void AddRoute(const string &network_name, const string &prefix,
+                  const string &nexthop, const RouteAttributes &attributes);
     void DeleteRoute(const std::string &network, const std::string &prefix);
 
     void AddInet6Route(const std::string &network, const std::string &prefix,
@@ -421,6 +431,8 @@ public:
         const RouteAttributes &attributes = RouteAttributes());
     void AddInet6Route(const std::string &network, const std::string &prefix,
         const std::string &nexthop_str, int local_pref = 100, int med = 0);
+    void AddInet6Route(const std::string &network, const std::string &prefix,
+        const std::string &nexthop, const RouteAttributes &attributes);
     void ChangeInet6Route(const std::string &network, const std::string &prefix,
         const NextHops &nexthops = NextHops(),
         const RouteAttributes &attributes = RouteAttributes());
@@ -457,6 +469,9 @@ public:
                       const RouteParams *params = NULL);
     void AddEnetRoute(const std::string &network, const std::string &prefix,
                       const NextHop &nexthop,
+                      const RouteAttributes &attributes);
+    void AddEnetRoute(const std::string &network, const std::string &prefix,
+                      const std::string &nexthop,
                       const RouteAttributes &attributes);
     void AddEnetRoute(const std::string &network, const std::string &prefix,
                       const NextHops &nexthops,

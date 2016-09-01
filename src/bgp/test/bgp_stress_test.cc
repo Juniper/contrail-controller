@@ -145,6 +145,7 @@ static vector<float> d_events_weight_ = boost::assign::list_of
 static bool d_external_mode_ = false;
 static int d_instances_ = 1;
 static int d_routes_ = 1;
+static int d_sgids_ = 1;
 static int d_peers_ = 1;
 static int d_agents_ = 1;
 static int d_targets_ = 1;
@@ -187,6 +188,7 @@ static vector<bool> xmpp_close_from_control_node =
                         boost::assign::list_of(d_close_from_control_node_);
 static vector<bool> xmpp_auth_enabled =
                         boost::assign::list_of(d_xmpp_auth_enabled_);
+static int n_sgids = d_sgids_;
 
 static int d_db_walker_wait_ = 0;
 static int d_wait_for_idle_ = 30; // Seconds
@@ -1590,15 +1592,22 @@ void BgpStressTest::AddXmppRoute(int instance_id, int agent_id, int route_id) {
                 GetInstanceName(instance_id)))
         return;
 
+    std::vector<int> sgids;
+    if (n_sgids)
+        sgids.push_back(route_id % n_sgids);
+    test::RouteAttributes attributes(100, sgids);
+
     BGP_STRESS_TEST_EVENT_LOG(BgpStressTestEvent::ADD_XMPP_ROUTE);
     Ip4Prefix prefix = GetAgentRoute(agent_id + 1, instance_id, route_id);
     xmpp_agents_[agent_id]->AddRoute(GetInstanceName(instance_id),
                                      prefix.ToString(),
-                                     GetAgentNexthop(agent_id, route_id));
+                                     GetAgentNexthop(agent_id, route_id),
+                                     attributes);
 
     xmpp_agents_[agent_id]->AddEnetRoute(GetInstanceName(instance_id),
                                          GetEnetPrefix(prefix.ToString()),
-                                         GetAgentNexthop(agent_id, route_id));
+                                         GetAgentNexthop(agent_id, route_id),
+                                         attributes);
 
     if (instance_id == 0)
         return;
@@ -1622,7 +1631,8 @@ void BgpStressTest::AddXmppRoute(int instance_id, int agent_id, int route_id) {
         agent_nexthop.push_back(
             test::NextHop(GetAgentNexthop(agent_id, route_id), 0));
         xmpp_agents_[agent_id]->AddInet6Route(GetInstanceName(instance_id),
-                                             prefix6.ToString(), agent_nexthop);
+                                             prefix6.ToString(), agent_nexthop,
+                                             attributes);
     }
 }
 
@@ -2790,6 +2800,8 @@ static void process_command_line_args(int argc, const char **argv) {
             "set number of bgp peers")
         ("nroutes", value<int>()->default_value(d_routes_),
             "set number of routes")
+        ("nsgids", value<int>()->default_value(d_sgids_),
+            "set number of security-group ids")
         ("ntargets", value<int>()->default_value(d_targets_),
             "set number of route targets (minium 1)")
         ("nvms", value<int>()->default_value(d_vms_count_),
@@ -2957,6 +2969,10 @@ static void process_command_line_args(int argc, const char **argv) {
     }
     if (vm.count("nroutes")) {
         d_routes_ = vm["nroutes"].as<int>();
+        cmd_line_arg_set = true;
+    }
+    if (vm.count("nsgids")) {
+        d_sgids_ = vm["nsgids"].as<int>();
         cmd_line_arg_set = true;
     }
     if (vm.count("npeers")) {
@@ -3220,6 +3236,8 @@ static void process_command_line_args(int argc, const char **argv) {
 
         n_routes.clear();
         n_routes.push_back(d_routes_);
+
+        n_sgids = d_sgids_;
 
         n_peers.clear();
         n_peers.push_back(d_peers_);
