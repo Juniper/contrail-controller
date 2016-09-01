@@ -192,8 +192,12 @@ def set_v1_frontend_backend(pool, custom_attr_dict, custom_attrs):
         'option tcplog',
         'bind %s:%s %s' % (vip.params['address'],
             vip.params['protocol_port'], ssl),
-        'mode %s' % PROTO_MAP_V1[vip.params['protocol']]
+        'mode %s' % PROTO_MAP_V1[vip.params['protocol']],
     ]
+
+    if 'connection_limit' in vip.params and vip.params['connection_limit'] > 0:
+         lconf.append('maxconn %d' % vip.params['connection_limit'])
+
     if vip.params['protocol'] == PROTO_HTTP or \
             vip.params['protocol'] == PROTO_HTTPS:
         lconf.append('option forwardfor')
@@ -278,8 +282,12 @@ def set_v2_frontend_backend(lb, custom_attr_dict, custom_attrs):
             'option tcplog',
             'bind %s:%s %s' % (lb.params['vip_address'],
                 ll.params['protocol_port'], ssl),
-            'mode %s' % PROTO_MAP_V2[ll.params['protocol']]
+            'mode %s' % PROTO_MAP_V2[ll.params['protocol']],
         ]
+
+        if 'connection_limit' in ll.params and ll.params['connection_limit'] > 0:
+            lconf.append('maxconn %d' % ll.params['connection_limit'])
+
         if ll.params['protocol'] == PROTO_HTTP:
             lconf.append('option forwardfor')
 
