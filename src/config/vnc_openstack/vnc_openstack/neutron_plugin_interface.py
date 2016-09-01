@@ -116,9 +116,13 @@ class NeutronPluginInterface(object):
 
         self._connect_to_db()
 
-        user_token = bottle.request.headers.get('X_AUTH_TOKEN')
-        if self._multi_tenancy and user_token:
-            self._cfgdb._vnc_lib.set_auth_token(user_token)
+        # expect a user-token and allow for cases where api-server
+        # might be running without authentication checks with a
+        # descriptive message/token if there is an error
+        user_token = bottle.request.headers.get('X_AUTH_TOKEN',
+            'no user token for %s %s' %(bottle.request.method,
+                                        bottle.request.url))
+        self._cfgdb._vnc_lib.set_auth_token(user_token)
         return self._cfgdb
 
     def _get_requests_data(self):
