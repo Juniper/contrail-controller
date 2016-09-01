@@ -23,6 +23,7 @@ public:
     static const char *kConfigPeer;
     static const char *kBgpPeer;
     static const char *kDnsPeer;
+    static const char *kEndOfRibMarker;
     static const char *kOtherPeer;
     static const char *kFqnPrependAgentNodeJID;
     XmppInit();
