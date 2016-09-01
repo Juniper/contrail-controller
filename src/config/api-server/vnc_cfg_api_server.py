@@ -2777,6 +2777,11 @@ class VncApiServer(object):
                 'rule_perms': [{'role_name':'*', 'role_crud':'CRUD'}]
             },
             {
+                'rule_object':'useragent-kv',
+                'rule_field': '',
+                'rule_perms': [{'role_name':'*', 'role_crud':'CRUD'}]
+            },
+            {
                 'rule_object':'documentation',
                 'rule_field': '',
                 'rule_perms': [{'role_name':'*', 'role_crud':'R'}]
