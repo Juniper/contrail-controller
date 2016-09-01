@@ -107,6 +107,12 @@ class NeutronPluginInterface(object):
 
         if not self._multi_tenancy:
             return self._cfgdb
+        # expect a user-token and allow for cases where api-server
+        # might be running without authentication checks with a
+        # descriptive message/token if there is an error
+        user_token = bottle.request.headers.get('X_AUTH_TOKEN',
+            'no user token for %s %s' %(bottle.request.method,
+                                        bottle.request.url))
         user_id = context['user_id']
         if 'roles' not in context and context['is_admin']:
             role = 'admin'
@@ -122,6 +128,7 @@ class NeutronPluginInterface(object):
                 apply_subnet_host_routes=self._sn_host_route)
             self._cfgdb_map[user_id].manager = self
 
+        self._cfgdb_map[user_id]._vnc_lib.set_auth_token(user_token)
         return self._cfgdb_map[user_id]
 
     def _get_requests_data(self):

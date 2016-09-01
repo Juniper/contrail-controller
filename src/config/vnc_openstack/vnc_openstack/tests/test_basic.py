@@ -296,3 +296,82 @@ class TestExtraFieldsAbsenceByKnob(test_case.NeutronBackendTestCase):
         self.assertNotIn('contrail:fq_name', net_dict)
     # end test_extra_fields_on_network
 # end class TestExtraFieldsAbsenceByKnob
+
+
+class TestAuthenticatedAccess(test_case.NeutronBackendTestCase):
+    test_obj_uuid = None
+    test_failures = []
+    expected_auth_token = ''
+    auth_token_check_invocations = []
+    def setUp(self):
+        from keystonemiddleware import auth_token
+        class FakeAuthProtocol(object):
+            _test_case = self
+            def __init__(self, app, *args, **kwargs):
+                self._app = app
+            # end __init__
+            def __call__(self, env, start_response):
+                # in multi-tenancy mode only admin role admitted
+                # by api-server till full rbac support
+                if (env['REQUEST_METHOD'] == 'GET' and
+                    env['PATH_INFO'] == '/virtual-network/%s' %(
+                        self._test_case.test_obj_uuid)):
+                    # always execute but return back assertion
+                    # errors
+                    self._test_case.auth_token_check_invocations.append(True)
+                    if not 'HTTP_X_AUTH_TOKEN' in env:
+                        self._test_case.test_failures.append(
+                            'Missing HTTP_X_AUTH_TOKEN')
+                    if not env['HTTP_X_AUTH_TOKEN'].startswith(
+                        self._test_case.expected_auth_token):
+                        self._test_case.test_failures.append(
+                            'Found wrong HTTP_X_AUTH_TOKEN %s' %(
+                            env['HTTP_X_AUTH_TOKEN']))
+                    env['HTTP_X_ROLE'] = 'admin'
+                    return self._app(env, start_response)
+                else:
+                    env['HTTP_X_ROLE'] = 'admin'
+                    return self._app(env, start_response)
+            # end __call__
+            def get_admin_token(self):
+                return None
+            # end get_admin_token
+        # end class FakeAuthProtocol
+        test_common.setup_extra_flexmock(
+            [
+            (auth_token, 'AuthProtocol', FakeAuthProtocol),
+            ])
+        self._config_knobs = [
+                ('DEFAULTS', 'auth', 'keystone'),
+                ('DEFAULTS', 'multi_tenancy', True),
+                ('KEYSTONE', 'admin_user', 'foo'),
+                ('KEYSTONE', 'admin_password', 'bar'),
+                ('KEYSTONE', 'admin_tenant_name', 'baz'),
+                ('KEYSTONE', 'auth_protocol', 'http'),
+                ('KEYSTONE', 'auth_host', ''),
+                ('KEYSTONE', 'auth_port', ''),
+                ]
+        super(TestAuthenticatedAccess, self).setUp()
+    # end setUp
+
+    def test_post_neutron_checks_auth_token(self):
+        test_obj = self._create_test_object()
+        TestAuthenticatedAccess.test_obj_uuid = test_obj.uuid
+        context = {'operation': 'READ',
+                   'user_id': '',
+                   'roles': ''}
+        data = {'fields': None,
+                'id': test_obj.uuid}
+        body = {'context': context, 'data': data}
+        TestAuthenticatedAccess.expected_auth_token = 'no user token for'
+        self._api_svr_app.post_json('/neutron/network', body)
+        self.assertEqual(len(self.auth_token_check_invocations), 1)
+        self.assertEqual(self.test_failures, [])
+
+        TestAuthenticatedAccess.expected_auth_token = 'abc123'
+        self._api_svr_app.post_json('/neutron/network', body,
+            headers={'X_AUTH_TOKEN':'abc123'})
+        self.assertEqual(len(self.auth_token_check_invocations), 2)
+        self.assertEqual(self.test_failures, [])
+    # end test_post_neutron_checks_auth_token
+# end class TestAuthenticatedAccess
