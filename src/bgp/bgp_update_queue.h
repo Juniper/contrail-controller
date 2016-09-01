@@ -5,8 +5,6 @@
 #ifndef SRC_BGP_BGP_UPDATE_QUEUE_H_
 #define SRC_BGP_BGP_UPDATE_QUEUE_H_
 
-#include <tbb/mutex.h>
-
 #include <list>
 #include <map>
 #include <set>
@@ -65,7 +63,7 @@ struct UpdateByAttrCmp {
 // are created and the corresponding pointers added to the vector from the
 // RibOutUpdates constructor.  The following relationships are relevant:
 //
-//     RibOut -> RibOutUpdates (1:1)
+//     RibOut -> RibOutUpdates (1:N)
 //     RibOutUpdates -> RibUpdateMonitor (1:1)
 //     RibUpdateMonitor -> UpdateQueue (1:N)
 //
@@ -82,15 +80,6 @@ struct UpdateByAttrCmp {
 // container is used when building updates since it allows us to traverse
 // prefixes grouped by attributes. The relationship between a RouteUpdate
 // and UpdateInfo is described elsewhere.
-//
-// All access to an UpdateQueue is controlled via a mutex.  This seems to
-// be unnecessary at first glance since an UpdateQueue is accessed via the
-// RibUpdateMonitor which has it's own mutex.  However, the subtlety is
-// that any UpdateMarkers on the queue are NOT accessed via the monitor.
-// Additionally, using a mutex for the UpdateQueue is a generally good
-// design principle to follow, given that there should be no contention for
-// the mutex most of the time.  All the methods use a scoped lock to lock
-// the mutex.
 //
 // An UpdateQueue also maintains a mapping from a peer's bit position to
 // it's UpdateMarker. Note that it's possible for multiple peers to point
@@ -161,9 +150,9 @@ private:
     friend class BgpExportTest;
     friend class RibOutUpdatesTest;
 
-    mutable tbb::mutex mutex_;
     int queue_id_;
     bool encoding_is_xmpp_;
+    uint64_t tstamp_;
     size_t marker_count_;
     UpdatesByOrder queue_;
     UpdatesByAttr attr_set_;

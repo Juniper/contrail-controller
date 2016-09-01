@@ -14,6 +14,7 @@ using boost::tie;
 UpdateQueue::UpdateQueue(const RibOut *ribout, int queue_id)
     : queue_id_(queue_id),
       encoding_is_xmpp_(ribout->IsEncodingXmpp()),
+      tstamp_(0),
       marker_count_(0) {
     queue_.push_back(tail_marker_);
 }
@@ -34,8 +35,7 @@ UpdateQueue::~UpdateQueue() {
 // Return true if the UpdateQueue had no RouteUpdates after the tail marker.
 //
 bool UpdateQueue::Enqueue(RouteUpdate *rt_update) {
-    tbb::mutex::scoped_lock lock(mutex_);
-    rt_update->set_tstamp_now();
+    rt_update->set_tstamp(++tstamp_);
 
     // Insert at the end of the FIFO. Remember if the FIFO previously had
     // no RouteUpdates after the tail marker.
@@ -63,7 +63,6 @@ bool UpdateQueue::Enqueue(RouteUpdate *rt_update) {
 // elements for the RouteUpdate are removed from the set container.
 //
 void UpdateQueue::Dequeue(RouteUpdate *rt_update) {
-    tbb::mutex::scoped_lock lock(mutex_);
     queue_.erase(queue_.iterator_to(*rt_update));
     UpdateInfoSList &uinfo_slist = rt_update->Updates();
     for (UpdateInfoSList::List::iterator iter = uinfo_slist->begin();
@@ -80,7 +79,6 @@ void UpdateQueue::Dequeue(RouteUpdate *rt_update) {
 // Return NULL if there's no such RouteUpdate on the FIFO.
 //
 RouteUpdate *UpdateQueue::NextUpdate(UpdateEntry *current_upentry) {
-    tbb::mutex::scoped_lock lock(mutex_);
     UpdatesByOrder::iterator iter = queue_.iterator_to(*current_upentry);
     while (++iter != queue_.end()) {
         UpdateEntry *upentry = iter.operator->();
@@ -99,7 +97,6 @@ RouteUpdate *UpdateQueue::NextUpdate(UpdateEntry *current_upentry) {
 // Return NULL if there's no such UpdateEntry on the FIFO.
 //
 UpdateEntry *UpdateQueue::NextEntry(UpdateEntry *current_upentry) {
-    tbb::mutex::scoped_lock lock(mutex_);
     UpdatesByOrder::iterator iter = queue_.iterator_to(*current_upentry);
     if (++iter == queue_.end()) {
         return NULL;
@@ -111,7 +108,6 @@ UpdateEntry *UpdateQueue::NextEntry(UpdateEntry *current_upentry) {
 // Dequeue the specified UpdateInfo from the set container.
 //
 void UpdateQueue::AttrDequeue(UpdateInfo *current_uinfo) {
-    tbb::mutex::scoped_lock lock(mutex_);
     attr_set_.erase(attr_set_.iterator_to(*current_uinfo));
 }
 
@@ -128,11 +124,10 @@ void UpdateQueue::AttrDequeue(UpdateInfo *current_uinfo) {
 // Also return NULL if the next UpdateInfo is for the same RouteUpdate. This
 // can happen in corner cases where the label (or the set for ecmp nexthops
 // in case of an XMPP ribout) for a route changes between Join operations for
-// 2 different sets of IPeerUpdates. Returning such an UpdateInfo breaks the
-// locking design in RibOutUpdates and results in a deadlock.
+// 2 different sets of IPeerUpdates. Returning such an UpdateInfo results in
+// data corruption.
 //
 UpdateInfo *UpdateQueue::AttrNext(UpdateInfo *current_uinfo) {
-    tbb::mutex::scoped_lock lock(mutex_);
     UpdatesByAttr::iterator iter = attr_set_.iterator_to(*current_uinfo);
     ++iter;
     if (iter == attr_set_.end()) {
@@ -164,7 +159,6 @@ UpdateInfo *UpdateQueue::AttrNext(UpdateInfo *current_uinfo) {
 //
 void UpdateQueue::AddMarker(UpdateMarker *marker, RouteUpdate *rt_update) {
     assert(!marker->members.empty());
-    tbb::mutex::scoped_lock lock(mutex_);
     marker_count_++;
     queue_.insert(++queue_.iterator_to(*rt_update), *marker);
 
@@ -189,7 +183,6 @@ void UpdateQueue::AddMarker(UpdateMarker *marker, RouteUpdate *rt_update) {
 // the tail marker after the RouteUpdate.
 //
 void UpdateQueue::MoveMarker(UpdateMarker *marker, RouteUpdate *rt_update) {
-    tbb::mutex::scoped_lock lock(mutex_);
     queue_.erase(queue_.iterator_to(*marker));
 
     UpdatesByOrder::iterator iter = queue_.iterator_to(*rt_update);
@@ -216,7 +209,6 @@ void UpdateQueue::MarkerSplit(UpdateMarker *marker, const RibPeerSet &msplit) {
     UpdateMarker *split_marker = new UpdateMarker();
     split_marker->members = msplit;
 
-    tbb::mutex::scoped_lock lock(mutex_);
     marker->members.Reset(msplit);
     assert(!marker->members.empty());
     UpdatesByOrder::iterator mpos = queue_.iterator_to(*marker);
@@ -240,7 +232,6 @@ void UpdateQueue::MarkerSplit(UpdateMarker *marker, const RibPeerSet &msplit) {
 void UpdateQueue::MarkerMerge(UpdateMarker *dst_marker,
         UpdateMarker *src_marker, const RibPeerSet &bitset) {
     assert(!bitset.empty());
-    tbb::mutex::scoped_lock lock(mutex_);
 
     // Set the bits in dst and update the MarkerMap.  Be sure to set the dst
     // before we reset the src since bitset maybe a reference to src->members.
@@ -266,7 +257,6 @@ void UpdateQueue::MarkerMerge(UpdateMarker *dst_marker,
 // Return the UpdateMarker for the peer specified by the bit position.
 //
 UpdateMarker *UpdateQueue::GetMarker(int bit) {
-    tbb::mutex::scoped_lock lock(mutex_);
     MarkerMap::iterator loc = markers_.find(bit);
     assert(loc != markers_.end());
     return loc->second;
@@ -284,7 +274,6 @@ UpdateMarker *UpdateQueue::GetMarker(int bit) {
 // an extra one is harmless.
 //
 bool UpdateQueue::Join(int bit) {
-    tbb::mutex::scoped_lock lock(mutex_);
     UpdateMarker *marker = &tail_marker_;
     marker->members.set(bit);
     markers_.insert(std::make_pair(bit, marker));
@@ -298,7 +287,6 @@ bool UpdateQueue::Join(int bit) {
 // itself if it's now empty.
 //
 void UpdateQueue::Leave(int bit) {
-    tbb::mutex::scoped_lock lock(mutex_);
     MarkerMap::iterator loc = markers_.find(bit);
     assert(loc != markers_.end());
     UpdateMarker *marker = loc->second;
@@ -311,7 +299,6 @@ void UpdateQueue::Leave(int bit) {
 }
 
 bool UpdateQueue::CheckInvariants() const {
-    tbb::mutex::scoped_lock lock(mutex_);
     for (MarkerMap::const_iterator iter = markers_.begin();
          iter != markers_.end(); ++iter) {
         UpdateMarker *marker = iter->second;
@@ -326,16 +313,13 @@ bool UpdateQueue::CheckInvariants() const {
 // FIFO since that may still have the tail marker on it.
 //
 bool UpdateQueue::empty() const {
-    tbb::mutex::scoped_lock lock(mutex_);
     return attr_set_.empty();
 }
 
 size_t UpdateQueue::size() const {
-    tbb::mutex::scoped_lock lock(mutex_);
     return attr_set_.size();
 }
 
 size_t UpdateQueue::marker_count() const {
-    tbb::mutex::scoped_lock lock(mutex_);
     return marker_count_;
 }

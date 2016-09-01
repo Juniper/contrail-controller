@@ -8,8 +8,6 @@
 #include <boost/intrusive/list.hpp>
 #include <boost/intrusive/slist.hpp>
 #include <boost/intrusive/set.hpp>
-#include <tbb/atomic.h>
-#include <tbb/mutex.h>
 
 #include <algorithm>
 #include <list>
@@ -182,11 +180,6 @@ private:
 // the DbEntry to map a listener id to either a RouteState or RouteUpdate
 // instead of maintaining references to both.
 //
-// Access to a RouteUpdate is controlled via a mutex.  A lock on it gives
-// the owner the right to access or modify the contents of the RouteUpdate.
-// However it does not give the right to manipulate the linkage of the
-// RouteUpdate in the FIFO. That's controlled via a mutex in UpdateQueue.
-//
 class RouteUpdate : public DBState, public UpdateEntry {
 public:
     enum Flag {
@@ -237,7 +230,7 @@ public:
     void set_queue_id(int queue_id) { queue_id_ = queue_id; }
 
     uint64_t tstamp() const { return tstamp_; }
-    void set_tstamp_now();
+    void set_tstamp(uint64_t tstamp) { tstamp_ = tstamp; }
 
     bool empty() const { return updates_->empty(); }
 
@@ -248,8 +241,6 @@ private:
     void FlagSet(Flag flag) { flags_ |= (1 << flag); }
     void FlagReset(Flag flag) { flags_ &= ~(1 << flag); }
 
-    static tbb::atomic<uint64_t> global_tstamp_;
-    tbb::mutex mutex_;
     BgpRoute *route_;
     int8_t queue_id_;
     int8_t flags_;
@@ -300,7 +291,6 @@ public:
 private:
     friend class RibUpdateMonitor;
 
-    tbb::mutex mutex_;
     AdvertiseSList history_;  // Update history
     List list_;
     DISALLOW_COPY_AND_ASSIGN(UpdateList);
