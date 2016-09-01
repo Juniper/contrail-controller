@@ -39,6 +39,14 @@ public:
     virtual bool DeleteOnZeroRefCount() const {
         return true;
     }
+
+    virtual bool MatchEgressData(const NextHop *nh) const {
+        const TunnelNH *tun_nh = dynamic_cast<const TunnelNH *>(nh);
+        if (tun_nh && vrf_ == tun_nh->vrf_ && dip_ == tun_nh->dip_) {
+            return true;
+        }
+        return false;
+    }
 private:
     VrfEntryRef vrf_;
     Ip4Address sip_;
@@ -110,6 +118,13 @@ public:
                                AgentLogEvent::type event) const;
     virtual bool DeleteOnZeroRefCount() const {
         return true;
+    }
+    virtual bool MatchEgressData(const NextHop *nh) const {
+        const MirrorNH *mir_nh = dynamic_cast<const MirrorNH *>(nh);
+        if (mir_nh && vrf_ == mir_nh->vrf_ && dip_ == mir_nh->dip_) {
+            return true;
+        }
+        return false;
     }
 private:
     InetUnicastAgentRouteTable *GetRouteTable();
