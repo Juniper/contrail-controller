@@ -2113,6 +2113,7 @@ response sandesh AgentQosConfigSandeshResp {
 request sandesh AddQosQueue {
     1: u32 uuid;
     2: string name;
+    3: u16 id;
 }
 
 request sandesh DeleteQosQueue {

@@ -86,6 +86,10 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
     EXPECT_TRUE(param.flow_trace_enable());
     EXPECT_EQ(param.pkt0_tx_buffer_count(), 2000);
     EXPECT_EQ(param.pkt0_tx_buffer_count(), 2000);
+    EXPECT_EQ(param.get_nic_queue(1), 1);
+    EXPECT_EQ(param.get_nic_queue(3), 1);
+    EXPECT_EQ(param.get_nic_queue(8), 2);
+    EXPECT_EQ(param.get_nic_queue(105), 8);
 }
 
 TEST_F(FlowTest, Agent_Conf_file_2) {
