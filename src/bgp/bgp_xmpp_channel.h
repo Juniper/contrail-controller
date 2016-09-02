@@ -44,7 +44,6 @@ class XmppSession;
 
 class BgpXmppChannel {
 public:
-    static const int kEndOfRibTime = 30; // seconds
     static const int kEndOfRibSendRetryTimeMsecs = 2000; // 2 Seconds
     enum StatsIndex {
         RX,

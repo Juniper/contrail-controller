@@ -63,8 +63,7 @@ XmppServer::XmppServer(EventManager *evm, const string &server_addr,
       log_uve_(false),
       auth_enabled_(config->auth_enabled),
       tcp_hold_time_(config->tcp_hold_time),
-      gr_helper_enable_(config->gr_helper_enable),
-      end_of_rib_timeout_(config->end_of_rib_timeout),
+      gr_helper_disable_(config->gr_helper_disable),
       connection_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
           0, boost::bind(&XmppServer::DequeueConnection, this, _1)) {
 
@@ -141,8 +140,11 @@ public:
 
     void ProcessGlobalSystemConfig(const BgpGlobalSystemConfig *system,
             BgpConfigManager::EventType event) {
+        config_.set_gr_enable(system->gr_enable());
         config_.set_gr_time(system->gr_time());
         config_.set_llgr_time(system->llgr_time());
+        config_.set_end_of_rib_timeout(system->end_of_rib_timeout());
+        config_.set_gr_xmpp_helper(system->gr_xmpp_helper());
         server_->ClearAllConnections();
     }
 
@@ -161,8 +163,7 @@ XmppServer::XmppServer(EventManager *evm, const string &server_addr)
       log_uve_(false),
       auth_enabled_(false),
       tcp_hold_time_(XmppChannelConfig::kTcpHoldTime),
-      gr_helper_enable_(false),
-      end_of_rib_timeout_(30),
+      gr_helper_disable_(false),
       xmpp_config_updater_(NULL),
       connection_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
           0, boost::bind(&XmppServer::DequeueConnection, this, _1)) {
@@ -178,8 +179,7 @@ XmppServer::XmppServer(EventManager *evm)
       log_uve_(false),
       auth_enabled_(false),
       tcp_hold_time_(XmppChannelConfig::kTcpHoldTime),
-      gr_helper_enable_(false),
-      end_of_rib_timeout_(30),
+      gr_helper_disable_(false),
       connection_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
           0, boost::bind(&XmppServer::DequeueConnection, this, _1)) {
 }
@@ -189,19 +189,45 @@ void XmppServer::CreateConfigUpdater(BgpConfigManager *config_manager) {
 }
 
 uint16_t XmppServer::GetGracefulRestartTime() const {
-    return xmpp_config_updater_ ? xmpp_config_updater_->config().gr_time() : 0;
+    // Check if GR is disabled..
+    if (!xmpp_config_updater_ || !xmpp_config_updater_->config().gr_enable())
+        return 0;
+    return xmpp_config_updater_->config().gr_time();
 }
 
 uint32_t XmppServer::GetLongLivedGracefulRestartTime() const {
-    return xmpp_config_updater_ ? xmpp_config_updater_->config().llgr_time():0;
+    // Check if GR is disabled..
+    if (!xmpp_config_updater_ || !xmpp_config_updater_->config().gr_enable())
+        return 0;
+    return xmpp_config_updater_->config().llgr_time();
 }
 
 uint32_t XmppServer::GetEndOfRibReceiveTime() const {
-    return end_of_rib_timeout_;
+    if (xmpp_config_updater_)
+        return xmpp_config_updater_->config().end_of_rib_timeout();
+    return BgpGlobalSystemConfig::kEndOfRibTime;
 }
 
 uint32_t XmppServer::GetEndOfRibSendTime() const {
-    return end_of_rib_timeout_;
+    if (xmpp_config_updater_)
+        xmpp_config_updater_->config().end_of_rib_timeout();
+    return BgpGlobalSystemConfig::kEndOfRibTime;
+}
+
+bool XmppServer::IsGRHelperModeEnabled() const {
+    // Check if disabled in .conf file.
+    if (gr_helper_disable_)
+        return false;
+
+    // Check from configuration.
+    if (!xmpp_config_updater_)
+        return false;
+
+    // Check if GR is disabled..
+    if (!xmpp_config_updater_->config().gr_enable())
+        return false;
+
+    return xmpp_config_updater_->config().gr_xmpp_helper();
 }
 
 bool XmppServer::IsPeerCloseGraceful() const {
@@ -211,7 +237,7 @@ bool XmppServer::IsPeerCloseGraceful() const {
         return false;
 
     // Check if GR helper mode is disabled.
-    if (!gr_helper_enable())
+    if (!IsGRHelperModeEnabled())
         return false;
 
     return GetGracefulRestartTime() != 0;
