@@ -32,20 +32,24 @@ class ControlProvisioner(object):
             if self._args.ibgp_auto_mesh is not None:
                 gsc_obj.set_ibgp_auto_mesh(self._args.ibgp_auto_mesh)
 
-            gr_params = GracefulRestartType()
-            gr_update = False
+            gr_params = GracefulRestartParametersType()
             if self._args.graceful_restart_time:
                 gr_params.set_graceful_restart_time(
                     int(self._args.graceful_restart_time))
-                gr_update = True
             if self._args.long_lived_graceful_restart_time:
                 gr_params.set_long_lived_graceful_restart_time(
                     int(self._args.long_lived_graceful_restart_time))
-                gr_update = True
+            if self._args.end_of_rib_timeout:
+                gr_params.set_end_of_rib_timeout(
+                    int(self._args.end_of_rib_timeout))
+            if self._args.graceful_restart_enable:
+                gr_params.set_graceful_restart_enable(True)
+            if self._args.graceful_restart_bgp_helper_enable:
+                gr_params.set_graceful_restart_bgp_helper_enable(True)
+            if self._args.graceful_restart_xmpp_helper_enable:
+                gr_params.set_graceful_restart_xmpp_helper_enable(True)
 
-            if gr_update:
-                gsc_obj.set_graceful_restart_params(gr_params)
-
+            gsc_obj.set_graceful_restart_params(gr_params)
             self._vnc_lib.global_system_config_update(gsc_obj)
             return
 
@@ -91,6 +95,10 @@ class ControlProvisioner(object):
                                         --md5 <key value>|None(optional)
                                         --graceful-restart-time 100
                                         --long-lived-graceful-restart-time 100
+                                        --end-of-rib-time 30
+                                        --graceful-restart-bgp-helper-enable False
+                                        --graceful-restart-xmpp-helper-enable False
+                                        --graceful-restart--enable False
 
         '''
 
@@ -113,8 +121,12 @@ class ControlProvisioner(object):
             'admin_password': None,
             'admin_tenant_name': None,
             'md5' : None,
-            'graceful-restart-time': None,
-            'long_lived_graceful_restart_time': None,
+            'graceful_restart_time': 60,
+            'long_lived_graceful_restart_time': 300,
+            'end_of_rib_timeout': 30,
+            'graceful_restart_bgp_helper_enable': False,
+            'graceful_restart_xmpp_helper_enable': False,
+            'graceful_restart_enable': False,
         }
 
         if args.conf_file:
@@ -166,13 +178,24 @@ class ControlProvisioner(object):
         parser.add_argument(
             "--graceful_restart_time",
             help="Graceful Restart Time in seconds (0..4095)",
-            type=self.gr_time_type,
+            type=self.gr_time_type, default=60,
             required=False)
         parser.add_argument(
             "--long_lived_graceful_restart_time",
             help="Long Lived Graceful Restart Time in seconds (0..16777215)",
-            type=self.llgr_time_type,
+            type=self.llgr_time_type, default=300,
             required=False)
+        parser.add_argument(
+            "--end_of_rib_timeout",
+            help="EndOfRib timeout value in seconds (0..4095)",
+            type=self.gr_time_type, default=30,
+            required=False)
+        parser.add_argument("--graceful_restart_bgp_helper_enable",
+                        help="Enable helper mode for BGP graceful restart")
+        parser.add_argument("--graceful_restart_xmpp_helper_enable",
+                        help="Enable helper mode for XMPP graceful restart")
+        parser.add_argument("--graceful_restart_enable",
+                        help="Enable Graceful Restart")
 
         self._args = parser.parse_args(remaining_argv)
 
