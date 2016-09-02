@@ -217,6 +217,8 @@ bool FlowProto::Enqueue(PktInfoPtr msg) {
     if (Validate(msg.get()) == false) {
         return true;
     }
+
+    FreeBuffer(msg.get());
     EnqueueFlowEvent(new FlowEvent(FlowEvent::VROUTER_FLOW_MSG, msg, NULL, 0));
     return true;
 }
@@ -392,17 +394,6 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
 
     switch (req->event()) {
     case FlowEvent::VROUTER_FLOW_MSG: {
-        // packet parsing is not done, invoke the same here
-        uint8_t *pkt = req->pkt_info()->packet_buffer()->data();
-        PktInfoPtr info = req->pkt_info();
-        PktHandler::PktModuleName mod =
-            agent()->pkt()->pkt_handler()->ParseFlowPacket(info, pkt);
-        // if packet wasnt for flow module, it would've got enqueued to the
-        // correct module in the above call. Nothing else to do.
-        if (mod != PktHandler::FLOW) {
-            break;
-        }
-        FreeBuffer(info.get());
         ProcessProto(req->pkt_info());
         break;
     }
@@ -418,7 +409,6 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
         FlowEntry *flow = req->flow();
         FlowTaskMsg *flow_msg = new FlowTaskMsg(flow);
         PktInfoPtr pkt_info(new PktInfo(PktHandler::FLOW, flow_msg));
-        FreeBuffer(pkt_info.get());
         FlowHandler *handler = new FlowHandler(agent(), pkt_info, io_,
                                                this, table->table_index());
         RunProtoHandler(handler);
