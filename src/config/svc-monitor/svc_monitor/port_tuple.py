@@ -258,14 +258,14 @@ class PortTupleAgent(Agent):
 
         for irt_id in list(vmi.interface_route_tables):
             irt = InterfaceRouteTableSM.get(irt_id)
-            if irt and irt.service_instance:
+            if irt and irt.service_instances:
                 self._vnc_lib.ref_update('virtual-machine-interface', vmi.uuid,
                     'interface-route-table', irt.uuid, None, 'DELETE')
                 vmi.interface_route_tables.remove(irt_id)
 
         for health_id in list(vmi.service_health_checks):
             health = ServiceHealthCheckSM.get(health_id)
-            if health and health.service_instance:
+            if health and health.service_instances:
                 self._vnc_lib.ref_update('virtual-machine-interface', vmi.uuid,
                     'service-health-check', health.uuid, None, 'DELETE')
                 vmi.service_health_checks.remove(health_id)
