@@ -294,16 +294,6 @@ void PktHandler::PktModuleEnqueue(PktModuleName mod, const AgentHdr &hdr,
     Enqueue(mod, pkt_info);
 }
 
-PktHandler::PktModuleName PktHandler::ParseFlowPacket(
-                          boost::shared_ptr<PktInfo> pkt_info, uint8_t *pkt) {
-    PktModuleName mod = ParsePacket(pkt_info->agent_hdr, pkt_info.get(), pkt);
-    // In case it is not a flow packet, enqueue it back to the right module
-    if (mod != FLOW) {
-        PktModuleEnqueue(mod, pkt_info->agent_hdr, pkt_info, pkt);
-    }
-    return mod;
-}
-
 // Compute L2/L3 forwarding mode for pacekt.
 // Forwarding mode is L3 if,
 // - Packet uses L3 label

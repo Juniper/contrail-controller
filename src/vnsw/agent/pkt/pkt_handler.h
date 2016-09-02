@@ -254,8 +254,6 @@ public:
 
     PktModuleName ParsePacket(const AgentHdr &hdr, PktInfo *pkt_info,
                               uint8_t *pkt);
-    PktModuleName ParseFlowPacket(boost::shared_ptr<PktInfo> pkt_info,
-                                  uint8_t *pkt);
     int ParseUserPkt(PktInfo *pkt_info, Interface *intf,
                      PktType::Type &pkt_type, uint8_t *pkt);
     bool ProcessPacket(boost::shared_ptr<PacketBufferEnqueueItem> item);
