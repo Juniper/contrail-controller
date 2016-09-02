@@ -1358,6 +1358,128 @@ TEST_F(TestUT, test9_1)
     EXPECT_TRUE(scheduler->IsEmpty());
 }
 
+/* Disable a TaskEntry and Enqueue a matching task-instance to scheduler.
+ * Make sure task is not run. Re-enable TaskEntry and verify it is run. */
+TEST_F(TestUT, test10_1)
+{
+    int   test_expected_state[16][16] = {
+        {ANY,   ANY,    ANY},
+    };
+
+    scheduler->DisableTaskEntry(1, 1);
+    TestInit(1, 1, test_expected_state);
+
+    task_ptr[0] = new TestTask(1, 1, 0);
+
+    scheduler->Enqueue(task_ptr[0]);
+    MatchStats(1, 1, 0, 0, 1);
+    EXPECT_EQ(NULL, Task::Running());
+
+    scheduler->EnableTaskEntry(1, 1);
+    MatchStats(1, 1, 1, 0, 1);
+    EXPECT_EQ(NULL, Task::Running());
+
+    TestWait(10);
+}
+
+/* Disable a TaskGroup and Enqueue a matching task-instance to scheduler.
+ * Make sure task is not run. Re-enable TaskGroup, and verify it is run. */
+TEST_F(TestUT, test10_2)
+{
+    int   test_expected_state[16][16] = {
+        {ANY,   ANY,    ANY},
+    };
+
+    scheduler->DisableTaskGroup(1);
+    TestInit(1, 1, test_expected_state);
+
+    task_ptr[0] = new TestTask(1, 1, 0);
+
+    scheduler->Enqueue(task_ptr[0]);
+    MatchStats(1, 1, 0, 0, 1);
+    EXPECT_EQ(NULL, Task::Running());
+
+    scheduler->EnableTaskGroup(1);
+    MatchStats(1, 1, 1, 0, 1);
+    EXPECT_EQ(NULL, Task::Running());
+
+    TestWait(10);
+}
+
+/* Disable a TaskGroup and Enqueue two tasks with different instance_id.
+ * Cancel a Task which is in the waitQ and verify it is successfully cancelled.
+ * Enable TaskGroup and verify that other task runs normally. */
+TEST_F(TestUT, test10_3)
+{
+    int   test_expected_state[16][16] = {
+        {ANY,   ANY,    ANY},
+    };
+
+    scheduler->DisableTaskGroup(1);
+    TestInit(1, 1, test_expected_state);
+
+    task_ptr[0] = new TestTask(1, 1, 0);
+    task_ptr[1] = new TestTask(1, 2, 0);
+
+    scheduler->Enqueue(task_ptr[0]);
+    MatchStats(1, 1, 0, 0, 1);
+    EXPECT_EQ(NULL, Task::Running());
+
+    scheduler->Enqueue(task_ptr[1]);
+    MatchStats(1, 2, 0, 0, 1);
+    EXPECT_EQ(NULL, Task::Running());
+
+    EXPECT_EQ(TaskScheduler::CANCELLED, scheduler->Cancel(task_ptr[0]));
+
+    scheduler->EnableTaskGroup(1);
+    MatchStats(1, 1, 0, 0, 1);
+    EXPECT_EQ(NULL, Task::Running());
+    MatchStats(1, 2, 1, 0, 1);
+    EXPECT_EQ(NULL, Task::Running());
+
+    TestWait(10);
+}
+
+/* Disable a TaskEntry and enqueue a matching task. Disable a TaskGroup and
+ * enqueue another task. Enable TaskGroup and verify newly-added task is run as
+ * other TaskEntry is still disabled. Enable TaskEntry and verify former task
+ * runs. */
+TEST_F(TestUT, test10_4)
+{
+    int   test_expected_state[16][16] = {
+        {ANY,   ANY,    ANY},
+        {ANY,   ANY,    ANY},
+    };
+
+    TestInit(1, 2, test_expected_state);
+    scheduler->DisableTaskEntry(1, 1);
+
+    task_ptr[0] = new TestTask(1, 1, 0);
+
+    scheduler->Enqueue(task_ptr[0]);
+    MatchStats(1, 1, 0, 0, 1);
+    EXPECT_EQ(NULL, Task::Running());
+
+    scheduler->DisableTaskGroup(1);
+
+    task_ptr[1] = new TestTask(1, 2, 1);
+    scheduler->Enqueue(task_ptr[1]);
+    MatchStats(1, 2, 0, 0, 1);
+    EXPECT_EQ(NULL, Task::Running());
+
+    scheduler->EnableTaskGroup(1);
+    MatchStats(1, 2, 1, 0, 1);
+    EXPECT_EQ(NULL, Task::Running());
+    MatchStats(1, 1, 0, 0, 1);
+    EXPECT_EQ(NULL, Task::Running());
+
+    scheduler->EnableTaskEntry(1, 1);
+    MatchStats(1, 1, 1, 0, 1);
+    EXPECT_EQ(NULL, Task::Running());
+
+    TestWait(10);
+}
+
 int main(int argc, char *argv[])
 {
     ::testing::InitGoogleTest(&argc, argv);
