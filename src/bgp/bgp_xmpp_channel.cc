@@ -575,7 +575,7 @@ bool BgpXmppChannel::XmppPeer::SendUpdate(const uint8_t *msg, size_t msgsize) {
 
             // If EndOfRib Send timer is running, cancel it and reschedule it
             // after socket gets unblocked.
-            if (parent_->eor_send_timer_->running())
+            if (parent_->eor_send_timer_ && parent_->eor_send_timer_->running())
                 parent_->eor_send_timer_->Cancel();
         }
         return send_ready_;
@@ -2355,7 +2355,8 @@ bool BgpXmppChannel::EndOfRibReceiveTimerExpired() {
         return false;
 
     uint32_t timeout = manager() && manager()->xmpp_server() ?
-        manager()->xmpp_server()->GetEndOfRibReceiveTime() : kEndOfRibTime;
+        manager()->xmpp_server()->GetEndOfRibReceiveTime() :
+        BgpGlobalSystemConfig::kEndOfRibTime;
 
     // If max timeout has not reached yet, check if we can exit GR sooner by
     // looking at the activity in the channel.
@@ -2386,7 +2387,8 @@ bool BgpXmppChannel::EndOfRibSendTimerExpired() {
         return false;
 
     uint32_t timeout = manager() && manager()->xmpp_server() ?
-        manager()->xmpp_server()->GetEndOfRibSendTime() : kEndOfRibTime;
+        manager()->xmpp_server()->GetEndOfRibSendTime() :
+        BgpGlobalSystemConfig::kEndOfRibTime;
 
     // If max timeout has not reached yet, check if we can exit GR sooner by
     // looking at the activity in the channel.
@@ -2412,7 +2414,7 @@ bool BgpXmppChannel::EndOfRibSendTimerExpired() {
 void BgpXmppChannel::StartEndOfRibReceiveTimer() {
     uint32_t timeout = manager() && manager()->xmpp_server() ?
                            manager()->xmpp_server()->GetEndOfRibReceiveTime() :
-                           kEndOfRibTime;
+                           BgpGlobalSystemConfig::kEndOfRibTime;
     eor_receive_timer_start_time_ = UTCTimestampUsec();
     eor_receive_timer_->Cancel();
 
@@ -2439,7 +2441,7 @@ void BgpXmppChannel::RestEndOfRibState() {
 
     uint32_t timeout = manager() && manager()->xmpp_server() ?
                            manager()->xmpp_server()->GetEndOfRibSendTime() :
-                           kEndOfRibTime;
+                           BgpGlobalSystemConfig::kEndOfRibTime;
     eor_send_timer_start_time_ = UTCTimestampUsec();
     eor_send_timer_->Cancel();
 
