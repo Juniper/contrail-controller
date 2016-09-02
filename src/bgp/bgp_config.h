@@ -533,22 +533,37 @@ private:
 // Route Policy configuration.
 class BgpGlobalSystemConfig {
 public:
+    static const int kEndOfRibTime = 30; // seconds
     BgpGlobalSystemConfig() :
-            last_change_at_(0), gr_time_(0), llgr_time_(0) {
+            last_change_at_(0), gr_time_(0), llgr_time_(0),
+            end_of_rib_timeout_(kEndOfRibTime), gr_enable_(false),
+            gr_bgp_helper_(false), gr_xmpp_helper_(false) {
     }
     ~BgpGlobalSystemConfig() { }
 
-    uint16_t gr_time() const { return gr_time_;}
-    void set_gr_time(uint16_t gr_time) { gr_time_ = gr_time;}
-    uint32_t llgr_time() const { return llgr_time_;}
-    void set_llgr_time(uint64_t llgr_time) { llgr_time_ = llgr_time;}
+    uint16_t gr_time() const { return gr_time_; }
+    void set_gr_time(uint16_t gr_time) { gr_time_ = gr_time; }
+    uint32_t llgr_time() const { return llgr_time_; }
+    void set_llgr_time(uint64_t llgr_time) { llgr_time_ = llgr_time; }
     uint32_t last_change_at() const { return last_change_at_; }
     void set_last_change_at(uint32_t tstamp) const { last_change_at_ = tstamp; }
+    uint16_t end_of_rib_timeout() const { return end_of_rib_timeout_; }
+    void set_end_of_rib_timeout(uint16_t time) { end_of_rib_timeout_ = time; }
+    bool gr_bgp_helper() const { return gr_bgp_helper_; }
+    void set_gr_bgp_helper(bool helper) { gr_bgp_helper_ = helper; }
+    bool gr_xmpp_helper() const { return gr_xmpp_helper_; }
+    void set_gr_xmpp_helper(bool helper) { gr_xmpp_helper_ = helper; }
+    bool gr_enable() const { return gr_enable_; }
+    void set_gr_enable(bool enable) { gr_enable_ = enable; }
 
 private:
     mutable uint64_t last_change_at_;
     uint16_t gr_time_;
     uint32_t llgr_time_;
+    uint16_t end_of_rib_timeout_;
+    bool gr_enable_;
+    bool gr_bgp_helper_;
+    bool gr_xmpp_helper_;
     DISALLOW_COPY_AND_ASSIGN(BgpGlobalSystemConfig);
 };
 

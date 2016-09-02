@@ -639,16 +639,22 @@ bool BgpConfigParser::ParseRoutingPolicy(const xml_node &node,
 bool BgpConfigParser::ParseGlobalSystemConfig(const xml_node &node,
                                               bool add_change,
                                               RequestList *requests) const {
-    auto_ptr<autogen::GracefulRestartType> gr_config(
-            new autogen::GracefulRestartType());
-    assert(gr_config->XmlParse(node));
+    for (xml_node child = node.first_child(); child;
+            child = child.next_sibling()) {
+        if (strcmp(child.name(), "graceful-restart-parameters") == 0) {
+            auto_ptr<autogen::GracefulRestartParametersType> gr_config(
+                    new autogen::GracefulRestartParametersType());
+            assert(gr_config->XmlParse(child));
 
-    if (add_change) {
-        MapObjectSetProperty("global-system-config", "",
-            "graceful-restart-params", gr_config.release(), requests);
-    } else {
-        MapObjectClearProperty("global-system-config", "",
-                               "graceful-restart-params", requests);
+            if (add_change) {
+                MapObjectSetProperty("global-system-config", "",
+                    "graceful-restart-parameters",
+                    gr_config.release(), requests);
+            } else {
+                MapObjectClearProperty("global-system-config", "",
+                                       "graceful-restart-parameters", requests);
+            }
+        }
     }
     return true;
 }

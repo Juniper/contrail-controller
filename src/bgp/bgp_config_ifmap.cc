@@ -1774,20 +1774,44 @@ bool BgpIfmapGlobalSystemConfig::Update(BgpIfmapConfigManager *manager,
         const autogen::GlobalSystemConfig *system) {
     bool changed = false;
 
-    if (data_.gr_time() != system->graceful_restart_params().
-                               graceful_restart_time) {
-        data_.set_gr_time(system->graceful_restart_params().
-                              graceful_restart_time);
+    if (data_.gr_enable() != system->graceful_restart_parameters().enable) {
+        data_.set_gr_enable(system->graceful_restart_parameters().enable);
+        changed |= true;
+    }
+
+    if (data_.gr_time() != system->graceful_restart_parameters().restart_time) {
+        data_.set_gr_time(system->graceful_restart_parameters().restart_time);
         changed |= true;
     }
 
     if (data_.llgr_time() != static_cast<uint32_t>(
-            system->graceful_restart_params().
-                long_lived_graceful_restart_time)) {
-        data_.set_llgr_time(system->graceful_restart_params().
-                                long_lived_graceful_restart_time);
+            system->graceful_restart_parameters().long_lived_restart_time)) {
+        data_.set_llgr_time(
+            system->graceful_restart_parameters().long_lived_restart_time);
         changed |= true;
     }
+
+    if (data_.end_of_rib_timeout() !=
+            system->graceful_restart_parameters().end_of_rib_timeout) {
+        data_.set_end_of_rib_timeout(
+            system->graceful_restart_parameters().end_of_rib_timeout);
+        changed |= true;
+    }
+
+    if (data_.gr_bgp_helper() !=
+            system->graceful_restart_parameters().bgp_helper_enable) {
+        data_.set_gr_bgp_helper(
+            system->graceful_restart_parameters().bgp_helper_enable);
+        changed |= true;
+    }
+
+    if (data_.gr_xmpp_helper() !=
+            system->graceful_restart_parameters().xmpp_helper_enable) {
+        data_.set_gr_xmpp_helper(
+            system->graceful_restart_parameters().xmpp_helper_enable);
+        changed |= true;
+    }
+
     return changed;
 }
 

@@ -831,6 +831,13 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:simpleType name="EndOfRibTimeType">
+     <xsd:restriction base="xsd:integer">
+         <xsd:minInclusive value="0"/>
+         <xsd:maxInclusive value="4095"/>
+     </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:simpleType name="GracefulRestartTimeType">
      <xsd:restriction base="xsd:integer">
          <xsd:minInclusive value="0"/>
@@ -845,10 +852,14 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      </xsd:restriction>
 </xsd:simpleType>
 
-<xsd:complexType name="GracefulRestartType">
+<xsd:complexType name="GracefulRestartParametersType">
     <xsd:all>
-        <xsd:element name="graceful-restart-time" type="GracefulRestartTimeType" default="0"/>
-        <xsd:element name="long-lived-graceful-restart-time" type="LongLivedGracefulRestartTimeType" default="0"/>
+        <xsd:element name="enable" type="xsd:boolean" default="false"/>
+        <xsd:element name="restart-time" type="GracefulRestartTimeType" default="60"/>
+        <xsd:element name="long-lived-restart-time" type="LongLivedGracefulRestartTimeType" default="300"/>
+        <xsd:element name="end-of-rib-timeout" type="EndOfRibTimeType" default="30"/>
+        <xsd:element name="bgp-helper-enable" type="xsd:boolean" default="false"/>
+        <xsd:element name="xmpp-helper-enable" type="xsd:boolean" default="false"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -882,9 +893,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('config-version', 'global-system-config', 'system-only', 'R',
               'Version of OpenContrail software that generated this config.') -->
 
-<xsd:element name="graceful-restart-params" type="GracefulRestartType"/>
+<xsd:element name="graceful-restart-parameters" type="GracefulRestartParametersType"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('graceful-restart-params', 'global-system-config', 'optional',
+     Property('graceful-restart-parameters', 'global-system-config', 'optional',
               'CRUD', 'Graceful Restart parameters') -->
 
 <xsd:element name="plugin-tuning" type="PluginProperties"/>

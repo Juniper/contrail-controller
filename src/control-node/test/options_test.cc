@@ -79,13 +79,11 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.ifmap_end_of_rib_timeout(), 10);
     EXPECT_EQ(options_.ifmap_peer_response_wait_time(), 60);
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
-    EXPECT_EQ(options_.bgp_end_of_rib_timeout(), 30);
-    EXPECT_EQ(options_.xmpp_end_of_rib_timeout(), 30);
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.sandesh_send_rate_limit(),
               g_sandesh_constants.DEFAULT_SANDESH_SEND_RATELIMIT);
-    EXPECT_EQ(options_.gr_helper_bgp_enable(), false);
-    EXPECT_EQ(options_.gr_helper_xmpp_enable(), false);
+    EXPECT_EQ(options_.gr_helper_bgp_disable(), false);
+    EXPECT_EQ(options_.gr_helper_xmpp_disable(), false);
 }
 
 TEST_F(OptionsTest, DefaultConfFile) {
@@ -123,13 +121,11 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.ifmap_stale_entries_cleanup_timeout(), 300);
     EXPECT_EQ(options_.ifmap_end_of_rib_timeout(), 10);
     EXPECT_EQ(options_.ifmap_peer_response_wait_time(), 60);
-    EXPECT_EQ(options_.bgp_end_of_rib_timeout(), 30);
-    EXPECT_EQ(options_.xmpp_end_of_rib_timeout(), 30);
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 100);
-    EXPECT_EQ(options_.gr_helper_bgp_enable(), false);
-    EXPECT_EQ(options_.gr_helper_xmpp_enable(), false);
+    EXPECT_EQ(options_.gr_helper_bgp_disable(), false);
+    EXPECT_EQ(options_.gr_helper_xmpp_disable(), false);
 }
 
 TEST_F(OptionsTest, OverrideStringFromCommandLine) {
@@ -171,8 +167,8 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
-    EXPECT_EQ(options_.gr_helper_bgp_enable(), false);
-    EXPECT_EQ(options_.gr_helper_xmpp_enable(), false);
+    EXPECT_EQ(options_.gr_helper_bgp_disable(), false);
+    EXPECT_EQ(options_.gr_helper_xmpp_disable(), false);
 }
 
 TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
@@ -211,8 +207,8 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.ifmap_certs_store(), "");
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
     EXPECT_EQ(options_.test_mode(), true); // Overridden from command line.
-    EXPECT_EQ(options_.gr_helper_bgp_enable(), false);
-    EXPECT_EQ(options_.gr_helper_xmpp_enable(), false);
+    EXPECT_EQ(options_.gr_helper_bgp_disable(), false);
+    EXPECT_EQ(options_.gr_helper_xmpp_disable(), false);
 }
 
 TEST_F(OptionsTest, CustomConfigFile) {
@@ -236,11 +232,9 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "test_mode=0\n"
         "task_track_run_time=0\n"
         "optimize_snat=1\n"
-        "gr_helper_bgp_enable=1\n"
-        "gr_helper_xmpp_enable=1\n"
+        "gr_helper_bgp_disable=1\n"
+        "gr_helper_xmpp_disable=1\n"
         "xmpp_auth_enable=true\n"
-        "bgp_end_of_rib_timeout=200\n"
-        "xmpp_end_of_rib_timeout=100\n"
         "xmpp_server_cert=/etc/server.pem\n"
         "xmpp_server_key=/etc/server.key\n"
         "xmpp_ca_cert=/etc/ca-cert.pem\n"
@@ -308,10 +302,8 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.task_track_run_time(), false);
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.optimize_snat(), true);
-    EXPECT_EQ(options_.gr_helper_bgp_enable(), true);
-    EXPECT_EQ(options_.gr_helper_xmpp_enable(), true);
-    EXPECT_EQ(options_.bgp_end_of_rib_timeout(), 200);
-    EXPECT_EQ(options_.xmpp_end_of_rib_timeout(), 100);
+    EXPECT_EQ(options_.gr_helper_bgp_disable(), true);
+    EXPECT_EQ(options_.gr_helper_xmpp_disable(), true);
     EXPECT_EQ(options_.xmpp_auth_enabled(), true);
     EXPECT_EQ(options_.xmpp_server_cert(), "/etc/server.pem");
     EXPECT_EQ(options_.xmpp_server_key(), "/etc/server.key");
@@ -366,8 +358,8 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     char argv_5[] = "--DEFAULT.collectors=21.20.20.2:200";
     char argv_6[] = "--DEFAULT.collectors=31.30.30.3:300";
     char argv_7[] = "--DEFAULT.sandesh_send_rate_limit=7";
-    char argv_8[] = "--DEFAULT.gr_helper_bgp_enable";
-    char argv_9[] = "--DEFAULT.gr_helper_xmpp_enable";
+    char argv_8[] = "--DEFAULT.gr_helper_bgp_disable";
+    char argv_9[] = "--DEFAULT.gr_helper_xmpp_disable";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -412,8 +404,8 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.xmpp_port(), 100);
     EXPECT_EQ(options_.test_mode(), true);
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 7);
-    EXPECT_EQ(options_.gr_helper_bgp_enable(), true);
-    EXPECT_EQ(options_.gr_helper_xmpp_enable(), true);
+    EXPECT_EQ(options_.gr_helper_bgp_disable(), true);
+    EXPECT_EQ(options_.gr_helper_xmpp_disable(), true);
 }
 
 TEST_F(OptionsTest, CustomConfigFileWithInvalidHostIp) {
