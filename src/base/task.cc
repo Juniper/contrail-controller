@@ -112,6 +112,8 @@ public:
     int GetTaskId() const { return task_id_; }
     int GetTaskInstance() const { return task_instance_; }
     int GetRunCount() const { return run_count_; }
+    void SetDisable(bool disable) { disable_ = disable; }
+    bool IsDisabled() { return disable_; }
     void GetSandeshData(SandeshTaskEntry *resp) const;
 
 private:
@@ -142,6 +144,7 @@ private:
     TaskDeferList   *deferq_;    // Tasks deferred for this to exit
     TaskEntry       *deferq_task_entry_;
     TaskGroup       *deferq_task_group_;
+    bool            disable_;
 
     // Cummulative Maintenance stats
     TaskStats       stats_;
@@ -189,6 +192,8 @@ public:
     void ClearTaskGroupStats();
     void ClearTaskStats();
     void ClearTaskStats(int instance_id);
+    void SetDisable(bool disable) { disable_ = disable; }
+    bool IsDisabled() { return disable_; }
     void GetSandeshData(SandeshTaskGroup *resp, bool summary) const;
 
     int task_id() const { return task_id_; }
@@ -230,6 +235,7 @@ private:
     TaskEntryList           task_entry_db_;  // task-entries in this group
     uint32_t                execute_delay_;
     uint32_t                schedule_delay_;
+    bool                    disable_;
 
     TaskStats               stats_;
     DISALLOW_COPY_AND_ASSIGN(TaskGroup);
@@ -517,6 +523,15 @@ void TaskScheduler::Enqueue(Task *t) {
 }
 
 void TaskScheduler::EnqueueUnLocked(Task *t) {
+    TaskGroup *group = GetTaskGroup(t->GetTaskId());
+    TaskEntry *entry = GetTaskEntry(t->GetTaskId(), t->GetTaskInstance());
+
+    // If either TaskGroup or TaskEntry is disabled for Unit-Test purposes,
+    // do not enqueue new task, simply return.
+    if (group->IsDisabled() || entry->IsDisabled()) {
+        return;
+    }
+
     if (measure_delay_) {
         t->enqueue_time_ = ClockMonotonicUsec();
     }
@@ -524,12 +539,10 @@ void TaskScheduler::EnqueueUnLocked(Task *t) {
     assert(t->GetSeqno() == 0);
     enqueue_count_++;
     t->SetSeqNo(++seqno_);
-    TaskGroup *group = GetTaskGroup(t->GetTaskId());
     t->schedule_delay_ = group->schedule_delay_;
     t->execute_delay_ = group->execute_delay_;
     group->stats_.enqueue_count_++;
 
-    TaskEntry *entry = GetTaskEntry(t->GetTaskId(), t->GetTaskInstance());
     entry->stats_.enqueue_count_++;
     // Add task to waitq_ if its already populated
     if (entry->WaitQSize() != 0) {
@@ -898,12 +911,32 @@ void TaskScheduler::SetThreadAmpFactor(int n) {
     ThreadAmpFactor_ = n;
 }
 
+void TaskScheduler::DisableTaskGroup(int task_id) {
+    TaskGroup *group = GetTaskGroup(task_id);
+    group->SetDisable(true);
+}
+
+void TaskScheduler::EnableTaskGroup(int task_id) {
+    TaskGroup *group = GetTaskGroup(task_id);
+    group->SetDisable(false);
+}
+
+void TaskScheduler::DisableTaskEntry(int task_id, int instance_id) {
+    TaskEntry *entry = GetTaskEntry(task_id, instance_id);
+    entry->SetDisable(true);
+}
+
+void TaskScheduler::EnableTaskEntry(int task_id, int instance_id) {
+    TaskEntry *entry = GetTaskEntry(task_id, instance_id);
+    entry->SetDisable(false);
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // Implementation for class TaskGroup 
 ////////////////////////////////////////////////////////////////////////////
 
 TaskGroup::TaskGroup(int task_id) : task_id_(task_id), policy_set_(false), 
-    run_count_(0), execute_delay_(0), schedule_delay_(0) {
+    run_count_(0), execute_delay_(0), schedule_delay_(0), disable_(false) {
     total_run_time_ = 0;
     task_entry_db_.resize(TaskGroup::kVectorGrowSize);
     task_entry_ = new TaskEntry(task_id);
@@ -1089,7 +1122,8 @@ TaskStats *TaskGroup::GetTaskStats(int task_instance) {
 
 TaskEntry::TaskEntry(int task_id, int task_instance) : task_id_(task_id),
     task_instance_(task_instance), run_count_(0), run_task_(NULL),
-    waitq_(), deferq_task_entry_(NULL), deferq_task_group_(NULL) {
+    waitq_(), deferq_task_entry_(NULL), deferq_task_group_(NULL),
+    disable_(false) {
     // When a new TaskEntry is created, adds an implicit rule into policyq_ to
     // ensure that only one Task of an instance is run at a time
     if (task_instance != -1) {
@@ -1102,7 +1136,7 @@ TaskEntry::TaskEntry(int task_id, int task_instance) : task_id_(task_id),
 
 TaskEntry::TaskEntry(int task_id) : task_id_(task_id),
     task_instance_(-1), run_count_(0), run_task_(NULL),
-    deferq_task_entry_(NULL), deferq_task_group_(NULL) {
+    deferq_task_entry_(NULL), deferq_task_group_(NULL), disable_(false) {
     memset(&stats_, 0, sizeof(stats_));
     // allocate memory for deferq
     deferq_ = new TaskDeferList;

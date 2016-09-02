@@ -223,6 +223,11 @@ public:
     uint32_t schedule_delay(Task *task) const;
     uint32_t execute_delay(Task *task) const;
 
+    void DisableTaskGroup(int task_id);
+    void EnableTaskGroup(int task_id);
+    void DisableTaskEntry(int task_id, int instance_id);
+    void EnableTaskEntry(int task_id, int instance_id);
+
     // following function allows one to increase max num of threads used by
     // TBB
     static void SetThreadAmpFactor(int n);
