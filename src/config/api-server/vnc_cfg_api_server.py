@@ -303,12 +303,34 @@ class VncApiServer(object):
             is_list_prop = prop_name in resource_class.prop_list_fields
             is_map_prop = prop_name in resource_class.prop_map_fields
 
-            # TODO validate primitive types
-            if is_simple and (not is_list_prop) and (not is_map_prop):
-                continue
             prop_value = obj_dict.get(prop_name)
             if not prop_value:
                 continue
+
+            if is_simple and (not is_list_prop) and (not is_map_prop):
+                # If integer value is specified as string and if it can be
+                # converted to integer, then store the value as integer instead
+                # of throwing error
+                if prop_type in ('unsignedLong', 'integer') and \
+                    isinstance(prop_value, basestring):
+                    try:
+                        prop_value = int(prop_value)
+                    except ValueError:
+                        err_msg = 'Error validating property %s: integer ' \
+                            'value expected instead of %s' %(prop_value,
+                            prop_name)
+                        return False, err_msg
+                    else:
+                        obj_dict[prop_name] = prop_value
+                try:
+                    self._validate_simple_type(prop_name, prop_type,
+                                               simple_type, prop_value,
+                                               restrictions)
+                except Exception as e:
+                    err_msg = 'Error validating property ' + str(e)
+                    return False, err_msg
+                else:
+                    continue
 
             prop_cls = cfgm_common.utils.str_to_class(prop_type, __name__)
             if isinstance(prop_value, dict):
