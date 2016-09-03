@@ -124,15 +124,15 @@ TEST_F(DBGraphTest, VertexRemove) {
     int count = 0;
     for (DBGraph::edge_iterator iter = graph_.edge_list_begin();
          iter != graph_.edge_list_end(); ++iter) {
-        const DBGraph::DBVertexPair &tuple = *iter;
+        const DBGraph::DBEdgeInfo &tuple = *iter;
         switch (count) {
             case 0:
-                EXPECT_EQ("vertex:a", tuple.first->ToString());
-                EXPECT_EQ("vertex:c", tuple.second->ToString());
+                EXPECT_EQ("vertex:a", boost::get<0>(tuple)->ToString());
+                EXPECT_EQ("vertex:c", boost::get<1>(tuple)->ToString());
                 break;
             case 1:
-                EXPECT_EQ("vertex:a", tuple.first->ToString());
-                EXPECT_EQ("vertex:d", tuple.second->ToString());
+                EXPECT_EQ("vertex:a", boost::get<0>(tuple)->ToString());
+                EXPECT_EQ("vertex:d", boost::get<1>(tuple)->ToString());
                 break;
             default:
                 EXPECT_TRUE(false);

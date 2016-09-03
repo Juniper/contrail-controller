@@ -377,7 +377,7 @@
 						<identity name="contrail:virtual-machine:5f25dd5e-5442-4edf-89d1-6a318c0d213b" type="other" other-type-definition="extended" />
 						<identity name="contrail:virtual-machine-interface:5f25dd5e-5442-4edf-89d1-6a318c0d213b:606d59b7-c17b-491b-b4fe-f3b264c842bf" type="other" other-type-definition="extended" />
 						<metadata>
-							<contrail:virtual-machine-virtual-machine-interface xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-12T04:11:28-07:00" />
+							<contrail:virtual-machine-interface-virtual-machine xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-12T04:11:28-07:00" />
 						</metadata>
 					</resultItem>
 					<resultItem>
@@ -1634,7 +1634,7 @@
 						<identity name="contrail:virtual-machine:695d391b-65e6-4091-bea5-78e5eae32e66" type="other" other-type-definition="extended" />
 						<identity name="contrail:virtual-machine-interface:695d391b-65e6-4091-bea5-78e5eae32e66:4efc1e06-c799-4e0d-b913-402c10f17e23" type="other" other-type-definition="extended" />
 						<metadata>
-							<contrail:virtual-machine-virtual-machine-interface xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-12T04:10:59-07:00" />
+							<contrail:virtual-machine-interface-virtual-machine xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-12T04:10:59-07:00" />
 						</metadata>
 					</resultItem>
 					<resultItem>

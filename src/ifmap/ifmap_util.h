@@ -10,6 +10,9 @@
 
 #include "db/db_graph.h"
 
+typedef std::map<std::string,
+        DBGraph::VisitorFilter::AllowedEdgeSet> VertexEdgeMap;
+
 struct IFMapTypenameFilter : public DBGraph::VisitorFilter {
     virtual bool VertexFilter(const DBGraphVertex *vertex) const;
  
@@ -17,8 +20,10 @@ struct IFMapTypenameFilter : public DBGraph::VisitorFilter {
                             const DBGraphVertex *target,
                             const DBGraphEdge *edge) const;
 
-    std::vector<std::string> exclude_vertex;
-    std::vector<std::string> exclude_edge;
+    virtual AllowedEdgeRetVal AllowedEdges(const DBGraphVertex *source) const;
+
+    std::set<std::string> exclude_vertex;
+    VertexEdgeMap exclude_edge;
 };
 
 struct IFMapTypenameWhiteList : public DBGraph::VisitorFilter {
@@ -28,8 +33,9 @@ struct IFMapTypenameWhiteList : public DBGraph::VisitorFilter {
                             const DBGraphVertex *target,
                             const DBGraphEdge *edge) const;
 
-    std::set<std::string> include_vertex;
-    std::set<std::string> include_edge;
+    virtual AllowedEdgeRetVal AllowedEdges(const DBGraphVertex *source) const;
+
+    VertexEdgeMap include_vertex;
 };
 
 #endif

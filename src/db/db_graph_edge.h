@@ -18,7 +18,7 @@ public:
     typedef DBGraphBase::vertex_descriptor Vertex;
     typedef DBGraphBase::edge_descriptor Edge;
 
-    explicit DBGraphEdge(Edge edge_id);
+    DBGraphEdge();
 
     void SetEdge(Edge edge);
 
@@ -34,6 +34,7 @@ public:
     DBGraphVertex *target(DBGraph *graph);
     const DBGraphVertex *target(DBGraph *graph) const;
 
+    virtual const std::string &name() const = 0;
 private:
     Edge edge_id_;
     

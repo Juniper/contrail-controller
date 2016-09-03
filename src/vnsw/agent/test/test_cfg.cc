@@ -77,6 +77,14 @@ protected:
         EXPECT_EQ("testbar", node->name());
     }
 
+    IFMapLink *LinkLookup(IFMapNode *lhs, IFMapNode *rhs,
+                          const string &metadata) {
+        IFMapLinkTable *link_table = static_cast<IFMapLinkTable *>(
+            db_.FindTable(IFMAP_AGENT_LINK_DB_NAME));
+        IFMapLink *link =  link_table->FindLink(metadata, lhs, rhs);
+        return (link ? (link->IsDeleted() ? NULL : link) : NULL);
+    }
+
     void Listener(DBTablePartBase *partition, DBEntryBase *dbe) {
         DBRequest req;
         IFMapNode *node = static_cast <IFMapNode *> (dbe);
@@ -2025,7 +2033,7 @@ TEST_F(CfgTest, LinkMetadata) {
     ASSERT_TRUE(TestBar !=NULL);
     EXPECT_EQ("testbar", TestBar->name());
 
-    IFMapLink *link = static_cast<IFMapLink *>(graph_.GetEdge(TestFoo, TestBar));
+    IFMapLink *link = LinkLookup(TestFoo, TestBar, "foo-bar");
     assert(link);
     EXPECT_EQ(link->metadata(), "foo-bar");
 }
@@ -2084,7 +2092,7 @@ TEST_F(CfgTest, DefLinkMetadata) {
     ASSERT_TRUE(TestBar !=NULL);
     EXPECT_EQ("testbar", TestBar->name());
 
-    IFMapLink *link = static_cast<IFMapLink *>(graph_.GetEdge(TestFoo, TestBar));
+    IFMapLink *link = LinkLookup(TestFoo, TestBar, "foo-bar");
     assert(link);
     EXPECT_EQ(link->metadata(), "foo-bar");
 }
@@ -2143,7 +2151,7 @@ TEST_F(CfgTest, NodeDelLinkMetadata) {
     ASSERT_TRUE(TestBar !=NULL);
     EXPECT_EQ("testbar", TestBar->name());
 
-    IFMapLink *link = static_cast<IFMapLink *>(graph_.GetEdge(TestFoo, TestBar));
+    IFMapLink *link = LinkLookup(TestFoo, TestBar, "foo-bar");
     assert(link);
     EXPECT_EQ(link->metadata(), "foo-bar");
 
@@ -2184,7 +2192,7 @@ TEST_F(CfgTest, NodeDelLinkMetadata) {
     ASSERT_TRUE(TestFoo !=NULL);
     EXPECT_EQ("testfoo", TestFoo->name());
 
-    link = static_cast<IFMapLink *>(graph_.GetEdge(TestFoo, TestBar));
+    link = LinkLookup(TestFoo, TestBar, "foo-bar");
     assert(link);
     EXPECT_EQ(link->metadata(), "foo-bar");
 }

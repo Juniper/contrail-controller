@@ -18,7 +18,8 @@
 
 using namespace std;
 
-IFMapTable::IFMapTable(DB *db, const std::string &name) : DBTable(db, name) {
+IFMapTable::IFMapTable(DB *db, const std::string &name, DBGraph *graph)
+    : DBGraphTable(db, name, graph) {
 }
 
 IFMapNode *IFMapTable::FindNode(const std::string &name) {

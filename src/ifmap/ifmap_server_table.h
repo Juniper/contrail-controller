@@ -74,20 +74,18 @@ private:
                                        const std::string &id_name,
                                        bool *changep);
 
-    void LinkNodeAdd(DBGraphBase::edge_descriptor edge,
-                     IFMapNode *first, IFMapNode *second,
+    IFMapLink *LinkNodeAdd(IFMapNode *first, IFMapNode *second,
                      const std::string &metadata, uint64_t sequence_number,
                      const IFMapOrigin &origin);
-    void LinkNodeDelete(IFMapNode *first, IFMapNode *second,
-                        const IFMapOrigin &origin);
+    IFMapLink *FindLinkNode(IFMapNode *first, IFMapNode *second, const std::string &metadata);
+
+    void LinkNodeDelete(IFMapLink *link, const IFMapOrigin &origin);
     void LinkNodeUpdate(IFMapLink *link, uint64_t sequence_number,
                         const IFMapOrigin &origin);
-    void IFMapProcVmSubscribe(const std::string &vr_name,  
+    void IFMapProcVmSubscribe(const std::string &vr_name,
                               const std::string &vm_name);
-    void IFMapProcVmUnsubscribe(const std::string &vr_name,  
+    void IFMapProcVmUnsubscribe(const std::string &vr_name,
                                 const std::string &vm_name, bool has_vms);
-
-    DBGraph *graph_;
 };
 
 #endif

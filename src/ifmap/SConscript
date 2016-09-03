@@ -65,7 +65,6 @@ libifmap = env.Library('ifmap_server',
                         'ifmap_update_sender.cc',
                         'ifmap_util.cc',
                         'ifmap_uuid_mapper.cc',
-                        'ifmap_whitelist.cc',
                         ifmap_xmpp,
                         ifmap_xmpp_client_show,
                         ] + sandesh_objs)

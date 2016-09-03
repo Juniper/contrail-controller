@@ -25,7 +25,7 @@ public:
     typedef DBGraphBase::vertex_descriptor Vertex;
     typedef DBGraphBase::edge_descriptor Edge;
 
-    DBGraphVertex() : vertex_id_(NULL) { }
+    DBGraphVertex() : vertex_id_(NULL), visited_at_(0) { }
 
     class adjacency_iterator : public boost::iterator_facade<
     adjacency_iterator, DBGraphVertex, boost::forward_traversal_tag
@@ -111,8 +111,19 @@ public:
 
     Vertex vertex() const { return vertex_id_; }
 
+    void set_visited(uint64_t current_graph_walk_num) {
+        visited_at_ = current_graph_walk_num;
+    }
+
+    bool visited(uint64_t current_graph_walk_num) {
+        return (visited_at_ == current_graph_walk_num);
+    }
+
+    virtual std::string ToString() const = 0;
+
 private:
     Vertex vertex_id_;
+    uint64_t visited_at_;
 };
 
 #endif

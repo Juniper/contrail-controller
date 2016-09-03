@@ -103,9 +103,12 @@ protected:
         return tbl->FindNode(name);
     }
 
-    IFMapLink *LinkLookup(IFMapNode *lhs, IFMapNode *rhs) {
-        IFMapLink *link = static_cast<IFMapLink *>(graph_.GetEdge(lhs, rhs));
-        return link;
+    IFMapLink *LinkLookup(IFMapNode *lhs, IFMapNode *rhs,
+                          const string &metadata) {
+        IFMapLinkTable *link_table = static_cast<IFMapLinkTable *>(
+                                     db_.FindTable("__ifmap_metadata__.0"));
+        IFMapLink *link =  link_table->FindLink(metadata, lhs, rhs);
+        return (link ? (link->IsDeleted() ? NULL : link) : NULL);
     }
 
     bool LinkOriginLookup(IFMapLink *link, IFMapOrigin::Origin orig) {
@@ -218,26 +221,26 @@ protected:
     }
 
     void CheckNodeBitsAndCount(DBGraphVertex *vertex, int index, bool binterest,
-            bool badvertised, int *count) {
+            bool badvertised, std::set<string> *visited_entries) {
         IFMapNode *node = static_cast<IFMapNode *>(vertex);
         IFMapNodeState *state = exporter_->NodeStateLookup(node);
         TASK_UTIL_EXPECT_TRUE(state->interest().test(index) == binterest);
         TASK_UTIL_EXPECT_TRUE(state->advertised().test(index) == badvertised);
-        ++(*count);
+        visited_entries->insert(vertex->ToString());
     }
 
     void CheckLinkBitsAndCount(DBGraphEdge *edge, int index, bool binterest,
-            bool badvertised, int *count) {
+            bool badvertised, std::set<string> *visited_entries) {
         IFMapLink *link = static_cast<IFMapLink *>(edge);
         IFMapLinkState *state = exporter_->LinkStateLookup(link);
         TASK_UTIL_EXPECT_TRUE(state->interest().test(index) == binterest);
         TASK_UTIL_EXPECT_TRUE(state->advertised().test(index) == badvertised);
-        ++(*count);
+        visited_entries->insert(edge->ToString());
     }
 
     int ClientGraphWalkVerify(const string &client_name, size_t index,
                               bool binterest, bool badvertised) {
-        int count = 0;
+        std::set<string> visited_entries;
         IFMapNode *node = TableLookup("virtual-router", client_name);
         if (node) {
             IFMapNodeState *state = exporter_->NodeStateLookup(node);
@@ -246,12 +249,12 @@ protected:
                                   == badvertised);
             graph_.Visit(node,
                 boost::bind(&XmppIfmapTest::CheckNodeBitsAndCount, this, _1,
-                            index, binterest, badvertised, &count),
+                            index, binterest, badvertised, &visited_entries),
                 boost::bind(&XmppIfmapTest::CheckLinkBitsAndCount, this, _1,
-                            index, binterest, badvertised, &count),
+                            index, binterest, badvertised, &visited_entries),
                 exporter_->get_traversal_white_list());
         }
-        return count;
+        return visited_entries.size();
     }
 
     void SetObjectsPerMessage(int num) {
@@ -269,8 +272,8 @@ protected:
 
     void TriggerLinkDeleteToExporter(IFMapLink *link, IFMapNode *left,
                                      IFMapNode *right) {
+        graph_.Unlink(link);
         link->MarkDelete();
-        graph_.Unlink(left, right);
         IFMapLinkTable *link_table = static_cast<IFMapLinkTable *>(
             db_.FindTable("__ifmap_metadata__.0"));
         DBTablePartBase *partition = link_table->GetTablePartition(0);
@@ -655,7 +658,7 @@ TEST_F(XmppIfmapTest, VrVmSubUnsub) {
     EXPECT_TRUE(vr != NULL);
     IFMapNode *vm = TableLookup("virtual-machine", host_vm_name);
     EXPECT_TRUE(vm != NULL);
-    IFMapLink *link = LinkLookup(vr, vm);
+    IFMapLink *link = LinkLookup(vr, vm, "virtual-router-virtual-machine");
     EXPECT_TRUE(link == NULL);
 
     // After sending subscribe, client should get all the nodes.
@@ -668,7 +671,7 @@ TEST_F(XmppIfmapTest, VrVmSubUnsub) {
     cout << "Rx msgs " << vnsw_client->Count() << endl;
     cout << "Sent msgs " << GetSentMsgs(xmpp_server_, client_name) << endl;
 
-    link = LinkLookup(vr, vm);
+    link = LinkLookup(vr, vm, "virtual-router-virtual-machine");
     EXPECT_TRUE(link != NULL);
     bool link_origin = LinkOriginLookup(link, IFMapOrigin::XMPP);
     EXPECT_TRUE(link_origin);
@@ -692,7 +695,7 @@ TEST_F(XmppIfmapTest, VrVmSubUnsub) {
     cout << "Rx msgs " << vnsw_client->Count() << endl;
     cout << "Sent msgs " << GetSentMsgs(xmpp_server_, client_name) << endl;
 
-    link = LinkLookup(vr, vm);
+    link = LinkLookup(vr, vm, "virtual-router-virtual-machine");
     EXPECT_TRUE(link == NULL);
     CheckNodeBits(vr, cli_index, true, true);
     CheckNodeBits(vm, cli_index, false, false);
@@ -771,7 +774,7 @@ TEST_F(XmppIfmapTest, VrVmSubUnsubTwice) {
     EXPECT_TRUE(vr != NULL);
     IFMapNode *vm = TableLookup("virtual-machine", host_vm_name);
     EXPECT_TRUE(vm != NULL);
-    IFMapLink *link = LinkLookup(vr, vm);
+    IFMapLink *link = LinkLookup(vr, vm, "virtual-router-virtual-machine");
     EXPECT_TRUE(link == NULL);
 
     // After sending subscribe, client should get an add for the vr-vm link.
@@ -784,7 +787,7 @@ TEST_F(XmppIfmapTest, VrVmSubUnsubTwice) {
     cout << "Rx msgs " << vnsw_client->Count() << endl;
     cout << "Sent msgs " << GetSentMsgs(xmpp_server_, client_name) << endl;
 
-    link = LinkLookup(vr, vm);
+    link = LinkLookup(vr, vm, "virtual-router-virtual-machine");
     EXPECT_TRUE(link != NULL);
     bool link_origin = LinkOriginLookup(link, IFMapOrigin::XMPP);
     EXPECT_TRUE(link_origin);
@@ -807,7 +810,7 @@ TEST_F(XmppIfmapTest, VrVmSubUnsubTwice) {
     cout << "Rx msgs " << vnsw_client->Count() << endl;
     cout << "Sent msgs " << GetSentMsgs(xmpp_server_, client_name) << endl;
 
-    link = LinkLookup(vr, vm);
+    link = LinkLookup(vr, vm, "virtual-router-virtual-machine");
     EXPECT_TRUE(link == NULL);
     CheckNodeBits(vr, cli_index, true, true);
     CheckNodeBits(vm, cli_index, false, false);
@@ -827,7 +830,7 @@ TEST_F(XmppIfmapTest, VrVmSubUnsubTwice) {
     cout << "Rx msgs " << vnsw_client->Count() << endl;
     cout << "Sent msgs " << GetSentMsgs(xmpp_server_, client_name) << endl;
 
-    link = LinkLookup(vr, vm);
+    link = LinkLookup(vr, vm, "virtual-router-virtual-machine");
     EXPECT_TRUE(link != NULL);
     link_origin = LinkOriginLookup(link, IFMapOrigin::XMPP);
     EXPECT_TRUE(link_origin);
@@ -848,7 +851,7 @@ TEST_F(XmppIfmapTest, VrVmSubUnsubTwice) {
     cout << "Rx msgs " << vnsw_client->Count() << endl;
     cout << "Sent msgs " << GetSentMsgs(xmpp_server_, client_name) << endl;
 
-    link = LinkLookup(vr, vm);
+    link = LinkLookup(vr, vm, "virtual-router-virtual-machine");
     EXPECT_TRUE(link == NULL);
     CheckNodeBits(vr, cli_index, true, true);
     CheckNodeBits(vm, cli_index, false, false);
@@ -928,7 +931,7 @@ TEST_F(XmppIfmapTest, VrVmSubThrice) {
     EXPECT_TRUE(vr != NULL);
     IFMapNode *vm = TableLookup("virtual-machine", host_vm_name);
     EXPECT_TRUE(vm != NULL);
-    IFMapLink *link = LinkLookup(vr, vm);
+    IFMapLink *link = LinkLookup(vr, vm, "virtual-router-virtual-machine");
     EXPECT_TRUE(link == NULL);
 
     // After sending subscribe, client should get an add for the vr-vm link.
@@ -942,7 +945,7 @@ TEST_F(XmppIfmapTest, VrVmSubThrice) {
     cout << "Sent msgs " << GetSentMsgs(xmpp_server_, client_name) << endl;
     EXPECT_EQ(ifmap_channel_mgr_->get_duplicate_vmsub_messages(), 0);
 
-    link = LinkLookup(vr, vm);
+    link = LinkLookup(vr, vm, "virtual-router-virtual-machine");
     EXPECT_TRUE(link != NULL);
     bool link_origin = LinkOriginLookup(link, IFMapOrigin::XMPP);
     EXPECT_TRUE(link_origin);
@@ -965,7 +968,7 @@ TEST_F(XmppIfmapTest, VrVmSubThrice) {
     TASK_UTIL_EXPECT_EQ(ifmap_channel_mgr_->get_duplicate_vmsub_messages(), 1);
     EXPECT_EQ(vnsw_client->HasNMessages(num_msgs), true);
 
-    link = LinkLookup(vr, vm);
+    link = LinkLookup(vr, vm, "virtual-router-virtual-machine");
     EXPECT_TRUE(link != NULL);
     link_origin = LinkOriginLookup(link, IFMapOrigin::XMPP);
     EXPECT_TRUE(link_origin);
@@ -981,7 +984,7 @@ TEST_F(XmppIfmapTest, VrVmSubThrice) {
     TASK_UTIL_EXPECT_EQ(ifmap_channel_mgr_->get_duplicate_vmsub_messages(), 2);
     EXPECT_EQ(vnsw_client->HasNMessages(num_msgs), true);
 
-    link = LinkLookup(vr, vm);
+    link = LinkLookup(vr, vm, "virtual-router-virtual-machine");
     EXPECT_TRUE(link != NULL);
     link_origin = LinkOriginLookup(link, IFMapOrigin::XMPP);
     EXPECT_TRUE(link_origin);
@@ -999,7 +1002,7 @@ TEST_F(XmppIfmapTest, VrVmSubThrice) {
     cout << "Rx msgs " << vnsw_client->Count() << endl;
     cout << "Sent msgs " << GetSentMsgs(xmpp_server_, client_name) << endl;
 
-    link = LinkLookup(vr, vm);
+    link = LinkLookup(vr, vm, "virtual-router-virtual-machine");
     EXPECT_TRUE(link == NULL);
     CheckNodeBits(vr, cli_index, true, true);
     CheckNodeBits(vm, cli_index, false, false);
@@ -1079,7 +1082,7 @@ TEST_F(XmppIfmapTest, VrVmUnsubThrice) {
     EXPECT_TRUE(vr != NULL);
     IFMapNode *vm = TableLookup("virtual-machine", host_vm_name);
     EXPECT_TRUE(vm != NULL);
-    IFMapLink *link = LinkLookup(vr, vm);
+    IFMapLink *link = LinkLookup(vr, vm, "virtual-router-virtual-machine");
     EXPECT_TRUE(link == NULL);
 
     // After sending subscribe, client should get an add for the vr-vm link.
@@ -1092,7 +1095,7 @@ TEST_F(XmppIfmapTest, VrVmUnsubThrice) {
     cout << "Rx msgs " << vnsw_client->Count() << endl;
     cout << "Sent msgs " << GetSentMsgs(xmpp_server_, client_name) << endl;
 
-    link = LinkLookup(vr, vm);
+    link = LinkLookup(vr, vm, "virtual-router-virtual-machine");
     EXPECT_TRUE(link != NULL);
     bool link_origin = LinkOriginLookup(link, IFMapOrigin::XMPP);
     EXPECT_TRUE(link_origin);
@@ -1115,7 +1118,7 @@ TEST_F(XmppIfmapTest, VrVmUnsubThrice) {
     cout << "Rx msgs " << vnsw_client->Count() << endl;
     cout << "Sent msgs " << GetSentMsgs(xmpp_server_, client_name) << endl;
 
-    link = LinkLookup(vr, vm);
+    link = LinkLookup(vr, vm, "virtual-router-virtual-machine");
     EXPECT_TRUE(link == NULL);
     CheckNodeBits(vr, cli_index, true, true);
     CheckNodeBits(vm, cli_index, false, false);
@@ -1129,7 +1132,7 @@ TEST_F(XmppIfmapTest, VrVmUnsubThrice) {
     num_msgs = vnsw_client->Count();
     vnsw_client->SendVmConfigUnsubscribe(host_vm_name);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->HasNMessages(num_msgs));
-    link = LinkLookup(vr, vm);
+    link = LinkLookup(vr, vm, "virtual-router-virtual-machine");
     EXPECT_TRUE(link == NULL);
     CheckNodeBits(vr, cli_index, true, true);
     CheckNodeBits(vm, cli_index, false, false);
@@ -1143,7 +1146,7 @@ TEST_F(XmppIfmapTest, VrVmUnsubThrice) {
     num_msgs = vnsw_client->Count();
     vnsw_client->SendVmConfigUnsubscribe(host_vm_name);
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->HasNMessages(num_msgs));
-    link = LinkLookup(vr, vm);
+    link = LinkLookup(vr, vm, "virtual-router-virtual-machine");
     EXPECT_TRUE(link == NULL);
     CheckNodeBits(vr, cli_index, true, true);
     CheckNodeBits(vm, cli_index, false, false);
@@ -1225,7 +1228,7 @@ TEST_F(XmppIfmapTest, VrVmSubConnClose) {
     EXPECT_TRUE(vr != NULL);
     IFMapNode *vm = TableLookup("virtual-machine", host_vm_name);
     EXPECT_TRUE(vm != NULL);
-    IFMapLink *link = LinkLookup(vr, vm);
+    IFMapLink *link = LinkLookup(vr, vm, "virtual-router-virtual-machine");
     EXPECT_TRUE(link == NULL);
 
     // After sending subscribe, client should get an add for the vr-vm link.
@@ -1238,7 +1241,7 @@ TEST_F(XmppIfmapTest, VrVmSubConnClose) {
     cout << "Rx msgs " << vnsw_client->Count() << endl;
     cout << "Sent msgs " << GetSentMsgs(xmpp_server_, client_name) << endl;
 
-    link = LinkLookup(vr, vm);
+    link = LinkLookup(vr, vm, "virtual-router-virtual-machine");
     EXPECT_TRUE(link != NULL);
     bool link_origin = LinkOriginLookup(link, IFMapOrigin::XMPP);
     EXPECT_TRUE(link_origin);
@@ -1352,8 +1355,8 @@ TEST_F(XmppIfmapTest, RegBeforeConfig) {
     vr = TableLookup("virtual-router", kDefaultClientName);
     TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-machine", host_vm_name) != NULL);
     vm = TableLookup("virtual-machine", host_vm_name);
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm) != NULL);
-    IFMapLink *link = LinkLookup(vr, vm);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm, "virtual-router-virtual-machine") != NULL);
+    IFMapLink *link = LinkLookup(vr, vm, "virtual-router-virtual-machine");
     bool link_origin = LinkOriginLookup(link, IFMapOrigin::XMPP);
     EXPECT_TRUE(link_origin);
     TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vr, IFMapOrigin::MAP_SERVER));
@@ -1375,7 +1378,7 @@ TEST_F(XmppIfmapTest, RegBeforeConfig) {
     cout << "Rx msgs " << vnsw_client->Count() << endl;
     cout << "Sent msgs " << GetSentMsgs(xmpp_server_, client_name) << endl;
 
-    link = LinkLookup(vr, vm);
+    link = LinkLookup(vr, vm, "virtual-router-virtual-machine");
     EXPECT_TRUE(link == NULL);
     CheckNodeBits(vr, cli_index, true, true);
     CheckNodeBits(vm, cli_index, false, false);
@@ -1458,12 +1461,12 @@ TEST_F(XmppIfmapTest, Cli1Vn1Vm3Add) {
     EXPECT_TRUE(client != NULL);
 
     // Allow sender to run and send all the config
-    TASK_UTIL_EXPECT_EQ(32, vnsw_client->Count());
+    TASK_UTIL_EXPECT_EQ(29, vnsw_client->Count());
     TASK_UTIL_EXPECT_EQ(client->msgs_sent(), vnsw_client->Count());
     size_t cli_index = static_cast<size_t>(client->index());
     int walk_count = ClientGraphWalkVerify(client_name, cli_index, true, true);
     EXPECT_EQ(InterestConfigTrackerSize(client->index()), walk_count);
-    EXPECT_EQ(InterestConfigTrackerSize(client->index()), 32);
+    EXPECT_EQ(InterestConfigTrackerSize(client->index()), 29);
 
     EXPECT_EQ(ifmap_server_.GetClientMapSize(), 1);
     // client close generates a TcpClose event on server
@@ -1541,7 +1544,7 @@ TEST_F(XmppIfmapTest, Cli1Vn2Np1Add) {
     EXPECT_TRUE(client != NULL);
 
     // Allow sender to run and send all the config
-    TASK_UTIL_EXPECT_EQ(32, vnsw_client->Count());
+    TASK_UTIL_EXPECT_EQ(30, vnsw_client->Count());
     TASK_UTIL_EXPECT_EQ(client->msgs_sent(), vnsw_client->Count());
 
     size_t cli_index = static_cast<size_t>(client->index());
@@ -1622,7 +1625,7 @@ TEST_F(XmppIfmapTest, Cli1Vn2Np2Add) {
     EXPECT_TRUE(client != NULL);
 
     // Allow sender to run and send all the config
-    TASK_UTIL_EXPECT_EQ(32, vnsw_client->Count());
+    TASK_UTIL_EXPECT_EQ(30, vnsw_client->Count());
     TASK_UTIL_EXPECT_EQ(client->msgs_sent(), vnsw_client->Count());
 
     size_t cli_index = static_cast<size_t>(client->index());
@@ -1723,9 +1726,9 @@ TEST_F(XmppIfmapTest, Cli2Vn2Np2Add) {
     EXPECT_TRUE(cli2 != NULL);
 
     // Allow senders to run and send all the config.
-    TASK_UTIL_EXPECT_EQ(18, vnsw_cli1->Count());
+    TASK_UTIL_EXPECT_EQ(17, vnsw_cli1->Count());
     TASK_UTIL_EXPECT_EQ(cli1->msgs_sent(), vnsw_cli1->Count());
-    TASK_UTIL_EXPECT_EQ(18, vnsw_cli2->Count());
+    TASK_UTIL_EXPECT_EQ(17, vnsw_cli2->Count());
     TASK_UTIL_EXPECT_EQ(cli2->msgs_sent(), vnsw_cli2->Count());
 
     size_t cli_index1 = static_cast<size_t>(cli1->index());
@@ -1845,9 +1848,9 @@ TEST_F(XmppIfmapTest, Cli2Vn2Vm2Add) {
     EXPECT_TRUE(cli2 != NULL);
 
     // Allow senders to run and send all the config
-    TASK_UTIL_EXPECT_EQ(18, vnsw_cli1->Count());
+    TASK_UTIL_EXPECT_EQ(17, vnsw_cli1->Count());
     TASK_UTIL_EXPECT_EQ(cli1->msgs_sent(), vnsw_cli1->Count());
-    TASK_UTIL_EXPECT_EQ(18, vnsw_cli2->Count());
+    TASK_UTIL_EXPECT_EQ(17, vnsw_cli2->Count());
     TASK_UTIL_EXPECT_EQ(cli2->msgs_sent(), vnsw_cli2->Count());
 
     size_t cli_index1 = static_cast<size_t>(cli1->index());
@@ -1985,9 +1988,9 @@ TEST_F(XmppIfmapTest, Cli2Vn3Vm6Np2Add) {
     EXPECT_TRUE(cli2 != NULL);
 
     // Allow senders to run and send all the config. GSC and NwIpam dups to cli1
-    TASK_UTIL_EXPECT_EQ(48, vnsw_cli1->Count());
+    TASK_UTIL_EXPECT_EQ(44, vnsw_cli1->Count());
     TASK_UTIL_EXPECT_EQ(cli1->msgs_sent(), vnsw_cli1->Count());
-    TASK_UTIL_EXPECT_EQ(26, vnsw_cli2->Count());
+    TASK_UTIL_EXPECT_EQ(24, vnsw_cli2->Count());
     TASK_UTIL_EXPECT_EQ(cli2->msgs_sent(), vnsw_cli2->Count());
 
     size_t cli_index1 = static_cast<size_t>(cli1->index());
@@ -2123,18 +2126,18 @@ TEST_F(XmppIfmapTest, CfgSubUnsub) {
     EXPECT_TRUE(NodeOriginLookup(vm3, IFMapOrigin::MAP_SERVER));
     TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vm3, IFMapOrigin::XMPP));
 
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm1) != NULL);
-    IFMapLink *link = LinkLookup(vr, vm1);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm1, "virtual-router-virtual-machine") != NULL);
+    IFMapLink *link = LinkLookup(vr, vm1, "virtual-router-virtual-machine");
     EXPECT_FALSE(LinkOriginLookup(link, IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(LinkOriginLookup(link, IFMapOrigin::XMPP));
 
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm2) != NULL);
-    link = LinkLookup(vr, vm2);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm2, "virtual-router-virtual-machine") != NULL);
+    link = LinkLookup(vr, vm2, "virtual-router-virtual-machine");
     EXPECT_FALSE(LinkOriginLookup(link, IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(LinkOriginLookup(link, IFMapOrigin::XMPP));
 
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm3) != NULL);
-    link = LinkLookup(vr, vm3);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm3, "virtual-router-virtual-machine") != NULL);
+    link = LinkLookup(vr, vm3, "virtual-router-virtual-machine");
     EXPECT_FALSE(LinkOriginLookup(link, IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(LinkOriginLookup(link, IFMapOrigin::XMPP));
 
@@ -2281,18 +2284,18 @@ TEST_F(XmppIfmapTest, CfgAdd_Reg_CfgDel_Unreg) {
     EXPECT_TRUE(NodeOriginLookup(vm3, IFMapOrigin::MAP_SERVER));
     TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vm3, IFMapOrigin::XMPP));
 
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm1) != NULL);
-    IFMapLink *link = LinkLookup(vr, vm1);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm1, "virtual-router-virtual-machine") != NULL);
+    IFMapLink *link = LinkLookup(vr, vm1, "virtual-router-virtual-machine");
     EXPECT_FALSE(LinkOriginLookup(link, IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(LinkOriginLookup(link, IFMapOrigin::XMPP));
 
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm2) != NULL);
-    link = LinkLookup(vr, vm2);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm2, "virtual-router-virtual-machine") != NULL);
+    link = LinkLookup(vr, vm2, "virtual-router-virtual-machine");
     EXPECT_FALSE(LinkOriginLookup(link, IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(LinkOriginLookup(link, IFMapOrigin::XMPP));
 
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm3) != NULL);
-    link = LinkLookup(vr, vm3);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm3, "virtual-router-virtual-machine") != NULL);
+    link = LinkLookup(vr, vm3, "virtual-router-virtual-machine");
     EXPECT_FALSE(LinkOriginLookup(link, IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(LinkOriginLookup(link, IFMapOrigin::XMPP));
 
@@ -2321,18 +2324,18 @@ TEST_F(XmppIfmapTest, CfgAdd_Reg_CfgDel_Unreg) {
     EXPECT_FALSE(NodeOriginLookup(vm3, IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(NodeOriginLookup(vm3, IFMapOrigin::XMPP));
 
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm1) != NULL);
-    link = LinkLookup(vr, vm1);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm1, "virtual-router-virtual-machine") != NULL);
+    link = LinkLookup(vr, vm1, "virtual-router-virtual-machine");
     EXPECT_FALSE(LinkOriginLookup(link, IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(LinkOriginLookup(link, IFMapOrigin::XMPP));
 
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm2) != NULL);
-    link = LinkLookup(vr, vm2);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm2, "virtual-router-virtual-machine") != NULL);
+    link = LinkLookup(vr, vm2, "virtual-router-virtual-machine");
     EXPECT_FALSE(LinkOriginLookup(link, IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(LinkOriginLookup(link, IFMapOrigin::XMPP));
 
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm3) != NULL);
-    link = LinkLookup(vr, vm3);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm3, "virtual-router-virtual-machine") != NULL);
+    link = LinkLookup(vr, vm3, "virtual-router-virtual-machine");
     EXPECT_FALSE(LinkOriginLookup(link, IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(LinkOriginLookup(link, IFMapOrigin::XMPP));
 
@@ -2464,18 +2467,18 @@ TEST_F(XmppIfmapTest, Reg_CfgAdd_CfgDel_Unreg) {
     vm3 = TableLookup("virtual-machine",
                                  "43d086ab-52c4-4a1f-8c3d-63b321e36e8a");
 
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm1) != NULL);
-    IFMapLink *link = LinkLookup(vr, vm1);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm1, "virtual-router-virtual-machine") != NULL);
+    IFMapLink *link = LinkLookup(vr, vm1, "virtual-router-virtual-machine");
     EXPECT_FALSE(LinkOriginLookup(link, IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(LinkOriginLookup(link, IFMapOrigin::XMPP));
 
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm2) != NULL);
-    link = LinkLookup(vr, vm2);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm2, "virtual-router-virtual-machine") != NULL);
+    link = LinkLookup(vr, vm2, "virtual-router-virtual-machine");
     EXPECT_FALSE(LinkOriginLookup(link, IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(LinkOriginLookup(link, IFMapOrigin::XMPP));
 
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm3) != NULL);
-    link = LinkLookup(vr, vm3);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm3, "virtual-router-virtual-machine") != NULL);
+    link = LinkLookup(vr, vm3, "virtual-router-virtual-machine");
     EXPECT_FALSE(LinkOriginLookup(link, IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(LinkOriginLookup(link, IFMapOrigin::XMPP));
 
@@ -2513,18 +2516,18 @@ TEST_F(XmppIfmapTest, Reg_CfgAdd_CfgDel_Unreg) {
     TASK_UTIL_EXPECT_FALSE(NodeOriginLookup(vm3, IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(NodeOriginLookup(vm3, IFMapOrigin::XMPP));
 
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm1) != NULL);
-    link = LinkLookup(vr, vm1);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm1, "virtual-router-virtual-machine") != NULL);
+    link = LinkLookup(vr, vm1, "virtual-router-virtual-machine");
     EXPECT_FALSE(LinkOriginLookup(link, IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(LinkOriginLookup(link, IFMapOrigin::XMPP));
 
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm2) != NULL);
-    link = LinkLookup(vr, vm2);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm2, "virtual-router-virtual-machine") != NULL);
+    link = LinkLookup(vr, vm2, "virtual-router-virtual-machine");
     EXPECT_FALSE(LinkOriginLookup(link, IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(LinkOriginLookup(link, IFMapOrigin::XMPP));
 
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm3) != NULL);
-    link = LinkLookup(vr, vm3);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm3, "virtual-router-virtual-machine") != NULL);
+    link = LinkLookup(vr, vm3, "virtual-router-virtual-machine");
     EXPECT_FALSE(LinkOriginLookup(link, IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(LinkOriginLookup(link, IFMapOrigin::XMPP));
 
@@ -2658,18 +2661,18 @@ TEST_F(XmppIfmapTest, Reg_CfgAdd_Unreg_CfgDel) {
     vm3 = TableLookup("virtual-machine",
                                  "43d086ab-52c4-4a1f-8c3d-63b321e36e8a");
 
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm1) != NULL);
-    IFMapLink *link = LinkLookup(vr, vm1);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm1, "virtual-router-virtual-machine") != NULL);
+    IFMapLink *link = LinkLookup(vr, vm1, "virtual-router-virtual-machine");
     EXPECT_FALSE(LinkOriginLookup(link, IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(LinkOriginLookup(link, IFMapOrigin::XMPP));
 
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm2) != NULL);
-    link = LinkLookup(vr, vm2);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm2, "virtual-router-virtual-machine") != NULL);
+    link = LinkLookup(vr, vm2, "virtual-router-virtual-machine");
     EXPECT_FALSE(LinkOriginLookup(link, IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(LinkOriginLookup(link, IFMapOrigin::XMPP));
 
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm3) != NULL);
-    link = LinkLookup(vr, vm3);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm3, "virtual-router-virtual-machine") != NULL);
+    link = LinkLookup(vr, vm3, "virtual-router-virtual-machine");
     EXPECT_FALSE(LinkOriginLookup(link, IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(LinkOriginLookup(link, IFMapOrigin::XMPP));
 
@@ -2709,9 +2712,9 @@ TEST_F(XmppIfmapTest, Reg_CfgAdd_Unreg_CfgDel) {
     EXPECT_TRUE(NodeOriginLookup(vm3, IFMapOrigin::MAP_SERVER));
     TASK_UTIL_EXPECT_FALSE(NodeOriginLookup(vm3, IFMapOrigin::XMPP));
 
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm1) == NULL);
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm2) == NULL);
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm3) == NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm1, "virtual-router-virtual-machine") == NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm2, "virtual-router-virtual-machine") == NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm3, "virtual-router-virtual-machine") == NULL);
 
     // Delete the vr and all the vms via config
     string content1 = 
@@ -2838,18 +2841,18 @@ TEST_F(XmppIfmapTest, Reg_CfgAdd_Unreg_Close) {
     vm3 = TableLookup("virtual-machine",
                                  "43d086ab-52c4-4a1f-8c3d-63b321e36e8a");
 
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm1) != NULL);
-    IFMapLink *link = LinkLookup(vr, vm1);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm1, "virtual-router-virtual-machine") != NULL);
+    IFMapLink *link = LinkLookup(vr, vm1, "virtual-router-virtual-machine");
     EXPECT_FALSE(LinkOriginLookup(link, IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(LinkOriginLookup(link, IFMapOrigin::XMPP));
 
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm2) != NULL);
-    link = LinkLookup(vr, vm2);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm2, "virtual-router-virtual-machine") != NULL);
+    link = LinkLookup(vr, vm2, "virtual-router-virtual-machine");
     EXPECT_FALSE(LinkOriginLookup(link, IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(LinkOriginLookup(link, IFMapOrigin::XMPP));
 
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm3) != NULL);
-    link = LinkLookup(vr, vm3);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm3, "virtual-router-virtual-machine") != NULL);
+    link = LinkLookup(vr, vm3, "virtual-router-virtual-machine");
     EXPECT_FALSE(LinkOriginLookup(link, IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(LinkOriginLookup(link, IFMapOrigin::XMPP));
 
@@ -2918,9 +2921,9 @@ TEST_F(XmppIfmapTest, Reg_CfgAdd_Unreg_Close) {
     EXPECT_TRUE(NodeOriginLookup(vm3, IFMapOrigin::MAP_SERVER));
     TASK_UTIL_EXPECT_FALSE(NodeOriginLookup(vm3, IFMapOrigin::XMPP));
 
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm1) == NULL);
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm2) == NULL);
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm3) == NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm1, "virtual-router-virtual-machine") == NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm2, "virtual-router-virtual-machine") == NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm3, "virtual-router-virtual-machine") == NULL);
 
     EXPECT_EQ(ifmap_server_.GetClientMapSize(), 1);
     // Client close generates a TcpClose event on server
@@ -3024,8 +3027,8 @@ TEST_F(XmppIfmapTest, CheckIFMapObjectSeqInList) {
     TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-machine",
                           "43d086ab-52c4-4a1f-8c3d-63b321e36e8a") != NULL);
 
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm1) != NULL);
-    IFMapLink *link = LinkLookup(vr, vm1);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm1, "virtual-router-virtual-machine") != NULL);
+    IFMapLink *link = LinkLookup(vr, vm1, "virtual-router-virtual-machine");
     EXPECT_FALSE(LinkOriginLookup(link, IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(LinkOriginLookup(link, IFMapOrigin::XMPP));
     TASK_UTIL_EXPECT_EQ(vnsw_client->Count(), 3);
@@ -3296,8 +3299,8 @@ TEST_F(XmppIfmapTest, Bug788) {
     EXPECT_TRUE(NodeOriginLookup(vm1, IFMapOrigin::XMPP));
 
     // link(vr, vm1)
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm1) != NULL);
-    IFMapLink *link = LinkLookup(vr, vm1);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm1, "virtual-router-virtual-machine") != NULL);
+    IFMapLink *link = LinkLookup(vr, vm1, "virtual-router-virtual-machine");
     EXPECT_FALSE(LinkOriginLookup(link, IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(LinkOriginLookup(link, IFMapOrigin::XMPP));
 
@@ -3330,7 +3333,7 @@ TEST_F(XmppIfmapTest, Bug788) {
     EXPECT_EQ(ifmap_server_.GetIndexMapSize(), 1);
     task_util::TaskSchedulerStop();
     TriggerLinkDeleteToExporter(link, vr, vm1);
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm1) == NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm1, "virtual-router-virtual-machine") == NULL);
     TriggerDeleteClient(client, client_name);
     task_util::TaskSchedulerStart();
 
@@ -3526,7 +3529,7 @@ TEST_F(XmppIfmapTest, ConfigVrsubVrUnsub) {
     TASK_UTIL_EXPECT_TRUE(TableLookup("global-system-config", gsc_str) != NULL);
     IFMapNode *gsc = TableLookup("global-system-config", gsc_str);
     EXPECT_TRUE(gsc != NULL);
-    IFMapLink *link = LinkLookup(vr, gsc);
+    IFMapLink *link = LinkLookup(vr, gsc, "global-system-config-virtual-router");
     TASK_UTIL_EXPECT_TRUE(link != NULL);
 
     // Create the mock client
@@ -3613,7 +3616,7 @@ TEST_F(XmppIfmapTest, VrsubConfigVrunsub) {
     TASK_UTIL_EXPECT_TRUE(TableLookup("global-system-config", gsc_str) != NULL);
     IFMapNode *gsc = TableLookup("global-system-config", gsc_str);
     EXPECT_TRUE(gsc != NULL);
-    IFMapLink *link = LinkLookup(vr, gsc);
+    IFMapLink *link = LinkLookup(vr, gsc, "global-system-config-virtual-router");
     TASK_UTIL_EXPECT_TRUE(link != NULL);
     TASK_UTIL_EXPECT_EQ(1, vnsw_client->Count());
 
@@ -3661,7 +3664,7 @@ TEST_F(XmppIfmapTest, ConfignopropVrsub) {
     TASK_UTIL_EXPECT_TRUE(TableLookup("global-system-config", gsc_str) != NULL);
     IFMapNode *gsc = TableLookup("global-system-config", gsc_str);
     EXPECT_TRUE(gsc != NULL);
-    IFMapLink *link = LinkLookup(vr, gsc);
+    IFMapLink *link = LinkLookup(vr, gsc, "global-system-config-virtual-router");
     TASK_UTIL_EXPECT_TRUE(link != NULL);
 
     // Create the mock client
@@ -3758,7 +3761,7 @@ TEST_F(XmppIfmapTest, VrsubConfignoprop) {
     TASK_UTIL_EXPECT_TRUE(TableLookup("global-system-config", gsc_str) != NULL);
     IFMapNode *gsc = TableLookup("global-system-config", gsc_str);
     EXPECT_TRUE(gsc != NULL);
-    IFMapLink *link = LinkLookup(vr, gsc);
+    IFMapLink *link = LinkLookup(vr, gsc, "global-system-config-virtual-router");
     TASK_UTIL_EXPECT_TRUE(link != NULL);
     TASK_UTIL_EXPECT_EQ(1, vnsw_client->Count());
 

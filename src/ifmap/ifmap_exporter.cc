@@ -475,7 +475,7 @@ void IFMapExporter::LinkTableExport(DBTablePartBase *partition,
         const BitSet *lset = MergeClientInterest(link->left(), s_left, &ml);
         const BitSet *rset = MergeClientInterest(link->right(), s_right, &mr);
         if (*lset != *rset) {
-            walker_->LinkAdd(link->left(), *lset, link->right(), *rset);
+            walker_->LinkAdd(link, link->left(), *lset, link->right(), *rset);
         }
 
         if (add_link) {
@@ -607,8 +607,8 @@ void IFMapExporter::TableStateClear(DBTable *table,
 
 }
 
-bool IFMapExporter::FilterNeighbor(IFMapNode *lnode, IFMapNode *rnode) {
-    return walker_->FilterNeighbor(lnode, rnode);
+bool IFMapExporter::FilterNeighbor(IFMapNode *lnode, IFMapLink *link) {
+    return walker_->FilterNeighbor(lnode, link);
 }
 
 bool IFMapExporter::ConfigChanged(IFMapNode *node) {

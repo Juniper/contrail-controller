@@ -6,8 +6,7 @@
 
 #include "db/db_graph.h"
 
-DBGraphEdge::DBGraphEdge(Edge edge_id)
-  : edge_id_(edge_id) {
+DBGraphEdge::DBGraphEdge() {
 }
 
 void DBGraphEdge::SetEdge(Edge edge) {

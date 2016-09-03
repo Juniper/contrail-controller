@@ -622,8 +622,9 @@ TEST_F(BgpIfmapConfigManagerTest, MasterNeighbors) {
     TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
     for (DBGraph::edge_iterator edge_iter = db_graph_.edge_list_begin();
          edge_iter != db_graph_.edge_list_end(); ++edge_iter) {
-        IFMapNode *left = static_cast<IFMapNode *>(edge_iter->first);
-        IFMapNode *right = static_cast<IFMapNode *>(edge_iter->second);
+        const DBGraph::DBEdgeInfo &tuple = *edge_iter;
+        IFMapNode *left = static_cast<IFMapNode *>(boost::get<0>(tuple));
+        IFMapNode *right = static_cast<IFMapNode *>(boost::get<1>(tuple));
         BGP_DEBUG_UT("[" << left->name() << ", " << right->name() << "]");
     }
 
