@@ -46,7 +46,8 @@ public:
     
     static IFMapNode *TableEntryLookup(DB *db, RequestKey *key);
     void NotifyNode(IFMapNode *node);
-    DBGraph *GetGraph() const {return graph_;};
+    const DBGraph *GetGraph() const {return graph();};
+    DBGraph *GetGraph() {return graph();};
     void DeleteNode(IFMapNode *node);
     void RegisterPreFilter(PreFilterFn fn) {pre_filter_ = fn;};
 
@@ -55,7 +56,6 @@ private:
     IFMapNode *EntryLookup(RequestKey *key);
     IFMapAgentTable* TableFind(const std::string &node_name);
     void HandlePendingLinks(IFMapNode *);
-    DBGraph *graph_; 
     PreFilterFn pre_filter_;
 };
 
@@ -100,10 +100,11 @@ public:
     void DelLink(IFMapNode *first, IFMapNode *second, DBGraphEdge *edge);
     void LinkDefAdd(DBRequest *request);
 private:
-    void AddLink(DBGraphBase::edge_descriptor edge,
-                 IFMapNode *left, IFMapNode *right,
+    void AddLink(IFMapNode *left, IFMapNode *right,
                  const std::string &metadata, uint64_t seq);
-    DBGraph *graph_; 
+
+    IFMapLink *FindLink(IFMapNode *left, IFMapNode *right, const std::string &metadata);
+
     LinkDefMap link_def_map_;
 };
 

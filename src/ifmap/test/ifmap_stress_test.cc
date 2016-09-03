@@ -892,7 +892,7 @@ void IFMapStressTest::OtherConfigAdd() {
                                          vmi_name, 0, "display-name", prop2);
         ifmap_test_util::IFMapMsgLink(&db_, "virtual-machine", vm_name,
             "virtual-machine-interface", vmi_name,
-            "virtual-machine-virtual-machine-interface");
+            "virtual-machine-interface-virtual-machine");
 
         // Create the virtual network node with uuid and display-name.
         string vn_name = VirtualNetworkNameCreate(client_id, vm_id, vmi_id);
@@ -939,7 +939,7 @@ void IFMapStressTest::OtherConfigDeleteInternal(const string &vm_name) {
 
         ifmap_test_util::IFMapMsgUnlink(&db_, "virtual-machine", vm_name,
             "virtual-machine-interface", vmi_name,
-            "virtual-machine-virtual-machine-interface");
+            "virtual-machine-interface-virtual-machine");
         autogen::IdPermsType *prop1 = new autogen::IdPermsType();
         ifmap_test_util::IFMapMsgNodeDelete(&db_, "virtual-machine-interface",
                                             vmi_name, 0, "id-perms", prop1);

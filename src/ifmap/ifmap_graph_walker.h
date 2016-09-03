@@ -13,10 +13,10 @@ class DBGraphEdge;
 class DBGraphVertex;
 class IFMapExporter;
 class IFMapNode;
+class IFMapLink;
 class IFMapNodeState;
 class IFMapState;
 class TaskTrigger;
-struct IFMapTypenameFilter;
 struct IFMapTypenameWhiteList;
 
 // Computes the interest graph for the ifmap clients (i.e. vnc agent).
@@ -32,11 +32,11 @@ public:
     // When a link is added, for each interest bit, find the corresponding
     // source node and walk the graph constructing the respective interest
     // list.
-    void LinkAdd(IFMapNode *lnode, const BitSet &lhs,
+    void LinkAdd(IFMapLink *link, IFMapNode *lnode, const BitSet &lhs,
                  IFMapNode *rnode, const BitSet &rhs);
     void LinkRemove(const BitSet &bset);
 
-    bool FilterNeighbor(IFMapNode *lnode, IFMapNode *rnode);
+    bool FilterNeighbor(IFMapNode *lnode, IFMapLink *link);
     const IFMapTypenameWhiteList &get_traversal_white_list() const;
     void ResetLinkDeleteClients(const BitSet &bset);
 
@@ -45,6 +45,7 @@ private:
 
     void ProcessLinkAdd(IFMapNode *lnode, IFMapNode *rnode, const BitSet &bset);
     void JoinVertex(DBGraphVertex *vertex, const BitSet &bset);
+    void NotifyEdge(DBGraphEdge *edge, const BitSet &bset);
     void RecomputeInterest(DBGraphVertex *vertex, int bit);
     void CleanupInterest(int client_index, IFMapNode *node,
                          IFMapNodeState *state);

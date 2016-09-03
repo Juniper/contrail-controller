@@ -5,8 +5,11 @@
 #ifndef ctrlplane_db_graph_h
 #define ctrlplane_db_graph_h
 
+#include <queue>
+
 #include <boost/function.hpp>
 #include <boost/iterator/iterator_facade.hpp>
+#include <boost/tuple/tuple.hpp>
 #include "db/db_graph_base.h"
 #include "db/db_graph_vertex.h"
 
@@ -21,6 +24,10 @@ public:
     typedef boost::function<void(DBGraphVertex *)> VertexFinish;
 
     struct VisitorFilter {
+        typedef std::set<std::string> AllowedEdgeSet;
+        // bool return value indicates that all edges are allowed except 
+        // filterd by EdgeFilter
+        typedef  std::pair<bool, AllowedEdgeSet> AllowedEdgeRetVal;
         virtual ~VisitorFilter() { }
         virtual bool VertexFilter(const DBGraphVertex *vertex) const {
             return true;
@@ -30,11 +37,14 @@ public:
                                 const DBGraphEdge *edge) const {
             return true;
         }
+        virtual AllowedEdgeRetVal AllowedEdges(const DBGraphVertex *vertex) const {
+            return std::make_pair(false, std::set<std::string>());
+        }
     };
 
-    typedef std::pair<DBGraphVertex *, DBGraphVertex *> DBVertexPair;
+    typedef boost::tuple<DBGraphVertex *, DBGraphVertex *, DBGraphEdge *> DBEdgeInfo;
     class edge_iterator : public boost::iterator_facade<
-    edge_iterator, DBVertexPair, boost::forward_traversal_tag, DBVertexPair
+    edge_iterator, DBEdgeInfo, boost::forward_traversal_tag, DBEdgeInfo
     > {
     public:
         explicit edge_iterator(DBGraph *graph);
@@ -44,7 +54,7 @@ public:
             ++iter_;
         }
         bool equal(const edge_iterator &rhs) const;
-        DBVertexPair dereference() const;
+        DBEdgeInfo dereference() const;
         DBGraph *graph_;
         DBGraphBase::edge_iterator iter_;
         DBGraphBase::edge_iterator end_;
@@ -74,18 +84,18 @@ public:
 
     void RemoveNode(DBGraphVertex *entry);
 
-    Edge Link(DBGraphVertex *lhs, DBGraphVertex *rhs);
+    Edge Link(DBGraphVertex *lhs, DBGraphVertex *rhs, DBGraphEdge *link);
 
-    void Unlink(DBGraphVertex *lhs, DBGraphVertex *rhs);
-
-    void SetEdgeProperty(DBGraphEdge *edge);
-    
-    DBGraphEdge *GetEdge(const DBGraphVertex *src, const DBGraphVertex *tgt);
+    void Unlink(DBGraphEdge *link);
 
     const graph_t *graph() const { return &graph_; }
 
     DBGraphVertex *vertex_data(DBGraphBase::vertex_descriptor vertex) const {
         return graph_[vertex].entry;
+    }
+
+    const std::string edge_name(DBGraph::Edge edge) const {
+        return graph_[edge].name_;
     }
 
     DBGraphEdge *edge_data(DBGraph::Edge edge) const {
@@ -111,8 +121,19 @@ public:
     size_t edge_count() const;
 
 private:
+    typedef std::queue<DBGraphVertex *> VisitQ;
     struct EdgePredicate;
     struct VertexPredicate;
+
+    void IterateEdges(DBGraphVertex *start,
+                  OutEdgeIterator &iter_begin, OutEdgeIterator &iter_end,
+                  VertexVisitor vertex_visit_fn, EdgeVisitor edge_visit_fn,
+                  EdgePredicate &edge_test, VertexPredicate &vertex_test,
+                  uint64_t curr_walk, VisitQ &visit_queue,
+                  bool match_name=false, const std::string &allowed_edge = "");
+
+    DBGraphVertex *vertex_target(DBGraphVertex *current_vertex,
+                                 DBGraphEdge *edge);
 
     graph_t graph_;
 };

@@ -1674,9 +1674,9 @@ TEST_F(RouteAggregatorTest, ConfigUpdate_RemoveOverlappingPrefixes) {
     VerifyRouteAggregateSandesh("test");
 
     ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", "test",
-        "route-aggregate", "vn_subnet_1", "routing-instance-route-aggregate");
+        "route-aggregate", "vn_subnet_1", "route-aggregate-routing-instance");
     ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", "test",
-        "route-aggregate", "vn_subnet_2", "routing-instance-route-aggregate");
+        "route-aggregate", "vn_subnet_2", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(GetUpdateAggregateListSize("test", Address::INET), 0);
@@ -1894,9 +1894,9 @@ TEST_F(RouteAggregatorTest, ConfigUpdate_DeleteExisting) {
     TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsFeasible());
 
     ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", "test",
-        "route-aggregate", "vn_subnet_1", "routing-instance-route-aggregate");
+        "route-aggregate", "vn_subnet_1", "route-aggregate-routing-instance");
     ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", "test",
-        "route-aggregate", "vn_subnet_2", "routing-instance-route-aggregate");
+        "route-aggregate", "vn_subnet_2", "route-aggregate-routing-instance");
     task_util::WaitForIdle();
 
     VERIFY_EQ(3, RouteCount("test.inet.0"));

@@ -78,11 +78,11 @@ IFMapNode *IFMapNodeLookup(DB *db, const std::string &type,
 
 void IFMapNodeNotify(DB *db, const std::string &type, const std::string &name);
 
-IFMapLink *IFMapLinkLookup(DB *db, DBGraph *graph,
+IFMapLink *IFMapLinkLookup(DB *db, DBGraph *graph, const std::string &metadata,
                            const std::string &ltype, const std::string &lid,
                            const std::string &rtype, const std::string &rid);
 
-void IFMapLinkNotify(DB *db, DBGraph *graph,
+void IFMapLinkNotify(DB *db, DBGraph *graph, const std::string &metadata,
                      const std::string &ltype, const std::string &lid,
                      const std::string &rtype, const std::string &rid);
 

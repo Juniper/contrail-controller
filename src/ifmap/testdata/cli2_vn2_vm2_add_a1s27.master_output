@@ -146,7 +146,7 @@
     <node type="virtual-machine-interface">
      <name>0af0866c-08c9-49ae-856b-0f4a58179920:b34afc4e-c96b-4a02-a91a-80c5a0c37259</name>
     </node>
-    <metadata type="virtual-machine-virtual-machine-interface" />
+    <metadata type="virtual-machine-interface-virtual-machine" />
    </link>
   </update>
  </config>

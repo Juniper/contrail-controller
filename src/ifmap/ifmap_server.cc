@@ -54,16 +54,11 @@ public:
         DBGraph::edge_iterator e_next(graph_);
         for (DBGraph::edge_iterator e_iter = graph_->edge_list_begin();
              e_iter != graph_->edge_list_end(); e_iter = e_next) {
-
-            const DBGraph::DBVertexPair &tuple = *e_iter;
+            const DBGraph::DBEdgeInfo &tuple = *e_iter;
             // increment only after dereferencing
             e_next = ++e_iter;
 
-            IFMapNode *lhs = static_cast<IFMapNode *>(tuple.first);
-            IFMapNode *rhs = static_cast<IFMapNode *>(tuple.second);
-
-            IFMapLink *link =
-                static_cast<IFMapLink *>(graph_->GetEdge(lhs, rhs));
+            IFMapLink *link = static_cast<IFMapLink *>(boost::get<2>(tuple));
             assert(link);
 
             bool exists = false;
@@ -75,7 +70,7 @@ public:
                 // Cleanup the node and remove from the graph
                 link->RemoveOriginInfo(IFMapOrigin::MAP_SERVER);
                 if (link->is_origin_empty()) {
-                    ltable->DeleteLink(link, lhs, rhs);
+                    ltable->DeleteLink(link);
                 }
                 links_deleted++;
             }
@@ -351,16 +346,15 @@ void IFMapServer::ClientGraphDownload(IFMapClient *client) {
 
     IFMapNode *node = table->FindNode(client->identifier());
     if ((node != NULL) && node->IsVertexValid()) {
-        for (DBGraphVertex::adjacency_iterator iter = node->begin(graph_);
-            iter != node->end(graph_); ++iter) {
-            IFMapNode *adj = static_cast<IFMapNode *>(iter.operator->());
-            if (exporter_->FilterNeighbor(node, adj)) {
+        for (DBGraphVertex::edge_iterator iter = node->edge_list_begin(graph_);
+            iter != node->edge_list_end(graph_); ++iter) {
+            IFMapLink *link = static_cast<IFMapLink *>(iter.operator->());
+            if (exporter_->FilterNeighbor(node, link)) {
                 continue;
             }
-            DBGraphEdge *edge = graph_->GetEdge(node, adj);
             DBTable *link_table = static_cast<DBTable *>(
                 db_->FindTable("__ifmap_metadata__.0"));
-            link_table->Change(edge);
+            link_table->Change(link);
         }
     }
 }

@@ -26,7 +26,7 @@ SandeshTraceBufferPtr
 IFMapAgentTraceBuf(SandeshTraceBufferCreate("IFMapAgentTrace", 1000));
 
 IFMapAgentTable::IFMapAgentTable(DB *db, const string &name, DBGraph *graph)
-        : IFMapTable(db, name), graph_(graph), pre_filter_(NULL) {
+        : IFMapTable(db, name, graph), pre_filter_(NULL) {
 }
 
 auto_ptr<DBEntry> IFMapAgentTable::AllocEntry(const DBRequestKey *key) const {
@@ -73,7 +73,7 @@ IFMapNode *IFMapAgentTable::EntryLocate(IFMapNode *node, RequestKey *req) {
         /* If delete marked, clear it now */
         if (node->IsDeleted()) {
             node->ClearDelete();
-            graph_->AddNode(node);
+            graph()->AddNode(node);
         }
 
         obj = node->GetObject();
@@ -90,7 +90,7 @@ IFMapNode *IFMapAgentTable::EntryLocate(IFMapNode *node, RequestKey *req) {
         DBTablePartition *partition =
             static_cast<DBTablePartition *>(GetTablePartition(0));
         partition->Add(node);
-        graph_->AddNode(node);
+        graph()->AddNode(node);
     }
 
     return node;
@@ -106,16 +106,16 @@ void IFMapAgentTable::HandlePendingLinks(IFMapNode *node) {
         (database()->FindTable(IFMAP_AGENT_LINK_DB_NAME));
     assert(ltable != NULL);
 
-    DBGraphVertex::adjacency_iterator iter;
+    DBGraphVertex::edge_iterator iter;
     bool origin_exists;
     uint64_t seq;
-    for (iter = node->begin(graph_); iter != node->end(graph_);) {
+    for (iter = node->edge_list_begin(graph());
+         iter != node->edge_list_end(graph());) {
                                                 
-        right = static_cast<IFMapNode *>(iter.operator->());
-        iter++;
-        edge = graph_->GetEdge(node, right);
-        assert(edge);
+        edge = iter.operator->();
         IFMapLink *l = static_cast<IFMapLink *>(edge);
+        right = static_cast<IFMapNode *>(iter.target());
+        iter++;
         seq = l->sequence_number(IFMapOrigin::UNKNOWN, &origin_exists);
         assert(origin_exists);
    
@@ -144,16 +144,16 @@ void IFMapAgentTable::HandlePendingLinks(IFMapNode *node) {
 void IFMapAgentTable::DeleteNode(IFMapNode *node) {
 
 
-    if ((node->HasAdjacencies(graph_) == true)) {
+    if ((node->HasAdjacencies(graph()) == true)) {
         HandlePendingLinks(node);
     }
 
     //Now there should not be any more adjacencies
-    assert((node->HasAdjacencies(graph_) == false));
+    assert((node->HasAdjacencies(graph()) == false));
 
     DBTablePartition *partition =
         static_cast<DBTablePartition *>(GetTablePartition(0));
-    graph_->RemoveNode(node);
+    graph()->RemoveNode(node);
     partition->Delete(node);
 }
 
@@ -344,36 +344,45 @@ void IFMapAgentTable::Clear() {
         if (node->IsDeleted()) {
             continue;
         }
-        graph_->RemoveNode(node);
+        graph()->RemoveNode(node);
         partition->Delete(node);
     }
 }
 
 
 // Agent link table routines
+IFMapLink *IFMapAgentLinkTable::FindLink(IFMapNode *left, IFMapNode *right,
+                                  const std::string &metadata) {
 
-void IFMapAgentLinkTable::AddLink(DBGraphBase::edge_descriptor edge,
-                                  IFMapNode *left, IFMapNode *right,
+    IFMapLinkTable *table = static_cast<IFMapLinkTable *>(
+        database()->FindTable(IFMAP_AGENT_LINK_DB_NAME));
+    assert(table != NULL);
+    IFMapLink *link = table->FindLink(metadata, left, right);
+    return (link ? (link->IsDeleted() ? NULL : link) : NULL);
+}
+
+void IFMapAgentLinkTable::AddLink(IFMapNode *left, IFMapNode *right,
                                   const std::string &metadata,
                                   uint64_t seq) {
 
     IFMapLinkTable *table = static_cast<IFMapLinkTable *>(
         database()->FindTable(IFMAP_AGENT_LINK_DB_NAME));
     assert(table != NULL);
-    table->AddLink(edge, left, right, metadata, seq,
-                   IFMapOrigin(IFMapOrigin::UNKNOWN));
+
+    IFMapLink *link = table->AddLink(left, right, metadata, seq,
+                                     IFMapOrigin(IFMapOrigin::UNKNOWN));
+    graph()->Link(left, right, (DBGraphEdge *)link);
 }
 
 void IFMapAgentLinkTable::DelLink(IFMapNode *left, IFMapNode *right, DBGraphEdge *edge) {
     IFMapAgentLinkTable *table = static_cast<IFMapAgentLinkTable *>(
         database()->FindTable(IFMAP_AGENT_LINK_DB_NAME));
     assert(table != NULL);
-    table->DeleteLink(edge);
-    graph_->Unlink(left, right);
+    table->DeleteLink(static_cast<IFMapLink *>(edge));
 }
 
 IFMapAgentLinkTable::IFMapAgentLinkTable(DB *db, const string &name, DBGraph *graph)
-        : IFMapLinkTable(db, name, graph), graph_(graph) {
+        : IFMapLinkTable(db, name, graph) {
 }
 
 DBTable *IFMapAgentLinkTable::CreateTable(DB *db, const string &name,
@@ -455,13 +464,11 @@ void IFMapAgentLinkTable::Input(DBTablePartition *partition, DBClient *client,
         return;
     }
     
-    DBGraph::Edge edge;
-    DBGraphEdge *link = graph_->GetEdge(left, right);
+    DBGraphEdge *link = FindLink(left, right, key->metadata);
 
     if (req->oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
         if (link == NULL) {
-            edge = graph_->Link(left, right);
-            AddLink(edge, left, right, key->metadata, key->left_key.id_seq_num);
+            AddLink(left, right, key->metadata, key->left_key.id_seq_num);
         } else {
             IFMapOrigin origin(IFMapOrigin::UNKNOWN);
             IFMapLink *l = static_cast<IFMapLink *>(link);
@@ -610,15 +617,13 @@ public:
         for (DBGraph::edge_iterator e_iter = graph_->edge_list_begin();
             e_iter != graph_->edge_list_end(); e_iter = e_next) {
 
-            const DBGraph::DBVertexPair &tuple = *e_iter;
+            const DBGraph::DBEdgeInfo &tuple = *e_iter;
             
             e_next = ++e_iter;
 
-            IFMapNode *lhs = static_cast<IFMapNode *>(tuple.first);
-            IFMapNode *rhs = static_cast<IFMapNode *>(tuple.second);
-
-            IFMapLink *link =
-                static_cast<IFMapLink *>(graph_->GetEdge(lhs, rhs));
+            IFMapNode *lhs = static_cast<IFMapNode *>(boost::get<0>(tuple));
+            IFMapNode *rhs = static_cast<IFMapNode *>(boost::get<1>(tuple));
+            IFMapLink *link = static_cast<IFMapLink *>(boost::get<2>(tuple));
             assert(link);
 
             bool exists = false;
@@ -630,7 +635,7 @@ public:
                 IFMAP_AGENT_TRACE(Trace,
                      origin_info.sequence_number, "Deleting Link between " + 
                      lhs->name() + rhs->name()); 
-                ltable->DeleteLink(link, lhs, rhs);
+                ltable->DeleteLink(link);
             }
         }
 

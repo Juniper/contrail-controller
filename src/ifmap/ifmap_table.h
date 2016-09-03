@@ -5,13 +5,13 @@
 #ifndef ctrlplane_ifmap_table_h
 #define ctrlplane_ifmap_table_h
 
-#include "db/db_table.h"
+#include "db/db_graph_table.h"
 
 class IFMapNode;
 class IFMapNodeTableListShowEntry;
 class IFMapObject;
 
-class IFMapTable : public DBTable {
+class IFMapTable : public DBGraphTable {
 public:
     static const int kPartitionCount = 1;
     struct RequestKey : DBRequestKey {
@@ -20,7 +20,7 @@ public:
         uint64_t id_seq_num;
     };
 
-    IFMapTable(DB *db, const std::string &name);
+    IFMapTable(DB *db, const std::string &name, DBGraph *graph);
 
     virtual int PartitionCount() const {
         return kPartitionCount;

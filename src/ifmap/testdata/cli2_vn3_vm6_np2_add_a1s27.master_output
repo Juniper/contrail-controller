@@ -146,7 +146,7 @@
     <node type="virtual-machine-interface">
      <name>7285b8b4-63e7-4251-8690-bbef70c2ccc1:42ff73f3-bc00-4bda-8ad2-0a114b48e142</name>
     </node>
-    <metadata type="virtual-machine-virtual-machine-interface" />
+    <metadata type="virtual-machine-interface-virtual-machine" />
    </link>
   </update>
  </config>
@@ -734,7 +734,7 @@
     <node type="virtual-machine-interface">
      <name>98e60d70-460a-4618-b334-1dbd6333e599:6c427509-8422-42b4-8565-c92ef315f5b0</name>
     </node>
-    <metadata type="virtual-machine-virtual-machine-interface" />
+    <metadata type="virtual-machine-interface-virtual-machine" />
    </link>
   </update>
  </config>
@@ -1177,7 +1177,7 @@
     <node type="virtual-machine-interface">
      <name>7e87e01a-6847-4e24-b668-4a1ad24cef1c:aaace8ff-a614-4713-ad31-2a8b156dc36f</name>
     </node>
-    <metadata type="virtual-machine-virtual-machine-interface" />
+    <metadata type="virtual-machine-interface-virtual-machine" />
    </link>
   </update>
  </config>
@@ -1264,7 +1264,7 @@
     <node type="virtual-machine-interface">
      <name>34a09a89-823a-4934-bf3d-f2cd9513e121:ca7bc44e-3305-4c6f-9d92-26397234c648</name>
     </node>
-    <metadata type="virtual-machine-virtual-machine-interface" />
+    <metadata type="virtual-machine-interface-virtual-machine" />
    </link>
   </update>
  </config>

@@ -79,8 +79,12 @@ class IFMapServerParserTest : public ::testing::Test {
         return ifmap_test_util::IFMapNodeLookup(&db_, type, name);
     }
 
-    IFMapLink *LinkLookup(const IFMapNode *left, const IFMapNode *right) {
-        return static_cast<IFMapLink *>(graph_.GetEdge(left, right));
+    IFMapLink *LinkLookup(IFMapNode *left, IFMapNode *right,
+                          const string &metadata) {
+        IFMapLinkTable *link_table = static_cast<IFMapLinkTable *>(
+                                     db_.FindTable("__ifmap_metadata__.0"));
+        IFMapLink *link =  link_table->FindLink(metadata, left, right);
+        return (link ? (link->IsDeleted() ? NULL : link) : NULL);
     }
 
     DB db_;
@@ -425,7 +429,7 @@ TEST_F(IFMapServerParserTest, ServerParser4) {
     obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
 
-    IFMapLink *link = LinkLookup(vr1, vm1);
+    IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
     EXPECT_TRUE(link == NULL);
 }
 
@@ -458,7 +462,7 @@ TEST_F(IFMapServerParserTest, ServerParser4InParts) {
     obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
 
-    IFMapLink *link = LinkLookup(vr1, vm1);
+    IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
     EXPECT_TRUE(link != NULL);
 
     message = 
@@ -468,7 +472,7 @@ TEST_F(IFMapServerParserTest, ServerParser4InParts) {
     task_util::WaitForIdle();
     EXPECT_EQ(1, vrtable->Size());
     EXPECT_EQ(1, vmtable->Size());
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr1, vm1) == NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr1, vm1, "virtual-router-virtual-machine") == NULL);
 
     vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
@@ -532,7 +536,7 @@ TEST_F(IFMapServerParserTest, ServerParser5InParts) {
     EXPECT_TRUE(vm1 != NULL);
     obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj == NULL);
-    IFMapLink *link = LinkLookup(vr1, vm1);
+    IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
     EXPECT_TRUE(link != NULL);
 
     message = 
@@ -606,7 +610,7 @@ TEST_F(IFMapServerParserTest, ServerParser6InParts) {
     obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
 
-    IFMapLink *link = LinkLookup(vr1, vm1);
+    IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
     EXPECT_TRUE(link != NULL);
 
     message = 
@@ -655,7 +659,7 @@ TEST_F(IFMapServerParserTest, ServerParser7) {
     obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
 
-    IFMapLink *link = LinkLookup(vr1, vm1);
+    IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
     EXPECT_TRUE(link == NULL);
 }
 
@@ -690,7 +694,7 @@ TEST_F(IFMapServerParserTest, ServerParser7InParts) {
     obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
 
-    IFMapLink *link = LinkLookup(vr1, vm1);
+    IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
     EXPECT_TRUE(link != NULL);
 
     message = 
@@ -727,7 +731,7 @@ TEST_F(IFMapServerParserTest, ServerParser7InParts) {
     obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
 
-    link = LinkLookup(vr1, vm1);
+    link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
     EXPECT_TRUE(link == NULL);
 }
 
@@ -759,7 +763,7 @@ TEST_F(IFMapServerParserTest, ServerParser8) {
     obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj == NULL);
 
-    IFMapLink *link = LinkLookup(vr1, vm1);
+    IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
     EXPECT_TRUE(link != NULL);
 }
 
@@ -793,7 +797,7 @@ TEST_F(IFMapServerParserTest, ServerParser8InParts) {
     obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj == NULL);
 
-    IFMapLink *link = LinkLookup(vr1, vm1);
+    IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
     EXPECT_TRUE(link != NULL);
 
     message = 
@@ -827,7 +831,7 @@ TEST_F(IFMapServerParserTest, ServerParser8InParts) {
     obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj == NULL);
 
-    link = LinkLookup(vr1, vm1);
+    link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
     EXPECT_TRUE(link != NULL);
 }
 
@@ -860,7 +864,7 @@ TEST_F(IFMapServerParserTest, ServerParser9) {
     obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
 
-    IFMapLink *link = LinkLookup(vr1, vm1);
+    IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
     EXPECT_TRUE(link != NULL);
 }
 
@@ -895,7 +899,7 @@ TEST_F(IFMapServerParserTest, ServerParser9InParts) {
     obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
 
-    IFMapLink *link = LinkLookup(vr1, vm1);
+    IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
     EXPECT_TRUE(link != NULL);
 
     message = 
@@ -905,7 +909,7 @@ TEST_F(IFMapServerParserTest, ServerParser9InParts) {
     task_util::WaitForIdle();
     EXPECT_EQ(1, vrtable->Size());
     EXPECT_EQ(1, vmtable->Size());
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr1, vm1) == NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr1, vm1, "virtual-router-virtual-machine") == NULL);
 
     vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
@@ -924,7 +928,7 @@ TEST_F(IFMapServerParserTest, ServerParser9InParts) {
     task_util::WaitForIdle();
     EXPECT_EQ(1, vrtable->Size());
     EXPECT_EQ(1, vmtable->Size());
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr1, vm1) != NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr1, vm1, "virtual-router-virtual-machine") != NULL);
 
     vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
@@ -996,7 +1000,7 @@ TEST_F(IFMapServerParserTest, ServerParser10InParts) {
     obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
 
-    IFMapLink *link = LinkLookup(vr1, vm1);
+    IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
     EXPECT_TRUE(link != NULL);
 
     message = 
@@ -1043,7 +1047,7 @@ TEST_F(IFMapServerParserTest, ServerParser11) {
     obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
 
-    IFMapLink *link = LinkLookup(vr1, vm1);
+    IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
     EXPECT_TRUE(link != NULL);
 }
 
@@ -1076,7 +1080,7 @@ TEST_F(IFMapServerParserTest, ServerParser11InParts) {
     obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
 
-    IFMapLink *link = LinkLookup(vr1, vm1);
+    IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
     EXPECT_TRUE(link != NULL);
 
     message = 
@@ -1114,7 +1118,7 @@ TEST_F(IFMapServerParserTest, ServerParser11InParts) {
     obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
 
-    link = LinkLookup(vr1, vm1);
+    link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
     EXPECT_TRUE(link != NULL);
 }
 
@@ -1183,9 +1187,9 @@ TEST_F(IFMapServerParserTest, ServerParser12InParts) {
     obj = gsc->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj == NULL);
 
-    IFMapLink *link = LinkLookup(vr1, vm1);
+    IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
     EXPECT_TRUE(link != NULL);
-    link = LinkLookup(vr1, gsc);
+    link = LinkLookup(vr1, gsc, "global-system-config-virtual-router");
     EXPECT_TRUE(link != NULL);
 
     message = 
@@ -1243,8 +1247,8 @@ TEST_F(IFMapServerParserTest, ServerParser13) {
     obj = gsc->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
 
-    EXPECT_TRUE(LinkLookup(vr1, vm1) == NULL);
-    EXPECT_TRUE(LinkLookup(vr1, gsc) == NULL);
+    EXPECT_TRUE(LinkLookup(vr1, vm1, "virtual-router-virtual-machine") == NULL);
+    EXPECT_TRUE(LinkLookup(vr1, gsc, "global-system-config-virtual-router") == NULL);
 }
 
 // In 3 separate messages: 
@@ -1281,7 +1285,7 @@ TEST_F(IFMapServerParserTest, ServerParser13InParts) {
     IFMapNode *gsc = NodeLookup("global-system-config", "gsc");
     EXPECT_TRUE(gsc == NULL);
 
-    EXPECT_TRUE(LinkLookup(vr1, vm1) != NULL);
+    EXPECT_TRUE(LinkLookup(vr1, vm1, "virtual-router-virtual-machine") != NULL);
 
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test13_p2.xml");
@@ -1299,8 +1303,8 @@ TEST_F(IFMapServerParserTest, ServerParser13InParts) {
 
     EXPECT_TRUE(NodeLookup("virtual-router", "vr1") != NULL);
     EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
-    EXPECT_TRUE(LinkLookup(vr1, vm1) != NULL);
-    EXPECT_TRUE(LinkLookup(vr1, gsc) != NULL);
+    EXPECT_TRUE(LinkLookup(vr1, vm1, "virtual-router-virtual-machine") != NULL);
+    EXPECT_TRUE(LinkLookup(vr1, gsc, "global-system-config-virtual-router") != NULL);
 
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test13_p3.xml");
@@ -1314,8 +1318,8 @@ TEST_F(IFMapServerParserTest, ServerParser13InParts) {
     EXPECT_TRUE(NodeLookup("virtual-router", "vr1") != NULL);
     EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
     EXPECT_TRUE(NodeLookup("global-system-config", "gsc") != NULL);
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr1, vm1) == NULL);
-    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr1, gsc) == NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr1, vm1, "virtual-router-virtual-machine") == NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr1, gsc, "global-system-config-virtual-router") == NULL);
 }
 
 // In a single message: 
@@ -1354,7 +1358,7 @@ TEST_F(IFMapServerParserTest, ServerParser14) {
     IFMapNode *gsc = NodeLookup("global-system-config", "gsc");
     EXPECT_TRUE(gsc == NULL);
 
-    EXPECT_TRUE(LinkLookup(vr1, vm1) != NULL);
+    EXPECT_TRUE(LinkLookup(vr1, vm1, "virtual-router-virtual-machine") != NULL);
 }
 
 // In 3 separate messages: 
@@ -1392,7 +1396,7 @@ TEST_F(IFMapServerParserTest, ServerParser14InParts) {
     IFMapNode *gsc = NodeLookup("global-system-config", "gsc");
     EXPECT_TRUE(gsc == NULL);
 
-    EXPECT_TRUE(LinkLookup(vr1, vm1) != NULL);
+    EXPECT_TRUE(LinkLookup(vr1, vm1, "virtual-router-virtual-machine") != NULL);
 
     // Using datafile from test13_p2
     message = 
@@ -1411,8 +1415,8 @@ TEST_F(IFMapServerParserTest, ServerParser14InParts) {
 
     EXPECT_TRUE(NodeLookup("virtual-router", "vr1") != NULL);
     EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
-    EXPECT_TRUE(LinkLookup(vr1, vm1) != NULL);
-    EXPECT_TRUE(LinkLookup(vr1, gsc) != NULL);
+    EXPECT_TRUE(LinkLookup(vr1, vm1, "virtual-router-virtual-machine") != NULL);
+    EXPECT_TRUE(LinkLookup(vr1, gsc, "global-system-config-virtual-router") != NULL);
 
     // Need new datafile for step 3
     message = 
@@ -1435,7 +1439,7 @@ TEST_F(IFMapServerParserTest, ServerParser14InParts) {
     EXPECT_TRUE(obj != NULL);
 
     EXPECT_TRUE(NodeLookup("global-system-config", "gsc") == NULL);
-    EXPECT_TRUE(LinkLookup(vr1, vm1) != NULL);
+    EXPECT_TRUE(LinkLookup(vr1, vm1, "virtual-router-virtual-machine") != NULL);
 }
 
 // In a single message: 
@@ -1478,8 +1482,8 @@ TEST_F(IFMapServerParserTest, ServerParser15) {
     obj = gsc->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
 
-    EXPECT_TRUE(LinkLookup(vr1, vm1) != NULL);
-    EXPECT_TRUE(LinkLookup(vr1, gsc) != NULL);
+    EXPECT_TRUE(LinkLookup(vr1, vm1, "virtual-router-virtual-machine") != NULL);
+    EXPECT_TRUE(LinkLookup(vr1, gsc, "global-system-config-virtual-router") != NULL);
 }
 
 // In 3 separate messages: 
@@ -1517,7 +1521,7 @@ TEST_F(IFMapServerParserTest, ServerParser15InParts) {
     IFMapNode *gsc = NodeLookup("global-system-config", "gsc");
     EXPECT_TRUE(gsc == NULL);
 
-    EXPECT_TRUE(LinkLookup(vr1, vm1) != NULL);
+    EXPECT_TRUE(LinkLookup(vr1, vm1, "virtual-router-virtual-machine") != NULL);
 
     // Using datafile from test13_p2
     message = 
@@ -1536,8 +1540,8 @@ TEST_F(IFMapServerParserTest, ServerParser15InParts) {
 
     EXPECT_TRUE(NodeLookup("virtual-router", "vr1") != NULL);
     EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
-    EXPECT_TRUE(LinkLookup(vr1, vm1) != NULL);
-    EXPECT_TRUE(LinkLookup(vr1, gsc) != NULL);
+    EXPECT_TRUE(LinkLookup(vr1, vm1, "virtual-router-virtual-machine") != NULL);
+    EXPECT_TRUE(LinkLookup(vr1, gsc, "global-system-config-virtual-router") != NULL);
 
     // Need new datafile for step 3
     message = 
@@ -1566,8 +1570,8 @@ TEST_F(IFMapServerParserTest, ServerParser15InParts) {
     obj = gsc->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
 
-    EXPECT_TRUE(LinkLookup(vr1, vm1) != NULL);
-    EXPECT_TRUE(LinkLookup(vr1, gsc) != NULL);
+    EXPECT_TRUE(LinkLookup(vr1, vm1, "virtual-router-virtual-machine") != NULL);
+    EXPECT_TRUE(LinkLookup(vr1, gsc, "global-system-config-virtual-router") != NULL);
 }
 
 // In a single message: 
@@ -1608,7 +1612,7 @@ TEST_F(IFMapServerParserTest, ServerParser16) {
     IFMapNode *gsc = NodeLookup("global-system-config", "gsc");
     EXPECT_TRUE(gsc == NULL);
 
-    EXPECT_TRUE(LinkLookup(vr1, vm1) != NULL);
+    EXPECT_TRUE(LinkLookup(vr1, vm1, "virtual-router-virtual-machine") != NULL);
 }
 
 // In 3 separate messages: 
@@ -1646,7 +1650,7 @@ TEST_F(IFMapServerParserTest, ServerParser16InParts) {
     IFMapNode *gsc = NodeLookup("global-system-config", "gsc");
     EXPECT_TRUE(gsc == NULL);
 
-    EXPECT_TRUE(LinkLookup(vr1, vm1) != NULL);
+    EXPECT_TRUE(LinkLookup(vr1, vm1, "virtual-router-virtual-machine") != NULL);
 
     // Using datafile from test13_p2
     message = 
@@ -1665,8 +1669,8 @@ TEST_F(IFMapServerParserTest, ServerParser16InParts) {
 
     EXPECT_TRUE(NodeLookup("virtual-router", "vr1") != NULL);
     EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
-    EXPECT_TRUE(LinkLookup(vr1, vm1) != NULL);
-    EXPECT_TRUE(LinkLookup(vr1, gsc) != NULL);
+    EXPECT_TRUE(LinkLookup(vr1, vm1, "virtual-router-virtual-machine") != NULL);
+    EXPECT_TRUE(LinkLookup(vr1, gsc, "global-system-config-virtual-router") != NULL);
 
     // Need new datafile for step 3
     message = 
@@ -1693,7 +1697,7 @@ TEST_F(IFMapServerParserTest, ServerParser16InParts) {
     gsc = NodeLookup("global-system-config", "gsc");
     EXPECT_TRUE(gsc == NULL);
 
-    EXPECT_TRUE(LinkLookup(vr1, vm1) != NULL);
+    EXPECT_TRUE(LinkLookup(vr1, vm1, "virtual-router-virtual-machine") != NULL);
 }
 
 
