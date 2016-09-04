@@ -267,6 +267,10 @@ void FlowKState::SetFlowData(vector<KFlowInfo> &list,
     if (k_flow->fe_ecmp_nh_index != -1) {
         data.set_ecmp_index(k_flow->fe_ecmp_nh_index);
     }
+    data.set_ttl(k_flow->fe_ttl);
+    data.set_qos_id(k_flow->fe_qos_id);
+    data.set_gen_id(k_flow->fe_gen_id);
+    data.set_tcp_seq(k_flow->fe_tcp_seq);
     list.push_back(data);
 }
 
