@@ -16,5 +16,12 @@ public:
     const std::string TypeToString(int type) const;
     const std::string FlagsToString(int flags) const;
     const std::string MacToString(const std::vector<signed char> &mac) const;
+    template <typename ElementType>
+    const string SetItfSandesh(vector<ElementType> const &itf_sandesh) {
+        std::stringstream strm;
+        typename vector<ElementType>::const_iterator it;
+        for(it = itf_sandesh.begin(); it != itf_sandesh.end(); ++it)
+            strm << *it << " ";
+        return strm.str();}
 };
 #endif //vnsw_agent_interface_kstate_h
