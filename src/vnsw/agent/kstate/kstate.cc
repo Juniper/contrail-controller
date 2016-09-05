@@ -211,7 +211,9 @@ void KState::RouteMsgHandler(vr_route_req *r) {
                                   r->get_rtr_label_flags()));
     data.set_label(r->get_rtr_label());
     data.set_nh_id(r->get_rtr_nh_id());
-    
+    data.set_rtr_mac(rst->MacToString(r->get_rtr_mac()));
+    data.set_replace_plen(r->get_rtr_replace_plen());
+    data.set_index(r->get_rtr_index());
     list.push_back(data);
 
     RouteContext *rctx = static_cast<RouteContext *>(rst->more_context());

@@ -15,6 +15,7 @@ public:
     virtual void SendNextRequest();
     const std::string FamilyToString(int family) const;
     const std::string LabelFlagsToString(int flags) const;
+    const std::string MacToString(const std::vector<signed char> &mac) const;
 };
 
 struct RouteContext {

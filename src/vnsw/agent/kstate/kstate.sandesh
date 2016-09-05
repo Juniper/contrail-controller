@@ -79,6 +79,9 @@ struct KRouteInfo {
     6:  string      label_flags;
     7:  i32         label;
     8:  i32         nh_id (link = "KNHReq");
+    9:  string      rtr_mac;
+    10: i32         replace_plen;
+    11: i32         index;
 }
 
 /**
