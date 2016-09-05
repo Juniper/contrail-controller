@@ -88,6 +88,8 @@ const string NHKState::FamilyToString(int nh_family) const {
     switch(family) {
         case AF_INET:
             return "AF_INET";
+        case AF_INET6:
+            return "AF_INET6";
         default:
             return "INVALID";
     }
@@ -226,4 +228,21 @@ void NHKState::SetComponentNH(vr_nexthop_req *req, KNHInfo &info) {
         comp_nh_list.push_back(comp_nh);
     }
     info.set_component_nh(comp_nh_list);
+}
+
+const string NHKState::IPv6ToString(const vector<signed char> &ipv6)
+    const {
+    if (ipv6.size() != 16) {
+        return "0000:0000:0000:0000";
+    }
+    ostringstream strm;
+    int count = 1;
+    for(vector<signed char>::const_iterator it = ipv6.begin();
+        it != ipv6.end(); ++it) {
+        strm << hex << (int)((uint8_t) *it);
+        if((count % 4) ==0)
+            strm << ":";
+        count++;
+    }
+    return strm.str();
 }
