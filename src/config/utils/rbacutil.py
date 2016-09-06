@@ -11,6 +11,8 @@ import re
 from vnc_api.vnc_api import *
 from vnc_api.gen.resource_xsd import *
 from cfgm_common.exceptions import *
+from cfgm_common.rbaclib import *
+import cfgm_common
 
 example_usage = \
 """
@@ -59,81 +61,6 @@ def show_rbac_rules(api_access_list_entries):
     print ''
 # end
 
-# match two rules (type RbacRuleType)
-# r1 is operational, r2 is part of rbac group
-# return (obj_type & Field match, rule is subset of existing rule, match index, merged rule
-def match_rule(r1, r2):
-    if r1.rule_object != r2.rule_object:
-        return None
-    if r1.rule_field != r2.rule_field:
-        return None
-
-    s1 = set(r.role_name+":"+r.role_crud for r in r1.rule_perms)
-    s2 = set(r.role_name+":"+r.role_crud for r in r2.rule_perms)
-
-    d1 = {r.role_name:set(list(r.role_crud)) for r in r1.rule_perms}
-    d2 = {r.role_name:set(list(r.role_crud)) for r in r2.rule_perms}
-
-    diffs = {}
-    for role, cruds in d2.items():
-        diffs[role] = cruds - d1.get(role, set([]))
-    diffs = {role:crud for role,crud in diffs.items() if len(crud) != 0}
-
-    merge = d2.copy()
-    for role, cruds in d1.items():
-        merge[role] = cruds|d2.get(role, set([]))
-
-    return [True, s1==s2, diffs, merge]
-# end
-
-# check if rule already exists in rule list and returns its index if it does
-def find_rule(rge, rule):
-    idx = 1
-    for r in rge.rbac_rule:
-        m = match_rule(rule, r)
-        if m:
-            m[0] = idx
-            return m
-        idx += 1
-    return None
-# end
-
-def build_perms(rule, perm_dict):
-    rule.rule_perms = []
-    for role_name, role_crud in perm_dict.items():
-        rule.rule_perms.append(RbacPermType(role_name, "".join(role_crud)))
-# end
-
-# build rule object from string form
-# "useragent-kv *:CRUD" (Allow all operation on /useragent-kv API)
-def build_rule(rule_str):
-    r = rule_str.split(" ", 1) if rule_str else []
-    if len(r) < 2:
-        return None
-
-    # [0] is object.field, [1] is list of perms
-    obj_field = r[0].split(".")
-    perms = r[1].split(",")
-
-    o = obj_field[0]
-    f = obj_field[1] if len(obj_field) > 1 else None
-    o_f = "%s.%s" % (o,f) if f else o
-    print 'rule: %s   %s' % (o_f, r[1])
-
-    # perms eg ['foo:CRU', 'bar:CR']
-    rule_perms = []
-    for perm in perms:
-        p = perm.strip().split(":")
-        rule_perms.append(RbacPermType(role_name = p[0], role_crud = p[1]))
-
-    # build rule
-    rule = RbacRuleType(
-              rule_object = o,
-              rule_field = f,
-              rule_perms = rule_perms)
-    return rule
-#end
-
 # Read VNC object. Return None if object doesn't exists
 def vnc_read_obj(vnc, obj_type, fq_name):
     method_name = obj_type.replace('-', '_')
@@ -152,6 +79,7 @@ class VncRbac():
         # domain:default-project:default-virtual-network
 
         defaults = {
+            'aaa_mode': None,
             'name': 'default-global-system-config:default-api-access-list'
         }
 
@@ -173,9 +101,7 @@ class VncRbac():
         parser.add_argument('--role',  help="Role Name")
         parser.add_argument('--rule',  help="Rule to add or delete")
         parser.add_argument(
-            '--on',  help="Enable RBAC", action="store_true")
-        parser.add_argument(
-            '--off',  help="Disable RBAC", action="store_true")
+            '--aaa_mode', choices = cfgm_common.AAA_MODE_VALID_VALUES, help="AAA mode")
         parser.add_argument(
             '--os-username',  help="Keystone User Name", default=None)
         parser.add_argument(
@@ -233,10 +159,6 @@ password = conf['password']
 tenant_name = conf['tenant_name']
 obj_type = 'api-access-list'
 
-if vnc_op.args.on and vnc_op.args.off:
-    print 'Only one of --on or --off must be specified'
-    sys.exit(1)
-
 ui = {}
 if vnc_op.args.user:
     ui['user'] = vnc_op.args.user
@@ -248,11 +170,10 @@ if ui:
 vnc = VncApi(username, password, tenant_name,
              server[0], server[1], user_info=ui)
 
-url = '/multi-tenancy-with-rbac'
-if vnc_op.args.on or vnc_op.args.off:
-    data = {'enabled': vnc_op.args.on}
+url = '/aaa-mode'
+if vnc_op.args.aaa_mode:
     try:
-        rv = vnc._request_server(rest.OP_PUT, url, json.dumps(data))
+        rv = vnc.set_aaa_mode(vnc_op.args.aaa_mode)
     except PermissionDenied:
         print 'Permission denied'
         sys.exit(1)
@@ -263,7 +184,7 @@ elif vnc_op.args.uuid and vnc_op.args.name:
 try:
     rv_json = vnc._request_server(rest.OP_GET, url)
     rv = json.loads(rv_json)
-    print 'Rbac is %s' % ('enabled' if rv['enabled'] else 'disabled')
+    print 'AAA mode is %s' % rv['aaa-mode']
 except Exception as e:
     print str(e)
     print 'Rbac not supported'
@@ -299,7 +220,11 @@ if vnc_op.args.op == 'create':
     name = fq_name[-1]
 
     if len(fq_name) == 2:
-       pobj = vnc.domain_read(fq_name = fq_name[0:1])
+       # could be in domain or global config
+       if fq_name[0] == 'default-global-system-config':
+           pobj = vnc.global_system_config_read(fq_name = fq_name[0:1])
+       else:
+           pobj = vnc.domain_read(fq_name = fq_name[0:1])
     else:
        pobj = vnc.project_read(fq_name = fq_name[0:2])
 

@@ -27,12 +27,12 @@ class VncPermissions(object):
 
     @property
     def _multi_tenancy(self):
-        return self._server_mgr._args.multi_tenancy
+        return self._server_mgr.is_multi_tenancy_set()
     # end
 
     @property
     def _rbac(self):
-        return self._server_mgr._args.multi_tenancy_with_rbac
+        return self._server_mgr.is_rbac_enabled()
     # end
 
     def validate_user_visible_perm(self, id_perms, is_admin):
