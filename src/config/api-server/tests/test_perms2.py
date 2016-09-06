@@ -1152,6 +1152,13 @@ class TestPermissions(test_case.ApiServerTestCase):
         status_code, result = alice.vnc_lib._http_get('/virtual-networks')
         self.assertThat(status_code, Equals(401))
 
+    def test_default_ipam_perms(self):
+        " test default-domain:default-project:default-network-ipam allows global linking by default"
+
+        ipam_fq_name = ['default-domain', 'default-project', 'default-network-ipam']
+        ipam = vnc_read_obj(self.admin.vnc_lib, 'network-ipam', name = ipam_fq_name)
+        self.assertEquals(ipam.get_perms2().global_access, PERMS_X)
+
     def tearDown(self):
         super(TestPermissions, self).tearDown()
     # end tearDown
