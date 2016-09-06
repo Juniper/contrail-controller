@@ -1,0 +1,357 @@
+<xsd:schema
+xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+targetNamespace="http://www.juniper.net/2016/device-config/0">
+
+<xsd:complexType name="Address">
+    <xsd:all>
+       <xsd:element name="name" type="xsd:string" maxOccurs="1" minOccurs="1"/>
+       <xsd:element name="virtual-gateway-address" type="xsd:string" maxOccurs="1" minOccurs="0"/>
+       <xsd:element name="primary" maxOccurs="1" minOccurs="0"/>
+       <xsd:element name="preferred" maxOccurs="1" minOccurs="0"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="InetFilter">
+    <xsd:all>
+        <xsd:element name="input" type="xsd:string" maxOccurs="1" minOccurs="0"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="FamilyInet">
+    <xsd:choice>
+        <xsd:element name="address" type="Address" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="filter" type="InetFilter" maxOccurs="1" minOccurs="0"/>
+    </xsd:choice>
+</xsd:complexType>
+
+<xsd:complexType name="FamilyInet6">
+    <xsd:choice>
+        <xsd:element name="address" type="Address" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="filter" type="InetFilter" maxOccurs="1" minOccurs="0"/>
+    </xsd:choice>
+</xsd:complexType>
+
+<xsd:complexType name="FamilyInetVpn">
+    <xsd:all>
+        <xsd:element name="unicast" maxOccurs="1" minOccurs="0"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="FamilyInet6Vpn">
+    <xsd:all>
+        <xsd:element name="unicast" maxOccurs="1" minOccurs="0"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="FamilyEvpn">
+    <xsd:all>
+        <xsd:element name="signaling" maxOccurs="1" minOccurs="0"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Family">
+    <xsd:all>
+        <xsd:element name="inet" type="FamilyInet" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="inet6" type="FamilyInet6" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="inet-vpn" type="FamilyInetVpn" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="inet6-vpn" type="FamilyInet6Vpn" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="evpn" type="FamilyEvpn" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="route-target" type="xsd:string" maxOccurs="1" minOccurs="0"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Unit">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string" maxOccurs="1" minOccurs="1"/>
+        <xsd:element name="family" type="Family" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="vlan-id" type="xsd:integer" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="encapsulation" type="xsd:string" maxOccurs="1" minOccurs="0"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Interface">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string" maxOccurs="1" minOccurs="1"/>
+        <xsd:element name="gratuitous-arp-reply" maxOccurs="1"/>
+        <xsd:element name="flexible-vlan-tagging" maxOccurs="1"/>
+        <xsd:element name="encapsulation" type="xsd:string" maxOccurs="1"/>
+        <xsd:element name="unit" type="Unit" maxOccurs="unbounded" minOccurs="1"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Interfaces">
+    <xsd:all>
+        <xsd:element name="interface" type="Interface" maxOccurs="unbounded" minOccurs="1"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="ForwardingOptions">
+    <xsd:all>
+        <xsd:element name="family" type="Family" maxOccurs="unbounded" minOccurs="1"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Route">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string" maxOccurs="1" minOccurs="1"/>
+        <xsd:element name="discard" maxOccurs="1"/>
+        <xsd:element name="next-table" type="xsd:string" maxOccurs="1" minOccurs="0"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Static">
+    <xsd:all>
+        <xsd:element name="route" type="Route" maxOccurs="unbounded" minOccurs="1"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="RIB">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string" maxOccurs="1" minOccurs="1"/>
+        <xsd:element name="static" type="Static" maxOccurs="1" minOccurs="1"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="AutonomousSystem">
+    <xsd:all>
+        <xsd:element name="as-number" type="xsd:string" maxOccurs="1" minOccurs="1"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="DestinationNetworks">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string" maxOccurs="1" minOccurs="1"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="DynamicTunnel">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string" maxOccurs="1" minOccurs="1"/>
+        <xsd:element name="source-address" type="xsd:string" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="gre" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="destination-networks" type="DestinationNetworks" maxOccurs="unbounded" minOccurs="0"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="DynamicTunnels">
+    <xsd:all>
+        <xsd:element name="dynamic-tunnel" type="DynamicTunnel" maxOccurs="unbounded" minOccurs="1"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="RoutingOptions">
+    <xsd:all>
+        <xsd:element name="static" type="Static" maxOccurs="unbounded" minOccurs="0"/>
+        <xsd:element name="rib" type="RIB" maxOccurs="unbounded" minOccurs="0"/>
+        <xsd:element name="router-id" type="xsd:string" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="route-distinguisher-id" type="xsd:string" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="autonomous-system" type="AutonomousSystem" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="dynamic-tunnels" type="DynamicTunnels" maxOccurs="1" minOccurs="0"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Neighbor">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string" maxOccurs="1" minOccurs="1"/>
+        <xsd:element name="peer-as" type="xsd:integer" maxOccurs="1" minOccurs="0"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="BgpGroup">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string" maxOccurs="1" minOccurs="1"/>
+        <xsd:element name="type" type="xsd:string" maxOccurs="1" minOccurs="1"/>
+        <xsd:element name="local-address" type="xsd:string" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="hold-time" type="xsd:integer" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="family" type="Family" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="neighbor" type="Neighbor" maxOccurs="unbounded" minOccurs="0"/>
+        <xsd:element name="multihop" maxOccurs="1" minOccurs="0"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Bgp">
+    <xsd:all>
+        <xsd:element name="group" type="BgpGroup" maxOccurs="unbounded" minOccurs="1"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Protocols">
+    <xsd:all>
+        <xsd:element name="bgp" type="Bgp" maxOccurs="1" minOccurs="0"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="DestinationAddress">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string" maxOccurs="1" minOccurs="0"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="RoutingInstance">
+    <xsd:all>
+        <xsd:element name="routing-instance-name" type="xsd:string" maxOccurs="1" minOccurs="1"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Community">
+    <xsd:all>
+        <xsd:element name="add" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="community-name" type="xsd:string" maxOccurs="1" minOccurs="1"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Then">
+    <xsd:all>
+        <xsd:element name="community" type="Community" maxOccurs="unbounded" minOccurs="0"/>
+        <xsd:element name="routing-instance" type="RoutingInstance" maxOccurs="unbounded" minOccurs="0"/>
+        <xsd:element name="accept" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="reject" maxOccurs="1" minOccurs="0"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="From">
+    <xsd:all>
+        <xsd:element name="community" type="xsd:string" maxOccurs="unbounded" minOccurs="0"/>
+        <xsd:element name="destination-address" type="DestinationAddress" maxOccurs="unbounded" minOccurs="0"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Term">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string" maxOccurs="1" minOccurs="1"/>
+        <xsd:element name="from" type="From" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="then" type="Then" maxOccurs="1" minOccurs="0"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="PolicyStatement">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string" maxOccurs="1" minOccurs="1"/>
+        <xsd:element name="term" type="Term" maxOccurs="1" minOccurs="1"/>
+        <xsd:element name="then" type="Then" maxOccurs="1" minOccurs="1"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="CommunityType">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string" maxOccurs="1" minOccurs="1"/>
+        <xsd:element name="members" type="xsd:string" maxOccurs="1" minOccurs="1"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="PolicyOptions">
+    <xsd:all>
+        <xsd:element name="policy-statement" type="PolicyStatement" maxOccurs="unbounded" minOccurs="0"/>
+        <xsd:element name="community" type="CommunityType" maxOccurs="unbounded" minOccurs="0"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="FirewallFilter">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string" maxOccurs="1" minOccurs="1"/>
+        <xsd:element name="term" type="Term" maxOccurs="unbounded" minOccurs="1"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="FirewallInet">
+    <xsd:all>
+        <xsd:element name="filter" type="FirewallFilter" maxOccurs="1" minOccurs="1"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="FirewallFamily">
+    <xsd:choice>
+        <xsd:element name="inet" type="FirewallInet" maxOccurs="1" minOccurs="1"/>
+        <xsd:element name="inet6" type="FirewallInet" maxOccurs="1" minOccurs="1"/>
+    </xsd:choice>
+</xsd:complexType>
+
+<xsd:complexType name="Firewall">
+    <xsd:all>
+        <xsd:element name="family" type="FirewallFamily" maxOccurs="1" minOccurs="1"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="VXLan">
+    <xsd:all>
+        <xsd:element name="vni" type="xsd:integer" maxOccurs="1" minOccurs="1"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Domain">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string" maxOccurs="1" minOccurs="1"/>
+        <xsd:element name="vlan-id" type="xsd:string" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="routing-interface" type="xsd:string" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="vxlan" type="VXLan" maxOccurs="1" minOccurs="0"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="BridgeDomains">
+    <xsd:all>
+        <xsd:element name="domain" type="Domain" maxOccurs="unbounded" minOccurs="1"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Evpn">
+    <xsd:all>
+        <xsd:element name="encapsulation" type="xsd:string" maxOccurs="1" minOccurs="1"/>
+        <xsd:element name="extended-vni-list" type="xsd:string" maxOccurs="1" minOccurs="1"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="RoutingInstanceProtocols">
+    <xsd:all>
+        <xsd:element name="evpn" type="Evpn" maxOccurs="1" minOccurs="1"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="AutoExport">
+    <xsd:all>
+        <xsd:element name="family" type="Family" maxOccurs="1" minOccurs="0"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="RoutingInstanceRoutingOptions">
+    <xsd:all>
+        <xsd:element name="static" type="Static" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="auto-export" type="AutoExport" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="rib" type="RIB" maxOccurs="1" minOccurs="0"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Instance">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string" maxOccurs="1" minOccurs="1"/>
+        <xsd:element name="vtep-source-interface" type="xsd:string" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="instance-type" type="xsd:string" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="vrf-import" type="xsd:string" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="vrf-export" type="xsd:string" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="protocols" type="RoutingInstanceProtocols" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="bridge-domains" type="BridgeDomains" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="vrf-table-label" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="routing-options" type="RoutingInstanceRoutingOptions" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="interface" type="Interface" maxOccurs="unbounded" minOccurs="0"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Groups">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string" maxOccurs="1" minOccurs="1"/>
+        <xsd:element name="interfaces" type="Interfaces" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="forwarding-options" type="ForwardingOptions" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="routing-options" type="RoutingOptions" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="protocols" type="Protocols" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="policy-options" type="PolicyOptions" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="firewall" type="Firewall" maxOccurs="1" minOccurs="0"/>
+        <xsd:element name="routing-instances" type="RoutingInstances" maxOccurs="1" minOccurs="0"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="configuration">
+    <xsd:all>
+       <xsd:element name="groups" type="Groups" maxOccurs="1" minOccurs="1"/>
+    </xsd:all>
+</xsd:complexType>
+
+</xsd:schema>
