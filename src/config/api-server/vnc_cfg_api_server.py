@@ -1377,14 +1377,8 @@ class VncApiServer(object):
 
         # Address Management interface
         addr_mgmt = vnc_addr_mgmt.AddrMgmt(self)
-        vnc_cfg_types.LogicalRouterServer.addr_mgmt = addr_mgmt
-        vnc_cfg_types.SecurityGroupServer.addr_mgmt = addr_mgmt
-        vnc_cfg_types.VirtualMachineInterfaceServer.addr_mgmt = addr_mgmt
-        vnc_cfg_types.FloatingIpServer.addr_mgmt = addr_mgmt
-        vnc_cfg_types.AliasIpServer.addr_mgmt = addr_mgmt
-        vnc_cfg_types.InstanceIpServer.addr_mgmt = addr_mgmt
-        vnc_cfg_types.VirtualNetworkServer.addr_mgmt = addr_mgmt
         self._addr_mgmt = addr_mgmt
+        vnc_cfg_types.Resource.addr_mgmt = addr_mgmt
 
         # DB interface initialization
         if self._args.wipe_config:
