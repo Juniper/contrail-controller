@@ -240,10 +240,6 @@ bgp_session_test = env.UnitTest('bgp_session_test',
                                ['bgp_session_test.cc'])
 env.Alias('src/bgp:bgp_session_test', bgp_session_test)
 
-bgp_sg_test = env.UnitTest('bgp_sg_test',
-                           ['bgp_sg_test.cc'])
-env.Alias('src/bgp:bgp_sg_test', bgp_sg_test)
-
 bgp_show_evpn_table_test = env.UnitTest('bgp_show_evpn_table_test',
                                         ['bgp_show_evpn_table_test.cc'])
 env.Alias('src/bgp:bgp_show_evpn_table_test', bgp_show_evpn_table_test)
@@ -293,6 +289,10 @@ env.Alias('src/bgp:bgp_update_rx_test', bgp_update_rx_test)
 bgp_update_test = env.UnitTest('bgp_update_test',
                                  ['bgp_update_test.cc'])
 env.Alias('src/bgp:bgp_update_test', bgp_update_test)
+
+bgp_update_sender_test = env.UnitTest('bgp_update_sender_test',
+                                      ['bgp_update_sender_test.cc'])
+env.Alias('src/bgp:bgp_update_sender_test', bgp_update_sender_test)
 
 bgp_xmpp_basic_test = env.UnitTest('bgp_xmpp_basic_test',
                                    ['bgp_xmpp_basic_test.cc'])
@@ -400,10 +400,6 @@ env.Alias('src/bgp:xmpp_message_builder_test', xmpp_message_builder_test)
 rt_unicast_test = env.UnitTest('rt_unicast_test',
                               ['rt_unicast_test.cc'])
 env.Alias('src/bgp:rt_unicast_test', rt_unicast_test)
-
-scheduling_group_test = env.UnitTest('scheduling_group_test',
-                                    ['scheduling_group_test.cc'])
-env.Alias('src/bgp:scheduling_group_test', scheduling_group_test)
 
 service_chain_test = env.UnitTest('service_chain_test',
                                      ['service_chain_test.cc'])
@@ -569,7 +565,6 @@ test_suite = [
     bgp_route_test,
     bgp_server_test,
     bgp_session_test,
-    bgp_sg_test,
     bgp_show_evpn_table_test,
     bgp_show_instance_config_test,
     bgp_show_multicast_manager_test,
@@ -583,6 +578,7 @@ test_suite = [
     bgp_table_walk_test,
     bgp_update_rx_test,
     bgp_update_test,
+    bgp_update_sender_test,
     bgp_xmpp_basic_test,
     bgp_xmpp_channel_test,
     bgp_xmpp_deferq_test,
@@ -607,7 +603,6 @@ test_suite = [
     routing_instance_test,
     routing_policy_test,
     rt_network_attr_test,
-    scheduling_group_test,
     service_chain_test1,
     service_chain_test2,
     service_chain_test3,

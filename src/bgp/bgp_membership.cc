@@ -12,11 +12,9 @@
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer_close.h"
 #include "bgp/bgp_peer_types.h"
-#include "bgp/bgp_ribout_updates.h"
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_server.h"
-#include "bgp/bgp_update_queue.h"
-#include "bgp/scheduling_group.h"
+#include "bgp/bgp_update_sender.h"
 #include "bgp/routing-instance/routing_instance.h"
 
 using std::list;
@@ -309,15 +307,7 @@ uint32_t BgpMembershipManager::GetRibOutQueueDepth(const IPeer *peer,
         return 0;
     RibOut *ribout = prs->ribout();
     assert(ribout);
-
-    uint32_t out_q_depth = 0;
-    if (ribout->updates()) {
-        BOOST_FOREACH(const UpdateQueue *queue,
-                      ribout->updates()->queue_vec()) {
-            out_q_depth += queue->size();
-        }
-    }
-    return out_q_depth;
+    return ribout->GetQueueSize();
 }
 
 //
@@ -354,11 +344,10 @@ void BgpMembershipManager::FillPeerMembershipInfo(const IPeer *peer,
     assert(resp->get_routing_tables().empty());
     IPeer *nc_peer = const_cast<IPeer *>(peer);
 
-    const SchedulingGroupManager *sg_mgr = server_->scheduling_group_manager();
-    const SchedulingGroup *sg = sg_mgr->PeerGroup(nc_peer);
-    if (sg) {
+    BgpUpdateSender *sender = server_->update_sender();
+    if (sender->PeerIsRegistered(nc_peer)) {
         resp->set_send_state(
-            sg->PeerInSync(nc_peer) ? "in sync" : "not in sync");
+            sender->PeerInSync(nc_peer) ? "in sync" : "not in sync");
     } else {
         resp->set_send_state("not advertising");
     }
@@ -901,8 +890,7 @@ BgpMembershipManager::PeerRibState::~PeerRibState() {
 // Create RibOut for this PeerRibState and registers the RibOut as a listener
 // for the BgpTable.
 //
-// Register the IPeer to the RibOut. Also join the IPeer to the UPDATE and
-// BULK queues for the RibOutUpdates associated with the RibOut.
+// Register the IPeer to the RibOut.
 // This PeerRibState is added to the pending PeerRibStateList of RibState
 // so that Join processing is handled when walking the BgpTable.
 //
@@ -910,20 +898,11 @@ void BgpMembershipManager::PeerRibState::RegisterRibOut(
     const RibExportPolicy &policy) {
     CHECK_CONCURRENCY("bgp::PeerMembership");
 
-    BgpServer *server = manager_->server();
-    SchedulingGroupManager *sgm = server->scheduling_group_manager();
-    ribout_ = rs_->table()->RibOutLocate(sgm, policy);
+    BgpUpdateSender *sender = manager_->server()->update_sender();
+    ribout_ = rs_->table()->RibOutLocate(sender, policy);
     ribout_->RegisterListener();
     ribout_->Register(ps_->peer());
     ribout_index_ = ribout_->GetPeerIndex(ps_->peer());
-
-    RibOutUpdates *updates = ribout_->updates();
-    SchedulingGroup *sg = ribout_->GetSchedulingGroup();
-    assert(sg);
-    if (updates->QueueJoin(RibOutUpdates::QUPDATE, ribout_index_))
-        sg->RibOutActive(ribout_, RibOutUpdates::QUPDATE);
-    if (updates->QueueJoin(RibOutUpdates::QBULK, ribout_index_))
-        sg->RibOutActive(ribout_, RibOutUpdates::QBULK);
     ribout_registered_ = true;
     rs_->EnqueuePeerRibState(this);
 }
@@ -942,10 +921,8 @@ void BgpMembershipManager::PeerRibState::DeactivateRibOut() {
 
 //
 // Unregister the IPeer from the BgpTable.
-// First leave the IPeer from the UPDATE and BULK queues for the RibOutUpdates
-// associated with the RibOut.
-// Then unregister the IPeer from the RibOut, which may result in deletion
-// of the RibOut itself.
+// Unregister the IPeer from the RibOut, which may result in deletion of the
+// RibOut itself.
 //
 // Note that this is called only after Leave processing for the IPeer has been
 // completed.
@@ -955,9 +932,6 @@ void BgpMembershipManager::PeerRibState::UnregisterRibOut() {
 
     assert(ribout_);
     assert(ribout_index_ != -1);
-    RibOutUpdates *updates = ribout_->updates();
-    updates->QueueLeave(RibOutUpdates::QUPDATE, ribout_index_);
-    updates->QueueLeave(RibOutUpdates::QBULK, ribout_index_);
     ribout_->Unregister(ps_->peer());
     ribout_ = NULL;
     ribout_index_ = -1;

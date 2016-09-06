@@ -7,6 +7,7 @@
 
 #include "bgp/bgp_export.h"
 
+#include <boost/foreach.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
 
 #include "base/task.h"
@@ -22,7 +23,7 @@
 #include "bgp/bgp_ribout_updates.h"
 #include "bgp/bgp_update.h"
 #include "bgp/bgp_update_queue.h"
-#include "bgp/scheduling_group.h"
+#include "bgp/bgp_update_sender.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/inet/inet_route.h"
 #include "db/db.h"
@@ -165,15 +166,16 @@ protected:
     typedef std::vector<const RibPeerSet *> RibPeerSetVec;
 
     BgpExportTest()
-        : server_(&evm_),
+      : server_(&evm_),
+        sender_(server_.update_sender()),
         table_(&db_, "inet.0"),
-        ribout_(&table_, &mgr_, RibExportPolicy()),
+        ribout_(table_.RibOutLocate(sender_, RibExportPolicy())),
         prefix_(Ip4Prefix::FromString("0/0")),
         rt_(prefix_) {
         table_.Init();
         tpart_ = table_.GetTablePartition(0);
-        export_ = ribout_.bgp_export();
-        updates_ = ribout_.updates();
+        export_ = ribout_->bgp_export();
+        updates_ = ribout_->updates(0);
         updates_->SetMessageBuilder(&builder_);
         rt_.set_onlist();
     }
@@ -182,7 +184,7 @@ protected:
         gbl_index = 0;
         for (int idx = 0; idx < kPeerCount; idx++) {
             CreatePeer();
-            peerset_[idx].set(ribout_.GetPeerIndex(&peers_[idx]));
+            peerset_[idx].set(ribout_->GetPeerIndex(&peers_[idx]));
         }
 
         BgpAttr *attribute;
@@ -215,6 +217,10 @@ protected:
     }
 
     virtual void TearDown() {
+        BOOST_FOREACH(BgpTestPeer &peer, peers_) {
+            RibOutDeactivate(ribout_, &peer);
+            RibOutUnregister(ribout_, &peer);
+        }
         server_.Shutdown();
         task_util::WaitForIdle();
     }
@@ -237,47 +243,44 @@ protected:
     void RibOutRegister(RibOut *ribout, IPeerUpdate *peer) {
         ConcurrencyScope scope("bgp::PeerMembership");
         ribout->Register(peer);
-        int bit = ribout->GetPeerIndex(peer);
-        ribout->updates()->QueueJoin(RibOutUpdates::QUPDATE, bit);
-        ribout->updates()->QueueJoin(RibOutUpdates::QBULK, bit);
+    }
+
+    void RibOutDeactivate(RibOut *ribout, IPeerUpdate *peer) {
+        ConcurrencyScope scope("bgp::PeerMembership");
+        ribout->Deactivate(peer);
     }
 
     void RibOutUnregister(RibOut *ribout, IPeerUpdate *peer) {
         ConcurrencyScope scope("bgp::PeerMembership");
-        int bit = ribout->GetPeerIndex(peer);
-        ribout->updates()->QueueLeave(RibOutUpdates::QUPDATE, bit);
-        ribout->updates()->QueueLeave(RibOutUpdates::QBULK, bit);
         ribout->Unregister(peer);
     }
 
     void CreatePeer() {
         BgpTestPeer *peer = new BgpTestPeer();
         peers_.push_back(peer);
-        RibOutRegister(&ribout_, peer);
-        ASSERT_TRUE(ribout_.GetSchedulingGroup() != NULL);
+        RibOutRegister(ribout_, peer);
     }
 
     void DeactivatePeers(int start_idx, int end_idx) {
         ConcurrencyScope scope("bgp::PeerMembership");
         for (int idx = start_idx; idx <= end_idx; idx++) {
-            ribout_.Deactivate(&peers_[idx]);
+            ribout_->Deactivate(&peers_[idx]);
         }
     }
 
     void ReactivatePeers(int start_idx, int end_idx) {
         for (int idx = start_idx; idx <= end_idx; idx++) {
-            peerset_[idx].reset(ribout_.GetPeerIndex(&peers_[idx]));
-            RibOutUnregister(&ribout_, &peers_[idx]);
-            RibOutRegister(&ribout_, &peers_[idx]);
-            peerset_[idx].set(ribout_.GetPeerIndex(&peers_[idx]));
-            ASSERT_TRUE(ribout_.GetSchedulingGroup() != NULL);
+            peerset_[idx].reset(ribout_->GetPeerIndex(&peers_[idx]));
+            RibOutUnregister(ribout_, &peers_[idx]);
+            RibOutRegister(ribout_, &peers_[idx]);
+            peerset_[idx].set(ribout_->GetPeerIndex(&peers_[idx]));
         }
     }
 
     void BuildPeerSet(RibPeerSet &build_peerset, int start_idx, int end_idx) {
         build_peerset.clear();
         for (int idx = start_idx; idx <= end_idx; idx++) {
-            build_peerset.set(ribout_.GetPeerIndex(&peers_[idx]));
+            build_peerset.set(ribout_->GetPeerIndex(&peers_[idx]));
         }
     }
 
@@ -394,7 +397,7 @@ protected:
     RouteState *BuildRouteState(BgpRoute *route, AdvertiseSList &adv_slist) {
         RouteState *rstate = new RouteState;
         rstate->SetHistory(adv_slist);
-        route->SetState(&table_, ribout_.listener_id(), rstate);
+        route->SetState(&table_, ribout_->listener_id(), rstate);
         return rstate;
     }
 
@@ -427,7 +430,7 @@ protected:
             if (rt_update[qid])
                 uplist->AddUpdate(rt_update[qid]);
         }
-        route->SetState(ribout_.table(), ribout_.listener_id(), uplist);
+        route->SetState(ribout_->table(), ribout_->listener_id(), uplist);
         return uplist;
     }
 
@@ -462,12 +465,12 @@ protected:
     }
 
     void ExpectNullDBState(BgpRoute *route) {
-        DBState *dbstate = route->GetState(&table_, ribout_.listener_id());
+        DBState *dbstate = route->GetState(&table_, ribout_->listener_id());
         EXPECT_TRUE(dbstate == NULL);
     }
 
     RouteState *ExpectRouteState(BgpRoute *route) {
-        DBState *dbstate = route->GetState(&table_, ribout_.listener_id());
+        DBState *dbstate = route->GetState(&table_, ribout_->listener_id());
         RouteState *rstate = dynamic_cast<RouteState *>(dbstate);
         EXPECT_TRUE(rstate != NULL);
         return rstate;
@@ -475,7 +478,7 @@ protected:
 
     RouteUpdate *ExpectRouteUpdate(BgpRoute *route,
             int qid = RibOutUpdates::QUPDATE) {
-        DBState *dbstate = route->GetState(&table_, ribout_.listener_id());
+        DBState *dbstate = route->GetState(&table_, ribout_->listener_id());
         RouteUpdate *rt_update = dynamic_cast<RouteUpdate *>(dbstate);
         EXPECT_TRUE(rt_update != NULL);
         EXPECT_EQ(qid, rt_update->queue_id());
@@ -486,7 +489,7 @@ protected:
 
     UpdateList *ExpectUpdateList(BgpRoute *route, RouteUpdate *rt_update[],
             int size = 2) {
-        DBState *dbstate = route->GetState(&table_, ribout_.listener_id());
+        DBState *dbstate = route->GetState(&table_, ribout_->listener_id());
         UpdateList *uplist = dynamic_cast<UpdateList *>(dbstate);
         EXPECT_TRUE(uplist != NULL);
         EXPECT_EQ(size, uplist->GetList()->size());
@@ -635,7 +638,7 @@ protected:
     }
 
     void VerifyAdvertiseCount(int count) {
-        EXPECT_EQ(count, ribout_.RouteAdvertiseCount(&rt_));
+        EXPECT_EQ(count, ribout_->RouteAdvertiseCount(&rt_));
     }
 
     void DrainAndDeleteRouteState(BgpRoute *route, int advertise_count = 0) {
@@ -644,7 +647,7 @@ protected:
         RouteState *rstate = ExpectRouteState(route);
         if (advertise_count)
             VerifyAdvertiseCount(advertise_count);
-        route->ClearState(&table_, ribout_.listener_id());
+        route->ClearState(&table_, ribout_->listener_id());
         delete rstate;
     }
 
@@ -656,12 +659,12 @@ protected:
     }
 
     EventManager evm_;
-    BgpServer server_;
     DB db_;
+    BgpServer server_;
+    BgpUpdateSender *sender_;
     DBTablePartBase *tpart_;
     InetTableMock table_;
-    SchedulingGroupManager mgr_;
-    RibOut ribout_;
+    RibOut *ribout_;
     BgpExport *export_;
     RibOutUpdates *updates_;
     MsgBuilderMock builder_;

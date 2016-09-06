@@ -56,6 +56,7 @@ public:
     void SetGraph(const std::string &name, DBGraph *graph);
     void SetQueueDisable(bool disable);
 
+    static void SetPartitionCount(int partition_count);
     static int PartitionCount();
     static void RegisterFactory(const std::string &prefix,
                                 CreateFunction create_fn);

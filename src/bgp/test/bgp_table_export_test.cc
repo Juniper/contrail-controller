@@ -8,7 +8,7 @@
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_update.h"
-#include "bgp/scheduling_group.h"
+#include "bgp/bgp_update_sender.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/xmpp_message_builder.h"
@@ -125,6 +125,7 @@ class BgpTableExportTest : public ::testing::Test {
 protected:
     BgpTableExportTest()
         : server_(&evm_, "Local"),
+          sender_(server_.update_sender()),
           internal_(false),
           local_as_is_different_(false),
           table_name_(NULL),
@@ -220,14 +221,14 @@ protected:
     }
 
     void CreateRibOut(RibExportPolicy &policy) {
-        ribout_ = table_->RibOutLocate(&mgr_, policy);
+        ribout_ = table_->RibOutLocate(sender_, policy);
         RegisterRibOutPeers();
     }
 
     void CreateRibOut(BgpProto::BgpPeerType type,
             RibExportPolicy::Encoding encoding, as_t as_number = 0) {
         RibExportPolicy policy(type, encoding, as_number, false, false, -1, 0);
-        ribout_ = table_->RibOutLocate(&mgr_, policy);
+        ribout_ = table_->RibOutLocate(sender_, policy);
         RegisterRibOutPeers();
     }
 
@@ -236,7 +237,7 @@ protected:
             bool as_override, IpAddress nexthop) {
         RibExportPolicy policy(
             type, encoding, as_number, as_override, false, nexthop, -1, 0);
-        ribout_ = table_->RibOutLocate(&mgr_, policy);
+        ribout_ = table_->RibOutLocate(sender_, policy);
         RegisterRibOutPeers();
     }
 
@@ -244,7 +245,7 @@ protected:
             RibExportPolicy::Encoding encoding, as_t as_number, bool llgr) {
         RibExportPolicy policy(
             type, encoding, as_number, false, llgr, -1, 0);
-        ribout_ = table_->RibOutLocate(&mgr_, policy);
+        ribout_ = table_->RibOutLocate(sender_, policy);
         RegisterRibOutPeers();
     }
 
@@ -460,7 +461,7 @@ protected:
 
     EventManager evm_;
     BgpServerTest server_;
-    SchedulingGroupManager mgr_;
+    BgpUpdateSender *sender_;
 
     bool internal_;
     bool local_as_is_different_;

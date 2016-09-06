@@ -31,7 +31,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")))
         (TaskExclusion(scheduler->GetTaskId("bgp::RTFilter")))
-        (TaskExclusion(scheduler->GetTaskId("bgp::SendTask")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::SendUpdate")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ServiceChain")))
         (TaskExclusion(scheduler->GetTaskId("bgp::StateMachine")))
         (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")))
@@ -57,7 +57,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     TaskPolicy config_helper_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
         (TaskExclusion(scheduler->GetTaskId("bgp::RTFilter")))
-        (TaskExclusion(scheduler->GetTaskId("bgp::SendTask")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::SendUpdate")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ServiceChain")))
         (TaskExclusion(scheduler->GetTaskId("bgp::StateMachine")))
         (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")))
@@ -117,7 +117,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")))
         (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
         (TaskExclusion(scheduler->GetTaskId("db::Walker")))
-        (TaskExclusion(scheduler->GetTaskId("bgp::SendTask")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::SendUpdate")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ServiceChain")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ShowCommand")))
         (TaskExclusion(scheduler->GetTaskId("bgp::StateMachine")))
@@ -130,7 +130,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     TaskPolicy send_ready_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")))
-        (TaskExclusion(scheduler->GetTaskId("bgp::SendTask")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::SendUpdate")))
         (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")));
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::SendReadyTask"),
         send_ready_policy);

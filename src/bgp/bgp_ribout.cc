@@ -18,8 +18,9 @@
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_table.h"
 #include "bgp/bgp_update.h"
+#include "bgp/bgp_update_sender.h"
 #include "bgp/routing-instance/routing_instance.h"
-#include "bgp/scheduling_group.h"
+#include "db/db.h"
 
 using std::find;
 
@@ -257,12 +258,13 @@ bool RouteState::CompareUpdateInfo(const UpdateInfoSList &uinfo_slist) const {
 //
 // Create a new RibOut based on the BgpTable and RibExportPolicy.
 //
-RibOut::RibOut(BgpTable *table, SchedulingGroupManager *mgr,
+RibOut::RibOut(BgpTable *table, BgpUpdateSender *sender,
                const RibExportPolicy &policy)
-    : table_(table), mgr_(mgr), policy_(policy),
-    listener_id_(DBTableBase::kInvalidId),
-    updates_(BgpObjectFactory::Create<RibOutUpdates>(this)),
-    bgp_export_(BgpObjectFactory::Create<BgpExport>(this)) {
+    : table_(table),
+      sender_(sender),
+      policy_(policy),
+      listener_id_(DBTableBase::kInvalidId),
+      bgp_export_(BgpObjectFactory::Create<BgpExport>(this)) {
     name_ = "RibOut";
     if (policy_.type == BgpProto::XMPP) {
         name_ += " Type: XMPP";
@@ -277,6 +279,9 @@ RibOut::RibOut(BgpTable *table, SchedulingGroupManager *mgr,
             name_ += " ASOverride";
         name_ += ")";
     }
+    for (int idx = 0; idx < DB::PartitionCount(); ++idx) {
+        updates_.push_back(BgpObjectFactory::Create<RibOutUpdates>(this, idx));
+    }
 }
 
 //
@@ -288,6 +293,7 @@ RibOut::~RibOut() {
         table_->Unregister(listener_id_);
         listener_id_ = DBTableBase::kInvalidId;
     }
+    STLDeleteValues(&updates_);
 }
 
 //
@@ -309,32 +315,41 @@ void RibOut::RegisterListener() {
 //
 // Register a new peer to the RibOut. If the peer is not present in the
 // PeerStateMap, create a new PeerState and add it to the map.
-//
-// Also inform the SchedulingGroupManager so that the peer can be added
-// to an existing SchedulingGroup or multiple SchedulingGroup could be
-// merged.
+// Join the IPeerUpdate to the UPDATE and BULK queues for all RibOutUpdates
+// associated with the RibOut.
 //
 void RibOut::Register(IPeerUpdate *peer) {
     PeerState *ps = state_map_.Locate(peer);
     assert(ps != NULL);
     active_peerset_.set(ps->index);
-    mgr_->Join(this, peer);
+    sender_->Join(this, peer);
+    for (int idx = 0; idx < DB::PartitionCount(); ++idx) {
+        if (updates_[idx]->QueueJoin(RibOutUpdates::QUPDATE, ps->index))
+            sender_->RibOutActive(idx, this, RibOutUpdates::QUPDATE);
+        if (updates_[idx]->QueueJoin(RibOutUpdates::QBULK, ps->index))
+            sender_->RibOutActive(idx, this, RibOutUpdates::QBULK);
+    }
 }
 
 //
-// Unregister a IPeerUpdate from the RibOut. Removes it from the PeerStateMap.
+// Unregister a IPeerUpdate from the RibOut.
+// Leave the IPeerUpdate from the UPDATE and BULK queues for all RibOutUpdates
+// associated with the RibOut.
+// Removes the IPeerUpdate from the PeerStateMap.
 // If this was the last IPeerUpdate in the RibOut, remove the RibOut from the
-// BgpTable.  That will cause this RibOut itself to get destructed.
-//
-// Also inform the SchedulingGroupManager so that the peer can be removed
-// from it's SchedulingGroup and the group could possibly be split.
+// BgpTable.  That will cause this RibOut itself to get destroyed.
 //
 void RibOut::Unregister(IPeerUpdate *peer) {
     PeerState *ps = state_map_.Find(peer);
     assert(ps != NULL);
     assert(!active_peerset_.test(ps->index));
+
+    for (int idx = 0; idx < DB::PartitionCount(); ++idx) {
+        updates_[idx]->QueueLeave(RibOutUpdates::QUPDATE, ps->index);
+        updates_[idx]->QueueLeave(RibOutUpdates::QBULK, ps->index);
+    }
+    sender_->Leave(this, peer);
     state_map_.Remove(peer, ps->index);
-    mgr_->Leave(this, peer);
 
     if (state_map_.empty()) {
         table_->RibOutDelete(policy_);
@@ -369,7 +384,9 @@ bool RibOut::IsActive(IPeerUpdate *peer) const {
     return (index < 0 ? false : active_peerset_.test(index));
 }
 
+//
 // Return the number of peers this route has been advertised to.
+//
 int RibOut::RouteAdvertiseCount(const BgpRoute *rt) const {
     const DBState *dbstate = rt->GetState(table_, listener_id_);
     if (dbstate == NULL) {
@@ -413,10 +430,18 @@ int RibOut::RouteAdvertiseCount(const BgpRoute *rt) const {
 }
 
 //
-// Return the SchedulingGroup for this RibOut.
+// Return the total queue size across all RibOutUpdates and UpdateQueues.
 //
-SchedulingGroup *RibOut::GetSchedulingGroup() {
-    return mgr_->RibOutGroup(this);
+uint32_t RibOut::GetQueueSize() const {
+    uint32_t queue_size = 0;
+    for (int idx = 0; idx < DB::PartitionCount(); ++idx) {
+        const RibOutUpdates *updates = updates_[idx];
+        for (int qid = RibOutUpdates::QFIRST; qid < RibOutUpdates::QCOUNT;
+             ++qid) {
+            queue_size += updates->queue_size(qid);
+        }
+    }
+    return queue_size;
 }
 
 //
@@ -465,16 +490,39 @@ int RibOut::GetPeerIndex(IPeerUpdate *peer) const {
 
 //
 // Fill introspect information.
+// Accumulate counters from all RibOutUpdates.
 //
 void RibOut::FillStatisticsInfo(vector<ShowRibOutStatistics> *sros_list) const {
     for (int qid = RibOutUpdates::QFIRST; qid < RibOutUpdates::QCOUNT; ++qid) {
+        RibOutUpdates::Stats stats;
+        memset(&stats, 0, sizeof(stats));
+        size_t queue_size = 0;
+        size_t queue_marker_count = 0;
+        for (int idx = 0; idx < DB::PartitionCount(); ++idx) {
+            const RibOutUpdates *updates = updates_[idx];
+            updates->AddStatisticsInfo(qid, &stats);
+            queue_size += updates->queue_size(qid);
+            queue_marker_count += updates->queue_marker_count(qid);
+        }
+
         ShowRibOutStatistics sros;
         sros.set_table(table_->name());
         sros.set_encoding(EncodingString());
         sros.set_peer_type(BgpProto::BgpPeerTypeString(peer_type()));
         sros.set_peer_as(peer_as());
         sros.set_peers(state_map_.size());
-        updates_->FillStatisticsInfo(qid, &sros);
+        sros.set_queue(qid == RibOutUpdates::QBULK ? "BULK" : "UPDATE");
+        sros.set_pending_updates(queue_size);
+        sros.set_markers(queue_marker_count);
+        sros.set_messages_built(stats.messages_built_count_);
+        sros.set_messages_sent(stats.messages_sent_count_);
+        sros.set_reach(stats.reach_count_);
+        sros.set_unreach(stats.unreach_count_);
+        sros.set_tail_dequeues(stats.tail_dequeue_count_);
+        sros.set_peer_dequeues(stats.peer_dequeue_count_);
+        sros.set_marker_splits(stats.marker_split_count_);
+        sros.set_marker_merges(stats.marker_merge_count_);
+        sros.set_marker_moves(stats.marker_move_count_);
         sros_list->push_back(sros);
     }
 }

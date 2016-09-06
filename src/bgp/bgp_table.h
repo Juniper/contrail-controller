@@ -20,6 +20,7 @@ class BgpServer;
 class BgpTableStats;
 class BgpRoute;
 class BgpPath;
+class BgpUpdateSender;
 class IPeer;
 class Path;
 class PathResolver;
@@ -27,7 +28,6 @@ class RibOut;
 class RibPeerSet;
 class Route;
 class RoutingInstance;
-class SchedulingGroupManager;
 class ShowRibOutStatistics;
 class UpdateInfoSList;
 struct UpdateInfo;
@@ -87,7 +87,7 @@ public:
 
     const RibOutMap &ribout_map() { return ribout_map_; }
     RibOut *RibOutFind(const RibExportPolicy &policy);
-    RibOut *RibOutLocate(SchedulingGroupManager *mgr,
+    RibOut *RibOutLocate(BgpUpdateSender *sender,
                          const RibExportPolicy &policy);
     void RibOutDelete(const RibExportPolicy &policy);
 

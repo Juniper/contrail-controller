@@ -52,14 +52,15 @@ struct RibExportPolicy {
     };
 
     RibExportPolicy();
+    RibExportPolicy(uint32_t cluster_id);
     RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
-        int affinity, u_int32_t cluster_id);
+        int affinity, uint32_t cluster_id);
     RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
         as_t as_number, bool as_override, bool llgr, int affinity,
-        u_int32_t cluster_id);
+        uint32_t cluster_id);
     RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
         as_t as_number, bool as_override, bool llgr, IpAddress nexthop,
-        int affinity, u_int32_t cluster_id);
+        int affinity, uint32_t cluster_id);
 
     void SetRemovePrivatePolicy(bool all, bool replace, bool peer_loop_check);
     bool operator<(const RibExportPolicy &rhs) const;

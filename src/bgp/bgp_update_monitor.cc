@@ -148,7 +148,7 @@ DBState *RibUpdateMonitor::GetDBStateAndDequeue(DBEntryBase *db_entry,
     *duplicate = false;
 
     // Don't need to bother going through the monitor if there's no DBState.
-    // The scheduling group task can't hold a lock on the entry in this case.
+    // The bgp::SendUpdate task can't hold a lock on the entry in this case.
     DBState *dbstate =
         db_entry->GetState(ribout_->table(), ribout_->listener_id());
     if (dbstate == NULL) {
@@ -298,7 +298,7 @@ bool RibUpdateMonitor::GetPeerSetCurrentAndScheduled(DBEntryBase *db_entry,
     CHECK_CONCURRENCY("db::DBTable");
 
     // Don't need to bother going through the monitor if there's no DBState.
-    // The scheduling group task can't hold a lock on the entry in this case.
+    // The bgp::SendUpdate task can't hold a lock on the entry in this case.
     DBState *dbstate =
         db_entry->GetState(ribout_->table(), ribout_->listener_id());
     if (dbstate == NULL) {
@@ -372,7 +372,7 @@ bool RibUpdateMonitor::GetPeerSetCurrentAndScheduled(DBEntryBase *db_entry,
 // Move the previous history from the RouteState to the RouteUpdate and
 // enqueue it.
 //
-// Return true if the SchedulingGroup needs to trigger a tail dequeue for
+// Return true if the BgpUpdateSender needs to trigger a tail dequeue for
 // the (RibOut, QueueId).
 //
 bool RibUpdateMonitor::RouteStateMergeUpdate(DBEntryBase *db_entry,
@@ -396,7 +396,7 @@ bool RibUpdateMonitor::RouteStateMergeUpdate(DBEntryBase *db_entry,
 // again. Otherwise, build an UpdateList containing both RouteUpdates and
 // enqueue the new RouteUpdate.
 //
-// Return true if the SchedulingGroup needs to trigger a tail dequeue for
+// Return true if the BgpUpdateSender needs to trigger a tail dequeue for
 // the (RibOut, QueueId).
 //
 bool RibUpdateMonitor::RouteUpdateMergeUpdate(DBEntryBase *db_entry,
@@ -429,7 +429,7 @@ bool RibUpdateMonitor::RouteUpdateMergeUpdate(DBEntryBase *db_entry,
 // new one and enqueue the existing RouteUpdate again. Otherwise, add the
 // new RouteUpdate to the UpdateList and enqueue the RouteUpdate.
 //
-// Return true if the SchedulingGroup needs to trigger a tail dequeue for
+// Return true if the BgpUpdateSender needs to trigger a tail dequeue for
 // the (RibOut, QueueId).
 //
 bool RibUpdateMonitor::UpdateListMergeUpdate(DBEntryBase *db_entry,
@@ -457,7 +457,7 @@ bool RibUpdateMonitor::UpdateListMergeUpdate(DBEntryBase *db_entry,
 // any previously advertised state for the DBEntryBase. Note that the previous
 // state could be for a different queue and/or other peers in the RibOut.
 //
-// Return true if the SchedulingGroup needs to trigger a tail dequeue for
+// Return true if the BgpUpdateSender needs to trigger a tail dequeue for
 // the (RibOut, QueueId).
 //
 bool RibUpdateMonitor::MergeUpdate(DBEntryBase *db_entry,
@@ -702,7 +702,7 @@ void RibUpdateMonitor::ClearPeerSetCurrentAndScheduled(DBEntryBase *db_entry,
     CHECK_CONCURRENCY("db::DBTable");
 
     // Don't need to bother going through the monitor if there's no DBState.
-    // The scheduling group task can't hold a lock on the entry in this case.
+    // The bgp::SendUpdate task can't hold a lock on the entry in this case.
     DBState *dbstate =
         db_entry->GetState(ribout_->table(), ribout_->listener_id());
     if (dbstate == NULL) {
@@ -785,7 +785,7 @@ void RibUpdateMonitor::ClearPeerSetCurrentAndScheduled(DBEntryBase *db_entry,
 // Enqueue the specified RouteUpdate to the UpdateQueue and set the listener
 // state for the for the DBEntry to point to the RouteUpdate.
 //
-// Return true if the SchedulingGroup needs to trigger a tail dequeue for
+// Return true if the BgpUpdateSender needs to trigger a tail dequeue for
 // the (RibOut, QueueId).
 //
 bool RibUpdateMonitor::EnqueueUpdate(DBEntryBase *db_entry,
@@ -806,7 +806,7 @@ bool RibUpdateMonitor::EnqueueUpdate(DBEntryBase *db_entry,
 // Additionally, this routine sets the listener state to the UpdateList if it
 // is non-NULL.
 //
-// Return true if the SchedulingGroup needs to trigger a tail dequeue for
+// Return true if the BgpUpdateSender needs to trigger a tail dequeue for
 // the (RibOut, QueueId).
 //
 bool RibUpdateMonitor::EnqueueUpdateUnlocked(DBEntryBase *db_entry,
@@ -828,7 +828,7 @@ bool RibUpdateMonitor::EnqueueUpdateUnlocked(DBEntryBase *db_entry,
 // Dequeue the specified RouteUpdate from it's UpdateQueue.
 //
 void RibUpdateMonitor::DequeueUpdate(RouteUpdate *rt_update) {
-    CHECK_CONCURRENCY("bgp::SendTask");
+    CHECK_CONCURRENCY("bgp::SendUpdate");
 
     UpdateQueue *queue = queue_vec_->at(rt_update->queue_id());
     tbb::mutex::scoped_lock lock(mutex_);
@@ -857,7 +857,7 @@ void RibUpdateMonitor::DequeueUpdateUnlocked(RouteUpdate *rt_update) {
 // a mutex to the DBState itself, or to a new derived class from which we
 // would derive RouteState, RouteUpdate and UpdateList, it would be wasteful
 // in the common case where we simply need a RouteState.  Keep in mind that
-// the scheduling group task never needs to lock a RouteState.
+// the bgp::SendUpdate task never needs to lock a RouteState.
 //
 tbb::mutex *RibUpdateMonitor::DBStateMutex(RouteUpdate *rt_update) {
     if (rt_update == NULL) {
@@ -871,7 +871,7 @@ tbb::mutex *RibUpdateMonitor::DBStateMutex(RouteUpdate *rt_update) {
 }
 
 //
-// Concurrency: Called in the context of the scheduling group task.
+// Concurrency: Called in the context of the bgp::SendUpdate task.
 //
 // Get the next RouteUpdate after the provided UpdateEntry and return
 // the RouteUpdatePtr encapsulator for it.
@@ -883,7 +883,7 @@ tbb::mutex *RibUpdateMonitor::DBStateMutex(RouteUpdate *rt_update) {
 //
 RouteUpdatePtr RibUpdateMonitor::GetNextUpdate(int queue_id,
         UpdateEntry *upentry) {
-    CHECK_CONCURRENCY("bgp::SendTask");
+    CHECK_CONCURRENCY("bgp::SendUpdate");
 
     UpdateQueue *queue = queue_vec_->at(queue_id);
     tbb::mutex::scoped_lock lock(mutex_);
@@ -898,7 +898,7 @@ RouteUpdatePtr RibUpdateMonitor::GetNextUpdate(int queue_id,
 }
 
 //
-// Concurrency: Called in the context of the scheduling group task.
+// Concurrency: Called in the context of the bgp::SendUpdate task.
 //
 // Get the next UpdateEntry after the one provided and return it via
 // the output parameter.
@@ -909,7 +909,7 @@ RouteUpdatePtr RibUpdateMonitor::GetNextUpdate(int queue_id,
 //
 RouteUpdatePtr RibUpdateMonitor::GetNextEntry(int queue_id,
         UpdateEntry *upentry, UpdateEntry **next_upentry_p) {
-    CHECK_CONCURRENCY("bgp::SendTask");
+    CHECK_CONCURRENCY("bgp::SendUpdate");
 
     UpdateQueue *queue = queue_vec_->at(queue_id);
     tbb::mutex::scoped_lock lock(mutex_);
@@ -924,7 +924,7 @@ RouteUpdatePtr RibUpdateMonitor::GetNextEntry(int queue_id,
 }
 
 //
-// Concurrency: Called in the context of the scheduling group task.
+// Concurrency: Called in the context of the bgp::SendUpdate task.
 //
 // Get the next UpdateInfo after the one provided and return it via
 // the output parameter.
@@ -935,7 +935,7 @@ RouteUpdatePtr RibUpdateMonitor::GetNextEntry(int queue_id,
 //
 RouteUpdatePtr RibUpdateMonitor::GetAttrNext(int queue_id,
         UpdateInfo *current_uinfo, UpdateInfo **next_uinfo_p) {
-    CHECK_CONCURRENCY("bgp::SendTask");
+    CHECK_CONCURRENCY("bgp::SendUpdate");
 
     UpdateQueue *queue = queue_vec_->at(queue_id);
     tbb::mutex::scoped_lock lock(mutex_);
@@ -957,7 +957,7 @@ RouteUpdatePtr RibUpdateMonitor::GetAttrNext(int queue_id,
 // Set the listener state for the DBEntryBase to be the DBState.
 //
 void RibUpdateMonitor::SetEntryState(DBEntryBase *db_entry, DBState *dbstate) {
-    CHECK_CONCURRENCY("bgp::SendTask");
+    CHECK_CONCURRENCY("bgp::SendUpdate");
 
     tbb::mutex::scoped_lock lock(mutex_);
     db_entry->SetState(ribout_->table(), ribout_->listener_id(), dbstate);
@@ -969,7 +969,7 @@ void RibUpdateMonitor::SetEntryState(DBEntryBase *db_entry, DBState *dbstate) {
 // Clear the listener state for the DBEntryBase.
 //
 void RibUpdateMonitor::ClearEntryState(DBEntryBase *db_entry) {
-    CHECK_CONCURRENCY("bgp::SendTask");
+    CHECK_CONCURRENCY("bgp::SendUpdate");
 
     tbb::mutex::scoped_lock lock(mutex_);
     db_entry->ClearState(ribout_->table(), ribout_->listener_id());

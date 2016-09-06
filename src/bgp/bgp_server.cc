@@ -16,8 +16,8 @@
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_table_types.h"
+#include "bgp/bgp_update_sender.h"
 #include "bgp/peer_stats.h"
-#include "bgp/scheduling_group.h"
 #include "bgp/routing-instance/iservice_chain_mgr.h"
 #include "bgp/routing-instance/istatic_route_mgr.h"
 #include "bgp/routing-instance/peer_manager.h"
@@ -343,7 +343,7 @@ BgpServer::BgpServer(EventManager *evm)
       pmsi_tunnel_db_(new PmsiTunnelDB(this)),
       attr_db_(new BgpAttrDB(this)),
       session_mgr_(BgpObjectFactory::Create<BgpSessionManager>(evm, this)),
-      sched_mgr_(new SchedulingGroupManager),
+      update_sender_(new BgpUpdateSender(this)),
       inst_mgr_(BgpObjectFactory::Create<RoutingInstanceMgr>(this)),
       policy_mgr_(BgpObjectFactory::Create<RoutingPolicyMgr>(this)),
       rtarget_group_mgr_(BgpObjectFactory::Create<RTargetGroupMgr>(this)),

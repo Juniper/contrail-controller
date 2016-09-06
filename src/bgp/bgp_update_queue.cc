@@ -280,7 +280,7 @@ UpdateMarker *UpdateQueue::GetMarker(int bit) {
 // Return true if the tail marker is not the last entry in the queue. The
 // caller should trigger a tail dequeue for the RibOut if so to take care
 // of the possibility that all peers in the tail marker are blocked. Note
-// that a tail dequeue may already be pending in the SchedulingGroup, but
+// that a tail dequeue may already be pending in the BgpUpdateSender, but
 // an extra one is harmless.
 //
 bool UpdateQueue::Join(int bit) {

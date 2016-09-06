@@ -456,6 +456,7 @@ TEST_F(RibOutUpdatesTest, TailDequeueScaled1c) {
 TEST_F(RibOutUpdatesTest, TailDequeueScaled2a) {
     for (int idx = kPeerCount; idx < 2048; idx++) {
         CreatePeer();
+        RibOutRegister(ribout_, peers_[idx]);
     }
     EnqueueDefaultRoute();
     UpdateRibOut();
@@ -474,6 +475,7 @@ TEST_F(RibOutUpdatesTest, TailDequeueScaled2b) {
     // Create additional peers so that the total is 2K.
     for (int idx = kPeerCount; idx < 2048; idx++) {
         CreatePeer();
+        RibOutRegister(ribout_, peers_[idx]);
     }
 
     // Build UpdateInfo for attr A with all peers.
