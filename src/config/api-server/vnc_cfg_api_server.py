@@ -26,6 +26,7 @@ import os
 import re
 import socket
 from cfgm_common import jsonutils as json
+from provision_defaults import *
 import uuid
 import copy
 from pprint import pformat
@@ -2723,6 +2724,15 @@ class VncApiServer(object):
             except Exception as e:
                 err_msg = cfgm_common.utils.detailed_traceback()
                 self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
+
+        # make default ipam available across tenants for backward compatability
+        obj_type = 'network_ipam'
+        fq_name = ['default-domain', 'default-project', 'default-network-ipam']
+        obj_uuid = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
+        (ok, obj_dict) = self._db_conn.dbe_read(obj_type, {'uuid':obj_uuid},
+                             obj_fields=['perms2'])
+        obj_dict['perms2']['global_access'] = PERMS_X
+        self._db_conn.dbe_update(obj_type, {'uuid': obj_uuid}, obj_dict)
     # end _db_init_entries
 
     # generate default rbac group rule
