@@ -165,6 +165,8 @@ TEST_F(TestAap, AddDel_1) {
 
     AddAap("intf1", 1, v);
     EXPECT_TRUE(RouteFind("vrf1", ip, 32));
+    EXPECT_TRUE(RouteGet("vrf1", ip, 32)->GetActiveNextHop()->GetType() == 
+                NextHop::INTERFACE);
     v.clear();
     AddAap("intf1", 1, v);
     EXPECT_FALSE(RouteFind("vrf1", ip, 32));
