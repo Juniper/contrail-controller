@@ -96,6 +96,7 @@ class ICRMQMain():
         self.logger(msg,  level=SandeshLevel.SYS_INFO)
         if self.rmq_issu_handler is not None:
             msg = self.rmq_issu_handler(msg)
+        msg['type'] = msg['type'].replace('-', '_')
         self.issu_cass_config_db_uuid_handle.issu_sync_row(msg,
                                                            'obj_uuid_table')
         self.amqp_new_version_handle.publish(msg)
