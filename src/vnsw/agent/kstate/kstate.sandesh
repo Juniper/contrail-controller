@@ -126,6 +126,10 @@ struct KFlowInfo {
    17: optional i16  ecmp_index;
    20: optional string tcp_flags;
    21: optional string drop_reason;
+   22: u16           ttl;
+   23: i16           qos_id;
+   24: i16           gen_id;
+   25: u16           tcp_seq;
 }
 
 /**
