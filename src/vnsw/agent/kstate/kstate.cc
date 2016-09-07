@@ -117,6 +117,35 @@ void KState::IfMsgHandler(vr_interface_req *r) {
 
     data.set_mac(ist->MacToString(r->get_vifr_mac()));
     data.set_qos_map_index(r->get_vifr_qos_map_index());
+    data.set_core(r->get_vifr_core());
+    data.set_queue_ipackets(r->get_vifr_queue_ipackets());
+    data.set_queue_ierrors(r->get_vifr_queue_ierrors());
+    data.set_queue_opackets(r->get_vifr_queue_opackets());
+    data.set_queue_oerrors(r->get_vifr_queue_oerrors());
+    data.set_queue_ierrors_to_lcore(ist->SetItfSandesh(r->get_vifr_queue_ierrors_to_lcore()));
+    data.set_port_ipackets(r->get_vifr_port_ipackets());
+    data.set_port_ierrors(r->get_vifr_port_ierrors());
+    data.set_port_isyscalls(r->get_vifr_port_isyscalls());
+    data.set_port_inombufs(r->get_vifr_port_inombufs());
+    data.set_port_opackets(r->get_vifr_port_opackets());
+    data.set_port_oerrors(r->get_vifr_port_oerrors());
+    data.set_port_osyscalls(r->get_vifr_port_osyscalls());
+    data.set_dev_ibytes(r->get_vifr_dev_ibytes());
+    data.set_dev_ipackets(r->get_vifr_dev_ipackets());
+    data.set_dev_ierrors(r->get_vifr_dev_ierrors());
+    data.set_dev_inombufs(r->get_vifr_dev_inombufs());
+    data.set_dev_obytes(r->get_vifr_dev_obytes());
+    data.set_dev_opackets(r->get_vifr_dev_opackets());
+    data.set_dev_oerrors(r->get_vifr_dev_oerrors());
+    data.set_parent_vif_id(r->get_vifr_parent_vif_idx());
+    data.set_vlan_id(r->get_vifr_vlan_id());
+    data.set_nh_id(r->get_vifr_nh_id());
+    data.set_cross_connect_id(r->get_vifr_cross_connect_idx());
+    data.set_bridge_id(r->get_vifr_bridge_idx());
+    data.set_ovlan_id(r->get_vifr_ovlan_id());
+    data.set_transport(r->get_vifr_transport());
+    data.set_src_mac(ist->MacToString(r->get_vifr_src_mac()));
+    data.set_fat_flow_protocol_port(ist->SetItfSandesh(r->get_vifr_fat_flow_protocol_port()));
     list.push_back(data);
 
     UpdateContext(reinterpret_cast<void *>(r->get_vifr_idx()));

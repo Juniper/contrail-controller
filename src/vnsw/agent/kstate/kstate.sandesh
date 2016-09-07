@@ -65,6 +65,35 @@ struct KInterfaceInfo {
    19: i32          speed;
    20: i32          duplexity;
    21: i32          qos_map_index;
+   22: u64          core;
+   23: i64          queue_ipackets;
+   24: i64          queue_ierrors;
+   25: i64          queue_opackets;
+   26: i64          queue_oerrors;
+   27: string       queue_ierrors_to_lcore;
+   28: i64          port_ipackets;
+   29: i64          port_ierrors;
+   30: i64          port_isyscalls;
+   31: i64          port_inombufs;
+   32: i64          port_opackets;
+   33: i64          port_oerrors;
+   34: i64          port_osyscalls;
+   35: i64          dev_ibytes;
+   36: i64          dev_ipackets;
+   37: i64          dev_ierrors;
+   38: i64          dev_inombufs;
+   39: i64          dev_obytes;
+   40: i64          dev_opackets;
+   41: i64          dev_oerrors;
+   42: i32          parent_vif_id;
+   43: i16          vlan_id;
+   44: i16          nh_id;
+   45: i32          cross_connect_id;
+   46: i32          bridge_id;
+   47: i32          ovlan_id;
+   48: i16          transport;
+   49: string       src_mac;
+   50: string       fat_flow_protocol_port;
 }
 
 /**
