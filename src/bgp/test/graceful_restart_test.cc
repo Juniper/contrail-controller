@@ -2613,6 +2613,7 @@ class TestEnvironment : public ::testing::Environment {
 };
 
 static void SetUp() {
+    BgpXmppMessage::Initialize();
     ControlNode::SetDefaultSchedulingPolicy();
     BgpServerTest::GlobalSetUp();
     BgpObjectFactory::Register<PeerCloseManager>(
@@ -2626,6 +2627,7 @@ static void SetUp() {
 }
 
 static void TearDown() {
+    BgpXmppMessage::Terminate();
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Terminate();
 }

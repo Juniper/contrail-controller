@@ -4235,6 +4235,7 @@ class TestEnvironment : public ::testing::Environment {
 };
 
 static void SetUp() {
+    BgpXmppMessage::Initialize();
     ControlNode::SetDefaultSchedulingPolicy();
     BgpServerTest::GlobalSetUp();
     XmppObjectFactory::Register<XmppStateMachine>(
@@ -4246,6 +4247,7 @@ static void SetUp() {
 }
 
 static void TearDown() {
+    BgpXmppMessage::Terminate();
     task_util::WaitForIdle();
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Terminate();

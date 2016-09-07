@@ -5,21 +5,16 @@
 #include "bgp/xmpp_message_builder.h"
 
 #include <boost/foreach.hpp>
-#include <pugixml/pugixml.hpp>
-
-#include <string>
-#include <vector>
 
 #include "bgp/ipeer.h"
-#include "bgp/bgp_ribout.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_table.h"
-#include "bgp/extended-community/load_balance.h"
 #include "bgp/extended-community/mac_mobility.h"
 #include "bgp/ermvpn/ermvpn_route.h"
 #include "bgp/evpn/evpn_route.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/security_group/security_group.h"
+#include "db/db.h"
 #include "net/community_type.h"
 #include "schema/xmpp_multicast_types.h"
 #include "schema/xmpp_enet_types.h"
@@ -33,113 +28,72 @@ using std::string;
 using std::stringstream;
 using std::vector;
 
-class BgpXmppMessage : public Message {
-public:
-    BgpXmppMessage(const BgpTable *table, const RibOutAttr *roattr,
-        bool cache_routes)
-        : table_(table),
-          writer_(&repr_),
-          is_reachable_(roattr->IsReachable()),
-          cache_routes_(cache_routes),
-          repr_valid_(false),
-          sequence_number_(0) {
+vector<string> BgpXmppMessage::repr_;
+vector<xml_document *> BgpXmppMessage::doc_;
+
+BgpXmppMessage::BgpXmppMessage(int part_id, const BgpTable *table,
+    const RibOutAttr *roattr, bool cache_routes)
+    : part_id_(part_id),
+      table_(table),
+      is_reachable_(roattr->IsReachable()),
+      cache_routes_(cache_routes),
+      repr_valid_(false),
+      sequence_number_(0) {
+    assert(repr_.size());
+    writer_ = XmlWriter(&repr_[part_id]);
+}
+
+BgpXmppMessage::~BgpXmppMessage() {
+    repr_[part_id_].clear();
+}
+
+//
+// Static method to initialize static vectors of string and xml_document.
+// Should be called from main at startup before BgpServer is initialized.
+//
+// The vectors have an entry for each shard.  This reduces memory allocation
+// overhead by allowing a BgpXmppMessage allocated from a BgpSenderPartition
+// to use the string and xml_document corresponding to it's shard instead of
+// creating/destroying them repeatedly.
+//
+// Note that pugixml library allocates memory for a document in increments of
+// 32KB pages and then manages smaller allocations (e.g. nodes and attributes)
+// using these pages. Pre-creating the xml_documents ensures that pugixml does
+// only a single 32KB allocation per document and then reuses the same memory
+// when building the tree for each route/item.  Without this optimization, we
+// would allocate and free a 32KB page for each route/item.
+//
+// Similarly, using a static vector of strings allows the same string to be
+// re-used by the BgpSenderPartition for a given shard instead of growing the
+// capacity of the string as routes/items are added to each BgpXmppMessage and
+// then destroying the string along with the BgpXmppMessage.
+//
+void BgpXmppMessage::Initialize() {
+    static bool initialized = false;
+    if (initialized)
+        return;
+    initialized = true;
+    repr_.resize(DB::PartitionCount());
+    for (int idx = 0; idx < DB::PartitionCount(); ++idx) {
+        doc_.push_back(new xml_document);
     }
-    virtual ~BgpXmppMessage() { }
-    void Start(const RibOutAttr *roattr, const BgpRoute *route);
-    virtual bool AddRoute(const BgpRoute *route, const RibOutAttr *roattr);
-    virtual void Finish() { }
-    virtual const uint8_t *GetData(IPeerUpdate *peer, size_t *lenp);
+}
 
-private:
-    static const size_t kMaxFromToLength = 192;
-    static const uint32_t kMaxReachCount = 32;
-    static const uint32_t kMaxUnreachCount = 256;
-
-    class XmlWriter : public pugi::xml_writer {
-    public:
-        explicit XmlWriter(string *repr) : repr_(repr) { }
-        virtual void write(const void *data, size_t size) {
-            repr_->append(static_cast<const char*>(data), size);
-        }
-
-    private:
-        string *repr_;
-    };
-
-    void EncodeNextHop(const BgpRoute *route,
-                       const RibOutAttr::NextHop &nexthop,
-                       autogen::ItemType *item);
-    void AddIpReach(const BgpRoute *route, const RibOutAttr *roattr);
-    void AddIpUnreach(const BgpRoute *route);
-    bool AddInetRoute(const BgpRoute *route, const RibOutAttr *roattr);
-
-    bool AddInet6Route(const BgpRoute *route, const RibOutAttr *roattr);
-
-    void EncodeEnetNextHop(const BgpRoute *route,
-                           const RibOutAttr::NextHop &nexthop,
-                           autogen::EnetItemType *item);
-    void AddEnetReach(const BgpRoute *route, const RibOutAttr *roattr);
-    void AddEnetUnreach(const BgpRoute *route);
-    bool AddEnetRoute(const BgpRoute *route, const RibOutAttr *roattr);
-
-    void AddMcastReach(const BgpRoute *route, const RibOutAttr *roattr);
-    void AddMcastUnreach(const BgpRoute *route);
-    bool AddMcastRoute(const BgpRoute *route, const RibOutAttr *roattr);
-
-    void ProcessCommunity(const Community *community) {
-        community_list_.clear();
-        if (community == NULL)
-            return;
-        BOOST_FOREACH(uint32_t value, community->communities()) {
-            community_list_.push_back(CommunityType::CommunityToString(value));
-        }
-    }
-
-    void ProcessExtCommunity(const ExtCommunity *ext_community) {
-        sequence_number_ = 0;
-        security_group_list_.clear();
-        load_balance_attribute_ = LoadBalance::LoadBalanceAttribute();
-        if (ext_community == NULL)
-            return;
-
-        as_t as_number =  table_->server()->autonomous_system();
-        for (ExtCommunity::ExtCommunityList::const_iterator iter =
-             ext_community->communities().begin();
-             iter != ext_community->communities().end(); ++iter) {
-            if (ExtCommunity::is_security_group(*iter)) {
-                SecurityGroup sg(*iter);
-                if (sg.as_number() != as_number && !sg.IsGlobal())
-                    continue;
-                security_group_list_.push_back(sg.security_group_id());
-            } else if (ExtCommunity::is_mac_mobility(*iter)) {
-                MacMobility mm(*iter);
-                sequence_number_ = mm.sequence_number();
-            } else if (ExtCommunity::is_load_balance(*iter)) {
-                LoadBalance load_balance(*iter);
-                load_balance.FillAttribute(&load_balance_attribute_);
-            }
-        }
-    }
-
-    string GetVirtualNetwork(const RibOutAttr::NextHop &nexthop) const;
-    string GetVirtualNetwork(const BgpRoute *route,
-                             const RibOutAttr *roattr) const;
-
-    const BgpTable *table_;
-    XmlWriter writer_;
-    bool is_reachable_;
-    bool cache_routes_;
-    bool repr_valid_;
-    string repr_;
-    uint32_t sequence_number_;
-    vector<int> security_group_list_;
-    vector<string> community_list_;
-    LoadBalance::LoadBalanceAttribute load_balance_attribute_;
-
-    DISALLOW_COPY_AND_ASSIGN(BgpXmppMessage);
-};
+//
+// Static method to delete memory allocated for static members.
+// Should be called from main just before exiting i.e. after BgpServer has
+// been shut down.
+//
+// Note that we have to store pointers to dynamically allocated xml_documents
+// since an xml_document is not copyable i.e. we cannot initialize a vector of
+// xml_documents.
+//
+void BgpXmppMessage::Terminate() {
+    STLDeleteValues(&doc_);
+}
 
 void BgpXmppMessage::Start(const RibOutAttr *roattr, const BgpRoute *route) {
+    string &repr = repr_[part_id_];
     if (is_reachable_) {
         const BgpAttr *attr = roattr->attr();
         ProcessCommunity(attr->community());
@@ -149,18 +103,18 @@ void BgpXmppMessage::Start(const RibOutAttr *roattr, const BgpRoute *route) {
     // Reserve space for the begin line that contains the message opening tag
     // with from and to attributes. Actual value gets patched in when GetData
     // is called.
-    repr_.append(kMaxFromToLength, ' ');
+    repr.append(kMaxFromToLength, ' ');
 
     // Add opening tags for event and items. The closing tags are added when
     // GetData is called.
-    repr_ += "\n\t<event xmlns=\"http://jabber.org/protocol/pubsub\">";
-    repr_ += "\n\t\t<items node=\"";
-    repr_ += integerToString(route->Afi());
-    repr_ += "/";
-    repr_ += integerToString(route->XmppSafi());
-    repr_ += "/";
-    repr_ += table_->routing_instance()->name();
-    repr_ += "\">\n";
+    repr += "\n\t<event xmlns=\"http://jabber.org/protocol/pubsub\">";
+    repr += "\n\t\t<items node=\"";
+    repr += integerToString(route->Afi());
+    repr += "/";
+    repr += integerToString(route->XmppSafi());
+    repr += "/";
+    repr += table_->routing_instance()->name();
+    repr += "\">\n";
 
     if (table_->family() == Address::ERMVPN) {
         AddMcastRoute(route, roattr);
@@ -171,6 +125,9 @@ void BgpXmppMessage::Start(const RibOutAttr *roattr, const BgpRoute *route) {
     } else {
         AddInetRoute(route, roattr);
     }
+}
+
+void BgpXmppMessage::Finish() {
 }
 
 bool BgpXmppMessage::AddRoute(const BgpRoute *route, const RibOutAttr *roattr) {
@@ -221,8 +178,9 @@ void BgpXmppMessage::EncodeNextHop(const BgpRoute *route,
 
 void BgpXmppMessage::AddIpReach(const BgpRoute *route,
                                 const RibOutAttr *roattr) {
+    string &repr = repr_[part_id_];
     if (!roattr->repr().empty()) {
-        repr_ += roattr->repr();
+        repr += roattr->repr();
         return;
     }
 
@@ -257,22 +215,24 @@ void BgpXmppMessage::AddIpReach(const BgpRoute *route,
     if (!load_balance_attribute_.IsDefault())
         load_balance_attribute_.Encode(&item.entry.load_balance);
 
-    xml_document doc;
-    xml_node node = doc.append_child("item");
+    xml_document *doc = doc_[part_id_];
+    xml_node node = doc->append_child("item");
     node.append_attribute("id") = route->ToXmppIdString().c_str();
 
     // Remember the previous size.
-    size_t pos = repr_.size();
+    size_t pos = repr.size();
     item.Encode(&node);
-    doc.print(writer_, "\t", pugi::format_default, pugi::encoding_auto, 3);
+    doc->print(writer_, "\t", pugi::format_default, pugi::encoding_auto, 3);
+    doc->remove_child(node);
 
     // Cache the substring starting at the previous size.
     if (cache_routes_)
-        roattr->set_repr(repr_, pos);
+        roattr->set_repr(repr, pos);
 }
 
 void BgpXmppMessage::AddIpUnreach(const BgpRoute *route) {
-    repr_ += "\t\t\t<retract id=\"" + route->ToXmppIdString() + "\" />\n";
+    string &repr = repr_[part_id_];
+    repr += "\t\t\t<retract id=\"" + route->ToXmppIdString() + "\" />\n";
 }
 
 bool BgpXmppMessage::AddInetRoute(const BgpRoute *route,
@@ -321,8 +281,9 @@ void BgpXmppMessage::EncodeEnetNextHop(const BgpRoute *route,
 
 void BgpXmppMessage::AddEnetReach(const BgpRoute *route,
                                   const RibOutAttr *roattr) {
+    string &repr = repr_[part_id_];
     if (!roattr->repr().empty()) {
-        repr_ += roattr->repr();
+        repr += roattr->repr();
         return;
     }
 
@@ -381,22 +342,24 @@ void BgpXmppMessage::AddEnetReach(const BgpRoute *route,
         EncodeEnetNextHop(route, nexthop, &item);
     }
 
-    xml_document doc;
-    xml_node node = doc.append_child("item");
+    xml_document *doc = doc_[part_id_];
+    xml_node node = doc->append_child("item");
     node.append_attribute("id") = route->ToXmppIdString().c_str();
 
     // Remember the previous size.
-    size_t pos = repr_.size();
+    size_t pos = repr.size();
     item.Encode(&node);
-    doc.print(writer_, "\t", pugi::format_default, pugi::encoding_auto, 3);
+    doc->print(writer_, "\t", pugi::format_default, pugi::encoding_auto, 3);
+    doc->remove_child(node);
 
     // Cache the substring starting at the previous size.
     if (cache_routes_)
-        roattr->set_repr(repr_, pos);
+        roattr->set_repr(repr, pos);
 }
 
 void BgpXmppMessage::AddEnetUnreach(const BgpRoute *route) {
-    repr_ += "\t\t\t<retract id=\"" + route->ToXmppIdString() + "\" />\n";
+    string &repr = repr_[part_id_];
+    repr += "\t\t\t<retract id=\"" + route->ToXmppIdString() + "\" />\n";
 }
 
 bool BgpXmppMessage::AddEnetRoute(const BgpRoute *route,
@@ -438,15 +401,17 @@ void BgpXmppMessage::AddMcastReach(const BgpRoute *route,
         item.entry.olist.next_hop.push_back(nh);
     }
 
-    xml_document doc;
-    xml_node node = doc.append_child("item");
+    xml_document *doc = doc_[part_id_];
+    xml_node node = doc->append_child("item");
     node.append_attribute("id") = route->ToXmppIdString().c_str();
     item.Encode(&node);
-    doc.print(writer_, "\t", pugi::format_default, pugi::encoding_auto, 3);
+    doc->print(writer_, "\t", pugi::format_default, pugi::encoding_auto, 3);
+    doc->remove_child(node);
 }
 
 void BgpXmppMessage::AddMcastUnreach(const BgpRoute *route) {
-    repr_ += "\t\t\t<retract id=\"" + route->ToXmppIdString() + "\" />\n";
+    string &repr = repr_[part_id_];
+    repr += "\t\t\t<retract id=\"" + route->ToXmppIdString() + "\" />\n";
 }
 
 bool BgpXmppMessage::AddMcastRoute(const BgpRoute *route,
@@ -476,23 +441,59 @@ const uint8_t *BgpXmppMessage::GetData(IPeerUpdate *peer, size_t *lenp) {
 
     // Add closing tags if this is the first peer to which the message will
     // be sent.
+    string &repr = repr_[part_id_];
     if (!repr_valid_) {
-        repr_ += "\t\t</items>\n\t</event>\n</message>\n";
+        repr += "\t\t</items>\n\t</event>\n</message>\n";
         repr_valid_ = true;
     }
 
     // Replace the begin line if it fits in the space reserved at the start
-    // of repr_.  Otherwise build a new string with the begin line and rest
-    // of the message in repr_.
+    // of repr.  Otherwise build a new string with the begin line and rest
+    // of the message in repr.
     if (msg_begin.size() <= kMaxFromToLength) {
         size_t extra = kMaxFromToLength - msg_begin.size();
-        repr_.replace(extra, msg_begin.size(), msg_begin);
-        *lenp = repr_.size() - extra;
-        return reinterpret_cast<const uint8_t *>(repr_.c_str()) + extra;
+        repr.replace(extra, msg_begin.size(), msg_begin);
+        *lenp = repr.size() - extra;
+        return reinterpret_cast<const uint8_t *>(repr.c_str()) + extra;
     } else {
-        string temp = msg_begin + string(repr_, kMaxFromToLength);
+        string temp = msg_begin + string(repr, kMaxFromToLength);
         *lenp = temp.size();
         return reinterpret_cast<const uint8_t *>(temp.c_str());
+    }
+}
+
+void BgpXmppMessage::ProcessCommunity(const Community *community) {
+    community_list_.clear();
+    if (community == NULL)
+        return;
+    BOOST_FOREACH(uint32_t value, community->communities()) {
+        community_list_.push_back(CommunityType::CommunityToString(value));
+    }
+}
+
+void BgpXmppMessage::ProcessExtCommunity(const ExtCommunity *ext_community) {
+    sequence_number_ = 0;
+    security_group_list_.clear();
+    load_balance_attribute_ = LoadBalance::LoadBalanceAttribute();
+    if (ext_community == NULL)
+        return;
+
+    as_t as_number =  table_->server()->autonomous_system();
+    for (ExtCommunity::ExtCommunityList::const_iterator iter =
+        ext_community->communities().begin();
+        iter != ext_community->communities().end(); ++iter) {
+        if (ExtCommunity::is_security_group(*iter)) {
+            SecurityGroup sg(*iter);
+            if (sg.as_number() != as_number && !sg.IsGlobal())
+                continue;
+            security_group_list_.push_back(sg.security_group_id());
+        } else if (ExtCommunity::is_mac_mobility(*iter)) {
+            MacMobility mm(*iter);
+            sequence_number_ = mm.sequence_number();
+        } else if (ExtCommunity::is_load_balance(*iter)) {
+            LoadBalance load_balance(*iter);
+            load_balance.FillAttribute(&load_balance_attribute_);
+        }
     }
 }
 
@@ -525,14 +526,14 @@ string BgpXmppMessage::GetVirtualNetwork(const BgpRoute *route,
     }
 }
 
-Message *BgpXmppMessageBuilder::Create(const RibOut *ribout, bool cache_routes,
-                                       const RibOutAttr *roattr,
-                                       const BgpRoute *route) const {
-    const BgpTable *table = ribout->table();
-    BgpXmppMessage *msg = new BgpXmppMessage(table, roattr, cache_routes);
-    msg->Start(roattr, route);
-    return msg;
+BgpXmppMessageBuilder::BgpXmppMessageBuilder() {
 }
 
-BgpXmppMessageBuilder::BgpXmppMessageBuilder() {
+Message *BgpXmppMessageBuilder::Create(int part_id, const RibOut *ribout,
+    bool cache_routes, const RibOutAttr *roattr, const BgpRoute *route) const {
+    const BgpTable *table = ribout->table();
+    BgpXmppMessage *msg =
+        new BgpXmppMessage(part_id, table, roattr, cache_routes);
+    msg->Start(roattr, route);
+    return msg;
 }

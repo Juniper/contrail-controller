@@ -316,14 +316,16 @@ class TestEnvironment : public ::testing::Environment {
 };
 
 static void SetUp() {
+    DB::SetPartitionCount(1);
+    BgpXmppMessage::Initialize();
     ControlNode::SetDefaultSchedulingPolicy();
     BgpServerTest::GlobalSetUp();
-    DB::SetPartitionCount(1);
     BgpObjectFactory::Register<BgpXmppMessageBuilder>(
         boost::factory<BgpXmppMessageBuilder *>());
 }
 
 static void TearDown() {
+    BgpXmppMessage::Terminate();
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Terminate();
 }

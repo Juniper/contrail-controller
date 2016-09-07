@@ -107,7 +107,7 @@ class XmppMessageBuilderParamTest:
 };
 
 TEST_P(XmppMessageBuilderParamTest, Basic) {
-    bool cache_routes = std::tr1::get<0>(GetParam());
+    bool cache = std::tr1::get<0>(GetParam());
     string peer_name = "agent.juniper.net";
     if (!std::tr1::get<1>(GetParam())) {
         for (int idx = 0; idx < 16; ++idx) {
@@ -116,7 +116,7 @@ TEST_P(XmppMessageBuilderParamTest, Basic) {
     }
     for (int idx = 0; idx < kRepeatCount; ++idx) {
         boost::scoped_ptr<Message> message(
-            builder_->Create(ribout_, cache_routes, roattrs_[0], routes_[0]));
+            builder_->Create(0, ribout_, cache, roattrs_[0], routes_[0]));
         for (int ridx = 1; ridx < kRouteCount; ++ridx) {
             message->AddRoute(routes_[ridx], roattrs_[ridx]);
         }
@@ -142,6 +142,7 @@ class TestEnvironment : public ::testing::Environment {
 };
 
 static void SetUp() {
+    BgpXmppMessage::Initialize();
     ControlNode::SetDefaultSchedulingPolicy();
     BgpServerTest::GlobalSetUp();
     BgpObjectFactory::Register<BgpXmppMessageBuilder>(
@@ -149,6 +150,7 @@ static void SetUp() {
 }
 
 static void TearDown() {
+    BgpXmppMessage::Terminate();
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Terminate();
 }
