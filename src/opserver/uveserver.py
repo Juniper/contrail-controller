@@ -90,36 +90,6 @@ class UVEServer(object):
             redis_uve_info.status = 'Connected'
     #end fill_redis_uve_info
 
-    @staticmethod
-    def merge_previous(state, key, typ, attr, prevdict):
-        print "%s New    val is %s" % (attr, prevdict)
-        nstate = copy.deepcopy(state)
-        if UVEServer._is_agg_item(prevdict):
-            count = int(state[key][typ][attr]['previous']['#text'])
-            count += int(prevdict['#text'])
-            nstate[key][typ][attr]['previous']['#text'] = str(count)
-
-        if UVEServer._is_agg_list(prevdict):
-            sname = ParallelAggregator.get_list_name(
-                state[key][typ][attr]['previous'])
-            count = len(prevdict['list'][sname]) + \
-                len(state[key][typ][attr]['previous']['list'][sname])
-            nstate[key][typ][attr]['previous']['list'][sname].extend(
-                prevdict['list'][sname])
-            nstate[key][typ][attr]['previous']['list']['@size'] = \
-                str(count)
-
-            tstate = {}
-            tstate[typ] = {}
-            tstate[typ][attr] = copy.deepcopy(
-                nstate[key][typ][attr]['previous'])
-            nstate[key][typ][attr]['previous'] =\
-                ParallelAggregator.consolidate_list(tstate, typ, attr)
-
-        print "%s Merged val is %s"\
-            % (attr, nstate[key][typ][attr]['previous'])
-        return nstate
-
     def run(self):
 	ConnectionState.update(conn_type = ConnectionType.REDIS_UVE,
             name = 'LOCAL', status = ConnectionStatus.INIT)
@@ -158,15 +128,6 @@ class UVEServer(object):
                     self._redis = redish
                     ConnectionState.update(conn_type = ConnectionType.REDIS_UVE,
                         name = 'LOCAL', status = ConnectionStatus.UP)
-
-    @staticmethod
-    def _is_agg_item(attr):
-        if attr['@type'] in ['i8', 'i16', 'i32', 'i64', 'byte',
-                             'u8', 'u16', 'u32', 'u64']:
-            if '@aggtype' in attr:
-                if attr['@aggtype'] == "counter":
-                    return True
-        return False
 
     @staticmethod
     def _is_agg_list(attr):
@@ -529,17 +490,26 @@ class ParallelAggregator:
                         items.append(source)
         return result
 
-    def _is_sum(self, oattr):
+    def _is_elem_sum(self, oattr):
         akey = oattr.keys()[0]
+        if oattr[akey]['@type'] not in ['i8', 'i16', 'i32', 'i64',
+                                    'byte', 'u8', 'u16', 'u32', 'u64']:
+            return False
         if '@aggtype' not in oattr[akey]:
             return False
-        if oattr[akey]['@aggtype'] in ["sum"]:
-            return True
-        if oattr[akey]['@type'] in ['i8', 'i16', 'i32', 'i64',
-                                    'byte', 'u8', 'u16', 'u32', 'u64']:
-            if oattr[akey]['@aggtype'] in ["counter"]:
-                return True
-        return False
+        if oattr[akey]['@aggtype'] != "sum":
+            return False
+        return True
+
+    def _is_struct_sum(self, oattr):
+        akey = oattr.keys()[0]
+        if oattr[akey]['@type'] != "struct":
+            return False
+        if '@aggtype' not in oattr[akey]:
+            return False
+        if oattr[akey]['@aggtype'] != "sum":
+            return False
+        return True
 
     def _is_list_union(self, oattr):
         akey = oattr.keys()[0]
@@ -591,7 +561,34 @@ class ParallelAggregator:
                     skey = sattr
         return skey
 
-    def _sum_agg(self, oattr):
+    def _struct_sum_agg(self, oattr):
+        akey = oattr.keys()[0]
+        result = copy.deepcopy(oattr[akey])
+        sname = None
+        for sattr in result.keys():
+            if sattr[0] != '@':
+                sname = sattr
+                break
+        if not sname:
+            return None
+        cmap = {}
+        for source,sval in oattr.iteritems():
+            for attr, aval in sval[sname].iteritems():
+                if aval['@type'] in ['i8',
+                        'i16', 'i32', 'i64',
+                        'byte', 'u8', 'u16', 'u32', 'u64']:
+                    if attr not in cmap:
+                        cmap[attr] = {}
+                        cmap[attr]['@type'] = aval['@type']
+                        cmap[attr]['#text'] = int(aval['#text'])
+                    else:
+                        cmap[attr]['#text'] += int(aval['#text'])
+        for k,v in cmap.iteritems():
+            v['#text'] = str(v['#text'])
+        result[sname] = cmap
+        return result
+
+    def _elem_sum_agg(self, oattr):
         akey = oattr.keys()[0]
         result = copy.deepcopy(oattr[akey])
         count = 0
@@ -748,13 +745,20 @@ class ParallelAggregator:
                 ltyp = typ
                 result[typ] = {}
                 for objattr in self._state[key][typ].keys():
-                    if self._is_sum(self._state[key][typ][objattr]):
-                        sum_res = self._sum_agg(self._state[key][typ][objattr])
+                    if self._is_elem_sum(self._state[key][typ][objattr]):
+                        sume_res = self._elem_sum_agg(self._state[key][typ][objattr])
                         if flat:
                             result[typ][objattr] = \
-                                OpServerUtils.uve_attr_flatten(sum_res)
+                                OpServerUtils.uve_attr_flatten(sume_res)
                         else:
-                            result[typ][objattr] = sum_res
+                            result[typ][objattr] = sume_res
+                    elif self._is_struct_sum(self._state[key][typ][objattr]):
+                        sums_res = self._struct_sum_agg(self._state[key][typ][objattr])
+                        if flat:
+                            result[typ][objattr] = \
+                                OpServerUtils.uve_attr_flatten(sums_res)
+                        else:
+                            result[typ][objattr] = sums_res
                     elif self._is_list_union(self._state[key][typ][objattr]):
                         unionl_res = self._list_union_agg(
                             self._state[key][typ][objattr])

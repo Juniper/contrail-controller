@@ -134,7 +134,7 @@ struct UserDefinedLogStatistic {
     2: optional bool deleted
     3: optional u64 rx_event (hidden="yes")
     /** @display_name:User defined log statistics*/
-    4: optional uint64_t_P_ count (stats="rx_event:DSSum:", tags="")
+    4: optional uint64_t_P_ count (stats="rx_event:DSSum:", tags="", aggtype="sum")
 } (period="60")
 
 /**
