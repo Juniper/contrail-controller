@@ -91,6 +91,13 @@ public:
           sgids(std::vector<int>()),
           communities(std::vector<std::string>()) {
     }
+    RouteAttributes(uint32_t lpref, const std::vector<int> &sg)
+        : local_pref(lpref),
+          med(0),
+          sequence(kDefaultSequence),
+          sgids(sg),
+          communities(std::vector<std::string>()) {
+    }
     RouteAttributes(const std::vector<int> &sg)
         : local_pref(kDefaultLocalPref),
           med(0),
@@ -296,17 +303,23 @@ public:
     class Instance {
     public:
         typedef std::map<std::string, T *> TableMap;
+        typedef std::set<std::string> OriginatedSet;
         Instance();
         virtual ~Instance();
         void Update(long count);
+        void AddOriginated(const std::string &prefix);
+        void DeleteOriginated(const std::string &prefix);
         void Update(const std::string &node, T *entry);
         void Remove(const std::string &node);
         void Clear();
         int Count() const;
         const T *Lookup(const std::string &node) const;
+        const TableMap &table() const { return table_; }
+        const OriginatedSet &originated() const { return originated_; }
     private:
         size_t count_;
         TableMap table_;
+        OriginatedSet originated_;
     };
 
     template <typename T>
@@ -325,8 +338,13 @@ public:
                            bool send_subscribe = true);
             void Unsubscribe(const std::string &network, int id = -1,
                              bool wait_for_established = true,
-                             bool send_unsubscribe = true);
+                             bool send_unsubscribe = true,
+                             bool withdraw_routes = true);
             void Update(const std::string &network, long count);
+            void AddOriginated(const std::string &network,
+                               const std::string &prefix);
+            void DeleteOriginated(const std::string &network,
+                                  const std::string &prefix);
             void Update(const std::string &network,
                         const std::string &node_name, T *rt_entry);
             void Remove(const std::string &network,
@@ -377,8 +395,11 @@ public:
         route_mgr_->Subscribe(network, id, wait_for_established);
     }
     void Unsubscribe(const std::string &network, int id = -1,
-                     bool wait_for_established = true) {
-        route_mgr_->Unsubscribe(network, id, wait_for_established);
+                     bool wait_for_established = true,
+                     bool withdraw_routes = true,
+                     bool send_unsubscribe = true) {
+        route_mgr_->Unsubscribe(network, id, wait_for_established,
+                                send_unsubscribe, withdraw_routes);
     }
 
     int RouteCount(const std::string &network) const;
@@ -414,6 +435,8 @@ public:
                   const NextHops &nexthops, int local_pref = 0);
     void AddRoute(const std::string &network, const std::string &prefix,
                   const NextHops &nexthops, const RouteAttributes &attributes);
+    void AddRoute(const string &network_name, const string &prefix,
+                  const string &nexthop, const RouteAttributes &attributes);
     void DeleteRoute(const std::string &network, const std::string &prefix);
 
     void AddInet6Route(const std::string &network, const std::string &prefix,
@@ -421,6 +444,8 @@ public:
         const RouteAttributes &attributes = RouteAttributes());
     void AddInet6Route(const std::string &network, const std::string &prefix,
         const std::string &nexthop_str, int local_pref = 100, int med = 0);
+    void AddInet6Route(const std::string &network, const std::string &prefix,
+        const std::string &nexthop, const RouteAttributes &attributes);
     void ChangeInet6Route(const std::string &network, const std::string &prefix,
         const NextHops &nexthops = NextHops(),
         const RouteAttributes &attributes = RouteAttributes());
@@ -457,6 +482,9 @@ public:
                       const RouteParams *params = NULL);
     void AddEnetRoute(const std::string &network, const std::string &prefix,
                       const NextHop &nexthop,
+                      const RouteAttributes &attributes);
+    void AddEnetRoute(const std::string &network, const std::string &prefix,
+                      const std::string &nexthop,
                       const RouteAttributes &attributes);
     void AddEnetRoute(const std::string &network, const std::string &prefix,
                       const NextHops &nexthops,

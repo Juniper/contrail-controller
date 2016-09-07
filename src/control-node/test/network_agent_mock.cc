@@ -1024,6 +1024,7 @@ void NetworkAgentMock::AddRoute(const string &network_name,
     xml_document *xdoc =
         impl_->RouteAddXmlDoc(network_name, prefix, nexthops, attributes);
     peer->SendDocument(xdoc);
+    route_mgr_->AddOriginated(network_name, prefix);
 }
 
 void NetworkAgentMock::AddRoute(const string &network_name,
@@ -1035,6 +1036,17 @@ void NetworkAgentMock::AddRoute(const string &network_name,
     xml_document *xdoc =
         impl_->RouteAddXmlDoc(network_name, prefix, nexthops, attributes);
     peer->SendDocument(xdoc);
+    route_mgr_->AddOriginated(network_name, prefix);
+}
+
+void NetworkAgentMock::AddRoute(const string &network_name,
+                                const string &prefix,
+                                const string &nexthop,
+                                const RouteAttributes &attributes) {
+    NextHops nexthops;
+    if (!nexthop.empty())
+        nexthops.push_back(NextHop(nexthop, 0));
+    AddRoute(network_name, prefix, nexthops, attributes);
 }
 
 void NetworkAgentMock::AddRoute(const string &network_name,
@@ -1045,6 +1057,7 @@ void NetworkAgentMock::AddRoute(const string &network_name,
     xml_document *xdoc =
         impl_->RouteAddXmlDoc(network_name, prefix, nexthops, attributes);
     peer->SendDocument(xdoc);
+    route_mgr_->AddOriginated(network_name, prefix);
 }
 
 void NetworkAgentMock::DeleteRoute(const string &network_name,
@@ -1052,6 +1065,16 @@ void NetworkAgentMock::DeleteRoute(const string &network_name,
     AgentPeer *peer = GetAgent();
     xml_document *xdoc = impl_->RouteDeleteXmlDoc(network_name, prefix);
     peer->SendDocument(xdoc);
+    route_mgr_->DeleteOriginated(network_name, prefix);
+}
+
+void NetworkAgentMock::AddInet6Route(const string &network,
+        const string &prefix, const string &nexthop,
+        const RouteAttributes &attributes) {
+    NextHops nexthops;
+    if (!nexthop.empty())
+        nexthops.push_back(NextHop(nexthop, 0));
+    AddInet6Route(network, prefix, nexthops, attributes);
 }
 
 void NetworkAgentMock::AddInet6Route(const string &network,
@@ -1061,6 +1084,7 @@ void NetworkAgentMock::AddInet6Route(const string &network,
     xml_document *xdoc = impl_->Inet6RouteAddXmlDoc(network, prefix,
                                                     nexthops, attributes);
     peer->SendDocument(xdoc);
+    inet6_route_mgr_->AddOriginated(network, prefix);
 }
 
 void NetworkAgentMock::AddInet6Route(const string &network,
@@ -1089,6 +1113,7 @@ void NetworkAgentMock::DeleteInet6Route(const string &network,
     AgentPeer *peer = GetAgent();
     xml_document *xdoc = impl_->Inet6RouteDeleteXmlDoc(network, prefix);
     peer->SendDocument(xdoc);
+    inet6_route_mgr_->DeleteOriginated(network, prefix);
 }
 
 void NetworkAgentMock::AddBogusInet6Route(const string &network,
@@ -1100,6 +1125,7 @@ void NetworkAgentMock::AddBogusInet6Route(const string &network,
     xml_document *xdoc = impl_->Inet6RouteAddBogusXmlDoc(network, prefix,
                                                          nexthops, error_type);
     peer->SendDocument(xdoc);
+    inet6_route_mgr_->AddOriginated(network, prefix);
 }
 
 void NetworkAgentMock::AddEnetRoute(const string &network_name,
@@ -1130,6 +1156,17 @@ void NetworkAgentMock::AddEnetRoute(const string &network_name,
     xml_document *xdoc =
         impl_->RouteEnetAddXmlDoc(network_name, prefix, nexthops, attributes);
     peer->SendDocument(xdoc);
+    enet_route_mgr_->AddOriginated(network_name, prefix);
+}
+
+void NetworkAgentMock::AddEnetRoute(const string &network_name,
+        const string &prefix, const string &nexthop,
+        const RouteAttributes &attributes) {
+    NextHops nexthops;
+
+    if (!nexthop.empty())
+        nexthops.push_back(NextHop(nexthop, 0));
+    AddEnetRoute(network_name, prefix, nexthops, attributes);
 }
 
 void NetworkAgentMock::AddEnetRoute(const string &network_name,
@@ -1147,6 +1184,7 @@ void NetworkAgentMock::AddEnetRoute(const string &network_name,
     xml_document *xdoc =
         impl_->RouteEnetAddXmlDoc(network_name, prefix, nexthops, attributes);
     peer->SendDocument(xdoc);
+    enet_route_mgr_->AddOriginated(network_name, prefix);
 }
 
 void NetworkAgentMock::DeleteEnetRoute(const string &network_name,
@@ -1155,6 +1193,7 @@ void NetworkAgentMock::DeleteEnetRoute(const string &network_name,
     xml_document *xdoc =
         impl_->RouteEnetDeleteXmlDoc(network_name, prefix);
     peer->SendDocument(xdoc);
+    enet_route_mgr_->DeleteOriginated(network_name, prefix);
 }
 
 void NetworkAgentMock::AddMcastRoute(const string &network_name,
@@ -1166,6 +1205,7 @@ void NetworkAgentMock::AddMcastRoute(const string &network_name,
     xml_document *xdoc = impl_->RouteMcastAddXmlDoc(
             network_name, sg, nexthop, label_range, encap);
     peer->SendDocument(xdoc);
+    enet_route_mgr_->AddOriginated(network_name, sg);
 }
 
 void NetworkAgentMock::DeleteMcastRoute(const string &network_name,
@@ -1173,6 +1213,7 @@ void NetworkAgentMock::DeleteMcastRoute(const string &network_name,
     AgentPeer *peer = GetAgent();
     xml_document *xdoc = impl_->RouteMcastDeleteXmlDoc(network_name, sg);
     peer->SendDocument(xdoc);
+    enet_route_mgr_->DeleteOriginated(network_name, sg);
 }
 
 template<typename T>
@@ -1188,6 +1229,18 @@ NetworkAgentMock::Instance<T>::~Instance() {
 template<typename T>
 void NetworkAgentMock::Instance<T>::Update(long count) {
     count_ += count;
+}
+
+template<typename T>
+void NetworkAgentMock::Instance<T>::AddOriginated(
+        const std::string &prefix) {
+    originated_.insert(prefix);
+}
+
+template<typename T>
+void NetworkAgentMock::Instance<T>::DeleteOriginated(
+        const std::string &prefix) {
+    originated_.erase(prefix);
 }
 
 template<typename T>
@@ -1217,6 +1270,7 @@ template<typename T>
 void NetworkAgentMock::Instance<T>::Clear() {
     count_ = 0;
     STLDeleteElements(&table_);
+    originated_.clear();
 }
 
 template<typename T>
@@ -1278,7 +1332,8 @@ template<typename T>
 void NetworkAgentMock::InstanceMgr<T>::Unsubscribe(const std::string &network,
                                                    int id,
                                                    bool wait_for_established,
-                                                   bool send_unsubscribe) {
+                                                   bool send_unsubscribe,
+                                                   bool withdraw_routes) {
     if (wait_for_established) {
         TASK_UTIL_EXPECT_EQ_MSG(true, parent_->IsEstablished(),
                                 "Waiting for agent " << parent_->ToString() <<
@@ -1286,6 +1341,7 @@ void NetworkAgentMock::InstanceMgr<T>::Unsubscribe(const std::string &network,
     }
 
     tbb::mutex::scoped_lock lock(parent_->get_mutex());
+    AgentPeer *peer = parent_->GetAgent();
 
     //
     // Delete all entries locally, as we do not get an route
@@ -1293,22 +1349,66 @@ void NetworkAgentMock::InstanceMgr<T>::Unsubscribe(const std::string &network,
     //
     Instance<T> *rti;
     typename InstanceMap::iterator loc = instance_map_.find(network);
-    if (loc != instance_map_.end()) {
-        rti = loc->second;
-        rti->Clear();
-        instance_map_.erase(loc);
-        delete rti;
+    if (loc == instance_map_.end()) {
+        peer->SendDocument(parent_->GetXmlHandler()->UnsubscribeXmlDoc(network,
+                                                                       id,
+                                                                       type_));
+        return;
     }
 
-    if (!send_unsubscribe)
-        return;
+    rti = loc->second;
 
-    pugi::xml_document *xdoc;
-    xdoc = parent_->GetXmlHandler()->UnsubscribeXmlDoc(network, id, type_);
+    // Withdraw all entries before sending unsubscribe.
+    if (withdraw_routes) {
+        typename NetworkAgentMock::Instance<T>::OriginatedSet::const_iterator
+            iter = rti->originated().begin();
+        while (iter != rti->originated().end()) {
+            xml_document *xdoc =
+                parent_->impl_->RouteDeleteXmlDoc(network, *iter);
+            peer->SendDocument(xdoc);
+            iter++;
+        }
+    }
 
-    AgentPeer *peer = parent_->GetAgent();
-    assert(peer != NULL);
-    peer->SendDocument(xdoc);
+    if (send_unsubscribe) {
+        pugi::xml_document *xdoc;
+        xdoc = parent_->GetXmlHandler()->UnsubscribeXmlDoc(network, id, type_);
+
+        assert(peer != NULL);
+        peer->SendDocument(xdoc);
+    }
+
+    rti->Clear();
+    instance_map_.erase(loc);
+    delete rti;
+}
+
+template<typename T>
+void NetworkAgentMock::InstanceMgr<T>::DeleteOriginated(
+        const std::string &network, const std::string &prefix) {
+    Instance<T> *rti;
+    typename InstanceMgr<T>::InstanceMap::iterator loc;
+
+    loc = instance_map_.find(network);
+
+    if (loc != instance_map_.end()) {
+        rti = loc->second;
+        rti->DeleteOriginated(prefix);
+    }
+}
+
+template<typename T>
+void NetworkAgentMock::InstanceMgr<T>::AddOriginated(
+        const std::string &network, const std::string &prefix) {
+    Instance<T> *rti;
+    typename InstanceMgr<T>::InstanceMap::iterator loc;
+
+    loc = instance_map_.find(network);
+
+    if (loc != instance_map_.end()) {
+        rti = loc->second;
+        rti->AddOriginated(prefix);
+    }
 }
 
 template<typename T>
@@ -1410,6 +1510,8 @@ const T *NetworkAgentMock::InstanceMgr<T>::Lookup(const std::string &network,
 template NetworkAgentMock::Instance<T>::Instance(); \
 template NetworkAgentMock::Instance<T>::~Instance(); \
 template void NetworkAgentMock::Instance<T>::Update(long count); \
+template void NetworkAgentMock::Instance<T>::AddOriginated(const std::string &prefix); \
+template void NetworkAgentMock::Instance<T>::DeleteOriginated(const std::string &prefix); \
 template void NetworkAgentMock::Instance<T>::Update(const std::string &node, \
                                                     T *entry); \
 template void NetworkAgentMock::Instance<T>::Remove(const std::string &node); \
@@ -1419,7 +1521,10 @@ template const T *NetworkAgentMock::Instance<T>::Lookup(const std::string &node)
  \
 template void NetworkAgentMock::InstanceMgr<T>::Subscribe(const std::string &network, int id, bool wait_for_established, bool send_subscribe); \
 template bool NetworkAgentMock::InstanceMgr<T>::HasSubscribed(const std::string &network); \
-template void NetworkAgentMock::InstanceMgr<T>::Unsubscribe(const std::string &network, int id, bool wait_for_established, bool send_unsubscribe); \
+template void NetworkAgentMock::InstanceMgr<T>::Unsubscribe(const std::string &network, int id, \
+        bool wait_for_established, bool withdraw_routes, bool send_unsubscribe); \
+template void NetworkAgentMock::InstanceMgr<T>::AddOriginated(const std::string &network, const std::string &prefix); \
+template void NetworkAgentMock::InstanceMgr<T>::DeleteOriginated(const std::string &network, const std::string &prefix); \
 template void NetworkAgentMock::InstanceMgr<T>::Update(const std::string &network, long count); \
 template void NetworkAgentMock::InstanceMgr<T>::Remove(const std::string &network, const std::string &node_name); \
 template int NetworkAgentMock::InstanceMgr<T>::Count(const std::string &network) const; \
