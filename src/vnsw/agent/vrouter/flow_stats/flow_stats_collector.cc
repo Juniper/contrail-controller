@@ -35,6 +35,7 @@
 #include <vrouter/ksync/ksync_init.h>
 #include <vrouter/flow_stats/flow_stats_types.h>
 
+bool flow_ageing_debug_ = false;
 FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
                                        uint32_t flow_cache_timeout,
                                        AgentUveBase *uve,
@@ -51,6 +52,7 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
         flow_iteration_key_(NULL),
         entries_to_visit_(0),
         flow_tcp_syn_age_time_(FlowTcpSynAgeTime),
+        retry_delete_(true),
         request_queue_(agent_uve_->agent()->task_scheduler()->
                        GetTaskId(kTaskFlowStatsCollector),
                        instance_id,
@@ -58,7 +60,8 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
                                    this, _1)),
         msg_list_(kMaxFlowMsgsPerSend, FlowLogData()), msg_index_(0),
         flow_aging_key_(*key), instance_id_(instance_id),
-        flow_stats_manager_(aging_module), ageing_task_(NULL) {
+        flow_stats_manager_(aging_module), ageing_task_(NULL),
+        current_time_(GetCurrentTime()), ageing_task_starts_(0) {
         if (flow_cache_timeout) {
             // Convert to usec
             flow_age_time_intvl_ = 1000000L * (uint64_t)flow_cache_timeout;
@@ -69,6 +72,10 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
         request_queue_.set_name("Flow stats collector");
         request_queue_.set_measure_busy_time
             (agent_uve_->agent()->MeasureQueueDelay());
+        request_queue_.SetEntryCallback
+            (boost::bind(&FlowStatsCollector::RequestHandlerEntry, this));
+        request_queue_.SetExitCallback
+            (boost::bind(&FlowStatsCollector::RequestHandlerExit, this, _1));
         // Aging timer fires every kFlowStatsTimerInterval msec. Compute
         // number of timer fires needed to scan complete table
         timers_per_scan_ = TimersPerScan();
@@ -122,7 +129,8 @@ uint32_t FlowStatsCollector::TimersPerScan() {
 // A lower-bound and an upper-bound are enforced on entries_to_visit_
 void FlowStatsCollector::UpdateEntriesToVisit() {
     // Compute number of flows to visit per scan-time
-    uint32_t entries = flow_tree_.size() / timers_per_scan_;
+    uint32_t count = flow_export_info_list_.size();
+    uint32_t entries = count / timers_per_scan_;
 
     // Update number of entries to visit in flow.
     // The scan for previous timer may still be in progress. So, accmulate
@@ -130,8 +138,8 @@ void FlowStatsCollector::UpdateEntriesToVisit() {
     entries_to_visit_ += entries;
 
     // Cap number of entries to visit to 25% of table
-    if (entries_to_visit_ > ((flow_tree_.size() * kFlowScanTime)/100))
-        entries_to_visit_ = (flow_tree_.size() * kFlowScanTime)/100;
+    if (entries_to_visit_ > ((count * kFlowScanTime)/100))
+        entries_to_visit_ = (count * kFlowScanTime)/100;
 
     // Apply lower-limit
     if (entries_to_visit_ < kMinFlowsPerTimer)
@@ -302,11 +310,11 @@ void FlowStatsCollector::UpdateInterVnStats(FlowExportInfo *info,
 void FlowStatsCollector::UpdateStatsAndExportFlow(FlowExportInfo *info,
                                                   uint64_t teardown_time,
                                                   const RevFlowDepParams *p) {
-    KSyncFlowMemory *ksync_obj = agent_uve_->agent()->ksync()->
-                                         ksync_flow_memory();
     if (!info) {
         return;
     }
+    KSyncFlowMemory *ksync_obj = agent_uve_->agent()->ksync()->
+                                         ksync_flow_memory();
     FlowEntry *fe = info->flow();
     const vr_flow_entry *k_flow = ksync_obj->GetValidKFlowEntry(fe->key(),
                                                             fe->flow_handle(),
@@ -325,6 +333,7 @@ void FlowStatsCollector::UpdateStatsAndExportFlow(FlowExportInfo *info,
 }
 
 void FlowStatsCollector::FlowDeleteEnqueue(FlowExportInfo *info, uint64_t t) {
+    flows_aged_++;
     FlowEntry *fe = info->flow();
     agent_uve_->agent()->pkt()->get_flow_proto()->DeleteFlowRequest(fe);
     info->set_delete_enqueue_time(t);
@@ -340,6 +349,7 @@ void FlowStatsCollector::FlowDeleteEnqueue(FlowExportInfo *info, uint64_t t) {
 void FlowStatsCollector::FlowEvictEnqueue(FlowExportInfo *info, uint64_t t,
                                           uint32_t flow_handle,
                                           uint16_t gen_id) {
+    flows_evicted_++;
     FlowEntry *fe = info->flow();
     agent_uve_->agent()->pkt()->get_flow_proto()->EvictFlowRequest
         (fe, flow_handle, gen_id, (gen_id + 1));
@@ -406,145 +416,220 @@ void FlowStatsCollector::UpdateAndExportInternal(FlowExportInfo *info,
     ExportFlow(info, diff_bytes, diff_pkts, p);
 }
 
-// Scan for max_count entries in flow-table
-uint32_t FlowStatsCollector::RunAgeing(uint32_t max_count) {
-    FlowEntryTree::iterator it = flow_tree_.lower_bound(flow_iteration_key_);
-    if (it == flow_tree_.end()) {
-        it = flow_tree_.begin();
-    }
-    KSyncFlowMemory *ksync_obj = agent_uve_->agent()->ksync()->
-                                         ksync_flow_memory();
-    uint32_t count = 0;
-    uint64_t curr_time = GetCurrentTime();
-    while (it != flow_tree_.end() && count < max_count) {
-        FlowExportInfo *info = NULL;
-        info = &it->second;
-        FlowEntry *fe = info->flow();
-        FlowEntry *rfe = info->reverse_flow();
-        uint32_t flow_handle;
-        uint16_t gen_id;
-        {
-            FlowEntry *rflow = NULL;
-            FLOW_LOCK(fe, rflow, FlowEvent::FLOW_MESSAGE);
-            // since flow processing and stats collector can run in parallel
-            // flow handle and gen id not being the key for flow entry can
-            // change while processing, so flow handle and gen id should be
-            // fetched by holding an lock and should not be re-fetched again
-            // during the entry processing
-            flow_handle = fe->flow_handle();
-            gen_id = fe->gen_id();
-        }
-        it++;
+// Check if flow needs to be evicted
+bool FlowStatsCollector::EvictFlow(KSyncFlowMemory *ksync_obj,
+                                   const vr_flow_entry *k_flow,
+                                   uint32_t flow_handle, uint16_t gen_id,
+                                   FlowExportInfo *info, uint64_t curr_time) {
+    FlowEntry *fe = info->flow();
 
-        // if we come across deleted entry, retry flow deletion after some time
-        // duplicate delete will be suppressed in flow_table
-        uint64_t delete_time = info->delete_enqueue_time();
-        if (delete_time) {
-            if ((curr_time - delete_time) > kFlowDeleteRetryTime) {
-                FlowDeleteEnqueue(info, curr_time);
-                count++;
-            }
-            continue;
-        }
+    if ((fe->key().protocol != IPPROTO_TCP))
+        return false;
 
-        count++;
-        const vr_flow_entry *k_flow = ksync_obj->GetValidKFlowEntry
-            (fe->key(), flow_handle, gen_id);
+    if (ksync_obj->IsEvictionMarked(k_flow) == false)
+        return false;
 
-        if ((fe->key().protocol == IPPROTO_TCP) &&
-            ksync_obj->IsEvictionMarked(k_flow)) {
-            uint64_t evict_time = info->evict_enqueue_time();
-            if (evict_time) {
-                if ((curr_time - evict_time) > kFlowDeleteRetryTime) {
-                    FlowEvictEnqueue(info, curr_time, flow_handle, gen_id);
-                }
-                continue;
-            }
+    // Flow evict already enqueued? Re-Enqueue request after retry-time
+    uint64_t evict_time = info->evict_enqueue_time();
+    if (evict_time) {
+        if ((curr_time - evict_time) > kFlowDeleteRetryTime) {
             FlowEvictEnqueue(info, curr_time, flow_handle, gen_id);
-            continue;
         }
+    } else {
+        FlowEvictEnqueue(info, curr_time, flow_handle, gen_id);
+    }
 
-        FlowExportInfo *rev_info = NULL;
-        // Delete short flows
-        if ((flow_stats_manager_->delete_short_flow() == true) &&
-            fe->is_flags_set(FlowEntry::ShortFlow)) {
-            rev_info = FindFlowExportInfo(rfe);
+    return true;
+}
+
+bool FlowStatsCollector::AgeFlow(KSyncFlowMemory *ksync_obj,
+                                 const vr_flow_entry *k_flow,
+                                 FlowExportInfo *info, uint64_t curr_time) {
+    FlowEntry *fe = info->flow();
+    FlowEntry *rfe = info->reverse_flow();
+
+    // if we come across deleted entry, retry flow deletion after some time
+    // duplicate delete will be suppressed in flow_table
+    uint64_t delete_time = info->delete_enqueue_time();
+    if (delete_time) {
+        if ((curr_time - delete_time) > kFlowDeleteRetryTime) {
             FlowDeleteEnqueue(info, curr_time);
-            if (rev_info) {
-                count++;
-            }
-            continue;
         }
+        return true;
+    }
 
-        bool deleted = false;
-        // Can the flow be aged?
-        if (ShouldBeAged(info, k_flow, curr_time)) {
-            rev_info = FindFlowExportInfo(rfe);
-            // ShouldBeAged looks at one flow only. So, check for both forward and
-            // reverse flows
-            if (rev_info) {
-                const vr_flow_entry *k_flow_rev;
-                k_flow_rev = ksync_obj->GetValidKFlowEntry
-                    (rfe->key(), rfe->flow_handle(), rfe->gen_id());
-                if (ShouldBeAged(rev_info, k_flow_rev, curr_time)) {
-                    deleted = true;
-                }
-            } else {
+    // Delete short flows
+    if ((flow_stats_manager_->delete_short_flow() == true) &&
+        fe->is_flags_set(FlowEntry::ShortFlow)) {
+        FlowDeleteEnqueue(info, curr_time);
+        return true;
+    }
+
+    bool deleted = false;
+    FlowExportInfo *rev_info = NULL;
+    // Can the flow be aged?
+    if (ShouldBeAged(info, k_flow, curr_time)) {
+        rev_info = FindFlowExportInfo(rfe);
+        // ShouldBeAged looks at one flow only. So, check for both forward and
+        // reverse flows
+        if (rev_info) {
+            const vr_flow_entry *k_flow_rev;
+            k_flow_rev = ksync_obj->GetValidKFlowEntry
+                (rfe->key(), rfe->flow_handle(), rfe->gen_id());
+            if (ShouldBeAged(rev_info, k_flow_rev, curr_time)) {
                 deleted = true;
             }
+        } else {
+            deleted = true;
         }
+    }
 
-        if (deleted == true) {
-            FlowDeleteEnqueue(info, curr_time);
-            // We delete both forward and reverse flows. So, account for
-            // reverse flow also
-            if (rev_info) {
-                count++;
+    if (deleted == true) {
+        FlowDeleteEnqueue(info, curr_time);
+    }
+
+    // Update stats for flows not being deleted
+    // Stats for deleted flow are updated when we get DELETE message
+    if (deleted == false && k_flow) {
+        uint64_t k_bytes, bytes;
+        /* Copy full stats in one shot and use local copy instead of reading
+         * individual stats from shared memory directly to minimize the
+         * inconsistency */
+        struct vr_flow_stats fe_stats = k_flow->fe_stats;
+
+        k_bytes = GetFlowStats(fe_stats.flow_bytes_oflow,
+                               fe_stats.flow_bytes);
+        bytes = 0x0000ffffffffffffULL & info->bytes();
+        /* Always copy udp source port even though vrouter does not change
+         * it. Vrouter many change this behavior and recompute source port
+         * whenever flow action changes. To keep agent independent of this,
+         * always copy UDP source port */
+        info->set_underlay_source_port(k_flow->fe_udp_src_port);
+        info->set_tcp_flags(k_flow->fe_tcp_flags);
+        /* Don't account for agent overflow bits while comparing change in
+         * stats */
+        if (bytes != k_bytes) {
+            UpdateAndExportInternalLocked(info,
+                                          fe_stats.flow_bytes,
+                                          fe_stats.flow_bytes_oflow,
+                                          fe_stats.flow_packets,
+                                          fe_stats.flow_packets_oflow,
+                                          curr_time, false, NULL);
+        } else if (info->changed()) {
+            /* export flow (reverse) for which traffic is not seen yet. */
+            ExportFlowLocked(info, 0, 0, NULL);
+        }
+    }
+    return deleted;
+}
+
+// Check if a flow is to be aged or evicted. Returns number of flows visited
+uint32_t FlowStatsCollector::ProcessFlow(FlowExportInfoList::iterator &it,
+                                         KSyncFlowMemory *ksync_obj,
+                                         FlowExportInfo *info,
+                                         uint64_t curr_time) {
+    uint32_t count = 1;
+    FlowEntry *fe = info->flow();
+    uint32_t flow_handle;
+    uint16_t gen_id;
+    {
+        FlowEntry *rflow = NULL;
+        FLOW_LOCK(fe, rflow, FlowEvent::FLOW_MESSAGE);
+        // since flow processing and stats collector can run in parallel
+        // flow handle and gen id not being the key for flow entry can
+        // change while processing, so flow handle and gen id should be
+        // fetched by holding an lock and should not be re-fetched again
+        // during the entry processing
+        flow_handle = fe->flow_handle();
+        gen_id = fe->gen_id();
+    }
+    const vr_flow_entry *k_flow = ksync_obj->GetValidKFlowEntry
+        (fe->key(), flow_handle, gen_id);
+
+    // Flow evicted?
+    if (EvictFlow(ksync_obj, k_flow, flow_handle, gen_id, info,
+                  curr_time) == true) {
+        // If retry_delete_ enabled, dont change flow_export_info_list_
+        if (retry_delete_ == true)
+            return count;
+
+        // We dont want to retry delete-events, remove flow from ageing list
+        assert(info->is_linked());
+        FlowExportInfoList::iterator flow_it =
+            flow_export_info_list_.iterator_to(*info);
+        flow_export_info_list_.erase(flow_it);
+
+        return count;
+    }
+
+    // Flow aged?
+    if (AgeFlow(ksync_obj, k_flow, info, curr_time) == false)
+        return count;
+
+    // If retry_delete_ enabled, dont change flow_export_info_list_
+    if (retry_delete_ == false)
+        return count;
+
+    // Flow aged, remove both forward and reverse flow
+    assert(info->is_linked());
+    FlowExportInfoList::iterator flow_it =
+        flow_export_info_list_.iterator_to(*info);
+    flow_export_info_list_.erase(flow_it);
+
+    FlowEntry *rfe = info->reverse_flow();
+    FlowExportInfo *rev_info = FindFlowExportInfo(rfe);
+    if (rev_info) {
+        if (rev_info->is_linked()) {
+            FlowExportInfoList::iterator rev_flow_it =
+                flow_export_info_list_.iterator_to(*rev_info);
+            if (rev_flow_it == it) {
+                it++;
             }
+            flow_export_info_list_.erase(rev_flow_it);
+        }
+        count++;
+    }
+    return count;
+}
+
+uint32_t FlowStatsCollector::RunAgeing(uint32_t max_count) {
+    FlowExportInfoList::iterator it;
+    if (flow_iteration_key_ == NULL) {
+        it = flow_export_info_list_.begin();
+    } else {
+        FlowEntryTree::iterator tree_it = flow_tree_.find(flow_iteration_key_);
+        // Flow to iterate next is not found. Force stop this iteration.
+        // We will continue from begining on next timer
+        if (tree_it == flow_tree_.end()) {
+            flow_iteration_key_ = NULL;
+            return entries_to_visit_;
+        }
+        it = flow_export_info_list_.iterator_to(tree_it->second);
+    }
+
+    KSyncFlowMemory *ksync_obj = agent_uve_->agent()->ksync()->
+        ksync_flow_memory();
+    uint64_t curr_time = GetCurrentTime();
+    uint32_t count = 0;
+    while (count < max_count) {
+        if (it == flow_export_info_list_.end()) {
+            break;
         }
 
-        // Update stats for flows not being deleted
-        // Stats for deleted flow are updated when we get DELETE message
-        if (deleted == false && k_flow) {
-            uint64_t k_bytes, bytes;
-            /* Copy full stats in one shot and use local copy instead of reading
-             * individual stats from shared memory directly to minimize the
-             * inconsistency */
-            struct vr_flow_stats fe_stats = k_flow->fe_stats;
-
-            k_bytes = GetFlowStats(fe_stats.flow_bytes_oflow,
-                                   fe_stats.flow_bytes);
-            bytes = 0x0000ffffffffffffULL & info->bytes();
-            /* Always copy udp source port even though vrouter does not change
-             * it. Vrouter many change this behavior and recompute source port
-             * whenever flow action changes. To keep agent independent of this,
-             * always copy UDP source port */
-            info->set_underlay_source_port(k_flow->fe_udp_src_port);
-            info->set_tcp_flags(k_flow->fe_tcp_flags);
-            /* Don't account for agent overflow bits while comparing change in
-             * stats */
-            if (bytes != k_bytes) {
-                UpdateAndExportInternalLocked(info,
-                                        fe_stats.flow_bytes,
-                                        fe_stats.flow_bytes_oflow,
-                                        fe_stats.flow_packets,
-                                        fe_stats.flow_packets_oflow,
-                                        curr_time, false, NULL);
-            } else if (info->changed()) {
-                /* export flow (reverse) for which traffic is not seen yet. */
-                ExportFlowLocked(info, 0, 0, NULL);
-            }
-        }
+        FlowExportInfo *info = &(*it);
+        it++;
+        flows_visited_++;
+        count += ProcessFlow(it, ksync_obj, info, curr_time);
     }
 
     //Send any pending flow export messages
     DispatchPendingFlowMsg();
 
     // Update iterator for next pass
-    if (it == flow_tree_.end()) {
+    if (it == flow_export_info_list_.end()) {
         flow_iteration_key_ = NULL;
     } else {
-        flow_iteration_key_ = it->first;
+        flow_iteration_key_ = it->flow();
     }
 
     return count;
@@ -562,13 +647,28 @@ bool FlowStatsCollector::Run() {
 
     // Start task to scan the entries
     if (ageing_task_ == NULL) {
+        ageing_task_starts_++;
+
+        if (flow_ageing_debug_) {
+            LOG(DEBUG,
+                UTCUsecToString(ClockMonotonicUsec())
+                << " AgeingTasks Num " << ageing_task_starts_
+                << " Request count " << request_queue_.Length()
+                << " Tree size " << flow_tree_.size()
+                << " List size " << flow_export_info_list_.size()
+                << " flows visited " << flows_visited_
+                << " flows aged " << flows_aged_
+                << " flows evicted " << flows_evicted_);
+        }
+        flows_visited_ = 0;
+        flows_aged_ = 0;
+        flows_evicted_ = 0;
         ageing_task_ = new AgeingTask(this);
         agent_uve_->agent()->task_scheduler()->Enqueue(ageing_task_);
     }
     return true;
 }
   
-// Called on runnig of a task
 bool FlowStatsCollector::RunAgeingTask() {
     // Run ageing per task
     uint32_t count = RunAgeing(kFlowsPerTask);
@@ -1004,6 +1104,21 @@ uint32_t FlowStatsCollector::flow_export_count() const {
     return flow_stats_manager_->flow_export_count();
 }
 
+bool FlowStatsCollector::RequestHandlerEntry() {
+    current_time_ = GetCurrentTime();
+    return true;
+}
+
+/*
+ * The DELETE_FLOW processing would have enqueued FlowLog messages. However,
+ * if we have not hit max messages to be sent, it will not dispatch. Invoke
+ * DispatchPendingFlowMsg to send pending messages from
+ * FlowStatsCollector::RequestHandler
+ */
+void FlowStatsCollector::RequestHandlerExit(bool done) {
+    DispatchPendingFlowMsg();
+}
+
 bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
     const FlowExportInfo &info = req->info();
     FlowEntry *flow = info.flow();
@@ -1017,39 +1132,29 @@ bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
     }
 
     case FlowExportReq::DELETE_FLOW: {
+        FlowEntryTree::iterator it;
+        // Get the FlowExportInfo for flow
+        if (FindFlowExportInfo(flow, it) == false)
+            break;
+
         /* We don't export flows in TSN mode */
         if (agent_uve_->agent()->tsn_enabled() == false) {
-            /* Fetch the update stats and export the flow with teardown_time */
-            FlowExportInfo *info = FindFlowExportInfo(flow);
-            if (!info) {
-                break;
-            }
+            FlowExportInfo *info = &it->second;
             /* While updating stats for evicted flows, we set the teardown_time
              * and export the flow. So delete handling for evicted flows need
              * not update stats and export flow */
-            RevFlowDepParams params = req->params();
             if (!info->teardown_time()) {
-                UpdateStatsAndExportFlow(info, req->time(), &params);
+                UpdateStatsAndExportFlow(info, req->time(), &req->params());
             }
-            /* ExportFlow will enqueue FlowLog message for send. If we have not
-             * hit max messages to be sent, it will not dispatch. Invoke
-             * DispatchPendingFlowMsg to send any enqueued messages in the queue
-             * even if we don't have max messages to be sent */
-            DispatchPendingFlowMsg();
         }
         /* Remove the entry from our tree */
-        DeleteFlow(flow);
+        DeleteFlow(it);
         break;
     }
 
     case FlowExportReq::UPDATE_FLOW_STATS: {
         EvictedFlowStatsUpdate(flow, req->bytes(), req->packets(),
                                req->oflow_bytes());
-        /* ExportFlow will enqueue FlowLog message for send. If we have not hit
-         * max messages to be sent, it will not dispatch. Invoke
-         * DispatchPendingFlowMsg to send any enqueued messages in the queue
-         * even if we don't have max messages to be sent */
-        DispatchPendingFlowMsg();
         break;
     }
 
@@ -1085,9 +1190,16 @@ FlowStatsCollector::FindFlowExportInfo(const FlowEntry *fe) const {
     return &it->second;
 }
 
+bool FlowStatsCollector::FindFlowExportInfo(const FlowEntry *fe,
+                                            FlowEntryTree::iterator &it) {
+    it = flow_tree_.find(fe);
+    if (it == flow_tree_.end()) {
+        return false;
+    }
+    return true;
+}
 
-void FlowStatsCollector::NewFlow(const FlowExportInfo &info) {
-    FlowEntry *flow = info.flow();
+void FlowStatsCollector::NewFlow(FlowEntry *flow) {
     const FlowKey &key = flow->key();
     uint8_t proto = key.protocol;
     uint16_t sport = key.src_port;
@@ -1120,23 +1232,68 @@ void FlowStatsCollector::NewFlow(const FlowExportInfo &info) {
 }
 
 void FlowStatsCollector::AddFlow(FlowExportInfo info) {
-    FlowEntryTree::iterator it = flow_tree_.find(info.flow());
-    if (it != flow_tree_.end()) {
-        it->second.set_changed(true);
-        it->second.set_delete_enqueue_time(0);
-        it->second.set_evict_enqueue_time(0);
+    std::pair<FlowEntryTree::iterator, bool> ret =
+        flow_tree_.insert(make_pair(info.flow(), info));
+    if (ret.second == false) {
+        ret.first->second.set_changed(true);
+        ret.first->second.set_delete_enqueue_time(0);
+        ret.first->second.set_evict_enqueue_time(0);
         return;
     }
 
-    /* Invoke NewFlow only if the entry is not present in our tree */
-    NewFlow(info);
-    flow_tree_.insert(make_pair(info.flow(), info));
+    NewFlow(info.flow());
+    if (ret.first->second.is_linked() == false) {
+        flow_export_info_list_.push_back(ret.first->second);
+    }
 }
 
-void FlowStatsCollector::DeleteFlow(const FlowEntryPtr &flow) {
-    FlowEntryTree::iterator it = flow_tree_.find(flow.get());
+// The flow being deleted may be the first flow to visit in next ageing
+// iteration. Update the flow to visit next in such case
+void FlowStatsCollector::UpdateFlowIterationKey
+(const FlowEntry *del_flow, FlowEntryTree::iterator &tree_it) {
+    // Flow not found in tree is not a valid scenario. Lets be safe and
+    // restart walk here
+    if (tree_it == flow_tree_.end()) {
+        flow_iteration_key_ = NULL;
+    }
+
+    if (flow_iteration_key_ == NULL) {
+        return;
+    }
+
+    // The flow to visit next for ageing is being deleted. Update next flow to
+    // visit
+    FlowExportInfoList::iterator it =
+        flow_export_info_list_.iterator_to(tree_it->second);
+    ++it;
+
+    // If this is end of list, start from begining again
+    if (it == flow_export_info_list_.end())
+        it = flow_export_info_list_.begin();
+
+    if (it == flow_export_info_list_.end()) {
+        flow_iteration_key_ = NULL;
+    } else {
+        flow_iteration_key_ = it->flow();
+    }
+}
+
+void FlowStatsCollector::DeleteFlow(FlowEntryTree::iterator &it) {
+    // Update flow_iteration_key_ if flow being deleted is flow to visit in
+    // next ageing cycle
+    // Nothing to do if flow being deleted is not the next-iteration key
+    if (it->first == flow_iteration_key_) {
+        UpdateFlowIterationKey(it->first, it);
+    }
+
     if (it == flow_tree_.end())
         return;
+
+    if (it->second.is_linked()) {
+        FlowExportInfoList::iterator it1 =
+            flow_export_info_list_.iterator_to(it->second);
+        flow_export_info_list_.erase(it1);
+    }
 
     flow_tree_.erase(it);
 }

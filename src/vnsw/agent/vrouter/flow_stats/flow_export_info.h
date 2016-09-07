@@ -7,7 +7,7 @@
 #include <pkt/flow_entry.h>
 #include <filter/acl.h>
 
-class FlowExportInfo {
+class FlowExportInfo : public boost::intrusive::list_base_hook<> {
 public:
     FlowExportInfo();
     FlowExportInfo(const FlowEntryPtr &fe, uint64_t setup_time);
@@ -54,6 +54,9 @@ public:
     uint64_t delete_enqueue_time() const { return delete_enqueue_time_; }
     void set_evict_enqueue_time(uint64_t value) { evict_enqueue_time_ = value; }
     uint64_t evict_enqueue_time() const { return evict_enqueue_time_; }
+
+    uint64_t visit_time() const { return visit_time_; }
+    void set_visit_time(uint64_t t) { visit_time_ = t; }
 private:
     FlowEntryPtr flow_;
     uint64_t setup_time_;
@@ -76,7 +79,9 @@ private:
     uint16_t tcp_flags_;
     uint64_t delete_enqueue_time_;
     uint64_t evict_enqueue_time_;
+    uint64_t visit_time_;
     bool exported_atleast_once_;
 };
 
+typedef boost::intrusive::list<FlowExportInfo> FlowExportInfoList;
 #endif //  __AGENT_FLOW_EXPORT_INFO_H__

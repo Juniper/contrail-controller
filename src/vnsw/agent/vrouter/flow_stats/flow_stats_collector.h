@@ -5,6 +5,7 @@
 #ifndef vnsw_agent_flow_stats_collector_h
 #define vnsw_agent_flow_stats_collector_h
 
+#include <boost/static_assert.hpp>
 #include <pkt/flow_table.h>
 #include <pkt/flow_mgmt_request.h>
 #include <cmn/agent_cmn.h>
@@ -45,6 +46,11 @@ class FlowStatsManager;
 //
 // On every visit of flow, check if flow is idle for configured ageing time and
 // delete the idle flows
+//
+// The flow_tree_ maintains flows sorted on flow pointer. This tree cannot be
+// used to scan flows for ageing since entries can be added/deleted between
+// ageing tasks. Alternatively, another list is maintained in the sequence
+// flows are added to flow ageing module.
 class FlowStatsCollector : public StatsCollector {
 public:
     // Default ageing time
@@ -58,7 +64,7 @@ public:
     // Flog ageing timer interval in milliseconds
     static const uint32_t kFlowStatsTimerInterval = 100;
     // Minimum flows to visit per interval
-    static const uint32_t kMinFlowsPerTimer = 4000;
+    static const uint32_t kMinFlowsPerTimer = 3000;
     // Number of flows to visit per task
     static const uint32_t kFlowsPerTask = 256;
 
@@ -107,6 +113,14 @@ public:
     boost::uuids::uuid rand_gen();
     bool Run();
     bool RunAgeingTask();
+    uint32_t ProcessFlow(FlowExportInfoList::iterator &it,
+                         KSyncFlowMemory *ksync_obj,
+                         FlowExportInfo *info, uint64_t curr_time);
+    bool AgeFlow(KSyncFlowMemory *ksync_obj, const vr_flow_entry *k_flow,
+                 FlowExportInfo *info, uint64_t curr_time);
+    bool EvictFlow(KSyncFlowMemory *ksync_obj, const vr_flow_entry *k_flow,
+                   uint32_t flow_handle, uint16_t gen_id, FlowExportInfo *info,
+                   uint64_t curr_time);
     uint32_t RunAgeing(uint32_t max_count);
     void UpdateFlowAgeTime(uint64_t usecs) {
         flow_age_time_intvl_ = usecs;
@@ -125,6 +139,7 @@ public:
     void SetImplicitFlowDetails(FlowExportInfo *info, FlowLogData &s_flow,
                                 const RevFlowDepParams *params);
 
+    bool FindFlowExportInfo(const FlowEntry *fe, FlowEntryTree::iterator &it);
     FlowExportInfo *FindFlowExportInfo(const FlowEntry *fe);
     const FlowExportInfo *FindFlowExportInfo(const FlowEntry *fe) const;
     void ExportFlow(FlowExportInfo *info, uint64_t diff_bytes,
@@ -134,7 +149,7 @@ public:
     void UpdateStatsEvent(const FlowEntryPtr &flow, uint32_t bytes,
                           uint32_t packets, uint32_t oflow_bytes);
     size_t Size() const { return flow_tree_.size(); }
-    void NewFlow(const FlowExportInfo &info);
+    void NewFlow(FlowEntry *flow);
     void set_deleted(bool val) {
         deleted_ = val;
     }
@@ -218,8 +233,12 @@ private:
     uint32_t ReverseFlowFip(const FlowExportInfo *info);
     VmInterfaceKey ReverseFlowFipVmi(const FlowExportInfo *info);
     bool RequestHandler(boost::shared_ptr<FlowExportReq> req);
+    bool RequestHandlerEntry();
+    void RequestHandlerExit(bool done);
     void AddFlow(FlowExportInfo info);
-    void DeleteFlow(const FlowEntryPtr &flow);
+    void DeleteFlow(FlowEntryTree::iterator &it);
+    void UpdateFlowIterationKey(const FlowEntry *del_flow,
+                                FlowEntryTree::iterator &tree_it);
     void HandleFlowStatsUpdate(const FlowKey &key, uint32_t bytes,
                                uint32_t packets, uint32_t oflow_bytes);
 
@@ -237,6 +256,17 @@ private:
     uint64_t flow_tcp_syn_age_time_;
 
     FlowEntryTree flow_tree_;
+    FlowExportInfoList flow_export_info_list_;
+    // Flag to specify if flow-delete request event must be retried
+    // If enabled
+    //    Dont remove FlowExportInfo from list after generating delete event
+    //    Retry delete event after kFlowDeleteRetryTime
+    // Else
+    //    Remove FlowExportInfo from list after generating delete event
+    //    FIXME : disabling is only a debug feature for now. Once we remove
+    //    from list, flow will never be aged. So, need to ensure all scenarios
+    //    are covered before disabling the fag
+    bool retry_delete_;
     Queue request_queue_;
     std::vector<FlowLogData> msg_list_;
     uint8_t msg_index_;
@@ -248,6 +278,16 @@ private:
     // Number of timer fires needed to scan the flow-table once
     // This is based on ageing timer
     uint32_t timers_per_scan_;
+    // Cached UTC Time stamp
+    // The timestamp is taken once on FlowStatsCollector::RequestHandlerEntry()
+    // and used for all requests in current run
+    uint64_t current_time_;
+    uint64_t ageing_task_starts_;
+
+    // Per ageing-timer stats for debugging
+    uint32_t flows_visited_;
+    uint32_t flows_aged_;
+    uint32_t flows_evicted_;
     DISALLOW_COPY_AND_ASSIGN(FlowStatsCollector);
 };
 
