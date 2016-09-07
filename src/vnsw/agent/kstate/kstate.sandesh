@@ -38,8 +38,6 @@ struct KNHInfo {
    14: optional i32    tun_dport;
    15: optional string encap;
    16: optional list<KComponentNH> component_nh;
-   17: optional string tun_sip6;
-   18: optional string tun_dip6;
 }
 
 /**
@@ -68,25 +66,25 @@ struct KInterfaceInfo {
    20: i32          duplexity;
    21: i32          qos_map_index;
    22: u64          core;
-   23: i64          queue_ipackets;
-   24: i64          queue_ierrors;
-   25: i64          queue_opackets;
-   26: i64          queue_oerrors;
+   23: u64          queue_ipackets;
+   24: u64          queue_ierrors;
+   25: u64          queue_opackets;
+   26: u64          queue_oerrors;
    27: string       queue_ierrors_to_lcore;
-   28: i64          port_ipackets;
-   29: i64          port_ierrors;
-   30: i64          port_isyscalls;
-   31: i64          port_inombufs;
-   32: i64          port_opackets;
-   33: i64          port_oerrors;
-   34: i64          port_osyscalls;
-   35: i64          dev_ibytes;
-   36: i64          dev_ipackets;
-   37: i64          dev_ierrors;
-   38: i64          dev_inombufs;
-   39: i64          dev_obytes;
-   40: i64          dev_opackets;
-   41: i64          dev_oerrors;
+   28: u64          port_ipackets;
+   29: u64          port_ierrors;
+   30: u64          port_isyscalls;
+   31: u64          port_inombufs;
+   32: u64          port_opackets;
+   33: u64          port_oerrors;
+   34: u64          port_osyscalls;
+   35: u64          dev_ibytes;
+   36: u64          dev_ipackets;
+   37: u64          dev_ierrors;
+   38: u64          dev_inombufs;
+   39: u64          dev_obytes;
+   40: u64          dev_opackets;
+   41: u64          dev_oerrors;
    42: i32          parent_vif_id;
    43: i16          vlan_id;
    44: i16          nh_id;
@@ -110,6 +108,9 @@ struct KRouteInfo {
     6:  string      label_flags;
     7:  i32         label;
     8:  i32         nh_id (link = "KNHReq");
+    9:  string      rtr_mac;
+    10: i32         replace_plen;
+    11: i32         index;
 }
 
 /**
