@@ -431,9 +431,9 @@ class VncApi(object):
         else:
             query_params = {'exclude_back_refs':True,
                             'exclude_children':True,}
-        content = self._request_server(rest.OP_GET, uri, query_params)
+        response = self._request_server(rest.OP_GET, uri, query_params)
 
-        obj_dict = json.loads(content)[res_type]
+        obj_dict = response[res_type]
         obj = obj_cls.from_dict(**obj_dict)
         obj.clear_pending_updates()
         obj.set_server_conn(self)
@@ -664,9 +664,7 @@ class VncApi(object):
         return (response.status_code, response.text)
     #end _http_delete
 
-    def _parse_homepage(self, json_body):
-        py_obj = json.loads(json_body)
-
+    def _parse_homepage(self, py_obj):
         srv_root_url = py_obj['href']
         self._srv_root_url = srv_root_url
 
@@ -764,8 +762,10 @@ class VncApi(object):
         while True:
             try:
                 if (op == rest.OP_GET):
-                    (status, content) = self._http_get(url, headers=self._headers,
-                                                       query_params=data)
+                    (status, content) = self._http_get(
+                        url, headers=self._headers, query_params=data)
+                    if status == 200:
+                        content = json.loads(content)
                 elif (op == rest.OP_POST):
                     (status, content) = self._http_post(url, body=data,
                                                         headers=self._headers)
@@ -851,7 +851,7 @@ class VncApi(object):
         content = self._request_server(
             rest.OP_GET, uri, data=query_params)
 
-        return json.loads(content)[obj_field]
+        return content[obj_field]
     # end _prop_collection_get
 
     def _prop_map_get_elem_key(self, id, obj_field, elem):
@@ -1157,9 +1157,10 @@ class VncApi(object):
             json_body = json.dumps(query_params)
             content = self._request_server(rest.OP_POST,
                                            uri, json_body)
+            response = json.loads(content)
         else: # GET /<collection>
             try:
-                content = self._request_server(rest.OP_GET,
+                response = self._request_server(rest.OP_GET,
                                obj_class.create_uri,
                                data = query_params)
             except NoIdError:
@@ -1167,9 +1168,9 @@ class VncApi(object):
                 return []
 
         if not detail:
-            return json.loads(content)
+            return response
 
-        resource_dicts = json.loads(content)['%ss' %(obj_type)]
+        resource_dicts = response['%ss' %(obj_type)]
         resource_objs = []
         for resource_dict in resource_dicts:
             obj_dict = resource_dict['%s' %(obj_type)]
@@ -1202,8 +1203,8 @@ class VncApi(object):
         self._headers['X-USER-TOKEN'] = token
         query = 'uuid=%s' % obj_uuid if obj_uuid else ''
         try:
-            rv_json = self._request_server(rest.OP_GET, "/obj-perms", data=query)
-            rv = json.loads(rv_json)
+            rv = self._request_server(rest.OP_GET, "/obj-perms", data=query)
+            return rv
         except PermissionDenied:
             rv = None
         finally:

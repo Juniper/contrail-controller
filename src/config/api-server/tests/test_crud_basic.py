@@ -660,37 +660,6 @@ class TestCrud(test_case.ApiServerTestCase):
 
 
 class TestVncCfgApiServer(test_case.ApiServerTestCase):
-    def _create_vn_ri_vmi(self, obj_count=1):
-        vn_objs = []
-        ipam_objs = []
-        ri_objs = []
-        vmi_objs = []
-        for i in range(obj_count):
-            vn_obj = VirtualNetwork('%s-vn-%s' %(self.id(), i))
-            vn_obj.set_virtual_network_network_id(i)
-
-            ipam_obj = NetworkIpam('%s-ipam-%s' % (self.id(), i))
-            vn_obj.add_network_ipam(ipam_obj, VnSubnetsType())
-            self._vnc_lib.network_ipam_create(ipam_obj)
-            ipam_objs.append(ipam_obj)
-
-            self._vnc_lib.virtual_network_create(vn_obj)
-            vn_objs.append(vn_obj)
-
-            ri_obj = RoutingInstance('%s-ri-%s' %(self.id(), i),
-                                     parent_obj=vn_obj)
-            self._vnc_lib.routing_instance_create(ri_obj)
-            ri_objs.append(ri_obj)
-
-            vmi_obj = VirtualMachineInterface('%s-vmi-%s' %(self.id(), i),
-                                              parent_obj=Project())
-            vmi_obj.add_virtual_network(vn_obj)
-            self._vnc_lib.virtual_machine_interface_create(vmi_obj)
-            vmi_objs.append(vmi_obj)
-
-        return vn_objs, ipam_objs, ri_objs, vmi_objs
-    # end _create_vn_ri_vmi
-
     def test_fq_name_to_id_http_post(self):
         test_obj = self._create_test_object()
         test_uuid = self._vnc_lib.fq_name_to_id('virtual-network', test_obj.get_fq_name())
@@ -1233,147 +1202,6 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         self.assertTill(self.ifmap_has_ident, obj=rt_obj)
         self._vnc_lib.route_target_delete(id=rt_obj.uuid)
     # end test_name_with_reserved_xml_char
-
-    def test_list_bulk_collection(self):
-        self.skipTest("Skipping test_list_bulk_collection for separate testcase")
-        obj_count = self._vnc_lib.POST_FOR_LIST_THRESHOLD + 1
-        vn_uuids = []
-        ri_uuids = []
-        vmi_uuids = []
-        logger.info("Creating %s VNs, RIs, VMIs.", obj_count)
-        vn_objs, _, ri_objs, vmi_objs = self._create_vn_ri_vmi(obj_count)
-
-        vn_uuids = [o.uuid for o in vn_objs]
-        ri_uuids = [o.uuid for o in ri_objs]
-        vmi_uuids = [o.uuid for o in vmi_objs]
-
-        logger.info("Querying VNs by obj_uuids.")
-        bulk_post_calls = []
-        route = [r for r in self._api_server.api_bottle.routes
-                   if r.rule == '/list-bulk-collection'][0]
-        def fake_lister(orig_method, *args, **kwargs):
-            bulk_post_calls.append(True)
-            return orig_method(*args, **kwargs)
-
-        with test_common.patch(route,
-            'callback', fake_lister):
-            ret_list = self._vnc_lib.resource_list('virtual-network',
-                                                   obj_uuids=vn_uuids)
-        ret_uuids = [ret['uuid'] for ret in ret_list['virtual-networks']]
-        self.assertThat(set(vn_uuids), Equals(set(ret_uuids)))
-        self.assertEqual(len(bulk_post_calls), 1)
-        bulk_post_calls = []
-
-        logger.info("Querying RIs by parent_id.")
-        with test_common.patch(route,
-            'callback', fake_lister):
-            ret_list = self._vnc_lib.resource_list('routing-instance',
-                                                   parent_id=vn_uuids)
-        ret_uuids = [ret['uuid']
-                     for ret in ret_list['routing-instances']]
-        self.assertThat(set(ri_uuids),
-            Equals(set(ret_uuids) & set(ri_uuids)))
-        self.assertEqual(len(bulk_post_calls), 1)
-        bulk_post_calls = []
-
-        logger.info("Querying VMIs by back_ref_id.")
-        with test_common.patch(route,
-            'callback', fake_lister):
-             ret_list = self._vnc_lib.resource_list('virtual-machine-interface',
-                                                    back_ref_id=vn_uuids)
-        ret_uuids = [ret['uuid']
-                     for ret in ret_list['virtual-machine-interfaces']]
-        self.assertThat(set(vmi_uuids), Equals(set(ret_uuids)))
-        self.assertEqual(len(bulk_post_calls), 1)
-        bulk_post_calls = []
-
-        logger.info("Querying VMIs by back_ref_id and extra fields.")
-        with test_common.patch(route,
-            'callback', fake_lister):
-            ret_list = self._vnc_lib.resource_list('virtual-machine-interface',
-                                               back_ref_id=vn_uuids,
-                                               fields=['virtual_network_refs'])
-        ret_uuids = [ret['uuid']
-                     for ret in ret_list['virtual-machine-interfaces']]
-        self.assertThat(set(vmi_uuids), Equals(set(ret_uuids)))
-        self.assertEqual(set(vmi['virtual_network_refs'][0]['uuid']
-            for vmi in ret_list['virtual-machine-interfaces']),
-            set(vn_uuids))
-        self.assertEqual(len(bulk_post_calls), 1)
-        bulk_post_calls = []
-
-        logger.info("Querying RIs by parent_id and filter.")
-        with test_common.patch(route,
-            'callback', fake_lister):
-            ret_list = self._vnc_lib.resource_list('routing-instance',
-                parent_id=vn_uuids,
-                filters={'display_name':'%s-ri-5' %(self.id())})
-        self.assertThat(len(ret_list['routing-instances']), Equals(1))
-        self.assertEqual(len(bulk_post_calls), 1)
-        bulk_post_calls = []
-
-        logger.info("Querying VNs by obj_uuids for children+backref fields.")
-        with test_common.patch(route,
-            'callback', fake_lister):
-            ret_objs = self._vnc_lib.resource_list('virtual-network',
-                detail=True, obj_uuids=vn_uuids, fields=['routing_instances',
-                'virtual_machine_interface_back_refs'])
-        self.assertEqual(len(bulk_post_calls), 1)
-        bulk_post_calls = []
-
-        ret_ri_uuids = []
-        ret_vmi_uuids = []
-        for vn_obj in ret_objs:
-            ri_children = getattr(vn_obj, 'routing_instances',
-                'RI children absent')
-            self.assertNotEqual(ri_children, 'RI children absent')
-            ret_ri_uuids.extend([ri['uuid'] for ri in ri_children])
-            vmi_back_refs = getattr(vn_obj,
-                'virtual_machine_interface_back_refs',
-                'VMI backrefs absent')
-            self.assertNotEqual(ri_children, 'VMI backrefs absent')
-            ret_vmi_uuids.extend([vmi['uuid'] for vmi in vmi_back_refs])
-
-        self.assertThat(set(ri_uuids),
-            Equals(set(ret_ri_uuids) & set(ri_uuids)))
-        self.assertThat(set(vmi_uuids), Equals(set(ret_vmi_uuids)))
-    # end test_list_bulk_collection
-
-    def test_list_bulk_collection_with_malformed_filters(self):
-        obj_count = self._vnc_lib.POST_FOR_LIST_THRESHOLD + 1
-        vn_objs, _, _, _ = self._create_vn_ri_vmi()
-        vn_uuid = vn_objs[0].uuid
-        vn_uuids = [vn_uuid] +\
-                   ['bad-uuid'] * self._vnc_lib.POST_FOR_LIST_THRESHOLD
-
-        try:
-            results = self._vnc_lib.resource_list('virtual-network',
-                                                  obj_uuids=vn_uuids)
-            self.assertEqual(len(results['virtual-networks']), 1)
-            self.assertEqual(results['virtual-networks'][0]['uuid'], vn_uuid)
-        except HttpError:
-            self.fail('Malformed object UUID filter was not ignored')
-
-        try:
-            results = self._vnc_lib.resource_list('routing-instance',
-                                                  parent_id=vn_uuids,
-                                                  detail=True)
-            self.assertEqual(len(results), 2)
-            for ri_obj in results:
-                self.assertEqual(ri_obj.parent_uuid, vn_uuid)
-        except HttpError:
-            self.fail('Malformed parent UUID filter was not ignored')
-
-        try:
-            results = self._vnc_lib.resource_list('virtual-machine-interface',
-                                                  back_ref_id=vn_uuids,
-                                                  detail=True)
-            self.assertEqual(len(results), 1)
-            vmi_obj = results[0]
-            self.assertEqual(vmi_obj.get_virtual_network_refs()[0]['uuid'],
-                             vn_uuid)
-        except HttpError:
-            self.fail('Malformed back-ref UUID filter was not ignored')
 
     def test_list_lib_api(self):
         num_objs = 5
@@ -2569,14 +2397,12 @@ class TestLocalAuth(test_case.ApiServerTestCase):
     def test_multi_tenancy_read_default(self):
         logger.info("Read Default multi-tenancy")
         url = '/multi-tenancy'
-        rv_json = self._vnc_lib._request_server(rest.OP_GET, url)
-        rv = json.loads(rv_json)
+        rv = self._vnc_lib._request_server(rest.OP_GET, url)
         self.assertThat(rv['enabled'], Equals(True))
 
     def test_multi_tenancy_modify_fail(self):
         url = '/multi-tenancy'
-        rv_json = self._vnc_lib._request_server(rest.OP_GET, url)
-        rv = json.loads(rv_json)
+        rv = self._vnc_lib._request_server(rest.OP_GET, url)
         self.assertThat(rv['enabled'], Equals(True))
 
         logger.info("Disable Multi-Tenancy and read")
@@ -2586,8 +2412,7 @@ class TestLocalAuth(test_case.ApiServerTestCase):
         except cfgm_common.exceptions.PermissionDenied:
             # permission should be denied as Localauth class does not have admin credential
             # mt_put should fail without changing it
-            rv_json = self._vnc_lib._request_server(rest.OP_GET, url)
-            rv = json.loads(rv_json)
+            rv = self._vnc_lib._request_server(rest.OP_GET, url)
             self.assertThat(rv['enabled'], Equals(True))
         else:
             self.assertTrue(False, 'Should never come')
@@ -2595,8 +2420,7 @@ class TestLocalAuth(test_case.ApiServerTestCase):
     def test_multi_tenancy_modify_pass(self):
         self.skipTest("Skipping test_multi_tenancy_modify_pass")
         url = '/multi-tenancy'
-        rv_json = self._vnc_lib._request_server(rest.OP_GET, url)
-        rv = json.loads(rv_json)
+        rv = self._vnc_lib._request_server(rest.OP_GET, url)
         self.assertThat(rv['enabled'], Equals(True))
 
         # mock auh_header and signed_token methods to enable http_mt_put to set multi-tenancy
@@ -2614,15 +2438,13 @@ class TestLocalAuth(test_case.ApiServerTestCase):
                 logger.info("Disable Multi-Tenancy and read")
                 data = {'enabled': False}
                 rv = self._vnc_lib._request_server(rest.OP_PUT, url, json.dumps(data))
-                rv_json = self._vnc_lib._request_server(rest.OP_GET, url)
-                rv = json.loads(rv_json)
+                rv = self._vnc_lib._request_server(rest.OP_GET, url)
                 self.assertThat(rv['enabled'], Equals(False))
 
                 logger.info("Restore Multi-Tenancy and read")
                 data = {'enabled': True}
                 rv = self._vnc_lib._request_server(rest.OP_PUT, url, json.dumps(data))
-                rv_json = self._vnc_lib._request_server(rest.OP_GET, url)
-                rv = json.loads(rv_json)
+                rv = self._vnc_lib._request_server(rest.OP_GET, url)
                 self.assertThat(rv['enabled'], Equals(True))
 
 # end class TestLocalAuth
@@ -3722,6 +3544,138 @@ class TestDBAudit(test_case.ApiServerTestCase):
         pass
     # end test_heal_useragent_subnet_uuid
 # end class TestDBAudit
+
+class TestBulk(test_case.ApiServerTestCase):
+    def test_list_bulk_collection(self):
+        obj_count = self._vnc_lib.POST_FOR_LIST_THRESHOLD + 1
+        vn_uuids = []
+        ri_uuids = []
+        vmi_uuids = []
+        logger.info("Creating %s VNs, RIs, VMIs.", obj_count)
+        vn_objs, _, ri_objs, vmi_objs = self._create_vn_ri_vmi(obj_count)
+
+        vn_uuids = [o.uuid for o in vn_objs]
+        ri_uuids = [o.uuid for o in ri_objs]
+        vmi_uuids = [o.uuid for o in vmi_objs]
+
+        bulk_route = [r for r in self._api_server.api_bottle.routes
+                        if r.rule == '/list-bulk-collection'][0]
+        invoked_bulk = []
+        def spy_list_bulk(orig_method, *args, **kwargs):
+            invoked_bulk.append(True)
+            return orig_method(*args, **kwargs)
+
+        logger.info("Querying VNs by obj_uuids.")
+        with test_common.patch(bulk_route, 'callback', spy_list_bulk):
+            ret_list = self._vnc_lib.resource_list('virtual-network',
+                                                   obj_uuids=vn_uuids)
+            ret_uuids = [ret['uuid'] for ret in ret_list['virtual-networks']]
+            self.assertThat(set(vn_uuids), Equals(set(ret_uuids)))
+            self.assertEqual(len(invoked_bulk), 1)
+            invoked_bulk.pop()
+
+            logger.info("Querying RIs by parent_id.")
+            ret_list = self._vnc_lib.resource_list('routing-instance',
+                                                   parent_id=vn_uuids)
+            ret_uuids = [ret['uuid']
+                         for ret in ret_list['routing-instances']]
+            self.assertThat(set(ri_uuids),
+                Equals(set(ret_uuids) & set(ri_uuids)))
+            self.assertEqual(len(invoked_bulk), 1)
+            invoked_bulk.pop()
+
+            logger.info("Querying VMIs by back_ref_id.")
+            ret_list = self._vnc_lib.resource_list('virtual-machine-interface',
+                                                   back_ref_id=vn_uuids)
+            ret_uuids = [ret['uuid']
+                         for ret in ret_list['virtual-machine-interfaces']]
+            self.assertThat(set(vmi_uuids), Equals(set(ret_uuids)))
+            self.assertEqual(len(invoked_bulk), 1)
+            invoked_bulk.pop()
+
+            logger.info("Querying VMIs by back_ref_id and extra fields.")
+            ret_list = self._vnc_lib.resource_list('virtual-machine-interface',
+                                                   back_ref_id=vn_uuids,
+                                                   fields=['virtual_network_refs'])
+            ret_uuids = [ret['uuid']
+                         for ret in ret_list['virtual-machine-interfaces']]
+            self.assertThat(set(vmi_uuids), Equals(set(ret_uuids)))
+            self.assertEqual(set(vmi['virtual_network_refs'][0]['uuid']
+                for vmi in ret_list['virtual-machine-interfaces']),
+                set(vn_uuids))
+            self.assertEqual(len(invoked_bulk), 1)
+            invoked_bulk.pop()
+
+            logger.info("Querying RIs by parent_id and filter.")
+            ret_list = self._vnc_lib.resource_list('routing-instance',
+                parent_id=vn_uuids,
+                filters={'display_name':'%s-ri-5' %(self.id())})
+            self.assertThat(len(ret_list['routing-instances']), Equals(1))
+            self.assertEqual(len(invoked_bulk), 1)
+            invoked_bulk.pop()
+
+            logger.info("Querying VNs by obj_uuids for children+backref fields.")
+            ret_objs = self._vnc_lib.resource_list('virtual-network',
+                detail=True, obj_uuids=vn_uuids, fields=['routing_instances',
+                'virtual_machine_interface_back_refs'])
+            self.assertEqual(len(invoked_bulk), 1)
+            invoked_bulk.pop()
+
+        ret_ri_uuids = []
+        ret_vmi_uuids = []
+        for vn_obj in ret_objs:
+            ri_children = getattr(vn_obj, 'routing_instances',
+                'RI children absent')
+            self.assertNotEqual(ri_children, 'RI children absent')
+            ret_ri_uuids.extend([ri['uuid'] for ri in ri_children])
+            vmi_back_refs = getattr(vn_obj,
+                'virtual_machine_interface_back_refs',
+                'VMI backrefs absent')
+            self.assertNotEqual(ri_children, 'VMI backrefs absent')
+            ret_vmi_uuids.extend([vmi['uuid'] for vmi in vmi_back_refs])
+
+        self.assertThat(set(ri_uuids),
+            Equals(set(ret_ri_uuids) & set(ri_uuids)))
+        self.assertThat(set(vmi_uuids), Equals(set(ret_vmi_uuids)))
+    # end test_list_bulk_collection
+
+    def test_list_bulk_collection_with_malformed_filters(self):
+        obj_count = self._vnc_lib.POST_FOR_LIST_THRESHOLD + 1
+        vn_objs, _, _, _ = self._create_vn_ri_vmi()
+        vn_uuid = vn_objs[0].uuid
+        vn_uuids = [vn_uuid] +\
+                   ['bad-uuid'] * self._vnc_lib.POST_FOR_LIST_THRESHOLD
+
+        try:
+            results = self._vnc_lib.resource_list('virtual-network',
+                                                  obj_uuids=vn_uuids)
+            self.assertEqual(len(results['virtual-networks']), 1)
+            self.assertEqual(results['virtual-networks'][0]['uuid'], vn_uuid)
+        except HttpError:
+            self.fail('Malformed object UUID filter was not ignored')
+
+        try:
+            results = self._vnc_lib.resource_list('routing-instance',
+                                                  parent_id=vn_uuids,
+                                                  detail=True)
+            self.assertEqual(len(results), 2)
+            for ri_obj in results:
+                self.assertEqual(ri_obj.parent_uuid, vn_uuid)
+        except HttpError:
+            self.fail('Malformed parent UUID filter was not ignored')
+
+        try:
+            results = self._vnc_lib.resource_list('virtual-machine-interface',
+                                                  back_ref_id=vn_uuids,
+                                                  detail=True)
+            self.assertEqual(len(results), 1)
+            vmi_obj = results[0]
+            self.assertEqual(vmi_obj.get_virtual_network_refs()[0]['uuid'],
+                             vn_uuid)
+        except HttpError:
+            self.fail('Malformed back-ref UUID filter was not ignored')
+# end class TestBulk
+
 
 if __name__ == '__main__':
     ch = logging.StreamHandler()

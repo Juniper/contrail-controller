@@ -386,8 +386,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         admin = self.admin
         self.vn_name = "alice-vn-%s" % self.id()
 
-        rv_json = admin.vnc_lib._request(rest.OP_GET, '/aaa-mode')
-        rv = json.loads(rv_json)
+        rv = admin.vnc_lib._request(rest.OP_GET, '/aaa-mode')
         self.assertEquals(rv["aaa-mode"], "rbac")
 
         # delete api-access-list for alice and bob and disallow api access to their projects

@@ -1,4 +1,5 @@
 import gevent
+import bottle
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 import cfgm_common
 
@@ -81,3 +82,28 @@ def get_context():
 
 def set_context(api_ctx):
     gevent.getcurrent().api_context = api_ctx
+
+def clear_context():
+    gevent.getcurrent().api_context = None
+
+def have_context():
+    return (hasattr(gevent.getcurrent(), 'api_context') and
+            gevent.getcurrent().api_context is not None)
+
+def use_context(fn):
+    def wrapper(*args, **kwargs):
+        if not have_context():
+            context_created = True
+            set_context(ApiContext(external_req=bottle.request))
+        else:
+            context_created = False
+
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            if context_created:
+                clear_context()
+    # end wrapper
+
+    return wrapper
+# end use_context

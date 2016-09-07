@@ -1001,7 +1001,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                         ip_prefix = subnet_dict.get('ip_prefix')
                         if ip_prefix is not None:
                             return (False, 400,
-                                "with flat-subnet, netowrk can not have user-defined subnet")
+                                "with flat-subnet, network can not have user-defined subnet")
 
                 if (net_mode != 'l3'):
                     return (False, 400,

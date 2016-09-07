@@ -254,4 +254,27 @@ class AuthServiceKeystone(object):
         auth_middleware = auth_token.AuthProtocol(self.token_valid, conf_info)
         return auth_middleware(request.headers.environ, self.start_response)
 
+    def get_auth_headers_from_token(self, request, token):
+        if not token:
+            return {}
+
+        conf_info = self._conf_info.copy()
+        conf_info['delay_auth_decision'] = True
+
+        def token_to_headers(env, start_response):
+            status = env.get('HTTP_X_IDENTITY_STATUS')
+            if status.lower == 'invalid':
+                return {}
+            ret_headers_dict = {}
+            for hdr_name in ['HTTP_X_DOMAIN_ID', 'HTTP_X_PROJECT_ID',
+                'HTTP_X_PROJECT_NAME', 'HTTP_X_USER', 'HTTP_X_ROLE',
+                'HTTP_X_API_ROLE']:
+                hdr_val = env.get(hdr_name)
+                if hdr_val:
+                    ret_headers_dict[hdr_name] = hdr_val
+            return ret_headers_dict
+
+        auth_middleware = auth_token.AuthProtocol(token_to_headers, conf_info)
+        return auth_middleware(request.headers.environ, None)
+    # end get_auth_headers_from_token
 # end class AuthService
