@@ -38,6 +38,8 @@ struct KNHInfo {
    14: optional i32    tun_dport;
    15: optional string encap;
    16: optional list<KComponentNH> component_nh;
+   17: optional string tun_sip6;
+   18: optional string tun_dip6;
 }
 
 /**

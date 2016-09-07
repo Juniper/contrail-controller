@@ -172,10 +172,15 @@ void KState::NHMsgHandler(vr_nexthop_req *r) {
     }
     data.set_vrf(r->get_nhr_vrf());
     if (r->get_nhr_type() == NH_TUNNEL) {
-        Ip4Address sip(ntohl((uint32_t)r->get_nhr_tun_sip()));
-        Ip4Address dip(ntohl((uint32_t)r->get_nhr_tun_dip()));
-        data.set_tun_sip(sip.to_string());
-        data.set_tun_dip(dip.to_string());
+        if(nhst->FamilyToString(r->get_nhr_family()) == "AF_INET") {
+            Ip4Address sip(ntohl((uint32_t)r->get_nhr_tun_sip()));
+            Ip4Address dip(ntohl((uint32_t)r->get_nhr_tun_dip()));
+            data.set_tun_sip(sip.to_string());
+            data.set_tun_dip(dip.to_string());
+        } else if(nhst->FamilyToString(r->get_nhr_family()) == "AF_INET6") {
+            data.set_tun_sip6(nhst->IPv6ToString(r->get_nhr_tun_sip6()));
+            data.set_tun_dip6(nhst->IPv6ToString(r->get_nhr_tun_dip6()));
+        }
         if (r->get_nhr_flags() & NH_FLAG_TUNNEL_UDP) {
             data.set_tun_sport(ntohs(r->get_nhr_tun_sport()));
             data.set_tun_dport(ntohs(r->get_nhr_tun_dport()));
