@@ -130,7 +130,7 @@ bool RibOutUpdates::DequeueCommon(UpdateQueue *queue, UpdateMarker *marker,
         bool msg_sent = false;
         stats_[queue_id].messages_built_count_++;
         auto_ptr<Message> message(builder_->Create(
-            ribout_, cache_routes, &uinfo->roattr, rt_update->route()));
+            index_, ribout_, cache_routes, &uinfo->roattr, rt_update->route()));
         if (message.get() != NULL) {
             UpdatePack(queue_id, message.get(), uinfo, msgset);
             message->Finish();

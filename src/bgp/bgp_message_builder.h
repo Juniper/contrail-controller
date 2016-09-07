@@ -37,7 +37,8 @@ private:
 class BgpMessageBuilder : public MessageBuilder {
 public:
     BgpMessageBuilder();
-    virtual Message *Create(const RibOut *ribout, bool cache_routes,
+    virtual Message *Create(int part_id, const RibOut *ribout,
+                            bool cache_routes,
                             const RibOutAttr *roattr,
                             const BgpRoute *route) const;
 
