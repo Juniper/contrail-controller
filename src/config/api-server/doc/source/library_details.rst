@@ -1,5 +1,23 @@
 Library API Details
 ===================
+
+Connecting to API server
+------------------------
+
+To make any configuration changes, you first need to connect to API server and get a VNC API handle. This can be done by creating a VncApi object by passing all necessary arguments to its constructor. Example::
+
+    vnc_api = VncApi(username='admin', password=<password>, tenant_name='admin',
+                 api_server_host='10.84.10.10', api_server_port='8082',
+                 api_server_url='/', conf_file=<filename>, user_info=None,
+                 auth_token=None, auth_host=None, auth_port=None,
+                 auth_protocol = None, auth_url=None, auth_type=None,
+                 wait_for_connect=False, api_server_use_ssl=False,
+                 domain_name=None):
+
+
+Introduction
+------------
+
 The configuration API library provides a means of accessing and manipulating configuration
 elements of the system through an object representation.  The library API can be classified into two categories:
    * those that manipulate an object locally (client-side)
@@ -134,3 +152,4 @@ Online documentation of object methods etc. with standard ``dir`` and ``help`` p
      |      * list of :class:`.VirtualMachineInterface` objects
      |      * list of :class:`.InstanceIp` objects
      |
+
