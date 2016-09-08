@@ -40,6 +40,18 @@ class VncPermissions(object):
         return id_perms.get('user_visible', True) is not False or is_admin
     # end
 
+    @property
+    def cloud_admin_ro_role(self):
+        return self._server_mgr.cloud_admin_ro_role
+
+    def check_admin(self, roles, mode):
+        role_list = [x.lower() for x in roles]
+        if self.cloud_admin_role in role_list:
+            return (True, 'RWX')
+        if self.cloud_admin_ro_role in role_list and mode == PERMS_R:
+            return (True, 'R')
+        return (False, '')
+
     def validate_perms(self, request, uuid, mode=PERMS_R, id_perms=None):
         # retrieve object and permissions
         if not id_perms:
@@ -51,9 +63,9 @@ class VncPermissions(object):
         err_msg = (403, 'Permission Denied')
 
         user, roles = self.get_user_roles(request)
-        is_admin = self.cloud_admin_role in [x.lower() for x in roles]
+        is_admin, admin_perms = self.check_admin(roles, mode)
         if is_admin:
-            return (True, 'RWX')
+            return (is_admin, admin_perms)
 
         owner = id_perms['permissions']['owner']
         group = id_perms['permissions']['group']
@@ -93,9 +105,9 @@ class VncPermissions(object):
             return (True, '')
 
         user, roles = self.get_user_roles(request)
-        is_admin = self.cloud_admin_role in [x.lower() for x in roles]
+        is_admin, admin_perms = self.check_admin(roles, mode)
         if is_admin:
-            return (True, 'RWX')
+            return (is_admin, admin_perms)
 
         env = request.headers.environ
         tenant = env.get('HTTP_X_PROJECT_ID')
