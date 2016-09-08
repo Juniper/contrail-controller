@@ -12,6 +12,7 @@ from ncclient import manager
 import copy
 import time
 import datetime
+from dm_utils import DMUtils
 
 
 class PushConfigState(object):
@@ -237,7 +238,7 @@ class PhysicalRouterConfig(object):
         dynamic_tunnels = etree.SubElement(
             self.tunnel_config, "dynamic-tunnels")
         dynamic_tunnel = etree.SubElement(dynamic_tunnels, "dynamic-tunnel")
-        etree.SubElement(dynamic_tunnel, "name").text = "__contrail__"
+        etree.SubElement(dynamic_tunnel, "name").text = DMUtils.get_dynamic_tunnel_name()
         etree.SubElement(
             dynamic_tunnel, "source-address").text = tunnel_source_ip
         etree.SubElement(dynamic_tunnel, "gre")
@@ -258,11 +259,11 @@ class PhysicalRouterConfig(object):
         fo = etree.SubElement(forwarding_options_config, "family")
         inet = etree.SubElement(fo, inet_xml_name)
         f = etree.SubElement(inet, "filter")
-        etree.SubElement(f, "input").text = "redirect_to_public_vrf_filter_" + inet_type
+        etree.SubElement(f, "input").text = DMUtils.make_public_vrf_filter_name(inet_type)
         fc = etree.SubElement(firewall_config, "family")
         inet = etree.SubElement(fc, inet_xml_name)
         f = etree.SubElement(inet, "filter")
-        etree.SubElement(f, "name").text = "redirect_to_public_vrf_filter_" + inet_type
+        etree.SubElement(f, "name").text = DMUtils.make_public_vrf_filter_name(inet_type)
         term = etree.SubElement(f, "term")
         etree.SubElement(term, "name").text = "default-term"
         then_ = etree.SubElement(term, "then")
@@ -272,12 +273,12 @@ class PhysicalRouterConfig(object):
 
     def add_inet_filter_term(self, ri_name, prefixes, inet_type):
         term = etree.Element("term")
-        etree.SubElement(term, "name").text = "term-" + ri_name[:59]
+        etree.SubElement(term, "name").text = DMUtils.make_vrf_term_name(ri_name)
         from_ = etree.SubElement(term, "from")
         if inet_type == 'inet6':
-            prefixes = [prefix for prefix in prefixes or [] if ':' in prefix]
+            prefixes = DMUtils.get_ipv6_prefixes(prefixes)
         else:
-            prefixes = [prefix for prefix in prefixes or [] if ':' not in prefix]
+            prefixes = DMUtils.get_ipv4_prefixes(prefixes)
 
         for prefix in prefixes:
             etree.SubElement(from_, "destination-address").text = prefix
@@ -322,14 +323,7 @@ class PhysicalRouterConfig(object):
         no_vrf_table_label = ri_conf.get("no_vrf_table_label", False)
         restrict_proxy_arp = ri_conf.get("restrict_proxy_arp", False)
 
-        self.routing_instances[ri_name] = {'import_targets': import_targets,
-                                           'export_targets': export_targets,
-                                           'prefixes': prefixes,
-                                           'gateways': gateways,
-                                           'router_external': router_external,
-                                           'interfaces': interfaces,
-                                           'vni': vni,
-                                           'fip_map': fip_map}
+        self.routing_instances[ri_name] = ri_conf
 
         ri_config = self.ri_config or etree.Element("routing-instances")
         policy_config = self.policy_config or etree.Element("policy-options")
@@ -344,11 +338,11 @@ class PhysicalRouterConfig(object):
             etree.SubElement(route_config, "next-table").text = "inet.0"
 
         # for both l2 and l3
-        etree.SubElement(ri, "vrf-import").text = ri_name + "-import"
-        etree.SubElement(ri, "vrf-export").text = ri_name + "-export"
+        etree.SubElement(ri, "vrf-import").text = DMUtils.make_import_name(ri_name)
+        etree.SubElement(ri, "vrf-export").text = DMUtils.make_export_name(ri_name)
 
-        has_ipv6_prefixes = any(':' in prefix for prefix in prefixes or [])
-        has_ipv4_prefixes = any(':' not in prefix for prefix in prefixes or [])
+        has_ipv6_prefixes = DMUtils.has_ipv6_prefixes(prefixes)
+        has_ipv4_prefixes = DMUtils.has_ipv4_prefixes(prefixes)
 
         if not is_l2:
             if ri_opt is None:
@@ -427,7 +421,7 @@ class PhysicalRouterConfig(object):
 
         # add policies for export route targets
         ps = etree.SubElement(policy_config, "policy-statement")
-        etree.SubElement(ps, "name").text = ri_name + "-export"
+        etree.SubElement(ps, "name").text = DMUtils.make_export_name(ri_name)
         term = etree.SubElement(ps, "term")
         etree.SubElement(term, "name").text = "t1"
         then = etree.SubElement(term, "then")
@@ -435,7 +429,7 @@ class PhysicalRouterConfig(object):
             comm = etree.SubElement(then, "community")
             etree.SubElement(comm, "add")
             etree.SubElement(
-                comm, "community-name").text = route_target.replace(':', '_')
+                comm, "community-name").text = DMUtils.make_community_name(route_target)
         if fip_map is not None:
             # for nat instance
             etree.SubElement(then, "reject")
@@ -444,12 +438,12 @@ class PhysicalRouterConfig(object):
 
         # add policies for import route targets
         ps = etree.SubElement(policy_config, "policy-statement")
-        etree.SubElement(ps, "name").text = ri_name + "-import"
+        etree.SubElement(ps, "name").text = DMUtils.make_import_name(ri_name)
         term = etree.SubElement(ps, "term")
         etree.SubElement(term, "name").text = "t1"
         from_ = etree.SubElement(term, "from")
         for route_target in import_targets:
-            target_name = route_target.replace(':', '_')
+            target_name = DMUtils.make_community_name(route_target)
             etree.SubElement(from_, "community").text = target_name
         then = etree.SubElement(term, "then")
         etree.SubElement(then, "accept")
@@ -490,9 +484,9 @@ class PhysicalRouterConfig(object):
             inet = etree.SubElement(fc, "inet")
             f = etree.SubElement(inet, "filter")
             etree.SubElement(
-                f, "name").text = "redirect_to_" + ri_name[:46] + "_vrf"
+                f, "name").text = DMUtils.make_private_vrf_filter_name(ri_name)
             term = etree.SubElement(f, "term")
-            etree.SubElement(term, "name").text = "term-" + ri_name[:59]
+            etree.SubElement(term, "name").text = DMUtils.make_vrf_term_name(ri_name)
             from_ = etree.SubElement(term, "from")
             for fip_user_ip in fip_map.keys():
                 etree.SubElement(from_, "source-address").text = fip_user_ip
@@ -518,7 +512,7 @@ class PhysicalRouterConfig(object):
             iput = etree.SubElement(f, "input")
             etree.SubElement(
                 iput,
-                "filter-name").text = "redirect_to_" + ri_name[:46] + "_vrf"
+                "filter-name").text = DMUtils.make_private_vrf_filter_name(ri_name)
 
         # add L2 EVPN and BD config
         bd_config = None
@@ -529,7 +523,7 @@ class PhysicalRouterConfig(object):
             etree.SubElement(ri, "vtep-source-interface").text = "lo0.0"
             bd_config = etree.SubElement(ri, "bridge-domains")
             bd = etree.SubElement(bd_config, "domain")
-            etree.SubElement(bd, "name").text = "bd-" + str(vni)
+            etree.SubElement(bd, "name").text = DMUtils.make_bridge_name(vni)
             etree.SubElement(bd, "vlan-id").text = 'none'
             vxlan = etree.SubElement(bd, "vxlan")
             etree.SubElement(vxlan, "vni").text = str(vni)
@@ -589,16 +583,15 @@ class PhysicalRouterConfig(object):
         services_config = self.services_config
         if fip_map is not None:
             services_config = self.services_config or etree.Element("services")
-            service_name = 'sv-' + ri_name
             # mx has limitation for service-set and nat-rule name length,
             # allowed max 63 chars
-            service_name = service_name[:23]
+            service_name = DMUtils.make_services_set_name(ri_name)
             service_set = etree.SubElement(services_config, "service-set")
             etree.SubElement(service_set, "name").text = service_name
             nat_rule = etree.SubElement(service_set, "nat-rules")
-            etree.SubElement(nat_rule, "name").text = service_name + "-sn-rule"
+            etree.SubElement(nat_rule, "name").text = DMUtils.make_snat_rule_name(ri_name)
             nat_rule = etree.SubElement(service_set, "nat-rules")
-            etree.SubElement(nat_rule, "name").text = service_name + "-dn-rule"
+            etree.SubElement(nat_rule, "name").text = DMUtils.make_dnat_rule_name(ri_name)
             next_hop_service = etree.SubElement(
                 service_set, "next-hop-service")
             etree.SubElement(
@@ -612,18 +605,18 @@ class PhysicalRouterConfig(object):
             etree.SubElement(nat, "allow-overlapping-nat-pools")
             snat_rule = etree.SubElement(nat, "rule")
             etree.SubElement(
-                snat_rule, "name").text = service_name + "-sn-rule"
+                snat_rule, "name").text = DMUtils.make_snat_rule_name(ri_name)
             etree.SubElement(snat_rule, "match-direction").text = "input"
             dnat_rule = etree.SubElement(nat, "rule")
             etree.SubElement(
-                dnat_rule, "name").text = service_name + "-dn-rule"
+                dnat_rule, "name").text = DMUtils.make_dnat_rule_name(ri_name)
             etree.SubElement(dnat_rule, "match-direction").text = "output"
 
             for pip, fip_vn in fip_map.items():
                 fip = fip_vn["floating_ip"]
                 term = etree.SubElement(snat_rule, "term")
                 etree.SubElement(
-                    term, "name").text = "term_" + pip.replace('.', '_')
+                    term, "name").text = DMUtils.make_ip_term_name(pip)
                 from_ = etree.SubElement(term, "from")
                 src_addr = etree.SubElement(from_, "source-address")
                 # private ip
@@ -639,7 +632,7 @@ class PhysicalRouterConfig(object):
 
                 term = etree.SubElement(dnat_rule, "term")
                 etree.SubElement(
-                    term, "name").text = "term_" + fip.replace('.', '_')
+                    term, "name").text = DMUtils.make_ip_term_name(fip)
                 from_ = etree.SubElement(term, "from")
                 src_addr = etree.SubElement(from_, "destination-address")
                 etree.SubElement(
@@ -791,11 +784,11 @@ class PhysicalRouterConfig(object):
             return None
         bgp_config = etree.Element("group", operation="replace")
         if external:
-            etree.SubElement(bgp_config, "name").text = "__contrail_external__"
+            etree.SubElement(bgp_config, "name").text = DMUtils.make_bgp_group_name(True)
             etree.SubElement(bgp_config, "type").text = "external"
             etree.SubElement(bgp_config, "multihop")
         else:
-            etree.SubElement(bgp_config, "name").text = "__contrail__"
+            etree.SubElement(bgp_config, "name").text = DMUtils.make_bgp_group_name(False)
             etree.SubElement(bgp_config, "type").text = "internal"
         local_address = etree.SubElement(bgp_config, "local-address")
         local_address.text = self.bgp_params['address']

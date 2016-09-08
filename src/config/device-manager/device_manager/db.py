@@ -9,6 +9,7 @@ configuration manager
 from physical_router_config import PhysicalRouterConfig
 from physical_router_config import JunosInterface
 from physical_router_config import PushConfigState
+from dm_utils import DMUtils
 from sandesh.dm_introspect import ttypes as sandesh
 from cfgm_common.vnc_db import DBBase
 from cfgm_common.uve.physical_router.ttypes import *
@@ -610,8 +611,10 @@ class PhysicalRouterDM(DBBaseDM):
                 if ri_obj is None:
                     continue
                 if ri_obj.fq_name[-1] == vn_obj.fq_name[-1]:
-                    vrf_name_l2 = vn_obj.get_vrf_name(vrf_type='l2')
-                    vrf_name_l3 = vn_obj.get_vrf_name(vrf_type='l3')
+                    vrf_name_l2 = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
+                                                   vn_obj.vn_network_id, 'l2')
+                    vrf_name_l3 = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
+                                                   vn_obj.vn_network_id, 'l3')
                     export_set = copy.copy(ri_obj.export_targets)
                     import_set = copy.copy(ri_obj.import_targets)
                     for ri2_id in ri_obj.routing_instances:
@@ -660,24 +663,25 @@ class PhysicalRouterDM(DBBaseDM):
             if (export_set is not None and
                     self.is_junos_service_ports_enabled() and
                     len(vn_obj.instance_ip_map) > 0):
-                service_port_id = 2*vn_obj.vn_network_id - 1
-                if self.is_service_port_id_valid(service_port_id) == False:
+                service_port_ids = DMUtils.get_service_ports(vn_obj.vn_network_id)
+                if self.is_service_port_id_valid(service_port_ids[0]) == False:
                     self._logger.error("DM can't allocate service interfaces for \
                                           (vn, vn-id)=(%s,%s)" % (
                         vn_obj.fq_name,
                         vn_obj.vn_network_id))
                 else:
-                    vrf_name = vrf_name_l3[:123] + '-nat'
+                    vrf_name = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
+                                                 vn_obj.vn_network_id, 'l3', True)
                     interfaces = []
                     service_ports = self.junos_service_ports.get(
                         'service_port')
                     interfaces.append(
                         JunosInterface(
-                            service_ports[0] + "." + str(service_port_id),
+                            service_ports[0] + "." + str(service_port_ids[0]),
                             'l3', 0))
                     interfaces.append(
                         JunosInterface(
-                            service_ports[0] + "." + str(service_port_id + 1),
+                            service_ports[0] + "." + str(service_port_ids[1]),
                             'l3', 0))
                     ri_conf = { 'ri_name': vrf_name }
                     ri_conf['import_targets'] = import_set
@@ -1089,36 +1093,12 @@ class VirtualNetworkDM(DBBaseDM):
         self.virtual_machine_interfaces = set(
             [vmi['uuid'] for vmi in
              obj.get('virtual_machine_interface_back_refs', [])])
-        self.gateways = {}
-        for ipam_ref in obj.get('network_ipam_refs', []):
-            for subnet in ipam_ref['attr'].get('ipam_subnets', []):
-                prefix = subnet['subnet']['ip_prefix']
-                prefix_len = subnet['subnet']['ip_prefix_len']
-                self.gateways[prefix + '/' + str(prefix_len)] = \
-                    subnet.get('default_gateway', '')
+        self.gateways = DMUtils.get_network_gateways(obj.get('network_ipam_refs', []))
     # end update
 
     def get_prefixes(self):
         return set(self.gateways.keys())
     # end get_prefixes
-
-    def get_vrf_name(self, vrf_type):
-        # this function must be called only after vn gets its vn_id
-        if self.vn_network_id is None:
-            self._logger.error(
-                "network id is null for vn: %s" % (self.fq_name[-1]))
-            return '_contrail_' + vrf_type + '_' + self.fq_name[-1]
-        if vrf_type is None:
-            self._logger.error(
-                "vrf type can't be null : %s" % (self.fq_name[-1]))
-            vrf_name = '_contrail_' + \
-                str(self.vn_network_id) + '_' + self.fq_name[-1]
-        else:
-            vrf_name = '_contrail_' + vrf_type + '_' + \
-                str(self.vn_network_id) + '_' + self.fq_name[-1]
-        # mx has limitation for vrf name, allowed max 127 chars
-        return vrf_name[:127]
-    # end
 
     def get_vxlan_vni(self):
         if GlobalVRouterConfigDM.is_global_vxlan_id_mode_auto():
@@ -1161,7 +1141,8 @@ class VirtualNetworkDM(DBBaseDM):
                 public_vn = VirtualNetworkDM.get(fip.public_network)
                 if public_vn is None or public_vn.vn_network_id is None:
                     continue
-                public_vrf_name = public_vn.get_vrf_name(vrf_type='l3')
+                public_vrf_name = DMUtils.make_vrf_name(public_vn.fq_name[-1],
+                                                   public_vn.vn_network_id, 'l3')
                 self.instance_ip_map[instance_ip] = {
                     'floating_ip': floating_ip,
                     'vrf_name': public_vrf_name
