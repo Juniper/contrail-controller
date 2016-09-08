@@ -44,24 +44,6 @@ class AddressMismatchCompute(AlarmBase):
 
         if trigger:
             try:
-                rval1 = uve_data["VrouterAgent"]["self_ip_list"]
-            except KeyError:
-                rval1 = None
-
-            if not isinstance(rval1,list) or lval not in rval1:
-                and_list.append(AlarmElement(\
-                    rule=AlarmTemplate(oper="not in",
-                        operand1=Operand1(keys=\
-                            ["ContrailConfig","elements","virtual_router_ip_address"],
-                            json=2),
-                        operand2=Operand2(keys=["VrouterAgent","self_ip_list"])),
-                    json_operand1_value=json.dumps(lval),
-                    json_operand2_value=json.dumps(rval1)))
-            else:
-                trigger = False
-
-        if trigger:
-            try:
                 rval2 = uve_data["VrouterAgent"]["control_ip"]
             except KeyError:
                 rval2 = None
