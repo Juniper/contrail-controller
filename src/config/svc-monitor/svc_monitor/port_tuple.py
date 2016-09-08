@@ -251,11 +251,10 @@ class PortTupleAgent(Agent):
             return
         for iip_id in list(vmi.instance_ips):
             iip = InstanceIpSM.get(iip_id)
-            if not iip or not iip.service_instance:
-                continue
-            self._vnc_lib.ref_update('instance-ip', iip_id,
-                'virtual-machine-interface', vmi.uuid, None, 'DELETE')
-            vmi.instance_ips.remove(iip_id)
+            if iip and (iip.service_instance or iip.service_health_check_ip):
+                self._vnc_lib.ref_update('instance-ip', iip_id,
+                    'virtual-machine-interface', vmi.uuid, None, 'DELETE')
+                vmi.instance_ips.remove(iip_id)
 
         for irt_id in list(vmi.interface_route_tables):
             irt = InterfaceRouteTableSM.get(irt_id)
