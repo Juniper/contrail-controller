@@ -22,6 +22,7 @@ from cfgm_common import exceptions as vnc_exc
 from vnc_api.vnc_api import *
 from cfgm_common import SG_NO_RULE_FQ_NAME, SG_NO_RULE_NAME
 import vnc_openstack
+from context import get_context
 
 _DEFAULT_HEADERS = {
     'Content-type': 'application/json; charset="UTF-8"', }
@@ -34,6 +35,23 @@ DELETE = 4
 
 # SNAT defines
 _IFACE_ROUTE_TABLE_NAME_PREFIX = 'NEUTRON_IFACE_RT'
+
+class LocalVncApi(VncApi):
+    def _request(self, *args, **kwargs):
+        # always pass contextual user_token aka mux connection to api-server
+        try:
+            if 'X-AUTH-TOKEN' in self._headers:
+                orig_user_token = self._headers['X-AUTH-TOKEN']
+                had_user_token = True
+                self._headers['X-AUTH-TOKEN'] = get_context().user_token
+            else:
+                had_user_token = False
+            return super(LocalVncApi, self)._request(*args, **kwargs)
+        finally:
+            if had_user_token:
+                self._headers['X-AUTH-TOKEN'] = orig_user_token
+    # end _request
+# end class LocalVncApi
 
 class DBInterface(object):
     """
@@ -61,7 +79,7 @@ class DBInterface(object):
         while not connected:
             try:
                 # TODO remove hardcode
-                self._vnc_lib = VncApi(admin_name, admin_password,
+                self._vnc_lib = LocalVncApi(admin_name, admin_password,
                                        admin_tenant_name, api_srvr_ip,
                                        api_srvr_port, '/', user_info=user_info)
                 self._connected_to_api_server.set()
