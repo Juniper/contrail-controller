@@ -3,21 +3,33 @@ REST API Tutorial
 This tutorial will detail the steps necessary to create couple of virtual-networks
 and associate a policy on them such that only http traffic can pass.
 
+Authentication
+--------------
+
+If the API server is setup to use keystone for authentication (common for
+OpenStack deployments), then users must first obtain a token using
+keystone command line client or keystone's REST interface. Then, this
+token should be sent in the header of the request. If authentication is
+disabled, then this auth token is not needed. For more information on how
+to obtain a keystone token, check OpenStack documentation(
+http://developer.openstack.org/api-guide/quick-start/api-quick-start.html)
+
 Create virtual-network and network-policy objects
 -------------------------------------------------
 To create virtual-networks *vn-red* and *vn-blue* and network-policy *policy-red-blue*:
 
 Request for *vn-blue* create ::
 
-    curl -X POST -H "Content-Type: application/json; charset=UTF-8" -d '{"virtual-network": {"parent_type": "project", "fq_name": ["default-domain", "admin", "vn-blue"], "network_ipam_refs": [{"attr": {"ipam_subnets": [{"subnet": {"ip_prefix": "10.1.1.0", "ip_prefix_len": 24}}]}, "to": ["default-domain", "default-project", "default-network-ipam"]}]}}' http://10.84.14.2:8082/virtual-networks
+    curl -X POST -H "X-Auth-Token: $OS_TOKEN" -H "Content-Type: application/json; charset=UTF-8" -d '{"virtual-network": {"parent_type": "project", "fq_name": ["default-domain", "admin", "vn-blue"], "network_ipam_refs": [{"attr": {"ipam_subnets": [{"subnet": {"ip_prefix": "10.1.1.0", "ip_prefix_len": 24}}]}, "to": ["default-domain", "default-project", "default-network-ipam"]}]}}' http://10.84.14.2:8082/virtual-networks
 
 Response ::
+
     {"virtual-network": {"fq_name": ["default-domain", "admin", "vn-blue"], "parent_uuid": "df7649a6-3e2c-4982-b0c3-4b5038eef587", "parent_href": "http://10.84.14.2:8082/project/df7649a6-3e2c-4982-b0c3-4b5038eef587", "uuid": "8c84ff8a-30ac-4136-99d9-f0d9662f3eee", "href": "http://10.84.14.2:8082/virtual-network/8c84ff8a-30ac-4136-99d9-f0d9662f3eee", "name": "vn-blue"}}
 
 
 Request for *vn-red* create ::
 
-    curl -X POST -H "Content-Type: application/json; charset=UTF-8" -d '{"virtual-network": {"parent_type": "project", "fq_name": ["default-domain", "admin", "vn-red"], "network_ipam_refs": [{"attr": {"ipam_subnets": [{"subnet": {"ip_prefix": "20.1.1.0", "ip_prefix_len": 24}}]}, "to": ["default-domain", "default-project", "default-network-ipam"]}]}}' http://10.84.14.2:8082/virtual-networks
+    curl -X POST -H "X-Auth-Token: $OS_TOKEN" -H "Content-Type: application/json; charset=UTF-8" -d '{"virtual-network": {"parent_type": "project", "fq_name": ["default-domain", "admin", "vn-red"], "network_ipam_refs": [{"attr": {"ipam_subnets": [{"subnet": {"ip_prefix": "20.1.1.0", "ip_prefix_len": 24}}]}, "to": ["default-domain", "default-project", "default-network-ipam"]}]}}' http://10.84.14.2:8082/virtual-networks
 
 Response ::
 
@@ -25,7 +37,7 @@ Response ::
 
 Request for *policy-red-blue* create ::
 
-    curl -X POST -H "Content-Type: application/json; charset=UTF-8" -d '{"network-policy": {"parent_type": "project", "fq_name": ["default-domain", "admin", "policy-red-blue"], "network_policy_entries": {"policy_rule": [{"direction": "<>", "protocol": "tcp", "dst_addresses": [{"virtual_network": "default-domain:admin:vn-blue"}], "dst_ports": [{"start_port": 80, "end_port": 80}], "action_list": {"simple_action": "pass"}, "src_addresses": [{"virtual_network": "default-domain:admin:vn-red"}], "src_ports": [{"end_port": -1, "start_port": -1}]}] }}}' http://10.84.14.2:8082/network-policys
+    curl -X POST -H "X-Auth-Token: $OS_TOKEN" -H "Content-Type: application/json; charset=UTF-8" -d '{"network-policy": {"parent_type": "project", "fq_name": ["default-domain", "admin", "policy-red-blue"], "network_policy_entries": {"policy_rule": [{"direction": "<>", "protocol": "tcp", "dst_addresses": [{"virtual_network": "default-domain:admin:vn-blue"}], "dst_ports": [{"start_port": 80, "end_port": 80}], "action_list": {"simple_action": "pass"}, "src_addresses": [{"virtual_network": "default-domain:admin:vn-red"}], "src_ports": [{"end_port": -1, "start_port": -1}]}] }}}' http://10.84.14.2:8082/network-policys
 
 Response ::
 
@@ -37,7 +49,7 @@ To associate *policy-red-blue* to *vn-red* and *vn-blue* virtual-networks:
 
 Request for *vn-blue* update ::
 
-    curl -X PUT -H "Content-Type: application/json; charset=UTF-8" -d '{"virtual-network": {"fq_name": ["default-domain", "admin", "vn-blue"],"network_policy_refs": [{"to": ["default-domain", "admin", "policy-red-blue"], "attr":{"sequence":{"major":0, "minor": 0}}}]}}' http://10.84.14.2:8082/virtual-network/8c84ff8a-30ac-4136-99d9-f0d9662f3eee
+    curl -X PUT -H "X-Auth-Token: $OS_TOKEN" -H "Content-Type: application/json; charset=UTF-8" -d '{"virtual-network": {"fq_name": ["default-domain", "admin", "vn-blue"],"network_policy_refs": [{"to": ["default-domain", "admin", "policy-red-blue"], "attr":{"sequence":{"major":0, "minor": 0}}}]}}' http://10.84.14.2:8082/virtual-network/8c84ff8a-30ac-4136-99d9-f0d9662f3eee
 
 Response ::
 
@@ -45,7 +57,7 @@ Response ::
 
 Request for *vn-red* update ::
 
-    curl -X PUT -H "Content-Type: application/json; charset=UTF-8" -d '{"virtual-network": {"fq_name": ["default-domain", "admin", "vn-red"],"network_policy_refs": [{"to": ["default-domain", "admin", "policy-red-blue"], "attr":{"sequence":{"major":0, "minor": 0}}}]}}' http://10.84.14.2:8082/virtual-network/47a91732-629b-4cbe-9aa5-45ba4d7b0e99
+    curl -X PUT -H "X-Auth-Token: $OS_TOKEN" -H "Content-Type: application/json; charset=UTF-8" -d '{"virtual-network": {"fq_name": ["default-domain", "admin", "vn-red"],"network_policy_refs": [{"to": ["default-domain", "admin", "policy-red-blue"], "attr":{"sequence":{"major":0, "minor": 0}}}]}}' http://10.84.14.2:8082/virtual-network/47a91732-629b-4cbe-9aa5-45ba4d7b0e99
 
 Response ::
 
@@ -55,7 +67,7 @@ Read the objects to verify
 --------------------------
 Request for *vn-blue* read ::
 
-    curl -X GET -H "Content-Type: application/json; charset=UTF-8" http://10.84.14.2:8082/virtual-network/8c84ff8a-30ac-4136-99d9-f0d9662f3eee
+    curl -X GET -H "X-Auth-Token: $OS_TOKEN" -H "Content-Type: application/json; charset=UTF-8" http://10.84.14.2:8082/virtual-network/8c84ff8a-30ac-4136-99d9-f0d9662f3eee
 
 Response ::
 
@@ -67,7 +79,7 @@ To list the virtual networks:
 
 Request ::
 
-    curl -X GET -H "Content-Type: application/json; charset=UTF-8" http://10.84.14.2:8082/virtual-networks
+    curl -X GET -H "X-Auth-Token: $OS_TOKEN" -H "Content-Type: application/json; charset=UTF-8" http://10.84.14.2:8082/virtual-networks
 
 Response ::
 
@@ -75,15 +87,15 @@ Response ::
 
 Request with detail (**WARNING** depending on collection size, this may be inefficient)::
 
-    curl -X GET -H "Content-Type: application/json; charset=UTF-8" http://10.84.14.2:8082/virtual-networks?detail=True
+    curl -X GET -H "X-Auth-Token: $OS_TOKEN" -H "Content-Type: application/json; charset=UTF-8" http://10.84.14.2:8082/virtual-networks?detail=True
 
 Request subset of virtual-networks with detail ::
 
-    curl -X GET -H "Content-Type: application/json; charset=UTF-8" "http://10.84.14.2:8082/virtual-networks?obj_uuids=8c84ff8a-30ac-4136-99d9-f0d9662f3eee,47a91732-629b-4cbe-9aa5-45ba4d7b0e99&detail=True"
+    curl -X GET -H "X-Auth-Token: $OS_TOKEN" -H "Content-Type: application/json; charset=UTF-8" "http://10.84.14.2:8082/virtual-networks?obj_uuids=8c84ff8a-30ac-4136-99d9-f0d9662f3eee,47a91732-629b-4cbe-9aa5-45ba4d7b0e99&detail=True"
 
 Request virtual-networks anchored by a project(parent)::
 
-    curl -X GET -H "Content-Type: application/json; charset=UTF-8" "http://10.84.14.2:8082/parent_id=83a4bea4-ec45-4670-950c-d7f0f98e0e4f"
+    curl -X GET -H "X-Auth-Token: $OS_TOKEN" -H "Content-Type: application/json; charset=UTF-8" "http://10.84.14.2:8082/parent_id=83a4bea4-ec45-4670-950c-d7f0f98e0e4f"
 
 Delete the objects
 ------------------
@@ -91,6 +103,6 @@ To delete the virtual-networks and network-policy objects created:
 
 Request for *vn-red* delete ::
 
-    curl -X DELETE -H "Content-Type: application/json; charset=UTF-8" http://10.84.14.2:8082/virtual-network/47a91732-629b-4cbe-9aa5-45ba4d7b0e99
+    curl -X DELETE -H "X-Auth-Token: $OS_TOKEN" -H "Content-Type: application/json; charset=UTF-8" http://10.84.14.2:8082/virtual-network/47a91732-629b-4cbe-9aa5-45ba4d7b0e99
 
 Response *None*
