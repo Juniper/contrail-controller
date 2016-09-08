@@ -125,7 +125,7 @@ TcpSession *BgpSessionManager::CreateSession() {
     boost::system::error_code ec;
     socket->open(boost::asio::ip::tcp::v4(), ec);
     if (ec || (ec = session->SetSocketOptions()) || socket_open_failure()) {
-        BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+        BGP_LOG_WARNING_STR(BgpMessage, BGP_LOG_FLAG_ALL,
             "Failed to open bgp socket, error: " << ec.message());
         DeleteSession(session);
         return NULL;
@@ -190,7 +190,7 @@ bool BgpSessionManager::ProcessSession(BgpSession *session) {
     if (peer == NULL || peer->deleter()->IsDeleted()) {
         session->SendNotification(BgpProto::Notification::Cease,
                                   BgpProto::Notification::PeerDeconfigured);
-        BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_WARN,
+        BGP_LOG_WARNING_STR(BgpMessage, 
                     BGP_LOG_FLAG_TRACE, "Remote end-point not found");
         DeleteSession(session);
         return true;

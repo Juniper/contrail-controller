@@ -37,7 +37,7 @@ do {                                                                           \
                                     level, __FILE__, __LINE__, ##__VA_ARGS__); \
     }                                                                          \
     if ((flags) & RTINSTANCE_LOG_FLAG_TRACE) {                                 \
-        const std::string __trace_buf(RTINSTANCE_TRACE_BUF);             \
+        const std::string __trace_buf(RTINSTANCE_TRACE_BUF);                   \
         RoutingInstance##type::TraceMsg(RoutingInstanceTraceBuf,               \
                                         __FILE__, __LINE__, ##__VA_ARGS__);    \
     }                                                                          \
@@ -49,6 +49,10 @@ do {                                                                           \
 
 #define RTINSTANCE_LOG_MESSAGE(server, level, flags, ...)                      \
     RTINSTANCE_LOG_INTERNAL(Message, server, level, flags, ##__VA_ARGS__);     \
+
+#define RTINSTANCE_LOG_WARNING_MESSAGE(server, flags, ...)                     \
+    RTINSTANCE_LOG_INTERNAL(WarningMessage, server, SandeshLevel::SYS_WARN,    \
+                            flags, ##__VA_ARGS__);                             \
 
 #define RTINSTANCE_LOG_PEER(type, rtinstance, peer, level, flags, ...)         \
     RTINSTANCE_LOG_INTERNAL(Peer##type, (rtinstance)->server(), level, flags,  \

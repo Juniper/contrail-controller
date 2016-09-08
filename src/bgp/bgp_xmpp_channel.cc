@@ -827,8 +827,8 @@ bool BgpXmppChannel::VerifyMembership(const string &vrf_name,
                               subscription_gen_id, &req_type)) {
             // Bail if there's a pending unsubscribe.
             if (req_type != SUBSCRIBE) {
-                BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                    SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                    BGP_LOG_FLAG_ALL,
                     "Received route after unsubscribe");
                 return false;
             }
@@ -836,9 +836,8 @@ bool BgpXmppChannel::VerifyMembership(const string &vrf_name,
         } else {
             // Bail if we are not subscribed to the table.
             if (*instance_id < 0) {
-                BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                    SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                    "Received route without subscribe");
+                BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                    BGP_LOG_FLAG_ALL, "Received route without subscribe");
                 return false;
             }
         }
@@ -847,9 +846,8 @@ bool BgpXmppChannel::VerifyMembership(const string &vrf_name,
         if (GetMembershipInfo(vrf_name, instance_id)) {
             *subscribe_pending = true;
         } else {
-            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-               SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-               "Received route without pending subscribe");
+            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+               BGP_LOG_FLAG_ALL, "Received route without pending subscribe");
             return false;
         }
     }
@@ -863,22 +861,20 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
     item.Clear();
 
     if (!item.XmlParse(node)) {
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-            "Invalid multicast route message received");
+        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+            BGP_LOG_FLAG_ALL, "Invalid multicast route message received");
         return false;
     }
 
     if (item.entry.nlri.af != BgpAf::IPv4) {
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
             "Unsupported address family " << item.entry.nlri.af <<
             " for multicast route");
         return false;
     }
 
     if (item.entry.nlri.safi != BgpAf::Mcast) {
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
+        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
             BGP_LOG_FLAG_ALL, "Unsupported subsequent address family " <<
             item.entry.nlri.safi << " for multicast route");
         return false;
@@ -889,8 +885,7 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
     if (!item.entry.nlri.group.empty()) {
         if (!XmppDecodeAddress(item.entry.nlri.af,
             item.entry.nlri.group, &grp_address, false)) {
-            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
                 "Bad group address " << item.entry.nlri.group);
             return false;
         }
@@ -900,8 +895,7 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
     if (!item.entry.nlri.source.empty()) {
         if (!XmppDecodeAddress(item.entry.nlri.af,
             item.entry.nlri.source, &src_address, true)) {
-            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
                 "Bad source address " << item.entry.nlri.source);
             return false;
         }
@@ -936,17 +930,15 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
         const McastNextHopsType &inh_list = item.entry.next_hops;
 
         if (inh_list.next_hop.empty()) {
-            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                "Missing next-hop for multicast route " <<
+            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                BGP_LOG_FLAG_ALL, "Missing next-hop for multicast route " <<
                 mc_prefix.ToString());
             return false;
         }
 
         // Agents should send only one next-hop in the item
         if (inh_list.next_hop.size() != 1) {
-            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
                 "More than one nexthop received for multicast route " <<
                 mc_prefix.ToString());
             return false;
@@ -958,17 +950,15 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
         label_range = nit->label;
         if (!stringToIntegerList(label_range, "-", labels) ||
             labels.size() != 2) {
-            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
                 "Bad label range " << label_range <<
                 " for multicast route " << mc_prefix.ToString());
             return false;
         }
 
         if (!labels[0] || !labels[1] || labels[1] < labels[0]) {
-            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                "Bad label range " << label_range <<
+            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                BGP_LOG_FLAG_ALL, "Bad label range " << label_range <<
                 " for multicast route " << mc_prefix.ToString());
             return false;
         }
@@ -982,9 +972,8 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
         // Next-hop ip address
         IpAddress nh_address;
         if (!XmppDecodeAddress(nit->af, nit->address, &nh_address)) {
-            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                "Bad nexthop address " << nit->address <<
+            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                BGP_LOG_FLAG_ALL, "Bad nexthop address " << nit->address <<
                 " for multicast route " << mc_prefix.ToString());
             return false;
         }
@@ -1051,15 +1040,13 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
     item.Clear();
 
     if (!item.XmlParse(node)) {
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
             "Invalid inet route message received");
         return false;
     }
 
     if (item.entry.nlri.af != BgpAf::IPv4) {
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
             "Unsupported address family " << item.entry.nlri.af <<
             " for inet route " << item.entry.nlri.address);
         return false;
@@ -1069,8 +1056,7 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
     Ip4Prefix rt_prefix = Ip4Prefix::FromString(item.entry.nlri.address,
                                                 &error);
     if (error) {
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
             "Bad inet route " << item.entry.nlri.address);
         return false;
     }
@@ -1101,8 +1087,7 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
         const NextHopListType &inh_list = item.entry.next_hops;
 
         if (inh_list.next_hop.empty()) {
-            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
                 "Missing next-hops for inet route " << rt_prefix.ToString());
             return false;
         }
@@ -1114,9 +1099,8 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
 
             IpAddress nhop_address(Ip4Address(0));
             if (!XmppDecodeAddress(nit->af, nit->address, &nhop_address)) {
-                BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                    SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                    "Bad nexthop address " << nit->address <<
+                BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                    BGP_LOG_FLAG_ALL, "Bad nexthop address " << nit->address <<
                     " for inet route " << rt_prefix.ToString());
                 return false;
             }
@@ -1252,16 +1236,14 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
 
     if (!item.XmlParse(node)) {
         error_stats().incr_inet6_rx_bad_xml_token_count();
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
             "Invalid inet6 route message received");
         return false;
     }
 
     if (item.entry.nlri.af != BgpAf::IPv6) {
         error_stats().incr_inet6_rx_bad_afi_safi_count();
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
             "Unsupported address family " << item.entry.nlri.af <<
             " for inet6 route " << item.entry.nlri.address);
         return false;
@@ -1269,8 +1251,7 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
 
     if (item.entry.nlri.safi != BgpAf::Unicast) {
         error_stats().incr_inet6_rx_bad_afi_safi_count();
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
             "Unsupported subsequent address family " << item.entry.nlri.safi <<
             " for inet6 route " << item.entry.nlri.address);
         return false;
@@ -1281,8 +1262,7 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
         Inet6Prefix::FromString(item.entry.nlri.address, &error);
     if (error) {
         error_stats().incr_inet6_rx_bad_prefix_count();
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
             "Bad inet6 route " << item.entry.nlri.address);
         return false;
     }
@@ -1313,8 +1293,7 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
         const NextHopListType &inh_list = item.entry.next_hops;
 
         if (inh_list.next_hop.empty()) {
-            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
                 "Missing next-hops for inet6 route " << rt_prefix.ToString());
             return false;
         }
@@ -1327,9 +1306,8 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
             IpAddress nhop_address(Ip4Address(0));
             if (!XmppDecodeAddress(nit->af, nit->address, &nhop_address)) {
                 error_stats().incr_inet6_rx_bad_nexthop_count();
-                BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                    SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                    "Bad nexthop address " << nit->address <<
+                BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                    BGP_LOG_FLAG_ALL, "Bad nexthop address " << nit->address <<
                     " for inet6 route " << rt_prefix.ToString());
                 return false;
             }
@@ -1467,23 +1445,20 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
     item.Clear();
 
     if (!item.XmlParse(node)) {
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
             "Invalid enet route message received");
         return false;
     }
 
     if (item.entry.nlri.af != BgpAf::L2Vpn) {
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
             "Unsupported address family " << item.entry.nlri.af <<
             " for enet route " << item.entry.nlri.address);
         return false;
     }
 
     if (item.entry.nlri.safi != BgpAf::Enet) {
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
             "Unsupported subsequent address family " << item.entry.nlri.safi <<
             " for enet route " << item.entry.nlri.mac);
         return false;
@@ -1493,8 +1468,7 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
     MacAddress mac_addr = MacAddress::FromString(item.entry.nlri.mac, &error);
 
     if (error) {
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-            SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
             "Bad mac address " << item.entry.nlri.mac);
         return false;
     }
@@ -1505,8 +1479,7 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
     if (!item.entry.nlri.address.empty()) {
         size_t pos = item.entry.nlri.address.find('/');
         if (pos == string::npos) {
-            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
                 "Missing / in address " << item.entry.nlri.address);
             return false;
         }
@@ -1516,8 +1489,8 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
             inet_prefix =
                 Ip4Prefix::FromString(item.entry.nlri.address, &error);
             if (error || inet_prefix.prefixlen() != 32) {
-                BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                    SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                    BGP_LOG_FLAG_ALL,
                     "Bad inet address " << item.entry.nlri.address);
                 return false;
             }
@@ -1526,15 +1499,14 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
             inet6_prefix =
                 Inet6Prefix::FromString(item.entry.nlri.address, &error);
             if (error || inet6_prefix.prefixlen() != 128) {
-                BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                    SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                    BGP_LOG_FLAG_ALL,
                     "Bad inet6 address " << item.entry.nlri.address);
                 return false;
             }
             ip_addr = inet6_prefix.ip6_addr();
         } else if (item.entry.nlri.address != "0.0.0.0/0") {
-            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
                 "Bad prefix length in address " <<
                 item.entry.nlri.address);
             return false;
@@ -1577,10 +1549,9 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
         const EnetNextHopListType &inh_list = item.entry.next_hops;
 
         if (inh_list.next_hop.empty()) {
-            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                "Missing next-hops for enet route " <<
-                evpn_prefix.ToXmppIdString());
+            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                BGP_LOG_FLAG_ALL, "Missing next-hops for enet route " <<
+                                  evpn_prefix.ToXmppIdString());
             return false;
         }
 
@@ -1591,9 +1562,8 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
             IpAddress nhop_address(Ip4Address(0));
 
             if (!XmppDecodeAddress(nit->af, nit->address, &nhop_address)) {
-                BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                    SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                    "Bad nexthop address " << nit->address <<
+                BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                    BGP_LOG_FLAG_ALL, "Bad nexthop address " << nit->address <<
                     " for enet route " << evpn_prefix.ToXmppIdString());
                 return false;
             }
@@ -1691,8 +1661,8 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
                 IpAddress replicator_address;
                 if (!XmppDecodeAddress(BgpAf::IPv4,
                     item.entry.replicator_address, &replicator_address)) {
-                    BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
-                        SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                    BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                        BGP_LOG_FLAG_ALL,
                         "Bad replicator address " <<
                         item.entry.replicator_address <<
                         " for enet route " << evpn_prefix.ToXmppIdString());
@@ -1766,8 +1736,8 @@ void BgpXmppChannel::DequeueRequest(const string &table_name,
         bool is_registered = mgr->GetRegistrationInfo(peer_.get(), table,
                                             &instance_id, &subscription_gen_id);
         if (!is_registered) {
-            BGP_LOG_PEER(Event, Peer(),
-                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+            BGP_LOG_PEER_WARNING(Event, Peer(),
+                BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
                 "Not subscribed to table " << table->name());
             return;
         }
@@ -1864,7 +1834,7 @@ bool BgpXmppChannel::MembershipResponseHandler(string table_name) {
     RoutingTableMembershipRequestMap::iterator loc =
         routingtable_membership_request_map_.find(table_name);
     if (loc == routingtable_membership_request_map_.end()) {
-        BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+        BGP_LOG_PEER_WARNING(Membership, Peer(),
                      BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
                      "Table " << table_name <<
                      " not in subscribe/unsubscribe request queue");
@@ -2182,7 +2152,7 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
         if (add_change) {
             if (vrf_membership_request_map_.find(vrf_name) !=
                 vrf_membership_request_map_.end()) {
-                BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+                BGP_LOG_PEER_WARNING(Membership, Peer(),
                              BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
                              "Duplicate subscribe for routing instance " <<
                              vrf_name << ", triggering close");
@@ -2196,7 +2166,7 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
                 FlushDeferQ(vrf_name);
                 channel_stats_.instance_unsubscribe++;
             } else {
-                BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+                BGP_LOG_PEER_WARNING(Membership, Peer(),
                              BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
                              "Spurious unsubscribe for routing instance " <<
                              vrf_name << ", triggering close");
@@ -2213,14 +2183,14 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
         if (add_change) {
             if (vrf_membership_request_map_.find(vrf_name) !=
                 vrf_membership_request_map_.end()) {
-                BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+                BGP_LOG_PEER_WARNING(Membership, Peer(),
                              BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
                              "Duplicate subscribe for routing instance " <<
                              vrf_name << ", triggering close");
                 channel_->Close();
             } else if (routing_instances_.find(rt_instance) !=
                 routing_instances_.end()) {
-                BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+                BGP_LOG_PEER_WARNING(Membership, Peer(),
                              BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
                              "Duplicate subscribe for routing instance " <<
                              vrf_name << ", triggering close");
@@ -2241,7 +2211,7 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
                 return;
             } else if (routing_instances_.find(rt_instance) ==
                 routing_instances_.end()) {
-                BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+                BGP_LOG_PEER_WARNING(Membership, Peer(),
                              BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
                              "Spurious unsubscribe for routing instance " <<
                              vrf_name << ", triggering close");
@@ -2255,7 +2225,7 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
             if (routing_instances_.find(rt_instance) !=
                 routing_instances_.end()) {
                 if (!peer_close_->close_manager()->IsCloseInProgress()) {
-                    BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+                    BGP_LOG_PEER_WARNING(Membership, Peer(),
                                  BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
                                  "Duplicate subscribe for routing instance " <<
                                  vrf_name << ", triggering close");
@@ -2267,7 +2237,7 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
         } else {
             if (routing_instances_.find(rt_instance) ==
                 routing_instances_.end()) {
-                BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+                BGP_LOG_PEER_WARNING(Membership, Peer(),
                              BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
                              "Spurious unsubscribe for routing instance " <<
                              vrf_name << ", triggering close");
@@ -2345,8 +2315,7 @@ void BgpXmppChannel::ReceiveEndOfRIB(Address::Family family) {
 
 void BgpXmppChannel::EndOfRibTimerErrorHandler(string error_name,
                                                string error_message) {
-    BGP_LOG_PEER(Timer, Peer(), SandeshLevel::SYS_CRIT, BGP_LOG_FLAG_ALL,
-                 BGP_PEER_DIR_NA,
+    BGP_LOG_PEER_CRITICAL(Timer, Peer(), BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
                  "Timer error: " << error_name << " " << error_message);
 }
 
