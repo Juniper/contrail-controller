@@ -391,6 +391,11 @@ rt_network_attr_test = env.UnitTest('rt_network_attr_test',
                                     ['rt_network_attr_test.cc'])
 env.Alias('src/bgp:rt_network_attr_test', rt_network_attr_test)
 
+bgp_xmpp_rtarget_manager_test = env.UnitTest('bgp_xmpp_rtarget_manager_test',
+                                    ['bgp_xmpp_rtarget_manager_test.cc'])
+env.Alias('src/bgp:bgp_xmpp_rtarget_manager_test',
+          bgp_xmpp_rtarget_manager_test)
+
 xmpp_ecmp_test = env.UnitTest('xmpp_ecmp_test', ['xmpp_ecmp_test.cc'])
 env.Alias('src/bgp:xmpp_ecmp_test', xmpp_ecmp_test)
 
@@ -589,6 +594,7 @@ test_suite = [
     bgp_xmpp_mcast_test,
     bgp_xmpp_parse_test,
     bgp_xmpp_rtarget_test,
+    bgp_xmpp_rtarget_manager_test,
     bgp_xmpp_test,
     bgp_xmpp_wready_test,
     graceful_restart_test,

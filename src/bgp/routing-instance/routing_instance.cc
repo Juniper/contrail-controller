@@ -605,7 +605,8 @@ void RoutingInstanceMgr::EnableNeighborConfigListProcessing() {
 class RoutingInstance::DeleteActor : public LifetimeActor {
 public:
     DeleteActor(BgpServer *server, RoutingInstance *parent)
-            : LifetimeActor(server->lifetime_manager()), parent_(parent) {
+            : LifetimeActor(server ? server->lifetime_manager() : NULL),
+                            parent_(parent) {
     }
     virtual bool MayDelete() const {
         return parent_->MayDelete();
@@ -634,8 +635,10 @@ RoutingInstance::RoutingInstance(string name, BgpServer *server,
       vxlan_id_(0),
       deleter_(new DeleteActor(server, this)),
       manager_delete_ref_(this, NULL) {
-    tbb::mutex::scoped_lock lock(mgr->mutex());
-    manager_delete_ref_.Reset(mgr->deleter());
+    if (mgr) {
+        tbb::mutex::scoped_lock lock(mgr->mutex());
+        manager_delete_ref_.Reset(mgr->deleter());
+    }
 }
 
 RoutingInstance::~RoutingInstance() {
