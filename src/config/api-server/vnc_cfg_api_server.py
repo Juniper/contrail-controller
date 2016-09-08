@@ -3442,6 +3442,10 @@ class VncApiServer(object):
             pass
         return k_v
 
+    @property
+    def global_read_only_role(self):
+        return self._args.global_read_only_role
+
     def publish_self_to_discovery(self):
         # publish API server
         data = {

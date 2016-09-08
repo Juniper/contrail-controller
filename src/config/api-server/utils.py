@@ -16,7 +16,6 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 _WEB_HOST = '0.0.0.0'
 _WEB_PORT = 8082
 _ADMIN_PORT = 8095
-_CLOUD_ADMIN_ROLE = 'admin'
 
 def parse_args(args_str):
     args_obj = None
@@ -72,7 +71,8 @@ def parse_args(args_str):
         'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
         'ifmap_health_check_interval': '60', # in seconds
         'stale_lock_seconds': '5', # lock but no resource past this => stale
-        'cloud_admin_role': _CLOUD_ADMIN_ROLE,
+        'cloud_admin_role': cfgm_common.CLOUD_ADMIN_ROLE,
+        'global_read_only_role': cfgm_common.GLOBAL_READ_ONLY_ROLE,
         'rabbit_use_ssl': False,
         'kombu_ssl_version': '',
         'kombu_ssl_keyfile': '',
@@ -294,6 +294,8 @@ def parse_args(args_str):
             help="Time after which lock without resource is stale, default 60")
     parser.add_argument( "--cloud_admin_role",
         help="Role name of cloud administrator")
+    parser.add_argument( "--global_read_only_role",
+        help="Role name of Read-Only administrator")
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.config_sections = config
     if type(args_obj.cassandra_server_list) is str:
