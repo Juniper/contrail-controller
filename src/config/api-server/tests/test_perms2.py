@@ -258,6 +258,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         extra_config_knobs = [
             ('DEFAULTS', 'aaa_mode', 'rbac'),
             ('DEFAULTS', 'cloud_admin_role', 'cloud-admin'),
+            ('DEFAULTS', 'cloud_admin_ro_role', 'read-only-admin'),
             ('DEFAULTS', 'auth', 'keystone'),
         ]
         super(TestPermissions, cls).setUpClass(extra_mocks=extra_mocks,
@@ -279,15 +280,16 @@ class TestPermissions(test_case.ApiServerTestCase):
         self.admin = User(ip, port, kc, 'admin', 'contrail123', 'cloud-admin', 'admin-%s' % self.id())
         self.admin1 = User(ip, port, kc, 'admin1', 'contrail123', 'admin', 'admin1-%s' % self.id())
         self.admin2 = User(ip, port, kc, 'admin2', 'contrail123', 'admin', 'admin2-%s' % self.id())
+        self.adminr = User(ip, port, kc, 'adminr', 'contrail123', 'read-only-admin', 'adminr-%s' % self.id())
 
-        self.users = [self.alice, self.bob, self.admin1, self.admin2]
+        self.users = [self.alice, self.bob, self.admin, self.admin1, self.admin2, self.adminr]
 
         """
         1. create project in API server
         2. read objects back and pupolate locally
         3. reassign ownership of projects to user from admin
         """
-        for user in [self.admin, self.alice, self.bob, self.admin1, self.admin2]:
+        for user in self.users:
             project_obj = Project(user.project)
             project_obj.uuid = user.project_uuid
             logger.info( 'Creating Project object for %s, uuid %s' \
@@ -1151,6 +1153,32 @@ class TestPermissions(test_case.ApiServerTestCase):
 
         status_code, result = alice.vnc_lib._http_get('/virtual-networks')
         self.assertThat(status_code, Equals(401))
+
+    def test_read_only_admin_role(self):
+        # create VN owned by Alice
+        vn = VirtualNetwork('alice-%s' % self.id(), self.alice.project_obj)
+        vn_fq_name = vn.get_fq_name()
+
+        self.alice.vnc_lib.virtual_network_create(vn)
+
+        # read-only admin - delete VN  ... should fail
+        with ExpectedException(PermissionDenied) as e:
+            self.adminr.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
+
+        # read-only admin - read VN  ... should succeed
+        try:
+            vn = vnc_read_obj(self.adminr.vnc_lib, 'virtual-network', name = vn_fq_name)
+            self.assertTrue(True, 'Read VN successfully ... test passed')
+        except PermissionDenied as e:
+            self.assertTrue(False, 'Read VN failed ... test failed!!!')
+
+        # cloud admin - delete VN  ... should succeed
+        try:
+            self.admin.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
+            self.assertTrue(True, 'Deleted VN successfully ... test passed')
+        except PermissionDenied as e:
+            self.assertTrue(False, 'Delete VN failed ... test failed!!!')
+    # end
 
     def tearDown(self):
         super(TestPermissions, self).tearDown()

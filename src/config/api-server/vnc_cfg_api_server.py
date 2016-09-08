@@ -3426,6 +3426,10 @@ class VncApiServer(object):
             pass
         return k_v
 
+    @property
+    def cloud_admin_ro_role(self):
+        return self._args.cloud_admin_ro_role
+
     def publish_self_to_discovery(self):
         # publish API server
         data = {
