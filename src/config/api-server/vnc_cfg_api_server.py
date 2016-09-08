@@ -1290,6 +1290,12 @@ class VncApiServer(object):
             vnc_cfg_types.PhysicalInterfaceServer)
         self.set_resource_class('route-table',
             vnc_cfg_types.RouteTableServer)
+        self.set_resource_class('domain',
+            vnc_cfg_types.DomainServer)
+        self.set_resource_class('service-template',
+            vnc_cfg_types.ServiceTemplateServer)
+        self.set_resource_class('virtual-dns',
+            vnc_cfg_types.VirtualDnsServer)
 
         self.set_resource_class('virtual-ip', vnc_cfg_types.VirtualIpServer)
         self.set_resource_class('loadbalancer-healthmonitor',
