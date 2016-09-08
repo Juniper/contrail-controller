@@ -17,6 +17,8 @@ SGID_MIN_ALLOC = 8000000
 
 AAA_MODE_DEFAULT_VALUE = 'cloud-admin'
 AAA_MODE_VALID_VALUES = ['no-auth', 'cloud-admin', 'rbac']
+CLOUD_ADMIN_ROLE = 'admin'
+GLOBAL_READ_ONLY_ROLE = None
 
 def obj_to_json(obj):
     return dict((k, v) for k, v in obj.__dict__.iteritems())

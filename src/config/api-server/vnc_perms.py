@@ -26,6 +26,10 @@ class VncPermissions(object):
         return self._server_mgr.cloud_admin_role
 
     @property
+    def global_read_only_role(self):
+        return self._server_mgr.global_read_only_role
+
+    @property
     def _multi_tenancy(self):
         return self._server_mgr.is_multi_tenancy_set()
     # end
@@ -50,9 +54,11 @@ class VncPermissions(object):
         err_msg = (403, 'Permission Denied')
 
         user, roles = self.get_user_roles(request)
-        is_admin = self.cloud_admin_role in [x.lower() for x in roles]
+        is_admin = self.cloud_admin_role in roles
         if is_admin:
             return (True, 'RWX')
+        if self.global_read_only_role in roles and mode == PERMS_R:
+            return (True, 'R')
 
         owner = id_perms['permissions']['owner']
         group = id_perms['permissions']['group']
@@ -92,9 +98,11 @@ class VncPermissions(object):
             return (True, '')
 
         user, roles = self.get_user_roles(request)
-        is_admin = self.cloud_admin_role in [x.lower() for x in roles]
+        is_admin = self.cloud_admin_role in roles
         if is_admin:
             return (True, 'RWX')
+        if self.global_read_only_role in roles and mode == PERMS_R:
+            return (True, 'R')
 
         env = request.headers.environ
         tenant = env.get('HTTP_X_PROJECT_ID', None)

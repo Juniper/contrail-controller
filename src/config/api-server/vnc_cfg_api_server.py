@@ -3413,6 +3413,10 @@ class VncApiServer(object):
     def cloud_admin_role(self):
         return self._args.cloud_admin_role
 
+    @property
+    def global_read_only_role(self):
+        return self._args.global_read_only_role
+
     def publish_self_to_discovery(self):
         # publish API server
         data = {
