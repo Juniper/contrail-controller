@@ -306,3 +306,20 @@ void Ip6AddressToU64Array(const Ip6Address &addr, uint64_t *arr, int size) {
     arr[1] = (((uint64_t)words[2] << 32) & 0xFFFFFFFF00000000U) |
              ((uint64_t)words[3] & 0x00000000FFFFFFFFU);
 }
+
+std::string VectorIpv6ToString(const std::vector<signed char> &ipv6) {
+
+    if (ipv6.size() != 16) {
+        return "0000:0000:0000:0000";
+    }
+    std::ostringstream strm;
+    int count = 1;
+    for(std::vector<signed char>::const_iterator it = ipv6.begin();
+        it != ipv6.end(); ++it) {
+        strm << std::hex << (int)((uint8_t) *it);
+        if((count % 4) ==0)
+            strm << ":";
+        count++;
+    }
+    return strm.str();
+}

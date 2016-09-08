@@ -49,6 +49,8 @@ void Ip6AddressToU64Array(const Ip6Address &addr, uint64_t *arr, int size);
 bool ValidateServerEndpoints(std::vector<std::string> list,
                              std::string *error_msg);
 
+std::string VectorIpv6ToString(const std::vector<signed char> &ipv6);
+
 /*
  * Return IP address string for a host if it is resolvable, empty string
  * otherwise.

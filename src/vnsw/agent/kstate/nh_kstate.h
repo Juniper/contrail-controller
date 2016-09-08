@@ -18,7 +18,6 @@ public:
     const std::string EncapFamilyToString(int family) const;
     const std::string EncapToString(const std::vector<signed char> &encap) const;
     void SetComponentNH(vr_nexthop_req *req, KNHInfo &info);
-    const std::string IPv6ToString(const vector<signed char> &ipv6) const;
 };
 
 #endif //vnsw_agent_nh_kstate_h
