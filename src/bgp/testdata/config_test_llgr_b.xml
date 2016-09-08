@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <config>
     <global-system-config>
-          <long-lived-graceful-restart-time>100</long-lived-graceful-restart-time>
+        <graceful-restart-parameters>
+            <enable>true</enable>
+            <long-lived-restart-time>100</long-lived-restart-time>
+        </graceful-restart-parameters>
     </global-system-config>
     <routing-instance name='default-domain:default-project:ip-fabric:__default__'>
       <bgp-router name='local'>

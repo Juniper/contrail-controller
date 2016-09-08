@@ -3312,12 +3312,15 @@ TEST_F(BgpConfigTest, BgpRouterGracefulRestartTimeChange) {
     string content_b =
         FileRead("controller/src/bgp/testdata/config_test_gr_b.xml");
     EXPECT_TRUE(parser_.Parse(content_b));
+    TASK_UTIL_EXPECT_TRUE(server_.global_config()->gr_enable());
     TASK_UTIL_EXPECT_EQ(100, server_.GetGracefulRestartTime());
 
     // GracefulRestart time should change to 200.
     string content_c =
         FileRead("controller/src/bgp/testdata/config_test_gr_c.xml");
     EXPECT_TRUE(parser_.Parse(content_c));
+    TASK_UTIL_EXPECT_TRUE(server_.global_config()->gr_enable());
+    TASK_UTIL_EXPECT_EQ(200, server_.GetGracefulRestartTime());
 
     boost::replace_all(content_c, "<config>", "<delete>");
     boost::replace_all(content_c, "</config>", "</delete>");
@@ -3346,12 +3349,14 @@ TEST_F(BgpConfigTest, BgpRouterLongLivedGracefulRestartTimeChange) {
     string content_b =
         FileRead("controller/src/bgp/testdata/config_test_llgr_b.xml");
     EXPECT_TRUE(parser_.Parse(content_b));
+    TASK_UTIL_EXPECT_TRUE(server_.global_config()->gr_enable());
     TASK_UTIL_EXPECT_EQ(100, server_.GetLongLivedGracefulRestartTime());
 
     // LongLivedGracefulRestart time should change to 200.
     string content_c =
         FileRead("controller/src/bgp/testdata/config_test_llgr_c.xml");
     EXPECT_TRUE(parser_.Parse(content_c));
+    TASK_UTIL_EXPECT_TRUE(server_.global_config()->gr_enable());
     TASK_UTIL_EXPECT_EQ(200, server_.GetLongLivedGracefulRestartTime());
 
     boost::replace_all(content_c, "<config>", "<delete>");

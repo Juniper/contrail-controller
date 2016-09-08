@@ -244,13 +244,11 @@ public:
     uint32_t GetStaticRouteCount() const;
     uint32_t GetDownStaticRouteCount() const;
     BgpGlobalSystemConfig *global_config() { return global_config_.get(); }
-    bool gr_helper_enable() const { return gr_helper_enable_; }
-    void set_gr_helper_enable(bool gr_helper_enable) {
-        gr_helper_enable_ = gr_helper_enable;
+    bool gr_helper_disable() const { return gr_helper_disable_; }
+    void set_gr_helper_disable(bool gr_helper_disable) {
+        gr_helper_disable_ = gr_helper_disable;
     }
-    void set_end_of_rib_timeout(uint32_t end_of_rib_timeout) {
-        end_of_rib_timeout_ = end_of_rib_timeout;
-    }
+    bool IsGRHelperModeEnabled() const;
     bool CollectStats(BgpRouterState *state, bool first) const;
 
 private:
@@ -281,8 +279,7 @@ private:
     IdentifierUpdateListenersList id_listeners_;
     boost::dynamic_bitset<> id_bmap_;      // free list.
     uint32_t hold_time_;
-    bool gr_helper_enable_;
-    uint32_t end_of_rib_timeout_;
+    bool gr_helper_disable_;
     StaticRouteMgrList srt_manager_list_;
 
     DB db_;

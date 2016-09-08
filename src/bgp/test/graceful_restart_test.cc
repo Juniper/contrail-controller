@@ -470,10 +470,10 @@ void GracefulRestartTest::SetUp() {
         channel_managers_.push_back(new BgpXmppChannelManagerMock(
                                         xmpp_servers_[i], bgp_servers_[i]));
 
-        // Enaable GR helper mode in DUT.
-        if (!i) {
-            bgp_servers_[i]->set_gr_helper_enable(true);
-            xmpp_servers_[i]->set_gr_helper_enable(true);
+        // Disable GR helper mode in non DUTs.
+        if (i) {
+            bgp_servers_[i]->set_gr_helper_disable(true);
+            xmpp_servers_[i]->set_gr_helper_disable(true);
         }
     }
 
@@ -675,8 +675,14 @@ string GracefulRestartTest::GetConfig(bool delete_config) {
         out << "<config>";
 
     out << "<global-system-config>\
-           <graceful-restart-time>600</graceful-restart-time>\
-           <long-lived-graceful-restart-time>60000</long-lived-graceful-restart-time>\
+               <graceful-restart-parameters>\
+                   <enable>true</enable>\
+                   <restart-time>600</restart-time>\
+                   <long-lived-restart-time>60000</long-lived-restart-time>\
+                   <end-of-rib-timeout>120</end-of-rib-timeout>\
+                   <bgp-helper-enable>true</bgp-helper-enable>\
+                   <xmpp-helper-enable>true</xmpp-helper-enable>\
+               </graceful-restart-parameters>\
            </global-system-config>";
 
     for (int i = 0; i <= n_peers_; i++) {

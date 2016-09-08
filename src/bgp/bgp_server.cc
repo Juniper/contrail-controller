@@ -58,8 +58,13 @@ public:
 
     void ProcessGlobalSystemConfig(const BgpGlobalSystemConfig *system,
             BgpConfigManager::EventType event) {
+        server_->global_config()->set_gr_enable(system->gr_enable());
         server_->global_config()->set_gr_time(system->gr_time());
         server_->global_config()->set_llgr_time(system->llgr_time());
+        server_->global_config()->set_end_of_rib_timeout(
+                system->end_of_rib_timeout());
+        server_->global_config()->set_gr_bgp_helper(
+                system->gr_bgp_helper());
 
         RoutingInstanceMgr *ri_mgr = server_->routing_instance_mgr();
         RoutingInstance *rti = ri_mgr->GetDefaultRoutingInstance();
@@ -325,8 +330,7 @@ BgpServer::BgpServer(EventManager *evm)
       local_autonomous_system_(0),
       bgp_identifier_(0),
       hold_time_(0),
-      gr_helper_enable_(getenv("GR_HELPER_BGP_ENABLE") != NULL),
-      end_of_rib_timeout_(kEndOfRibTime),
+      gr_helper_disable_(false),
       lifetime_manager_(BgpObjectFactory::Create<BgpLifetimeManager>(this,
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)),
@@ -494,19 +498,37 @@ boost::asio::io_service *BgpServer::ioservice() {
 }
 
 uint16_t BgpServer::GetGracefulRestartTime() const {
+    if (!global_config_->gr_enable())
+        return 0;
     return global_config_->gr_time();
 }
 
 uint32_t BgpServer::GetLongLivedGracefulRestartTime() const {
+    if (!global_config_->gr_enable())
+        return 0;
     return global_config_->llgr_time();
 }
 
 uint32_t BgpServer::GetEndOfRibReceiveTime() const {
-    return end_of_rib_timeout_;
+    return global_config_->end_of_rib_timeout();
 }
 
 uint32_t BgpServer::GetEndOfRibSendTime() const {
-    return end_of_rib_timeout_;
+    return global_config_->end_of_rib_timeout();
+}
+
+bool BgpServer::IsGRHelperModeEnabled() const {
+
+    // Check if disabled in .conf file.
+    if (gr_helper_disable_)
+        return false;
+
+    // Check if GR is disabled..
+    if (!global_config_->gr_enable())
+        return false;
+
+    // Check from configuration.
+    return global_config_->gr_bgp_helper();
 }
 
 uint32_t BgpServer::num_routing_instance() const {
