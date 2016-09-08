@@ -273,8 +273,12 @@ class VncApiServer(object):
             return
         elif xsd_type in ('unsignedLong', 'integer'):
             if not isinstance(value, (int, long)):
-                raise ValueError('%s: integer value expected instead of %s' %(
-                    type_name, value))
+                # If value is not an integer, then try to convert it to integer
+                try:
+                    value = int(value)
+                except (TypeError, ValueError):
+                    raise ValueError('%s: integer value expected instead of %s' %(
+                        type_name, value))
             if restrictions:
                 if not (int(restrictions[0]) <= value <= int(restrictions[1])):
                     raise ValueError('%s: value must be between %s and %s' %(
@@ -292,6 +296,7 @@ class VncApiServer(object):
             if restrictions and value not in restrictions:
                 raise ValueError('%s: value must be one of %s' % (
                     type_name, str(restrictions)))
+        return value
     # end _validate_simple_type
 
     def _validate_props_in_request(self, resource_class, obj_dict):
@@ -304,12 +309,20 @@ class VncApiServer(object):
             is_list_prop = prop_name in resource_class.prop_list_fields
             is_map_prop = prop_name in resource_class.prop_map_fields
 
-            # TODO validate primitive types
-            if is_simple and (not is_list_prop) and (not is_map_prop):
-                continue
             prop_value = obj_dict.get(prop_name)
             if not prop_value:
                 continue
+
+            if is_simple and (not is_list_prop) and (not is_map_prop):
+                try:
+                    obj_dict[prop_name] = self._validate_simple_type(prop_name,
+                                              prop_type, simple_type,
+                                              prop_value, restrictions)
+                except Exception as e:
+                    err_msg = 'Error validating property ' + str(e)
+                    return False, err_msg
+                else:
+                    continue
 
             prop_cls = cfgm_common.utils.str_to_class(prop_type, __name__)
             if isinstance(prop_value, dict):

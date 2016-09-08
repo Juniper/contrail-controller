@@ -993,7 +993,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
         #change allocation-mode to user-defined-subnet-preferred and ask ip addr
         # from cidr with user-defined subnet
-        vn.set_address_allocation_mode('user-defined--subnet-preferred')
+        vn.set_address_allocation_mode('user-defined-subnet-preferred')
         self._vnc_lib.virtual_network_update(vn)
 
         # free 11.1.1.8 from obj1 and assign it to obj2
