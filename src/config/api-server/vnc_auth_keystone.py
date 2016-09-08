@@ -263,7 +263,7 @@ class AuthServiceKeystone(object):
 
         def token_to_headers(env, start_response):
             status = env.get('HTTP_X_IDENTITY_STATUS')
-            if status.lower == 'invalid':
+            if status and status.lower() == 'invalid':
                 return {}
             ret_headers_dict = {}
             for hdr_name in ['HTTP_X_DOMAIN_ID', 'HTTP_X_PROJECT_ID',

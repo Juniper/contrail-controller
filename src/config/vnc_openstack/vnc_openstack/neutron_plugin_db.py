@@ -23,7 +23,8 @@ from cfgm_common import exceptions as vnc_exc
 from vnc_api.vnc_api import *
 from cfgm_common import SG_NO_RULE_FQ_NAME, SG_NO_RULE_NAME, UUID_PATTERN
 import vnc_openstack
-from vnc_cfg_api_server import context
+import vnc_cfg_api_server.context
+from context import get_context, use_context
 
 _DEFAULT_HEADERS = {
     'Content-type': 'application/json; charset="UTF-8"', }
@@ -37,6 +38,89 @@ DELETE = 4
 _IFACE_ROUTE_TABLE_NAME_PREFIX = 'NEUTRON_IFACE_RT'
 _IFACE_ROUTE_TABLE_NAME_PREFIX_REGEX = re.compile(
     '%s_%s_%s' % (_IFACE_ROUTE_TABLE_NAME_PREFIX, UUID_PATTERN, UUID_PATTERN))
+
+class LocalVncApi(VncApi):
+    def __init__(self, api_server_obj, *args, **kwargs):
+        if api_server_obj:
+            self.api_server_routes = dict((r.rule, r.callback)
+                for r in api_server_obj.api_bottle.routes
+                if r.method == 'GET')
+            self.POST_FOR_LIST_THRESHOLD = sys.maxsize
+        else:
+            self.api_server_routes = []
+
+        self.api_server_obj = api_server_obj
+        return super(LocalVncApi, self).__init__(*args, **kwargs)
+    # def __init__
+
+    @use_context
+    def _request(self, op, url, data=None, *args, **kwargs):
+        # Override vnc_lib._request so that list requests can reach
+        #   api_server_obj methods directly instead of system call.
+        # Always pass contextual user_token aka mux connection to api-server
+        try:
+            user_token = get_context().user_token
+            if 'X-AUTH-TOKEN' in self._headers:
+                # retain/restore if there was already a token on channel
+                orig_user_token = self._headers['X-AUTH-TOKEN']
+                had_user_token = True
+                self._headers['X-AUTH-TOKEN'] = user_token
+            else:
+                had_user_token = False
+
+            if op != rest.OP_GET or url not in self.api_server_routes:
+                return super(LocalVncApi, self)._request(
+                    op, url, data, *args, **kwargs)
+
+            server_method = self.api_server_routes[url]
+            if data:
+                q_str = '&'.join(['%s=%s' %(k,v) for k,v in data.items()])
+            else:
+                q_str = None
+
+            if user_token:
+                auth_hdrs = self.api_server_obj.get_auth_headers_from_token(
+                    get_context().request, user_token)
+            else:
+                auth_hdrs = {}
+
+            environ = {
+                'PATH_INFO': url,
+                'QUERY_STRING': q_str,
+                'bottle.app': self.api_server_obj.api_bottle
+            }
+            environ.update(auth_hdrs)
+            vnc_cfg_api_server.context.set_context(
+                vnc_cfg_api_server.context.ApiContext(
+                    external_req=bottle.BaseRequest(environ))
+                    )
+
+            ret_val = server_method()
+            # make deepcopy of ref['attr'] as from_dict will update
+            # in-place and change the cached value
+            try:
+                # strip / in /virtual-networks
+                coll_key = url[1:]
+                item_key = url[1:-1]
+                ret_list = ret_val[coll_key]
+                for ret_item in ret_list:
+                    if not isinstance(ret_item, dict):
+                        continue
+                    ref_backrefs = [f for f in ret_item[item_key]
+                                    if f.endswith('_refs')]
+                    for rb in ref_backrefs:
+                        # TODO optimize to deepcopy only if 'attr' is there
+                        ret_item[item_key][rb] = copy.deepcopy(
+                            ret_item[item_key][rb])
+            except KeyError:
+                pass
+
+            return ret_val
+        finally:
+            if had_user_token:
+                self._headers['X-AUTH-TOKEN'] = orig_user_token
+    # end _request
+# end class LocalVncApi
 
 class DBInterface(object):
     """
@@ -67,13 +151,10 @@ class DBInterface(object):
         connected = False
         while not connected:
             try:
-                # TODO remove hardcode
-                self._vnc_lib = VncApi(admin_name, admin_password,
+                self._vnc_lib = LocalVncApi(self._api_server_obj,
+                                       admin_name, admin_password,
                                        admin_tenant_name, api_srvr_ip,
                                        api_srvr_port, '/', user_info=user_info)
-                if self._api_server_obj:
-                    self._localize_vnc_lib_request()
-             
                 self._connected_to_api_server.set()
                 connected = True
             except requests.exceptions.RequestException as e:
@@ -82,69 +163,6 @@ class DBInterface(object):
     #end __init__
 
     # Helper routines
-    def _localize_vnc_lib_request(self):
-        # Override vnc_lib._request so that list requests can reach
-        # api_server_obj methods directly instead of system call
-        self._api_server_routes = dict((r.rule, r.callback)
-            for r in self._api_server_obj.api_bottle.routes
-            if r.method == 'GET')
-        self._api_lib_request = self._vnc_lib._request
-        # always fetch via 'GET' which has been over-ridden
-        self._vnc_lib.POST_FOR_LIST_THRESHOLD = sys.maxsize
-
-        def _local_request(op, url, data=None, *args, **kwargs):
-            if op != rest.OP_GET or url not in self._api_server_routes:
-                return self._api_lib_request(op, url, data, *args, **kwargs)
-
-            server_method = self._api_server_routes[url]
-            q_str = '&'.join(['%s=%s' %(k,v) for k,v in data.items()])
-
-            user_token = bottle.request.headers.get('X_AUTH_TOKEN')
-            if user_token:
-                auth_hdrs = self._api_server_obj.get_auth_headers_from_token(
-                    bottle.request, user_token)
-            else:
-                auth_hdrs = {}
-
-            try:
-                environ = {
-                    'PATH_INFO': url,
-                    'QUERY_STRING': q_str,
-                    'bottle.app': self._api_server_obj.api_bottle
-                }
-                environ.update(auth_hdrs)
-                context.set_context(
-                    context.ApiContext(
-                        external_req=bottle.BaseRequest(environ))
-                        )
-
-                ret_val = server_method()
-                # make deepcopy of ref['attr'] as from_dict will update
-                # in-place and change the cached value
-                try:
-                    # strip / in /virtual-networks
-                    coll_key = url[1:]
-                    item_key = url[1:-1]
-                    ret_list = ret_val[coll_key]
-                    for ret_item in ret_list:
-                        if not isinstance(ret_item, dict):
-                            continue
-                        ref_backrefs = [f for f in ret_item[item_key]
-                                        if f.endswith('_refs')]
-                        for rb in ref_backrefs:
-                            # TODO optimize to deepcopy only if 'attr' is there
-                            ret_item[item_key][rb] = copy.deepcopy(
-                                ret_item[item_key][rb])
-                except KeyError:
-                    pass
-                return ret_val
-            finally:
-                pass
-        # end _local_request
-
-        self._vnc_lib._request = _local_request
-    # end _localize_vnc_lib_request
-
     def _request_api_server(self, url, method, data=None, headers=None):
         from eventlet.greenthread import getcurrent
         token = getcurrent().contrail_vars.token
