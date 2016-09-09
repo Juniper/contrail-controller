@@ -151,6 +151,7 @@ public:
     virtual void UpdateTxUnreachRoute(uint64_t count) = 0;
 };
 
+// Interface for PeerCloseManager clients
 class IPeerClose {
 public:
     typedef std::set<Address::Family> Families;
@@ -158,7 +159,6 @@ public:
     virtual ~IPeerClose() { }
     // Printable name
     virtual std::string ToString() const = 0;
-    virtual PeerCloseManager *close_manager() = 0;
     virtual void Close(bool non_graceful) = 0;
     virtual bool IsCloseGraceful() const = 0;
     virtual bool IsCloseLongLivedGraceful() const = 0;
@@ -177,6 +177,7 @@ public:
     virtual void MembershipRequestCallbackComplete() = 0;
     virtual const char *GetTaskName() const = 0;
     virtual int GetTaskInstance() const = 0;
+    virtual void SetManager(PeerCloseManager *manager) = 0;
 };
 
 class IPeer : public IPeerUpdate {
@@ -210,6 +211,7 @@ public:
     virtual bool MembershipPathCallback(DBTablePartBase *tpart,
         BgpRoute *route, BgpPath *path) = 0;
     virtual bool CanUseMembershipManager() const = 0;
+    virtual bool IsInGRTimerWaitState() const = 0;
 };
 
 #endif  // SRC_BGP_IPEER_H_

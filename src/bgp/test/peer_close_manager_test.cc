@@ -8,8 +8,8 @@
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_membership.h"
-#include "bgp/bgp_peer_close.h"
 #include "bgp/inet/inet_table.h"
+#include "bgp/peer_close_manager.h"
 #include "io/test/event_manager_test.h"
 
 class PeerCloseManagerTest;
@@ -28,7 +28,6 @@ public:
     virtual std::string ToString() const { return "IPeerCloseTest"; }
     virtual bool IsCloseGraceful() const { return graceful_; }
     virtual bool IsCloseLongLivedGraceful() const { return ll_graceful_; }
-    virtual PeerCloseManager *close_manager();
     virtual void CustomClose() { }
     virtual void CloseComplete() { }
     virtual void Close(bool non_graceful) { }
@@ -51,7 +50,7 @@ public:
     virtual const char *GetTaskName() const { return "bgp::StateMachine"; }
     virtual int GetTaskInstance() const { return 0; }
 
-    void set_close_manager(PeerCloseManagerTest *close_manager) {
+    virtual void SetManager(PeerCloseManager *close_manager) {
         close_manager_ = close_manager;
     }
     bool graceful() const { return graceful_; }
@@ -73,7 +72,7 @@ public:
     }
 
 private:
-    PeerCloseManagerTest *close_manager_;
+    PeerCloseManager *close_manager_;
     bool graceful_;
     bool ll_graceful_;
     bool is_ready_;
@@ -89,7 +88,7 @@ class PeerCloseManagerTest : public PeerCloseManager {
 public:
     PeerCloseManagerTest(IPeerClose *peer_close,
                          boost::asio::io_service &io_service) :
-            PeerCloseManager(peer_close, io_service), restart_time_(0),
+            PeerCloseManager(peer_close, &io_service), restart_time_(0),
             restart_timer_started_(false), can_use_membership_manager_(false),
             is_registerd_(false), unregister_called_(false),
             walk_rib_in_called_(false), unregister_ribout_called_(false),
@@ -334,7 +333,6 @@ private:
 void IPeerCloseTest::ReceiveEndOfRIB(Address::Family family) {
     close_manager_->ProcessEORMarkerReceived(family);
 }
-PeerCloseManager *IPeerCloseTest::close_manager() { return close_manager_; }
 
 void PeerCloseManagerTest::Run() {
     if (died_)
@@ -671,7 +669,7 @@ public:
         peer_close_.reset(new IPeerCloseTest());
         close_manager_.reset(new PeerCloseManagerTest(peer_close_.get(),
                                      *(evm_.io_service())));
-        peer_close_->set_close_manager(close_manager_.get());
+        peer_close_->SetManager(close_manager_.get());
         close_manager_->SetUp(std::tr1::get<0>(GetParam()),
                               std::tr1::get<1>(GetParam()),
                               std::tr1::get<6>(GetParam()),
