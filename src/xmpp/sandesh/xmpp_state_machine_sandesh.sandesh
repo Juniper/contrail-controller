@@ -28,8 +28,17 @@ systemlog sandesh XmppStateMachineDebug {
 }
 
 /**
+ * @description: XMPP StateMachine related message
+ * @severity: NOTICE
+ */
+systemlog sandesh XmppStateMachineNotice {
+    1: string f1;
+    2: string f2;
+}
+
+/**
  * @description: XMPP Event related message
- * @severity: DEBUG
+ * @severity: NOTICE
  */
 systemlog sandesh XmppEventLog {
     1: string f1;
@@ -204,7 +213,7 @@ systemlog sandesh XmppStateMachineHoldTimerError {
 
 /**
  * @description: XMPP Unknown event
- * @severity: ERROR
+ * @severity: WARNING
  * @cause: Possibly due to mis-behaving software
  * @action: Contact your technical support representative
  */
@@ -228,7 +237,7 @@ systemlog sandesh XmppUnconsumedEvent {
 
 /**
  * @description: XMPP message unsupported event
- * @severity: INFO
+ * @severity: NOTICE
  * @cause: Possibly due to missing support in the software
  * @action: Contact your technical support representative
  */

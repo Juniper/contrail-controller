@@ -50,6 +50,18 @@ const int StateMachine::kJitter = 10;                   // percentage
                 out.str());                                    \
     } while (false)
 
+#define SM_LOG_NOTICE(_Msg)                                    \
+    do {                                                       \
+        ostringstream out;                                     \
+        out << _Msg;                                           \
+        if (LoggingDisabled()) break;                          \
+        BGP_LOG_SERVER(peer_, (BgpTable *) 0);                 \
+        BGP_LOG_NOTICE(BgpPeerStateMachine,                    \
+                BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_NA,          \
+                peer_ ? peer_->ToUVEKey() : "",                \
+                out.str());                                    \
+    } while (false)
+
 namespace fsm {
 
 // Events for the state machine.  These are listed in roughly the same order
@@ -287,18 +299,10 @@ struct EvBgpKeepalive : sc::event<EvBgpKeepalive> {
 struct EvBgpNotification : sc::event<EvBgpNotification> {
     EvBgpNotification(BgpSession *session, const BgpProto::Notification *msg)
         : session(session), msg(msg) {
-        // Use SYS_DEBUG for connection collision, SYS_NOTICE for the rest.
-        SandeshLevel::type log_level;
-        if (msg->error == BgpProto::Notification::Cease &&
-            msg->subcode == BgpProto::Notification::ConnectionCollision) {
-            log_level = SandeshLevel::SYS_DEBUG;
-        } else {
-            log_level = SandeshLevel::SYS_NOTICE;
-        }
         string peer_key =
             session->peer() ? session->peer()->ToUVEKey() : session->ToString();
-        BGP_LOG(BgpPeerNotification, log_level, BGP_LOG_FLAG_ALL, peer_key,
-                BGP_PEER_DIR_IN, msg->error, msg->subcode, msg->ToString());
+        session->LogNotification(msg->error, msg->subcode, BGP_PEER_DIR_IN,
+                                 peer_key, *msg);
     }
     static const char *Name() {
         return "EvBgpNotification";
@@ -1519,7 +1523,7 @@ void StateMachine::OnMessage(BgpSession *session, BgpProto::BgpMessage *msg,
         break;
     }
     default:
-        SM_LOG(SandeshLevel::SYS_NOTICE, "Unknown message type " << msg->type);
+        SM_LOG_NOTICE("Unknown message type " << msg->type);
         break;
     }
 

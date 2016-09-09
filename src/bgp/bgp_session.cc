@@ -92,6 +92,21 @@ void BgpSession::WriteReady(const boost::system::error_code &error) {
     session_mgr_->EnqueueWriteReady(this);
 }
 
+void BgpSession::LogNotification(int code, int subcode, const string &direction,
+                                 const string &peer_key,
+                                 const BgpProto::Notification &msg) const {
+    // Use SYS_DEBUG for connection collision, SYS_NOTICE for the rest.
+    if (code == BgpProto::Notification::Cease &&
+        subcode == BgpProto::Notification::ConnectionCollision) {
+        BGP_LOG(BgpPeerNotification, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+                peer_key, direction, code, subcode, msg.ToString());
+    } else {
+        BGP_LOG(BgpPeerNotificationNotice, SandeshLevel::SYS_NOTICE,
+                BGP_LOG_FLAG_ALL, peer_key, direction, code, subcode,
+                msg.ToString());
+    }
+}
+
 void BgpSession::SendNotification(int code, int subcode,
                                   const string &data) {
     BgpProto::Notification msg;
@@ -101,18 +116,8 @@ void BgpSession::SendNotification(int code, int subcode,
     uint8_t buf[BgpProto::kMaxMessageSize];
     int msglen = BgpProto::Encode(&msg, buf, sizeof(buf));
 
-    // Use SYS_DEBUG for connection collision, SYS_NOTICE for the rest.
-    SandeshLevel::type log_level;
-    if (code == BgpProto::Notification::Cease &&
-        subcode == BgpProto::Notification::ConnectionCollision) {
-        log_level = SandeshLevel::SYS_DEBUG;
-    } else {
-        log_level = SandeshLevel::SYS_NOTICE;
-    }
-    BGP_LOG(BgpPeerNotification, log_level, BGP_LOG_FLAG_ALL,
-            peer_ ? peer_->ToUVEKey() : ToString(),
-            BGP_PEER_DIR_OUT, code, subcode, msg.ToString());
-
+    LogNotification(code, subcode, BGP_PEER_DIR_OUT,
+                    peer_ ? peer_->ToUVEKey() : ToString(), msg);
     if (msglen > BgpProto::kMinMessageSize) {
         Send(buf, msglen, NULL);
     }

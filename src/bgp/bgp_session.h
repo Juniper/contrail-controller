@@ -9,6 +9,7 @@
 
 #include <string>
 
+#include "bgp/bgp_proto.h"
 #include "io/tcp_session.h"
 
 class BgpPeer;
@@ -50,6 +51,9 @@ public:
     void set_peer(BgpPeer *peer);
     void clear_peer();
     BgpPeer *peer() { return peer_; }
+    void LogNotification(int code, int subcode, const std::string &direction,
+                         const std::string &peer_key,
+                         const BgpProto::Notification &msg) const;
 
 protected:
     virtual void OnRead(Buffer buffer) {

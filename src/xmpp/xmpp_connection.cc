@@ -375,7 +375,7 @@ void XmppConnection::ProcessSslHandShakeResponse(SslSessionPtr session,
              char buf[128];
              ::ERR_error_string_n(error.value(), buf, sizeof(buf));
              err += buf;
-             XMPP_ALERT(XmppSslHandShakeMessage, "failure", err);
+             XMPP_ALERT(XmppSslHandShakeFailure, "failure", err);
         }
 
     } else {

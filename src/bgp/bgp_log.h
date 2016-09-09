@@ -60,6 +60,22 @@ do {                                                                       \
     }                                                                      \
 } while (false)
 
+// Base macro to log and/or trace BGP messages
+#define BGP_LOG_NOTICE(obj, flags, ...)                                    \
+do {                                                                       \
+    if (LoggingDisabled()) break;                                          \
+    if ((flags) & BGP_LOG_FLAG_SYSLOG) {                                   \
+        obj##Notice##Log::Send("BGP", SandeshLevel::SYS_NOTICE, __FILE__,  \
+                               __LINE__, ##__VA_ARGS__);                   \
+        if (bgp_log_test::unit_test()) break;                              \
+    }                                                                      \
+    if ((flags) & BGP_LOG_FLAG_TRACE) {                                    \
+        const std::string __trace_buf(BGP_TRACE_BUF);                      \
+        obj##Notice##Trace::TraceMsg(BgpTraceBuf, __FILE__, __LINE__,      \
+                                     ##__VA_ARGS__);                       \
+    }                                                                      \
+} while (false)
+
 // Base macro to log and/or trace BGP messages with C++ string as last arg
 #define BGP_LOG_STR(obj, level, flags, arg)                                \
 do {                                                                       \
@@ -85,6 +101,15 @@ do {                                                                       \
     std::ostringstream _os;                                                \
     _os << arg;                                                            \
     BGP_LOG(obj##Warning, SandeshLevel::SYS_WARN, flags, _os.str());       \
+} while (false)
+
+// Base macro to log and/or trace BGP warn messages with C++ string as last arg
+#define BGP_LOG_NOTICE_STR(obj, flags, arg)                                \
+do {                                                                       \
+    if (LoggingDisabled()) break;                                          \
+    std::ostringstream _os;                                                \
+    _os << arg;                                                            \
+    BGP_LOG(obj##Notice, SandeshLevel::SYS_NOTICE, flags, _os.str());      \
 } while (false)
 
 // Log BgpServer information if available
@@ -130,6 +155,18 @@ do {                                                                       \
     std::ostringstream _os;                                                \
     _os << arg;                                                            \
     BGP_LOG_PEER_INTERNAL(type, peer, level, flags, dir, _os.str());       \
+} while (false)
+
+// Grab all the macro arguments
+#define BGP_LOG_PEER_NOTICE(type, peer, flags, dir, arg)                   \
+do {                                                                       \
+    if (LoggingDisabled()) break;                                          \
+                                                                           \
+    BGP_LOG_SERVER(peer, (BgpTable *) 0);                                  \
+    std::ostringstream _os;                                                \
+    _os << arg;                                                            \
+    BGP_LOG_PEER_INTERNAL(type##Notice, peer, SandeshLevel::SYS_NOTICE,    \
+                          flags, dir, _os.str());                          \
 } while (false)
 
 // Grab all the macro arguments

@@ -1864,7 +1864,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
         InetTable *table =
             static_cast<InetTable *>(instance->GetTable(Address::INET));
         if (!table) {
-            BGP_LOG_PEER(Message, this, SandeshLevel::SYS_CRIT,
+            BGP_LOG_PEER_CRITICAL(Message, this,
                 BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN, "Cannot find inet table");
             return;
         }
@@ -1932,7 +1932,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
 
         Address::Family family = BgpAf::AfiSafiToFamily(nlri->afi, nlri->safi);
         if (!IsFamilyNegotiated(family)) {
-            BGP_LOG_PEER(Message, this, SandeshLevel::SYS_NOTICE,
+            BGP_LOG_PEER_NOTICE(Message, this,
                 BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
                 "AFI "<< nlri->afi << " SAFI " << (int) nlri->safi <<
                 " not allowed");
@@ -2042,8 +2042,7 @@ void BgpPeer::StartEndOfRibReceiveTimer(Address::Family family) {
 
 void BgpPeer::KeepaliveTimerErrorHandler(string error_name,
                                          string error_message) {
-    BGP_LOG_PEER(Timer, this, SandeshLevel::SYS_CRIT, BGP_LOG_FLAG_ALL,
-                 BGP_PEER_DIR_NA,
+    BGP_LOG_PEER_CRITICAL(Timer, this, BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
                  "Timer error: " << error_name << " " << error_message);
 }
 

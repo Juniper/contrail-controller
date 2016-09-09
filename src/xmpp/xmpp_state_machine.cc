@@ -1025,7 +1025,7 @@ struct XmppStreamEstablished :
             SM_LOG(state_machine, "Discard EvHoldTimerExpired in (Established) State");
             return discard_event();
         }
-        XMPP_NOTICE(XmppStateMachineDebug, state_machine->ChannelType(),
+        XMPP_NOTICE(XmppStateMachineNotice, state_machine->ChannelType(),
                 "EvHoldTimerExpired in (Established) State. Transit to IDLE");
         state_machine->SendConnectionInfo(event.Name());
         state_machine->AssertOnHoldTimeout();
