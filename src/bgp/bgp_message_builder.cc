@@ -136,7 +136,7 @@ bool BgpMessage::StartReach(const RibOut *ribout, const RibOutAttr *roattr,
     int result =
         BgpProto::Encode(&update, data_, sizeof(data_), &encode_offsets_);
     if (result <= 0) {
-        BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+        BGP_LOG_WARNING_STR(BgpMessage, BGP_LOG_FLAG_ALL,
             "Error encoding reach message for route " << route->ToString() <<
             " in table " << (table_ ? table_->name() : "unknown"));
         table_->server()->increment_message_build_error();
@@ -162,7 +162,7 @@ bool BgpMessage::StartUnreach(const BgpRoute *route) {
     int result =
         BgpProto::Encode(&update, data_, sizeof(data_), &encode_offsets_);
     if (result <= 0) {
-        BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+        BGP_LOG_WARNING_STR(BgpMessage, BGP_LOG_FLAG_ALL,
             "Error encoding unreach message for route " << route->ToString() <<
             " in table " << (table_ ? table_->name() : "unknown"));
         table_->server()->increment_message_build_error();

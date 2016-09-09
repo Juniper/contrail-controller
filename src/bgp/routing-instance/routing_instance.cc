@@ -367,8 +367,8 @@ void RoutingInstanceMgr::LocateRoutingInstance(
     RoutingInstance *rtinstance = GetRoutingInstanceLocked(config->name());
     if (rtinstance) {
         if (rtinstance->deleted()) {
-            RTINSTANCE_LOG_MESSAGE(server_,
-                SandeshLevel::SYS_WARN, RTINSTANCE_LOG_FLAG_ALL, config->name(),
+            RTINSTANCE_LOG_WARNING_MESSAGE(server_,
+                RTINSTANCE_LOG_FLAG_ALL, config->name(),
                 "Instance recreated before pending deletion is complete");
         } else {
             UpdateRoutingInstance(rtinstance, config);
@@ -468,13 +468,11 @@ void RoutingInstanceMgr::DeleteRoutingInstance(const string &name) {
 
     // Ignore if instance is not found as it might already have been deleted.
     if (rtinstance && rtinstance->deleted()) {
-        RTINSTANCE_LOG_MESSAGE(server_,
-            SandeshLevel::SYS_WARN, RTINSTANCE_LOG_FLAG_ALL, name,
+        RTINSTANCE_LOG_WARNING_MESSAGE(server_, RTINSTANCE_LOG_FLAG_ALL, name,
             "Duplicate instance delete while pending deletion");
         return;
     } else if (!rtinstance) {
-        RTINSTANCE_LOG_MESSAGE(server_,
-            SandeshLevel::SYS_WARN, RTINSTANCE_LOG_FLAG_ALL, name,
+        RTINSTANCE_LOG_WARNING_MESSAGE(server_, RTINSTANCE_LOG_FLAG_ALL, name,
             "Instance not found during delete");
         return;
     }

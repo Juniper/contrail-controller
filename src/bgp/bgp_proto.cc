@@ -88,26 +88,26 @@ int BgpProto::OpenMessage::ValidateCapabilities(BgpPeer *peer) const {
 //
 int BgpProto::OpenMessage::Validate(BgpPeer *peer) const {
     if (identifier == 0) {
-        BGP_LOG_PEER(Message, peer, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+        BGP_LOG_PEER_WARNING(Message, peer, BGP_LOG_FLAG_ALL,
                      BGP_PEER_DIR_IN, "Bad BGP Identifier: " << 0);
         return BgpProto::Notification::BadBgpId;
     }
     if (identifier == peer->server()->bgp_identifier()) {
-        BGP_LOG_PEER(Message, peer, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+        BGP_LOG_PEER_WARNING(Message, peer, BGP_LOG_FLAG_ALL,
                      BGP_PEER_DIR_IN,
                      "Bad (Same as mine) BGP Identifier: " <<
                      Ip4Address(identifier).to_string());
         return BgpProto::Notification::BadBgpId;
     }
     if (as_num != peer->peer_as()) {
-        BGP_LOG_PEER(Message, peer, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+        BGP_LOG_PEER_WARNING(Message, peer, BGP_LOG_FLAG_ALL,
                      BGP_PEER_DIR_IN, "Bad Peer AS Number: " << as_num);
         return BgpProto::Notification::BadPeerAS;
     }
 
     int result = ValidateCapabilities(peer);
     if (result != 0) {
-        BGP_LOG_PEER(Message, peer, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+        BGP_LOG_PEER_WARNING(Message, peer, BGP_LOG_FLAG_ALL,
                      BGP_PEER_DIR_IN, "Unsupported Capability: " <<
                      Capability::CapabilityToString(result) <<
                      " (" << result << ")");

@@ -294,16 +294,16 @@ static BgpNeighborConfig *MakeBgpNeighborConfig(
     neighbor->set_peer_address(
         IpAddress::from_string(params.address, err));
     if (err) {
-        BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                    "Invalid peer address " << params.address <<
-                    " for neighbor " << neighbor->name());
+        BGP_LOG_WARNING_STR(BgpConfig, BGP_LOG_FLAG_ALL,
+                            "Invalid peer address " << params.address <<
+                            " for neighbor " << neighbor->name());
     }
 
     Ip4Address identifier = Ip4Address::from_string(params.identifier, err);
     if (err) {
-        BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                    "Invalid peer identifier " << params.identifier <<
-                    " for neighbor " << neighbor->name());
+        BGP_LOG_WARNING_STR(BgpConfig, BGP_LOG_FLAG_ALL,
+                            "Invalid peer identifier " << params.identifier <<
+                            " for neighbor " << neighbor->name());
     }
     neighbor->set_peer_identifier(IpAddressToBgpIdentifier(identifier));
 
@@ -311,10 +311,10 @@ static BgpNeighborConfig *MakeBgpNeighborConfig(
         IpAddress inet_gw_address =
             Ip4Address::from_string(params.gateway_address, err);
         if (!params.gateway_address.empty() && err) {
-            BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                "Invalid gateway address " <<
-                params.gateway_address <<
-                " for neighbor " << neighbor->name());
+            BGP_LOG_WARNING_STR(BgpConfig, BGP_LOG_FLAG_ALL,
+                                "Invalid gateway address " <<
+                                params.gateway_address <<
+                                " for neighbor " << neighbor->name());
         } else {
             neighbor->set_gateway_address(Address::INET, inet_gw_address);
         }
@@ -322,7 +322,7 @@ static BgpNeighborConfig *MakeBgpNeighborConfig(
         IpAddress inet6_gw_address =
             Ip6Address::from_string(params.ipv6_gateway_address, err);
         if (!params.ipv6_gateway_address.empty() && err) {
-            BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            BGP_LOG_WARNING_STR(BgpConfig, BGP_LOG_FLAG_ALL,
                 "Invalid ipv6 gateway address " <<
                 params.ipv6_gateway_address <<
                 " for neighbor " << neighbor->name());

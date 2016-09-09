@@ -1809,7 +1809,7 @@ void BgpPeer::ProcessNlri(Address::Family family, DBRequest::DBOperation oper,
             (oper == DBRequest::DB_ENTRY_ADD_CHANGE ? attr.get() : NULL),
             &prefix, &new_attr, &label);
         if (result) {
-            BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
+            BGP_LOG_PEER_WARNING(Message, this,
                 BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
                 "MP NLRI parse error for " <<
                 Address::FamilyToString(family) << " route");
@@ -1876,7 +1876,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
             Ip4Prefix prefix;
             int result = Ip4Prefix::FromProtoPrefix((**it), &prefix);
             if (result) {
-                BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
+                BGP_LOG_PEER_WARNING(Message, this,
                     BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
                     "Withdrawn route parse error for inet route");
                 continue;
@@ -1896,7 +1896,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
             Ip4Prefix prefix;
             int result = Ip4Prefix::FromProtoPrefix((**it), &prefix);
             if (result) {
-                BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
+                BGP_LOG_PEER_WARNING(Message, this,
                     BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
                     "NLRI parse error for inet route");
                 continue;
@@ -2003,8 +2003,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
 
 void BgpPeer::EndOfRibTimerErrorHandler(string error_name,
                                         string error_message) {
-    BGP_LOG_PEER(Timer, this, SandeshLevel::SYS_CRIT, BGP_LOG_FLAG_ALL,
-                 BGP_PEER_DIR_NA,
+    BGP_LOG_PEER_CRITICAL(Timer, this, BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
                  "Timer error: " << error_name << " " << error_message);
 }
 
@@ -2150,7 +2149,7 @@ bool BgpPeer::ReceiveMsg(BgpSession *session, const u_int8_t *msg,
 
     if (minfo == NULL) {
         BGP_TRACE_PEER_PACKET(this, msg, size, SandeshLevel::SYS_WARN);
-        BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+        BGP_LOG_PEER_WARNING(Message, this, BGP_LOG_FLAG_ALL,
                      BGP_PEER_DIR_IN,
                      "Error while parsing message at " << ec.type_name);
         state_machine_->OnMessageError(session, &ec);

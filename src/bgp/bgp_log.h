@@ -69,6 +69,24 @@ do {                                                                       \
     BGP_LOG(obj, level, flags, _os.str());                                 \
 } while (false)
 
+// Base macro to log and/or trace BGP error messages with C++ string as last arg
+#define BGP_LOG_ERROR_STR(obj, level, flags, arg)                          \
+do {                                                                       \
+    if (LoggingDisabled()) break;                                          \
+    std::ostringstream _os;                                                \
+    _os << arg;                                                            \
+    BGP_LOG(obj##Error, SandeshLevel::SYS_ERR, flags, _os.str());          \
+} while (false)
+
+// Base macro to log and/or trace BGP warn messages with C++ string as last arg
+#define BGP_LOG_WARNING_STR(obj, flags, arg)                               \
+do {                                                                       \
+    if (LoggingDisabled()) break;                                          \
+    std::ostringstream _os;                                                \
+    _os << arg;                                                            \
+    BGP_LOG(obj##Warning, SandeshLevel::SYS_WARN, flags, _os.str());       \
+} while (false)
+
 // Log BgpServer information if available
 //
 // XXX Only used in unit tests. In production, there is only one BgpServer per
@@ -114,6 +132,30 @@ do {                                                                       \
     BGP_LOG_PEER_INTERNAL(type, peer, level, flags, dir, _os.str());       \
 } while (false)
 
+// Grab all the macro arguments
+#define BGP_LOG_PEER_WARNING(type, peer, flags, dir, arg)                  \
+do {                                                                       \
+    if (LoggingDisabled()) break;                                          \
+                                                                           \
+    BGP_LOG_SERVER(peer, (BgpTable *) 0);                                  \
+    std::ostringstream _os;                                                \
+    _os << arg;                                                            \
+    BGP_LOG_PEER_INTERNAL(type##Warning, peer, SandeshLevel::SYS_WARN,     \
+                          flags, dir, _os.str());                          \
+} while (false)
+
+// Grab all the macro arguments
+#define BGP_LOG_PEER_CRITICAL(type, peer, flags, dir, arg)                 \
+do {                                                                       \
+    if (LoggingDisabled()) break;                                          \
+                                                                           \
+    BGP_LOG_SERVER(peer, (BgpTable *) 0);                                  \
+    std::ostringstream _os;                                                \
+    _os << arg;                                                            \
+    BGP_LOG_PEER_INTERNAL(type##Critical, peer, SandeshLevel::SYS_CRIT,    \
+                          flags, dir, _os.str());                          \
+} while (false)
+
 #define BGP_LOG_PEER_TABLE(peer, level, flags, tbl, arg)                   \
 do {                                                                       \
     if (LoggingDisabled()) break;                                          \
@@ -133,6 +175,16 @@ do {                                                                       \
     std::ostringstream _os;                                                \
     _os << arg;                                                            \
     BGP_LOG_PEER_INTERNAL(Instance, peer, level, flags, BGP_PEER_DIR_NA,   \
+                          instance, _os.str());                            \
+} while (false)
+
+#define BGP_LOG_PEER_INSTANCE_WARNING(peer, instance, flags, arg)          \
+do {                                                                       \
+    if (LoggingDisabled()) break;                                          \
+    std::ostringstream _os;                                                \
+    _os << arg;                                                            \
+    BGP_LOG_PEER_INTERNAL(Instance, peer, SandeshLevel::SYS_WARN, flags,   \
+                          BGP_PEER_DIR_NA,                                 \
                           instance, _os.str());                            \
 } while (false)
 
@@ -193,7 +245,7 @@ do {                                                                           \
 
 // BGP Trace macros.
 
-#define BGP_TRACE_PEER_OBJECT(peer, peer_info, level)                      \
+#define BGP_TRACE_PEER_OBJECT(peer, peer_info)                             \
 do {                                                                       \
     if (LoggingDisabled()) break;                                          \
     BGP_LOG_SERVER(peer, (BgpTable *) 0);                                  \
@@ -210,7 +262,7 @@ do {                                                                       \
     BGP_LOG_SERVER(peer, (BgpTable *) 0);                                  \
     (peer)->state_machine()->SetDataCollectionKey(&peer_info);             \
     peer_info.set_packet_data((peer)->BytesToHexString(msg, size));        \
-    BGP_TRACE_PEER_OBJECT(peer, peer_info, level);                         \
+    BGP_TRACE_PEER_OBJECT(peer, peer_info);                                \
 } while (false)
 
 #endif // ctrlplane_bgp_log_h
