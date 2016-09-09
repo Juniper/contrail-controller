@@ -760,6 +760,11 @@ class TestPermissions(test_case.ApiServerTestCase):
         share_set = set(["%s:%d" % (item.tenant, item.tenant_access) for item in vdns.get_perms2().share])
         self.assertTrue('domain:%s:%d' % (dom.uuid, PERMS_R) in share_set, "Domain scope not set in VDNS share list")
 
+        # validate domain sharing enabled by default for domain
+        dom = vnc_read_obj(admin.vnc_lib, 'domain', name = ['default-domain'])
+        share_set = set(["%s:%d" % (item.tenant, item.tenant_access) for item in dom.get_perms2().share])
+        self.assertTrue('domain:%s:%d' % (dom.uuid, PERMS_RWX) in share_set, "Domain scope not set in domain share list")
+
     def test_check_obj_perms_api(self):
         logger.info('')
         logger.info( '########### CHECK OBJ PERMS API ##################')
