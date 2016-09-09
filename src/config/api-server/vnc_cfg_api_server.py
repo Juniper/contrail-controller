@@ -1678,7 +1678,7 @@ class VncApiServer(object):
         return False
 
     def get_auth_headers_from_token(self, request, token):
-        if not self.is_multi_tenancy_set():
+        if self.is_auth_disabled() or not self.is_multi_tenancy_set():
             return {}
 
         return self._auth_svc.get_auth_headers_from_token(request, token)

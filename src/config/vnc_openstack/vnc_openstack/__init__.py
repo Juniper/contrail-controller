@@ -32,6 +32,7 @@ from vnc_api.gen.resource_xsd import *
 from vnc_api.gen.resource_common import *
 
 import neutron_plugin_interface as npi
+from context import use_context
 
 Q_CREATE = 'create'
 Q_DELETE = 'delete'
@@ -1044,6 +1045,7 @@ class NeutronApiDriver(vnc_plugin_base.NeutronApi):
                      'POST', self._npi.plugin_http_post_virtual_router)
 
     def route(self, uri, method, handler):
+        @use_context
         def handler_trap_exception(*args, **kwargs):
             try:
                 response = handler(*args, **kwargs)
