@@ -859,7 +859,7 @@ class TestPermissions(test_case.ApiServerTestCase):
             self.assertEquals(perms, ExpectedPerms[user.name])
 
         logger.info( 'Enable virtual networks in alice project for global sharing (read, write, link)')
-        alice.vnc_lib.chmod(vn.get_uuid(), global_access=7)
+        alice.vnc_lib.chmod(vn.get_uuid(), global_access=PERMS_RWX)
         ExpectedPerms = {'admin':'RWX', 'alice':'RWX', 'bob':'RWX'}
         for user in [alice, bob, admin]:
             perms = user.check_perms(vn.get_uuid())
