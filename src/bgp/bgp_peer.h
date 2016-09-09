@@ -93,7 +93,11 @@ public:
 
     // Task: bgp::SendUpdate
     // Used to send an UPDATE message on the socket.
-    virtual bool SendUpdate(const uint8_t *msg, size_t msgsize);
+    virtual bool SendUpdate(const uint8_t *msg, size_t msgsize,
+                            const std::string *msg_str);
+    virtual bool SendUpdate(const uint8_t *msg, size_t msgsize) {
+        return SendUpdate(msg, msgsize, NULL);
+    }
     virtual bool FlushUpdate();
 
     // Task: bgp::Config

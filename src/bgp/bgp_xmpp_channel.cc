@@ -429,7 +429,11 @@ public:
         return table->DeletePath(tpart, rt, path);
     }
 
-    virtual bool SendUpdate(const uint8_t *msg, size_t msgsize);
+    virtual bool SendUpdate(const uint8_t *msg, size_t msgsize,
+                            const std::string *msg_str);
+    virtual bool SendUpdate(const uint8_t *msg, size_t msgsize) {
+        return SendUpdate(msg, msgsize, NULL);
+    }
     virtual string ToString() const {
         return parent_->ToString();
     }
@@ -557,13 +561,14 @@ bool BgpXmppChannel::SkipUpdateSend() {
     return skip_update_send_;
 }
 
-bool BgpXmppChannel::XmppPeer::SendUpdate(const uint8_t *msg, size_t msgsize) {
+bool BgpXmppChannel::XmppPeer::SendUpdate(const uint8_t *msg, size_t msgsize,
+    const string *msg_str) {
     XmppChannel *channel = parent_->channel_;
     if (channel->GetPeerState() == xmps::READY) {
         parent_->stats_[TX].rt_updates++;
         if (parent_->SkipUpdateSend())
             return true;
-        send_ready_ = channel->Send(msg, msgsize, xmps::BGP,
+        send_ready_ = channel->Send(msg, msgsize, msg_str, xmps::BGP,
                 boost::bind(&BgpXmppChannel::XmppPeer::WriteReadyCb, this, _1));
         if (!send_ready_) {
             BGP_LOG_PEER(Event, this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,

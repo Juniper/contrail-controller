@@ -104,7 +104,8 @@ public:
         }
         virtual void Finish() {
         }
-        virtual const uint8_t *GetData(IPeerUpdate *peer, size_t *lenp) {
+        virtual const uint8_t *GetData(IPeerUpdate *peer, size_t *lenp,
+                                       const string **msg_str) {
             return NULL;
         }
     };

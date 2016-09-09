@@ -487,7 +487,7 @@ void BgpPeer::SendEndOfRIB(Address::Family family) {
         "EndOfRib Send Timer scheduled for family " <<
         Address::FamilyToString(family) <<
         " to fire after " << timeout * 100 << " milliseconds");
-    eor_send_timer_[family]->Start(timeout * 100, // 10% msecs
+    eor_send_timer_[family]->Start(timeout * 100,  // 10% msecs
         boost::bind(&BgpPeer::EndOfRibSendTimerExpired, this, family),
         boost::bind(&BgpPeer::EndOfRibTimerErrorHandler, this, _1, _2));
 }
@@ -1414,7 +1414,8 @@ static bool SkipUpdateSend() {
 // Flush the existing buffer if the message can't fit.
 // Note that FlushUpdateUnlocked resets buffer_len_ to 0.
 //
-bool BgpPeer::SendUpdate(const uint8_t *msg, size_t msgsize) {
+bool BgpPeer::SendUpdate(const uint8_t *msg, size_t msgsize,
+    const string *msg_str) {
     tbb::spin_mutex::scoped_lock lock(spin_mutex_);
     bool send_ready = true;
     if (buffer_len_ + msgsize > kBufferSize) {

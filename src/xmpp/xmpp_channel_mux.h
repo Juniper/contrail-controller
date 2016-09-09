@@ -22,7 +22,12 @@ public:
     virtual void Close();
     virtual bool IsCloseInProgress() const;
     virtual void CloseComplete();
-    virtual bool Send(const uint8_t *, size_t, xmps::PeerId, SendReadyCb);
+    virtual bool Send(const uint8_t *msg, size_t msg_size, xmps::PeerId id,
+                      SendReadyCb cb) {
+        return Send(msg, msg_size, NULL, id, cb);
+    }
+    virtual bool Send(const uint8_t *, size_t, const std::string *,
+                      xmps::PeerId, SendReadyCb);
     virtual int GetTaskInstance() const;
     virtual void RegisterReceive(xmps::PeerId, ReceiveCb);
     virtual void UnRegisterReceive(xmps::PeerId);

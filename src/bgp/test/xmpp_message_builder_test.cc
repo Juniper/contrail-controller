@@ -10,6 +10,8 @@
 #include "control-node/control_node.h"
 #include "io/test/event_manager_test.h"
 
+using std::cout;
+using std::endl;
 using std::string;
 using std::vector;
 
@@ -30,7 +32,18 @@ class XmppTestPeer : public IPeerUpdate {
 public:
     XmppTestPeer(const string &name) : name_(name) { }
     string ToString() const { return name_; }
-    bool SendUpdate(const uint8_t *msg, size_t msgsize)  { return true; }
+    bool SendUpdate(const uint8_t *msg, size_t msgsize, const string *msg_str) {
+        string str;
+        if (!msg_str) {
+            str.append(reinterpret_cast<const char *>(msg), msgsize);
+            msg_str = &str;
+        }
+        EXPECT_TRUE(msg_str->size() >= msgsize);
+        return true;
+    }
+    bool SendUpdate(const uint8_t *msg, size_t msgsize) {
+        return SendUpdate(msg, msgsize, NULL);
+    }
 
 private:
     string name_;
@@ -97,9 +110,11 @@ protected:
     vector<RibOutAttr *> roattrs_;
 };
 
-// Parameterize caching of RibOutAttr string representation and short vs. long
-// peer names.
-typedef std::tr1::tuple<bool, bool> TestParams;
+// Parameterize the following:
+// 1. Long vs. short peer names.
+// 2. Reuse message string for tracing by passing it to SendUpdate
+// 3. Caching of RibOutAttr string representation
+typedef std::tr1::tuple<bool, bool, bool> TestParams;
 
 class XmppMessageBuilderParamTest:
     public XmppMessageBuilderTest,
@@ -107,9 +122,15 @@ class XmppMessageBuilderParamTest:
 };
 
 TEST_P(XmppMessageBuilderParamTest, Basic) {
-    bool cache = std::tr1::get<0>(GetParam());
+    bool long_name = std::tr1::get<0>(GetParam());
+    bool reuse_msg_str = std::tr1::get<1>(GetParam());
+    bool cache = std::tr1::get<2>(GetParam());
+    cout << "Long Name = " << long_name << " ";
+    cout << "Reuse Message String = " << reuse_msg_str << " ";
+    cout << "Cache = " << cache << endl;
+
     string peer_name = "agent.juniper.net";
-    if (!std::tr1::get<1>(GetParam())) {
+    if (long_name) {
         for (int idx = 0; idx < 16; ++idx) {
             peer_name += ".agent.juniper.net";
         }
@@ -124,14 +145,20 @@ TEST_P(XmppMessageBuilderParamTest, Basic) {
         for (int pidx = 0; pidx < kPeerCount; ++pidx) {
             XmppTestPeer peer(peer_name);
             size_t msgsize;
-            const uint8_t *msg = message->GetData(&peer, &msgsize);
-            peer.SendUpdate(msg, msgsize);
+            const string *msg_str = NULL;
+            const uint8_t *msg = message->GetData(&peer, &msgsize, &msg_str);
+            peer.SendUpdate(msg, msgsize, reuse_msg_str ? msg_str : NULL);
         }
     }
 }
 
-INSTANTIATE_TEST_CASE_P(Test, XmppMessageBuilderParamTest,
-    ::testing::Combine(::testing::Bool(), ::testing::Bool()));
+INSTANTIATE_TEST_CASE_P(ShortPeerName, XmppMessageBuilderParamTest,
+    ::testing::Combine(
+        ::testing::Values(false), ::testing::Bool(), ::testing::Bool()));
+
+INSTANTIATE_TEST_CASE_P(LongPeerName, XmppMessageBuilderParamTest,
+    ::testing::Combine(
+        ::testing::Values(true), ::testing::Values(false), ::testing::Bool()));
 
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }

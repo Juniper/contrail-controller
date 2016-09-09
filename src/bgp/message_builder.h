@@ -5,6 +5,8 @@
 #ifndef SRC_BGP_MESSAGE_BUILDER_H_
 #define SRC_BGP_MESSAGE_BUILDER_H_
 
+#include <string>
+
 #include "bgp/bgp_rib_policy.h"
 
 class BgpMessageBuilder;
@@ -23,7 +25,8 @@ public:
     // Returns true if the route was successfully added to the message.
     virtual bool AddRoute(const BgpRoute *route, const RibOutAttr *roattr) = 0;
     virtual void Finish() = 0;
-    virtual const uint8_t *GetData(IPeerUpdate *peer_update, size_t *lenp) = 0;
+    virtual const uint8_t *GetData(IPeerUpdate *peer_update, size_t *lenp,
+        const std::string **msg_str) = 0;
     uint32_t num_reach_routes() const { return num_reach_route_; }
     uint32_t num_unreach_routes() const { return num_unreach_route_; }
 

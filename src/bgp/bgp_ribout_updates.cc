@@ -4,6 +4,8 @@
 
 #include "bgp/bgp_ribout_updates.h"
 
+#include <string>
+
 #include "sandesh/sandesh_types.h"
 #include "sandesh/sandesh.h"
 #include "sandesh/sandesh_trace.h"
@@ -414,7 +416,8 @@ void RibOutUpdates::UpdateSend(int queue_id, Message *message,
         int ix_current = iter.index();
         IPeerUpdate *peer = iter.Next();
         size_t msgsize = 0;
-        const uint8_t *data = message->GetData(peer, &msgsize);
+        const string *msg_str = NULL;
+        const uint8_t *data = message->GetData(peer, &msgsize, &msg_str);
         if (Sandesh::LoggingLevel() >= Sandesh::LoggingUtLevel()) {
             BGP_LOG_PEER(Message, peer, Sandesh::LoggingUtLevel(),
                 BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_OUT,
@@ -425,7 +428,7 @@ void RibOutUpdates::UpdateSend(int queue_id, Message *message,
         stats_[queue_id].messages_sent_count_++;
         stats_[queue_id].reach_count_ += message->num_reach_routes();
         stats_[queue_id].unreach_count_ += message->num_unreach_routes();
-        bool more = peer->SendUpdate(data, msgsize);
+        bool more = peer->SendUpdate(data, msgsize, msg_str);
         if (!more) {
             blocked->set(ix_current);
         }

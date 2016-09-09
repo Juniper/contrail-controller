@@ -95,14 +95,14 @@ void XmppChannelMux::WriteReady(const boost::system::error_code &ec) {
     }
 }
 
-bool XmppChannelMux::Send(const uint8_t *msg, size_t msgsize, 
-                          xmps::PeerId id, 
+bool XmppChannelMux::Send(const uint8_t *msg, size_t msgsize,
+                          const string *msg_str, xmps::PeerId id,
                           SendReadyCb cb) {
     if (!connection_) return false;
 
     tbb::mutex::scoped_lock lock(mutex_);
     last_sent_ = UTCTimestampUsec();
-    bool res = connection_->Send(msg, msgsize);
+    bool res = connection_->Send(msg, msgsize, msg_str);
     if (res == false) {
         RegisterWriteReady(id, cb);
     }
