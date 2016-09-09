@@ -44,6 +44,7 @@ void PktModule::Init(bool run_with_vrouter) {
         flow_mgmt_manager_list_.push_back(new FlowMgmtManager(agent_, i));
         flow_mgmt_manager_list_[i]->Init();
     }
+    FlowMgmtManager::InitLogQueue(agent_);
 }
 
 void PktModule::InitDone() {
@@ -68,6 +69,7 @@ void PktModule::Shutdown() {
     }
 
     STLDeleteValues(&flow_mgmt_manager_list_);
+    FlowMgmtManager::ShutdownLogQueue();
 }
 
 void PktModule::IoShutdown() {
