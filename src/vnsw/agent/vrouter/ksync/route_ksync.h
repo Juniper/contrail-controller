@@ -119,10 +119,56 @@ private:
     DISALLOW_COPY_AND_ASSIGN(RouteKSyncObject);
 };
 
+struct MacBinding {
+    typedef std::map<const MacAddress,
+                     PathPreference::Preference> MacPreferenceMap;
+    typedef std::pair<const MacAddress,
+                      PathPreference::Preference> MacPreferencePair;
+
+    MacBinding(const MacBinding &mac_binding):
+        mac_preference_map_(mac_binding.mac_preference_map_) {}
+
+    MacBinding(const MacAddress &mac, const PathPreference::Preference &pref) {
+        mac_preference_map_[mac] = pref;
+    }
+
+    const MacAddress& get_mac() const {
+        const MacAddress *mac = &MacAddress::ZeroMac();
+        PathPreference::Preference pref = PathPreference::INVALID;
+        for (MacPreferenceMap::const_iterator it = mac_preference_map_.begin();
+                it != mac_preference_map_.end(); it++) {
+            if (*mac == MacAddress::ZeroMac() || pref < it->second) {
+                mac = &(it->first);
+                pref = it->second;
+            }
+        }
+        return *mac;
+    }
+
+    void reset_mac(const MacAddress &mac) {
+        mac_preference_map_.erase(mac);
+    }
+
+    bool can_erase() {
+        if (mac_preference_map_.size() == 0) {
+            return true;
+        }
+        return false;
+    }
+
+    void set_mac(const PathPreference::Preference &pref,
+                 const MacAddress &mac) {
+        mac_preference_map_[mac] = pref;
+    }
+
+private:
+    MacPreferenceMap mac_preference_map_;
+};
+
 class VrfKSyncObject {
 public:
     // Table to maintain IP - MAC binding. Used to stitch MAC to inet routes
-    typedef std::map<IpAddress, MacAddress> IpToMacBinding;
+    typedef std::map<IpAddress, MacBinding> IpToMacBinding;
 
     struct VrfState : DBState {
         VrfState() : DBState(), seen_(false),
@@ -149,7 +195,8 @@ public:
     void UnRegisterEvpnRouteTableListener(const VrfEntry *entry,
                                           VrfState *state);
     void AddIpMacBinding(VrfEntry *vrf, const IpAddress &ip,
-                         const MacAddress &mac);
+                         const MacAddress &mac,
+                         const PathPreference::Preference &pref);
     void DelIpMacBinding(VrfEntry *vrf, const IpAddress &ip,
                          const MacAddress &mac);
     MacAddress GetIpMacBinding(VrfEntry *vrf, const IpAddress &ip) const;
