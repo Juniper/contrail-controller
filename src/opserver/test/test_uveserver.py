@@ -41,6 +41,22 @@ def MakeBasic(typ, val, aggtype=None):
         item['@aggtype'] = aggtype
     return item
 
+def MakeStruct(typ, dval, aggtype=None):
+    item = {}
+    item['@type'] = 'struct'
+    if aggtype is not None:
+        item['@aggtype'] = aggtype
+    item[typ] = {}
+    for k,v in dval.iteritems():
+        vmap = {}
+        if isinstance(v,int):
+            vmap['@type'] = 'u64'
+            vmap['#text'] = str(v)
+        else:
+            vmap['@type'] = 'string'
+            vmap['#text'] = v
+        item[typ][k] = vmap
+    return item
 
 def MakeList(typ, valname, val, aggtype=None):
     item = {}
@@ -129,9 +145,9 @@ This function returns a mock sandesh dict
         4: optional i32                     total_virtual_machines (
                                                 aggtype="sum")
         5: optional i32                     total_acl_rules
-        6: optional i64                     in_tpkts  (aggtype="counter")
         7: optional list<VnStats>           in_stats  (aggtype="append")
         8: optional map<i32,string>         mstr (aggtype="union")
+        9: optional IfStats                 ifstats (aggtype="sum")
 '''
 
 
@@ -143,9 +159,9 @@ def MakeUVEVirtualNetwork(
         connected_networks=None,
         total_virtual_machines=None,
         total_acl_rules=None,
-        in_tpkts=None,
         in_stats=None,
-        mstr=None):
+        mstr=None,
+        ifstats=None):
     rsult = copy.deepcopy(istate)
     if rsult is None:
         rsult = {}
@@ -178,16 +194,16 @@ def MakeUVEVirtualNetwork(
             result['UVEVirtualNetwork']['total_acl_rules'] = {}
         result['UVEVirtualNetwork']['total_acl_rules'][source] = \
             MakeBasic("i32", total_acl_rules)
-    if in_tpkts is not None:
-        if ('in_tpkts' not in result['UVEVirtualNetwork']):
-            result['UVEVirtualNetwork']['in_tpkts'] = {}
-        result['UVEVirtualNetwork']['in_tpkts'][source] = \
-            MakeBasic("i64", in_tpkts, "counter")
     if in_stats is not None:
         if ('in_stats' not in result['UVEVirtualNetwork']):
             result['UVEVirtualNetwork']['in_stats'] = {}
         result['UVEVirtualNetwork']['in_stats'][source] = \
             MakeVnStatList(in_stats)
+    if ifstats is not None:
+        if ('ifstats' not in result['UVEVirtualNetwork']):
+            result['UVEVirtualNetwork']['ifstats'] = {}
+        result['UVEVirtualNetwork']['ifstats'][source] = \
+            MakeStruct("IfStats", ifstats, "sum")
     return rsult
 
 
@@ -319,8 +335,36 @@ class UVEServerTest(unittest.TestCase):
         self.assertEqual(sorted(cn['map']['element']),
             sorted(res['UVEVirtualNetwork']['mstr']['map']['element']))
 
-    def test_sum_agg(self):
-        logging.info("%%% Running test_sum_agg %%%")
+    def test_struct_sum_agg(self):
+        logging.info("%%% Running test_struct_sum_agg %%%")
+
+        uvevn = MakeUVEVirtualNetwork(
+            None, "abc-corp:vn-00", "10.10.10.10",
+            ifstats={"name":"foo", "inbytes":4}
+        )
+
+        uvevn2 = MakeUVEVirtualNetwork(
+            uvevn, "abc-corp:vn-00", "10.10.10.11",
+            ifstats={"inbytes":7}
+        )
+
+        uvetest = MakeUVEVirtualNetwork(
+            None, "abc-corp:vn-00", "10.10.10.10",
+            ifstats={"inbytes":11}
+        )
+
+        pa = ParallelAggregator(uvevn2)
+        res = pa.aggregate("abc-corp:vn-00", False)
+
+        logging.info(json.dumps(res, indent=4, sort_keys=True))
+
+        cnt1 = uvetest["abc-corp:vn-00"]['UVEVirtualNetwork'][
+            'ifstats']["10.10.10.10"]
+        self.assertEqual(
+            cnt1, res['UVEVirtualNetwork']['ifstats'])
+
+    def test_elem_sum_agg(self):
+        logging.info("%%% Running test_elem_sum_agg %%%")
 
         uvevn = MakeUVEVirtualNetwork(
             None, "abc-corp:vn-00", "10.10.10.10",
@@ -347,42 +391,11 @@ class UVEServerTest(unittest.TestCase):
         self.assertEqual(
             cnt1, res['UVEVirtualNetwork']['total_virtual_machines'])
 
-    def test_counter_agg(self):
-        logging.info("%%% Running test_counter_agg %%%")
-
-        uvevn = MakeUVEVirtualNetwork(
-            None, "abc-corp:vn-00", "previous",
-            in_tpkts=4
-        )
-
-        uvevn2 = MakeUVEVirtualNetwork(
-            uvevn, "abc-corp:vn-00", "10.10.10.11",
-            in_tpkts=7
-        )
-
-        uvevn3 = UVEServer.merge_previous(
-            uvevn2, "abc-corp:vn-00", "UVEVirtualNetwork", "in_tpkts",
-            uvevn["abc-corp:vn-00"]['UVEVirtualNetwork']['in_tpkts'][
-                "previous"])
-
-        pa = ParallelAggregator(uvevn3)
-        res = pa.aggregate("abc-corp:vn-00", False)
-        logging.info(json.dumps(res, indent=4, sort_keys=True))
-
-        uvetest = MakeUVEVirtualNetwork(
-            None, "abc-corp:vn-00", "sample",
-            in_tpkts=15
-        )
-        in_tpkts = uvetest["abc-corp:vn-00"][
-            'UVEVirtualNetwork']['in_tpkts']["sample"]
-
-        self.assertEqual(in_tpkts, res['UVEVirtualNetwork']['in_tpkts'])
-
     def test_append_agg(self):
         logging.info("%%% Running test_append_agg %%%")
 
         uvevn = MakeUVEVirtualNetwork(
-            None, "abc-corp:vn-00", "previous",
+            None, "abc-corp:vn-00", "10.10.10.10",
             in_stats=[("vn-01", "1000"), ("vn-02", "1800")],
         )
 
@@ -391,17 +404,7 @@ class UVEServerTest(unittest.TestCase):
             in_stats=[("vn-02", "1200"), ("vn-03", "1500")],
         )
 
-        uveprev = MakeUVEVirtualNetwork(
-            None,  "abc-corp:vn-00", "10.10.10.10",
-            in_stats=[("vn-01", "1000"), ("vn-03", "1700")],
-        )
-
-        uvevn3 = UVEServer.merge_previous(
-            uvevn2, "abc-corp:vn-00", "UVEVirtualNetwork", "in_stats",
-            uveprev["abc-corp:vn-00"]['UVEVirtualNetwork'][
-                'in_stats']["10.10.10.10"])
-
-        pa = ParallelAggregator(uvevn3)
+        pa = ParallelAggregator(uvevn2)
         res = pa.aggregate("abc-corp:vn-00", False)
         logging.info(json.dumps(res, indent=4, sort_keys=True))
 
@@ -410,8 +413,8 @@ class UVEServerTest(unittest.TestCase):
 
         uvetest = MakeUVEVirtualNetwork(
             None,  "abc-corp:vn-00", "sample",
-            in_stats=[("vn-01", "2000"), (
-                "vn-02", "3000"), ("vn-03", "3200")],
+            in_stats=[("vn-01", "1000"), (
+                "vn-02", "3000"), ("vn-03", "1500")],
         )
 
         uvetest["abc-corp:vn-00"]["UVEVirtualNetwork"]["in_stats"][
