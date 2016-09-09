@@ -80,16 +80,18 @@ UserDefinedCounters::UDCHandler(rapidjson::Document &jdoc,
                         std::cout << "\nname: " << name << "\npattern: "
                             << patrn << "\n";
                     }
-                    for(Cfg_t::iterator cit=config_.begin();
-                            cit != config_.end(); ++cit) {
+                    Cfg_t::iterator cit=config_.begin();
+                    while (cit != config_.end()) {
                         Cfg_t::iterator dit = cit;
-                        ++cit;
                         if (!dit->second->IsRefreshed()) {
                             UserDefinedLogStatistic udc;
                             udc.set_name(dit->first);
                             udc.set_deleted(true);
                             UserDefinedLogStatisticUVE::Send(udc);
                             config_.erase(dit);
+                            cit = config_.begin();
+                        } else {
+                            ++cit;
                         }
                     }
                 }
