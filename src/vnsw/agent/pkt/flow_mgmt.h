@@ -117,12 +117,6 @@
 // 1. All message between flow-management and flow-table/flow-stats module will
 //    hold object references. This will ensure ref-count for object dont drop
 //    till messages are processed.
-// 2. Every flow seen by flow-management module is stored in flow_tree_. Key
-//    for the tree will FlowEntryPtr which holds reference for the flow entry
-//    All other data structures will refer to flow pointer directly.
-//
-//    The entry from flow_tree_ is removed last after all data structures are
-//    cleaned up
 //
 // Per FlowEntry mutex is used to synchronize access to same Flow between
 // FlowTable and Flow Management module
@@ -1178,7 +1172,6 @@ private:
     BridgeRouteFlowMgmtTree bridge_route_flow_mgmt_tree_;
     VrfFlowMgmtTree vrf_flow_mgmt_tree_;
     NhFlowMgmtTree nh_flow_mgmt_tree_;
-    FlowEntryTree flow_tree_;
     boost::scoped_ptr<BgpAsAServiceFlowMgmtTree> bgp_as_a_service_flow_mgmt_tree_[MAX_XMPP_SERVERS];
     std::auto_ptr<FlowMgmtDbClient> flow_mgmt_dbclient_;
     FlowMgmtQueue request_queue_;

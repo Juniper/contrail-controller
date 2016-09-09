@@ -692,7 +692,7 @@ bool FlowStatsCollector::RunAgeingTask() {
 // Utility methods to enqueue events into work-queue
 /////////////////////////////////////////////////////////////////////////////
 void FlowStatsCollector::AddEvent(const FlowEntryPtr &flow) {
-    FlowExportInfo info(flow, GetCurrentTime());
+    FlowExportInfo info(flow.get(), GetCurrentTime());
     boost::shared_ptr<FlowExportReq>
         req(new FlowExportReq(FlowExportReq::ADD_FLOW, info));
     request_queue_.Enqueue(req);
@@ -700,7 +700,7 @@ void FlowStatsCollector::AddEvent(const FlowEntryPtr &flow) {
 
 void FlowStatsCollector::DeleteEvent(const FlowEntryPtr &flow,
                                      const RevFlowDepParams &params) {
-    FlowExportInfo info(flow);
+    FlowExportInfo info(flow.get());
     boost::shared_ptr<FlowExportReq>
         req(new FlowExportReq(FlowExportReq::DELETE_FLOW, info,
                               GetCurrentTime(), params));
@@ -711,7 +711,7 @@ void FlowStatsCollector::UpdateStatsEvent(const FlowEntryPtr &flow,
                                           uint32_t bytes,
                                           uint32_t packets,
                                           uint32_t oflow_bytes) {
-    FlowExportInfo info(flow);
+    FlowExportInfo info(flow.get());
     boost::shared_ptr<FlowExportReq>
         req(new FlowExportReq(FlowExportReq::UPDATE_FLOW_STATS, info, bytes,
                               packets, oflow_bytes));

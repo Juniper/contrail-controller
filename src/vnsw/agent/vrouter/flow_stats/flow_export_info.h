@@ -10,11 +10,11 @@
 class FlowExportInfo : public boost::intrusive::list_base_hook<> {
 public:
     FlowExportInfo();
-    FlowExportInfo(const FlowEntryPtr &fe, uint64_t setup_time);
-    FlowExportInfo(const FlowEntryPtr &fe);
+    FlowExportInfo(FlowEntry* fe, uint64_t setup_time);
+    FlowExportInfo(FlowEntry* fe);
     ~FlowExportInfo() {}
 
-    FlowEntry* flow() const { return flow_.get(); }
+    FlowEntry* flow() const { return flow_; }
     FlowEntry* reverse_flow() const;
     const boost::uuids::uuid &egress_uuid() const { return flow_->egress_uuid(); }
     uint64_t setup_time() const { return setup_time_; }
@@ -58,7 +58,7 @@ public:
     uint64_t visit_time() const { return visit_time_; }
     void set_visit_time(uint64_t t) { visit_time_ = t; }
 private:
-    FlowEntryPtr flow_;
+    FlowEntry* flow_;
     uint64_t setup_time_;
     uint64_t teardown_time_;
     uint64_t last_modified_time_; //used for aging

@@ -163,6 +163,7 @@ bool InterfaceUveTable::UveInterfaceEntry::FrameInterfaceMsg(const string &name,
     s_intf->set_ip4_active(intf_->ipv4_active());
     s_intf->set_l2_active(intf_->l2_active());
     s_intf->set_active(intf_->IsUveActive());
+    s_intf->set_admin_state(intf_->admin_state());
 
     s_intf->set_uuid(to_string(intf_->GetUuid()));
     string gw;
@@ -170,6 +171,13 @@ bool InterfaceUveTable::UveInterfaceEntry::FrameInterfaceMsg(const string &name,
         s_intf->set_gateway(gw);
     }
 
+    std::vector<std::string> fixed_ip4_list;
+    intf_->BuildIpStringList(Address::INET, &fixed_ip4_list);
+    s_intf->set_fixed_ip4_list(fixed_ip4_list);
+
+    std::vector<std::string> fixed_ip6_list;
+    intf_->BuildIpStringList(Address::INET6, &fixed_ip6_list);
+    s_intf->set_fixed_ip6_list(fixed_ip6_list);
     return true;
 }
 
