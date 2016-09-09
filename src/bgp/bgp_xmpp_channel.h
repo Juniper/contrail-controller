@@ -37,6 +37,7 @@ class XmppServer;
 class BgpXmppChannelMock;
 class BgpXmppChannelManager;
 class BgpXmppChannelManagerMock;
+class BgpXmppPeerClose;
 class Timer;
 class XmppConfigUpdater;
 class XmppPeerInfoData;
@@ -124,6 +125,7 @@ public:
     void SweepCurrentSubscriptions();
     void XMPPPeerInfoSend(const XmppPeerInfoData &peer_info) const;
     const XmppChannel *channel() const { return channel_; }
+    XmppChannel *channel() { return channel_; }
     void StartEndOfRibReceiveTimer();
     void RestEndOfRibState();
     bool EndOfRibSendTimerExpired();
@@ -142,6 +144,7 @@ public:
     uint64_t get_tx_update() const { return stats_[TX].rt_updates; }
     bool SkipUpdateSend();
     bool delete_in_progress() const { return delete_in_progress_; }
+    void set_delete_in_progress(bool flag) { delete_in_progress_ = flag; }
 
     BgpXmppRTargetManager *rtarget_manager() {
         return rtarget_manager_.get();
@@ -151,7 +154,13 @@ public:
     bool IsSubscriptionEmpty() const;
     const RoutingInstance::RouteTargetList &GetSubscribedRTargets(
             RoutingInstance *instance) const;
+    void ClearSubscriptions() { routing_instances_.clear(); }
     BgpServer *bgp_server() { return bgp_server_; }
+    const BgpXmppChannelManager *manager() const { return manager_; }
+    BgpXmppChannelManager *manager() { return manager_; }
+    XmppChannel *xmpp_channel() const { return channel_; }
+    void ReceiveEndOfRIB(Address::Family family);
+    void ProcessPendingSubscriptions();
 
 protected:
     XmppChannel *channel_;
@@ -249,7 +258,6 @@ private:
     void RegisterTable(int line, BgpTable *table, int instance_id);
     void UnregisterTable(int line, BgpTable *table);
     void MembershipRequestCallback(BgpTable *table);
-    void ProcessPendingSubscriptions();
     void DequeueRequest(const std::string &table_name, DBRequest *request);
     bool XmppDecodeAddress(int af, const std::string &address,
                            IpAddress *addrp, bool zero_ok = false);
@@ -260,10 +268,8 @@ private:
                                          int instance_id);
     void ClearStaledSubscription(RoutingInstance *rt_instance,
                                  SubscriptionState *sub_state);
-    const BgpXmppChannelManager *manager() const { return manager_; }
     bool ProcessMembershipResponse(std::string table_name,
              RoutingTableMembershipRequestMap::iterator loc);
-    void ReceiveEndOfRIB(Address::Family family);
     bool EndOfRibReceiveTimerExpired();
     void EndOfRibTimerErrorHandler(std::string error_name,
                                    std::string error_message);
@@ -273,7 +279,7 @@ private:
     boost::scoped_ptr<BgpXmppRTargetManager> rtarget_manager_;
     BgpServer *bgp_server_;
     boost::scoped_ptr<XmppPeer> peer_;
-    boost::scoped_ptr<PeerClose> peer_close_;
+    boost::scoped_ptr<BgpXmppPeerClose> peer_close_;
     boost::scoped_ptr<PeerStats> peer_stats_;
     RibExportPolicy bgp_policy_;
 

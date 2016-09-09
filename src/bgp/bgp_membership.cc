@@ -10,11 +10,11 @@
 #include "base/task_trigger.h"
 #include "bgp/bgp_export.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_peer_close.h"
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_update_sender.h"
+#include "bgp/peer_close_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 
 using std::list;

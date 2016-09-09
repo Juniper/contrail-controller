@@ -8,8 +8,8 @@
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_membership.h"
-#include "bgp/bgp_peer_close.h"
 #include "bgp/inet/inet_table.h"
+#include "bgp/peer_close_manager.h"
 #include "io/test/event_manager_test.h"
 
 class PeerCloseManagerTest;
