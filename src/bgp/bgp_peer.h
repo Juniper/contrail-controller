@@ -25,11 +25,12 @@
 #include "bgp/bgp_proto.h"
 #include "bgp/bgp_rib_policy.h"
 #include "bgp/ipeer.h"
-#include "bgp/bgp_peer_close.h"
 #include "bgp/state_machine.h"
+#include "db/db_table.h"
 #include "net/address.h"
 
 class BgpNeighborConfig;
+class BgpPeerClose;
 class BgpPeerInfo;
 class BgpPeerInfoData;
 class BgpServer;
@@ -37,6 +38,7 @@ class BgpSession;
 class BgpSession;
 class BgpNeighborResp;
 class BgpSandeshContext;
+class PeerCloseManager;
 class RoutingInstance;
 
 //
@@ -309,42 +311,29 @@ public:
                                 KeyType key_type);
     void ClearListenSocketAuthKey();
     void SetSessionSocketAuthKey(TcpSession *session);
-    void AddGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param);
-    bool SetGRCapabilities(BgpPeerInfoData *peer_info);
     void AddLLGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param);
-    const BgpProto::OpenMessage::Capability::GR &gr_params() const {
-        return gr_params_;
-    }
-    BgpProto::OpenMessage::Capability::GR &gr_params() { return gr_params_; }
-    BgpProto::OpenMessage::Capability::LLGR &llgr_params() {
-        return llgr_params_;
-    }
-    const BgpProto::OpenMessage::Capability::LLGR &llgr_params() const {
-        return llgr_params_;
-    }
     bool SkipNotificationSend(int code, int subcode) const;
     virtual bool SkipNotificationReceive(int code, int subcode) const;
     void Register(BgpTable *table, const RibExportPolicy &policy);
     void Register(BgpTable *table);
     bool EndOfRibSendTimerExpired(Address::Family family);
-
-protected:
+    void CustomClose();
     const std::vector<std::string> &negotiated_families() const {
         return negotiated_families_;
     }
-    const std::vector<std::string> &graceful_restart_families() const {
-        return graceful_restart_families_;
+    void ReceiveEndOfRIB(Address::Family family, size_t msgsize);
+    const std::vector<BgpProto::OpenMessage::Capability *> &
+        capabilities() const {
+        return capabilities_;
     }
-    std::vector<std::string> &graceful_restart_families() {
-        return graceful_restart_families_;
+
+    static const std::vector<Address::Family> &supported_families() {
+        return supported_families_;
     }
-    const std::vector<std::string> &
-        long_lived_graceful_restart_families() const {
-        return long_lived_graceful_restart_families_;
-    }
-    std::vector<std::string> &long_lived_graceful_restart_families() {
-        return long_lived_graceful_restart_families_;
-    }
+    virtual bool IsInGRTimerWaitState() const;
+    PeerCloseManager *close_manager() { return close_manager_.get(); }
+
+protected:
     virtual void SendEndOfRIBActual(Address::Family family);
     virtual void SendEndOfRIB(Address::Family family);
     int membership_req_pending() const { return membership_req_pending_; }
@@ -356,7 +345,6 @@ private:
     friend class StateMachineUnitTest;
 
     class DeleteActor;
-    class PeerClose;
     class PeerStats;
 
     typedef std::map<Address::Family, const uint8_t *> FamilyToCapabilityMap;
@@ -370,7 +358,6 @@ private:
     bool KeepaliveTimerExpired();
 
     RibExportPolicy BuildRibExportPolicy(Address::Family family) const;
-    void ReceiveEndOfRIB(Address::Family family, size_t msgsize);
     void StartEndOfRibReceiveTimer(Address::Family family);
     bool EndOfRibReceiveTimerExpired(Address::Family family);
     void EndOfRibTimerErrorHandler(std::string error_name,
@@ -401,7 +388,6 @@ private:
     void ProcessEndpointConfig(const BgpNeighborConfig *config);
 
     void PostCloseRelease();
-    void CustomClose();
 
     void FillBgpNeighborFamilyAttributes(BgpNeighborResp *nbr) const;
     void FillCloseInfo(BgpNeighborResp *resp) const;
@@ -473,11 +459,10 @@ private:
     FamilyAttributesList family_attributes_list_;
     std::vector<std::string> configured_families_;
     std::vector<std::string> negotiated_families_;
-    std::vector<std::string> graceful_restart_families_;
-    std::vector<std::string> long_lived_graceful_restart_families_;
     BgpProto::BgpPeerType peer_type_;
     boost::scoped_ptr<StateMachine> state_machine_;
-    boost::scoped_ptr<PeerClose> peer_close_;
+    boost::scoped_ptr<BgpPeerClose> peer_close_;
+    boost::scoped_ptr<PeerCloseManager> close_manager_;
     boost::scoped_ptr<PeerStats> peer_stats_;
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<BgpPeer> instance_delete_ref_;
@@ -489,8 +474,6 @@ private:
     AuthenticationData auth_data_;
     AuthenticationKey inuse_auth_key_;
     KeyType inuse_authkey_type_;
-    BgpProto::OpenMessage::Capability::GR gr_params_;
-    BgpProto::OpenMessage::Capability::LLGR llgr_params_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpPeer);
 };

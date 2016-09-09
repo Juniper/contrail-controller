@@ -45,6 +45,7 @@ FACTORY_STATIC_REGISTER(BgpObjectFactory, RoutingPolicyMgr, RoutingPolicyMgr);
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, RTargetGroupMgr, RTargetGroupMgr);
 
+#include "bgp/peer_close_manager.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, PeerCloseManager, PeerCloseManager);
 
 FACTORY_STATIC_REGISTER(BgpObjectFactory, StateMachine, StateMachine);
