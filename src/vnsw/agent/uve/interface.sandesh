@@ -102,6 +102,9 @@ struct UveVMInterfaceAgent {
                      (stats="flow_rate.deleted_flows:DSAnomaly:EWM:0.2")
    43: optional derived_stats_results.AnomalyResult active_flows_ewm
                      (stats="flow_rate.active_flows:DSAnomaly:EWM:0.2")
+   27: optional bool admin_state;
+   28: optional list<string> fixed_ip4_list;
+   29: optional list<string> fixed_ip6_list;
 }
 
 /**

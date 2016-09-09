@@ -5605,6 +5605,22 @@ void VmInterface::DeleteIpv6InstanceIp(bool l2, uint32_t old_ethernet_tag,
     }
 }
 
+void VmInterface::BuildIpStringList(Address::Family family,
+                                    std::vector<std::string> *vect) const {
+    InstanceIpSet list;
+    if (family == Address::INET) {
+        list = instance_ipv4_list_.list_;
+    } else {
+        list = instance_ipv6_list_.list_;
+    }
+    InstanceIpSet::iterator it = list.begin();
+    while (it != list.end()) {
+        const VmInterface::InstanceIp &rt = *it;
+        it++;
+        vect->push_back(rt.ip_.to_string());
+    }
+}
+
 void AddVmiQosConfig::HandleRequest() const {
     QosResponse *resp = new QosResponse();
     resp->set_context(context());
