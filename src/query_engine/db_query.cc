@@ -37,34 +37,47 @@ query_status_t DbQueryUnit::process_query()
         GenDb::DbDataValueVec rowkey;
 
         rowkey.push_back(t2);
-        if (m_query->is_flow_query(m_query->table()) ||
-                m_query->is_stat_table_query(m_query->table()) ||
+        if (m_query->is_stat_table_query(m_query->table()) ||
                 (m_query->is_object_table_query(m_query->table()) && 
                  cfname == g_viz_constants.OBJECT_TABLE)) {
             uint8_t partition_no = 0;
             rowkey.push_back(partition_no);
         }
 
-        if (!t_only_row)
-        {
-            for (GenDb::DbDataValueVec::iterator it = row_key_suffix.begin();
-                    it!=row_key_suffix.end(); it++) {
-                rowkey.push_back(*it);
-            }
-        }
-
-        // If querying message_index_tables, partion_no is an additional row_key
-        // It spans values 0..15
-        if (t_only_col) {
+        if (m_query->is_flow_query(m_query->table())) {
             for (uint8_t part_no = (uint8_t)g_viz_constants.PARTITION_MIN;
                      part_no < (uint8_t)g_viz_constants.PARTITION_MAX + 1;
                      part_no++) {
                 GenDb::DbDataValueVec tmp_rowkey(rowkey);
                 tmp_rowkey.push_back(part_no);
+                for (GenDb::DbDataValueVec::iterator it = row_key_suffix.begin();
+                        it!=row_key_suffix.end(); it++) {
+                    tmp_rowkey.push_back(*it);
+                }
                 keys.push_back(tmp_rowkey);
             }
         } else {
-            keys.push_back(rowkey);
+            if (!t_only_row)
+            {
+                for (GenDb::DbDataValueVec::iterator it = row_key_suffix.begin();
+                        it!=row_key_suffix.end(); it++) {
+                    rowkey.push_back(*it);
+                }
+            }
+
+            // If querying message_index_tables, partion_no is an additional row_key
+            // It spans values 0..15
+            if (t_only_col) {
+                for (uint8_t part_no = (uint8_t)g_viz_constants.PARTITION_MIN;
+                         part_no < (uint8_t)g_viz_constants.PARTITION_MAX + 1;
+                         part_no++) {
+                    GenDb::DbDataValueVec tmp_rowkey(rowkey);
+                    tmp_rowkey.push_back(part_no);
+                    keys.push_back(tmp_rowkey);
+                }
+            } else {
+                keys.push_back(rowkey);
+            }
         }
     }
 

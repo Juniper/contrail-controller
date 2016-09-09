@@ -1534,7 +1534,7 @@ bool DbHandler::FlowSampleAdd(const pugi::xml_node& flow_sample,
     uint32_t T2(timestamp >> g_viz_constants.RowTimeInBits);
     uint32_t T1(timestamp & g_viz_constants.RowTimeInMask);
     // Partition no
-    uint8_t partition_no = 0;
+    uint8_t partition_no = gen_partition_no_();
     // Populate Flow Record Table
     FlowFieldValuesCb fncb =
             boost::bind(&DbHandler::FieldNamesTableInsert,
