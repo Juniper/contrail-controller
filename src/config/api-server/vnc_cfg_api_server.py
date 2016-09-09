@@ -458,6 +458,9 @@ class VncApiServer(object):
         if 'parent_type' in obj_dict:
             # non config-root child, verify parent exists
             parent_class = self.get_resource_class(obj_dict['parent_type'])
+            if parent_class is None:
+                raise cfgm_common.exceptions.HttpError(
+                    400, 'Invalid parent type: %s' %(obj_dict['parent_type']))
             parent_obj_type = parent_class.object_type
             parent_res_type = parent_class.resource_type
             parent_fq_name = obj_dict['fq_name'][:-1]
@@ -2416,6 +2419,8 @@ class VncApiServer(object):
         except AttributeError:
             common_class = cfgm_common.utils.str_to_class(common_name,
                                                           __name__)
+            if common_class is None:
+                return None
             # Create Placeholder classes derived from Resource, <Type> so
             # resource_class methods can be invoked in CRUD methods without
             # checking for None
