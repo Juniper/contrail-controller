@@ -93,6 +93,9 @@ struct UveVMInterfaceAgent {
    24: optional list<VmHealthCheckInstance> health_check_instance_list;
     /** @display_name:VMI ACL Rule Statistics*/
    25: optional list<SgAclRuleStats> sg_rule_stats (tags=".rule");
+   27: optional bool admin_state;
+   28: optional list<string> fixed_ip4_list;
+   29: optional list<string> fixed_ip6_list;
 }
 
 /**

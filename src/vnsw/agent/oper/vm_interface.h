@@ -382,6 +382,10 @@ public:
         bool operator == (const InstanceIp &rhs) const;
         bool operator() (const InstanceIp &lhs,
                          const InstanceIp &rhs) const;
+        InstanceIp operator = (const InstanceIp &rhs) const {
+            InstanceIp ret(rhs);
+            return ret;
+        }
         bool IsLess(const InstanceIp *rhs) const;
         void L3Activate(VmInterface *interface, bool force_update) const;
         void L3DeActivate(VmInterface *interface, VrfEntry *old_vrf) const;
@@ -524,6 +528,7 @@ public:
     void set_dhcp_enable_config(bool dhcp_enable) {
         dhcp_enable_= dhcp_enable;
     }
+    bool admin_state() const { return admin_state_; }
     bool do_dhcp_relay() const { return do_dhcp_relay_; }
     int vxlan_id() const { return vxlan_id_; }
     bool bridging() const { return bridging_; }
@@ -633,6 +638,8 @@ public:
     MetaDataIp *GetMetaDataIp(const Ip4Address &ip) const;
     const MacAddress& GetIpMac(const IpAddress &,
                               const uint8_t plen) const;
+    void BuildIpStringList(Address::Family family,
+                           std::vector<std::string> *vect) const;
 
     void InsertMetaDataIpInfo(MetaDataIp *mip);
     void DeleteMetaDataIpInfo(MetaDataIp *mip);
