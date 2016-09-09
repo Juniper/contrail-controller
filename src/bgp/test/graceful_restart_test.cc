@@ -1126,13 +1126,12 @@ void GracefulRestartTest::FireGRTimer(PeerCloseManagerTest *pc, bool is_ready) {
 }
 
 void GracefulRestartTest::FireGRTimer(BgpPeerTest *peer) {
-    FireGRTimer(dynamic_cast<PeerCloseManagerTest *>(
-                    peer->peer_close()->close_manager()), peer->IsReady());
+    FireGRTimer(dynamic_cast<PeerCloseManagerTest *>(peer->close_manager()),
+                peer->IsReady());
 }
 
 void GracefulRestartTest::FireGRTimer(BgpXmppChannel *channel) {
-    FireGRTimer(dynamic_cast<PeerCloseManagerTest *>(
-                    channel->Peer()->peer_close()->close_manager()),
+    FireGRTimer(dynamic_cast<PeerCloseManagerTest *>(channel->close_manager()),
                 channel->Peer()->IsReady());
 }
 
@@ -1289,8 +1288,7 @@ void GracefulRestartTest::ProcessFlippingAgents(int &total_routes,
         if (gr_test_param.should_send_eor() && agent->IsEstablished()) {
             agent->SendEorMarker();
         } else {
-            PeerCloseManager *pc =
-                bgp_xmpp_channels_[agent->id()]->Peer()->peer_close()->close_manager();
+            PeerCloseManager *pc = bgp_xmpp_channels_[agent->id()]->close_manager();
 
             // If the session is down and TCP down event was meant to be skipped
             // then we do not expect control-node to be unaware of it. Hold
@@ -1421,7 +1419,7 @@ void GracefulRestartTest::ProcessFlippingPeers(int &total_routes,
             peer->SendEndOfRIB();
         } else {
             PeerCloseManager *pc =
-                bgp_server_peers_[peer->id()]->peer_close()->close_manager();
+                bgp_server_peers_[peer->id()]->close_manager();
 
             // If the session is down and TCP down event was meant to be skipped
             // then we do not expect control-node to be unaware of it. Hold

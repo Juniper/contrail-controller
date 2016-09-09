@@ -56,6 +56,7 @@ public:
             RibExportPolicy(BgpProto::IBGP, RibExportPolicy::BGP, affinity, 0);
     }
     uint64_t path_cb_count() const { return path_cb_count_; }
+    virtual bool IsInGRTimerWaitState() const { return false; }
 
 private:
     RibExportPolicy policy_;

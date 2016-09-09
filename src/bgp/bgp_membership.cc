@@ -10,7 +10,6 @@
 #include "base/task_trigger.h"
 #include "bgp/bgp_export.h"
 #include "bgp/bgp_log.h"
-#include "bgp/bgp_peer_close.h"
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_server.h"
@@ -129,8 +128,7 @@ void BgpMembershipManager::RegisterRibIn(IPeer *peer, BgpTable *table) {
     tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
     PeerRibState *prs = LocatePeerRibState(peer, table);
     assert(prs->action() == NONE);
-    assert(!prs->ribin_registered() ||
-           peer->peer_close()->close_manager()->IsInGracefulRestartTimerWait());
+    assert(!prs->ribin_registered() || peer->IsInGRTimerWaitState());
     assert(!prs->ribout_registered());
     prs->set_ribin_registered(true);
 }

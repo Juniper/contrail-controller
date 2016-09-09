@@ -21,7 +21,7 @@
 #include "bgp/bgp_peer_internal_types.h"
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_server.h"
-#include "bgp/bgp_peer_close.h"
+#include "bgp/peer_close_manager.h"
 #include "bgp/state_machine.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
