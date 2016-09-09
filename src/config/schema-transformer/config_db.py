@@ -179,12 +179,55 @@ class GlobalSystemConfigST(DBBaseST):
 
     @classmethod
     def update_autonomous_system(cls, new_asn):
+        if int(new_asn) == cls._autonomous_system:
+           return
+        # From the global route target list, pick ones with the
+        # changed ASN, and update the routing instances' referred
+        # by the route target
+        for route_tgt in RouteTargetST.values():
+            _,asn,target = route_tgt.obj.get_fq_name()[0].split(':')
+            if int(asn) != cls.get_autonomous_system():
+                continue
+            if int(target) < common.BGP_RTGT_MIN_ID:
+                continue
+
+            new_rtgt_name = "target:%s:%s" % (new_asn, target)
+            new_rtgt_obj = RouteTargetST.locate(new_rtgt_name)
+            old_rtgt_name = "target:%d:%s" % (cls._autonomous_system, target)
+            old_rtgt_obj = RouteTarget(old_rtgt_name)
+
+            for ri_ref in route_tgt.obj.get_routing_instance_back_refs() or []:
+                ri = RoutingInstanceST.get_by_uuid(ri_ref['uuid']).obj
+                inst_tgt_data = InstanceTargetType()
+                ri.del_route_target(old_rtgt_obj)
+                ri.add_route_target(new_rtgt_obj.obj, inst_tgt_data)
+                cls._vnc_lib.routing_instance_update(ri)
+                # Also, update the static_routes, if any, in the routing
+                # instance with the new route target
+                static_route_entries = ri.get_static_route_entries()
+                if static_route_entries is None:
+                    continue
+                for static_route in static_route_entries.get_route() or []:
+                    if old_rtgt_name in static_route.route_target:
+                        static_route.route_target.remove(old_rtgt_name)
+                        static_route.route_target.append(new_rtgt_name)
+                    ri.set_static_route_entries(static_route_entries)
+                    cls._vnc_lib.routing_instance_update(ri)
+
+            # Updating the logical router referred by the route target with
+            # new route target.
+            for router_ref in route_tgt.obj.get_logical_router_back_refs() or []:
+                logical_router = LogicalRouterST.get_by_uuid(router_ref['uuid']).obj
+                logical_router.del_route_target(old_rtgt_obj)
+                logical_router.add_route_target(new_rtgt_obj.obj) 
+                cls._vnc_lib.logical_router_update(logical_router)
+
+            RouteTargetST.delete(old_rtgt_obj.get_fq_name()[0])
+
         cls._autonomous_system = int(new_asn)
     # end update_autonomous_system
 
     def evaluate(self):
-        for vn in VirtualNetworkST.values():
-            vn.update_autonomous_system(self._autonomous_system)
         for router in BgpRouterST.values():
             router.update_global_asn(self._autonomous_system)
             router.update_peering()
@@ -435,54 +478,6 @@ class VirtualNetworkST(DBBaseST):
         self.uve_send(deleted=True)
     # end delete_obj
 
-    def update_autonomous_system(self, new_asn):
-        if (self.obj.get_fq_name() in [common.IP_FABRIC_VN_FQ_NAME,
-                                       common.LINK_LOCAL_VN_FQ_NAME]):
-            # for ip-fabric and link-local VN, we don't need to update asn
-            return
-        ri = self.get_primary_routing_instance()
-        if ri is None:
-            return
-        ri_fq_name = ri.get_fq_name_str()
-        rtgt_num = self._cassandra.get_route_target(ri_fq_name)
-        old_rtgt_name = self._route_target
-        new_rtgt_name = "target:%s:%d" % (new_asn, rtgt_num)
-        if old_rtgt_name == new_rtgt_name:
-            return
-        new_rtgt_obj = RouteTargetST.locate(new_rtgt_name)
-        old_rtgt_obj = RouteTarget(old_rtgt_name)
-        inst_tgt_data = InstanceTargetType()
-        ri.obj = ri.read_vnc_obj(fq_name=ri_fq_name)
-        ri.obj.del_route_target(old_rtgt_obj)
-        ri.obj.add_route_target(new_rtgt_obj.obj, inst_tgt_data)
-        self._vnc_lib.routing_instance_update(ri.obj)
-        ri.route_target = new_rtgt_name
-        self._route_target = new_rtgt_name
-        for route in self.get_routes():
-            prefix = route.prefix
-            nexthop = route.next_hop
-            (left_ri, si) = self._get_routing_instance_from_route(nexthop)
-            if left_ri is None:
-                continue
-            left_ri.update_route_target_list(rt_add_import=[new_rtgt_name],
-                                             rt_del=[old_rtgt_name])
-            static_route_entries = left_ri.obj.get_static_route_entries()
-            if static_route_entries is None:
-                continue
-            for static_route in static_route_entries.get_route() or []:
-                if old_rtgt_name in static_route.route_target:
-                    static_route.route_target.remove(old_rtgt_name)
-                    static_route.route_target.append(new_rtgt_name)
-            left_ri.obj.set_static_route_entries(static_route_entries)
-            self._vnc_lib.routing_instance_update(left_ri.obj)
-        try:
-            RouteTargetST.delete(old_rtgt_obj.get_fq_name()[0])
-        except RefsExistError:
-            # if other routing instances are referring to this target,
-            # it will be deleted when those instances are deleted
-            pass
-    # end update_autonomous_system
-
     def add_policy(self, policy_name, attrib=None):
         # Add a policy ref to the vn. Keep it sorted by sequence number
         if attrib is None:
@@ -631,8 +626,24 @@ class VirtualNetworkST(DBBaseST):
     # end free_service_chain_ip
 
     def get_route_target(self):
-        return self._route_target
+        if self._route_target is None:
+            ri = self.get_primary_routing_instance()
+            if ri is None:
+                return
+            ri_name = ri.get_fq_name_str()
+            self._route_target = self._cassandra.get_route_target(ri_name)
+        rtgt_name = "target:%s:%d" % (
+                    GlobalSystemConfigST.get_autonomous_system(),
+                    self._route_target)
+        return rtgt_name
     # end get_route_target
+
+    def set_route_target(self, rtgt_name):
+        _,asn,target = rtgt_name.split(':')
+        if int(asn) != GlobalSystemConfigST.get_autonomous_system():
+            return
+        self._route_target = int(target)
+    #end set_route_target
 
     @staticmethod
     def _ri_needs_external_rt(vn_name, ri_name):
@@ -1276,7 +1287,7 @@ class VirtualNetworkST(DBBaseST):
             self._get_sandesh_ref_list('service_chain')
         ]
         resp.properties = [
-            sandesh.PropList('route_target', self._route_target),
+            sandesh.PropList('route_target', self.get_route_target()),
             sandesh.PropList('network_id',
                              str(self.obj.get_virtual_network_network_id()))
         ]
@@ -2041,12 +2052,12 @@ class RoutingInstanceST(DBBaseST):
                             else:
                                 self.stale_route_targets.remove(rt)
                     elif vn.allow_transit:
-                        if vn._route_target not in self.stale_route_targets:
-                            rtgt_obj = RouteTarget(vn._route_target)
+                        if vn.get_route_target() not in self.stale_route_targets:
+                            rtgt_obj = RouteTarget(vn.get_route_target())
                             self.obj.add_route_target(rtgt_obj, inst_tgt_data)
                             update_ri = True
                         else:
-                            self.stale_route_targets.remove(vn._route_target)
+                            self.stale_route_targets.remove(vn.get_route_target())
                 update_ri |= self.import_default_ri_route_target_to_service_ri()
                 if update_ri:
                     self._vnc_lib.routing_instance_update(self.obj)
@@ -2058,7 +2069,7 @@ class RoutingInstanceST(DBBaseST):
 
         self.route_target = rt_key
         if self.is_default:
-            vn._route_target = rt_key
+            vn.set_route_target(rt_key)
 
         if 0 < old_rtgt < common.BGP_RTGT_MIN_ID:
             rt_key = "target:%s:%d" % (
