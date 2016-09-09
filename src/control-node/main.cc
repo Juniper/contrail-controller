@@ -28,6 +28,7 @@
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
+#include "bgp/xmpp_message_builder.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "control-node/buildinfo.h"
@@ -323,6 +324,7 @@ int main(int argc, char *argv[]) {
     TaskScheduler::Initialize();
     TaskScheduler::GetInstance()->SetTrackRunTime(
         options.task_track_run_time());
+    BgpXmppMessage::Initialize();
     ControlNode::SetDefaultSchedulingPolicy();
 
     /* If Sandesh initialization is not being done via discovery we need to
@@ -563,5 +565,6 @@ int main(int argc, char *argv[]) {
 
     ShutdownServers(&bgp_peer_manager, ds_client, node_info_log_timer.get(),
                     &tbb_awake_task);
+    BgpXmppMessage::Terminate();
     return 0;
 }

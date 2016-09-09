@@ -107,12 +107,13 @@ public:
     MsgBuilderMock() : msg_count_(0) { }
     virtual ~MsgBuilderMock() { }
 
-    virtual Message *Create(const RibOut *ribout, bool cache_routes,
+    virtual Message *Create(int idx, const RibOut *ribout, bool cache_routes,
                             const RibOutAttr *attr,
                             const BgpRoute *route) const {
         msg_count_++;
         if (use_bgp_messages) {
-            return BgpMessageBuilder::Create(ribout, cache_routes, attr, route);
+            return BgpMessageBuilder::Create(
+                idx, ribout, cache_routes, attr, route);
         } else {
             return new MessageMock();
         }
