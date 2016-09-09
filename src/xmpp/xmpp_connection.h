@@ -78,7 +78,8 @@ public:
     std::string ToUVEKey() const; 
     std::string FromString() const;
     void SetAdminDown(bool toggle);
-    bool Send(const uint8_t *data, size_t size);
+    bool Send(const uint8_t *data, size_t size,
+              const std::string *msg_str = NULL);
 
     // Xmpp connection messages
     virtual bool SendOpen(XmppSession *session);

@@ -108,7 +108,8 @@ TEST_F(BgpMsgBuilderTest, Build) {
     message.Start(&ribout, &rib_out_attr, &route);
 
     size_t length;
-    const uint8_t *data = message.GetData(NULL, &length);
+    const string *msg_str;
+    const uint8_t *data = message.GetData(NULL, &length, &msg_str);
     for (size_t i = 0; i < length; i++) {
         printf("%02x ", data[i]);
     }
@@ -143,7 +144,7 @@ TEST_F(BgpMsgBuilderTest, Build) {
     route2.InsertPath(path2);
     message.AddRoute(&route2, &rib_out_attr);
 
-    data = message.GetData(NULL, &length);
+    data = message.GetData(NULL, &length, &msg_str);
     for (size_t i = 0; i < length; i++) {
         printf("%02x ", data[i]);
     }

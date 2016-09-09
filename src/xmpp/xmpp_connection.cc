@@ -226,24 +226,30 @@ bool XmppConnection::AcceptSession(XmppSession *session) {
     return state_machine_->PassiveOpen(session);
 }
 
-bool XmppConnection::Send(const uint8_t *data, size_t size) {
-    size_t sent;
+bool XmppConnection::Send(const uint8_t *data, size_t size,
+    const string *msg_str) {
     tbb::spin_mutex::scoped_lock lock(spin_mutex_);
     if (session_ == NULL) {
         return false;
     }
 
     TcpSession::Endpoint endpoint = session_->remote_endpoint();
-    string str(reinterpret_cast<const char *>(data), size);
+    string str;
+    if (!msg_str) {
+        str.append(reinterpret_cast<const char *>(data), size);
+        msg_str = &str;
+    }
+
     if (!(mux_ &&
          (mux_->TxMessageTrace(endpoint.address().to_string(),
-                               endpoint.port(), size, str, NULL)))) {
+                               endpoint.port(), size, *msg_str, NULL)))) {
         XMPP_MESSAGE_TRACE(XmppTxStream,
                            endpoint.address().to_string(),
-                           endpoint.port(), size, str);
+                           endpoint.port(), size, *msg_str);
     }
 
     stats_[1].update++;
+    size_t sent;
     return session_->Send(data, size, &sent);
 }
 

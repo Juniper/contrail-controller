@@ -26,6 +26,10 @@ public:
     // Send an update.
     // Returns true if the peer can send additional messages.
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize) = 0;
+    virtual bool SendUpdate(const uint8_t *msg, size_t msgsize,
+                            const std::string *msg_str) {
+        return SendUpdate(msg, msgsize);
+    }
 
     // Flush any accumulated updates.
     // Returns true if the peer can send additional messages.

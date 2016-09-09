@@ -5,6 +5,8 @@
 #ifndef SRC_BGP_BGP_MESSAGE_BUILDER_H_
 #define SRC_BGP_BGP_MESSAGE_BUILDER_H_
 
+#include <string>
+
 #include "bgp/bgp_proto.h"
 #include "bgp/message_builder.h"
 
@@ -18,7 +20,8 @@ public:
                const BgpRoute *route);
     virtual bool AddRoute(const BgpRoute *route, const RibOutAttr *roattr);
     virtual void Finish();
-    virtual const uint8_t *GetData(IPeerUpdate *ipeer_update, size_t *lenp);
+    virtual const uint8_t *GetData(IPeerUpdate *peer, size_t *lenp,
+                                   const std::string **msg_str);
 
 private:
     bool StartReach(const RibOut *ribout, const RibOutAttr *roattr,

@@ -242,7 +242,8 @@ bool BgpMessage::AddRoute(const BgpRoute *route, const RibOutAttr *roattr) {
 void BgpMessage::Finish() {
 }
 
-const uint8_t *BgpMessage::GetData(IPeerUpdate *ipeer_update, size_t *lenp) {
+const uint8_t *BgpMessage::GetData(IPeerUpdate *peer, size_t *lenp,
+    const string **msg_str) {
     *lenp = datalen_;
     return data_;
 }

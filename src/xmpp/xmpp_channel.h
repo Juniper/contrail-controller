@@ -52,6 +52,11 @@ public:
     virtual ~XmppChannel() { }
 
     virtual bool Send(const uint8_t *, size_t, xmps::PeerId, SendReadyCb) = 0;
+    virtual bool Send(const uint8_t *msg, size_t msg_size,
+                      const std::string *msg_str, xmps::PeerId id,
+                      SendReadyCb cb) {
+        return Send(msg, msg_size, id, cb);
+    }
     virtual int GetTaskInstance() const = 0;
     virtual void RegisterReceive(xmps::PeerId, ReceiveCb) = 0;
     virtual void UnRegisterReceive(xmps::PeerId) = 0;

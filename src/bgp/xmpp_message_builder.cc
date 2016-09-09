@@ -426,7 +426,8 @@ bool BgpXmppMessage::AddMcastRoute(const BgpRoute *route,
     return true;
 }
 
-const uint8_t *BgpXmppMessage::GetData(IPeerUpdate *peer, size_t *lenp) {
+const uint8_t *BgpXmppMessage::GetData(IPeerUpdate *peer, size_t *lenp,
+    const string **msg_str) {
     // Build begin line that contains message opening tag with from and to
     // attributes.
     string msg_begin;
@@ -452,12 +453,15 @@ const uint8_t *BgpXmppMessage::GetData(IPeerUpdate *peer, size_t *lenp) {
     // of the message in repr.
     if (msg_begin.size() <= kMaxFromToLength) {
         size_t extra = kMaxFromToLength - msg_begin.size();
+        repr.replace(0, extra, extra, ' ');
         repr.replace(extra, msg_begin.size(), msg_begin);
         *lenp = repr.size() - extra;
+        *msg_str = &repr_[part_id_];
         return reinterpret_cast<const uint8_t *>(repr.c_str()) + extra;
     } else {
         string temp = msg_begin + string(repr, kMaxFromToLength);
         *lenp = temp.size();
+        *msg_str = NULL;
         return reinterpret_cast<const uint8_t *>(temp.c_str());
     }
 }

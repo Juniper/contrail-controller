@@ -15,8 +15,8 @@
 #include "bgp/extended-community/load_balance.h"
 
 namespace autogen {
-    class ItemType;
-    class EnetItemType;
+class ItemType;
+class EnetItemType;
 }
 class Community;
 class ExtCommunity;
@@ -45,7 +45,8 @@ public:
     void Start(const RibOutAttr *roattr, const BgpRoute *route);
     virtual void Finish();
     virtual bool AddRoute(const BgpRoute *route, const RibOutAttr *roattr);
-    virtual const uint8_t *GetData(IPeerUpdate *peer, size_t *lenp);
+    virtual const uint8_t *GetData(IPeerUpdate *peer, size_t *lenp,
+                                   const std::string **msg_str);
 
 private:
     static const size_t kMaxFromToLength = 192;
