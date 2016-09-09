@@ -15,6 +15,7 @@
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_membership.h"
+#include "bgp/bgp_peer_close.h"
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_session.h"
@@ -26,6 +27,7 @@
 #include "bgp/inet6/inet6_table.h"
 #include "bgp/inet6vpn/inet6vpn_table.h"
 #include "bgp/l3vpn/inetvpn_table.h"
+#include "bgp/peer_close_manager.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/rtarget/rtarget_table.h"
@@ -40,179 +42,6 @@ using std::map;
 using std::ostringstream;
 using std::string;
 using std::vector;
-
-class BgpPeer::PeerClose : public IPeerClose {
-  public:
-    explicit PeerClose(BgpPeer *peer)
-        : peer_(peer), flap_count_(0),
-          manager_(BgpObjectFactory::Create<PeerCloseManager>(this)) {
-    }
-
-    virtual ~PeerClose() { }
-    virtual string ToString() const { return peer_->ToString(); }
-    virtual void CustomClose() { return peer_->CustomClose(); }
-    virtual void GracefulRestartStale() {
-        negotiated_families_ = peer_->negotiated_families();
-    }
-    virtual void LongLivedGracefulRestartStale() { }
-    virtual void GracefulRestartSweep() {
-        negotiated_families_.clear();
-    }
-    virtual PeerCloseManager *close_manager() { return manager_.get(); }
-    virtual bool IsReady() const { return peer_->IsReady(); }
-    virtual IPeer *peer() const { return peer_; }
-
-    virtual void Close(bool non_graceful) {
-        // Abort GR-Closuree if this request is for non-graceful closure.
-        // Reset GR-Closure if previous closure is still in progress or if
-        // this is a flip (from established state).
-        if (non_graceful || flap_count_ != peer_->total_flap_count()) {
-            if (flap_count_ != peer_->total_flap_count()) {
-                flap_count_++;
-                assert(peer_->total_flap_count() == flap_count_);
-            }
-            manager_->Close(non_graceful);
-            return;
-        }
-
-        // Ignore if close is already in progress.
-        if (close_manager()->IsCloseInProgress() &&
-                !close_manager()->IsInGracefulRestartTimerWait())
-            return;
-
-        if (peer_->IsDeleted()) {
-            peer_->RetryDelete();
-        } else {
-            CustomClose();
-            CloseComplete();
-        }
-    }
-
-    virtual void Delete() {
-        peer_->gr_params().Initialize();
-        peer_->llgr_params().Initialize();
-        peer_->graceful_restart_families().clear();
-        peer_->long_lived_graceful_restart_families().clear();
-        negotiated_families_.clear();
-        if (peer_->IsDeleted()) {
-            peer_->RetryDelete();
-        } else {
-            CloseComplete();
-        }
-    }
-
-    // Return the time to wait for, in seconds to exit GR_TIMER state.
-    virtual int GetGracefulRestartTime() const {
-        return  peer_->gr_params_.time;
-    }
-
-    // Return the time to wait for, in seconds to exit LLGR_TIMER state.
-    virtual int GetLongLivedGracefulRestartTime() const {
-        return peer_->llgr_params_.time;
-    }
-
-    virtual void ReceiveEndOfRIB(Address::Family family) {
-        peer_->ReceiveEndOfRIB(family, 0);
-    }
-
-
-    virtual const char *GetTaskName() const { return "bgp::StateMachine"; }
-    virtual int GetTaskInstance() const { return peer_->GetTaskInstance(); }
-
-    virtual void MembershipRequestCallbackComplete() {
-        CHECK_CONCURRENCY("bgp::StateMachine");
-    }
-
-    bool IsGRReady() const {
-        // Check if GR helper mode is disabled.
-        if (!peer_->server()->IsGRHelperModeEnabled())
-            return false;
-
-        // Check if GR is supported by the peer.
-        if (peer_->gr_params().families.empty())
-            return false;
-
-        // Restart time must be non-zero in order to enable GR helper mode.
-        if (!GetGracefulRestartTime())
-            return false;
-
-        // Abort GR if currently negotiated families differ from already
-        // staled address families.
-        if (!negotiated_families_.empty() &&
-                peer_->negotiated_families() != negotiated_families_)
-            return false;
-
-        // If GR is not supported for any of the negotiated address family,
-        // then consider GR as not supported
-        if (!equal(peer_->negotiated_families().begin(),
-                   peer_->negotiated_families().end(),
-                   peer_->graceful_restart_families().begin())) {
-            return false;
-        }
-
-        // Make sure that forwarding state is preserved for all families in
-        // the restarting speaker.
-        BOOST_FOREACH(BgpProto::OpenMessage::Capability::GR::Family family,
-                      peer_->gr_params().families) {
-            if (!family.forwarding_state_preserved())
-                return false;
-        }
-
-        // If LLGR is supported, make sure that it is identical to GR afis
-        if (!peer_->llgr_params().families.empty()) {
-            if (peer_->graceful_restart_families() !=
-                    peer_->long_lived_graceful_restart_families()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    // If the peer is deleted or administratively held down, do not attempt
-    // graceful restart
-    virtual bool IsCloseGraceful() const {
-        if (peer_->IsDeleted() || peer_->IsAdminDown())
-            return false;
-        if (peer_->server()->IsDeleted() || peer_->server()->admin_down())
-            return false;
-        if (!IsGRReady())
-            return false;
-        return true;
-    }
-
-    // Check if we need to trigger Long Lived Graceful Restart. In addition to
-    // normal GR checks, we also need to check LLGR capability was negotiated
-    // and non-zero restart time was inferred.
-    virtual bool IsCloseLongLivedGraceful() const {
-        if (!IsCloseGraceful())
-            return false;
-        if (peer_->llgr_params().families.empty())
-            return false;
-        if (!GetLongLivedGracefulRestartTime())
-            return false;
-        return true;
-    }
-
-    // Close process for this peer is complete. Restart the state machine and
-    // attempt to bring up session with the neighbor
-    virtual void CloseComplete() {
-        if (!peer_->IsDeleted() && !peer_->IsAdminDown())
-            peer_->state_machine_->Initialize();
-    }
-
-    virtual void GetGracefulRestartFamilies(Families *families) const {
-        families->clear();
-        BOOST_FOREACH(const string family, peer_->graceful_restart_families()) {
-            families->insert(Address::FamilyFromString(family));
-        }
-    }
-
-private:
-    BgpPeer *peer_;
-    uint64_t flap_count_;
-    boost::scoped_ptr<PeerCloseManager> manager_;
-    std::vector<std::string> negotiated_families_;
-};
 
 class BgpPeer::PeerStats : public IPeerDebugStats {
 public:
@@ -605,7 +434,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           peer_type_((config->peer_as() == config->local_as()) ?
                          BgpProto::IBGP : BgpProto::EBGP),
           state_machine_(BgpObjectFactory::Create<StateMachine>(this)),
-          peer_close_(new PeerClose(this)),
+          peer_close_(new BgpPeerClose(this)),
           peer_stats_(new PeerStats(this)),
           deleter_(new DeleteActor(this)),
           instance_delete_ref_(this, instance ? instance->deleter() : NULL),
@@ -1126,6 +955,10 @@ bool BgpPeer::IsDeleted() const {
     return deleter_->IsDeleted();
 }
 
+bool BgpPeer::IsInGRTimerWaitState() const {
+    return peer_close_->close_manager()->IsInGRTimerWaitState();
+}
+
 bool BgpPeer::IsCloseInProgress() const {
     CHECK_CONCURRENCY("bgp::Config");
 
@@ -1133,7 +966,7 @@ bool BgpPeer::IsCloseInProgress() const {
     assert(!(defer_close_ && trigger_.IsSet()));
     return defer_close_ || trigger_.IsSet() ||
             (peer_close_->close_manager()->IsCloseInProgress() &&
-             !peer_close_->close_manager()->IsInGracefulRestartTimerWait());
+             !IsInGRTimerWaitState());
 }
 
 StateMachine::State BgpPeer::GetState() const {
@@ -1269,33 +1102,6 @@ const vector<Address::Family> BgpPeer::supported_families_ = list_of
     (Address::INET6)
     (Address::INET6VPN);
 
-void BgpPeer::AddGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param) {
-    vector<Address::Family> gr_families;
-    uint16_t time = server_->GetGracefulRestartTime();
-
-    // Indicate EOR support by default.
-    if (!time) {
-        BgpProto::OpenMessage::Capability *gr_cap =
-            BgpProto::OpenMessage::Capability::GR::Encode(0, 0, 0,
-                                                          gr_families);
-        opt_param->capabilities.push_back(gr_cap);
-        return;
-    }
-
-    BOOST_FOREACH(Address::Family family, supported_families_) {
-        if (LookupFamily(family))
-            gr_families.push_back(family);
-    }
-
-    uint8_t flags = 0;
-    uint8_t afi_flags =
-        BgpProto::OpenMessage::Capability::GR::ForwardingStatePreserved;
-    BgpProto::OpenMessage::Capability *gr_cap =
-        BgpProto::OpenMessage::Capability::GR::Encode(time, flags, afi_flags,
-                                                      gr_families);
-    opt_param->capabilities.push_back(gr_cap);
-}
-
 void BgpPeer::AddLLGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param) {
     if (!server_->GetGracefulRestartTime() ||
             !server_->GetLongLivedGracefulRestartTime())
@@ -1361,7 +1167,7 @@ void BgpPeer::SendOpen(TcpSession *session) {
         opt_param->capabilities.push_back(cap);
     }
 
-    AddGRCapabilities(opt_param);
+    peer_close_->AddGRCapabilities(opt_param);
     AddLLGRCapabilities(opt_param);
 
     if (opt_param->capabilities.size()) {
@@ -1684,35 +1490,6 @@ void BgpPeer::SendNotification(BgpSession *session,
     inc_tx_notification();
 }
 
-bool BgpPeer::SetGRCapabilities(BgpPeerInfoData *peer_info) {
-    BgpProto::OpenMessage::Capability::GR::Decode(&gr_params_, capabilities_);
-    BgpProto::OpenMessage::Capability::GR::GetFamilies(gr_params_,
-            &graceful_restart_families_);
-    peer_info->set_graceful_restart_families(graceful_restart_families_);
-
-    BgpProto::OpenMessage::Capability::LLGR::Decode(&llgr_params_,
-                                                    capabilities_);
-    BgpProto::OpenMessage::Capability::LLGR::GetFamilies(llgr_params_,
-            &long_lived_graceful_restart_families_);
-    peer_info->set_long_lived_graceful_restart_families(
-            long_lived_graceful_restart_families_);
-    peer_info->set_graceful_restart_time(peer_close_->GetGracefulRestartTime());
-    peer_info->set_long_lived_graceful_restart_time(
-            peer_close_->GetLongLivedGracefulRestartTime());
-    BGPPeerInfoSend(*peer_info);
-
-    // If GR is no longer supported, terminate GR right away. This can happen
-    // due to mis-match between gr and llgr afis. For now, we expect an
-    // identical set.
-    if (peer_close_->close_manager()->IsInGracefulRestartTimerWait() &&
-        (!peer_close_->IsCloseGraceful() ||
-            !peer_close_->IsCloseLongLivedGraceful())) {
-        Close(true);
-        return false;
-    }
-    return true;
-}
-
 bool BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
     peer_bgp_id_ = htonl(msg->identifier);
     capabilities_.clear();
@@ -1759,7 +1536,7 @@ bool BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
     }
     sort(negotiated_families_.begin(), negotiated_families_.end());
     peer_info.set_negotiated_families(negotiated_families_);
-    return SetGRCapabilities(&peer_info);
+    return peer_close_->SetGRCapabilities(&peer_info);
 }
 
 // Reset capabilities stored inside peer structure.
@@ -2444,12 +2221,8 @@ void BgpPeer::FillNeighborInfo(const BgpSandeshContext *bsc,
 
     bnr->set_configured_address_families(configured_families_);
     bnr->set_negotiated_address_families(negotiated_families_);
-    bnr->set_graceful_restart_address_families(graceful_restart_families_);
-    bnr->set_long_lived_graceful_restart_address_families(
-            long_lived_graceful_restart_families_);
-    bnr->set_graceful_restart_time(peer_close_->GetGracefulRestartTime());
-    bnr->set_long_lived_graceful_restart_time(
-            peer_close_->GetLongLivedGracefulRestartTime());
+
+    peer_close_->FillNeighborInfo(bnr);
 
     bnr->set_configured_hold_time(state_machine_->GetConfiguredHoldTime());
     FillBgpNeighborFamilyAttributes(bnr);

@@ -102,6 +102,7 @@ public:
     virtual bool MembershipPathCallback(DBTablePartBase *tpart,
         BgpRoute *route, BgpPath *path) { return false; }
     virtual bool CanUseMembershipManager() const { return true; }
+    virtual bool IsInGRTimerWaitState() const { return false; }
 
 private:
     Ip4Address address_;

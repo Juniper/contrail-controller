@@ -155,6 +155,7 @@ public:
     // Printable name
     virtual std::string ToString() const = 0;
     virtual PeerCloseManager *close_manager() = 0;
+    virtual PeerCloseManager *close_manager() const = 0;
     virtual void Close(bool non_graceful) = 0;
     virtual bool IsCloseGraceful() const = 0;
     virtual bool IsCloseLongLivedGraceful() const = 0;
@@ -206,6 +207,7 @@ public:
     virtual bool MembershipPathCallback(DBTablePartBase *tpart,
         BgpRoute *route, BgpPath *path) = 0;
     virtual bool CanUseMembershipManager() const = 0;
+    virtual bool IsInGRTimerWaitState() const = 0;
 };
 
 #endif  // SRC_BGP_IPEER_H_
