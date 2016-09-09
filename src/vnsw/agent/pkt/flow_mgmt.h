@@ -397,6 +397,8 @@ public:
     // and DBEntry delete message is got from FlowTable
     virtual bool Delete(FlowMgmtKey *key, FlowEntry *flow,
                         FlowMgmtKeyNode *node);
+    virtual void InsertEntry(FlowMgmtKey *key, FlowMgmtEntry *entry);
+    virtual void RemoveEntry(Tree::iterator it);
 
     // Handle DBEntry add
     virtual bool OperEntryAdd(const FlowMgmtRequest *req, FlowMgmtKey *key);
@@ -533,13 +535,11 @@ public:
     void ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree);
     FlowMgmtEntry *Allocate(const FlowMgmtKey *key);
 
-    bool Add(FlowMgmtKey *key, FlowEntry *flow, FlowMgmtKeyNode *node);
-    bool Delete(FlowMgmtKey *key, FlowEntry *flow, FlowMgmtKeyNode *node);
-    bool OperEntryAdd(const FlowMgmtRequest *req, FlowMgmtKey *key);
-    bool OperEntryDelete(const FlowMgmtRequest *req, FlowMgmtKey *key);
     void VnFlowCounters(const VnEntry *vn,
                         uint32_t *ingress_flow_count,
                         uint32_t *egress_flow_count);
+    void RemoveEntry(Tree::iterator it);
+    void InsertEntry(FlowMgmtKey *key, FlowMgmtEntry *entry);
 private:
     // We need to support query of counters in VN from other threads.
     // So, implement synchronization on access to VN Flow Tree
@@ -562,10 +562,17 @@ private:
 
 class InterfaceFlowMgmtEntry : public FlowMgmtEntry {
 public:
-    InterfaceFlowMgmtEntry() : FlowMgmtEntry() { }
+    InterfaceFlowMgmtEntry() : FlowMgmtEntry(), flow_created_(0),
+        flow_aged_(0) { }
     virtual ~InterfaceFlowMgmtEntry() { }
 
+    bool Add(FlowEntry *flow, FlowMgmtKeyNode *node);
+    bool Delete(FlowEntry *flow, FlowMgmtKeyNode *node);
+    uint64_t flow_created() const {return flow_created_;}
+    uint64_t flow_aged() const {return flow_aged_;}
 private:
+    uint64_t flow_created_;
+    uint64_t flow_aged_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceFlowMgmtEntry);
 };
 
@@ -576,7 +583,14 @@ public:
 
     void ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree);
     FlowMgmtEntry *Allocate(const FlowMgmtKey *key);
+    void InterfaceFlowCount(const Interface *itf, uint64_t *created,
+                            uint64_t *aged, uint32_t *active_flows);
+    void InsertEntry(FlowMgmtKey *key, FlowMgmtEntry *entry);
+    void RemoveEntry(Tree::iterator it);
 private:
+    // We need to support query of counters in Interface from other threads.
+    // So, implement synchronization on access to Interface Flow Tree
+    tbb::mutex mutex_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceFlowMgmtTree);
 };
 
@@ -1109,6 +1123,8 @@ public:
     void VnFlowCounters(const VnEntry *vn,
                         uint32_t *ingress_flow_count,
                         uint32_t *egress_flow_count);
+    void InterfaceFlowCount(const Interface *itf, uint64_t *created,
+                            uint64_t *aged, uint32_t *active_flows);
     bool HasVrfFlows(uint32_t vrf);
 
     FlowMgmtDbClient *flow_mgmt_dbclient() const {

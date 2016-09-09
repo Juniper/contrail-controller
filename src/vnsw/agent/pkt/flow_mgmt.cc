@@ -715,6 +715,13 @@ void FlowMgmtManager::VnFlowCounters(const VnEntry *vn, uint32_t *ingress_flow_c
                                       egress_flow_count);
 }
 
+void FlowMgmtManager::InterfaceFlowCount(const Interface *itf,
+                                         uint64_t *created, uint64_t *aged,
+                                         uint32_t *active_flows) {
+    interface_flow_mgmt_tree_.InterfaceFlowCount(itf, created, aged,
+                                                 active_flows);
+}
+
 FlowEntryInfo *
 FlowMgmtManager::FindFlowEntryInfo(const FlowEntryPtr &flow) {
     return flow->flow_mgmt_info();
@@ -928,10 +935,14 @@ FlowMgmtEntry *FlowMgmtTree::Locate(FlowMgmtKey *key) {
     FlowMgmtEntry *entry = Find(key);
     if (entry == NULL) {
         entry = Allocate(key);
-        tree_[key->Clone()] = entry;
+        InsertEntry(key->Clone(), entry);
     }
 
     return entry;
+}
+
+void FlowMgmtTree::InsertEntry(FlowMgmtKey *key, FlowMgmtEntry *entry) {
+    tree_[key] = entry;
 }
 
 FlowMgmtKey *FlowMgmtTree::LowerBound(FlowMgmtKey *key) {
@@ -954,11 +965,15 @@ bool FlowMgmtTree::TryDelete(FlowMgmtKey *key, FlowMgmtEntry *entry) {
     Tree::iterator it = tree_.find(key);
     assert(it != tree_.end());
     FlowMgmtKey *first = it->first;
-    tree_.erase(it);
+    RemoveEntry(it);
     delete entry;
     delete first;
 
     return true;
+}
+
+void FlowMgmtTree::RemoveEntry(Tree::iterator it) {
+    tree_.erase(it);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1359,35 +1374,21 @@ void VnFlowMgmtEntry::UpdateCounterOnDel(FlowEntry *flow, bool local_flow,
     }
 }
 
-bool VnFlowMgmtTree::Add(FlowMgmtKey *key, FlowEntry *flow,
-                         FlowMgmtKeyNode *node) {
+void VnFlowMgmtTree::InsertEntry(FlowMgmtKey *key, FlowMgmtEntry *entry) {
     tbb::mutex::scoped_lock mutex(mutex_);
-    return FlowMgmtTree::Add(key, flow, node);
+    FlowMgmtTree::InsertEntry(key, entry);
 }
 
-bool VnFlowMgmtTree::Delete(FlowMgmtKey *key, FlowEntry *flow,
-                            FlowMgmtKeyNode *node) {
+void VnFlowMgmtTree::RemoveEntry(Tree::iterator it) {
     tbb::mutex::scoped_lock mutex(mutex_);
-    return FlowMgmtTree::Delete(key, flow, node);
-}
-
-bool VnFlowMgmtTree::OperEntryAdd(const FlowMgmtRequest *req,
-                                  FlowMgmtKey *key) {
-    tbb::mutex::scoped_lock mutex(mutex_);
-    return FlowMgmtTree::OperEntryAdd(req, key);
-}
-
-bool VnFlowMgmtTree::OperEntryDelete(const FlowMgmtRequest *req,
-                                     FlowMgmtKey *key) {
-    tbb::mutex::scoped_lock mutex(mutex_);
-    return FlowMgmtTree::OperEntryDelete(req, key);
+    FlowMgmtTree::RemoveEntry(it);
 }
 
 void VnFlowMgmtTree::VnFlowCounters(const VnEntry *vn,
                                     uint32_t *ingress_flow_count,
                                     uint32_t *egress_flow_count) {
-    tbb::mutex::scoped_lock mutex(mutex_);
     VnFlowMgmtKey key(vn);
+    tbb::mutex::scoped_lock mutex(mutex_);
     VnFlowMgmtEntry *entry = static_cast<VnFlowMgmtEntry *>(Find(&key));
     if (entry) {
         *ingress_flow_count += entry->ingress_flow_count();
@@ -1398,6 +1399,44 @@ void VnFlowMgmtTree::VnFlowCounters(const VnEntry *vn,
 /////////////////////////////////////////////////////////////////////////////
 // Interface Flow Management
 /////////////////////////////////////////////////////////////////////////////
+bool InterfaceFlowMgmtEntry::Add(FlowEntry *flow, FlowMgmtKeyNode *node) {
+    bool added = FlowMgmtEntry::Add(flow, node);
+    if (added) {
+        flow_created_++;
+    }
+    return added;
+}
+
+bool InterfaceFlowMgmtEntry::Delete(FlowEntry *flow, FlowMgmtKeyNode *node) {
+    flow_aged_++;
+    return FlowMgmtEntry::Delete(flow, node);
+}
+
+void InterfaceFlowMgmtTree::InsertEntry(FlowMgmtKey *key, FlowMgmtEntry *entry){
+    tbb::mutex::scoped_lock mutex(mutex_);
+    FlowMgmtTree::InsertEntry(key, entry);
+}
+
+void InterfaceFlowMgmtTree::RemoveEntry(Tree::iterator it) {
+    tbb::mutex::scoped_lock mutex(mutex_);
+    FlowMgmtTree::RemoveEntry(it);
+}
+
+void InterfaceFlowMgmtTree::InterfaceFlowCount(const Interface *itf,
+                                               uint64_t *created,
+                                               uint64_t *aged,
+                                               uint32_t *active_flows) {
+    InterfaceFlowMgmtKey key(itf);
+    tbb::mutex::scoped_lock mutex(mutex_);
+    InterfaceFlowMgmtEntry *entry = static_cast<InterfaceFlowMgmtEntry *>
+        (Find(&key));
+    if (entry) {
+        *created += entry->flow_created();
+        *aged += entry->flow_aged();
+        *active_flows += entry->Size();
+    }
+}
+
 void InterfaceFlowMgmtTree::ExtractKeys(FlowEntry *flow,
                                         FlowMgmtKeyTree *tree) {
     if (flow->intf_entry() == NULL)

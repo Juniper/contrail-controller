@@ -4,6 +4,7 @@
 
 include "vnsw/agent/uve/port_bmap.sandesh"
 include "sandesh/library/common/derived_stats_results.sandesh"
+include "vnsw/agent/uve/vrouter.sandesh"
 
 /**
  * Uve definitions for interface
@@ -93,6 +94,14 @@ struct UveVMInterfaceAgent {
    24: optional list<VmHealthCheckInstance> health_check_instance_list;
     /** @display_name:VMI ACL Rule Statistics*/
    25: optional list<SgAclRuleStats> sg_rule_stats (tags=".rule");
+    /** @display_name:Interface Flow Setup Statistics*/
+   26: optional vrouter.VrouterFlowRate flow_rate (tags="virtual_network")
+   41: optional derived_stats_results.AnomalyResult added_flows_ewm
+                    (stats="flow_rate.added_flows:DSAnomaly:EWM:0.2")
+   42: optional derived_stats_results.AnomalyResult deleted_flows_ewm
+                     (stats="flow_rate.deleted_flows:DSAnomaly:EWM:0.2")
+   43: optional derived_stats_results.AnomalyResult active_flows_ewm
+                     (stats="flow_rate.active_flows:DSAnomaly:EWM:0.2")
 }
 
 /**
