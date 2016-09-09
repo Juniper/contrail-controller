@@ -84,6 +84,7 @@ class PortTupleAgent(Agent):
         iip_obj.set_service_health_check_ip(True)
         try:
             self._vnc_lib.instance_ip_create(iip_obj)
+            self._vnc_lib.ref_relax_for_delete(iip_obj.uuid, vn_obj.uuid)
         except RefsExistError:
             self._vnc_lib.instance_ip_update(iip_obj)
         except Exception as e:
@@ -130,8 +131,7 @@ class PortTupleAgent(Agent):
             break
 
         if allocate_hc_iip:
-            if not hc_iip:
-                self._allocate_health_check_iip(port, vmi)
+            self._allocate_health_check_iip(port, vmi)
         elif hc_iip:
             self._delete_health_check_iip(hc_iip, vmi)
 
