@@ -23,7 +23,7 @@ public:
     QosQueueKSyncEntry(QosQueueKSyncObject *obj, uint32_t qos_queue);
     virtual ~QosQueueKSyncEntry();
 
-    KSyncDBObject *GetObject();
+    KSyncDBObject *GetObject() const;
     virtual bool IsLess(const KSyncEntry &rhs) const;
     virtual std::string ToString() const;
     virtual KSyncEntry *UnresolvedReference();

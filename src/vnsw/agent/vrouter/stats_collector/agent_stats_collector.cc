@@ -86,17 +86,17 @@ IoContext *AgentStatsCollector::AllocateIoContext(char* buf, uint32_t buf_len,
         case InterfaceStatsType:
             return (new InterfaceStatsIoContext(buf_len, buf, seq,
                                          intf_stats_sandesh_ctx_.get(),
-                                         IoContext::UVE_Q_ID));
+                                         IoContext::IOC_UVE));
             break;
        case VrfStatsType:
             return (new VrfStatsIoContext(buf_len, buf, seq,
                                         vrf_stats_sandesh_ctx_.get(),
-                                        IoContext::UVE_Q_ID));
+                                        IoContext::IOC_UVE));
             break;
        case DropStatsType:
             return (new DropStatsIoContext(buf_len, buf, seq,
                                          drop_stats_sandesh_ctx_.get(),
-                                         IoContext::UVE_Q_ID));
+                                         IoContext::IOC_UVE));
             break;
        default:
             return NULL;
@@ -106,7 +106,7 @@ IoContext *AgentStatsCollector::AllocateIoContext(char* buf, uint32_t buf_len,
 void AgentStatsCollector::SendAsync(char* buf, uint32_t buf_len,
                                     StatsType type) {
     KSyncSock   *sock = KSyncSock::Get(0);
-    uint32_t seq = sock->AllocSeqNo(true);
+    uint32_t seq = sock->AllocSeqNo(IoContext::IOC_UVE, 0);
 
     IoContext *ioc = AllocateIoContext(buf, buf_len, type, seq);
     if (ioc) {

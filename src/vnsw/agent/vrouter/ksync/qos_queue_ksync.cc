@@ -29,7 +29,7 @@ QosQueueKSyncEntry::QosQueueKSyncEntry(QosQueueKSyncObject *obj,
 QosQueueKSyncEntry::~QosQueueKSyncEntry() {
 }
 
-KSyncDBObject *QosQueueKSyncEntry::GetObject() {
+KSyncDBObject *QosQueueKSyncEntry::GetObject() const {
     return ksync_obj_;
 }
 

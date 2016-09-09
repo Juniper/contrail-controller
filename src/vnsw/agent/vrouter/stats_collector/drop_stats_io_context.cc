@@ -8,8 +8,8 @@
 
 DropStatsIoContext::DropStatsIoContext(int msg_len, char *msg, uint32_t seqno,
                                        AgentStatsSandeshContext *ctx,
-                                       IoContext::IoContextWorkQId id)
-    : IoContext(msg, msg_len, seqno, ctx, id) {
+                                       IoContext::Type type)
+    : IoContext(msg, msg_len, seqno, ctx, type) {
 }
 
 DropStatsIoContext::~DropStatsIoContext() {

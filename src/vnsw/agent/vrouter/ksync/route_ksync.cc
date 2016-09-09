@@ -98,7 +98,7 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
 RouteKSyncEntry::~RouteKSyncEntry() {
 }
 
-KSyncDBObject *RouteKSyncEntry::GetObject() {
+KSyncDBObject *RouteKSyncEntry::GetObject() const {
     return ksync_obj_;
 }
 

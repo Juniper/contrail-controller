@@ -11,8 +11,8 @@ class VrfStatsIoContext: public IoContext {
 public:
     VrfStatsIoContext(int msg_len, char *msg, uint32_t seqno,
                       AgentStatsSandeshContext *ctx,
-                      IoContext::IoContextWorkQId id)
-        : IoContext(msg, msg_len, seqno, ctx, id) {}
+                      IoContext::Type type)
+        : IoContext(msg, msg_len, seqno, ctx, type) {}
     virtual ~VrfStatsIoContext() {}
     virtual void Handler();
     virtual void ErrorHandler(int err);

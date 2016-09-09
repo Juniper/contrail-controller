@@ -58,7 +58,7 @@ public:
     bool no_arp() const { return no_arp_; }
     PhysicalInterface::EncapType encap_type() const { return encap_type_; }
 
-    KSyncDBObject *GetObject();
+    KSyncDBObject *GetObject() const;
     virtual bool Sync(DBEntry *e);
     virtual bool IsLess(const KSyncEntry &rhs) const;
     virtual std::string ToString() const;

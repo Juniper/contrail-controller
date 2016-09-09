@@ -41,7 +41,7 @@ KSyncVxlanBridgeEntry::KSyncVxlanBridgeEntry(KSyncVxlanBridgeObject *obj,
 KSyncVxlanBridgeEntry::~KSyncVxlanBridgeEntry() {
 }
 
-KSyncDBObject *KSyncVxlanBridgeEntry::GetObject() {
+KSyncDBObject *KSyncVxlanBridgeEntry::GetObject() const {
     return ksync_obj_;
 }
 

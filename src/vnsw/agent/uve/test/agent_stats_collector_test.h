@@ -45,8 +45,8 @@ class InterfaceStatsIoContextTest: public InterfaceStatsIoContext {
 public:
     InterfaceStatsIoContextTest(int msg_len, char *msg, uint32_t seqno, 
                                 AgentStatsSandeshContext *ctx, 
-                                IoContext::IoContextWorkQId id)
-        : InterfaceStatsIoContext(msg_len, msg, seqno, ctx, id) {}
+                                IoContext::Type type)
+        : InterfaceStatsIoContext(msg_len, msg, seqno, ctx, type) {}
     virtual ~InterfaceStatsIoContextTest() {}
     void Handler();
     void ErrorHandler(int err);
@@ -58,8 +58,8 @@ class VrfStatsIoContextTest: public VrfStatsIoContext {
 public:
     VrfStatsIoContextTest(int msg_len, char *msg, uint32_t seqno, 
                           AgentStatsSandeshContext *ctx, 
-                          IoContext::IoContextWorkQId id) 
-        : VrfStatsIoContext(msg_len, msg, seqno, ctx, id) {}
+                          IoContext::Type type) 
+        : VrfStatsIoContext(msg_len, msg, seqno, ctx, type) {}
     virtual ~VrfStatsIoContextTest() {}
     void Handler();
     void ErrorHandler(int err);
@@ -71,8 +71,8 @@ class DropStatsIoContextTest: public DropStatsIoContext {
 public:
     DropStatsIoContextTest(int msg_len, char *msg, uint32_t seqno, 
                            AgentStatsSandeshContext *ctx, 
-                           IoContext::IoContextWorkQId id)
-        : DropStatsIoContext(msg_len, msg, seqno, ctx, id) {}
+                           IoContext::Type type)
+        : DropStatsIoContext(msg_len, msg, seqno, ctx, type) {}
     virtual ~DropStatsIoContextTest() {}
     void Handler();
     void ErrorHandler(int err);

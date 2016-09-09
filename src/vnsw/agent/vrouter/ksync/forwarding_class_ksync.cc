@@ -33,7 +33,7 @@ ForwardingClassKSyncEntry::ForwardingClassKSyncEntry(
 ForwardingClassKSyncEntry::~ForwardingClassKSyncEntry() {
 }
 
-KSyncDBObject *ForwardingClassKSyncEntry::GetObject() {
+KSyncDBObject *ForwardingClassKSyncEntry::GetObject() const {
     return ksync_obj_;
 }
 

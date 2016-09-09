@@ -27,7 +27,7 @@ public:
                               uint32_t i);
     virtual ~ForwardingClassKSyncEntry();
 
-    KSyncDBObject *GetObject();
+    KSyncDBObject *GetObject() const;
     virtual bool IsLess(const KSyncEntry &rhs) const;
     virtual std::string ToString() const;
     virtual KSyncEntry *UnresolvedReference();

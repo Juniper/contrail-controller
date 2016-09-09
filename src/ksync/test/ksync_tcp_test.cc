@@ -202,7 +202,7 @@ public:
         del_count_++;
         return sizeof(tag_);
     };
-    KSyncDBObject *GetObject();
+    KSyncDBObject *GetObject() const;
 
     uint32_t GetTag() const {return tag_;};
     static void Reset() {
@@ -303,7 +303,7 @@ public:
     DBTableBase::ListenerId tid_1_;
 };
 
-KSyncDBObject *VlanKSyncEntry::GetObject() {
+KSyncDBObject *VlanKSyncEntry::GetObject() const {
     return VlanKSyncObject::GetKSyncObject();
 }
 

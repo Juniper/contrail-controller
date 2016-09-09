@@ -81,7 +81,7 @@ public:
     };
 
     bool AllowDeleteStateComp() {return all_delete_state_comp_;}
-    KSyncObject *GetObject();
+    KSyncObject *GetObject() const;
     KSyncEntry *UnresolvedReference() {
         if (dep_tag_ == 0)
             return NULL;
@@ -161,7 +161,7 @@ public:
 
 };
 
-KSyncObject *Vlan::GetObject() {
+KSyncObject *Vlan::GetObject() const {
     return vlan_table_;
 };
 

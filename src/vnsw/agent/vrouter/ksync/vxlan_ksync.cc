@@ -42,7 +42,7 @@ VxLanIdKSyncEntry::VxLanIdKSyncEntry(VxLanKSyncObject *obj,
 VxLanIdKSyncEntry::~VxLanIdKSyncEntry() {
 }
 
-KSyncDBObject *VxLanIdKSyncEntry::GetObject() {
+KSyncDBObject *VxLanIdKSyncEntry::GetObject() const {
     return ksync_obj_;
 }
 

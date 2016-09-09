@@ -158,7 +158,7 @@ public:
         del_count_++;
         return no_ack_trigger_;
     };
-    KSyncDBObject *GetObject();
+    KSyncDBObject *GetObject() const;
 
     uint32_t GetTag() const {return tag_;};
     const string &name() const {return name_;}
@@ -293,7 +293,7 @@ public:
     DBTableBase::ListenerId tid_1_;
 };
 
-KSyncDBObject *VlanKSyncEntry::GetObject() {
+KSyncDBObject *VlanKSyncEntry::GetObject() const {
     return VlanKSyncObject::GetKSyncObject();
 }
 

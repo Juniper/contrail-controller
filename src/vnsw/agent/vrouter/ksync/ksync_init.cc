@@ -130,8 +130,10 @@ void KSync::NetlinkInit() {
     boost::asio::io_service &io = *event_mgr->io_service();
 
     KSyncSockNetlink::Init(io, NETLINK_GENERIC);
-    KSyncSock::SetAgentSandeshContext
-        (new KSyncSandeshContext(ksync_flow_memory_.get()));
+    for (int i = 0; i < KSyncSock::kRxWorkQueueCount; i++) {
+        KSyncSock::SetAgentSandeshContext
+            (new KSyncSandeshContext(ksync_flow_memory_.get()), i);
+    }
     GenericNetlinkInit();
 }
 
@@ -158,19 +160,31 @@ void KSync::SetProfileData(ProfileData *data) {
         tx_queue->ClearStats();
     }
 
-    const KSyncSock::KSyncReceiveQueue *rx_queue =
-        sock->get_receive_work_queue(0);
     stats = &data->ksync_rx_queue_count_;
-    stats->name_ = rx_queue->Description();
-    stats->queue_count_ = rx_queue->Length();
-    stats->enqueue_count_ = rx_queue->NumEnqueues();
-    stats->dequeue_count_ = rx_queue->NumDequeues();
-    stats->max_queue_count_ = rx_queue->max_queue_len();
-    stats->start_count_ = rx_queue->task_starts();
-    stats->busy_time_ = rx_queue->busy_time();
-    rx_queue->set_measure_busy_time(agent()->MeasureQueueDelay());
-    if (agent()->MeasureQueueDelay()) {
-        rx_queue->ClearStats();
+    stats->queue_count_ = 0;
+    stats->enqueue_count_ = 0;
+    stats->dequeue_count_ = 0;
+    stats->max_queue_count_ = 0;
+    stats->start_count_ = 0;
+    stats->busy_time_ = 0;
+
+    for (int i = 0; i < IoContext::MAX_WORK_QUEUES; i++) {
+        const KSyncSock::KSyncReceiveQueue *rx_queue =
+            sock->get_receive_work_queue(i);
+        if (i == 0)
+            stats->name_ = rx_queue->Description();
+        stats->queue_count_ += rx_queue->Length();
+        stats->enqueue_count_ += rx_queue->NumEnqueues();
+        stats->dequeue_count_ += rx_queue->NumDequeues();
+        if (stats->max_queue_count_ < rx_queue->max_queue_len()) {
+            stats->max_queue_count_ = rx_queue->max_queue_len();
+        }
+        stats->start_count_ += rx_queue->task_starts();
+        stats->busy_time_ += rx_queue->busy_time();
+        rx_queue->set_measure_busy_time(agent()->MeasureQueueDelay());
+        if (agent()->MeasureQueueDelay()) {
+            rx_queue->ClearStats();
+        }
     }
 }
 
@@ -179,7 +193,7 @@ void KSync::VRouterInterfaceSnapshot() {
 
     int len = 0;
     KSyncSandeshContext *ctxt = static_cast<KSyncSandeshContext *>
-                                (KSyncSock::GetAgentSandeshContext());
+                                (KSyncSock::GetAgentSandeshContext(0));
     ctxt->Reset();
     KSyncSock *sock = KSyncSock::Get(0);
     do {
@@ -371,8 +385,10 @@ void KSyncTcp::TcpInit() {
     KSyncSockTcp::Init(event_mgr, ip, port);
     KSyncSock::SetNetlinkFamilyId(24);
 
-    KSyncSock::SetAgentSandeshContext
-        (new KSyncSandeshContext(ksync_flow_memory_.get()));
+    for (int i = 0; i < KSyncSock::kRxWorkQueueCount; i++) {
+        KSyncSock::SetAgentSandeshContext
+            (new KSyncSandeshContext(ksync_flow_memory_.get()), i);
+    }
     KSyncSockTcp *sock = static_cast<KSyncSockTcp *>(KSyncSock::Get(0));
     while (sock->connect_complete() == false) {
         sleep(1);

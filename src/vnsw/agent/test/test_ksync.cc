@@ -38,7 +38,7 @@ public:
     }
 
     uint32_t GetSeqNo() {
-        return (uint32_t)sock_->AllocSeqNo(false);
+        return (uint32_t)sock_->AllocSeqNo(IoContext::IOC_KSYNC, 0);
     }
 
     virtual void TearDown() {

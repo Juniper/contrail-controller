@@ -43,7 +43,7 @@ MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj,
 MirrorKSyncEntry::~MirrorKSyncEntry() {
 }
 
-KSyncDBObject *MirrorKSyncEntry::GetObject() {
+KSyncDBObject *MirrorKSyncEntry::GetObject() const {
     return ksync_obj_;
 }
 

@@ -41,7 +41,7 @@ public:
     }
     void set_prefix_len(uint32_t len) { prefix_len_ = len; }
     void set_ip(IpAddress addr) { addr_ = addr; }
-    KSyncDBObject *GetObject();
+    KSyncDBObject *GetObject() const;
 
     void FillObjectLog(sandesh_op::type op, KSyncRouteInfo &info) const;
     virtual bool IsLess(const KSyncEntry &rhs) const;
