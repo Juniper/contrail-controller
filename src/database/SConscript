@@ -17,6 +17,7 @@ srcs = gen_srcs + local_srcs
 DbEnv.Append(CPPPATH = [ DbEnv['TOP'],
                          DbEnv['TOP'] + '/database'
                        ])
+
 libgendb = DbEnv.Library('gendb', source = srcs)
 DbEnv.Install(DbEnv['TOP_LIB'], libgendb)
 
