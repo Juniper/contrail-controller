@@ -1231,7 +1231,7 @@ class DomainServer(Resource, Domain):
         # enable domain level sharing for domain template
         share_item = {
             'tenant': 'domain:%s' % obj_dict.get('uuid'),
-            'tenant_access': PERMS_RWX
+            'tenant_access': PERMS_R
         }
         obj_dict['perms2']['share'].append(share_item)
         return (True, "")
