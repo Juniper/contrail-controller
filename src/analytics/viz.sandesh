@@ -999,9 +999,9 @@ const list<table_schema> _VIZD_FLOW_TABLE_SCHEMA = [
     'columns' : [
         { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type, 'key'
 : true},
-        { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned32Type, 'key'
+        { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type, 'key'
 : true},
-        { 'name' : 'key3', 'datatype' : Gendb.DbDataType.Unsigned32Type, 'key'
+        { 'name' : 'key3', 'datatype' : Gendb.DbDataType.Unsigned8Type, 'key'
 : true},
         { 'name' : 'column1', 'datatype' : Gendb.DbDataType.UTF8Type},
         { 'name' : 'column2', 'datatype' : Gendb.DbDataType.InetType},
