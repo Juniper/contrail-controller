@@ -245,7 +245,7 @@ query_status_t SelectQuery::process_query() {
         return QUERY_FAILURE;
     }
 
-
+    QE_LOG(INFO, "select process query started");
     /*
      * various select queries
      *  flow related queries
@@ -636,7 +636,7 @@ query_status_t SelectQuery::process_query() {
             } 
         }
     }
-
+    QE_LOG(INFO, "select process query is done");
     // Have the result ready and processing is done
     status_details = 0;
     parent_query->subquery_processed(this);
