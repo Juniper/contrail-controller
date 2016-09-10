@@ -107,6 +107,7 @@ class GenDbIfStats {
     void IncrementTableRead(const std::string &table_name, uint64_t num_reads);
     void IncrementTableReadFail(const std::string &table_name);
     void IncrementTableReadFail(const std::string &table_name, uint64_t num_reads);
+    void IncrementTableReadBackPressureFail(const std::string &table_name);
     void GetDiffs(std::vector<GenDb::DbTableInfo> *vdbti, GenDb::DbErrors *dbe);
     void GetCumulative(std::vector<GenDb::DbTableInfo> *vdbti,
         GenDb::DbErrors *dbe) const;

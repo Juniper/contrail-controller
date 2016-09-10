@@ -20,6 +20,7 @@
 #include <base/connection_info.h>
 #include "utils.h"
 #include <database/cassandra/cql/cql_if.h>
+#include <boost/make_shared.hpp>
 
 using std::map;
 using std::string;
@@ -840,7 +841,6 @@ query_status_t AnalyticsQuery::process_query()
     }
     QE_TRACE(DEBUG, "End Select Processing. row #s:" << 
             selectquery_->result_->size());
-
     QE_TRACE(DEBUG, "Start PostProcessing");
     postproc_start_ = UTCTimestampUsec();
     query_status = postprocess_->process_query();
@@ -858,7 +858,6 @@ query_status_t AnalyticsQuery::process_query()
     }
     QE_TRACE(DEBUG, "End PostProcessing. row #s:" << 
             final_result->size());
-
     return QUERY_SUCCESS;
 }
 
@@ -870,7 +869,9 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
         EventManager *evm, std::vector<std::string> cassandra_ips, 
         std::vector<int> cassandra_ports, int batch,
         int total_batches, const std::string& cassandra_user,
-        const std::string& cassandra_password):
+        const std::string& cassandra_password,
+        QueryEngine* qe,
+        void *handle):
         QueryUnit(NULL, this),
         filter_qe_logs(true),
         json_api_data_(json_api_data),
@@ -883,6 +884,8 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
         parallel_batch_num(batch),
         total_parallel_batches(total_batches),
         processing_needed(true),
+        qe_(qe),
+        handle_(handle),
         stats_(NULL)
 {
     assert(dbif_ != NULL);
@@ -946,7 +949,9 @@ AnalyticsQuery::AnalyticsQuery(std::string qid,
     std::map<std::string, std::string> json_api_data,
     int or_number,
     const std::vector<query_result_unit_t> * where_info,
-    const TtlMap &ttlmap, int batch, int total_batches) :
+    const TtlMap &ttlmap, int batch, int total_batches,
+    QueryEngine* qe,
+    void *handle) :
     QueryUnit(NULL, this),
     dbif_(dbif_ptr),
     query_id(qid),
@@ -961,6 +966,8 @@ AnalyticsQuery::AnalyticsQuery(std::string qid,
     parallel_batch_num(batch),
     total_parallel_batches(total_batches),
     processing_needed(true),
+    qe_(qe),
+    handle_(handle),
     stats_(NULL) {
     Init(qid, json_api_data, or_number);
 }
@@ -984,6 +991,7 @@ QueryEngine::QueryEngine(EventManager *evm,
     QE_LOG_NOQID(DEBUG, "Initializing QE without database!");
 
     ttlmap_ = g_viz_constants.TtlValuesDefault;
+    max_tasks_ = max_tasks;
 }
 
 QueryEngine::QueryEngine(EventManager *evm,
@@ -1004,6 +1012,7 @@ QueryEngine::QueryEngine(EventManager *evm,
             cassandra_ports[0], cassandra_user, cassandra_password));
         keyspace_ = g_viz_constants.COLLECTOR_KEYSPACE_CQL;
     max_slice_ = max_slice;
+    max_tasks_ = max_tasks;
     init_vizd_tables();
 
     // Initialize database connection
@@ -1178,7 +1187,7 @@ QueryEngine::QueryPrepare(QueryParams qp,
     } else {
         AnalyticsQuery *q;
         q = new AnalyticsQuery(qid, dbif_, qp.terms, -1, NULL, ttlmap_, 0,
-                qp.maxChunks);
+                qp.maxChunks, this);
         chunk_size.clear();
         q->get_query_details(need_merge, map_output, chunk_size,
             where, wterms ,select, post, time_period, ret_code);
@@ -1196,7 +1205,7 @@ QueryEngine::QueryAccumulate(QueryParams qp,
     QE_TRACE_NOQID(DEBUG, "Creating analytics query object for merge_processing");
     AnalyticsQuery *q;
     q = new AnalyticsQuery(qp.qid, dbif_, qp.terms, -1, NULL, ttlmap_, 1,
-                qp.maxChunks);
+                qp.maxChunks, this);
     QE_TRACE_NOQID(DEBUG, "Calling merge_processing");
     bool ret = q->merge_processing(input, output);
     delete q;
@@ -1211,7 +1220,7 @@ QueryEngine::QueryFinalMerge(QueryParams qp,
     QE_TRACE_NOQID(DEBUG, "Creating analytics query object for final_merge_processing");
     AnalyticsQuery *q;
     q = new AnalyticsQuery(qp.qid, dbif_, qp.terms, -1, NULL, ttlmap_, 1,
-                qp.maxChunks);
+                qp.maxChunks, this);
     QE_TRACE_NOQID(DEBUG, "Calling final_merge_processing");
     bool ret = q->final_merge_processing(inputs, output);
     delete q;
@@ -1225,7 +1234,7 @@ QueryEngine::QueryFinalMerge(QueryParams qp,
     QE_TRACE_NOQID(DEBUG, "Creating analytics query object for final_merge_processing");
     AnalyticsQuery *q;
     q = new AnalyticsQuery(qp.qid, dbif_, qp.terms, -1, NULL, ttlmap_, 1,
-                qp.maxChunks);
+                qp.maxChunks, this);
 
     if (!q->is_stat_table_query(q->table())) {
         QE_TRACE_NOQID(DEBUG, "MultiMap merge_final is for Stats only");
@@ -1247,7 +1256,6 @@ QueryEngine::QueryExecWhere(void * handle, QueryParams qp, uint32_t chunk,
     string& qid = qp.qid;
     QE_TRACE_NOQID(DEBUG,
              " Got Where Query to execute for QID " << qid << " chunk:"<< chunk);
-    //GenDb::GenDbIf *db_if = dbif_.get();
     if (cassandra_ports_.size() == 1 && cassandra_ports_[0] == 0) {
         std::auto_ptr<std::vector<query_result_unit_t> > where_output(
                 new std::vector<query_result_unit_t>());
@@ -1258,34 +1266,37 @@ QueryEngine::QueryExecWhere(void * handle, QueryParams qp, uint32_t chunk,
         qosp_->QueryResult(handle, qperf, where_output);
         return true;
     }
-    AnalyticsQuery *q;
-    q = new AnalyticsQuery(qid, dbif_, qp.terms, or_number, NULL,
-                ttlmap_, chunk, qp.maxChunks);
-
+    boost::shared_ptr<AnalyticsQuery> q(new AnalyticsQuery(qid, dbif_, qp.terms,
+        or_number, NULL, ttlmap_, chunk, qp.maxChunks, this, handle));
+    // populate into a vector mainted by QOSP
+    qosp_->AddAnalyticsQuery(qid, q);
     QE_TRACE_NOQID(DEBUG, " Finished parsing and starting where for QID " << qid << " chunk:" << chunk);
 
     q->where_start_ = UTCTimestampUsec();
+    // Bind the callback function to where query
+    q->wherequery_->where_query_cb_ = boost::bind(&QEOpServerProxy::QueryResult, qosp_.get(), _1, _2, _3);
     q->query_status = q->wherequery_->process_query();
-    q->qperf_.chunk_where_time =
-            static_cast<uint32_t>((UTCTimestampUsec() - q->where_start_)/1000);
-
-    q->status_details = q->wherequery_->status_details;
-    if (q->query_status != QUERY_SUCCESS) 
-    {
-        QE_TRACE_NOQID(DEBUG, "where processing failed with error:"  <<
-                q->query_status);
-        return q->query_status;
+    bool query_status_ = false;
+    switch (q->query_status) {
+        case QUERY_PROCESSING_NOT_STARTED:
+            /* should not come here */
+        case QUERY_FAILURE:
+            break;
+        case QUERY_SUCCESS:
+            q->qperf_.chunk_where_time =
+                static_cast<uint32_t>((UTCTimestampUsec() - q->where_start_)
+                /1000);
+            q->qperf_.error = q->status_details;
+            qosp_->QueryResult(q->handle_, q->qperf_, q->wherequery_->where_result_);
+        case QUERY_IN_PROGRESS:
+            query_status_ = true;
+            break;
     }
-
-    QE_TRACE_NOQID(DEBUG, " Finished where processing for QID " << qid << " chunk:" << chunk);
-    q->qperf_.error = q->status_details;
-    qosp_->QueryResult(handle, q->qperf_, q->wherequery_->where_result_);
-    delete q;
-    return true;
+    return query_status_;
 }
 
 // Query Execution of SELECT and post-processing
-bool 
+bool
 QueryEngine::QueryExec(void * handle, QueryParams qp, uint32_t chunk,
         const std::vector<query_result_unit_t> * where_info)
 {
@@ -1313,7 +1324,7 @@ QueryEngine::QueryExec(void * handle, QueryParams qp, uint32_t chunk,
     }
     AnalyticsQuery *q;
     q = new AnalyticsQuery(qid, dbif_, qp.terms, -1, where_info, ttlmap_, chunk,
-                qp.maxChunks);
+                qp.maxChunks, this);
 
     QE_TRACE_NOQID(DEBUG, " Finished parsing and starting processing for QID " << qid << " chunk:" << chunk); 
     q->process_query(); 

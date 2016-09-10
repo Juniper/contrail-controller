@@ -212,6 +212,11 @@ void GenDbIfStats::IncrementTableReadFail(const std::string &table_name,
     IncrementTableStatsInternal(table_name, false, true, false, num_reads);
 }
 
+void GenDbIfStats::IncrementTableReadBackPressureFail(
+    const std::string &table_name) {
+    IncrementTableStatsInternal(table_name, false, false, true, 1);
+}
+
 void GenDbIfStats::IncrementErrors(IfErrors::Type etype) {
     errors_.Increment(etype);
     cumulative_errors_.Increment(etype);

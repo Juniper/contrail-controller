@@ -68,7 +68,6 @@ bool RedisAsyncArgCommand(RedisAsyncConnection * rac,
     return rac->RedisAsyncArgCmd(rpi, args);
 }
 
-
 class QEOpServerProxy::QEOpServerImpl {
 public:
     typedef std::vector<std::string> QEOutputT;
@@ -283,8 +282,8 @@ public:
                 RedisAsyncArgCommand(rac, NULL, 
                     list_of(string("RPUSH"))(rkey)(stat));
 
-                return boost::bind(&QueryEngine::QueryExecWhere, qosp_->qe_,
-                        _1, inp.qp, chunknum, 0);
+               return boost::bind(&QueryEngine::QueryExecWhere, qosp_->qe_,
+                      _1, inp.qp, chunknum, 0);
             } else {
                 return NULL;
             }
@@ -667,6 +666,7 @@ public:
         boost::shared_ptr<Output> res = wp->Result();
         assert(pipes_.find(res->inp.qp.qid)->second == wp);
         pipes_.erase(res->inp.qp.qid);
+        m_analytics_queries.erase(res->inp.qp.qid);
         npipes_[res->inp.cnum-1]--;
         QE_LOG_NOQID(DEBUG,  " Result " << res->ret_code << " , " << res->inp.cnum << " conn");
         delete wp;
@@ -868,7 +868,6 @@ public:
         inp.get()->total_rows = 0;
         inp.get()->max_rows = max_rows_;
         inp.get()->wterms = wterms;
-        
         vector<pair<int,int> > tinfo;
         for (uint idx=0; idx<(uint)max_tasks_; idx++) {
             tinfo.push_back(make_pair(0, -1));
@@ -886,6 +885,10 @@ public:
                 boost::bind(&QEOpServerImpl::QueryResp, this, _1,_2,_3,_4)));
 
         pipes_.insert(make_pair(qid, wp));
+
+        // Initialize the m_analytics_queries for this qid
+        m_analytics_queries[qid] = std::vector<boost::shared_ptr<AnalyticsQuery> > ();
+
         int conn = LeastLoadedConnection();
         npipes_[conn]++;
         
@@ -1052,6 +1055,13 @@ public:
 
     ~QEOpServerImpl() {
     }
+
+    void AddAnalyticsQuery(const std::string &qid,
+                           boost::shared_ptr<AnalyticsQuery> q) {
+        tbb::mutex::scoped_lock lock(mutex_);
+        m_analytics_queries[qid].push_back(q);
+    }
+
 private:
 
     static const int kMaxRowThreshold = 10000;
@@ -1075,6 +1085,8 @@ private:
     int npipes_[kConnections];
     int max_tasks_;
     int max_rows_;
+    std::map<std::string, std::vector<boost::shared_ptr<AnalyticsQuery> > >
+        m_analytics_queries;
 
 };
 
@@ -1102,3 +1114,7 @@ QEOpServerProxy::QueryResult(void * qid, QPerfInfo qperf,
     impl_->QECallback(qid, qperf, res);
 }
 
+void QEOpServerProxy::AddAnalyticsQuery(const std::string &qid,
+        boost::shared_ptr<AnalyticsQuery> q) {
+    impl_->AddAnalyticsQuery(qid, q);
+}
