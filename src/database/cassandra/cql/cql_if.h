@@ -56,6 +56,12 @@ class CqlIf : public GenDb::GenDbIf {
         const std::string &cfname,
         const std::vector<GenDb::DbDataValueVec> &v_rowkey,
         const GenDb::ColumnNameRange &crange);
+    virtual bool Db_GetRowAsync(const std::string &cfname,
+        const GenDb::DbDataValueVec &rowkey,
+        DbGetRowCb cb, const void * ctx, void * privdata);
+    virtual bool Db_GetRowAsync(const std::string& cfname,
+        const GenDb::DbDataValueVec& rowkey, const GenDb::ColumnNameRange &crange,
+        DbGetRowCb cb, const void * ctx, void * privdata);
     // Queue
     virtual bool Db_GetQueueStats(uint64_t *queue_count,
         uint64_t *enqueues) const;
@@ -74,7 +80,11 @@ class CqlIf : public GenDb::GenDbIf {
 
  private:
     void OnAsyncColumnAddCompletion(GenDb::DbOpResult::type drc,
+        std::auto_ptr<GenDb::NewColVec> row,
         std::string cfname, GenDb::GenDbIf::DbAddColumnCb cb);
+    void OnAsyncRowGetCompletion(GenDb::DbOpResult::type drc,
+        std::auto_ptr<GenDb::NewColVec> row, const void * ip_ctx, void * privdata,
+        std::string cfname, GenDb::GenDbIf::DbGetRowCb cb);
     void IncrementTableWriteStats(const std::string &table_name);
     void IncrementTableWriteStats(const std::string &table_name,
         uint64_t num_writes);
