@@ -245,7 +245,6 @@ query_status_t SelectQuery::process_query() {
         return QUERY_FAILURE;
     }
 
-
     /*
      * various select queries
      *  flow related queries
@@ -636,7 +635,6 @@ query_status_t SelectQuery::process_query() {
             } 
         }
     }
-
     // Have the result ready and processing is done
     status_details = 0;
     parent_query->subquery_processed(this);
