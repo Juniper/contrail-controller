@@ -109,17 +109,19 @@ public:
         }
 
         if (server_->admin_down_ != config_admin_down) {
-            SandeshLevel::type log_level;
             if (server_->admin_down_) {
-                log_level = SandeshLevel::SYS_DEBUG;
+                BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_DEBUG,
+                            BGP_LOG_FLAG_SYSLOG, "Updated Admin Down from " <<
+                            boolalpha << server_->admin_down_ << noboolalpha <<
+                            " to " <<
+                            boolalpha << config_admin_down << noboolalpha);
             } else {
-                log_level = SandeshLevel::SYS_NOTICE;
+                BGP_LOG_NOTICE_STR(BgpConfig, BGP_LOG_FLAG_SYSLOG,
+                            "Updated Admin Down from " <<
+                            boolalpha << server_->admin_down_ << noboolalpha <<
+                            " to " <<
+                            boolalpha << config_admin_down << noboolalpha);
             }
-            BGP_LOG_STR(BgpConfig, log_level, BGP_LOG_FLAG_SYSLOG,
-                        "Updated Admin Down from " <<
-                        boolalpha << server_->admin_down_ << noboolalpha <<
-                        " to " <<
-                        boolalpha << config_admin_down << noboolalpha);
             server_->admin_down_ = config_admin_down;
             if (server_->admin_down_)
                 server_->NotifyAdminDown();
@@ -127,16 +129,17 @@ public:
 
         Ip4Address identifier(ntohl(config_identifier));
         if (server_->bgp_identifier_ != identifier) {
-            SandeshLevel::type log_level;
             if (!server_->bgp_identifier_.is_unspecified()) {
-                log_level = SandeshLevel::SYS_NOTICE;
+                BGP_LOG_NOTICE_STR(BgpConfig, BGP_LOG_FLAG_SYSLOG,
+                            "Updated Router ID from " <<
+                            server_->bgp_identifier_.to_string() << " to " <<
+                            identifier.to_string());
             } else {
-                log_level = SandeshLevel::SYS_DEBUG;
+                BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_DEBUG,
+                             BGP_LOG_FLAG_SYSLOG, "Updated Router ID from " <<
+                            server_->bgp_identifier_.to_string() << " to " <<
+                            identifier.to_string());
             }
-            BGP_LOG_STR(BgpConfig, log_level, BGP_LOG_FLAG_SYSLOG,
-                        "Updated Router ID from " <<
-                        server_->bgp_identifier_.to_string() << " to " <<
-                        identifier.to_string());
             Ip4Address old_identifier = server_->bgp_identifier_;
             server_->bgp_identifier_ = identifier;
             server_->NotifyIdentifierUpdate(old_identifier);
@@ -153,29 +156,32 @@ public:
         }
 
         if (server_->autonomous_system_ != old_asn) {
-            SandeshLevel::type log_level;
             if (old_asn != 0) {
-                log_level = SandeshLevel::SYS_NOTICE;
+                BGP_LOG_NOTICE_STR(BgpConfig, BGP_LOG_FLAG_SYSLOG,
+                            "Updated Autonomous System from " << old_asn <<
+                            " to " << server_->autonomous_system_);
             } else {
-                log_level = SandeshLevel::SYS_DEBUG;
+                BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_DEBUG,
+                            BGP_LOG_FLAG_SYSLOG,
+                            "Updated Autonomous System from " << old_asn <<
+                            " to " << server_->autonomous_system_);
             }
-            BGP_LOG_STR(BgpConfig, log_level, BGP_LOG_FLAG_SYSLOG,
-                        "Updated Autonomous System from " << old_asn <<
-                        " to " << server_->autonomous_system_);
             notify_asn_update = true;
         }
 
         if (server_->local_autonomous_system_ != old_local_asn) {
-            SandeshLevel::type log_level;
             if (old_local_asn != 0) {
-                log_level = SandeshLevel::SYS_NOTICE;
+                BGP_LOG_NOTICE_STR(BgpConfig, BGP_LOG_FLAG_SYSLOG,
+                            "Updated Local Autonomous System from " <<
+                            old_local_asn << " to " <<
+                            server_->local_autonomous_system_);
             } else {
-                log_level = SandeshLevel::SYS_DEBUG;
+                BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_DEBUG,
+                            BGP_LOG_FLAG_SYSLOG,
+                            "Updated Local Autonomous System from " <<
+                            old_local_asn << " to " <<
+                            server_->local_autonomous_system_);
             }
-            BGP_LOG_STR(BgpConfig, log_level, BGP_LOG_FLAG_SYSLOG,
-                        "Updated Local Autonomous System from " <<
-                        old_local_asn << " to " <<
-                        server_->local_autonomous_system_);
             notify_asn_update = true;
         }
 

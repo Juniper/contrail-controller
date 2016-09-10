@@ -58,7 +58,7 @@ systemlog sandesh XmppIqMessageInvalid {
 
 /**
  * @description: XMPP IQ message parsing failure
- * @severity: ERROR
+ * @severity: WARNING
  * @cause: Possibly due to mis-behaving software
  * @action: Contact your technical support representative
  */
@@ -68,7 +68,7 @@ systemlog sandesh XmppIqMessageParseFail {
 
 /**
  * @description: XMPP Chat message parsing failure
- * @severity: ERROR
+ * @severity: WARNING
  * @cause: Possibly due to mis-behaving software
  * @action: Contact your technical support representative
  */
@@ -78,7 +78,7 @@ systemlog sandesh XmppChatMessageParseFail {
 
 /**
  * @description: XMPP Bad message received
- * @severity: ERROR
+ * @severity: WARNING
  * @cause: Possibly due to mis-behaving software
  * @action: Contact your technical support representative
  */
@@ -94,6 +94,15 @@ systemlog sandesh XmppBadMessage {
  * @severity: DEBUG
  */
 systemlog sandesh XmppSslHandShakeMessage {
+    1: string f1;
+    2: string f2;
+}
+
+/**
+ * @description: XMPP HandShake Failed
+ * @severity: ALERT
+ */
+systemlog sandesh XmppSslHandShakeFailure {
     1: string f1;
     2: string f2;
 }

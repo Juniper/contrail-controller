@@ -10,7 +10,7 @@
 
 /**
  * @description: Generic BGP message
- * @severity: ERROR / DEBUG
+ * @severity: DEBUG
  */
 trace sandesh BgpMessageTrace {
     1: string Message;
@@ -18,9 +18,9 @@ trace sandesh BgpMessageTrace {
 
 /**
  * @description: Generic BGP message
- * @severity: ERROR / DEBUG
- * @cause: Normal operation / An internal software failure occurred
- * @action: Contact your technical support representative in case of Error
+ * @severity: DEBUG
+ * @cause: Normal operation
+ * @action: None
  */
 systemlog sandesh BgpMessageLog {
     1: string Message;
@@ -38,15 +38,51 @@ trace sandesh BgpMessageWarningTrace {
  * @description: Generic BGP message
  * @severity: WARNING
  * @cause: An internal software failure occurred
- * @action: Contact your technical support representative in case of Error
+ * @action: Contact your technical support representative
  */
 systemlog sandesh BgpMessageWarningLog {
     1: string Message;
 }
 
 /**
+ * @description: Generic BGP message
+ * @severity: CRITICAL
+ */
+trace sandesh BgpMessageCriticalTrace {
+    1: string Message;
+}
+
+/**
+ * @description: Generic BGP message
+ * @severity: CRITICAL
+ * @cause: An internal software failure occurred
+ * @action: Contact your technical support representative
+ */
+systemlog sandesh BgpMessageCriticalLog {
+    1: string Message;
+}
+
+/**
+ * @description: Generic BGP Notice message
+ * @severity: NOTICE
+ */
+trace sandesh BgpMessageNoticeTrace {
+    1: string Message;
+}
+
+/**
+ * @description: Generic BGP Notice message
+ * @severity: NOTICE
+ * @cause: An internal noticable event occurred
+ * @action: Contact your technical support representative if the notice is persistent
+ */
+systemlog sandesh BgpMessageNoticeLog {
+    1: string Message;
+}
+
+/**
  * @description: BGP Table message
- * @severity: ERROR / DEBUG
+ * @severity: DEBUG
  */
 trace sandesh BgpTableTrace {
     1: string Table;
@@ -56,7 +92,7 @@ trace sandesh BgpTableTrace {
 
 /**
  * @description: BGP Table message
- * @severity: ERROR / DEBUG
+ * @severity: DEBUG
  * @cause: Normal operation / An internal software failure occurred
  * @action: Contact your technical support representative in case of Error
  */
@@ -77,7 +113,7 @@ trace sandesh BgpConfigTrace {
 /**
  * @description: Message about BGP Configuration
  * @severity: DEBUG
- * @cause: operation / An internal software failure occurred
+ * @cause: Informational
  * @action: Contact your technical support representative in case of Error
  */
 systemlog sandesh BgpConfigLog {
@@ -96,15 +132,33 @@ trace sandesh BgpConfigWarningTrace {
  * @description: BGP Configuration related error
  * @severity: WARNING
  * @cause: An internal software failure occurred
- * @action: Contact your technical support representative in case of Error
+ * @action: Contact your technical support representative
  */
 systemlog sandesh BgpConfigWarningLog {
     1: string Message;
 }
 
 /**
+ * @description: Message about BGP Configuration
+ * @severity: NOTICE
+ */
+trace sandesh BgpConfigNoticeTrace {
+    1: string Message;
+}
+
+/**
+ * @description: BGP Configuration related notice message
+ * @severity: NOTICE
+ * @cause: An internal noticable event has occurred during configuration
+ * @action: Contact your technical support representative if the notice is persistent
+ */
+systemlog sandesh BgpConfigNoticeLog {
+    1: string Message;
+}
+
+/**
  * @description: Message about a bgp package sent to a group of peers
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 trace sandesh BgpMessageBuilderTrace {
     1: string Message;
@@ -116,7 +170,7 @@ trace sandesh BgpMessageBuilderTrace {
 
 /**
  * @description: Message about a bgp package sent to a group of peers
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  * @cause: Normal operation / An internal software failure occurred
  * @action: Contact your technical support representative in case of Error
  */
@@ -130,7 +184,7 @@ systemlog sandesh BgpMessageBuilderLog {
 
 /**
  * @description: Message about routing-instance creation configuration
- * @severity: ERROR / DEBUG
+ * @severity: DEBUG
  */
 trace sandesh BgpConfigInstanceCreateTrace {
     1: "Routing Instance";
@@ -147,7 +201,7 @@ trace sandesh BgpConfigInstanceCreateTrace {
 
 /**
  * @description: Routing instance creation configuration processing
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  * @cause: Normal operation / An internal software failure occurred
  * @action: Contact your technical support representative in case of Error
  */
@@ -166,7 +220,7 @@ systemlog sandesh BgpConfigInstanceCreateLog {
 
 /**
  * @description: Routing instance creation configuration processing
- * @severity: ERROR / DEBUG
+ * @severity: DEBUG
  */
 trace sandesh BgpConfigInstanceDeleteTrace {
     1: "Routing Instance";
@@ -175,7 +229,7 @@ trace sandesh BgpConfigInstanceDeleteTrace {
 
 /**
  * @description: Routing instance deletion configuration processing
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  * @cause: Normal operation / An internal software failure occurred
  * @action: Contact your technical support representative in case of Error
  */
@@ -186,7 +240,7 @@ systemlog sandesh BgpConfigInstanceDeleteLog {
 
 /**
  * @description: Routing instance update configuration processing
- * @severity: ERROR / DEBUG
+ * @severity: DEBUG
  */
 trace sandesh BgpConfigInstanceUpdateTrace {
     1: "Routing Instance";
@@ -203,7 +257,7 @@ trace sandesh BgpConfigInstanceUpdateTrace {
 
 /**
  * @description: Routing instance update configuration processing
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  * @cause: Normal operation / An internal software failure occurred
  * @action: Contact your technical support representative in case of Error
  */
@@ -222,7 +276,7 @@ systemlog sandesh BgpConfigInstanceUpdateLog {
 
 /**
  * @description: BGP Neighbor create configuration processing
- * @severity: ERROR / DEBUG
+ * @severity: DEBUG
  */
 trace sandesh BgpConfigNeighborCreateTrace {
     1: "Neighbor";
@@ -248,7 +302,7 @@ trace sandesh BgpConfigNeighborCreateTrace {
 
 /**
  * @description: BGP Neighbor create configuration processing
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  * @cause: Normal operation / An internal software failure occurred
  * @action: Contact your technical support representative in case of Error
  */
@@ -276,7 +330,7 @@ systemlog sandesh BgpConfigNeighborCreateLog {
 
 /**
  * @description: BGP Neighbor delete configuration processing
- * @severity: ERROR / DEBUG
+ * @severity: DEBUG
  */
 trace sandesh BgpConfigNeighborDeleteTrace {
     1: "Neighbor";
@@ -285,7 +339,7 @@ trace sandesh BgpConfigNeighborDeleteTrace {
 
 /**
  * @description: BGP Neighbor delete configuration processing
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  * @cause: Normal operation / An internal software failure occurred
  * @action: Contact your technical support representative in case of Error
  */
@@ -296,7 +350,7 @@ systemlog sandesh BgpConfigNeighborDeleteLog {
 
 /**
  * @description: BGP Neighbor update configuration processing
- * @severity: ERROR / DEBUG
+ * @severity: DEBUG
  */
 trace sandesh BgpConfigNeighborUpdateTrace {
     1: "Neighbor";
@@ -322,7 +376,7 @@ trace sandesh BgpConfigNeighborUpdateTrace {
 
 /**
  * @description: BGP Neighbor update configuration processing
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  * @cause: Normal operation / An internal software failure occurred
  * @action: Contact your technical support representative in case of Error
  */
@@ -350,7 +404,7 @@ systemlog sandesh BgpConfigNeighborUpdateLog {
 
 /**
  * @description: BGP peering create configuration processing
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 trace sandesh BgpConfigPeeringCreateTrace {
     1: "Peering";
@@ -359,7 +413,7 @@ trace sandesh BgpConfigPeeringCreateTrace {
 
 /**
  * @description: BGP peering create configuration processing
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  * @cause: Normal operation / An internal software failure occurred
  * @action: Contact your technical support representative in case of Error
  */
@@ -370,7 +424,7 @@ systemlog sandesh BgpConfigPeeringCreateLog {
 
 /**
  * @description: BGP peering delete configuration processing
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 trace sandesh BgpConfigPeeringDeleteTrace {
     1: "Peering";
@@ -379,7 +433,7 @@ trace sandesh BgpConfigPeeringDeleteTrace {
 
 /**
  * @description: BGP peering delete configuration processing
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  * @cause: Normal operation / An internal software failure occurred
  * @action: Contact your technical support representative in case of Error
  */
@@ -390,7 +444,7 @@ systemlog sandesh BgpConfigPeeringDeleteLog {
 
 /**
  * @description: BGP peering update configuration processing
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 trace sandesh BgpConfigPeeringUpdateTrace {
     1: "Peering";
@@ -399,7 +453,7 @@ trace sandesh BgpConfigPeeringUpdateTrace {
 
 /**
  * @description: BGP peering update configuration processing
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  * @cause: Normal operation / An internal software failure occurred
  * @action: Contact your technical support representative in case of Error
  */
@@ -410,7 +464,7 @@ systemlog sandesh BgpConfigPeeringUpdateLog {
 
 /**
  * @description: BGP protocol create configuration processing
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 trace sandesh BgpConfigProtocolCreateTrace {
     1: "Routing Instance";
@@ -431,7 +485,7 @@ trace sandesh BgpConfigProtocolCreateTrace {
 
 /**
  * @description: BGP protocol create configuration processing
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  * @cause: Normal operation / An internal software failure occurred
  * @action: Contact your technical support representative in case of Error
  */
@@ -454,7 +508,7 @@ systemlog sandesh BgpConfigProtocolCreateLog {
 
 /**
  * @description: BGP protocol delete configuration processing
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 trace sandesh BgpConfigProtocolDeleteTrace {
     1: "Routing Instance";
@@ -463,7 +517,7 @@ trace sandesh BgpConfigProtocolDeleteTrace {
 
 /**
  * @description: BGP protocol delete configuration processing
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  * @cause: Normal operation / An internal software failure occurred
  * @action: Contact your technical support representative in case of Error
  */
@@ -474,7 +528,7 @@ systemlog sandesh BgpConfigProtocolDeleteLog {
 
 /**
  * @description: BGP protocol update configuration processing
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 trace sandesh BgpConfigProtocolUpdateTrace {
     1: "Routing Instance";
@@ -495,7 +549,7 @@ trace sandesh BgpConfigProtocolUpdateTrace {
 
 /**
  * @description: BGP protocol update configuration processing
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  * @cause: Normal operation / An internal software failure occurred
  * @action: Contact your technical support representative in case of Error
  */
@@ -544,7 +598,7 @@ systemlog sandesh BgpPeerMessageLog {
 
 /**
  * @description: BGP Peer received/sent warning message
- * @severity: ERROR
+ * @severity: WARNING
  */
 trace sandesh BgpPeerMessageWarningTrace {
     1: "BGP Peer"
@@ -556,11 +610,63 @@ trace sandesh BgpPeerMessageWarningTrace {
 
 /**
  * @description: BGP Peer received/sent warning message
- * @severity: ERROR
+ * @severity: WARNING
  * @cause: An internal software failure occurred
- * @action: Contact your technical support representative in case of Error. Peer clear might also help as a work around.
+ * @action: Contact your technical support representative
  */
 systemlog sandesh BgpPeerMessageWarningLog {
+    1: "BGP Peer"
+    2: string Peer (key="ObjectBgpPeer");
+    /** Direction is send '>' or receive '<' */
+    3: string Direction;
+    4: string Message;
+}
+
+/**
+ * @description: BGP Peer received/sent criticial message
+ * @severity: CRITICAL
+ */
+trace sandesh BgpPeerMessageCriticalTrace {
+    1: "BGP Peer"
+    2: string Peer (key="ObjectBgpPeer");
+    /** Direction is send '>' or receive '<' */
+    3: string Direction;
+    4: string Message;
+}
+
+/**
+ * @description: BGP Peer received/sent criticial message
+ * @severity: CRITICAL
+ * @cause: An internal software failure occurred
+ * @action: Contact your technical support representative
+ */
+systemlog sandesh BgpPeerMessageCriticalLog {
+    1: "BGP Peer"
+    2: string Peer (key="ObjectBgpPeer");
+    /** Direction is send '>' or receive '<' */
+    3: string Direction;
+    4: string Message;
+}
+
+/**
+ * @description: BGP Peer received/sent noticable message
+ * @severity: NOTICE
+ */
+trace sandesh BgpPeerMessageNoticeTrace {
+    1: "BGP Peer"
+    2: string Peer (key="ObjectBgpPeer");
+    /** Direction is send '>' or receive '<' */
+    3: string Direction;
+    4: string Message;
+}
+
+/**
+ * @description: BGP Peer received/sent criticial message
+ * @severity: NOTICE
+ * @cause: A noticable internal software failure has occurred
+ * @action: Contact your technical support representative if these are persistent
+ */
+systemlog sandesh BgpPeerMessageNoticeLog {
     1: "BGP Peer"
     2: string Peer (key="ObjectBgpPeer");
     /** Direction is send '>' or receive '<' */
@@ -596,7 +702,7 @@ systemlog sandesh BgpPeerTimerLog {
 
 /**
  * @description: BGP Peer Timer related critical message
- * @severity: ERROR
+ * @severity: CRITICAL
  */
 trace sandesh BgpPeerTimerCriticalTrace {
     1: "BGP Peer"
@@ -608,7 +714,7 @@ trace sandesh BgpPeerTimerCriticalTrace {
 
 /**
  * @description: BGP Peer Timer related critical message
- * @severity: ERROR
+ * @severity: CRITICAL
  * @cause: An internal software failure occurred
  * @action: Contact your technical support representative in case of Error. Peer clear might also help as a work around.
  */
@@ -648,7 +754,7 @@ systemlog sandesh BgpPeerMembershipLog {
 
 /**
  * @description: BGP Peer specific routing table membership manager warning message
- * @severity: ERROR
+ * @severity: WARNING
  */
 trace sandesh BgpPeerMembershipWarningTrace {
     1: "BGP Peer"
@@ -660,9 +766,9 @@ trace sandesh BgpPeerMembershipWarningTrace {
 
 /**
  * @description: BGP Peer specific routing table membership manager message
- * @severity: ERROR
+ * @severity: WARNING
  * @cause: An internal software failure occurred
- * @action: Contact your technical support representative in case of Error. Peer clear might also help as a work around.
+ * @action: Contact your technical support representative. Peer clear might also help as a work around.
  */
 systemlog sandesh BgpPeerMembershipWarningLog {
     1: "BGP Peer"
@@ -700,7 +806,7 @@ systemlog sandesh BgpPeerEventLog {
 
 /**
  * @description: BGP Peer event warning essage
- * @severity: ERROR
+ * @severity: WARNING
  */
 trace sandesh BgpPeerEventWarningTrace {
     1: "BGP Peer"
@@ -712,7 +818,7 @@ trace sandesh BgpPeerEventWarningTrace {
 
 /**
  * @description: BGP Peer event message
- * @severity: ERROR
+ * @severity: WARNING
  * @cause: An internal software failure occurred
  * @action: Contact your technical support representative. Peer clear might also help as a work around.
  */
@@ -726,7 +832,7 @@ systemlog sandesh BgpPeerEventWarningLog {
 
 /**
  * @description: BGP Peer Notification message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 trace sandesh BgpPeerNotificationTrace {
     1 : "Bgp Peer";
@@ -744,9 +850,9 @@ trace sandesh BgpPeerNotificationTrace {
 
 /**
  * @description: BGP Peer Notification message
- * @severity: DEBUG / ERROR
- * @cause: Normal operation / An internal software failure occurred
- * @action: In case of error, please refer to BGP protocol documentation and contact your technical support representative. Peer clear might also help as a work around.
+ * @severity: DEBUG
+ * @cause: Normal operation
+ * @action: None
  */
 systemlog sandesh BgpPeerNotificationLog {
     1 : "Bgp Peer";
@@ -763,8 +869,46 @@ systemlog sandesh BgpPeerNotificationLog {
 }
 
 /**
+ * @description: BGP Peer Notification message
+ * @severity: NOTICE
+ */
+trace sandesh BgpPeerNotificationNoticeTrace {
+    1 : "Bgp Peer";
+    2 : string BgpPeer (key="ObjectBgpPeer");
+    /** Direction is send '>' or receive '<' */
+    3 : string Direction;
+    4 : "Notification with Code";
+    5 : i32 ErrorCode;
+    6 : "and SubCode"
+    7 : i32 ErrorSubCode;
+    8 : "(";
+    9 : string Message;
+    10: ")";
+}
+
+/**
+ * @description: BGP Peer Notification message
+ * @severity: NOTICE
+ * @cause: A protocol state machine error has occurred
+ * @action: In case of persistent notices, please refer to BGP protocol documentation and contact your technical support representative.
+ */
+systemlog sandesh BgpPeerNotificationNoticeLog {
+    1 : "Bgp Peer";
+    2 : string BgpPeer (key="ObjectBgpPeer");
+    /** Direction is send '>' or receive '<' */
+    3 : string Direction;
+    4 : "Notification with Code";
+    5 : i32 ErrorCode;
+    6 : "and SubCode"
+    7 : i32 ErrorSubCode;
+    8 : "(";
+    9 : string Message;
+    10: ")";
+}
+
+/**
  * @description: BGP Peer Table message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 trace sandesh BgpPeerTableTrace {
     1: "BGP Peer"
@@ -781,7 +925,7 @@ trace sandesh BgpPeerTableTrace {
 
 /**
  * @description: BGP Peer Table message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  * @cause: Normal operation / An internal software failure occurred
  * @action: Contact your technical support representative in case of Error. Peer clear might also help as a work around.
  */
@@ -847,7 +991,7 @@ trace sandesh BgpPeerInstanceWarningTrace {
 
 /**
  * @description: BGP Peer routing-instance message
- * @severity: ERROR
+ * @severity: WARNING
  * @cause: An internal software failure occurred
  * @action: Contact your technical support representative. Peer clear might also help as a work around.
  */
@@ -864,7 +1008,7 @@ systemlog sandesh BgpPeerInstanceWarningLog {
 
 /**
  * @description: BGP Peer outboud send update message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 trace sandesh BgpPeerSendUpdateTrace {
     1: "BGP Peer"
@@ -877,7 +1021,7 @@ trace sandesh BgpPeerSendUpdateTrace {
 
 /**
  * @description: BGP Peer outboud send update message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  * @cause: Normal operation / An internal software failure occurred
  * @action: Contact your technical support representative in case of Error. Peer clear might also help as a work around.
  */
@@ -892,7 +1036,7 @@ systemlog sandesh BgpPeerSendUpdateLog {
 
 /**
  * @description: BGP Peer State Machine related message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 trace sandesh BgpPeerStateMachineTrace {
     1: "Bgp Peer";
@@ -904,9 +1048,9 @@ trace sandesh BgpPeerStateMachineTrace {
 
 /**
  * @description: BGP Peer State Machine related message
- * @severity: DEBUG / ERROR
- * @cause: Normal operation / An internal software failure occurred
- * @action: Contact your technical support representative in case of Error. Peer clear might also help as a work around.
+ * @severity: DEBUG
+ * @cause: Normal operation
+ * @action: None
  */
 systemlog sandesh BgpPeerStateMachineLog {
     1: "Bgp Peer";
@@ -917,8 +1061,34 @@ systemlog sandesh BgpPeerStateMachineLog {
 }
 
 /**
+ * @description: BGP Peer State Machine related noticable message
+ * @severity: Notice
+ */
+trace sandesh BgpPeerStateMachineNoticeTrace {
+    1: "Bgp Peer";
+    2: string Peer (key="ObjectBgpPeer");
+    /** Direction is send '>' or receive '<' */
+    3: string Direction;
+    4: string Message;
+}
+
+/**
+ * @description: BGP Peer State Machine related message
+ * @severity: NOTICE
+ * @cause: An internal noticable software failure event has occurred
+ * @action: Contact your technical support representative if they are persistent
+ */
+systemlog sandesh BgpPeerStateMachineNoticeLog {
+    1: "Bgp Peer";
+    2: string Peer (key="ObjectBgpPeer");
+    /** Direction is send '>' or receive '<' */
+    3: string Direction;
+    4: string Message;
+}
+
+/**
  * @description: BGP Peer route releated message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 trace sandesh BgpPeerRouteTrace {
     1: "BGP Peer";
@@ -933,7 +1103,7 @@ trace sandesh BgpPeerRouteTrace {
 
 /**
  * @description: BGP Peer route releated message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  * @cause: Normal operation / An internal software failure occurred
  * @action: Contact your technical support representative in case of Error. Peer clear might also help as a work around.
  */
@@ -950,7 +1120,7 @@ systemlog sandesh BgpPeerRouteLog {
 
 /**
  * @description: BGP Peer Configuration message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 trace sandesh BgpPeerConfigTrace {
     1: "Bgp Peer";
@@ -963,7 +1133,7 @@ trace sandesh BgpPeerConfigTrace {
 
 /**
  * @description: BGP Peer Configuration message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  * @cause: Normal operation / An internal software failure occurred
  * @action: Contact your technical support representative in case of Error. Peer clear might also help as a work around.
  */
@@ -1004,7 +1174,7 @@ systemlog sandesh XmppPeerMessageLog {
 
 /**
  * @description: Xmpp Peer specific warning essage
- * @severity: ERROR
+ * @severity: WARNING
  */
 trace sandesh XmppPeerMessageWarningTrace {
     1: "XMPP Peer"
@@ -1016,11 +1186,63 @@ trace sandesh XmppPeerMessageWarningTrace {
 
 /**
  * @description: Xmpp Peer specific warning message
- * @severity: ERROR
+ * @severity: WARNING
  * @cause: An internal software failure occurred
- * @action: Contact your technical support representative in case of Error. Peer clear might also help as a work around.
+ * @action: Contact your technical support representative
  */
 systemlog sandesh XmppPeerMessageWarningLog {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is send '>' or receive '<' */
+    3: string Direction;
+    4: string Message;
+}
+
+/**
+ * @description: Xmpp Peer specific critical essage
+ * @severity: CRITICAL
+ */
+trace sandesh XmppPeerMessageCriticalTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is send '>' or receive '<' */
+    3: string Direction;
+    4: string Message;
+}
+
+/**
+ * @description: Xmpp Peer specific critical message
+ * @severity: CRITICAL
+ * @cause: A very critical internal software failure occurred
+ * @action: Contact your technical support representative
+ */
+systemlog sandesh XmppPeerMessageCriticalLog {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is send '>' or receive '<' */
+    3: string Direction;
+    4: string Message;
+}
+
+/**
+ * @description: Xmpp Peer specific noticable essage
+ * @severity: NOTICE
+ */
+trace sandesh XmppPeerMessageNoticeTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is send '>' or receive '<' */
+    3: string Direction;
+    4: string Message;
+}
+
+/**
+ * @description: Xmpp Peer specific noticable message
+ * @severity: NOTICE
+ * @cause: A noticable internal software failure has occurred
+ * @action: Contact your technical support representative if these are persistent
+ */
+systemlog sandesh XmppPeerMessageNoticeLog {
     1: "XMPP Peer"
     2: string Peer (key="ObjectVRouter");
     /** Direction is send '>' or receive '<' */
@@ -1056,7 +1278,7 @@ systemlog sandesh XmppPeerTimerLog {
 
 /**
  * @description: Xmpp Peer Timer critical message
- * @severity: DEBUG / ERROR
+ * @severity: CRITICAL
  */
 trace sandesh XmppPeerTimerCriticalTrace {
     1: "XMPP Peer"
@@ -1068,7 +1290,7 @@ trace sandesh XmppPeerTimerCriticalTrace {
 
 /**
  * @description: Xmpp Peer Timer critical message
- * @severity: ERROR
+ * @severity: CRITICAL
  * @cause: An internal software failure occurred
  * @action: Contact your technical support representative in case of Error. Peer clear might also help as a work around.
  */
@@ -1082,7 +1304,7 @@ systemlog sandesh XmppPeerTimerCriticalLog {
 
 /**
  * @description: Xmpp peer event message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 trace sandesh XmppPeerEventTrace {
     1: "XMPP Peer"
@@ -1107,7 +1329,7 @@ systemlog sandesh XmppPeerEventLog {
 }
 /**
  * @description: Xmpp peer event warning message
- * @severity: ERROR
+ * @severity: WARNING
  */
 trace sandesh XmppPeerEventWarningTrace {
     1: "XMPP Peer"
@@ -1119,7 +1341,7 @@ trace sandesh XmppPeerEventWarningTrace {
 
 /**
  * @description: Xmpp peer event warning message
- * @severity: ERROR
+ * @severity: WARNING
  * @cause: An internal software failure occurred
  * @action: Contact your technical support representative. Peer clear might also help as a work around.
  */
@@ -1150,7 +1372,7 @@ trace sandesh XmppPeerTableTrace {
 
 /**
  * @description: Xmpp peer table message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  * @cause: Normal operation / An internal software failure occurred
  * @action: Contact your technical support representative in case of Error. Peer clear might also help as a work around.
  */
@@ -1216,9 +1438,9 @@ trace sandesh XmppPeerInstanceWarningTrace {
 
 /**
  * @description: Xmpp peer routing instance message
- * @severity: ERROR
+ * @severity: WARNING
  * @cause: An internal software failure occurred
- * @action: Contact your technical support representative in case of Error. Peer clear might also help as a work around.
+ * @action: Contact your technical support representative
  */
 systemlog sandesh XmppPeerInstanceWarningLog {
     1: "XMPP Peer"
@@ -1233,7 +1455,7 @@ systemlog sandesh XmppPeerInstanceWarningLog {
 
 /**
  * @description: Xmpp peer outbound send update message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 trace sandesh XmppPeerSendUpdateTrace {
     1: "XMPP Peer"
@@ -1246,7 +1468,7 @@ trace sandesh XmppPeerSendUpdateTrace {
 
 /**
  * @description: Xmpp peer outbound send update message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  * @cause: Normal operation / An internal software failure occurred
  * @action: Contact your technical support representative in case of Error. Peer clear might also help as a work around.
  */
@@ -1261,7 +1483,7 @@ systemlog sandesh XmppPeerSendUpdateLog {
 
 /**
  * @description: Xmpp peer route message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 trace sandesh XmppPeerRouteTrace {
     1: "XMPP Peer";
@@ -1276,7 +1498,7 @@ trace sandesh XmppPeerRouteTrace {
 
 /**
  * @description: Xmpp peer route message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  * @cause: Normal operation / An internal software failure occurred
  * @action: Contact your technical support representative in case of Error. Peer clear might also help as a work around.
  */
@@ -1293,7 +1515,7 @@ systemlog sandesh XmppPeerRouteLog {
 
 /**
  * @description: Xmpp peer configuration message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 trace sandesh XmppPeerConfigTrace {
     1: "Xmpp Peer";
@@ -1306,7 +1528,7 @@ trace sandesh XmppPeerConfigTrace {
 
 /**
  * @description: Xmpp peer configuration message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  * @cause: Normal operation / An internal software failure occurred
  * @action: Contact your technical support representative in case of Error.
  */
@@ -1347,7 +1569,7 @@ systemlog sandesh XmppPeerMembershipLog {
 
 /**
  * @description: Xmpp Peer membership to a table warning message
- * @severity: ERROR
+ * @severity: WARNING
  */
 trace sandesh XmppPeerMembershipWarningTrace {
     1: "XMPP Peer"
@@ -1359,9 +1581,9 @@ trace sandesh XmppPeerMembershipWarningTrace {
 
 /**
  * @description: Xmpp Peer membership to a table warning essage
- * @severity: ERROR
+ * @severity: WARNING
  * @cause: An internal software failure occurred
- * @action: Contact your technical support representative in case of Error. Peer clear might also help as a work around.
+ * @action: Contact your technical support representative
  */
 systemlog sandesh XmppPeerMembershipWarningLog {
     1: "XMPP Peer"

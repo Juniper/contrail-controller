@@ -2716,7 +2716,7 @@ void BgpXmppChannelManager::XmppHandleChannelEvent(XmppChannel *channel,
             // Trigger closure of this channel
             bgp_xmpp_channel->Close();
         } else {
-            BGP_LOG(BgpMessage, SandeshLevel::SYS_NOTICE, BGP_LOG_FLAG_ALL,
+            BGP_LOG_NOTICE(BgpMessage, BGP_LOG_FLAG_ALL,
                     "Peer not found on channel not ready event");
         }
     }

@@ -15,7 +15,7 @@ systemlog sandesh ClientOpenFail {
 
 /**
  * @description: XMPP socket option setting failure
- * @severity: ERROR
+ * @severity: WARNING
  * @cause: Socket error. Refer to the actual error message for more details
  * @action: Contact your technical support representative
  */
@@ -50,7 +50,7 @@ systemlog sandesh ServerOpenFail {
 
 /**
  * @description: XMPP Server socket bind operation failure
- * @severity: ERROR
+ * @severity: WARNING
  * @cause: Possibly the port already bound to and used by another process
  * @action: Contact your technical support representative. Another/duplicate process using the same port can be found using netstat and lsof command tools
  */
@@ -61,7 +61,7 @@ systemlog sandesh ServerBindFailure {
 
 /**
  * @description: XMPP Server socket TCP KeepAlive option setting failure
- * @severity: ERROR
+ * @severity: WARNING
  * @cause: Possibly due to TCP KeepAlives not supported in the kernel
  * @action: Contact your technical support representative
  */
