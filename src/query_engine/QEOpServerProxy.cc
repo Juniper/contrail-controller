@@ -284,7 +284,7 @@ public:
                     list_of(string("RPUSH"))(rkey)(stat));
 
                 return boost::bind(&QueryEngine::QueryExecWhere, qosp_->qe_,
-                        _1, inp.qp, chunknum, 0);
+                        _1, inp.qp, chunknum, 0, (qosp_->m_analytics_queries_[res.inp.qp.qid]));
             } else {
                 return NULL;
             }
@@ -389,7 +389,8 @@ public:
                 RedisAsyncArgCommand(rac, NULL, 
                     list_of(string("RPUSH"))(rkey)(stat));         
                 return boost::bind(&QueryEngine::QueryExecWhere, qosp_->qe_,
-                        _1, inp.qp, chunknum, 0);
+                        _1, inp.qp, chunknum, 0,
+                        (qosp_->m_analytics_queries_[res.inp.qp.qid]));
             } else {
                 return NULL;
             }            
@@ -399,7 +400,8 @@ public:
             res.welem[substep-1] = exts[step-1]->wres;
 
             return boost::bind(&QueryEngine::QueryExecWhere, qosp_->qe_,
-                    _1, inp.qp, res.current_chunk, substep);
+                    _1, inp.qp, res.current_chunk, substep,
+                    (qosp_->m_analytics_queries_[res.inp.qp.qid]));
         }
         return NULL;
     }
@@ -667,6 +669,7 @@ public:
         boost::shared_ptr<Output> res = wp->Result();
         assert(pipes_.find(res->inp.qp.qid)->second == wp);
         pipes_.erase(res->inp.qp.qid);
+        qosp_->m_analytics_queries_.erase(res->inp.qp.qid);
         npipes_[res->inp.cnum-1]--;
         QE_LOG_NOQID(DEBUG,  " Result " << res->ret_code << " , " << res->inp.cnum << " conn");
         delete wp;
@@ -886,6 +889,13 @@ public:
                 boost::bind(&QEOpServerImpl::QueryResp, this, _1,_2,_3,_4)));
 
         pipes_.insert(make_pair(qid, wp));
+
+        // Maintain a vector of ptrs to AnalyticsQueries's that we are goin
+        // to create for each chunk during QueryExecWhere
+        int total_analytics_queries = chunk_size.size() * wterms;
+        // create an AnalyticsQuery for each OR term for every chunk we are creating
+        qosp_->m_analytics_queries_.insert(make_pair(qid, std::vector<boost::shared_ptr<AnalyticsQuery> >(total_analytics_queries)));
+
         int conn = LeastLoadedConnection();
         npipes_[conn]++;
         
