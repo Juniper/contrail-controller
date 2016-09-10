@@ -155,6 +155,9 @@ public:
     typedef boost::function<void(void)> DbErrorHandler;
     typedef boost::function<void(size_t)> DbQueueWaterMarkCb;
     typedef boost::function<void(DbOpResult::type)> DbAddColumnCb;
+    typedef boost::function<void(DbOpResult::type,
+                                 std::auto_ptr<GenDb::NewColVec>, const void *,
+                                 void *)> DbGetRowCb;
 
     GenDbIf() {}
     virtual ~GenDbIf() {}
@@ -185,6 +188,12 @@ public:
     virtual bool Db_GetMultiRow(ColListVec *ret,
         const std::string& cfname, const std::vector<DbDataValueVec>& key,
         const GenDb::ColumnNameRange& crange) = 0;
+    virtual bool Db_GetRowAsync(const std::string& cfname,
+        const DbDataValueVec& rowkey, DbGetRowCb cb, const void * ctx,
+        void * privdata) = 0;
+    virtual bool Db_GetRowAsync(const std::string& cfname,
+        const DbDataValueVec& rowkey, const GenDb::ColumnNameRange &crange,
+        DbGetRowCb cb, const void * ctx, void * privdata) = 0;
     // Queue
     virtual bool Db_GetQueueStats(uint64_t *queue_count,
         uint64_t *enqueues) const = 0;
