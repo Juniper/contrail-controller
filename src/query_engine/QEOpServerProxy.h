@@ -13,6 +13,7 @@
 #include <memory>
 #include <boost/variant.hpp>
 #include <boost/uuid/uuid.hpp>
+#include <boost/shared_ptr.hpp>
 
 extern "C" {
 #include <base/tdigest.h>
@@ -21,6 +22,7 @@ class EventManager;
 class QueryEngine;
 class QueryResultMetaData;
 class query_result_unit_t;
+class AnalyticsQuery;
 
 // This class represents the interface between the Query Engine and 
 // the OpServer. It will internally talk to the OpServer using Redis
@@ -125,13 +127,13 @@ public:
             std::auto_ptr<OutRowMultimapT> mres);
     void QueryResult(void *, QPerfInfo qperf,
             std::auto_ptr<std::vector<query_result_unit_t> > res);
+    void add_analytics_query(std::string&, boost::shared_ptr<AnalyticsQuery> );
 private:
     EventManager * const evm_;
     QueryEngine * const qe_;
 
     class QEOpServerImpl;
     boost::scoped_ptr<QEOpServerImpl> impl_;
-
     friend class QEOpServerImpl;
 };
 
