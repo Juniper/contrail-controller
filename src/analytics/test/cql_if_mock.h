@@ -6,6 +6,7 @@
 #define ANALYTICS_TEST_CQL_IF_MOCK_H_
 
 #include <database/cassandra/cql/cql_if.h>
+#include <database/gendb_if.h>
 
 class CqlIfMock : public cass::cql::CqlIf {
  public:
@@ -35,6 +36,9 @@ class CqlIfMock : public cass::cql::CqlIf {
     MOCK_METHOD1(Db_AddColumnfamily, bool(const GenDb::NewCf&));
     MOCK_METHOD1(Db_AddColumnProxy, bool(GenDb::ColList *cl));
     MOCK_METHOD1(Db_AddColumnSyncProxy, bool(GenDb::ColList *cl));
+    MOCK_METHOD6(Db_GetRowAsync, bool(const std::string& cfname,
+        const GenDb::DbDataValueVec& rowkey, const GenDb::ColumnNameRange &crange,
+        DbGetRowCb cb, const void * ctx, void * privdata));
 };
 
 #endif // ANALYTICS_TEST_CQL_IF_MOCK_H_
