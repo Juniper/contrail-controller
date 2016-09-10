@@ -89,6 +89,10 @@ public:
         uint32_t max_rows;
         tbb::atomic<uint32_t> chunk_q;
         tbb::atomic<uint32_t> total_rows;
+        boost::shared_ptr<
+            std::vector<boost::shared_ptr<AnalyticsQuery> > >
+            v_analytics_queries_;
+        tbb::mutex per_query_mutex;
     };
 
     void JsonInsert(std::vector<query_column> &columns,
@@ -282,9 +286,9 @@ public:
                 sprintf(stat,"{\"progress\":%d}", prg);
                 RedisAsyncArgCommand(rac, NULL, 
                     list_of(string("RPUSH"))(rkey)(stat));
-
-                return boost::bind(&QueryEngine::QueryExecWhere, qosp_->qe_,
-                        _1, inp.qp, chunknum, 0);
+               return boost::bind(&QueryEngine::QueryExecWhere, qosp_->qe_,
+                        _1, inp.qp, chunknum, 0, inp.v_analytics_queries_.get(),
+                        inp.per_query_mutex);
             } else {
                 return NULL;
             }
@@ -389,7 +393,9 @@ public:
                 RedisAsyncArgCommand(rac, NULL, 
                     list_of(string("RPUSH"))(rkey)(stat));         
                 return boost::bind(&QueryEngine::QueryExecWhere, qosp_->qe_,
-                        _1, inp.qp, chunknum, 0);
+                        _1, inp.qp, chunknum, 0,
+                        inp.v_analytics_queries_.get(),
+                        inp.per_query_mutex);
             } else {
                 return NULL;
             }            
@@ -399,7 +405,9 @@ public:
             res.welem[substep-1] = exts[step-1]->wres;
 
             return boost::bind(&QueryEngine::QueryExecWhere, qosp_->qe_,
-                    _1, inp.qp, res.current_chunk, substep);
+                    _1, inp.qp, res.current_chunk, substep,
+                    inp.v_analytics_queries_.get(),
+                    inp.per_query_mutex);
         }
         return NULL;
     }
@@ -868,7 +876,8 @@ public:
         inp.get()->total_rows = 0;
         inp.get()->max_rows = max_rows_;
         inp.get()->wterms = wterms;
-        
+        inp.get()->v_analytics_queries_ = boost::shared_ptr<std::vector<boost::shared_ptr<AnalyticsQuery> > >(new std::vector<boost::shared_ptr<AnalyticsQuery> > ());
+
         vector<pair<int,int> > tinfo;
         for (uint idx=0; idx<(uint)max_tasks_; idx++) {
             tinfo.push_back(make_pair(0, -1));
@@ -886,6 +895,7 @@ public:
                 boost::bind(&QEOpServerImpl::QueryResp, this, _1,_2,_3,_4)));
 
         pipes_.insert(make_pair(qid, wp));
+
         int conn = LeastLoadedConnection();
         npipes_[conn]++;
         
