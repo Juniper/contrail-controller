@@ -150,18 +150,30 @@ typedef CassSharedPtr<CassIterator> CassIteratorPtr;
 typedef CassSharedPtr<const CassPrepared> CassPreparedPtr;
 typedef CassSharedPtr<const CassSchemaMeta> CassSchemaMetaPtr;
 
-typedef boost::function<void(GenDb::DbOpResult::type)> CassAsyncQueryCallback;
+typedef boost::function<void(GenDb::DbOpResult::type,
+    std::auto_ptr<GenDb::ColList>)> CassAsyncQueryCallback;
 
 struct CassAsyncQueryContext {
     CassAsyncQueryContext(const char *query_id, CassAsyncQueryCallback cb,
-        interface::CassLibrary *cci) :
+        interface::CassLibrary *cci, const std::string& cf_name, bool is_dynamic_cf,
+        GenDb::DbDataValueVec * row_key, size_t rk_count=0, size_t ck_count=0) :
         query_id_(query_id),
         cb_(cb),
-        cci_(cci) {
+        cci_(cci),
+        cf_name_(cf_name),
+        is_dynamic_cf_(is_dynamic_cf),
+        row_key_(row_key),
+        rk_count_(rk_count),
+        ck_count_(ck_count) {
     }
     std::string query_id_;
     CassAsyncQueryCallback cb_;
     interface::CassLibrary *cci_;
+    const std::string &cf_name_;
+    bool is_dynamic_cf_;
+    GenDb::DbDataValueVec *row_key_;
+    size_t rk_count_;
+    size_t ck_count_;
 };
 
 }  // namespace impl
@@ -206,6 +218,13 @@ class CqlIfImpl {
         const GenDb::DbDataValueVec &rkey,
         const GenDb::ColumnNameRange &ck_range, CassConsistency consistency,
         GenDb::NewColVec *out);
+    bool SelectFromTableAsync(const std::string &cfname,
+        const GenDb::DbDataValueVec &rkey, CassConsistency consistency,
+        cass::cql::impl::CassAsyncQueryCallback cb);
+    bool SelectFromTableClusteringKeyRangeAsync(const std::string &cfname,
+        const GenDb::DbDataValueVec &rkey,
+        const GenDb::ColumnNameRange &ck_range, CassConsistency consistency,
+        cass::cql::impl::CassAsyncQueryCallback cb);
 
     void ConnectAsync();
     bool ConnectSync();
