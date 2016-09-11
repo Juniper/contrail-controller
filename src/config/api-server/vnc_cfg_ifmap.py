@@ -939,6 +939,17 @@ class VncServerCassandraClient(VncCassandraClient):
         perms2 = json.loads(perms2_json)
         self._update_prop(bch, obj_uuid, 'perms2', {'perms2': perms2})
         bch.send()
+        return perms2
+
+    def enable_domain_sharing(self, obj_uuid, perms2):
+        share_item = {
+            'tenant': 'domain:%s' % obj_uuid,
+            'tenant_access': cfgm_common.DOMAIN_SHARING_PERMS
+        }
+        perms2['share'].append(share_item)
+        bch = self._obj_uuid_cf.batch()
+        self._update_prop(bch, obj_uuid, 'perms2', {'perms2': perms2})
+        bch.send()
 
     def uuid_to_obj_dict(self, id):
         obj_cols = self.get(self._OBJ_UUID_CF_NAME, id)

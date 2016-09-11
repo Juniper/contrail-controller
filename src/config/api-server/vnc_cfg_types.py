@@ -1621,6 +1621,19 @@ class NetworkIpamServer(Resource, NetworkIpam):
 
 # end class NetworkIpamServer
 
+class DomainServer(Resource, Domain):
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        # enable domain level sharing for domain template
+        share_item = {
+            'tenant': 'domain:%s' % obj_dict.get('uuid'),
+            'tenant_access': cfgm_common.DOMAIN_SHARING_PERMS
+        }
+        obj_dict['perms2']['share'].append(share_item)
+        return (True, "")
+    # end pre_dbe_create
+
 class ServiceTemplateServer(Resource, ServiceTemplate):
     generate_default_instance = False
 

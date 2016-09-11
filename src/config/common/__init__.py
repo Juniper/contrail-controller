@@ -15,11 +15,21 @@ SG_NO_RULE_FQ_NAME = ['default-domain', 'default-project', SG_NO_RULE_NAME]
 BGP_RTGT_MIN_ID = 8000000
 SGID_MIN_ALLOC = 8000000
 
+PERMS_NONE = 0
+PERMS_X = 1
+PERMS_W = 2
+PERMS_R = 4
+PERMS_WX = 3
+PERMS_RX = 5
+PERMS_RW = 6
+PERMS_RWX = 7
+
 AAA_MODE_DEFAULT_VALUE = 'cloud-admin'
 AAA_MODE_VALID_VALUES = ['no-auth', 'cloud-admin', 'rbac']
 CLOUD_ADMIN_ROLE = 'admin'
 GLOBAL_READ_ONLY_ROLE = None
 PERMS2_VALID_SHARE_TYPES = ['tenant', 'domain']
+DOMAIN_SHARING_PERMS = PERMS_RW
 
 def obj_to_json(obj):
     return dict((k, v) for k, v in obj.__dict__.iteritems())
