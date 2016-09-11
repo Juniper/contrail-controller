@@ -949,7 +949,7 @@ class VncServerCassandraClient(VncCassandraClient):
     def enable_domain_sharing(self, obj_uuid, perms2):
         share_item = {
             'tenant': 'domain:%s' % obj_uuid,
-            'tenant_access': PERMS_RWX
+            'tenant_access': cfgm_common.DOMAIN_SHARING_PERMS
         }
         perms2['share'].append(share_item)
         bch = self._obj_uuid_cf.batch()

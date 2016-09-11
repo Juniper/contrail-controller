@@ -744,28 +744,43 @@ class TestPermissions(test_case.ApiServerTestCase):
         except PermissionDenied as e:
             self.assertTrue(False, 'Failed to read VN ... Test failed!')
 
-        # validate virtual-dns enabled domain sharing by default
+    def test_domain_sharing(self):
+        # validate domain sharing is enabled for domain by default
+        domain_name = 'domain-%s' % self.id()
+        domain = Domain(domain_name)
+        self.admin.vnc_lib.domain_create(domain)
+        dom = vnc_read_obj(self.admin.vnc_lib, 'domain', name = [domain_name])
+        share_set = set(["%s:%d" % (item.tenant, item.tenant_access) for item in dom.get_perms2().share])
+        self.assertTrue('domain:%s:%d' % (dom.uuid, cfgm_common.DOMAIN_SHARING_PERMS) in share_set,
+            "Domain scope not set in domain share list")
+
+        # validate domain sharing is enabled for "default-domain" by default
+        dom = vnc_read_obj(self.admin.vnc_lib, 'domain', name = ['default-domain'])
+        share_set = set(["%s:%d" % (item.tenant, item.tenant_access) for item in dom.get_perms2().share])
+        self.assertTrue('domain:%s:%d' % (dom.uuid, cfgm_common.DOMAIN_SHARING_PERMS) in share_set,
+            "Domain scope not set in domain share list")
+
+        # validate non-admin can create virtual-dns
         vdns = VirtualDns(name = "my-vDNS")
         d = VirtualDnsType(domain_name = "test-domain", record_order = "fixed", default_ttl_seconds = 3600)
         vdns.set_virtual_DNS_data(d)
-        admin.vnc_lib.virtual_DNS_create(vdns)
-        vdns = vnc_read_obj(admin.vnc_lib, 'virtual-DNS', name = vdns.get_fq_name())
-        dom = vnc_read_obj(admin.vnc_lib, 'domain', name = ['default-domain'])
-        share_set = set(["%s:%d" % (item.tenant, item.tenant_access) for item in vdns.get_perms2().share])
-        self.assertTrue('domain:%s:%d' % (dom.uuid, PERMS_R) in share_set, "Domain scope not set in VDNS share list")
+        try:
+            self.alice.vnc_lib.virtual_DNS_create(vdns)
+        except PermissionDenied as e:
+            self.assertTrue(False, 'Failed to create vDNS ... Test failed!')
+        vdns = vnc_read_obj(self.alice.vnc_lib, 'virtual-DNS', name = vdns.get_fq_name())
 
-        # validate service template enabled domain sharing by default
+        # validate non-admin can create service template
         st = ServiceTemplate(name = "my-st")
-        admin.vnc_lib.service_template_create(st)
-        st = vnc_read_obj(admin.vnc_lib, 'service-template', name = st.get_fq_name())
-        dom = vnc_read_obj(admin.vnc_lib, 'domain', name = ['default-domain'])
-        share_set = set(["%s:%d" % (item.tenant, item.tenant_access) for item in vdns.get_perms2().share])
-        self.assertTrue('domain:%s:%d' % (dom.uuid, PERMS_R) in share_set, "Domain scope not set in VDNS share list")
+        try:
+            self.alice.vnc_lib.service_template_create(st)
+        except PermissionDenied as e:
+            self.assertTrue(False, 'Failed to create service-template ... Test failed!')
+        st = vnc_read_obj(self.alice.vnc_lib, 'service-template', name = st.get_fq_name())
 
-        # validate domain sharing enabled by default for domain
-        dom = vnc_read_obj(admin.vnc_lib, 'domain', name = ['default-domain'])
-        share_set = set(["%s:%d" % (item.tenant, item.tenant_access) for item in dom.get_perms2().share])
-        self.assertTrue('domain:%s:%d' % (dom.uuid, PERMS_RWX) in share_set, "Domain scope not set in domain share list")
+        # validate anonther-user can't delete other's object due to domain sharing
+        with ExpectedException(PermissionDenied) as e:
+            self.bob.vnc_lib.service_template_delete(fq_name = st.get_fq_name())
 
     def test_check_obj_perms_api(self):
         logger.info('')
