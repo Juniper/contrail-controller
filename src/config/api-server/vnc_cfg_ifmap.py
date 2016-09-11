@@ -939,6 +939,17 @@ class VncServerCassandraClient(VncCassandraClient):
         perms2 = json.loads(perms2_json)
         self._update_prop(bch, obj_uuid, 'perms2', {'perms2': perms2})
         bch.send()
+        return perms2
+
+    def enable_domain_sharing(self, obj_uuid, perms2):
+        share_item = {
+            'tenant': 'domain:%s' % obj_uuid,
+            'tenant_access': cfgm_common.DOMAIN_SHARING_PERMS
+        }
+        perms2['share'].append(share_item)
+        bch = self._obj_uuid_cf.batch()
+        self._update_prop(bch, obj_uuid, 'perms2', {'perms2': perms2})
+        bch.send()
 
     def uuid_to_obj_dict(self, id):
         obj_cols = self.get(self._OBJ_UUID_CF_NAME, id)
@@ -1666,8 +1677,11 @@ class VncDbClient(object):
                                                     obj_uuid, obj_dict)
 
                 # create new perms if upgrading
-                if 'perms2' not in obj_dict:
-                    self._cassandra_db.update_perms2(obj_uuid)
+                perms2 = obj_dict.get('perms2')
+                if perms2 is None:
+                    perms2 = self._cassandra_db.update_perms2(obj_uuid)
+                if obj_type == 'domain' and len(perms2['share']) == 0:
+                    self._cassandra_db.enable_domain_sharing(obj_uuid, perms2)
 
                 if (obj_type == 'bgp_router' and
                         'bgp_router_parameters' in obj_dict and
