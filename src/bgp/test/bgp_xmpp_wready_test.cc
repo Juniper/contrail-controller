@@ -31,12 +31,12 @@ public:
     XmppChannelMuxMock(XmppConnection *conn) : XmppChannelMux(conn), count_(0) {
     }
 
-    virtual bool Send(const uint8_t *msg, size_t msgsize, xmps::PeerId id,
-        SendReadyCb cb) {
+    virtual bool Send(const uint8_t *msg, size_t msgsize,
+        const string *msg_str, xmps::PeerId id, SendReadyCb cb) {
         bool ret;
 
         // Simulate write blocked after the first message is sent.
-        ret = XmppChannelMux::Send(msg, msgsize, id, cb);
+        ret = XmppChannelMux::Send(msg, msgsize, msg_str, id, cb);
         assert(ret);
         if (++count_ == 1) {
             XmppChannelMux::RegisterWriteReady(id, cb);
@@ -44,6 +44,11 @@ public:
         }
 
         return true;
+    }
+
+    virtual bool Send(const uint8_t *msg, size_t msgsize, xmps::PeerId id,
+        SendReadyCb cb) {
+        return Send(msg, msgsize, NULL, id, cb);
     }
 
 private:
