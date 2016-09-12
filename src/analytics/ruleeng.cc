@@ -352,7 +352,7 @@ class DomStatVisitor : public boost::static_visitor<> {
             //  Ignore any struct or list that does not have the
             //  tags annotation
                 if (sattr.attribute("tags").empty()) {
-                    LOG(ERROR, __func__ << " Message: "  << 
+                    LOG(DEBUG, __func__ << " Message: "  << 
                       " Name: " << node.name() <<  " Child: " <<
                       sattr.name()  << " No tags annotation ");
                     continue;
