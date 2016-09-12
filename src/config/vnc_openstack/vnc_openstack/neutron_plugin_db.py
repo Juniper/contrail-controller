@@ -317,8 +317,8 @@ class DBInterface(object):
             except IndexError:
                 rule_uuid = None
             self._raise_contrail_exception('SecurityGroupRuleExists',
-                resource='security_group_rule', id=rule_uuid)
-    #end _security_group_rule_create
+                resource='security_group_rule', id=rule_uuid, rule_id=rule_uuid)
+    # end _security_group_rule_create
 
     def _security_group_rule_find(self, sgr_id, project_uuid=None):
         # Get all security group for a project if project uuid is specified
