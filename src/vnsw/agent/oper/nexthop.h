@@ -381,6 +381,8 @@ public:
     static void FillObjectLogMac(const unsigned char *m,
                                  NextHopObjectLogInfo &info);
     bool NexthopToInterfacePolicy() const;
+
+    virtual bool MatchEgressData(const NextHop *nh) const = 0;
 protected:
     void FillObjectLog(AgentLogEvent::type event,
                        NextHopObjectLogInfo &info) const;
@@ -486,6 +488,9 @@ public:
         return DBEntryBase::KeyPtr(new DiscardNHKey());
     };
 
+    virtual bool MatchEgressData(const NextHop *nh) const {
+        return false;
+    }
     static void Create();
 
 private:
@@ -535,6 +540,9 @@ public:
         return DBEntryBase::KeyPtr(new L2ReceiveNHKey());
     };
 
+    virtual bool MatchEgressData(const NextHop *nh) const {
+        return false;
+    }
     static void Create();
 
 private:
@@ -601,6 +609,11 @@ public:
     static void Create(NextHopTable *table, const string &interface);
     static void Delete(NextHopTable *table, const string &interface);
     const Interface *GetInterface() const {return interface_.get();};
+
+    virtual bool MatchEgressData(const NextHop *nh) const {
+        return false;
+    }
+
 private:
     InterfaceRef interface_;
     DISALLOW_COPY_AND_ASSIGN(ReceiveNH);
@@ -664,6 +677,11 @@ public:
     static void Create(const InterfaceKey *intf, bool policy);
     static void CreateReq(const InterfaceKey *intf, bool policy);
     const Interface* interface() const { return interface_.get();}
+
+    virtual bool MatchEgressData(const NextHop *nh) const {
+        return false;
+    }
+
 private:
     InterfaceConstRef interface_;
     DISALLOW_COPY_AND_ASSIGN(ResolveNH);
@@ -734,6 +752,15 @@ public:
     virtual bool DeleteOnZeroRefCount() const {
         return true;
     }
+
+    virtual bool MatchEgressData(const NextHop *nh) const {
+        const ArpNH *arp_nh = dynamic_cast<const ArpNH *>(nh);
+        if (arp_nh && vrf_ == arp_nh->vrf_ && ip_ == arp_nh->ip_) {
+            return true;
+        }
+        return false;
+    }
+
 private:
     VrfEntryRef vrf_;
     Ip4Address ip_;
@@ -951,6 +978,15 @@ public:
 
     bool relaxed_policy() const { return relaxed_policy_; }
 
+    virtual bool MatchEgressData(const NextHop *nh) const {
+        const InterfaceNH *intf_nh =
+            dynamic_cast<const InterfaceNH *>(nh);
+        if (intf_nh && interface_ == intf_nh->interface_) {
+            return true;
+        }
+        return false;
+    }
+
 private:
     InterfaceRef interface_;
     uint8_t flags_;
@@ -1027,6 +1063,15 @@ public:
     bool flood_unknown_unicast() const {
         return flood_unknown_unicast_;
     }
+
+    virtual bool MatchEgressData(const NextHop *nh) const {
+        const VrfNH *vrf_nh = dynamic_cast<const VrfNH *>(nh);
+        if (vrf_nh && vrf_ == vrf_nh->vrf_) {
+            return true;
+        }
+        return false;
+    }
+
 private:
     VrfEntryRef vrf_;
     // NH created by VXLAN
@@ -1118,6 +1163,14 @@ public:
                           const std::string &vrf_name, const MacAddress &smac,
                           const MacAddress &dmac);
     static void DeleteReq(const uuid &intf_uuid, uint16_t vlan_tag);
+
+    virtual bool MatchEgressData(const NextHop *nh) const {
+        const VlanNH *vlan_nh = dynamic_cast<const VlanNH *>(nh);
+        if (vlan_nh && interface_ == vlan_nh->interface_) {
+            return true;
+        }
+        return false;
+    }
 
 private:
     InterfaceRef interface_;
@@ -1399,6 +1452,11 @@ public:
    }
    CompositeNH* ChangeTunnelType(Agent *agent, TunnelType::Type type) const;
    const NextHop *GetLocalNextHop() const;
+
+   virtual bool MatchEgressData(const NextHop *nh) const {
+       return false;
+   }
+
 private:
     void CreateComponentNH(Agent *agent, TunnelType::Type type) const;
     void ChangeComponentNHKeyTunnelType(ComponentNHKeyList &component_nh_list,
