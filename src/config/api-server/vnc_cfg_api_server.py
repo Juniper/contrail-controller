@@ -2763,7 +2763,7 @@ class VncApiServer(object):
         obj_uuid = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
         (ok, obj_dict) = self._db_conn.dbe_read(obj_type, {'uuid':obj_uuid},
                               obj_fields=['perms2'])
-        obj_dict['perms2']['global_access'] = PERMS_X
+        obj_dict['perms2']['global_access'] = PERMS_RX
         self._db_conn.dbe_update(obj_type, {'uuid': obj_uuid}, obj_dict)
     # end _db_init_entries
 
