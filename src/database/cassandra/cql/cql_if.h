@@ -13,6 +13,8 @@
 #include <database/gendb_if.h>
 #include <database/gendb_statistics.h>
 #include <database/cassandra/cql/cql_types.h>
+#include <database/cassandra/cql/cql_lib_if.h>
+#include <database/cassandra/cql/cql_if_impl.h>
 
 class EventManager;
 
@@ -68,7 +70,7 @@ class CqlIf : public GenDb::GenDbIf {
     virtual bool Db_GetCumulativeStats(std::vector<GenDb::DbTableInfo> *vdbti,
         GenDb::DbErrors *dbe) const;
     virtual void Db_GetCqlMetrics(Metrics *metrics) const;
-    virtual void Db_GetCqlStats(cass::cql::DbStats *db_stats) const;
+    virtual void Db_GetCqlStats(DbStats *db_stats) const;
     // Connection
     virtual std::vector<GenDb::Endpoint> Db_GetEndpoints() const;
 
@@ -91,8 +93,8 @@ class CqlIf : public GenDb::GenDbIf {
         uint64_t num_reads);
     void IncrementErrors(GenDb::IfErrors::Type err_type);
 
-    class CqlIfImpl;
-    CqlIfImpl *impl_;
+    boost::scoped_ptr<interface::CassLibrary> cci_;
+    boost::scoped_ptr<CqlIfImpl> impl_;
     tbb::atomic<bool> initialized_;
     std::vector<GenDb::Endpoint> endpoints_;
     mutable tbb::mutex stats_mutex_;
