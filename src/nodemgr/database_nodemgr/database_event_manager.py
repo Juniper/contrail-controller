@@ -277,11 +277,38 @@ class DatabaseEventManager(EventManager):
         cassandra_status.thread_pool_stats = self.get_tp_status(op)
         cassandra_status.name = socket.gethostname()
         cassandra_status_uve = CassandraStatusUVE(data=cassandra_status)
-        msg = 'Sending UVE: ' + str(cassandra_status_uve)
-        self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level(
+        if self.has_cassandra_status_changed(cassandra_status, self.cassandra_status_old):
+            # Assign cassandra_status to cassandra_status_old
+            self.cassandra_status_old.thread_pool_stats = \
+                cassandra_status.thread_pool_stats
+            self.cassandra_status_old.cassandra_compaction_task.\
+                pending_compaction_tasks = cassandra_status.\
+                cassandra_compaction_task.pending_compaction_tasks
+            msg = 'Sending UVE: ' + str(cassandra_status_uve)
+            self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level(
                             SandeshLevel.SYS_DEBUG), msg)
-        cassandra_status_uve.send()
+            cassandra_status_uve.send()
     # end send_database_status
+
+    def has_cassandra_status_changed(self,current_status, old_status):
+        if current_status.cassandra_compaction_task.pending_compaction_tasks != \
+            old_status.cassandra_compaction_task.pending_compaction_tasks :
+            return True
+        i = 0
+        if len(current_status.thread_pool_stats) != \
+            len(old_status.thread_pool_stats):
+            return True
+        while i < len(current_status.thread_pool_stats):
+            if (current_status.thread_pool_stats[i].active != \
+                old_status.thread_pool_stats[i].active or
+                current_status.thread_pool_stats[i].pending != \
+                old_status.thread_pool_stats[i].pending or
+                current_status.thread_pool_stats[i].all_time_blocked != \
+                old_status.thread_pool_stats[i].all_time_blocked):
+                return True
+            i = i+1
+        return False
+    # end has_cassandra_status_changed
 
     def get_pending_compaction_count(self, pending_count):
         compaction_count_val = pending_count.strip()
@@ -313,6 +340,10 @@ class DatabaseEventManager(EventManager):
 
     def runforever(self, test=False):
         self.prev_current_time = int(time.time())
+        # Initialize tpstat structures
+        self.cassandra_status_old = CassandraStatusData()
+        self.cassandra_status_old.cassandra_compaction_task = CassandraCompactionTask()
+        self.cassandra_status_old.thread_pool_stats = []
         while 1:
             # we explicitly use self.stdin, self.stdout, and self.stderr
             # instead of sys.* so we can unit test this code
