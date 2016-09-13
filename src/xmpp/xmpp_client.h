@@ -34,6 +34,7 @@ public:
     void UnRegisterConnectionEvent(xmps::PeerId);
     void NotifyConnectionEvent(XmppChannelMux *, xmps::PeerState);
     size_t ConnectionEventCount() const;
+    bool IsRestartGraceful() const;
 
     virtual TcpSession *CreateSession();
     virtual bool Initialize(short port) ;
@@ -50,6 +51,8 @@ public:
 
     LifetimeManager *lifetime_manager();
     virtual LifetimeActor *deleter();
+    void set_graceful_restart(bool restart) { graceful_restart_ = restart; }
+    bool graceful_restart() const { return graceful_restart_; }
 
 protected:
     virtual SslSession *AllocSession(SslSocket *socket);
@@ -74,6 +77,7 @@ private:
     boost::scoped_ptr<DeleteActor> deleter_;
 
     bool auth_enabled_;
+    bool graceful_restart_;
     int tcp_hold_time_;
 
     DISALLOW_COPY_AND_ASSIGN(XmppClient);

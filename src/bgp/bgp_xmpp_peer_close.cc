@@ -150,8 +150,17 @@ void BgpXmppPeerClose::Close(bool non_graceful) {
     if (channel_) {
         assert(channel_->peer_deleted());
         assert(channel_->channel()->IsCloseInProgress());
-        if (!IsCloseGraceful())
+
+        // Check if GR-Helper mode not longer configured or if the associated
+        // connection is marked for non-graceful closure. The latter happens
+        // when peer restarts without sending "graceful-restart" attribute as
+        // true in its open message indicating that forwarding state was not
+        // preserved. In that case, we must not do GR, or abort GR and delete
+        // all learned routes from the peer.
+        if (!IsCloseGraceful() ||
+                channel_->channel()->connection()->non_graceful_close()) {
             non_graceful = true;
+        }
         manager_->Close(non_graceful);
     }
 }

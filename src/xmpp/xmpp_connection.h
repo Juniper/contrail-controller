@@ -204,6 +204,10 @@ public:
     void LogMsg(std::string msg);
     bool disable_read() const { return disable_read_; }
     void set_disable_read(bool disable_read) { disable_read_ = disable_read; }
+    bool non_graceful_close() const { return non_graceful_close_; }
+    void set_non_graceful_close(bool non_graceful_close) {
+        non_graceful_close_ = non_graceful_close;
+    }
     XmppStateMachine *state_machine();
     const XmppStateMachine *state_machine() const;
 
@@ -257,6 +261,7 @@ private:
     bool log_uve_;
     bool admin_down_;
     bool disable_read_;
+    bool non_graceful_close_;
     std::string from_; // bare jid
     std::string to_;
     bool auth_enabled_;
@@ -324,11 +329,13 @@ public:
     virtual const LifetimeActor *deleter() const;
     virtual LifetimeManager *lifetime_manager();
     XmppClient *server();
+    XmppClient *server() const;
 
     virtual void set_close_reason(const std::string &reason);
     virtual uint32_t flap_count() const;
     virtual void increment_flap_count();
     virtual const std::string last_flap_at() const;
+    virtual bool IsRestartGraceful() const;
 
 private:
     class DeleteActor;

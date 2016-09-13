@@ -34,12 +34,14 @@ XmppProto::~XmppProto() {
 }
 
 int XmppProto::EncodeStream(const XmppStreamMessage &str, string &to,
-                            string &from, uint8_t *buf, size_t size) {
+                            string &from, uint8_t *buf, size_t size,
+                            bool graceful_restart) {
     int len = 0;
+    string gr = graceful_restart ? "true" : "false";
 
     switch (str.strmtype) {
         case (XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER):
-            len = EncodeOpen(buf, to, from, size);
+            len = EncodeOpen(buf, to, from, gr, size);
             break;
         case (XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER_RESP):
             len = EncodeOpenResp(buf, to, from, size);
@@ -162,7 +164,7 @@ int XmppProto::EncodeOpenResp(uint8_t *buf, string &to, string &from,
     }
 }
 
-int XmppProto::EncodeOpen(uint8_t *buf, string &to, string &from,
+int XmppProto::EncodeOpen(uint8_t *buf, string &to, string &from, string &gr,
                           size_t max_size) {
 
     if (open_doc_.get() ==  NULL) {
@@ -170,7 +172,8 @@ int XmppProto::EncodeOpen(uint8_t *buf, string &to, string &from,
     }
 
     SetTo(to, open_doc_.get()); 
-    SetFrom(from, open_doc_.get()); 
+    SetFrom(from, open_doc_.get());
+    SetGRType(gr, open_doc_.get());
 
     //Returns byte encoded in the doc
     std::stringstream ss;
@@ -323,6 +326,7 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(const string &ts,
         impl->ReadNode(ns);
         strm->to = XmppProto::GetTo(impl); 
         strm->from = XmppProto::GetFrom(impl); 
+        strm->gr = XmppProto::GetGRType(impl);
 
         ret = strm;
 
@@ -403,6 +407,15 @@ int XmppProto::SetFrom(string &from, XmlBase *doc) {
     return 0;
 }
 
+int XmppProto::SetGRType(string &gr, XmlBase *doc) {
+    if (!doc) return -1;
+
+    string ns(sXMPP_STREAM_O);
+    doc->ReadNode(ns);
+    doc->ModifyAttribute("graceful-restart", gr);
+    return 0;
+}
+
 const char *XmppProto::GetTo(XmlBase *doc) {
     if (!doc) return NULL;
 
@@ -429,6 +442,13 @@ const char *XmppProto::GetType(XmlBase *doc) {
 
     string tmp("type");
     return doc->ReadAttrib(tmp);
+}
+
+const char *XmppProto::GetGRType(XmlBase *doc) {
+    if (!doc) return NULL;
+
+    string tmp("graceful-restart");
+    return doc->ReadAttrib(tmp) ?: "false";
 }
 
 const char *XmppProto::GetAction(XmlBase *doc, const string &str) {

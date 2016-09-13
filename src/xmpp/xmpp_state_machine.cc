@@ -1366,36 +1366,63 @@ bool XmppStateMachine::ProcessStreamHeaderMessage(XmppSession *session,
     if (xmpp_server)
         endpoint = xmpp_server->FindConnectionEndpoint(connection_->ToString());
 
-    // If older endpoint is present and is still associated with XmppConnection,
-    // check if older connection is under graceful-restart.
-    if (endpoint && endpoint->connection()) {
-        if (connection_ != endpoint->connection()) {
-            XmppChannel *channel = endpoint->connection()->ChannelMux();
-
-            // If GR is not supported, then close all new connections until old
-            // one is completely deleted. Even if GR is supported, new 
-            // connection cannot be accepted until old one is fully cleaned up.
-            bool ready = channel->GetPeerState() == xmps::READY;
-            if (!xmpp_server->IsPeerCloseGraceful() || ready ||
-                    channel->IsCloseInProgress()) {
-
-                // Bring down old session if it is still in ESTABLISHED state.
-                // This is the scenario in which old session's TCP did not learn
-                // the session down event, possibly due to compute cold reboot.
-                // In that case, trigger closure (and possibly GR) process for
-                // the old session.
-                if (ready) {
-                    XmppStateMachine *sm =
-                        endpoint->connection()->state_machine();
-                    sm->Enqueue(xmsm::EvTcpClose(sm->session()));
-                }
-                Enqueue(xmsm::EvTcpClose(session));
-                return false;
-            }
-        }
+    // If there is no connection already associated with the end-point, process
+    // the incoming open message and move forward with the session establishment
+    if (!endpoint || !endpoint->connection() ||
+            connection_ == endpoint->connection()) {
+        return Enqueue(xmsm::EvXmppOpen(session, msg));
     }
 
-    // In all other cases, process the OpenMessage like it is normally done.
+    XmppChannel *channel = endpoint->connection()->ChannelMux();
+    XmppStateMachine *old_state_machine =
+        endpoint->connection()->state_machine();
+
+    // An existing connection is still associated with this end-point. This may
+    // be under closure, with/without GR. Handle each case which has different
+    // implications for the old and new connections correctly.
+
+    // If this restart is non-graceful, trigger non-graceful closure of the
+    // existing connection, if not already done so.
+    if (msg->gr != "true") {
+        if (!endpoint->connection()->non_graceful_close()) {
+            endpoint->connection()->set_non_graceful_close(true);
+            old_state_machine->Enqueue(xmsm::EvTcpClose(
+                old_state_machine->session()));
+        }
+
+        // Drop the new session until old one is deleted
+        Enqueue(xmsm::EvTcpClose(session));
+        return false;
+    }
+
+    // Bring down old session if it is still in ESTABLISHED state.
+    // This is the scenario in which old session's TCP did not learn
+    // the session down event, possibly due to compute cold reboot.
+    // In that case, trigger closure (and possibly GR) process for
+    // the old session.
+    if (channel->GetPeerState() == xmps::READY) {
+        old_state_machine->Enqueue(xmsm::EvTcpClose(
+            old_state_machine->session()));
+
+        // Drop the new session until old one is deleted or marked stale.
+        Enqueue(xmsm::EvTcpClose(session));
+        return false;
+    }
+
+    // If GR-Helper mode is no longer enabled in configuration or if previous
+    // closure is still in progress, drop the new connection.
+    if (!xmpp_server->IsPeerCloseGraceful() || channel->IsCloseInProgress()) {
+        Enqueue(xmsm::EvTcpClose(session));
+        return false;
+    }
+
+    // Now we reach for the classic GR case, in which existing session stale
+    // process is complete, (peer is in GR/LLGR timer wait state) and new
+    // session's open message has attribute "graceful_restart" set to true.
+    //
+    // In this case, we should process the open message, and later switch to
+    // the new connection and state machine, retaining the old XmppPeer,
+    // BgpXmppChannel, routes, etc.
     return Enqueue(xmsm::EvXmppOpen(session, msg));
 }
 

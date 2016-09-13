@@ -162,7 +162,11 @@ void VNController::XmppServerConnect() {
             xmpp_cfg->endpoint.port(port);
 
             // Create Xmpp Client
-            XmppClient *client = new XmppClient(agent_->event_manager(), xmpp_cfg);
+            XmppClient *client = new XmppClient(agent_->event_manager(),
+                                                xmpp_cfg);
+
+            // TODO: Set GracefulRestart if forwarding state was preserved
+            client->set_graceful_restart(false);
 
             XmppInit *xmpp = new XmppInit();
             xmpp->AddXmppChannelConfig(xmpp_cfg);

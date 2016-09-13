@@ -32,6 +32,7 @@
 #include "io/test/event_manager_test.h"
 #include "sandesh/sandesh.h"
 #include "sandesh/sandesh_server.h"
+#include "xmpp/xmpp_client.h"
 #include "xmpp/xmpp_connection.h"
 #include "xmpp/xmpp_factory.h"
 
@@ -815,6 +816,9 @@ void GracefulRestartTest::CreateAgents() {
             "agent" + boost::lexical_cast<string>(i) +
                 "@vnsw.contrailsystems.com",
             xmpp_server_->GetPort(), prefix.ip4_addr().to_string());
+
+        // Set GR support for the mock agents.
+        agent->client()->set_graceful_restart(true);
         agent->set_id(i);
         xmpp_agents_.push_back(agent);
         WaitForIdle();
