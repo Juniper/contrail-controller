@@ -49,13 +49,14 @@ public:
     class XmppMessage {
     public:
         explicit XmppMessage(XmppMessageType type) : 
-            type(type), from(""), to("") {
+            type(type), from(""), to(""), gr("") {
         }
         virtual ~XmppMessage(){ }
         XmppMessageType type;
         XmppStanzaErrorType error;
         std::string from;
         std::string to;
+        std::string gr;
         std::auto_ptr<XmlBase> dom;
 
         bool IsValidType(XmppMessageType type) const {
@@ -172,9 +173,11 @@ public:
 
     static XmppStanza::XmppMessage *Decode(const std::string &ts);
     static int EncodeStream(const XmppStreamMessage &str, std::string &to, 
-                            std::string &from, uint8_t *data, size_t size);
+                            std::string &from, uint8_t *data, size_t size,
+                            bool graceful_restart = "false");
     static int EncodeStream(const XmppMessage &str, uint8_t *data, size_t size);
-    static int EncodeMessage(const XmppChatMessage *, uint8_t *data, size_t size);
+    static int EncodeMessage(const XmppChatMessage *, uint8_t *data,
+                             size_t size);
     static int EncodeMessage(XmlBase *, uint8_t *data, size_t size);
     static int EncodePresence(uint8_t *data, size_t size);
     static int EncodeIq(const XmppMessageIq *iq, XmlBase *doc, 
@@ -182,7 +185,7 @@ public:
 
 private:
     static int EncodeOpen(uint8_t *data, std::string &to, std::string &from,
-                          size_t size);
+                          std::string &gr, size_t size);
     static int EncodeOpenResp(uint8_t *data, std::string &to, std::string &from,
                               size_t size);
     static int EncodeFeatureTlsRequest(uint8_t *data);
@@ -191,9 +194,11 @@ private:
     static int EncodeWhitespace(uint8_t *data);
     static int SetTo(std::string &to, XmlBase *doc);
     static int SetFrom(std::string &from, XmlBase *doc);
+    static int SetGRType(std::string &gr, XmlBase *doc);
 
     static const char *GetId(XmlBase *doc);
     static const char *GetType(XmlBase *doc);
+    static const char *GetGRType(XmlBase *doc);
     static const char *GetTo(XmlBase *doc);
     static const char *GetFrom(XmlBase *doc);
     static const char *GetAction(XmlBase *doc, const std::string &str);

@@ -258,8 +258,13 @@ bool XmppConnection::SendOpen(XmppSession *session) {
     XmppProto::XmppStanza::XmppStreamMessage openstream;
     openstream.strmtype = XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER;
     uint8_t data[256];
+
+    // Get actual GR forwarding state for clients.
+    bool gr = is_client_ && static_cast<XmppClientConnection *>(this)->
+                                IsRestartGraceful();
+
     int len = XmppProto::EncodeStream(openstream, to_, from_, data, 
-                                      sizeof(data));
+                                      sizeof(data), gr);
     if (len <= 0) {
         inc_open_fail();
         return false;
@@ -865,11 +870,19 @@ void XmppClientConnection::RetryDelete() {
     deleter()->RetryDelete();
 }
 
+bool XmppClientConnection::IsRestartGraceful() const {
+    return server()->graceful_restart();
+}
+
 LifetimeManager *XmppClientConnection::lifetime_manager() {
     return server()->lifetime_manager();
 }
 
 XmppClient *XmppClientConnection::server() {
+    return static_cast<XmppClient *>(server_);
+}
+
+XmppClient *XmppClientConnection::server() const {
     return static_cast<XmppClient *>(server_);
 }
 

@@ -32,7 +32,7 @@ using namespace std;
 #define XMPP_CONTROL_SERV   "bgp.contrail.com"
 #define SUB_ADDR2 "agent@vnsw.contrailsystems.comagentagneagneagneagneagneagneagneagneagneagneagneagneagneagneagneagneagneagneagneagneagneagnettttttttttttttttttttttagenagenagenagenagenttttt"
 #define sXMPP_STREAM_OPEN_BAD     "<?xml version='1.0'?><extra></extra>><stream:stream from='dummycl' to='dummyserver' version='1.0' xml:lang='en' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams'/>"
-#define sXMPP_STREAM_OPEN_GOOD    "<?xml version='1.0'?><stream:stream from='dummycl' to='dummyserver' version='1.0' xml:lang='en' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams'/>"
+#define sXMPP_STREAM_OPEN_GOOD    "<?xml version='1.0'?><stream:stream from='dummycl' to='dummyserver' gr='false' version='1.0' xml:lang='en' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams'/>"
 
 class XmppMockClientConnection;
 class XmppMockClientConnection : public XmppClientConnection {
@@ -77,6 +77,7 @@ public:
         } else {
             open_doc->ModifyAttribute("from" , GetControllerHostName());
         }
+        open_doc->ModifyAttribute("gr" , "true");
 
         uint8_t *buf = data;
         int len = 0;
