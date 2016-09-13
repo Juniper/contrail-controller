@@ -513,12 +513,23 @@ static void BuildInstanceIp(Agent *agent, VmInterfaceConfigData *data,
         ecmp = true;
     }
 
+    IpAddress tracking_ip = Ip4Address(0);
+    if (ip->secondary() || ip->service_instance_ip()) {
+        tracking_ip = IpAddress::from_string(
+                ip->secondary_ip_tracking_ip().ip_prefix, err);
+        if (err.value() != 0) {
+            tracking_ip = Ip4Address(0);
+        }
+    }
+
     if (addr.is_v4()) {
         data->instance_ipv4_list_.list_.insert(
-                VmInterface::InstanceIp(addr, ecmp, is_primary));
+                VmInterface::InstanceIp(addr, ecmp, is_primary,
+                                        tracking_ip));
     } else {
         data->instance_ipv6_list_.list_.insert(
-                VmInterface::InstanceIp(addr, ecmp, is_primary));
+                VmInterface::InstanceIp(addr, ecmp, is_primary,
+                                        tracking_ip));
     }
 }
 
@@ -2029,7 +2040,8 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
     if (nova_ip_addr_ != Ip4Address(0) &&
         data->vrf_name_ != Agent::NullString()) {
         new_ipv4_list.insert(
-            VmInterface::InstanceIp(nova_ip_addr_, data->ecmp_, true));
+            VmInterface::InstanceIp(nova_ip_addr_, data->ecmp_, true,
+                                    Ip4Address(0)));
     }
     if (AuditList<InstanceIpList, InstanceIpSet::iterator>
         (instance_ipv4_list_, old_ipv4_list.begin(), old_ipv4_list.end(),
@@ -2042,7 +2054,8 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
     if (nova_ip6_addr_ != Ip6Address() &&
             data->vrf_name_ != Agent::NullString()) {
         new_ipv6_list.insert(
-            VmInterface::InstanceIp(nova_ip6_addr_, data->ecmp6_, true));
+            VmInterface::InstanceIp(nova_ip6_addr_, data->ecmp6_, true,
+                                    Ip4Address(0)));
     }
 
     if (AuditList<InstanceIpList, InstanceIpSet::iterator>
@@ -3676,20 +3689,22 @@ bool VmInterface::GetIpamDhcpOptions(
 /////////////////////////////////////////////////////////////////////////////
 VmInterface::InstanceIp::InstanceIp() :
     ListEntry(), ip_(), ecmp_(false), l2_installed_(false), old_ecmp_(false),
-    is_primary_(false) {
+    is_primary_(false),  tracking_ip_() {
 }
 
 VmInterface::InstanceIp::InstanceIp(const InstanceIp &rhs) :
     ListEntry(rhs.installed_, rhs.del_pending_),
     ip_(rhs.ip_), ecmp_(rhs.ecmp_),
     l2_installed_(rhs.l2_installed_), old_ecmp_(rhs.old_ecmp_),
-    is_primary_(rhs.is_primary_) {
+    is_primary_(rhs.is_primary_), tracking_ip_(rhs.tracking_ip_) {
 }
 
 VmInterface::InstanceIp::InstanceIp(const IpAddress &addr,
-                                    bool ecmp, bool is_primary) :
+                                    bool ecmp, bool is_primary,
+                                    const IpAddress &tracking_ip) :
     ListEntry(), ip_(addr), ecmp_(ecmp),
-    l2_installed_(false), old_ecmp_(false), is_primary_(is_primary) {
+    l2_installed_(false), old_ecmp_(false), is_primary_(is_primary),
+    tracking_ip_(tracking_ip) {
 }
 
 VmInterface::InstanceIp::~InstanceIp() {
@@ -3710,6 +3725,11 @@ void VmInterface::InstanceIp::L3Activate(VmInterface *interface,
         force_update = true;
         old_ecmp_ = ecmp_;
     }
+
+    if (old_tracking_ip_ != tracking_ip_) {
+        force_update = true;
+    }
+
     // Add route if not installed or if force requested
     if (installed_ && force_update == false) {
         return;
@@ -3718,12 +3738,12 @@ void VmInterface::InstanceIp::L3Activate(VmInterface *interface,
     if (ip_.is_v4()) {
         interface->AddRoute(interface->vrf()->GetName(), ip_.to_v4(), 32,
                             interface->vn()->GetName(), false,
-                            ecmp_, interface->GetServiceIp(ip_), Ip4Address(0),
+                            ecmp_, interface->GetServiceIp(ip_), tracking_ip_,
                             CommunityList(), interface->label());
     } else if (ip_.is_v6()) {
         interface->AddRoute(interface->vrf()->GetName(), ip_.to_v6(), 128,
                             interface->vn()->GetName(), false,
-                            ecmp_, interface->GetServiceIp(ip_), Ip6Address(),
+                            ecmp_, interface->GetServiceIp(ip_), tracking_ip_,
                             CommunityList(), interface->label());
     }
     installed_ = true;
@@ -3762,13 +3782,17 @@ void VmInterface::InstanceIp::L2Activate(VmInterface *interface,
         ipv6 = ip_.to_v6();
     }
 
+    if (tracking_ip_ != old_tracking_ip_) {
+        force_update = true;
+    }
+
     if (l2_installed_ == false || force_update) {
         interface->UpdateL2InterfaceRoute(false, force_update,
                                interface->vrf(), ipv4, ipv6,
                                old_ethernet_tag, false,
                                false, ipv4, ipv6,
                                interface->vm_mac(),
-                               Ip4Address(0));
+                               tracking_ip_);
         l2_installed_ = true;
     }
 }
@@ -3824,6 +3848,10 @@ void VmInterface::InstanceIpList::Update(const InstanceIp *lhs,
     if (lhs->ecmp_ != rhs->ecmp_) {
         lhs->ecmp_ = rhs->ecmp_;
     }
+
+    lhs->old_tracking_ip_ = lhs->tracking_ip_;
+    lhs->tracking_ip_ = rhs->tracking_ip_;
+
     lhs->set_del_pending(false);
 }
 

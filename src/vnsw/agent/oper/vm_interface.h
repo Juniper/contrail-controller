@@ -341,7 +341,8 @@ public:
     struct InstanceIp : ListEntry {
         InstanceIp();
         InstanceIp(const InstanceIp &rhs);
-        InstanceIp(const IpAddress &ip, bool ecmp, bool is_primary);
+        InstanceIp(const IpAddress &ip, bool ecmp, bool is_primary,
+                   const IpAddress &tracking_ip);
         ~InstanceIp();
         bool operator == (const InstanceIp &rhs) const;
         bool operator() (const InstanceIp &lhs,
@@ -369,6 +370,8 @@ public:
         mutable bool l2_installed_;
         mutable bool old_ecmp_;
         mutable bool is_primary_;
+        mutable IpAddress old_tracking_ip_;
+        mutable IpAddress tracking_ip_;
     };
     typedef std::set<InstanceIp, InstanceIp> InstanceIpSet;
 

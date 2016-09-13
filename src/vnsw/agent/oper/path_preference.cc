@@ -259,6 +259,13 @@ PathPreferenceSM::~PathPreferenceSM() {
         timer_->Cancel();
         TimerManager::DeleteTimer(timer_);
     }
+
+    PathDependencyList::iterator iter = dependent_routes_.begin();
+    for (;iter != dependent_routes_.end(); iter++) {
+        PathPreferenceSM *path_sm = iter.operator->();
+        path_sm->process_event(EvWaitForTraffic());
+    }
+
     timer_ = NULL;
 }
 
