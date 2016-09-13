@@ -16,15 +16,16 @@
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_membership.h"
-#include "bgp/bgp_peer_close.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_update_sender.h"
+#include "bgp/bgp_xmpp_peer_close.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/inet6/inet6_table.h"
 #include "bgp/extended-community/load_balance.h"
 #include "bgp/extended-community/mac_mobility.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/evpn/evpn_table.h"
+#include "bgp/peer_close_manager.h"
 #include "bgp/peer_stats.h"
 #include "bgp/security_group/security_group.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
@@ -132,143 +133,6 @@ BgpXmppChannel::ChannelStats::ChannelStats()
       table_unsubscribe(0),
       table_unsubscribe_complete(0) {
 }
-
-class BgpXmppChannel::PeerClose : public IPeerClose {
-public:
-
-    explicit PeerClose(BgpXmppChannel *channel)
-       : parent_(channel),
-         manager_(BgpObjectFactory::Create<PeerCloseManager>(this)) {
-    }
-    virtual ~PeerClose() { }
-    virtual bool IsReady() const { return parent_->Peer()->IsReady(); }
-    virtual IPeer *peer() const { return parent_->Peer(); }
-
-    virtual string ToString() const {
-        return parent_ ? parent_->ToString() : "";
-    }
-
-    virtual PeerCloseManager *close_manager() {
-        return manager_.get();
-    }
-
-    virtual int GetGracefulRestartTime() const {
-        if (!parent_)
-            return 0;
-        return parent_->manager()->xmpp_server()->GetGracefulRestartTime();
-    }
-
-    virtual int GetLongLivedGracefulRestartTime() const {
-        if (!parent_)
-            return 0;
-        return parent_->manager()->xmpp_server()->
-                                       GetLongLivedGracefulRestartTime();
-    }
-
-    // Mark all current subscription as 'stale'
-    // Concurrency: Protected with a mutex from peer close manager
-    virtual void GracefulRestartStale() {
-        if (parent_)
-            parent_->StaleCurrentSubscriptions();
-    }
-
-    // Mark all current subscriptions as 'llgr_stale'
-    // Concurrency: Protected with a mutex from peer close manager
-    virtual void LongLivedGracefulRestartStale() {
-        if (parent_)
-            parent_->LlgrStaleCurrentSubscriptions();
-    }
-
-    // Delete all current subscriptions which are still stale.
-    // Concurrency: Protected with a mutex from peer close manager
-    virtual void GracefulRestartSweep() {
-        if (parent_)
-            parent_->SweepCurrentSubscriptions();
-    }
-
-    virtual bool IsCloseGraceful() const {
-        if (!parent_ || !parent_->channel_)
-            return false;
-
-        XmppConnection *connection =
-            const_cast<XmppConnection *>(parent_->channel_->connection());
-
-        if (!connection || connection->IsActiveChannel())
-            return false;
-
-        return parent_->manager()->xmpp_server()->IsPeerCloseGraceful();
-    }
-
-    virtual bool IsCloseLongLivedGraceful() const {
-        return IsCloseGraceful() && GetLongLivedGracefulRestartTime() != 0;
-    }
-
-    // EoR from xmpp is afi independent at the moment.
-    virtual void GetGracefulRestartFamilies(Families *families) const {
-        families->insert(Address::UNSPEC);
-    }
-
-    virtual void ReceiveEndOfRIB(Address::Family family) {
-        parent_->ReceiveEndOfRIB(family);
-    }
-
-    // Process any pending subscriptions if close manager is now no longer
-    // using membership manager.
-    virtual void MembershipRequestCallbackComplete() {
-        CHECK_CONCURRENCY("xmpp::StateMachine");
-        if (parent_) {
-            assert(parent_->membership_unavailable());
-            parent_->ProcessPendingSubscriptions();
-        }
-    }
-
-    virtual const char *GetTaskName() const { return "xmpp::StateMachine"; };
-    virtual int GetTaskInstance() const {
-        return parent_->channel()->GetTaskInstance();
-    }
-
-    virtual void CustomClose() {
-        if (!parent_)
-            return;
-
-        parent_->rtarget_manager_->Close();
-        parent_->routing_instances_.clear();
-    }
-
-    virtual void CloseComplete() {
-        if (!parent_)
-            return;
-
-        parent_->set_peer_closed(false);
-
-        // Indicate to Channel that GR Closure is now complete
-        parent_->channel_->CloseComplete();
-    }
-
-    virtual void Delete() {
-        if (!parent_)
-            return;
-        parent_->delete_in_progress_ = true;
-        parent_->set_peer_closed(true);
-        parent_->manager_->increment_deleting_count();
-        parent_->manager_->Enqueue(parent_);
-        parent_ = NULL;
-    }
-
-    virtual void Close(bool non_graceful) {
-        if (parent_) {
-            assert(parent_->peer_deleted());
-            assert(parent_->channel_->IsCloseInProgress());
-            if (!IsCloseGraceful())
-                non_graceful = true;
-            manager_->Close(non_graceful);
-        }
-    }
-
-private:
-    BgpXmppChannel *parent_;
-    auto_ptr<PeerCloseManager> manager_;
-};
 
 class BgpXmppChannel::PeerStats : public IPeerDebugStats {
 public:
@@ -421,9 +285,9 @@ public:
 
     virtual bool MembershipPathCallback(DBTablePartBase *tpart, BgpRoute *rt,
                                         BgpPath *path) {
-        PeerCloseManager *close_manager = peer_close()->close_manager();
-        if (close_manager->IsMembershipInUse())
-            return close_manager->MembershipPathCallback(tpart, rt, path);
+        if (parent_->close_manager_->IsMembershipInUse())
+            return parent_->close_manager_->MembershipPathCallback(tpart, rt,
+                                                                   path);
 
         BgpTable *table = static_cast<BgpTable *>(tpart->parent());
         return table->DeletePath(tpart, rt, path);
@@ -509,6 +373,9 @@ public:
     }
     virtual int GetPrimaryPathCount() const {
          return primary_path_count_;
+    }
+    virtual bool IsInGRTimerWaitState() const {
+        return parent_->close_manager_->IsInGRTimerWaitState();
     }
 
     void MembershipRequestCallback(BgpTable *table) {
@@ -618,7 +485,9 @@ BgpXmppChannel::BgpXmppChannel(XmppChannel *channel,
       rtarget_manager_(new BgpXmppRTargetManager(this)),
       bgp_server_(bgp_server),
       peer_(new XmppPeer(bgp_server, this)),
-      peer_close_(new PeerClose(this)),
+      peer_close_(new BgpXmppPeerClose(this)),
+      close_manager_(BgpObjectFactory::Create<PeerCloseManager>(
+                         peer_close_.get())),
       peer_stats_(new PeerStats(this)),
       bgp_policy_(peer_->PeerType(), RibExportPolicy::XMPP, -1, 0),
       manager_(manager),
@@ -650,6 +519,7 @@ BgpXmppChannel::BgpXmppChannel(XmppChannel *channel,
                 TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"),
                 channel->GetTaskInstance());
     }
+    peer_close_->SetManager(close_manager_.get());
     channel_->RegisterReceive(peer_id_,
          boost::bind(&BgpXmppChannel::ReceiveUpdate, this, _1));
     BGP_LOG_PEER(Event, peer_.get(), SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
@@ -667,7 +537,7 @@ BgpXmppChannel::~BgpXmppChannel() {
         manager_->decrement_deleting_count();
     STLDeleteElements(&defer_q_);
     assert(peer_deleted());
-    assert(!peer_->peer_close()->close_manager()->IsMembershipInUse());
+    assert(!close_manager_->IsMembershipInUse());
     assert(routingtable_membership_request_map_.empty());
     TimerManager::DeleteTimer(eor_receive_timer_);
     TimerManager::DeleteTimer(eor_send_timer_);
@@ -1810,7 +1680,7 @@ void BgpXmppChannel::UnregisterTable(int line, BgpTable *table) {
 // maintained with the BgpXmppChannel object.
 void BgpXmppChannel::ProcessPendingSubscriptions() {
     membership_unavailable_ = false;
-    assert(!peer_close_->close_manager()->IsMembershipInUse());
+    assert(!close_manager_->IsMembershipInUse());
     BOOST_FOREACH(RoutingTableMembershipRequestMap::value_type &i,
                   routingtable_membership_request_map_) {
         BgpTable *table = static_cast<BgpTable *>(
@@ -1830,9 +1700,9 @@ size_t BgpXmppChannel::membership_requests() const {
 }
 
 bool BgpXmppChannel::MembershipResponseHandler(string table_name) {
-    if (peer_close_->close_manager()->IsMembershipInUse()) {
+    if (close_manager_->IsMembershipInUse()) {
         membership_unavailable_ = true;
-        Peer()->peer_close()->close_manager()->MembershipRequestCallback();
+        close_manager_->MembershipRequestCallback();
         return true;
     }
 
@@ -1878,8 +1748,8 @@ bool BgpXmppChannel::MembershipResponseHandler(string table_name) {
     RestEndOfRibState();
 
     // If Close manager is waiting to use membership, try now.
-    if (peer_close_->close_manager()->IsMembershipInWait())
-        peer_close_->close_manager()->MembershipRequest();
+    if (close_manager_->IsMembershipInWait())
+        close_manager_->MembershipRequest();
 
     return true;
 }
@@ -1940,7 +1810,7 @@ void BgpXmppChannel::MembershipRequestCallback(BgpTable *table) {
 }
 
 void BgpXmppChannel::FillCloseInfo(BgpNeighborResp *resp) const {
-    peer_close_->close_manager()->FillCloseInfo(resp);
+    close_manager_->FillCloseInfo(resp);
 }
 
 void BgpXmppChannel::FillInstanceMembershipInfo(BgpNeighborResp *resp) const {
@@ -2229,7 +2099,7 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
         if (add_change) {
             if (routing_instances_.find(rt_instance) !=
                 routing_instances_.end()) {
-                if (!peer_close_->close_manager()->IsCloseInProgress()) {
+                if (!close_manager_->IsCloseInProgress()) {
                     BGP_LOG_PEER_WARNING(Membership, Peer(),
                                  BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
                                  "Duplicate subscribe for routing instance " <<
@@ -2315,7 +2185,7 @@ void BgpXmppChannel::ClearEndOfRibState() {
 
 void BgpXmppChannel::ReceiveEndOfRIB(Address::Family family) {
     eor_receive_timer_->Cancel();
-    peer_close_->close_manager()->ProcessEORMarkerReceived(family);
+    close_manager_->ProcessEORMarkerReceived(family);
 }
 
 void BgpXmppChannel::EndOfRibTimerErrorHandler(string error_name,
