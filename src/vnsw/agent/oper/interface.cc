@@ -987,23 +987,11 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         data.set_allowed_address_pair_list(aap_list);
 
         std::vector<std::string> fixed_ip4_list;
-        VmInterface::InstanceIpSet::iterator fixed_ip4_it =
-            vintf->instance_ipv4_list().list_.begin();
-        while (fixed_ip4_it != vintf->instance_ipv4_list().list_.end()) {
-            const VmInterface::InstanceIp &rt = *fixed_ip4_it;
-            fixed_ip4_it++;
-            fixed_ip4_list.push_back(rt.ip_.to_string());
-        }
+        vintf->BuildIpStringList(Address::INET, &fixed_ip4_list);
         data.set_fixed_ip4_list(fixed_ip4_list);
 
         std::vector<std::string> fixed_ip6_list;
-        VmInterface::InstanceIpSet::iterator fixed_ip6_it =
-            vintf->instance_ipv6_list().list_.begin();
-        while (fixed_ip6_it != vintf->instance_ipv6_list().list_.end()) {
-            const VmInterface::InstanceIp &rt = *fixed_ip6_it;
-            fixed_ip6_it++;
-            fixed_ip6_list.push_back(rt.ip_.to_string());
-        }
+        vintf->BuildIpStringList(Address::INET6, &fixed_ip6_list);
         data.set_fixed_ip6_list(fixed_ip6_list);
 
         std::vector<std::string> fat_flow_list;
