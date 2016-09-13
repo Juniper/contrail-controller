@@ -1538,7 +1538,13 @@ bool BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
     }
     sort(negotiated_families_.begin(), negotiated_families_.end());
     peer_info.set_negotiated_families(negotiated_families_);
-    return peer_close_->SetGRCapabilities(&peer_info);
+
+    // Process GR capability and close non-gracefully if GR needs be aborted.
+    if (!peer_close_->SetGRCapabilities(&peer_info)) {
+        Close(true);
+        return false;
+    }
+    return true;
 }
 
 // Reset capabilities stored inside peer structure.

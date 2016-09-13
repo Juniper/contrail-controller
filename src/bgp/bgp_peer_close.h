@@ -13,7 +13,6 @@
 
 class BgpNeighborResp;
 class BgpPeerInfoData;
-class BgpPeerInfoData;
 class PeerCloseManager;
 
 class BgpPeerClose : public IPeerClose {
