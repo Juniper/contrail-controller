@@ -22,9 +22,9 @@ import ConfigParser
 def parse_contrail_dns_conf():
 
     named_defaults = {
-        'named_config_file': 'DEFAULT....contrail-named.conf',
+        'named_config_file': 'contrail-named.conf',
         'named_config_directory': '/etc/contrail/dns',
-        'named_log_file': 'DEFAULT.../var/log/contrail/contrail-named.log',
+        'named_log_file': '/var/log/contrail/contrail-named.log',
         'rndc_config_file': 'contrail-rndc.conf',
         'rndc_secret': 'xvysmOR8lnUQRBcunkC6vg==',
         'named_max_cache_size': '32M',
