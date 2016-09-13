@@ -2807,6 +2807,15 @@ class VncApiServer(object):
 
         if int(self._args.worker_id) == 0:
             self._db_conn.db_resync()
+
+        # make default ipam available across tenants for backward compatability
+        obj_type = 'network_ipam'
+        fq_name = ['default-domain', 'default-project', 'default-network-ipam']
+        obj_uuid = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
+        (ok, obj_dict) = self._db_conn.dbe_read(obj_type, {'uuid':obj_uuid},
+                              obj_fields=['perms2'])
+        obj_dict['perms2']['global_access'] = cfgm_common.PERMS_RX
+        self._db_conn.dbe_update(obj_type, {'uuid': obj_uuid}, obj_dict)
     # end _db_init_entries
 
     # generate default rbac group rule
