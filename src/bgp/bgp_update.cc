@@ -7,9 +7,6 @@
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_table.h"
 
-// Automatically initialized to 0 in C++03 mode.
-tbb::atomic<uint64_t> RouteUpdate::global_tstamp_;
-
 //
 // Find the UpdateInfo element with matching RibOutAttr.
 //
@@ -414,13 +411,6 @@ UpdateList *RouteUpdate::GetUpdateList(RibOut *ribout) {
 }
 
 //
-// Update the timestamp in this RouteUpdate.
-//
-void RouteUpdate::set_tstamp_now() {
-    tstamp_ = global_tstamp_.fetch_and_increment();
-}
-
-//
 // Set the given AdvertiseSList in the UpdateList to the given value.
 //
 // Should be used only for testing.
@@ -495,8 +485,7 @@ RouteUpdate *UpdateList::FindUpdate(int queue_id) {
 // on it. Takes care of removing the linkage between the UpdateList and the
 // last RouteUpdate and moves history from the UpdateList to the RouteUpdate.
 //
-// Note that the caller is responsible for deleting the UpdateList since it
-// holds a lock on the mutex in the UpdateList.
+// Note that the caller is responsible for deleting the UpdateList.
 //
 // Returns the last/only RouteUpdate if successful, NULL otherwise.
 //

@@ -80,9 +80,6 @@ void RibOutUpdates::Enqueue(DBEntryBase *db_entry, RouteUpdate *rt_update) {
 // that the UpdateMarker could specify a single peer if we are called from
 // peer dequeue.
 //
-// Assumes that the caller has a lock on the RouteUpdate i.e. the RouteUpdate
-// has been obtained by dereferencing a RouteUpdatePtr.
-//
 // Return false if all the peers in the marker get blocked.  In any case, the
 // blocked parameter is populated with the set of peers that are send blocked.
 //
@@ -471,8 +468,6 @@ void RibOutUpdates::UpdateFlush(const RibPeerSet &dst, RibPeerSet *blocked) {
 }
 
 //
-// Concurrency: caller must own update lock.
-//
 // Take the AdvertisedInfo history in the RouteUpdate and move it to a new
 // RouteState. Go through the monitor to associate the new RouteState as the
 // listener state for the Route.
@@ -487,8 +482,6 @@ void RibOutUpdates::StoreHistory(RouteUpdate *rt_update) {
 }
 
 //
-// Concurrency: caller must own update lock.
-//
 // Go through the monitor to clear the listener state for the underlying Route
 // of the RouteUpdate.
 //
@@ -499,8 +492,6 @@ void RibOutUpdates::ClearState(RouteUpdate *rt_update) {
     monitor_->ClearEntryState(route);
 }
 
-//
-// Concurrency: caller must own entry lock.
 //
 // Called when the RouteUpdate encapsulated by the RouteUpdatePtr has no more
 // UpdateInfo elements. Releases ownership of the RouteUpdate and deletes the
@@ -546,8 +537,6 @@ void RibOutUpdates::ClearUpdate(RouteUpdatePtr *update) {
     }
 }
 
-//
-// Concurrency: caller must own update lock
 //
 // Clear the advertised bits specified by isect from the target RibPeerSet in
 // the UpdateInfo.  If the target is now empty, remove the UpdateInfo from the

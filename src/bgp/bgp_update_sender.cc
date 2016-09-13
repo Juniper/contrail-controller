@@ -7,6 +7,7 @@
 #include <boost/bind.hpp>
 #include <boost/foreach.hpp>
 
+#include <map>
 #include <string>
 
 #include "base/task_annotations.h"
@@ -544,7 +545,6 @@ void BgpSenderPartition::MaybeStartWorker() {
 auto_ptr<BgpSenderPartition::WorkBase> BgpSenderPartition::WorkDequeue() {
     CHECK_CONCURRENCY("bgp::SendUpdate");
 
-    tbb::mutex::scoped_lock lock(mutex_);
     auto_ptr<WorkBase> wentry;
     if (work_queue_.empty()) {
         worker_task_ = NULL;
@@ -563,7 +563,6 @@ void BgpSenderPartition::WorkEnqueue(WorkBase *wentry) {
     CHECK_CONCURRENCY("db::DBTable", "bgp::SendUpdate", "bgp::SendReadyTask",
         "bgp::PeerMembership");
 
-    tbb::mutex::scoped_lock lock(mutex_);
     work_queue_.push_back(wentry);
     MaybeStartWorker();
 }
@@ -573,7 +572,6 @@ void BgpSenderPartition::WorkEnqueue(WorkBase *wentry) {
 // For unit testing.
 //
 void BgpSenderPartition::set_disabled(bool disabled) {
-    tbb::mutex::scoped_lock lock(mutex_);
     disabled_ = disabled;
     MaybeStartWorker();
 }
@@ -595,7 +593,6 @@ void BgpSenderPartition::WorkPeerEnqueue(IPeerUpdate *peer) {
 void BgpSenderPartition::WorkPeerInvalidate(IPeerUpdate *peer) {
     CHECK_CONCURRENCY("bgp::PeerMembership");
 
-    tbb::mutex::scoped_lock lock(mutex_);
     for (WorkQueue::iterator it = work_queue_.begin();
          it != work_queue_.end(); ++it) {
         WorkBase *wentry = it.operator->();
@@ -625,7 +622,6 @@ void BgpSenderPartition::WorkRibOutEnqueue(RibOut *ribout, int queue_id) {
 void BgpSenderPartition::WorkRibOutInvalidate(RibOut *ribout) {
     CHECK_CONCURRENCY("bgp::PeerMembership");
 
-    tbb::mutex::scoped_lock lock(mutex_);
     for (WorkQueue::iterator it = work_queue_.begin();
          it != work_queue_.end(); ++it) {
         WorkBase *wentry = it.operator->();

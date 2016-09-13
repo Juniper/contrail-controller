@@ -6,12 +6,8 @@
 #define SRC_BGP_BGP_UPDATE_MONITOR_H_
 
 #include <boost/function.hpp>
-#include <tbb/mutex.h>
 
 #include <algorithm>
-#ifndef _LIBCPP_VERSION
-#include <tbb/compat/condition_variable>
-#endif
 #include <vector>
 
 #include "base/util.h"
@@ -46,38 +42,17 @@ class UpdateQueue;
 class RouteUpdatePtr {
 public:
     struct Proxy {
-        Proxy()
-            : entry_mutexp(NULL),
-              rt_update(NULL),
-              monitor_mutexp(NULL),
-              cond_var(NULL) {
+        Proxy() : rt_update(NULL) {
         }
-        tbb::mutex *entry_mutexp;
         RouteUpdate *rt_update;
-        tbb::mutex *monitor_mutexp;
-        tbb::interface5::condition_variable *cond_var;
     };
-    RouteUpdatePtr()
-        : entry_mutexp_(NULL),
-          rt_update_(NULL),
-          monitor_mutexp_(NULL),
-          cond_var_(NULL) {
+    RouteUpdatePtr() : rt_update_(NULL) {
     }
-    RouteUpdatePtr(tbb::mutex *entry_mutexp, RouteUpdate *rt_update,
-                   tbb::mutex *monitor_mutexp,
-                   tbb::interface5::condition_variable *cond_var);
-    RouteUpdatePtr(RouteUpdatePtr &rhs)
-        : entry_mutexp_(NULL),
-          rt_update_(NULL),
-          monitor_mutexp_(NULL),
-          cond_var_(NULL) {
+    RouteUpdatePtr(RouteUpdate *rt_update);
+    RouteUpdatePtr(RouteUpdatePtr &rhs) : rt_update_(NULL) {
         swap(rhs);
     }
-    RouteUpdatePtr(Proxy rhs)
-        : entry_mutexp_(rhs.entry_mutexp),
-          rt_update_(rhs.rt_update),
-          monitor_mutexp_(rhs.monitor_mutexp),
-          cond_var_(rhs.cond_var) {
+    RouteUpdatePtr(Proxy rhs) : rt_update_(rhs.rt_update) {
     }
     ~RouteUpdatePtr();
 
@@ -103,51 +78,32 @@ public:
     }
 
     void swap(RouteUpdatePtr &rhs) {
-        std::swap(entry_mutexp_, rhs.entry_mutexp_);
         std::swap(rt_update_, rhs.rt_update_);
-        std::swap(monitor_mutexp_, rhs.monitor_mutexp_);
-        std::swap(cond_var_, rhs.cond_var_);
     }
 
     operator Proxy() {
         Proxy proxy;
-        std::swap(proxy.entry_mutexp, entry_mutexp_);
         std::swap(proxy.rt_update, rt_update_);
-        std::swap(proxy.monitor_mutexp, monitor_mutexp_);
-        std::swap(proxy.cond_var, cond_var_);
         return proxy;
     }
 
 private:
-    tbb::mutex *entry_mutexp_;
     RouteUpdate *rt_update_;
-    tbb::mutex *monitor_mutexp_;
-    tbb::interface5::condition_variable *cond_var_;
 };
 
 //
-// This class implements the concurrency interface between the export module
-// which generates updates and the update dequeue process which consumes them.
-// Export processing runs under multiple table shards; update dequeue runs
-// under the bgp::SendUpdate task.
-//
-// The goal of this class is to ensure that both ends of the interface (export
-// and dequeue) always see entries in a consistent state.
-//
-// The export module workflow is:
-//    1) Access DBEntry state.
-//    2) Try to acquire lock on entry.
-//    3) Modify queue.
-//
-// The dequeue workflow is:
-//    1) Access queue
-//    2) Obtain lock on entry
-//    3) Modify queue and DBEntry state.
+// This implements the interface between the export module which generates
+// updates (using the db::DBTable Task) and the update sender module which
+// consumes them (using the bgp::SendUpdate Task).  Both export processing
+// and update sender run concurrently under multiple table shards.
+// TaskPolicy configuration ensures that they don't run in parallel for the
+// same same shard.
 //
 class RibUpdateMonitor {
 public:
     typedef boost::function<bool(const RouteUpdate *)> UpdateCmp;
     typedef std::vector<UpdateQueue *> QueueVec;
+
     explicit RibUpdateMonitor(RibOut *ribout, QueueVec *queue_vec);
 
     // Used by export module to obtain exclusive access to the DB state.
@@ -168,7 +124,9 @@ public:
                                        RibPeerSet *mscheduled);
 
     // Used by the export module to enqueue/dequeue updates.
-    bool EnqueueUpdate(DBEntryBase *db_entry, RouteUpdate *rt_update);
+    bool EnqueueUpdate(DBEntryBase *db_entry,
+                       RouteUpdate *rt_update,
+                       UpdateList *uplist = NULL);
     void DequeueUpdate(RouteUpdate *rt_update);
 
 
@@ -184,7 +142,7 @@ public:
     RouteUpdatePtr GetNextUpdate(int queue_id, UpdateEntry *upentry);
 
     // Used by the update dequeue process to retrieve the next entry in the
-    // queue. If this is an update, it returns pointer and an associated lock.
+    // queue. If this is an update, it returns the pointer.
     RouteUpdatePtr GetNextEntry(int queue_id, UpdateEntry *upentry,
                                 UpdateEntry **next_upentry_p);
 
@@ -196,21 +154,12 @@ public:
     void ClearEntryState(DBEntryBase *db_entry);
 
 private:
-    // Retrieve that mutex associated with the route state.
-    tbb::mutex *DBStateMutex(RouteUpdate *rt_update);
-
     // Helper functions for GetRouteStateAndDequeue
     DBState *GetRouteUpdateAndDequeue(DBEntryBase *db_entry,
                                       RouteUpdate *rt_update,
                                       UpdateCmp cmp, bool *duplicate);
     DBState *GetUpdateListAndDequeue(DBEntryBase *db_entry,
                                      UpdateList *uplist);
-
-    // Internal versions of EnqueueUpdate and DequeueUpdate.
-    bool EnqueueUpdateUnlocked(DBEntryBase *db_entry,
-                               RouteUpdate *rt_update,
-                               UpdateList *uplist = NULL);
-    void DequeueUpdateUnlocked(RouteUpdate *rt_update);
 
     // Helper functions for MergeUpdate
     bool RouteStateMergeUpdate(DBEntryBase *db_entry,
@@ -235,10 +184,9 @@ private:
     bool UpdateListClearPeerSet(DBEntryBase *db_entry,
             UpdateList *uplist, const RibPeerSet &mleave);
 
-    tbb::mutex mutex_;      // consistency between queue and entry lock.
-    tbb::interface5::condition_variable cond_var_;
     RibOut *ribout_;
     QueueVec *queue_vec_;
+
     DISALLOW_COPY_AND_ASSIGN(RibUpdateMonitor);
 };
 

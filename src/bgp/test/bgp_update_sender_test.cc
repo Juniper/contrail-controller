@@ -66,7 +66,6 @@ private:
 
 class BgpUpdateSenderTest : public ::testing::Test {
 protected:
-
     BgpUpdateSenderTest()
       : server_(&evm_),
         sender_(server_.update_sender()),
@@ -83,7 +82,7 @@ protected:
         gbl_peer_index = 0;
         for (int pidx = 0; pidx < kPeerCount; ++pidx) {
             CreatePeer();
-            for (int ro_idx = 0; ro_idx < (int) ribouts_.size(); ++ro_idx) {
+            for (size_t ro_idx = 0; ro_idx < ribouts_.size(); ++ro_idx) {
                 RibOutRegister(ribouts_[ro_idx], peers_[pidx]);
             }
         }
@@ -101,7 +100,7 @@ protected:
     virtual void TearDown() {
         task_util::WaitForIdle();
         for (int pidx = 0; pidx < kPeerCount; ++pidx) {
-            for (int ro_idx = 0; ro_idx < (int) ribouts_.size(); ++ro_idx) {
+            for (size_t ro_idx = 0; ro_idx < ribouts_.size(); ++ro_idx) {
                 RibOutUnregister(ribouts_[ro_idx], peers_[pidx]);
             }
             ConcurrencyScope scope("bgp::PeerMembership");
@@ -116,8 +115,11 @@ protected:
     }
 
     void RibOutActive(RibOut *ribout, int qid) {
-        ConcurrencyScope scope("db::DBTable");
-        spartition_->RibOutActive(ribout, qid);
+        int idx = spartition_->index();
+        task_util::TaskFire(
+            boost::bind(
+                &BgpUpdateSender::RibOutActive, sender_, idx, ribout, qid),
+            "db::DBTable", idx);
     }
 
     void RibOutRegister(RibOut *ribout, IPeerUpdate *peer) {
@@ -445,7 +447,6 @@ TEST_F(BgpUpdateSenderTest, TailDequeueAllBlock3) {
 // till the mysnc mask is empty.
 //
 TEST_F(BgpUpdateSenderTest, TailDequeueProgressiveBlock1) {
-
     // Expect successive calls to TailDequeue with a msync mask that keeps
     // shrinking one bit at a time.
     InSequence seq;
@@ -1084,7 +1085,6 @@ TEST_F(BgpUpdateSenderTest, PeerDequeueAlreadyBlocked) {
 // Peer 0 is blocked and has qids 0 and 1 as active.
 class BgpUpdateSenderPeerDequeueBlocks1 : public BgpUpdateSenderTest {
 protected:
-
     virtual void SetUp() {
         BgpUpdateSenderTest::SetUp();
 
@@ -1224,7 +1224,6 @@ static const int kRiboutCount = 4;
 
 class BgpUpdateSenderMultiRibOutTest : public BgpUpdateSenderTest {
 protected:
-
     virtual void SetUp() {
         SchedulerStop();
 
@@ -1235,7 +1234,7 @@ protected:
         gbl_peer_index = 0;
         for (int pidx = 0; pidx < kPeerCount; ++pidx) {
             CreatePeer();
-            for (int ro_idx = 0; ro_idx < (int) ribouts_.size(); ++ro_idx) {
+            for (size_t ro_idx = 0; ro_idx < ribouts_.size(); ++ro_idx) {
                 RibOutRegister(ribouts_[ro_idx], peers_[pidx]);
             }
         }
@@ -1270,7 +1269,6 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, Noop1) {
 // for the RibOutUpdates.
 //
 TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueBasic1a) {
-
     // Expect 1 call to TailDequeue for each RibOut.
     InSequence seq;
     for (int ro_idx  = 0; ro_idx < kRiboutCount; ro_idx++) {
@@ -1294,7 +1292,6 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueBasic1a) {
 // for the even RibOutUpdates.
 //
 TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueBasic1b) {
-
     // Expect 1 call to TailDequeue for even RibOuts.
     InSequence seq;
     for (int ro_idx  = 0; ro_idx < kRiboutCount; ro_idx++) {
@@ -1322,7 +1319,6 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueBasic1b) {
 // TailDequeue for the RibOutUpdates for those qids.
 //
 TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueBasic2a) {
-
     // Expect 1 call to TailDequeue for each RibOut for each qid.
     InSequence seq;
     for (int qid = RibOutUpdates::QFIRST; qid < RibOutUpdates::QCOUNT; qid++) {
@@ -1349,7 +1345,6 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueBasic2a) {
 // TailDequeue for the odd RibOutUpdates for those qids.
 //
 TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueBasic2b) {
-
     // Expect 1 call to TailDequeue for odd RibOuts for each qid.
     InSequence seq;
     for (int qid = RibOutUpdates::QFIRST; qid < RibOutUpdates::QCOUNT; qid++) {
@@ -1382,7 +1377,6 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueBasic2b) {
 // till the mysnc mask becomes empty.
 //
 TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueProgressiveBlock1) {
-
     // Expect successive calls to TailDequeue with a msync mask that keeps
     // shrinking one bit at a time.  We block one peer when processing the
     // last RibOut.
@@ -1425,7 +1419,6 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueProgressiveBlock1) {
 TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueAllBlock1a) {
     RibPeerSet peerset;
     BuildPeerSet(peerset, 0, 0, kPeerCount-1);
-
     // Expect call to TailDequeue for the first RibOut and get all peers into
     // blocked state.
     InSequence seq;

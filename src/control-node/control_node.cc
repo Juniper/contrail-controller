@@ -126,6 +126,21 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::PeerMembership"),
         peer_membership_policy);
 
+    // Policy for bgp::SendUpdate Task.
+    // Add policy to provision exclusion between db::DBTable and
+    // bgp::SendUpdate tasks with the same task instance.
+    TaskPolicy send_update_policy = boost::assign::list_of
+        (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::SendReadyTask")));
+    for (int idx = 0; idx < scheduler->HardwareThreadCount(); ++idx) {
+        send_update_policy.push_back(
+            (TaskExclusion(scheduler->GetTaskId("db::DBTable"), idx)));
+    }
+    scheduler->SetPolicy(scheduler->GetTaskId("bgp::SendUpdate"),
+        send_update_policy);
+
     // Policy for bgp::SendReadyTask Task.
     TaskPolicy send_ready_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))

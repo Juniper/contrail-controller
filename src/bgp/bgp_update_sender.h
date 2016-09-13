@@ -6,7 +6,6 @@
 #define SRC_BGP_BGP_UPDATE_SENDER_H_
 
 #include <boost/ptr_container/ptr_list.hpp>
-#include <tbb/mutex.h>
 
 #include <vector>
 
@@ -136,8 +135,6 @@ private:
                         const RibPeerSet &blocked);
     void SetQueueSync(PeerState *ps, int queue_id);
 
-    // The mutex controls access to WorkQueue and related Worker state.
-    tbb::mutex mutex_;
     BgpUpdateSender *sender_;
     int index_;
     bool running_;
@@ -163,7 +160,7 @@ private:
 //
 class BgpUpdateSender {
 public:
-    BgpUpdateSender(BgpServer *server);
+    explicit BgpUpdateSender(BgpServer *server);
     ~BgpUpdateSender();
 
     void Join(RibOut *ribout, IPeerUpdate *peer);

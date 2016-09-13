@@ -51,11 +51,13 @@ protected:
 
     void VerifyRouteUpdateDequeueEnqueue(RouteUpdate *rt_update) {
         EXPECT_EQ(rt_update_, rt_update);
-        EXPECT_LT(tstamp_, rt_update->tstamp());
+        EXPECT_TRUE(
+            qid_ != rt_update->queue_id() || tstamp_ < rt_update->tstamp());
     }
 
     void VerifyRouteUpdateNoDequeue(RouteUpdate *rt_update) {
         EXPECT_EQ(rt_update_, rt_update);
+        EXPECT_EQ(qid_, rt_update->queue_id());
         EXPECT_EQ(tstamp_, rt_update->tstamp());
     }
 
