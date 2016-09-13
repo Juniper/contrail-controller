@@ -40,6 +40,7 @@ public:
     void *more_context() const { return more_context_; }
     void set_vr_response_code(int value) { vr_response_code_ = value; }
     bool MoreData() const;
+    const std::string MacToString(const std::vector<signed char> &mac) const;
     virtual void IfMsgHandler(vr_interface_req *req);
     virtual void NHMsgHandler(vr_nexthop_req *req);
     virtual void RouteMsgHandler(vr_route_req *req);

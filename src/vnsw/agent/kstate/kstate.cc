@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <net/address_util.h>
 #include "kstate.h"
 #include "oper/interface_common.h"
 #include "interface_kstate.h"
@@ -76,6 +77,24 @@ void KState::UpdateContext(void *ctx) {
     more_context_ = ctx;
 }
 
+const string KState::MacToString(const vector<signed char> &mac)
+    const {
+    /* We need the below check because if mac size is less than 6, we will
+     * hit out_of_range exception because of mac.at code below
+     */
+    if (mac.size() != 6) {
+        return "00:00:00:00:00:00";
+    }
+    ostringstream strm;
+    strm << hex << setfill('0') << setw(2) << (int)((uint8_t) mac.at(0)) << ":"
+         << setw(2) << (int)((uint8_t) mac.at(1)) << ":" << setw(2)
+         << (int)((uint8_t) mac.at(2)) << ":" << setw(2)
+         << (int)((uint8_t) mac.at(3)) << ":" << setw(2)
+         << (int)((uint8_t) mac.at(4)) << ":" << setw(2)
+         << (int)((uint8_t) mac.at(5));
+    return strm.str();
+}
+
 void KState::IfMsgHandler(vr_interface_req *r) {
 
     KInterfaceInfo data;
@@ -116,7 +135,7 @@ void KState::IfMsgHandler(vr_interface_req *r) {
     data.set_speed(r->get_vifr_speed());
     data.set_duplexity(r->get_vifr_duplex());
 
-    data.set_mac(ist->MacToString(r->get_vifr_mac()));
+    data.set_mac(MacToString(r->get_vifr_mac()));
     data.set_qos_map_index(r->get_vifr_qos_map_index());
     data.set_core(r->get_vifr_core());
     data.set_queue_ipackets(r->get_vifr_queue_ipackets());
@@ -145,7 +164,7 @@ void KState::IfMsgHandler(vr_interface_req *r) {
     data.set_bridge_id(r->get_vifr_bridge_idx());
     data.set_ovlan_id(r->get_vifr_ovlan_id());
     data.set_transport(r->get_vifr_transport());
-    data.set_src_mac(ist->MacToString(r->get_vifr_src_mac()));
+    data.set_src_mac(MacToString(r->get_vifr_src_mac()));
     data.set_fat_flow_protocol_port(ist->SetItfSandesh(r->get_vifr_fat_flow_protocol_port()));
     list.push_back(data);
 
@@ -179,8 +198,8 @@ void KState::NHMsgHandler(vr_nexthop_req *r) {
             data.set_tun_sip(sip.to_string());
             data.set_tun_dip(dip.to_string());
         } else if(nhst->FamilyToString(r->get_nhr_family()) == "AF_INET6") {
-            data.set_tun_sip6(nhst->IPv6ToString(r->get_nhr_tun_sip6()));
-            data.set_tun_dip6(nhst->IPv6ToString(r->get_nhr_tun_dip6()));
+            data.set_tun_sip(VectorIpv6ToString(r->get_nhr_tun_sip6()));
+            data.set_tun_dip(VectorIpv6ToString(r->get_nhr_tun_dip6()));
         }
         if (r->get_nhr_flags() & NH_FLAG_TUNNEL_UDP) {
             data.set_tun_sport(ntohs(r->get_nhr_tun_sport()));

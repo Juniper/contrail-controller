@@ -229,20 +229,3 @@ void NHKState::SetComponentNH(vr_nexthop_req *req, KNHInfo &info) {
     }
     info.set_component_nh(comp_nh_list);
 }
-
-const string NHKState::IPv6ToString(const vector<signed char> &ipv6)
-    const {
-    if (ipv6.size() != 16) {
-        return "0000:0000:0000:0000";
-    }
-    ostringstream strm;
-    int count = 1;
-    for(vector<signed char>::const_iterator it = ipv6.begin();
-        it != ipv6.end(); ++it) {
-        strm << hex << (int)((uint8_t) *it);
-        if((count % 4) ==0)
-            strm << ":";
-        count++;
-    }
-    return strm.str();
-}
