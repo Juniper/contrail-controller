@@ -1449,14 +1449,16 @@ class VncApiServer(object):
         self._pipe_start_app = auth_svc.get_middleware_app()
         self._auth_svc = auth_svc
 
-        try:
-            self._extension_mgrs['resync'].map(self._resync_domains_projects)
-        except RuntimeError:
-            # lack of registered extension leads to RuntimeError
-            pass
-        except Exception as e:
-            err_msg = cfgm_common.utils.detailed_traceback()
-            self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
+        if int(self._args.worker_id) == 0:
+            try:
+                self._extension_mgrs['resync'].map(
+                    self._resync_domains_projects)
+            except RuntimeError:
+                # lack of registered extension leads to RuntimeError
+                pass
+            except Exception as e:
+                err_msg = cfgm_common.utils.detailed_traceback()
+                self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
 
         # following allowed without authentication
         self.white_list = [
@@ -2741,14 +2743,6 @@ class VncApiServer(object):
 
         if int(self._args.worker_id) == 0:
             self._db_conn.db_resync()
-            try:
-                self._extension_mgrs['resync'].map(self._resync_domains_projects)
-            except RuntimeError:
-                # lack of registered extension leads to RuntimeError
-                pass
-            except Exception as e:
-                err_msg = cfgm_common.utils.detailed_traceback()
-                self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
 
         # make default ipam available across tenants for backward compatability
         obj_type = 'network_ipam'
