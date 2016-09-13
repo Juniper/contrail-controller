@@ -1360,7 +1360,11 @@ bool BgpPeer::SkipNotificationReceive(int code, int subcode) const {
             case BgpProto::Notification::AdminShutdown:
                 break;
             case BgpProto::Notification::PeerDeconfigured:
-                break;
+
+                // Some implementations such as JUNOS sends this sub-code even
+                // during graceful restart / reboot scenarios. Hence trigger GR
+                // helper mode when PeerDeconfigured subcode is received.
+                return true;
             case BgpProto::Notification::AdminReset:
                 break;
             case BgpProto::Notification::ConnectionRejected:

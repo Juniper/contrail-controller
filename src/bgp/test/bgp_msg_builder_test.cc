@@ -288,6 +288,7 @@ void BgpMsgBuilderTest::TestSkipNotificationReceive(int code,
             case BgpProto::Notification::AdminShutdown:
                 break;
             case BgpProto::Notification::PeerDeconfigured:
+                EXPECT_TRUE(skip);
                 break;
             case BgpProto::Notification::AdminReset:
                 break;
