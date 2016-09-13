@@ -156,6 +156,7 @@ static bool d_xmpp_auth_enabled_ = false;
 static bool d_pause_after_initial_setup_ = false;
 static bool d_profile_heap_ = false;
 static bool d_no_mcast_routes_ = false;
+static bool d_no_enet_routes_ = false;
 static bool d_no_inet6_routes_ = false;
 static bool d_no_sandesh_server_ = false;
 static string d_xmpp_server_ = "127.0.0.1";
@@ -1575,12 +1576,16 @@ string BgpStressTest::GetAgentNexthop(int agent_id, int route_id) {
                 d_xmpp_rt_nexthop_vary_ ? route_id : 0).ip4_addr().to_string();
 }
 
+// Generate enet address from a inet address.
 string BgpStressTest::GetEnetPrefix(string inet_prefix) const {
-    string enet_prefix = inet_prefix;
-    vector<string> elems;
-    boost::split(elems, enet_prefix, boost::is_any_of("/"));
-    replace(elems[0].begin(), elems[0].end(), '.', ':');
-    return elems[0] + ":0:0," + inet_prefix;
+    vector<string> octets;
+    boost::split(octets, inet_prefix, boost::is_any_of("/."));
+
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:00:00",
+             atoi(octets[0].c_str()), atoi(octets[1].c_str()),
+             atoi(octets[2].c_str()), atoi(octets[3].c_str()));
+    return string(buf);
 }
 
 void BgpStressTest::AddXmppRoute(int instance_id, int agent_id, int route_id) {
@@ -1604,10 +1609,13 @@ void BgpStressTest::AddXmppRoute(int instance_id, int agent_id, int route_id) {
                                      GetAgentNexthop(agent_id, route_id),
                                      attributes);
 
-    xmpp_agents_[agent_id]->AddEnetRoute(GetInstanceName(instance_id),
-                                         GetEnetPrefix(prefix.ToString()),
-                                         GetAgentNexthop(agent_id, route_id),
-                                         attributes);
+    if (!d_no_enet_routes_) {
+        xmpp_agents_[agent_id]->AddEnetRoute(GetInstanceName(instance_id),
+                                             GetEnetPrefix(prefix.ToString()),
+                                             GetAgentNexthop(agent_id,
+                                                             route_id),
+                                             attributes);
+    }
 
     if (instance_id == 0)
         return;
@@ -1706,8 +1714,11 @@ void BgpStressTest::DeleteXmppRoute(int instance_id, int agent_id,
     Ip4Prefix prefix = GetAgentRoute(agent_id + 1, instance_id, route_id);
     xmpp_agents_[agent_id]->DeleteRoute(GetInstanceName(instance_id),
                                         prefix.ToString());
-    xmpp_agents_[agent_id]->DeleteEnetRoute(GetInstanceName(instance_id),
-                                            GetEnetPrefix(prefix.ToString()));
+    if (!d_no_enet_routes_) {
+        xmpp_agents_[agent_id]->DeleteEnetRoute(GetInstanceName(instance_id),
+                                                GetEnetPrefix(
+                                                    prefix.ToString()));
+    }
 
     if (instance_id == 0)
         return;
@@ -2806,6 +2817,8 @@ static void process_command_line_args(int argc, const char **argv) {
             "set number of route targets (minium 1)")
         ("nvms", value<int>()->default_value(d_vms_count_),
             "set number of VMs (for configuration download)")
+        ("no-enet", bool_switch(&d_no_enet_routes_),
+             "Do not add enet routes")
         ("no-multicast", bool_switch(&d_no_mcast_routes_),
              "Do not add multicast routes")
         ("no-inet6", bool_switch(&d_no_inet6_routes_),
