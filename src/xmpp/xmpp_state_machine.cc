@@ -1376,7 +1376,8 @@ bool XmppStateMachine::ProcessStreamHeaderMessage(XmppSession *session,
             // one is completely deleted. Even if GR is supported, new 
             // connection cannot be accepted until old one is fully cleaned up.
             bool ready = channel->GetPeerState() == xmps::READY;
-            if (!xmpp_server->IsPeerCloseGraceful() || ready ||
+            if (msg->gr != "true" ||
+                    !xmpp_server->IsPeerCloseGraceful() || ready ||
                     channel->IsCloseInProgress()) {
 
                 // Bring down old session if it is still in ESTABLISHED state.

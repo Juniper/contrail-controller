@@ -324,11 +324,13 @@ public:
     virtual const LifetimeActor *deleter() const;
     virtual LifetimeManager *lifetime_manager();
     XmppClient *server();
+    XmppClient *server() const;
 
     virtual void set_close_reason(const std::string &reason);
     virtual uint32_t flap_count() const;
     virtual void increment_flap_count();
     virtual const std::string last_flap_at() const;
+    virtual bool IsRestartGraceful() const;
 
 private:
     class DeleteActor;

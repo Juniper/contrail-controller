@@ -37,7 +37,7 @@
 
 
 //Encoded stream messages
-#define sXMPP_STREAM_OPEN            "<?xml version='1.0'?><stream:stream from='dummycl' to='dummyserver' version='1.0' xml:lang='en' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams'/>" 
+#define sXMPP_STREAM_OPEN            "<?xml version='1.0'?><stream:stream from='dummycl' to='dummyserver' gr='false' version='1.0' xml:lang='en' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams'/>" 
 #define sXMPP_STREAM_RESP            "<?xml version='1.0'?><stream:stream from='dummyserver' to='dummycl' id='++123' version='1.0' xml:lang='en' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams'/>" 
 #define sXMPP_STREAM_FEATURE_TLS    "<stream:features><starttls xmlns='urn:ietf:params:xml:ns:xmpp-tls'><required/></starttls></stream:features>"
 #define sXMPP_STREAM_START_TLS       "<starttls xmlns='urn:ietf:params:xml:ns:xmpp-tls'/>"
