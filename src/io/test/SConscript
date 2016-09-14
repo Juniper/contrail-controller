@@ -124,13 +124,14 @@ else:
     env.AlwaysBuild(run_coverage_cmd)
     env.Alias('controller/src/io:test', run_coverage_cmd)
 
-    flaky_test = env.TestSuite('io-flaky-test', flaky_test_suite)
-    clean_coverage_cmd = env.Command('clean_coverage', '', clean_coverage)
-    env.Depends(flaky_test, clean_coverage_cmd[0].name)
-    env.AlwaysBuild(clean_coverage_cmd)
-    run_coverage_cmd = env.Command('run_coverage', '', run_coverage)
-    env.Depends(run_coverage_cmd, flaky_test[0])
-    env.AlwaysBuild(run_coverage_cmd)
-    env.Alias('controller/src/io:flaky-test', run_coverage_cmd)
+    if len(flaky_test_suite) != 0:
+        flaky_test = env.TestSuite('io-flaky-test', flaky_test_suite)
+        clean_coverage_cmd = env.Command('clean_coverage', '', clean_coverage)
+        env.Depends(flaky_test, clean_coverage_cmd[0].name)
+        env.AlwaysBuild(clean_coverage_cmd)
+        run_coverage_cmd = env.Command('run_coverage', '', run_coverage)
+        env.Depends(run_coverage_cmd, flaky_test[0])
+        env.AlwaysBuild(run_coverage_cmd)
+        env.Alias('controller/src/io:flaky-test', run_coverage_cmd)
 
     Return('test_suite')
