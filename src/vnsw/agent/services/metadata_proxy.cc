@@ -119,10 +119,7 @@ MetadataProxy::Shutdown() {
         http_server_ = NULL;
     }
     if (http_client_) {
-        uint32_t count = 0;
         http_client_->Shutdown();
-        while (!http_client_->IsShutdown() && count++ < 10000)
-            usleep(1000);
         TcpServerManager::DeleteServer(http_client_);
         http_client_ = NULL;
     }
