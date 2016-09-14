@@ -118,7 +118,7 @@ int BgpProto::OpenMessage::Validate(BgpPeer *peer) const {
 
 BgpProto::OpenMessage::Capability *
 BgpProto::OpenMessage::Capability::GR::Encode(
-        uint16_t gr_time, uint8_t gr_flags, uint8_t gr_afi_flags,
+        uint16_t gr_time, uint8_t gr_flags, const vector<uint8_t> &gr_afi_flags,
         const vector<Address::Family> &gr_families) {
     assert((gr_time >> RestartTimeBitPosition) == 0);
     const uint16_t gr_bytes = (gr_flags << RestartTimeBitPosition) | gr_time;
@@ -126,6 +126,8 @@ BgpProto::OpenMessage::Capability::GR::Encode(
     vector<uint8_t> restart_cap;
     restart_cap.push_back(gr_bytes >> 8);
     restart_cap.push_back(gr_bytes & 0xFF);
+
+    size_t i = 0;
     BOOST_FOREACH(const Address::Family family, gr_families) {
         uint16_t afi;
         uint8_t safi;
@@ -133,7 +135,7 @@ BgpProto::OpenMessage::Capability::GR::Encode(
         restart_cap.push_back(0);
         restart_cap.push_back(afi);
         restart_cap.push_back(safi);
-        restart_cap.push_back(gr_afi_flags);
+        restart_cap.push_back(gr_afi_flags[i++]);
     }
     return new Capability(GracefulRestart, restart_cap.data(),
                           restart_cap.size());
@@ -164,12 +166,12 @@ bool BgpProto::OpenMessage::Capability::GR::Decode(GR *gr_params,
 
     // Find and process all GR capabilities. We are expected to receive only
     // one. Otherwise, the only the last one should be taken into effect.
-    bool result = false;
+    bool found = false;
     for (vector<Capability *>::const_iterator cap_it = capabilities.begin();
             cap_it != capabilities.end(); ++cap_it) {
         if ((*cap_it)->code != GracefulRestart)
             continue;
-        result = true;
+        found = true;
         gr_params->Initialize();
 
         uint8_t *data = (*cap_it)->capability.data();
@@ -189,7 +191,7 @@ bool BgpProto::OpenMessage::Capability::GR::Decode(GR *gr_params,
             offset += 4;
         }
     }
-    return result;
+    return found;
 }
 
 BgpProto::OpenMessage::Capability *
@@ -219,12 +221,12 @@ bool BgpProto::OpenMessage::Capability::LLGR::Decode(LLGR *llgr_params,
 
     // Find and process all LLGR capabilities. We are expected to receive only
     // one. Otherwise, the only the last one should be taken into effect.
-    bool result = false;
+    bool found = false;
     for (vector<Capability *>::const_iterator cap_it = capabilities.begin();
             cap_it != capabilities.end(); ++cap_it) {
         if ((*cap_it)->code != LongLivedGracefulRestart)
             continue;
-        result = true;
+        found = true;
         llgr_params->Initialize();
 
         uint8_t *data = (*cap_it)->capability.data();
@@ -243,7 +245,7 @@ bool BgpProto::OpenMessage::Capability::LLGR::Decode(LLGR *llgr_params,
         }
         llgr_params->time = max_time;
     }
-    return result;
+    return found;
 }
 
 void BgpProto::OpenMessage::Capability::LLGR::GetFamilies(
