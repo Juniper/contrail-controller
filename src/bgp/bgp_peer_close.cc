@@ -250,7 +250,6 @@ bool BgpPeerClose::SetGRCapabilities(BgpPeerInfoData *peer_info) {
     // identical set.
     if (manager_->IsInGRTimerWaitState() &&
         (!IsCloseGraceful() || !IsCloseLongLivedGraceful())) {
-        Close(true);
         return false;
     }
     return true;
