@@ -782,6 +782,12 @@ class TestPermissions(test_case.ApiServerTestCase):
         with ExpectedException(PermissionDenied) as e:
             self.bob.vnc_lib.service_template_delete(fq_name = st.get_fq_name())
 
+        # validate owner can delete service template
+        try:
+            self.alice.vnc_lib.service_template_delete(fq_name = st.get_fq_name())
+        except PermissionDenied as e:
+            self.assertTrue(False, 'Failed to delete service-template ... Test failed!')
+
     def test_check_obj_perms_api(self):
         logger.info('')
         logger.info( '########### CHECK OBJ PERMS API ##################')
