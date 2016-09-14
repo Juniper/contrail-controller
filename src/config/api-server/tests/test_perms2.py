@@ -639,10 +639,19 @@ class TestPermissions(test_case.ApiServerTestCase):
         y = bob.vnc_lib.virtual_networks_list(parent_id = bob.project_uuid)
         for item in y['virtual-networks']:
             logger.info( '    %s: %s' % (item['uuid'], item['fq_name']))
-        # need changes in auto code generation for lists
+        # list should be empty because parent_id filter precludes sharing
+        expected = set([])
+        received = set([item['fq_name'][-1] for item in y['virtual-networks']])
+        self.assertEquals(expected, received)
+
+        logger.info('')
+        logger.info( 'Bob: network list')
+        y = bob.vnc_lib.virtual_networks_list()
+        for item in y['virtual-networks']:
+            logger.info( '    %s: %s' % (item['uuid'], item['fq_name']))
+        # list should be non-empty because missing filter will enable sharing
         expected = set([self.vn_name])
         received = set([item['fq_name'][-1] for item in y['virtual-networks']])
-
         self.assertEquals(expected, received)
 
     def test_shared_access(self):

@@ -103,14 +103,20 @@ class VncPermissions(object):
         if tenant is None:
             msg = "rbac: Unable to find tenant id in headers"
             self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
-
-        # grant access to default domain for keystone v2.0
-        domain = env.get('HTTP_X_DOMAIN_ID')
-        if domain is None and self._server_mgr.keystone_version == 'v2.0':
-            domain = self._db_conn.fq_name_to_uuid('domain', domain_name)
-
         tenant = tenant.replace('-','')
-        domain = domain.replace('-','')
+
+        # grant access if shared with domain
+        domain = env.get('HTTP_X_DOMAIN_ID')
+        if domain is None:
+            domain = env.get('HTTP_X_USER_DOMAIN_ID')
+            try:
+                domain = str(uuid.UUID(domain))
+            except ValueError:
+                if domain == 'default':
+                    domain = 'default-domain'
+                domain = self._server_mgr._db_conn.fq_name_to_uuid('domain', [domain])
+        if domain:
+            domain = domain.replace('-','')
 
         owner = perms2['owner']
         perms = perms2['owner_access'] << 6
