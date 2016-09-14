@@ -135,6 +135,7 @@ public:
     size_t membership_requests() const;
     void ClearEndOfRibState();
     PeerCloseManager *close_manager() { return close_manager_.get(); }
+    PeerCloseManager *close_manager() const { return close_manager_.get(); }
 
     uint64_t get_rx_route_reach() const { return stats_[RX].reach; }
     uint64_t get_rx_route_unreach() const { return stats_[RX].unreach; }
