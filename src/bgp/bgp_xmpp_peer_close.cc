@@ -24,8 +24,8 @@ BgpXmppPeerClose::BgpXmppPeerClose(BgpXmppChannel *channel) :
 BgpXmppPeerClose::~BgpXmppPeerClose() {
 }
 
-void BgpXmppPeerClose::SetManager(PeerCloseManager *manager) {
-    manager_ = manager;
+PeerCloseManager *BgpXmppPeerClose::GetManager() const {
+    return channel_->close_manager();
 }
 
 bool BgpXmppPeerClose::IsReady() const {
@@ -36,19 +36,11 @@ IPeer *BgpXmppPeerClose::peer() const {
     return channel_->Peer();
 }
 
-string BgpXmppPeerClose::ToString() const {
-    return channel_ ? channel_->ToString() : "";
-}
-
 int BgpXmppPeerClose::GetGracefulRestartTime() const {
-    if (!channel_)
-        return 0;
     return channel_->manager()->xmpp_server()->GetGracefulRestartTime();
 }
 
 int BgpXmppPeerClose::GetLongLivedGracefulRestartTime() const {
-    if (!channel_)
-        return 0;
     return channel_->manager()->xmpp_server()->
         GetLongLivedGracefulRestartTime();
 }
@@ -56,34 +48,22 @@ int BgpXmppPeerClose::GetLongLivedGracefulRestartTime() const {
 // Mark all current subscription as 'stale'
 // Concurrency: Protected with a mutex from peer close manager
 void BgpXmppPeerClose::GracefulRestartStale() {
-    if (channel_)
-        channel_->StaleCurrentSubscriptions();
+    channel_->StaleCurrentSubscriptions();
 }
 
 // Mark all current subscriptions as 'llgr_stale'
 // Concurrency: Protected with a mutex from peer close manager
 void BgpXmppPeerClose::LongLivedGracefulRestartStale() {
-    if (channel_)
-        channel_->LlgrStaleCurrentSubscriptions();
+    channel_->LlgrStaleCurrentSubscriptions();
 }
 
 // Delete all current subscriptions which are still stale.
 // Concurrency: Protected with a mutex from peer close manager
 void BgpXmppPeerClose::GracefulRestartSweep() {
-    if (channel_)
-        channel_->SweepCurrentSubscriptions();
+    channel_->SweepCurrentSubscriptions();
 }
 
 bool BgpXmppPeerClose::IsCloseGraceful() const {
-    if (!channel_ || !channel_->channel())
-        return false;
-
-    XmppConnection *connection =
-        const_cast<XmppConnection *>(channel_->channel()->connection());
-
-    if (!connection || connection->IsActiveChannel())
-        return false;
-
     return channel_->manager()->xmpp_server()->IsPeerCloseGraceful();
 }
 
@@ -119,17 +99,11 @@ int BgpXmppPeerClose::GetTaskInstance() const {
 }
 
 void BgpXmppPeerClose::CustomClose() {
-    if (!channel_)
-        return;
-
     channel_->rtarget_manager()->Close();
     channel_->ClearSubscriptions();
 }
 
 void BgpXmppPeerClose::CloseComplete() {
-    if (!channel_)
-        return;
-
     channel_->set_peer_closed(false);
 
     // Indicate to Channel that GR Closure is now complete
@@ -137,8 +111,6 @@ void BgpXmppPeerClose::CloseComplete() {
 }
 
 void BgpXmppPeerClose::Delete() {
-    if (!channel_)
-        return;
     channel_->set_delete_in_progress(true);
     channel_->set_peer_closed(true);
     channel_->manager()->increment_deleting_count();
@@ -152,6 +124,6 @@ void BgpXmppPeerClose::Close(bool non_graceful) {
         assert(channel_->channel()->IsCloseInProgress());
         if (!IsCloseGraceful())
             non_graceful = true;
-        manager_->Close(non_graceful);
+        GetManager()->Close(non_graceful);
     }
 }

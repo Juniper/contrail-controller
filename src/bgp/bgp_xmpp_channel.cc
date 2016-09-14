@@ -519,7 +519,6 @@ BgpXmppChannel::BgpXmppChannel(XmppChannel *channel,
                 TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"),
                 channel->GetTaskInstance());
     }
-    peer_close_->SetManager(close_manager_.get());
     channel_->RegisterReceive(peer_id_,
          boost::bind(&BgpXmppChannel::ReceiveUpdate, this, _1));
     BGP_LOG_PEER(Event, peer_.get(), SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,

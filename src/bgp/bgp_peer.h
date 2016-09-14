@@ -311,7 +311,6 @@ public:
                                 KeyType key_type);
     void ClearListenSocketAuthKey();
     void SetSessionSocketAuthKey(TcpSession *session);
-    void AddLLGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param);
     bool SkipNotificationSend(int code, int subcode) const;
     virtual bool SkipNotificationReceive(int code, int subcode) const;
     void Register(BgpTable *table, const RibExportPolicy &policy);
