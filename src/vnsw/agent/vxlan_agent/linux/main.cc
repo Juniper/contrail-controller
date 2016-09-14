@@ -5,7 +5,6 @@
 #include <cmn/buildinfo.h>
 #include <cmn/agent_cmn.h>
 #include <init/agent_param.h>
-#include <openstack/instance_service_server.h>
 #include <controller/controller_init.h>
 #include "linux_vxlan_agent_init.h"
 
@@ -13,8 +12,6 @@ namespace opt = boost::program_options;
 using namespace std;
 
 void RouterIdDepInit(Agent *agent) {
-    InstanceInfoServiceServerInit(agent);
-
     // Parse config and then connect
     Agent::GetInstance()->controller()->Connect();
     LOG(DEBUG, "Router ID Dependent modules (Nova and BGP) INITIALIZED");

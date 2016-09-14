@@ -27,11 +27,9 @@
 #include "oper/vm.h"
 #include "oper/vn.h"
 #include "filter/acl.h"
-#include "openstack/instance_service_server.h"
 #include "test_cmn_util.h"
 #include "vr_types.h"
 
-#include "openstack/instance_service_server.h"
 #include "xmpp/xmpp_init.h"
 #include "xmpp/test/xmpp_test_util.h"
 #include "vr_types.h"

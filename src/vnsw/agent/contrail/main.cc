@@ -32,7 +32,6 @@
 #include <pkt/pkt_init.h>
 #include <services/services_init.h>
 #include <vrouter/ksync/ksync_init.h>
-#include <openstack/instance_service_server.h>
 #include <uve/agent_uve.h>
 #include <kstate/kstate.h>
 #include <pkt/proto.h>
@@ -44,8 +43,6 @@
 namespace opt = boost::program_options;
 
 void RouterIdDepInit(Agent *agent) {
-    InstanceInfoServiceServerInit(agent);
-
     // Parse config and then connect
     Agent::GetInstance()->controller()->Connect();
     LOG(DEBUG, "Router ID Dependent modules (Nova and BGP) INITIALIZED");

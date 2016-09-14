@@ -53,7 +53,6 @@ public:
     static const uint16_t DnsRndc();
     static const uint16_t ApiServerOpen();
     static const uint16_t AnalyzerUdpPort();
-    static const uint16_t NovaVifVrouterAgentPort();
     static const uint16_t PortIpcVrouterAgentPort();
     static const uint16_t MetadataProxyVrouterAgentPort();
     static const uint16_t VrouterAgentMirrorClientUdpPort();
