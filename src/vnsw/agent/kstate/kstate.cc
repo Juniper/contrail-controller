@@ -313,6 +313,7 @@ void KState::MirrorMsgHandler(vr_mirror_req *r) {
     data.set_mirr_nhid(r->get_mirr_nhid());
     data.set_mirr_flags(mst->FlagsToString(r->get_mirr_flags()));
     data.set_mirr_users(r->get_mirr_users());
+    data.set_mirr_vni(r->get_mirr_vni());
 
     list.push_back(data);
     
@@ -333,6 +334,8 @@ void KState::VrfAssignMsgHandler(vr_vrf_assign_req *r) {
     data.set_vif_index(r->get_var_vif_index());
     data.set_vlan_id(r->get_var_vlan_id());
     data.set_vif_vrf(r->get_var_vif_vrf());
+    data.set_rid(r->get_var_rid());
+    data.set_nh_id(r->get_var_nh_id());
     list.push_back(data);
 
     // Update the last interface and tag seen. 
@@ -370,6 +373,21 @@ void KState::VrfStatsMsgHandler(vr_vrf_stats_req *r) {
     data.set_vrf_fabric_composites(r->get_vsr_fabric_composites());
     data.set_vrf_ecmp_composites(r->get_vsr_ecmp_composites());
     data.set_vrf_encaps(r->get_vsr_encaps());
+    data.set_vrf_l2_encaps(r->get_vsr_l2_encaps());
+    data.set_vrf_vxlan_tunnels(r->get_vsr_vxlan_tunnels());
+    data.set_vrf_gros(r->get_vsr_gros());
+    data.set_vrf_diags(r->get_vsr_diags());
+    data.set_vrf_encap_composites(r->get_vsr_encap_composites());
+    data.set_vrf_evpn_composites(r->get_vsr_evpn_composites());
+    data.set_vrf_translates(r->get_vsr_vrf_translates());
+    data.set_vrf_arp_virtual_proxy(r->get_vsr_arp_virtual_proxy());
+    data.set_vrf_arp_virtual_stitch(r->get_vsr_arp_virtual_stitch());
+    data.set_vrf_arp_virtual_flood(r->get_vsr_arp_virtual_flood());
+    data.set_vrf_arp_physical_stitch(r->get_vsr_arp_physical_stitch());
+    data.set_vrf_arp_tor_proxy(r->get_vsr_arp_tor_proxy());
+    data.set_vrf_arp_physical_flood(r->get_vsr_arp_physical_flood());
+    data.set_vrf_l2_receives(r->get_vsr_l2_receives());
+    data.set_vrf_uuc_floods(r->get_vsr_uuc_floods());
     list.push_back(data);
 
     UpdateContext(reinterpret_cast<void *>(r->get_vsr_vrf()));
@@ -449,6 +467,10 @@ void KState::DropStatsMsgHandler(vr_drop_stats_req *req) {
     resp->set_ds_l2_no_route(req->get_vds_l2_no_route());
     resp->set_ds_vlan_fwd_tx(req->get_vds_vlan_fwd_tx());
     resp->set_ds_vlan_fwd_enq(req->get_vds_vlan_fwd_enq());
+    resp->set_ds_core(req->get_vds_core());
+    resp->set_ds_no_memory(req->get_vds_no_memory());
+    resp->set_ds_drop_new_flow(req->get_vds_drop_new_flow());
+    resp->set_ds_flow_evict(req->get_vds_flow_evict());
 }
 
 void KState::ForwardingClassMsgHandler(vr_fc_map_req *r) {
@@ -464,6 +486,7 @@ void KState::ForwardingClassMsgHandler(vr_fc_map_req *r) {
                  resp->get_forwarding_class_list());
 
     data.set_id(r->get_fmr_id()[0]);
+    data.set_rid(r->get_fmr_rid());
     data.set_dscp(r->get_fmr_dscp()[0]);
     data.set_mpls_exp(r->get_fmr_mpls_qos()[0]);
     data.set_vlan_priority(r->get_fmr_dotonep()[0]);
@@ -484,6 +507,7 @@ void KState::QosConfigMsgHandler(vr_qos_map_req *r) {
     vector<KQosConfig> &list =
        const_cast<std::vector<KQosConfig>&>(resp->get_qos_config_list());
     data.set_id(r->get_qmr_id());
+    data.set_rid(r->get_qmr_rid());
 
     std::vector<int8_t>::const_iterator qos_it =
         r->get_qmr_dscp().begin();
