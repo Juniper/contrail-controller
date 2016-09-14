@@ -162,6 +162,7 @@ class PortTupleAgent(Agent):
             self._vnc_lib.ref_update('virtual-machine-interface', vmi.uuid,
                 'interface-route-table', irt_id, None, 'ADD')
             vmi.update()
+            self._vnc_lib.ref_relax_for_delete(vmi.uuid, irt_id)
         # handle deletes
         for irt_id in list(vmi.interface_route_tables):
             if irt_id in port['interface-route-tables']:
