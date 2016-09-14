@@ -131,6 +131,7 @@ struct KMirrorInfo {
     3: string mirr_flags;
     4: i32  mirr_users;
     5: i32  mirr_nhid (link = "KNHReq");
+    6: i32  mirr_vni;
 }
 
 /**
@@ -300,6 +301,8 @@ struct KVrfAssignInfo {
     1: i16          vif_index;
     2: i16          vlan_id;
     3: i16          vif_vrf;
+    4: i16          rid;
+    5: i32          nh_id;
 }
 
 /**
@@ -322,19 +325,32 @@ response sandesh KVrfAssignResp {
 struct KVrfStatsInfo {
     1: i16      vrf_id;
     2: string   vrf_family;
-    3: string   vrf_type;
-    4: i16      vrf_rid;
-    5: i64      vrf_discards;
-    6: i64      vrf_resolves;
-    7: i64      vrf_receives;
-    8: i64      vrf_udp_tunnels;
-    9: i64      vrf_udp_mpls_tunnels;
-   10: i64      vrf_gre_mpls_tunnels;
-   11: i64      vrf_fabric_composites;
-   12: i64      vrf_l2_mcast_composites;
-   13: i64      vrf_ecmp_composites;
-   14: i64      vrf_encaps;
-   15: i64      vrf_vxlan_tunnels;
+    3: i16      vrf_rid;
+    4: i64      vrf_discards;
+    5: i64      vrf_resolves;
+    6: i64      vrf_receives;
+    7: i64      vrf_udp_tunnels;
+    8: i64      vrf_udp_mpls_tunnels;
+    9: i64      vrf_gre_mpls_tunnels;
+   10: i64      vrf_fabric_composites;
+   11: i64      vrf_l2_mcast_composites;
+   12: i64      vrf_ecmp_composites;
+   13: i64      vrf_encaps;
+   14: i64      vrf_vxlan_tunnels;
+   15: i64      vrf_l2_encaps;
+   16: i64      vrf_gros;
+   17: i64      vrf_diags;
+   18: i64      vrf_encap_composites;
+   19: i64      vrf_evpn_composites;
+   20: i64      vrf_translates;
+   21: i64      vrf_arp_virtual_proxy;
+   22: i64      vrf_arp_virtual_stitch;
+   23: i64      vrf_arp_virtual_flood;
+   24: i64      vrf_arp_physical_stitch;
+   25: i64      vrf_arp_tor_proxy;
+   26: i64      vrf_arp_physical_flood;
+   27: i64      vrf_l2_receives;
+   28: i64      vrf_uuc_floods;
 }
 
 /**
@@ -409,6 +425,10 @@ response sandesh KDropStatsResp {
     47: u64             ds_l2_no_route;
     48: u64             ds_vlan_fwd_tx;
     49: u64             ds_vlan_fwd_enq;
+    50: i32             ds_core;
+    51: u64             ds_no_memory;
+    52: u64             ds_drop_new_flow;
+    53: u64             ds_flow_evict;
 }
 
 
@@ -426,6 +446,7 @@ struct KQosConfig {
     2: list<kQosIdFowardingClassPair> dscp_map;
     3: list<kQosIdFowardingClassPair> vlan_priority_map;
     4: list<kQosIdFowardingClassPair> mpls_exp_map;
+    5: i16 rid;
 }
 
 /**
@@ -448,6 +469,7 @@ struct KForwardingClass {
     3: i16 vlan_priority;
     4: i16 mpls_exp;
     5: i16 qos_queue;
+    6: i16 rid;
 }
 
 /**
