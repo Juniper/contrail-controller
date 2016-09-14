@@ -86,7 +86,7 @@ class VncPermissions(object):
         return (True, self.mode_str[granted]) if ok else (False, err_msg)
     # end validate_perms
 
-    def validate_perms_rbac(self, request, obj_uuid, mode=PERMS_R, delete=False):
+    def validate_perms_rbac(self, request, obj_uuid, mode=PERMS_R, obj_owner_for_delete=None):
         err_msg = (403, 'Permission Denied')
 
         # retrieve object and permissions
@@ -149,9 +149,9 @@ class VncPermissions(object):
 
         mode_mask = mode | mode << 3 | mode << 6
         ok = (mask & perms & mode_mask)
-        # delete only allowed for owner tenant
-        if delete and ok:
-            ok = (tenant == owner)
+        if ok and obj_owner_for_delete:
+            obj_owner_for_delete = obj_owner_for_delete.replace('-','')
+            ok = (tenant == obj_owner_for_delete)
         granted = ok & 07 | (ok >> 3) & 07 | (ok >> 6) & 07
 
         msg = 'rbac: %s (%s:%s) %s %s admin=%s, mode=%03o mask=%03o perms=%03o, \
@@ -229,13 +229,17 @@ class VncPermissions(object):
             return (True, '')
     # end check_perms_link
 
-    def check_perms_delete(self, request, id):
+    def check_perms_delete(self, request, obj_type, obj_uuid, id):
         app = request.environ['bottle.app']
         if app.config.local_auth or self._server_mgr.is_auth_disabled():
             return (True, '')
 
         if self._rbac:
-            return self.validate_perms_rbac(request, id, PERMS_W, delete=True)
+            # delete only allowed for owner
+            (ok, obj_dict) = self._server_mgr._db_conn.dbe_read(obj_type,
+                             {'uuid':obj_uuid}, obj_fields=['perms2'])
+            obj_owner=obj_dict['perms2']['owner']
+            return self.validate_perms_rbac(request, id, PERMS_W, obj_owner_for_delete = obj_owner)
         elif self._multi_tenancy:
             return self.validate_perms(request, id, PERMS_W)
         else:
