@@ -5,6 +5,7 @@
 #include <net/address_util.h>
 #include "kstate.h"
 #include "oper/interface_common.h"
+#include "oper/mpls.h"
 #include "interface_kstate.h"
 #include "route_kstate.h"
 #include "nh_kstate.h"
@@ -263,7 +264,10 @@ void KState::RouteMsgHandler(vr_route_req *r) {
     data.set_rid(r->get_rtr_rid());
     data.set_label_flags(rst->LabelFlagsToString(
                                   r->get_rtr_label_flags()));
-    data.set_label(r->get_rtr_label());
+    if(((uint32_t)r->get_rtr_label()) != (MplsTable::kInvalidLabel))
+        data.set_label(r->get_rtr_label());
+    else
+        data.set_label(0);
     data.set_nh_id(r->get_rtr_nh_id());
     
     list.push_back(data);
