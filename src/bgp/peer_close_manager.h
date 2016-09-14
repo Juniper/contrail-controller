@@ -54,6 +54,7 @@ public:
     bool IsInGRTimerWaitState() const {
         return state_ == GR_TIMER || state_ == LLGR_TIMER;
     }
+    bool IsInLlgrTimerWaitState() const { return state_ == LLGR_TIMER; }
     bool IsQueueEmpty() const { return event_queue_->IsQueueEmpty(); }
 
     void Close(bool non_graceful);
