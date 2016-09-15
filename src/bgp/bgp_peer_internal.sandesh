@@ -4,6 +4,10 @@
 
 include "bgp/bgp_peer.sandesh"
 
+/**
+ * BGP Peer Internal Information
+ */
+
 request sandesh BgpNeighborReqIterate {
     1: string iterate_info;
 }
