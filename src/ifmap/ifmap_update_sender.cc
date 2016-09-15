@@ -262,7 +262,7 @@ void IFMapUpdateSender::SendUpdate(BitSet send_set, BitSet *blocked_set) {
         message_->Close();
 
         // Send the string version of the message to the client.
-        send_result = client->SendUpdate(message_->c_str());
+        send_result = client->SendUpdate(message_->get_string());
 
         // Keep track of all the clients whose buffers are full. 
         if (!send_result) {
