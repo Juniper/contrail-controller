@@ -29,6 +29,7 @@ from cfgm_common.imid import *
 from cfgm_common import importutils
 from cfgm_common import svc_info
 from cfgm_common.utils import cgitb_hook
+from cfgm_common.vnc_amqp import VncAmqpHandle
 
 from config_db import *
 
@@ -45,10 +46,10 @@ import discoveryclient.client as client
 from agent_manager import AgentManager
 from db import ServiceMonitorDB
 from logger import ServiceMonitorLogger
-from rabbit import RabbitConnection
 from loadbalancer_agent import LoadbalancerAgent
 from port_tuple import PortTupleAgent
 from snat_agent import SNATAgent
+from reaction_map import REACTION_MAP
 
 try:
     from novaclient import exceptions as nc_exc
@@ -92,8 +93,9 @@ class SvcMonitor(object):
         DBBaseSM.init(self, self.logger, self._cassandra)
 
         # init rabbit connection
-        self.rabbit = RabbitConnection(self.logger, args)
-        self.rabbit._connect_rabbit()
+        self.rabbit = VncAmqpHandle(self.logger, DBBaseSM,
+                REACTION_MAP, 'svc_monitor', args=self._args)
+        self.rabbit.establish()
 
     def post_init(self, vnc_lib, args=None):
         # api server

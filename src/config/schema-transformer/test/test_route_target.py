@@ -2,6 +2,8 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+import sys
+
 try:
     import config_db
 except ImportError:
@@ -11,6 +13,8 @@ from vnc_api.vnc_api import RouteTargetList, NoIdError
 from test_case import STTestCase, retries
 from test_policy import VerifyPolicy
 
+sys.path.append("../common/tests")
+import test_common
 
 class VerifyRouteTarget(VerifyPolicy):
     def __init__(self, vnc_lib):
