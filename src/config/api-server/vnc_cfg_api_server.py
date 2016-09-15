@@ -1455,10 +1455,6 @@ class VncApiServer(object):
                 staticmethod(ConnectionState.get_process_state_cb),
                 NodeStatusUVE, NodeStatus, self.table)
 
-        # Load extensions
-        self._extension_mgrs = {}
-        self._load_extensions()
-
         # Address Management interface
         addr_mgmt = vnc_addr_mgmt.AddrMgmt(self)
         vnc_cfg_types.LogicalRouterServer.addr_mgmt = addr_mgmt
@@ -1470,15 +1466,6 @@ class VncApiServer(object):
         vnc_cfg_types.VirtualNetworkServer.addr_mgmt = addr_mgmt
         vnc_cfg_types.InstanceIpServer.manager = self
         self._addr_mgmt = addr_mgmt
-
-        # Authn/z interface
-        if self._args.auth == 'keystone':
-            auth_svc = vnc_auth_keystone.AuthServiceKeystone(self, self._args)
-        else:
-            auth_svc = vnc_auth.AuthService(self, self._args)
-
-        self._pipe_start_app = auth_svc.get_middleware_app()
-        self._auth_svc = auth_svc
 
         # DB interface initialization
         if self._args.wipe_config:
@@ -1504,6 +1491,28 @@ class VncApiServer(object):
 
         self.re_uuid = re.compile('^[0-9A-F]{8}-?[0-9A-F]{4}-?4[0-9A-F]{3}-?[89AB][0-9A-F]{3}-?[0-9A-F]{12}$',
                                   re.IGNORECASE)
+
+        # Load extensions
+        self._extension_mgrs = {}
+        self._load_extensions()
+
+        # Authn/z interface
+        if self._args.auth == 'keystone':
+            auth_svc = vnc_auth_keystone.AuthServiceKeystone(self, self._args)
+        else:
+            auth_svc = vnc_auth.AuthService(self, self._args)
+
+        self._pipe_start_app = auth_svc.get_middleware_app()
+        self._auth_svc = auth_svc
+
+        try:
+            self._extension_mgrs['resync'].map(self._resync_domains_projects)
+        except RuntimeError:
+            # lack of registered extension leads to RuntimeError
+            pass
+        except Exception as e:
+            err_msg = cfgm_common.utils.detailed_traceback()
+            self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
 
         # following allowed without authentication
         self.white_list = [
@@ -2785,14 +2794,6 @@ class VncApiServer(object):
         self._create_singleton_entry(GlobalQosConfig())
 
         self._db_conn.db_resync()
-        try:
-            self._extension_mgrs['resync'].map(self._resync_domains_projects)
-        except RuntimeError:
-            # lack of registered extension leads to RuntimeError
-            pass
-        except Exception as e:
-            err_msg = cfgm_common.utils.detailed_traceback()
-            self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
     # end _db_init_entries
 
     # generate default rbac group rule
