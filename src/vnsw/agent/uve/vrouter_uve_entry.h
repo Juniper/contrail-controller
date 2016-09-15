@@ -14,12 +14,16 @@ class VrouterUveEntry : public VrouterUveEntryBase {
 public:
     typedef std::map<string, uint64_t> DerivedStatsMap;
     typedef std::pair<string, uint64_t> DerivedStatsPair;
+    typedef std::map<std::string, RouteTableSize> RouteTableSizeMap;
+    typedef std::pair<std::string, RouteTableSize> RouteTableSizePair;
+    typedef boost::shared_ptr<RouteTableSizeMap> RouteTableSizeMapPtr;
 
     VrouterUveEntry(Agent *agent);
     virtual ~VrouterUveEntry();
     L4PortBitmap port_bitmap() { return port_bitmap_; }
 
     virtual bool SendVrouterMsg();
+    void SendVrouterControlStats();
     void UpdateBitmap(uint8_t proto, uint16_t sport, uint16_t dport);
 
 protected:
@@ -27,6 +31,7 @@ protected:
     L4PortBitmap port_bitmap_;
     FlowRateComputeInfo flow_info_;
 private:
+    void DispatchVrouterControlStats(const VrouterControlStats &uve) const;
     void InitPrevStats() const;
     void FetchDropStats(DerivedStatsMap &ds) const;
     bool SetVrouterPortBitmap(VrouterStatsAgent &vr_stats);
@@ -45,10 +50,16 @@ private:
     bool BuildPhysicalInterfaceList(std::map<std::string, PhyIfStats> &list,
                                     std::map<std::string, PhyIfInfo> info)const;
     std::string GetMacAddress(const MacAddress &mac) const;
-    void BuildXmppStatsList(std::vector<AgentXmppStats> &list) const;
-    void FetchIFMapStats(DerivedStatsMap &ds) const;
+    void BuildXmppStatsList(std::map<std::string, AgentXmppStats> *stats) const;
+    void FetchIFMapStats(DerivedStatsMap *ds) const;
+    void VrfWalkDone(DBTableBase *base, RouteTableSizeMapPtr list);
+    bool AppendVrf(DBTablePartBase *part, DBEntryBase *entry,
+                   RouteTableSizeMapPtr list);
+    bool StartVrfWalk();
+    void BuildAndSendVrouterControlStats(RouteTableSizeMapPtr list);
 
     uint64_t start_time_;
+    DBTableWalker::WalkId vrf_walk_id_;
     DISALLOW_COPY_AND_ASSIGN(VrouterUveEntry);
 };
 
