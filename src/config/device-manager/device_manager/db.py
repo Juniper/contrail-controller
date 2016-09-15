@@ -1322,7 +1322,7 @@ class DMCassandraDB(VncCassandraClient):
 
         super(DMCassandraDB, self).__init__(
             cass_server_list, self._args.cluster_id, keyspaces, None,
-            manager.config_log, credential=cred)
+            manager.logger.log, credential=cred)
 
         self.pr_vn_ip_map = {}
         self.init_pr_map()
