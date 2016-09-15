@@ -40,23 +40,12 @@ class QuotaHelper(object):
         return (True, quota_limit)
 
     @classmethod
-    def verify_quota_for_resource(cls, db_conn, resource, obj_type,
-                                  user_visibility, proj_uuid=None, fq_name=[]):
-        if not user_visibility:
-            return True, ""
-
-        if not proj_uuid and fq_name:
-            try:
-                proj_uuid = db_conn.fq_name_to_uuid('project', fq_name[0:2])
-            except cfgm_common.exceptions.NoIdError:
-                return (False, (500, 'No Project ID error : ' + proj_uuid))
-
-        (ok, proj_dict) = cls.get_project_dict_for_quota(proj_uuid, db_conn)
-
-        if not ok:
-            return (False, (500, 'Internal error : ' + pformat(proj_dict)))
-
-        quota_limit = cls.get_quota_limit(proj_dict, obj_type)
+    def verify_quota_for_resource(cls, db_conn, obj_dict, obj_type,
+                                  quota_limit, proj_uuid=None):
+        if 'parent_type' in obj_dict and obj_dict['parent_type'] == 'project':
+            resource = obj_type+'s'
+        elif 'project_refs' in obj_dict:
+            resource = obj_type+'_back_refs'
 
         # Quota limit is not enabled for this resource
         if quota_limit < 0:
@@ -81,6 +70,6 @@ class QuotaHelper(object):
         if quota_count >= quota_limit:
             msg = ('quota limit (%d) exceeded for resource %s'
                    % (quota_limit, obj_type))
-            return (False, (QUOTA_OVER_ERROR_CODE, pformat(fq_name) + ' : ' + msg))
+            return (False, (QUOTA_OVER_ERROR_CODE, pformat(obj_dict['fq_name']) + ' : ' + msg))
 
         return True, ""
