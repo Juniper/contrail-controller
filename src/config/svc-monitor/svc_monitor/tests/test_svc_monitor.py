@@ -17,6 +17,7 @@ si_add_info = {
     u'oper': u'CREATE', u'uuid': u'fake-instance', u'type': u'service-instance',
     u'obj_dict': {
         u'fq_name': [u'fake-domain', u'fake-project', u'fake-instance'],
+        u'uuid': u'fake-instance',
         u'parent_uuid': u'fake-domain:fake-project',
         u'service_instance_properties': {
             u'scale_out': {u'max_instances': 2},
@@ -54,6 +55,7 @@ si_del_info = {
 vn_add_info = {
     u'oper': u'CREATE', u'uuid': u'left-vn', u'type': u'virtual-network',
     u'obj_dict': {
+        u'uuid': u'left-vn',
         u'fq_name': [u'fake-domain', u'fake-project', u'left-vn'],
         u'parent_uuid': u'fake-domain:fake-project',
         u'parent_type': u'project'
@@ -64,6 +66,7 @@ vmi_add_info = {
     u'oper': u'CREATE', u'uuid': u'left-vmi', u'type': u'virtual-machine-interface',
     u'obj_dict': {
         u'fq_name': [u'fake-domain', u'fake-project', u'fake-domain__fake-project__fake-instance__1__left__0'],
+        u'uuid': u'left-vmi',
         u'parent_uuid': u'fake-domain:fake-project',
         u'parent_type': u'project'
     }
@@ -73,6 +76,7 @@ vmi_del_info = {
     u'oper': u'DELETE', u'uuid': u'left-vmi', u'type': u'virtual-machine-interface',
     u'obj_dict': {
         u'fq_name': [u'fake-domain', u'fake-project', u'left-vmi'],
+        u'uuid': u'left-vmi',
         u'parent_uuid': u'fake-domain:fake-project',
         u'parent_type': u'project'
     }

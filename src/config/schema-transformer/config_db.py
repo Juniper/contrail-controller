@@ -98,14 +98,6 @@ class DBBaseST(DBBase):
             cls.locate(obj.get_fq_name_str(), obj)
     # reinit
 
-    @classmethod
-    def get_by_uuid(cls, uuid, *args):
-        try:
-            fq_name = cls._cassandra.uuid_to_fq_name(uuid)
-            return cls.get(':'.join(fq_name))
-        except NoIdError:
-            return None
-
     def handle_st_object_req(self):
         st_obj = sandesh.StObject(object_type=self.obj_type,
                                   object_fq_name=self.name)
@@ -469,8 +461,8 @@ class VirtualNetworkST(DBBaseST):
                                                            sys.maxint))
         if attrib.sequence is None:
             self._logger.error("Cannot assign policy %s to %s: sequence "
-                               "number is not available", policy_name,
-                               self.name)
+                               "number is not available" % (policy_name,
+                                                            self.name))
             return
 
         self.network_policys[policy_name] = attrib
@@ -524,8 +516,8 @@ class VirtualNetworkST(DBBaseST):
         else:
             return {}
         if self.name == remote_vn:
-            self._logger.error("Service chain source and dest vn are same: %s",
-                               self.name)
+            self._logger.error("Service chain source and dest vn are same: %s"
+                    % self.name)
             return None
         if remote_vn == 'any':
             remote_vns = self.get_vns_in_project()
@@ -535,7 +527,8 @@ class VirtualNetworkST(DBBaseST):
         for remote_vn in remote_vns:
             if remote_vn not in VirtualNetworkST:
                 self._logger.error("Network %s not found while apply service "
-                                   "chain to network %s", remote_vn, self.name)
+                                   "chain to network %s" % (remote_vn,
+                                                            self.name))
                 continue
             services = prule.action_list.apply_service
             service_chain_list = self.service_chains.setdefault(remote_vn, [])
@@ -577,15 +570,15 @@ class VirtualNetworkST(DBBaseST):
                 self.obj, count=1)[0]
         except (NoIdError, RefsExistError) as e:
             self._logger.error(
-                "Error while allocating ipv4 in network %s: %s", self.name,
-                str(e))
+                "Error while allocating ipv4 in network %s: %s" % (self.name,
+                                                                   str(e)))
         try:
             v6_address = self._vnc_lib.virtual_network_ip_alloc(
                 self.obj, count=1, family='v6')[0]
         except (NoIdError, RefsExistError) as e:
             self._logger.error(
-                "Error while allocating ipv6 in network %s: %s", self.name,
-                str(e))
+                "Error while allocating ipv6 in network %s: %s" % (self.name,
+                                                                   str(e)))
         if v4_address is None and v6_address is None:
             return None, None
         self._cassandra.add_service_chain_ip(sc_name, v4_address, v6_address)
@@ -785,16 +778,16 @@ class VirtualNetworkST(DBBaseST):
     def _get_routing_instance_from_route(self, next_hop):
         si = ServiceInstanceST.get(next_hop)
         if si is None:
-            self._logger.error("Cannot find service instance %s", next_hop)
+            self._logger.error("Cannot find service instance %s" % next_hop)
             return (None, None)
         if not si.left_vn_str:
             self._logger.error("%s: route table next hop service instance "
-                               "must have left virtual network", self.name)
+                               "must have left virtual network" % self.name)
             return (None, None)
         left_vn = VirtualNetworkST.get(si.left_vn_str)
         if left_vn is None:
-            self._logger.error("Virtual network %s not present",
-                               si.left_vn_str)
+            self._logger.error("Virtual network %s not present"
+                    % si.left_vn_str)
             return (None, None)
         return (left_vn.get_primary_routing_instance(), si)
     # end _get_routing_instance_from_route
@@ -880,15 +873,15 @@ class VirtualNetworkST(DBBaseST):
             if ip:
                 action.mirror_to.set_analyzer_ip_address(ip)
             if vn_analyzer:
-                self._logger.debug("Mirror: adding connection: %s to %s",
-                                   self.name, vn_analyzer)
+                self._logger.debug("Mirror: adding connection: %s to %s" %
+                                   (self.name, vn_analyzer))
                 self.add_connection(vn_analyzer)
                 vn_obj = VirtualNetworkST.get(vn_analyzer)
                 if vn_obj:
                     vn_obj.add_connection(self.name)
             else:
-                self._logger.error("Mirror: %s: no analyzer vn for %s",
-                                   self.name, analyzer_name)
+                self._logger.error("Mirror: %s: no analyzer vn for %s" %
+                                   (self.name, analyzer_name))
         except NoIdError:
             return
     # end process_analyzer
@@ -909,8 +902,7 @@ class VirtualNetworkST(DBBaseST):
             if not pol:
                 self._logger.error(
                     "Policy %s not found while applying policy "
-                    "to network %s", addr.network_policy,
-                    self.name)
+                    "to network %s" % (addr.network_policy, self.name))
                 return []
             return [AddressType(virtual_network=x)
                     for x in pol.virtual_networks]
@@ -933,7 +925,7 @@ class VirtualNetworkST(DBBaseST):
 
         if prule.action_list is None:
             self._logger.error("No action specified in policy rule "
-                               "attached to %s. Ignored.", self.name)
+                               "attached to %s. Ignored." % self.name)
             return result_acl_rule_list
 
         for saddr in saddr_list:
@@ -967,8 +959,9 @@ class VirtualNetworkST(DBBaseST):
                     else:
                         self._logger.error(
                             "network policy rule attached to %s has src = %s,"
-                            " dst = %s. Ignored.", self.name, svn or spol,
-                            dvn or dpol)
+                            " dst = %s. Ignored." % (self.name,
+                                                     svn or spol,
+                                                     dvn or dpol))
                         continue
 
                 elif not svn and spol:
@@ -980,21 +973,22 @@ class VirtualNetworkST(DBBaseST):
                     else:
                         self._logger.error(
                             "network policy rule attached to %s has src = %s,"
-                            " dst = %s. Ignored.", self.name, svn or spol,
-                            dvn or dpol)
+                            " dst = %s. Ignored." % (self.name,
+                                                     svn or spol,
+                                                     dvn or dpol))
                         continue
                 elif (not svn and not dvn and not spol and not dpol and
                       (s_cidr or s_cidr_list) and (d_cidr or d_cidr_list)):
                     if prule.action_list.apply_service:
                         self._logger.error(
                             "service chains not allowed in cidr only rules "
-                            "network %s, src = %s, dst = %s. Ignored.",
-                            self.name, s_cidr, d_cidr)
+                            "network %s, src = %s, dst = %s. Ignored." %
+                            (self.name, s_cidr, d_cidr))
                         continue
                 else:
                     self._logger.error("network policy rule attached to %s"
-                                       "has svn = %s, dvn = %s. Ignored.",
-                                       self.name, svn, dvn)
+                                       "has svn = %s, dvn = %s. Ignored." %
+                                       (self.name, svn, dvn))
                     continue
 
                 action = prule.action_list
@@ -2613,8 +2607,8 @@ class ServiceChain(DBBaseST):
             mode = si_info[service]['mode']
             nat_service = (mode == "in-network-nat")
             transparent = (mode not in ["in-network", "in-network-nat"])
-            self._logger.info("service chain %s: creating %s chain",
-                              self.name, mode)
+            self._logger.info("service chain %s: creating %s chain" %
+                              (self.name, mode))
 
             if not nat_service:
                 ri_obj = RoutingInstanceST.create(service_name2, vn2_obj, has_pnf)
