@@ -3,6 +3,10 @@
  */
 
 /**
+ * XMPP Client Server Communication Module
+ */
+
+/**
  * @description: XMPP Client connection socket opening failure
  * @severity: WARNING
  * @cause: System possibly has run out of free sockets for communication

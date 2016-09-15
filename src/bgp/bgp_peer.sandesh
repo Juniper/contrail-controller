@@ -6,6 +6,10 @@ include "bgp/peer_info.sandesh"
 include "db/db.sandesh"
 include "io/io.sandesh"
 
+/**
+ * BGP Peer Information
+ */
+
 struct address_family {
     1: u32 afi;            // address family identifier
     2: u32 safi;           // sub-address family

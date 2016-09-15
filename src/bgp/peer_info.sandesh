@@ -3,6 +3,10 @@
  */
 include "sandesh/library/common/derived_stats_results.sandesh"
 
+/**
+ * Generic Peer Information
+ */
+
 struct PeerProtoStats {
     1: u64 total;
     2: u64 open;

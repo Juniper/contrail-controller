@@ -5,6 +5,10 @@
 include "bgp/bgp_peer.sandesh"
 include "bgp/routing-instance/static_route_internal.sandesh"
 
+/**
+ * BGP Static Route Information
+ */
+
 struct StaticRouteInfo {
     1: string prefix;
     2: bool static_rt;
