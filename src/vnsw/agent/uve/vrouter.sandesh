@@ -139,10 +139,9 @@ uve sandesh UveVrouterAgent {
  ** Sandesh definition for agent xmpp connection
  */
 struct AgentXmppStats {
-    1: string   ip (aggtype="listkey")
-    2: optional u16 reconnects; 
-    3: optional u64 in_msgs; 
-    4: optional u64 out_msgs; 
+    2: u16 reconnects;
+    3: u64 in_msgs;
+    4: u64 out_msgs;
 }
 
 /**
@@ -205,9 +204,6 @@ struct VrouterStatsAgent {  // Agent stats
     5: optional u64 out_tpkts;
     6: optional u64 out_bytes; 
 
-       //xmpp stats
-    7: optional list<AgentXmppStats> xmpp_stats_list;
-
         //Process stats
     12: optional cpuinfo.CpuLoadInfo cpu_info;
 
@@ -269,11 +265,6 @@ struct VrouterStatsAgent {  // Agent stats
     53: optional map<string,derived_stats_results.EWMResult> out_bps_ewm
                      (mstats="phy_band_out_bps:DSEWM:0.2")
 
-    56: optional map<string, u64> raw_ifmap_stats (metric="agg", hidden="yes")
-    /** @display_name:Vrouter IFMAP Parse Error Statistics*/
-    57: optional map<string, u64> ifmap_stats (mstats="raw_ifmap_stats:DSNon0:", tags=".__key")
-    58: optional map<string, u64> ifmap_stats_1h (mstats="raw_ifmap_stats:DSSum:120")
-
     /** @display_name:Physical Interface Flow Setup Statistics*/
     68: optional map<string, VrouterFlowRate> phy_flow_rate  (tags="name:.__key")
     69: optional map<string, derived_stats_results.AnomalyResult> phy_added_flows_ewm
@@ -326,4 +317,44 @@ struct ComputeCpuState {
  */
 uve sandesh ComputeCpuStateTrace {
     1: ComputeCpuState data
+}
+
+/**
+ * Sandesh definition for VRF routing table size on vrouter
+ */
+struct RouteTableSize {
+    1: u32 inet4_unicast;
+    2: u32 inet4_multicast;
+    3: u32 evpn;
+    4: u32 bridge;
+    5: u32 inet6_unicast;
+}
+
+/**
+ * Sandesh definition for vrouter control information
+ */
+struct VrouterControlStats {
+    1: string        name (key="ObjectVRouter")
+    2: optional bool deleted
+
+    /** @display_name:Vrouter XMPP Statistics*/
+    3: optional map<string, AgentXmppStats> raw_xmpp_stats (hidden="yes")
+    4: optional map<string, AgentXmppStats> xmpp_stats (mstats="raw_xmpp_stats:DSChange:")
+
+    /** @display_name:Vrouter IFMAP Parse Error Statistics*/
+    5: optional map<string, u64> raw_ifmap_stats (metric="agg", hidden="yes")
+    6: optional map<string, u64> ifmap_stats
+                     (mstats="raw_ifmap_stats:DSNon0:")
+    7: optional map<string, u64> ifmap_stats_1h
+                     (mstats="raw_ifmap_stats:DSSum:3600")
+
+    8: optional map<string, RouteTableSize> raw_rt_table_size (hidden="yes")
+    9: optional map<string, RouteTableSize> rt_table_size (mstats="raw_rt_table_size:DSChange:")
+}
+
+/**
+ * Vrouter control statistics uve
+ */
+uve sandesh VrouterControlStatsTrace {
+    1: VrouterControlStats data;
 }

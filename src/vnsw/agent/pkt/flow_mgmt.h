@@ -117,6 +117,8 @@
 // 1. All message between flow-management and flow-table/flow-stats module will
 //    hold object references. This will ensure ref-count for object dont drop
 //    till messages are processed.
+// 2. Each flow seen by flow-management will hold a reference to FlowEntryInfo
+//    in FlowEntry as flow_mgmt_info_
 //
 // Per FlowEntry mutex is used to synchronize access to same Flow between
 // FlowTable and Flow Management module
