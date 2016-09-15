@@ -44,6 +44,29 @@ def _parse_rt(rt):
 
 
 class ResourceDbMixin(object):
+
+    @classmethod
+    def get_quota_for_resource(cls, obj_type, obj_dict, db_conn):
+        #if length of fq_name is less than 3, return default quota i.e -1
+        if len(obj_dict['fq_name']) < 3:
+            return -1
+        else:
+            try:
+                proj_uuid = db_conn.fq_name_to_uuid('project', obj_dict['fq_name'][0:2])
+            except cfgm_common.exceptions.NoIdError:
+                return (False, (500, 'No Project ID error for fq_name : ' + pformat(obj_dict['fq_name'])))
+
+        (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(proj_uuid, db_conn)
+
+        if not ok:
+            return (False, (500, 'Internal error : ' + pformat(proj_dict)))
+
+        quota_limit = QuotaHelper.get_quota_limit(proj_dict, obj_type)
+        return quota_limit
+
+    @classmethod
+    def check_for_quota(cls, obj_dict, quota_limit, db_conn):
+        return True, ''
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         return True, ''
@@ -157,7 +180,27 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
 
 class FloatingIpServer(Resource, FloatingIp):
     @classmethod
-    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+    def get_quota_for_resource(cls, obj_type, obj_dict, db_conn):
+        if 'project_refs' not in obj_dict:
+            return False, (400, 'Floating Ip should have project reference')
+
+        proj_dict = obj_dict['project_refs'][0]
+        if 'uuid' in proj_dict:
+            proj_uuid = proj_dict['uuid']
+        else:
+            proj_uuid = db_conn.fq_name_to_uuid('project', proj_dict['to'])
+
+        (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(proj_uuid, db_conn)
+
+        if not ok:
+            return (False, (500, 'Internal error : ' + pformat(proj_dict)))
+
+        quota_limit = QuotaHelper.get_quota_limit(proj_dict, obj_type)
+
+        return quota_limit
+
+    @classmethod
+    def check_for_quota(cls, obj_dict, quota_limit, db_conn):
         if 'project_refs' not in obj_dict:
             return False, (400, 'Floating Ip should have project reference')
 
@@ -173,13 +216,15 @@ class FloatingIpServer(Resource, FloatingIp):
                                'resource': 'floating_ip_back_refs',
                                'obj_type': 'floating_ip',
                                'user_visibility': user_visibility,
-                               'proj_uuid': proj_uuid}
+                               'proj_uuid': proj_uuid,
+                               'quota_limit': quota_limit}
         (ok, response) = QuotaHelper.verify_quota_for_resource(
             **verify_quota_kwargs)
 
-        if not ok:
-            return (ok, response)
+        return (ok, response)
 
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         vn_fq_name = obj_dict['fq_name'][:-2]
         req_ip = obj_dict.get("floating_ip_address")
         if req_ip and cls.addr_mgmt.is_ip_allocated(req_ip, vn_fq_name):
@@ -207,7 +252,6 @@ class FloatingIpServer(Resource, FloatingIp):
 
         return True, ""
     # end pre_dbe_create
-
 
     @classmethod
     def post_dbe_delete(cls, id, obj_dict, db_conn):
@@ -241,7 +285,27 @@ class FloatingIpServer(Resource, FloatingIp):
 
 class AliasIpServer(Resource, AliasIp):
     @classmethod
-    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+    def get_quota_for_resource(cls, obj_type, obj_dict, db_conn):
+        if 'project_refs' not in obj_dict:
+            return False, (400, 'Alias Ip should have project reference')
+
+        proj_dict = obj_dict['project_refs'][0]
+        if 'uuid' in proj_dict:
+            proj_uuid = proj_dict['uuid']
+        else:
+            proj_uuid = db_conn.fq_name_to_uuid('project', proj_dict['to'])
+
+        (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(proj_uuid, db_conn)
+
+        if not ok:
+            return (False, (500, 'Internal error : ' + pformat(proj_dict)))
+
+        quota_limit = QuotaHelper.get_quota_limit(proj_dict, obj_type)
+
+        return quota_limit
+
+    @classmethod
+    def check_for_quota(cls, obj_dict, quota_limit, db_conn):
         if 'project_refs' not in obj_dict:
             return False, (400, 'Alias Ip should have project reference')
 
@@ -257,13 +321,15 @@ class AliasIpServer(Resource, AliasIp):
                                'resource': 'alias_ip_back_refs',
                                'obj_type': 'alias_ip',
                                'user_visibility': user_visibility,
-                               'proj_uuid': proj_uuid}
+                               'proj_uuid': proj_uuid,
+                               'quota_limit': quota_limit}
         (ok, response) = QuotaHelper.verify_quota_for_resource(
             **verify_quota_kwargs)
 
-        if not ok:
-            return (ok, response)
+        return (ok, response)
 
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         vn_fq_name = obj_dict['fq_name'][:-2]
         req_ip = obj_dict.get("alias_ip_address")
         if req_ip and cls.addr_mgmt.is_ip_allocated(req_ip, vn_fq_name):
@@ -580,18 +646,22 @@ class LogicalRouterServer(Resource, LogicalRouter):
         return (True, '')
 
     @classmethod
-    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+    def check_for_quota(cls, obj_dict, quota_limit, db_conn):
         user_visibility = obj_dict['id_perms'].get('user_visible', True)
         verify_quota_kwargs = {'db_conn': db_conn,
                                'fq_name': obj_dict['fq_name'],
                                'resource': 'logical_routers',
                                'obj_type': 'logical_router',
-                               'user_visibility': user_visibility}
+                               'user_visibility': user_visibility,
+                               'quota_limit': quota_limit}
 
-        ok, result = QuotaHelper.verify_quota_for_resource(
+        ok, response = QuotaHelper.verify_quota_for_resource(
                 **verify_quota_kwargs)
-        if not ok:
-            return (ok, result)
+
+        return (ok, response)
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         ok, result = cls.check_port_gateway_not_in_same_network(
                 db_conn, obj_dict)
         if not ok:
@@ -659,7 +729,36 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     # end _check_vrouter_link
 
     @classmethod
-    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+    def get_quota_for_resource(cls, obj_type, obj_dict, db_conn):
+        vn_dict = obj_dict['virtual_network_refs'][0]
+        vn_uuid = vn_dict.get('uuid')
+        if not vn_uuid:
+            vn_fq_name = vn_dict.get('to')
+            if not vn_fq_name:
+                msg = 'Bad Request: Reference should have uuid or fq_name: %s'\
+                      %(pformat(vn_dict))
+                return (False, (400, msg))
+            vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
+
+        ok, result = cls.dbe_read(db_conn, 'virtual_network', vn_uuid,
+                                  obj_fields=['parent_uuid'])
+        if not ok:
+            return ok, result
+
+        vn_dict = result
+        proj_uuid = vn_dict['parent_uuid']
+
+        (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(proj_uuid, db_conn)
+
+        if not ok:
+            return (False, (500, 'Internal error : ' + pformat(proj_dict)))
+
+        quota_limit = QuotaHelper.get_quota_limit(proj_dict, obj_type)
+
+        return quota_limit
+
+    @classmethod
+    def check_for_quota(cls, obj_dict, quota_limit, db_conn):
         vn_dict = obj_dict['virtual_network_refs'][0]
         vn_uuid = vn_dict.get('uuid')
         if not vn_uuid:
@@ -683,13 +782,32 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                                'resource': 'virtual_machine_interfaces',
                                'obj_type': 'virtual_machine_interface',
                                'user_visibility': user_visibility,
-                               'proj_uuid': proj_uuid}
+                               'proj_uuid': proj_uuid,
+                               'quota_limit': quota_limit}
 
         (ok, response) = QuotaHelper.verify_quota_for_resource(
             **verify_quota_kwargs)
 
+        return (ok, response)
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        vn_dict = obj_dict['virtual_network_refs'][0]
+        vn_uuid = vn_dict.get('uuid')
+        if not vn_uuid:
+            vn_fq_name = vn_dict.get('to')
+            if not vn_fq_name:
+                msg = 'Bad Request: Reference should have uuid or fq_name: %s'\
+                      %(pformat(vn_dict))
+                return (False, (400, msg))
+            vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
+
+        ok, result = cls.dbe_read(db_conn, 'virtual_network', vn_uuid,
+                                  obj_fields=['parent_uuid'])
         if not ok:
-            return (ok, response)
+            return ok, result
+
+        vn_dict = result
 
         inmac = None
         if 'virtual_machine_interface_mac_addresses' in obj_dict:
@@ -1038,26 +1156,19 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
     # end _check_ipam_network_subnets
 
     @classmethod
-    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        (ok, response) = cls._is_multi_policy_service_chain_supported(obj_dict)
-        if not ok:
-            return (ok, response)
+    def check_for_quota(cls, obj_dict, quota_limit, db_conn):
         user_visibility = obj_dict['id_perms'].get('user_visible', True)
-        # neutorn <-> vnc sharing
-        if obj_dict['perms2']['global_access']:
-            obj_dict['is_shared'] = True
-        elif obj_dict.get('is_shared'):
-            obj_dict['perms2']['global_access'] = PERMS_RWX
         verify_quota_kwargs = {'db_conn': db_conn,
                                'fq_name': obj_dict['fq_name'],
                                'resource': 'virtual_networks',
                                'obj_type': 'virtual_network',
-                               'user_visibility': user_visibility}
+                               'user_visibility': user_visibility,
+                               'quota_limit': quota_limit}
 
         (ok, response) = QuotaHelper.verify_quota_for_resource(
             **verify_quota_kwargs)
-        if not ok:
-            return (ok, response)
+
+        return (ok, response)
 
         # TODO(ethuleau): As we keep the virtual network ID allocation in
         #                 schema and in the vnc API for one release overlap to
@@ -1068,6 +1179,17 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         # # by the vnc server
         # if obj_dict.get('virtual_network_network_id') is not None:
         #     return (False, (403, "Cannot set the virtual network ID"))
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        (ok, response) = cls._is_multi_policy_service_chain_supported(obj_dict)
+        if not ok:
+            return (ok, response)
+        # neutorn <-> vnc sharing
+        if obj_dict['perms2']['global_access']:
+            obj_dict['is_shared'] = True
+        elif obj_dict.get('is_shared'):
+            obj_dict['perms2']['global_access'] = PERMS_RWX
 
         if obj_dict.get('virtual_network_network_id') is None:
             # Allocate virtual network ID
@@ -1407,18 +1529,22 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
 class NetworkIpamServer(Resource, NetworkIpam):
     @classmethod
-    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+    def check_for_quota(cls, obj_dict, quota_limit, db_conn):
         user_visibility = obj_dict['id_perms'].get('user_visible', True)
         verify_quota_kwargs = {'db_conn': db_conn,
                                'fq_name': obj_dict['fq_name'],
                                'resource': 'network_ipams',
                                'obj_type': 'network_ipam',
-                               'user_visibility': user_visibility}
+                               'user_visibility': user_visibility,
+                               'quota_limit': quota_limit}
 
         (ok, response) = QuotaHelper.verify_quota_for_resource(
             **verify_quota_kwargs)
-        if not ok:
-            return (ok, response)
+
+        return (ok, response)
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
 
         subnet_method = obj_dict.get('ipam_subnet_method', 'user-defined-subnet')
         ipam_subnets = obj_dict.get('ipam_subnets')
@@ -1899,18 +2025,22 @@ class SecurityGroupServer(Resource, SecurityGroup):
         return True, ''
 
     @classmethod
-    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+    def check_for_quota(cls, obj_dict, quota_limit, db_conn):
         user_visibility = obj_dict['id_perms'].get('user_visible', True)
         verify_quota_kwargs = {'db_conn': db_conn,
                                'fq_name': obj_dict['fq_name'],
                                'resource': 'security_groups',
                                'obj_type': 'security_group',
-                               'user_visibility': user_visibility}
+                               'user_visibility': user_visibility,
+                               'quota_limit': quota_limit}
 
         (ok, response) = QuotaHelper.verify_quota_for_resource(
             **verify_quota_kwargs)
-        if not ok:
-            return (ok, response)
+
+        return (ok, response)
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
 
         ok, response = _check_policy_rules(
             obj_dict.get('security_group_entries'))
@@ -2009,19 +2139,22 @@ class SecurityGroupServer(Resource, SecurityGroup):
 class NetworkPolicyServer(Resource, NetworkPolicy):
 
     @classmethod
-    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+    def check_for_quota(cls, obj_dict, quota_limit, db_conn):
         user_visibility = obj_dict['id_perms'].get('user_visible', True)
         verify_quota_kwargs = {'db_conn': db_conn,
                                'fq_name': obj_dict['fq_name'],
                                'resource': 'network_policys',
                                'obj_type': 'network_policy',
-                               'user_visibility': user_visibility}
+                               'user_visibility': user_visibility,
+                               'quota_limit': quota_limit}
 
         (ok, response) = QuotaHelper.verify_quota_for_resource(
             **verify_quota_kwargs)
-        if not ok:
-            return (ok, response)
 
+        return (ok, response)
+    
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         return _check_policy_rules(obj_dict.get('network_policy_entries'), True)
     # end pre_dbe_create
 
@@ -2261,13 +2394,14 @@ class LoadbalancerMemberServer(Resource, LoadbalancerMember):
 class LoadbalancerPoolServer(Resource, LoadbalancerPool):
 
     @classmethod
-    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+    def check_for_quota(cls, obj_dict, quota_limit, db_conn):
         user_visibility = obj_dict['id_perms'].get('user_visible', True)
         verify_quota_kwargs = {'db_conn': db_conn,
                                'fq_name': obj_dict['fq_name'],
                                'resource': 'loadbalancer_pools',
                                'obj_type': 'loadbalancer_pool',
-                               'user_visibility': user_visibility}
+                               'user_visibility': user_visibility,
+                               'quota_limit': quota_limit}
         return QuotaHelper.verify_quota_for_resource(**verify_quota_kwargs)
 
 # end class LoadbalancerPoolServer
@@ -2276,13 +2410,14 @@ class LoadbalancerPoolServer(Resource, LoadbalancerPool):
 class LoadbalancerHealthmonitorServer(Resource, LoadbalancerHealthmonitor):
 
     @classmethod
-    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+    def check_for_quota(cls, obj_dict, quota_limit, db_conn):
         user_visibility = obj_dict['id_perms'].get('user_visible', True)
         verify_quota_kwargs = {'db_conn': db_conn,
                                'fq_name': obj_dict['fq_name'],
                                'resource': 'loadbalancer_healthmonitors',
                                'obj_type': 'loadbalancer_healthmonitor',
-                               'user_visibility': user_visibility}
+                               'user_visibility': user_visibility,
+                               'quota_limit': quota_limit}
         return QuotaHelper.verify_quota_for_resource(**verify_quota_kwargs)
 
 # end class LoadbalancerHealthmonitorServer
@@ -2291,14 +2426,15 @@ class LoadbalancerHealthmonitorServer(Resource, LoadbalancerHealthmonitor):
 class VirtualIpServer(Resource, VirtualIp):
 
     @classmethod
-    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+    def check_for_quota(cls, obj_dict, quota_limit, db_conn):
 
         user_visibility = obj_dict['id_perms'].get('user_visible', True)
         verify_quota_kwargs = {'db_conn': db_conn,
                                'fq_name': obj_dict['fq_name'],
                                'resource': 'virtual_ips',
                                'obj_type': 'virtual_ip',
-                               'user_visibility': user_visibility}
+                               'user_visibility': user_visibility,
+                               'quota_limit': quota_limit}
         return QuotaHelper.verify_quota_for_resource(**verify_quota_kwargs)
 
 # end class VirtualIpServer
