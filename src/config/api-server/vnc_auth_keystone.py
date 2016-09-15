@@ -272,9 +272,10 @@ class AuthServiceKeystone(object):
                 hdr_val = env.get(hdr_name)
                 if hdr_val:
                     ret_headers_dict[hdr_name] = hdr_val
+            start_response('200 OK', [('Content-type', 'text/plain')])
             return ret_headers_dict
 
         auth_middleware = auth_token.AuthProtocol(token_to_headers, conf_info)
-        return auth_middleware(request.headers.environ, None)
+        return auth_middleware(request.headers.environ, self.start_response)
     # end get_auth_headers_from_token
 # end class AuthService
