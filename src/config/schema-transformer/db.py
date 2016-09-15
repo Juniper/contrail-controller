@@ -71,7 +71,7 @@ class SchemaTransformerDB(VncCassandraClient):
 
         super(SchemaTransformerDB, self).__init__(
             cass_server_list, self._args.cluster_id, keyspaces, None,
-            manager.config_log, reset_config=self._args.reset_config,
+            manager.logger.log, reset_config=self._args.reset_config,
             credential=cred)
 
         SchemaTransformerDB._rt_cf = self._cf_dict[self._RT_CF]
