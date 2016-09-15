@@ -39,9 +39,11 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     ServiceInstanceDM, LogicalInterfaceDM, VirtualMachineInterfaceDM, \
     VirtualNetworkDM, RoutingInstanceDM, GlobalSystemConfigDM, \
     GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB, PortTupleDM
+from dm_amqp import DMAmqpHandle
 from physical_router_config import PushConfigState
 from cfgm_common.dependency_tracker import DependencyTracker
 from cfgm_common.utils import cgitb_hook
+from cfgm_common.vnc_logger import ConfigServiceLogger
 
 
 class DeviceManager(object):
@@ -149,34 +151,10 @@ class DeviceManager(object):
         PushConfigState.set_push_delay_max(int(self._args.push_delay_max))
         PushConfigState.set_push_delay_enable(bool(self._args.push_delay_enable))
 
-        self._sandesh = Sandesh()
-        # Reset the sandesh send rate limit value
-        if self._args.sandesh_send_rate_limit is not None:
-            SandeshSystem.set_sandesh_send_rate_limit(
-                self._args.sandesh_send_rate_limit)
+        # Initialize logger
         module = Module.DEVICE_MANAGER
-        module_name = ModuleNames[module]
-        node_type = Module2NodeType[module]
-        node_type_name = NodeTypeNames[node_type]
-        self.table = "ObjectConfigNode"
-        instance_id = INSTANCE_ID_DEFAULT
-        hostname = socket.gethostname()
-        self._sandesh.init_generator(
-            module_name, hostname, node_type_name, instance_id,
-            self._args.collectors, 'to_bgp_context',
-            int(args.http_server_port),
-            ['cfgm_common', 'device_manager.sandesh'], self._disc)
-        self._sandesh.set_logging_params(enable_local_log=args.log_local,
-                                         category=args.log_category,
-                                         level=args.log_level,
-                                         file=args.log_file,
-                                         enable_syslog=args.use_syslog,
-                                         syslog_facility=args.syslog_facility)
-        PhysicalRouterDM._sandesh = self._sandesh
-        ConnectionState.init(
-            self._sandesh, hostname, module_name, instance_id,
-            staticmethod(ConnectionState.get_process_state_cb),
-            NodeStatusUVE, NodeStatus, self.table)
+        module_pkg = "device_manager"
+        self.logger = ConfigServiceLogger(self._disc, module, module_pkg, args)
 
         # Retry till API server is up
         connected = False
@@ -197,34 +175,15 @@ class DeviceManager(object):
             except ResourceExhaustionError:  # haproxy throws 503
                 time.sleep(3)
 
-        rabbit_servers = self._args.rabbit_server
-        rabbit_port = self._args.rabbit_port
-        rabbit_user = self._args.rabbit_user
-        rabbit_password = self._args.rabbit_password
-        rabbit_vhost = self._args.rabbit_vhost
-        rabbit_ha_mode = self._args.rabbit_ha_mode
+        # Initialize amqp
+        self._vnc_amqp = DMAmqpHandle(self.logger,
+                self._REACTION_MAP, self._args)
+        self._vnc_amqp.establish()
 
-        self._db_resync_done = gevent.event.Event()
-
-        q_name = 'device_manager.%s' % (socket.gethostname())
-        self._vnc_kombu = VncKombuClient(rabbit_servers, rabbit_port,
-                                         rabbit_user, rabbit_password,
-                                         rabbit_vhost, rabbit_ha_mode,
-                                         q_name, self._vnc_subscribe_callback,
-                                         self.config_log, rabbit_use_ssl =
-                                         self._args.rabbit_use_ssl,
-                                         kombu_ssl_version =
-                                         self._args.kombu_ssl_version,
-                                         kombu_ssl_keyfile =
-                                         self._args.kombu_ssl_keyfile,
-                                         kombu_ssl_certfile =
-                                         self._args.kombu_ssl_certfile,
-                                         kombu_ssl_ca_certs =
-                                         self._args.kombu_ssl_ca_certs)
-
+        # Initialize cassandra
         self._cassandra = DMCassandraDB.getInstance(self, _zookeeper_client)
+        DBBaseDM.init(self, self.logger, self._cassandra)
 
-        DBBaseDM.init(self, self._sandesh.logger(), self._cassandra)
         for obj in GlobalSystemConfigDM.list_obj():
             GlobalSystemConfigDM.locate(obj['uuid'], obj)
 
@@ -282,7 +241,7 @@ class DeviceManager(object):
         for pr in PhysicalRouterDM.values():
             pr.set_config_state()
 
-        self._db_resync_done.set()
+        self._vnc_amqp._db_resync_done.set()
         gevent.joinall(self._vnc_kombu.greenlets())
     # end __init__
 
@@ -293,93 +252,6 @@ class DeviceManager(object):
             server_addrs=['%s:%s' % (self._args.api_server_ip,
                                      self._args.api_server_port)])
     # end connection_state_update
-
-    def config_log(self, msg, level):
-        self._sandesh.logger().log(SandeshLogger.get_py_logger_level(level),
-                                   msg)
-
-    def _vnc_subscribe_callback(self, oper_info):
-        self._db_resync_done.wait()
-        dependency_tracker = None
-        try:
-            msg = "Notification Message: %s" % (pformat(oper_info))
-            self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
-            obj_type = oper_info['type'].replace('-', '_')
-            obj_class = DBBaseDM.get_obj_type_map().get(obj_type)
-            if obj_class is None:
-                return
-
-            if oper_info['oper'] == 'CREATE':
-                obj_dict = oper_info['obj_dict']
-                obj_id = obj_dict['uuid']
-                self._cassandra.cache_uuid_to_fq_name_add(
-                    obj_id, obj_dict['fq_name'], obj_type)
-                obj = obj_class.locate(obj_id, obj_dict)
-                dependency_tracker = DependencyTracker(
-                    DBBaseDM.get_obj_type_map(), self._REACTION_MAP)
-                dependency_tracker.evaluate(obj_type, obj)
-            elif oper_info['oper'] == 'UPDATE':
-                obj_id = oper_info['uuid']
-                obj = obj_class.get(obj_id)
-                old_dt = None
-                if obj is not None:
-                    old_dt = DependencyTracker(
-                        DBBaseDM.get_obj_type_map(), self._REACTION_MAP)
-                    old_dt.evaluate(obj_type, obj)
-                else:
-                    obj = obj_class.locate(obj_id)
-                obj.update()
-                dependency_tracker = DependencyTracker(
-                    DBBaseDM.get_obj_type_map(), self._REACTION_MAP)
-                dependency_tracker.evaluate(obj_type, obj)
-                if old_dt:
-                    for resource, ids in old_dt.resources.items():
-                        if resource not in dependency_tracker.resources:
-                            dependency_tracker.resources[resource] = ids
-                        else:
-                            dependency_tracker.resources[resource] = list(
-                                set(dependency_tracker.resources[resource]) |
-                                set(ids))
-            elif oper_info['oper'] == 'DELETE':
-                obj_id = oper_info['uuid']
-                self._cassandra.cache_uuid_to_fq_name_del(obj_id)
-                obj = obj_class.get(obj_id)
-                if obj is None:
-                    return
-                dependency_tracker = DependencyTracker(
-                    DBBaseDM.get_obj_type_map(), self._REACTION_MAP)
-                dependency_tracker.evaluate(obj_type, obj)
-                obj_class.delete(obj_id)
-            else:
-                # unknown operation
-                self.config_log('Unknown operation %s' % oper_info['oper'],
-                                level=SandeshLevel.SYS_ERR)
-                return
-
-            if obj is None:
-                self.config_log('Error while accessing %s uuid %s' % (
-                                obj_type, obj_id))
-                return
-
-        except Exception:
-            string_buf = cStringIO.StringIO()
-            cgitb_hook(file=string_buf, format="text")
-            self.config_log(string_buf.getvalue(), level=SandeshLevel.SYS_ERR)
-
-        if not dependency_tracker:
-            return
-
-        for vn_id in dependency_tracker.resources.get('virtual_network', []):
-            vn = VirtualNetworkDM.get(vn_id)
-            if vn is not None:
-                vn.update_instance_ip_map()
-
-        for pr_id in dependency_tracker.resources.get('physical_router', []):
-            pr = PhysicalRouterDM.get(pr_id)
-            if pr is not None:
-                pr.set_config_state()
-
-    # end _vnc_subscribe_callback
 
 
 def parse_args(args_str):
@@ -445,6 +317,8 @@ def parse_args(args_str):
         'use_syslog': False,
         'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
         'cluster_id': '',
+        'logging_conf': '',
+        'logger_class': None,
         'repush_interval': '15',
         'repush_max_interval': '600',
         'push_delay_per_kb': '0.01',
@@ -548,6 +422,12 @@ def parse_args(args_str):
                         help="Tenant name for keystone admin user")
     parser.add_argument("--cluster_id",
                         help="Used for database keyspace separation")
+    parser.add_argument(
+        "--logging_conf",
+        help=("Optional logging configuration file, default: None"))
+    parser.add_argument(
+        "--logger_class",
+        help=("Optional external logger class, default: None"))
     parser.add_argument("--repush_interval",
                         help="time interval for config re push")
     parser.add_argument("--repush_max_interval",
