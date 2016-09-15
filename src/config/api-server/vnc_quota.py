@@ -41,22 +41,7 @@ class QuotaHelper(object):
 
     @classmethod
     def verify_quota_for_resource(cls, db_conn, resource, obj_type,
-                                  user_visibility, proj_uuid=None, fq_name=[]):
-        if not user_visibility:
-            return True, ""
-
-        if not proj_uuid and fq_name:
-            try:
-                proj_uuid = db_conn.fq_name_to_uuid('project', fq_name[0:2])
-            except cfgm_common.exceptions.NoIdError:
-                return (False, (500, 'No Project ID error : ' + proj_uuid))
-
-        (ok, proj_dict) = cls.get_project_dict_for_quota(proj_uuid, db_conn)
-
-        if not ok:
-            return (False, (500, 'Internal error : ' + pformat(proj_dict)))
-
-        quota_limit = cls.get_quota_limit(proj_dict, obj_type)
+                                  quota_limit, proj_uuid=None, fq_name=[]):
 
         # Quota limit is not enabled for this resource
         if quota_limit < 0:
