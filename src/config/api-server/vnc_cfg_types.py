@@ -84,6 +84,15 @@ class ResourceDbMixin(object):
     def dbe_delete_notification(cls, obj_ids, obj_dict):
         pass
     #end dbe_delete_notification
+    
+    @classmethod
+    def get_resource_proj_uuid(cls, obj_dict, obj_type, db_conn):
+        if ( ((obj_type is not 'virtual_machine') and (obj_type is not 'instance_ip')) and (obj_dict['fq_name']) ):
+            try:
+                proj_uuid = db_conn.fq_name_to_uuid('project', obj_dict['fq_name'][0:2])
+            except cfgm_common.exceptions.NoIdError:
+                return (False, (500, 'No Project ID error : ' + proj_uuid))
+            return proj_uuid
 
 # end class ResourceDbMixin
 
@@ -208,6 +217,20 @@ class FloatingIpServer(Resource, FloatingIp):
         return True, ""
     # end pre_dbe_create
 
+
+    @classmethod
+    def get_resource_proj_uuid(cls, obj_dict, obj_type, db_conn):
+        if 'project_refs' not in obj_dict:
+            return False, (400, 'Floating Ip should have project reference')
+
+        proj_dict = obj_dict['project_refs'][0]
+
+        if 'uuid' in proj_dict:
+            proj_uuid = proj_dict['uuid']
+        else:
+            proj_uuid = db_conn.fq_name_to_uuid('project', proj_dict['to'])
+
+        return proj_uuid
 
     @classmethod
     def post_dbe_delete(cls, id, obj_dict, db_conn):
@@ -740,6 +763,28 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
         return True, ""
     # end pre_dbe_create
+
+    @classmethod
+    def get_resource_proj_uuid(cls, obj_dict, obj_type, db_conn):
+        vn_dict = obj_dict['virtual_network_refs'][0]
+        vn_uuid = vn_dict.get('uuid')
+        if not vn_uuid:
+            vn_fq_name = vn_dict.get('to')
+            if not vn_fq_name:
+                msg = 'Bad Request: Reference should have uuid or fq_name: %s'\
+                      %(pformat(vn_dict))
+                return (False, (400, msg))
+
+            vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
+
+        ok, result = db_conn.dbe_read('virtual_network', {'uuid': vn_uuid},
+                                  obj_fields=['parent_uuid'])
+        if not ok:
+            return ok, result
+
+        vn_dict = result
+        proj_uuid = vn_dict['parent_uuid']
+        return proj_uuid    
 
     @classmethod
     def post_dbe_create(cls, tenant_name, obj_dict, db_conn):

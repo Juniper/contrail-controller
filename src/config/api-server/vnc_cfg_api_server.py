@@ -499,17 +499,7 @@ class VncApiServer(object):
                 None, fq_name_str, obj_type, failed_stage, msg)
         # end undo_create
 
-        def stateful_create():
-            # Alloc and Store id-mappings before creating entry on pubsub store.
-            # Else a subscriber can ask for an id mapping before we have stored it
-            (ok, result) = db_conn.dbe_alloc(obj_type, obj_dict,
-                                             uuid_in_req)
-            if not ok:
-                return (ok, result)
-            get_context().push_undo(db_conn.dbe_release, obj_type, fq_name)
-
-            obj_ids.update(result)
-
+        def dbe_create():
             env = get_request().headers.environ
             tenant_name = env.get(hdr_server_tenant()) or 'default-project'
 
@@ -543,6 +533,48 @@ class VncApiServer(object):
                 self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
 
             return True, ''
+
+        def stateful_create():
+            # Alloc and Store id-mappings before creating entry on pubsub store.
+            # Else a subscriber can ask for an id mapping before we have stored it
+            (ok, result) = db_conn.dbe_alloc(obj_type, obj_dict,
+                                             uuid_in_req)
+            if not ok:
+                return (ok, result)
+            get_context().push_undo(db_conn.dbe_release, obj_type, fq_name)
+
+            obj_ids.update(result)
+
+            env = get_request().headers.environ
+            tenant_name = env.get(hdr_server_tenant()) or 'default-project'
+
+            quota_limit = -1
+            if (obj_type != 'project'):
+                proj_uuid = r_class.get_resource_proj_uuid(obj_dict, obj_type, db_conn)
+
+                if obj_type is not 'virtual_machine' and obj_type is not 'instance_ip':
+                    (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(proj_uuid, db_conn)
+
+                if not ok:
+                    return (False, (500, 'Internal error : ' + pformat(proj_dict)))
+
+                if obj_type is not 'virtual_machine' and obj_type is not 'instance_ip':
+                    quota_limit = QuotaHelper.get_quota_limit(proj_dict, obj_type)
+
+            if quota_limit >= 0:
+                ret = {'ok': None, 'result': None}
+                def _create():
+                    (_ok, _result) = dbe_create()
+                    ret['ok'] = _ok
+                    ret['result'] = _result
+
+                #master_election
+                self._db_conn._zk_db.master_election(obj_type + "/vnc-cfg-api-server", _create)
+                return ret['ok'], ret['result']
+            else:
+                #normal execution
+                (ok,result) = dbe_create()
+                return ok, result
         # end stateful_create
 
         try:
@@ -1465,6 +1497,7 @@ class VncApiServer(object):
             '^/documentation',  # allow all documentation
             '^/$',              # allow discovery
         ]
+        
     # end __init__
 
     def sandesh_disc_client_subinfo_handle_request(self, req):
