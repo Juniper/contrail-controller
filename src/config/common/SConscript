@@ -41,6 +41,8 @@ local_sources = [
                   'vnc_api_stats.py',
                   'ssl_adapter.py',
                   'vnc_greenlets.py',
+                  'vnc_amqp.py',
+                  'vnc_logger.py',
                  ]
 local_sources_rules = []
 for file in local_sources:
