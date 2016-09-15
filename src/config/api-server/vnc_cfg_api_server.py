@@ -473,6 +473,7 @@ class VncApiServer(object):
                     (code, err_msg) = status
                     raise cfgm_common.exceptions.HttpError(code, err_msg)
                 self._permissions.set_user_role(get_request(), obj_dict)
+                obj_dict['parent_uuid'] = parent_uuid
             except NoIdError:
                 err_msg = 'Parent %s type %s does not exist' % (
                     pformat(parent_fq_name), parent_res_type)
@@ -519,14 +520,43 @@ class VncApiServer(object):
                                                   db_conn)
             if not ok:
                 return (ok, result)
+
             callable = getattr(r_class, 'http_post_collection_fail', None)
             if callable:
                 cleanup_on_failure.append((callable, [tenant_name, obj_dict, db_conn]))
-            get_context().set_state('DBE_CREATE')
-            (ok, result) = db_conn.dbe_create(obj_type, obj_ids,
-                                              obj_dict)
+
+            quota_limit = -1
+            ok, quota_limit, proj_uuid = r_class.get_quota_for_resource(obj_type, obj_dict, db_conn)
+
             if not ok:
-                return (ok, result)
+                return ok, quota_limit
+
+            get_context().set_state('DBE_CREATE')
+
+            if quota_limit >= 0:
+                #master_election
+                ret = {'ok': None, 'result': None}
+                def _create():
+                    (ok, result) = r_class.check_for_quota(obj_type, obj_dict, quota_limit, proj_uuid, db_conn)
+                    if not ok:
+                        ret['ok'] = ok
+                        ret['result'] = result
+                        return
+
+                    (_ok, _result) = db_conn.dbe_create(obj_type, obj_ids,
+                                                      obj_dict)
+                    ret['ok'] = _ok
+                    ret['result'] = _result
+
+                self._db_conn._zk_db.master_election(obj_type + "/vnc_api-server", _create)
+                if not ret['ok']:
+                    return ret['ok'], ret['result']
+            else:
+                #normal execution
+                (ok, result) = db_conn.dbe_create(obj_type, obj_ids,
+                                                  obj_dict)
+                if not ok:
+                    return (ok, result)
 
             get_context().set_state('POST_DBE_CREATE')
             # type-specific hook
