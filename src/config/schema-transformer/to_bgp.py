@@ -21,7 +21,6 @@ import ConfigParser
 import cgitb
 
 import argparse
-import socket
 
 from cfgm_common import vnc_cpu_info
 
@@ -33,20 +32,15 @@ from pysandesh.sandesh_logger import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from cfgm_common.uve.virtual_network.ttypes import *
 from sandesh_common.vns.ttypes import Module
-from sandesh_common.vns.constants import ModuleNames, Module2NodeType, \
-    NodeTypeNames, INSTANCE_ID_DEFAULT
-from schema_transformer.sandesh.st_introspect import ttypes as sandesh
-from schema_transformer.sandesh.traces.ttypes import MessageBusNotifyTrace,\
-    DependencyTrackerResource
+from sandesh_common.vns.constants import ModuleNames
 import discoveryclient.client as client
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
-from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, NodeStatus
 from db import SchemaTransformerDB
-from cfgm_common.vnc_kombu import VncKombuClient
-from cfgm_common.dependency_tracker import DependencyTracker
-from cfgm_common.utils import cgitb_hook
+from logger import SchemaTransformerLogger
+from st_amqp import STAmqpHandle
+
 
 # connection to api-server
 _vnc_lib = None
@@ -160,73 +154,18 @@ class SchemaTransformer(object):
                 self._args.disc_server_port,
                 ModuleNames[Module.SCHEMA_TRANSFORMER])
 
-        self._sandesh = Sandesh()
-        # Reset the sandesh send rate limit value
-        if args.sandesh_send_rate_limit is not None:
-            SandeshSystem.set_sandesh_send_rate_limit(
-                args.sandesh_send_rate_limit)
-        sandesh.VnList.handle_request = self.sandesh_vn_handle_request
-        sandesh.RoutintInstanceList.handle_request = \
-            self.sandesh_ri_handle_request
-        sandesh.ServiceChainList.handle_request = \
-            self.sandesh_sc_handle_request
-        sandesh.StObjectReq.handle_request = \
-            self.sandesh_st_object_handle_request
-        module = Module.SCHEMA_TRANSFORMER
-        module_name = ModuleNames[module]
-        node_type = Module2NodeType[module]
-        node_type_name = NodeTypeNames[node_type]
-        self.table = "ObjectConfigNode"
-        instance_id = INSTANCE_ID_DEFAULT
-        hostname = socket.gethostname()
-        self._sandesh.init_generator(
-            module_name, hostname, node_type_name, instance_id,
-            self._args.collectors, 'to_bgp_context',
-            int(args.http_server_port),
-            ['cfgm_common', 'schema_transformer.sandesh'], self._disc,
-            logger_class=args.logger_class,
-            logger_config_file=args.logging_conf)
-        self._sandesh.set_logging_params(enable_local_log=args.log_local,
-                                    category=args.log_category,
-                                    level=args.log_level,
-                                    file=args.log_file,
-                                    enable_syslog=args.use_syslog,
-                                    syslog_facility=args.syslog_facility)
-        ConnectionState.init(self._sandesh, hostname, module_name, instance_id,
-                staticmethod(ConnectionState.get_process_state_cb),
-                NodeStatusUVE, NodeStatus, self.table)
+        # Initialize logger
+        self.logger = SchemaTransformerLogger(self._disc, args)
 
-        self._sandesh.trace_buffer_create(name="MessageBusNotifyTraceBuf",
-                                          size=1000)
-
-        rabbit_servers = self._args.rabbit_server
-        rabbit_port = self._args.rabbit_port
-        rabbit_user = self._args.rabbit_user
-        rabbit_password = self._args.rabbit_password
-        rabbit_vhost = self._args.rabbit_vhost
-        rabbit_ha_mode = self._args.rabbit_ha_mode
-
-        self._db_resync_done = gevent.event.Event()
-
-        q_name = 'schema_transformer.%s' % (socket.gethostname())
-        self._vnc_kombu = VncKombuClient(rabbit_servers, rabbit_port,
-                                         rabbit_user, rabbit_password,
-                                         rabbit_vhost, rabbit_ha_mode,
-                                         q_name, self._vnc_subscribe_callback,
-                                         self.config_log, rabbit_use_ssl =
-                                         self._args.rabbit_use_ssl,
-                                         kombu_ssl_version =
-                                         self._args.kombu_ssl_version,
-                                         kombu_ssl_keyfile =
-                                         self._args.kombu_ssl_keyfile,
-                                         kombu_ssl_certfile =
-                                         self._args.kombu_ssl_certfile,
-                                         kombu_ssl_ca_certs =
-                                         self._args.kombu_ssl_ca_certs)
+        # Initialize amqp
+        self._vnc_amqp = STAmqpHandle(self.logger,
+                self._REACTION_MAP, self._args)
+        self._vnc_amqp.establish()
         try:
+            # Initialize cassandra
             self._cassandra = SchemaTransformerDB(self, _zookeeper_client)
-            DBBaseST.init(self, self._sandesh.logger(), self._cassandra)
-            DBBaseST._sandesh = self._sandesh
+            DBBaseST.init(self, self.logger, self._cassandra)
+            DBBaseST._sandesh = self.logger._sandesh
             DBBaseST._vnc_lib = _vnc_lib
             ServiceChain.init()
             self.reinit()
@@ -235,137 +174,13 @@ class SchemaTransformer(object):
             cpu_info = vnc_cpu_info.CpuInfo(
                 module_name, instance_id, sysinfo_req, self._sandesh, 60)
             self._cpu_info = cpu_info
-            self._db_resync_done.set()
+            self._vnc_amqp._db_resync_done.set()
         except Exception as e:
             # If any of the above tasks like CassandraDB read fails, cleanup
             # the RMQ constructs created earlier and then give up.
-            self._vnc_kombu.shutdown()
+            self._vnc_amqp.close()
             raise e
     # end __init__
-
-    def config_log(self, msg, level):
-        self._sandesh.logger().log(SandeshLogger.get_py_logger_level(level),
-                                   msg)
-
-    def _vnc_subscribe_callback(self, oper_info):
-        self._db_resync_done.wait()
-        dependency_tracker = None
-        try:
-            msg = "Notification Message: %s" % (pformat(oper_info))
-            self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
-            obj_type = oper_info['type'].replace('-', '_')
-            obj_class = DBBaseST.get_obj_type_map().get(obj_type)
-            if obj_class is None:
-                return
-
-            oper = oper_info['oper']
-            obj_id = oper_info['uuid']
-            notify_trace = MessageBusNotifyTrace(
-                request_id=oper_info.get('request_id'),
-                operation=oper, uuid=obj_id)
-            if oper == 'CREATE':
-                obj_dict = oper_info['obj_dict']
-                obj_fq_name = ':'.join(obj_dict['fq_name'])
-                self._cassandra.cache_uuid_to_fq_name_add(
-                    obj_id, obj_dict['fq_name'], obj_type)
-                obj = obj_class.locate(obj_fq_name)
-                if obj is None:
-                    self.config_log('%s id %s fq_name %s not found' % (
-                                    obj_type, obj_id, obj_fq_name),
-                                    level=SandeshLevel.SYS_INFO)
-                    return
-                dependency_tracker = DependencyTracker(
-                    DBBaseST.get_obj_type_map(), self._REACTION_MAP)
-                dependency_tracker.evaluate(obj_type, obj)
-            elif oper == 'UPDATE':
-                obj = obj_class.get_by_uuid(obj_id)
-                old_dt = None
-                if obj is not None:
-                    old_dt = DependencyTracker(
-                        DBBaseST.get_obj_type_map(), self._REACTION_MAP)
-                    old_dt.evaluate(obj_type, obj)
-                else:
-                    self.config_log('%s id %s not found' % (obj_type, obj_id),
-                                    level=SandeshLevel.SYS_INFO)
-                    return
-                try:
-                    obj.update()
-                except NoIdError:
-                    self.config_log('%s id %s update caused NoIdError' % (obj_type, obj_id),
-                                    level=SandeshLevel.SYS_INFO)
-                    return
-                dependency_tracker = DependencyTracker(
-                    DBBaseST.get_obj_type_map(), self._REACTION_MAP)
-                dependency_tracker.evaluate(obj_type, obj)
-                if old_dt:
-                    for resource, ids in old_dt.resources.items():
-                        if resource not in dependency_tracker.resources:
-                            dependency_tracker.resources[resource] = ids
-                        else:
-                            dependency_tracker.resources[resource] = list(
-                                set(dependency_tracker.resources[resource]) |
-                                set(ids))
-            elif oper == 'DELETE':
-                self._cassandra.cache_uuid_to_fq_name_del(obj_id)
-                obj = obj_class.get_by_uuid(obj_id)
-                if obj is None:
-                    return
-                dependency_tracker = DependencyTracker(
-                    DBBaseST.get_obj_type_map(), self._REACTION_MAP)
-                dependency_tracker.evaluate(obj_type, obj)
-                obj_class.delete(obj.name)
-            else:
-                # unknown operation
-                self.config_log('Unknown operation %s' % oper,
-                                level=SandeshLevel.SYS_ERR)
-                return
-
-            if obj is None:
-                self.config_log('Error while accessing %s uuid %s' % (
-                                obj_type, obj_id))
-                return
-
-            notify_trace.fq_name = obj.name
-            if not dependency_tracker:
-                return
-
-            notify_trace.dependency_tracker_resources = []
-            for res_type, res_id_list in dependency_tracker.resources.items():
-                if not res_id_list:
-                    continue
-                dtr = DependencyTrackerResource(obj_type=res_type, obj_keys=res_id_list)
-                notify_trace.dependency_tracker_resources.append(dtr)
-                cls = DBBaseST.get_obj_type_map().get(res_type)
-                if cls is None:
-                    continue
-                for res_id in res_id_list:
-                    res_obj = cls.get(res_id)
-                    if res_obj is not None:
-                        res_obj.evaluate()
-
-            for vn_id in dependency_tracker.resources.get('virtual_network', []):
-                vn = VirtualNetworkST.get(vn_id)
-                if vn is not None:
-                    vn.uve_send()
-            # end for vn_id
-        except Exception as e:
-            string_buf = cStringIO.StringIO()
-            cgitb_hook(file=string_buf, format="text")
-            notify_trace.error = string_buf.getvalue()
-            try:
-                with open(self._args.trace_file, 'a') as err_file:
-                    err_file.write(string_buf.getvalue())
-            except IOError:
-                self.config_log(string_buf.getvalue(), level=SandeshLevel.SYS_ERR)
-        finally:
-            try:
-                notify_trace.trace_msg(name='MessageBusNotifyTraceBuf',
-                                       sandesh=self._sandesh)
-            except Exception:
-                pass
-
-
-    # end _vnc_subscribe_callback
 
     # Clean up stale objects
     def reinit(self):
@@ -522,92 +337,6 @@ class SchemaTransformer(object):
                     rinst.update_route_target_list(
                             rt_del=rinst.stale_route_targets)
     # end process_stale_objects
-
-    def sandesh_ri_build(self, vn_name, ri_name):
-        vn = VirtualNetworkST.get(vn_name)
-        sandesh_ri_list = []
-        for riname in vn.routing_instances:
-            ri = RoutingInstanceST.get(riname)
-            sandesh_ri = sandesh.RoutingInstance(name=ri.obj.get_fq_name_str())
-            sandesh_ri.service_chain = ri.service_chain
-            sandesh_ri.connections = list(ri.connections)
-            sandesh_ri_list.append(sandesh_ri)
-        return sandesh_ri_list
-    # end sandesh_ri_build
-
-    def sandesh_ri_handle_request(self, req):
-        # Return the list of VNs
-        ri_resp = sandesh.RoutingInstanceListResp(routing_instances=[])
-        if req.vn_name is None:
-            for vn in VirtualNetworkST:
-                sandesh_ri = self.sandesh_ri_build(vn, req.ri_name)
-                ri_resp.routing_instances.extend(sandesh_ri)
-        elif req.vn_name in VirtualNetworkST:
-            self.sandesh_ri_build(req.vn_name, req.ri_name)
-            ri_resp.routing_instances.extend(sandesh_ri)
-        ri_resp.response(req.context())
-    # end sandesh_ri_handle_request
-
-    def sandesh_vn_build(self, vn_name):
-        vn = VirtualNetworkST.get(vn_name)
-        sandesh_vn = sandesh.VirtualNetwork(name=vn_name)
-        sandesh_vn.policies = vn.network_policys.keys()
-        sandesh_vn.connections = list(vn.connections)
-        sandesh_vn.routing_instances = vn.routing_instances
-        if vn.acl:
-            sandesh_vn.acl = vn.acl.get_fq_name_str()
-        if vn.dynamic_acl:
-            sandesh_vn.dynamic_acl = vn.dynamic_acl.get_fq_name_str()
-
-        return sandesh_vn
-    # end sandesh_vn_build
-
-    def sandesh_vn_handle_request(self, req):
-        # Return the list of VNs
-        vn_resp = sandesh.VnListResp(vn_names=[])
-        if req.vn_name is None:
-            for vn in VirtualNetworkST:
-                sandesh_vn = self.sandesh_vn_build(vn)
-                vn_resp.vn_names.append(sandesh_vn)
-        elif req.vn_name in VirtualNetworkST:
-            sandesh_vn = self.sandesh_vn_build(req.vn_name)
-            vn_resp.vn_names.append(sandesh_vn)
-        vn_resp.response(req.context())
-    # end sandesh_vn_handle_request
-
-    def sandesh_sc_handle_request(self, req):
-        sc_resp = sandesh.ServiceChainListResp(service_chains=[])
-        if req.sc_name is None:
-            for sc in ServiceChain.values():
-                sandesh_sc = sc.build_introspect()
-                sc_resp.service_chains.append(sandesh_sc)
-        elif req.sc_name in ServiceChain:
-            sandesh_sc = ServiceChain[req.sc_name].build_introspect()
-            sc_resp.service_chains.append(sandesh_sc)
-        sc_resp.response(req.context())
-    # end sandesh_sc_handle_request
-
-    def sandesh_st_object_handle_request(self, req):
-        st_resp = sandesh.StObjectListResp(objects=[])
-        obj_type_map = DBBaseST.get_obj_type_map()
-        if req.object_type is not None:
-            if req.object_type not in obj_type_map:
-                return st_resp
-            obj_cls_list = [obj_type_map[req.object_type]]
-        else:
-            obj_cls_list = obj_type_map.values()
-        for obj_cls in obj_cls_list:
-            id_or_name = req.object_id_or_fq_name
-            if id_or_name:
-                obj = obj_cls.get(id_or_name) or obj_cls.get_by_uuid(id_or_name)
-                if obj is None:
-                    continue
-                st_resp.objects.append(obj.handle_st_object_req())
-            else:
-                for obj in obj_cls.values():
-                    st_resp.objects.append(obj.handle_st_object_req())
-        st_resp.response(req.context())
-    # end sandesh_st_object_handle_request
 
     def reset(self):
         for cls in DBBaseST.get_obj_type_map().values():
@@ -834,7 +563,8 @@ def run_schema_transformer(args):
         try:
             _vnc_lib = VncApi(
                 args.admin_user, args.admin_password, args.admin_tenant_name,
-                args.api_server_ip, args.api_server_port, api_server_use_ssl=args.api_server_use_ssl)
+                args.api_server_ip, args.api_server_port,
+                api_server_use_ssl=args.api_server_use_ssl)
             connected = True
             connection_state_update(ConnectionStatus.UP)
         except requests.exceptions.ConnectionError as e:
