@@ -107,7 +107,7 @@ bool IFMapMessage::IsEmpty() {
 }
 
 void IFMapMessage::Reset() {
-    doc_.reset();
+    doc_.remove_child("iq");
     node_count_ = 0;
     op_type_ = NONE;
     Open();
