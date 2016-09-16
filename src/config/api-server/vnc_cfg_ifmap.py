@@ -18,7 +18,7 @@ from lxml import etree
 import StringIO
 
 import socket
-from netaddr import IPNetwork, IPAddress, IPSet
+from netaddr import IPNetwork, IPAddress
 
 from cfgm_common.uve.vnc_api.ttypes import *
 from cfgm_common import ignore_exceptions
@@ -37,7 +37,6 @@ from cfgm_common.utils import cgitb_hook
 from cfgm_common import vnc_greenlets
 from cfgm_common import SGID_MIN_ALLOC
 
-
 import copy
 from cfgm_common import jsonutils as json
 import uuid
@@ -50,8 +49,6 @@ from pycassa.util import *
 
 import signal, os
 
-
-#from cfgm_common import vnc_type_conv
 from provision_defaults import *
 import cfgm_common.imid
 from cfgm_common.exceptions import *
@@ -63,9 +60,6 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns.constants import USERAGENT_KEYSPACE_NAME
 from sandesh.traces.ttypes import DBRequestTrace, MessageBusNotifyTrace, \
     IfmapTrace
-
-import logging
-logger = logging.getLogger(__name__)
 
 @ignore_exceptions
 def get_trace_id():
@@ -102,7 +96,6 @@ class VncIfmapClient(object):
     #   to IfMap.
     # * In some properties, not all fields are relevant
     #   to be publised to IfMap.
-
     # If the property is not relevant at all, define the property
     # with None. If it is partially relevant, then define the fn.
     # which would handcraft the generated xml for the object.
@@ -1624,7 +1617,7 @@ class VncDbClient(object):
                     pfx_len = subnet['subnet']['ip_prefix_len']
                     cidr = '%s/%s' % (pfx, pfx_len)
                     if (IPAddress(iip_dict['instance_ip_address']) in
-                            IPSet([cidr])):
+                            IPNetwork(cidr)):
                         iip_dict['subnet_uuid'] = subnet['subnet_uuid']
                         self._cassandra_db.object_update('instance-ip',
                                                          iip_dict['uuid'],
