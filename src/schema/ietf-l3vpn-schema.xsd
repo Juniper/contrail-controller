@@ -22,7 +22,7 @@ targetNamespace="http://www.contrailsystems.com/2012/BGP-CONFIG/0">
 <xsd:complexType name="ProtocolBgpType">
     <xsd:sequence>
         <!-- customer autonomous-system -->
-        <element name="autonomous-system" type="xsd:integer"/>
+        <xsd:element name="autonomous-system" type="xsd:integer"/>
     </xsd:sequence>
 </xsd:complexType>
 

@@ -12,17 +12,18 @@ import shutil
 
 doc_sources_rules = []
 
-generated = ['vnc_cfg_api_server.rst', 'modules.rst']
+sphinxapidocs = ['vnc_cfg_api_server.rst', 'modules.rst']
 if os.path.exists('/usr/bin/sphinx-apidoc'):
-    apidoc_rule = env.Command(generated, '', 'SPHINX_APIDOC_OPTIONS="members,show-inheritance" sphinx-apidoc -f -o ' + Dir('.').path + ' ' + Dir('../vnc_cfg_api_server').path + ' ' + Dir('.').path)
+    apidoc_rule = env.Command(sphinxapidocs, '', 'SPHINX_APIDOC_OPTIONS="members,show-inheritance" sphinx-apidoc -f -o ' + Dir('.').path + ' ' + Dir('../vnc_cfg_api_server').path + ' ' + Dir('.').path)
     env.Depends(apidoc_rule, File(env['TOP'] + '/config/api-server/vnc_cfg_api_server/gen/__init__.py'))
 
     userdoc_rule = env.Install(Dir('.'), Glob('#controller/src/config/api-server/doc/source/*'))
     schema_rule = env.Install(Dir('.'), Glob('#controller/src/schema/*.xsd'))
+    gendoc_rule = env.Install(Dir('.'), env['TOP'] + '/config/api-server/vnc_cfg_api_server/gen/contrail_openapi.rst')
 
     html_gen_rule = env.Command('contrail-config', ['Makefile', 'conf.py'],
                                 'make -C ' + Dir('.').path + ' html') 
-    env.Depends(html_gen_rule, [apidoc_rule, userdoc_rule, schema_rule])
+    env.Depends(html_gen_rule, [apidoc_rule, gendoc_rule, userdoc_rule, schema_rule])
 
 
     doc_sources_rules.append(env.Install("../vnc_cfg_api_server", Dir('.')))

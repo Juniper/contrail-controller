@@ -36,13 +36,14 @@ This document provides:
    * Reference to the package, module and classes involved
 
 .. toctree::
-   :maxdepth: 5
+   :maxdepth: 3
 
    tutorial_with_rest.rst
    tutorial_with_library.rst
    rest_details.rst
    library_details.rst
    library_reference.rst
+   contrail_openapi.rst
    .. modules.rst
 
 Indices and tables
