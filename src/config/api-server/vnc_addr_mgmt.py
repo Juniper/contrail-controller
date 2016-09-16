@@ -966,77 +966,12 @@ class AddrMgmt(object):
         return True, ""
     # end net_check_subnet
 
-    # check subnets associated with a ipam, return error if
-    # any subnet is being deleted and has backref to
-    # instance-ip/floating-ip/alias-ip
-    def ipam_check_subnet_delete(self, db_ipam_dict, req_ipam_dict):
-        if 'ipam_subnets' not in req_ipam_dict:
-            # subnets not modified in request
-            return True, ""
-    
+    #check if any ip address from given subnet sets is used in 
+    # in given virtual network, this includes instance_ip, fip and
+    # alias_ip
+    def _check_subnet_delete(self, subnets_set, vn_dict):
         db_conn = self._get_db_conn()
-        existing_subnets = self._ipam_to_subnets(db_ipam_dict)
-        if not existing_subnets:
-            return True, ""
-
-        requested_subnets = self._ipam_to_subnets(req_ipam_dict)
-
-        delete_set = set(existing_subnets) - set(requested_subnets)
-        if len(delete_set):
-            # ATUL To impelement this for ipam_subnet asap -- TODO
-            # read the instance ip and floating ip pool from all the networks
-            # if any iip backrefs or floating/alias pools still present in DB version
-            # of all VNs
-            return True, ""
-        else:
-            return True, ""
-
-    # end ipam_check_subnet_delete
-
-    # check subnets associated with a virtual network, return error if
-    # any subnet is being deleted and has backref to
-    # instance-ip/floating-ip/alias-ip
-    def net_check_subnet_delete(self, db_vn_dict, req_vn_dict):
-
-        db_conn = self._get_db_conn()
-        # if all ips are part of requested list
-        # things are ok.
-        # eg. existing [1.1.1.0/24, 2.2.2.0/24],
-        #     requested [1.1.1.0/24] OR
-        #     requested [1.1.1.0/28, 2.2.2.0/24]
-        existing_subnets = self._vn_to_subnets(db_vn_dict)
-        if not existing_subnets:
-            return True, ""
-        requested_subnets = self._vn_to_subnets(req_vn_dict)
-        if requested_subnets is None:
-            # subnets not modified in request
-            return True, ""
-
-        delete_set = set(existing_subnets) - set(requested_subnets)
-
-        if len(delete_set):
-            # read the instance ip and floating ip pool only if subnet is being
-            # deleted. Skip the port check if no subnet is being deleted
-            vn_id = {'uuid': db_vn_dict['uuid']}
-            obj_fields = ['network_ipam_refs', 'instance_ip_back_refs', 'floating_ip_pools', 'alias_ip_pools']
-            (read_ok, db_vn_dict) = db_conn.dbe_read('virtual_network', vn_id, obj_fields)
-            if not read_ok:
-                return (False, (500, db_vn_dict))
-
-            # if all subnets are being removed, check for any iip backrefs
-            # or floating/alias pools still present in DB version of VN
-            if len(requested_subnets) == 0:
-                if db_vn_dict.get('instance_ip_back_refs'):
-                    return False, "Cannot Delete IP Block, Instance IP(s) in use"
-                if db_vn_dict.get('floating_ip_pools'):
-                    return False, "Cannot Delete IP Block, Floating Pool(s) in use"
-                if db_vn_dict.get('alias_ip_pools'):
-                    return False, "Cannot Delete IP Block, Alias Pool(s) in use"
-        else:
-            return True, ""
-
-
-        instip_refs = db_vn_dict.get('instance_ip_back_refs', [])
+        instip_refs = vn_dict.get('instance_ip_back_refs', [])
         for ref in instip_refs:
             try:
                 (ok, result) = db_conn.dbe_read(
@@ -1055,12 +990,12 @@ class AddrMgmt(object):
                     "Error in subnet delete ip null: %s" %(ref['uuid']),
                     level=SandeshLevel.SYS_ERR)
                 continue
-            if not all_matching_cidrs(inst_ip, requested_subnets):
+            if all_matching_cidrs(inst_ip, subnets_set):
                 return (False,
                         "Cannot Delete IP Block, IP(%s) is in use"
                         % (inst_ip))
 
-        fip_pool_refs = db_vn_dict.get('floating_ip_pools', [])
+        fip_pool_refs = vn_dict.get('floating_ip_pools', [])
         for ref in fip_pool_refs:
             try:
                 (ok, result) = db_conn.dbe_read(
@@ -1076,8 +1011,6 @@ class AddrMgmt(object):
 
             floating_ips = result.get('floating_ips', [])
             for floating_ip in floating_ips:
-                # get floating_ip_address and this should be in
-                # new subnet_list
                 try:
                     (read_ok, read_result) = db_conn.dbe_read(
                         'floating_ip', {'uuid': floating_ip['uuid']})
@@ -1097,12 +1030,12 @@ class AddrMgmt(object):
                         %(floating_ip['uuid']),
                         level=SandeshLevel.SYS_ERR)
                     continue
-                if not all_matching_cidrs(fip_addr, requested_subnets):
+                if all_matching_cidrs(fip_addr, subnets_set):
                     return (False,
                             "Cannot Delete IP Block, Floating IP(%s) is in use"
                             % (fip_addr))
 
-        aip_pool_refs = db_vn_dict.get('alias_ip_pools', [])
+        aip_pool_refs = vn_dict.get('alias_ip_pools', [])
         for ref in aip_pool_refs:
             try:
                 (ok, result) = db_conn.dbe_read(
@@ -1139,12 +1072,86 @@ class AddrMgmt(object):
                         %(alias_ip['uuid']),
                         level=SandeshLevel.SYS_ERR)
                     continue
-                if not all_matching_cidrs(aip_addr, requested_subnets):
+                if all_matching_cidrs(aip_addr, subnets_set):
                     return (False,
-                            "Cannot Delete IP Block, Floating IP(%s) is in use"
+                            "Cannot Delete IP Block, Alias IP(%s) is in use"
                             % (aip_addr))
 
         return True, ""
+    # end _check_subnet_delete
+
+    # check subnets associated with a ipam, return error if
+    # any subnet is being deleted and has backref to
+    # instance-ip/floating-ip/alias-ip
+    def ipam_check_subnet_delete(self, db_ipam_dict, req_ipam_dict):
+        if 'ipam_subnets' not in req_ipam_dict:
+            # subnets not modified in request
+            return True, ""
+
+        req_subnets = self._ipam_to_subnets(req_ipam_dict)
+        existing_subnets = self._ipam_to_subnets(db_ipam_dict)
+        if not existing_subnets:
+            # No subnets so far in ipam, no need to check any ip-allocation
+            return True, ""
+
+        subnet_method = db_ipam_dict.get('ipam_subnet_method')
+        if subnet_method != 'flat-subnet':
+            return True, ""
+
+        db_conn = self._get_db_conn()
+        delete_set = set(existing_subnets) - set(req_subnets)
+        if not delete_set:
+            return True, ""
+
+        vn_refs = db_ipam_dict.get('virtual_network_back_refs')
+        if not vn_refs:
+            return True, ""
+
+        for ref in vn_refs:
+            vn_id = ref.get('uuid')
+            try:
+                (ok, read_result) = db_conn.dbe_read('virtual_network',
+                                                     {'uuid':vn_id})
+            except cfgm_common.exceptions.NoIdError:
+                continue
+            if not ok:
+                self.config_log(
+                    "Error in ipam subnet delete check: %s" %(result),
+                    level=SandeshLevel.SYS_ERR)
+                return False, read_result
+
+            vn_dict = read_result
+            (ok, response) = self._check_subnet_delete(delete_set, vn_dict)
+            if not ok:
+                return ok, response
+
+        return True, ""
+    # end ipam_check_subnet_delete
+
+    # check subnets associated with a virtual network, return error if
+    # any subnet is being deleted and has backref to
+    # instance-ip/floating-ip/alias-ip
+    def net_check_subnet_delete(self, db_vn_dict, req_vn_dict):
+        if 'network_ipam_refs' not in req_vn_dict:
+            # subnets not modified in request
+            return True, ""
+
+        db_conn = self._get_db_conn()
+        # if all ips are part of requested list
+        # things are ok.
+        # eg. existing [1.1.1.0/24, 2.2.2.0/24],
+        #     requested [1.1.1.0/24] OR
+        #     requested [1.1.1.0/28, 2.2.2.0/24]
+        existing_subnets = self._vn_to_subnets(db_vn_dict)
+        if not existing_subnets:
+            return True, ""
+
+        requested_subnets = self._vn_to_subnets(req_vn_dict)
+        delete_set = set(existing_subnets) - set(requested_subnets)
+        if not delete_set:
+            return True, ""
+
+        return self._check_subnet_delete(delete_set, db_vn_dict)
     # end net_check_subnet_delete
 
     # return number of ip address currently allocated for a subnet
