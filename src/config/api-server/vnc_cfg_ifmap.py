@@ -1,188 +1,384 @@
 #
-# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+# Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
-"""
-Layer that transforms VNC config objects to ifmap representation
-"""
-from cfgm_common.zkclient import ZookeeperClient, IndexAllocator
-from gevent import ssl, monkey
+from gevent import monkey
 monkey.patch_all()
-import gevent
-import gevent.event
-from gevent.queue import Queue, Empty
 
-import time
-from pprint import pformat
+from cStringIO import StringIO
+import signal
+from time import strftime
 
+from bottle import auth_basic
+from bottle import Bottle
+from bottle import request
+from bottle import response
+from gevent.queue import Empty
+from gevent.queue import PriorityQueue
 from lxml import etree
-import StringIO
 
-import socket
-from netaddr import IPNetwork, IPAddress
-
-from cfgm_common.uve.vnc_api.ttypes import *
-from cfgm_common import ignore_exceptions
-from cfgm_common.ifmap.client import client
-from cfgm_common.ifmap.request import NewSessionRequest, PublishRequest,\
-    EndSessionRequest
 from cfgm_common.ifmap.id import Identity
-from cfgm_common.ifmap.operations import PublishUpdateOperation,\
-    PublishDeleteOperation
-from cfgm_common.ifmap.response import newSessionResult
 from cfgm_common.ifmap.metadata import Metadata
-from cfgm_common.imid import escape, entity_is_present,\
-    get_ifmap_id_from_fq_name, get_fq_name_from_ifmap_id, ifmap_wipe
-from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
-from cfgm_common.vnc_cassandra import VncCassandraClient
-from cfgm_common.vnc_kombu import VncKombuClient
-from cfgm_common.utils import cgitb_hook
-from cfgm_common import vnc_greenlets
-from cfgm_common import SGID_MIN_ALLOC
-
-import copy
+from cfgm_common.imid import escape
+from cfgm_common.imid import get_ifmap_id_from_fq_name
 from cfgm_common import jsonutils as json
-import uuid
-import datetime
-import pycassa
-import pycassa.util
-import pycassa.cassandra.ttypes
-from pycassa.system_manager import *
-from pycassa.util import *
-
-import signal, os
-
-from provision_defaults import *
-from cfgm_common.exceptions import *
-from vnc_quota import *
-from pysandesh.connection_info import ConnectionState
-from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
-from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
+from cfgm_common.utils import str_to_class
+from gen.resource_xsd import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from sandesh_common.vns.constants import USERAGENT_KEYSPACE_NAME
-from sandesh.traces.ttypes import DBRequestTrace, MessageBusNotifyTrace, \
-    IfmapTrace
 
-@ignore_exceptions
-def get_trace_id():
-    try:
-        req_id = gevent.getcurrent().trace_request_id
-    except Exception:
-        req_id = 'req-%s' %(str(uuid.uuid4()))
-        gevent.getcurrent().trace_request_id = req_id
+"""
+Layer that transforms VNC config objects to ifmap representation, store them in
+memory and serves them to controllers though minimalist HTTP IF-MAP server.
+"""
 
-    return req_id
-# end get_trace_id
 
-@ignore_exceptions
-def trace_msg(trace_objs=[], trace_name='', sandesh_hdl=None, error_msg=None):
-    for trace_obj in trace_objs:
-        if error_msg:
-            trace_obj.error = error_msg
-        trace_obj.trace_msg(name=trace_name, sandesh=sandesh_hdl)
-# end trace_msg
+class VncIfmapServer(object):
+    r"""Limited IF-MAP v2 server for Contrail.
 
-def build_idperms_ifmap_obj(prop_field, values):
-    prop_xml = u'<uuid><uuid-mslong>'
-    prop_xml += unicode(json.dumps(values[u'uuid'][u'uuid_mslong']))
-    prop_xml += u'</uuid-mslong><uuid-lslong>'
-    prop_xml += unicode(json.dumps(values[u'uuid'][u'uuid_lslong']))
-    prop_xml += u'</uuid-lslong></uuid><enable>'
-    prop_xml += unicode(json.dumps(values[u'enable']))
-    prop_xml += u'</enable>'
-    return prop_xml
+    Stores in memory the Contrail IF-MAP graph and exposes a limited IF-MAP
+    HTTP server that permits control nodes to subscribe to the graph's root
+    and pool it.
 
-class VncIfmapClient(object):
+    _graph is dict of ident_names where value for each key is dict with keys
+    'ident' and 'links'
+    - 'ident' has ident xml element
+    - 'links' is a dict with keys of concat('<meta-name> <ident-name>')
+      and values of dict with 'meta' which has meta xml element and 'other'
+      which has other ident xml element
 
-    # * Not all properties in an object needs to be published
-    #   to IfMap.
-    # * In some properties, not all fields are relevant
-    #   to be publised to IfMap.
+    cls._graph['contrail:network-ipam:default-domain:default-project:ipam2'] =
+    {
+        'ident': u'<identity name=... />',
+        'links': {
+            'contrail:id-perms': {
+                'meta': u'<metadata><contrail:...>...</metadata>'
+            },
+            'contrail:project-network-ipam contrail:project:default-domain:\
+                default-project': {
+                    'other': <Element identity at 0x2b3eaa0>,
+                    'meta': u'<metadata><contrail:...>...</metadata>'
+            },
+            'contrail:virtual-network-network-ipam contrail:virtual-network:\
+                default-domain:default-project:vn2': {
+                'other': <Element identity at 0x2b3ee10>,
+                'meta': u'<metadata><contrail:...>...</metadata>'
+            }
+        }
+    }
+    """
+
+    # NOTE(ethuleau):
+    #    - needs to unicode indetities before store them in memory?
+    #    - use tuple for link keys instead of string (link with other ident)
+    #    - manage poll or search result too big cases
+    #    - manage authentication
+    #    - manage ssl connection
+    #    - What to do when the API server stop? Wait a pull of all subscribers
+    #      to send us a deleteSearch of all the graph (or just the root?)?
+    #    - Not sure we need to store reverse link in the dict graph
+    #    -
+
+    # Bottle app
+    _ifmap_bootle_app = Bottle()
+    # dict contains ifmap graph (as describe above)
+    _graph = dict()
+    # list of all subscribers indexed by session-id
+    _subscribe_list = []
+    # XML envelope header
+    _RSP_ENVELOPE = \
+        """<?xml version="1.0" encoding="UTF-8" standalone="yes"?> """\
+        """<env:Envelope xmlns:ifmap="http://www.trustedcomputinggroup.org"""\
+        """/2010/IFMAP/2" """\
+        """xmlns:env="http://www.w3.org/2003/05/soap-envelope" """\
+        """xmlns:meta="http://www.trustedcomputinggroup.org"""\
+        """/2010/IFMAP-METADATA/2" """\
+        """xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd"> """\
+        """<env:Body><ifmap:response> %(result)s """\
+        """</ifmap:response></env:Body></env:Envelope>"""
+
+    def __init__(self, db_client_mgr):
+        self._db_client_mgr = db_client_mgr
+        bottle_app = self._db_client_mgr.api_bottle
+        bottle_app.route('/ifmap-server', 'GET', self._export_xml)
+        bottle_app.route('/ifmap-server', 'POST', self._call)
+
+        # Set the signal handler to snapshot ifmap graph in temporary file
+        signal.signal(signal.SIGUSR2, VncIfmapServer.snapshot_ifmap_dict_graph)
+
+    def _log(self, msg, level):
+        self._db_client_mgr.config_log(msg, level)
+
+    @staticmethod
+    def _check_authentication(username, password):
+        return True
+
+    def _validate_session_id(self, method, xml_body):
+        if method == 'newSession':
+            return
+
+        session_id = xml_body.get('session-id')
+        if (session_id is None or
+                int(session_id) > (len(self._subscribe_list) - 1)):
+            msg = "Session ID %s was not found. Please create a new session" %\
+                  session_id
+            self._log(msg, SandeshLevel.SYS_WARN)
+            result = etree.Element('errorResult', errorCode='InvalidSessionID')
+            err_str = etree.SubElement(result, 'errorString')
+            err_str.text = msg
+            return self._RSP_ENVELOPE % {'result': etree.tostring(result)}
+
+    @staticmethod
+    def _export_xml():
+        response.content_type = 'text/xml; charset="UTF-8"'
+        buffer = StringIO()
+        VncIfmapServer._export_root_graph(buffer)
+        result = buffer.getvalue()
+        result = ('<pollResult><searchResult name="root">%s'
+                  '</searchResult></pollResult>' % buffer.getvalue())
+        buffer.close
+        return VncIfmapServer._RSP_ENVELOPE % {'result': result}
+
+    @staticmethod
+    def _export_root_graph(outfile):
+        graph = VncIfmapServer._graph.copy()
+        visited_links = set()
+        for id_name in graph:
+            ident = graph[id_name]['ident']
+            property_item = ''
+            for link_key, link_info in graph[id_name]['links'].iteritems():
+                if link_info is None or link_info.get('meta') is None:
+                    continue
+                if link_info.get('other') is not None:
+                    if '%s %s' % (link_info['other'], ident) in visited_links:
+                        continue
+                    outfile.write('<resultItem>%s%s%s</resultItem>' %
+                                  (ident, link_info['other'],
+                                   link_info['meta']))
+                    visited_links.add('%s %s' % (ident, link_info['other']))
+                else:
+                    property_item += link_info['meta'][10:-11]
+            if property_item:
+                outfile.write('<resultItem>%s<metadata>%s'
+                              '</metadata></resultItem>' %
+                              (ident, property_item))
+
+    @classmethod
+    def snapshot_ifmap_dict_graph(cls, signum, frame):
+        file_name = ('/tmp/api-server-ifmap-dict_%s.txt' %
+                     strftime('%Y%m%d-%H%M%S'))
+        with open(file_name, "w") as file:
+            file.write(pformat(cls._graph))
+
+    @classmethod
+    def get_links(cls, id_name):
+        if id_name in cls._graph:
+            return cls._graph[id_name].get('links', {}).copy()
+        return {}
+
+    @classmethod
+    def update(cls, id1_name, id2_name=None, metadatas=None):
+        if metadatas is None:
+            return
+
+        id1_str = unicode(Identity(name=id1_name, type="other",
+                                   other_type="extended"))
+        if id1_name not in cls._graph:
+            cls._graph[id1_name] = {'ident': id1_str, 'links': {}}
+
+        if id2_name is None:
+            property_item = ''
+            for metadata in metadatas:
+                metadata_name = metadata._Metadata__name[9:]
+                meta_string = unicode(metadata)
+
+                link_key = metadata_name
+                link_info = {'meta': meta_string}
+                cls._graph[id1_name]['links'][link_key] = link_info
+                property_item += meta_string[10:-11]
+            if property_item:
+                items = ('<resultItem>%s<metadata>%s</metadata></resultItem>' %
+                         (id1_str, property_item))
+        else:
+            id2_str = unicode(Identity(name=id2_name, type="other",
+                                       other_type="extended"))
+            if id2_name not in cls._graph:
+                cls._graph[id2_name] = {'ident': id2_str, 'links': {}}
+
+            items = ''
+            for metadata in metadatas:
+                metadata_name = metadata._Metadata__name[9:]
+                meta_string = unicode(metadata)
+
+                link_key = '%s %s' % (metadata_name, id2_name)
+                link_info = {'meta': meta_string, 'other': id2_str}
+                cls._graph[id1_name]['links'][link_key] = link_info
+                items += "<resultItem>%s%s%s</resultItem>" % (id1_str, id2_str,
+                                                              meta_string)
+
+                link_key = '%s %s' % (metadata_name, id1_name)
+                link_info = {'meta': meta_string, 'other': id1_str}
+                cls._graph[id2_name]['links'][link_key] = link_info
+
+        for queue in cls._subscribe_list:
+            if queue is not None:
+                queue.put((2, 'updateSearch', items))
+
+    @classmethod
+    def delete(cls, id_name, link_keys=None):
+        if cls._graph.get(id_name) is None:
+            return
+        id_str = cls._graph[id_name]['links'].pop(link_key, None)
+
+        if link_keys:
+            items = ''
+            property_item = ''
+            for link_key in link_keys:
+                link_info = cls._graph[id_name]['links'].pop(link_key, None)
+                if link_info is None:
+                    continue
+                metadata = link_info['meta']
+                if link_info.get('other') is None:
+                    property_item += metadata[10:-11]
+                else:
+                    meta_name = link_key.split()[0]
+                    other_name = link_key.split()[1]
+                    rev_link_key = '%s %s' % (meta_name, id_name)
+                    if other_name in cls._graph:
+                        cls._graph[other_name]['links'].pop(rev_link_key, None)
+                    items += "<resultItem>%s%s%s</resultItem>" %\
+                             (id_str, other_name, link_info['other'])
+                    # delete ident if no links left
+                    if not cls._graph[other_name]['links']:
+                        del cls._graph[other_name]
+            if property_item:
+                items += ('<resultItem>%s<metadata>%s</metadata></resultItem>'
+                          % (id_str, property_item))
+            # delete ident if no links left
+            if not cls._graph[id_name]['links']:
+                del cls._graph[id_name]
+
+            for queue in cls._subscribe_list:
+                if queue is not None:
+                    queue.put((2, 'deleteSearch', items))
+        else:
+            # No links provided, delete all ident's links
+            cls.delete(id_name, cls.get_links(id_name))
+
+    def reset(self):
+        self._graph.clear()
+        self._subscribe_list = []
+
+    @auth_basic(_check_authentication)
+    def _call(self):
+        method = request.headers.get('SOAPAction')
+        xml_body = etree.fromstring(request.body.read())[0]
+        response.content_type = 'text/xml; charset="UTF-8"'
+
+        valide_session_response = self._validate_session_id(method, xml_body)
+        if valide_session_response is not None:
+            return valide_session_response
+
+        if method == 'newSession':
+            result = etree.Element('newSessionResult')
+            result.set("session-id", str(len(self._subscribe_list)))
+            result.set("ifmap-publisher-id", "111")
+            result.set("max-poll-result-size", "7500000")
+            self._subscribe_list.append(None)
+            return self._RSP_ENVELOPE % {'result': etree.tostring(result)}
+        elif method == 'subscribe':
+            session_id = int(xml_body.get('session-id'))
+            self._subscribe_list[session_id] = PriorityQueue()
+            buffer = StringIO()
+            try:
+                self._export_root_graph(buffer)
+                self._subscribe_list[session_id].put(
+                    (1, 'searchResult', buffer.getvalue()))
+            finally:
+                buffer.close()
+            result = etree.Element('subscribeReceived')
+            return self._RSP_ENVELOPE % {'result': etree.tostring(result)}
+        elif method == 'poll':
+            session_id = int(xml_body.get('session-id'))
+            queue = self._subscribe_list[session_id]
+            if queue is None:
+                msg = "Session ID %d did not subscribed to the graph's root. "\
+                      "Please subscribe before polling" % session_id
+                self._log(msg, SandeshLevel.SYS_WARN)
+                result = etree.Element('errorResult', errorCode='AccessDenied')
+                err_str = etree.SubElement(result, 'errorString')
+                err_str.text = msg
+                return self._RSP_ENVELOPE % {'result': etree.tostring(result)}
+            _, result_action, items = queue.get()
+            try:
+                while result_action == queue.peek_nowait()[1]:
+                    items += queue.get()[2]
+            except Empty:
+                pass
+            poll_str = ('<pollResult><%s name="root">%s</%s></pollResult>' %
+                        (result_action, items, result_action))
+            return self._RSP_ENVELOPE % {'result': poll_str}
+        else:
+            msg = "Don't know IF-MAP '%s' request. Ignore it." % method
+            self._log(msg, level=SandeshLevel.SYS_DEBUG)
+
+
+class VncIfmapDb(object):
+    """Transforms VNC config objects to IF-MAP representation.
+
+    Transforms VNC config objects to ifmap representation and store them in
+    the VncIfmapServer _graph dict directly, don't use the IF-MAP HTTP API.
+    """
+
     # If the property is not relevant at all, define the property
     # with None. If it is partially relevant, then define the fn.
     # which would handcraft the generated xml for the object.
     IFMAP_PUBLISH_SKIP_LIST = {
         # Format - <prop_field> : None | <Handler_fn>
-        u"perms2" : None,
-        u"id_perms" : build_idperms_ifmap_obj
+        u"perms2": None,
+        u"id_perms": '_build_idperms_ifmap_obj',
     }
 
-    def handler(self, signum, frame):
-        file = open("/tmp/api-server-ifmap-cache.txt", "w")
-        file.write(pformat(self._id_to_metas))
-        file.close()
-
-    def __init__(self, db_client_mgr, ifmap_srv_ip, ifmap_srv_port,
-                 uname, passwd, ssl_options):
-        self._ifmap_srv_ip = ifmap_srv_ip
-        self._ifmap_srv_port = ifmap_srv_port
-        self._username = uname
-        self._password = passwd
-        self._ssl_options = ssl_options
-        self._dequeue_greenlet = None
-        self._CONTRAIL_XSD = "http://www.contrailsystems.com/vnc_cfg.xsd"
-        self._IPERMS_NAME = "id-perms"
-        self._NAMESPACES = {
-            'env':   "http://www.w3.org/2003/05/soap-envelope",
-            'ifmap':   "http://www.trustedcomputinggroup.org/2010/IFMAP/2",
-            'meta':
-            "http://www.trustedcomputinggroup.org/2010/IFMAP-METADATA/2",
-            'contrail':   self._CONTRAIL_XSD
-        }
-
+    def __init__(self, db_client_mgr):
         self._db_client_mgr = db_client_mgr
-        self._sandesh = db_client_mgr._sandesh
 
-        ConnectionState.update(conn_type = ConnType.IFMAP,
-            name = 'IfMap', status = ConnectionStatus.INIT, message = '',
-            server_addrs = ["%s:%s" % (ifmap_srv_ip, ifmap_srv_port)])
-        self._conn_state = ConnectionStatus.INIT
-        self._is_ifmap_up = False
-        self._queue = Queue(self._get_api_server()._args.ifmap_queue_size)
+    def _log(self, msg, level):
+        self._db_client_mgr.config_log(msg, level)
 
-        self.reset()
+    @staticmethod
+    def _build_idperms_ifmap_obj(prop_field, values):
+        prop_xml = u'<uuid><uuid-mslong>'
+        prop_xml += unicode(json.dumps(values[u'uuid'][u'uuid_mslong']))
+        prop_xml += u'</uuid-mslong><uuid-lslong>'
+        prop_xml += unicode(json.dumps(values[u'uuid'][u'uuid_lslong']))
+        prop_xml += u'</uuid-lslong></uuid><enable>'
+        prop_xml += unicode(json.dumps(values[u'enable']))
+        prop_xml += u'</enable>'
+        return prop_xml
 
-        # Set the signal handler
-        signal.signal(signal.SIGUSR2, self.handler)
-
-        self._init_conn()
-        self._publish_config_root()
-        self._health_checker_greenlet =\
-               vnc_greenlets.VncGreenlet('VNC IfMap Health Checker',
-                                         self._health_checker)
-    # end __init__
-
-    @classmethod
-    def object_alloc(cls, obj_class, parent_res_type, fq_name):
+    @staticmethod
+    def object_alloc(obj_class, parent_res_type, fq_name):
         res_type = obj_class.resource_type
         my_fqn = ':'.join(fq_name)
         parent_fqn = ':'.join(fq_name[:-1])
 
-        my_imid = 'contrail:%s:%s' %(res_type, my_fqn)
+        ifmap_id = 'contrail:%s:%s' % (res_type, my_fqn)
         if parent_fqn:
             if parent_res_type is None:
                 err_msg = "Parent: %s type is none for: %s" % (parent_fqn,
                                                                my_fqn)
                 return False, (409, err_msg)
-            parent_imid = 'contrail:' + parent_res_type + ':' + parent_fqn
-        else: # parent is config-root
-            parent_imid = 'contrail:config-root:root'
+            parent_ifmap_id = 'contrail:' + parent_res_type + ':' + parent_fqn
+        else:  # parent is config-root
+            parent_ifmap_id = 'contrail:config-root:root'
 
-        # Normalize/escape special chars
-        my_imid = escape(my_imid)
-        parent_imid = escape(parent_imid)
+        return True, (escape(ifmap_id), escape(parent_ifmap_id))
 
-        return True, (my_imid, parent_imid)
-    # end object_alloc
-
-    def object_set(self, obj_type, my_imid, existing_metas, obj_dict):
-        obj_class = self._db_client_mgr.get_resource_class(obj_type)
-        update = {}
-
-        # Properties Meta
+    def object_set(self, obj_class, ifmap_id, obj_dict, existing_metas=None):
+        # Properties Metadata
+        metadatas = []
         for prop_field in obj_class.prop_fields:
-            field = obj_dict.get(prop_field)
-            if field is None:
+            prop_value = obj_dict.get(prop_field)
+            if prop_value is None:
                 continue
             # construct object of xsd-type and get its xml repr
             # e.g. virtual_network_properties
@@ -190,1982 +386,172 @@ class VncIfmapClient(object):
             is_simple = not prop_field_types['is_complex']
             prop_type = prop_field_types['xsd_type']
             # e.g. virtual-network-properties
-            prop_meta = obj_class.prop_field_metas[prop_field]
+            meta_name = obj_class.prop_field_metas[prop_field]
+            meta_value = ''
+            meta_elements = ''
 
-            if prop_field in VncIfmapClient.IFMAP_PUBLISH_SKIP_LIST:
+            if prop_field in self.IFMAP_PUBLISH_SKIP_LIST:
                 # Field not relevant, skip publishing to IfMap
-                if not VncIfmapClient.IFMAP_PUBLISH_SKIP_LIST[prop_field]:
+                if not self.IFMAP_PUBLISH_SKIP_LIST[prop_field]:
                     continue
                 # Call the handler fn to generate the relevant fields.
-                if callable(VncIfmapClient.IFMAP_PUBLISH_SKIP_LIST[prop_field]):
-                    prop_xml = VncIfmapClient.IFMAP_PUBLISH_SKIP_LIST[prop_field](
-                                        prop_field, field)
-                    meta = Metadata(prop_meta, '',
-                        {'ifmap-cardinality':'singleValue'}, ns_prefix='contrail',
-                        elements=prop_xml)
-                else:
-                    log_str = '%s is marked for partial publish\
-                               to Ifmap but handler not defined' %(
-                                prop_field)
-                    self.config_log(log_str, level=SandeshLevel.SYS_DEBUG)
+                try:
+                    func = getattr(self,
+                                   self.IFMAP_PUBLISH_SKIP_LIST[prop_field])
+                    meta_elements = func(prop_field, prop_value)
+                except AttributeError:
+                    log_str = ("%s is marked for partial publish to Ifmap but "
+                               "handler not defined" % prop_field)
+                    self._log(log_str, level=SandeshLevel.SYS_DEBUG)
                     continue
             elif is_simple:
-                norm_str = escape(str(field))
-                meta = Metadata(prop_meta, norm_str,
-                       {'ifmap-cardinality':'singleValue'}, ns_prefix = 'contrail')
-            else: # complex type
-                prop_cls = cfgm_common.utils.str_to_class(prop_type,
-                                                          __name__)
-                buf = cStringIO.StringIO()
+                meta_value = escape(str(prop_value))
+            else:  # complex type
+                prop_cls = str_to_class(prop_type, __name__)
+                buf = StringIO()
                 # perms might be inserted at server as obj.
                 # obj construction diff from dict construction.
-                if isinstance(field, dict):
-                    prop_cls(**field).exportChildren(
-                        buf, level=1, name_=prop_meta, pretty_print=False)
-                elif isinstance(field, list):
-                    for elem in field:
+                if isinstance(prop_value, dict):
+                    prop_cls(**prop_value).exportChildren(buf,
+                                                          level=1,
+                                                          name_=meta_name,
+                                                          pretty_print=False)
+                elif isinstance(prop_value, list):
+                    for elem in prop_value:
                         if isinstance(elem, dict):
-                            prop_cls(**elem).exportChildren(
-                                buf, level=1, name_=prop_meta, pretty_print=False)
+                            prop_cls(**elem).exportChildren(buf,
+                                                            level=1,
+                                                            name_=meta_name,
+                                                            pretty_print=False)
                         else:
-                            elem.exportChildren(
-                                buf, level=1, name_=prop_meta, pretty_print=False)
-                else: # object
-                    field.exportChildren(
-                        buf, level=1, name_=prop_meta, pretty_print=False)
-                prop_xml = buf.getvalue()
+                            elem.exportChildren(buf,
+                                                level=1,
+                                                name_=meta_name,
+                                                pretty_print=False)
+                else:  # object
+                    prop_value.exportChildren(buf,
+                                              level=1,
+                                              name_=meta_name,
+                                              pretty_print=False)
+                meta_elements = buf.getvalue()
                 buf.close()
-                meta = Metadata(prop_meta, '',
-                    {'ifmap-cardinality':'singleValue'}, ns_prefix='contrail',
-                    elements=prop_xml)
-
+            meta = Metadata(meta_name,
+                            meta_value,
+                            {'ifmap-cardinality': 'singleValue'},
+                            ns_prefix='contrail',
+                            elements=meta_elements)
             # If obj is new (existing metas is none) or
-            # if obj does not have this prop_meta (or)
-            # or if the prop_meta is different from what we have currently,
+            # if obj does not have this meta_name (or)
+            # or if the meta_name is different from what we have currently,
             # then update
             if (not existing_metas or
-                not prop_meta in existing_metas or
-                    ('' in existing_metas[prop_meta] and
-                    str(meta) != str(existing_metas[prop_meta]['']))):
-                self._update_id_self_meta(update, meta)
+                    meta_name not in existing_metas or
+                    ('' in existing_metas[meta_name] and
+                     str(meta) != str(existing_metas[meta_name]['']))):
+                metadatas.append(meta)
         # end for all property types
+        VncIfmapServer.update(ifmap_id, metadatas=metadatas)
 
-        # References Meta
+        # References Metadata
         for ref_field in obj_class.ref_fields:
             refs = obj_dict.get(ref_field)
             if not refs:
                 continue
+
             for ref in refs:
                 ref_fq_name = ref['to']
-                ref_fld_types_list = list(
-                    obj_class.ref_field_types[ref_field])
+                ref_fld_types_list = list(obj_class.ref_field_types[ref_field])
                 ref_res_type = ref_fld_types_list[0]
                 ref_link_type = ref_fld_types_list[1]
                 ref_meta = obj_class.ref_field_metas[ref_field]
-                ref_imid = get_ifmap_id_from_fq_name(ref_res_type, ref_fq_name)
+                ref_ifmap_id = get_ifmap_id_from_fq_name(ref_res_type,
+                                                         ref_fq_name)
                 ref_data = ref.get('attr')
                 if ref_data:
-                    buf = cStringIO.StringIO()
-                    attr_cls = cfgm_common.utils.str_to_class(ref_link_type,
-                                                              __name__)
-                    attr_cls(**ref_data).exportChildren(
-                        buf, level=1, name_=ref_meta, pretty_print=False)
+                    buf = StringIO()
+                    attr_cls = str_to_class(ref_link_type, __name__)
+                    attr_cls(**ref_data).exportChildren(buf,
+                                                        level=1,
+                                                        name_=ref_meta,
+                                                        pretty_print=False)
                     ref_link_xml = buf.getvalue()
                     buf.close()
                 else:
                     ref_link_xml = ''
-                meta = Metadata(ref_meta, '',
-                    {'ifmap-cardinality':'singleValue'}, ns_prefix = 'contrail',
-                    elements=ref_link_xml)
-                self._update_id_pair_meta(update, ref_imid, meta)
+                metadata = Metadata(ref_meta,
+                                    '',
+                                    {'ifmap-cardinality': 'singleValue'},
+                                    ns_prefix='contrail',
+                                    elements=ref_link_xml)
+                VncIfmapServer.update(ifmap_id, ref_ifmap_id, [metadata])
         # end for all ref types
-
-        self._publish_update(my_imid, update)
         return (True, '')
-    # end object_set
 
     def object_create(self, obj_ids, obj_dict):
+        obj_ifmap_id = obj_ids['imid']
         obj_type = obj_ids['type']
-        if not 'parent_type' in obj_dict:
+        obj_class = self._db_client_mgr.get_resource_class(obj_type)
+
+        if 'parent_type' not in obj_dict:
             # parent is config-root
             parent_type = 'config-root'
-            parent_imid = 'contrail:config-root:root'
+            parent_ifmap_id = 'contrail:config-root:root'
         else:
             parent_type = obj_dict['parent_type']
-            parent_imid = obj_ids.get('parent_imid', None)
+            parent_ifmap_id = obj_ids.get('parent_imid', None)
 
         # Parent Link Meta
-        update = {}
         parent_cls = self._db_client_mgr.get_resource_class(parent_type)
-        parent_link_meta = parent_cls.children_field_metas.get('%ss' %(obj_type))
+        parent_link_meta = parent_cls.children_field_metas.get(
+            '%ss' % (obj_type))
         if parent_link_meta:
-            meta = Metadata(parent_link_meta, '',
-                       {'ifmap-cardinality':'singleValue'}, ns_prefix = 'contrail')
-            self._update_id_pair_meta(update, obj_ids['imid'], meta)
-            self._publish_update(parent_imid, update)
+            metadata = Metadata(parent_link_meta,
+                                '',
+                                {'ifmap-cardinality': 'singleValue'},
+                                ns_prefix='contrail')
+            VncIfmapServer.update(parent_ifmap_id, obj_ifmap_id,
+                                  metadatas=[metadata])
 
-        (ok, result) = self.object_set(obj_type, obj_ids['imid'], None, obj_dict)
-        return (ok, result)
-    # end object_create
-
-    def _object_read_to_meta_index(self, ifmap_id):
-        # metas is a dict where key is meta-name and val is list of dict of
-        # form [{'meta':meta}, {'id':id1, 'meta':meta}, {'id':id2, 'meta':meta}]
-        metas = {}
-        if ifmap_id in self._id_to_metas:
-            metas = self._id_to_metas[ifmap_id].copy()
-        return metas
-    # end _object_read_to_meta_index
+        return self.object_set(obj_class, obj_ifmap_id, obj_dict)
 
     def object_update(self, obj_type, ifmap_id, new_obj_dict):
         obj_cls = self._db_client_mgr.get_resource_class(obj_type)
-        # read in refs from ifmap to determine which ones become inactive after update
-        existing_metas = self._object_read_to_meta_index(ifmap_id)
+        # read in refs from ifmap to determine which ones become inactive after
+        # update
+        existing_links = VncIfmapServer.get_links(ifmap_id)
 
-        if not existing_metas:
+        if not existing_links:
             # UPDATE notify queued before CREATE notify, Skip publish to IFMAP.
             return (True, '')
 
         # remove properties that are no longer active
-        props = obj_cls.prop_field_metas
-        for prop, meta in props.items():
-            if meta in existing_metas and new_obj_dict.get(prop) is None:
-                self._delete_id_self_meta(ifmap_id, meta)
+        delete_links = []
+        for prop, meta in obj_cls.prop_field_metas.items():
+            if meta in existing_links and new_obj_dict.get(prop) is None:
+                delete_links.append(meta)
 
         # remove refs that are no longer active
-        delete_list = []
         refs = dict((obj_cls.ref_field_metas[rf],
                      obj_cls.ref_field_types[rf][0])
                     for rf in obj_cls.ref_fields)
-        #refs = {'virtual-network-qos-forwarding-class': 'qos-forwarding-class',
-        #        'virtual-network-network-ipam': 'network-ipam',
-        #        'virtual-network-network-policy': 'network-policy',
-        #        'virtual-network-route-table': 'route-table'}
+        # refs = {'virtual-network-qos-forwarding-class': 'qos-forwarding-...',
+        #         'virtual-network-network-ipam': 'network-ipam',
+        #         'virtual-network-network-policy': 'network-policy',
+        #         'virtual-network-route-table': 'route-table'}
         for meta, ref_res_type in refs.items():
-            old_set = set(existing_metas.get(meta, {}).keys())
-            new_set = set()
             ref_obj_type = self._db_client_mgr.get_resource_class(
                 ref_res_type).object_type
             for ref in new_obj_dict.get(ref_obj_type+'_refs', []):
                 to_imid = get_ifmap_id_from_fq_name(ref_res_type, ref['to'])
-                new_set.add(to_imid)
+                link_key = '%s %s' % (meta, to_imid)
+                if link_key in existing_links:
+                    delete_links.append(link_key)
 
-            for inact_ref in old_set - new_set:
-                delete_list.append((inact_ref, meta))
+        if delete_links:
+            VncIfmapServer.delete(ifmap_id, delete_links)
 
-        if delete_list:
-            self._delete_id_pair_meta_list(ifmap_id, delete_list)
-
-        (ok, result) = self.object_set(obj_type, ifmap_id, existing_metas, new_obj_dict)
-        return (ok, result)
-    # end object_update
+        return self.object_set(obj_cls, ifmap_id, new_obj_dict, existing_links)
 
     def object_delete(self, obj_ids):
-        ifmap_id = obj_ids['imid']
-        parent_imid = obj_ids.get('parent_imid')
-        existing_metas = self._object_read_to_meta_index(ifmap_id)
-        meta_list = []
-        for meta_name, meta_infos in existing_metas.items():
-            # Delete all refs/links in the object.
-            # Refs are identified when the key is a non-empty string.
-            meta_list.extend(
-                [(k, meta_name)
-                  for k in meta_infos if k != ''])
-
-        if parent_imid:
-            # Remove link from parent
-            meta_list.append((parent_imid, None))
-
-        if meta_list:
-            self._delete_id_pair_meta_list(ifmap_id, meta_list)
-
-        # Remove all property metadata associated with this ident
-        self._delete_id_self_meta(ifmap_id, None)
-
+        VncIfmapServer.delete(obj_ids['imid'])
         return (True, '')
-    # end object_delete
-
-    def _init_conn(self):
-        self._mapclient = client(("%s" % (self._ifmap_srv_ip),
-                                  "%s" % (self._ifmap_srv_port)),
-                                 self._username, self._password,
-                                 self._NAMESPACES, self._ssl_options)
-
-        connected = False
-        while not connected:
-            try:
-                resp_xml = self._mapclient.call('newSession', NewSessionRequest())
-            except socket.error as e:
-                msg = 'Failed to establish IF-MAP connection: %s' % str(e)
-                self.config_log(msg, level=SandeshLevel.SYS_WARN)
-                time.sleep(3)
-                continue
-
-            resp_doc = etree.parse(StringIO.StringIO(resp_xml))
-            err_codes = resp_doc.xpath(
-                '/env:Envelope/env:Body/ifmap:response/errorResult/@errorCode',
-                namespaces=self._NAMESPACES)
-            if not err_codes:
-                connected = True
-            else:
-                msg = "Failed to establish IF-MAP connection: %s" % err_codes
-                self.config_log(msg, level=SandeshLevel.SYS_WARN)
-                session_id = self._mapclient.get_session_id()
-                try:
-                    self._mapclient.call('endSession',
-                                         EndSessionRequest(session_id))
-                except socket.error as e:
-                    msg = "Failed to end the IF-MAP session %s: %s" %\
-                          (session_id, str(e))
-                    self.config_log(msg, level=SandeshLevel.SYS_WARN)
-                time.sleep(3)
-
-        ConnectionState.update(conn_type = ConnType.IFMAP,
-            name = 'IfMap', status = ConnectionStatus.UP, message = '',
-            server_addrs = ["%s:%s" % (self._ifmap_srv_ip,
-                                       self._ifmap_srv_port)])
-        self._conn_state = ConnectionStatus.UP
-        msg = 'IFMAP connection ESTABLISHED'
-        self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
-
-        self._mapclient.set_session_id(
-            newSessionResult(resp_xml).get_session_id())
-        self._mapclient.set_publisher_id(
-            newSessionResult(resp_xml).get_publisher_id())
-    # end _init_conn
-
-    def _get_api_server(self):
-        return self._db_client_mgr._api_svr_mgr
-    # end _get_api_server
-
-    def reset(self):
-        self._id_to_metas = {}
-        while not self._queue.empty():
-            self._queue.get_nowait()
-
-        if (self._dequeue_greenlet is not None and
-                gevent.getcurrent() != self._dequeue_greenlet):
-            self._dequeue_greenlet.kill()
-        self._dequeue_greenlet =\
-              vnc_greenlets.VncGreenlet("VNC IfMap Dequeue",
-                                        self._ifmap_dequeue_task)
-
-    # end reset
-
-    def _publish_config_root(self):
-        # Remove all resident data
-        result = ifmap_wipe(self._mapclient)
-        if result is None:
-            msg = "Cannot purge the IF-MAP server before publishing root graph"
-            self.config_log(msg, level=SandeshLevel.SYS_WARN)
-        # Build default config-root
-        buf = cStringIO.StringIO()
-        perms = Provision.defaults.perms
-        perms.exportChildren(buf, level=1, pretty_print=False)
-        id_perms_xml = buf.getvalue()
-        buf.close()
-        update = {}
-        meta = Metadata(self._IPERMS_NAME, '',
-                        {'ifmap-cardinality': 'singleValue'},
-                        ns_prefix='contrail', elements=id_perms_xml)
-        self._update_id_self_meta(update, meta)
-        self._publish_update("contrail:config-root:root", update)
-    # end _publish_config_root
-
-    def config_log(self, msg, level):
-        self._db_client_mgr.config_log(msg, level)
-    # end config_log
-
-    @ignore_exceptions
-    def _generate_ifmap_trace(self, oper, body):
-        req_id = get_trace_id()
-        ifmap_trace = IfmapTrace(request_id=req_id)
-        ifmap_trace.operation = oper
-        ifmap_trace.body = body
-
-        return ifmap_trace
-    # end _generate_ifmap_trace
-
-    def _publish_to_ifmap_enqueue(self, oper, oper_body, do_trace=True):
-        # safety check, if we proceed ifmap-server reports error
-        # asking for update|delete in publish
-        if not oper_body:
-            return
-        self._queue.put((oper, oper_body, do_trace))
-    # end _publish_to_ifmap_enqueue
-
-    def _ifmap_dequeue_task(self):
-        while True:
-            try:
-                self._publish_to_ifmap_dequeue()
-            except Exception as e:
-                tb = cfgm_common.utils.detailed_traceback()
-                self.config_log(tb, level=SandeshLevel.SYS_ERR)
-
-    def _publish_to_ifmap_dequeue(self):
-        def _publish(requests, traces, publish_discovery=False):
-            if not requests:
-                return
-            ok = False
-            # Continue to trying publish requests until the queue is full.
-            # When queue is full, ifmap is totally resync from db
-            while not ok:
-                ok, err_msg = self._publish_to_ifmap(''.join(requests))
-                if ok:
-                    trace_msg(traces, 'IfmapTraceBuf', self._sandesh)
-                else:
-                    trace_msg(traces, 'IfmapTraceBuf', self._sandesh,
-                              error_msg=err_msg)
-                if publish_discovery and ok:
-                    self._get_api_server().publish_ifmap_to_discovery()
-                    self._is_ifmap_up = True
-                if not ok:
-                    msg = ("%s. IF-MAP sending queue size: %d/%d" %
-                           (err_msg, self._queue.qsize(),
-                            self._get_api_server()._args.ifmap_queue_size))
-                    self.config_log(msg, level=SandeshLevel.SYS_WARN)
-                    gevent.sleep(1)
-        # end _publish
-
-        while True:
-            # block until there is data in the queue
-            (oper, oper_body, do_trace) = self._queue.get()
-            requests = []
-            requests_len = 0
-            traces = []
-            while True:
-                # drain the queue till empty or max message size
-                # or change of oper because ifmap does not like
-                # different operations in same message
-                if oper == 'publish_discovery':
-                    _publish(requests, traces, True)
-                    break
-                if do_trace:
-                    trace = self._generate_ifmap_trace(oper, oper_body)
-                    traces.append(trace)
-                requests.append(oper_body)
-                requests_len += len(oper_body)
-                if (requests_len >
-                    self._get_api_server()._args.ifmap_max_message_size):
-                    _publish(requests, traces)
-                    break
-                old_oper = oper
-                try:
-                    (oper, oper_body, do_trace) = self._queue.get_nowait()
-                    if oper != old_oper:
-                        _publish(requests, traces)
-                        requests = []
-                        requests_len = 0
-                        traces = []
-                        continue
-                except Empty:
-                    _publish(requests, traces)
-                    break
-    # end _publish_to_ifmap_dequeue
-
-    def _publish_to_ifmap(self, oper_body):
-        try:
-            not_published = True
-            retry_count = 0
-            resp_xml = None
-            while not_published:
-                sess_id = self._mapclient.get_session_id()
-                req_xml = PublishRequest(sess_id, oper_body)
-                resp_xml = self._mapclient.call('publish', req_xml)
-
-                resp_doc = etree.parse(StringIO.StringIO(resp_xml))
-                err_codes = resp_doc.xpath(
-                    '/env:Envelope/env:Body/ifmap:response/errorResult/@errorCode',
-                    namespaces=self._NAMESPACES)
-                if err_codes:
-                    if retry_count == 0:
-                        log_str = 'Error publishing to ifmap, req: %s, resp: %s' \
-                                  %(req_xml, resp_xml)
-                        self.config_log(log_str, level=SandeshLevel.SYS_ERR)
-
-                    ConnectionState.update(
-                        conn_type = ConnType.IFMAP,
-                        name = 'IfMap',
-                        status = ConnectionStatus.INIT,
-                        message = 'Session lost, renew it',
-                        server_addrs = ["%s:%s" % (self._ifmap_srv_ip,
-                                                   self._ifmap_srv_port)])
-                    self._conn_state = ConnectionStatus.INIT
-                    self._is_ifmap_up = False
-                    retry_count = retry_count + 1
-                    self._init_conn()
-
-                    if self._ifmap_restarted():
-                        msg = "IF-MAP servers restarted, re-populate it"
-                        self.config_log(msg, level=SandeshLevel.SYS_ERR)
-
-                        self.reset()
-                        self._get_api_server().publish_ifmap_to_discovery(
-                            'down', msg)
-
-                        self._publish_config_root()
-                        self._db_client_mgr.db_resync()
-                        self._publish_to_ifmap_enqueue('publish_discovery', 1)
-
-                else: # successful publish
-                    not_published = False
-                    break
-            # end while not_published
-
-            if retry_count:
-                log_str = 'Success publishing to ifmap after %d tries' \
-                          %(retry_count)
-                self.config_log(log_str, level=SandeshLevel.SYS_ERR)
-
-            return True, resp_xml
-        except Exception as e:
-            # Failed to publish the operation due to unknown error.
-            # Probably a connection issue with the ifmap server.
-            msg = "Failed to publish request %s: %s" % (oper_body, str(e))
-            return False, msg
-    # end _publish_to_ifmap
-
-    def _build_request(self, id1_name, id2_name, meta_list, delete=False):
-            request = ''
-            id1 = unicode(Identity(name=id1_name, type="other",
-                                   other_type="extended"))
-            if id2_name != 'self':
-                id2 = unicode(Identity(name=id2_name, type="other",
-                                       other_type="extended"))
-            else:
-                id2 = None
-            for m in meta_list:
-                if delete:
-                    filter = unicode(m) if m else None
-                    op = PublishDeleteOperation(id1=id1, id2=id2,
-                                                filter=filter)
-                else:
-                    op = PublishUpdateOperation(id1=id1, id2=id2,
-                                                metadata=unicode(m),
-                                                lifetime='forever')
-                request += unicode(op)
-            return request
-
-    def _delete_id_self_meta(self, self_imid, meta_name):
-        contrail_metaname = 'contrail:' + meta_name if meta_name else None
-        del_str = self._build_request(self_imid, 'self', [contrail_metaname],
-                                      True)
-        self._publish_to_ifmap_enqueue('delete', del_str)
-
-        # del meta from cache and del id if this was last meta
-        if meta_name:
-            del self._id_to_metas[self_imid][meta_name]
-            if not self._id_to_metas[self_imid]:
-                del self._id_to_metas[self_imid]
-        else:
-            del self._id_to_metas[self_imid]
-    # end _delete_id_self_meta
-
-    def _delete_id_pair_meta_list(self, id1, meta_list):
-        del_str = ''
-        for id2, metadata in meta_list:
-            contrail_metadata = 'contrail:' + metadata if metadata else None
-            del_str += self._build_request(id1, id2, [contrail_metadata], True)
-
-        self._publish_to_ifmap_enqueue('delete', del_str)
-
-        # del meta,id2 from cache and del id if this was last meta
-        def _id_to_metas_delete(id1, id2, meta_name):
-            if id1 not in self._id_to_metas:
-                return
-            if meta_name not in self._id_to_metas[id1]:
-                return
-            if not self._id_to_metas[id1][meta_name]:
-                del self._id_to_metas[id1][meta_name]
-                if not self._id_to_metas[id1]:
-                    del self._id_to_metas[id1]
-                return
-
-            # if meta is prop, noop
-            if id2 in self._id_to_metas[id1][meta_name]:
-                del self._id_to_metas[id1][meta_name][id2]
-        #end _id_to_metas_delete
-
-        for id2, metadata in meta_list:
-            if metadata:
-                # replace with remaining refs
-                _id_to_metas_delete(id1, id2, metadata)
-                _id_to_metas_delete(id2, id1, metadata)
-            else: # no meta specified remove all links from id1 to id2
-                for meta_name in self._id_to_metas.get(id1, {}).keys():
-                    _id_to_metas_delete(id1, id2, meta_name)
-                for meta_name in self._id_to_metas.get(id2, {}).keys():
-                    _id_to_metas_delete(id2, id1, meta_name)
-    # end _delete_id_pair_meta_list
-
-    def _update_id_self_meta(self, update, meta):
-        """ update: dictionary of the type
-                update[<id> | 'self'] = list(metadata)
-        """
-        mlist = update.setdefault('self', [])
-        mlist.append(meta)
-    # end _update_id_self_meta
-
-    def _update_id_pair_meta(self, update, to_id, meta):
-        mlist = update.setdefault(to_id, [])
-        mlist.append(meta)
-     # end _update_id_pair_meta
-
-    def _publish_update(self, self_imid, update):
-        requests = []
-        self_metas = self._id_to_metas.setdefault(self_imid, {})
-        for id2, metalist in update.items():
-            request = self._build_request(self_imid, id2, metalist)
-
-            # remember what we wrote for diffing during next update
-            old_metalist = []
-            for m in metalist:
-                meta_name = m._Metadata__name[9:]
-
-                # Objects have two types of members - Props and refs/links.
-                # Props are cached in id_to_metas as
-                #        id_to_metas[self_imid][meta_name]['']
-                #        (with empty string as key)
-
-                # Links are cached in id_to_metas as
-                #        id_to_metas[self_imid][meta_name][id2]
-                #        id2 is used as a key
-
-                if id2 == 'self':
-                    self_metas[meta_name] = {'' : m}
-                    continue
-
-                if meta_name in self_metas:
-                    old_metalist.append(self_metas[meta_name])
-                    # Update the link/ref
-                    self_metas[meta_name][id2] = m
-                else:
-                    # Create a new link/ref
-                    self_metas[meta_name] = {id2 : m}
-
-                # Reverse linking from id2 to id1
-                self._id_to_metas.setdefault(id2, {})
-
-                if meta_name in self._id_to_metas[id2]:
-                    self._id_to_metas[id2][meta_name][self_imid] = m
-                else:
-                    self._id_to_metas[id2][meta_name] = {self_imid : m}
-
-            old_request = self._build_request(self_imid, id2, old_metalist)
-            if request != old_request:
-                requests.append(request)
-
-        upd_str = ''.join(requests)
-        self._publish_to_ifmap_enqueue('update', upd_str)
-    # end _publish_update
-
-    def _ifmap_restarted(self):
-        return not entity_is_present(self._mapclient, 'config-root', ['root'])
-
-    def _health_checker(self):
-        while True:
-            try:
-                # do the healthcheck only if we are connected
-                if self._conn_state == ConnectionStatus.DOWN:
-                    continue
-                meta = Metadata('display-name', '',
-                        {'ifmap-cardinality': 'singleValue'},
-                        ns_prefix='contrail', elements='')
-                request_str = self._build_request('healthcheck', 'self', [meta])
-                self._publish_to_ifmap_enqueue('update', request_str, do_trace=False)
-
-                # Confirm the existence of the following default global entities in IFMAP.
-                search_list = [
-                    ('global-system-config', ['default-global-system-config']),
-                ]
-                for type, fq_name in search_list:
-                    if not entity_is_present(self._mapclient, type, fq_name):
-                        raise Exception("%s not found in IFMAP DB" % ':'.join(fq_name))
-
-                # If we had unpublished the IFMAP server to discovery server earlier
-                # publish it back now since it is valid now.
-                if not self._is_ifmap_up:
-                    self._get_api_server().publish_ifmap_to_discovery('up', '')
-                    self._is_ifmap_up = True
-                    ConnectionState.update(conn_type = ConnType.IFMAP,
-                                           name = 'IfMap',
-                                           status = ConnectionStatus.UP,
-                                           message = '',
-                                           server_addrs = ["%s:%s" % (self._ifmap_srv_ip,
-                                                                      self._ifmap_srv_port)])
-            except Exception as e:
-                log_str = 'IFMAP Healthcheck failed: %s' %(str(e))
-                self.config_log(log_str, level=SandeshLevel.SYS_ERR)
-                if self._is_ifmap_up:
-                    self._get_api_server().publish_ifmap_to_discovery('down',
-                                                   'IFMAP DB - Invalid state')
-                    self._is_ifmap_up = False
-                    ConnectionState.update(conn_type = ConnType.IFMAP,
-                                           name = 'IfMap',
-                                           status = ConnectionStatus.DOWN,
-                                           message = 'Invalid IFMAP DB State',
-                                           server_addrs = ["%s:%s" % (self._ifmap_srv_ip,
-                                                                      self._ifmap_srv_port)])
-            finally:
-                gevent.sleep(
-                    self._get_api_server().get_ifmap_health_check_interval())
-    # end _health_checker
-
-# end class VncIfmapClient
-
-
-class VncServerCassandraClient(VncCassandraClient):
-    # Useragent datastore keyspace + tables (used by neutron plugin currently)
-    _USERAGENT_KEYSPACE_NAME = USERAGENT_KEYSPACE_NAME
-    _USERAGENT_KV_CF_NAME = 'useragent_keyval_table'
-
-    @classmethod
-    def get_db_info(cls):
-        db_info = VncCassandraClient.get_db_info() + \
-                  [(cls._USERAGENT_KEYSPACE_NAME, [cls._USERAGENT_KV_CF_NAME])]
-        return db_info
-    # end get_db_info
-
-    def __init__(self, db_client_mgr, cass_srv_list, reset_config, db_prefix,
-                      cassandra_credential, walk):
-        self._db_client_mgr = db_client_mgr
-        keyspaces = self._UUID_KEYSPACE.copy()
-        keyspaces[self._USERAGENT_KEYSPACE_NAME] = {
-            self._USERAGENT_KV_CF_NAME: {}}
-        super(VncServerCassandraClient, self).__init__(
-            cass_srv_list, db_prefix, keyspaces, None, self.config_log,
-            generate_url=db_client_mgr.generate_url, reset_config=reset_config,
-            credential=cassandra_credential, walk=walk)
-        self._useragent_kv_cf = self._cf_dict[self._USERAGENT_KV_CF_NAME]
-    # end __init__
-
-    def config_log(self, msg, level):
-        self._db_client_mgr.config_log(msg, level)
-    # end config_log
-
-    def prop_collection_update(self, obj_type, obj_uuid, updates):
-        obj_class = self._db_client_mgr.get_resource_class(obj_type)
-        bch = self._obj_uuid_cf.batch()
-        for oper_param in updates:
-            oper = oper_param['operation']
-            prop_name = oper_param['field']
-            if prop_name in obj_class.prop_list_fields:
-                if oper == 'add':
-                    prop_elem_val = oper_param['value']
-                    prop_elem_pos = oper_param.get('position') or str(uuid.uuid4())
-                    self._add_to_prop_list(bch, obj_uuid,
-                        prop_name, prop_elem_val, prop_elem_pos)
-                elif oper == 'modify':
-                    prop_elem_val = oper_param['value']
-                    prop_elem_pos = oper_param['position']
-                    # modify is practically an insert so use add
-                    self._add_to_prop_list(bch, obj_uuid,
-                        prop_name, prop_elem_val, prop_elem_pos)
-                elif oper == 'delete':
-                    prop_elem_pos = oper_param['position']
-                    self._delete_from_prop_list(bch, obj_uuid,
-                        prop_name, prop_elem_pos)
-            elif prop_name in obj_class.prop_map_fields:
-                key_name = obj_class.prop_map_field_key_names[prop_name]
-                if oper == 'set':
-                    prop_elem_val = oper_param['value']
-                    position = prop_elem_val[key_name]
-                    self._set_in_prop_map(bch, obj_uuid,
-                        prop_name, prop_elem_val, position)
-                elif oper == 'delete':
-                    position = oper_param['position']
-                    self._delete_from_prop_map(bch, obj_uuid,
-                        prop_name, position)
-        # end for all updates
-
-        self.update_last_modified(bch, obj_uuid)
-        bch.send()
-    # end prop_collection_update
-
-    def ref_update(self, obj_type, obj_uuid, ref_obj_type, ref_uuid,
-                   ref_data, operation):
-        bch = self._obj_uuid_cf.batch()
-        if operation == 'ADD':
-            self._create_ref(bch, obj_type, obj_uuid, ref_obj_type, ref_uuid,
-                             ref_data)
-        elif operation == 'DELETE':
-            self._delete_ref(bch, obj_type, obj_uuid, ref_obj_type, ref_uuid)
-        else:
-            pass
-        self.update_last_modified(bch, obj_uuid)
-        bch.send()
-    # end ref_update
-
-    def ref_relax_for_delete(self, obj_uuid, ref_uuid):
-        bch = self._obj_uuid_cf.batch()
-        self._relax_ref_for_delete(bch, obj_uuid, ref_uuid)
-        bch.send()
-    # end ref_relax_for_delete
-
-    def _relax_ref_for_delete(self, bch, obj_uuid, ref_uuid):
-        send = False
-        if bch is None:
-            send = True
-            bch = self._obj_uuid_cf.batch()
-        bch.insert(ref_uuid, {'relaxbackref:%s' % (obj_uuid):
-                               json.dumps(None)})
-        if send:
-            bch.send()
-    # end _relax_ref_for_delete
-
-    def get_relaxed_refs(self, obj_uuid):
-        relaxed_cols = self.get(self._OBJ_UUID_CF_NAME, obj_uuid,
-                                start='relaxbackref:', finish='relaxbackref;')
-        if not relaxed_cols:
-            return []
-
-        return [col.split(':')[1] for col in relaxed_cols]
-    # end get_relaxed_refs
-
-    def is_latest(self, id, tstamp):
-        id_perms = self.uuid_to_obj_perms(id)
-        if id_perms['last_modified'] == tstamp:
-            return True
-        else:
-            return False
-    # end is_latest
-
-    # Insert new perms. Called on startup when walking DB
-    def update_perms2(self, obj_uuid):
-        bch = self._obj_uuid_cf.batch()
-        perms2 = copy.deepcopy(Provision.defaults.perms2)
-        perms2_json = json.dumps(perms2, default=lambda o: dict((k, v)
-                               for k, v in o.__dict__.iteritems()))
-        perms2 = json.loads(perms2_json)
-        self._update_prop(bch, obj_uuid, 'perms2', {'perms2': perms2})
-        bch.send()
-
-    def uuid_to_obj_dict(self, id):
-        obj_cols = self.get(self._OBJ_UUID_CF_NAME, id)
-        if not obj_cols:
-            raise NoIdError(id)
-        return obj_cols
-    # end uuid_to_obj_dict
-
-    def uuid_to_obj_perms(self, id):
-        return self.get_one_col(self._OBJ_UUID_CF_NAME, id, 'prop:id_perms')
-    # end uuid_to_obj_perms
-
-    # fetch perms2 for an object
-    def uuid_to_obj_perms2(self, id):
-        return self.get_one_col(self._OBJ_UUID_CF_NAME, id, 'prop:perms2')
-    # end uuid_to_obj_perms2
-
-    def useragent_kv_store(self, key, value):
-        columns = {'value': value}
-        self._useragent_kv_cf.insert(key, columns)
-    # end useragent_kv_store
-
-    def useragent_kv_retrieve(self, key):
-        if key:
-            if isinstance(key, list):
-                rows = self._useragent_kv_cf.multiget(key)
-                return [rows[row].get('value') for row in rows]
-            else:
-                try:
-                    columns = self._useragent_kv_cf.get(key)
-                except pycassa.NotFoundException:
-                    raise NoUserAgentKey
-                return columns.get('value')
-        else:  # no key specified, return entire contents
-            kv_list = []
-            for ua_key, ua_cols in self._useragent_kv_cf.get_range():
-                kv_list.append({'key': ua_key, 'value': ua_cols.get('value')})
-            return kv_list
-    # end useragent_kv_retrieve
-
-    def useragent_kv_delete(self, key):
-        try:
-            self._useragent_kv_cf.remove(key)
-        except pycassa.NotFoundException:
-            raise NoUserAgentKey
-    # end useragent_kv_delete
-
-# end class VncCassandraClient
-
-
-class VncServerKombuClient(VncKombuClient):
-    def __init__(self, db_client_mgr, rabbit_ip, rabbit_port, ifmap_db,
-                 rabbit_user, rabbit_password, rabbit_vhost, rabbit_ha_mode,
-                 rabbit_health_check_interval, **kwargs):
-        self._db_client_mgr = db_client_mgr
-        self._sandesh = db_client_mgr._sandesh
-        self._ifmap_db = ifmap_db
-        listen_port = db_client_mgr.get_server_port()
-        q_name = 'vnc_config.%s-%s' %(socket.gethostname(), listen_port)
-        super(VncServerKombuClient, self).__init__(
-            rabbit_ip, rabbit_port, rabbit_user, rabbit_password, rabbit_vhost,
-            rabbit_ha_mode, q_name, self._dbe_subscribe_callback,
-            self.config_log, heartbeat_seconds=rabbit_health_check_interval,
-            **kwargs)
-
-    # end __init__
-
-    def prepare_to_consume(self):
-        self._db_client_mgr.wait_for_resync_done()
-    # prepare_to_consume
-
-    def config_log(self, msg, level):
-        self._db_client_mgr.config_log(msg, level)
-    # end config_log
-
-    def uuid_to_fq_name(self, uuid):
-        self._db_client_mgr.uuid_to_fq_name(uuid)
-    # end uuid_to_fq_name
-
-    def dbe_uve_trace(self, oper, typ, uuid, body):
-        self._db_client_mgr.dbe_uve_trace(oper, typ, uuid, body)
-    # end uuid_to_fq_name
-
-    def dbe_oper_publish_pending(self):
-        return self.num_pending_messages()
-    # end dbe_oper_publish_pending
-
-    @ignore_exceptions
-    def _generate_msgbus_notify_trace(self, oper_info):
-        req_id = oper_info.get('request-id',
-            'req-%s' %(str(uuid.uuid4())))
-        gevent.getcurrent().trace_request_id = req_id
-
-        notify_trace = MessageBusNotifyTrace(request_id=req_id)
-        notify_trace.operation = oper_info.get('oper', '')
-        notify_trace.body = json.dumps(oper_info)
-
-        return notify_trace
-    # end _generate_msgbus_notify_trace
-
-    def _dbe_subscribe_callback(self, oper_info):
-        self._db_client_mgr.wait_for_resync_done()
-        try:
-            msg = "Notification Message: %s" %(pformat(oper_info))
-            self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
-            trace = self._generate_msgbus_notify_trace(oper_info)
-
-            if oper_info['oper'] == 'CREATE':
-                self._dbe_create_notification(oper_info)
-            if oper_info['oper'] == 'UPDATE':
-                self._dbe_update_notification(oper_info)
-            elif oper_info['oper'] == 'DELETE':
-                self._dbe_delete_notification(oper_info)
-
-            trace_msg([trace], 'MessageBusNotifyTraceBuf', self._sandesh)
-        except Exception as e:
-            string_buf = cStringIO.StringIO()
-            cgitb_hook(file=string_buf, format="text")
-            errmsg = string_buf.getvalue()
-            self.config_log(string_buf.getvalue(),
-                level=SandeshLevel.SYS_ERR)
-            trace_msg([trace], name='MessageBusNotifyTraceBuf',
-                              sandesh=self._sandesh, error_msg=errmsg)
-    #end _dbe_subscribe_callback
-
-    def dbe_create_publish(self, obj_type, obj_ids, obj_dict):
-        req_id = get_trace_id()
-        oper_info = {'request-id': req_id,
-                     'oper': 'CREATE',
-                     'type': obj_type,
-                     'obj_dict': obj_dict}
-        oper_info.update(obj_ids)
-        self.publish(oper_info)
-    # end dbe_create_publish
-
-    def _dbe_create_notification(self, obj_info):
-        try:
-            (ok, result) = self._db_client_mgr.dbe_read(obj_info['type'], obj_info)
-            if not ok:
-                raise Exception(result)
-            obj_dict = result
-        except NoIdError as e:
-            # No error, we will hear a delete shortly
-            return
-
-        self.dbe_uve_trace("CREATE", obj_info['type'], obj_info['uuid'], obj_dict)
-
-        try:
-            r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
-            if r_class:
-                r_class.dbe_create_notification(obj_info, obj_dict)
-        except Exception as e:
-            err_msg = ("Failed in type specific dbe_create_notification " +
-                       str(e))
-            self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
-            raise
-        finally:
-            (ok, result) = self._ifmap_db.object_create(obj_info, obj_dict)
-            if not ok:
-                self.config_log(result, level=SandeshLevel.SYS_ERR)
-                raise Exception(result)
-    #end _dbe_create_notification
-
-    def dbe_update_publish(self, obj_type, obj_ids):
-        oper_info = {'oper': 'UPDATE', 'type': obj_type}
-        oper_info.update(obj_ids)
-        self.publish(oper_info)
-    # end dbe_update_publish
-
-    def _dbe_update_notification(self, obj_info):
-        try:
-            (ok, result) = self._db_client_mgr.dbe_read(obj_info['type'], obj_info)
-        except NoIdError as e:
-            # No error, we will hear a delete shortly
-            return
-
-        new_obj_dict = result
-
-        self.dbe_uve_trace("UPDATE", obj_info['type'], obj_info['uuid'], new_obj_dict)
-
-        try:
-            r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
-            if r_class:
-                r_class.dbe_update_notification(obj_info)
-        except:
-            msg = "Failed to invoke type specific dbe_update_notification"
-            self.config_log(msg, level=SandeshLevel.SYS_ERR)
-            raise
-        finally:
-            ifmap_id = self._db_client_mgr.uuid_to_ifmap_id(
-                r_class.resource_type, obj_info['uuid'])
-            (ok, ifmap_result) = self._ifmap_db.object_update(
-                obj_info['type'], ifmap_id, new_obj_dict)
-            if not ok:
-                raise Exception(ifmap_result)
-    #end _dbe_update_notification
-
-    def dbe_delete_publish(self, obj_type, obj_ids, obj_dict):
-        oper_info = {'oper': 'DELETE', 'type': obj_type, 'obj_dict': obj_dict}
-        oper_info.update(obj_ids)
-        self.publish(oper_info)
-    # end dbe_delete_publish
-
-    def _dbe_delete_notification(self, obj_info):
-        obj_dict = obj_info['obj_dict']
-
-        self.dbe_uve_trace(
-            "DELETE", obj_info['type'], obj_info['uuid'], obj_dict)
-
-        db_client_mgr = self._db_client_mgr
-        db_client_mgr._cassandra_db.cache_uuid_to_fq_name_del(obj_dict['uuid'])
-
-        try:
-            r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
-            if r_class:
-                r_class.dbe_delete_notification(obj_info, obj_dict)
-        except:
-            msg = "Failed to invoke type specific dbe_delete_notification"
-            self.config_log(msg, level=SandeshLevel.SYS_ERR)
-            raise
-        finally:
-            (ok, ifmap_result) = self._ifmap_db.object_delete(obj_info)
-            if not ok:
-                self.config_log(ifmap_result, level=SandeshLevel.SYS_ERR)
-                raise Exception(ifmap_result)
-    #end _dbe_delete_notification
-
-# end class VncKombuClient
-
-
-class VncZkClient(object):
-    _SUBNET_PATH = "/api-server/subnets"
-    _FQ_NAME_TO_UUID_PATH = "/fq-name-to-uuid"
-    _MAX_SUBNET_ADDR_ALLOC = 65535
-
-    _VN_ID_ALLOC_PATH = "/id/virtual-networks/"
-    _VN_MAX_ID = 1 << 24
-
-    _SG_ID_ALLOC_PATH = "/id/security-groups/id/"
-    _SG_MAX_ID = 1 << 32
-
-    def __init__(self, instance_id, zk_server_ip, reset_config, db_prefix,
-                 sandesh_hdl):
-        self._db_prefix = db_prefix
-        if db_prefix:
-            client_pfx = db_prefix + '-'
-            zk_path_pfx = db_prefix + '/'
-        else:
-            client_pfx = ''
-            zk_path_pfx = ''
-
-        client_name = '%sapi-%s' %(client_pfx, instance_id)
-        self._subnet_path = zk_path_pfx + self._SUBNET_PATH
-        self._fq_name_to_uuid_path = zk_path_pfx + self._FQ_NAME_TO_UUID_PATH
-        _vn_id_alloc_path = zk_path_pfx + self._VN_ID_ALLOC_PATH
-        _sg_id_alloc_path = zk_path_pfx + self._SG_ID_ALLOC_PATH
-        self._zk_path_pfx = zk_path_pfx
-
-        self._sandesh = sandesh_hdl
-        self._reconnect_zk_greenlet = None
-        while True:
-            try:
-                self._zk_client = ZookeeperClient(client_name, zk_server_ip,
-                                                  self._sandesh)
-                # set the lost callback to always reconnect
-                self._zk_client.set_lost_cb(self.reconnect_zk)
-                break
-            except gevent.event.Timeout as e:
-                pass
-
-        if reset_config:
-            self._zk_client.delete_node(self._subnet_path, True)
-            self._zk_client.delete_node(self._fq_name_to_uuid_path, True)
-            self._zk_client.delete_node(_vn_id_alloc_path, True)
-            self._zk_client.delete_node(_vn_id_alloc_path, True)
-
-        self._subnet_allocators = {}
-
-        # Initialize the virtual network ID allocator
-        self._vn_id_allocator = IndexAllocator(self._zk_client,
-                                               _vn_id_alloc_path,
-                                               self._VN_MAX_ID)
-
-        # Initialize the security group ID allocator
-        self._sg_id_allocator = IndexAllocator(self._zk_client,
-                                               _sg_id_alloc_path,
-                                               self._SG_MAX_ID)
-        # 0 is not a valid sg id any more. So, if it was previously allocated,
-        # delete it and reserve it
-        if self._sg_id_allocator.read(0) != '__reserved__':
-            self._sg_id_allocator.delete(0)
-        self._sg_id_allocator.reserve(0, '__reserved__')
-    # end __init__
-
-    def master_election(self, func, *args):
-        self._zk_client.master_election(
-            self._zk_path_pfx + "/api-server-election", os.getpid(),
-            func, *args)
-    # end master_election
-
-    def _reconnect_zk(self):
-        self._zk_client.connect()
-        self._reconnect_zk_greenlet = None
-    # end
-
-    def reconnect_zk(self):
-        if self._reconnect_zk_greenlet is None:
-            self._reconnect_zk_greenlet =\
-                   vnc_greenlets.VncGreenlet("VNC IfMap ZK Reconnect",
-                                             self._reconnect_zk)
-    # end
-
-    def create_subnet_allocator(self, subnet, subnet_alloc_list,
-                                addr_from_start, should_persist,
-                                start_subnet, size, alloc_unit):
-        # TODO handle subnet resizing change, ignore for now
-        if subnet not in self._subnet_allocators:
-            if addr_from_start is None:
-                addr_from_start = False
-            self._subnet_allocators[subnet] = IndexAllocator(
-                self._zk_client, self._subnet_path+'/'+subnet+'/',
-                size=size/alloc_unit, start_idx=start_subnet/alloc_unit,
-                reverse=not addr_from_start,
-                alloc_list=[{'start': x['start']/alloc_unit, 'end':x['end']/alloc_unit}
-                            for x in subnet_alloc_list],
-                max_alloc=self._MAX_SUBNET_ADDR_ALLOC/alloc_unit)
-    # end create_subnet_allocator
-
-    def delete_subnet_allocator(self, subnet):
-        self._subnet_allocators.pop(subnet, None)
-        IndexAllocator.delete_all(self._zk_client,
-                                  self._subnet_path+'/'+subnet+'/')
-    # end delete_subnet_allocator
-
-    def _get_subnet_allocator(self, subnet):
-        return self._subnet_allocators.get(subnet)
-    # end _get_subnet_allocator
-
-    def subnet_is_addr_allocated(self, subnet, addr):
-        allocator = self._get_subnet_allocator(subnet)
-        return allocator.read(addr)
-    # end subnet_is_addr_allocated
-
-    def subnet_set_in_use(self, subnet, addr):
-        allocator = self._get_subnet_allocator(subnet)
-        allocator.set_in_use(addr)
-    # end subnet_set_in_use
-
-    def subnet_reset_in_use(self, subnet, addr):
-        allocator = self._get_subnet_allocator(subnet)
-        allocator.reset_in_use(addr)
-    # end subnet_reset_in_use
-
-    def subnet_reserve_req(self, subnet, addr, value):
-        allocator = self._get_subnet_allocator(subnet)
-        return allocator.reserve(addr, value)
-    # end subnet_reserve_req
-
-    def subnet_alloc_count(self, subnet):
-        allocator = self._get_subnet_allocator(subnet)
-        return allocator.get_alloc_count()
-    # end subnet_alloc_count
-
-    def subnet_alloc_req(self, subnet, value=None):
-        allocator = self._get_subnet_allocator(subnet)
-        try:
-            return allocator.alloc(value=value)
-        except ResourceExhaustionError:
-            return None
-    # end subnet_alloc_req
-
-    def subnet_free_req(self, subnet, addr):
-        allocator = self._get_subnet_allocator(subnet)
-        if allocator:
-            allocator.delete(addr)
-    # end subnet_free_req
-
-    def create_fq_name_to_uuid_mapping(self, obj_type, fq_name, id):
-        fq_name_str = ':'.join(fq_name)
-        zk_path = self._fq_name_to_uuid_path+'/%s:%s' %(obj_type, fq_name_str)
-        self._zk_client.create_node(zk_path, id)
-    # end create_fq_name_to_uuid_mapping
-
-    def get_fq_name_to_uuid_mapping(self, obj_type, fq_name):
-        fq_name_str = ':'.join(fq_name)
-        zk_path = self._fq_name_to_uuid_path+'/%s:%s' %(obj_type, fq_name_str)
-        obj_uuid, znode_stat = self._zk_client.read_node(
-            zk_path, include_timestamp=True)
-
-        return obj_uuid, znode_stat.ctime
-    # end get_fq_name_to_uuid_mapping
-
-    def delete_fq_name_to_uuid_mapping(self, obj_type, fq_name):
-        fq_name_str = ':'.join(fq_name)
-        zk_path = self._fq_name_to_uuid_path+'/%s:%s' %(obj_type, fq_name_str)
-        self._zk_client.delete_node(zk_path)
-    # end delete_fq_name_to_uuid_mapping
-
-    def is_connected(self):
-        return self._zk_client.is_connected()
-    # end is_connected
-
-    def alloc_vn_id(self, name):
-        if name is not None:
-            return self._vn_id_allocator.alloc(name)
-
-    def free_vn_id(self, vn_id):
-        if vn_id is not None and vn_id < self._VN_MAX_ID:
-            self._vn_id_allocator.delete(vn_id)
-
-    def get_vn_from_id(self, vn_id):
-        if vn_id is not None and vn_id < self._VN_MAX_ID:
-            return self._vn_id_allocator.read(vn_id)
-
-    def alloc_sg_id(self, name):
-        if name is not None:
-            return self._sg_id_allocator.alloc(name) + SGID_MIN_ALLOC
-
-    def free_sg_id(self, sg_id):
-        if (sg_id is not None and
-                sg_id > SGID_MIN_ALLOC and
-                sg_id < self._SG_MAX_ID):
-            self._sg_id_allocator.delete(sg_id - SGID_MIN_ALLOC)
-
-    def get_sg_from_id(self, sg_id):
-        if (sg_id is not None and
-                sg_id > SGID_MIN_ALLOC and
-                sg_id < self._SG_MAX_ID):
-            return self._sg_id_allocator.read(sg_id - SGID_MIN_ALLOC)
-# end VncZkClient
-
-
-class VncDbClient(object):
-    def __init__(self, api_svr_mgr, ifmap_srv_ip, ifmap_srv_port, uname,
-                 passwd, cass_srv_list,
-                 rabbit_servers, rabbit_port, rabbit_user, rabbit_password,
-                 rabbit_vhost, rabbit_ha_mode, reset_config=False,
-                 zk_server_ip=None, db_prefix='', cassandra_credential=None,
-                 **kwargs):
-
-        self._api_svr_mgr = api_svr_mgr
-        self._sandesh = api_svr_mgr._sandesh
-
-        self._UVEMAP = {
-            "virtual_network" : ("ObjectVNTable", False),
-            "service_instance" : ("ObjectSITable", False),
-            "virtual_router" : ("ObjectVRouter", True),
-            "analytics_node" : ("ObjectCollectorInfo", True),
-            "database_node" : ("ObjectDatabaseInfo", True),
-            "config_node" : ("ObjectConfigNode", True),
-            "service_chain" : ("ServiceChain", False),
-            "physical_router" : ("ObjectPRouter", True),
-            "bgp_router": ("ObjectBgpRouter", True),
-        }
-
-        # certificate auth
-        ssl_options = None
-        if api_svr_mgr._args.use_certs:
-            ssl_options = {
-                'keyfile': api_svr_mgr._args.keyfile,
-                'certfile': api_svr_mgr._args.certfile,
-                'ca_certs': api_svr_mgr._args.ca_certs,
-                'cert_reqs': ssl.CERT_REQUIRED,
-                'ciphers': 'ALL'
-            }
-
-        self._db_resync_done = gevent.event.Event()
-
-        if api_svr_mgr.get_worker_id() == 0:
-            msg = "Connecting to ifmap on %s:%s as %s" \
-                  % (ifmap_srv_ip, ifmap_srv_port, uname)
-            self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
-
-            self._ifmap_db = VncIfmapClient(
-                self, ifmap_srv_ip, ifmap_srv_port, uname, passwd, ssl_options)
-        else:
-            self._ifmap_db = None
-
-        msg = "Connecting to zookeeper on %s" % (zk_server_ip)
-        self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
-        self._zk_db = VncZkClient(api_svr_mgr.get_worker_id(), zk_server_ip,
-                                  reset_config, db_prefix, self.config_log)
-
-        def cassandra_client_init():
-            msg = "Connecting to cassandra on %s" % (cass_srv_list)
-            self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
-
-            if api_svr_mgr.get_worker_id() == 0:
-                walk = False # done as part of db_resync()
-            else:
-                walk = True
-            self._cassandra_db = VncServerCassandraClient(
-                self, cass_srv_list, reset_config, db_prefix,
-                cassandra_credential, walk=walk)
-
-        self._zk_db.master_election(cassandra_client_init)
-
-        self._msgbus = VncServerKombuClient(self, rabbit_servers,
-            rabbit_port, self._ifmap_db,
-            rabbit_user, rabbit_password,
-            rabbit_vhost, rabbit_ha_mode,
-            api_svr_mgr.get_rabbit_health_check_interval(),
-            **kwargs)
-    # end __init__
-
-    def _update_default_quota(self):
-        """ Read the default quotas from the configuration
-        and update it in the project object if not already
-        updated.
-        """
-        default_quota = QuotaHelper.default_quota
-
-        proj_id = self.fq_name_to_uuid('project',
-                                       ['default-domain', 'default-project'])
-        try:
-            (ok, result) = self.dbe_read('project', {'uuid':proj_id})
-        except NoIdError as e:
-            ok = False
-            result = 'Project Not Found: %s' %(proj_id)
-        if not ok:
-            self.config_log("Updating default quota failed: %s." %(result),
-                level=SandeshLevel.SYS_ERR)
-            return
-
-        proj_dict = result
-        quota = QuotaType()
-
-        proj_dict['quota'] = default_quota
-        self.dbe_update('project', {'uuid':proj_id}, proj_dict)
-    # end _update_default_quota
-
-    def get_api_server(self):
-        return self._api_svr_mgr
-    # end get_api_server
-
-    def db_resync(self):
-        # Read contents from cassandra and publish to ifmap
-        start_time = datetime.datetime.utcnow()
-        self._cassandra_db.walk(self._dbe_resync)
-        self._ifmap_db._publish_to_ifmap_enqueue('publish_discovery', 1)
-        self.config_log("Cassandra DB walk completed.",
-            level=SandeshLevel.SYS_INFO)
-        self._update_default_quota()
-        end_time = datetime.datetime.utcnow()
-        msg = "Time elapsed in syncing ifmap: %s" % (str(end_time - start_time))
-        self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
-        self._db_resync_done.set()
-    # end db_resync
-
-    def wait_for_resync_done(self):
-        self._db_resync_done.wait()
-    # end wait_for_resync_done
-
-    def db_check(self):
-        # Read contents from cassandra and report any read exceptions
-        check_results = self._cassandra_db.walk(self._dbe_check)
-
-        return check_results
-    # end db_check
-
-    def db_read(self):
-        # Read contents from cassandra
-        read_results = self._cassandra_db.walk(self._dbe_read)
-        return read_results
-    # end db_check
-
-    def _uuid_to_longs(self, id):
-        msb_id = id.int >> 64
-        lsb_id = id.int & ((1 << 64) - 1)
-        return msb_id, lsb_id
-    # end _uuid_to_longs
-
-    def set_uuid(self, obj_type, obj_dict, id, do_lock=True):
-        if do_lock:
-            # set the mapping from name to uuid in zk to ensure single creator
-            fq_name = obj_dict['fq_name']
-            try:
-                self._zk_db.create_fq_name_to_uuid_mapping(obj_type, fq_name,
-                    str(id))
-            except ResourceExistsError as rexist:
-                # see if stale and if so delete stale
-                _, ctime = self._zk_db.get_fq_name_to_uuid_mapping(
-                                       obj_type, fq_name)
-                epoch_msecs = ctime
-                try:
-                    self._cassandra_db.uuid_to_fq_name(str(id))
-                    # not stale
-                    raise ResourceExistsError(fq_name, str(id), 'cassandra')
-                except NoIdError:
-                    lock_msecs = float(time.time()*1000 - epoch_msecs)
-                    stale_msecs_cfg = 1000 * float(
-                        self._api_svr_mgr.get_args().stale_lock_seconds)
-                    if (lock_msecs < stale_msecs_cfg):
-                        # not stale, race in create
-                        raise rexist
-
-                    # stale, release old and create new lock
-                    msg = 'Releasing stale lock(%s sec) for %s %s' \
-                        %(float(lock_msecs)/1000, obj_type, fq_name)
-                    self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
-                    self._zk_db.delete_fq_name_to_uuid_mapping(
-                        obj_type, fq_name)
-                    self._zk_db.create_fq_name_to_uuid_mapping(
-                        obj_type, fq_name, str(id))
-        # end do_lock
-
-        # set uuid in the perms meta
-        mslong, lslong = self._uuid_to_longs(id)
-        obj_dict['id_perms']['uuid'] = {}
-        obj_dict['id_perms']['uuid']['uuid_mslong'] = mslong
-        obj_dict['id_perms']['uuid']['uuid_lslong'] = lslong
-
-        obj_dict['uuid'] = str(id)
-
-        return True
-    # end set_uuid
-
-    def _alloc_set_uuid(self, obj_type, obj_dict):
-        id = uuid.uuid4()
-        ok = self.set_uuid(obj_type, obj_dict, id)
-
-        return (ok, obj_dict['uuid'])
-    # end _alloc_set_uuid
-
-    def match_uuid(self, obj_dict, obj_uuid):
-        new_mslong, new_lslong = self._uuid_to_longs(uuid.UUID(obj_uuid))
-        old_mslong = obj_dict['id_perms']['uuid']['uuid_mslong']
-        old_lslong = obj_dict['id_perms']['uuid']['uuid_lslong']
-        if new_mslong == old_mslong and new_lslong == old_lslong:
-            return True
-
-        return False
-    # end match_uuid
-
-    def update_subnet_uuid(self, subnets):
-        updated = False
-        if subnets is None:
-            return updated;
-
-        for subnet in subnets:
-            if subnet.get('subnet_uuid'):
-                continue
-            subnet_uuid = str(uuid.uuid4())
-            subnet['subnet_uuid'] = subnet_uuid
-            updated = True
-
-        return updated;
-    # end update_subnet_uuid
-
-    def update_bgp_router_type(self, obj_dict):
-        """ Sets router_type property based on the vendor property only
-        if router_type is not set.
-        """
-        router_params = obj_dict['bgp_router_parameters']
-        if 'router_type' not in router_params:
-            router_type = 'router'
-            if router_params['vendor'] == 'contrail':
-                router_type = 'control-node'
-            router_params.update({'router_type': router_type})
-            obj_uuid = obj_dict.get('uuid')
-            self._cassandra_db.object_update('bgp_router', obj_uuid, obj_dict)
-    # end update_bgp_router_type
-
-    def iip_update_subnet_uuid(self, iip_dict):
-        """ Set the subnet uuid as instance-ip attribute """
-        for vn_ref in iip_dict.get('virtual_network_refs', []):
-            (ok, results) = self._cassandra_db.object_read(
-                'virtual_network', [vn_ref['uuid']],
-                field_names=['network_ipam_refs'])
-            if not ok:
-                return
-            vn_dict = results[0]
-            for ipam in vn_dict.get('network_ipam_refs', []):
-                subnets = ipam['attr']['ipam_subnets']
-                for subnet in subnets:
-                    pfx = subnet['subnet']['ip_prefix']
-                    pfx_len = subnet['subnet']['ip_prefix_len']
-                    cidr = '%s/%s' % (pfx, pfx_len)
-                    if (IPAddress(iip_dict['instance_ip_address']) in
-                            IPNetwork(cidr)):
-                        iip_dict['subnet_uuid'] = subnet['subnet_uuid']
-                        self._cassandra_db.object_update('instance-ip',
-                                                         iip_dict['uuid'],
-                                                         iip_dict)
-                        return
-
-    def _dbe_resync(self, obj_type, obj_uuids):
-        obj_class = cfgm_common.utils.obj_type_to_vnc_class(obj_type, __name__)
-        obj_fields = list(obj_class.prop_fields) + list(obj_class.ref_fields)
-        (ok, obj_dicts) = self._cassandra_db.object_read(
-                               obj_type, obj_uuids, field_names=obj_fields)
-        uve_trace_list = []
-        for obj_dict in obj_dicts:
-            try:
-                obj_uuid = obj_dict['uuid']
-                uve_trace_list.append(("RESYNC", obj_type, obj_uuid, obj_dict))
-
-                if obj_type == 'virtual_network':
-                    # TODO remove backward compat (use RT instead of VN->LR ref)
-                    for router in obj_dict.get('logical_router_refs', []):
-                        self._cassandra_db._delete_ref(None,
-                                                       obj_type,
-                                                       obj_uuid,
-                                                       'logical_router',
-                                                       router['uuid'])
-                    if 'network_ipam_refs' in obj_dict:
-                        ipam_refs = obj_dict['network_ipam_refs']
-                        do_update = False
-                        for ipam in ipam_refs:
-                            vnsn = ipam['attr']
-                            ipam_subnets = vnsn['ipam_subnets']
-                            if (self.update_subnet_uuid(ipam_subnets)):
-                                if not do_update:
-                                    do_update = True
-                        if do_update:
-                            self.cassandra_db.object_update(
-                                'virtual_network', obj_uuid, obj_dict)
-
-                elif obj_type == 'virtual_machine_interface':
-                    device_owner = obj_dict.get('virtual_machine_interface_device_owner')
-                    li_back_refs = obj_dict.get('logical_interface_back_refs', [])
-                    if not device_owner and li_back_refs:
-                        obj_dict['virtual_machine_interface_device_owner'] = 'PhysicalRouter'
-                        self._cassandra_db.object_update('virtual_machine_interface',
-                                                    obj_uuid, obj_dict)
-
-                # create new perms if upgrading
-                if 'perms2' not in obj_dict:
-                    self._cassandra_db.update_perms2(obj_uuid)
-
-                if (obj_type == 'bgp_router' and
-                        'bgp_router_parameters' in obj_dict and
-                        'router_type' not in obj_dict['bgp_router_parameters']):
-                    self.update_bgp_router_type(obj_dict)
-
-                if obj_type == 'instance_ip' and 'subnet_uuid' not in obj_dict:
-                    self.iip_update_subnet_uuid(obj_dict)
-
-                # Ifmap alloc
-                parent_res_type = obj_dict.get('parent_type', None)
-                (ok, result) = self._ifmap_db.object_alloc(
-                    obj_class, parent_res_type, obj_dict['fq_name'])
-                if not ok:
-                    msg = "%s(%s), dbe_resync:ifmap_alloc error: %s" % (
-                            obj_type, obj_uuid, result[1])
-                    self.config_log(msg, level=SandeshLevel.SYS_ERR)
-                    continue
-                (my_imid, parent_imid) = result
-
-                # Ifmap create
-                obj_ids = {'type': obj_type, 'uuid': obj_uuid, 'imid': my_imid,
-                           'parent_imid': parent_imid}
-                (ok, result) = self._ifmap_db.object_create(obj_ids, obj_dict)
-            except Exception as e:
-                tb = cfgm_common.utils.detailed_traceback()
-                self.config_log(tb, level=SandeshLevel.SYS_ERR)
-                continue
-        # end for all objects
-
-        # Send UVEs resync with a pool of workers
-        uve_workers = gevent.pool.Group()
-        def format_args_for_dbe_uve_trace(args):
-            return self.dbe_uve_trace(*args)
-        uve_workers.map(format_args_for_dbe_uve_trace, uve_trace_list)
-    # end _dbe_resync
-
-
-    def _dbe_check(self, obj_type, obj_uuids):
-        for obj_uuid in obj_uuids:
-            try:
-                (ok, obj_dict) = self._cassandra_db.object_read(obj_type, [obj_uuid])
-            except Exception as e:
-                return {'uuid': obj_uuid, 'type': obj_type, 'error': str(e)}
-     # end _dbe_check
-
-    def _dbe_read(self, obj_type, obj_uuids):
-        results = []
-        for obj_uuid in obj_uuids:
-            try:
-                (ok, obj_dict) = self._cassandra_db.object_read(obj_type, [obj_uuid])
-                result_dict = obj_dict[0]
-                result_dict['type'] = obj_type
-                result_dict['uuid'] = obj_uuid
-                results.append(result_dict)
-            except Exception as e:
-                self.config_object_error(
-                    obj_uuid, None, obj_type, '_dbe_read:cassandra_read', str(e))
-                continue
-
-        return results
-    # end _dbe_read
-
-    @ignore_exceptions
-    def _generate_db_request_trace(self, oper, obj_type, obj_ids, obj_dict):
-        req_id = get_trace_id()
-
-        body = dict(obj_dict)
-        body['type'] = obj_type
-        body.update(obj_ids)
-        db_trace = DBRequestTrace(request_id=req_id)
-        db_trace.operation = oper
-        db_trace.body = json.dumps(body)
-        return db_trace
-    # end _generate_db_request_trace
-
-    # Public Methods
-    # Returns created ifmap_id
-    def dbe_alloc(self, obj_type, obj_dict, uuid_requested=None):
-        try:
-            if uuid_requested:
-                obj_uuid = uuid_requested
-                ok = self.set_uuid(obj_type, obj_dict,
-                                   uuid.UUID(uuid_requested), False)
-            else:
-                (ok, obj_uuid) = self._alloc_set_uuid(obj_type, obj_dict)
-        except ResourceExistsError as e:
-            return (False, (409, str(e)))
-
-        parent_res_type = obj_dict.get('parent_type')
-        obj_class = self.get_resource_class(obj_type)
-        (ok, result) = VncIfmapClient.object_alloc(obj_class, parent_res_type,
-                                                   obj_dict['fq_name'])
-        if not ok:
-            self.dbe_release(obj_type, obj_dict['fq_name'])
-            return False, result
-
-        (my_imid, parent_imid) = result
-        obj_ids = {
-            'uuid': obj_dict['uuid'],
-            'imid': my_imid, 'parent_imid': parent_imid}
-
-        return (True, obj_ids)
-    # end dbe_alloc
-
-    def dbe_uve_trace(self, oper, type, uuid, obj_dict):
-        if type not in self._UVEMAP:
-            return
-
-        if type == 'bgp_router':
-            if 'bgp_router_parameters' not in obj_dict or\
-               'router_type' not in obj_dict['bgp_router_parameters'] or\
-               obj_dict['bgp_router_parameters']['router_type'] != 'control-node':
-                return
-
-        oper = oper.upper()
-        req_id = get_trace_id()
-        if 'fq_name' not in obj_dict:
-            obj_dict['fq_name'] = self.uuid_to_fq_name(uuid)
-        obj_json = {k: json.dumps(obj_dict[k]) for k in obj_dict or {}}
-
-        db_trace = DBRequestTrace(request_id=req_id)
-        db_trace.operation = oper
-        db_trace.body = "name=%s type=%s value=%s" % (obj_dict['fq_name'],
-                                                      type,
-                                                      json.dumps(obj_dict))
-        uve_table, global_uve = self._UVEMAP[type]
-        if global_uve:
-            uve_name = obj_dict['fq_name'][-1]
-        else:
-            uve_name = ':'.join(obj_dict['fq_name'])
-        contrail_config = ContrailConfig(name=uve_name,
-                                         elements=obj_json,
-                                         deleted=oper=='DELETE')
-        contrail_config_msg = ContrailConfigTrace(data=contrail_config,
-                                                  table=uve_table,
-                                                  sandesh=self._sandesh)
-
-        contrail_config_msg.send(sandesh=self._sandesh)
-        trace_msg([db_trace], 'DBUVERequestTraceBuf', self._sandesh)
-
-    def dbe_trace(oper):
-        def wrapper1(func):
-            def wrapper2(self, obj_type, obj_ids, obj_dict):
-                trace = self._generate_db_request_trace(oper, obj_type,
-                                                        obj_ids, obj_dict)
-                try:
-                    ret = func(self, obj_type, obj_ids, obj_dict)
-                    trace_msg([trace], 'DBRequestTraceBuf',
-                              self._sandesh)
-                    return ret
-                except Exception as e:
-                    trace_msg([trace], 'DBRequestTraceBuf',
-                              self._sandesh, error_msg=str(e))
-                    raise
-
-            return wrapper2
-        return wrapper1
-    # dbe_trace
-
-    # create/update indexes if object is shared
-    def build_shared_index(oper):
-        def wrapper1(func):
-            def wrapper2(self, obj_type, obj_ids, obj_dict):
-
-                obj_uuid = obj_ids['uuid']
-                try:
-                    fq_name = self.uuid_to_fq_name(obj_uuid)
-                except NoIdError as e:
-                    fq_name = obj_dict['fq_name']
-
-                # fetch current share information to identify what might have changed
-                try:
-                    cur_perms2 = self.uuid_to_obj_perms2(obj_uuid)
-                except Exception as e:
-                    cur_perms2 = self.get_default_perms2()
-                    pass
-
-                # don't build sharing indexes if operation (create/update) failed
-                (ok, result) = func(self, obj_type, obj_ids, obj_dict)
-                if not ok:
-                    return (ok, result)
-
-                # many updates don't touch perms2
-                new_perms2 = obj_dict.get('perms2', None)
-                if not new_perms2:
-                    return (ok, result)
-
-                share_perms = new_perms2['share']
-                global_access = new_perms2['global_access']
-
-                # msg = 'RBAC: BSL perms new %s, cur %s' % (new_perms2, cur_perms2)
-                # self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
-
-                # change in global access?
-                if cur_perms2['global_access'] != global_access:
-                    if global_access:
-                        self._cassandra_db.set_shared(obj_type, obj_uuid, rwx = global_access)
-                    else:
-                        self._cassandra_db.del_shared(obj_type, obj_uuid)
-
-                # change in shared list? Construct temporary sets to compare
-                cur_shared_list = set(item['tenant']+':'+str(item['tenant_access']) for item in cur_perms2['share'])
-                new_shared_list = set(item['tenant']+':'+str(item['tenant_access']) for item in new_perms2['share'])
-                if cur_shared_list == new_shared_list:
-                    return (ok, result)
-
-                # delete sharing if no longer in shared list
-                for share_info in cur_shared_list - new_shared_list:
-                    share_info = share_info.split(":")
-                    self._cassandra_db.del_shared(obj_type, obj_uuid,
-                        share_id = share_info[0], share_type = 'tenant')
-
-                # share this object with specified tenants
-                for share_info in new_shared_list - cur_shared_list:
-                    share_info = share_info.split(":")
-                    self._cassandra_db.set_shared(obj_type, obj_uuid,
-                        share_id = share_info[0], share_type = 'tenant', rwx = int(share_info[1]))
-
-                return (ok, result)
-            return wrapper2
-        return wrapper1
-
-    @dbe_trace('create')
-    @build_shared_index('create')
-    def dbe_create(self, obj_type, obj_ids, obj_dict):
-        (ok, result) = self._cassandra_db.object_create(
-            obj_type, obj_ids['uuid'], obj_dict)
-
-        if ok:
-            # publish to ifmap via msgbus
-            self._msgbus.dbe_create_publish(obj_type, obj_ids, obj_dict)
-
-        return (ok, result)
-    # end dbe_create
-
-    # input id is ifmap-id + uuid
-    def dbe_read(self, obj_type, obj_ids, obj_fields=None):
-        try:
-            (ok, cassandra_result) = self._cassandra_db.object_read(
-                obj_type, [obj_ids['uuid']], obj_fields)
-        except NoIdError as e:
-            # if NoIdError is for obj itself (as opposed to say for parent
-            # or ref), let caller decide if this can be handled gracefully
-            # by re-raising
-            if e._unknown_id == obj_ids['uuid']:
-                raise
-
-            return (False, str(e))
-
-        return (ok, cassandra_result[0])
-    # end dbe_read
-
-    def dbe_count_children(self, obj_type, obj_id, child_type):
-        try:
-            (ok, cassandra_result) = self._cassandra_db.object_count_children(
-                obj_type, obj_id, child_type)
-        except NoIdError as e:
-            return (False, str(e))
-
-        return (ok, cassandra_result)
-    # end dbe_count_children
-
-    def dbe_read_multi(self, obj_type, obj_ids_list, obj_fields=None):
-        if not obj_ids_list:
-            return (True, [])
-
-        try:
-            (ok, cassandra_result) = self._cassandra_db.object_read(
-                obj_type, [obj_id['uuid'] for obj_id in obj_ids_list],
-                obj_fields)
-        except NoIdError as e:
-            return (False, str(e))
-
-        return (ok, cassandra_result)
-    # end dbe_read_multi
-
-    def dbe_get_relaxed_refs(self, obj_id):
-        return self._cassandra_db.get_relaxed_refs(obj_id)
-    # end dbe_get_relaxed_refs
-
-    def dbe_is_latest(self, obj_ids, tstamp):
-        try:
-            is_latest = self._cassandra_db.is_latest(obj_ids['uuid'], tstamp)
-            return (True, is_latest)
-        except Exception as e:
-            return (False, str(e))
-    # end dbe_is_latest
-
-    @dbe_trace('update')
-    @build_shared_index('update')
-    def dbe_update(self, obj_type, obj_ids, new_obj_dict):
-        (ok, cassandra_result) = self._cassandra_db.object_update(
-            obj_type, obj_ids['uuid'], new_obj_dict)
-
-        # publish to ifmap via message bus (rabbitmq)
-        self._msgbus.dbe_update_publish(obj_type, obj_ids)
-
-        return (ok, cassandra_result)
-    # end dbe_update
-
-    def dbe_list(self, obj_type, parent_uuids=None, back_ref_uuids=None,
-                 obj_uuids=None, count=False, filters=None,
-                 paginate_start=None, paginate_count=None):
-        (ok, cassandra_result) = self._cassandra_db.object_list(
-                 obj_type, parent_uuids=parent_uuids,
-                 back_ref_uuids=back_ref_uuids, obj_uuids=obj_uuids,
-                 count=count, filters=filters)
-        return (ok, cassandra_result)
-    # end dbe_list
-
-    @dbe_trace('delete')
-    def dbe_delete(self, obj_type, obj_ids, obj_dict):
-        (ok, cassandra_result) = self._cassandra_db.object_delete(
-            obj_type, obj_ids['uuid'])
-
-        # publish to ifmap via message bus (rabbitmq)
-        self._msgbus.dbe_delete_publish(obj_type, obj_ids, obj_dict)
-
-        # finally remove mapping in zk
-        fq_name = get_fq_name_from_ifmap_id(obj_ids['imid'])
-        self.dbe_release(obj_type, fq_name)
-
-        return ok, cassandra_result
-    # end dbe_delete
-
-    def dbe_release(self, obj_type, obj_fq_name):
-        self._zk_db.delete_fq_name_to_uuid_mapping(obj_type, obj_fq_name)
-    # end dbe_release
-
-    def dbe_oper_publish_pending(self):
-        return self._msgbus.dbe_oper_publish_pending()
-    # end dbe_oper_publish_pending
-
-    def useragent_kv_store(self, key, value):
-        self._cassandra_db.useragent_kv_store(key, value)
-    # end useragent_kv_store
-
-    def useragent_kv_retrieve(self, key):
-        return self._cassandra_db.useragent_kv_retrieve(key)
-    # end useragent_kv_retrieve
-
-    def useragent_kv_delete(self, key):
-        return self._cassandra_db.useragent_kv_delete(key)
-    # end useragent_kv_delete
-
-    def subnet_is_addr_allocated(self, subnet, addr):
-        return self._zk_db.subnet_is_addr_allocated(subnet, addr)
-    # end subnet_is_addr_allocated
-
-    def subnet_set_in_use(self, subnet, addr):
-        return self._zk_db.subnet_set_in_use(subnet, addr)
-    # end subnet_set_in_use
-
-    def subnet_reset_in_use(self, subnet, addr):
-        return self._zk_db.subnet_reset_in_use(subnet, addr)
-    #end subnet_reset_in_use
-
-    def subnet_alloc_count(self, subnet):
-        return self._zk_db.subnet_alloc_count(subnet)
-    # end subnet_alloc_count
-
-    def subnet_alloc_req(self, subnet, value=None):
-        return self._zk_db.subnet_alloc_req(subnet, value)
-    # end subnet_alloc_req
-
-    def subnet_reserve_req(self, subnet, addr=None, value=None):
-        return self._zk_db.subnet_reserve_req(subnet, addr, value)
-    # end subnet_reserve_req
-
-    def subnet_free_req(self, subnet, addr):
-        return self._zk_db.subnet_free_req(subnet, addr)
-    # end subnet_free_req
-
-    def subnet_create_allocator(self, subnet, subnet_alloc_list,
-                                addr_from_start, should_persist,
-                                start_subnet, size, alloc_unit):
-        return self._zk_db.create_subnet_allocator(subnet,
-                               subnet_alloc_list, addr_from_start,
-                               should_persist, start_subnet, size, alloc_unit)
-    # end subnet_create_allocator
-
-    def subnet_delete_allocator(self, subnet):
-        return self._zk_db.delete_subnet_allocator(subnet)
-    # end subnet_delete_allocator
-
-    def uuid_vnlist(self):
-        return self._cassandra_db.uuid_vnlist()
-    # end uuid_vnlist
-
-    def uuid_to_ifmap_id(self, res_type, id):
-        fq_name = self.uuid_to_fq_name(id)
-        return get_ifmap_id_from_fq_name(res_type, fq_name)
-    # end uuid_to_ifmap_id
-
-    def fq_name_to_uuid(self, obj_type, fq_name):
-        obj_uuid = self._cassandra_db.fq_name_to_uuid(obj_type, fq_name)
-        return obj_uuid
-    # end fq_name_to_uuid
-
-    def uuid_to_fq_name(self, obj_uuid):
-        return self._cassandra_db.uuid_to_fq_name(obj_uuid)
-    # end uuid_to_fq_name
-
-    def uuid_to_obj_type(self, obj_uuid):
-        return self._cassandra_db.uuid_to_obj_type(obj_uuid)
-    # end uuid_to_obj_type
-
-    def uuid_to_obj_dict(self, obj_uuid):
-        return self._cassandra_db.uuid_to_obj_dict(obj_uuid)
-    # end uuid_to_obj_dict
-
-    def uuid_to_obj_perms(self, obj_uuid):
-        return self._cassandra_db.uuid_to_obj_perms(obj_uuid)
-    # end uuid_to_obj_perms
-
-    def prop_collection_get(self, obj_type, obj_uuid, obj_fields, position):
-        (ok, cassandra_result) = self._cassandra_db.prop_collection_read(
-            obj_type, obj_uuid, obj_fields, position)
-        return ok, cassandra_result
-    # end prop_collection_get
-
-    def prop_collection_update(self, obj_type, obj_uuid, updates):
-        if not updates:
-            return
-
-        self._cassandra_db.prop_collection_update(obj_type, obj_uuid, updates)
-        self._msgbus.dbe_update_publish(obj_type, {'uuid': obj_uuid})
-        return True, ''
-    # end prop_collection_update
-
-    def ref_update(self, obj_type, obj_uuid, ref_obj_type, ref_uuid, ref_data,
-                   operation):
-        self._cassandra_db.ref_update(obj_type, obj_uuid, ref_obj_type,
-                                      ref_uuid, ref_data, operation)
-        self._msgbus.dbe_update_publish(obj_type, {'uuid': obj_uuid})
-    # ref_update
-
-    def ref_relax_for_delete(self, obj_uuid, ref_uuid):
-        self._cassandra_db.ref_relax_for_delete(obj_uuid, ref_uuid)
-    # end ref_relax_for_delete
-
-    def uuid_to_obj_perms2(self, obj_uuid):
-        return self._cassandra_db.uuid_to_obj_perms2(obj_uuid)
-    # end uuid_to_obj_perms2
-
-
-    def get_resource_class(self, type):
-        return self._api_svr_mgr.get_resource_class(type)
-    # end get_resource_class
-
-    def get_default_perms2(self):
-        return self._api_svr_mgr._get_default_perms2()
-
-    # Helper routines for REST
-    def generate_url(self, resource_type, obj_uuid):
-        return self._api_svr_mgr.generate_url(resource_type, obj_uuid)
-    # end generate_url
-
-    def config_object_error(self, id, fq_name_str, obj_type,
-                            operation, err_str):
-        self._api_svr_mgr.config_object_error(
-            id, fq_name_str, obj_type, operation, err_str)
-    # end config_object_error
-
-    def config_log(self, msg, level):
-        self._api_svr_mgr.config_log(msg, level)
-    # end config_log
-
-    def get_server_port(self):
-        return self._api_svr_mgr.get_server_port()
-    # end get_server_port
-
-    # return all objects shared with us (tenant)
-    # useful for collections
-    def get_shared_objects(self, obj_type, obj_uuid):
-        shared = []
-        # specifically shared with us
-        l1 = self._cassandra_db.get_shared(obj_type, share_id = obj_uuid, share_type = 'tenant')
-        if l1:
-            shared.extend(l1)
-
-        # globally shared
-        l2 = self._cassandra_db.get_shared(obj_type)
-        if l2:
-            shared.extend(l2)
-
-        return shared
-    # end get_shared_objects
-
-    def reset(self):
-        if self.get_worker_id() == 0:
-            self._ifmap_db.reset()
-        self._msgbus.reset()
-    # end reset
-
-    def get_worker_id(self):
-        return self._api_svr_mgr.get_worker_id()
-    # end get_worker_id
-
-# end class VncDbClient
