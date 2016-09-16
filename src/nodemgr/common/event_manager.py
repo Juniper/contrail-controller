@@ -395,13 +395,6 @@ class EventManager(object):
                                         data=node_status)
         node_status_uve.send()
 
-    def get_system_mem_cpu_usage(self):
-        system_mem_cpu_usage_data = MemCpuUsageData(os.getpid(), self.last_cpu, self.last_time)
-        system_mem_cpu_usage = system_mem_cpu_usage_data.get_sys_mem_cpu_info()
-        self.last_cpu = system_mem_cpu_usage_data.last_cpu
-        self.last_time = system_mem_cpu_usage_data.last_time
-        return system_mem_cpu_usage
-
     def get_all_processes_mem_cpu_usage(self):
         process_mem_cpu_usage = {}
         for key in self.process_state_db:
@@ -560,16 +553,22 @@ class EventManager(object):
         if self.update_process_core_file_list():
             self.send_process_state_db(['default'])
 
-        # get system mem/cpu usage
-        system_mem_cpu_usage = self.get_system_mem_cpu_usage()
-
-        # get processes mem/cpu usage
         process_mem_cpu_usage = self.get_all_processes_mem_cpu_usage()
+
+        # get system mem/cpu usage
+        system_mem_cpu_usage_data = MemCpuUsageData(os.getpid(), self.last_cpu, self.last_time)
+        system_mem_usage = system_mem_cpu_usage_data.get_sys_mem_info()
+        system_cpu_usage = system_mem_cpu_usage_data.get_sys_cpu_info()
+
+        # update last_cpu/time after all processing is complete
+        self.last_cpu = system_mem_cpu_usage_data.last_cpu
+        self.last_time = system_mem_cpu_usage_data.last_time
 
         # send above encoded buffer
         node_status = NodeStatus(name=socket.gethostname(),
                                  disk_usage_info=disk_usage_info,
-                                 system_mem_cpu_usage=system_mem_cpu_usage,
+                                 system_mem_usage=system_mem_usage,
+                                 system_cpu_usage=system_cpu_usage,
                                  process_mem_cpu_usage=process_mem_cpu_usage)
         # encode other core file
         if self.update_all_core_file():

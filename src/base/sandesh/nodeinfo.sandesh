@@ -37,8 +37,9 @@ struct NodeStatus {
     9: optional string build_info
     // map key is <module_id>:<inst_id>
    10: optional map<string,cpuinfo.ProcessCpuInfo> process_mem_cpu_usage (tags=".__key,.cpu_share")
-   11: optional cpuinfo.SystemMemCpuUsage system_mem_cpu_usage(tags=".cpu_share")
    12: optional cpuinfo.SystemCpuInfo system_cpu_info
+   13: optional cpuinfo.SysMemInfo system_mem_usage(tags="")
+   14: optional cpuinfo.SysCpuInfo system_cpu_usage(tags=".cpu_share")
 }
 
 /**
