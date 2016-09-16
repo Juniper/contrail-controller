@@ -1767,6 +1767,16 @@ class VncApiServer(object):
         # roles in result['token_info']['access']['user']['roles']
         if token_info:
             result = {'token_info' : token_info}
+            # Handle v2 and v3 responses
+            roles_list = []
+            if 'access' in token_info:
+                roles_list = [roles['name'] for roles in \
+                    token_info['access']['user']['roles']]
+            elif 'token' in token_info:
+                roles_list = [roles['name'] for roles in \
+                    token_info['token']['roles']]
+            result['is_cloud_admin_role'] = self.cloud_admin_role in roles_list
+            result['is_global_read_only_role'] = self.global_read_only_role in roles_list
             if 'uuid' in get_request().query:
                 obj_uuid = get_request().query.uuid
                 result['permissions'] = self._permissions.obj_perms(get_request(), obj_uuid)

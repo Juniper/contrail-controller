@@ -1110,6 +1110,15 @@ class FakeAuthProtocol(object):
         rval = json.loads(token_info)
         return rval
 
+    # simulate keystone token
+    def _fake_keystone_token(self, token_info):
+        rval = json.loads(token_info)
+        rval['token'] = {};
+        rval['access'] = {}; rval['access']['user'] = {};
+        rval['access']['user']['roles'] = [{'name': rval['X-Role']}]
+        rval['token']['roles'] = [{'name': rval['X-Role']}]
+        return rval
+
     def _reject_request(self, env, start_response):
         """Redirect client to auth server.
 
@@ -1143,7 +1152,7 @@ class FakeAuthProtocol(object):
             return self._reject_request(env, start_response)
 
         token_info = self._validate_user_token(user_token, env)
-        env['keystone.token_info'] = token_info
+        env['keystone.token_info'] = self._fake_keystone_token(token_info)
         user_headers = self._build_user_headers(token_info)
         self._add_headers(env, user_headers)
         return self.app(env, start_response)
