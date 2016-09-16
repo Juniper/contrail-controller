@@ -1259,14 +1259,13 @@ void FlowEntry::GetLocalFlowSgList(const VmInterface *vm_port,
             CopySgEntries(reverse_vm_port, false, data_.match_p.m_out_sg_acl_l);
     }
 
-    if (!is_flags_set(FlowEntry::TcpAckFlow)) {
-        return;
-    }
-
-    // TCP ACK workaround:
-    // Ideally TCP State machine should be run to age TCP flows
-    // Temporary workaound in place of state machine. For TCP ACK packets allow
-    // the flow if either forward or reverse flow is allowed
+    //Update reverse SG flow entry so that it can be used in below 2 scenario
+    //1> Forwarding flow is deny, but reverse flow says Allow the traffic
+    //   in that scenario we mark the reverse flow for Trap
+    //2> TCP ACK workaround:
+    //   Ideally TCP State machine should be run to age TCP flows
+    //   Temporary workaound in place of state machine. For TCP ACK packets allow
+    //   the flow if either forward or reverse flow is allowed
 
     // Copy the SG rules to be applied for reverse flow
     data_.match_p.reverse_out_sg_rule_present =
@@ -1287,14 +1286,13 @@ void FlowEntry::GetNonLocalFlowSgList(const VmInterface *vm_port) {
                                                   data_.match_p.m_sg_acl_l);
     data_.match_p.out_sg_rule_present = false;
 
-    if (!is_flags_set(FlowEntry::TcpAckFlow)) {
-        return;
-    }
-
-    // TCP ACK workaround:
-    // Ideally TCP State machine should be run to age TCP flows
-    // Temporary workaound in place of state machine. For TCP ACK packets allow
-    // the flow if either forward or reverse flow is allowed
+    //Update reverse SG flow entry so that it can be used in below 2 scenario
+    //1> Forwarding flow is deny, but reverse flow says Allow the traffic
+    //   in that scenario we mark the reverse flow for Trap
+    //2> TCP ACK workaround:
+    //   Ideally TCP State machine should be run to age TCP flows
+    //   Temporary workaound in place of state machine. For TCP ACK packets allow
+    //   the flow if either forward or reverse flow is allowed
 
     // Copy the SG rules to be applied for reverse flow
     data_.match_p.reverse_out_sg_rule_present =
@@ -1638,10 +1636,19 @@ bool FlowEntry::DoPolicy() {
                          !data_.match_p.out_sg_rule_present, &out_sg_acl_info);
         }
 
+        bool check_rev_sg = false;
+        if (ShouldDrop(data_.match_p.sg_action) ||
+            ShouldDrop(data_.match_p.out_sg_action)) {
+            //If forward direction SG action is DENY
+            //verify if packet is allowed in reverse side,
+            //if yes we set a flag to TRAP the reverse flow
+            check_rev_sg = true;
+        }
+
         // For TCP-ACK packet, we allow packet if either forward or reverse
         // flow says allow. So, continue matching reverse flow even if forward
         // flow says drop
-        if (is_flags_set(FlowEntry::TcpAckFlow) && rflow) {
+        if ((check_rev_sg || is_flags_set(FlowEntry::TcpAckFlow)) && rflow) {
             rflow->SetPacketHeader(&hdr);
             data_.match_p.reverse_sg_action =
                 MatchAcl(hdr, data_.match_p.m_reverse_sg_acl_l, true,
@@ -1999,10 +2006,6 @@ bool FlowEntry::ActionRecompute() {
         }
     }
 
-    if (action & (1 << TrafficAction::TRAP)) {
-        action = (1 << TrafficAction::TRAP);
-    }
-
     if (action != data_.match_p.action_info.action) {
         data_.match_p.action_info.action = action;
         ret = true;
@@ -2067,9 +2070,13 @@ void FlowEntry::UpdateReflexiveAction() {
     // TRAP. If packet hits reverse flow, we will re-establish
     // the flows
     if (ShouldDrop(data_.match_p.sg_action_summary)) {
-        data_.match_p.sg_action &= ~(TrafficAction::DROP_FLAGS);
-        data_.match_p.sg_action |= (1 << TrafficAction::TRAP);
-     }
+        if (fwd_flow &&
+            ShouldDrop(fwd_flow->data().match_p.reverse_sg_action) == false &&
+            ShouldDrop(fwd_flow->data().match_p.reverse_out_sg_action) == false) {
+            data_.match_p.sg_action &= ~(TrafficAction::DROP_FLAGS);
+            set_flags(FlowEntry::Trap);
+        }
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////////

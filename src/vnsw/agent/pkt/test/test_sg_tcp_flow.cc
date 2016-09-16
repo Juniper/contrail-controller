@@ -35,6 +35,14 @@ struct PortInfo tcp_ack_ports_1[] = {
     {"vnet3", 3, "3.3.3.1", "00:00:01:01:01:03", 3, 3},
 };
 
+IpamInfo ipam_info[] = {
+    {"1.1.1.0", 24, "1.1.1.11"},
+};
+
+IpamInfo ipam_info1[] = {
+    {"3.3.3.0", 24, "3.3.3.11"},
+};
+
 const VmInterface *GetVmPort(int id) {
     return static_cast<const VmInterface *>(vnet[id]);
 }
@@ -188,6 +196,10 @@ static bool VmPortSetup(struct PortInfo *input, int count, int aclid) {
 }
 
 bool Init() {
+    boost::system::error_code ec;
+    bgp_peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+            "xmpp channel");
+
     if (VmPortSetup(tcp_ack_ports, 2, 0) == false)
         return false;
     if (VmPortSetup(tcp_ack_ports_1, 1, 0) == false)
@@ -217,13 +229,13 @@ bool ValidateAction(uint32_t vrfid, const char *sip, const char *dip, int proto,
         ret = false;
     }
 
-    if (fe->match_p().sg_action_summary & (1 << TrafficAction::TRAP) ||
-            rfe->match_p().sg_action_summary & (1 << TrafficAction::TRAP)) {
+    if (fe->is_flags_set(FlowEntry::Trap) ||
+            rfe->is_flags_set(FlowEntry::Trap)) {
         return ret;
     }
 
-    if (!(fe->match_p().sg_action_summary & (1 << TrafficAction::TRAP)) && 
-        !(rfe->match_p().sg_action_summary & (1 << TrafficAction::TRAP))) {
+    if (!fe->is_flags_set(FlowEntry::Trap) &&
+        !rfe->is_flags_set(FlowEntry::Trap)) {
         EXPECT_EQ(fe->match_p().sg_action_summary, rfe->match_p().sg_action_summary);
         if (fe->match_p().sg_action_summary != rfe->match_p().sg_action_summary) {
             ret = false;
@@ -246,6 +258,8 @@ public:
         agent_ = Agent::GetInstance();
         flow_proto_ = agent_->pkt()->get_flow_proto();
 
+        AddIPAM("default-project:vn1", ipam_info, 1);
+        AddIPAM("default-project:vn3", ipam_info1, 1);
         client->WaitForIdle();
         EXPECT_EQ(0U, flow_proto_->FlowCount());
 
@@ -296,14 +310,14 @@ public:
 
         //Add a remote route pointing to SG id 2
         boost::system::error_code ec;
-        Inet4TunnelRouteAdd(NULL, "default-project:vn1:vn1",
+        Inet4TunnelRouteAdd(bgp_peer_, "default-project:vn1:vn1",
              Ip4Address::from_string("1.1.1.0", ec), 24,
              Ip4Address::from_string("10.10.10.10", ec), TunnelType::AllType(),
              17, "default-project:vn1", sg_id_list, PathPreference());
         client->WaitForIdle();
 
         //Add a remote route for floating-ip VN pointing to SG id 2
-        Inet4TunnelRouteAdd(NULL, "default-project:vn3:vn3",
+        Inet4TunnelRouteAdd(bgp_peer_, "default-project:vn3:vn3",
              Ip4Address::from_string("3.3.3.2", ec), 24,
              Ip4Address::from_string("10.10.10.10", ec), TunnelType::AllType(),
              18, "default-project:vn3", sg_id_list, PathPreference());
@@ -317,14 +331,19 @@ public:
         client->WaitForIdle();
         WAIT_FOR(1000, 100, (flow_proto_->FlowCount() == 0));
 
+        DelIPAM("default-project:vn1");
+        DelIPAM("default-project:vn3");
+
         boost::system::error_code ec;
         InetUnicastAgentRouteTable::DeleteReq
-            (NULL, "default-project:vn1:vn1", Ip4Address::from_string("1.1.1.0", ec),
+            (bgp_peer_, "default-project:vn1:vn1",
+             Ip4Address::from_string("1.1.1.0", ec),
              24, NULL);
         client->WaitForIdle();
 
         InetUnicastAgentRouteTable::DeleteReq
-            (NULL, "default-project:vn3:vn3", Ip4Address::from_string("3.3.3.2", ec),
+            (bgp_peer_, "default-project:vn3:vn3",
+             Ip4Address::from_string("3.3.3.2", ec),
              24, NULL);
 
         client->WaitForIdle();
