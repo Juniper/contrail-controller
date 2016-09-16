@@ -29,25 +29,6 @@ class AddressMismatchCompute(AlarmBase):
 
         if 'VrouterAgent' not in uve_data:
             return None
-        try:
-            vrouter_agent_self_ip_list = \
-                uve_data['VrouterAgent']['self_ip_list']
-        except KeyError:
-            vrouter_agent_self_ip_list = None
-
-        if not isinstance(vrouter_agent_self_ip_list, list) or \
-            vrouter_ip_address not in vrouter_agent_self_ip_list:
-            and_list = [AlarmConditionMatch(
-                condition=AlarmCondition(operation='not in',
-                    operand1='ContrailConfig.elements.'
-                        'virtual_router_ip_address',
-                    operand2=AlarmOperand2(
-                        uve_attribute='VrouterAgent.self_ip_list'),
-                    variables = []),
-                match=[AlarmMatch(json_operand1_value=json.dumps(
-                    vrouter_ip_address), json_operand2_value=json.dumps(
-                    vrouter_agent_self_ip_list), json_variables={})])]
-            or_list.append(AlarmAndList(and_list))
 
         try:
             vrouter_agent_control_ip = uve_data['VrouterAgent']['control_ip']
