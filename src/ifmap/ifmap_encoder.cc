@@ -106,8 +106,21 @@ bool IFMapMessage::IsEmpty() {
     return ((node_count_ == 0) ? true : false);
 }
 
+//
+// Reset the IFMapMessage to initial state so that it can be used to build
+// the next config message.
+//
+// Using remove_child to remove the only child of the document is a better
+// way to clear the document than using reset. The pugixml library allocates
+// memory for a document in increments of 32KB pages and then manages smaller
+// allocations (nodes or attributes) using these pages. Calling reset method
+// on a document frees all the pages. In contrast, removing the only child
+// node of the document returns the smaller allocations to the free pool of
+// memory for the document, but doesn't free the pages themselves. This lets
+// the library reuse the same memory when building the tree for each message.
+//
 void IFMapMessage::Reset() {
-    doc_.reset();
+    doc_.remove_child("iq");
     node_count_ = 0;
     op_type_ = NONE;
     Open();
