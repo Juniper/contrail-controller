@@ -61,7 +61,7 @@ import context
 from context import get_request, get_context, set_context, use_context
 from context import ApiContext
 import vnc_cfg_types
-from vnc_cfg_ifmap import VncDbClient
+from vnc_cfg_db import VncDbClient
 
 import cfgm_common
 from cfgm_common import ignore_exceptions, imid
@@ -104,6 +104,8 @@ from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, \
 from sandesh.discovery_client_stats import ttypes as sandesh
 from sandesh.traces.ttypes import RestApiTrace
 from vnc_bottle import get_bottle_server
+from cfgm_common.vnc_greenlets import VncGreenlet
+from vnc_cfg_ifmap import VncIfmapServer
 
 _ACTION_RESOURCES = [
     {'uri': '/prop-collection-get', 'link_name': 'prop-collection-get',
@@ -193,7 +195,7 @@ class VncApiServer(object):
     ]
     def __new__(cls, *args, **kwargs):
         obj = super(VncApiServer, cls).__new__(cls, *args, **kwargs)
-        obj.api_bottle = bottle.Bottle() 
+        obj.api_bottle = bottle.Bottle()
         obj.route('/', 'GET', obj.homepage_http_get)
         obj.api_bottle.error_handler = {
                 400: error_400,
@@ -931,7 +933,7 @@ class VncApiServer(object):
             callable = getattr(r_class, 'http_delete_fail', None)
             if callable:
                 cleanup_on_failure.append((callable, [id, read_result, db_conn]))
-            
+
             get_context().set_state('DBE_DELETE')
             (ok, del_result) = db_conn.dbe_delete(
                 obj_type, obj_ids, read_result)
@@ -3488,6 +3490,9 @@ def main(args_str=None, server=None):
 def server_main(args_str=None):
     import cgitb
     cgitb.enable(format='text')
+
+    # Start Contrail custom IF-MAP v2 server
+    VncGreenlet("Contrail IF-MAP server", VncIfmapServer.start_server())
 
     main(args_str, VncApiServer(args_str))
 #server_main
