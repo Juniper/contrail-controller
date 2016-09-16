@@ -87,6 +87,11 @@ void Icmpv6Proto::VnNotify(DBEntryBase *entry) {
             (vrf->GetInet6UnicastRouteTable())->AddHostRoute(vrf->GetName(),
                                                              addr, 128,
                                                              vn->GetName());
+        addr = Ip6Address::from_string(IPV6_ALL_NODES_ADDRESS, ec);
+        static_cast<InetUnicastAgentRouteTable *>
+            (vrf->GetInet6UnicastRouteTable())->AddHostRoute(vrf->GetName(),
+                                                             addr, 128,
+                                                             vn->GetName());
         /* We need route for PKT0_LINKLOCAL_ADDRESS so that vrouter can respond
          * to NDP requests for PKT0_LINKLOCAL_ADDRESS. Even though the nexthop
          * for this route is pkt0, vrouter never sends pkts pointing to this
@@ -115,6 +120,9 @@ void Icmpv6Proto::VrfNotify(DBTablePartBase *part, DBEntryBase *entry) {
             Ip6Address addr =
                 Ip6Address::from_string(IPV6_ALL_ROUTERS_ADDRESS, ec);
             // enqueue delete request on fabric VRF
+            agent_->fabric_inet4_unicast_table()->DeleteReq(
+                    agent_->local_peer(), vrf->GetName(), addr, 128, NULL);
+            addr = Ip6Address::from_string(IPV6_ALL_NODES_ADDRESS, ec);
             agent_->fabric_inet4_unicast_table()->DeleteReq(
                     agent_->local_peer(), vrf->GetName(), addr, 128, NULL);
             addr = Ip6Address::from_string(PKT0_LINKLOCAL_ADDRESS, ec);
@@ -386,10 +394,18 @@ void Icmpv6Proto::IncrementStatsNeighborSolicit(VmInterface *vmi) {
     }
 }
 
-void Icmpv6Proto::IncrementStatsNeighborAdvert(VmInterface *vmi) {
-    stats_.icmpv6_neighbor_advert_++;
+void Icmpv6Proto::IncrementStatsNeighborAdvertSolicited(VmInterface *vmi) {
+    stats_.icmpv6_neighbor_advert_solicited_++;
     Icmpv6Stats *stats = VmiToIcmpv6Stats(vmi);
     if (stats) {
-        stats->icmpv6_neighbor_advert_++;
+        stats->icmpv6_neighbor_advert_solicited_++;
+    }
+}
+
+void Icmpv6Proto::IncrementStatsNeighborAdvertUnSolicited(VmInterface *vmi) {
+    stats_.icmpv6_neighbor_advert_unsolicited_++;
+    Icmpv6Stats *stats = VmiToIcmpv6Stats(vmi);
+    if (stats) {
+        stats->icmpv6_neighbor_advert_unsolicited_++;
     }
 }
