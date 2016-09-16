@@ -378,6 +378,27 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ipv4_obj2 = self._vnc_lib.instance_ip_read(id=ipv4_id2)
         ipv4_addr2 = ipv4_obj2.get_instance_ip_address()
 
+        #delete subnet from ipam from where ip addresses already allocated
+        # we should get an exception as instance-ip is in use from the subnet
+        ipam.set_ipam_subnets(IpamSubnets([ipam2_sn_v4]))
+        with ExpectedException(cfgm_common.exceptions.RefsExistError) as e:
+            self._vnc_lib.network_ipam_update(ipam)
+
+        #delete all subnets from ipam, ipam update should fail as instance-ip
+        # is from one of the subnet
+        ipam.set_ipam_subnets(IpamSubnets([]))
+        with ExpectedException(cfgm_common.exceptions.RefsExistError) as e:
+            self._vnc_lib.network_ipam_update(ipam)
+
+        #Delete ipam_subnet which is not used for any ip-allocation so far
+        #ipam_update should go through 
+        ipam.set_ipam_subnets(IpamSubnets([ipam1_sn_v4]))
+        self._vnc_lib.network_ipam_update(ipam)
+
+        #Restore original ipam_subnet lists and update ipam
+        ipam.set_ipam_subnets(IpamSubnets([ipam1_sn_v4, ipam2_sn_v4]))
+        self._vnc_lib.network_ipam_update(ipam)
+
         logger.debug('Allocating an IPV4 address for Third VM')
         ipv4_id3 = self._vnc_lib.instance_ip_create(ipv4_obj3)
         ipv4_obj3 = self._vnc_lib.instance_ip_read(id=ipv4_id3)
@@ -491,6 +512,26 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         logger.debug('  got v4 IP Address for first instance %s', ipv4_addr2)
         if ipv4_addr2 != '11.1.1.4':
             logger.debug('Allocation failed, expected v4 IP Address 11.1.1.4')
+
+        #Remove ipam_subnets from ipam, update should fail with 
+        #RefExistError
+        ipam.set_ipam_subnets(IpamSubnets([]))
+        with ExpectedException(cfgm_common.exceptions.RefsExistError) as e:
+            self._vnc_lib.network_ipam_update(ipam)
+
+        #Change ipam by removing one and adding another, update should fail
+        # with RefExistError
+        ipam.set_ipam_subnets(IpamSubnets([ipam2_sn_v4]))
+        with ExpectedException(cfgm_common.exceptions.RefsExistError) as e:
+            self._vnc_lib.network_ipam_update(ipam)
+
+        #Change ipam by adding another subnet, update should pass
+        ipam.set_ipam_subnets(IpamSubnets([ipam1_sn_v4, ipam2_sn_v4]))
+        self._vnc_lib.network_ipam_update(ipam)
+
+        #Restore ipam_subnets to original set
+        ipam.set_ipam_subnets(IpamSubnets([ipam1_sn_v4]))
+        self._vnc_lib.network_ipam_update(ipam)
 
         #next instance_ip allocation should fail due to ip address exhaustion
         logger.debug('Allocating an IPV4 address for Third VM')
