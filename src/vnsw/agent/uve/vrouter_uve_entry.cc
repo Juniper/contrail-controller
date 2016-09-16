@@ -25,7 +25,7 @@ using namespace std;
 
 VrouterUveEntry::VrouterUveEntry(Agent *agent)
     : VrouterUveEntryBase(agent), bandwidth_count_(0), port_bitmap_(),
-      flow_info_() {
+      flow_info_(), vrf_walk_id_(DBTableWalker::kInvalidWalkerId) {
     start_time_ = UTCTimestampUsec();
 }
 
@@ -62,13 +62,6 @@ bool VrouterUveEntry::SendVrouterMsg() {
         agent_->stats()->out_bytes() || first) {
         stats.set_out_bytes(agent_->stats()->out_bytes());
         prev_stats_.set_out_bytes(agent_->stats()->out_bytes());
-    }
-
-    vector<AgentXmppStats> xmpp_list;
-    BuildXmppStatsList(xmpp_list);
-    if (prev_stats_.get_xmpp_stats_list() != xmpp_list) {
-        stats.set_xmpp_stats_list(xmpp_list);
-        prev_stats_.set_xmpp_stats_list(xmpp_list);
     }
 
     if (prev_stats_.get_exception_packets() !=
@@ -215,16 +208,15 @@ bool VrouterUveEntry::SendVrouterMsg() {
         stats.set_flow_rate(flow_rate);
     }
 
-    DerivedStatsMap ifmap_stats;
-    FetchIFMapStats(ifmap_stats);
-    stats.set_raw_ifmap_stats(ifmap_stats);
-
     map<string, VrouterFlowRate> rate;
     if (BuildPhysicalInterfaceFlowRate(&rate)) {
         stats.set_phy_flow_rate(rate);
     }
     DispatchVrouterStatsMsg(stats);
     first = false;
+
+    //Send VrouterControlStats UVE
+    SendVrouterControlStats();
     return true;
 }
 
@@ -476,21 +468,22 @@ void VrouterUveEntry::FetchDropStats(DerivedStatsMap &ds) const {
     ds.insert(DerivedStatsPair("vlan_fwd_enq", req.get_vds_vlan_fwd_enq()));
 }
 
-void VrouterUveEntry::FetchIFMapStats(DerivedStatsMap &ds) const {
+void VrouterUveEntry::FetchIFMapStats(DerivedStatsMap *ds) const {
     IFMapAgentParser *parser = agent_->cfg()->cfg_parser();
     if (parser) {
-        ds.insert(DerivedStatsPair("node_update_parse_errors",
-                                   parser->node_update_parse_errors()));
-        ds.insert(DerivedStatsPair("link_update_parse_errors",
-                                   parser->link_update_parse_errors()));
-        ds.insert(DerivedStatsPair("node_delete_parse_errors",
-                                   parser->node_delete_parse_errors()));
-        ds.insert(DerivedStatsPair("link_delete_parse_errors",
-                                   parser->link_delete_parse_errors()));
+        ds->insert(DerivedStatsPair("node_update_parse_errors",
+                                    parser->node_update_parse_errors()));
+        ds->insert(DerivedStatsPair("link_update_parse_errors",
+                                    parser->link_update_parse_errors()));
+        ds->insert(DerivedStatsPair("node_delete_parse_errors",
+                                    parser->node_delete_parse_errors()));
+        ds->insert(DerivedStatsPair("link_delete_parse_errors",
+                                    parser->link_delete_parse_errors()));
     }
 }
 
-void VrouterUveEntry::BuildXmppStatsList(vector<AgentXmppStats> &list) const {
+void VrouterUveEntry::BuildXmppStatsList
+    (std::map<std::string, AgentXmppStats> *xstats) const {
     for (int count = 0; count < MAX_XMPP_SERVERS; count++) {
         AgentXmppStats peer;
         if (!agent_->controller_ifmap_xmpp_server(count).empty()) {
@@ -502,11 +495,12 @@ void VrouterUveEntry::BuildXmppStatsList(vector<AgentXmppStats> &list) const {
             if (xc == NULL) {
                 continue;
             }
-            peer.set_ip(agent_->controller_ifmap_xmpp_server(count));
             peer.set_reconnects(agent_->stats()->xmpp_reconnects(count));
             peer.set_in_msgs(agent_->stats()->xmpp_in_msgs(count));
             peer.set_out_msgs(agent_->stats()->xmpp_out_msgs(count));
-            list.push_back(peer);
+            xstats->insert(std::make_pair(
+                               agent_->controller_ifmap_xmpp_server(count),
+                               peer));
         }
     }
 }
@@ -543,4 +537,66 @@ bool VrouterUveEntry::SetVrouterPortBitmap(VrouterStatsAgent &vr_stats) {
 void VrouterUveEntry::UpdateBitmap(uint8_t proto, uint16_t sport,
                                    uint16_t dport) {
     port_bitmap_.AddPort(proto, sport, dport);
+}
+
+void VrouterUveEntry::VrfWalkDone(DBTableBase *base, RouteTableSizeMapPtr list){
+    vrf_walk_id_ = DBTableWalker::kInvalidWalkerId;
+    BuildAndSendVrouterControlStats(list);
+}
+
+bool VrouterUveEntry::AppendVrf(DBTablePartBase *part, DBEntryBase *entry,
+                                RouteTableSizeMapPtr list) {
+    VrfEntry *vrf = static_cast<VrfEntry *>(entry);
+
+    if (!vrf->IsDeleted()) {
+        RouteTableSize value;
+        value.set_inet4_unicast(vrf->GetInet4UnicastRouteTable()->Size());
+        value.set_inet4_multicast(vrf->GetInet4MulticastRouteTable()->Size());
+        value.set_evpn(vrf->GetEvpnRouteTable()->Size());
+        value.set_bridge(vrf->GetBridgeRouteTable()->Size());
+        value.set_inet6_unicast(vrf->GetInet6UnicastRouteTable()->Size());
+        list.get()->insert(RouteTableSizePair(vrf->GetName(), value));
+    }
+    return true;
+}
+
+bool VrouterUveEntry::StartVrfWalk() {
+    if (vrf_walk_id_ != DBTableWalker::kInvalidWalkerId) {
+        return false;
+    }
+
+    RouteTableSizeMapPtr list(new RouteTableSizeMap());
+    DBTableWalker *walker = agent_->db()->GetWalker();
+    vrf_walk_id_ = walker->WalkTable(agent_->vrf_table(), NULL,
+             boost::bind(&VrouterUveEntry::AppendVrf, this, _1, _2, list),
+             boost::bind(&VrouterUveEntry::VrfWalkDone, this, _1, list));
+    return true;
+}
+
+void VrouterUveEntry::DispatchVrouterControlStats
+    (const VrouterControlStats &uve) const {
+    VrouterControlStatsTrace::Send(uve);
+}
+
+void VrouterUveEntry::SendVrouterControlStats() {
+    /* We do VRF walk to collect route table sizes. In Walk Done API we trigger
+     * building of all attributes of VrouterControlStats UVE and send it*/
+    StartVrfWalk();
+}
+
+void VrouterUveEntry::BuildAndSendVrouterControlStats(RouteTableSizeMapPtr
+                                                      list) {
+    VrouterControlStats stats;
+    stats.set_name(agent_->agent_name());
+
+    std::map<std::string, AgentXmppStats> xstats;
+    BuildXmppStatsList(&xstats);
+    stats.set_raw_xmpp_stats(xstats);
+
+    DerivedStatsMap ifmap_stats;
+    FetchIFMapStats(&ifmap_stats);
+    stats.set_raw_ifmap_stats(ifmap_stats);
+
+    stats.set_raw_rt_table_size(*(list.get()));
+    DispatchVrouterControlStats(stats);
 }
