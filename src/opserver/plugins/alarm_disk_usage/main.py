@@ -7,7 +7,7 @@ class DiskUsage(AlarmBase):
        NodeMgr reports disk usage in DatabaseUsageInfo.database_usage"""
 
     def __init__(self):
-        AlarmBase.__init__(self, AlarmBase.SYS_ERR)
+        AlarmBase.__init__(self, AlarmBase.ALARM_CRITICAL)
         self._threshold = 0.90
 
     def __call__(self, uve_key, uve_data):

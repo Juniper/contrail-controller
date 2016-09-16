@@ -6,11 +6,10 @@ class AlarmBase(object):
     """
     __metaclass__ = abc.ABCMeta
 
-    SYS_EMERG, SYS_ALERT, SYS_CRIT, SYS_ERR,\
-        SYS_WARN, SYS_NOTICE, SYS_INFO, SYS_DEBUG = range(8)
+    ALARM_CRITICAL, ALARM_MAJOR, ALARM_MINOR = range(3)
 
     def __init__(self, sev, at=0, it=0, fec=False, fcs=0, fct=0):
-        self._sev = sev
+        self._sev = sev or self.ALARM_MAJOR
 	self._ActiveTimer = at
 	self._IdleTimer = it
 	self._FreqExceededCheck = fec

@@ -11,7 +11,7 @@ class ProuterConnectivity(AlarmBase):
        we look for non-empty value for connected_agent_list"""
 
     def __init__(self):
-	AlarmBase.__init__(self, AlarmBase.SYS_ERR)
+	AlarmBase.__init__(self, AlarmBase.ALARM_MAJOR)
 
     def __call__(self, uve_key, uve_data):
         #check to see if prouter is configured to be managed by vrouter-agent

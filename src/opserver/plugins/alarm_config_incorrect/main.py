@@ -3,7 +3,7 @@ from opserver.sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import *
 import json
 
 class ConfIncorrect(AlarmBase):
-    def __init__(self, sev = AlarmBase.SYS_ERR):
+    def __init__(self, sev = AlarmBase.ALARM_MAJOR):
 	AlarmBase.__init__(self, sev)
 
     def __call__(self, uve_key, uve_data):
@@ -25,9 +25,6 @@ class ConfIncorrect(AlarmBase):
 class ConfIncorrectCompute(ConfIncorrect):
     """Compute Node config missing or incorrect.
        Compute Node configuration pushed to Ifmap as ContrailConfig is unavailable/incorrect"""
-    def __init__(self):
-        ConfIncorrect.__init__(self, AlarmBase.SYS_WARN)
-
     def __call__(self, uve_key, uve_data):
        return super(ConfIncorrectCompute,self).__call__(uve_key, uve_data)
 

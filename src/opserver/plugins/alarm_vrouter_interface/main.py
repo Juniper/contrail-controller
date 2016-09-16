@@ -7,7 +7,7 @@ class VrouterInterface(AlarmBase):
        VrouterAgent has interfaces in error state in VrouterAgent.error_intf_list"""
 
     def __init__(self):
-	AlarmBase.__init__(self, AlarmBase.SYS_WARN)
+	AlarmBase.__init__(self, AlarmBase.ALARM_MAJOR)
 
     def __call__(self, uve_key, uve_data):
         or_list = []

@@ -6,7 +6,7 @@ class ProcessConnectivity(AlarmBase):
     """Process(es) reporting as non-functional.
        Process(es) are reporting non-functional components in NodeStatus.process_status"""
     def __init__(self):
-	AlarmBase.__init__(self, AlarmBase.SYS_ERR)
+	AlarmBase.__init__(self, AlarmBase.ALARM_CRITICAL)
 
     def __call__(self, uve_key, uve_data):
         or_list = [] 

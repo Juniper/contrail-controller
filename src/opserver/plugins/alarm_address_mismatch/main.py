@@ -7,7 +7,7 @@ class AddressMismatchCompute(AlarmBase):
        Compute Node has IP Address mismatch between ContrailConfig.virtual_router_ip_address
        and Operational State in VrouterAgent"""
     def __init__(self):
-        AlarmBase.__init__(self, AlarmBase.SYS_ERR)
+        AlarmBase.__init__(self, AlarmBase.ALARM_MAJOR)
 
     def __call__(self, uve_key, uve_data):
         or_list = []
@@ -72,7 +72,7 @@ class AddressMismatchControl(AlarmBase):
        Control Node has IP Address mismatch between ContrailConfig.bgp_router_parameters.address
        and Operational State in BgpRouterState"""
     def __init__(self):
-        AlarmBase.__init__(self, AlarmBase.SYS_ERR)
+        AlarmBase.__init__(self, AlarmBase.ALARM_MAJOR)
 
     def __call__(self, uve_key, uve_data):
 

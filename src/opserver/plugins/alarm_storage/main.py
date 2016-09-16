@@ -7,7 +7,7 @@ class StorageClusterState(AlarmBase):
     """Storage Cluster warning/errors.
        Storage Cluster is not in the normal operating state"""
     def __init__(self):
-        AlarmBase.__init__(self, AlarmBase.SYS_ERR)
+        AlarmBase.__init__(self, AlarmBase.ALARM_MAJOR)
 
     def __call__(self, uve_key, uve_data):
         or_list = []
@@ -26,10 +26,8 @@ class StorageClusterState(AlarmBase):
         if status != 0:
             if status == 1:
                 status_string = 'HEALTH_WARN'
-                self._sev = AlarmBase.SYS_WARN
             else:
                 status_string = 'HEALTH_ERR'
-                self._sev = AlarmBase.SYS_ERR
             health_summary = cluster_stat['health_summary']
             or_list.append(AllOf(all_of=[AlarmElement(\
                 rule=AlarmTemplate(oper="!=",
