@@ -30,6 +30,10 @@ struct PortInfo input2[] = {
     {"vnet4", 4, "1.1.1.4", "00:00:01:01:01:04", 1, 4},
 };
 
+IpamInfo ipam_info[] = {
+    {"1.1.1.0", 24, "1.1.1.10"},
+};
+
 typedef enum {
     INGRESS = 0,
     EGRESS = 1,
@@ -331,6 +335,7 @@ const VmInterface *GetVmPort(int id) {
 static bool VmPortSetup(struct PortInfo *input, int count, int aclid) {
     bool ret = true;
 
+    AddIPAM("vn1", ipam_info, 1);
     CreateVmportEnv(input, count,  aclid);
     client->WaitForIdle();
 
@@ -449,15 +454,17 @@ bool ValidateAction(uint32_t vrfid, char *sip, char *dip, int proto, int sport,
         ret = false;
     }
 
-    if (fe->match_p().sg_action & (1 << TrafficAction::TRAP) ||
-            rfe->match_p().sg_action & (1 << TrafficAction::TRAP)) {
+    if (fe->is_flags_set(FlowEntry::Trap) ||
+            rfe->is_flags_set(FlowEntry::Trap)) {
         return ret;
     }
 
-    if (!(fe->match_p().sg_action & (1 << TrafficAction::TRAP)) && 
-        !(rfe->match_p().sg_action & (1 << TrafficAction::TRAP))) {
-        EXPECT_EQ(fe->match_p().sg_action, rfe->match_p().sg_action);
-        if (fe->match_p().sg_action != rfe->match_p().sg_action) {
+    if (!fe->is_flags_set(FlowEntry::Trap) &&
+        !rfe->is_flags_set(FlowEntry::Trap)) {
+        EXPECT_EQ(fe->match_p().sg_action_summary,
+                  rfe->match_p().sg_action_summary);
+        if (fe->match_p().sg_action_summary !=
+                rfe->match_p().sg_action_summary) {
             ret = false;
         }
     }
@@ -698,13 +705,13 @@ TEST_F(SgTest, Sg_Delete_1) {
 
 // Packet trap for reverse flow
 TEST_F(SgTest, Rev_Trap_1) {
-    AddAclEntry("sg_acl1", 10, 1, "pass", EGRESS);
+    AddAclEntry("sg_acl1", 10, 1, "pass", INGRESS);
     client->WaitForIdle();
 
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
-                               vnet_addr[2], 1, 0, 0, TrafficAction::PASS,
+                               vnet_addr[2], 1, 0, 0, TrafficAction::DENY,
                                vnet[1]->flow_key_nh()->id()));
 
     FlowEntry *flow = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
@@ -714,6 +721,7 @@ TEST_F(SgTest, Rev_Trap_1) {
     EXPECT_FALSE(flow->is_flags_set(FlowEntry::ReverseFlow));
     FlowEntry *rflow = flow->reverse_flow_entry();
     EXPECT_TRUE(rflow->is_flags_set(FlowEntry::ReverseFlow));
+    EXPECT_TRUE(rflow->is_flags_set(FlowEntry::Trap));
 
     TxIpPacket(vnet[2]->id(), vnet_addr[2], vnet_addr[1], 1,
                rflow->flow_handle());
@@ -722,26 +730,23 @@ TEST_F(SgTest, Rev_Trap_1) {
                                vnet_addr[2], 1, 0, 0, TrafficAction::PASS,
                                vnet[1]->flow_key_nh()->id()));
 
-    EXPECT_FALSE(flow->is_flags_set(FlowEntry::ReverseFlow));
-    EXPECT_TRUE(rflow->is_flags_set(FlowEntry::ReverseFlow));
+    EXPECT_FALSE(rflow->is_flags_set(FlowEntry::Trap));
+    EXPECT_FALSE(flow->is_flags_set(FlowEntry::Trap));
 
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
                            vnet_addr[2], 1, 0, 0,
                            vnet[1]->flow_key_nh()->id()));
-    EXPECT_TRUE(FlowDelete(vnet[2]->vrf()->GetName(), vnet_addr[2],
-                           vnet_addr[1], 1, 0, 0,
-                           vnet[2]->flow_key_nh()->id()));
 }
 
 // Packet trap for forward flow
 TEST_F(SgTest, Rev_Trap_2) {
-    AddAclEntry("sg_acl1", 10, 1, "pass", EGRESS);
+    AddAclEntry("sg_acl1", 10, 1, "pass", INGRESS);
     client->WaitForIdle();
 
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
-                               vnet_addr[2], 1, 0, 0, TrafficAction::PASS,
+                               vnet_addr[2], 1, 0, 0, TrafficAction::DENY,
                                vnet[1]->flow_key_nh()->id()));
 
     FlowEntry *flow = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
@@ -751,22 +756,47 @@ TEST_F(SgTest, Rev_Trap_2) {
     EXPECT_FALSE(flow->is_flags_set(FlowEntry::ReverseFlow));
     FlowEntry *rflow = flow->reverse_flow_entry();
     EXPECT_TRUE(rflow->is_flags_set(FlowEntry::ReverseFlow));
+    EXPECT_TRUE(rflow->is_flags_set(FlowEntry::Trap));
 
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1, flow->flow_handle());
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
-                               vnet_addr[2], 1, 0, 0, TrafficAction::PASS,
+                               vnet_addr[2], 1, 0, 0, TrafficAction::DENY,
                                vnet[1]->flow_key_nh()->id()));
 
     EXPECT_FALSE(flow->is_flags_set(FlowEntry::ReverseFlow));
     EXPECT_TRUE(rflow->is_flags_set(FlowEntry::ReverseFlow));
+    EXPECT_TRUE(rflow->is_flags_set(FlowEntry::Trap));
 
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
                            vnet_addr[2], 1, 0, 0,
                            vnet[1]->flow_key_nh()->id()));
-    EXPECT_TRUE(FlowDelete(vnet[2]->vrf()->GetName(), vnet_addr[2],
-                           vnet_addr[1], 1, 0, 0,
-                           vnet[2]->flow_key_nh()->id()));
+}
+
+// Packet trap for forward flow
+TEST_F(SgTest, Rev_Trap_3) {
+    AddAclEntry("sg_acl1", 10, 1, "deny", INGRESS);
+    AddAclEntry("sg_acl1", 10, 1, "deny", EGRESS);
+    client->WaitForIdle();
+
+    TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+                               vnet_addr[2], 1, 0, 0, TrafficAction::DENY,
+                               vnet[1]->flow_key_nh()->id()));
+
+    FlowEntry *flow = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+                              vnet_addr[2], 1, 0, 0,
+                              vnet[1]->flow_key_nh()->id());
+    assert(flow);
+    EXPECT_FALSE(flow->is_flags_set(FlowEntry::ReverseFlow));
+    FlowEntry *rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow->is_flags_set(FlowEntry::ReverseFlow));
+    EXPECT_FALSE(rflow->is_flags_set(FlowEntry::Trap));
+
+    EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
+                           vnet_addr[2], 1, 0, 0,
+                           vnet[1]->flow_key_nh()->id()));
 }
 
 TEST_F(SgTest, Sg_Introspec) {
@@ -812,7 +842,7 @@ TEST_F(SgTest, Sg_Introspec) {
     DelSgAcl("ag2");
     DelNode("security-group", "sg2");
     boost::system::error_code ec;
-    InetUnicastAgentRouteTable::DeleteReq(NULL, "vrf1",
+    InetUnicastAgentRouteTable::DeleteReq(bgp_peer_, "vrf1",
         Ip4Address::from_string("10.10.10.0", ec), 24, NULL);
     client->WaitForIdle();
 
@@ -833,7 +863,7 @@ TEST_F(SgTest, Sg_Policy_1) {
     sg_id_list.push_back(2);
     //Add a remote route pointing to SG id 2
     boost::system::error_code ec;
-    Inet4TunnelRouteAdd(NULL, "vrf1",
+    Inet4TunnelRouteAdd(bgp_peer_, "vrf1",
                         Ip4Address::from_string("10.10.10.0", ec),
                         24,
                         Ip4Address::from_string("10.10.10.10", ec),
@@ -852,7 +882,7 @@ TEST_F(SgTest, Sg_Policy_1) {
 
     //Change the route sg id to 3
     sg_id_list[0] = 3;
-    Inet4TunnelRouteAdd(NULL, "vrf1", Ip4Address::from_string("10.10.10.0", ec),
+    Inet4TunnelRouteAdd(bgp_peer_, "vrf1", Ip4Address::from_string("10.10.10.0", ec),
                         24, Ip4Address::from_string("10.10.10.10", ec),
                         TunnelType::AllType(), 17, "vn1", sg_id_list,
                         PathPreference());
@@ -871,7 +901,7 @@ TEST_F(SgTest, Sg_Policy_1) {
     DelSgAclLink("sg2", "ag2");
     DelSgAcl("ag2");
     DelNode("security-group", "sg2");
-    InetUnicastAgentRouteTable::DeleteReq(NULL, "vrf1",
+    InetUnicastAgentRouteTable::DeleteReq(bgp_peer_, "vrf1",
         Ip4Address::from_string("10.10.10.0", ec), 24, NULL);
     client->WaitForIdle();
 }
@@ -890,7 +920,7 @@ TEST_F(SgTest, Sg_Policy_2) {
     sg_id_list.push_back(2);
     //Add a remote route pointing to SG id 2
     boost::system::error_code ec;
-    Inet4TunnelRouteAdd(NULL, "vrf1", Ip4Address::from_string("10.10.10.0", ec),
+    Inet4TunnelRouteAdd(bgp_peer_, "vrf1", Ip4Address::from_string("10.10.10.0", ec),
                         24, Ip4Address::from_string("10.10.10.10", ec),
                         TunnelType::AllType(), 17, "vn1", sg_id_list,
                         PathPreference());
@@ -908,7 +938,7 @@ TEST_F(SgTest, Sg_Policy_2) {
 
     //Change the route sg id to 3
     sg_id_list[0] = 3;
-    Inet4TunnelRouteAdd(NULL, "vrf1", Ip4Address::from_string("10.10.10.0", ec),
+    Inet4TunnelRouteAdd(bgp_peer_, "vrf1", Ip4Address::from_string("10.10.10.0", ec),
                         24, Ip4Address::from_string("10.10.10.10", ec),
                         TunnelType::AllType(), 17, "vn1", sg_id_list,
                         PathPreference());
@@ -928,7 +958,7 @@ TEST_F(SgTest, Sg_Policy_2) {
     DelNode("security-group", "sg2");
     DelSgAclLink("sg2", "ag2");
     DelSgAcl("ag2");
-    InetUnicastAgentRouteTable::DeleteReq(NULL, "vrf1",
+    InetUnicastAgentRouteTable::DeleteReq(bgp_peer_, "vrf1",
             Ip4Address::from_string("10.10.10.0", ec), 24, NULL);
     client->WaitForIdle();
 }
