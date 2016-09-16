@@ -113,7 +113,8 @@ IFMapXmppChannel::IFMapSender::IFMapSender(IFMapXmppChannel *parent)
 
 bool IFMapXmppChannel::IFMapSender::SendUpdate(const std::string &msg) {
     bool sent = parent_->channel_->Send(
-        (const uint8_t *)msg.data(), msg.size(), xmps::CONFIG,
+        reinterpret_cast<const uint8_t *>(msg.data()), msg.size(), &msg,
+        xmps::CONFIG,
         boost::bind(&IFMapXmppChannel::WriteReadyCb, parent_, _1));
 
     if (sent) {

@@ -112,8 +112,3 @@ void IFMapMessage::Reset() {
     op_type_ = NONE;
     Open();
 }
-
-const char * IFMapMessage::c_str() const {
-    assert(!str_.empty());
-    return str_.c_str();
-}

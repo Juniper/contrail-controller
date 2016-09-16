@@ -25,7 +25,7 @@ public:
     bool IsEmpty();
     void Reset();
 
-    const char *c_str() const;
+    const std::string &get_string() const { return str_; }
 
 private:
     enum Op {
