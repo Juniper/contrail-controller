@@ -681,7 +681,7 @@ def parse_args(args_str):
         'logger_class': None,
         'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
         'bgpaas_port_start': 50000,
-        'bgpaas_port_end': 50256,
+        'bgpaas_port_end': 50512,
         'rabbit_use_ssl': False,
         'kombu_ssl_version': '',
         'kombu_ssl_keyfile': '',
