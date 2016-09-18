@@ -347,9 +347,9 @@ class TestPermissions(test_case.ApiServerTestCase):
                        auth_url='http://127.0.0.1:5000/v2.0')
 
         # prepare token before vnc api invokes keystone
-        alice = User(ip, port, kc, 'alice', 'alice123', 'alice-role', 'alice-proj')
-        bob =   User(ip, port, kc, 'bob', 'bob123', 'bob-role', 'bob-proj')
-        admin = User(ip, port, kc, 'admin', 'contrail123', 'admin', 'admin')
+        alice = User(ip, port, kc, 'alice', 'alice123', 'alice-role', 'alice-proj-%s' % self.id())
+        bob =   User(ip, port, kc, 'bob', 'bob123', 'bob-role', 'bob-proj-%s' % self.id())
+        admin = User(ip, port, kc, 'admin', 'contrail123', 'admin', 'admin-%s' % self.id())
 
         self.alice = alice
         self.bob   = bob
@@ -732,10 +732,6 @@ class TestPermissions(test_case.ApiServerTestCase):
 
 
     def tearDown(self):
-        self._api_svr_greenlet.kill()
-        self._api_server._db_conn._msgbus.shutdown()
-        test_utils.FakeIfmapClient.reset()
-        test_utils.CassandraCFs.reset()
         super(TestPermissions, self).tearDown()
     # end tearDown
 
