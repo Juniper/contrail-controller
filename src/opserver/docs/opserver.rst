@@ -179,7 +179,7 @@ Example output for a virtual network UVE::
             ], 
             "in_bytes": {
                 "#text": "2232972057", 
-                "@aggtype": "counter", 
+                "@aggtype": "sum",
                 "@type": "i64"
             }, 
             "in_stats": {
@@ -239,7 +239,7 @@ Example output for a virtual network UVE::
             }, 
             "in_tpkts": {
                 "#text": "5156342", 
-                "@aggtype": "counter", 
+                "@aggtype": "sum",
                 "@type": "i64"
             }, 
             "interface_list": {
@@ -255,7 +255,7 @@ Example output for a virtual network UVE::
             }, 
             "out_bytes": {
                 "#text": "2187615961", 
-                "@aggtype": "counter", 
+                "@aggtype": "sum",
                 "@type": "i64"
             }, 
             "out_stats": {
@@ -330,7 +330,7 @@ Example output for a virtual network UVE::
             }, 
             "out_tpkts": {
                 "#text": "5134830", 
-                "@aggtype": "counter", 
+                "@aggtype": "sum",
                 "@type": "i64"
             }, 
             "virtualmachine_list": {
@@ -400,12 +400,12 @@ Example output for a virtual machine UVE::
                                 {
                                     "in_bytes": {
                                         "#text": "2188895907", 
-                                        "@aggtype": "counter", 
+                                        "@aggtype": "sum",
                                         "@type": "i64"
                                     }, 
                                     "in_pkts": {
                                         "#text": "5130901", 
-                                        "@aggtype": "counter", 
+                                        "@aggtype": "sum",
                                         "@type": "i64"
                                     }, 
                                     "ip_address": {
@@ -418,12 +418,12 @@ Example output for a virtual machine UVE::
                                     }, 
                                     "out_bytes": {
                                         "#text": "2201821626", 
-                                        "@aggtype": "counter", 
+                                        "@aggtype": "sum",
                                         "@type": "i64"
                                     }, 
                                     "out_pkts": {
                                         "#text": "5153526", 
-                                        "@aggtype": "counter", 
+                                        "@aggtype": "sum",
                                         "@type": "i64"
                                     }, 
                                     "virtual_network": {
