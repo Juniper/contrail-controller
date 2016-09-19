@@ -742,7 +742,8 @@ bool RouteAggregator<T>::FillAggregateRouteInfo(AggregateRouteEntriesInfo *info,
     if (aggregate_route_map().empty())
         return false;
 
-    info->set_name(rtinstance_->name());
+    info->set_name(rtinstance_->virtual_network());
+    info->set_instance_name(rtinstance_->name());
     for (typename AggregateRouteMap::const_iterator it =
          aggregate_route_map_.begin(); it != aggregate_route_map_.end(); it++) {
         AggregateRouteT *aggregate =
