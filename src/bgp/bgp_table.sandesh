@@ -9,10 +9,30 @@ include "bgp/table_info.sandesh"
  */
 
 struct RoutingInstanceStatsData {
-    1: string name (key="ObjectRoutingInstance");
+    1: string name (key="ObjectVNTable");
     2: optional bool deleted
-    /** @display_name:Routung Instance Information*/
-    3: optional map<string, table_info.BgpTableStats> table_stats (tags=".__key");
+
+    3: optional map<string, table_info.BgpTableStats> raw_ipv4_stats (hidden="yes");
+
+    /** @display_name:Routing Instance IPv4 Information*/
+    4: optional map<string, table_info.BgpTableStats> ipv4_stats (mstats="raw_ipv4_stats:DSChange", tags=".__key");
+
+
+    5: optional map<string, table_info.BgpTableStats> raw_ipv6_stats (hidden="yes");
+
+    /** @display_name:Routing Instance IPv6 Information*/
+    6: optional map<string, table_info.BgpTableStats> ipv6_stats (mstats="raw_ipv6_stats:DSChange", tags=".__key");
+
+
+    7: optional map<string, table_info.BgpTableStats> raw_evpn_stats (hidden="yes");
+
+    /** @display_name:Routing Instance EVPN Information*/
+    8: optional map<string, table_info.BgpTableStats> evpn_stats (mstats="raw_evpn_stats:DSChange", tags=".__key");
+
+    9: optional map<string, table_info.BgpTableStats> raw_ermvpn_stats (hidden="yes");
+
+    /** @display_name:Routing Instance ERMVPN Information*/
+    10: optional map<string, table_info.BgpTableStats> ermvpn_stats (mstats="raw_ermvpn_stats:DSChange", tags=".__key");
 }
 
 /**

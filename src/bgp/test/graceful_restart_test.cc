@@ -70,6 +70,8 @@ static vector<int>  n_agents    = boost::assign::list_of(d_agents);
 static vector<int>  n_peers     = boost::assign::list_of(d_peers);
 static vector<int>  n_targets   = boost::assign::list_of(d_targets);
 
+static int n_flips = 2;
+
 static char **gargv;
 static int    gargc;
 static int    n_db_walker_wait_usecs = 0;
@@ -122,6 +124,8 @@ static void process_command_line_args(int argc, char **argv) {
              "Enable logging traces")
         ("no-sandesh-server", bool_switch(&d_no_sandesh_server_),
              "Do not add multicast routes")
+        ("nflips", value<int>()->default_value(n_flips),
+             "set number of session flips")
         ("nroutes", value<int>()->default_value(d_routes),
              "set number of routes")
         ("nagents", value<int>()->default_value(d_agents),
@@ -144,8 +148,15 @@ static void process_command_line_args(int argc, char **argv) {
         exit(1);
     }
 
+    if (vm.count("nflips"))
+        n_flips = vm["nflips"].as<int>();
+
     if (vm.count("ninstances")) {
         ninstances = vm["ninstances"].as<int>();
+        cmd_line_arg_set = true;
+    }
+    if (vm.count("nflips")) {
+        n_flips = vm["nflips"].as<int>();
         cmd_line_arg_set = true;
     }
     if (vm.count("nroutes")) {
@@ -1192,9 +1203,7 @@ void GracefulRestartTest::BgpPeerUp(BgpPeerTest *peer) {
 void GracefulRestartTest::ProcessFlippingAgents(int &total_routes,
         int remaining_instances,
         vector<GRTestParams> &n_flipping_agents) {
-    int flipping_count = 3;
-
-    for (int f = 0; f < flipping_count; f++) {
+    for (int f = 0; f < n_flips; f++) {
         BOOST_FOREACH(GRTestParams gr_test_param, n_flipping_agents) {
             test::NetworkAgentMock *agent = gr_test_param.agent;
             TASK_UTIL_EXPECT_FALSE(agent->IsEstablished());
@@ -1241,7 +1250,7 @@ void GracefulRestartTest::ProcessFlippingAgents(int &total_routes,
         // Bring back half of the flipping agents to established state and send
         // routes. Rest do not come back up (nested closures and LLGR)
         int count = n_flipping_agents.size();
-        if (f == flipping_count - 1)
+        if (f == n_flips - 1)
             count /= 2;
         int k = 0;
         BOOST_FOREACH(GRTestParams gr_test_param, n_flipping_agents) {
@@ -1349,9 +1358,7 @@ void GracefulRestartTest::BgpPeerDown(BgpPeerTest *peer,
 
 void GracefulRestartTest::ProcessFlippingPeers(int &total_routes,
         int remaining_instances, vector<GRTestParams> &n_flipping_peers) {
-    int flipping_count = 3;
-
-    for (int f = 0; f < flipping_count; f++) {
+    for (int f = 0; f < n_flips; f++) {
         BOOST_FOREACH(GRTestParams gr_test_param, n_flipping_peers) {
             BgpPeerUp(gr_test_param.peer);
         }
@@ -1380,7 +1387,7 @@ void GracefulRestartTest::ProcessFlippingPeers(int &total_routes,
         // Bring back half of the flipping peers to established state and send
         // routes. Rest do not come back up (nested closures and LLGR)
         int count = n_flipping_peers.size();
-        if (f == flipping_count - 1)
+        if (f == n_flips - 1)
             count /= 2;
         int k = 0;
         BOOST_FOREACH(GRTestParams gr_test_param, n_flipping_peers) {

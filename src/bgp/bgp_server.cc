@@ -771,8 +771,9 @@ uint32_t BgpServer::GetDownStaticRouteCount() const {
     return count;
 }
 
-uint32_t BgpServer::SendTableStatsUve(bool first) const {
+uint32_t BgpServer::SendTableStatsUve() const {
     uint32_t out_q_depth = 0;
+
     for (RoutingInstanceMgr::RoutingInstanceIterator rit = inst_mgr_->begin();
          rit != inst_mgr_->end(); ++rit) {
         RoutingInstanceStatsData instance_info;
@@ -785,51 +786,36 @@ uint32_t BgpServer::SendTableStatsUve(bool first) const {
 
             size_t markers;
             out_q_depth += table->GetPendingRiboutsCount(&markers);
-            string family = Address::FamilyToString(table->family());
 
-            bool changed = false;
-
-            if (first || table->stats()->get_prefixes() != table->Size()) {
-                changed = true;
-                table->stats()->set_prefixes(table->Size());
-            }
-
-            if (first || table->stats()->get_primary_paths() !=
-                    table->GetPrimaryPathCount()) {
-                changed = true;
-                table->stats()->set_primary_paths(table->GetPrimaryPathCount());
-            }
-
-            if (first || table->stats()->get_secondary_paths() !=
-                    table->GetSecondaryPathCount()) {
-                changed = true;
-                table->stats()->set_secondary_paths(
-                    table->GetSecondaryPathCount());
-            }
+            table->stats()->set_prefixes(table->Size());
+            table->stats()->set_primary_paths(table->GetPrimaryPathCount());
+            table->stats()->set_secondary_paths(table->GetSecondaryPathCount());
+            table->stats()->set_infeasible_paths(
+                table->GetInfeasiblePathCount());
 
             uint64_t total_paths = table->stats()->get_primary_paths() +
                                    table->stats()->get_secondary_paths() +
                                    table->stats()->get_infeasible_paths();
-            if (first || table->stats()->get_total_paths() != total_paths) {
-                changed = true;
-                table->stats()->set_total_paths(total_paths);
-            }
+            table->stats()->set_total_paths(total_paths);
 
-            if (changed) {
-                tables_stats.insert(make_pair(family, *table->stats()));
-
-                // Reset changed flags in the uve structure.
-                memset(&(table->stats()->__isset), 0,
-                       sizeof(table->stats()->__isset));
+            if (table->family() == Address::INET) {
+                instance_info.raw_ipv4_stats.insert(
+                    make_pair(rit->name(), *table->stats()));
+            } else if (table->family() == Address::INET6) {
+                instance_info.raw_ipv6_stats.insert(
+                    make_pair(rit->name(), *table->stats()));
+            } else if (table->family() == Address::EVPN) {
+                instance_info.raw_evpn_stats.insert(
+                    make_pair(rit->name(), *table->stats()));
+            } else if (table->family() == Address::ERMVPN) {
+                instance_info.raw_ermvpn_stats.insert(
+                    make_pair(rit->name(), *table->stats()));
             }
         }
 
-        // Set the key and send out the uve.
-        if (!tables_stats.empty()) {
-            instance_info.set_name(rit->name());
-            instance_info.set_table_stats(tables_stats);
-            RoutingInstanceStats::Send(instance_info);
-        }
+        // Set the primary key and trigger uve send.
+        instance_info.set_name(rit->virtual_network());
+        RoutingInstanceStats::Send(instance_info);
     }
 
     return out_q_depth;
@@ -961,7 +947,7 @@ bool BgpServer::CollectStats(BgpRouterState *state, bool first) const {
         change = true;
     }
 
-    uint32_t out_load = SendTableStatsUve(first);
+    uint32_t out_load = SendTableStatsUve();
     if (first || out_load != state->get_output_queue_depth()) {
         state->set_output_queue_depth(out_load);
         change = true;
