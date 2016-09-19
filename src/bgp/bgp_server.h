@@ -266,7 +266,7 @@ private:
     typedef std::map<TcpSession::Endpoint, BgpPeer *> EndpointToBgpPeerList;
 
     void RoutingInstanceMgrDeletionComplete(RoutingInstanceMgr *mgr);
-    uint32_t SendTableStatsUve(bool first) const;
+    uint32_t SendRoutingInstanceTableStatsUve() const;
     void FillPeerStats(const BgpPeer *peer) const;
 
     // base config variables

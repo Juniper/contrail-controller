@@ -34,11 +34,13 @@ class BgpPath;
 class BgpRoute;
 class BgpServer;
 class BgpTable;
+class BgpTableStats;
 class IRouteAggregator;
 class IStaticRouteMgr;
 class RouteDistinguisher;
 class RoutingInstanceMgr;
 class RoutingInstanceInfo;
+class RoutingInstanceStatsData;
 class BgpNeighborResp;
 class ExtCommunity;
 class LifetimeActor;
@@ -362,6 +364,14 @@ public:
     void increment_deleted_count() { deleted_count_++; }
     void decrement_deleted_count() { deleted_count_--; }
 
+    bool CreateVirtualNetworkMapping(const std::string &virtual_network,
+                                     const std::string &instance_name);
+    bool DeleteVirtualNetworkMapping(const std::string &virtual_network,
+                                     const std::string &instance_name);
+    void SetTableStatsUve(Address::Family family,
+                          const std::map<std::string, BgpTableStats> &stats_map,
+                          RoutingInstanceStatsData *instance_info) const;
+
 private:
     friend class BgpConfigTest;
     friend class RoutingInstanceMgrTest;
@@ -403,6 +413,10 @@ private:
     LifetimeRef<RoutingInstanceMgr> server_delete_ref_;
     boost::dynamic_bitset<> bmap_;      // free list.
     InstanceOpListenersList callbacks_;
+
+    // Map of virtual-network names to routing-instance names.
+    typedef std::map<std::string, std::set<std::string> > VirtualNetworksMap;
+    VirtualNetworksMap virtual_networks_;
 };
 
 #endif  // SRC_BGP_ROUTING_INSTANCE_ROUTING_INSTANCE_H_
