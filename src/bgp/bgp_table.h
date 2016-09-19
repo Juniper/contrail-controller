@@ -17,7 +17,6 @@
 #include "route/table.h"
 
 class BgpServer;
-class BgpTableStats;
 class BgpRoute;
 class BgpPath;
 class BgpUpdateSender;
@@ -145,7 +144,6 @@ public:
 
     // Check whether the route is contributing route to aggregate route
     bool IsContributingRoute(const BgpRoute *route) const;
-    BgpTableStats *stats() { return stats_.get(); }
 
     bool DeletePath(DBTablePartBase *root, BgpRoute *rt, BgpPath *path);
     virtual void Input(DBTablePartition *root, DBClient *client,
@@ -174,7 +172,6 @@ private:
     RoutingInstance *rtinstance_;
     PathResolver *path_resolver_;
     RibOutMap ribout_map_;
-    boost::scoped_ptr<BgpTableStats> stats_;
 
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<BgpTable> instance_delete_ref_;
