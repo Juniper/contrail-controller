@@ -15,6 +15,7 @@
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_server.h"
+#include "bgp/bgp_table_types.h"
 #include "bgp/routing-instance/iroute_aggregator.h"
 #include "bgp/routing-instance/iservice_chain_mgr.h"
 #include "bgp/routing-instance/istatic_route_mgr.h"
@@ -27,6 +28,7 @@
 
 using boost::assign::list_of;
 using boost::system::error_code;
+using boost::tie;
 using std::make_pair;
 using std::set;
 using std::string;
@@ -81,6 +83,7 @@ RoutingInstanceMgr::RoutingInstanceMgr(BgpServer *server) :
 }
 
 RoutingInstanceMgr::~RoutingInstanceMgr() {
+    assert(virtual_networks_.empty());
     assert(deleted_count_ == 0);
     server_->UnregisterASNUpdateCallback(asn_listener_id_);
     server_->UnregisterIdentifierUpdateCallback(identifier_listener_id_);
@@ -368,7 +371,8 @@ void RoutingInstanceMgr::LocateRoutingInstance(
     if (rtinstance) {
         if (rtinstance->deleted()) {
             RTINSTANCE_LOG_WARNING_MESSAGE(server_,
-                RTINSTANCE_LOG_FLAG_ALL, config->name(),
+                RTINSTANCE_LOG_FLAG_ALL, rtinstance->GetVirtualNetworkName(),
+                config->name(),
                 "Instance recreated before pending deletion is complete");
         } else {
             UpdateRoutingInstance(rtinstance, config);
@@ -393,6 +397,100 @@ void RoutingInstanceMgr::LocateRoutingInstance(const string &name) {
     }
 }
 
+// Update VirtualNetwork to RoutingInstance name mapping.
+bool RoutingInstanceMgr::CreateVirtualNetworkMapping(
+        const string &virtual_network, const string &instance_name) {
+    tbb::mutex::scoped_lock lock(mutex_);
+
+    VirtualNetworksMap::iterator iter;
+    bool inserted;
+    tie(iter, inserted) = virtual_networks_.insert(make_pair(virtual_network,
+                                                             set<string>()));
+    assert(iter->second.insert(instance_name).second);
+    return true;
+}
+
+bool RoutingInstanceMgr::DeleteVirtualNetworkMapping(
+        const string &virtual_network, const string &instance_name) {
+    tbb::mutex::scoped_lock lock(mutex_);
+
+    VirtualNetworksMap::iterator iter = virtual_networks_.find(virtual_network);
+    assert(iter != virtual_networks_.end());
+
+    // Delete this instance from the set of virtual-network to instances map.
+    assert(iter->second.erase(instance_name) == 1);
+
+    RoutingInstanceStatsData instance_info;
+    bool mapping_deleted = iter->second.empty();
+
+    // Delete the mapping if the member set is empty.
+    if (mapping_deleted) {
+        virtual_networks_.erase(iter);
+
+        // Delete the virtual-network specific UVE.
+        instance_info.set_deleted(true);
+    } else {
+
+        // Delete this instance's uve, by deleting all table stats.
+        BgpTableStats stats;
+        stats.set_deleted(true);
+        std::pair<string, BgpTableStats> item = make_pair(instance_name, stats);
+
+        // By switching over all families, we get compiler to tell us in
+        // future, when ever familiy enum list gets modified.
+        for (Address::Family i = Address::UNSPEC; i < Address::NUM_FAMILIES;
+                i = static_cast<Address::Family>(i + 1)) {
+            switch (i) {
+            case Address::UNSPEC:
+                break;
+            case Address::INET:
+                instance_info.raw_ipv4_stats.insert(item);
+                break;
+            case Address::INET6:
+                instance_info.raw_ipv6_stats.insert(item);
+                break;
+            case Address::INETVPN:
+                instance_info.raw_inetvpn_stats.insert(item);
+                break;
+            case Address::INET6VPN:
+                instance_info.raw_inet6vpn_stats.insert(item);
+                break;
+            case Address::RTARGET:
+                instance_info.raw_rtarget_stats.insert(item);
+                break;
+            case Address::INETFLOW:
+                instance_info.raw_inetflow_stats.insert(item);
+                break;
+            case Address::INETVPNFLOW:
+                instance_info.raw_inetvpnflow_stats.insert(item);
+                break;
+            case Address::INETMCAST:
+                instance_info.raw_inetmcast_stats.insert(item);
+                break;
+            case Address::INET6MCAST:
+                instance_info.raw_inet6mcast_stats.insert(item);
+                break;
+            case Address::ENET:
+                instance_info.raw_enet_stats.insert(item);
+                break;
+            case Address::EVPN:
+                instance_info.raw_evpn_stats.insert(item);
+                break;
+            case Address::ERMVPN:
+                instance_info.raw_ermvpn_stats.insert(item);
+                break;
+            case Address::NUM_FAMILIES:
+                break;
+            }
+        }
+    }
+
+    // Send delete uve.
+    RoutingInstanceStats::Send(instance_info);
+
+    return mapping_deleted;
+}
+
 RoutingInstance *RoutingInstanceMgr::CreateRoutingInstance(
     const BgpInstanceConfig *config) {
     RoutingInstance *rtinstance = BgpObjectFactory::Create<RoutingInstance>(
@@ -415,12 +513,14 @@ RoutingInstance *RoutingInstanceMgr::CreateRoutingInstance(
                                   config->export_list().end());
     RTINSTANCE_LOG(Create, rtinstance,
         SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL,
-        import_rt, export_rt,
-        rtinstance->virtual_network(), rtinstance->virtual_network_index());
+        import_rt, export_rt, rtinstance->virtual_network_index());
 
     // Schedule creation of neighbors for this instance.
     CreateRoutingInstanceNeighbors(config);
 
+    //  Update instance to virtual-network mapping structures.
+    CreateVirtualNetworkMapping(rtinstance->GetVirtualNetworkName(),
+                                rtinstance->name());
     return rtinstance;
 }
 
@@ -450,7 +550,7 @@ void RoutingInstanceMgr::UpdateRoutingInstance(RoutingInstance *rtinstance,
                                   config->export_list().end());
     RTINSTANCE_LOG(Update, rtinstance,
         SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL, import_rt, export_rt,
-        rtinstance->virtual_network(), rtinstance->virtual_network_index());
+        rtinstance->virtual_network_index());
 }
 
 //
@@ -468,12 +568,13 @@ void RoutingInstanceMgr::DeleteRoutingInstance(const string &name) {
 
     // Ignore if instance is not found as it might already have been deleted.
     if (rtinstance && rtinstance->deleted()) {
-        RTINSTANCE_LOG_WARNING_MESSAGE(server_, RTINSTANCE_LOG_FLAG_ALL, name,
+        RTINSTANCE_LOG_WARNING_MESSAGE(server_, RTINSTANCE_LOG_FLAG_ALL,
+            rtinstance->GetVirtualNetworkName(), name,
             "Duplicate instance delete while pending deletion");
         return;
     } else if (!rtinstance) {
-        RTINSTANCE_LOG_WARNING_MESSAGE(server_, RTINSTANCE_LOG_FLAG_ALL, name,
-            "Instance not found during delete");
+        RTINSTANCE_LOG_WARNING_MESSAGE(server_, RTINSTANCE_LOG_FLAG_ALL,
+            name, name, "Instance not found during delete");
         return;
     }
 
@@ -502,6 +603,9 @@ void RoutingInstanceMgr::DestroyRoutingInstance(RoutingInstance *rtinstance) {
 
     RTINSTANCE_LOG(Destroy, rtinstance,
         SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
+
+    DeleteVirtualNetworkMapping(rtinstance->GetVirtualNetworkName(),
+                                rtinstance->name());
 
     // Remove call here also deletes the instance.
     const string name = rtinstance->name();
@@ -893,8 +997,17 @@ void RoutingInstance::UpdateConfig(const BgpInstanceConfig *cfg) {
     if (virtual_network_index_ != cfg->virtual_network_index())
         UpdateAllStaticRoutes();
 
+    string prev_vn_name = GetVirtualNetworkName();
+
     // Update virtual network info.
     virtual_network_ = cfg->virtual_network();
+
+    // Recreate instance stats' UVE, if its key: virtual_network is modified.
+    if (prev_vn_name != GetVirtualNetworkName()) {
+        mgr_->DeleteVirtualNetworkMapping(prev_vn_name, name_);
+        mgr_->CreateVirtualNetworkMapping(GetVirtualNetworkName(), name_);
+    }
+
     virtual_network_index_ = cfg->virtual_network_index();
     virtual_network_allow_transit_ = cfg->virtual_network_allow_transit();
     vxlan_id_ = cfg->vxlan_id();
@@ -1337,7 +1450,8 @@ void RoutingInstance::set_index(int index) {
 
 RoutingInstanceInfo RoutingInstance::GetDataCollection(const char *operation) {
     RoutingInstanceInfo info;
-    info.set_name(name_);
+    info.set_name(virtual_network_);
+    info.set_instance_name(name_);
     info.set_hostname(server_->localname());
     if (rd_.get()) info.set_route_distinguisher(rd_->ToString());
     if (operation) info.set_operation(operation);
