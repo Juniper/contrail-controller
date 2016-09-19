@@ -61,7 +61,6 @@ BgpTable::BgpTable(DB *db, const string &name)
     : RouteTable(db, name),
       rtinstance_(NULL),
       path_resolver_(NULL),
-      stats_(new BgpTableStats()),
       instance_delete_ref_(this, NULL) {
     primary_path_count_ = 0;
     secondary_path_count_ = 0;

@@ -49,7 +49,6 @@ env.Prepend(LIBS = [
                     'control_node',
                     'extended_community',
                     'peer_sandesh',
-                    'table_sandesh',
                     'origin_vn',
                     'routing_instance',
                     'routing_policy',
