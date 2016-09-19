@@ -18,7 +18,6 @@ SandeshGenFiles += env.SandeshGenOnlyCpp('bgp_peer_internal.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('bgp_log.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('virtual_network.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('vrouter.sandesh')
-SandeshGenFiles += env.SandeshGenCpp('bgp_table.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 
 env.Append(CPPPATH = env['TOP'])
@@ -32,10 +31,6 @@ env.Append(CPPPATH = [env['TOP'] + '/tools/sandesh/library/common'])
 SandeshPeerFiles = env.SandeshGenCpp('peer_info.sandesh')
 SandeshPeerGenSrcs = env.ExtractCpp(SandeshPeerFiles)
 libpeer_sandesh = env.Library('peer_sandesh', SandeshPeerGenSrcs);
-
-SandeshTableFiles = env.SandeshGenCpp('table_info.sandesh')
-SandeshTableGenSrcs = env.ExtractCpp(SandeshTableFiles)
-libtable_sandesh = env.Library('table_sandesh', SandeshTableGenSrcs);
 
 SandeshTableFiles = env.SandeshGenCpp('sandesh_info.sandesh')
 SandeshTableGenSrcs = env.ExtractCpp(SandeshTableFiles)
