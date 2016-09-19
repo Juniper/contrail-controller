@@ -9,10 +9,77 @@ include "bgp/table_info.sandesh"
  */
 
 struct RoutingInstanceStatsData {
-    1: string name (key="ObjectRoutingInstance");
+    1: string name (key="ObjectVNTable");
     2: optional bool deleted
-    /** @display_name:Routung Instance Information*/
-    3: optional map<string, table_info.BgpTableStats> table_stats (tags=".__key");
+
+    3: optional map<string, table_info.BgpTableStats> raw_ipv4_stats (hidden="yes");
+
+    /** @display_name:Routing Instance IPv4 Information*/
+    4: optional map<string, table_info.BgpTableStats> ipv4_stats (mstats="raw_ipv4_stats:DSChange", tags=".__key", aggtype="union");
+
+
+    5: optional map<string, table_info.BgpTableStats> raw_ipv6_stats (hidden="yes");
+
+    /** @display_name:Routing Instance IPv6 Information*/
+    6: optional map<string, table_info.BgpTableStats> ipv6_stats (mstats="raw_ipv6_stats:DSChange", tags=".__key", aggtype="union");
+
+
+    7: optional map<string, table_info.BgpTableStats> raw_inetvpn_stats (hidden="yes");
+
+    /** @display_name:Routing Instance IPv4 Vpn Information*/
+    8: optional map<string, table_info.BgpTableStats> inetvpn_stats (mstats="raw_inetvpn_stats:DSChange", tags=".__key", aggtype="union");
+
+
+    9: optional map<string, table_info.BgpTableStats> raw_inet6vpn_stats (hidden="yes");
+
+    /** @display_name:Routing Instance IPv6 Vpn Information*/
+    10: optional map<string, table_info.BgpTableStats> inet6vpn_stats (mstats="raw_inet6vpn_stats:DSChange", tags=".__key", aggtype="union");
+
+
+    11: optional map<string, table_info.BgpTableStats> raw_rtarget_stats (hidden="yes");
+
+    /** @display_name:Routing Instance Route Target Information*/
+    12: optional map<string, table_info.BgpTableStats> rtarget_stats (mstats="raw_rtarget_stats:DSChange", tags=".__key", aggtype="union");
+
+
+    13: optional map<string, table_info.BgpTableStats> raw_inetflow_stats (hidden="yes");
+
+    /** @display_name:Routing Instance IPv4 Flow Information*/
+    14: optional map<string, table_info.BgpTableStats> inetflow_stats (mstats="raw_inetflow_stats:DSChange", tags=".__key", aggtype="union");
+
+    15: optional map<string, table_info.BgpTableStats> raw_inetvpnflow_stats (hidden="yes");
+
+    /** @display_name:Routing Instance IPv4 Vpn Flow Information*/
+    16: optional map<string, table_info.BgpTableStats> inetvpnflow_stats (mstats="raw_inetvpnflow_stats:DSChange", tags=".__key", aggtype="union");
+
+
+    17: optional map<string, table_info.BgpTableStats> raw_inetmcast_stats (hidden="yes");
+
+    /** @display_name:Routing Instance IPv4 Multicast Information*/
+    18: optional map<string, table_info.BgpTableStats> inetmcast_stats (mstats="raw_inetmcast_stats:DSChange", tags=".__key", aggtype="union");
+
+
+    19: optional map<string, table_info.BgpTableStats> raw_inet6mcast_stats (hidden="yes");
+
+    /** @display_name:Routing Instance IPv6 Multicast Information*/
+    20: optional map<string, table_info.BgpTableStats> inet6mcast_stats (mstats="raw_inet6mcast_stats:DSChange", tags=".__key", aggtype="union");
+
+
+    21: optional map<string, table_info.BgpTableStats> raw_enet_stats (hidden="yes");
+
+    /** @display_name:Routing Instance Enet Information*/
+    22: optional map<string, table_info.BgpTableStats> enet_stats (mstats="raw_enet_stats:DSChange", tags=".__key", aggtype="union");
+
+
+    23: optional map<string, table_info.BgpTableStats> raw_evpn_stats (hidden="yes");
+
+    /** @display_name:Routing Instance EVpn Information*/
+    24: optional map<string, table_info.BgpTableStats> evpn_stats (mstats="raw_evpn_stats:DSChange", tags=".__key", aggtype="union");
+
+    25: optional map<string, table_info.BgpTableStats> raw_ermvpn_stats (hidden="yes");
+
+    /** @display_name:Routing Instance ErmVpn Information*/
+    26: optional map<string, table_info.BgpTableStats> ermvpn_stats (mstats="raw_ermvpn_stats:DSChange", tags=".__key", aggtype="union");
 }
 
 /**
