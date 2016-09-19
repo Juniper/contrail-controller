@@ -4,6 +4,10 @@
 
 include "bgp/peer_info.sandesh"
 
+/**
+ * XMPP Peer Information
+ */
+
 struct XmppPeerInfoData {
      1: string name (key="ObjectXmppPeerInfo");                // Control-node-ip:Agent-ip
      2: optional bool                deleted

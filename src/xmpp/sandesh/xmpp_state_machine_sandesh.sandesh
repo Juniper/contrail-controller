@@ -2,6 +2,10 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ * XMPP State Machine Module
+ */
+
 struct XmppConnectionInfo {
     1: string ip_address (key="ObjectXmppConnection");          // Agent/BGP peer address
     2: optional string state;      // current state

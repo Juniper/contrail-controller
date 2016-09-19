@@ -2,6 +2,10 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ * Virtual Router Information
+ */
+
 struct VrouterCtrl {  // Control plane view of the vrouter
     1: string name (key="ObjectVRouterTable")
     2: optional bool                deleted

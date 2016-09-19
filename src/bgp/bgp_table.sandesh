@@ -4,6 +4,10 @@
 
 include "bgp/table_info.sandesh"
 
+/**
+ * BGP Routing Instance Information
+ */
+
 struct RoutingInstanceStatsData {
     1: string name (key="ObjectRoutingInstance");
     2: optional bool deleted

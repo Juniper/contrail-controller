@@ -5,6 +5,10 @@
 include "bgp/bgp_peer.sandesh"
 include "bgp/routing-policy/routing_policy_internal.sandesh"
 
+/**
+ * BGP Routing Policy Information
+ */
+
 struct PolicyTermInfo {
     1: bool terminal;
     2: list<string> matches;

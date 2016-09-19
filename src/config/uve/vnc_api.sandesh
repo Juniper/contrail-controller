@@ -6,6 +6,10 @@
 // Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 //
 
+/**
+ * VNC API Module
+ */
+
 struct VncApiCommon {
     1: string identifier_uuid // object identifier
     2: string object_type (key="ConfigObjectTable") // object type
