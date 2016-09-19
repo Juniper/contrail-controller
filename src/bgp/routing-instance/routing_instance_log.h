@@ -45,6 +45,7 @@ do {                                                                           \
 
 #define RTINSTANCE_LOG(type, rtinstance, level, flags, ...)                    \
     RTINSTANCE_LOG_INTERNAL(type, (rtinstance)->server(), level, flags,        \
+                            (rtinstance)->GetVirtualNetworkName(),             \
                             (rtinstance)->name(), ##__VA_ARGS__);              \
 
 #define RTINSTANCE_LOG_MESSAGE(server, level, flags, ...)                      \
@@ -56,12 +57,14 @@ do {                                                                           \
 
 #define RTINSTANCE_LOG_PEER(type, rtinstance, peer, level, flags, ...)         \
     RTINSTANCE_LOG_INTERNAL(Peer##type, (rtinstance)->server(), level, flags,  \
+                            (rtinstance)->GetVirtualNetworkName(),             \
                             (rtinstance)->name(),                              \
                             (peer)->peer_key().endpoint.address().to_string(), \
                             ##__VA_ARGS__);                                    \
 
 #define RTINSTANCE_LOG_TABLE(type, rtinstance, table, level, flags, ...)       \
     RTINSTANCE_LOG_INTERNAL(Table##type, (rtinstance)->server(), level, flags, \
+                            (rtinstance)->GetVirtualNetworkName(),             \
                             (rtinstance)->name(), (table)->name(),             \
                             Address::FamilyToString((table)->family()),        \
                             ##__VA_ARGS__);                                    \

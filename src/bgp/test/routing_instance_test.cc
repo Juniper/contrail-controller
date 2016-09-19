@@ -542,6 +542,65 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
 }
 }
 
+class RoutingInstanceMappingTest : public ::testing::Test {
+protected:
+    RoutingInstanceMappingTest() : server_(&evm_) { }
+
+    EventManager evm_;
+    BgpServer server_;
+};
+
+TEST_F(RoutingInstanceMappingTest, VirtualNetworkMappingSingle) {
+    RoutingInstanceMgr *mgr = server_.routing_instance_mgr();
+
+    // Delete a mapping which does not exists.
+    EXPECT_DEATH(mgr->DeleteVirtualNetworkMapping("vn1", "instance1"), ".*");
+
+    // Create a new mapping.
+    EXPECT_TRUE(mgr->CreateVirtualNetworkMapping("vn1", "instance1"));
+
+    // Recreate an existing mapping.
+    TASK_UTIL_EXPECT_DEATH(mgr->CreateVirtualNetworkMapping("vn1",
+                                                            "instance1"), ".*");
+
+    // Create another mapping
+    EXPECT_TRUE(mgr->CreateVirtualNetworkMapping("vn1", "instance2"));
+
+    // Delete instance2. Mapping should remain as instance1 still maps to vn1.
+    EXPECT_FALSE(mgr->DeleteVirtualNetworkMapping("vn1", "instance1"));
+
+    // Delete instance1. Entire mapping should go away.
+    EXPECT_TRUE(mgr->DeleteVirtualNetworkMapping("vn1", "instance2"));
+}
+
+// Add mappings for multiple virtual-networks.
+TEST_F(RoutingInstanceMappingTest, VirtualNetworkMappingMultiple) {
+    RoutingInstanceMgr *mgr = server_.routing_instance_mgr();
+
+    EXPECT_TRUE(mgr->CreateVirtualNetworkMapping("vn1", "instance1"));
+    EXPECT_TRUE(mgr->CreateVirtualNetworkMapping("vn1", "instance2"));
+    EXPECT_TRUE(mgr->CreateVirtualNetworkMapping("vn2", "instance1"));
+    EXPECT_TRUE(mgr->CreateVirtualNetworkMapping("vn2", "instance2"));
+    EXPECT_TRUE(mgr->CreateVirtualNetworkMapping("vn3", "instance1"));
+    EXPECT_TRUE(mgr->CreateVirtualNetworkMapping("vn3", "instance2"));
+    EXPECT_TRUE(mgr->CreateVirtualNetworkMapping("vn3", "instance3"));
+
+    TASK_UTIL_EXPECT_DEATH(mgr->DeleteVirtualNetworkMapping("vn1",
+                           "instance10"), ".*");
+
+    EXPECT_FALSE(mgr->DeleteVirtualNetworkMapping("vn1", "instance1"));
+    EXPECT_FALSE(mgr->DeleteVirtualNetworkMapping("vn2", "instance1"));
+    EXPECT_FALSE(mgr->DeleteVirtualNetworkMapping("vn3", "instance1"));
+
+    EXPECT_TRUE(mgr->DeleteVirtualNetworkMapping("vn1", "instance2"));
+    EXPECT_TRUE(mgr->DeleteVirtualNetworkMapping("vn2", "instance2"));
+    EXPECT_FALSE(mgr->DeleteVirtualNetworkMapping("vn3", "instance2"));
+
+    EXPECT_TRUE(mgr->DeleteVirtualNetworkMapping("vn3", "instance3"));
+    TASK_UTIL_EXPECT_DEATH(mgr->DeleteVirtualNetworkMapping("vn3",
+                           "instance3"), ".*");
+}
+
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }
 };
@@ -559,6 +618,7 @@ int main(int argc, char **argv) {
     bgp_log_test::init();
     ::testing::InitGoogleTest(&argc, argv);
     ::testing::AddGlobalTestEnvironment(new TestEnvironment());
+    ::testing::FLAGS_gtest_death_test_style = "threadsafe";
     SetUp();
     int result = RUN_ALL_TESTS();
     TearDown();
