@@ -1258,6 +1258,78 @@ class TestPermissions(test_case.ApiServerTestCase):
             self.assertTrue(False, 'Delete VN failed ... test failed!!!')
     # end
 
+    def test_obj_view(self):
+        alice = self.alice
+        admin = self.admin
+        proj_obj = alice.project_obj
+
+        ipam1_obj = NetworkIpam('ipam-1-%s' %(self.id()), parent_obj=proj_obj)
+        alice.vnc_lib.network_ipam_create(ipam1_obj)
+        vn_obj = VirtualNetwork('vn-1-%s' %(self.id()), parent_obj=proj_obj)
+        vn_obj.add_network_ipam(ipam1_obj,
+            VnSubnetsType(
+                [IpamSubnetType(SubnetType('1.1.1.0', 28))]))
+        alice.vnc_lib.virtual_network_create(vn_obj)
+
+        # set to different user
+        ipam2_obj = NetworkIpam('ipam-2-%s' %(self.id()), parent_obj=proj_obj)
+        admin.vnc_lib.network_ipam_create(ipam2_obj)
+
+        """
+        vn_obj.add_network_ipam(ipam2_obj,
+            VnSubnetsType(
+                [IpamSubnetType(SubnetType('2.2.2.0', 28))]))
+        alice.vnc_lib.virtual_network_update(vn_obj)
+
+        # assert refs
+        read_vn_obj = alice.vnc_lib.virtual_network_read(id=vn_obj.uuid)
+        assert ipam2_obj.uuid not in read_vn_obj.network_ipam_refs
+        assert ipam_obj.uuid in read_proj_obj.network_ipam_refs
+        """
+
+        vmi_obj = VirtualMachineInterface('vmi-1', parent_obj=proj_obj)
+        vmi_obj.add_virtual_network(vn_obj)
+        alice.vnc_lib.virtual_machine_interface_create(vmi_obj)
+
+        # instance-ip test
+        iip1_obj = InstanceIp('iip-1-%s' %(self.id()))
+        iip1_obj.add_virtual_network(vn_obj)
+        iip1_obj.add_virtual_machine_interface(vmi_obj)
+        alice.vnc_lib.instance_ip_create(iip1_obj)
+
+        # set to different user
+        iip2_obj = InstanceIp('iip-2-%s' %(self.id()))
+        iip2_obj.add_virtual_network(vn_obj)
+        iip2_obj.add_virtual_machine_interface(vmi_obj)
+        admin.vnc_lib.instance_ip_create(iip2_obj)
+
+        # assert backrefs
+        read_vmi_obj = alice.vnc_lib.virtual_machine_interface_read(id=vmi_obj.uuid,
+                        fields=['instance_ip_back_refs'])
+        iip_back_refs = [iip['to'] for iip in read_vmi_obj.get_instance_ip_back_refs()]
+        self.assertTrue(iip1_obj.get_fq_name() in iip_back_refs)
+        self.assertTrue(iip2_obj.get_fq_name() not in iip_back_refs)
+
+        # assert child
+        read_proj_obj = alice.vnc_lib.project_read(id=proj_obj.uuid, fields=['network_ipams'])
+        net_ipams_seen = [ipam['uuid'] for ipam in read_proj_obj.network_ipams]
+        self.assertTrue(ipam1_obj.uuid in net_ipams_seen)
+        self.assertTrue(ipam2_obj.uuid not in net_ipams_seen)
+
+        # ensure admin isn't impacted
+        # backref
+        read_vmi_obj = admin.vnc_lib.virtual_machine_interface_read(id=vmi_obj.uuid,
+                        fields=['instance_ip_back_refs'])
+        iip_back_refs = [iip['to'] for iip in read_vmi_obj.get_instance_ip_back_refs()]
+        self.assertTrue(iip1_obj.get_fq_name() in iip_back_refs)
+        self.assertTrue(iip2_obj.get_fq_name() in iip_back_refs)
+
+        # child
+        read_proj_obj = admin.vnc_lib.project_read(id=proj_obj.uuid, fields=['network_ipams'])
+        net_ipams_seen = [ipam['uuid'] for ipam in read_proj_obj.network_ipams]
+        self.assertTrue(ipam1_obj.uuid in net_ipams_seen)
+        self.assertTrue(ipam2_obj.uuid in net_ipams_seen)
+
     def tearDown(self):
         super(TestPermissions, self).tearDown()
     # end tearDown
