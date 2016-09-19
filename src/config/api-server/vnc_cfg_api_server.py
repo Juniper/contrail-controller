@@ -658,6 +658,8 @@ class VncApiServer(object):
             self.config_object_error(id, None, obj_type, 'http_get', result)
             raise cfgm_common.exceptions.HttpError(404, result)
 
+        result = self.obj_view(resource_type, result)
+
         rsp_body = {}
         rsp_body['uuid'] = id
         rsp_body['href'] = self.generate_url(resource_type, id)
@@ -673,6 +675,20 @@ class VncApiServer(object):
 
         return {resource_type: rsp_body}
     # end http_resource_read
+
+    # filter object references based on permissions
+    def obj_view(self, resource_type, obj_dict):
+        r_class = self.get_resource_class(resource_type)
+        obj_fields = list(r_class.ref_fields) + list(r_class.backref_fields) + \
+                     list(r_class.children_fields)
+        obj_fields = [field for field in obj_fields if field in obj_dict]
+        for field in obj_fields:
+            refs = obj_dict[field]
+            for ref in list(refs):
+                ok, res = self._permissions.check_perms_read(get_request(), ref['uuid'])
+                if not ok:
+                    refs.remove(ref)
+        return obj_dict
 
     @log_api_stats
     def http_resource_update(self, obj_type, id):
@@ -2950,6 +2966,8 @@ class VncApiServer(object):
                                 obj_dict[field] = obj_result[field]
                             except KeyError:
                                 pass
+
+                        obj_dict = self.obj_view(resource_type, obj_dict)
                         obj_dicts.append(obj_dict)
             else: # admin
                 obj_results = {}
@@ -2993,7 +3011,7 @@ class VncApiServer(object):
                 obj_dict['name'] = obj_result['fq_name'][-1]
                 obj_dict['href'] = self.generate_url(resource_type,
                                                      obj_result['uuid'])
-                obj_dict.update(obj_result)
+                obj_dict.update(self.obj_view(resource_type, obj_result))
                 if 'id_perms' not in obj_dict:
                     # It is possible that the object was deleted, but received
                     # an update after that. We need to ignore it for now. In
