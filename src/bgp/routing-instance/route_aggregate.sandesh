@@ -14,8 +14,11 @@ struct AggregateRouteInfo {
 }
 
 struct AggregateRouteEntriesInfo {
-    1: string name (link="ShowRouteAggregateReq");
-    2: list<AggregateRouteInfo> aggregate_route_list;
+    1: "VirtualNetwork";
+    2: string name (link="ShowRouteAggregateReq");
+    3: "Routing Instance";
+    4: string instance_name;
+    5: list<AggregateRouteInfo> aggregate_route_list;
 }
 
 response sandesh ShowRouteAggregateSummaryResp {
