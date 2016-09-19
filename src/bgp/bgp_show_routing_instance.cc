@@ -45,7 +45,7 @@ static void FillRoutingInstanceInfo(ShowRoutingInstance *sri,
     const BgpSandeshContext *bsc, const RoutingInstance *rtinstance,
     bool summary) {
     sri->set_name(rtinstance->name());
-    sri->set_virtual_network(rtinstance->virtual_network());
+    sri->set_virtual_network(rtinstance->GetVirtualNetworkName());
     sri->set_vn_index(rtinstance->virtual_network_index());
     sri->set_vxlan_id(rtinstance->vxlan_id());
     sri->set_deleted(rtinstance->deleted());
