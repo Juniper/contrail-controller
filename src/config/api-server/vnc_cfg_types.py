@@ -1135,7 +1135,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
         # Create native/vn-default routing instance
         ri_fq_name = obj_dict['fq_name'][:]
-        ri_fq_name.append(obj_dict['fq_name'][-1])
+        ri_fq_name.append(obj_dict['fq_name'][-1].strip())
         ri_obj = RoutingInstance(
             parent_type='virtual-network', fq_name=ri_fq_name,
             routing_instance_is_default=True)
