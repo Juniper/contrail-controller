@@ -658,6 +658,8 @@ class VncApiServer(object):
             self.config_object_error(id, None, obj_type, 'http_get', result)
             raise cfgm_common.exceptions.HttpError(404, result)
 
+        result = self.obj_view(resource_type, result)
+
         rsp_body = {}
         rsp_body['uuid'] = id
         rsp_body['name'] = result['fq_name'][-1]
@@ -674,6 +676,39 @@ class VncApiServer(object):
 
         return {resource_type: rsp_body}
     # end http_resource_read
+
+    # filter object references based on permissions
+    def obj_view(self, resource_type, obj_dict):
+        r_class = self.get_resource_class(resource_type)
+        ref_fields = {}
+        for field_name in r_class.ref_fields:
+            if field_name not in obj_dict:
+                continue
+            field_info = list(r_class.ref_field_types[field_name])
+            ref_fields[field_info[0]] = field_name
+        for field_name in r_class.backref_fields:
+            if field_name not in obj_dict:
+                continue
+            field_info = list(r_class.backref_field_types[field_name])
+            ref_fields[field_info[0]] = field_name
+        for field_name in r_class.children_fields:
+            if field_name not in obj_dict:
+                continue
+            field_info = list(r_class.children_field_types[field_name])
+            ref_fields[field_info[0]] = field_name
+        for field_obj_type, field_name in ref_fields.items():
+            refs = obj_dict[field_name]
+            obj_ids_list = [{'uuid': ref['uuid']} for ref in refs]
+            (ok, result) = self._db_conn.dbe_read_multi(
+                                field_obj_type, obj_ids_list, ['perms2'])
+            if not ok:
+                raise cfgm_common.exceptions.HttpError(404, result)
+            for index, obj_result in enumerate(result):
+                ok, res = self._permissions.check_perms_read(get_request(),
+                                  obj_result['uuid'], id_perms=obj_result['perms2'])
+                if not ok:
+                    refs.remove(refs[index])
+        return obj_dict
 
     @log_api_stats
     def http_resource_update(self, obj_type, id):
@@ -2981,6 +3016,8 @@ class VncApiServer(object):
                                 obj_dict[field] = obj_result[field]
                             except KeyError:
                                 pass
+
+                        obj_dict = self.obj_view(resource_type, obj_dict)
                         obj_dicts.append(obj_dict)
             else: # admin
                 obj_results = {}
@@ -3025,7 +3062,7 @@ class VncApiServer(object):
                 obj_dict['name'] = obj_result['fq_name'][-1]
                 if not exclude_hrefs:
                     obj_result = self.generate_hrefs(resource_type, obj_result)
-                obj_dict.update(obj_result)
+                obj_dict.update(self.obj_view(resource_type, obj_result))
                 if 'id_perms' not in obj_dict:
                     # It is possible that the object was deleted, but received
                     # an update after that. We need to ignore it for now. In
