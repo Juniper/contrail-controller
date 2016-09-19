@@ -7,16 +7,17 @@
  */
 
 struct RoutingInstanceInfo {
-    1: string name (key="ObjectRoutingInstance");
-    2: optional string route_distinguisher;
-    3: optional string operation;
-    4: optional string peer;
-    5: optional string family;
-    6: optional list<string> add_import_rt;
-    7: optional list<string> remove_import_rt;
-    8: optional list<string> add_export_rt;
-    9: optional list<string> remove_export_rt;
-    10: string hostname;
+    1 : string name (key="ObjectVNTable");
+    2 : string instance_name;
+    3 : optional string route_distinguisher;
+    4 : optional string operation;
+    5 : optional string peer;
+    6 : optional string family;
+    7 : optional list<string> add_import_rt;
+    8 : optional list<string> remove_import_rt;
+    9 : optional list<string> add_export_rt;
+    10: optional list<string> remove_export_rt;
+    11: string hostname;
 }
 
 objectlog sandesh RoutingInstanceCollector {
@@ -28,10 +29,12 @@ objectlog sandesh RoutingInstanceCollector {
  * @severity: DEBUG
  */
 traceobject sandesh RoutingInstanceMessage {
-    1: "RoutingInstance";
-    2: string name (key="ObjectRoutingInstance");
-    3: ":";
-    4: string Message;
+    1: "VirtualNetwork";
+    2: string name (key="ObjectVNTable");
+    3: "RoutingInstance";
+    4: string instance_name;
+    5: ":";
+    6: string Message;
 }
 
 /**
@@ -41,10 +44,12 @@ traceobject sandesh RoutingInstanceMessage {
  * @action: None
  */
 systemlog sandesh RoutingInstanceMessageLog {
-    1: "RoutingInstance";
-    2: string name (key="ObjectRoutingInstance");
-    3: ":";
-    4: string Message;
+    1: "VirtualNetwork";
+    2: string name (key="ObjectVNTable");
+    3: "RoutingInstance";
+    4: string instance_name;
+    5: ":";
+    6: string Message;
 }
 
 /**
@@ -52,10 +57,12 @@ systemlog sandesh RoutingInstanceMessageLog {
  * @severity: ERROR
  */
 traceobject sandesh RoutingInstanceWarningMessage {
-    1: "RoutingInstance";
-    2: string name (key="ObjectRoutingInstance");
-    3: ":";
-    4: string Message;
+    1: "VirtualNetwork";
+    2: string name (key="ObjectVNTable");
+    3: "RoutingInstance";
+    4: string instance_name;
+    5: ":";
+    6: string Message;
 }
 
 /**
@@ -65,10 +72,12 @@ traceobject sandesh RoutingInstanceWarningMessage {
  * @action: Contact your technical support representative
  */
 systemlog sandesh RoutingInstanceWarningMessageLog {
-    1: "RoutingInstance";
-    2: string name (key="ObjectRoutingInstance");
-    3: ":";
-    4: string Message;
+    1: "VirtualNetwork";
+    2: string name (key="ObjectVNTable");
+    3: "RoutingInstance";
+    4: string instance_name;
+    6: ":";
+    7: string Message;
 }
 
 /**
@@ -76,16 +85,16 @@ systemlog sandesh RoutingInstanceWarningMessageLog {
  * @severity: DEBUG / ERROR
  */
 traceobject sandesh RoutingInstanceCreate {
-    6: "Routing Instance";
-    1: string name (key="ObjectRoutingInstance");
-    7: "Import Targets";
-    2: list<string> import_rt;
-    8: "Export Targets";
-    3: list<string> export_rt;
-    9: "Virtual Network";
-    4: string virtual_network;
-    10: "VN Index";
-    5: i32 index;
+    1 : "VirtualNetwork";
+    2 : string name (key="ObjectVNTable");
+    3 : "Routing Instance";
+    4 : string instance_name;
+    5 : "Import Targets";
+    6 : list<string> import_rt;
+    7 : "Export Targets";
+    8 : list<string> export_rt;
+    9 : "VN Index";
+    10: i32 index;
 }
 
 /**
@@ -95,16 +104,16 @@ traceobject sandesh RoutingInstanceCreate {
  * @action: Contact your technical support representative in case of Error
  */
 systemlog sandesh RoutingInstanceCreateLog {
-    6: "Routing Instance";
-    1: string name (key="ObjectRoutingInstance");
-    7: "Import Targets";
-    2: list<string> import_rt;
-    8: "Export Targets";
-    3: list<string> export_rt;
-    9: "Virtual Network";
-    4: string virtual_network;
-    10: "VN Index";
-    5: i32 index;
+    1 : "VirtualNetwork";
+    2 : string name (key="ObjectVNTable");
+    3 : "Routing Instance";
+    4 : string instance_name;
+    5 : "Import Targets";
+    6 : list<string> import_rt;
+    7 : "Export Targets";
+    8 : list<string> export_rt;
+    9 : "VN Index";
+    10: i32 index;
 }
 
 /**
@@ -112,8 +121,10 @@ systemlog sandesh RoutingInstanceCreateLog {
  * @severity: DEBUG / ERROR
  */
 traceobject sandesh RoutingInstanceDelete {
-    2: "Routing Instance";
-    1: string name (key="ObjectRoutingInstance");
+    1: "VirtualNetwork";
+    2: string name (key="ObjectVNTable");
+    3: "Routing Instance";
+    4: string instance_name;
 }
 
 /**
@@ -123,8 +134,10 @@ traceobject sandesh RoutingInstanceDelete {
  * @action: Contact your technical support representative in case of Error
  */
 systemlog sandesh RoutingInstanceDeleteLog {
-    2: "Routing Instance";
-    1: string name (key="ObjectRoutingInstance");
+    1: "VirtualNetwork";
+    2: string name (key="ObjectVNTable");
+    3: "Routing Instance";
+    4: string instance_name;
 }
 
 /**
@@ -132,16 +145,16 @@ systemlog sandesh RoutingInstanceDeleteLog {
  * @severity: DEBUG / ERROR
  */
 traceobject sandesh RoutingInstanceUpdate {
-    6: "Routing Instance";
-    1: string name (key="ObjectRoutingInstance");
-    7: "Import Targets";
-    2: list<string> import_rt;
-    8: "Export Targets";
-    3: list<string> export_rt;
-    9: "Virtual Network";
-    4: string virtual_network;
-    10: "VN Index";
-    5: i32 index;
+    1 : "VirtualNetwork";
+    2 : string name (key="ObjectVNTable");
+    3 : "Routing Instance";
+    4 : string instance_name;
+    5 : "Import Targets";
+    6 : list<string> import_rt;
+    7 : "Export Targets";
+    8 : list<string> export_rt;
+    9 : "VN Index";
+    10: i32 index;
 }
 
 /**
@@ -151,16 +164,16 @@ traceobject sandesh RoutingInstanceUpdate {
  * @action: Contact your technical support representative in case of Error
  */
 systemlog sandesh RoutingInstanceUpdateLog {
-    6: "Routing Instance";
-    1: string name (key="ObjectRoutingInstance");
-    7: "Import Targets";
-    2: list<string> import_rt;
-    8: "Export Targets";
-    3: list<string> export_rt;
-    9: "Virtual Network";
-    4: string virtual_network;
-    10: "VN Index";
-    5: i32 index;
+    1 : "VirtualNetwork";
+    2 : string name (key="ObjectVNTable");
+    3 : "Routing Instance";
+    4 : string instance_name;
+    5 : "Import Targets";
+    6 : list<string> import_rt;
+    7 : "Export Targets";
+    8 : list<string> export_rt;
+    9 : "VN Index";
+    10: i32 index;
 }
 
 /**
@@ -168,8 +181,10 @@ systemlog sandesh RoutingInstanceUpdateLog {
  * @severity: DEBUG / ERROR
  */
 traceobject sandesh RoutingInstanceDestroy {
-    2: "Routing Instance";
-    1: string name (key="ObjectRoutingInstance");
+    1: "VirtualNetwork";
+    2: string name (key="ObjectVNTable");
+    3: "Routing Instance";
+    4: string instance_name;
 }
 
 /**
@@ -179,8 +194,10 @@ traceobject sandesh RoutingInstanceDestroy {
  * @action: Contact your technical support representative in case of Error
  */
 systemlog sandesh RoutingInstanceDestroyLog {
-    2: "Routing Instance";
-    1: string name (key="ObjectRoutingInstance");
+    1: "VirtualNetwork";
+    2: string name (key="ObjectVNTable");
+    3: "Routing Instance";
+    4: string instance_name;
 }
 
 /**
@@ -188,8 +205,10 @@ systemlog sandesh RoutingInstanceDestroyLog {
  * @severity: DEBUG / ERROR
  */
 traceobject sandesh RoutingInstanceShutdown {
-    2: "Routing Instance";
-    1: string name (key="ObjectRoutingInstance");
+    1: "VirtualNetwork";
+    2: string name (key="ObjectVNTable");
+    3: "Routing Instance";
+    4: string instance_name;
 }
 
 /**
@@ -199,8 +218,10 @@ traceobject sandesh RoutingInstanceShutdown {
  * @action: Contact your technical support representative in case of Error
  */
 systemlog sandesh RoutingInstanceShutdownLog {
-    2: "Routing Instance";
-    1: string name (key="ObjectRoutingInstance");
+    1: "VirtualNetwork";
+    2: string name (key="ObjectVNTable");
+    3: "Routing Instance";
+    4: string instance_name;
 }
 
 /**
@@ -208,10 +229,12 @@ systemlog sandesh RoutingInstanceShutdownLog {
  * @severity: DEBUG / ERROR
  */
 traceobject sandesh RoutingInstancePeerCreate {
+    1: "VirtualNetwork";
+    2: string name (key="ObjectVNTable");
     3: "Routing Instance";
-    1: string name (key="ObjectRoutingInstance");
-    4: "Peer";
-    2: string peer;
+    4: string instance_name;
+    5: "Peer";
+    6: string peer;
 }
 
 /**
@@ -221,10 +244,12 @@ traceobject sandesh RoutingInstancePeerCreate {
  * @action: Contact your technical support representative in case of Error
  */
 systemlog sandesh RoutingInstancePeerCreateLog {
+    1: "VirtualNetwork";
+    2: string name (key="ObjectVNTable");
     3: "Routing Instance";
-    1: string name (key="ObjectRoutingInstance");
-    4: "Peer";
-    2: string peer;
+    4: string instance_name;
+    5: "Peer";
+    6: string peer;
 }
 
 /**
@@ -232,10 +257,12 @@ systemlog sandesh RoutingInstancePeerCreateLog {
  * @severity: DEBUG / ERROR
  */
 traceobject sandesh RoutingInstancePeerClear {
+    1: "VirtualNetwork";
+    2: string name (key="ObjectVNTable");
     3: "Routing Instance";
-    1: string name (key="ObjectRoutingInstance");
-    4: "Peer";
-    2: string peer;
+    4: string instance_name;
+    5: "Peer";
+    6: string peer;
 }
 
 /**
@@ -245,10 +272,12 @@ traceobject sandesh RoutingInstancePeerClear {
  * @action: Contact your technical support representative in case of Error
  */
 systemlog sandesh RoutingInstancePeerClearLog {
+    1: "VirtualNetwork";
+    2: string name (key="ObjectVNTable");
     3: "Routing Instance";
-    1: string name (key="ObjectRoutingInstance");
-    4: "Peer";
-    2: string peer;
+    4: string instance_name;
+    5: "Peer";
+    6: string peer;
 }
 
 /**
@@ -256,10 +285,12 @@ systemlog sandesh RoutingInstancePeerClearLog {
  * @severity: DEBUG / ERROR
  */
 traceobject sandesh RoutingInstancePeerDelete {
+    1: "VirtualNetwork";
+    2: string name (key="ObjectVNTable");
     3: "Routing Instance";
-    1: string name (key="ObjectRoutingInstance");
-    4: "Peer";
-    2: string peer;
+    4: string instance_name;
+    5: "Peer";
+    6: string peer;
 }
 
 /**
@@ -269,10 +300,12 @@ traceobject sandesh RoutingInstancePeerDelete {
  * @action: Contact your technical support representative in case of Error
  */
 systemlog sandesh RoutingInstancePeerDeleteLog {
+    1: "VirtualNetwork";
+    2: string name (key="ObjectVNTable");
     3: "Routing Instance";
-    1: string name (key="ObjectRoutingInstance");
-    4: "Peer";
-    2: string peer;
+    4: string instance_name;
+    5: "Peer";
+    6: string peer;
 }
 
 /**
@@ -280,10 +313,12 @@ systemlog sandesh RoutingInstancePeerDeleteLog {
  * @severity: DEBUG / ERROR
  */
 traceobject sandesh RoutingInstancePeerDestroy {
+    1: "VirtualNetwork";
+    2: string name (key="ObjectVNTable");
     3: "Routing Instance";
-    1: string name (key="ObjectRoutingInstance");
-    4: "Peer";
-    2: string peer;
+    4: string instance_name;
+    5: "Peer";
+    6: string peer;
 }
 
 /**
@@ -293,10 +328,12 @@ traceobject sandesh RoutingInstancePeerDestroy {
  * @action: Contact your technical support representative in case of Error
  */
 systemlog sandesh RoutingInstancePeerDestroyLog {
+    1: "VirtualNetwork";
+    2: string name (key="ObjectVNTable");
     3: "Routing Instance";
-    1: string name (key="ObjectRoutingInstance");
-    4: "Peer";
-    2: string peer;
+    4: string instance_name;
+    5: "Peer";
+    6: string peer;
 }
 
 /**
@@ -304,12 +341,14 @@ systemlog sandesh RoutingInstancePeerDestroyLog {
  * @severity: DEBUG / ERROR
  */
 traceobject sandesh RoutingInstanceTableCreate {
-    4: "Routing Instance";
-    1: string name (key="ObjectRoutingInstance");
+    1: "VirtualNetwork";
+    2: string name (key="ObjectVNTable");
+    3: "Routing Instance";
+    4: string instance_name;
     5: "Table";
-    2: string table;
-    6: "Family";
-    3: string family;
+    6: string table;
+    7: "Family";
+    8: string family;
 }
 
 /**
@@ -319,12 +358,14 @@ traceobject sandesh RoutingInstanceTableCreate {
  * @action: Contact your technical support representative in case of Error
  */
 systemlog sandesh RoutingInstanceTableCreateLog {
-    4: "Routing Instance";
-    1: string name (key="ObjectRoutingInstance");
+    1: "VirtualNetwork";
+    2: string name (key="ObjectVNTable");
+    3: "Routing Instance";
+    4: string instance_name;
     5: "Table";
-    2: string table;
-    6: "Family";
-    3: string family;
+    6: string table;
+    7: "Family";
+    8: string family;
 }
 
 /**
@@ -332,12 +373,14 @@ systemlog sandesh RoutingInstanceTableCreateLog {
  * @severity: DEBUG / ERROR
  */
 traceobject sandesh RoutingInstanceTableDestroy {
-    4: "Routing Instance";
-    1: string name (key="ObjectRoutingInstance");
+    1: "VirtualNetwork";
+    2: string name (key="ObjectVNTable");
+    3: "Routing Instance";
+    4: string instance_name;
     5: "Table";
-    2: string table;
-    6: "Family";
-    3: string family;
+    6: string table;
+    7: "Family";
+    8: string family;
 }
 
 /**
@@ -347,12 +390,14 @@ traceobject sandesh RoutingInstanceTableDestroy {
  * @action: Contact your technical support representative in case of Error
  */
 systemlog sandesh RoutingInstanceTableDestroyLog {
-    4: "Routing Instance";
-    1: string name (key="ObjectRoutingInstance");
+    1: "VirtualNetwork";
+    2: string name (key="ObjectVNTable");
+    3: "Routing Instance";
+    4: string instance_name;
     5: "Table";
-    2: string table;
-    6: "Family";
-    3: string family;
+    6: string table;
+    7: "Family";
+    8: string family;
 }
 
 /**
@@ -363,9 +408,9 @@ traceobject sandesh RprReplicate {
     1: string primary_table;
     2: string primary_rt;
     3: string peer;
-    6: string path_id;
-    4: string secondary_table;
-    5: string secondary_rt;
+    4: string path_id;
+    5: string secondary_table;
+    6: string secondary_rt;
 }
 
 /**
