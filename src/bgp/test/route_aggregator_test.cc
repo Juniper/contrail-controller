@@ -397,7 +397,7 @@ protected:
         int i = 0;
         BOOST_FOREACH(const AggregateRouteEntriesInfo &info,
                       resp->get_aggregate_route_entries()) {
-            TASK_UTIL_EXPECT_EQ(info.get_name(), result);
+            TASK_UTIL_EXPECT_EQ(info.get_instance_name(), result);
             i++;
         }
         validate_done_ = true;
