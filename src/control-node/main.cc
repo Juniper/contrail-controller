@@ -324,7 +324,7 @@ int main(int argc, char *argv[]) {
     TaskScheduler::Initialize();
     TaskScheduler::GetInstance()->SetTrackRunTime(
         options.task_track_run_time());
-    BgpXmppMessage::Initialize();
+    ControlNode::Initialize();
     ControlNode::SetDefaultSchedulingPolicy();
 
     /* If Sandesh initialization is not being done via discovery we need to
@@ -565,6 +565,6 @@ int main(int argc, char *argv[]) {
 
     ShutdownServers(&bgp_peer_manager, ds_client, node_info_log_timer.get(),
                     &tbb_awake_task);
-    BgpXmppMessage::Terminate();
+    ControlNode::Terminate();
     return 0;
 }

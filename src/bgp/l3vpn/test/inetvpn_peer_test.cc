@@ -727,6 +727,7 @@ TEST_P(L3VPNPeerTest, ExtendedCommunity) {
 }
 
 static void SetUp() {
+    ControlNode::Initialize();
     ControlNode::SetDefaultSchedulingPolicy();
     BgpServerTest::GlobalSetUp();
     BgpObjectFactory::Register<StateMachine>(
@@ -741,6 +742,7 @@ static void SetUp() {
 }
 
 static void TearDown() {
+    ControlNode::Terminate();
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Terminate();
 }

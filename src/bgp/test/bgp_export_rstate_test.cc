@@ -1167,11 +1167,13 @@ TEST_F(BgpExportRouteStateTest, LeaveDeleted4) {
 
 static void SetUp() {
     bgp_log_test::init();
+    ControlNode::Initialize();
     ControlNode::SetDefaultSchedulingPolicy();
 }
 
 static void TearDown() {
     task_util::WaitForIdle();
+    ControlNode::Terminate();
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Terminate();
 }

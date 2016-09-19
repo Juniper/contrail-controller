@@ -1585,7 +1585,7 @@ class TestEnvironment : public ::testing::Environment {
 };
 
 static void SetUp() {
-    BgpXmppMessage::Initialize();
+    ControlNode::Initialize();
     ControlNode::SetDefaultSchedulingPolicy();
     BgpServerTest::GlobalSetUp();
     BgpObjectFactory::Register<StateMachine>(
@@ -1594,7 +1594,7 @@ static void SetUp() {
         boost::factory<BgpXmppMessageBuilder *>());
 }
 static void TearDown() {
-    BgpXmppMessage::Terminate();
+    ControlNode::Terminate();
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Terminate();
 }

@@ -19,6 +19,7 @@
 #include "control-node/control_node.h"
 #include "bgp/bgp_attr.h"
 #include "bgp/bgp_export.h"
+#include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_message_builder.h"
 #include "bgp/bgp_peer.h"
@@ -83,48 +84,42 @@ private:
     bool send_block_;
 };
 
-class MessageMock : public Message {
+class BgpMessageMock : public BgpMessage {
 public:
-    MessageMock() : route_count_(1) { }
-    virtual bool AddRoute(const BgpRoute *route, const RibOutAttr *attr) {
+    BgpMessageMock() : route_count_(0) { }
+    virtual ~BgpMessageMock() { }
+
+    bool Start(const RibOut *ribout, bool cache_routes,
+        const RibOutAttr *roattr, const BgpRoute *route) {
+        msg_count_++;
+        route_count_ = 1;
+        return true;
+    }
+    virtual bool AddRoute(const BgpRoute *route, const RibOutAttr* attr) {
         return (++route_count_ == 1000 ? false : true);
     }
     virtual void Finish() {
     }
     virtual const uint8_t *GetData(IPeerUpdate *peer, size_t *lenp,
-                                   const std::string **msg_str) {
+        const string **msg_str) {
         return NULL;
     }
 
+    static int msg_count() { return msg_count_; }
+    static void clear_msg_count() { msg_count_ = 0; }
+
 private:
+    static int msg_count_;
     int route_count_;
 };
 
-// Set to true if/when debugging the tests.
-const static bool use_bgp_messages = false;
+int BgpMessageMock::msg_count_;
 
-class MsgBuilderMock : public BgpMessageBuilder {
+class BgpMessageBuilderMock : public BgpMessageBuilder {
 public:
-    MsgBuilderMock() : msg_count_(0) { }
-    virtual ~MsgBuilderMock() { }
-
-    virtual Message *Create(int idx, const RibOut *ribout, bool cache_routes,
-                            const RibOutAttr *attr,
-                            const BgpRoute *route) const {
-        msg_count_++;
-        if (use_bgp_messages) {
-            return BgpMessageBuilder::Create(
-                idx, ribout, cache_routes, attr, route);
-        } else {
-            return new MessageMock();
-        }
+    virtual Message *Create() const {
+        return new BgpMessageMock;
     }
-
-    int msg_count() const { return msg_count_; }
-    void clear_msg_count() { msg_count_ = 0; }
-
-private:
-    mutable int msg_count_;
 };
 
 class RibOutUpdatesTest : public ::testing::Test {
@@ -168,7 +163,6 @@ protected:
         dflt_rt_.set_onlist();
         export_ = ribout_->bgp_export();
         updates_ = ribout_->updates(0);
-        updates_->SetMessageBuilder(&builder_);
     }
 
     virtual void SetUp() {
@@ -606,11 +600,11 @@ protected:
     }
 
     void VerifyMessageCount(int count) {
-        EXPECT_EQ(count, builder_.msg_count());
+        EXPECT_EQ(count, BgpMessageMock::msg_count());
     }
 
     void ClearMessageCount() {
-        builder_.clear_msg_count();
+        BgpMessageMock::clear_msg_count();
     }
 
     void DeleteRouteState(BgpRoute *route) {
@@ -690,7 +684,6 @@ protected:
     RibOut *ribout_;
     BgpExport *export_;
     RibOutUpdates *updates_;
-    MsgBuilderMock builder_;
 
     Ip4Prefix dflt_prefix_;
     InetRoute dflt_rt_;

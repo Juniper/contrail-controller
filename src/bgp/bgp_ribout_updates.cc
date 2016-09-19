@@ -20,6 +20,10 @@
 #include "bgp/message_builder.h"
 
 using std::auto_ptr;
+using std::vector;
+
+vector<Message *> RibOutUpdates::bgp_messages_;
+vector<Message *> RibOutUpdates::xmpp_messages_;
 
 //
 // Create a new RibOutUpdates.  Also create the necessary UpdateQueue and
@@ -33,7 +37,6 @@ RibOutUpdates::RibOutUpdates(RibOut *ribout, int index)
         queue_vec_.push_back(queue);
     }
     monitor_.reset(new RibUpdateMonitor(ribout, &queue_vec_));
-    builder_ = MessageBuilder::GetInstance(ribout->ExportPolicy().encoding);
     memset(&stats_, 0, sizeof(stats_));
 }
 
@@ -42,6 +45,49 @@ RibOutUpdates::RibOutUpdates(RibOut *ribout, int index)
 //
 RibOutUpdates::~RibOutUpdates() {
     STLDeleteValues(&queue_vec_);
+}
+
+//
+// Initialize static vectors of bgp/xmpp message pointers to NULL.
+//
+void RibOutUpdates::Initialize() {
+    bgp_messages_.resize(DB::PartitionCount(), NULL);
+    xmpp_messages_.resize(DB::PartitionCount(), NULL);
+}
+
+//
+// Free any memory allocated for bgp/xmpp messages.
+//
+void RibOutUpdates::Terminate() {
+    STLDeleteValues(&bgp_messages_);
+    STLDeleteValues(&xmpp_messages_);
+}
+
+//
+// Create if needed, and return the bgp/xmpp message for this RibOutUpdates.
+// Note that we use static vectors of bgp/xmpp messages, one per partition,
+// so that we don't need to allocate and free messages repeatedly.
+//
+Message *RibOutUpdates::GetMessage() const {
+    if (ribout_->IsEncodingBgp()) {
+        if (!bgp_messages_[index_]) {
+            MessageBuilder *builder =
+                MessageBuilder::GetInstance(RibExportPolicy::BGP);
+            Message *message = builder->Create();
+            bgp_messages_[index_] = message;
+        }
+        return bgp_messages_[index_];
+    }
+    if (ribout_->IsEncodingXmpp()) {
+        if (!xmpp_messages_[index_]) {
+            MessageBuilder *builder =
+                MessageBuilder::GetInstance(RibExportPolicy::XMPP);
+            Message *message = builder->Create();
+            xmpp_messages_[index_] = message;
+        }
+        return xmpp_messages_[index_];
+    }
+    return NULL;
 }
 
 //
@@ -126,21 +172,21 @@ bool RibOutUpdates::DequeueCommon(UpdateQueue *queue, UpdateMarker *marker,
         // The Create routine has the responsibility of logging an error and
         // incrementing any counters.
         RibPeerSet msg_blocked;
-        bool msg_sent = false;
         stats_[queue_id].messages_built_count_++;
-        auto_ptr<Message> message(builder_->Create(
-            index_, ribout_, cache_routes, &uinfo->roattr, rt_update->route()));
-        if (message.get() != NULL) {
-            UpdatePack(queue_id, message.get(), uinfo, msgset);
+        Message *message = GetMessage();
+        assert(message);
+        bool msg_built = message->Start(
+            ribout_, cache_routes, &uinfo->roattr, rt_update->route());
+        if (msg_built) {
+            UpdatePack(queue_id, message, uinfo, msgset);
             message->Finish();
-            UpdateSend(queue_id, message.get(), msgset, &msg_blocked);
-            msg_sent = true;
+            UpdateSend(queue_id, message, msgset, &msg_blocked);
         }
 
         // Reset bits in the UpdateInfo.  Note that this has already been done
         // via UpdatePack for all the other UpdateInfo elements that we packed
         // into this message.
-        bool empty = ClearAdvertisedBits(rt_update, uinfo, msgset, msg_sent);
+        bool empty = ClearAdvertisedBits(rt_update, uinfo, msgset, msg_built);
         if (empty) {
             rt_update->RemoveUpdateInfo(uinfo);
         }

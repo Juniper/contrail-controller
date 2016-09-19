@@ -7,9 +7,6 @@
 #include "bgp/xmpp_message_builder.h"
 #include "bgp/bgp_factory.h"
 
-Message::~Message() {
-}
-
 BgpMessageBuilder *MessageBuilder::bgp_message_builder_;
 BgpXmppMessageBuilder *MessageBuilder::xmpp_message_builder_;
 

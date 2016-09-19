@@ -14,16 +14,17 @@ class RibOut;
 
 class BgpMessage : public Message {
 public:
-    explicit BgpMessage(const BgpTable *table = NULL);
+    BgpMessage();
     virtual ~BgpMessage();
-    bool Start(const RibOut *ribout, const RibOutAttr *roattr,
-               const BgpRoute *route);
+    virtual bool Start(const RibOut *ribout, bool cache_routes,
+                       const RibOutAttr *roattr, const BgpRoute *route);
     virtual bool AddRoute(const BgpRoute *route, const RibOutAttr *roattr);
     virtual void Finish();
     virtual const uint8_t *GetData(IPeerUpdate *peer, size_t *lenp,
                                    const std::string **msg_str);
 
 private:
+    virtual void Reset();
     bool StartReach(const RibOut *ribout, const RibOutAttr *roattr,
                     const BgpRoute *route);
     bool StartUnreach(const BgpRoute *route);
@@ -40,10 +41,7 @@ private:
 class BgpMessageBuilder : public MessageBuilder {
 public:
     BgpMessageBuilder();
-    virtual Message *Create(int part_id, const RibOut *ribout,
-                            bool cache_routes,
-                            const RibOutAttr *roattr,
-                            const BgpRoute *route) const;
+    virtual Message *Create() const;
 
 private:
     DISALLOW_COPY_AND_ASSIGN(BgpMessageBuilder);

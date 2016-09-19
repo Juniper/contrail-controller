@@ -15,7 +15,6 @@ class BgpTable;
 class DBEntryBase;
 class IPeerUpdate;
 class Message;
-class MessageBuilder;
 class RibPeerSet;
 class RibUpdateMonitor;
 class RibOut;
@@ -62,8 +61,11 @@ public:
         uint64_t marker_move_count_;
     };
 
-    explicit RibOutUpdates(RibOut *ribout, int index);
+    RibOutUpdates(RibOut *ribout, int index);
     virtual ~RibOutUpdates();
+
+    static void Initialize();
+    static void Terminate();
 
     void Enqueue(DBEntryBase *db_entry, RouteUpdate *rt_update);
 
@@ -91,12 +93,11 @@ public:
 
     void AddStatisticsInfo(int queue_id, Stats *stats) const;
 
-    // Testing only
-    void SetMessageBuilder(MessageBuilder *builder) { builder_ = builder; }
-
 private:
     friend class RibOutUpdatesTest;
+    friend class XmppMessageBuilderTest;
 
+    Message *GetMessage() const;
     bool DequeueCommon(UpdateQueue *queue, UpdateMarker *marker,
                        RouteUpdate *rt_update, RibPeerSet *blocked);
 
@@ -123,10 +124,11 @@ private:
 
     RibOut *ribout_;
     int index_;
-    MessageBuilder *builder_;
     QueueVec queue_vec_;
     Stats stats_[QCOUNT];
     boost::scoped_ptr<RibUpdateMonitor> monitor_;
+    static std::vector<Message *> bgp_messages_;
+    static std::vector<Message *> xmpp_messages_;
 
     DISALLOW_COPY_AND_ASSIGN(RibOutUpdates);
 };

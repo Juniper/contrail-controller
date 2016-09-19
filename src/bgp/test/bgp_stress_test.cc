@@ -3322,7 +3322,7 @@ class TestEnvironment : public ::testing::Environment {
 
 static void SetUp() {
     std::srand(std::time(0));
-    BgpXmppMessage::Initialize();
+    ControlNode::Initialize();
     ControlNode::SetDefaultSchedulingPolicy();
     BgpServerTest::GlobalSetUp();
     BgpObjectFactory::Register<PeerCloseManager>(
@@ -3338,7 +3338,7 @@ static void SetUp() {
 }
 
 static void TearDown() {
-    BgpXmppMessage::Terminate();
+    ControlNode::Terminate();
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Terminate();
 }
