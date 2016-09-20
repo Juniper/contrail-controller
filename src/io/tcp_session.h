@@ -131,6 +131,10 @@ public:
         return remote_;
     }
 
+    const std::string &remote_addr_string() const {
+        return remote_addr_str_;
+    }
+
     Endpoint local_endpoint() const;
 
     const boost::system::error_code &close_reason() const {
@@ -238,10 +242,11 @@ private:
     int buffer_size_;
 
     /**************** protected by mutex_ ****************/
-    bool established_;          // In TCP ESTABLISHED state.
-    bool closed_;               // Close has been called.
-    Endpoint remote_;           // Remote end-point
-    Direction direction_;       // direction (active, passive)
+    bool established_;             // In TCP ESTABLISHED state.
+    bool closed_;                  // Close has been called.
+    Endpoint remote_;              // Remote end-point
+    std::string remote_addr_str_;  // Remote end-point address string
+    Direction direction_;          // direction (active, passive)
     BufferQueue buffer_queue_;
     boost::system::error_code close_reason_;
     /**************** end protected by mutex_ ****************/

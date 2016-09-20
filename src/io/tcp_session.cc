@@ -246,6 +246,7 @@ void TcpSession::SessionEstablished(Endpoint remote,
                                     Direction direction) {
     established_ = true;
     remote_ = remote;
+    remote_addr_str_ = remote.address().to_string();
     direction_ = direction;
     SetName();
 }
