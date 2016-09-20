@@ -14,10 +14,25 @@ env.Append(LIBPATH = ['#/' + Dir('..').path,
                       '../../base',
                       '../../base/test',
                       '../../bgp',
+                      '../../bgp/routing-instance',
+                      '../../bgp/rtarget',
+                      '../../bgp/origin-vn',
+                      '../../bgp/ermvpn',
+                      '../../bgp/evpn',
+                      '../../bgp/extended-community',
+                      '../../bgp/inet',
+                      '../../bgp/inet6',
+                      '../../bgp/inet6vpn',
+                      '../../bgp/l3vpn',
+                      '../../bgp/routing-policy',
+                      '../../bgp/security_group',
+                      '../../bgp/tunnel_encap',
                       '../../control-node',
                       '../../db',
                       '../../ifmap',
                       '../../io',
+                      '../../net',
+                      '../../route',
                       '../../xml',
                       '../../schema',
                       '.'
@@ -27,10 +42,14 @@ libxmpptest = env.Library('xmpptest',
                          ['xmpp_sample_peer.cc'])
 
 env.Prepend(LIBS = ['task_test', 'gunit', 'xmpp', 'xml', 'pugixml', 'sandesh', 
-                    'http', 'http_parser', 'curl', 'process_info', 
-                    'io', 'ssl', 'crypto', 'sandeshvns', 'base', 'peer_sandesh',
+                    'bgp', 'http', 'http_parser', 'curl', 'process_info',
+                    'io', 'ssl', 'crypto', 'sandeshvns', 'peer_sandesh',
                     'table_sandesh', 'boost_regex', 'xmpptest', 'control_node',
-                    'sandesh'])
+                    'bgp', 'routing_instance', 'origin_vn', 'rtarget', 'db',
+                    'bgp_inet6', 'extended_community', 'net',
+                    'bgp_ermvpn', 'bgp_evpn', 'base', 'table_sandesh',
+                    'tunnel_encap', 'security_group', 'bgp_inet6vpn', 'route',
+                    'routing_policy', 'bgp_inet', 'bgp_l3vpn', 'sandesh'])
 
 if sys.platform != 'darwin':
     env.Append(LIBS = ['rt'])
