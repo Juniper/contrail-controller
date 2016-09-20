@@ -81,9 +81,11 @@ void DnsAgentXmppChannel::HandleAgentUpdate(
             if (!change) {
                 data->items.erase(iter++);
             } else {
-                Dns::GetDnsManager()->ProcessAgentUpdate(op,
-                                      GetDnsRecordName(data->virtual_dns, *iter),
-                                      data->virtual_dns, *iter);
+                boost::shared_ptr<DnsAgentXmppChannelManager::RecordRequest>
+                    req(new DnsAgentXmppChannelManager::RecordRequest(
+                            op, GetDnsRecordName(data->virtual_dns, *iter),
+                            data->virtual_dns, *iter));
+                mgr_->EnqueueRecord(req);
                 ++iter;
             }
         }
@@ -97,9 +99,12 @@ void DnsAgentXmppChannel::HandleAgentUpdate(
             if ((*iter).IsDelete())
                 data->items.erase(iter++);
             else {
-                Dns::GetDnsManager()->ProcessAgentUpdate(BindUtil::ADD_UPDATE, 
-                                      GetDnsRecordName(data->virtual_dns, *iter),
-                                      data->virtual_dns, *iter);
+                boost::shared_ptr<DnsAgentXmppChannelManager::RecordRequest>
+                    req(new DnsAgentXmppChannelManager::RecordRequest(
+                            BindUtil::ADD_UPDATE,
+                            GetDnsRecordName(data->virtual_dns, *iter),
+                            data->virtual_dns, *iter));
+                mgr_->EnqueueRecord(req);
                 ++iter;
             }
         }
@@ -113,9 +118,11 @@ void DnsAgentXmppChannel::UpdateDnsRecords(BindUtil::Operation op) {
          it != update_data_.end(); ++it) {
         for (DnsItems::const_iterator item = (*it)->items.begin();
              item != (*it)->items.end(); ++item) {
-            Dns::GetDnsManager()->ProcessAgentUpdate(op, 
-                                  GetDnsRecordName((*it)->virtual_dns, *item),
-                                  (*it)->virtual_dns, *item);
+            boost::shared_ptr<DnsAgentXmppChannelManager::RecordRequest>
+                req(new DnsAgentXmppChannelManager::RecordRequest(
+                        op, GetDnsRecordName((*it)->virtual_dns, *item),
+                        (*it)->virtual_dns, *item));
+            mgr_->EnqueueRecord(req);
         }
     }
 }
@@ -155,7 +162,11 @@ void DnsAgentXmppChannel::GetAgentDnsData(AgentDnsData &data) {
 }
 
 DnsAgentXmppChannelManager::DnsAgentXmppChannelManager(
-                            XmppServer *server) : server_(server) {
+                            XmppServer *server)
+    : server_(server),
+      work_queue_(TaskScheduler::GetInstance()->GetTaskId("dns::Config"), 0,
+                  boost::bind(&DnsAgentXmppChannelManager::ProcessRecord,
+                              this, _1)) {
     if (server_) {
         server_->RegisterConnectionEvent(xmps::DNS,
         boost::bind(&DnsAgentXmppChannelManager::HandleXmppChannelEvent,
@@ -167,6 +178,18 @@ DnsAgentXmppChannelManager::~DnsAgentXmppChannelManager() {
     if (server_)
         server_->UnRegisterConnectionEvent(xmps::DNS);
     channel_map_.clear();
+}
+
+bool DnsAgentXmppChannelManager::ProcessRecord(
+                                 boost::shared_ptr<RecordRequest> req) {
+    Dns::GetDnsManager()->ProcessAgentUpdate(req->op, req->record_name,
+                                             req->vdns_name, req->item);
+    return true;
+}
+
+void DnsAgentXmppChannelManager::EnqueueRecord(
+                                 boost::shared_ptr<RecordRequest> req) {
+    work_queue_.Enqueue(req);
 }
 
 void DnsAgentXmppChannelManager::RemoveChannel(XmppChannel *ch) {
