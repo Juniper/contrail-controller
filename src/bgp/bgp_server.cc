@@ -773,6 +773,13 @@ uint32_t BgpServer::SendTableStatsUve(bool first) const {
                     table->GetSecondaryPathCount());
             }
 
+            if (first || table->stats()->get_infeasible_paths() !=
+                    table->GetInfeasiblePathCount()) {
+                changed = true;
+                table->stats()->set_infeasible_paths(
+                    table->GetSecondaryPathCount());
+            }
+
             uint64_t total_paths = table->stats()->get_primary_paths() +
                                    table->stats()->get_secondary_paths() +
                                    table->stats()->get_infeasible_paths();
