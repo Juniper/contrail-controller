@@ -12,7 +12,6 @@ import logging
 import socket
 
 from cfgm_common import svc_info
-from cfgm_common import vnc_cpu_info
 from cfgm_common.uve.service_instance.ttypes import *
 
 from pysandesh.sandesh_base import Sandesh, SandeshSystem
@@ -65,9 +64,6 @@ class ServiceMonitorLogger(object):
 
         #create cpu_info object to send periodic updates
         sysinfo_req = False
-        cpu_info = vnc_cpu_info.CpuInfo(self._module_name,
-            self._instance_id, sysinfo_req, self._sandesh, 60)
-        self._cpu_info = cpu_info
 
     def _get_sandesh_logger_level(self, sandesh_level):
         return self._LOGGER_LEVEL_TO_SANDESH_LEVEL[sandesh_level]

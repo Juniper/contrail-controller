@@ -9,8 +9,6 @@
  * responsible for reporting overall health periodically.
  */
 
-include "base/sandesh/process_info.sandesh"
-include "base/sandesh/cpuinfo.sandesh"
 include "ifmap/ifmap_server_show.sandesh"
 
 struct BgpRouterState {
@@ -59,19 +57,4 @@ response sandesh ShutdownControlNodeResp {
 
 // Gracefully shutdown (and possibly restart) control-node process
 request sandesh ShutdownControlNodeReq {
-}
-
-struct ControlCpuState {
-    1: string                                 name (key="ObjectBgpRouter")
-    2: optional bool                          deleted
-    /** @display_name:Control CPU Information*/
-    3: optional list<cpuinfo.ProcessCpuInfo>  cpu_info (tags=".module_id,.mem_virt,.cpu_share,.mem_res", aggtype="union")
-}
-
-/**
- * @description: Contrail-Control daemon's CPU consumption information
- * @severity: DEBUG
- */
-uve sandesh ControlCpuStateTrace {
-    1: ControlCpuState data
 }

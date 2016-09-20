@@ -6,5 +6,4 @@ The main modules in this package are:
     * vnc_cfg_ifmap
     * vnc_addr_mgmt
     * vnc_cfg_types
-    * vnc_cpu_info
 """

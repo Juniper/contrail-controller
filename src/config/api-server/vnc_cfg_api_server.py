@@ -89,7 +89,8 @@ import vnc_auth
 import vnc_auth_keystone
 import vnc_perms
 import vnc_rbac
-from cfgm_common import vnc_cpu_info
+from cfgm_common.uve.cfgm_cpuinfo.ttypes import ModuleCpuState, ModuleCpuStateTrace
+from cfgm_common.buildinfo import build_info
 from cfgm_common.vnc_api_stats import log_api_stats
 
 from pysandesh.sandesh_base import *
@@ -1427,13 +1428,19 @@ class VncApiServer(object):
         if self.is_rbac_enabled():
             self._create_default_rbac_rule()
 
-        # Cpuinfo interface
-        sysinfo_req = True
-        config_node_ip = self.get_server_ip()
-        cpu_info = vnc_cpu_info.CpuInfo(
-            self._sandesh.module(), self._sandesh.instance_id(), sysinfo_req,
-            self._sandesh, 60, config_node_ip)
-        self._cpu_info = cpu_info
+        cfgm_cpu_uve = ModuleCpuState()
+        cfgm_cpu_uve.name = socket.gethostname()
+        cfgm_cpu_uve.config_node_ip = self.get_server_ip()
+
+        command = "contrail-version contrail-config | grep 'contrail-config'"
+        version = os.popen(command).read()
+        _, rpm_version, build_num = version.split()
+        cfgm_cpu_uve.build_info = build_info + '"build-id" : "' + \
+                                  rpm_version + '", "build-number" : "' + \
+                                  build_num + '"}]}'
+
+        cpu_info_trace = ModuleCpuStateTrace(data=cfgm_cpu_uve, sandesh=self._sandesh)
+        cpu_info_trace.send(sandesh=self._sandesh)
 
         self.re_uuid = re.compile('^[0-9A-F]{8}-?[0-9A-F]{4}-?4[0-9A-F]{3}-?[89AB][0-9A-F]{3}-?[0-9A-F]{12}$',
                                   re.IGNORECASE)
