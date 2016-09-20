@@ -51,14 +51,14 @@ class PartialSysinfoAnalytics(PartialSysinfo):
 
 class PartialSysinfoConfig(PartialSysinfo):
     """System Info Incomplete.
-       Basic System Information is absent for this node in ModuleCpuState.build_info"""
+       Basic System Information is absent for this node in ConfigState.build_info"""
 
     _RULES = {
         'or_list': [
             {
                 'and_list': [
                     {
-                        'operand1': 'ModuleCpuState.build_info',
+                        'operand1': 'ConfigState.build_info',
                         'operation': '==',
                         'operand2': {
                             'json_value': 'null'

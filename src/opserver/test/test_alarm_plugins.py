@@ -530,33 +530,33 @@ class TestAlarmPlugins(unittest.TestCase):
 
         tests = [
             TestCase(
-                name='ModuleCpuState == null',
+                name='ConfigState == null',
                 input=TestInput(uve_key='ObjectConfigNode:host1',
                     uve_data={}),
                 output=TestOutput(or_list=None)
             ),
             TestCase(
-                name='ModuleCpuState.build_info == null',
+                name='ConfigState.build_info == null',
                 input=TestInput(uve_key='ObjectConfigNode:host2',
                     uve_data={
-                        'ModuleCpuState': {
+                        'ConfigState': {
                             'config_node_ip': ['192.168.1.1']
                         }
                     }
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'and_list': [('ModuleCpuState.build_info == null',
+                        'and_list': [('ConfigState.build_info == null',
                             None, [('null', None, None)])
                         ]
                     }
                 ])
             ),
             TestCase(
-                name='ModuleCpuState.build_info != null',
+                name='ConfigState.build_info != null',
                 input=TestInput(uve_key='ObjectConfigNode:host1',
                     uve_data={
-                        'ModuleCpuState': {
+                        'ConfigState': {
                             'config_node_ip': ['10.10.10.1'],
                             'build_info': '"{"build-number":"2729"}"'
                         }

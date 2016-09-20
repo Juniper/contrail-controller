@@ -437,7 +437,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert(vizd_obj.set_alarmgen_partition(3,1) == 'true')
         assert(vizd_obj.verify_alarmgen_partition(0,'true'))
 
-        # The PartialSysinfo alarm om myvrouter should return
+        # The PartialSysinfo alarm on myvrouter should return
         assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
             "ObjectVRouter:myvrouter1", "partial-sysinfo-compute"))
 

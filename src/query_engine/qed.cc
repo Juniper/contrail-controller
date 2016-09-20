@@ -11,7 +11,6 @@
 #include <boost/program_options.hpp>
 #include <boost/tokenizer.hpp>
 #include "base/logging.h"
-#include "base/cpuinfo.h"
 #include "base/task.h"
 #include "base/task_trigger.h"
 #include "base/timer.h"
@@ -47,45 +46,6 @@ using process::g_process_info_constants;
 // before proceeding.
 // It will make it easier to debug qed during systest
 volatile int gdbhelper = 1;
-
-TaskTrigger *qe_info_trigger;
-Timer *qe_info_log_timer;
-
-bool QEInfoLogTimer() {
-    qe_info_trigger->Set();
-    return false;
-}
-
-bool QEInfoLogger(const string &hostname) {
-
-    CpuLoadInfo cpu_load_info;
-    CpuLoadData::FillCpuInfo(cpu_load_info, false);
-
-    ModuleCpuState state;
-    state.set_name(hostname);
-
-    ModuleCpuInfo cinfo;
-    cinfo.set_module_id(Sandesh::module());
-    cinfo.set_instance_id(Sandesh::instance_id());
-    cinfo.set_cpu_info(cpu_load_info);
-    vector<ModuleCpuInfo> cciv;
-    cciv.push_back(cinfo);
-
-    // At some point, the following attributes will be deprecated
-    // in favor of AnalyticsCpuState
-    state.set_module_cpu_info(cciv);
-
-    ModuleCpuStateTrace::Send(state);
-
-    SendCpuInfoStat<AnalyticsCpuStateTrace, AnalyticsCpuState>(hostname,
-        cpu_load_info);
-
-    qe_info_log_timer->Cancel();
-    qe_info_log_timer->Start(60*1000, boost::bind(&QEInfoLogTimer),
-                               NULL);
-    return true;
-}
-
 bool QedVersion(std::string &version) {
     return MiscUtils::GetBuildInfo(MiscUtils::Analytics, BuildInfo, version);
 }
@@ -330,16 +290,8 @@ main(int argc, char *argv[]) {
             options.cassandra_password()));
     }
 
-    CpuLoadData::Init();
-    qe_info_trigger =
-        new TaskTrigger(boost::bind(&QEInfoLogger, options.hostname()),
-                    TaskScheduler::GetInstance()->GetTaskId("qe::Stats"), 0);
-    qe_info_log_timer = TimerManager::CreateTimer(*evm.io_service(),
-                                                    "Collector Info log timer");
-    qe_info_log_timer->Start(5*1000, boost::bind(&QEInfoLogTimer), NULL);    
     signal(SIGTERM, terminate_qe);
     evm.Run();
 
-    ShutdownQe(ds_client, qe_info_log_timer);
     return 0;
 }

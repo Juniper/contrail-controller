@@ -14,7 +14,6 @@
 #include "sandesh/sandesh.h"
 #include "nodeinfo_types.h"
 #include "base/connection_info.h"
-#include "base/cpuinfo.h"
 #include "base/logging.h"
 #include "base/misc_utils.h"
 #include "bgp/bgp_config.h"
@@ -190,12 +189,6 @@ static bool ControlNodeInfoLogger(BgpServer *server,
                                   BgpXmppChannelManager *xmpp_channel_mgr,
                                   IFMapServer *ifmap_server,
                                   Timer *node_info_log_timer) {
-    // Send CPU usage Information.
-    CpuLoadInfo cpu_load_info;
-    CpuLoadData::FillCpuInfo(cpu_load_info, false);
-    SendCpuInfoStat<ControlCpuStateTrace, ControlCpuState>(server->localname(),
-                                                           cpu_load_info);
-
     static bool first = true;
     static BgpRouterState state;
     bool change = false;
@@ -540,8 +533,6 @@ int main(int argc, char *argv[]) {
     // ConnectionState is not updated before the ConnectionStateManager gets
     // initialized.
     ifmap_manager->InitializeDiscovery(ds_client, options.ifmap_server_url());
-
-    CpuLoadData::Init();
 
     std::auto_ptr<Timer> node_info_log_timer(
         TimerManager::CreateTimer(
