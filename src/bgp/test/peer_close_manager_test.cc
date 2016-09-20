@@ -50,9 +50,11 @@ public:
     virtual const char *GetTaskName() const { return "bgp::StateMachine"; }
     virtual int GetTaskInstance() const { return 0; }
 
-    virtual void SetManager(PeerCloseManager *close_manager) {
+    void SetManager(PeerCloseManager *close_manager) {
         close_manager_ = close_manager;
     }
+
+    virtual PeerCloseManager *GetManager() const { return close_manager_; }
     bool graceful() const { return graceful_; }
     void set_graceful(bool graceful) { graceful_ = graceful; }
     bool ll_graceful() const { return graceful_; }

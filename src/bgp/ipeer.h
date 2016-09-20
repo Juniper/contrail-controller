@@ -157,8 +157,6 @@ public:
     typedef std::set<Address::Family> Families;
 
     virtual ~IPeerClose() { }
-    // Printable name
-    virtual std::string ToString() const = 0;
     virtual void Close(bool non_graceful) = 0;
     virtual bool IsCloseGraceful() const = 0;
     virtual bool IsCloseLongLivedGraceful() const = 0;
@@ -177,7 +175,7 @@ public:
     virtual void MembershipRequestCallbackComplete() = 0;
     virtual const char *GetTaskName() const = 0;
     virtual int GetTaskInstance() const = 0;
-    virtual void SetManager(PeerCloseManager *manager) = 0;
+    virtual PeerCloseManager *GetManager() const = 0;
 };
 
 class IPeer : public IPeerUpdate {

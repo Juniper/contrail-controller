@@ -447,7 +447,6 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
     BGP_LOG_PEER(Event, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
         BGP_PEER_DIR_NA, "Created");
 
-    peer_close_->SetManager(close_manager_.get());
     if (rtinstance_ && peer_name_.find(rtinstance_->name()) == 0) {
         peer_basename_ = peer_name_.substr(rtinstance_->name().size() + 1);
     } else {
@@ -1103,26 +1102,6 @@ const vector<Address::Family> BgpPeer::supported_families_ = list_of
     (Address::INET6)
     (Address::INET6VPN);
 
-void BgpPeer::AddLLGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param) {
-    if (!server_->GetGracefulRestartTime() ||
-            !server_->GetLongLivedGracefulRestartTime())
-        return;
-
-    vector<Address::Family> llgr_families;
-    BOOST_FOREACH(Address::Family family, supported_families_) {
-        if (LookupFamily(family))
-            llgr_families.push_back(family);
-    }
-
-    uint32_t time = server_->GetLongLivedGracefulRestartTime();
-    uint8_t afi_flags =
-        BgpProto::OpenMessage::Capability::LLGR::ForwardingStatePreserved;
-    BgpProto::OpenMessage::Capability *llgr_cap =
-        BgpProto::OpenMessage::Capability::LLGR::Encode(time, afi_flags,
-                                                        llgr_families);
-    opt_param->capabilities.push_back(llgr_cap);
-}
-
 void BgpPeer::SendOpen(TcpSession *session) {
     BgpProto::OpenMessage openmsg;
     openmsg.as_num = local_as_;
@@ -1169,7 +1148,7 @@ void BgpPeer::SendOpen(TcpSession *session) {
     }
 
     peer_close_->AddGRCapabilities(opt_param);
-    AddLLGRCapabilities(opt_param);
+    peer_close_->AddLLGRCapabilities(opt_param);
 
     if (opt_param->capabilities.size()) {
         openmsg.opt_params.push_back(opt_param);
@@ -1539,8 +1518,11 @@ bool BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
     sort(negotiated_families_.begin(), negotiated_families_.end());
     peer_info.set_negotiated_families(negotiated_families_);
 
-    // Process GR capability and close non-gracefully if GR needs be aborted.
+    // Process GR/LLGR capabilities and close non-gracefully if any ongoing GR
+    // needs be aborted.
     if (!peer_close_->SetGRCapabilities(&peer_info)) {
+        BGP_LOG_PEER(Message, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
+                     BGP_PEER_DIR_IN, "Close non-gracefully");
         Close(true);
         return false;
     }

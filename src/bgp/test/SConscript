@@ -209,6 +209,10 @@ bgp_multicast_test = env.UnitTest('bgp_multicast_test',
                                   ['bgp_multicast_test.cc'])
 env.Alias('src/bgp:bgp_multicast_test', bgp_multicast_test)
 
+bgp_peer_close_gr_test = except_env.UnitTest('bgp_peer_close_gr_test',
+                                          ['bgp_peer_close_gr_test.cc'])
+env.Alias('src/bgp:bgp_peer_close_gr_test', bgp_peer_close_gr_test)
+
 bgp_peer_close_test = except_env.UnitTest('bgp_peer_close_test',
                                           ['bgp_peer_close_test.cc'])
 env.Alias('src/bgp:bgp_peer_close_test', bgp_peer_close_test)
@@ -563,6 +567,7 @@ test_suite = [
     bgp_membership_test,
     bgp_msg_builder_test,
     bgp_multicast_test,
+    bgp_peer_close_gr_test,
     bgp_peer_close_test,
     bgp_peer_test,
     bgp_proto_test,

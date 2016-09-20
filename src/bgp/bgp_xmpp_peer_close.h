@@ -21,7 +21,6 @@ public:
     virtual ~BgpXmppPeerClose();
     virtual bool IsReady() const;
     virtual IPeer *peer() const;
-    virtual std::string ToString() const;
     virtual int GetGracefulRestartTime() const;
     virtual int GetLongLivedGracefulRestartTime() const;
     virtual void GracefulRestartStale();
@@ -38,11 +37,10 @@ public:
     virtual void CloseComplete();
     virtual void Delete();
     virtual void Close(bool non_graceful);
-    virtual void SetManager(PeerCloseManager *manager);
+    virtual PeerCloseManager *GetManager() const;
 
 private:
     BgpXmppChannel *channel_;
-    PeerCloseManager *manager_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpXmppPeerClose);
 };

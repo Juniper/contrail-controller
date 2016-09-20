@@ -21,7 +21,6 @@ class BgpPeerClose : public IPeerClose {
 
     explicit BgpPeerClose(BgpPeer *peer);
     virtual ~BgpPeerClose();
-    virtual std::string ToString() const;
     virtual void CustomClose();
     virtual void GracefulRestartStale();
     virtual void LongLivedGracefulRestartStale();
@@ -36,22 +35,34 @@ class BgpPeerClose : public IPeerClose {
     virtual const char *GetTaskName() const;
     virtual int GetTaskInstance() const;
     virtual void MembershipRequestCallbackComplete();
+
     virtual bool IsCloseGraceful() const;
     virtual bool IsCloseLongLivedGraceful() const;
     virtual void CloseComplete();
     virtual void GetGracefulRestartFamilies(Families *families) const;
-    virtual void SetManager(PeerCloseManager *manager);
+    virtual PeerCloseManager *GetManager() const;
 
     void AddGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param);
+    void AddLLGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param);
     bool SetGRCapabilities(BgpPeerInfoData *peer_info);
     void FillNeighborInfo(BgpNeighborResp *bnr) const;
 
 private:
-    bool IsGRReady() const;
+    virtual bool IsGRReady() const;
+    virtual bool IsGRHelperModeEnabled() const;
+    virtual const std::vector<std::string> &negotiated_families() const;
+    virtual const std::vector<std::string> &PeerNegotiatedFamilies() const;
+    virtual bool IsPeerDeleted() const;
+    virtual bool IsPeerAdminDown() const;
+    virtual bool IsServerDeleted() const;
+    virtual bool IsServerAdminDown() const;
+    virtual bool IsInGRTimerWaitState() const;
+    virtual bool IsInLlgrTimerWaitState() const;
+    virtual const std::vector<BgpProto::OpenMessage::Capability *>
+        &capabilities() const;
 
     BgpPeer *peer_;
     uint64_t flap_count_;
-    PeerCloseManager *manager_;
     std::vector<std::string> negotiated_families_;
     std::vector<std::string> gr_families_;
     std::vector<std::string> llgr_families_;
