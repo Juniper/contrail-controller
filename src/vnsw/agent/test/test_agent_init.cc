@@ -66,6 +66,8 @@ void TestAgentInit::FactoryInit() {
 // Optional modules or modules that have different implementation are created
 // by init module
 void TestAgentInit::CreateModules() {
+    /* Set timeout to high value so that it doesn't get fired */
+    agent()->stats()->set_flow_stats_update_timeout(0x7FFFFFFF);
     ContrailInitCommon::CreateModules();
     pkt0_.reset(new TestPkt0Interface(agent(), "pkt0",
                 *agent()->event_manager()->io_service()));
