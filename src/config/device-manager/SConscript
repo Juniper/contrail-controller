@@ -8,6 +8,31 @@ import os
 Import('CfgmEnv')
 env = CfgmEnv.Clone()
 
+autogen_infra_sources = [
+                 '#/tools/generateds/generateDS.py',
+                 '#/tools/generateds/TypeGenerator.py',
+                 '#/tools/generateds/ccmap.py',
+                 '#/tools/generateds/idl_parser.py',
+                 '#/tools/generateds/ifmap_global.py',
+                 '#/tools/generateds/ifmap_model.py',
+                 '#/tools/generateds/ifmap_frontend.py',
+                ]
+
+autogen_sources = [
+                 '#controller/src/schema/device_schema/juniper/juniper_common.xsd',
+                ]
+
+autogen_script = File('#tools/generateds/generateDS.py').path
+autogen_cmd = '%s -f -o %s -g device-api' % (autogen_script, Dir('device_api/gen/juniper_common').path)
+
+generated_files = [
+                  'device_api/gen/__init__.py',
+                  'device_api/gen/juniper_common_xsd.py'
+                ]
+generated_rule = env.Command(generated_files,
+                             '#/controller/src/schema/device_schema/juniper/juniper_common.xsd',
+                             autogen_cmd + ' $SOURCE')
+
 setup_sources = [
            'setup.py',
            'MANIFEST.in',
@@ -38,16 +63,19 @@ for file in local_sources:
         env.Install("device_manager",
                     "#controller/src/config/device-manager/" + file))
 
+generateds_rule = env.Install("device_api/gen", "../common/generatedssuper.py")
+
 dm_introspect_pkg = env.SandeshGenPy('dm_introspect.sandesh',
                                        'device_manager/sandesh/', False)
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
-sdist_depends = []
+sdist_depends = [generated_rule, generateds_rule]
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
 sdist_depends.extend(dm_introspect_pkg)
 sdist_gen = env.Command('dist/device_manager-0.1dev.tar.gz', 'setup.py', cd_cmd + 'python setup.py sdist')
 
+env.Depends(generated_rule, [autogen_infra_sources, autogen_sources])
 env.Depends(sdist_gen, sdist_depends)
 env.Default(sdist_gen)
 

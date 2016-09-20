@@ -1,0 +1,357 @@
+<xsd:schema
+xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+targetNamespace="http://www.juniper.net/2016/device-config/0">
+
+<xsd:complexType name="Address">
+    <xsd:all>
+       <xsd:element name="name" type="xsd:string"/>
+       <xsd:element name="virtual-gateway-address" type="xsd:string"/>
+       <xsd:element name="primary"/>
+       <xsd:element name="preferred"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="InetFilter">
+    <xsd:all>
+        <xsd:element name="input" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="FamilyInet">
+    <xsd:choice>
+        <xsd:element name="address" type="Address"/>
+        <xsd:element name="filter" type="InetFilter"/>
+    </xsd:choice>
+</xsd:complexType>
+
+<xsd:complexType name="FamilyInet6">
+    <xsd:choice>
+        <xsd:element name="address" type="Address"/>
+        <xsd:element name="filter" type="InetFilter"/>
+    </xsd:choice>
+</xsd:complexType>
+
+<xsd:complexType name="FamilyInetVpn">
+    <xsd:all>
+        <xsd:element name="unicast"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="FamilyInet6Vpn">
+    <xsd:all>
+        <xsd:element name="unicast"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="FamilyEvpn">
+    <xsd:all>
+        <xsd:element name="signaling"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Family">
+    <xsd:all>
+        <xsd:element name="inet" type="FamilyInet"/>
+        <xsd:element name="inet6" type="FamilyInet6"/>
+        <xsd:element name="inet-vpn" type="FamilyInetVpn"/>
+        <xsd:element name="inet6-vpn" type="FamilyInet6Vpn"/>
+        <xsd:element name="evpn" type="FamilyEvpn"/>
+        <xsd:element name="route-target" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Unit">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="family" type="Family"/>
+        <xsd:element name="vlan-id" type="xsd:integer"/>
+        <xsd:element name="encapsulation" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Interface">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="gratuitous-arp-reply"/>
+        <xsd:element name="flexible-vlan-tagging"/>
+        <xsd:element name="encapsulation" type="xsd:string"/>
+        <xsd:element name="unit" type="Unit" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Interfaces">
+    <xsd:all>
+        <xsd:element name="interface" type="Interface" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="ForwardingOptions">
+    <xsd:all>
+        <xsd:element name="family" type="Family" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Route">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="discard"/>
+        <xsd:element name="next-table" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Static">
+    <xsd:all>
+        <xsd:element name="route" type="Route" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="RIB">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="static" type="Static"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="AutonomousSystem">
+    <xsd:all>
+        <xsd:element name="as-number" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="DestinationNetworks">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="DynamicTunnel">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="source-address" type="xsd:string"/>
+        <xsd:element name="gre"/>
+        <xsd:element name="destination-networks" type="DestinationNetworks" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="DynamicTunnels">
+    <xsd:all>
+        <xsd:element name="dynamic-tunnel" type="DynamicTunnel" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="RoutingOptions">
+    <xsd:all>
+        <xsd:element name="static" type="Static" maxOccurs="unbounded"/>
+        <xsd:element name="rib" type="RIB" maxOccurs="unbounded"/>
+        <xsd:element name="router-id" type="xsd:string"/>
+        <xsd:element name="route-distinguisher-id" type="xsd:string"/>
+        <xsd:element name="autonomous-system" type="AutonomousSystem"/>
+        <xsd:element name="dynamic-tunnels" type="DynamicTunnels"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Neighbor">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="peer-as" type="xsd:integer"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="BgpGroup">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="type" type="xsd:string"/>
+        <xsd:element name="local-address" type="xsd:string"/>
+        <xsd:element name="hold-time" type="xsd:integer"/>
+        <xsd:element name="family" type="Family"/>
+        <xsd:element name="neighbor" type="Neighbor" maxOccurs="unbounded"/>
+        <xsd:element name="multihop"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Bgp">
+    <xsd:all>
+        <xsd:element name="group" type="BgpGroup" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Protocols">
+    <xsd:all>
+        <xsd:element name="bgp" type="Bgp"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="DestinationAddress">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="RoutingInstance">
+    <xsd:all>
+        <xsd:element name="routing-instance-name" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Community">
+    <xsd:all>
+        <xsd:element name="add"/>
+        <xsd:element name="community-name" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Then">
+    <xsd:all>
+        <xsd:element name="community" type="Community" maxOccurs="unbounded"/>
+        <xsd:element name="routing-instance" type="RoutingInstance" maxOccurs="unbounded"/>
+        <xsd:element name="accept"/>
+        <xsd:element name="reject"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="From">
+    <xsd:all>
+        <xsd:element name="community" type="xsd:string" maxOccurs="unbounded"/>
+        <xsd:element name="destination-address" type="DestinationAddress" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Term">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="from" type="From"/>
+        <xsd:element name="then" type="Then"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="PolicyStatement">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="term" type="Term"/>
+        <xsd:element name="then" type="Then"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="CommunityType">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="members" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="PolicyOptions">
+    <xsd:all>
+        <xsd:element name="policy-statement" type="PolicyStatement" maxOccurs="unbounded"/>
+        <xsd:element name="community" type="CommunityType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="FirewallFilter">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="term" type="Term" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="FirewallInet">
+    <xsd:all>
+        <xsd:element name="filter" type="FirewallFilter"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="FirewallFamily">
+    <xsd:choice>
+        <xsd:element name="inet" type="FirewallInet"/>
+        <xsd:element name="inet6" type="FirewallInet"/>
+    </xsd:choice>
+</xsd:complexType>
+
+<xsd:complexType name="Firewall">
+    <xsd:all>
+        <xsd:element name="family" type="FirewallFamily"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="VXLan">
+    <xsd:all>
+        <xsd:element name="vni" type="xsd:integer"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Domain">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="vlan-id" type="xsd:string"/>
+        <xsd:element name="routing-interface" type="xsd:string"/>
+        <xsd:element name="vxlan" type="VXLan"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="BridgeDomains">
+    <xsd:all>
+        <xsd:element name="domain" type="Domain" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Evpn">
+    <xsd:all>
+        <xsd:element name="encapsulation" type="xsd:string"/>
+        <xsd:element name="extended-vni-list" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="RoutingInstanceProtocols">
+    <xsd:all>
+        <xsd:element name="evpn" type="Evpn"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="AutoExport">
+    <xsd:all>
+        <xsd:element name="family" type="Family"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="RoutingInstanceRoutingOptions">
+    <xsd:all>
+        <xsd:element name="static" type="Static"/>
+        <xsd:element name="auto-export" type="AutoExport"/>
+        <xsd:element name="rib" type="RIB"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Instance">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="vtep-source-interface" type="xsd:string"/>
+        <xsd:element name="instance-type" type="xsd:string"/>
+        <xsd:element name="vrf-import" type="xsd:string"/>
+        <xsd:element name="vrf-export" type="xsd:string"/>
+        <xsd:element name="protocols" type="RoutingInstanceProtocols"/>
+        <xsd:element name="bridge-domains" type="BridgeDomains"/>
+        <xsd:element name="vrf-table-label"/>
+        <xsd:element name="routing-options" type="RoutingInstanceRoutingOptions"/>
+        <xsd:element name="interface" type="Interface" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Groups">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="interfaces" type="Interfaces"/>
+        <xsd:element name="forwarding-options" type="ForwardingOptions"/>
+        <xsd:element name="routing-options" type="RoutingOptions"/>
+        <xsd:element name="protocols" type="Protocols"/>
+        <xsd:element name="policy-options" type="PolicyOptions"/>
+        <xsd:element name="firewall" type="Firewall"/>
+        <xsd:element name="routing-instances" type="RoutingInstances"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="configuration">
+    <xsd:all>
+       <xsd:element name="groups" type="Groups"/>
+    </xsd:all>
+</xsd:complexType>
+
+</xsd:schema>
