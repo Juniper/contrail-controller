@@ -3,61 +3,8 @@
  */
 
 /**
- *  Definitions of structures used to send memory and cpu information of the
- *  Analytics Node processes.
+ *  Definitions of structures used for Analytics Node.
  */
-
-include "base/sandesh/cpuinfo.sandesh"
-include "base/sandesh/process_info.sandesh"
-
-/**
- * This structure carries process's memory and cpu information on
- * a per module per instance basis
- */
-struct  ModuleCpuInfo {
-    1: string                              module_id
-    2: string                              instance_id
-    4: cpuinfo.CpuLoadInfo                 cpu_info
-}
-
-/**
- * This structure carries memory and cpu information for a list
- * of processes
- */
-struct  ModuleCpuState {
-    1: string                              name (key="ObjectCollectorInfo")
-    2: optional bool                       deleted
-    4: optional list<ModuleCpuInfo>        module_cpu_info (aggtype="union")
-}
-
-/**
- * @description: UVE to carry process's memory and cpu information,
- * @object: analytics-node
- */
-uve sandesh ModuleCpuStateTrace {
-    1: ModuleCpuState                   data
-}
-
-/**
- * This structure carries process's memory and cpu information,
- * these are used as stats fields in the Analytics Node UVE. As with any other
- * stats, these can be used for any slice/dice queries
- */
-struct  AnalyticsCpuState {
-    1: string                                 name (key="ObjectCollectorInfo")
-    2: optional bool                          deleted
-    /** @display_name:Analytics CPU Information*/
-    3: optional list<cpuinfo.ProcessCpuInfo>  cpu_info (tags=".module_id,.mem_virt,.cpu_share,.mem_res", aggtype="union")
-}
-
-/**
- * @description: UVE to carry statistics data for a process's memory and cpu
- * info
- * @object: analytics-node
- */
-uve sandesh AnalyticsCpuStateTrace {
-    1: AnalyticsCpuState data
-}
 
 /**
  * structure to carry contrail-query-engine query statistics

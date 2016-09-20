@@ -58,7 +58,6 @@ from sandesh.alarmgen_ctrl.ttypes import PartitionOwnershipReq, \
     AlarmStateChangeTrace, UVEQTrace
 
 from sandesh.discovery.ttypes import CollectorTrace
-from cpuinfo import CpuInfoData
 from opserver_util import ServicePoller
 from stevedore import hook, extension
 from pysandesh.util import UTCTimestampUsec
@@ -2101,50 +2100,20 @@ class Controller(object):
         else:
             self._libpart.update_cluster_list(newlist)
 
-    def run_cpu_mon(self):
-        alarmgen_cpu_info = CpuInfoData()
+    def run_process_stats(self):
         while True:
             before = time.time()
-            mod_cpu_info = ModuleCpuInfo()
-            mod_cpu_info.module_id = self._moduleid
-            mod_cpu_info.instance_id = self._instance_id
-            mod_cpu_info.cpu_info = alarmgen_cpu_info.get_cpu_info(
-                system=False)
-            mod_cpu_state = ModuleCpuState()
-            mod_cpu_state.name = self._hostname
+            # Send out the UVEKey-Count stats for this time period      
+            self.process_stats()        
 
-            mod_cpu_state.module_cpu_info = [mod_cpu_info]
-
-            alarmgen_cpu_state_trace = ModuleCpuStateTrace(\
-                    data=mod_cpu_state, sandesh = self._sandesh)
-            alarmgen_cpu_state_trace.send(sandesh=self._sandesh)
-
-            aly_cpu_state = AnalyticsCpuState()
-            aly_cpu_state.name = self._hostname
-
-            aly_cpu_info = ProcessCpuInfo()
-            aly_cpu_info.module_id= self._moduleid
-            aly_cpu_info.inst_id = self._instance_id
-            aly_cpu_info.cpu_share = mod_cpu_info.cpu_info.cpu_share
-            aly_cpu_info.mem_virt = mod_cpu_info.cpu_info.meminfo.virt
-            aly_cpu_info.mem_res = mod_cpu_info.cpu_info.meminfo.res
-            aly_cpu_state.cpu_info = [aly_cpu_info]
-
-            aly_cpu_state_trace = AnalyticsCpuStateTrace(\
-                    data=aly_cpu_state, sandesh = self._sandesh)
-            aly_cpu_state_trace.send(sandesh=self._sandesh)
-
-            # Send out the UVEKey-Count stats for this time period
-            self.process_stats()
-
-            duration = time.time() - before
-            if duration < 60:
-                gevent.sleep(60 - duration)
-            else:
+            duration = time.time() - before     
+            if duration < 60:       
+                gevent.sleep(60 - duration)     
+            else:       
                 self._logger.error("Periodic collection took %s sec" % duration)
 
     def run(self):
-        self.gevs = [ gevent.spawn(self.run_cpu_mon),
+        self.gevs = [ gevent.spawn(self.run_process_stats),
                       gevent.spawn(self.run_uve_processing)]
 
         if self.disc:

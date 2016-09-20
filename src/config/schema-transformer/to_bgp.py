@@ -23,8 +23,6 @@ import cgitb
 import argparse
 import socket
 
-from cfgm_common import vnc_cpu_info
-
 from cfgm_common.exceptions import *
 from config_db import *
 
@@ -232,9 +230,6 @@ class SchemaTransformer(object):
             self.reinit()
             # create cpu_info object to send periodic updates
             sysinfo_req = False
-            cpu_info = vnc_cpu_info.CpuInfo(
-                module_name, instance_id, sysinfo_req, self._sandesh, 60)
-            self._cpu_info = cpu_info
             self._db_resync_done.set()
         except Exception as e:
             # If any of the above tasks like CassandraDB read fails, cleanup

@@ -10,7 +10,6 @@
 #include <malloc.h>
 #include "analytics/options.h"
 #include "analytics/viz_constants.h"
-#include "base/cpuinfo.h"
 #include "boost/python.hpp"
 #include "base/logging.h"
 #include "base/contrail_ports.h"
@@ -59,31 +58,6 @@ bool CollectorVersion(string &version) {
     return MiscUtils::GetBuildInfo(MiscUtils::Analytics, BuildInfo, version);
 }
 
-bool CollectorCPULogger(const string & hostname) {
-
-    CpuLoadInfo cpu_load_info;
-    CpuLoadData::FillCpuInfo(cpu_load_info, false);
-
-    ModuleCpuState state;
-    state.set_name(hostname);
-
-    ModuleCpuInfo cinfo;
-    cinfo.set_module_id(Sandesh::module());
-    cinfo.set_instance_id(Sandesh::instance_id());
-    cinfo.set_cpu_info(cpu_load_info);
-    vector<ModuleCpuInfo> cciv;
-    cciv.push_back(cinfo);
-
-    // At some point, the following attributes will be deprecated
-    // in favor of AnalyticsCpuState
-    state.set_module_cpu_info(cciv);
-    ModuleCpuStateTrace::Send(state);
-
-    SendCpuInfoStat<AnalyticsCpuStateTrace, AnalyticsCpuState>(hostname,
-        cpu_load_info);
-    return true;
-}
-
 bool CollectorSummaryLogger(Collector *collector, const string & hostname,
         OpServerProxy * osp) {
     CollectorState state;
@@ -127,7 +101,6 @@ bool CollectorSummaryLogger(Collector *collector, const string & hostname,
 bool CollectorInfoLogger(VizSandeshContext &ctx) {
     VizCollector *analytics = ctx.Analytics();
 
-    CollectorCPULogger(analytics->name());
     CollectorSummaryLogger(analytics->GetCollector(), analytics->name(),
             analytics->GetOsp());
     analytics->SendDbStatistics();
@@ -432,7 +405,6 @@ int main(int argc, char *argv[])
     }
     Collector::SetDiscoveryServiceClient(ds_client);
 
-    CpuLoadData::Init();
     collector_info_trigger =
         new TaskTrigger(boost::bind(&CollectorInfoLogger, vsc),
                     TaskScheduler::GetInstance()->GetTaskId("vizd::Stats"), 0);

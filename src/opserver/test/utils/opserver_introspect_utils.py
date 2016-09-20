@@ -303,9 +303,3 @@ if __name__ == '__main__':
       u'source': u'sa-nc-mfg-30.static.jnpr.net', u'msgtype_stats': {},
       u'module_id': u'OpServer'}]
     '''
-    print col.get_attr('Analytics', 'cpu_info')
-    '''
-{u'num_cpu': u'4', u'cpu_share': u'0.00833056',
- u'meminfo': {u'virt': u'2559582208', u'peakvirt': u'2559582208',
-              u'res': u'2805760'}}
-    '''

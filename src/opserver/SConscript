@@ -23,7 +23,6 @@ for file in setup_sources:
 
 local_sources = [
            '__init__.py',
-           'cpuinfo.py',
            'generator_introspect_util.py',
            'introspect_util.py',
            'opserver.py',

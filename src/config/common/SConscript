@@ -28,7 +28,6 @@ local_sources = [
                   'jsonutils.py',
                   'imid.py',
                   'svc_info.py',
-                  'vnc_cpu_info.py',
                   'rest.py',
                   'vnc_plugin_base.py',
                   'vnc_extensions.py',
@@ -73,7 +72,6 @@ pkg = [env.SandeshGenPy('#controller/src/config/uve/service_instance.sandesh', '
        env.SandeshGenPy('#controller/src/config/uve/virtual_network.sandesh', 'cfgm_common/uve/', False),
        env.SandeshGenPy('#controller/src/config/uve/physical_router.sandesh', 'cfgm_common/uve/', False),
        env.SandeshGenPy('#controller/src/config/uve/acl.sandesh', 'cfgm_common/uve/', False),
-       env.SandeshGenPy('#controller/src/config/uve/cfgm_cpuinfo.sandesh', 'cfgm_common/uve/', False),
        env.SandeshGenPy('#controller/src/config/uve/greenlets.sandesh', 'cfgm_common/uve/', False),
 ]
 
@@ -81,13 +79,9 @@ pkg = [env.SandeshGenPy('#controller/src/config/uve/service_instance.sandesh', '
 nodeinfo_pkg = env.SandeshGenPy('#controller/src/base/sandesh/nodeinfo.sandesh', 'cfgm_common/uve/', False)
 cpuinfo_pkg = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'cfgm_common/uve/nodeinfo/', False)
 process_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'cfgm_common/uve/nodeinfo/', False)
-cpuinfo_pkg2 = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'cfgm_common/uve/cfgm_cpuinfo/', False)
-process_info_pkg2 = env.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'cfgm_common/uve/cfgm_cpuinfo/', False)
 env.Depends(nodeinfo_pkg, pkg)
 env.Depends(cpuinfo_pkg, pkg)
 env.Depends(process_info_pkg, pkg)
-env.Depends(cpuinfo_pkg2, pkg)
-env.Depends(process_info_pkg2, pkg)
 
 rel_path = Dir('cfgm_common').path
 def BuildInfoAction(target, source, env):
@@ -104,8 +98,6 @@ sdist_depends.extend(pkg)
 sdist_depends.extend(nodeinfo_pkg)
 sdist_depends.extend(cpuinfo_pkg)
 sdist_depends.extend(process_info_pkg)
-sdist_depends.extend(cpuinfo_pkg2)
-sdist_depends.extend(process_info_pkg2)
 sdist_depends.extend(build_info_rules)
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '

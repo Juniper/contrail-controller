@@ -89,7 +89,6 @@ import vnc_auth
 import vnc_auth_keystone
 import vnc_perms
 import vnc_rbac
-from cfgm_common import vnc_cpu_info
 from cfgm_common.vnc_api_stats import log_api_stats
 
 from pysandesh.sandesh_base import *
@@ -1425,11 +1424,6 @@ class VncApiServer(object):
         # Cpuinfo interface
         sysinfo_req = True
         config_node_ip = self.get_server_ip()
-        cpu_info = vnc_cpu_info.CpuInfo(
-            self._sandesh.module(), self._sandesh.instance_id(), sysinfo_req,
-            self._sandesh, 60, config_node_ip)
-        self._cpu_info = cpu_info
-
         self.re_uuid = re.compile('^[0-9A-F]{8}-?[0-9A-F]{4}-?4[0-9A-F]{3}-?[89AB][0-9A-F]{3}-?[0-9A-F]{12}$',
                                   re.IGNORECASE)
 
