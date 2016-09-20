@@ -4,6 +4,10 @@
  
 include "io/io.sandesh"
 
+/**
+ * XMPP Server Module
+ */
+
 response sandesh ShowXmppServerResp {
     3: u32 current_connections;
     4: u32 max_connections;

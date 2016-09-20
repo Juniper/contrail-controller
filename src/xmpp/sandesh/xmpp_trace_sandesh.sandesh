@@ -3,6 +3,10 @@
  */
 
 /**
+ * XMPP Trace Messages
+ */
+
+/**
  * @description: XMPP Message transmission event
  * @severity: DEBUG
  */

@@ -4,6 +4,10 @@
 include "bgp/bgp_peer.sandesh"
 include "bgp/routing-instance/service_chaining_internal.sandesh"
 
+/**
+ * BGP Service Chaining Information
+ */
+
 struct ConnectedRouteInfo {
     1: string service_chain_addr;
     2: bgp_peer.ShowRoute connected_rt;
