@@ -113,7 +113,6 @@ class VncCassandraClient(object):
             logger, generate_url=None, reset_config=False, credential=None,
             walk=True):
         self._reset_config = reset_config
-        self._cache_uuid_to_fq_name = {}
         if db_prefix:
             self._db_prefix = '%s_' %(db_prefix)
         else:
@@ -1146,7 +1145,6 @@ class VncCassandraClient(object):
         if count:
             return (True, len(children_fq_names_uuids))
         return (True, children_fq_names_uuids)
-
     # end object_list
 
     def object_delete(self, obj_type, obj_uuid):
@@ -1236,10 +1234,7 @@ class VncCassandraClient(object):
     # end cache_uuid_to_fq_name_add
 
     def cache_uuid_to_fq_name_del(self, id):
-        try:
-            del self._cache_uuid_to_fq_name[id]
-        except KeyError:
-            pass
+        self._cache_uuid_to_fq_name.pop(id, None)
     # end cache_uuid_to_fq_name_del
 
     def uuid_to_fq_name(self, id):
@@ -1269,7 +1264,6 @@ class VncCassandraClient(object):
             self.cache_uuid_to_fq_name_add(id, fq_name, obj_type)
             return obj_type
     # end uuid_to_obj_type
-
 
     def fq_name_to_uuid(self, obj_type, fq_name):
         fq_name_str = utils.encode_string(':'.join(fq_name))
