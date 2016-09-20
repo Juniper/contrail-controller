@@ -306,8 +306,8 @@ class SchemaTransformer(object):
                                 set(dependency_tracker.resources[resource]) |
                                 set(ids))
             elif oper == 'DELETE':
-                self._cassandra.cache_uuid_to_fq_name_del(obj_id)
                 obj = obj_class.get_by_uuid(obj_id)
+                self._cassandra.cache_uuid_to_fq_name_del(obj_id)
                 if obj is None:
                     return
                 dependency_tracker = DependencyTracker(
@@ -543,7 +543,7 @@ class SchemaTransformer(object):
                 sandesh_ri = self.sandesh_ri_build(vn, req.ri_name)
                 ri_resp.routing_instances.extend(sandesh_ri)
         elif req.vn_name in VirtualNetworkST:
-            self.sandesh_ri_build(req.vn_name, req.ri_name)
+            sandesh_ri = self.sandesh_ri_build(req.vn_name, req.ri_name)
             ri_resp.routing_instances.extend(sandesh_ri)
         ri_resp.response(req.context())
     # end sandesh_ri_handle_request
@@ -582,7 +582,7 @@ class SchemaTransformer(object):
                 sandesh_sc = sc.build_introspect()
                 sc_resp.service_chains.append(sandesh_sc)
         elif req.sc_name in ServiceChain:
-            sandesh_sc = ServiceChain[req.sc_name].build_introspect()
+            sandesh_sc = ServiceChain.get(req.sc_name).build_introspect()
             sc_resp.service_chains.append(sandesh_sc)
         sc_resp.response(req.context())
     # end sandesh_sc_handle_request
