@@ -105,7 +105,7 @@ TEST_F(BgpMsgBuilderTest, Build) {
     route.InsertPath(path);
     BgpMessage message;
     RibOut ribout(NULL, NULL, RibExportPolicy());
-    message.Start(&ribout, &rib_out_attr, &route);
+    message.Start(&ribout, false, &rib_out_attr, &route);
 
     size_t length;
     const string *msg_str;

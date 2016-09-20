@@ -118,44 +118,28 @@ private:
     UpdateInfoSList res_slist_;
 };
 
-class MessageMock : public Message {
+class BgpMessageMock : public BgpMessage {
 public:
-    virtual bool AddRoute(const BgpRoute *route, const RibOutAttr *attr) {
+    bool Start(const RibOut *ribout, bool cache_routes,
+        const RibOutAttr *roattr, const BgpRoute *route) {
+        return true;
+    }
+    virtual bool AddRoute(const BgpRoute *route, const RibOutAttr* attr) {
         return true;
     }
     virtual void Finish() {
     }
     virtual const uint8_t *GetData(IPeerUpdate *peer, size_t *lenp,
-        const std::string **msg_str) {
+        const string **msg_str) {
         return NULL;
     }
 };
 
-// Set to true if/when debugging the tests.
-const static bool use_bgp_messages = false;
-
-class MsgBuilderMock : public BgpMessageBuilder {
+class BgpMessageBuilderMock : public BgpMessageBuilder {
 public:
-    MsgBuilderMock() : msg_count_(0) { }
-    virtual ~MsgBuilderMock() { }
-
-    virtual Message *Create(int idx, const RibOut *ribout, bool cache_routes,
-                            const RibOutAttr *attr,
-                            const BgpRoute *route) const {
-        msg_count_++;
-        if (use_bgp_messages) {
-            return BgpMessageBuilder::Create(
-                idx, ribout, cache_routes, attr, route);
-        } else {
-            return new MessageMock();
-        }
+    virtual Message *Create() const {
+        return new BgpMessageMock;
     }
-
-    int msg_count() const { return msg_count_; }
-    void clear_msg_count() { msg_count_ = 0; }
-
-private:
-    mutable int msg_count_;
 };
 
 static const int kPeerCount = 6;
@@ -178,7 +162,6 @@ protected:
         tpart_ = table_.GetTablePartition(0);
         export_ = ribout_->bgp_export();
         updates_ = ribout_->updates(0);
-        updates_->SetMessageBuilder(&builder_);
         rt_.set_onlist();
     }
 
@@ -669,7 +652,6 @@ protected:
     RibOut *ribout_;
     BgpExport *export_;
     RibOutUpdates *updates_;
-    MsgBuilderMock builder_;
 
     Ip4Prefix prefix_;
     InetRoute rt_;

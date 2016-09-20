@@ -2421,11 +2421,15 @@ TEST_F(RibOutUpdatesTest, PeerDequeueSplitMerge1) {
 
 static void SetUp() {
     bgp_log_test::init();
+    ControlNode::Initialize();
     ControlNode::SetDefaultSchedulingPolicy();
+    BgpObjectFactory::Register<BgpMessageBuilder>(
+        boost::factory<BgpMessageBuilderMock *>());
 }
 
 static void TearDown() {
     task_util::WaitForIdle();
+    ControlNode::Terminate();
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Terminate();
 }

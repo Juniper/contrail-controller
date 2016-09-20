@@ -107,6 +107,7 @@ class EncodeOffsets {
 public:
     void SaveOffset(std::string, int);
     int FindOffset(const char *);
+    void ClearOffsets() { offsets_.clear(); }
 private:
     std::map<std::string, int> offsets_;
 };

@@ -322,7 +322,7 @@ class TestEnvironment : public ::testing::Environment {
 
 static void SetUp() {
     DB::SetPartitionCount(1);
-    BgpXmppMessage::Initialize();
+    ControlNode::Initialize();
     ControlNode::SetDefaultSchedulingPolicy();
     BgpServerTest::GlobalSetUp();
     BgpObjectFactory::Register<BgpXmppMessageBuilder>(
@@ -330,7 +330,7 @@ static void SetUp() {
 }
 
 static void TearDown() {
-    BgpXmppMessage::Terminate();
+    ControlNode::Terminate();
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Terminate();
 }

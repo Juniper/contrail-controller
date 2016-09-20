@@ -7,12 +7,21 @@
 #include <boost/assign.hpp>
 
 #include "base/task.h"
+#include "bgp/bgp_ribout_updates.h"
 
 std::string ControlNode::hostname_;
 std::string ControlNode::prog_name_;
 std::string ControlNode::self_ip_;
 DiscoveryServiceClient* ControlNode::ds_client_;
 bool ControlNode::test_mode_;
+
+void ControlNode::Initialize() {
+    RibOutUpdates::Initialize();
+}
+
+void ControlNode::Terminate() {
+    RibOutUpdates::Terminate();
+}
 
 //
 // Default scheduler policy for control-node daemon and test processes.

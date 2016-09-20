@@ -19,10 +19,10 @@ class RibOut;
 
 class Message {
 public:
-    Message() : num_reach_route_(0), num_unreach_route_(0) {
-    }
-    virtual ~Message();
-    // Returns true if the route was successfully added to the message.
+    Message() : num_reach_route_(0), num_unreach_route_(0) { }
+    virtual ~Message() { }
+    virtual bool Start(const RibOut *ribout, bool cache_routes,
+        const RibOutAttr *roattr, const BgpRoute *route) = 0;
     virtual bool AddRoute(const BgpRoute *route, const RibOutAttr *roattr) = 0;
     virtual void Finish() = 0;
     virtual const uint8_t *GetData(IPeerUpdate *peer_update, size_t *lenp,
@@ -34,15 +34,18 @@ protected:
     uint32_t num_reach_route_;
     uint32_t num_unreach_route_;
 
+    virtual void Reset() {
+        num_reach_route_ =  0;
+        num_unreach_route_ = 0;
+    }
+
 private:
     DISALLOW_COPY_AND_ASSIGN(Message);
 };
 
 class MessageBuilder {
 public:
-    virtual Message *Create(int part_id, const RibOut *ribout,
-        bool cache_routes, const RibOutAttr *roattr,
-        const BgpRoute *route) const = 0;
+    virtual Message *Create() const = 0;
     static MessageBuilder *GetInstance(RibExportPolicy::Encoding encoding);
 
 private:

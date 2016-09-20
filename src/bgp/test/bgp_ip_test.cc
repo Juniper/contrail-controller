@@ -9,6 +9,7 @@
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_session_manager.h"
+#include "bgp/xmpp_message_builder.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/inet6/inet6_table.h"
 #include "bgp/test/bgp_server_test_util.h"
@@ -544,6 +545,7 @@ class TestEnvironment : public ::testing::Environment {
 };
 
 static void SetUp() {
+    ControlNode::Initialize();
     ControlNode::SetDefaultSchedulingPolicy();
     BgpServerTest::GlobalSetUp();
     BgpObjectFactory::Register<StateMachine>(
@@ -552,6 +554,7 @@ static void SetUp() {
 
 static void TearDown() {
     task_util::WaitForIdle();
+    ControlNode::Terminate();
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Terminate();
 }

@@ -4,6 +4,7 @@
 
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_ribout.h"
+#include "bgp/bgp_ribout_updates.h"
 #include "bgp/xmpp_message_builder.h"
 #include "bgp/inet/inet_route.h"
 #include "bgp/test/bgp_server_test_util.h"
@@ -56,7 +57,7 @@ protected:
     static const int kPeerCount = 1024;
 
     XmppMessageBuilderTest()
-        : thread_(&evm_), builder_(NULL), table_(NULL), ribout_(NULL) {
+        : thread_(&evm_), message_(NULL), table_(NULL), ribout_(NULL) {
     }
 
     virtual void SetUp() {
@@ -71,7 +72,7 @@ protected:
             bs_x_->database()->FindTable("blue.inet.0"));
         ribout_ = table_->RibOutLocate(bs_x_->update_sender(),
             RibExportPolicy(BgpProto::XMPP, RibExportPolicy::XMPP, -1, 0));
-        builder_ = MessageBuilder::GetInstance(RibExportPolicy::XMPP);
+        message_ = ribout_->updates(0)->GetMessage();
 
         BgpAttrNextHop nexthop(0x0a0a0a0a);
         BgpAttrSpec spec;
@@ -102,7 +103,7 @@ protected:
     EventManager evm_;
     ServerThread thread_;
     BgpServerTestPtr bs_x_;
-    MessageBuilder *builder_;
+    Message *message_;
     BgpTable *table_;
     RibOut *ribout_;
     BgpAttrPtr attr_;
@@ -136,17 +137,16 @@ TEST_P(XmppMessageBuilderParamTest, Basic) {
         }
     }
     for (int idx = 0; idx < kRepeatCount; ++idx) {
-        boost::scoped_ptr<Message> message(
-            builder_->Create(0, ribout_, cache, roattrs_[0], routes_[0]));
+        message_->Start(ribout_, cache, roattrs_[0], routes_[0]);
         for (int ridx = 1; ridx < kRouteCount; ++ridx) {
-            message->AddRoute(routes_[ridx], roattrs_[ridx]);
+            message_->AddRoute(routes_[ridx], roattrs_[ridx]);
         }
-        message->Finish();
+        message_->Finish();
         for (int pidx = 0; pidx < kPeerCount; ++pidx) {
             XmppTestPeer peer(peer_name);
             size_t msgsize;
             const string *msg_str = NULL;
-            const uint8_t *msg = message->GetData(&peer, &msgsize, &msg_str);
+            const uint8_t *msg = message_->GetData(&peer, &msgsize, &msg_str);
             peer.SendUpdate(msg, msgsize, reuse_msg_str ? msg_str : NULL);
         }
     }
@@ -169,7 +169,7 @@ class TestEnvironment : public ::testing::Environment {
 };
 
 static void SetUp() {
-    BgpXmppMessage::Initialize();
+    ControlNode::Initialize();
     ControlNode::SetDefaultSchedulingPolicy();
     BgpServerTest::GlobalSetUp();
     BgpObjectFactory::Register<BgpXmppMessageBuilder>(
@@ -177,7 +177,7 @@ static void SetUp() {
 }
 
 static void TearDown() {
-    BgpXmppMessage::Terminate();
+    ControlNode::Terminate();
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Terminate();
 }

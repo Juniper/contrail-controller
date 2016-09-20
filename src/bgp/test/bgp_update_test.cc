@@ -10,12 +10,13 @@
 
 #include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
+#include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_message_builder.h"
 #include "bgp/bgp_ribout_updates.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_update_queue.h"
 #include "bgp/bgp_update_sender.h"
-#include "bgp/message_builder.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "control-node/control_node.h"
 
@@ -95,24 +96,27 @@ private:
     Condition cond_var_;
 };
 
-class MsgBuilderMock : public MessageBuilder {
+class BgpMessageMock : public BgpMessage {
 public:
-    class MessageMock : public Message {
-    public:
-        virtual bool AddRoute(const BgpRoute *route, const RibOutAttr* attr) {
-            return true;
-        }
-        virtual void Finish() {
-        }
-        virtual const uint8_t *GetData(IPeerUpdate *peer, size_t *lenp,
-                                       const string **msg_str) {
-            return NULL;
-        }
-    };
-    virtual Message *Create(int idx, const RibOut *ribout, bool cache_routes,
-                            const RibOutAttr *attr,
-                            const BgpRoute *route) const {
-        return new MessageMock();
+    bool Start(const RibOut *ribout, bool cache_routes,
+        const RibOutAttr *roattr, const BgpRoute *route) {
+        return true;
+    }
+    virtual bool AddRoute(const BgpRoute *route, const RibOutAttr* attr) {
+        return true;
+    }
+    virtual void Finish() {
+    }
+    virtual const uint8_t *GetData(IPeerUpdate *peer, size_t *lenp,
+        const string **msg_str) {
+        return NULL;
+    }
+};
+
+class BgpMessageBuilderMock : public BgpMessageBuilder {
+public:
+    virtual Message *Create() const {
+        return new BgpMessageMock;
     }
 };
 
@@ -154,7 +158,6 @@ protected:
           inetvpn_table_(
               static_cast<InetVpnTable *>(db_.CreateTable("bgp.l3vpn.0"))),
           ribout1_(inetvpn_table_->RibOutLocate(sender_, RibExportPolicy(1))) {
-        ribout1_->updates(0)->SetMessageBuilder(&builder_);
     }
 
     virtual void SetUp() {
@@ -253,7 +256,6 @@ protected:
     BgpServer server_;
     BgpUpdateSender *sender_;
     InetVpnTable *inetvpn_table_;
-    MsgBuilderMock builder_;
     RibOut *ribout1_;
     BgpAttrPtr a1_, a2_, a3_;
     std::vector<BgpAttrPtr> attr_;
@@ -422,7 +424,6 @@ protected:
 
     BgpUpdate2RibTest()
       : ribout2_(inetvpn_table_->RibOutLocate(sender_, RibExportPolicy(2))) {
-        ribout2_->updates(0)->SetMessageBuilder(&builder_);
     }
 
     virtual void SetUp() {
@@ -553,11 +554,15 @@ TEST_F(BgpUpdate2RibTest, WithBlock) {
 
 static void SetUp() {
     bgp_log_test::init();
+    ControlNode::Initialize();
     ControlNode::SetDefaultSchedulingPolicy();
+    BgpObjectFactory::Register<BgpMessageBuilder>(
+        boost::factory<BgpMessageBuilderMock *>());
 }
 
 static void TearDown() {
     task_util::WaitForIdle();
+    ControlNode::Terminate();
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Terminate();
 }

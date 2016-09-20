@@ -14,7 +14,7 @@
 
 using std::auto_ptr;
 
-BgpMessage::BgpMessage(const BgpTable *table) : table_(table), datalen_(0) {
+BgpMessage::BgpMessage() : table_(NULL), datalen_(0) {
 }
 
 BgpMessage::~BgpMessage() {
@@ -174,8 +174,18 @@ bool BgpMessage::StartUnreach(const BgpRoute *route) {
     return true;
 }
 
-bool BgpMessage::Start(const RibOut *ribout, const RibOutAttr *roattr,
-                       const BgpRoute *route) {
+void BgpMessage::Reset() {
+    Message::Reset();
+    table_ = NULL;
+    encode_offsets_.ClearOffsets();
+    datalen_ = 0;
+}
+
+bool BgpMessage::Start(const RibOut *ribout, bool cache_repr,
+    const RibOutAttr *roattr, const BgpRoute *route) {
+    Reset();
+    table_ = ribout->table();
+
     if (roattr->IsReachable()) {
         return StartReach(ribout, roattr, route);
     } else {
@@ -248,14 +258,8 @@ const uint8_t *BgpMessage::GetData(IPeerUpdate *peer, size_t *lenp,
     return data_;
 }
 
-Message *BgpMessageBuilder::Create(int part_id, const RibOut *ribout,
-    bool cache_routes, const RibOutAttr *roattr, const BgpRoute *route) const {
-    auto_ptr<BgpMessage> msg(new BgpMessage(ribout->table()));
-    if (msg->Start(ribout, roattr, route)) {
-        return msg.release();
-    } else {
-        return NULL;
-    }
+Message *BgpMessageBuilder::Create() const {
+    return new BgpMessage;
 }
 
 BgpMessageBuilder::BgpMessageBuilder() {
