@@ -87,7 +87,6 @@ def _access_control_list_update(acl_obj, name, obj, entries):
 class DBBaseST(DBBase):
     obj_type = __name__
     _indexed_by_name = True
-    _uuid_fq_name_map = {}
 
     def evaluate(self):
         # Implement in the derived class
@@ -102,8 +101,7 @@ class DBBaseST(DBBase):
     @classmethod
     def locate(cls, key, *args):
         obj = super(DBBaseST, cls).locate(key, *args)
-        if obj and obj.obj.uuid not in cls._uuid_fq_name_map:
-            cls._uuid_fq_name_map[obj.obj.uuid] = key
+        cls._cassandra.cache_uuid_to_fq_name_add(obj.obj.uuid, key, cls.obj_type)
         return obj
     # end locate
 
@@ -112,15 +110,14 @@ class DBBaseST(DBBase):
         obj = cls.get(key)
         if obj is None:
             return
-        if obj.obj.uuid in cls._uuid_fq_name_map:
-            del cls._uuid_fq_name_map[obj.obj.uuid]
+        cls._cassandra.cache_uuid_to_fq_name_del(obj.obj.uuid)
         obj.delete_obj()
         del cls._dict[key]
     # end delete
 
     @classmethod
     def get_by_uuid(cls, uuid, *args):
-        return cls.get(cls._uuid_fq_name_map.get(uuid))
+        return cls.get(cls._cassandra.uuid_to_fq_name(uuid))
 
     def handle_st_object_req(self):
         st_obj = sandesh.StObject(object_type=self.obj_type,
