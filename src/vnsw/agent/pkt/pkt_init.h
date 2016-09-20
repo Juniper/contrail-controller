@@ -45,6 +45,14 @@ public:
     void set_control_interface(ControlInterface *val);
     ControlInterface *control_interface() const { return control_interface_; }
 
+    std::vector<FlowMgmtManager *>::const_iterator
+        flow_mgmt_manager_iterator_begin() const {
+        return flow_mgmt_manager_list_.begin();
+    }
+    std::vector<FlowMgmtManager *>::const_iterator
+        flow_mgmt_manager_iterator_end() const {
+        return flow_mgmt_manager_list_.end();
+    }
     void CreateInterfaces();
 
 private:
