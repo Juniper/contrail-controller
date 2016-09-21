@@ -99,6 +99,12 @@ class TestCrudBasic(object):
                                                         parent_fixt=vn_fixt))
     #end test_access_control_list_crud
 
+    def test_user_defined_log_statistics_crud(self):
+        gsc_fixt = self.useFixture(GlobalSystemConfigTestFixtureGen(
+                                       self._vnc_lib))
+        gsc = gsc_fixt._obj
+    #end test_user_defined_log_statistics_crud
+
     def test_instance_ip_crud(self):
         pass
     # end test_instance_ip_crud
@@ -656,6 +662,71 @@ class TestCrud(test_case.ApiServerTestCase):
             headers={'Content-type': 'application/json; charset="UTF-8"'},
             data=json.dumps(vn_body))
     # end test_create_using_rest_api
+
+    def test_user_defined_log_statistics_crud(self):
+        gsc_fixt = self.useFixture(GlobalSystemConfigTestFixtureGen(
+                                       self._vnc_lib))
+        gsc = gsc_fixt._obj
+        gsc.add_user_defined_log_statistics(UserDefinedLogStat('Test01',
+                    '.*[ab][0-9]s1.*'))
+        gsc.add_user_defined_log_statistics(UserDefinedLogStat('Test02',
+                    '127.0.0.1'))
+        self._vnc_lib.global_system_config_update(gsc)
+        gsc_uuid = self._vnc_lib.global_system_configs_list()[
+                                    'global-system-configs'][0]['uuid']
+        gsc = self._vnc_lib.global_system_config_read(id=gsc_uuid)
+        tst_trgt = ('Test01', 'Test02')
+        self.assertTrue(reduce(lambda x, y: x and y, map(
+                        lambda p: p.name in tst_trgt,
+                        gsc.user_defined_log_statistics.statlist),  True))
+    #end test_user_defined_log_statistics_crud
+
+    def test_user_defined_log_statistics_bad_add(self):
+        gsc_fixt = self.useFixture(GlobalSystemConfigTestFixtureGen(
+                                       self._vnc_lib))
+        gsc = gsc_fixt._obj
+        gsc.add_user_defined_log_statistics(UserDefinedLogStat('Test01',
+                    '.*[ab][0-9]s1.*'))
+        # import pdb; pdb.set_trace()
+        # bad regex
+        gsc.add_user_defined_log_statistics(UserDefinedLogStat('Test03',
+                    '*foo'))
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.global_system_config_update(gsc)
+    #end test_user_defined_log_statistics_bad_add
+
+    def test_user_defined_log_statistics_set(self):
+        gsc_fixt = self.useFixture(GlobalSystemConfigTestFixtureGen(
+                                       self._vnc_lib))
+        gsc = gsc_fixt._obj
+        sl = UserDefinedLogStatList()
+        sl.add_statlist(UserDefinedLogStat('Test01', '.*[ab][0-9]s1.*'))
+        sl.add_statlist(UserDefinedLogStat('Test02', '127.0.0.1'))
+        gsc.set_user_defined_log_statistics(sl)
+
+        self._vnc_lib.global_system_config_update(gsc)
+        gsc_uuid = self._vnc_lib.global_system_configs_list()[
+                                    'global-system-configs'][0]['uuid']
+        gsc = self._vnc_lib.global_system_config_read(id=gsc_uuid)
+        tst_trgt = ('Test01', 'Test02')
+        self.assertTrue(reduce(lambda x, y: x and y, map(
+                        lambda p: p.name in tst_trgt,
+                        gsc.user_defined_log_statistics.statlist),  True))
+    #end test_user_defined_log_statistics_set
+
+    def test_user_defined_log_statistics_bad_set(self):
+        gsc_fixt = self.useFixture(GlobalSystemConfigTestFixtureGen(
+                                       self._vnc_lib))
+        gsc = gsc_fixt._obj
+        sl = UserDefinedLogStatList()
+        sl.add_statlist(UserDefinedLogStat('Test01', '.*[ab][0-9]s1.*'))
+        sl.add_statlist(UserDefinedLogStat('Test02', '127.0.0.1'))
+        sl.add_statlist(UserDefinedLogStat('Test03', '*127.0.0.1'))
+        gsc.set_user_defined_log_statistics(sl)
+
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.global_system_config_update(gsc)
+    #end test_user_defined_log_statistics_bad_set
 # end class TestCrud
 
 
