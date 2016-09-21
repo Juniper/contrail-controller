@@ -213,14 +213,14 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         logging.info("Starting stat gen " + str(UTCTimestampUsec()))
 
-        generator_obj.send_test_stat_dynamic("t02","samp02-2",0xffffffffffffffff,1.1);
+        generator_obj.send_test_stat_dynamic("t02","samp02-2",0x7fffffffffffffff,1.1);
 
         logging.info("Checking Stats " + str(UTCTimestampUsec()))
 
         assert generator_obj.verify_test_stat("StatTable.TestStateDynamic.ts",
             "-2m", select_fields = [ "UUID", "ts.s1", "ts.i1", "ts.d1" ],
             where_clause = 'name="t02"', num = 1, check_rows =
-            [{"ts.s1":"samp02-2", "ts.i1":0xffffffffffffffff, "ts.d1":1.1}])
+            [{"ts.s1":"samp02-2", "ts.i1":0x7fffffffffffffff, "ts.d1":1.1}])
             
         return True
     # end test_02_overflowsamples
