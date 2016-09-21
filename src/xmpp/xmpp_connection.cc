@@ -234,6 +234,7 @@ bool XmppConnection::Send(const uint8_t *data, size_t size,
     }
 
     TcpSession::Endpoint endpoint = session_->remote_endpoint();
+    const string &endpoint_addr_str = session_->remote_addr_string();
     string str;
     if (!msg_str) {
         str.append(reinterpret_cast<const char *>(data), size);
@@ -241,11 +242,10 @@ bool XmppConnection::Send(const uint8_t *data, size_t size,
     }
 
     if (!(mux_ &&
-         (mux_->TxMessageTrace(endpoint.address().to_string(),
-                               endpoint.port(), size, *msg_str, NULL)))) {
+         (mux_->TxMessageTrace(endpoint_addr_str, endpoint.port(),
+                               size, *msg_str, NULL)))) {
         XMPP_MESSAGE_TRACE(XmppTxStream,
-                           endpoint.address().to_string(),
-                           endpoint.port(), size, *msg_str);
+                           endpoint_addr_str, endpoint.port(), size, *msg_str);
     }
 
     stats_[1].update++;
