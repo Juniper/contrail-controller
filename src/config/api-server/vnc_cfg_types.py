@@ -1248,7 +1248,7 @@ class ServiceTemplateServer(Resource, ServiceTemplate):
             domain_uuid = db_conn.fq_name_to_uuid('domain', obj_dict['fq_name'][0:1])
         share_item = {
             'tenant': 'domain:%s' % domain_uuid,
-            'tenant_access': PERMS_R
+            'tenant_access': PERMS_RX
         }
         obj_dict['perms2']['share'].append(share_item)
         return (True, "")
@@ -1265,7 +1265,7 @@ class VirtualDnsServer(Resource, VirtualDns):
             domain_uuid = db_conn.fq_name_to_uuid('domain', obj_dict['fq_name'][0:1])
         share_item = {
             'tenant': 'domain:%s' % domain_uuid,
-            'tenant_access': PERMS_R
+            'tenant_access': PERMS_RX
         }
         obj_dict['perms2']['share'].append(share_item)
         return cls.validate_dns_server(obj_dict, db_conn)
