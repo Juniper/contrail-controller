@@ -137,7 +137,30 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
     # end _check_asn
 
     @classmethod
+    def _check_udc(cls, obj_dict, udcs):
+        udcl = []
+        for udc in udcs:
+            if all (k in udc.get('value', {}) for k in ('name', 'pattern')):
+                udcl.append(udc['value'])
+        udck = obj_dict.get('user_defined_log_statistics')
+        if udck:
+            udcl += udck['statlist']
+
+        for udc in udcl:
+            try:
+                re.compile(udc['pattern'])
+            except Exception as e:
+                return False, (400, 'Regex error in '
+                        'user-defined-log-statistics at %s: %s (Error: %s)' % (
+                        udc['name'], udc['pattern'], str(e)))
+        return True, ''
+    # end _check_udc
+
+    @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        ok, result = cls._check_udc(obj_dict, [])
+        if not ok:
+            return ok, result
         ok, result = cls._check_asn(obj_dict, db_conn)
         if not ok:
             return ok, result
@@ -146,6 +169,12 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        ok, result = cls._check_udc(obj_dict, filter(lambda x: x.get('field',
+                    '') == 'user_defined_log_statistics' and x.get(
+                        'operation', '') == 'set', kwargs.get(
+                            'prop_collection_updates', [])))
+        if not ok:
+            return ok, result
         ok, result = cls._check_asn(obj_dict, db_conn)
         if not ok:
             return ok, result
