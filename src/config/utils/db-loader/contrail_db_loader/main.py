@@ -15,7 +15,7 @@ from keystoneclient import session as ksession, auth as kauth,\
     client as kclient, exceptions as kexceptions
 
 from .utils import prompt, camel_case
-from .zookeeper import ZookeeperClient
+from .zookeeper import ZookeeperClient, DummyZookeeperClient
 
 
 logger = logging.getLogger(__name__)
@@ -27,12 +27,21 @@ class LoadDataBase(object):
     _OBJ_FQ_NAME_CF_NAME = 'obj_fq_name_table'
     _OBJ_SHARED_CF_NAME = 'obj_shared_table'
     _UUID_KEYSPACE = {
-        _UUID_KEYSPACE_NAME: [
-            (_OBJ_UUID_CF_NAME, None),
-            (_OBJ_FQ_NAME_CF_NAME, None),
-            (_OBJ_SHARED_CF_NAME, None),
-        ],
-    }
+        _UUID_KEYSPACE_NAME: {
+            _OBJ_UUID_CF_NAME: {
+                'cf_args': {
+                    'autopack_names': False,
+                    'autopack_values': False,
+                    },
+                },
+            _OBJ_FQ_NAME_CF_NAME: {
+                'cf_args': {
+                    'autopack_values': False,
+                    },
+                },
+            _OBJ_SHARED_CF_NAME: {}
+            }
+        }
     # Resources supported by that script
     # The order of that list is import, that defines the resources
     # order creation
@@ -55,12 +64,14 @@ class LoadDataBase(object):
     def __init__(self, force, resources_file, cassandra_servers,
                  cassandra_username, cassandra_password, db_prefix,
                  cassandra_batch_size, zookeeper_servers,
-                 rules_per_security_group, keystone_client):
+                 rules_per_security_group, keystone_client,
+                 dont_populate_zookeeper):
         self._force = force
         self._resource_distribution = yaml.load(resources_file)
         self._cassandra_batch_size = cassandra_batch_size
         self._rules_per_security_group = rules_per_security_group
         self._keystone_client = keystone_client
+        self._dont_populate_zookeeper = dont_populate_zookeeper
 
         # Connect to cassandra database
         logger.debug("Initilizing the cassandra connection on %s",
@@ -87,7 +98,10 @@ class LoadDataBase(object):
         self._fqname_cf = self._cassandra_db.get_cf('obj_fq_name_table')
 
         # Initilize zookeeper client
-        self._zk_client = ZookeeperClient(zookeeper_servers)
+        if self._dont_populate_zookeeper:
+            self._zk_client = DummyZookeeperClient()
+        else:
+            self._zk_client = ZookeeperClient(zookeeper_servers)
 
     def sanitize_resources(self):
         logger.debug("Santizing resources distribution")
@@ -205,8 +219,13 @@ def main():
                         help="Job queue size for cassandra batch "
                              "(default: %(default)s)",
                         default=LoadDataBase.BATCH_QUEUE_SIZE)
+    parser.add_argument('--dont-populate-zookeeper', action='store_true',
+                        help="Do not populate zookeeper database which is "
+                             "very slow and may take time "
+                             "(default: %(default)s)",
+                        default=False)
     parser.add_argument('--zookeeper-servers',
-                        help="Zookeeper server list' (default: %(default)s)",
+                        help="Zookeeper server list (default: %(default)s)",
                         nargs='+',
                         default=['localhost:2181'])
     parser.add_argument('--rules-per-security-group',

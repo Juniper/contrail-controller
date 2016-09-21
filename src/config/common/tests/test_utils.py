@@ -7,7 +7,6 @@ import gevent.wsgi
 import os
 import sys
 import logging
-import pdb
 import json
 from pprint import pprint
 import functools
@@ -510,7 +509,9 @@ class FakeIfmapClient(object):
     def _delete_publish(cls, port, del_root):
         from_name = escape(del_root[0].attrib['name'])
         to_name = None
-        if 'filter' in del_root.attrib:
+        if from_name not in cls._graph[port]:
+            link_keys = []
+        elif 'filter' in del_root.attrib:
             meta_name = del_root.attrib['filter']
             if len(del_root) == 1:
                 link_key = meta_name
@@ -529,13 +530,11 @@ class FakeIfmapClient(object):
             elif len(del_root) == 2:
                 to_name = escape(del_root[1].attrib['name'])
                 link_keys = []
-                if from_name in cls._graph[port]:
-                    all_link_keys = cls._graph[port][from_name]['links'].keys()
-                    for link_key in all_link_keys:
-                        link_info = cls._graph[port][from_name]['links'][link_key]
-                        if 'other' in link_info:
-                            if link_key.split()[1] == to_name:
-                                link_keys.append(link_key)
+                for link_key in cls._graph[port][from_name]['links']:
+                    link_info = cls._graph[port][from_name]['links'][link_key]
+                    if 'other' in link_info:
+                        if link_key.split()[1] == to_name:
+                            link_keys.append(link_key)
             else:
                 raise Exception("Unknown ifmap delete: %s" %
                                 (etree.tostring(del_root)))
@@ -576,10 +575,31 @@ class FakeIfmapClient(object):
         return subscribe_result, (from_name, to_name)
     # end _delete_publish
 
+    @classmethod
+    def _validate_session_id(cls, port, method, body):
+        if method == 'newSession':
+            return
+
+        session_id = getattr(body,
+                             '_%sRequest__session_id' % method.capitalize(),
+                             'False session id')
+        if (not session_id.isdigit() or
+                int(session_id) > (len(cls._subscribe_lists[port]) - 1)):
+            result = etree.Element('errorResult', errorCode='InvalidSessionID')
+            err_str = etree.SubElement(result, 'errorString')
+            err_str.text = "Session not found."
+            result_env = cls._RSP_ENVELOPE % {'result': etree.tostring(result)}
+            return result_env
+
     @staticmethod
     def call(client, method, body):
         cls = FakeIfmapClient
         port = client.port
+
+        valide_session_response = cls._validate_session_id(port, method, body)
+        if valide_session_response is not None:
+            return valide_session_response
+
         if method == 'publish':
             pub_env = cls._PUBLISH_ENVELOPE % {
                 'body': body._PublishRequest__operations}
@@ -700,8 +720,13 @@ class FakeIfmapClient(object):
             result = etree.Element('subscribeReceived')
             result_env = cls._RSP_ENVELOPE % {'result': etree.tostring(result)}
             return result_env
+        elif method == 'purge':
+            cls._graph[port].clear()
+            result = etree.Element('purgePublisherReceived')
+            return cls._RSP_ENVELOPE % {'result': etree.tostring(result)}
         else:
-            print method
+            print "%s: do not know IF-MAP '%s' request. Ignore it." %\
+                  (cls.__name__, method)
     # end call
 
     @staticmethod

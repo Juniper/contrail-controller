@@ -42,3 +42,13 @@ class ZookeeperClient(object):
             self._zk_client.create(path, str(value), makepath=True)
         except NodeExistsError:
             self._zk_client.set(path, str(value))
+
+class DummyZookeeperClient(object):
+    def connect(self, *args, **kwargs):
+        pass
+
+    def disconnect(self, *args, **kwargs):
+        pass
+
+    def create_node(self, *args, **kwargs):
+        pass
