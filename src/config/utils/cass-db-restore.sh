@@ -165,14 +165,18 @@ do
     if [ ! -d "$dest_path" ]; then
         mkdir -p $dest_path
     fi
-	cp $src_path/*.db $dest_path
-    if [ $? -ne 0 ]
+    db_files=$(ls $src_path/*.db 2> /dev/null | wc -l)
+    if [ $db_files -ne 0 ]
     then
-        echo "=====ERROR: Unable to restore $src_path/*.db to $dest_path====="
-        exit 1
-    fi
-	echo "=======check $dest_path ==============="
-	ls $dest_path
+        cp $src_path/*.db $dest_path
+        if [ $? -ne 0 ]
+        then
+            echo "=====ERROR: Unable to restore $src_path/*.db to $dest_path====="
+            exit 1
+        fi
+        echo "=======check $dest_path ==============="
+        ls $dest_path
+   fi
 done
 
 # Change the ownership of the cassandra data directory
