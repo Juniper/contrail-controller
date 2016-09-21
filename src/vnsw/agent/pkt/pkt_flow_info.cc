@@ -496,13 +496,13 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
     const InetUnicastRouteEntry *rt =
         static_cast<const InetUnicastRouteEntry *>(in->rt_);
     NextHop *component_nh_ptr = NULL;
-    uint32_t label;
+    uint32_t label = MplsTable::kInvalidLabel;
     //Frame key for component NH
     if (flow_info->ingress) {
         //Ingress flow
-        const VmInterface *vm_port = static_cast<const VmInterface *>(in->intf_);
+        const VmInterface *vm_port = dynamic_cast<const VmInterface *>(in->intf_);
         const VrfEntry *vrf = agent->vrf_table()->FindVrfFromId(pkt->vrf);
-        if (vm_port->HasServiceVlan() && vm_port->vrf() != vrf) {
+        if (vm_port && vm_port->HasServiceVlan() && vm_port->vrf() != vrf) {
             //Packet came on service VRF
             label = vm_port->GetServiceVlanLabel(vrf);
             uint32_t vlan = vm_port->GetServiceVlanTag(vrf);
@@ -510,7 +510,7 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
             const VlanNH key(const_cast<VmInterface *>(vm_port), vlan);
             component_nh_ptr = static_cast<NextHop *>
                 (agent->nexthop_table()->FindActiveEntryNoLock(&key));
-        } else {
+        } else if (vm_port) {
             InterfaceNH key(const_cast<VmInterface *>(vm_port), false,
                             InterfaceNHFlags::INET4,
                             vm_port->vm_mac());
