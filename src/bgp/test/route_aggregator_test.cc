@@ -53,14 +53,13 @@ typedef TypeDefinition<Inet6Table, Inet6Prefix> Inet6Definition;
 
 class BgpPeerMock : public IPeer {
 public:
-    BgpPeerMock(const Ip4Address &address) : address_(address) { }
+    BgpPeerMock(const Ip4Address &address)
+        : address_(address),
+          address_str_(address.to_string()) {
+    }
     virtual ~BgpPeerMock() { }
-    virtual std::string ToString() const {
-        return address_.to_string();
-    }
-    virtual std::string ToUVEKey() const {
-        return address_.to_string();
-    }
+    virtual const std::string &ToString() const { return address_str_; }
+    virtual const std::string &ToUVEKey() const { return address_str_; }
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize) {
         return true;
     }
@@ -104,6 +103,7 @@ public:
 
 private:
     Ip4Address address_;
+    std::string address_str_;
 };
 
 #define VERIFY_EQ(expected, actual) \

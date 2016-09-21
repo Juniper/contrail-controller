@@ -13,8 +13,10 @@
 
 class BgpPeerMock : public IPeer {
 public:
-    virtual std::string ToString() const { return "test-peer"; }
-    virtual std::string ToUVEKey() const { return "test-peer"; }
+    BgpPeerMock() : to_str_("test-peer") { }
+    virtual ~BgpPeerMock() { }
+    virtual const std::string &ToString() const { return to_str_; }
+    virtual const std::string &ToUVEKey() const { return to_str_; }
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize) { return true; }
     virtual BgpServer *server() { return NULL; }
     virtual BgpServer *server() const { return NULL; }
@@ -39,6 +41,7 @@ public:
     virtual bool IsInGRTimerWaitState() const { return false; }
 
 private:
+    std::string to_str_;
 };
 
 class RibOutAttributesTest : public ::testing::Test {

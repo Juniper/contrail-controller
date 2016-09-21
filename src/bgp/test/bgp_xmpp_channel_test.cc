@@ -26,7 +26,7 @@ using ::testing::Return;
 
 class XmppChannelMock : public XmppChannel {
 public:
-    XmppChannelMock() { }
+    XmppChannelMock() : fake_to_("fake"), fake_from_("fake-from") { }
     virtual ~XmppChannelMock() { }
     void Close() { }
     void CloseComplete() { }
@@ -38,11 +38,11 @@ public:
     MOCK_METHOD2(RegisterReceive, void(xmps::PeerId, ReceiveCb));
     MOCK_METHOD1(UnRegisterReceive, void(xmps::PeerId));
     MOCK_METHOD1(UnRegisterWriteReady, void(xmps::PeerId));
-    std::string ToString() const { return string("fake"); }
+    const std::string &ToString() const { return fake_to_; }
+    const std::string &FromString() const  { return fake_from_; }
     std::string StateName() const { return string("Established"); }
 
     xmps::PeerState GetPeerState() const { return xmps::READY; }
-    std::string FromString() const  { return string("fake-from"); }
     const XmppConnection *connection() const { return NULL; }
     virtual XmppConnection *connection() { return NULL; }
     virtual bool LastReceived(uint64_t durationMsec) const { return false; }
@@ -99,6 +99,10 @@ public:
     virtual void RegisterTxMessageTraceCallback(TxMessageTraceCb cb) {
         return;
     }
+
+private:
+    std::string fake_to_;
+    std::string fake_from_;
 };
 
 class BgpXmppChannelMock : public BgpXmppChannel {

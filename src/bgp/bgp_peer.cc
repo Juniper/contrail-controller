@@ -1930,7 +1930,7 @@ bool BgpPeer::ReceiveMsg(BgpSession *session, const u_int8_t *msg,
     return true;
 }
 
-string BgpPeer::ToString() const {
+const string &BgpPeer::ToString() const {
     if (to_str_.empty()) {
         ostringstream out;
         out << peer_key_.endpoint.address();
@@ -1942,7 +1942,7 @@ string BgpPeer::ToString() const {
     return to_str_;
 }
 
-string BgpPeer::ToUVEKey() const {
+const string &BgpPeer::ToUVEKey() const {
     if (uve_key_str_.empty()) {
         ostringstream out;
         if (rtinstance_) {

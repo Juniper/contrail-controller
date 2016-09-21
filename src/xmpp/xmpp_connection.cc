@@ -177,15 +177,15 @@ string XmppConnection::local_endpoint_string() const {
     return oss.str();
 }
 
-string XmppConnection::FromString() const {
+const string &XmppConnection::FromString() const {
     return from_;
 }
 
-std::string XmppConnection::ToString() const {
+const string &XmppConnection::ToString() const {
     return to_;
 }
 
-std::string XmppConnection::ToUVEKey() const {
+const std::string &XmppConnection::ToUVEKey() const {
     if (uve_key_str_.empty()) {
         std::ostringstream out;
         out << FromString() << ":" << endpoint().address().to_string();

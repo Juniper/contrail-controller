@@ -22,15 +22,12 @@ public:
     }
     PeerMock(BgpProto::BgpPeerType peer_type, Ip4Address address)
         : peer_type_(peer_type),
-          address_(address) {
+          address_(address),
+          address_str_("Peer_" + address.to_string()) {
     }
 
-    virtual string ToString() const {
-        return string("Peer_") + address_.to_string();
-    }
-    virtual string ToUVEKey() const {
-        return string("Peer_") + address_.to_string();
-    }
+    virtual const string &ToString() const { return address_str_; }
+    virtual const string &ToUVEKey() const { return address_str_; }
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize) { return true; }
     virtual BgpServer *server() { return NULL; }
     virtual BgpServer *server() const { return NULL; }
@@ -57,6 +54,7 @@ public:
 private:
     BgpProto::BgpPeerType peer_type_;
     Ip4Address address_;
+    std::string address_str_;
 };
 
 class BgpRouteTest : public ::testing::Test {

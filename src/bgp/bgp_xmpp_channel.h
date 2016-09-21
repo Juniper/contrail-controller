@@ -93,8 +93,8 @@ public:
     const IPeer *Peer() const;
     virtual TcpSession::Endpoint endpoint() const;
 
-    std::string ToString() const;
-    std::string ToUVEKey() const;
+    const std::string &ToString() const;
+    const std::string &ToUVEKey() const;
     std::string StateName() const;
     TcpSession::Endpoint remote_endpoint() const;
     TcpSession::Endpoint local_endpoint() const;

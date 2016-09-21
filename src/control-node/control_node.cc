@@ -7,7 +7,6 @@
 #include <boost/assign.hpp>
 
 #include "base/task.h"
-#include "bgp/bgp_ribout_updates.h"
 
 std::string ControlNode::hostname_;
 std::string ControlNode::prog_name_;
@@ -29,7 +28,6 @@ void ControlNode::SetDefaultSchedulingPolicy() {
 
     // Policy for bgp::Config Task.
     TaskPolicy config_policy = boost::assign::list_of
-        (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")))
         (TaskExclusion(scheduler->GetTaskId("bgp::RTFilter")))
         (TaskExclusion(scheduler->GetTaskId("bgp::SendUpdate")))

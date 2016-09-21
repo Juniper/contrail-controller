@@ -36,10 +36,10 @@ public:
     size_t ReceiverCount() const;
     std::vector<std::string> GetReceiverList() const;
 
-    virtual std::string ToString() const;
+    virtual const std::string &ToString() const;
+    virtual const std::string &FromString() const;
     virtual std::string StateName() const;
     virtual xmps::PeerState GetPeerState() const;
-    virtual std::string FromString() const;
 
     virtual std::string LastStateName() const;
     virtual std::string LastStateChangeAt() const;

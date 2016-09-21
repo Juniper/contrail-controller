@@ -90,8 +90,8 @@ public:
     // Interface methods
 
     // thread-safe
-    virtual std::string ToString() const;
-    virtual std::string ToUVEKey() const;
+    virtual const std::string &ToString() const;
+    virtual const std::string &ToUVEKey() const;
 
     // Task: bgp::SendUpdate
     // Used to send an UPDATE message on the socket.

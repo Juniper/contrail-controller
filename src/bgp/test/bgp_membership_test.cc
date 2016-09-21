@@ -27,18 +27,16 @@ class BgpTestPeer : public BgpPeer {
 public:
     BgpTestPeer(BgpServer *server, RoutingInstance *instance,
                 const BgpNeighborConfig *config)
-       : BgpPeer(server, instance, config),
-         policy_(BgpProto::IBGP, RibExportPolicy::BGP, -1, 0),
-         index_(gbl_index++) {
-         path_cb_count_ = 0;
-    }
-    virtual ~BgpTestPeer() { }
-
-    virtual string ToString() const {
+        : BgpPeer(server, instance, config),
+          policy_(BgpProto::IBGP, RibExportPolicy::BGP, -1, 0),
+          index_(gbl_index++) {
+        path_cb_count_ = 0;
         ostringstream repr;
         repr << "Peer" << index_;
-        return repr.str();
+        to_str_ = repr.str();
     }
+    virtual ~BgpTestPeer() { }
+    virtual const string &ToString() const { return to_str_; }
 
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize) { return true; }
     virtual bool IsReady() const { return true; }
@@ -62,6 +60,7 @@ private:
     RibExportPolicy policy_;
     int index_;
     atomic<uint64_t> path_cb_count_;
+    std::string to_str_;
 };
 
 class BgpMembershipTest : public ::testing::Test {

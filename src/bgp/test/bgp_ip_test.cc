@@ -26,11 +26,12 @@ public:
         boost::system::error_code ec;
         address_ = Ip4Address::from_string(address_str, ec);
         assert(ec.value() == 0);
+        address_str_ = address_.to_string();
     }
     virtual ~PeerMock() { }
 
-    virtual std::string ToString() const { return address_.to_string(); }
-    virtual std::string ToUVEKey() const { return address_.to_string(); }
+    virtual const std::string &ToString() const { return address_str_; }
+    virtual const std::string &ToUVEKey() const { return address_str_; }
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize) { return true; }
     virtual BgpServer *server() { return NULL; }
     virtual BgpServer *server() const { return NULL; }
@@ -58,6 +59,7 @@ public:
 
 private:
     Ip4Address address_;
+    std::string address_str_;
 };
 
 static const char *cfg_template = "\

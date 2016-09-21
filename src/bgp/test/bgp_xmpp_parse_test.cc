@@ -19,7 +19,7 @@ using pugi::xml_node;
 
 class XmppChannelMock : public XmppChannel {
 public:
-    XmppChannelMock() { }
+    XmppChannelMock() : fake_to_("fake"), fake_from_("fake-from") { }
     virtual ~XmppChannelMock() { }
     void Close() { }
     void CloseComplete() { }
@@ -31,11 +31,11 @@ public:
     void RegisterReceive(xmps::PeerId id, ReceiveCb callback) { }
     void UnRegisterReceive(xmps::PeerId id) { }
     void UnRegisterWriteReady(xmps::PeerId id) { }
-    string ToString() const { return string("fake"); }
+    const string &ToString() const { return fake_to_; }
+    const string &FromString() const  { return fake_from_; }
     string StateName() const { return string("Established"); }
 
     xmps::PeerState GetPeerState() const { return xmps::READY; }
-    string FromString() const  { return string("fake-from"); }
     string AuthType() const { return "NIL"; }
     string PeerAddress() const { return "127.0.0.1"; }
     const XmppConnection *connection() const { return NULL; }
@@ -88,6 +88,10 @@ public:
     virtual void RegisterTxMessageTraceCallback(TxMessageTraceCb cb) {
         return;
     }
+
+private:
+    std::string fake_to_;
+    std::string fake_from_;
 };
 
 class BgpXmppChannelMock : public BgpXmppChannel {

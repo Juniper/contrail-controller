@@ -298,7 +298,7 @@ public:
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize) {
         return SendUpdate(msg, msgsize, NULL);
     }
-    virtual string ToString() const {
+    virtual const string &ToString() const {
         return parent_->ToString();
     }
 
@@ -308,7 +308,7 @@ public:
 
     virtual bool IsRegistrationRequired() const { return true; }
 
-    virtual string ToUVEKey() const {
+    virtual const string &ToUVEKey() const {
         return parent_->ToUVEKey();
     }
 
@@ -556,11 +556,11 @@ const XmppSession *BgpXmppChannel::GetSession() const {
     return NULL;
 }
 
-string BgpXmppChannel::ToString() const {
+const string &BgpXmppChannel::ToString() const {
     return channel_->ToString();
 }
 
-string BgpXmppChannel::ToUVEKey() const {
+const string &BgpXmppChannel::ToUVEKey() const {
     if (channel_->connection()) {
         return channel_->connection()->ToUVEKey();
     } else {
