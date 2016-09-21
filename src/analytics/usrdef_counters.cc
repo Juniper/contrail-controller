@@ -77,16 +77,13 @@ UserDefinedCounters::UDCHandler(rapidjson::Document &jdoc,
                     }
                     Cfg_t::iterator cit=config_.begin();
                     while (cit != config_.end()) {
-                        Cfg_t::iterator dit = cit;
+                        Cfg_t::iterator dit = cit++;
                         if (!dit->second->IsRefreshed()) {
                             UserDefinedLogStatistic udc;
                             udc.set_name(dit->first);
                             udc.set_deleted(true);
                             UserDefinedLogStatisticUVE::Send(udc);
                             config_.erase(dit);
-                            cit = config_.begin();
-                        } else {
-                            ++cit;
                         }
                     }
                 }
