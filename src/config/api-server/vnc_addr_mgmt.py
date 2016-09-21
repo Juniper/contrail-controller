@@ -523,8 +523,6 @@ class AddrMgmt(object):
     #end
 
     def _get_net_subnet_dicts(self, vn_uuid, vn_dict=None):
-        db_conn = self._get_db_conn()
-
         # Read in the VN details if not passed in
         if not vn_dict:
             obj_fields=['network_ipam_refs']
@@ -595,8 +593,6 @@ class AddrMgmt(object):
     # end _get_ipam_subnet_objs_from_ipam_uuid
 
     def _get_ipam_subnet_dicts(self, ipam_uuid, ipam_dict=None):
-        db_conn = self._get_db_conn()
-
         # Read in the ipam details if not passed in
         if not ipam_dict:
             (ok, ipam_dict) = self._uuid_to_obj_dict('network_ipam',
@@ -700,7 +696,6 @@ class AddrMgmt(object):
         if 'network_ipam_refs' not in req_vn_dict:
             return
 
-        db_conn = self._get_db_conn()
         vn_fq_name_str = ':'.join(vn_fq_name)
         vn_uuid = db_vn_dict['uuid']
         db_subnet_dicts = self._get_net_subnet_dicts(vn_uuid, db_vn_dict)
@@ -710,8 +705,6 @@ class AddrMgmt(object):
         req_subnet_names = set(req_subnet_dicts.keys())
 
         del_subnet_names = db_subnet_names - req_subnet_names
-        add_subnet_names = req_subnet_names - db_subnet_names
-
         for subnet_name in del_subnet_names:
             Subnet.delete_cls('%s:%s' % (vn_fq_name_str, subnet_name))
             try:
@@ -1116,7 +1109,7 @@ class AddrMgmt(object):
                 continue
             if not ok:
                 self.config_log(
-                    "Error in ipam subnet delete check: %s" %(result),
+                    "Error in ipam subnet delete check: %s" %(read_result),
                     level=SandeshLevel.SYS_ERR)
                 return False, read_result
 
@@ -1136,7 +1129,6 @@ class AddrMgmt(object):
             # subnets not modified in request
             return True, ""
 
-        db_conn = self._get_db_conn()
         # if all ips are part of requested list
         # things are ok.
         # eg. existing [1.1.1.0/24, 2.2.2.0/24],
@@ -1189,10 +1181,8 @@ class AddrMgmt(object):
                           alloc_id=None):
         db_conn = self._get_db_conn()
         ipam_refs = vn_dict['network_ipam_refs']
-        ipam_refs_count = len(ipam_refs)
         for ipam_ref in ipam_refs:
             ipam_fq_name = ipam_ref['to']
-            ipam_fq_name_str = ':'.join(ipam_ref['to'])
 
             # ip alloc will go through only if ipam has a flat-subnet
             # check the link between VN and ipam and it should have only one
@@ -1245,12 +1235,11 @@ class AddrMgmt(object):
                 # existing object(iip/fip) using it, return an exception with
                 # the info. client can determine if its error or not
                 if asked_ip_addr:
-                    sub = subnet_name
                     if (int(IPAddress(asked_ip_addr)) % subnet_obj.alloc_unit):
                         raise AddrMgmtAllocUnitInvalid(
                             subnet_obj._name,
                             subnet_obj._prefix+'/'+subnet_obj._prefix_len,
-                            ip_alloc_unit)
+                            subnet_obj.ip_alloc_unit)
 
                     return subnet_obj.ip_reserve(ipaddr=asked_ip_addr,
                                                  value=alloc_id)
@@ -1340,12 +1329,6 @@ class AddrMgmt(object):
                                                       vn_fq_name, obj_fields)
             if not ok:
                 raise cfgm_common.exceptions.VncError(vn_dict)
-            vn_uuid = vn_dict['uuid']
-        else:
-            if 'uuid' in vn_dict:
-                vn_uuid = vn_dict['uuid']
-            else:
-                vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
 
         #if subnet_uuid or asked_ip given, first try in ipam_alloc followed
         #by net_alloc
@@ -1368,11 +1351,11 @@ class AddrMgmt(object):
                                            asked_ip_addr, asked_ip_version,
                                            alloc_id)
         elif allocation_method == 'user-defined-subnet-only':
-                return self._net_ip_alloc_req(vn_fq_name, vn_dict, sub,
-                                              asked_ip_addr, asked_ip_version,
-                                              alloc_id)
+            return self._net_ip_alloc_req(vn_fq_name, vn_dict, sub,
+                                          asked_ip_addr, asked_ip_version,
+                                          alloc_id)
 
-        if allocation_method == 'user-defined-subnet-preferred':
+        elif allocation_method == 'user-defined-subnet-preferred':
             #first try ip allcoation from user-defined-subnets, if
             #allocation exhausted, go to ipam-subnets
             try:
@@ -1384,7 +1367,7 @@ class AddrMgmt(object):
                                                asked_ip_addr, asked_ip_version,
                                                alloc_id)
 
-        if allocation_method == 'flat-subnet-preferred':
+        elif allocation_method == 'flat-subnet-preferred':
             #first try ip allcoation from ipam-subnets, if
             #allocation exhausted, go to user-defined-subnets
             try:
@@ -1395,6 +1378,7 @@ class AddrMgmt(object):
                 return self._net_ip_alloc_req(vn_fq_name, vn_dict, sub,
                                               asked_ip_addr, asked_ip_version,
                                               alloc_id)
+        return None
     # end ip_alloc_req
 
     def _ipam_ip_alloc_notify(self, ip_addr, vn_uuid):
@@ -1435,7 +1419,7 @@ class AddrMgmt(object):
         try:
             subnet_dicts = self._get_net_subnet_dicts(vn_uuid)
         except cfgm_common.exceptions.NoIdError:
-            return
+            return False
 
         for subnet_name in subnet_dicts:
             # create subnet_obj internally if it was created by some other
@@ -1492,7 +1476,6 @@ class AddrMgmt(object):
     # end _ipam_ip_free_req
 
     def _net_ip_free_req(self, ip_addr, vn_uuid, vn_fq_name, sub=None):
-        db_conn = self._get_db_conn()
         vn_fq_name_str = ':'.join(vn_fq_name)
         subnet_dicts = self._get_net_subnet_dicts(vn_uuid)
         for subnet_name in subnet_dicts:
@@ -1515,8 +1498,6 @@ class AddrMgmt(object):
     # end ip_free_req
 
     def _ipam_is_ip_allocated(self, ip_addr, vn_uuid, sub=None):
-        db_conn = self._get_db_conn()
-
         # Read in the VN
         obj_fields=['network_ipam_refs']
         (ok, vn_dict) = self._uuid_to_obj_dict('virtual_network',
@@ -1542,7 +1523,6 @@ class AddrMgmt(object):
     #end _ipam_is_ip_allocated
 
     def _net_is_ip_allocated(self, ip_addr, vn_fq_name, vn_uuid, sub=None):
-        db_conn = self._get_db_conn()
         vn_fq_name_str = ':'.join(vn_fq_name)
 
         subnet_dicts = self._get_net_subnet_dicts(vn_uuid)
@@ -1582,7 +1562,6 @@ class AddrMgmt(object):
 
         ipam_refs = vn_dict['network_ipam_refs']
         for ipam_ref in ipam_refs:
-            ipam_fq_name = ipam_ref['to']
             ipam_uuid = ipam_ref['uuid']
 
             for subnet_name in self._subnet_objs.get(ipam_uuid) or []:
@@ -1669,7 +1648,6 @@ class AddrMgmt(object):
             return
 
         ipam_fq_name_str = ':'.join(ipam_fq_name)
-        db_conn = self._get_db_conn()
         db_subnet_dicts = self._get_ipam_subnet_dicts(obj_uuid, db_ipam_dict)
         req_subnet_dicts = self._get_ipam_subnet_dicts(obj_uuid, req_ipam_dict)
 
@@ -1677,8 +1655,6 @@ class AddrMgmt(object):
         req_subnet_names = set(req_subnet_dicts.keys())
 
         del_subnet_names = db_subnet_names - req_subnet_names
-        add_subnet_names = req_subnet_names - db_subnet_names
-
         for subnet_name in del_subnet_names:
             Subnet.delete_cls('%s:%s' % (ipam_fq_name_str, subnet_name))
             try:
@@ -1735,11 +1711,8 @@ class AddrMgmt(object):
     # end ipam_update_notify
 
     def _ipam_is_gateway_ip(self, vn_dict, ip_addr):
-        db_conn = self._get_db_conn()
         ipam_refs = vn_dict['network_ipam_refs']
         for ipam_ref in ipam_refs:
-            ipam_fq_name = ipam_ref['to']
-            ipam_fq_name_str = ':'.join(ipam_ref['to'])
             ipam_uuid = ipam_ref['uuid']
             (ok, ipam_dict) = self._uuid_to_obj_dict('network_ipam',
                                                      ipam_uuid)
@@ -1770,7 +1743,6 @@ class AddrMgmt(object):
         if vn_dict is None or ip_addr is None:
             return False
 
-        vn_uuid = vn_dict['uuid']
         if (self._ipam_is_gateway_ip(vn_dict, ip_addr)):
             return True
         else:
