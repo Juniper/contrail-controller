@@ -3887,7 +3887,9 @@ TEST_F(XmppIfmapTest, NodePropertyChanges) {
     // Add 'id-perms' and 'display-name' to the vrnode
     content = (FileRead("controller/src/ifmap/testdata/vr_with_2prop.xml"));
     assert(content.size() != 0);
+    db_.SetQueueDisable(true);
     parser_->Receive(&db_, content.data(), content.size(), 0);
+    db_.SetQueueDisable(false);
     task_util::WaitForIdle();
     // Checks. 'id-perms' and 'display-name' should be set.
     vrnode = TableLookup("virtual-router", client_name);
@@ -3905,7 +3907,9 @@ TEST_F(XmppIfmapTest, NodePropertyChanges) {
     // Remove both properties from the vrnode
     content = (FileRead("controller/src/ifmap/testdata/vr_del_2prop.xml"));
     assert(content.size() != 0);
+    db_.SetQueueDisable(true);
     parser_->Receive(&db_, content.data(), content.size(), 0);
+    db_.SetQueueDisable(false);
     task_util::WaitForIdle();
     // Checks. The node should exist since it has a neighbor. But, the object
     // should be gone since all the properties are gone.
