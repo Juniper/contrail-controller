@@ -11,6 +11,7 @@
 #include <net/address.h>
 #include <cfg/cfg_interface.h>
 #include <port_ipc/config_stale_cleaner.h>
+#include <vgw/cfg_vgw.h>
 
 class Agent;
 
@@ -64,8 +65,18 @@ class PortIpcHandler {
     InterfaceConfigStaleCleaner *interface_stale_cleaner() const {
         return interface_stale_cleaner_.get();
     }
+    bool AddVgwFromJson(const std::string &json, std::string &err_msg) const;
+    bool DelVgwFromJson(const std::string &json, std::string &err_msg) const;
     friend class PortIpcTest;
  private:
+    bool BuildGateway(const rapidjson::Value &d, const std::string &json,
+                      std::string &err_msg, VirtualGatewayInfo *req) const;
+    bool HasAllFields(const rapidjson::Value &d, std::string &member_err,
+                      VirtualGatewayInfo *req) const;
+    bool ValidJsonArray(const rapidjson::Value &d,
+                        VirtualGatewayConfig::SubnetList *list) const;
+    bool BuildArrayElement(const rapidjson::Value &d,
+                           VirtualGatewayConfig::Subnet *entry) const;
     void ProcessFile(const std::string &file, bool check_port);
     bool ValidateMac(const std::string &mac) const;
     bool CanAdd(PortIpcHandler::AddPortParams &r,

@@ -511,3 +511,170 @@ void PortIpcHandler::SyncHandler() {
 
 void PortIpcHandler::Shutdown() {
 }
+
+bool PortIpcHandler::BuildArrayElement(const rapidjson::Value &d,
+                                       VirtualGatewayConfig::Subnet *entry)
+                                       const {
+    if (!d.HasMember("ip-address") || !d["ip-address"].IsString()) {
+        return false;
+    }
+
+    if (!d.HasMember("prefix-len") || !d["prefix-len"].IsInt()) {
+        return false;
+    }
+    boost::system::error_code ec;
+    entry->ip_ = Ip4Address::from_string(d["ip-address"].GetString(), ec);
+    if (ec != 0) {
+        return false;
+    }
+    entry->plen_ = d["prefix-len"].GetInt();
+    return true;
+}
+
+bool PortIpcHandler::ValidJsonArray(const rapidjson::Value &d,
+                                    VirtualGatewayConfig::SubnetList *list)
+                                    const {
+    for (size_t i = 0; i < d.Size(); i++) {
+        const rapidjson::Value& elem = d[i];
+        if (!elem.IsObject()) {
+            return false;
+        }
+        VirtualGatewayConfig::Subnet entry;
+        if (!BuildArrayElement(elem, &entry)) {
+            return false;
+        }
+        list->push_back(entry);
+    }
+    return true;
+}
+
+bool PortIpcHandler::HasAllFields(const rapidjson::Value &d,
+                                  std::string &member_err,
+                                  VirtualGatewayInfo *req) const {
+    if (!d.HasMember("interface") || !d["interface"].IsString()) {
+        member_err = "interface";
+        return false;
+    }
+
+    if (!d.HasMember("routing-instance") || !d["routing-instance"].IsString()) {
+        member_err = "routing-instance";
+        return false;
+    }
+
+    if (!d.HasMember("subnets") || !d["subnets"].IsArray()) {
+        member_err = "subnets";
+        return false;
+    }
+
+    if (!ValidJsonArray(d["subnets"], &req->subnets_)) {
+        member_err = "subnets value";
+        return false;
+    }
+
+    if (!d.HasMember("routes") || !d["routes"].IsArray()) {
+        member_err = "routes";
+        return false;
+    }
+
+    if (!ValidJsonArray(d["routes"], &req->routes_)) {
+        member_err = "routes value";
+        return false;
+    }
+    req->interface_name_ = d["interface"].GetString();
+    req->vrf_name_ = d["routing-instance"].GetString();
+
+    return true;
+}
+
+bool PortIpcHandler::BuildGateway(const rapidjson::Value &d,
+                                  const string &json, string &err_msg,
+                                  VirtualGatewayInfo *req) const {
+    string member_err;
+    if (!HasAllFields(d, member_err, req)) {
+        err_msg = "Json string does not have all required members, "
+                         + member_err + " is missing ==> "
+                         + json;
+        CONFIG_TRACE(PortInfo, err_msg.c_str());
+        return false;
+    }
+    return true;
+}
+
+bool PortIpcHandler::AddVgwFromJson(const string &json, string &err_msg) const {
+    rapidjson::Document d;
+    if (d.Parse<0>(const_cast<char *>(json.c_str())).HasParseError()) {
+        err_msg = "Invalid Json string ==> " + json;
+        CONFIG_TRACE(PortInfo, err_msg.c_str());
+        return false;
+    }
+    if (!d.IsArray()) {
+        err_msg = "Unexpected Json string (not an array) ==> " + json;
+        CONFIG_TRACE(PortInfo, err_msg.c_str());
+        return false;
+    }
+
+    std::vector<VirtualGatewayInfo> req_list;
+    for (size_t i = 0; i < d.Size(); i++) {
+        const rapidjson::Value& elem = d[i];
+        if (elem.IsObject()) {
+            VirtualGatewayInfo req("");
+            if (!BuildGateway(elem, json, err_msg, &req)) {
+                return false;
+            }
+            req_list.push_back(req);
+        } else {
+            err_msg = "Json Array has invalid element ==> " + json;
+            CONFIG_TRACE(PortInfo, err_msg.c_str());
+            return false;
+        }
+    }
+
+    if (!req_list.empty()) {
+        boost::shared_ptr<VirtualGatewayData>
+            vgw_data(new VirtualGatewayData(VirtualGatewayData::Add, req_list,
+                                            0));
+        agent_->params()->vgw_config_table()->Enqueue(vgw_data);
+    }
+    return true;
+}
+
+bool PortIpcHandler::DelVgwFromJson(const string &json, string &err_msg) const {
+    rapidjson::Document d;
+    if (d.Parse<0>(const_cast<char *>(json.c_str())).HasParseError()) {
+        err_msg = "Invalid Json string ==> " + json;
+        CONFIG_TRACE(PortInfo, err_msg.c_str());
+        return false;
+    }
+    if (!d.IsArray()) {
+        err_msg = "Unexpected Json string (not an array) ==> " + json;
+        CONFIG_TRACE(PortInfo, err_msg.c_str());
+        return false;
+    }
+
+    std::vector<VirtualGatewayInfo> req_list;
+    for (size_t i = 0; i < d.Size(); i++) {
+        const rapidjson::Value& elem = d[i];
+        if (elem.IsObject()) {
+            if (!elem.HasMember("interface") || !elem["interface"].IsString()) {
+                err_msg = "Json string does not have or has invalid value for "
+                    "member interface ==> " + json;
+                CONFIG_TRACE(PortInfo, err_msg.c_str());
+                return false;
+            }
+            VirtualGatewayInfo req(elem["interface"].GetString());
+            req_list.push_back(req);
+        } else {
+            err_msg = "Json Array has invalid element ==> " + json;
+            CONFIG_TRACE(PortInfo, err_msg.c_str());
+            return false;
+        }
+    }
+
+    if (!req_list.empty()) {
+        boost::shared_ptr<VirtualGatewayData>
+            vgw_data(new VirtualGatewayData(VirtualGatewayData::Delete,
+                                            req_list, 0));
+        agent_->params()->vgw_config_table()->Enqueue(vgw_data);
+    }
+    return true;
+}

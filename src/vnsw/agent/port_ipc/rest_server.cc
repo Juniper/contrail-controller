@@ -72,6 +72,35 @@ void RESTServer::VmPortGetHandler(const struct RESTData& data) {
     }
 }
 
+void RESTServer::GatewayPostHandler(const struct RESTData& data) {
+    PortIpcHandler *pih = agent_->port_ipc_handler();
+    if (pih) {
+        std::string err_msg;
+        if (pih->AddVgwFromJson(data.request->Body(), err_msg)) {
+            REST::SendResponse(data.session, "{}");
+        } else {
+            REST::SendErrorResponse(data.session, "{ " + err_msg + " }");
+        }
+    } else {
+       REST::SendErrorResponse(data.session, "{ Operation Not Supported }");
+    }
+}
+
+void RESTServer::GatewayDeleteHandler(const struct RESTData& data) {
+    std::string error;
+    PortIpcHandler *pih = agent_->port_ipc_handler();
+    if (pih) {
+        std::string err_msg;
+        if (pih->DelVgwFromJson(data.request->Body(), err_msg)) {
+            REST::SendResponse(data.session, "{}");
+        } else {
+            REST::SendErrorResponse(data.session, "{" + error + "}");
+        }
+    } else {
+        REST::SendErrorResponse(data.session, "{ Operation Not Supported }");
+    }
+}
+
 const std::vector<RESTServer::HandlerSpecifier> RESTServer::RESTHandlers_ =
     boost::assign::list_of
     (HandlerSpecifier(
@@ -91,7 +120,15 @@ const std::vector<RESTServer::HandlerSpecifier> RESTServer::RESTHandlers_ =
         boost::regex("/port/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
                      "[0-9a-f]{12})"),
         HTTP_GET,
-        &RESTServer::VmPortGetHandler));
+        &RESTServer::VmPortGetHandler))
+    (HandlerSpecifier(
+        boost::regex("/gateway"),
+        HTTP_POST,
+        &RESTServer::GatewayPostHandler))
+    (HandlerSpecifier(
+        boost::regex("/gateway"),
+        HTTP_DELETE,
+        &RESTServer::GatewayDeleteHandler));
 
 RESTServer::RESTServer(Agent *agent)
     : agent_(agent), http_server_(new HttpServer(agent->event_manager())) {
