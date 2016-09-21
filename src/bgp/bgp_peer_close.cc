@@ -161,7 +161,7 @@ bool BgpPeerClose::IsGRReady() const {
     if (!IsGRHelperModeEnabled()) {
         BGP_LOG_PEER(Message, peer_, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
             BGP_PEER_DIR_IN, "GR Helper mode is not enabled because it is not"
-            " configured ");
+            " configured");
         return false;
     }
 
@@ -231,7 +231,7 @@ bool BgpPeerClose::IsCloseGraceful() const {
     if (IsPeerAdminDown()) {
         BGP_LOG_PEER(Message, peer_, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
             BGP_PEER_DIR_IN, "GR Helper mode is not enabled because BgpPeer has"
-            "been held administratively down");
+            " been held administratively down");
         return false;
     }
 
@@ -290,7 +290,7 @@ bool BgpPeerClose::IsCloseLongLivedGraceful() const {
                                                             family.afi,
                                                             family.safi));
             BGP_LOG_PEER(Message, peer_, SandeshLevel::SYS_DEBUG,
-                BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN, "GR Helper mode is not  "
+                BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN, "GR Helper mode is not "
                 "enabled because after restart, LLGR forwarding state is not "
                 "preserved for address family " << family_str);
             return false;
