@@ -174,6 +174,47 @@ def create_test_security_group(fq_name_str):
     sg_obj['parent_type'] = 'project'
     SecurityGroupSM.locate(sg_obj['uuid'], sg_obj)
 
+def create_test_service_health_check(fq_name_str,
+                                     parent,
+                                     health_check_type = 'end-to-end'):
+    """
+    Create, store and return ServiceHealthCheck object.
+
+    Creation of the health check object involves:
+    * Construction of ServiceHealthCheck template object.
+    * Invoke ServiceHealthCheckSM DB to instatiate and add object.
+
+    """
+
+    # Construct template service health check object.
+    shc_obj = {}
+    shc_obj['uuid'] = fq_name_str.split(':')[-1]
+    shc_obj['fq_name'] = fq_name_str.split(':')
+    shc_obj['parent_uuid'] = parent
+
+    # Instantiate and store service health check object.
+    shc = ServiceHealthCheckSM.locate(shc_obj['uuid'], shc_obj)
+
+    # Update/init params of interest.
+    shc.params = {}
+    shc.params['health_check_type'] = health_check_type
+
+    return shc
+
+def create_test_iip(fq_name_str, iip_uuid='fake-iip-uuid'):
+    """
+    Create and return iip object.
+
+    """
+
+    iip_obj = {}
+    iip_obj['uuid'] = iip_uuid
+    iip_obj['fq_name'] = fq_name_str.split(':')
+
+    iip = InstanceIpSM.locate(iip_obj['uuid'], iip_obj)
+
+    return iip
+
 def get_vn_id_for_fq_name(obj_type, fq_name):
     if obj_type != 'virtual-network':
         return
