@@ -23,6 +23,7 @@ class AgentProfile;
 class VRouter;
 class BgpAsAService;
 class GlobalQosConfig;
+class AgentRouteWalkerManager;
 
 class OperDB {
 public:
@@ -66,6 +67,10 @@ public:
     GlobalQosConfig* global_qos_config() const {
         return global_qos_config_.get();
     }
+    AgentRouteWalkerManager* agent_route_walk_manager() const {
+        return route_walk_manager_.get();
+    }
+
 private:
     OperDB();
 
@@ -82,6 +87,7 @@ private:
     std::auto_ptr<VRouter> vrouter_;
     std::auto_ptr<BgpAsAService> bgp_as_a_service_;
     std::auto_ptr<GlobalQosConfig> global_qos_config_;
+    std::auto_ptr<AgentRouteWalkerManager> route_walk_manager_;
     DISALLOW_COPY_AND_ASSIGN(OperDB);
 };
 #endif

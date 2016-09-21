@@ -51,6 +51,17 @@ InterfaceTable *InterfaceTable::interface_table_;
 /////////////////////////////////////////////////////////////////////////////
 // Interface Table routines
 /////////////////////////////////////////////////////////////////////////////
+InterfaceTable::InterfaceTable(DB *db, const std::string &name) :
+        AgentOperDBTable(db, name), operdb_(NULL), agent_(NULL),
+        index_table_(), vmi_count_(0), li_count_(0), active_vmi_count_(0),
+        vmi_ifnode_to_req_(0), li_ifnode_to_req_(0), pi_ifnode_to_req_(0) {
+    global_vrouter_config_walk_ref_ =
+        AllocWalker(boost::bind(&InterfaceTable::L2VmInterfaceWalk,
+                                this, _1, _2),
+                    boost::bind(&InterfaceTable::VmInterfaceWalkDone,
+                                  this, _1, _2));
+}
+
 void InterfaceTable::Init(OperDB *oper) { 
     operdb_ = oper;
     agent_ = oper->agent();
@@ -319,20 +330,18 @@ bool InterfaceTable::L2VmInterfaceWalk(DBTablePartBase *partition,
     return true;
 }
 
-void InterfaceTable::VmInterfaceWalkDone(DBTableBase *partition) {
-    walkid_ = DBTableWalker::kInvalidWalkerId;
+void InterfaceTable::VmInterfaceWalkDone(DBTable::DBTableWalkRef walk_ref,
+                                         DBTableBase *partition) {
 }
 
 void InterfaceTable::GlobalVrouterConfigChanged() {
-    DBTableWalker *walker = agent_->db()->GetWalker();
-    if (walkid_ != DBTableWalker::kInvalidWalkerId) {
-        walker->WalkCancel(walkid_);
-    }
-    walkid_ = walker->WalkTable(this, NULL,
-                      boost::bind(&InterfaceTable::L2VmInterfaceWalk, 
-                                  this, _1, _2),
-                      boost::bind(&InterfaceTable::VmInterfaceWalkDone, 
-                                  this, _1));
+    WalkAgain(global_vrouter_config_walk_ref_);
+}
+
+void InterfaceTable::Clear() {
+    AgentDBTable::Clear();
+    ReleaseWalker(global_vrouter_config_walk_ref_);
+    global_vrouter_config_walk_ref_ = NULL;
 }
 
 /////////////////////////////////////////////////////////////////////////////

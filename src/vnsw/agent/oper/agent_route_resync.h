@@ -12,8 +12,10 @@
 class AgentRouteResync : public AgentRouteWalker {
 public:    
     typedef DBTableWalker::WalkId RouteWalkerIdList[Agent::ROUTE_TABLE_MAX];
-    AgentRouteResync(Agent *agent);
-    virtual ~AgentRouteResync() { }
+    AgentRouteResync(AgentRouteWalker::WalkType walk_type,
+                     const std::string &name,
+                     AgentRouteWalkerManager *mgr);
+    virtual ~AgentRouteResync();
 
     void Update();
     void UpdateRoutesInVrf(VrfEntry *vrf);
