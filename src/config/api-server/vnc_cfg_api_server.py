@@ -955,12 +955,13 @@ class VncApiServer(object):
             obj_uuids = get_request().query.obj_uuids.split(',')
 
         # common handling for all resource get
-        (ok, result) = self._get_common(get_request(), parent_uuids)
-        if not ok:
-            (code, msg) = result
-            self.config_object_error(
-                None, None, '%ss' %(resource_type), 'http_get_collection', msg)
-            raise cfgm_common.exceptions.HttpError(code, msg)
+        for parent_uuid in list(parent_uuids or []):
+            (ok, result) = self._get_common(get_request(), parent_uuid)
+            if not ok:
+                parent_uuids.remove(parent_uuid)
+
+        if obj_uuids is None and back_ref_uuids is None and parent_uuids == []:
+            return {'%ss' %(resource_type): []}
 
         if 'count' in get_request().query:
             is_count = 'true' in get_request().query.count.lower()
