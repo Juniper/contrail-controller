@@ -2933,13 +2933,13 @@ TEST_F(BgpExportRouteUpdateTest2, LeaveClear6) {
 
 static void SetUp() {
     bgp_log_test::init();
-    ControlNode::Initialize();
+    BgpServer::Initialize();
     ControlNode::SetDefaultSchedulingPolicy();
 }
 
 static void TearDown() {
     task_util::WaitForIdle();
-    ControlNode::Terminate();
+    BgpServer::Terminate();
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Terminate();
 }

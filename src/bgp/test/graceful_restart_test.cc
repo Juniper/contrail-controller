@@ -2612,7 +2612,7 @@ class TestEnvironment : public ::testing::Environment {
 
 static void SetUp() {
     BgpServerTest::GlobalSetUp();
-    ControlNode::Initialize();
+    BgpServer::Initialize();
     ControlNode::SetDefaultSchedulingPolicy();
     BgpObjectFactory::Register<PeerCloseManager>(
         boost::factory<PeerCloseManagerTest *>());
@@ -2625,7 +2625,7 @@ static void SetUp() {
 }
 
 static void TearDown() {
-    ControlNode::Terminate();
+    BgpServer::Terminate();
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Terminate();
 }

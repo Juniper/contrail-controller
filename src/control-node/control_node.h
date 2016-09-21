@@ -12,8 +12,6 @@
 
 class ControlNode {
 public:
-    static void Initialize();
-    static void Terminate();
     static void SetDefaultSchedulingPolicy();
     static void SetHostname(const std::string name) { hostname_ = name; }
     static const std::string GetHostname() { return hostname_; }

@@ -554,7 +554,7 @@ TEST_F(BgpUpdate2RibTest, WithBlock) {
 
 static void SetUp() {
     bgp_log_test::init();
-    ControlNode::Initialize();
+    BgpServer::Initialize();
     ControlNode::SetDefaultSchedulingPolicy();
     BgpObjectFactory::Register<BgpMessageBuilder>(
         boost::factory<BgpMessageBuilderMock *>());
@@ -562,7 +562,7 @@ static void SetUp() {
 
 static void TearDown() {
     task_util::WaitForIdle();
-    ControlNode::Terminate();
+    BgpServer::Terminate();
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Terminate();
 }
