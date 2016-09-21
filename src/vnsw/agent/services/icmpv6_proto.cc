@@ -174,8 +174,8 @@ bool Icmpv6Proto::ValidateAndClearVrfState(VrfEntry *vrf,
         return false;
     }
 
-    if (vrf_state->walk_id() != DBTableWalker::kInvalidWalkerId ||
-        vrf_state->evpn_walk_id() != DBTableWalker::kInvalidWalkerId) {
+    if (vrf_state->managed_delete_walk_ref().get() != NULL ||
+        vrf_state->evpn_walk_ref().get() != NULL) {
         return false;
     }
 
@@ -255,16 +255,13 @@ bool Icmpv6VrfState::DeleteEvpnRouteState(DBTablePartBase *part,
 }
 
 void Icmpv6VrfState::Delete() {
-    if (walk_id_ != DBTableWalker::kInvalidWalkerId)
+    if (managed_delete_walk_ref_.get() == NULL)
         return;
+
+    rt_table_->WalkAgain(managed_delete_walk_ref_);
+    if (evpn_walk_ref_.get())
+        evpn_rt_table_->WalkAgain(evpn_walk_ref_);
     deleted_ = true;
-    DBTableWalker *walker = agent_->db()->GetWalker();
-    walk_id_ = walker->WalkTable(rt_table_, NULL,
-            boost::bind(&Icmpv6VrfState::DeleteRouteState, this, _1, _2),
-            boost::bind(&Icmpv6VrfState::WalkDone, _1, this));
-    evpn_walk_id_ = walker->WalkTable(evpn_rt_table_, NULL,
-            boost::bind(&Icmpv6VrfState::DeleteEvpnRouteState, this, _1, _2),
-            boost::bind(&Icmpv6VrfState::WalkDone, _1, this));
 }
 
 bool Icmpv6VrfState::PreWalkDone(DBTableBase *partition) {
@@ -282,10 +279,12 @@ bool Icmpv6VrfState::PreWalkDone(DBTableBase *partition) {
 
 void Icmpv6VrfState::WalkDone(DBTableBase *partition, Icmpv6VrfState *state) {
     if (partition == state->rt_table_) {
-        state->walk_id_ = DBTableWalker::kInvalidWalkerId;
+        state->rt_table_->ReleaseWalker(state->managed_delete_walk_ref_);
+        state->managed_delete_walk_ref_ = NULL;
         state->l3_walk_completed_ = true;
     } else {
-        state->evpn_walk_id_ = DBTableWalker::kInvalidWalkerId;
+        state->evpn_rt_table_->ReleaseWalker(state->evpn_walk_ref_);
+        state->evpn_walk_ref_ = NULL;
         state->evpn_walk_completed_ = true;
     }
 
@@ -317,9 +316,14 @@ Icmpv6VrfState::Icmpv6VrfState(Agent *agent_ptr, Icmpv6Proto *proto,
     table_delete_ref_(this, table->deleter()),
     evpn_table_delete_ref_(this, evpn_rt_table_->deleter()),
     deleted_(false),
-    default_routes_added_(false), walk_id_(DBTableWalker::kInvalidWalkerId),
-    evpn_walk_id_(DBTableWalker::kInvalidWalkerId), l3_walk_completed_(false),
+    default_routes_added_(false), l3_walk_completed_(false),
     evpn_walk_completed_(false) {
+    evpn_walk_ref_ = evpn_rt_table_->AllocWalker(
+            boost::bind(&Icmpv6VrfState::DeleteEvpnRouteState, this, _1, _2),
+            boost::bind(&Icmpv6VrfState::WalkDone, _2, this));
+    managed_delete_walk_ref_ = table->AllocWalker(
+            boost::bind(&Icmpv6VrfState::DeleteRouteState, this, _1, _2),
+            boost::bind(&Icmpv6VrfState::WalkDone, _2, this));
 }
 
 Icmpv6VrfState::~Icmpv6VrfState() {

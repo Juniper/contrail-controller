@@ -25,6 +25,7 @@ class BgpAsAService;
 class GlobalQosConfig;
 class OperNetworkIpam;
 class OperVirtualDns;
+class AgentRouteWalkerManager;
 
 class OperDB {
 public:
@@ -73,6 +74,10 @@ public:
 
     OperNetworkIpam *network_ipam() const { return network_ipam_.get(); }
     OperVirtualDns *virtual_dns() const { return virtual_dns_.get(); }
+    AgentRouteWalkerManager* agent_route_walk_manager() const {
+        return route_walk_manager_.get();
+    }
+
 private:
     OperDB();
 
@@ -92,7 +97,7 @@ private:
     std::auto_ptr<OperNetworkIpam> network_ipam_;
     std::auto_ptr<OperVirtualDns> virtual_dns_;
     std::auto_ptr<GlobalQosConfig> global_qos_config_;
-
+    std::auto_ptr<AgentRouteWalkerManager> route_walk_manager_;
     DISALLOW_COPY_AND_ASSIGN(OperDB);
 };
 #endif

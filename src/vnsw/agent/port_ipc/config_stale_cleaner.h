@@ -40,6 +40,7 @@ public:
     InterfaceConfigStaleCleaner(Agent *agent);
     virtual ~InterfaceConfigStaleCleaner();
     virtual bool OnInterfaceConfigStaleTimeout(int32_t version);
+    DBTable::DBTableWalkRef WalkRef();
 
 private:
     DISALLOW_COPY_AND_ASSIGN(InterfaceConfigStaleCleaner);

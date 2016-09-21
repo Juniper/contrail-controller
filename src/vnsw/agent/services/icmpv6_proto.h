@@ -127,20 +127,18 @@ public:
         return icmpv6_path_preference_map_[ip];
     }
 
-    const DBTableBase::ListenerId &walk_id() {
-        return walk_id_;
-    }
-
-    const DBTableBase::ListenerId &evpn_walk_id() {
-        return evpn_walk_id_;
-    }
-
     bool l3_walk_completed() const {
         return l3_walk_completed_;
     }
 
     bool evpn_walk_completed() const {
         return evpn_walk_completed_;
+    }
+    DBTable::DBTableWalkRef managed_delete_walk_ref() {
+        return managed_delete_walk_ref_;
+    }
+    DBTable::DBTableWalkRef evpn_walk_ref() {
+        return evpn_walk_ref_;
     }
 
 private:
@@ -155,8 +153,8 @@ private:
     LifetimeRef<Icmpv6VrfState> evpn_table_delete_ref_;
     bool deleted_;
     bool default_routes_added_;
-    DBTableWalker::WalkId walk_id_;
-    DBTableWalker::WalkId evpn_walk_id_;
+    DBTable::DBTableWalkRef managed_delete_walk_ref_;
+    DBTable::DBTableWalkRef evpn_walk_ref_;
     Icmpv6PathPreferenceStateMap icmpv6_path_preference_map_;
     bool l3_walk_completed_;
     bool evpn_walk_completed_;

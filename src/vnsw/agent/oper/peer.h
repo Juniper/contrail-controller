@@ -11,6 +11,7 @@
 #include <db/db_table_walker.h>
 #include <net/address.h>
 #include <boost/intrusive_ptr.hpp>
+#include <oper/agent_route_walker.h>
 
 #define LOCAL_PEER_NAME "Local"
 #define LOCAL_VM_PEER_NAME "Local_Vm"
@@ -166,9 +167,7 @@ public:
     void set_is_disconnect_walk(bool is_disconnect_walk) {
         is_disconnect_walk_ = is_disconnect_walk;
     }
-    ControllerRouteWalker *route_walker() const {
-        return route_walker_.get(); 
-    }
+    ControllerRouteWalker *route_walker() const;
 
     //Helper routines to get export state for vrf and route
     DBState *GetVrfExportState(DBTablePartBase *partition,
@@ -186,7 +185,7 @@ private:
     DBTableBase::ListenerId id_;
     uint32_t setup_time_;
     tbb::atomic<bool> is_disconnect_walk_;
-    boost::scoped_ptr<ControllerRouteWalker> route_walker_;
+    AgentRouteWalkerPtr route_walker_;
     DISALLOW_COPY_AND_ASSIGN(BgpPeer);
 };
 

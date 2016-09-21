@@ -72,11 +72,15 @@ void RouteExport::State::Update(const AgentRoute *route, const AgentPath *path) 
 RouteExport::RouteExport(AgentRouteTable *rt_table):
     rt_table_(rt_table), marked_delete_(false), 
     table_delete_ref_(this, rt_table->deleter()) {
+    walk_ref_ = rt_table->AllocWalker(
+            boost::bind(&RouteExport::DeleteState, this, _1, _2),
+            boost::bind(&RouteExport::Walkdone, _1, _2, this));
 }
 
 RouteExport::~RouteExport() {
     if (rt_table_) {
         rt_table_->Unregister(id_);
+        rt_table_->ReleaseWalker(walk_ref_);
     }
     table_delete_ref_.Reset(NULL);
 }
@@ -446,17 +450,15 @@ bool RouteExport::DeleteState(DBTablePartBase *partition,
     return true;
 }
 
-void RouteExport::Walkdone(DBTableBase *partition,
+void RouteExport::Walkdone(DBTable::DBTableWalkRef walk_ref,
+                           DBTableBase *partition,
                            RouteExport *rt_export) {
     delete rt_export;
 }
 
 void RouteExport::Unregister() {
     //Start unregister process
-    DBTableWalker *walker = Agent::GetInstance()->db()->GetWalker();
-    walker->WalkTable(rt_table_, NULL, 
-            boost::bind(&RouteExport::DeleteState, this, _1, _2),
-            boost::bind(&RouteExport::Walkdone, _1, this));
+    rt_table_->WalkTable(walk_ref_);
 }
 
 RouteExport* RouteExport::Init(AgentRouteTable *table, 

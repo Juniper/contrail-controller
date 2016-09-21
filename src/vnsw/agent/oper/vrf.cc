@@ -67,8 +67,8 @@ VrfEntry::VrfEntry(const string &name, uint32_t flags, Agent *agent) :
 }
 
 VrfEntry::~VrfEntry() {
+    VrfTable *table = static_cast<VrfTable *>(get_table());
     if (id_ != kInvalidIndex) {
-        VrfTable *table = static_cast<VrfTable *>(get_table());
 
         if (vrf_node_ptr_) {
             IFMapDependencyManager *dep = table->agent()->
@@ -147,7 +147,11 @@ void VrfEntry::PostAdd() {
     // get_table() would return NULL in Add(), so move dependent functions and 
     // initialization to PostAdd
     deleter_.reset(new DeleteActor(this));
-    route_resync_walker_.reset(new AgentRouteResync(agent));
+    if (route_resync_walker_.get() == NULL) {
+        route_resync_walker_ = agent->oper_db()->agent_route_walk_manager()->
+            AllocWalker<AgentRouteResync>(AgentRouteWalker::ALL,
+                                          "VrfRouteResyncWalker");
+    }
     // Create the route-tables and insert them into dbtree_
     CreateRouteTables();
 
@@ -248,6 +252,32 @@ void VrfEntry::SetRouteTableDeleted(uint8_t table_type) {
 
 AgentRouteTable *VrfEntry::GetRouteTable(uint8_t table_type) const {
     return (RouteTableDeleted(table_type) ? NULL : rt_table_db_[table_type]);
+}
+
+const std::string VrfEntry::GetTableTypeString(uint8_t table_type) const {
+    switch (table_type) {
+      case Agent::INET4_UNICAST: {
+          return "inet4_unicast";
+          break;
+      }
+      case Agent::INET6_UNICAST: {
+          return "inet6_unicast";
+          break;
+      }
+      case Agent::INET4_MULTICAST: {
+          return "inet4_multicast";
+          break;
+      }
+      case Agent::BRIDGE: {
+          return "bridge";
+          break;
+      }
+      case Agent::EVPN: {
+          return "evpn";
+          break;
+      }
+    }
+    return "None";
 }
 
 InetUnicastAgentRouteTable *VrfEntry::GetInet4UnicastRouteTable() const {
@@ -364,7 +394,8 @@ void VrfEntry::CancelDeleteTimer() {
 }
 
 void VrfEntry::ResyncRoutes() {
-    route_resync_walker_.get()->UpdateRoutesInVrf(this);
+    (static_cast<AgentRouteResync *>(route_resync_walker_.get()))->
+        UpdateRoutesInVrf(this);
 }
 
 void VrfEntry::RetryDelete() {
@@ -389,6 +420,14 @@ bool VrfEntry::AllRouteTablesEmpty() const {
     return true;
 }
 
+void VrfEntry::ReleaseWalker() {
+    if (route_resync_walker_.get() != NULL) {
+        VrfTable *table = static_cast<VrfTable *>(get_table());
+        table->agent()->oper_db()->agent_route_walk_manager()->
+            ReleaseWalker(route_resync_walker_.get());
+    }
+}
+
 InetUnicastAgentRouteTable *
 VrfEntry::GetInetUnicastRouteTable(const IpAddress &addr) const {
     if (addr.is_v4())
@@ -398,6 +437,37 @@ VrfEntry::GetInetUnicastRouteTable(const IpAddress &addr) const {
         (GetInet6UnicastRouteTable());
 }
 
+class VrfDeleteWalker : public AgentRouteWalker {
+public:
+    VrfDeleteWalker(AgentRouteWalker::WalkType walk_type,
+                    const std::string &name,
+                    AgentRouteWalkerManager *mgr) : 
+        AgentRouteWalker(walk_type, name, mgr) {
+    }
+
+    ~VrfDeleteWalker() { }
+
+    //Override vrf notification
+    bool VrfWalkNotify(DBTablePartBase *partition, DBEntryBase *e) {
+        DBRequest req(DBRequest::DB_ENTRY_DELETE);
+        req.key = e->GetDBRequestKey();
+        (static_cast<VrfTable *>(e->get_table()))->Process(req);
+        return true;
+    }
+
+    //Override route notification
+    bool RouteWalkNotify(DBTablePartBase *partition, DBEntryBase *e) {
+        assert(0);
+    }
+
+    static void WalkDone(VrfDeleteWalker *walker) { 
+        walker->mgr()->ReleaseWalker(walker);
+        walker->agent()->vrf_table()->reset_vrf_delete_walker();
+    }
+
+private:
+};
+
 std::auto_ptr<DBEntry> VrfTable::AllocEntry(const DBRequestKey *k) const {
     const VrfKey *key = static_cast<const VrfKey *>(k);
     VrfEntry *vrf = new VrfEntry(key->name_, 0, agent());
@@ -405,10 +475,12 @@ std::auto_ptr<DBEntry> VrfTable::AllocEntry(const DBRequestKey *k) const {
 }
 
 VrfTable::~VrfTable() {
-    if (route_delete_walker_)
-        delete route_delete_walker_;
-    if (vrf_delete_walker_)
-        delete vrf_delete_walker_;
+    if (route_delete_walker_.get())
+        agent()->oper_db()->agent_route_walk_manager()->
+            ReleaseWalker(route_delete_walker_.get());
+    if (vrf_delete_walker_.get() != NULL)
+        agent()->oper_db()->agent_route_walk_manager()->
+            ReleaseWalker(vrf_delete_walker_.get());
 }
 
 DBEntry *VrfTable::OperDBAdd(const DBRequest *req) {
@@ -498,6 +570,7 @@ bool VrfTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
         vrf->vrf_node_ptr_ = dep->SetState(vrf->ifmap_node());
         dep->SetNotify(vrf->ifmap_node(), false);
     }
+    vrf->ReleaseWalker();
 
     return true;
 }
@@ -769,8 +842,10 @@ AgentSandeshPtr VrfTable::GetAgentSandesh(const AgentSandeshArguments *args,
 
 class RouteDeleteWalker : public AgentRouteWalker {
 public:
-    RouteDeleteWalker(Agent *agent) : 
-        AgentRouteWalker(agent, AgentRouteWalker::ALL) {
+    RouteDeleteWalker(AgentRouteWalker::WalkType walk_type,
+                      const std::string &name,
+                      AgentRouteWalkerManager *mgr) : 
+        AgentRouteWalker(walk_type, name, mgr) {
     }
 
     ~RouteDeleteWalker() { }
@@ -797,6 +872,8 @@ public:
 
     static void WalkDone(RouteDeleteWalker *walker) {
         walk_done_++;
+        walker->mgr()->ReleaseWalker(walker);
+        walker->agent()->vrf_table()->reset_route_delete_walker();
     }
 
     static uint32_t walk_start_;
@@ -806,52 +883,24 @@ uint32_t RouteDeleteWalker::walk_start_;
 uint32_t RouteDeleteWalker::walk_done_;
 
 void VrfTable::DeleteRoutes() {
-    if (route_delete_walker_ == NULL) {
-        route_delete_walker_ = new RouteDeleteWalker(agent());
+    if (route_delete_walker_.get() == NULL) {
+        route_delete_walker_ = agent()->oper_db()->agent_route_walk_manager()->
+            AllocWalker<RouteDeleteWalker>(AgentRouteWalker::ALL,
+                                           "RouteDeleteWalker");
     }
-    RouteDeleteWalker *route_delete_walker =
-        static_cast<RouteDeleteWalker *>(route_delete_walker_);
-    route_delete_walker->WalkDoneCallback
-        (boost::bind(&RouteDeleteWalker::WalkDone, route_delete_walker));
-    route_delete_walker->walk_start_++;
-    route_delete_walker->StartVrfWalk();
+    route_delete_walker_->WalkDoneCallback
+        (boost::bind(&RouteDeleteWalker::WalkDone,
+                static_cast<RouteDeleteWalker *>(route_delete_walker_.get())));
+    route_delete_walker_->StartVrfWalk();
 }
 
-class VrfDeleteWalker : public AgentRouteWalker {
-public:
-    VrfDeleteWalker(Agent *agent) : 
-        AgentRouteWalker(agent, AgentRouteWalker::ALL) {
-    }
-
-    ~VrfDeleteWalker() { }
-
-    //Override vrf notification
-    bool VrfWalkNotify(DBTablePartBase *partition, DBEntryBase *e) {
-        DBRequest req(DBRequest::DB_ENTRY_DELETE);
-        req.key = e->GetDBRequestKey();
-        (static_cast<VrfTable *>(e->get_table()))->Process(req);
-        return true;
-    }
-
-    //Override route notification
-    bool RouteWalkNotify(DBTablePartBase *partition, DBEntryBase *e) {
-        assert(0);
-    }
-
-    static void WalkDone(VrfDeleteWalker *walker) { 
-    }
-
-private:
-};
-
 void VrfTable::Shutdown() {
-    if (vrf_delete_walker_ == NULL) {
-        vrf_delete_walker_ = new VrfDeleteWalker(agent());
+    if (vrf_delete_walker_.get() == NULL) {
+        vrf_delete_walker_ = agent()->oper_db()->agent_route_walk_manager()->
+            AllocWalker<VrfDeleteWalker>(AgentRouteWalker::ALL, "VrfDeleteWalker");
     }
-    VrfDeleteWalker *vrf_delete_walker =
-        static_cast<VrfDeleteWalker *>(vrf_delete_walker_);
-    vrf_delete_walker->WalkDoneCallback(boost::bind
-                                        (&VrfDeleteWalker::WalkDone,
-                                         vrf_delete_walker));
-    vrf_delete_walker->StartVrfWalk();
+    vrf_delete_walker_.get()->WalkDoneCallback(boost::bind
+               (&VrfDeleteWalker::WalkDone,
+               static_cast<VrfDeleteWalker *>( vrf_delete_walker_.get())));
+    vrf_delete_walker_.get()->StartVrfWalk();
 }
