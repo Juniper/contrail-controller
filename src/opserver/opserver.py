@@ -581,7 +581,10 @@ class OpServer(object):
             self._logger.info('Loaded extensions for %s: %s doc %s' % \
                 (elem.name , elem.entry_point, elem.plugin.__doc__))
             ty = str(elem.entry_point).rsplit(":",1)[1]
-            self._ALARM_TYPES[elem.name][ty] = elem.plugin.__doc__
+            self._ALARM_TYPES[elem.name][ty] = {
+                'description': elem.plugin.__doc__,
+                'rules': elem.plugin._RULES if hasattr(elem.plugin, '_RULES') else None
+            }
 
         for t in _OBJECT_TABLES:
             obj = query_table(

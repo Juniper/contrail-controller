@@ -5,6 +5,9 @@ import json
 class ProcessConnectivity(AlarmBase):
     """Process(es) reporting as non-functional.
        Process(es) are reporting non-functional components in NodeStatus.process_status"""
+
+    _RULES = '(NodeStatus.process_status == null) OR (NodeStatus.process_status.state != Functional)'
+
     def __init__(self):
 	AlarmBase.__init__(self, AlarmBase.ALARM_CRITICAL)
 

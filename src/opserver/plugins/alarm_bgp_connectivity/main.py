@@ -6,6 +6,9 @@ class BgpConnectivity(AlarmBase):
     """BGP peer mismatch.
        Not enough BGP peers are up in BgpRouterState.num_up_bgp_peer"""
 
+    _RULES = '(BgpRouterState.num_up_bgp_peer == null) OR ' +\
+        '(BgpRouterState.num_up_bgp_peer != BgpRouterState.num_bgp_peer)'
+
     def __init__(self):
 	AlarmBase.__init__(self, AlarmBase.ALARM_MAJOR)
 

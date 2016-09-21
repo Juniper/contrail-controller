@@ -6,6 +6,9 @@ import re
 class StorageClusterState(AlarmBase):
     """Storage Cluster warning/errors.
        Storage Cluster is not in the normal operating state"""
+
+    _RULES = 'StorageCluster.info_stats.status != 0'
+
     def __init__(self):
         AlarmBase.__init__(self, AlarmBase.ALARM_MAJOR)
 

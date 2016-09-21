@@ -6,6 +6,9 @@ class VrouterInterface(AlarmBase):
     """Vrouter interface(s) in error state.
        VrouterAgent has interfaces in error state in VrouterAgent.error_intf_list"""
 
+    _RULES = '(VrouterAgent.error_intf_list != null) AND ' +\
+        '(VrouterAgent.error_intf_list != [])'
+
     def __init__(self):
 	AlarmBase.__init__(self, AlarmBase.ALARM_MAJOR)
 

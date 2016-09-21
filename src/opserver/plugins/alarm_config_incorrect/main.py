@@ -3,6 +3,9 @@ from opserver.sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import *
 import json
 
 class ConfIncorrect(AlarmBase):
+
+    _RULES = 'ContrailConfig == null'
+
     def __init__(self, sev = AlarmBase.ALARM_MAJOR):
 	AlarmBase.__init__(self, sev)
 

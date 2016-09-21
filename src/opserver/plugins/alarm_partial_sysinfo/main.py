@@ -38,23 +38,35 @@ class PartialSysinfo(AlarmBase):
 class PartialSysinfoCompute(PartialSysinfo):
     """System Info Incomplete.
        Basic System Information is absent for this node in VrouterAgent.build_info"""
+
+    _RULES = 'VrouterAgent.build_info == null'
+
     def __call__(self, uve_key, uve_data):
        return super(PartialSysinfoCompute,self).__call__(uve_key, uve_data)
 
 class PartialSysinfoAnalytics(PartialSysinfo):
     """System Info Incomplete.
        Basic System Information is absent for this node in CollectorState.build_info"""
+
+    _RULES = 'CollectorState.build_info == null'
+
     def __call__(self, uve_key, uve_data):
        return super(PartialSysinfoAnalytics,self).__call__(uve_key, uve_data)
 
 class PartialSysinfoConfig(PartialSysinfo):
     """System Info Incomplete.
        Basic System Information is absent for this node in ModuleCpuState.build_info"""
+
+    _RULES = 'ModuleCpuState.build_info == null'
+
     def __call__(self, uve_key, uve_data):
        return super(PartialSysinfoConfig,self).__call__(uve_key, uve_data)
 
 class PartialSysinfoControl(PartialSysinfo):
     """System Info Incomplete.
        Basic System Information is absent for this node in BgpRouterState.build_info"""
+
+    _RULES = 'BgpRouterState.build_info == null'
+
     def __call__(self, uve_key, uve_data):
        return super(PartialSysinfoControl,self).__call__(uve_key, uve_data)
