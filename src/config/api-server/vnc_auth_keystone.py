@@ -242,7 +242,7 @@ class AuthServiceKeystone(object):
         start_response('200 OK', [('Content-type', 'text/plain')])
         return token_info if status != 'Invalid' else ''
 
-    def start_response(self, status, headers):
+    def start_response(self, status, headers, exc_info=None):
         pass
 
     def validate_user_token(self, request):
