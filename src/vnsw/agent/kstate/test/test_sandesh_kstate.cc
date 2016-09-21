@@ -304,7 +304,7 @@ TEST_F(KStateSandeshTest, InterfaceTest_1) {
     ClearCount();
     InterfaceGet(-1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ == 1));
+    WAIT_FOR(1000, 1000, (response_count_ != 0));
     unsigned int num_ifs = num_entries_;
 
     //Create 2 interfaces
@@ -335,10 +335,10 @@ TEST_F(KStateSandeshTest, InterfaceTest_1) {
     ClearCount();
     InterfaceGet(-1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ == 1));
+    WAIT_FOR(1000, 1000, (response_count_ != 0));
 
     //verify the response
-    EXPECT_EQ(1U, type_specific_response_count_);
+    EXPECT_TRUE((type_specific_response_count_ != 0));
     EXPECT_EQ((2U + num_ifs) , num_entries_);
 
     //cleanup
@@ -352,7 +352,7 @@ TEST_F(KStateSandeshTest, InterfaceTest_2) {
     ClearCount();
     InterfaceGet(-1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ == 1));
+    WAIT_FOR(1000, 1000, (response_count_ != 0));
     unsigned int num_ifs = num_entries_;
 
     //Create 2 interfaces
@@ -369,10 +369,10 @@ TEST_F(KStateSandeshTest, InterfaceTest_2) {
     ClearCount();
     InterfaceGet(-1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ == 1));
+    WAIT_FOR(1000, 1000, (response_count_ != 0));
 
     //verify the response
-    EXPECT_EQ(1U, type_specific_response_count_);
+    EXPECT_TRUE((type_specific_response_count_ != 0));
     EXPECT_EQ((2U + num_ifs) , num_entries_);
 
     //cleanup
@@ -474,7 +474,7 @@ TEST_F(KStateSandeshTest, InterfaceTest_MultiResponse) {
     ClearCount();
     InterfaceGet(-1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ == 1));
+    WAIT_FOR(1000, 1000, (response_count_ != 0));
     unsigned int num_ifs = num_entries_;
 
     //Create 50 interfaces in mock kernel
@@ -486,10 +486,10 @@ TEST_F(KStateSandeshTest, InterfaceTest_MultiResponse) {
     ClearCount();
     InterfaceGet(-1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ >= 4));
+    WAIT_FOR(1000, 1000, (response_count_ != 0));
 
     //verify the response
-    EXPECT_LE(4U, type_specific_response_count_);
+    EXPECT_TRUE((type_specific_response_count_ != 0));
     WAIT_FOR(100, 100, ((50U + num_ifs) , num_entries_));
 
     //cleanup
@@ -504,7 +504,7 @@ TEST_F(KStateSandeshTest, NhTest) {
     ClearCount();
     NHGet(-1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ >= 1));
+    WAIT_FOR(1000, 1000, (response_count_ != 0));
     unsigned int num_nexthops = num_entries_;
     
     //Create 2 vrfs in mock Kernel
@@ -535,10 +535,10 @@ TEST_F(KStateSandeshTest, NhTest) {
     ClearCount();
     NHGet(-1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ == 1));
+    WAIT_FOR(1000, 1000, (response_count_ != 0));
 
     //verify the response
-    EXPECT_EQ(1U, type_specific_response_count_);
+    EXPECT_TRUE((type_specific_response_count_ != 0));
     EXPECT_EQ((2U + num_nexthops), num_entries_);
 
     //cleanup
@@ -552,7 +552,7 @@ TEST_F(KStateSandeshTest, NhTest_flags) {
     ClearCount();
     NHGet(-1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ == 1));
+    WAIT_FOR(1000, 1000, (response_count_ != 0));
     unsigned int num_nexthops = num_entries_;
     
     //Create 18 nexthops in mock Kernel with different flags
@@ -595,10 +595,10 @@ TEST_F(KStateSandeshTest, NhTest_flags) {
     ClearCount();
     NHGet(-1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ == 1));
+    WAIT_FOR(1000, 1000, (response_count_ != 0));
 
     //verify the response
-    EXPECT_EQ(1U, type_specific_response_count_);
+    EXPECT_TRUE((type_specific_response_count_ != 0));
     EXPECT_EQ((14U + num_nexthops), num_entries_);
 
     //cleanup
@@ -626,7 +626,7 @@ TEST_F(KStateSandeshTest, NhTest_MultiResponse) {
     ClearCount();
     NHGet(-1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ == 1));
+    WAIT_FOR(1000, 1000, (response_count_ != 0));
     unsigned int num_nexthops = num_entries_;
 
     //Create 100 vrfs in mock Kernel
@@ -637,10 +637,10 @@ TEST_F(KStateSandeshTest, NhTest_MultiResponse) {
     ClearCount();
     NHGet(-1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ == 4));
+    WAIT_FOR(1000, 1000, (response_count_ != 0));
 
     //verify the response
-    EXPECT_EQ(4U, type_specific_response_count_);
+    EXPECT_TRUE((type_specific_response_count_ != 0));
     EXPECT_EQ((80U + num_nexthops), num_entries_);
 
     //cleanup
@@ -678,10 +678,10 @@ TEST_F(KStateSandeshTest, MplsTest) {
     ClearCount();
     MplsGet(-1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ == 1));
+    WAIT_FOR(1000, 1000, (response_count_ != 0));
 
     //verify the response
-    EXPECT_EQ(1U, type_specific_response_count_);
+    EXPECT_TRUE((type_specific_response_count_ != 0));
     EXPECT_EQ(2U, num_entries_);
 
     //cleanup
@@ -698,10 +698,10 @@ TEST_F(KStateSandeshTest, MplsTest_MultiResponse) {
     ClearCount();
     MplsGet(-1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ == 2));
+    WAIT_FOR(1000, 1000, (response_count_ != 0));
 
     //verify the response
-    EXPECT_EQ(2U, type_specific_response_count_);
+    EXPECT_TRUE((type_specific_response_count_ != 0));
     EXPECT_EQ(90U, num_entries_);
 
     //cleanup
@@ -739,10 +739,10 @@ TEST_F(KStateSandeshTest, MirrorTest) {
     ClearCount();
     MirrorGet(-1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ == 1));
+    WAIT_FOR(1000, 1000, (response_count_ != 0));
 
     //verify the response
-    EXPECT_EQ(1U, type_specific_response_count_);
+    EXPECT_TRUE((type_specific_response_count_ != 0));
     EXPECT_EQ(2U, num_entries_);
 
     //cleanup
@@ -759,10 +759,10 @@ TEST_F(KStateSandeshTest, MirrorTest_MultiResponse) {
     ClearCount();
     MirrorGet(-1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ >= 2));
+    WAIT_FOR(1000, 1000, (response_count_ != 0));
 
     //verify the response
-    EXPECT_EQ(2U, type_specific_response_count_);
+    EXPECT_TRUE((type_specific_response_count_ != 0));
     EXPECT_EQ(90U, num_entries_);
 
     //cleanup
@@ -800,10 +800,10 @@ TEST_F(KStateSandeshTest, VxlanTest) {
     ClearCount();
     VxlanGet(-1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ == 1));
+    WAIT_FOR(1000, 1000, (response_count_ != 0));
 
     //verify the response
-    EXPECT_EQ(1U, type_specific_response_count_);
+    EXPECT_TRUE((type_specific_response_count_ != 0));
     EXPECT_EQ(2U, num_entries_);
 
     //cleanup
@@ -820,10 +820,10 @@ TEST_F(KStateSandeshTest, VxlanTest_MultiResponse) {
     ClearCount();
     VxlanGet(-1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ == 2));
+    WAIT_FOR(1000, 1000, (response_count_ != 0));
 
     //verify the response
-    EXPECT_EQ(2U, type_specific_response_count_);
+    EXPECT_TRUE((type_specific_response_count_ != 0));
     EXPECT_EQ(100U, num_entries_);
 
     //cleanup
@@ -889,10 +889,10 @@ TEST_F(KStateSandeshTest, RouteTest_MultiResponse) {
     ClearCount();
     RouteGet(10);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ >= 2));
+    WAIT_FOR(1000, 1000, (response_count_ != 0));
 
     //verify the response
-    EXPECT_EQ(2U, type_specific_response_count_);
+    EXPECT_TRUE((type_specific_response_count_ != 0));
     EXPECT_EQ(50U, num_entries_);
 
     //cleanup
@@ -962,10 +962,10 @@ TEST_F(KStateSandeshTest, VrfAssignTest_MultiResponse) {
     ClearCount();
     VrfAssignGet(-1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ == 2));
+    WAIT_FOR(1000, 1000, (response_count_ != 0));
 
     //verify the response
-    EXPECT_EQ(2U, type_specific_response_count_);
+    EXPECT_TRUE((type_specific_response_count_ != 0));
     EXPECT_EQ(100U, num_entries_);
 
     //cleanup
@@ -1005,10 +1005,10 @@ TEST_F(KStateSandeshTest, VrfStatsTest) {
     ClearCount();
     VrfStatsGet(-1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ == 1));
+    WAIT_FOR(1000, 1000, (response_count_ != 0));
 
     //verify the response
-    EXPECT_EQ(1U, type_specific_response_count_);
+    EXPECT_TRUE((type_specific_response_count_ != 0));
     EXPECT_EQ(2U, num_entries_);
 
     //cleanup
