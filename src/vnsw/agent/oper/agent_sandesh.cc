@@ -947,11 +947,11 @@ void AgentSandesh::DoSandeshInternal(AgentSandeshPtr sandesh, int first,
     last = ComputeLast(first, last, len);
 
     SetResp();
-    DBTableWalker *walker = table->database()->GetWalker();
-    walkid_ = walker->WalkTable(table, NULL,
+    DBTable::DBTableWalkRef walk_ref = table->AllocWalker(
         boost::bind(&AgentSandesh::EntrySandesh, this, _2, first, last),
         boost::bind(&AgentSandesh::SandeshDone, this, sandesh, first,
-                    page_size));
+                    page_size, _1, _2));
+    table->WalkAgain(walk_ref);
 }
 
 void AgentSandesh::DoSandesh(AgentSandeshPtr sandesh, int first, int last) {
@@ -994,9 +994,10 @@ bool AgentSandesh::EntrySandesh(DBEntryBase *entry, int first, int last) {
     return true;
 }
 
-void AgentSandesh::SandeshDone(AgentSandeshPtr ptr, int first, int page_size) {
-    walkid_ = DBTableWalker::kInvalidWalkerId;
-
+void AgentSandesh::SandeshDone(AgentSandeshPtr ptr, int first, int page_size,
+                               DBTable::DBTableWalkRef walk_ref,
+                               DBTableBase *partition) {
+    (static_cast<DBTable *>(partition))->ReleaseWalker(walk_ref);
     resp_->set_more(true);
     resp_->Response();
 

@@ -186,6 +186,8 @@ void ShutdownAgentController(Agent *agent) {
 void TestShutdown() {
     TestAgentInit *init = client->agent_init();
     init->Shutdown();
+    assert(Agent::GetInstance()->oper_db()->agent_route_walk_manager()->
+           walk_ref_list_size() == 0);
     AgentStats::GetInstance()->Shutdown();
     AsioStop();
 }
