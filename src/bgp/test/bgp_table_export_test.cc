@@ -58,16 +58,13 @@ class BgpTestPeer : public IPeer {
 public:
     explicit BgpTestPeer(int index, bool internal)
         : index_(index),
-          internal_(internal) {
+          internal_(internal),
+          to_str_("Peer " + integerToString(index_)) {
     }
     virtual ~BgpTestPeer() { }
 
-    virtual string ToString() const {
-        return (string("Peer ") + integerToString(index_));
-    }
-    virtual string ToUVEKey() const {
-        return (string("Peer ") + integerToString(index_));
-    }
+    virtual const std::string &ToString() const { return to_str_; }
+    virtual const std::string &ToUVEKey() const { return to_str_; }
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize) { return true; }
     virtual BgpServer *server() { return NULL; }
     virtual BgpServer *server() const { return NULL; }
@@ -96,6 +93,7 @@ public:
 private:
     int index_;
     bool internal_;
+    std::string to_str_;
 };
 
 class BgpRouteMock : public BgpRoute {

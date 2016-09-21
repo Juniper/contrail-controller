@@ -50,15 +50,14 @@ static const int kAttrCount = 12;
 class BgpTestPeer : public IPeerUpdate {
 public:
     BgpTestPeer() : index_(gbl_index++), count_(0), send_block_(false) {
+        std::ostringstream repr;
+        repr << "Peer" << index_;
+        to_str_ = repr.str();
     }
 
     virtual ~BgpTestPeer() { }
 
-    virtual std::string ToString() const {
-        std::ostringstream repr;
-        repr << "Peer" << index_;
-        return repr.str();
-    }
+    virtual const std::string &ToString() const { return to_str_; }
 
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize) {
         count_++;
@@ -82,6 +81,7 @@ private:
     std::set<int> block_set_;
     int count_;
     bool send_block_;
+    std::string to_str_;
 };
 
 class BgpMessageMock : public BgpMessage {

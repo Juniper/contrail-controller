@@ -58,14 +58,13 @@ using pugi::xml_parse_result;
 
 class BgpPeerMock : public IPeer {
 public:
-    explicit BgpPeerMock(const Ip4Address &address) : address_(address) { }
+    explicit BgpPeerMock(const Ip4Address &address)
+        : address_(address),
+          address_str_(address.to_string()) {
+    }
     virtual ~BgpPeerMock() { }
-    virtual string ToString() const {
-        return address_.to_string();
-    }
-    virtual string ToUVEKey() const {
-        return address_.to_string();
-    }
+    virtual const string &ToString() const { return address_str_; }
+    virtual const string &ToUVEKey() const { return address_str_; }
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize) {
         return true;
     }
@@ -109,6 +108,7 @@ public:
 
 private:
     Ip4Address address_;
+    std::string address_str_;
 };
 
 //

@@ -35,6 +35,7 @@ BgpXmppMessage::BgpXmppMessage()
       cache_routes_(false),
       repr_valid_(false),
       sequence_number_(0) {
+    msg_begin_.reserve(kMaxFromToLength);
 }
 
 BgpXmppMessage::~BgpXmppMessage() {
@@ -391,15 +392,14 @@ const uint8_t *BgpXmppMessage::GetData(IPeerUpdate *peer, size_t *lenp,
     const string **msg_str) {
     // Build begin line that contains message opening tag with from and to
     // attributes.
-    string msg_begin;
-    msg_begin.reserve(kMaxFromToLength);
-    msg_begin += "\n<message from=\"";
-    msg_begin += XmppInit::kControlNodeJID;
-    msg_begin += "\" to=\"";
-    msg_begin += peer->ToString();
-    msg_begin += "/";
-    msg_begin += XmppInit::kBgpPeer;
-    msg_begin += "\">";
+    msg_begin_.clear();
+    msg_begin_ += "\n<message from=\"";
+    msg_begin_ += XmppInit::kControlNodeJID;
+    msg_begin_ += "\" to=\"";
+    msg_begin_ += peer->ToString();
+    msg_begin_ += "/";
+    msg_begin_ += XmppInit::kBgpPeer;
+    msg_begin_ += "\">";
 
     // Add closing tags if this is the first peer to which the message will
     // be sent.
@@ -411,15 +411,16 @@ const uint8_t *BgpXmppMessage::GetData(IPeerUpdate *peer, size_t *lenp,
     // Replace the begin line if it fits in the space reserved at the start
     // of repr_.  Otherwise build a new string with the begin line and rest
     // of the message in repr_.
-    if (msg_begin.size() <= kMaxFromToLength) {
-        size_t extra = kMaxFromToLength - msg_begin.size();
-        repr_.replace(0, extra, extra, ' ');
-        repr_.replace(extra, msg_begin.size(), msg_begin);
+    size_t begin_size = msg_begin_.size();
+    if (begin_size <= kMaxFromToLength) {
+        size_t extra = kMaxFromToLength - begin_size;
+        // repr_.replace(0, extra, extra, ' ');
+        repr_.replace(extra, begin_size, msg_begin_.c_str(), begin_size);
         *lenp = repr_.size() - extra;
         *msg_str = &repr_;
         return reinterpret_cast<const uint8_t *>(repr_.c_str()) + extra;
     } else {
-        string temp = msg_begin + string(repr_, kMaxFromToLength);
+        string temp = msg_begin_ + string(repr_, kMaxFromToLength);
         *lenp = temp.size();
         *msg_str = NULL;
         return reinterpret_cast<const uint8_t *>(temp.c_str());

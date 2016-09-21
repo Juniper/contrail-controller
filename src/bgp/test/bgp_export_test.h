@@ -43,15 +43,14 @@ static int gbl_index;
 class BgpTestPeer : public IPeerUpdate {
 public:
     BgpTestPeer() : index_(gbl_index++), count_(0) {
+        std::ostringstream repr;
+        repr << "Peer" << index_;
+        to_str_ = repr.str();
     }
 
     virtual ~BgpTestPeer() { }
 
-    virtual std::string ToString() const {
-        std::ostringstream repr;
-        repr << "Peer" << index_;
-        return repr.str();
-    }
+    virtual const std::string &ToString() const { return to_str_; }
 
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize) {
         count_++;
@@ -63,6 +62,7 @@ public:
 private:
     int index_;
     int count_;
+    std::string to_str_;
 };
 
 class InetTableMock : public InetTable {

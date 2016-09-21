@@ -90,6 +90,7 @@ private:
     bool is_reachable_;
     bool cache_routes_;
     bool repr_valid_;
+    std::string msg_begin_;
     std::string repr_;
     pugi::xml_document doc_;
     uint32_t sequence_number_;

@@ -226,16 +226,18 @@ bool BgpPeerTest::ProcessRequest(Request *request) {
 //
 bool BgpPeerTest::verbose_name_ = false;
 
-string BgpPeerTest::ToString() const {
-    ostringstream out;
-
-    out << BgpPeer::ToString();
-    if (verbose_name_ && config()) {
-        out << "(";
-        out << config()->name();
-        out << ")";
+const string &BgpPeerTest::ToString() const {
+    if (to_str_.empty()) {
+        ostringstream out;
+        out << BgpPeer::ToString();
+        if (verbose_name_ && config()) {
+            out << "(";
+            out << config()->name();
+            out << ")";
+        }
+        to_str_ = out.str();
     }
-    return out.str();
+    return to_str_;
 }
 
 //
