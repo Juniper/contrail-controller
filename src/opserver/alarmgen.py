@@ -244,28 +244,41 @@ class AlarmProcessor(object):
                     description=alarm.description(), ack=False)
     # end process_alarms
 
-    def _get_uve_attribute(self, tuve, puve, attr_list):
+    def _get_uve_attribute(self, tuve, attr_list, uve_path=None):
+        if uve_path is None:
+            uve_path = []
         if tuve is None or not attr_list:
-            return {'value': tuve, 'parent_attr': puve,
+            return {'value': tuve, 'uve_path': uve_path,
                     'status': False if len(attr_list) else True}
         if isinstance(tuve, dict):
-            return self._get_uve_attribute(tuve.get(attr_list[0]),
-                                           tuve, attr_list[1:])
+            if attr_list[0] in ('*', '__value'):
+                return [self._get_uve_attribute(val, attr_list[1:],
+                        uve_path+[{key: val}]) \
+                        for key, val in tuve.iteritems()]
+            elif attr_list[0] == '__key':
+                return [self._get_uve_attribute(key, attr_list[1:],
+                        uve_path+[{key: val}]) \
+                        for key, val in tuve.iteritems()]
+            else:
+                tuve = tuve.get(attr_list[0])
+                uve_path.append({attr_list[0]: tuve})
+                return self._get_uve_attribute(tuve, attr_list[1:], uve_path)
         elif isinstance(tuve, list):
-            return [self._get_uve_attribute(elem, tuve, attr_list) \
+            return [self._get_uve_attribute(elem, attr_list,
+                    uve_path+[{'__list_element__': elem}]) \
                     for elem in tuve]
         elif isinstance(tuve, str):
             try:
                 json_elem = json.loads(tuve)
             except ValueError:
-                return {'value': None, 'parent_attr': tuve, 'status': False}
+                return {'value': None, 'uve_path': uve_path, 'status': False}
             else:
-                return self._get_uve_attribute(json_elem, tuve, attr_list)
+                return self._get_uve_attribute(json_elem, attr_list, uve_path)
     # end _get_uve_attribute
 
     def _get_operand_value(self, uve, operand):
         attr_list = operand.split('.')
-        return self._get_uve_attribute(uve, uve, attr_list)
+        return self._get_uve_attribute(uve, attr_list)
     # end _get_operand_value
 
     def _get_json_value(self, val):
@@ -277,24 +290,51 @@ class AlarmProcessor(object):
             return val
     # end _get_json_value
 
+    def _get_attribute_from_uve_path(self, attr, uve_path):
+        attr_list = attr.split('.')
+        ai = ui = 0
+        pnode = uve_path[ui]
+        while (ai < len(attr_list) and ui < len(uve_path)):
+            if attr_list[ai] == '__key':
+                return uve_path[ui].iterkeys().next()
+            elif attr_list[ai] == '__value':
+                return uve_path[ui].itervalues().next()
+            if attr_list[ai] != '*' and attr_list[ai] not in uve_path[ui]:
+                break
+            pnode = uve_path[ui]
+            ui += 1
+            ai += 1
+            if len(uve_path) > ui and '__list_element__' in uve_path[ui]:
+                pnode = uve_path[ui]
+                ui += 1
+        if not ui:
+            return None
+        val = pnode.itervalues().next()
+        for a in attr_list[ai:]:
+            if val is None or not isinstance(val, dict):
+                return None
+            val = val.get(a)
+        return val
+    # end _get_attribute_from_uve_path
+
     def _get_json_variables(self, uve, exp, operand1_val,
                             operand2_val, is_operand2_json_val):
         json_vars = {}
         for var in exp.variables:
-            # If var and operand1/operand2 are at the same hirerarchy in
-            # the uve struture, then get the value of var from parent_attr of
-            # the corresponding operand_val
-            # TODO: Handle the case len(var.rsplit) != len(operand.rsplit)
-            if var.rsplit('.', 1)[0] == exp.operand1.rsplit('.', 1)[0]:
-                var_val = \
-                    operand1_val['parent_attr'].get(var.rsplit('.', 1)[1])
-            elif not is_operand2_json_val and \
-                var.rsplit('.', 1)[0] == exp.operand2.uve_attribute.rsplit(
-                    '.', 1)[0]:
-                var_val = \
-                    operand2_val['parent_attr'].get(var.rsplit('.', 1)[1])
+            p1 = os.path.commonprefix([exp.operand1.split('.'),
+                var.split('.')])
+            if not is_operand2_json_val:
+                p2 = os.path.commonprefix(
+                    [exp.operand2.uve_attribute.split('.'), var.split('.')])
+                if p1 > p2:
+                    var_val = self._get_attribute_from_uve_path(var,
+                        operand1_val['uve_path'])
+                else:
+                    var_val = self._get_attribute_from_uve_path(var,
+                        operand2_val['uve_path'])
             else:
-                var_val = self._get_operand_value(uve, var)['value']
+                var_val = self._get_attribute_from_uve_path(var,
+                    operand1_val['uve_path'])
             json_vars[var] = self._get_json_value(var_val)
         return json_vars
     # end _get_json_variables
