@@ -242,6 +242,9 @@ class InstanceManager(object):
         VirtualMachineSM.locate(vm_obj.uuid)
         self.logger.info("Info: VM %s updated SI %s" %
                              (vm_obj.get_fq_name_str(), si_obj.get_fq_name_str()))
+
+        # vm should be owned by tenant
+        self._vnc_lib.chown(vm_uuid, si.parent_key)
         return vm_obj
 
     def create_port_tuple(self, si, st, instance_index, pt_uuid):
