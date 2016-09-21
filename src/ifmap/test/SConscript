@@ -10,11 +10,26 @@ env = BuildEnv.Clone()
 
 env.Append(LIBPATH = env['TOP'] + '/base')
 env.Append(LIBPATH = env['TOP'] + '/bgp')
+env.Append(LIBPATH = env['TOP'] + '/bgp/routing-instance')
+env.Append(LIBPATH = env['TOP'] + '/bgp/rtarget')
+env.Append(LIBPATH = env['TOP'] + '/bgp/origin-vn')
+env.Append(LIBPATH = env['TOP'] + '/bgp/ermvpn')
+env.Append(LIBPATH = env['TOP'] + '/bgp/evpn')
+env.Append(LIBPATH = env['TOP'] + '/bgp/extended-community')
+env.Append(LIBPATH = env['TOP'] + '/bgp/inet')
+env.Append(LIBPATH = env['TOP'] + '/bgp/inet6')
+env.Append(LIBPATH = env['TOP'] + '/bgp/inet6vpn')
+env.Append(LIBPATH = env['TOP'] + '/bgp/l3vpn')
+env.Append(LIBPATH = env['TOP'] + '/bgp/routing-policy')
+env.Append(LIBPATH = env['TOP'] + '/bgp/security_group')
+env.Append(LIBPATH = env['TOP'] + '/bgp/tunnel_encap')
 env.Append(LIBPATH = env['TOP'] + '/control-node')
 env.Append(LIBPATH = env['TOP'] + '/db')
 env.Append(LIBPATH = env['TOP'] + '/ifmap')
 env.Append(LIBPATH = env['TOP'] + '/io')
 env.Append(LIBPATH = env['TOP'] + '/ifmap/client')
+env.Append(LIBPATH = env['TOP'] + '/net')
+env.Append(LIBPATH = env['TOP'] + '/route')
 env.Append(LIBPATH = env['TOP'] + '/xml')
 env.Append(LIBPATH = env['TOP'] + '/xmpp')
 env.Append(LIBPATH = env['TOP'] + '/discovery/client')
@@ -24,8 +39,12 @@ env.Prepend(LIBS = ['ifmap_server', 'ifmapio', 'ds', 'xmpp', 'peer_sandesh',
                     'table_sandesh', 'sandesh', 'http', 'http_parser', 'httpc',
                     'curl', 'sandeshvns', 'process_info', 'io', 'control_node',
                     'ifmap_common', 'pugixml', 'xml', 'db', 'base', 'gunit',
-                    'crypto', 'ssl', 'boost_regex', 'boost_chrono',
-                    'boost_program_options'])
+                    'bgp', 'routing_instance', 'origin_vn', 'rtarget', 'db',
+                    'bgp_inet6', 'extended_community', 'net', 'bgp_ermvpn',
+                    'bgp_evpn', 'base', 'table_sandesh', 'tunnel_encap',
+                    'security_group', 'bgp_inet6vpn', 'route', 'routing_policy',
+                    'bgp_inet', 'bgp_l3vpn', 'crypto', 'ssl', 'boost_regex',
+                    'boost_chrono', 'boost_program_options'])
 
 if sys.platform != 'darwin':
     env.Append(LIBS = ['rt'])
