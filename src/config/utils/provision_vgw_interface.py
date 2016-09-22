@@ -1,20 +1,15 @@
 #!/usr/bin/python
 #
-# Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+# Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
 import os
 import sys
 import argparse
 import ConfigParser
+import requests
 
-from thrift.Thrift import TApplicationException, TException
-from thrift.transport import TTransport, TSocket
-from thrift.protocol import TBinaryProtocol, TProtocol
 from netaddr.ip import IPNetwork
-from contrail_vrouter_api.gen_py.instance_service import InstanceService
-from contrail_vrouter_api.gen_py.instance_service import ttypes
-
 from vnc_api.vnc_api import *
 
 class ProvisionVgwInterface(object):
@@ -24,17 +19,8 @@ class ProvisionVgwInterface(object):
         if not args_str:
             args_str = ' '.join(sys.argv[1:])
         self._parse_args(args_str)
-
-        # Connect to thrift service
-        try:
-            socket = TSocket.TSocket("localhost", 9090)
-            transport = TTransport.TFramedTransport(socket)
-            transport.open()
-            protocol = TBinaryProtocol.TBinaryProtocol(transport)
-            service = InstanceService.Client(protocol)
-        except TApplicationException:
-            print "Error connecting to agent thrift service"
-            return
+        headers = {'content-type': 'application/json'}
+        url = "http://localhost:9091/gateway"
 
         if self._args.oper == "create":
             print "Creating virtual-gateway ..."
@@ -55,35 +41,50 @@ class ProvisionVgwInterface(object):
                 self.execute_command(route_command)
 
             subnet_list = []
+            first = True
+            subnets_str = "\"subnets\":["
             for subnet in self._args.subnets:
                 net = IPNetwork(subnet)
-                subnet_list.append(ttypes.Subnet(str(net.ip), net.prefixlen))
+                if not first:
+                    subnets_str += ","
+                first = False
+                subnets_str += "{\"ip-address\":\"%s\", \"prefix-len\":%d}" % (str(net.ip), net.prefixlen)
+            subnets_str += "]"
 
             route_list = []
+            first = True
+            routes_str = "\"routes\":["
             for subnet in self._args.routes:
                 net = IPNetwork(subnet)
-                route_list.append(ttypes.Subnet(str(net.ip), net.prefixlen))
+                if not first:
+                    routes_str += ","
+                first = False
+                routes_str += "{\"ip-address\":\"%s\", \"prefix-len\":%d}" % (str(net.ip), net.prefixlen)
+            routes_str += "]"
 
-            gw = ttypes.VirtualGatewayRequest(self._args.interface, self._args.vrf,
-                                              subnet_list, route_list)
-            gw_list = [ gw ]
+            gw_str = "[{\"interface\":\"%s\", \"routing-instance\":\"%s\", %s, %s}]" %(self._args.interface, self._args.vrf, subnets_str, routes_str)
+
             try:
-                service.AddVirtualGateway(gw_list)
-            except TApplicationException:
+                r = requests.post(url, data=gw_str, headers=headers)
+            except ConnectionError:
                 print "Error: Error adding VGW interface"
+                return
+            if r.status_code != 200:
+                print "Failed to Add VGW interface"
                 return
             print "Done creating virtual-gateway..."
 
         else:
             print "Deleting virtual-gateway ..."
-
-            gw_list = [self._args.interface]
+            gw_str = "[{\"interface\":\"%s\"}]" % (self._args.interface)
             try:
-                service.DeleteVirtualGateway(gw_list)
-            except TApplicationException:
+                r = requests.delete(url, data=gw_str, headers=headers)
+            except ConnectionError:
                 print "Error: Error deleting VGW interface"
                 return
-
+            if r.status_code != 200:
+                print "Failed to Delete VGW interface"
+                return
             for subnet in self._args.subnets:
                 route_command = 'route del -net ' + subnet
                 route_command += ' dev ' + self._args.interface
@@ -101,7 +102,6 @@ class ProvisionVgwInterface(object):
             self.execute_command(del_cmd)
             print "Done deleting virtual-gateway..."
 
-        transport.close()
     # end __init__
     
     def execute_command(self, cmd):
