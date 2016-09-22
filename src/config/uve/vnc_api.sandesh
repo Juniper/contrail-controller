@@ -33,11 +33,40 @@ traceobject sandesh VncApiReadLog {
 }
 
 /**
- * @description: Object log for API server config
+ * @description: Configuration API audit log for objects
+ * @severity: INFO
+ * @cause: A configuration change request was handled
  * @action: No action needed
  */
 objectlog sandesh VncApiConfigLog {
     1: VncApiCommon api_log;
+}
+
+/**
+ * @description: System log for API server informational events
+ * @severity: DEBUG
+ * @action: No action needed
+ */
+systemlog sandesh VncApiDebug {
+    1: string api_msg;
+}
+
+/**
+ * @description: System log for API server informational events
+ * @severity: INFO
+ * @action: No action needed
+ */
+systemlog sandesh VncApiInfo {
+    1: string api_msg;
+}
+
+/**
+ * @description: System log for API server notices
+ * @severity: NOTICE
+ * @action: No action needed
+ */
+systemlog sandesh VncApiNotice {
+    1: string api_msg;
 }
 
 /**
@@ -47,7 +76,7 @@ objectlog sandesh VncApiConfigLog {
  * @action: Contact your technical support representative
  */
 systemlog sandesh VncApiError {
-    1: string api_error_msg;
+    1: string api_msg;
 }
 
 struct ContrailConfig {

@@ -66,7 +66,7 @@ from vnc_cfg_ifmap import VncDbClient
 import cfgm_common
 from cfgm_common import ignore_exceptions, imid
 from cfgm_common.uve.vnc_api.ttypes import VncApiCommon, VncApiConfigLog,\
-    VncApiError
+    VncApiDebug, VncApiInfo, VncApiNotice, VncApiError
 from cfgm_common import illegal_xml_chars_RE
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType,\
@@ -3014,9 +3014,16 @@ class VncApiServer(object):
         log.send(sandesh=self._sandesh)
     # end config_object_error
 
-    def config_log(self, err_str, level=SandeshLevel.SYS_INFO):
-        VncApiError(api_error_msg=err_str, level=level, sandesh=self._sandesh).send(
-            sandesh=self._sandesh)
+    def config_log(self, msg_str, level=SandeshLevel.SYS_INFO):
+        errcls = {
+            SandeshLevel.SYS_DEBUG: VncApiDebug,
+            SandeshLevel.SYS_INFO: VncApiInfo,
+            SandeshLevel.SYS_NOTICE: VncApiNotice,
+            SandeshLevel.SYS_ERR: VncApiError,
+        }
+        errcls.get(level, VncApiError)(
+            api_msg=msg_str, level=level, sandesh=self._sandesh).send(
+                sandesh=self._sandesh)
     # end config_log
 
     def _set_api_audit_info(self, apiConfig):
