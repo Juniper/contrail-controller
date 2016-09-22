@@ -1224,7 +1224,6 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
             # does not have it already
             for ipam in ipam_refs:
                 ipam_fq_name = ipam['to']
-                ipam_fq_name_str = ':'.join(ipam['to'])
                 ipam_uuid = db_conn.fq_name_to_uuid('network_ipam',
                                                     ipam_fq_name)
                 (ok, ipam_dict) = db_conn.dbe_read(
@@ -1357,7 +1356,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                             subnet_uuid = ipam_subnet.get('subnet_uuid')
                             break
 
-            if subnet_uuid == None:
+            if subnet_uuid is None:
                 return {'ip_addr' : []}
 
         ip_list = [cls.addr_mgmt.ip_alloc_req(vn_fq_name, sub=subnet_uuid,
@@ -1428,7 +1427,6 @@ class NetworkIpamServer(Resource, NetworkIpam):
         if  (subnet_method != 'flat-subnet'):
             return True, ""
 
-        ipam_uuid = obj_dict.get('uuid')
         ipam_subnets = obj_dict.get('ipam_subnets')
         if ipam_subnets is None:
             return True, ""
@@ -1492,7 +1490,6 @@ class NetworkIpamServer(Resource, NetworkIpam):
             (old_subnet_method != 'flat-subnet')):
             return True, ""
 
-        db_subnets_list = cls.addr_mgmt._ipam_to_subnets(read_result)
         req_subnets_list = cls.addr_mgmt._ipam_to_subnets(obj_dict)
 
         (ok, result) = cls.addr_mgmt.net_check_subnet_overlap(req_subnets_list)
@@ -1565,11 +1562,11 @@ class NetworkIpamServer(Resource, NetworkIpam):
         active_vm_present = cls.is_active_vm_present(obj_dict, db_conn)
         if active_vm_present:
             if (old == "default-dns-server" or old == "virtual-dns-server"):
-                if (new == "tenant-dns-server" or new == None):
+                if (new is "tenant-dns-server" or new is None):
                     return False
-            if (old == "tenant-dns-server" and new != old):
+            if (old is "tenant-dns-server" and new != old):
                 return False
-            if (old == None and new != old):
+            if (old is None and new != old):
                 return False
         return True
     # end is_change_allowed
@@ -2181,7 +2178,7 @@ class PhysicalInterfaceServer(Resource, PhysicalInterface):
 
             # Need to check vlan only when request is for logical interfaces and
             # When the current physical_interface is the parent
-            if vlan_tag == None or \
+            if vlan_tag is None or \
                physical_interface['uuid'] != physical_interface_uuid:
                 continue
 
