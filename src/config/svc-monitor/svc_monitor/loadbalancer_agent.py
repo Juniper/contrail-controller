@@ -508,7 +508,7 @@ class LoadbalancerAgent(Agent):
             if value is not None:
                 res[mapping] = value
 
-        if props['session_persistence']:
+        if 'session_persistence' in props and  props['session_persistence']:
             sp = {'type': props['session_persistence']}
             if props['session_persistence'] == 'APP_COOKIE':
                 sp['cookie_name'] = props['persistence_cookie_name']
