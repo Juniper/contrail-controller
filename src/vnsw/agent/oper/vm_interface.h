@@ -660,6 +660,7 @@ private:
     friend struct VmInterfaceHealthCheckData;
 
     bool IsMetaDataIPActive() const;
+    bool IsMetaDataL2Active() const;
     bool IsIpv4Active() const;
     bool PolicyEnabled() const;
     void AddRoute(const std::string &vrf_name, const IpAddress &ip,

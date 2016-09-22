@@ -75,6 +75,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     dhcp_addr_(0), metadata_ip_map_(), hc_instance_set_(),
     ecmp_load_balance_() {
     metadata_ip_active_ = false;
+    metadata_l2_active_ = false;
     ipv4_active_ = false;
     ipv6_active_ = false;
     l2_active_ = false;
@@ -112,6 +113,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     nova_ip_addr_(0), nova_ip6_addr_(), dhcp_addr_(0), metadata_ip_map_(),
     hc_instance_set_() {
     metadata_ip_active_ = false;
+    metadata_l2_active_ = false;
     ipv4_active_ = false;
     ipv6_active_ = false;
     l2_active_ = false;
@@ -1274,6 +1276,7 @@ bool VmInterface::Resync(const InterfaceTable *table,
     bool old_layer3_forwarding = layer3_forwarding_;
     Ip4Address old_dhcp_addr = dhcp_addr_;
     bool old_metadata_ip_active = metadata_ip_active_;
+    bool old_metadata_l2_active = metadata_l2_active_;
     bool old_bridging = bridging_;
 
     if (data) {
@@ -1281,11 +1284,16 @@ bool VmInterface::Resync(const InterfaceTable *table,
     }
 
     metadata_ip_active_ = IsMetaDataIPActive();
+    metadata_l2_active_ = IsMetaDataL2Active();
     ipv4_active_ = IsIpv4Active();
     ipv6_active_ = IsIpv6Active();
     l2_active_ = IsL2Active();
 
     if (metadata_ip_active_ != old_metadata_ip_active) {
+        ret = true;
+    }
+
+    if (metadata_l2_active_ != old_metadata_l2_active) {
         ret = true;
     }
 
@@ -2496,6 +2504,14 @@ bool VmInterface::IsMetaDataIPActive() const {
         if (subnet_.is_unspecified() == false && parent_ == NULL) {
             return false;
         }
+    }
+
+    return IsActive();
+}
+
+bool VmInterface::IsMetaDataL2Active() const {
+    if (!bridging()) {
+        return false;
     }
 
     return IsActive();
