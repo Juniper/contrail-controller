@@ -256,7 +256,7 @@ public:
     void BindLocalEndpoint(BgpSession *session);
 
     static void verbose_name(bool verbose) { verbose_name_ = verbose; }
-    std::string ToString() const;
+    const std::string &ToString() const;
 
     bool BgpPeerSendUpdate(const uint8_t *msg, size_t msgsize);
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize) {

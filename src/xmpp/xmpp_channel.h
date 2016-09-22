@@ -66,7 +66,8 @@ public:
     virtual void Close() = 0;
     virtual void CloseComplete() = 0;
     virtual bool IsCloseInProgress() const = 0;
-    virtual std::string ToString() const = 0;
+    virtual const std::string &ToString() const = 0;
+    virtual const std::string &FromString() const = 0;
     virtual std::string StateName() const = 0;
     virtual std::string LastStateName() const = 0;
     virtual std::string LastStateChangeAt() const = 0;
@@ -82,7 +83,6 @@ public:
     virtual uint32_t FlapCount() const = 0;
     virtual std::string LastFlap() const = 0;
     virtual xmps::PeerState GetPeerState() const = 0;
-    virtual std::string FromString() const = 0;
     virtual std::string AuthType() const = 0;
     virtual std::string PeerAddress() const = 0;
     virtual const XmppConnection *connection() const = 0;

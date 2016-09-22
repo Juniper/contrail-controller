@@ -32,7 +32,7 @@ static const char *config = "\
 class XmppTestPeer : public IPeerUpdate {
 public:
     XmppTestPeer(const string &name) : name_(name) { }
-    string ToString() const { return name_; }
+    const string &ToString() const { return name_; }
     bool SendUpdate(const uint8_t *msg, size_t msgsize, const string *msg_str) {
         string str;
         if (!msg_str) {

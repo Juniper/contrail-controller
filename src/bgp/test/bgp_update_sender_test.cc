@@ -47,14 +47,14 @@ static const int kPeerCount = 4;
 
 class BgpTestPeer : public IPeerUpdate {
 public:
-    BgpTestPeer() : index_(gbl_peer_index++) { }
-    virtual ~BgpTestPeer() { }
-
-    virtual std::string ToString() const {
+    BgpTestPeer() : index_(gbl_peer_index++) {
         std::ostringstream repr;
         repr << "Peer" << index_;
-        return repr.str();
+        to_str_ = repr.str();
     }
+    virtual ~BgpTestPeer() { }
+
+    virtual const std::string &ToString() const { return to_str_; }
 
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize) {
         return true;
@@ -62,6 +62,7 @@ public:
 
 private:
     int index_;
+    std::string to_str_;
 };
 
 class BgpUpdateSenderTest : public ::testing::Test {

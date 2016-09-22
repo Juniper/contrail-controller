@@ -62,14 +62,14 @@ using std::vector;
 
 class BgpPeerMock : public IPeer {
 public:
-    BgpPeerMock(const Ip4Address &address) : address_(address) { }
+    BgpPeerMock(const Ip4Address &address)
+        : address_(address),
+          to_str_(address_.to_string()) {
+    }
     virtual ~BgpPeerMock() { }
-    virtual string ToString() const {
-        return address_.to_string();
-    }
-    virtual string ToUVEKey() const {
-        return address_.to_string();
-    }
+
+    virtual const string &ToString() const { return to_str_; }
+    virtual const string &ToUVEKey() const { return to_str_; }
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize) {
         return true;
     }
@@ -113,6 +113,7 @@ public:
 
 private:
     Ip4Address address_;
+    std::string to_str_;
 };
 
 static bool service_is_transparent;

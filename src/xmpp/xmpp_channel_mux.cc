@@ -151,11 +151,11 @@ void XmppChannelMux::UnRegisterWriteReady(xmps::PeerId id) {
     map_.erase(id);
 }
 
-std::string XmppChannelMux::ToString() const {
+const std::string &XmppChannelMux::ToString() const {
     return connection_->ToString();
 }
 
-std::string XmppChannelMux::FromString() const {
+const std::string &XmppChannelMux::FromString() const {
     return connection_->FromString();
 }
 

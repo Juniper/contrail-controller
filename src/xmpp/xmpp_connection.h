@@ -74,9 +74,9 @@ public:
     XmppSession *CreateSession();
     int GetTaskInstance() const { return GetTaskInstance(is_client_); }
 
-    std::string ToString() const; 
-    std::string ToUVEKey() const; 
-    std::string FromString() const;
+    const std::string &ToUVEKey() const;
+    const std::string &ToString() const;
+    const std::string &FromString() const;
     void SetAdminDown(bool toggle);
     bool Send(const uint8_t *data, size_t size,
               const std::string *msg_str = NULL);

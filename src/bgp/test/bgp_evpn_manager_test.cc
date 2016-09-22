@@ -28,6 +28,7 @@ public:
           edge_replication_supported_(is_xmpp_),
           assisted_replication_supported_(false) {
         sort(encap_.begin(), encap_.end());
+        address_str_ = address.to_string();
     }
     virtual ~PeerMock() { }
 
@@ -40,6 +41,7 @@ public:
     }
     void set_address(Ip4Address address) {
         address_ = address;
+        address_str_ = address.to_string();
     }
     Ip4Address replicator_address() {
         return replicator_address_;
@@ -72,11 +74,11 @@ public:
     void set_assisted_replication_supported(bool value) {
         assisted_replication_supported_ = value;
     }
-    virtual std::string ToString() const {
-        return address_.to_string();
+    virtual const std::string &ToString() const {
+        return address_str_;
     }
-    virtual std::string ToUVEKey() const {
-        return address_.to_string();
+    virtual const std::string &ToUVEKey() const {
+        return address_str_;
     }
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize) {
         return true;
@@ -130,6 +132,7 @@ private:
     vector<string> encap_;
     bool edge_replication_supported_;
     bool assisted_replication_supported_;
+    std::string address_str_;
 };
 
 static const char *config_template = "\

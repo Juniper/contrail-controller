@@ -65,8 +65,8 @@ public:
         DelRoute(table, group_str, "0.0.0.0");
     }
 
-    virtual std::string ToString() const { return address_str_; }
-    virtual std::string ToUVEKey() const { return address_str_; }
+    virtual const std::string &ToString() const { return address_str_; }
+    virtual const std::string &ToUVEKey() const { return address_str_; }
     virtual BgpServer *server() { return server_; }
     virtual BgpServer *server() const { return server_; }
     virtual IPeerClose *peer_close() { return NULL; }

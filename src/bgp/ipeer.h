@@ -21,7 +21,7 @@ class IPeerUpdate {
 public:
     virtual ~IPeerUpdate() { }
     // Printable name
-    virtual std::string ToString() const = 0;
+    virtual const std::string &ToString() const = 0;
 
     // Send an update.
     // Returns true if the peer can send additional messages.
@@ -182,8 +182,8 @@ class IPeer : public IPeerUpdate {
 public:
     virtual ~IPeer() { }
     // Printable name
-    virtual std::string ToString() const = 0;
-    virtual std::string ToUVEKey() const = 0;
+    virtual const std::string &ToString() const = 0;
+    virtual const std::string &ToUVEKey() const = 0;
     virtual BgpServer *server() = 0;
     virtual BgpServer *server() const = 0;
     virtual IPeerClose *peer_close() = 0;
