@@ -15,14 +15,6 @@ std::string ControlNode::self_ip_;
 DiscoveryServiceClient* ControlNode::ds_client_;
 bool ControlNode::test_mode_;
 
-void ControlNode::Initialize() {
-    RibOutUpdates::Initialize();
-}
-
-void ControlNode::Terminate() {
-    RibOutUpdates::Terminate();
-}
-
 //
 // Default scheduler policy for control-node daemon and test processes.
 //

@@ -14,6 +14,7 @@
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_membership.h"
 #include "bgp/bgp_peer.h"
+#include "bgp/bgp_ribout_updates.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_table_types.h"
 #include "bgp/bgp_update_sender.h"
@@ -384,6 +385,14 @@ BgpServer::~BgpServer() {
     assert(deleting_count_ == 0);
     assert(deleting_bgpaas_count_ == 0);
     assert(srt_manager_list_.empty());
+}
+
+void BgpServer::Initialize() {
+    RibOutUpdates::Initialize();
+}
+
+void BgpServer::Terminate() {
+    RibOutUpdates::Terminate();
 }
 
 string BgpServer::ToString() const {

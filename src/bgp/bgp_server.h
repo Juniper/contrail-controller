@@ -60,6 +60,9 @@ public:
     explicit BgpServer(EventManager *evm);
     virtual ~BgpServer();
 
+    static void Initialize();
+    static void Terminate();
+
     virtual std::string ToString() const;
 
     uint16_t GetGracefulRestartTime() const;
