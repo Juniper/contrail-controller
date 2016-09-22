@@ -6,6 +6,8 @@
 
 #include <boost/foreach.hpp>
 
+#include <algorithm>
+
 #include "bgp/ipeer.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_table.h"
@@ -24,9 +26,43 @@ using pugi::xml_attribute;
 using pugi::xml_document;
 using pugi::xml_node;
 using std::ostringstream;
+using std::copy;
+using std::fill;
 using std::string;
 using std::stringstream;
 using std::vector;
+
+static inline const char *AfiName(uint16_t afi) {
+    switch (afi) {
+    case BgpAf::IPv4:
+        return "1";
+        break;
+    case BgpAf::IPv6:
+        return "2";
+        break;
+    case BgpAf::L2Vpn:
+        return "25";
+        break;
+    }
+    assert(false);
+    return NULL;
+}
+
+static inline const char *XmppSafiName(uint8_t safi) {
+    switch (safi) {
+    case BgpAf::Unicast:
+        return "1";
+        break;
+    case BgpAf::Mcast:
+        return "241";
+        break;
+    case BgpAf::Enet:
+        return "242";
+        break;
+    }
+    assert(false);
+    return NULL;
+}
 
 BgpXmppMessage::BgpXmppMessage()
     : table_(NULL),
@@ -72,9 +108,9 @@ bool BgpXmppMessage::Start(const RibOut *ribout, bool cache_routes,
     // GetData is called.
     repr_ += "\n\t<event xmlns=\"http://jabber.org/protocol/pubsub\">";
     repr_ += "\n\t\t<items node=\"";
-    repr_ += integerToString(route->Afi());
+    repr_ += AfiName(route->Afi());
     repr_ += "/";
-    repr_ += integerToString(route->XmppSafi());
+    repr_ += XmppSafiName(route->XmppSafi());
     repr_ += "/";
     repr_ += table_->routing_instance()->name();
     repr_ += "\">\n";
@@ -409,13 +445,17 @@ const uint8_t *BgpXmppMessage::GetData(IPeerUpdate *peer, size_t *lenp,
     }
 
     // Replace the begin line if it fits in the space reserved at the start
-    // of repr_.  Otherwise build a new string with the begin line and rest
-    // of the message in repr_.
+    // of repr_. Use fill and copy instead of string::replace as the latter
+    // seems to construct a new temporary string to hold the input data to
+    // be copied.
+    // Otherwise build a new string with the begin line and the rest of the
+    // message in repr_.
     size_t begin_size = msg_begin_.size();
     if (begin_size <= kMaxFromToLength) {
         size_t extra = kMaxFromToLength - begin_size;
-        // repr_.replace(0, extra, extra, ' ');
-        repr_.replace(extra, begin_size, msg_begin_.c_str(), begin_size);
+        char *data = const_cast<char *>(repr_.c_str());
+        fill(data, data + extra, ' ');
+        copy(msg_begin_.c_str(), msg_begin_.c_str() + begin_size, data + extra);
         *lenp = repr_.size() - extra;
         *msg_str = &repr_;
         return reinterpret_cast<const uint8_t *>(repr_.c_str()) + extra;
