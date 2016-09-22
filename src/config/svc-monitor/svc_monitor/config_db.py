@@ -625,6 +625,9 @@ class ServiceInstanceSM(DBBaseSM):
         for pt_id in self.port_tuples:
             self._manager.port_tuple_agent.update_port_tuple(pt_id=pt_id)
 
+    def get_project_uuid(self):
+        return self.parent_key
+
 # end class ServiceInstanceSM
 
 
