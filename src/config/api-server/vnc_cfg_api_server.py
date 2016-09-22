@@ -1911,7 +1911,7 @@ class VncApiServer(object):
         global_access = request_params.get('global_access')
 
         (ok, obj_dict) = self._db_conn.dbe_read(obj_type, {'uuid':obj_uuid},
-                             obj_fields=['perms2'])
+                             obj_fields=['perms2', 'is_shared'])
         obj_perms = obj_dict['perms2']
         old_perms = '%s/%d %d %s' % (obj_perms['owner'],
             obj_perms['owner_access'], obj_perms['global_access'],
@@ -1946,6 +1946,7 @@ class VncApiServer(object):
                 raise cfgm_common.exceptions.HttpError(
                     400, "Bad Request, invalid global_access value")
             obj_perms['global_access'] = global_access
+            obj_dict['is_shared'] = (global_access != 0)
 
         new_perms = '%s/%d %d %s' % (obj_perms['owner'],
             obj_perms['owner_access'], obj_perms['global_access'],
