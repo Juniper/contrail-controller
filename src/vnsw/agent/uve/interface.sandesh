@@ -83,9 +83,9 @@ struct UveVMInterfaceAgent {
     /** @display_name:Virtual Machine Interface Statistics*/
    30: optional VmInterfaceStats if_stats     (stats="raw_if_stats:DSNon0:", tags="vm_name,vm_uuid")
    31: optional derived_stats_results.AnomalyResult if_in_pkts_ewm 
-                    (stats="raw_if_stats.in_pkts:DSAnomaly:EWM:0.2")
+                    (stats="raw_if_stats.in_pkts:DSAnomaly:EWM:0.1")
    32: optional derived_stats_results.AnomalyResult if_out_pkts_ewm
-                    (stats="raw_if_stats.out_pkts:DSAnomaly:EWM:0.2")
+                    (stats="raw_if_stats.out_pkts:DSAnomaly:EWM:0.1")
    19: string vm_uuid;
    20: optional u64 in_bw_usage;
    21: optional u64 out_bw_usage;
@@ -97,11 +97,11 @@ struct UveVMInterfaceAgent {
     /** @display_name:Interface Flow Setup Statistics*/
    26: optional vrouter.VrouterFlowRate flow_rate (tags="virtual_network")
    41: optional derived_stats_results.AnomalyResult added_flows_ewm
-                    (stats="flow_rate.added_flows:DSAnomaly:EWM:0.2")
+                    (stats="flow_rate.added_flows:DSAnomaly:EWM:0.1")
    42: optional derived_stats_results.AnomalyResult deleted_flows_ewm
-                     (stats="flow_rate.deleted_flows:DSAnomaly:EWM:0.2")
+                     (stats="flow_rate.deleted_flows:DSAnomaly:EWM:0.1")
    43: optional derived_stats_results.AnomalyResult active_flows_ewm
-                     (stats="flow_rate.active_flows:DSAnomaly:EWM:0.2")
+                     (stats="flow_rate.active_flows:DSAnomaly:EWM:0.1")
    27: optional bool admin_state;
    28: optional list<string> fixed_ip4_list;
    29: optional list<string> fixed_ip6_list;

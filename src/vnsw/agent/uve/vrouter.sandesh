@@ -252,35 +252,35 @@ struct VrouterStatsAgent {  // Agent stats
     /** @display_name:Vrouter Flow Setup Statistics*/
     45: optional VrouterFlowRate flow_rate (tags="")
     65: optional derived_stats_results.AnomalyResult added_flows_ewm
-                     (stats="flow_rate.added_flows:DSAnomaly:EWM:0.2")
+                     (stats="flow_rate.added_flows:DSAnomaly:EWM:0.1")
     66: optional derived_stats_results.AnomalyResult deleted_flows_ewm
-                     (stats="flow_rate.deleted_flows:DSAnomaly:EWM:0.2")
+                     (stats="flow_rate.deleted_flows:DSAnomaly:EWM:0.1")
     67: optional derived_stats_results.AnomalyResult active_flows_ewm
-                     (stats="flow_rate.active_flows:DSAnomaly:EWM:0.2")
+                     (stats="flow_rate.active_flows:DSAnomaly:EWM:0.1")
 
     50: optional map<string,u64> phy_band_in_bps
     51: optional map<string,u64> phy_band_out_bps
     52: optional map<string,derived_stats_results.EWMResult> in_bps_ewm
-                     (mstats="phy_band_in_bps:DSEWM:0.2")
+                     (mstats="phy_band_in_bps:DSEWM:0.1")
     53: optional map<string,derived_stats_results.EWMResult> out_bps_ewm
-                     (mstats="phy_band_out_bps:DSEWM:0.2")
+                     (mstats="phy_band_out_bps:DSEWM:0.1")
 
     /** @display_name:Physical Interface Flow Setup Statistics*/
     68: optional map<string, VrouterFlowRate> phy_flow_rate  (tags="name:.__key")
     69: optional map<string, derived_stats_results.AnomalyResult> phy_added_flows_ewm
-                     (mstats="phy_flow_rate.added_flows:DSAnomaly:EWM:0.2")
+                     (mstats="phy_flow_rate.added_flows:DSAnomaly:EWM:0.1")
     70: optional map<string, derived_stats_results.AnomalyResult> phy_deleted_flows_ewm
-                     (mstats="phy_flow_rate.deleted_flows:DSAnomaly:EWM:0.2")
+                     (mstats="phy_flow_rate.deleted_flows:DSAnomaly:EWM:0.1")
     71: optional map<string, derived_stats_results.AnomalyResult> phy_active_flows_ewm
-                     (mstats="phy_flow_rate.active_flows:DSAnomaly:EWM:0.2")
+                     (mstats="phy_flow_rate.active_flows:DSAnomaly:EWM:0.1")
 
     72: optional map<string, PhyIfStats> raw_phy_if_stats (metric="agg", hidden="yes")
     /** @display_name:Vrouter Physical Interface Traffic Statistics*/
     73: optional map<string, PhyIfStats> phy_if_stats (mstats="raw_phy_if_stats:DSNon0:", tags="name:.__key")
     74: optional map<string, derived_stats_results.AnomalyResult> in_pkts_ewm
-                     (mstats="raw_phy_if_stats.in_pkts:DSAnomaly:EWM:0.2")
+                     (mstats="raw_phy_if_stats.in_pkts:DSAnomaly:EWM:0.1")
     75: optional map<string, derived_stats_results.AnomalyResult> out_pkts_ewm
-                     (mstats="raw_phy_if_stats.out_pkts:DSAnomaly:EWM:0.2")
+                     (mstats="raw_phy_if_stats.out_pkts:DSAnomaly:EWM:0.1")
 }
 
 /**
