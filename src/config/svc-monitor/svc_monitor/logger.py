@@ -72,34 +72,40 @@ class ServiceMonitorLogger(object):
     def _get_sandesh_logger_level(self, sandesh_level):
         return self._LOGGER_LEVEL_TO_SANDESH_LEVEL[sandesh_level]
 
-    def log(self, log_msg, level=SandeshLevel.SYS_DEBUG):
-        vn_log = sandesh.SvcMonitorLog(level=level,
-            log_msg=log_msg, sandesh=self._sandesh)
+    def log(self, log_msg, level=SandeshLevel.SYS_DEBUG, fun = None):
+
+        if fun:
+            vn_log = fun(level=level,
+                             log_msg=log_msg, sandesh=self._sandesh)
+        else:
+            vn_log = sandesh.SvcMonitorLog(level=level,
+                             log_msg=log_msg, sandesh=self._sandesh)
+
         vn_log.send(sandesh=self._sandesh)
 
-    def emergency(self, log_msg):
-        self.log(log_msg, level=SandeshLevel.SYS_EMERG)
+    def emergency(self, log_msg, log_fun = None):
+        self.log(log_msg, level=SandeshLevel.SYS_EMERG, fun = log_fun)
 
-    def alert(self, log_msg):
-        self.log(log_msg, level=SandeshLevel.SYS_ALERT)
+    def alert(self, log_msg, log_fun = None):
+        self.log(log_msg, level=SandeshLevel.SYS_ALERT, fun = log_fun)
 
-    def critical(self, log_msg):
-        self.log(log_msg, level=SandeshLevel.SYS_CRIT)
+    def critical(self, log_msg, log_fun = None):
+        self.log(log_msg, level=SandeshLevel.SYS_CRIT, fun = log_fun)
 
-    def error(self, log_msg):
-        self.log(log_msg, level=SandeshLevel.SYS_ERR)
+    def error(self, log_msg, log_fun = None):
+        self.log(log_msg, level=SandeshLevel.SYS_ERR, fun = log_fun)
 
-    def warning(self, log_msg):
-        self.log(log_msg, level=SandeshLevel.SYS_WARN)
+    def warning(self, log_msg, log_fun = None):
+        self.log(log_msg, level=SandeshLevel.SYS_WARN, fun = log_fun)
 
-    def notice(self, log_msg):
-        self.log(log_msg, level=SandeshLevel.SYS_NOTICE)
+    def notice(self, log_msg, log_fun = None):
+        self.log(log_msg, level=SandeshLevel.SYS_NOTICE, fun = log_fun)
 
-    def info(self, log_msg):
-        self.log(log_msg, level=SandeshLevel.SYS_INFO)
+    def info(self, log_msg, log_fun = None):
+        self.log(log_msg, level=SandeshLevel.SYS_INFO, fun = log_fun)
 
-    def debug(self, log_msg):
-        self.log(log_msg, level=SandeshLevel.SYS_DEBUG)
+    def debug(self, log_msg, log_fun = None):
+        self.log(log_msg, level=SandeshLevel.SYS_DEBUG, fun = log_fun)
 
     def api_conn_status_update(self, status, msg=None):
         ConnectionState.update(conn_type=ConnType.APISERVER,
@@ -227,3 +233,4 @@ class ServiceMonitorLogger(object):
             enable_syslog=self._args.use_syslog,
             syslog_facility=self._args.syslog_facility)
         return sandesh_instance
+

@@ -153,6 +153,10 @@ def create_test_port_tuple(fq_name_str, parent_uuid):
     pt = PortTupleSM.locate(pt_obj['uuid'], pt_obj)
     return pt
 
+def delete_test_port_tuple(pt):
+    PortTupleSM.delete(pt.uuid)
+    return
+
 def create_test_vmi(fq_name_str, pt=None):
     vmi_obj = {}
     vmi_obj['fq_name'] = fq_name_str.split(':')
@@ -165,6 +169,10 @@ def create_test_vmi(fq_name_str, pt=None):
         pt.virtual_machine_interfaces.add(vmi.uuid)
         vmi.port_tuple = pt.uuid
     return vmi
+
+def delete_test_vmi(vmi):
+    VirtualMachineInterfaceSM.delete(vmi.uuid)
+    return
 
 def create_test_security_group(fq_name_str):
     sg_obj = {}
