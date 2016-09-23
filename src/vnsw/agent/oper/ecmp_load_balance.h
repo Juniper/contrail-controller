@@ -15,10 +15,10 @@ namespace autogen {
 }
 
 static const std::string HashingFieldsStr[] = {
-    "l3-source-address",
-    "l3-destination-address",
     "l4-protocol",
+    "l3-source-address",
     "l4-source-port",
+    "l3-destination-address",
     "l4-destination-port"
 };
 static const std::string LoadBalanceDecision = "field-hash";
@@ -26,10 +26,10 @@ static const std::string LoadBalanceDecision = "field-hash";
 class EcmpLoadBalance {
 public:
     enum kHashingFields {
-        SOURCE_IP,
-        DESTINATION_IP,
         IP_PROTOCOL,
+        SOURCE_IP,
         SOURCE_PORT,
+        DESTINATION_IP,
         DESTINATION_PORT,
         NUM_HASH_FIELDS
     };
@@ -56,7 +56,7 @@ public:
     }
 
     void GetStringVector (std::vector<std::string> &string_vector) const {
-        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::SOURCE_IP);
+        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::IP_PROTOCOL);
              field_type < ((uint8_t) EcmpLoadBalance::NUM_HASH_FIELDS);
              field_type++) {
             if (hash_fields_to_use_[field_type])
@@ -65,7 +65,7 @@ public:
     }
 
     bool operator!=(const EcmpLoadBalance &rhs) const {
-        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::SOURCE_IP);
+        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::IP_PROTOCOL);
              field_type < ((uint8_t) EcmpLoadBalance::NUM_HASH_FIELDS);
              field_type++) {
             if (hash_fields_to_use_[field_type] !=
@@ -76,7 +76,7 @@ public:
     }
 
     virtual void Copy(const EcmpLoadBalance &rhs) {
-        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::SOURCE_IP);
+        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::IP_PROTOCOL);
              field_type < ((uint8_t) EcmpLoadBalance::NUM_HASH_FIELDS);
              field_type++) {
             hash_fields_to_use_[field_type] =
@@ -85,7 +85,7 @@ public:
     }
 
     void SetAll() {
-        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::SOURCE_IP);
+        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::IP_PROTOCOL);
              field_type < ((uint8_t) EcmpLoadBalance::NUM_HASH_FIELDS);
              field_type++) {
             hash_fields_to_use_[field_type] = true;
@@ -93,7 +93,7 @@ public:
     }
 
     void ResetAll() {
-        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::SOURCE_IP);
+        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::IP_PROTOCOL);
              field_type < ((uint8_t) EcmpLoadBalance::NUM_HASH_FIELDS);
              field_type++) {
             hash_fields_to_use_[field_type] = false;
@@ -101,7 +101,7 @@ public:
     }
 
     bool AllSet() const {
-        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::SOURCE_IP);
+        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::IP_PROTOCOL);
              field_type < ((uint8_t) EcmpLoadBalance::NUM_HASH_FIELDS);
              field_type++) {
             if (hash_fields_to_use_[field_type] == false)
@@ -157,7 +157,7 @@ public:
     }
 
     void reset() {
-        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::SOURCE_IP);
+        for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::IP_PROTOCOL);
              field_type < ((uint8_t) EcmpLoadBalance::NUM_HASH_FIELDS);
              field_type++) {
             hash_fields_to_use_[field_type] = false;

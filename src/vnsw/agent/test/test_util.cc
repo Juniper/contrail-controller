@@ -1557,6 +1557,28 @@ bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Addre
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vrf_name, vm_ip, plen, data);
 }
 
+bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Address &vm_ip,
+                       uint8_t plen, ComponentNHKeyList &comp_nh_list,
+                       bool local_ecmp, const string &vn_name, const SecurityGroupList &sg,
+                       const PathPreference &path_preference, EcmpLoadBalance &ecmp_load_balance) {
+    COMPOSITETYPE type = Composite::ECMP;
+    if (local_ecmp) {
+        type = Composite::LOCAL_ECMP;
+    }
+    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    nh_req.key.reset(new CompositeNHKey(type, false,
+                                        comp_nh_list, vrf_name));
+    nh_req.data.reset(new CompositeNHData());
+
+    VnListType vn_list;
+    vn_list.insert(vn_name);
+    ControllerEcmpRoute *data =
+        new ControllerEcmpRoute(peer, vm_ip, plen, vn_list, -1, false, vrf_name,
+                                sg, path_preference, TunnelType::MplsType(),
+                                ecmp_load_balance, nh_req);
+    InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vrf_name, vm_ip, plen, data);
+}
+
 bool Inet6TunnelRouteAdd(const Peer *peer, const string &vm_vrf, const Ip6Address &vm_addr,
                          uint8_t plen, const Ip4Address &server_ip, TunnelType::TypeBmap bmap,
                          uint32_t label, const string &dest_vn_name,

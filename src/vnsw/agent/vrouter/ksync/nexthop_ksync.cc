@@ -44,8 +44,9 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
     nh_id_(entry->nh_id()),
     component_nh_key_list_(entry->component_nh_key_list_),
     vxlan_nh_(entry->vxlan_nh_),
-    flood_unknown_unicast_(entry->flood_unknown_unicast_) {
-}
+    flood_unknown_unicast_(entry->flood_unknown_unicast_),
+    ecmp_hash_fields_in_byte_(entry->ecmp_hash_fields_in_byte_){
+    }
 
 NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), type_(nh->GetType()),
@@ -156,6 +157,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
         component_nh_list_.clear();
         vrf_id_ = comp_nh->vrf()->vrf_id();
         comp_type_ = comp_nh->composite_nh_type();
+        ecmp_hash_fields_in_byte_ = comp_nh->EcmpHashFields();
         component_nh_key_list_ = comp_nh->component_nh_key_list();
         ComponentNHList::const_iterator component_nh_it =
             comp_nh->begin();
@@ -614,6 +616,10 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
             KSyncComponentNH ksync_component_nh(label, ksync_nh);
             component_nh_list_.push_back(ksync_component_nh);
             component_nh_it++;
+        }
+        if (comp_nh->EcmpHashFields() != ecmp_hash_fields_in_byte_) {
+            ecmp_hash_fields_in_byte_ = comp_nh->EcmpHashFields();
+            ret = true;
         }
         break;
     }

@@ -88,7 +88,8 @@ public:
                                const EcmpLoadBalance &ecmp_ecmp_load_balance,
                                DBRequest &nh_req,
                                Agent* agent,
-                               AgentPath *path);
+                               AgentPath *path, 
+                               EcmpAddDelChange add_ecmp_loadbalance_feilds);
     static bool SyncEcmpPath(AgentPath *path, SecurityGroupList sg_list,
                              const CommunityList &communities,
                              const PathPreference &path_preference,

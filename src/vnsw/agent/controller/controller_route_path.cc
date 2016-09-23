@@ -49,7 +49,8 @@ bool ControllerEcmpRoute::AddChangePath(Agent *agent, AgentPath *path,
                                                  path_preference_,
                                                  tunnel_bmap_,
                                                  ecmp_load_balance_,
-                                                 nh_req_, agent, path);
+                                                 nh_req_, agent, path, 
+                                                 AgentRoute::ECMPFEILDSADD);
 }
 
 ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(const Peer *peer,
