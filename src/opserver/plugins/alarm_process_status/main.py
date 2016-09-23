@@ -5,7 +5,10 @@ import json
 class ProcessStatus(AlarmBase):
     """Process Failure.
        NodeMgr reports abnormal status for process(es) in NodeStatus.process_info"""
-   
+
+    _RULES = '(NodeStatus.process_info == null) OR ' +\
+        '(NodeStatus.process_info.process_state != PROCESS_STATE_RUNNING)'
+
     def __init__(self):
 	AlarmBase.__init__(self, AlarmBase.ALARM_CRITICAL, at=10, it=10, fec=True,
                 fcs=300, fct=4)

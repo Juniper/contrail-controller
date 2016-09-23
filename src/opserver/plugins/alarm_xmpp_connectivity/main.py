@@ -6,6 +6,9 @@ class XmppConnectivity(AlarmBase):
     """XMPP peer mismatch.
        Not enough XMPP peers are up in BgpRouterState.num_up_xmpp_peer"""
 
+    _RULES = '(BgpRouterState.num_up_xmpp_peer == null) OR ' +\
+        '(BgpRouterState.num_up_xmpp_peer != BgpRouterState.num_xmpp_peer)'
+
     def __init__(self):
 	AlarmBase.__init__(self, AlarmBase.ALARM_MAJOR)
 

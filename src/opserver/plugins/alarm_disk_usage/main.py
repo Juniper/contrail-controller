@@ -6,6 +6,8 @@ class DiskUsage(AlarmBase):
     """Disk Usage crosses a threshold.
        NodeMgr reports disk usage in DatabaseUsageInfo.database_usage"""
 
+    _RULES = 'DatabaseUsageInfo.database_usage.disk_space_used_1k > 90%'
+
     def __init__(self):
         AlarmBase.__init__(self, AlarmBase.ALARM_CRITICAL)
         self._threshold = 0.90

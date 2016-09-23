@@ -10,6 +10,9 @@ class ProuterConnectivity(AlarmBase):
     """Prouter connectivity to controlling tor agent does not exist
        we look for non-empty value for connected_agent_list"""
 
+    _RULES = '(ContrailConfig.elements.virtual_router_refs != null) AND ' +\
+        '(ProuterData.connected_agent_list size!= 1)'
+
     def __init__(self):
 	AlarmBase.__init__(self, AlarmBase.ALARM_MAJOR)
 
