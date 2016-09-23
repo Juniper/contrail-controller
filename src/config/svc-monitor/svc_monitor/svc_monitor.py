@@ -45,6 +45,7 @@ import discoveryclient.client as client
 from agent_manager import AgentManager
 from db import ServiceMonitorDB
 from logger import ServiceMonitorLogger
+from module_logger import ServiceMonitorModuleLogger
 from rabbit import RabbitConnection
 from loadbalancer_agent import LoadbalancerAgent
 from port_tuple import PortTupleAgent
@@ -156,7 +157,7 @@ class SvcMonitor(object):
 
         # load port tuple agent
         self.port_tuple_agent = PortTupleAgent(self, self._vnc_lib,
-            self._cassandra, self._args, self.logger)
+            self._cassandra, self._args, ServiceMonitorModuleLogger(self.logger))
         self._agent_manager.register_agent(self.port_tuple_agent)
 
         # Read the cassandra and populate the entry in ServiceMonitor DB
