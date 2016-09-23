@@ -20,6 +20,8 @@
 from vnc_api.vnc_api import *
 from config_db import *
 from agent import Agent
+from module_logger import ServiceMonitorModuleLogger,MessageID
+from sandesh.port_tuple import ttypes as sandesh
 
 class PortTupleAgent(Agent):
 
@@ -27,6 +29,14 @@ class PortTupleAgent(Agent):
         super(PortTupleAgent, self).__init__(svc_mon, vnc_lib,
             cassandra, config_section)
         self.logger = logger
+
+        # Register log functions to be used for port tuple logs.
+        log_funcs = {
+                        MessageID.ERROR : sandesh.PortTupleErrorLog,
+                        MessageID.INFO  : sandesh.PortTupleInfoLog,
+                        MessageID.DEBUG : sandesh.PortTupleDebugLog,
+                    }
+        self.logger.add_messages(**log_funcs)
 
     def handle_service_type(self):
         return 'port-tuple'
@@ -312,20 +322,29 @@ class PortTupleAgent(Agent):
         if pt_id:
             pt = PortTupleSM.get(pt_id)
         if not pt:
+            self.logger.error("No valid port tuple provided to update")
             return
         si = ServiceInstanceSM.get(pt.parent_key)
         if not si:
+            self.logger.error("Service Instance %s not found" % pt.parent_key)
             return
         st = ServiceTemplateSM.get(si.service_template)
         port_config = self.get_port_config(st, si)
         if not port_config:
+            self.logger.error( \
+                 "Failed to construct port config for Port Tuple %s" % pt.uuid)
             return
 
         for vmi_id in list(pt.virtual_machine_interfaces):
             vmi = VirtualMachineInterfaceSM.get(vmi_id)
             if not vmi:
+                self.logger.error( \
+                     "VMI %s not found for Port Tuple %s" % (vmi_id, pt.uuid))
                 continue
             if not vmi.params:
+                self.logger.error( \
+                     "VMI %s has invalid params for Port Tuple %s" % \
+                     (vmi_id, pt.uuid))
                 continue
             port = port_config[vmi.params.get('service_interface_type')]
             if not port:
