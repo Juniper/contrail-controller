@@ -208,7 +208,8 @@ public:
                     InterfaceNHFlags::INET4, SecurityGroupList(),
                     CommunityList(),
                     PathPreference(),
-                    EcmpLoadBalance());
+                    Ip4Address::from_string(ip),
+                    EcmpLoadBalance(), false, false);
         InetUnicastAgentRouteTable *rt_table =
             agent_->vrf_table()->GetInet4UnicastRouteTable(vrf_name);
 

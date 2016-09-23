@@ -229,6 +229,11 @@ public:
         CHANGE_PATH,
         STALE_PATH,
     };
+    enum EcmpAddDelChange{
+        ECMPFEILDSDEL = -1,
+        ECMPFEILDSADD = 1,
+        ECMPFEILDSNOCHANGE = 0
+    };
 
     typedef DependencyList<AgentRoute, AgentRoute> RouteDependencyList;
     typedef DependencyList<NextHop, AgentRoute> TunnelNhDependencyList;

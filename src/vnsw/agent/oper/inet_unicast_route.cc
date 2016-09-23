@@ -395,6 +395,109 @@ bool InetUnicastRouteEntry::IsHostRoute() const {
     return true;
 }
 
+static void AddOrDeleteEcmpFeildsforRoute(
+        const EcmpLoadBalance &ecmp_load_balance,
+        vector<uint32_t> &change_in_feilds, int addordel) {
+
+    if (ecmp_load_balance.AllSet())
+        return ;
+
+    if (ecmp_load_balance.is_ip_protocol_set()) {
+        change_in_feilds[EcmpLoadBalance::IP_PROTOCOL] += addordel;
+    }
+
+    if (ecmp_load_balance.is_source_ip_set()) {
+        change_in_feilds[EcmpLoadBalance::SOURCE_IP] += addordel;
+    }
+
+    if (ecmp_load_balance.is_destination_ip_set()) {
+        change_in_feilds[EcmpLoadBalance::DESTINATION_IP] += addordel;
+    }
+
+    if (ecmp_load_balance.is_source_port_set()) {
+        change_in_feilds[EcmpLoadBalance::SOURCE_PORT] += addordel;
+    }
+
+    if (ecmp_load_balance.is_destination_port_set()) {
+        change_in_feilds[EcmpLoadBalance::DESTINATION_PORT] += addordel;
+    }
+}
+
+static void CalcutleChangeInEcmpFeilds(
+        const EcmpLoadBalance &old_ecmp_load_balanceparms,
+        const EcmpLoadBalance &current_ecmp_load_balance,
+        vector<uint32_t> &change_in_feilds) {
+    // When all the feilds are deleted current will contain all set values
+    // then check for old ecmp parameters and update
+    if (current_ecmp_load_balance.AllSet()) {
+        if (!old_ecmp_load_balanceparms.AllSet()) {
+           AddOrDeleteEcmpFeildsforRoute(old_ecmp_load_balanceparms,
+                                         change_in_feilds,
+                                         AgentRoute::ECMPFEILDSDEL);
+        }
+        return ;
+    }
+
+    EcmpLoadBalance old_ecmp_load_balance;
+    old_ecmp_load_balance.Copy(old_ecmp_load_balanceparms);
+    if (old_ecmp_load_balance.AllSet())
+        old_ecmp_load_balance.reset();
+
+    if (!old_ecmp_load_balance.is_ip_protocol_set() &&
+         current_ecmp_load_balance.is_ip_protocol_set()) {
+        change_in_feilds[EcmpLoadBalance::IP_PROTOCOL] +=
+            AgentRoute::ECMPFEILDSADD;
+    } else if (old_ecmp_load_balance.is_ip_protocol_set() &&
+             !current_ecmp_load_balance.is_ip_protocol_set()) {
+        if (change_in_feilds[EcmpLoadBalance::IP_PROTOCOL])
+            change_in_feilds[EcmpLoadBalance::IP_PROTOCOL] +=
+                AgentRoute::ECMPFEILDSDEL;
+    }
+
+    if (!old_ecmp_load_balance.is_source_ip_set() &&
+         current_ecmp_load_balance.is_source_ip_set()) {
+        change_in_feilds[EcmpLoadBalance::SOURCE_IP] +=
+            AgentRoute::ECMPFEILDSADD;
+    } else if (old_ecmp_load_balance.is_source_ip_set() &&
+             !current_ecmp_load_balance.is_source_ip_set()) {
+        if (change_in_feilds[EcmpLoadBalance::SOURCE_IP])
+            change_in_feilds[EcmpLoadBalance::SOURCE_IP] +=
+                AgentRoute::ECMPFEILDSDEL;
+    }
+
+    if (!old_ecmp_load_balance.is_destination_ip_set() &&
+         current_ecmp_load_balance.is_destination_ip_set()) {
+        change_in_feilds[EcmpLoadBalance::DESTINATION_IP] +=
+            AgentRoute::ECMPFEILDSADD;
+    } else if (old_ecmp_load_balance.is_destination_ip_set() &&
+             !current_ecmp_load_balance.is_destination_ip_set()) {
+        if (change_in_feilds[EcmpLoadBalance::DESTINATION_IP])
+            change_in_feilds[EcmpLoadBalance::DESTINATION_IP] +=
+                AgentRoute::ECMPFEILDSDEL;
+    }
+    if (!old_ecmp_load_balance.is_source_port_set() &&
+         current_ecmp_load_balance.is_source_port_set()) {
+        change_in_feilds[EcmpLoadBalance::SOURCE_PORT] +=
+            AgentRoute::ECMPFEILDSADD;
+    } else if (old_ecmp_load_balance.is_source_port_set() &&
+             !current_ecmp_load_balance.is_source_port_set()) {
+        if (change_in_feilds[EcmpLoadBalance::SOURCE_PORT])
+            change_in_feilds[EcmpLoadBalance::SOURCE_PORT] +=
+                AgentRoute::ECMPFEILDSDEL;
+    }
+
+    if (!old_ecmp_load_balance.is_destination_port_set() &&
+         current_ecmp_load_balance.is_destination_port_set()) {
+        change_in_feilds[EcmpLoadBalance::DESTINATION_PORT] +=
+            AgentRoute::ECMPFEILDSADD;
+    } else if (old_ecmp_load_balance.is_destination_port_set() &&
+             !current_ecmp_load_balance.is_destination_port_set()) {
+        if (change_in_feilds[EcmpLoadBalance::DESTINATION_PORT])
+            change_in_feilds[EcmpLoadBalance::DESTINATION_PORT] +=
+                AgentRoute::ECMPFEILDSDEL;
+    }
+}
+
 bool InetUnicastRouteEntry::ModifyEcmpPath(const IpAddress &dest_addr,
                                             uint8_t plen, const VnListType &vn_list,
                                             uint32_t label, bool local_ecmp_nh,
@@ -405,9 +508,33 @@ bool InetUnicastRouteEntry::ModifyEcmpPath(const IpAddress &dest_addr,
                                             TunnelType::TypeBmap tunnel_bmap,
                                             const EcmpLoadBalance &ecmp_load_balance,
                                             DBRequest &nh_req,
-                                            Agent* agent, AgentPath *path) {
+                                            Agent* agent, AgentPath *path,
+                                            EcmpAddDelChange addecmp_loadbalance_feilds) {
     bool ret = false;
     NextHop *nh = NULL;
+
+    if (path->ecmp_load_balance() != ecmp_load_balance) {
+        vector<uint32_t> ecmp_hash_feilds_couter(EcmpLoadBalance::NUM_HASH_FIELDS, 0);
+        nh = static_cast<NextHop *>(agent->nexthop_table()->
+                                    FindActiveEntry(nh_req.key.get()));
+        const CompositeNH *cnh = dynamic_cast<const CompositeNH *>(nh);
+        if(cnh) {
+            // look for any change in the old and current
+            // ecmp load balance parameters for the route
+            // if there is a any chage Update the counters
+            ecmp_hash_feilds_couter = cnh->EcmpHashFeildsCounters();
+            CalcutleChangeInEcmpFeilds(path->ecmp_load_balance(),
+                                       ecmp_load_balance,
+                                       ecmp_hash_feilds_couter);
+        } else {
+            // Add the ecmp feilds to ecmp_hash_feilds_couter
+            AddOrDeleteEcmpFeildsforRoute(ecmp_load_balance,
+                                          ecmp_hash_feilds_couter,
+                                          AgentRoute::ECMPFEILDSADD);
+        }
+        nh_req.data.reset(new CompositeNHData(ecmp_hash_feilds_couter, true));
+        path->set_ecmp_load_balance(ecmp_load_balance);
+    }
 
     agent->nexthop_table()->Process(nh_req);
     nh = static_cast<NextHop *>(agent->nexthop_table()->
@@ -422,6 +549,7 @@ bool InetUnicastRouteEntry::ModifyEcmpPath(const IpAddress &dest_addr,
         path->set_label(label);
         ret = true;
     }
+
 
     ret = SyncEcmpPath(path, sg_list, communities, path_preference,
                        tunnel_bmap, ecmp_load_balance);
@@ -490,7 +618,8 @@ AgentPath *InetUnicastRouteEntry::AllocateEcmpPath(Agent *agent,
                                           path2->path_preference(),
                                           path2->tunnel_bmap(),
                                           path2->ecmp_load_balance(),
-                                          nh_req, agent, path);
+                                          nh_req, agent, path,
+                                          AgentRoute::ECMPFEILDSADD);
 
     //Make MPLS label point to Composite NH
     MplsLabel::CreateEcmpLabel(agent, label, Composite::LOCAL_ECMP,
@@ -511,21 +640,43 @@ AgentPath *InetUnicastRouteEntry::AllocateEcmpPath(Agent *agent,
 // ECMP, then deletes the Component-NH for the path.
 // Delete ECMP path if there is single Component-NH in Composite-NH
 bool InetUnicastRouteEntry::EcmpDeletePath(AgentPath *path) {
-    if (path->peer() == NULL) {
+    const Peer *peer = path->peer();
+    if (peer == NULL) {
         return false;
+    }
+    Agent *agent =
+        (static_cast<InetUnicastAgentRouteTable *> (get_table()))->agent();
+    // recompute the ecmp load balance parameter upon route delete
+    // on corresponding CompositeNH
+    if (peer->GetType() == Peer::BGP_PEER ||
+        peer->GetType() == Peer::ECMP_PEER) {
+        CompositeNH *cnh = dynamic_cast<CompositeNH *>(path->nexthop());
+        if (cnh) {
+            vector<uint32_t> ecmp_hash_feilds_couter;
+            ecmp_hash_feilds_couter = cnh->EcmpHashFeildsCounters();
+            // Delete the ecmp feilds  from ecmp_hash_feilds_couter
+            AddOrDeleteEcmpFeildsforRoute(path->ecmp_load_balance(),
+                                          ecmp_hash_feilds_couter,
+                                          AgentRoute::ECMPFEILDSDEL);
+            ComponentNHKeyList component_nh_key_list;
+            DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+            nh_req.key.reset(new CompositeNHKey(cnh->composite_nh_type(),
+                                                cnh->PolicyEnabled(),
+                                                cnh->component_nh_key_list(),
+                                                vrf()->GetName()));
+            nh_req.data.reset(new CompositeNHData(ecmp_hash_feilds_couter, true));
+            agent->nexthop_table()->Process(nh_req);
+        }
     }
 
     if (path->peer()->GetType() != Peer::LOCAL_VM_PORT_PEER) {
         return false;
     }
 
-    Agent *agent = 
-        (static_cast<InetUnicastAgentRouteTable *> (get_table()))->agent();
-
     // Composite-NH is made from LOCAL_VM_PORT_PEER, count number of paths
     // with LOCAL_VM_PORT_PEER
     int count = 0;
-    for(Route::PathList::const_iterator it = GetPathList().begin(); 
+    for(Route::PathList::const_iterator it = GetPathList().begin();
         it != GetPathList().end(); it++) {
         const AgentPath *it_path =
             static_cast<const AgentPath *>(it.operator->());
@@ -798,7 +949,8 @@ void InetUnicastRouteEntry::AppendEcmpPath(Agent *agent,
                                path->path_preference(),
                                path->tunnel_bmap(),
                                path->ecmp_load_balance(),
-                               nh_req, agent, ecmp_path);
+                               nh_req, agent, ecmp_path,
+                               AgentRoute::ECMPFEILDSADD);
 
     //Make MPLS label point to composite NH
     MplsLabel::CreateEcmpLabel(agent, ecmp_path->label(), Composite::LOCAL_ECMP,
@@ -854,7 +1006,8 @@ bool InetUnicastRouteEntry::UpdateComponentNH(Agent *agent,
                                ecmp_path->path_preference(),
                                ecmp_path->tunnel_bmap(),
                                ecmp_path->ecmp_load_balance(),
-                               nh_req, agent, ecmp_path);
+                               nh_req, agent, ecmp_path,
+                               AgentRoute::ECMPFEILDSADD);
 
     //Make MPLS label point to updated composite NH
     MplsLabel::CreateEcmpLabel(agent, ecmp_path->label(), Composite::LOCAL_ECMP,
@@ -901,7 +1054,8 @@ void InetUnicastRouteEntry::DeleteComponentNH(Agent *agent, AgentPath *path) {
                                ecmp_path->path_preference(),
                                ecmp_path->tunnel_bmap(),
                                ecmp_path->ecmp_load_balance(),
-                               nh_req, agent, ecmp_path)) {
+                               nh_req, agent, ecmp_path,
+                               AgentRoute::ECMPFEILDSDEL)) {
         return;
     }
 

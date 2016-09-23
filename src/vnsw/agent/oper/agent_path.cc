@@ -40,6 +40,7 @@ AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     local_ecmp_mpls_label_(rt), composite_nh_key_(NULL), subnet_service_ip_(),
     arp_mac_(), arp_interface_(NULL), arp_valid_(false),
     ecmp_suppressed_(false), is_local_(false), is_health_check_service_(false) {
+    ecmp_load_balance_.reset();
 }
 
 AgentPath::~AgentPath() {
