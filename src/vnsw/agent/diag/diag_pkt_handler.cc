@@ -486,9 +486,10 @@ void DiagPktHandler::SwapIpHdr() {
 void DiagPktHandler::SwapIp6Hdr() {
     //Ip6Hdr expects IPv6 address to be in network format
     struct ip6_hdr  *ip6 = pkt_info_->ip6;
-    Ip6Hdr(ip6, ntohl(ip6->ip6_ctlun.ip6_un1.ip6_un1_plen), 
-            ip6->ip6_ctlun.ip6_un1.ip6_un1_nxt, DEFAULT_IP_TTL, ip6->ip6_dst.s6_addr,
-           ip6->ip6_src.s6_addr);
+    Ip6Hdr(ip6, ntohl(ip6->ip6_ctlun.ip6_un1.ip6_un1_plen),
+           ip6->ip6_ctlun.ip6_un1.ip6_un1_nxt, DEFAULT_IP_TTL,
+           pkt_info_->ip_daddr.to_v6().to_bytes().data(),
+           pkt_info_->ip_saddr.to_v6().to_bytes().data());
 }
 
 void DiagPktHandler::SwapEthHdr() {
