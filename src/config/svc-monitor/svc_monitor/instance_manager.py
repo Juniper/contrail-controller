@@ -92,7 +92,7 @@ class InstanceManager(object):
                                   (':'.join(proj_fq_name)))
         return proj_obj
 
-    def _allocate_iip_for_family(self, vn_obj, iip_name, iip_family):
+    def _allocate_iip_for_family(self, si, vn_obj, iip_name, iip_family):
         if iip_family == 'v6':
             iip_name = iip_name + '-' + iip_family
 
@@ -112,12 +112,16 @@ class InstanceManager(object):
             except HttpError:
                 return None
 
+        # instance-ip should be owned by tenant
+        proj_obj = self._get_project_obj(si.fq_name[:-1])
+        self._vnc_lib.chown(iip_obj.uuid, proj_obj.uuid)
+
         InstanceIpSM.locate(iip_obj.uuid)
         return iip_obj
 
-    def _allocate_iip(self, vn_obj, iip_name):
-        iip_obj = self._allocate_iip_for_family(vn_obj, iip_name, 'v4')
-        iipv6_obj = self._allocate_iip_for_family(vn_obj, iip_name, 'v6')
+    def _allocate_iip(self, si, vn_obj, iip_name):
+        iip_obj = self._allocate_iip_for_family(si, vn_obj, iip_name, 'v4')
+        iipv6_obj = self._allocate_iip_for_family(si, vn_obj, iip_name, 'v6')
         return iip_obj, iipv6_obj
 
     def _link_and_update_iip_for_family(self, si, vmi_obj, iip_obj):
@@ -601,6 +605,10 @@ class InstanceManager(object):
         elif vmi_updated:
             self._vnc_lib.virtual_machine_interface_update(vmi_obj)
 
+        # VMI should be owned by tenant
+        proj_obj = self._get_project_obj(si.fq_name[:-1])
+        self._vnc_lib.chown(vmi_obj.uuid, proj_obj.uuid)
+
         VirtualMachineInterfaceSM.locate(vmi_obj.uuid)
 
         # instance ip
@@ -613,10 +621,10 @@ class InstanceManager(object):
                 iip_obj.uuid = iip.uuid
         elif nic['shared-ip']:
             iip_name = "__".join(si.fq_name) + '-' + nic['type']
-            iip_obj, iipv6_obj = self._allocate_iip(vn_obj, iip_name)
+            iip_obj, iipv6_obj = self._allocate_iip(si, vn_obj, iip_name)
         else:
             iip_name = instance_name + '-' + nic['type'] + '-' + vmi_obj.uuid
-            iip_obj, iipv6_obj = self._allocate_iip(vn_obj, iip_name)
+            iip_obj, iipv6_obj = self._allocate_iip(si, vn_obj, iip_name)
         if not iip_obj and not iipv6_obj:
             self.logger.error(
                 "Instance IP not allocated for %s %s"
