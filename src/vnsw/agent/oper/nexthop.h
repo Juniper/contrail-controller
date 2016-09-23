@@ -1333,8 +1333,21 @@ private:
 
 class CompositeNHData : public NextHopData {
 public:
-    CompositeNHData() : NextHopData() { }
+    CompositeNHData() : NextHopData() {
+        ecmp_load_balance_.ResetAll(); add_del_change_ = 0;}
+
+    CompositeNHData(const EcmpLoadBalance &ecmp_load_balance,
+                    int add_del_change,
+                    std::vector<uint32_t> &ecmp_hash_fields) : NextHopData(),
+                    add_del_change_(add_del_change),
+                    ecmp_hash_fields_counter_(ecmp_hash_fields) {
+        ecmp_load_balance_.Copy(ecmp_load_balance);
+    }
 private:
+    friend class CompositeNH;
+    EcmpLoadBalance ecmp_load_balance_;
+    int add_del_change_;
+    std::vector<uint32_t>ecmp_hash_fields_counter_;
     DISALLOW_COPY_AND_ASSIGN(CompositeNHData);
 };
 
@@ -1355,7 +1368,8 @@ public:
     CompositeNH(COMPOSITETYPE type, bool policy,
         const ComponentNHKeyList &component_nh_key_list, VrfEntry *vrf):
         NextHop(COMPOSITE, policy), composite_nh_type_(type),
-        component_nh_key_list_(component_nh_key_list), vrf_(vrf, this) {
+        component_nh_key_list_(component_nh_key_list), vrf_(vrf, this),
+        ecmp_hash_fields_counter_(EcmpLoadBalance::NUM_HASH_FIELDS, 0) {
     }
 
     virtual ~CompositeNH() { };
@@ -1457,7 +1471,16 @@ public:
        return false;
    }
 
-private:
+   uint8_t EcmpHashFields() const {
+       return ecmp_hash_fields_in_byte_;
+   }
+
+   std::vector<uint32_t> EcmpHashFeildsCounters() const {
+        return ecmp_hash_fields_counter_;
+   }
+    void UpdateEcmpLoadBalanceFeilds(const EcmpLoadBalance &ecmp_load_balance,
+                                     int add_del_change);
+
     void CreateComponentNH(Agent *agent, TunnelType::Type type) const;
     void ChangeComponentNHKeyTunnelType(ComponentNHKeyList &component_nh_list,
                                         TunnelType::Type type) const;
@@ -1465,6 +1488,8 @@ private:
     ComponentNHKeyList component_nh_key_list_;
     ComponentNHList component_nh_list_;
     VrfEntryRef vrf_;
+    std::vector<uint32_t> ecmp_hash_fields_counter_;
+    uint8_t ecmp_hash_fields_in_byte_;
     DISALLOW_COPY_AND_ASSIGN(CompositeNH);
 };
 

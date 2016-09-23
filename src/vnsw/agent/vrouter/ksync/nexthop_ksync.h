@@ -99,6 +99,7 @@ private:
     ComponentNHKeyList component_nh_key_list_;
     bool vxlan_nh_;
     bool flood_unknown_unicast_;
+    uint8_t ecmp_hash_fields_in_byte_;
     DISALLOW_COPY_AND_ASSIGN(NHKSyncEntry);
 };
 

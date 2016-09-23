@@ -1408,6 +1408,7 @@ void CompositeNHKey::ChangeTunnelType(TunnelType::Type tunnel_type) {
 }
 
 bool CompositeNH::Change(const DBRequest* req) {
+    const CompositeNHData *data = static_cast<const CompositeNHData*>(req->data.get());
     ComponentNHList component_nh_list;
     ComponentNHKeyList::const_iterator it = component_nh_key_list_.begin();
     for (;it != component_nh_key_list_.end(); it++) {
@@ -1467,6 +1468,12 @@ bool CompositeNH::Change(const DBRequest* req) {
         changed = false;
     } else {
         changed = true;
+    }
+
+    if (data && data->add_del_change_) {
+       ecmp_hash_fields_counter_ = data->ecmp_hash_fields_counter_;
+       UpdateEcmpLoadBalanceFeilds(data->ecmp_load_balance_, data->add_del_change_);
+       changed = true;
     }
 
     component_nh_list_ = component_nh_list;
@@ -1670,7 +1677,6 @@ void CompositeNH::CreateComponentNH(Agent *agent,
 //tunnel type
 void CompositeNH::ChangeComponentNHKeyTunnelType(
         ComponentNHKeyList &component_nh_key_list, TunnelType::Type type) const {
-
     ComponentNHKeyList::iterator it = component_nh_key_list.begin();
     for (;it != component_nh_key_list.end(); it++) {
         if ((*it) == NULL) {
@@ -1776,6 +1782,47 @@ uint32_t CompositeNH::GetRemoteLabel(const Ip4Address &ip) const {
         }
     }
     return -1;
+}
+
+void CompositeNH::UpdateEcmpLoadBalanceFeilds(
+        const EcmpLoadBalance &ecmp_load_balance, int add_del_change){
+
+    if (ecmp_load_balance.is_source_ip_set()) {
+        ecmp_hash_fields_counter_[EcmpLoadBalance::SOURCE_IP] += add_del_change;
+    }
+
+    if (ecmp_load_balance.is_destination_ip_set()) {
+        ecmp_hash_fields_counter_[EcmpLoadBalance::DESTINATION_IP] += add_del_change;
+    }
+
+    if (ecmp_load_balance.is_source_port_set()) {
+        ecmp_hash_fields_counter_[EcmpLoadBalance::SOURCE_PORT] += add_del_change;
+    }
+
+    if (ecmp_load_balance.is_destination_port_set()) {
+        ecmp_hash_fields_counter_[EcmpLoadBalance::DESTINATION_PORT] += add_del_change;
+    }
+
+    if (ecmp_load_balance.is_ip_protocol_set()) {
+        ecmp_hash_fields_counter_[EcmpLoadBalance::IP_PROTOCOL] += add_del_change;
+    }
+
+    uint32_t  max =0;
+    for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::IP_PROTOCOL);
+        field_type < ((uint8_t) EcmpLoadBalance::NUM_HASH_FIELDS);
+        field_type++) {
+        if (max < ecmp_hash_fields_counter_[field_type]) {
+            max = ecmp_hash_fields_counter_[field_type];
+        }
+    }
+    ecmp_hash_fields_in_byte_ = 0;
+    for (uint8_t field_type = ((uint8_t) EcmpLoadBalance::IP_PROTOCOL);
+        field_type < ((uint8_t) EcmpLoadBalance::NUM_HASH_FIELDS);
+        field_type++) {
+        if (max == ecmp_hash_fields_counter_[field_type]) {
+            ecmp_hash_fields_in_byte_ |= 1 <<field_type;
+        }
+    }
 }
 
 void CompositeNHKey::CreateTunnelNH(Agent *agent) {
