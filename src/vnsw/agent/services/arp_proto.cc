@@ -157,6 +157,9 @@ void ArpDBState::SendArpRequestForAllIntf(const InetUnicastRouteEntry *route) {
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
         if (path->peer() &&
             path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER) {
+            if (path->is_health_check_service()) {
+                return;
+            }
             if (path->subnet_service_ip() == Ip4Address(0)) {
                 return;
             }
