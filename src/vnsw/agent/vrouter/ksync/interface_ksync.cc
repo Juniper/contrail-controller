@@ -457,6 +457,15 @@ KSyncEntry *InterfaceKSyncEntry::UnresolvedReference() {
         return parent_.get();
     }
 
+    if (vmi_device_type_ == VmInterface::VM_VLAN_ON_VMI) {
+        if (!parent_.get() || rx_vlan_id_ == VmInterface::kInvalidVlanId) {
+            // For VM_VLAN_ON_VMI interface hold interface as unresolved, in
+            // absence of parent interface of rx_vlan_id_, to avoid
+            // programming Interface Nexthop with unresolved interface
+            return KSyncObjectManager::default_defer_entry();
+        }
+    }
+
     if (!analyzer_name_.empty()) {
         MirrorKSyncObject *mirror_object =
                          ksync_obj_->ksync()->mirror_ksync_obj();
