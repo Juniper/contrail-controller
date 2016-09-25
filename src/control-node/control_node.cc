@@ -7,6 +7,7 @@
 #include <boost/assign.hpp>
 
 #include "base/task.h"
+#include "db/db.h"
 
 std::string ControlNode::hostname_;
 std::string ControlNode::prog_name_;
@@ -133,7 +134,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")))
         (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")))
         (TaskExclusion(scheduler->GetTaskId("bgp::SendReadyTask")));
-    for (int idx = 0; idx < scheduler->HardwareThreadCount(); ++idx) {
+    for (int idx = 0; idx < DB::PartitionCount(); ++idx) {
         send_update_policy.push_back(
             (TaskExclusion(scheduler->GetTaskId("db::DBTable"), idx)));
     }
