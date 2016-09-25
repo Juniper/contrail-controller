@@ -27,10 +27,10 @@ libxmpptest = env.Library('xmpptest',
                          ['xmpp_sample_peer.cc'])
 
 env.Prepend(LIBS = ['task_test', 'gunit', 'xmpp', 'xml', 'pugixml', 'sandesh', 
-                    'http', 'http_parser', 'curl', 'process_info', 
+                    'http', 'http_parser', 'curl', 'process_info',
                     'io', 'ssl', 'crypto', 'sandeshvns', 'base', 'peer_sandesh',
                     'table_sandesh', 'boost_regex', 'xmpptest', 'control_node',
-                    'sandesh'])
+                    'db', 'sandesh'])
 
 if sys.platform != 'darwin':
     env.Append(LIBS = ['rt'])
