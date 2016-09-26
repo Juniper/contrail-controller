@@ -16,7 +16,8 @@ class ServiceMonitorDB(VncCassandraClient):
 
     _KEYSPACE = SVC_MONITOR_KEYSPACE_NAME
     _SVC_SI_CF = 'service_instance_table'
-    _LB_CF = 'pool_table'
+    _POOL_CF = 'pool_table'
+    _LB_CF = 'loadbalancer_table'
 
     def __init__(self, args, logger):
         self._db_logger = logger
@@ -24,6 +25,7 @@ class ServiceMonitorDB(VncCassandraClient):
         keyspaces = {
             self._KEYSPACE: {
                 self._SVC_SI_CF: {},
+                self._POOL_CF: {},
                 self._LB_CF: {}
             }
         }
@@ -43,6 +45,7 @@ class ServiceMonitorDB(VncCassandraClient):
                                                credential=cred)
 
         self._svc_si_cf = self._cf_dict[self._SVC_SI_CF]
+        self._pool_cf = self._cf_dict[self._POOL_CF]
         self._lb_cf = self._cf_dict[self._LB_CF]
 
     # db CRUD
@@ -127,26 +130,53 @@ class ServiceMonitorDB(VncCassandraClient):
     def service_instance_list(self):
         return self._db_list(self._svc_si_cf)
 
+    def loadbalancer_config_get(self, lb_id):
+        return self._db_get(self._lb_cf, lb_id, 'config_info')
+
+    def loadbalancer_driver_info_get(self, lb_id):
+        return self._db_get(self._lb_cf, lb_id, 'driver_info')
+
+    def loadbalancer_config_insert(self, lb_id, lb_obj):
+        entry = json.dumps(lb_obj)
+        return self._db_insert(self._lb_cf, lb_id, {'config_info': entry})
+
+    def loadbalancer_driver_info_insert(self, lb_id, lb_obj):
+        entry = json.dumps(lb_obj)
+        return self._db_insert(self._lb_cf, lb_id, {'driver_info': entry})
+
+    def loadbalancer_remove(self, lb_id, columns=None):
+        return self._db_remove(self._lb_cf, lb_id, columns)
+
+    def loadbalancer_list(self):
+        ret_list = []
+        for each_entry_id, each_entry_data in self._db_list(self._lb_cf) or []:
+            config_info_obj_dict = json.loads(each_entry_data['config_info'])
+            driver_info_obj_dict = None
+            if 'driver_info' in each_entry_data:
+                driver_info_obj_dict = json.loads(each_entry_data['driver_info'])
+            ret_list.append((each_entry_id, config_info_obj_dict, driver_info_obj_dict))
+        return ret_list
+
     def pool_config_get(self, pool_id):
-        return self._db_get(self._lb_cf, pool_id, 'config_info')
+        return self._db_get(self._pool_cf, pool_id, 'config_info')
 
     def pool_driver_info_get(self, pool_id):
-        return self._db_get(self._lb_cf, pool_id, 'driver_info')
+        return self._db_get(self._pool_cf, pool_id, 'driver_info')
 
     def pool_config_insert(self, pool_id, pool_obj):
         entry = json.dumps(pool_obj)
-        return self._db_insert(self._lb_cf, pool_id, {'config_info': entry})
+        return self._db_insert(self._pool_cf, pool_id, {'config_info': entry})
 
     def pool_driver_info_insert(self, pool_id, pool_obj):
         entry = json.dumps(pool_obj)
-        return self._db_insert(self._lb_cf, pool_id, {'driver_info': entry})
+        return self._db_insert(self._pool_cf, pool_id, {'driver_info': entry})
 
     def pool_remove(self, pool_id, columns=None):
-        return self._db_remove(self._lb_cf, pool_id, columns)
+        return self._db_remove(self._pool_cf, pool_id, columns)
 
     def pool_list(self):
         ret_list = []
-        for each_entry_id, each_entry_data in self._db_list(self._lb_cf) or []:
+        for each_entry_id, each_entry_data in self._db_list(self._pool_cf) or []:
             config_info_obj_dict = json.loads(each_entry_data['config_info'])
             driver_info_obj_dict = None
             if 'driver_info' in each_entry_data:

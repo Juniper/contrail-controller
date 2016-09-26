@@ -125,6 +125,7 @@ class LoadbalancerPoolSM(DBBaseSM):
         self.virtual_ip = None
         self.loadbalancer_listener = None
         self.loadbalancer_id = None
+        self.loadbalancer_version = "v1"
         self.last_sent = None
         self.custom_attributes = []
         self.update(obj_dict)
@@ -156,6 +157,7 @@ class LoadbalancerPoolSM(DBBaseSM):
         if self.loadbalancer_listener:
             ll_obj = LoadbalancerListenerSM.get(self.loadbalancer_listener)
             self.loadbalancer_id = ll_obj.loadbalancer
+            self.loadbalancer_version = "v2"
 
         self.last_sent = \
             self._manager.loadbalancer_agent.loadbalancer_pool_add(self)

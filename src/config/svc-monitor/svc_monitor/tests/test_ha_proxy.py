@@ -342,8 +342,8 @@ OpencontrailLoadbalancerDriver")
         # Cleanup
         for i in range(5):
             config_db.LoadbalancerMemberSM.delete('member_'+str(i))
-        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
         config_db.VirtualIpSM.delete('vip')
+        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
         self.assertEqual(len(self._si_pool), 0)
         self.assertEqual(len(config_db.ServiceInstanceSM._dict.keys()), 0)
     # end test_add_delete_pool_with_members_vip
@@ -417,8 +417,8 @@ OpencontrailLoadbalancerDriver")
         # Cleanup
         for i in range(5):
             config_db.LoadbalancerMemberSM.delete('member_'+str(i))
-        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
         config_db.VirtualIpSM.delete('vip')
+        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
         self.assertEqual(len(self._si_pool), 0)
         self.assertEqual(len(config_db.ServiceInstanceSM._dict.keys()), 0)
     # end test_update_vip
