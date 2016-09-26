@@ -11,6 +11,7 @@ env = CfgmEnv.Clone()
 source_files = ['setup.py',
                 '__init__.py',
                 'vnc_openstack/__init__.py',
+                'vnc_openstack/context.py',
                 'vnc_openstack/neutron_plugin_db.py',
                 'vnc_openstack/neutron_plugin_interface.py']
 
