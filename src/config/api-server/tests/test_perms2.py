@@ -948,8 +948,17 @@ class TestPermissions(test_case.ApiServerTestCase):
         logger.info( 'alice: create VN in her project')
         vn_fq_name = [self.domain_name, alice.project, self.vn_name]
         vn = VirtualNetwork(self.vn_name, self.alice.project_obj)
+        vn.set_is_shared(False)
         self.alice.vnc_lib.virtual_network_create(vn)
         vn = vnc_read_obj(alice.vnc_lib, 'virtual-network', name = vn_fq_name)
+
+        # validate chmod of global perms reflected in is_shared flag
+        alice.vnc_lib.chmod(vn.get_uuid(), global_access=PERMS_R)
+        vn = vnc_read_obj(self.alice.vnc_lib, 'virtual-network', name = vn_fq_name)
+        self.assertEquals(vn.get_is_shared(), True)
+        alice.vnc_lib.chmod(vn.get_uuid(), global_access=0)
+        vn = vnc_read_obj(self.alice.vnc_lib, 'virtual-network', name = vn_fq_name)
+        self.assertEquals(vn.get_is_shared(), False)
 
         logger.info( "Verify Bob cannot chmod Alice's virtual network")
         self.assertRaises(PermissionDenied, bob.vnc_lib.chmod, vn.get_uuid(), owner=bob.project_uuid)
