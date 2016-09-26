@@ -164,6 +164,10 @@ void ArpDBState::SendArpRequestForAllIntf(const InetUnicastRouteEntry *route) {
             if (nh->GetType() != NextHop::INTERFACE) {
                 continue;
             }
+            if (path->is_health_check_service()) {
+                // skip sending ARP request for Health Check Service IP
+                continue;
+            }
 
             const InterfaceNH *intf_nh =
                 static_cast<const  InterfaceNH *>(nh);
