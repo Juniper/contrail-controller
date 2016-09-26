@@ -22,6 +22,7 @@ SandeshGenFiles += env.SandeshGenOnlyCpp('service_chaining_internal.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('static_route.sandesh')
 SandeshGenFiles += env.SandeshGenOnlyCpp('static_route_internal.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('route_aggregate.sandesh')
+SandeshGenFiles += env.SandeshGenCpp('routing_table.sandesh')
 SandeshGenFiles += env.SandeshGenOnlyCpp('route_aggregate_internal.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 
