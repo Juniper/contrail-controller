@@ -118,7 +118,6 @@ public:
     const std::string GetVirtualNetworkName() const;
 
     const BgpInstanceConfig *config() const { return config_; }
-    const std::string virtual_network() const;
     int virtual_network_index() const;
     bool virtual_network_allow_transit() const;
     int vxlan_id() const;

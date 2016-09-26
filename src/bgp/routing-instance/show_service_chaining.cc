@@ -39,7 +39,7 @@ static bool FillServiceChainInfo(Address::Family family,
     if (!sc_config)
         return false;
 
-    info.set_src_virtual_network(rtinstance->virtual_network());
+    info.set_src_virtual_network(rtinstance->GetVirtualNetworkName());
     info.set_dest_virtual_network(GetVNFromRoutingInstance(
                                      sc_config->routing_instance));
     info.set_service_instance(sc_config->service_instance);
