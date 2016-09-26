@@ -72,7 +72,12 @@ class LogQuerier(object):
                 table_list = json.loads(tables.text)
                 for table in table_list:
                     if table['type'] == 'OBJECT':
-                        OBJECT_TYPE_LIST.append(str(table['display_name']))
+                        # append to OBJECT_TYPE_LIST only if not existing
+                        if table['name'] not in OBJECT_TABLE_MAP.values():
+                            OBJECT_TYPE_LIST.append(str(table['name']))
+                            # For object table the mapping between the actual table
+                            # name and the table name used in help msg are the same
+                            OBJECT_TABLE_MAP[table['name']]=table['name']
             if self.parse_args() != 0:
                 return
             if self._args.tail:
