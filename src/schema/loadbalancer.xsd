@@ -266,6 +266,11 @@
           'project', 'loadbalancer', ['has'], 'optional', 'CRUD',
           'Loadbalancer object represents a LBaaS instance. One single Virtual IP and multiple (listeners, pools). Applicable to LBaaS V2.') -->
 
+<xsd:element name="loadbalancer-service-appliance-set"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('loadbalancer-service-appliance-set',
+          'loadbalancer', 'service-appliance-set', ['ref']) -->
+
 <xsd:element name="loadbalancer-service-instance"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('loadbalancer-service-instance',
