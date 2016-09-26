@@ -1186,11 +1186,11 @@ class TestPermissions(test_case.ApiServerTestCase):
         self.assertEquals(ri.get_perms2().owner, 'cloud-admin')
 
     def test_default_ipam_perms(self):
-        " test default-domain:default-project:default-network-ipam allows global linking by default"
+        " test default-domain:default-project:default-network-ipam allows global read/linking by default"
 
         ipam_fq_name = ['default-domain', 'default-project', 'default-network-ipam']
-        ipam = vnc_read_obj(self.admin.vnc_lib, 'network-ipam', name = ipam_fq_name)
-        self.assertEquals(ipam.get_perms2().global_access, PERMS_X)
+        ipam = vnc_read_obj(self.alice.vnc_lib, 'network-ipam', name = ipam_fq_name)
+        self.assertEquals(ipam.get_perms2().global_access, PERMS_RX)
 
     def test_read_only_admin_role(self):
         # allow read-only role access to all API
