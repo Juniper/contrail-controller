@@ -9,69 +9,56 @@
 /**
  * @description: XMPP Client connection socket opening failure
  * @severity: WARNING
- * @cause: System possibly has run out of free sockets for communication
- * @action: Contact your technical support representative. Process restart can be used as a temporary workaround over socket descriptor leaks
+ * @cause: Failure to open TCP Socket to form a connection with the peer due to either use of sockets above the process limit or due to sockets leakage inside the process
+ * @action: Process restart can help in getting around socket descriptors leakage, if any. lsof command can be used to find all sockets allocated by the process (in use or otherwise). ulimit command be used to see and tweak current socket descriptors limit (per process)
  */
 systemlog sandesh ClientOpenFail {
     1: "Xmpp Client : open failed"
-    2: string f1
+    2: string error_message
 }
 
 /**
  * @description: XMPP socket option setting failure
  * @severity: WARNING
- * @cause: Socket error. Refer to the actual error message for more details
- * @action: Contact your technical support representative
+ * @cause: Set Socket option error possibly due to lack of its support in the kernel
+ * @action: Check for kernel version and its ability to support the socket option that failed. Moving to a different kernel via kernel upgrade might help in working around this issue
  */
 systemlog sandesh SetSockOptFail {
     1: "Xmpp Client: set_option: "
-    2: string f1
-}
-
-/**
- * @description: XMPP Client socket bind operation failure
- * @severity: ERROR
- * @cause: Possibly the port already bound to and used by another process
- * @action: Contact your technical support representative. Another/duplicate process using the same port can be found using netstat and lsof command tools
- */
-systemlog sandesh BindFailure {
-    1: "Xmpp Client: Bind failure: "
-    2: string f1
-    3: " Port "
-    4: i32 f2
+    2: string error_message
 }
 
 /**
  * @description: XMPP Server connection socket opening failure
  * @severity: WARNING
- * @cause: System possibly has run out of free sockets for communication
- * @action: Contact your technical support representative. Process restart can be used as a temporary workaround over socket descriptor leaks
+ * @cause: Failure to open TCP Socket to form a connection with the peer due to either use of sockets above the process limit or due to sockets leakage inside the process
+ * @action: Process restart can help in getting around socket descriptors leakage, if any. lsof command can be used to find all sockets allocated by the process (in use or otherwise). ulimit command be used to see and tweak current socket descriptors limit (per process)
  */
 systemlog sandesh ServerOpenFail {
     1: "Xmpp Server : open failed"
-    2: string f1
+    2: string error_message
 }
 
 /**
  * @description: XMPP Server socket bind operation failure
  * @severity: WARNING
  * @cause: Possibly the port already bound to and used by another process
- * @action: Contact your technical support representative. Another/duplicate process using the same port can be found using netstat and lsof command tools
+ * @action: Check if another/duplicate process is already using the same port using netstat and lsof command line tools. If found, kill such offending processes and restart the daemon. If the port is used by another application legitimately, try changing the xmpp server port to a different unused port in /etc/contrail/contrail-control.conf
  */
 systemlog sandesh ServerBindFailure {
     1: "Bind failure: ";
-    2: string f1;
+    2: string error_message;
 }
 
 /**
  * @description: XMPP Server socket TCP KeepAlive option setting failure
- * @severity: WARNING
- * @cause: Possibly due to TCP KeepAlives not supported in the kernel
+ * @cause: Set Socket option error possibly due to lack of TCP KeepAlives support in the kernel
+ * @action: Check for kernel version and its ability to support the TCP KeepAlive socket option. Moving to a different kernel via kernel upgrade might help in working around this issue
  * @action: Contact your technical support representative
  */
 systemlog sandesh ServerKeepAliveFailure {
     1: "Tcp KeepAlive failure: ";
-    2: string f1;
+    2: string error_message;
 }
 
 /**
@@ -80,5 +67,5 @@ systemlog sandesh ServerKeepAliveFailure {
  */
 systemlog sandesh XmppCreateConnection {
     1: "Xmpp creating dynamic channel"
-    2: string f1;
+    2: string to;
 }

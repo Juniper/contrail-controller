@@ -1631,8 +1631,8 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
         InetTable *table =
             static_cast<InetTable *>(instance->GetTable(Address::INET));
         if (!table) {
-            BGP_LOG_PEER_CRITICAL(Message, this,
-                BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN, "Cannot find inet table");
+            BGP_LOG_WARNING_STR(BgpConfig, BGP_LOG_FLAG_ALL,
+                                "Cannot find inet table");
             return;
         }
 

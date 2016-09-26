@@ -225,6 +225,15 @@ do {                                                                       \
                           instance, _os.str());                            \
 } while (false)
 
+#define BGP_LOG_PEER_INSTANCE_CRITICAL(peer, instance, dir, flags, arg)    \
+do {                                                                       \
+    if (LoggingDisabled()) break;                                          \
+    std::ostringstream _os;                                                \
+    _os << arg;                                                            \
+    BGP_LOG_PEER_INTERNAL(Instance, peer, SandeshLevel::SYS_CRIT, flags,   \
+                          dir, instance, _os.str());                       \
+} while (false)
+
 // Bgp Route specific logging macro
 #define BGP_LOG_ROUTE(table, peer, route, arg)                             \
 do {                                                                       \

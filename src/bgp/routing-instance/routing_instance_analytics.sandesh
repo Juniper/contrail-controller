@@ -40,7 +40,7 @@ traceobject sandesh RoutingInstanceMessage {
 /**
  * @description Routing Instance specific generic message
  * @severity: DEBUG
- * @cause: Normal operation
+ * @cause: Normal diagnostic message used during software trouble-shooting
  * @action: None
  */
 systemlog sandesh RoutingInstanceMessageLog {
@@ -82,7 +82,7 @@ systemlog sandesh RoutingInstanceWarningMessageLog {
 
 /**
  * @description Routing Instance creation message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 traceobject sandesh RoutingInstanceCreate {
     1 : "VirtualNetwork";
@@ -99,9 +99,9 @@ traceobject sandesh RoutingInstanceCreate {
 
 /**
  * @description Routing Instance creation message
- * @severity: DEBUG / ERROR
- * @cause: Normal operation / An internal software failure occurred
- * @action: Contact your technical support representative in case of Error
+ * @severity: DEBUG
+ * @cause: Normal diagnostic message used during software trouble-shooting
+ * @action: None
  */
 systemlog sandesh RoutingInstanceCreateLog {
     1 : "VirtualNetwork";
@@ -118,7 +118,7 @@ systemlog sandesh RoutingInstanceCreateLog {
 
 /**
  * @description Routing Instance deletion message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 traceobject sandesh RoutingInstanceDelete {
     1: "VirtualNetwork";
@@ -129,9 +129,9 @@ traceobject sandesh RoutingInstanceDelete {
 
 /**
  * @description Routing Instance deletion message
- * @severity: DEBUG / ERROR
- * @cause: Normal operation / An internal software failure occurred
- * @action: Contact your technical support representative in case of Error
+ * @severity: DEBUG
+ * @cause: Normal diagnostic message used during software trouble-shooting
+ * @action: None
  */
 systemlog sandesh RoutingInstanceDeleteLog {
     1: "VirtualNetwork";
@@ -142,7 +142,7 @@ systemlog sandesh RoutingInstanceDeleteLog {
 
 /**
  * @description Routing Instance update message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 traceobject sandesh RoutingInstanceUpdate {
     1 : "VirtualNetwork";
@@ -159,9 +159,9 @@ traceobject sandesh RoutingInstanceUpdate {
 
 /**
  * @description Routing Instance update message
- * @severity: DEBUG / ERROR
- * @cause: Normal operation / An internal software failure occurred
- * @action: Contact your technical support representative in case of Error
+ * @severity: DEBUG
+ * @cause: Normal diagnostic message used during software trouble-shooting
+ * @action: None
  */
 systemlog sandesh RoutingInstanceUpdateLog {
     1 : "VirtualNetwork";
@@ -178,7 +178,7 @@ systemlog sandesh RoutingInstanceUpdateLog {
 
 /**
  * @description Routing Instance destroy message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 traceobject sandesh RoutingInstanceDestroy {
     1: "VirtualNetwork";
@@ -189,9 +189,9 @@ traceobject sandesh RoutingInstanceDestroy {
 
 /**
  * @description Routing Instance destroy message
- * @severity: DEBUG / ERROR
- * @cause: Normal operation / An internal software failure occurred
- * @action: Contact your technical support representative in case of Error
+ * @severity: DEBUG
+ * @cause: Normal diagnostic message used during software trouble-shooting
+ * @action: None
  */
 systemlog sandesh RoutingInstanceDestroyLog {
     1: "VirtualNetwork";
@@ -202,7 +202,7 @@ systemlog sandesh RoutingInstanceDestroyLog {
 
 /**
  * @description Routing Instance shutdown message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 traceobject sandesh RoutingInstanceShutdown {
     1: "VirtualNetwork";
@@ -213,9 +213,9 @@ traceobject sandesh RoutingInstanceShutdown {
 
 /**
  * @description Routing Instance shutdown message
- * @severity: DEBUG / ERROR
- * @cause: Normal operation / An internal software failure occurred
- * @action: Contact your technical support representative in case of Error
+ * @severity: DEBUG
+ * @cause: Normal diagnostic message used during software trouble-shooting
+ * @action: None
  */
 systemlog sandesh RoutingInstanceShutdownLog {
     1: "VirtualNetwork";
@@ -226,7 +226,7 @@ systemlog sandesh RoutingInstanceShutdownLog {
 
 /**
  * @description Routing Instance's peer creation message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 traceobject sandesh RoutingInstancePeerCreate {
     1: "VirtualNetwork";
@@ -239,9 +239,9 @@ traceobject sandesh RoutingInstancePeerCreate {
 
 /**
  * @description Routing Instance's peer creation message
- * @severity: DEBUG / ERROR
- * @cause: Normal operation / An internal software failure occurred
- * @action: Contact your technical support representative in case of Error
+ * @severity: DEBUG
+ * @cause: Normal diagnostic message used during software trouble-shooting
+ * @action: None
  */
 systemlog sandesh RoutingInstancePeerCreateLog {
     1: "VirtualNetwork";
@@ -254,7 +254,7 @@ systemlog sandesh RoutingInstancePeerCreateLog {
 
 /**
  * @description Routing Instance's peer clear message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 traceobject sandesh RoutingInstancePeerClear {
     1: "VirtualNetwork";
@@ -267,9 +267,9 @@ traceobject sandesh RoutingInstancePeerClear {
 
 /**
  * @description Routing Instance's peer clear message
- * @severity: DEBUG / ERROR
- * @cause: Normal operation / An internal software failure occurred
- * @action: Contact your technical support representative in case of Error
+ * @severity: DEBUG
+ * @cause: Normal diagnostic message used during software trouble-shooting
+ * @action: None
  */
 systemlog sandesh RoutingInstancePeerClearLog {
     1: "VirtualNetwork";
@@ -282,7 +282,7 @@ systemlog sandesh RoutingInstancePeerClearLog {
 
 /**
  * @description Routing Instance's peer delete message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 traceobject sandesh RoutingInstancePeerDelete {
     1: "VirtualNetwork";
@@ -295,9 +295,9 @@ traceobject sandesh RoutingInstancePeerDelete {
 
 /**
  * @description Routing Instance's peer delete message
- * @severity: DEBUG / ERROR
- * @cause: Normal operation / An internal software failure occurred
- * @action: Contact your technical support representative in case of Error
+ * @severity: DEBUG
+ * @cause: Normal diagnostic message used during software trouble-shooting
+ * @action: None
  */
 systemlog sandesh RoutingInstancePeerDeleteLog {
     1: "VirtualNetwork";
@@ -310,7 +310,7 @@ systemlog sandesh RoutingInstancePeerDeleteLog {
 
 /**
  * @description Routing Instance's peer destroy message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 traceobject sandesh RoutingInstancePeerDestroy {
     1: "VirtualNetwork";
@@ -323,9 +323,9 @@ traceobject sandesh RoutingInstancePeerDestroy {
 
 /**
  * @description Routing Instance's peer destroy message
- * @severity: DEBUG / ERROR
- * @cause: Normal operation / An internal software failure occurred
- * @action: Contact your technical support representative in case of Error
+ * @severity: DEBUG
+ * @cause: Normal diagnostic message used during software trouble-shooting
+ * @action: None
  */
 systemlog sandesh RoutingInstancePeerDestroyLog {
     1: "VirtualNetwork";
@@ -338,7 +338,7 @@ systemlog sandesh RoutingInstancePeerDestroyLog {
 
 /**
  * @description Routing Instance's table create message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 traceobject sandesh RoutingInstanceTableCreate {
     1: "VirtualNetwork";
@@ -353,9 +353,9 @@ traceobject sandesh RoutingInstanceTableCreate {
 
 /**
  * @description Routing Instance's table create message
- * @severity: DEBUG / ERROR
- * @cause: Normal operation / An internal software failure occurred
- * @action: Contact your technical support representative in case of Error
+ * @severity: DEBUG
+ * @cause: Normal diagnostic message used during software trouble-shooting
+ * @action: None
  */
 systemlog sandesh RoutingInstanceTableCreateLog {
     1: "VirtualNetwork";
@@ -370,7 +370,7 @@ systemlog sandesh RoutingInstanceTableCreateLog {
 
 /**
  * @description Routing Instance's table destroy message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 traceobject sandesh RoutingInstanceTableDestroy {
     1: "VirtualNetwork";
@@ -385,9 +385,9 @@ traceobject sandesh RoutingInstanceTableDestroy {
 
 /**
  * @description Routing Instance's table destroy message
- * @severity: DEBUG / ERROR
- * @cause: Normal operation / An internal software failure occurred
- * @action: Contact your technical support representative in case of Error
+ * @severity: DEBUG
+ * @cause: Normal diagnostic message used during software trouble-shooting
+ * @action: None
  */
 systemlog sandesh RoutingInstanceTableDestroyLog {
     1: "VirtualNetwork";
@@ -402,7 +402,7 @@ systemlog sandesh RoutingInstanceTableDestroyLog {
 
 /**
  * @description Route Replication from a primary table to a secondary table
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 traceobject sandesh RprReplicate {
     1: string primary_table;
@@ -415,9 +415,9 @@ traceobject sandesh RprReplicate {
 
 /**
  * @description Route Replication from a primary table to a secondary table
- * @severity: DEBUG / ERROR
- * @cause: Normal operation / An internal software failure occurred
- * @action: Contact your technical support representative in case of Error
+ * @severity: DEBUG
+ * @cause: Normal diagnostic message used during software trouble-shooting
+ * @action: None
  */
 systemlog sandesh RprReplicateLog {
     1: string primary_table;
@@ -429,7 +429,7 @@ systemlog sandesh RprReplicateLog {
 
 /**
  * @description Rplicated route flush message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 traceobject sandesh RprFlush {
     2: string secondary_table;
@@ -443,9 +443,9 @@ traceobject sandesh RprFlush {
 
 /**
  * @description Rplicated route flush message
- * @severity: DEBUG / ERROR
- * @cause: Normal operation / An internal software failure occurred
- * @action: Contact your technical support representative in case of Error
+ * @severity: DEBUG
+ * @cause: Normal diagnostic message used during software trouble-shooting
+ * @action: None
  */
 systemlog sandesh RprFlushLog {
     2: string secondary_table;
@@ -458,7 +458,7 @@ systemlog sandesh RprFlushLog {
 
 /**
  * @description Route Replication table walk message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 traceobject sandesh RprWalk {
     1: string table;
@@ -466,9 +466,9 @@ traceobject sandesh RprWalk {
 
 /**
  * @description Route Replication table walk message
- * @severity: DEBUG / ERROR
- * @cause: Normal operation / An internal software failure occurred
- * @action: Contact your technical support representative in case of Error
+ * @severity: DEBUG
+ * @cause: Normal diagnostic message used during software trouble-shooting
+ * @action: None
  */
 systemlog sandesh RprWalkLog {
     1: string table;
@@ -476,7 +476,7 @@ systemlog sandesh RprWalkLog {
 
 /**
  * @description Route Replication table join message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 traceobject sandesh RprTableJoin {
     1: string table;
@@ -486,9 +486,9 @@ traceobject sandesh RprTableJoin {
 
 /**
  * @description Route Replication table join message
- * @severity: DEBUG / ERROR
- * @cause: Normal operation / An internal software failure occurred
- * @action: Contact your technical support representative in case of Error
+ * @severity: DEBUG
+ * @cause: Normal diagnostic message used during software trouble-shooting
+ * @action: None
  */
 systemlog sandesh RprTableJoinLog {
     1: string table;
@@ -498,7 +498,7 @@ systemlog sandesh RprTableJoinLog {
 
 /**
  * @description Route Replication table leave message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 traceobject sandesh RprTableLeave {
     1: string table;
@@ -508,9 +508,9 @@ traceobject sandesh RprTableLeave {
 
 /**
  * @description Route Replication table leave message
- * @severity: DEBUG / ERROR
- * @cause: Normal operation / An internal software failure occurred
- * @action: Contact your technical support representative in case of Error
+ * @severity: DEBUG
+ * @cause: Normal diagnostic message used during software trouble-shooting
+ * @action: None
  */
 systemlog sandesh RprTableLeaveLog {
     1: string table;
@@ -520,7 +520,7 @@ systemlog sandesh RprTableLeaveLog {
 
 /**
  * @description Route Replication walk completion message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 traceobject sandesh RprWalkDone {
     1: string table;
@@ -528,9 +528,9 @@ traceobject sandesh RprWalkDone {
 
 /**
  * @description Route Replication walk completion message
- * @severity: DEBUG / ERROR
- * @cause: Normal operation / An internal software failure occurred
- * @action: Contact your technical support representative in case of Error
+ * @severity: DEBUG
+ * @cause: Normal diagnostic message used during software trouble-shooting
+ * @action: None
  */
 systemlog sandesh RprWalkDoneLog {
     1: string table;
@@ -538,7 +538,7 @@ systemlog sandesh RprWalkDoneLog {
 
 /**
  * @description Route Replication table registration message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 traceobject sandesh RprRegTable {
     1: string table;
@@ -546,9 +546,9 @@ traceobject sandesh RprRegTable {
 
 /**
  * @description Route Replication table registration message
- * @severity: DEBUG / ERROR
- * @cause: Normal operation / An internal software failure occurred
- * @action: Contact your technical support representative in case of Error
+ * @severity: DEBUG
+ * @cause: Normal diagnostic message used during software trouble-shooting
+ * @action: None
  */
 systemlog sandesh RprRegTableLog {
     1: string table;
@@ -556,7 +556,7 @@ systemlog sandesh RprRegTableLog {
 
 /**
  * @description Route Replication table unregistration message
- * @severity: DEBUG / ERROR
+ * @severity: DEBUG
  */
 traceobject sandesh RprUnregTable {
     1: string table;
@@ -564,9 +564,9 @@ traceobject sandesh RprUnregTable {
 
 /**
  * @description Route Replication table unregistration message
- * @severity: DEBUG / ERROR
- * @cause: Normal operation / An internal software failure occurred
- * @action: Contact your technical support representative in case of Error
+ * @severity: DEBUG
+ * @cause: Normal diagnostic message used during software trouble-shooting
+ * @action: None
  */
 systemlog sandesh RprUnregTableLog {
     1: string table;

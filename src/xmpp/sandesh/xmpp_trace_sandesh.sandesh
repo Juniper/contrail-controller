@@ -41,8 +41,8 @@ trace sandesh XmppRxStream {
 /**
  * @description: Invalid/Malformed XMPP Message reception event
  * @severity: ERROR
- * @cause: Possibly due to mis-behaving sender
- * @action: Contact your technical support representative
+ * @cause: Possibly due to mis-behaving xmpp message sender (contrail-vrouter-agent software)
+ * @action: Check logs from offending contrail-vrouter-agent which has sent incorrect or malformed xmpp message. Peer clear might help as a work around.
  */
 trace sandesh XmppRxStreamInvalid {
     1: "Received Invalid xmpp message from: ";
