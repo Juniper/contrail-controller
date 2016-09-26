@@ -520,20 +520,6 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     vr_interface_req encoder;
     int encode_len;
 
-    // Dont send message if interface index not known
-    if (IsValidOsIndex(os_index_, type_, rx_vlan_id_, vmi_type_, transport_) == false) {
-        return 0;
-    }
-
-    if (type_ == Interface::LOGICAL || type_ == Interface::REMOTE_PHYSICAL) {
-        return 0;
-    }
-
-    // No need to add VLAN sub-interface if there is no parent
-    if (vmi_device_type_ == VmInterface::VM_VLAN_ON_VMI && !parent_.get()) {
-        return 0;
-    }
-
     uint32_t flags = 0;
     encoder.set_h_op(op);
     if (op == sandesh_op::DELETE) {
