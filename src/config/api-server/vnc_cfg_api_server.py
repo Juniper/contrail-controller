@@ -394,10 +394,11 @@ class VncApiServer(object):
 
     def _validate_resource_type(self, type):
         try:
-            resource_class = self.get_resource_class(type)
+            r_class = self.get_resource_class(type)
+            return r_class.resource_type, r_class
         except TypeError:
-            return False, (404, "Resource type '%s' not found" % type)
-        return True, resource_class.resource_type
+            raise cfgm_common.exceptions.HttpError(
+                404, "Resource type '%s' not found" % type)
 
     # http_resource_<oper> - handlers invoked from
     # a. bottle route (on-the-wire) OR
@@ -405,8 +406,7 @@ class VncApiServer(object):
     # using normalized get_request() from ApiContext
     @log_api_stats
     def http_resource_create(self, obj_type):
-        r_class = self.get_resource_class(obj_type)
-        resource_type = r_class.resource_type
+        resource_type, r_class = self._validate_resource_type(obj_type)
         obj_dict = get_request().json[resource_type]
 
         self._post_validate(obj_type, obj_dict=obj_dict)
@@ -457,10 +457,8 @@ class VncApiServer(object):
         parent_class = None
         if 'parent_type' in obj_dict:
             # non config-root child, verify parent exists
-            parent_class = self.get_resource_class(obj_dict['parent_type'])
-            if parent_class is None:
-                raise cfgm_common.exceptions.HttpError(
-                    400, 'Invalid parent type: %s' %(obj_dict['parent_type']))
+            parent_res_type, parent_class = self._validate_resource_type(
+                 obj_dict['parent_type'])
             parent_obj_type = parent_class.object_type
             parent_res_type = parent_class.resource_type
             parent_fq_name = obj_dict['fq_name'][:-1]
@@ -584,8 +582,7 @@ class VncApiServer(object):
 
     @log_api_stats
     def http_resource_read(self, obj_type, id):
-        r_class = self.get_resource_class(obj_type)
-        resource_type = r_class.resource_type
+        resource_type, r_class = self._validate_resource_type(obj_type)
         try:
             self._extension_mgrs['resourceApi'].map_method(
                 'pre_%s_read' %(obj_type), id)
@@ -677,8 +674,7 @@ class VncApiServer(object):
 
     @log_api_stats
     def http_resource_update(self, obj_type, id):
-        r_class = self.get_resource_class(obj_type)
-        resource_type = r_class.resource_type
+        resource_type, r_class = self._validate_resource_type(obj_type)
 
         # Early return if there is no body or an empty body
         request = get_request()
@@ -809,8 +805,7 @@ class VncApiServer(object):
 
     @log_api_stats
     def http_resource_delete(self, obj_type, id):
-        r_class = self.get_resource_class(obj_type)
-        resource_type = r_class.resource_type
+        resource_type, r_class = self._validate_resource_type(obj_type)
 
         db_conn = self._db_conn
         # if obj doesn't exist return early
@@ -860,14 +855,11 @@ class VncApiServer(object):
         ifmap_id = imid.get_ifmap_id_from_fq_name(resource_type, fq_name)
         obj_ids['imid'] = ifmap_id
         if parent_obj_type:
-            parent_res_type = \
-                self.get_resource_class(parent_obj_type).resource_type
+            parent_res_type, _ = self._validate_resource_type(parent_obj_type)
             parent_imid = cfgm_common.imid.get_ifmap_id_from_fq_name(
                 parent_res_type, fq_name[:-1])
             obj_ids['parent_imid'] = parent_imid
 
-        # type-specific hook
-        r_class = self.get_resource_class(obj_type)
         # fail if non-default children or non-derived backrefs exist
         default_names = {}
         for child_field in r_class.children_fields:
@@ -987,8 +979,7 @@ class VncApiServer(object):
 
     @log_api_stats
     def http_resource_list(self, obj_type):
-        r_class = self.get_resource_class(obj_type)
-        resource_type = r_class.resource_type
+        resource_type, r_class = self._validate_resource_type(obj_type)
 
         db_conn = self._db_conn
         env = get_request().headers.environ
@@ -999,9 +990,10 @@ class VncApiServer(object):
             ('parent_type' in get_request().query)):
             parent_fq_name = get_request().query.parent_fq_name_str.split(':')
             parent_res_type = get_request().query.parent_type
-            parent_class = self.get_resource_class(parent_res_type)
-            parent_type = parent_class.object_type
-            parent_uuids = [self._db_conn.fq_name_to_uuid(parent_type, parent_fq_name)]
+            parent_type, parent_class = self._validate_resource_type(
+                 parent_res_type)
+            parent_uuids = [self._db_conn.fq_name_to_uuid(parent_type,
+                                                          parent_fq_name)]
         elif 'parent_id' in get_request().query:
             parent_uuids = get_request().query.parent_id.split(',')
         if 'back_ref_id' in get_request().query:
@@ -2131,18 +2123,10 @@ class VncApiServer(object):
         self._post_common(get_request(), None, None)
         # grab fields
         type = get_request().json.get('type')
-        ok, result = self._validate_resource_type(type)
-        if not ok:
-            raise cfgm_common.exceptions.HttpError(result[0], result[1])
-        res_type = result
-        res_class = self.get_resource_class(res_type)
+        res_type, res_class = self._validate_resource_type(type)
         obj_uuid = get_request().json.get('uuid')
         ref_type = get_request().json.get('ref-type')
-        ok, result = self._validate_resource_type(ref_type)
-        if not ok:
-            raise cfgm_common.exceptions.HttpError(result[0], result[1])
-        ref_res_type = result
-        ref_class = self.get_resource_class(ref_res_type)
+        ref_res_type, ref_class = self._validate_resource_type(ref_type)
         operation = get_request().json.get('operation')
         ref_uuid = get_request().json.get('ref-uuid')
         ref_fq_name = get_request().json.get('ref-fq-name')
@@ -2323,11 +2307,7 @@ class VncApiServer(object):
     def fq_name_to_id_http_post(self):
         self._post_common(get_request(), None, None)
         type = get_request().json.get('type')
-        ok, result = self._validate_resource_type(type)
-        if not ok:
-            raise cfgm_common.exceptions.HttpError(result[0], result[1])
-        res_type = result
-        r_class = self.get_resource_class(res_type)
+        res_type, r_class = self._validate_resource_type(type)
         obj_type = r_class.object_type
         fq_name = get_request().json['fq_name']
 
@@ -2443,7 +2423,7 @@ class VncApiServer(object):
             common_class = cfgm_common.utils.str_to_class(common_name,
                                                           __name__)
             if common_class is None:
-                return None
+                raise TypeError('Invalid type: ' + type_str)
             # Create Placeholder classes derived from Resource, <Type> so
             # resource_class methods can be invoked in CRUD methods without
             # checking for None
@@ -2461,15 +2441,7 @@ class VncApiServer(object):
         """ List collection when requested ids don't fit in query params."""
 
         type = get_request().json.get('type') # e.g. virtual-network
-        ok, result = self._validate_resource_type(type)
-        if not ok:
-            raise cfgm_common.exceptions.HttpError(result[0], result[1])
-        resource_type = result
-
-        r_class = self.get_resource_class(resource_type)
-        if not r_class:
-            raise cfgm_common.exceptions.HttpError(400,
-                "Bad Request, Unknown type %s in POST body" % (resource_type))
+        resource_type, r_class = self._validate_resource_type(type)
 
         try:
             parent_uuids = get_request().json['parent_id'].split(',')
@@ -2896,8 +2868,7 @@ class VncApiServer(object):
                          is_count=False, is_detail=False, filters=None,
                          req_fields=None, include_shared=False,
                          exclude_hrefs=False):
-        r_class = self.get_resource_class(obj_type)
-        resource_type = r_class.resource_type
+        resource_type, r_class = self._validate_resource_type(obj_type)
         (ok, result) = self._db_conn.dbe_list(obj_type,
                              parent_uuids, back_ref_uuids, obj_uuids, is_count,
                              filters)
