@@ -112,6 +112,14 @@ class LoadbalancerAgent(Agent):
     # end load_drivers
 
     def audit_lb_pools(self):
+        for lb_id, config_data, driver_data in self._cassandra.loadbalancer_list():
+            if LoadbalancerSM.get(lb_id):
+                continue
+            # Delete the lb from the driver
+            driver = self._get_driver_for_provider(config_data['provider'])
+            driver.delete_loadbalancer(config_data)
+            self._cassandra.loadbalancer_remove(lb_id)
+            self._delete_driver_for_loadbalancer(lb_id)
         for pool_id, config_data, driver_data in self._cassandra.pool_list():
             if LoadbalancerPoolSM.get(pool_id):
                 continue
@@ -119,6 +127,7 @@ class LoadbalancerAgent(Agent):
             driver = self._get_driver_for_provider(config_data['provider'])
             driver.delete_pool(config_data)
             self._cassandra.pool_remove(pool_id)
+            self._delete_driver_for_pool(pool_id)
 
     def load_driver(self, sas):
         if sas.name in self._loadbalancer_driver:
@@ -157,45 +166,63 @@ class LoadbalancerAgent(Agent):
     # end _get_driver_for_provider
 
     def _get_driver_for_pool(self, pool_id, provider=None):
-        if not pool_id:
-            return self.drivers[self._default_provider]
         if pool_id in self._pool_driver:
             return self._pool_driver[pool_id]
         if not provider:
             pool = LoadbalancerPoolSM.get(pool_id)
-            provider = pool.provider
-        driver = self._get_driver_for_provider(provider)
+            if pool and pool.loadbalancer_version == 'v1':
+                provider = pool.provider
+        if provider:
+            driver = self._get_driver_for_provider(provider)
+            self._pool_driver[pool_id] = driver
+            return driver
+        return self._loadbalancer_driver[self._default_provider]
+    # end _get_driver_fr_pool
+
+    def _update_driver_for_pool(self, driver, pool_id):
         self._pool_driver[pool_id] = driver
-        return driver
-    # end _get_driver_for_pool
+    # end _update_driver_for_pool
+
+    def _delete_driver_for_pool(self, pool_id):
+        if pool_id in self._pool_driver:
+            del self._pool_driver[pool_id]
+    # end _delete_driver_for_pool
 
     def _get_driver_for_loadbalancer(self, lb_id, provider=None):
-        if not lb_id:
-            return self.drivers[self._default_provider]
         if lb_id in self._loadbalancer_driver:
             return self._loadbalancer_driver[lb_id]
         if not provider:
             lb = LoadbalancerSM.get(lb_id)
             provider = lb.provider
-        driver = self._get_driver_for_provider(provider)
-        self._loadbalancer_driver[lb_id] = driver
-        return driver
+        if provider:
+            driver = self._get_driver_for_provider(provider)
+            self._loadbalancer_driver[lb_id] = driver
+            return driver
+        return self._loadbalancer_driver[self._default_provider]
+    # end _get_driver_for_loadbalancer
+
+    def _delete_driver_for_loadbalancer(self, lb_id):
+        if lb_id in self._loadbalancer_driver:
+            del self._loadbalancer_driver[lb_id]
+    # end _delete_driver_for_loadbalancer
 
     # Loadbalancer
     def loadbalancer_pool_add(self, pool):
         p = self.loadbalancer_pool_get_reqdict(pool)
-        driver = self._get_driver_for_pool(p['id'], p['provider'])
+        if p['loadbalancer_version'] == 'v1':
+            driver = self._get_driver_for_pool(p['id'], p['provider'])
+        else:
+            driver = self._get_driver_for_loadbalancer(p['loadbalancer_id'])
+            self._update_driver_for_pool(driver, p['id'])
         try:
-            if p['loadbalancer_id']:
-                driver.set_config_v2(p['loadbalancer_id'])
             if not pool.last_sent:
                 driver.create_pool(p)
-            #elif p != pool.last_sent:
             else:
                 driver.update_pool(pool.last_sent, p)
         except Exception:
             pass
-        self._cassandra.pool_config_insert(p['id'], p)
+        if p['loadbalancer_version'] == 'v1':
+            self._cassandra.pool_config_insert(p['id'], p)
         return p
     # end loadbalancer_pool_add
 
@@ -237,7 +264,7 @@ class LoadbalancerAgent(Agent):
 
     def loadbalancer_add(self, loadbalancer):
         lb = self.loadbalancer_get_reqdict(loadbalancer)
-        driver = self._get_driver_for_loadbalancer(lb['id'], 'opencontrail')
+        driver = self._get_driver_for_loadbalancer(lb['id'], lb['provider'])
         self.send_lb_config_uve(lb['id'], False)
         try:
             lbaas_config = driver.set_config_v2(loadbalancer.uuid)
@@ -248,16 +275,19 @@ class LoadbalancerAgent(Agent):
                 driver.update_loadbalancer(loadbalancer.last_sent, lb)
         except Exception:
             pass
+        self._cassandra.loadbalancer_config_insert(lb['id'], lb)
         return lb
 
     def delete_loadbalancer(self, loadbalancer):
         lb = self.loadbalancer_get_reqdict(loadbalancer)
-        driver = self._get_driver_for_loadbalancer(lb['id'], 'opencontrail')
+        driver = self._get_driver_for_loadbalancer(lb['id'], lb['provider'])
         self.send_lb_config_uve(lb['id'], True)
         try:
             driver.delete_loadbalancer(lb)
         except Exception:
             pass
+        self._cassandra.loadbalancer_remove(lb['id'])
+        self._delete_driver_for_loadbalancer(lb['id'])
 
     def listener_add(self, listener):
         ll = self.listener_get_reqdict(listener)
@@ -290,12 +320,16 @@ class LoadbalancerAgent(Agent):
 
     def delete_loadbalancer_pool(self, obj):
         p = obj.last_sent
-        driver = self._get_driver_for_pool(p['id'])
+        if p['loadbalancer_version'] == 'v2':
+            driver = self._get_driver_for_loadbalancer(p['loadbalancer_id'])
+        else:
+            driver = self._get_driver_for_pool(p['id'], p['provider'])
         try:
             driver.delete_pool(p)
         except Exception:
             pass
         self._cassandra.pool_remove(p['id'])
+        self._delete_driver_for_pool(p['id'])
     # end delete_loadbalancer_pool
 
     def update_hm(self, obj):
@@ -389,6 +423,7 @@ class LoadbalancerAgent(Agent):
                'subnet_id': props['vip_subnet_id'],
                'address': props['vip_address'],
                'port_id': lb.virtual_machine_interface,
+               'provider': lb.provider,
                'status': self._get_object_status(lb)}
 
         return res
@@ -495,6 +530,7 @@ class LoadbalancerAgent(Agent):
         res = {
             'id': pool.uuid,
             'loadbalancer_id': pool.loadbalancer_id,
+            'loadbalancer_version': pool.loadbalancer_version,
             'tenant_id': pool.parent_uuid.replace('-', ''),
             'name': pool.display_name,
             'description': self._get_object_description(pool),

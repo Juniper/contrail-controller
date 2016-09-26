@@ -12,6 +12,34 @@ class ContrailLoadBalancerAbstractDriver(object):
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
+    def create_loadbalancer(self, loadbalancer):
+        pass
+
+    @abc.abstractmethod
+    def update_loadbalancer(self, old_loadbalancer, loadbalancer):
+        pass
+
+    @abc.abstractmethod
+    def delete_loadbalancer(self, loadbalancer):
+        pass
+
+    @abc.abstractmethod
+    def set_config_v2(self, lb_id):
+        pass
+
+    @abc.abstractmethod
+    def create_listener(self, listener):
+        pass
+
+    @abc.abstractmethod
+    def update_listener(self, old_listener, listener):
+        pass
+
+    @abc.abstractmethod
+    def delete_listener(self, listener):
+        pass
+
+    @abc.abstractmethod
     def create_vip(self, vip):
         """A real driver would invoke a call to his backend
         and set the Vip status to ACTIVE/ERROR according

@@ -246,30 +246,35 @@ class OpencontrailLoadbalancerDriver(
         if si_refs is None or si_refs != si_obj.uuid:
             self._api.ref_update('loadbalancer', lb.uuid,
                 'service-instance', si_obj.uuid, None, 'ADD')
+        self.db.loadbalancer_driver_info_insert(lb_id,
+                                        {'service_instance': si_obj.uuid})
 
     def _clear_loadbalancer_instance_v2(self, lb_id):
-        lb = LoadbalancerSM.get(lb_id)
-        if lb is None:
-            msg = ('Unable to retrieve loadbalancer %s' % lb_id)
-            self._svc_manager.logger.error(msg)
+        driver_data = self.db.loadbalancer_driver_info_get(lb_id)
+        if driver_data is None:
             return
 
-        si_refs = lb.service_instance
-        si_obj = ServiceInstanceSM.get(si_refs)
-        if si_obj is None:
+        lb_obj = LoadbalancerSM.get(lb_id)
+        si_id = driver_data['service_instance']
+        si_obj = ServiceInstanceSM.get(si_id)
+        if lb_obj is None and si_obj is None:
             return
 
-        if si_refs:
+        if lb_obj:
             try:
-                self._api.ref_update('loadbalancer', lb.uuid,
+                self._api.ref_update('loadbalancer', lb_obj.uuid,
                     'service-instance', si_obj.uuid, None, 'DELETE')
             except:
                 pass
-        try:
-            self._api.service_instance_delete(id=si_obj.uuid)
-            ServiceInstanceSM.delete(si_obj.uuid)
-        except RefsExistError as ex:
-            self._svc_manager.logger.error(str(ex))
+
+        if si_obj:
+            try:
+                self._api.service_instance_delete(id=si_obj.uuid)
+                ServiceInstanceSM.delete(si_obj.uuid)
+            except RefsExistError as ex:
+                self._svc_manager.logger.error(str(ex))
+
+        self.db.loadbalancer_remove(lb_id, ['service_instance'])
 
     def create_loadbalancer(self, loadbalancer):
         self._update_loadbalancer_instance_v2(loadbalancer['id'])

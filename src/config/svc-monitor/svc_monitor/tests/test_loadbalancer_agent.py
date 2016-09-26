@@ -46,6 +46,11 @@ class LoadbalancerAgentTest(unittest.TestCase):
                 ret_list.append((each_entry_id, config_info_obj_dict, driver_info_obj_dict))
             return ret_list
 
+        def list_loadbalancers():
+            res_list = []
+            return res_list
+
+        self.cassandra.loadbalancer_list = mock.Mock(side_effect=list_loadbalancers)
         self.cassandra.pool_list = mock.Mock(side_effect=list_pools)
         self.cassandra.pool_remove = mock.Mock(side_effect=remove_db)
         self.cassandra.pool_driver_info_get = mock.Mock(side_effect=read_db)
@@ -123,6 +128,7 @@ class LoadbalancerAgentTest(unittest.TestCase):
 
     def create_pool(self, fq_name_str, vip=None, hm=None):
         pool_obj = {}
+        pool_obj['loadbalancer_version'] = 'v1'
         pool_obj['fq_name'] = fq_name_str.split(':')
         pool_obj['uuid'] = fq_name_str
         pool_obj['display_name'] = fq_name_str
@@ -355,8 +361,8 @@ class LoadbalancerAgentTest(unittest.TestCase):
         # Cleanup
         for i in range(5):
             config_db.LoadbalancerMemberSM.delete('member_'+str(i))
-        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
         config_db.VirtualIpSM.delete('vip')
+        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
     # end test_add_delete_pool_with_members_vip
 
     def test_update_pool(self):
@@ -390,8 +396,8 @@ class LoadbalancerAgentTest(unittest.TestCase):
         # Cleanup
         for i in range(5):
             config_db.LoadbalancerMemberSM.delete('member_'+str(i))
-        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
         config_db.VirtualIpSM.delete('vip')
+        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
     # end test_update_pool
 
     def test_update_members(self):
@@ -449,8 +455,8 @@ class LoadbalancerAgentTest(unittest.TestCase):
         # Cleanup
         for i in range(5):
             config_db.LoadbalancerMemberSM.delete('member_'+str(i))
-        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
         config_db.VirtualIpSM.delete('vip')
+        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
     # end test_update_members
 
     def test_update_vip(self):
@@ -485,8 +491,8 @@ class LoadbalancerAgentTest(unittest.TestCase):
         # Cleanup
         for i in range(5):
             config_db.LoadbalancerMemberSM.delete('member_'+str(i))
-        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
         config_db.VirtualIpSM.delete('vip')
+        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
     # end test_update_vip
 
     def test_update_hm_props(self):
