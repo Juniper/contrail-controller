@@ -2155,11 +2155,45 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         self.assertEqual(configured_sg_id, 0)
 
     def test_qos_config(self):
-        project = Project()
-        qc = QosConfig('test-qos-config', parent_obj=project)
+        qc = QosConfig('qos-config-%s' %(self.id()), Project())
         self._vnc_lib.qos_config_create(qc)
         qc = self._vnc_lib.qos_config_read(fq_name=qc.get_fq_name())
         self.assertEqual(len(qc.get_global_system_config_refs()), 1)
+
+    def test_annotations(self):
+        vn_obj = vnc_api.VirtualNetwork('vn-set-%s' %(self.id()))
+        vn_obj.set_annotations(
+            KeyValuePairs([KeyValuePair(key='k1', value='v1'),
+                           KeyValuePair(key=' k2 prime ',
+                                        value=json.dumps('v2'))]))
+        self._vnc_lib.virtual_network_create(vn_obj)
+        ret_vn_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+        self.assertEqual(len(ret_vn_obj.annotations.key_value_pair), 2)
+        annotation_check = [a for a in ret_vn_obj.annotations.key_value_pair
+            if a.key == ' k2 prime ']
+        self.assertEqual(len(annotation_check), 1)
+        self.assertEqual(annotation_check[0].value,
+                         json.dumps('v2'))
+
+        vn_obj = vnc_api.VirtualNetwork('vn-add-del-%s' %(self.id()))
+        self._vnc_lib.virtual_network_create(vn_obj)
+
+        vn_obj.add_annotations(KeyValuePair(key='k1', value=None))
+        vn_obj.add_annotations(KeyValuePair(key='k2', value='v2'))
+        vn_obj.add_annotations(KeyValuePair(key='k3', value=str(300)))
+        self._vnc_lib.virtual_network_update(vn_obj)
+        ret_vn_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+        self.assertEqual(len(ret_vn_obj.annotations.key_value_pair), 3)
+        self.assertEqual(set(['k1', 'k2', 'k3']),
+            set([a.key for a in ret_vn_obj.annotations.key_value_pair]))
+
+        vn_obj.del_annotations(elem_position='k1')
+        self._vnc_lib.virtual_network_update(vn_obj)
+        ret_vn_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+        self.assertEqual(len(ret_vn_obj.annotations.key_value_pair), 2)
+        self.assertEqual(set(['k2', 'k3']),
+            set([a.key for a in ret_vn_obj.annotations.key_value_pair]))
+    # end test_annotations
 # end class TestVncCfgApiServer
 
 

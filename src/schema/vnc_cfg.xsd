@@ -719,6 +719,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL Property('perms2', 'all', 'system-only', 'R',
                                   'Permissions data for role based access.') -->
 
+<xsd:element name="annotations" type="KeyValuePairs"/>
+<!--#IFMAP-SEMANTICS-IDL
+     MapProperty('annotations',
+                 'all', 'key', 'optional', 'CRUD',
+                 'Dictionary of arbitrary (key, value) on a resource.') -->
 
 <xsd:complexType name="QuotaType">
     <xsd:all>
