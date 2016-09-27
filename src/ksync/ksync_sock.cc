@@ -1141,6 +1141,11 @@ void KSyncBulkSandeshContext::FlowMsgHandler(vr_flow_req *req) {
     context->FlowMsgHandler(req);
 }
 
+void KSyncBulkSandeshContext::FlowResponseHandler(vr_flow_response *req) {
+    AgentSandeshContext *context = GetSandeshContext();
+    context->FlowResponseHandler(req);
+}
+
 void KSyncBulkSandeshContext::VrfAssignMsgHandler(vr_vrf_assign_req *req) {
     AgentSandeshContext *context = GetSandeshContext();
     context->VrfAssignMsgHandler(req);
