@@ -92,7 +92,7 @@ class VncPermissions(object):
         # retrieve object and permissions
         try:
             config = self._server_mgr._db_conn.uuid_to_obj_dict(obj_uuid)
-            perms2 = config.get('prop:perms2')
+            perms2 = config.get('prop:perms2', config.get("perms2"))
             obj_name = config.get("fq_name")
             obj_type = config.get("type")
         except NoIdError:
@@ -189,6 +189,27 @@ class VncPermissions(object):
         if roles:
             obj_dict['id_perms']['permissions']['group'] = roles[0]
     # end set_user_role
+
+    def owner_id(self, request):
+        app = request.environ['bottle.app']
+        if app.config.local_auth or self._server_mgr.is_auth_disabled():
+            return (True, None)
+
+        if self._rbac:
+            user, roles = self.get_user_roles(request)
+            is_admin = self.cloud_admin_role in [x.lower() for x in roles]
+            if is_admin:
+                return (True, None)
+
+            env = request.headers.environ
+            tenant = env.get('HTTP_X_PROJECT_ID', None)
+            if tenant:
+                return (True, tenant)
+            else:
+                return (False, None)
+
+        return (True, None)
+    # end check_perms_write
 
     def check_perms_write(self, request, id):
         app = request.environ['bottle.app']
