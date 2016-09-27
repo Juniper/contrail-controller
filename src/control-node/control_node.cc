@@ -144,6 +144,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     TaskPolicy send_ready_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")))
+        (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
         (TaskExclusion(scheduler->GetTaskId("bgp::SendUpdate")))
         (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")));
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::SendReadyTask"),
