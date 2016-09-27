@@ -7,13 +7,13 @@ This file contains implementation of inetconf interface for physical router
 configuration manager
 """
 
-from lxml import etree
 from ncclient import manager
 import copy
 import time
 import datetime
+from cStringIO import StringIO
 from dm_utils import DMUtils
-
+from device_api.juniper_common_xsd import *
 
 class PushConfigState(object):
     PUSH_STATE_INIT = 0
@@ -81,10 +81,10 @@ class PushConfigState(object):
 class PhysicalRouterConfig(object):
     # mapping from contrail family names to junos
     _FAMILY_MAP = {
-        'route-target': '<route-target/>',
-        'inet-vpn': '<inet-vpn><unicast/></inet-vpn>',
-        'inet6-vpn': '<inet6-vpn><unicast/></inet6-vpn>',
-        'e-vpn': '<evpn><signaling/></evpn>'
+        'route-target': '',
+        'inet-vpn': FamilyInetVpn(unicast=''),
+        'inet6-vpn': FamilyInet6Vpn(unicast=''),
+        'e-vpn': FamilyEvpn(signaling='')
     }
 
     def __init__(self, management_ip, user_creds,
@@ -121,8 +121,26 @@ class PhysicalRouterConfig(object):
         return False
     # end retry
 
+    def get_xml_data(self, config):
+        xml_data = StringIO()
+        config.export(xml_data, 1)
+        return xml_data.getvalue()
+    # end get_xml_data
+
+    def build_netconf_config(self, groups, operation='replace'):
+        groups.set_name("__contrail__")
+        configuraion = Configuration(groups=groups)
+        groups.set_operation(operation)
+        apply_groups = ApplyGroups(name="__contrail__")
+        configuraion.set_apply_groups(apply_groups)
+        if operation == "delete":
+            apply_groups.set_operation(operation)
+        conf = config(configuration=configuraion)
+        return conf
+
     def send_netconf(self, new_config, default_operation="merge",
                      operation="replace"):
+
         self.push_config_state = PushConfigState.PUSH_STATE_INIT
         start_time = None
         config_size = 0
@@ -131,28 +149,9 @@ class PhysicalRouterConfig(object):
                                  username=self.user_creds['username'],
                                  password=self.user_creds['password'],
                                  unknown_host_cb=lambda x, y: True) as m:
-                add_config = etree.Element(
-                    "config",
-                    nsmap={"xc": "urn:ietf:params:xml:ns:netconf:base:1.0"})
-                config = etree.SubElement(add_config, "configuration")
-                config_group = etree.SubElement(
-                    config, "groups", operation=operation)
-                contrail_group = etree.SubElement(config_group, "name")
-                contrail_group.text = "__contrail__"
-                if isinstance(new_config, list):
-                    for nc in new_config:
-                        config_group.append(nc)
-                else:
-                    config_group.append(new_config)
-                if operation == "delete":
-                    apply_groups = etree.SubElement(
-                        config, "apply-groups", operation=operation)
-                else:
-                    apply_groups = etree.SubElement(config, "apply-groups")
-                apply_groups.text = "__contrail__"
-                self._logger.info("\nsend netconf message: %s\n" % (
-                    etree.tostring(add_config, pretty_print=True)))
-                config_str = etree.tostring(add_config)
+                new_config = self.build_netconf_config(new_config, operation)
+                config_str = self.get_xml_data(new_config)
+                self._logger.info("\nsend netconf message: %s\n" % config_str)
                 config_size = len(config_str)
                 m.edit_config(
                     target='candidate', config=config_str,
@@ -188,104 +187,101 @@ class PhysicalRouterConfig(object):
 
     def add_pnf_logical_interface(self, junos_interface):
 
-        if not self.logical_interface_config:
-            self.logical_interface_config = etree.Element('interfaces')
-        li_config = etree.fromstring("""
-            <interface>
-                <name>{physical_interface_name}</name>
-                <unit>
-                    <name>{logical_interface_id}</name>
-                    <vlan-id>{vlan_id}</vlan-id>
-                    <family>
-                        <inet>
-                            <address>{ip}</address>
-                        </inet>
-                    </family>
-                </unit>
-            </interface>
-        """.format(
-            physical_interface_name=junos_interface.ifd_name,
-            logical_interface_id=junos_interface.unit,
-            vlan_id=junos_interface.vlan_tag,
-            ip=junos_interface.ip
-        )
-        )
-        self.logical_interface_config.append(li_config)
+        if not self.interfaces_config:
+            self.interfaces_config = Interfaces()
+        family = Family(inet=FamilyInet([Address(name=junos_interface.ip)]))
+        unit = Unit(name=junos_interface.unit, vlan_id=junos_interface.vlan_tag, family=family)
+        interface = Interface(name=junos_interface.ifd_name, unit=unit)
+        self.interfaces_config.add_interface(interface)
+    # end add_pnf_logical_interface
 
     def add_static_routes(self, parent, static_routes):
-        static_config = etree.SubElement(parent, "static")
+        static_config = parent.get_static()
+        if not static_config:
+            static_config = Static()
+            parent.set_static(static_config)
         for dest, next_hops in static_routes.items():
-            route_config = etree.SubElement(static_config, "route")
-            etree.SubElement(route_config, "name").text = dest
+            route_config = Route(name=dest)
             for next_hop in next_hops:
                 next_hop_str = next_hop.get("next-hop")
                 preference = next_hop.get("preference")
                 if not next_hop_str:
                     continue
                 if preference:
-                    qualified = etree.SubElement(
-                        route_config, "qualified-next-hop")
-                    qualified.text = next_hop_str
-                    etree.SubElement(
-                        qualified, "preference").text = str(preference)
+                    route_config.set_qualified_next_hop(QualifiedNextHop(
+                                     name=next_hop_str, preference=str(preference)))
                 else:
-                    etree.SubElement(
-                        route_config, "next-hop").text = next_hop_str
+                    route_config.set_next_hop(next_hop_str)
+            static_config.add_route(route_config)
+    # end add_static_routes
 
     def add_dynamic_tunnels(self, tunnel_source_ip,
-                            ip_fabric_nets, bgp_router_ips):
-        self.tunnel_config = etree.Element("routing-options")
-        dynamic_tunnels = etree.SubElement(
-            self.tunnel_config, "dynamic-tunnels")
-        dynamic_tunnel = etree.SubElement(dynamic_tunnels, "dynamic-tunnel")
-        etree.SubElement(dynamic_tunnel, "name").text = DMUtils.get_dynamic_tunnel_name()
-        etree.SubElement(
-            dynamic_tunnel, "source-address").text = tunnel_source_ip
-        etree.SubElement(dynamic_tunnel, "gre")
+                             ip_fabric_nets, bgp_router_ips):
+        dynamic_tunnel = DynamicTunnel(name="__contrail__",
+                                       source_address=tunnel_source_ip, gre='')
         if ip_fabric_nets is not None:
             for subnet in ip_fabric_nets.get("subnet", []):
-                dest_network = etree.SubElement(
-                    dynamic_tunnel, "destination-networks")
-                etree.SubElement(dest_network, "name").text = subnet[
-                    'ip_prefix'] + '/' + str(subnet['ip_prefix_len'])
-        for bgp_router_ip in bgp_router_ips:
-            dest_network = etree.SubElement(
-                dynamic_tunnel, "destination-networks")
-            etree.SubElement(dest_network, "name").text = bgp_router_ip + '/32'
+                dest_net = subnet['ip_prefix'] + '/' + str(subnet['ip_prefix_len'])
+                dynamic_tunnel.add_destination_networks(
+                    DestinationNetworks(name=dest_net))
+
+        for bgp_router_ip in bgp_router_ips or []:
+            dynamic_tunnel.add_destination_networks(
+                DestinationNetworks(name=bgp_router_ip + '/32'))
+
+        dynamic_tunnels = DynamicTunnels()
+        dynamic_tunnels.add_dynamic_tunnel(dynamic_tunnel)
+        if self.global_routing_options_config is None:
+            self.global_routing_options_config = RoutingOptions()
+        self.global_routing_options_config.set_dynamic_tunnels(dynamic_tunnels)
     # end add_dynamic_tunnels
 
     def add_inet_public_vrf_filter(self, forwarding_options_config,
-                                         firewall_config, inet_type, inet_xml_name):
-        fo = etree.SubElement(forwarding_options_config, "family")
-        inet = etree.SubElement(fo, inet_xml_name)
-        f = etree.SubElement(inet, "filter")
-        etree.SubElement(f, "input").text = DMUtils.make_public_vrf_filter_name(inet_type)
-        fc = etree.SubElement(firewall_config, "family")
-        inet = etree.SubElement(fc, inet_xml_name)
-        f = etree.SubElement(inet, "filter")
-        etree.SubElement(f, "name").text = DMUtils.make_public_vrf_filter_name(inet_type)
-        term = etree.SubElement(f, "term")
-        etree.SubElement(term, "name").text = "default-term"
-        then_ = etree.SubElement(term, "then")
-        etree.SubElement(then_, "accept")
+                                         firewall_config, inet_type):
+        fo = Family()
+        inet_filter = InetFilter(input=DMUtils.make_public_vrf_filter_name(inet_type))
+        if inet_type == 'inet6':
+            fo.set_inet6(FamilyInet6(filter=inet_filter))
+        else:
+            fo.set_inet(FamilyInet(filter=inet_filter))
+        forwarding_options_config.add_family(fo)
+
+        f = FirewallFilter(name=DMUtils.make_public_vrf_filter_name(inet_type))
+        ff = firewall_config.get_family()
+        if not ff:
+            ff = FirewallFamily()
+            firewall_config.set_family(ff)
+        if inet_type == 'inet6':
+            inet6 = ff.get_inet6()
+            if not inet6:
+                inet6 = FirewallInet()
+                ff.set_inet6(inet6)
+            inet6.add_filter(f)
+        else:
+            inet = ff.get_inet()
+            if not inet:
+                inet = FirewallInet()
+                ff.set_inet(inet)
+            inet.add_filter(f)
+
+        term = Term(name="default-term", then=Then(accept=''))
+        f.add_term(term)
         return f
     # end add_inet_public_vrf_filter
 
     def add_inet_filter_term(self, ri_name, prefixes, inet_type):
-        term = etree.Element("term")
-        etree.SubElement(term, "name").text = DMUtils.make_vrf_term_name(ri_name)
-        from_ = etree.SubElement(term, "from")
         if inet_type == 'inet6':
             prefixes = DMUtils.get_ipv6_prefixes(prefixes)
         else:
             prefixes = DMUtils.get_ipv4_prefixes(prefixes)
 
+        from_ = From()
         for prefix in prefixes:
-            etree.SubElement(from_, "destination-address").text = prefix
-
-        then_ = etree.SubElement(term, "then")
-        etree.SubElement(then_, "routing-instance").text = ri_name
-        return term
+            from_.add_destination_address(prefix)
+        then_ = Then()
+        then_.add_routing_instance(ri_name)
+        return Term(name=DMUtils.make_vrf_term_name(ri_name),
+                                        fromxx=from_, then=then_)
     # end add_inet_filter_term
 
     '''
@@ -294,8 +290,8 @@ class PhysicalRouterConfig(object):
      is_l2_l3:  VN forwarding mode is of type 'l2_l3' or not
      import/export targets: routing instance import, export targets
      prefixes: for l3 vrf static routes and for public vrf filter terms
-     gateways: for l2 evpn, bug#1395944 
-     router_external: this indicates the routing instance configured is for 
+     gateways: for l2 evpn, bug#1395944
+     router_external: this indicates the routing instance configured is for
                       the public network
      interfaces: logical interfaces to be part of vrf
      fip_map: contrail instance ip to floating-ip map, used for snat & floating ip support
@@ -324,81 +320,73 @@ class PhysicalRouterConfig(object):
         restrict_proxy_arp = ri_conf.get("restrict_proxy_arp", False)
 
         self.routing_instances[ri_name] = ri_conf
-
-        ri_config = self.ri_config or etree.Element("routing-instances")
-        policy_config = self.policy_config or etree.Element("policy-options")
-        ri = etree.SubElement(ri_config, "instance")
-        etree.SubElement(ri, "name").text = ri_name
+        ri_config = self.ri_config or RoutingInstances()
+        policy_config = self.policy_config or PolicyOptions()
+        ri = Instance(name=ri_name)
+        ri_config.add_instance(ri)
         ri_opt = None
         if router_external and is_l2 == False:
-            ri_opt = etree.SubElement(ri, "routing-options")
-            static_config = etree.SubElement(ri_opt, "static")
-            route_config = etree.SubElement(static_config, "route")
-            etree.SubElement(route_config, "name").text = "0.0.0.0/0"
-            etree.SubElement(route_config, "next-table").text = "inet.0"
+            ri_opt = RoutingInstanceRoutingOptions(
+                         static=Static(route=[Route(name="0.0.0.0/0", next_table="inet.0")]))
+            ri.set_routing_options(ri_opt)
 
         # for both l2 and l3
-        etree.SubElement(ri, "vrf-import").text = DMUtils.make_import_name(ri_name)
-        etree.SubElement(ri, "vrf-export").text = DMUtils.make_export_name(ri_name)
+        ri.set_vrf_import(DMUtils.make_import_name(ri_name))
+        ri.set_vrf_export(DMUtils.make_export_name(ri_name))
 
         has_ipv6_prefixes = DMUtils.has_ipv6_prefixes(prefixes)
         has_ipv4_prefixes = DMUtils.has_ipv4_prefixes(prefixes)
 
         if not is_l2:
             if ri_opt is None:
-                ri_opt = etree.SubElement(ri, "routing-options")
+                ri_opt = RoutingInstanceRoutingOptions()
+                ri.set_routing_options(ri_opt)
             if prefixes and fip_map is None:
-                static_config = etree.SubElement(ri_opt, "static")
+                static_config = ri_opt.get_static()
+                if not static_config:
+                    static_config = Static()
+                    ri_opt.set_static(static_config)
                 rib_config_v6 = None
                 static_config_v6 = None
                 for prefix in prefixes:
                     if ':' in prefix and not rib_config_v6:
-                        rib_config_v6 = etree.SubElement(ri_opt, "rib")
-                        etree.SubElement(rib_config_v6, "name").text = ri_name + ".inet6.0"
-                        static_config_v6 = etree.SubElement(rib_config_v6, "static")
+                        static_config_v6 = Static()
+                        rib_config_v6 = RIB(name=ri_name + ".inet6.0")
+                        rib_config_v6.set_static(static_config_v6)
+                        ri_opt.set_rib(rib_config_v6)
                     if ':' in prefix:
-                        route_config = etree.SubElement(static_config_v6, "route")
+                        static_config_v6.add_route(Route(name=prefix, discard=''))
                     else:
-                        route_config = etree.SubElement(static_config, "route")
-                    etree.SubElement(route_config, "name").text = prefix
-                    etree.SubElement(route_config, "discard")
+                        static_config.add_route(Route(name=prefix, discard=''))
                     if router_external:
                         self.add_to_global_ri_opts(prefix)
 
-            etree.SubElement(ri, "instance-type").text = "vrf"
+            ri.set_instance_type("vrf")
             if not no_vrf_table_label:
-                etree.SubElement(ri, "vrf-table-label")  # only for l3
+                ri.set_vrf_table_label('')  # only for l3
             if fip_map is None:
                 for interface in interfaces:
-                    if_element = etree.SubElement(ri, "interface")
-                    etree.SubElement(if_element, "name").text = interface.name
-            if ri_opt is None:
-                ri_opt = etree.SubElement(ri, "routing-options")
+                    ri.add_interface(Interface(name=interface.name))
             if static_routes:
                 self.add_static_routes(ri_opt, static_routes)
             if has_ipv4_prefixes:
-                auto_export = """<auto-export>
-                                <family><inet><unicast/></inet></family>
-                            </auto-export>"""
-                ri_opt.append(etree.fromstring(auto_export))
+                ri_opt.set_auto_export(AutoExport(family=Family(inet=FamilyInet(unicast=''))))
             if has_ipv6_prefixes:
-                auto_export = """<auto-export>
-                                <family><inet6><unicast/></inet6></family>
-                            </auto-export>"""
-                ri_opt.append(etree.fromstring(auto_export))
+                ri_opt.set_auto_export(AutoExport(family=Family(inet6=FamilyInet6(unicast=''))))
         else:
-            etree.SubElement(ri, "instance-type").text = "virtual-switch"
+            ri.set_instance_type("virtual-switch")
 
         if fip_map is not None:
             if ri_opt is None:
-                ri_opt = etree.SubElement(ri, "routing-options")
-            static_config = etree.SubElement(ri_opt, "static")
-            route_config = etree.SubElement(static_config, "route")
-            etree.SubElement(route_config, "name").text = "0.0.0.0/0"
-            etree.SubElement(
-                route_config, "next-hop").text = interfaces[0].name
-            if_element = etree.SubElement(ri, "interface")
-            etree.SubElement(if_element, "name").text = interfaces[0].name
+                ri_opt = RoutingInstanceRoutingOptions()
+                ri.set_routing_options(ri_opt)
+            static_config = ri_opt.get_static()
+            if not static_config:
+                static_config = Static()
+                ri_opt.set_static(static_config)
+            static_config.add_route(Route(name="0.0.0.0/0", next_hop=interfaces[0].name))
+            ri.add_interface(Interface(name=interfaces[0].name))
+
             public_vrf_ips = {}
             for pip in fip_map.values():
                 if pip["vrf_name"] not in public_vrf_ips:
@@ -406,113 +394,112 @@ class PhysicalRouterConfig(object):
                 public_vrf_ips[pip["vrf_name"]].add(pip["floating_ip"])
 
             for public_vrf, fips in public_vrf_ips.items():
-                ri_public = etree.SubElement(ri_config, "instance")
-                etree.SubElement(ri_public, "name").text = public_vrf
-                ri_opt = etree.SubElement(ri_public, "routing-options")
-                static_config = etree.SubElement(ri_opt, "static")
-                if_element = etree.SubElement(ri_public, "interface")
-                etree.SubElement(if_element, "name").text = interfaces[1].name
+                ri_public = Instance(name=public_vrf)
+                ri_config.add_instance(ri_public)
+                ri_public.add_interface(Interface(name=interfaces[1].name))
+
+                ri_opt = RoutingInstanceRoutingOptions()
+                ri_public.set_routing_options(ri_opt)
+                static_config = Static()
+                ri_opt.set_static(static_config)
 
                 for fip in fips:
-                    route_config = etree.SubElement(static_config, "route")
-                    etree.SubElement(route_config, "name").text = fip + "/32"
-                    etree.SubElement(
-                        route_config, "next-hop").text = interfaces[1].name
+                    static_config.add_route(Route(name=fip + "/32",
+                                                  next_hop=interfaces[1].name))
 
         # add policies for export route targets
-        ps = etree.SubElement(policy_config, "policy-statement")
-        etree.SubElement(ps, "name").text = DMUtils.make_export_name(ri_name)
-        term = etree.SubElement(ps, "term")
-        etree.SubElement(term, "name").text = "t1"
-        then = etree.SubElement(term, "then")
+        ps = PolicyStatement(name=DMUtils.make_export_name(ri_name))
+        then = Then()
+        ps.set_term(Term(name="t1", then=then))
         for route_target in export_targets:
-            comm = etree.SubElement(then, "community")
-            etree.SubElement(comm, "add")
-            etree.SubElement(
-                comm, "community-name").text = DMUtils.make_community_name(route_target)
+            comm = Community(add='',
+                             community_name=DMUtils.make_community_name(route_target))
+            then.add_community(comm)
         if fip_map is not None:
             # for nat instance
-            etree.SubElement(then, "reject")
+            then.set_reject('')
         else:
-            etree.SubElement(then, "accept")
+            then.set_accept('')
+        policy_config.add_policy_statement(ps)
 
         # add policies for import route targets
-        ps = etree.SubElement(policy_config, "policy-statement")
-        etree.SubElement(ps, "name").text = DMUtils.make_import_name(ri_name)
-        term = etree.SubElement(ps, "term")
-        etree.SubElement(term, "name").text = "t1"
-        from_ = etree.SubElement(term, "from")
+        ps = PolicyStatement(name=DMUtils.make_import_name(ri_name))
+        from_ = From()
+        term = Term(name="t1", fromxx=from_)
+        ps.set_term(term)
         for route_target in import_targets:
-            target_name = DMUtils.make_community_name(route_target)
-            etree.SubElement(from_, "community").text = target_name
-        then = etree.SubElement(term, "then")
-        etree.SubElement(then, "accept")
-        then = etree.SubElement(ps, "then")
-        etree.SubElement(then, "reject")
+            from_.add_community(DMUtils.make_community_name(route_target))
+        term.set_then(Then(accept=''))
+        ps.set_then(Then(reject=''))
+        policy_config.add_policy_statement(ps)
 
         # add firewall config for public VRF
         forwarding_options_config = self.forwarding_options_config
         firewall_config = self.firewall_config
         if router_external and is_l2 == False:
             forwarding_options_config = (self.forwarding_options_config or
-                                           etree.Element("forwarding-options"))
-            firewall_config = self.firewall_config or etree.Element("firewall")
+                                           ForwardingOptions())
+            firewall_config = self.firewall_config or Firewall()
             if has_ipv4_prefixes and not self.inet4_forwarding_filter:
                 #create single instance inet4 filter
                 self.inet4_forwarding_filter = self.add_inet_public_vrf_filter(
                                                        forwarding_options_config,
-                                                       firewall_config, "inet4", "inet")
+                                                       firewall_config, "inet")
             if has_ipv6_prefixes and not self.inet6_forwarding_filter:
                 #create single instance inet6 filter
                 self.inet6_forwarding_filter = self.add_inet_public_vrf_filter(
                                                        forwarding_options_config,
-                                                       firewall_config, "inet6", "inet6")
+                                                       firewall_config, "inet6")
             if has_ipv4_prefixes:
                 #add terms to inet4 filter
                 term = self.add_inet_filter_term(ri_name, prefixes, "inet4")
-                # insert after 'name' element but before the last term
-                self.inet4_forwarding_filter.insert(1, term)
+                # insert before the last term
+                terms = self.inet4_forwarding_filter.get_term()
+                terms = [term] + (terms or [])
+                self.inet4_forwarding_filter.set_term(terms)
             if has_ipv6_prefixes:
                 #add terms to inet6 filter
                 term = self.add_inet_filter_term(ri_name, prefixes, "inet6")
-                # insert after 'name' element but before the last term
-                self.inet6_forwarding_filter.insert(1, term)
+                # insert before the last term
+                terms = self.inet6_forwarding_filter.get_term()
+                terms = [term] + (terms or [])
+                self.inet6_forwarding_filter.set_term(terms)
 
         if fip_map is not None:
-            firewall_config = self.firewall_config or etree.Element("firewall")
-            fc = etree.SubElement(firewall_config, "family")
-            inet = etree.SubElement(fc, "inet")
-            f = etree.SubElement(inet, "filter")
-            etree.SubElement(
-                f, "name").text = DMUtils.make_private_vrf_filter_name(ri_name)
-            term = etree.SubElement(f, "term")
-            etree.SubElement(term, "name").text = DMUtils.make_vrf_term_name(ri_name)
-            from_ = etree.SubElement(term, "from")
-            for fip_user_ip in fip_map.keys():
-                etree.SubElement(from_, "source-address").text = fip_user_ip
-            then_ = etree.SubElement(term, "then")
-            etree.SubElement(then_, "routing-instance").text = ri_name
-            term = etree.SubElement(f, "term")
-            etree.SubElement(term, "name").text = "default-term"
-            then_ = etree.SubElement(term, "then")
-            etree.SubElement(then_, "accept")
+            firewall_config = firewall_config or Firewall()
+            f = FirewallFilter(name=DMUtils.make_private_vrf_filter_name(ri_name))
+            ff = firewall_config.get_family()
+            if not ff:
+                ff = FirewallFamily()
+                firewall_config.set_family(ff)
+            inet = ff.get_inet()
+            if not inet:
+                inet = FirewallInet()
+                ff.set_inet(inet)
+            inet.add_filter(f)
 
-            interfaces_config = self.interfaces_config or etree.Element(
-                "interfaces")
-            irb_intf = etree.SubElement(interfaces_config, "interface")
-            etree.SubElement(irb_intf, "name").text = "irb"
-            intf_unit = etree.SubElement(irb_intf, "unit")
-            etree.SubElement(intf_unit, "name").text = str(network_id)
+            term = Term(name=DMUtils.make_vrf_term_name(ri_name))
+            from_ = From()
+            for fip_user_ip in fip_map.keys():
+                from_.add_source_address(fip_user_ip)
+            term.set_from(from_)
+            term.set_then(Then(routing_instance=[ri_name]))
+            f.add_term(term)
+
+            term = Term(name="default-term", then=Then(accept=''))
+            f.add_term(term)
+
+            interfaces_config = self.interfaces_config or Interfaces()
+            irb_intf = Interface(name="irb")
+            interfaces_config.add_interface(irb_intf)
+
+            intf_unit = Unit(name=str(network_id))
             if restrict_proxy_arp:
-                proxy_arp = etree.SubElement(intf_unit, "proxy-arp")
-                etree.SubElement(proxy_arp, "restricted")
-            family = etree.SubElement(intf_unit, "family")
-            inet = etree.SubElement(family, "inet")
-            f = etree.SubElement(inet, "filter")
-            iput = etree.SubElement(f, "input")
-            etree.SubElement(
-                iput,
-                "filter-name").text = DMUtils.make_private_vrf_filter_name(ri_name)
+                intf_unit.set_proxy_arp(ProxyArp(restricted=''))
+            inet = FamilyInet()
+            inet.set_filter(InetFilter(input=DMUtils.make_private_vrf_filter_name(ri_name)))
+            intf_unit.set_family(Family(inet=inet))
+            irb_intf.add_unit(intf_unit)
 
         # add L2 EVPN and BD config
         bd_config = None
@@ -520,146 +507,121 @@ class PhysicalRouterConfig(object):
         proto_config = self.proto_config
         if (is_l2 and vni is not None and
                 self.is_family_configured(self.bgp_params, "e-vpn")):
-            etree.SubElement(ri, "vtep-source-interface").text = "lo0.0"
-            bd_config = etree.SubElement(ri, "bridge-domains")
-            bd = etree.SubElement(bd_config, "domain")
-            etree.SubElement(bd, "name").text = DMUtils.make_bridge_name(vni)
-            etree.SubElement(bd, "vlan-id").text = 'none'
-            vxlan = etree.SubElement(bd, "vxlan")
-            etree.SubElement(vxlan, "vni").text = str(vni)
+            ri.set_vtep_source_interface("lo0.0")
+            bd_config = BridgeDomains()
+            ri.set_bridge_domains(bd_config)
+            bd = Domain(name=DMUtils.make_bridge_name(vni), vlan_id='none', vxlan=VXLan(vni=vni))
+            bd_config.add_domain(bd)
             for interface in interfaces:
-                if_element = etree.SubElement(bd, "interface")
-                etree.SubElement(if_element, "name").text = interface.name
+                bd.add_interface(Interface(name=interface.name))
             if is_l2_l3:
                 # network_id is unique, hence irb
-                etree.SubElement(
-                    bd, "routing-interface").text = "irb." + str(network_id)
-            evpn_proto_config = etree.SubElement(ri, "protocols")
-            evpn = etree.SubElement(evpn_proto_config, "evpn")
-            etree.SubElement(evpn, "encapsulation").text = "vxlan"
-            etree.SubElement(evpn, "extended-vni-list").text = "all"
+                bd.set_routing_interface("irb." + str(network_id))
+            ri.set_protocols(RoutingInstanceProtocols(
+                               evpn=Evpn(encapsulation='vxlan', extended_vni_list='all')))
 
-            interfaces_config = self.interfaces_config or etree.Element(
-                "interfaces")
+            interfaces_config = self.interfaces_config or Interfaces()
             if is_l2_l3:
-                irb_intf = etree.SubElement(interfaces_config, "interface")
-                etree.SubElement(irb_intf, "name").text = "irb"
-                etree.SubElement(irb_intf, "gratuitous-arp-reply")
+                irb_intf = Interface(name='irb', gratuitous_arp_reply='')
+                interfaces_config.add_interface(irb_intf)
                 if gateways is not None:
-                    intf_unit = etree.SubElement(irb_intf, "unit")
-                    etree.SubElement(intf_unit, "name").text = str(network_id)
-                    family = etree.SubElement(intf_unit, "family")
+                    intf_unit = Unit(name=str(network_id))
+                    irb_intf.add_unit(intf_unit)
+                    family = Family()
+                    intf_unit.set_family(family)
                     inet = None
                     inet6 = None
                     for (irb_ip, gateway) in gateways:
                         if ':' in irb_ip:
                             if not inet6:
-                                inet6 = etree.SubElement(family, "inet6")
-                            addr = etree.SubElement(inet6, "address")
+                                inet6 = FamilyInet6()
+                                family.set_inet6(inet6)
+                            addr = Address()
+                            inet6.add_address(addr)
                         else:
                             if not inet:
-                                inet = etree.SubElement(family, "inet")
-                            addr = etree.SubElement(inet, "address")
-                        etree.SubElement(addr, "name").text = irb_ip
+                                inet = FamilyInet()
+                                family.set_inet(inet)
+                            addr = Address()
+                            inet.add_address(addr)
+                        addr.set_name(irb_ip)
                         if len(gateway) and gateway != '0.0.0.0':
-                            etree.SubElement(
-                                addr, "virtual-gateway-address").text = gateway
+                            addr.set_virtual_gateway_address(gateway)
 
-            lo_intf = etree.SubElement(interfaces_config, "interface")
-            etree.SubElement(lo_intf, "name").text = "lo0"
-            intf_unit = etree.SubElement(lo_intf, "unit")
-            etree.SubElement(intf_unit, "name").text = "0"
-            family = etree.SubElement(intf_unit, "family")
-            inet = etree.SubElement(family, "inet")
-            addr = etree.SubElement(inet, "address")
-            etree.SubElement(addr, "name").text = self.bgp_params[
-                'address'] + "/32"
-            etree.SubElement(addr, "primary")
-            etree.SubElement(addr, "preferred")
+            lo_intf = Interface(name="lo0")
+            interfaces_config.add_interface(lo_intf)
+            fam_inet = FamilyInet(address=[Address(name=self.bgp_params['address'] + "/32",
+                                                   primary='', preferred='')])
+            intf_unit = Unit(name="0", family=Family(inet=fam_inet))
+            lo_intf.add_unit(intf_unit)
 
             self.build_l2_evpn_interface_config(interfaces_config, interfaces)
 
         # fip services config
         services_config = self.services_config
         if fip_map is not None:
-            services_config = self.services_config or etree.Element("services")
-            # mx has limitation for service-set and nat-rule name length,
-            # allowed max 63 chars
+            services_config = self.services_config or Services()
             service_name = DMUtils.make_services_set_name(ri_name)
-            service_set = etree.SubElement(services_config, "service-set")
-            etree.SubElement(service_set, "name").text = service_name
-            nat_rule = etree.SubElement(service_set, "nat-rules")
-            etree.SubElement(nat_rule, "name").text = DMUtils.make_snat_rule_name(ri_name)
-            nat_rule = etree.SubElement(service_set, "nat-rules")
-            etree.SubElement(nat_rule, "name").text = DMUtils.make_dnat_rule_name(ri_name)
-            next_hop_service = etree.SubElement(
-                service_set, "next-hop-service")
-            etree.SubElement(
-                next_hop_service,
-                "inside-service-interface").text = interfaces[0].name
-            etree.SubElement(
-                next_hop_service,
-                "outside-service-interface").text = interfaces[1].name
+            service_set = ServiceSet(name=service_name)
+            services_config.add_service_set(service_set)
+            nat_rule = NATRules(name=service_name + "-sn-rule")
+            service_set.add_nat_rules(NATRules(name=DMUtils.make_snat_rule_name(ri_name)))
+            service_set.add_nat_rules(NATRules(name=DMUtils.make_dnat_rule_name(ri_name)))
+            next_hop_service = NextHopService(inside_service_interface = interfaces[0].name,
+                                              outside_service_interface = interfaces[1].name)
+            service_set.set_next_hop_service(next_hop_service)
 
-            nat = etree.SubElement(services_config, "nat")
-            etree.SubElement(nat, "allow-overlapping-nat-pools")
-            snat_rule = etree.SubElement(nat, "rule")
-            etree.SubElement(
-                snat_rule, "name").text = DMUtils.make_snat_rule_name(ri_name)
-            etree.SubElement(snat_rule, "match-direction").text = "input"
-            dnat_rule = etree.SubElement(nat, "rule")
-            etree.SubElement(
-                dnat_rule, "name").text = DMUtils.make_dnat_rule_name(ri_name)
-            etree.SubElement(dnat_rule, "match-direction").text = "output"
+            nat = NAT(allow_overlapping_nat_pools='')
+            services_config.add_nat(nat)
+            snat_rule = Rule(name=DMUtils.make_snat_rule_name(ri_name),
+                             match_direction="input")
+            nat.add_rule(snat_rule)
+            dnat_rule = Rule(name=DMUtils.make_dnat_rule_name(ri_name),
+                             match_direction="output")
+            nat.add_rule(dnat_rule)
 
             for pip, fip_vn in fip_map.items():
                 fip = fip_vn["floating_ip"]
-                term = etree.SubElement(snat_rule, "term")
-                etree.SubElement(
-                    term, "name").text = DMUtils.make_ip_term_name(pip)
-                from_ = etree.SubElement(term, "from")
-                src_addr = etree.SubElement(from_, "source-address")
+                term = Term(name=DMUtils.make_ip_term_name(pip))
+                snat_rule.set_term(term)
                 # private ip
-                etree.SubElement(src_addr, "name").text = pip + "/32"
-                then_ = etree.SubElement(term, "then")
-                translated = etree.SubElement(then_, "translated")
-                etree.SubElement(
-                    translated,
-                    "source-prefix").text = fip + "/32"  # public ip
-                translation_type = etree.SubElement(
-                    translated, "translation-type")
-                etree.SubElement(translation_type, "basic-nat44")
+                from_ = From(source_address=[pip + "/32"])
+                term.set_from(from_)
+                # public ip
+                then_ = Then()
+                term.set_then(then_)
+                translated = Translated(source_prefix=fip + "/32",
+                                        translation_type=TranslationType(basic_nat44=''))
+                then_.set_translated(translated)
 
-                term = etree.SubElement(dnat_rule, "term")
-                etree.SubElement(
-                    term, "name").text = DMUtils.make_ip_term_name(fip)
-                from_ = etree.SubElement(term, "from")
-                src_addr = etree.SubElement(from_, "destination-address")
-                etree.SubElement(
-                    src_addr, "name").text = fip + "/32"  # public ip
-                then_ = etree.SubElement(term, "then")
-                translated = etree.SubElement(then_, "translated")
-                etree.SubElement(
-                    translated,
-                    "destination-prefix").text = pip + "/32"  # source ip
-                translation_type = etree.SubElement(
-                    translated, "translation-type")
-                etree.SubElement(translation_type, "dnat-44")
+                term = Term(name=DMUtils.make_ip_term_name(fip))
+                dnat_rule.set_term(term)
 
-            interfaces_config = self.interfaces_config or etree.Element(
-                "interfaces")
-            si_intf = etree.SubElement(interfaces_config, "interface")
-            etree.SubElement(si_intf, "name").text = interfaces[0].ifd_name
-            intf_unit = etree.SubElement(si_intf, "unit")
-            etree.SubElement(intf_unit, "name").text = interfaces[0].unit
-            family = etree.SubElement(intf_unit, "family")
-            etree.SubElement(family, "inet")
-            etree.SubElement(intf_unit, "service-domain").text = "inside"
-            intf_unit = etree.SubElement(si_intf, "unit")
-            etree.SubElement(intf_unit, "name").text = interfaces[1].unit
-            family = etree.SubElement(intf_unit, "family")
-            etree.SubElement(family, "inet")
-            etree.SubElement(intf_unit, "service-domain").text = "outside"
+                # public ip
+                from_ = From(destination_address=[fip + "/32"])
+                term.set_from(from_)
+                # private ip
+                then_ = Then()
+                term.set_then(then_)
+                translated = Translated(destination_prefix=pip + "/32",
+                                        translation_type=TranslationType(dnat_44=''))
+                then_.set_translated(translated)
+
+            interfaces_config = self.interfaces_config or Interfaces()
+            si_intf = Interface(name=interfaces[0].ifd_name)
+            interfaces_config.add_interface(si_intf)
+
+            intf_unit = Unit(name=interfaces[0].unit)
+            si_intf.add_unit(intf_unit)
+            family = Family(inet=FamilyInet())
+            intf_unit.set_family(family)
+            intf_unit.set_service_domain("inside")
+
+            intf_unit = Unit(name=interfaces[1].unit)
+            si_intf.add_unit(intf_unit)
+            family = Family(inet=FamilyInet())
+            intf_unit.set_family(family)
+            intf_unit.set_service_domain("outside")
 
         self.forwarding_options_config = forwarding_options_config
         self.firewall_config = firewall_config
@@ -677,65 +639,44 @@ class PhysicalRouterConfig(object):
             ifd_map.setdefault(interface.ifd_name, []).append(interface)
 
         for ifd_name, interface_list in ifd_map.items():
-            intf = etree.SubElement(interfaces_config, "interface")
-            etree.SubElement(intf, "name").text = ifd_name
+            intf = Interface(name=ifd_name)
+            interfaces_config.add_interface(intf)
             if interface_list[0].is_untagged():
                 if (len(interface_list) > 1):
                     self._logger.error(
                         "invalid logical interfaces config for ifd %s" % (
                             ifd_name))
                     continue
-                etree.SubElement(
-                    intf, "encapsulation").text = "ethernet-bridge"
-                intf_unit = etree.SubElement(intf, "unit")
-                etree.SubElement(
-                    intf_unit, "name").text = interface_list[0].unit
-                family = etree.SubElement(intf_unit, "family")
-                etree.SubElement(family, "bridge")
+                intf.set_encapsulation("ethernet-bridge")
+                intf.add_unit(Unit(name=interface_list[0].unit, family=Family(bridge='')))
             else:
-                etree.SubElement(intf, "flexible-vlan-tagging")
-                etree.SubElement(
-                    intf, "encapsulation").text = "flexible-ethernet-services"
+                intf.set_flexible_vlan_tagging('')
+                intf.set_encapsulation("flexible-ethernet-services")
                 for interface in interface_list:
-                    intf_unit = etree.SubElement(intf, "unit")
-                    etree.SubElement(intf_unit, "name").text = interface.unit
-                    etree.SubElement(
-                        intf_unit, "encapsulation").text = "vlan-bridge"
-                    etree.SubElement(
-                        intf_unit, "vlan-id").text = str(interface.vlan_tag)
+                    intf.add_unit(Unit(name=interface.unit, encapsulation='vlan-bridge',
+                                       vlan_id=str(interface.vlan_tag)))
     # end build_l2_evpn_interface_config
-
-    def add_mpls_protocol(self):
-        proto_config = self.proto_config or etree.Element("protocols")
-        mpls = etree.SubElement(proto_config, "mpls")
-        intf = etree.SubElement(mpls, "interface")
-        etree.SubElement(intf, "name").text = "all"
 
     def set_global_routing_options(self, bgp_params):
         if bgp_params['address'] is not None:
-            self.global_routing_options_config = etree.Element(
-                "routing-options")
-            etree.SubElement(
-                self.global_routing_options_config,
-                "router-id").text = bgp_params['address']
+            if not self.global_routing_options_config:
+                self.global_routing_options_config = RoutingOptions()
+            self.global_routing_options_config.set_router_id(bgp_params['address'])
     # end set_global_routing_options
 
     def add_to_global_ri_opts(self, prefix):
         if not prefix:
             return
         if self.global_routing_options_config is None:
-            self.global_routing_options_config = etree.Element(
-                "routing-options")
+            self.global_routing_options_config = RoutingOptions()
+        static_config = Static()
         if ':' in prefix:
-            rib_config_v6 = etree.SubElement(self.global_routing_options_config, "rib")
-            etree.SubElement(rib_config_v6, "name").text = "inet6.0"
-            static_config = etree.SubElement(rib_config_v6, "static")
+            rib_config_v6 = RIB(name='inet6.0')
+            rib_config_v6.add_static(static_config)
+            self.global_routing_options_config.add_rib(rib_config_v6)
         else:
-            static_config = etree.SubElement(
-                            self.global_routing_options_config, "static")
-        route_config = etree.SubElement(static_config, "route")
-        etree.SubElement(route_config, "name").text = prefix
-        etree.SubElement(route_config, "discard")
+            self.global_routing_options_config.add_static(static_config)
+        static_config.add_route(Route(name=prefix, discard=''))
     # end add_to_global_ri_opts
 
     def is_family_configured(self, params, family_name):
@@ -746,34 +687,35 @@ class PhysicalRouterConfig(object):
             return True
         return False
 
-    def _add_family_etree(self, parent, params):
+    def add_families(self, parent, params):
         if params.get('address_families') is None:
             return
         families = params['address_families'].get('family', [])
         if not families:
             return
-        family_etree = etree.SubElement(parent, "family")
+        family_etree = Family()
+        parent.set_family(family_etree)
         for family in families:
+            fam = family.replace('-', '_')
+            if family in ['e-vpn', 'e_vpn']:
+                fam = 'evpn'
             if family in self._FAMILY_MAP:
-                family_subtree = etree.fromstring(self._FAMILY_MAP[family])
-                family_etree.append(family_subtree)
+                getattr(family_etree, "set_" + fam)(self._FAMILY_MAP[family])
             else:
-                etree.SubElement(family_etree, family)
-    # end _add_family_etree
+                getattr(family_etree, "set_" + fam)('')
+    # end add_families
 
     def add_bgp_auth_config(self, bgp_config, bgp_params):
         if bgp_params.get('auth_data') is None:
             return
         keys = bgp_params['auth_data'].get('key_items', [])
         if len(keys) > 0:
-            etree.SubElement(
-                bgp_config, "authentication-key").text = keys[0].get('key')
+            bgp_config.set_authentication_key(keys[0].get('key'))
 
     def add_bgp_hold_time_config(self, bgp_config, bgp_params):
         if bgp_params.get('hold_time') is None:
             return
-        etree.SubElement(
-            bgp_config, "hold-time").text = str(bgp_params.get('hold_time'))
+        bgp_config.set_hold_time(bgp_params.get('hold_time'))
 
     def set_bgp_config(self, params):
         self.bgp_params = params
@@ -782,27 +724,25 @@ class PhysicalRouterConfig(object):
     def _get_bgp_config_xml(self, external=False):
         if self.bgp_params is None:
             return None
-        bgp_config = etree.Element("group", operation="replace")
+        bgp_group = BgpGroup()
         if external:
-            etree.SubElement(bgp_config, "name").text = DMUtils.make_bgp_group_name(True)
-            etree.SubElement(bgp_config, "type").text = "external"
-            etree.SubElement(bgp_config, "multihop")
+            bgp_group.set_name(DMUtils.make_bgp_group_name(True))
+            bgp_group.set_type('external')
+            bgp_group.set_multihop('')
         else:
-            etree.SubElement(bgp_config, "name").text = DMUtils.make_bgp_group_name(False)
-            etree.SubElement(bgp_config, "type").text = "internal"
-        local_address = etree.SubElement(bgp_config, "local-address")
-        local_address.text = self.bgp_params['address']
-        self._add_family_etree(bgp_config, self.bgp_params)
-        self.add_bgp_auth_config(bgp_config, self.bgp_params)
-        self.add_bgp_hold_time_config(bgp_config, self.bgp_params)
-        return bgp_config
+            bgp_group.set_name(DMUtils.make_bgp_group_name(False))
+            bgp_group.set_type('internal')
+        bgp_group.set_local_address(self.bgp_params['address'])
+        self.add_families(bgp_group, self.bgp_params)
+        self.add_bgp_auth_config(bgp_group, self.bgp_params)
+        self.add_bgp_hold_time_config(bgp_group, self.bgp_params)
+        return bgp_group
     # end _get_bgp_config_xml
 
     def reset_bgp_config(self):
         self.routing_instances = {}
         self.bgp_params = None
         self.ri_config = None
-        self.tunnel_config = None
         self.interfaces_config = None
         self.services_config = None
         self.policy_config = None
@@ -812,7 +752,6 @@ class PhysicalRouterConfig(object):
         self.forwarding_options_config = None
         self.global_routing_options_config = None
         self.proto_config = None
-        self.logical_interface_config = None
         self.route_targets = set()
         self.bgp_peers = {}
         self.external_peers = {}
@@ -821,7 +760,7 @@ class PhysicalRouterConfig(object):
 
     def delete_bgp_config(self):
         self.reset_bgp_config()
-        self.send_netconf([], default_operation="none", operation="delete")
+        self.send_netconf(Groups(), default_operation="none", operation="delete")
     # end delete_config
 
     def add_bgp_peer(self, router, params, attr, external):
@@ -838,8 +777,8 @@ class PhysicalRouterConfig(object):
         for peer, peer_data in peers.items():
             params = peer_data.get('params', {})
             attr = peer_data.get('attr', {})
-            nbr = etree.SubElement(bgp_config, "neighbor")
-            etree.SubElement(nbr, "name").text = peer
+            nbr = BgpGroup(name=peer)
+            bgp_config.add_neighbor(nbr)
             bgp_sessions = attr.get('session')
             if bgp_sessions:
                 # for now assume only one session
@@ -848,59 +787,64 @@ class PhysicalRouterConfig(object):
                     # For not, only consider the attribute if bgp-router is
                     # not specified
                     if session_attr.get('bgp_router') is None:
-                        self._add_family_etree(nbr, session_attr)
+                        self.add_families(nbr, session_attr)
                         self.add_bgp_auth_config(nbr, session_attr)
                         break
             peer_as = params.get('local_autonomous_system') or params.get('autonomous_system')
-            etree.SubElement(nbr, "peer-as").text = str(peer_as)
+            nbr.set_peer_as(peer_as)
     # end _get_neighbor_config_xml
 
-    def send_bgp_config(self):
+    def set_as_config(self):
+        if self.global_routing_options_config is None:
+            self.global_routing_options_config = RoutingOptions()
+        self.global_routing_options_config.set_route_distinguisher_id(self.bgp_params['identifier'])
+        local_as = self.bgp_params.get('local_autonomous_system') or self.bgp_params.get('autonomous_system')
+        self.global_routing_options_config.set_autonomous_system(str(local_as))
+    # end set_as_config
+
+    def set_route_targets_config(self):
+        if self.policy_config is None:
+            self.policy_config = PolicyOptions()
+        for route_target in self.route_targets:
+            comm = CommunityType(name=DMUtils.make_community_name(route_target),
+                                 members=route_target)
+            self.policy_config.add_community(comm)
+    # end set_route_targets_config
+
+    def set_bgp_group_config(self):
         bgp_config = self._get_bgp_config_xml()
         if bgp_config is None:
-            return 0
-        proto_config = etree.Element("protocols")
-        bgp = etree.SubElement(proto_config, "bgp")
-        bgp.append(bgp_config)
+            return False
+        if self.proto_config is None:
+            self.proto_config = Protocols()
+        bgp = Bgp()
+        self.proto_config.set_bgp(bgp)
+        bgp.add_group(bgp_config)
         self._get_neighbor_config_xml(bgp_config, self.bgp_peers)
         if self.external_peers is not None:
             ext_grp_config = self._get_bgp_config_xml(True)
-            bgp.append(ext_grp_config)
+            bgp.add_group(ext_grp_config)
             self._get_neighbor_config_xml(ext_grp_config, self.external_peers)
+        return True
+    # end set_bgp_group_config
 
-        routing_options_config = etree.Element("routing-options")
-        etree.SubElement(
-            routing_options_config,
-            "route-distinguisher-id").text = self.bgp_params['identifier']
-        local_as = self.bgp_params.get('local_autonomous_system') or self.bgp_params.get('autonomous_system')
-        etree.SubElement(routing_options_config, "autonomous-system").text = str(local_as)
-        config_list = [proto_config, routing_options_config]
-        if self.ri_config is not None:
-            config_list.append(self.ri_config)
-        for route_target in self.route_targets:
-            comm = etree.SubElement(self.policy_config, "community")
-            etree.SubElement(
-                comm, 'name').text = route_target.replace(':', '_')
-            etree.SubElement(comm, 'members').text = route_target
-        if self.tunnel_config is not None:
-            config_list.append(self.tunnel_config)
-        if self.interfaces_config is not None:
-            config_list.append(self.interfaces_config)
-        if self.services_config is not None:
-            config_list.append(self.services_config)
-        if self.policy_config is not None:
-            config_list.append(self.policy_config)
-        if self.firewall_config is not None:
-            config_list.append(self.firewall_config)
-        if self.forwarding_options_config is not None:
-            config_list.append(self.forwarding_options_config)
-        if self.global_routing_options_config is not None:
-            config_list.append(self.global_routing_options_config)
-        if self.proto_config is not None:
-            config_list.append(self.proto_config)
-        if self.logical_interface_config is not None:
-            config_list.append(self.logical_interface_config)
-        return self.send_netconf(config_list)
+    def send_bgp_config(self):
+        if not self.set_bgp_group_config():
+            return 0
+
+        self.set_as_config()
+        self.set_route_targets_config()
+
+        groups = Groups()
+        groups.set_routing_instances(self.ri_config)
+        groups.set_interfaces(self.interfaces_config)
+        groups.set_services(self.services_config)
+        groups.set_policy_options(self.policy_config)
+        groups.set_firewall(self.firewall_config)
+        groups.set_forwarding_options(self.forwarding_options_config)
+        groups.set_routing_options(self.global_routing_options_config)
+        groups.set_protocols(self.proto_config)
+        return self.send_netconf(groups)
     # end send_bgp_config
 
 # end PhycalRouterConfig
