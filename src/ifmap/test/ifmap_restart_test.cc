@@ -135,6 +135,14 @@ protected:
         return tbl->FindNode(name);
     }
 
+    IFMapLink *LinkLookup(IFMapNode *lhs, IFMapNode *rhs,
+                          const string &metadata) {
+        IFMapLinkTable *link_table = static_cast<IFMapLinkTable *>(
+                                     db_.FindTable("__ifmap_metadata__.0"));
+        IFMapLink *link =  link_table->FindLink(metadata, lhs, rhs);
+        return (link ? (link->IsDeleted() ? NULL : link) : NULL);
+    }
+
     void ProcessStaleEntriesTimeout() {
         server_.ProcessStaleEntriesTimeout();
     }
@@ -174,7 +182,7 @@ TEST_F(IFMapRestartTest, BasicTest) {
     ASSERT_TRUE(obj->sequence_number() == 1);
 
     bool exists = false;
-    IFMapLink *ifl = static_cast<IFMapLink *>(graph_.GetEdge(idn1, idn2));
+    IFMapLink *ifl = LinkLookup(idn1, idn2, "domain-project");
     ASSERT_TRUE(ifl != NULL);
     ASSERT_TRUE(ifl->sequence_number(IFMapOrigin::MAP_SERVER, &exists) == 1);
 
@@ -201,7 +209,7 @@ TEST_F(IFMapRestartTest, BasicTest) {
     ASSERT_TRUE(obj != NULL);
     ASSERT_TRUE(obj->sequence_number() == 2);
 
-    ifl = static_cast<IFMapLink *>(graph_.GetEdge(idn1, idn2));
+    ifl = LinkLookup(idn1, idn2, "domain-project");
     ASSERT_TRUE(ifl != NULL);
     ASSERT_TRUE(ifl->sequence_number(IFMapOrigin::MAP_SERVER, &exists) == 2);
 
@@ -215,7 +223,7 @@ TEST_F(IFMapRestartTest, BasicTest) {
     ASSERT_TRUE(idn1 != NULL);
     idn2 = TableLookup("project", "vnc");
     ASSERT_TRUE(idn2 != NULL);
-    ifl = static_cast<IFMapLink *>(graph_.GetEdge(idn1, idn2));
+    ifl = LinkLookup(idn1, idn2, "domain-project");
     ASSERT_TRUE(ifl != NULL);
 
     // Update the channel's seq-num to 3 and trigger cleanup
@@ -255,10 +263,10 @@ TEST_F(IFMapRestartTest, BasicTest1) {
     ASSERT_TRUE(idn3 != NULL);
 
     bool exists = false;
-    IFMapLink *ifl = static_cast<IFMapLink *>(graph_.GetEdge(idn1, idn2));
+    IFMapLink *ifl = LinkLookup(idn1, idn2, "domain-project");
     ASSERT_TRUE(ifl != NULL);
     ASSERT_TRUE(ifl->sequence_number(IFMapOrigin::MAP_SERVER, &exists) == 1);
-    ifl = static_cast<IFMapLink *>(graph_.GetEdge(idn2, idn3));
+    ifl = LinkLookup(idn2, idn3, "project-virtual-network");
     ASSERT_TRUE(ifl != NULL);
     ASSERT_TRUE(ifl->sequence_number(IFMapOrigin::MAP_SERVER, &exists) == 1);
 
@@ -275,9 +283,9 @@ TEST_F(IFMapRestartTest, BasicTest1) {
     ASSERT_TRUE(idn2 != NULL);
     idn3 = TableLookup("virtual-network", "blue");
     ASSERT_TRUE(idn3 != NULL);
-    ifl = static_cast<IFMapLink *>(graph_.GetEdge(idn1, idn2));
+    ifl = LinkLookup(idn1, idn2, "domain-project");
     ASSERT_TRUE(ifl != NULL);
-    ifl = static_cast<IFMapLink *>(graph_.GetEdge(idn2, idn3));
+    ifl = LinkLookup(idn2, idn3, "project-virtual-network");
     ASSERT_TRUE(ifl != NULL);
 
     // Update the channel's seq-num to 2 and trigger cleanup
@@ -290,7 +298,7 @@ TEST_F(IFMapRestartTest, BasicTest1) {
     ASSERT_TRUE(idn1 != NULL);
     idn2 = TableLookup("project", "vnc");
     ASSERT_TRUE(idn2 != NULL);
-    ifl = static_cast<IFMapLink *>(graph_.GetEdge(idn1, idn2));
+    ifl = LinkLookup(idn1, idn2, "domain-project");
     ASSERT_TRUE(ifl != NULL);
 
     idn3 = TableLookup("virtual-network", "blue");
@@ -412,10 +420,10 @@ TEST_F(IFMapRestartTest, LinkAttr) {
     EXPECT_TRUE(midnode != NULL);
 
     bool exists = false;
-    IFMapLink *ifl = static_cast<IFMapLink *>(graph_.GetEdge(left, midnode));
+    IFMapLink *ifl = LinkLookup(left, midnode, "virtual-network-network-ipam");
     EXPECT_TRUE(ifl != NULL);
     EXPECT_TRUE(ifl->sequence_number(IFMapOrigin::MAP_SERVER, &exists) == 1);
-    ifl = static_cast<IFMapLink *>(graph_.GetEdge(midnode, right));
+    ifl = LinkLookup(midnode, right, "virtual-network-network-ipam");
     EXPECT_TRUE(ifl != NULL);
     EXPECT_TRUE(ifl->sequence_number(IFMapOrigin::MAP_SERVER, &exists) == 1);
 
@@ -506,10 +514,11 @@ TEST_F(IFMapRestartTest, LinkAttrWithProperties) {
 
     // Check if the 2 links exist.
     bool exists = false;
-    IFMapLink *ifl = static_cast<IFMapLink *>(graph_.GetEdge(left, midnode));
+    IFMapLink *ifl = LinkLookup(left, midnode, "virtual-network-network-ipam");
+    EXPECT_TRUE(ifl != NULL);
     EXPECT_TRUE(ifl != NULL);
     EXPECT_TRUE(ifl->sequence_number(IFMapOrigin::MAP_SERVER, &exists) == 1);
-    ifl = static_cast<IFMapLink *>(graph_.GetEdge(midnode, right));
+    ifl = LinkLookup(midnode, right, "virtual-network-network-ipam");
     EXPECT_TRUE(ifl != NULL);
     EXPECT_TRUE(ifl->sequence_number(IFMapOrigin::MAP_SERVER, &exists) == 1);
 
@@ -639,10 +648,10 @@ TEST_F(IFMapRestartTest, MultipleAttrChangesWithSeqNumChange) {
 
     // Check if the 2 links exist.
     bool exists = false;
-    IFMapLink *ifl = static_cast<IFMapLink *>(graph_.GetEdge(left, midnode));
+    IFMapLink *ifl = LinkLookup(left, midnode, "virtual-network-network-ipam");
     EXPECT_TRUE(ifl != NULL);
     EXPECT_TRUE(ifl->sequence_number(IFMapOrigin::MAP_SERVER, &exists) == 1);
-    ifl = static_cast<IFMapLink *>(graph_.GetEdge(midnode, right));
+    ifl = LinkLookup(midnode, right, "virtual-network-network-ipam");
     EXPECT_TRUE(ifl != NULL);
     EXPECT_TRUE(ifl->sequence_number(IFMapOrigin::MAP_SERVER, &exists) == 1);
 

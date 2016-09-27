@@ -373,7 +373,7 @@ TEST_F(BgpConfigListenerTest, UninterestingLinkEvent) {
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
 
     PauseChangeListPropagation();
-    ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
+    ifmap_test_util::IFMapLinkNotify(&db_, &graph_, "domain-project",
         "domain", "default-domain", "project", "default-project");
     task_util::WaitForIdle();
 
@@ -401,7 +401,7 @@ TEST_F(BgpConfigListenerTest, DuplicateLinkEvent) {
     // Pause propagation, notify virtual-network-routing-instance link 3 times.
     PauseChangeListPropagation();
     for (int idx = 0; idx < 3; ++idx) {
-        ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
+        ifmap_test_util::IFMapLinkNotify(&db_, &graph_, "virtual-network-routing-instance",
             "virtual-network", "red-vn", "routing-instance", "red");
         task_util::WaitForIdle();
     }
@@ -480,7 +480,7 @@ TEST_F(BgpConfigListenerTest, DeletedLinkEvent2) {
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
 
     PauseChangeListPropagation();
-    ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
+    ifmap_test_util::IFMapLinkNotify(&db_, &graph_, "virtual-network-routing-instance",
         "virtual-network", "red-vn", "routing-instance", "red");
     task_util::WaitForIdle();
 
@@ -598,7 +598,7 @@ TEST_F(BgpConfigListenerTest, BgpPeeringBgpPeeringChange1) {
     string id_first = string(BgpConfigManager::kMasterInstance) + ":local";
     string id_second = string(BgpConfigManager::kMasterInstance) + ":remote1";
     string id_name = string("attr") + "(" + id_first + "," + id_second + ")";
-    ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
+    ifmap_test_util::IFMapLinkNotify(&db_, &graph_, "bgp-peering",
         "bgp-peering", id_name, "bgp-router", id_first);
     task_util::WaitForIdle();
 
@@ -638,7 +638,7 @@ TEST_F(BgpConfigListenerTest, BgpPeeringBgpPeeringChange2) {
     string id_first = string(BgpConfigManager::kMasterInstance) + ":remote1";
     string id_second = string(BgpConfigManager::kMasterInstance) + ":remote2";
     string id_name = string("attr") + "(" + id_first + "," + id_second + ")";
-    ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
+    ifmap_test_util::IFMapLinkNotify(&db_, &graph_, "bgp-peering",
         "bgp-peering", id_name, "bgp-router", id_first);
     task_util::WaitForIdle();
 
@@ -755,7 +755,7 @@ TEST_F(BgpConfigListenerTest, BgpRouterUninterestingLinkChange) {
     // Pause propagation, notify instance-bgp-router link between bgp-router
     // and routing-instance.
     PauseChangeListPropagation();
-    ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
+    ifmap_test_util::IFMapLinkNotify(&db_, &graph_, "instance-bgp-router",
         "bgp-router", router, "routing-instance", instance);
     task_util::WaitForIdle();
 
@@ -1181,7 +1181,7 @@ TEST_F(BgpConfigListenerTest, ConnectionChange4) {
 
     // Pause propagation, notify connection between red and attr(blue, red).
     PauseChangeListPropagation();
-    ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
+    ifmap_test_util::IFMapLinkNotify(&db_, &graph_, "connection",
         "routing-instance", "red", "connection", "attr(blue,red)");
     task_util::WaitForIdle();
 
@@ -1220,7 +1220,7 @@ TEST_F(BgpConfigListenerTest, ConnectionChange5) {
 
     // Pause propagation, notify connection between red and attr(blue, red).
     PauseChangeListPropagation();
-    ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
+    ifmap_test_util::IFMapLinkNotify(&db_, &graph_, "connection",
         "routing-instance", "red", "connection", "attr(blue,red)");
     task_util::WaitForIdle();
 
@@ -1267,7 +1267,7 @@ TEST_F(BgpConfigListenerTest, ConnectionChange6) {
 
     // Both edges between midnode and routing-instance should be on edge list.
     PauseChangeListPropagation();
-    ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
+    ifmap_test_util::IFMapLinkNotify(&db_, &graph_, "connection",
         "routing-instance", "red", "connection", "attr(blue,red)");
     task_util::WaitForIdle();
 
@@ -1309,7 +1309,7 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceVirtualNetworkChange1) {
 
     // Pause propagation, notify virtual-network-routing-instance link.
     PauseChangeListPropagation();
-    ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
+    ifmap_test_util::IFMapLinkNotify(&db_, &graph_, "virtual-network-routing-instance",
         "routing-instance", "red1", "virtual-network", "red");
     task_util::WaitForIdle();
 
@@ -1357,7 +1357,7 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceVirtualNetworkChange2) {
     // Pause propagation, notify virtual-network-routing-instance link between
     // red and red1.
     PauseChangeListPropagation();
-    ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
+    ifmap_test_util::IFMapLinkNotify(&db_, &graph_, "virtual-network-routing-instance",
         "routing-instance", "red1", "virtual-network", "red");
     task_util::WaitForIdle();
 
@@ -1411,7 +1411,7 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceVirtualNetworkChange3) {
     // Pause propagation, notify virtual-network-routing-instance link between
     // red and red1.
     PauseChangeListPropagation();
-    ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
+    ifmap_test_util::IFMapLinkNotify(&db_, &graph_, "virtual-network-routing-instance",
         "routing-instance", "red1", "virtual-network", "red");
     task_util::WaitForIdle();
 
@@ -1456,7 +1456,7 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceUninterestingLinkChange) {
 
     // Pause propagation, notify instance-bgp-router link.
     PauseChangeListPropagation();
-    ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
+    ifmap_test_util::IFMapLinkNotify(&db_, &graph_, "instance-bgp-router",
         "routing-instance", instance, "bgp-router", router);
     task_util::WaitForIdle();
 
@@ -1620,7 +1620,7 @@ TEST_F(BgpConfigListenerTest, VirtualNetworkUninterestingLinkChange) {
 
     // Pause propagation, notify project-virtual-network link.
     PauseChangeListPropagation();
-    ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
+    ifmap_test_util::IFMapLinkNotify(&db_, &graph_, "project-virtual-network",
         "project", "admin", "virtual-network", "red");
     task_util::WaitForIdle();
 
@@ -1791,7 +1791,7 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_4) {
 
     PauseChangeListPropagation();
     string id_name = "attr(basic_0,test)";
-    ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
+    ifmap_test_util::IFMapLinkNotify(&db_, &graph_, "routing-policy-routing-instance",
         "routing-policy-routing-instance", id_name, "routing-policy", "basic_0");
     task_util::WaitForIdle();
 
@@ -1827,7 +1827,7 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_5) {
 
     PauseChangeListPropagation();
     string id_name = "attr(basic_0,test)";
-    ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
+    ifmap_test_util::IFMapLinkNotify(&db_, &graph_, "routing-policy-routing-instance",
         "routing-policy-routing-instance", id_name, "routing-instance", "test");
     task_util::WaitForIdle();
 

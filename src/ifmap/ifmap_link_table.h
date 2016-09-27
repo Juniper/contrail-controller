@@ -6,7 +6,7 @@
 #define __ctrlplane__ifmap_link_table__
 
 #include "db/db_graph_base.h"
-#include "db/db_table.h"
+#include "db/db_graph_table.h"
 
 struct IFMapOrigin;
 class DBGraph;
@@ -14,7 +14,7 @@ class IFMapLink;
 class IFMapNode;
 class IFMapTable;
 
-class IFMapLinkTable : public DBTable {
+class IFMapLinkTable : public DBGraphTable {
 public:
     static const int kPartitionCount = 1;
     struct RequestKey : DBRequestKey {
@@ -37,11 +37,11 @@ public:
 
     std::string LinkKey(const std::string &metadata, IFMapNode *left, 
                         IFMapNode *right);
-    void AddLink(DBGraphBase::edge_descriptor edge, IFMapNode *left,
-                 IFMapNode *right, const std::string &metadata,
-                 uint64_t sequence_number, const IFMapOrigin &origin);
-    void DeleteLink(DBGraphEdge *edge, IFMapNode *lhs, IFMapNode *rhs);
-    void DeleteLink(IFMapNode *lhs, IFMapNode *rhs, const IFMapOrigin &origin);
+    IFMapLink *AddLink(IFMapNode *left, IFMapNode *right,
+                       const std::string &metadata, uint64_t sequence_number,
+                       const IFMapOrigin &origin);
+    void DeleteLink(IFMapLink *link, const IFMapOrigin &origin);
+    void DeleteLink(IFMapLink *link);
 
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *key) const;
 
@@ -49,14 +49,9 @@ public:
 
     static DBTable *CreateTable(DB *db, const std::string &name,
                                 DBGraph *graph);
+    IFMapLink *FindLink(const std::string &metadata, IFMapNode *left, IFMapNode *right);
     IFMapLink *FindLink(const std::string &name);
     IFMapLink *FindNextLink(const std::string &name);
-
-protected:
-    void DeleteLink(DBGraphEdge *edge);
-
-private:
-    DBGraph *graph_;
 };
 
 extern void IFMapLinkTable_Init(DB *db, DBGraph *graph);

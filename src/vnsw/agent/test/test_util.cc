@@ -171,6 +171,8 @@ static void BuildLinkToMetadata() {
     AddLinkToMetadata("virtual-machine-interface", "qos-config");
     AddLinkToMetadata("qos-config", "global-qos-config");
     AddLinkToMetadata("forwarding-class", "qos-queue");
+    AddLinkToMetadata("network-ipam", "virtual-DNS");
+    AddLinkToMetadata("virtual-machine-interface", "service-health-check", "service-port-health-check");
 }
 
 string GetMetadata(const char *node1, const char *node2,
@@ -214,8 +216,6 @@ void AddLinkString(char *buff, int &len, const char *node_name1,
 void DelLinkString(char *buff, int &len, const char *node_name1,
                    const char *name1, const char *node_name2,
                    const char *name2) {
-    char mdata[256];
-    sprintf(mdata, "%s-%s", node_name1, node_name2);
     sprintf(buff + len,
             "       <link>\n"
             "           <node type=\"%s\">\n"
@@ -224,8 +224,9 @@ void DelLinkString(char *buff, int &len, const char *node_name1,
             "           <node type=\"%s\">\n"
             "               <name>%s</name>\n"
             "           </node>\n"
-            "           <metadata>%s</metadata>\n"
-            "       </link>\n", node_name1, name1, node_name2, name2, mdata);
+            "           <metadata type=\"%s\"/>\n"
+            "       </link>\n", node_name1, name1, node_name2, name2, 
+            GetMetadata(node_name1, node_name2).c_str());
     len = strlen(buff);
 }
 

@@ -28,9 +28,10 @@ public:
 
     IFMapLink(const std::string &name);
     const std::string &link_name() const { return link_name_; }
+    virtual const std::string &name() const { return metadata_; }
     
     // Initialize the link.
-    void SetProperties(Edge edge, IFMapNode *left, IFMapNode *right,
+    void SetProperties(IFMapNode *left, IFMapNode *right,
                        const std::string &metadata, uint64_t sequence_number,
                        const IFMapOrigin &origin);
     // Update some fields

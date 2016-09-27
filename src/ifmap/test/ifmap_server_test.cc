@@ -118,7 +118,7 @@ static void IFMapVRouterLink(DB *db, const string &vrouter,
                                   "virtual-router-virtual-machine");
     ifmap_test_util::IFMapMsgLink(db, "virtual-machine", vm_id,
                                   "virtual-machine-interface", vmi_id,
-                                  "virtual-machine-virtual-machine-interface");
+                                  "virtual-machine-interface-virtual-machine");
     ifmap_test_util::IFMapMsgLink(db, "virtual-machine-interface", vmi_id,
                                   "virtual-network", network,
                                   "virtual-machine-interface-virtual-network");

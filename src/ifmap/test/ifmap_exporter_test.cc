@@ -97,15 +97,17 @@ protected:
     }
 
     void IFMapMsgLink(const string &ltype, const string &rtype,
-                  const string &lid, const string &rid) {
-        string metadata = ltype + "-" + rtype;
-        ifmap_test_util::IFMapMsgLink(&db_, ltype, lid, rtype, rid, metadata);
+                  const string &lid, const string &rid, const string &metadata = "") {
+        string meta = metadata;
+        if (metadata == "") meta = ltype + "-" + rtype;
+        ifmap_test_util::IFMapMsgLink(&db_, ltype, lid, rtype, rid, meta);
     }
 
     void IFMapMsgUnlink(const string &ltype, const string &rtype,
-                  const string &lid, const string &rid) {
-        string metadata = ltype + "-" + rtype;
-        ifmap_test_util::IFMapMsgUnlink(&db_, ltype, lid, rtype, rid, metadata);
+                  const string &lid, const string &rid, const string &metadata = "") {
+        string meta = metadata;
+        if (metadata == "") meta = ltype + "-" + rtype;
+        ifmap_test_util::IFMapMsgUnlink(&db_, ltype, lid, rtype, rid, meta);
     }
 
     void IFMapMsgNodeAdd(const string &type, const string &id,
@@ -233,7 +235,7 @@ TEST_F(IFMapExporterTest, Basic) {
     IFMapMsgLink("project", "virtual-network", "vnc", "blue");
     IFMapMsgLink("project", "virtual-network", "vnc", "red");
     IFMapMsgLink("virtual-machine", "virtual-machine-interface", 
-                 "vm_x", "vm_x:veth0");
+                 "vm_x", "vm_x:veth0", "virtual-machine-interface-virtual-machine");
     IFMapMsgLink("virtual-machine-interface", "virtual-network", 
                  "vm_x:veth0", "blue");
     task_util::WaitForIdle();
@@ -281,22 +283,22 @@ TEST_F(IFMapExporterTest, InterestChangeIntersect) {
     IFMapMsgLink("project", "virtual-network", "vnc", "red");
     // c1 in blue.
     IFMapMsgLink("virtual-machine", "virtual-machine-interface",
-                 "vm_c1", "vm_c1:veth0");
+                 "vm_c1", "vm_c1:veth0", "virtual-machine-interface-virtual-machine");
     IFMapMsgLink("virtual-machine-interface", "virtual-network",
                  "vm_c1:veth0", "blue");
     // c2 in red.
     IFMapMsgLink("virtual-machine", "virtual-machine-interface",
-                 "vm_c2", "vm_c2:veth0");
+                 "vm_c2", "vm_c2:veth0", "virtual-machine-interface-virtual-machine");
     IFMapMsgLink("virtual-machine-interface", "virtual-network",
                  "vm_c2:veth0", "red");
     // c3 in blue.
     IFMapMsgLink("virtual-machine", "virtual-machine-interface",
-                 "vm_c3", "vm_c3:veth0");
+                 "vm_c3", "vm_c3:veth0", "virtual-machine-interface-virtual-machine");
     IFMapMsgLink("virtual-machine-interface", "virtual-network",
                  "vm_c3:veth0", "blue");
     // c4 in red.
     IFMapMsgLink("virtual-machine", "virtual-machine-interface",
-                 "vm_c4", "vm_c4:veth0");
+                 "vm_c4", "vm_c4:veth0", "virtual-machine-interface-virtual-machine");
     IFMapMsgLink("virtual-machine-interface", "virtual-network",
                  "vm_c4:veth0", "red");
 
@@ -511,7 +513,7 @@ TEST_F(IFMapExporterTest, NodeAddDependency) {
     IFMapMsgLink("project", "virtual-network", "vnc", "blue");
     IFMapMsgLink("project", "virtual-network", "vnc", "red");
     IFMapMsgLink("virtual-machine", "virtual-machine-interface", 
-                 "vm_x", "vm_x:veth0");
+                 "vm_x", "vm_x:veth0", "virtual-machine-interface-virtual-machine");
     IFMapMsgLink("virtual-machine-interface", "virtual-network", 
                  "vm_x:veth0", "blue");
 
@@ -562,7 +564,7 @@ TEST_F(IFMapExporterTest, LinkDeleteDependency) {
     IFMapMsgLink("project", "virtual-network", "vnc", "blue");
     IFMapMsgLink("project", "virtual-network", "vnc", "red");
     IFMapMsgLink("virtual-machine", "virtual-machine-interface", 
-                 "vm_x", "vm_x:veth0");
+                 "vm_x", "vm_x:veth0", "virtual-machine-interface-virtual-machine");
     IFMapMsgLink("virtual-machine-interface", "virtual-network", 
                  "vm_x:veth0", "blue");
     
@@ -814,7 +816,7 @@ TEST_F(IFMapExporterTest, ChangePropertiesIncrementally) {
     IFMapMsgLink("project", "virtual-network", "vnc", "blue");
     IFMapMsgLink("project", "virtual-network", "vnc", "red");
     IFMapMsgLink("virtual-machine", "virtual-machine-interface", 
-                 "vm_x", "vm_x:veth0");
+                 "vm_x", "vm_x:veth0", "virtual-machine-interface-virtual-machine");
     IFMapMsgLink("virtual-machine-interface", "virtual-network", 
                  "vm_x:veth0", "blue");
     IFMapMsgLink("virtual-router", "virtual-machine", "vr-test", "vm_x");
@@ -1022,7 +1024,7 @@ TEST_F(IFMapExporterTest, PR1454380) {
     IFMapMsgLink("project", "virtual-network", "vnc", "blue");
     IFMapMsgLink("project", "virtual-network", "vnc", "red");
     IFMapMsgLink("virtual-machine", "virtual-machine-interface",
-                 "vm_x", "vm_x:veth0");
+                 "vm_x", "vm_x:veth0", "virtual-machine-interface-virtual-machine");
     IFMapMsgLink("virtual-machine-interface", "virtual-network",
                  "vm_x:veth0", "blue");
     IFMapMsgLink("virtual-router", "virtual-machine", "vr-test", "vm_x");
@@ -1121,22 +1123,22 @@ TEST_F(IFMapExporterTest, ConfigTracker) {
     IFMapMsgLink("project", "virtual-network", "vnc", "blue");
     // vm-vmi and vmi-vn for c1.
     IFMapMsgLink("virtual-machine", "virtual-machine-interface",
-                 "vm_c1", "vm_c1:veth0");
+                 "vm_c1", "vm_c1:veth0", "virtual-machine-interface-virtual-machine");
     IFMapMsgLink("virtual-machine-interface", "virtual-network",
                  "vm_c1:veth0", "blue");
     // vm-vmi and vmi-vn for c2.
     IFMapMsgLink("virtual-machine", "virtual-machine-interface",
-                 "vm_c2", "vm_c2:veth0");
+                 "vm_c2", "vm_c2:veth0", "virtual-machine-interface-virtual-machine");
     IFMapMsgLink("virtual-machine-interface", "virtual-network",
                  "vm_c2:veth0", "blue");
     // vm-vmi and vmi-vn for c3.
     IFMapMsgLink("virtual-machine", "virtual-machine-interface",
-                 "vm_c3", "vm_c3:veth0");
+                 "vm_c3", "vm_c3:veth0", "virtual-machine-interface-virtual-machine");
     IFMapMsgLink("virtual-machine-interface", "virtual-network",
                  "vm_c3:veth0", "blue");
     // vm-vmi and vmi-vn for c4.
     IFMapMsgLink("virtual-machine", "virtual-machine-interface",
-                 "vm_c4", "vm_c4:veth0");
+                 "vm_c4", "vm_c4:veth0", "virtual-machine-interface-virtual-machine");
     IFMapMsgLink("virtual-machine-interface", "virtual-network",
                  "vm_c4:veth0", "blue");
     task_util::WaitForIdle();

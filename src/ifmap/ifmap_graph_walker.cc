@@ -4,7 +4,9 @@
 
 #include "ifmap/ifmap_graph_walker.h"
 
+#include <boost/assign/list_of.hpp>
 #include <boost/bind.hpp>
+
 #include "base/logging.h"
 #include "base/task_trigger.h"
 #include "db/db_graph.h"
@@ -18,8 +20,10 @@
 #include "ifmap/ifmap_log_types.h"
 #include "ifmap/ifmap_update.h"
 #include "ifmap/ifmap_util.h"
-#include "ifmap/ifmap_whitelist.h"
 #include "schema/vnc_cfg_types.h"
+
+using boost::assign::list_of;
+using boost::assign::map_list_of;
 
 class GraphPropagateFilter : public DBGraph::VisitorFilter {
 public:
@@ -37,10 +41,6 @@ public:
 
     bool EdgeFilter(const DBGraphVertex *source, const DBGraphVertex *target,
                     const DBGraphEdge *edge) const {
-        bool accept = type_filter_->EdgeFilter(source, target, edge);
-        if (!accept) {
-            return false;
-        }
         const IFMapNode *tgt = static_cast<const IFMapNode *>(target);
         const IFMapNodeState *state = NodeStateLookup(tgt);
         if (state != NULL && state->interest().Contains(bset_)) {
@@ -57,6 +57,10 @@ public:
         return static_cast<const IFMapNodeState *>(state);
     }
 
+    DBGraph::VisitorFilter::AllowedEdgeRetVal AllowedEdges(
+                                       const DBGraphVertex *vertex) const {
+        return type_filter_->AllowedEdges(vertex);
+    }
 private:
     IFMapExporter *exporter_;
     const IFMapTypenameWhiteList *type_filter_;
@@ -72,25 +76,23 @@ IFMapGraphWalker::IFMapGraphWalker(DBGraph *graph, IFMapExporter *exporter)
       walk_client_index_(BitSet::npos) {
     traversal_white_list_.reset(new IFMapTypenameWhiteList());
     AddNodesToWhitelist();
-    AddLinksToWhitelist();
 }
 
 IFMapGraphWalker::~IFMapGraphWalker() {
+}
+
+void IFMapGraphWalker::NotifyEdge(DBGraphEdge *edge, const BitSet &bset) {
+    DBTable *table = exporter_->link_table();
+    table->Change(edge);
 }
 
 void IFMapGraphWalker::JoinVertex(DBGraphVertex *vertex, const BitSet &bset) {
     IFMapNode *node = static_cast<IFMapNode *>(vertex);
     IFMapNodeState *state = exporter_->NodeStateLocate(node);
     IFMAP_DEBUG(JoinVertex, vertex->ToString(), state->interest().ToString(),
-                bset.ToString());
+               bset.ToString());
     exporter_->StateInterestOr(state, bset);
     node->table()->Change(node);
-    // Mark all dependent links as potentially modified.
-    for (IFMapNodeState::iterator iter = state->begin(); iter != state->end();
-         ++iter) {
-        DBTable *table = exporter_->link_table();
-        table->Change(iter.operator->());
-    }
 }
 
 void IFMapGraphWalker::ProcessLinkAdd(IFMapNode *lnode, IFMapNode *rnode,
@@ -98,22 +100,22 @@ void IFMapGraphWalker::ProcessLinkAdd(IFMapNode *lnode, IFMapNode *rnode,
     GraphPropagateFilter filter(exporter_, traversal_white_list_.get(), bset);
     graph_->Visit(rnode,
                   boost::bind(&IFMapGraphWalker::JoinVertex, this, _1, bset),
-                  0,
+                  boost::bind(&IFMapGraphWalker::NotifyEdge, this, _1, bset),
                   filter);
 }
 
-void IFMapGraphWalker::LinkAdd(IFMapNode *lnode, const BitSet &lhs,
+void IFMapGraphWalker::LinkAdd(IFMapLink *link, IFMapNode *lnode, const BitSet &lhs,
                                IFMapNode *rnode, const BitSet &rhs) {
     IFMAP_DEBUG(LinkOper, "LinkAdd", lnode->ToString(), rnode->ToString(),
                 lhs.ToString(), rhs.ToString());
     if (!lhs.empty() && !rhs.Contains(lhs) &&
         traversal_white_list_->VertexFilter(rnode) &&
-        traversal_white_list_->EdgeFilter(lnode, rnode, NULL)) {
+        traversal_white_list_->EdgeFilter(lnode, rnode, link))  {
         ProcessLinkAdd(lnode, rnode, lhs);
     }
     if (!rhs.empty() && !lhs.Contains(rhs) &&
         traversal_white_list_->VertexFilter(lnode) &&
-        traversal_white_list_->EdgeFilter(rnode, lnode, NULL)) {
+        traversal_white_list_->EdgeFilter(rnode, lnode, link)) {
         ProcessLinkAdd(rnode, lnode, rhs);
     }
 }
@@ -125,9 +127,12 @@ void IFMapGraphWalker::LinkRemove(const BitSet &bset) {
 
 // Check if the neighbor or link to neighbor should be filtered. Returns true 
 // if rnode or link to rnode should be filtered.
-bool IFMapGraphWalker::FilterNeighbor(IFMapNode *lnode, IFMapNode *rnode) {
+bool IFMapGraphWalker::FilterNeighbor(IFMapNode *lnode, IFMapLink *link) {
+    IFMapNode *rnode = link->left();
+    if (rnode == lnode)
+        rnode = link->right();
     if (!traversal_white_list_->VertexFilter(rnode) ||
-        !traversal_white_list_->EdgeFilter(lnode, rnode, NULL)) {
+        !traversal_white_list_->EdgeFilter(lnode, NULL, link)) {
         return true;
     }
     return false;
@@ -332,168 +337,80 @@ const IFMapTypenameWhiteList &IFMapGraphWalker::get_traversal_white_list()
 // IFMapGraphTraversalFilterCalculator::CreateNodeBlackList() are mutually 
 // exclusive
 void IFMapGraphWalker::AddNodesToWhitelist() {
-    traversal_white_list_->include_vertex.insert("virtual-router");
-    traversal_white_list_->include_vertex.insert("virtual-machine");
-    traversal_white_list_->include_vertex.insert("bgp-router");
-    traversal_white_list_->include_vertex.insert("global-system-config");
-    traversal_white_list_->include_vertex.insert("provider-attachment");
-    traversal_white_list_->include_vertex.insert("service-instance");
-    traversal_white_list_->include_vertex.insert("global-vrouter-config");
-    traversal_white_list_->include_vertex.insert(
-        "virtual-machine-interface");
-    traversal_white_list_->include_vertex.insert("security-group");
-    traversal_white_list_->include_vertex.insert("physical-router");
-    traversal_white_list_->include_vertex.insert("service-template");
-    traversal_white_list_->include_vertex.insert("instance-ip");
-    traversal_white_list_->include_vertex.insert("virtual-network");
-    traversal_white_list_->include_vertex.insert("floating-ip");
-    traversal_white_list_->include_vertex.insert("alias-ip");
-    traversal_white_list_->include_vertex.insert("customer-attachment");
-    traversal_white_list_->include_vertex.insert(
-        "virtual-machine-interface-routing-instance");
-    traversal_white_list_->include_vertex.insert("physical-interface");
-    traversal_white_list_->include_vertex.insert("domain");
-    traversal_white_list_->include_vertex.insert("floating-ip-pool");
-    traversal_white_list_->include_vertex.insert("alias-ip-pool");
-    traversal_white_list_->include_vertex.insert("logical-interface");
-    traversal_white_list_->include_vertex.insert(
-        "virtual-network-network-ipam");
-    traversal_white_list_->include_vertex.insert("access-control-list");
-    traversal_white_list_->include_vertex.insert("routing-instance");
-    traversal_white_list_->include_vertex.insert("namespace");
-    traversal_white_list_->include_vertex.insert("virtual-DNS");
-    traversal_white_list_->include_vertex.insert("network-ipam");
-    traversal_white_list_->include_vertex.insert("virtual-DNS-record");
-    traversal_white_list_->include_vertex.insert("interface-route-table");
-    traversal_white_list_->include_vertex.insert("subnet");
-    traversal_white_list_->include_vertex.insert("service-health-check");
-    traversal_white_list_->include_vertex.insert("bgp-as-a-service");
-    traversal_white_list_->include_vertex.insert("qos-config");
-    traversal_white_list_->include_vertex.insert("qos-queue");
-    traversal_white_list_->include_vertex.insert("forwarding-class");
-    traversal_white_list_->include_vertex.insert("global-qos-config");
+    traversal_white_list_->include_vertex = map_list_of<std::string, std::set<std::string> > 
+        ("virtual-router",
+         list_of("physical-router-virtual-router")
+                ("virtual-router-virtual-machine")
+                ("global-system-config-virtual-router")
+                ("provider-attachment-virtual-router"))
+        ("virtual-machine",
+         list_of("virtual-machine-service-instance")
+                ("virtual-machine-interface-virtual-machine"))
+        ("bgp-router", 
+         list_of("instance-bgp-router")
+                ("physical-router-bgp-router"))
+        ("global-system-config",
+         list_of("global-system-config-global-vrouter-config")
+                ("global-system-config-global-qos-config")
+                ("qos-config-global-system-config"))
+        ("provider-attachment", std::set<std::string>())
+        ("service-instance", list_of("service-instance-service-template"))
+        ("global-vrouter-config", std::set<std::string>())
+        ("virtual-machine-interface",
+         list_of("virtual-machine-virtual-machine-interface")
+                ("virtual-machine-interface-sub-interface")
+                ("instance-ip-virtual-machine-interface")
+                ("virtual-machine-interface-virtual-network")
+                ("virtual-machine-interface-security-group")
+                ("floating-ip-virtual-machine-interface")
+                ("alias-ip-virtual-machine-interface")
+                ("customer-attachment-virtual-machine-interface")
+                ("virtual-machine-interface-routing-instance")
+                ("virtual-machine-interface-route-table")
+                ("subnet-virtual-machine-interface")
+                ("service-port-health-check")
+                ("bgpaas-virtual-machine-interface")
+                ("virtual-machine-interface-qos-config"))
+        ("security-group", list_of("security-group-access-control-list"))
+        ("physical-router",
+         list_of("physical-router-physical-interface")
+         ("physical-router-logical-interface")
+         ("physical-router-virtual-network"))
+        ("service-template", list_of("domain-service-template"))
+        ("instance-ip", std::set<std::string>())
+        ("virtual-network",
+         list_of("virtual-network-floating-ip-pool")
+         ("virtual-network-alias-ip-pool")
+         ("virtual-network-network-ipam")
+         ("virtual-network-access-control-list")
+         ("virtual-network-routing-instance")
+         ("virtual-network-qos-config"))
+        ("floating-ip", list_of("floating-ip-pool-floating-ip"))
+        ("alias-ip", list_of("alias-ip-pool-alias-ip"))
+        ("customer-attachment", std::set<std::string>())
+        ("virtual-machine-interface-routing-instance",
+         list_of("virtual-machine-interface-routing-instance"))
+        ("physical-interface", list_of("physical-interface-logical-interface"))
+        ("domain", list_of("domain-namespace")("domain-virtual-DNS"))
+        ("floating-ip-pool", list_of("virtual-network-floating-ip-pool"))
+        ("alias-ip-pool", list_of("virtual-network-alias-ip-pool"))
+        ("logical-interface", list_of("logical-interface-virtual-machine-interface"))
+        ("virtual-network-network-ipam", list_of("virtual-network-network-ipam"))
+        ("access-control-list", std::set<std::string>())
+        ("routing-instance", std::set<std::string>())
+        ("namespace", std::set<std::string>())
+        ("virtual-DNS", list_of("virtual-DNS-virtual-DNS-record"))
+        ("network-ipam", list_of("network-ipam-virtual-DNS"))
+        ("virtual-DNS-record", std::set<std::string>())
+        ("interface-route-table", std::set<std::string>())
+        ("subnet", std::set<std::string>())
+        ("service-health-check", std::set<std::string>())
+        ("bgp-as-a-service", list_of("bgpaas-bgp-router"))
+        ("qos-config", std::set<std::string>())
+        ("qos-queue", std::set<std::string>())
+        ("forwarding-class", list_of("forwarding-class-qos-queue"))
+        ("global-qos-config",
+         list_of("global-qos-config-forwarding-class")
+         ("global-qos-config-qos-queue")
+         ("global-qos-config-qos-config"));
 }
-
-void IFMapGraphWalker::AddLinksToWhitelist() {
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-router,target=virtual-machine");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-router,target=bgp-router");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-router,target=global-system-config");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-router,target=provider-attachment");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-router,target=physical-router");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-machine,target=service-instance");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-machine,target=virtual-machine-interface");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-machine-interface,target=virtual-machine");
-    traversal_white_list_->include_edge.insert(
-        "source=bgp-router,target=physical-router");
-    traversal_white_list_->include_edge.insert(
-        "source=service-instance,target=service-template");
-    traversal_white_list_->include_edge.insert(
-        "source=global-system-config,target=global-vrouter-config");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-machine-interface,target=virtual-machine-interface");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-machine-interface,target=instance-ip");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-machine-interface,target=virtual-network");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-machine-interface,target=security-group");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-machine-interface,target=floating-ip");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-machine-interface,target=alias-ip");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-machine-interface,target=customer-attachment");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-machine-interface,target=virtual-machine-interface-routing-instance");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-machine-interface,target=interface-route-table");       
-    traversal_white_list_->include_edge.insert(
-        "source=logical-interface,target=virtual-machine-interface");
-    traversal_white_list_->include_edge.insert(
-        "source=physical-router,target=physical-interface");
-    traversal_white_list_->include_edge.insert(
-        "source=physical-router,target=logical-interface");
-    traversal_white_list_->include_edge.insert(
-        "source=physical-router,target=virtual-network");
-    traversal_white_list_->include_edge.insert(
-        "source=physical-interface,target=logical-interface");
-    traversal_white_list_->include_edge.insert(
-        "source=service-template,target=domain");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-network,target=floating-ip-pool");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-network,target=alias-ip-pool");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-network,target=virtual-network-network-ipam");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-network,target=access-control-list");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-network,target=routing-instance");
-    traversal_white_list_->include_edge.insert(
-        "source=domain,target=namespace");
-    traversal_white_list_->include_edge.insert(
-        "source=domain,target=virtual-DNS");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-network-network-ipam,target=network-ipam");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-DNS,target=virtual-DNS-record");
-    traversal_white_list_->include_edge.insert(
-        "source=security-group,target=access-control-list");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-machine-interface,target=subnet");
-
-    // Manually add required links not picked by the
-    // IFMapGraphTraversalFilterCalculator
-    traversal_white_list_->include_edge.insert(
-        "source=floating-ip,target=floating-ip-pool");
-    traversal_white_list_->include_edge.insert(
-        "source=alias-ip,target=alias-ip-pool");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-machine-interface-routing-instance,target=routing-instance");
-    // VDNS needs dns/dhcp info from IPAM and FQN from Domain.
-    traversal_white_list_->include_edge.insert(
-        "source=network-ipam,target=virtual-DNS");
-    // Need this to get from floating-ip-pool to the virtual-network we are
-    // getting the pool from. EG: public-network (might not have any VMs)
-    traversal_white_list_->include_edge.insert(
-        "source=floating-ip-pool,target=virtual-network");
-    // Need this to get from alias-ip-pool to the virtual-network we are
-    // getting the pool from. since alias ip network might not have any VMs
-    traversal_white_list_->include_edge.insert(
-        "source=alias-ip-pool,target=virtual-network");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-machine-interface,target=service-health-check");
-    traversal_white_list_->include_edge.insert(
-        "source=virtual-machine-interface,target=bgp-as-a-service");
-    traversal_white_list_->include_edge.insert(
-        "source=bgp-as-a-service,target=bgp-router");
-    traversal_white_list_->include_edge.insert(
-        "source=bgp-router,target=routing-instance");
-
-
-    traversal_white_list_->include_edge.insert(
-                    "source=global-system-config,target=global-qos-config");
-    traversal_white_list_->include_edge.insert(
-                    "source=global-qos-config,target=forwarding-class");
-    traversal_white_list_->include_edge.insert(
-                    "source=global-qos-config,target=qos-queue");
-    traversal_white_list_->include_edge.insert(
-                    "source=forwarding-class,target=qos-queue");
-    traversal_white_list_->include_edge.insert(
-                    "source=global-qos-config,target=qos-config");
-    traversal_white_list_->include_edge.insert(
-                    "source=virtual-machine-interface,target=qos-config");
-    traversal_white_list_->include_edge.insert(
-                    "source=virtual-network,target=qos-config");
-    traversal_white_list_->include_edge.insert(
-                    "source=global-system-config,target=qos-config");
-}
-

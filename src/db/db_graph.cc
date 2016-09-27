@@ -10,6 +10,8 @@
 #pragma clang diagnostic ignored "-Wunneeded-internal-declaration"
 #endif
 
+#include <boost/foreach.hpp>
+#include <boost/scoped_ptr.hpp>
 #include <boost/graph/breadth_first_search.hpp>
 #include <boost/graph/filtered_graph.hpp>
 
@@ -18,6 +20,7 @@
 #endif
 
 #include "base/logging.h"
+#include "base/time_util.h"
 #include "db/db_graph_vertex.h"
 #include "db/db_graph_edge.h"
 
@@ -35,32 +38,19 @@ void DBGraph::RemoveNode(DBGraphVertex *entry) {
     entry->VertexInvalidate();
 }
 
-DBGraph::Edge DBGraph::Link(DBGraphVertex *lhs, DBGraphVertex *rhs) {
+DBGraph::Edge DBGraph::Link(DBGraphVertex *lhs, DBGraphVertex *rhs,
+                            DBGraphEdge *edge) {
     DBGraph::Edge edge_id;
     bool added;
-    boost::tie(edge_id, added) = add_edge(lhs->vertex(), rhs->vertex(), graph_);
+    boost::tie(edge_id, added) = add_edge(lhs->vertex(), rhs->vertex(),
+                                    EdgeProperties(edge->name(), edge), graph_);
     assert(added);
+    edge->SetEdge(edge_id);
     return edge_id;
 }
 
-void DBGraph::Unlink(DBGraphVertex *lhs, DBGraphVertex *rhs) {
-    remove_edge(lhs->vertex(), rhs->vertex(), graph_);
-}
-
-void DBGraph::SetEdgeProperty(DBGraphEdge *edge) {
-    DBGraphBase::EdgeProperties &properties = graph_[edge->edge_id()];
-    properties.edge = edge;
-}
-
-DBGraphEdge *DBGraph::GetEdge(const DBGraphVertex *src,
-                              const DBGraphVertex *tgt) {
-    edge_descriptor edge_id;
-    bool exists;
-    boost::tie(edge_id, exists) = edge(src->vertex(), tgt->vertex(), graph_);
-    if (!exists) {
-        return NULL;
-    }
-    return graph_[edge_id].edge;
+void DBGraph::Unlink(DBGraphEdge *edge) {
+    remove_edge(edge->edge_id(), graph_);
 }
 
 template <typename GraphType>
@@ -132,16 +122,12 @@ struct DBGraph::EdgePredicate {
         : graph_(graph), filter_(&filter) {
     }
 
-    bool operator()(const Edge &edge) const {
-        const DBGraphVertex *src = graph_->vertex_data(
-            source(edge, graph_->graph_));
-        const DBGraphVertex *tgt = graph_->vertex_data(
-            target(edge, graph_->graph_));
-        const DBGraphEdge *entry = graph_->edge_data(edge);
-        if (entry->IsDeleted()) {
+    bool operator()(const DBGraphVertex *src, const DBGraphVertex *tgt,
+                    const DBGraphEdge *edge) const {
+        if (edge->IsDeleted()) {
             return false;
         }
-        return filter_->EdgeFilter(src, tgt, entry);
+        return filter_->EdgeFilter(src, tgt, edge);
     }
 
 private:
@@ -154,8 +140,7 @@ struct DBGraph::VertexPredicate {
     VertexPredicate(const DBGraph *graph, const VisitorFilter &filter)
         : graph_(graph), filter_(&filter) {
     }
-    bool operator()(const Vertex &vertex) const {
-        const DBGraphVertex *entry = graph_->vertex_data(vertex);
+    bool operator()(const DBGraphVertex *entry) const {
         if (entry->IsDeleted()) {
             return false;
         }
@@ -166,18 +151,84 @@ private:
     const VisitorFilter *filter_;
 };
 
+DBGraphVertex *DBGraph::vertex_target(DBGraphVertex *current_vertex,
+                                      DBGraphEdge *edge) {
+    DBGraphVertex *adjacent_vertex = edge->target(this);
+    if (adjacent_vertex == current_vertex) {
+        adjacent_vertex = edge->source(this);
+    }
+    return adjacent_vertex;
+}
+
+
+void DBGraph::IterateEdges(DBGraphVertex *current_vertex,
+                   OutEdgeIterator &iter_begin, OutEdgeIterator &iter_end,
+                   VertexVisitor vertex_visit_fn, EdgeVisitor edge_visit_fn,
+                   EdgePredicate &edge_test, VertexPredicate &vertex_test,
+                   uint64_t curr_walk, VisitQ &visit_q,
+                   bool match_name, const std::string &allowed_edge) {
+    for (; iter_begin != iter_end; ++iter_begin) {
+        const DBGraph::EdgeProperties &e_prop = get(edge_bundle, *iter_begin);
+        DBGraphEdge *edge = e_prop.edge;
+        if (match_name && e_prop.name() != allowed_edge) break;
+        DBGraphVertex *adjacent_vertex = vertex_target(current_vertex, edge);
+        if (edge_visit_fn) edge_visit_fn(edge);
+        if (!edge_test(current_vertex, adjacent_vertex, edge)) continue;
+        if (adjacent_vertex->visited(curr_walk)) continue;
+        if (vertex_test(adjacent_vertex)) {
+            vertex_visit_fn(adjacent_vertex);
+            visit_q.push(adjacent_vertex);
+        }
+        adjacent_vertex->set_visited(curr_walk);
+    }
+}
+
 void DBGraph::Visit(DBGraphVertex *start, VertexVisitor vertex_visit_fn,
                     EdgeVisitor edge_visit_fn, const VisitorFilter &filter) {
-    typedef filtered_graph<graph_t, EdgePredicate, VertexPredicate>
-        filtered_graph_t;
+    uint64_t t = ClockMonotonicUsec();
+    uint64_t curr_walk = get_graph_walk_num();
     EdgePredicate edge_test(this, filter);
     VertexPredicate vertex_test(this, filter);
-    filtered_graph_t gfiltered(graph_, edge_test, vertex_test);
 
-    const BFSVisitor<filtered_graph_t> vis(vertex_visit_fn, edge_visit_fn);
-    ColorMap color_map;
-    breadth_first_search(gfiltered, start->vertex(),
-            visitor(vis).color_map(make_assoc_property_map(color_map)));
+    VisitQ visit_q;
+
+    visit_q.push(start);
+    start->set_visited(curr_walk);
+    if (vertex_test(start)) {
+        vertex_visit_fn(start);
+    }
+    while (!visit_q.empty()) {
+        DBGraphVertex *vertex = visit_q.front();
+        visit_q.pop();
+        // Get All out-edges from the node
+        OutEdgeListType &out_edge_set = graph_.out_edge_list(vertex->vertex());
+        if (out_edge_set.empty()) continue;
+
+        OutEdgeListType::iterator it = out_edge_set.begin();
+        OutEdgeListType::iterator it_end = out_edge_set.end();
+
+        // Collect all allowed edges to visit
+        DBGraph::VisitorFilter::AllowedEdgeRetVal allowed_edge_ret =
+            filter.AllowedEdges(vertex);
+
+        if (!allowed_edge_ret.first) {
+            BOOST_FOREACH (std::string allowed_edge, allowed_edge_ret.second) {
+                EdgeContainer fake_container;
+                fake_container.push_back(
+                         EdgeType(0, 0, EdgeProperties(allowed_edge, NULL)));
+                StoredEdge es(vertex->vertex(), fake_container.begin());
+                // Call lower_bound on out edge list and walk on selected edges
+                it = out_edge_set.lower_bound(es);
+                IterateEdges(vertex, it, it_end, vertex_visit_fn, edge_visit_fn,
+                edge_test, vertex_test, curr_walk, visit_q, true, allowed_edge);
+            }
+        } else {
+            IterateEdges(vertex, it, it_end, vertex_visit_fn, edge_visit_fn,
+                         edge_test, vertex_test, curr_walk, visit_q);
+        }
+    }
+    uint64_t end_t = ClockMonotonicUsec();
+    std::cout << "Graph Walk time(in usec) " <<  (end_t-t) << std::endl;
 }
 
 DBGraph::edge_iterator::edge_iterator(DBGraph *graph) : graph_(graph) {
@@ -186,10 +237,11 @@ DBGraph::edge_iterator::edge_iterator(DBGraph *graph) : graph_(graph) {
     }
 }
 
-DBGraph::DBVertexPair DBGraph::edge_iterator::dereference() const {
+DBGraph::DBEdgeInfo DBGraph::edge_iterator::dereference() const {
     Vertex src = source(*iter_, *graph_->graph());
     Vertex tgt = target(*iter_, *graph_->graph());
-    return make_pair(graph_->vertex_data(src), graph_->vertex_data(tgt));
+    return boost::make_tuple(graph_->vertex_data(src), graph_->vertex_data(tgt),
+                             graph_->edge_data(*iter_));
 }
 
 bool DBGraph::edge_iterator::equal(const edge_iterator &rhs) const {
@@ -257,3 +309,9 @@ size_t DBGraph::edge_count() const {
     return num_edges(graph_);
 }
 
+template <class StoredEdge>
+bool order_by_name<StoredEdge>::operator()(const StoredEdge& e1, const StoredEdge& e2) const {
+    const DBGraph::EdgeProperties &edge1 = get(edge_bundle, e1);
+    const DBGraph::EdgeProperties &edge2 = get(edge_bundle, e2);
+    return edge1.name() < edge2.name();
+}

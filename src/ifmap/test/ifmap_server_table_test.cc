@@ -4,6 +4,7 @@
 
 #include "ifmap/ifmap_server_table.h"
 
+#include <boost/assign/list_of.hpp>
 #include <boost/bind.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/crc.hpp>      // for boost::crc_32_type
@@ -20,6 +21,8 @@
 #include "ifmap/test/ifmap_test_util.h"
 #include "testing/gunit.h"
 
+using boost::assign::list_of;
+using boost::assign::map_list_of;
 using namespace std;
 
 /// datatypes to be generated from xsd ///
@@ -389,8 +392,9 @@ TEST_F(IFMapServerTableTest, CreateDelete) {
 
     for (DBGraph::edge_iterator iter = graph_.edge_list_begin();
          iter != graph_.edge_list_end(); ++iter) {
-        IFMapNode *lhs = static_cast<IFMapNode *>(iter->first);
-        IFMapNode *rhs = static_cast<IFMapNode *>(iter->second);
+        const DBGraph::DBEdgeInfo &tuple = *iter;
+        IFMapNode *lhs = static_cast<IFMapNode *>(boost::get<0>(tuple));
+        IFMapNode *rhs = static_cast<IFMapNode *>(boost::get<1>(tuple));
         LOG(DEBUG, lhs->ToString() << " - " << rhs->ToString());
     }
 
@@ -437,9 +441,10 @@ TEST_F(IFMapServerTableTest, Traversal) {
 
     // walk the networks associated with vs1
     IFMapTypenameFilter criteria;
-    criteria.exclude_vertex.push_back("tenant");    
-    criteria.exclude_edge.push_back(
-        "source=virtual-network,target=virtual-machine");
+
+    criteria.exclude_vertex = list_of<std::string> ("tenant");
+    criteria.exclude_edge = map_list_of<std::string, std::set<std::string> > 
+        ("virtual-network", list_of("virtual-network-virtual-machine"));
 
     LOG(DEBUG, "filtered visit 1");
     graph_visitor f1;

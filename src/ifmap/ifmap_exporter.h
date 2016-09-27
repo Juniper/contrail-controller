@@ -69,7 +69,7 @@ public:
     DBTable *link_table() { return link_table_; }
     IFMapServer *server() { return server_; }
 
-    bool FilterNeighbor(IFMapNode *lnode, IFMapNode *rnode);
+    bool FilterNeighbor(IFMapNode *lnode, IFMapLink *link);
 
     void AddClientConfigTracker(int index);
     void DeleteClientConfigTracker(int index);

@@ -16,7 +16,7 @@
 using namespace std;
 
 IFMapLinkTable::IFMapLinkTable(DB *db, const string &name, DBGraph *graph)
-        : DBTable(db, name), graph_(graph) {
+        : DBGraphTable(db, name, graph) {
 }
 
 void IFMapLinkTable::Input(DBTablePartition *partition, DBClient *client,
@@ -36,7 +36,7 @@ std::auto_ptr<DBEntry> IFMapLinkTable::AllocEntry(
 std::string IFMapLinkTable::LinkKey(const string &metadata, 
                                         IFMapNode *left, IFMapNode *right) {
     ostringstream oss;
-    if (left->IsLess(*right)) {
+    if (left->ToString() < right->ToString()) {
         oss << metadata << "," << left->ToString() << "," << right->ToString();
     } else {
         oss << metadata << "," << right->ToString() << "," << left->ToString();
@@ -44,8 +44,7 @@ std::string IFMapLinkTable::LinkKey(const string &metadata,
     return oss.str();
 }
 
-void IFMapLinkTable::AddLink(DBGraphBase::edge_descriptor edge,
-                             IFMapNode *left, IFMapNode *right,
+IFMapLink *IFMapLinkTable::AddLink(IFMapNode *left, IFMapNode *right,
                              const string &metadata, uint64_t sequence_number,
                              const IFMapOrigin &origin) {
     DBTablePartition *partition =
@@ -62,8 +61,13 @@ void IFMapLinkTable::AddLink(DBGraphBase::edge_descriptor edge,
         link = new IFMapLink(link_name);
         partition->Add(link);
     }
-    link->SetProperties(edge, left, right, metadata, sequence_number, origin);
-    graph_->SetEdgeProperty(link);
+    link->SetProperties(left, right, metadata, sequence_number, origin);
+    return link;
+}
+
+IFMapLink *IFMapLinkTable::FindLink(const string &metadata, IFMapNode *left, IFMapNode *right) {
+    string link_name = LinkKey(metadata, left, right);
+    return FindLink(link_name);
 }
 
 IFMapLink *IFMapLinkTable::FindLink(const string &name) {
@@ -84,8 +88,9 @@ IFMapLink *IFMapLinkTable::FindNextLink(const string &name) {
     return static_cast<IFMapLink *>(partition->FindNext(&key));
 }
 
-void IFMapLinkTable::DeleteLink(DBGraphEdge *edge) {
-    IFMapLink *link = static_cast<IFMapLink *>(edge);
+void IFMapLinkTable::DeleteLink(IFMapLink *link) {
+    DBGraphEdge *edge = static_cast<DBGraphEdge *>(link);
+    graph()->Unlink(edge);
     link->set_last_change_at_to_now();
     link->ClearNodes();
     DBTablePartition *partition =
@@ -93,20 +98,10 @@ void IFMapLinkTable::DeleteLink(DBGraphEdge *edge) {
     partition->Delete(edge);    
 }
 
-void IFMapLinkTable::DeleteLink(DBGraphEdge *edge, IFMapNode *lhs,
-                                IFMapNode *rhs) {
-    DeleteLink(edge);
-    graph_->Unlink(lhs, rhs);
-}
-
-void IFMapLinkTable::DeleteLink(IFMapNode *lhs, IFMapNode *rhs,
-                                const IFMapOrigin &origin) {
-    DBGraphEdge *edge = graph_->GetEdge(lhs, rhs);
-    IFMapLink *link = static_cast<IFMapLink *>(edge);
+void IFMapLinkTable::DeleteLink(IFMapLink *link, const IFMapOrigin &origin) {
     link->RemoveOriginInfo(origin.origin);
     if (link->is_origin_empty()) {
-        DeleteLink(edge);
-        graph_->Unlink(lhs, rhs);
+        DeleteLink(link);
     }
 }
 
@@ -128,7 +123,7 @@ void IFMapLinkTable::Clear() {
         if (link->IsDeleted()) {
             continue;
         }
-        graph_->Unlink(link->source(graph_), link->target(graph_));
+        graph()->Unlink(link);
         partition->Delete(link);
     }
 }

@@ -12,6 +12,7 @@
 #include "ifmap/ifmap_link.h"
 #include "ifmap/ifmap_node.h"
 #include "ifmap/ifmap_table.h"
+#include "ifmap/ifmap_link_table.h"
 
 using namespace std;
 
@@ -55,7 +56,7 @@ void IFMapNodeNotify(DB *db, const string &type, const string &name) {
     table->GetTablePartition(0)->Notify(node);
 }
 
-IFMapLink *IFMapLinkLookup(DB *db, DBGraph *graph,
+IFMapLink *IFMapLinkLookup(DB *db, DBGraph *graph, const string &metadata,
                            const string &ltype, const string &lid,
                            const string &rtype, const string &rid) {
     IFMapNode *lnode = IFMapNodeLookup(db, ltype, lid);
@@ -63,15 +64,20 @@ IFMapLink *IFMapLinkLookup(DB *db, DBGraph *graph,
     if (lnode == NULL || rnode == NULL) {
         return NULL;
     }
-    return static_cast<IFMapLink *>(graph->GetEdge(lnode, rnode));
+    IFMapLinkTable *table =
+        static_cast<IFMapLinkTable *>(db->FindTable("__ifmap_metadata__.0"));
+    IFMapLink *link = table->FindLink(metadata, lnode, rnode);
+    if (link == NULL) {
+        return NULL;
+    }
+    return link;
 }
 
-void IFMapLinkNotify(DB *db, DBGraph *graph,
+void IFMapLinkNotify(DB *db, DBGraph *graph, const string &metadata,
                      const string &ltype, const string &lid,
                      const string &rtype, const string &rid) {
-    IFMapLink *link = IFMapLinkLookup(db, graph, ltype, lid, rtype, rid);
-    DBTable *table =
-        static_cast<DBTable *>(db->FindTable("__ifmap_metadata__.0"));
+    IFMapLink *link = IFMapLinkLookup(db, graph, metadata, ltype, lid, rtype, rid);
+    DBTable *table = static_cast<DBTable *>(db->FindTable("__ifmap_metadata__.0"));
     table->GetTablePartition(0)->Notify(link);
 }
 

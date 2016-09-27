@@ -18,7 +18,6 @@
 #include "ifmap/ifmap_server_parser.h"
 #include "ifmap/ifmap_table.h"
 #include "ifmap/ifmap_util.h"
-#include "ifmap/ifmap_whitelist.h"
 #include "ifmap/test/ifmap_client_mock.h"
 #include "ifmap/test/ifmap_test_util.h"
 #include "schema/bgp_schema_types.h"
@@ -657,6 +656,7 @@ TEST_F(IFMapGraphWalkerTest, VrsubConfignoprop) {
     c1.PrintNodes();
 }
 
+#if 0
 // Calculate the white list filter information based on the xsd.
 TEST_F(IFMapGraphWalkerTest, PopulateWhiteList) {
     // Populate 'filter_info' with information from the xsd
@@ -685,6 +685,7 @@ TEST_F(IFMapGraphWalkerTest, PopulateWhiteList) {
         std::cout << "\t" << *it << std::endl;
     }
 }
+#endif
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
