@@ -19,8 +19,13 @@ struct ProuterData {
     /* The following list can atmost have one element. It is defined as list
        to support aggregation. Backup agent will send empty list for the
        following field while master agent will send its name as the only
-       element in the list */
+       element in the list. This list will contain only tor-agent names */
     7: optional list<string>  connected_agent_list (aggtype="union")
+    /* The following list can atmost have one element. It is defined as list
+       to support aggregation. Backup agent will send empty list for the
+       following field while master agent will send its name as the only
+       element in the list. This list will contain only tsn-agent names */
+    8: optional list<string>  tsn_agent_list (aggtype="union")
 }
 
 /**
