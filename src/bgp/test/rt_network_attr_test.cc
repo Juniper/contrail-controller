@@ -70,7 +70,7 @@ TEST_F(NetworkConfigTest, SoapMessage1) {
     if (rti != NULL) {
 	    TASK_UTIL_WAIT_NE_NO_MSG(rti->virtual_network_index(),
 	        0, 1000, 10000, "Wait for vn index..");
-        string netname = rti->virtual_network();
+        string netname = rti->GetVirtualNetworkName();
         size_t colon = netname.rfind(":");
         if (colon != string::npos) {
             netname = netname.substr(colon + 1);
@@ -86,7 +86,7 @@ TEST_F(NetworkConfigTest, SoapMessage1) {
     if (rti != NULL) {
 	    TASK_UTIL_WAIT_NE_NO_MSG(rti->virtual_network_index(),
 	        0, 1000, 10000, "Wait for vn index..");
-        string netname = rti->virtual_network();
+        string netname = rti->GetVirtualNetworkName();
         size_t colon = netname.rfind(":");
         if (colon != string::npos) {
             netname = netname.substr(colon + 1);
@@ -113,7 +113,7 @@ TEST_F(NetworkConfigTest, SoapMessage2) {
     if (rti != NULL) {
 	    TASK_UTIL_WAIT_NE_NO_MSG(rti->virtual_network_index(),
 	        0, 1000, 10000, "Wait for vn index..");
-        string netname = rti->virtual_network();
+        string netname = rti->GetVirtualNetworkName();
         size_t colon = netname.rfind(":");
         if (colon != string::npos) {
             netname = netname.substr(colon + 1);
@@ -138,7 +138,7 @@ TEST_F(NetworkConfigTest, Dependency) {
                                   "virtual-network", "color",
                                   "virtual-network-routing-instance");
     task_util::WaitForIdle();
-    EXPECT_EQ("color", blue->virtual_network());
+    EXPECT_EQ("color", blue->GetVirtualNetworkName());
 
     RouteTarget tgt1 = RouteTarget::FromString("target:1:1");
     const RoutingInstance *rti = manager->GetInstanceByTarget(tgt1);

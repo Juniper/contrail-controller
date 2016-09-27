@@ -220,7 +220,7 @@ const RoutingInstance *RoutingInstanceMgr::GetInstanceByVnIndex(
 string RoutingInstanceMgr::GetVirtualNetworkByVnIndex(
         int vn_index) const {
     const RoutingInstance *rti = GetInstanceByVnIndex(vn_index);
-    return rti ? rti->virtual_network() : "unresolved";
+    return rti ? rti->GetVirtualNetworkName() : "unresolved";
 }
 
 //
@@ -1162,10 +1162,6 @@ const string RoutingInstance::GetVirtualNetworkName() const {
     }
 }
 
-const string RoutingInstance::virtual_network() const {
-    return virtual_network_.empty() ? "unresolved" : virtual_network_;
-}
-
 int RoutingInstance::virtual_network_index() const {
     return virtual_network_index_;
 }
@@ -1498,7 +1494,7 @@ void RoutingInstance::set_index(int index) {
 
 RoutingInstanceInfo RoutingInstance::GetDataCollection(const char *operation) {
     RoutingInstanceInfo info;
-    info.set_name(virtual_network_);
+    info.set_name(GetVirtualNetworkName());
     info.set_instance_name(name_);
     info.set_hostname(server_->localname());
     if (rd_.get()) info.set_route_distinguisher(rd_->ToString());
