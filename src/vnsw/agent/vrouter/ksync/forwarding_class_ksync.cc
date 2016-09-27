@@ -9,6 +9,7 @@
 #include <ksync/ksync_netlink.h>
 #include <ksync/ksync_sock.h>
 #include <vrouter/ksync/ksync_init.h>
+#include <init/agent_param.h>
 #include "vrouter/ksync/qos_queue_ksync.h"
 #include "vrouter/ksync/forwarding_class_ksync.h"
 
@@ -86,6 +87,9 @@ bool ForwardingClassKSyncEntry::Sync(DBEntry *e) {
     uint16_t nic_queue = Agent::kInvalidQueueId;
     if (fc->qos_queue_ref()) {
         nic_queue = fc->qos_queue_ref()->nic_queue_id();
+    } else {
+        nic_queue = (static_cast<QosQueueKSyncObject *>(ksync_obj_))->ksync()->
+                         agent()->params()->default_nic_queue();
     }
 
     if (nic_queue_id_ != nic_queue) {
