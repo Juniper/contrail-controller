@@ -3217,7 +3217,7 @@ class VncApiServer(object):
             # parent uuid could be null for derived resources such as
             # routing-instance
             return (True, '')
-        return self._permissions.check_perms_write(request, parent_uuid)
+        return self._permissions.check_perms_delete(request, parent_uuid)
     # end _http_delete_common
 
     def _http_post_validate(self, obj_type=None, obj_dict=None):
