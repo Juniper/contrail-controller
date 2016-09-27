@@ -349,7 +349,7 @@ void ProuterUveTable::FrameProuterMsg(ProuterUveEntry *entry,
                                       ProuterData *uve) const {
     vector<string> phy_if_list;
     vector<string> logical_list;
-    vector<string> connected_agent_list;
+    vector<string> empty_agent_list;
     /* We are using hostname instead of fq-name because Prouter UVE sent by
      * other modules to send topology information uses hostname and we want
      * both these information to be seen in same UVE */
@@ -373,11 +373,18 @@ void ProuterUveTable::FrameProuterMsg(ProuterUveEntry *entry,
     }
     uve->set_logical_interface_list(logical_list);
     if (entry->mastership_) {
-        connected_agent_list.push_back(agent_->agent_name());
-        uve->set_connected_agent_list(connected_agent_list);
+        vector<string> agent_list;
+        agent_list.push_back(agent_->agent_name());
+        if (agent_->tsn_enabled()) {
+            uve->set_tsn_agent_list(agent_list);
+            uve->set_connected_agent_list(empty_agent_list);
+        } else if (agent_->simulate_evpn_tor()) {
+            uve->set_connected_agent_list(agent_list);
+            uve->set_tsn_agent_list(empty_agent_list);
+        }
     } else {
         /* Send Empty list */
-        uve->set_connected_agent_list(connected_agent_list);
+        uve->set_connected_agent_list(empty_agent_list);
     }
 }
 
