@@ -193,7 +193,7 @@ class VncApiServer(object):
     ]
     def __new__(cls, *args, **kwargs):
         obj = super(VncApiServer, cls).__new__(cls, *args, **kwargs)
-        obj.api_bottle = bottle.Bottle() 
+        obj.api_bottle = bottle.Bottle()
         obj.route('/', 'GET', obj.homepage_http_get)
         obj.api_bottle.error_handler = {
                 400: error_400,
@@ -400,6 +400,15 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(
                 404, "Resource type '%s' not found" % type)
 
+    def undo(self, result, obj_type, id=None, fq_name=None):
+        (code, msg) = result
+        get_context().invoke_undo(code, msg, self.config_log)
+        failed_stage = get_context().get_state()
+        self.config_object_error(
+            id, fq_name, obj_type, failed_stage, msg)
+    # end undo
+
+    # end undo_delete
     # http_resource_<oper> - handlers invoked from
     # a. bottle route (on-the-wire) OR
     # b. internal requests
@@ -488,14 +497,6 @@ class VncApiServer(object):
         # State modification starts from here. Ensure that cleanup is done for all state changes
         cleanup_on_failure = []
         obj_ids = {}
-        def undo_create(result):
-            (code, msg) = result
-            get_context().invoke_undo(code, msg, self.config_log)
-            failed_stage = get_context().get_state()
-            fq_name_str = ':'.join(fq_name)
-            self.config_object_error(
-                None, fq_name_str, obj_type, failed_stage, msg)
-        # end undo_create
 
         def stateful_create():
             # Alloc and Store id-mappings before creating entry on pubsub store.
@@ -550,7 +551,8 @@ class VncApiServer(object):
             err_msg = cfgm_common.utils.detailed_traceback()
             result = (500, err_msg)
         if not ok:
-            undo_create(result)
+            fq_name_str = ':'.join(fq_name)
+            self.undo(result, obj_type, fq_name=fq_name_str)
             code, msg = result
             raise cfgm_common.exceptions.HttpError(code, msg)
 
@@ -742,13 +744,6 @@ class VncApiServer(object):
         # State modification starts from here. Ensure that cleanup is done for all state changes
         cleanup_on_failure = []
         obj_ids = {'uuid': id}
-        def undo_update(result):
-            (code, msg) = result
-            get_context().invoke_undo(code, msg, self.config_log)
-            failed_stage = get_context().get_state()
-            self.config_object_error(
-                id, None, obj_type, failed_stage, msg)
-        # end undo_update
 
         def stateful_update():
             get_context().set_state('PRE_DBE_UPDATE')
@@ -780,7 +775,7 @@ class VncApiServer(object):
             err_msg = cfgm_common.utils.detailed_traceback()
             result = (500, err_msg)
         if not ok:
-            undo_update(result)
+            self.undo(result, obj_type, id=id)
             code, msg = result
             raise cfgm_common.exceptions.HttpError(code, msg)
 
@@ -902,14 +897,6 @@ class VncApiServer(object):
         # State modification starts from here. Ensure that cleanup is done for all state changes
         cleanup_on_failure = []
 
-        def undo_delete(result):
-            (code, msg) = result
-            get_context().invoke_undo(code, msg, self.config_log)
-            failed_stage = get_context().get_state()
-            self.config_object_error(
-                id, None, obj_type, failed_stage, msg)
-        # end undo_delete
-
         def stateful_delete():
             get_context().set_state('PRE_DBE_DELETE')
             (ok, del_result) = r_class.pre_dbe_delete(id, read_result, db_conn)
@@ -926,7 +913,7 @@ class VncApiServer(object):
             callable = getattr(r_class, 'http_delete_fail', None)
             if callable:
                 cleanup_on_failure.append((callable, [id, read_result, db_conn]))
-            
+
             get_context().set_state('DBE_DELETE')
             (ok, del_result) = db_conn.dbe_delete(
                 obj_type, obj_ids, read_result)
@@ -960,7 +947,7 @@ class VncApiServer(object):
             err_msg = cfgm_common.utils.detailed_traceback()
             result = (500, err_msg)
         if not ok:
-            undo_delete(result)
+            self.undo(result, obj_type, id=id)
             code, msg = result
             raise cfgm_common.exceptions.HttpError(code, msg)
 
@@ -1136,6 +1123,9 @@ class VncApiServer(object):
             set_context(orig_context)
     # end internal_request_ref_update
 
+    def alloc_vn_id(self, name):
+        return self._db_conn._zk_db.alloc_vn_id(name)
+
     def create_default_children(self, object_type, parent_obj):
         r_class = self.get_resource_class(object_type)
         for child_fields in r_class.children_fields:
@@ -1160,7 +1150,7 @@ class VncApiServer(object):
             # For virtual networks, allocate an ID
             if child_obj_type == 'virtual_network':
                 child_dict['virtual_network_network_id'] =\
-                    self._db_conn._zk_db.alloc_vn_id(
+                    self.alloc_vn_id(
                         child_obj.get_fq_name_str())
 
             (ok, result) = self._db_conn.dbe_create(child_obj_type, obj_ids,
@@ -2590,14 +2580,22 @@ class VncApiServer(object):
         obj_cache_exclude_types = \
             [t.replace('-', '_').strip() for t in
              self._args.object_cache_exclude_types.split(',')]
+        db_engine = self._args.db_engine
         cred = None
-        if cassandra_user is not None and cassandra_password is not None:
-            cred = {'username':cassandra_user,'password':cassandra_password}
+
+        db_server_list = None
+        if db_engine == 'cassandra':
+            if cassandra_user is not None and cassandra_password is not None:
+                cred = {'username':cassandra_user,'password':cassandra_password}
+            db_server_list = cass_server_list
+
         self._db_conn = VncDbClient(
-            self, ifmap_ip, ifmap_port, user, passwd, cass_server_list,
+            self, ifmap_ip, ifmap_port, user, passwd, db_server_list,
             rabbit_servers, rabbit_port, rabbit_user, rabbit_password,
             rabbit_vhost, rabbit_ha_mode, reset_config, zk_server,
-            self._args.cluster_id, cassandra_credential=cred,
+            self._args.cluster_id,
+            db_credential=cred,
+            db_engine=db_engine,
             rabbit_use_ssl=self._args.rabbit_use_ssl,
             kombu_ssl_version=self._args.kombu_ssl_version,
             kombu_ssl_keyfile= self._args.kombu_ssl_keyfile,
@@ -2841,7 +2839,7 @@ class VncApiServer(object):
         # TODO remove backward compat create mapping in zk
         # for singleton START
         try:
-            cass_uuid = self._db_conn._cassandra_db.fq_name_to_uuid(obj_type, fq_name)
+            cass_uuid = self._db_conn._object_db.fq_name_to_uuid(obj_type, fq_name)
             try:
                 zk_uuid = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
             except NoIdError:
@@ -2852,8 +2850,6 @@ class VncApiServer(object):
             # doesn't exist in cassandra as well as zookeeper, proceed normal
             pass
         # TODO backward compat END
-
-
         # create if it doesn't exist yet
         try:
             id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
@@ -2865,7 +2861,7 @@ class VncApiServer(object):
             obj_ids = result
             # For virtual networks, allocate an ID
             if obj_type == 'virtual_network':
-                vn_id = self._db_conn._zk_db.alloc_vn_id(
+                vn_id = self.alloc_vn_id(
                     s_obj.get_fq_name_str())
                 obj_dict['virtual_network_network_id'] = vn_id
             self._db_conn.dbe_create(obj_type, obj_ids, obj_dict)
