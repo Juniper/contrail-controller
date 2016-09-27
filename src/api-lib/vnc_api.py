@@ -1222,6 +1222,14 @@ class VncApi(object):
                 del self._headers['X-USER-TOKEN']
         return rv
 
+    def is_cloud_admin_role(self):
+        rv = self.obj_perms(self.get_auth_token()) or {}
+        return rv.get('is_cloud_admin_role', False)
+
+    def is_global_read_only_role(self):
+        rv = self.obj_perms(self.get_auth_token()) or {}
+        return rv.get('is_global_read_only_role', False)
+
     # change object ownsership
     def chown(self, obj_uuid, owner):
         payload = {'uuid': obj_uuid, 'owner': owner}

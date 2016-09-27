@@ -841,6 +841,12 @@ class TestPermissions(test_case.ApiServerTestCase):
             perms = user.check_perms(vn.get_uuid())
             self.assertEquals(perms, ExpectedPerms[user.name])
 
+        ExpectedCloudAdminRole = {'alice': False, 'bob': False, 'admin': True, 'adminr': False}
+        ExpectedGlobalReadOnlyRole = {'alice': False, 'bob': False, 'admin': False, 'adminr': True}
+        for user in [self.alice, self.bob, self.admin, self.adminr]:
+            self.assertEquals(user.vnc_lib.is_cloud_admin_role(), ExpectedCloudAdminRole[user.name])
+            self.assertEquals(user.vnc_lib.is_global_read_only_role(), ExpectedGlobalReadOnlyRole[user.name])
+
     # check owner of internally created ri is cloud-admin (bug #1528796)
     def test_ri_owner(self):
         """
