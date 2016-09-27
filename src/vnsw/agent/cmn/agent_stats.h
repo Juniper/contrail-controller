@@ -13,7 +13,19 @@
 typedef boost::function<uint32_t()> FlowCountFn;
 class AgentStats {
 public:
-    static const uint64_t kInvalidFlowCount = 0xFFFFFFFFFFFFFFFF;
+    static const uint32_t kInvalidFlowCount = 0xFFFFFFFF;
+    static const int kFlowStatsUpdateInterval = 1000;
+    struct FlowCounters {
+        uint64_t prev_flow_count;        //previous flow created/aged count
+        uint32_t max_flows_per_second;   //max_flows_added/deleted_per_second
+        uint32_t min_flows_per_second;   //min_flows_added/deleted_per_second
+
+        FlowCounters() : prev_flow_count(0),
+            max_flows_per_second(kInvalidFlowCount),
+            min_flows_per_second(kInvalidFlowCount) {
+        }
+    };
+
     AgentStats(Agent *agent)
         : agent_(agent), xmpp_reconnect_(), xmpp_in_msgs_(), xmpp_out_msgs_(),
         xmpp_config_in_msgs_(), sandesh_reconnects_(0U),
@@ -22,18 +34,15 @@ public:
         pkt_invalid_agent_hdr_(0U), pkt_invalid_interface_(0U), 
         pkt_no_handler_(0U), pkt_fragments_dropped_(0U), pkt_dropped_(0U),
         max_flow_count_(0),
-        flow_created_(0U), flow_aged_(0U), flow_active_(0U),
         flow_drop_due_to_max_limit_(0), flow_drop_due_to_linklocal_limit_(0),
-        prev_flow_created_(0U), prev_flow_aged_(0U),
-        max_flow_adds_per_second_(kInvalidFlowCount),
-        min_flow_adds_per_second_(kInvalidFlowCount),
-        max_flow_deletes_per_second_(kInvalidFlowCount),
-        min_flow_deletes_per_second_(kInvalidFlowCount),
+        flow_stats_update_timeout_(kFlowStatsUpdateInterval),
         ipc_in_msgs_(0U), ipc_out_msgs_(0U), in_tpkts_(0U), in_bytes_(0U),
         out_tpkts_(0U), out_bytes_(0U) {
         assert(singleton_ == NULL);
         singleton_ = this;
         flow_count_ = 0;
+        flow_created_ = 0;
+        flow_aged_ = 0;
     }
 
     virtual ~AgentStats() {singleton_ = NULL;}
@@ -71,7 +80,7 @@ public:
     uint32_t sandesh_http_sessions() const {return sandesh_http_sessions_;}
 
     void incr_flow_created() {
-        flow_created_++;
+        flow_created_.fetch_and_increment();
         uint32_t count = flow_count_.fetch_and_increment();
         if (count > max_flow_count_)
             max_flow_count_ = count + 1;
@@ -84,8 +93,16 @@ public:
 
     uint64_t max_flow_count() const {return max_flow_count_;}
 
-    void incr_flow_aged() {flow_aged_++;}
+    void incr_flow_aged() { flow_aged_.fetch_and_increment(); }
     uint64_t flow_aged() const {return flow_aged_;}
+
+    int flow_stats_update_timeout() const {
+        return flow_stats_update_timeout_;
+    }
+
+    void set_flow_stats_update_timeout(int value) {
+        flow_stats_update_timeout_ = value;
+    }
 
     void incr_flow_drop_due_to_max_limit() {flow_drop_due_to_max_limit_++;}
     uint64_t flow_drop_due_to_max_limit() const {
@@ -134,53 +151,46 @@ public:
     void incr_out_bytes(uint64_t count) {out_bytes_ += count;}
     uint64_t out_bytes() const {return out_bytes_;}
 
-    uint64_t max_flow_adds_per_second() const {
-        return max_flow_adds_per_second_;
+    uint32_t max_flow_adds_per_second() const {
+        return added_.max_flows_per_second;
     }
-    uint64_t min_flow_adds_per_second() const {
-        return min_flow_adds_per_second_;
+    uint32_t min_flow_adds_per_second() const {
+        return added_.min_flows_per_second;
     }
-    uint64_t max_flow_deletes_per_second() const {
-        return max_flow_deletes_per_second_;
+    uint32_t max_flow_deletes_per_second() const {
+        return deleted_.max_flows_per_second;
     }
-    uint64_t min_flow_deletes_per_second() const {
-        return min_flow_deletes_per_second_;
+    uint32_t min_flow_deletes_per_second() const {
+        return deleted_.min_flows_per_second;
     }
 
-    void set_prev_flow_add_time(uint64_t time) {
-        prev_flow_add_time_ = time;
-    }
-    void set_prev_flow_delete_time(uint64_t time) {
-        prev_flow_delete_time_ = time;
-    }
     void set_prev_flow_created(uint64_t value) {
-        prev_flow_created_ = value;
+        added_.prev_flow_count = value;
     }
+
     void set_prev_flow_aged(uint64_t value) {
-        prev_flow_aged_ = value;
+        deleted_.prev_flow_count = value;
     }
-    void set_max_flow_adds_per_second(uint64_t value) {
-        max_flow_adds_per_second_ = value;;
+    void set_max_flow_adds_per_second(uint32_t value) {
+        added_.max_flows_per_second = value;
     }
-    void set_min_flow_adds_per_second(uint64_t value) {
-        min_flow_adds_per_second_ = value;;
+    void set_min_flow_adds_per_second(uint32_t value) {
+        added_.min_flows_per_second = value;
     }
-    void set_max_flow_deletes_per_second(uint64_t value) {
-        max_flow_deletes_per_second_ = value;;
+    void set_max_flow_deletes_per_second(uint32_t value) {
+        deleted_.max_flows_per_second = value;
     }
-    void set_min_flow_deletes_per_second(uint64_t value) {
-        min_flow_deletes_per_second_ = value;
+    void set_min_flow_deletes_per_second(uint32_t value) {
+        deleted_.min_flows_per_second = value;
     }
-    void UpdateFlowAddMinMaxStats(uint64_t time);
-    void UpdateFlowDelMinMaxStats(uint64_t time);
-    void ResetFlowAddMinMaxStats(uint64_t time);
-    void ResetFlowDelMinMaxStats(uint64_t time);
+    void UpdateFlowMinMaxStats(uint64_t total_flows, FlowCounters &stat) const;
+    void ResetFlowMinMaxStats(FlowCounters &stat) const;
 
     void RegisterFlowCountFn(FlowCountFn cb);
     uint32_t FlowCount() const;
+    FlowCounters& added() { return added_; }
+    FlowCounters& deleted() { return deleted_; }
 private:
-    void UpdateAddMinMaxStats(uint64_t count, uint64_t time);
-    void UpdateDelMinMaxStats(uint64_t count, uint64_t time);
 
     Agent *agent_;
     FlowCountFn flow_count_fn_;
@@ -208,19 +218,13 @@ private:
     // Flow stats
     tbb::atomic<uint32_t> flow_count_;
     uint32_t max_flow_count_;
-    uint64_t flow_created_;
-    uint64_t flow_aged_;
-    uint64_t flow_active_;
     uint64_t flow_drop_due_to_max_limit_;
     uint64_t flow_drop_due_to_linklocal_limit_;
-    uint64_t prev_flow_created_;
-    uint64_t prev_flow_aged_;
-    uint64_t max_flow_adds_per_second_;
-    uint64_t min_flow_adds_per_second_;
-    uint64_t max_flow_deletes_per_second_;
-    uint64_t min_flow_deletes_per_second_;
-    uint64_t prev_flow_add_time_;
-    uint64_t prev_flow_delete_time_;
+    tbb::atomic<uint64_t> flow_created_;
+    tbb::atomic<uint64_t> flow_aged_;
+    FlowCounters added_;
+    FlowCounters deleted_;
+    int flow_stats_update_timeout_;
 
     // Kernel IPC
     uint64_t ipc_in_msgs_;

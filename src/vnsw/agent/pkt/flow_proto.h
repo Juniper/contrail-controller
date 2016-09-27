@@ -70,6 +70,8 @@ public:
     uint32_t FlowCount() const;
     void VnFlowCounters(const VnEntry *vn, uint32_t *in_count,
                         uint32_t *out_count);
+    void InterfaceFlowCount(const Interface *intf, uint64_t *created,
+                            uint64_t *aged, uint32_t *active_flows) const;
 
     bool AddFlow(FlowEntry *flow);
     bool UpdateFlow(FlowEntry *flow);
@@ -127,6 +129,7 @@ private:
     FlowTraceFilter *ipv6_trace_filter() { return &ipv6_trace_filter_; }
 
     bool ProcessFlowEvent(const FlowEvent &req, FlowTable *table);
+    bool FlowStatsUpdate() const;
 
     FlowTokenPool add_tokens_;
     FlowTokenPool ksync_tokens_;
@@ -143,6 +146,7 @@ private:
     FlowTraceFilter ipv4_trace_filter_;
     FlowTraceFilter ipv6_trace_filter_;
     FlowStats stats_;
+    Timer *stats_update_timer_;
 };
 
 extern SandeshTraceBufferPtr PktFlowTraceBuf;
