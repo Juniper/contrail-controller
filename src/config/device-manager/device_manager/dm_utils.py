@@ -88,6 +88,8 @@ class DMUtils(object):
 
     @staticmethod
     def make_public_vrf_filter_name(inet_type):
+        if inet_type == 'inet':
+            inet_type = 'inet4'
         return 'redirect_to_public_vrf_filter_' + inet_type
     # end make_public_filter_name
 
