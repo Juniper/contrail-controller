@@ -141,6 +141,7 @@ void Agent::SetAgentTaskPolicy() {
         "Agent::PktFlowResponder",
         "Agent::Profile",
         "Agent::PktHandler",
+        "http::RequestHandlerTask",
         kTaskHealthCheck,
         kTaskDBExclude,
         AGENT_SHUTDOWN_TASKNAME,
