@@ -39,6 +39,8 @@ def parse_args(args_str):
         'ifmap_queue_size': 10000,
         'ifmap_max_message_size': 1024*1024,
         'cassandra_server_list': "127.0.0.1:9160",
+        'rdbms_server_list': "127.0.0.1:3306",
+        'rdbms_connection_config': "",
         'ifmap_username': "api-server",
         'ifmap_password': "api-server",
         'collectors': None,
@@ -82,6 +84,7 @@ def parse_args(args_str):
         'kombu_ssl_ca_certs': '',
         'object_cache_entries': '10000', # max number of objects cached for read
         'object_cache_exclude_types': '', # csv of object types to *not* cache
+        'db_engine': 'cassandra',
     }
     # ssl options
     secopts = {
@@ -107,6 +110,12 @@ def parse_args(args_str):
         'cassandra_password' : None
     }
 
+    # rdbms options
+    rdbmsopts = {
+        'rdbms_user'     : None,
+        'rdbms_password' : None,
+        'rdbms_connection': None
+    }
 
     config = None
     if args.conf_file:
@@ -135,6 +144,8 @@ def parse_args(args_str):
                     pass
         if 'CASSANDRA' in config.sections():
                 cassandraopts.update(dict(config.items('CASSANDRA')))
+        if 'RDBMS' in config.sections():
+                rdbmsopts.update(dict(config.items('RDBMS')))
 
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
@@ -149,6 +160,7 @@ def parse_args(args_str):
     defaults.update(secopts)
     defaults.update(ksopts)
     defaults.update(cassandraopts)
+    defaults.update(rdbmsopts)
     parser.set_defaults(**defaults)
 
     parser.add_argument(
@@ -173,6 +185,13 @@ def parse_args(args_str):
         "--cassandra_server_list",
         help="List of cassandra servers in IP Address:Port format",
         nargs='+')
+    parser.add_argument(
+        "--rdbms_server_list",
+        help="List of cassandra servers in IP Address:Port format",
+        nargs='+')
+    parser.add_argument(
+        "--rdbms_connection",
+        help="DB Connection string")
     parser.add_argument(
         "--disc_server_ip",
         help="IP address of discovery server")
@@ -304,11 +323,16 @@ def parse_args(args_str):
             help="Maximum number of objects cached for read, default 10000")
     parser.add_argument("--object_cache_exclude_types",
             help="Comma separated values of object types to not cache")
+    parser.add_argument("--db_engine",
+        help="Database engine to use, default cassandra")
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.config_sections = config
     if type(args_obj.cassandra_server_list) is str:
         args_obj.cassandra_server_list =\
             args_obj.cassandra_server_list.split()
+    if type(args_obj.rdbms_server_list) is str:
+        args_obj.rdbms_server_list =\
+            args_obj.rdbms_server_list.split()
     if type(args_obj.collectors) is str:
         args_obj.collectors = args_obj.collectors.split()
 

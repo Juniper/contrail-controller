@@ -87,15 +87,15 @@ class LoadDataBase(object):
         def vnc_cassandra_client_logger(msg, level=logging.INFO):
             logger.log(msg=msg, level=level)
 
-        self._cassandra_db = VncCassandraClient(
+        self._object_db = VncCassandraClient(
             cassandra_servers,
             db_prefix,
             self._UUID_KEYSPACE,
             None,
             vnc_cassandra_client_logger,
             credential=cassandra_credentials)
-        self._uuid_cf = self._cassandra_db.get_cf('obj_uuid_table')
-        self._fqname_cf = self._cassandra_db.get_cf('obj_fq_name_table')
+        self._uuid_cf = self._object_db.get_cf('obj_uuid_table')
+        self._fqname_cf = self._object_db.get_cf('obj_fq_name_table')
 
         # Initilize zookeeper client
         if self._dont_populate_zookeeper:
@@ -111,7 +111,7 @@ class LoadDataBase(object):
                           (resource_type.replace('-', '_'),
                            camel_case(resource_type))
             kwargs = {
-                'db_manager': self._cassandra_db,
+                'db_manager': self._object_db,
                 'batch_size': self._cassandra_batch_size,
                 'zk_client': self._zk_client,
                 'project_amount': self._resource_distribution.get('project',
