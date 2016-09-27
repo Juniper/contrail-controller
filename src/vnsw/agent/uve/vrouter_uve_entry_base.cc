@@ -765,7 +765,7 @@ void VrouterUveEntryBase::SendVrouterProuterAssociation
     (const vector<string> &list) {
     VrouterAgent vrouter_agent;
     vrouter_agent.set_name(agent_->agent_name());
-    if (agent_->simulate_evpn_tor()) {
+    if (agent_->tor_agent_enabled()) {
         vrouter_agent.set_tor_prouter_list(list);
     } else if (agent_->tsn_enabled()) {
         vrouter_agent.set_tsn_prouter_list(list);
