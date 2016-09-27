@@ -2,6 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "bgp/bgp_ribout.h"
+
 #include <boost/bind.hpp>
 
 #include <algorithm>
@@ -11,7 +13,6 @@
 #include "sandesh/sandesh_trace.h"
 #include "base/string_util.h"
 #include "bgp/bgp_peer_types.h"
-#include "bgp/bgp_ribout.h"
 #include "bgp/bgp_ribout_updates.h"
 #include "bgp/bgp_export.h"
 #include "bgp/bgp_factory.h"
