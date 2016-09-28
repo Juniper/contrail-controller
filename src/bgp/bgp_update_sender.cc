@@ -75,7 +75,7 @@ public:
         void increment() {
             Map::const_iterator loc = map_->upper_bound(index_);
             if (loc == map_->end()) {
-                index_ = -1;
+                index_ = SIZE_MAX;
             } else {
                 index_ = loc->first;
             }
@@ -94,8 +94,8 @@ public:
         circular_iterator, RibOut, boost::forward_traversal_tag> {
     public:
         explicit circular_iterator(const RibStateMap &indexmap, Map *map,
-                                   int start, bool is_valid)
-        : indexmap_(indexmap), map_(map), index_(-1), match_(true) {
+                                   size_t start, bool is_valid)
+        : indexmap_(indexmap), map_(map), index_(SIZE_MAX), match_(true) {
             if (map_->empty()) {
                 return;
             }
@@ -104,9 +104,10 @@ public:
                 loc = map_->begin();
             }
             index_ = loc->first;
-            if (is_valid) match_ = false;
+            if (is_valid)
+                match_ = false;
         }
-        int index() const { return index_; }
+        size_t index() const { return index_; }
         RibState *rib_state() { return indexmap_.At(index_); }
         const PeerRibState &peer_rib_state() const { return (*map_)[index_]; }
 
@@ -128,12 +129,12 @@ public:
 
         const RibStateMap &indexmap_;
         Map *map_;
-        int index_;
+        size_t index_;
         bool match_;
     };
 
     explicit PeerState(IPeerUpdate *peer)
-        : key_(peer), index_(-1),
+        : key_(peer), index_(SIZE_MAX),
         qactive_cnt_(RibOutUpdates::QCOUNT),
         in_sync_(true), rib_iterator_(BitSet::npos) {
         send_ready_ = true;
@@ -152,11 +153,11 @@ public:
 
     iterator begin(const RibStateMap &indexmap) {
         Map::const_iterator it = rib_set_.begin();
-        size_t index = (it != rib_set_.end() ? it->first : -1);
+        size_t index = (it != rib_set_.end() ? it->first : SIZE_MAX);
         return iterator(indexmap, &rib_set_, index);
     }
     iterator end(const RibStateMap &indexmap) {
-        return iterator(indexmap, &rib_set_, -1);
+        return iterator(indexmap, &rib_set_, SIZE_MAX);
     }
 
     circular_iterator circular_begin(const RibStateMap &indexmap) {
@@ -269,7 +270,9 @@ public:
     };
 
     explicit RibState(RibOut *ribout)
-        : key_(ribout), index_(-1), in_sync_(RibOutUpdates::QCOUNT, true) {
+        : key_(ribout),
+          index_(SIZE_MAX),
+          in_sync_(RibOutUpdates::QCOUNT, true) {
     }
 
     void Add(PeerState *ps);
@@ -646,7 +649,7 @@ void BgpSenderPartition::BuildSyncUnsyncBitSet(const RibOut *ribout,
     for (RibState::iterator it = rs->begin(peer_state_imap_);
          it != rs->end(peer_state_imap_); ++it) {
         const PeerState *ps = it.operator->();
-        int rix = ribout->GetPeerIndex(ps->peer());
+        size_t rix = ribout->GetPeerIndex(ps->peer());
         if (ps->in_sync()) {
             msync->set(rix);
         } else {
@@ -670,7 +673,7 @@ void BgpSenderPartition::BuildSendReadyBitSet(RibOut *ribout,
          it != rs->end(peer_state_imap_); ++it) {
         const PeerState *ps = it.operator->();
         if (ps->send_ready()) {
-            int rix = ribout->GetPeerIndex(ps->peer());
+            size_t rix = ribout->GetPeerIndex(ps->peer());
             mready->set(rix);
         }
     }

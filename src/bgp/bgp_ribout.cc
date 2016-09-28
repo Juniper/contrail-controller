@@ -381,8 +381,8 @@ void RibOut::Deactivate(IPeerUpdate *peer) {
 }
 
 bool RibOut::IsActive(IPeerUpdate *peer) const {
-    int index = GetPeerIndex(peer);
-    return (index < 0 ? false : active_peerset_.test(index));
+    size_t index = GetPeerIndex(peer);
+    return (index == SIZE_MAX ? false : active_peerset_.test(index));
 }
 
 //
@@ -464,8 +464,8 @@ void RibOut::GetSubsetPeerSet(RibPeerSet *peerset,
     const IPeerUpdate *cpeer) const {
     assert(policy_.type == BgpProto::EBGP);
     IPeerUpdate *peer = const_cast<IPeerUpdate *>(cpeer);
-    int index = GetPeerIndex(peer);
-    if (index < 0)
+    size_t index = GetPeerIndex(peer);
+    if (index == SIZE_MAX)
         return;
     peerset->reset(index);
 }
@@ -473,7 +473,7 @@ void RibOut::GetSubsetPeerSet(RibPeerSet *peerset,
 //
 // Return the peer corresponding to the specified bit index.
 //
-IPeerUpdate *RibOut::GetPeer(int index) const {
+IPeerUpdate *RibOut::GetPeer(size_t index) const {
     PeerState *ps = state_map_.At(index);
     if (ps != NULL) {
         return ps->peer;
@@ -484,9 +484,9 @@ IPeerUpdate *RibOut::GetPeer(int index) const {
 //
 // Return the bit index corresponding to the specified peer.
 //
-int RibOut::GetPeerIndex(IPeerUpdate *peer) const {
+size_t RibOut::GetPeerIndex(IPeerUpdate *peer) const {
     PeerState *ps = state_map_.Find(peer);
-    return (ps ? ps->index : -1);
+    return (ps ? ps->index : SIZE_MAX);
 }
 
 //

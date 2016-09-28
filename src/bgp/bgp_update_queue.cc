@@ -253,7 +253,7 @@ void UpdateQueue::MarkerMerge(UpdateMarker *dst_marker,
 //
 // Return the UpdateMarker for the peer specified by the bit position.
 //
-UpdateMarker *UpdateQueue::GetMarker(int bit) {
+UpdateMarker *UpdateQueue::GetMarker(size_t bit) {
     assert(markers_[bit]);
     return markers_[bit];
 }
@@ -270,10 +270,10 @@ UpdateMarker *UpdateQueue::GetMarker(int bit) {
 // that a tail dequeue may already be pending in the BgpUpdateSender, but
 // an extra one is harmless.
 //
-bool UpdateQueue::Join(int bit) {
+bool UpdateQueue::Join(size_t bit) {
     UpdateMarker *marker = &tail_marker_;
     marker->members.set(bit);
-    if (markers_.size() < (size_t)(bit + 1))
+    if (markers_.size() < bit + 1)
         markers_.resize(bit + 1, NULL);
     assert(!markers_[bit]);
     markers_[bit] = marker;
@@ -288,7 +288,7 @@ bool UpdateQueue::Join(int bit) {
 // Reset the peer's bit in the marker and get rid of the marker itself if
 // it's now empty.
 //
-void UpdateQueue::Leave(int bit) {
+void UpdateQueue::Leave(size_t bit) {
     UpdateMarker *marker = markers_[bit];
     markers_[bit] = NULL;
     assert(marker);

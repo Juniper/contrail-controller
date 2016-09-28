@@ -133,10 +133,10 @@ public:
     void MarkerSplit(UpdateMarker *marker, const RibPeerSet &msplit);
     void MarkerMerge(UpdateMarker *dst_marker, UpdateMarker *src_marker,
                      const RibPeerSet &bitset);
-    UpdateMarker *GetMarker(int bit);
+    UpdateMarker *GetMarker(size_t bit);
 
-    bool Join(int bit);
-    void Leave(int bit);
+    bool Join(size_t bit);
+    void Leave(size_t bit);
 
     bool CheckInvariants() const;
 
