@@ -678,46 +678,51 @@ void AgentParam::ParseServices() {
 }
 
 void AgentParam::ParseQueue() {
-    GetValueFromTree<uint16_t>(default_nic_queue_, "QUEUE.default_nic_queue");
 
-    if (!tree_.get_child_optional("QUEUE")) {
-        return;
-    }
+    GetValueFromTree<uint16_t>(default_nic_queue_, "QOS.logical_queue");
 
-    BOOST_FOREACH(ptree::value_type &v, tree_.get_child("QUEUE")) {
-        std::string nic_queue = v.first;
-        std::string input =  v.second.get_value<string>();
-        std::vector<std::string> tokens;
-        std::string sep = "[],";
-        boost::split(tokens, input, boost::is_any_of(sep),
-                     boost::token_compress_on);
-
-        uint16_t queue;
-        if (sscanf(nic_queue.c_str(), "NIC-QUEUE-%hu", &queue) != 1) {
+    const std::string qos_str = "QUEUE";
+    std::string input;
+    std::vector<std::string> tokens;
+    std::string sep = "[],";
+    BOOST_FOREACH(const ptree::value_type &section, tree_) {
+        if (section.first.compare(0, qos_str.size(), qos_str) != 0) {
             continue;
         }
-
-        for (std::vector<string>::const_iterator it = tokens.begin();
-             it != tokens.end(); it++) {
-
-            if (*it == Agent::NullString()) {
+        uint16_t queue;
+        std::string logical_queue = section.first;
+        if (sscanf(logical_queue.c_str(), "QUEUE-%hu", &queue) != 1) {
                 continue;
-            }
+        }
+        BOOST_FOREACH(const ptree::value_type &key, section.second) {
+            if (key.first.compare("logical_queue") == 0) {
+                input = key.second.get_value<string>();
+                boost::split(tokens, input, boost::is_any_of(sep),
+                         boost::token_compress_on);
 
-            string range = *it;
-            std::vector<uint16_t> range_value;
-            if (stringToIntegerList(range, "-", range_value)) {
-                if (range_value.size() == 1) {
-                    qos_queue_map_[range_value[0]] = queue;
+                for (std::vector<string>::const_iterator it = tokens.begin();
+                     it != tokens.end(); it++) {
+
+                if (*it == Agent::NullString()) {
                     continue;
                 }
 
-                if (range_value[0] > range_value[1]) {
-                    continue;
-                }
+                string range = *it;
+                std::vector<uint16_t> range_value;
+                if (stringToIntegerList(range, "-", range_value)) {
+                    if (range_value.size() == 1) {
+                        qos_queue_map_[range_value[0]] = queue;
+                        continue;
+                    }
 
-                for (uint16_t i = range_value[0]; i <= range_value[1]; i++) {
-                    qos_queue_map_[i] = queue;
+                    if (range_value[0] > range_value[1]) {
+                        continue;
+                    }
+
+                    for (uint16_t i = range_value[0]; i <= range_value[1]; i++) {
+                        qos_queue_map_[i] = queue;
+                    }
+                }
                 }
             }
         }
