@@ -297,6 +297,10 @@ public:
         return default_nic_queue_;
     }
 
+    uint16_t default_nic_queue() const {
+        return default_nic_queue_;
+    }
+
     void add_nic_queue(uint16_t queue, uint16_t nic_queue) {
         qos_queue_map_[queue] = nic_queue;
     }
