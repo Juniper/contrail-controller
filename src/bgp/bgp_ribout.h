@@ -7,6 +7,7 @@
 
 #include <boost/scoped_ptr.hpp>
 #include <boost/intrusive/slist.hpp>
+#include <stdint.h>
 
 #include <algorithm>
 #include <string>
@@ -244,7 +245,7 @@ public:
             index_ = peer_set_.find_next(index_);
             return ptr;
         }
-        int index() const { return index_; }
+        size_t index() const { return index_; }
 
     private:
         const RibOut *ribout_;
@@ -263,8 +264,8 @@ public:
     void Deactivate(IPeerUpdate *peer);
     bool IsActive(IPeerUpdate *peer) const;
 
-    IPeerUpdate *GetPeer(int index) const;
-    int GetPeerIndex(IPeerUpdate *peer) const;
+    IPeerUpdate *GetPeer(size_t index) const;
+    size_t GetPeerIndex(IPeerUpdate *peer) const;
 
     // Returns a bitmask with all the peers that are advertising this RibOut.
     const RibPeerSet &PeerSet() const;
@@ -315,11 +316,11 @@ public:
 
 private:
     struct PeerState {
-        explicit PeerState(IPeerUpdate *key) : peer(key), index(-1) {
+        explicit PeerState(IPeerUpdate *key) : peer(key), index(SIZE_MAX) {
         }
-        void set_index(int idx) { index = idx; }
+        void set_index(size_t idx) { index = idx; }
         IPeerUpdate *peer;
-        int index;
+        size_t index;
     };
     typedef IndexMap<IPeerUpdate *, PeerState, RibPeerSet> PeerStateMap;
 

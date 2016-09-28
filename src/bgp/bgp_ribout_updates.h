@@ -6,6 +6,7 @@
 #define SRC_BGP_BGP_RIBOUT_UPDATES_H_
 
 #include <boost/scoped_ptr.hpp>
+#include <stdint.h>
 
 #include <vector>
 
@@ -75,8 +76,8 @@ public:
                              const RibPeerSet &mready, RibPeerSet *blocked);
 
     // Enqueue a marker at the head of the queue with this bit set.
-    bool QueueJoin(int queue_id, int bit);
-    void QueueLeave(int queue_id, int bit);
+    bool QueueJoin(int queue_id, size_t bit);
+    void QueueLeave(int queue_id, size_t bit);
 
     bool Empty() const;
     size_t queue_size(int queue_id) const;

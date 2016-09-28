@@ -5,6 +5,8 @@
 #ifndef SRC_BGP_BGP_UPDATE_QUEUE_H_
 #define SRC_BGP_BGP_UPDATE_QUEUE_H_
 
+#include <stdint.h>
+
 #include <list>
 #include <set>
 #include <vector>
@@ -133,10 +135,10 @@ public:
     void MarkerSplit(UpdateMarker *marker, const RibPeerSet &msplit);
     void MarkerMerge(UpdateMarker *dst_marker, UpdateMarker *src_marker,
                      const RibPeerSet &bitset);
-    UpdateMarker *GetMarker(int bit);
+    UpdateMarker *GetMarker(size_t bit);
 
-    bool Join(int bit);
-    void Leave(int bit);
+    bool Join(size_t bit);
+    void Leave(size_t bit);
 
     bool CheckInvariants() const;
 

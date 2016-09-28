@@ -666,12 +666,12 @@ size_t RibOutUpdates::queue_marker_count(int queue_id) const {
     return queue->marker_count();
 }
 
-bool RibOutUpdates::QueueJoin(int queue_id, int bit) {
+bool RibOutUpdates::QueueJoin(int queue_id, size_t bit) {
     UpdateQueue *queue = queue_vec_[queue_id];
     return queue->Join(bit);
 }
 
-void RibOutUpdates::QueueLeave(int queue_id, int bit) {
+void RibOutUpdates::QueueLeave(int queue_id, size_t bit) {
     UpdateQueue *queue = queue_vec_[queue_id];
     queue->Leave(bit);
 }
