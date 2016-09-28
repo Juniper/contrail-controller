@@ -154,7 +154,7 @@ UpdateInfo *UpdateQueue::AttrNext(UpdateInfo *current_uinfo) {
 
 //
 // Add the provided UpdateMarker after a specific RouteUpdate. Also update
-// the MarkerMap so that all peers in the provided UpdateMarker now point
+// the MarkerList so that all peers in the provided UpdateMarker now point
 // to it.
 //
 void UpdateQueue::AddMarker(UpdateMarker *marker, RouteUpdate *rt_update) {
@@ -164,16 +164,15 @@ void UpdateQueue::AddMarker(UpdateMarker *marker, RouteUpdate *rt_update) {
 
     for (size_t i = marker->members.find_first();
          i != BitSet::npos; i = marker->members.find_next(i)) {
-        MarkerMap::iterator loc = markers_.find(i);
-        assert(loc != markers_.end());
-        loc->second = marker;
+        assert(markers_[i]);
+        markers_[i] = marker;
     }
 }
 
 //
 // Move the provided UpdateMarker so that it's after the RouteUpdate. Since
 // the entire UpdateMarker itself is being moved, there's no need to update
-// the MarkerMap.
+// the MarkerList.
 //
 // If the UpdateMarker is the tail marker, skip over all markers after the
 // RouteUpdate till we hit the next RouteUpdate or the end of the queue.
@@ -201,7 +200,7 @@ void UpdateQueue::MoveMarker(UpdateMarker *marker, RouteUpdate *rt_update) {
 // the existing marker.  The bits corresponding to the RibPeerSet being split
 // are reset in the existing marker.
 //
-// The MarkerMap is updated so that all the peers in in the RibPeerSet point
+// The MarkerList is updated so that all the peers in in the RibPeerSet point
 // to the new marker.
 //
 void UpdateQueue::MarkerSplit(UpdateMarker *marker, const RibPeerSet &msplit) {
@@ -217,9 +216,8 @@ void UpdateQueue::MarkerSplit(UpdateMarker *marker, const RibPeerSet &msplit) {
 
     for (size_t i = msplit.find_first();
          i != BitSet::npos; i = msplit.find_next(i)) {
-        MarkerMap::iterator loc = markers_.find(i);
-        assert(loc != markers_.end());
-        loc->second = split_marker;
+        assert(markers_[i]);
+        markers_[i] = split_marker;
     }
 }
 
@@ -233,14 +231,13 @@ void UpdateQueue::MarkerMerge(UpdateMarker *dst_marker,
         UpdateMarker *src_marker, const RibPeerSet &bitset) {
     assert(!bitset.empty());
 
-    // Set the bits in dst and update the MarkerMap.  Be sure to set the dst
+    // Set the bits in dst and update the MarkerList.  Be sure to set the dst
     // before we reset the src since bitset maybe a reference to src->members.
     dst_marker->members.Set(bitset);
     for (size_t i = bitset.find_first();
          i != BitSet::npos; i = bitset.find_next(i)) {
-        MarkerMap::iterator loc = markers_.find(i);
-        assert(loc != markers_.end());
-        loc->second = dst_marker;
+        assert(markers_[i]);
+        markers_[i] = dst_marker;
     }
 
     // Reset the bits in the src and get rid of it in case it's now empty.
@@ -257,15 +254,15 @@ void UpdateQueue::MarkerMerge(UpdateMarker *dst_marker,
 // Return the UpdateMarker for the peer specified by the bit position.
 //
 UpdateMarker *UpdateQueue::GetMarker(int bit) {
-    MarkerMap::iterator loc = markers_.find(bit);
-    assert(loc != markers_.end());
-    return loc->second;
+    assert(markers_[bit]);
+    return markers_[bit];
 }
 
 //
 // Join a new peer, as represented by it's bit index, to the UpdateQueue.
 // Since it's a new peer, it starts out at the tail marker.  Also add the
-// peer's bit index and the tail marker pair to the MarkerMap.
+// peer's bit index and the tail marker pair to the MarkerList, growing
+// the MarkerList if necessary.
 //
 // Return true if the tail marker is not the last entry in the queue. The
 // caller should trigger a tail dequeue for the RibOut if so to take care
@@ -276,21 +273,25 @@ UpdateMarker *UpdateQueue::GetMarker(int bit) {
 bool UpdateQueue::Join(int bit) {
     UpdateMarker *marker = &tail_marker_;
     marker->members.set(bit);
-    markers_.insert(std::make_pair(bit, marker));
+    if (markers_.size() < (size_t)(bit + 1))
+        markers_.resize(bit + 1, NULL);
+    assert(!markers_[bit]);
+    markers_[bit] = marker;
     return (&tail_marker_ != &queue_.back());
 }
 
 //
 // Leave a peer, as represented by it's bit index, from the UpdateQueue.
-// Find the current marker for the peer and remove the peer's bit from the
-// MarkerMap. Reset the peer's bit in the marker and get rid of the marker
-// itself if it's now empty.
+// Find the current marker for the peer and clear the peer bit's entry in
+// the MarkerList. Don't bother shrinking the MarkerList - the entry can
+// be reused by a subsequent Join.
+// Reset the peer's bit in the marker and get rid of the marker itself if
+// it's now empty.
 //
 void UpdateQueue::Leave(int bit) {
-    MarkerMap::iterator loc = markers_.find(bit);
-    assert(loc != markers_.end());
-    UpdateMarker *marker = loc->second;
-    markers_.erase(loc);
+    UpdateMarker *marker = markers_[bit];
+    markers_[bit] = NULL;
+    assert(marker);
     marker->members.reset(bit);
     if (marker != &tail_marker_  && marker->members.empty()) {
         queue_.erase(queue_.iterator_to(*marker));
@@ -299,10 +300,11 @@ void UpdateQueue::Leave(int bit) {
 }
 
 bool UpdateQueue::CheckInvariants() const {
-    for (MarkerMap::const_iterator iter = markers_.begin();
-         iter != markers_.end(); ++iter) {
-        UpdateMarker *marker = iter->second;
-        CHECK_INVARIANT(marker->members.test(iter->first));
+    for (size_t idx = 0; idx < markers_.size(); ++idx) {
+        UpdateMarker *marker = markers_[idx];
+        if (!marker)
+            continue;
+        CHECK_INVARIANT(marker->members.test(idx));
     }
     return true;
 }
