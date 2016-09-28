@@ -115,6 +115,7 @@ void Agent::SetAgentTaskPolicy() {
         "Agent::KSync",
         "Agent::PktFlowResponder",
         "Agent::PktHandler",
+        "http::RequestHandlerTask",
         AGENT_INIT_TASKNAME
     };
     SetTaskPolicyOne("db::DBTable", db_exclude_list, 
