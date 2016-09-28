@@ -1490,11 +1490,78 @@ class NetworkIpamServer(Resource, NetworkIpam):
             (old_subnet_method != 'flat-subnet')):
             return True, ""
 
-        req_subnets_list = cls.addr_mgmt._ipam_to_subnets(obj_dict)
+        if 'ipam_subnets' in obj_dict:
+            req_subnets_list = cls.addr_mgmt._ipam_to_subnets(obj_dict)
 
-        (ok, result) = cls.addr_mgmt.net_check_subnet_overlap(req_subnets_list)
-        if not ok:
-            return (ok, (409, result))
+            #First check the overlap condition within ipam_subnets
+            (ok, result) = cls.addr_mgmt.net_check_subnet_overlap(
+                               req_subnets_list)
+            if not ok:
+                return (ok, (409, result))
+
+            #if subnets are modified then make sure new subnet lists are
+            #not in overlap conditions with VNs subnets and other ipams
+            #referred by all VNs referring this ipam
+            vn_refs = read_result.get('virtual_network_back_refs', [])
+            ref_ipam_uuid_list = []
+            refs_subnets_list = []
+            for ref in vn_refs:
+                vn_id = ref.get('uuid')
+                try:
+                    (ok, vn_dict) = db_conn.dbe_read('virtual_network',
+                                                     {'uuid':vn_id})
+                except cfgm_common.exceptions.NoIdError:
+                    continue
+                if not ok:
+                    self.config_log("Error in reading vn: %s" %(vn_dict),
+                                    level=SandeshLevel.SYS_ERR)
+                    return (ok, 409, vn_dict)
+                #get existing subnets on this VN and on other ipams
+                #this VN refers and run a overlap check.
+                ipam_refs = vn_dict.get('network_ipam_refs', [])
+                for ipam in ipam_refs:
+                    ref_ipam_uuid = ipam['uuid']
+                    if ref_ipam_uuid == id:
+                        #This is a ipam for which update request has come
+                        continue
+
+                    if ref_ipam_uuid in ref_ipam_uuid_list:
+                        continue
+
+                    #check if ipam is a flat-subnet, for flat-subnet ipam
+                    # add uuid in ref_ipam_uuid_list, to read ipam later
+                    # to get current ipam_subnets from ipam
+                    vnsn_data = ref.get('attr', {})
+                    ref_ipam_subnets = vnsn_data.get('ipam_subnets', [])
+
+                    if len(ref_ipam_subnets) == 1:
+                        #flat subnet ipam will have only one entry in
+                        #vn->ipam link without any ip_prefix
+                        ref_ipam_subnet = ref_ipam_subnets[0]
+                        ref_subnet = ref_ipam_subnet.get('subnet', {})
+                        if 'ip_prefix' not in ref_subnet:
+                            #This is a flat-subnet,
+                            ref_ipam_uuid_list.append(ref_ipam_uuid)
+
+                #vn->ipam link to the refs_subnets_list
+                vn_subnets_list = cls.addr_mgmt._vn_to_subnets(vn_dict)
+                if vn_subnets_list:
+                    refs_subnets_list += vn_subnets_list
+            #for each vn
+
+            for ipam_uuid in ref_ipam_uuid_list:
+                (ok, ipam_dict) = cls.dbe_read(db_conn, 'network_ipam',
+                                               ipam_uuid)
+                if not ok:
+                    return (ok, 409, ipam_dict)
+                ref_subnets_list = cls.addr_mgmt._ipam_to_subnets(ipam_dict)
+                refs_subnets_list += ref_subnets_list
+
+            (ok, result) = cls.addr_mgmt.check_overlap_with_refs(
+                                   refs_subnets_list, req_subnets_list)
+            if not ok:
+                return (ok, 409, result)
+        #if ipam_subnets changed in the update
 
         ipam_subnets = obj_dict.get('ipam_subnets')
         if ipam_subnets != None:

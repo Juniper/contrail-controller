@@ -871,6 +871,22 @@ class AddrMgmt(object):
 
         return True, ""
 
+    # check subnets in the given list to make sure that none in the
+    # list is in overlap with refs list
+    def check_overlap_with_refs(self, refs_list, req_list=None):
+        if req_list is None:
+            return True, ""
+        req_subnets = [IPNetwork(subnet) for subnet in req_list]
+        refs_subnets = [IPNetwork(subnet) for subnet in refs_list]
+        for net1 in enumerate(req_subnets):
+            for net2 in enumerate(refs_subnets):
+                if net1 in net2 or net2 in net1:
+                    err_msg = "Overlapping addresses: "
+                    return False, err_msg + str([net1, net2])
+
+        return True, ""
+    # end check_overlap_with_refs
+
     # check subnets associated with ipam or vn, return error if
     # any two subnets have overal ip address
     def check_subnet_overlap(self, requested_subnets):
