@@ -82,6 +82,10 @@ FlowStatsManager::FlowStatsManager(Agent *agent) : agent_(agent),
     flow_export_count_ = 0;
     flow_export_disable_drops_ = 0;
     flow_export_sampling_drops_ = 0;
+    for (uint16_t i = 0; i < sizeof(protocol_list_)/sizeof(protocol_list_[0]);
+         i++) {
+        protocol_list_[i] = NULL;
+    }
 }
 
 FlowStatsManager::~FlowStatsManager() {
