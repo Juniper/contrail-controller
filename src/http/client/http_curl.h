@@ -52,6 +52,9 @@ ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g,
 void del_conn(HttpConnection *connection, GlobalInfo *g);
 void del_curl_handle(ConnInfo *curl_handle, GlobalInfo *g);
 void set_header_options(ConnInfo *conn, const char *options);
+void set_ssl_options(ConnInfo *conn, const char *client_cert,
+                     const char *client_cert_type, const char *client_key,
+                     const char *ca_cert);
 void set_post_string(ConnInfo *conn, const char *post, uint32_t len);
 void set_put_string(ConnInfo *conn, const char *put, uint32_t len);
 int http_head(ConnInfo *conn, GlobalInfo *g); 

@@ -126,6 +126,13 @@ public:
             return 0;
         return metadata_proxy_port_;
     }
+    const bool metadata_use_ssl() const { return metadata_use_ssl_; }
+    std::string metadata_client_cert() const { return metadata_client_cert_;}
+    std::string metadata_client_cert_type() const {
+        return metadata_client_cert_type_;
+    }
+    std::string metadata_client_key() const { return metadata_client_key_;}
+    std::string metadata_ca_cert() const { return metadata_ca_cert_;}
     float max_vm_flows() const { return max_vm_flows_; }
     uint32_t linklocal_system_flows() const { return linklocal_system_flows_; }
     uint32_t linklocal_vm_flows() const { return linklocal_vm_flows_; }
@@ -458,6 +465,11 @@ private:
     std::string tunnel_type_;
     std::string metadata_shared_secret_;
     uint16_t metadata_proxy_port_;
+    bool metadata_use_ssl_;
+    std::string metadata_client_cert_;
+    std::string metadata_client_cert_type_;
+    std::string metadata_client_key_;
+    std::string metadata_ca_cert_;
     float max_vm_flows_;
     uint16_t linklocal_system_flows_;
     uint16_t linklocal_vm_flows_;

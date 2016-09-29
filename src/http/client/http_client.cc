@@ -64,7 +64,8 @@ void HttpClientSession::RegisterEventCb(SessionEventCb cb) {
 HttpConnection::HttpConnection(boost::asio::ip::tcp::endpoint ep, size_t id, 
                                HttpClient *client) :
     endpoint_(ep), id_(id), cb_(NULL), offset_(0), curl_handle_(NULL),
-    session_(NULL), client_(client), state_(STATUS) {
+    session_(NULL), client_(client), use_ssl_(false), client_cert_(""),
+    client_cert_type_("PEM"), client_key_(""), ca_cert_(""), state_(STATUS) {
 }
 
 HttpConnection::~HttpConnection() {
@@ -74,7 +75,11 @@ HttpConnection::~HttpConnection() {
 std::string HttpConnection::make_url(std::string &path) {
     std::ostringstream ret;
 
-    ret << "http://" << endpoint_.address().to_string();
+    if (use_ssl_) {
+        ret << "https://" << endpoint_.address().to_string();
+    } else {
+        ret << "http://" << endpoint_.address().to_string();
+    }
     if (endpoint_.port() != 0) {
         ret << ":" << endpoint_.port();
     }
@@ -226,6 +231,12 @@ void HttpConnection::HttpProcessInternal(const std::string body,
 
     std::string url = make_url(path);
     set_url(curl_handle_, url.c_str());
+
+    // set SSL curl options
+    if (use_ssl_) {
+        set_ssl_options(curl_handle_, client_cert_.c_str(),
+            client_cert_type_.c_str(), client_key_.c_str(), ca_cert_.c_str());
+    }
 
     // Add header options to the get request
     for (uint32_t i = 0; i < hdr_options.size(); ++i)
