@@ -153,6 +153,19 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:sequence>
 </xsd:complexType>
 
+<xsd:complexType name="PortMap">
+    <xsd:all>
+        <xsd:element name="src-port" type="xsd:integer"/>
+        <xsd:element name="dst-port" type="xsd:integer"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="PortMappings">
+    <xsd:all>
+        <xsd:element name="port-mappings" type="PortMap" maxOccurs="65535"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:complexType name="MatchConditionType">
     <xsd:sequence>
         <xsd:element name="protocol"    type="xsd:string"  required='true'
@@ -1779,6 +1792,20 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('floating-ip-virtual-machine-interface',
           'floating-ip', 'virtual-machine-interface', ['ref'], 'optional', 'CRUD',
           'Reference to virtual machine interface to which this floating ip is attached.') -->
+<xsd:element name="instance-ip-floating-ip"/>
+<!--#IFMAP-SEMANTICS-IDL
+    Link('instance-ip-floating-ip',
+        'instance-ip', 'floating-ip', ['has'], 'optional', 'CRUD',
+        'floating-ip can be child of instance-ip. By doing so instance-ip can be used as floating-ip.') -->
+<xsd:element name="floating-ip-port-mappings-enable" type="xsd:boolean" default='false'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('floating-ip-port-mappings-enable',
+              'floating-ip', 'optional', 'CRUD',
+              'If it is false, floating-ip Nat is done for all Ports. If it is true, floating-ip Nat is done to the list of PortMaps.') -->
+<xsd:element name="floating-ip-port-mappings" type="PortMappings"/>
+<!--#IFMAP-SEMANTICS-IDL
+    ListProperty('floating-ip-port-mappings', 'floating-ip', 'optional', 'CRUD',
+             'List of PortMaps for this floating-ip.') -->
 
 <xsd:element name="alias-ip-pool" type="ifmap:IdentityType"/>
 <xsd:element name="virtual-network-alias-ip-pool"/>
