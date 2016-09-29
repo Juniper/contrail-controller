@@ -187,6 +187,9 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
 class FloatingIpServer(Resource, FloatingIp):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        if obj_dict['parent_type'] == 'instance-ip':
+            return True, ""
+
         if 'project_refs' not in obj_dict:
             return False, (400, 'Floating Ip should have project reference')
 
@@ -240,6 +243,9 @@ class FloatingIpServer(Resource, FloatingIp):
 
     @classmethod
     def post_dbe_delete(cls, id, obj_dict, db_conn):
+        if obj_dict['parent_type'] == 'instance-ip':
+            return True, ""
+
         vn_fq_name = obj_dict['fq_name'][:-2]
         fip_addr = obj_dict['floating_ip_address']
         db_conn.config_log('AddrMgmt: free FIP %s for vn=%s'
@@ -253,6 +259,9 @@ class FloatingIpServer(Resource, FloatingIp):
 
     @classmethod
     def dbe_create_notification(cls, obj_ids, obj_dict):
+        if obj_dict['parent_type'] == 'instance-ip':
+            return True, ""
+
         fip_addr = obj_dict['floating_ip_address']
         vn_fq_name = obj_dict['fq_name'][:-2]
         cls.addr_mgmt.ip_alloc_notify(fip_addr, vn_fq_name)
@@ -260,6 +269,9 @@ class FloatingIpServer(Resource, FloatingIp):
 
     @classmethod
     def dbe_delete_notification(cls, obj_ids, obj_dict):
+        if obj_dict['parent_type'] == 'instance-ip':
+            return True, ""
+
         fip_addr = obj_dict['floating_ip_address']
         vn_fq_name = obj_dict['fq_name'][:-2]
         cls.addr_mgmt.ip_free_notify(fip_addr, vn_fq_name)
