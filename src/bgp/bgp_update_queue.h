@@ -6,8 +6,8 @@
 #define SRC_BGP_BGP_UPDATE_QUEUE_H_
 
 #include <list>
-#include <map>
 #include <set>
+#include <vector>
 
 #include "bgp/bgp_update.h"
 
@@ -114,7 +114,7 @@ public:
         boost::intrusive::compare<UpdateByAttrCmp>
     > UpdatesByAttr;
 
-    typedef std::map<int, UpdateMarker *> MarkerMap;
+    typedef std::vector<UpdateMarker *> MarkerList;
 
     UpdateQueue(const RibOut *ribout, int queue_id);
     ~UpdateQueue();
@@ -156,7 +156,7 @@ private:
     size_t marker_count_;
     UpdatesByOrder queue_;
     UpdatesByAttr attr_set_;
-    MarkerMap markers_;
+    MarkerList markers_;
     UpdateMarker tail_marker_;
 
     DISALLOW_COPY_AND_ASSIGN(UpdateQueue);

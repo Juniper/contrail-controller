@@ -691,6 +691,7 @@ update_test_suite = [
     bgp_export_rtupdate_test,
     bgp_export_uplist_test,
     bgp_ribout_updates_test,
+    bgp_update_sender_test,
     bgp_update_test,
 ]
 
