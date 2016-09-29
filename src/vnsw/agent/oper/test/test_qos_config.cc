@@ -322,9 +322,15 @@ TEST_F(QosConfigClassTest, Test9) {
 
     AddNode("global-qos-config",
             "default-global-system-config:default-global-qos-config", 1);
-    AddLink("qos-config", "qos_config", "global-qos-config",
-            "default-global-system-config:default-global-qos-config");
     client->WaitForIdle();
+    AddLink("global-qos-config",
+            "default-global-system-config:default-global-qos-config",
+            "qos-config", "qos_config");
+    client->WaitForIdle();
+
+    AddQosConfig(data);
+    client->WaitForIdle();
+
     EXPECT_TRUE(InetInterfaceGet(agent->vhost_interface_name().c_str())
                 ->qos_config() == QosConfigGet(1));
     EXPECT_TRUE(EthInterfaceGet(agent->fabric_interface_name().c_str())
@@ -366,8 +372,9 @@ TEST_F(QosConfigClassTest, Test10) {
 
     AddNode("global-qos-config",
             "default-global-system-config:default-global-qos-config", 1);
-    AddLink("qos-config", "qos_config", "global-qos-config",
-            "default-global-system-config:default-global-qos-config");
+    AddLink("global-qos-config",
+            "default-global-system-config:default-global-qos-config",
+            "qos-config", "qos_config");
     client->WaitForIdle();
     EXPECT_TRUE(EthInterfaceGet(agent->fabric_interface_name().c_str())
                 ->qos_config() == QosConfigGet(1));

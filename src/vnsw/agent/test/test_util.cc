@@ -169,7 +169,7 @@ static void BuildLinkToMetadata() {
     AddLinkToMetadata("bgp-router", "routing-instance");
     AddLinkToMetadata("virtual-network", "qos-config");
     AddLinkToMetadata("virtual-machine-interface", "qos-config");
-    AddLinkToMetadata("qos-config", "global-qos-config");
+    AddLinkToMetadata("global-qos-config", "qos-config");
     AddLinkToMetadata("forwarding-class", "qos-queue");
     AddLinkToMetadata("network-ipam", "virtual-DNS");
     AddLinkToMetadata("virtual-machine-interface", "service-health-check", "service-port-health-check");
