@@ -101,7 +101,7 @@ class DiscoveryCassandraClient(VncCassandraClient):
             # ('subscriber', service_id, client_id)
             col_name = ('subscriber', service_id,)
             try:
-                clients = self._disco_cf.get(service_type, column_start = col_name,
+                clients = self._disco_cf.xget(service_type, column_start = col_name,
                     column_finish = col_name, column_count = disc_consts.MAX_COL)
             except pycassa.NotFoundException:
                 return None
@@ -110,7 +110,7 @@ class DiscoveryCassandraClient(VncCassandraClient):
         elif service_type:
             col_name = ('client', )
             try:
-                clients = self._disco_cf.get(service_type, column_start = col_name,
+                clients = self._disco_cf.xget(service_type, column_start = col_name,
                     column_finish = col_name, column_count = disc_consts.MAX_COL)
             except pycassa.NotFoundException:
                 return None
@@ -177,9 +177,9 @@ class DiscoveryCassandraClient(VncCassandraClient):
         try:
             col_name = ('service', service_id,) if service_id else ('service',)
             if service_type:
-                services = self._disco_cf.get(service_type, column_start = col_name,
+                services = self._disco_cf.xget(service_type, column_start = col_name,
                     column_finish = col_name, column_count = disc_consts.MAX_COL)
-                data = [(service_type, services)]
+                data = [(service_type, dict(services))]
             else:
                 data = self._disco_cf.get_range(column_start = col_name, column_finish = col_name)
 
@@ -202,8 +202,9 @@ class DiscoveryCassandraClient(VncCassandraClient):
                 col_name = ('subscriber',)
                 try:
                     # read all subs for a service type to minimize read requests
-                    subscribers = self._disco_cf.get(serv_type, column_start = col_name,
+                    subscribers = self._disco_cf.xget(serv_type, column_start = col_name,
                         column_finish = col_name, column_count = disc_consts.MAX_COL)
+                    subscribers = dict(subscribers)
                     for col, val in subscribers.items():
                         _, serv_id, client_id = col
                         if (serv_type,serv_id) in data_dict:
@@ -251,9 +252,10 @@ class DiscoveryCassandraClient(VncCassandraClient):
         r = []
         col_name = ('client', client_id, )
         try:
-            subs = self._disco_cf.get(service_type, column_start = col_name,
+            subs = self._disco_cf.xget(service_type, column_start = col_name,
                 column_finish = col_name, include_timestamp = True,
                 column_count = disc_consts.MAX_COL)
+            subs = dict(subs)
             # sort columns by timestamp (subs is array of (col_name, (value, timestamp)))
             subs = sorted(subs.items(), key=lambda entry: entry[1][1])
             # col_name = (client, cliend_id, service_id)
@@ -277,8 +279,9 @@ class DiscoveryCassandraClient(VncCassandraClient):
         r = []
         col_name = ('client', client_id, )
         try:
-            subs = self._disco_cf.get(service_type, column_start = col_name,
+            subs = self._disco_cf.xget(service_type, column_start = col_name,
                 column_finish = col_name, column_count = disc_consts.MAX_COL)
+            subs = dict(subs)
             # col_name = subscription, cliend_id, service_id
             for col_name, col_val in subs.items():
                 _, client_id, bar = col_name
@@ -305,14 +308,16 @@ class DiscoveryCassandraClient(VncCassandraClient):
     @cass_error_handler
     def mark_delete_subscription(self, service_type, client_id, service_id):
         col_name = ('client', client_id, service_id)
-        x = self._disco_cf.get(service_type, columns = [col_name])
+        x = self._disco_cf.xget(service_type, columns = [col_name])
+        x = dict(x)
         data = [json.loads(val) for col,val in x.items()]
         entry = data[0]
         entry['expired'] = True
         self._disco_cf.insert(service_type, {col_name : json.dumps(entry)})
 
         col_name = ('subscriber', service_id, client_id)
-        x = self._disco_cf.get(service_type, columns = [col_name])
+        x = self._disco_cf.xget(service_type, columns = [col_name])
+        x = dict(x)
         data = [json.loads(val) for col,val in x.items()]
         entry = data[0]
         entry['expired'] = True
