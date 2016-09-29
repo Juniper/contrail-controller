@@ -1186,16 +1186,15 @@ class TestPermissions(test_case.ApiServerTestCase):
         status_code, result = alice.vnc_lib._http_get('/virtual-networks')
         self.assertThat(status_code, Equals(401))
 
-    def test_read_only_admin_role(self):
-        # allow read-only role access to all API
-        global_rules = vnc_read_obj(self.admin.vnc_lib, 'api-access-list',
-            name = ['default-global-system-config', 'default-api-access-list'])
-        vnc_aal_add_rule(self.admin.vnc_lib, global_rules, "* %s:R" % self.adminr.role)
-
-        # create VN owned by Alice
+    def test_global_read_only_role(self):
         vn = VirtualNetwork('alice-%s' % self.id(), self.alice.project_obj)
         vn_fq_name = vn.get_fq_name()
 
+        # read-only role - create VN  ... should fail
+        with ExpectedException(PermissionDenied) as e:
+            self.adminr.vnc_lib.virtual_network_create(vn)
+
+        # create VN owned by Alice
         self.alice.vnc_lib.virtual_network_create(vn)
 
         # read-only role - delete VN  ... should fail
