@@ -634,6 +634,7 @@ bool PortIpcHandler::AddVgwFromJson(const string &json, string &err_msg) const {
             vgw_data(new VirtualGatewayData(VirtualGatewayData::Add, req_list,
                                             0));
         agent_->params()->vgw_config_table()->Enqueue(vgw_data);
+        CONFIG_TRACE(VgwEnqueue, "Add", json);
     }
     return true;
 }
@@ -675,6 +676,7 @@ bool PortIpcHandler::DelVgwFromJson(const string &json, string &err_msg) const {
             vgw_data(new VirtualGatewayData(VirtualGatewayData::Delete,
                                             req_list, 0));
         agent_->params()->vgw_config_table()->Enqueue(vgw_data);
+        CONFIG_TRACE(VgwEnqueue, "Del", json);
     }
     return true;
 }

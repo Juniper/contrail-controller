@@ -28,7 +28,6 @@ public:
     // Initialization virtual methods
     void FactoryInit();
     void CreateModules();
-    void ConnectToController();
     void InitDone();
 
     // Shutdown virtual methods

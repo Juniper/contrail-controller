@@ -14,7 +14,6 @@
 #include "uve/test/vn_uve_table_test.h"
 #include "uve/agent_uve_stats.h"
 #include <cfg/cfg_types.h>
-#include <instance_service_server.h>
 
 #define MAX_TESTNAME_LEN 80
 
