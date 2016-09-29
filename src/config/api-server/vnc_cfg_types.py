@@ -187,6 +187,9 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
 class FloatingIpServer(Resource, FloatingIp):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        if obj_dict['parent_type'] == 'instance-ip':
+            return True, ""
+
         if 'project_refs' not in obj_dict:
             return False, (400, 'Floating Ip should have project reference')
 
