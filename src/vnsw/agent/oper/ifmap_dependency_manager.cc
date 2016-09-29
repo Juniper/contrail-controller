@@ -80,6 +80,7 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
         "floating-ip",
         "floating-ip-pool",
         "forwarding-class",
+        "global-qos-config",
         "instance-ip",
         "logical-interface",
         "network-ipam",
@@ -718,7 +719,7 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
 
     AddDependencyPath("qos-config",
                        MakePath("global-qos-config-qos-config",
-                                "qos-config", true));
+                                "global-qos-config", false));
     RegisterConfigHandler(this, "qos-config",
                           agent ? agent->qos_config_table() : NULL);
 
