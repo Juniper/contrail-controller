@@ -76,7 +76,7 @@ private:
     const std::vector<std::string> select_fields_;
 
     // If T= is in the SELECT, this gives the timeperiod
-    uint32_t ts_period_;
+    uint64_t ts_period_;
     bool isT_;
 
     // Is CLASS(T) or CLASS(T=) in the SELECT Clause 
