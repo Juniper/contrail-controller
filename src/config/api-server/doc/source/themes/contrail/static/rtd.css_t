@@ -585,7 +585,7 @@ p {
 }
 
 div.section {
-    padding-top: 10px;
+    padding-top: 20px;
 }
 .section p img {
     margin: 1em 2em;
@@ -898,7 +898,9 @@ div.sphinxsidebarwrapper {
     padding: 0;
     position: fixed;
     width: 450px;
-    top: 30px;
+    top: 50px;
+    height: calc(100% - 95px);
+    overflow-y: scroll;
 }
 
 div.sphinxsidebar {
