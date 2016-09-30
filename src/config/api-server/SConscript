@@ -55,7 +55,9 @@ for file in setup_sources:
 local_sources = [
            '__init__.py',
            'vnc_cfg_api_server.py',
-           'vnc_cfg_ifmap.py',
+           'vnc_ifmap.py',
+           'vnc_ifmap_client.py',
+           'vnc_db.py',
            'vnc_cfg_types.py',
            'vnc_auth.py',
            'vnc_auth_keystone.py',

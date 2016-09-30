@@ -336,7 +336,6 @@ def parse_args(args_str):
         'keyfile': '',
         'certfile': '',
         'ca_certs': '',
-        'ifmap_certauth_port': "8444",
     }
     ksopts = {
         'admin_user': 'user1',
