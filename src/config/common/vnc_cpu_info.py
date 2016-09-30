@@ -9,6 +9,8 @@ import os
 import socket
 import psutil
 import gevent
+from distutils.spawn import find_executable
+
 from uve.cfgm_cpuinfo.ttypes import *
 from cfgm_common.uve.nodeinfo.ttypes import *
 from cfgm_common.uve.nodeinfo.cpuinfo.ttypes import *
@@ -26,7 +28,7 @@ class CpuInfo(object):
                  time_interval, server_ip=None):
         # store cpuinfo at init
         self._module_id = module_id
-        self._instance_id = instance_id 
+        self._instance_id = instance_id
         self._sysinfo = sysinfo_req
         self._sandesh = sandesh
         self._time_interval = time_interval
@@ -87,9 +89,12 @@ class CpuInfo(object):
 
                 # Retrieve build_info from package/rpm and cache it
                 if self._curr_build_info is None:
-                    command = "contrail-version contrail-config | grep 'contrail-config'"
-                    version = os.popen(command).read()
-                    _, rpm_version, build_num = version.split()
+                    if find_executable('contrail-version'):
+                        command = "contrail-version contrail-config | grep 'contrail-config'"
+                        version = os.popen(command).read()
+                        _, rpm_version, build_num = version.split()
+                    else:
+                        rpm_version = build_num = 'unknown'
                     self._new_build_info = build_info + '"build-id" : "' + \
                         rpm_version + '", "build-number" : "' + \
                         build_num + '"}]}'
