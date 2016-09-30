@@ -11,7 +11,6 @@ from vnc_api.vnc_api import (VirtualNetwork, SequenceType,
 
 from test_case import STTestCase, retries, VerifyCommon
 sys.path.append("../common/tests")
-from test_utils import FakeIfmapClient
 import test_common
 
 
@@ -130,9 +129,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
         self._vnc_lib.virtual_network_create(vn2_obj)
 
         for obj in [vn1_obj, vn2_obj]:
-            ident_name = self.get_obj_imid(obj)
-            gevent.sleep(2)
-            self.assertThat(FakeIfmapClient._graph['8443'], Contains(ident_name))
+            self.assertTill(self.ifmap_has_ident, obj=obj)
 
         self.check_ri_ref_present(self.get_ri_name(vn1_obj),
                                   self.get_ri_name(vn2_obj))
@@ -178,10 +175,11 @@ class TestPolicy(STTestCase, VerifyPolicy):
         np1.set_network_policy_entries(np1.network_policy_entries)
         self._vnc_lib.network_policy_update(np1)
 
-        expr =("('contrail:connection contrail:routing-instance:%s' in FakeIfmapClient._graph['8443']['contrail:routing-instance:%s']['links'])"
-               % (':'.join(self.get_ri_name(vn2_obj)),
-                  ':'.join(self.get_ri_name(vn1_obj))))
-        self.assertTill(expr)
+        self.assertTill(
+            self.ifmap_ident_has_link,
+            type_fq_name=('routing-instance', self.get_ri_name(vn1_obj)),
+            link_name='contrail:connection contrail:routing-instance:%s' %
+                ':'.join(self.get_ri_name(vn2_obj)))
         np1.network_policy_entries.policy_rule[0].action_list.simple_action = 'pass'
         np1.set_network_policy_entries(np1.network_policy_entries)
         self._vnc_lib.network_policy_update(np1)
@@ -189,11 +187,11 @@ class TestPolicy(STTestCase, VerifyPolicy):
         np2.set_network_policy_entries(np2.network_policy_entries)
         self._vnc_lib.network_policy_update(np2)
 
-        expr = ("('contrail:connection contrail:routing-instance:%s' in FakeIfmapClient._graph['8443']['contrail:routing-instance:%s']['links'])"
-               % (':'.join(self.get_ri_name(vn1_obj)),
-                  ':'.join(self.get_ri_name(vn2_obj))))
-
-        self.assertTill(expr)
+        self.assertTill(
+            self.ifmap_ident_has_link,
+            type_fq_name=('routing-instance', self.get_ri_name(vn2_obj)),
+            link_name='contrail:connection contrail:routing-instance:%s' %
+                ':'.join(self.get_ri_name(vn1_obj)))
         vn1_obj.del_network_policy(np1)
         vn2_obj.del_network_policy(np2)
         self._vnc_lib.virtual_network_update(vn1_obj)
@@ -303,10 +301,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
         vn1.set_network_policy(np, vnp)
         self._vnc_lib.virtual_network_update(vn1)
 
-        for obj in [vn1]:
-            ident_name = self.get_obj_imid(obj)
-            gevent.sleep(2)
-            self.assertThat(FakeIfmapClient._graph['8443'], Contains(ident_name))
+        self.assertTill(self.ifmap_has_ident, obj=vn1)
 
         self.check_vn_ri_state(fq_name=self.get_ri_name(vn1))
 
@@ -348,10 +343,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
         vn1.set_network_policy(np, vnp)
         self._vnc_lib.virtual_network_update(vn1)
 
-        for obj in [vn1]:
-            ident_name = self.get_obj_imid(obj)
-            gevent.sleep(2)
-            self.assertThat(FakeIfmapClient._graph['8443'], Contains(ident_name))
+        self.assertTill(self.ifmap_has_ident, obj=vn1)
 
         self.check_vn_ri_state(fq_name=self.get_ri_name(vn1))
 
@@ -375,9 +367,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
         vn_name = self.id() + 'vn'
         vn = self.create_virtual_network(vn_name, "10.1.1.0/24")
         gevent.sleep(2)
-        for obj in [vn]:
-            ident_name = self.get_obj_imid(obj)
-            ifmap_ident = self.assertThat(FakeIfmapClient._graph['8443'], Contains(ident_name))
+        self.assertTill(self.ifmap_has_ident, obj=vn)
 
         self.check_vn_ri_state(fq_name=self.get_ri_name(vn))
 

@@ -18,6 +18,19 @@ _WEB_HOST = '0.0.0.0'
 _WEB_PORT = 8082
 _ADMIN_PORT = 8095
 
+
+def user_password(s):
+    creds = []
+
+    for cred in s.split():
+        if ':' not in cred:
+            msg = "User/password must be 'username:password'"
+            raise argparse.ArgumentTypeError(msg)
+        creds.append(tuple(cred.split(':', 1)))
+
+    return creds
+
+
 def parse_args(args_str):
     args_obj = None
     # Source any specified config/ini file
@@ -34,13 +47,7 @@ def parse_args(args_str):
         'listen_ip_addr': _WEB_HOST,
         'listen_port': _WEB_PORT,
         'admin_port': _ADMIN_PORT,
-        'ifmap_server_ip': '127.0.0.1',
-        'ifmap_server_port': "8443",
-        'ifmap_queue_size': 10000,
-        'ifmap_max_message_size': 1024*1024,
         'cassandra_server_list': "127.0.0.1:9160",
-        'ifmap_username': "api-server",
-        'ifmap_password': "api-server",
         'collectors': None,
         'http_server_port': '8084',
         'log_local': True,
@@ -71,7 +78,6 @@ def parse_args(args_str):
         'max_requests': 1024,
         'region_name': 'RegionOne',
         'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
-        'ifmap_health_check_interval': '60', # in seconds
         'stale_lock_seconds': '5', # lock but no resource past this => stale
         'cloud_admin_role': cfgm_common.CLOUD_ADMIN_ROLE,
         'global_read_only_role': cfgm_common.GLOBAL_READ_ONLY_ROLE,
@@ -82,6 +88,14 @@ def parse_args(args_str):
         'kombu_ssl_ca_certs': '',
         'object_cache_entries': '10000', # max number of objects cached for read
         'object_cache_exclude_types': '', # csv of object types to *not* cache
+        # IF-MAP client options to connect and maintain irond sessions
+        'ifmap_server_ip': '127.0.0.1',
+        'ifmap_server_port': "8443",
+        'ifmap_username': "api-server",
+        'ifmap_password': "api-server",
+        'ifmap_queue_size': 10000,
+        'ifmap_max_message_size': 1024*1024,
+        'ifmap_health_check_interval': '60', # in seconds
     }
     # ssl options
     secopts = {
@@ -89,7 +103,6 @@ def parse_args(args_str):
         'keyfile': '',
         'certfile': '',
         'ca_certs': '',
-        'ifmap_certauth_port': "8444",
     }
     # keystone options
     ksopts = {
@@ -106,6 +119,18 @@ def parse_args(args_str):
     cassandraopts = {
         'cassandra_user'     : None,
         'cassandra_password' : None
+    }
+    # ifmap server options
+    ifmapopts = {
+        # IF-MAP options to start self-managed and minimalist IF-MAP server
+        # Listen IP and port
+        'ifmap_listen_ip': None,
+        'ifmap_listen_port': None,
+        # Key ans certificate files path. If not set automatically create
+        'ifmap_key_path': '/var/lib/contrail/api-server/ifmap-cert/key',
+        'ifmap_cert_path': '/var/lib/contrail/api-server/ifmap-cert/cert',
+        # Credentials: [(user1, password), (user2, password)]
+        'ifmap_credentials': [('control', 'secret')],
     }
 
 
@@ -136,7 +161,8 @@ def parse_args(args_str):
                     pass
         if 'CASSANDRA' in config.sections():
                 cassandraopts.update(dict(config.items('CASSANDRA')))
-
+        if 'IFMAP_SERVER' in config.sections():
+                ifmapopts.update(dict(config.items('IFMAP_SERVER')))
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
     parser = argparse.ArgumentParser(
@@ -150,26 +176,9 @@ def parse_args(args_str):
     defaults.update(secopts)
     defaults.update(ksopts)
     defaults.update(cassandraopts)
+    defaults.update(ifmapopts)
     parser.set_defaults(**defaults)
 
-    parser.add_argument(
-        "--ifmap_server_ip", help="IP address of ifmap server")
-    parser.add_argument(
-        "--ifmap_server_port", help="Port of ifmap server")
-    parser.add_argument(
-        "--ifmap_queue_size", type=int, help="Size of the queue that holds "
-        "pending messages to be sent to ifmap server")
-    parser.add_argument(
-        "--ifmap_max_message_size", type=int, help="Maximum size of message "
-        "sent to ifmap server")
-
-    # TODO should be from certificate
-    parser.add_argument(
-        "--ifmap_username",
-        help="Username known to ifmap server")
-    parser.add_argument(
-        "--ifmap_password",
-        help="Password known to ifmap server")
     parser.add_argument(
         "--cassandra_server_list",
         help="List of cassandra servers in IP Address:Port format",
@@ -212,9 +221,6 @@ def parse_args(args_str):
     parser.add_argument(
         "--http_server_port",
         help="Port of local HTTP server")
-    parser.add_argument(
-        "--ifmap_server_loc",
-        help="Location of IFMAP server")
     parser.add_argument(
         "--log_local", action="store_true",
         help="Enable local logging of sandesh messages")
@@ -293,8 +299,6 @@ def parse_args(args_str):
             help="Cassandra password")
     parser.add_argument("--sandesh_send_rate_limit", type=int,
             help="Sandesh send rate limit in messages/sec.")
-    parser.add_argument("--ifmap_health_check_interval",
-            help="Interval seconds to check for ifmap health, default 60")
     parser.add_argument("--stale_lock_seconds",
             help="Time after which lock without resource is stale, default 60")
     parser.add_argument( "--cloud_admin_role",
@@ -305,6 +309,37 @@ def parse_args(args_str):
             help="Maximum number of objects cached for read, default 10000")
     parser.add_argument("--object_cache_exclude_types",
             help="Comma separated values of object types to not cache")
+    parser.add_argument(
+        "--ifmap_server_ip", help="IP address of ifmap server")
+    parser.add_argument(
+        "--ifmap_server_port", help="Port of ifmap server")
+    parser.add_argument(
+        "--ifmap_username", help="Username known to ifmap server")
+    parser.add_argument(
+        "--ifmap_password", help="Password known to ifmap server")
+    parser.add_argument(
+        "--ifmap_queue_size", type=int, help="Size of the queue that holds "
+        "pending messages to be sent to ifmap server")
+    parser.add_argument(
+        "--ifmap_max_message_size", type=int, help="Maximum size of message "
+        "sent to ifmap server")
+    parser.add_argument("--ifmap_health_check_interval",
+            help="Interval seconds to check for ifmap health, default 60")
+    parser.add_argument("--ifmap_listen_ip",
+                        help="IP to bind IF-MAP server (If not set, the VNC "
+                             "API server will use IF-MAP client to connect to "
+                             " an external IF-MAP server)")
+    parser.add_argument("--ifmap_listen_port",
+                        help="TCP port to bind IF-MAP server (If not set, the "
+                             "VNC API server will use IF-MAP client to connect "
+                             " to an external IF-MAP server)")
+    parser.add_argument("--ifmap_key_path",
+                        help="Key file path to use for IF-MAP server")
+    parser.add_argument("--ifmap_cert_path",
+                        help="Certificate file path to use for IF-MAP server")
+    parser.add_argument('--ifmap_credentials',
+                        help="List of user and password: <username:password>",
+                        type=user_password, nargs='*')
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.config_sections = config
     if type(args_obj.cassandra_server_list) is str:

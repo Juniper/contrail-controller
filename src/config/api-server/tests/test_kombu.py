@@ -9,7 +9,7 @@ import unittest
 import testtools
 from flexmock import flexmock
 from cfgm_common import vnc_kombu
-from vnc_cfg_api_server import vnc_cfg_ifmap
+from vnc_cfg_api_server.vnc_db import VncServerKombuClient
 from distutils.version import LooseVersion
 from vnc_api.vnc_api import VirtualNetwork, NetworkIpam, VnSubnetsType
 
@@ -85,11 +85,9 @@ class TestIfmapKombuClient(unittest.TestCase):
                  self._url("e.e.e.e", username="eeee", password="xxxx"),
                  self._url("f.f.f.f", username="ffff", password="xxxx", port=5050)]
         with self.assertRaises(CorrectValueException):
-            vnc_cfg_ifmap.VncServerKombuClient(self.db_client_mgr,
-                                         servers, self.port,
-                                         None, self.username,
-                                         self.password,
-                                         self.vhost, 0, False)
+            VncServerKombuClient(self.db_client_mgr, servers, self.port, None,
+                                 self.username, self.password, self.vhost, 0,
+                                 False)
 
     @unittest.skipIf(is_kombu_client_v1,
                      "skipping because kombu client is older")
@@ -116,11 +114,9 @@ class TestIfmapKombuClient(unittest.TestCase):
 
         flexmock(self.mock_connect).should_receive("drain_events").replace_with(_drain_events).twice()
         servers = "a.a.a.a"
-        kc = vnc_cfg_ifmap.VncServerKombuClient(self.db_client_mgr,
-                                     servers, self.port,
-                                     None, self.username,
-                                     self.password,
-                                     self.vhost, 0, False)
+        kc = VncServerKombuClient(self.db_client_mgr,servers, self.port,None,
+                                  self.username, self.password, self.vhost, 0,
+                                  False)
         _lock.wait()
         kc.shutdown()
 
@@ -152,11 +148,9 @@ class TestIfmapKombuClient(unittest.TestCase):
         flexmock(self.mock_connect).should_receive("drain_events").replace_with(_drain_events).once()
         flexmock(self.mock_producer).should_receive("publish").replace_with(_publish).twice()
         servers = "a.a.a.a"
-        kc = vnc_cfg_ifmap.VncServerKombuClient(self.db_client_mgr,
-                                     servers, self.port,
-                                     None, self.username,
-                                     self.password,
-                                     self.vhost, 0, False)
+        kc = VncServerKombuClient(self.db_client_mgr, servers, self.port, None,
+                                  self.username, self.password, self.vhost, 0,
+                                  False)
         gevent.sleep(0)
         kc.dbe_create_publish("network", [], {})
         _lock.wait()
@@ -203,23 +197,19 @@ class TestVncRabbitPublish(test_case.ApiServerTestCase):
         vn_obj.display_name = 'test_update_1'
         self._vnc_lib.virtual_network_update(vn_obj)
         gevent.sleep(2)
-        with testtools.ExpectedException(KeyError):
-            api_server._db_conn._ifmap_db._id_to_metas[\
-                    'contrail:virtual-network:default-domain:default-project:vn1']
+        self.assertTill(self.ifmap_doesnt_have_ident, obj=vn_obj)
 
         logger.info("Unblock create notify to amqp, Create expected to read from DB",
                     "and publish to IFMAP with the updated object info.")
         self.block_untill_update_publish = False
         vn_uuid = vn_create_greenlet.get(timeout=3)
-        gevent.sleep(2)
-        self.assertEqual(api_server._db_conn._ifmap_db._id_to_metas[\
-                'contrail:virtual-network:default-domain:default-project:vn1'][\
-                'display-name']['']._Metadata__value, 'test_update_1')
+        self.assertTill(self.ifmap_ident_has_link, obj=vn_obj,
+                        link_name='display-name')
+        self.assertTrue('test_update_1' in self.ifmap_ident_has_link(
+                            obj=vn_obj, link_name='display-name')['meta'])
 
         logger.info("update after publishing to IFAMAP, Expected to publish to IFMAP")
         vn_obj.display_name = 'test_update_2'
         self._vnc_lib.virtual_network_update(vn_obj)
-        gevent.sleep(2)
-        self.assertEqual(api_server._db_conn._ifmap_db._id_to_metas[\
-                'contrail:virtual-network:default-domain:default-project:vn1'][\
-                'display-name']['']._Metadata__value, 'test_update_2')
+        self.assertTill(lambda: 'test_update_2' in self.ifmap_ident_has_link(
+                            obj=vn_obj, link_name='display-name')['meta'])

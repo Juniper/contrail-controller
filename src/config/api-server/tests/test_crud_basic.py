@@ -681,7 +681,6 @@ class TestCrud(test_case.ApiServerTestCase):
         gsc = gsc_fixt._obj
         gsc.add_user_defined_log_statistics(UserDefinedLogStat('Test01',
                     '.*[ab][0-9]s1.*'))
-        # import pdb; pdb.set_trace()
         # bad regex
         gsc.add_user_defined_log_statistics(UserDefinedLogStat('Test03',
                     '*foo'))
@@ -889,20 +888,6 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             api_server._db_conn._msgbus._producer.publish = orig_rabbitq_pub
             api_server._db_conn._msgbus._conn.connect = orig_rabbitq_conn
 
-    def test_err_on_ifmap_publish(self):
-        self.ignore_err_in_log = True
-        api_server = self._server_info['api_server']
-        orig_call = api_server._db_conn._ifmap_db._mapclient.call
-        def err_call(*args, **kwargs):
-            # restore orig method and return error to check handling
-            api_server._db_conn._ifmap_db._mapclient.call = orig_call
-            publish_err_xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><ns3:Envelope xmlns:ns2="http://www.trustedcomputinggroup.org/2010/IFMAP/2" xmlns:ns3="http://www.w3.org/2003/05/soap-envelope"><ns3:Body><ns2:response><errorResult errorCode="AccessDenied"><errorString>Existing SSRC</errorString></errorResult></ns2:response></ns3:Body></ns3:Envelope>'
-            return publish_err_xml
-
-        api_server._db_conn._ifmap_db._mapclient.call = err_call
-        test_obj = self._create_test_object()
-        self.assertTill(self.ifmap_has_ident, obj=test_obj)
-
     def test_reconnect_to_rabbit(self):
         self.ignore_err_in_log = True
         exceptions = [(FakeKombu.Connection.ConnectionException(), 'conn'),
@@ -962,22 +947,10 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                 self.assertTill(lambda: consume_captured[0] == True)
             # unpatch err consume
 
-            def ifmap_has_ident_update(port = '8443'):
-                ifmap_id = imid.get_ifmap_id_from_fq_name(obj.get_type(),
-                    obj.get_fq_name())
-                node = FakeIfmapClient._graph[port].get(ifmap_id)
-                if not node:
-                    return False
-                meta = node.get('links', {}).get('contrail:display-name',
-                    {}).get('meta')
-                if meta is None:
-                    return False
-                if not 'test_update' in etree.tostring(meta):
-                    return False
-
-                return True
-
-            self.assertTill(ifmap_has_ident_update)
+            self.assertTill(self.ifmap_ident_has_link, obj=obj,
+                            link_name='display-name')
+            self.assertTill(lambda: 'test_update' in self.ifmap_ident_has_link(
+                                obj=obj, link_name='display-name')['meta'])
         # end exception types on consume
 
         # fake problem on consume and publish at same time
@@ -1054,22 +1027,10 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             # unpatch connect
         # unpatch err consume
 
-        def ifmap_has_update_2(port = '8443'):
-            ifmap_id = imid.get_ifmap_id_from_fq_name(obj.get_type(),
-                obj.get_fq_name())
-            node = FakeIfmapClient._graph[port].get(ifmap_id)
-            if not node:
-                return False
-            meta = node.get('links', {}).get('contrail:display-name',
-                {}).get('meta')
-            if meta is None:
-                return False
-            if not 'test_update_2' in etree.tostring(meta):
-                return False
-
-            return True
-
-        self.assertTill(ifmap_has_update_2)
+        self.assertTill(self.ifmap_ident_has_link, obj=obj,
+                        link_name='display-name')
+        self.assertTill(lambda: 'test_update_2' in self.ifmap_ident_has_link(
+                            obj=obj, link_name='display-name')['meta'])
     # end test_reconnect_to_rabbit
 
     def test_handle_trap_on_exception(self):
@@ -1129,13 +1090,6 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         self.assertThat(traces.status_code, Equals(200))
         top_elem = etree.fromstring(traces.text)
         self.assertThat(top_elem[0][0][-1].text, Contains('DELETE'))
-        self.assertThat(top_elem[0][0][-1].text, Contains(test_obj.name))
-
-        traces = requests.get('http://localhost:%s/Snh_SandeshTraceRequest?x=IfmapTraceBuf' %(introspect_port))
-        self.assertThat(traces.status_code, Equals(200))
-        top_elem = etree.fromstring(traces.text)
-        logger.info("Top Elem: %s" % top_elem[0][0][-1].text)
-        self.assertThat(top_elem[0][0][-1].text, Contains('delete'))
         self.assertThat(top_elem[0][0][-1].text, Contains(test_obj.name))
 
     def test_dup_create_with_same_uuid(self):
@@ -1288,8 +1242,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         self._add_detail('Creating network with name %s expecting success' %(vn_name))
         self._vnc_lib.virtual_network_create(vn_obj)
         self.assertTill(self.ifmap_has_ident, obj=vn_obj)
-        ident_elem = FakeIfmapClient._graph[port][ifmap_id]['ident']
-        ident_str = etree.tostring(ident_elem)
+        ident_str = self.ifmap_has_ident(obj=vn_obj)['ident']
         mch = re.search("&amp;vn&lt;1&gt;&quot;2&apos;", ident_str)
         self.assertIsNot(mch, None)
         self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
@@ -2254,13 +2207,13 @@ class TestStaleLockRemoval(test_case.ApiServerTestCase):
             return (True, '')
 
         with test_common.flexmocks([
-            (self._api_server._db_conn, 'dbe_create', stub),
-            (self._api_server.get_resource_class('virtual-network'),
-             'post_dbe_create', stub)]):
+                (self._api_server._db_conn, 'dbe_create', stub),
+                (self._api_server.get_resource_class('virtual-network'),
+                 'post_dbe_create', stub)]):
             self._create_test_object()
-            with ExpectedException(RefsExistError) as e:
-                self._create_test_object()
-            gevent.sleep(float(self.STALE_LOCK_SECS))
+        with ExpectedException(RefsExistError) as e:
+            self._create_test_object()
+        gevent.sleep(float(self.STALE_LOCK_SECS))
 
         self._create_test_object()
     # end test_stale_fq_name_lock_removed_on_partial_create
@@ -2278,9 +2231,9 @@ class TestStaleLockRemoval(test_case.ApiServerTestCase):
         with test_common.flexmocks([
             (self._api_server._db_conn, 'dbe_release', stub)]):
             self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
-            with ExpectedException(RefsExistError) as e:
-                self._create_test_object()
-            gevent.sleep(float(self.STALE_LOCK_SECS))
+        with ExpectedException(RefsExistError) as e:
+            self._create_test_object()
+        gevent.sleep(float(self.STALE_LOCK_SECS))
 
         self._create_test_object()
     # end test_stale_fq_name_lock_removed_on_partial_delete
@@ -2332,61 +2285,6 @@ class TestStaleLockRemoval(test_case.ApiServerTestCase):
 
 # end TestStaleLockRemoval
 
-class TestIfmapErrors(test_case.ApiServerTestCase):
-    """ Tests to verify re-seeding of ifmap once it does down->up move. """
-    HEALTH_CHECK_INTERVAL = '0.5'
-
-    @classmethod
-    def setUpClass(cls):
-        super(TestIfmapErrors, cls).setUpClass(
-            extra_config_knobs=[
-                ('DEFAULTS', 'ifmap_health_check_interval',
-                 cls.HEALTH_CHECK_INTERVAL),
-            ])
-    # end setUpClass
-
-    def test_periodic_check(self):
-        gevent.sleep(float(self.HEALTH_CHECK_INTERVAL)+0.1)
-        health_check_node = FakeIfmapClient._graph['8443'].get('healthcheck')
-        self.assertIsNot(health_check_node, None)
-    # end test_periodic_check
-
-    def test_ifmap_reseed_after_restarted(self):
-        self.wait_till_api_server_idle()
-        test_obj = self._create_test_object()
-        self.assertTill(self.ifmap_has_ident, obj=test_obj)
-        FakeIfmapClient.reset('8443') # feign ifmap restart
-        self.assertTill(self.ifmap_has_ident, obj=test_obj)
-    # end test_ifmap_reseed_after_restarted
-
-    def test_ifmap_ident_publish_after_connection_lost(self):
-        self.ignore_err_in_log = True
-        api_server = self._server_info['api_server']
-        mapclient = api_server._db_conn._ifmap_db._mapclient
-        db_client = api_server._db_conn
-        err_on_publish_raised = []
-        def err_on_publish(orig_method, *args, **kwargs):
-            if not err_on_publish_raised:
-                err_on_publish_raised.append(True)
-                raise socket.error
-            return orig_method(*args, **kwargs)
-        db_resync_called = []
-        def assert_on_call(orig_method, *args, **kwargs):
-            db_resync_called.append(True)
-            return orig_method(*args, **kwargs)
-
-        self.wait_till_api_server_idle()
-        with test_common.patch(mapclient, 'call', err_on_publish):
-            with test_common.patch(db_client, 'db_resync', assert_on_call):
-                test_obj = self._create_test_object()
-                while not err_on_publish_raised:
-                    gevent.sleep(0.001)
-
-        self.assertNotEqual(len(err_on_publish_raised), 0)
-        self.assertTill(self.ifmap_has_ident, obj=test_obj)
-        self.assertEqual(len(db_resync_called), 0)
-    # end test_ifmap_ident_publish_after_connection_error
-# end class TestIfmapErrors
 
 class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
     """ Tests to verify the max_requests config parameter of api-server."""
@@ -3338,6 +3236,10 @@ class TestPropertyWithMap(test_case.ApiServerTestCase):
 
 
 class TestDBAudit(test_case.ApiServerTestCase):
+    def setUp(self):
+        super(TestDBAudit, self).setUp()
+        self._args = '--ifmap-servers %s:%s' % (self._api_server_ip,
+                                                self._api_ifmap_port)
     @contextlib.contextmanager
     def audit_mocks(self):
         def fake_ks_prop(*args, **kwargs):
@@ -3374,7 +3276,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
             from vnc_cfg_api_server import db_manage
             test_obj = self._create_test_object()
             self.assertTill(self.ifmap_has_ident, obj=test_obj)
-            db_manage.db_check('--ifmap-credentials a:b')
+            db_manage.db_check(self._args)
     # end test_checker
 
     def test_checker_missing_mandatory_fields(self):
@@ -3391,8 +3293,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
                 if k not in omit_col_names)
             with uuid_cf.patch_row(
                 test_obj.uuid, wrong_col_val_ts):
-                db_checker = db_manage.DatabaseChecker(
-                    '--ifmap-credentials a:b')
+                db_checker = db_manage.DatabaseChecker()
                 errors = db_checker.check_obj_mandatory_fields()
                 self.assertIn(db_manage.MandatoryFieldsMissingError,
                     [type(x) for x in errors])
@@ -3413,8 +3314,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
                 wrong_col_val_ts['fq_name'][1])
             with uuid_cf.patch_row(
                 test_obj.uuid, wrong_col_val_ts):
-                db_checker = db_manage.DatabaseChecker(
-                    '--ifmap-credentials a:b')
+                db_checker = db_manage.DatabaseChecker(self._args)
                 errors = db_checker.check_fq_name_uuid_ifmap_match()
                 error_types = [type(x) for x in errors]
                 self.assertIn(db_manage.FQNMismatchError, error_types)
@@ -3430,8 +3330,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
             uuid_cf = test_common.CassandraCFs.get_cf('config_db_uuid','obj_uuid_table')
             fq_name_cf = test_common.CassandraCFs.get_cf('config_db_uuid','obj_fq_name_table')
             with uuid_cf.patch_row(test_obj.uuid, new_columns=None):
-                db_checker = db_manage.DatabaseChecker(
-                    '--ifmap-credentials a:b')
+                db_checker = db_manage.DatabaseChecker(self._args)
                 errors = db_checker.check_fq_name_uuid_ifmap_match()
                 error_types = [type(x) for x in errors]
                 self.assertIn(db_manage.FQNStaleIndexError, error_types)
@@ -3452,8 +3351,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
             wrong_col_val_ts = dict((k,v) for k,v in orig_col_val_ts.items()
                 if ':'.join(test_obj.fq_name) not in k)
             with fq_name_cf.patch_row(test_obj_type, new_columns=wrong_col_val_ts):
-                db_checker = db_manage.DatabaseChecker(
-                    '--ifmap-credentials a:b')
+                db_checker = db_manage.DatabaseChecker(self._args)
                 errors = db_checker.check_fq_name_uuid_ifmap_match()
                 error_types = [type(x) for x in errors]
                 self.assertIn(db_manage.FQNIndexMissingError, error_types)
@@ -3468,8 +3366,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
 
             uuid_cf = test_common.CassandraCFs.get_cf('config_db_uuid','obj_uuid_table')
             with uuid_cf.patch_row(test_obj.uuid, new_columns=None):
-                db_checker = db_manage.DatabaseChecker(
-                    '--ifmap-credentials a:b')
+                db_checker = db_manage.DatabaseChecker(self._args)
                 errors = db_checker.check_fq_name_uuid_ifmap_match()
                 error_types = [type(x) for x in errors]
                 self.assertIn(db_manage.FQNStaleIndexError, error_types)
@@ -3486,8 +3383,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
                     new_columns={'type': json.dumps(''),
                                  'fq_name':json.dumps(''),
                                  'prop:id_perms':json.dumps('')}):
-                db_checker = db_manage.DatabaseChecker(
-                    '--ifmap-credentials a:b')
+                db_checker = db_manage.DatabaseChecker(self._args)
                 errors = db_checker.check_fq_name_uuid_ifmap_match()
                 error_types = [type(x) for x in errors]
                 self.assertIn(db_manage.FQNIndexMissingError, error_types)
@@ -3528,8 +3424,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
             if ':'.join(vn_obj.fq_name) not in k)
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
-            db_checker = db_manage.DatabaseChecker(
-                '--ifmap-credentials a:b')
+            db_checker = db_manage.DatabaseChecker()
             # verify catch of extra ZK VN when name index is mocked
             with fq_name_cf.patch_row('virtual_network',
                 new_columns=wrong_col_val_ts):
@@ -3542,8 +3437,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
         vn_obj, _ = self._create_vn_subnet_ipam(self.id())
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
-            db_checker = db_manage.DatabaseChecker(
-                '--ifmap-credentials a:b')
+            db_checker = db_manage.DatabaseChecker()
 
             with db_checker._zk_client.patch_path(
                 '%s/%s' %(db_checker.BASE_SUBNET_ZK_PATH,
@@ -3558,8 +3452,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
         vn_obj, _ = self._create_vn_subnet_ipam(self.id())
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
-            db_checker = db_manage.DatabaseChecker(
-                '--ifmap-credentials a:b')
+            db_checker = db_manage.DatabaseChecker()
 
             # verify catch of zk extra ip when iip is mocked absent
             iip_obj = vnc_api.InstanceIp(self.id())
@@ -3578,8 +3471,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
         vn_obj, _ = self._create_vn_subnet_ipam(self.id())
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
-            db_checker = db_manage.DatabaseChecker(
-                '--ifmap-credentials a:b')
+            db_checker = db_manage.DatabaseChecker()
 
             iip_obj = vnc_api.InstanceIp(self.id())
             iip_obj.add_virtual_network(vn_obj)
@@ -3644,7 +3536,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
     def test_cleaner(self):
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
-            db_manage.db_clean('--ifmap-credentials a:b')
+            db_manage.db_clean()
     # end test_cleaner
 
     def test_clean_obj_missing_mandatory_fields(self):
@@ -3666,7 +3558,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
     def test_healer(self):
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
-            db_manage.db_heal('--ifmap-credentials a:b')
+            db_manage.db_heal()
     # end test_healer
 
     def test_heal_fq_name_index(self):

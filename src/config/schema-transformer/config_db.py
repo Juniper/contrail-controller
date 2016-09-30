@@ -198,7 +198,7 @@ class GlobalSystemConfigST(DBBaseST):
             for router_ref in route_tgt.obj.get_logical_router_back_refs() or []:
                 logical_router = LogicalRouterST.get_by_uuid(router_ref['uuid']).obj
                 logical_router.del_route_target(old_rtgt_obj)
-                logical_router.add_route_target(new_rtgt_obj.obj) 
+                logical_router.add_route_target(new_rtgt_obj.obj)
                 cls._vnc_lib.logical_router_update(logical_router)
 
             RouteTargetST.delete_vnc_obj(old_rtgt_obj.get_fq_name()[0])
@@ -1340,10 +1340,14 @@ class RouteTargetST(DBBaseST):
 
     def update(self, obj=None):
         pass
+
     @classmethod
     def delete_vnc_obj(cls, key):
-        cls._vnc_lib.route_target_delete(fq_name=[key])
-        del cls._dict[key]
+        try:
+            cls._vnc_lib.route_target_delete(fq_name=[key])
+        except NoIdError:
+            pass
+        cls._dict.pop(key, None)
     # end delete_vnc_obj
 # end RoutTargetST
 
@@ -2252,7 +2256,10 @@ class RoutingInstanceST(DBBaseST):
         # end for route_table
         if static_routes != old_static_routes:
             self.obj.set_static_route_entries(static_routes)
-            self._vnc_lib.routing_instance_update(self.obj)
+            try:
+                self._vnc_lib.routing_instance_update(self.obj)
+            except NoIdError:
+                pass
     # end update_static_routes
 
     def delete_obj(self):

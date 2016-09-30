@@ -18,10 +18,11 @@ from cfgm_common.ifmap.client import client
 from cfgm_common.ifmap.request import NewSessionRequest
 from cfgm_common.ifmap.response import newSessionResult
 from cfgm_common.imid import ifmap_read, parse_search_result
+from cfgm_common.vnc_cassandra import VncCassandraClient
 import pycassa
 import utils
 
-import vnc_cfg_ifmap
+from vnc_db import VncServerCassandraClient
 import schema_transformer.db
 import discovery.disc_cassdb
 
@@ -78,7 +79,7 @@ class DatabaseManager(object):
     BASE_SG_ID_ZK_PATH = '/id/security-groups/id'
     BASE_SUBNET_ZK_PATH = '/api-server/subnets'
     AUTO_RTGT_START = 8000000
-    def __init__(self, args_str):
+    def __init__(self, args_str=''):
         self._parse_args(args_str)
 
         self._logger = utils.ColorLog(logging.getLogger(__name__))
@@ -96,7 +97,7 @@ class DatabaseManager(object):
 
         # cassandra connection
         self._cassandra_servers = self._api_args.cassandra_server_list
-        db_info = vnc_cfg_ifmap.VncServerCassandraClient.get_db_info()
+        db_info = VncServerCassandraClient.get_db_info()
         rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
         self._cf_dict = {}
         cred = None
@@ -134,12 +135,11 @@ class DatabaseManager(object):
             "--debug", help="Run in debug mode, default False",
             action='store_true', default=False)
         parser.add_argument(
-            "--ifmap-servers",
+            "--ifmap-servers", nargs='*',
             help="List of ifmap-ip:ifmap-port, default from api-conf")
         parser.add_argument(
             "--ifmap-credentials",
-            help="<username>:<password> for read-only user",
-            required=True)
+            help="<username>:<password> for read-only user")
         parser.add_argument("--cassandra-user")
         parser.add_argument("--cassandra-password")
 
@@ -218,7 +218,7 @@ class DatabaseManager(object):
         base_path = self.BASE_RTGT_ID_ZK_PATH
         logger.debug("Doing recursive zookeeper read from %s", base_path)
         zk_all_rtgts = {}
-        num_bad_rtgts = 0 
+        num_bad_rtgts = 0
         for rtgt_id in self._zk_client.get_children(base_path) or []:
             rtgt_fq_name_str = self._zk_client.get(base_path+'/'+rtgt_id)[0]
             zk_all_rtgts[int(rtgt_id)] = rtgt_fq_name_str
@@ -242,7 +242,7 @@ class DatabaseManager(object):
             rtgt_row = []
         rtgt_uuids = [x.split(':')[-1] for x in rtgt_row]
         cassandra_all_rtgts = {}
-        num_bad_rtgts = 0 
+        num_bad_rtgts = 0
         for rtgt_uuid in rtgt_uuids:
             rtgt_cols = obj_uuid_table.get(rtgt_uuid,
                 columns=['fq_name'],
@@ -258,7 +258,7 @@ class DatabaseManager(object):
         logger.debug("Got %d route-targets with id in cassandra %d from wrong range",
             len(cassandra_all_rtgts), num_bad_rtgts)
         zk_set = set([(id, fqns) for id, fqns in zk_all_rtgts.items()])
-        cassandra_set = set([(id-self.AUTO_RTGT_START, fqns) 
+        cassandra_set = set([(id-self.AUTO_RTGT_START, fqns)
             for id, fqns in cassandra_all_rtgts.items()
             if id >= self.AUTO_RTGT_START])
 
@@ -280,7 +280,7 @@ class DatabaseManager(object):
                 if sg_val != '__reserved__':
                     ret_errors.append(SG0UnreservedError(''))
                 continue
-                
+
             sg_fq_name_str = self._zk_client.get(base_path+'/'+sg_id)[0]
             zk_all_sgs[int(sg_id)] = sg_fq_name_str
 
@@ -453,7 +453,7 @@ class DatabaseChecker(DatabaseManager):
                      'password':self._args.cassandra_password}
         for server in self._cassandra_servers:
             sys_mgr = pycassa.SystemManager(server, credentials=cred)
-            db_info = vnc_cfg_ifmap.VncCassandraClient.get_db_info() + \
+            db_info = VncCassandraClient.get_db_info() + \
                 schema_transformer.db.SchemaTransformerDB.get_db_info() + \
                 discovery.disc_cassdb.DiscoveryCassandraClient.get_db_info()
             for ks_name, _ in db_info:
@@ -484,6 +484,8 @@ class DatabaseChecker(DatabaseManager):
         # a. obj-uuid-table, b. local ifmap server
         ret_errors = []
         logger = self._logger
+
+        self._connect_to_ifmap_servers()
 
         obj_fq_name_table = self._cf_dict['obj_fq_name_table']
         obj_uuid_table = self._cf_dict['obj_uuid_table']
@@ -535,19 +537,16 @@ class DatabaseChecker(DatabaseManager):
                 'Extra object %s %s %s in obj_uuid_table'
                 %(obj_type, fq_name_str, obj_uuid)))
 
-        if self._args.ifmap_servers:
-            ifmap_ips_ports = [(ip_port.split(':'))
-                                   for ip_port in self._args.ifmap_servers]
-        else:
-            ifmap_ips_ports = [(self._api_args.ifmap_server_ip,
-                                    self._api_args.ifmap_server_port)]
-        ifmap_user, ifmap_passwd = self._args.ifmap_credentials.split(':')
-        for ifmap_ip, ifmap_port in ifmap_ips_ports:
+        for mapclient in self._mapclients:
             all_ifmap_idents = []
             search_results = parse_search_result(
-                ifmap_read(self._get_mapclient(ifmap_ip, ifmap_port,
-                    ifmap_user, ifmap_passwd), 'contrail:config-root:root',
-                    srch_meta=None, result_meta='contrail:id-perms'))
+                ifmap_read(
+                    mapclient,
+                    'contrail:config-root:root',
+                    srch_meta=None,
+                    result_meta='contrail:id-perms'
+                )
+            )
             # search_results is in form of
             # [ ({'config-root': 'root'}, <Element metadata at 0x1e19b48>)
             # ({'config-root': 'root',
@@ -565,7 +564,7 @@ class DatabaseChecker(DatabaseManager):
             all_ifmap_idents = set(all_ifmap_idents)
             all_cassandra_idents = set([item[1] for item in uuid_table_all])
             logger.debug("Got %d idents from %s server",
-                len(all_ifmap_idents), ifmap_ip)
+                len(all_ifmap_idents), mapclient._client__url[0])
 
             extra = all_ifmap_idents - all_cassandra_idents
             if (len(extra) == 1) and (extra == set(['root'])):
@@ -573,13 +572,13 @@ class DatabaseChecker(DatabaseManager):
             else:
                 ret_errors.append(IfmapExtraIdentifiersError(
                     'Extra identifiers %s in ifmap %s vs obj_uuid_table'
-                       %(extra, ifmap_ip)))
+                       %(extra, mapclient._client__url[0])))
 
             extra = all_cassandra_idents - all_ifmap_idents
             if extra:
                 ret_errors.append(IfmapMissingIdentifiersError(
                     'Missing identifiers %s in ifmap %s vs obj_uuid_table.\n' \
-                    %(extra, ifmap_ip)))
+                    %(extra, mapclient._client__url[0])))
 
 
         return ret_errors
@@ -698,7 +697,7 @@ class DatabaseChecker(DatabaseManager):
 
         num_addrs += len(fip_uuids)
 
-        logger.debug("Got %d networks %d addresses", 
+        logger.debug("Got %d networks %d addresses",
                      len(cassandra_all_vns), num_addrs)
 
         # check for differences in networks
@@ -925,7 +924,7 @@ class DatabaseChecker(DatabaseManager):
             except pycassa.NotFoundException:
                 logger.debug('VN %s (%s) has no ipam refs',
                     vn_id, fq_name_str)
-                return 
+                return
 
             cassandra_all_vns[fq_name_str] = {}
             for ipam in ipam_refs:
@@ -1021,7 +1020,6 @@ class DatabaseChecker(DatabaseManager):
 
     def _connect_to_ifmap_servers(self):
         self._mapclients = []
-        mapclients = []
         NAMESPACES = {
             'env':   "http://www.w3.org/2003/05/soap-envelope",
             'ifmap':   "http://www.trustedcomputinggroup.org/2010/IFMAP/2",
@@ -1029,20 +1027,23 @@ class DatabaseChecker(DatabaseManager):
             "http://www.trustedcomputinggroup.org/2010/IFMAP-METADATA/2",
             'contrail':   "http://www.contrailsystems.com/vnc_cfg.xsd"
         }
-        ifmap_user, ifmap_passwd = self._args.ifmap_credentials.split(':')
         # pick ifmap servers from args to this utility and if absent
         # pick it from contrail-api conf file
         if self._args.ifmap_servers:
             ifmap_ips_ports = [(ip_port.split(':'))
                                    for ip_port in self._args.ifmap_servers]
         else:
-            ifmap_ips_ports = [(self._api_args.ifmap_server_ip,
-                                    self._api_args.ifmap_server_port)]
+            ifmap_ips_ports = [(self._api_args.ifmap_listen_ip,
+                                    str(self._api_args.ifmap_listen_port))]
+        if self._args.ifmap_credentials:
+            ifmap_user, ifmap_passwd = self._args.ifmap_credentials.split(':')
+        else:
+            ifmap_user, ifmap_passwd = self._api_args.ifmap_credentials[0]
+
         for ifmap_ip, ifmap_port in ifmap_ips_ports:
             mapclient = client((ifmap_ip, ifmap_port),
                                ifmap_user, ifmap_passwd,
                                NAMESPACES)
-            self._mapclients.append(mapclient)
             connected = False
             while not connected:
                 try:
@@ -1053,31 +1054,8 @@ class DatabaseChecker(DatabaseManager):
 
             mapclient.set_session_id(newSessionResult(result).get_session_id())
             mapclient.set_publisher_id(newSessionResult(result).get_publisher_id())
-
+            self._mapclients.append(mapclient)
     # end _connect_to_ifmap_servers
-
-    def _get_mapclient(self, ifmap_ip, ifmap_port, ifmap_user, ifmap_password):
-        NAMESPACES = {
-            'env':   "http://www.w3.org/2003/05/soap-envelope",
-            'ifmap':   "http://www.trustedcomputinggroup.org/2010/IFMAP/2",
-            'meta':
-            "http://www.trustedcomputinggroup.org/2010/IFMAP-METADATA/2",
-            'contrail':   "http://www.contrailsystems.com/vnc_cfg.xsd"
-        }
-        mapclient = client((ifmap_ip, ifmap_port), ifmap_user, ifmap_password,
-                           NAMESPACES)
-        connected = False
-        while not connected:
-            try:
-                result = mapclient.call('newSession', NewSessionRequest())
-                connected = True
-            except socket.error as e:
-                time.sleep(3)
-
-        mapclient.set_session_id(newSessionResult(result).get_session_id())
-        mapclient.set_publisher_id(newSessionResult(result).get_publisher_id())
-        return mapclient
-    # end _get_mapclient
 # end class DatabaseChecker
 
 
@@ -1451,7 +1429,7 @@ class DatabaseHealer(DatabaseManager):
     # end heal_security_groups_id
 # end class DatabaseCleaner
 
-def db_check(args_str):
+def db_check(args_str=''):
     vnc_cgitb.enable(format='text')
 
     db_checker = DatabaseChecker(args_str)
@@ -1468,7 +1446,7 @@ def db_check(args_str):
     db_checker.check_schema_db_mismatch()
 # end db_check
 
-def db_clean(args_str):
+def db_clean(args_str=''):
     vnc_cgitb.enable(format='text')
 
     db_cleaner = DatabaseCleaner(args_str)
@@ -1483,7 +1461,7 @@ def db_clean(args_str):
     db_cleaner.clean_stale_security_groups_id()
 # end db_clean
 
-def db_heal(args_str):
+def db_heal(args_str=''):
     vnc_cgitb.enable(format='text')
 
     db_healer = DatabaseHealer(args_str)
@@ -1496,7 +1474,7 @@ def db_heal(args_str):
     db_healer.heal_security_groups_id()
 # end db_heal
 
-def db_touch_latest(args_str):
+def db_touch_latest(args_str=''):
     vnc_cgitb.enable(format='text')
 
     db_mgr = DatabaseManager(args_str)

@@ -356,10 +356,10 @@ class DBBase(object):
     @classmethod
     def get_by_uuid(cls, uuid, *args):
         name_or_uuid = uuid
-        if cls._indexed_by_name:
-            fq_name = cls._cassandra.uuid_to_fq_name(uuid)
-            name_or_uuid = ':'.join(fq_name)
         try:
+            if cls._indexed_by_name:
+                fq_name = cls._cassandra.uuid_to_fq_name(uuid)
+                name_or_uuid = ':'.join(fq_name)
             return cls.get(name_or_uuid)
         except NoIdError:
             return None
