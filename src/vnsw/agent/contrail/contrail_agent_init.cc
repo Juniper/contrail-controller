@@ -14,7 +14,6 @@
 #include <uve/agent_uve_stats.h>
 #include <vrouter/stats_collector/agent_stats_collector.h>
 #include <vrouter/flow_stats/flow_stats_collector.h>
-#include <openstack/instance_service_server.h>
 #include <port_ipc/rest_server.h>
 #include <port_ipc/port_ipc_handler.h>
 
@@ -95,10 +94,6 @@ void ContrailAgentInit::CreateModules() {
 
     rest_server_.reset(new RESTServer(agent()));
     agent()->set_rest_server(rest_server_.get());
-}
-
-void ContrailAgentInit::ConnectToController() {
-    InstanceInfoServiceServerInit(agent());
 }
 
 /****************************************************************************

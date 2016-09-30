@@ -22,8 +22,6 @@ cflags.append('-Wno-unused-variable')
 
 # Dependencies on external libraries first
 buildinfo_dep_libs = [
-    '#build/lib/libthrift.a',
-    '#build/lib/libthriftasio.a',
     '#build/lib/libhttp.a',
     '#build/lib/libhttp_parser.a',
     '#build/lib/libpugixml.a',
@@ -67,8 +65,6 @@ buildinfo_dep_libs += MapBuildAgentLib([
     'filter/libfilter.a',
     'kstate/libkstate.a',
     'vrouter/ksync/libvnswksync.a',
-    'openstack/libnova_ins.a',
-    'openstack/libnova_ins_thrift.a',
     'port_ipc/libport_ipc.a',
     'oper/libvnswoperdb.a',
     'pkt/libpkt.a', 'diag/libdiag.a',

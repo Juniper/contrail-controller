@@ -52,3 +52,13 @@ traceobject sandesh ConfigDeletePortEnqueue {
 trace sandesh ConfigPortInfo {
     1: string info;
 }
+
+/**
+ * @description: Trace message for vgw config add and deletes
+ * @type: Trace
+ * @severity: DEBUG
+ */
+traceobject sandesh ConfigVgwEnqueue {
+    1: string op;
+    2: string json;
+}
