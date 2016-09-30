@@ -685,6 +685,9 @@ class VncApiServer(object):
             self.config_object_error(id, None, obj_type, 'http_get', result)
             raise cfgm_common.exceptions.HttpError(404, result)
 
+        if not self.is_admin_request():
+            result = self.obj_view(resource_type, result)
+
         rsp_body = {}
         rsp_body['uuid'] = id
         rsp_body['name'] = result['fq_name'][-1]
@@ -701,6 +704,27 @@ class VncApiServer(object):
 
         return {resource_type: rsp_body}
     # end http_resource_read
+
+    # filter object references based on permissions
+    def obj_view(self, resource_type, obj_dict):
+        ret_obj_dict = {}
+        ret_obj_dict.update(obj_dict)
+
+        r_class = self.get_resource_class(resource_type)
+        obj_links = (r_class.ref_fields | r_class.backref_fields | r_class.children_fields) \
+                     & set(obj_dict.keys())
+        obj_uuids = [ref['uuid'] for link in obj_links for ref in list(obj_dict[link])]
+        obj_dicts = self._db_conn._cassandra_db.object_raw_read(obj_uuids, ["perms2"])
+        uuid_to_perms2 = dict((o['uuid'], o['perms2']) for o in obj_dicts)
+
+        for link_field in obj_links:
+            links = obj_dict[link_field]
+
+            # build new links in returned dict based on permissions on linked object
+            ret_obj_dict[link_field] = [l for l in links
+                if self._permissions.check_perms_read(get_request(), l['uuid'], id_perms=uuid_to_perms2[l['uuid']])[0] == True]
+
+        return ret_obj_dict
 
     @log_api_stats
     def http_resource_update(self, obj_type, id):
@@ -2983,6 +3007,8 @@ class VncApiServer(object):
                                 obj_dict[field] = obj_result[field]
                             except KeyError:
                                 pass
+
+                        obj_dict = self.obj_view(resource_type, obj_dict)
                         obj_dicts.append(obj_dict)
             else: # admin
                 obj_results = {}
@@ -3027,6 +3053,8 @@ class VncApiServer(object):
                 obj_dict['name'] = obj_result['fq_name'][-1]
                 if not exclude_hrefs:
                     obj_result = self.generate_hrefs(resource_type, obj_result)
+                if not self.is_admin_request():
+                    obj_result = self.obj_view(resource_type, obj_result)
                 obj_dict.update(obj_result)
                 if 'id_perms' not in obj_dict:
                     # It is possible that the object was deleted, but received
