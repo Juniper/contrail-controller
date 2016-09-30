@@ -144,7 +144,7 @@ class DeviceManager(object):
                 self._args.disc_server_ip,
                 self._args.disc_server_port,
                 ModuleNames[Module.DEVICE_MANAGER])
-        
+
         PushConfigState.set_repush_interval(int(self._args.repush_interval))
         PushConfigState.set_repush_max_interval(int(self._args.repush_max_interval))
         PushConfigState.set_push_delay_per_kb(float(self._args.push_delay_per_kb))
@@ -336,7 +336,6 @@ def parse_args(args_str):
         'keyfile': '',
         'certfile': '',
         'ca_certs': '',
-        'ifmap_certauth_port': "8444",
     }
     ksopts = {
         'admin_user': 'user1',
