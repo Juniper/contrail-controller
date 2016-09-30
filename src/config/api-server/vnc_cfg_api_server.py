@@ -61,7 +61,7 @@ import context
 from context import get_request, get_context, set_context, use_context
 from context import ApiContext
 import vnc_cfg_types
-from vnc_cfg_ifmap import VncDbClient
+from vnc_db import VncDbClient
 
 import cfgm_common
 from cfgm_common import ignore_exceptions, imid
@@ -105,6 +105,8 @@ from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, \
 from sandesh.discovery_client_stats import ttypes as sandesh
 from sandesh.traces.ttypes import RestApiTrace
 from vnc_bottle import get_bottle_server
+from cfgm_common.vnc_greenlets import VncGreenlet
+from vnc_ifmap import VncIfmapServer
 
 _ACTION_RESOURCES = [
     {'uri': '/prop-collection-get', 'link_name': 'prop-collection-get',
@@ -194,7 +196,7 @@ class VncApiServer(object):
     ]
     def __new__(cls, *args, **kwargs):
         obj = super(VncApiServer, cls).__new__(cls, *args, **kwargs)
-        obj.api_bottle = bottle.Bottle() 
+        obj.api_bottle = bottle.Bottle()
         obj.route('/', 'GET', obj.homepage_http_get)
         obj.api_bottle.error_handler = {
                 400: error_400,
@@ -981,7 +983,7 @@ class VncApiServer(object):
             callable = getattr(r_class, 'http_delete_fail', None)
             if callable:
                 cleanup_on_failure.append((callable, [id, read_result, db_conn]))
-            
+
             get_context().set_state('DBE_DELETE')
             (ok, del_result) = db_conn.dbe_delete(
                 obj_type, obj_ids, read_result)
@@ -1476,6 +1478,10 @@ class VncApiServer(object):
             self._db_connect(self._args.reset_config)
             self._db_init_entries()
 
+        # As DB are synced, we can serve the custom IF-MAP server
+        self._vnc_ifmap_server = VncIfmapServer(self, self._args)
+        gevent.spawn(self._vnc_ifmap_server.run_server)
+
         # API/Permissions check
         # after db init (uses db_conn)
         self._rbac = vnc_rbac.VncRbac(self, self._db_conn)
@@ -1724,10 +1730,6 @@ class VncApiServer(object):
     def get_pipe_start_app(self):
         return self._pipe_start_app
     # end get_pipe_start_app
-
-    def get_ifmap_health_check_interval(self):
-        return float(self._args.ifmap_health_check_interval)
-    # end get_ifmap_health_check_interval
 
     def get_rabbit_health_check_interval(self):
         return float(self._args.rabbit_health_check_interval)
@@ -2556,11 +2558,7 @@ class VncApiServer(object):
     # Private Methods
     def _parse_args(self, args_str):
         '''
-        Eg. python vnc_cfg_api_server.py --ifmap_server_ip 192.168.1.17
-                                         --ifmap_server_port 8443
-                                         --ifmap_username test
-                                         --ifmap_password test
-                                         --cassandra_server_list
+        Eg. python vnc_cfg_api_server.py --cassandra_server_list
                                              10.1.2.3:9160 10.1.2.4:9160
                                          --redis_server_ip 127.0.0.1
                                          --redis_server_port 6382
@@ -2586,12 +2584,13 @@ class VncApiServer(object):
                                          --rabbit_health_check_interval 120.0
                                          --cluster_id <testbed-name>
                                          [--auth keystone]
-                                         [--ifmap_server_loc
-                                          /home/contrail/source/ifmap-server/]
                                          [--default_encoding ascii ]
                                          --ifmap_health_check_interval 60
                                          --object_cache_size 10000
                                          --object_cache_exclude_types ''
+                                         --ifmap_listen_ip 0.0.0.0
+                                         --ifmap_listen_port 8443
+                                         --ifmap_credentials control:secret
         '''
         self._args, _ = utils.parse_args(args_str)
     # end _parse_args
@@ -2632,10 +2631,6 @@ class VncApiServer(object):
     # end _load_extensions
 
     def _db_connect(self, reset_config):
-        ifmap_ip = self._args.ifmap_server_ip
-        ifmap_port = self._args.ifmap_server_port
-        user = self._args.ifmap_username
-        passwd = self._args.ifmap_password
         cass_server_list = self._args.cassandra_server_list
         redis_server_ip = self._args.redis_server_ip
         redis_server_port = self._args.redis_server_port
@@ -2656,7 +2651,7 @@ class VncApiServer(object):
         if cassandra_user is not None and cassandra_password is not None:
             cred = {'username':cassandra_user,'password':cassandra_password}
         self._db_conn = VncDbClient(
-            self, ifmap_ip, ifmap_port, user, passwd, cass_server_list,
+            self, cass_server_list,
             rabbit_servers, rabbit_port, rabbit_user, rabbit_password,
             rabbit_vhost, rabbit_ha_mode, reset_config, zk_server,
             self._args.cluster_id, cassandra_credential=cred,
@@ -3584,7 +3579,7 @@ class VncApiServer(object):
     def publish_self_to_discovery(self):
         # publish API server
         data = {
-            'ip-address': self._args.ifmap_server_ip,
+            'ip-address': self._args.ifmap_listen_ip,
             'port': self._args.listen_port,
         }
         if self._disc:
@@ -3594,8 +3589,8 @@ class VncApiServer(object):
     def publish_ifmap_to_discovery(self, state = 'up', msg = ''):
         # publish ifmap server
         data = {
-            'ip-address': self._args.ifmap_server_ip,
-            'port': self._args.ifmap_server_port,
+            'ip-address': self._args.ifmap_listen_ip,
+            'port': self._args.ifmap_listen_port,
         }
         if self._disc:
             self.ifmap_task = self._disc.publish(
@@ -3606,7 +3601,7 @@ class VncApiServer(object):
     def un_publish_self_to_discovery(self):
         # un publish api server
         data = {
-            'ip-address': self._args.ifmap_server_ip,
+            'ip-address': self._args.ifmap_listen_ip,
             'port': self._args.listen_port,
         }
         if self._disc:
@@ -3615,8 +3610,8 @@ class VncApiServer(object):
     def un_publish_ifmap_to_discovery(self):
         # un publish ifmap server
         data = {
-            'ip-address': self._args.ifmap_server_ip,
-            'port': self._args.ifmap_server_port,
+            'ip-address': self._args.ifmap_listen_ip,
+            'port': self._args.ifmap_listen_port,
         }
         if self._disc:
             self._disc.un_publish(IFMAP_SERVER_DISCOVERY_SERVICE_NAME, data)

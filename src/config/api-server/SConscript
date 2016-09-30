@@ -55,7 +55,8 @@ for file in setup_sources:
 local_sources = [
            '__init__.py',
            'vnc_cfg_api_server.py',
-           'vnc_cfg_ifmap.py',
+           'vnc_ifmap.py',
+           'vnc_db.py',
            'vnc_cfg_types.py',
            'vnc_auth.py',
            'vnc_auth_keystone.py',
@@ -119,17 +120,17 @@ if 'install' in BUILD_TARGETS:
     env.Alias('install', install_cmd)
 
 env.Alias('install', env.Install(env['INSTALL_CONF'], 'contrail-api.conf'))
-env.Alias('install', env.InstallAs(env['INSTALL_INITD'] + 
+env.Alias('install', env.InstallAs(env['INSTALL_INITD'] +
     '/contrail-api', 'contrail-api.initd.supervisord'))
-env.Alias('install', env.Install(env['INSTALL_CONF'], 
+env.Alias('install', env.Install(env['INSTALL_CONF'],
     'supervisord_config.conf'))
-env.Alias('install', env.Install(env['INSTALL_CONF']+ 
+env.Alias('install', env.Install(env['INSTALL_CONF']+
     '/supervisord_config_files', 'contrail-api.ini'))
-env.Alias('install', env.InstallAs(env['INSTALL_INITD'] + 
+env.Alias('install', env.InstallAs(env['INSTALL_INITD'] +
     '/ifmap', 'ifmap.initd.supervisord'))
-env.Alias('install', env.Install(env['INSTALL_CONF']+ 
+env.Alias('install', env.Install(env['INSTALL_CONF']+
     '/supervisord_config_files', 'ifmap.ini'))
-env.Alias('install', env.Install(env['INSTALL_CONF']+ 
+env.Alias('install', env.Install(env['INSTALL_CONF']+
     '/supervisord_config_files', 'contrail-config.rules'))
 env.Alias('install', env.Install(
     env['INSTALL_MESSAGE_DOC'] + '/contrail-api/', doc_files))

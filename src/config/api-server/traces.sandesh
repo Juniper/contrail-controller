@@ -45,14 +45,3 @@ trace sandesh MessageBusNotifyTrace {
     4: string error;
 }
 
-/**
- * @description: IF-MAP trace for API server
- * @severity: DEBUG
- * @action: No action needed
- */
-trace sandesh IfmapTrace {
-    1: string request_id;
-    2: string operation;
-    3: string body;
-    4: string error;
-}
