@@ -64,7 +64,6 @@ class ZkVNIdMissingError(AuditError): pass
 class RTCountMismatchError(AuditError): pass
 class CassRTRangeError(AuditError): pass
 class ZkRTRangeError(AuditError): pass
-class ZkIpReserveError(AuditError): pass
 class ZkIpMissingError(AuditError): pass
 class ZkIpExtraError(AuditError): pass
 class ZkSubnetMissingError(AuditError): pass
@@ -768,16 +767,6 @@ class DatabaseChecker(DatabaseManager):
                 ret_errors.append(ZkIpMissingError(errmsg))
             # end all cassandra extra ips
 
-            # check gateway ip present/reserved in zookeeper
-            reservations = [
-                (sn_start, 'subnet start'),
-                (sn_gw_ip, 'subnet gateway'),
-                (sn_dns, 'subnet dns')]
-            for addr, msg in reservations:
-                if addr and addr not in zk_ips:
-                    errmsg = '%s ip %s in vn %s not reserved in zookeeper' \
-                        %(msg, addr, vn)
-                    ret_errors.append(ZkIpReserveError(errmsg))
         # for all common VN/subnets
 
         return ret_errors
