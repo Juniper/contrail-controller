@@ -1247,9 +1247,9 @@ class VncZkClient(object):
         self._sg_id_allocator.reserve(0, '__reserved__')
     # end __init__
 
-    def master_election(self, func, *args):
+    def master_election(self, path, func, *args):
         self._zk_client.master_election(
-            self._zk_path_pfx + "/api-server-election", os.getpid(),
+            self._zk_path_pfx + path, os.getpid(),
             func, *args)
     # end master_election
 
@@ -1450,7 +1450,7 @@ class VncDbClient(object):
                 cassandra_credential, walk, obj_cache_entries,
                 obj_cache_exclude_types)
 
-        self._zk_db.master_election(cassandra_client_init)
+        self._zk_db.master_election("/api-server-election", cassandra_client_init)
 
         self._msgbus = VncServerKombuClient(self, rabbit_servers,
             rabbit_port, self._ifmap_db,
