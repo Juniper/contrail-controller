@@ -18,7 +18,6 @@ from webtest import TestApp
 import contextlib
 
 from vnc_api.vnc_api import *
-import cfgm_common.ifmap.client as ifmap_client
 import kombu
 import discoveryclient.client as disc_client
 import cfgm_common.zkclient
@@ -205,18 +204,19 @@ def create_api_server_instance(test_id, config_knobs, db=None):
     ret_server_info['service_port'] = get_free_port(allocated_sockets)
     ret_server_info['introspect_port'] = get_free_port(allocated_sockets)
     ret_server_info['admin_port'] = get_free_port(allocated_sockets)
+    ret_server_info['ifmap_port'] = get_free_port(allocated_sockets)
     ret_server_info['allocated_sockets'] = allocated_sockets
     if db == "rdbms":
         ret_server_info['greenlet'] = gevent.spawn(launch_api_server_rdbms,
             test_id, ret_server_info['ip'], ret_server_info['service_port'],
             ret_server_info['introspect_port'], ret_server_info['admin_port'],
-            config_knobs)
+            ret_server_info['ifmap_port'], config_knobs)
     else:
         # default cassandra backend
         ret_server_info['greenlet'] = gevent.spawn(launch_api_server,
             test_id, ret_server_info['ip'], ret_server_info['service_port'],
             ret_server_info['introspect_port'], ret_server_info['admin_port'],
-            config_knobs)
+            ret_server_info['ifmap_port'], config_knobs)
     block_till_port_listened(ret_server_info['ip'],
         ret_server_info['service_port'])
     extra_env = {'HTTP_HOST': ret_server_info['ip'],
@@ -247,7 +247,7 @@ def destroy_api_server_instance(server_info):
         vhost_url = server_info['api_server']._db_conn._msgbus._urls
         FakeKombu.reset(vhost_url)
     FakeNovaClient.reset()
-    FakeIfmapClient.reset('8443')
+    vnc_cfg_api_server.VncIfmapServer.reset_graph()
     CassandraCFs.reset()
     FakeKazooClient.reset()
     FakeExtensionManager.reset()
@@ -264,12 +264,14 @@ def destroy_api_server_instance_issu(server_info):
 # end destroy_api_server_instance
 
 def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
-                      admin_port, conf_sections):
+                      admin_port, ifmap_port, conf_sections):
     args_str = ""
     args_str = args_str + "--listen_ip_addr %s " % (listen_ip)
     args_str = args_str + "--listen_port %s " % (listen_port)
     args_str = args_str + "--http_server_port %s " % (http_server_port)
     args_str = args_str + "--admin_port %s " % (admin_port)
+    args_str = args_str + "--ifmap_listen_ip %s " % (listen_ip)
+    args_str = args_str + "--ifmap_listen_port %s " % (ifmap_port)
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
     args_str = args_str + "--log_local "
     args_str = args_str + "--log_file api_server_%s.log " %(test_id)
@@ -293,7 +295,7 @@ def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
 #end launch_api_server
 
 def launch_api_server_rdbms(test_id, listen_ip, listen_port, http_server_port,
-                      admin_port, conf_sections):
+                      admin_port, ifmap_port, conf_sections):
     db_file = "./test_db_%s.db" % test_id
 
     args_str = ""
@@ -301,6 +303,8 @@ def launch_api_server_rdbms(test_id, listen_ip, listen_port, http_server_port,
     args_str = args_str + "--listen_port %s " % (listen_port)
     args_str = args_str + "--http_server_port %s " % (http_server_port)
     args_str = args_str + "--admin_port %s " % (admin_port)
+    args_str = args_str + "--ifmap_listen_ip %s " % (listen_ip)
+    args_str = args_str + "--ifmap_listen_port %s " % (ifmap_port)
     args_str = args_str + "--db_engine rdbms "
     args_str = args_str + "--rdbms_connection sqlite:///%s " % db_file
     args_str = args_str + "--log_local "
@@ -334,8 +338,6 @@ def launch_svc_monitor(test_id, api_server_ip, api_server_port):
     args_str = args_str + "--api_server_ip %s " % (api_server_ip)
     args_str = args_str + "--api_server_port %s " % (api_server_port)
     args_str = args_str + "--http_server_port %s " % (get_free_port())
-    args_str = args_str + "--ifmap_username api-server "
-    args_str = args_str + "--ifmap_password api-server "
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
     args_str = args_str + "--log_local "
     args_str = args_str + "--log_file svc_monitor_%s.log " %(test_id)
@@ -464,14 +466,10 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
     }
     _config_knobs = [
         ('DEFAULTS', '', ''),
-        ('DEFAULTS', 'ifmap_health_check_interval', '3600'),
         ]
 
     mocks = [
         (novaclient.client, 'Client', FakeNovaClient.initialize),
-        (ifmap_client.client, '__init__', FakeIfmapClient.initialize),
-        (ifmap_client.client, 'call', FakeIfmapClient.call),
-        (ifmap_client.client, 'call_async_result', FakeIfmapClient.call_async_result),
 
         (pycassa.system_manager.Connection, '__init__',stub),
         (pycassa.system_manager.SystemManager, '__new__',FakeSystemManager),
@@ -588,22 +586,44 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
     def _delete_test_object(self, obj):
         self._vnc_lib.virtual_network_delete(id=obj.uuid)
 
-    def ifmap_has_ident(self, obj=None, id=None, port='8443'):
+    def ifmap_has_ident(self, obj=None, id=None, type_fq_name=None):
         if obj:
             _type = obj.get_type()
             _fq_name = obj.get_fq_name()
         if id:
             _type = self._vnc_lib.id_to_fq_name_type(id)
             _fq_name = self._vnc_lib.id_to_fq_name(id)
+        if type_fq_name:
+            _type = type_fq_name[0]
+            _fq_name = type_fq_name[1]
 
         ifmap_id = imid.get_ifmap_id_from_fq_name(_type, _fq_name)
-        if ifmap_id in FakeIfmapClient._graph[port]:
-            return True
+        if ifmap_id in vnc_cfg_api_server.VncIfmapServer._graph:
+            return vnc_cfg_api_server.VncIfmapServer._graph[ifmap_id]
 
-        return False
+        return None
 
-    def ifmap_doesnt_have_ident(self, obj=None, id=None):
-        return not self.ifmap_has_ident(obj, id)
+    def ifmap_ident_has_link(self, obj=None, id=None, type_fq_name=None,
+                             link_name=None):
+        ifmap_dict = self.ifmap_has_ident(obj=obj, id=id,
+                                          type_fq_name=type_fq_name)
+
+        if ifmap_dict is None:
+            return None
+
+        match = [s for s in ifmap_dict['links'] if link_name in s]
+        if len(match) == 1:
+            return ifmap_dict['links'][match[0]]
+
+    def ifmap_doesnt_have_ident(self, obj=None, id=None, type_fq_name=None):
+        return not self.ifmap_has_ident(obj=obj, id=id,
+                                        type_fq_name=type_fq_name)
+
+    def ifmap_ident_doesnt_have_link(self, obj=None, id=None,
+                                     type_fq_name=None, link_name=None):
+        return not self.ifmap_ident_has_link(obj=obj, id=id,
+                                             type_fq_name=type_fq_name,
+                                             link_name=link_name)
 
     def assertTill(self, expr_or_cb, *cb_args, **cb_kwargs):
         tries = 0
@@ -643,6 +663,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
             cls._api_server_ip = cls._server_info['ip']
             cls._api_server_port = cls._server_info['service_port']
             cls._api_admin_port = cls._server_info['admin_port']
+            cls._api_ifmap_port = cls._server_info['ifmap_port']
             cls._api_svr_greenlet = cls._server_info['greenlet']
             cls._api_svr_app = cls._server_info['app']
             cls._vnc_lib = cls._server_info['api_conn']
@@ -678,12 +699,10 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
             vhost_url = self._api_server._db_conn._msgbus._urls
             while not FakeKombu.is_empty(vhost_url, 'vnc_config'):
                 gevent.sleep(0.001)
-            while self._api_server._db_conn._ifmap_db._queue.qsize() > 0:
-                gevent.sleep(0.001)
     # wait_till_api_server_idle
 
     def get_obj_imid(self, obj):
-        return 'contrail:%s:%s' %(obj._type, obj.get_fq_name_str())
+        return imid.get_ifmap_id_from_fq_name(obj._type, obj.get_fq_name_str())
     # end get_obj_imid
 
     def create_virtual_network(self, vn_name, vn_subnet):

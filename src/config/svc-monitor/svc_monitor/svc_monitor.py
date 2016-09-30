@@ -622,11 +622,7 @@ def cgitb_error_log(monitor):
 
 def parse_args(args_str):
     '''
-    Eg. python svc_monitor.py --ifmap_server_ip 192.168.1.17
-                         --ifmap_server_port 8443
-                         --ifmap_username test
-                         --ifmap_password test
-                         --rabbit_server localhost
+    Eg. python svc_monitor.py --rabbit_server localhost
                          --rabbit_port 5672
                          --rabbit_user guest
                          --rabbit_password guest
@@ -668,10 +664,6 @@ def parse_args(args_str):
         'rabbit_password': 'guest',
         'rabbit_vhost': None,
         'rabbit_ha_mode': False,
-        'ifmap_server_ip': '127.0.0.1',
-        'ifmap_server_port': '8443',
-        'ifmap_username': 'test2',
-        'ifmap_password': 'test2',
         'cassandra_server_list': '127.0.0.1:9160',
         'api_server_ip': '127.0.0.1',
         'api_server_port': '8082',
@@ -707,7 +699,6 @@ def parse_args(args_str):
         'keyfile': '',
         'certfile': '',
         'ca_certs': '',
-        'ifmap_certauth_port': "8444",
     }
     ksopts = {
         'auth_host': '127.0.0.1',
@@ -763,14 +754,6 @@ def parse_args(args_str):
     defaults.update(cassandraopts)
     parser.set_defaults(**defaults)
 
-    parser.add_argument(
-        "--ifmap_server_ip", help="IP address of ifmap server")
-    parser.add_argument("--ifmap_server_port", help="Port of ifmap server")
-
-    parser.add_argument("--ifmap_username",
-                        help="Username known to ifmap server")
-    parser.add_argument("--ifmap_password",
-                        help="Password known to ifmap server")
     parser.add_argument(
         "--cassandra_server_list",
         help="List of cassandra servers in IP Address:Port format",
