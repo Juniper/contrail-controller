@@ -7,3 +7,4 @@ webtest
 pyaml
 keystonemiddleware
 junitxml
+pyOpenSSL
