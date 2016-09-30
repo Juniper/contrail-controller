@@ -701,8 +701,8 @@ bool BgpXmppChannel::VerifyMembership(const string &vrf_name,
                               subscription_gen_id, &req_type)) {
             // Bail if there's a pending unsubscribe.
             if (req_type != SUBSCRIBE) {
-                BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
-                    BGP_LOG_FLAG_ALL,
+                BGP_LOG_PEER_INSTANCE_CRITICAL(Peer(), vrf_name,
+                    BGP_PEER_DIR_IN, BGP_LOG_FLAG_ALL,
                     "Received route after unsubscribe");
                 return false;
             }
@@ -710,8 +710,9 @@ bool BgpXmppChannel::VerifyMembership(const string &vrf_name,
         } else {
             // Bail if we are not subscribed to the table.
             if (*instance_id < 0) {
-                BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
-                    BGP_LOG_FLAG_ALL, "Received route without subscribe");
+                BGP_LOG_PEER_INSTANCE_CRITICAL(Peer(), vrf_name,
+                    BGP_PEER_DIR_IN, BGP_LOG_FLAG_ALL,
+                    "Received route without subscribe");
                 return false;
             }
         }
@@ -720,7 +721,7 @@ bool BgpXmppChannel::VerifyMembership(const string &vrf_name,
         if (GetMembershipInfo(vrf_name, instance_id)) {
             *subscribe_pending = true;
         } else {
-            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+            BGP_LOG_PEER_INSTANCE_CRITICAL(Peer(), vrf_name, BGP_PEER_DIR_IN,
                BGP_LOG_FLAG_ALL, "Received route without pending subscribe");
             return false;
         }
@@ -1610,7 +1611,7 @@ void BgpXmppChannel::DequeueRequest(const string &table_name,
         bool is_registered = mgr->GetRegistrationInfo(peer_.get(), table,
                                             &instance_id, &subscription_gen_id);
         if (!is_registered) {
-            BGP_LOG_PEER_WARNING(Event, Peer(),
+            BGP_LOG_PEER_WARNING(Membership, Peer(),
                 BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
                 "Not subscribed to table " << table->name());
             return;
@@ -1708,10 +1709,9 @@ bool BgpXmppChannel::MembershipResponseHandler(string table_name) {
     RoutingTableMembershipRequestMap::iterator loc =
         routingtable_membership_request_map_.find(table_name);
     if (loc == routingtable_membership_request_map_.end()) {
-        BGP_LOG_PEER_WARNING(Membership, Peer(),
-                     BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
-                     "Table " << table_name <<
-                     " not in subscribe/unsubscribe request queue");
+        BGP_LOG_PEER_INSTANCE_CRITICAL(Peer(), table_name,
+                     BGP_PEER_DIR_IN, BGP_LOG_FLAG_ALL,
+                     "Table not in subscribe/unsubscribe request queue");
         assert(false);
     }
 
