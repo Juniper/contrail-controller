@@ -18,7 +18,6 @@ from test_case import STTestCase, retries
 from test_route_target import VerifyRouteTarget
 
 sys.path.append("../common/tests")
-from test_utils import FakeIfmapClient
 import test_common
 
 
@@ -202,9 +201,7 @@ class TestBgp(STTestCase, VerifyBgp):
         # create  vn1
         vn1_name = self.id() + 'vn1'
         vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
-        ident_name = self.get_obj_imid(vn1_obj)
-        gevent.sleep(2)
-        ifmap_ident = self.assertThat(FakeIfmapClient._graph['8443'], Contains(ident_name))
+        self.assertTill(self.ifmap_has_ident, obj=vn1_obj)
 
         self.check_ri_asn(self.get_ri_name(vn1_obj), 'target:64512:8000001')
 

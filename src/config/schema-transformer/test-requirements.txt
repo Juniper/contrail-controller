@@ -16,3 +16,4 @@ sandesh-common
 vnc_cfg_api_server
 ../../../noarch/config/svc-monitor
 junitxml
+pyOpenSSL

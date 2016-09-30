@@ -42,13 +42,9 @@ class SvcMonitor(object):
         assert(self._instance == None)
         self._log_file = '/tmp/svcmonitor.messages.' + str(self._http_port)
         args = ('--http_server_port', str(self._http_port),
-                '--ifmap_username', 'svc-monitor',
-                '--ifmap_password', 'svc-monitor',
                 '--api_server_port', str(self._config_fixture.apiserver.port),
                 '--log_file', self._log_file,
                 '--log_level', "SYS_DEBUG",
-                "--ifmap_server_port", str(self._config_fixture.ifmap.port),
-                "--ifmap_server_ip", "127.0.0.1",
                 '--zk_server_ip', '127.0.0.1:' +
                 str(self._config_fixture.zoo.port),
                 '--cassandra_server_list', '127.0.0.1:' +
@@ -60,7 +56,7 @@ class SvcMonitor(object):
 
     def stop(self):
         if self._instance is not None:
-            self._logger.info('Shutting down SvcMonitor 127.0.0.1:%d' 
+            self._logger.info('Shutting down SvcMonitor 127.0.0.1:%d'
                               % (self._http_port))
             self._instance.terminate()
             (op_out, op_err) = self._instance.communicate()
@@ -72,7 +68,7 @@ class SvcMonitor(object):
             subprocess.call(['rm', self._log_file])
             self._instance = None
     # end stop
-        
+
 class Schema(object):
     def __init__(self, config_fixture, logger):
         self._instance = None
@@ -84,13 +80,9 @@ class Schema(object):
         assert(self._instance == None)
         self._log_file = '/tmp/schema.messages.' + str(self._http_port)
         args = ('--http_server_port' + str(self._http_port) +
-                '--ifmap_username schema-transformer' +
-                '--ifmap_password schema-transformer' +
                 '--api_server_port ' + str(self._config_fixture.apiserver.port) +
                 '--log_file ' + self._log_file +
                 '--log_level SYS_DEBUG' +
-                "--ifmap_server_port " + str(self._config_fixture.ifmap.port) +
-                "--ifmap_server_ip 127.0.0.1" +
                 '--zk_server_ip 127.0.0.1:' + str(self._config_fixture.zoo.port) +
                 '--cassandra_server_list 127.0.0.1:' +
                 str(self._config_fixture.cassandra_port))
@@ -101,7 +93,7 @@ class Schema(object):
 
     def stop(self):
         if self._instance is not None:
-            self._logger.info('Shutting down Schema 127.0.0.1:%d' 
+            self._logger.info('Shutting down Schema 127.0.0.1:%d'
                               % (self._http_port))
             self._instance.terminate()
             (op_out, op_err) = self._instance.communicate()
@@ -113,7 +105,7 @@ class Schema(object):
             subprocess.call(['rm', self._log_file])
             self._instance = None
     # end stop
-        
+
 class ApiServer(object):
 
     def __init__(self, config_fixture, logger):
@@ -144,7 +136,7 @@ class ApiServer(object):
 
     def stop(self):
         if self._instance is not None:
-            self._logger.info('Shutting down ApiServer 127.0.0.1:%d' 
+            self._logger.info('Shutting down ApiServer 127.0.0.1:%d'
                               % (self.port))
             self._instance.terminate()
             (op_out, op_err) = self._instance.communicate()
@@ -156,7 +148,7 @@ class ApiServer(object):
             subprocess.call(['rm', self._log_file])
             self._instance = None
     # end stop
-        
+
 class Redis(object):
     def __init__(self):
         self.port = ConfigFixture.get_free_port()
@@ -184,7 +176,7 @@ class Zookeeper(object):
     def start(self):
         assert(self.running == False)
         self.running = True
-        mockzoo.start_zoo(self.port) 
+        mockzoo.start_zoo(self.port)
     # end start
 
     def stop(self):
@@ -203,7 +195,7 @@ class Ifmap(object):
     def start(self):
         assert(self.running == False)
         self.running = True
-        mockifmap.start_ifmap(self.port) 
+        mockifmap.start_ifmap(self.port)
     # end start
 
     def stop(self):
@@ -240,7 +232,7 @@ class ConfigFixture(fixtures.Fixture):
         self.schema.start()
         block_till_port_listened('127.0.0.1', self.apiserver.port)
 
-    @retry(delay=4, tries=5)  
+    @retry(delay=4, tries=5)
     def verify_default_project(self):
         result = True
         vnc_lib = vnc_api.VncApi(api_server_port=str(self.apiserver.port))
@@ -271,5 +263,5 @@ class ConfigFixture(fixtures.Fixture):
         cport = cs.getsockname()[1]
         cs.close()
         return cport
-        
+
 
