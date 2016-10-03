@@ -15,6 +15,8 @@ try:
 except ImportError:
     # python 2.6 or earlier, use backport
     from ordereddict import OrderedDict
+from collections import namedtuple
+TableSchema = namedtuple("TableSchema", ("name", "datatype", "index", "suffixes"))
 from uveserver import UVEServer
 import sys
 import ConfigParser
@@ -123,16 +125,22 @@ def obj_to_dict(obj):
 # end obj_to_dict
 
 
-def redis_query_start(host, port, redis_password, qid, inp):
+def redis_query_start(host, port, redis_password, qid, inp, columns):
     redish = redis.StrictRedis(db=0, host=host, port=port,
                                    password=redis_password)
     for key, value in inp.items():
         redish.hset("QUERY:" + qid, key, json.dumps(value))
+    col_list = []
+    if columns is not None:
+        for col in columns:
+            m = TableSchema(name = col.name, datatype = col.datatype, index = col.index, suffixes = col.suffixes)
+            col_list.append(m.__dict__)
     query_metadata = {}
     query_metadata['enqueue_time'] = OpServerUtils.utc_timestamp_usec()
     redish.hset("QUERY:" + qid, 'query_metadata', json.dumps(query_metadata))
     redish.hset("QUERY:" + qid, 'enqueue_time',
                 OpServerUtils.utc_timestamp_usec())
+    redish.hset("QUERY:" + qid, 'table_schema', json.dumps(col_list))
     redish.lpush("QUERYQ", qid)
 
     res = redish.blpop("REPLY:" + qid, 10)
@@ -598,7 +606,7 @@ class OpServer(object):
             self._VIRTUAL_TABLES.append(obj)
 
         stat_tables = []
-	# read the stat table schemas from vizd first
+        # read the stat table schemas from vizd first
         for t in _STAT_TABLES:
             attributes = []
             for attr in t.attributes:
@@ -616,7 +624,7 @@ class OpServer(object):
 
         # read all the json files for remaining stat table schema
         topdir = '/usr/share/doc/contrail-docs/html/messages/'
-        extn = '.json'
+        extn = '_stats_tables.json'
         stat_schema_files = []
         for dirpath, dirnames, files in os.walk(topdir):
             for name in files:
@@ -723,7 +731,7 @@ class OpServer(object):
         bottle.route('/analytics/operation/database-purge',
                      'POST', self.process_purge_request)
         bottle.route('/analytics/operation/analytics-data-start-time',
-	             'GET', self._get_analytics_data_start_time)
+                     'GET', self._get_analytics_data_start_time)
         bottle.route('/analytics/table/<table>', 'GET', self.table_process)
         bottle.route('/analytics/table/<table>/schema',
                      'GET', self.table_schema_process)
@@ -1283,7 +1291,9 @@ class OpServer(object):
             prg = redis_query_start('127.0.0.1',
                                     int(self._args.redis_query_port),
                                     self._args.redis_password,
-                                    qid, request.json)
+                                    qid, request.json,
+                                    self._VIRTUAL_TABLES[tabn].schema.columns
+                                    if tabn else None)
             if prg is None:
                 self._logger.error('QE Not Responding')
                 yield bottle.HTTPError(_ERRORS[errno.EBUSY], 
@@ -1814,7 +1824,7 @@ class OpServer(object):
         if self._uvepartitions_state == ConnectionStatus.UP:
             return json.dumps(uvetype_links)
         else:
-	    return bottle.HTTPError(_ERRORS[errno.EIO],json.dumps(uvetype_links))
+            return bottle.HTTPError(_ERRORS[errno.EIO],json.dumps(uvetype_links))
     # end _uves_http_get
 
     @validate_user_token
