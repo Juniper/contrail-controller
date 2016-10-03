@@ -207,15 +207,13 @@ public:
     };
 
     void Delete() {
-        FlowEntry * fe = FlowFetch();
+        FlowEntry *fe = FlowFetch();
         if (fe == NULL) {
             return;
         }
 
-        TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        FlowDeleteTask * task = new FlowDeleteTask(fe->key());
-        scheduler->Enqueue(task);
-
+        FlowProto *proto = Agent::GetInstance()->pkt()->get_flow_proto();
+        proto->DeleteFlowRequest(fe);
         WAIT_FOR(1000, 3000, FlowStatus(false));
     };
 
@@ -240,12 +238,6 @@ private:
         Task(TaskScheduler::GetInstance()->GetTaskId(kTaskFlowEvent), 0),
         key_(key) {}
         virtual bool Run() {
-            FlowProto *proto = Agent::GetInstance()->pkt()->get_flow_proto();
-            FlowEntry *flow = proto->Find(key_,
-                                          proto->GetTable(0)->table_index());
-            if (flow) {
-                proto->DeleteFlowRequest(flow);
-            }
             return true;
         }
         std::string Description() const { return "FlowDeleteTask"; }

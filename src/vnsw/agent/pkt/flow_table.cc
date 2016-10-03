@@ -608,6 +608,27 @@ void FlowTable::HandleRevaluateDBEntry(const DBEntry *entry, FlowEntry *flow,
     AddFlowInfo(rflow);
     return;
 }
+void FlowTable::HandleErrorExist(FlowEntry *flow, FlowTableKSyncEntry *ksync_entry,
+                                 uint32_t flow_handle, uint32_t gen_id) {
+    KSyncFlowIndexManager *mgr = agent()->ksync()->ksync_flow_index_manager();
+
+    if (flow_handle == FlowEntry::kInvalidFlowHandle) {
+        //Shouldnt happen
+        //Ignore if the flow handle is invalid
+        return;
+    }
+
+    FlowEntryPtr existing_entry = mgr->FindByIndex(flow_handle);
+
+    if (existing_entry == NULL) {
+        //Packet trapped to agent for flow setup,
+        //but its pending processing
+        mgr->UpdateFlowHandle(ksync_entry, flow_handle, gen_id);
+    } else if (existing_entry->flow_table() != flow->flow_table()) {
+        //Flow packet were trapped to different flow table for setup
+        flow->MakeShortFlow(FlowEntry::SHORT_FAILED_VROUTER_INSTALL);
+    }
+}
 
 void FlowTable::HandleKSyncError(FlowEntry *flow,
                                  FlowTableKSyncEntry *ksync_entry,
@@ -632,7 +653,7 @@ void FlowTable::HandleKSyncError(FlowEntry *flow,
     // For EEXIST error donot mark the flow as ShortFlow since Vrouter
     // generates EEXIST only for cases where another add should be
     // coming from the pkt trap from Vrouter
-    if (ksync_error != EEXIST || flow->is_flags_set(FlowEntry::NatFlow)) {
+    if (ksync_error == EEXIST) {
         // FIXME : We dont have good scheme to handle following scenario,
         // - VM1 in VN1 has floating-ip FIP1 in VN2
         // - VM2 in VN2
@@ -651,8 +672,11 @@ void FlowTable::HandleKSyncError(FlowEntry *flow,
         // The reverse flows for both FlowPair-1 and FlowPair-2 are not
         // installed due to EEXIST error. We are converting flows to
         // short-flow till this case is handled properly
+        HandleErrorExist(flow, ksync_entry, flow_handle, gen_id);
+    } else {
         flow->MakeShortFlow(FlowEntry::SHORT_FAILED_VROUTER_INSTALL);
     }
+
     return;
 }
 

@@ -3066,10 +3066,12 @@ bool FlowFail(int vrf_id, const char *sip, const char *dip,
     key.dst_port = dport;
     key.protocol = proto;
     key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
-    FlowProto *fp = Agent::GetInstance()->pkt()->get_flow_proto();
+    Agent *agent = Agent::GetInstance();
+    FlowProto *fp = agent->pkt()->get_flow_proto();
+    FlowTable *table = fp->GetFlowTable(key, 0);
 
-    WAIT_FOR(1000, 1000, (fp->Find(key, 0) == false));
-    FlowEntry *fe = fp->Find(key, 0);
+    WAIT_FOR(1000, 1000, (fp->Find(key, table->table_index()) == false));
+    FlowEntry *fe = fp->Find(key, table->table_index());
     if (fe == NULL) {
         return true;
     }
@@ -3205,7 +3207,13 @@ FlowEntry* FlowGet(int vrf_id, std::string sip, std::string dip, uint8_t proto,
     key.protocol = proto;
     key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
 
-    return Agent::GetInstance()->pkt()->get_flow_proto()->Find(key, 0);
+    FlowTable *table =
+        Agent::GetInstance()->pkt()->get_flow_proto()->GetFlowTable(key, 0);
+    if (table == NULL) {
+        return NULL;
+    }
+
+    return table->Find(key);
 }
 
 FlowEntry* FlowGet(int nh_id, std::string sip, std::string dip, uint8_t proto,
