@@ -1,3 +1,4 @@
+import os
 import sys
 sys.path.append("../common/tests")
 from vnc_api import vnc_api
@@ -54,4 +55,19 @@ class ApiServerTestCase(test_common.TestCase):
 
         return vn_objs, ipam_objs, ri_objs, vmi_objs
     # end _create_vn_ri_vmi
+
+    def assert_ifmap_doesnt_have_ident(self, test_obj):
+        self.assertTill(self.ifmap_doesnt_have_ident, obj=test_obj)
+
+    def assert_ifmap_has_ident(self, test_obj):
+        self.assertTill(self.ifmap_has_ident, obj=test_obj)
 # end class ApiServerTestCase
+
+class ApiServerRDBMSTestCase(ApiServerTestCase):
+    @classmethod
+    def setUpClass(cls, extra_config_knobs=None, extra_mocks=None):
+
+        super(ApiServerRDBMSTestCase, cls).setUpClass(
+            db="rdbms", extra_config_knobs=extra_config_knobs,
+            extra_mocks=extra_mocks)
+#end class ApiServerRDBMSTestCase
