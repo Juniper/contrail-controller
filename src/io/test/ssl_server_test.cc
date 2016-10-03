@@ -2,12 +2,14 @@
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <memory>
-
+#include <fstream>
+#include <iostream>
 #include <pthread.h>
+#include <memory>
+#include <netinet/in.h>
+#include <sstream>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
 
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/asio/placeholders.hpp>
@@ -136,18 +138,32 @@ EchoSession::EchoSession(EchoServer *server, SslSocket *socket,
     }
 }
 
+static size_t sent_data_size;
+
 class SslClient;
 
 class ClientSession : public SslSession {
   public:
     ClientSession(SslClient *server, SslSocket *socket,
-                  bool ssl_handshake_delayed = false);
+                  bool ssl_handshake_delayed = false,
+                  bool large_data = false);
 
     void OnEvent(TcpSession *session, Event event) {
         if (event == CONNECT_COMPLETE) {
-            const u_int8_t *data = (const u_int8_t *)"Hello there !";
-            size_t len = 14;
-            Send(data, len, NULL);
+            if (!large_data_) {
+                const u_int8_t *data = (const u_int8_t *)"Hello there !";
+                sent_data_size = strlen((const char *) data) + 1;
+                Send(data, sent_data_size, NULL);
+                return;
+            }
+
+            // Send a large xml file as data.
+            ifstream ifs("controller/src/ifmap/testdata/scaled_config.xml");
+            stringstream s;
+            while (ifs >> s.rdbuf());
+            string str = s.str();
+            sent_data_size = str.size() + 1;
+            Send((const u_int8_t *) str.c_str(), sent_data_size, NULL);
         }
     }
 
@@ -156,19 +172,22 @@ class ClientSession : public SslSession {
   protected:
     virtual void OnRead(Buffer buffer) {
         const size_t len = BufferSize(buffer);
-        TCP_UT_LOG_DEBUG("Received " << BufferData(buffer) << " " << len << " bytes");
+        TCP_UT_LOG_DEBUG("Received " << len << " bytes");
         len_ += len;
     }
 
   private:
     std::size_t len_;
+    bool large_data_;
 };
 
 class SslClient : public SslServer {
 public:
-    SslClient(EventManager *evm, bool ssl_handshake_delayed = false) :
+    SslClient(EventManager *evm, bool ssl_handshake_delayed = false,
+            bool large_data = false) :
         SslServer(evm, boost::asio::ssl::context::tlsv1, true, ssl_handshake_delayed),
         session_(NULL),
+        large_data_(large_data),
         ssl_handshake_delayed_(ssl_handshake_delayed),
         ssl_handshake_count_(0) {
 
@@ -189,7 +208,8 @@ public:
     ~SslClient() {
     }
     virtual SslSession *AllocSession(SslSocket *socket) {
-        session_ =  new ClientSession(this, socket, ssl_handshake_delayed_);
+        session_ =  new ClientSession(this, socket, ssl_handshake_delayed_,
+                                      large_data_);
         return session_;
     }
 
@@ -240,13 +260,15 @@ public:
 
 private:
     ClientSession *session_;
+    bool large_data_;
     bool ssl_handshake_delayed_;
     int ssl_handshake_count_;
 };
 
 ClientSession::ClientSession(SslClient *server, SslSocket *socket,
-                             bool ssl_handshake_delayed)
-    : SslSession(server, socket), len_(0) {
+                             bool ssl_handshake_delayed,
+                             bool large_data)
+    : SslSession(server, socket), len_(0), large_data_(large_data) {
     if (!ssl_handshake_delayed) {
         set_observer(boost::bind(&ClientSession::OnEvent, this, _1, _2));
     }
@@ -356,7 +378,44 @@ TEST_F(SslEchoServerTest, msg_send_recv) {
     TASK_UTIL_EXPECT_EQ(connect_fail_, 0);
     TASK_UTIL_EXPECT_EQ(connect_abort_, 0);
     // wait for on connect message to come back from echo server.
-    TASK_UTIL_EXPECT_EQ(session->len(), 14);
+    TASK_UTIL_EXPECT_EQ(sent_data_size, session->len());
+
+    session->Close();
+    client->DeleteSession(session);
+
+    client->Shutdown();
+    task_util::WaitForIdle();
+    TcpServerManager::DeleteServer(client);
+    client = NULL;
+}
+
+TEST_F(SslEchoServerTest, large_msg_send_recv) {
+
+    SetUpImmedidate();
+    SslClient *client = new SslClient(evm_.get(), false, true);
+
+    task_util::WaitForIdle();
+    server_->Initialize(0);
+    task_util::WaitForIdle();
+    thread_->Start();		// Must be called after initialization
+
+    connect_success_ = connect_fail_ = connect_abort_ = 0;
+    ClientSession *session = static_cast<ClientSession *>(client->CreateSession());
+    session->set_observer(boost::bind(&SslEchoServerTest::OnEvent, this, _1, _2));
+    boost::asio::ip::tcp::endpoint endpoint;
+    boost::system::error_code ec;
+    endpoint.address(boost::asio::ip::address::from_string("127.0.0.1", ec));
+    endpoint.port(server_->GetPort());
+    client->Connect(session, endpoint);
+    task_util::WaitForIdle();
+    StartConnectTimer(session, 10);
+    TASK_UTIL_EXPECT_TRUE(session->IsEstablished());
+    TASK_UTIL_EXPECT_FALSE(session->IsClosed());
+    TASK_UTIL_EXPECT_EQ(1, connect_success_);
+    TASK_UTIL_EXPECT_EQ(connect_fail_, 0);
+    TASK_UTIL_EXPECT_EQ(connect_abort_, 0);
+    // wait for on connect message to come back from echo server.
+    TASK_UTIL_EXPECT_EQ(sent_data_size, session->len());
 
     session->Close();
     client->DeleteSession(session);
@@ -399,7 +458,7 @@ TEST_F(SslEchoServerTest, HandshakeFailure) {
     TASK_UTIL_EXPECT_EQ(connect_fail_, 0);
     TASK_UTIL_EXPECT_EQ(connect_abort_, 0);
     // wait for on connect message to come back from echo server.
-    TASK_UTIL_EXPECT_EQ(session->len(), 14);
+    TASK_UTIL_EXPECT_EQ(sent_data_size, session->len());
 
     client_fail->Connect(session_fail, endpoint);
     task_util::WaitForIdle();
@@ -453,7 +512,7 @@ TEST_F(SslEchoServerTest, DISABLED_test_delayed_ssl_handshake) {
     TASK_UTIL_EXPECT_EQ(connect_fail_, 0);
     TASK_UTIL_EXPECT_EQ(connect_abort_, 0);
     // wait till plain-text data is transferred
-    TASK_UTIL_EXPECT_EQ(session->len(), 14);
+    TASK_UTIL_EXPECT_EQ(sent_data_size, session->len());
 
     // Trigger delayed ssl handshake on server side
     server_->GetSession()->TriggerSslHandShake(
