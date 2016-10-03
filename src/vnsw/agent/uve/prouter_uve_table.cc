@@ -377,14 +377,16 @@ void ProuterUveTable::FrameProuterMsg(ProuterUveEntry *entry,
         agent_list.push_back(agent_->agent_name());
         if (agent_->tsn_enabled()) {
             uve->set_tsn_agent_list(agent_list);
-            uve->set_connected_agent_list(empty_agent_list);
         } else if (agent_->tor_agent_enabled()) {
             uve->set_connected_agent_list(agent_list);
-            uve->set_tsn_agent_list(empty_agent_list);
         }
     } else {
         /* Send Empty list */
-        uve->set_connected_agent_list(empty_agent_list);
+        if (agent_->tsn_enabled()) {
+            uve->set_tsn_agent_list(empty_agent_list);
+        } else if (agent_->tor_agent_enabled()) {
+            uve->set_connected_agent_list(empty_agent_list);
+        }
     }
 }
 
