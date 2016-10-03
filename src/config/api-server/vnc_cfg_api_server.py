@@ -194,7 +194,7 @@ class VncApiServer(object):
     ]
     def __new__(cls, *args, **kwargs):
         obj = super(VncApiServer, cls).__new__(cls, *args, **kwargs)
-        obj.api_bottle = bottle.Bottle() 
+        obj.api_bottle = bottle.Bottle()
         obj.route('/', 'GET', obj.homepage_http_get)
         obj.api_bottle.error_handler = {
                 400: error_400,
@@ -398,6 +398,17 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(
                 404, "Resource type '%s' not found" % type)
 
+    def undo(self, result, obj_type, id=None, fq_name=None):
+        (code, msg) = result
+
+        if self._db_engine == 'cassandra':
+            get_context().invoke_undo(code, msg, self.config_log)
+
+        failed_stage = get_context().get_state()
+        self.config_object_error(
+            id, fq_name, obj_type, failed_stage, msg)
+    # end undo
+
     # http_resource_<oper> - handlers invoked from
     # a. bottle route (on-the-wire) OR
     # b. internal requests
@@ -487,14 +498,6 @@ class VncApiServer(object):
         # State modification starts from here. Ensure that cleanup is done for all state changes
         cleanup_on_failure = []
         obj_ids = {}
-        def undo_create(result):
-            (code, msg) = result
-            get_context().invoke_undo(code, msg, self.config_log)
-            failed_stage = get_context().get_state()
-            fq_name_str = ':'.join(fq_name)
-            self.config_object_error(
-                None, fq_name_str, obj_type, failed_stage, msg)
-        # end undo_create
 
         def stateful_create():
             # Alloc and Store id-mappings before creating entry on pubsub store.
@@ -578,7 +581,8 @@ class VncApiServer(object):
             err_msg = cfgm_common.utils.detailed_traceback()
             result = (500, err_msg)
         if not ok:
-            undo_create(result)
+            fq_name_str = ':'.join(fq_name)
+            self.undo(result, obj_type, fq_name=fq_name_str)
             code, msg = result
             raise cfgm_common.exceptions.HttpError(code, msg)
 
@@ -705,6 +709,9 @@ class VncApiServer(object):
 
     # filter object references based on permissions
     def obj_view(self, resource_type, obj_dict):
+        if self._db_engine != 'cassandra':
+            #TODO(nati) implement support for rdbms backend
+            return obj_dict
         ret_obj_dict = {}
         ret_obj_dict.update(obj_dict)
 
@@ -712,7 +719,7 @@ class VncApiServer(object):
         obj_links = (r_class.ref_fields | r_class.backref_fields | r_class.children_fields) \
                      & set(obj_dict.keys())
         obj_uuids = [ref['uuid'] for link in obj_links for ref in list(obj_dict[link])]
-        obj_dicts = self._db_conn._cassandra_db.object_raw_read(obj_uuids, ["perms2"])
+        obj_dicts = self._db_conn._object_db.object_raw_read(obj_uuids, ["perms2"])
         uuid_to_perms2 = dict((o['uuid'], o['perms2']) for o in obj_dicts)
 
         for link_field in obj_links:
@@ -794,13 +801,6 @@ class VncApiServer(object):
         # State modification starts from here. Ensure that cleanup is done for all state changes
         cleanup_on_failure = []
         obj_ids = {'uuid': id}
-        def undo_update(result):
-            (code, msg) = result
-            get_context().invoke_undo(code, msg, self.config_log)
-            failed_stage = get_context().get_state()
-            self.config_object_error(
-                id, None, obj_type, failed_stage, msg)
-        # end undo_update
 
         def stateful_update():
             get_context().set_state('PRE_DBE_UPDATE')
@@ -832,7 +832,7 @@ class VncApiServer(object):
             err_msg = cfgm_common.utils.detailed_traceback()
             result = (500, err_msg)
         if not ok:
-            undo_update(result)
+            self.undo(result, obj_type, id=id)
             code, msg = result
             raise cfgm_common.exceptions.HttpError(code, msg)
 
@@ -954,14 +954,6 @@ class VncApiServer(object):
         # State modification starts from here. Ensure that cleanup is done for all state changes
         cleanup_on_failure = []
 
-        def undo_delete(result):
-            (code, msg) = result
-            get_context().invoke_undo(code, msg, self.config_log)
-            failed_stage = get_context().get_state()
-            self.config_object_error(
-                id, None, obj_type, failed_stage, msg)
-        # end undo_delete
-
         def stateful_delete():
             get_context().set_state('PRE_DBE_DELETE')
             (ok, del_result) = r_class.pre_dbe_delete(id, read_result, db_conn)
@@ -978,7 +970,7 @@ class VncApiServer(object):
             callable = getattr(r_class, 'http_delete_fail', None)
             if callable:
                 cleanup_on_failure.append((callable, [id, read_result, db_conn]))
-            
+
             get_context().set_state('DBE_DELETE')
             (ok, del_result) = db_conn.dbe_delete(
                 obj_type, obj_ids, read_result)
@@ -1012,7 +1004,7 @@ class VncApiServer(object):
             err_msg = cfgm_common.utils.detailed_traceback()
             result = (500, err_msg)
         if not ok:
-            undo_delete(result)
+            self.undo(result, obj_type, id=id)
             code, msg = result
             raise cfgm_common.exceptions.HttpError(code, msg)
 
@@ -1188,6 +1180,9 @@ class VncApiServer(object):
             set_context(orig_context)
     # end internal_request_ref_update
 
+    def alloc_vn_id(self, name):
+        return self._db_conn._zk_db.alloc_vn_id(name)
+
     def create_default_children(self, object_type, parent_obj):
         r_class = self.get_resource_class(object_type)
         for child_fields in r_class.children_fields:
@@ -1212,7 +1207,7 @@ class VncApiServer(object):
             # For virtual networks, allocate an ID
             if child_obj_type == 'virtual_network':
                 child_dict['virtual_network_network_id'] =\
-                    self._db_conn._zk_db.alloc_vn_id(
+                    self.alloc_vn_id(
                         child_obj.get_fq_name_str())
 
             (ok, result) = self._db_conn.dbe_create(child_obj_type, obj_ids,
@@ -2654,21 +2649,44 @@ class VncApiServer(object):
         obj_cache_exclude_types = \
             [t.replace('-', '_').strip() for t in
              self._args.object_cache_exclude_types.split(',')]
+
+        rdbms_server_list = self._args.rdbms_server_list
+        rdbms_user = self._args.rdbms_user
+        rdbms_password = self._args.rdbms_password
+        rdbms_connection = self._args.rdbms_connection
+
+        db_engine = self._args.db_engine
+        self._db_engine = db_engine
         cred = None
-        if cassandra_user is not None and cassandra_password is not None:
-            cred = {'username':cassandra_user,'password':cassandra_password}
+
+        db_server_list = None
+        if db_engine == 'cassandra':
+            if cassandra_user is not None and cassandra_password is not None:
+                cred = {'username':cassandra_user,'password':cassandra_password}
+            db_server_list = cass_server_list
+
+        if db_engine == 'rdbms':
+            db_server_list = rdbms_server_list
+            if rdbms_user is not None and rdbms_password is not None:
+                cred = {'username': rdbms_user,'password': rdbms_password}
+
         self._db_conn = VncDbClient(
-            self, ifmap_ip, ifmap_port, user, passwd, cass_server_list,
+            self, ifmap_ip, ifmap_port, user, passwd, db_server_list,
             rabbit_servers, rabbit_port, rabbit_user, rabbit_password,
             rabbit_vhost, rabbit_ha_mode, reset_config, zk_server,
-            self._args.cluster_id, cassandra_credential=cred,
+            self._args.cluster_id,
+            db_credential=cred,
+            db_engine=db_engine,
             rabbit_use_ssl=self._args.rabbit_use_ssl,
             kombu_ssl_version=self._args.kombu_ssl_version,
             kombu_ssl_keyfile= self._args.kombu_ssl_keyfile,
             kombu_ssl_certfile=self._args.kombu_ssl_certfile,
             kombu_ssl_ca_certs=self._args.kombu_ssl_ca_certs,
             obj_cache_entries=obj_cache_entries,
-            obj_cache_exclude_types=obj_cache_exclude_types)
+            obj_cache_exclude_types=obj_cache_exclude_types, connection=rdbms_connection)
+
+        #TODO refacter db connection management.
+        self._addr_mgmt._get_db_conn()
     # end _db_connect
 
     def _ensure_id_perms_present(self, obj_uuid, obj_dict):
@@ -2905,7 +2923,7 @@ class VncApiServer(object):
         # TODO remove backward compat create mapping in zk
         # for singleton START
         try:
-            cass_uuid = self._db_conn._cassandra_db.fq_name_to_uuid(obj_type, fq_name)
+            cass_uuid = self._db_conn._object_db.fq_name_to_uuid(obj_type, fq_name)
             try:
                 zk_uuid = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
             except NoIdError:
@@ -2929,7 +2947,7 @@ class VncApiServer(object):
             obj_ids = result
             # For virtual networks, allocate an ID
             if obj_type == 'virtual_network':
-                vn_id = self._db_conn._zk_db.alloc_vn_id(
+                vn_id = self.alloc_vn_id(
                     s_obj.get_fq_name_str())
                 obj_dict['virtual_network_network_id'] = vn_id
             self._db_conn.dbe_create(obj_type, obj_ids, obj_dict)
@@ -2946,7 +2964,8 @@ class VncApiServer(object):
         resource_type, r_class = self._validate_resource_type(obj_type)
         (ok, result) = self._db_conn.dbe_list(obj_type,
                              parent_uuids, back_ref_uuids, obj_uuids, is_count,
-                             filters)
+                             filters, is_detail=is_detail, field_names=req_fields,
+                             include_shared=include_shared)
         if not ok:
             self.config_object_error(None, None, '%ss' %(obj_type),
                                      'dbe_list', result)
@@ -2956,130 +2975,59 @@ class VncApiServer(object):
         if is_count:
             return {'%ss' %(resource_type): {'count': result}}
 
-        # include objects shared with tenant
-        if include_shared:
-            env = get_request().headers.environ
-            tenant_uuid = env.get('HTTP_X_PROJECT_ID')
-            domain = env.get('HTTP_X_DOMAIN_ID')
-            if domain is None:
-                domain = env.get('HTTP_X_USER_DOMAIN_ID')
-                try:
-                    domain = str(uuid.UUID(domain))
-                except ValueError:
-                    if domain == 'default':
-                        domain = 'default-domain'
-                    domain = self._db_conn.fq_name_to_uuid('domain', [domain])
-            if domain:
-                domain = domain.replace('-','')
-            shares = self._db_conn.get_shared_objects(obj_type, tenant_uuid, domain)
-            owned_objs = set([obj_uuid for (fq_name, obj_uuid) in result])
-            for (obj_uuid, obj_perm) in shares:
-                # skip owned objects already included in results
-                if obj_uuid in owned_objs:
-                    continue
-                try:
-                    fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
-                    result.append((fq_name, obj_uuid))
-                except NoIdError:
-                    # uuid no longer valid. Delete?
-                    pass
-        # end shared
+        allowed_fields = ['uuid', 'href', 'fq_name']
+        if req_fields:
+            allowed_fields.extend(req_fields)
 
-        fq_names_uuids = result
-        obj_dicts = []
-        if not is_detail:
-            if not self.is_admin_request():
-                obj_ids_list = [{'uuid': obj_uuid}
-                                for _, obj_uuid in fq_names_uuids]
-                obj_fields = [u'id_perms']
-                if req_fields:
-                    obj_fields = obj_fields + req_fields
-                (ok, result) = self._db_conn.dbe_read_multi(
-                                    obj_type, obj_ids_list, obj_fields)
-                if not ok:
-                    raise cfgm_common.exceptions.HttpError(404, result)
-                for obj_result in result:
-                    if obj_result['id_perms'].get('user_visible', True):
-                        # skip items not authorized
-                        (ok, status) = self._permissions.check_perms_read(
-                                get_request(), obj_result['uuid'],
-                                obj_result['id_perms'])
-                        if not ok and status[0] == 403:
-                            continue
-                        obj_dict = {}
-                        obj_dict['uuid'] = obj_result['uuid']
-                        if not exclude_hrefs:
-                            obj_dict['href'] = self.generate_url(
-                                resource_type, obj_result['uuid'])
-                        obj_dict['fq_name'] = obj_result['fq_name']
-                        for field in req_fields:
-                            try:
-                                obj_dict[field] = obj_result[field]
-                            except KeyError:
-                                pass
-
-                        obj_dict = self.obj_view(resource_type, obj_dict)
-                        obj_dicts.append(obj_dict)
-            else: # admin
-                obj_results = {}
-                if req_fields:
-                    obj_ids_list = [{'uuid': obj_uuid}
-                                    for _, obj_uuid in fq_names_uuids]
-                    (ok, result) = self._db_conn.dbe_read_multi(
-                        obj_type, obj_ids_list, req_fields)
-                    if ok:
-                        obj_results = dict((elem['uuid'], elem)
-                                           for elem in result)
-                for fq_name, obj_uuid in fq_names_uuids:
-                    obj_dict = {}
-                    obj_dict['uuid'] = obj_uuid
-                    if not exclude_hrefs:
-                        obj_dict['href'] = self.generate_url(resource_type,
-                                                             obj_uuid)
-                    obj_dict['fq_name'] = fq_name
-                    for field in req_fields or []:
-                       try:
-                           obj_dict[field] = obj_results[obj_uuid][field]
-                       except KeyError:
-                           pass
-                    obj_dicts.append(obj_dict)
-        else: #detail
-            obj_ids_list = [{'uuid': obj_uuid}
-                            for _, obj_uuid in fq_names_uuids]
-
-            obj_class = self.get_resource_class(obj_type)
-            obj_fields = list(obj_class.prop_fields) + \
-                         list(obj_class.ref_fields)
-            if req_fields:
-                obj_fields.extend(req_fields)
-            (ok, result) = self._db_conn.dbe_read_multi(
-                                obj_type, obj_ids_list, obj_fields)
-
-            if not ok:
-                raise cfgm_common.exceptions.HttpError(404, result)
-
+        if self.is_admin_request():
+            obj_dicts = []
             for obj_result in result:
-                obj_dict = {}
-                obj_dict['name'] = obj_result['fq_name'][-1]
                 if not exclude_hrefs:
-                    obj_result = self.generate_hrefs(resource_type, obj_result)
-                if not self.is_admin_request():
-                    obj_result = self.obj_view(resource_type, obj_result)
-                obj_dict.update(obj_result)
-                if 'id_perms' not in obj_dict:
+                    obj_result['href'] = self.generate_url(
+                        resource_type, obj_result['uuid'])
+                if is_detail:
+                    obj_dicts.append({resource_type: obj_result})
+                else:
+                    obj_dicts.append(obj_result)
+        else:
+            obj_dicts = []
+            for obj_result in result:
+                # TODO(nati) we should do this using sql query
+                id_perms = obj_result.get('id_perms')
+
+                if not id_perms:
                     # It is possible that the object was deleted, but received
                     # an update after that. We need to ignore it for now. In
                     # future, we should clean up such stale objects
                     continue
-                if (obj_dict['id_perms'].get('user_visible', True) or
-                    self.is_admin_request()):
+
+                if not id_perms.get('user_visible', True):
                     # skip items not authorized
-                    (ok, status) = self._permissions.check_perms_read(
-                            get_request(), obj_result['uuid'],
-                            obj_result['id_perms'])
-                    if not ok and status[0] == 403:
-                        continue
+                    continue
+
+                (ok, status) = self._permissions.check_perms_read(
+                        get_request(), obj_result['uuid'],
+                        obj_result['id_perms'])
+                if not ok and status[0] == 403:
+                    continue
+
+                obj_dict = {}
+
+                if is_detail:
+                    obj_result = self.obj_view(resource_type, obj_result)
+                    obj_dict.update(obj_result)
                     obj_dicts.append({resource_type: obj_dict})
+                else:
+                    obj_dict.update(obj_result)
+                    for key in obj_dict.keys():
+                        if not key in allowed_fields:
+                            del obj_dict[key]
+                    if obj_dict.get('id_perms') and not 'id_perms' in allowed_fields:
+                        del obj_dict['id_perms']
+                    obj_dicts.append(obj_dict)
+
+                if not exclude_hrefs:
+                    obj_dict['href'] = self.generate_url(resource_type, obj_result['uuid'])
 
         return {'%ss' %(resource_type): obj_dicts}
     # end _list_collection

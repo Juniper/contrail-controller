@@ -402,7 +402,7 @@ class VncCassandraClient(object):
         send = False
         if bch is None:
             send = True
-            bch = self._cassandra_db._obj_uuid_cf.batch()
+            bch = self._object_db._obj_uuid_cf.batch()
         bch.remove(obj_uuid, columns=['ref:%s:%s' % (ref_obj_type, ref_uuid)])
         if obj_type == ref_obj_type:
             bch.remove(ref_uuid, columns=[
