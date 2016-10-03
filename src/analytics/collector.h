@@ -187,7 +187,6 @@ private:
     static bool task_policy_set_;
     static const std::vector<Sandesh::QueueWaterMarkInfo> kDbQueueWaterMarkInfo;
     static const std::vector<Sandesh::QueueWaterMarkInfo> kSmQueueWaterMarkInfo;
-    static const int kDefaultSessionBufferSize = 16 * 1024;
 
     static DiscoveryServiceClient *ds_client_;
 

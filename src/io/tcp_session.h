@@ -39,7 +39,7 @@ class TcpMessageWriter;
 // invoked by a different thread.
 class TcpSession {
 public:
-    static const int kDefaultBufferSize = 4 * 1024;
+    static const int kDefaultBufferSize = 16 * 1024;
 
     enum Event {
         EVENT_NONE,
@@ -74,8 +74,6 @@ public:
     void Close();
 
     virtual std::string ToString() const { return name_; }
-
-    void SetBufferSize(int buffer_size);
 
     // Getters and setters
     virtual Socket *socket() const { return socket_.get(); }
@@ -185,7 +183,8 @@ protected:
     // Callback after socket is ready for write.
     virtual void WriteReady(const boost::system::error_code &error);
 
-    void AsyncReadSome();
+    virtual void AsyncReadSome();
+    virtual size_t GetReadBufferSize() const;
     virtual size_t ReadSome(boost::asio::mutable_buffer buffer,
                             boost::system::error_code *error);
     virtual std::size_t WriteSome(const uint8_t *data, std::size_t len,
@@ -195,6 +194,8 @@ protected:
     virtual int reader_task_id() const {
         return reader_task_id_;
     }
+
+    bool established() const { return established_; }
 
     EventObserver observer() { return observer_; }
     boost::system::error_code SetSocketKeepaliveOptions(int keepalive_time,
@@ -230,7 +231,7 @@ private:
 
     void SetName();
 
-    boost::asio::mutable_buffer AllocateBuffer();
+    boost::asio::mutable_buffer AllocateBuffer(size_t buffer_size);
     void DeleteBuffer(boost::asio::mutable_buffer buffer);
 
     static int reader_task_id_;
@@ -239,7 +240,6 @@ private:
     boost::scoped_ptr<Socket> socket_;
     boost::scoped_ptr<Strand> io_strand_;
     bool read_on_connect_;
-    int buffer_size_;
 
     /**************** protected by mutex_ ****************/
     bool established_;             // In TCP ESTABLISHED state.

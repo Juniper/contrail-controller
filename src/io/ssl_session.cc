@@ -88,6 +88,28 @@ TcpSession::Socket *SslSession::socket() const {
     return &ssl_socket_->next_layer();
 }
 
+// Register for data read notification from the tcp socket or from the ssl
+// socket, as appropriate.
+void SslSession::AsyncReadSome() {
+    assert(!ssl_handshake_in_progress_);
+    if (!IsSslHandShakeSuccessLocked()) {
+        TcpSession::AsyncReadSome();
+        return;
+    }
+
+    if (established()) {
+        ssl_socket_->async_read_some(null_buffers(),
+            bind(&TcpSession::AsyncReadHandler, TcpSessionPtr(this)));
+    }
+}
+
+// Tests with large data have consistently shown 16K as the maximum read data
+// size even though when a lot more data was available in the underlying socket.
+// Also, there is no available() api for the ssl socket.
+size_t SslSession::GetReadBufferSize() const {
+    return kDefaultBufferSize;
+}
+
 size_t SslSession::ReadSome(mutable_buffer buffer, error_code *error) {
     // Read data from the tcp socket or from the ssl socket, as appropriate.
     assert(!ssl_handshake_in_progress_);

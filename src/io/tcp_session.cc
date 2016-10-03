@@ -84,7 +84,6 @@ TcpSession::TcpSession(
     : server_(server),
       socket_(socket),
       read_on_connect_(async_read_ready),
-      buffer_size_(kDefaultBufferSize),
       established_(false),
       closed_(false),
       direction_(ACTIVE),
@@ -110,13 +109,10 @@ TcpSession::~TcpSession() {
     buffer_queue_.clear();
 }
 
-mutable_buffer TcpSession::AllocateBuffer() {
-    u_int8_t *data = new u_int8_t[buffer_size_];
-    mutable_buffer buffer = mutable_buffer(data, buffer_size_);
-    {
-        tbb::mutex::scoped_lock lock(mutex_);
-        buffer_queue_.push_back(buffer);
-    }
+mutable_buffer TcpSession::AllocateBuffer(size_t buffer_size) {
+    u_int8_t *data = new u_int8_t[buffer_size];
+    mutable_buffer buffer = mutable_buffer(data, buffer_size);
+    buffer_queue_.push_back(buffer);
     return buffer;
 }
 
@@ -163,6 +159,8 @@ void TcpSession::AsyncReadStartInternal(TcpSessionPtr session) {
         stats_.read_blocked_duration_usecs += blocked_usecs;
         server_->stats_.read_blocked_duration_usecs += blocked_usecs;
     }
+
+    tbb::mutex::scoped_lock lock(mutex_);
     AsyncReadSome();
 }
 
@@ -194,7 +192,6 @@ void TcpSession::DeferWriter() {
 }
 
 void TcpSession::AsyncReadSome() {
-    tbb::mutex::scoped_lock lock(mutex_);
     if (established_) {
         socket()->async_read_some(null_buffers(),
             bind(&TcpSession::AsyncReadHandler, TcpSessionPtr(this)));
@@ -439,14 +436,24 @@ size_t TcpSession::ReadSome(mutable_buffer buffer, error_code *error) {
     return socket()->read_some(mutable_buffers_1(buffer), *error);
 }
 
-void TcpSession::AsyncReadHandler(TcpSessionPtr session) {
-    mutable_buffer buffer = session->AllocateBuffer();
+// Tests with large data have shown large amounts of data being read in one
+// read_some() call, if available. Hence, allocate memory for all the bytes
+// available in the socket, but no less t han kDefaultBufferSize.
+size_t TcpSession::GetReadBufferSize() const {
+    size_t size = socket_->available();
+    if (size < kDefaultBufferSize)
+        size = kDefaultBufferSize;
+    return size;
+}
 
+void TcpSession::AsyncReadHandler(TcpSessionPtr session) {
     tbb::mutex::scoped_lock lock(session->mutex_);
     if (session->closed_) {
-        session->ReleaseBufferLocked(buffer);
         return;
     }
+
+    mutable_buffer buffer =
+        session->AllocateBuffer(session->GetReadBufferSize());
 
     error_code error;
     size_t bytes_transferred = session->ReadSome(buffer, &error);
@@ -818,8 +825,4 @@ void TcpSession::GetRxSocketStats(SocketIOStats *socket_stats) const {
 
 void TcpSession::GetTxSocketStats(SocketIOStats *socket_stats) const {
     stats_.GetTxStats(socket_stats);
-}
-
-void TcpSession::SetBufferSize(int buffer_size) {
-    buffer_size_ = buffer_size;
 }

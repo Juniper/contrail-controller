@@ -22,6 +22,11 @@ SslServer::SslServer(EventManager *evm, boost::asio::ssl::context::method m,
     assert(ec.value() == 0);
     context_.set_options(boost::asio::ssl::context::default_workarounds, ec);
     assert(ec.value() == 0);
+
+    if (getenv("CONTRAIL_SSL_SOCKET_COMPRESSION_ENABLE")) {
+        context_.clear_options(boost::asio::ssl::context::no_compression, ec);
+        assert(ec.value() == 0);
+    }
 }
 
 SslServer::~SslServer() {

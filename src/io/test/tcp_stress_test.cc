@@ -1,6 +1,10 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
+#include <fstream>
+#include <iostream>
+#include <memory>
+#include <sstream>
 
 #include <pthread.h>
 #include <sys/types.h>
@@ -447,6 +451,24 @@ TEST_P(EchoServerTest, Basic) {
             EchoSession *session = static_cast<EchoSession *>(mapref.first);
             session->increment_sent(max_packet_size_);
             EXPECT_TRUE(res);
+        }
+    }
+    TASK_UTIL_ASSERT_TRUE(verify_rx());
+}
+
+TEST_P(EchoServerTest, SendLargeData) {
+    BOOST_FOREACH(SessionMatrix::value_type mapref, session_matrix_) {
+        if (mapref.first->IsEstablished()) {
+            TCP_UT_LOG_DEBUG("Send to " << mapref.first->ToString());
+            ifstream ifs("controller/src/ifmap/testdata/scaled_config.xml");
+            stringstream s;
+            while (ifs >> s.rdbuf());
+            string str = s.str();
+            size_t data_size = str.size();
+            mapref.first->Send((const u_int8_t*) str.c_str(), str.size(), NULL);
+            EchoSession *session = static_cast<EchoSession *>(mapref.first);
+            session->increment_sent(data_size);
+            break;
         }
     }
     TASK_UTIL_ASSERT_TRUE(verify_rx());
