@@ -2,10 +2,13 @@
 import mock
 from mock import patch
 import unittest
+import svc_monitor
 from vnc_api.vnc_api import *
 from svc_monitor.port_tuple import PortTupleAgent
 from svc_monitor.config_db import *
 import test_common_utils as test_utils
+from svc_monitor.module_logger import ServiceMonitorModuleLogger
+from svc_monitor.sandesh.port_tuple import ttypes
 
 class PortTupleTest(unittest.TestCase):
     def setUp(self):
@@ -22,10 +25,14 @@ class PortTupleTest(unittest.TestCase):
         self.mocked_vnc.fq_name_to_id = test_utils.get_vn_id_for_fq_name
         self.mocked_vnc.instance_ip_create = test_utils.iip_create
 
+        # Mock service module logger.
+        self.logger = mock.MagicMock()
+        self.module_logger = ServiceMonitorModuleLogger(self.logger)
+
         self.pt_agent = PortTupleAgent(
             svc_mon=mock.MagicMock(), vnc_lib=self.mocked_vnc,
             cassandra=mock.MagicMock(), config_section=mock.MagicMock(),
-            logger=mock.MagicMock())
+            logger = self.module_logger)
 
     def tearDown(self):
         ServiceTemplateSM.reset()
@@ -125,7 +132,7 @@ class PortTupleTest(unittest.TestCase):
 
     def __create_interface_route_table(self, si = None, intf_type = None):
         """
-        Create a test interface route table object. 
+        Create a test interface route table object.
 
         Parameters:
             si        - service instance object
@@ -190,6 +197,185 @@ class PortTupleTest(unittest.TestCase):
                                      'instance-ip', 'fake-iip-uuid',
                                      None, 'ADD',
                                      ServiceInterfaceTag('right'))
+
+    def test_two_vm_port_tuple_create(self):
+        """
+        Verify multiple (two) Port Tuple creates for a service instance.
+
+        """
+
+        # Create a test Service Instance.
+        si = self.__create_test_si()
+
+        #Create first Port Tuple.
+        pt = test_utils.create_test_port_tuple(
+                      'fake-domain:fake-project:fake-si-uuid:fake-port-tuple1',
+                      si.uuid)
+
+        # Create the two virtual machines intefaces for the Port Tuple.
+        lvmi1 = self.__create_test_vmi(pt, 'left', 'left1')
+        rvmi1 = self.__create_test_vmi(pt, 'right', 'right1')
+
+        # Update frist Port Tuple.
+        self.pt_agent.update_port_tuple(pt_id='fake-port-tuple1')
+
+        # Create second Port Tuple.
+        pt = test_utils.create_test_port_tuple(
+                      'fake-domain:fake-project:fake-si-uuid:fake-port-tuple2',
+                      si.uuid)
+
+        # Create the two virtual machines intefaces for the Port Tuple.
+        lvmi2 = self.__create_test_vmi(pt, 'left', 'left2')
+        rvmi2 = self.__create_test_vmi(pt, 'right', 'right2')
+
+        # Update second Port Tuple.
+        self.pt_agent.update_port_tuple(pt_id='fake-port-tuple2')
+
+        # Validate the expected API invocations.
+        self.mocked_vnc.ref_update.assert_any_call(
+                                    'instance-ip', 'fake-iip-uuid',
+                                    'virtual-machine-interface', lvmi1.uuid,
+                                    None, 'ADD')
+
+        self.mocked_vnc.ref_update.assert_any_call(
+                                    'instance-ip', 'fake-iip-uuid',
+                                    'virtual-machine-interface', rvmi1.uuid,
+                                    None, 'ADD')
+
+        self.mocked_vnc.ref_update.assert_any_call(
+                                    'instance-ip', 'fake-iip-uuid',
+                                    'virtual-machine-interface', lvmi2.uuid,
+                                    None, 'ADD')
+
+        self.mocked_vnc.ref_update.assert_any_call(
+                                    'instance-ip', 'fake-iip-uuid',
+                                    'virtual-machine-interface', rvmi2.uuid,
+                                    None, 'ADD')
+
+        self.mocked_vnc.ref_update.assert_any_call(
+                                    'service-instance', si.uuid,
+                                    'instance-ip', 'fake-iip-uuid',
+                                    None, 'ADD',
+                                    ServiceInterfaceTag('left'))
+
+        self.mocked_vnc.ref_update.assert_any_call(
+                                    'service-instance', si.uuid,
+                                    'instance-ip', 'fake-iip-uuid',
+                                    None, 'ADD',
+                                    ServiceInterfaceTag('right'))
+
+    def test_port_tuple_update_invalid_si(self):
+        """
+        Port Tuple update failure scenario: Service instance not found.
+
+        """
+
+        # Create a Port Tuple without a valid service instance.
+        pt = test_utils.create_test_port_tuple(
+                       'fake-domain:fake-project:fake-si-uuid:fake-port-tuple',
+                       'invalid-si')
+
+        # Invoke port tuple update. Update should fail with error.
+        self.pt_agent.update_port_tuple(pt_id = pt.uuid)
+
+        # Verify failure is logged.
+        self.logger.debug.assert_called_with('Service Instance invalid-si not found', \
+                               svc_monitor.sandesh.port_tuple.ttypes.PortTupleDebugLog)
+
+        # Remove the failed port tuple from DB.
+        test_utils.delete_test_port_tuple(pt)
+
+    def test_port_tuple_update_invalid_port_config(self):
+        """
+        Port Tuple update failure scenario: Port config construction failure.
+
+        """
+        # Create a test Service Instance.
+        si = self.__create_test_si()
+
+        #Create first Port Tuple.
+        pt = test_utils.create_test_port_tuple(
+                      'fake-domain:fake-project:fake-si-uuid:fake-port-tuple',
+                      si.uuid)
+
+        # Stash orginal port config construction function.
+        self.orig_port_config_fn = self.pt_agent.get_port_config
+
+        # Mock port config construction to return None.
+        self.pt_agent.get_port_config = mock.MagicMock(return_value=None)
+
+        # Invoke port tuple update. Update should fail with error.
+        self.pt_agent.update_port_tuple(pt_id = pt.uuid)
+
+        # Verify failure is logged.
+        self.logger.debug.assert_called_with( \
+             'Failed to construct port config for Port Tuple fake-port-tuple', \
+             svc_monitor.sandesh.port_tuple.ttypes.PortTupleDebugLog)
+
+        # Restore the port config construction function.
+        self.pt_agent.get_port_config = self.orig_port_config_fn
+
+        # Remove the failed port tuple from DB.
+        test_utils.delete_test_port_tuple(pt)
+
+    def test_port_tuple_update_invalid_vmi(self):
+        """
+        Port Tuple update failure scenario: Invalid VMI.
+
+        """
+        # Create a test Service Instance.
+        si = self.__create_test_si()
+
+        #Create a Port Tuple.
+        pt = test_utils.create_test_port_tuple(
+                       'fake-domain:fake-project:fake-si-uuid:fake-port-tuple',
+                       si.uuid)
+
+        # Create test virtual machines inteface for the Port Tuple.
+        lvmi = self.__create_test_vmi(pt, 'left')
+
+        # Delete the VMI from VMI db, so a lookup for that will fail.
+        test_utils.delete_test_vmi(lvmi)
+        pt.virtual_machine_interfaces.add(lvmi.uuid)
+
+        # Update Port Tuple. This will fail due to VMI lookup failure.
+        self.pt_agent.update_port_tuple(pt_id='fake-port-tuple')
+
+        # Verify failure is logged.
+        self.logger.debug.assert_called_with( \
+             'VMI fake-vmi-uuid-left not found for Port Tuple fake-port-tuple', \
+             svc_monitor.sandesh.port_tuple.ttypes.PortTupleDebugLog)
+
+        # Remove the failed port tuple from DB.
+        test_utils.delete_test_port_tuple(pt)
+
+    def test_port_tuple_update_invalid_vmi_params(self):
+        """
+        Port Tuple update failure scenarios: Invalid VMI parameters.
+
+        """
+        # Create a test Service Instance.
+        si = self.__create_test_si()
+
+        #Create a Port Tuple.
+        pt = test_utils.create_test_port_tuple(
+                       'fake-domain:fake-project:fake-si-uuid:fake-port-tuple',
+                       si.uuid)
+
+        # Create test virtual machines inteface for the Port Tuple.
+        lvmi = self.__create_test_vmi(pt, 'left')
+        lvmi.params = {}
+
+        # Update Port Tuple. Update should fail due to invalid VMI params.
+        self.pt_agent.update_port_tuple(pt_id='fake-port-tuple')
+
+        # Verify failure is logged.
+        self.logger.debug.assert_called_with( \
+            'VMI fake-vmi-uuid-left has invalid params for Port Tuple fake-port-tuple', \
+            svc_monitor.sandesh.port_tuple.ttypes.PortTupleDebugLog)
+
+        # Remove the failed port tuple from DB.
+        test_utils.delete_test_port_tuple(pt)
 
     def test_two_vm_port_tuple_create(self):
         """
@@ -480,3 +666,101 @@ class PortTupleTest(unittest.TestCase):
                                 'instance-ip', 'fake-iip-uuid',
                                 'virtual-machine-interface', lvmi.uuid,
                                 None, 'DELETE')
+
+    def test_port_tuple_logging(self):
+        # Test various logging invocations.
+
+        # Case 1: Invalid message identifier.
+        # Defaults to Service Monitor log functions.
+        self.module_logger.error('Test log message with invalid log identifier', \
+                                 id = 'some_invalid_log_fun_identifier')
+
+        self.logger.error.assert_called_with( \
+             'Test log message with invalid log identifier', \
+             None)
+
+        # Case 2: Custom message function
+        # Invokes the provided log function.
+        self.module_logger.error('Test log message with custom msg function', \
+                                 msg_func = self.test_port_tuple_logging)
+
+        self.logger.error.assert_called_with( \
+             'Test log message with custom msg function', \
+             self.test_port_tuple_logging)
+
+        # Case 3: Registered error message
+        # Invokes the pre-registered logging function.
+        self.module_logger.error('Test log message with registered error func')
+
+        self.logger.error.assert_called_with( \
+             'Test log message with registered error func', \
+             svc_monitor.sandesh.port_tuple.ttypes.PortTupleErrorLog)
+
+        # Case 4: Registered info message
+        # Invokes the pre-registered logging function.
+        self.module_logger.info('Test log message with registered info func')
+
+        self.logger.info.assert_called_with( \
+             'Test log message with registered info func', \
+             svc_monitor.sandesh.port_tuple.ttypes.PortTupleInfoLog)
+
+        # Case 5: Registered debug message
+        # Invokes the pre-registered logging function.
+        self.module_logger.debug('Test log message with registered debug func')
+
+        self.logger.debug.assert_called_with( \
+             'Test log message with registered debug func', \
+             svc_monitor.sandesh.port_tuple.ttypes.PortTupleDebugLog)
+
+        # Case 6: Unregistered emergency message
+        # Defaults to Service Monitor log functions.
+        self.module_logger.emergency('Test log message with unregistered emergency func')
+
+        self.logger.emergency.assert_called_with( \
+             'Test log message with unregistered emergency func', \
+             None)
+
+        # Case 7: Unregistered alert message
+        # Defaults to Service Monitor log functions.
+        self.module_logger.alert('Test log message with unregistered alert func')
+
+        self.logger.alert.assert_called_with( \
+             'Test log message with unregistered alert func', \
+             None)
+
+        # Case 8: Unregistered critical message
+        # Defaults to Service Monitor log functions.
+        self.module_logger.critical('Test log message with unregistered critical func')
+
+        self.logger.critical.assert_called_with( \
+             'Test log message with unregistered critical func', \
+             None)
+
+        # Case 9: Unregistered warning message
+        # Defaults to Service Monitor log functions.
+        self.module_logger.warning('Test log message with unregistered warning func')
+
+        self.logger.warning.assert_called_with( \
+             'Test log message with unregistered warning func', \
+             None)
+
+        # Case 10: Unregistered notice message
+        # Defaults to Service Monitor log functions.
+        self.module_logger.notice('Test log message with unregistered notice func')
+
+        self.logger.notice.assert_called_with( \
+             'Test log message with unregistered notice func', \
+             None)
+
+        # Case 11: New message registration
+        # Invokes the just registered logging function.
+        new_log_funcs = {'test-custom' : self.test_port_tuple_logging}
+
+        # Register the new function.
+        self.module_logger.add_messages(**new_log_funcs)
+
+        self.module_logger.error('Test log message with custom func', id = 'test-custom')
+
+        self.logger.error.assert_called_with( \
+                                'Test log message with custom func', \
+                                self.test_port_tuple_logging)
