@@ -171,7 +171,7 @@ class VncTestApp(TestApp):
         return resp
 #end class VncTestApp
 
-def create_api_server_instance(test_id, config_knobs):
+def create_api_server_instance(test_id, config_knobs, db=None):
     ret_server_info = {}
     allocated_sockets = []
     ret_server_info['ip'] = socket.gethostbyname(socket.gethostname())
@@ -179,10 +179,17 @@ def create_api_server_instance(test_id, config_knobs):
     ret_server_info['introspect_port'] = get_free_port(allocated_sockets)
     ret_server_info['admin_port'] = get_free_port(allocated_sockets)
     ret_server_info['allocated_sockets'] = allocated_sockets
-    ret_server_info['greenlet'] = gevent.spawn(launch_api_server,
-        test_id, ret_server_info['ip'], ret_server_info['service_port'],
-        ret_server_info['introspect_port'], ret_server_info['admin_port'],
-        config_knobs)
+    if db == "rdbms":
+        ret_server_info['greenlet'] = gevent.spawn(launch_api_server_rdbms,
+            test_id, ret_server_info['ip'], ret_server_info['service_port'],
+            ret_server_info['introspect_port'], ret_server_info['admin_port'],
+            config_knobs)
+    else:
+        # default cassandra backend
+        ret_server_info['greenlet'] = gevent.spawn(launch_api_server,
+            test_id, ret_server_info['ip'], ret_server_info['service_port'],
+            ret_server_info['introspect_port'], ret_server_info['admin_port'],
+            config_knobs)
     block_till_port_listened(ret_server_info['ip'],
         ret_server_info['service_port'])
     extra_env = {'HTTP_HOST': ret_server_info['ip'],
@@ -208,9 +215,10 @@ def create_api_server_instance(test_id, config_knobs):
 
 def destroy_api_server_instance(server_info):
     server_info['greenlet'].kill()
-    server_info['api_server']._db_conn._msgbus.shutdown()
-    vhost_url = server_info['api_server']._db_conn._msgbus._urls
-    FakeKombu.reset(vhost_url)
+    if hasattr(server_info['api_server']._db_conn, '_msgbus'):
+        server_info['api_server']._db_conn._msgbus.shutdown()
+        vhost_url = server_info['api_server']._db_conn._msgbus._urls
+        FakeKombu.reset(vhost_url)
     FakeNovaClient.reset()
     FakeIfmapClient.reset('8443')
     CassandraCFs.reset()
@@ -257,6 +265,44 @@ def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
         gevent.getcurrent().api_server = server
         vnc_cfg_api_server.main(args_str, server)
 #end launch_api_server
+
+def launch_api_server_rdbms(test_id, listen_ip, listen_port, http_server_port,
+                      admin_port, conf_sections):
+
+    db_file = "./test_db_%s.db" % test_id
+
+    args_str = ""
+    args_str = args_str + "--listen_ip_addr %s " % (listen_ip)
+    args_str = args_str + "--listen_port %s " % (listen_port)
+    args_str = args_str + "--http_server_port %s " % (http_server_port)
+    args_str = args_str + "--admin_port %s " % (admin_port)
+    args_str = args_str + "--db_engine rdbms "
+    args_str = args_str + "--rdbms_connection sqlite:///%s " % db_file
+    args_str = args_str + "--log_local "
+    args_str = args_str + "--log_file api_server_%s.log " %(test_id)
+    import cgitb
+    cgitb.enable(format='text')
+
+    try:
+        os.remove(db_file)
+    except:
+        pass
+
+    with tempfile.NamedTemporaryFile() as conf, tempfile.NamedTemporaryFile() as logconf:
+        cfg_parser = generate_conf_file_contents(conf_sections)
+        cfg_parser.write(conf)
+        conf.flush()
+
+        cfg_parser = generate_logconf_file_contents()
+        cfg_parser.write(logconf)
+        logconf.flush()
+
+        args_str = args_str + "--conf_file %s " %(conf.name)
+        args_str = args_str + "--logging_conf %s " %(logconf.name)
+        server = vnc_cfg_api_server.VncApiServer(args_str)
+        gevent.getcurrent().api_server = server
+        vnc_cfg_api_server.main(args_str, server)
+#end launch_api_server_rdbms
 
 def launch_svc_monitor(test_id, api_server_ip, api_server_port):
     args_str = ""
@@ -571,7 +617,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
 
 
     @classmethod
-    def setUpClass(cls, extra_mocks=None, extra_config_knobs=None):
+    def setUpClass(cls, extra_mocks=None, extra_config_knobs=None, db=None):
         super(TestCase, cls).setUpClass()
         global cov_handle
         if not cov_handle:
@@ -585,7 +631,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         cls.orig_mocked_values = setup_mocks(cls.mocks + (extra_mocks or []))
 
         cls._server_info = create_api_server_instance(
-            cls.__name__, cls._config_knobs + (extra_config_knobs or []))
+            cls.__name__, cls._config_knobs + (extra_config_knobs or []), db=db)
         try:
             cls._api_server_ip = cls._server_info['ip']
             cls._api_server_port = cls._server_info['service_port']
@@ -619,13 +665,14 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
 
     def wait_till_api_server_idle(self):
         # wait for in-flight messages to be processed
-        while self._api_server._db_conn._msgbus.num_pending_messages() > 0:
-            gevent.sleep(0.001)
-        vhost_url = self._api_server._db_conn._msgbus._urls
-        while not FakeKombu.is_empty(vhost_url, 'vnc_config'):
-            gevent.sleep(0.001)
-        while self._api_server._db_conn._ifmap_db._queue.qsize() > 0:
-            gevent.sleep(0.001)
+        if hasattr(self._api_server._db_conn, '_msgbus'):
+            while self._api_server._db_conn._msgbus.num_pending_messages() > 0:
+                gevent.sleep(0.001)
+            vhost_url = self._api_server._db_conn._msgbus._urls
+            while not FakeKombu.is_empty(vhost_url, 'vnc_config'):
+                gevent.sleep(0.001)
+            while self._api_server._db_conn._ifmap_db._queue.qsize() > 0:
+                gevent.sleep(0.001)
     # wait_till_api_server_idle
 
     def get_obj_imid(self, obj):

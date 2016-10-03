@@ -1,0 +1,9 @@
+.venv
+*.pyc
+*.testrepository
+build
+gen
+*.egg-info
+*.log
+*.db
+dist
