@@ -859,9 +859,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
     def _check_route_targets(cls, obj_dict, db_conn):
         if 'route_target_list' not in obj_dict:
             return (True, '')
-        config_uuid = db_conn.fq_name_to_uuid('global_system_config', ['default-global-system-config'])
-        config = db_conn.uuid_to_obj_dict(config_uuid)
-        global_asn = config.get('prop:autonomous_system')
+        global_asn = db_conn.get_autonomous_system()
         if not global_asn:
             return (True, '')
         rt_dict = obj_dict.get('route_target_list')
@@ -1251,7 +1249,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
     @classmethod
     def post_dbe_delete(cls, id, obj_dict, db_conn):
         api_server = db_conn.get_api_server()
-
+       
         # Delete native/vn-default routing instance
         # For this find backrefs and remove their ref to RI
         ri_fq_name = obj_dict['fq_name'][:]
