@@ -74,6 +74,7 @@ class UserDefinedCounters {
         EventManager *evm_;
         VncApiConfig vnccfg_;
         std::vector<DSResponse> api_svr_list_;
+        mutable tbb::mutex mutex_;
 };
 
 
