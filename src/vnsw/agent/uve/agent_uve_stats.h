@@ -20,6 +20,7 @@ public:
     virtual void Shutdown();
     virtual void RegisterDBClients();
     StatsManager *stats_manager() const;
+    void InitDone();
 
 protected:
     boost::scoped_ptr<StatsManager> stats_manager_;

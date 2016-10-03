@@ -90,5 +90,5 @@ void VrouterUveEntryTest::WaitForWalkCompletion() {
 
 void VrouterUveEntryTest::set_prev_flow_setup_rate_export_time(uint64_t
                                                                micro_secs) {
-    prev_flow_setup_rate_export_time_ = micro_secs;
+    flow_info_.prev_time_ = micro_secs;
 }
