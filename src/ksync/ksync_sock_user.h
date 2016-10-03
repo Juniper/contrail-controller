@@ -208,6 +208,22 @@ public:
         return ksync_error_[type];
     }
 
+    uint32_t error_flow_handle() {
+        return error_flow_handle_;
+    }
+
+    uint8_t error_gen_id() {
+        return error_gen_id_;
+    }
+
+    void set_error_flow_handle(uint32_t flow_handle) {
+        error_flow_handle_ = flow_handle;
+    }
+
+    void set_error_gen_id(uint8_t gen_id) {
+        error_gen_id_ = gen_id;
+    }
+
     // Add a response in nl_client into tx_buff_list_
     void AddNetlinkTxBuff(struct nl_client *cl);
     void InitNetlinkDoneMsg(struct nlmsghdr *nlh, uint32_t seq_num);
@@ -226,6 +242,8 @@ private:
     // responses are initially put into this list and finally NL_MULTI
     // netlink messages are sent
     std::vector<struct nl_client> tx_buff_list_;
+    uint32_t error_flow_handle_;
+    uint8_t error_gen_id_;
     DISALLOW_COPY_AND_ASSIGN(KSyncSockTypeMap);
 };
 

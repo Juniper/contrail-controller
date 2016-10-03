@@ -176,8 +176,13 @@ void KSyncSockTypeMap::FlowNatResponse(uint32_t seq_num, vr_flow_req *req) {
     vr_flow_response resp;
     resp.set_fresp_op(flow_op::FLOW_SET);
     resp.set_fresp_flags(req->get_fr_flags());
-    resp.set_fresp_index(req->get_fr_index());
-    resp.set_fresp_gen_id(req->get_fr_gen_id());
+    if (flow_error == -EEXIST) {
+        resp.set_fresp_index(sock->error_flow_handle());
+        resp.set_fresp_gen_id(sock->error_gen_id());
+    } else {
+        resp.set_fresp_index(req->get_fr_index());
+        resp.set_fresp_gen_id(req->get_fr_gen_id());
+    }
     resp.set_fresp_bytes(0);
     resp.set_fresp_packets(0);
     resp.set_fresp_stats_oflow(0);

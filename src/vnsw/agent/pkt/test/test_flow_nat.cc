@@ -168,7 +168,6 @@ TEST_F(FlowTest, NonNatAddOldNat_1) {
 }
 
 TEST_F(FlowTest, NonNatAddOldNat_2) {
-#if 0
     TestFlow nat_flow[] = {
         {
              TestFlowPkt(Address::INET, vm5_ip, vm1_fip, 1, 0, 0, 
@@ -211,7 +210,6 @@ TEST_F(FlowTest, NonNatAddOldNat_2) {
     client->EnqueueFlowAge();
     client->WaitForIdle();
     EXPECT_TRUE(FlowTableWait(0));
-#endif
 }
 
 TEST_F(FlowTest, NonNatAddOldNat_3) {
@@ -547,6 +545,93 @@ TEST_F(FlowTest, TwoNatFlow) {
     CreateFlow(nat_rev_flow, 1);
 
     DeleteFlow(nat_flow, 1);    
+    EXPECT_TRUE(FlowTableWait(0));
+}
+
+//!!!!Enable thread count to 2 to run this test case
+//Consider a scenario where 2 VM in active-backup via AAP and
+//share the same floating-ip, let the name of the VM be VRRP-A
+//and VRRP-B. If traffic is initated from source VM to VRRP-A
+//in same compute node, NAT flow are setup as expected.
+//These flow would look as below
+//    FwdFlow1 : SVM --->FIP
+//    RevFlow1 : AAP --->SVM
+//If a mastership switchover is triggered from VRRP-A to VRRP-B
+//before agent detects the switchover and update the route entries,
+//VRRP-A VM forwards all the packets to new master which VRRP-B,
+//these will be layer2 flow as VRRP-A knows mac of VRRP-B, given this
+//case there are 4 flow setup (assuming each flow hash to different partition)
+//   FwdFlow2 : SVM --->AAP
+//   RevFlow2 : AAP --->SVM
+//RevFlow2 and RevFlow1 have same key but have hashed to different parition
+//result in EEXIST error from kernel, and FwdFlow2 would never be written
+//to kernel. Verify such flows become short flow
+TEST_F(FlowTest, EEXISTFlow) {
+    Ip4Address server_ip(0x10101010);
+    MacAddress mac = MacAddress(0x00, 0x00, 0x01, 0x01, 0x10, 0x11);
+    BridgeTunnelRouteAdd(bgp_peer_, "vrf5", TunnelType::AllType(),
+                         server_ip, (MplsTable::kStartLabel + 60),
+                         mac, server_ip, 32);
+    client->WaitForIdle();
+
+    uint16_t src_port = 1;
+    while (src_port != 0) {
+        IpAddress vm5 = Ip4Address::from_string(vm5_ip);
+        IpAddress vm1 = Ip4Address::from_string(vm1_ip);
+        IpAddress vm_fip = Ip4Address::from_string(vm1_fip);
+
+        uint16_t index1 = get_flow_proto()->FlowTableIndex(vm5, vm_fip,
+                                         IPPROTO_UDP, src_port, 0, 0);
+        uint16_t index2 = get_flow_proto()->FlowTableIndex(vm5, vm1,
+                                         IPPROTO_UDP, src_port, 0, 0);
+        if (index1 != index2) {
+            break;
+        }
+        src_port++;
+    }
+
+    if (src_port == 0) {
+        return;
+    }
+
+    TestFlow nat_flow[] = {
+        {
+             TestFlowPkt(Address::INET, vm5_ip, vm1_fip, IPPROTO_UDP,
+                         src_port, 0,
+                         "default-project:vn4:vn4", flow4->id(), 100),
+            {
+                new VerifyNat(vm1_ip, vm5_ip, IPPROTO_UDP, 0, src_port)
+            }
+        }
+    };
+    CreateFlow(nat_flow, 1);
+
+    VrfEntry *vrf = VrfGet("vrf5");
+    VrfEntry *vrf4 = VrfGet("default-project:vn4:vn4");
+
+
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    sock->SetKSyncError(KSyncSockTypeMap::KSYNC_FLOW_ENTRY_TYPE, -EEXIST);
+
+    FlowEntry *fe = FlowGet(vrf4->vrf_id(), vm5_ip, vm1_fip,
+                            IPPROTO_UDP, src_port, 0,
+                            flow4->flow_key_nh()->id());
+
+    sock->set_error_flow_handle(fe->reverse_flow_entry()->flow_handle());
+    sock->set_error_gen_id(fe->reverse_flow_entry()->gen_id());
+
+    TxL2Packet(flow0->id(), "00:00:00:01:01:01", "00:00:01:01:10:11",
+               vm5_ip, vm1_ip, IPPROTO_UDP, 10, vrf->vrf_id(), src_port, 0);
+    client->WaitForIdle();
+
+    fe = FlowGet(vrf->vrf_id(), vm5_ip, vm1_ip, IPPROTO_UDP, src_port, 0,
+                 flow0->flow_key_nh()->id());
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow));
+
+
+    get_flow_proto()->DeleteFlowRequest(fe);
+
+    DeleteFlow(nat_flow, 1);
     EXPECT_TRUE(FlowTableWait(0));
 }
 

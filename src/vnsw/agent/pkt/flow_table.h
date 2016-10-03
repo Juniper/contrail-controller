@@ -281,7 +281,8 @@ private:
     bool DeleteUnLocked(const FlowKey &key, bool del_reverse_flow);
     bool DeleteUnLocked(bool del_reverse_flow, FlowEntry *flow,
                         FlowEntry *rflow);
-
+    void HandleErrorExist(FlowEntry *flow, FlowTableKSyncEntry *ksync_entry,
+                          uint32_t flow_handle, uint32_t gen_id);
     Agent *agent_;
     boost::uuids::random_generator rand_gen_;
     uint16_t table_index_;
