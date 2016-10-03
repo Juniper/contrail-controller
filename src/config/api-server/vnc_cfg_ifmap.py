@@ -35,6 +35,7 @@ from cfgm_common.imid import escape, entity_is_present,\
     get_ifmap_id_from_fq_name, get_fq_name_from_ifmap_id, ifmap_wipe
 from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
 from cfgm_common.vnc_cassandra import VncCassandraClient
+from vnc_rdbms import VncServerRDBMSClient
 from cfgm_common.vnc_kombu import VncKombuClient
 from cfgm_common.utils import cgitb_hook
 from cfgm_common import vnc_greenlets
@@ -91,6 +92,26 @@ def build_idperms_ifmap_obj(prop_field, values):
     prop_xml += unicode(json.dumps(values[u'enable']))
     prop_xml += u'</enable>'
     return prop_xml
+
+def _owner_id(request):
+    app = request.environ['bottle.app']
+    if app.config.local_auth or app.config.auth == False:
+        return (True, None)
+
+    if self._rbac:
+        user, roles = self.get_user_roles(request)
+        is_admin = self.cloud_admin_role in [x.lower() for x in roles]
+        if is_admin:
+            return (True, None)
+
+        env = request.headers.environ
+        tenant = env.get('HTTP_X_PROJECT_ID', None)
+        if tenant:
+            return (True, tenant)
+        else:
+            return (False, None)
+
+    return (True, None)
 
 class VncIfmapClient(object):
 
@@ -1163,7 +1184,7 @@ class VncServerKombuClient(VncKombuClient):
             "DELETE", obj_info['type'], obj_info['uuid'], obj_dict)
 
         db_client_mgr = self._db_client_mgr
-        db_client_mgr._cassandra_db.cache_uuid_to_fq_name_del(obj_dict['uuid'])
+        db_client_mgr._object_db.cache_uuid_to_fq_name_del(obj_dict['uuid'])
 
         try:
             r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
@@ -1387,13 +1408,14 @@ class VncZkClient(object):
 
 class VncDbClient(object):
     def __init__(self, api_svr_mgr, ifmap_srv_ip, ifmap_srv_port, uname,
-                 passwd, cass_srv_list,
+                 passwd, db_srv_list,
                  rabbit_servers, rabbit_port, rabbit_user, rabbit_password,
                  rabbit_vhost, rabbit_ha_mode, reset_config=False,
-                 zk_server_ip=None, db_prefix='', cassandra_credential=None,
+                 zk_server_ip=None, db_prefix='', db_credential=None,
                  obj_cache_entries=0, obj_cache_exclude_types=None,
+                 db_engine='cassandra', connection=None,
                  **kwargs):
-
+        self._db_engine = db_engine
         self._api_svr_mgr = api_svr_mgr
         self._sandesh = api_svr_mgr._sandesh
 
@@ -1434,23 +1456,32 @@ class VncDbClient(object):
 
         msg = "Connecting to zookeeper on %s" % (zk_server_ip)
         self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
-        self._zk_db = VncZkClient(api_svr_mgr.get_worker_id(), zk_server_ip,
-                                  reset_config, db_prefix, self.config_log)
 
-        def cassandra_client_init():
-            msg = "Connecting to cassandra on %s" % (cass_srv_list)
-            self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
+        if db_engine == 'cassandra':
+            self._zk_db = VncZkClient(api_svr_mgr.get_worker_id(), zk_server_ip,
+                                      reset_config, db_prefix, self.config_log)
+            def db_client_init():
+                msg = "Connecting to database on %s" % (db_srv_list)
+                self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
-            if api_svr_mgr.get_worker_id() == 0:
-                walk = False # done as part of db_resync()
-            else:
-                walk = True
-            self._cassandra_db = VncServerCassandraClient(
-                self, cass_srv_list, reset_config, db_prefix,
-                cassandra_credential, walk, obj_cache_entries,
-                obj_cache_exclude_types)
+                if api_svr_mgr.get_worker_id() == 0:
+                    walk = False # done as part of db_resync()
+                else:
+                    walk = True
 
-        self._zk_db.master_election("/api-server-election", cassandra_client_init)
+                self._object_db = VncServerCassandraClient(
+                    self, db_srv_list, reset_config, db_prefix,
+                    db_credential, walk, obj_cache_entries,
+                    obj_cache_exclude_types)
+
+            self._zk_db.master_election("/api-server-election", db_client_init)
+        elif db_engine == 'rdbms':
+            self._object_db = VncServerRDBMSClient(self,
+                server_list=db_srv_list, reset_config=reset_config,
+                generate_url=self.generate_url,
+                connection=connection,
+                db_prefix=db_prefix, credential=db_credential)
+            self._zk_db = self._object_db
 
         self._msgbus = VncServerKombuClient(self, rabbit_servers,
             rabbit_port, self._ifmap_db,
@@ -1493,7 +1524,7 @@ class VncDbClient(object):
     def db_resync(self):
         # Read contents from cassandra and publish to ifmap
         start_time = datetime.datetime.utcnow()
-        self._cassandra_db.walk(self._dbe_resync)
+        self._object_db.walk(self._dbe_resync)
         self._ifmap_db._publish_to_ifmap_enqueue('publish_discovery', 1)
         self.config_log("Cassandra DB walk completed.",
             level=SandeshLevel.SYS_INFO)
@@ -1510,15 +1541,16 @@ class VncDbClient(object):
 
     def db_check(self):
         # Read contents from cassandra and report any read exceptions
-        check_results = self._cassandra_db.walk(self._dbe_check)
+        check_results = self._object_db.walk(self._dbe_check)
 
         return check_results
     # end db_check
 
     def db_read(self):
         # Read contents from cassandra
-        read_results = self._cassandra_db.walk(self._dbe_read)
+        read_results = self._object_db.walk(self._dbe_read)
         return read_results
+
     # end db_check
 
     def _uuid_to_longs(self, id):
@@ -1540,7 +1572,7 @@ class VncDbClient(object):
                                        obj_type, fq_name)
                 epoch_msecs = ctime
                 try:
-                    self._cassandra_db.uuid_to_fq_name(str(id))
+                    self._object_db.uuid_to_fq_name(str(id))
                     # not stale
                     raise ResourceExistsError(fq_name, str(id), 'cassandra')
                 except NoIdError:
@@ -1592,7 +1624,7 @@ class VncDbClient(object):
     def update_subnet_uuid(self, subnets):
         updated = False
         if subnets is None:
-            return updated;
+            return updated
 
         for subnet in subnets:
             if subnet.get('subnet_uuid'):
@@ -1601,7 +1633,7 @@ class VncDbClient(object):
             subnet['subnet_uuid'] = subnet_uuid
             updated = True
 
-        return updated;
+        return updated
     # end update_subnet_uuid
 
     def update_bgp_router_type(self, obj_dict):
@@ -1615,13 +1647,13 @@ class VncDbClient(object):
                 router_type = 'control-node'
             router_params.update({'router_type': router_type})
             obj_uuid = obj_dict.get('uuid')
-            self._cassandra_db.object_update('bgp_router', obj_uuid, obj_dict)
+            self._object_db.object_update('bgp_router', obj_uuid, obj_dict)
     # end update_bgp_router_type
 
     def iip_update_subnet_uuid(self, iip_dict):
         """ Set the subnet uuid as instance-ip attribute """
         for vn_ref in iip_dict.get('virtual_network_refs', []):
-            (ok, results) = self._cassandra_db.object_read(
+            (ok, results) = self._object_db.object_read(
                 'virtual_network', [vn_ref['uuid']],
                 field_names=['network_ipam_refs'])
             if not ok:
@@ -1636,7 +1668,7 @@ class VncDbClient(object):
                     if (IPAddress(iip_dict['instance_ip_address']) in
                             IPNetwork(cidr)):
                         iip_dict['subnet_uuid'] = subnet['subnet_uuid']
-                        self._cassandra_db.object_update('instance-ip',
+                        self._object_db.object_update('instance-ip',
                                                          iip_dict['uuid'],
                                                          iip_dict)
                         return
@@ -1644,7 +1676,7 @@ class VncDbClient(object):
     def _dbe_resync(self, obj_type, obj_uuids):
         obj_class = cfgm_common.utils.obj_type_to_vnc_class(obj_type, __name__)
         obj_fields = list(obj_class.prop_fields) + list(obj_class.ref_fields)
-        (ok, obj_dicts) = self._cassandra_db.object_read(
+        (ok, obj_dicts) = self._object_db.object_read(
                                obj_type, obj_uuids, field_names=obj_fields)
         uve_trace_list = []
         for obj_dict in obj_dicts:
@@ -1655,7 +1687,7 @@ class VncDbClient(object):
                 if obj_type == 'virtual_network':
                     # TODO remove backward compat (use RT instead of VN->LR ref)
                     for router in obj_dict.get('logical_router_refs', []):
-                        self._cassandra_db._delete_ref(None,
+                        self._object_db._delete_ref(None,
                                                        obj_type,
                                                        obj_uuid,
                                                        'logical_router',
@@ -1678,15 +1710,15 @@ class VncDbClient(object):
                     li_back_refs = obj_dict.get('logical_interface_back_refs', [])
                     if not device_owner and li_back_refs:
                         obj_dict['virtual_machine_interface_device_owner'] = 'PhysicalRouter'
-                        self._cassandra_db.object_update('virtual_machine_interface',
+                        self._object_db.object_update('virtual_machine_interface',
                                                     obj_uuid, obj_dict)
 
                 # create new perms if upgrading
                 perms2 = obj_dict.get('perms2')
                 if perms2 is None:
-                    perms2 = self._cassandra_db.update_perms2(obj_uuid)
+                    perms2 = self._object_db.update_perms2(obj_uuid)
                 if obj_type == 'domain' and len(perms2['share']) == 0:
-                    self._cassandra_db.enable_domain_sharing(obj_uuid, perms2)
+                    self._object_db.enable_domain_sharing(obj_uuid, perms2)
 
                 if (obj_type == 'bgp_router' and
                         'bgp_router_parameters' in obj_dict and
@@ -1728,7 +1760,7 @@ class VncDbClient(object):
     def _dbe_check(self, obj_type, obj_uuids):
         for obj_uuid in obj_uuids:
             try:
-                (ok, obj_dict) = self._cassandra_db.object_read(obj_type, [obj_uuid])
+                (ok, obj_dict) = self._object_db.object_read(obj_type, [obj_uuid])
             except Exception as e:
                 return {'uuid': obj_uuid, 'type': obj_type, 'error': str(e)}
      # end _dbe_check
@@ -1737,7 +1769,7 @@ class VncDbClient(object):
         results = []
         for obj_uuid in obj_uuids:
             try:
-                (ok, obj_dict) = self._cassandra_db.object_read(obj_type, [obj_uuid])
+                (ok, obj_dict) = self._object_db.object_read(obj_type, [obj_uuid])
                 result_dict = obj_dict[0]
                 result_dict['type'] = obj_type
                 result_dict['uuid'] = obj_uuid
@@ -1884,9 +1916,9 @@ class VncDbClient(object):
                 # change in global access?
                 if cur_perms2['global_access'] != global_access:
                     if global_access:
-                        self._cassandra_db.set_shared(obj_type, obj_uuid, rwx = global_access)
+                        self._object_db.set_shared(obj_type, obj_uuid, rwx = global_access)
                     else:
-                        self._cassandra_db.del_shared(obj_type, obj_uuid)
+                        self._object_db.del_shared(obj_type, obj_uuid)
 
                 # change in shared list? Construct temporary sets to compare
                 cur_shared_list = set(item['tenant']+':'+str(item['tenant_access']) for item in cur_perms2['share'])
@@ -1898,14 +1930,14 @@ class VncDbClient(object):
                 for share_info in cur_shared_list - new_shared_list:
                     # sharing information => [share-type, uuid, rwx bits]
                     (share_type, share_id, share_perms)  = cfgm_common.utils.shareinfo_from_perms2(share_info)
-                    self._cassandra_db.del_shared(obj_type, obj_uuid,
+                    self._object_db.del_shared(obj_type, obj_uuid,
                         share_id = share_id, share_type = share_type)
 
                 # share this object with specified tenants
                 for share_info in new_shared_list - cur_shared_list:
                     # sharing information => [share-type, uuid, rwx bits]
                     (share_type, share_id, share_perms)  = cfgm_common.utils.shareinfo_from_perms2(share_info)
-                    self._cassandra_db.set_shared(obj_type, obj_uuid,
+                    self._object_db.set_shared(obj_type, obj_uuid,
                         share_id = share_id, share_type = share_type, rwx = int(share_perms))
 
                 return (ok, result)
@@ -1915,7 +1947,7 @@ class VncDbClient(object):
     @dbe_trace('create')
     @build_shared_index('create')
     def dbe_create(self, obj_type, obj_ids, obj_dict):
-        (ok, result) = self._cassandra_db.object_create(
+        (ok, result) = self._object_db.object_create(
             obj_type, obj_ids['uuid'], obj_dict)
 
         if ok:
@@ -1929,7 +1961,7 @@ class VncDbClient(object):
     def dbe_read(self, obj_type, obj_ids, obj_fields=None,
                  ret_readonly=False):
         try:
-            (ok, cassandra_result) = self._cassandra_db.object_read(
+            (ok, cassandra_result) = self._object_db.object_read(
                 obj_type, [obj_ids['uuid']], obj_fields,
                 ret_readonly=ret_readonly)
         except NoIdError as e:
@@ -1946,7 +1978,7 @@ class VncDbClient(object):
 
     def dbe_count_children(self, obj_type, obj_id, child_type):
         try:
-            (ok, cassandra_result) = self._cassandra_db.object_count_children(
+            (ok, cassandra_result) = self._object_db.object_count_children(
                 obj_type, obj_id, child_type)
         except NoIdError as e:
             return (False, str(e))
@@ -1959,7 +1991,7 @@ class VncDbClient(object):
             return (True, [])
 
         try:
-            (ok, cassandra_result) = self._cassandra_db.object_read(
+            (ok, cassandra_result) = self._object_db.object_read(
                 obj_type, [obj_id['uuid'] for obj_id in obj_ids_list],
                 obj_fields, ret_readonly=True)
         except NoIdError as e:
@@ -1969,12 +2001,12 @@ class VncDbClient(object):
     # end dbe_read_multi
 
     def dbe_get_relaxed_refs(self, obj_id):
-        return self._cassandra_db.get_relaxed_refs(obj_id)
+        return self._object_db.get_relaxed_refs(obj_id)
     # end dbe_get_relaxed_refs
 
     def dbe_is_latest(self, obj_ids, tstamp):
         try:
-            is_latest = self._cassandra_db.is_latest(obj_ids['uuid'], tstamp)
+            is_latest = self._object_db.is_latest(obj_ids['uuid'], tstamp)
             return (True, is_latest)
         except Exception as e:
             return (False, str(e))
@@ -1983,7 +2015,7 @@ class VncDbClient(object):
     @dbe_trace('update')
     @build_shared_index('update')
     def dbe_update(self, obj_type, obj_ids, new_obj_dict):
-        (ok, cassandra_result) = self._cassandra_db.object_update(
+        (ok, cassandra_result) = self._object_db.object_update(
             obj_type, obj_ids['uuid'], new_obj_dict)
 
         # publish to ifmap via message bus (rabbitmq)
@@ -1992,19 +2024,84 @@ class VncDbClient(object):
         return (ok, cassandra_result)
     # end dbe_update
 
-    def dbe_list(self, obj_type, parent_uuids=None, back_ref_uuids=None,
-                 obj_uuids=None, count=False, filters=None,
-                 paginate_start=None, paginate_count=None):
-        (ok, cassandra_result) = self._cassandra_db.object_list(
+    def dbe_list_rdbms(self, obj_type, parent_uuids=None, back_ref_uuids=None,
+                 obj_uuids=None, is_count=False, filters=None,
+                 paginate_start=None, paginate_count=None, is_detail=False,
+                 field_names=None, include_shared=False):
+        owner_id = None
+        if include_shared:
+            ok, owner_id = _owner_id(get_request())
+            if not ok:
+                raise cfgm_common.exceptions.HttpError(403, "Permission Denied")
+        return self._object_db.object_list(
                  obj_type, parent_uuids=parent_uuids,
                  back_ref_uuids=back_ref_uuids, obj_uuids=obj_uuids,
-                 count=count, filters=filters)
-        return (ok, cassandra_result)
+                 count=is_count, filters=filters, is_detail=is_detail, field_names=field_names, owner_id=owner_id)
+
+    def dbe_list(self, obj_type, parent_uuids=None, back_ref_uuids=None,
+                 obj_uuids=None, is_count=False, filters=None,
+                 paginate_start=None, paginate_count=None, is_detail=False,
+                 field_names=None, include_shared=False):
+        if self._db_engine == 'rdbms':
+            return self.dbe_list_rdbms(obj_type, parent_uuids, back_ref_uuids,
+                 obj_uuids, is_count, filters,
+                 paginate_start, paginate_count, is_detail,
+                 field_names, include_shared)
+        (ok, result) = self._object_db.object_list(
+                 obj_type, parent_uuids=parent_uuids,
+                 back_ref_uuids=back_ref_uuids, obj_uuids=obj_uuids,
+                 count=is_count, filters=filters)
+
+        obj_class = cfgm_common.utils.obj_type_to_vnc_class(obj_type, __name__)
+        if not ok or is_count:
+            return (ok, result)
+
+        # include objects shared with tenant
+        if include_shared:
+            env = get_request().headers.environ
+            tenant_uuid = env.get('HTTP_X_PROJECT_ID')
+            domain = env.get('HTTP_X_DOMAIN_ID')
+            if domain is None:
+                domain = env.get('HTTP_X_USER_DOMAIN_ID')
+                try:
+                    domain = str(uuid.UUID(domain))
+                except ValueError:
+                    if domain == 'default':
+                        domain = 'default-domain'
+                    domain = self._db_conn.fq_name_to_uuid('domain', [domain])
+            if domain:
+                domain = domain.replace('-','')
+            shares = self.get_shared_objects(obj_type, tenant_uuid, domain)
+            owned_objs = set([obj_uuid for (fq_name, obj_uuid) in result])
+            for (obj_uuid, obj_perm) in shares:
+                # skip owned objects already included in results
+                if obj_uuid in owned_objs:
+                    continue
+                try:
+                    fq_name = self.uuid_to_fq_name(obj_uuid)
+                    result.append((fq_name, obj_uuid))
+                except NoIdError:
+                    # uuid no longer valid. Delete?
+                    pass
+        # end shared
+
+        if is_detail:
+            obj_fields = list(obj_class.prop_fields) + \
+                         list(obj_class.ref_fields)
+        else:
+            obj_fields = [u'id_perms']
+
+        if field_names:
+            obj_fields.extend(field_names)
+
+        obj_ids_list = [{'uuid': obj_uuid} for _, obj_uuid in result]
+        return self.dbe_read_multi(obj_type, obj_ids_list, obj_fields)
+
     # end dbe_list
 
     @dbe_trace('delete')
     def dbe_delete(self, obj_type, obj_ids, obj_dict):
-        (ok, cassandra_result) = self._cassandra_db.object_delete(
+        (ok, cassandra_result) = self._object_db.object_delete(
             obj_type, obj_ids['uuid'])
 
         # publish to ifmap via message bus (rabbitmq)
@@ -2026,15 +2123,15 @@ class VncDbClient(object):
     # end dbe_oper_publish_pending
 
     def useragent_kv_store(self, key, value):
-        self._cassandra_db.useragent_kv_store(key, value)
+        self._object_db.useragent_kv_store(key, value)
     # end useragent_kv_store
 
     def useragent_kv_retrieve(self, key):
-        return self._cassandra_db.useragent_kv_retrieve(key)
+        return self._object_db.useragent_kv_retrieve(key)
     # end useragent_kv_retrieve
 
     def useragent_kv_delete(self, key):
-        return self._cassandra_db.useragent_kv_delete(key)
+        return self._object_db.useragent_kv_delete(key)
     # end useragent_kv_delete
 
     def subnet_is_addr_allocated(self, subnet, addr):
@@ -2078,7 +2175,7 @@ class VncDbClient(object):
     # end subnet_delete_allocator
 
     def uuid_vnlist(self):
-        return self._cassandra_db.uuid_vnlist()
+        return self._object_db.uuid_vnlist()
     # end uuid_vnlist
 
     def uuid_to_ifmap_id(self, res_type, id):
@@ -2087,28 +2184,28 @@ class VncDbClient(object):
     # end uuid_to_ifmap_id
 
     def fq_name_to_uuid(self, obj_type, fq_name):
-        obj_uuid = self._cassandra_db.fq_name_to_uuid(obj_type, fq_name)
+        obj_uuid = self._object_db.fq_name_to_uuid(obj_type, fq_name)
         return obj_uuid
     # end fq_name_to_uuid
 
     def uuid_to_fq_name(self, obj_uuid):
-        return self._cassandra_db.uuid_to_fq_name(obj_uuid)
+        return self._object_db.uuid_to_fq_name(obj_uuid)
     # end uuid_to_fq_name
 
     def uuid_to_obj_type(self, obj_uuid):
-        return self._cassandra_db.uuid_to_obj_type(obj_uuid)
+        return self._object_db.uuid_to_obj_type(obj_uuid)
     # end uuid_to_obj_type
 
     def uuid_to_obj_dict(self, obj_uuid):
-        return self._cassandra_db.uuid_to_obj_dict(obj_uuid)
+        return self._object_db.uuid_to_obj_dict(obj_uuid)
     # end uuid_to_obj_dict
 
     def uuid_to_obj_perms(self, obj_uuid):
-        return self._cassandra_db.uuid_to_obj_perms(obj_uuid)
+        return self._object_db.uuid_to_obj_perms(obj_uuid)
     # end uuid_to_obj_perms
 
     def prop_collection_get(self, obj_type, obj_uuid, obj_fields, position):
-        (ok, cassandra_result) = self._cassandra_db.prop_collection_read(
+        (ok, cassandra_result) = self._object_db.prop_collection_read(
             obj_type, obj_uuid, obj_fields, position)
         return ok, cassandra_result
     # end prop_collection_get
@@ -2117,24 +2214,24 @@ class VncDbClient(object):
         if not updates:
             return
 
-        self._cassandra_db.prop_collection_update(obj_type, obj_uuid, updates)
+        self._object_db.prop_collection_update(obj_type, obj_uuid, updates)
         self._msgbus.dbe_update_publish(obj_type, {'uuid': obj_uuid})
         return True, ''
     # end prop_collection_update
 
     def ref_update(self, obj_type, obj_uuid, ref_obj_type, ref_uuid, ref_data,
                    operation):
-        self._cassandra_db.ref_update(obj_type, obj_uuid, ref_obj_type,
+        self._object_db.ref_update(obj_type, obj_uuid, ref_obj_type,
                                       ref_uuid, ref_data, operation)
         self._msgbus.dbe_update_publish(obj_type, {'uuid': obj_uuid})
     # ref_update
 
     def ref_relax_for_delete(self, obj_uuid, ref_uuid):
-        self._cassandra_db.ref_relax_for_delete(obj_uuid, ref_uuid)
+        self._object_db.ref_relax_for_delete(obj_uuid, ref_uuid)
     # end ref_relax_for_delete
 
     def uuid_to_obj_perms2(self, obj_uuid):
-        return self._cassandra_db.uuid_to_obj_perms2(obj_uuid)
+        return self._object_db.uuid_to_obj_perms2(obj_uuid)
     # end uuid_to_obj_perms2
 
 
@@ -2170,18 +2267,18 @@ class VncDbClient(object):
         shared = []
         # specifically shared with us
         if tenant_uuid:
-            l1 = self._cassandra_db.get_shared(obj_type, share_id = tenant_uuid, share_type = 'tenant')
+            l1 = self._object_db.get_shared(obj_type, share_id = tenant_uuid, share_type = 'tenant')
             if l1:
                 shared.extend(l1)
 
         # shared at domain level
         if domain_uuid:
-            l1 = self._cassandra_db.get_shared(obj_type, share_id = domain_uuid, share_type = 'domain')
+            l1 = self._object_db.get_shared(obj_type, share_id = domain_uuid, share_type = 'domain')
             if l1:
                 shared.extend(l1)
 
         # globally shared
-        l2 = self._cassandra_db.get_shared(obj_type)
+        l2 = self._object_db.get_shared(obj_type)
         if l2:
             shared.extend(l2)
 
@@ -2197,5 +2294,12 @@ class VncDbClient(object):
     def get_worker_id(self):
         return self._api_svr_mgr.get_worker_id()
     # end get_worker_id
+
+    def get_autonomous_system(self):
+        config_uuid = self.fq_name_to_uuid('global_system_config', ['default-global-system-config'])
+        ok, config = self._object_db.object_read('global_system_config', [config_uuid])
+        global_asn = config[0]['autonomous_system']
+        return global_asn
+
 
 # end class VncDbClient
