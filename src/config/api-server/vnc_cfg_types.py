@@ -871,9 +871,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
     def _check_route_targets(cls, obj_dict, db_conn):
         if 'route_target_list' not in obj_dict:
             return (True, '')
-        config_uuid = db_conn.fq_name_to_uuid('global_system_config', ['default-global-system-config'])
-        config = db_conn.uuid_to_obj_dict(config_uuid)
-        global_asn = config.get('prop:autonomous_system')
+        global_asn = db_conn.get_autonomous_system()
         if not global_asn:
             return (True, '')
         rt_dict = obj_dict.get('route_target_list')

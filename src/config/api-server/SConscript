@@ -63,6 +63,7 @@ local_sources = [
            'vnc_rbac.py',
            'vnc_addr_mgmt.py',
            'vnc_quota.py',
+           'vnc_rdbms.py',
            'provision_defaults.py',
            'utils.py',
            'context.py',
@@ -119,17 +120,17 @@ if 'install' in BUILD_TARGETS:
     env.Alias('install', install_cmd)
 
 env.Alias('install', env.Install(env['INSTALL_CONF'], 'contrail-api.conf'))
-env.Alias('install', env.InstallAs(env['INSTALL_INITD'] + 
+env.Alias('install', env.InstallAs(env['INSTALL_INITD'] +
     '/contrail-api', 'contrail-api.initd.supervisord'))
-env.Alias('install', env.Install(env['INSTALL_CONF'], 
+env.Alias('install', env.Install(env['INSTALL_CONF'],
     'supervisord_config.conf'))
-env.Alias('install', env.Install(env['INSTALL_CONF']+ 
+env.Alias('install', env.Install(env['INSTALL_CONF']+
     '/supervisord_config_files', 'contrail-api.ini'))
-env.Alias('install', env.InstallAs(env['INSTALL_INITD'] + 
+env.Alias('install', env.InstallAs(env['INSTALL_INITD'] +
     '/ifmap', 'ifmap.initd.supervisord'))
-env.Alias('install', env.Install(env['INSTALL_CONF']+ 
+env.Alias('install', env.Install(env['INSTALL_CONF']+
     '/supervisord_config_files', 'ifmap.ini'))
-env.Alias('install', env.Install(env['INSTALL_CONF']+ 
+env.Alias('install', env.Install(env['INSTALL_CONF']+
     '/supervisord_config_files', 'contrail-config.rules'))
 env.Alias('install', env.Install(
     env['INSTALL_MESSAGE_DOC'] + '/contrail-api/', doc_files))
