@@ -1,0 +1,14 @@
+requests
+pycassa
+lxml
+gevent
+geventhttpclient
+redis
+xmltodict
+prettytable
+psutil>=0.6.0
+bottle
+sseclient
+cliff
+pysandesh
+sandesh_common
