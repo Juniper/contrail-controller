@@ -237,4 +237,31 @@ trace sandesh UVEQTrace {
     3: list<string> uves
 }
 
+/**
+ * @description: objectlog to send configuration update received from config-node
+ * @object: analytics-node
+ */
+objectlog sandesh AlarmgenConfigLog {
+    1: string name (key="ObjectCollectorInfo")
+    2: string config_type
+    3: string operation
+    4: map<string, string> config
+}
 
+struct AlarmConfig {
+    1: map<string, string> config
+}
+
+/**
+ * @description: sandesh request to get alarm configuration
+ */
+request sandesh AlarmConfigRequest {
+    1: optional string name
+}
+
+/**
+ * @description: sandesh response to send alarm configuration
+ */
+response sandesh AlarmConfigResponse {
+    1: list<AlarmConfig> alarms
+}
