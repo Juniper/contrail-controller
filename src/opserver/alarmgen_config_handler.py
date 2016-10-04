@@ -4,11 +4,13 @@
 
 
 import socket
+import json
 
 from vnc_api.gen.resource_client import Alarm
 from vnc_api.gen.resource_xsd import IdPermsType, AlarmExpression, \
     AlarmOperand2, AlarmAndList, AlarmOrList, UveKeysType
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from sandesh.alarmgen_ctrl.ttypes import AlarmgenConfigLog
 from config_handler import ConfigHandler
 from opserver_util import camel_case_to_hyphen, inverse_dict
 from plugins.alarm_base import AlarmBase 
@@ -20,13 +22,14 @@ _INVERSE_UVE_MAP = inverse_dict(UVE_MAP)
 
 class AlarmGenConfigHandler(ConfigHandler):
 
-    def __init__(self, module_id, instance_id, logger,
+    def __init__(self, sandesh_instance, module_id, instance_id, logger,
                  discovery_client, keystone_info, rabbitmq_info,
                  alarm_plugins, alarm_config_change_callback):
         service_id = socket.gethostname()+':'+module_id+':'+instance_id
         config_types = ['global-system-config', 'alarm']
         super(AlarmGenConfigHandler, self).__init__(service_id, logger,
             discovery_client, keystone_info, rabbitmq_info, config_types)
+        self._sandesh_instance = sandesh_instance
         self._alarm_plugins = alarm_plugins
         self._alarm_config_change_callback = alarm_config_change_callback
         self._inbuilt_alarms = {}
@@ -133,8 +136,14 @@ class AlarmGenConfigHandler(ConfigHandler):
 
     def _handle_config_update(self, config_type, fq_name, config_obj,
                               operation):
-        self._logger('Handle config %s for %s:%s' % (operation, config_type,
-            fq_name), SandeshLevel.SYS_INFO)
+        # Log config update
+        config_dict = None
+        if config_obj is not None:
+            config_dict = {k: json.dumps(v) for k, v in \
+                self.obj_to_dict(config_obj).iteritems()}
+        alarmgen_config_log = AlarmgenConfigLog(fq_name, config_type,
+            operation, config_dict, sandesh=self._sandesh_instance)
+        alarmgen_config_log.send(sandesh=self._sandesh_instance)
         if not self._config_db.get(config_type):
             self._config_db[config_type] = {}
         alarm_config_change_map = {}
