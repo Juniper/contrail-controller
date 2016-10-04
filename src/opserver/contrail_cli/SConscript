@@ -1,0 +1,71 @@
+# -*- mode: python; -*-
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import sys
+import os
+
+Import('BuildEnv')
+OpEnv = BuildEnv.Clone()
+
+cli_setup_sources = [
+                'requirements.txt',
+                'setup.py',
+                'setup.cfg',
+          ]
+
+cli_setup_sources_rules = []
+for file in cli_setup_sources:
+    cli_setup_sources_rules.append(
+        OpEnv.Install(Dir("."), '#controller/src/opserver/contrail_cli/' + file))
+
+local_sources = [
+		'__init__.py',
+        	'commandmanager.py',
+        	'contrailCli.py',
+        	'help.py',
+        	'main.py',
+	]
+	
+local_sources_rules = []
+for file in local_sources:
+    local_sources_rules.append(OpEnv.Install(Dir("contrailCli"), file))
+OpEnv.Prepend(LIBS=['sandeshvns'])
+
+#sandesh_pkg = OpEnv.SandeshGenPy(
+#	'#controller/src/sandesh/common/vns.sandesh', "sandesh_common/", False)
+#cli_sdist_depends = [cli_setup_sources_rules, local_sources_rules, sandesh_pkg]
+cli_sdist_depends = [cli_setup_sources_rules, local_sources_rules]
+
+cd_cmd = 'cd ' + Dir('.').path + ' && '
+cli_sdist_gen = OpEnv.Command('dist/contrail_cli-0.1dev.tar.gz', 
+				'setup.py', 
+				cd_cmd + 'python setup.py sdist')
+# install everything before building distribution
+OpEnv.Depends(cli_sdist_gen, cli_sdist_depends)
+
+if 'install' in BUILD_TARGETS:
+    install_cmd = OpEnv.Command(None,
+                                'setup.py',
+                                cd_cmd + 'python setup.py install %s' %
+                                OpEnv['PYTHON_INSTALL_OPT'])
+    OpEnv.Depends(install_cmd, cli_sdist_depends)
+    OpEnv.Alias('install', install_cmd)
+
+OpEnv['CONTRAILCLI_PKG'] = cli_sdist_gen
+OpEnv.Default(cli_sdist_gen)
+OpEnv.Alias("opserver:contrail_cli", cli_sdist_gen)
+
+buildspace_link = os.environ.get('CONTRAIL_REPO')
+if buildspace_link:
+    # in CI environment shebang limit exceeds for python
+    # in easy_install/pip, reach to it via symlink
+    top_path = buildspace_link + '/' + Dir('.').path
+    top_dir = Dir(top_path)
+else:
+    top_dir = Dir('.')
+
+OpEnv.Append(ENV = {'BUILDTOP': Dir(OpEnv['TOP']).abspath,
+                    'COVERAGERUN': str(OpEnv['OPT'] == 'coverage')})
+
