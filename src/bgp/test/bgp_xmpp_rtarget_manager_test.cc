@@ -82,8 +82,8 @@ public:
         }
 
         const_cast<BgpXmppRTargetManagerTest *>(this)->set_enqueued(true);
-        req->key.release();
-        req->data.release();
+        req->key.reset();
+        req->data.reset();
     }
 
     virtual const RouteTargetList &GetSubscribedRTargets(
