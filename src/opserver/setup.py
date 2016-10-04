@@ -50,6 +50,7 @@ setup(
     name='opserver',
     version='0.1dev',
     packages=find_packages(exclude=["node_mgr", "node_mgr.*", "test.*",
+                                    "contrail_cli", "contrail_cli.*",
                                     "build.*", "plugins.*"]),
     package_data={'': ['*.html', '*.css', '*.xml']},
     zip_safe=False,
