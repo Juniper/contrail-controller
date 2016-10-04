@@ -13,6 +13,7 @@ from collections import namedtuple
 from vnc_api.gen.resource_client import GlobalSystemConfig, Alarm
 from vnc_api.gen.resource_xsd import AlarmExpression, \
     AlarmAndList, AlarmOrList, UveKeysType
+from pysandesh.sandesh_base import Sandesh
 from pysandesh.sandesh_logger import SandeshLogger
 from opserver.plugins.alarm_base import AlarmBase
 from opserver.alarmgen_config_handler import AlarmGenConfigHandler
@@ -636,8 +637,10 @@ class TestAlarmGenConfigHandler(unittest.TestCase):
             ),
         ]
 
+        sandesh_instance = mock.MagicMock()
         mock_alarm_config_change_callback = mock.MagicMock()
-        alarmgen_config_handler = AlarmGenConfigHandler(module_id='test',
+        alarmgen_config_handler = AlarmGenConfigHandler(
+            sandesh_instance=sandesh_instance, module_id='test',
             instance_id='0', logger=self._logger, discovery_client=None,
             keystone_info=None, rabbitmq_info=None, alarm_plugins={},
             alarm_config_change_callback=mock_alarm_config_change_callback)

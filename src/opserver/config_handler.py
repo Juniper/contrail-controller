@@ -4,6 +4,7 @@
 
 
 import gevent
+import json
 from pprint import pformat
 
 from vnc_api.vnc_api import VncApi
@@ -54,6 +55,16 @@ class ConfigHandler(object):
         if self._api_client_connection_task:
             self._api_client_connection_task.kill()
     # end stop
+
+    def obj_to_dict(self, obj):
+        def to_json(obj):
+            if hasattr(obj, 'serialize_to_json'):
+                return obj.serialize_to_json()
+            else:
+                return dict((k, v) for k, v in obj.__dict__.iteritems())
+
+        return json.loads(json.dumps(obj, default=to_json))
+    # end obj_to_dict
 
     # Private methods
 
