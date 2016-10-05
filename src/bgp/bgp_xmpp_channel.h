@@ -51,14 +51,14 @@ public:
         TX,
     };
     struct Stats {
-        Stats();
+        Stats() { memset(this, 0, sizeof(*this)); }
         uint64_t rt_updates;
         uint64_t reach;
         uint64_t unreach;
         uint64_t end_of_rib;
     };
     struct ChannelStats {
-        ChannelStats();
+        ChannelStats() { memset(this, 0, sizeof(*this)); }
         uint64_t instance_subscribe;
         uint64_t instance_unsubscribe;
         uint64_t table_subscribe;
@@ -68,7 +68,7 @@ public:
     };
 
     struct ErrorStats {
-        ErrorStats();
+        ErrorStats() { memset(this, 0, sizeof(*this)); }
         void incr_inet6_rx_bad_xml_token_count();
         void incr_inet6_rx_bad_prefix_count();
         void incr_inet6_rx_bad_nexthop_count();

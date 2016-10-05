@@ -84,11 +84,6 @@ static uint32_t GetMedFromLocalPref(uint32_t local_pref) {
     return numeric_limits<uint32_t>::max() - local_pref;
 }
 
-BgpXmppChannel::ErrorStats::ErrorStats()
-    : inet6_rx_bad_xml_token_count(0), inet6_rx_bad_prefix_count(0),
-      inet6_rx_bad_nexthop_count(0), inet6_rx_bad_afi_safi_count(0) {
-}
-
 void BgpXmppChannel::ErrorStats::incr_inet6_rx_bad_xml_token_count() {
     ++inet6_rx_bad_xml_token_count;
 }
@@ -119,19 +114,6 @@ uint64_t BgpXmppChannel::ErrorStats::get_inet6_rx_bad_nexthop_count() const {
 
 uint64_t BgpXmppChannel::ErrorStats::get_inet6_rx_bad_afi_safi_count() const {
     return inet6_rx_bad_afi_safi_count;
-}
-
-BgpXmppChannel::Stats::Stats()
-    : rt_updates(0), reach(0), unreach(0) {
-}
-
-BgpXmppChannel::ChannelStats::ChannelStats()
-    : instance_subscribe(0),
-      instance_unsubscribe(0),
-      table_subscribe(0),
-      table_subscribe_complete(0),
-      table_unsubscribe(0),
-      table_unsubscribe_complete(0) {
 }
 
 class BgpXmppChannel::PeerStats : public IPeerDebugStats {
@@ -194,17 +176,17 @@ public:
     }
 
     virtual void GetRxRouteUpdateStats(UpdateStats *stats)  const {
-        stats->total = parent_->stats_[RX].rt_updates;
         stats->reach = parent_->stats_[RX].reach;
         stats->unreach = parent_->stats_[RX].unreach;
         stats->end_of_rib = parent_->stats_[RX].end_of_rib;
+        stats->total = stats->reach + stats->unreach + stats->end_of_rib;
     }
 
     virtual void GetTxRouteUpdateStats(UpdateStats *stats)  const {
-        stats->total = parent_->stats_[TX].rt_updates;
         stats->reach = parent_->stats_[TX].reach;
         stats->unreach = parent_->stats_[TX].unreach;
         stats->end_of_rib = parent_->stats_[TX].end_of_rib;
+        stats->total = stats->reach + stats->unreach + stats->end_of_rib;
     }
 
     virtual void GetRxSocketStats(IPeerDebugStats::SocketStats *stats) const {
@@ -1567,7 +1549,7 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
 
         req.data.reset(new EvpnTable::RequestData(attr, nexthops,
                                                   subscription_gen_id));
-        stats_[0].reach++;
+        stats_[RX].reach++;
     } else {
         req.oper = DBRequest::DB_ENTRY_DELETE;
         stats_[RX].unreach++;
