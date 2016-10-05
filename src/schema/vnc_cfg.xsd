@@ -859,12 +859,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name="GracefulRestartParametersType">
     <xsd:all>
-        <xsd:element name="enable" type="xsd:boolean" default="false"/>
-        <xsd:element name="restart-time" type="GracefulRestartTimeType" default="60"/>
-        <xsd:element name="long-lived-restart-time" type="LongLivedGracefulRestartTimeType" default="300"/>
-        <xsd:element name="end-of-rib-timeout" type="EndOfRibTimeType" default="30"/>
-        <xsd:element name="bgp-helper-enable" type="xsd:boolean" default="false"/>
-        <xsd:element name="xmpp-helper-enable" type="xsd:boolean" default="false"/>
+        <xsd:element name="enable" type="xsd:boolean" default="false" description="Enable/Disable knob for all GR parameters to take effect"/>
+        <xsd:element name="restart-time" type="GracefulRestartTimeType" default="60" description="Time (in seconds) taken by the restarting speaker to get back to stable state"/>
+        <xsd:element name="long-lived-restart-time" type="LongLivedGracefulRestartTimeType" default="300" description="Extended Time (in seconds) taken by the restarting speaker after restart-time to get back to stable state"/>
+        <xsd:element name="end-of-rib-timeout" type="EndOfRibTimeType" default="30" description="Time (in seconds) to wait for EndOfRib reception/transmission"/>
+        <xsd:element name="bgp-helper-enable" type="xsd:boolean" default="false" description="Enable GR Helper mode for BGP peers in contrail-control"/>
+        <xsd:element name="xmpp-helper-enable" type="xsd:boolean" default="false" description="Enable GR Helper mode for XMPP peers (agents) in contrail-control"/>
     </xsd:all>
 </xsd:complexType>
 
