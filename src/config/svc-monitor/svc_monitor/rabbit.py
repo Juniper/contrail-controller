@@ -55,6 +55,8 @@ class RabbitConnection(object):
         if oper_info['oper'] == 'CREATE':
             obj_dict = oper_info['obj_dict']
             obj_id = oper_info['uuid']
+            DBBaseSM._cassandra.cache_uuid_to_fq_name_add(
+                    obj_id, obj_dict['fq_name'], obj_type)
             obj = obj_class.locate(obj_id)
             dependency_tracker = DependencyTracker(
                 DBBaseSM.get_obj_type_map(), self._REACTION_MAP)
@@ -83,6 +85,7 @@ class RabbitConnection(object):
                             set(ids))
         elif oper_info['oper'] == 'DELETE':
             obj_id = oper_info['uuid']
+            DBBaseSM._cassandra.cache_uuid_to_fq_name_del(obj_id)
             obj = obj_class.get(obj_id)
             if obj is None:
                 return
