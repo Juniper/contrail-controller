@@ -45,7 +45,7 @@ class TestVertex : public DBGraphVertex {
 
 class TestEdge : public DBGraphEdge {
   public:
-    explicit TestEdge(Edge edge_id) : DBGraphEdge(edge_id) { }
+    explicit TestEdge(const string &name) : DBGraphEdge(), name_(name) { }
     virtual string ToString() const {
         ostringstream ss;
         ss << edge_id();
@@ -62,7 +62,12 @@ class TestEdge : public DBGraphEdge {
         return edge_id() < e.edge_id();
     }
 
+    const std::string &name() const {
+        return name_;
+    }
+
   private:
+    const string name_;
     DISALLOW_COPY_AND_ASSIGN(TestEdge);
 };
 
@@ -76,8 +81,10 @@ class DBGraphTest : public ::testing::Test {
     }
 
     void CreateEdge(TestVertex *lhs, TestVertex *rhs) {
-        TestEdge *e = new TestEdge(graph_.Link(lhs, rhs));
-        graph_.SetEdgeProperty(e);
+        ostringstream ss;
+        ss << "TestEdge" << edges_.size();
+        TestEdge *e = new TestEdge(ss.str());
+        graph_.Link(lhs, rhs, e);
         edges_.push_back(e);
     }
 
@@ -177,7 +184,7 @@ TEST_F(DBGraphTest, EdgeRemove) {
 
     EXPECT_TRUE(HasEdge(visitor.edges, "b", "c"));
 
-    graph_.Unlink(vertices_[1], vertices_[2]);
+    graph_.Unlink(edges_[2]);
     delete edges_[2];
     edges_.erase(edges_.begin() + 2);
 
@@ -189,7 +196,7 @@ TEST_F(DBGraphTest, EdgeRemove) {
     EXPECT_EQ(3, visitor.edges.size());
     EXPECT_FALSE(HasEdge(visitor.edges, "b", "c"));
 
-    graph_.Unlink(vertices_[1], vertices_[3]);
+    graph_.Unlink(edges_[2]);
     delete edges_[2];
     edges_.erase(edges_.begin() + 2);
 
@@ -227,6 +234,11 @@ struct TestVisitorFilter : public DBGraph::VisitorFilter {
                             const DBGraphEdge *edge) const {
         return true;
     }
+
+    AllowedEdgeRetVal AllowedEdges(const DBGraphVertex *source) const {
+        return std::make_pair(true, AllowedEdgeSet());
+    }
+
     std::vector<std::string> include_vertex;
     std::vector<std::string> include_edge;
 };
