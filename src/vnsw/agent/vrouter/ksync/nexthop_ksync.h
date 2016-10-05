@@ -49,6 +49,7 @@ public:
     bool is_bridge() const { return is_bridge_; }
 
     int MsgLen() { return kDefaultNhMsgSize; }
+    uint8_t SetEcmpFieldsToUse();
 private:
     class KSyncComponentNH {
     public:
@@ -99,6 +100,7 @@ private:
     ComponentNHKeyList component_nh_key_list_;
     bool vxlan_nh_;
     bool flood_unknown_unicast_;
+    EcmpHashFields ecmp_hash_fieds_;
     DISALLOW_COPY_AND_ASSIGN(NHKSyncEntry);
 };
 
