@@ -44,8 +44,9 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
     nh_id_(entry->nh_id()),
     component_nh_key_list_(entry->component_nh_key_list_),
     vxlan_nh_(entry->vxlan_nh_),
-    flood_unknown_unicast_(entry->flood_unknown_unicast_) {
-}
+    flood_unknown_unicast_(entry->flood_unknown_unicast_),
+    ecmp_hash_fields_in_byte_(entry->ecmp_hash_fields_in_byte_) {
+    }
 
 NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), type_(nh->GetType()),
@@ -156,6 +157,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
         component_nh_list_.clear();
         vrf_id_ = comp_nh->vrf()->vrf_id();
         comp_type_ = comp_nh->composite_nh_type();
+        ecmp_hash_fields_in_byte_ = comp_nh->EcmpHashFieldInUse();
         component_nh_key_list_ = comp_nh->component_nh_key_list();
         ComponentNHList::const_iterator component_nh_it =
             comp_nh->begin();
@@ -615,6 +617,10 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
             component_nh_list_.push_back(ksync_component_nh);
             component_nh_it++;
         }
+        if (comp_nh->EcmpHashFieldInUse() != ecmp_hash_fields_in_byte_) {
+            ecmp_hash_fields_in_byte_ = comp_nh->EcmpHashFieldInUse();
+            ret = true;
+        }
         break;
     }
 
@@ -820,6 +826,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             encoder.set_nhr_tun_sip(htonl(sip_.to_v4().to_ulong()));
             encoder.set_nhr_tun_dip(htonl(dip_.to_v4().to_ulong()));
             encoder.set_nhr_encap_family(ETHERTYPE_ARP);
+            encoder.set_nhr_ecmp_config_hash(ecmp_hash_fields_in_byte_);
             /* Proto encode in Network byte order */
             switch (comp_type_) {
             case Composite::L2INTERFACE:

@@ -238,7 +238,6 @@ void AgentRouteTable::DeletePathFromPeer(DBTablePartBase *part,
     if (rt == NULL) {
         return;
     }
-
     bool deleted_path_was_active_path = (rt->GetActivePath() == path);
     RouteInfo rt_info;
     rt->FillTrace(rt_info, AgentRoute::DELETE_PATH, path);
@@ -249,10 +248,14 @@ void AgentRouteTable::DeletePathFromPeer(DBTablePartBase *part,
     }
 
     const Peer *peer = path->peer();
+    CompositeNH *cnh = dynamic_cast<CompositeNH *>(path->nexthop());
     //Recompute paths since one is going off before deleting.
     rt->ReComputePathDeletion(path);
     // Remove path from the route
     rt->RemovePath(path);
+    if (cnh) {
+        cnh->UpdateEcmpHashFieldsUponRouteDelete(agent_, rt->vrf()->GetName());
+    }
     // Local path(non BGP type) is going away and so will route.
     // For active peers reflector will remove the route but for 
     // non active peers explicitly squash the paths.
