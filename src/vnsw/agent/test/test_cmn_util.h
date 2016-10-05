@@ -213,6 +213,10 @@ bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Addre
                        uint8_t plen, ComponentNHKeyList &comp_nh_list,
                        bool local_ecmp, const string &vn_name, const SecurityGroupList &sg,
                        const PathPreference &path_preference);
+bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Address &vm_ip,
+                       uint8_t plen, ComponentNHKeyList &comp_nh_list,
+                       bool local_ecmp, const string &vn_name, const SecurityGroupList &sg,
+                       const PathPreference &path_preference, EcmpLoadBalance& ecmp_load_balnce);
 bool EcmpTunnelRouteAdd(Agent *agent, const Peer *peer, const string &vrf_name,
                         const string &prefix, uint8_t plen,
                         const string &remote_server_1, uint32_t label1,
