@@ -87,6 +87,8 @@ private:
         tbb::mutex::scoped_lock lock(mutex_);
         ssl_handshake_success_ = false;
     }
+    virtual size_t GetReadBufferSize() const;
+    virtual void AsyncReadSome();
 
     boost::scoped_ptr<SslSocket> ssl_socket_;
 
