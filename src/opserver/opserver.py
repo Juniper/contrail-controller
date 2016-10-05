@@ -576,19 +576,14 @@ class OpServer(object):
             self._uvepartitions_state = ConnectionStatus.UP
 
         self._analytics_links = ['uves', 'uve-types', 'tables',
-            'queries', 'alarm-types', 'alarms', 'uve-stream', 'alarm-stream']
+            'queries', 'alarms', 'uve-stream', 'alarm-stream']
 
         self._VIRTUAL_TABLES = copy.deepcopy(_TABLES)
 
-        self._ALARM_TYPES = {}
         listmgrs = extension.ExtensionManager('contrail.analytics.alarms')
         for elem in listmgrs:
-            if not elem.name in self._ALARM_TYPES:
-                self._ALARM_TYPES[elem.name] = {}
             self._logger.info('Loaded extensions for %s: %s doc %s' % \
                 (elem.name , elem.entry_point, elem.plugin.__doc__))
-            ty = str(elem.entry_point).rsplit(":",1)[1]
-            self._ALARM_TYPES[elem.name][ty] = elem.plugin.__doc__
 
         for t in _OBJECT_TABLES:
             obj = query_table(
@@ -749,7 +744,6 @@ class OpServer(object):
         bottle.route('/analytics/uves/<tables>', 'GET', self.dyn_list_http_get)
         bottle.route('/analytics/uves/<table>/<name:path>', 'GET', self.dyn_http_get)
         bottle.route('/analytics/uves/<tables>', 'POST', self.dyn_http_post)
-        bottle.route('/analytics/alarm-types', 'GET', self.uve_alarm_http_types)
         bottle.route('/analytics/alarms', 'GET', self.alarms_http_get)
 
         # start gevent to monitor disk usage and automatically purge
@@ -1665,28 +1659,6 @@ class OpServer(object):
             stats.sendwith()
             yield dp
     # end dyn_http_get
-
-    @validate_user_token
-    def uve_alarm_http_types(self):
-        # common handling for all resource get
-        (ok, result) = self._get_common(bottle.request)
-        if not ok:
-            (code, msg) = result
-            bottle.abort(code, msg)
-
-        bottle.response.set_header('Content-Type', 'application/json')
-        ret = {}
-        known = set()
-        for apiname,rawname in UVE_MAP.iteritems():
-            known.add(rawname)
-            if rawname in self._ALARM_TYPES:
-                ret[apiname] = self._ALARM_TYPES[rawname]
-            else:
-                ret[apiname] = {}
-        for aname, avalue in self._ALARM_TYPES.iteritems():
-            if not aname in known:
-                ret[aname] = avalue
-        return json.dumps(ret)
 
     @validate_user_token
     def alarms_http_get(self):
