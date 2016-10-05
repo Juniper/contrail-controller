@@ -13,6 +13,7 @@
 
 #include <oper/interface_common.h>
 #include <oper/vrf.h>
+#include <oper/ecmp_load_balance.h>
 
 using namespace boost::uuids;
 using namespace std;
@@ -1459,6 +1460,9 @@ public:
        return false;
    }
 
+   EcmpHashFields& CompEcmpHashFields() { return comp_ecmp_hash_fields_; }
+   uint8_t EcmpHashFieldInUse() const { return ecmp_hash_fields_in_byte_; }
+   void UpdateEcmpHashFieldsUponRouteDelete(Agent *agent, const string &vrf_name);
 private:
     void CreateComponentNH(Agent *agent, TunnelType::Type type) const;
     void ChangeComponentNHKeyTunnelType(ComponentNHKeyList &component_nh_list,
@@ -1467,6 +1471,8 @@ private:
     ComponentNHKeyList component_nh_key_list_;
     ComponentNHList component_nh_list_;
     VrfEntryRef vrf_;
+    EcmpHashFields comp_ecmp_hash_fields_;
+    uint8_t ecmp_hash_fields_in_byte_;
     DISALLOW_COPY_AND_ASSIGN(CompositeNH);
 };
 

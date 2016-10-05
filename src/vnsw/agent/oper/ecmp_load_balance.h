@@ -4,8 +4,9 @@
 
 #ifndef vnsw_agent_ecmp_load_balance_hpp
 #define vnsw_agent_ecmp_load_balance_hpp
-
+#include <boost/intrusive_ptr.hpp>
 #include <vnc_cfg_types.h>
+#include "vr_flow.h"
 
 using namespace boost::uuids;
 using namespace std;
@@ -219,4 +220,96 @@ private:
     bool use_global_vrouter_;
 };
 
+class EcmpField {
+public:
+    EcmpField() {
+        ref_count_= 0;
+    }
+
+    uint32_t RefCount() const {
+        return ref_count_;
+    }
+private:
+   friend void intrusive_ptr_add_ref(EcmpField* ptr);
+   friend void intrusive_ptr_release(EcmpField* ptr);
+   mutable tbb::atomic<uint32_t> ref_count_;
+};
+
+inline void intrusive_ptr_add_ref(EcmpField* ptr) {
+    ptr->ref_count_.fetch_and_increment();
+}
+
+inline void intrusive_ptr_release(EcmpField* ptr){
+    if (ptr == NULL)
+        return;
+    uint32_t prev = ptr->ref_count_.fetch_and_decrement();
+    if(prev == 1) {
+      delete ptr;
+    }
+}
+
+class EcmpHashFields {
+public:
+    typedef boost::intrusive_ptr<EcmpField> EcmpFieldPtr;
+
+    EcmpHashFields() {
+    }
+
+    uint8_t HashFieldsToUse() {
+        return hash_fields_to_use_;
+    }
+
+    void SetHashFieldtoUse(EcmpField *ptr, uint8_t key) {
+        if ((ptr && ptr->RefCount() == 1) || !ptr) {
+            hash_fields_to_use_ |= key;
+        }
+    }
+    // If the field is not set create intrusive pointer
+    // else release the pointer.
+    void SetChangeInHashField(bool is_field_set, EcmpFieldPtr& fieldptr,
+                              EcmpFieldPtr &objfieldPtr) {
+        if (!is_field_set) {
+            if (!objfieldPtr.get()) {
+                if (!fieldptr.get()) {
+                    fieldptr = new EcmpField;
+                }
+                objfieldPtr = fieldptr;
+            }
+        } else {
+            intrusive_ptr_release(objfieldPtr.get());
+        }
+    }
+    // This function will be called to ge intersection of ecmp fields
+    uint8_t  CalculateHashFieldsToUse() {
+        hash_fields_to_use_ = 0;
+        SetHashFieldtoUse(sip_.get(), VR_FLOW_KEY_SRC_IP);
+        SetHashFieldtoUse(dip_.get(), VR_FLOW_KEY_DST_IP);
+        SetHashFieldtoUse(proto_.get(), VR_FLOW_KEY_PROTO);
+        SetHashFieldtoUse(sport_.get(), VR_FLOW_KEY_SRC_PORT);
+        SetHashFieldtoUse(dport_.get(), VR_FLOW_KEY_DST_PORT );
+        return hash_fields_to_use_;
+    }
+    //This function used to calculate the Change in ecmp fields
+    void CalculateChangeInEcmpFields(
+        const EcmpLoadBalance &ecmp_load_balance,
+        EcmpHashFields& ecmp_hash_fields) {
+        SetChangeInHashField(ecmp_load_balance.is_source_ip_set(),
+                             ecmp_hash_fields.sip_, sip_);
+        SetChangeInHashField(ecmp_load_balance.is_destination_ip_set(),
+                             ecmp_hash_fields.dip_, dip_);
+        SetChangeInHashField(ecmp_load_balance.is_ip_protocol_set(),
+                             ecmp_hash_fields.proto_, proto_);
+        SetChangeInHashField(ecmp_load_balance.is_source_port_set(),
+                             ecmp_hash_fields.sport_, sport_);
+        SetChangeInHashField(ecmp_load_balance.is_destination_port_set(),
+                             ecmp_hash_fields.dport_, dport_);
+}
+private:
+    uint8_t hash_fields_to_use_;
+    EcmpFieldPtr sip_;
+    EcmpFieldPtr dip_;
+    EcmpFieldPtr proto_;
+    EcmpFieldPtr sport_;
+    EcmpFieldPtr dport_;
+};
 #endif
