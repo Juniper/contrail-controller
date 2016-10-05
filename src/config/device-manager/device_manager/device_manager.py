@@ -326,9 +326,14 @@ class DeviceManager(object):
                     old_dt = DependencyTracker(
                         DBBaseDM.get_obj_type_map(), self._REACTION_MAP)
                     old_dt.evaluate(obj_type, obj)
-                else:
-                    obj = obj_class.locate(obj_id)
-                obj.update()
+                try:
+                    if not obj:
+                        obj = obj_class.locate(obj_id)
+                    obj.update()
+                except NoIdError:
+                    self.config_log('update: object not found <%s, %s>'%(obj_type, obj_id),
+                                       level=SandeshLevel.SYS_INFO)
+                    return
                 dependency_tracker = DependencyTracker(
                     DBBaseDM.get_obj_type_map(), self._REACTION_MAP)
                 dependency_tracker.evaluate(obj_type, obj)
