@@ -1285,6 +1285,10 @@ class VncCassandraClient(object):
 
         results = {}
         for obj_uuid, obj_cols in obj_rows.items():
+            if 'type' not in obj_cols or 'fq_name' not in obj_cols:
+                # if object has been deleted, these fields may not
+                # be present
+                continue
             if obj_class.object_type != obj_cols.pop('type')[0]:
                 continue
             id_perms_ts = 0
@@ -1296,13 +1300,12 @@ class VncCassandraClient(object):
                 if self._is_parent(col_name):
                     # non config-root child
                     (_, _, parent_uuid) = col_name.split(':')
-                    parent_res_type = obj_cols['parent_type'][0]
-                    result['parent_type'] = parent_res_type
                     try:
-                        result['parent_uuid'] = parent_uuid
-                    except NoIdError:
-                        err_msg = 'Unknown uuid for parent ' + result['fq_name'][-2]
-                        return (False, err_msg)
+                        result['parent_type'] = obj_cols['parent_type'][0]
+                    except KeyError:
+                        # parent_type may not be present in obj_cols
+                        pass
+                    result['parent_uuid'] = parent_uuid
                     continue
 
                 if self._is_prop(col_name):
