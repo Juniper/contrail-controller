@@ -326,9 +326,12 @@ class DeviceManager(object):
                     old_dt = DependencyTracker(
                         DBBaseDM.get_obj_type_map(), self._REACTION_MAP)
                     old_dt.evaluate(obj_type, obj)
-                else:
-                    obj = obj_class.locate(obj_id)
-                obj.update()
+                try:
+                    if not obj:
+                        obj = obj_class.locate(obj_id)
+                    obj.update()
+                except NoIdError:
+                    return
                 dependency_tracker = DependencyTracker(
                     DBBaseDM.get_obj_type_map(), self._REACTION_MAP)
                 dependency_tracker.evaluate(obj_type, obj)
