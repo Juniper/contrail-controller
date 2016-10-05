@@ -39,7 +39,8 @@ AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     is_subnet_discard_(false), dependant_rt_(rt), path_preference_(),
     local_ecmp_mpls_label_(rt), composite_nh_key_(NULL), subnet_service_ip_(),
     arp_mac_(), arp_interface_(NULL), arp_valid_(false),
-    ecmp_suppressed_(false), is_local_(false), is_health_check_service_(false) {
+    ecmp_suppressed_(false), is_local_(false), is_health_check_service_(false),
+    ecmp_hash_fields_(0){
 }
 
 AgentPath::~AgentPath() {
@@ -1398,4 +1399,44 @@ bool MacVmBindingPathData::AddChangePath(Agent *agent, AgentPath *path,
     }
 
     return ret;
+}
+
+void AgentPath::UpdateEcmpHashFields(Agent *agent,
+                                     EcmpLoadBalance current_ecmp_load_balance,
+                                     DBRequest &nh_req) {
+
+    NextHop *nh = NULL;
+    nh = static_cast<NextHop *>(agent->nexthop_table()->
+                                FindActiveEntry(nh_req.key.get()));
+    CompositeNH *cnh = dynamic_cast< CompositeNH *>(nh);
+    if (cnh) {
+        ecmp_hash_fields_.CalculateChangeInEcmpFields(ecmp_load_balance_,
+                                                     current_ecmp_load_balance,
+                                                     cnh->CompEcmpHashFields());
+    } else {
+        agent->nexthop_table()->Process(nh_req);
+        nh = static_cast<NextHop *>(agent->nexthop_table()->
+                                    FindActiveEntry(nh_req.key.get()));
+        CompositeNH *cnh = static_cast< CompositeNH *>(nh);
+        ecmp_hash_fields_.CalculateChangeInEcmpFields(ecmp_load_balance_,
+                                                     current_ecmp_load_balance,
+                                                     cnh->CompEcmpHashFields());
+    }
+}
+
+void AgentPath::UpdateEcmpHashFieldsUponRouteDelete(Agent *agent,
+                                                    CompositeNH *cnh,
+                                                    const string &vrf_name) {
+    uint8_t ecmp_hash_field_in_use = cnh->EcmpHashFieldInUse();
+    uint8_t new_ecmp_hash_field =
+    cnh->CompEcmpHashFields().CalculateHashFieldsToUse();
+    if (ecmp_hash_field_in_use != new_ecmp_hash_field) {
+        DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+        DBEntryBase::KeyPtr key = cnh->GetDBRequestKey();
+        NextHopKey *nh_key = static_cast<NextHopKey *>(key.get());
+        nh_key->sub_op_ = AgentKey::RESYNC;
+        nh_req.key = key;
+        nh_req.data.reset(NULL);
+        agent->nexthop_table()->Process(nh_req);
+    }
 }

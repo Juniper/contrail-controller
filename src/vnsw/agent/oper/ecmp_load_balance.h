@@ -4,8 +4,9 @@
 
 #ifndef vnsw_agent_ecmp_load_balance_hpp
 #define vnsw_agent_ecmp_load_balance_hpp
-
+#include <boost/intrusive_ptr.hpp>
 #include <vnc_cfg_types.h>
+#include "vr_flow.h"
 
 using namespace boost::uuids;
 using namespace std;
@@ -219,4 +220,169 @@ private:
     bool use_global_vrouter_;
 };
 
+class EcmpField {
+public:
+    EcmpField() {
+        ref_count_= 0;
+    }
+
+    uint32_t RefCount() const {
+        return ref_count_;
+    }
+private:
+   friend void intrusive_ptr_add_ref(EcmpField* ptr);
+   friend void intrusive_ptr_release(EcmpField* ptr);
+   mutable tbb::atomic<uint32_t> ref_count_;
+};
+
+inline void intrusive_ptr_add_ref(EcmpField* ptr) {
+    ptr->ref_count_.fetch_and_increment();
+}
+
+inline void intrusive_ptr_release(EcmpField* ptr){
+    uint32_t prev = ptr->ref_count_.fetch_and_decrement();
+    if(prev == 1) {
+      delete ptr;
+    }
+}
+
+class EcmpHashFields {
+public:
+    typedef boost::intrusive_ptr<EcmpField> EcmpFieldPtr;
+
+    EcmpHashFields(uint8_t hash_fields_to_use):
+        hash_fields_to_use_(hash_fields_to_use) {
+    }
+
+    uint8_t HashFieldsToUse() {
+        return hash_fields_to_use_;
+    }
+    // This function will be called to get most common ecmp fields
+    uint8_t  CalculateHashFieldsToUse() {
+        uint32_t max = 0;
+        if (sip_.get() && max < sip_.get()->RefCount())
+            max = sip_.get()->RefCount();
+
+        if (dip_.get() && max < dip_.get()->RefCount())
+            max = dip_.get()->RefCount();
+
+        if (proto_.get() && max < proto_.get()->RefCount())
+            max = proto_.get()->RefCount();
+
+        if (sport_.get() && max < sport_.get()->RefCount())
+            max = sport_.get()->RefCount();
+
+        if (dport_.get() && max < dport_.get()->RefCount())
+            max = dport_.get()->RefCount();
+
+        hash_fields_to_use_ = 0;
+
+        if (sip_.get() && max == sip_.get()->RefCount())
+            hash_fields_to_use_ |= VR_FLOW_KEY_SRC_IP;
+
+        if (dip_.get() && max == dip_.get()->RefCount())
+            hash_fields_to_use_ |= VR_FLOW_KEY_DST_IP;
+
+        if (proto_.get() && max == proto_.get()->RefCount())
+            hash_fields_to_use_ |= VR_FLOW_KEY_PROTO;
+
+        if (sport_.get() && max == sport_.get()->RefCount())
+            hash_fields_to_use_ |= VR_FLOW_KEY_SRC_PORT;
+
+        if (dport_.get() && max == dport_.get()->RefCount())
+            hash_fields_to_use_ |= VR_FLOW_KEY_DST_PORT;
+        return hash_fields_to_use_;
+    }
+    //This function used to calculate the Change in ecmp fields
+    //between old and new ecmp fields allocate the Intrusive pointer
+    //if route or Composite NH doesn't point any ecmp field afterd
+    //that assign intrusive pointer every time new route comes with that field
+    void CalculateChangeInEcmpFields(
+        const EcmpLoadBalance &old_ecmp_load_balanceparms,
+        const EcmpLoadBalance &current_ecmp_load_balance,
+        EcmpHashFields& ecmp_hash_fields) {
+        EcmpLoadBalance old_ecmp_load_balance;
+        old_ecmp_load_balance.Copy(old_ecmp_load_balanceparms);
+
+        if (old_ecmp_load_balance.AllSet())
+            old_ecmp_load_balance.reset();
+
+        if (!old_ecmp_load_balance.is_ip_protocol_set() &&
+             current_ecmp_load_balance.is_ip_protocol_set()) {
+            if (!proto_.get()) {
+                if (!ecmp_hash_fields.proto_.get())
+                    ecmp_hash_fields.proto_ = new EcmpField;
+                proto_ = ecmp_hash_fields.proto_;
+            } else {
+                ecmp_hash_fields.proto_ = proto_;
+            }
+        } else if (old_ecmp_load_balance.is_ip_protocol_set() &&
+                   !current_ecmp_load_balance.is_ip_protocol_set()) {
+            intrusive_ptr_release(proto_.get());
+        }
+
+        if (!old_ecmp_load_balance.is_source_ip_set() &&
+             current_ecmp_load_balance.is_source_ip_set()) {
+            if (!sip_.get()) {
+                if (!ecmp_hash_fields.sip_.get())
+                    ecmp_hash_fields.sip_ = new EcmpField;
+                sip_ = ecmp_hash_fields.sip_;
+            } else {
+                ecmp_hash_fields.sip_ = sip_;
+            }
+        } else if (old_ecmp_load_balance.is_source_ip_set() &&
+                   !current_ecmp_load_balance.is_source_ip_set()) {
+            intrusive_ptr_release(sip_.get());
+        }
+
+        if (!old_ecmp_load_balance.is_destination_ip_set() &&
+            current_ecmp_load_balance.is_destination_ip_set()) {
+            if (!dip_.get()) {
+                if (!ecmp_hash_fields.dip_.get())
+                    ecmp_hash_fields.dip_ = new EcmpField;
+                dip_ = ecmp_hash_fields.dip_;
+            } else {
+                ecmp_hash_fields.dip_ = dip_;
+            }
+        } else if (old_ecmp_load_balance.is_destination_ip_set() &&
+                  !current_ecmp_load_balance.is_destination_ip_set()) {
+            intrusive_ptr_release(dip_.get());
+        }
+
+        if (!old_ecmp_load_balance.is_source_port_set() &&
+             current_ecmp_load_balance.is_source_port_set()) {
+            if (!sport_.get()) {
+                if (!ecmp_hash_fields.sport_.get())
+                    ecmp_hash_fields.sport_ = new EcmpField;
+                sport_= ecmp_hash_fields.sport_;
+            } else {
+                ecmp_hash_fields.sport_ = sport_;
+            }
+        } else if (old_ecmp_load_balance.is_source_port_set() &&
+                   !current_ecmp_load_balance.is_source_port_set()) {
+            intrusive_ptr_release(sport_.get());
+        }
+
+        if (!old_ecmp_load_balance.is_destination_port_set() &&
+            current_ecmp_load_balance.is_destination_port_set()) {
+            if (!dport_.get()) {
+                if (!ecmp_hash_fields.dport_.get())
+                    ecmp_hash_fields.dport_ = new EcmpField;
+                dport_ = ecmp_hash_fields.dport_;
+            } else {
+                ecmp_hash_fields.dport_ = dport_;
+            }
+        } else if (old_ecmp_load_balance.is_destination_port_set() &&
+                   !current_ecmp_load_balance.is_destination_port_set()) {
+            intrusive_ptr_release(dport_.get());
+        }
+}
+private:
+    uint8_t hash_fields_to_use_;
+    EcmpFieldPtr sip_;
+    EcmpFieldPtr dip_;
+    EcmpFieldPtr proto_;
+    EcmpFieldPtr sport_;
+    EcmpFieldPtr dport_;
+};
 #endif

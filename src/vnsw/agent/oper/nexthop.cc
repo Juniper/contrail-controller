@@ -1469,6 +1469,12 @@ bool CompositeNH::Change(const DBRequest* req) {
         changed = true;
     }
 
+    if (ecmp_hash_fields_in_byte_ !=
+            comp_ecmp_hash_fields_.CalculateHashFieldsToUse()) {
+        ecmp_hash_fields_in_byte_ =
+            comp_ecmp_hash_fields_.CalculateHashFieldsToUse();
+        changed = true;
+    }
     component_nh_list_ = component_nh_list;
     return changed;
 }
