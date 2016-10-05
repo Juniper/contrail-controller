@@ -55,7 +55,8 @@ from sandesh.alarmgen_ctrl.ttypes import PartitionOwnershipReq, \
     UVETableInfoReq, UVETableInfoResp, UVEObjectInfo, UVEStructInfo, \
     UVETablePerfReq, UVETablePerfResp, UVETableInfo, UVETableCount, \
     UVEAlarmStateMachineInfo, UVEAlarmState, UVEAlarmOperState,\
-    AlarmStateChangeTrace, UVEQTrace
+    AlarmStateChangeTrace, UVEQTrace, AlarmConfig, AlarmConfigRequest, \
+    AlarmConfigResponse
 
 from sandesh.discovery.ttypes import CollectorTrace
 from cpuinfo import CpuInfoData
@@ -950,8 +951,8 @@ class Controller(object):
 
         # Create config handler to read/update alarm config
         rabbitmq_params = self._conf.rabbitmq_params()
-        self._config_handler = AlarmGenConfigHandler(self._moduleid,
-            self._instance_id, self.config_log, self.disc,
+        self._config_handler = AlarmGenConfigHandler(self._sandesh,
+            self._moduleid, self._instance_id, self.config_log, self.disc,
             self._conf.keystone_params(), rabbitmq_params, self.mgrs,
             self.alarm_config_change_callback)
         if rabbitmq_params['servers'] and self.disc:
@@ -965,6 +966,7 @@ class Controller(object):
         UVETableAlarmReq.handle_request = self.handle_UVETableAlarmReq 
         UVETableInfoReq.handle_request = self.handle_UVETableInfoReq
         UVETablePerfReq.handle_request = self.handle_UVETablePerfReq
+        AlarmConfigRequest.handle_request = self.handle_AlarmConfigRequest
 
     def config_log(self, msg, level):
         self._sandesh.logger().log(
@@ -1825,7 +1827,22 @@ class Controller(object):
                 mr = True
             resp.response(req.context(), mr)
             np = np + 1
-    
+
+    def handle_AlarmConfigRequest(self, req):
+        config_db = self._config_handler.config_db()
+        alarm_config_db = config_db.get('alarm', {})
+        alarms = []
+        if req.name is not None:
+            alarm_config = alarm_config_db.get(req.name)
+            alarm_config_db = {req.name: alarm_config} if alarm_config else {}
+        for name, config in alarm_config_db.iteritems():
+            config_dict = {k: json.dumps(v) for k, v in \
+                self._config_handler.obj_to_dict(config).iteritems()}
+            alarms.append(AlarmConfig(config_dict))
+        res = AlarmConfigResponse(alarms)
+        res.response(req.context())
+    # end handle_AlarmConfigRequest
+
     def partition_change(self, partno, enl):
         """
         Call this function when getting or giving up

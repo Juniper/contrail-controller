@@ -636,8 +636,10 @@ class TestAlarmGenConfigHandler(unittest.TestCase):
             ),
         ]
 
+        sandesh_instance = mock.MagicMock()
         mock_alarm_config_change_callback = mock.MagicMock()
-        alarmgen_config_handler = AlarmGenConfigHandler(module_id='test',
+        alarmgen_config_handler = AlarmGenConfigHandler(
+            sandesh_instance=sandesh_instance, module_id='test',
             instance_id='0', logger=self._logger, discovery_client=None,
             keystone_info=None, rabbitmq_info=None, alarm_plugins={},
             alarm_config_change_callback=mock_alarm_config_change_callback)
