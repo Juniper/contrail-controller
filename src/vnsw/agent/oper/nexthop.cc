@@ -1469,6 +1469,12 @@ bool CompositeNH::Change(const DBRequest* req) {
         changed = true;
     }
 
+    if (ecmp_hash_fields_in_byte_ !=
+            comp_ecmp_hash_fields_.CalculateHashFieldsToUse()) {
+        ecmp_hash_fields_in_byte_ =
+            comp_ecmp_hash_fields_.CalculateHashFieldsToUse();
+        changed = true;
+    }
     component_nh_list_ = component_nh_list;
     return changed;
 }
@@ -1776,6 +1782,21 @@ uint32_t CompositeNH::GetRemoteLabel(const Ip4Address &ip) const {
         }
     }
     return -1;
+}
+
+void CompositeNH::UpdateEcmpHashFieldsUponRouteDelete(Agent *agent,
+                                                      const string &vrf_name) {
+    uint8_t ecmp_hash_field_in_use = ecmp_hash_fields_in_byte_;
+    uint8_t new_ecmp_hash_field = comp_ecmp_hash_fields_.CalculateHashFieldsToUse();
+    if (ecmp_hash_field_in_use != new_ecmp_hash_field) {
+        DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+        DBEntryBase::KeyPtr key = GetDBRequestKey();
+        NextHopKey *nh_key = static_cast<NextHopKey *>(key.get());
+        nh_key->sub_op_ = AgentKey::RESYNC;
+        nh_req.key = key;
+        nh_req.data.reset(NULL);
+        agent->nexthop_table()->Process(nh_req);
+    }
 }
 
 void CompositeNHKey::CreateTunnelNH(Agent *agent) {

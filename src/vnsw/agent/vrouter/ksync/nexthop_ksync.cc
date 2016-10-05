@@ -27,6 +27,7 @@
 #include "vrouter/ksync/nexthop_ksync.h"
 #include "vrouter/ksync/ksync_init.h"
 #include "vr_types.h"
+#include "oper/ecmp_load_balance.h"
 
 NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
                            uint32_t index) :
@@ -44,8 +45,9 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
     nh_id_(entry->nh_id()),
     component_nh_key_list_(entry->component_nh_key_list_),
     vxlan_nh_(entry->vxlan_nh_),
-    flood_unknown_unicast_(entry->flood_unknown_unicast_) {
-}
+    flood_unknown_unicast_(entry->flood_unknown_unicast_),
+    ecmp_hash_fields_in_byte_(entry->ecmp_hash_fields_in_byte_) {
+    }
 
 NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), type_(nh->GetType()),
@@ -156,6 +158,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
         component_nh_list_.clear();
         vrf_id_ = comp_nh->vrf()->vrf_id();
         comp_type_ = comp_nh->composite_nh_type();
+        ecmp_hash_fields_in_byte_ = comp_nh->EcmpHashFieldInUse();
         component_nh_key_list_ = comp_nh->component_nh_key_list();
         ComponentNHList::const_iterator component_nh_it =
             comp_nh->begin();
@@ -615,6 +618,10 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
             component_nh_list_.push_back(ksync_component_nh);
             component_nh_it++;
         }
+        if (comp_nh->EcmpHashFieldInUse() != ecmp_hash_fields_in_byte_) {
+            ecmp_hash_fields_in_byte_ = comp_nh->EcmpHashFieldInUse();
+            ret = true;
+        }
         break;
     }
 
@@ -654,7 +661,6 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
 
     return ret;
 };
-
 int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     vr_nexthop_req encoder;
     int encode_len;
@@ -820,6 +826,23 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             encoder.set_nhr_tun_sip(htonl(sip_.to_v4().to_ulong()));
             encoder.set_nhr_tun_dip(htonl(dip_.to_v4().to_ulong()));
             encoder.set_nhr_encap_family(ETHERTYPE_ARP);
+            uint8_t ecmp_hash_fields_in_use = VR_FLOW_KEY_NONE;
+            if (ecmp_hash_fields_in_byte_ & 1 << EcmpLoadBalance::SOURCE_IP) {
+                ecmp_hash_fields_in_use |= VR_FLOW_KEY_SRC_IP;
+            }
+            if (ecmp_hash_fields_in_byte_ & 1 << EcmpLoadBalance::DESTINATION_IP) {
+                ecmp_hash_fields_in_use |= VR_FLOW_KEY_DST_IP;
+            }
+            if (ecmp_hash_fields_in_byte_ & 1 << EcmpLoadBalance::IP_PROTOCOL) {
+                ecmp_hash_fields_in_use |= VR_FLOW_KEY_PROTO;
+            }
+            if (ecmp_hash_fields_in_byte_ & 1 << EcmpLoadBalance::SOURCE_PORT) {
+                ecmp_hash_fields_in_use |= VR_FLOW_KEY_SRC_PORT;
+            }
+            if (ecmp_hash_fields_in_byte_ & 1 << EcmpLoadBalance::DESTINATION_PORT) {
+                ecmp_hash_fields_in_use |= VR_FLOW_KEY_DST_PORT;
+            }
+            encoder.set_nhr_ecmp_config_hash(ecmp_hash_fields_in_use);
             /* Proto encode in Network byte order */
             switch (comp_type_) {
             case Composite::L2INTERFACE:
