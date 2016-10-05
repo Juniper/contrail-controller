@@ -49,6 +49,7 @@ utils_scripts = [
   'provision_user_defined_log_statistics.py',
   'provision_alarm.py',
   'contrail_alarm.py',
+  'contrail-diff-docs.py',
 ]
 
 for utils in utils_scripts:
