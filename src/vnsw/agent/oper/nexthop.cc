@@ -1469,6 +1469,10 @@ bool CompositeNH::Change(const DBRequest* req) {
         changed = true;
     }
 
+    if (comp_ecmp_hash_fields_.IsFieldsInUseChanged()) {
+        comp_ecmp_hash_fields_.SetHashFieldstoUse();
+        changed = true;
+    }
     component_nh_list_ = component_nh_list;
     return changed;
 }
@@ -1776,6 +1780,19 @@ uint32_t CompositeNH::GetRemoteLabel(const Ip4Address &ip) const {
         }
     }
     return -1;
+}
+
+void CompositeNH::UpdateEcmpHashFieldsUponRouteDelete(Agent *agent,
+                                                      const string &vrf_name) {
+    if (comp_ecmp_hash_fields_.IsFieldsInUseChanged()) {
+        DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+        DBEntryBase::KeyPtr key = GetDBRequestKey();
+        NextHopKey *nh_key = static_cast<NextHopKey *>(key.get());
+        nh_key->sub_op_ = AgentKey::RESYNC;
+        nh_req.key = key;
+        nh_req.data.reset(NULL);
+        agent->nexthop_table()->Process(nh_req);
+    }
 }
 
 void CompositeNHKey::CreateTunnelNH(Agent *agent) {

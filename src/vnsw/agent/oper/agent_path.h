@@ -12,7 +12,6 @@
 #include <oper/agent_route.h>
 #include <oper/mpls.h>
 #include <oper/vxlan.h>
-
 //Forward declaration
 class AgentXmppChannel;
 class InterfaceKey;
@@ -304,6 +303,10 @@ public:
         is_health_check_service_ = val;
     }
 
+    void UpdateEcmpHashFields(const Agent *agent,
+                              const EcmpLoadBalance &ecmp_load_balance,
+                              DBRequest &nh_req);
+
 private:
     PeerConstPtr peer_;
     // Nexthop for route. Not used for gateway routes
@@ -377,6 +380,9 @@ private:
     // TODO(prabhjot) need to find more genric solution for marking proxy arp
     // to move all the logic of identifing proxy arp in one place
     bool is_health_check_service_;
+    // These Ecmp fields will hold the corresponding composite nh ecmp fields reference
+    // if the path's ecmp load balance field is not set
+    EcmpHashFields ecmp_hash_fields_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
 };
 
