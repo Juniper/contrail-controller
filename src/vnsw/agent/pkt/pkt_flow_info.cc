@@ -721,6 +721,22 @@ void PktFlowInfo::LinkLocalServiceFromHost(const PktInfo *pkt, PktControlInfo *i
     dest_vrf = vm_port->vrf_id();
     out->vrf_ = vm_port->vrf();
 
+    //If the destination route is ECMP set component index
+    //This component index would be used only for forwarding
+    //the first packet in flow (HOLD flow flushing)
+    InetUnicastRouteEntry *out_rt = NULL;
+    if (out->vrf_) {
+        out_rt = static_cast<InetUnicastRouteEntry *>(
+                     FlowEntry::GetUcRoute(out->vrf_, mip->destination_ip()));
+        if (out_rt &&
+            out_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE) {
+            const CompositeNH *comp_nh =
+                static_cast<const CompositeNH *>(out_rt->GetActiveNextHop());
+            ComponentNH component_nh(vm_port->label(), vm_port->flow_key_nh());
+            comp_nh->GetIndex(component_nh, out_component_nh_idx);
+        }
+    }
+
     linklocal_flow = true;
     nat_done = true;
     // Get NAT source/destination IP from MetadataIP retrieved from interface
