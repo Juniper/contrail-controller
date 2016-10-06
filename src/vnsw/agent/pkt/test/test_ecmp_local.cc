@@ -183,6 +183,32 @@ TEST_F(EcmpTest, EcmpTest_2) {
     WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
 }
 
+TEST_F(EcmpTest, EcmpTest_3) {
+    boost::scoped_ptr<InetInterfaceKey> key(new InetInterfaceKey("vhost0"));
+    const InetInterface *vhost = static_cast<InetInterface *>(
+            agent_->interface_table()->FindActiveEntry(key.get()));
+    const VmInterface *vmi = static_cast<const VmInterface *>(VmPortGet(1));
+
+    TxTcpPacket(vhost->id(), vhost->ip_addr().to_string().c_str(),
+                vmi->mdata_ip_addr().to_string().c_str(), 100, 100, false, 0);
+    client->WaitForIdle();
+
+    FlowEntry *entry = FlowGet(0, vhost->ip_addr().to_string().c_str(),
+                           vmi->mdata_ip_addr().to_string().c_str(), 
+                           IPPROTO_TCP, 100, 100, vhost->flow_key_nh()->id());
+    EXPECT_TRUE(entry != NULL);
+    EXPECT_TRUE(entry->data().component_nh_idx !=
+            CompositeNH::kInvalidComponentNHIdx);
+    
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", vmi->primary_ip_addr(), 32);
+    const CompositeNH *cnh = 
+        dynamic_cast<const CompositeNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(cnh->GetNH(entry->data().component_nh_idx) == 
+                vmi->l3_interface_nh_no_policy());
+   
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, true, true, true, 100*1000);
