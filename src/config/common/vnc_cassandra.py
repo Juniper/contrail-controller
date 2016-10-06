@@ -313,8 +313,7 @@ class VncCassandraClient(object):
 
         # update latest_col_ts on parent object
         if parent_type not in self._obj_cache_exclude_types:
-            bch.insert(
-                parent_uuid, {'META:latest_col_ts': json.dumps(None)})
+            self.update_latest_col_ts(bch, parent_uuid)
     # end _create_child
 
     def _delete_child(self, bch, parent_type, parent_uuid,
@@ -326,8 +325,7 @@ class VncCassandraClient(object):
 
         # update latest_col_ts on parent object
         if parent_type not in self._obj_cache_exclude_types:
-            bch.insert(
-                parent_uuid, {'META:latest_col_ts': json.dumps(None)})
+            self.update_latest_col_ts(bch, parent_uuid)
     # end _delete_child
 
     def _create_ref(self, bch, obj_type, obj_uuid, ref_obj_type, ref_uuid,
@@ -351,8 +349,7 @@ class VncCassandraClient(object):
                 # GET /<old-ref-uuid> pov.
                 self._obj_cache_mgr.evict([ref_uuid])
             else:
-                bch.insert(
-                    ref_uuid, {'META:latest_col_ts': json.dumps(None)})
+                self.update_latest_col_ts(bch, ref_uuid)
     # end _create_ref
 
     def _update_ref(self, bch, obj_type, obj_uuid, ref_obj_type, old_ref_uuid,
@@ -398,8 +395,7 @@ class VncCassandraClient(object):
                 # GET /<old-ref-uuid> pov.
                 self._obj_cache_mgr.evict([old_ref_uuid])
             else:
-                bch.insert(
-                    old_ref_uuid, {'META:latest_col_ts': json.dumps(None)})
+                self.update_latest_col_ts(bch, old_ref_uuid)
     # end _update_ref
 
     def _delete_ref(self, bch, obj_type, obj_uuid, ref_obj_type, ref_uuid):
@@ -422,8 +418,7 @@ class VncCassandraClient(object):
                 # GET /<old-ref-uuid> pov.
                 self._obj_cache_mgr.evict([ref_uuid])
             else:
-                bch.insert(
-                    ref_uuid, {'META:latest_col_ts': json.dumps(None)})
+                self.update_latest_col_ts(bch, ref_uuid)
 
         if send:
             bch.send()
@@ -822,10 +817,21 @@ class VncCassandraClient(object):
         id_perms['last_modified'] = datetime.datetime.utcnow().isoformat()
         self._update_prop(bch, obj_uuid, 'id_perms', {'id_perms': id_perms})
         if obj_type not in self._obj_cache_exclude_types:
-            bch.insert(
-                obj_uuid,
-                {'META:latest_col_ts': json.dumps(None)})
+            self.update_latest_col_ts(bch, obj_uuid)
     # end update_last_modified
+
+    def update_latest_col_ts(self, bch, obj_uuid):
+        try:
+            obj_type = self.get_one_col(self._OBJ_UUID_CF_NAME,
+                                        obj_uuid,
+                                        'type')
+        except NoIdError:
+            return
+
+        bch.insert(
+            obj_uuid,
+            {'META:latest_col_ts': json.dumps(None)})
+    # end update_latest_col_ts
 
     def object_update(self, obj_type, obj_uuid, new_obj_dict,
                       uuid_batch=None):

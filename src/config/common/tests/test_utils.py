@@ -1379,9 +1379,18 @@ class ZnodeStat(object):
 class FakeKazooClient(object):
     _values = {}
     class Election(object):
-        __init__ = stub
+        _locks = {}
+        def __init__(self, path, identifier):
+            self.path = path
+            if path not in self._locks:
+                self._locks[path] = gevent.lock.Semaphore()
+
         def run(self, cb, *args, **kwargs):
-            cb(*args, **kwargs)
+            self._locks[self.path].acquire()
+            try:
+               cb(*args, **kwargs)
+            finally:
+               self._locks[self.path].release()
 
     def __init__(self, *args, **kwargs):
         self.add_listener = stub
