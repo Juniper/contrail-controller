@@ -2,6 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <iostream>
+
 #include "ifmap_node.h"
 
 #include <pugixml/pugixml.hpp>
