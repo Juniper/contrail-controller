@@ -262,14 +262,14 @@ void U64ToIp(uint64_t sip_u, uint64_t sip_l, uint64_t dip_u, uint64_t dip_l,
 }
 
 void Ip6AddressToU64Array(const Ip6Address &addr, uint64_t *arr, int size) {
-    unsigned char *b;
+    unsigned char b[16];
     uint64_t ip;
     unsigned int i, j, k;
 
     if (size != 2)
         return;
 
-    b = addr.to_bytes().c_array();
+    memcpy(b, addr.to_bytes().c_array(), sizeof(b));
 
     for (i = 0, j = 0, k = 0; i < 4; i++, j = j+4) {
         ip = 0;
