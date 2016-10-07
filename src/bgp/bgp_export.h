@@ -16,8 +16,9 @@ class RibPeerSet;
 class BgpExport {
 public:
     explicit BgpExport(RibOut *ribout);
+    virtual ~BgpExport();
 
-    void Export(DBTablePartBase *root, DBEntryBase *db_entry);
+    virtual void Export(DBTablePartBase *root, DBEntryBase *db_entry);
 
     // Create new route advertisements in order to sync a peers that has
     // just joined the table.
