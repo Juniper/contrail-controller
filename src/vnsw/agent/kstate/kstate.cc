@@ -263,7 +263,11 @@ void KState::RouteMsgHandler(vr_route_req *r) {
     data.set_rid(r->get_rtr_rid());
     data.set_label_flags(rst->LabelFlagsToString(
                                   r->get_rtr_label_flags()));
-    data.set_label(r->get_rtr_label());
+    if(r->get_rtr_label_flags() & VR_RT_LABEL_VALID_FLAG)
+        data.set_label(r->get_rtr_label());
+    else
+        data.set_label(0);
+
     data.set_nh_id(r->get_rtr_nh_id());
     
     list.push_back(data);
