@@ -12,7 +12,6 @@ setup(
               'vrouter.vrouter.cpuinfo', 
               'vrouter.vrouter.process_info', 
               'vrouter.vrouter.derived_stats_results',
-              'vrouter.loadbalancer',
               'vrouter.sandesh',
               'vrouter.sandesh.virtual_machine',
               'vrouter.sandesh.virtual_machine.port_bmap',
