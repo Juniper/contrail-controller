@@ -17,6 +17,9 @@ BgpExport::BgpExport(RibOut *ribout)
     : ribout_(ribout) {
 }
 
+BgpExport::~BgpExport() {
+}
+
 //
 // Check if the desired state as expressed by the UpdateInfoSList is exactly
 // the same as the state already stored in the RouteUpdate.
