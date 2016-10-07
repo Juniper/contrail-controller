@@ -5,6 +5,7 @@
 #define __BGP__BGP_STRESS_TEST_H__
 
 #include "control-node/test/network_agent_mock.h"
+#include "bgp/bgp_export.h"
 #include "bgp/bgp_xmpp_channel.h"
 #include "bgp/bgp_sandesh.h"
 #include "bgp/test/bgp_server_test_util.h"
@@ -25,6 +26,9 @@
 class BgpAttr;
 class BgpNeighborConfig;
 class BgpServer;
+class DBEntryBase;
+class DBTablePartBase;
+class RibOut;
 class SandeshSession;
 class StateMachine;
 class XmppChannel;
@@ -176,7 +180,14 @@ private:
 class PeerCloseManagerTest : public PeerCloseManager {
 public:
     explicit PeerCloseManagerTest(IPeerClose *peer_close);
-    ~PeerCloseManagerTest();
+    virtual ~PeerCloseManagerTest();
+};
+
+class BgpExportTest : public BgpExport {
+public:
+    explicit BgpExportTest(RibOut *ribout);
+    virtual ~BgpExportTest();
+    virtual void Export(DBTablePartBase *root, DBEntryBase *db_entry);
 };
 
 class BgpXmppChannelManagerMock : public BgpXmppChannelManager {
@@ -416,6 +427,7 @@ protected:
     void ValidateShowNeighborStatisticsResponse(size_t expected_count,
                                                 Sandesh *sandesh);
     void ValidateShowRouteSandeshResponse(Sandesh *sandesh);
+    void NotifyAllEntries();
 
     std::string GetAgentConfigName(int agent_id);
     std::string GetAgentVmConfigName(int agent_id, int vm_id);

@@ -24,6 +24,7 @@
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/inet6/inet6_table.h"
 #include "bgp/inet6vpn/inet6vpn_table.h"
+#include "bgp/routing-instance/routing_instance.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
@@ -196,6 +197,7 @@ static int d_wait_for_idle_ = 30; // Seconds
 
 static const char **gargv;
 static int gargc;
+static bool bgp_export_skip_;
 
 static void WaitForIdle() {
     if (d_wait_for_idle_) {
@@ -209,6 +211,17 @@ PeerCloseManagerTest::PeerCloseManagerTest(IPeerClose *peer_close) :
 }
 
 PeerCloseManagerTest::~PeerCloseManagerTest() {
+}
+
+BgpExportTest::BgpExportTest(RibOut *ribout) : BgpExport(ribout) {
+}
+
+BgpExportTest::~BgpExportTest() {
+}
+
+void BgpExportTest::Export(DBTablePartBase *root, DBEntryBase *db_entry) {
+    if (!bgp_export_skip_)
+        BgpExport::Export(root, db_entry);
 }
 
 static string GetRouterName(int router_id) {
@@ -1589,6 +1602,8 @@ string BgpStressTest::GetEnetPrefix(string inet_prefix) const {
 }
 
 void BgpStressTest::AddXmppRoute(int instance_id, int agent_id, int route_id) {
+    if (d_xmpp_auth_enabled_)
+        usleep(5000);
     if (agent_id >= (int) xmpp_agents_.size() || !xmpp_agents_[agent_id])
         return;
 
@@ -1693,8 +1708,8 @@ void BgpStressTest::AddXmppRoutes(int instance_id, int agent_id, int nroutes) {
 
 void BgpStressTest::AddAllXmppRoutes(int ninstances, int nagents, int nroutes) {
 
-    for (int agent_id = 0; agent_id < nagents; ++agent_id) {
-        for (int instance_id = 1; instance_id <= ninstances; ++instance_id) {
+    for (int instance_id = 1; instance_id <= ninstances; ++instance_id) {
+        for (int agent_id = 0; agent_id < nagents; ++agent_id) {
             AddXmppRoutes(instance_id, agent_id, nroutes);
         }
     }
@@ -1702,6 +1717,8 @@ void BgpStressTest::AddAllXmppRoutes(int ninstances, int nagents, int nroutes) {
 
 void BgpStressTest::DeleteXmppRoute(int instance_id, int agent_id,
                                     int route_id) {
+    if (d_xmpp_auth_enabled_)
+        usleep(5000);
     if (agent_id >= (int) xmpp_agents_.size() || !xmpp_agents_[agent_id])
         return;
 
@@ -1750,9 +1767,9 @@ void BgpStressTest::DeleteXmppRoute(vector<int> instance_ids,
     }
 }
 
-void BgpStressTest::DeleteXmppRoutes(int ninstances, int agent_id,
+void BgpStressTest::DeleteXmppRoutes(int instance_id, int nagents,
                                      int nroutes) {
-    for (int instance_id = 1; instance_id <= ninstances; ++instance_id) {
+    for (int agent_id = 0; agent_id < nagents; ++agent_id) {
         for (int rt = 0; rt < nroutes; ++rt) {
             DeleteXmppRoute(instance_id, agent_id, rt);
         }
@@ -1762,9 +1779,8 @@ void BgpStressTest::DeleteXmppRoutes(int ninstances, int agent_id,
 
 void BgpStressTest::DeleteAllXmppRoutes(int ninstances, int nagents,
                                         int nroutes) {
-
-    for (int agent_id = 0; agent_id < nagents; ++agent_id) {
-        DeleteXmppRoutes(ninstances, agent_id, nroutes);
+    for (int instance_id = 1; instance_id <= ninstances; ++instance_id) {
+        DeleteXmppRoutes(instance_id, nagents, nroutes);
     }
     // VerifyAgentRoutes(ninstances, 0);
 }
@@ -2316,8 +2332,31 @@ void BgpStressTest::DeleteRoutingInstances() {
         "Waiting for the completion of routing-instances' deletion");
 }
 
+// Trigger Updates Send again by notifying.
+void BgpStressTest::NotifyAllEntries() {
+    if (!bgp_export_skip_)
+        return;
+
+    bgp_export_skip_ = false;
+    for (RoutingInstanceMgr::RoutingInstanceIterator rit =
+            server_->routing_instance_mgr()->begin();
+            rit != server_->routing_instance_mgr()->end(); ++rit) {
+        RoutingInstance::RouteTableList const rt_list = rit->GetTables();
+        for (RoutingInstance::RouteTableList::const_iterator it =
+             rt_list.begin(); it != rt_list.end(); ++it) {
+            BgpTable *table = it->second;
+            task_util::TaskFire(boost::bind(&DBTable::NotifyAllEntries, table),
+                                "bgp::Config");
+        }
+    }
+}
+
+
 void BgpStressTest::AddAllRoutes(int ninstances, int npeers, int nagents,
                                  int nroutes, int ntargets) {
+    if (d_xmpp_auth_enabled_)
+        bgp_export_skip_ = true;
+
     // Add XmppPeers with routes as well
     BGP_STRESS_TEST_LOG("Start subscribing all XMPP Agents");
     SubscribeAgents(ninstances, nagents);
@@ -2363,6 +2402,7 @@ void BgpStressTest::AddAllRoutes(int ninstances, int npeers, int nagents,
     //
     // We get routes added by agents as well as those from bgp peers
     //
+    NotifyAllEntries();
     BGP_STRESS_TEST_LOG("Start verifying XMPP routes at the agents");
     VerifyAgentRoutes(nagents, ninstances, ninstances * nagents * nroutes +
                                            npeers * nroutes);
@@ -2378,9 +2418,15 @@ void BgpStressTest::AddAllRoutes(int ninstances, int npeers, int nagents,
 void BgpStressTest::DeleteAllRoutes(int ninstances, int npeers, int nagents,
                                     int nroutes, int ntargets) {
     DeleteAllBgpRoutes(nroutes, ntargets, npeers, nagents);
-    DeleteAllXmppRoutes(ninstances, nagents, nroutes);
-    VerifyAgentRoutes(nagents, ninstances, 0);
-    VerifyControllerRoutes(ninstances, nagents, 0);
+
+    if (!d_xmpp_auth_enabled_) {
+        DeleteAllXmppRoutes(ninstances, nagents, nroutes);
+        VerifyAgentRoutes(nagents, ninstances, 0);
+        VerifyControllerRoutes(ninstances, nagents, 0);
+    } else {
+        bgp_export_skip_ = true;
+        DeleteAllXmppRoutes(ninstances, nagents, nroutes);
+    }
 
     UnsubscribeAgents(nagents, ninstances);
     UnsubscribeAgentsConfiguration(nagents, true);
@@ -3327,6 +3373,7 @@ static void SetUp() {
     BgpServerTest::GlobalSetUp();
     BgpObjectFactory::Register<PeerCloseManager>(
         boost::factory<PeerCloseManagerTest *>());
+    BgpObjectFactory::Register<BgpExport>(boost::factory<BgpExportTest *>());
     BgpObjectFactory::Register<StateMachine>(
         boost::factory<StateMachineTest *>());
     BgpObjectFactory::Register<BgpXmppMessageBuilder>(
