@@ -93,7 +93,7 @@ class DatabaseEventManager(EventManager):
 
     def _get_cassandra_config_option(self, config):
         (linux_dist, x, y) = platform.linux_distribution()
-        if (linux_dist == 'Ubuntu'):
+        if (linux_dist in ['Ubuntu', 'debian']):
             yamlstream = open("/etc/cassandra/cassandra.yaml", 'r')
         else:
             yamlstream = open("/etc/cassandra/conf/cassandra.yaml", 'r')
