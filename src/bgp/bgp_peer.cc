@@ -1419,7 +1419,7 @@ bool BgpPeer::SkipNotificationSend(int code, int subcode) const {
             }
             break;
         case BgpProto::Notification::HoldTimerExp:
-            break;
+            return true;
         case BgpProto::Notification::FSMErr:
             switch (static_cast<BgpProto::Notification::FsmSubcode>(subcode)) {
             case BgpProto::Notification::UnspecifiedError:

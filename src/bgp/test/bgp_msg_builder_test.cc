@@ -379,7 +379,8 @@ void BgpMsgBuilderTest::TestSkipNotificationSend(int code, int subcode) const {
             }
             break;
         case BgpProto::Notification::HoldTimerExp:
-            break;
+            EXPECT_TRUE(skip);
+            return;
         case BgpProto::Notification::FSMErr:
             if (subcode < BgpProto::Notification::UnspecifiedError ||
                 subcode > BgpProto::Notification::EstablishedError)
