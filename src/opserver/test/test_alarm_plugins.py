@@ -914,15 +914,6 @@ class TestAlarmPlugins(unittest.TestCase):
                             ('ContrailConfig.elements.virtual_router_refs ' +\
                                 '!= null', None,
                                 [('[{"to": ["tor1"]}]', None, None)]),
-                            ('ProuterData.connected_agent_list == null', None,
-                             [('null', None, None)])
-                        ]
-                    },
-                    {
-                        'and_list': [
-                            ('ContrailConfig.elements.virtual_router_refs ' +\
-                                '!= null', None,
-                                [('[{"to": ["tor1"]}]', None, None)]),
                             ('ProuterData.connected_agent_list size!= 1', None,
                              [('null', None, None)])
                         ]
@@ -978,6 +969,111 @@ class TestAlarmPlugins(unittest.TestCase):
         self._verify(alarm_name="prouter-connectivity", tests=tests)
     # end test_alarm_prouter_connectivity
 
+    def test_alarm_prouter_tsn_connectivity(self):
+        tests = [
+            TestCase(
+                name='ProuterData == null',
+                input=TestInput(uve_key='ObjectPRouter:prouter1',
+                    uve_data={}
+                ),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='ProuterData.tsn_agent_list == null',
+                input=TestInput(uve_key='ObjectPRouter:prouter1',
+                    uve_data={
+                        'ProuterData': {}
+                    }
+                ),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='ContrailConfig.elements.virtual_router_refs == null',
+                input=TestInput(uve_key='ObjectPRouter:prouter1',
+                    uve_data={
+                        'ContrailConfig': {
+                            'elements': {
+                            }
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='ContrailConfig.elements.virtual_router_refs != null &' +\
+                    ' ProuterData.tsn_agent_list == null',
+                input=TestInput(uve_key='ObjectPRouter:prouter1',
+                    uve_data={
+                        'ContrailConfig': {
+                            'elements': {
+                                'virtual_router_refs': '[{"to": ["tor1"]}]'
+                            }
+                        },
+                        'ProuterData': {
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            ('ContrailConfig.elements.virtual_router_refs ' +\
+                                '!= null', None,
+                                [('[{"to": ["tor1"]}]', None, None)]),
+                            ('ProuterData.tsn_agent_list size!= 1', None,
+                             [('null', None, None)])
+                        ]
+                    }
+                ])
+            ),
+            TestCase(
+                name='ContrailConfig.elements.virtual_router_refs != null &' +\
+                    ' ProuterData.tsn_agent_list size!= 1',
+                input=TestInput(uve_key='ObjectPRouter:prouter1',
+                    uve_data={
+                        'ContrailConfig': {
+                            'elements': {
+                                'virtual_router_refs': '[{"to": ["tor1"]}]'
+                            }
+                        },
+                        'ProuterData': {
+                            'tsn_agent_list': ['tor1', 'tor2']
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            ('ContrailConfig.elements.virtual_router_refs ' +\
+                                '!= null', None,
+                                [('[{"to": ["tor1"]}]', None, None)]
+                            ),
+                            ('ProuterData.tsn_agent_list size!= 1', None,
+                             [('["tor1", "tor2"]', None, None)])
+                        ]
+                    }
+                ])
+            ),
+            TestCase(
+                name='ContrailConfig.elements.virtual_router_refs != null &' +\
+                    ' ProuterData.tsn_agent_list size= 1',
+                input=TestInput(uve_key='ObjectPRouter:prouter1',
+                    uve_data={
+                        'ContrailConfig': {
+                            'elements': {
+                                'virtual_router_refs': '[{"to": ["tor1"]}]'
+                            }
+                        },
+                        'ProuterData': {
+                            'tsn_agent_list': ['tor1']
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=None)
+            )
+        ]
+        self._verify(alarm_name="prouter-tsn-connectivity", tests=tests)
+    # end test_alarm_prouter_tsn_connectivity
+        
     def test_alarm_storage(self):
         tests = [
             TestCase(

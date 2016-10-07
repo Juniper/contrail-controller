@@ -517,24 +517,6 @@ alarm_list = [
                         },
                         {
                             "operand1": "ProuterData.connected_agent_list",
-                            "operation": "==",
-                            "operand2": {
-                                "json_value": "null"
-                            }
-                        }
-                    ]
-                },
-                {
-                    "and_list": [
-                        {
-                            "operand1": "ContrailConfig.elements.virtual_router_refs",
-                            "operation": "!=",
-                            "operand2": {
-                                "json_value": "null"
-                            }
-                        },
-                        {
-                            "operand1": "ProuterData.connected_agent_list",
                             "operation": "size!=",
                             "operand2": {
                                 "json_value": "1"
@@ -551,6 +533,44 @@ alarm_list = [
         ],
         "id_perms": {
             "description": "Prouter connectivity to controlling tor agent does not exist we look for non-empty value for connected_agent_list"
+        },
+        "parent_type": "global-system-config",
+        "uve_keys": {
+            "uve_key": [
+                "prouter"
+            ]
+        }
+    },
+    {
+        "alarm_rules": {
+            "or_list": [
+                {
+                    "and_list": [
+                        {
+                            "operand1": "ContrailConfig.elements.virtual_router_refs",
+                            "operation": "!=",
+                            "operand2": {
+                                "json_value": "null"
+                            }
+                        },
+                        {
+                            "operand1": "ProuterData.tsn_agent_list",
+                            "operation": "size!=",
+                            "operand2": {
+                                "json_value": "1"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "alarm_severity": 1,
+        "fq_name": [
+            "default-global-system-config",
+            "prouter-tsn-connectivity"
+        ],
+        "id_perms": {
+            "description": "Prouter connectivity to controlling tsn agent does not exist we look for non-empty value for tsn_agent_list"
         },
         "parent_type": "global-system-config",
         "uve_keys": {
