@@ -85,7 +85,6 @@ SandeshGenFiles += env.SandeshGenCpp('port_bmap.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('vrouter.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('virtual_machine.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('virtual_network.sandesh')
-SandeshGenFiles += env.SandeshGenCpp('acl.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('prouter.sandesh')
 
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)

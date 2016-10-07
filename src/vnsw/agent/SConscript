@@ -317,7 +317,6 @@ subdirs = [
 ]
 
 AgentUveDocFiles = []
-AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/acl.sandesh')
 AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/vrouter.sandesh')
 AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/prouter.sandesh')
 AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/loadbalancer.sandesh')
