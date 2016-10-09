@@ -297,10 +297,10 @@ void  CharArrayToIp(const unsigned char *ip, int size, int family,
 }
 
 void Ip6AddressToU64Array(const Ip6Address &addr, uint64_t *arr, int size) {
-    uint32_t *words;
+    uint32_t words[4];
     if (size != 2)
         return;
-    words = (uint32_t *) (addr.to_bytes().c_array());
+    memcpy(words, addr.to_bytes().c_array(), sizeof(words));
     arr[0] = (((uint64_t)words[0] << 32) & 0xFFFFFFFF00000000U) |
              ((uint64_t)words[1] & 0x00000000FFFFFFFFU);
     arr[1] = (((uint64_t)words[2] << 32) & 0xFFFFFFFF00000000U) |
