@@ -319,10 +319,15 @@ void BgpPeerClose::AddGRCapabilities(
     vector<uint8_t> afi_flags;
     uint16_t time = peer_->server()->GetGracefulRestartTime();
 
+    // Indicate to the Peer if we are restarting (equiv when the session is
+    // being formed for the first time.
+    bool restarted = peer_->flap_count() == 0;
+
     // Indicate EOR support by default.
     if (!time) {
         BgpProto::OpenMessage::Capability *gr_cap =
-            BgpProto::OpenMessage::Capability::GR::Encode(0, 0, afi_flags,
+            BgpProto::OpenMessage::Capability::GR::Encode(0, restarted,
+                                                          afi_flags,
                                                           gr_families);
         opt_param->capabilities.push_back(gr_cap);
         return;
@@ -336,10 +341,9 @@ void BgpPeerClose::AddGRCapabilities(
             BgpProto::OpenMessage::Capability::GR::ForwardingStatePreserved);
     }
 
-    uint8_t flags = 0;
     BgpProto::OpenMessage::Capability *gr_cap =
-        BgpProto::OpenMessage::Capability::GR::Encode(time, flags, afi_flags,
-                                                      gr_families);
+        BgpProto::OpenMessage::Capability::GR::Encode(time, restarted,
+                                                      afi_flags, gr_families);
     opt_param->capabilities.push_back(gr_cap);
 }
 

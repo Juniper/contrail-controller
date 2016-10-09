@@ -147,7 +147,7 @@ public:
                         return (flags & ForwardingStatePreserved) != 0;
                     }
                 };
-                static Capability *Encode(uint16_t gr_time, uint8_t gr_flags,
+                static Capability *Encode(uint16_t gr_time, bool restarted,
                         const std::vector<uint8_t> &gr_afi_flags,
                         const std::vector<Address::Family> &gr_families);
                 static bool Decode(GR *gr_params,
