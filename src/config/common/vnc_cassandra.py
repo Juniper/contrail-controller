@@ -724,6 +724,8 @@ class VncCassandraClient(object):
 
         results = []
         for obj_uuid, obj_cols in obj_rows.items():
+            if 'type' not in obj_cols or 'fq_name' not in obj_cols:
+                continue
             if obj_type != obj_cols.pop('type')[0]:
                 continue
             result = {}
@@ -733,8 +735,12 @@ class VncCassandraClient(object):
                 if self._is_parent(col_name):
                     # non config-root child
                     (_, _, parent_uuid) = col_name.split(':')
-                    parent_res_type = obj_cols['parent_type'][0]
-                    result['parent_type'] = parent_res_type
+                    try:
+                        parent_res_type = obj_cols['parent_type'][0]
+                        result['parent_type'] = parent_res_type
+                    except KeyError:
+                        # if parent_type is not in obj_cols, ignore
+                        pass
                     try:
                         result['parent_uuid'] = parent_uuid
                         result['parent_href'] = self._generate_url(parent_res_type,
