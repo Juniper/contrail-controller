@@ -5,6 +5,8 @@
 #ifndef db_test_cmn_h
 #define db_test_cmn_h
 
+#include <boost/assign/list_of.hpp>
+
 #include "io/event_manager.h"
 #include "base/task.h"
 #include "base/task_annotations.h"
