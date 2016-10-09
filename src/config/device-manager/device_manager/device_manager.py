@@ -32,6 +32,7 @@ from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 import discoveryclient.client as client
 from cfgm_common.exceptions import ResourceExhaustionError
+from cfgm_common.exceptions import NoIdError
 from vnc_api.vnc_api import VncApi
 from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, \
     NodeStatus
@@ -328,7 +329,14 @@ class DeviceManager(object):
                     old_dt.evaluate(obj_type, obj)
                 else:
                     obj = obj_class.locate(obj_id)
-                obj.update()
+                try:
+                    if not obj:
+                        raise NoIdError(obj_id)
+                    obj.update()
+                except NoIdError:
+                    self.config_log('update: object not found <%s, %s>'%(obj_type, obj_id),
+                                       level=SandeshLevel.SYS_INFO)
+                    return
                 dependency_tracker = DependencyTracker(
                     DBBaseDM.get_obj_type_map(), self._REACTION_MAP)
                 dependency_tracker.evaluate(obj_type, obj)
