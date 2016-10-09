@@ -711,6 +711,10 @@ public:
         return is_vn_qos_config_;
     }
 
+    const NextHop* l3_interface_nh_no_policy() const {
+        return l3_interface_nh_no_policy_.get();
+    }
+
 private:
     friend struct VmInterfaceConfigData;
     friend struct VmInterfaceNovaData;
