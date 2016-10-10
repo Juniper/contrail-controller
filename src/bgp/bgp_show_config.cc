@@ -349,17 +349,17 @@ static void FillBgpNeighborConfigInfo(ShowBgpNeighborConfig *sbnc,
     BOOST_FOREACH(const BgpFamilyAttributesConfig family_config,
         neighbor->family_attributes_list()) {
         ShowBgpNeighborFamilyConfig sbnfc;
-        sbnfc.family = family_config.family;
-        sbnfc.loop_count = family_config.loop_count;
-        sbnfc.prefix_limit = family_config.prefix_limit;
+        sbnfc.set_family(family_config.family);
+        sbnfc.set_loop_count(family_config.loop_count);
+        sbnfc.set_prefix_limit(family_config.prefix_limit);
         if (family_config.family == "inet") {
             IpAddress address = neighbor->gateway_address(Address::INET);
             if (!address.is_unspecified())
-                sbnfc.gateway_address = address.to_string();
+                sbnfc.set_gateway_address(address.to_string());
         } else if (family_config.family == "inet6") {
             IpAddress address = neighbor->gateway_address(Address::INET6);
             if (!address.is_unspecified())
-                sbnfc.gateway_address = address.to_string();
+                sbnfc.set_gateway_address(address.to_string());
         }
         sbnfc_list.push_back(sbnfc);
     }

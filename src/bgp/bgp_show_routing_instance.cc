@@ -31,11 +31,11 @@ static void FillRoutingInstanceTableInfo(ShowRoutingInstanceTable *srit,
     srit->set_markers(markers);
     srit->set_listeners(table->GetListenerCount());
     srit->set_walkers(table->walker_count());
-    srit->prefixes = table->Size();
-    srit->primary_paths = table->GetPrimaryPathCount();
-    srit->secondary_paths = table->GetSecondaryPathCount();
-    srit->infeasible_paths = table->GetInfeasiblePathCount();
-    srit->paths = srit->primary_paths + srit->secondary_paths;
+    srit->set_prefixes(table->Size());
+    srit->set_primary_paths(table->GetPrimaryPathCount());
+    srit->set_secondary_paths(table->GetSecondaryPathCount());
+    srit->set_infeasible_paths(table->GetInfeasiblePathCount());
+    srit->set_paths(srit->get_primary_paths() + srit->get_secondary_paths());
 }
 
 //
