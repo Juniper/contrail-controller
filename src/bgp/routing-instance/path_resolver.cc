@@ -204,6 +204,31 @@ PathResolverPartition *PathResolver::GetPartition(int part_id) {
 }
 
 //
+// Find ResolverRouteState for the given BgpRoute.
+//
+ResolverRouteState *PathResolver::FindResolverRouteState(BgpRoute *route) {
+    ResolverRouteState *state = static_cast<ResolverRouteState *>(
+        route->GetState(table_, listener_id_));
+    return state;
+}
+
+//
+// Find or create ResolverRouteState for the given BgpRoute.
+//
+// Note that the refcount for ResolverRouteState gets incremented when the
+// ResolverPath takes an intrusive_ptr to it.
+//
+ResolverRouteState *PathResolver::LocateResolverRouteState(BgpRoute *route) {
+    ResolverRouteState *state = static_cast<ResolverRouteState *>(
+        route->GetState(table_, listener_id_));
+    if (state) {
+        return state;
+    } else {
+        return (new ResolverRouteState(this, route));
+    }
+}
+
+//
 // Find or create the ResolverNexthop with the given IpAddress.
 // Called when a new ResolverPath is being created.
 //
@@ -684,6 +709,18 @@ void PathResolverPartition::TriggerPathResolution(ResolverPath *rpath) {
 }
 
 //
+// Add a ResolverPath to the update list and start Task to process the list.
+// This is used to defer re-evaluation of the ResolverPath when the update
+// list is being processed.
+//
+void PathResolverPartition::DeferPathResolution(ResolverPath *rpath) {
+    CHECK_CONCURRENCY("bgp::ResolverPath");
+
+    rpath_update_list_.insert(rpath);
+    rpath_update_trigger_->Set();
+}
+
+//
 // Get the BgpTable partition corresponding to this PathResolverPartition.
 //
 DBTablePartBase *PathResolverPartition::table_partition() {
@@ -733,14 +770,16 @@ ResolverPath *PathResolverPartition::RemoveResolverPath(const BgpPath *path) {
 bool PathResolverPartition::ProcessResolverPathUpdateList() {
     CHECK_CONCURRENCY("bgp::ResolverPath");
 
-    for (ResolverPathList::iterator it = rpath_update_list_.begin();
-         it != rpath_update_list_.end(); ++it) {
+    ResolverPathList update_list;
+    rpath_update_list_.swap(update_list);
+    for (ResolverPathList::iterator it = update_list.begin();
+         it != update_list.end(); ++it) {
         ResolverPath *rpath = *it;
         if (rpath->UpdateResolvedPaths())
             delete rpath;
     }
-    rpath_update_list_.clear();
-    return true;
+
+    return rpath_update_list_.empty();
 }
 
 //
@@ -785,17 +824,16 @@ size_t PathResolverPartition::GetResolverPathUpdateListSize() const {
 
 //
 // Constructor for ResolverRouteState.
-// Gets called via static method LocateState when the first ResolverPath for
-// a BgpRoute is created.
+// Gets called when the first ResolverPath for a BgpRoute is created.
 //
 // Set State on the BgpRoute to ensure that it doesn't go away.
 //
-ResolverRouteState::ResolverRouteState(PathResolverPartition *partition,
+ResolverRouteState::ResolverRouteState(PathResolver *resolver,
     BgpRoute *route)
-    : partition_(partition),
+    : resolver_(resolver),
       route_(route),
       refcount_(0) {
-    route_->SetState(partition_->table(), partition_->listener_id(), this);
+    route_->SetState(resolver_->table(), resolver_->listener_id(), this);
 }
 
 //
@@ -806,24 +844,7 @@ ResolverRouteState::ResolverRouteState(PathResolverPartition *partition,
 // Remove State on the BgpRoute so that deletion can proceed.
 //
 ResolverRouteState::~ResolverRouteState() {
-    route_->ClearState(partition_->table(), partition_->listener_id());
-}
-
-//
-// Find or create ResolverRouteState for the given BgpRoute.
-//
-// Note that the refcount for ResolverRouteState gets incremented when the
-// ResolverPath takes an intrusive_ptr to it.
-//
-ResolverRouteState *ResolverRouteState::LocateState(
-    PathResolverPartition *partition, BgpRoute *route) {
-    ResolverRouteState *state = static_cast<ResolverRouteState *>(
-        route->GetState(partition->table(), partition->listener_id()));
-    if (state) {
-        return state;
-    } else {
-        return (new ResolverRouteState(partition, route));
-    }
+    route_->ClearState(resolver_->table(), resolver_->listener_id());
 }
 
 //
@@ -839,7 +860,7 @@ ResolverPath::ResolverPath(PathResolverPartition *partition,
       path_(path),
       route_(route),
       rnexthop_(rnexthop),
-      state_(ResolverRouteState::LocateState(partition, route)) {
+      state_(partition_->resolver()->LocateResolverRouteState(route)) {
     rnexthop->AddResolverPath(partition->part_id(), this);
 }
 
@@ -968,6 +989,24 @@ static ExtCommunityPtr UpdateExtendedCommunity(ExtCommunityDB *extcomm_db,
 //
 bool ResolverPath::UpdateResolvedPaths() {
     CHECK_CONCURRENCY("bgp::ResolverPath");
+
+    // Defer updates if we can't get a write lock on the ResolverRouteState
+    // for the BgpRoute we're trying to modify.
+    tbb::spin_rw_mutex::scoped_lock rt_write_lock;
+    if (!rt_write_lock.try_acquire(state_->rw_mutex(), true)) {
+        partition_->DeferPathResolution(this);
+        return false;
+    }
+
+    // Defer updates if we can't get a read lock on the ResolverRouteState
+    // for the BgpRoute to the ResolverNexthop. This ResolverRouteState will
+    // exist only if the BgpRoute in question itself has resolved paths.
+    tbb::spin_rw_mutex::scoped_lock nh_read_lock;
+    ResolverRouteState *nh_state = rnexthop_->GetResolverRouteState();
+    if (nh_state && !nh_read_lock.try_acquire(nh_state->rw_mutex(), false)) {
+        partition_->DeferPathResolution(this);
+        return false;
+    }
 
     BgpServer *server = partition_->table()->server();
     BgpAttrDB *attr_db = server->attr_db();
@@ -1145,6 +1184,15 @@ void ResolverNexthop::RemoveResolverPath(int part_id, ResolverPath *rpath) {
     rpath_lists_[part_id].erase(rpath);
     if (rpath_lists_[part_id].empty())
         resolver_->RegisterUnregisterResolverNexthop(this);
+}
+
+ResolverRouteState *ResolverNexthop::GetResolverRouteState() {
+    if (!route_)
+        return NULL;
+    PathResolver *nh_resolver = table_->path_resolver();
+    if (!nh_resolver)
+        return NULL;
+    return nh_resolver->FindResolverRouteState(route_);
 }
 
 //
