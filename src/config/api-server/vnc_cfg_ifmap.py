@@ -1670,13 +1670,7 @@ class VncDbClient(object):
     def build_shared_index(oper):
         def wrapper1(func):
             def wrapper2(self, obj_type, obj_ids, obj_dict):
-
                 obj_uuid = obj_ids['uuid']
-                try:
-                    fq_name = self.uuid_to_fq_name(obj_uuid)
-                except NoIdError as e:
-                    fq_name = obj_dict['fq_name']
-
                 # fetch current share information to identify what might have changed
                 try:
                     cur_perms2 = self.uuid_to_obj_perms2(obj_uuid)
