@@ -8,7 +8,6 @@
 #include <boost/shared_ptr.hpp>
 
 #include "cfg/cfg_init.h"
-#include "cfg/cfg_interface.h"
 #include "oper/operdb_init.h"
 #include "oper/agent_path.h"
 #include "oper/path_preference.h"

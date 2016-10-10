@@ -42,9 +42,9 @@ public:
     virtual bool OnInterfaceConfigStaleTimeout(int32_t version);
 
 private:
-    void CfgIntfWalkDone(int32_t version);
-    bool CfgIntfWalk(DBTablePartBase *partition, DBEntryBase *entry,
-                     int32_t version);
+    void WalkDone(int32_t version);
+    bool WalkNotify(DBTablePartBase *partition, DBEntryBase *entry,
+                    int32_t version);
 
     DBTableWalker::WalkId walkid_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceConfigStaleCleaner);

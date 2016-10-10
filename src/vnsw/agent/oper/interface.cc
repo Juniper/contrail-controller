@@ -18,7 +18,6 @@
 
 #include <init/agent_param.h>
 #include <cfg/cfg_init.h>
-#include <cfg/cfg_interface.h>
 #include <oper/operdb_init.h>
 #include <oper/route_common.h>
 #include <oper/vm.h>

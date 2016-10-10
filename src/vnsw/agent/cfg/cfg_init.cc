@@ -74,12 +74,13 @@ AgentConfig::~AgentConfig() {
 }
 
 void AgentConfig::CreateDBTables(DB *db) {
-    CfgIntTable *table;
-
-    DB::RegisterFactory("db.cfg_int.0", &CfgIntTable::CreateTable);
-    table = static_cast<CfgIntTable *>(db->CreateTable("db.cfg_int.0"));
-    assert(table);
-    agent_->set_interface_config_table(table);
+    DB::RegisterFactory("db.interface_config.0",
+                        &InterfaceConfigTable::CreateTable);
+    InterfaceConfigTable *intf_cfg_table = static_cast<InterfaceConfigTable *>
+        (db->CreateTable("db.interface_config.0"));
+    assert(intf_cfg_table);
+    intf_cfg_table->set_agent(agent_);
+    agent_->set_interface_config_table(intf_cfg_table);
 
     // Create parser once we know the db
     cfg_parser_ = std::auto_ptr<IFMapAgentParser>(new IFMapAgentParser(db));
@@ -236,10 +237,6 @@ void AgentConfig::Shutdown() {
 
     cfg_mirror_table_->Shutdown();
     cfg_intf_mirror_table_->Shutdown();
-
-    agent_->db()->RemoveTable(agent_->interface_config_table());
-    delete agent_->interface_config_table();
-    agent_->set_interface_config_table(NULL);
 
     agent_->set_ifmap_parser(NULL);
 

@@ -666,21 +666,22 @@ static void BuildSgList(VmInterfaceConfigData *data, IFMapNode *node) {
 }
 
 static void BuildVn(VmInterfaceConfigData *data, IFMapNode *node,
-                    const boost::uuids::uuid &u, CfgIntEntry *cfg_entry) {
+                    const boost::uuids::uuid &u,
+                    InterfaceConfigVmiEntry *cfg_entry) {
     VirtualNetwork *vn = static_cast<VirtualNetwork *>
         (node->GetObject());
     assert(vn);
     autogen::IdPermsType id_perms = vn->id_perms();
     CfgUuidSet(id_perms.uuid.uuid_mslong,
                id_perms.uuid.uuid_lslong, data->vn_uuid_);
-    if (cfg_entry && (cfg_entry->GetVnUuid() != data->vn_uuid_)) {
+    if (cfg_entry && (cfg_entry->vn_uuid() != data->vn_uuid_)) {
         IFMAP_ERROR(InterfaceConfiguration, 
                     "Virtual-network UUID mismatch for interface:",
                     UuidToString(u),
                     "configuration VN uuid",
                     UuidToString(data->vn_uuid_),
                     "compute VN uuid",
-                    UuidToString(cfg_entry->GetVnUuid()));
+                    UuidToString(cfg_entry->vn_uuid()));
     }
 }
 
@@ -694,7 +695,8 @@ static void BuildQosConfig(VmInterfaceConfigData *data, IFMapNode *node) {
 }
 
 static void BuildVm(VmInterfaceConfigData *data, IFMapNode *node,
-                    const boost::uuids::uuid &u, CfgIntEntry *cfg_entry) {
+                    const boost::uuids::uuid &u,
+                    InterfaceConfigVmiEntry *cfg_entry) {
     VirtualMachine *vm = static_cast<VirtualMachine *>
         (node->GetObject());
     assert(vm);
@@ -702,14 +704,14 @@ static void BuildVm(VmInterfaceConfigData *data, IFMapNode *node,
     autogen::IdPermsType id_perms = vm->id_perms();
     CfgUuidSet(id_perms.uuid.uuid_mslong,
                id_perms.uuid.uuid_lslong, data->vm_uuid_);
-    if (cfg_entry && (cfg_entry->GetVmUuid() != data->vm_uuid_)) {
+    if (cfg_entry && (cfg_entry->vm_uuid() != data->vm_uuid_)) {
         IFMAP_ERROR(InterfaceConfiguration, 
                     "Virtual-machine UUID mismatch for interface:",
                     UuidToString(u),
                     "configuration VM UUID is",
                     UuidToString(data->vm_uuid_),
                     "compute VM uuid is",
-                    UuidToString(cfg_entry->GetVmUuid()));
+                    UuidToString(cfg_entry->vm_uuid()));
     }
 }
 
@@ -982,7 +984,8 @@ static void UpdateAttributes(Agent *agent, VmInterfaceConfigData *data) {
 }
 
 static void ComputeTypeInfo(Agent *agent, VmInterfaceConfigData *data,
-                            CfgIntEntry *cfg_entry, PhysicalRouter *prouter,
+                            InterfaceConfigVmiEntry *cfg_entry,
+                            PhysicalRouter *prouter,
                             IFMapNode *node, IFMapNode *logical_node) {
     if (cfg_entry != NULL) {
         // Have got InstancePortAdd message. Treat it as VM_ON_TAP by default
@@ -1126,10 +1129,10 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
 
     assert(!u.is_nil());
     // Get the entry from Interface Config table
-    CfgIntTable *cfg_table = agent_->interface_config_table();
-    CfgIntKey cfg_key(u);
-    CfgIntEntry *cfg_entry =
-        static_cast <CfgIntEntry *>(cfg_table->Find(&cfg_key));
+    InterfaceConfigTable *ipc_table = agent_->interface_config_table();
+    InterfaceConfigVmiKey ipc_key(u);
+    InterfaceConfigVmiEntry *cfg_entry =
+        static_cast <InterfaceConfigVmiEntry *>(ipc_table->Find(&ipc_key));
 
     // Update interface configuration
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;

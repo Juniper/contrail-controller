@@ -14,7 +14,6 @@
 #include <agent_types.h>
 
 #include <cfg/cfg_init.h>
-#include <cfg/cfg_interface.h>
 #include <cfg/cfg_mirror.h>
 
 #include <oper/route_common.h>

@@ -4,8 +4,8 @@
 
 #include <port_ipc/config_stale_cleaner.h>
 #include <cfg/cfg_init.h>
-#include <cfg/cfg_interface.h>
 #include <cfg/cfg_types.h>
+#include <cfg/cfg_interface.h>
 #include <port_ipc/port_ipc_handler.h>
 
 ConfigStaleCleaner::ConfigStaleCleaner(Agent *agent, TimerCallback callback) :
@@ -63,38 +63,43 @@ InterfaceConfigStaleCleaner::OnInterfaceConfigStaleTimeout(int32_t version) {
     }
 
     walkid_ = walker->WalkTable(agent_->interface_config_table(), NULL,
-              boost::bind(&InterfaceConfigStaleCleaner::CfgIntfWalk, this,
+              boost::bind(&InterfaceConfigStaleCleaner::WalkNotify, this,
                           _1, _2, version),
-              boost::bind(&InterfaceConfigStaleCleaner::CfgIntfWalkDone, this,
+              boost::bind(&InterfaceConfigStaleCleaner::WalkDone, this,
                           version));
     CFG_TRACE(IntfInfo, "InterfaceConfigStaleCleaner Walk invoked.");
     return false;
 }
 
-bool InterfaceConfigStaleCleaner::CfgIntfWalk(DBTablePartBase *partition,
-                                              DBEntryBase *entry,
-                                              int32_t version) {
-    const CfgIntEntry *cfg_intf = static_cast<const CfgIntEntry *>(entry);
-
-    if (cfg_intf->port_type() == CfgIntEntry::CfgIntNameSpacePort) {
+bool InterfaceConfigStaleCleaner::WalkNotify(DBTablePartBase *partition,
+                                             DBEntryBase *e,
+                                             int32_t version) {
+    const InterfaceConfigEntry *ipc = static_cast<const InterfaceConfigEntry *>(e);
+    const InterfaceConfigVmiEntry *entry =
+        dynamic_cast<const InterfaceConfigVmiEntry *>(e);
+    if (entry == NULL) {
         CFG_TRACE(IntfInfo, "CfgIntfStaleWalk Skipping the delete of "
-                "port type  " +
-                cfg_intf->CfgIntTypeToString(cfg_intf->port_type()));
+                "key type " + ipc->TypeToString(ipc->key_type()))
+    }
+
+    if (entry->vmi_type() == InterfaceConfigVmiEntry::NAMESPACE_PORT) {
+        CFG_TRACE(IntfInfo, "CfgIntfStaleWalk Skipping the delete of "
+                "port type  " + entry->VmiTypeToString(entry->vmi_type()));
         return true;
     }
 
-    if (cfg_intf->GetVersion() < version) {
+    if (entry->version() < version) {
         PortIpcHandler *pih = agent_->port_ipc_handler();
         if (!pih) {
             return true;
         }
         std::string msg;
-        pih->DeletePort(UuidToString(cfg_intf->GetUuid()), msg);
+        pih->DeleteVmiUuidEntry(entry->vmi_uuid(), msg);
     }
     return true;
 }
 
-void InterfaceConfigStaleCleaner::CfgIntfWalkDone(int32_t version) {
+void InterfaceConfigStaleCleaner::WalkDone(int32_t version) {
     walkid_ = DBTableWalker::kInvalidWalkerId;
     CFG_TRACE(IntfWalkDone, version);
 }

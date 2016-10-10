@@ -262,7 +262,7 @@ public:
         }
     };
 
-    void CfgNotify(DBTablePartBase *partition, DBEntryBase *e) {
+    void PortIpcNotify(DBTablePartBase *partition, DBEntryBase *e) {
         cfg_notify_++;
     };
 
@@ -561,7 +561,7 @@ public:
     }
 
     void Init() {
-        Agent::GetInstance()->interface_config_table()->Register(boost::bind(&TestClient::CfgNotify, 
+        Agent::GetInstance()->interface_config_table()->Register(boost::bind(&TestClient::PortIpcNotify, 
                                                    this, _1, _2));
         Agent::GetInstance()->vn_table()->Register(boost::bind(&TestClient::VnNotify, 
                                                    this, _1, _2));

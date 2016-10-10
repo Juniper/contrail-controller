@@ -102,21 +102,26 @@ void AgentIfMapXmppChannel::WriteReadyCb(const boost::system::error_code &ec) {
 }
 
 void AgentIfMapVmExport::Notify(DBTablePartBase *partition, DBEntryBase *e) {
-    CfgIntEntry *entry = static_cast<CfgIntEntry *>(e);
+    InterfaceConfigVmiEntry *entry = dynamic_cast<InterfaceConfigVmiEntry *>(e);
+    if (entry == NULL) {
+        CONTROLLER_TRACE(IFMapVmExportTrace, "PortIpc type ",
+                         InterfaceConfigEntry::TypeToString(entry->key_type()),
+                         " Ignoring");
+        return;
+    }
+
     AgentXmppChannel *peer = NULL;
     AgentIfMapXmppChannel *ifmap = NULL;
     struct VmExportInfo *info = NULL;
 
-    std::stringstream vmid, vmiid;
-    vmid << entry->GetVmUuid();
-    vmiid << entry->GetUuid();
-    if (entry->port_type() == CfgIntEntry::CfgIntNameSpacePort) {
-        CONTROLLER_TRACE(IFMapVmExportTrace, vmid.str(), "NameSpacePort",
+    if (entry->vmi_type() == InterfaceConfigVmiEntry::NAMESPACE_PORT) {
+        CONTROLLER_TRACE(IFMapVmExportTrace, UuidToString(entry->vm_uuid()),
+                         "NameSpacePort",
                          "Ignore Sending Subscribe/Unsubscribe");
         return;
     }
 
-    VmMap::iterator vm_it = vm_map_.find(entry->GetVmUuid());
+    VmMap::iterator vm_it = vm_map_.find(entry->vm_uuid());
     if (vm_map_.end() != vm_it) {
         info = vm_it->second;
     }
@@ -128,7 +133,7 @@ void AgentIfMapVmExport::Notify(DBTablePartBase *partition, DBEntryBase *e) {
             return;
 
         std::list<boost::uuids::uuid>::iterator vmi_it = std::find(info->vmi_list_.begin(), 
-                    info->vmi_list_.end(), entry->GetUuid());
+                    info->vmi_list_.end(), entry->vmi_uuid());
         if (vmi_it == info->vmi_list_.end())
             return;
 
@@ -139,19 +144,20 @@ void AgentIfMapVmExport::Notify(DBTablePartBase *partition, DBEntryBase *e) {
             if (AgentXmppChannel::IsBgpPeerActive(agent_, peer) && ifmap) {
                 if ((info->seq_number_ == ifmap->GetSeqNumber()) && 
                                         (info->vmi_list_.size() == 1)) {
-                    CONTROLLER_TRACE(IFMapVmExportTrace, vmid.str(), "",
-                            "Unsubscribe ");
+                    CONTROLLER_TRACE(IFMapVmExportTrace,
+                                     UuidToString(entry->vm_uuid()), "",
+                                     "Unsubscribe ");
                     AgentXmppChannel::ControllerSendVmCfgSubscribe(peer, 
-                                                entry->GetVmUuid(), false);
+                                                entry->vm_uuid(), false);
                 }
             }
         }
 
-        CONTROLLER_TRACE(IFMapVmExportTrace, vmid.str(), vmiid.str(),
-                         "Delete");
-        info->vmi_list_.remove(entry->GetUuid());
+        CONTROLLER_TRACE(IFMapVmExportTrace, UuidToString(entry->vm_uuid()),
+                         UuidToString(entry->vmi_uuid()), "Delete");
+        info->vmi_list_.remove(entry->vmi_uuid());
         if (!info->vmi_list_.size()) {
-            vm_map_.erase(entry->GetVmUuid());
+            vm_map_.erase(entry->vm_uuid());
             delete info;
         }
         return;
@@ -161,17 +167,17 @@ void AgentIfMapVmExport::Notify(DBTablePartBase *partition, DBEntryBase *e) {
         if (!info) {
             info = new struct VmExportInfo;
             info->seq_number_ = 0;
-            vm_map_[entry->GetVmUuid()] = info;
+            vm_map_[entry->vm_uuid()] = info;
         }
 
         //If VMI is not found, insert in the list
         std::list<boost::uuids::uuid>::iterator vmi_it = std::find(info->vmi_list_.begin(), 
-                    info->vmi_list_.end(), entry->GetUuid());
+                    info->vmi_list_.end(), entry->vmi_uuid());
 
         if (vmi_it == info->vmi_list_.end()) {
-            CONTROLLER_TRACE(IFMapVmExportTrace, vmid.str(), vmiid.str(),
-                         "Add");
-            info->vmi_list_.push_back(entry->GetUuid());
+            CONTROLLER_TRACE(IFMapVmExportTrace, UuidToString(entry->vm_uuid()),
+                             UuidToString(entry->vmi_uuid()), "Add");
+            info->vmi_list_.push_back(entry->vmi_uuid());
         }
 
 
@@ -196,10 +202,10 @@ void AgentIfMapVmExport::Notify(DBTablePartBase *partition, DBEntryBase *e) {
             return;
         }
 
-        CONTROLLER_TRACE(IFMapVmExportTrace, vmid.str(), vmiid.str(),
-                         "Subscribe");
+        CONTROLLER_TRACE(IFMapVmExportTrace, UuidToString(entry->vm_uuid()),
+                         UuidToString(entry->vmi_uuid()), "Subscribe");
         AgentXmppChannel::ControllerSendVmCfgSubscribe(peer, 
-                                    entry->GetVmUuid(), true);
+                                    entry->vm_uuid(), true);
 
         //Update the sequence number
         info->seq_number_ = ifmap->GetSeqNumber();
@@ -232,9 +238,7 @@ void AgentIfMapVmExport::NotifyAll(AgentXmppChannel *peer) {
             continue;
         }
 
-        std::stringstream vmid;
-        vmid << vm_it->first;
-        CONTROLLER_TRACE(IFMapVmExportTrace, vmid.str(), "",
+        CONTROLLER_TRACE(IFMapVmExportTrace, UuidToString(vm_it->first), "",
                          "Subscribe");
         AgentXmppChannel::ControllerSendVmCfgSubscribe(peer, 
                                     vm_it->first, true);

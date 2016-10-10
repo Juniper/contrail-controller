@@ -9,7 +9,6 @@
 #include <pugixml/pugixml.hpp>
 
 #include <cfg/cfg_init.h>
-#include <cfg/cfg_interface.h>
 #include <oper/operdb_init.h>
 #include <controller/controller_init.h>
 #include <pkt/pkt_init.h>
@@ -537,16 +536,18 @@ void NovaMsgProcess (xml_document &xdoc, pair<xml_node, GroupEntry *> node, bool
 
     DumpXmlNode(parent);
 
-    CfgIntKey *key = new CfgIntKey(port_id);
+    InterfaceConfigVmiKey *key = new InterfaceConfigVmiKey(port_id);
 
     DBRequest req;
     if (create) {
-        CfgIntData *data = new CfgIntData();
         boost::system::error_code ec;
         Ip4Address ip = Ip4Address::from_string(ipaddr, ec);
-        data->Init(vm_id, vn_id, project_id, tap_intf, ip, Ip6Address(), mac, "",
-                   VmInterface::kInvalidVlanId, VmInterface::kInvalidVlanId,
-                   CfgIntEntry::CfgIntVMPort, 0);
+        InterfaceConfigVmiData *data =
+            new InterfaceConfigVmiData(InterfaceConfigVmiEntry::VM_INTERFACE,
+                                       tap_intf, vm_id, vn_id, project_id, ip,
+                                       Ip6Address(), mac, "",
+                                       VmInterface::kInvalidVlanId,
+                                       VmInterface::kInvalidVlanId, 0);
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         req.key.reset(key);
         req.data.reset(data);

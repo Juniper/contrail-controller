@@ -14,7 +14,6 @@
 #include "net/address_util.h"
 
 #include <cfg/cfg_init.h>
-#include <cfg/cfg_interface.h>
 #include <cmn/agent.h>
 #include <init/agent_param.h>
 #include <oper/operdb_init.h>

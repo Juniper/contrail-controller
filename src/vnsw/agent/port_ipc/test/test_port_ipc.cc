@@ -22,8 +22,8 @@ class PortIpcTest : public ::testing::Test {
      Agent *agent() { return agent_; }
      bool AddPort(PortIpcHandler &pih, PortIpcHandler::AddPortParams &req) {
          string err_msg;
-         if (pih.CanAdd(req, false, err_msg)) {
-             return pih.AddPort(req, err_msg);
+         if (pih.CanAddVmiUuidEntry(req, false, err_msg)) {
+             return pih.AddVmiUuidEntry(req, err_msg);
          }
          return false;
      }
@@ -53,7 +53,7 @@ class PortIpcTest : public ::testing::Test {
              if (!IsUUID(pih, p.filename().string())) {
                  continue;
              }
-             pih.DeletePort(p.filename().string(), err_str);
+             pih.DeletePort("{ }", p.filename().string(), err_str);
          }
      }
 
@@ -65,9 +65,9 @@ class PortIpcTest : public ::testing::Test {
 TEST_F(PortIpcTest, Port_Add_Del) {
 
     const string dir = "/tmp/";
-    CfgIntTable *ctable = agent()->interface_config_table();
-    assert(ctable);
-    uint32_t port_count = ctable->Size();
+    InterfaceConfigTable *table = agent()->interface_config_table();
+    assert(table);
+    uint32_t port_count = table->Size();
     std::string err_str;
 
     PortIpcHandler::AddPortParams req("ea73b285-01a7-4d3e-8322-50976e8913da",
@@ -78,20 +78,17 @@ TEST_F(PortIpcTest, Port_Add_Del) {
     PortIpcHandler pih(agent(), dir);
     AddPort(pih, req);
     client->WaitForIdle(2);
-    WAIT_FOR(500, 1000, ((port_count + 1) == ctable->Size()));
+    WAIT_FOR(500, 1000, ((port_count + 1) == table->Size()));
 
-    pih.DeletePort(req.port_id, err_str);
+    pih.DeletePort("{ }", req.port_id, err_str);
     client->WaitForIdle(2);
-    WAIT_FOR(500, 1000, ((port_count) == ctable->Size()));
+    WAIT_FOR(500, 1000, ((port_count) == table->Size()));
 }
 
 /* Verify that AddPort fails when IPv6 Ip is sent in IPv4 address field */
 TEST_F(PortIpcTest, Port_Add_Invalid_Ip) {
 
     const string dir = "/tmp/";
-    CfgIntTable *ctable = agent()->interface_config_table();
-    assert(ctable);
-
     PortIpcHandler::AddPortParams req("ea73b285-01a7-4d3e-8322-50976e8913da",
         "ea73b285-01a7-4d3e-8322-50976e8913db",
         "fa73b285-01a7-4d3e-8322-50976e8913de",
@@ -106,9 +103,8 @@ TEST_F(PortIpcTest, Port_Add_Invalid_Ip) {
 TEST_F(PortIpcTest, PortReload) {
 
     const string dir = "controller/src/vnsw/agent/port_ipc/test/";
-    CfgIntTable *ctable = agent()->interface_config_table();
-    assert(ctable);
-    uint32_t port_count = ctable->Size();
+    InterfaceConfigTable *table = agent()->interface_config_table();
+    uint32_t port_count = table->Size();
 
     //There are 2 files present in controller/src/vnsw/agent/port_ipc/test/
     PortIpcHandler pih(agent(), dir);
@@ -116,44 +112,42 @@ TEST_F(PortIpcTest, PortReload) {
     client->WaitForIdle(2);
 
     // Port count should increase by 2 as we have 2 ports
-    WAIT_FOR(500, 1000, ((port_count + 2) == ctable->Size()));
+    WAIT_FOR(500, 1000, ((port_count + 2) == table->Size()));
 
     //cleanup
     DeleteAllPorts(dir);
     client->WaitForIdle(2);
-    WAIT_FOR(500, 1000, ((port_count) == ctable->Size()));
+    WAIT_FOR(500, 1000, ((port_count) == table->Size()));
 }
 
 /* Add/delete a port */
 TEST_F(PortIpcTest, Vcenter_Port_Add_Del) {
 
     const string dir = "/tmp/";
-    CfgIntTable *ctable = agent()->interface_config_table();
-    assert(ctable);
-    uint32_t port_count = ctable->Size();
+    InterfaceConfigTable *table = agent()->interface_config_table();
+    uint32_t port_count = table->Size();
     std::string err_str;
 
     PortIpcHandler::AddPortParams req("ea73b285-01a7-4d3e-8322-50976e8913da",
         "ea73b285-01a7-4d3e-8322-50976e8913db",
         "fa73b285-01a7-4d3e-8322-50976e8913de",
         "b02a3bfb-7946-4b1c-8cc4-bf8cedcbc48d", "vm1", "tap1af4bee3-04",
-        "11.0.0.3", "", "02:1a:f4:be:e3:04", CfgIntEntry::CfgIntRemotePort,
+        "11.0.0.3", "", "02:1a:f4:be:e3:04", InterfaceConfigVmiEntry::REMOTE_PORT,
         -1, -1);
     PortIpcHandler pih(agent(), dir);
     AddPort(pih, req);
     client->WaitForIdle(2);
-    WAIT_FOR(500, 1000, ((port_count + 1) == ctable->Size()));
+    WAIT_FOR(500, 1000, ((port_count + 1) == table->Size()));
 
-    pih.DeletePort(req.port_id, err_str);
+    pih.DeletePort("{ }", req.port_id, err_str);
     client->WaitForIdle(2);
-    WAIT_FOR(500, 1000, ((port_count) == ctable->Size()));
+    WAIT_FOR(500, 1000, ((port_count) == table->Size()));
 }
 
 TEST_F(PortIpcTest, Port_Sync) {
     const string dir = "/tmp/";
-    CfgIntTable *ctable = agent()->interface_config_table();
-    assert(ctable);
-    uint32_t port_count = ctable->Size();
+    InterfaceConfigTable *table = agent()->interface_config_table();
+    uint32_t port_count = table->Size();
     PortIpcHandler *ipc = agent()->port_ipc_handler();
     std::string err_str;
 
@@ -168,7 +162,7 @@ TEST_F(PortIpcTest, Port_Sync) {
         "11.0.0.3", "", "02:1a:f4:be:e3:04", 0, -1, -1);
     AddPort(pih, req);
     client->WaitForIdle(2);
-    WAIT_FOR(500, 1000, ((port_count + 1) == ctable->Size()));
+    WAIT_FOR(500, 1000, ((port_count + 1) == table->Size()));
 
     //Add one more port
     PortIpcHandler::AddPortParams req2("ea73b285-01a7-4d3e-8322-50976e8913db",
@@ -178,7 +172,7 @@ TEST_F(PortIpcTest, Port_Sync) {
         "11.0.0.4", "", "02:1a:f4:be:e3:05", 0, -1, -1);
     AddPort(pih, req2);
     client->WaitForIdle(2);
-    WAIT_FOR(500, 1000, ((port_count + 2) == ctable->Size()));
+    WAIT_FOR(500, 1000, ((port_count + 2) == table->Size()));
 
     InterfaceConfigStaleCleaner *cleaner = pih.interface_stale_cleaner();
     EXPECT_TRUE(cleaner != NULL);
@@ -189,12 +183,12 @@ TEST_F(PortIpcTest, Port_Sync) {
 
     WAIT_FOR(1000, 1000, (cleaner->TimersCount() == 0));
     client->WaitForIdle(2);
-    WAIT_FOR(500, 1000, ((port_count + 1) == ctable->Size()));
+    WAIT_FOR(500, 1000, ((port_count + 1) == table->Size()));
     //cleanup
     cleaner->set_timeout(ConfigStaleCleaner::kConfigStaleTimeout);
-    pih.DeletePort(req2.port_id, err_str);
+    pih.DeletePort("{ }", req2.port_id, err_str);
     client->WaitForIdle(2);
-    WAIT_FOR(500, 1000, ((port_count) == ctable->Size()));
+    WAIT_FOR(500, 1000, ((port_count) == table->Size()));
     agent()->set_port_ipc_handler(ipc);
 }
 

@@ -14,6 +14,7 @@
 #include "uve/test/vn_uve_table_test.h"
 #include "uve/agent_uve_stats.h"
 #include <cfg/cfg_types.h>
+#include <port_ipc/port_ipc_handler.h>
 
 #define MAX_TESTNAME_LEN 80
 
@@ -533,8 +534,7 @@ void IntfSyncMsg(PortInfo *input, int id) {
 void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
                 int vm_id, int vn_id, const string &mac, uint16_t vlan,
                 const string ip6addr, int project_id) {
-    CfgIntKey *key = new CfgIntKey(MakeUuid(intf_id));
-    CfgIntData *data = new CfgIntData();
+    InterfaceConfigVmiKey *key = new InterfaceConfigVmiKey(MakeUuid(intf_id));
     boost::system::error_code ec;
     Ip4Address ip = Ip4Address::from_string(ipaddr, ec);
     char vm_name[MAX_TESTNAME_LEN];
@@ -543,9 +543,11 @@ void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
     if (!ip6addr.empty()) {
         ip6 = Ip6Address::from_string(ip6addr, ec);
     }
-    data->Init(MakeUuid(vm_id), MakeUuid(vn_id), MakeUuid(project_id),
-               name, ip, ip6, mac, vm_name, vlan, vlan,
-               CfgIntEntry::CfgIntVMPort, 0);
+    InterfaceConfigVmiData *data =
+        new InterfaceConfigVmiData(InterfaceConfigVmiEntry::VM_INTERFACE,
+                                   name, MakeUuid(vm_id), MakeUuid(vn_id),
+                                   MakeUuid(project_id), ip, ip6, mac, vm_name,
+                                   vlan, vlan, 0);
 
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -569,40 +571,32 @@ void IntfCfgAdd(PortInfo *input, int id) {
 }
 
 void IntfCfgAddThrift(PortInfo *input, int id) {
-    AddPortReq *port_req = new AddPortReq();
     std::stringstream vm_ss;
     vm_ss << "vm" << input[id].vm_id;
-    string tap_name = input[id].name;
-    uint16_t tx_vlan_id = VmInterface::kInvalidVlanId;
-    uint16_t rx_vlan_id = VmInterface::kInvalidVlanId;
-    int16_t port_type = CfgIntEntry::CfgIntVMPort;
-    std::string port_uuid = UuidToString(MakeUuid(input[id].intf_id));
-    std::string instance_uuid = UuidToString(MakeUuid(input[id].vm_id));
-    std::string vn_uuid = UuidToString(MakeUuid(input[id].vn_id));
-    std::string vm_project_uuid = UuidToString(MakeUuid(kProjectUuid));
-    //Set all parameters
-    port_req->set_port_uuid(port_uuid);
-    port_req->set_instance_uuid(instance_uuid);
-    port_req->set_vn_uuid(vn_uuid);
-    port_req->set_vm_name(vm_ss.str());
-    port_req->set_vm_project_uuid(vm_project_uuid);
-    port_req->set_tap_name(input[id].name);
-    port_req->set_ip_address(input[id].addr);
-    port_req->set_ip6_address(input[id].ip6addr);
-    port_req->set_mac_address(input[id].mac);
-    port_req->set_rx_vlan_id(rx_vlan_id);
-    port_req->set_tx_vlan_id(tx_vlan_id);
-    port_req->set_port_type(port_type);
+    Ip4Address ip4;
+    Ip6Address ip6;
+    if (input[id].addr != string(""))
+        ip4 = Ip4Address::from_string(input[id].addr);
+    if (input[id].ip6addr != string(""))
+        ip6 = Ip6Address::from_string(input[id].ip6addr);
 
-    port_req->HandleRequest();
-    client->WaitForIdle();
-    port_req->Release();
-    client->WaitForIdle();
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new InterfaceConfigVmiKey(MakeUuid(input[id].intf_id)));
+    InterfaceConfigVmiData *data =
+        new InterfaceConfigVmiData(InterfaceConfigVmiEntry::VM_INTERFACE,
+                                   input[id].name, MakeUuid(input[id].vm_id),
+                                   MakeUuid(input[id].vn_id),
+                                   MakeUuid(kProjectUuid), ip4, ip6,
+                                   input[id].mac, vm_ss.str(),
+                                   VmInterface::kInvalidVlanId,
+                                   VmInterface::kInvalidVlanId, 0);
+    req.data.reset(data);
+    Agent::GetInstance()->interface_config_table()->Enqueue(&req);
 }
 
 void IntfCfgDel(int id) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
-    req.key.reset(new CfgIntKey(MakeUuid(id)));
+    req.key.reset(new InterfaceConfigVmiKey(MakeUuid(id)));
     req.data.reset(NULL);
     Agent::GetInstance()->interface_config_table()->Enqueue(&req);
     usleep(1000);
@@ -796,9 +790,9 @@ InetInterface *InetInterfaceGet(const char *ifname) {
     return static_cast<InetInterface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
 }
 
-CfgIntEntry *CfgPortGet(boost::uuids::uuid u) {
-    CfgIntKey key(u);
-    return static_cast<CfgIntEntry *>(Agent::GetInstance()->
+InterfaceConfigVmiEntry *CfgPortGet(boost::uuids::uuid u) {
+    InterfaceConfigVmiKey key(u);
+    return static_cast<InterfaceConfigVmiEntry *>(Agent::GetInstance()->
         interface_config_table()->Find(&key));
 }
 

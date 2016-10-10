@@ -175,7 +175,7 @@ class InetUnicastAgentRouteTable;
 class Inet4MulticastAgentRouteTable;
 class EvpnAgentRouteTable;
 class BridgeAgentRouteTable;
-class CfgIntTable;
+class InterfaceConfigTable;
 class AclTable;
 class MirrorTable;
 class VrfAssignTable;
@@ -404,9 +404,9 @@ public:
         vxlan_table_ = table;
     }
     
-    CfgIntTable *interface_config_table() const {return intf_cfg_table_;}
-    void set_interface_config_table(CfgIntTable *table) {
-        intf_cfg_table_ = table;
+    InterfaceConfigTable *interface_config_table() const {return interface_config_table_;}
+    void set_interface_config_table(InterfaceConfigTable *table) {
+        interface_config_table_ = table;
     }
 
     ForwardingClassTable *forwarding_class_table() const {
@@ -1153,7 +1153,7 @@ private:
     IntfMirrorCfgTable *intf_mirror_cfg_table_;
     
     // Config DB Table handles
-    CfgIntTable *intf_cfg_table_;
+    InterfaceConfigTable *interface_config_table_;
 
     Ip4Address router_id_;
     uint32_t prefix_len_;
