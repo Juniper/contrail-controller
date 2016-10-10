@@ -214,6 +214,17 @@ systemlog sandesh IFMapSmTransitionMessage {
 
 /**
  * @description: System log for IFMap module
+ * @severity: DEBUG
+ * @cause: Normal operation
+ */
+systemlog sandesh ConfigCassSmTransitionMessage {
+    1: string from_state
+    2: string to
+    3: string to_state
+}
+
+/**
+ * @description: System log for IFMap module
  * @severity: ERROR
  * @cause: VM messages are being received for unknown virtual router
  * @action: Contact your technical support representative
@@ -579,6 +590,16 @@ trace sandesh IFMapSmExpiredTimerMessageTrace {
  * @severity: DEBUG
  */
 trace sandesh IFMapSmTransitionMessageTrace {
+    1: string from_state
+    2: string to
+    3: string to_state
+}
+
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
+trace sandesh ConfigCassSmTransitionMessageTrace {
     1: string from_state
     2: string to
     3: string to_state
