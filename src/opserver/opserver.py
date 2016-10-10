@@ -608,9 +608,9 @@ class OpServer(object):
                          "attributes":attributes}
             stat_tables.append(new_table)
 
-        # read all the json files for remaining stat table schema
+        # read all the _stats_tables.json files for remaining stat table schema
         topdir = '/usr/share/doc/contrail-docs/html/messages/'
-        extn = '.json'
+        extn = '_stats_tables.json'
         stat_schema_files = []
         for dirpath, dirnames, files in os.walk(topdir):
             for name in files:
