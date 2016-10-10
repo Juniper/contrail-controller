@@ -47,6 +47,155 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         logger.addHandler(ch)
         super(TestIpAlloc, self).__init__(*args, **kwargs)
 
+    def test_subnet_overlap(self):
+        project = Project('v4-proj-%s' %(self.id()), Domain())
+        self._vnc_lib.project_create(project)
+
+        ipam0_v4 = IpamSubnetType(subnet=SubnetType('10.1.2.0', 23))
+        ipam0_v4_overlap = IpamSubnetType(subnet=SubnetType('10.1.3.248', 28))
+        
+        ipam1_v4 = IpamSubnetType(subnet=SubnetType('11.1.2.0', 23))
+        ipam1_v4_overlap = IpamSubnetType(subnet=SubnetType('11.1.3.248', 28))
+        
+        ipam2_v4 = IpamSubnetType(subnet=SubnetType('12.1.2.0', 23))
+        ipam2_v4_overlap = IpamSubnetType(subnet=SubnetType('12.1.3.248', 28))
+
+        ipam3_v4 = IpamSubnetType(subnet=SubnetType('13.1.2.0', 23))
+        ipam3_v4_overlap = IpamSubnetType(subnet=SubnetType('13.1.3.248', 28))
+
+        ipam4_v4 = IpamSubnetType(subnet=SubnetType('14.1.2.0', 23))
+        ipam4_v4_overlap = IpamSubnetType(subnet=SubnetType('14.1.3.248', 28))
+
+        ipam5_v4 = IpamSubnetType(subnet=SubnetType('15.1.2.0', 23))
+        ipam5_v4_overlap = IpamSubnetType(subnet=SubnetType('15.1.3.248', 28))
+
+        #create four ipams with different subnet methods
+        #(none, user-defined and two flat)
+        #ipam0 without subnet-method (default is user-defined-subnet)
+        ipam0 = NetworkIpam('ipam0', project, IpamType("dhcp"))
+        self._vnc_lib.network_ipam_create(ipam0)
+        ipam0_uuid=ipam0.uuid
+
+        #ipam1 with user-defined-subnet
+        ipam1 = NetworkIpam('ipam1', project, IpamType("dhcp"),
+                            ipam_subnet_method="user-defined-subnet")
+        self._vnc_lib.network_ipam_create(ipam1)
+        ipam1_uuid=ipam1.uuid
+
+        #ipam2 with flat-subnet
+        ipam2 = NetworkIpam('ipam2', project, IpamType("dhcp"),
+                            ipam_subnet_method="flat-subnet")
+        self._vnc_lib.network_ipam_create(ipam2)
+        ipam2_uuid=ipam2.uuid
+
+        #ipam3 with flat-subnet
+        ipam3 = NetworkIpam('ipam3', project, IpamType("dhcp"),
+                            ipam_subnet_method="flat-subnet")
+        self._vnc_lib.network_ipam_create(ipam3)
+        ipam3_uuid=ipam3.uuid
+
+        #try adding subnets in ipam0, it should fail
+        ipam0.set_ipam_subnets(IpamSubnets([ipam0_v4, ipam3_v4]))
+        with ExpectedException(cfgm_common.exceptions.BadRequest,
+                               'ipam-subnets are allowed only with flat-subnet') as e:
+            self._vnc_lib.network_ipam_update(ipam0)
+        ipam0 = self._vnc_lib.network_ipam_read(id=ipam0_uuid)
+
+        #try adding subnets in ipam1, it should fail
+        ipam1.set_ipam_subnets(IpamSubnets([ipam1_v4, ipam2_v4]))
+        with ExpectedException(cfgm_common.exceptions.BadRequest,
+                               'ipam-subnets are allowed only with flat-subnet') as e:
+            self._vnc_lib.network_ipam_update(ipam1)
+        ipam1 = self._vnc_lib.network_ipam_read(id=ipam1_uuid)
+
+        #try adding overlap subnets in ipam2, it should fail
+        ipam2.set_ipam_subnets(IpamSubnets([ipam2_v4, ipam2_v4_overlap]))
+        with ExpectedException(cfgm_common.exceptions.BadRequest,
+                               'Overlapping addresses: \[IPNetwork\(\'12.1.2.0/23\'\), IPNetwork\(\'12.1.3.248/28\'\)\]') as e:
+            self._vnc_lib.network_ipam_update(ipam2)
+        ipam2 = self._vnc_lib.network_ipam_read(id=ipam2_uuid)
+
+        #add non-overlap subnets in ipam2
+        ipam2.set_ipam_subnets(IpamSubnets([ipam2_v4, ipam4_v4]))
+        self._vnc_lib.network_ipam_update(ipam2)
+        ipam2 = self._vnc_lib.network_ipam_read(id=ipam2_uuid)
+
+        #create vn with ipam0  and with overlapping subnets on vn->ipam0 link
+        #create should fail
+        vn = VirtualNetwork('vn0', project)
+        vn.add_network_ipam(ipam0, VnSubnetsType([ipam0_v4, ipam0_v4_overlap]))
+        with ExpectedException(cfgm_common.exceptions.BadRequest,
+                               'Overlapping addresses: \[IPNetwork\(\'10.1.2.0/23\'\), IPNetwork\(\'10.1.3.248/28\'\)\]') as e:
+            self._vnc_lib.virtual_network_create(vn)
+
+        #create vn with ipam0 with non-overlapping subnets on vn->ipam link
+        vn.add_network_ipam(ipam0, VnSubnetsType([ipam0_v4, ipam3_v4]))
+        self._vnc_lib.virtual_network_create(vn)
+        vn = self._vnc_lib.virtual_network_read(id = vn.uuid)
+
+        #add ipam1 with overlapping subnets on vn->ipam1 link
+        #update network should fail 
+        vn.add_network_ipam(ipam1, VnSubnetsType([ipam1_v4, ipam1_v4_overlap]))
+        with ExpectedException(cfgm_common.exceptions.BadRequest,
+                               'Overlapping addresses: \[IPNetwork\(\'11.1.2.0/23\'\), IPNetwork\(\'11.1.3.248/28\'\)\]') as e:
+            self._vnc_lib.virtual_network_update(vn)
+        vn = self._vnc_lib.virtual_network_read(id = vn.uuid)
+
+        #change overlapping subnet with another overlapping but overlapping
+        #with ipam0
+        vn.add_network_ipam(ipam1, VnSubnetsType([ipam1_v4, ipam0_v4_overlap]))
+
+        with ExpectedException(cfgm_common.exceptions.BadRequest) as e:
+            self._vnc_lib.virtual_network_update(vn)
+        vn = self._vnc_lib.virtual_network_read(id = vn.uuid)
+
+        #change subnets on vn->ipam1 link to make it non-overlap within this
+        #link and non overlap with vn->ipam0 link 
+        vn.add_network_ipam(ipam1, VnSubnetsType([ipam1_v4, ipam5_v4]))
+        self._vnc_lib.virtual_network_update(vn)
+        vn = self._vnc_lib.virtual_network_read(id = vn.uuid)
+
+        #add ipam2 in the network without any subnets on the link
+        vn.add_network_ipam(ipam2, VnSubnetsType([]))
+        with ExpectedException(cfgm_common.exceptions.BadRequest,
+                               'flat-subnet is allowed only with l3 network') as e:
+            self._vnc_lib.virtual_network_update(vn)
+        vn = self._vnc_lib.virtual_network_read(id = vn.uuid)
+
+        vn.set_virtual_network_properties(VirtualNetworkType(forwarding_mode='l3'))
+        self._vnc_lib.virtual_network_update(vn)
+        vn = self._vnc_lib.virtual_network_read(id = vn.uuid)
+
+        vn.add_network_ipam(ipam2, VnSubnetsType([]))
+        self._vnc_lib.virtual_network_update(vn)
+        vn = self._vnc_lib.virtual_network_read(id = vn.uuid)
+
+        vn.add_network_ipam(ipam3, VnSubnetsType([]))
+        self._vnc_lib.virtual_network_update(vn)
+        vn = self._vnc_lib.virtual_network_read(id = vn.uuid)
+
+        #Now update ipam2 with overlapping subnet with a subnet on vn->ipam0
+        #link (overlapping with ipam0_v4)
+        ipam2.set_ipam_subnets(IpamSubnets([ipam2_v4, ipam4_v4, ipam0_v4_overlap]))
+        with ExpectedException(cfgm_common.exceptions.BadRequest) as e:
+            self._vnc_lib.network_ipam_update(ipam2)
+        vn = self._vnc_lib.virtual_network_read(id = vn.uuid)
+
+        #Now update ipam3 with overlapping subnet with a subnet in ipam2
+        # which is a flat subnet (overlapping with ipam2_v4)
+        ipam3.set_ipam_subnets(IpamSubnets([ipam2_v4_overlap]))
+        with ExpectedException(cfgm_common.exceptions.BadRequest) as e:
+            self._vnc_lib.network_ipam_update(ipam3)
+        vn = self._vnc_lib.virtual_network_read(id = vn.uuid)
+
+        self._vnc_lib.virtual_network_delete(id=vn.uuid)
+        self._vnc_lib.network_ipam_delete(id=ipam0.uuid)
+        self._vnc_lib.network_ipam_delete(id=ipam1.uuid)
+        self._vnc_lib.network_ipam_delete(id=ipam2.uuid)
+        self._vnc_lib.network_ipam_delete(id=ipam3.uuid)
+        self._vnc_lib.project_delete(id=project.uuid)
+    #end test_subnet_overlap
+
     def test_subnet_quota(self):
         # Create Project
         project = Project('v4-proj-%s' %(self.id()), Domain())
