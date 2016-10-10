@@ -3766,6 +3766,8 @@ class DBInterface(object):
 
         project_ids = self._validate_project_ids(context,
                                                  filters.get('tenant_id'))
+        # normalize to dashed format uuid
+        project_ids = [str(uuid.UUID(p)) for p in project_ids or []]
         if not project_ids:
             project_ids = None
 
