@@ -251,23 +251,25 @@ bool LoadBalance::operator!=(const LoadBalance &other) const {
 
 void LoadBalance::ShowAttribute(ShowLoadBalance *show_load_balance) const {
     const LoadBalanceAttribute attr = ToAttribute();
+    vector<string> fields = vector<string>();
     if (attr.source_bias) {
-        show_load_balance->decision_type = "source-bias";
-        show_load_balance->fields.clear();
+        show_load_balance->set_decision_type("source-bias");
+        show_load_balance->set_fields(fields);
         return;
     }
 
-    show_load_balance->decision_type = "field-hash";
+    show_load_balance->set_decision_type("field-hash");
     if (attr.l3_source_address)
-        show_load_balance->fields.push_back("l3-source-address");
+        fields.push_back("l3-source-address");
     if (attr.l3_destination_address)
-        show_load_balance->fields.push_back("l3-destination-address");
+        fields.push_back("l3-destination-address");
     if (attr.l4_protocol)
-        show_load_balance->fields.push_back("l4-protocol");
+        fields.push_back("l4-protocol");
     if (attr.l4_source_port)
-        show_load_balance->fields.push_back("l4-source-port");
+        fields.push_back("l4-source-port");
     if (attr.l4_destination_port)
-        show_load_balance->fields.push_back("l4-destination-port");
+        fields.push_back("l4-destination-port");
+    show_load_balance->set_fields(fields);
 }
 
 string LoadBalance::ToString() const {

@@ -593,20 +593,20 @@ bool PeerCloseManager::MembershipRequestCallback(Event *event) {
 
 void PeerCloseManager::FillCloseInfo(BgpNeighborResp *resp) const {
     PeerCloseInfo peer_close_info;
-    peer_close_info.state = GetStateName(state_);
-    peer_close_info.membership_state =
-        GetMembershipStateName(membership_state_);
-    peer_close_info.close_again = close_again_;
-    peer_close_info.non_graceful = non_graceful_;
-    peer_close_info.init = stats_.init;
-    peer_close_info.close = stats_.close;
-    peer_close_info.nested = stats_.nested;
-    peer_close_info.deletes = stats_.deletes;
-    peer_close_info.stale = stats_.stale;
-    peer_close_info.llgr_stale = stats_.llgr_stale;
-    peer_close_info.sweep = stats_.sweep;
-    peer_close_info.gr_timer = stats_.gr_timer;
-    peer_close_info.llgr_timer = stats_.llgr_timer;
+    peer_close_info.set_state(GetStateName(state_));
+    peer_close_info.set_membership_state(
+        GetMembershipStateName(membership_state_));
+    peer_close_info.set_close_again(close_again_);
+    peer_close_info.set_non_graceful(non_graceful_);
+    peer_close_info.set_init(stats_.init);
+    peer_close_info.set_close(stats_.close);
+    peer_close_info.set_nested(stats_.nested);
+    peer_close_info.set_deletes(stats_.deletes);
+    peer_close_info.set_stale(stats_.stale);
+    peer_close_info.set_llgr_stale(stats_.llgr_stale);
+    peer_close_info.set_sweep(stats_.sweep);
+    peer_close_info.set_gr_timer(stats_.gr_timer);
+    peer_close_info.set_llgr_timer(stats_.llgr_timer);
 
     resp->set_peer_close_info(peer_close_info);
 }

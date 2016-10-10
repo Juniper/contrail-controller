@@ -6,38 +6,36 @@
 
 void PeerStats::FillProtoStats(const IPeerDebugStats::ProtoStats &stats,
                                PeerProtoStats *proto_stats) {
-    proto_stats->open = stats.open;
-    proto_stats->keepalive = stats.keepalive;
-    proto_stats->close = stats.close;
-    proto_stats->update = stats.update;
-    proto_stats->notification = stats.notification;
-    proto_stats->total = stats.open + stats.keepalive + stats.close +
-        stats.update + stats.notification;
+    proto_stats->set_open(stats.open);
+    proto_stats->set_keepalive(stats.keepalive);
+    proto_stats->set_close(stats.close);
+    proto_stats->set_update(stats.update);
+    proto_stats->set_notification(stats.notification);
+    proto_stats->set_total(stats.open + stats.keepalive + stats.close +
+        stats.update + stats.notification);
 }
 
 void PeerStats::FillRouteUpdateStats(const IPeerDebugStats::UpdateStats &stats,
                                      PeerUpdateStats *rt_stats) {
-    rt_stats->total = stats.total;
-    rt_stats->reach = stats.reach;
-    rt_stats->unreach = stats.unreach;
+    rt_stats->set_total(stats.total);
+    rt_stats->set_reach(stats.reach);
+    rt_stats->set_unreach(stats.unreach);
 }
 
 void PeerStats::FillRxErrorStats(const IPeerDebugStats::RxErrorStats &src,
                                  PeerRxErrorStats *dest) {
-    dest->inet6_error_stats.bad_inet6_xml_token_count =
-        src.inet6_bad_xml_token_count;
-    dest->inet6_error_stats.bad_inet6_prefix_count =
-        src.inet6_bad_prefix_count;
-    dest->inet6_error_stats.bad_inet6_nexthop_count =
-        src.inet6_bad_nexthop_count;
-    dest->inet6_error_stats.bad_inet6_afi_safi_count =
-        src.inet6_bad_afi_safi_count;
+    PeerRxInet6ErrorStats error_stats;
+    error_stats.set_bad_inet6_xml_token_count(src.inet6_bad_xml_token_count);
+    error_stats.set_bad_inet6_prefix_count(src.inet6_bad_prefix_count);
+    error_stats.set_bad_inet6_nexthop_count(src.inet6_bad_nexthop_count);
+    error_stats.set_bad_inet6_afi_safi_count(src.inet6_bad_afi_safi_count);
+    dest->set_inet6_error_stats(error_stats);
 }
 
 void PeerStats::FillRxRouteStats(const IPeerDebugStats::RxRouteStats &src,
                                  PeerRxRouteStats *dest) {
-    dest->total_path_count = src.total_path_count;
-    dest->primary_path_count = src.primary_path_count;
+    dest->set_total_path_count(src.total_path_count);
+    dest->set_primary_path_count(src.primary_path_count);
 }
 
 void PeerStats::FillPeerUpdateStats(const IPeerDebugStats *peer_stats,
