@@ -558,7 +558,7 @@ class VncCassandraClient(object):
                                           self._ro_keyspaces.items()):
             keyspace = '%s%s' %(self._db_prefix, ks)
             pool = pycassa.ConnectionPool(
-                keyspace, self._server_list, max_overflow=-1, use_threadlocal=True,
+                keyspace, self._server_list, max_overflow=5, use_threadlocal=True,
                 prefill=True, pool_size=20, pool_timeout=120,
                 max_retries=30, timeout=5, credentials=self._credential)
 
