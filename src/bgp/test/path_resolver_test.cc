@@ -161,6 +161,21 @@ protected:
         }
     }
 
+    string BuildHostAddress(int index) const {
+        assert(index <= 65535);
+        string ipv4_prefix("10.1.");
+        string byte3 = integerToString(index / 256);
+        string byte4 = integerToString(index % 256);
+        if (family_ == Address::INET) {
+            return ipv4_prefix + byte3 + "." + byte4;
+        }
+        if (family_ == Address::INET6) {
+            return ipv6_prefix_ + ipv4_prefix + byte3 + "." + byte4;
+        }
+        assert(false);
+        return "";
+    }
+
     // Overlay nexthop as a prefix.
     string BuildPrefix(const string &ipv4_prefix, uint8_t ipv4_plen) const {
         if (nexthop_family_is_inet) {
@@ -1904,6 +1919,170 @@ TYPED_TEST(PathResolverTest, Recursion2) {
         this->BuildPrefix(bgp_peer1->ToString(), 32));
     this->DeleteBgpPath(bgp_peer1, "blue",
         this->BuildPrefix(bgp_peer1->ToString(), 32));
+}
+
+//
+// Recursive resolution of BGP paths using a BGP path that itself is resolved
+// using an XMPP path.
+// Delete underlying XMPP path before BGP path that resolves using it.
+//
+TYPED_TEST(PathResolverTest, Recursion3) {
+    if (this->GetFamily() == Address::INET && !nexthop_family_is_inet)
+        return;
+    if (this->GetFamily() == Address::INET6 && nexthop_family_is_inet)
+        return;
+
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
+
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(255));
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(2),
+        this->BuildHostAddress(255));
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(255),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(2),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(255),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(255));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(2));
+}
+
+//
+// Recursive resolution of BGP paths using a BGP path that itself is resolved
+// using an XMPP path.
+// Delete underlying XMPP path after BGP path that resolves using it.
+//
+TYPED_TEST(PathResolverTest, Recursion4) {
+    if (this->GetFamily() == Address::INET && !nexthop_family_is_inet)
+        return;
+    if (this->GetFamily() == Address::INET6 && nexthop_family_is_inet)
+        return;
+
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
+
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(255));
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(2),
+        this->BuildHostAddress(255));
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(255),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(2),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(255),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(255));
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(2));
+}
+
+//
+// BGP paths have a nexthop that's resolved via XMPP, but the same nexthop
+// is also advertised via BGP.
+// Delete XMPP path before BGP path for the nexthop.
+//
+TYPED_TEST(PathResolverTest, Recursion5) {
+    if (this->GetFamily() == Address::INET && !nexthop_family_is_inet)
+        return;
+    if (this->GetFamily() == Address::INET6 && nexthop_family_is_inet)
+        return;
+
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
+
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(255));
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(2),
+        this->BuildHostAddress(255));
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(255),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(255),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(2),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(255),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(255));
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(255));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(2));
+}
+
+//
+// BGP paths have a nexthop that's resolved via XMPP, but the same nexthop
+// is also advertised via BGP.
+// Delete XMPP path before BGP path for the nexthop.
+//
+TYPED_TEST(PathResolverTest, Recursion6) {
+    if (this->GetFamily() == Address::INET && !nexthop_family_is_inet)
+        return;
+    if (this->GetFamily() == Address::INET6 && nexthop_family_is_inet)
+        return;
+
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
+
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(255));
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(2),
+        this->BuildHostAddress(255));
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(255),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(255),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(2),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(255),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 32));
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(255));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(255));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(2));
 }
 
 //
