@@ -20,6 +20,7 @@
 #include "bgp/routing-instance/routing_instance.h"
 #include "io/tcp_session.h"
 #include "net/rd.h"
+#include "tbb/atomic.h"
 #include "xmpp/xmpp_channel.h"
 
 namespace pugi {
@@ -52,19 +53,19 @@ public:
     };
     struct Stats {
         Stats() { memset(this, 0, sizeof(*this)); }
-        uint64_t rt_updates;
-        uint64_t reach;
-        uint64_t unreach;
-        uint64_t end_of_rib;
+        tbb::atomic<uint64_t> rt_updates;
+        tbb::atomic<uint64_t> reach;
+        tbb::atomic<uint64_t> unreach;
+        tbb::atomic<uint64_t> end_of_rib;
     };
     struct ChannelStats {
         ChannelStats() { memset(this, 0, sizeof(*this)); }
-        uint64_t instance_subscribe;
-        uint64_t instance_unsubscribe;
-        uint64_t table_subscribe;
-        uint64_t table_subscribe_complete;
-        uint64_t table_unsubscribe;
-        uint64_t table_unsubscribe_complete;
+         tbb::atomic<uint64_t> instance_subscribe;
+         tbb::atomic<uint64_t> instance_unsubscribe;
+         tbb::atomic<uint64_t> table_subscribe;
+         tbb::atomic<uint64_t> table_subscribe_complete;
+         tbb::atomic<uint64_t> table_unsubscribe;
+         tbb::atomic<uint64_t> table_unsubscribe_complete;
     };
 
     struct ErrorStats {
@@ -78,10 +79,10 @@ public:
         uint64_t get_inet6_rx_bad_nexthop_count() const;
         uint64_t get_inet6_rx_bad_afi_safi_count() const;
 
-        uint64_t inet6_rx_bad_xml_token_count;
-        uint64_t inet6_rx_bad_prefix_count;
-        uint64_t inet6_rx_bad_nexthop_count;
-        uint64_t inet6_rx_bad_afi_safi_count;
+         tbb::atomic<uint64_t> inet6_rx_bad_xml_token_count;
+         tbb::atomic<uint64_t> inet6_rx_bad_prefix_count;
+         tbb::atomic<uint64_t> inet6_rx_bad_nexthop_count;
+         tbb::atomic<uint64_t> inet6_rx_bad_afi_safi_count;
     };
 
     explicit BgpXmppChannel(XmppChannel *channel, BgpServer *bgp_server = NULL,

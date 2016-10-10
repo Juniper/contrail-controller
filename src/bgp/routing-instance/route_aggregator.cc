@@ -744,14 +744,17 @@ bool RouteAggregator<T>::FillAggregateRouteInfo(AggregateRouteEntriesInfo *info,
 
     info->set_name(rtinstance_->GetVirtualNetworkName());
     info->set_instance_name(rtinstance_->name());
+    vector<AggregateRouteInfo> aggregate_route_list =
+        vector<AggregateRouteInfo>();
     for (typename AggregateRouteMap::const_iterator it =
          aggregate_route_map_.begin(); it != aggregate_route_map_.end(); it++) {
         AggregateRouteT *aggregate =
             static_cast<AggregateRouteT *>(it->second.get());
         AggregateRouteInfo aggregate_info;
         aggregate->FillShowInfo(&aggregate_info, summary);
-        info->aggregate_route_list.push_back(aggregate_info);
+        aggregate_route_list.push_back(aggregate_info);
     }
+    info->set_aggregate_route_list(aggregate_route_list);
     return true;
 }
 
