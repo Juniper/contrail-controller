@@ -496,7 +496,7 @@ class OpServerProxy::OpServerImpl {
 
 		if (k_event_cb.disableKafka) {
 		    LOG(ERROR, "Kafka Needs Restart");
-                    class RdKafka::Metadata *metadata;
+                    RdKafka::Metadata *metadata;
                     /* Fetch metadata */
                     RdKafka::ErrorCode err = producer_->metadata(true, NULL,
                                           &metadata, 5000);
