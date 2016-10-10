@@ -28,3 +28,7 @@ SandeshTraceBufferPtr IFMapUpdateSenderBuf(
 SandeshTraceBufferPtr IFMapXmppTraceBuf(
     SandeshTraceBufferCreate("IFMapXmppTraceBuf", 50000));
 
+// Trace buffer for config-cassandra-state-machine messages
+SandeshTraceBufferPtr ConfigCassSmTraceBuf(
+    SandeshTraceBufferCreate("ConfigCassSmTraceBuf", 50000));
+
