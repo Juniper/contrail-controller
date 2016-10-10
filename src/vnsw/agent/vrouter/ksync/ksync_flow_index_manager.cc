@@ -31,7 +31,14 @@ KSyncFlowIndexManager::~KSyncFlowIndexManager() {
 void KSyncFlowIndexManager::InitDone(uint32_t count) {
     proto_ = ksync_->agent()->pkt()->get_flow_proto();
     count_ = count;
-    index_list_.resize(count);
+    for (int i=0; i < count; i++)
+        if (index_list_.size() < count) {
+            struct IndexEntry *idx = (struct IndexEntry *)malloc(sizeof(struct IndexEntry));
+            index_list_.push_back(*idx);
+        } else {
+            index_list_.pop_back();
+        }
+
     sm_log_count_ = ksync_->agent()->params()->flow_index_sm_log_count();
 }
 
