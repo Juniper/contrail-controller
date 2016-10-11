@@ -3843,6 +3843,8 @@ class DBInterface(object):
              return []
 
         project_ids = self._validate_project_ids(context, filters)
+        # normalize to dashed format uuid
+        project_ids = [str(uuid.UUID(p)) for p in project_ids or []]
 
         port_objs = []
         if filters.get('device_id'):
