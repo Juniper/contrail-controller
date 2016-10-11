@@ -32,7 +32,6 @@ public:
         PASS = 5,
         MIRROR = 7,
         VRF_TRANSLATE = 8,
-        TRAP = 28,
         IMPLICIT_DENY = 29,
         RESERVED = 30,
         UNKNOWN = 31,
