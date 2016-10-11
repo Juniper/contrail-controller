@@ -463,8 +463,9 @@ DBEntry *DBTable::FindNoLock(const DBRequestKey *key) {
     return tbl_partition->FindNoLock(key);
 }
 
-DBEntry *DBTable::Find(const DBRequestKey *key) {
-    int id = HashToPartition(Hash(key));
+DBEntry *DBTable::Find(const DBRequestKey *key, int id) {
+    if (id == -1)
+        id = HashToPartition(Hash(key));
     DBTablePartition *tbl_partition =
     static_cast<DBTablePartition *>(GetTablePartition(id));
     return tbl_partition->Find(key);
