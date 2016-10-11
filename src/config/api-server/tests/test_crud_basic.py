@@ -1954,6 +1954,34 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                 'uuid_to_fq_name invoked in delete at dbe_uve_trace')
     # end test_uve_trace_delete_name_from_msg
 
+    def test_ref_update_with_existing_ref(self):
+        ipam_obj = NetworkIpam('ipam-%s' % self.id())
+        self._vnc_lib.network_ipam_create(ipam_obj)
+        vn_obj = VirtualNetwork('vn-%s' % self.id())
+        vn_obj.add_network_ipam(ipam_obj,
+            VnSubnetsType(
+                [IpamSubnetType(SubnetType('1.1.1.0', 28))]))
+        self._vnc_lib.virtual_network_create(vn_obj)
+
+        self._vnc_lib.ref_update('virtual-network',
+                                 vn_obj.uuid,
+                                 'network-ipam',
+                                 ipam_obj.uuid,
+                                 ipam_obj.fq_name,
+                                 'ADD',
+                                 VnSubnetsType([
+                                     IpamSubnetType(SubnetType('1.1.1.0', 28)),
+                                     IpamSubnetType(SubnetType('2.2.2.0', 28)),
+                                 ]))
+
+        vn_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+        self.assertEqual(len(vn_obj.network_ipam_refs), 1)
+        ipam_subnets = vn_obj.network_ipam_refs[0]['attr'].ipam_subnets
+        self.assertEqual(len(ipam_subnets), 2)
+        self.assertEqual(ipam_subnets[0].subnet.ip_prefix, '1.1.1.0')
+        self.assertEqual(ipam_subnets[1].subnet.ip_prefix, '2.2.2.0')
+    # end test_ref_update_with_existing_ref
+
     def test_ref_update_with_resource_type_underscored(self):
         vn_obj = VirtualNetwork('%s-vn' % self.id())
         ipam_obj = NetworkIpam('%s-vmi' % self.id())
