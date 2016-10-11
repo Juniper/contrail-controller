@@ -647,20 +647,18 @@ class VncCassandraClient(object):
     # end object_create
 
     def object_raw_read(self, obj_uuids, prop_names):
-        hit_obj_dicts, miss_uuids = self._obj_cache_mgr.read(
-                    obj_uuids, prop_names, False)
-        miss_obj_rows = self.multiget(self._OBJ_UUID_CF_NAME, miss_uuids,
-                                   ['prop:'+x for x in prop_names])
+        obj_rows = self.multiget(self._OBJ_UUID_CF_NAME, obj_uuids,
+                                 ['prop:'+x for x in prop_names])
 
-        miss_obj_dicts = []
-        for obj_uuid, columns in miss_obj_rows.items():
-            miss_obj_dict = {'uuid': obj_uuid}
+        obj_dicts = []
+        for obj_uuid, columns in obj_rows.items():
+            obj_dict = {'uuid': obj_uuid}
             for prop_name in columns:
                 # strip 'prop:' before sending result back
-                miss_obj_dict[prop_name[5:]] = columns[prop_name]
-            miss_obj_dicts.append(miss_obj_dict)
+                obj_dict[prop_name[5:]] = columns[prop_name]
+            obj_dicts.append(obj_dict)
 
-        return hit_obj_dicts + miss_obj_dicts
+        return obj_dicts
 
     def object_read(self, obj_type, obj_uuids, field_names=None):
         if not obj_uuids:
