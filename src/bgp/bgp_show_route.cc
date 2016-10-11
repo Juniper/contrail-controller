@@ -25,8 +25,8 @@ static bool IsLess(const ShowRoute &lhs, const ShowRoute &rhs,
     if (!table) {
         return false;
     }
-    auto_ptr<DBEntry> lhs_entry = table->AllocEntryStr(lhs.prefix);
-    auto_ptr<DBEntry> rhs_entry = table->AllocEntryStr(rhs.prefix);
+    auto_ptr<DBEntry> lhs_entry = table->AllocEntryStr(lhs.get_prefix());
+    auto_ptr<DBEntry> rhs_entry = table->AllocEntryStr(rhs.get_prefix());
 
     Route *lhs_route = static_cast<Route *>(lhs_entry.get());
     Route *rhs_route = static_cast<Route *>(rhs_entry.get());
@@ -36,11 +36,11 @@ static bool IsLess(const ShowRoute &lhs, const ShowRoute &rhs,
 
 static bool IsLess(const ShowRouteTable &lhs, const ShowRouteTable &rhs,
                    const BgpSandeshContext *bsc, const string &table_name) {
-    if (lhs.routing_instance < rhs.routing_instance) {
+    if (lhs.get_routing_instance() < rhs.get_routing_instance()) {
         return true;
     }
-    if (lhs.routing_instance == rhs.routing_instance) {
-        return lhs.routing_table_name < rhs.routing_table_name;
+    if (lhs.get_routing_instance() == rhs.get_routing_instance()) {
+        return lhs.get_routing_table_name() < rhs.get_routing_table_name();
     }
     return false;
 }
@@ -59,25 +59,26 @@ int MergeValues(ShowRoute *result, vector<const ShowRoute *> *input,
 int MergeValues(ShowRouteTable *result, vector<const ShowRouteTable *> *input,
                 int limit, const BgpSandeshContext *bsc) {
     vector<const vector<ShowRoute> *> list;
-    result->routing_instance = input->at(0)->routing_instance;
-    result->routing_table_name = input->at(0)->routing_table_name;
-    result->deleted = input->at(0)->deleted;
-    result->deleted_at = input->at(0)->deleted_at;
-    result->prefixes = input->at(0)->prefixes;
-    result->primary_paths = input->at(0)->primary_paths;
-    result->secondary_paths = input->at(0)->secondary_paths;
-    result->infeasible_paths = input->at(0)->infeasible_paths;
-    result->paths = input->at(0)->paths;
-    result->listeners = input->at(0)->listeners;
+    result->set_routing_instance(input->at(0)->get_routing_instance());
+    result->set_routing_table_name(input->at(0)->get_routing_table_name());
+    result->set_deleted(input->at(0)->get_deleted());
+    result->set_deleted_at(input->at(0)->get_deleted_at());
+    result->set_prefixes(input->at(0)->get_prefixes());
+    result->set_primary_paths(input->at(0)->get_primary_paths());
+    result->set_secondary_paths(input->at(0)->get_secondary_paths());
+    result->set_infeasible_paths(input->at(0)->get_infeasible_paths());
+    result->set_paths(input->at(0)->get_paths());
+    result->set_listeners(input->at(0)->get_listeners());
 
     int count = 0;
     for (size_t i = 0; i < input->size(); ++i) {
-        if (input->at(i)->routes.size())
-            list.push_back(&input->at(i)->routes);
+        if (input->at(i)->get_routes().size())
+            list.push_back(&input->at(i)->get_routes());
     }
-    MergeSort(&result->routes, &list, limit ? limit - count : 0, bsc,
-              input->at(0)->routing_table_name);
-    count += result->routes.size();
+    MergeSort(const_cast<vector<ShowRoute> *>(&result->get_routes()), &list,
+              limit ? limit - count : 0, bsc,
+              input->at(0)->get_routing_table_name());
+    count += result->get_routes().size();
     return count;
 }
 
@@ -374,11 +375,11 @@ bool ShowRouteHandler::CallbackS1Common(const ShowRouteReq *req, int inst_id,
                 UTCUsecToString(table->deleter()->delete_time_stamp_usecs()));
 
             // Encode routing-table stats.
-            srt.prefixes = table->Size();
-            srt.primary_paths = table->GetPrimaryPathCount();
-            srt.secondary_paths = table->GetSecondaryPathCount();
-            srt.infeasible_paths = table->GetInfeasiblePathCount();
-            srt.paths = srt.primary_paths + srt.secondary_paths;
+            srt.set_prefixes(table->Size());
+            srt.set_primary_paths(table->GetPrimaryPathCount());
+            srt.set_secondary_paths(table->GetSecondaryPathCount());
+            srt.set_infeasible_paths(table->GetInfeasiblePathCount());
+            srt.set_paths(srt.get_primary_paths() + srt.get_secondary_paths());
 
             vector<ShowTableListener> listeners;
             table->FillListeners(&listeners);
@@ -447,7 +448,7 @@ string ShowRouteHandler::SaveContextAndPopLast(const ShowRouteReq *req,
     // after the mergesort.
     uint32_t total_count = 0;
     for (size_t i = 0; i < route_table_list->size(); ++i) {
-        total_count += route_table_list->at(i).routes.size();
+        total_count += route_table_list->at(i).get_routes().size();
     }
 
     ShowRouteTable *last_route_table =
@@ -488,7 +489,8 @@ string ShowRouteHandler::SaveContextAndPopLast(const ShowRouteReq *req,
 
     if (next_round) {
         ShowRoute last_route =
-            last_route_table->routes.at(last_route_table->routes.size() - 1);
+            last_route_table->get_routes().at(
+                    last_route_table->get_routes().size() - 1);
         next_batch =
             req->get_routing_instance() + kIterSeparator +
             req->get_routing_table() + kIterSeparator +
@@ -502,8 +504,9 @@ string ShowRouteHandler::SaveContextAndPopLast(const ShowRouteReq *req,
 
     // Pop off the last entry only after we have captured its values in
     // 'next_batch' above.
-    last_route_table->routes.pop_back();
-    if (last_route_table->routes.empty()) {
+    const_cast<vector<ShowRoute> *>(
+            &last_route_table->get_routes())->pop_back();
+    if (last_route_table->get_routes().empty()) {
         route_table_list->pop_back();
     }
 

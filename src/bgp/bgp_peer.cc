@@ -2069,40 +2069,40 @@ void BgpPeer::SetDataCollectionKey(BgpPeerInfo *peer_info) const {
 
 static void FillProtoStats(const IPeerDebugStats::ProtoStats &stats,
                            PeerProtoStats *proto_stats) {
-    proto_stats->open = stats.open;
-    proto_stats->keepalive = stats.keepalive;
-    proto_stats->close = stats.close;
-    proto_stats->update = stats.update;
-    proto_stats->notification = stats.notification;
-    proto_stats->total = stats.open + stats.keepalive + stats.close +
-        stats.update + stats.notification;
+    proto_stats->set_open(stats.open);
+    proto_stats->set_keepalive(stats.keepalive);
+    proto_stats->set_close(stats.close);
+    proto_stats->set_update(stats.update);
+    proto_stats->set_notification(stats.notification);
+    proto_stats->set_total(stats.open + stats.keepalive + stats.close +
+        stats.update + stats.notification);
 }
 
 static void FillRouteUpdateStats(const IPeerDebugStats::UpdateStats &stats,
                                  PeerUpdateStats *rt_stats) {
-    rt_stats->reach = stats.reach;
-    rt_stats->unreach = stats.unreach;
-    rt_stats->end_of_rib = stats.end_of_rib;
-    rt_stats->total = stats.reach + stats.unreach + stats.end_of_rib;
+    rt_stats->set_reach(stats.reach);
+    rt_stats->set_unreach(stats.unreach);
+    rt_stats->set_end_of_rib(stats.end_of_rib);
+    rt_stats->set_total(stats.reach + stats.unreach + stats.end_of_rib);
 }
 
 static void FillSocketStats(const IPeerDebugStats::SocketStats &socket_stats,
                             PeerSocketStats *peer_socket_stats) {
-    peer_socket_stats->calls = socket_stats.calls;
-    peer_socket_stats->bytes = socket_stats.bytes;
+    peer_socket_stats->set_calls(socket_stats.calls);
+    peer_socket_stats->set_bytes(socket_stats.bytes);
     if (socket_stats.calls) {
-        peer_socket_stats->average_bytes =
-            socket_stats.bytes/socket_stats.calls;
+        peer_socket_stats->set_average_bytes(
+            socket_stats.bytes/socket_stats.calls);
     }
-    peer_socket_stats->blocked_count = socket_stats.blocked_count;
+    peer_socket_stats->set_blocked_count(socket_stats.blocked_count);
     ostringstream os;
     os << boost::posix_time::microseconds(socket_stats.blocked_duration_usecs);
-    peer_socket_stats->blocked_duration = os.str();
+    peer_socket_stats->set_blocked_duration(os.str());
     if (socket_stats.blocked_count) {
         os.str("");
         os << boost::posix_time::microseconds(
             socket_stats.blocked_duration_usecs/socket_stats.blocked_count);
-        peer_socket_stats->average_blocked_duration = os.str();
+        peer_socket_stats->set_average_blocked_duration(os.str());
     }
 }
 
@@ -2157,15 +2157,15 @@ void BgpPeer::FillBgpNeighborFamilyAttributes(BgpNeighborResp *nbr) const {
         if (!family_attributes_list_[idx])
             continue;
         ShowBgpNeighborFamily show_family_attributes;
-        show_family_attributes.family =
-            Address::FamilyToString(static_cast<Address::Family>(idx));
-        show_family_attributes.loop_count =
-            family_attributes_list_[idx]->loop_count;
-        show_family_attributes.prefix_limit =
-            family_attributes_list_[idx]->prefix_limit;
+        show_family_attributes.set_family(
+            Address::FamilyToString(static_cast<Address::Family>(idx)));
+        show_family_attributes.set_loop_count(
+            family_attributes_list_[idx]->loop_count);
+        show_family_attributes.set_prefix_limit(
+            family_attributes_list_[idx]->prefix_limit);
         if (!family_attributes_list_[idx]->gateway_address.is_unspecified()) {
-            show_family_attributes.gateway_address =
-                family_attributes_list_[idx]->gateway_address.to_string();
+            show_family_attributes.set_gateway_address(
+                family_attributes_list_[idx]->gateway_address.to_string());
         }
         show_family_attributes_list.push_back(show_family_attributes);
     }

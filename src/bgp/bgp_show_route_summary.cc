@@ -21,11 +21,11 @@ static void FillRouteTableSummaryInfo(ShowRouteTableSummary *srts,
     srts->set_deleted(table->IsDeleted());
     srts->set_deleted_at(
         UTCUsecToString(table->deleter()->delete_time_stamp_usecs()));
-    srts->prefixes = table->Size();
-    srts->primary_paths = table->GetPrimaryPathCount();
-    srts->secondary_paths = table->GetSecondaryPathCount();
-    srts->infeasible_paths = table->GetInfeasiblePathCount();
-    srts->paths = srts->primary_paths + srts->secondary_paths;
+    srts->set_prefixes(table->Size());
+    srts->set_primary_paths(table->GetPrimaryPathCount());
+    srts->set_secondary_paths(table->GetSecondaryPathCount());
+    srts->set_infeasible_paths(table->GetInfeasiblePathCount());
+    srts->set_paths(srts->get_primary_paths() + srts->get_secondary_paths());
     srts->set_walk_requests(table->walk_request_count());
     srts->set_walk_again_requests(table->walk_again_count());
     srts->set_actual_walks(table->walk_count());
