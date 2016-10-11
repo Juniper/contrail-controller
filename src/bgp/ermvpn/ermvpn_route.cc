@@ -277,15 +277,12 @@ bool ErmVpnRoute::IsValid() const {
     const BgpAttr *attr = BestPath()->GetAttr();
     switch (prefix_.type()) {
     case ErmVpnPrefix::NativeRoute:
-        return attr->label_block();
-        break;
+        return attr->label_block().get() != NULL;
     case ErmVpnPrefix::LocalTreeRoute:
-        return attr->edge_discovery();
-        break;
+        return attr->edge_discovery() != NULL;
     case ErmVpnPrefix::GlobalTreeRoute:
-        return attr->edge_forwarding();
-        break;
-    default:
+        return attr->edge_forwarding() != NULL;
+    case ErmVpnPrefix::Invalid:
         break;
     }
 
