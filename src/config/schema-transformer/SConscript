@@ -31,6 +31,8 @@ local_sources = [
            'config_db.py',
            'db.py',
            'ifmap_view.py',
+           'st_amqp.py',
+           'logger.py',
           ]
 
 local_sources_rules = []
