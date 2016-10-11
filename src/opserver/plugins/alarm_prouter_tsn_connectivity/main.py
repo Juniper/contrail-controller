@@ -5,9 +5,9 @@
 from  opserver.plugins.alarm_base import *
 from opserver.sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import *
 
-class ProuterConnectivity(AlarmBase):
-    """Prouter connectivity to controlling tor agent does not exist
-       we look for non-empty value for connected_agent_list"""
+class ProuterTsnConnectivity(AlarmBase):
+    """Prouter connectivity to controlling tsn agent does not exist
+       we look for non-empty value for tsn_agent_list"""
 
     _RULES = {
         'or_list': [
@@ -22,7 +22,7 @@ class ProuterConnectivity(AlarmBase):
                         }
                     },
                     {
-                        'operand1': 'ProuterData.connected_agent_list',
+                        'operand1': 'ProuterData.tsn_agent_list',
                         'operation': 'size!=',
                         'operand2': {
                             'json_value': '1'
