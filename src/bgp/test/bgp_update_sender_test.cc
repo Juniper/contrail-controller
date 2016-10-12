@@ -37,8 +37,8 @@ class RibOutUpdatesMock : public RibOutUpdates {
 public:
     RibOutUpdatesMock(RibOut *ribout, int idx) : RibOutUpdates(ribout, idx) { }
 
-    MOCK_METHOD3(TailDequeue, bool(int,
-                                   const RibPeerSet &, RibPeerSet *));
+    MOCK_METHOD4(TailDequeue, bool(int, const RibPeerSet &,
+                                   RibPeerSet *, RibPeerSet *));
     MOCK_METHOD4(PeerDequeue, bool(int, IPeerUpdate *,
                                    const RibPeerSet &, RibPeerSet *));
 };
@@ -94,7 +94,7 @@ protected:
 
         SchedulerStart();
 
-        EXPECT_CALL(*updates_[0], TailDequeue(_, _, _)).Times(0);
+        EXPECT_CALL(*updates_[0], TailDequeue(_, _, _, _)).Times(0);
         EXPECT_CALL(*updates_[0], PeerDequeue(_, _, _, _)).Times(0);
     }
 
@@ -286,6 +286,7 @@ TEST_F(BgpUpdateSenderTest, TailDequeueBasic1a) {
     // Expect 1 call to TailDequeue.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE, peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
         .WillOnce(Return(true));
@@ -304,6 +305,7 @@ TEST_F(BgpUpdateSenderTest, TailDequeueBasic1b) {
     // Expect kTailCount calls to TailDequeue.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE, peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(kTailCount)
         .WillRepeatedly(Return(true));
@@ -324,7 +326,9 @@ TEST_F(BgpUpdateSenderTest, TailDequeueBasic2a) {
     InSequence seq;
     for (int qid = RibOutUpdates::QFIRST; qid < RibOutUpdates::QCOUNT; qid++) {
         EXPECT_CALL(*updates_[0],
-            TailDequeue(qid, peerset, Property(&RibPeerSet::empty, true)))
+            TailDequeue(qid, peerset,
+                        Property(&RibPeerSet::empty, true),
+                        Property(&RibPeerSet::empty, true)))
             .Times(1)
             .WillOnce(Return(true));
     }
@@ -345,7 +349,9 @@ TEST_F(BgpUpdateSenderTest, TailDequeueBasic2b) {
     // Expect kTailCount calls to TailDequeue for each qid.
     for (int qid = RibOutUpdates::QFIRST; qid < RibOutUpdates::QCOUNT; qid++) {
         EXPECT_CALL(*updates_[0],
-            TailDequeue(qid, peerset, Property(&RibPeerSet::empty, true)))
+            TailDequeue(qid, peerset,
+                        Property(&RibPeerSet::empty, true),
+                        Property(&RibPeerSet::empty, true)))
             .Times(kTailCount)
             .WillRepeatedly(Return(true));
     }
@@ -368,6 +374,7 @@ TEST_F(BgpUpdateSenderTest, TailDequeueAllBlock1) {
     // mask containing all peers.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE, peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
         .WillOnce(DoAll(SetArgPointee<2>(peerset), Return(false)));
@@ -393,6 +400,7 @@ TEST_F(BgpUpdateSenderTest, TailDequeueAllBlock2) {
     InSequence seq;
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE, peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
         .WillOnce(DoAll(SetArgPointee<2>(peerset), Return(false)));
@@ -400,6 +408,7 @@ TEST_F(BgpUpdateSenderTest, TailDequeueAllBlock2) {
     // Expect a call to TailDequeue for QBULK with an empty msync mask.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QBULK,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
@@ -424,6 +433,7 @@ TEST_F(BgpUpdateSenderTest, TailDequeueAllBlock3) {
     InSequence seq;
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE, peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
         .WillOnce(DoAll(SetArgPointee<2>(peerset), Return(false)));
@@ -432,6 +442,7 @@ TEST_F(BgpUpdateSenderTest, TailDequeueAllBlock3) {
     // mask.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(kTailCount-1)
@@ -460,6 +471,7 @@ TEST_F(BgpUpdateSenderTest, TailDequeueProgressiveBlock1) {
 
         EXPECT_CALL(*updates_[0],
             TailDequeue(RibOutUpdates::QUPDATE, sync_peerset,
+                        Property(&RibPeerSet::empty, true),
                         Property(&RibPeerSet::empty, true)))
             .Times(1)
             .WillOnce(DoAll(SetArgPointee<2>(blocked_peerset), Return(retval)));
@@ -468,6 +480,7 @@ TEST_F(BgpUpdateSenderTest, TailDequeueProgressiveBlock1) {
     // Expect the last call to TailDequeue with an empty msync mask.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
@@ -499,6 +512,7 @@ TEST_F(BgpUpdateSenderTest, TailDequeueProgressiveBlock2) {
     // the odd peers as part of the action.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE, peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
         .WillOnce(DoAll(SetArgPointee<2>(odd_peerset), Return(true)));
@@ -507,6 +521,7 @@ TEST_F(BgpUpdateSenderTest, TailDequeueProgressiveBlock2) {
     // the even peers as part of the action.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QBULK, even_peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
         .WillOnce(DoAll(SetArgPointee<2>(even_peerset), Return(false)));
@@ -533,6 +548,7 @@ TEST_F(BgpUpdateSenderTest, PeerDequeueBasic1a) {
     // Expect call to TailDequeue and get all peers into blocked state.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE, peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
         .WillOnce(DoAll(SetArgPointee<2>(peerset), Return(false)));
@@ -557,6 +573,7 @@ TEST_F(BgpUpdateSenderTest, PeerDequeueBasic1a) {
     // in sync.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE, peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
         .WillOnce(Return(true));
@@ -583,6 +600,7 @@ TEST_F(BgpUpdateSenderTest, PeerDequeueBasic1b) {
     // Expect call to TailDequeue and get all peers into blocked state.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE, peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
         .WillOnce(DoAll(SetArgPointee<2>(peerset), Return(false)));
@@ -609,6 +627,7 @@ TEST_F(BgpUpdateSenderTest, PeerDequeueBasic1b) {
     // in sync.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE, odd_peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
         .WillOnce(Return(true));
@@ -633,6 +652,7 @@ TEST_F(BgpUpdateSenderTest, PeerDequeueBasic1c) {
     // Expect call to TailDequeue and get all peers into blocked state.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE, peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
         .WillOnce(DoAll(SetArgPointee<2>(peerset), Return(false)));
@@ -657,6 +677,7 @@ TEST_F(BgpUpdateSenderTest, PeerDequeueBasic1c) {
     // in sync.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE, peer0,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
         .WillOnce(Return(true));
@@ -681,6 +702,7 @@ TEST_F(BgpUpdateSenderTest, PeerDequeueBasic1d) {
     // Expect call to TailDequeue and get all peers into blocked state.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE, peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
         .WillOnce(DoAll(SetArgPointee<2>(peerset), Return(false)));
@@ -706,6 +728,7 @@ TEST_F(BgpUpdateSenderTest, PeerDequeueBasic1d) {
     // Expect no calls to TailDequeue since none of the peers are in sync.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE, _,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(0);
 
@@ -729,6 +752,7 @@ TEST_F(BgpUpdateSenderTest, PeerDequeueBasic2a) {
     // state.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE, peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
         .WillOnce(DoAll(SetArgPointee<2>(peerset), Return(false)));
@@ -737,9 +761,10 @@ TEST_F(BgpUpdateSenderTest, PeerDequeueBasic2a) {
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QBULK,
                     Property(&RibPeerSet::empty, true),
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
-        .WillOnce(Return(false));
+        .WillOnce(DoAll(SetArgPointee<3>(peerset), Return(false)));
 
     RibOutActive(ribouts_[0], RibOutUpdates::QUPDATE);
     RibOutActive(ribouts_[0], RibOutUpdates::QBULK);
@@ -764,11 +789,13 @@ TEST_F(BgpUpdateSenderTest, PeerDequeueBasic2a) {
     // getting in sync.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE, peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
         .WillOnce(Return(true));
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QBULK, peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
         .WillOnce(Return(true));
@@ -793,6 +820,7 @@ TEST_F(BgpUpdateSenderTest, PeerDequeueBasic2b) {
     // state.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE, peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
         .WillOnce(DoAll(SetArgPointee<2>(peerset), Return(false)));
@@ -801,9 +829,10 @@ TEST_F(BgpUpdateSenderTest, PeerDequeueBasic2b) {
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QBULK,
                     Property(&RibPeerSet::empty, true),
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
-        .WillOnce(Return(false));
+        .WillOnce(DoAll(SetArgPointee<3>(peerset), Return(false)));
 
     RibOutActive(ribouts_[0], RibOutUpdates::QUPDATE);
     RibOutActive(ribouts_[0], RibOutUpdates::QBULK);
@@ -832,11 +861,13 @@ TEST_F(BgpUpdateSenderTest, PeerDequeueBasic2b) {
     // peers getting in sync.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE, even_peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
         .WillOnce(Return(true));
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QBULK, even_peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
         .WillOnce(Return(true));
@@ -861,6 +892,7 @@ TEST_F(BgpUpdateSenderTest, PeerDequeueBasic2d) {
     // state.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE, peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
         .WillOnce(DoAll(SetArgPointee<2>(peerset), Return(false)));
@@ -869,9 +901,10 @@ TEST_F(BgpUpdateSenderTest, PeerDequeueBasic2d) {
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QBULK,
                     Property(&RibPeerSet::empty, true),
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
-        .WillOnce(Return(false));
+        .WillOnce(DoAll(SetArgPointee<3>(peerset), Return(false)));
 
     RibOutActive(ribouts_[0], RibOutUpdates::QUPDATE);
     RibOutActive(ribouts_[0], RibOutUpdates::QBULK);
@@ -903,10 +936,12 @@ TEST_F(BgpUpdateSenderTest, PeerDequeueBasic2d) {
     // Expect no calls to TailDequeue since none of the peers are in sync.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE, _,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(0);
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QBULK, _,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(0);
 
@@ -931,6 +966,7 @@ TEST_F(BgpUpdateSenderTest, PeerDequeueBasic3a) {
     // state.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE, peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
         .WillOnce(DoAll(SetArgPointee<2>(odd_peerset), Return(true)));
@@ -957,6 +993,7 @@ TEST_F(BgpUpdateSenderTest, PeerDequeueBasic3a) {
     // The even peers were in sync with the tail marker all the time.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE, _,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(0);
 
@@ -981,6 +1018,7 @@ TEST_F(BgpUpdateSenderTest, PeerDequeueBasic3b) {
     // state.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE, peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
         .WillOnce(DoAll(SetArgPointee<2>(even_peerset), Return(true)));
@@ -989,9 +1027,10 @@ TEST_F(BgpUpdateSenderTest, PeerDequeueBasic3b) {
     // Keep the odd peers in sync by returning true.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QBULK, odd_peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
-        .WillOnce(Return(true));
+        .WillOnce(DoAll(SetArgPointee<3>(even_peerset), Return(true)));
 
     RibOutActive(ribouts_[0], RibOutUpdates::QUPDATE);
     RibOutActive(ribouts_[0], RibOutUpdates::QBULK);
@@ -1018,10 +1057,12 @@ TEST_F(BgpUpdateSenderTest, PeerDequeueBasic3b) {
     // The odd peers were in sync with the tail marker all the time.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE, _,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(0);
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QBULK, _,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(0);
 
@@ -1048,6 +1089,7 @@ TEST_F(BgpUpdateSenderTest, PeerDequeueAlreadyBlocked) {
     // state.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE, peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
         .WillOnce(DoAll(SetArgPointee<2>(peer01), Return(true)));
@@ -1096,14 +1138,16 @@ protected:
 
         EXPECT_CALL(*updates_[0],
             TailDequeue(RibOutUpdates::QUPDATE, peerset,
+                        Property(&RibPeerSet::empty, true),
                         Property(&RibPeerSet::empty, true)))
             .Times(1)
             .WillOnce(DoAll(SetArgPointee<2>(peer0), Return(true)));
         EXPECT_CALL(*updates_[0],
             TailDequeue(RibOutUpdates::QBULK, others,
+                        Property(&RibPeerSet::empty, true),
                         Property(&RibPeerSet::empty, true)))
             .Times(1)
-            .WillOnce(Return(true));
+            .WillOnce(DoAll(SetArgPointee<3>(peer0), Return(true)));
 
         RibOutActive(ribouts_[0], RibOutUpdates::QUPDATE);
         RibOutActive(ribouts_[0], RibOutUpdates::QBULK);
@@ -1256,7 +1300,7 @@ protected:
         task_util::WaitForIdle();
         for (int ro_idx  = 0; ro_idx < kRiboutCount; ro_idx++) {
             Mock::VerifyAndClearExpectations(updates_[ro_idx]);
-            EXPECT_CALL(*updates_[ro_idx], TailDequeue(_, _, _)).Times(0);
+            EXPECT_CALL(*updates_[ro_idx], TailDequeue(_, _, _, _)).Times(0);
             EXPECT_CALL(*updates_[ro_idx], PeerDequeue(_, _, _, _)).Times(0);
         }
     }
@@ -1278,6 +1322,7 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueBasic1a) {
 
         EXPECT_CALL(*updates_[ro_idx],
             TailDequeue(RibOutUpdates::QUPDATE, peerset,
+                        Property(&RibPeerSet::empty, true),
                         Property(&RibPeerSet::empty, true)))
             .Times(1)
             .WillOnce(Return(true));
@@ -1303,6 +1348,7 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueBasic1b) {
 
         EXPECT_CALL(*updates_[ro_idx],
             TailDequeue(RibOutUpdates::QUPDATE, peerset,
+                        Property(&RibPeerSet::empty, true),
                         Property(&RibPeerSet::empty, true)))
             .Times(1)
             .WillOnce(Return(true));
@@ -1328,7 +1374,9 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueBasic2a) {
             BuildPeerSet(peerset, ro_idx, 0, kPeerCount-1);
 
             EXPECT_CALL(*updates_[ro_idx],
-                TailDequeue(qid, peerset, Property(&RibPeerSet::empty, true)))
+                TailDequeue(qid, peerset,
+                            Property(&RibPeerSet::empty, true),
+                            Property(&RibPeerSet::empty, true)))
                 .Times(1)
                 .WillOnce(Return(true));
         }
@@ -1356,7 +1404,9 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueBasic2b) {
             BuildPeerSet(peerset, ro_idx, 0, kPeerCount-1);
 
             EXPECT_CALL(*updates_[ro_idx],
-                TailDequeue(qid, peerset, Property(&RibPeerSet::empty, true)))
+                TailDequeue(qid, peerset,
+                            Property(&RibPeerSet::empty, true),
+                            Property(&RibPeerSet::empty, true)))
                 .Times(1)
                 .WillOnce(Return(true));
         }
@@ -1395,6 +1445,7 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueProgressiveBlock1) {
             }
             EXPECT_CALL(*updates_[ro_idx],
                 TailDequeue(RibOutUpdates::QUPDATE, sync_peerset,
+                            Property(&RibPeerSet::empty, true),
                             Property(&RibPeerSet::empty, true)))
                 .Times(1)
                 .WillOnce(DoAll(SetArgPointee<2>(blocked_peerset),
@@ -1425,6 +1476,7 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueAllBlock1a) {
     InSequence seq;
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE, peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
         .WillOnce(DoAll(SetArgPointee<2>(peerset), Return(false)));
@@ -1434,6 +1486,7 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueAllBlock1a) {
     for (int ro_idx  = 1; ro_idx < kRiboutCount; ro_idx++) {
         EXPECT_CALL(*updates_[ro_idx],
             TailDequeue(RibOutUpdates::QUPDATE,
+                        Property(&RibPeerSet::empty, true),
                         Property(&RibPeerSet::empty, true),
                         Property(&RibPeerSet::empty, true)))
             .Times(1)
@@ -1463,6 +1516,7 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueAllBlock1b) {
     InSequence seq;
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QBULK, peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
         .WillOnce(DoAll(SetArgPointee<2>(peerset), Return(false)));
@@ -1472,6 +1526,7 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueAllBlock1b) {
     for (int ro_idx  = 0; ro_idx < kRiboutCount; ro_idx++) {
         EXPECT_CALL(*updates_[ro_idx],
             TailDequeue(RibOutUpdates::QUPDATE,
+                        Property(&RibPeerSet::empty, true),
                         Property(&RibPeerSet::empty, true),
                         Property(&RibPeerSet::empty, true)))
             .Times(1)
@@ -1502,18 +1557,20 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueAllBlock1c) {
     InSequence seq;
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QBULK, peerset,
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
         .WillOnce(DoAll(SetArgPointee<2>(peerset), Return(false)));
 
-    // Expect call to TailDequeue for QUPDATE for the first RibOuts with an
+    // Expect call to TailDequeue for QUPDATE for the first RibOut with an
     // empty mysnc mask.
     EXPECT_CALL(*updates_[0],
         TailDequeue(RibOutUpdates::QUPDATE,
                     Property(&RibPeerSet::empty, true),
+                    Property(&RibPeerSet::empty, true),
                     Property(&RibPeerSet::empty, true)))
         .Times(1)
-        .WillOnce(Return(false));
+        .WillOnce(DoAll(SetArgPointee<3>(peerset), Return(false)));
 
     // Expect calls to TailDequeue for the other RibOuts for all qids with an
     // empty mysnc mask.
@@ -1522,6 +1579,7 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, TailDequeueAllBlock1c) {
                 qid++) {
             EXPECT_CALL(*updates_[ro_idx],
                 TailDequeue(qid,
+                            Property(&RibPeerSet::empty, true),
                             Property(&RibPeerSet::empty, true),
                             Property(&RibPeerSet::empty, true)))
                 .Times(1)
@@ -1559,7 +1617,9 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, PeerDequeueBasic1a) {
         // Expect call to TailDequeue for the first RibOut and get all peers
         // into blocked state.
         EXPECT_CALL(*updates_[0],
-            TailDequeue(qid, peerset, Property(&RibPeerSet::empty, true)))
+            TailDequeue(qid, peerset,
+                        Property(&RibPeerSet::empty, true),
+                        Property(&RibPeerSet::empty, true)))
             .Times(1)
             .WillOnce(DoAll(SetArgPointee<2>(peerset), Return(false)));
 
@@ -1567,10 +1627,12 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, PeerDequeueBasic1a) {
         // mysnc mask.
         for (int ro_idx  = 1; ro_idx < kRiboutCount; ro_idx++) {
             EXPECT_CALL(*updates_[ro_idx],
-                TailDequeue(qid, Property(&RibPeerSet::empty, true),
+                TailDequeue(qid,
+                            Property(&RibPeerSet::empty, true),
+                            Property(&RibPeerSet::empty, true),
                             Property(&RibPeerSet::empty, true)))
                 .Times(1)
-                .WillOnce(Return(false));
+                .WillOnce(DoAll(SetArgPointee<3>(peerset), Return(false)));
         }
 
         for (int ro_idx  = 0; ro_idx < kRiboutCount; ro_idx++) {
@@ -1602,6 +1664,7 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, PeerDequeueBasic1a) {
             BuildPeerSet(peerset, ro_idx, 0, kPeerCount-1);
             EXPECT_CALL(*updates_[ro_idx],
                 TailDequeue(qid, peerset,
+                            Property(&RibPeerSet::empty, true),
                             Property(&RibPeerSet::empty, true)))
                 .Times(1)
                 .WillOnce(Return(true));
@@ -1632,7 +1695,9 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, PeerDequeueBasic1b) {
         // Expect call to TailDequeue for the first RibOut and get all peers
         // into blocked state.
         EXPECT_CALL(*updates_[0],
-            TailDequeue(qid, peerset, Property(&RibPeerSet::empty, true)))
+            TailDequeue(qid, peerset,
+                        Property(&RibPeerSet::empty, true),
+                        Property(&RibPeerSet::empty, true)))
             .Times(1)
             .WillOnce(DoAll(SetArgPointee<2>(peerset), Return(false)));
 
@@ -1642,10 +1707,12 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, PeerDequeueBasic1b) {
             if (ro_idx % 2 == 1)
                 continue;
             EXPECT_CALL(*updates_[ro_idx],
-                TailDequeue(qid, Property(&RibPeerSet::empty, true),
+                TailDequeue(qid,
+                            Property(&RibPeerSet::empty, true),
+                            Property(&RibPeerSet::empty, true),
                             Property(&RibPeerSet::empty, true)))
                 .Times(1)
-                .WillOnce(Return(false));
+                .WillOnce(DoAll(SetArgPointee<3>(peerset), Return(false)));
         }
 
         for (int ro_idx  = 0; ro_idx < kRiboutCount; ro_idx++) {
@@ -1683,6 +1750,7 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, PeerDequeueBasic1b) {
             BuildPeerSet(peerset, ro_idx, 0, kPeerCount-1);
             EXPECT_CALL(*updates_[ro_idx],
                 TailDequeue(qid, peerset,
+                            Property(&RibPeerSet::empty, true),
                             Property(&RibPeerSet::empty, true)))
                 .Times(1)
                 .WillOnce(Return(true));
@@ -1717,7 +1785,9 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, PeerDequeueBlocks1a) {
         // Expect call to TailDequeue for the first RibOut and get all peers
         // into blocked state.
         EXPECT_CALL(*updates_[0],
-            TailDequeue(qid, peerset, Property(&RibPeerSet::empty, true)))
+            TailDequeue(qid, peerset,
+                        Property(&RibPeerSet::empty, true),
+                        Property(&RibPeerSet::empty, true)))
             .Times(1)
             .WillOnce(DoAll(SetArgPointee<2>(peerset), Return(false)));
 
@@ -1725,10 +1795,12 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, PeerDequeueBlocks1a) {
         // mysnc mask.
         for (int ro_idx  = 1; ro_idx < kRiboutCount; ro_idx++) {
             EXPECT_CALL(*updates_[ro_idx],
-                TailDequeue(qid, Property(&RibPeerSet::empty, true),
+                TailDequeue(qid,
+                            Property(&RibPeerSet::empty, true),
+                            Property(&RibPeerSet::empty, true),
                             Property(&RibPeerSet::empty, true)))
                 .Times(1)
-                .WillOnce(Return(false));
+                .WillOnce(DoAll(SetArgPointee<3>(peerset), Return(false)));
         }
 
         for (int ro_idx  = 0; ro_idx < kRiboutCount; ro_idx++) {
@@ -1793,6 +1865,7 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, PeerDequeueBlocks1a) {
             BuildPeerSet(peerset, ro_idx, 0, kPeerCount-1);
             EXPECT_CALL(*updates_[ro_idx],
                 TailDequeue(qid, peerset,
+                            Property(&RibPeerSet::empty, true),
                             Property(&RibPeerSet::empty, true)))
                 .Times(1)
                 .WillOnce(Return(true));
@@ -1828,7 +1901,9 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, PeerDequeueBlocks1b) {
         // Expect call to TailDequeue for the first RibOut and get all peers
         // into blocked state.
         EXPECT_CALL(*updates_[0],
-            TailDequeue(qid, peerset, Property(&RibPeerSet::empty, true)))
+            TailDequeue(qid, peerset,
+                        Property(&RibPeerSet::empty, true),
+                        Property(&RibPeerSet::empty, true)))
             .Times(1)
             .WillOnce(DoAll(SetArgPointee<2>(peerset), Return(false)));
 
@@ -1836,10 +1911,12 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, PeerDequeueBlocks1b) {
         // mysnc mask.
         for (int ro_idx  = 1; ro_idx < kRiboutCount; ro_idx++) {
             EXPECT_CALL(*updates_[ro_idx],
-                TailDequeue(qid, Property(&RibPeerSet::empty, true),
+                TailDequeue(qid,
+                            Property(&RibPeerSet::empty, true),
+                            Property(&RibPeerSet::empty, true),
                             Property(&RibPeerSet::empty, true)))
                 .Times(1)
-                .WillOnce(Return(false));
+                .WillOnce(DoAll(SetArgPointee<3>(peerset), Return(false)));
         }
 
         for (int ro_idx  = 0; ro_idx < kRiboutCount; ro_idx++) {
@@ -1903,6 +1980,7 @@ TEST_F(BgpUpdateSenderMultiRibOutTest, PeerDequeueBlocks1b) {
             BuildPeerSet(peerset, ro_idx, 0, kPeerCount-1);
             EXPECT_CALL(*updates_[ro_idx],
                 TailDequeue(qid, peerset,
+                            Property(&RibPeerSet::empty, true),
                             Property(&RibPeerSet::empty, true)))
                 .Times(1)
                 .WillOnce(Return(true));
