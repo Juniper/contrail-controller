@@ -64,7 +64,7 @@ class InetRoute : public BgpRoute {
 public:
     explicit InetRoute(const Ip4Prefix &prefix);
     virtual int CompareTo(const Route &rhs) const;
-    virtual std::string ToString() const;
+    virtual std::string ToString() const { return prefix_str_; }
 
     const Ip4Prefix &GetPrefix() const { return prefix_; }
 
@@ -90,7 +90,7 @@ public:
 
 private:
     Ip4Prefix prefix_;
-    mutable std::string prefix_str_;
+    std::string prefix_str_;
 
     DISALLOW_COPY_AND_ASSIGN(InetRoute);
 };
