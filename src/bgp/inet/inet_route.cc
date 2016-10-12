@@ -77,18 +77,14 @@ bool Ip4Prefix::IsMoreSpecific(const Ip4Prefix &rhs) const {
         (rhs.ip4_addr().to_ulong() & mask);
 }
 
-InetRoute::InetRoute(const Ip4Prefix &prefix) : prefix_(prefix) {
+InetRoute::InetRoute(const Ip4Prefix &prefix)
+    : prefix_(prefix),
+      prefix_str_(prefix.ToString()) {
 }
 
 int InetRoute::CompareTo(const Route &rhs) const {
     const InetRoute &rt_other = static_cast<const InetRoute &>(rhs);
     return prefix_.CompareTo(rt_other.prefix_);
-}
-
-string InetRoute::ToString() const {
-    if (prefix_str_.empty())
-        prefix_str_ = prefix_.ToString();
-    return prefix_str_;
 }
 
 // Check whether 'this' is more specific than rhs.

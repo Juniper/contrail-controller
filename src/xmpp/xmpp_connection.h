@@ -105,7 +105,6 @@ public:
 
     void set_session(XmppSession *session);
     void clear_session();
-    void SetFrom(const std::string &);
     void SetTo(const std::string &);
 
     const XmppSession *session() const;

@@ -58,6 +58,9 @@ XmppConnection::XmppConnection(TcpServer *server,
       state_machine_(XmppObjectFactory::Create<XmppStateMachine>(
           this, config->ClientOnly(), config->auth_enabled)),
       mux_(XmppObjectFactory::Create<XmppChannelMux>(this)) {
+    ostringstream oss;
+    oss << FromString() << ":" << endpoint().address().to_string();
+    uve_key_str_ = oss.str();
 }
 
 XmppConnection::~XmppConnection() {
@@ -186,19 +189,7 @@ std::string XmppConnection::ToString() const {
 }
 
 std::string XmppConnection::ToUVEKey() const {
-    if (uve_key_str_.empty()) {
-        std::ostringstream out;
-        out << FromString() << ":" << endpoint().address().to_string();
-        uve_key_str_ = out.str();
-    }
     return uve_key_str_;
-}
-
-void XmppConnection::SetFrom(const string &from) {
-    if (from_.size() == 0) {
-        from_ = from;
-        state_machine_->Initialize();
-    }
 }
 
 static void XMPPPeerInfoSend(XmppPeerInfoData &peer_info) {
