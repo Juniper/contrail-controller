@@ -217,10 +217,12 @@ bool RibOutUpdates::DequeueCommon(UpdateQueue *queue, UpdateMarker *marker,
 // tail marker for the given queue id.
 //
 // Return false if all the peers in the marker get blocked.  In any case, the
-// blocked parameter is populated with the set of peers that are send blocked.
+// blocked parameter is populated with the set of peers that are send blocked
+// and the unsync parameter is populated with the set of peers from the tail
+// marker that are not in the msync set passed in to the method.
 //
 bool RibOutUpdates::TailDequeue(int queue_id, const RibPeerSet &msync,
-        RibPeerSet *blocked) {
+        RibPeerSet *blocked, RibPeerSet *unsync) {
     CHECK_CONCURRENCY("bgp::SendUpdate");
 
     stats_[queue_id].tail_dequeue_count_++;
@@ -236,17 +238,16 @@ bool RibOutUpdates::TailDequeue(int queue_id, const RibPeerSet &msync,
     // unsync peers. If all the peers are unsync return right away. The
     // BgpUpdateSender will take care of triggering a TailDequeue again
     // when at least one peer becomes in-sync.
-    RibPeerSet unsync;
-    unsync.BuildComplement(start_marker->members, msync);
-    if (unsync == start_marker->members) {
+    unsync->BuildComplement(start_marker->members, msync);
+    if (*unsync == start_marker->members) {
         return false;
     }
 
     // Split the unsync peers from the tail marker. Note that this updates
     // the RibPeerSet in the tail marker.
-    if (!unsync.empty()) {
+    if (!unsync->empty()) {
         stats_[queue_id].marker_split_count_++;
-        queue->MarkerSplit(start_marker, unsync);
+        queue->MarkerSplit(start_marker, *unsync);
     }
 
     // Update send loop. Select next update to send, format a message.
