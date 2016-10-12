@@ -9,12 +9,25 @@ from cfgm_common import svc_info
 from config_db import VirtualNetworkSM, LogicalRouterSM, \
     VirtualMachineInterfaceSM, ServiceInstanceSM, ServiceTemplateSM, \
     ProjectSM, DBBaseSM
+from module_logger import ServiceMonitorModuleLogger,MessageID
+from sandesh.snat_agent import ttypes as sandesh
 
 
 SNAT_SERVICE_TEMPLATE_FQ_NAME = ['default-domain', 'netns-snat-template']
 
 
 class SNATAgent(Agent):
+
+    def __init__(self, svc_mon, vnc_lib, cassandra, config_section, logger):
+        super(SNATAgent, self).__init__(svc_mon, vnc_lib,
+                                        cassandra, config_section)
+        self.logger = logger
+
+        # Register log functions to be used for SNAT Agent logs.
+        log_funcs = {
+                        MessageID.DEBUG : sandesh.SNATAgentDebugLog,
+                    }
+        self.logger.add_messages(**log_funcs)
 
     def audit_snat_instances(self):
         for lr in LogicalRouterSM.values():
@@ -50,7 +63,9 @@ class SNATAgent(Agent):
         vn_fq_name = si_obj.fq_name[:-1] + [vn_name]
         try:
             self._cassandra.fq_name_to_uuid('virtual-network', vn_fq_name)
-        except NoIdError:
+        except vnc_exc.NoIdError:
+            self.logger.debug("Virtual Network %s not found. Creating One." % \
+                              (vn_name))
             self._create_snat_vn(si_obj, vn_name)
 
         return ':'.join(vn_fq_name)
@@ -76,6 +91,7 @@ class SNATAgent(Agent):
             return DBBaseSM().read_vnc_obj(
                 obj_type="route_table", fq_name=rt_fq_name)
         except vnc_exc.NoIdError:
+            self.logger.debug("Route Table %s not found." % (rt_name))
             return
 
     def _del_route_table(self, net_uuid, rt_obj):
@@ -84,6 +100,9 @@ class SNATAgent(Agent):
                   'virtual-network', net_uuid, 'route-table',
                   None, rt_obj.get_fq_name(), 'DELETE', None)
         except vnc_exc.NoIdError:
+            self.logger.debug( \
+                 "Route Table %s not found. Delete route table failed." % \
+                 (rt_obj.get_fq_name()))
             return
 
     def _set_lr_route_table(self, lr_uuid, rt_obj):
@@ -106,7 +125,9 @@ class SNATAgent(Agent):
         try:
             vnc_rtr_obj = self._vnc_lib.logical_router_read(id=router_obj.uuid)
         except vnc_exc.NoIdError:
-            # msg="Unable to read logical router to set the default gateway")
+            self.logger.debug("Unable to find logical router for id %s. " \
+                              "Add SNAT instance failed." % \
+                              (router_obj.uuid))
             return
 
         # Get netns SNAT service template
@@ -114,7 +135,10 @@ class SNATAgent(Agent):
             st_obj = self._vnc_lib.service_template_read(
                 fq_name=SNAT_SERVICE_TEMPLATE_FQ_NAME)
         except vnc_exc.NoIdError:
-            # msg="Unable to read template to set the default gateway")
+            self.logger.debug( \
+                "Unable to read service template %s. " \
+                " Add SNAT instance failed." % \
+                (SNAT_SERVICE_TEMPLATE_FQ_NAME))
             return
 
         # Get the service instance if it exists
@@ -124,6 +148,7 @@ class SNATAgent(Agent):
             try:
                 si_obj = self._vnc_lib.service_instance_read(id=si_uuid)
             except vnc_exc.NoIdError:
+                self.logger.debug("Service instance %s not found." % (si_uuid))
                 pass
 
         # Get route table for default route it it exists
@@ -189,7 +214,11 @@ class SNATAgent(Agent):
         vn_fq_name = si_obj.fq_name[:-1] + [vn_name]
         try:
             vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn_fq_name)
-        except NoIdError:
+        except vnc_exc.NoIdError:
+
+            self.logger.debug("Unable to find virtual network %s. " \
+                              "Delete of SNAT instance %s failed." % \
+                              (vn_name, si_obj.name))
             return
 
         vn = VirtualNetworkSM.get(vn_obj.uuid)
@@ -200,24 +229,34 @@ class SNATAgent(Agent):
             try:
                 self._vnc_lib.ref_update('virtual-machine-interface',
                     vmi_id, 'virtual-network', vn.uuid, None, 'DELETE')
-            except NoIdError:
+            except vnc_exc.NoIdError:
+                self.logger.debug( \
+                    "Update of vnc lib for vmi %s virtual network %s failed" % \
+                    (vmi_id, vn_name))
                 pass
 
         for iip_id in vn.instance_ips:
             try:
                 self._vnc_lib.instance_ip_delete(id=iip_id)
-            except NoIdError:
+            except vnc_exc.NoIdError:
+                self.logger.debug( \
+                     "Unable to find IIP %s in virtual network %s." % \
+                     (iip_id, vn_name))
                 pass
 
         try:
             self._vnc_lib.virtual_network_delete(id=vn.uuid)
-        except (RefsExistError, NoIdError):
+        except (vnc_exc.RefsExistError, vnc_exc.NoIdError):
+            self.logger.debug("Delete of virtual network %s failed." % \
+                              (vn_name))
             pass
 
     def delete_snat_instance(self, router_obj):
         try:
             vnc_rtr_obj = self._vnc_lib.logical_router_read(id=router_obj.uuid)
         except vnc_exc.NoIdError:
+            self.logger.debug("Unable to find logical router %s." % \
+                              (router_obj.uuid))
             vnc_rtr_obj = None
 
         # Get the service instance if it exists
@@ -226,7 +265,9 @@ class SNATAgent(Agent):
         if si_uuid:
             try:
                 si_obj = self._vnc_lib.service_instance_read(id=si_uuid)
-            except NoIdError:
+            except vnc_exc.NoIdError:
+                self.logger.debug("Unable to find service instance %s. " % \
+                                  (si_uuid))
                 pass
 
         # Get route table for default route it it exists
@@ -240,6 +281,9 @@ class SNATAgent(Agent):
             try:
                 self._vnc_lib.logical_router_update(vnc_rtr_obj)
             except vnc_exc.NoIdError:
+                self.logger.debug( \
+                     "Update of vnc lib for logical router %s failed. " % \
+                     (vnc_rtr_obj.name))
                 pass
 
         # Delete route table
@@ -262,6 +306,9 @@ class SNATAgent(Agent):
         try:
             si_obj = self._vnc_lib.service_instance_read(id=si_id)
         except vnc_exc.NoIdError:
+            self.logger.debug( \
+                 "Service instace %s not found. SNAT cleanup failed." % \
+                 (si_id))
             return
 
         # Delete route table
@@ -275,10 +322,15 @@ class SNATAgent(Agent):
                        'logical-router', lr_id, 'route-table',
                        None, rt_fq_name, 'DELETE', None)
             except vnc_exc.NoIdError:
+                self.logger.debug( \
+                       "Update of logical router %s failed." % \
+                       (lr_id))
                 pass
             try:
                 self._vnc_lib.route_table_delete(fq_name=rt_fq_name)
             except vnc_exc.NoIdError:
+                self.logger.debug("Route table %s delete failed. " % \
+                                  (rt_name))
                 pass
 
         # Delete service instance
