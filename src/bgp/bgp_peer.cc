@@ -443,6 +443,19 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           total_flap_count_(0),
           last_flap_(0),
           inuse_authkey_type_(AuthenticationData::NIL) {
+    ostringstream oss1;
+    oss1 << peer_key_.endpoint.address();
+    if (peer_key_.endpoint.port() != BgpConfigManager::kDefaultPort)
+        oss1 << ":" << dec << peer_key_.endpoint.port();
+    to_str_ = oss1.str();
+
+    ostringstream oss2;
+    if (rtinstance_)
+        oss2 << rtinstance_->name() << ":";
+    oss2 << server_->localname() << ":";
+    oss2 << peer_name();
+    uve_key_str_ = oss2.str();
+
     membership_req_pending_ = 0;
     BGP_LOG_PEER(Event, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
         BGP_PEER_DIR_NA, "Created");
@@ -1928,31 +1941,6 @@ bool BgpPeer::ReceiveMsg(BgpSession *session, const u_int8_t *msg,
 
     state_machine_->OnMessage(session, minfo, size);
     return true;
-}
-
-const string &BgpPeer::ToString() const {
-    if (to_str_.empty()) {
-        ostringstream out;
-        out << peer_key_.endpoint.address();
-        if (peer_key_.endpoint.port() != BgpConfigManager::kDefaultPort) {
-            out << ":" << dec << peer_key_.endpoint.port();
-        }
-        to_str_ = out.str();
-    }
-    return to_str_;
-}
-
-const string &BgpPeer::ToUVEKey() const {
-    if (uve_key_str_.empty()) {
-        ostringstream out;
-        if (rtinstance_) {
-            out << rtinstance_->name() << ":";
-        }
-        out << server_->localname() << ":";
-        out << peer_name();
-        uve_key_str_ = out.str();
-    }
-    return uve_key_str_;
 }
 
 //
