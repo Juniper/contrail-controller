@@ -1851,8 +1851,8 @@ void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *rt,
 
     for (int i = 0; i < count; i++) {
         o_str << "<route>\n"
-              << "<prefix>\n" << rt->addr_.to_string()
-              << "/" << rt->plen_ << " \n"  << "</prefix>\n"
+              << "<prefix>" << rt->addr_.to_string()
+              << "/" << rt->plen_ << "</prefix>\n"
               << "<next-hop>\" \"</next-hop>\n"
               << "<next-hop-type>\" \"</next-hop-type>\n"
               << "</route>\n";
@@ -1872,8 +1872,8 @@ void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *rt,
 
     for (int i = 0; i < count; i++) {
         o_str << "<route>\n"
-              << "<prefix>\n" << rt->addr_.to_string()
-              << "/" << rt->plen_ << " \n"  << "</prefix>\n"
+              << "<prefix>" << rt->addr_.to_string()
+              << "/" << rt->plen_ << "</prefix>\n"
               << "<next-hop>" << nexthop << "</next-hop>\n"
               << "<next-hop-type>\" \"</next-hop-type>\n"
               << "</route>\n";
@@ -1894,8 +1894,8 @@ void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *rt,
 
     for (int i = 0; i < count; i++) {
         o_str << "<route>\n"
-              << "<prefix>\n" << rt->addr_.to_string()
-              << "/" << rt->plen_ << " \n"  << "</prefix>\n";
+              << "<prefix>" << rt->addr_.to_string()
+              << "/" << rt->plen_ << "</prefix>\n";
         if (nexthop) {
             o_str << "<next-hop>" << nexthop << "</next-hop>\n";
         }
@@ -1924,8 +1924,8 @@ void AddInterfaceRouteTableV6(const char *name, int id, TestIp6Prefix *rt,
 
     for (int i = 0; i < count; i++) {
         o_str << "<route>\n"
-              << "<prefix>\n" << rt->addr_.to_string()
-              << "/" << rt->plen_ << " \n"  << "</prefix>\n"
+              << "<prefix>" << rt->addr_.to_string()
+              << "/" << rt->plen_ << "</prefix>\n"
               << "<next-hop>\" \"</next-hop>\n"
               << "<next-hop-type>\" \"</next-hop-type>\n"
               << "</route>\n";
@@ -1990,7 +1990,7 @@ void AddAceEntry(string *str, const char *src_vn, const char *dst_vn,
 
     if (mirror_ip != "") {
         mirror << "<mirror-to>";
-        mirror << "<analyzer-name> mirror-1 </analyzer-name>";
+        mirror << "<analyzer-name>mirror-1</analyzer-name>";
         mirror << "<analyzer-ip-address>" << mirror_ip << "</analyzer-ip-address>";
         mirror << "<routing-instance>" << "" << "</routing-instance>";
         mirror << "<udp-port>" << "8159" << "</udp-port>";
@@ -2002,27 +2002,27 @@ void AddAceEntry(string *str, const char *src_vn, const char *dst_vn,
     sprintf(buff,
             "                <acl-rule>\n"
             "                    <match-condition>\n"
-            "                        <protocol> %s </protocol>\n"
+            "                        <protocol>%s</protocol>\n"
             "                        <src-address>\n"
-            "                            <virtual-network> %s </virtual-network>\n"
+            "                            <virtual-network>%s</virtual-network>\n"
             "                        </src-address>\n"
             "                        <src-port>\n"
-            "                            <start-port> %d </start-port>\n"
-            "                            <end-port> %d </end-port>\n"
+            "                            <start-port>%d</start-port>\n"
+            "                            <end-port>%d</end-port>\n"
             "                        </src-port>\n"
             "                        <dst-address>\n"
-            "                            <virtual-network> %s </virtual-network>\n"
+            "                            <virtual-network>%s</virtual-network>\n"
             "                        </dst-address>\n"
             "                        <dst-port>\n"
-            "                            <start-port> %d </start-port>\n"
-            "                            <end-port> %d </end-port>\n"
+            "                            <start-port>%d</start-port>\n"
+            "                            <end-port>%d</end-port>\n"
             "                        </dst-port>\n"
             "                    </match-condition>\n"
             "                    <action-list>\n"
-            "                        <simple-action> %s </simple-action>\n"
+            "                        <simple-action>%s</simple-action>\n"
             "                        %s\n"
-            "                        <assign-routing-instance> %s </assign-routing-instance>\n"
-            "                        <qos-action> %s </qos-action>\n"
+            "                        <assign-routing-instance>%s</assign-routing-instance>\n"
+            "                        <qos-action>%s</qos-action>\n"
             "                    </action-list>\n"
             "                </acl-rule>\n",
         proto, src_vn, sport_start, sport_end, dst_vn, dport_start, dport_end,
