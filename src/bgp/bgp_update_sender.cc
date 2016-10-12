@@ -635,22 +635,20 @@ void BgpSenderPartition::WorkRibOutInvalidate(RibOut *ribout) {
 }
 
 //
-// Build the RibPeerSet of IPeers for the RibOut that are in sync and out of
-// sync. Note that we need to use bit indices that are specific to the RibOut,
-// not the ones from the BgpSenderPartition.
+// Build the RibPeerSet of IPeers for the RibOut that are in sync. Note that
+// we need to use bit indices that are specific to the RibOut, not the ones
+// from the BgpSenderPartition.
 //
-void BgpSenderPartition::BuildSyncUnsyncBitSet(const RibOut *ribout,
-    RibState *rs, RibPeerSet *msync, RibPeerSet *munsync) {
+void BgpSenderPartition::BuildSyncBitSet(const RibOut *ribout, RibState *rs,
+    RibPeerSet *msync) {
     CHECK_CONCURRENCY("bgp::SendUpdate");
 
     for (RibState::iterator it = rs->begin(peer_state_imap_);
          it != rs->end(peer_state_imap_); ++it) {
         const PeerState *ps = it.operator->();
-        int rix = ribout->GetPeerIndex(ps->peer());
         if (ps->in_sync()) {
+            int rix = ribout->GetPeerIndex(ps->peer());
             msync->set(rix);
-        } else {
-            munsync->set(rix);
         }
     }
 }
@@ -788,14 +786,14 @@ void BgpSenderPartition::UpdateRibOut(RibOut *ribout, int queue_id) {
 
     RibOutUpdates *updates = ribout->updates(index_);
     RibState *rs = rib_state_imap_.Find(ribout);
-    RibPeerSet msync, munsync;
+    RibPeerSet msync;
 
     // Convert group in-sync list to rib specific bitset.
-    BuildSyncUnsyncBitSet(ribout, rs, &msync, &munsync);
+    BuildSyncBitSet(ribout, rs, &msync);
 
     // Drain the queue till we can do no more.
-    RibPeerSet blocked;
-    bool done = updates->TailDequeue(queue_id, msync, &blocked);
+    RibPeerSet blocked, munsync;
+    bool done = updates->TailDequeue(queue_id, msync, &blocked, &munsync);
     assert(msync.Contains(blocked));
 
     // Mark peers as send blocked.
