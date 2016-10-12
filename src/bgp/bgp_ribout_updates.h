@@ -69,8 +69,8 @@ public:
 
     void Enqueue(DBEntryBase *db_entry, RouteUpdate *rt_update);
 
-    virtual bool TailDequeue(int queue_id,
-                             const RibPeerSet &msync, RibPeerSet *blocked);
+    virtual bool TailDequeue(int queue_id, const RibPeerSet &msync,
+                             RibPeerSet *blocked, RibPeerSet *unsync);
     virtual bool PeerDequeue(int queue_id, IPeerUpdate *peer,
                              const RibPeerSet &mready, RibPeerSet *blocked);
 
