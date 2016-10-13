@@ -78,6 +78,7 @@ struct BgpNeighborResp {
     48: bool passive;
     55: bool as_override;
     61: string private_as_action;
+    62: bool send_ready;
     50: u32 peer_port;
     51: string transport_address;
     4: string local_address;    // local ip address and port

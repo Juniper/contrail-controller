@@ -46,11 +46,17 @@ struct BgpSenderPartition::PeerRibState {
 // to implement regular and circular iterator classes that are used to walk
 // through all the RibState entries for a peer.
 //
-// A PeerState maintains the in_sync and send_ready state for the IPeer. An
-// IPeer/PeerState is considered to be send_ready when the underlying socket
-// is writable. It is considered to be in_sync if it's send_ready and the
-// marker for the IPeer has merged with the tail marker for all QueueIds in
-// all RiBOuts that the IPeer is subscribed.
+// A PeerState maintains the in_sync and send_ready state for the IPeerUpdate.
+//
+// The PeerState is considered to be send_ready when the underlying socket is
+// is writable.  Note that the send_ready state in the PeerState may be out of
+// date with the actual socket state because the socket could have got blocked
+// when writing from another partition. Hence IPeerUpdate::send_ready() is the
+// more authoritative source.
+//
+// The PeerState is considered to be in_sync if it's send_ready and the marker
+// IPeerUpdate the peer has merged with the tail marker for all QueueIds in
+// all RiBOuts for which the IPeerUpdate is subscribed.
 //
 // The PeerState keeps count of the number of active RibOuts for each QueueId.
 // A (RibOut, QueueId) pair is considered to be active if the PeerState isn't
@@ -645,31 +651,20 @@ void BgpSenderPartition::BuildSyncBitSet(const RibOut *ribout, RibState *rs,
 
     for (RibState::iterator it = rs->begin(peer_state_imap_);
          it != rs->end(peer_state_imap_); ++it) {
-        const PeerState *ps = it.operator->();
+        PeerState *ps = it.operator->();
+
+        // If the PeerState is in sync but the IPeerUpdate is not send ready
+        // then update the sync and send ready state in the PeerState.  Note
+        // that the RibOut queue for the PeerState will get marked active via
+        // the call the SetQueueActive from UpdateRibOut.
         if (ps->in_sync()) {
-            int rix = ribout->GetPeerIndex(ps->peer());
-            msync->set(rix);
-        }
-    }
-}
-
-//
-// Build the RibPeerSet of IPeers for the RibOut that are send ready. Note
-// that we need to use bit indices that are specific to the RibOut, not the
-// ones from the BgpSenderPartition.
-//
-void BgpSenderPartition::BuildSendReadyBitSet(RibOut *ribout,
-    RibPeerSet *mready) {
-    CHECK_CONCURRENCY("bgp::SendUpdate");
-
-    RibState *rs = rib_state_imap_.Find(ribout);
-    assert(rs != NULL);
-    for (RibState::iterator it = rs->begin(peer_state_imap_);
-         it != rs->end(peer_state_imap_); ++it) {
-        const PeerState *ps = it.operator->();
-        if (ps->send_ready()) {
-            int rix = ribout->GetPeerIndex(ps->peer());
-            mready->set(rix);
+            if (ps->peer()->send_ready()) {
+                int rix = ribout->GetPeerIndex(ps->peer());
+                msync->set(rix);
+            } else {
+                ps->clear_sync();
+                ps->set_send_ready(false);
+            }
         }
     }
 }
@@ -830,19 +825,11 @@ bool BgpSenderPartition::UpdatePeerQueue(IPeerUpdate *peer, PeerState *ps,
         if (!BitIsSet(it.peer_rib_state().qactive, queue_id))
             continue;
 
-        RibOut *ribout = it.operator->();
-
-        // Build the send ready bitset. This includes all send ready peers
-        // for the ribout so that we can potentially merge other peers as
-        // we move forward in processing the update queue.
-        RibPeerSet send_ready;
-        BuildSendReadyBitSet(ribout, &send_ready);
-
         // Drain the queue till we can do no more.
+        RibOut *ribout = it.operator->();
         RibOutUpdates *updates = ribout->updates(index_);
         RibPeerSet blocked;
-        bool done = updates->PeerDequeue(queue_id, peer, send_ready, &blocked);
-        assert(send_ready.Contains(blocked));
+        bool done = updates->PeerDequeue(queue_id, peer, &blocked);
 
         // Process blocked mask.
         RibState *rs = it.rib_state();
@@ -875,8 +862,17 @@ bool BgpSenderPartition::UpdatePeerQueue(IPeerUpdate *peer, PeerState *ps,
 void BgpSenderPartition::UpdatePeer(IPeerUpdate *peer) {
     CHECK_CONCURRENCY("bgp::SendUpdate");
 
+    // Bail if the PeerState is not send ready.
     PeerState *ps = peer_state_imap_.Find(peer);
     if (!ps->send_ready()) {
+        return;
+    }
+
+    // Update the PeerState and bail if the IPeerUpdate is not send ready.
+    // This happens if the IPeerUpdate gets blocked while processing some
+    // other partition.
+    if (!peer->send_ready()) {
+        ps->set_send_ready(false);
         return;
     }
 

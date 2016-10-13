@@ -122,7 +122,6 @@ private:
     bool UpdatePeerQueue(IPeerUpdate *peer, PeerState *ps, int queue_id);
 
     void BuildSyncBitSet(const RibOut *ribout, RibState *rs, RibPeerSet *msync);
-    void BuildSendReadyBitSet(RibOut *ribout, RibPeerSet *mready);
 
     void SetQueueActive(const RibOut *ribout, RibState *rs, int queue_id,
                         const RibPeerSet &munsync);

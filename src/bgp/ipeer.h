@@ -20,6 +20,8 @@ class PeerCloseManager;
 class IPeerUpdate {
 public:
     virtual ~IPeerUpdate() { }
+    virtual bool send_ready() const { return true; }
+
     // Printable name
     virtual const std::string &ToString() const = 0;
 

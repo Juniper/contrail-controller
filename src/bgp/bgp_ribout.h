@@ -262,6 +262,8 @@ public:
     bool IsRegistered(IPeerUpdate *peer);
     void Deactivate(IPeerUpdate *peer);
     bool IsActive(IPeerUpdate *peer) const;
+    void BuildSendReadyBitSet(const RibPeerSet &peerset,
+        RibPeerSet *mready) const;
 
     IPeerUpdate *GetPeer(int index) const;
     int GetPeerIndex(IPeerUpdate *peer) const;
