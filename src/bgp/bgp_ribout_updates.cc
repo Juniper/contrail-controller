@@ -296,13 +296,13 @@ bool RibOutUpdates::TailDequeue(int queue_id, const RibPeerSet &msync,
 // blocked parameter is populated with the set of peers that are send blocked.
 //
 bool RibOutUpdates::PeerDequeue(int queue_id, IPeerUpdate *peer,
-        const RibPeerSet &mready,
         RibPeerSet *blocked) {
     CHECK_CONCURRENCY("bgp::SendUpdate");
 
     stats_[queue_id].peer_dequeue_count_++;
     UpdateQueue *queue = queue_vec_[queue_id];
-    UpdateMarker *start_marker = queue->GetMarker(ribout_->GetPeerIndex(peer));
+    int peer_idx = ribout_->GetPeerIndex(peer);
+    UpdateMarker *start_marker = queue->GetMarker(peer_idx);
 
     // We're done if this is the same as the tail marker.  Updates will be
     // built subsequently via TailDequeue.
@@ -311,16 +311,14 @@ bool RibOutUpdates::PeerDequeue(int queue_id, IPeerUpdate *peer,
         return true;
     }
 
-    // Get the encapsulator for the first RouteUpdate.  Even if there's no
-    // RouteUpdate, we should find another marker or the tail marker.
-    UpdateEntry *upentry;
-    RouteUpdatePtr update =
-        monitor_->GetNextEntry(queue_id, start_marker, &upentry);
-    assert(upentry);
-
-    // At least one peer in the start marker i.e. the peer for which we are
-    // called must be send ready.
-    assert(start_marker->members.intersects(mready));
+    // We're done if the lead peer is not send ready. This can happen if
+    // the peer got blocked when processing updates in another partition.
+    RibPeerSet mready;
+    ribout_->BuildSendReadyBitSet(start_marker->members, &mready);
+    if (!mready.test(peer_idx)) {
+        blocked->set(peer_idx);
+        return false;
+    }
 
     // Split out any peers from the marker that are not send ready. Note that
     // this updates the RibPeerSet in the marker.
@@ -330,6 +328,13 @@ bool RibOutUpdates::PeerDequeue(int queue_id, IPeerUpdate *peer,
         stats_[queue_id].marker_split_count_++;
         queue->MarkerSplit(start_marker, notready);
     }
+
+    // Get the encapsulator for the first RouteUpdate.  Even if there's no
+    // RouteUpdate, we should find another marker or the tail marker.
+    UpdateEntry *upentry;
+    RouteUpdatePtr update =
+        monitor_->GetNextEntry(queue_id, start_marker, &upentry);
+    assert(upentry);
 
     // Update loop.  Keep going till we reach the tail marker or till all the
     // peers get blocked.
@@ -370,7 +375,7 @@ bool RibOutUpdates::PeerDequeue(int queue_id, IPeerUpdate *peer,
             // with the marker that is being processed for dequeue.  Note
             // that this updates the RibPeerSet in the marker.
             RibPeerSet mmove;
-            mmove.BuildIntersection(marker->members, mready);
+            ribout_->BuildSendReadyBitSet(marker->members, &mmove);
             if  (!mmove.empty()) {
                 stats_[queue_id].marker_merge_count_++;
                 queue->MarkerMerge(start_marker, marker, mmove);

@@ -75,6 +75,8 @@ public:
     int update_count() const { return count_; }
     void clear_update_count() { count_ = 0; }
     bool send_block() const { return send_block_; }
+    void clear_send_block() { send_block_ = false; }
+    virtual bool send_ready() const { return !send_block_; }
 
 private:
     int index_;
@@ -355,6 +357,7 @@ protected:
     void SetPeerUnblockNow(int idx) {
         ConcurrencyScope scope("bgp::SendReadyTask");
         ASSERT_TRUE(idx < (int) peers_.size());
+        peers_[idx]->clear_send_block();
         spartition_->PeerSendReady(peers_[idx]);
     }
 
@@ -363,6 +366,7 @@ protected:
         ASSERT_TRUE(start_idx <= end_idx);
         ASSERT_TRUE(end_idx < (int) peers_.size());
         for (int idx = start_idx; idx <= end_idx; idx++) {
+            peers_[idx]->clear_send_block();
             spartition_->PeerSendReady(peers_[idx]);
         }
     }

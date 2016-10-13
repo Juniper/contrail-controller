@@ -913,6 +913,7 @@ void BgpPeer::CustomClose() {
 // Close this peer by closing all of it's RIBs.
 //
 void BgpPeer::Close(bool non_graceful) {
+    send_ready_ = true;
     if (membership_req_pending_ && !close_manager_->IsMembershipInUse()) {
         BGP_LOG_PEER(Event, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
             BGP_PEER_DIR_NA, "Close procedure deferred");
@@ -2197,6 +2198,7 @@ void BgpPeer::FillNeighborInfo(const BgpSandeshContext *bsc,
     bnr->set_negotiated_hold_time(state_machine_->hold_time());
     bnr->set_primary_path_count(GetPrimaryPathCount());
     bnr->set_task_instance(GetTaskInstance());
+    bnr->set_send_ready(send_ready_);
     bnr->set_flap_count(peer_stats_->num_flaps());
     bnr->set_flap_time(peer_stats_->last_flap());
     bnr->set_auth_type(

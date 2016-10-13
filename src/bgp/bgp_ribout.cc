@@ -20,6 +20,7 @@
 #include "bgp/bgp_table.h"
 #include "bgp/bgp_update.h"
 #include "bgp/bgp_update_sender.h"
+#include "bgp/ipeer.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "db/db.h"
 
@@ -383,6 +384,20 @@ void RibOut::Deactivate(IPeerUpdate *peer) {
 bool RibOut::IsActive(IPeerUpdate *peer) const {
     int index = GetPeerIndex(peer);
     return (index < 0 ? false : active_peerset_.test(index));
+}
+
+//
+// Build the subset of given RibPeerSet in this RibOut that are send ready.
+//
+void RibOut::BuildSendReadyBitSet(const RibPeerSet &peerset,
+    RibPeerSet *mready) const {
+    for (size_t bit = peerset.find_first(); bit != RibPeerSet::npos;
+         bit = peerset.find_next(bit)) {
+        IPeerUpdate *peer = GetPeer(bit);
+        if (peer->send_ready()) {
+            mready->set(bit);
+        }
+    }
 }
 
 //

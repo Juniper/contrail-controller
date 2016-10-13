@@ -51,7 +51,7 @@ static int gbl_index;
 
 class BgpTestPeer : public IPeerUpdate {
 public:
-    BgpTestPeer() : index_(gbl_index++), count_(0) {
+    BgpTestPeer() : index_(gbl_index++), count_(0), send_block_(false) {
         std::ostringstream repr;
         repr << "Peer" << index_;
         to_str_ = repr.str();
@@ -63,14 +63,15 @@ public:
 
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize) {
         count_++;
-        bool send_block = block_set_.find(count_) != block_set_.end();
-        if (send_block) {
+        send_block_ = block_set_.find(count_) != block_set_.end();
+        if (send_block_) {
             cond_var_.Set();
         }
-        return !send_block;
+        return !send_block_;
     }
 
     void WriteActive(BgpUpdateSender *sender) {
+        send_block_ = false;
         sender->PeerSendReady(this);
     }
 
@@ -87,12 +88,14 @@ public:
         block_set_.insert(step);
     }
     int update_count() const { return count_; }
+    virtual bool send_ready() const { return !send_block_; }
 
 private:
     int index_;
     std::set<int> block_set_;
     int count_;
     Condition cond_var_;
+    bool send_block_;
     std::string to_str_;
 };
 

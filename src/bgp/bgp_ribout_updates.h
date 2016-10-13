@@ -72,7 +72,7 @@ public:
     virtual bool TailDequeue(int queue_id, const RibPeerSet &msync,
                              RibPeerSet *blocked, RibPeerSet *unsync);
     virtual bool PeerDequeue(int queue_id, IPeerUpdate *peer,
-                             const RibPeerSet &mready, RibPeerSet *blocked);
+                             RibPeerSet *blocked);
 
     // Enqueue a marker at the head of the queue with this bit set.
     bool QueueJoin(int queue_id, int bit);
