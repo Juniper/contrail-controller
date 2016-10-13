@@ -1769,11 +1769,10 @@ class OpServer(object):
         tables = self._uve_server.get_tables()
         known = set()
         for apiname,rawname in UVE_MAP.iteritems():
-            if rawname in tables:
-                known.add(rawname)
-                entry = obj_to_dict(LinkObject(apiname + 's',
+            known.add(rawname)
+            entry = obj_to_dict(LinkObject(apiname + 's',
                                     base_url + apiname + 's'))
-                uvetype_links.append(entry)
+            uvetype_links.append(entry)
  
         for rawname in tables:
             if not rawname in known:
