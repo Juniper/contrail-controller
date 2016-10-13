@@ -18,6 +18,24 @@ class OpencontrailFakeLoadbalancerDriver(
         self._hms = {}
         self._hms_pools = {}
 
+    def create_loadbalancer(self, loadbalancer):
+        pass
+
+    def update_loadbalancer(self, old_loadbalancer, loadbalancer):
+        pass
+
+    def delete_loadbalancer(self, loadbalancer):
+        pass
+
+    def create_listener(self, listener):
+        pass
+
+    def update_listener(self, old_listener, listener):
+        pass
+
+    def delete_listener(self, listener):
+        pass
+
     def create_vip(self, vip):
         self._vips[vip['id']] = vip
         pass

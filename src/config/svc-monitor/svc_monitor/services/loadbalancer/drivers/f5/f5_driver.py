@@ -1330,6 +1330,33 @@ class OpencontrailF5LoadbalancerDriver(
 
     def set_config_v1(self, pool_id):
         pass
+    # end set_config_v1
 
     def set_config_v2(self, lb_id):
         pass
+    # end set_config_v2
+
+    def create_loadbalancer(self, loadbalancer):
+        pass
+    # end create_loadbalancer
+
+    def update_loadbalancer(self, old_loadbalancer, loadbalancer):
+        pass
+    # end update_loadbalancer
+
+    def delete_loadbalancer(self, loadbalancer):
+        pass
+    # end delete_loadbalancer
+
+    def create_listener(self, listener):
+        pass
+    # end create_listener
+
+    def update_listener(self, old_listener, listener):
+        pass
+    # end update_listener
+
+    def delete_listener(self, listener):
+        pass
+    # end delete_listener
+

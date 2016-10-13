@@ -363,8 +363,8 @@ OpencontrailLoadbalancerDriver")
         # Cleanup
         for i in range(5):
             config_db.LoadbalancerMemberSM.delete('member_'+str(i))
-        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
         config_db.VirtualIpSM.delete('vip')
+        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
 
         self._mock_BigIp.return_value.virtual_server.delete.assert_called_with(
             folder='tenant', name='vip')
@@ -417,8 +417,8 @@ OpencontrailLoadbalancerDriver")
         # Cleanup
         for i in range(2):
             config_db.LoadbalancerMemberSM.delete('member_'+str(i))
-        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
         config_db.VirtualIpSM.delete('vip')
+        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
         config_db.HealthMonitorSM.delete('test-hm')
 
         self._mock_BigIp.return_value.monitor.delete.assert_called_with(
@@ -450,8 +450,8 @@ OpencontrailLoadbalancerDriver")
         # Cleanup
         for i in range(2):
             config_db.LoadbalancerMemberSM.delete('member_'+str(i))
-        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
         config_db.VirtualIpSM.delete('vip')
+        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
     # end test_update_pool
 
     # Test the case where vip is deleted before the pool
@@ -536,8 +536,8 @@ OpencontrailLoadbalancerDriver")
         
         # Cleanup
         config_db.LoadbalancerMemberSM.delete('member_0')
-        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
         config_db.VirtualIpSM.delete('vip')
+        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
     # end test_update_pool_members_add_delete
 
     def test_update_pool_member_props(self):
@@ -576,8 +576,8 @@ OpencontrailLoadbalancerDriver")
         # Cleanup
         for i in range(2):
             config_db.LoadbalancerMemberSM.delete('member_'+str(i))
-        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
         config_db.VirtualIpSM.delete('vip')
+        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
     # end test_update_pool_member_props
 
     def test_update_pool_members_add_delete_update(self):
@@ -625,8 +625,8 @@ OpencontrailLoadbalancerDriver")
         # Cleanup
         config_db.LoadbalancerMemberSM.delete('member_1')
         config_db.LoadbalancerMemberSM.delete('member_2')
-        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
         config_db.VirtualIpSM.delete('vip')
+        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
     # end test_update_pool_members_add_delete
 
     def test_pool_for_tcp(self):
@@ -676,8 +676,8 @@ OpencontrailLoadbalancerDriver")
 
         # Cleanup
         config_db.LoadbalancerMemberSM.delete('member_0')
-        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
         config_db.VirtualIpSM.delete('vip')
+        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
 
         self._mock_BigIp.return_value.virtual_server.delete.assert_called_with(
             folder='tenant', name='vip')
@@ -724,8 +724,8 @@ OpencontrailLoadbalancerDriver")
         # Cleanup
         for i in range(2):
             config_db.LoadbalancerMemberSM.delete('member_'+str(i))
-        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
         config_db.VirtualIpSM.delete('vip')
+        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
     # end test_update_vip
 
     def test_update_vip_persistance_type(self):
@@ -788,8 +788,8 @@ OpencontrailLoadbalancerDriver")
         # Cleanup
         for i in range(2):
             config_db.LoadbalancerMemberSM.delete('member_'+str(i))
-        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
         config_db.VirtualIpSM.delete('vip')
+        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
     # end test_update_vip_persistance_type
 
     def test_update_hm(self):
@@ -891,8 +891,8 @@ OpencontrailLoadbalancerDriver")
         # Cleanup
         for i in range(2):
             config_db.LoadbalancerMemberSM.delete('member_'+str(i))
-        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
         config_db.VirtualIpSM.delete('vip')
+        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
         config_db.HealthMonitorSM.delete('test-hm')
     # end test_add_delete_pool_with_members_vip_hm
 
@@ -915,8 +915,8 @@ OpencontrailLoadbalancerDriver")
             set(['test-lb-pool', 'test-lb-pool_1']))
         
         # Cleanup
-        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
         config_db.VirtualIpSM.delete('vip')
+        config_db.LoadbalancerPoolSM.delete('test-lb-pool')
 
         self.assertFalse(self._mock_BigIp.return_value.system.delete_folder.called)
 
@@ -927,8 +927,8 @@ OpencontrailLoadbalancerDriver")
             set(['test-lb-pool_1']))
  
         # Cleanup
-        config_db.LoadbalancerPoolSM.delete('test-lb-pool_1')
         config_db.VirtualIpSM.delete('vip_1')
+        config_db.LoadbalancerPoolSM.delete('test-lb-pool_1')
         self.assertTrue(self._mock_BigIp.return_value.system.delete_folder.called)
 
         self.assertEqual(len(self._db), 0)
