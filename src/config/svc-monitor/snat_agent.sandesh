@@ -1,0 +1,16 @@
+//
+// Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
+//
+
+// snat_agent.sandesh
+// Introspect structures for SNAT Agent module in Service Monitor.
+
+/**
+* @description: Debug logs from SNAT Agent module in Service Monitor process.
+* @severity: Debug
+* @cause: Debug information.
+* @action: None.
+*/
+systemlog sandesh SNATAgentDebugLog {
+1: string log_msg;
+}

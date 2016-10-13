@@ -154,7 +154,8 @@ class SvcMonitor(object):
 
         # load a snat agent
         self.snat_agent = SNATAgent(self, self._vnc_lib,
-                                    self._cassandra, self._args)
+                                    self._cassandra, self._args,
+                                    ServiceMonitorModuleLogger(self.logger))
         self._agent_manager.register_agent(self.snat_agent)
 
         # load port tuple agent

@@ -70,6 +70,8 @@ sources += env.SandeshGenPy('#controller/src/vnsw/agent/uve/loadbalancer.sandesh
                             'svc_monitor/sandesh/', False)
 sources += env.SandeshGenPy('port_tuple.sandesh',
                             'svc_monitor/sandesh/', False)
+sources += env.SandeshGenPy('snat_agent.sandesh',
+                            'svc_monitor/sandesh/', False)
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_gen = env.Command('dist', sources, cd_cmd + 'python setup.py sdist')
@@ -101,6 +103,7 @@ doc_files += env['CFGM_DOC_FILES']
 doc_files += env.SandeshGenDoc('#controller/src/vnsw/agent/uve/loadbalancer.sandesh')
 doc_files += env['CFGM_DOC_FILES']
 doc_files += env.SandeshGenDoc('port_tuple.sandesh')
+doc_files += env.SandeshGenDoc('snat_agent.sandesh')
 
 if 'install' in BUILD_TARGETS:
     install_cmd = env.Command(None, sources,

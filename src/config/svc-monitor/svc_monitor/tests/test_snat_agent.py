@@ -8,8 +8,11 @@ from cfgm_common.vnc_db import DBBase
 from svc_monitor import config_db
 from svc_monitor import instance_manager
 from svc_monitor import snat_agent
+from svc_monitor import sandesh
 from vnc_api.vnc_api import *
-
+from svc_monitor.module_logger import ServiceMonitorModuleLogger
+from svc_monitor.sandesh.port_tuple import ttypes
+from cfgm_common import exceptions as vnc_exc
 
 ROUTER_1 = {
     'fq_name': ['default-domain', 'demo', 'router1'],
@@ -88,6 +91,34 @@ class LogicalRouterMatcher(object):
         if self._rt_name == '':
             return not rtr_obj.get_route_table_refs()
 
+class StringMatcher(object):
+    """
+        This is a utility class that stores subsstrings of interest.
+        This class provides an overriden __eq__ implementation that checks
+        if an input string contains all substrings that are registered with this
+        class.
+    """
+    def __init__(self, *args):
+        self.args = args
+
+    def __eq__(self, input_string):
+        """
+            Return true if input string contains all substrings that have been
+            registered with this instance.
+        """
+        for str in self.args:
+            if str not in input_string:
+                return False
+        return True
+
+def _raise_no_id_exception(*args, **kwargs):
+    """
+        Method that can be registered to be invoked as a side effect with
+        unittest mock framework.
+        This is useful when simulating scenarios where a called function
+        should raise an 'ID not found' exception.
+    """
+    raise NoIdError("ID_NOT_FOUND")
 
 class SnatAgentTest(unittest.TestCase):
 
@@ -101,8 +132,13 @@ class SnatAgentTest(unittest.TestCase):
         self.svc.netns_manager = instance_manager.NetworkNamespaceManager(
             self.vnc_lib, self.cassandra, self.logger, None, None, None)
 
+        # Mock service module logger.
+        self.logger = mock.MagicMock()
+        self.module_logger = ServiceMonitorModuleLogger(self.logger)
+
         self.snat_agent = snat_agent.SNATAgent(self.svc, self.vnc_lib,
-                                               self.cassandra, None)
+                                               self.cassandra, None,
+                                               logger = self.module_logger)
         DBBase.init(self, self.logger, self.cassandra)
 
         # register the project
@@ -142,6 +178,7 @@ class SnatAgentTest(unittest.TestCase):
         return json.loads(json.dumps(obj, default=to_json))
 
     def test_upgrade(self):
+
         #create lr
         router_obj = LogicalRouter('router1')
         router_obj.fq_name = ROUTER_1['fq_name']
@@ -271,13 +308,28 @@ class SnatAgentTest(unittest.TestCase):
                                                   ROUTER_1)
         self.snat_agent.update_snat_instance(router)
 
+        # Verify that SNAT VN was not found in the db and it was logged.
+        # This will trigger the creation of the VN.
+        self.logger.debug.assert_any_call( \
+                          StringMatcher( \
+                                        'Virtual Network', \
+                                        'not found', \
+                                        'Creating One'), \
+                          sandesh.snat_agent.ttypes.SNATAgentDebugLog)
+
         # check that the snat service network is created
         left = ('default-domain:demo:snat-si-left_snat_' +
                 ROUTER_1['uuid'])
         self.vnc_lib.virtual_network_create.assert_called_with(
             VirtualNetworkMatcher(left, False))
 
-        # route table that is going to be set for each interface
+        # Route table was originally not found and was created.
+        self.logger.debug.assert_any_call( \
+                                  StringMatcher( \
+                                                'Route Table', \
+                                                'not found'), \
+                                  sandesh.snat_agent.ttypes.SNATAgentDebugLog)
+
         self.vnc_lib.route_table_create.assert_called_with(
             RouteTableMatcher('0.0.0.0/0'))
 
@@ -448,3 +500,345 @@ class SnatAgentTest(unittest.TestCase):
              'uuid': 'si-uuid'}]
 
         self._test_snat_delete(router_dict)
+
+
+    def test_add_snat_errors(self):
+
+        """
+            This testcase triggers and validate error cases related to
+            creation of an SNAT service instance.
+        """
+
+        # Create a logical router.
+        router_obj = LogicalRouter('rtr1-name')
+
+        # Setup required mock vnc library calls.
+        self.vnc_lib.logical_router_read = mock.Mock(return_value=router_obj)
+        self.vnc_lib.logical_router_update = mock.Mock()
+        self.vnc_lib.route_table_create = mock.Mock()
+        self.vnc_lib.route_table_read = mock.Mock(return_value=None)
+        self.vnc_lib.virtual_network_create = mock.Mock()
+        self.vnc_lib.virtual_network_update = mock.Mock()
+
+        # Setup mock return values for virtual network related
+        # reads from database.
+        #
+        # Return failure/false for all other reads.
+        def db_read_side_effect(obj_type, uuids):
+            if obj_type != 'virtual_network':
+                return (False, None)
+            if 'private1-uuid' in uuids:
+                return (True, [{'fq_name': ['default-domain',
+                                            'demo',
+                                            'private1-name'],
+                                'uuid': 'private1-uuid'}])
+            elif 'snat-vn-uuid' in uuids:
+                return (True, [{'fq_name':
+                                ['default-domain',
+                                 'demo',
+                                 'snat-si-left_si_' + ROUTER_1['uuid']],
+                                'uuid': 'snat-vn-uuid'}])
+            return (False, None)
+
+        self.cassandra.object_read = mock.Mock(side_effect=db_read_side_effect)
+
+        # Add logical router to service monitor database.
+        router = config_db.LogicalRouterSM.locate(ROUTER_1['uuid'], ROUTER_1)
+
+        #
+        # Testcase 1 : Logical router lookup failure.
+        #
+
+        # Clear hangovers from prior testcases.
+        self.logger.debug.reset()
+
+        # Mock logical router read.
+        original_mock = self.vnc_lib.logical_router_read
+        self.vnc_lib.logical_router_read = mock.Mock(
+                                           side_effect = _raise_no_id_exception)
+
+        # Attempt to create SNAT instance.
+        self.snat_agent.update_snat_instance(router)
+
+        # Verify that SNAT create failure due to logical router not found error.
+        self.logger.debug.assert_any_call(
+                              StringMatcher("Unable to find logical router",
+                                            "Add SNAT instance failed"),
+                              sandesh.snat_agent.ttypes.SNATAgentDebugLog)
+
+        # Reset logical router read mock.
+        self.vnc_lib.logical_router_read = original_mock
+
+
+        #
+        # Testcase 2 : Service Template lookup failure.
+        #
+
+        # Clear hangovers from prior testcases.
+        self.logger.debug.reset()
+
+        # Mock service template read.
+        original_mock = self.vnc_lib.service_template_read
+        self.vnc_lib.service_template_read = mock.Mock(side_effect=
+                                                         _raise_no_id_exception)
+
+        # Attempt to create SNAT instance.
+        self.snat_agent.update_snat_instance(router)
+
+        # Verify that SNAT VN was not found in the db and it was logged.
+        # This will trigger the creation of the VN.
+        self.logger.debug.assert_any_call(
+                            StringMatcher(
+                                "Unable to read service template",
+                                "Add SNAT instance failed"),
+                            sandesh.snat_agent.ttypes.SNATAgentDebugLog)
+
+        # Reset servie template read mock.
+        self.vnc_lib.service_template_read = original_mock
+
+
+        #
+        # Testcase 3 : Service Instance lookup failure.
+        #
+
+        # Clear hangovers from prior tests.
+        self.logger.debug.reset()
+
+        # Mock Service Instance read.
+        original_mock = self.vnc_lib.service_instance_read
+        self.vnc_lib.service_instance_read = mock.Mock(
+                                             side_effect=_raise_no_id_exception)
+        # Populate service instance in logical router to simulat case where
+        # a service instance reference exists but lookup fails.
+        router.service_instance = 'dummy'
+
+        # Attempt to create SNAT instance.
+        self.snat_agent._add_snat_instance(router)
+
+        # Verify that SNAT VN was not found in the db and it was logged.
+        # This will trigger the creation of the VN.
+        self.logger.debug.assert_any_call(
+                            StringMatcher("Service instance","not found"),
+                            sandesh.snat_agent.ttypes.SNATAgentDebugLog)
+
+        # Reset servie instance read mock.
+        self.vnc_lib.service_instance_read = original_mock
+        router.service_instance = None
+
+    def test_delete_snat_errors(self):
+        """
+            This testcase triggers and validate error cases related to
+            deletion of an SNAT instance.
+        """
+
+        # First, create the SNAT that is to be deleted.
+        self.test_gateway_set()
+
+        router_dict = copy.deepcopy(ROUTER_1)
+        router_dict['virtual_network_refs'] = []
+        router_dict['service_instance_refs'] = [
+            {'to': ['default-domain',
+                    'demo',
+                    'si_' + ROUTER_1['uuid']],
+             'uuid': 'si-uuid'}]
+
+        router = config_db.LogicalRouterSM.locate(ROUTER_1['uuid'])
+        router.update(router_dict)
+
+        # Mock deletion of VN.
+        #
+        # The focus of this testcase is not deletion itself. Rather the focus
+        # here is on different error scenarios when delete is requested.
+        self.snat_agent.delete_snat_vn = mock.MagicMock()
+
+        #
+        # Testcase 1 : Logical router lookup failure.
+        #
+
+        # Simulate logical router lookup failure.
+        original_mock = self.vnc_lib.logical_router_read
+        self.vnc_lib.logical_router_read = mock.Mock(side_effect=
+                                                 _raise_no_id_exception)
+
+        # Attempt to delete SNAT instance.
+        self.snat_agent.update_snat_instance(router)
+
+        # Verify that SNAT create failure due to logical router not found error.
+        self.logger.debug.assert_any_call( \
+                                    StringMatcher( \
+                                            'Unable to find logical router'), \
+                                    sandesh.snat_agent.ttypes.SNATAgentDebugLog)
+
+        # Reset simulation of logical router lookup failure.
+        self.vnc_lib.logical_router_read = mock.Mock(side_effect=None)
+        self.vnc_lib.logical_router_read = original_mock
+
+
+        #
+        # Testcase 2 : Service Instance lookup failure.
+        #
+
+        # Mock service instance read call to raise an id not found exception
+        # when invoked.
+        original_mock = self.vnc_lib.service_instance_read
+        self.vnc_lib.service_instance_read = mock.Mock(side_effect=
+                                                          _raise_no_id_exception)
+
+        # Attempt to delete SNAT instance.
+        self.snat_agent.update_snat_instance(router)
+
+        # Verify that service instance not found error is logged.
+        self.logger.debug.assert_any_call( \
+                                    StringMatcher( \
+                                        'Unable to find service instance'), \
+                                    sandesh.snat_agent.ttypes.SNATAgentDebugLog)
+
+        # Reset simulation service instance read.
+        self.vnc_lib.service_instance_read = mock.Mock(side_effect=None)
+        self.vnc_lib.service_instance_read = original_mock
+
+        #
+        # Testcase 3 : Logical router update failure.
+        #
+
+        # Mock logical router update method to raise an id not found exception
+        # when invoked.
+        original_mock = self.vnc_lib.logical_router_update
+        self.vnc_lib.logical_router_update = mock.Mock(side_effect=
+                                                          _raise_no_id_exception)
+
+        # Attempt to delete SNAT instance.
+        self.snat_agent.update_snat_instance(router)
+
+        # Verify that logical router update failure error is logged.
+        self.logger.debug.assert_any_call( \
+                                    StringMatcher( \
+                                        'Update of vnc lib for logical router',\
+                                        'failed'), \
+                                    sandesh.snat_agent.ttypes.SNATAgentDebugLog)
+
+        # Reset simulation of logical router lookup failure.
+        self.vnc_lib.logical_router_update = mock.Mock(side_effect=None)
+        self.vnc_lib.logical_router_update = original_mock
+
+    def test_delete_snat_vn_errors(self):
+        """
+            This testcase triggers and validates virtual network related error
+            cases during deletion of an SNAT instance.
+        """
+
+        # First, create the SNAT that is to be deleted.
+        self.test_gateway_set()
+
+        router_dict = copy.deepcopy(ROUTER_1)
+        router_dict['virtual_network_refs'] = []
+        router_dict['service_instance_refs'] = [
+            {'to': ['default-domain',
+                    'demo',
+                    'si_' + ROUTER_1['uuid']],
+             'uuid': 'si-uuid'}]
+
+        router = config_db.LogicalRouterSM.locate(ROUTER_1['uuid'])
+        router.update(router_dict)
+
+        #  Mock service instance read method to return a custom service
+        # instance object.
+        si_obj = ServiceInstance('si_' + ROUTER_1['uuid'])
+        si_obj.set_uuid('si-uuid')
+        orig_si_read_mock = self.vnc_lib.service_instance_read
+        self.vnc_lib.service_instance_read = mock.Mock(return_value=si_obj)
+
+        # Mock virtual netwok read method to raise an exception when
+        # invoked.
+        original_mock = self.vnc_lib.virtual_network_read
+        self.vnc_lib.virtual_network_read = mock.Mock(side_effect=
+                                                        _raise_no_id_exception)
+
+        # Attempt to delete SNAT instance.
+        self.snat_agent.update_snat_instance(router)
+
+        # Verify that failure to read virtual network is handled and logged.
+        self.logger.debug.assert_any_call( \
+                                    StringMatcher( \
+                                        'Unable to find virtual network',\
+                                        'Delete of SNAT instance',\
+                                        'failed'), \
+                                    sandesh.snat_agent.ttypes.SNATAgentDebugLog)
+
+        # Reset simulations.
+        self.vnc_lib.virtual_network_read = mock.Mock(side_effect=None)
+        self.vnc_lib.virtual_network_read = original_mock
+        self.vnc_lib.service_instance_read = orig_si_read_mock
+
+    def test_cleanup_snat_instances_errors(self):
+        """
+            This testcase triggers and validates snat cleanup related error
+            scenarios.
+        """
+
+        # First, create the SNAT that is to be deleted.
+        self.test_gateway_set()
+
+        # Get and use the route table created as a part of SNAT create.
+        si_obj = self.vnc_lib.service_instance_create.mock_calls[0][1][0]
+        si_obj.set_uuid('si-uuid')
+
+        # Setup mocks for service instance accessors.
+        orig_si_delete_mock = self.vnc_lib.service_instance_delete
+        self.vnc_lib.service_instance_delete = mock.Mock()
+
+        #
+        # Testcase 1 : Service instance not found error.
+        #
+
+        # Simulate service instance read to return not found exception.
+        original_si_read_mock = self.vnc_lib.service_instance_read
+        self.vnc_lib.service_instance_read = mock.Mock(side_effect=
+                                                        _raise_no_id_exception)
+
+        # Attempt to delete SNAT instance.
+        self.snat_agent.cleanup_snat_instance(ROUTER_1['uuid'], si_obj.uuid)
+
+        # Verify that service instance is not found in the db and it was logged.
+        self.logger.debug.assert_any_call( \
+              StringMatcher( \
+                'Service instace si-uuid not found. SNAT cleanup failed.'),\
+                sandesh.snat_agent.ttypes.SNATAgentDebugLog)
+
+        # Reset simulation of logical router lookup failure.
+        self.vnc_lib.service_instance_read = mock.Mock(side_effect=None)
+        self.vnc_lib.service_instance_read = original_si_read_mock
+
+        #
+        # Testcase 2 : Route table delete failure.
+        #
+
+        # Mock service instance read to return our custom si object.
+        original_si_read_mock = self.vnc_lib.service_instance_read
+        self.vnc_lib.service_instance_read = mock.Mock(return_value=si_obj)
+
+        # Mock route table delete method to return id not found error.
+        ref_original_mock = self.vnc_lib.ref_update
+        rt_delete_original_mock = self.vnc_lib.route_table_delete
+        self.vnc_lib.ref_update = mock.Mock(side_effect=_raise_no_id_exception)
+        self.vnc_lib.route_table_delete = mock.Mock(side_effect=
+                                                        _raise_no_id_exception)
+
+        # Attempt to delete SNAT instance.
+        self.snat_agent.cleanup_snat_instance(ROUTER_1['uuid'], si_obj.uuid)
+
+        # Verify that delete of SNAT instance returns and logs failure.
+        self.logger.debug.assert_any_call( \
+              StringMatcher( \
+                  'Update of logical router %s failed' % ROUTER_1['uuid']),\
+                sandesh.snat_agent.ttypes.SNATAgentDebugLog)
+        self.logger.debug.assert_any_call( \
+                  StringMatcher('Route table','delete failed'),\
+                            sandesh.snat_agent.ttypes.SNATAgentDebugLog)
+
+        # Reset simulation of logical router lookup failure.
+        self.vnc_lib.ref_update = ref_original_mock
+        self.vnc_lib.route_table_delete = rt_delete_original_mock
+        self.vnc_lib.service_instance_delete = orig_si_delete_mock
+        self.vnc_lib.service_instance_read = original_si_read_mock
+
