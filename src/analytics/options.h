@@ -32,6 +32,8 @@ public:
         }
         return collector_protobuf_port_configured_;
     }
+    const uint32_t get_disk_usage_low_watermark() const { return disk_usage_low_watermark_; }
+    const uint32_t get_disk_usage_high_watermark() const { return disk_usage_high_watermark_; }
     const std::vector<std::string> config_file() const {
         return config_file_;
     }
@@ -104,6 +106,8 @@ private:
     uint16_t collector_port_;
     uint16_t collector_protobuf_port_;
     bool collector_protobuf_port_configured_;
+    uint32_t disk_usage_low_watermark_;
+    uint32_t disk_usage_high_watermark_;
     std::vector<std::string> config_file_;
     std::string discovery_server_;
     uint16_t discovery_port_;

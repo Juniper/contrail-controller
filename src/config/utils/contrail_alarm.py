@@ -153,6 +153,15 @@ alarm_list = [
                             "operand1": "NodeStatus.disk_usage_info.percentage_partition_space_used",
                             "operation": ">=",
                             "operand2": {
+                                "json_value": "70"
+                            },
+                            "variables":
+                                ["NodeStatus.disk_usage_info.partition_name"]
+                        },
+                        {
+                            "operand1": "NodeStatus.disk_usage_info.percentage_partition_space_used",
+                            "operation": "<=",
+                            "operand2": {
                                 "json_value": "90"
                             },
                             "variables":
@@ -165,10 +174,47 @@ alarm_list = [
         "alarm_severity": 0,
         "fq_name": [
             "default-global-system-config",
-            "disk-usage"
+            "disk-usage-low"
         ],
         "id_perms": {
-            "description": "Disk Usage crosses a threshold."
+            "description": "Disk Usage Low crossed a threshold."
+        },
+        "parent_type": "global-system-config",
+        "uve_keys": {
+            "uve_key": [
+                "analytics-node",
+                "config-node",
+                "control-node",
+                "database-node",
+                "vrouter"
+            ]
+        }
+    },
+    {
+        "alarm_rules": {
+            "or_list": [
+                {
+                    "and_list": [
+                        {
+                            "operand1": "NodeStatus.disk_usage_info.percentage_partition_space_used",
+                            "operation": ">=",
+                            "operand2": {
+                                "json_value": "90"
+                            },
+                            "variables":
+                                ["NodeStatus.disk_usage_info.partition_name"]
+                        }
+                    ]
+                }
+            ]
+        },
+        "alarm_severity": 0,
+        "fq_name": [
+            "default-global-system-config",
+            "disk-usage-high"
+        ],
+        "id_perms": {
+            "description": "Disk Usage High crossed a threshold."
         },
         "parent_type": "global-system-config",
         "uve_keys": {

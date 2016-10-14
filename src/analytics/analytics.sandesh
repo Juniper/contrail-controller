@@ -91,3 +91,14 @@ struct UserDefinedLogStatistic {
 uve sandesh UserDefinedLogStatisticUVE {
     1: UserDefinedLogStatistic data
 }
+
+request sandesh DiskUsageGetRequest {
+}
+
+request sandesh DiskUsageSetRequest {
+    1: u32 disk_usage;
+}
+
+response sandesh DiskUsageResponse {
+    1: u32 disk_usage;
+}

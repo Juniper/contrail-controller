@@ -90,6 +90,8 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.disable_flow_collection(), false);
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
+    EXPECT_EQ(options_.get_disk_usage_low_watermark(), default_disk_usage_low_watermark);
+    EXPECT_EQ(options_.get_disk_usage_high_watermark(), default_disk_usage_high_watermark);
 }
 
 TEST_F(OptionsTest, DefaultConfFile) {
@@ -135,6 +137,8 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.disable_flow_collection(), false);
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
+    EXPECT_EQ(options_.get_disk_usage_low_watermark(), default_disk_usage_low_watermark);
+    EXPECT_EQ(options_.get_disk_usage_high_watermark(), default_disk_usage_high_watermark);
 }
 
 TEST_F(OptionsTest, OverrideStringFromCommandLine) {
@@ -184,6 +188,8 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.disable_flow_collection(), false);
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
+    EXPECT_EQ(options_.get_disk_usage_low_watermark(), default_disk_usage_low_watermark);
+    EXPECT_EQ(options_.get_disk_usage_high_watermark(), default_disk_usage_high_watermark);
 }
 
 TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
@@ -232,6 +238,8 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.disable_flow_collection(), true); // Overridden from command line.
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
+    EXPECT_EQ(options_.get_disk_usage_low_watermark(), default_disk_usage_low_watermark);
+    EXPECT_EQ(options_.get_disk_usage_high_watermark(), default_disk_usage_high_watermark);
 }
 
 TEST_F(OptionsTest, CustomConfigFile) {
@@ -260,6 +268,8 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "port=100\n"
         "server=3.4.5.6\n"
         "protobuf_port=3333\n"
+        "disk_usage_low_watermark=75\n"
+        "disk_usage_high_watermark=95\n"
         "\n"
         "[DISCOVERY]\n"
         "port=100\n"
@@ -339,6 +349,8 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.cassandra_user(), "cassandra1");
     EXPECT_EQ(options_.cassandra_password(), "cassandra1");
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
+    EXPECT_EQ(options_.get_disk_usage_low_watermark(), 75);
+    EXPECT_EQ(options_.get_disk_usage_high_watermark(), 95);
 }
 
 TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
@@ -367,6 +379,8 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "port=100\n"
         "server=3.4.5.6\n"
         "protobuf_port=3333\n"
+        "disk_usage_low_watermark=75\n"
+        "disk_usage_high_watermark=95\n"
         "\n"
         "[DISCOVERY]\n"
         "port=100\n"
@@ -408,6 +422,8 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     char argv_10[] = "--CASSANDRA.cassandra_password=cassandra";
     char argv_11[] = "--conf_file=./options_test_cassandra_config_file.conf";
     char argv_12[] = "--DEFAULT.sandesh_send_rate_limit=7";
+    char argv_13[] = "--COLLECTOR.disk_usage_low_watermark=75";
+    char argv_14[] = "--COLLECTOR.disk_usage_high_watermark=95";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -421,6 +437,8 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     argv[10] = argv_10;
     argv[11] = argv_11;
     argv[12] = argv_12;
+    argv[13] = argv_13;
+    argv[14] = argv_14;
 
     options_.Parse(evm_, argc, argv);
 
@@ -466,6 +484,8 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_TRUE(options_.collector_protobuf_port(&protobuf_port));
     EXPECT_EQ(protobuf_port, 3334);
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 7);
+    EXPECT_EQ(options_.get_disk_usage_low_watermark(), 75);
+    EXPECT_EQ(options_.get_disk_usage_high_watermark(), 95);
 }
 
 TEST_F(OptionsTest, MultitokenVector) {

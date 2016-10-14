@@ -32,6 +32,7 @@
 #include "collector.h"
 #include "viz_collector.h"
 #include "viz_sandesh.h"
+#include <analytics_types.h>
 
 using std::string;
 using std::map;
@@ -663,4 +664,22 @@ void DisableFlowCollectionRequest::HandleRequest() const {
 void FlowCollectionStatusRequest::HandleRequest() const {
     // Send response
     SendFlowCollectionStatusResponse(context());
+}
+
+static void SendDiskUsageResponse(std::string context) {
+    DiskUsageResponse *fcsr(new DiskUsageResponse);
+    fcsr->set_disk_usage(Sandesh::GetDiskUsage());
+    fcsr->set_context(context);
+    fcsr->Response();
+}
+
+void DiskUsageGetRequest::HandleRequest() const {
+    // Send response
+    SendDiskUsageResponse(context());
+}
+
+void DiskUsageSetRequest::HandleRequest() const {
+    Sandesh::SetDiskUsage(get_disk_usage());
+    // Send response
+    SendDiskUsageResponse(context());
 }

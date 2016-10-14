@@ -15,6 +15,23 @@ from opserver.introspect_util import *
 from opserver_results import *
 from opserver.opserver_util import OpServerUtils
 
+class VerificationOpsSrvIntrospect (IntrospectUtilBase):
+    def __init__(self, ip, port, user='test', password='password'):
+        super(VerificationOpsSrvIntrospect, self).__init__(ip, port, drv=XmlDrv)
+        self._user = user
+        self._password = password
+
+    def disk_usage_set_request(self, disk_usage):
+        path = 'Snh_DiskUsageSetRequest?disk_usage=%s' % (str(disk_usage))
+        self.dict_get(path)
+
+    def disk_usage_get_request(self):
+        disk_usage = 0
+        path = 'Snh_DiskUsageGetRequest?'
+        xpath = '/DiskUsageResponse/disk_usage'
+        p = self.dict_get(path)
+        return EtreeToDict(xpath).get_all_entry(p)
+
 class VerificationOpsSrv (IntrospectUtilBase):
     def __init__(self, ip, port=8181, user='test',
                  password='password'):

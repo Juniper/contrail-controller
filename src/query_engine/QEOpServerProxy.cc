@@ -1118,3 +1118,21 @@ void QEOpServerProxy::AddAnalyticsQuery(const std::string &qid,
         boost::shared_ptr<AnalyticsQuery> q) {
     impl_->AddAnalyticsQuery(qid, q);
 }
+
+static void SendDiskUsageResponse(std::string context) {
+    DiskUsageResponse *fcsr(new DiskUsageResponse);
+    fcsr->set_disk_usage(Sandesh::GetDiskUsage());
+    fcsr->set_context(context);
+    fcsr->Response();
+}
+
+void DiskUsageGetRequest::HandleRequest() const {
+    // Send response
+    SendDiskUsageResponse(context());
+}
+
+void DiskUsageSetRequest::HandleRequest() const {
+    Sandesh::SetDiskUsage(get_disk_usage());
+    // Send response
+    SendDiskUsageResponse(context());
+}

@@ -19,7 +19,7 @@ import gevent
 import datetime
 from fcntl import fcntl, F_GETFL, F_SETFL
 from operator import itemgetter
-from opserver_introspect_utils import VerificationOpsSrv
+from opserver_introspect_utils import VerificationOpsSrv, VerificationOpsSrvIntrospect
 from collector_introspect_utils import VerificationCollector
 from alarmgen_introspect_utils import VerificationAlarmGen
 from generator_introspect_utils import VerificationGenerator
@@ -2081,6 +2081,21 @@ class AnalyticsFixture(fixtures.Fixture):
     # end verify_collector_redis_uve_connection 
 
     @retry(delay=2, tries=5)
+    def verify_collector_disk_usage(self, collector):
+        self.logger.info('verify_collector_disk_usage')
+        vcl = VerificationCollector('127.0.0.1', collector.http_port)
+        try:
+            disk_usage_dict = vcl.get_disk_usage()
+            disk_usage = int(disk_usage_dict['disk_usage'])
+            self.logger.info('disk_usage read %u' % (disk_usage))
+            if disk_usage == 50:
+                return True
+        except Exception as err:
+            self.logger.error('Exception: %s' % err)
+        return False
+    # end verify_collector_disk_usage
+
+    @retry(delay=2, tries=5)
     def verify_opserver_redis_uve_connection(self, opserver, connected=True):
         self.logger.info('verify_opserver_redis_uve_connection')
         vops = VerificationOpsSrv('127.0.0.1', opserver.http_port,
@@ -2093,6 +2108,23 @@ class AnalyticsFixture(fixtures.Fixture):
             self.logger.error('Exception: %s' % err)
         return not connected
     # end verify_opserver_redis_uve_connection
+
+    @retry(delay=2, tries=5)
+    def set_opserver_disk_usage(self, opserver):
+        self.logger.info('set_opserver_disk_usage')
+        vops = VerificationOpsSrvIntrospect('127.0.0.1', opserver.http_port,
+            self.admin_user, self.admin_password)
+        try:
+            vops.disk_usage_set_request(50)
+            disk_usage_dict = vops.disk_usage_get_request()
+            disk_usage = int(disk_usage_dict['disk_usage'])
+            self.logger.info('disk_usage read %u' % (disk_usage))
+            if disk_usage == 50:
+                return True
+        except Exception as err:
+            self.logger.error('Exception: %s' % err)
+        return False
+    # end set_opserver_disk_usage
 
     @retry(delay=2, tries=5)
     def verify_tracebuffer_in_analytics_db(self, src, mod, tracebuf):

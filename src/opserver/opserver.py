@@ -66,6 +66,8 @@ from opserver_util import ServicePoller
 from sandesh_req_impl import OpserverSandeshReqImpl
 from sandesh.analytics_database.ttypes import *
 from sandesh.analytics_database.constants import PurgeStatusString
+from sandesh.analytics.ttypes import DiskUsageSetRequest, \
+     DiskUsageGetRequest, DiskUsageResponse
 from overlay_to_underlay_mapper import OverlayToUnderlayMapper, \
      OverlayToUnderlayMapperError
 from generator_introspect_util import GeneratorIntrospectUtil
@@ -2088,6 +2090,26 @@ class OpServer(object):
         purge_info.send(sandesh=self._sandesh)
     #end db_purge_operation
 
+    def handle_disk_usage(self, disk_usage):
+        self.disk_usage = disk_usage
+        source = self._hostname
+        module_id = Module.COLLECTOR
+        module = ModuleNames[module_id]
+        node_type = Module2NodeType[module_id]
+        node_type_name = NodeTypeNames[node_type]
+        instance_id = 0
+        destination=source + ':' + node_type_name + ':' + module + ':' + str(instance_id)
+        req = DiskUsageSetRequest()
+        req.disk_usage = disk_usage 
+
+        if self._state_server.redis_publish(msg_type='disk-usage',
+                                            destination=destination,
+                                            msg=req):
+            self._logger.info("redis-publish success for disk_usage(%u)", disk_usage)
+        else:
+            self._logger.error("redis-publish failure for disk_usage(%u)", disk_usage)
+    # end handle_disk_usage
+
     def _auto_purge(self):
         """ monitor dbusage continuously and purge the db accordingly """
         # wait for 10 minutes before starting to monitor
@@ -2105,15 +2127,20 @@ class OpServer(object):
             self._logger.info("threshold:" + str(self._args.db_purge_threshold))
 
             # check database disk usage on each node
+            disk_usage = 0
             for node in db_node_usage:
-                if (int(db_node_usage[node]) > int(self._args.db_purge_threshold)):
+                node_disk_usage = int(db_node_usage[node])
+                if (disk_usage < node_disk_usage):
+                    disk_usage = node_disk_usage
+                if (node_disk_usage > int(self._args.db_purge_threshold)):
                     self._logger.error("Database usage of %d on %s exceeds threshold",
-                            db_node_usage[node], node)
+                                       node_disk_usage, node)
                     trigger_purge = True
                     break
                 else:
                     self._logger.info("Database usage of %d on %s does not exceed threshold",
-                            db_node_usage[node], node)
+                                      node_disk_usage, node)
+            self.handle_disk_usage(disk_usage);
 
             # check if there is a purge already going on
             purge_id = str(uuid.uuid1())
@@ -2124,7 +2151,7 @@ class OpServer(object):
                 trigger_purge = False
 
             if (trigger_purge):
-            # trigger purge
+                # trigger purge
                 start_times = self._analytics_db.get_analytics_start_time()
                 purge_cutoff = self.get_purge_cutoff(
                         (100.0 - float(self._args.db_purge_level)),

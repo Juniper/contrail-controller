@@ -403,7 +403,7 @@ class TestAlarmPlugins(unittest.TestCase):
         self._verify(alarm_name="conf-incorrect", tests=tests)
     # end test_alarm_incorrect_config
 
-    def test_alarm_disk_usage(self):
+    def test_alarm_disk_usage_low(self):
         tests = [
             TestCase(
                 name='NodeStatus == null',
@@ -422,7 +422,7 @@ class TestAlarmPlugins(unittest.TestCase):
             ),
             TestCase(
                 name='NodeStatus.disk_usage_info.' +\
-                    'percentage_partition_space_used < threshold',
+                    'percentage_partition_space_used < low threshold',
                 input=TestInput(uve_key='ObjectDatabaseInfo:host1',
                     uve_data={
                         'NodeStatus': {
@@ -442,18 +442,74 @@ class TestAlarmPlugins(unittest.TestCase):
             ),
             TestCase(
                 name='NodeStatus.disk_usage_info.' +\
-                    'percentage_partition_space_used >= threshold',
+                    'percentage_partition_space_used >= low & < high threshold',
                 input=TestInput(uve_key='ObjectDatabaseInfo:host1',
                     uve_data={
                         'NodeStatus': {
                             'disk_usage_info': [
+                               #{
+                                   #'partition_space_available_1k': 100663296,
+                                   #'partition_space_used_1k': 33554432,
+                                   #'partition_name': 'dev/sda1',
+                                   #'partition_type': 'ext2',
+                                   #'percentage_partition_space_used': 25
+                               #},
                                 {
-                                    'partition_space_available_1k': 100663296,
-                                    'partition_space_used_1k': 33554432,
-                                    'partition_name': 'dev/sda1',
-                                    'partition_type': 'ext2',
-                                    'percentage_partition_space_used': 25
-                                },
+                                    'partition_space_available_1k': 60397978,
+                                    'partition_space_used_1k': 20165993,
+                                    'partition_name': 'dev/sda2',
+                                    'partition_type': 'ext4',
+                                    'percentage_partition_space_used': 75
+                                }
+                            ]
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            ('NodeStatus.disk_usage_info.' +\
+                                'percentage_partition_space_used >= 70',
+                             ['NodeStatus.disk_usage_info.' +\
+                                'partition_name'],
+                             [('75', None, {
+                                 'NodeStatus.disk_usage_info.' +\
+                                     'partition_name': '"dev/sda2"'})]
+                            ),
+                            ('NodeStatus.disk_usage_info.' +\
+                                'percentage_partition_space_used <= 90',
+                             ['NodeStatus.disk_usage_info.' +\
+                                'partition_name'],
+                             [('75', None, {
+                                 'NodeStatus.disk_usage_info.' +\
+                                     'partition_name': '"dev/sda2"'})]
+                            )
+                        ]
+                    }
+                ])
+            )
+        ]
+        self._verify(alarm_name="disk-usage-low", tests=tests)
+    # end test_alarm_disk_usage_low
+
+
+    # not repeating the tests covered as part of disk_usage_low alarm
+    def test_alarm_disk_usage_high(self):
+        tests = [
+            TestCase(
+                name='NodeStatus.disk_usage_info.' +\
+                    'percentage_partition_space_used >= high threshold',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={
+                        'NodeStatus': {
+                            'disk_usage_info': [
+                               #{
+                                   #'partition_space_available_1k': 100663296,
+                                   #'partition_space_used_1k': 33554432,
+                                   #'partition_name': 'dev/sda1',
+                                   #'partition_type': 'ext2',
+                                   #'percentage_partition_space_used': 25
+                               #},
                                 {
                                     'partition_space_available_1k': 60397978,
                                     'partition_space_used_1k': 73819750,
@@ -481,8 +537,8 @@ class TestAlarmPlugins(unittest.TestCase):
                 ])
             )
         ]
-        self._verify(alarm_name="disk-usage", tests=tests)
-    # end test_alarm_disk_usage
+        self._verify(alarm_name="disk-usage-high", tests=tests)
+    # end test_alarm_disk_usage_high
 
     def test_alarm_partial_sysinfo(self):
         tests = [

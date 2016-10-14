@@ -33,4 +33,11 @@ class VerificationCollector(IntrospectUtilBase):
         return EtreeToDict(xpath).get_all_entry(p)
     # end get_redis_uve_info
 
+    def get_disk_usage(self):
+        path = 'Snh_DiskUsageGetRequest?'
+        xpath = '/DiskUsageResponse/disk_usage'
+        p = self.dict_get(path)
+        return EtreeToDict(xpath).get_all_entry(p)
+    # end get_disk_usage
+
 #end class VerificationCollector

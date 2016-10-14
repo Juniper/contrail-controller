@@ -177,7 +177,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
 
     #@unittest.skip('verify redis-uve restart')
     def test_04_redis_uve_restart_with_password(self):
-        logging.info('%%% test_03_redis_uve_restart_with_password %%%')
+        logging.info('%%% test_04_redis_uve_restart_with_password %%%')
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging,
@@ -1850,6 +1850,19 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                 assert(vizd_obj.verify_get_alarms(vn_table,
                     filts=filters, exp_uves=filt_test[i]['get_alarms']))
     # end test_08_uve_alarm_filter
+
+    def test_09_verify_disk_usage(self):
+        logging.info('%%% test_09_verify_disk_usage %%%')
+
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging,
+                             builddir, -1, 0,
+                             redis_password='contrail'))
+        assert vizd_obj.verify_on_setup()
+        assert vizd_obj.set_opserver_disk_usage(vizd_obj.opserver)
+        assert vizd_obj.verify_collector_disk_usage(vizd_obj.collectors[0])
+        return True
+    # end test_09_verify_disk_usage
 
     @staticmethod
     def get_free_port():

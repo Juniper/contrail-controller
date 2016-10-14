@@ -376,6 +376,9 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    // Set disk-usage watermark defaults
+    Sandesh::SetDiskUsageLowWatermark(options.get_disk_usage_low_watermark());
+    Sandesh::SetDiskUsageHighWatermark(options.get_disk_usage_high_watermark());
     Sandesh::DisableFlowCollection(options.disable_flow_collection());
     Sandesh::SetLoggingParams(options.log_local(), options.log_category(),
                               options.log_level());

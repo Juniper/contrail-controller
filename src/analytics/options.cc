@@ -69,6 +69,8 @@ void Options::Initialize(EventManager &evm,
     uint16_t default_partitions = 15;
     uint16_t default_http_server_port = ContrailPorts::HttpPortCollector();
     uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
+    uint32_t default_disk_usage_low_watermark = 70;
+    uint32_t default_disk_usage_high_watermark = 90;
 
     vector<string> default_cassandra_server_list;
     string default_cassandra_server("127.0.0.1:9042");
@@ -100,6 +102,12 @@ void Options::Initialize(EventManager &evm,
             opt::value<uint16_t>()->default_value(
                 default_collector_protobuf_port),
          "Listener port of Google Protocol Buffer collector server")
+        ("COLLECTOR.disk_usage_low_watermark",
+            opt::value<uint32_t>()->default_value(default_disk_usage_low_watermark),
+            "Disk Usage Low Watermark")
+        ("COLLECTOR.disk_usage_high_watermark",
+            opt::value<uint32_t>()->default_value(default_disk_usage_high_watermark),
+            "Disk Usage High Watermark")
 
         ("DEFAULT.analytics_data_ttl",
              opt::value<uint64_t>()->default_value(g_viz_constants.TtlValuesDefault.find(TtlType::GLOBAL_TTL)->second),
@@ -320,6 +328,10 @@ void Options::Process(int argc, char *argv[],
     } else {
         collector_protobuf_port_configured_ = false;
     }
+    GetOptValue<uint32_t>(var_map, disk_usage_low_watermark_,
+                          "COLLECTOR.disk_usage_low_watermark");
+    GetOptValue<uint32_t>(var_map, disk_usage_high_watermark_,
+                          "COLLECTOR.disk_usage_high_watermark");
 
     GetOptValue<uint64_t>(var_map, analytics_data_ttl_,
                      "DEFAULT.analytics_data_ttl");
