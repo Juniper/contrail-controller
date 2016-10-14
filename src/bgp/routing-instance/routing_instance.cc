@@ -472,21 +472,6 @@ void RoutingInstanceMgr::SetTableStatsUve(Address::Family family,
     case Address::RTARGET:
         instance_info->set_raw_rtarget_stats(stats_map);
         break;
-    case Address::INETFLOW:
-        instance_info->set_raw_inetflow_stats(stats_map);
-        break;
-    case Address::INETVPNFLOW:
-        instance_info->set_raw_inetvpnflow_stats(stats_map);
-        break;
-    case Address::INETMCAST:
-        instance_info->set_raw_inetmcast_stats(stats_map);
-        break;
-    case Address::INET6MCAST:
-        instance_info->set_raw_inet6mcast_stats(stats_map);
-        break;
-    case Address::ENET:
-        instance_info->set_raw_enet_stats(stats_map);
-        break;
     case Address::EVPN:
         instance_info->set_raw_evpn_stats(stats_map);
         break;
