@@ -32,6 +32,7 @@
 #include "collector.h"
 #include "viz_collector.h"
 #include "viz_sandesh.h"
+#include <analytics_types.h>
 
 using std::string;
 using std::map;
@@ -519,6 +520,10 @@ void Collector::GetSmQueueWaterMarkInfo(
     GetQueueWaterMarkInfo(QueueType::Sm, wm_info);
 }
 
+DbHandlerPtr Collector::GetDbHandlerPtr() {
+    return db_handler_;
+}
+
 
 static void SendQueueParamsError(std::string estr, const std::string &context) {
     // SandeshGenerator is required, send error
@@ -663,4 +668,44 @@ void DisableFlowCollectionRequest::HandleRequest() const {
 void FlowCollectionStatusRequest::HandleRequest() const {
     // Send response
     SendFlowCollectionStatusResponse(context());
+}
+
+static void SendDbInfoResponse(Collector *collector, std::string context) {
+    DbInfoResponse *fcsr(new DbInfoResponse);
+    DbInfo db_info;
+    DbHandlerPtr db_handler = collector->GetDbHandlerPtr();
+
+    db_info.set_db_usage(db_handler->GetDbUsage());
+    db_info.set_pending_compaction_tasks(
+            db_handler->GetPendingCompactionTasks());
+    db_info.set_db_usage_level(db_handler->GetDbUsageDropLevel());
+    db_info.set_pending_compaction_tasks_level(
+            db_handler->GetPendingCompactionTasksDropLevel());
+
+    fcsr->set_db_info(db_info);
+    fcsr->set_context(context);
+    fcsr->Response();
+}
+
+void DbInfoGetRequest::HandleRequest() const {
+    Collector *collector = ExtractCollectorFromRequest(client_context(),
+                                                       context());
+
+    // Send response
+    SendDbInfoResponse(collector, context());
+}
+
+void DbInfoSetRequest::HandleRequest() const {
+    Collector *collector = ExtractCollectorFromRequest(client_context(),
+                                                       context());
+    DbHandlerPtr db_handler = collector->GetDbHandlerPtr();
+    db_handler->ProcessDbUsage(get_db_usage());
+    db_handler->ProcessPendingCompactionTasks(
+                                     get_pending_compaction_tasks());
+
+    db_handler->SetDbUsage(get_db_usage());
+    db_handler->SetPendingCompactionTasks(get_pending_compaction_tasks());
+
+    // Send response
+    SendDbInfoResponse(collector, context());
 }

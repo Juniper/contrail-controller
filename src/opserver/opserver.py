@@ -16,6 +16,7 @@ except ImportError:
     # python 2.6 or earlier, use backport
     from ordereddict import OrderedDict
 from uveserver import UVEServer
+import math
 import sys
 import ConfigParser
 import bottle
@@ -66,6 +67,8 @@ from opserver_util import ServicePoller
 from sandesh_req_impl import OpserverSandeshReqImpl
 from sandesh.analytics_database.ttypes import *
 from sandesh.analytics_database.constants import PurgeStatusString
+from sandesh.analytics.ttypes import DbInfoSetRequest, \
+     DbInfoGetRequest, DbInfoResponse
 from overlay_to_underlay_mapper import OverlayToUnderlayMapper, \
      OverlayToUnderlayMapperError
 from generator_introspect_util import GeneratorIntrospectUtil
@@ -448,6 +451,8 @@ class OpServer(object):
         if self._args.dup:
             self._hostname += 'dup'
         self._sandesh = Sandesh()
+        self.db_usage = 0
+        self.pending_compaction_tasks = 0
         opserver_sandesh_req_impl = OpserverSandeshReqImpl(self)
         # Reset the sandesh send rate limit value
         if self._args.sandesh_send_rate_limit is not None:
@@ -2087,6 +2092,30 @@ class OpServer(object):
         purge_info.send(sandesh=self._sandesh)
     #end db_purge_operation
 
+    def handle_db_info(self, db_usage, pending_compaction_tasks):
+        self.db_usage = db_usage
+        self.pending_compaction_tasks = pending_compaction_tasks
+        source = self._hostname
+        module_id = Module.COLLECTOR
+        module = ModuleNames[module_id]
+        node_type = Module2NodeType[module_id]
+        node_type_name = NodeTypeNames[node_type]
+        instance_id = 0
+        destination=source + ':' + node_type_name + ':' + module + ':' + str(instance_id)
+        req = DbInfoSetRequest(db_usage, pending_compaction_tasks)
+        req.db_usage = db_usage
+        req.pending_compaction_tasks = pending_compaction_tasks
+
+        if self._state_server.redis_publish(msg_type='db-info',
+                                            destination=destination,
+                                            msg=req):
+            self._logger.info("redis-publish success for db_info usage(%u) pending_tasks(%u)",
+                              req.db_usage, req.pending_compaction_tasks);
+        else:
+            self._logger.error("redis-publish failure for db_info usage(%u) pending_tasks(%u)",
+                               req.db_usage, req.pending_compaction_tasks);
+    # end handle_db_info
+
     def _auto_purge(self):
         """ monitor dbusage continuously and purge the db accordingly """
         # wait for 10 minutes before starting to monitor
@@ -2113,6 +2142,25 @@ class OpServer(object):
                 else:
                     self._logger.info("Database usage of %d on %s does not exceed threshold",
                             db_node_usage[node], node)
+            # get max db-usage value from dict
+            db_usage = 0
+            if (len(db_node_usage)):
+                db_usage = int(math.ceil(max(db_node_usage.values())))
+
+            pending_compaction_tasks_info = self._analytics_db.get_pending_compaction_tasks(
+                'localhost',
+                self._args.auth_conf_info['admin_port'],
+                self._args.auth_conf_info['admin_user'],
+                self._args.auth_conf_info['admin_password'])
+            self._logger.error("node pending-compaction-tasks:" + str(pending_compaction_tasks_info) )
+
+            # get max db-usage value from dict
+            pending_compaction_tasks = 0
+            if (len(pending_compaction_tasks_info)):
+                pending_compaction_tasks = int(math.ceil(max(pending_compaction_tasks_info.values())))
+
+            if (len(db_node_usage) or len(db_node_usage)):
+                self.handle_db_info(db_usage, pending_compaction_tasks)
 
             # check if there is a purge already going on
             purge_id = str(uuid.uuid1())

@@ -2,11 +2,67 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#ifndef __ANALYTICS_OPTIONS_H__
+#define __ANALYTICS_OPTIONS_H__
+
 #include <cassert>
 #include <boost/program_options.hpp>
 #include "io/event_manager.h"
+#include "sandesh/sandesh_types.h"
 
 #define ANALYTICS_DATA_TTL_DEFAULT 48 // g_viz_constants.AnalyticsTTL
+
+class DbWriteOptions {
+public:
+    const uint32_t get_db_usage_level0_high() const { 
+        return db_usage_level0_high_; }
+    const uint32_t get_db_usage_level0_low() const { 
+        return db_usage_level0_low_; }
+    const uint32_t get_db_usage_level1_high() const { 
+        return db_usage_level1_high_; }
+    const uint32_t get_db_usage_level1_low() const { 
+        return db_usage_level1_low_; }
+    const uint32_t get_db_usage_level2_high() const { 
+        return db_usage_level2_high_; }
+    const uint32_t get_db_usage_level2_low() const { 
+        return db_usage_level2_low_; }
+
+    const uint32_t get_pending_compaction_tasks_level0_high() const { 
+        return pending_compaction_tasks_level0_high_; }
+    const uint32_t get_pending_compaction_tasks_level0_low() const { 
+        return pending_compaction_tasks_level0_low_; }
+    const uint32_t get_pending_compaction_tasks_level1_high() const { 
+        return pending_compaction_tasks_level1_high_; }
+    const uint32_t get_pending_compaction_tasks_level1_low() const { 
+        return pending_compaction_tasks_level1_low_; }
+    const uint32_t get_pending_compaction_tasks_level2_high() const { 
+        return pending_compaction_tasks_level2_high_; }
+    const uint32_t get_pending_compaction_tasks_level2_low() const { 
+        return pending_compaction_tasks_level2_low_; }
+
+    SandeshLevel::type get_severity_level0() const { 
+        return severity_level0_; }
+    SandeshLevel::type get_severity_level1() const { 
+        return severity_level1_; }
+    SandeshLevel::type get_severity_level2() const { 
+        return severity_level2_; }
+
+    uint32_t db_usage_level0_high_;
+    uint32_t db_usage_level0_low_;
+    uint32_t db_usage_level1_high_;
+    uint32_t db_usage_level1_low_;
+    uint32_t db_usage_level2_high_;
+    uint32_t db_usage_level2_low_;
+    uint32_t pending_compaction_tasks_level0_high_;
+    uint32_t pending_compaction_tasks_level0_low_;
+    uint32_t pending_compaction_tasks_level1_high_;
+    uint32_t pending_compaction_tasks_level1_low_;
+    uint32_t pending_compaction_tasks_level2_high_;
+    uint32_t pending_compaction_tasks_level2_low_;
+    SandeshLevel::type severity_level0_;
+    SandeshLevel::type severity_level1_;
+    SandeshLevel::type severity_level2_;
+};
 
 // Process command line/configuration file options for collector.
 class Options {
@@ -35,6 +91,7 @@ public:
     const std::vector<std::string> config_file() const {
         return config_file_;
     }
+    const DbWriteOptions get_db_write_options() const { return db_write_options_; }
     const std::string discovery_server() const { return discovery_server_; }
     const uint16_t discovery_port() const { return discovery_port_; }
     const std::string redis_server() const { return redis_server_; }
@@ -74,6 +131,7 @@ public:
     const std::string auth_passwd() const { return ks_password_; }
     const std::string auth_tenant() const { return ks_tenant_; }
 
+    DbWriteOptions db_write_options_;
 private:
     template <typename ValueType>
     bool GetOptValueIfNotDefaulted(
@@ -156,3 +214,5 @@ private:
 
     boost::program_options::options_description config_file_options_;
 };
+
+#endif /* __ANALYTICS_OPTIONS_H__ */

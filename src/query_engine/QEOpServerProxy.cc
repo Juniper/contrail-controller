@@ -1118,3 +1118,11 @@ void QEOpServerProxy::AddAnalyticsQuery(const std::string &qid,
         boost::shared_ptr<AnalyticsQuery> q) {
     impl_->AddAnalyticsQuery(qid, q);
 }
+
+// place holder
+void DbInfoGetRequest::HandleRequest() const {
+}
+
+// place holder
+void DbInfoSetRequest::HandleRequest() const {
+}

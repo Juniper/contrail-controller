@@ -26,6 +26,7 @@
 #include "base/parse_object.h"
 #include "io/event_manager.h"
 #include "base/random_generator.h"
+#include <base/watermark.h>
 #include "gendb_if.h"
 #include "gendb_statistics.h"
 #include "sandesh/sandesh.h"
@@ -34,6 +35,7 @@
 #include "viz_constants.h"
 #include <database/cassandra/cql/cql_types.h>
 #include "usrdef_counters.h"
+#include "options.h"
 
 class Options;
 class DiscoveryServiceClient;
@@ -93,7 +95,8 @@ public:
         const std::string& cassandra_user,
         const std::string& cassandra_password,
         const std::string &zookeeper_server_list,
-        bool use_zookeeper);
+        bool use_zookeeper,
+        DbWriteOptions db_write_options);
     DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map);
     virtual ~DbHandler();
 
@@ -142,6 +145,28 @@ public:
     void UpdateUdc(Options *o, DiscoveryServiceClient *c) {
         udc_->Update(o, c);
     }
+
+    // Db Usage
+    void SetDbUsageDropLevel(size_t count, SandeshLevel::type drop_level);
+    static SandeshLevel::type GetDbUsageDropLevel() { return db_usage_drop_level_; }
+    static void SetDbUsage(size_t db_usage);
+    static uint32_t GetDbUsage() { return db_usage_; }
+    void SetDbUsageHighWaterMark(uint32_t db_usage, SandeshLevel::type level);
+    void SetDbUsageLowWaterMark(uint32_t db_usage, SandeshLevel::type level);
+    void ProcessDbUsageWaterMark(uint32_t db_usage);
+    void ProcessDbUsageWaterMarkLocked(uint32_t db_usage);
+    void ProcessDbUsage(uint32_t db_usage);
+
+    // Pending Compaction Tasks
+    void SetPendingCompactionTasksDropLevel(size_t count, SandeshLevel::type drop_level);
+    static SandeshLevel::type GetPendingCompactionTasksDropLevel() { return pending_tasks_drop_level_; }
+    static void SetPendingCompactionTasks(size_t pending_tasks);
+    static uint32_t GetPendingCompactionTasks(){ return pending_tasks_; }
+    void SetPendingCompactionTasksHighWaterMark(uint32_t pending_tasks, SandeshLevel::type level);
+    void SetPendingCompactionTasksLowWaterMark(uint32_t pending_tasks, SandeshLevel::type level);
+    void ProcessPendingCompactionTasksWaterMark(uint32_t pending_tasks);
+    void ProcessPendingCompactionTasksWaterMarkLocked(uint32_t pending_tasks);
+    void ProcessPendingCompactionTasks(uint32_t pending_tasks);
 
 private:
     void StatTableInsertTtl(uint64_t ts,
@@ -209,6 +234,14 @@ private:
     Timer *udc_cfg_poll_timer_;
     static const int kUDCPollInterval = 120 * 1000; // in ms
     friend class DbHandlerTest;
+    static uint32_t db_usage_; // in percentage
+    static SandeshLevel::type db_usage_drop_level_; // message severity level
+    static uint32_t pending_tasks_; // count
+    static SandeshLevel::type pending_tasks_drop_level_; // message severity level
+    mutable tbb::mutex db_usage_water_mutex_;
+    mutable tbb::mutex pending_compaction_tasks_water_mutex_;
+    static WaterMarkTuple db_usage_watermark_tuple_;
+    static WaterMarkTuple pending_compaction_tasks_watermark_tuple_;
 
     DISALLOW_COPY_AND_ASSIGN(DbHandler);
 };
@@ -248,7 +281,8 @@ class DbHandlerInitializer {
         const std::string& cassandra_user,
         const std::string& cassandra_password,
         const std::string &zookeeper_server_list,
-        bool use_zookeeper);
+        bool use_zookeeper,
+        const DbWriteOptions db_write_options);
     DbHandlerInitializer(EventManager *evm,
         const std::string &db_name,
         const std::string &timer_task_name, InitializeDoneCb callback,

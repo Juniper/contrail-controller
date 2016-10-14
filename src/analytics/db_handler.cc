@@ -57,6 +57,12 @@ uint32_t DbHandler::field_cache_old_t2_ = 0;
 uint8_t DbHandler::old_t2_index_ = 0;
 uint8_t DbHandler::new_t2_index_ = 1;
 tbb::mutex DbHandler::fmutex_;
+uint32_t DbHandler::db_usage_ = 0;
+SandeshLevel::type DbHandler::db_usage_drop_level_ = SandeshLevel::INVALID;
+uint32_t DbHandler::pending_tasks_ = 0;
+SandeshLevel::type DbHandler::pending_tasks_drop_level_ = SandeshLevel::INVALID;
+WaterMarkTuple DbHandler::db_usage_watermark_tuple_;
+WaterMarkTuple DbHandler::pending_compaction_tasks_watermark_tuple_;
 
 DbHandler::DbHandler(EventManager *evm,
         GenDb::GenDbIf::DbErrorHandler err_handler,
@@ -66,7 +72,8 @@ DbHandler::DbHandler(EventManager *evm,
         const std::string& cassandra_user,
         const std::string& cassandra_password,
         const std::string &zookeeper_server_list,
-        bool use_zookeeper) :
+        bool use_zookeeper,
+        const DbWriteOptions db_write_options) :
     name_(name),
     drop_level_(SandeshLevel::INVALID),
     ttl_map_(ttl_map),
@@ -87,6 +94,40 @@ DbHandler::DbHandler(EventManager *evm,
     udc_cfg_poll_timer_->Start(kUDCPollInterval,
         boost::bind(&DbHandler::PollUDCCfg, this),
         boost::bind(&DbHandler::PollUDCCfgErrorHandler, this, _1, _2));
+
+    // Set db-usage watermark defaults
+    SetDbUsageHighWaterMark(db_write_options.get_db_usage_level0_high(),
+                            db_write_options.get_severity_level0());
+    SetDbUsageLowWaterMark(db_write_options.get_db_usage_level0_low(),
+                           db_write_options.get_severity_level0());
+    SetDbUsageHighWaterMark(db_write_options.get_db_usage_level1_high(),
+                            db_write_options.get_severity_level1());
+    SetDbUsageLowWaterMark(db_write_options.get_db_usage_level1_low(),
+                           db_write_options.get_severity_level1());
+    SetDbUsageHighWaterMark(db_write_options.get_db_usage_level2_high(),
+                            db_write_options.get_severity_level2());
+    SetDbUsageLowWaterMark(db_write_options.get_db_usage_level2_low(),
+                           db_write_options.get_severity_level2());
+
+    // Set cassandra pending tasks watermark defaults
+    SetPendingCompactionTasksHighWaterMark(
+            db_write_options.get_pending_compaction_tasks_level0_high(),
+            db_write_options.get_severity_level0());
+    SetPendingCompactionTasksLowWaterMark(
+            db_write_options.get_pending_compaction_tasks_level0_low(),
+            db_write_options.get_severity_level0());
+    SetPendingCompactionTasksHighWaterMark(
+            db_write_options.get_pending_compaction_tasks_level1_high(),
+            db_write_options.get_severity_level1());
+    SetPendingCompactionTasksLowWaterMark(
+            db_write_options.get_pending_compaction_tasks_level1_low(),
+            db_write_options.get_severity_level1());
+    SetPendingCompactionTasksHighWaterMark(
+            db_write_options.get_pending_compaction_tasks_level2_high(),
+            db_write_options.get_severity_level2());
+    SetPendingCompactionTasksLowWaterMark(
+            db_write_options.get_pending_compaction_tasks_level2_low(),
+            db_write_options.get_severity_level2());
 }
 
 void DbHandler::PollUDCCfgErrorHandler(string error_name, string error_message)
@@ -134,9 +175,89 @@ std::vector<boost::asio::ip::tcp::endpoint> DbHandler::GetEndpoints() const {
     return dbif_->Db_GetEndpoints();
 }
 
+void DbHandler::SetDbUsageDropLevel(size_t count, SandeshLevel::type drop_level) {
+    db_usage_drop_level_ = drop_level;
+}
+
+void DbHandler::SetDbUsage(size_t db_usage) {
+    db_usage_ = db_usage;
+}
+
+void DbHandler::SetDbUsageHighWaterMark(uint32_t db_usage, SandeshLevel::type level) {
+    WaterMarkInfo wm = WaterMarkInfo(db_usage, 
+        boost::bind(&DbHandler::SetDbUsageDropLevel, this, _1, level));
+    db_usage_watermark_tuple_.SetHighWaterMark(wm);
+}
+
+void DbHandler::SetDbUsageLowWaterMark(uint32_t db_usage, SandeshLevel::type level) {
+    WaterMarkInfo wm = WaterMarkInfo(db_usage,
+        boost::bind(&DbHandler::SetDbUsageDropLevel, this, _1, level));
+    db_usage_watermark_tuple_.SetLowWaterMark(wm);
+}
+
+void DbHandler::ProcessDbUsageWaterMark(uint32_t db_usage) {
+    db_usage_watermark_tuple_.ProcessWaterMarks(db_usage,
+                                                DbHandler::db_usage_);
+}
+
+void DbHandler::ProcessDbUsageWaterMarkLocked(uint32_t db_usage) {
+    tbb::mutex::scoped_lock lock(db_usage_water_mutex_);
+    ProcessDbUsageWaterMark(db_usage);
+}
+
+void DbHandler::ProcessDbUsage(uint32_t db_usage) {
+    if (db_usage_watermark_tuple_.AreWaterMarksSet()) {
+        DbHandler::ProcessDbUsageWaterMarkLocked(db_usage);
+    } else {
+        DbHandler::ProcessDbUsageWaterMark(db_usage);
+    }
+}
+
+void DbHandler::SetPendingCompactionTasksDropLevel(size_t count, SandeshLevel::type drop_level) {
+    pending_tasks_drop_level_ = drop_level;
+}
+
+void DbHandler::SetPendingCompactionTasks(size_t pending_tasks) {
+    pending_tasks_ = pending_tasks;
+}
+
+void DbHandler::SetPendingCompactionTasksHighWaterMark(uint32_t pending_tasks, SandeshLevel::type level) {
+    WaterMarkInfo wm = WaterMarkInfo(pending_tasks,
+        boost::bind(&DbHandler::SetPendingCompactionTasksDropLevel, this, _1, level));
+    pending_compaction_tasks_watermark_tuple_.SetHighWaterMark(wm);
+}
+
+void DbHandler::SetPendingCompactionTasksLowWaterMark(uint32_t pending_tasks, SandeshLevel::type level) {
+    WaterMarkInfo wm = WaterMarkInfo(pending_tasks,
+        boost::bind(&DbHandler::SetPendingCompactionTasksDropLevel, this, _1, level));
+    pending_compaction_tasks_watermark_tuple_.SetLowWaterMark(wm);
+}
+
+void DbHandler::ProcessPendingCompactionTasksWaterMark(uint32_t pending_tasks) {
+    pending_compaction_tasks_watermark_tuple_.ProcessWaterMarks(pending_tasks,
+                                                                DbHandler::pending_tasks_);
+}
+
+void DbHandler::ProcessPendingCompactionTasksWaterMarkLocked(uint32_t pending_tasks) {
+    tbb::mutex::scoped_lock lock(pending_compaction_tasks_water_mutex_);
+    ProcessPendingCompactionTasksWaterMark(pending_tasks);
+}
+
+void DbHandler::ProcessPendingCompactionTasks(uint32_t pending_tasks) {
+    if (pending_compaction_tasks_watermark_tuple_.AreWaterMarksSet()) {
+        ProcessPendingCompactionTasksWaterMarkLocked(pending_tasks);
+    } else {
+        ProcessPendingCompactionTasksWaterMark(pending_tasks);
+    }
+}
+
 bool DbHandler::DropMessage(const SandeshHeader &header,
     const VizMsg *vmsg) {
-    bool drop(DoDropSandeshMessage(header, drop_level_));
+    SandeshLevel::type slevel(
+        static_cast<SandeshLevel::type>(header.get_Level()));
+    bool drop(DoDropSandeshMessage(header, drop_level_) ||
+              (slevel > GetDbUsageDropLevel()) ||
+              (slevel > GetPendingCompactionTasksDropLevel()));
     if (drop) {
         tbb::mutex::scoped_lock lock(smutex_);
         dropped_msg_stats_.Update(vmsg);
@@ -1650,13 +1771,14 @@ DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
     const std::vector<int> &cassandra_ports, const TtlMap& ttl_map,
     const std::string& cassandra_user, const std::string& cassandra_password,
     const std::string &zookeeper_server_list,
-    bool use_zookeeper) :
+    bool use_zookeeper,
+    const DbWriteOptions db_write_options) :
     db_name_(db_name),
     db_handler_(new DbHandler(evm,
         boost::bind(&DbHandlerInitializer::ScheduleInit, this),
         cassandra_ips, cassandra_ports, db_name, ttl_map,
         cassandra_user, cassandra_password,
-        zookeeper_server_list, use_zookeeper)),
+        zookeeper_server_list, use_zookeeper, db_write_options)),
     callback_(callback),
     db_init_timer_(TimerManager::CreateTimer(*evm->io_service(),
         db_name + " Db Init Timer",
