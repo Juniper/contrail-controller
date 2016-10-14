@@ -33,4 +33,11 @@ class VerificationCollector(IntrospectUtilBase):
         return EtreeToDict(xpath).get_all_entry(p)
     # end get_redis_uve_info
 
+    def get_db_info(self):
+        path = 'Snh_DbInfoGetRequest?'
+        xpath = '/DbInfoResponse/db_info'
+        p = self.dict_get(path)
+        return EtreeToDict(xpath).get_all_entry(p)
+    # end get_db_info
+
 #end class VerificationCollector

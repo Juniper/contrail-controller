@@ -69,6 +69,21 @@ void Options::Initialize(EventManager &evm,
     uint16_t default_partitions = 15;
     uint16_t default_http_server_port = ContrailPorts::HttpPortCollector();
     uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
+    uint32_t default_db_usage_level0_high = 90;
+    uint32_t default_db_usage_level0_low = 85;
+    uint32_t default_db_usage_level1_high = 70;
+    uint32_t default_db_usage_level1_low = 65;
+    uint32_t default_db_usage_level2_high = 50;
+    uint32_t default_db_usage_level2_low = 45;
+    uint32_t default_pending_compaction_tasks_level0_high = 400;
+    uint32_t default_pending_compaction_tasks_level0_low = 350;
+    uint32_t default_pending_compaction_tasks_level1_high = 300;
+    uint32_t default_pending_compaction_tasks_level1_low = 250;
+    uint32_t default_pending_compaction_tasks_level2_high = 200;
+    uint32_t default_pending_compaction_tasks_level2_low = 150;
+    uint32_t default_severity_level0 = SandeshLevel::SYS_EMERG;
+    uint32_t default_severity_level1 = SandeshLevel::SYS_ERR;
+    uint32_t default_severity_level2 = SandeshLevel::SYS_DEBUG;
 
     vector<string> default_cassandra_server_list;
     string default_cassandra_server("127.0.0.1:9042");
@@ -100,6 +115,53 @@ void Options::Initialize(EventManager &evm,
             opt::value<uint16_t>()->default_value(
                 default_collector_protobuf_port),
          "Listener port of Google Protocol Buffer collector server")
+        ("DATABASE_WRITE_POLICY.db_usage_level0_high",
+            opt::value<uint32_t>()->default_value(default_db_usage_level0_high),
+            "Db Usage level 0 high")
+        ("DATABASE_WRITE_POLICY.db_usage_level0_low",
+            opt::value<uint32_t>()->default_value(default_db_usage_level0_low),
+            "Db Usage level 0 low")
+        ("DATABASE_WRITE_POLICY.db_usage_level1_high",
+            opt::value<uint32_t>()->default_value(default_db_usage_level1_high),
+            "Db Usage level 1 high")
+        ("DATABASE_WRITE_POLICY.db_usage_level1_low",
+            opt::value<uint32_t>()->default_value(default_db_usage_level1_low),
+            "Db Usage level 1 low")
+        ("DATABASE_WRITE_POLICY.db_usage_level2_high",
+            opt::value<uint32_t>()->default_value(default_db_usage_level2_high),
+            "Db Usage level 2 high")
+        ("DATABASE_WRITE_POLICY.db_usage_level2_low",
+            opt::value<uint32_t>()->default_value(default_db_usage_level2_low),
+            "Db Usage level 2 low")
+
+        ("DATABASE_WRITE_POLICY.pending_compaction_tasks_level0_high",
+            opt::value<uint32_t>()->default_value(default_pending_compaction_tasks_level0_high),
+            "Cassandra pending compaction tasks level 0 high")
+        ("DATABASE_WRITE_POLICY.pending_compaction_tasks_level0_low",
+            opt::value<uint32_t>()->default_value(default_pending_compaction_tasks_level0_low),
+            "Cassandra pending compaction tasks level 0 low")
+        ("DATABASE_WRITE_POLICY.pending_compaction_tasks_level1_high",
+            opt::value<uint32_t>()->default_value(default_pending_compaction_tasks_level1_high),
+            "Cassandra pending compaction tasks level 1 high")
+        ("DATABASE_WRITE_POLICY.pending_compaction_tasks_level1_low",
+            opt::value<uint32_t>()->default_value(default_pending_compaction_tasks_level1_low),
+            "Cassandra pending compaction tasks level 1 low")
+        ("DATABASE_WRITE_POLICY.pending_compaction_tasks_level1_high",
+            opt::value<uint32_t>()->default_value(default_pending_compaction_tasks_level2_high),
+            "Cassandra pending compaction tasks level 2 high")
+        ("DATABASE_WRITE_POLICY.pending_compaction_tasks_level2_low",
+            opt::value<uint32_t>()->default_value(default_pending_compaction_tasks_level2_low),
+            "Cassandra pending compaction tasks level 2 low")
+
+        ("DATABASE_WRITE_POLICY.severity_level0",
+            opt::value<uint32_t>()->default_value(default_severity_level0),
+            "Message severity level 0")
+        ("DATABASE_WRITE_POLICY.severity_level1",
+            opt::value<uint32_t>()->default_value(default_severity_level1),
+            "Message severity level 1")
+        ("DATABASE_WRITE_POLICY.severity_level2",
+            opt::value<uint32_t>()->default_value(default_severity_level2),
+            "Message severity level 2")
 
         ("DEFAULT.analytics_data_ttl",
              opt::value<uint64_t>()->default_value(g_viz_constants.TtlValuesDefault.find(TtlType::GLOBAL_TTL)->second),
@@ -320,6 +382,36 @@ void Options::Process(int argc, char *argv[],
     } else {
         collector_protobuf_port_configured_ = false;
     }
+    GetOptValue<uint32_t>(var_map, db_usage_level0_high_,
+                          "DATABASE_WRITE_POLICY.db_usage_level0_high");
+    GetOptValue<uint32_t>(var_map, db_usage_level0_low_,
+                          "DATABASE_WRITE_POLICY.db_usage_level0_low");
+    GetOptValue<uint32_t>(var_map, db_usage_level1_high_,
+                          "DATABASE_WRITE_POLICY.db_usage_level1_high");
+    GetOptValue<uint32_t>(var_map, db_usage_level1_low_,
+                          "DATABASE_WRITE_POLICY.db_usage_level1_low");
+    GetOptValue<uint32_t>(var_map, db_usage_level2_high_,
+                          "DATABASE_WRITE_POLICY.db_usage_level2_high");
+    GetOptValue<uint32_t>(var_map, db_usage_level2_low_,
+                          "DATABASE_WRITE_POLICY.db_usage_level2_low");
+    GetOptValue<uint32_t>(var_map, pending_compaction_tasks_level0_high_,
+                          "DATABASE_WRITE_POLICY.pending_compaction_tasks_level0_high");
+    GetOptValue<uint32_t>(var_map, pending_compaction_tasks_level0_low_,
+                          "DATABASE_WRITE_POLICY.pending_compaction_tasks_level0_low");
+    GetOptValue<uint32_t>(var_map, pending_compaction_tasks_level1_high_,
+                          "DATABASE_WRITE_POLICY.pending_compaction_tasks_level1_high");
+    GetOptValue<uint32_t>(var_map, pending_compaction_tasks_level1_low_,
+                          "DATABASE_WRITE_POLICY.pending_compaction_tasks_level1_low");
+    GetOptValue<uint32_t>(var_map, pending_compaction_tasks_level2_high_,
+                          "DATABASE_WRITE_POLICY.pending_compaction_tasks_level2_high");
+    GetOptValue<uint32_t>(var_map, pending_compaction_tasks_level2_low_,
+                          "DATABASE_WRITE_POLICY.pending_compaction_tasks_level2_low");
+    GetOptValue<uint32_t>(var_map, severity_level0_,
+                          "DATABASE_WRITE_POLICY.severity_level0");
+    GetOptValue<uint32_t>(var_map, severity_level1_,
+                          "DATABASE_WRITE_POLICY.severity_level1");
+    GetOptValue<uint32_t>(var_map, severity_level2_,
+                          "DATABASE_WRITE_POLICY.severity_level2");
 
     GetOptValue<uint64_t>(var_map, analytics_data_ttl_,
                      "DEFAULT.analytics_data_ttl");

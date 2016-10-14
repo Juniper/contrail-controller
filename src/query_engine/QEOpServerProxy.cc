@@ -1118,3 +1118,39 @@ void QEOpServerProxy::AddAnalyticsQuery(const std::string &qid,
         boost::shared_ptr<AnalyticsQuery> q) {
     impl_->AddAnalyticsQuery(qid, q);
 }
+
+static void SendDbInfoResponse(std::string context) {
+    DbInfoResponse *fcsr(new DbInfoResponse);
+    fcsr->set_db_usage(Sandesh::GetDbUsage());
+    fcsr->set_pending_compaction_tasks(Sandesh::GetPendingCompactionTasks());
+    fcsr->set_db_usage_level(Sandesh::GetDbUsageLevel());
+    fcsr->set_pending_compaction_tasks_level(Sandesh::GetPendingCompactionTasksLevel());
+    fcsr->set_context(context);
+    fcsr->Response();
+}
+
+void DbInfoGetRequest::HandleRequest() const {
+    // Send response
+    SendDbInfoResponse(context());
+}
+
+// if incoming value < current value => Process_LowWaterMark()
+// else Process_HighWaterMark()
+void DbInfoSetRequest::HandleRequest() const {
+    if (get_db_usage() < Sandesh::GetDbUsage()) {
+        Sandesh::ProcessDbUsageLowWaterMark(get_db_usage());
+    } else {
+        Sandesh::ProcessDbUsageHighWaterMark(get_db_usage());
+    }
+    Sandesh::SetDbUsage(get_db_usage());
+
+    if (get_pending_compaction_tasks() < Sandesh::GetPendingCompactionTasks()) {
+        Sandesh::ProcessPendingCompactionTasksLowWaterMark(get_pending_compaction_tasks());
+    } else {
+        Sandesh::ProcessPendingCompactionTasksHighWaterMark(get_pending_compaction_tasks());
+    }
+    Sandesh::SetPendingCompactionTasks(get_pending_compaction_tasks());
+
+    // Send response
+    SendDbInfoResponse(context());
+}

@@ -15,6 +15,22 @@ from opserver.introspect_util import *
 from opserver_results import *
 from opserver.opserver_util import OpServerUtils
 
+class VerificationOpsSrvIntrospect (IntrospectUtilBase):
+    def __init__(self, ip, port, user='test', password='password'):
+        super(VerificationOpsSrvIntrospect, self).__init__(ip, port, drv=XmlDrv)
+        self._user = user
+        self._password = password
+
+    def db_info_set_request(self, db_usage, pending_compaction_tasks):
+        path = 'Snh_DbInfoSetRequest?db_info=%s&pending_compaction_tasks=%s' % (str(db_usage), str(pending_compaction_tasks))
+        self.dict_get(path)
+
+    def db_info_get_request(self):
+        path = 'Snh_DbInfoGetRequest?'
+        xpath = '/DbInfoResponse/db_info'
+        p = self.dict_get(path)
+        return EtreeToDict(xpath).get_all_entry(p)
+
 class VerificationOpsSrv (IntrospectUtilBase):
     def __init__(self, ip, port=8181, user='test',
                  password='password'):

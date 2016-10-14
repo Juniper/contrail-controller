@@ -32,6 +32,24 @@ public:
         }
         return collector_protobuf_port_configured_;
     }
+    const uint32_t get_db_usage_level0_high() const { return db_usage_level0_high_; }
+    const uint32_t get_db_usage_level0_low() const { return db_usage_level0_low_; }
+    const uint32_t get_db_usage_level1_high() const { return db_usage_level1_high_; }
+    const uint32_t get_db_usage_level1_low() const { return db_usage_level1_low_; }
+    const uint32_t get_db_usage_level2_high() const { return db_usage_level2_high_; }
+    const uint32_t get_db_usage_level2_low() const { return db_usage_level2_low_; }
+
+    const uint32_t get_pending_compaction_tasks_level0_high() const { return pending_compaction_tasks_level0_high_; }
+    const uint32_t get_pending_compaction_tasks_level0_low() const { return pending_compaction_tasks_level0_low_; }
+    const uint32_t get_pending_compaction_tasks_level1_high() const { return pending_compaction_tasks_level1_high_; }
+    const uint32_t get_pending_compaction_tasks_level1_low() const { return pending_compaction_tasks_level1_low_; }
+    const uint32_t get_pending_compaction_tasks_level2_high() const { return pending_compaction_tasks_level2_high_; }
+    const uint32_t get_pending_compaction_tasks_level2_low() const { return pending_compaction_tasks_level2_low_; }
+
+    const uint32_t get_severity_level0() const { return severity_level0_; }
+    const uint32_t get_severity_level1() const { return severity_level1_; }
+    const uint32_t get_severity_level2() const { return severity_level2_; }
+
     const std::vector<std::string> config_file() const {
         return config_file_;
     }
@@ -104,6 +122,21 @@ private:
     uint16_t collector_port_;
     uint16_t collector_protobuf_port_;
     bool collector_protobuf_port_configured_;
+    uint32_t db_usage_level0_high_;
+    uint32_t db_usage_level0_low_;
+    uint32_t db_usage_level1_high_;
+    uint32_t db_usage_level1_low_;
+    uint32_t db_usage_level2_high_;
+    uint32_t db_usage_level2_low_;
+    uint32_t pending_compaction_tasks_level0_high_;
+    uint32_t pending_compaction_tasks_level0_low_;
+    uint32_t pending_compaction_tasks_level1_high_;
+    uint32_t pending_compaction_tasks_level1_low_;
+    uint32_t pending_compaction_tasks_level2_high_;
+    uint32_t pending_compaction_tasks_level2_low_;
+    uint32_t severity_level0_;
+    uint32_t severity_level1_;
+    uint32_t severity_level2_;
     std::vector<std::string> config_file_;
     std::string discovery_server_;
     uint16_t discovery_port_;

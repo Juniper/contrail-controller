@@ -19,7 +19,7 @@ import gevent
 import datetime
 from fcntl import fcntl, F_GETFL, F_SETFL
 from operator import itemgetter
-from opserver_introspect_utils import VerificationOpsSrv
+from opserver_introspect_utils import VerificationOpsSrv, VerificationOpsSrvIntrospect
 from collector_introspect_utils import VerificationCollector
 from alarmgen_introspect_utils import VerificationAlarmGen
 from generator_introspect_utils import VerificationGenerator
@@ -2081,6 +2081,23 @@ class AnalyticsFixture(fixtures.Fixture):
     # end verify_collector_redis_uve_connection 
 
     @retry(delay=2, tries=5)
+    def verify_collector_db_info(self, collector):
+        self.logger.info('verify_collector_db_info')
+        vcl = VerificationCollector('127.0.0.1', collector.http_port)
+        try:
+            db_info_dict = vcl.get_db_info()
+            db_usage = int(db_info_dict['db_usage'])
+            pending_tasks = int(db_info_dict['pending_compaction_tasks'])
+            self.logger.info('read db_usage:%u pending_compaction_tasks:%u' %
+                             (db_usage, pending_compaction_tasks))
+            if ((db_usage == 50) and (pending_compaction_tasks == 100)):
+                return True
+        except Exception as err:
+            self.logger.error('Exception: %s' % err)
+        return False
+    # end verify_collector_db_info
+
+    @retry(delay=2, tries=5)
     def verify_opserver_redis_uve_connection(self, opserver, connected=True):
         self.logger.info('verify_opserver_redis_uve_connection')
         vops = VerificationOpsSrv('127.0.0.1', opserver.http_port,
@@ -2093,6 +2110,25 @@ class AnalyticsFixture(fixtures.Fixture):
             self.logger.error('Exception: %s' % err)
         return not connected
     # end verify_opserver_redis_uve_connection
+
+    @retry(delay=2, tries=5)
+    def set_opserver_db_info(self, opserver):
+        self.logger.info('set_opserver_db_info')
+        vops = VerificationOpsSrvIntrospect('127.0.0.1', opserver.http_port,
+            self.admin_user, self.admin_password)
+        try:
+            vops.db_info_set_request(50, 100)
+            db_info_dict = vops.db_info_get_request()
+            db_usage = int(db_info_dict['db_usage'])
+            pending_tasks = int(db_info_dict['pending_compaction_tasks'])
+            self.logger.info('read db_usage:%u pending_compaction_tasks:%u' %
+                             (db_usage, pending_compaction_tasks))
+            if ((db_usage == 50) and (pending_compaction_tasks == 100)):
+                return True
+        except Exception as err:
+            self.logger.error('Exception: %s' % err)
+        return False
+    # end set_opserver_db_info
 
     @retry(delay=2, tries=5)
     def verify_tracebuffer_in_analytics_db(self, src, mod, tracebuf):

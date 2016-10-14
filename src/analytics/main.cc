@@ -376,6 +376,34 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    // Set db-usage watermark defaults
+    Sandesh::SetDbUsageHighWaterMark(options.get_db_usage_level0_high(),
+                                     options.get_severity_level0());
+    Sandesh::SetDbUsageLowWaterMark(options.get_db_usage_level0_low(),
+                                    options.get_severity_level0());
+    Sandesh::SetDbUsageHighWaterMark(options.get_db_usage_level1_high(),
+                                     options.get_severity_level1());
+    Sandesh::SetDbUsageLowWaterMark(options.get_db_usage_level1_low(),
+                                    options.get_severity_level1());
+    Sandesh::SetDbUsageHighWaterMark(options.get_db_usage_level2_high(),
+                                     options.get_severity_level2());
+    Sandesh::SetDbUsageLowWaterMark(options.get_db_usage_level2_low(),
+                                    options.get_severity_level2());
+
+    // Set cassandra pending tasks watermark defaults
+    Sandesh::SetPendingCompactionTasksHighWaterMark(options.get_pending_compaction_tasks_level0_high(),
+                                                    options.get_severity_level0());
+    Sandesh::SetPendingCompactionTasksLowWaterMark(options.get_pending_compaction_tasks_level0_low(),
+                                                   options.get_severity_level0());
+    Sandesh::SetPendingCompactionTasksHighWaterMark(options.get_pending_compaction_tasks_level1_high(),
+                                                    options.get_severity_level1());
+    Sandesh::SetPendingCompactionTasksLowWaterMark(options.get_pending_compaction_tasks_level1_low(),
+                                                   options.get_severity_level1());
+    Sandesh::SetPendingCompactionTasksHighWaterMark(options.get_pending_compaction_tasks_level2_high(),
+                                                    options.get_severity_level2());
+    Sandesh::SetPendingCompactionTasksLowWaterMark(options.get_pending_compaction_tasks_level2_low(),
+                                                   options.get_severity_level2());
+
     Sandesh::DisableFlowCollection(options.disable_flow_collection());
     Sandesh::SetLoggingParams(options.log_local(), options.log_category(),
                               options.log_level());
