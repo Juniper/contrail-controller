@@ -109,7 +109,13 @@ class LogQuerier(object):
                 result = self.query()
                 if result == -1:
                     return
-                self.display(result)
+                # Accumulate the result before processing it as the
+                # formatting of result can be cpu intensive and hence would
+                # affect the overall time taken to fetch the result from the
+                # analytics-api. Since the query result ttl is set to 5 min
+                # in redis, it is necessary to improve the read throughput.
+                result_list = self.read_result(result)
+                self.display(result_list)
         except KeyboardInterrupt:
             return
 
@@ -527,6 +533,15 @@ class LogQuerier(object):
         else:
             print log_str
     #end output
+
+    def read_result(self, result_gen):
+        if not result_gen:
+            return
+        result_list = []
+        for r in result_gen:
+            result_list.append(r)
+        return result_list
+    # end read_result
 
     def display(self, result):
         if result == [] or result is None:
