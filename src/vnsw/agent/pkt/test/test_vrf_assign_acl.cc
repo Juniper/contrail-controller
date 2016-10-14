@@ -14,14 +14,26 @@ struct PortInfo input[] = {
     {"intf2", 2, "1.1.1.2", "00:00:00:01:01:02", 1, 2},
 };
 
+IpamInfo ipam_info1[] = {
+    {"1.1.1.0", 24, "1.1.1.10", true},
+};
+
 struct PortInfo input1[] = {
     {"intf3", 3, "2.1.1.1", "00:00:00:01:01:01", 2, 3},
     {"intf4", 4, "2.1.1.2", "00:00:00:01:01:02", 2, 4},
 };
 
+IpamInfo ipam_info2[] = {
+    {"2.1.1.0", 24, "2.1.1.10", true},
+};
+
 struct PortInfo input2[] = {
     {"intf5", 5, "2.1.1.1", "00:00:00:01:01:01", 3, 5},
     {"intf6", 6, "2.1.1.2", "00:00:00:01:01:02", 3, 6},
+};
+
+IpamInfo ipam_info3[] = {
+    {"2.1.1.0", 24, "2.1.1.10", true},
 };
 
 class TestVrfAssignAclFlow : public ::testing::Test {
@@ -34,6 +46,12 @@ protected:
         CreateVmportFIpEnv(input1, 2);
         CreateVmportFIpEnv(input2, 2);
         client->WaitForIdle();
+
+        AddIPAM("default-project:vn1", ipam_info1, 1);
+        AddIPAM("default-project:vn2", ipam_info2, 1);
+        AddIPAM("default-project:vn3", ipam_info3, 1);
+        client->WaitForIdle();
+
         EXPECT_TRUE(VmPortActive(1));
         EXPECT_TRUE(VmPortActive(2));
         EXPECT_TRUE(VmPortActive(3));
@@ -79,6 +97,9 @@ protected:
         DeleteVmportFIpEnv(input, 2, true);
         DeleteVmportFIpEnv(input1, 2, true);
         DeleteVmportFIpEnv(input2, 2, true);
+        DelIPAM("default-project:vn1");
+        DelIPAM("default-project:vn2");
+        DelIPAM("default-project:vn3");
         client->WaitForIdle();
         WAIT_FOR(1000, 1000, (0U == flow_proto_->FlowCount()));
         EXPECT_FALSE(VmPortFindRetDel(1));
@@ -392,6 +413,36 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl9) {
     EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow) == true);
 }
 
+//Modify ACL and check if new flow is set with proper action
+TEST_F(TestVrfAssignAclFlow, VrfAssignAcl10) {
+    AddAddressVrfAssignAcl("intf1", 1, "1.1.1.0", "2.1.1.0", 6, 1, 65535,
+                           1, 65535, "default-project:vn2:vn2", "true");
+
+    TestFlow flow[] = {
+        {  TestFlowPkt(Address::INET, "1.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
+                       "default-project:vn1:vn1", VmPortGet(1)->id()),
+        {
+            new VerifyVn("default-project:vn1", "default-project:vn2"),
+            new VerifyAction((1 << TrafficAction::PASS) |
+                             (1 << TrafficAction::VRF_TRANSLATE),
+                             (1 << TrafficAction::PASS))
+        }
+        }
+    };
+    CreateFlow(flow, 1);
+
+    AddAddressVrfAssignAcl("intf1", 1, "2.1.1.0", "2.1.1.0", 6, 1, 65535,
+                           1, 65535, "default-project:vn2:vn2", "true");
+    TestFlow flow2[] = {
+        {  TestFlowPkt(Address::INET, "1.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
+                       "default-project:vn1:vn1", VmPortGet(1)->id()),
+        {
+            new ShortFlow()
+        }
+        }
+    };
+    CreateFlow(flow2, 1);
+}
 //Add an VRF translate ACL to send all ssh traffic to "2.1.1.1"
 //via default-project:vn2 and also add mirror ACL for VN1
 //Verify that final action has mirror action also
