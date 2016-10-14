@@ -159,8 +159,8 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
                     continue
                 return ok, (code, 'Error checking ASN: %s' %(msg))
 
-            rt_dict = result.get('route_target_list', {})
-            for rt in rt_dict.get('route_target', []):
+            rt_dict = result.get('route_target_list') or {}
+            for rt in rt_dict.get('route_target') or []:
                 (_, asn, target) = _parse_rt(rt)
                 if (asn == global_asn and
                     target >= cfgm_common.BGP_RTGT_MIN_ID):
@@ -175,7 +175,7 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
     def _check_udc(cls, obj_dict, udcs):
         udcl = []
         for udc in udcs:
-            if all (k in udc.get('value', {}) for k in ('name', 'pattern')):
+            if all (k in udc.get('value') or {} for k in ('name', 'pattern')):
                 udcl.append(udc['value'])
         udck = obj_dict.get('user_defined_log_statistics')
         if udck:
@@ -358,7 +358,7 @@ class InstanceIpServer(Resource, InstanceIp):
     @classmethod
     def _vmi_has_vm_ref(cls, db_conn, iip_dict):
         # is this iip linked to a vmi that is not ref'd by a router
-        vmi_refs = iip_dict.get('virtual_machine_interface_refs')
+        vmi_refs = iip_dict.get('virtual_machine_interface_refs') or []
         for vmi_ref in vmi_refs or []:
             ok, result = cls.dbe_read(db_conn, 'virtual_machine_interface',
                                       vmi_ref['uuid'],
@@ -544,7 +544,7 @@ class InstanceIpServer(Resource, InstanceIp):
 class LogicalRouterServer(Resource, LogicalRouter):
     @classmethod
     def is_port_in_use_by_vm(cls, obj_dict, db_conn):
-        for vmi_ref in obj_dict.get('virtual_machine_interface_refs', []):
+        for vmi_ref in obj_dict.get('virtual_machine_interface_refs') or []:
             vmi_id = vmi_ref['uuid']
             ok, read_result = cls.dbe_read(
                   db_conn, 'virtual_machine_interface', vmi_ref['uuid'])
@@ -597,7 +597,7 @@ class LogicalRouterServer(Resource, LogicalRouter):
             if 'virtual_network_refs' in obj_dict:
                 ok, result = cls.is_port_gateway_in_same_network(
                         db_conn,
-                        read_result.get('virtual_machine_interface_refs', []),
+                        read_result.get('virtual_machine_interface_refs') or [],
                         obj_dict['virtual_network_refs'])
                 if not ok:
                     return ok, result
@@ -605,7 +605,7 @@ class LogicalRouterServer(Resource, LogicalRouter):
                 ok, result = cls.is_port_gateway_in_same_network(
                         db_conn,
                         obj_dict['virtual_machine_interface_refs'],
-                        read_result.get('virtual_network_refs', []))
+                        read_result.get('virtual_network_refs') or [])
                 if not ok:
                     return ok, result
         return (True, '')
@@ -752,7 +752,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         api_server = db_conn.get_api_server()
 
         # Create ref to native/vn-default routing instance
-        vn_refs = obj_dict.get('virtual_network_refs', [])
+        vn_refs = obj_dict.get('virtual_network_refs')
         if not vn_refs:
             return True, ''
 
@@ -805,13 +805,13 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                     msg = "VMI ref delete not allowed during update"
                     return (False, (409, msg))
 
-        bindings = read_result.get('virtual_machine_interface_bindings', {})
-        kvps = bindings.get('key_value_pair', [])
+        bindings = read_result.get('virtual_machine_interface_bindings') or {}
+        kvps = bindings.get('key_value_pair') or []
         kvp_dict = cls._kvp_to_dict(kvps)
         old_vnic_type = kvp_dict.get('vnic_type', cls.portbindings['VNIC_TYPE_NORMAL'])
 
-        bindings = obj_dict.get('virtual_machine_interface_bindings', {})
-        kvps = bindings.get('key_value_pair', [])
+        bindings = obj_dict.get('virtual_machine_interface_bindings') or {}
+        kvps = bindings.get('key_value_pair') or []
 
         for oper_param in prop_collection_updates or []:
             if (oper_param['field'] == 'virtual_machine_interface_bindings' and
@@ -841,7 +841,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
         bindings = obj_dict.get('virtual_machine_interface_bindings')
         if bindings:
-            kvps = bindings.get('key_value_pair', [])
+            kvps = bindings.get('key_value_pair') or []
             kvp_dict = cls._kvp_to_dict(kvps)
             delete_dict = {'virtual_machine_refs' : []}
             cls._check_vrouter_link(obj_dict, kvp_dict, delete_dict, db_conn)
@@ -879,7 +879,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         rt_dict = obj_dict.get('route_target_list')
         if not rt_dict:
             return (True, '')
-        for rt in rt_dict.get('route_target', []):
+        for rt in rt_dict.get('route_target') or []:
             try:
                 (prefix, asn, target) = _parse_rt(rt)
             except ValueError:
@@ -943,14 +943,14 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         result_obj_dict = copy.deepcopy(read_result)
         result_obj_dict.update(obj_dict)
         if result_obj_dict.get('multi_policy_service_chains_enabled'):
-            import_export_targets = result_obj_dict.get('route_target_list', {})
-            import_targets = result_obj_dict.get('import_route_target_list', {})
-            export_targets = result_obj_dict.get('export_route_target_list', {})
-            import_targets_set = set(import_targets.get('route_target', []))
-            export_targets_set = set(export_targets.get('route_target', []))
+            import_export_targets = result_obj_dict.get('route_target_list') or {}
+            import_targets = result_obj_dict.get('import_route_target_list') or {}
+            export_targets = result_obj_dict.get('export_route_target_list') or  {}
+            import_targets_set = set(import_targets.get('route_target') or [])
+            export_targets_set = set(export_targets.get('route_target') or [])
             targets_in_both_import_and_export = \
                     import_targets_set.intersection(export_targets_set)
-            if (import_export_targets.get('route_target', []) or
+            if ((import_export_targets.get('route_target') or []) or
                     targets_in_both_import_and_export):
                 msg = "Multi policy service chains are not supported, "
                 msg += "with both import export external route targets"
@@ -970,7 +970,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         if virtual_network_properties is not None:
            net_mode = virtual_network_properties.get('forwarding_mode')
 
-        ipam_refs = obj_dict.get('network_ipam_refs', [])
+        ipam_refs = obj_dict.get('network_ipam_refs') or []
         ipam_subnets_list = []
         for ipam in ipam_refs:
             ipam_fq_name = ipam['to']
@@ -1087,7 +1087,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         if not ok:
             return (False, (400, error))
 
-        ipam_refs = obj_dict.get('network_ipam_refs', [])
+        ipam_refs = obj_dict.get('network_ipam_refs') or []
         try:
             cls.addr_mgmt.net_create_req(obj_dict)
             #for all ipams which are flat, we need to write a unique id as
@@ -1152,7 +1152,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
             global_access =  obj_dict['perms2']['global_access']
         except KeyError:
             global_access = None
-        is_shared = obj_dict.get('is_shared', None)
+        is_shared = obj_dict.get('is_shared')
         if global_access is not None or is_shared is not None:
             if global_access is not None and is_shared is not None:
                 if is_shared != (global_access != 0):
@@ -1211,7 +1211,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         if not ok:
             return (ok, (409, result))
 
-        ipam_refs = obj_dict.get('network_ipam_refs', [])
+        ipam_refs = obj_dict.get('network_ipam_refs') or []
         try:
             cls.addr_mgmt.net_update_req(fq_name, read_result, obj_dict, id)
             #update link with a subnet_uuid if ipam in read_result or obj_dict
@@ -1229,8 +1229,8 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                 subnet_method = ipam_dict.get('ipam_subnet_method')
                 if (subnet_method != None and
                     subnet_method == 'flat-subnet'):
-                    vnsn_data = ipam.get('attr', {})
-                    ipam_subnets = vnsn_data.get('ipam_subnets', [])
+                    vnsn_data = ipam.get('attr') or {}
+                    ipam_subnets = vnsn_data.get('ipam_subnets') or []
                     if (len(ipam_subnets) == 1):
                         continue
 
@@ -1288,13 +1288,13 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                     backref_res_type, obj_uuid, 'DELETE',
                     'routing-instance', ri_uuid)
             # end drop_ref
-            for backref in ri_obj_dict.get(backref_name, []):
+            for backref in ri_obj_dict.get(backref_name) or []:
                 drop_ref(backref['uuid'])
 
         children_field_types = RoutingInstance.children_field_types
         for child_name in children_fields:
             child_res_type = children_field_types[child_name][0]
-            for child in ri_obj_dict.get(child_name, []):
+            for child in ri_obj_dict.get(child_name) or []:
                 api_server.internal_request_delete(child_res_type, child['uuid'])
 
         api_server.internal_request_delete('routing-instance', ri_uuid)
@@ -1326,23 +1326,23 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                 raise cfgm_common.exceptions.VncError(result)
             vn_dict = result
 
-            ipam_refs = vn_dict.get('network_ipam_refs', [])
+            ipam_refs = vn_dict.get('network_ipam_refs') or []
             for ipam in ipam_refs:
                 # Currently ip_alloc api is not supported for flat-ipam
                 # only to user-defined-ipam, we need to skip
                 # any flat ipam
                 vnsn_data = ipam['attr']
-                ipam_subnets = vnsn_data.get('ipam_subnets', [])
+                ipam_subnets = vnsn_data.get('ipam_subnets') or []
                 if len(ipam_subnets) is 0:
                     continue
                 first_ipam_subnet = ipam_subnets[0]
-                subnet = first_ipam_subnet.get('subnet', {})
+                subnet = first_ipam_subnet.get('subnet') or {}
                 if ('ip_prefix' not in subnet):
                     continue
 
-                ipam_subnets = ipam['attr'].get('ipam_subnets', [])
+                ipam_subnets = ipam['attr'].get('ipam_subnets') or []
                 for ipam_subnet in ipam_subnets:
-                    subnet = ipam_subnet.get('subnet', {})
+                    subnet = ipam_subnet.get('subnet') or {}
                     if 'ip_prefix' in subnet:
                         ipam_subnet_name = subnet['ip_prefix'] + '/' +\
                                            str(subnet['ip_prefix_len'])
@@ -1422,7 +1422,7 @@ class NetworkIpamServer(Resource, NetworkIpam):
         if not ok:
             return (ok, (400, result))
 
-        subnets = ipam_subnets.get('subnets', [])
+        subnets = ipam_subnets.get('subnets') or []
         (ok, result) = cls.addr_mgmt.net_check_subnet(subnets)
         if not ok:
             return (ok, (409, result))
@@ -1516,14 +1516,14 @@ class NetworkIpamServer(Resource, NetworkIpam):
                     #check if ipam is a flat-subnet, for flat-subnet ipam
                     # add uuid in ref_ipam_uuid_list, to read ipam later
                     # to get current ipam_subnets from ipam
-                    vnsn_data = ipam.get('attr', {})
-                    ref_ipam_subnets = vnsn_data.get('ipam_subnets', [])
+                    vnsn_data = ipam.get('attr') or {}
+                    ref_ipam_subnets = vnsn_data.get('ipam_subnets') or []
 
                     if len(ref_ipam_subnets) == 1:
                         #flat subnet ipam will have only one entry in
                         #vn->ipam link without any ip_prefix
                         ref_ipam_subnet = ref_ipam_subnets[0]
-                        ref_subnet = ref_ipam_subnet.get('subnet', {})
+                        ref_subnet = ref_ipam_subnet.get('subnet') or {}
                         if 'ip_prefix' not in ref_subnet:
                             #This is a flat-subnet,
                             ref_ipam_uuid_list.append(ref_ipam_uuid)
@@ -1550,7 +1550,7 @@ class NetworkIpamServer(Resource, NetworkIpam):
 
         ipam_subnets = obj_dict.get('ipam_subnets')
         if ipam_subnets != None:
-            subnets = ipam_subnets.get('subnets', [])
+            subnets = ipam_subnets.get('subnets') or []
             (ok, result) = cls.addr_mgmt.net_check_subnet(subnets)
             if not ok:
                 return (ok, (409, result))
@@ -1702,7 +1702,7 @@ class VirtualDnsServer(Resource, VirtualDns):
                                            obj_dict['parent_uuid'])
             if not ok:
                 return ok, read_result
-            virtual_DNSs = read_result.get('virtual_DNSs', [])
+            virtual_DNSs = read_result.get('virtual_DNSs') or []
             for vdns in virtual_DNSs:
                 vdns_uuid = vdns['uuid']
                 vdns_id = {'uuid': vdns_uuid}
@@ -1935,8 +1935,8 @@ def _check_policy_rules(entries, network_policy_rule=False):
         else:
             ethertype = rule.get('ethertype')
             if ethertype is not None:
-                for addr in itertools.chain(rule.get('src_addresses', []),
-                                            rule.get('dst_addresses', [])):
+                for addr in itertools.chain(rule.get('src_addresses') or [],
+                                            rule.get('dst_addresses') or []):
                     if addr.get('subnet') is not None:
                         ip_prefix = addr["subnet"].get('ip_prefix')
                         ip_prefix_len = addr["subnet"].get('ip_prefix_len')
@@ -1945,9 +1945,9 @@ def _check_policy_rules(entries, network_policy_rule=False):
                             return (False, (400, "Rule subnet %s doesn't match ethertype %s" %
                                             (network, ethertype)))
             src_sg = [addr.get('security_group') for addr in
-                      rule.get('src_addresses', [])]
+                      rule.get('src_addresses') or []]
             dst_sg = [addr.get('security_group') for addr in
-                      rule.get('dst_addresses', [])]
+                      rule.get('dst_addresses') or []]
             if ('local' not in src_sg and 'local' not in dst_sg):
                 return (False, (400, "At least one of source or destination"
                                      " addresses must be 'local'"))
@@ -1958,7 +1958,7 @@ class SecurityGroupServer(Resource, SecurityGroup):
     @classmethod
     def _set_configured_security_group_id(cls, obj_dict):
         fq_name_str = ':'.join(obj_dict['fq_name'])
-        configured_sg_id = obj_dict.get('configured_security_group_id', 0)
+        configured_sg_id = obj_dict.get('configured_security_group_id') or 0
         sg_id = obj_dict.get('security_group_id')
         if sg_id is not None:
             sg_id = int(sg_id)
@@ -2043,15 +2043,15 @@ class SecurityGroupServer(Resource, SecurityGroup):
         if ('security_group_entries' in obj_dict and
             QuotaHelper.get_quota_limit(proj_dict, obj_type) >= 0):
             rule_count = len(obj_dict['security_group_entries']['policy_rule'])
-            for sg in proj_dict.get('security_groups', []):
+            for sg in proj_dict.get('security_groups') or []:
                 if sg['uuid'] == sg_dict['uuid']:
                     continue
                 try:
                     ok, result = cls.dbe_read(db_conn, 'security_group',
                                               sg['uuid'])
                     remote_sg_dict = result
-                    sge = remote_sg_dict.get('security_group_entries', {})
-                    rule_count += len(sge.get('policy_rule', []))
+                    sge = remote_sg_dict.get('security_group_entries') or {}
+                    rule_count += len(sge.get('policy_rule') or [])
                 except Exception as e:
                     ok = False
                     result = (500, 'Error in security group update: %s' %(
@@ -2220,12 +2220,12 @@ class PhysicalInterfaceServer(Resource, PhysicalInterface):
 
         physical_router = result
         # In case of QFX, check that VLANs 1, 2 and 4094 are not used
-        product_name = physical_router.get('physical_router_product_name', "")
+        product_name = physical_router.get('physical_router_product_name') or ""
         if product_name.lower().startswith("qfx") and vlan_tag != None:
             if vlan_tag == 1 or vlan_tag == 2 or vlan_tag == 4094:
                 return (False, (403, "Vlan id " + str(vlan_tag) + " is not allowed on QFX"))
 
-        for physical_interface in physical_router.get('physical_interfaces', []):
+        for physical_interface in physical_router.get('physical_interfaces') or []:
             # Read only the display name of the physical interface
             (ok, interface_object) = cls.dbe_read(db_conn,
                                                   'physical_interface',
@@ -2279,7 +2279,7 @@ class LoadbalancerMemberServer(Resource, LoadbalancerMember):
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        user_visibility = obj_dict['id_perms'].get('user_visible', True)
+        user_visibility = obj_dict['id_perms'].get('user_visible') or True
         if not user_visibility:
             return True, ""
 
@@ -2296,7 +2296,7 @@ class LoadbalancerMemberServer(Resource, LoadbalancerMember):
         proj_dict = result
         if QuotaHelper.get_quota_limit(proj_dict, 'loadbalancer_member') < 0:
             return True, ""
-        lb_pools = proj_dict.get('loadbalancer_pools', [])
+        lb_pools = proj_dict.get('loadbalancer_pools') or []
         quota_count = 0
 
         for pool in lb_pools:
@@ -2309,7 +2309,7 @@ class LoadbalancerMemberServer(Resource, LoadbalancerMember):
                 return ok, result
 
             lb_pool_dict = result
-            quota_count += len(lb_pool_dict.get('loadbalancer_members', []))
+            quota_count += len(lb_pool_dict.get('loadbalancer_members') or [])
 
         (ok, quota_limit) = QuotaHelper.check_quota_limit(
             proj_dict, 'loadbalancer_member', quota_count)
@@ -2328,8 +2328,8 @@ class RouteAggregateServer(Resource, RouteAggregate):
             return (False, (400, 'RouteAggregate objects can refer to only '
                                  'one service instance'))
         family = None
-        entries = obj_dict.get('aggregate_route_entries', {})
-        for route in entries.get('route', []):
+        entries = obj_dict.get('aggregate_route_entries') or {}
+        for route in entries.get('route') or []:
             try:
                 route_family = IPNetwork(route).version
             except TypeError:
