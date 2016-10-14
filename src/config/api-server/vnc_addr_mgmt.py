@@ -486,14 +486,15 @@ class AddrMgmt(object):
 
             subnet_dict = copy.deepcopy(ipam_subnet['subnet'])
             subnet_dict['gw'] = ipam_subnet.get('default_gateway')
-            subnet_dict['alloc_unit'] = ipam_subnet.get('alloc_unit', 1)
+            subnet_dict['alloc_unit'] = ipam_subnet.get('alloc_unit') or 1
             subnet_dict['dns_server_address'] = \
                 ipam_subnet.get('dns_server_address')
             subnet_dict['allocation_pools'] = \
                 ipam_subnet.get('allocation_pools')
             subnet_dict['dns_nameservers'] = \
                 ipam_subnet.get('dns_nameservers')
-            subnet_dict['addr_start'] = ipam_subnet.get('addr_from_start', False)
+            subnet_dict['addr_start'] = \
+                ipam_subnet.get('addr_from_start') or False
             subnet_dict['subnet_uuid'] = ipam_subnet.get('subnet_uuid')
             subnet_name = subnet_dict['ip_prefix'] + '/' + str(
                           subnet_dict['ip_prefix_len'])
@@ -528,12 +529,12 @@ class AddrMgmt(object):
             if not ok:
                 raise cfgm_common.exceptions.VncError(vn_dict)
 
-        ipam_refs = vn_dict.get('network_ipam_refs', [])
+        ipam_refs = vn_dict.get('network_ipam_refs') or []
         # gather all subnets, return dict keyed by name
         subnet_dicts = OrderedDict()
         for ipam_ref in ipam_refs:
-            vnsn_data = ipam_ref.get('attr', {})
-            ipam_subnets = vnsn_data.get('ipam_subnets', [])
+            vnsn_data = ipam_ref.get('attr') or {}
+            ipam_subnets = vnsn_data.get('ipam_subnets') or []
             subnet_dicts.update(self._ipam_subnet_to_subnet_dict(ipam_subnets))
         return subnet_dicts
     # end _get_net_subnet_dicts
@@ -545,8 +546,8 @@ class AddrMgmt(object):
         service_address = ipam_subnet.get('dns_server_address')
         allocation_pools = ipam_subnet.get('allocation_pools')
         nameservers = ipam_subnet.get('dns_nameservers')
-        addr_start = ipam_subnet.get('addr_from_start', False)
-        alloc_unit = ipam_subnet.get('alloc_unit', 1)
+        addr_start = ipam_subnet.get('addr_from_start') or False
+        alloc_unit = ipam_subnet.get('alloc_unit') or 1
         subnet_obj = Subnet(
             '%s:%s' % (fq_name_str, subnet_name),
             subnet['ip_prefix'], str(subnet['ip_prefix_len']),
@@ -571,8 +572,8 @@ class AddrMgmt(object):
             if not ok:
                 raise cfgm_common.exceptions.VncError(ipam_dict)
 
-            ipam_subnets_dict = ipam_dict.get('ipam_subnets', {})
-            ipam_subnets = ipam_subnets_dict.get('subnets', [])
+            ipam_subnets_dict = ipam_dict.get('ipam_subnets') or {}
+            ipam_subnets = ipam_subnets_dict.get('subnets') or []
             # gather all subnets, return dict keyed by name
             if not ipam_subnets:
                 return subnet_objs
@@ -597,8 +598,8 @@ class AddrMgmt(object):
             if not ok:
                 raise cfgm_common.exceptions.VncError(ipam_dict)
 
-        ipam_subnets_dict = ipam_dict.get('ipam_subnets', {})
-        ipam_subnets = ipam_subnets_dict.get('subnets', [])
+        ipam_subnets_dict = ipam_dict.get('ipam_subnets') or {}
+        ipam_subnets = ipam_subnets_dict.get('subnets') or []
         # gather all subnets, return dict keyed by name
         subnet_dicts = self._ipam_subnet_to_subnet_dict(ipam_subnets)
         return subnet_dicts
@@ -636,18 +637,18 @@ class AddrMgmt(object):
                                 should_persist):
         self._subnet_objs.setdefault(vn_uuid, {})
         # create subnet for each new subnet
-        refs = vn_dict.get('network_ipam_refs', None)
+        refs = vn_dict.get('network_ipam_refs')
         if refs:
             for ref in refs:
                 # only create a subnet obj for a ref which is not a flat ipam
                 # instead of reading ipam from db, inspect link between ref
                 # and vn, if link has only one subnet without ip_prefix key
                 # in subnet dict, that is a flat-subnet ipam
-                vnsn_data = ref.get('attr', {})
-                ipam_subnets = vnsn_data.get('ipam_subnets', [])
+                vnsn_data = ref.get('attr') or {}
+                ipam_subnets = vnsn_data.get('ipam_subnets') or []
                 if len(ipam_subnets) == 1:
                     ipam_subnet = ipam_subnets[0]
-                    subnet = ipam_subnet.get('subnet', {})
+                    subnet = ipam_subnet.get('subnet') or {}
                     if 'ip_prefix' not in subnet:
                         continue 
                 if ipam_subnets:
@@ -782,8 +783,8 @@ class AddrMgmt(object):
 
     def _ipam_to_subnets(self, ipam_dict):
         subnet_list = []
-        ipams_subnets_dict = ipam_dict.get('ipam_subnets', {})
-        ipams_subnets = ipams_subnets_dict.get('subnets', [])
+        ipams_subnets_dict = ipam_dict.get('ipam_subnets') or {}
+        ipams_subnets = ipams_subnets_dict.get('subnets') or []
         for ipams_subnet in ipams_subnets:
             subnet = ipams_subnet['subnet']
             subnet_name = \
@@ -804,11 +805,11 @@ class AddrMgmt(object):
                 # single entry in ipam_subnets with only uuid and
                 # without any ip_prefix and prefix_len
                 vnsn_data = ref['attr']
-                ipam_subnets = vnsn_data.get('ipam_subnets', [])
+                ipam_subnets = vnsn_data.get('ipam_subnets') or []
                 if len(ipam_subnets) is 0:
                     continue
                 first_ipam_subnet = ipam_subnets[0]
-                subnet = first_ipam_subnet.get('subnet', {})
+                subnet = first_ipam_subnet.get('subnet') or {}
                 if ('ip_prefix' not in subnet):
                     continue
 
@@ -977,7 +978,7 @@ class AddrMgmt(object):
     # alias_ip
     def _check_subnet_delete(self, subnets_set, vn_dict):
         db_conn = self._get_db_conn()
-        instip_refs = vn_dict.get('instance_ip_back_refs', [])
+        instip_refs = vn_dict.get('instance_ip_back_refs') or []
         for ref in instip_refs:
             try:
                 (ok, result) = db_conn.dbe_read(
@@ -1001,7 +1002,7 @@ class AddrMgmt(object):
                         "Cannot Delete IP Block, IP(%s) is in use"
                         % (inst_ip))
 
-        fip_pool_refs = vn_dict.get('floating_ip_pools', [])
+        fip_pool_refs = vn_dict.get('floating_ip_pools') or []
         for ref in fip_pool_refs:
             try:
                 (ok, result) = db_conn.dbe_read(
@@ -1015,7 +1016,7 @@ class AddrMgmt(object):
                     level=SandeshLevel.SYS_ERR)
                 return False, result
 
-            floating_ips = result.get('floating_ips', [])
+            floating_ips = result.get('floating_ips') or []
             for floating_ip in floating_ips:
                 try:
                     (read_ok, read_result) = db_conn.dbe_read(
@@ -1041,7 +1042,7 @@ class AddrMgmt(object):
                             "Cannot Delete IP Block, Floating IP(%s) is in use"
                             % (fip_addr))
 
-        aip_pool_refs = vn_dict.get('alias_ip_pools', [])
+        aip_pool_refs = vn_dict.get('alias_ip_pools') or []
         for ref in aip_pool_refs:
             try:
                 (ok, result) = db_conn.dbe_read(
@@ -1055,7 +1056,7 @@ class AddrMgmt(object):
                     level=SandeshLevel.SYS_ERR)
                 return False, result
 
-            alias_ips = result.get('alias_ips', [])
+            alias_ips = result.get('alias_ips') or []
             for alias_ip in alias_ips:
                 # get alias_ip_address and this should be in
                 # new subnet_list
@@ -1201,14 +1202,14 @@ class AddrMgmt(object):
             # check the link between VN and ipam and it should have only one
             # to with no ip_prefix and ipam_subnet with subnet_uuid
             # otherwise it is not a flat subnet
-            vnsn_data = ipam_ref.get('attr', {})
-            ipam_subnets = vnsn_data.get('ipam_subnets', [])
+            vnsn_data = ipam_ref.get('attr') or {}
+            ipam_subnets = vnsn_data.get('ipam_subnets') or []
             # if there are no ipam_subnets then either it is a user-define-subnet
             # without any subnet added or flat-subnet ipam without and ipam_subnets
             if len(ipam_subnets) is 0:
                 continue
             first_ipam_subnet = ipam_subnets[0]
-            subnet = first_ipam_subnet.get('subnet', {})
+            subnet = first_ipam_subnet.get('subnet') or {}
             if ('ip_prefix' in subnet):
                 #This is a user-define-subnet
                 continue
@@ -1217,7 +1218,7 @@ class AddrMgmt(object):
                 flat_subnet_uuid = False
                 #check if subnet_uuid is stored in the vm->ipam link
                 # to represent this ipam for flat-allocation.
-                ipam_subnets = ipam_ref['attr'].get('ipam_subnets', [])
+                ipam_subnets = ipam_ref['attr'].get('ipam_subnets') or []
                 for ipam_subnet in ipam_subnets:
                     ipam_subnet_uuid = ipam_subnet.get('subnet_uuid')
                     if (ipam_subnet_uuid != None) and\
@@ -1732,7 +1733,7 @@ class AddrMgmt(object):
             if not ok:
                 raise cfgm_common.exceptions.VncError(ipam_dict)
 
-            ipam_subnets_dict = ipam_dict.get('ipam_subnets', [])
+            ipam_subnets_dict = ipam_dict.get('ipam_subnets') or []
             if 'subnets' in ipam_subnets_dict:
                 ipam_subnets = ipam_subnets_dict['subnets']
                 for ipam_subnet in ipam_subnets:
@@ -1742,11 +1743,11 @@ class AddrMgmt(object):
     # end _ipam_is_gateway_ip
 
     def _net_is_gateway_ip(self, vn_dict, ip_addr):
-        ipam_refs = vn_dict.get('network_ipam_refs', [])
+        ipam_refs = vn_dict.get('network_ipam_refs') or []
         for ipam in ipam_refs:
-            ipam_subnets = ipam['attr'].get('ipam_subnets', [])
+            ipam_subnets = ipam['attr'].get('ipam_subnets') or []
             for subnet in ipam_subnets:
-                gw_ip = subnet.get('default_gateway', None)
+                gw_ip = subnet.get('default_gateway')
                 if gw_ip != None and gw_ip == ip_addr:
                     return True
         return False
