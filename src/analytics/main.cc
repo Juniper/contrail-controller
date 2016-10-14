@@ -343,7 +343,8 @@ int main(int argc, char *argv[])
             ttl_map, options.cassandra_user(),
             options.cassandra_password(),
             zookeeper_server_list,
-            use_zookeeper);
+            use_zookeeper,
+            options.get_db_write_options());
 
 #if 0
     // initialize python/c++ API

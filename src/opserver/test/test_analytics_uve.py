@@ -177,7 +177,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
 
     #@unittest.skip('verify redis-uve restart')
     def test_04_redis_uve_restart_with_password(self):
-        logging.info('%%% test_03_redis_uve_restart_with_password %%%')
+        logging.info('%%% test_04_redis_uve_restart_with_password %%%')
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging,
@@ -1850,6 +1850,71 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                 assert(vizd_obj.verify_get_alarms(vn_table,
                     filts=filters, exp_uves=filt_test[i]['get_alarms']))
     # end test_08_uve_alarm_filter
+
+    #
+    #               disk                compaction
+    #              usage                tasks
+    #                       |
+    #                       |
+    #              90   (severity=0)    400
+    #                     LEVEL 0
+    #              85   (severity=1)    300
+    #                       |
+    #                       |
+    #                       |
+    #                       |
+    #              80   (severity=3)    200
+    #                     LEVEL 1
+    #              75   (severity=4)    150
+    #                       |
+    #                       |
+    #                       |
+    #                       |
+    #             70    (severity 7)    100
+    #                     LEVEL 2
+    #             60    (severity x)     80
+    #                       |
+    #                       |
+    def test_09_verify_db_info(self):
+        logging.info('%%% test_09_verify_db_info %%%')
+
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging,
+                             builddir, -1, 0,
+                             redis_password='contrail'))
+        assert vizd_obj.verify_on_setup()
+        assert vizd_obj.set_opserver_db_info(vizd_obj.opserver, 50, 90, 50, 90)
+        assert vizd_obj.verify_collector_db_info(vizd_obj.collectors[0], 50, 90, 2147483647, 2147483647)
+
+        logging.info('%%% test_09_verify_db_info - test#1 %%%')
+        assert vizd_obj.set_opserver_db_info(vizd_obj.opserver, 40, 50, 40, 50)
+        assert vizd_obj.verify_collector_db_info(vizd_obj.collectors[0], 40, 50, 2147483647, 2147483647)
+
+        logging.info('%%% test_09_verify_db_info - test#2 %%%')
+        assert vizd_obj.set_opserver_db_info(vizd_obj.opserver, 65, 120, 65, 120)
+        assert vizd_obj.verify_collector_db_info(vizd_obj.collectors[0], 65, 120, 2147483647, 7)
+
+        logging.info('%%% test_09_verify_db_info - test#3 %%%')
+        assert vizd_obj.set_opserver_db_info(vizd_obj.opserver, 72, 120, 72, 120)
+        assert vizd_obj.verify_collector_db_info(vizd_obj.collectors[0], 72, 120, 7, 7)
+
+        logging.info('%%% test_09_verify_db_info - test#4 %%%')
+        assert vizd_obj.set_opserver_db_info(vizd_obj.opserver, 87, 85, 87, 85)
+        assert vizd_obj.verify_collector_db_info(vizd_obj.collectors[0], 87, 85, 3, 7)
+
+        logging.info('%%% test_09_verify_db_info - test#5 %%%')
+        assert vizd_obj.set_opserver_db_info(vizd_obj.opserver, 45, 65, 45, 65)
+        assert vizd_obj.verify_collector_db_info(vizd_obj.collectors[0], 45, 65, 2147483647, 2147483647)
+
+        logging.info('%%% test_09_verify_db_info - test#6 %%%')
+        assert vizd_obj.set_opserver_db_info(vizd_obj.opserver,
+                                             pending_compaction_tasks_in = 250,
+                                             disk_usage_percentage_out = 45,
+                                             pending_compaction_tasks_out = 250)
+        assert vizd_obj.verify_collector_db_info(vizd_obj.collectors[0], 45, 250, 2147483647, 3)
+
+        return True
+    # end test_09_verify_db_info
 
     @staticmethod
     def get_free_port():

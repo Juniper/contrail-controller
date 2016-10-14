@@ -2,11 +2,77 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#ifndef ANALYTICS_OPTIONS_H_
+#define ANALYTICS_OPTIONS_H_
+
 #include <cassert>
 #include <boost/program_options.hpp>
 #include "io/event_manager.h"
+#include <sandesh/sandesh_types.h>
+#include <sandesh/sandesh.h>
 
 #define ANALYTICS_DATA_TTL_DEFAULT 48 // g_viz_constants.AnalyticsTTL
+
+class DbWriteOptions {
+public:
+    const uint32_t get_disk_usage_percentage_high_watermark0() const {
+        return disk_usage_percentage_high_watermark0_; }
+    const uint32_t get_disk_usage_percentage_low_watermark0() const {
+        return disk_usage_percentage_low_watermark0_; }
+    const uint32_t get_disk_usage_percentage_high_watermark1() const {
+        return disk_usage_percentage_high_watermark1_; }
+    const uint32_t get_disk_usage_percentage_low_watermark1() const {
+        return disk_usage_percentage_low_watermark1_; }
+    const uint32_t get_disk_usage_percentage_high_watermark2() const {
+        return disk_usage_percentage_high_watermark2_; }
+    const uint32_t get_disk_usage_percentage_low_watermark2() const {
+        return disk_usage_percentage_low_watermark2_; }
+
+    const uint32_t get_pending_compaction_tasks_high_watermark0() const {
+        return pending_compaction_tasks_high_watermark0_; }
+    const uint32_t get_pending_compaction_tasks_low_watermark0() const {
+        return pending_compaction_tasks_low_watermark0_; }
+    const uint32_t get_pending_compaction_tasks_high_watermark1() const {
+        return pending_compaction_tasks_high_watermark1_; }
+    const uint32_t get_pending_compaction_tasks_low_watermark1() const {
+        return pending_compaction_tasks_low_watermark1_; }
+    const uint32_t get_pending_compaction_tasks_high_watermark2() const {
+        return pending_compaction_tasks_high_watermark2_; }
+    const uint32_t get_pending_compaction_tasks_low_watermark2() const {
+        return pending_compaction_tasks_low_watermark2_; }
+
+    SandeshLevel::type get_high_watermark0_message_severity_level() const {
+        return Sandesh::StringToLevel(high_watermark0_message_severity_level_); }
+    SandeshLevel::type get_low_watermark0_message_severity_level() const {
+        return Sandesh::StringToLevel(low_watermark0_message_severity_level_); }
+    SandeshLevel::type get_high_watermark1_message_severity_level() const {
+        return Sandesh::StringToLevel(high_watermark1_message_severity_level_); }
+    SandeshLevel::type get_low_watermark1_message_severity_level() const {
+        return Sandesh::StringToLevel(low_watermark1_message_severity_level_); }
+    SandeshLevel::type get_high_watermark2_message_severity_level() const {
+        return Sandesh::StringToLevel(high_watermark2_message_severity_level_); }
+    SandeshLevel::type get_low_watermark2_message_severity_level() const {
+        return Sandesh::StringToLevel(low_watermark2_message_severity_level_); }
+
+    uint32_t disk_usage_percentage_high_watermark0_;
+    uint32_t disk_usage_percentage_low_watermark0_;
+    uint32_t disk_usage_percentage_high_watermark1_;
+    uint32_t disk_usage_percentage_low_watermark1_;
+    uint32_t disk_usage_percentage_high_watermark2_;
+    uint32_t disk_usage_percentage_low_watermark2_;
+    uint32_t pending_compaction_tasks_high_watermark0_;
+    uint32_t pending_compaction_tasks_low_watermark0_;
+    uint32_t pending_compaction_tasks_high_watermark1_;
+    uint32_t pending_compaction_tasks_low_watermark1_;
+    uint32_t pending_compaction_tasks_high_watermark2_;
+    uint32_t pending_compaction_tasks_low_watermark2_;
+    std::string high_watermark0_message_severity_level_;
+    std::string low_watermark0_message_severity_level_;
+    std::string high_watermark1_message_severity_level_;
+    std::string low_watermark1_message_severity_level_;
+    std::string high_watermark2_message_severity_level_;
+    std::string low_watermark2_message_severity_level_;
+};
 
 // Process command line/configuration file options for collector.
 class Options {
@@ -34,6 +100,9 @@ public:
     }
     const std::vector<std::string> config_file() const {
         return config_file_;
+    }
+    const DbWriteOptions get_db_write_options() const {
+        return db_write_options_;
     }
     const std::string discovery_server() const { return discovery_server_; }
     const uint16_t discovery_port() const { return discovery_port_; }
@@ -155,4 +224,7 @@ private:
     std::string ks_ca_;
 
     boost::program_options::options_description config_file_options_;
+    DbWriteOptions db_write_options_;
 };
+
+#endif /* ANALYTICS_OPTIONS_H_ */

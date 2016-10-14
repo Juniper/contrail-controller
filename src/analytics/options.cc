@@ -69,6 +69,24 @@ void Options::Initialize(EventManager &evm,
     uint16_t default_partitions = 15;
     uint16_t default_http_server_port = ContrailPorts::HttpPortCollector();
     uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
+    uint32_t default_disk_usage_percentage_high_watermark0 = 90;
+    uint32_t default_disk_usage_percentage_low_watermark0 = 85;
+    uint32_t default_disk_usage_percentage_high_watermark1 = 80;
+    uint32_t default_disk_usage_percentage_low_watermark1 = 75;
+    uint32_t default_disk_usage_percentage_high_watermark2 = 70;
+    uint32_t default_disk_usage_percentage_low_watermark2 = 60;
+    uint32_t default_pending_compaction_tasks_high_watermark0 = 400;
+    uint32_t default_pending_compaction_tasks_low_watermark0 = 300;
+    uint32_t default_pending_compaction_tasks_high_watermark1 = 200;
+    uint32_t default_pending_compaction_tasks_low_watermark1 = 150;
+    uint32_t default_pending_compaction_tasks_high_watermark2 = 100;
+    uint32_t default_pending_compaction_tasks_low_watermark2 = 80;
+    std::string default_high_watermark0_message_severity_level = "SYS_EMERG";
+    std::string default_low_watermark0_message_severity_level = "SYS_ALERT";
+    std::string default_high_watermark1_message_severity_level = "SYS_ERR";
+    std::string default_low_watermark1_message_severity_level = "SYS_WARN";
+    std::string default_high_watermark2_message_severity_level = "SYS_DEBUG";
+    std::string default_low_watermark2_message_severity_level = "INVALID";
 
     vector<string> default_cassandra_server_list;
     string default_cassandra_server("127.0.0.1:9042");
@@ -100,6 +118,68 @@ void Options::Initialize(EventManager &evm,
             opt::value<uint16_t>()->default_value(
                 default_collector_protobuf_port),
          "Listener port of Google Protocol Buffer collector server")
+        ("DATABASE.disk_usage_percentage.high_watermark0",
+            opt::value<uint32_t>()->default_value(default_disk_usage_percentage_high_watermark0),
+            "Disk usage percentage high watermark 0")
+        ("DATABASE.disk_usage_percentage.low_watermark0",
+            opt::value<uint32_t>()->default_value(default_disk_usage_percentage_low_watermark0),
+            "Disk usage percentage low watermark 0")
+        ("DATABASE.disk_usage_percentage.high_watermark1",
+            opt::value<uint32_t>()->default_value(default_disk_usage_percentage_high_watermark1),
+            "Disk usage percentage high watermark 1")
+        ("DATABASE.disk_usage_percentage.low_watermark1",
+            opt::value<uint32_t>()->default_value(default_disk_usage_percentage_low_watermark1),
+            "Disk usage percentage low watermark 1")
+        ("DATABASE.disk_usage_percentage.high_watermark2",
+            opt::value<uint32_t>()->default_value(default_disk_usage_percentage_high_watermark2),
+            "Disk usage percentage high watermark 2")
+        ("DATABASE.disk_usage_percentage.low_watermark2",
+            opt::value<uint32_t>()->default_value(default_disk_usage_percentage_low_watermark2),
+            "Disk usage percentage low watermark 2")
+
+        ("DATABASE.pending_compaction_tasks.high_watermark0",
+            opt::value<uint32_t>()->default_value
+                                (default_pending_compaction_tasks_high_watermark0),
+            "Cassandra pending compaction tasks high watermark 0")
+        ("DATABASE.pending_compaction_tasks.low_watermark0",
+            opt::value<uint32_t>()->default_value
+                                (default_pending_compaction_tasks_low_watermark0),
+            "Cassandra pending compaction tasks low watermark 0")
+        ("DATABASE.pending_compaction_tasks.high_watermark1",
+            opt::value<uint32_t>()->default_value
+                                (default_pending_compaction_tasks_high_watermark1),
+            "Cassandra pending compaction tasks high watermark 1")
+        ("DATABASE.pending_compaction_tasks.low_watermark1",
+            opt::value<uint32_t>()->default_value
+                                (default_pending_compaction_tasks_low_watermark1),
+            "Cassandra pending compaction tasks low watermark 1")
+        ("DATABASE.pending_compaction_tasks.high_watermark2",
+            opt::value<uint32_t>()->default_value
+                                (default_pending_compaction_tasks_high_watermark2),
+            "Cassandra pending compaction tasks high watermark 2")
+        ("DATABASE.pending_compaction_tasks.low_watermark2",
+            opt::value<uint32_t>()->default_value
+                                (default_pending_compaction_tasks_low_watermark2),
+            "Cassandra pending compaction tasks low watermark 2")
+
+        ("DATABASE.high_watermark0.message_severity_level",
+            opt::value<string>()->default_value(default_high_watermark0_message_severity_level),
+            "High Watermark 0 Message severity level")
+        ("DATABASE.low_watermark0.message_severity_level",
+            opt::value<string>()->default_value(default_low_watermark0_message_severity_level),
+            "Low Watermark 0 Message severity level")
+        ("DATABASE.high_watermark1.message_severity_level",
+            opt::value<string>()->default_value(default_high_watermark1_message_severity_level),
+            "High Watermark 1 Message severity level")
+        ("DATABASE.low_watermark1.message_severity_level",
+            opt::value<string>()->default_value(default_low_watermark1_message_severity_level),
+            "Low Watermark 1 Message severity level")
+        ("DATABASE.high_watermark2.message_severity_level",
+            opt::value<string>()->default_value(default_high_watermark2_message_severity_level),
+            "High Watermark 2 Message severity level")
+        ("DATABASE.low_watermark2.message_severity_level",
+            opt::value<string>()->default_value(default_low_watermark2_message_severity_level),
+            "Low Watermark 2 Message severity level")
 
         ("DEFAULT.analytics_data_ttl",
              opt::value<uint64_t>()->default_value(g_viz_constants.TtlValuesDefault.find(TtlType::GLOBAL_TTL)->second),
@@ -320,6 +400,49 @@ void Options::Process(int argc, char *argv[],
     } else {
         collector_protobuf_port_configured_ = false;
     }
+    GetOptValue<uint32_t>(var_map, db_write_options_.disk_usage_percentage_high_watermark0_,
+                          "DATABASE.disk_usage_percentage.high_watermark0");
+    GetOptValue<uint32_t>(var_map, db_write_options_.disk_usage_percentage_low_watermark0_,
+                          "DATABASE.disk_usage_percentage.low_watermark0");
+    GetOptValue<uint32_t>(var_map, db_write_options_.disk_usage_percentage_high_watermark1_,
+                          "DATABASE.disk_usage_percentage.high_watermark1");
+    GetOptValue<uint32_t>(var_map, db_write_options_.disk_usage_percentage_low_watermark1_,
+                          "DATABASE.disk_usage_percentage.low_watermark1");
+    GetOptValue<uint32_t>(var_map, db_write_options_.disk_usage_percentage_high_watermark2_,
+                          "DATABASE.disk_usage_percentage.high_watermark2");
+    GetOptValue<uint32_t>(var_map, db_write_options_.disk_usage_percentage_low_watermark2_,
+                          "DATABASE.disk_usage_percentage.low_watermark2");
+    GetOptValue<uint32_t>(var_map,
+                          db_write_options_.pending_compaction_tasks_high_watermark0_,
+                          "DATABASE.pending_compaction_tasks.high_watermark0");
+    GetOptValue<uint32_t>(var_map
+                          , db_write_options_.pending_compaction_tasks_low_watermark0_,
+                          "DATABASE.pending_compaction_tasks.low_watermark0");
+    GetOptValue<uint32_t>(var_map,
+                          db_write_options_.pending_compaction_tasks_high_watermark1_,
+                          "DATABASE.pending_compaction_tasks.high_watermark1");
+    GetOptValue<uint32_t>(var_map,
+                          db_write_options_.pending_compaction_tasks_low_watermark1_,
+                          "DATABASE.pending_compaction_tasks.low_watermark1");
+    GetOptValue<uint32_t>(var_map,
+                          db_write_options_.pending_compaction_tasks_high_watermark2_,
+                          "DATABASE.pending_compaction_tasks.high_watermark2");
+    GetOptValue<uint32_t>(var_map,
+                          db_write_options_.pending_compaction_tasks_low_watermark2_,
+                          "DATABASE.pending_compaction_tasks.low_watermark2");
+
+    GetOptValue<string>(var_map, db_write_options_.high_watermark0_message_severity_level_,
+                          "DATABASE.high_watermark0.message_severity_level");
+    GetOptValue<string>(var_map, db_write_options_.low_watermark0_message_severity_level_,
+                          "DATABASE.low_watermark0.message_severity_level");
+    GetOptValue<string>(var_map, db_write_options_.high_watermark1_message_severity_level_,
+                          "DATABASE.high_watermark1.message_severity_level");
+    GetOptValue<string>(var_map, db_write_options_.low_watermark1_message_severity_level_,
+                          "DATABASE.low_watermark1.message_severity_level");
+    GetOptValue<string>(var_map, db_write_options_.high_watermark2_message_severity_level_,
+                          "DATABASE.high_watermark2.message_severity_level");
+    GetOptValue<string>(var_map, db_write_options_.low_watermark2_message_severity_level_,
+                          "DATABASE.low_watermark2.message_severity_level");
 
     GetOptValue<uint64_t>(var_map, analytics_data_ttl_,
                      "DEFAULT.analytics_data_ttl");

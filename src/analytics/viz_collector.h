@@ -19,6 +19,7 @@
 #include "viz_constants.h"
 #include "syslog_collector.h"
 #include "db_handler.h"
+#include "options.h"
 
 class Ruleeng;
 class ProtobufCollector;
@@ -43,7 +44,8 @@ public:
             const std::string& cassandra_user,
             const std::string& cassandra_password,
             const std::string &zookeeper_server_list,
-            bool use_zookeeper);
+            bool use_zookeeper,
+            const DbWriteOptions &db_write_options);
     VizCollector(EventManager *evm, DbHandlerPtr db_handler,
                  Ruleeng *ruleeng,
                  Collector *collector, OpServerProxy *osp);

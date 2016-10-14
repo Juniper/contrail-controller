@@ -66,7 +66,8 @@ DbHandler::DbHandler(EventManager *evm,
         const std::string& cassandra_user,
         const std::string& cassandra_password,
         const std::string &zookeeper_server_list,
-        bool use_zookeeper) :
+        bool use_zookeeper,
+        const DbWriteOptions &db_write_options) :
     name_(name),
     drop_level_(SandeshLevel::INVALID),
     ttl_map_(ttl_map),
@@ -87,6 +88,44 @@ DbHandler::DbHandler(EventManager *evm,
     udc_cfg_poll_timer_->Start(kUDCPollInterval,
         boost::bind(&DbHandler::PollUDCCfg, this),
         boost::bind(&DbHandler::PollUDCCfgErrorHandler, this, _1, _2));
+
+    // Set disk-usage watermark defaults
+    SetDbUsagePercentageHighWaterMark(db_write_options.get_disk_usage_percentage_high_watermark0(),
+                            db_write_options.get_high_watermark0_message_severity_level());
+    SetDbUsagePercentageLowWaterMark(db_write_options.get_disk_usage_percentage_low_watermark0(),
+                            db_write_options.get_low_watermark0_message_severity_level());
+    SetDbUsagePercentageHighWaterMark(db_write_options.get_disk_usage_percentage_high_watermark1(),
+                            db_write_options.get_high_watermark1_message_severity_level());
+    SetDbUsagePercentageLowWaterMark(db_write_options.get_disk_usage_percentage_low_watermark1(),
+                            db_write_options.get_low_watermark1_message_severity_level());
+    SetDbUsagePercentageHighWaterMark(db_write_options.get_disk_usage_percentage_high_watermark2(),
+                            db_write_options.get_high_watermark2_message_severity_level());
+    SetDbUsagePercentageLowWaterMark(db_write_options.get_disk_usage_percentage_low_watermark2(),
+                            db_write_options.get_low_watermark2_message_severity_level());
+
+    // Set cassandra pending tasks watermark defaults
+    SetPendingCompactionTasksHighWaterMark(
+            db_write_options.get_pending_compaction_tasks_high_watermark0(),
+            db_write_options.get_high_watermark0_message_severity_level());
+    SetPendingCompactionTasksLowWaterMark(
+            db_write_options.get_pending_compaction_tasks_low_watermark0(),
+            db_write_options.get_low_watermark0_message_severity_level());
+    SetPendingCompactionTasksHighWaterMark(
+            db_write_options.get_pending_compaction_tasks_high_watermark1(),
+            db_write_options.get_high_watermark1_message_severity_level());
+    SetPendingCompactionTasksLowWaterMark(
+            db_write_options.get_pending_compaction_tasks_low_watermark1(),
+            db_write_options.get_low_watermark1_message_severity_level());
+    SetPendingCompactionTasksHighWaterMark(
+            db_write_options.get_pending_compaction_tasks_high_watermark2(),
+            db_write_options.get_high_watermark2_message_severity_level());
+    SetPendingCompactionTasksLowWaterMark(
+            db_write_options.get_pending_compaction_tasks_low_watermark2(),
+            db_write_options.get_low_watermark2_message_severity_level());
+
+    // Initialize drop-levels to lowest severity level.
+    SetDbUsagePercentageDropLevel(0, db_write_options.get_low_watermark2_message_severity_level());
+    SetPendingCompactionTasksDropLevel(0, db_write_options.get_low_watermark2_message_severity_level());
 }
 
 void DbHandler::PollUDCCfgErrorHandler(string error_name, string error_message)
@@ -134,9 +173,89 @@ std::vector<boost::asio::ip::tcp::endpoint> DbHandler::GetEndpoints() const {
     return dbif_->Db_GetEndpoints();
 }
 
+void DbHandler::SetDbUsagePercentageDropLevel(size_t count,
+                                    SandeshLevel::type drop_level) {
+    disk_usage_percentage_drop_level_ = drop_level;
+}
+
+void DbHandler::SetDbUsagePercentage(size_t disk_usage_percentage) {
+    disk_usage_percentage_ = disk_usage_percentage;
+}
+
+void DbHandler::SetDbUsagePercentageHighWaterMark(uint32_t disk_usage_percentage,
+                                        SandeshLevel::type level) {
+    WaterMarkInfo wm = WaterMarkInfo(disk_usage_percentage,
+        boost::bind(&DbHandler::SetDbUsagePercentageDropLevel, this, _1, level));
+    disk_usage_percentage_watermark_tuple_.SetHighWaterMark(wm);
+}
+
+void DbHandler::SetDbUsagePercentageLowWaterMark(uint32_t disk_usage_percentage,
+                                       SandeshLevel::type level) {
+    WaterMarkInfo wm = WaterMarkInfo(disk_usage_percentage,
+        boost::bind(&DbHandler::SetDbUsagePercentageDropLevel, this, _1, level));
+    disk_usage_percentage_watermark_tuple_.SetLowWaterMark(wm);
+}
+
+void DbHandler::ProcessDbUsagePercentage(uint32_t disk_usage_percentage) {
+    tbb::mutex::scoped_lock lock(disk_usage_percentage_water_mutex_);
+    disk_usage_percentage_watermark_tuple_.ProcessWaterMarks(disk_usage_percentage,
+                                                DbHandler::disk_usage_percentage_);
+}
+
+void DbHandler::SetPendingCompactionTasksDropLevel(size_t count,
+                                    SandeshLevel::type drop_level) {
+    pending_compaction_tasks_drop_level_ = drop_level;
+}
+
+void DbHandler::SetPendingCompactionTasks(size_t pending_compaction_tasks) {
+    pending_compaction_tasks_ = pending_compaction_tasks;
+}
+
+void DbHandler::SetPendingCompactionTasksHighWaterMark(uint32_t pending_compaction_tasks,
+                                        SandeshLevel::type level) {
+    WaterMarkInfo wm = WaterMarkInfo(pending_compaction_tasks,
+        boost::bind(&DbHandler::SetPendingCompactionTasksDropLevel, this,
+                    _1, level));
+    pending_compaction_tasks_watermark_tuple_.SetHighWaterMark(wm);
+}
+
+void DbHandler::SetPendingCompactionTasksLowWaterMark(uint32_t pending_compaction_tasks,
+                                        SandeshLevel::type level) {
+    WaterMarkInfo wm = WaterMarkInfo(pending_compaction_tasks,
+        boost::bind(&DbHandler::SetPendingCompactionTasksDropLevel, this,
+                    _1, level));
+    pending_compaction_tasks_watermark_tuple_.SetLowWaterMark(wm);
+}
+
+void DbHandler::ProcessPendingCompactionTasks(uint32_t pending_compaction_tasks) {
+    tbb::mutex::scoped_lock lock(pending_compaction_tasks_water_mutex_);
+    pending_compaction_tasks_watermark_tuple_.ProcessWaterMarks(pending_compaction_tasks,
+                                                DbHandler::pending_compaction_tasks_);
+}
+
 bool DbHandler::DropMessage(const SandeshHeader &header,
     const VizMsg *vmsg) {
-    bool drop(DoDropSandeshMessage(header, drop_level_));
+    SandeshType::type stype(header.get_Type());
+    bool disk_usage_percentage_drop = false;
+    bool pending_compaction_tasks_drop = false;
+    if (stype == SandeshType::SYSTEM ||
+        stype == SandeshType::OBJECT ||
+        stype == SandeshType::FLOW) {
+        SandeshLevel::type slevel((SandeshLevel::type)header.get_Level());
+        SandeshLevel::type disk_usage_percentage_drop_level = GetDbUsagePercentageDropLevel();
+        SandeshLevel::type pending_compaction_tasks_drop_level =
+                                        GetPendingCompactionTasksDropLevel();
+        if (slevel >= disk_usage_percentage_drop_level) {
+            disk_usage_percentage_drop = true;
+        }
+        if (slevel >= pending_compaction_tasks_drop_level) {
+            pending_compaction_tasks_drop = true;
+        }
+    }
+
+    bool drop(DoDropSandeshMessage(header, drop_level_) ||
+              disk_usage_percentage_drop ||
+              pending_compaction_tasks_drop);
     if (drop) {
         tbb::mutex::scoped_lock lock(smutex_);
         dropped_msg_stats_.Update(vmsg);
@@ -1650,13 +1769,14 @@ DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
     const std::vector<int> &cassandra_ports, const TtlMap& ttl_map,
     const std::string& cassandra_user, const std::string& cassandra_password,
     const std::string &zookeeper_server_list,
-    bool use_zookeeper) :
+    bool use_zookeeper,
+    const DbWriteOptions &db_write_options) :
     db_name_(db_name),
     db_handler_(new DbHandler(evm,
         boost::bind(&DbHandlerInitializer::ScheduleInit, this),
         cassandra_ips, cassandra_ports, db_name, ttl_map,
         cassandra_user, cassandra_password,
-        zookeeper_server_list, use_zookeeper)),
+        zookeeper_server_list, use_zookeeper, db_write_options)),
     callback_(callback),
     db_init_timer_(TimerManager::CreateTimer(*evm->io_service(),
         db_name + " Db Init Timer",
