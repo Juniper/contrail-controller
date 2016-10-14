@@ -7,6 +7,7 @@
 
 #include <boost/scoped_ptr.hpp>
 #include <tbb/mutex.h>
+#include <tbb/spin_rw_mutex.h>
 
 #include <map>
 #include <set>
@@ -31,6 +32,7 @@ class IPeer;
 class PathResolverPartition;
 class ResolverNexthop;
 class ResolverPath;
+class ResolverRouteState;
 class ShowPathResolver;
 class TaskTrigger;
 
@@ -95,6 +97,9 @@ public:
     void UpdatePathResolution(int part_id, const BgpPath *path, BgpRoute *route,
         BgpTable *nh_table = NULL);
     void StopPathResolution(int part_id, const BgpPath *path);
+
+    ResolverRouteState *FindResolverRouteState(BgpRoute *route);
+    ResolverRouteState *LocateResolverRouteState(BgpRoute *route);
 
     BgpTable *table() { return table_; }
     Address::Family family() const;
@@ -180,7 +185,9 @@ private:
 // Mutual exclusion of db::DBTable and bgp::ResolverPath Tasks ensures that
 // it's safe to add/delete/update resolved BgpPaths from the bgp::ResolverPath
 // Task. It also ensures that it's safe to access the BgpPaths of the nexthop
-// BgpRoute from the bgp::ResolverPath Task.
+// BgpRoute from the bgp::ResolverPath Task. The only exception is where the
+// BgpRoute itself is being modified by another bgp::ResolverPath Task. This
+// is handled by using a read-write mutex in the ResolverRouteState.
 //
 class PathResolverPartition {
 public:
@@ -194,6 +201,7 @@ public:
     void StopPathResolution(const BgpPath *path);
 
     void TriggerPathResolution(ResolverPath *rpath);
+    void DeferPathResolution(ResolverPath *rpath);
 
     int part_id() const { return part_id_; }
     DBTableBase::ListenerId listener_id() const {
@@ -238,20 +246,26 @@ private:
 // The refcount doesn't need to be atomic because it's updated/accessed from
 // exactly one DBPartition or PathResolverPartition.
 //
+// The rw_mutex is used to prevent a PathResolverPartition from modifying the
+// associated BgpRoute while another PathResolverPartition is accessing the
+// BgpRoute. This can happen when there's more than 1 levels of resolution in
+// use i.e. a BgpRoute with resolved paths is itself being used to resolve a
+// nexthop. Note that the two PathResolverPartitions could be in the same or
+// different PathResolvers.
+//
 class ResolverRouteState : public DBState {
 public:
-    ResolverRouteState(PathResolverPartition *partition, BgpRoute *route);
+    ResolverRouteState(PathResolver *resolver, BgpRoute *route);
     virtual ~ResolverRouteState();
-
-    static ResolverRouteState *LocateState(PathResolverPartition *partition,
-        BgpRoute *route);
+    tbb::spin_rw_mutex &rw_mutex() { return rw_mutex_; }
 
 private:
     friend void intrusive_ptr_add_ref(ResolverRouteState *state);
     friend void intrusive_ptr_release(ResolverRouteState *state);
 
-    PathResolverPartition *partition_;
+    PathResolver *resolver_;
     BgpRoute *route_;
+    tbb::spin_rw_mutex rw_mutex_;
     uint32_t refcount_;
 };
 
@@ -378,6 +392,7 @@ public:
         bool deleted);
     void AddResolverPath(int part_id, ResolverPath *rpath);
     void RemoveResolverPath(int part_id, ResolverPath *rpath);
+    ResolverRouteState *GetResolverRouteState();
 
     void TriggerAllResolverPaths() const;
 
@@ -386,6 +401,7 @@ public:
     IpAddress address() const { return address_; }
     BgpTable *table() const { return table_; }
     const BgpRoute *route() const { return route_; }
+    BgpRoute *route() { return route_; }
     bool empty() const;
     bool registered() const { return registered_; }
     void set_registered() { registered_ = true; }
