@@ -1205,6 +1205,7 @@ class VncApi(object):
         self._exclude_hrefs = True
     # end set_exclude_hrefs
 
+    @check_homepage
     def obj_perms(self, token, obj_uuid=None):
         """
         validate user token. Optionally, check token authorization for an object.
