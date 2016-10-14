@@ -32,6 +32,7 @@
 #include "collector.h"
 #include "viz_collector.h"
 #include "viz_sandesh.h"
+#include <analytics_types.h>
 
 using std::string;
 using std::map;
@@ -663,4 +664,44 @@ void DisableFlowCollectionRequest::HandleRequest() const {
 void FlowCollectionStatusRequest::HandleRequest() const {
     // Send response
     SendFlowCollectionStatusResponse(context());
+}
+
+static void SendDbInfoResponse(std::string context) {
+    DbInfoResponse *fcsr(new DbInfoResponse);
+    DbInfo db_info;
+
+    db_info.set_db_usage(Sandesh::GetDbUsage());
+    db_info.set_pending_compaction_tasks(Sandesh::GetPendingCompactionTasks());
+    db_info.set_db_usage_level(Sandesh::GetDbUsageLevel());
+    db_info.set_pending_compaction_tasks_level(Sandesh::GetPendingCompactionTasksLevel());
+
+    fcsr->set_db_info(db_info);
+    fcsr->set_context(context);
+    fcsr->Response();
+}
+
+void DbInfoGetRequest::HandleRequest() const {
+    // Send response
+    SendDbInfoResponse(context());
+}
+
+// if incoming value < current value => Process_LowWaterMark()
+// else Process_HighWaterMark()
+void DbInfoSetRequest::HandleRequest() const {
+    if (get_db_usage() < Sandesh::GetDbUsage()) {
+        Sandesh::ProcessDbUsageLowWaterMark(get_db_usage());
+    } else {
+        Sandesh::ProcessDbUsageHighWaterMark(get_db_usage());
+    }
+    Sandesh::SetDbUsage(get_db_usage());
+
+    if (get_pending_compaction_tasks() < Sandesh::GetPendingCompactionTasks()) {
+        Sandesh::ProcessPendingCompactionTasksLowWaterMark(get_pending_compaction_tasks());
+    } else {
+        Sandesh::ProcessPendingCompactionTasksHighWaterMark(get_pending_compaction_tasks());
+    }
+    Sandesh::SetPendingCompactionTasks(get_pending_compaction_tasks());
+
+    // Send response
+    SendDbInfoResponse(context());
 }
