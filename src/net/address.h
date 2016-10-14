@@ -28,11 +28,6 @@ public:
         INETVPN = 3,
         INET6VPN = 4,
         RTARGET = 5,
-        INETFLOW = 6,
-        INETVPNFLOW = 7,
-        INETMCAST = 8,
-        INET6MCAST = 9,
-        ENET = 10,
         EVPN = 11,
         ERMVPN = 12,
         NUM_FAMILIES
