@@ -526,6 +526,8 @@ class VncCassandraClient(object):
         for row_key in obj_rows:
             obj_uuid = row_key
             obj_cols = obj_rows[obj_uuid]
+            if 'type' not in obj_cols or 'fq_name' not in obj_cols:
+                continue
             if obj_type != json.loads(obj_cols['type'][0]):
                 continue
             result = {}
@@ -535,7 +537,11 @@ class VncCassandraClient(object):
                 if self._re_match_parent.match(col_name):
                     # non config-root child
                     (_, _, parent_uuid) = col_name.split(':')
-                    parent_type = json.loads(obj_cols['parent_type'][0])
+                    try:
+                        parent_type = json.loads(obj_cols['parent_type'][0])
+                    except KeyError:
+                        # if parent_type is not in obj_cols, ignore
+                        pass
                     result['parent_type'] = parent_type
                     try:
                         result['parent_uuid'] = parent_uuid
