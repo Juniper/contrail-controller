@@ -110,7 +110,8 @@ env.Default(contrail_vrouter_agent)
 utils_scripts = [
   'contrail-vrouter-agent-health-check.py',
   'agent_dissector.lua',
-  'mpls_dissector.lua']
+  'mpls_dissector.lua',
+  'qosmap.py']
 
 # Documentation
 doc_files = []
