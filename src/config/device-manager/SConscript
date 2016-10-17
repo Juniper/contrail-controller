@@ -23,11 +23,11 @@ autogen_sources = [
                 ]
 
 autogen_script = File('#tools/generateds/generateDS.py').path
-autogen_cmd = '%s -f -o %s -g device-api' % (autogen_script, Dir('device_api/gen/juniper_common').path)
+autogen_cmd = '%s -f -o %s -g device-api' % (autogen_script, Dir('device_api/juniper_common').path)
 
 generated_files = [
-                  'device_api/gen/__init__.py',
-                  'device_api/gen/juniper_common_xsd.py'
+                  'device_api/__init__.py',
+                  'device_api/juniper_common_xsd.py'
                 ]
 generated_rule = env.Command(generated_files,
                              '#/controller/src/schema/device_schema/juniper/juniper_common.xsd',
@@ -64,7 +64,7 @@ for file in local_sources:
         env.Install("device_manager",
                     "#controller/src/config/device-manager/" + file))
 
-generateds_rule = env.Install("device_api/gen", "../common/generatedssuper.py")
+generateds_rule = env.Install("device_api", "../common/generatedssuper.py")
 
 dm_introspect_pkg = env.SandeshGenPy('dm_introspect.sandesh',
                                        'device_manager/sandesh/', False)

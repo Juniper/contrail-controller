@@ -586,8 +586,6 @@ class PhysicalRouterDM(DBBaseDM):
                     GlobalSystemConfigDM.ip_fabric_subnets,
                     bgp_router_ips)
 
-        self.config_manager.add_mpls_protocol()
-
         vn_dict = self.get_vn_li_map()
         self.evaluate_vn_irb_ip_map(set(vn_dict.keys()))
         vn_irb_ip_map = self.get_vn_irb_ip_map()

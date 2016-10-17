@@ -9,6 +9,10 @@ Tag_pattern_ = re.compile(r'({.*})?(.*)')
 _XML_ESCAPE_SEARCH_PATTERN = re.compile(r'[<>&]').search
 _XML_UNESCAPE_SEARCH_PATTERN = re.compile(r'(&amp;|&lt;|&gt;)').search
 
+def _cast(typ, value):
+    if typ is None or value is None:
+        return value
+    return typ(value)
 
 def showIndent(outfile, level, pretty_print=False):
     for i in range(level - 1):

@@ -34,6 +34,7 @@ setup(
     name='device_manager',
     version='0.1dev',
     packages=['device_manager',
+              'device_api',
               'device_manager.sandesh',
               'device_manager.sandesh.dm_introspect',
               ],
