@@ -1312,7 +1312,7 @@ TEST_F(BgpXmppUnitTest, DuplicateRegisterWithDeletedRoutingInstance2) {
     TASK_UTIL_EXPECT_TRUE(blue->deleted());
 
     // Send unsubscribe for the blue instance.
-    agent_a_->Unsubscribe("blue", -1, -1, true, false);
+    agent_a_->Unsubscribe("blue", -1, true, false);
     TASK_UTIL_EXPECT_FALSE(
         PeerRegistered(bgp_channel_manager_->channel_, "blue", 1));
 
@@ -2583,6 +2583,154 @@ TEST_F(BgpXmppUnitTest, AddDeleteInetRouteWithoutRegister3) {
     // Resume the peer membership manager and bring down the session.
     ResumePeerRibMembershipManager();
     agent_a_->SessionDown();
+}
+
+TEST_F(BgpXmppUnitTest, DeleteInetRouteFromDeletedInstance) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+
+    TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    uint32_t old_flap_count = agent_a_->flap_count();
+
+    agent_a_->SubscribeAll("blue", 1);
+    task_util::WaitForIdle();
+    agent_a_->AddRoute("blue", "10.1.1.2/32");
+    agent_a_->AddInet6Route("blue", "::ffff:1/128");
+    TASK_UTIL_EXPECT_EQ(1, agent_a_->RouteCount());
+    TASK_UTIL_EXPECT_EQ(1, agent_a_->Inet6RouteCount());
+
+    // Pause deletion for blue instance.
+    RoutingInstance *blue = VerifyRoutingInstance("blue");
+    PauseDelete(blue->deleter());
+
+    UnconfigureRoutingInstances();
+    task_util::WaitForIdle();
+
+    agent_a_->DeleteRoute("blue", "10.1.1.2/32");
+    agent_a_->DeleteInet6Route("blue", "::ffff:1/128");
+    task_util::WaitForIdle();
+
+    // Make sure session on agent did not flap.
+    TASK_UTIL_EXPECT_EQ(old_flap_count, agent_a_->flap_count());
+
+    // Resume deletion of the instance but instance should not get deleted
+    // yet because table has not been unsubscribed yet.
+    ResumeDelete(blue->deleter());
+    VerifyRoutingInstance("blue");
+
+    // Unsubscribe from the table and then expect the instance to get deleted.
+    agent_a_->UnsubscribeAll("blue", -1);
+    VerifyNoRoutingInstance("blue");
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+
+    // Route should have been added now.
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->RouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->Inet6RouteCount());
+    agent_a_->SessionDown();
+    task_util::WaitForIdle();
+}
+
+TEST_F(BgpXmppUnitTest, DeleteInetRouteAndUnsubscribeFromDeletedInstance) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+
+    TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    uint32_t old_flap_count = agent_a_->flap_count();
+
+    agent_a_->SubscribeAll("blue", 1);
+    task_util::WaitForIdle();
+    agent_a_->AddRoute("blue", "10.1.1.2/32");
+    agent_a_->AddInet6Route("blue", "::ffff:1/128");
+    TASK_UTIL_EXPECT_EQ(1, agent_a_->RouteCount());
+    TASK_UTIL_EXPECT_EQ(1, agent_a_->Inet6RouteCount());
+
+    // Pause deletion for blue instance.
+    RoutingInstance *blue = VerifyRoutingInstance("blue");
+    PauseDelete(blue->deleter());
+
+    UnconfigureRoutingInstances();
+    task_util::WaitForIdle();
+
+    // Delete route and unsubscribe from the table together, while the instance
+    // is still under deletion.
+    agent_a_->DeleteRoute("blue", "10.1.1.2/32");
+    agent_a_->DeleteInet6Route("blue", "::ffff:1/128");
+    agent_a_->UnsubscribeAll("blue", -1);
+    task_util::WaitForIdle();
+
+    // Make sure session on agent did not flap.
+    TASK_UTIL_EXPECT_EQ(old_flap_count, agent_a_->flap_count());
+
+    // Resume deletion of the instance and ensure that instance is deleted.
+    ResumeDelete(blue->deleter());
+    VerifyNoRoutingInstance("blue");
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+
+    // Route should have been added now.
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->RouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->Inet6RouteCount());
+    agent_a_->SessionDown();
+    task_util::WaitForIdle();
+}
+
+TEST_F(BgpXmppUnitTest, UnsubscribeFromDeletedInstance) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+
+    TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    uint32_t old_flap_count = agent_a_->flap_count();
+
+    agent_a_->SubscribeAll("blue", 1);
+    task_util::WaitForIdle();
+    agent_a_->AddRoute("blue", "10.1.1.2/32");
+    agent_a_->AddInet6Route("blue", "::ffff:1/128");
+    TASK_UTIL_EXPECT_EQ(1, agent_a_->RouteCount());
+    TASK_UTIL_EXPECT_EQ(1, agent_a_->Inet6RouteCount());
+
+    // Pause deletion for blue instance.
+    RoutingInstance *blue = VerifyRoutingInstance("blue");
+    PauseDelete(blue->deleter());
+
+    UnconfigureRoutingInstances();
+    task_util::WaitForIdle();
+
+    // Unsubscribe from the instance, without explicitly deleting the routes.
+    // Routes shall get deleted from BgpXmppChannel as part of resulting
+    // table walk from membership manager.
+    agent_a_->UnsubscribeAll("blue", -1, true, false);
+    task_util::WaitForIdle();
+
+    // Make sure session on agent did not flap.
+    TASK_UTIL_EXPECT_EQ(old_flap_count, agent_a_->flap_count());
+
+    // Resume deletion of the instance and ensure that instance is deleted.
+    ResumeDelete(blue->deleter());
+    VerifyNoRoutingInstance("blue");
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+
+    // Route should have been added now.
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->RouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->Inet6RouteCount());
+    agent_a_->SessionDown();
+    task_util::WaitForIdle();
 }
 
 TEST_F(BgpXmppUnitTest, AddDeleteInet6RouteWithoutRegister1) {

@@ -7,6 +7,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/assign/list_of.hpp>
 #include <boost/foreach.hpp>
+#include <tr1/type_traits>
 
 #include "base/logging.h"
 #include "base/util.h"
@@ -788,6 +789,7 @@ NetworkAgentMock::NetworkAgentMock(EventManager *evm, const string &hostname,
             XmppDocumentMock::kNetworkServiceJID));
     inet6_route_mgr_.reset(new InstanceMgr<Inet6RouteEntry>(this,
             XmppDocumentMock::kNetworkServiceJID));
+    inet6_route_mgr_->set_ipv6(true);
     enet_route_mgr_.reset(new InstanceMgr<EnetRouteEntry>(this,
             XmppDocumentMock::kNetworkServiceJID));
     mcast_route_mgr_.reset(new InstanceMgr<McastRouteEntry>(this,
@@ -1205,7 +1207,7 @@ void NetworkAgentMock::AddMcastRoute(const string &network_name,
     xml_document *xdoc = impl_->RouteMcastAddXmlDoc(
             network_name, sg, nexthop, label_range, encap);
     peer->SendDocument(xdoc);
-    enet_route_mgr_->AddOriginated(network_name, sg);
+    mcast_route_mgr_->AddOriginated(network_name, sg);
 }
 
 void NetworkAgentMock::DeleteMcastRoute(const string &network_name,
@@ -1363,8 +1365,20 @@ void NetworkAgentMock::InstanceMgr<T>::Unsubscribe(const std::string &network,
         typename NetworkAgentMock::Instance<T>::OriginatedSet::const_iterator
             iter = rti->originated().begin();
         while (iter != rti->originated().end()) {
-            xml_document *xdoc =
-                parent_->impl_->RouteDeleteXmlDoc(network, *iter);
+            xml_document *xdoc = NULL;
+            if (std::tr1::is_same<T, RouteEntry>::value) {
+                if (ipv6())
+                    xdoc = parent_->impl_->Inet6RouteDeleteXmlDoc(network,
+                                                                  *iter);
+                else
+                    xdoc = parent_->impl_->RouteDeleteXmlDoc(network, *iter);
+            } else if (std::tr1::is_same<T, EnetRouteEntry>::value) {
+                xdoc = parent_->impl_->RouteEnetDeleteXmlDoc(network, *iter);
+            } else if (std::tr1::is_same<T, McastRouteEntry>::value) {
+                xdoc = parent_->impl_->RouteMcastDeleteXmlDoc(network, *iter);
+            } else {
+                assert(false);
+            }
             peer->SendDocument(xdoc);
             iter++;
         }
