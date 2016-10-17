@@ -1312,7 +1312,7 @@ TEST_F(BgpXmppUnitTest, DuplicateRegisterWithDeletedRoutingInstance2) {
     TASK_UTIL_EXPECT_TRUE(blue->deleted());
 
     // Send unsubscribe for the blue instance.
-    agent_a_->Unsubscribe("blue", -1, -1, true, false);
+    agent_a_->Unsubscribe("blue", -1, true, false);
     TASK_UTIL_EXPECT_FALSE(
         PeerRegistered(bgp_channel_manager_->channel_, "blue", 1));
 

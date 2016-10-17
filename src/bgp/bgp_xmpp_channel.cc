@@ -670,14 +670,16 @@ bool BgpXmppChannel::GetMembershipInfo(const string &vrf_name,
 //
 bool BgpXmppChannel::VerifyMembership(const string &vrf_name,
     Address::Family family, BgpTable **table,
-    int *instance_id, uint64_t *subscription_gen_id, bool *subscribe_pending) {
+    int *instance_id, uint64_t *subscription_gen_id, bool *subscribe_pending,
+    bool add_change) {
     *table = NULL;
     *subscribe_pending = false;
 
     RoutingInstanceMgr *instance_mgr = bgp_server_->routing_instance_mgr();
     RoutingInstance *rt_instance = instance_mgr->GetRoutingInstance(vrf_name);
-    if (rt_instance != NULL && !rt_instance->deleted()) {
+    if (rt_instance)
         *table = rt_instance->GetTable(family);
+    if (rt_instance != NULL && !rt_instance->deleted()) {
         RequestType req_type;
         if (GetMembershipInfo(*table, instance_id,
                               subscription_gen_id, &req_type)) {
@@ -699,10 +701,11 @@ bool BgpXmppChannel::VerifyMembership(const string &vrf_name,
             }
         }
     } else {
-        // Bail if there's no pending subscribe.
+        // Bail if there's no pending subscribe. route retract can be received
+        // while the instance is marked for deletion.
         if (GetMembershipInfo(vrf_name, instance_id)) {
             *subscribe_pending = true;
-        } else {
+        } else if (add_change || !rt_instance) {
             BGP_LOG_PEER_INSTANCE_CRITICAL(Peer(), vrf_name, BGP_PEER_DIR_IN,
                BGP_LOG_FLAG_ALL, "Received route without pending subscribe");
             return false;
@@ -763,7 +766,7 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
     uint64_t subscription_gen_id;
     BgpTable *table;
     if (!VerifyMembership(vrf_name, Address::ERMVPN, &table, &instance_id,
-        &subscription_gen_id, &subscribe_pending)) {
+        &subscription_gen_id, &subscribe_pending, add_change)) {
         channel_->Close();
         return false;
     }
@@ -923,7 +926,7 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
     uint64_t subscription_gen_id;
     BgpTable *table;
     if (!VerifyMembership(vrf_name, Address::INET, &table, &instance_id,
-        &subscription_gen_id, &subscribe_pending)) {
+        &subscription_gen_id, &subscribe_pending, add_change)) {
         channel_->Close();
         return false;
     }
@@ -1129,7 +1132,7 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
     uint64_t subscription_gen_id;
     BgpTable *table;
     if (!VerifyMembership(vrf_name, Address::INET6, &table, &instance_id,
-        &subscription_gen_id, &subscribe_pending)) {
+        &subscription_gen_id, &subscribe_pending, add_change)) {
         channel_->Close();
         return false;
     }
@@ -1375,7 +1378,7 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
     uint64_t subscription_gen_id;
     BgpTable *table;
     if (!VerifyMembership(vrf_name, Address::EVPN, &table, &instance_id,
-        &subscription_gen_id, &subscribe_pending)) {
+        &subscription_gen_id, &subscribe_pending, add_change)) {
         channel_->Close();
         return false;
     }

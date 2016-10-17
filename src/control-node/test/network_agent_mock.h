@@ -330,8 +330,11 @@ public:
             InstanceMgr(NetworkAgentMock *parent, std::string type) {
                 parent_ = parent;
                 type_ = type;
+                ipv6_ = false;
             }
 
+            void set_ipv6 (bool ipv6) { ipv6_ = ipv6; }
+            bool ipv6 () const { return ipv6_; }
             bool HasSubscribed(const std::string &network);
             void Subscribe(const std::string &network, int id = -1,
                            bool wait_for_established = true,
@@ -359,6 +362,7 @@ public:
         private:
             NetworkAgentMock *parent_;
             std::string type_;
+            bool ipv6_;
             InstanceMap instance_map_;
     };
 
@@ -383,11 +387,17 @@ public:
         mcast_route_mgr_->Subscribe(network, id, wait_for_established, false);
     }
     void UnsubscribeAll(const std::string &network, int id = -1,
-                        bool wait_for_established = true) {
-        route_mgr_->Unsubscribe(network, id, wait_for_established, true);
-        inet6_route_mgr_->Unsubscribe(network, id, wait_for_established, false);
-        enet_route_mgr_->Unsubscribe(network, id, wait_for_established, false);
-        mcast_route_mgr_->Unsubscribe(network, id, wait_for_established, false);
+                        bool wait_for_established = true,
+                        bool withdraw_routes = true,
+                        bool send_unsubscribe = true) {
+        inet6_route_mgr_->Unsubscribe(network, id, wait_for_established,
+                                      false, withdraw_routes);
+        enet_route_mgr_->Unsubscribe(network, id, wait_for_established,
+                                     false, withdraw_routes);
+        mcast_route_mgr_->Unsubscribe(network, id, wait_for_established,
+                                      false, withdraw_routes);
+        route_mgr_->Unsubscribe(network, id, wait_for_established,
+                                withdraw_routes, send_unsubscribe);
     }
 
     void Subscribe(const std::string &network, int id = -1,

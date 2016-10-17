@@ -211,3 +211,52 @@ TEST_P(GracefulRestartTest, GracefulRestart_Flap_7) {
     GracefulRestartTestRun();
 }
 
+// None of the agents goes down or flip
+TEST_P(GracefulRestartTest, GracefulRestart_Down_1) {
+    SCOPED_TRACE(__FUNCTION__);
+    GracefulRestartTestStart();
+    GracefulRestartTestRun();
+}
+
+// All agents go down permanently
+TEST_P(GracefulRestartTest, GracefulRestart_Down_2) {
+    SCOPED_TRACE(__FUNCTION__);
+    GracefulRestartTestStart();
+
+    n_down_from_agents_ = xmpp_agents_;
+    n_down_from_peers_ = bgp_peers_;
+    GracefulRestartTestRun();
+}
+
+// Some agents go down permanently
+TEST_P(GracefulRestartTest, GracefulRestart_Down_3) {
+    SCOPED_TRACE(__FUNCTION__);
+    GracefulRestartTestStart();
+
+    for (size_t i = 0; i < xmpp_agents_.size()/2; i++)
+        n_down_from_agents_.push_back(xmpp_agents_[i]);
+    for (size_t i = 0; i < bgp_peers_.size()/2; i++)
+        n_down_from_peers_.push_back(bgp_peers_[i]);
+    GracefulRestartTestRun();
+}
+
+// Some agents go down permanently and some flip (which sends no routes)
+TEST_P(GracefulRestartTest, GracefulRestart_Down_4) {
+    SCOPED_TRACE(__FUNCTION__);
+    GracefulRestartTestStart();
+
+    for (size_t i = 0; i < xmpp_agents_.size(); i++) {
+        if (i <= xmpp_agents_.size()/2)
+            n_down_from_agents_.push_back(xmpp_agents_[i]);
+        else
+            n_flipped_agents_.push_back(GRTestParams(xmpp_agents_[i]));
+    }
+
+    for (size_t i = 0; i < bgp_peers_.size(); i++) {
+        if (i <= bgp_peers_.size()/2)
+            n_down_from_peers_.push_back(bgp_peers_[i]);
+        else
+            n_flipped_peers_.push_back(GRTestParams(bgp_peers_[i]));
+    }
+    GracefulRestartTestRun();
+}
