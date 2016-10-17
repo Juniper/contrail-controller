@@ -324,6 +324,24 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,
     CfgIntfSync(id, cfg_str, vn, vm, list, vrf, ip);
 }
 
+TEST_F(IntfTest, IfmapInterfaceConfig_1) {
+    struct PortInfo input1[] = {
+        {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    CreateVmportEnv(input1, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortFind(8));
+
+    NovaDel(8);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFindRetDel(8));
+
+    DeleteVmportEnv(input1, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFindRetDel(8));
+}
+
 TEST_F(IntfTest, basic_1) {
     struct PortInfo input1[] = {
         {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}

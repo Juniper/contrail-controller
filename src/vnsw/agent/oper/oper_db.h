@@ -86,6 +86,10 @@ public:
     void SetIFMapNodeState(IFMapDependencyManager::IFMapNodePtr sref) {
         ifmap_node_state_  = sref;
     }
+    virtual bool RemoveIFMapNode() const {
+        return true;
+    }
+
 private:
     friend class AgentOperDBTable;
     IFMapDependencyManager::IFMapNodePtr ifmap_node_state_;
@@ -221,7 +225,8 @@ protected:
         AgentOperDBEntry *oper_entry = static_cast<AgentOperDBEntry *>(entry);
         bool ret = OperDBDelete(entry, req);
 
-        UpdateIfMapNode(oper_entry, NULL);
+        if (ret || oper_entry->RemoveIFMapNode())
+            UpdateIfMapNode(oper_entry, NULL);
         return ret;
     }
 

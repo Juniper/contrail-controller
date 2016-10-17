@@ -653,6 +653,8 @@ static string DeviceTypeToString(VmInterface::DeviceType type) {
         return "VMI vlan-sub-if";
     } else if (type == VmInterface::REMOTE_VM_VLAN_ON_VMI) {
         return "Remote VM";
+    } else if (type == VmInterface::DEVICE_TYPE_UNKNOWN) {
+        return "Unknown";
     }
     return "Invalid";
 }
@@ -672,6 +674,8 @@ static string VmiTypeToString(VmInterface::VmiType type) {
         return "Remote VM";
     } else if (type == VmInterface::SRIOV) {
         return "Sriov";
+    } else if (type == VmInterface::VMI_TYPE_UNKNOWN) {
+        return "Unknown";
     }
     return "Invalid";
 }

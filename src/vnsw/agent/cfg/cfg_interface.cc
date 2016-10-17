@@ -8,6 +8,7 @@
 #include <cfg/cfg_interface.h>
 #include <cfg/cfg_types.h>
 #include <cfg/cfg_init.h>
+#include <oper/agent_sandesh.h>
 
 using namespace std;
 
@@ -122,6 +123,34 @@ std::string InterfaceConfigVmiEntry::ToString() const {
     return "InterfaceConfigVmiEntry<" + UuidToString(vm_uuid_) + ">";
 }
 
+bool InterfaceConfigVmiEntry::DBEntrySandesh(Sandesh *sresp,
+                                             std::string &name) const {
+    SandeshInterfaceConfigResp *resp =
+        static_cast<SandeshInterfaceConfigResp *> (sresp);
+    SandeshInterfaceConfigEntry entry;
+    entry.set_type("VMI-UUID-Based");
+    entry.set_vmi_uuid(UuidToString(vmi_uuid_));
+    entry.set_tap_name(tap_name());
+    entry.set_last_update_time(last_update_time());
+    entry.set_version(version());
+    entry.set_vmi_type(VmiTypeToString(vmi_type_));
+    entry.set_vm_uuid(UuidToString(vm_uuid_));
+    entry.set_vn_uuid(UuidToString(vn_uuid_));
+    entry.set_project_uuid(UuidToString(project_uuid_));
+    entry.set_ip4_address(ip4_addr_.to_string());
+    entry.set_ip6_address(ip6_addr_.to_string());
+    entry.set_mac_address(mac_addr_);
+    entry.set_vm_name(vm_name_);
+    entry.set_rx_vlan_id(rx_vlan_id_);
+    entry.set_tx_vlan_id(tx_vlan_id_);
+
+    std::vector<SandeshInterfaceConfigEntry> &list =
+        const_cast<std::vector<SandeshInterfaceConfigEntry>&>
+        (resp->get_entries());
+    list.push_back(entry);
+    return true;
+}
+
 InterfaceConfigEntry *InterfaceConfigVmiKey::AllocEntry() const {
     return new InterfaceConfigVmiEntry(vmi_uuid_);
 }
@@ -144,6 +173,86 @@ string InterfaceConfigVmiEntry::VmiTypeToString(VmiType type) {
         type = TYPE_INVALID;
 
     return vmi_type_names[type];
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// InterfaceConfigLabelEntry related routines
+/////////////////////////////////////////////////////////////////////////////
+bool InterfaceConfigLabelEntry::Compare(const InterfaceConfigEntry &rhs) const {
+    const InterfaceConfigLabelEntry &port =
+        static_cast<const InterfaceConfigLabelEntry &>(rhs);
+    if (vm_label_ != port.vm_label_)
+        return vm_label_ < port.vm_label_;
+
+    return network_label_ < port.network_label_;
+}
+
+bool InterfaceConfigLabelEntry::OnAdd(const InterfaceConfigData *d) {
+    InterfaceConfigEntry::Set(d);
+    const InterfaceConfigLabelData *data =
+        static_cast<const InterfaceConfigLabelData *>(d);
+    vm_namespace_ = data->vm_namespace_;
+    vm_ifname_ = data->vm_ifname_;
+    return true;
+}
+
+bool InterfaceConfigLabelEntry::OnChange(const InterfaceConfigData *rhs) {
+    return InterfaceConfigEntry::Change(rhs);
+}
+
+bool InterfaceConfigLabelEntry::OnDelete() {
+    return true;
+}
+
+DBEntryBase::KeyPtr InterfaceConfigLabelEntry::GetDBRequestKey() const {
+    InterfaceConfigLabelKey *key =
+        new InterfaceConfigLabelKey(vm_label_, network_label_);
+    return DBEntryBase::KeyPtr(key);
+}
+
+void InterfaceConfigLabelEntry::SetKey(const DBRequestKey *k) {
+    const InterfaceConfigLabelKey *key =
+        static_cast<const InterfaceConfigLabelKey *> (k);
+    InterfaceConfigEntry::SetKey(key);
+    vm_label_ = key->vm_label_;
+    network_label_ = key->network_label_;
+}
+
+bool InterfaceConfigLabelKey::Compare(const InterfaceConfigKey *rhs) const {
+    const InterfaceConfigLabelKey *key =
+        static_cast<const InterfaceConfigLabelKey *>(rhs);
+    if (vm_label_ != key->vm_label_)
+        return vm_label_ < key->vm_label_;
+    return network_label_ < key->network_label_;
+}
+
+std::string InterfaceConfigLabelEntry::ToString() const {
+    return "InterfaceConfigLabelEntry<" + vm_label_ + ", " + network_label_ + ">";
+}
+
+bool InterfaceConfigLabelEntry::DBEntrySandesh(Sandesh *sresp,
+                                               std::string &name) const {
+    SandeshInterfaceConfigResp *resp =
+        static_cast<SandeshInterfaceConfigResp *> (sresp);
+    SandeshInterfaceConfigEntry entry;
+    entry.set_type("Label-Based");
+    entry.set_tap_name(tap_name());
+    entry.set_last_update_time(last_update_time());
+    entry.set_version(version());
+    entry.set_vm_label(vm_label());
+    entry.set_vn_label(network_label());
+    entry.set_network_namespace(vm_namespace());
+    entry.set_vm_ifname(vm_ifname());
+
+    std::vector<SandeshInterfaceConfigEntry> &list =
+        const_cast<std::vector<SandeshInterfaceConfigEntry>&>
+        (resp->get_entries());
+    list.push_back(entry);
+    return true;
+}
+
+InterfaceConfigEntry *InterfaceConfigLabelKey::AllocEntry() const {
+    return new InterfaceConfigLabelEntry(vm_label_, network_label_);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -184,4 +293,107 @@ bool InterfaceConfigTable::OnChange(DBEntry *entry, const DBRequest *req) {
 bool InterfaceConfigTable::Delete(DBEntry *entry, const DBRequest *req) {
     InterfaceConfigEntry *port = static_cast<InterfaceConfigEntry *>(entry);
     return port->OnDelete();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// Introspect routines
+/////////////////////////////////////////////////////////////////////////////
+
+// Sandesh support for InterfaceConfig table
+class AgentSandeshInterfaceConfig : public AgentSandesh {
+public:
+    AgentSandeshInterfaceConfig(const std::string &context,
+                                const std::string &tap_name,
+                                const std::string &vmi_uuid,
+                                const std::string &vm_label,
+                                const std::string &vn_label);
+    ~AgentSandeshInterfaceConfig() {}
+    virtual bool Filter(const DBEntryBase *entry);
+    virtual bool FilterToArgs(AgentSandeshArguments *args);
+
+private:
+    DBTable *AgentGetTable();
+    void Alloc();
+    std::string tap_name_;
+    std::string vmi_uuid_;
+    std::string vm_label_;
+    std::string vn_label_;
+};
+
+AgentSandeshInterfaceConfig::AgentSandeshInterfaceConfig
+(const std::string &context, const std::string &tap_name,
+ const std::string &vmi_uuid, const std::string &vm_label,
+ const std::string &vn_label) :
+    AgentSandesh(context, ""), tap_name_(tap_name), vmi_uuid_(vmi_uuid),
+    vm_label_(vm_label), vn_label_(vn_label) {
+}
+
+DBTable *AgentSandeshInterfaceConfig::AgentGetTable() {
+    return Agent::GetInstance()->interface_config_table();
+}
+
+void AgentSandeshInterfaceConfig::Alloc() {
+    resp_ = new SandeshInterfaceConfigResp();
+}
+
+static bool MatchSubString(const string &str, const string &sub_str) {
+    if (sub_str.empty())
+        return true;
+
+    return (str.find(sub_str) != string::npos);
+}
+
+bool AgentSandeshInterfaceConfig::Filter(const DBEntryBase *e) {
+    const InterfaceConfigEntry *entry =
+        dynamic_cast<const InterfaceConfigEntry *>(e);
+    const InterfaceConfigVmiEntry *vmi =
+        dynamic_cast<const InterfaceConfigVmiEntry *>(e);
+    const InterfaceConfigLabelEntry *label =
+        dynamic_cast<const InterfaceConfigLabelEntry *>(e);
+    assert(entry);
+
+    if (MatchSubString(entry->tap_name(), tap_name_) == false)
+        return false;
+
+    if (vmi &&
+        (MatchSubString(UuidToString(vmi->vmi_uuid()), vmi_uuid_) == false))
+        return false;
+
+    if (label && MatchSubString(label->vm_label(), vm_label_) == false)
+        return false;
+
+    if (label && MatchSubString(label->network_label(), vn_label_) == false)
+        return false;
+
+    return true;
+}
+
+bool AgentSandeshInterfaceConfig::FilterToArgs(AgentSandeshArguments *args) {
+    args->Add("vmi_uuid", vmi_uuid_);
+    args->Add("tap_name", tap_name_);
+    args->Add("vm_label", vm_label_);
+    args->Add("vn_label", vn_label_);
+    return true;
+}
+
+AgentSandeshPtr
+InterfaceConfigTable::GetAgentSandesh(const AgentSandeshArguments *args,
+                                      const std::string &context) {
+    AgentSandeshInterfaceConfig *entry;
+    entry = new AgentSandeshInterfaceConfig(context,
+                                            args->GetString("vmi_uuid"),
+                                            args->GetString("tap_name"),
+                                            args->GetString("vm_label"),
+                                            args->GetString("vn_label"));
+    return AgentSandeshPtr(entry);
+}
+
+void SandeshInterfaceConfigReq::HandleRequest() const {
+    AgentSandeshPtr sand(new AgentSandeshInterfaceConfig(context(),
+                                                         get_tap_name(),
+                                                         get_vmi_uuid(),
+                                                         get_vm_label(),
+                                                         get_vn_label()));
+    sand->DoSandesh(sand);
+    return;
 }

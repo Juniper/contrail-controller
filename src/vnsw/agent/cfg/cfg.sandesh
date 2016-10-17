@@ -76,3 +76,65 @@ trace sandesh CfgIntfWalkStart {
 trace sandesh CfgIntfInfo {
     1: string info;
 }
+
+/**
+ * Response message for interface-config table built from port messages
+ */
+struct SandeshVmiLabelEntry {
+    1: string vmi_uuid;
+    2: string tap_name;
+    3: string vm_label;
+    4: string vn_label;
+}
+
+response sandesh SandeshVmiLabelTableResp {
+    1: list<SandeshVmiLabelEntry> entries;
+}
+
+/**
+ * Request for showing labels-table created from Oper VMInterface used in
+ * kubernetes and mesos
+ */
+request sandesh SandeshVmiLabelTableReq {
+    1: string vm_label;
+}
+
+/**
+ * Response message for entries in interface-config db-table
+ */
+struct SandeshInterfaceConfigEntry {
+    1: string type
+    2: string vmi_uuid;
+    3: string vm_label;
+    4: string vn_label;
+    5: string tap_name;
+    6: string last_update_time;
+    7: i32 version;
+    8: string vmi_type;
+    9: string vm_uuid;
+   10: string vn_uuid;
+   11: string project_uuid;
+   12: string ip4_address;
+   13: string ip6_address;
+   14: string mac_address;
+   15: string vm_name;
+   16: i32 rx_vlan_id;
+   17: i32 tx_vlan_id;
+   18: string network_namespace;
+   19: string vm_ifname;
+}
+
+response sandesh SandeshInterfaceConfigResp {
+    1: list<SandeshInterfaceConfigEntry> entries;
+}
+
+/**
+ * Request for showing labels-table created from Oper VMInterface used in
+ * kubernetes and mesos
+ */
+request sandesh SandeshInterfaceConfigReq {
+    1: string tap_name;
+    2: string vmi_uuid;
+    3: string vm_label;
+    4: string vn_label;
+}

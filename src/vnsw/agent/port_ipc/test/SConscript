@@ -11,6 +11,8 @@ AgentEnv.MakeTestEnv(env)
 port_ipc_test_suite=[]
 
 test_port_ipc = AgentEnv.MakeTestCmd(env, 'test_port_ipc', port_ipc_test_suite)
+test_port_label = AgentEnv.MakeTestCmd(env, 'test_port_label',
+                                       port_ipc_test_suite)
 
 test = env.TestSuite('agent-test', port_ipc_test_suite)
 env.Alias('agent:port_ipc', test)

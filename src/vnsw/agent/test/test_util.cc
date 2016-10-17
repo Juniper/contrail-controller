@@ -793,7 +793,7 @@ InetInterface *InetInterfaceGet(const char *ifname) {
 InterfaceConfigVmiEntry *CfgPortGet(boost::uuids::uuid u) {
     InterfaceConfigVmiKey key(u);
     return static_cast<InterfaceConfigVmiEntry *>(Agent::GetInstance()->
-        interface_config_table()->Find(&key));
+        interface_config_table()->FindActiveEntry(&key));
 }
 
 Interface *VmPortGet(int id) {

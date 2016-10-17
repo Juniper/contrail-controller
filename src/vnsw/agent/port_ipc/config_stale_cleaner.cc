@@ -94,7 +94,7 @@ bool InterfaceConfigStaleCleaner::WalkNotify(DBTablePartBase *partition,
             return true;
         }
         std::string msg;
-        pih->DeleteVmiUuidEntry(entry->vmi_uuid(), msg);
+        pih->DeleteVmiUuidEntry("", UuidToString(entry->vmi_uuid()), msg);
     }
     return true;
 }

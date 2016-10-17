@@ -20,9 +20,12 @@
 #include "db/db_table.h"
 #include "cmn/agent_cmn.h"
 #include "init/agent_param.h"
+#include "oper/interface_common.h"
+#include "oper/vm.h"
+#include "oper/vn.h"
 #include "cfg/cfg_init.h"
 #include "cfg/cfg_interface.h"
-#include "oper/interface_common.h"
+#include "cfg/cfg_interface_listener.h"
 #include "port_ipc/port_ipc_handler.h"
 #include "port_ipc/port_ipc_types.h"
 
@@ -79,6 +82,37 @@ static bool GetUuidMember(const rapidjson::Value &d, const char *member,
     return true;
 }
 
+static bool IsVmiUuidRequest(const rapidjson::Value &v) {
+    return v.HasMember("id");
+}
+
+static bool IsUUID(const string &uuid_str) {
+    uuid port_uuid = StringToUuid(uuid_str);
+    if (port_uuid == nil_uuid()) {
+        return false;
+    }
+    return true;
+}
+
+static string LabelToFileName(const string &vm_label, const string &nw_label) {
+    if (nw_label.empty())
+        return "label-" + vm_label;
+    else
+        return "label-" + vm_label + "-" + nw_label;
+}
+
+static bool IsValidFile(const string &fname) {
+    if (IsUUID(fname)) {
+        return true;
+    }
+
+    if (fname.find("label-") == 0) {
+        return true;
+    }
+
+    return false;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // PortIpcHandler methods
 /////////////////////////////////////////////////////////////////////////////
@@ -118,8 +152,9 @@ void PortIpcHandler::ReloadAllPorts(bool check_port) {
         if (!fs::is_regular_file(p)) {
             continue;
         }
-        /* Skip if filename is not in UUID format */
-        if (!IsUUID(p.filename().string())) {
+
+        // Skip if filename is not valid
+        if (IsValidFile(p.filename().string()) == false) {
             continue;
         }
 
@@ -183,13 +218,25 @@ bool PortIpcHandler::AddPortFromJson(const string &json, bool check_port,
         return true;
     }
 
-    DBRequest req;
-    if (MakeAddVmiUuidRequest(d, json, check_port, err_msg, &req) == false) {
-        CONFIG_TRACE(PortInfo, err_msg.c_str());
-        return false;
-    }
+    if (IsVmiUuidRequest(d)) {
+        DBRequest req;
+        if (MakeAddVmiUuidRequest(d, json, check_port, err_msg, &req)
+            == false) {
+            CONFIG_TRACE(PortInfo, err_msg.c_str());
+            return false;
+        }
 
-    AddVmiUuidEntry(&req, d, write_file, err_msg);
+        AddVmiUuidEntry(&req, d, write_file, err_msg);
+    } else {
+        DBRequest req;
+        if (MakeAddVmiLabelRequest(d, json, check_port, err_msg, &req)
+            == false) {
+            CONFIG_TRACE(PortInfo, err_msg.c_str());
+            return false;
+        }
+
+        AddVmiLabelEntry(&req, d, write_file, err_msg);
+    }
     return true;
 }
 
@@ -324,7 +371,7 @@ bool PortIpcHandler::MakeAddVmiUuidRequest(const rapidjson::Value &d,
     return true;
 }
 
-bool PortIpcHandler::AddVmiUuidEntry(DBRequest *req, const rapidjson::Value &d,
+bool PortIpcHandler::AddVmiUuidEntry(DBRequest *req, rapidjson::Value &d,
                                      bool write_file, string &err_msg) const {
     InterfaceConfigVmiData *data = static_cast<InterfaceConfigVmiData *>
         (req->data.get());
@@ -332,7 +379,8 @@ bool PortIpcHandler::AddVmiUuidEntry(DBRequest *req, const rapidjson::Value &d,
         (req->key.get());
 
     // If Writing to file fails return error
-    if(write_file && WriteJsonToFile(d, key->vmi_uuid()) == false) {
+    if(write_file && WriteJsonToFile(d, UuidToString(key->vmi_uuid()))
+       == false) {
         err_msg += "Writing of Json string to file failed for " +
             UuidToString(key->vmi_uuid());
         CONFIG_TRACE(PortInfo, err_msg.c_str());
@@ -352,24 +400,59 @@ bool PortIpcHandler::AddVmiUuidEntry(DBRequest *req, const rapidjson::Value &d,
     return true;
 }
 
-bool PortIpcHandler::WriteJsonToFile(const rapidjson::Value &v,
-                                     const boost::uuids::uuid &vmi_uuid) const {
-    string filename = ports_dir_ + "/" + UuidToString(vmi_uuid);
+static void AddJsonString(rapidjson::Document &doc, rapidjson::Value &v,
+                          const char *member) {
+    if (v.HasMember(member) && v[member].IsString()) {
+        doc.AddMember(member, v[member].GetString(), doc.GetAllocator());
+    }
+}
+
+static void AddJsonInt(rapidjson::Document &doc, rapidjson::Value &v,
+                       const char *member) {
+    if (v.HasMember(member) && v[member].IsInt()) {
+        doc.AddMember(member, v[member].GetInt(), doc.GetAllocator());
+    }
+}
+
+bool PortIpcHandler::WriteJsonToFile(rapidjson::Value &v,
+                                     const string &fname) const {
+    string filename = ports_dir_ + "/" + fname;
     fs::path file_path(filename);
 
-    /* Don't overwrite if the file already exists */
+    // Don't overwrite if the file already exists
     if (fs::exists(file_path)) {
         return true;
     }
 
     // Add author and time fields
     rapidjson::Document new_doc;
+    new_doc.SetObject();
     rapidjson::Document::AllocatorType &a = new_doc.GetAllocator();
+
     new_doc.AddMember("author", agent_->program_name().c_str(), a);
     string now = duration_usecs_to_string(UTCTimestampUsec()).c_str();
     new_doc.AddMember("time", now.c_str(), a);
+
+    AddJsonString(new_doc, v, "id");
+    AddJsonString(new_doc, v, "instance-id");
+    AddJsonString(new_doc, v, "vn-id");
+    AddJsonString(new_doc, v, "vm-project-id");
+    AddJsonString(new_doc, v, "display-name");
+    AddJsonString(new_doc, v, "system-name");
+    AddJsonString(new_doc, v, "ip-address");
+    AddJsonString(new_doc, v, "ip6-address");
+    AddJsonString(new_doc, v, "mac-address");
+    AddJsonInt(new_doc, v, "type");
+    AddJsonInt(new_doc, v, "rx-vlan-id");
+    AddJsonInt(new_doc, v, "tx-vlan-id");
+    AddJsonString(new_doc, v, "vm-label");
+    AddJsonString(new_doc, v, "network-label");
+    AddJsonString(new_doc, v, "ifname");
+    AddJsonString(new_doc, v, "vm-ifname");
+    AddJsonString(new_doc, v, "namespace");
+
     rapidjson::StringBuffer buffer;
-    rapidjson::Writer< rapidjson::StringBuffer > writer(buffer);
+    rapidjson::PrettyWriter< rapidjson::StringBuffer > writer(buffer);
     new_doc.Accept(writer);
 
     ofstream fs(filename.c_str());
@@ -397,24 +480,21 @@ bool PortIpcHandler::ValidateMac(const string &mac) const {
     return true;
 }
 
-bool PortIpcHandler::DeletePort(const string &json, const string &url,
-                                string &err_msg) {
-    uuid port_uuid = StringToUuid(url);
-    if (port_uuid != nil_uuid()) {
-        DeleteVmiUuidEntry(port_uuid, err_msg);
-        return true;
+bool PortIpcHandler::DeletePort(const string &body, const string &url,
+                                string &err_msg) const {
+    if (IsUUID(url)) {
+        return DeleteVmiUuidEntry(body, url, err_msg);
     }
 
-    return true;
+    return DeleteVmiLabelEntry(body, url, err_msg);
 }
 
-void PortIpcHandler::DeleteVmiUuidEntry(const uuid &u, string &err_msg) {
-    InterfaceConfigTable *ctable = agent_->interface_config_table();
-    assert(ctable);
-
+bool PortIpcHandler::DeleteVmiUuidEntry(const string &body, const string &url,
+                                        string &err_msg) const {
+    boost::uuids::uuid u = StringToUuid(url);
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new InterfaceConfigVmiKey(u));
-    ctable->Enqueue(&req);
+    agent_->interface_config_table()->Enqueue(&req);
 
     string uuid_str = UuidToString(u);
     CONFIG_TRACE(DeletePortEnqueue, "Delete", uuid_str, version_);
@@ -426,12 +506,6 @@ void PortIpcHandler::DeleteVmiUuidEntry(const uuid &u, string &err_msg) {
         if (remove(file.c_str())) {
             err_msg = "Error deleting file " + file;
         }
-    }
-}
-
-bool PortIpcHandler::IsUUID(const string &uuid_str) const {
-    uuid port_uuid = StringToUuid(uuid_str);
-    if (port_uuid == nil_uuid()) {
         return false;
     }
     return true;
@@ -471,18 +545,28 @@ void PortIpcHandler::MakeVmiUuidJson(const InterfaceConfigVmiEntry *vmi,
     return;
 }
 
-bool PortIpcHandler::GetPortInfo(const string &uuid_str, string &info) const {
-    InterfaceConfigTable *ctable = agent_->interface_config_table();
+bool PortIpcHandler::GetVmiUuidInfo(const string &body, const string &uuid_str,
+                                    string &info) const {
     DBRequestKey *key = static_cast<DBRequestKey *>
         (new InterfaceConfigVmiKey(StringToUuid(uuid_str)));
+    InterfaceConfigTable *table = agent_->interface_config_table();
     InterfaceConfigVmiEntry *vmi = dynamic_cast<InterfaceConfigVmiEntry *>
-        (ctable->Find(key));
+        (table->FindActiveEntry(key));
     if (vmi == NULL) {
         return false;
     }
 
     MakeVmiUuidJson(vmi, info);
     return true;
+}
+
+bool PortIpcHandler::GetPortInfo(const string &body, const string &uuid_str,
+                                 string &info) const {
+    if (IsUUID(uuid_str)) {
+        return GetVmiUuidInfo(body, uuid_str, info);
+    }
+
+    return GetVmiLabelInfo(body, uuid_str, info);
 }
 
 bool PortIpcHandler::InterfaceExists(const std::string &name) const {
@@ -503,6 +587,220 @@ void PortIpcHandler::SyncHandler() {
 void PortIpcHandler::Shutdown() {
 }
 
+/////////////////////////////////////////////////////////////////////////////
+// Label JSON handlers
+/////////////////////////////////////////////////////////////////////////////
+bool PortIpcHandler::MakeAddVmiLabelRequest(const rapidjson::Value &d,
+                                           const std::string &json,
+                                           bool check_port,
+                                           std::string &err_msg,
+                                           DBRequest *req) const {
+    string ifname;
+    if (GetStringMember(d, "ifname", &ifname, &err_msg) == false) {
+        return false;
+    }
+
+    string vm_label;
+    if (GetStringMember(d, "vm-label", &vm_label, &err_msg) == false) {
+        return false;
+    }
+
+    string nw_label;
+    if (GetStringMember(d, "network-label", &nw_label, &err_msg) == false) {
+        return false;
+    }
+
+    string vm_ifname;
+    if (GetStringMember(d, "vm-ifname", &vm_ifname, &err_msg) == false) {
+        return false;
+    }
+
+    string nw_namespace;
+    if (GetStringMember(d, "namespace", &nw_namespace, &err_msg) == false) {
+        return false;
+    }
+
+    req->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req->key.reset(new InterfaceConfigLabelKey(vm_label, nw_label));
+    req->data.reset(new InterfaceConfigLabelData(ifname, nw_namespace,
+                                                 vm_ifname));
+    return true;
+}
+
+bool PortIpcHandler::AddVmiLabelEntry(DBRequest *req,
+                                      rapidjson::Value &d,
+                                      bool write_file, string &err_msg) const {
+    InterfaceConfigLabelData *data = static_cast<InterfaceConfigLabelData *>
+        (req->data.get());
+    InterfaceConfigLabelKey *key = static_cast<InterfaceConfigLabelKey *>
+        (req->key.get());
+
+    // If Writing to file fails return error
+    string fname = LabelToFileName(key->vm_label(), key->network_label());
+    if(write_file && WriteJsonToFile(d, fname) == false) {
+        err_msg += "Writing of Json string to file failed for " + fname;
+        CONFIG_TRACE(PortInfo, err_msg.c_str());
+        return false;
+    }
+
+    agent_->interface_config_table()->Enqueue(req);
+    CONFIG_TRACE(AddPortLabelEnqueue, "Add", key->vm_label(),
+                 key->network_label(), data->tap_name(),
+                 data->vm_ifname(), data->vm_namespace());
+    return true;
+}
+
+bool PortIpcHandler::DeleteVmiLabelEntry(const string &body, const string &url,
+                                         string &err_msg) const {
+    rapidjson::Document d;
+    string vm_label = url;
+    string nw_label = "";
+    if (body.empty() == false) {
+        if (d.Parse<0>(const_cast<char *>(body.c_str())).HasParseError()) {
+            err_msg = "Invalid Json string ==> " + body;
+            CONFIG_TRACE(PortInfo, err_msg);
+            return false;
+        }
+
+        if (d.IsObject() == false) {
+            err_msg = "Unexpected Json string ==> " + body;
+            CONFIG_TRACE(PortInfo, err_msg);
+            return false;
+        }
+
+        if (GetStringMember(d, "vm-label", &vm_label, &err_msg) == false) {
+            return false;
+        }
+
+        if (GetStringMember(d, "network-label", &nw_label, &err_msg) == false) {
+            return false;
+        }
+    }
+
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key.reset(new InterfaceConfigLabelKey(vm_label, nw_label));
+    agent_->interface_config_table()->Enqueue(&req);
+    CONFIG_TRACE(DelPortLabelEnqueue, "Delete", vm_label, nw_label);
+
+    string fname = LabelToFileName(vm_label, nw_label);
+    string file = ports_dir_ + "/" + fname;
+    fs::path file_path(file);
+
+    if (fs::exists(file_path) && fs::is_regular_file(file_path)) {
+        if (remove(file.c_str())) {
+            err_msg = "Error deleting file " + file;
+            CONFIG_TRACE(PortInfo, err_msg);
+            return false;
+        }
+    }
+    return true;
+}
+
+void MakeVmiLabelJson(Agent *agent, const VmInterface *vmi, const VmEntry *vm,
+                      const VnEntry *vn, const VnIpam *ipam,
+                      const std::string &vm_label, const std::string nw_label,
+                      string &info) {
+    rapidjson::Document doc;
+    doc.SetObject();
+    rapidjson::Document::AllocatorType &a = doc.GetAllocator();
+
+    string str1 = UuidToString(vmi->GetUuid());
+    doc.AddMember("id", str1.c_str(), a);
+
+    string str2 = UuidToString(vm->GetUuid());
+    doc.AddMember("instance-id", str2.c_str(), a);
+
+    string str3 = vmi->primary_ip_addr().to_string();
+    doc.AddMember("ip-address", str3.c_str(), a);
+    doc.AddMember("plen", ipam->plen, a);
+
+    string str4 = vmi->primary_ip6_addr().to_string();
+    doc.AddMember("ip6-address", str4.c_str(), a);
+
+    string str5 = UuidToString(vn->GetUuid());
+    doc.AddMember("vn-id", str5.c_str(), a);
+
+    string str6 = UuidToString(vmi->vm_project_uuid());
+    doc.AddMember("vm-project-id", str6.c_str(), a);
+
+    string str7 = vmi->vm_mac().ToString();
+    doc.AddMember("mac-address", str7.c_str(), a);
+    doc.AddMember("system-name", vmi->name().c_str(), a);
+    doc.AddMember("rx-vlan-id", (int)vmi->rx_vlan_id(), a);
+    doc.AddMember("tx-vlan-id", (int)vmi->tx_vlan_id(), a);
+    doc.AddMember("vm-label", vm_label.c_str(), a);
+    doc.AddMember("network-label", nw_label.c_str(), a);
+    string str8 = ipam->dns_server.to_v4().to_string();
+    doc.AddMember("dns-server", str8.c_str(), a);
+    string str9 = ipam->default_gw.to_v4().to_string();
+    doc.AddMember("gateway", str9.c_str(), a);
+
+    doc.AddMember("author", agent->program_name().c_str(), a);
+    string now = duration_usecs_to_string(UTCTimestampUsec());
+    doc.AddMember("time", now.c_str(), a);
+
+    rapidjson::StringBuffer buffer;
+    rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
+    doc.Accept(writer);
+    info = buffer.GetString();
+    return;
+}
+
+bool PortIpcHandler::GetVmiLabelInfo(const string &body,
+                                     const string &url,
+                                     string &resp) const {
+    rapidjson::Document d;
+    string vm_label = url;
+    string nw_label = "";
+    if (body.empty() == false) {
+        if (d.Parse<0>(const_cast<char *>(body.c_str())).HasParseError()) {
+            resp = "Invalid Json string ==> " + body;
+            CONFIG_TRACE(PortInfo, resp);
+            return false;
+        }
+
+        if (d.IsObject() == false) {
+            resp = "Unexpected Json string ==> " + body;
+            CONFIG_TRACE(PortInfo, resp);
+            return false;
+        }
+
+        GetStringMember(d, "vm-label", &vm_label, NULL);
+        GetStringMember(d, "network-label", &nw_label, NULL);
+    }
+
+    InterfaceCfgClient *client = agent_->cfg()->cfg_interface_client();
+    const VmInterface *vmi = client->LabelToVmi(vm_label, nw_label);
+    if (vmi == NULL) {
+        resp += "Interface not found for request. Retry";
+        return false;
+    }
+
+    const VmEntry *vm = vmi->vm();
+    if (vm == NULL) {
+        resp += "VirtualMachine not found for request. Retry";
+        return false;
+    }
+
+    const VnEntry *vn = vmi->vn();
+    if (vn == NULL) {
+        resp += "VirtualNetwork not found for request. Retry";
+        return false;
+    }
+
+    const VnIpam *ipam = vn->GetIpam(vmi->primary_ip_addr());
+    if (ipam == NULL) {
+        resp += "Missing IPAM entry for request. Retry";
+        return false;
+    }
+
+    MakeVmiLabelJson(agent_, vmi, vm, vn, ipam, vm_label, nw_label, resp);
+    return true;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// Gateway handlers
+/////////////////////////////////////////////////////////////////////////////
 bool PortIpcHandler::BuildGatewayArrayElement
 (const rapidjson::Value &d, VirtualGatewayConfig::Subnet *entry) const {
     if (!d.HasMember("ip-address") || !d["ip-address"].IsString()) {

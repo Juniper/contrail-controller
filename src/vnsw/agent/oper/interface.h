@@ -136,7 +136,6 @@ public:
     const AgentQosConfig* qos_config() const {
         return qos_config_.get();
     }
-
 protected:
     void SetItfSandeshData(ItfSandeshData &data) const;
 
@@ -173,6 +172,7 @@ protected:
 
 private:
     friend class InterfaceTable;
+    friend struct VmInterfaceIfNameData;
     InterfaceTable *table_;
     DISALLOW_COPY_AND_ASSIGN(Interface);
 };

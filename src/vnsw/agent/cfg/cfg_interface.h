@@ -10,6 +10,7 @@
 #include <net/address.h>
 #include <db/db_table.h>
 #include <db/db_entry.h>
+#include <oper/agent_sandesh.h>
 
 /****************************************************************************
  * DBTable containing interface config messages. Interface-Config entries
@@ -26,6 +27,8 @@
  *      does not support networks, hence network-label will be NULL
  ****************************************************************************/
 class Agent;
+
+class Sandesh;
 class InterfaceConfigEntry;
 class InterfaceConfigKey;
 class InterfaceConfigData;
@@ -34,7 +37,11 @@ class InterfaceConfigVmiEntry;
 class InterfaceConfigVmiKey;
 class InterfaceConfigVmiData;
 
-class InterfaceConfigEntry : public DBEntry {
+class InterfaceConfigLabelEntry;
+class InterfaceConfigLabelKey;
+class InterfaceConfigLabelData;
+
+class InterfaceConfigEntry : public AgentDBEntry {
 public:
     static const int32_t kMaxVersion = -1;
     enum KeyType {
@@ -43,7 +50,9 @@ public:
         KEY_TYPE_INVALID
     };
 
-    InterfaceConfigEntry(KeyType key_type) : key_type_(key_type) { }
+    InterfaceConfigEntry(KeyType key_type) :
+        AgentDBEntry(), key_type_(key_type) {
+    }
     virtual ~InterfaceConfigEntry() { }
 
     virtual bool Compare(const InterfaceConfigEntry &rhs) const = 0;
@@ -62,6 +71,7 @@ public:
     bool do_subscribe() const { return do_subscribe_; }
     int32_t version() const { return version_; }
 
+    uint32_t GetRefCount() const { return 0; }
     static const std::string TypeToString(KeyType key_type);
 private:
     KeyType key_type_;
@@ -72,10 +82,10 @@ private:
     static std::string type_to_name_[];
 };
 
-class InterfaceConfigKey : public DBRequestKey {
+class InterfaceConfigKey : public AgentKey {
 public:
     InterfaceConfigKey(InterfaceConfigEntry::KeyType key_type) :
-        key_type_(key_type) {
+        AgentKey(), key_type_(key_type) {
     }
     virtual ~InterfaceConfigKey() { }
     bool IsLess(const InterfaceConfigKey *rhs) const;
@@ -143,6 +153,7 @@ public:
     const uint16_t &tx_vlan_id() const { return tx_vlan_id_; }
     const uint16_t &rx_vlan_id() const { return rx_vlan_id_; }
 
+    bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
     static std::string VmiTypeToString(VmiType type);
 private:
     friend class InterfaceConfigVmiData;
@@ -220,9 +231,77 @@ private:
     uint16_t rx_vlan_id_;
 };
 
-class InterfaceConfigTable : public DBTable {
+class InterfaceConfigLabelEntry : public InterfaceConfigEntry {
 public:
-    InterfaceConfigTable(DB *db, const std::string &name) : DBTable(db, name) {
+    InterfaceConfigLabelEntry(const std::string &vm_label,
+                          const std::string &network_label) :
+        InterfaceConfigEntry(InterfaceConfigEntry::LABELS),
+        vm_label_(vm_label), network_label_(network_label) {
+    }
+    virtual ~InterfaceConfigLabelEntry() { }
+
+    virtual bool Compare(const InterfaceConfigEntry &rhs) const;
+    virtual bool OnAdd(const InterfaceConfigData *data);
+    virtual bool OnChange(const InterfaceConfigData *rhs);
+    virtual bool OnDelete();
+
+    virtual KeyPtr GetDBRequestKey() const;
+    virtual void SetKey(const DBRequestKey *key);
+    virtual std::string ToString() const;
+
+    const std::string &vm_label() const { return vm_label_; }
+    const std::string &network_label() const { return network_label_; }
+    const std::string &vm_namespace() const { return vm_namespace_; }
+    const std::string &vm_ifname() const { return vm_ifname_; }
+    bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
+private:
+    std::string vm_label_;      // Identifier for the VM/Container
+    std::string network_label_; // Identifier for network of the interface
+    std::string vm_namespace_;  // Namespace for the VM/Container
+    std::string vm_ifname_;     // Name of interface inside the VM/Container
+};
+
+class InterfaceConfigLabelKey : public InterfaceConfigKey {
+public:
+    InterfaceConfigLabelKey(const std::string &vm_label,
+                             const std::string network_label) :
+        InterfaceConfigKey(InterfaceConfigEntry::LABELS),
+        vm_label_(vm_label), network_label_(network_label) {
+    }
+    virtual ~InterfaceConfigLabelKey() { }
+
+    virtual InterfaceConfigEntry *AllocEntry() const;
+    const std::string &vm_label() const { return vm_label_; }
+    const std::string &network_label() const { return network_label_; }
+    virtual bool Compare(const InterfaceConfigKey *rhs) const;
+private:
+    friend class InterfaceConfigLabelEntry;
+    std::string vm_label_;
+    std::string network_label_;
+};
+
+class InterfaceConfigLabelData : public InterfaceConfigData {
+public:
+    InterfaceConfigLabelData(const std::string &tap_name,
+                              const std::string &vm_namespace,
+                              const std::string &vm_ifname) :
+        InterfaceConfigData(tap_name, false, InterfaceConfigEntry::kMaxVersion),
+        vm_namespace_(vm_namespace), vm_ifname_(vm_ifname) {
+    }
+    virtual ~InterfaceConfigLabelData() { }
+    const std::string &vm_ifname() const { return vm_ifname_; }
+    const std::string &vm_namespace() const { return vm_namespace_; }
+
+private:
+    friend class InterfaceConfigLabelEntry;
+    std::string vm_namespace_;
+    std::string vm_ifname_;
+};
+
+class InterfaceConfigTable : public AgentDBTable {
+public:
+    InterfaceConfigTable(DB *db, const std::string &name) :
+        AgentDBTable(db, name) {
     }
     virtual ~InterfaceConfigTable() { }
 
@@ -236,10 +315,11 @@ public:
 
     void set_agent(Agent *agent) { agent_ = agent; }
     Agent *agent() const { return agent_; }
+    AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
+                                    const std::string &context);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 private:
     Agent *agent_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceConfigTable);
 };
-
 #endif //  __AGENT_INTERFACE_CFG_H__

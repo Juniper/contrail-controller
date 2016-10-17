@@ -69,8 +69,8 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     sg_list_(), floating_ip_list_(), alias_ip_list_(), service_vlan_list_(),
     static_route_list_(), allowed_address_pair_list_(), fat_flow_list_(),
     vrf_assign_rule_list_(), vrf_assign_acl_(NULL), vm_ip_service_addr_(0),
-    device_type_(VmInterface::DEVICE_TYPE_INVALID),
-    vmi_type_(VmInterface::VMI_TYPE_INVALID),
+    device_type_(VmInterface::DEVICE_TYPE_UNKNOWN),
+    vmi_type_(VmInterface::VMI_TYPE_UNKNOWN),
     configurer_(0), subnet_(0), subnet_plen_(0), ethernet_tag_(0),
     logical_interface_(nil_uuid()), nova_ip_addr_(0), nova_ip6_addr_(),
     dhcp_addr_(0), metadata_ip_map_(), hc_instance_set_(),
@@ -1009,8 +1009,8 @@ static void ComputeTypeInfo(Agent *agent, VmInterfaceConfigData *data,
     }
 
 
-    data->device_type_ = VmInterface::DEVICE_TYPE_INVALID;
-    data->vmi_type_ = VmInterface::VMI_TYPE_INVALID;
+    data->device_type_ = VmInterface::DEVICE_TYPE_UNKNOWN;
+    data->vmi_type_ = VmInterface::VMI_TYPE_UNKNOWN;
     // Does it have physical-interface
     if (data->physical_interface_.empty() == false) {
         // no physical-router connected. Should be transient case
@@ -1069,7 +1069,7 @@ void VmInterface::ResetConfigurer(VmInterface::Configurer type) {
     configurer_ &= ~(1 << type);
 }
 
-bool VmInterface::IsConfigurerSet(VmInterface::Configurer type) {
+bool VmInterface::IsConfigurerSet(VmInterface::Configurer type) const {
     return ((configurer_ & (1 << type)) != 0);
 }
 
@@ -1082,8 +1082,11 @@ bool VmInterface::IsFatFlow(uint8_t protocol, uint16_t port) const {
 }
 
 static bool DeleteVmi(InterfaceTable *table, const uuid &u, DBRequest *req) {
+    VmInterface::Delete(table, u, VmInterface::CONFIG);
+    return false;
+#if 0
     int type = table->GetVmiToVmiType(u);
-    if (type <= (int)VmInterface::VMI_TYPE_INVALID)
+    if (type < (int)VmInterface::VMI_TYPE_UNKNOWN)
         return false;
 
     table->DelVmiToVmiType(u);
@@ -1098,6 +1101,7 @@ static bool DeleteVmi(InterfaceTable *table, const uuid &u, DBRequest *req) {
         VmInterface::Delete(table, u, VmInterface::CONFIG);
         return false;
     }
+#endif
 }
 
 bool InterfaceTable::VmiIFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) { 
@@ -1129,10 +1133,11 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
 
     assert(!u.is_nil());
     // Get the entry from Interface Config table
-    InterfaceConfigTable *ipc_table = agent_->interface_config_table();
-    InterfaceConfigVmiKey ipc_key(u);
+    InterfaceConfigTable *intf_cfg_table = agent_->interface_config_table();
+    InterfaceConfigVmiKey intf_cfg_key(u);
     InterfaceConfigVmiEntry *cfg_entry =
-        static_cast <InterfaceConfigVmiEntry *>(ipc_table->Find(&ipc_key));
+        static_cast <InterfaceConfigVmiEntry *>
+        (intf_cfg_table->FindActiveEntry(&intf_cfg_key));
 
     // Update interface configuration
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -1243,14 +1248,23 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
 
     InterfaceKey *key = NULL; 
     if (data->device_type_ == VmInterface::VM_ON_TAP ||
-        data->device_type_ == VmInterface::DEVICE_TYPE_INVALID) {
+        data->device_type_ == VmInterface::DEVICE_TYPE_UNKNOWN) {
+        key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, u, "");
+    } else {
+        key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, u,
+                                 cfg->display_name());
+    }
+#if 0
+    if (data->device_type_ == VmInterface::VM_ON_TAP ||
+        data->device_type_ == VmInterface::DEVICE_TYPE_UNKNOWN) {
         key = new VmInterfaceKey(AgentKey::RESYNC, u, "");
     } else {
         key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, u,
                                  cfg->display_name());
     }
+#endif
 
-    if (data->device_type_ != VmInterface::DEVICE_TYPE_INVALID) {
+    if (data->device_type_ != VmInterface::DEVICE_TYPE_UNKNOWN) {
         AddVmiToVmiType(u, data->device_type_);
     }
 
@@ -1435,6 +1449,7 @@ bool VmInterface::Resync(const InterfaceTable *table,
     bool old_metadata_ip_active = metadata_ip_active_;
     bool old_metadata_l2_active = metadata_l2_active_;
     bool old_bridging = bridging_;
+    DeviceType old_device_type = device_type_;
 
     if (data) {
         ret = data->OnResync(table, this, &force_update);
@@ -1481,7 +1496,8 @@ bool VmInterface::Resync(const InterfaceTable *table,
                 old_addr, old_ethernet_tag, old_need_linklocal_ip,
                 old_ipv6_active, old_v6_addr, old_subnet, old_subnet_plen,
                 old_dhcp_enable, old_layer3_forwarding, force_update,
-                old_dhcp_addr, old_metadata_ip_active, old_bridging);
+                old_dhcp_addr, old_metadata_ip_active, old_bridging,
+                old_device_type);
 
     return ret;
 }
@@ -1613,7 +1629,7 @@ void VmInterface::UpdateBridgeRoutes(bool old_bridging, VrfEntry *old_vrf,
                                      const Ip6Address &old_v6_addr,
                                      bool old_layer3_forwarding) {
     if (device_type() == VmInterface::TOR ||
-        device_type() == VmInterface::DEVICE_TYPE_INVALID)
+        device_type() == VmInterface::DEVICE_TYPE_UNKNOWN)
         return;
 
     UpdateL2InterfaceRoute(old_bridging, force_update, old_vrf, Ip4Address(),
@@ -1639,7 +1655,7 @@ void VmInterface::UpdateBridgeRoutes(bool old_bridging, VrfEntry *old_vrf,
 
 void VmInterface::UpdateL2(bool old_l2_active, bool policy_change) {
     if (device_type() == VmInterface::TOR ||
-        device_type() == VmInterface::DEVICE_TYPE_INVALID)
+        device_type() == VmInterface::DEVICE_TYPE_UNKNOWN)
         return;
 
     UpdateVxLan();
@@ -1766,7 +1782,8 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,
                               bool force_update,
                               const Ip4Address &old_dhcp_addr,
                               bool old_metadata_ip_active,
-                              bool old_bridging) {
+                              bool old_bridging,
+                              DeviceType old_device_type) {
 
     //For SRIOV we dont generate any things lile l2 routes, l3 routes
     //etc
@@ -1779,8 +1796,14 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,
     //interface. No route addition or NH addition happens for this interface.
     //Also, when parent is not updated for a non-Nova interface, device type
     //remains invalid.
-    if ((device_type_ == VmInterface::TOR ||
-         device_type_ == VmInterface::DEVICE_TYPE_INVALID) &&
+    bool invalid_device = false;
+    if (device_type_ == VmInterface::TOR)
+        invalid_device = true;
+    if (device_type_ == VmInterface::DEVICE_TYPE_UNKNOWN &&
+        old_device_type == VmInterface::DEVICE_TYPE_UNKNOWN)
+        invalid_device = true;
+
+    if ((invalid_device == true) &&
         (old_subnet.is_unspecified() && old_subnet_plen == 0)) {
         return;
     }
@@ -1921,8 +1944,8 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
     mirror_direction_(Interface::UNKNOWN), sg_list_(),
     floating_ip_list_(), alias_ip_list_(), service_vlan_list_(),
     static_route_list_(), allowed_address_pair_list_(),
-    device_type_(VmInterface::DEVICE_TYPE_INVALID),
-    vmi_type_(VmInterface::VMI_TYPE_INVALID),
+    device_type_(VmInterface::DEVICE_TYPE_UNKNOWN),
+    vmi_type_(VmInterface::VMI_TYPE_UNKNOWN),
     physical_interface_(""), parent_vmi_(), subnet_(0), subnet_plen_(0),
     rx_vlan_id_(VmInterface::kInvalidVlanId),
     tx_vlan_id_(VmInterface::kInvalidVlanId),
@@ -2320,7 +2343,7 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         ret = true;
     }
 
-    if (data->device_type_ !=  VmInterface::DEVICE_TYPE_INVALID &&
+    if (data->device_type_ !=  VmInterface::DEVICE_TYPE_UNKNOWN &&
         device_type_ != data->device_type_) {
         device_type_= data->device_type_;
         ret = true;
@@ -2691,6 +2714,9 @@ bool VmInterface::IsActive()  const {
     if (IsDeleted()) {
         return false;
     }
+
+    if (device_type_ == DEVICE_TYPE_UNKNOWN)
+        return false;
 
     if (!admin_state_) {
         return false;
@@ -5577,3 +5603,103 @@ void AddVmiQosConfig::HandleRequest() const {
     resp->set_resp("Success");
     resp->Response();
 }
+
+/////////////////////////////////////////////////////////////////////////////
+// VmInterfaceIfNameData routines
+/////////////////////////////////////////////////////////////////////////////
+VmInterfaceIfNameData::VmInterfaceIfNameData() :
+    VmInterfaceData(NULL, NULL, INSTANCE_MSG, Interface::TRANSPORT_INVALID),
+    ifname_(), device_type_(VmInterface::DEVICE_TYPE_UNKNOWN) {
+}
+
+VmInterfaceIfNameData::VmInterfaceIfNameData(const string &ifname,
+                                             VmInterface::DeviceType type) :
+    VmInterfaceData(NULL, NULL, INSTANCE_MSG, Interface::TRANSPORT_ETHERNET),
+    ifname_(ifname), device_type_(type) {
+}
+
+VmInterfaceIfNameData::~VmInterfaceIfNameData() {
+}
+
+VmInterface *VmInterfaceIfNameData::OnAdd(const InterfaceTable *table,
+                                          const VmInterfaceKey *key) const {
+    return NULL;
+}
+
+bool VmInterfaceIfNameData::OnDelete(const InterfaceTable *table,
+                                     VmInterface *vmi) const {
+    if (vmi->IsConfigurerSet(VmInterface::INSTANCE_MSG) == false)
+        return true;
+
+    VmInterfaceIfNameData data("", VmInterface::DEVICE_TYPE_UNKNOWN);
+    vmi->Resync(table, &data);
+    vmi->ResetConfigurer(VmInterface::INSTANCE_MSG);
+    return true;
+}
+
+bool VmInterfaceIfNameData::OnResync(const InterfaceTable *table,
+                                     VmInterface *vmi,
+                                     bool *force_update) const {
+    bool ret = false;
+    bool ifname_change = false;
+    if (vmi->name_ != ifname_) {
+        vmi->name_ = ifname_;
+        ifname_change = true;
+        ret = true;
+    }
+
+    if (vmi->device_type_ != device_type_) {
+        vmi->device_type_ = device_type_;
+        InterfaceTable *t = static_cast<InterfaceTable *>(vmi->get_table());
+        t->AddVmiToVmiType(vmi->GetUuid(), device_type_);
+        ret = true;
+    }
+
+    VmInterface::VmiType vmi_type = VmInterface::VMI_TYPE_UNKNOWN;
+    Interface::Transport transport = Interface::TRANSPORT_INVALID;;
+    if (device_type_ == VmInterface::VM_ON_TAP) {
+        vmi_type = VmInterface::INSTANCE;
+        transport = VmInterface::TRANSPORT_ETHERNET;
+    }
+
+    if (vmi->vmi_type_ != vmi_type) {
+        vmi->vmi_type_ = vmi_type;
+        ret = true;
+    }
+
+    if (vmi->transport() != transport) {
+        vmi->transport_ = transport;
+        ret = true;
+    }
+
+    if (ifname_change == true ||
+        vmi->os_index_ == VmInterface::kInvalidIndex) {
+        uint32_t old_os_ifindex = vmi->os_index_;
+        vmi->GetOsParams(table->agent());
+        if (vmi->os_index_ != old_os_ifindex)
+            ret = true;
+    }
+
+    vmi->SetConfigurer(VmInterface::INSTANCE_MSG);
+    return ret;
+}
+
+// Utility methods to enqueue add/delete requests
+void VmInterface::SetIfNameReq(InterfaceTable *table, const uuid &uuid,
+                               const string &ifname) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, uuid,
+                                     ifname));
+
+    req.data.reset(new VmInterfaceIfNameData(ifname, VmInterface::VM_ON_TAP));
+    table->Enqueue(&req);
+}
+
+// Delete a VM-Interface
+void VmInterface::DeleteIfNameReq(InterfaceTable *table, const uuid &uuid) {
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, uuid, ""));
+    req.data.reset(new VmInterfaceIfNameData());
+    table->Enqueue(&req);
+}
+

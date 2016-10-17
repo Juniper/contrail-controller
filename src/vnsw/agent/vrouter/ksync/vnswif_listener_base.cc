@@ -124,7 +124,8 @@ void VnswInterfaceListenerBase::InterfaceNotify(DBTablePartBase *part,
             delete state;
         }
     } else {
-        if (state == NULL) {
+        if (state == NULL &&
+            vmport->device_type() != VmInterface::DEVICE_TYPE_UNKNOWN) {
             ostringstream oss;
             oss << "Intf Add " << vmport->name() << " id " << vmport->id();
             string msg = oss.str();

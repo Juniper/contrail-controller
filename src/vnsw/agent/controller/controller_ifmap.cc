@@ -104,9 +104,8 @@ void AgentIfMapXmppChannel::WriteReadyCb(const boost::system::error_code &ec) {
 void AgentIfMapVmExport::Notify(DBTablePartBase *partition, DBEntryBase *e) {
     InterfaceConfigVmiEntry *entry = dynamic_cast<InterfaceConfigVmiEntry *>(e);
     if (entry == NULL) {
-        CONTROLLER_TRACE(IFMapVmExportTrace, "PortIpc type ",
-                         InterfaceConfigEntry::TypeToString(entry->key_type()),
-                         " Ignoring");
+        CONTROLLER_TRACE(IFMapVmExportTrace,
+                         "Non InterfaceConfigVmiEntry - Ignoring", "", "");
         return;
     }
 

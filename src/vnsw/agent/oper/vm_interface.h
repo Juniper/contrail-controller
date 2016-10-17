@@ -64,7 +64,7 @@ public:
 
     // Type of VMI Port
     enum DeviceType {
-        DEVICE_TYPE_INVALID,
+        DEVICE_TYPE_UNKNOWN,// Type not yet known. Only an intermediate state
         VM_ON_TAP,          // VMI on TAP/physial port interface
                             // VMI is created based on the INSTANCE_MSG
         VM_VLAN_ON_VMI,     // VMI on TAP port with VLAN as classifier
@@ -83,7 +83,7 @@ public:
 
     // Type of VM on the VMI
     enum VmiType {
-        VMI_TYPE_INVALID,
+        VMI_TYPE_UNKNOWN,   // Type not yet know. Only an intermediate state
         INSTANCE,
         SERVICE_CHAIN,
         SERVICE_INSTANCE,
@@ -510,6 +510,10 @@ public:
     bool Resync(const InterfaceTable *table, const VmInterfaceData *data);
     bool OnChange(VmInterfaceData *data);
     void PostAdd();
+    virtual bool RemoveIFMapNode() const {
+        return (IsConfigurerSet(CONFIG) == false);
+    }
+
 
     // Accessor functions
     const VmEntry *vm() const { return vm_.get(); }
@@ -547,7 +551,7 @@ public:
     bool service_ip_ecmp6() const { return service_ip_ecmp6_;}
     const OperDhcpOptions &oper_dhcp_options() const { return oper_dhcp_options_; }
     uint8_t configurer() const {return configurer_;}
-    bool IsConfigurerSet(VmInterface::Configurer type);
+    bool IsConfigurerSet(VmInterface::Configurer type) const;
     void SetConfigurer(VmInterface::Configurer type);
     void ResetConfigurer(VmInterface::Configurer type);
     bool CanBeDeleted() const {return (configurer_ == 0);}
@@ -680,6 +684,12 @@ public:
                        const boost::uuids::uuid &intf_uuid,
                        VmInterface::Configurer configurer);
 
+    // Request to associate tap-interface name for VMI
+    static void SetIfNameReq(InterfaceTable *table, const uuid &uuid,
+                             const string &os_name);
+    // Request to dis-associate tap-interface name for VMI
+    static void DeleteIfNameReq(InterfaceTable *table, const uuid &uuid);
+
     void AllocL2MplsLabel(bool force_update, bool policy_change);
     void DeleteL2MplsLabel();
     const AclDBEntry* vrf_assign_acl() const { return vrf_assign_acl_.get();}
@@ -730,6 +740,7 @@ private:
     friend struct VmInterfaceGlobalVrouterData;
     friend struct VmInterfaceHealthCheckData;
     friend struct VmInterfaceNewFlowDropData;
+    friend struct VmInterfaceIfNameData;
 
     bool IsMetaDataL2Active() const;
     bool IsMetaDataIPActive() const;
@@ -775,7 +786,8 @@ private:
                      const Ip4Address &old_subnet, const uint8_t old_subnet_plen,
                      bool old_dhcp_enable, bool old_layer3_forwarding,
                      bool force_update, const Ip4Address &old_dhcp_addr,
-                     bool old_metadata_ip_active, bool old_bridging);
+                     bool old_metadata_ip_active, bool old_bridging,
+                     DeviceType old_device_type);
     void UpdateL3MetadataIp(VrfEntry *old_vrf, bool force_update,
                             bool policy_change, bool old_metadata_ip_active);
     void DeleteL3MetadataIp(VrfEntry *old_vrf, bool force_update,
@@ -1210,5 +1222,24 @@ struct VmInterfaceNewFlowDropData : public VmInterfaceData {
 
     bool drop_new_flows_;
 };
+
+// Data to set tap-interface name
+struct VmInterfaceIfNameData : public VmInterfaceData {
+    VmInterfaceIfNameData();
+    VmInterfaceIfNameData(const std::string &ifname,
+                          VmInterface::DeviceType device_type);
+    virtual ~VmInterfaceIfNameData();
+
+    virtual VmInterface *OnAdd(const InterfaceTable *table,
+                               const VmInterfaceKey *key) const;
+    virtual bool OnDelete(const InterfaceTable *table,
+                          VmInterface *entry) const;
+    virtual bool OnResync(const InterfaceTable *table, VmInterface *vmi,
+                          bool *force_update) const;
+
+    std::string ifname_;
+    VmInterface::DeviceType device_type_;
+};
+
 
 #endif // vnsw_agent_vm_interface_hpp

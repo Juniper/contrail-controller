@@ -15,6 +15,7 @@
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_interface_listener.h>
 #include <cfg/cfg_interface.h>
+#include <cfg/cfg_types.h>
 
 #include <oper/agent_types.h>
 #include <oper/interface_common.h>
@@ -61,14 +62,151 @@ IFMapNode *InterfaceCfgClient::UuidToIFNode(const uuid &u) const {
     return it->second;
 }
 
+bool InterfaceCfgClient::VmiToLabels(const VmInterface *vmi, string *vm_label,
+                                     string *nw_label) const {
+    *vm_label = "";
+    *nw_label = "";
+    const VmEntry *vm = vmi->vm();
+    const VnEntry *vn = vmi->vn();
+
+    if (vn == NULL || vm == NULL)
+        return false;
+
+    vector<string> name_list;
+    boost::split(name_list, vm->GetCfgName(), boost::is_any_of(":"));
+    if (name_list.size())
+        *vm_label = name_list[name_list.size() - 1];
+
+    boost::split(name_list, vn->GetName(), boost::is_any_of(":"));
+    if (name_list.size())
+        *nw_label = name_list[name_list.size() - 1];
+
+    return true;
+}
+
+void InterfaceCfgClient::TryAddVmiFromLabel(const LabelKey &key) const {
+    VmiLabelTreeConstIterator it = vmi_label_tree_.find(key);
+    if (it == vmi_label_tree_.end())
+        return;
+
+    if (it->second == NULL)
+        return;
+    Agent *agent = agent_cfg_->agent();
+    InterfaceConfigTable *table = agent->interface_config_table();
+
+    InterfaceConfigLabelKey cfg_key(key.vm_label_, key.network_label_);
+    InterfaceConfigLabelEntry *label =
+        dynamic_cast<InterfaceConfigLabelEntry *>
+        (table->FindActiveEntry(&cfg_key));
+    if (label == NULL)
+        return;
+
+    VmInterface::SetIfNameReq(agent->interface_table(),
+                              it->second->GetUuid(), label->tap_name());
+}
+
+void InterfaceCfgClient::DeleteVmiFromLabel(const LabelKey &key) const {
+    VmiLabelTreeConstIterator it = vmi_label_tree_.find(key);
+    if (it == vmi_label_tree_.end())
+        return;
+
+    if (it->second == NULL)
+        return;
+    Agent *agent = agent_cfg_->agent();
+    InterfaceConfigTable *table = agent->interface_config_table();
+
+    InterfaceConfigLabelKey cfg_key(key.vm_label_, key.network_label_);
+    InterfaceConfigLabelEntry *label =
+        dynamic_cast<InterfaceConfigLabelEntry *>
+        (table->Find(&cfg_key, true));
+    if (label == NULL)
+        return;
+
+    VmInterface::DeleteIfNameReq(agent->interface_table(),
+                              it->second->GetUuid());
+}
+
+const VmInterface *InterfaceCfgClient::LabelToVmi
+(const std::string &vm_label, const std::string &vn_label) const {
+    LabelKey key(vm_label, vn_label);
+    VmiLabelTreeConstIterator it = vmi_label_tree_.find(key);
+    if (it == vmi_label_tree_.end())
+        return NULL;
+
+    return it->second;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// Oper Interface notification handler
+/////////////////////////////////////////////////////////////////////////////
+void InterfaceCfgClient::OperVmiNotify(DBTablePartBase *partition,
+                                       DBEntryBase *e) {
+    VmInterface *vmi = dynamic_cast<VmInterface *>(e);
+    if (vmi == NULL)
+        return;
+
+    OperVmiState *state = static_cast<OperVmiState *>
+        (e->GetState(partition->parent(), oper_interface_listener_id_));
+    if (e->IsDeleted()) {
+        if (state == NULL)
+            return;
+
+        LabelKey key1(state->vm_label_, "");
+        VmiLabelTreeIterator it = vmi_label_tree_.find(key1);
+        if (it != vmi_label_tree_.end() && it->second == vmi) {
+            DeleteVmiFromLabel(key1);
+            vmi_label_tree_.erase(it);
+        }
+
+        LabelKey key2(state->vm_label_, state->network_label_);
+        it = vmi_label_tree_.find(key2);
+        if (it != vmi_label_tree_.end() && it->second == vmi) {
+            DeleteVmiFromLabel(key2);
+            vmi_label_tree_.erase(it);
+        }
+
+        e->ClearState(partition->parent(), oper_interface_listener_id_);
+        delete state;
+        return;
+    }
+
+    string vm_label;
+    string nw_label;
+    VmiToLabels(vmi, &vm_label, &nw_label);
+    // TODO : handle label-change
+
+    if (state == NULL) {
+        if (vm_label == "" || nw_label == "") {
+            return;
+        }
+
+        state = new OperVmiState(vm_label, nw_label);
+        e->SetState(partition->parent(), oper_interface_listener_id_, state);
+
+        LabelKey key1(state->vm_label_, "");
+        VmiLabelTreeConstIterator it = vmi_label_tree_.find(key1);
+        if (it == vmi_label_tree_.end()) {
+            vmi_label_tree_.insert(std::make_pair(key1, vmi));
+        }
+        TryAddVmiFromLabel(key1);
+
+        LabelKey key2(state->vm_label_, state->network_label_);
+        it = vmi_label_tree_.find(key2);
+        if (it == vmi_label_tree_.end()) {
+            vmi_label_tree_.insert(std::make_pair(key2, vmi));
+        }
+        TryAddVmiFromLabel(key2);
+    }
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // DB Notification handler for Interface-Config table
 /////////////////////////////////////////////////////////////////////////////
 void InterfaceCfgClient::InterfaceConfigNotify(DBTablePartBase *partition,
                                                DBEntryBase *e) {
-    InterfaceConfigVmiEntry *vmi = static_cast<InterfaceConfigVmiEntry *>(e);
-    if (vmi == NULL)
-        return;
+    InterfaceConfigVmiEntry *vmi = dynamic_cast<InterfaceConfigVmiEntry *>(e);
+    InterfaceConfigLabelEntry *label =
+        dynamic_cast<InterfaceConfigLabelEntry *>(e);
     InterfaceConfigTable *table =
         static_cast<InterfaceConfigTable *>(partition->parent());
     Agent *agent = table->agent();
@@ -79,8 +217,14 @@ void InterfaceCfgClient::InterfaceConfigNotify(DBTablePartBase *partition,
         if (state) {
             if (vmi) {
                 NotifyUuidDel(agent, state->vmi_uuid_);
-                e->ClearState(partition->parent(), intf_cfg_listener_id_);
             }
+
+            if (label) {
+                DeleteVmiFromLabel(LabelKey(state->vm_label_,
+                                            state->nw_label_));
+            }
+
+            e->ClearState(partition->parent(), intf_cfg_listener_id_);
             delete state;
         }
         return;
@@ -92,6 +236,8 @@ void InterfaceCfgClient::InterfaceConfigNotify(DBTablePartBase *partition,
             state = new InterfaceConfigState(vmi->vmi_uuid());
             e->SetState(partition->parent(), intf_cfg_listener_id_,
                         state);
+        } else {
+            state->vmi_uuid_ = vmi->vmi_uuid();
         }
 
         uint16_t tx_vlan_id = VmInterface::kInvalidVlanId;
@@ -122,7 +268,22 @@ void InterfaceCfgClient::InterfaceConfigNotify(DBTablePartBase *partition,
         if (node) {
             NotifyUuidAdd(agent, node, state->vmi_uuid_);
         }
+        return;
     }
+
+    if (label) {
+        if (state == NULL) {
+            state = new InterfaceConfigState(label->vm_label(),
+                                             label->network_label());
+            e->SetState(partition->parent(), intf_cfg_listener_id_,
+                        state);
+        } else {
+            state->vm_label_ = label->vm_label();
+            state->nw_label_ = label->network_label();
+        }
+        TryAddVmiFromLabel(LabelKey(state->vm_label_, state->nw_label_));
+    }
+
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -170,9 +331,9 @@ void InterfaceCfgClient::IfMapVmiNotify(DBTablePartBase *partition,
     IFMapNode *node = static_cast<IFMapNode *>(e);
     VirtualMachineInterface *cfg = 
         dynamic_cast<VirtualMachineInterface *> (node->GetObject());
-    VmiState *state =
-        static_cast<VmiState *>(e->GetState(partition->parent(),
-                                            ifmap_vmi_listener_id_));
+    IfMapVmiState *state =
+        static_cast<IfMapVmiState *>(e->GetState(partition->parent(),
+                                                 ifmap_vmi_listener_id_));
 
     if (e->IsDeleted()) {
         if (state) {
@@ -196,7 +357,7 @@ void InterfaceCfgClient::IfMapVmiNotify(DBTablePartBase *partition,
 
         uuid_ifnode_tree_.insert(UuidIFNodePair(u, node));
         e->SetState(partition->parent(), ifmap_vmi_listener_id_,
-                    new VmiState(u));
+                    new IfMapVmiState(u));
     }
 }
 
@@ -218,6 +379,10 @@ void InterfaceCfgClient::Init() {
     ifmap_intf_route_listener_id_ = table->Register
         (boost::bind(&InterfaceCfgClient::IfMapInterfaceRouteNotify, this, _1,
                      _2));
+
+    table = agent_cfg_->agent()->interface_table();
+    oper_interface_listener_id_ = table->Register
+        (boost::bind(&InterfaceCfgClient::OperVmiNotify, this, _1, _2));
 }
 
 void InterfaceCfgClient::Shutdown() {
@@ -233,4 +398,59 @@ void InterfaceCfgClient::Shutdown() {
     table->Unregister(ifmap_intf_route_listener_id_);
 
     agent->interface_config_table()->Unregister(intf_cfg_listener_id_);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// Introspect routines
+/////////////////////////////////////////////////////////////////////////////
+void InterfaceCfgClient::FillIntrospectData(SandeshVmiLabelTableResp *resp) {
+    std::vector<SandeshVmiLabelEntry> list;
+    VmiLabelTreeConstIterator it = vmi_label_tree_.begin();
+    while (it != vmi_label_tree_.end()) {
+        SandeshVmiLabelEntry entry;
+        entry.set_vm_label(it->first.vm_label_);
+        entry.set_vn_label(it->first.network_label_);
+        if (it->second) {
+            entry.set_vmi_uuid(UuidToString(it->second->GetUuid()));
+            entry.set_tap_name(it->second->name());
+        }
+        list.push_back(entry);
+        it++;
+    }
+    resp->set_entries(list);
+}
+
+class SandeshVmiLabelTask : public Task {
+public:
+    SandeshVmiLabelTask(Agent *agent, const std::string &context) :
+        Task((agent->task_scheduler()->GetTaskId("http::RequestHandlerTask")),
+             0), agent_(agent), context_(context) {
+    }
+    virtual ~SandeshVmiLabelTask() { }
+
+    virtual bool Run();
+    std::string Description() const { return "SandeshVmiLabelTask"; }
+
+protected:
+    Agent *agent_;
+    std::string context_;
+
+private:
+    DISALLOW_COPY_AND_ASSIGN(SandeshVmiLabelTask);
+};
+
+bool SandeshVmiLabelTask::Run() {
+    SandeshVmiLabelTableResp *resp = new SandeshVmiLabelTableResp();
+    agent_->cfg()->cfg_interface_client()->FillIntrospectData(resp);
+    resp->set_context(context_);
+    resp->set_more(false);
+    resp->Response();
+    return true;
+}
+
+void SandeshVmiLabelTableReq::HandleRequest() const {
+    Agent *agent = Agent::GetInstance();
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    scheduler->Enqueue(new SandeshVmiLabelTask(agent, context()));
+    return;
 }

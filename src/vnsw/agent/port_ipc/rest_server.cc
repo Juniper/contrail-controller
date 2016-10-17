@@ -62,7 +62,7 @@ void RESTServer::VmPortGetHandler(const struct RESTData& data) {
     PortIpcHandler *pih = agent_->port_ipc_handler();
     if (pih) {
         std::string info;
-        if (pih->GetPortInfo(port_id, info)) {
+        if (pih->GetPortInfo(data.request->Body(), port_id, info)) {
             REST::SendResponse(data.session, info);
         } else {
             REST::SendErrorResponse(data.session, "{ Not Found }", 404);
@@ -112,13 +112,11 @@ const std::vector<RESTServer::HandlerSpecifier> RESTServer::RESTHandlers_ =
         HTTP_POST,
         &RESTServer::VmPortSyncHandler))
     (HandlerSpecifier(
-        boost::regex("/port/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
-                     "[0-9a-f]{12})"),
+        boost::regex("/port/([a-zA-Z0-9-]*)"),
         HTTP_DELETE,
         &RESTServer::VmPortDeleteHandler))
     (HandlerSpecifier(
-        boost::regex("/port/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
-                     "[0-9a-f]{12})"),
+        boost::regex("/port/([a-zA-Z0-9-]*)"),
         HTTP_GET,
         &RESTServer::VmPortGetHandler))
     (HandlerSpecifier(

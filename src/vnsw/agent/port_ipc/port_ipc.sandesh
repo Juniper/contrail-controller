@@ -46,6 +46,31 @@ traceobject sandesh ConfigDeletePortEnqueue {
 }
 
 /**
+ * @description: Trace message for config add port with labels
+ * @type: Trace
+ * @severity: DEBUG
+ */
+traceobject sandesh ConfigAddPortLabelEnqueue {
+    1: string op;
+    2: string vm_label;
+    3: string nw_label;
+    4: string ifname;
+    5: string vm_ifname;
+    6: string nw_namespace;
+}
+
+/**
+ * @description: Trace message for config delete port with labels
+ * @type: Trace
+ * @severity: DEBUG
+ */
+traceobject sandesh ConfigDelPortLabelEnqueue {
+    1: string op;
+    2: string vm_label;
+    3: string nw_label;
+}
+
+/**
  * @description: Trace message for config port info
  * @type: Trace
  * @severity: DEBUG
