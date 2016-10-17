@@ -150,13 +150,13 @@ alarm_list = [
                 {
                     "and_list": [
                         {
-                            "operand1": "NodeStatus.disk_usage_info.percentage_partition_space_used",
+                            "operand1": "NodeStatus.disk_usage_info.*.percentage_partition_space_used",
                             "operation": ">=",
                             "operand2": {
                                 "json_value": "90"
                             },
                             "variables":
-                                ["NodeStatus.disk_usage_info.partition_name"]
+                                ["NodeStatus.disk_usage_info.__key"]
                         }
                     ]
                 }
