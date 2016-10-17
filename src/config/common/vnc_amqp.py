@@ -7,6 +7,8 @@ from cfgm_common.utils import cgitb_hook
 from cfgm_common.exceptions import NoIdError
 from cfgm_common.vnc_kombu import VncKombuClient
 from cfgm_common.dependency_tracker import DependencyTracker
+from cfgm_common.uve.msg_traces.ttypes import MessageBusNotifyTrace,\
+                        DependencyTrackerResource
 
 
 class VncAmqpHandle(object):
@@ -33,10 +35,11 @@ class VncAmqpHandle(object):
                 kombu_ssl_ca_certs=self._args.kombu_ssl_ca_certs)
 
     def msgbus_store_err_msg(self, msg):
-        pass
+        self.msg_tracer.error = msg
 
     def msgbus_trace_msg(self):
-        pass
+            self.msg_tracer.trace_msg(name='MessageBusNotifyTraceBuf',
+                                      sandesh=self.logger._sandesh)
 
     def _vnc_subscribe_callback(self, oper_info):
         self._db_resync_done.wait()
@@ -67,7 +70,8 @@ class VncAmqpHandle(object):
             del self.dependency_tracker
 
     def create_msgbus_trace(self, request_id, oper, uuid):
-        pass
+        self.msg_tracer = MessageBusNotifyTrace(request_id=request_id,
+                                                operation=oper, uuid=uuid)
 
     def vnc_subscribe_actions(self):
         msg = "Notification Message: %s" % (pformat(self.oper_info))
@@ -165,13 +169,15 @@ class VncAmqpHandle(object):
         self.logger.error('Unknown operation %s' % self.oper_info['oper'])
 
     def init_msgbus_fq_name(self):
-        pass
+        self.msg_tracer.fq_name = self.obj.name
 
     def init_msgbus_dtr(self):
-        pass
+        self.msg_tracer.dependency_tracker_resources = []
 
     def add_msgbus_dtr(self, res_type, res_id_list):
-        pass
+        dtr = DependencyTrackerResource(obj_type=res_type,
+                                        obj_keys=res_id_list)
+        self.msg_tracer.dependency_tracker_resources.append(dtr)
 
     def evaluate_dependency(self):
         if not self.dependency_tracker:
