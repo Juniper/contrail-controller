@@ -31,10 +31,9 @@ class CqlIf : public GenDb::GenDbIf {
     CqlIf();
     virtual ~CqlIf();
     // Init/Uninit
-    virtual bool Db_Init(const std::string &task_id, int task_instance);
-    virtual void Db_Uninit(const std::string &task_id, int task_instance);
-    virtual void Db_UninitUnlocked(const std::string &task_id,
-        int task_instance);
+    virtual bool Db_Init();
+    virtual void Db_Uninit();
+    virtual void Db_UninitUnlocked();
     virtual void Db_SetInitDone(bool);
     // Tablespace
     virtual bool Db_SetTablespace(const std::string &tablespace);
@@ -43,14 +42,17 @@ class CqlIf : public GenDb::GenDbIf {
     // Column family
     virtual bool Db_AddColumnfamily(const GenDb::NewCf &cf);
     virtual bool Db_UseColumnfamily(const GenDb::NewCf &cf);
+    virtual bool Db_UseColumnfamily(const std::string &cfname);
     // Column
-    virtual bool Db_AddColumn(std::auto_ptr<GenDb::ColList> cl);
     virtual bool Db_AddColumn(std::auto_ptr<GenDb::ColList> cl,
+        GenDb::DbConsistency::type dconsistency,
         GenDb::GenDbIf::DbAddColumnCb cb);
-    virtual bool Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl);
+    virtual bool Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl,
+        GenDb::DbConsistency::type dconsistency);
     // Read
     virtual bool Db_GetRow(GenDb::ColList *out, const std::string &cfname,
-        const GenDb::DbDataValueVec &rowkey);
+        const GenDb::DbDataValueVec &rowkey,
+        GenDb::DbConsistency::type dconsistency);
     virtual bool Db_GetMultiRow(GenDb::ColListVec *out,
         const std::string &cfname,
         const std::vector<GenDb::DbDataValueVec> &v_rowkey);
@@ -60,10 +62,22 @@ class CqlIf : public GenDb::GenDbIf {
         const GenDb::ColumnNameRange &crange);
     virtual bool Db_GetRowAsync(const std::string &cfname,
         const GenDb::DbDataValueVec &rowkey,
-        DbGetRowCb cb);
-    virtual bool Db_GetRowAsync(const std::string& cfname,
-        const GenDb::DbDataValueVec &rowkey, const GenDb::ColumnNameRange
-        &crange, DbGetRowCb cb);
+        GenDb::DbConsistency::type dconsistency,
+        GenDb::GenDbIf::DbGetRowCb cb);
+    virtual bool Db_GetRowAsync(const std::string &cfname,
+        const GenDb::DbDataValueVec &rowkey,
+        GenDb::DbConsistency::type dconsistency, int task_id,
+        int task_instance, GenDb::GenDbIf::DbGetRowCb cb);
+    virtual bool Db_GetRowAsync(const std::string &cfname,
+        const GenDb::DbDataValueVec &rowkey,
+        const GenDb::ColumnNameRange &crange,
+        GenDb::DbConsistency::type dconsistency,
+        GenDb::GenDbIf::DbGetRowCb cb);
+    virtual bool Db_GetRowAsync(const std::string &cfname,
+        const GenDb::DbDataValueVec &rowkey,
+        const GenDb::ColumnNameRange &crange,
+        GenDb::DbConsistency::type dconsistency, int task_id,
+        int task_instance, GenDb::GenDbIf::DbGetRowCb cb);
     // Queue
     virtual bool Db_GetQueueStats(uint64_t *queue_count,
         uint64_t *enqueues) const;
@@ -87,6 +101,10 @@ class CqlIf : public GenDb::GenDbIf {
     void OnAsyncRowGetCompletion(GenDb::DbOpResult::type drc,
         std::auto_ptr<GenDb::ColList> row,
         std::string cfname, GenDb::GenDbIf::DbGetRowCb cb);
+    void OnAsyncRowGetCompletion(GenDb::DbOpResult::type drc,
+        std::auto_ptr<GenDb::ColList> row,
+        std::string cfname, GenDb::GenDbIf::DbGetRowCb cb,
+        bool use_worker, int task_id, int task_instance);
     void IncrementTableWriteStats(const std::string &table_name);
     void IncrementTableWriteStats(const std::string &table_name,
         uint64_t num_writes);

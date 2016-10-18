@@ -97,7 +97,6 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
         module_(module),
         name_(source + ":" + node_type_ + ":" + module + ":" + instance_id_),
         instance_(session->GetSessionInstance()),
-        db_connect_timer_(NULL),
         process_rules_cb_(
             boost::bind(&SandeshGenerator::ProcessRulesCb, this, _1)),
         sm_back_pressure_timer_(NULL) {
@@ -114,29 +113,12 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
 
 SandeshGenerator::~SandeshGenerator() {
     DeleteStateMachineBackPressureTimer();
-    GetDbHandler()->UnInit(instance_);
 }
 
 void SandeshGenerator::set_session(VizSession *session) {
     viz_session_ = session;
     instance_ = session->GetSessionInstance();
     session->set_generator(this);
-}
-
-void SandeshGenerator::StartDbifReinit() {
-    tbb::mutex::scoped_lock lock(mutex_);
-    if (disconnected_) {
-        return;
-    }
-    GetDbHandler()->UnInitUnlocked(instance_);
-}
-
-bool SandeshGenerator::DbConnectTimerExpired() {
-    tbb::mutex::scoped_lock lock(mutex_);
-    if (disconnected_) {
-        return false;
-    }
-    return false;
 }
 
 void SandeshGenerator::TimerErrorHandler(string name, string error) {
