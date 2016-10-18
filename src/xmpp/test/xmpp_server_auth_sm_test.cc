@@ -120,6 +120,8 @@ protected:
             EXPECT_TRUE(!ConnectTimerRunning());
             EXPECT_TRUE(!OpenTimerRunning());
             EXPECT_TRUE(!HoldTimerRunning());
+            EXPECT_TRUE(!EstablishingTimerRunning());
+            EXPECT_TRUE(!StreamFeatureTimerRunning());
             EXPECT_TRUE(sm_->session() == NULL);
             // Cases like HoldTimerExpiry,TcpClose need to cleanup
             // connection_ on server side.
@@ -134,18 +136,22 @@ protected:
                 //started after EvTcpPassiveOpen
             }
             EXPECT_TRUE(!HoldTimerRunning());
+            EXPECT_TRUE(!EstablishingTimerRunning());
+            EXPECT_TRUE(!StreamFeatureTimerRunning());
             EXPECT_TRUE(connection_->session() == NULL);
             break;
         case xmsm::OPENCONFIRM:
             EXPECT_TRUE(!ConnectTimerRunning());
             EXPECT_TRUE(!OpenTimerRunning());
-            EXPECT_TRUE(HoldTimerRunning());
+            EXPECT_TRUE(!EstablishingTimerRunning());
             EXPECT_TRUE(sm_->session() != NULL);
             EXPECT_TRUE(connection_->session() != NULL);
             break;
         case xmsm::ESTABLISHED:
             EXPECT_TRUE(!ConnectTimerRunning());
             EXPECT_TRUE(!OpenTimerRunning());
+            EXPECT_TRUE(!EstablishingTimerRunning());
+            EXPECT_TRUE(!StreamFeatureTimerRunning());
             EXPECT_TRUE(HoldTimerRunning());
             EXPECT_TRUE(sm_->session() != NULL);
             EXPECT_TRUE(connection_->session() != NULL);
@@ -168,12 +174,12 @@ protected:
 
         switch (state) {
         case xmsm::OPENCONFIRM_INIT:
-            EXPECT_TRUE(HoldTimerRunning());
+            EXPECT_TRUE(StreamFeatureTimerRunning() || HoldTimerRunning());
             break;
         case xmsm::OPENCONFIRM_FEATURE_NEGOTIATION:
-            EXPECT_TRUE(HoldTimerRunning());
             break;
         case xmsm::OPENCONFIRM_FEATURE_SUCCESS:
+            EXPECT_TRUE(!StreamFeatureTimerRunning());
             EXPECT_TRUE(HoldTimerRunning());
             break;
         }
@@ -188,15 +194,16 @@ protected:
         sm_->Clear();
     }
     void EvConnectTimerExpired() {
-        boost::system::error_code error;
         FireConnectTimer();
     }
     void EvOpenTimerExpired() {
-        boost::system::error_code error;
         FireOpenTimer();
     }
     void EvHoldTimerExpired() {
         FireHoldTimer();
+    }
+    void EvStreamFeatureTimerExpired() {
+        FireStreamFeatureTimer();
     }
     void EvTcpPassiveOpen() {
         ip::tcp::endpoint remote_endpoint;
@@ -266,11 +273,13 @@ protected:
     bool ConnectTimerRunning() { return(sm_->connect_timer_->running()); }
     bool OpenTimerRunning() { return(sm_->open_timer_->running()); }
     bool HoldTimerRunning() { return(sm_->hold_timer_->running()); }
+    bool EstablishingTimerRunning() { return(sm_->establishing_timer_->running()); }
+    bool StreamFeatureTimerRunning() { return(sm_->stream_feature_timer_->running()); }
 
     void FireConnectTimer() { sm_->connect_timer_->Fire(); }
     void FireOpenTimer() { sm_->open_timer_->Fire(); }
     void FireHoldTimer() { sm_->hold_timer_->Fire(); }
-
+    void FireStreamFeatureTimer() { sm_->stream_feature_timer_->Fire(); }
 
     auto_ptr<EventManager> evm_;
 
@@ -297,7 +306,7 @@ TEST_F(XmppStateMachineTest, Active__EvXmppOpen) {
 }
 
 // Old State : OpenConfirm
-// Event     : EvHoldTimerExpired
+// Event     : EvStreamFeatureTimerExpired
 // New State : Idle
 TEST_F(XmppStateMachineTest, OpenConfirm__EvHoldTimerExpired) {
     VerifyState(xmsm::ACTIVE);
@@ -309,9 +318,10 @@ TEST_F(XmppStateMachineTest, OpenConfirm__EvHoldTimerExpired) {
     VerifyState(xmsm::OPENCONFIRM);
     VerifyOpenConfirmState(xmsm::OPENCONFIRM_INIT);
 
-    EvHoldTimerExpired();
+    EvStreamFeatureTimerExpired();
     VerifyState(xmsm::IDLE);
 }
+
 
 // Old State : OpenConfirm
 // Event     : EvXmppKeepalive
@@ -350,6 +360,26 @@ TEST_F(XmppStateMachineTest, OpenConfirm__EvTcpClose) {
     EvTcpClose();
     VerifyState(xmsm::IDLE);
 }
+
+// Old State : OpenConfirm
+// Event     : EvStop
+// New State : Idle
+TEST_F(XmppStateMachineTest, OpenConfirm__EvStop) {
+    VerifyState(xmsm::ACTIVE);
+
+    EvTcpPassiveOpenFake();
+    VerifyState(xmsm::ACTIVE);
+
+    EvXmppOpen();
+    VerifyState(xmsm::OPENCONFIRM);
+    VerifyOpenConfirmState(xmsm::OPENCONFIRM_INIT);
+
+    //Close the connection as we verify by
+    //maintaing a ref-count on TcpSession
+    EvStop();
+    VerifyState(xmsm::IDLE);
+}
+
 
 // Old State : OpenConfirm
 // Event     : EvStartTls

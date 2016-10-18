@@ -87,6 +87,7 @@ protected:
             EXPECT_TRUE(!ConnectTimerRunning());
             EXPECT_TRUE(!OpenTimerRunning());
             EXPECT_TRUE(!HoldTimerRunning());
+            EXPECT_TRUE(!EstablishingTimerRunning());
             EXPECT_TRUE(sm_->session() == NULL);
             // Cases like HoldTimerExpiry,TcpClose need to cleanup 
             // connection_ on server side.
@@ -101,11 +102,14 @@ protected:
                 //started after EvTcpPassiveOpen
             }
             EXPECT_TRUE(!HoldTimerRunning());
-            EXPECT_TRUE(connection_->session() == NULL);
+            if (!EstablishingTimerRunning()) {
+                EXPECT_TRUE(connection_->session() == NULL);
+            }
             break;
         case xmsm::OPENCONFIRM:
             EXPECT_TRUE(!ConnectTimerRunning());
             EXPECT_TRUE(!OpenTimerRunning());
+            EXPECT_TRUE(!EstablishingTimerRunning());
             EXPECT_TRUE(HoldTimerRunning());
             EXPECT_TRUE(sm_->session() != NULL);
             EXPECT_TRUE(connection_->session() != NULL);
@@ -113,6 +117,7 @@ protected:
         case xmsm::ESTABLISHED:
             EXPECT_TRUE(!ConnectTimerRunning());
             EXPECT_TRUE(!OpenTimerRunning());
+            EXPECT_TRUE(!EstablishingTimerRunning());
             EXPECT_TRUE(HoldTimerRunning());
             EXPECT_TRUE(sm_->session() != NULL);
             EXPECT_TRUE(connection_->session() != NULL);
@@ -132,16 +137,18 @@ protected:
         sm_->Clear();
     }
     void EvConnectTimerExpired() {
-        boost::system::error_code error;
         FireConnectTimer();
     }
     void EvOpenTimerExpired() {
-        boost::system::error_code error;
         FireOpenTimer();
     }
     void EvHoldTimerExpired() {
         FireHoldTimer();
     }
+    void EvEstablishingTimerExpired() {
+        FireEstablishingTimer();
+    }
+
     void EvTcpPassiveOpen() {
         ip::tcp::endpoint remote_endpoint;
         remote_endpoint.port(0);
@@ -192,10 +199,12 @@ protected:
     bool ConnectTimerRunning() { return(sm_->connect_timer_->running()); }
     bool OpenTimerRunning() { return(sm_->open_timer_->running()); }
     bool HoldTimerRunning() { return(sm_->hold_timer_->running()); }
+    bool EstablishingTimerRunning() { return (sm_->establishing_timer_->running()); }
 
     void FireConnectTimer() { sm_->connect_timer_->Fire(); }
     void FireOpenTimer() { sm_->open_timer_->Fire(); }
     void FireHoldTimer() { sm_->hold_timer_->Fire(); }
+    void FireEstablishingTimer() { sm_->establishing_timer_->Fire(); }
 
 
     auto_ptr<EventManager> evm_;
@@ -300,8 +309,9 @@ TEST_F(XmppStateMachineTest, DISABLED_OpenConfirm_EvHoldTimerExpired) {
     VerifyState(xmsm::IDLE);
 }
 
-//EvXmppOpen & EvXmppKeepalive
-// Old State : OpenConfirm 
+// Old State : Active 
+// Event     : EvXmppOpen
+// New State : Active
 // Event     : EvXmppKeepalive
 // New State : Established
 TEST_F(XmppStateMachineTest, EvXmppOpen) {
@@ -318,11 +328,6 @@ TEST_F(XmppStateMachineTest, EvXmppOpen) {
     // New State : Established
     EvXmppKeepalive();
     VerifyState(xmsm::ESTABLISHED);
-
-    //Close the connection as we verify by
-    //maintaing a ref-count on TcpSession
-    EvTcpClose();
-    VerifyState(xmsm::IDLE);
 }
 
 //Test HoldTimer Expiry
@@ -336,7 +341,9 @@ TEST_F(XmppStateMachineTest, Established_EvHoldTimerExpired) {
     VerifyState(xmsm::ACTIVE);
 
     EvXmppOpen();
+    VerifyState(xmsm::ESTABLISHED);
 
+    EvXmppKeepalive();
     VerifyState(xmsm::ESTABLISHED);
 
     EvHoldTimerExpired();
@@ -353,7 +360,9 @@ TEST_F(XmppStateMachineTest, Established_EvTcpClose) {
     VerifyState(xmsm::ACTIVE);
 
     EvXmppOpen();
+    VerifyState(xmsm::ESTABLISHED);
 
+    EvXmppKeepalive();
     VerifyState(xmsm::ESTABLISHED);
 
     EvTcpClose();
@@ -370,7 +379,9 @@ TEST_F(XmppStateMachineTest, Established_EvStop) {
     VerifyState(xmsm::ACTIVE);
 
     EvXmppOpen();
+    VerifyState(xmsm::ESTABLISHED);
 
+    EvXmppKeepalive();
     VerifyState(xmsm::ESTABLISHED);
 
     EvStop();
@@ -390,12 +401,30 @@ TEST_F(XmppStateMachineTest, EvXmppMessageReceive) {
     EvXmppOpen();
     VerifyState(xmsm::ESTABLISHED);
 
+    EvXmppKeepalive();
+    VerifyState(xmsm::ESTABLISHED);
+
     EvXmppMessageReceive();
     VerifyState(xmsm::ESTABLISHED);
 
     EvTcpClose();
     VerifyState(xmsm::IDLE);
 }
+
+// Old State : Active 
+// Event     : EvXmppKeepalive_withoutOpen
+// New State : Idle 
+TEST_F(XmppStateMachineTest, EvXmppKeepalive_withoutOpen) {
+    VerifyState(xmsm::ACTIVE);
+
+    EvTcpPassiveOpenFake();
+    VerifyState(xmsm::ACTIVE);
+
+    /* Do not wait for Open */
+    EvXmppKeepalive();
+    VerifyState(xmsm::ACTIVE);
+}
+
 }
 
 int main(int argc, char **argv) {

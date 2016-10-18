@@ -81,6 +81,18 @@ struct EvHoldTimerExpired : sc::event<EvHoldTimerExpired> {
     }
 };
 
+struct EvEstablishingTimerExpired : sc::event<EvEstablishingTimerExpired> {
+    static const char *Name() {
+        return "EvEstablishingTimerExpired";
+    }
+};
+
+struct EvStreamFeatureTimerExpired : sc::event<EvStreamFeatureTimerExpired> {
+    static const char *Name() {
+        return "EvStreamFeatureTimerExpired";
+    }
+};
+
 struct EvTcpConnected : sc::event<EvTcpConnected> {
     EvTcpConnected(XmppSession *session) : session(session) { };
     static const char *Name() {
@@ -385,6 +397,7 @@ struct Active : public sc::state<Active, XmppStateMachine> {
                                                   "Open Confirm");
                 return transit<OpenConfirm>();
             } else {
+                connection->SendKeepAlive();
                 connection->StartKeepAliveTimer();
                 state_machine->SendConnectionInfo(&info, event.Name(), 
                                                   "Established");
@@ -578,7 +591,10 @@ struct OpenSent : public sc::state<OpenSent, XmppStateMachine> {
         sc::custom_reaction<EvAdminDown>,
         sc::custom_reaction<EvTcpClose>,
         sc::custom_reaction<EvXmppOpen>,
+        sc::custom_reaction<EvXmppKeepalive>,
         sc::custom_reaction<EvHoldTimerExpired>,
+        sc::custom_reaction<EvEstablishingTimerExpired>,
+        sc::custom_reaction<EvStreamFeatureRequest>, //received by client
         sc::custom_reaction<EvStop>
     > reactions;
 
@@ -610,8 +626,7 @@ struct OpenSent : public sc::state<OpenSent, XmppStateMachine> {
 
     sc::result react(const EvXmppOpen &event) {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
-        SM_LOG(state_machine, "EvXmppOpen (OpenSent) State");
-        XmppConnection *connection = state_machine->connection();
+        SM_LOG(state_machine, "EvXmppOpen in (OpenSent) State");
         if (event.session == state_machine->session()) {
             state_machine->AssignSession();
             XmppConnectionInfo info;
@@ -621,15 +636,53 @@ struct OpenSent : public sc::state<OpenSent, XmppStateMachine> {
                                                   "Open Confirm");
                 return transit<OpenConfirm>();
             } else {
-                connection->SendKeepAlive();
-                connection->StartKeepAliveTimer();
-                state_machine->StartHoldTimer();
+                state_machine->StartEstablishingTimer();
                 state_machine->SendConnectionInfo(&info, event.Name(), 
-                                                  "Established");
-                return transit<XmppStreamEstablished>();
+                                   "StartEstablishingTimer in OpenSent State");
             }
         }
         return discard_event();
+    }
+
+    sc::result react(const EvXmppKeepalive &event) {
+        XmppStateMachine *state_machine = &context<XmppStateMachine>();
+        SM_LOG(state_machine, "EvXmppKeepalive in (OpenSent) State");
+        XmppConnection *connection = state_machine->connection();
+        XmppConnectionInfo info;
+        if (state_machine->IsEstablishingTimerRunning()) {
+            state_machine->CancelEstablishingTimer();
+            if (event.session == state_machine->session()) { 
+                info.set_identifier(event.msg->from);
+                connection->StartKeepAliveTimer();
+                state_machine->StartHoldTimer();
+                state_machine->SendConnectionInfo(&info, event.Name(),
+                                                  "Established");
+                return transit<XmppStreamEstablished>();
+            }
+        } else {
+            SM_LOG(state_machine,
+               "EvKeepalive in (OpenSent) State without OpenConfirm, Transit to ACTIVE");
+            CloseSession(state_machine);
+            info.set_close_reason("Received Keepalive without OpenConfirm");
+            state_machine->connection()->set_close_reason(
+                "Received Keepalive without OpenConfirm");
+            state_machine->SendConnectionInfo(&info, event.Name(), "Active");
+            return transit<Active>();
+        }
+        return discard_event();
+    }
+
+    sc::result react(const EvEstablishingTimerExpired &event) {
+        XmppStateMachine *state_machine = &context<XmppStateMachine>();
+        SM_LOG(state_machine,
+               "EvEstablishingTimerExpired in (OpenSent) State. Transit to IDLE");
+        CloseSession(state_machine);
+        XmppConnectionInfo info;
+        info.set_close_reason("Establishing timer expired as no Keepalive received,\
+                               check for mis-match in auth configuration");
+        state_machine->connection()->set_close_reason("Establishing timer expired");
+        state_machine->SendConnectionInfo(&info, event.Name(), "Active");
+        return transit<Active>();
     }
 
     sc::result react(const EvHoldTimerExpired &event) {
@@ -639,7 +692,7 @@ struct OpenSent : public sc::state<OpenSent, XmppStateMachine> {
             return discard_event();
         }
         SM_LOG(state_machine, 
-                "EvHoldTimerExpired in (OpenSent) State. Transit to IDLE");
+                "EvHoldTimerExpired in (OpenSent) State. Transit to ACTIVE");
         CloseSession(state_machine);
         XmppConnectionInfo info;
         info.set_close_reason("Hold timer expired");
@@ -656,6 +709,18 @@ struct OpenSent : public sc::state<OpenSent, XmppStateMachine> {
         XmppConnectionInfo info;
         info.set_close_reason("EvStop received");
         state_machine->connection()->set_close_reason("EvStop received");
+        state_machine->SendConnectionInfo(&info, event.Name(), "Active");
+        return transit<Active>();
+    }
+
+    sc::result react(const EvStreamFeatureRequest &event) {
+        XmppStateMachine *state_machine = &context<XmppStateMachine>();
+        SM_LOG(state_machine, "EvStreamFeatureRequest in (OpenSent) State");
+        state_machine->CancelEstablishingTimer();
+        CloseSession(state_machine);
+        XmppConnectionInfo info;
+        info.set_close_reason("Feature Negotiation Request on a non-auth client");
+        state_machine->connection()->set_close_reason("EvStreamFeatureRequest received");
         state_machine->SendConnectionInfo(&info, event.Name(), "Active");
         return transit<Active>();
     }
@@ -687,13 +752,14 @@ struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
         sc::custom_reaction<EvTlsHandShakeSuccess>,
         sc::custom_reaction<EvTlsHandShakeFailure>,
         sc::custom_reaction<EvXmppOpen>,             //received by server
+        sc::custom_reaction<EvStreamFeatureTimerExpired>,
         sc::custom_reaction<EvStop>
     > reactions;
 
     OpenConfirm(my_context ctx) : my_base(ctx) {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
         SM_LOG(state_machine, "(Xmpp OpenConfirm)");
-        state_machine->StartHoldTimer();
+        state_machine->StartStreamFeatureTimer();
         XmppConnectionInfo info;
         if (!state_machine->IsActiveChannel()) { //server
             if (state_machine->IsAuthEnabled()) {
@@ -722,6 +788,7 @@ struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
         SM_LOG(state_machine, "EvTcpClose in (OpenConfirm) State");
         state_machine->CancelHoldTimer();
+        state_machine->CancelStreamFeatureTimer();
         if (state_machine->IsActiveChannel() ) {
             CloseSession(state_machine);
             state_machine->SendConnectionInfo(event.Name(), "Active");
@@ -755,10 +822,29 @@ struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
         }
     }
 
+    sc::result react(const EvStreamFeatureTimerExpired &event) {
+        XmppStateMachine *state_machine = &context<XmppStateMachine>();
+        SM_LOG(state_machine,
+               "EvStreamFeatureTimerExpired in (OpenConfirm) State.");
+        XmppConnectionInfo info;
+        info.set_close_reason("Stream Feature timer expired");
+        state_machine->connection()->set_close_reason("Stream Feature timer expired");
+        if (state_machine->IsActiveChannel() ) {
+            CloseSession(state_machine);
+            state_machine->SendConnectionInfo(&info, event.Name(), "Active");
+            return transit<Active>();
+        } else {
+            state_machine->ResetSession();
+            state_machine->SendConnectionInfo(&info, event.Name(), "Idle");
+            return transit<Idle>();
+        }
+    }
+
     // received by the client
     sc::result react(const EvStreamFeatureRequest &event) {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
         SM_LOG(state_machine, "EvStreamFeatureRequest in (OpenConfirm) State");
+        state_machine->CancelStreamFeatureTimer();
         XmppConnection *connection = state_machine->connection();
         XmppSession *session = state_machine->session();
         // TODO, we need to have a supported stream feature list
@@ -804,6 +890,7 @@ struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
             return discard_event();
         }
         SM_LOG(state_machine, "EvStartTls in (OpenConfirm) State");
+        state_machine->CancelStreamFeatureTimer();
         XmppConnection *connection = state_machine->connection();
         XmppSession *session = state_machine->session();
         XmppConnectionInfo info;
@@ -827,6 +914,7 @@ struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
     sc::result react(const EvStop &event) {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
         SM_LOG(state_machine, "EvStop in (OpenConfirm) State");
+        state_machine->CancelStreamFeatureTimer();
         state_machine->CancelHoldTimer();
         if (state_machine->IsActiveChannel() ) {
             CloseSession(state_machine);
@@ -1122,6 +1210,16 @@ XmppStateMachine::XmppStateMachine(XmppConnection *connection, bool active,
           "Open timer",
           TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"),
           connection->GetTaskInstance())),
+      establishing_timer_(
+          TimerManager::CreateTimer(*server_->event_manager()->io_service(),
+          "Establishing timer",
+          TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"),
+          connection->GetTaskInstance())),
+      stream_feature_timer_(
+          TimerManager::CreateTimer(*server_->event_manager()->io_service(),
+          "Stream Feature timer",
+          TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"),
+          connection->GetTaskInstance())),
       hold_timer_(
           TimerManager::CreateTimer(*server_->event_manager()->io_service(),
           "Hold timer",
@@ -1169,6 +1267,8 @@ XmppStateMachine::~XmppStateMachine() {
     //
     TimerManager::DeleteTimer(connect_timer_);
     TimerManager::DeleteTimer(open_timer_);
+    TimerManager::DeleteTimer(establishing_timer_);
+    TimerManager::DeleteTimer(stream_feature_timer_);
     TimerManager::DeleteTimer(hold_timer_);
 }
 
@@ -1235,6 +1335,32 @@ void XmppStateMachine::CancelOpenTimer() {
     open_timer_->Cancel();
 }
 
+void XmppStateMachine::StartEstablishingTimer() {
+    CancelEstablishingTimer();
+    establishing_timer_->Start((XmppStateMachine::kEstablishingTime * 1000),
+        boost::bind(&XmppStateMachine::EstablishingTimerExpired, this),
+        boost::bind(&XmppStateMachine::TimerErrorHandler, this, _1, _2));
+}
+
+void XmppStateMachine::CancelEstablishingTimer() {
+    establishing_timer_->Cancel();
+}
+
+bool XmppStateMachine::IsEstablishingTimerRunning() {
+    return (establishing_timer_->running());
+}
+
+void XmppStateMachine::StartStreamFeatureTimer() {
+    CancelStreamFeatureTimer();
+    stream_feature_timer_->Start((XmppStateMachine::kStreamFeatureTime * 1000),
+        boost::bind(&XmppStateMachine::StreamFeatureTimerExpired, this),
+        boost::bind(&XmppStateMachine::TimerErrorHandler, this, _1, _2));
+}
+
+void XmppStateMachine::CancelStreamFeatureTimer() {
+    stream_feature_timer_->Cancel();
+}
+
 int XmppStateMachine::GetConfiguredHoldTime() const {
     static tbb::atomic<bool> env_checked = tbb::atomic<bool>();
     static tbb::atomic<int> env_hold_time = tbb::atomic<int>();
@@ -1288,6 +1414,24 @@ bool XmppStateMachine::OpenTimerExpired() {
                  connection()->endpoint().address().to_string(),
                  connection()->GetTo()); 
     Enqueue(xmsm::EvOpenTimerExpired());
+    return false;
+}
+
+bool XmppStateMachine::EstablishingTimerExpired() {
+    XMPP_NOTICE(XmppEventLog, this->ChannelType(),
+                 "Event: EstablishingTimer Expired ",
+                 connection()->endpoint().address().to_string(),
+                 connection()->GetTo());
+    Enqueue(xmsm::EvEstablishingTimerExpired());
+    return false;
+}
+
+bool XmppStateMachine::StreamFeatureTimerExpired() {
+    XMPP_NOTICE(XmppEventLog, this->ChannelType(),
+                 "Event: StreamFeatureTimer Expired ",
+                 connection()->endpoint().address().to_string(),
+                 connection()->GetTo());
+    Enqueue(xmsm::EvStreamFeatureTimerExpired());
     return false;
 }
 
