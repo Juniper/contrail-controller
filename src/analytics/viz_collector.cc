@@ -47,7 +47,7 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
             const std::string &cassandra_password,
             const std::string &zookeeper_server_list,
             bool use_zookeeper) :
-    db_initializer_(new DbHandlerInitializer(evm, DbGlobalName(dup), -1,
+    db_initializer_(new DbHandlerInitializer(evm, DbGlobalName(dup),
         std::string("collector:DbIf"),
         boost::bind(&VizCollector::DbInitializeCb, this),
         cassandra_ips, cassandra_ports, ttl_map, cassandra_user,
@@ -123,7 +123,7 @@ VizCollector::CollectorPublish()
 
 VizCollector::VizCollector(EventManager *evm, DbHandlerPtr db_handler,
         Ruleeng *ruleeng, Collector *collector, OpServerProxy *osp) :
-    db_initializer_(new DbHandlerInitializer(evm, DbGlobalName(false), -1,
+    db_initializer_(new DbHandlerInitializer(evm, DbGlobalName(false),
         std::string("collector::DbIf"),
         boost::bind(&VizCollector::DbInitializeCb, this),
         db_handler)),

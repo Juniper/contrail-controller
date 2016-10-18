@@ -61,7 +61,8 @@ bool DbQueryUnit::PipelineCb(std::string &cfname, GenDb::DbDataValueVec &rowkey,
      */
     AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
     return m_query->dbif_->Db_GetRowAsync(cfname, rowkey, cr,
-          boost::bind(&DbQueryUnit::cb, this, _1, _2, ip_ctx, privdata));
+        GenDb::DbConsistency::LOCAL_ONE,
+        boost::bind(&DbQueryUnit::cb, this, _1, _2, ip_ctx, privdata));
 }
 
 /*

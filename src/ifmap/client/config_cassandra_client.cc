@@ -15,7 +15,6 @@
 static const std::string kKeyspace = g_vns_constants.API_SERVER_KEYSPACE_NAME;
 static const std::string kUuidTableName = "obj_uuid_table";
 static const std::string kFqnTableName = "obj_fq_name_table";
-static const std::string kCassClientTaskId = "CN:CassClient";
 
 ConfigCassandraClient::ConfigCassandraClient(EventManager *evm,
                                              const IFMapConfigOptions &options)
@@ -31,13 +30,13 @@ ConfigCassandraClient::~ConfigCassandraClient() {
 }
 
 void ConfigCassandraClient::InitRetry() {
-    dbif_->Db_Uninit(kCassClientTaskId, -1);
+    dbif_->Db_Uninit();
     sleep(kInitRetryTimeSec);
 }
 
 void ConfigCassandraClient::InitDatabase() {
     while (true) {
-        if (!dbif_->Db_Init(kCassClientTaskId, -1)) {
+        if (!dbif_->Db_Init()) {
             CONFIG_CASS_CLIENT_DEBUG(ConfigCassInitErrorMessage,
                                      "Database initialization failed");
             InitRetry();

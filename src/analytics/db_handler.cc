@@ -190,7 +190,8 @@ bool DbHandler::CreateTables() {
     key.push_back(g_viz_constants.SYSTEM_OBJECT_ANALYTICS);
 
     bool init_done = false;
-    if (dbif_->Db_GetRow(&col_list, cfname, key)) {
+    if (dbif_->Db_GetRow(&col_list, cfname, key,
+        GenDb::DbConsistency::LOCAL_ONE)) {
         for (GenDb::NewColVec::iterator it = col_list.columns_.begin();
                 it != col_list.columns_.end(); it++) {
             std::string col_name;
@@ -235,7 +236,8 @@ bool DbHandler::CreateTables() {
             g_viz_constants.SYSTEM_OBJECT_STAT_START_TIME, current_tm, 0));
         columns.push_back(stat_col);
 
-        if (!dbif_->Db_AddColumnSync(col_list)) {
+        if (!dbif_->Db_AddColumnSync(col_list,
+            GenDb::DbConsistency::LOCAL_ONE)) {
             DB_LOG(ERROR, g_viz_constants.SYSTEM_OBJECT_TABLE <<
                 ": Start Time Column Add FAILED");
             return false;
@@ -272,7 +274,8 @@ bool DbHandler::CreateTables() {
             g_viz_constants.SYSTEM_OBJECT_GLOBAL_DATA_TTL, (uint64_t)DbHandler::GetTtlInHourFromMap(ttl_map_, TtlType::GLOBAL_TTL), 0));
         columns.push_back(stat_col);
 
-        if (!dbif_->Db_AddColumnSync(col_list)) {
+        if (!dbif_->Db_AddColumnSync(col_list,
+            GenDb::DbConsistency::LOCAL_ONE)) {
             DB_LOG(ERROR, g_viz_constants.SYSTEM_OBJECT_TABLE <<
                 ": TTL Column Add FAILED");
             return false;
@@ -282,34 +285,34 @@ bool DbHandler::CreateTables() {
     return true;
 }
 
-void DbHandler::UnInit(int instance) {
-    dbif_->Db_Uninit("analytics::DbHandler", instance);
+void DbHandler::UnInit() {
+    dbif_->Db_Uninit();
     dbif_->Db_SetInitDone(false);
 }
 
 // The caller *SHOULD* ensure that UnInit() is not called from another
 // task that can be executed in parallel.
-void DbHandler::UnInitUnlocked(int instance) {
-    dbif_->Db_UninitUnlocked("analytics::DbHandler", instance);
+void DbHandler::UnInitUnlocked() {
+    dbif_->Db_UninitUnlocked();
     dbif_->Db_SetInitDone(false);
 }
 
-bool DbHandler::Init(bool initial, int instance) {
+bool DbHandler::Init(bool initial) {
     SetDropLevel(0, SandeshLevel::INVALID, NULL);
     if (initial) {
-        return Initialize(instance);
+        return Initialize();
     } else {
-        return Setup(instance);
+        return Setup();
     }
 }
 
-bool DbHandler::InitializeInternal(int instance) {
+bool DbHandler::InitializeInternal() {
     DB_LOG(DEBUG, "Initializing..");
 
     /* init of vizd table structures */
     init_vizd_tables();
 
-    if (!dbif_->Db_Init("analytics::DbHandler", instance)) {
+    if (!dbif_->Db_Init()) {
         DB_LOG(ERROR, "Connection to DB FAILED");
         return false;
     }
@@ -330,29 +333,28 @@ bool DbHandler::InitializeInternal(int instance) {
     return true;
 }
 
-bool DbHandler::InitializeInternalLocked(int instance) {
+bool DbHandler::InitializeInternalLocked() {
     // Synchronize creation across nodes using zookeeper
     zookeeper::client::ZookeeperClient client(name_.c_str(),
         zookeeper_server_list_.c_str());
     zookeeper::client::ZookeeperLock dmutex(&client, "/collector");
     assert(dmutex.Lock());
-    bool success(InitializeInternal(instance));
+    bool success(InitializeInternal());
     assert(dmutex.Release());
     return success;
 }
 
-bool DbHandler::Initialize(int instance) {
+bool DbHandler::Initialize() {
     if (use_zookeeper_) {
-        return InitializeInternalLocked(instance);
+        return InitializeInternalLocked();
     } else {
-        return InitializeInternal(instance);
+        return InitializeInternal();
     }
 }
 
-bool DbHandler::Setup(int instance) {
+bool DbHandler::Setup() {
     DB_LOG(DEBUG, "Setup..");
-    if (!dbif_->Db_Init("analytics::DbHandler", 
-                       instance)) {
+    if (!dbif_->Db_Init()) {
         DB_LOG(ERROR, "Connection to DB FAILED");
         return false;
     }
@@ -505,7 +507,8 @@ bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
     GenDb::NewColVec& columns = col_list->columns_;
     columns.reserve(1);
     columns.push_back(col);
-    if (!dbif_->Db_AddColumn(col_list, db_cb)) {
+    if (!dbif_->Db_AddColumn(col_list, GenDb::DbConsistency::LOCAL_ONE,
+        db_cb)) {
         DB_LOG(ERROR, "Addition of message: " << message_type <<
                 ", message UUID: " << unm << " to table: " << cfname <<
                 " FAILED");
@@ -591,7 +594,8 @@ void DbHandler::MessageTableOnlyInsert(const VizMsg *vmsgp,
     columns.push_back(new GenDb::NewCol(g_viz_constants.DATA,
         vmsgp->msg->ExtractMessage(), ttl));
 
-    if (!dbif_->Db_AddColumn(col_list, db_cb)) {
+    if (!dbif_->Db_AddColumn(col_list, GenDb::DbConsistency::LOCAL_ONE,
+        db_cb)) {
         DB_LOG(ERROR, "Addition of message: " << message_type <<
                 ", message UUID: " << vmsgp->unm << " COLUMN FAILED");
         return;
@@ -801,7 +805,8 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
         GenDb::NewColVec& columns = col_list->columns_;
         columns.reserve(1);
         columns.push_back(col);
-        if (!dbif_->Db_AddColumn(col_list, db_cb)) {
+        if (!dbif_->Db_AddColumn(col_list, GenDb::DbConsistency::LOCAL_ONE,
+            db_cb)) {
             DB_LOG(ERROR, "Addition of " << objectkey_str <<
                     ", message UUID " << unm << " into table " << table <<
                     " FAILED");
@@ -822,7 +827,8 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
         GenDb::NewColVec& columns = col_list->columns_;
         columns.reserve(1);
         columns.push_back(col);
-        if (!dbif_->Db_AddColumn(col_list, db_cb)) {
+        if (!dbif_->Db_AddColumn(col_list, GenDb::DbConsistency::LOCAL_ONE,
+            db_cb)) {
             DB_LOG(ERROR, "Addition of " << objectkey_str <<
                     ", message UUID " << unm << " " << table << " into table "
                     << g_viz_constants.OBJECT_VALUE_TABLE << " FAILED");
@@ -962,7 +968,8 @@ bool DbHandler::StatTableWrite(uint32_t t2,
     GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value, ttl));
     columns.push_back(col);
 
-    if (!dbif_->Db_AddColumn(col_list, db_cb)) {
+    if (!dbif_->Db_AddColumn(col_list, GenDb::DbConsistency::LOCAL_ONE,
+        db_cb)) {
         DB_LOG(ERROR, "Addition of " << statName <<
                 ", " << statAttr <<  " tag " << ptag.first <<
                 ":" << stag.first << " into table " <<
@@ -1191,7 +1198,7 @@ static bool PopulateFlowRecordTable(FlowValueArray &fvalues,
     PopulateFlowRecordTableRowKey(fvalues, colList->rowkey_);
     PopulateFlowRecordTableColumns(FlowRecordTableColumns, fvalues,
         colList->columns_, ttl_map, fncb);
-    return dbif->Db_AddColumn(colList, db_cb);
+    return dbif->Db_AddColumn(colList, GenDb::DbConsistency::LOCAL_ONE, db_cb);
 }
 
 static const std::vector<FlowRecordFields::type> FlowIndexTableColumnValues =
@@ -1396,7 +1403,8 @@ static bool PopulateFlowIndexTables(const FlowValueArray &fvalues,
         colList->rowkey_ = rkey;
         PopulateFlowIndexTableColumns(fitt, fvalues, T1, &colList->columns_,
             cvalues, ttl_map);
-        if (!dbif->Db_AddColumn(colList, db_cb)) {
+        if (!dbif->Db_AddColumn(colList, GenDb::DbConsistency::LOCAL_ONE,
+            db_cb)) {
             LOG(ERROR, "Populating " << FlowIndexTable2String(fitt) <<
                 " FAILED");
         }
@@ -1636,8 +1644,7 @@ bool DbHandler::UnderlayFlowSampleInsert(const UFlowData& flow_data,
 }
 
 DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
-    const std::string &db_name, int db_task_instance,
-    const std::string &timer_task_name,
+    const std::string &db_name, const std::string &timer_task_name,
     DbHandlerInitializer::InitializeDoneCb callback,
     const std::vector<std::string> &cassandra_ips,
     const std::vector<int> &cassandra_ports, const TtlMap& ttl_map,
@@ -1645,7 +1652,6 @@ DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
     const std::string &zookeeper_server_list,
     bool use_zookeeper) :
     db_name_(db_name),
-    db_task_instance_(db_task_instance),
     db_handler_(new DbHandler(evm,
         boost::bind(&DbHandlerInitializer::ScheduleInit, this),
         cassandra_ips, cassandra_ports, db_name, ttl_map,
@@ -1658,12 +1664,10 @@ DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
 }
 
 DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
-    const std::string &db_name, int db_task_instance,
-    const std::string &timer_task_name,
+    const std::string &db_name, const std::string &timer_task_name,
     DbHandlerInitializer::InitializeDoneCb callback,
     DbHandlerPtr db_handler) :
     db_name_(db_name),
-    db_task_instance_(db_task_instance),
     db_handler_(db_handler),
     callback_(callback),
     db_init_timer_(TimerManager::CreateTimer(*evm->io_service(),
@@ -1676,7 +1680,7 @@ DbHandlerInitializer::~DbHandlerInitializer() {
 
 bool DbHandlerInitializer::Initialize() {
     boost::system::error_code ec;
-    if (!db_handler_->Init(true, db_task_instance_)) {
+    if (!db_handler_->Init(true)) {
         // Update connection info
         ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
             db_name_, ConnectionStatus::DOWN, db_handler_->GetEndpoints(),
@@ -1705,7 +1709,7 @@ DbHandlerPtr DbHandlerInitializer::GetDbHandler() const {
 void DbHandlerInitializer::Shutdown() {
     TimerManager::DeleteTimer(db_init_timer_);
     db_init_timer_ = NULL;
-    db_handler_->UnInit(true);
+    db_handler_->UnInit();
 }
 
 bool DbHandlerInitializer::InitTimerExpired() {
@@ -1727,6 +1731,6 @@ void DbHandlerInitializer::StartInitTimer() {
 }
 
 void DbHandlerInitializer::ScheduleInit() {
-    db_handler_->UnInitUnlocked(db_task_instance_);
+    db_handler_->UnInitUnlocked();
     StartInitTimer();
 }
