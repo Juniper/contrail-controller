@@ -87,7 +87,6 @@ public:
     void ResetDbQueueWaterMarkInfo();
     void SetSmQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm);
     void ResetSmQueueWaterMarkInfo();
-    void StartDbifReinit();
     virtual DbHandler * GetDbHandler() const { return db_handler_.get(); }
 
 private:
@@ -102,8 +101,6 @@ private:
     void HandleSeqRedisReply(const std::map<std::string,int32_t> &typeMap);
     void HandleDelRedisReply(bool res);
     void TimerErrorHandler(std::string name, std::string error);
-
-    bool DbConnectTimerExpired();
 
     void ProcessRulesCb(GenDb::DbOpResult::type dresult);
     bool StateMachineBackPressureTimerExpired();
@@ -127,7 +124,6 @@ private:
     const std::string name_;
     int instance_;
 
-    Timer *db_connect_timer_;
     tbb::atomic<bool> disconnected_;
     DbHandlerPtr db_handler_;
     GenDb::GenDbIf::DbAddColumnCb process_rules_cb_;

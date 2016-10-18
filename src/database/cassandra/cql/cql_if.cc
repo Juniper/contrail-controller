@@ -145,6 +145,37 @@ static std::string DbDataTypes2CassTypes(
     return std::string(DbDataType2CassType(v_db_types[0]));
 }
 
+static CassConsistency Db2CassConsistency(
+    GenDb::DbConsistency::type dconsistency) {
+    switch (dconsistency) {
+      case GenDb::DbConsistency::ANY:
+        return CASS_CONSISTENCY_ANY;
+      case GenDb::DbConsistency::ONE:
+        return CASS_CONSISTENCY_ONE;
+      case GenDb::DbConsistency::TWO:
+        return CASS_CONSISTENCY_TWO;
+      case GenDb::DbConsistency::THREE:
+        return CASS_CONSISTENCY_THREE;
+      case GenDb::DbConsistency::QUORUM:
+        return CASS_CONSISTENCY_QUORUM;
+      case GenDb::DbConsistency::ALL:
+        return CASS_CONSISTENCY_ALL;
+      case GenDb::DbConsistency::LOCAL_QUORUM:
+        return CASS_CONSISTENCY_LOCAL_QUORUM;
+      case GenDb::DbConsistency::EACH_QUORUM:
+        return CASS_CONSISTENCY_EACH_QUORUM;
+      case GenDb::DbConsistency::SERIAL:
+        return CASS_CONSISTENCY_SERIAL;
+      case GenDb::DbConsistency::LOCAL_SERIAL:
+        return CASS_CONSISTENCY_LOCAL_SERIAL;
+      case GenDb::DbConsistency::LOCAL_ONE:
+        return CASS_CONSISTENCY_LOCAL_ONE;
+      case GenDb::DbConsistency::UNKNOWN:
+      default:
+        return CASS_CONSISTENCY_UNKNOWN;
+    }
+}
+
 // Cass Query Printer
 class CassQueryPrinter : public boost::static_visitor<> {
  public:
@@ -973,21 +1004,23 @@ static void OnExecuteQueryAsync(CassFuture *future, void *data) {
         ctx->cb_(db_rc, std::auto_ptr<GenDb::ColList>());
         return;
     }
-    CassResultPtr result(CassResultPtr(cci->CassFutureGetResult(future),
-        cci));
-    // In case of select parse the results
-    if (cci->CassResultColumnCount(result.get())) {
-        std::auto_ptr<GenDb::ColList> collist(new GenDb::ColList);
-        collist->rowkey_ = ctx->row_key_;
-        collist->cfname_ = ctx->cf_name_;
-        if (ctx->is_dynamic_cf_) {
-            GetDynamicCfResult(cci, &result, ctx->rk_count_, ctx->ck_count_,
-                &collist->columns_);
-        } else {
-            GetStaticCfResult(cci, &result, &collist->columns_);
-        }
-        ctx->cb_(db_rc, collist);
-        return;
+    if (ctx->result_ctx_) {
+        CassQueryResultContext *rctx(ctx->result_ctx_.get());
+        CassResultPtr result(cci->CassFutureGetResult(future), cci);
+        // In case of select parse the results
+        if (cci->CassResultColumnCount(result.get())) {
+            std::auto_ptr<GenDb::ColList> collist(new GenDb::ColList);
+            collist->cfname_ = rctx->cf_name_;
+            collist->rowkey_ = rctx->row_key_;
+            if (rctx->is_dynamic_cf_) {
+                GetDynamicCfResult(cci, &result, rctx->rk_count_,
+                    rctx->ck_count_, &collist->columns_);
+            } else {
+                GetStaticCfResult(cci, &result, &collist->columns_);
+            }
+            ctx->cb_(db_rc, collist);
+            return;
+       }
     }
     ctx->cb_(db_rc, std::auto_ptr<GenDb::ColList>());
 }
@@ -995,54 +1028,48 @@ static void OnExecuteQueryAsync(CassFuture *future, void *data) {
 static void ExecuteQueryAsyncInternal(interface::CassLibrary *cci,
     CassSession *session, const char *qid, CassStatement *qstatement,
     CassConsistency consistency, CassAsyncQueryCallback cb,
-    const std::string &cfname, bool is_dynamic_cf,
-    const GenDb::DbDataValueVec &row_key = GenDb::DbDataValueVec(),
-    size_t rk_count = 0, size_t ck_count = 0) {
+    CassQueryResultContext *rctx = NULL) {
     cci->CassStatementSetConsistency(qstatement, consistency);
     CassFuturePtr future(cci->CassSessionExecute(session, qstatement), cci);
     std::auto_ptr<CassAsyncQueryContext> ctx(
-        new CassAsyncQueryContext(qid, cb, cci, cfname, is_dynamic_cf, row_key,
-                                  rk_count, ck_count));
+        new CassAsyncQueryContext(qid, cb, cci, rctx));
     cci->CassFutureSetCallback(future.get(), OnExecuteQueryAsync,
         ctx.release());
 }
 
 static void ExecuteQueryAsync(interface::CassLibrary *cci,
     CassSession *session, const char *query,
-    CassConsistency consistency, CassAsyncQueryCallback cb,
-    const std::string& cfname, bool is_dynamic_cf) {
+    CassConsistency consistency, CassAsyncQueryCallback cb) {
     CQLIF_LOG(DEBUG, "AsyncQuery: " << query);
     CassStatementPtr statement(cci->CassStatementNew(query, 0), cci);
     ExecuteQueryAsyncInternal(cci, session, query, statement.get(),
-        consistency, cb, cfname, is_dynamic_cf);
+        consistency, cb);
 }
 
 static void ExecuteQueryStatementAsync(interface::CassLibrary *cci,
-    CassSession *session,
-    const char *query_id, CassStatement *qstatement,
-    CassConsistency consistency, CassAsyncQueryCallback cb,
-    const std::string &cfname, bool is_dynamic_cf = false) {
+    CassSession *session, const char *query_id, CassStatement *qstatement,
+    CassConsistency consistency, CassAsyncQueryCallback cb) {
     ExecuteQueryAsyncInternal(cci, session, query_id, qstatement, consistency,
-        cb, cfname, is_dynamic_cf);
+        cb);
 }
 
 static void ExecuteQueryResultAsync(interface::CassLibrary *cci,
-    CassSession *session, const char *query,
-    CassConsistency consistency, CassAsyncQueryCallback cb, const std::string
-     &cfname, const GenDb::DbDataValueVec &row_key, bool is_dynamic_cf,
-    size_t rk_count = 0, size_t ck_count = 0) {
+    CassSession *session, const char *query, CassConsistency consistency,
+    CassAsyncQueryCallback cb, CassQueryResultContext *rctx) {
     CassStatementPtr statement(cci->CassStatementNew(query, 0), cci);
     ExecuteQueryAsyncInternal(cci, session, query, statement.get(),
-        consistency, cb, cfname, is_dynamic_cf, row_key, rk_count, ck_count);
+        consistency, cb, rctx);
 }
 
 static bool DynamicCfGetResultAsync(interface::CassLibrary *cci,
-    CassSession *session, const char *query,
-    size_t rk_count, size_t ck_count, CassConsistency consistency,
-    impl::CassAsyncQueryCallback cb, const std::string &cfname,
-    const GenDb::DbDataValueVec &row_key) {
-    ExecuteQueryResultAsync(cci, session, query,
-        consistency, cb, cfname, row_key, true, rk_count, ck_count);
+    CassSession *session, const char *query, CassConsistency consistency,
+    impl::CassAsyncQueryCallback cb, size_t rk_count, size_t ck_count,
+    const std::string &cfname, const GenDb::DbDataValueVec &row_key) {
+    std::auto_ptr<CassQueryResultContext> rctx(
+        new CassQueryResultContext(cfname, true, row_key,
+            rk_count, ck_count));
+    ExecuteQueryResultAsync(cci, session, query, consistency, cb,
+        rctx.release());
     return true;
 }
 
@@ -1063,9 +1090,11 @@ static bool DynamicCfGetResultSync(interface::CassLibrary *cci,
 static bool StaticCfGetResultAsync(interface::CassLibrary *cci,
     CassSession *session, const char *query,
     CassConsistency consistency, impl::CassAsyncQueryCallback cb,
-    const std::string& cf_name, const GenDb::DbDataValueVec &row_key) {
-    ExecuteQueryResultAsync(cci, session, query,
-        consistency, cb, cf_name, row_key, false);
+    const std::string& cfname, const GenDb::DbDataValueVec &row_key) {
+    std::auto_ptr<CassQueryResultContext> rctx(
+        new CassQueryResultContext(cfname, false, row_key));
+    ExecuteQueryResultAsync(cci, session, query, consistency, cb,
+        rctx.release());
     return true;
 }
 
@@ -1237,6 +1266,25 @@ static void CassLibraryLog(const CassLogMessage* message, void *data) {
     }
 }
 
+
+class WorkerTask : public Task {
+ public:
+    typedef boost::function<void(void)> FunctionPtr;
+    WorkerTask(FunctionPtr func, int task_id, int task_instance) :
+        Task(task_id, task_instance),
+        func_(func) {
+    }
+    bool Run() {
+        func_();
+        return true;
+    }
+    std::string Description() const {
+        return "cass::cql::impl::WorkerTask";
+    }
+ private:
+    FunctionPtr func_;
+};
+
 }  // namespace impl
 
 //
@@ -1378,12 +1426,12 @@ bool CqlIfImpl::GetPrepareInsertIntoTable(const std::string &table_name,
     return true;
 }
 
-bool CqlIfImpl::IsTablePresent(const GenDb::NewCf &cf) {
+bool CqlIfImpl::IsTablePresent(const std::string &table) {
     if (session_state_ != SessionState::CONNECTED) {
         return false;
     }
     return impl::IsCassTableMetaPresent(cci_, session_.get(), keyspace_,
-        cf.cfname_);
+        table);
 }
 
 bool CqlIfImpl::IsTableStatic(const std::string &table) {
@@ -1397,9 +1445,8 @@ bool CqlIfImpl::IsTableStatic(const std::string &table) {
 }
 
 bool CqlIfImpl::SelectFromTableAsync(const std::string &cfname,
-        const GenDb::DbDataValueVec &rkey,
-        CassConsistency consistency,
-        impl::CassAsyncQueryCallback cb) {
+    const GenDb::DbDataValueVec &rkey, CassConsistency consistency,
+    impl::CassAsyncQueryCallback cb) {
     if (session_state_ != SessionState::CONNECTED) {
         return false;
     }
@@ -1415,12 +1462,13 @@ bool CqlIfImpl::SelectFromTableAsync(const std::string &cfname,
         assert(impl::GetCassTableClusteringKeyCount(cci_, session_.get(),
             keyspace_, cfname, &ck_count));
         return impl::DynamicCfGetResultAsync(cci_, session_.get(),
-            query.c_str(), rk_count, ck_count, consistency, cb, cfname.c_str(), rkey);
+            query.c_str(), consistency, cb, rk_count, ck_count,
+            cfname, rkey);
    }
 }
 
-bool CqlIfImpl::SelectFromTableClusteringKeyRangeAsync(const std::string &cfname,
-    const GenDb::DbDataValueVec &rkey,
+bool CqlIfImpl::SelectFromTableClusteringKeyRangeAsync(
+    const std::string &cfname, const GenDb::DbDataValueVec &rkey,
     const GenDb::ColumnNameRange &ck_range, CassConsistency consistency,
     impl::CassAsyncQueryCallback cb) {
     if (session_state_ != SessionState::CONNECTED) {
@@ -1437,7 +1485,8 @@ bool CqlIfImpl::SelectFromTableClusteringKeyRangeAsync(const std::string &cfname
     assert(impl::GetCassTableClusteringKeyCount(cci_, session_.get(),
         keyspace_, cfname, &ck_count));
     return impl::DynamicCfGetResultAsync(cci_, session_.get(),
-        query.c_str(), rk_count, ck_count, consistency, cb, cfname.c_str(), rkey);
+        query.c_str(), consistency, cb, rk_count, ck_count, cfname.c_str(),
+        rkey);
 }
 
 bool CqlIfImpl::IsTableDynamic(const std::string &table) {
@@ -1653,8 +1702,7 @@ bool CqlIfImpl::InsertIntoTableInternal(std::auto_ptr<GenDb::ColList> v_columns,
         return false;
     }
     std::string query;
-    bool is_table_static = IsTableStatic(v_columns->cfname_);
-    if (is_table_static) {
+    if (IsTableStatic(v_columns->cfname_)) {
         query = impl::StaticCf2CassInsertIntoTable(v_columns.get());
     } else {
         query = impl::DynamicCf2CassInsertIntoTable(v_columns.get());
@@ -1664,7 +1712,7 @@ bool CqlIfImpl::InsertIntoTableInternal(std::auto_ptr<GenDb::ColList> v_columns,
             consistency);
     } else {
         impl::ExecuteQueryAsync(cci_, session_.get(), query.c_str(),
-            consistency, cb, v_columns->cfname_, !is_table_static);
+            consistency, cb);
         return true;
     }
 }
@@ -1705,8 +1753,7 @@ bool CqlIfImpl::InsertIntoTablePrepareInternal(
     }
     impl::CassStatementPtr qstatement(cci_->CassPreparedBind(prepared.get()),
         cci_);
-    bool is_table_static = IsTableStatic(v_columns->cfname_);
-    if (is_table_static) {
+    if (IsTableStatic(v_columns->cfname_)) {
         success = impl::StaticCf2CassPrepareBind(cci_, qstatement.get(),
             v_columns.get());
     } else {
@@ -1722,8 +1769,7 @@ bool CqlIfImpl::InsertIntoTablePrepareInternal(
     } else {
         std::string qid("Prepare: " + v_columns->cfname_);
         impl::ExecuteQueryStatementAsync(cci_, session_.get(), qid.c_str(),
-            qstatement.get(), consistency, cb, v_columns->cfname_,
-            !is_table_static);
+            qstatement.get(), consistency, cb);
         return true;
     }
 }
@@ -1767,16 +1813,15 @@ CqlIf::~CqlIf() {
 }
 
 // Init/Uninit
-bool CqlIf::Db_Init(const std::string& task_id, int task_instance) {
+bool CqlIf::Db_Init() {
     return impl_->ConnectSync();
 }
 
-void CqlIf::Db_Uninit(const std::string& task_id, int task_instance) {
-    Db_UninitUnlocked(task_id, task_instance);
+void CqlIf::Db_Uninit() {
+    Db_UninitUnlocked();
 }
 
-void CqlIf::Db_UninitUnlocked(const std::string& task_id,
-    int task_instance) {
+void CqlIf::Db_UninitUnlocked() {
     impl_->DisconnectSync();
 }
 
@@ -1832,13 +1877,18 @@ bool CqlIf::Db_AddColumnfamily(const GenDb::NewCf &cf) {
 
 bool CqlIf::Db_UseColumnfamily(const GenDb::NewCf &cf) {
     // Check existence of table
-    bool success(impl_->IsTablePresent(cf));
+    return Db_UseColumnfamily(cf.cfname_);
+}
+
+bool CqlIf::Db_UseColumnfamily(const std::string &cfname) {
+    // Check existence of table
+    bool success(impl_->IsTablePresent(cfname));
     if (!success) {
-        IncrementTableReadFailStats(cf.cfname_);
+        IncrementTableReadFailStats(cfname);
         IncrementErrors(GenDb::IfErrors::ERR_READ_COLUMN_FAMILY);
         return success;
     }
-    IncrementTableReadStats(cf.cfname_);
+    IncrementTableReadStats(cfname);
     return success;
 }
 
@@ -1860,9 +1910,27 @@ void CqlIf::OnAsyncColumnAddCompletion(GenDb::DbOpResult::type drc,
     }
 }
 
+struct AsyncRowGetCallbackContext {
+    AsyncRowGetCallbackContext(GenDb::GenDbIf::DbGetRowCb cb,
+        GenDb::DbOpResult::type drc, std::auto_ptr<GenDb::ColList> row) :
+        cb_(cb),
+        drc_(drc),
+        row_(row) {
+    }
+    GenDb::GenDbIf::DbGetRowCb cb_;
+    GenDb::DbOpResult::type drc_;
+    std::auto_ptr<GenDb::ColList> row_;
+};
+
+static void AsyncRowGetCompletionCallback(
+    boost::shared_ptr<AsyncRowGetCallbackContext> cb_ctx) {
+    cb_ctx->cb_(cb_ctx->drc_, cb_ctx->row_);
+}
+
 void CqlIf::OnAsyncRowGetCompletion(GenDb::DbOpResult::type drc,
     std::auto_ptr<GenDb::ColList> row, std::string cfname,
-    GenDb::GenDbIf::DbGetRowCb cb) {
+    GenDb::GenDbIf::DbGetRowCb cb, bool use_worker, int task_id,
+    int task_instance) {
     if (drc == GenDb::DbOpResult::OK) {
         IncrementTableReadStats(cfname);
     } else if (drc == GenDb::DbOpResult::BACK_PRESSURE) {
@@ -1872,16 +1940,30 @@ void CqlIf::OnAsyncRowGetCompletion(GenDb::DbOpResult::type drc,
         IncrementTableReadFailStats(cfname);
         IncrementErrors(GenDb::IfErrors::ERR_READ_COLUMN);
     }
-    if (!cb.empty()) {
-        cb(drc, row);
+    if (use_worker) {
+        if (!cb.empty()) {
+            boost::shared_ptr<AsyncRowGetCallbackContext> ctx(
+                new AsyncRowGetCallbackContext(cb, drc, row));
+            impl::WorkerTask *worker(new impl::WorkerTask(
+                boost::bind(&AsyncRowGetCompletionCallback, ctx),
+                    task_id, task_instance));
+            TaskScheduler *scheduler = TaskScheduler::GetInstance();
+            scheduler->Enqueue(worker);
+        }
+    } else {
+        if (!cb.empty()) {
+            cb(drc, row);
+        }
     }
 }
 
-bool CqlIf::Db_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
-    return Db_AddColumn(cl, GenDb::GenDbIf::DbAddColumnCb());
+void CqlIf::OnAsyncRowGetCompletion(GenDb::DbOpResult::type drc,
+    std::auto_ptr<GenDb::ColList> row, std::string cfname,
+    GenDb::GenDbIf::DbGetRowCb cb) {
+    OnAsyncRowGetCompletion(drc, row, cfname, cb, false, -1, -2);
 }
-
 bool CqlIf::Db_AddColumn(std::auto_ptr<GenDb::ColList> cl,
+    GenDb::DbConsistency::type dconsistency,
     GenDb::GenDbIf::DbAddColumnCb cb) {
     std::string cfname(cl->cfname_);
     if (!initialized_) {
@@ -1889,14 +1971,15 @@ bool CqlIf::Db_AddColumn(std::auto_ptr<GenDb::ColList> cl,
         IncrementErrors(GenDb::IfErrors::ERR_WRITE_COLUMN);
         return false;
     }
+    CassConsistency consistency(impl::Db2CassConsistency(dconsistency));
     bool success;
     if (use_prepared_for_insert_ &&
         impl_->IsInsertIntoTablePrepareSupported(cfname)) {
-        success = impl_->InsertIntoTablePrepareAsync(cl, CASS_CONSISTENCY_ONE,
+        success = impl_->InsertIntoTablePrepareAsync(cl, consistency,
             boost::bind(&CqlIf::OnAsyncColumnAddCompletion, this, _1, _2, cfname,
             cb));
     } else {
-        success = impl_->InsertIntoTableAsync(cl, CASS_CONSISTENCY_ONE,
+        success = impl_->InsertIntoTableAsync(cl, consistency,
             boost::bind(&CqlIf::OnAsyncColumnAddCompletion, this, _1, _2, cfname,
             cb));
     }
@@ -1908,9 +1991,11 @@ bool CqlIf::Db_AddColumn(std::auto_ptr<GenDb::ColList> cl,
     return success;
 }
 
-bool CqlIf::Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl) {
+bool CqlIf::Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl,
+    GenDb::DbConsistency::type dconsistency) {
     std::string cfname(cl->cfname_);
-    bool success(impl_->InsertIntoTableSync(cl, CASS_CONSISTENCY_ONE));
+    CassConsistency consistency(impl::Db2CassConsistency(dconsistency));
+    bool success(impl_->InsertIntoTableSync(cl, consistency));
     if (!success) {
         IncrementTableWriteFailStats(cfname);
         IncrementErrors(GenDb::IfErrors::ERR_WRITE_COLUMN);
@@ -1922,12 +2007,12 @@ bool CqlIf::Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl) {
 
 // Read
 bool CqlIf::Db_GetRowAsync(const std::string &cfname,
-    const GenDb::DbDataValueVec &rowkey,
-    const GenDb::ColumnNameRange &crange, DbGetRowCb cb) {
-    bool success = impl_->SelectFromTableClusteringKeyRangeAsync(cfname,
-        rowkey, crange, CASS_CONSISTENCY_ONE,
-        boost::bind(&CqlIf::OnAsyncRowGetCompletion, this, _1, _2,
-        cfname, cb));
+    const GenDb::DbDataValueVec &rowkey, const GenDb::ColumnNameRange &crange,
+    GenDb::DbConsistency::type dconsistency, GenDb::GenDbIf::DbGetRowCb cb) {
+    CassConsistency consistency(impl::Db2CassConsistency(dconsistency));
+    bool success(impl_->SelectFromTableClusteringKeyRangeAsync(cfname, rowkey,
+        crange, consistency, boost::bind(&CqlIf::OnAsyncRowGetCompletion, this,
+        _1, _2, cfname, cb)));
     if (!success) {
         IncrementTableReadFailStats(cfname);
         IncrementErrors(GenDb::IfErrors::ERR_READ_COLUMN_FAMILY);
@@ -1936,11 +2021,43 @@ bool CqlIf::Db_GetRowAsync(const std::string &cfname,
 }
 
 bool CqlIf::Db_GetRowAsync(const std::string &cfname,
-    const GenDb::DbDataValueVec &rowkey, DbGetRowCb cb) {
-    bool success = impl_->SelectFromTableAsync(cfname, rowkey,
-        CASS_CONSISTENCY_ONE,
-        boost::bind(&CqlIf::OnAsyncRowGetCompletion, this, _1,
-        _2, cfname, cb));
+    const GenDb::DbDataValueVec &rowkey, const GenDb::ColumnNameRange &crange,
+    GenDb::DbConsistency::type dconsistency, int task_id, int task_instance,
+    GenDb::GenDbIf::DbGetRowCb cb) {
+    CassConsistency consistency(impl::Db2CassConsistency(dconsistency));
+    bool success(impl_->SelectFromTableClusteringKeyRangeAsync(cfname, rowkey,
+        crange, consistency, boost::bind(&CqlIf::OnAsyncRowGetCompletion, this,
+        _1, _2, cfname, cb, true, task_id, task_instance)));
+    if (!success) {
+        IncrementTableReadFailStats(cfname);
+        IncrementErrors(GenDb::IfErrors::ERR_READ_COLUMN_FAMILY);
+    }
+    return success;
+}
+
+bool CqlIf::Db_GetRowAsync(const std::string &cfname,
+    const GenDb::DbDataValueVec &rowkey,
+    GenDb::DbConsistency::type dconsistency,
+    GenDb::GenDbIf::DbGetRowCb cb) {
+    CassConsistency consistency(impl::Db2CassConsistency(dconsistency));
+    bool success(impl_->SelectFromTableAsync(cfname, rowkey,
+        consistency, boost::bind(&CqlIf::OnAsyncRowGetCompletion, this, _1, _2,
+        cfname, cb)));
+    if (!success) {
+        IncrementTableReadFailStats(cfname);
+        IncrementErrors(GenDb::IfErrors::ERR_READ_COLUMN_FAMILY);
+    }
+    return success;
+}
+
+bool CqlIf::Db_GetRowAsync(const std::string &cfname,
+    const GenDb::DbDataValueVec &rowkey,
+    GenDb::DbConsistency::type dconsistency, int task_id, int task_instance,
+    GenDb::GenDbIf::DbGetRowCb cb) {
+    CassConsistency consistency(impl::Db2CassConsistency(dconsistency));
+    bool success(impl_->SelectFromTableAsync(cfname, rowkey,
+        consistency, boost::bind(&CqlIf::OnAsyncRowGetCompletion, this, _1, _2,
+        cfname, cb, true, task_id, task_instance)));
     if (!success) {
         IncrementTableReadFailStats(cfname);
         IncrementErrors(GenDb::IfErrors::ERR_READ_COLUMN_FAMILY);
@@ -1949,9 +2066,11 @@ bool CqlIf::Db_GetRowAsync(const std::string &cfname,
 }
 
 bool CqlIf::Db_GetRow(GenDb::ColList *out, const std::string &cfname,
-    const GenDb::DbDataValueVec &rowkey) {
+    const GenDb::DbDataValueVec &rowkey,
+    GenDb::DbConsistency::type dconsistency) {
+    CassConsistency consistency(impl::Db2CassConsistency(dconsistency));
     bool success(impl_->SelectFromTableSync(cfname, rowkey,
-        CASS_CONSISTENCY_ONE, &out->columns_));
+        consistency, &out->columns_));
     if (!success) {
         IncrementTableReadFailStats(cfname);
         IncrementErrors(GenDb::IfErrors::ERR_READ_COLUMN);

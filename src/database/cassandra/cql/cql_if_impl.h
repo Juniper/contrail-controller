@@ -153,28 +153,35 @@ typedef CassSharedPtr<const CassSchemaMeta> CassSchemaMetaPtr;
 typedef boost::function<void(GenDb::DbOpResult::type,
     std::auto_ptr<GenDb::ColList>)> CassAsyncQueryCallback;
 
-struct CassAsyncQueryContext {
-    CassAsyncQueryContext(const char *query_id, CassAsyncQueryCallback cb,
-        interface::CassLibrary *cci, const std::string &cf_name, bool is_dynamic_cf,
+struct CassQueryResultContext {
+    CassQueryResultContext(const std::string &cf_name, bool is_dynamic_cf,
         const GenDb::DbDataValueVec &row_key, size_t rk_count = 0,
         size_t ck_count = 0) :
-        query_id_(query_id),
-        cb_(cb),
-        cci_(cci),
         cf_name_(cf_name),
         is_dynamic_cf_(is_dynamic_cf),
         row_key_(row_key),
         rk_count_(rk_count),
         ck_count_(ck_count) {
     }
-    std::string query_id_;
-    CassAsyncQueryCallback cb_;
-    interface::CassLibrary *cci_;
     std::string cf_name_;
     bool is_dynamic_cf_;
     GenDb::DbDataValueVec row_key_;
     size_t rk_count_;
     size_t ck_count_;
+};
+
+struct CassAsyncQueryContext {
+    CassAsyncQueryContext(const char *query_id, CassAsyncQueryCallback cb,
+        interface::CassLibrary *cci, CassQueryResultContext *rctx = NULL) :
+        query_id_(query_id),
+        cb_(cb),
+        cci_(cci),
+        result_ctx_(rctx) {
+    }
+    std::string query_id_;
+    CassAsyncQueryCallback cb_;
+    interface::CassLibrary *cci_;
+    boost::scoped_ptr<CassQueryResultContext> result_ctx_;
 };
 
 }  // namespace impl
@@ -200,7 +207,7 @@ class CqlIfImpl {
     bool CreateTableIfNotExistsSync(const GenDb::NewCf &cf,
         CassConsistency consistency);
     bool LocatePrepareInsertIntoTable(const GenDb::NewCf &cf);
-    bool IsTablePresent(const GenDb::NewCf &cf);
+    bool IsTablePresent(const std::string &table);
     bool IsTableStatic(const std::string &table);
     bool IsTableDynamic(const std::string &table);
 

@@ -17,11 +17,13 @@ class CqlIfMock : public cass::cql::CqlIf {
     ~CqlIfMock() {}
 
     bool Db_AddColumn(std::auto_ptr<GenDb::ColList> cl,
+        GenDb::DbConsistency::type dconsistency,
         GenDb::GenDbIf::DbAddColumnCb db_cb) {
         return Db_AddColumnProxy(cl.get());
     }
 
-    bool Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl) {
+    bool Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl,
+        GenDb::DbConsistency::type dconsistency) {
         return Db_AddColumnSyncProxy(cl.get());
     }
 
@@ -36,9 +38,9 @@ class CqlIfMock : public cass::cql::CqlIf {
     MOCK_METHOD1(Db_AddColumnfamily, bool(const GenDb::NewCf&));
     MOCK_METHOD1(Db_AddColumnProxy, bool(GenDb::ColList *cl));
     MOCK_METHOD1(Db_AddColumnSyncProxy, bool(GenDb::ColList *cl));
-    MOCK_METHOD4(Db_GetRowAsync, bool(const std::string& cfname,
+    MOCK_METHOD5(Db_GetRowAsync, bool(const std::string& cfname,
         const GenDb::DbDataValueVec& rowkey, const GenDb::ColumnNameRange &crange,
-        DbGetRowCb cb));
+        GenDb::DbConsistency::type dconsistency, DbGetRowCb cb));
 };
 
 #endif // ANALYTICS_TEST_CQL_IF_MOCK_H_

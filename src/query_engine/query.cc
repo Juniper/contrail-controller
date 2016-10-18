@@ -898,7 +898,7 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
     QE_TRACE(DEBUG, "Initializing database");
 
     boost::system::error_code ec;
-    if (!dbif_->Db_Init("qe::DbHandler", -1)) {
+    if (!dbif_->Db_Init()) {
         QE_LOG(ERROR, "Database initialization failed");
         this->status_details = EIO;
     }
@@ -1024,7 +1024,7 @@ QueryEngine::QueryEngine(EventManager *evm,
     while (retry == true) {
         retry = false;
 
-        if (!dbif_->Db_Init("qe::DbHandler", -1)) {
+        if (!dbif_->Db_Init()) {
             QE_LOG_NOQID(ERROR, "Database initialization failed");
             retry = true;
         }
@@ -1077,7 +1077,7 @@ QueryEngine::QueryEngine(EventManager *evm,
                 std::string(), ConnectionStatus::DOWN,
                 dbif_->Db_GetEndpoints(), std::string());
             Q_E_LOG_LOG("QeInit", SandeshLevel::SYS_WARN, ss.str());
-            dbif_->Db_Uninit("qe::DbHandler", -1);
+            dbif_->Db_Uninit();
             sleep(5);
         }
     }
@@ -1096,7 +1096,8 @@ QueryEngine::QueryEngine(EventManager *evm,
             for (int ttli=0; ttli<=TtlType::GLOBAL_TTL; ttli++)
                 ttl_cached[ttli] = false;
 
-            if (dbif_->Db_GetRow(&col_list, cfname, key)) {
+            if (dbif_->Db_GetRow(&col_list, cfname, key,
+                GenDb::DbConsistency::LOCAL_ONE)) {
                 for (GenDb::NewColVec::iterator it = col_list.columns_.begin();
                         it != col_list.columns_.end(); it++) {
                     std::string col_name;
@@ -1159,7 +1160,7 @@ QueryEngine::QueryEngine(EventManager *evm,
 
 QueryEngine::~QueryEngine() {
     if (dbif_) {
-        dbif_->Db_Uninit("qe::DbHandler", -1);
+        dbif_->Db_Uninit();
         dbif_->Db_SetInitDone(false);
     }
 }
