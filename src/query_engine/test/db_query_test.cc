@@ -24,24 +24,29 @@ struct map_value {
     const void * ctx;
     void * privdata;
 };
+
 class DbQueryUnitTest: public ::testing::Test {
-     public:
-         bool GetRowAsyncSuccess(const std::string& cfname,
-             const GenDb::DbDataValueVec& rowkey,
-             const GenDb::ColumnNameRange &crange,
-             GenDb::GenDbIf::DbGetRowCb cb);
-        bool GetRowAsyncFailure(const std::string& cfname,
-             const GenDb::DbDataValueVec& rowkey,
-             const GenDb::ColumnNameRange &crange,
-             GenDb::GenDbIf::DbGetRowCb cb);
-        void subquery_processed(QueryUnit *subquery);
-        void cb(void *handle, QEOpServerProxy::QPerfInfo qpi, std::auto_ptr<WhereResultT> where_result);
-        std::map<uint64_t, map_value> m;
-        std::map<uint64_t, const std::auto_ptr<GenDb::NewColVec> > kv;
+ public:
+    bool GetRowAsyncSuccess(const std::string& cfname,
+        const GenDb::DbDataValueVec& rowkey,
+        const GenDb::ColumnNameRange &crange,
+        GenDb::DbConsistency::type dconsistency,
+        GenDb::GenDbIf::DbGetRowCb cb);
+    bool GetRowAsyncFailure(const std::string& cfname,
+        const GenDb::DbDataValueVec& rowkey,
+        const GenDb::ColumnNameRange &crange,
+        GenDb::DbConsistency::type dconsistency,
+        GenDb::GenDbIf::DbGetRowCb cb);
+    void subquery_processed(QueryUnit *subquery);
+    void cb(void *handle, QEOpServerProxy::QPerfInfo qpi, std::auto_ptr<WhereResultT> where_result);
+
+    std::map<uint64_t, map_value> m;
+    std::map<uint64_t, const std::auto_ptr<GenDb::NewColVec> > kv;
 };
 
 bool DbQueryUnitTest::GetRowAsyncSuccess(const std::string& cfname,
-        const GenDb::DbDataValueVec& rowkey, const GenDb::ColumnNameRange &crange, GenDb::GenDbIf::DbGetRowCb cb) {
+    const GenDb::DbDataValueVec& rowkey, const GenDb::ColumnNameRange &crange,
+    GenDb::DbConsistency::type dconsistency, GenDb::GenDbIf::DbGetRowCb cb) {
     // Return the following for every row
     boost::uuids::random_generator rgen_;
     boost::uuids::uuid unm(rgen_());
@@ -61,10 +66,11 @@ bool DbQueryUnitTest::GetRowAsyncSuccess(const std::string& cfname,
 }
 
 bool DbQueryUnitTest::GetRowAsyncFailure(const std::string& cfname,
-        const GenDb::DbDataValueVec& rowkey, const GenDb::ColumnNameRange &crange, GenDb::GenDbIf::DbGetRowCb cb) {
-        std::auto_ptr<GenDb::ColList> columns(new GenDb::ColList());
-        cb(GenDb::DbOpResult::ERROR, columns);
-        return true;
+    const GenDb::DbDataValueVec& rowkey, const GenDb::ColumnNameRange &crange,
+    GenDb::DbConsistency::type dconsistency, GenDb::GenDbIf::DbGetRowCb cb) {
+    std::auto_ptr<GenDb::ColList> columns(new GenDb::ColList());
+    cb(GenDb::DbOpResult::ERROR, columns);
+    return true;
 }
 
 void DbQueryUnitTest::subquery_processed(QueryUnit *subquery) {
@@ -85,7 +91,11 @@ TEST_F(DbQueryUnitTest, ProcessQuery) {
     analytics_query_mock.query_id = "abcd";
 
     DbQueryUnit *dbq = new DbQueryUnit(&analytics_query_mock, &analytics_query_mock);
-    EXPECT_CALL(*(CqlIfMock *)(analytics_query_mock.dbif_.get()), Db_GetRowAsync(_,_,_,_)).Times(AnyNumber()).WillRepeatedly(Invoke(this, &DbQueryUnitTest::GetRowAsyncSuccess));
+    EXPECT_CALL(*(CqlIfMock *)(analytics_query_mock.dbif_.get()),
+        Db_GetRowAsync(_,_,_,_,_))
+            .Times(AnyNumber())
+            .WillRepeatedly(Invoke(this,
+                &DbQueryUnitTest::GetRowAsyncSuccess));
     EXPECT_CALL(analytics_query_mock, table()).Times(AnyNumber()).WillRepeatedly(Return("table1"));
     EXPECT_CALL(analytics_query_mock, end_time()).Times(AnyNumber()).WillRepeatedly(Return(1473385977637609));
     EXPECT_CALL(analytics_query_mock, from_time()).Times(AnyNumber()).WillRepeatedly(Return(1473384977637609));
@@ -102,7 +112,11 @@ TEST_F(DbQueryUnitTest, ProcessQueryFailure) {
     analytics_query_mock.query_id = "abcd";
 
     DbQueryUnit *dbq = new DbQueryUnit(&analytics_query_mock, &analytics_query_mock);
-    EXPECT_CALL(*(CqlIfMock *)(analytics_query_mock.dbif_.get()), Db_GetRowAsync(_,_,_,_)).Times(AnyNumber()).WillRepeatedly(Invoke(this, &DbQueryUnitTest::GetRowAsyncFailure));
+    EXPECT_CALL(*(CqlIfMock *)(analytics_query_mock.dbif_.get()),
+        Db_GetRowAsync(_,_,_,_,_))
+            .Times(AnyNumber())
+            .WillRepeatedly(Invoke(this,
+                &DbQueryUnitTest::GetRowAsyncFailure));
     EXPECT_CALL(analytics_query_mock, table()).Times(AnyNumber()).WillRepeatedly(Return("table1"));
     EXPECT_CALL(analytics_query_mock, end_time()).Times(AnyNumber()).WillRepeatedly(Return(1473385977637609));
     EXPECT_CALL(analytics_query_mock, from_time()).Times(AnyNumber()).WillRepeatedly(Return(1473384977637609));

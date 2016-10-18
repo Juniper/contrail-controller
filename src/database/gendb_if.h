@@ -20,6 +20,23 @@
 
 namespace GenDb {
 
+struct DbConsistency {
+    enum type {
+        UNKNOWN,
+        ANY,
+        ONE,
+        TWO,
+        THREE,
+        QUORUM,
+        ALL,
+        LOCAL_QUORUM,
+        EACH_QUORUM,
+        SERIAL,
+        LOCAL_SERIAL,
+        LOCAL_ONE,
+    };
+};
+
 /* New stuff */
 typedef boost::variant<boost::blank, std::string, uint64_t, uint32_t,
     boost::uuids::uuid, uint8_t, uint16_t, double, IpAddress> DbDataValue;
@@ -156,16 +173,15 @@ public:
     typedef boost::function<void(size_t)> DbQueueWaterMarkCb;
     typedef boost::function<void(DbOpResult::type)> DbAddColumnCb;
     typedef boost::function<void(DbOpResult::type,
-                                 std::auto_ptr<GenDb::ColList>)> DbGetRowCb;
+                                 std::auto_ptr<ColList>)> DbGetRowCb;
 
     GenDbIf() {}
     virtual ~GenDbIf() {}
 
     // Init/Uninit
-    virtual bool Db_Init(const std::string& task_id, int task_instance) = 0;
-    virtual void Db_Uninit(const std::string& task_id, int task_instance) = 0;
-    virtual void Db_UninitUnlocked(const std::string& task_id,
-        int task_instance) = 0;
+    virtual bool Db_Init() = 0;
+    virtual void Db_Uninit() = 0;
+    virtual void Db_UninitUnlocked() = 0;
     virtual void Db_SetInitDone(bool init_done) = 0;
     // Tablespace
     virtual bool Db_SetTablespace(const std::string& tablespace) = 0;
@@ -174,23 +190,32 @@ public:
     // Column family
     virtual bool Db_AddColumnfamily(const NewCf& cf) = 0;
     virtual bool Db_UseColumnfamily(const NewCf& cf) = 0;
+    virtual bool Db_UseColumnfamily(const std::string& cfname) = 0;
     // Column
-    virtual bool Db_AddColumn(std::auto_ptr<ColList> cl) = 0;
     virtual bool Db_AddColumn(std::auto_ptr<ColList> cl,
-        DbAddColumnCb cb) = 0;
-    virtual bool Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl) = 0;
+        DbConsistency::type dconsistency, DbAddColumnCb cb) = 0;
+    virtual bool Db_AddColumnSync(std::auto_ptr<ColList> cl,
+        DbConsistency::type dconsistency) = 0;
     // Read/Get
     virtual bool Db_GetRow(ColList *ret, const std::string& cfname,
-        const DbDataValueVec& rowkey) = 0;
+        const DbDataValueVec& rowkey, DbConsistency::type dconsistency) = 0;
     virtual bool Db_GetMultiRow(ColListVec *ret,
         const std::string& cfname, const std::vector<DbDataValueVec>& key) = 0;
     virtual bool Db_GetMultiRow(ColListVec *ret,
         const std::string& cfname, const std::vector<DbDataValueVec>& key,
-        const GenDb::ColumnNameRange& crange) = 0;
+        const ColumnNameRange& crange) = 0;
     virtual bool Db_GetRowAsync(const std::string& cfname,
-        const DbDataValueVec& rowkey, DbGetRowCb cb) = 0;
+        const DbDataValueVec& rowkey, DbConsistency::type dconsistency,
+        int task_id, int task_instance, DbGetRowCb cb) = 0;
     virtual bool Db_GetRowAsync(const std::string& cfname,
-        const DbDataValueVec& rowkey, const GenDb::ColumnNameRange &crange,
+        const DbDataValueVec& rowkey, DbConsistency::type dconsistency,
+        DbGetRowCb cb) = 0;
+    virtual bool Db_GetRowAsync(const std::string& cfname,
+        const DbDataValueVec& rowkey, const ColumnNameRange &crange,
+        DbConsistency::type dconsistency, DbGetRowCb cb) = 0;
+    virtual bool Db_GetRowAsync(const std::string& cfname,
+        const DbDataValueVec& rowkey, const ColumnNameRange &crange,
+        DbConsistency::type dconsistency, int task_id, int task_instance,
         DbGetRowCb cb) = 0;
     // Queue
     virtual bool Db_GetQueueStats(uint64_t *queue_count,
