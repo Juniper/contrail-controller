@@ -63,6 +63,8 @@ public:
     static const int kOpenTime = 15;         // seconds
     static const int kConnectInterval = 30;  // seconds
     static const int kHoldTime = 90;         // seconds
+    static const int kEstablishingTime = 45; // seconds
+    static const int kStreamFeatureTime = 15;// seconds
     static const int kMaxAttempts = 4;
     static const int kJitter = 10;           // percentage
 
@@ -80,6 +82,11 @@ public:
     void CancelConnectTimer();
     virtual void StartOpenTimer(int seconds);
     void CancelOpenTimer();
+    virtual void StartEstablishingTimer();
+    void CancelEstablishingTimer();
+    bool IsEstablishingTimerRunning();
+    virtual void StartStreamFeatureTimer();
+    void CancelStreamFeatureTimer();
 
     int GetConfiguredHoldTime() const;
     virtual void StartHoldTimer();
@@ -175,14 +182,17 @@ public:
     bool ConnectTimerCancelled() { return connect_timer_->cancelled(); }
     bool OpenTimerCancelled() { return open_timer_->cancelled(); }
     bool HoldTimerCancelled() { return hold_timer_->cancelled(); }
+    bool EstablishingTimerCancelled() { return establishing_timer_->cancelled(); }
     void AssertOnHoldTimeout();
     bool HoldTimerExpired();
+    bool StreamFeatureTimerExpired();
 
 private:
     friend class XmppStateMachineTest;
 
     bool ConnectTimerExpired();
     bool OpenTimerExpired();
+    bool EstablishingTimerExpired();
     bool Enqueue(const sc::event_base &ev);
     bool DequeueEvent(boost::intrusive_ptr<const sc::event_base> &event);
     bool ProcessStreamHeaderMessage(XmppSession *session,
@@ -194,6 +204,8 @@ private:
     TcpServer *server_;
     Timer *connect_timer_;
     Timer *open_timer_;
+    Timer *establishing_timer_;
+    Timer *stream_feature_timer_;
     Timer *hold_timer_;
     int hold_time_;
     uint32_t attempts_;
