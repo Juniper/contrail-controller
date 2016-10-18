@@ -1374,10 +1374,12 @@ public:
            return kInvalidComponentNHIdx;
        }
        uint32_t idx = seed % size;
-       while (component_nh_list_[idx].get() == NULL) {
+       while (component_nh_list_[idx].get() == NULL ||
+              component_nh_list_[idx]->nh() == NULL ||
+              component_nh_list_[idx]->nh()->IsActive() == false) {
            idx = (idx + 1) % size;
            if (idx == seed % size) {
-               idx = 0xffff;
+               idx = kInvalidComponentNHIdx;
                break;
            }
        }
