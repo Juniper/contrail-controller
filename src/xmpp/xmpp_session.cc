@@ -304,8 +304,9 @@ void XmppSession::OnRead(Buffer buffer) {
                 buf_.clear();
                 break;
             }
-
+             
             connection_->ReceiveMsg(this, xml);
+
 
         } else {
             // Read more data. Either we have partial match

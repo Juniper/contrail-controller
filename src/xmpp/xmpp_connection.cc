@@ -419,6 +419,7 @@ void XmppConnection::SendKeepAlive() {
     assert(len > 0);
     session_->Send(data, len, NULL);
     stats_[1].keepalive++;
+    LOG(ERROR, "\n\n **** Send Keepalive ****\n\n");
     LogKeepAliveSend();
 }
 
