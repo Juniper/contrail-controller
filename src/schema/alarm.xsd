@@ -14,6 +14,9 @@
         <xsd:enumeration value="not in"/>
         <xsd:enumeration value="size=="/>
         <xsd:enumeration value="size!="/>
+        <xsd:enumeration value=".."/>
+        <xsd:enumeration value="&lt"/>
+        <xsd:enumeration value="&gt"/>
     </xsd:restriction>
 </xsd:simpleType>
 

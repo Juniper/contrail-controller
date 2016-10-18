@@ -352,8 +352,12 @@ class AlarmProcessor(object):
             return val1 == val2
         elif operation == '!=':
             return val1 != val2
+        elif operation == '<':
+            return val1 < val2
         elif operation == '<=':
             return val1 <= val2
+        elif operation == '>':
+            return val1 > val2
         elif operation == '>=':
             return val1 >= val2
         elif operation == 'in':
@@ -372,6 +376,9 @@ class AlarmProcessor(object):
             if not isinstance(val1, list):
                 return True
             return len(val1) != val2
+        elif operation == '..':
+            val21, val22 = val2.split('-'); 
+            return ((int(val1) >= int(val21)) and (int(val1) <= int(val22)))
     # end _compare_operand_vals
 
     def _get_alarm_match(self, uve, exp, operand1_val, operand2_val,
