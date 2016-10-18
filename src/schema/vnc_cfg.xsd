@@ -571,6 +571,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              description='User provided name for this subnet'/>
         <xsd:element name="alloc-unit"   type="xsd:integer" default='1' required='optional' operation='CRD'
              description='allocation unit for this subnet to allocate bulk ip addresses'/>
+        <xsd:element name="defer-reallocation" type="xsd:boolean" default='false' required='optional' operation='CRD'
+             description='enable deferred reallocation of released ip address'/>
     </xsd:all>
 </xsd:complexType>
 
