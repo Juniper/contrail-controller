@@ -317,9 +317,10 @@ class UVEServer(object):
                         if attr not in state[key][typ]:
                             state[key][typ][attr] = {}
                         if dsource in state[key][typ][attr]:
-                            print "Found Dup %s:%s:%s:%s:%s = %s" % \
+                            self._logger.debug(\
+                            "Found Dup %s:%s:%s:%s:%s = %s" % \
                                 (key, typ, attr, source, mdule, state[
-                                key][typ][attr][dsource])
+                                key][typ][attr][dsource]))
                         state[key][typ][attr][dsource] = snhdict[attr]
 
                 pa = ParallelAggregator(state, self._uve_reverse_map)
@@ -740,6 +741,7 @@ class ParallelAggregator:
         '''
         result = {}
         ltyp = None
+        objattr = None
         try:
             for typ in self._state[key].keys():
                 ltyp = typ
@@ -808,8 +810,8 @@ class ParallelAggregator:
         except KeyError:
             pass
         except Exception as ex:
-            print "Aggregation Error key %s type %s in %s" % (key, str(ltyp), str(self._state))
-            raise ex
+            print "Aggregation Error key %s type %s attr %s in %s" % \
+                    (key, str(ltyp), str(objattr), str(self._state[key][typ][objattr]))
         return result
 
 if __name__ == '__main__':
