@@ -157,6 +157,12 @@ TEST_F(XmppServerTest, Connection) {
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_NE(static_cast<XmppBgpMockPeer *>(NULL), peer_);
+    
+    // client channel
+    XmppConnection *cconnection = b_->FindConnection(XMPP_CONTROL_SERV);
+    ASSERT_FALSE(cconnection == NULL);
+    TASK_UTIL_EXPECT_EQ(xmsm::ESTABLISHED, cconnection->GetStateMcState());
+    
     xmpp_peer_manager_->VisitPeers(
             boost::bind(&XmppPeerManagerMock::XmppVisit, 
                 xmpp_peer_manager_.get(), _1));
@@ -170,11 +176,6 @@ TEST_F(XmppServerTest, Connection) {
     TASK_UTIL_EXPECT_NE(static_cast<XmppConnection *>(NULL),
             (sconnection = a_->FindConnection(SUB_ADDR)));
     // Check for server, client connection is established. Wait upto 1 sec
-    TASK_UTIL_EXPECT_EQ(xmsm::ESTABLISHED, sconnection->GetStateMcState());
-
-    // client channel
-    XmppConnection *cconnection = b_->FindConnection(XMPP_CONTROL_SERV);
-    ASSERT_FALSE(cconnection == NULL);
     TASK_UTIL_EXPECT_EQ(xmsm::ESTABLISHED, sconnection->GetStateMcState());
 
 
