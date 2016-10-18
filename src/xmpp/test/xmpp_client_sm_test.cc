@@ -102,6 +102,7 @@ protected:
             EXPECT_TRUE(!ConnectTimerRunning());
             EXPECT_TRUE(!OpenTimerRunning());
             EXPECT_TRUE(!HoldTimerRunning());
+            EXPECT_TRUE(!EstablishingTimerRunning());
             EXPECT_TRUE(sm_->session() == NULL);
             EXPECT_TRUE(connection_->session() == NULL);
             break;
@@ -110,6 +111,7 @@ protected:
             EXPECT_TRUE(ConnectTimerRunning());
             EXPECT_TRUE(!OpenTimerRunning());
             EXPECT_TRUE(!HoldTimerRunning());
+            EXPECT_TRUE(!EstablishingTimerRunning());
             EXPECT_TRUE(connection_->session() == NULL);
             //EXPECT_TRUE(sm_->session() == NULL);
             break;
@@ -118,6 +120,7 @@ protected:
             EXPECT_TRUE(ConnectTimerRunning());
             EXPECT_TRUE(!OpenTimerRunning());
             EXPECT_TRUE(!HoldTimerRunning());
+            EXPECT_TRUE(!EstablishingTimerRunning());
             EXPECT_TRUE(sm_->connection() != NULL);
             EXPECT_TRUE(sm_->session() != NULL);
             break;
@@ -133,6 +136,7 @@ protected:
             EXPECT_TRUE(!ConnectTimerRunning());
             EXPECT_TRUE(!OpenTimerRunning());
             EXPECT_TRUE(HoldTimerRunning());
+            EXPECT_TRUE(!EstablishingTimerRunning());
             EXPECT_TRUE(sm_->session() != NULL);
             EXPECT_TRUE(connection_->session() != NULL);
             EXPECT_TRUE(sm_->get_connect_attempts() != 0);
@@ -203,6 +207,7 @@ protected:
     bool ConnectTimerRunning() { return(sm_->connect_timer_->running()); }
     bool OpenTimerRunning() { return(sm_->open_timer_->running()); }
     bool HoldTimerRunning() { return(sm_->hold_timer_->running()); }
+    bool EstablishingTimerRunning() { return(sm_->establishing_timer_->running()); }
 
     void FireConnectTimer() { sm_->connect_timer_->Fire(); }
     void FireOpenTimer() { sm_->open_timer_->Fire(); }
@@ -401,6 +406,9 @@ TEST_F(XmppStateMachineTest, OpenSent_EvXmppOpen) {
     VerifyState(xmsm::OPENSENT);
 
     EvXmppOpen();
+    VerifyState(xmsm::OPENSENT);
+
+    EvXmppKeepalive();
     VerifyState(xmsm::ESTABLISHED);
 }
 
@@ -499,7 +507,7 @@ TEST_F(XmppStateMachineTest, Established_EvXmppKeepAlive) {
     VerifyState(xmsm::OPENSENT);
 
     EvXmppOpen();
-    VerifyState(xmsm::ESTABLISHED);
+    VerifyState(xmsm::OPENSENT);
 
     EvXmppKeepalive();
     VerifyState(xmsm::ESTABLISHED);
@@ -526,6 +534,9 @@ TEST_F(XmppStateMachineTest, Established_EvXmppMessageReceive) {
     VerifyState(xmsm::OPENSENT);
 
     EvXmppOpen();
+    VerifyState(xmsm::OPENSENT);
+
+    EvXmppKeepalive();
     VerifyState(xmsm::ESTABLISHED);
 
     EvXmppMessageReceive();
@@ -553,6 +564,9 @@ TEST_F(XmppStateMachineTest, Established_EvHoldTimerExpired) {
     VerifyState(xmsm::OPENSENT);
 
     EvXmppOpen();
+    VerifyState(xmsm::OPENSENT);
+
+    EvXmppKeepalive();
     VerifyState(xmsm::ESTABLISHED);
 
     sm_->connect_attempts_inc(); // set attempts as we do not
@@ -586,6 +600,9 @@ TEST_F(XmppStateMachineTest, Established_EvHoldTimerExpired_connectfail) {
     VerifyState(xmsm::OPENSENT);
 
     EvXmppOpen();
+    VerifyState(xmsm::OPENSENT);
+
+    EvXmppKeepalive();
     VerifyState(xmsm::ESTABLISHED);
 
     sm_->connect_attempts_inc(); // set attempts as we do not
@@ -635,6 +652,30 @@ TEST_F(XmppStateMachineTest, Connect_EvTcpConnectFailed_EvTcpConnected) {
     VerifyState(xmsm::OPENSENT);
 }
 
+// OldState : OpenSent 
+// Event    : EvKeepalive
+// NewState : Active 
+TEST_F(XmppStateMachineTest, OpenSent_EvKeepalive_withoutOpenConfirm) {
+
+    sm_->connect_attempts_inc(); // set attempts as we do not
+                                 // want connection timer to expire
+    sm_->connect_attempts_inc(); // set attempts as we do not
+                                 // want connection timer to expire
+    VerifyState(xmsm::IDLE);
+
+    EvStart();
+    VerifyState(xmsm::ACTIVE);
+
+    EvConnectTimerExpired();
+    VerifyState(xmsm::CONNECT);
+
+    EvTcpConnected();
+    VerifyState(xmsm::OPENSENT);
+
+    EvXmppKeepalive();
+    VerifyState(xmsm::ACTIVE);
+}
+
 TEST_F(XmppStateMachineTest, ConnectionBackoff) {
     sm_->connect_attempts_inc(); // set attempts as we do not
                                  // want connection timer to expire
@@ -652,6 +693,9 @@ TEST_F(XmppStateMachineTest, ConnectionBackoff) {
         VerifyState(xmsm::OPENSENT);
 
         EvXmppOpen();
+        VerifyState(xmsm::OPENSENT);
+
+        EvXmppKeepalive();
         VerifyState(xmsm::ESTABLISHED);
 
         if (idx == 6)
