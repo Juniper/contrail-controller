@@ -89,7 +89,7 @@ class VncRbac(object):
         obj_ids = {'uuid' : api_access_lists[0]['uuid']}
         (ok, result) = self._db_conn.dbe_read('api_access_list', obj_ids, obj_fields)
         if not ok or 'api_access_list_entries' not in result:
-            return rule_list
+            return []
         # {u'rbac_rule': [{u'rule_object': u'*', u'rule_perms': [{u'role_crud': u'CRUD', u'role_name': u'admin'}], u'rule_field': None}]}
         api_access_list_entries = result['api_access_list_entries']
         return api_access_list_entries['rbac_rule']
