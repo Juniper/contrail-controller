@@ -127,6 +127,8 @@ protected:
             EXPECT_TRUE(!ConnectTimerRunning());
             EXPECT_TRUE(!OpenTimerRunning());
             EXPECT_TRUE(!HoldTimerRunning());
+            EXPECT_TRUE(!EstablishingTimerRunning());
+            EXPECT_TRUE(!StreamFeatureTimerRunning());
             EXPECT_TRUE(sm_->session() == NULL);
             EXPECT_TRUE(connection_->session() == NULL);
             break;
@@ -135,6 +137,8 @@ protected:
             EXPECT_TRUE(ConnectTimerRunning());
             EXPECT_TRUE(!OpenTimerRunning());
             EXPECT_TRUE(!HoldTimerRunning());
+            EXPECT_TRUE(!StreamFeatureTimerRunning());
+            EXPECT_TRUE(!EstablishingTimerRunning());
             EXPECT_TRUE(connection_->session() == NULL);
             //EXPECT_TRUE(sm_->session() == NULL);
             break;
@@ -143,6 +147,8 @@ protected:
             EXPECT_TRUE(ConnectTimerRunning());
             EXPECT_TRUE(!OpenTimerRunning());
             EXPECT_TRUE(!HoldTimerRunning());
+            EXPECT_TRUE(!StreamFeatureTimerRunning());
+            EXPECT_TRUE(!EstablishingTimerRunning());
             EXPECT_TRUE(sm_->connection() != NULL);
             EXPECT_TRUE(sm_->session() != NULL);
             break;
@@ -150,6 +156,8 @@ protected:
             EXPECT_TRUE(sm_->IsActiveChannel());
             EXPECT_TRUE(!ConnectTimerRunning());
             EXPECT_TRUE(!OpenTimerRunning());
+            EXPECT_TRUE(!EstablishingTimerRunning());
+            EXPECT_TRUE(!StreamFeatureTimerRunning());
             EXPECT_TRUE(HoldTimerRunning());
             EXPECT_TRUE(sm_->connection() != NULL);
             EXPECT_TRUE(sm_->session() != NULL);
@@ -158,7 +166,7 @@ protected:
             EXPECT_TRUE(sm_->IsActiveChannel());
             EXPECT_TRUE(!ConnectTimerRunning());
             EXPECT_TRUE(!OpenTimerRunning());
-            EXPECT_TRUE(HoldTimerRunning());
+            EXPECT_TRUE(!EstablishingTimerRunning());
             EXPECT_TRUE(sm_->connection() != NULL);
             EXPECT_TRUE(sm_->session() != NULL);
             break;
@@ -166,6 +174,8 @@ protected:
             EXPECT_TRUE(!ConnectTimerRunning());
             EXPECT_TRUE(!OpenTimerRunning());
             EXPECT_TRUE(HoldTimerRunning());
+            EXPECT_TRUE(!EstablishingTimerRunning());
+            EXPECT_TRUE(!StreamFeatureTimerRunning());
             EXPECT_TRUE(sm_->session() != NULL);
             EXPECT_TRUE(connection_->session() != NULL);
             EXPECT_TRUE(sm_->get_connect_attempts() != 0);
@@ -188,7 +198,8 @@ protected:
 
         switch (state) {
         case xmsm::OPENCONFIRM_INIT:
-            EXPECT_TRUE(HoldTimerRunning());
+            EXPECT_TRUE(!HoldTimerRunning());
+            EXPECT_TRUE(StreamFeatureTimerRunning());
             break;
         case xmsm::OPENCONFIRM_FEATURE_NEGOTIATION:
             EXPECT_TRUE(HoldTimerRunning());
@@ -208,15 +219,16 @@ protected:
         sm_->Clear();
     }
     void EvConnectTimerExpired() {
-        boost::system::error_code error;
         FireConnectTimer();
     }
     void EvOpenTimerExpired() {
-        boost::system::error_code error;
         FireOpenTimer();
     }
     void EvHoldTimerExpired() {
         FireHoldTimer();
+    }
+    void EvStreamTimerExpired() {
+        FireStreamFeatureTimer();
     }
 
     void EvTcpConnected() {
@@ -288,11 +300,13 @@ protected:
     bool ConnectTimerRunning() { return(sm_->connect_timer_->running()); }
     bool OpenTimerRunning() { return(sm_->open_timer_->running()); }
     bool HoldTimerRunning() { return(sm_->hold_timer_->running()); }
+    bool EstablishingTimerRunning() { return(sm_->establishing_timer_->running()); }
+    bool StreamFeatureTimerRunning() { return(sm_->stream_feature_timer_->running()); }
 
     void FireConnectTimer() { sm_->connect_timer_->Fire(); }
     void FireOpenTimer() { sm_->open_timer_->Fire(); }
     void FireHoldTimer() { sm_->hold_timer_->Fire(); }
-
+    void FireStreamFeatureTimer() { sm_->stream_feature_timer_->Fire(); }
 
     auto_ptr<EventManager> evm_;
 
@@ -435,7 +449,7 @@ TEST_F(XmppStateMachineTest, OpenConfirm_Init__EvXmppKeepAlive) {
 
 
 // OldState : OpenConfirm (OPENCONFIRM_INIT)
-// Event    : EvHoldTimerExpired
+// Event    : EvStreamTimerExpired
 // NewState : Active
 TEST_F(XmppStateMachineTest, OpenConfirm_Init__HoldTimerExpired) {
 
@@ -458,7 +472,7 @@ TEST_F(XmppStateMachineTest, OpenConfirm_Init__HoldTimerExpired) {
     VerifyState(xmsm::OPENCONFIRM);
     VerifyOpenConfirmState(xmsm::OPENCONFIRM_INIT);
 
-    EvHoldTimerExpired();
+    EvStreamTimerExpired();
     VerifyState(xmsm::ACTIVE);
 }
 
