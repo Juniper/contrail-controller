@@ -94,7 +94,7 @@ public:
     };
 
     explicit StateMachine(BgpPeer *peer);
-    ~StateMachine();
+    virtual ~StateMachine();
 
     void Initialize();
     void Shutdown(int subcode);
@@ -125,7 +125,7 @@ public:
     bool IdleHoldTimerRunning();
 
     void StartSession();
-    void DeleteSession(BgpSession *session);
+    virtual void DeleteSession(BgpSession *session);
     void AssignSession(bool active);
 
     virtual void OnSessionEvent(TcpSession *session, TcpSession::Event event);
