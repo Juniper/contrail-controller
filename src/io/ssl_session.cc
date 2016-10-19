@@ -98,7 +98,7 @@ void SslSession::AsyncReadSome() {
     }
 
     if (established()) {
-        ssl_socket_->async_read_some(null_buffers(),
+        socket()->async_read_some(null_buffers(),
             bind(&TcpSession::AsyncReadHandler, TcpSessionPtr(this)));
     }
 }
