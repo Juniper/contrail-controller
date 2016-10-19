@@ -73,7 +73,7 @@ class Inet6Route : public BgpRoute {
 public:
     explicit Inet6Route(const Inet6Prefix &prefix);
     virtual int CompareTo(const Route &rhs) const;
-    virtual std::string ToString() const;
+    virtual std::string ToString() const { return prefix_str_; }
 
     const Inet6Prefix &GetPrefix() const { return prefix_; }
 
@@ -100,7 +100,7 @@ public:
 
 private:
     Inet6Prefix prefix_;
-    mutable std::string prefix_str_;
+    std::string prefix_str_;
 
     DISALLOW_COPY_AND_ASSIGN(Inet6Route);
 };
