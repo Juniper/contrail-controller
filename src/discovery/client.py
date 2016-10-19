@@ -131,7 +131,7 @@ class Subscribe(object):
             try:
                 self.stats['request'] += 1
                 r = requests.post(
-                    self.url, data=self.post_body, headers=self._headers, timeout=15)
+                    self.url, data=self.post_body, headers=self._headers, timeout=30)
                 if r.status_code == 200:
                     break
                 self.inc_stats('sc_%d' % r.status_code)
@@ -316,7 +316,7 @@ class DiscoveryClient(object):
         try:
             self.inc_pub_stats(service, 'request')
             r = requests.post(
-                self.puburl, data=json.dumps(payload), headers=self._headers, timeout=15)
+                self.puburl, data=json.dumps(payload), headers=self._headers, timeout=30)
             if r.status_code != 200:
                 self.inc_pub_stats(service, 'sc_%d' % r.status_code)
                 emsg = 'Status Code ' + str(r.status_code)
