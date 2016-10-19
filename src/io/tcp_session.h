@@ -37,7 +37,7 @@ class TcpMessageWriter;
 // invoked by a different thread.
 class TcpSession {
 public:
-    static const int kDefaultBufferSize = 4 * 1024;
+    static const int kDefaultBufferSize = 16 * 1024;
 
     enum Event {
         EVENT_NONE,
