@@ -7,6 +7,7 @@
 #include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_config.h"
+#include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_session.h"
@@ -14,6 +15,12 @@
 
 // Use this test to mock BgpPeer and test selected functionality in BgpPeer as
 // desired. e.g. EndOfRibSendTimerExpired() API.
+
+class StateMachineMock : public StateMachine {
+public:
+    explicit StateMachineMock(BgpPeer *peer) : StateMachine(peer) { }
+    virtual void DeleteSession(BgpSession *session) { }
+};
 
 class BgpSessionMock : public BgpSession {
 public:
@@ -415,6 +422,8 @@ INSTANTIATE_TEST_CASE_P(BgpPeerTestWithParams, BgpPeerParamTest,
 static void SetUp() {
     bgp_log_test::init();
     ControlNode::SetDefaultSchedulingPolicy();
+    BgpObjectFactory::Register<StateMachine>(
+        boost::factory<StateMachineMock *>());
 }
 
 static void TearDown() {
