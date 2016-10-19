@@ -222,9 +222,15 @@ class VncApi(object):
             apicafile=_read_cfg(cfg_parser,'global','cafile','')
 
             self._use_api_certs=False
-            if apicertfile and apikeyfile \
-               and apicafile and api_server_use_ssl:
-                    certs=[apicertfile, apikeyfile, apicafile]
+            if api_server_use_ssl:
+                certs = []
+                if apicafile:
+                    certs.append(apicafile)
+                if apicertfile:
+                    certs.append(apicertfile)
+                if apikeyfile:
+                    certs.append(apikeyfile)
+                if certs:
                     self._apicertbundle=utils.getCertKeyCaBundle(VncApi._DEFAULT_API_CERT_BUNDLE,certs)
                     self._use_api_certs=True
 
@@ -240,9 +246,15 @@ class VncApi(object):
             kscafile=_read_cfg(cfg_parser,'auth','cafile','')
 
             self._use_ks_certs=False
-            if kscertfile and kskeyfile and kscafile \
-               and self._authn_protocol == 'https':
-                   certs=[kscertfile, kskeyfile, kscafile]
+            if self._authn_protocol == 'https':
+                certs = []
+                if kscafile:
+                    certs.append(kscafile)
+                if kscertfile:
+                    certs.append(kscertfile)
+                if kskeytfile:
+                    certs.append(kskeyfile)
+                if certs:
                    self._kscertbundle=utils.getCertKeyCaBundle(VncApi._DEFAULT_KS_CERT_BUNDLE,certs)
                    self._use_ks_certs=True
 
