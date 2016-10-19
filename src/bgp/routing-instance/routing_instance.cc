@@ -13,6 +13,7 @@
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_server.h"
+#include "bgp/bgp_table_types.h"
 #include "bgp/routing-instance/iroute_aggregator.h"
 #include "bgp/routing-instance/iservice_chain_mgr.h"
 #include "bgp/routing-instance/istatic_route_mgr.h"
@@ -425,6 +426,12 @@ void RoutingInstanceMgr::DestroyRoutingInstance(RoutingInstance *rtinstance) {
 
     RTINSTANCE_LOG(Destroy, rtinstance,
         SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
+
+    // Delete instance stats uve.
+    RoutingInstanceStatsData instance_info;
+    instance_info.set_name(rtinstance->name());
+    instance_info.set_deleted(true);
+    RoutingInstanceStats::Send(instance_info);
 
     // Remove call here also deletes the instance.
     const string name = rtinstance->name();
