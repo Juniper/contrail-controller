@@ -601,9 +601,9 @@ TEST_F(TestAap6, StateMachine_16) {
     InetUnicastRouteEntry *rt = RouteGetV6("vrf1", aap_ip, 128);
     const AgentPath *path = rt->FindPath(vm_intf->peer());
     EXPECT_TRUE(path->path_preference().sequence() == 0);
-    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
     EXPECT_TRUE(path->path_preference().ecmp() == true);
-    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
 
     //Enqueue traffic seen for native IP
     Ip6Address ip = Ip6Address::from_string("fd10::2");
