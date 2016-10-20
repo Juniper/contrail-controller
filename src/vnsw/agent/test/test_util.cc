@@ -2095,6 +2095,34 @@ void AddServiceInstanceIp(const char *name, int id, const char *addr, bool ecmp,
                  tracking_ip_buf);
     AddNode("instance-ip", name, id, buf);
 }
+
+void AddSecondaryIp(const char *name, int id, const char *addr, bool ecmp,
+                    const char *tracking_ip) {
+    char buf[256];
+    char mode[256];
+
+    if (ecmp) {
+         sprintf(mode, "active-active");
+    } else {
+        sprintf(mode, "active-backup");
+    }
+
+    char tracking_ip_buf[256] = "0.0.0.0";
+    if (tracking_ip) {
+        sprintf(tracking_ip_buf, "%s", tracking_ip);
+    }
+
+    sprintf(buf, "<instance-ip-address>%s</instance-ip-address>"
+                 "<secondary>true</secondary>"
+                 "<instance-ip-mode>%s</instance-ip-mode>"
+                 "<secondary-ip-tracking-ip>"
+                 "    <ip-prefix>%s</ip-prefix>"
+                 "    <ip-prefix-len>32</ip-prefix-len>"
+                 "</secondary-ip-tracking-ip>", addr, mode,
+                 tracking_ip_buf);
+    AddNode("instance-ip", name, id, buf);
+}
+
 void DelInstanceIp(const char *name) {
     DelNode("instance-ip", name);
 }
