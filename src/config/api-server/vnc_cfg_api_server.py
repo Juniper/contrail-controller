@@ -3463,9 +3463,8 @@ class VncApiServer(object):
 
         req_dict = get_request().json
         ip_list = req_dict['ip_addr'] if 'ip_addr' in req_dict else []
-        subnet = req_dict['subnet'] if 'subnet' in req_dict else None
         result = vnc_cfg_types.VirtualNetworkServer.ip_free(
-            vn_fq_name, subnet, ip_list)
+            vn_fq_name, ip_list)
         return result
     # end vn_ip_free_http_post
 
