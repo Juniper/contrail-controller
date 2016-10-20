@@ -90,7 +90,7 @@ void SslSession::AsyncReadSome(boost::asio::mutable_buffer buffer) {
         // trigger read with null buffer to get indication for data available
         // on the socket and then do the actuall socket read in
         // AsyncReadHandlerProcess
-        ssl_socket_->async_read_some(boost::asio::null_buffers(),
+        socket()->async_read_some(boost::asio::null_buffers(),
             boost::bind(&TcpSession::AsyncReadHandler, SslSessionPtr(this), buffer,
                          boost::asio::placeholders::error,
                          boost::asio::placeholders::bytes_transferred));
