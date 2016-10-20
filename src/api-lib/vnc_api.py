@@ -1063,7 +1063,7 @@ class VncApi(object):
     #end kv_delete
 
     # reserve block of IP address from a VN
-    # expected format {"subnet" : "2.1.1.0/24", "count" : 4}
+    # expected format {"subnet" : "subnet_uuid", "count" : 4}
     @check_homepage
     def virtual_network_ip_alloc(self, vnobj, count=1, subnet=None, family=None):
         json_body = json.dumps({'count': count, 'subnet': subnet, 'family':family})
@@ -1073,18 +1073,17 @@ class VncApi(object):
     #end virtual_network_ip_alloc
 
     # free previously reserved block of IP address from a VN
-    # Expected format "subnet" : "2.1.1.0/24",
-    #                 "ip_addr" : ["2.1.1.239", "2.1.1.238"]
+    # Expected format "ip_addr" : ["2.1.1.239", "2.1.1.238"]
     @check_homepage
-    def virtual_network_ip_free(self, vnobj, ip_list, subnet=None):
-        json_body = json.dumps({'ip_addr': ip_list, 'subnet': subnet})
+    def virtual_network_ip_free(self, vnobj, ip_list):
+        json_body = json.dumps({'ip_addr': ip_list})
         uri = self._action_uri['virtual-network-ip-free'] % vnobj.uuid
         rv = self._request_server(rest.OP_POST, uri, data=json_body)
         return rv
     #end virtual_network_ip_free
 
     # return no of ip instances from a given VN/Subnet
-    # Expected format "subne_list" : ["2.1.1.0/24", "2.2.2.0/24"]
+    # Expected format "subne_list" : ["subnet_uuid1", "subnet_uuid2"]
     @check_homepage
     def virtual_network_subnet_ip_count(self, vnobj, subnet_list):
         json_body = json.dumps({'subnet_list': subnet_list})
