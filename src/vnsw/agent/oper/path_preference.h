@@ -135,7 +135,7 @@ public:
     typedef std::map<const Peer *, PathPreferenceSM *> PeerPathPreferenceMap;
     PathPreferenceState(Agent *agent, AgentRoute *rt_);
     ~PathPreferenceState();
-    void Process();
+    bool Process();
     PathPreferenceSM *GetSM(const Peer *);
     PathPreferenceSM* GetDependentPath(const AgentPath *path) const;
 private:
