@@ -372,7 +372,14 @@ void DelVmPortVrf(const char *name);
 uint32_t PathCount(const string vrf_name, const Ip4Address &addr, int plen);
 bool VlanNhFind(int id, uint16_t tag);
 void AddInstanceIp(const char *name, int id, const char* addr);
+<<<<<<< HEAD
 void AddServiceInstanceIp(const char *name, int id, const char* addr, bool ecmp);
+=======
+void AddServiceInstanceIp(const char *name, int id, const char* addr, bool ecmp,
+                          const char *tracking_ip);
+void AddSecondaryIp(const char *name, int id, const char* addr,
+                    bool ecmp, const char *tracking_ip);
+>>>>>>> 54feff0... * Publish AAP route with high preference
 void AddSubnetType(const char *name, int id, const char* addr, uint8_t);
 void AddActiveActiveInstanceIp(const char *name, int id, const char* addr);
 void DelInstanceIp(const char *name);

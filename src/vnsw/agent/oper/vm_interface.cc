@@ -1422,7 +1422,7 @@ void VmInterface::UpdateL2Bridging(bool old_bridging, VrfEntry *old_vrf,
                            old_layer3_forwarding, policy_change,
                            Ip4Address(), Ip6Address(),
                            vm_mac_,
-                           Ip4Address(0));
+                           Ip4Address(0), ecmp_);
     UpdateIpv4InstanceIp(force_update, policy_change, true, old_ethernet_tag,
                          old_vrf);
     UpdateIpv6InstanceIp(force_update, policy_change, true, old_ethernet_tag);
@@ -3286,7 +3286,8 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_bridging, bool force_update,
                                          const Ip4Address &new_ip_addr,
                                          const Ip6Address &new_ip6_addr,
                                          const MacAddress &mac,
-                                         const IpAddress &dependent_ip) const {
+                                         const IpAddress &dependent_ip,
+                                         bool ecmp) const {
     if (bridging_ == false)
         return;
 
@@ -3328,7 +3329,7 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_bridging, bool force_update,
     CopySgIdList(&sg_id_list);
 
     PathPreference path_preference;
-    SetPathPreference(&path_preference, false, dependent_ip);
+    SetPathPreference(&path_preference, ecmp, dependent_ip);
 
     if (policy_changed == true) {
         //Resync the nexthop
@@ -3400,7 +3401,7 @@ void VmInterface::SetPathPreference(PathPreference *pref, bool ecmp,
     if (local_preference_ != INVALID) {
         pref->set_static_preference(true);
     }
-    if (local_preference_ == HIGH) {
+    if (local_preference_ == HIGH || ecmp == true) {
         pref->set_preference(PathPreference::HIGH);
     }
     pref->set_dependent_ip(dependent_ip);
@@ -3570,21 +3571,40 @@ bool VmInterface::GetIpamDhcpOptions(
 // InstanceIp routines
 /////////////////////////////////////////////////////////////////////////////
 VmInterface::InstanceIp::InstanceIp() :
+<<<<<<< HEAD
     ListEntry(), ip_(), ecmp_(false), l2_installed_(false), old_ecmp_(false),
     is_primary_(false) {
+=======
+    ListEntry(), ip_(), ecmp_(false), l2_installed_(false),
+    is_primary_(false),  tracking_ip_(),
+    l3_ecmp_mode_changed_(false), l2_ecmp_mode_changed_(false){
+>>>>>>> 54feff0... * Publish AAP route with high preference
 }
 
 VmInterface::InstanceIp::InstanceIp(const InstanceIp &rhs) :
     ListEntry(rhs.installed_, rhs.del_pending_),
     ip_(rhs.ip_), ecmp_(rhs.ecmp_),
+<<<<<<< HEAD
     l2_installed_(rhs.l2_installed_), old_ecmp_(rhs.old_ecmp_),
     is_primary_(rhs.is_primary_) {
+=======
+    l2_installed_(rhs.l2_installed_),
+    is_primary_(rhs.is_primary_), tracking_ip_(rhs.tracking_ip_),
+    l3_ecmp_mode_changed_(rhs.l3_ecmp_mode_changed_),
+    l2_ecmp_mode_changed_(rhs.l2_ecmp_mode_changed_) {
+>>>>>>> 54feff0... * Publish AAP route with high preference
 }
 
 VmInterface::InstanceIp::InstanceIp(const IpAddress &addr,
                                     bool ecmp, bool is_primary) :
     ListEntry(), ip_(addr), ecmp_(ecmp),
+<<<<<<< HEAD
     l2_installed_(false), old_ecmp_(false), is_primary_(is_primary) {
+=======
+    l2_installed_(false), is_primary_(is_primary),
+    tracking_ip_(tracking_ip), l3_ecmp_mode_changed_(false),
+    l2_ecmp_mode_changed_(false) {
+>>>>>>> 54feff0... * Publish AAP route with high preference
 }
 
 VmInterface::InstanceIp::~InstanceIp() {
@@ -3601,9 +3621,8 @@ bool VmInterface::InstanceIp::IsLess(const InstanceIp *rhs) const {
 
 void VmInterface::InstanceIp::L3Activate(VmInterface *interface,
                                          bool force_update) const {
-    if (old_ecmp_ != ecmp_) {
+    if (l3_ecmp_mode_changed_) {
         force_update = true;
-        old_ecmp_ = ecmp_;
     }
     // Add route if not installed or if force requested
     if (installed_ && force_update == false) {
@@ -3621,6 +3640,7 @@ void VmInterface::InstanceIp::L3Activate(VmInterface *interface,
                             interface->GetServiceIp(ip_), Ip6Address(),
                             CommunityList(), interface->label());
     }
+    l3_ecmp_mode_changed_ = false;
     installed_ = true;
 }
 
@@ -3645,6 +3665,10 @@ void VmInterface::InstanceIp::L2Activate(VmInterface *interface,
     Ip4Address ipv4(0);
     Ip6Address ipv6;
 
+    if (l2_ecmp_mode_changed_) {
+        force_update = true;
+    }
+
     if (ip_.is_v4()) {
         if (interface->IsIpv4Active() == false) {
             return;
@@ -3663,8 +3687,13 @@ void VmInterface::InstanceIp::L2Activate(VmInterface *interface,
                                old_ethernet_tag, false,
                                false, ipv4, ipv6,
                                interface->vm_mac(),
+<<<<<<< HEAD
                                Ip4Address(0));
+=======
+                               tracking_ip_, ecmp_);
+>>>>>>> 54feff0... * Publish AAP route with high preference
         l2_installed_ = true;
+        l2_ecmp_mode_changed_ = false;
     }
 }
 
@@ -3718,6 +3747,8 @@ void VmInterface::InstanceIpList::Update(const InstanceIp *lhs,
                                          const InstanceIp *rhs) {
     if (lhs->ecmp_ != rhs->ecmp_) {
         lhs->ecmp_ = rhs->ecmp_;
+        lhs->l3_ecmp_mode_changed_ = true;
+        lhs->l2_ecmp_mode_changed_ = true;
     }
     lhs->set_del_pending(false);
 }
@@ -4071,7 +4102,8 @@ void VmInterface::StaticRouteList::Remove(StaticRouteSet::iterator &it) {
 ///////////////////////////////////////////////////////////////////////////////
 VmInterface::AllowedAddressPair::AllowedAddressPair() :
     ListEntry(), vrf_(""), addr_(), plen_(0), ecmp_(false), mac_(),
-    l2_entry_installed_(false), ecmp_config_changed_(false), ethernet_tag_(0),
+    l2_entry_installed_(false), l3_ecmp_config_changed_(false),
+    l2_ecmp_config_changed_(false), ethernet_tag_(0),
     vrf_ref_(NULL, this), service_ip_(), label_(MplsTable::kInvalidLabel),
     policy_enabled_nh_(NULL), policy_disabled_nh_(NULL) {
 }
@@ -4081,7 +4113,8 @@ VmInterface::AllowedAddressPair::AllowedAddressPair(
     rhs.del_pending_), vrf_(rhs.vrf_), addr_(rhs.addr_), plen_(rhs.plen_),
     ecmp_(rhs.ecmp_), mac_(rhs.mac_),
     l2_entry_installed_(rhs.l2_entry_installed_),
-    ecmp_config_changed_(rhs.ecmp_config_changed_),
+    l3_ecmp_config_changed_(rhs.l3_ecmp_config_changed_),
+    l2_ecmp_config_changed_(rhs.l2_ecmp_config_changed_),
     ethernet_tag_(rhs.ethernet_tag_), vrf_ref_(rhs.vrf_ref_, this),
     service_ip_(rhs.service_ip_), label_(rhs.label_),
     policy_enabled_nh_(rhs.policy_enabled_nh_),
@@ -4093,8 +4126,9 @@ VmInterface::AllowedAddressPair::AllowedAddressPair(const std::string &vrf,
                                                     uint32_t plen, bool ecmp,
                                                     const MacAddress &mac) :
     ListEntry(), vrf_(vrf), addr_(addr), plen_(plen), ecmp_(ecmp), mac_(mac),
-    l2_entry_installed_(false), ecmp_config_changed_(false), ethernet_tag_(0),
-    vrf_ref_(NULL, this), label_(MplsTable::kInvalidLabel),
+    l2_entry_installed_(false), l3_ecmp_config_changed_(false),
+    l2_ecmp_config_changed_(false), ethernet_tag_(0), vrf_ref_(NULL, this),
+    label_(MplsTable::kInvalidLabel),
     policy_enabled_nh_(NULL), policy_disabled_nh_(NULL) {
 }
 
@@ -4136,7 +4170,7 @@ void VmInterface::AllowedAddressPair::L2Activate(VmInterface *interface,
     if (l2_entry_installed_ && force_update == false &&
         policy_change == false && ethernet_tag_ == interface->ethernet_tag() &&
         old_layer3_forwarding == interface->layer3_forwarding() &&
-        ecmp_config_changed_ == false) {
+        l2_ecmp_config_changed_ == false) {
         return;
     }
 
@@ -4146,7 +4180,7 @@ void VmInterface::AllowedAddressPair::L2Activate(VmInterface *interface,
 
     vrf_ref_ = interface->vrf();
     if (old_layer3_forwarding != interface->layer3_forwarding() ||
-        l2_entry_installed_ == false || ecmp_config_changed_) {
+        l2_entry_installed_ == false || l2_ecmp_config_changed_) {
         force_update = true;
     }
 
@@ -4159,24 +4193,17 @@ void VmInterface::AllowedAddressPair::L2Activate(VmInterface *interface,
         Ip4Address v4ip(0);
         Ip6Address v6ip;
         if (addr_.is_v4()) {
-            dependent_rt = v4ip;
+            dependent_rt = Ip4Address(0);
             v4ip = addr_.to_v4();
         } else if (addr_.is_v6()) {
-            dependent_rt = v6ip;
+            dependent_rt = Ip6Address();
             v6ip = addr_.to_v6();
-        }
-        if (ecmp_ == true) {
-            if (addr_.is_v4()) {
-                dependent_rt = interface->primary_ip_addr();
-            } else if (addr_.is_v6()) {
-                dependent_rt = interface->primary_ip6_addr();
-            }
         }
 
         interface->UpdateL2InterfaceRoute(old_layer2_forwarding, force_update,
                                interface->vrf(), v4ip, v6ip, ethernet_tag_,
                                old_layer3_forwarding, policy_change, v4ip, v6ip,
-                               mac_, dependent_rt);
+                               mac_, dependent_rt, ecmp_);
         ethernet_tag_ = interface->ethernet_tag();
         //If layer3 forwarding is disabled
         //  * IP + mac allowed address pair should not be published
@@ -4187,7 +4214,7 @@ void VmInterface::AllowedAddressPair::L2Activate(VmInterface *interface,
         } else {
             l2_entry_installed_ = false;
         }
-        ecmp_config_changed_ = false;
+        l2_ecmp_config_changed_ = false;
     }
 }
 
@@ -4251,7 +4278,7 @@ void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
     IpAddress ip = interface->GetServiceIp(addr_);
 
     if (installed_ && force_update == false && policy_change == false &&
-        service_ip_ == ip && ecmp_config_changed_ == false) {
+        service_ip_ == ip && l3_ecmp_config_changed_ == false) {
         return;
     }
 
@@ -4264,26 +4291,12 @@ void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
         InetUnicastAgentRouteTable::ReEvaluatePaths(agent,
                                                     vrf_, addr_, plen_);
     } else if (installed_ == false || force_update || service_ip_ != ip ||
-               ecmp_config_changed_) {
+               l3_ecmp_config_changed_) {
         service_ip_ = ip;
-        IpAddress dependent_rt;
-        if (ecmp_ == true) {
-            if (addr_.is_v4()) {
-                dependent_rt = interface->primary_ip_addr();
-            } else if (addr_.is_v6()) {
-                dependent_rt = interface->primary_ip6_addr();
-            }
-        } else {
-            if (addr_.is_v4()) {
-                dependent_rt = Ip4Address(0);
-            } else if (addr_.is_v6()) {
-                dependent_rt = Ip6Address();
-            }
-        }
-
         if (mac_ == MacAddress::kZeroMac ||
             mac_ == interface->vm_mac_) {
             interface->AddRoute(vrf_, addr_, plen_, interface->vn_->GetName(),
+<<<<<<< HEAD
                     interface->policy_enabled(),
                     ecmp_, service_ip_, dependent_rt, CommunityList(),
                     interface->label());
@@ -4292,10 +4305,19 @@ void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
             interface->AddRoute(vrf_, addr_, plen_, interface->vn_->GetName(),
                                 interface->policy_enabled(), ecmp_, service_ip_,
                                 dependent_rt, CommunityList(), label_);
+=======
+                                false, ecmp_, service_ip_, Ip4Address(0),
+                                CommunityList(), interface->label());
+        } else {
+            CreateLabelAndNH(agent, interface);
+            interface->AddRoute(vrf_, addr_, plen_, interface->vn_->GetName(),
+                                false, ecmp_, service_ip_,
+                                Ip4Address(0), CommunityList(), label_);
+>>>>>>> 54feff0... * Publish AAP route with high preference
         }
     }
     installed_ = true;
-    ecmp_config_changed_ = false;
+    l3_ecmp_config_changed_ = false;
 }
 
 void VmInterface::AllowedAddressPair::DeActivate(VmInterface *interface) const {
@@ -4318,7 +4340,8 @@ void VmInterface::AllowedAddressPairList::Update(const AllowedAddressPair *lhs,
     lhs->set_del_pending(false);
     if (lhs->ecmp_ != rhs->ecmp_) {
         lhs->ecmp_ = rhs->ecmp_;
-        lhs->ecmp_config_changed_ = true;
+        lhs->l3_ecmp_config_changed_ = true;
+        lhs->l2_ecmp_config_changed_ = true;
     }
 }
 
