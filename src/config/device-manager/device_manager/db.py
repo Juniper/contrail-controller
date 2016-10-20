@@ -211,13 +211,13 @@ class PhysicalRouterDM(DBBaseDM):
                 self.vn_ip_map[vn_subnet] = ip['ip_address']
     # end init_cs_state
 
-    def reserve_ip(self, vn_uuid, subnet_prefix):
+    def reserve_ip(self, vn_uuid, subnet_uuid):
         try:
             vn = VirtualNetwork()
             vn.set_uuid(vn_uuid)
             ip_addr = self._manager._vnc_lib.virtual_network_ip_alloc(
                 vn,
-                subnet=subnet_prefix)
+                subnet_uuid=subnet_uuid)
             if ip_addr:
                 return ip_addr[0]  # ip_alloc default ip count is 1
         except Exception as e:
@@ -225,14 +225,12 @@ class PhysicalRouterDM(DBBaseDM):
             return None
     # end
 
-    def free_ip(self, vn_uuid, subnet_prefix, ip_addr):
+    def free_ip(self, vn_uuid, ip_addr):
         try:
             vn = VirtualNetwork()
             vn.set_uuid(vn_uuid)
             self._manager._vnc_lib.virtual_network_ip_free(
-                vn,
-                [ip_addr],
-                subnet=subnet_prefix)
+                vn, [ip_addr])
             return True
         except Exception as e:
             self._logger.error("Exception: %s" % (str(e)))
@@ -246,7 +244,7 @@ class PhysicalRouterDM(DBBaseDM):
             vn = VirtualNetworkDM.get(vn_uuid)
             if vn_uuid not in irb_ips:
                 irb_ips[vn_uuid] = set()
-            irb_ips[vn_uuid].add((ip_addr, vn.gateways[subnet_prefix]))
+            irb_ips[vn_uuid].add((ip_addr, vn.gateways[subnet_prefix].get('defaut_gateway')))
         return irb_ips
     # end get_vn_irb_ip_map
 
@@ -265,8 +263,7 @@ class PhysicalRouterDM(DBBaseDM):
         create_set = new_vn_ip_set.difference(old_set)
         for vn_subnet in delete_set:
             (vn_uuid, subnet_prefix) = vn_subnet.split(':', 1)
-            ret = self.free_ip(
-                vn_uuid, subnet_prefix, self.vn_ip_map[vn_subnet])
+            ret = self.free_ip(vn_uuid, self.vn_ip_map[vn_subnet])
             if ret == False:
                 self._logger.error("Unable to free ip for vn/subnet/pr \
                                   (%s/%s/%s)" % (
@@ -288,8 +285,9 @@ class PhysicalRouterDM(DBBaseDM):
 
         for vn_subnet in create_set:
             (vn_uuid, subnet_prefix) = vn_subnet.split(':', 1)
+            subnet_uuid = vn.gateways[subnet_prefix].get('subnet_uuid')
             (sub, length) = subnet_prefix.split('/')
-            ip_addr = self.reserve_ip(vn_uuid, subnet_prefix)
+            ip_addr = self.reserve_ip(vn_uuid, subnet_uuid)
             if ip_addr is None:
                 self._logger.error("Unable to allocate ip for vn/subnet/pr \
                                (%s/%s/%s)" % (
@@ -307,7 +305,7 @@ class PhysicalRouterDM(DBBaseDM):
                     self.uuid,
                     subnet_prefix,
                     self.uuid))
-                if self.free_ip(vn_uuid, subnet_prefix, ip_addr) == False:
+                if self.free_ip(vn_uuid, ip_addr) == False:
                     self._logger.error("Unable to free ip for vn/subnet/pr \
                                (%s/%s/%s)" % (
                         self.uuid,
