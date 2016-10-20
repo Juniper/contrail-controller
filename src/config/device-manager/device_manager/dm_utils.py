@@ -39,7 +39,8 @@ class DMUtils(object):
                 prefix = subnet['subnet']['ip_prefix']
                 prefix_len = subnet['subnet']['ip_prefix_len']
                 gateways[prefix + '/' + str(prefix_len)] = \
-                    subnet.get('default_gateway', '')
+                    {"default_gateway": subnet.get('default_gateway', ''),
+                     "subnet_uuid": subnet.get('subnet_uuid')}
         return gateways
     # end get_network_gateways
 
