@@ -522,6 +522,9 @@ static void BuildInstanceIp(Agent *agent, VmInterfaceConfigData *data,
         if (err.value() != 0) {
             tracking_ip = Ip4Address(0);
         }
+        if (tracking_ip == addr) {
+            tracking_ip = Ip4Address(0);
+        }
     }
 
     if (addr.is_v4()) {
@@ -3532,7 +3535,7 @@ void VmInterface::SetPathPreference(PathPreference *pref, bool ecmp,
     if (local_preference_ != INVALID) {
         pref->set_static_preference(true);
     }
-    if (local_preference_ == HIGH) {
+    if (local_preference_ == HIGH || ecmp == true) {
         pref->set_preference(PathPreference::HIGH);
     }
     pref->set_dependent_ip(dependent_ip);
@@ -4307,18 +4310,11 @@ void VmInterface::AllowedAddressPair::L2Activate(VmInterface *interface,
         Ip4Address v4ip(0);
         Ip6Address v6ip;
         if (addr_.is_v4()) {
-            dependent_rt = v4ip;
+            dependent_rt = Ip4Address(0);
             v4ip = addr_.to_v4();
         } else if (addr_.is_v6()) {
-            dependent_rt = v6ip;
+            dependent_rt = Ip6Address();
             v6ip = addr_.to_v6();
-        }
-        if (ecmp_ == true) {
-            if (addr_.is_v4()) {
-                dependent_rt = interface->primary_ip_addr();
-            } else if (addr_.is_v6()) {
-                dependent_rt = interface->primary_ip6_addr();
-            }
         }
 
         interface->UpdateL2InterfaceRoute(old_layer2_forwarding, force_update,
@@ -4414,31 +4410,16 @@ void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
     } else if (installed_ == false || force_update || service_ip_ != ip ||
                ecmp_config_changed_) {
         service_ip_ = ip;
-        IpAddress dependent_rt;
-        if (ecmp_ == true) {
-            if (addr_.is_v4()) {
-                dependent_rt = interface->primary_ip_addr();
-            } else if (addr_.is_v6()) {
-                dependent_rt = interface->primary_ip6_addr();
-            }
-        } else {
-            if (addr_.is_v4()) {
-                dependent_rt = Ip4Address(0);
-            } else if (addr_.is_v6()) {
-                dependent_rt = Ip6Address();
-            }
-        }
-
         if (mac_ == MacAddress::kZeroMac ||
             mac_ == interface->vm_mac_) {
             interface->AddRoute(vrf_, addr_, plen_, interface->vn_->GetName(),
-                                false, ecmp_, service_ip_, dependent_rt,
+                                false, ecmp_, service_ip_, Ip4Address(0),
                                 CommunityList(), interface->label());
         } else {
             CreateLabelAndNH(agent, interface);
             interface->AddRoute(vrf_, addr_, plen_, interface->vn_->GetName(),
                                 false, ecmp_, service_ip_,
-                                dependent_rt, CommunityList(), label_);
+                                Ip4Address(0), CommunityList(), label_);
         }
     }
     installed_ = true;
