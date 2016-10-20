@@ -317,7 +317,9 @@ public:
         if (!table) return true;
         Ip4Prefix prefix(Ip4Prefix::FromString(req->get_prefix()));
         InetTable::RequestKey key(prefix, NULL);
-        InetRoute *route = static_cast<InetRoute *>(table->Find(&key));
+
+        // Find route from the calling task instance specific db partition.
+        InetRoute *route = static_cast<InetRoute *>(table->Find(&key, instNum));
         if (!route) return true;
         ShowRoute show_route;
         show_route.set_prefix(route->ToString());
