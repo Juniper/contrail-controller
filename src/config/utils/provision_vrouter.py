@@ -158,9 +158,7 @@ class VrouterProvisioner(object):
 
         # Configure router type
         if self._args.router_type:
-            vrouter_obj.set_virtual_router_type([self._args.router_type])
-        else:
-            vrouter_obj.set_virtual_router_type([])
+            vrouter_obj.set_virtual_router_type(self._args.router_type)
         if self._args.dpdk_enabled:
             vrouter_obj.set_virtual_router_dpdk_enabled(True)
         else:
