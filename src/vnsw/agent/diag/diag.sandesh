@@ -12,14 +12,23 @@
  * 
  */ 
 request sandesh PingReq {
+    /** Souce ip Address */
     1: string source_ip;
+    /** Source port */
     2: i32    source_port;
+    /** Destination ip Address */
     3: string dest_ip;
+    /** Destination port */
     4: i32    dest_port;
+    /** Protocol tcp or udp */
     5: i16    protocol;
+    /** Source vrf name */
     6: string vrf_name;
+    /** Packet size default 100 bytes */
     7: optional i16 packet_size = 100;
+    /** Packet count */
     8: optional i16 count = 10;
+    /** Retry intervel */
     9: optional i32 interval = 1;
 }
 
@@ -28,50 +37,79 @@ request sandesh PingReq {
  *
  */
 request sandesh TraceRouteReq {
+    /** Souce ip Address */
     1: string source_ip;
+    /** Source port */
     2: i32    source_port;
+    /** Destination ip Address */
     3: string dest_ip;
+    /** Destination port */
     4: i32    dest_port;
+    /** Protocol tcp or udp */
     5: i16    protocol;
+    /** Source vrf name */
     6: string vrf_name;
+    /** Max number of hops */
     7: optional i16 max_hops = 30;
+    /** Max retry attemps */
     8: optional i16 max_attempts = 3;
+    /** Retry intervel */
     9: optional i32 interval = 1;
 }
 
 /**
- * Request for Overlay ping statistics in agent introspect 
+ * Request for Overlay ping statistics in agent introspect
  *
  */
 
 request sandesh OverlayPingReq {
+    /** Souce ip Address */
     1: string source_ip;
+    /** Destination ip Address */
     2: string dest_ip;
+    /** Virtual network UUID */
     3: string   vn_uuid;
+    /** Remote VM Mac Address */
     4: string vm_remote_mac;
+    /** Source port */
     5: i32 source_port;
+    /** Destination port */
     6: i32    dest_port;
+    /** Protocol udp */
     7: optional i16    protocol = 17;
+    /** Packet size default 100 bytes*/
     8: optional i16 packet_size = 100;
+    /** Packet count */
     9: optional i16 count = 10;
+    /** Retry intervel */
     10: optional i32 interval = 1;
 }
 
 /**
- * Request message to get Overlay trace route in agent introspect  
+ * Request message to get Overlay trace route in agent introspect
  *
  */
 
 request sandesh OverlayTraceReq {
+    /** Souce ip Address */
     1: string source_ip;
+    /** Destination ip Address */
     2: string dest_ip;
+    /** Protocol udp */
     3: i16    protocol;
+    /** Virtual network UUID */
     4: string   vn_uuid;
+    /** Remote VM Mac Address */
     5: string vm_remote_mac;
+    /** Source port */
     6: i32 source_port;
+    /** Destination port */
     7: i32    dest_port;
+    /** Max number of hops */
     8: optional i16 max_hops = 30;
+    /** Max retry attemps */
     9: optional i16 max_attempts = 3;
+    /** Retry intervel */
     10: optional i32 interval = 1;
 }
 
@@ -79,8 +117,11 @@ request sandesh OverlayTraceReq {
  * Ping response statistics
  */
 response sandesh PingResp {
+    /** Packet sequence number */
     1: i16 seq_no;
+    /** Round trip time */
     2: optional string rtt;
+    /** Ping response */
     3: string resp;
 }
 
@@ -88,9 +129,13 @@ response sandesh PingResp {
  * Ping summary
  */
 response sandesh PingSummaryResp {
+    /** Number of requests sent */
     1: i16 request_sent;
+    /** Number of responses received */
     2: i16 response_received;
+    /** Number of packets lost */
     3: i16 pkt_loss;
+    /** Average round trip time */
     4: optional string average_rtt;
 }
 
@@ -98,6 +143,7 @@ response sandesh PingSummaryResp {
  * Ping error message
  */
 response sandesh PingErrResp {
+    /** Error response after issueing request */
     1: string error_response;
 }
 
@@ -105,6 +151,7 @@ response sandesh PingErrResp {
  * Trace route for the address
  */ 
 struct TraceRouteHop {
+    /** Each hop address */
     1: string address;
 }
 
@@ -112,6 +159,7 @@ struct TraceRouteHop {
  * Response message for traceroute
  */
 response sandesh TraceRouteResp {
+    /** Each hop ip address */
     1: string hop;
 }
 
@@ -119,5 +167,6 @@ response sandesh TraceRouteResp {
  * Trace route error message
  */
 response sandesh TraceRouteErrResp {
+    /** Error response after issueing request */
     1: string error_response;
 }
