@@ -73,6 +73,7 @@ public:
     virtual bool EcmpDeletePath(AgentPath *path);
     void AppendEcmpPath(Agent *agent, AgentPath *path);
     void DeleteComponentNH(Agent *agent, AgentPath *path);
+    bool UpdateComponentNH(Agent *agent, AgentPath *ecmp_path, AgentPath *path);
 
     AgentPath *AllocateEcmpPath(Agent *agent, const AgentPath *path1,
                                 const AgentPath *path2);
@@ -191,10 +192,6 @@ public:
     }
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
-    static void ReEvaluatePaths(const Agent *agent,
-                                const string &vrf_name,
-                                const IpAddress &ip,
-                                uint8_t plen);
     static void DeleteReq(const Peer *peer, const string &vrf_name,
                           const IpAddress &addr, uint8_t plen,
                           AgentRouteData *data);
