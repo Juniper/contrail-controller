@@ -95,6 +95,7 @@ struct DiskPartitionUsageStats {
     2: string                              partition_name
     3: u64                                 partition_space_used_1k
     4: u64                                 partition_space_available_1k
+    5: u16                                 percentage_partition_space_used
 }
 
 // Sent by the node manager
