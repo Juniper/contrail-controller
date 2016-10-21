@@ -371,14 +371,11 @@ class VncApiServer(object):
             ref_link_type = ref_fld_types_list[1]
             if ref_link_type == 'None':
                 continue
+
+            attr_cls = cfgm_common.utils.str_to_class(ref_link_type, __name__)
             for ref_dict in obj_dict.get(ref_name) or []:
-                buf = cStringIO.StringIO()
-                attr_cls = cfgm_common.utils.str_to_class(ref_link_type, __name__)
-                tmp_attr = attr_cls(**ref_dict['attr'])
-                tmp_attr.export(buf)
-                node = etree.fromstring(buf.getvalue())
                 try:
-                    tmp_attr.build(node)
+                    self._validate_complex_type(attr_cls, ref_dict['attr'])
                 except Exception as e:
                     err_msg = 'Error validating reference %s value %s ' \
                               %(ref_name, ref_dict)
