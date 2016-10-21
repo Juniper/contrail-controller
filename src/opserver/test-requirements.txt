@@ -33,3 +33,5 @@ cassandra-driver==3.0.0
 ../opserver/plugins/alarm_storage/dist/alarm_storage-0.1dev.tar.gz
 ../opserver/plugins/alarm_prouter_connectivity/dist/alarm_prouter_connectivity-0.1dev.tar.gz
 ../opserver/plugins/alarm_prouter_tsn_connectivity/dist/alarm_prouter_tsn_connectivity-0.1dev.tar.gz
+../opserver/plugins/alarm_disk_usage_high/dist/alarm_disk_usage_high-0.1dev.tar.gz
+../opserver/plugins/alarm_disk_usage_critical/dist/alarm_disk_usage_critical-0.1dev.tar.gz
