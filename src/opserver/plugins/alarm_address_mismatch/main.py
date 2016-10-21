@@ -75,7 +75,7 @@ class AddressMismatchControl(AlarmBase):
        Control Node has IP Address mismatch between ContrailConfig.bgp_router_parameters.address
        and Operational State in BgpRouterState"""
 
-    _RULES = 'ContrailConfig.elements.bgp_router_parameters.address not in bgp_router_parameters.address'
+    _RULES = 'ContrailConfig.elements.bgp_router_parameters.address not in BgpRouterState.bgp_router_ip_list'
 
     def __init__(self):
         AlarmBase.__init__(self, AlarmBase.ALARM_MAJOR)

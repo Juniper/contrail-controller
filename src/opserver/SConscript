@@ -115,7 +115,8 @@ OpEnv.SConscript('plugins/alarm_address_mismatch/SConscript', exports='OpEnv', d
 OpEnv.SConscript('plugins/alarm_storage/SConscript', exports='OpEnv', duplicate = 0)
 OpEnv.SConscript('plugins/alarm_prouter_connectivity/SConscript', exports='OpEnv', duplicate = 0)
 OpEnv.SConscript('plugins/alarm_prouter_tsn_connectivity/SConscript', exports='OpEnv', duplicate = 0)
-OpEnv.SConscript('plugins/alarm_disk_usage/SConscript', exports='OpEnv', duplicate = 0)
+OpEnv.SConscript('plugins/alarm_disk_usage_high/SConscript', exports='OpEnv', duplicate = 0)
+OpEnv.SConscript('plugins/alarm_disk_usage_critical/SConscript', exports='OpEnv', duplicate = 0)
 OpEnv.SConscript('docs/SConscript', exports='OpEnv', duplicate = 0)
 
 OpEnv.Default(sdist_gen)
@@ -255,7 +256,8 @@ test_depends = [
         '/opserver/plugins/alarm_storage/dist/alarm_storage-0.1dev.tar.gz',
         '/opserver/plugins/alarm_prouter_connectivity/dist/alarm_prouter_connectivity-0.1dev.tar.gz',
         '/opserver/plugins/alarm_prouter_tsn_connectivity/dist/alarm_prouter_tsn_connectivity-0.1dev.tar.gz',
-        '/opserver/plugins/alarm_disk_usage/dist/alarm_disk_usage-0.1dev.tar.gz',
+        '/opserver/plugins/alarm_disk_usage_high/dist/alarm_disk_usage_high-0.1dev.tar.gz',
+        '/opserver/plugins/alarm_disk_usage_critical/dist/alarm_disk_usage_critical-0.1dev.tar.gz',
                ]
 
 if OpEnv['OPT'] == 'coverage':
