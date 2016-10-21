@@ -1146,23 +1146,23 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
           'This link is internally created and may be removed in future. End users should not set this link or assume it to be there') -->
 <xsd:element name="qos-config-type" type="QosConfigType"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('qos-config-type', 'qos-config', 'CRUD',
+     Property('qos-config-type', 'qos-config', 'required', 'CRUD',
               'Specifies if qos-config is for vhost, fabric or for project.') -->
 <xsd:element name="dscp-entries" type="QosIdForwardingClassPairs"/>
 <!--#IFMAP-SEMANTICS-IDL
-     MapProperty('dscp-entries', 'qos-config', 'key', 'CRUD',
+     MapProperty('dscp-entries', 'qos-config', 'key', 'optional', 'CRUD',
                  'Map of DSCP match condition and applicable forwarding class for packet.') -->
 <xsd:element name="vlan-priority-entries" type="QosIdForwardingClassPairs"/>
 <!--#IFMAP-SEMANTICS-IDL
-     MapProperty('vlan-priority-entries', 'qos-config', 'key', 'CRUD',
+     MapProperty('vlan-priority-entries', 'qos-config', 'key', 'optional', 'CRUD',
                  'Map of .1p priority code to applicable forwarding class for packet.') -->
 <xsd:element name="mpls-exp-entries" type="QosIdForwardingClassPairs"/>
 <!--#IFMAP-SEMANTICS-IDL
-     MapProperty('mpls-exp-entries', 'qos-config', 'key', 'CRUD',
+     MapProperty('mpls-exp-entries', 'qos-config', 'key', 'optional', 'CRUD',
                  'Map of MPLS EXP values to applicable forwarding class for packet.') -->
 <xsd:element name="default-forwarding-class-id" type="ForwardingClassId" required='true' default="0"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('default-forwarding-class-id', 'qos-config', 'CRUD',
+     Property('default-forwarding-class-id', 'qos-config', 'required', 'CRUD',
               'Default forwarding class used for all non-specified QOS bits') -->
 
 <xsd:element name="virtual-network-qos-config"/>
