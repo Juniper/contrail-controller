@@ -29,18 +29,25 @@ enum AgentConsts {
  * Request for oper table
  */
 request sandesh PageReq {
+    /** key for oper table */
     1: string key;
 }
 
 /**
- * Sandesh definition for oper table entries in agent introspect
+ * Structure definition for oper table entries in agent introspect
  */
 struct PageReqData {
+    /** Link to previous page */
     1: string prev_page (link="PageReq");
+    /** Link to next page */
     2: string next_page (link="PageReq");
+    /** Link to first page */
     3: string first_page (link="PageReq");
+    /** Link to all pages */
     4: string all (link="PageReq");
+    /** Size of oper table */
     5: u32 table_size;
+    /** Number of entries in oper table */
     6: string entries;
 }
 
@@ -48,419 +55,698 @@ struct PageReqData {
  * Response message fetching oper table entries
  */
 response sandesh Pagination {
+    /** Page data request */
     1: PageReqData req;
 }
 
 /**
- * Sandesh definition for vlan entry in oper db
+ * Structure definition for service vlan entry in oper db
  */
 struct ServiceVlanSandeshList {
+   /** tag value for service vlan */
    1: i16 tag;
-   2: string vrf_name (link="VrfListReq"); // VRF name
+   /** Vrf name associated to service vlan */
+   2: string vrf_name (link="VrfListReq");
+   /** Ipv4 address associated to service vlan */
    3: string ip_addr;
+   /** Ipv6 address associated to service vlan */
    6: string ip6_addr;
+   /** Mpls label associated to service vlan */
    4: i16 label;
+   /** Boolean value which indicates if service vlan is installed */
    5: string installed;
+   /** Boolean value which indicates if v4 route is installed on service vlan
+    */
    7: string v4_route_installed;
+   /** Boolean value which indicates if v6 route is installed on service vlan
+    */
    8: string v6_route_installed;
 }
 
 /**
- * Sandesh definition for floatingip entry in oper db
+ * Structure definition for floating ip entry in oper db
  */
 struct FloatingIpSandeshList {
+   /** Ip address for floating ip */
    1: string ip_addr;
-   2: string vrf_name (link="VrfListReq"); // VRF name
+   /** Vrf name associated to floating ip */
+   2: string vrf_name (link="VrfListReq");
+   /** Boolean value which indicates if floating ip is installed */
    3: string installed;
+   /** Fixed ip address associated to floating ip */
    4: string fixed_ip;
 }
 
 /**
- * Sandesh definition for alias ip entry in oper db
+ * Structure definition for alias ip entry in oper db
  */
 struct AliasIpSandeshList {
+   /** Ip address for Alias ip */
    1: string ip_addr;
-   2: string vrf_name (link="VrfListReq"); // VRF name
+   /** Vrf name associated to alias ip */
+   2: string vrf_name (link="VrfListReq");
+   /** Boolean value which indicates if alias ip is installed */
    3: string installed;
 }
 
 /**
- * Sandesh defenition for static route entry in oper db
+ * Structure definition for static route entry in oper db
  */
 struct StaticRouteSandesh {
-   1: string vrf_name (link="VrfListReq"); // VRF name
+   /** Vrf name associated to static route */
+   1: string vrf_name (link="VrfListReq");
+   /** Ip address associated to static route */
    2: string ip_addr;
+   /** Prefix associated to static route */
    3: i32    prefix;
+   /** Mac address associated to static route */
    4: optional string mac_addr;
+   /** Communities list associated to static route */
    5: optional list<string> communities;
 }
 
 /**
- * Sandesh definition for security group list on interface
+ * Structure definition for security group list on interface
  */
 struct VmIntfSgUuid {
+    /** Uuid of security group associated to vm interface */
     1: string sg_uuid (link="SgListReq");
 }
 
 /**
- * Sandesh defenition for interface in oper db
+ * Structure definition for interface in oper db
  */
 struct ItfSandeshData {
+    /** Index value for interface in oper db table */
     1: i32 index;
-    2: string name;                  // interface name
-    3: string uuid;                  // intf uuid
-    4: string vrf_name (link="VrfListReq"); // VRF name
+    /** Name of the interface */
+    2: string name;
+    /** Uuid of the interface */
+    3: string uuid;
+    /** Name of vrf associated to interface */
+    4: string vrf_name (link="VrfListReq");
+    /** Boolean value which indicates if interface is capable of forwarding */
     5: string active;
+   /** Boolean value which indicates if interface is capable of Ipv4
+    * forwarding
+    */
    49: optional string ipv4_active;
+   /** Boolean value which indicates if interface is capable of L2
+    * forwarding
+    */
    28: string l2_active;
+   /** Boolean value which indicates if interface is capable of Ipv6
+    * forwarding
+    */
    35: optional string ip6_active;
+   /** Boolean value which indicates if health check mechanism is enabled for
+    * the interface
+    */
    53: optional string health_check_active;
+    /** Boolean value which indicates if dhcp service is enabled */
     6: string dhcp_service;
+    /** Boolean value which indicates if dns service is enabled */
     7: string dns_service;
-    8: string type;                  // interface type : eth / vport / host
-    9: i32 label;                    // interface mpls label
+    /** Type of the interface which can be eth/vport/host */
+    8: string type;
+    /** Mpls label associated with interface */
+    9: i32 label;
+   /** Mpls l2 label associated with interface */
    25: i32 l2_label;
+   /** vxlan id associated with interface */
    26: i32 vxlan_id;
-   10: string vn_name (link="VnListReq");  // VN uuid
-   11: string vm_uuid (link="VmListReq");  // VM uuid, in case of vport itf
+   /** Uuid of virtual-network interface is part of */
+   10: string vn_name (link="VnListReq");
+   /** Uuid of virtual-machine */
+   11: string vm_uuid (link="VmListReq");
+   /** Name of virtual-machine */
    12: string vm_name;
-   13: string ip_addr;      // interface ip address
-   14: string mac_addr;     // interface mac address
-   15: string policy;       // policy enabled?
-   16: list<FloatingIpSandeshList> fip_list;// Floating IP List
-   17: string mdata_ip_addr;// meta-data ip address for interface
-   18: list<ServiceVlanSandeshList> service_vlan_list;// Service VLAN List
+   /** Ip address associated with interface */
+   13: string ip_addr;
+   /** Mac address associated with interface */
+   14: string mac_addr;
+   /** Boolean value which indicates if policy is enabled on interface */
+   15: string policy;
+   /** Floating ip list associated with interface */
+   16: list<FloatingIpSandeshList> fip_list;
+   /** Metadata ip address associated with interface */
+   17: string mdata_ip_addr;
+   /** List of service vlans associated with interface */
+   18: list<ServiceVlanSandeshList> service_vlan_list;
+   /** Os interface index */
    19: i32 os_ifindex;
+   /** Field which indicates if fabric port is associated with interface */
    20: string fabric_port;
+   /** Field which indicates if linklocal service is enabled for interface */
    21: string alloc_linklocal_ip;
+   /** Name of mirror analyzer associated with interface */
    22: string analyzer_name; 
+   /** Configured name for interface */
    23: string config_name;
+   /** List of security-groups associated with interface */
    24: list<VmIntfSgUuid> sg_uuid_list;
-   27: list<StaticRouteSandesh> static_route_list; //Static route list
-   30: string vm_project_uuid; // project uuid of the vm to which the interface belongs
+   /** List of static routes associated with interface */
+   27: list<StaticRouteSandesh> static_route_list;
+   /** Project uuid of vm to which interface belongs */
+   30: string vm_project_uuid;
+   /** Admin state of interface which indicates if it is active and
+    * operational
+    */
    31: string admin_state;
+   /** Index of Flow key nh for the interface */
    32: i32 flow_key_idx;
+   /** List of allowed address pairs associated with interface */
    33: optional list<StaticRouteSandesh> allowed_address_pair_list;
+   /** Ipv6 address associated with interface */
    34: optional string ip6_addr;
+   /** Local preference value associated with interface */
    36: i32 local_preference;
+   /** Transmit vlan id associated with interface */
    37: i16 tx_vlan_id;
+   /** Receive vlan id associated with interface */
    38: i16 rx_vlan_id;
+   /** Name of the parent interface */
    39: string parent_interface;
+   /** Subnet value for the interface */
    40: optional string subnet;
+   /** Subnet type for interface(Tor/Gateway/Tap/VMI vlan-sub-if/Remote VM) */
    41: optional string sub_type;
-   42: optional string vrf_assign_acl_uuid (link="AclReq"); //VRF assign acl
+   /** VRF assign acl associated with interface */
+   42: optional string vrf_assign_acl_uuid (link="AclReq");
+   /** VMI type for interface(VM/Service Chain/Service instance/baremetal/
+    * gateway/remove vm/sriov
+    */
    43: optional string vmi_type;
+   /** Transport type(Ethernet/Socket/PMD) */
    44: string transport;
+   /** Uuid of logical interface associated with interface */
    45: string logical_interface_uuid;
+   /** Boolean value which indicates if unknown unicast packets to be flooded */
    46: optional bool flood_unknown_unicast;
+   /** Physical device name for the interface */
    47: string physical_device;
+   /** Physical interface name for the interface */
    48: string physical_interface;
+   /** List of fixed ipv4 associated with interface */
    50: list<string> fixed_ip4_list;
+   /** List of fixed ipv6 associated with interface */
    51: list<string> fixed_ip6_list;
+   /** List of fat flows associated with interface */
    52: list<string> fat_flow_list;
+   /** Field which indicates if Metadata ip is active on interface for
+    * link local services
+    */
    54: optional string metadata_ip_active;
+   /** Ip address of health check service associated with interface */
    55: optional string service_health_check_ip;
-   56: optional string qos_config (link="AgentQosConfigSandeshReq"); //QOS config uuid
-   57: list<AliasIpSandeshList> alias_ip_list;// Alias IP List
+   /** Uuid of qos configuration associated with interface */
+   56: optional string qos_config (link="AgentQosConfigSandeshReq");
+   /** List of Alias ip associated with interface */
+   57: list<AliasIpSandeshList> alias_ip_list;
+   /** Boolean value which indicates to drop new flows for interface */
    58: bool drop_new_flows;
 }
 
 /**
- * Sandesh defenition for vn ipam in oper db
+ * Structure definition for virtual-network ipam in oper db
  */
 struct VnIpamData {
+    /** Ip subnet prefix for virtual-network ipam */
     1: string ip_prefix;
+    /** Ip subnet prefix length for virtual-network ipam */
     2: i32 prefix_len;
+    /** Gateway address for virtual-network ipam */
     3: string gateway;
+    /** Name for virtual-network ipam */
     4: string ipam_name;
+    /** Field which indicates if dhcp is enabled for virtual-network ipam */
     5: string dhcp_enable;
+    /** Ip address of dns server for virtual-network ipam */
     6: string dns_server;
 }
 
 /**
- * Sandesh defenition for vn ipam host routes
+ * Structure definition for virtual-network ipam host routes
  */
 struct VnIpamHostRoutes {
+    /** Name of virtual-network ipam for host routes */
     1: string ipam_name;
+    /** List of host routes associated with virtual-network ipam */
     2: list<string> host_routes;
 }
 
 /**
- * Sandesh defenition for virtual network in oper db
+ * Structure definition for virtual network in oper db
  */
 struct VnSandeshData {
-    1: string name;                   // vn name
-    2: string uuid;                   // vn uuid
-    3: string acl_uuid (link="AclReq"); // acl uuid
-    4: string mirror_acl_uuid (link="AclReq"); // mirror acl uuid
-    5: string mirror_cfg_acl_uuid (link="AclReq"); // mirror cfg acl uuid
-    6: string vrf_name (link="VrfListReq"); // VRF name
+    /** Name of virtual network */
+    1: string name;
+    /** Uuid of virtual network */
+    2: string uuid;
+    /** Uuid of acl associated with virtual network */
+    3: string acl_uuid (link="AclReq");
+    /** Uuid of mirror acl associated with virtual network */
+    4: string mirror_acl_uuid (link="AclReq");
+    /** Uuid of configured mirror acl associated with virtual network */
+    5: string mirror_cfg_acl_uuid (link="AclReq");
+    /** Name of vrf associated with virtual network */
+    6: string vrf_name (link="VrfListReq");
+    /** List of ipam data associated with virtual network */
     7: list<VnIpamData> ipam_data;
+    /** List of ipam host routes associated with virtual network */
     8: list<VnIpamHostRoutes> ipam_host_routes;
+    /** Boolean value which indicates if layer2 forwarding is enabled for
+     * virtual network
+     */
     9: bool layer2_forwarding;
+    /** Boolean value which indicates if ipv4 forwarding is enabled for
+     * virtual network
+     */
     10: bool ipv4_forwarding;
+    /** Boolean value which indicates if virtual network is active and
+     * operational
+     */
     11: bool admin_state;
+    /** Vxlan id associated with virtual network */
     12: i32 vxlan_id;
+    /** Configured vxlan id associated with virtual network */
     13: i32 config_vxlan_id;
+    /** Vn id for virtual network */
     14: i32 vn_id;
+    /** Boolean value which indicates if rpf checking is enabled on virtual
+     * network
+     */
     15: bool enable_rpf;
+    /** Boolean value which indicates if bridging is enabled on virtual
+     * network
+     */
     16: bool bridging;
+    /** Boolean value which indicates if flooding of unknown unicast packets
+     * is enabled on virtual network
+     */
     17: bool flood_unknown_unicast;
 }
 
 /**
- * Sandesh defenition for security group
+ * Structure definition for security group
  */
 struct SgSandeshData {
+    /** Reference count for security group db entry */
     1: i32 ref_count;
+    /** id for security group entry */
     2: i32 sg_id;
+    /** Uuid of security group entry */
     3: string sg_uuid;
+    /** Uuid of acl associated with security group */
     4: string acl_uuid (link="AclReq");
+    /** Uuid of egress acl associated with security group */
     5: string egress_acl_uuid (link="AclReq");
+    /** Uuid of ingress acl associated with security group */
     6: string ingress_acl_uuid (link="AclReq");
 }
 
 /**
- * Sandesh defenition for security group list for vm
+ * Structure definition for security group list for vm
  */
 struct VmSgUuid {
+    /** Uuid of security group associated with virtual machine */
     1: string sg_uuid (link="SgListReq");
 }
 
 /**
- * Sandesh defenition for virtual machine in oper db
+ * Structure definition for virtual machine in oper db
  */
 struct VmSandeshData {
-    1: string uuid;                   // VM uuid
+    /** Uuid for virtual machine */
+    1: string uuid;
+    /** List of security group uuids associated with virtual machine */
     2: optional list<VmSgUuid> sg_uuid_list;
+    /** Boolean value which indicates whether to drop new flows for virtual
+     * machine
+     */
     3: bool drop_new_flows;
 }
 
 /**
- * Sandesh defenition for multicast route in oper db
+ * Structure definition for multicast route in oper db
  */
 struct McastData {
+    /** Type of multicast route */
     1: string type;
+    /** Source ip address associated with multicast route */
     2: optional string sip;
+    /** Destination ip address associated with multicast route */
     3: optional string dip;
+    /** Mpls label associated with multicast route */
     4: optional i32 label;
+    /** Interface associated with multicast route */
     5: optional string itf (link="ItfReq");
+    /** Vlan tag associated with multicast route */
     6: optional i16 vlan_tag
 }
 
 /**
- * Sandesh definition for  FabricComposite next hop in oper db
+ * Structure definition for  FabricComposite next hop in oper db
  */
 struct FabricCompositeData {
+    /** Type of fabric composite next hop */
     1: string type;
+    /** Source ip address associated with fabric composite next hop */
     2: optional string sip;
+    /** Destination ip address associated with fabric composite next hop */
     3: optional string dip;
+    /** List of multicast nh associated with fabric composite next hop */
     4: optional list <McastData> mc_list;  //Multicast sub nh list
 }
 
 /**
- * Sandesh definition for L2Composite next hop in oper db
+ * Structure definition for L2Composite next hop in oper db
  */
 struct L2CompositeData {
+    /** Type of l2 composite next hop */
     1: string type;
+    /** Source ip address associated with l2 composite next hop */
     2: optional string sip;
+    /** Destination ip address associated with l2 composite next hop */
     3: optional string dip;
-    4: optional FabricCompositeData fabric_comp; //Multicast sub nh list
-    5: optional list <McastData> mc_list; //Multicast sub nh list
+    /** Fabric composite next hop associated with l2 composite next hop */
+    4: optional FabricCompositeData fabric_comp;
+    /** List of multicast next hop associated with l2 composite next hop */
+    5: optional list <McastData> mc_list;
 }
 
 /**
- * Sandesh definition for L3Composite next hop in oper db
+ * Structure definition for L3Composite next hop in oper db
  */
 struct L3CompositeData {
+    /** Type of l3 composite next hop */
     1: string type;
+    /** Source ip address associated with l3 composite next hop */
     2: optional string sip;
+    /** Destination ip address associated with l3 composite next hop */
     3: optional string dip;
-    4: optional FabricCompositeData fabric_comp;  //Multicast sub nh list
-    5: optional list <McastData> mc_list; //Multicast sub nh list
+    /** Fabric composite next hop associated with l3 composite next hop */
+    4: optional FabricCompositeData fabric_comp;
+    /** List of multicast next hop associated with l3 composite next hop */
+    5: optional list <McastData> mc_list;
 }
 
 /**
- * Sandesh definition for MulticastComposite next hop in oper db
+ * Structure definition for MulticastComposite next hop in oper db
  */
 struct MulticastCompositeData {
+    /** Type of multicast composite next hop */
     1: string type;
+    /** Source ip address associated with multicast composite next hop */
     2: optional string sip;
+    /** Destination ip address associated with multicast composite next hop */
     3: optional string dip;
-    4: optional list <McastData> mc_list;  //Multicast sub nh list
+    /** List of multicast next hop associated with multicast composite next
+     *  hop
+     */
+    4: optional list <McastData> mc_list;
 }
 
 /**
- * Sandesh definition for MulticastFamilyComposite next hop in oper db
+ * Structure definition for MulticastFamilyComposite next hop in oper db
  */
 struct MulticastFamilyCompositeData {
+    /** Type of multicast family composite next hop */
     1: string type;
+    /** Source ip address associated with multicast family composite next
+     * hop
+     */
     2: optional string sip;
+    /** Destination ip address associated with multicast family composite next
+     * hop
+     */
     3: optional string dip;
-    4: optional MulticastCompositeData fabric_comp;  //Multicast sub nh list
-    5: optional MulticastCompositeData evpn_comp;  //Multicast sub nh list
-    6: optional MulticastCompositeData interface_comp;  //Multicast sub nh list
+    /** Fabric data associated with multicast family composite next hop */
+    4: optional MulticastCompositeData fabric_comp;
+    /** Evpn data associated with multicast family composite next hop */
+    5: optional MulticastCompositeData evpn_comp;
+    /** Interface data associated with multicast family composite next hop */
+    6: optional MulticastCompositeData interface_comp;
 }
 
 /**
- * Sandesh definition for next hop in oper db
+ * Structure definition for next hop in oper db
  */
 struct NhSandeshData {
-    1: string type;                   // type : tunnel / interface / ...
-    2: i32 ref_count;                 // count of NH references
-    3: optional string valid;         // Is Nexthop valid ???
-    4: optional string policy;        // Policy enabled/disabled
-    5: optional string sip;           // source IP, in case of tunnel NH 
-    6: optional string dip;           // dest IP, in case of tunnel NH 
-    7: optional string vrf (link="VrfListReq"); // VRF, in case of tunnel NH
-    8: optional string itf (link="ItfReq"); // interface name, in case of itf NH
-    9: optional string mac;           // mac, in case of itf NH
-   10: optional i32 sport;            // Source port for Mirror NH
-   11: optional i32 dport;            // Destination port for Mirror NH    
-   12: optional string mcast;      // Is multicast nh or not
+    /** Type of next hop */
+    1: string type;
+    /** Reference count for next hop db entry */
+    2: i32 ref_count;
+    /** Field to indicate if next hop is valid */
+    3: optional string valid;
+    /** Field which indicates if policy is enabled on next hop entry */
+    4: optional string policy;
+    /** Source ip address associated with next hop in case of tunnel nh */
+    5: optional string sip;
+    /** Destination ip address associated with next hop in case of tunnel nh */
+    6: optional string dip;
+    /** Vrf associated with next hop in case of tunnel nh */
+    7: optional string vrf (link="VrfListReq");
+    /** Interface name in case of interface nh */
+    8: optional string itf (link="ItfReq");
+    /** Mac address associated with next hop in case of interface nh */
+    9: optional string mac;
+   /** Source port associated with next hop in case of mirror nh */
+   10: optional i32 sport;
+   /** Destination port associated with next hop in case of mirror nh */
+   11: optional i32 dport;
+   /** Field which indicates if it is multicast nh */
+   12: optional string mcast;
+   /** Mpls label associated with next hop */
    13: optional i32 label;
-   14: optional list <McastData> mc_list;  //Multicast sub nh list
-   15: optional i16 vlan_tag;         // VLAN Tag for the interface
-   16: optional string tunnel_type;   // Tunnel type : MPLSoGRE, MPLSoUDP, ...
-   17: optional string local_ecmp;    //Is Nexthop for local ecmp 
-   18: optional FabricCompositeData fabric_comp;  //Multicast sub nh list
-   19: optional L2CompositeData l2_comp;  //Multicast sub nh list
-   20: optional L3CompositeData l3_comp;  //Multicast sub nh list
+   /** List of multicast sub nh associated with next hop */
+   14: optional list <McastData> mc_list;
+   /** Vlan tag associated with next hop */
+   15: optional i16 vlan_tag;
+   /** Type of tunnel associated with next hop(MPLSoGRE, MPLSoUDP, VXLAN) */
+   16: optional string tunnel_type;
+   /** Field which indicates if next hop is used for local ecmp */
+   17: optional string local_ecmp;
+   /** Fabric composite data associated with next hop */
+   18: optional FabricCompositeData fabric_comp;
+   /** L2 composite data associated with next hop */
+   19: optional L2CompositeData l2_comp;
+   /** L3 composite data associated with next hop */
+   20: optional L3CompositeData l3_comp;
+   /** Next hop index in next hop oper db table */
    21: i32 nh_index;
-   22: optional MulticastCompositeData interface_comp;  //Multicast sub nh list
-   23: optional MulticastCompositeData evpn_comp;  //Multicast sub nh list
+   /** Interface composite data associated with next hop */
+   22: optional MulticastCompositeData interface_comp;
+   /** Evpn composite data associated with next hop */
+   23: optional MulticastCompositeData evpn_comp;
+   /** Boolean value which indicates if vxlan is associated with vrf nh */
    24: optional bool vxlan_flag;
+   /** Boolean value which indicates to flood unknown unicast packets for nh */
    25: optional bool flood_unknown_unicast;
 }
 
 /**
- * Sandesh definition for NamespaceState in oper db
+ * Structure definition for NamespaceState in oper db
  */
 struct NamespaceStateSandeshData {
+    /** Process id of instance manager task */
     1: i32 pid;
+    /** Run status of instance manager task */
     2: i32 status;
-    3: string cmd; 
+    /** Command associated with instance manager task */
+    3: string cmd;
+    /** Status type for instance state(starting,stopping...) */
     4: i32 status_type;
+    /** Errors observed for instance manager task */
     5: optional string errors;
 }
 
 /**
- * Sandesh definition for PathPreference
+ * Structure definition for PathPreference
  */
 struct PathPreferenceSandeshData {
+    /** Sequence number for agent path */
     1: i32 sequence;
+    /** Preference value for agent path which can be Low/High */
     2: i32 preference;
+    /** Boolean value which indicates if it is ecmp path */
     3: bool ecmp;
+    /** Boolean value which indicates to wait for traffic before setting
+     * path preference to High
+     */
     4: bool wait_for_traffic;
+    /** Dependent ip address for agent path */
     5: optional string dependent_ip;
 }
 
 /**
- * Sandesh definition for Path
+ * Structure definition for Path
  */
 struct PathSandeshData {
-    1: NhSandeshData nh;              // next hop info
-    2: i32 label;                     // mpls label
-    3: i32 vxlan_id;                // VN ID/VXLAN
-    4: string peer;                   // peer originating the path 
-    5: list<string> dest_vn_list (link="VnListReq"); // destination VN list
-    6: string unresolved;             // true or false
-    7: optional string gw_ip;         // GW IP
-    8: optional string vrf (link="VrfListReq"); // Vrf
+    /** Next hop information for agent path */
+    1: NhSandeshData nh;
+    /** Mpls label for path */
+    2: i32 label;
+    /** Vxlan id for path */
+    3: i32 vxlan_id;
+    /** Peer which is originating the path */
+    4: string peer;
+    /** List of Destination vn for path */
+    5: list<string> dest_vn_list (link="VnListReq");
+    /** Field which indicates if nh is resolved for path */
+    6: string unresolved;
+    /** Ip address of gateway associated with path */
+    7: optional string gw_ip;
+    /** Vrf associated with path */
+    8: optional string vrf (link="VrfListReq");
+   /** List of security group associated with path */
    10: optional list<i32> sg_list;
+   /** Supported tunnel encap associated with path */
    11: string supported_tunnel_type;
+   /** Active tunnel encap associated with path */
    12: string active_tunnel_type;
+   /** Boolean value which indicates if path is stale */
    13: bool stale;
+   /** Path preference information for path */
    14: optional PathPreferenceSandeshData path_preference_data;
+   /** Parent information for path */
    15: optional string info;
+   /** Active mpls label associated with path */
    16: optional i32 active_label;
+   /** Field which indicates whether to flood dhcp packets */
    17: optional string flood_dhcp;
+   /** Name of virtual-machine associated with path */
    18: optional string vm_name;
+   /** Boolean value which indicates if ecmp is suppressed for path */
    19: optional bool ecmp_suppressed;
+   /** Ecmp hashing fields associated with path */
    20: optional string ecmp_hashing_fields;
+   /** Communities associated with path */
    21: optional list<string> communities;
 }
 
 /**
- * Sandesh definition for unicast route in oper db
+ * Structure definition for unicast route in oper db
  */
 struct RouteUcSandeshData {
-    1: string src_ip;                   // IP addr
-    2: i32 src_plen;                    // prefix length
-    3: string src_vrf (link="VrfListReq"); // VRF
-    4: list<PathSandeshData> path_list; // paths
-    5: optional bool ipam_subnet_route;   // associated IPAM subnet 
-    6: optional bool proxy_arp;           // Proxy ARP
+    /** Source ip address of unicast route */
+    1: string src_ip;
+    /** Source prefix length of unicast route */
+    2: i32 src_plen;
+    /** Source vrf associated with unicast route */
+    3: string src_vrf (link="VrfListReq");
+    /** List of paths associated with unicast route */
+    4: list<PathSandeshData> path_list;
+    /** Boolean value which indicates if it is ipam subnet route */
+    5: optional bool ipam_subnet_route;
+    /** Boolean value which indicates if it is used to proxy arp requests */
+    6: optional bool proxy_arp;
+    /** Boolean value which indicates if it is multicast route */
     7: bool multicast;
 }
 
 /**
- * Sandesh definition for multicast route in oper db
+ * Structure definition for multicast route in oper db
  */
 struct RouteMcSandeshData {
-    1: string src;                   // S
-    2: string grp;                   // G
-    3: NhSandeshData nh;                // The NH
+    /** Source ip address of multicast route */
+    1: string src;
+    /** Destination ip address of multicast route */
+    2: string grp;
+    /** Next hop associated with multicast route */
+    3: NhSandeshData nh;
 }
 
 /**
- * Sandesh definition for L2 route in oper db
+ * Structure definition for L2 route in oper db
  */
 struct RouteL2SandeshData {
-    1: string mac;                   // MAC addr
-    2: string src_vrf (link="VrfListReq"); // VRF
-    4: list<PathSandeshData> path_list; // paths
+    /** Mac address associated with l2 route */
+    1: string mac;
+    /** Source vrf associated with l2 route */
+    2: string src_vrf (link="VrfListReq");
+    /** List of paths associated with l2 route */
+    4: list<PathSandeshData> path_list;
 }
 
 /**
- * Sandesh definition for evpn route in oper db
+ * Structure definition for evpn route in oper db
  */
 struct RouteEvpnSandeshData {
-    1: string mac;                   // MAC addr
-    2: string src_vrf (link="VrfListReq"); // VRF
+    /** Mac address associated with evpn route */
+    1: string mac;
+    /** Source vrf associated with evpn route */
+    2: string src_vrf (link="VrfListReq");
+    /** Ip address associated with evpn route */
     3: string ip_addr;
-    4: list<PathSandeshData> path_list; // paths
+    /** List of paths associated with evpn route */
+    4: list<PathSandeshData> path_list;
 }
 
 /**
- * Sandesh definition for Vrf in oper db
+ * Structure definition for Vrf in oper db
  */
 struct VrfSandeshData {
-    1: string name;                           // VRF name
-    2: i32 ucindex  (link="Inet4UcRouteReq"); // VRF Index INET4 UC Table
-    3: i32 mcindex  (link="Inet4McRouteReq"); // VRF Index INET4 MC Table
-    4: i32 l2index  (link="Layer2RouteReq"); // VRF Index L2 Table, DEPRECATED
-    5: string source;                        // config or gateway
-    6: i32 uc6index (link="Inet6UcRouteReq"); // VRF Index INET6 UC Table
-    7: string vn (link="VnListReq");          // VN-Name
-    8: i32 table_label;                      //Label for route lookup on this vrf
-    9: i32 vxlan_id;                         // VRF Label used for the VRF
-   10: i32 evpnindex  (link="EvpnRouteReq"); // VRF Index evpn Table
-   11: i32 brindex  (link="BridgeRouteReq"); // VRF Index L2 Table
-   12: string RD;                            // Route-Distinguisher
+    /** Name of vrf */
+    1: string name;
+    /** Vrf index set for inet4 unicast table */
+    2: i32 ucindex  (link="Inet4UcRouteReq");
+    /** Vrf index set for inet4 multicast table */
+    3: i32 mcindex  (link="Inet4McRouteReq");
+    /** Vrf index set for l2 table */
+    4: i32 l2index  (link="Layer2RouteReq");
+    /** Field which indicates if it is config or gateway vrf */
+    5: string source;
+    /** Vrf index set for inet6 unicast table */
+    6: i32 uc6index (link="Inet6UcRouteReq");
+    /** Virtual network associated with vrf */
+    7: string vn (link="VnListReq");
+    /** Label used for route lookup on this vrf */
+    8: i32 table_label;
+    /** Vxlan id associated with vrf */
+    9: i32 vxlan_id;
+   /** Vrf index set for evpn table */
+   10: i32 evpnindex  (link="EvpnRouteReq");
+   /** Vrf index set for bridge table */
+   11: i32 brindex  (link="BridgeRouteReq");
+   /** Route distinguisher associated with vrf */
+   12: string RD;
 }
 
 /**
- * Sandesh definition for mpls label in oper db
+ * Structure definition for mpls label in oper db
  */
 struct MplsSandeshData {
-    1: i32 label;                     // mpls label
-    2: string type;                   // type - invalid or vport_nh or mcast_nh
-    3: NhSandeshData nh;              // next hop info
+    /** Mpls label value */
+    1: i32 label;
+    /** Label type - invalid/vport_nh/mcast_nh */
+    2: string type;
+    /** Next hop associated with mpls label */
+    3: NhSandeshData nh;
 }
 
 /**
- * Sandesh definition for mirror packet
+ * Structure definition for mirror packet
  */
 struct MirrorEntrySandeshData {
-    1: i32 ref_count;                 // count of Flow's referring to Mirror entry
-    2: string analyzer_name;          // Analyzer name
-    3: optional string sip;           // source IP
-    4: optional string dip;           // dest IP of Analytics server
-    5: optional string vrf (link="VrfListReq"); // VRF
-    6: optional i32 sport;            // Source port for Mirror NH
-    7: optional i32 dport;            // Destination port for Mirror NH
-    8: NhSandeshData nh;              // next hop info
+    /** Count of flows referring to mirror db entry */
+    1: i32 ref_count;
+    /** Analyzer name associated with mirror entry */
+    2: string analyzer_name;
+    /** Source ip address associated with mirror entry */
+    3: optional string sip;
+    /** Destination ip address of analytics server associated with mirror
+     * entry
+     */
+    4: optional string dip;
+    /** vrf associated with mirror entry */
+    5: optional string vrf (link="VrfListReq");
+    /** Source port associated with mirror entry */
+    6: optional i32 sport;
+    /** Destination port associated with mirror entry */
+    7: optional i32 dport;
+    /** Next hop associated with mirror entry */
+    8: NhSandeshData nh;
 }
 
 /**
@@ -473,19 +759,27 @@ request sandesh AgentInitStateReq {
  * Response message for agent init state
  */
 response sandesh AgentInitState {
-    1: string state;                   // Agent's state
+    /** Agent initialization state */
+    1: string state;
 }
 
 /**
- * Sandessh definition for security group log
+ * Structure definition for security group log
  */
 struct SgObjectLogInfo {
+    /** Event for security group object log - add/delete/change */
     1: string event;
+    /** Uuid value of security group object log */
     2: string uuid;
+    /** Security group id */
     3: u32 id;
+    /** Uuid of acl associated with security group */
     4: string acl_uuid;
+    /** Reference count for security group db entry */
     5: u32 ref_count;
+    /** Uuid of egress acl associated with security group */
     6: string egress_acl_uuid;
+    /** Uuid of ingress acl associated with security group */
     7: string ingress_acl_uuid;
 }
 
@@ -496,6 +790,7 @@ struct SgObjectLogInfo {
  * @object: SgEntry
  */
 objectlog sandesh SgObjectLog {
+    /** Information of security group entry */
     1: SgObjectLogInfo sg;
 }
 
@@ -506,6 +801,7 @@ objectlog sandesh SgObjectLog {
  * @object: SgEntry
  */
 traceobject sandesh SgObjectTrace {
+    /** Information of security group entry */
     1: SgObjectLogInfo sg;
 }
 
@@ -513,6 +809,7 @@ traceobject sandesh SgObjectTrace {
  * Request message for security group request
  */
 request sandesh SgListReq {
+    /** Security group name */
     1: string name;
 }
 
@@ -520,6 +817,7 @@ request sandesh SgListReq {
  * Response message for security group list from oper db
  */
 response sandesh SgListResp {
+    /** List of security group information */
     1: list<SgSandeshData> sg_list;
 }
 
@@ -527,9 +825,13 @@ response sandesh SgListResp {
  * Request message for virtual network list from oper db
  */
 request sandesh VnListReq {
-    1: string name;                   // send data for given name substring
+    /** Name of virtual network */
+    1: string name;
+    /** Uuid of virtual network */
     2: string uuid;
+    /** Vxlan id associated with virtual network */
     3: string vxlan_id;
+    /** Ipam name associated with virtual network */
     4: string ipam_name;
 }
 
@@ -537,6 +839,7 @@ request sandesh VnListReq {
  * Response message for virtual network list
  */
 response sandesh VnListResp {
+    /** List of virtual network information */
     1: list<VnSandeshData> vn_list;
 }
 
@@ -544,13 +847,15 @@ response sandesh VnListResp {
  * Request message for virtual machine list from oper db
  */
 request sandesh VmListReq {
-    1: string uuid;                   // send data for given name substring
+    /** Uuid of virtual machine */
+    1: string uuid;
 }
 
 /**
  * Response message for virtual machine list
  */
 response sandesh VmListResp {
+    /** List of virtual machine information */
     1: list<VmSandeshData> vm_list;
 }
 
@@ -558,8 +863,11 @@ response sandesh VmListResp {
  * Request message for next hop list from oper db
  */
 request sandesh NhListReq {
+    /** Type of next-hop */
     1: string type;
+    /** Index of next-hop */
     2: string nh_index;
+    /** Field which indicates if policy is enabled for next-hop */
     3: string policy_enabled;
 }
 
@@ -567,6 +875,7 @@ request sandesh NhListReq {
  * Response message for virtual nh list
  */
 response sandesh NhListResp {
+    /** List of next-hop information */
     1: list<NhSandeshData> nh_list;
 }
 
@@ -574,13 +883,15 @@ response sandesh NhListResp {
  * Request message for vrf list from oper db
  */
 request sandesh VrfListReq {
-    1: string name;                   // send data for given name substring
+    /** Name of vrf */
+    1: string name;
 }
 
 /**
  * Response message for vrf list
  */
 response sandesh VrfListResp {
+    /** List of vrf information */
     1: list<VrfSandeshData> vrf_list;
 }
 
@@ -588,33 +899,43 @@ response sandesh VrfListResp {
  * Request message for Inet4 Unicast routes from oper db
  */
 request sandesh Inet4UcRouteReq {
-    1: i32 vrf_index = 0;             // send route entries for the VRF index
+    /** Vrf index associated with unicast route entries */
+    1: i32 vrf_index = 0;
+    /** Source Ip address of unicast route */
     2: string src_ip;
+    /** Ip prefix length of unicast route */
     3: u16 prefix_len;
-    4: bool stale = 0;                // Display stale entries only if set
+    /** Boolean value which indicates to display stale unicast routes */
+    4: bool stale = 0;
 }
 
 /**
  * Response message for Inet4 Unicast routes
  */
 response sandesh Inet4UcRouteResp {
-    1: list<RouteUcSandeshData> route_list; // routes
+    /** List of unicast route information */
+    1: list<RouteUcSandeshData> route_list;
 }
 
 /**
  * Request message for Inet6 Unicast routes from oper db
  */
 request sandesh Inet6UcRouteReq {
-    1: i32 vrf_index = 0;             // send route entries for the VRF index
+    /** Vrf index associated with inet6 unicast route entries */
+    1: i32 vrf_index = 0;
+    /** Source Ip address of inet6 unicast route */
     2: string src_ip;
+    /** Ip prefix length of inet6 unicast route */
     3: u16 prefix_len;
-    4: bool stale = 0;                // Display stale entries only if set
+    /** Boolean value which indicates to display stale inet6 unicast routes */
+    4: bool stale = 0;
 }
 
 /**
  * Response message for Inet6 Unicast routes
  */
 response sandesh Inet6UcRouteResp {
+    /** List of inet6 unicast route information */
     1: list<RouteUcSandeshData> route_list; // routes
 }
 
@@ -622,79 +943,105 @@ response sandesh Inet6UcRouteResp {
  * Request message for Inet4 multicast routes from oper db
  */
 request sandesh Inet4McRouteReq {
-    1: i32 vrf_index = 0;             // send route entries for the VRF index
-    2: bool stale = 0;                // Display stale entries only if set
+    /** Vrf index associated with multicast route entries */
+    1: i32 vrf_index = 0;
+    /** Boolean value which indicates to display stale multicast routes */
+    2: bool stale = 0;
 }
 
 /**
  * Response message for Inet4 multicast routes
  */
 response sandesh Inet4McRouteResp {
-    1: list<RouteMcSandeshData> route_list; // routes
+    /** List of multicast route information */
+    1: list<RouteMcSandeshData> route_list;
 }
 
 /**
  * Request message for L2 routes from oper db
  */
 request sandesh Layer2RouteReq {
+    /** Vrf index associated with l2 route entries */
     1: i32 vrf_index = 0;
+    /** Mac address associated with l2 route */
     2: string mac;
-    3: bool stale = 0;                // Display stale entries only if set
+    /** Boolean value which indicates to display stale l2 routes */
+    3: bool stale = 0;
 }
 
 /**
  * Response message for L2 routes
  */
 response sandesh Layer2RouteResp {
-    1: list<RouteL2SandeshData> route_list; // routes
+    /** List of l2 route information */
+    1: list<RouteL2SandeshData> route_list;
 }
 
 /**
  * Request message for bridge routes from oper db
  */
 request sandesh BridgeRouteReq {
+    /** Vrf index associated with bridge route entries */
     1: i32 vrf_index = 0;
+    /** Mac address associated with bridge route */
     2: string mac;
-    3: bool stale = 0;                // Display stale entries only if set
+    /** Boolean value which indicates to display stale bridge routes */
+    3: bool stale = 0;
 }
 
 /**
  * Response message for bridge routes
  */
 response sandesh BridgeRouteResp {
-    1: list<RouteL2SandeshData> route_list; // routes
+    /** List of bridge route information */
+    1: list<RouteL2SandeshData> route_list;
 }
 
 /**
  * Request message for evpn routes from oper db
  */
 request sandesh EvpnRouteReq {
+    /** Vrf index associated with evpn route entries */
     1: i32 vrf_index = 0;
+    /** Mac address associated with evpn route */
     2: string mac;
-    3: bool stale = 0;                // Display stale entries only if set
+    /** Boolean value which indicates to display stale evpn routes */
+    3: bool stale = 0;
 }
 
 /**
  * Response message for evpn routes
  */
 response sandesh EvpnRouteResp {
-    1: list<RouteEvpnSandeshData> route_list; // routes
+    /** List of bridge route information */
+    1: list<RouteEvpnSandeshData> route_list;
 }
 
 /**
  * Request message for interface details from oper db
  */
 request sandesh ItfReq {
+    /** Name of the interface */
     1: string name;
+    /** Type of the interface - physical,vmi... */
     2: string type;
+    /** Uuid of the interface */
     3: string uuid;
+    /** Virtual network associated with interface */
     4: string vn;
+    /** Mac address associated with interface */
     5: string mac;
+    /** Ipv4 address associated with interface */
     6: string ipv4_address;
+    /** Ipv6 address associated with interface */
     7: string ipv6_address;
+    /** Uuid of parent interface associated with this interface */
     8: string parent_uuid;
+    /** Field which indicates if interface is capable of ip forwarding */
     9: string ip_active;
+    /** Field which indicates if interface is capable of ipv6 forwarding */
     10: string ip6_active;
+    /** Field which indicates if interface is capable of l2 forwarding */
     11: string l2_active;
 }
 
@@ -702,6 +1049,7 @@ request sandesh ItfReq {
  * Response message for interface details
  */
 response sandesh ItfResp {
+    /** List of interface information */
     1: list<ItfSandeshData> itf_list;
 }
 
@@ -709,7 +1057,9 @@ response sandesh ItfResp {
  * Request message for mpls label list from oper db
  */
 request sandesh MplsReq {
+    /** Mpls label type - invalid/vport_nh/mcast_nh */
     1: string type;
+    /** Mpls label value */
     2: string label;
 }
 
@@ -717,37 +1067,45 @@ request sandesh MplsReq {
  * Response message for mpls label
  */
 response sandesh MplsResp {
+    /** List of mpls label information */
     1: list<MplsSandeshData> mpls_list;
 }
 
 /**
- * Sandesh definition for vrf assignment
+ * Structure definition for vrf assignment
  */
 struct VrfAssignSandeshData {
+    /** Type of vrf assignment - invalid/vlan */
     1: string type;
+    /** Vlan tag value associated with vrf assignment */
     2: u16 vlan_tag;
-    3: string itf (link="ItfReq"); // interface name
-    4: string vrf (link="VrfListReq");  // VRF
+    /** Interface associated with vrf assignment */
+    3: string itf (link="ItfReq");
+    /** Vrf associated with vrf assignment */
+    4: string vrf (link="VrfListReq");
 }
 
 /**
  * Request message for vrf assignment list
  */
 request sandesh VrfAssignReq {
-    1: string uuid;                   // send data for given interface
+    /** Uuid of vrf assignment entry */
+    1: string uuid;
 }
 
 /**
  * Response message for vrf assignment
  */
 response sandesh VrfAssignResp {
+    /** List of vrf assignment information */
     1: list<VrfAssignSandeshData> vrf_assign_list;
 }
 
 /**
- * Request message for miror entry
+ * Request message for mirror entry
  */
 request sandesh MirrorEntryReq {
+    /** Name of analyzer to mirror entry */
     1: string analyzer_name;
 }
 
@@ -755,6 +1113,7 @@ request sandesh MirrorEntryReq {
  * Response message for miror entry
  */
 response sandesh MirrorEntryResp {
+    /** List of mirror entry information */
     1: list<MirrorEntrySandeshData> mirror_entry_list;
 }
 
@@ -762,6 +1121,7 @@ response sandesh MirrorEntryResp {
  * Response message for invalid input 
  */
 response sandesh ErrorResp {
+    /** Response field for invalid input */
     1: string resp = "   Invalid Input !!!   ";
 }
 
@@ -772,14 +1132,20 @@ request sandesh LinkLocalServiceInfo {
 }
 
 /**
- * Sandesh definition for Link Local Service
+ * Structure definition for Link Local Service
  */
 struct LinkLocalServiceData {
+    /** Name of linklocal service */
     1: string linklocal_service_name;
+    /** Ip address associated with linklocal service */
     2: string linklocal_service_ip;
+    /** Port associated with linklocal service */
     3: i32    linklocal_service_port;
+    /** Dns server used for link local service */
     4: string ipfabric_dns_name;
+    /** Ip address list of ipfabric associated with link local service */
     5: list<string> ipfabric_ip;
+    /** Port of ipfabric associated with link local service */
     6: i32    ipfabric_port;
 }
 
@@ -787,136 +1153,205 @@ struct LinkLocalServiceData {
  * Response message for LinkLocalServiceInfo
  */
 response sandesh LinkLocalServiceResponse {
+    /** List of linklocal service information */
     1: list<LinkLocalServiceData> service_list;
 }
 
 /**
- *  Sandesh range for acl properties like protocol, port
+ *  Structure range for acl properties like protocol, port
  */
 struct SandeshRange {
+    /** Minumum value for range */
     1: i32 min;
+    /** Maximum value for range */
     2: i32 max;   
 }
 
 /** 
- *  Sandesh definition of acl action string
+ *  Structure definition of acl action string
  */
 struct ActionStr {
+    /** Action used for acl - pass/deny... */
     1: string action;
 }
 
 /**
- * Sandesh definition for acl action
+ * Structure definition for acl action
  */
 struct AclAction {
+    /** Acl id associated with acl action entry */
     1: string acl_id;
     // 2: bool sg;
+    /** List of acl actions */
     3: list<ActionStr> action_l;
+    /** Type of acl associated with acl action entry */
     4: string acl_type;
 }
 
 /**
- * Id for AclEntry
+ * Structure definition of Id for AclEntry
  */
 struct AceId {
+    /** Id used for acl entry */
     1: i32 id;
 }
 
 /**
- * Sandesh definition for AclEntry
+ * Structure definition for AclEntry
  */
 struct AclEntrySandeshData {
+    /** Id for acl entry */
     1: string ace_id;
+    /** Type of rule associated with acl entry - terminal/non-terminal */
     2: string rule_type;
+    /** Source parameter associated with acl entry - ip/network id/sg id */
     3: string src;
+    /** Destination parameter associated with acl entry - ip/network id/
+     * sg id
+     */
     4: string dst;
+    /** List of source port range for acl entry */
     5: list <SandeshRange> src_port_l;
+    /** List of destination port range for acl entry */
     6: list <SandeshRange> dst_port_l;
+    /** List of protocol range for acl entry */
     7: list <SandeshRange> proto_l;
+    /** List of actions associated with acl entry */
     8: list <ActionStr> action_l;
+    /** Type of source parameter - ip/network/sg */
     9: string src_type;
+    /** Type of destination parameter -ip/network/sg */
     10: string dst_type;
+    /** Uuid of acl entry */
     11: string uuid;
 }
 
 /**
- * Sandesh definition for flow
+ * Structure definition for flow
  */
 struct FlowSandeshData {
+    /** List of acl entries associated with flow */
     1: list <AceId> ace_l;
-    // Flow Key
+    /** Vrf used for flow key */
     2: string vrf;
+    /** Source ip address used for flow key */
     3: string src;
+    /** Destination ip address used for flow key */
     4: string dst;
+    /** Source port used for flow key */
     5: i32 src_port;
+    /** Destination port used as flow key parameter */
     6: i32 dst_port;
+    /** Protocol used as flow key parameter */
     7: i16 protocol;
 
-    // Flow Data
+    /** Boolean field which indicates if this is ingress flow */
     8: bool ingress;
+    /** List of match actions used for flow entry */
     9: list <ActionStr> action_l;
+    /** List of acl actions used for flow entry */
     10: list <AclAction> acl_action_l;
+    /** Uuid of flow */
     11: string flow_uuid;
+    /** Handle which contains flow entry index */
     12: string flow_handle;
+    /** Destination vrf associated with flow entry */
     13: string dest_vrf;
+    /** Source virtual network associated with flow entry */
     14: string source_vn;
+    /** Destination virtual network associated with flow entry */
     15: string dest_vn;
+    /** List of source security group associated with flow entry */
     16: list<u32> source_sg_id_l;
+    /** List of destination security group associated with flow entry */
     17: list<u32> dest_sg_id_l;
+    /** Number of packet bytes subjected to flow entry */
     18: string bytes;
+    /** Number of packets subjected to flow entry */
     19: string packets;
+    /** Time at which flow entry is setup */
     20: string setup_time;
+    /** Time at which flow entry information is fetched */
     21: string current_time;
+    /** Time at which flow entry is teardown */
     22: string teardown_time;
+    /** Field which indicates if there exists corresponding reverse flow */
     23: string reverse_flow;
+    /** Field which indicates if nat is used for flow match */
     24: string nat;
+    /** Field which indicates if to deny the packets */
     25: string implicit_deny;
+    /** Field which indicates if this is short flow */
     26: optional string short_flow;
+    /** Utc time at which flow entry is setup */
     27: optional u64 setup_time_utc;
+    /** Boolean field which indicates if flow is associated with
+     * l3 forwarding
+     */
     28: bool l3_flow;
+    /** Source mac address of packet associated with flow */
     29: string smac;
+    /** Destination mac address of packet associated with flow */
     30: string dmac;
+    /** List of source vn associated with flow entry */
     31: list<string> source_vn_list;
+    /** List of destination vn associated with flow entry */
     32: list<string> dest_vn_list;
 }
 
 /**
- * Sandesh definition for vxlan
+ * Structure definition for vxlan
  */
 struct VxLanSandeshData {
-    1: i32 vxlan_id;                  // vxlan label
-    2: NhSandeshData nh;              // next hop info
-    3: optional string vrf_name;      // vrf name from nh
+    /** Label for vxlan entry */
+    1: i32 vxlan_id;
+    /** Next hop associated with vxlan entry */
+    2: NhSandeshData nh;
+    /** Name of vrf associated with vxlan entry */
+    3: optional string vrf_name;
 }
 
 /**
- * Sandesh definition for ServiceInstance
+ * Structure definition for ServiceInstance
  */
 struct ServiceInstanceSandeshData {
+    /** Uuid of service instance */
     1: string uuid;
+    /** Type of service - load balancer/source-nat */
     2: string service_type;
+    /** Type of virtualization - vm/network-namespace/vr-instance */
     3: string virtualization_type;
+    /** Id of service instance */
     4: string instance_id;
+    /** Uuid of vmi which is acting as left interface */
     5: string vmi_inside;
+    /** Uuid of vmi which is acting as right interface */
     6: string vmi_outside;
-    7: NamespaceStateSandeshData ns_state;      // NamespaceState
+    /** Namespace state information associated with service instance */
+    7: NamespaceStateSandeshData ns_state;
 }
 
 /**
  * acl entry and associated flow count definition
  */
 struct AceIdFlowCnt {
+    /** Id of acl entry for flow count entry*/
     1: i32 ace_id;
+    /** Counter for flow count entry */
     2: i32 flow_cnt;
 }
 
 /**
- * Sandesh definition for Acl
+ * Structure definition for Acl
  */
 struct AclSandeshData {
+    /** Uuid of acl flow entry */
     1: string uuid (link="AclFlowReq");
+    /** Boolean value which indicates if this is dynamic */
     2: bool dynamic_acl;
+    /** List of acl entries information */
     3: list<AclEntrySandeshData> entries;
+    /** Name of acl entry */
     4: string name;
 }
 
@@ -924,6 +1359,7 @@ struct AclSandeshData {
  * Request Acl object with given uuid
  */
 request sandesh AclReq {
+    /** Uuid of acl entry */
     1: string uuid;
 }
 
@@ -931,6 +1367,7 @@ request sandesh AclReq {
  * Response for Acl list
  */
 response sandesh AclResp {
+    /** List of acl entry information */
     1: list<AclSandeshData> acl_list;
 }
 
@@ -938,6 +1375,7 @@ response sandesh AclResp {
  * Request message for flow_entries per acl 
  */
 request sandesh AclFlowReq {
+    /** Uuid of flow entry per acl */
     1: string uuid;
 }
 
@@ -945,6 +1383,7 @@ request sandesh AclFlowReq {
  * Request message for next flow_entry with iteration_key 
  */
 request sandesh NextAclFlowReq {
+    /** Iteration key for next flow acl entry */
     1: string iteration_key;
 }
 
@@ -952,9 +1391,13 @@ request sandesh NextAclFlowReq {
  * Response message for flow_entry for an acl
  */
 response sandesh AclFlowResp {
+    /** Flow hit count for acl flow entry */
     1: i32 flow_count;
+    /** Flow miss count for acl flow entry */
     2: i32 flow_miss;
+    /** List of flow entry information for acl */
     3: list <FlowSandeshData> flow_entries;
+    /** Iteration key for next acl flow entry */
     4: string iteration_key (link="NextAclFlowReq");
 }
 
@@ -962,6 +1405,7 @@ response sandesh AclFlowResp {
  * Get flow count for an acl with given uuid
  */
 request sandesh AclFlowCountReq {
+    /** Uuid of acl flow entry */
     1: string uuid;
 }
 
@@ -969,6 +1413,7 @@ request sandesh AclFlowCountReq {
  * Get next flow entry for an acl with given iteration_key
  */
 request sandesh NextAclFlowCountReq {
+    /** Iteration key for next acl flow count entry */
     1: string iteration_key;
 }
 
@@ -976,9 +1421,13 @@ request sandesh NextAclFlowCountReq {
  * Response message for flow count for an acl
  */
 response sandesh AclFlowCountResp {
+    /** Flow hit count for acl flow entry */
     1: i32 flow_count;
+    /** Flow miss count for acl flow entry */
     2: i32 flow_miss;
+    /** List of acl ids for acl flow entry */
     3: list<AceIdFlowCnt> aceid_cnt_list;
+    /** Iteration key for next acl flow count entry */
     4: string iteration_key (link="NextAclFlowCountReq");
 }
 
@@ -990,6 +1439,7 @@ response sandesh AclFlowCountResp {
  * @severity: DEBUG
  */
 trace sandesh AclErr {
+    /** Description for acl errors */
     1: string err;
 }
 
@@ -999,6 +1449,7 @@ trace sandesh AclErr {
  * @severity: DEBUG
  */
 trace sandesh AclInfo {
+    /** Description for acl information */
     1: string str;
 }
 
@@ -1008,8 +1459,11 @@ trace sandesh AclInfo {
  * @severity: DEBUG
  */
 traceobject sandesh AclAclTrace {
+    /** Information for acl statistics */
     1: string info;
+    /** Uuid of acl entry */
     2: string uuid;
+    /** Information for acl */
     3: AclSandeshData acl;
 }
 
@@ -1019,6 +1473,7 @@ traceobject sandesh AclAclTrace {
  * @severity: DEBUG
  */
 traceobject sandesh AclEntryTrace {
+    /** Information for acl entry */
     1: AclEntrySandeshData acl_entry;
 }
 
@@ -1028,12 +1483,19 @@ traceobject sandesh AclEntryTrace {
  * @severity: DEBUG
  */
 traceobject sandesh PathPreferenceTrace {
+    /** Vrf associated with agent path */
     1: string vrf;
+    /** Ip address associated with agent path */
     2: string ip;
+    /** Preference value associated with agent path - Low/High */
     3: i32 preference;
+    /** Sequence number for agent path */
     4: i32 sequence;
+    /** State associated with agent path */
     5: string state;
+    /** Timeout value to clear stale agent paths */
     6: i32 retry_timeout;
+    /** Dependent ip address for agent path */
     7: string dependent_ip;
 }
 
@@ -1041,45 +1503,62 @@ traceobject sandesh PathPreferenceTrace {
  * Request for mirror create from agent introspect
  */ 
 request sandesh MirrorCreateReq {
-    // Handle
+    /** Handle for mirror create request */
     1: string handle;
 
-    // Apply VN
+    /** Vn to be applied for mirror packets */
     2: string apply_vn;
 
-    // Source
+    /** Source vn for mirroring */
     3: string src_vn;
+    /** Source ip prefix for mirroring */
     4: string src_ip_prefix;
+    /** Source ip prefix length for mirroring */
     5: i32 src_ip_prefix_len;
 
-    // Destination
+    /** Destination vn for mirroring */
     6: string dst_vn;
+    /** Destination ip prefix for mirroring */
     7: string dst_ip_prefix;
+    /** Destination ip prefix length for mirroring */
     8: i32 dst_ip_prefix_len;
 
-    // Source port, -1 means any
-    // if there is no end_src_port, end_src_port will be same as start_src_port
+    /** Source port start value for mirroring, -1 for any */
     9: i32 start_src_port;
+    /** Source port end value for mirroring, will be same as start value if
+     * not provided
+     */
     10: i32 end_src_port;
 
-    // Dest port, -1 means any
-    // if there is no end_dst_port, end_dst_port will be same as start_dst_port
+    /** Destination port start value for mirroring, -1 for any */
     11: i32 start_dst_port;
+    /** Destination port end value for mirroring, will be same as start value if
+     * not provided
+     */
     12: i32 end_dst_port;
 
-    // Protocol, -1 means any
+    /** Protocol for mirroring, -1 for any */
     13: i32 protocol;
 
-    // Mirror destination
-    14: string ip;   
+    /** Ip address of mirror destination */
+    14: string ip;
+    /** Udp port of mirror destination */
     15: i32 udp_port;
-    // Time period for mirroring in seconds
+    /** Time period for mirroring in seconds */
     16: i32 time_period;
+    /** Vrf applied for mirror packets */
     17: string mirror_vrf;
-    18: optional string nhmode;         // dynamic or static NH
+    /** Mode of next-hop associated with mirroring - dynamic/static */
+    18: optional string nhmode;
+    /** Boolean field which indicates presence of juniper header in mirror
+     * packets */
     19: optional bool juniperheader;
-    20: optional string analyzer_vm_mac;  // analyzer mac
+    /** Mac address of analyzer vm for mirroring */
+    20: optional string analyzer_vm_mac;
+    /** Ip address of tunnel-endpoint where tunnel is terminated for
+     * mirror packets */
     21: optional string vtep_dst_ip;
+    /** Mpls label for mirroring */
     22: optional i32 vni;
 }
 
@@ -1087,6 +1566,7 @@ request sandesh MirrorCreateReq {
  * Response for mirror create
  */
 response sandesh MirrorCfgResp {
+    /** Response message for mirror create request */
     1: string resp = "  Success  ";
 }
 
@@ -1094,7 +1574,7 @@ response sandesh MirrorCfgResp {
  * Request mirror delete from agent introspect
  */
 request sandesh MirrorDeleteReq {
-    // Handle
+    /** Handle for mirror delete request */
     1: string handle;
 }
 
@@ -1102,7 +1582,7 @@ request sandesh MirrorDeleteReq {
  * Mirror cfg display
  */
 request sandesh MirrorCfgDisplayReq {
-    // Handle
+    /** Handle for mirror configuration display request */
     1: string handle;
 }
 
@@ -1110,17 +1590,24 @@ request sandesh MirrorCfgDisplayReq {
  * Request for VxLan info
  */
 request sandesh VxLanReq {
+    /** Id of vxlan entry */
     1: string vxlan_id;
 }
 
 /**
- * Sandesh definition for VxLanConfigEntry
+ * Structure definition for VxLanConfigEntry
  */
 struct VxLanConfigEntry {
+    /** Id of vxlan entry */
     1: u32 vxlan_id;
+    /** Uuid of vn associated with vxlan entry */
     2: string vn_uuid;
+    /** vrf associated with vxlan entry */
     3: string vrf;
+    /** Boolean field which indicates if to flood unknown unicast packets
+     * in vxlan */
     4: bool flood_unknown_unicast;
+    /** Boolean field which indicates if vxlan is active */
     5: bool active;
 }
 
@@ -1128,6 +1615,7 @@ struct VxLanConfigEntry {
  * Response message for VxLan config list from oper db
  */
 response sandesh VxLanConfigResp {
+    /** List of vxlan config information */
     1: list<VxLanConfigEntry> vxlan_config_entries;
 }
 
@@ -1135,8 +1623,11 @@ response sandesh VxLanConfigResp {
  * Response for VxLan config 
  */
 request sandesh VxLanConfigReq {
+    /** Id of vxlan entry */
     1: u32 vxlan_id;
+    /** Vn associated with vxlan entry */
     2: string vn;
+    /** Boolean field which indicates if vxlan is active */
     3: string active;
 }
 
@@ -1144,6 +1635,7 @@ request sandesh VxLanConfigReq {
  * Response for VxLan entry list from oper db
  */
 response sandesh VxLanResp {
+    /** List of vxlan information */
     1: list<VxLanSandeshData> vxlan_list;
 }
 
@@ -1151,6 +1643,7 @@ response sandesh VxLanResp {
  * Request for ServiceInstance list with given uuid
  */
 request sandesh ServiceInstanceReq {
+    /** Uuid of service instance */
     1: string uuid;
 }
 
@@ -1158,47 +1651,58 @@ request sandesh ServiceInstanceReq {
  * Response for ServiceInstance list
  */
 response sandesh ServiceInstanceResp {
+    /** List of service instance information */
     1: list<ServiceInstanceSandeshData> service_instance_list;
 }
 
 /**
- * Sandesh definition for mirror config
+ * Structure definition for mirror config
  */
 struct MirrorCfgSandesh {
-    // Handle
+    /** Handle for mirror config */
     1: string handle;
 
-    // Apply VN
+    /** Vn to be applied for mirror packets */
     2: string apply_vn (link="MirrorCfgVnInfoReq");
 
-    // Source
+    /** Source vn for mirroring */
     3: string src_vn;
+    /** Source ip prefix for mirroring */
     4: string src_ip_prefix;
+    /** Source ip prefix length for mirroring */
     5: i32 src_ip_prefix_len;
 
-    // Destination
+    /** Destination vn for mirroring */
     6: string dst_vn;
+    /** Destination ip prefix for mirroring */
     7: string dst_ip_prefix;
+    /** Destination ip prefix length for mirroring */
     8: i32 dst_ip_prefix_len;
 
-    // Source port, -1 means any
-    // if there is no end_src_port, end_src_port will be same as start_src_port
+    /** Source port start value for mirroring, -1 for any */
     9: i32 start_src_port;
+    /** Source port end value for mirroring, will be same as start value if
+     * not provided
+     */
     10: i32 end_src_port;
 
-    // Dest port, -1 means any
-    // if there is no end_dst_port, end_dst_port will be same as start_dst_port
+    /** Destination port start value for mirroring, -1 for any */
     11: i32 start_dst_port;
+    /** Destination port end value for mirroring, will be same as start value if
+     * not provided
+     */
     12: i32 end_dst_port;
 
-    // Protocol, -1 means any
+    /** Protocol for mirroring, -1 for any */
     13: i32 protocol;
 
-    // Mirror destination
-    14: string ip;   
+    /** Ip address of mirror destination */
+    14: string ip;
+    /** Udp port of mirror destination */
     15: i32 udp_port;
-    // Time period for mirroring in seconds
+    /** Time period for mirroring in seconds */
     16: i32 time_period;
+    /** Vrf applied for mirror packets */
     17: string mirror_vrf;
 }
 
@@ -1206,6 +1710,7 @@ struct MirrorCfgSandesh {
  * Response for mirror cfg display
  */
 response sandesh MirrorCfgDisplayResp {
+    /** List of mirror config information */
     1: list<MirrorCfgSandesh> mcfg_l;
 }
 
@@ -1213,16 +1718,21 @@ response sandesh MirrorCfgDisplayResp {
  * Request for mirror cfg vn info
  */
 request sandesh MirrorCfgVnInfoReq {
+    /** Name of vn associated with mirror config */
     1: string vn_name;
 }
 
 /**
- * Sandesh definition for vn and attached acl
+ * Structure definition for vn and attached acl
  */ 
 struct VnAclInfo {
+    /** Name of vn associated with mirror acl */
     1: string vn_name;
+    /** Uuid of vn associated with mirror acl */
     2: string vn_uuid;
+    /** Uuid of dynamic acl for mirroring */
     3: string dyn_acl_uuid;
+    /** Number of vn acl entries for mirroring */
     4: i32 num_of_entries;
 }
 
@@ -1230,19 +1740,27 @@ struct VnAclInfo {
  * Response for mirror cfg vn info
  */
 response sandesh MirrorCfgVnInfoResp {
+    /** List of vn acl information in mirror config */
     1: list <VnAclInfo> vn_acl_info_l;
 }
 
 /**
- * Sandesh definition for interface mirror config
+ * Structure definition for interface mirror config
  */
 struct IntfMirrorCfgSandesh {
+    /** Handle for interface mirror config */
     1: string handle;
+    /** Uuid of interface associated with mirror config */
     2: optional string intf_uuid;
+    /** Name of interface associated with mirror config */
     3: optional string intf_name;
+    /** Ip address of mirror destination in mirror config */
     4: optional string ip;
+    /** Udp port of mirror destination in mirror config */
     5: optional i32 udp_port;
+    /** Time period for mirroring in seconds in mirror config */
     6: optional i32 time_period;
+    /** Vrf applied for mirror packets in mirror config */
     7: optional string mirror_vrf;
 }
 
@@ -1250,17 +1768,31 @@ struct IntfMirrorCfgSandesh {
  * Request for Interface Mirror Create
  */
 request sandesh IntfMirrorCreateReq {
+    /** Handle for interface mirror create request */
     1: string handle;
+    /** Uuid of interface for mirroring */
     2: optional string intf_uuid;
+    /** Name of interface for mirroring */
     3: optional string intf_name;
+    /** Ip address of mirror destination */
     4: optional string ip;
+    /** Udp port of mirror destination */
     5: optional i32 udp_port;
+    /** Time period for mirroring in seconds */
     6: optional i32 time_period;
+    /** Vrf applied for mirror packets */
     7: optional string mirror_vrf;
-    8: optional string nhmode;         // dynamic or static NH
+    /** Mode of next-hop associated with mirroring - dynamic/static */
+    8: optional string nhmode;
+    /** Boolean field which indicates presence of juniper header in mirror
+     * packets */
     9: optional bool juniperheader;
-   10: optional string analyzer_vm_mac;  // analyzer mac
+   /** Mac address of analyzer vm for mirroring */
+   10: optional string analyzer_vm_mac;
+   /** Ip address of tunnel-endpoint where tunnel is terminated for
+     * mirror packets */
    11: optional string vtep_dst_ip;
+   /** Mpls label for mirroring */
    12: optional i32 vni;
 }
 
@@ -1268,6 +1800,7 @@ request sandesh IntfMirrorCreateReq {
  * Request for Interface Mirror Delete
  */
 request sandesh IntfMirrorDeleteReq {
+    /** Handle for interface mirror delete request */
     1: string handle;
 }
 
@@ -1275,6 +1808,7 @@ request sandesh IntfMirrorDeleteReq {
  * Request for Interface Mirror Config
  */
 request sandesh IntfMirrorCfgDisplayReq {
+    /** Handle for interface mirror display request */
     1: string handle;
 }
 
@@ -1282,6 +1816,7 @@ request sandesh IntfMirrorCfgDisplayReq {
  * Response for Interface Mirror list
  */
 response sandesh IntfMirrorCfgDisplayResp {
+    /** List of interface mirror config information */
     1: list <IntfMirrorCfgSandesh> imcfg_l;
 }
 
@@ -1291,7 +1826,9 @@ response sandesh IntfMirrorCfgDisplayResp {
  * @severity: DEBUG
  */
 traceobject sandesh IntfMirror {
+    /** Type of operation for interface mirroring */
     1: string operation;
+    /** Interface mirror configuration information */
     2: IntfMirrorCfgSandesh ms;
 }
 
@@ -1301,6 +1838,7 @@ traceobject sandesh IntfMirror {
  * @severity: DEBUG
  */
 response sandesh UnresolvedNHResp {
+    /** List of next-hop information for unresolved nh */
     1: list<NhSandeshData> nh_list;
 }
 
@@ -1308,6 +1846,7 @@ response sandesh UnresolvedNHResp {
  * Response message for unresolved route list
  */
 response sandesh UnresolvedRouteResp {
+    /** List of unicast route information for unresolved route */
     1: list<RouteUcSandeshData> route_list;
 }
 
@@ -1335,12 +1874,16 @@ enum AgentLogEvent {
 }
 
 /**
- * Sandesh definition for vm object log
+ * Structure definition for vm object log
  */
 struct VmObjectLogInfo {
+    /** Type of event for vm object log - add/delete/change */
     1: string event;
+    /** Uuid of vm entry for vm object log */
     2: string uuid (key="ObjectVMTable")
+    /** List of security group uuids associated with vm entry */
     3: optional list<string> sg_uuid_list;
+    /** Reference count for vm db entry for vm object log */
     4: i32 ref_count;
 }
 
@@ -1351,35 +1894,59 @@ struct VmObjectLogInfo {
  * @object: VmEntry
  */
 objectlog sandesh VmObjectLog {
+    /** Vm information used for vm object log */
     1: VmObjectLogInfo vm;
 }
 
 /**
- * Sandesh definition for vn ipam log
+ * Structure definition for vn ipam log
  */
 struct VnObjectLogIpam {
+    /** Ip prefix associated with vn ipam */
     1: string ip_prefix;
+    /** Ip prefix length associated with vn ipam */
     2: i32    prefix_len;
+    /** Gateway ip address associated with vn ipam */
     3: optional string gateway_ip;
+    /** Name of ipam associated with vn */
     4: string ipam_name;
+    /** Field which indicates if dhcp is enabled for virtual-network ipam */
     5: string dhcp_enable;
+    /** Ip address of dns server for virtual-network ipam */
     6: string dns_server;
 }
 
 /**
- * Sandesh definition for vn object log
+ * Structure definition for vn object log
  */
 struct VnObjectLogInfo {
+    /** Type of event for vm object log - add/delete/change */
     1: string event;
+    /** Uuid of virtual network */
     2: string uuid;
+    /** Name of virtual network */
     3: string name (key="ObjectVNTable")
+    /** Uuid of acl associated with virtual network */
     4: optional string acl_uuid;
+    /** Uuid of mirror acl associated with virtual network */
     5: optional string mirror_acl_uuid;
+    /** Uuid of configured mirror acl associated with virtual network */
     6: optional string mirror_cfg_acl_uuid;
+    /** Name of vrf associated with virtual network */
     7: optional string vrf;
+    /** List of ipam data associated with virtual network */
     8: optional list <VnObjectLogIpam> ipam_list;
+    /** Boolean value which indicates if ipv4 forwarding is enabled for
+     * virtual network
+     */
     9: optional bool ipv4_forwarding;
+    /** Boolean value which indicates if bridging is enabled on virtual
+     * network
+     */
    10: optional bool bridging;
+    /** Boolean value which indicates if virtual network is active and
+     * operational
+     */
    11: optional bool admin_state;
 }
 
@@ -1390,15 +1957,19 @@ struct VnObjectLogInfo {
  * @object: VnEntry
  */
 objectlog sandesh VnObjectLog {
+    /** Vn information for vn object log */
     1: VnObjectLogInfo vn;
 }
 
 /**
- * Sandesh definition for vrf object log
+ * Structure definition for vrf object log
  */
 struct VrfObjectLogInfo {
+    /** Type of event for vrf object log - add/delete/change */
     1: string event;
+    /** Name of vrf */
     2: string name (key="ObjectRoutingInstance")
+    /** Index value of vrf db entry */
     4: optional i32 index;
 }
 
@@ -1409,47 +1980,71 @@ struct VrfObjectLogInfo {
  * @object: VrfEntry
  */
 objectlog sandesh VrfObjectLog {
+    /** Vrf information for vrf object log */
     1: VrfObjectLogInfo vrf;
 }
 
 /**
- * Sandesh definition for floating ip
+ * Structure definition for floating ip
  */
 struct FloatingIPInfo {
+    /** Vrf name associated to floating ip */
     1:string vrf_name;
+    /** Ip address for floating ip */
     2:string ip_address;
 }
 
 /**
- * Sandesh definition for interface
+ * Structure definition for interface
  */
 struct InterfaceInfo {
+    /** Name of the interface */
     1: string name;
+    /** Index value for interface in oper db table */
     2: i32 index;
+    /** Type of event for interface trace log - add/delete/change */
     3: string op;
+    /** Virtual-machine associated with interface */
     4: optional string vm;
+    /** Virtual-network associated with interface */
     5: optional string vn;
+    /** Vrf associated with interface */
     6: optional string vrf;
+    /** Ip address associated with interface */
     7: optional string ip_address;
+    /** Mac address associated with interface */
     8: optional string mac;
+    /** Floating ip list associated with interface */
     9: optional list<FloatingIPInfo> fip;
+   /** vxlan id associated with interface */
    10: optional i32 vxlan_id;
+   /** Project of vm to which interface belongs */
    11: string vm_project;
 }
 
 /**
- * Sandesh definition for route
+ * Structure definition for route
  */
 struct RouteInfo {
+    /** Source ip address of route */
     1: string ip;
+    /** Vrf associated with route */
     2: string vrf;
+    /** Type of event for route trace log - add/delete */
     3: string op;
+    /** Type of next hop associated with route - interface/tunnel/... */
     4: optional string nh_type;
+    /** Name of peer associated with route path */
     5: optional string peer;
+    /** Tunnel destination ip for tunnel next hop associated with route */
     6: optional string dest_server;
+    /** Tunnel destination vrf for tunnel next hop associated with route */
     7: optional string dest_server_vrf;
+    /** Name of interface for interface next hop associated with route */
     8: optional string intf;
+    /** Mac address of route */
     9: optional string mac;
+   /** Boolean value if route path is ecmp */
    10: bool ecmp;
 }
 
@@ -1459,15 +2054,19 @@ struct RouteInfo {
  * @severity: DEBUG
  */
 traceobject sandesh OperInterface {
+    /** Interface information for trace log */
     1: InterfaceInfo intf_info;
 }
 
 /**
- * Sandesh definition for oper config for an object
+ * Structure definition for oper config for an object
  */
 struct OperConfigInfo {
+    /** Name of logical interface */
     1: string name;
+    /** Uuid of logical interface */
     2: string uuid;
+    /** Message for vlan-tag existence of logical interface */
     3: string message;
 }
 
@@ -1477,6 +2076,7 @@ struct OperConfigInfo {
  * @severity: DEBUG
  */
 traceobject sandesh OperConfig {
+    /** Information of oper config for logical interface */
     1: OperConfigInfo info;
 }
 
@@ -1486,21 +2086,31 @@ traceobject sandesh OperConfig {
  * @severity: DEBUG
  */
 traceobject sandesh OperRoute {
+    /** Information of oper route */
     1: RouteInfo route_info;
 }
 
 /**
- * Sandesh definition for mpls log
+ * Structure definition for mpls log
  */
 struct MplsObjectLogInfo {
+    /** Type of event for mpls log - add/delete/change */
     1: string event;
+    /** Type of mpls label - invalid/vport_nh/mcast_nh */
     2: string type;
+    /** Mpls label value */
     3: i32 label;
+    /** Type of next-hop associated with mpls label - interface/vlan/composite */
     4: optional string nh_type;
+    /** Type of interface associated with mpls label - vmi/invalid */
     5: optional string intf_type;
+    /** Uuid of interface associated with mpls label */
     6: optional string intf_uuid;
+    /** Name of interface associated with mpls label */
     7: optional string intf_name;
+    /** Field which indicates if policy is enabled for mpls label */
     8: optional string policy;
+    /** Vlan tag associated with mpls label for vlan nh */
     9: optional i16 vlan_tag;
 }
 
@@ -1510,51 +2120,81 @@ struct MplsObjectLogInfo {
  * @severity: DEBUG
  */
 traceobject sandesh OperMpls {
+    /** Information of mpls object */
     1: MplsObjectLogInfo mpls;
 }
 
 /**
- * Sandesh definition for ComponentNHLog
+ * Structure definition for ComponentNHLog
  */
 struct ComponentNHLogInfo {
+    /** Type of component nh - tunnel/interface/vlan/composite */
     1: string type;
-    2: i32    label; 
+    /** Mpls label associated with component nh */
+    2: i32    label;
+    /** Interface name associated with component interface nh */
     3: optional string intf_name;
+    /** Tunnel destination ip associated with component tunnel nh */
     4: optional string server_ip;
+    /** Index for component nh entry */
     5: i32 component_nh_id;
 }
 
 /**
- * Sandesh definition for next hop log
+ * Structure definition for next hop log
  */
 struct NextHopObjectLogInfo {
+    /** Type of event for next hop log - add/delete/change/resync */
     1: string event;
+    /** Type of next hop */
     2: string type;
+    /** Field which indicates if policy is enabled on next hop entry */
     3: string policy;
+    /** Field which indicates if next hop is valid */
     4: string valid;
+    /** Source ip address associated with next hop in case of tunnel nh */
     5: optional string source_ip;
+    /** Destination ip address associated with next hop in case of tunnel nh */
     6: optional string dest_ip;
+    /** Vrf associated with next hop in case of tunnel nh */
     7: optional string vrf;
+    /** Source port associated with next hop in case of mirror nh */
     8: optional i16 source_port;
+    /** Destination port associated with next hop in case of mirror nh */
     9: optional i16 dest_port;
+    /** Type of interface associated with next hop - vmi/vhost/... */
     10: optional string intf_type;
+    /** Uuid of interface associated with next hop */
     11: optional string intf_uuid;
+    /** Name of interface associated with next hop */
     12: optional string intf_name;
+    /** Vlan tag associated with next hop */
     13: optional i16 vlan_tag;
+    /** Field which indicates if next hop is resolved */
     14: optional string resolved;
-    15: optional string mac;   //ArpNH MAC/VLAN NH DMAC/INTF NH DMAC
+    /** Mac address associated with next hop, can be arpnh mac/vlan mac/
+     * intf mac
+     */
+    15: optional string mac;
+    /** List of component nh log info */
     16: optional list<ComponentNHLogInfo> nh_list;
-    17: optional string tunnel_type;   // Tunnel type : MPLSoGRE, MPLSoUDP, ...
+    /** Type of tunnel for next-hop - MPLSoGRE, MPLSoUDP, VXLAN */
+    17: optional string tunnel_type;
+    /** Index of next hop entry */
     18: i32 id;
 }
 
 /**
- * Sandesh definition for vxlan object log
+ * Structure definition for vxlan object log
  */
 struct VxLanObjectLogInfo {
+    /** Type of event for vxlan log - add/delete/change */
     1: string event;
+    /** Label for vxlan entry */
     2: i32 vxlan_id;
+    /** Type of nh associated with vxlan entry - vrf/invalid */
     3: optional string nh_type;
+    /** /** Name of vrf associated with vxlan entry */
     4: optional string vrf_name;
 }
 
@@ -1564,6 +2204,7 @@ struct VxLanObjectLogInfo {
  * @severity: DEBUG
  */
 traceobject sandesh OperVxLan {
+    /** Information of vxlan object */
     1: VxLanObjectLogInfo VxLan;
 }
 
@@ -1573,6 +2214,7 @@ traceobject sandesh OperVxLan {
  * @severity: DEBUG
  */
 traceobject sandesh OperNextHop {
+    /** Information of nexthop object */
     1: NextHopObjectLogInfo nh;
 }
 
@@ -1583,10 +2225,14 @@ traceobject sandesh OperNextHop {
  * @cause: Normal operation
  */
 trace sandesh AgentRouteLog {
+    /** Message for agent route */
     1: string message;
+    /** Ip address of agent route */
     2: string ip;
     3: "in VRF";
+    /** Vrf associated with agent route */
     4: string vrf;
+    /** Peer associated with agent route */
     5: string peer;
 }
 
@@ -1596,7 +2242,9 @@ trace sandesh AgentRouteLog {
  * @severity: DEBUG
  */
 trace sandesh MulticastInfo {
+    /** Message for multicast entry */
     1: string message;
+    /** Information for multicast entry */
     2: string info;
 }
 
@@ -1606,9 +2254,13 @@ trace sandesh MulticastInfo {
  * @severity: DEBUG
  */
 trace sandesh MulticastLog {
+    /** Message for multicast entry */
     1: string message;
+    /** Name of vrf associated with multicast entry */
     2: string vrf_name;
+    /** Destination ip address of multicast entry */
     3: string dst_ip;
+    /** Label of multicast entry */
     4: i32 label;   
 }
 
@@ -1618,6 +2270,7 @@ trace sandesh MulticastLog {
  * @severity: DEBUG
  */
 trace sandesh OperTrace {
+    /** Message for oper module */
     1: string message;
 }
 
@@ -1627,7 +2280,9 @@ trace sandesh OperTrace {
  * @severity: DEBUG
  */
 trace sandesh OperVrf {
+    /** message for vrf entry */
     1: string message;
+    /** Name of vrf entry */
     2: string vrf_name;
 }
 
@@ -1637,18 +2292,25 @@ trace sandesh OperVrf {
  * @severity: DEBUG
  */
 trace sandesh AgentRouteWalkerTrace {
+    /** Message for agent route walker */
     1: string message;
     2: "Walk Type:";
+    /** Walk type for agent route walker */
     3: i32 walk_type;
     4: "Vrf name:";
+    /** Name of vrf associated with agent route walker */
     5: string vrf_name;
     6: "VRF walkid:";
+    /** Id for vrf walk */
     7: i32 vrf_walk_id;
     8: "Route table Type:";
+    /** Type of agent route table - unicast/multicast/... */
     9: i32 route_table_type;
    10: "Route table name:";
+   /** Name of agent route table */
    11: string route_table_name;
    12: "Route Walk Id:";
+   /** Id for route walk */
    13: i32 route_walk_id;
 }
 
@@ -1658,14 +2320,20 @@ trace sandesh AgentRouteWalkerTrace {
  * @severity: DEBUG
  */
 trace sandesh AgentDBWalkLog {
+    /** Message for agent db walk */
     1: string message;
+    /** Name of agent db table */
     2: string table_name;
     3: "walkid:";
+    /** Id of walk for agent db table */
     4: i32 walk_id;
     5: "peer:";
+    /** Peer associated with agent db walk */
     6: string peer;
-    7: string add_del_route; 
-    8: "pending walks:"; 
+    /** Field which indicates route state for db walk */
+    7: string add_del_route;
+    8: "pending walks:";
+    /** Value for pending walks for agent db table */
     9: i32 pending_walks;
 }
 
@@ -1677,10 +2345,13 @@ trace sandesh AgentDBWalkLog {
  */
 systemlog sandesh InterfaceConfiguration {
     1: string f1;
+    /** Uuid of interface */
     2: string interface_uuid;
     3: string f2
+    /** Uuid of interface configuration */
     4: string config_uuid;
     5: string f3
+    /** Uuid of interface compute */
     6: string compute_uuid;
 }
 
@@ -1692,10 +2363,13 @@ systemlog sandesh InterfaceConfiguration {
  */
 systemlog sandesh LogicalInterfaceConfiguration {
     1: string msg1;
+    /** Name of logical interface */
     2: string logical_interface_name;
     3: string msg2
+    /** Name of physical interface */
     4: string physical_interface_name;
     5: string msg3
+    /** Name of prouter */
     6: string prouter_name;
 }
 
@@ -1706,7 +2380,9 @@ systemlog sandesh LogicalInterfaceConfiguration {
  * @cause: Normal operation
  */
 systemlog sandesh FlowLog {
+    /** Index of flow entry */
     1: u32 flow_id;
+    /** Message for flow entry */
     2: string message;
 }
 
@@ -1718,11 +2394,16 @@ systemlog sandesh FlowLog {
  */
 systemlog sandesh AgentRouteWalkerLog {
     1: "walkid:";
+    /** Walk id for agent route walker */
     2: u32 walk_id;
     3: "walktype:";
+    /** Type of walk for agent route walker */
     4: u32 walk_type;
+    /** Message for agent route walker */
     5: string message;
+    /** Name of vrf for agent route walker */
     6: string vrf_name;
+    /** Type of route table for agent route walker - unicast/multicast/... */
     7: u32 route_table_type;
 }
 
@@ -1733,6 +2414,7 @@ systemlog sandesh AgentRouteWalkerLog {
  * @cause: Normal operation
  */
 systemlog sandesh GlobalVrouterLog {
+    /** Message for global vrouter configuration */
     1: string message;
 }
 
@@ -1742,20 +2424,29 @@ systemlog sandesh GlobalVrouterLog {
  * @severity: DEBUG
  */
 trace sandesh OperSg {
+    /** Message for security group db entry */
     1: string message;
+    /** Uuid of security group db entry */
     2: string uuid;
 }
 
 /**
- * Sandesh definitions for PhysicalDevice
+ * Structure definition for PhysicalDevice
  */
 struct SandeshDevice {
+    /** Uuid of physical device */
     1: string uuid;
+    /** Name of fabric queue associated with physical device */
     2: string fq_name;
+    /** Name of physical device */
     3: string name;
+    /** Vendor name of physical device */
     4: string vendor;
+    /** Ip address associated with physical device */
     5: string ip_address;
+    /** Management protocol associated with physical device */
     6: string management_protocol;
+    /** Boolean value which indicates mastership role for physical device */
     7: bool master;
 }
 
@@ -1763,27 +2454,37 @@ struct SandeshDevice {
  * Response message for physical device list
  */
 response sandesh SandeshDeviceListResp {
+    /** List of physical device information */
     1: list<SandeshDevice> device_list;
 }
 
 /**
- * Request physical devie list
+ * Request physical device list
  */
 request sandesh SandeshDeviceReq {
+    /** Name of physical device */
     1: string name;
 }
 
 /**
- * Sandesh definition for physical device object log
+ * Structure definition for physical device object log
  */
 struct DeviceObjectLogInfo {
+    /** Type of event for physical device - add/delete/change */
     1: string event;
+    /** Uuid of physical device */
     2: string uuid;
+    /** Reference count for physical device db entry */
     3: i32 ref_count;
+    /** Name of fabric queue associated with physical device */
     4: string fq_name;
+    /** Name of physical device */
     5: string name;
+    /** Name of vendor for physical device */
     6: string vendor;
+    /** Ip address associated with physical device */
     7: string ip_address;
+    /** Management protocol associated with physical device */
     8: string management_protocol;
 }
 
@@ -1794,18 +2495,24 @@ struct DeviceObjectLogInfo {
  * @object: PhysicalDevice
  */
 objectlog sandesh DeviceObjectLog {
+    /** Physical device information */
     1: DeviceObjectLogInfo device;
 }
 
 /**
- * Sandesh definitions for PhysicalDeviceVn
+ * Structure definition for PhysicalDeviceVn
  * Oper table
  */
 struct SandeshPhysicalDeviceVn {
+    /** Uuid of physical device */
     1: string device_uuid;
+    /** Uuid of virtual-network */
     2: string vn_uuid;
+    /** Name of physical device */
     3: string device;
+    /** Name of Virtual network */
     4: string vn;
+    /** Id of vxlan associated with physical device vn */
     5: i32 vxlan_id;
 }
 
@@ -1813,6 +2520,7 @@ struct SandeshPhysicalDeviceVn {
  * Response messdage for physical device vn list
  */
 response sandesh SandeshPhysicalDeviceVnListResp {
+    /** List of physical device vn information */
     1: list<SandeshPhysicalDeviceVn> port_list;
 }
 
@@ -1820,18 +2528,25 @@ response sandesh SandeshPhysicalDeviceVnListResp {
  * Request physical device vn list
  */
 request sandesh SandeshPhysicalDeviceVnReq {
+    /** Name of physical device */
     1: string device;
+    /** Name of virtual network */
     2: string vn;
 }
 
 /**
- * Sandesh definition for physical device vn config tree
+ * Structure definition for physical device vn config tree
  */
 struct SandeshConfigPhysicalDeviceVn {
+    /** Uuid of physical device */
     1: string device_uuid;
+    /** Uuid of virtual network */
     2: string vn_uuid;
+    /** Uuid of virtual machine interface */
     3: string vmi_uuid;
+    /** Id of vxlan associated with physical device vn config */
     4: i32 vxlan_id;
+    /** Id of virtual network entry */
     5: i32 vn_id;
 }
 
@@ -1839,6 +2554,7 @@ struct SandeshConfigPhysicalDeviceVn {
  * Response for physical device vn config list
  */
 response sandesh SandeshConfigPhysicalDeviceVnListResp {
+    /** List of physical device config information */
     1: list<SandeshConfigPhysicalDeviceVn> device_vn_list;
 }
 
@@ -1846,18 +2562,25 @@ response sandesh SandeshConfigPhysicalDeviceVnListResp {
  * Request for physical device vn list config
  */
 request sandesh SandeshConfigPhysicalDeviceVnReq {
+    /** Name of physical device */
     1: string device;
 }
 
 /**
- * Sandesh definition for physical device vn log
+ * Structure definition for physical device vn log
  */
 struct PhysicalDeviceVnObjectLogInfo {
+    /** Type of event for physical device vn - add/del/change */
     1: string event;
+    /** Uuid of physical device */
     2: string device_uuid;
+    /** Uuid of virtual network */
     3: string vn_uuid;
+    /** Reference count of physical device vn db entry */
     4: i32 ref_count;
+    /** Name of physical device */
     5: string device;
+    /** Name of virtual network */
     6: string vn;
 }
 
@@ -1868,22 +2591,33 @@ struct PhysicalDeviceVnObjectLogInfo {
  * @object: PhysicalDeviceVn
  */
 objectlog sandesh PhysicalDeviceVnObjectLog {
+    /** Information of physical device vn object */
     1: PhysicalDeviceVnObjectLogInfo port;
 }
 
 /**
- * Sandesh definition for vrouter limits
+ * Structure definition for vrouter limits
  */
 struct VrouterObjectLimits {
+    /** Maximum mpls labels supported by vrouter */
     1: u32 max_labels;
+    /** Maximum next hops supported by vrouter */
     2: u32 max_nexthops;
+    /** Maximum interfaces supported by vrouter */
     3: u32 max_interfaces;
+    /** Maximum vrfs supported by vrouter */
     4: u32 max_vrfs;
+    /** Maximum mirror entries supported by vrouter */
     5: u32 max_mirror_entries;
+    /** Maximum bridge entries supported by vrouter */
     6: u32 vrouter_max_bridge_entries;
+    /** Maximum overflow bridge entries supported by vrouter */
     7: u32 vrouter_max_oflow_bridge_entries;
+    /** Version information of vrouter build */
     8: string vrouter_build_info;
+    /** Maximum flow entries supported by vrouter */
     9: u32 vrouter_max_flow_entries;
+   /*** Maximum of overflow entries supported by vrouter */
    10: u32 vrouter_max_oflow_entries;
 }
 
@@ -1897,22 +2631,27 @@ request sandesh VrouterObjectLimitsReq {
  * Response for vrouter limits
  */
 response sandesh VrouterObjectLimitsResp {
+    /** Information of vrouter object limits */
     1: VrouterObjectLimits vrouter_object_limit;
 }
 
 /**
- * Sandesh definition for IFMapDependency NodeEvent policies
+ * Structure definition for IFMapDependency NodeEvent policies
  */
 struct IFMapReactEvent {
+    /** Event for ifmap node */
     1: string event;
+    /** List of reactors for ifmap node */
     2: list<string> reactors;
 }
 
 /**
- * Sandesh definition for if map node policies
+ * Structure definition for if map node policies
  */
 struct IFMapNodePolicy {
+    /** Name of ifmap node */
     1: string node;
+    /** List of ifmap reactor events */
     2: list<IFMapReactEvent> events;
 }
 
@@ -1920,6 +2659,7 @@ struct IFMapNodePolicy {
  * Response for if map node policy list
  */
 response sandesh IFMapNodePolicyResp {
+    /** List of ifmap node policy information */
     1: list<IFMapNodePolicy> policies;
 }
 
@@ -1927,6 +2667,7 @@ response sandesh IFMapNodePolicyResp {
  * Request message for if map node policy list
  */
 request sandesh IFMapNodePolicyReq {
+    /** Name of ifmap node */
     1: string node;
 }
 
@@ -1936,35 +2677,53 @@ request sandesh IFMapNodePolicyReq {
  * @severity: DEBUG
  */
 traceobject sandesh HealthCheckTrace {
+    /** Log message for health check trace */
     1: string log;
 }
 
 /**
- * Sandesh definition for health check instance
+ * Structure definition for health check instance
  */
 struct HealthCheckInstanceSandeshData {
+    /** Vm interface associated with health check instance */
     1: string vm_interface (link="ItfReq");
+    /** Metadata ip address associated with health check instance */
     2: string metadata_ip;
+    /** Service ip address associated with health check instance */
     3: string service_ip;
+    /** Ip address of health check instance */
     4: string health_check_ip;
+    /** Boolean field which indicates if health check instance is active */
     5: bool active;
+    /** Boolean field which indicates if health check instance is running */
     6: bool running;
+    /** Time of last update by health check instance */
     7: string last_update_time;
 }
 
 /**
- * Sandesh definition for health check service
+ * Structure definition for health check service
  */
 struct HealthCheckSandeshData {
+    /** Uuid of health check service */
     1: string uuid;
+    /** Name of health check service */
     2: string name;
+    /** Type of monitor for health check service - HTTP,... */
     3: string monitor_type;
+    /** Http method for health check service */
     4: string http_method;
+    /** Url path for health check service */
     5: string url_path;
+    /** Expected codes for health check service */
     6: string expected_codes;
+    /** Delay for health check service */
     7: u32 delay;
+    /** Timeout for health check service */
     8: u32 timeout;
+    /** Maximum retries for health check service */
     9: u32 max_retries;
+    /** List of health check instance information */
     10: list<HealthCheckInstanceSandeshData> inst_list;
 }
 
@@ -1972,6 +2731,7 @@ struct HealthCheckSandeshData {
  * Request health check instances list
  */
 request sandesh HealthCheckSandeshReq {
+    /** Uuid of health check instance */
     1: string uuid;
 }
 
@@ -1979,16 +2739,20 @@ request sandesh HealthCheckSandeshReq {
  * Health check list
  */
 response sandesh HealthCheckSandeshResp {
+    /** List of heal check instance information */
     1: list<HealthCheckSandeshData> hc_list;
 }
 
 /**
- * Sandesh definition for bgp as a service
+ * Structure definition for bgp as a service
  */
 struct BgpAsAServiceSandeshList {
+   /** Peer ip address associated with bgp as a service */
    1: string vm_bgp_peer_ip;
+   /** Vm nat source port for bgp as a service */
    2: i32 vm_nat_source_port;
-   3: string vmi_uuid (link="ItfReq"); // intf uuid
+   /** Uuid of vmi for bgp as a service */
+   3: string vmi_uuid (link="ItfReq");
 }
 
 /**
@@ -1998,9 +2762,10 @@ request sandesh BgpAsAServiceSandeshReq {
 }
 
 /**
- * bgp servie list response message
+ * bgp service list response message
  */
 response sandesh BgpAsAServiceSandeshResp {
+    /** List of bgp as a service information */
     1: list<BgpAsAServiceSandeshList> bgp_as_a_service_list;
 }
 
@@ -2010,6 +2775,7 @@ response sandesh BgpAsAServiceSandeshResp {
  * @severity: DEBUG
  */
 trace sandesh BgpAsAServiceTrace {
+    /** Message for bgp service object */
     1: string message;
 }
 
@@ -2019,15 +2785,19 @@ trace sandesh BgpAsAServiceTrace {
  * @severity: DEBUG
  */
 trace sandesh InstanceManagerTrace {
+    /** Message for instance manager object */
     1: string message;
 }
 
 /**
- * Sandesh definition for QOS queue
+ * Structure definition for QOS queue
  */
 struct QosQueueSandeshData {
+    /** Uuid of qos queue */
     1: string uuid;
+    /** Name of qos queue */
     2: string name;
+    /** Id of qos queue db entry */
     3: u32 id;
 }
 
@@ -2035,8 +2805,11 @@ struct QosQueueSandeshData {
  * Sandesh request for QOS queue
  */
 request sandesh QosQueueSandeshReq {
+    /** Uuid of qos queue */
     1: string uuid;
+    /** Name of qos queue */
     2: string name;
+    /** Id of qos queue db entry */
     3: string id;
 }
 
@@ -2044,19 +2817,27 @@ request sandesh QosQueueSandeshReq {
  * Sandesh response for QOS queue
  */
 response sandesh QosQueueSandeshResp {
+    /** List of qos queue information */
     1: list<QosQueueSandeshData> qos_queue_list;
 }
 
 /**
- * Sandesh definition for QOS config
+ * Structure definition for QOS config
  */
 struct ForwardingClassSandeshData {
+    /** Uuid of qos config */
     1: string uuid;
+    /** Id of qos config db entry */
     2: u32 id;
+    /** Name of qos config */
     3: string name;
+    /** Dscp value in qos config */
     4: u32 dscp;
+    /** Vlan priority value in qos config */
     5: u32 vlan_priority;
+    /** Mpls expansion in qos config */
     6: u32 mpls_exp;
+    /** Qos queue associated with qos config */
     7: u32 qos_queue (link="QosQueueSandeshReq");
 }
 
@@ -2064,33 +2845,51 @@ struct ForwardingClassSandeshData {
  * Request QOS config instances list
  */
 request sandesh ForwardingClassSandeshReq {
+    /** Uuid of qos config instance */
     1: string uuid;
+    /** Name of qos config instance */
     2: string name;
+    /** Id of qos config instance db entry */
     3: string id;
 }
 /**
  * Response to QOS config request
  */
 response sandesh ForwardingClassSandeshResp {
+    /** List of qos config information */
     1: list<ForwardingClassSandeshData> fc_list;
 }
 
+/**
+ * Structure definition of QOS forwarding class
+ */
 struct QosForwardingClassSandeshPair {
+    /** Qos value associated with qos forwarding class */
     1: u32 qos_value;
+    /** Id of qos forwarding class */
     2: u32 forwarding_class_id (link="ForwardingClassSandeshReq");
 }
 /**
- * Sandesh definition for QOS config
+ * Structure definition for QOS config
  */
 struct AgentQosConfigSandeshData {
+    /** Uuid of qos config */
     1: string uuid;
+    /** Name of qos config */
     2: string name;
+    /** Type of qos config - vhost/fabric/default */
     3: string type;
+    /** Id of qos config db entry */
     4: u32 id;
+    /** List of dscp pair in qos config */
     5: optional list<QosForwardingClassSandeshPair> dscp_list;
+    /** List of vlan priority in qos config */
     6: optional list<QosForwardingClassSandeshPair> vlan_priority_list;
+    /** List of mpls expansion in qos config */
     7: optional list<QosForwardingClassSandeshPair> mpls_exp_list;
+    /** Default forwarding class in qos config */
     8: u32 default_forwarding_class;
+    /** Boolean value which indicates if qos config is trusted */
     9: bool trusted;
 }
 
@@ -2098,8 +2897,11 @@ struct AgentQosConfigSandeshData {
  * Request QOS config instances list
  */
 request sandesh AgentQosConfigSandeshReq {
+    /** Uuid of qos config instance */
     1: string uuid;
+    /** Name of qos config instance */
     2: string name;
+    /** Id of qos config instance db entry */
     3: string id;
 }
 
@@ -2107,54 +2909,104 @@ request sandesh AgentQosConfigSandeshReq {
  * Response to QOS config request
  */
 response sandesh AgentQosConfigSandeshResp {
+    /** List of qos config instance information */
     1: list<AgentQosConfigSandeshData> qc_list;
 }
 
+/**
+ * Request to add QOS queue
+ */
 request sandesh AddQosQueue {
+    /** Uuid of qos queue to be added */
     1: u32 uuid;
+    /** Name of qos queue to be added */
     2: string name;
+    /** Id of qos queue to be added */
     3: u16 id;
 }
 
+/**
+ * Request to delete QOS queue
+ */
 request sandesh DeleteQosQueue {
+    /** Uuid of qos queue to be deleted */
     1: u32 uuid;
 }
 
+/**
+ * Request to add QOS forwarding class
+ */
 request sandesh AddForwardingClass {
+    /** Uuid of qos forwarding class to be added */
     1: u32 uuid;
+    /** Id of qos forwarding class to be added */
     2: u32 id;
+    /** Dscp value of qos forwarding class to be added */
     3: u32 dscp_value;
+    /** Mpls expansion of qos forwarding class to be added */
     4: u32 mpls_exp;
+    /** Vlan priority of qos forwarding class to be added */
     5: u32 vlan_priority;
+    /** Uuid of qos queue associated with forwarding class to be added */
     6: u32 qos_queue_uuid;
+    /** Name of qos forwarding class to be added */
     7: string name;
 }
 
+/**
+ * Request to delete QOS forwarding class
+ */
 request sandesh DeleteForwardingClass {
+    /** Uuid of qos forwarding class to be deleted */
     1: u32 uuid;
 }
 
+/**
+ * Request to add QOS config
+ */
 request sandesh AddQosConfig {
+    /** Uuid of qos config to be added */
     1: u32 uuid;
+    /** Name of qos config to be added */
     2: string name;
+    /** Type of qos config to be added - vhost/fabric/default */
     3: string type;
+    /** Dscp value of qos config to be added */
     4: u32 dscp;
+    /** Dscp forwarding class id of qos config to be added */
     5: u32 dscp_forwarding_class_id;
+    /** Vlan priority of qos config to be added */
     6: u32 vlan_priority;
+    /** Vlan priority forwarding class id of qos config to be added */
     7: u32 vlan_priority_forwarding_class_id;
+    /** Mpls expansion of qos config to be added */
     8: u32 mpls_exp;
+    /** Mpls expansion forwarding class id of qos config to be added */
     9: u32 mpls_exp_forwarding_class_id;
 }
 
+/**
+ * Request to delete QOS config
+ */
 request sandesh DeleteQosConfig {
+    /** Uuid of qos config to be deleted */
     1: u32 uuid;
 }
 
+/**
+ * Request to add vmi QOS config
+ */
 request sandesh AddVmiQosConfig {
+    /** Uuid of vmi associated with qos config to be added */
     1: string vmi_uuid;
+    /** Uuid of qos config to be added */
     2: string qos_config_uuid;
 }
 
+/**
+ * Response to QOS config
+ */
 response sandesh QosResponse {
+    /** Response message for qos config */
     1: string resp;
 }
