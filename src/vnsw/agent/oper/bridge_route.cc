@@ -671,6 +671,7 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
                          del,
                          &evpn_label);
 
+    ComponentNHKeyList component_nh_list;
     //all paths are gone so delete multicast_peer path as well
     if ((local_vm_peer_path == NULL) &&
         (tor_peer_path == NULL) &&
@@ -678,6 +679,16 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
         (fabric_peer_path == NULL)) {
         if (multicast_peer_path != NULL)
             RemovePath(multicast_peer_path);
+        //EVPN label may come from local_peer path which is added per VN.
+        //This label will be pointing to composite NH used by
+        //multicast_peer_path. As multicast_peer_path is getting deleted, make
+        //this label(if valid) to point to empty CNH.
+        if (evpn_label != MplsTable::kInvalidLabel) {
+            agent->mpls_table()->CreateMcastLabel(evpn_label,
+                                                  Composite::L2COMP,
+                                                  component_nh_list,
+                                                  vrf()->GetName());
+        }
         return true;
     }
 
@@ -688,8 +699,6 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
     } else {
         old_fabric_mpls_label = multicast_peer_path->label();
     }
-
-    ComponentNHKeyList component_nh_list;
 
     if (tor_peer_path) {
         NextHopKey *tor_peer_key =

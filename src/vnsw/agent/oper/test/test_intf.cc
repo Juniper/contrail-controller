@@ -4103,6 +4103,7 @@ TEST_F(IntfTest, IntfAddDel) {
     DelLink("virtual-network", "vn1", "virtual-machine-interface",
             "vnet1");
     client->WaitForIdle();
+    EXPECT_TRUE((static_cast<VmInterface *>(intf.get()))->GetRefCount() == 1);
 
     NovaDel(1);
     client->WaitForIdle();
