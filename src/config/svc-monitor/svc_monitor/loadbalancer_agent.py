@@ -30,6 +30,11 @@ class LoadbalancerAgent(Agent):
             "opencontrail",
             "svc_monitor.services.loadbalancer.drivers.ha_proxy.driver.OpencontrailLoadbalancerDriver"
         )
+        # create native service appliance set
+        self._create_default_service_appliance_set(
+            "native",
+            "svc_monitor.services.loadbalancer.drivers.native.driver.OpencontrailLoadbalancerDriver"
+        )
         self._default_provider = "opencontrail"
     # end __init__
 
