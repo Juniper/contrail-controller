@@ -288,7 +288,8 @@ public:
         mutable bool ecmp_;
         MacAddress  mac_;
         mutable bool        l2_entry_installed_;
-        mutable bool        ecmp_config_changed_;
+        mutable bool        l3_ecmp_config_changed_;
+        mutable bool        l2_ecmp_config_changed_;
         mutable uint32_t    ethernet_tag_;
         mutable VrfEntryRef vrf_ref_;
         mutable IpAddress  service_ip_;
@@ -412,12 +413,13 @@ public:
         mutable uint8_t plen_;
         mutable bool ecmp_;
         mutable bool l2_installed_;
-        mutable bool old_ecmp_;
         mutable bool is_primary_;
         mutable bool is_service_health_check_ip_;
         mutable bool is_local_;
         mutable IpAddress old_tracking_ip_;
         mutable IpAddress tracking_ip_;
+        mutable bool l3_ecmp_mode_changed_;
+        mutable bool l2_ecmp_mode_changed_;
     };
     typedef std::set<InstanceIp, InstanceIp> InstanceIpSet;
 
@@ -695,7 +697,8 @@ public:
                                 const Ip4Address &new_addr,
                                 const Ip6Address &new_v6_addr,
                                 const MacAddress &mac,
-                                const IpAddress &dependent_ip) const;
+                                const IpAddress &dependent_ip,
+                                bool ecmp) const;
     uint32_t ethernet_tag() const {return ethernet_tag_;}
     IpAddress service_health_check_ip() const { return service_health_check_ip_; }
     void UpdateVxLan();
