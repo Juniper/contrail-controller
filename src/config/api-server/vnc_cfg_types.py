@@ -1308,68 +1308,28 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
 
     @classmethod
-    def ip_alloc(cls, vn_fq_name, subnet_name, count, family=None):
+    def ip_alloc(cls, vn_fq_name, subnet_uuid=None, count=1, family=None):
         if family:
             ip_version = 6 if family == 'v6' else 4
         else:
             ip_version = None
-        subnet_uuid = None
-        if subnet_name:
-            vn_uuid = cls.addr_mgmt._db_conn.fq_name_to_uuid('virtual_network',
-                                                             vn_fq_name)
-            (ok, result) = cls.addr_mgmt._db_conn.dbe_read(
-                              obj_type='virtual_network',
-                              obj_ids={'uuid': vn_uuid},
-                              obj_fields=['network_ipam_refs'])
-
-            if not ok:
-                raise cfgm_common.exceptions.VncError(result)
-            vn_dict = result
-
-            ipam_refs = vn_dict.get('network_ipam_refs') or []
-            for ipam in ipam_refs:
-                # Currently ip_alloc api is not supported for flat-ipam
-                # only to user-defined-ipam, we need to skip
-                # any flat ipam
-                vnsn_data = ipam['attr']
-                ipam_subnets = vnsn_data.get('ipam_subnets') or []
-                if len(ipam_subnets) is 0:
-                    continue
-                first_ipam_subnet = ipam_subnets[0]
-                subnet = first_ipam_subnet.get('subnet') or {}
-                if ('ip_prefix' not in subnet):
-                    continue
-
-                ipam_subnets = ipam['attr'].get('ipam_subnets') or []
-                for ipam_subnet in ipam_subnets:
-                    subnet = ipam_subnet.get('subnet') or {}
-                    if 'ip_prefix' in subnet:
-                        ipam_subnet_name = subnet['ip_prefix'] + '/' +\
-                                           str(subnet['ip_prefix_len'])
-                        if ipam_subnet_name == subnet_name:
-                            subnet_uuid = ipam_subnet.get('subnet_uuid')
-                            break
-
-            if subnet_uuid is None:
-                return {'ip_addr' : []}
 
         ip_list = [cls.addr_mgmt.ip_alloc_req(vn_fq_name, sub=subnet_uuid,
                                               asked_ip_version=ip_version,
                                               alloc_id=str(uuid.uuid4()))
                    for i in range(count)]
         msg = 'AddrMgmt: reserve %d IP for vn=%s, subnet=%s - %s' \
-            % (count, vn_fq_name, subnet_name if subnet_name else '', ip_list)
+            % (count, vn_fq_name, subnet_uuid or '', ip_list)
         cls.addr_mgmt.config_log(msg, level=SandeshLevel.SYS_DEBUG)
         return {'ip_addr': ip_list}
     # end ip_alloc
 
     @classmethod
-    def ip_free(cls, vn_fq_name, subnet_name, ip_list):
-        msg = 'AddrMgmt: release IP %s for vn=%s, subnet=%s' \
-            % (ip_list, vn_fq_name, subnet_name if subnet_name else '')
+    def ip_free(cls, vn_fq_name, ip_list):
+        msg = 'AddrMgmt: release IP %s for vn=%s' % (ip_list, vn_fq_name)
         cls.addr_mgmt.config_log(msg, level=SandeshLevel.SYS_DEBUG)
         for ip_addr in ip_list:
-            cls.addr_mgmt.ip_free_req(ip_addr, vn_fq_name, subnet_name)
+            cls.addr_mgmt.ip_free_req(ip_addr, vn_fq_name)
     # end ip_free
 
     @classmethod

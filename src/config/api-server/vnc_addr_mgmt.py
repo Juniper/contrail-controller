@@ -1162,10 +1162,25 @@ class AddrMgmt(object):
 
     # return number of ip address currently allocated for a subnet
     # count will also include reserved ips
-    def ip_count_req(self, vn_fq_name, subnet_name=None):
+    def ip_count_req(self, vn_fq_name, subnet_uuid):
+        if subnet_uuid is None:
+            return 0
+
         db_conn = self._get_db_conn()
         vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
-        subnet_obj = self._subnet_objs[vn_uuid][subnet_name]
+        subnet_dicts = self._get_net_subnet_dicts(vn_uuid)
+        req_subnet_name = None
+        for subnet_name, subnet_dict in subnet_dicts.items():
+            if subnet_uuid == subnet_dict.get('subnet_uuid'):
+                req_subnet_name = subnet_name
+                break
+
+        if req_subnet_name is None:
+            # subnet is not on this network, return zero to reflect no ip addr
+            # is allocated from requested subnet_uuid
+            return 0
+
+        subnet_obj = self._subnet_objs[vn_uuid][req_subnet_name]
         return subnet_obj.ip_count()
     # end ip_count_req
 
