@@ -322,10 +322,9 @@ public:
         bool IsLess(const VrfAssignRule *rhs) const;
 
         const uint32_t id_;
-        const std::string vrf_name_;
-        const VrfEntryRef vrf_;
-        bool ignore_acl_;
-        autogen::MatchConditionType match_condition_;
+        mutable std::string vrf_name_;
+        mutable bool ignore_acl_;
+        mutable autogen::MatchConditionType match_condition_;
     };
     typedef std::set<VrfAssignRule, VrfAssignRule> VrfAssignRuleSet;
 

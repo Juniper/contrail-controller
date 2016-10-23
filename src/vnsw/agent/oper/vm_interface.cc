@@ -3229,63 +3229,6 @@ void VmInterface::DeleteAllowedAddressPair(bool l2) {
     }
 }
 
-static bool CompareAddressType(const AddressType &lhs,
-                               const AddressType &rhs) {
-    if (lhs.subnet.ip_prefix != rhs.subnet.ip_prefix) {
-        return false;
-    }
-
-    if (lhs.subnet.ip_prefix_len != rhs.subnet.ip_prefix_len) {
-        return false;
-    }
-
-    if (lhs.virtual_network != rhs.virtual_network) {
-        return false;
-    }
-
-    if (lhs.security_group != rhs.security_group) {
-        return false;
-    }
-    return true;
-}
-
-static bool ComparePortType(const PortType &lhs,
-                            const PortType &rhs) {
-    if (lhs.start_port != rhs.start_port) {
-        return false;
-    }
-
-    if (lhs.end_port != rhs.end_port) {
-        return false;
-    }
-    return true;
-}
-
-static bool CompareMatchConditionType(const MatchConditionType &lhs,
-                                      const MatchConditionType &rhs) {
-    if (lhs.protocol != rhs.protocol) {
-        return lhs.protocol < rhs.protocol;
-    }
-
-    if (!CompareAddressType(lhs.src_address, rhs.src_address)) {
-        return false;
-    }
-
-    if (!ComparePortType(lhs.src_port, rhs.src_port)) {
-        return false;
-    }
-
-    if (!CompareAddressType(lhs.dst_address, rhs.dst_address)) {
-        return false;
-    }
-
-    if (!ComparePortType(lhs.dst_port, rhs.dst_port)) {
-        return false;
-    }
-
-    return true;
-}
-
 void VmInterface::UpdateVrfAssignRule() {
     Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
     //Erase all delete marked entry
@@ -4855,12 +4798,12 @@ VmInterface::hc_instance_set() const {
 // VRF assign rule routines
 ////////////////////////////////////////////////////////////////////////////
 VmInterface::VrfAssignRule::VrfAssignRule():
-    ListEntry(), id_(0), vrf_name_(" "), vrf_(NULL, this), ignore_acl_(false) {
+    ListEntry(), id_(0), vrf_name_(" "), ignore_acl_(false) {
 }
 
 VmInterface::VrfAssignRule::VrfAssignRule(const VrfAssignRule &rhs):
     ListEntry(rhs.installed_, rhs.del_pending_), id_(rhs.id_),
-    vrf_name_(rhs.vrf_name_), vrf_(rhs.vrf_, this), ignore_acl_(rhs.ignore_acl_),
+    vrf_name_(rhs.vrf_name_), ignore_acl_(rhs.ignore_acl_),
     match_condition_(rhs.match_condition_) {
 }
 
@@ -4868,7 +4811,7 @@ VmInterface::VrfAssignRule::VrfAssignRule(uint32_t id,
     const autogen::MatchConditionType &match_condition, 
     const std::string &vrf_name,
     bool ignore_acl):
-    ListEntry(), id_(id), vrf_name_(vrf_name), vrf_(NULL, this),
+    ListEntry(), id_(id), vrf_name_(vrf_name),
     ignore_acl_(ignore_acl), match_condition_(match_condition) {
 }
 
@@ -4881,17 +4824,7 @@ bool VmInterface::VrfAssignRule::operator() (const VrfAssignRule &lhs,
 }
 
 bool VmInterface::VrfAssignRule::IsLess(const VrfAssignRule *rhs) const {
-    if (id_ != rhs->id_) {
-        return id_ < rhs->id_;
-    }
-    if (vrf_name_ != rhs->vrf_name_) {
-        return vrf_name_ < rhs->vrf_name_;
-    }
-    if (ignore_acl_ != rhs->ignore_acl_) {
-        return ignore_acl_ < rhs->ignore_acl_;
-    }
-
-    return CompareMatchConditionType(match_condition_, rhs->match_condition_);
+    return id_ < rhs->id_;
 }
 
 void VmInterface::VrfAssignRuleList::Insert(const VrfAssignRule *rhs) {
@@ -4901,6 +4834,9 @@ void VmInterface::VrfAssignRuleList::Insert(const VrfAssignRule *rhs) {
 void VmInterface::VrfAssignRuleList::Update(const VrfAssignRule *lhs,
                                             const VrfAssignRule *rhs) {
     lhs->set_del_pending(false);
+    lhs->match_condition_ = rhs->match_condition_;
+    lhs->ignore_acl_ = rhs->ignore_acl_;
+    lhs->vrf_name_ = rhs->vrf_name_;
 }
 
 void VmInterface::VrfAssignRuleList::Remove(VrfAssignRuleSet::iterator &it) {
