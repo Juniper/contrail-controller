@@ -91,18 +91,14 @@ Inet6Prefix Inet6Prefix::operator&(const Inet6Prefix& right) const {
 
 // Routines for class Inet6Route
 
-Inet6Route::Inet6Route(const Inet6Prefix &prefix) : prefix_(prefix) {
+Inet6Route::Inet6Route(const Inet6Prefix &prefix)
+    : prefix_(prefix),
+      prefix_str_(prefix.ToString()) {
 }
 
 int Inet6Route::CompareTo(const Route &rhs) const {
     const Inet6Route &rt_other = static_cast<const Inet6Route &>(rhs);
     return prefix_.CompareTo(rt_other.prefix_);
-}
-
-string Inet6Route::ToString() const {
-    if (prefix_str_.empty())
-        prefix_str_ = prefix_.ToString();
-    return prefix_str_;
 }
 
 // Check whether 'this' is more specific than rhs.
