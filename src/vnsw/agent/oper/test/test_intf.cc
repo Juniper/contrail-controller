@@ -212,8 +212,10 @@ static void FloatingIpAdd(VmInterface::FloatingIpList &list, const char *addr,
                           const char *vrf, const char *track_ip) {
     IpAddress ip = Ip4Address::from_string(addr);
     IpAddress tracking_ip = Ip4Address::from_string(track_ip);
-    list.list_.insert(VmInterface::FloatingIp(ip.to_v4(), vrf, MakeUuid(1),
-                                              tracking_ip));
+    list.list_.insert(VmInterface::FloatingIp
+                      (ip.to_v4(), vrf, MakeUuid(1), tracking_ip, false,
+                       VmInterface::FloatingIp::PortMap(),
+                       VmInterface::FloatingIp::PortMap()));
 }
 
 struct AnalyzerInfo {

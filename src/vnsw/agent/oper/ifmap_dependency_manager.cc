@@ -605,6 +605,7 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
     //     <----> SG
     //     //<----> FIP <----> FIP-POOL <----> VN <----> RI
     //     <----> FIP <----> FIP-POOL <----> VN
+    //     <----> FIP <----> Instance-IP <----> VN
     //     <----> Instance-IP
     //     <----> interface-route-table
     //     <----> subnet
@@ -643,6 +644,13 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                                "floating-ip-pool", false,
                                "virtual-network-floating-ip-pool",
                                "virtual-network", true));
+     AddDependencyPath("virtual-machine-interface",
+                       MakePath("floating-ip-virtual-machine-interface",
+                                "floating-ip", true,
+                                "instance-ip-floating-ip",
+                                "instance-ip", false,
+                                "instance-ip-virtual-network",
+                                "virtual-network", true));
     AddDependencyPath("virtual-machine-interface",
                       MakePath("instance-ip-virtual-machine-interface",
                                "instance-ip", true));

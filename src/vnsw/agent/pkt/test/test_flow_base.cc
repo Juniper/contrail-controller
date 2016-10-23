@@ -102,6 +102,7 @@ VmInterface *flow4;
 VmInterface *flow5;
 VmInterface *flow6;
 std::string eth_itf;
+PhysicalInterface *eth;
 
 static void NHNotify(DBTablePartBase *partition, DBEntryBase *entry) {
 }
@@ -636,6 +637,10 @@ public:
     }
 protected:
     virtual void SetUp() {
+        eth = EthInterfaceGet("vnet0");
+        EXPECT_TRUE(eth != NULL);
+        strcpy(router_id_, agent_->router_id().to_string().c_str());
+
         unsigned int vn_count = 0;
         EXPECT_EQ(0U, get_flow_proto()->FlowCount());
         hash_id = 1;
@@ -795,6 +800,7 @@ public:
     Agent *agent_;
     FlowProto *flow_proto_;
     FlowStatsCollectorObject* flow_stats_collector_;
+    char router_id_[80];
 };
 
 bool FlowTest::ksync_init_;

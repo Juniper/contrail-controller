@@ -47,6 +47,7 @@ test_oper_xml = AgentEnv.MakeTestCmdSrc(env, 'test_oper_xml',
                                          '../../pkt/test/test_pkt_util.o'
                                         ],
                                         oper_test_suite)
+test_fip_cfg = AgentEnv.MakeTestCmd(env, 'test_fip_cfg', oper_test_suite)
 
 test_instance_task = AgentEnv.MakeTestCmd(env, 'test_instance_task', oper_test_suite)
 env.Alias('agent:test_ipv6', test_ipv6)

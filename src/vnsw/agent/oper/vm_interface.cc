@@ -131,6 +131,84 @@ bool VmInterface::CmpInterface(const DBEntry &rhs) const {
     return uuid_ < intf.uuid_;
 }
 
+// Build one VN and VRF for a floating-ip. Can reach here from 2 paths,
+// 1. floating-ip <-> floating-ip-pool <-> virtual-network <-> routing-instance
+// 2. floating-ip <-> instance-ip <-> virtual-network <-> routing-instance
+static bool BuildFloatingIpVnVrf(Agent *agent, VmInterfaceConfigData *data,
+                                 IFMapNode *node, IFMapNode *vn_node) {
+    ConfigManager *cfg_manager= agent->config_manager();
+    if (cfg_manager->SkipNode(vn_node, agent->cfg()->cfg_vn_table())) {
+        return false;
+    }
+
+    VirtualNetwork *cfg = static_cast<VirtualNetwork *>(vn_node->GetObject());
+    assert(cfg);
+    autogen::IdPermsType id_perms = cfg->id_perms();
+    boost::uuids::uuid vn_uuid;
+    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, vn_uuid);
+
+    IFMapAgentTable *vn_table = static_cast<IFMapAgentTable *>
+        (vn_node->table());
+    DBGraph *vn_graph = vn_table->GetGraph();
+    // Iterate thru links for virtual-network looking for routing-instance
+    for (DBGraphVertex::adjacency_iterator vn_iter = vn_node->begin(vn_graph);
+         vn_iter != vn_node->end(vn_graph); ++vn_iter) {
+
+        IFMapNode *vrf_node = static_cast<IFMapNode *>(vn_iter.operator->());
+        if (cfg_manager->SkipNode(vrf_node, agent->cfg()->cfg_vrf_table())) {
+            continue;
+        }
+        // We are interested only in default-vrf
+        RoutingInstance *ri = static_cast<RoutingInstance *>
+            (vrf_node->GetObject());
+        if(!(ri->is_default())) {
+            continue;
+        }
+        FloatingIp *fip = static_cast<FloatingIp *>(node->GetObject());
+        assert(fip != NULL);
+        LOG(DEBUG, "Add FloatingIP <" << fip->address() << ":" <<
+            vrf_node->name() << "> to interface " << node->name());
+
+        boost::system::error_code ec;
+        IpAddress addr = IpAddress::from_string(fip->address(), ec);
+        if (ec.value() != 0) {
+            LOG(DEBUG, "Error decoding Floating IP address " << fip->address());
+        } else {
+            IpAddress fixed_ip_addr =
+                IpAddress::from_string(fip->fixed_ip_address(), ec);
+            if (ec.value() != 0) {
+                fixed_ip_addr = IpAddress();
+            }
+
+            // Make port-map
+            VmInterface::FloatingIp::PortMap src_port_map;
+            VmInterface::FloatingIp::PortMap dst_port_map;
+            for (PortMappings::const_iterator it = fip->port_mappings().begin();
+                 it != fip->port_mappings().end(); it++) {
+                VmInterface::FloatingIp::PortMapKey dst(IPPROTO_TCP,
+                                                        it->src_port);
+                dst_port_map.insert(std::make_pair(dst, it->dst_port));
+                VmInterface::FloatingIp::PortMapKey src(IPPROTO_TCP,
+                                                        it->dst_port);
+                src_port_map.insert(std::make_pair(src, it->src_port));
+            }
+            data->floating_ip_list_.list_.insert
+                (VmInterface::FloatingIp (addr, vrf_node->name(), vn_uuid,
+                                          fixed_ip_addr,
+                                          fip->port_mappings_enable(),
+                                          src_port_map,
+                                          dst_port_map));
+            if (addr.is_v4()) {
+                data->floating_ip_list_.v4_count_++;
+            } else {
+                data->floating_ip_list_.v6_count_++;
+            }
+        }
+        return true;
+    }
+    return false;
+}
+
 // Build one Floating IP entry for a virtual-machine-interface
 static void BuildFloatingIpList(Agent *agent, VmInterfaceConfigData *data,
                                 IFMapNode *node) {
@@ -139,94 +217,42 @@ static void BuildFloatingIpList(Agent *agent, VmInterfaceConfigData *data,
         return;
     }
 
-    // Find VRF for the floating-ip. Following path in graphs leads to VRF
-    // virtual-machine-port <-> floating-ip <-> floating-ip-pool 
-    // <-> virtual-network <-> routing-instance
+    // Find VRF for the floating-ip. Following paths leads to VRF
+    // 1. virtual-machine-port <-> floating-ip <-> floating-ip-pool
+    //    <-> virtual-network <-> routing-instance
+    // 2. virtual-machine-port <-> floating-ip <-> instance-ip
+    //    <-> virtual-network <-> routing-instance
     IFMapAgentTable *fip_table = static_cast<IFMapAgentTable *>(node->table());
     DBGraph *fip_graph = fip_table->GetGraph();
 
-    // Iterate thru links for floating-ip looking for floating-ip-pool node
+    // Iterate thru links for floating-ip looking for floating-ip-pool or
+    // instance-ip node
     for (DBGraphVertex::adjacency_iterator fip_iter = node->begin(fip_graph);
          fip_iter != node->end(fip_graph); ++fip_iter) {
-        IFMapNode *pool_node = static_cast<IFMapNode *>(fip_iter.operator->());
-        if (cfg_manager->SkipNode
-            (pool_node, agent->cfg()->cfg_floatingip_pool_table())) {
+        IFMapNode *node1 = static_cast<IFMapNode *>(fip_iter.operator->());
+        if (cfg_manager->SkipNode(node1)) {
             continue;
         }
+        IFMapAgentTable *table1 =
+            static_cast<IFMapAgentTable *> (node1->table());
 
-        // Iterate thru links for floating-ip-pool looking for virtual-network
-        IFMapAgentTable *pool_table = 
-            static_cast<IFMapAgentTable *> (pool_node->table());
-        DBGraph *pool_graph = pool_table->GetGraph();
-        for (DBGraphVertex::adjacency_iterator pool_iter = 
-             pool_node->begin(pool_graph);
-             pool_iter != pool_node->end(pool_graph); ++pool_iter) {
+        // We are interested in floating-ip-pool or instance-ip neighbours
+        if (table1 == agent->cfg()->cfg_floatingip_pool_table() ||
+            table1 == agent->cfg()->cfg_instanceip_table()) {
+            // Iterate thru links for floating-ip-pool/instance-ip looking for
+            // virtual-network and routing-instance
+            DBGraph *pool_graph = table1->GetGraph();
+            for (DBGraphVertex::adjacency_iterator node1_iter =
+                 node1->begin(pool_graph);
+                 node1_iter != node1->end(pool_graph); ++node1_iter) {
 
-            IFMapNode *vn_node = 
-                static_cast<IFMapNode *>(pool_iter.operator->());
-            if (cfg_manager->SkipNode
-                (vn_node, agent->cfg()->cfg_vn_table())) {
-                continue;
-            }
-
-            VirtualNetwork *cfg = static_cast <VirtualNetwork *> 
-                (vn_node->GetObject());
-            assert(cfg);
-            autogen::IdPermsType id_perms = cfg->id_perms();
-            boost::uuids::uuid vn_uuid;
-            CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
-                       vn_uuid);
-
-            IFMapAgentTable *vn_table = 
-                static_cast<IFMapAgentTable *> (vn_node->table());
-            DBGraph *vn_graph = vn_table->GetGraph();
-            // Iterate thru links for virtual-network looking for 
-            // routing-instance
-            for (DBGraphVertex::adjacency_iterator vn_iter =
-                 vn_node->begin(vn_graph);
-                 vn_iter != vn_node->end(vn_graph); ++vn_iter) {
-
-                IFMapNode *vrf_node = 
-                    static_cast<IFMapNode *>(vn_iter.operator->());
-                if (cfg_manager->SkipNode
-                    (vrf_node, agent->cfg()->cfg_vrf_table())){
-                    continue;
-                }
-                // Checking whether it is default vrf of not
-                RoutingInstance *ri = static_cast<RoutingInstance *>(vrf_node->GetObject());
-                if(!(ri->is_default())) {
-                    continue;
-                }
-                FloatingIp *fip = static_cast<FloatingIp *>(node->GetObject());
-                assert(fip != NULL);
-                LOG(DEBUG, "Add FloatingIP <" << fip->address() << ":" <<
-                    vrf_node->name() << "> to interface " << node->name());
-
-                boost::system::error_code ec;
-                IpAddress addr = IpAddress::from_string(fip->address(), ec);
-                if (ec.value() != 0) {
-                    LOG(DEBUG, "Error decoding Floating IP address " 
-                        << fip->address());
-                } else {
-                    IpAddress fixed_ip_addr =
-                        IpAddress::from_string(fip->fixed_ip_address(), ec);
-                    if (ec.value() != 0) {
-                        fixed_ip_addr = IpAddress();
-                    }
-                    data->floating_ip_list_.list_.insert
-                        (VmInterface::FloatingIp(addr, vrf_node->name(),
-                                                 vn_uuid, fixed_ip_addr));
-                    if (addr.is_v4()) {
-                        data->floating_ip_list_.v4_count_++;
-                    } else {
-                        data->floating_ip_list_.v6_count_++;
-                    }
-                }
-                break;
+                IFMapNode *vn_node = 
+                    static_cast<IFMapNode *>(node1_iter.operator->());
+                if (BuildFloatingIpVnVrf(agent, data, node, vn_node) == true)
+                    break;
             }
             break;
         }
-        break;
     }
     return;
 }
@@ -4160,7 +4186,8 @@ void VmInterface::FatFlowList::Remove(FatFlowEntrySet::iterator &it) {
 VmInterface::FloatingIp::FloatingIp() : 
     ListEntry(), floating_ip_(), vn_(NULL),
     vrf_(NULL, this), vrf_name_(""), vn_uuid_(), l2_installed_(false),
-    fixed_ip_(), force_l3_update_(false), force_l2_update_(false) {
+    fixed_ip_(), force_l3_update_(false), force_l2_update_(false),
+    port_map_enabled_(false), src_port_map_(), dst_port_map_() {
 }
 
 VmInterface::FloatingIp::FloatingIp(const FloatingIp &rhs) :
@@ -4169,16 +4196,23 @@ VmInterface::FloatingIp::FloatingIp(const FloatingIp &rhs) :
     vrf_name_(rhs.vrf_name_), vn_uuid_(rhs.vn_uuid_),
     l2_installed_(rhs.l2_installed_), fixed_ip_(rhs.fixed_ip_),
     force_l3_update_(rhs.force_l3_update_),
-    force_l2_update_(rhs.force_l2_update_) {
+    force_l2_update_(rhs.force_l2_update_),
+    port_map_enabled_(rhs.port_map_enabled_), src_port_map_(rhs.src_port_map_),
+    dst_port_map_(rhs.dst_port_map_) {
 }
 
 VmInterface::FloatingIp::FloatingIp(const IpAddress &addr,
                                     const std::string &vrf,
                                     const boost::uuids::uuid &vn_uuid,
-                                    const IpAddress &fixed_ip) :
-    ListEntry(), floating_ip_(addr), vn_(NULL), vrf_(NULL, this), vrf_name_(vrf),
-    vn_uuid_(vn_uuid), l2_installed_(false), fixed_ip_(fixed_ip),
-    force_l3_update_(false), force_l2_update_(false){
+                                    const IpAddress &fixed_ip,
+                                    bool port_map_enabled,
+                                    const PortMap &src_port_map,
+                                    const PortMap &dst_port_map) :
+    ListEntry(), floating_ip_(addr), vn_(NULL), vrf_(NULL, this),
+    vrf_name_(vrf), vn_uuid_(vn_uuid), l2_installed_(false),
+    fixed_ip_(fixed_ip), force_l3_update_(false), force_l2_update_(false),
+    port_map_enabled_(port_map_enabled), src_port_map_(src_port_map),
+    dst_port_map_(dst_port_map) {
 }
 
 VmInterface::FloatingIp::~FloatingIp() {
@@ -4347,6 +4381,30 @@ VmInterface::FloatingIp::GetFixedIp(const VmInterface *interface) const {
     return fixed_ip_;
 }
 
+bool VmInterface::FloatingIp::port_map_enabled() const {
+    return port_map_enabled_;
+}
+
+uint32_t VmInterface::FloatingIp::PortMappingSize() const {
+    return src_port_map_.size();
+}
+
+int32_t VmInterface::FloatingIp::GetSrcPortMap(uint8_t protocol,
+                                               uint16_t src_port) const {
+    PortMapIterator it = src_port_map_.find(PortMapKey(protocol, src_port));
+    if (it == src_port_map_.end())
+        return -1;
+    return it->second;
+}
+
+int32_t VmInterface::FloatingIp::GetDstPortMap(uint8_t protocol,
+                                               uint16_t dst_port) const {
+    PortMapIterator it = dst_port_map_.find(PortMapKey(protocol, dst_port));
+    if (it == dst_port_map_.end())
+        return -1;
+    return it->second;
+}
+
 void VmInterface::FloatingIpList::Insert(const FloatingIp *rhs) {
     std::pair<FloatingIpSet::iterator, bool> ret = list_.insert(*rhs);
     if (ret.second) {
@@ -4365,6 +4423,10 @@ void VmInterface::FloatingIpList::Update(const FloatingIp *lhs,
         lhs->force_l3_update_ = true;
         lhs->force_l2_update_ = true;
     }
+
+    lhs->port_map_enabled_ = rhs->port_map_enabled_;
+    lhs->src_port_map_ = rhs->src_port_map_;
+    lhs->dst_port_map_ = rhs->dst_port_map_;
     lhs->set_del_pending(false);
 }
 
