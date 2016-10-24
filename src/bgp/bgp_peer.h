@@ -215,6 +215,7 @@ public:
     virtual bool CanUseMembershipManager() const;
     virtual bool IsRegistrationRequired() const { return true; }
     virtual uint64_t GetEorSendTimerElapsedTimeUsecs() const;
+    virtual bool send_ready() const { return send_ready_; }
 
     void Close(bool non_graceful);
     void Clear(int subcode);

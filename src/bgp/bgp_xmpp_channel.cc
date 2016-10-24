@@ -364,7 +364,7 @@ public:
         parent_->MembershipRequestCallback(table);
     }
 
-    bool send_ready() const { return send_ready_; }
+    virtual bool send_ready() const { return send_ready_; }
 
 private:
     void WriteReadyCb(const boost::system::error_code &ec) {
@@ -439,6 +439,7 @@ bool BgpXmppChannel::XmppPeer::SendUpdate(const uint8_t *msg, size_t msgsize,
 }
 
 void BgpXmppChannel::XmppPeer::Close(bool non_graceful) {
+    send_ready_ = true;
     parent_->set_peer_closed(true);
     if (server_ == NULL)
         return;
