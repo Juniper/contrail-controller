@@ -1204,6 +1204,7 @@ class VncApi(object):
         self._headers['X-API-ROLE'] = (',').join(roles)
     #end set_user_roles
 
+    @check_homepage
     def obj_perms(self, token, obj_uuid=None):
         """
         validate user token. Optionally, check token authorization for an object.
