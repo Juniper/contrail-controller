@@ -1626,10 +1626,9 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
             }
         }
     } else if (state == xmps::TIMEDOUT) {
-        CONTROLLER_TRACE(Session, peer->GetXmppServer(), "TIMEDOUT",
-                         "NULL", "Connection to Xmpp Server, Timed out");
-        DiscoveryAgentClient *dac = Agent::GetInstance()->discovery_client();
-        if (dac) {
+
+        DiscoveryServiceClient *dsc = Agent::GetInstance()->discovery_service_client();
+        if (dsc) {
             std::vector<DSResponse> resp =
                 Agent::GetInstance()->GetDiscoveryServerResponseList();
             std::vector<DSResponse>::iterator iter;
@@ -1644,6 +1643,26 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
                     agent->controller()->ApplyDiscoveryXmppServices(resp);
                     break;
                 }
+            }
+        } else {
+            std::vector<std::string> controller_list =
+                Agent::GetInstance()->GetControllerlist();
+            std::vector<string>::iterator iter;
+            bool update_list = false;
+            for (iter = controller_list.begin(); 
+                 iter != controller_list.end(); iter++) {
+                std::vector<string> server;
+                boost::split(server, *iter, boost::is_any_of(":"));
+                if (peer->GetXmppServer().compare(server[0]) == 0) {
+                    // Add the TIMEDOUT server to the end.
+                    if (iter+1 == controller_list.end()) break;
+                    std::rotate(iter, iter+1, controller_list.end());
+                    update_list = true;
+                    break;
+                }
+            }
+            if (update_list) {
+                Agent::GetInstance()->controller()->ReConnect();
             }
         }
     }

@@ -538,6 +538,10 @@ public:
         return (ds_dns_response_);
     }
 
+    std::vector<string> &GetControllerlist() {
+        return (controller_list_);
+    }
+
     // Common XMPP Client for control-node and config clients
     const std::string &controller_ifmap_xmpp_server(uint8_t idx) const {
         return xs_addr_[idx];
@@ -972,6 +976,7 @@ public:
     bool vrouter_on_host() const;
     void SetAgentTaskPolicy();
     void CopyConfig(AgentParam *params);
+    void CopyFilteredParams();
     const std::string BuildDiscoveryClientName(std::string mod_name,
                                                std::string id);
 
@@ -1075,6 +1080,8 @@ public:
 
     static uint16_t ProtocolStringToInt(const std::string &str);
     VrouterObjectLimits GetVrouterObjectLimits();
+
+    void RandomizeList(std::vector<std::string> &);
 private:
 
     AgentParam *params_;
@@ -1180,6 +1187,9 @@ private:
     // Discovery Responses
     std::vector<DSResponse>ds_response_;
     std::vector<DSResponse>ds_dns_response_;
+    // Config
+    std::vector<std::string>controller_list_;
+    uint32_t controller_chksum_;
     // Discovery
     std::string dss_addr_;
     uint32_t dss_port_;
