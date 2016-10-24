@@ -363,6 +363,17 @@ MetadataProxy::GetProxyConnection(HttpSession *session, bool conn_close) {
     HttpConnection *conn = http_client_->CreateConnection(http_ep);
     conn->RegisterEventCb(
              boost::bind(&MetadataProxy::OnClientSessionEvent, this, _1, _2));
+    conn->set_use_ssl(services_->agent()->params()->metadata_use_ssl());
+    if (conn->use_ssl()) {
+        conn->set_client_cert(
+              services_->agent()->params()->metadata_client_cert());
+        conn->set_client_cert_type(
+              services_->agent()->params()->metadata_client_cert_type());
+        conn->set_client_key(
+              services_->agent()->params()->metadata_client_key());
+        conn->set_ca_cert(
+              services_->agent()->params()->metadata_ca_cert());
+    }
     session->RegisterEventCb(
              boost::bind(&MetadataProxy::OnServerSessionEvent, this, _1, _2));
     SessionData data(conn, conn_close);

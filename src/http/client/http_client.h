@@ -109,6 +109,20 @@ public:
     size_t GetOffset();
     HttpCb HttpClientCb() { return cb_; }
     void RegisterEventCb(HttpClientSession::SessionEventCb cb) { event_cb_ = cb; }
+    void set_use_ssl(bool ssl_flag) { use_ssl_ = ssl_flag; }
+    bool use_ssl() { return use_ssl_; }
+    void set_client_cert(const std::string &client_cert) {
+        client_cert_.assign(client_cert);
+    }
+    void set_client_cert_type(const std::string &client_cert_type) {
+        client_cert_type_.assign(client_cert_type);
+    }
+    void set_client_key(const std::string &client_key) {
+        client_key_.assign(client_key);
+    }
+    void set_ca_cert(const std::string &ca_cert) {
+        ca_cert_.assign(ca_cert);
+    }
 
 private:
     std::string make_url(std::string &path);
@@ -145,6 +159,11 @@ private:
     std::string reason_;
     std::map<std::string, std::string> headers_;
     bool sent_hdr_; // backward compatibility
+    bool use_ssl_; // ssl flag
+    std::string client_cert_; // client certificate path
+    std::string client_cert_type_; // certificate type
+    std::string client_key_; // client key path
+    std::string ca_cert_; // ca certificate path
     enum HTTPHeaderDataState {
         STATUS = 142,
         HEADER,

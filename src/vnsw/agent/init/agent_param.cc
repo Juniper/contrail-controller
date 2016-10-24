@@ -552,6 +552,25 @@ void AgentParam::ParseMetadataProxy() {
                                     "METADATA.metadata_proxy_port")) {
         metadata_proxy_port_ = ContrailPorts::MetadataProxyVrouterAgentPort();
     }
+    if (!GetValueFromTree<bool>(metadata_use_ssl_,
+                                "METADATA.metadata_use_ssl")) {
+        // set defaults
+        metadata_use_ssl_ = false;
+    }
+    GetValueFromTree<string>(metadata_client_cert_,
+                             "METADATA.metadata_client_cert");
+    GetValueFromTree<string>(metadata_client_cert_type_,
+                             "METADATA.metadata_client_cert_type");
+    GetValueFromTree<string>(metadata_client_key_,
+                             "METADATA.metadata_client_key");
+    GetValueFromTree<string>(metadata_ca_cert_,
+                             "METADATA.metadata_ca_cert");
+    if (metadata_use_ssl_) {
+        if (metadata_client_cert_.empty() || metadata_client_key_.empty()) {
+            //SSL is enabled and certificate doesnt exist, log an error
+            LOG(ERROR, "SSL Error, certificate/key not provided");
+        }
+    }
 }
 
 void AgentParam::ParseFlows() {
@@ -891,6 +910,16 @@ void AgentParam::ParseMetadataProxyArguments
                         "METADATA.metadata_proxy_secret");
     GetOptValue<uint16_t>(var_map, metadata_proxy_port_,
                         "METADATA.metadata_proxy_port");
+    GetOptValue<bool>(var_map, metadata_use_ssl_,
+                        "METADATA.metadata_use_ssl");
+    GetOptValue<string>(var_map, metadata_client_cert_,
+                        "METADATA.metadata_client_cert");
+    GetOptValue<string>(var_map, metadata_client_cert_type_,
+                        "METADATA.metadata_client_cert_type");
+    GetOptValue<string>(var_map, metadata_client_key_,
+                        "METADATA.metadata_client_key");
+    GetOptValue<string>(var_map, metadata_ca_cert_,
+                        "METADATA.metadata_ca_cert");
 }
 
 void AgentParam::ParseFlowArguments
@@ -1326,6 +1355,15 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Tunnel-Type                 : " << tunnel_type_);
     LOG(DEBUG, "Metadata-Proxy Shared Secret: " << metadata_shared_secret_);
     LOG(DEBUG, "Metadata-Proxy Port         : " << metadata_proxy_port_);
+    LOG(DEBUG, "Metadata-Proxy SSL Flag     : " << metadata_use_ssl_);
+    if (metadata_use_ssl_) {
+        LOG(DEBUG, "Metadata Client Certificate     : " << metadata_client_cert_);
+        LOG(DEBUG, "Metadata Client Certificate Type: "
+            << metadata_client_cert_type_);
+        LOG(DEBUG, "Metadata Client Key             : " << metadata_client_key_);
+        LOG(DEBUG, "Metadata CA Certificate         : " << metadata_ca_cert_);
+    }
+
     LOG(DEBUG, "Max Vm Flows                : " << max_vm_flows_);
     LOG(DEBUG, "Linklocal Max System Flows  : " << linklocal_system_flows_);
     LOG(DEBUG, "Linklocal Max Vm Flows      : " << linklocal_vm_flows_);
@@ -1442,7 +1480,9 @@ AgentParam::AgentParam(bool enable_flow_options,
         dns_client_port_(0), mirror_client_port_(0),
         dss_server_(), dss_port_(0), mgmt_ip_(), hypervisor_mode_(MODE_KVM), 
         xen_ll_(), tunnel_type_(), metadata_shared_secret_(),
-        metadata_proxy_port_(0), max_vm_flows_(),
+        metadata_proxy_port_(0), metadata_use_ssl_(false),
+        metadata_client_cert_(""), metadata_client_cert_type_("PEM"),
+        metadata_client_key_(""), metadata_ca_cert_(""), max_vm_flows_(),
         linklocal_system_flows_(), linklocal_vm_flows_(),
         flow_cache_timeout_(), flow_index_sm_log_count_(),
         flow_add_tokens_(Agent::kFlowAddTokens),
@@ -1555,6 +1595,16 @@ AgentParam::AgentParam(bool enable_flow_options,
          "Enable Xmpp over TLS for DNS")
         ("METADATA.metadata_proxy_secret", opt::value<string>(),
          "Shared secret for metadata proxy service")
+        ("METADATA.metadata_use_ssl", opt::value<bool>()->default_value(false),
+         "Enable SSL for Metadata proxy service")
+        ("METADATA.metadata_client_cert", opt::value<string>(),
+          "METADATA Client ssl certificate")
+        ("METADATA.metadata_client_cert_type", opt::value<string>(),
+          "METADATA Client ssl certificate type")
+        ("METADATA.metadata_client_key", opt::value<string>(),
+          "METADATA Client ssl private key")
+        ("METADATA.metadata_ca_cert", opt::value<string>(),
+          "METADATA CA ssl certificate")
         ("NETWORKS.control_network_ip", opt::value<string>(),
          "control-channel IP address used by WEB-UI to connect to vnswad")
         ("DEFAULT.platform", opt::value<string>(),
