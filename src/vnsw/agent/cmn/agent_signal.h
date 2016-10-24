@@ -26,6 +26,7 @@ class AgentSignal {
     void Terminate();
     void RegisterHandler(SignalHandler handler);
     void RegisterChildHandler(SignalChildHandler handler);
+    void RegisterSigHupHandler(SignalHandler handler);
 
  private:
     void RegisterSigHandler();
@@ -33,8 +34,10 @@ class AgentSignal {
     void NotifyDefault(const boost::system::error_code &error, int sig);
     void NotifySigChld(const boost::system::error_code &error, int sig, int pid,
                        int status);
+    void NotifySigHup(const boost::system::error_code &error, int sig);
 
     std::vector<SignalChildHandler> sigchld_callbacks_;
+    std::vector<SignalHandler> sighup_callbacks_;
     std::vector<SignalHandler> default_callbacks_;
     boost::asio::signal_set signal_;
 };
