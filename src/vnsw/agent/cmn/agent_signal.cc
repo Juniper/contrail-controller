@@ -25,6 +25,10 @@ void AgentSignal::RegisterChildHandler(SignalChildHandler handler) {
     sigchld_callbacks_.push_back(handler);
 }
 
+void AgentSignal::RegisterSigHupHandler(SignalHandler handler) {
+    sighup_callbacks_.push_back(handler);
+}
+
 void AgentSignal::NotifySigChld(const boost::system::error_code &error, int sig,
                                 int pid, int status) {
     for (std::vector<SignalChildHandler>::iterator it =
@@ -32,6 +36,15 @@ void AgentSignal::NotifySigChld(const boost::system::error_code &error, int sig,
                     ++it) {
         SignalChildHandler sh = *it;
         sh(error, sig, pid, status);
+    }
+}
+
+void AgentSignal::NotifySigHup(const boost::system::error_code &error,
+                               int sig) {
+    for (std::vector<SignalHandler>::iterator it = sighup_callbacks_.begin();
+                    it != sighup_callbacks_.end(); ++it) {
+        SignalHandler sh = *it;
+        sh(error, sig);
     }
 }
 
@@ -55,6 +68,9 @@ void AgentSignal::HandleSig(const boost::system::error_code &error, int sig) {
                     NotifySigChld(error, sig, pid, status);
                 }
                 break;
+            case SIGHUP:
+                NotifySigHup(error,sig);
+                break;
             default:
                 NotifyDefault(error, sig);
         }
@@ -75,6 +91,10 @@ void AgentSignal::Initialize() {
     signal_.add(SIGCHLD, ec);
     if (ec) {
         LOG(ERROR, "SIGCHLD registration failed");
+    }
+    signal_.add(SIGHUP, ec);
+    if (ec) {
+        LOG(ERROR, "SIGHUP registration failed");
     }
     RegisterSigHandler();
 }
