@@ -93,7 +93,7 @@ struct AgentXmppDnsData {
 }
 
 /**
- * Sandesh defenition for xmpp channel between agent and discovery service
+ * Sandesh definition for xmpp channel between agent and discovery service
  */
 struct AgentDiscoveryXmppConnections {
     /** Discovery Controller IP */
@@ -103,12 +103,21 @@ struct AgentDiscoveryXmppConnections {
 }
 
 /**
- * Sandesh Definition for xmpp connection in use by agent.
+ * Sandesh definition for xmpp connection in use by agent.
  */
 struct AgentXmppInUseConnections {
     /** In Use Controller IP */
     1: string controller_ip;
     /** In Use Controller Port */
+    2: u32 controller_port;
+}
+
+/**
+ * Sandesh definition for randomized statically configured Xmpp
+ * server list.
+ */
+struct AgentRandomizedXmppConfigConnections {
+    1: string controller_ip;
     2: u32 controller_port;
 }
 
@@ -336,6 +345,8 @@ request sandesh AgentDiscoveryXmppConnectionsRequest {
 response sandesh AgentDiscoveryXmppConnectionsResponse {
     /** Discovery list response from agent */
     1: list<AgentDiscoveryXmppConnections>xmpp_discovery_list;
+    /** Randomized Control-Node Server list */
+    3: list<AgentRandomizedXmppConfigConnections>xmpp_config_list;
     /** Xmpp in use connections response from agent */
     2: list<AgentXmppInUseConnections>xmpp_inuse_connections;
 }
