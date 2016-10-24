@@ -104,6 +104,7 @@ public:
     void RunCombinedDeferQ();
     void RunWaitQ();
     void RunDeferEntry();
+    void RunDeferQForGroupEnable();
     void TaskExited(Task *t, TaskGroup *group);
     TaskStats *GetTaskStats();
     void ClearTaskStats();
@@ -112,6 +113,8 @@ public:
     int GetTaskId() const { return task_id_; }
     int GetTaskInstance() const { return task_instance_; }
     int GetRunCount() const { return run_count_; }
+    void SetDisable(bool disable) { disable_ = disable; }
+    bool IsDisabled() { return disable_; }
     void GetSandeshData(SandeshTaskEntry *resp) const;
 
 private:
@@ -142,6 +145,7 @@ private:
     TaskDeferList   *deferq_;    // Tasks deferred for this to exit
     TaskEntry       *deferq_task_entry_;
     TaskGroup       *deferq_task_group_;
+    bool            disable_;
 
     // Cummulative Maintenance stats
     TaskStats       stats_;
@@ -164,6 +168,8 @@ struct TaskDeferEntryCmp {
 // run_count_   : Number of tasks running in context of this task-group
 // deferq_      : Tasks deferred till run_count_ on this task becomes 0
 // task_entry_  : Default TaskEntry used for task without an instance
+// disable_entry_ : TaskEntry which maintains a deferQ for tasks enqueued
+//                  while TaskGroup is disabled
 class TaskGroup {
 public:
     TaskGroup(int task_id);
@@ -173,12 +179,16 @@ public:
     TaskEntry *GetTaskEntry(int task_instance);
     void AddPolicy(TaskGroup *group);
     void AddToDeferQ(TaskEntry *entry);
+    void AddToDisableQ(TaskEntry *entry);
+    void AddEntriesToDisableQ();
+    TaskEntry *GetDisableEntry() { return disable_entry_; }
     void DeleteFromDeferQ(TaskEntry &entry);
     TaskGroup *ActiveGroupInPolicy();
     bool DeferOnPolicyFail(TaskEntry *entry, Task *t);
     bool IsWaitQEmpty();
     int  TaskRunCount() const {return run_count_;};
     void RunDeferQ();
+    void RunDisableEntries();
     void TaskExited(Task *t);
     void PolicySet();
     void TaskStarted() {run_count_++;};
@@ -189,6 +199,8 @@ public:
     void ClearTaskGroupStats();
     void ClearTaskStats();
     void ClearTaskStats(int instance_id);
+    void SetDisable(bool disable) { disable_ = disable; }
+    bool IsDisabled() { return disable_; }
     void GetSandeshData(SandeshTaskGroup *resp, bool summary) const;
 
     int task_id() const { return task_id_; }
@@ -227,9 +239,11 @@ private:
     TaskGroupPolicyList     policy_;    // Policy rules for the group
     TaskDeferList           deferq_;    // Tasks deferred till run_count_ is 0
     TaskEntry               *task_entry_;// Task entry for instance(-1)
+    TaskEntry               *disable_entry_;// Task entry for disabled group
     TaskEntryList           task_entry_db_;  // task-entries in this group
     uint32_t                execute_delay_;
     uint32_t                schedule_delay_;
+    bool                    disable_;
 
     TaskStats               stats_;
     DISALLOW_COPY_AND_ASSIGN(TaskGroup);
@@ -531,6 +545,16 @@ void TaskScheduler::EnqueueUnLocked(Task *t) {
 
     TaskEntry *entry = GetTaskEntry(t->GetTaskId(), t->GetTaskInstance());
     entry->stats_.enqueue_count_++;
+    // If either TaskGroup or TaskEntry is disabled for Unit-Test purposes,
+    // enqueue new task in waitq and update TaskGroup if needed.
+    if (group->IsDisabled() || entry->IsDisabled()) {
+        entry->AddToWaitQ(t);
+        if (group->IsDisabled()) {
+            group->AddToDisableQ(entry);
+        }
+        return;
+    }
+
     // Add task to waitq_ if its already populated
     if (entry->WaitQSize() != 0) {
         entry->AddToWaitQ(t);
@@ -573,9 +597,11 @@ TaskScheduler::CancelReturnCode TaskScheduler::Cancel(Task *t) {
         t->task_cancel_ = true;
     } else if (t->state_ == Task::WAIT) {
         TaskEntry *entry = QueryTaskEntry(t->GetTaskId(), t->GetTaskInstance());
+        TaskGroup *group = QueryTaskGroup(t->GetTaskId());
         assert(entry->WaitQSize());
         // Get the first entry in the waitq_
         Task *first_wait_task = &(*entry->waitq_.begin());
+        TaskEntry *disable_entry = group->GetDisableEntry();
         assert(entry->DeleteFromWaitQ(t) == true);
         // If the waitq_ is empty, then remove the TaskEntry from the deferq.
         if (!entry->WaitQSize()) {
@@ -584,8 +610,13 @@ TaskScheduler::CancelReturnCode TaskScheduler::Cancel(Task *t) {
                 entry->deferq_task_group_->DeleteFromDeferQ(*entry);
             } else if (entry->deferq_task_entry_) {
                 entry->deferq_task_entry_->DeleteFromDeferQ(*entry);
+            } else if (group->IsDisabled()) {
+                // Remove TaskEntry from deferq of disable_entry
+                disable_entry->DeleteFromDeferQ(*entry);
             } else {
-                assert(0);
+                if (!entry->IsDisabled()) {
+                    assert(0);
+                }
             }
         } else if (t == first_wait_task) {
             // TaskEntry is inserted in the deferq_ based on the Task seqno. 
@@ -602,8 +633,14 @@ TaskScheduler::CancelReturnCode TaskScheduler::Cancel(Task *t) {
             } else if (deferq_tentry) {
                 deferq_tentry->DeleteFromDeferQ(*entry);
                 deferq_tentry->AddToDeferQ(entry);
+            } else if (group->IsDisabled()) {
+                // Remove TaskEntry from deferq of disable_entry and add back
+                disable_entry->DeleteFromDeferQ(*entry);
+                disable_entry->AddToDeferQ(entry);
             } else {
-                assert(0);
+                if (!entry->IsDisabled()) {
+                    assert(0);
+                }
             }
         }
         delete t;
@@ -677,7 +714,8 @@ void TaskScheduler::Print() {
 
 // Returns true if there are no tasks enqueued and/or running.
 // If running_only is true, enqueued tasks are ignored i.e. return true if
-// there are no running tasks.
+// there are no running tasks. Ignore TaskGroup or TaskEntry if it is
+// disabled.
 bool TaskScheduler::IsEmpty(bool running_only) {
     TaskGroup *group;
 
@@ -690,6 +728,9 @@ bool TaskScheduler::IsEmpty(bool running_only) {
         }
         if (group->TaskRunCount()) {
             return false;
+        }
+        if (group->IsDisabled()) {
+            continue;
         }
         if ((false == running_only) && (false == group->IsWaitQEmpty())) {
             return false;
@@ -898,16 +939,54 @@ void TaskScheduler::SetThreadAmpFactor(int n) {
     ThreadAmpFactor_ = n;
 }
 
+void TaskScheduler::DisableTaskGroup(int task_id) {
+    TaskGroup *group = GetTaskGroup(task_id);
+    if (!group->IsDisabled()) {
+        // Add TaskEntries(that contain enqueued tasks) which are already
+        // disabled to disable_ entry maintained at TaskGroup.
+        group->SetDisable(true);
+        group->AddEntriesToDisableQ();
+    }
+}
+
+void TaskScheduler::EnableTaskGroup(int task_id) {
+    TaskGroup *group = GetTaskGroup(task_id);
+    group->SetDisable(false);
+    // Run tasks that maybe suspended
+    group->RunDisableEntries();
+}
+
+void TaskScheduler::DisableTaskEntry(int task_id, int instance_id) {
+    TaskEntry *entry = GetTaskEntry(task_id, instance_id);
+    entry->SetDisable(true);
+}
+
+void TaskScheduler::EnableTaskEntry(int task_id, int instance_id) {
+    TaskEntry *entry = GetTaskEntry(task_id, instance_id);
+    entry->SetDisable(false);
+    TaskGroup *group = GetTaskGroup(task_id);
+    // If group is still disabled, do not schedule the task. Task will be
+    // scheduled for run when TaskGroup is enabled.
+    if (group->IsDisabled()) {
+        return;
+    }
+    // Run task instances that maybe suspended
+    if (entry->WaitQSize() != 0) {
+        entry->RunDeferEntry();
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // Implementation for class TaskGroup 
 ////////////////////////////////////////////////////////////////////////////
 
 TaskGroup::TaskGroup(int task_id) : task_id_(task_id), policy_set_(false), 
-    run_count_(0), execute_delay_(0), schedule_delay_(0) {
+    run_count_(0), execute_delay_(0), schedule_delay_(0), disable_(false) {
     total_run_time_ = 0;
     task_entry_db_.resize(TaskGroup::kVectorGrowSize);
     task_entry_ = new TaskEntry(task_id);
     memset(&stats_, 0, sizeof(stats_));
+    disable_entry_ = new TaskEntry(task_id);
 }
 
 TaskGroup::~TaskGroup() {
@@ -924,6 +1003,8 @@ TaskGroup::~TaskGroup() {
         }
     }
 
+    delete disable_entry_;
+    disable_entry_ = NULL;
     task_entry_db_.clear();
 }
 
@@ -1002,6 +1083,11 @@ void TaskGroup::DeleteFromDeferQ(TaskEntry &entry) {
     entry.deferq_task_group_ = NULL;
 }
 
+// Enqueue TaskEntry in disable_entry's deferQ
+void TaskGroup::AddToDisableQ(TaskEntry *entry) {
+    disable_entry_->AddToDeferQ(entry);
+}
+
 void TaskGroup::PolicySet() {
     assert(policy_set_ == false);
     policy_set_ = true;
@@ -1027,6 +1113,32 @@ inline void TaskGroup::TaskExited(Task *t) {
     stats_.total_tasks_completed_++;
 }
 
+void TaskGroup::RunDisableEntries() {
+    // Run tasks that maybe suspended. Schedule tasks only for
+    // TaskEntries which are enabled.
+    disable_entry_->RunDeferQForGroupEnable();
+}
+
+// Add TaskEntries to disable_entry_ which have tasks enqueued and are already
+// disabled.
+void TaskGroup::AddEntriesToDisableQ() {
+    TaskEntry *entry;
+    if (task_entry_->WaitQSize()) {
+        AddToDisableQ(task_entry_);
+    }
+
+    // Walk thru the task_entry_db_ and add if waitq is non-empty
+    for (TaskEntryList::iterator it = task_entry_db_.begin();
+         it != task_entry_db_.end(); ++it) {
+        if ((entry = *it) == NULL) {
+            continue;
+        }
+        if (entry->WaitQSize()) {
+            AddToDisableQ(entry);
+        }
+    }
+}
+
 // Returns true, if the waiq_ of all the tasks in the group are empty.
 //
 // Note: This function is invoked from TaskScheduler::IsEmpty() for each
@@ -1045,6 +1157,9 @@ bool TaskGroup::IsWaitQEmpty() {
     for (TaskEntryList::iterator it = task_entry_db_.begin();
          it != task_entry_db_.end(); ++it) {
         if ((entry = *it) == NULL) {
+            continue;
+        }
+        if (entry->IsDisabled()) {
             continue;
         }
         if (entry->WaitQSize()) {
@@ -1089,7 +1204,8 @@ TaskStats *TaskGroup::GetTaskStats(int task_instance) {
 
 TaskEntry::TaskEntry(int task_id, int task_instance) : task_id_(task_id),
     task_instance_(task_instance), run_count_(0), run_task_(NULL),
-    waitq_(), deferq_task_entry_(NULL), deferq_task_group_(NULL) {
+    waitq_(), deferq_task_entry_(NULL), deferq_task_group_(NULL),
+    disable_(false) {
     // When a new TaskEntry is created, adds an implicit rule into policyq_ to
     // ensure that only one Task of an instance is run at a time
     if (task_instance != -1) {
@@ -1102,7 +1218,7 @@ TaskEntry::TaskEntry(int task_id, int task_instance) : task_id_(task_id),
 
 TaskEntry::TaskEntry(int task_id) : task_id_(task_id),
     task_instance_(-1), run_count_(0), run_task_(NULL),
-    deferq_task_entry_(NULL), deferq_task_group_(NULL) {
+    deferq_task_entry_(NULL), deferq_task_group_(NULL), disable_(false) {
     memset(&stats_, 0, sizeof(stats_));
     // allocate memory for deferq
     deferq_ = new TaskDeferList;
@@ -1261,6 +1377,22 @@ void TaskEntry::RunDeferQ() {
     return;
 }
 
+// Start executing tasks from deferq_ of TaskEntries which are enabled
+void TaskEntry::RunDeferQForGroupEnable() {
+    TaskDeferList::iterator     it;
+
+    it = deferq_->begin();
+    while (it != deferq_->end()) {
+        TaskEntry &entry = *it;
+        TaskDeferList::iterator it_work = it++;
+        DeleteFromDeferQ(*it_work);
+        if (!entry.IsDisabled()) {
+            entry.RunDeferEntry();
+        }
+    }
+
+    return;
+}
 // Start executing tasks from deferq_ of TaskEntry and TaskGroup in the temporal order
 void TaskEntry::RunCombinedDeferQ() {
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
