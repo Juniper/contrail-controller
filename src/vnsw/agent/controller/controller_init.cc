@@ -57,6 +57,12 @@ ControllerDiscoveryData::ControllerDiscoveryData(xmps::PeerId peer_id,
     ControllerWorkQueueData(), peer_id_(peer_id), discovery_response_(resp) {
 }
 
+ControllerReConfigData::ControllerReConfigData(std::string service_name,
+                                               std::vector<string>server_list) :
+    ControllerWorkQueueData(), service_name_(service_name),
+    server_list_(server_list) {
+}
+
 VNController::VNController(Agent *agent) 
     : agent_(agent), multicast_sequence_number_(0),
     unicast_cleanup_timer_(agent), multicast_cleanup_timer_(agent), 
@@ -279,9 +285,11 @@ void VNController::DnsXmppServerConnect() {
 
 void VNController::Connect() {
     /* Connect to Control-Node Xmpp Server */
+    controller_list_chksum_ = Agent::GetInstance()->GetControllerlistChksum();
     XmppServerConnect();
 
     /* Connect to DNS Xmpp Server */
+    dns_list_chksum_ = Agent::GetInstance()->GetDnslistChksum();
     DnsXmppServerConnect();
 
     /* Inits */
@@ -453,6 +461,150 @@ bool VNController::AgentXmppServerConnectedExists(
         }
     }
     return false;
+}
+
+bool VNController::AgentReConfigXmppServerConnectedExists(
+                                 const std::string &server_ip,
+                                 std::vector<std::string> resp) {
+
+    std::vector<std::string>::iterator iter;
+    int8_t count = -1;
+    int8_t min_iter = std::min(static_cast<int>(resp.size()), MAX_XMPP_SERVERS);
+    for (iter = resp.begin(); ++count < min_iter; iter++) {
+        std::vector<string> servers;
+        boost::split(servers, *iter, boost::is_any_of(":"));
+        if (servers[0].compare(server_ip) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
+void VNController::ReConnectXmppServer() {
+
+    std::vector<string> controller_list =
+        Agent::GetInstance()->GetControllerlist();
+
+    ControllerReConfigDataType data(new ControllerReConfigData(
+        g_vns_constants.XMPP_SERVER_DISCOVERY_SERVICE_NAME,
+        controller_list));
+    ControllerWorkQueueDataType base_data =
+        boost::static_pointer_cast<ControllerWorkQueueData>(data);
+    work_queue_.Enqueue(base_data);
+}
+
+void VNController::ReConnectDnsServer() {
+
+    std::vector<string> dns_list =
+        Agent::GetInstance()->GetDnslist();
+
+    ControllerReConfigDataType data(new ControllerReConfigData(
+        g_vns_constants.DNS_SERVER_DISCOVERY_SERVICE_NAME,
+        dns_list));
+    ControllerWorkQueueDataType base_data =
+        boost::static_pointer_cast<ControllerWorkQueueData>(data);
+    work_queue_.Enqueue(base_data);
+}
+
+void VNController::ReConnect() {
+
+    if (controller_list_chksum_ !=
+        Agent::GetInstance()->GetControllerlistChksum()) {
+
+        controller_list_chksum_ =
+            Agent::GetInstance()->GetControllerlistChksum();
+
+        ReConnectXmppServer();
+    }
+
+    if (dns_list_chksum_ !=
+        Agent::GetInstance()->GetDnslistChksum()) {
+
+        dns_list_chksum_ =
+            Agent::GetInstance()->GetDnslistChksum();
+
+        ReConnectDnsServer();
+    }
+}
+
+bool VNController::ApplyControllerReConfigInternal(std::vector<string> resp) {
+    std::vector<string>::iterator iter;
+    int8_t count = -1;
+
+    /* Apply only MAX_XMPP_SERVERS from list as the list is ordered */
+    int8_t min_iter = std::min(static_cast<int>(resp.size()), MAX_XMPP_SERVERS);
+    for (iter = resp.begin(); ++count < min_iter; iter++) {
+        std::vector<string> srv;
+        boost::split(srv, *iter, boost::is_any_of(":"));
+        std::string server_ip = srv[0];
+        std::string server_port = srv[1];
+        uint32_t port;
+        port = strtoul(srv[1].c_str(), NULL, 0);
+
+        CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection, "XMPP ReConfig Apply Server Ip",
+            count, server_ip, server_port);
+
+        AgentXmppChannel *chnl = FindAgentXmppChannel(server_ip);
+        if (chnl) {
+            if (chnl->GetXmppChannel() &&
+                chnl->GetXmppChannel()->GetPeerState() == xmps::READY) {
+                CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection,
+                    " XMPP ReConfig Server is READY and running, ignore", count,
+                    chnl->GetXmppServer(), "");
+                continue;
+            } else {
+                CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection,
+                    " XMPP ReConfig Server is NOT_READY, ignore", count,
+                    chnl->GetXmppServer(), "");
+                continue;
+            }
+
+        } else {
+
+            for (uint8_t xs_idx = 0; xs_idx < MAX_XMPP_SERVERS; xs_idx++) {
+
+                if (agent_->controller_ifmap_xmpp_server(xs_idx).empty()) {
+
+                    CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection,
+                        "Set Xmpp ReConfig Channel",
+                        xs_idx, server_ip, server_port);
+
+                    agent_->set_controller_ifmap_xmpp_server(
+                        server_ip, xs_idx);
+
+                    agent_->set_controller_ifmap_xmpp_port(port, xs_idx);
+                    break;
+
+                } else if (agent_->controller_xmpp_channel(xs_idx)) {
+
+                    if (AgentReConfigXmppServerConnectedExists(
+                        agent_->controller_ifmap_xmpp_server(xs_idx), resp)) {
+
+                        CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection,
+                            "Retain Xmpp ReConfig Channel ", xs_idx,
+                             agent_->controller_ifmap_xmpp_server(xs_idx), "");
+                        continue;
+                    }
+
+                    CONTROLLER_DISCOVERY_TRACE(DiscoveryConnection,
+                        "ReSet Xmpp ReConfig Channel ", xs_idx,
+                        agent_->controller_ifmap_xmpp_server(xs_idx),
+                        server_ip);
+
+                    DisConnectControllerIfmapServer(xs_idx);
+                    agent_->set_controller_ifmap_xmpp_server(
+                         server_ip, xs_idx);
+                    agent_->set_controller_ifmap_xmpp_port(
+                        port, xs_idx);
+                    break;
+                }
+            }
+        }
+    }
+
+    XmppServerConnect();
+    return true;
 }
 
 void VNController::ApplyDiscoveryXmppServices(std::vector<DSResponse> resp) {
@@ -831,6 +983,18 @@ bool VNController::ControllerWorkQueueProcess(ControllerWorkQueueDataType data) 
         boost::dynamic_pointer_cast<ControllerVmiSubscribeData>(data.get());
     if (subscribe_data && agent_ifmap_vm_export_.get()) {
         agent_ifmap_vm_export_->VmiEvent(subscribe_data);
+    }
+
+    //ReConfig
+    ControllerReConfigDataType reconfig_data =
+        boost::dynamic_pointer_cast<ControllerReConfigData>(data);
+    if (reconfig_data) {
+        if (reconfig_data->service_name_.compare(
+            g_vns_constants.XMPP_SERVER_DISCOVERY_SERVICE_NAME) == 0) {
+            return ApplyControllerReConfigInternal(reconfig_data->server_list_);
+        } else {
+            LOG(ERROR, "Unknown Service Name %s" << reconfig_data->service_name_);
+        }
     }
     return true;
 }
