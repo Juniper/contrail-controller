@@ -197,6 +197,54 @@ TEST_F(EvpnSegmentRouteTest, GetDBRequestKey) {
     EXPECT_EQ(prefix, key->prefix);
 }
 
+class EvpnIpPrefixRouteTest : public EvpnRouteTest {
+};
+
+TEST_F(EvpnIpPrefixRouteTest, ToString) {
+    string temp1("5-10.1.1.1:65535-");
+    string temp2("-192.1.1.1/32");
+    uint32_t tag_list[] = { 0, 100, 128, 4094, 65536, 4294967295 };
+    BOOST_FOREACH(uint32_t tag, tag_list) {
+        string prefix_str = temp1 + integerToString(tag) + temp2;
+        EvpnPrefix prefix(EvpnPrefix::FromString(prefix_str));
+        EvpnRoute route(prefix);
+        EXPECT_EQ(prefix, route.GetPrefix());
+        EXPECT_EQ(prefix_str, route.ToString());
+    }
+}
+
+TEST_F(EvpnIpPrefixRouteTest, SetKey) {
+    EvpnPrefix null_prefix;
+    string temp1("5-10.1.1.1:65535-");
+    string temp2("-192.1.1.1/32");
+    uint32_t tag_list[] = { 0, 100, 128, 4094, 65536, 4294967295 };
+    BOOST_FOREACH(uint32_t tag, tag_list) {
+        EvpnRoute route(null_prefix);
+        string prefix_str = temp1 + integerToString(tag) + temp2;
+        EvpnPrefix prefix(EvpnPrefix::FromString(prefix_str));
+        boost::scoped_ptr<EvpnTable::RequestKey> key(
+            new EvpnTable::RequestKey(prefix, NULL));
+        route.SetKey(key.get());
+        EXPECT_EQ(prefix, key->prefix);
+        EXPECT_EQ(prefix, route.GetPrefix());
+    }
+}
+
+TEST_F(EvpnIpPrefixRouteTest, GetDBRequestKey) {
+    string temp1("5-10.1.1.1:65535-");
+    string temp2("-192.1.1.1/32");
+    uint32_t tag_list[] = { 0, 100, 128, 4094, 65536, 4294967295 };
+    BOOST_FOREACH(uint32_t tag, tag_list) {
+        string prefix_str = temp1 + integerToString(tag) + temp2;
+        EvpnPrefix prefix(EvpnPrefix::FromString(prefix_str));
+        EvpnRoute route(prefix);
+        DBEntryBase::KeyPtr keyptr = route.GetDBRequestKey();
+        const EvpnTable::RequestKey *key =
+            static_cast<EvpnTable::RequestKey *>(keyptr.get());
+        EXPECT_EQ(prefix, key->prefix);
+    }
+}
+
 int main(int argc, char **argv) {
     bgp_log_test::init();
     ::testing::InitGoogleTest(&argc, argv);

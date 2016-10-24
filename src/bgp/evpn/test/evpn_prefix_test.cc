@@ -2350,6 +2350,560 @@ TEST_F(EvpnSegmentPrefixTest, FromProtoPrefix_Error4) {
     }
 }
 
+class EvpnIpPrefixTest : public EvpnPrefixTest {
+};
+
+TEST_F(EvpnIpPrefixTest, BuildPrefix1) {
+    boost::system::error_code ec;
+    RouteDistinguisher rd(RouteDistinguisher::FromString("10.1.1.1:65535"));
+    Ip4Address ip4_addr = Ip4Address::from_string("192.1.1.1", ec);
+    uint8_t plen = 32;
+
+    string temp1("5-10.1.1.1:65535-");
+    string temp2("-192.1.1.1/32");
+    uint32_t tag_list[] = { 0, 100, 128, 4094, 65536 };
+    BOOST_FOREACH(uint32_t tag, tag_list) {
+        EvpnPrefix prefix(rd, tag, ip4_addr, plen);
+        string prefix_str = temp1 + integerToString(tag) + temp2;
+        EXPECT_EQ(prefix_str, prefix.ToString());
+        EXPECT_EQ(EvpnPrefix::IpPrefixRoute, prefix.type());
+        EXPECT_EQ("10.1.1.1:65535", prefix.route_distinguisher().ToString());
+        EXPECT_EQ(tag, prefix.tag());
+        EXPECT_EQ(Address::INET, prefix.family());
+        EXPECT_EQ("192.1.1.1", prefix.ip_address().to_string());
+        EXPECT_EQ(plen, prefix.ip_prefix_length());
+    }
+}
+
+TEST_F(EvpnIpPrefixTest, BuildPrefix2) {
+    boost::system::error_code ec;
+    RouteDistinguisher rd(RouteDistinguisher::FromString("10.1.1.1:65535"));
+    Ip4Address ip4_addr = Ip4Address::from_string("192.1.1.0", ec);
+    uint8_t plen = 24;
+
+    string temp1("5-10.1.1.1:65535-");
+    string temp2("-192.1.1.0/24");
+    uint32_t tag_list[] = { 0, 100, 128, 4094, 65536 };
+    BOOST_FOREACH(uint32_t tag, tag_list) {
+        EvpnPrefix prefix(rd, tag, ip4_addr, plen);
+        string prefix_str = temp1 + integerToString(tag) + temp2;
+        EXPECT_EQ(prefix_str, prefix.ToString());
+        EXPECT_EQ(EvpnPrefix::IpPrefixRoute, prefix.type());
+        EXPECT_EQ("10.1.1.1:65535", prefix.route_distinguisher().ToString());
+        EXPECT_EQ(tag, prefix.tag());
+        EXPECT_EQ(Address::INET, prefix.family());
+        EXPECT_EQ("192.1.1.0", prefix.ip_address().to_string());
+        EXPECT_EQ(plen, prefix.ip_prefix_length());
+    }
+}
+
+TEST_F(EvpnIpPrefixTest, BuildPrefix3) {
+    boost::system::error_code ec;
+    RouteDistinguisher rd(RouteDistinguisher::FromString("10.1.1.1:65535"));
+    Ip6Address ip6_addr = Ip6Address::from_string("2001:db8:0:9::1", ec);
+    uint8_t plen = 128;
+
+    string temp1("5-10.1.1.1:65535-");
+    string temp2("-2001:db8:0:9::1/128");
+    uint32_t tag_list[] = { 0, 100, 128, 4094, 65536 };
+    BOOST_FOREACH(uint32_t tag, tag_list) {
+        EvpnPrefix prefix(rd, tag, ip6_addr, plen);
+        string prefix_str = temp1 + integerToString(tag) + temp2;
+        EXPECT_EQ(prefix_str, prefix.ToString());
+        EXPECT_EQ(EvpnPrefix::IpPrefixRoute, prefix.type());
+        EXPECT_EQ("10.1.1.1:65535", prefix.route_distinguisher().ToString());
+        EXPECT_EQ(tag, prefix.tag());
+        EXPECT_EQ(Address::INET6, prefix.family());
+        EXPECT_EQ("2001:db8:0:9::1", prefix.ip_address().to_string());
+        EXPECT_EQ(plen, prefix.ip_prefix_length());
+    }
+}
+
+TEST_F(EvpnIpPrefixTest, BuildPrefix4) {
+    boost::system::error_code ec;
+    RouteDistinguisher rd(RouteDistinguisher::FromString("10.1.1.1:65535"));
+    Ip6Address ip6_addr = Ip6Address::from_string("2001:db8:0:9::0", ec);
+    uint8_t plen = 120;
+
+    string temp1("5-10.1.1.1:65535-");
+    string temp2("-2001:db8:0:9::/120");
+    uint32_t tag_list[] = { 0, 100, 128, 4094, 65536 };
+    BOOST_FOREACH(uint32_t tag, tag_list) {
+        EvpnPrefix prefix(rd, tag, ip6_addr, plen);
+        string prefix_str = temp1 + integerToString(tag) + temp2;
+        EXPECT_EQ(prefix_str, prefix.ToString());
+        EXPECT_EQ(EvpnPrefix::IpPrefixRoute, prefix.type());
+        EXPECT_EQ("10.1.1.1:65535", prefix.route_distinguisher().ToString());
+        EXPECT_EQ(tag, prefix.tag());
+        EXPECT_EQ(Address::INET6, prefix.family());
+        EXPECT_EQ("2001:db8:0:9::", prefix.ip_address().to_string());
+        EXPECT_EQ(plen, prefix.ip_prefix_length());
+    }
+}
+
+TEST_F(EvpnIpPrefixTest, ParsePrefix1) {
+    uint8_t plen = 32;
+    string temp1("5-10.1.1.1:65535-");
+    string temp2("-192.1.1.1/32");
+    uint32_t tag_list[] = { 0, 100, 128, 4094, 65536 };
+    BOOST_FOREACH(uint32_t tag, tag_list) {
+        boost::system::error_code ec;
+        string prefix_str = temp1 + integerToString(tag) + temp2;
+        EvpnPrefix prefix(EvpnPrefix::FromString(prefix_str, &ec));
+        EXPECT_EQ(0, ec.value());
+        EXPECT_EQ(prefix_str, prefix.ToString());
+        EXPECT_EQ(EvpnPrefix::IpPrefixRoute, prefix.type());
+        EXPECT_EQ("10.1.1.1:65535", prefix.route_distinguisher().ToString());
+        EXPECT_EQ(tag, prefix.tag());
+        EXPECT_EQ(Address::INET, prefix.family());
+        EXPECT_EQ("192.1.1.1", prefix.ip_address().to_string());
+        EXPECT_EQ(plen, prefix.ip_prefix_length());
+    }
+}
+
+TEST_F(EvpnIpPrefixTest, ParsePrefix2) {
+    uint8_t plen = 24;
+    string temp1("5-10.1.1.1:65535-");
+    string temp2("-192.1.1.1/24");
+    string temp2_alt("-192.1.1.0/24");
+    uint32_t tag_list[] = { 0, 100, 128, 4094, 65536 };
+    BOOST_FOREACH(uint32_t tag, tag_list) {
+        boost::system::error_code ec;
+        string prefix_str = temp1 + integerToString(tag) + temp2;
+        string prefix_str_alt = temp1 + integerToString(tag) + temp2_alt;
+        EvpnPrefix prefix(EvpnPrefix::FromString(prefix_str, &ec));
+        EXPECT_EQ(0, ec.value());
+        EXPECT_EQ(prefix_str_alt, prefix.ToString());
+        EXPECT_EQ(EvpnPrefix::IpPrefixRoute, prefix.type());
+        EXPECT_EQ("10.1.1.1:65535", prefix.route_distinguisher().ToString());
+        EXPECT_EQ(tag, prefix.tag());
+        EXPECT_EQ(Address::INET, prefix.family());
+        EXPECT_EQ("192.1.1.0", prefix.ip_address().to_string());
+        EXPECT_EQ(plen, prefix.ip_prefix_length());
+    }
+}
+
+TEST_F(EvpnIpPrefixTest, ParsePrefix3) {
+    uint8_t plen = 128;
+    string temp1("5-10.1.1.1:65535-");
+    string temp2("-2001:db8:0:9::1/128");
+    uint32_t tag_list[] = { 0, 100, 128, 4094, 65536 };
+    BOOST_FOREACH(uint32_t tag, tag_list) {
+        boost::system::error_code ec;
+        string prefix_str = temp1 + integerToString(tag) + temp2;
+        EvpnPrefix prefix(EvpnPrefix::FromString(prefix_str, &ec));
+        EXPECT_EQ(0, ec.value());
+        EXPECT_EQ(prefix_str, prefix.ToString());
+        EXPECT_EQ(EvpnPrefix::IpPrefixRoute, prefix.type());
+        EXPECT_EQ("10.1.1.1:65535", prefix.route_distinguisher().ToString());
+        EXPECT_EQ(tag, prefix.tag());
+        EXPECT_EQ(Address::INET6, prefix.family());
+        EXPECT_EQ("2001:db8:0:9::1", prefix.ip_address().to_string());
+        EXPECT_EQ(plen, prefix.ip_prefix_length());
+    }
+}
+
+TEST_F(EvpnIpPrefixTest, ParsePrefix4) {
+    uint8_t plen = 120;
+    string temp1("5-10.1.1.1:65535-");
+    string temp2("-2001:db8:0:9::1/120");
+    string temp2_alt("-2001:db8:0:9::/120");
+    uint32_t tag_list[] = { 0, 100, 128, 4094, 65536 };
+    BOOST_FOREACH(uint32_t tag, tag_list) {
+        boost::system::error_code ec;
+        string prefix_str = temp1 + integerToString(tag) + temp2;
+        string prefix_str_alt = temp1 + integerToString(tag) + temp2_alt;
+        EvpnPrefix prefix(EvpnPrefix::FromString(prefix_str, &ec));
+        EXPECT_EQ(0, ec.value());
+        EXPECT_EQ(prefix_str_alt, prefix.ToString());
+        EXPECT_EQ(EvpnPrefix::IpPrefixRoute, prefix.type());
+        EXPECT_EQ("10.1.1.1:65535", prefix.route_distinguisher().ToString());
+        EXPECT_EQ(tag, prefix.tag());
+        EXPECT_EQ(Address::INET6, prefix.family());
+        EXPECT_EQ("2001:db8:0:9::", prefix.ip_address().to_string());
+        EXPECT_EQ(plen, prefix.ip_prefix_length());
+    }
+}
+
+// No dashes.
+TEST_F(EvpnIpPrefixTest, ParsePrefix_Error1) {
+    boost::system::error_code ec;
+    string prefix_str("5+10.1.1.1:65535+100+192.1.1.1/24");
+    EvpnPrefix prefix(EvpnPrefix::FromString(prefix_str, &ec));
+    EXPECT_NE(0, ec.value());
+}
+
+// No dashes after type delimiter.
+TEST_F(EvpnIpPrefixTest, ParsePrefix_Error2) {
+    boost::system::error_code ec;
+    string prefix_str("5-10.1.1.1:65535+100+192.1.1.1/24");
+    EvpnPrefix prefix(EvpnPrefix::FromString(prefix_str, &ec));
+    EXPECT_NE(0, ec.value());
+}
+
+// Bad RD.
+TEST_F(EvpnIpPrefixTest, ParsePrefix_Error3) {
+    boost::system::error_code ec;
+    string prefix_str("5-10.1.1.1:65536-100-192.1.1.1/24");
+    EvpnPrefix prefix(EvpnPrefix::FromString(prefix_str, &ec));
+    EXPECT_NE(0, ec.value());
+}
+
+// No dashes after RD delimiter.
+TEST_F(EvpnIpPrefixTest, ParsePrefix_Error4) {
+    boost::system::error_code ec;
+    string prefix_str("5-10.1.1.1:65535+100+192.1.1.1/24");
+    EvpnPrefix prefix(EvpnPrefix::FromString(prefix_str, &ec));
+    EXPECT_NE(0, ec.value());
+}
+
+// No dashes after tag delimiter.
+TEST_F(EvpnIpPrefixTest, ParsePrefix_Error5) {
+    boost::system::error_code ec;
+    string prefix_str("5-10.1.1.1:65535-100+192.1.1.1/24");
+    EvpnPrefix prefix(EvpnPrefix::FromString(prefix_str, &ec));
+    EXPECT_NE(0, ec.value());
+}
+
+// Bad tag.
+TEST_F(EvpnIpPrefixTest, ParsePrefix_Error6) {
+    boost::system::error_code ec;
+    string prefix_str("5-10.1.1.1:65535-100x-192.1.1.1/24");
+    EvpnPrefix prefix(EvpnPrefix::FromString(prefix_str, &ec));
+    EXPECT_NE(0, ec.value());
+}
+
+// Bad IPv4 prefix.
+TEST_F(EvpnIpPrefixTest, ParsePrefix_Error7) {
+    boost::system::error_code ec;
+    string prefix_str("5-10.1.1.1:65535-100-192.1.1.x/24");
+    EvpnPrefix prefix(EvpnPrefix::FromString(prefix_str, &ec));
+    EXPECT_NE(0, ec.value());
+}
+
+// Bad IPv6 prefix.
+TEST_F(EvpnIpPrefixTest, ParsePrefix_Error8) {
+    boost::system::error_code ec;
+    string prefix_str("5-10.1.1.1:65535-100-2001:db8:0:9::x/120");
+    EvpnPrefix prefix(EvpnPrefix::FromString(prefix_str, &ec));
+    EXPECT_NE(0, ec.value());
+}
+
+TEST_F(EvpnIpPrefixTest, FromProtoPrefix1) {
+    string temp1("5-10.1.1.1:65535-");
+    string temp2("-192.1.1.1/32");
+    uint32_t tag_list[] = { 0, 100, 128, 4094, 65536 };
+    BOOST_FOREACH(uint32_t tag, tag_list) {
+        boost::system::error_code ec;
+        string prefix_str = temp1 + integerToString(tag) + temp2;
+        EvpnPrefix prefix1(EvpnPrefix::FromString(prefix_str, &ec));
+        EXPECT_EQ(0, ec.value());
+
+        TunnelEncap tunnel_encap(TunnelEncapType::VXLAN);
+        ExtCommunitySpec comm_spec;
+        comm_spec.communities.push_back(tunnel_encap.GetExtCommunityValue());
+        BgpAttrSpec attr_spec;
+        attr_spec.push_back(&comm_spec);
+        BgpAttrPtr attr = bs_->attr_db()->Locate(attr_spec);
+
+        uint32_t label1 = 10000;
+        BgpProtoPrefix proto_prefix;
+        prefix1.BuildProtoPrefix(attr.get(), label1, &proto_prefix);
+        EXPECT_EQ(EvpnPrefix::IpPrefixRoute, proto_prefix.type);
+        EXPECT_EQ((EvpnPrefix::kMinInetPrefixRouteSize + 3) * 8,
+            proto_prefix.prefixlen);
+        EXPECT_EQ(EvpnPrefix::kMinInetPrefixRouteSize + 3,
+            proto_prefix.prefix.size());
+
+        EvpnPrefix prefix2;
+        BgpAttrPtr attr_out2;
+        uint32_t label2;
+        int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
+            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+        EXPECT_EQ(0, result);
+        EXPECT_EQ(prefix1, prefix2);
+        EXPECT_TRUE(attr_out2->esi().IsZero());
+        EXPECT_EQ(attr.get(), attr_out2.get());
+        EXPECT_EQ(10000, label2);
+    }
+}
+
+TEST_F(EvpnIpPrefixTest, FromProtoPrefix2) {
+    string temp1("5-10.1.1.1:65535-");
+    string temp2("-192.1.1.1/24");
+    uint32_t tag_list[] = { 0, 100, 128, 4094, 65536 };
+    BOOST_FOREACH(uint32_t tag, tag_list) {
+        boost::system::error_code ec;
+        string prefix_str = temp1 + integerToString(tag) + temp2;
+        EvpnPrefix prefix1(EvpnPrefix::FromString(prefix_str, &ec));
+        EXPECT_EQ(0, ec.value());
+
+        TunnelEncap tunnel_encap(TunnelEncapType::VXLAN);
+        ExtCommunitySpec comm_spec;
+        comm_spec.communities.push_back(tunnel_encap.GetExtCommunityValue());
+        BgpAttrSpec attr_spec;
+        attr_spec.push_back(&comm_spec);
+        BgpAttrPtr attr = bs_->attr_db()->Locate(attr_spec);
+
+        uint32_t label1 = 10000;
+        BgpProtoPrefix proto_prefix;
+        prefix1.BuildProtoPrefix(attr.get(), label1, &proto_prefix);
+        EXPECT_EQ(EvpnPrefix::IpPrefixRoute, proto_prefix.type);
+        EXPECT_EQ((EvpnPrefix::kMinInetPrefixRouteSize + 3) * 8,
+            proto_prefix.prefixlen);
+        EXPECT_EQ(EvpnPrefix::kMinInetPrefixRouteSize + 3,
+            proto_prefix.prefix.size());
+
+        EvpnPrefix prefix2;
+        BgpAttrPtr attr_out2;
+        uint32_t label2;
+        int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
+            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+        EXPECT_EQ(0, result);
+        EXPECT_EQ(prefix1, prefix2);
+        EXPECT_TRUE(attr_out2->esi().IsZero());
+        EXPECT_EQ(attr.get(), attr_out2.get());
+        EXPECT_EQ(10000, label2);
+    }
+}
+
+// Incorrect size for Ipv4 prefix update.
+TEST_F(EvpnIpPrefixTest, FromProtoPrefix_Error1) {
+    BgpProtoPrefix proto_prefix;
+    proto_prefix.type = EvpnPrefix::IpPrefixRoute;
+
+    size_t max_nlri_size = EvpnPrefix::kMinInetPrefixRouteSize +
+        EvpnPrefix::kLabelSize;
+    for (size_t nlri_size = 0; nlri_size < max_nlri_size; ++nlri_size) {
+        proto_prefix.prefix.clear();
+        proto_prefix.prefix.resize(nlri_size, 0);
+        EvpnPrefix prefix;
+        BgpAttrPtr attr_in(new BgpAttr(bs_->attr_db()));
+        BgpAttrPtr attr_out;
+        uint32_t label;
+        int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
+            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+        EXPECT_NE(0, result);
+    }
+}
+
+// Incorrect size for Ipv4 prefix withdraw.
+TEST_F(EvpnIpPrefixTest, FromProtoPrefix_Error2) {
+    BgpProtoPrefix proto_prefix;
+    proto_prefix.type = EvpnPrefix::IpPrefixRoute;
+
+    size_t max_nlri_size = EvpnPrefix::kMinInetPrefixRouteSize +
+        EvpnPrefix::kLabelSize;
+    for (size_t nlri_size = 0; nlri_size <= max_nlri_size; ++nlri_size) {
+        if (nlri_size == EvpnPrefix::kMinInetPrefixRouteSize) {
+            continue;
+        }
+        if (nlri_size ==
+            EvpnPrefix::kMinInetPrefixRouteSize + EvpnPrefix::kLabelSize) {
+            continue;
+        }
+        proto_prefix.prefix.clear();
+        proto_prefix.prefix.resize(nlri_size, 0);
+        EvpnPrefix prefix;
+        BgpAttrPtr attr_out;
+        uint32_t label;
+        int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
+            proto_prefix, NULL, &prefix, &attr_out, &label);
+        EXPECT_NE(0, result);
+    }
+}
+
+// Incorrect size for Ipv6 prefix update.
+TEST_F(EvpnIpPrefixTest, FromProtoPrefix_Error3) {
+    BgpProtoPrefix proto_prefix;
+    proto_prefix.type = EvpnPrefix::IpPrefixRoute;
+
+    size_t max_nlri_size = EvpnPrefix::kMinInet6PrefixRouteSize +
+        EvpnPrefix::kLabelSize;
+    for (size_t nlri_size = 0; nlri_size < max_nlri_size; ++nlri_size) {
+        if (nlri_size ==
+            EvpnPrefix::kMinInetPrefixRouteSize + EvpnPrefix::kLabelSize) {
+            continue;
+        }
+        proto_prefix.prefix.clear();
+        proto_prefix.prefix.resize(nlri_size, 0);
+        EvpnPrefix prefix;
+        BgpAttrPtr attr_in(new BgpAttr(bs_->attr_db()));
+        BgpAttrPtr attr_out;
+        uint32_t label;
+        int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
+            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+        EXPECT_NE(0, result);
+    }
+}
+
+// Incorrect size for Ipv6 prefix withdraw.
+TEST_F(EvpnIpPrefixTest, FromProtoPrefix_Error4) {
+    BgpProtoPrefix proto_prefix;
+    proto_prefix.type = EvpnPrefix::IpPrefixRoute;
+
+    size_t max_nlri_size = EvpnPrefix::kMinInet6PrefixRouteSize +
+        EvpnPrefix::kLabelSize;
+    for (size_t nlri_size = 0; nlri_size <= max_nlri_size; ++nlri_size) {
+        if (nlri_size == EvpnPrefix::kMinInetPrefixRouteSize) {
+            continue;
+        }
+        if (nlri_size ==
+            EvpnPrefix::kMinInetPrefixRouteSize + EvpnPrefix::kLabelSize) {
+            continue;
+        }
+        if (nlri_size == EvpnPrefix::kMinInet6PrefixRouteSize) {
+            continue;
+        }
+        if (nlri_size ==
+            EvpnPrefix::kMinInet6PrefixRouteSize + EvpnPrefix::kLabelSize) {
+            continue;
+        }
+        proto_prefix.prefix.clear();
+        proto_prefix.prefix.resize(nlri_size, 0);
+        EvpnPrefix prefix;
+        BgpAttrPtr attr_out;
+        uint32_t label;
+        int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
+            proto_prefix, NULL, &prefix, &attr_out, &label);
+        EXPECT_NE(0, result);
+    }
+}
+
+// Bad IPv4 prefix length.
+TEST_F(EvpnIpPrefixTest, FromProtoPrefix_Error5) {
+    BgpProtoPrefix proto_prefix;
+    proto_prefix.type = EvpnPrefix::IpPrefixRoute;
+    size_t nlri_size = EvpnPrefix::kMinInetPrefixRouteSize +
+        EvpnPrefix::kLabelSize;
+    proto_prefix.prefix.resize(nlri_size, 0);
+    size_t ip_plen_offset =
+        EvpnPrefix::kRdSize + EvpnPrefix::kEsiSize + EvpnPrefix::kTagSize;
+
+    for (uint16_t ip_len = 33; ip_len <= 255; ++ip_len) {
+        EvpnPrefix prefix;
+        BgpAttrPtr attr_in(new BgpAttr(bs_->attr_db()));
+        BgpAttrPtr attr_out;
+        uint32_t label;
+        proto_prefix.prefix[ip_plen_offset] = ip_len;
+        int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
+            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+        EXPECT_NE(0, result);
+    }
+}
+
+// Bad IPv6 prefix length.
+TEST_F(EvpnIpPrefixTest, FromProtoPrefix_Error6) {
+    BgpProtoPrefix proto_prefix;
+    proto_prefix.type = EvpnPrefix::IpPrefixRoute;
+    size_t nlri_size = EvpnPrefix::kMinInet6PrefixRouteSize +
+        EvpnPrefix::kLabelSize;
+    proto_prefix.prefix.resize(nlri_size, 0);
+    size_t ip_plen_offset =
+        EvpnPrefix::kRdSize + EvpnPrefix::kEsiSize + EvpnPrefix::kTagSize;
+
+    for (uint16_t ip_len = 129; ip_len <= 255; ++ip_len) {
+        EvpnPrefix prefix;
+        BgpAttrPtr attr_in(new BgpAttr(bs_->attr_db()));
+        BgpAttrPtr attr_out;
+        uint32_t label;
+        proto_prefix.prefix[ip_plen_offset] = ip_len;
+        int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
+            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+        EXPECT_NE(0, result);
+    }
+}
+
+// Non-zero ESI with Ipv4 prefix.
+TEST_F(EvpnIpPrefixTest, FromProtoPrefix_Error7) {
+    BgpProtoPrefix proto_prefix;
+    proto_prefix.type = EvpnPrefix::IpPrefixRoute;
+    size_t nlri_size = EvpnPrefix::kMinInetPrefixRouteSize +
+        EvpnPrefix::kLabelSize;
+    proto_prefix.prefix.resize(nlri_size, 0);
+    size_t esi_offset = EvpnPrefix::kRdSize;
+
+    for (size_t idx = 0; idx < EvpnPrefix::kEsiSize; ++idx) {
+        EvpnPrefix prefix;
+        BgpAttrPtr attr_in(new BgpAttr(bs_->attr_db()));
+        BgpAttrPtr attr_out;
+        uint32_t label;
+        proto_prefix.prefix[esi_offset + idx] = 0x01;
+        int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
+            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+        EXPECT_NE(0, result);
+        proto_prefix.prefix[esi_offset + idx] = 0x00;
+    }
+}
+
+// Non-zero ESI with Ipv6 prefix.
+TEST_F(EvpnIpPrefixTest, FromProtoPrefix_Error8) {
+    BgpProtoPrefix proto_prefix;
+    proto_prefix.type = EvpnPrefix::IpPrefixRoute;
+    size_t nlri_size = EvpnPrefix::kMinInet6PrefixRouteSize +
+        EvpnPrefix::kLabelSize;
+    proto_prefix.prefix.resize(nlri_size, 0);
+    size_t esi_offset = EvpnPrefix::kRdSize;
+
+    for (size_t idx = 0; idx < EvpnPrefix::kEsiSize; ++idx) {
+        EvpnPrefix prefix;
+        BgpAttrPtr attr_in(new BgpAttr(bs_->attr_db()));
+        BgpAttrPtr attr_out;
+        uint32_t label;
+        proto_prefix.prefix[esi_offset + idx] = 0x01;
+        int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
+            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+        EXPECT_NE(0, result);
+        proto_prefix.prefix[esi_offset + idx] = 0x00;
+    }
+}
+
+// Non-zero IPv4 gateway.
+TEST_F(EvpnIpPrefixTest, FromProtoPrefix_Error9) {
+    BgpProtoPrefix proto_prefix;
+    proto_prefix.type = EvpnPrefix::IpPrefixRoute;
+    size_t nlri_size = EvpnPrefix::kMinInetPrefixRouteSize +
+        EvpnPrefix::kLabelSize;
+    proto_prefix.prefix.resize(nlri_size, 0);
+    size_t gw_offset = EvpnPrefix::kRdSize + EvpnPrefix::kEsiSize +
+        EvpnPrefix::kTagSize + 1 + EvpnPrefix::kIp4AddrSize;
+
+    for (size_t idx = 0; idx < EvpnPrefix::kIp4AddrSize; ++idx) {
+        EvpnPrefix prefix;
+        BgpAttrPtr attr_in(new BgpAttr(bs_->attr_db()));
+        BgpAttrPtr attr_out;
+        uint32_t label;
+        proto_prefix.prefix[gw_offset + idx] = 0x01;
+        int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
+            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+        EXPECT_NE(0, result);
+        proto_prefix.prefix[gw_offset + idx] = 0x00;
+    }
+}
+
+// Non-zero IPv6 gateway.
+TEST_F(EvpnIpPrefixTest, FromProtoPrefix_Error10) {
+    BgpProtoPrefix proto_prefix;
+    proto_prefix.type = EvpnPrefix::IpPrefixRoute;
+    size_t nlri_size = EvpnPrefix::kMinInet6PrefixRouteSize +
+        EvpnPrefix::kLabelSize;
+    proto_prefix.prefix.resize(nlri_size, 0);
+    size_t gw_offset = EvpnPrefix::kRdSize + EvpnPrefix::kEsiSize +
+        EvpnPrefix::kTagSize + 1 + EvpnPrefix::kIp6AddrSize;
+
+    for (size_t idx = 0; idx < EvpnPrefix::kIp6AddrSize; ++idx) {
+        EvpnPrefix prefix;
+        BgpAttrPtr attr_in(new BgpAttr(bs_->attr_db()));
+        BgpAttrPtr attr_out;
+        uint32_t label;
+        proto_prefix.prefix[gw_offset + idx] = 0x01;
+        int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
+            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+        EXPECT_NE(0, result);
+        proto_prefix.prefix[gw_offset + idx] = 0x00;
+    }
+}
+
 int main(int argc, char **argv) {
     bgp_log_test::init();
     ::testing::InitGoogleTest(&argc, argv);
