@@ -4,6 +4,7 @@
 
 #include <string>
 #include <vector>
+#include <algorithm>
 #include <base/logging.h>
 #include <base/lifetime.h>
 #include <base/misc_utils.h>
@@ -332,6 +333,90 @@ void Agent::ShutdownLifetimeManager() {
     lifetime_manager_ = NULL;
 }
 
+uint32_t Agent::GenerateHash(std::vector<std::string> &list) {
+
+    std::string concat_servers;
+    std::vector<std::string>::iterator iter;
+    for (iter = list.begin();
+         iter != list.end(); iter++) {
+         concat_servers += *iter;
+    }
+
+    boost::hash<std::string> string_hash;
+    return(string_hash(concat_servers));
+}
+
+void Agent::InitControllerList() {
+    std::vector<string>servers;
+    if (controller_list_.size() >= 1) {
+        boost::split(servers, controller_list_[0], boost::is_any_of(":"));
+        xs_addr_[0] = servers[0];
+        std::istringstream converter(servers[1]);
+        converter >> xs_port_[0];
+        if (controller_list_.size() >= 2) {
+            boost::split(servers, controller_list_[1], boost::is_any_of(":"));
+            xs_addr_[1] = servers[0];
+            std::istringstream converter2(servers[1]);
+            converter2 >> xs_port_[1];
+        }
+    }
+}
+
+void Agent::InitDnsList() {
+    std::vector<string>servers;
+    if (dns_list_.size() >= 1) {
+        boost::split(servers, dns_list_[0], boost::is_any_of(":"));
+        dns_addr_[0] = servers[0];
+        std::istringstream converter(servers[1]);
+        converter >> dns_port_[0];
+        if (dns_list_.size() >= 2) {
+            boost::split(servers, dns_list_[1], boost::is_any_of(":"));
+            dns_addr_[1] = servers[0];
+            std::istringstream converter2(servers[1]);
+            converter2 >> dns_port_[1];
+        }
+    }
+}
+
+void Agent::InitializeFilteredParams() {
+    InitControllerList();
+    InitDnsList();
+}
+
+void Agent::CopyFilteredParams() {
+
+    // Controller
+    // 1. Save checksum of the Configured List
+    // 2. Randomize the Configured List
+    std::vector<string> list = params_->controller_server_list();
+    uint32_t new_chksum = GenerateHash(list);
+    if (new_chksum != controller_chksum_) {
+        controller_chksum_ = new_chksum;
+        std::random_shuffle(controller_list_.begin(), controller_list_.end());
+    }
+
+    // Dns
+    // 1. Save checksum of the Configured List
+    // 2. Pick first two DNS Servers to connect
+    list.clear();
+    list = params_->dns_server_list();
+    new_chksum = GenerateHash(list);
+    if (new_chksum != dns_chksum_) {
+        dns_chksum_ = new_chksum;
+    }
+
+    // Collector
+    // 1. Save checksum of the Configured List
+    // 2. Randomize the Configured List
+    list.clear();
+    list = params_->collector_server_list();
+    new_chksum = GenerateHash(list);
+    if (new_chksum != collector_chksum_) {
+        collector_chksum_ = new_chksum;
+        std::random_shuffle(collector_list_.begin(), collector_list_.end());
+    }
+}
+
 // Get configuration from AgentParam into Agent
 void Agent::CopyConfig(AgentParam *params) {
     params_ = params;
@@ -369,6 +454,12 @@ void Agent::CopyConfig(AgentParam *params) {
 
     dss_addr_ = params_->discovery_server();
     dss_xs_instances_ = params_->xmpp_instance_count();
+
+    controller_list_ = params_->controller_server_list();
+    dns_list_ = params_->dns_server_list();
+    collector_list_ = params_->collector_server_list();
+    CopyFilteredParams();
+    InitializeFilteredParams();
 
     vhost_interface_name_ = params_->vhost_name();
     ip_fabric_intf_name_ = params_->eth_port();
@@ -434,14 +525,14 @@ void Agent::InitCollector() {
     NodeType::type node_type =
         g_vns_constants.Module2NodeType.find(module)->second;
     Sandesh::set_send_rate_limit(params_->sandesh_send_rate_limit());
-    if (params_->collector_server_list().size() != 0) {
+    if (Agent::GetInstance()->GetCollectorlist().size() != 0) {
         Sandesh::InitGenerator(module_name(),
                 host_name(),
                 g_vns_constants.NodeTypeNames.find(node_type)->second,
                 instance_id_,
                 event_manager(),
                 params_->http_server_port(), 0,
-                params_->collector_server_list(),
+                Agent::GetInstance()->GetCollectorlist(),
                 NULL, params_->derived_stats_map());
     } else {
         Sandesh::InitGenerator(module_name(),
@@ -453,6 +544,12 @@ void Agent::InitCollector() {
                 NULL, params_->derived_stats_map());
     }
 
+}
+
+void Agent::ReConnectCollectors() {
+    // ReConnect Collectors
+    Sandesh::ReConfigCollectors(
+        Agent::GetInstance()->GetCollectorlist());
 }
 
 void Agent::InitDone() {
@@ -564,7 +661,9 @@ Agent::Agent() :
     gateway_id_(0), compute_node_ip_(0), xs_cfg_addr_(""), xs_idx_(0),
     xs_addr_(), xs_port_(),
     xs_stime_(), xs_auth_enable_(false), xs_dns_idx_(0), dns_addr_(),
-    dns_port_(), dns_auth_enable_(false), dss_addr_(""), dss_port_(0),
+    dns_port_(), dns_auth_enable_(false), 
+    controller_chksum_(0), dns_chksum_(0), collector_chksum_(0),
+    dss_addr_(""), dss_port_(0),
     dss_xs_instances_(0), discovery_client_name_(),
     ip_fabric_intf_name_(""), vhost_interface_name_(""),
     pkt_interface_name_("pkt0"), arp_proto_(NULL),
