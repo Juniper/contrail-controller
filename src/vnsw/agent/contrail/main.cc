@@ -54,7 +54,7 @@ bool GetBuildInfo(std::string &build_info_str) {
 
 int main(int argc, char *argv[]) {
     AgentParam params;
-
+    srand(unsigned(time(NULL)));
     try {
         params.ParseArguments(argc, argv);
     } catch (...) {
