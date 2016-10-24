@@ -377,11 +377,6 @@ private:
 
         // Restart EndOfRib Send timer if necessary.
         parent_->RestEndOfRibState();
-
-        XmppPeerInfoData peer_info;
-        peer_info.set_name(ToUVEKey());
-        peer_info.set_send_state("in sync");
-        parent_->XMPPPeerInfoSend(peer_info);
     }
 
     BgpServer *server_;
@@ -422,10 +417,6 @@ bool BgpXmppChannel::XmppPeer::SendUpdate(const uint8_t *msg, size_t msgsize,
         if (!send_ready_) {
             BGP_LOG_PEER(Event, this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
                          BGP_PEER_DIR_NA, "Send blocked");
-            XmppPeerInfoData peer_info;
-            peer_info.set_name(ToUVEKey());
-            peer_info.set_send_state("not in sync");
-            parent_->XMPPPeerInfoSend(peer_info);
 
             // If EndOfRib Send timer is running, cancel it and reschedule it
             // after socket gets unblocked.
@@ -453,10 +444,6 @@ void BgpXmppChannel::XmppPeer::Close(bool non_graceful) {
         parent_->ClearEndOfRibState();
 
         parent_->peer_close_->Close(non_graceful);
-        XmppPeerInfoData peer_info;
-        peer_info.set_name(parent_->ToUVEKey());
-        peer_info.set_send_state("not advertising");
-        parent_->XMPPPeerInfoSend(peer_info);
     }
 }
 
@@ -2528,7 +2515,6 @@ void BgpXmppChannelManager::XmppHandleChannelEvent(XmppChannel *channel,
                                                    xmps::PeerState state) {
     tbb::mutex::scoped_lock lock(mutex_);
 
-    bool created = false;
     XmppChannelMap::iterator it = channel_map_.find(channel);
     BgpXmppChannel *bgp_xmpp_channel = NULL;
     if (state == xmps::READY) {
@@ -2555,7 +2541,6 @@ void BgpXmppChannelManager::XmppHandleChannelEvent(XmppChannel *channel,
                              "BGP is administratively down - closing channel");
                 channel->Close();
             }
-            created = true;
         } else {
             bgp_xmpp_channel = (*it).second;
             if (bgp_xmpp_channel->peer_deleted())
@@ -2579,12 +2564,6 @@ void BgpXmppChannelManager::XmppHandleChannelEvent(XmppChannel *channel,
             BGP_LOG_NOTICE(BgpMessage, BGP_LOG_FLAG_ALL,
                     "Peer not found on channel not ready event");
         }
-    }
-    if (created) {
-        XmppPeerInfoData peer_info;
-        peer_info.set_name(bgp_xmpp_channel->Peer()->ToUVEKey());
-        peer_info.set_send_state("in sync");
-        bgp_xmpp_channel->XMPPPeerInfoSend(peer_info);
     }
 }
 
