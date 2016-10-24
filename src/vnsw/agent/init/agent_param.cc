@@ -273,6 +273,30 @@ void AgentParam::ParseCollectorDS() {
     }
 }
 
+void AgentParam::ParseCollector() {
+    optional<string> opt_str;
+    if (opt_str = tree_.get_optional<string>("DEFAULT.collectors")) {
+        boost::split(collector_server_list_, opt_str.get(),
+                     boost::is_any_of(" "));
+    }
+}
+
+void AgentParam::ParseControllerServers() {
+    optional<string> opt_str;
+    if (opt_str = tree_.get_optional<string>("CONTROL-NODE.servers")) {
+        boost::split(controller_server_list_, opt_str.get(),
+                     boost::is_any_of(" "));
+    }
+}
+
+void AgentParam::ParseDnsServers() {
+    optional<string> opt_str;
+    if (opt_str = tree_.get_optional<string>("DNS.servers")) {
+        boost::split(dns_server_list_, opt_str.get(),
+                     boost::is_any_of(" "));
+    }
+}
+
 void AgentParam::BuildAddressList(const string &val) {
     compute_node_address_list_.clear();
     if (val.empty()) {
@@ -1022,6 +1046,11 @@ void AgentParam::InitFromConfig() {
     ParseVirtualHost();
     ParseServerList("CONTROL-NODE.server", &xmpp_server_1_, &xmpp_server_2_);
     ParseDns();
+
+    // Parse Server List of IpAddress:port format
+    ParseControllerServers();
+    ParseDnsServers();
+
     ParseDiscovery();
     ParseNetworks();
     ParseHypervisor();
@@ -1062,6 +1091,22 @@ void AgentParam::InitFromArguments() {
     ParseNexthopServerArguments(var_map_);
     ParsePlatformArguments(var_map_);
     ParseServicesArguments(var_map_);
+    return;
+}
+
+void AgentParam::ReInitFromConfig() {
+    // Read and parse INI
+    try {
+        read_ini(config_file_, tree_);
+    } catch (exception &e) {
+        cout <<  "Error reading config file <" << config_file_
+            << ">. INI format error??? <" << e.what() << ">\n";
+        return;
+    }
+
+    ParseControllerServers();
+    ParseDnsServers();
+    ParseCollector();
     return;
 }
 
@@ -1275,6 +1320,10 @@ void AgentParam::Init(const string &config_file, const string &program_name) {
     config_file_ = config_file;
     program_name_ = program_name;
 
+    std::cout << "\n\n AgentParam::Init \n\n";
+    std::cout << "\n\n AgentParam::Init \n\n";
+    std::cout << "\n\n AgentParam::Init \n\n";
+
     InitFromSystem();
     InitFromConfig();
     InitFromArguments();
@@ -1282,6 +1331,10 @@ void AgentParam::Init(const string &config_file, const string &program_name) {
     UpdateBgpAsaServicePortRange();
     ComputeFlowLimits();
     vgw_config_table_->InitFromConfig(tree_);
+}
+
+void AgentParam::ReInit() {
+    ReInitFromConfig();
 }
 
 void AgentParam::LogConfig() const {
@@ -1489,6 +1542,9 @@ AgentParam::AgentParam(bool enable_flow_options,
          opt::value<std::vector<std::string> >()->multitoken(),
          "IP addresses of control nodes."
          " Max of 2 Ip addresses can be configured")
+        ("CONTROL-NODE.servers",
+         opt::value<std::vector<std::string> >()->multitoken(),
+         "List of IPAddress:Port of Control node Servers")
         ("DEFAULT.collectors",
          opt::value<std::vector<std::string> >()->multitoken(),
          "Collector server list")
@@ -1528,6 +1584,9 @@ AgentParam::AgentParam(bool enable_flow_options,
          "service <1|2>")
         ("DNS.server", opt::value<std::vector<std::string> >()->multitoken(),
          "IP addresses of dns nodes. Max of 2 Ip addresses can be configured")
+        ("DNS.servers",
+         opt::value<std::vector<std::string> >()->multitoken(),
+         "List of IPAddress:Port of DNS node Servers")
         ("DEFAULT.xmpp_auth_enable", opt::value<bool>()->default_value(false),
          "Enable Xmpp over TLS")
         ("DEFAULT.xmpp_server_cert",
