@@ -9,7 +9,7 @@ class AlarmBase(object):
     ALARM_CRITICAL, ALARM_MAJOR, ALARM_MINOR = range(3)
 
     def __init__(self, sev, at=0, it=0, fec=False, fcs=0, fct=0):
-        self._sev = sev or self.ALARM_MAJOR
+        self._sev = sev
 	self._ActiveTimer = at
 	self._IdleTimer = it
 	self._FreqExceededCheck = fec
