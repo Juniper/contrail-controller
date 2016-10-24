@@ -100,6 +100,14 @@ public:
     const std::string &eth_port() const { return eth_port_; }
     const bool &eth_port_no_arp() const { return eth_port_no_arp_; }
     const std::string &eth_port_encap_type() const { return eth_port_encap_type_; }
+
+
+    const std::vector<std::string> controller_server_list() const {
+        return controller_server_list_;
+    }
+    const std::vector<std::string> dns_server_list() const {
+        return dns_server_list_;
+    }
     const Ip4Address &xmpp_server_1() const { return xmpp_server_1_; }
     const Ip4Address &xmpp_server_2() const { return xmpp_server_2_; }
     const Ip4Address &dns_server_1() const { return dns_server_1_; }
@@ -221,6 +229,7 @@ public:
 
     void Init(const std::string &config_file,
               const std::string &program_name);
+    void ReInit();
 
     void LogConfig() const;
     void PostValidateLogConfig() const;
@@ -305,6 +314,7 @@ protected:
     void set_hypervisor_mode(HypervisorMode m) { hypervisor_mode_ = m; }
     virtual void InitFromSystem();
     virtual void InitFromConfig();
+    virtual void ReInitFromConfig();
     virtual void InitFromArguments();
     boost::property_tree::ptree &tree() { return tree_; }
     template <typename ValueType>
@@ -362,6 +372,9 @@ private:
     static std::map<string, std::map<string, string> > ParseDerivedStats(
         const std::vector<std::string> &dsvec);
     void ParseCollectorDS();
+    void ParseControllerServers();
+    void ParseDnsServers();
+    void ParseCollector();
     void ParseVirtualHost();
     void ParseDns();
     void ParseDiscovery();
@@ -417,6 +430,7 @@ private:
         (const boost::program_options::variables_map &v);
     void ParseServicesArguments
         (const boost::program_options::variables_map &v);
+    //void RandomizeList(std::vector<std::string>&);
 
     boost::program_options::variables_map var_map_;
     boost::program_options::options_description options_;
@@ -438,6 +452,8 @@ private:
     bool eth_port_no_arp_;
     std::string eth_port_encap_type_;
     uint16_t xmpp_instance_count_;
+    std::vector<std::string> controller_server_list_;
+    std::vector<std::string> dns_server_list_;
     Ip4Address xmpp_server_1_;
     Ip4Address xmpp_server_2_;
     Ip4Address dns_server_1_;
