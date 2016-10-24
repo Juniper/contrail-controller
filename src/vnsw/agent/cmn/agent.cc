@@ -332,6 +332,63 @@ void Agent::ShutdownLifetimeManager() {
     lifetime_manager_ = NULL;
 }
 
+void Agent::RandomizeList(std::vector<std::string> &list) {
+    size_t size = list.size();
+    int first, second;
+
+    if (size <= 2) return;
+
+    first = rand() % size;
+    second = rand() % size;
+    while (first == second) {
+        second = (rand() % size); 
+    }
+
+    std::string first_temp = list[0];
+    list[0] = list[first];
+    list[first] = first_temp; 
+
+    std::string second_temp = list[1]; 
+    list[1] = list[second]; 
+    list[second] = second_temp;
+}
+
+void Agent::CopyFilteredParams() {
+
+    // Controller
+    // 1. Save checksum of the Configured List
+    // 2. Randomize the Configured List
+    // 3. Apply the randomized List
+    std::string concat_servers;
+    std::vector<std::string>::iterator iter;
+    for (iter = controller_list_.begin();
+         iter != controller_list_.end(); iter++) {
+         concat_servers += *iter;
+    }
+    boost::hash<std::string> string_hash;
+    uint32_t new_chksum  = string_hash(concat_servers); 
+
+    // Apply change if the list is different
+    if (new_chksum != controller_chksum_) {
+        controller_chksum_ = new_chksum;
+        
+        RandomizeList(controller_list_); 
+        std::vector<string>servers;
+        if (controller_list_.size() >= 1) {
+            boost::split(servers, controller_list_[0], boost::is_any_of(":"));
+            xs_addr_[0] = servers[0];
+            std::istringstream converter(servers[1]);
+            converter >> xs_port_[0];
+            if (controller_list_.size() >= 2) {
+                boost::split(servers, controller_list_[1], boost::is_any_of(":"));
+                xs_addr_[1] = servers[0];
+                std::istringstream converter2(servers[1]);
+                converter2 >> xs_port_[1];
+            }
+        }
+    }
+}
+
 // Get configuration from AgentParam into Agent
 void Agent::CopyConfig(AgentParam *params) {
     params_ = params;
@@ -369,6 +426,9 @@ void Agent::CopyConfig(AgentParam *params) {
 
     dss_addr_ = params_->discovery_server();
     dss_xs_instances_ = params_->xmpp_instance_count();
+
+    controller_list_ = params_->controller_server_list();
+    CopyFilteredParams();
 
     vhost_interface_name_ = params_->vhost_name();
     ip_fabric_intf_name_ = params_->eth_port();
@@ -564,7 +624,9 @@ Agent::Agent() :
     gateway_id_(0), compute_node_ip_(0), xs_cfg_addr_(""), xs_idx_(0),
     xs_addr_(), xs_port_(),
     xs_stime_(), xs_auth_enable_(false), xs_dns_idx_(0), dns_addr_(),
-    dns_port_(), dns_auth_enable_(false), dss_addr_(""), dss_port_(0),
+    dns_port_(), dns_auth_enable_(false), 
+    controller_chksum_(0),
+    dss_addr_(""), dss_port_(0),
     dss_xs_instances_(0), discovery_client_name_(),
     ip_fabric_intf_name_(""), vhost_interface_name_(""),
     pkt_interface_name_("pkt0"), arp_proto_(NULL),

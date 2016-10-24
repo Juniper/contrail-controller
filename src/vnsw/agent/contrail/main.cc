@@ -2,6 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <csignal>
+
 #include <boost/program_options.hpp>
 #include <base/logging.h>
 #include <base/contrail_ports.h>
@@ -55,9 +57,17 @@ bool GetBuildInfo(std::string &build_info_str) {
     return MiscUtils::GetBuildInfo(MiscUtils::Agent, BuildInfo, build_info_str);
 }
 
+void ReconfigSignalHandler(int signum) {
+    Agent::GetInstance()->params()->ReInit();
+    // Generates checksum, randomizes and saves the list
+    Agent::GetInstance()->CopyFilteredParams();
+    // ReConnnect only ones whose checksums are different
+    Agent::GetInstance()->controller()->ReConnect();
+}
+
 int main(int argc, char *argv[]) {
     AgentParam params;
-
+    signal(SIGHUP, ReconfigSignalHandler);
     try {
         params.ParseArguments(argc, argv);
     } catch (...) {

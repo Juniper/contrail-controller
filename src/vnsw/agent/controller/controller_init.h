@@ -77,6 +77,16 @@ public:
     DISALLOW_COPY_AND_ASSIGN(ControllerDiscoveryData);
 };
 
+class ControllerReConfigData : public ControllerWorkQueueData {
+public:
+    ControllerReConfigData(std::string service_name, std::vector<string> server_list);
+    virtual ~ControllerReConfigData() {}
+
+    std::string service_name_;
+    std::vector<string> server_list_;
+    DISALLOW_COPY_AND_ASSIGN(ControllerReConfigData);
+};
+
 class VNController {
 public:
     typedef boost::function<void(uint8_t)> XmppChannelDownCb;
@@ -84,6 +94,7 @@ public:
     typedef boost::shared_ptr<ControllerDeletePeerData> ControllerDeletePeerDataType;
     typedef boost::shared_ptr<ControllerWorkQueueData> ControllerWorkQueueDataType;
     typedef boost::shared_ptr<ControllerDiscoveryData> ControllerDiscoveryDataType;
+    typedef boost::shared_ptr<ControllerReConfigData> ControllerReConfigDataType;
     typedef std::list<PeerPtr> BgpPeerList;
     typedef BgpPeerList::const_iterator BgpPeerConstIterator;
     typedef std::list<PeerPtr>::iterator BgpPeerIterator;
@@ -101,6 +112,7 @@ public:
     virtual ~VNController();
     void Connect();
     void DisConnect();
+    void ReConnect();
 
     void Cleanup();
 
@@ -185,8 +197,12 @@ private:
     const std::string MakeConnectionPrefix(bool is_dns) const;
     bool AgentXmppServerConnectedExists(const std::string &server_ip,
                                std::vector<DSResponse> resp);
+    bool AgentReConfigXmppServerConnectedExists(const std::string &server_ip,
+                               std::vector<std::string> resp);
     bool  ApplyDiscoveryXmppServicesInternal(std::vector<DSResponse> resp);
     bool  ApplyDiscoveryDnsXmppServicesInternal(std::vector<DSResponse> resp);
+
+    bool ApplyControllerReConfigInternal(std::vector<string>service_list);
 
     Agent *agent_;
     uint64_t multicast_sequence_number_;
