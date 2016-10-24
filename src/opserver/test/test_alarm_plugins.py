@@ -421,60 +421,56 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             ),
             TestCase(
-                name='NodeStatus.disk_usage_info.' +\
+                name='NodeStatus.disk_usage_info.*.' +\
                     'percentage_partition_space_used < threshold',
                 input=TestInput(uve_key='ObjectDatabaseInfo:host1',
                     uve_data={
                         'NodeStatus': {
-                            'disk_usage_info': [
-                                {
+                            'disk_usage_info': {
+                                'dev/sda1': {
                                     'partition_space_available_1k': 100663296,
                                     'partition_space_used_1k': 33554432,
-                                    'partition_name': 'dev/sda1',
                                     'partition_type': 'ext2',
                                     'percentage_partition_space_used': 25
                                 }
-                            ]
+                            }
                         }
                     }
                 ),
                 output=TestOutput(or_list=None)
             ),
             TestCase(
-                name='NodeStatus.disk_usage_info.' +\
+                name='NodeStatus.disk_usage_info.*.' +\
                     'percentage_partition_space_used >= threshold',
                 input=TestInput(uve_key='ObjectDatabaseInfo:host1',
                     uve_data={
                         'NodeStatus': {
-                            'disk_usage_info': [
-                                {
+                            'disk_usage_info': {
+                                'dev/sda1': {
                                     'partition_space_available_1k': 100663296,
                                     'partition_space_used_1k': 33554432,
-                                    'partition_name': 'dev/sda1',
                                     'partition_type': 'ext2',
                                     'percentage_partition_space_used': 25
                                 },
-                                {
+                                'dev/sda2': {
                                     'partition_space_available_1k': 60397978,
                                     'partition_space_used_1k': 73819750,
-                                    'partition_name': 'dev/sda2',
                                     'partition_type': 'ext4',
                                     'percentage_partition_space_used': 95
                                 }
-                            ]
+                            }
                         }
                     }
                 ),
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('NodeStatus.disk_usage_info.' +\
+                            ('NodeStatus.disk_usage_info.*.' +\
                                 'percentage_partition_space_used >= 90',
-                             ['NodeStatus.disk_usage_info.' +\
-                                'partition_name'],
+                             ['NodeStatus.disk_usage_info.__key'],
                              [('95', None, {
-                                 'NodeStatus.disk_usage_info.' +\
-                                     'partition_name': '"dev/sda2"'})]
+                                 'NodeStatus.disk_usage_info.__key':
+                                     '"dev/sda2"'})]
                             )
                         ]
                     }
