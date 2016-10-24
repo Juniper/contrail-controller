@@ -207,8 +207,7 @@ public:
 
         bool operator() (const StaticRoute &lhs, const StaticRoute &rhs) const;
         bool IsLess(const StaticRoute *rhs) const;
-        void Activate(VmInterface *interface, bool force_update,
-                      bool policy_change) const;
+        void Activate(VmInterface *interface, bool force_update) const;
         void DeActivate(VmInterface *interface) const;
 
         mutable std::string vrf_;
@@ -239,8 +238,7 @@ public:
         bool operator() (const AllowedAddressPair &lhs,
                          const AllowedAddressPair &rhs) const;
         bool IsLess(const AllowedAddressPair *rhs) const;
-        void Activate(VmInterface *interface, bool force_update,
-                      bool policy_change) const;
+        void Activate(VmInterface *interface, bool force_update) const;
         void DeActivate(VmInterface *interface) const;
         void L2Activate(VmInterface *interface, bool force_update,
                         bool policy_change, bool old_layer2_forwarding,
@@ -755,8 +753,8 @@ private:
     bool Ipv4Deactivated(bool old_ipv4_active);
     bool Ipv6Deactivated(bool old_ipv6_active);
     void UpdateIpv4InterfaceRoute(bool old_ipv4_active, bool force_update,
-                             bool policy_change, VrfEntry * old_vrf,
-                             const Ip4Address &old_addr);
+                                  VrfEntry * old_vrf,
+                                  const Ip4Address &old_addr);
     void DeleteIpv4InterfaceRoute(VrfEntry *old_vrf,
                                   const Ip4Address &old_addr);
     void UpdateResolveRoute(bool old_ipv4_active, bool force_update,
@@ -775,7 +773,7 @@ private:
     void UpdateServiceVlan(bool force_update, bool policy_change,
                            bool old_ipv4_active, bool old_ipv6_active);
     void DeleteServiceVlan();
-    void UpdateStaticRoute(bool force_update, bool policy_change);
+    void UpdateStaticRoute(bool force_update);
     void DeleteStaticRoute();
     void UpdateAllowedAddressPair(bool force_update, bool policy_change,
                                   bool l2, bool old_l2_forwarding,
