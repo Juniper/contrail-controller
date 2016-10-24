@@ -974,9 +974,8 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         ipam_subnets_list = []
         for ipam in ipam_refs:
             ipam_fq_name = ipam['to']
-            if 'uuid' in ipam:
-                ipam_uuid = ipam['uuid']
-            else:
+            ipam_uuid = ipam.get('uuid')
+            if not ipam_uuid:
                 ipam_uuid = db_conn.fq_name_to_uuid('network_ipam',
                                                     ipam_fq_name)
 
