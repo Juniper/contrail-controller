@@ -110,8 +110,8 @@ void AgentDnsXmppChannel::HandleXmppClientChannelEvent(AgentDnsXmppChannel *peer
         if (!peer->dns_xmpp_event_handler_cb_.empty())
             peer->dns_xmpp_event_handler_cb_(peer);
     } else if (state == xmps::TIMEDOUT) {
-        DiscoveryAgentClient *dac = Agent::GetInstance()->discovery_client();
-        if (dac) {
+        DiscoveryServiceClient *dsc = Agent::GetInstance()->discovery_service_client();
+        if (dsc) {
             std::vector<DSResponse> resp =
                 Agent::GetInstance()->GetDiscoveryServerResponseList();
             std::vector<DSResponse>::iterator iter;
