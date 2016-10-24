@@ -83,9 +83,11 @@ protected:
         agent_ = Agent::GetInstance();
         init_ = static_cast<TestOvsAgentInit *>(client->agent_init());
         peer_manager_ = init_->ovs_peer_manager();
+        tcp_server_ =
+            static_cast<OvsdbClientTcpTest *>(init_->ovsdb_client());
         WAIT_FOR(100, 10000,
                  ((tcp_session_ = static_cast<OvsdbClientTcpSession *>
-                  (init_->ovsdb_client()->NextSession(NULL))) != NULL)
+                  (tcp_server_->NextSession(NULL))) != NULL)
                   && (tcp_session_->client_idl() != NULL) &&
                   (tcp_session_->status() == string("Established")));
         client->WaitForIdle();
@@ -114,6 +116,7 @@ protected:
     Agent *agent_;
     TestOvsAgentInit *init_;
     OvsPeerManager *peer_manager_;
+    OvsdbClientTcpTest *tcp_server_;
     OvsdbClientTcpSession *tcp_session_;
 };
 
@@ -408,6 +411,100 @@ TEST_F(UnicastRemoteTest, PhysicalLocatorCreateWait) {
     client->WaitForIdle();
 
     // Validate Logical switch deleted
+    LogicalSwitchTable *l_table = tcp_session_->client_idl()->logical_switch_table();
+    LogicalSwitchEntry l_key(table, UuidToString(MakeUuid(2)));
+    WAIT_FOR(100, 10000, (l_table->Find(&l_key) == NULL));
+}
+
+TEST_F(UnicastRemoteTest, LogicalSwitchDeleteWithStaleRoutes) {
+    // Add VN
+    VnAddReq(2, "test-vn1");
+    // Add VRF
+    agent_->vrf_table()->CreateVrfReq("test-vrf1", MakeUuid(2));
+    // Add Physical Device
+    AddPhysicalDevice("test-router", 1);
+    client->WaitForIdle();
+
+    // Add DevVN
+    AddPhysicalDeviceVn(agent_, 1, 2, true);
+    client->WaitForIdle();
+
+    MacAddress mac("00:00:00:01:00:01");
+    BridgeTunnelRouteAdd(agent_->local_peer(), std::string("test-vrf1"),
+                         (1 << TunnelType::VXLAN), "10.0.0.1",
+                         101, mac, "0.0.0.0", 32);
+    client->WaitForIdle();
+
+    VrfOvsdbObject *table = tcp_session_->client_idl()->vrf_ovsdb();
+    VrfOvsdbEntry vrf_key(table, UuidToString(MakeUuid(2)));
+    VrfOvsdbEntry *vrf_entry;
+    WAIT_FOR(100, 10000,
+             (vrf_entry =
+              static_cast<VrfOvsdbEntry *>(table->Find(&vrf_key))) != NULL);
+    if (vrf_entry != NULL) {
+        UnicastMacRemoteTable *u_table = vrf_entry->route_table();
+        UnicastMacRemoteEntry key(u_table, "00:00:00:01:00:01");
+        UnicastMacRemoteEntry *entry;
+        // Validate mac programmed in OVSDB
+        WAIT_FOR(100, 10000,
+                 ((entry =
+                  static_cast<UnicastMacRemoteEntry *>(u_table->Find(&key))) != NULL
+                  && entry->GetState() == KSyncEntry::IN_SYNC));
+    }
+
+    // After setting up everything disable reconnect and tear down the connection
+    tcp_server_->set_enable_connect(false);
+    tcp_session_->TriggerClose();
+    client->WaitForIdle();
+
+    // Delete route
+    Ip4Address zero_ip;
+    EvpnAgentRouteTable::DeleteReq(agent_->local_peer(),
+                                   std::string("test-vrf1"),
+                                   mac, zero_ip, 0, NULL);
+    client->WaitForIdle();
+    agent_->vrf_table()->DeleteVrfReq("test-vrf1");
+    client->WaitForIdle();
+
+    // After deleting route enable reconnect to OVSDB server, to have
+    // deleted route as a stale route in ovsdb, which should go away
+    // while trying to delete logical switch
+    tcp_server_->set_enable_connect(true);
+    client->WaitForIdle();
+    WAIT_FOR(100, 10000,
+             (tcp_session_ = static_cast<OvsdbClientTcpSession *>
+              (tcp_server_->NextSession(NULL))) != NULL &&
+              tcp_session_->client_idl() != NULL);
+    client->WaitForIdle();
+    WAIT_FOR(100, 10000, (!tcp_session_->client_idl()->IsMonitorInProcess()));
+    client->WaitForIdle();
+
+    // validate stale unicast remote route to be present
+    table = tcp_session_->client_idl()->vrf_ovsdb();
+    WAIT_FOR(100, 10000,
+             (vrf_entry =
+              static_cast<VrfOvsdbEntry *>(table->Find(&vrf_key))) != NULL);
+    if (vrf_entry != NULL) {
+        UnicastMacRemoteTable *u_table = vrf_entry->route_table();
+        UnicastMacRemoteEntry key(u_table, "00:00:00:01:00:01");
+        UnicastMacRemoteEntry *entry;
+        // Validate mac programmed in OVSDB
+        WAIT_FOR(100, 10000,
+                 ((entry =
+                  static_cast<UnicastMacRemoteEntry *>(u_table->Find(&key))) != NULL
+                  && entry->stale()));
+    }
+
+    // delete remaining config to verify delete of logical switch
+    DelPhysicalDeviceVn(agent_, 1, 2, false);
+    client->WaitForIdle();
+
+    DeletePhysicalDevice("test-router");
+    client->WaitForIdle();
+
+    VnDelReq(2);
+    client->WaitForIdle();
+
     LogicalSwitchTable *l_table = tcp_session_->client_idl()->logical_switch_table();
     LogicalSwitchEntry l_key(table, UuidToString(MakeUuid(2)));
     WAIT_FOR(100, 10000, (l_table->Find(&l_key) == NULL));

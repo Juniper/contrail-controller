@@ -84,18 +84,14 @@ void UnicastMacRemoteEntry::NotifyDelete(struct ovsdb_idl_row *row) {
 }
 
 void UnicastMacRemoteEntry::PreAddChange() {
-    boost::system::error_code ec;
-    Ip4Address dest_ip = Ip4Address::from_string(dest_ip_, ec);
     LogicalSwitchTable *l_table = table_->client_idl()->logical_switch_table();
     LogicalSwitchEntry key(l_table, logical_switch_name_.c_str());
     LogicalSwitchEntry *logical_switch =
         static_cast<LogicalSwitchEntry *>(l_table->GetReference(&key));
 
-    if (self_exported_route_ ||
-            dest_ip == logical_switch->physical_switch_tunnel_ip()) {
-        // if the route is self exported or if dest tunnel end-point points to
-        // the physical switch itself then donot export this route to OVSDB
-        // release reference to logical switch to trigger delete.
+    if (self_exported_route_) {
+        // if the route is self exported then donot export this route to
+        // OVSDB, release reference to logical switch to trigger delete.
         logical_switch_ = NULL;
         return;
     }
@@ -219,6 +215,20 @@ bool UnicastMacRemoteEntry::Sync(DBEntry *db_entry) {
                 self_exported_route = true;
             }
             self_sequence = ovs_path->sequence();
+        } else if (self_sequence_ != 0) {
+            // we exported this during last update
+            const AgentPath *active_path = evpn_rt->GetActivePath();
+            if (active_path != NULL &&
+                active_path->sequence() == self_sequence_) {
+                // active path sequence is same as self sequence
+                // bgp path might be in process of withdraw, so
+                // mark the route as self exported route, until
+                // active path sequence changes
+                self_exported_route = true;
+                // retain self sequence till active path sequence
+                // is same as self exported seq
+                self_sequence = self_sequence_;
+            }
         }
     }
 

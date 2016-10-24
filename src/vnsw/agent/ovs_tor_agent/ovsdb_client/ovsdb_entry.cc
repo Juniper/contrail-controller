@@ -245,7 +245,7 @@ void OvsdbDBEntry::Ack(bool success) {
 }
 
 void OvsdbDBEntry::TriggerDeleteAdd() {
-    if (IsDeleted() || stale()) {
+    if (!IsActive() || stale()) {
         // skip this operation for Deleted/stale Entry, After this operation
         // Deleted/Stale entry would become active/non-stale which is not
         // intended use of this API, caller must ensure the entry to be Active

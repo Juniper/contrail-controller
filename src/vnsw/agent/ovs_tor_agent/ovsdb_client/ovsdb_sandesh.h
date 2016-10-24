@@ -22,6 +22,7 @@ public:
         MULTICAST_LOCAL_TABLE,
         HA_STALE_DEV_VN_TABLE,
         HA_STALE_L2_ROUTE_TABLE,
+        PHYSICAL_DEVICE_VN_TABLE,
         TABLE_MAX,
     };
 
@@ -90,6 +91,29 @@ private:
 
     std::string name_;
     DISALLOW_COPY_AND_ASSIGN(PhysicalPortSandeshTask);
+};
+
+class PhysicalDeviceVnKSyncTask : public OvsdbSandeshTask {
+public:
+    PhysicalDeviceVnKSyncTask(std::string resp_ctx, AgentSandeshArguments &args);
+    PhysicalDeviceVnKSyncTask(std::string resp_ctx, const std::string &ip,
+                              uint32_t port, const std::string &name,
+                              const std::string &device_name, uint32_t vxlan_id);
+
+    virtual ~PhysicalDeviceVnKSyncTask();
+
+private:
+    void EncodeArgs(AgentSandeshArguments &args);
+    FilterResp Filter(KSyncEntry *entry);
+    void UpdateResp(KSyncEntry *kentry, SandeshResponse *resp);
+    SandeshResponse *Alloc();
+    KSyncObject *GetObject(OvsdbClientSession *session);
+    TableType GetTableType() { return PHYSICAL_DEVICE_VN_TABLE;}
+
+    std::string name_;
+    std::string device_name_;
+    uint32_t vxlan_id_;
+    DISALLOW_COPY_AND_ASSIGN(PhysicalDeviceVnKSyncTask);
 };
 
 class LogicalSwitchSandeshTask : public OvsdbSandeshTask {

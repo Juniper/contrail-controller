@@ -187,6 +187,35 @@ request sandesh OvsdbPhysicalPortReq {
 }
 
 /**
+ * Sandesh definitions for Physical Device VN entry
+ */
+struct OvsdbPhysicaDeviceVnEntry {
+    1: string state;
+    2: string physical_switch;
+    3: string name;
+    4: i64 vxlan_id;
+    5: string logical_switch (link="OvsdbPageReq");
+}
+
+/**
+ * Response message for ovsdb Physical Device VN entry list
+ */
+response sandesh OvsdbPhysicaDeviceVnResp {
+    1: list<OvsdbPhysicaDeviceVnEntry> dev_vn;
+}
+
+/**
+ * Request message for ovsdb Physical Device VN entry list
+ */
+request sandesh OvsdbPhysicaDeviceVnReq {
+    1: string session_remote_ip;
+    2: u16 session_remote_port;
+    3: string device_name;
+    4: string name;
+    5: u32 vxlan_id;
+}
+
+/**
  * Sandesh definitions for Logical Switch entry
  */
 struct OvsdbLogicalSwitchEntry {
@@ -236,6 +265,25 @@ traceobject sandesh OvsdbLogicalSwitch {
     1: SandeshLogicalSwitchInfo l_switch;
 }
 
+/**
+ * Sandesh defenition for logical switch configuration
+ */
+struct SandeshPhysicalDeviceVnKSyncInfo {
+    1: string op;
+    2: string name;
+    3: u64 vxlan;
+    4: string device_name;
+}
+
+/**
+ * @description: Trace message ovsdb switch configuration
+ * @severity: DEBUG
+ */
+traceobject sandesh OvsdbPhysicalDeviceVnKSync {
+    1: SandeshPhysicalDeviceVnKSyncInfo l_switch;
+}
+
+/****************************************************************************
 /****************************************************************************
   Sandesh definitions for Vlan Port Bindings.
  ****************************************************************************/
