@@ -179,10 +179,14 @@ void Pkt0Socket::AsyncRead() {
 }
 
 void Pkt0Socket::StartConnectTimer() {
+    connected_ = false;
     Agent *agent = pkt_handler()->agent();
-    timer_.reset(TimerManager::CreateTimer(
-                 *(agent->event_manager()->io_service()),
-                 "UnixSocketConnectTimer"));
+    if (timer_ == NULL) {
+        timer_.reset(TimerManager::CreateTimer(
+                    *(agent->event_manager()->io_service()),
+                    "UnixSocketConnectTimer"));
+    }
+    TAP_TRACE(Err, "Starting connect to vrouter unix socket ");
     timer_->Start(kConnectTimeout,
                   boost::bind(&Pkt0Socket::OnTimeout, this));
 }
@@ -192,8 +196,8 @@ bool Pkt0Socket::OnTimeout() {
     boost::system::error_code ec;
     socket_.connect(ep, ec);
     if (ec != 0) {
-        LOG(DEBUG, "Error connecting to socket " << kVrouterSocketPath
-                << ": " << ec.message());
+        TAP_TRACE(Err, "Error connecting to vrouter unix socket " +
+                       ec.message());
         return true;
     }
     connected_ = true;
@@ -246,8 +250,13 @@ void Pkt0Socket::ReadHandler(const boost::system::error_code &error,
 void Pkt0Socket::WriteHandler(const boost::system::error_code &error,
                               std::size_t length, PacketBufferPtr pkt,
                               uint8_t *buff) {
-    if (error)
+    if (error == boost::system::errc::not_connected) {
+        StartConnectTimer();
+    }
+
+    if (error) {
         TAP_TRACE(Err,
                   "Packet Error <" + error.message() + "> sending packet");
+    }
     delete [] buff;
 }
