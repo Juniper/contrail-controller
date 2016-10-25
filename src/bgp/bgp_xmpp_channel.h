@@ -259,7 +259,7 @@ private:
         int *instance_id);
     bool VerifyMembership(const std::string &vrf_name, Address::Family family,
         BgpTable **table, int *instance_id, uint64_t *subscribed_at,
-        bool *subscribe_pending);
+        bool *subscribe_pending, bool add_change);
 
     bool ProcessItem(std::string vrf_name, const pugi::xml_node &node,
                      bool add_change);
