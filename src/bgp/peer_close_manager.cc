@@ -648,6 +648,13 @@ bool PeerCloseManager::MembershipPathCallback(DBTablePartBase *root,
 
         case STALE:
 
+            // We do not support GR for multicast routes (yet).
+            if (table->family() == Address::ERMVPN) {
+                oper = DBRequest::DB_ENTRY_DELETE;
+                attrs = NULL;
+                break;
+            }
+
             // If path is already marked as stale, then there is no need to
             // process again. This can happen if the session flips while in
             // GR_TIMER state.
