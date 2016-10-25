@@ -42,6 +42,12 @@ bool ControllerEcmpRoute::AddChangePath(Agent *agent, AgentPath *path,
     if (!comp_nh_policy) {
         comp_key->SetPolicy(new_comp_nh_policy);
     }
+
+    if (path->ecmp_load_balance() != ecmp_load_balance_) {
+        path->UpdateEcmpHashFields(agent, ecmp_load_balance_,
+                                   nh_req_);
+    }
+
     return InetUnicastRouteEntry::ModifyEcmpPath(dest_addr_, plen_, vn_list_,
                                                  label_, local_ecmp_nh_,
                                                  vrf_name_, sg_list_,
