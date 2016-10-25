@@ -102,9 +102,9 @@ public:
     static uint64_t GetTtlFromMap(const TtlMap& ttl_map,
             TtlType::type type);
     bool DropMessage(const SandeshHeader &header, const VizMsg *vmsg);
-    bool Init(bool initial, int instance);
-    void UnInit(int instance);
-    void UnInitUnlocked(int instance);
+    bool Init(bool initial);
+    void UnInit();
+    void UnInitUnlocked();
     void GetRuleMap(RuleMap& rulemap);
 
     virtual void MessageTableInsert(const VizMsg *vmsgp,
@@ -164,10 +164,10 @@ private:
     bool CreateTables();
     void SetDropLevel(size_t queue_count, SandeshLevel::type level,
         boost::function<void (void)> cb);
-    bool Setup(int instance);
-    bool Initialize(int instance);
-    bool InitializeInternal(int instance);
-    bool InitializeInternalLocked(int instance);
+    bool Setup();
+    bool Initialize();
+    bool InitializeInternal();
+    bool InitializeInternalLocked();
     bool StatTableWrite(uint32_t t2,
         const std::string& statName, const std::string& statAttr,
         const std::pair<std::string,DbHandler::Var>& ptag,
@@ -181,9 +181,11 @@ private:
     uint64_t GetTtl(TtlType::type type) {
         return GetTtlFromMap(ttl_map_, type);
     }
+    bool CanRecordDataForT2(uint32_t, std::string);
+    bool PollUDCCfg() { if(udc_) udc_->PollCfg(); return true; }
+    void PollUDCCfgErrorHandler(std::string err_name, std::string err_message);
 
     boost::scoped_ptr<GenDb::GenDbIf> dbif_;
-
     // Random generator for UUIDs
     ThreadSafeUuidGenerator umn_gen_;
     std::string name_;
@@ -203,13 +205,11 @@ private:
     UniformInt8RandomGenerator gen_partition_no_;
     std::string zookeeper_server_list_;
     bool use_zookeeper_;
-    bool CanRecordDataForT2(uint32_t, std::string);
     boost::scoped_ptr<UserDefinedCounters> udc_;
     Timer *udc_cfg_poll_timer_;
     static const int kUDCPollInterval = 120 * 1000; // in ms
-    bool PollUDCCfg() { if(udc_) udc_->PollCfg(); return true; }
-    void PollUDCCfgErrorHandler(std::string err_name, std::string err_message);
     friend class DbHandlerTest;
+
     DISALLOW_COPY_AND_ASSIGN(DbHandler);
 };
 
@@ -240,7 +240,7 @@ class DbHandlerInitializer {
  public:
     typedef boost::function<void(void)> InitializeDoneCb;
     DbHandlerInitializer(EventManager *evm,
-        const std::string &db_name, int db_task_instance,
+        const std::string &db_name,
         const std::string &timer_task_name, InitializeDoneCb callback,
         const std::vector<std::string> &cassandra_ips,
         const std::vector<int> &cassandra_ports,
@@ -250,7 +250,7 @@ class DbHandlerInitializer {
         const std::string &zookeeper_server_list,
         bool use_zookeeper);
     DbHandlerInitializer(EventManager *evm,
-        const std::string &db_name, int db_task_instance,
+        const std::string &db_name,
         const std::string &timer_task_name, InitializeDoneCb callback,
         DbHandlerPtr db_handler);
     virtual ~DbHandlerInitializer();
@@ -267,7 +267,6 @@ class DbHandlerInitializer {
 
     static const int kInitRetryInterval = 10 * 1000; // in ms
     const std::string db_name_;
-    const int db_task_instance_;
     DbHandlerPtr db_handler_;
     InitializeDoneCb callback_;
     Timer *db_init_timer_;
