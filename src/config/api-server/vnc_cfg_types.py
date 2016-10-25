@@ -2392,6 +2392,20 @@ class AlarmServer(Resource, Alarm):
                             except ValueError:
                                 return (False, (400, 'Invalid json_value %s '
                                     'specified in alarm_rules' % (json_val)))
+                        if and_cond['operation'] == 'range':
+                            if json_val is None:
+                                return (False, (400, 'json_value not specified'
+                                    ' for "range" operation'))
+                            val = json.loads(json_val)
+                            if not (isinstance(val, list) and
+                                    len(val) == 2 and
+                                    isinstance(val[0], (int, long, float)) and
+                                    isinstance(val[1], (int, long, float)) and
+                                    val[0] < val[1]):
+                                return (False, (400, 'Invalid json_value %s '
+                                    'for "range" operation. json_value should '
+                                    'be specified as "[x, y]", where x < y' %
+                                    (json_val)))
                     else:
                         return (False, (400, 'operand2 should have '
                             '"uve_attribute" or "json_value"'))

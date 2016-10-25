@@ -1145,6 +1145,51 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
             }
         )
 
+        alarm_config13 = self.get_alarm_config_object(
+            {
+                'name': 'alarm13',
+                'uve_keys': ['key13'],
+                'alarm_severity': AlarmBase.ALARM_MAJOR,
+                'alarm_rules': {
+                    'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'operand1': 'A.B.C',
+                                    'operation': '<',
+                                    'operand2': {
+                                        'uve_attribute': 'A.B.D'
+                                    }
+                                },
+                                {
+                                    'operand1': 'A.B.C',
+                                    'operation': '>',
+                                    'operand2': {
+                                        'json_value': '100'
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            'and_list': [
+                                {
+                                    'operand1': 'A.B.C',
+                                    'operation': 'range',
+                                    'operand2': {
+                                        'json_value': '[500, 1000]'
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                },
+                'kwargs': {
+                    'parent_type': 'global-system-config',
+                    'fq_name': ['global-syscfg-default', 'alarm13']
+                }
+            }
+        )
+
         tests = [
             TestCase(name='operand1 not present/null in UVE',
                 input=TestInput(alarm_cfg=alarm_config1,
@@ -2415,6 +2460,117 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                                             'A.B.__key': '"def"',
                                             'A.B.__value': '"test4"'
                                         }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ])
+            ),
+            TestCase(
+                name='Test operation < and > - no condition match',
+                input=TestInput(alarm_cfg=alarm_config13,
+                    uve_key='table13:host13',
+                    uve={
+                        'A': {
+                            'B': {
+                                'C': 5,
+                                'D': 5
+                            }
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='Test operation < and > - condition match',
+                input=TestInput(alarm_cfg=alarm_config13,
+                    uve_key='table13:host13',
+                    uve={
+                        'A': {
+                            'B': {
+                                'C': 150,
+                                'D': 200
+                            }
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            {
+                                'condition': {
+                                    'operand1': 'A.B.C',
+                                    'operand2': {
+                                        'uve_attribute': 'A.B.D'
+                                    },
+                                    'operation': '<'
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '150',
+                                        'json_operand2_val': '200'
+                                    }
+                                ]
+                            },
+                            {
+                                'condition': {
+                                    'operand1': 'A.B.C',
+                                    'operand2': {
+                                        'json_value': '100'
+                                    },
+                                    'operation': '>'
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '150'
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ])
+            ),
+            TestCase(
+                name='Test range operation - no condition match',
+                input=TestInput(alarm_cfg=alarm_config13,
+                    uve_key='table13:host13',
+                    uve={
+                        'A': {
+                            'B': {
+                                'C': 1500,
+                            }
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='Test range operation - condition match',
+                input=TestInput(alarm_cfg=alarm_config13,
+                    uve_key='table13:host13',
+                    uve={
+                        'A': {
+                            'B': {
+                                'C': 500,
+                            }
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            {
+                                'condition': {
+                                    'operand1': 'A.B.C',
+                                    'operand2': {
+                                        'json_value': '[500, 1000]'
+                                    },
+                                    'operation': 'range'
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '500'
                                     }
                                 ]
                             }
