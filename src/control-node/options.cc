@@ -68,6 +68,10 @@ void Options::Initialize(EventManager &evm,
 
     default_collector_server_list_.push_back("127.0.0.1:8086");
 
+    vector<string> default_config_db_server_list;
+    string default_config_db_server(host_ip + ":9042");
+    default_config_db_server_list.push_back(default_config_db_server);
+
     // Command line and config file options.
     opt::options_description config("Configuration options");
     config.add_options()
@@ -164,6 +168,16 @@ void Options::Initialize(EventManager &evm,
              ifmap_config_options_.server_url), "IFMAP server URL")
         ("IFMAP.user", opt::value<string>()->default_value("control-node"),
              "IFMAP server username")
+        ("IFMAP.config_user",
+             opt::value<string>()->default_value("control-node"),
+             "Config database username")
+        ("IFMAP.config_password",
+             opt::value<string>()->default_value("control-node"),
+             "Config database password")
+        ("IFMAP.config_db_server_list",
+             opt::value<vector<string> >()->default_value(
+             default_config_db_server_list, default_config_db_server),
+             "Config database server list")
         ("IFMAP.stale_entries_cleanup_timeout",
              opt::value<int>()->default_value(300),
              "IFMAP stale entries cleanup timeout")
@@ -300,6 +314,13 @@ bool Options::Process(int argc, char *argv[],
                         "IFMAP.user");
     GetOptValue<string>(var_map, ifmap_config_options_.certs_store,
                         "IFMAP.certs_store");
+    GetOptValue<string>(var_map, ifmap_config_options_.config_db_username,
+                        "IFMAP.config_user");
+    GetOptValue<string>(var_map, ifmap_config_options_.config_db_password,
+                        "IFMAP.config_password");
+    GetOptValue< vector<string> >(var_map,
+                                  ifmap_config_options_.config_db_server_list,
+                                  "IFMAP.config_db_server_list");
     GetOptValue<int>(var_map,
                      ifmap_config_options_.stale_entries_cleanup_timeout,
                      "IFMAP.stale_entries_cleanup_timeout");

@@ -53,6 +53,15 @@ public:
     int ifmap_peer_response_wait_time() const {
         return ifmap_config_options_.peer_response_wait_time;
     }
+    std::string config_db_user() const {
+        return ifmap_config_options_.config_db_username;
+    }
+    std::string config_db_password() const {
+        return ifmap_config_options_.config_db_password;
+    }
+    std::vector<std::string> config_db_server_list() const {
+        return ifmap_config_options_.config_db_server_list;
+    }
     const IFMapConfigOptions &ifmap_config_options() const {
         return ifmap_config_options_;
     }
@@ -68,6 +77,11 @@ public:
     bool gr_helper_bgp_disable() const { return gr_helper_bgp_disable_; }
     bool gr_helper_xmpp_disable() const { return gr_helper_xmpp_disable_; }
     uint32_t sandesh_send_rate_limit() const { return sandesh_ratelimit_; }
+    const std::string cassandra_user() const { return cassandra_user_; }
+    const std::string cassandra_password() const { return cassandra_password_; }
+    const std::vector<std::string> cassandra_server_list() const {
+        return cassandra_server_list_;
+    }
 
 private:
 
@@ -120,6 +134,9 @@ private:
     uint32_t sandesh_ratelimit_;
     bool gr_helper_bgp_disable_;
     bool gr_helper_xmpp_disable_;
+    std::string cassandra_user_;
+    std::string cassandra_password_;
+    std::vector<std::string> cassandra_server_list_;
     std::vector<std::string> default_collector_server_list_;
     boost::program_options::options_description config_file_options_;
 };

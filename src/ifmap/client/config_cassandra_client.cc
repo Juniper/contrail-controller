@@ -12,15 +12,15 @@
 
 #include "sandesh/common/vns_constants.h"
 
-static const std::string kKeyspace = g_vns_constants.API_SERVER_KEYSPACE_NAME;
-static const std::string kUuidTableName = "obj_uuid_table";
-static const std::string kFqnTableName = "obj_fq_name_table";
+const std::string ConfigCassandraClient::kUuidTableName = "obj_uuid_table";
+const std::string ConfigCassandraClient::kFqnTableName = "obj_fq_name_table";
+const std::string ConfigCassandraClient::kCassClientTaskId = "CN:CassClient";
 
 ConfigCassandraClient::ConfigCassandraClient(EventManager *evm,
                                              const IFMapConfigOptions &options)
         : ConfigDbClient(options), evm_(evm) {
     dbif_.reset(new cass::cql::CqlIf(evm, config_db_ips(),
-                GetFirstConfigDbPort(), config_db_user(), config_db_password()));
+                GetFirstConfigDbPort(), "", ""));
 }
 
 ConfigCassandraClient::~ConfigCassandraClient() {
@@ -42,13 +42,12 @@ void ConfigCassandraClient::InitDatabase() {
             InitRetry();
             continue;
         }
-        if (!dbif_->Db_SetTablespace(kKeyspace)) {
+        if (!dbif_->Db_SetTablespace(g_vns_constants.API_SERVER_KEYSPACE_NAME)){
             CONFIG_CASS_CLIENT_DEBUG(ConfigCassInitErrorMessage,
                                      "Setting database keyspace failed");
             InitRetry();
             continue;
         }
-        /*
         if (!dbif_->Db_UseColumnfamily(kUuidTableName)) {
             InitRetry();
             continue;
@@ -57,7 +56,7 @@ void ConfigCassandraClient::InitDatabase() {
             InitRetry();
             continue;
         }
-        */
+        break;
     }
 }
 

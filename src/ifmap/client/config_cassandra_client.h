@@ -16,7 +16,6 @@ class EventManager;
  */
 class ConfigCassandraClient : public ConfigDbClient {
 public:
-    static const std::string kKeyspace;
     static const std::string kUuidTableName;
     static const std::string kFqnTableName;
     static const std::string kCassClientTaskId;
