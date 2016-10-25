@@ -24,8 +24,7 @@
 
 #define MAX_VNET 1
 int fd_table[MAX_VNET];
-#define MAX_TEST_FD 5
-#define MAX_TEST_MPLS 11
+#define MAX_TEST_FD 3
 int test_fd[MAX_TEST_FD];
 
 TestIfKState *TestIfKState::singleton_;
@@ -217,7 +216,7 @@ public:
 
     virtual void SetUp() {
         agent_ = Agent::GetInstance();
-        AddIPAM("vn3", ipam_info, 5);
+        AddIPAM("vn3", ipam_info, MAX_TEST_FD);
         client->WaitForIdle();
     }
 
@@ -317,7 +316,7 @@ TEST_F(KStateTest, MplsDumpTest) {
 
     CreatePorts(0, 0, 0);
     CreatePorts(0, 0, 0);
-    TestMplsKState::Init(-1, true, mpls_count + MAX_TEST_MPLS);
+    TestMplsKState::Init(-1, true, mpls_count + (2 * MAX_TEST_FD) + 1);
     client->WaitForIdle(3);
     client->KStateResponseWait(1);
 
