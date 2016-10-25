@@ -121,8 +121,9 @@ private:
 
 class Icmpv6RouteState : public DBState {
 public:
-    static const uint32_t kMaxRetry = 20;
-    static const uint32_t kTimeout = 1000;
+    static const uint32_t kMaxRetry = 30 * 5; //retries upto 5 minutes,
+                                              //30 tries/per minutes
+    static const uint32_t kTimeout = 2000;
     typedef std::map<uint32_t, uint32_t> WaitForTrafficIntfMap;
 
     Icmpv6RouteState(Icmpv6VrfState *vrf_state, uint32_t vrf_id,
