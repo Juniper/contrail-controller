@@ -355,8 +355,12 @@ class AlarmProcessor(object):
             return val1 == val2
         elif operation == '!=':
             return val1 != val2
+        elif operation == '<':
+            return val1 < val2
         elif operation == '<=':
             return val1 <= val2
+        elif operation == '>':
+            return val1 > val2
         elif operation == '>=':
             return val1 >= val2
         elif operation == 'in':
@@ -367,6 +371,8 @@ class AlarmProcessor(object):
             if not isinstance(val2, list):
                 return True
             return val1 not in val2
+        elif operation == 'range':
+            return val2[0] <= val1 <= val2[1]
         elif operation == 'size==':
             if not isinstance(val1, list):
                 return False
