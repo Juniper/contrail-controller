@@ -19,11 +19,6 @@ static const std::map<string, Address::Family>
         ("inet-vpn", Address::INETVPN) 
         ("inet6-vpn", Address::INET6VPN) 
         ("route-target", Address::RTARGET) 
-        ("inet-flow", Address::INETFLOW) 
-        ("inet-vpn-flow", Address::INETVPNFLOW)
-        ("inetmcast", Address::INETMCAST)
-        ("inet6mcast", Address::INET6MCAST)
-        ("enet", Address::ENET)
         ("e-vpn", Address::EVPN)
         ("erm-vpn", Address::ERMVPN);
 
@@ -35,11 +30,6 @@ static const std::map<Address::Family, string>
         (Address::INETVPN, "inet-vpn") 
         (Address::INET6VPN, "inet6-vpn") 
         (Address::RTARGET, "route-target") 
-        (Address::INETFLOW, "inet-flow") 
-        (Address::INETVPNFLOW, "inet-vpn-flow")
-        (Address::INETMCAST, "inetmcast")
-        (Address::INET6MCAST, "inet6mcast")
-        (Address::ENET, "enet")
         (Address::EVPN, "e-vpn")
         (Address::ERMVPN, "erm-vpn");
 
@@ -51,11 +41,6 @@ static const std::map<string, Address::Family>
         ("l3vpn", Address::INETVPN)
         ("l3vpn-inet6", Address::INET6VPN)
         ("rtarget", Address::RTARGET)
-        ("inetflow", Address::INETFLOW)
-        ("invpnflow", Address::INETVPNFLOW)
-        ("inetmcast", Address::INETMCAST)
-        ("inet6mcast", Address::INET6MCAST)
-        ("enet", Address::ENET)
         ("evpn", Address::EVPN)
         ("ermvpn", Address::ERMVPN);
 
@@ -67,11 +52,6 @@ static const std::map<Address::Family, string>
         (Address::INETVPN, "l3vpn")
         (Address::INET6VPN, "l3vpn-inet6")
         (Address::RTARGET, "rtarget")
-        (Address::INETFLOW, "inetflow")
-        (Address::INETVPNFLOW, "invpnflow")
-        (Address::INETMCAST, "inetmcast")
-        (Address::INET6MCAST, "inet6mcast")
-        (Address::ENET, "enet")
         (Address::EVPN, "evpn")
         (Address::ERMVPN, "ermvpn");
 
