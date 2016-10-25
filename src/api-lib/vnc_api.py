@@ -1151,6 +1151,7 @@ class VncApi(object):
     validate user token. Optionally, check token authorization for an object.
     rv {'token_info': <token-info>, 'permissions': 'RWX'}
     """
+    @check_homepage
     def obj_perms(self, token, obj_uuid=None):
         self._headers['X-USER-TOKEN'] = token
         query = 'uuid=%s' % obj_uuid if obj_uuid else ''
