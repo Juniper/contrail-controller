@@ -21,6 +21,8 @@
 #include "bgp/bgp_xmpp_channel.h"
 #include "bgp/bgp_xmpp_sandesh.h"
 #include "bgp/inet/inet_table.h"
+#include "bgp/inet6/inet6_table.h"
+#include "bgp/inet6vpn/inet6vpn_table.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/test/bgp_server_test_util.h"
@@ -429,6 +431,13 @@ protected:
                                std::vector<GRTestParams> &n_flipping_agents);
     void ProcessVpnRoute(BgpPeerTest *peer, int instance,
                          int n_routes, bool add);
+    void ProcessInetVpnRoute(BgpPeerTest *peer, int instance, int n_routes,
+                             bool add);
+    void ProcessInet6VpnRoute(BgpPeerTest *peer, int instance, int n_routes,
+                              bool add);
+    Inet6Prefix GetIPv6Prefix(int agent_id, int instance, int route_id) const;
+    Inet6VpnPrefix GetIPv6VpnPrefix(int peer_id, int instance, int rt) const;
+    string GetEnetPrefix(string inet_prefix) const;
     void ProcessFlippingPeers(int &total_routes, int remaining_instances,
         vector<GRTestParams> &n_flipping_peers);
 
@@ -708,6 +717,7 @@ string GracefulRestartTest::GetConfig(bool delete_config) {
                         <admin-down>false</admin-down>\
                         <address-families>\
                             <family>inet-vpn</family>\
+                            <family>inet6-vpn</family>\
                             <family>e-vpn</family>\
                             <family>erm-vpn</family>\
                             <family>route-target</family>\
@@ -849,7 +859,7 @@ void GracefulRestartTest::CreateAgents() {
             for (int k = 1; k <= n_instances_; k++) {
                 string instance_name =
                     "instance" + boost::lexical_cast<string>(k);
-                agent->Subscribe(instance_name, k);
+                agent->SubscribeAll(instance_name, k);
             }
         }
     }
@@ -858,10 +868,10 @@ void GracefulRestartTest::CreateAgents() {
 void GracefulRestartTest::Subscribe() {
 
     BOOST_FOREACH(test::NetworkAgentMock *agent, xmpp_agents_) {
-        agent->Subscribe(BgpConfigManager::kMasterInstance, -1);
+        agent->SubscribeAll(BgpConfigManager::kMasterInstance, -1);
         for (int i = 1; i <= n_instances_; i++) {
             string instance_name = "instance" + boost::lexical_cast<string>(i);
-            agent->Subscribe(instance_name, i);
+            agent->SubscribeAll(instance_name, i);
         }
     }
     WaitForIdle();
@@ -870,10 +880,10 @@ void GracefulRestartTest::Subscribe() {
 void GracefulRestartTest::Unsubscribe() {
 
     BOOST_FOREACH(test::NetworkAgentMock *agent, xmpp_agents_) {
-        agent->Unsubscribe(BgpConfigManager::kMasterInstance);
+        agent->UnsubscribeAll(BgpConfigManager::kMasterInstance);
         for (int i = 1; i <= n_instances_; i++) {
             string instance_name = "instance" + boost::lexical_cast<string>(i);
-            agent->Unsubscribe(instance_name);
+            agent->UnsubscribeAll(instance_name);
         }
     }
     VerifyReceivedXmppRoutes(0);
@@ -891,6 +901,12 @@ test::NextHops GracefulRestartTest::GetNextHops (test::NetworkAgentMock *agent,
 
 void GracefulRestartTest::ProcessVpnRoute(BgpPeerTest *peer, int instance,
                                           int n_routes, bool add) {
+    ProcessInetVpnRoute(peer, instance, n_routes, add);
+    ProcessInet6VpnRoute(peer, instance, n_routes, add);
+}
+
+void GracefulRestartTest::ProcessInetVpnRoute(BgpPeerTest *peer, int instance,
+                                              int n_routes, bool add) {
 
     RoutingInstance *rtinstance = static_cast<RoutingInstance *>(
         peer->server()->routing_instance_mgr()->GetRoutingInstance(
@@ -937,6 +953,59 @@ void GracefulRestartTest::ProcessVpnRoute(BgpPeerTest *peer, int instance,
     WaitForIdle();
 }
 
+Inet6VpnPrefix GracefulRestartTest::GetIPv6VpnPrefix(int peer_id,
+        int instance, int rt) const {
+    string pre_prefix = "65412:" + integerToString(peer_id) +
+        ":2001:bbbb:bbbb::";
+    string peer_id_str = integerToHexString(peer_id);
+    string instance_id_str = integerToHexString(instance);
+    string route_id_str = integerToHexString(rt + 1);
+    string prefix_str = pre_prefix + peer_id_str + ":" +
+                        instance_id_str + ":" + route_id_str + "/128";
+    return Inet6VpnPrefix::FromString(prefix_str);
+}
+
+void GracefulRestartTest::ProcessInet6VpnRoute(BgpPeerTest *peer, int instance,
+                                               int n_routes, bool add) {
+    RoutingInstance *rtinstance = static_cast<RoutingInstance *>(
+        peer->server()->routing_instance_mgr()->GetRoutingInstance(
+            BgpConfigManager::kMasterInstance));
+    BgpTable *table = rtinstance->GetTable(Address::INET6VPN);
+
+    DBRequest req;
+    boost::scoped_ptr<BgpAttrLocalPref> local_pref;
+    boost::scoped_ptr<ExtCommunitySpec> commspec;
+
+    for (int rt = 0; rt < n_routes; rt++) {
+        Inet6VpnPrefix inet6vpn_prefix =
+            GetIPv6VpnPrefix(peer->id(), instance, rt + 1);
+        req.key.reset(new Inet6VpnTable::RequestKey(inet6vpn_prefix, NULL));
+        req.oper = add ? DBRequest::DB_ENTRY_ADD_CHANGE :
+                         DBRequest::DB_ENTRY_DELETE;
+
+        local_pref.reset(new BgpAttrLocalPref(100));
+
+        BgpAttrSpec attr_spec;
+        attr_spec.push_back(local_pref.get());
+
+        BgpAttrNextHop nexthop(0x7f010000 + peer->id());
+        attr_spec.push_back(&nexthop);
+
+        commspec.reset(CreateRouteTargets());
+
+        TunnelEncap tun_encap(std::string("gre"));
+        commspec->communities.push_back(get_value(
+                    tun_encap.GetExtCommunity().begin(), 8));
+        attr_spec.push_back(commspec.get());
+        BgpAttrPtr attr = peer->server()->attr_db()->Locate(attr_spec);
+
+        req.data.reset(new Inet6Table::RequestData(attr, 0,
+                                                   1000*instance + rt));
+        table->Enqueue(&req);
+    }
+    WaitForIdle();
+}
+
 void GracefulRestartTest::AddOrDeleteBgpRoutes(bool add, int n_routes,
                                                int down_peers) {
     if (n_routes ==-1)
@@ -951,6 +1020,26 @@ void GracefulRestartTest::AddOrDeleteBgpRoutes(bool add, int n_routes,
         for (int i = 1; i <= n_instances_; i++)
             ProcessVpnRoute(peer, i, n_routes, add);
     }
+}
+
+Inet6Prefix GracefulRestartTest::GetIPv6Prefix(int agent_id, int instance_id,
+        int route_id) const {
+    string inet6_prefix_str = "2001:aaaa:aaaa::" +
+        integerToHexString(agent_id) + ":" + integerToHexString(instance_id) +
+        ":" + integerToHexString(route_id + 1) + "/128";
+    return Inet6Prefix::FromString(inet6_prefix_str);
+}
+
+// Generate enet address from a inet address.
+string GracefulRestartTest::GetEnetPrefix(string inet_prefix) const {
+    vector<string> octets;
+    boost::split(octets, inet_prefix, boost::is_any_of("/."));
+
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:00:00",
+             atoi(octets[0].c_str()), atoi(octets[1].c_str()),
+             atoi(octets[2].c_str()), atoi(octets[3].c_str()));
+    return string(buf);
 }
 
 void GracefulRestartTest::AddOrDeleteXmppRoutes(bool add, int n_routes,
@@ -971,13 +1060,25 @@ void GracefulRestartTest::AddOrDeleteXmppRoutes(bool add, int n_routes,
             Ip4Prefix prefix(Ip4Prefix::FromString(
                 "10." + boost::lexical_cast<string>(i) + "." +
                 boost::lexical_cast<string>(agent->id()) + ".1/32"));
+
             for (int rt = 0; rt < n_routes; rt++,
                 prefix = task_util::Ip4PrefixIncrement(prefix)) {
+                Inet6Prefix inet6_prefix = GetIPv6Prefix(agent->id(), i,
+                                                         rt + 1);
                 if (add) {
                     agent->AddRoute(instance_name, prefix.ToString(),
                                     GetNextHops(agent, i));
+                    agent->AddEnetRoute(instance_name,
+                                        GetEnetPrefix(prefix.ToString()),
+                                        GetNextHops(agent, i));
+                    agent->AddInet6Route(instance_name, inet6_prefix.ToString(),
+                                         GetNextHops(agent, i));
                 } else {
                     agent->DeleteRoute(instance_name, prefix.ToString());
+                    agent->DeleteEnetRoute(instance_name,
+                                           GetEnetPrefix(prefix.ToString()));
+                    agent->DeleteInet6Route(instance_name,
+                                            inet6_prefix.ToString());
                 }
             }
         }
@@ -998,8 +1099,11 @@ void GracefulRestartTest::VerifyReceivedXmppRoutes(int routes) {
             if (!agent->HasSubscribed(instance_name))
                 continue;
             TASK_UTIL_EXPECT_EQ_MSG(routes, agent->RouteCount(instance_name),
-                                    "Agent " + agent->ToString() +
-                                    ": Wait for routes in " + instance_name);
+                "Agent " + agent->ToString() +
+                ": Wait for ipv4 routes in " + instance_name);
+            TASK_UTIL_EXPECT_EQ_MSG(routes, agent->Inet6RouteCount(
+                instance_name), "Agent " + agent->ToString() +
+                ": Wait for ipv6 routes in " + instance_name);
         }
     }
     WaitForIdle();
@@ -1042,7 +1146,7 @@ void GracefulRestartTest::DeleteRoutingInstances(vector<int> instances,
                 continue;
             if (std::find(dont_unsubscribe.begin(), dont_unsubscribe.end(),
                           agent) == dont_unsubscribe.end())
-                agent->Unsubscribe(instance_name, -1, true, false);
+                agent->UnsubscribeAll(instance_name);
         }
 
         BOOST_FOREACH(BgpPeerTest *peer, bgp_peers_) {
@@ -1207,7 +1311,7 @@ void GracefulRestartTest::ProcessFlippingAgents(int &total_routes,
             WaitForAgentToBeEstablished(agent);
 
             // Subset of subscriptions after restart
-            agent->Subscribe(BgpConfigManager::kMasterInstance, -1);
+            agent->SubscribeAll(BgpConfigManager::kMasterInstance, -1);
 
             for (size_t i = 0; i < gr_test_param.instance_ids.size(); i++) {
                 int instance_id = gr_test_param.instance_ids[i];
@@ -1222,7 +1326,7 @@ void GracefulRestartTest::ProcessFlippingAgents(int &total_routes,
 
                 string instance_name = "instance" +
                     boost::lexical_cast<string>(instance_id);
-                agent->Subscribe(instance_name, instance_id);
+                agent->SubscribeAll(instance_name, instance_id);
 
                 // Subset of routes are [re]advertised after restart
                 Ip4Prefix prefix(Ip4Prefix::FromString(
@@ -1231,8 +1335,15 @@ void GracefulRestartTest::ProcessFlippingAgents(int &total_routes,
                 int nroutes = gr_test_param.nroutes[i];
                 for (int rt = 0; rt < nroutes; rt++,
                     prefix = task_util::Ip4PrefixIncrement(prefix)) {
+                    Inet6Prefix inet6_prefix =
+                        GetIPv6Prefix(agent->id(), instance_id, rt + 1);
                     agent->AddRoute(instance_name, prefix.ToString(),
                                         GetNextHops(agent, instance_id));
+                    agent->AddEnetRoute(instance_name,
+                                        GetEnetPrefix(prefix.ToString()),
+                                        GetNextHops(agent, instance_id));
+                    agent->AddInet6Route(instance_name, inet6_prefix.ToString(),
+                                         GetNextHops(agent, instance_id));
                 }
                 total_routes += nroutes;
             }
@@ -1574,7 +1685,7 @@ void GracefulRestartTest::GracefulRestartTestRun () {
         WaitForAgentToBeEstablished(agent);
 
         // Subset of subscriptions after restart
-        agent->Subscribe(BgpConfigManager::kMasterInstance, -1);
+        agent->SubscribeAll(BgpConfigManager::kMasterInstance, -1);
         for (size_t i = 0; i < gr_test_param.instance_ids.size(); i++) {
             int instance_id = gr_test_param.instance_ids[i];
             if (std::find(instances_to_delete_before_gr_.begin(),
@@ -1587,7 +1698,7 @@ void GracefulRestartTest::GracefulRestartTestRun () {
                 continue;
             string instance_name = "instance" +
                 boost::lexical_cast<string>(instance_id);
-            agent->Subscribe(instance_name, instance_id);
+            agent->SubscribeAll(instance_name, instance_id);
 
             // Subset of routes are [re]advertised after restart
             Ip4Prefix prefix(Ip4Prefix::FromString(
@@ -1596,8 +1707,15 @@ void GracefulRestartTest::GracefulRestartTestRun () {
             int nroutes = gr_test_param.nroutes[i];
             for (int rt = 0; rt < nroutes; rt++,
                 prefix = task_util::Ip4PrefixIncrement(prefix)) {
+                Inet6Prefix inet6_prefix =
+                    GetIPv6Prefix(agent->id(), instance_id, rt + 1);
                 agent->AddRoute(instance_name, prefix.ToString(),
                                     GetNextHops(agent, instance_id));
+                agent->AddEnetRoute(instance_name,
+                                    GetEnetPrefix(prefix.ToString()),
+                                    GetNextHops(agent, instance_id));
+                agent->AddInet6Route(instance_name, inet6_prefix.ToString(),
+                                     GetNextHops(agent, instance_id));
             }
             total_routes += nroutes;
         }
