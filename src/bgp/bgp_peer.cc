@@ -326,20 +326,7 @@ void BgpPeer::BGPPeerInfoSend(const BgpPeerInfoData &peer_info) const {
 }
 
 bool BgpPeer::CanUseMembershipManager() const {
-    if (membership_req_pending_)
-        return false;
-
-#if 0
-    // Make sure that registration is complete for all negotiated families.
-    RoutingInstance *instance = GetRoutingInstance();
-    BgpMembershipManager *membership_mgr = server_->membership_mgr();
-    BOOST_FOREACH(string family, negotiated_families_) {
-        BgpTable *table = instance->GetTable(Address::FamilyFromString(family));
-        if (!membership_mgr->IsRegistered(this, table))
-            return false;
-    }
-#endif
-    return true;
+    return !membership_req_pending_;
 }
 
 //
@@ -1027,7 +1014,17 @@ bool BgpPeer::AcceptSession(BgpSession *session) {
 }
 
 void BgpPeer::Register(BgpTable *table, const RibExportPolicy &policy) {
-    assert(!close_manager_->IsMembershipInUse());
+    // In a highly corner case scenario, GR timer could fire right after a
+    // session comes back up. In that case, CloseManager possibly could still
+    // be using membership manager. Instead of creating a queue of these
+    // register requests until close manager is done processing and process
+    // them later, we could just as well just reset the session.
+    if (close_manager_->IsMembershipInUse()) {
+        BGP_LOG_PEER(Config, this, SandeshLevel::SYS_NOTICE, BGP_LOG_FLAG_ALL,
+                     BGP_PEER_DIR_IN, "Session cleared due to GR not ready");
+        Close(false);
+    }
+
     if (close_manager_->IsMembershipInWait())
         assert(membership_req_pending_ > 0);
     BgpMembershipManager *membership_mgr = server_->membership_mgr();
@@ -1039,7 +1036,12 @@ void BgpPeer::Register(BgpTable *table, const RibExportPolicy &policy) {
 }
 
 void BgpPeer::Register(BgpTable *table) {
-    assert(!close_manager_->IsMembershipInUse());
+    if (close_manager_->IsMembershipInUse()) {
+        BGP_LOG_PEER(Config, this, SandeshLevel::SYS_NOTICE, BGP_LOG_FLAG_ALL,
+                     BGP_PEER_DIR_IN, "Session cleared due to GR not ready");
+        Close(false);
+    }
+
     if (close_manager_->IsMembershipInWait())
         assert(membership_req_pending_ > 0);
     BgpMembershipManager *membership_mgr = server_->membership_mgr();
