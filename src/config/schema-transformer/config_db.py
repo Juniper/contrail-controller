@@ -225,7 +225,7 @@ class GlobalSystemConfigST(DBBaseST):
                 logical_router.add_route_target(new_rtgt_obj.obj) 
                 cls._vnc_lib.logical_router_update(logical_router)
 
-            RouteTargetST.delete(old_rtgt_obj.get_fq_name()[0])
+            RouteTargetST.delete_vnc_obj(old_rtgt_obj.get_fq_name()[0])
 
         cls._autonomous_system = int(new_asn)
     # end update_autonomous_system
@@ -783,7 +783,7 @@ class VirtualNetworkST(DBBaseST):
 
         for rt in rt_del - (rt_add | rt_add_export | rt_add_import):
             try:
-                RouteTargetST.delete(rt)
+                RouteTargetST.delete_vnc_obj(rt)
             except RefsExistError:
                 # if other routing instances are referring to this target,
                 # it will be deleted when those instances are deleted
@@ -1351,10 +1351,11 @@ class RouteTargetST(DBBaseST):
 
     def update(self, obj=None):
         pass
-
-    def delete_obj(self):
-        self._vnc_lib.route_target_delete(fq_name=[self.name])
-    # end delete_obj
+    @classmethod
+    def delete_vnc_obj(cls, key):
+        cls._vnc_lib.route_target_delete(fq_name=[key])
+        del cls._dict[key]
+    # end delete_vnc_obj
 # end RoutTargetST
 
 # a struct to store attributes related to Network Policy needed by schema
@@ -2073,7 +2074,7 @@ class RoutingInstanceST(DBBaseST):
         if 0 < old_rtgt < common.BGP_RTGT_MIN_ID:
             rt_key = "target:%s:%d" % (
                 GlobalSystemConfigST.get_autonomous_system(), old_rtgt)
-            RouteTargetST.delete(rt_key)
+            RouteTargetST.delete_vnc_obj(rt_key)
     # end locate_route_target
 
     def get_fq_name(self):
@@ -2329,7 +2330,7 @@ class RoutingInstanceST(DBBaseST):
 
         for rtgt in rtgt_list or []:
             try:
-                RouteTargetST.delete(rtgt['to'][0])
+                RouteTargetST.delete_vnc_obj(rtgt['to'][0])
             except RefsExistError:
                 # if other routing instances are referring to this target,
                 # it will be deleted when those instances are deleted
@@ -3755,7 +3756,7 @@ class LogicalRouterST(DBBaseST):
             self._vnc_lib.logical_router_update(self.obj)
 
         if old_rt_key:
-            RouteTargetST.delete(old_rt_key)
+            RouteTargetST.delete_vnc_obj(old_rt_key)
         self.route_target = rt_key
 
         self.update(self.obj)
@@ -3776,7 +3777,7 @@ class LogicalRouterST(DBBaseST):
         self.update_virtual_networks()
         rtgt_num = int(self.route_target.split(':')[-1])
         self._cassandra.free_route_target_by_number(rtgt_num)
-        RouteTargetST.delete(self.route_target)
+        RouteTargetST.delete_vnc_obj(self.route_target)
     # end delete_obj
 
     def update_virtual_networks(self):
@@ -3827,7 +3828,7 @@ class LogicalRouterST(DBBaseST):
                 ri_obj = vn_obj.get_primary_routing_instance()
                 ri_obj.update_route_target_list(rt_del=[old_rt],
                                                 rt_add=[rt_key])
-        RouteTargetST.delete(old_rt)
+        RouteTargetST.delete_vnc_obj(old_rt)
         self.route_target = rt_key
     # end update_autonomous_system
 
