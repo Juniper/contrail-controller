@@ -435,8 +435,8 @@ FlowEntry *FlowEntry::Allocate(const FlowKey &key, FlowTable *flow_table) {
 // When flow is being updated, rhs will be new flow allocated in PktFlowInfo
 void FlowEntry::Copy(FlowEntry *rhs, bool update) {
     if (update) {
-        rhs->data_.in_vm_entry.FreeFd();
-        rhs->data_.out_vm_entry.FreeFd();
+        rhs->data_.in_vm_entry.Reset(false);
+        rhs->data_.out_vm_entry.Reset(false);
     } else {
         // The operator= below will call VmFlowRef operator=. In case of flow
         // eviction, we want to move ownership from rhs to lhs. However rhs is
