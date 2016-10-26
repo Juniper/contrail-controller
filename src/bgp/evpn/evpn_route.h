@@ -12,6 +12,7 @@
 
 #include "bgp/bgp_route.h"
 #include "bgp/inet/inet_route.h"
+#include "bgp/inet6/inet6_route.h"
 #include "net/address.h"
 #include "net/bgp_af.h"
 #include "net/esi.h"
@@ -31,19 +32,24 @@ public:
     static const size_t kRdSize;
     static const size_t kEsiSize;
     static const size_t kTagSize;
+    static const size_t kIp4AddrSize;
+    static const size_t kIp6AddrSize;
     static const size_t kMacSize;
     static const size_t kLabelSize;
     static const size_t kMinAutoDiscoveryRouteSize;
     static const size_t kMinMacAdvertisementRouteSize;
     static const size_t kMinInclusiveMulticastRouteSize;
     static const size_t kMinSegmentRouteSize;
+    static const size_t kMinInetPrefixRouteSize;
+    static const size_t kMinInet6PrefixRouteSize;
 
     enum RouteType {
         Unspecified = 0,
         AutoDiscoveryRoute = 1,
         MacAdvertisementRoute = 2,
         InclusiveMulticastRoute = 3,
-        SegmentRoute = 4
+        SegmentRoute = 4,
+        IpPrefixRoute = 5
     };
 
     EvpnPrefix();
@@ -57,6 +63,8 @@ public:
         const IpAddress &ip_address);
     EvpnPrefix(const RouteDistinguisher &rd, const EthernetSegmentId &esi,
         const IpAddress &ip_address);
+    EvpnPrefix(const RouteDistinguisher &rd, uint32_t tag,
+        const IpAddress &ip_address, uint8_t ip_prefixlen);
 
     void BuildProtoPrefix(const BgpAttr *attr, uint32_t label,
         BgpProtoPrefix *proto_prefix) const;
@@ -80,6 +88,13 @@ public:
     Address::Family family() const { return family_; }
     IpAddress ip_address() const { return ip_address_; }
     uint8_t ip_address_length() const;
+    uint8_t ip_prefix_length() const { return ip_prefixlen_; }
+    Ip4Prefix inet_prefix() const {
+        return Ip4Prefix(ip_address_.to_v4(), ip_prefixlen_);
+    }
+    Inet6Prefix inet6_prefix() const {
+        return Inet6Prefix(ip_address_.to_v6(), ip_prefixlen_);
+    }
     void set_route_distinguisher(const RouteDistinguisher &rd) { rd_ = rd; }
 
 private:
@@ -90,10 +105,11 @@ private:
     MacAddress mac_addr_;
     Address::Family family_;
     IpAddress ip_address_;
+    uint8_t ip_prefixlen_;
 
     size_t GetIpAddressSize() const;
     void ReadIpAddress(const BgpProtoPrefix &proto_prefix,
-        size_t ip_size, size_t ip_offset);
+        size_t ip_offset, size_t ip_size, size_t ip_psize);
     void WriteIpAddress(BgpProtoPrefix *proto_prefix, size_t ip_offset) const;
 };
 

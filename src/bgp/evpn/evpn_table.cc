@@ -136,6 +136,8 @@ BgpRoute *EvpnTable::RouteReplicate(BgpServer *server,
         return NULL;
     if (evpn_prefix.type() == EvpnPrefix::SegmentRoute)
         return NULL;
+    if (evpn_prefix.type() == EvpnPrefix::IpPrefixRoute)
+        return NULL;
     if (evpn_prefix.type() == EvpnPrefix::MacAdvertisementRoute &&
         evpn_prefix.mac_addr().IsBroadcast())
         return NULL;
