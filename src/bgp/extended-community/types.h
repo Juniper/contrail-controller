@@ -36,6 +36,7 @@ struct BgpExtendedCommunityEvpnSubType {
         MacMobility = 0x00,
         EsiMplsLabel = 0x01,
         EsImport = 0x02,
+        RouterMac = 0x03,
     };
 };
 

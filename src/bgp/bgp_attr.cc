@@ -9,6 +9,7 @@
 
 #include "bgp/bgp_server.h"
 #include "bgp/extended-community/mac_mobility.h"
+#include "bgp/extended-community/router_mac.h"
 #include "net/bgp_af.h"
 
 using std::sort;
@@ -964,6 +965,20 @@ uint32_t BgpAttr::sequence_number() const {
         }
     }
     return 0;
+}
+
+MacAddress BgpAttr::mac_address() const {
+    if (!ext_community_)
+        return MacAddress::kZeroMac;
+    for (ExtCommunity::ExtCommunityList::const_iterator it =
+         ext_community_->communities().begin();
+         it != ext_community_->communities().end(); ++it) {
+        if (ExtCommunity::is_router_mac(*it)) {
+            RouterMac router_mac(*it);
+            return router_mac.mac_address();
+        }
+    }
+    return MacAddress::kZeroMac;
 }
 
 void BgpAttr::Remove() {
