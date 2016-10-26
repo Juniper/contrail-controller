@@ -78,6 +78,15 @@ class PushConfigState(object):
 
 # end PushConfigState
 
+class DeviceConnect(object):
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def send_netconf(obj, new_config, default_operation="merge", operation="replace"):
+        return obj.send_netconf(new_config, default_operation, operation)
+# end DeviceConnect
+
 class PhysicalRouterConfig(object):
     # mapping from contrail family names to junos
     _FAMILY_MAP = {
@@ -760,7 +769,7 @@ class PhysicalRouterConfig(object):
 
     def delete_bgp_config(self):
         self.reset_bgp_config()
-        self.send_netconf(Groups(), default_operation="none", operation="delete")
+        DeviceConnect.send_netconf(self, Groups(), default_operation="none", operation="delete")
     # end delete_config
 
     def add_bgp_peer(self, router, params, attr, external):
@@ -844,7 +853,7 @@ class PhysicalRouterConfig(object):
         groups.set_forwarding_options(self.forwarding_options_config)
         groups.set_routing_options(self.global_routing_options_config)
         groups.set_protocols(self.proto_config)
-        return self.send_netconf(groups)
+        return DeviceConnect.send_netconf(self, groups)
     # end send_bgp_config
 
 # end PhycalRouterConfig

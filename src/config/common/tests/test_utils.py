@@ -1573,6 +1573,22 @@ netconf_managers = {}
 def fake_netconf_connect(host, *args, **kwargs):
     return netconf_managers.setdefault(host, FakeNetconfManager(args, kwargs))
 
+class FakeDeviceConnect(object):
+    parms = {}
+    def __init__(self):
+        pass
+    @staticmethod
+    def send_netconf(obj, new_config, default_operation="merge", operation="replace"):
+        FakeDeviceConnect.params = { "pr": obj, "config": new_config, "default_operation": default_operation, "operation": operation}
+        return 1024 #size new_config
+
+    @staticmethod
+    def get_xml_config():
+        return FakeDeviceConnect.params.get('config')
+# end
+
+def fake_send_netconf(obj, new_config, default_operation="merge", operation="replace"):
+    return FakeDeviceConnect.send_netconf(obj, new_config, default_operation, operation)
 
 class FakeVncApiStatsLog(object):
     _all_logs = []
