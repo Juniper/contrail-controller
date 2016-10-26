@@ -575,7 +575,7 @@ class VncIfmapClient(object):
     def _delete_id_self_meta(self, self_imid, meta_name):
         mapclient = self._mapclient
         contrail_metaname = 'contrail:' + meta_name if meta_name else None
-        del_str = self._build_request(self_imid, 'self', [contrail_metaname], 
+        del_str = self._build_request(self_imid, 'self', [contrail_metaname],
                                       True)
         self._publish_to_ifmap_enqueue('delete', del_str)
 
@@ -585,7 +585,14 @@ class VncIfmapClient(object):
             if not self._id_to_metas[self_imid]:
                 del self._id_to_metas[self_imid]
         else:
-            del self._id_to_metas[self_imid]
+            try:
+                del self._id_to_metas[self_imid]
+            except KeyError:
+                # Case of delete received for an id which we do not know about.
+                # Could be a case of duplicate delete.
+                # There is nothing for us to do here. Just log and proceed.
+                msg = "Delete received for unknown ID (%s)." % (self_imid)
+                self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
     # end _delete_id_self_meta
 
     def _delete_id_pair_meta_list(self, id1, meta_list):
