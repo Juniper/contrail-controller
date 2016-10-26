@@ -125,6 +125,16 @@ void DiagPktHandler::SendTimeExceededPacket() {
     // Retain the agent-header before ethernet header
     uint16_t len = (char *)pkt_info_->eth - (char *)pkt_info_->pkt;
 
+    Ip4Address src_ip = agent()->router_id();
+    VmInterface *vm_itf = dynamic_cast<VmInterface *>
+        (agent()->interface_table()->FindInterface(GetInterfaceIndex()));
+    if (vm_itf && vm_itf->vn()) {
+        const VnIpam *ipam = vm_itf->vn()->GetIpam(pkt_info_->ip_saddr.to_v4());
+        if (ipam) {
+            src_ip = ipam->default_gw.to_v4();
+        }
+    }
+
     // Form ICMP Packet with EthHdr - IP Header - ICMP Header
     len += EthHdr(ptr + len, buf_len - len, agent()->vhost_interface()->mac(),
                   MacAddress(pkt_info_->eth->ether_shost), ETHERTYPE_IP,
@@ -132,7 +142,7 @@ void DiagPktHandler::SendTimeExceededPacket() {
 
     uint16_t ip_len = sizeof(iphdr) + 8 + icmp_len;
     len += IpHdr(ptr + len, buf_len - len, ip_len,
-                 htonl(agent()->router_id().to_ulong()),
+                 htonl(src_ip.to_ulong()),
                  htonl(pkt_info_->ip_saddr.to_v4().to_ulong()),
                  IPPROTO_ICMP, DEFAULT_IP_ID, DEFAULT_IP_TTL);
 
