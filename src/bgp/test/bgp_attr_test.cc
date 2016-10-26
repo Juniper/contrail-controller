@@ -14,9 +14,11 @@
 #include "bgp/bgp_server.h"
 #include "bgp/evpn/evpn_route.h"
 #include "bgp/extended-community/mac_mobility.h"
+#include "bgp/extended-community/router_mac.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "control-node/control_node.h"
 #include "net/community_type.h"
+#include "net/mac_address.h"
 
 using boost::assign::list_of;
 using boost::system::error_code;
@@ -1138,6 +1140,30 @@ TEST_F(BgpAttrTest, SequenceNumber2) {
     attr_spec.push_back(&spec);
     BgpAttrPtr attr = attr_db_->Locate(attr_spec);
     EXPECT_EQ(13, attr->sequence_number());
+}
+
+TEST_F(BgpAttrTest, RouterMac1) {
+    BgpAttrSpec attr_spec;
+    ExtCommunitySpec spec;
+    for (int idx = 1; idx < 5; idx++)
+        spec.communities.push_back(100 * idx);
+    attr_spec.push_back(&spec);
+    BgpAttrPtr attr = attr_db_->Locate(attr_spec);
+    EXPECT_TRUE(attr->mac_address().IsZero());
+}
+
+TEST_F(BgpAttrTest, RouterMac2) {
+    BgpAttrSpec attr_spec;
+    boost::system::error_code ec;
+    MacAddress mac_addr = MacAddress::FromString("01:02:03:04:05:06", &ec);
+    EXPECT_EQ(0, ec.value());
+    RouterMac router_mac(mac_addr);
+    ExtCommunitySpec spec;
+    spec.communities.push_back(router_mac.GetExtCommunityValue());
+    attr_spec.push_back(&spec);
+    BgpAttrPtr attr = attr_db_->Locate(attr_spec);
+    EXPECT_FALSE(attr->mac_address().IsZero());
+    EXPECT_EQ(mac_addr, attr->mac_address());
 }
 
 TEST_F(BgpAttrTest, OriginVnPathToString) {

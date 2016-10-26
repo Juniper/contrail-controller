@@ -21,6 +21,7 @@
 #include "bgp/community.h"
 #include "net/address.h"
 #include "net/esi.h"
+#include "net/mac_address.h"
 #include "net/rd.h"
 
 class BgpAttr;
@@ -852,6 +853,7 @@ public:
     BgpOListPtr leaf_olist() const { return leaf_olist_; }
     BgpAttrDB *attr_db() const { return attr_db_; }
     uint32_t sequence_number() const;
+    MacAddress mac_address() const;
 
 private:
     friend class BgpAttrDB;
