@@ -301,7 +301,7 @@ class Subnet(object):
             if (gw_ip >= start_ip and gw_ip <= end_ip):
                 #gw_ip is part of this alloc_pool, block another alloc_unit
                 # only if gw_ip is not a part of already counted block units.
-                if ((int(gw_ip) - int(start_ip) >= ip_alloc_unit) and 
+                if ((int(gw_ip) - int(start_ip) >= ip_alloc_unit) and
                     (int(end_ip) - int(gw_ip) >= ip_alloc_unit)):
                     block_alloc_unit += 1
 
@@ -524,7 +524,7 @@ class AddrMgmt(object):
         # Read in the VN details if not passed in
         if not vn_dict:
             obj_fields=['network_ipam_refs']
-            (ok, vn_dict) = self._uuid_to_obj_dict('virtual_network', 
+            (ok, vn_dict) = self._uuid_to_obj_dict('virtual_network',
                                                     vn_uuid, obj_fields)
             if not ok:
                 raise cfgm_common.exceptions.VncError(vn_dict)
@@ -650,7 +650,7 @@ class AddrMgmt(object):
                     ipam_subnet = ipam_subnets[0]
                     subnet = ipam_subnet.get('subnet') or {}
                     if 'ip_prefix' not in subnet:
-                        continue 
+                        continue
                 if ipam_subnets:
                     self._create_subnet_objs(vn_fq_name_str, vn_uuid,
                                              ipam_subnets, should_persist)
@@ -842,19 +842,16 @@ class AddrMgmt(object):
         subnets = self._vn_to_subnets(req_vn_dict)
         if not subnets:
             return True, ""
+
+        field_names = [u'network_ipam_refs']
         # Read list of virtual networks for the given project
-        (ok, result) = db_conn.dbe_list('virtual_network', [proj_uuid])
+        (ok, result) = db_conn.dbe_list(
+            'virtual_network', [proj_uuid], is_detail=True, field_names=field_names)
         if not ok:
             return (False, 'Internal error : Failed to read virtual networks')
-
-        # Read network ipam refs for all virtual networks for the given project
-        obj_ids_list = [{'uuid': obj_uuid} for _, obj_uuid in result if obj_uuid != db_vn_dict['uuid']]
-        obj_fields = [u'network_ipam_refs']
-        (ok, result) = db_conn.dbe_read_multi('virtual_network', obj_ids_list, obj_fields)
-        if not ok:
-            return (False, 'Internal error : Failed to read virtual networks')
-
         for net_dict in result:
+            if net_dict['uuid'] == db_vn_dict['uuid']:
+                continue
             vn_subnets = self._vn_to_subnets(net_dict)
             if not vn_subnets:
                 continue
@@ -973,7 +970,7 @@ class AddrMgmt(object):
         return True, ""
     # end net_check_subnet
 
-    #check if any ip address from given subnet sets is used in 
+    #check if any ip address from given subnet sets is used in
     # in given virtual network, this includes instance_ip, fip and
     # alias_ip
     def _check_subnet_delete(self, subnets_set, vn_dict):

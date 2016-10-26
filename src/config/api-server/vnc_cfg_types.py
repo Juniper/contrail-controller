@@ -146,28 +146,20 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
         global_asn = obj_dict.get('autonomous_system')
         if not global_asn:
             return (True, '')
-        (ok, result) = db_conn.dbe_list('virtual_network')
+        (ok, result) = db_conn.dbe_list('virtual_network', field_names=['route_target_list'])
         if not ok:
             return (ok, (500, 'Error in dbe_list: %s' %(result)))
-        for vn_name, vn_uuid in result:
-            ok, result = cls.dbe_read(db_conn, 'virtual_network', vn_uuid,
-                                      obj_fields=['route_target_list'])
 
-            if not ok:
-                code, msg = result
-                if code == 404:
-                    continue
-                return ok, (code, 'Error checking ASN: %s' %(msg))
-
-            rt_dict = result.get('route_target_list') or {}
-            for rt in rt_dict.get('route_target') or []:
+        for vn in result:
+            rt_dict = vn.get('route_target_list', {})
+            for rt in rt_dict.get('route_target', []):
                 (_, asn, target) = _parse_rt(rt)
                 if (asn == global_asn and
                     target >= cfgm_common.BGP_RTGT_MIN_ID):
                     return (False, (400, "Virtual network %s is configured "
                             "with a route target with this ASN and route "
                             "target value in the same range as used by "
-                            "automatically allocated route targets" % vn_name))
+                            "automatically allocated route targets" % vn['name']))
         return (True, '')
     # end _check_asn
 
@@ -871,9 +863,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
     def _check_route_targets(cls, obj_dict, db_conn):
         if 'route_target_list' not in obj_dict:
             return (True, '')
-        config_uuid = db_conn.fq_name_to_uuid('global_system_config', ['default-global-system-config'])
-        config = db_conn.uuid_to_obj_dict(config_uuid)
-        global_asn = config.get('prop:autonomous_system')
+        global_asn = db_conn.get_autonomous_system()
         if not global_asn:
             return (True, '')
         rt_dict = obj_dict.get('route_target_list')
@@ -1427,13 +1417,13 @@ class NetworkIpamServer(Resource, NetworkIpam):
             new_subnet_method = obj_dict.get('ipam_subnet_method')
             if (old_subnet_method != new_subnet_method):
                 return (False, (400, 'ipam_subnet_method can not be changed'))
-       
+
         if (old_subnet_method != 'flat-subnet'):
             if 'ipam_subnets' in obj_dict:
                 return (False,
                         (400, 'ipam-subnets are allowed only with flat-subnet'))
             return True, ""
-  
+
         if 'ipam_subnets' in obj_dict:
             req_subnets_list = cls.addr_mgmt._ipam_to_subnets(obj_dict)
 
@@ -2210,17 +2200,13 @@ class PhysicalInterfaceServer(Resource, PhysicalInterface):
             # Read the logical interfaces in the physical interface.
             # This isnt read in the earlier DB read to avoid reading them for
             # all interfaces.
-            (ok, interface_object) = db_conn.dbe_list('logical_interface',
-                    [physical_interface['uuid']])
+
+            obj_fields = [u'logical_interface_vlan_tag']
+            (ok, result) = db_conn.dbe_list('logical_interface',
+                    [physical_interface['uuid']], field_names=obj_fields)
             if not ok:
                 return (False, (500, 'Internal error : Read logical interface list for ' +
                                      physical_interface['uuid'] + ' failed'))
-            obj_ids_list = [{'uuid': obj_uuid} for _, obj_uuid in interface_object]
-            obj_fields = [u'logical_interface_vlan_tag']
-            (ok, result) = db_conn.dbe_read_multi('logical_interface',
-                    obj_ids_list, obj_fields)
-            if not ok:
-                return (False, (500, 'Internal error : Logical interface read failed'))
             for li_object in result:
                 # check vlan tags on the same physical interface
                 if 'logical_interface_vlan_tag' in li_object:

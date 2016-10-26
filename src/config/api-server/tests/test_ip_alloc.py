@@ -53,10 +53,10 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
         ipam0_v4 = IpamSubnetType(subnet=SubnetType('10.1.2.0', 23))
         ipam0_v4_overlap = IpamSubnetType(subnet=SubnetType('10.1.3.248', 28))
-        
+
         ipam1_v4 = IpamSubnetType(subnet=SubnetType('11.1.2.0', 23))
         ipam1_v4_overlap = IpamSubnetType(subnet=SubnetType('11.1.3.248', 28))
-        
+
         ipam2_v4 = IpamSubnetType(subnet=SubnetType('12.1.2.0', 23))
         ipam2_v4_overlap = IpamSubnetType(subnet=SubnetType('12.1.3.248', 28))
 
@@ -134,7 +134,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         vn = self._vnc_lib.virtual_network_read(id = vn.uuid)
 
         #add ipam1 with overlapping subnets on vn->ipam1 link
-        #update network should fail 
+        #update network should fail
         vn.add_network_ipam(ipam1, VnSubnetsType([ipam1_v4, ipam1_v4_overlap]))
         with ExpectedException(cfgm_common.exceptions.BadRequest,
                                'Overlapping addresses: \[IPNetwork\(\'11.1.2.0/23\'\), IPNetwork\(\'11.1.3.248/28\'\)\]') as e:
@@ -150,7 +150,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         vn = self._vnc_lib.virtual_network_read(id = vn.uuid)
 
         #change subnets on vn->ipam1 link to make it non-overlap within this
-        #link and non overlap with vn->ipam0 link 
+        #link and non overlap with vn->ipam0 link
         vn.add_network_ipam(ipam1, VnSubnetsType([ipam1_v4, ipam5_v4]))
         self._vnc_lib.virtual_network_update(vn)
         vn = self._vnc_lib.virtual_network_read(id = vn.uuid)
@@ -540,7 +540,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
             self._vnc_lib.network_ipam_update(ipam)
 
         #Delete ipam_subnet which is not used for any ip-allocation so far
-        #ipam_update should go through 
+        #ipam_update should go through
         ipam.set_ipam_subnets(IpamSubnets([ipam1_sn_v4]))
         self._vnc_lib.network_ipam_update(ipam)
 
@@ -662,7 +662,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         if ipv4_addr2 != '11.1.1.4':
             logger.debug('Allocation failed, expected v4 IP Address 11.1.1.4')
 
-        #Remove ipam_subnets from ipam, update should fail with 
+        #Remove ipam_subnets from ipam, update should fail with
         #RefExistError
         ipam.set_ipam_subnets(IpamSubnets([]))
         with ExpectedException(cfgm_common.exceptions.RefsExistError) as e:
@@ -1121,7 +1121,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
         ipv4_obj5 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4')
         ipv4_obj5.uuid = ipv4_obj5.name
-        #there are two ipams with different subnet-method and virttual-network 
+        #there are two ipams with different subnet-method and virttual-network
         #configuration is flat-subnet-only, if instance-ip is created with a
         # specific ip address from subnets defined at ipam, allocation should
         # be sucessful
@@ -1383,12 +1383,12 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         port_id1 = self._vnc_lib.virtual_machine_interface_create(port_obj1)
 
         logger.debug('Wrong ip address request,not aligned with alloc-unit')
-        ipv4_obj1.set_instance_ip_address('11.1.1.249') 
+        ipv4_obj1.set_instance_ip_address('11.1.1.249')
         with ExpectedException(BadRequest,
             'Virtual-Network\(default-domain:my-v4-v6-proj-%s:my-v4-v6-vn:11.1.1.0/24\) has invalid alloc_unit\(4\) in subnet\(11.1.1.0/24\)' %(self.id())) as e:
             ipv4_id1 = self._vnc_lib.instance_ip_create(ipv4_obj1)
-         
-        ipv4_obj1.set_instance_ip_address(None) 
+
+        ipv4_obj1.set_instance_ip_address(None)
         logger.debug('Allocating an IP4 address for first VM')
         ipv4_id1 = self._vnc_lib.instance_ip_create(ipv4_obj1)
         ipv4_obj1 = self._vnc_lib.instance_ip_read(id=ipv4_id1)
@@ -1496,13 +1496,13 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         if ip_addr2 != 'fd14::fd':
             logger.debug('Allocation failed, expected v6 IP Address fd14::fd')
 
-        # Read gateway ip address 
+        # Read gateway ip address
         logger.debug('Read default gateway ip address' )
         ipam_refs = net_obj.get_network_ipam_refs()
         for ipam_ref in ipam_refs:
             subnets = ipam_ref['attr'].get_ipam_subnets()
             for subnet in subnets:
-                logger.debug('Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(), 
+                logger.debug('Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(),
                         subnet.subnet.get_ip_prefix_len(),
                         subnet.get_default_gateway()))
 
@@ -1579,7 +1579,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         logger.debug('got v4 IP Address for first instance %s', ip_addr1)
         if ip_addr1 != '11.1.1.20':
             logger.debug('Allocation failed, expected v4 IP Address 11.1.1.20')
-        
+
         logger.debug('Allocating an IP6 address for first VM')
         ip_id2 = self._vnc_lib.instance_ip_create(ip_obj2)
         ip_obj2 = self._vnc_lib.instance_ip_read(id=ip_id2)
@@ -1588,20 +1588,20 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         if ip_addr2 != 'fd14::30':
             logger.debug('Allocation failed, expected v6 IP Address fd14::30')
 
-        # Read gateway ip address 
+        # Read gateway ip address
         logger.debug('Read default gateway ip address')
         ipam_refs = net_obj.get_network_ipam_refs()
         for ipam_ref in ipam_refs:
             subnets = ipam_ref['attr'].get_ipam_subnets()
             for subnet in subnets:
-                logger.debug('Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(), 
+                logger.debug('Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(),
                         subnet.subnet.get_ip_prefix_len(),
                         subnet.get_default_gateway()))
 
 
         #cleanup
         logger.debug('Cleaning up')
-        #cleanup subnet and allocation pools 
+        #cleanup subnet and allocation pools
         self._vnc_lib.instance_ip_delete(id=ip_id1)
         self._vnc_lib.instance_ip_delete(id=ip_id2)
         self._vnc_lib.virtual_machine_interface_delete(id=port_obj1.uuid)
@@ -1639,13 +1639,13 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         logger.debug('Created Virtual Network object %s', vn.uuid)
         net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
 
-        # Read gateway ip address 
+        # Read gateway ip address
         logger.debug('Read default gateway ip address')
         ipam_refs = net_obj.get_network_ipam_refs()
         for ipam_ref in ipam_refs:
             subnets = ipam_ref['attr'].get_ipam_subnets()
             for subnet in subnets:
-                logger.debug('Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(), 
+                logger.debug('Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(),
                         subnet.subnet.get_ip_prefix_len(),
                         subnet.get_default_gateway()))
                 if subnet.subnet.get_ip_prefix() == '11.1.1.0':
@@ -1935,7 +1935,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
                 'Virtual-Network\(\[\'default-domain\', \'v4-proj-%s\', \'v4-vn\'\]\) has exhausted subnet\(all\)' %(
                 self.id())) as e:
                 ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1)
-        
+
             # cleanup for negative test
             self._vnc_lib.virtual_machine_interface_delete(id=port_obj1.uuid)
             self._vnc_lib.virtual_machine_delete(id=vm_inst_obj1.uuid)
@@ -2112,7 +2112,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
             self.assertTill(self.ifmap_has_ident, obj=iip_obj)
 
     #end test_notify_doesnt_persist
- 
+
     def test_ip_alloc_clash(self):
         # prep objects for testing
         proj_obj = Project('proj-%s' %(self.id()), parent_obj=Domain())
@@ -2181,7 +2181,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         with ExpectedException(cfgm_common.exceptions.BadRequest,
                                'Ip address already in use') as e:
             self._vnc_lib.instance_ip_create(iip2_obj)
-        
+
         # allocate instance-ip clashing with existing floating-ip
         iip2_obj.set_instance_ip_address(fip_obj.floating_ip_address)
         with ExpectedException(cfgm_common.exceptions.BadRequest,
