@@ -3520,13 +3520,14 @@ class DBInterface(object):
         backref_ids = None
         if filters:
             if 'id' in filters:
-                fip_ids = filters['id']
+                fip_ids = [str(uuid.UUID(fid)) for fid in filters['id']]
             if 'tenant_id' in filters:
                 backref_ids = self._validate_project_ids(context, filters)
                 proj_ids = backref_ids or []
             if 'port_id' in filters:
-                backref_ids = backref_ids or [] + filters['port_id']
-                port_ids = backref_ids
+                port_ids = [str(uuid.UUID(pid)) for pid in filters['port_id']]
+                if len(port_ids) > 0:
+                    backref_ids = port_ids
         else:  # no filters
             if not context['is_admin']:
                 backref_ids = [str(uuid.UUID(context['tenant']))]
@@ -3541,7 +3542,7 @@ class DBInterface(object):
                     continue
             # if filters has both id and tenant_id, api-server would
             # have returned ORed value, neutron expects ANDed
-            if not self._filters_is_present(filters, 'id', fip_obj.uuid):
+            if filters and 'id' in filters and fip_obj.uuid not in fip_ids:
                 continue
             if filters and 'tenant_id' in filters:
                 if not fip_obj.get_project_refs():
