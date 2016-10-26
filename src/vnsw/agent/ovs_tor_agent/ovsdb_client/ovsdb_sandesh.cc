@@ -272,6 +272,9 @@ void OvsdbPageReq::HandleRequest() const {
     case OvsdbSandeshTask::HA_STALE_L2_ROUTE_TABLE:
         task = new HaStaleL2RouteSandeshTask(context(), args);
         break;
+    case OvsdbSandeshTask::PHYSICAL_DEVICE_VN_TABLE:
+        task = new PhysicalDeviceVnKSyncTask(context(), args);
+        break;
     default:
         break;
     }

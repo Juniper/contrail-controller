@@ -169,6 +169,10 @@ public:
 
     void set_del_add_pending(bool pending) {del_add_pending_ = pending;}
 
+    // Derived class can over-ride this to trigger delete, even with
+    // references pending
+    virtual bool AllowDeleteWhileRef() { return false; }
+
 protected:
     void SetIndex(size_t index) {index_ = index;};
     void SetState(KSyncState state) {state_ = state;};

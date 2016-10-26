@@ -56,6 +56,10 @@ public:
     std::string ToString() const {return "Physical Switch";}
     KSyncEntry* UnresolvedReference();
 
+    // since we don't own this object allow state-machine to proceed
+    // even with references held
+    bool AllowDeleteWhileRef() { return true;}
+
 private:
     friend class PhysicalSwitchTable;
     void SendTrace(Trace event) const;

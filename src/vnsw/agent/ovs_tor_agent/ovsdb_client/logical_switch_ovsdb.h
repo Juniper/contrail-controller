@@ -5,22 +5,43 @@
 #ifndef SRC_VNSW_AGENT_OVS_TOR_AGENT_OVSDB_CLIENT_LOGICAL_SWITCH_OVSDB_H_
 #define SRC_VNSW_AGENT_OVS_TOR_AGENT_OVSDB_CLIENT_LOGICAL_SWITCH_OVSDB_H_
 
+#include <tbb/atomic.h>
 #include <ovsdb_entry.h>
 #include <ovsdb_object.h>
 #include <ovsdb_client_idl.h>
 #include <ovsdb_resource_vxlan_id.h>
 #include <base/intrusive_ptr_back_ref.h>
 
-class PhysicalDeviceVn;
+class VnEntry;
 
 namespace OVSDB {
 class LogicalSwitchEntry;
 class OvsdbResourceVxLanId;
 
+class LogicalSwitchCreateRequest {
+public:
+    LogicalSwitchCreateRequest(LogicalSwitchEntry *entry);
+    ~LogicalSwitchCreateRequest();
+
+private:
+    friend void intrusive_ptr_add_ref(LogicalSwitchCreateRequest *p);
+    friend void intrusive_ptr_release(LogicalSwitchCreateRequest *p);
+    friend class LogicalSwitchEntry;
+
+    LogicalSwitchEntry *entry_;
+    // indicates count of create references from
+    // physical device vn entrties
+    tbb::atomic<int> refcount_;
+
+    DISALLOW_COPY_AND_ASSIGN(LogicalSwitchCreateRequest);
+};
+
+
 // Logical Switch reference pointer to maintain active references
 // in OVSDB database that needs to be deleted before triggering
 // delete of a logical switch
 typedef IntrusivePtrRef<LogicalSwitchEntry> LogicalSwitchRef;
+typedef boost::intrusive_ptr<LogicalSwitchCreateRequest> LogicalSwitchCreateRequestPtr;
 
 class LogicalSwitchTable : public OvsdbDBObject {
 public:
@@ -74,14 +95,10 @@ public:
     };
     LogicalSwitchEntry(OvsdbDBObject *table, const std::string &name);
     LogicalSwitchEntry(OvsdbDBObject *table, const LogicalSwitchEntry *key);
-    LogicalSwitchEntry(OvsdbDBObject *table,
-            const PhysicalDeviceVn *entry);
-    LogicalSwitchEntry(OvsdbDBObject *table,
-            struct ovsdb_idl_row *entry);
+    LogicalSwitchEntry(OvsdbDBObject *table, struct ovsdb_idl_row *entry);
 
     virtual ~LogicalSwitchEntry();
 
-    Ip4Address &physical_switch_tunnel_ip();
     void AddMsg(struct ovsdb_idl_txn *);
     void ChangeMsg(struct ovsdb_idl_txn *);
     void DeleteMsg(struct ovsdb_idl_txn *);
@@ -89,7 +106,6 @@ public:
     void OvsdbChange();
 
     const std::string &name() const;
-    const std::string &device_name() const;
     int64_t vxlan_id() const;
     std::string tor_service_node() const;
     OvsdbResourceVxLanId &res_vxlan_id();
@@ -130,6 +146,15 @@ public:
     // we program back all the deferred entries
     void DeleteOvs(bool add_change_in_progress);
 
+    void set_vn_ref(const VnEntry *vn);
+
+    LogicalSwitchCreateRequest *create_request() { return &create_request_; }
+
+    // Allow delete of logical switch while references to logical switch
+    // are held, we will only hold this entry if references in OVSDb
+    // database are not cleared
+    bool AllowDeleteWhileRef();
+
 private:
     class ProcessDeleteOvsReqTask : public Task {
     public:
@@ -168,8 +193,6 @@ private:
                                            LogicalSwitchEntry *p);
 
     std::string name_;
-    std::string device_name_;
-    KSyncEntryPtr physical_switch_;
     // self ref to account for local mac from ToR, we hold
     // the reference till timeout or when all the local
     // macs are withdrawn
@@ -194,6 +217,12 @@ private:
     // set of back reference, which needs to be deleted before
     // triggering delete of logical switch
     std::set<IntrusiveReferrer> back_ref_set_;
+
+    VnEntryConstRef vn_ref_;
+
+    // Physical Device VN entry trying to create a logical switch
+    // should hold reference to this object
+    LogicalSwitchCreateRequest create_request_;
 
     DISALLOW_COPY_AND_ASSIGN(LogicalSwitchEntry);
 };

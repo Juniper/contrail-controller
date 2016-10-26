@@ -675,7 +675,7 @@ void intrusive_ptr_add_ref(KSyncEntry *p) {
 // (i) delete was deferred due to refcount or
 // (ii) the ksync entry is in TEMP state.
 void intrusive_ptr_release(KSyncEntry *p) {
-    if (--p->refcount_ == 1) {
+    if (--p->refcount_ == 1 || p->AllowDeleteWhileRef()) {
         KSyncObject *obj = p->GetObject();
         switch(p->state_) {
             case KSyncEntry::TEMP:
@@ -782,16 +782,24 @@ KSyncEntry::KSyncState KSyncSM_Change(KSyncObject *obj, KSyncEntry *entry) {
 // 
 // If operation is complete, move state to IN_SYNC. Else move to SYNC_WAIT
 KSyncEntry::KSyncState KSyncSM_Delete(KSyncEntry *entry) {
-    if (entry->GetRefCount() > 1) {
+    if (entry->GetRefCount() > 1 && !entry->AllowDeleteWhileRef()) {
         return KSyncEntry::DEL_DEFER_REF;
     }
 
-    assert(entry->GetRefCount() == 1);
+    assert(entry->GetRefCount() == 1 || entry->AllowDeleteWhileRef());
     if (!entry->Seen() && entry->AllowDeleteStateComp()) {
-        return KSyncEntry::FREE_WAIT;
+        if (entry->GetRefCount() > 1) {
+            return KSyncEntry::TEMP;
+        } else {
+            return KSyncEntry::FREE_WAIT;
+        }
     }
     if (entry->Delete()) {
-        return KSyncEntry::FREE_WAIT;
+        if (entry->GetRefCount() > 1) {
+            return KSyncEntry::TEMP;
+        } else {
+            return KSyncEntry::FREE_WAIT;
+        }
     } else {
         return KSyncEntry::DEL_ACK_WAIT;
     }
@@ -1177,7 +1185,7 @@ KSyncEntry::KSyncState KSyncSM_DelPending_Ref(KSyncObject *obj,
 
     case KSyncEntry::INT_PTR_REL:
     case KSyncEntry::DEL_REQ:
-        assert(entry->GetRefCount()== 1);
+        assert(entry->GetRefCount()== 1 || entry->AllowDeleteWhileRef());
         state = KSyncSM_Delete(entry);
         break;
 

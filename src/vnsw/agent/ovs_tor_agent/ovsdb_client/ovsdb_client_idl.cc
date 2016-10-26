@@ -18,6 +18,7 @@ extern "C" {
 #include <ovsdb_route_peer.h>
 #include <ovsdb_entry.h>
 #include <physical_switch_ovsdb.h>
+#include <physical_device_vn_ksync.h>
 #include <logical_switch_ovsdb.h>
 #include <physical_port_ovsdb.h>
 #include <physical_locator_ovsdb.h>
@@ -43,6 +44,7 @@ using OVSDB::OvsdbClientSession;
 using OVSDB::OvsdbEntryBase;
 using OVSDB::VMInterfaceKSyncObject;
 using OVSDB::PhysicalSwitchTable;
+using OVSDB::PhysicalDeviceVnKSyncTable;
 using OVSDB::LogicalSwitchTable;
 using OVSDB::PhysicalPortTable;
 using OVSDB::PhysicalLocatorTable;
@@ -119,6 +121,7 @@ void intrusive_ptr_release(OvsdbClientIdl *p) {
         // Objects in KSync Context.
         KSyncObjectManager::Unregister(p->vm_interface_table_.release());
         KSyncObjectManager::Unregister(p->physical_switch_table_.release());
+        KSyncObjectManager::Unregister(p->physical_device_vn_table_.release());
         KSyncObjectManager::Unregister(p->logical_switch_table_.release());
         KSyncObjectManager::Unregister(p->physical_port_table_.release());
         KSyncObjectManager::Unregister(p->physical_locator_table_.release());
@@ -166,6 +169,7 @@ OvsdbClientIdl::OvsdbClientIdl(OvsdbClientSession *session, Agent *agent,
             (DBTable *)agent->interface_table()));
     physical_switch_table_.reset(new PhysicalSwitchTable(this));
     logical_switch_table_.reset(new LogicalSwitchTable(this));
+    physical_device_vn_table_.reset(new PhysicalDeviceVnKSyncTable(this));
     physical_port_table_.reset(new PhysicalPortTable(this));
     physical_locator_table_.reset(new PhysicalLocatorTable(this));
     vlan_port_table_.reset(new VlanPortBindingTable(this));
@@ -444,6 +448,10 @@ PhysicalSwitchTable *OvsdbClientIdl::physical_switch_table() {
     return physical_switch_table_.get();
 }
 
+PhysicalDeviceVnKSyncTable *OvsdbClientIdl::physical_device_vn_table() {
+    return physical_device_vn_table_.get();
+}
+
 LogicalSwitchTable *OvsdbClientIdl::logical_switch_table() {
     return logical_switch_table_.get();
 }
@@ -554,6 +562,7 @@ void OvsdbClientIdl::TriggerDeletion() {
     // trigger KSync Object delete for all objects.
     vm_interface_table_->DeleteTable();
     physical_switch_table_->DeleteTable();
+    physical_device_vn_table_->DeleteTable();
 
     // trigger Process Delete, which will do internal processing to
     // clear self reference from logical switch before triggering
@@ -613,7 +622,7 @@ bool OvsdbClientIdl::ConcurrencyCheck() const {
 void OvsdbClientIdl::ConnectOperDB() {
     OVSDB_SESSION_TRACE(Trace, session_,
                         "Received Monitor Response connecting to OperDb");
-    logical_switch_table_->OvsdbRegisterDBTable(
+    physical_device_vn_table_->OvsdbRegisterDBTable(
             (DBTable *)agent_->physical_device_vn_table());
     vlan_port_table_->OvsdbRegisterDBTable(
             (DBTable *)agent_->interface_table());

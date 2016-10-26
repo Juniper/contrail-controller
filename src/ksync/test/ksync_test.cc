@@ -41,16 +41,17 @@ public:
 
     Vlan(uint16_t tag, uint16_t dep_tag, size_t index) : 
         KSyncEntry(index), tag_(tag), dep_tag_(dep_tag), dep_vlan_(NULL),
-        op_(INIT), all_delete_state_comp_(true) { };
+        op_(INIT), all_delete_state_comp_(true),
+        allow_delete_while_ref_(false) { };
 
     Vlan(uint16_t tag) : 
         KSyncEntry(), tag_(tag), dep_tag_(0), dep_vlan_(NULL), op_(TEMP),
-        all_delete_state_comp_(true) { };
+        all_delete_state_comp_(true), allow_delete_while_ref_(false) { };
 
     Vlan(uint16_t tag, uint16_t dep_tag) : 
         KSyncEntry(kInvalidIndex), tag_(tag), dep_tag_(dep_tag), 
         dep_vlan_(NULL), op_(TEMP),
-        all_delete_state_comp_(true) { };
+        all_delete_state_comp_(true), allow_delete_while_ref_(false) { };
 
     virtual ~Vlan() {
         if (GetState() == KSyncEntry::FREE_WAIT) {
@@ -81,6 +82,7 @@ public:
     };
 
     bool AllowDeleteStateComp() {return all_delete_state_comp_;}
+    bool AllowDeleteWhileRef() { return allow_delete_while_ref_; }
     KSyncObject *GetObject() const;
     KSyncEntry *UnresolvedReference() {
         if (dep_tag_ == 0)
@@ -107,6 +109,7 @@ public:
     KSyncEntryPtr dep_vlan_;
     LastOp op_;
     bool all_delete_state_comp_;
+    bool allow_delete_while_ref_;
     DISALLOW_COPY_AND_ASSIGN(Vlan);
 };
 uint32_t Vlan::add_count_;
@@ -320,6 +323,28 @@ TEST_F(TestUT, sync_dep_del_order_1) {
     EXPECT_EQ(Vlan::add_count_, 4);
     EXPECT_EQ(Vlan::change_count_, 0);
     EXPECT_EQ(Vlan::delete_count_, 4);
+}
+
+// SYNC Client with dependency. vlan2 refers to vlan1.
+// vlan1 allows deletion with reference held
+TEST_F(TestUT, sync_dep_allow_delete_while_ref) {
+    Vlan *vlan1 = AddVlan(0xF01, 0, KSyncEntry::IN_SYNC, Vlan::ADD, 0);
+    Vlan *vlan2 = AddVlan(0xF02, 0xF01, KSyncEntry::IN_SYNC, Vlan::ADD, 1);
+    EXPECT_EQ(0xF01, vlan2->GetDepVlan()->GetTag());
+
+    vlan1->allow_delete_while_ref_ = true;
+
+    vlan_table_->Delete(vlan1);
+    // Vlan1 is deleted but since vlan1 is still referring,
+    // it goes to TEMP state
+    EXPECT_EQ(Vlan::delete_count_, 1);
+    EXPECT_EQ(vlan1->GetState(), KSyncEntry::TEMP);
+    vlan_table_->Delete(vlan2);
+    // No wboth vlan1 and vlan2 are deleted
+    EXPECT_EQ(Vlan::delete_count_, 2);
+
+    EXPECT_EQ(Vlan::add_count_, 2);
+    EXPECT_EQ(Vlan::change_count_, 0);
 }
 
 // SYNC Client with dependency.

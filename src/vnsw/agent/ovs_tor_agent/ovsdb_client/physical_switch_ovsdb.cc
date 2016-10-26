@@ -14,6 +14,7 @@ extern "C" {
 #include <ovsdb_client_session.h>
 #include <ovsdb_client_connection_state.h>
 #include <physical_switch_ovsdb.h>
+#include <physical_device_vn_ksync.h>
 #include <logical_switch_ovsdb.h>
 #include <physical_port_ovsdb.h>
 #include <ovsdb_types.h>
@@ -38,6 +39,7 @@ bool PhysicalSwitchEntry::Add() {
 }
 
 bool PhysicalSwitchEntry::Delete() {
+    table_->client_idl()->physical_device_vn_table()->OvsdbStartResyncWalk();
     table_->client_idl()->connection_table()->DelIdlToConnectionState(
             name_, table_->client_idl());
     return true;

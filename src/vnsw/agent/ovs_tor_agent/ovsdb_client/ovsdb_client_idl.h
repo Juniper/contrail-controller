@@ -38,6 +38,7 @@ namespace OVSDB {
 class OvsdbClientSession;
 class VMInterfaceKSyncObject;
 class PhysicalSwitchTable;
+class PhysicalDeviceVnKSyncTable;
 class LogicalSwitchTable;
 class PhysicalPortTable;
 class PhysicalLocatorTable;
@@ -158,6 +159,7 @@ public:
     Agent *agent() const {return agent_;}
     VMInterfaceKSyncObject *vm_interface_table();
     PhysicalSwitchTable *physical_switch_table();
+    PhysicalDeviceVnKSyncTable *physical_device_vn_table();
     LogicalSwitchTable *logical_switch_table();
     PhysicalPortTable *physical_port_table();
     PhysicalLocatorTable *physical_locator_table();
@@ -226,6 +228,7 @@ private:
     std::auto_ptr<OvsPeer> route_peer_;
     std::auto_ptr<VMInterfaceKSyncObject> vm_interface_table_;
     std::auto_ptr<PhysicalSwitchTable> physical_switch_table_;
+    std::auto_ptr<PhysicalDeviceVnKSyncTable> physical_device_vn_table_;
     std::auto_ptr<LogicalSwitchTable> logical_switch_table_;
     std::auto_ptr<PhysicalPortTable> physical_port_table_;
     std::auto_ptr<PhysicalLocatorTable> physical_locator_table_;

@@ -45,6 +45,7 @@
 #include "ovs_tor_agent/ovsdb_client/logical_switch_ovsdb.h"
 #include "ovs_tor_agent/ovsdb_client/physical_port_ovsdb.h"
 #include "test_ovs_agent_init.h"
+#include "test_ovs_agent_util.h"
 #include "test-xml/test_xml.h"
 #include "test-xml/test_xml_oper.h"
 #include "test_xml_physical_device.h"
@@ -308,6 +309,95 @@ TEST_F(OvsBaseTest, RenewLogicalSwitchWithVxlanAcquireFailure) {
     del_dev_req.key.reset(new PhysicalDeviceVnKey(MakeUuid(1),
                                                   MakeUuid(1)));
     agent_->physical_device_table()->Enqueue(&del_dev_req);
+}
+
+TEST_F(OvsBaseTest, LogicalSwtichCreateDeleteWithPhysicalSwitch) {
+    DBRequest device_req1(DBRequest::DB_ENTRY_ADD_CHANGE);
+    device_req1.key.reset(new PhysicalDeviceKey(MakeUuid(1)));
+    device_req1.data.reset(new PhysicalDeviceData(agent_, "test-router",
+                                                  "test-router", "",
+                                                  Ip4Address::from_string("1.1.1.1"),
+                                                  Ip4Address::from_string("2.2.2.2"),
+                                                  "OVS", NULL));
+    agent_->physical_device_table()->Enqueue(&device_req1);
+    DBRequest device_req2(DBRequest::DB_ENTRY_ADD_CHANGE);
+    device_req2.key.reset(new PhysicalDeviceKey(MakeUuid(2)));
+    device_req2.data.reset(new PhysicalDeviceData(agent_, "test-router1",
+                                                  "test-router1", "",
+                                                  Ip4Address::from_string("1.1.1.2"),
+                                                  Ip4Address::from_string("2.2.2.3"),
+                                                  "OVS", NULL));
+    agent_->physical_device_table()->Enqueue(&device_req2);
+    VnAddReq(1, "vn1");
+    WAIT_FOR(100, 10000, (VnGet(1) != NULL));
+
+
+    AddPhysicalDeviceVn(agent_, 2, 1, true);
+    client->WaitForIdle();
+    // since physical switch test-router1 doesnot exist logical switch
+    // should not be created
+    LogicalSwitchTable *ls_table =
+        tcp_session_->client_idl()->logical_switch_table();
+    LogicalSwitchEntry key1(ls_table, UuidToString(MakeUuid(1)));
+    KSyncEntry::KSyncEntryPtr ls_ref = ls_table->GetReference(&key1);
+    LogicalSwitchEntry *entry;
+    WAIT_FOR(100, 10000, ((entry = static_cast<LogicalSwitchEntry *>
+                    (ls_table->Find(&key1))) != NULL &&
+                entry->GetState() == KSyncEntry::TEMP));
+
+    AddPhysicalDeviceVn(agent_, 1, 1, true);
+    client->WaitForIdle();
+    // adding dev-vn for test-router should allow creation of logical switch
+    WAIT_FOR(100, 10000, ((entry = static_cast<LogicalSwitchEntry *>
+                    (ls_table->Find(&key1))) != NULL &&
+                entry->GetState() == KSyncEntry::IN_SYNC));
+
+    DelPhysicalDeviceVn(agent_, 1, 1, true);
+    client->WaitForIdle();
+    // deletion of the only active dev-vn should delete the logical switch
+    WAIT_FOR(100, 10000, ((entry = static_cast<LogicalSwitchEntry *>
+                    (ls_table->Find(&key1))) != NULL &&
+                entry->GetState() == KSyncEntry::TEMP));
+
+    // Add new physical switch test-router1 to OVSDB server
+    EXPECT_TRUE(add_physical_switch("test-router1"));
+
+    PhysicalSwitchTable *ps_table =
+        tcp_session_->client_idl()->physical_switch_table();
+    PhysicalSwitchEntry ps_key(ps_table, "test-router1");
+    PhysicalSwitchEntry *ps_entry;
+    WAIT_FOR(100, 10000, ((ps_entry = static_cast<PhysicalSwitchEntry *>
+                    (ps_table->Find(&ps_key))) != NULL &&
+                ps_entry->GetState() == KSyncEntry::IN_SYNC));
+
+    // adding phyiscal switch test-router1 should now allow creation of logical switch
+    WAIT_FOR(100, 10000, ((entry = static_cast<LogicalSwitchEntry *>
+                    (ls_table->Find(&key1))) != NULL &&
+                entry->GetState() == KSyncEntry::IN_SYNC));
+
+    // delete physical switch test-router1 to OVSDB server
+    EXPECT_TRUE(del_physical_switch("test-router1"));
+    WAIT_FOR(100, 10000, ((ps_entry = static_cast<PhysicalSwitchEntry *>
+                    (ps_table->Find(&ps_key))) == NULL ||
+                !ps_entry->IsActive()));
+
+    // deleting phyiscal switch test-router1 should trigger deletion of logical switch
+    WAIT_FOR(100, 10000, ((entry = static_cast<LogicalSwitchEntry *>
+                    (ls_table->Find(&key1))) != NULL &&
+                entry->GetState() == KSyncEntry::TEMP));
+
+    ls_ref = NULL;
+
+    DelPhysicalDeviceVn(agent_, 2, 1, true);
+    VnDelReq(1);
+
+    DBRequest del_dev_req1(DBRequest::DB_ENTRY_DELETE);
+    del_dev_req1.key.reset(new PhysicalDeviceKey(MakeUuid(1)));
+    agent_->physical_device_table()->Enqueue(&del_dev_req1);
+    DBRequest del_dev_req2(DBRequest::DB_ENTRY_DELETE);
+    del_dev_req2.key.reset(new PhysicalDeviceKey(MakeUuid(2)));
+    agent_->physical_device_table()->Enqueue(&del_dev_req2);
+    client->WaitForIdle();
 }
 
 int main(int argc, char *argv[]) {

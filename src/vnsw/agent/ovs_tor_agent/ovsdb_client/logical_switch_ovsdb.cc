@@ -30,56 +30,69 @@ void intrusive_ptr_add_back_ref(IntrusiveReferrer ref, LogicalSwitchEntry *p) {
 void intrusive_ptr_del_back_ref(IntrusiveReferrer ref, LogicalSwitchEntry *p) {
     p->back_ref_set_.erase(ref);
 }
+
+void intrusive_ptr_add_ref(LogicalSwitchCreateRequest *p) {
+    if (0 == p->refcount_.fetch_and_increment()) {
+        // create the object on first create reference
+        OvsdbDBObject *object =
+            static_cast<OvsdbDBObject*>(p->entry_->GetObject());
+        object->Create(p->entry_);
+    }
+}
+
+void intrusive_ptr_release(LogicalSwitchCreateRequest *p) {
+    if (1 == p->refcount_.fetch_and_decrement()) {
+        // when the last creator reference go away delete OVS and
+        // trigger delete of logical switch
+        p->entry_->DeleteOvs(false);
+        OvsdbDBObject *object =
+            static_cast<OvsdbDBObject*>(p->entry_->GetObject());
+        object->Delete(p->entry_);
+    }
+}
 };
 
-LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
-                                       const std::string &name) :
-    OvsdbDBEntry(table), name_(name), device_name_(), vxlan_id_(0),
-    mcast_local_row_list_(), mcast_remote_row_(NULL), delete_ovs_(false),
-    res_vxlan_id_(table->client_idl()->vxlan_table(), this), del_task_(NULL) {
+LogicalSwitchCreateRequest::LogicalSwitchCreateRequest(LogicalSwitchEntry *e) :
+    entry_(e) {
+    refcount_ = 0;
+}
+
+LogicalSwitchCreateRequest::~LogicalSwitchCreateRequest() {
+    assert(refcount_ == 0);
 }
 
 LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
-        const PhysicalDeviceVn *entry) : OvsdbDBEntry(table),
-    name_(UuidToString(entry->vn()->GetUuid())), mcast_local_row_list_(),
+                                       const std::string &name) :
+    OvsdbDBEntry(table), name_(name), vxlan_id_(0), mcast_local_row_list_(),
     mcast_remote_row_(NULL), delete_ovs_(false),
-    res_vxlan_id_(table->client_idl()->vxlan_table(), this), del_task_(NULL) {
-    vxlan_id_ = entry->vxlan_id();
-    device_name_ = entry->device_display_name();
+    res_vxlan_id_(table->client_idl()->vxlan_table(), this), del_task_(NULL),
+    vn_ref_(NULL), create_request_(this) {
 }
 
 LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
         const LogicalSwitchEntry *entry) : OvsdbDBEntry(table),
     mcast_local_row_list_(), mcast_remote_row_(NULL), delete_ovs_(false),
-    res_vxlan_id_(table->client_idl()->vxlan_table(), this), del_task_(NULL) {
+    res_vxlan_id_(table->client_idl()->vxlan_table(), this), del_task_(NULL),
+    vn_ref_(NULL), create_request_(this) {
     name_ = entry->name_;
     vxlan_id_ = entry->vxlan_id_;;
-    device_name_ = entry->device_name_;
 }
 
 LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
         struct ovsdb_idl_row *entry) : OvsdbDBEntry(table, entry),
-    name_(ovsdb_wrapper_logical_switch_name(entry)), device_name_(""),
+    name_(ovsdb_wrapper_logical_switch_name(entry)),
     vxlan_id_(ovsdb_wrapper_logical_switch_tunnel_key(entry)),
     mcast_remote_row_(NULL), delete_ovs_(false),
-    res_vxlan_id_(table->client_idl()->vxlan_table(), this), del_task_(NULL) {
+    res_vxlan_id_(table->client_idl()->vxlan_table(), this), del_task_(NULL),
+    vn_ref_(NULL), create_request_(this) {
 }
 
 LogicalSwitchEntry::~LogicalSwitchEntry() {
     assert(pl_create_ref_.get() == NULL);
-}
-
-Ip4Address &LogicalSwitchEntry::physical_switch_tunnel_ip() {
-    PhysicalSwitchEntry *p_switch =
-        static_cast<PhysicalSwitchEntry *>(physical_switch_.get());
-    return p_switch->tunnel_ip();
+    assert(del_task_ == NULL);
 }
 
 void LogicalSwitchEntry::AddMsg(struct ovsdb_idl_txn *txn) {
-    PhysicalSwitchTable *p_table = table_->client_idl()->physical_switch_table();
-    PhysicalSwitchEntry key(p_table, device_name_.c_str());
-    physical_switch_ = p_table->GetReference(&key);
-
     if (stale()) {
         // skip add encoding for stale entry
         return;
@@ -120,8 +133,6 @@ void LogicalSwitchEntry::ChangeMsg(struct ovsdb_idl_txn *txn) {
 }
 
 void LogicalSwitchEntry::DeleteMsg(struct ovsdb_idl_txn *txn) {
-    physical_switch_ = NULL;
-
     // encode delete of entry if it is non-NULL
     if (mcast_remote_row_ != NULL) {
         ovsdb_wrapper_delete_mcast_mac_remote(mcast_remote_row_);
@@ -154,10 +165,6 @@ const std::string &LogicalSwitchEntry::name() const {
     return name_;
 }
 
-const std::string &LogicalSwitchEntry::device_name() const {
-    return device_name_;
-}
-
 int64_t LogicalSwitchEntry::vxlan_id() const {
     return vxlan_id_;
 }
@@ -175,18 +182,10 @@ bool LogicalSwitchEntry::IsDeleteOvsInProgress() const {
 }
 
 bool LogicalSwitchEntry::Sync(DBEntry *db_entry) {
-    PhysicalDeviceVn *entry =
-        static_cast<PhysicalDeviceVn *>(db_entry);
-    bool change = false;
-    if (vxlan_id_ != entry->vxlan_id()) {
-        vxlan_id_ = entry->vxlan_id();
-        change = true;
-    }
-    if (device_name_ != entry->device_display_name()) {
-        device_name_ = entry->device_display_name();
-        change = true;
-    }
-    return change;
+    // this API will not get triggered as we will not attach
+    // LogicalSwitchTable to any DB table
+    assert(false);
+    return false;
 }
 
 bool LogicalSwitchEntry::IsLess(const KSyncEntry &entry) const {
@@ -216,13 +215,7 @@ KSyncEntry *LogicalSwitchEntry::UnresolvedReference() {
         return NULL;
     }
 
-    PhysicalSwitchTable *p_table = table_->client_idl()->physical_switch_table();
-    PhysicalSwitchEntry key(p_table, device_name_.c_str());
-    PhysicalSwitchEntry *p_switch =
-        static_cast<PhysicalSwitchEntry *>(p_table->GetReference(&key));
-    if (!p_switch->IsResolved()) {
-        return p_switch;
-    }
+    assert(create_request_.refcount_ != 0);
 
     bool ret = res_vxlan_id_.AcquireVxLanId((uint32_t)vxlan_id_);
     if (!ret) {
@@ -264,6 +257,13 @@ void LogicalSwitchEntry::Ack(bool success) {
                 (uint32_t)ovsdb_wrapper_logical_switch_tunnel_key(ovs_entry_);
             res_vxlan_id_.set_active_vxlan_id(active_vxlan_id);
         } else {
+            if (create_request_.refcount_ == 0) {
+                // if there is no create request release the non-active
+                // acquired VxLAN id for others to use
+                // this is needed as object can still stick around
+                // due to presence of VN object
+                res_vxlan_id_.ReleaseVxLanId(false);
+            }
             res_vxlan_id_.set_active_vxlan_id(0);
             // trigger delete ovs completed/cancel
             CancelDeleteOvs();
@@ -319,6 +319,37 @@ void LogicalSwitchEntry::DeleteOvs(bool add_change_in_progress) {
     scheduler->Enqueue(del_task_);
 }
 
+void LogicalSwitchEntry::set_vn_ref(const VnEntry *vn) {
+    // this API should only be called after taking create ref to
+    // logical switch entry
+    assert(create_request_.refcount_ != 0);
+    // if the entry is marked stale set to trigger change
+    bool change = stale();
+    // trigger change to take new values into account
+    if (vn_ref_.get() != vn) {
+        vn_ref_ = vn;
+        change = true;
+    }
+    if (vn != NULL && vxlan_id_ != vn->GetVxLanId()) {
+        vxlan_id_ = vn->GetVxLanId();
+        change = true;
+    }
+
+    if (change) {
+        OvsdbDBObject *object = static_cast<OvsdbDBObject*>(GetObject());
+        object->Change(this);
+    }
+}
+
+bool LogicalSwitchEntry::AllowDeleteWhileRef() {
+    if (IsLocalMacsRef() || !back_ref_set_.empty()) {
+        // hold logical switch entry only for references that
+        // represent in OVSDB database
+        return false;
+    }
+    return true;
+}
+
 LogicalSwitchEntry::ProcessDeleteOvsReqTask::ProcessDeleteOvsReqTask(
         LogicalSwitchEntry *entry) :
     Task((entry->table()->client_idl()->agent()->task_scheduler()\
@@ -346,7 +377,11 @@ bool LogicalSwitchEntry::ProcessDeleteOvsReqTask::Run() {
         }
         ref_entry = static_cast<OvsdbDBEntry*>((*it).first);
         it++;
-        ref_entry->TriggerDeleteAdd();
+        if (ref_entry->stale()) {
+            ref_entry->GetObject()->Delete(ref_entry);
+        } else {
+            ref_entry->TriggerDeleteAdd();
+        }
     }
 
     if (it != entry->back_ref_set_.end()) {
@@ -405,7 +440,6 @@ void LogicalSwitchEntry::SendTrace(Trace event) const {
         info.set_op("unknown");
     }
     info.set_name(name_);
-    info.set_device_name(device_name_);
     info.set_vxlan(vxlan_id_);
     OVSDB_TRACE(LogicalSwitch, info);
 }
@@ -634,10 +668,9 @@ KSyncEntry *LogicalSwitchTable::Alloc(const KSyncEntry *key, uint32_t index) {
 }
 
 KSyncEntry *LogicalSwitchTable::DBToKSyncEntry(const DBEntry* db_entry) {
-    const PhysicalDeviceVn *entry =
-        static_cast<const PhysicalDeviceVn *>(db_entry);
-    LogicalSwitchEntry *key = new LogicalSwitchEntry(this, entry);
-    return static_cast<KSyncEntry *>(key);
+    // this API will not get triggered as we will not attach
+    // LogicalSwitchTable to any DB table
+    return NULL;
 }
 
 OvsdbDBEntry *LogicalSwitchTable::AllocOvsEntry(struct ovsdb_idl_row *row) {
@@ -647,13 +680,9 @@ OvsdbDBEntry *LogicalSwitchTable::AllocOvsEntry(struct ovsdb_idl_row *row) {
 
 KSyncDBObject::DBFilterResp LogicalSwitchTable::OvsdbDBEntryFilter(
         const DBEntry *db_entry, const OvsdbDBEntry *ovsdb_entry) {
-    const PhysicalDeviceVn *entry =
-        static_cast<const PhysicalDeviceVn *>(db_entry);
-
-    // Delete the entry which has invalid VxLAN id associated.
-    if (entry->vxlan_id() == 0) {
-        return DBFilterDelete;
-    }
+    // this API will not get triggered as we will not attach
+    // LogicalSwitchTable to any DB table
+    assert(false);
     return DBFilterAccept;
 }
 
@@ -762,7 +791,6 @@ void LogicalSwitchSandeshTask::UpdateResp(KSyncEntry *kentry,
     OvsdbLogicalSwitchEntry lentry;
     lentry.set_state(entry->StateString());
     lentry.set_name(entry->name());
-    lentry.set_physical_switch(entry->device_name());
     lentry.set_vxlan_id(entry->vxlan_id());
     lentry.set_tor_service_node(entry->tor_service_node());
     const OvsdbResourceVxLanId &res = entry->res_vxlan_id();

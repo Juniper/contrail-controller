@@ -24,6 +24,14 @@ bool execute_vtep_cmd(const string &cmd) {
     return (ret == 0);
 }
 
+bool add_physical_switch(const string &physical_switch) {
+    return execute_vtep_cmd("add-ps " + physical_switch);
+}
+
+bool del_physical_switch(const string &physical_switch) {
+    return execute_vtep_cmd("del-ps " + physical_switch);
+}
+
 bool add_physical_port(const string &physical_switch,
                        const string &physical_port) {
     return execute_vtep_cmd("add-port " + physical_switch + " " + physical_port);

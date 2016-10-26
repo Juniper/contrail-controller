@@ -5,6 +5,10 @@
 #ifndef SRC_VNSW_AGENT_OVS_TOR_AGENT_OVSDB_CLIENT_TEST__TEST_OVS_AGENT_UTIL_H_
 #define SRC_VNSW_AGENT_OVS_TOR_AGENT_OVSDB_CLIENT_TEST__TEST_OVS_AGENT_UTIL_H_
 
+// Physical switch utility cmd
+bool add_physical_switch(const std::string &physical_switch);
+bool del_physical_switch(const std::string &physical_switch);
+
 // Physical port utility cmd
 bool add_physical_port(const std::string &physical_switch,
                        const std::string &physical_port);
