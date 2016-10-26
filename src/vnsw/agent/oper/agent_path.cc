@@ -1401,3 +1401,27 @@ bool MacVmBindingPathData::AddChangePath(Agent *agent, AgentPath *path,
 
     return ret;
 }
+
+void AgentPath::UpdateEcmpHashFields(const Agent *agent,
+                                     const EcmpLoadBalance &ecmp_load_balance,
+                                     DBRequest &nh_req) {
+
+    NextHop *nh = NULL;
+    nh = static_cast<NextHop *>(agent->nexthop_table()->
+                                FindActiveEntry(nh_req.key.get()));
+    CompositeNH *cnh = dynamic_cast< CompositeNH *>(nh);
+    if (cnh) {
+        ecmp_hash_fields_.CalculateChangeInEcmpFields(ecmp_load_balance,
+                                                     cnh->CompEcmpHashFields());
+    } else {
+        agent->nexthop_table()->Process(nh_req);
+        nh = static_cast<NextHop *>(agent->nexthop_table()->
+                                    FindActiveEntry(nh_req.key.get()));
+        CompositeNH *cnh = static_cast< CompositeNH *>(nh);
+        if (cnh) {
+            ecmp_hash_fields_.CalculateChangeInEcmpFields(ecmp_load_balance,
+                                                          cnh->CompEcmpHashFields());
+        }
+    }
+}
+

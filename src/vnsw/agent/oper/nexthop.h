@@ -13,6 +13,7 @@
 
 #include <oper/interface_common.h>
 #include <oper/vrf.h>
+#include <oper/ecmp_load_balance.h>
 
 using namespace boost::uuids;
 using namespace std;
@@ -1356,6 +1357,7 @@ public:
         const ComponentNHKeyList &component_nh_key_list, VrfEntry *vrf):
         NextHop(COMPOSITE, policy), composite_nh_type_(type),
         component_nh_key_list_(component_nh_key_list), vrf_(vrf, this) {
+        comp_ecmp_hash_fields_.AllocateEcmpFields();
     }
 
     virtual ~CompositeNH() { };
@@ -1458,7 +1460,11 @@ public:
    virtual bool MatchEgressData(const NextHop *nh) const {
        return false;
    }
-
+   uint8_t EcmpHashFieldInUse() const {
+        return comp_ecmp_hash_fields_.HashFieldsToUse();
+   }
+   EcmpHashFields& CompEcmpHashFields() { return comp_ecmp_hash_fields_; }
+   void UpdateEcmpHashFieldsUponRouteDelete(Agent *agent, const string &vrf_name);
 private:
     void CreateComponentNH(Agent *agent, TunnelType::Type type) const;
     void ChangeComponentNHKeyTunnelType(ComponentNHKeyList &component_nh_list,
@@ -1467,6 +1473,7 @@ private:
     ComponentNHKeyList component_nh_key_list_;
     ComponentNHList component_nh_list_;
     VrfEntryRef vrf_;
+    EcmpHashFields comp_ecmp_hash_fields_;
     DISALLOW_COPY_AND_ASSIGN(CompositeNH);
 };
 
