@@ -36,16 +36,21 @@ class QosmapProv(object):
         for section in config.sections():
             if "QUEUE-" in section:
                 self.traffic_class = self.traffic_class + section.strip('[]').split('-')[1] + ','
+
+            if "PG-" in section:
+                # For one to one mapping priority group is same as traffic class
+                self.priority_group = self.priority_group + section.strip('[]').split('-')[1] + ','
                 scheduling = config.get(section, 'scheduling')
                 if scheduling == 'strict':
                     self.scheduling = self.scheduling + '1'
+                    self.bandwidth = self.bandwidth + '0,'
                 else:
                     self.scheduling = self.scheduling + '0'
-                bandwidth = config.get(section, 'bandwidth')
-                self.bandwidth = self.bandwidth + bandwidth + ','
+                    bandwidth = config.get(section, 'bandwidth')
+                    self.bandwidth = self.bandwidth + bandwidth + ','
 
-        # For one to one mapping priority group is same as traffic class
-        self.priority_group = self.traffic_class
+        if ( (self.traffic_class == "") and (self.priority_group == "") ):
+            print "Please configure qos parameters"
 
     # end _parse_args
 
