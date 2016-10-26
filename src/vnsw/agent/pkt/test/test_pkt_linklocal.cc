@@ -14,6 +14,7 @@ int fd_table[MAX_VNET];
 #define vm2_ip "11.1.1.2"
 #define fabric_ip "1.2.3.4"
 
+#define remote_server_ip "10.1.2.10"
 #define vhost_ip_addr "10.1.2.1"
 #define linklocal_ip "169.254.1.10"
 #define linklocal_port 4000
@@ -124,7 +125,7 @@ protected:
         std::vector<std::string> fabric_ip_list;
         fabric_ip_list.push_back(fabric_ip);
         TestLinkLocalService service = {
-            "test_service", linklocal_ip,linklocal_port, "", fabric_ip_list,
+            "test_service", linklocal_ip, linklocal_port, "", fabric_ip_list,
             fabric_port
         };
         AddLinkLocalConfig(&service, 1);
@@ -404,6 +405,59 @@ TEST_F(FlowTest, linklocal_l2) {
 
     FlushFlowTable();
     client->WaitForIdle();
+}
+
+TEST_F(FlowTest, LinkLocalFlow_update) {
+    // delete linklocal config first to create route without being marked linklocal
+    DelLinkLocalConfig();
+    client->WaitForIdle();
+
+    boost::system::error_code ec;
+    BgpPeer *peer = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+                                  "xmpp channel");
+    client->WaitForIdle();
+
+    Ip4Address addr = Ip4Address::from_string("0.0.0.0");
+    Ip4Address gw = Ip4Address::from_string(remote_server_ip);
+    Inet4TunnelRouteAdd(peer, "vrf1", addr, 0, gw, TunnelType::MplsType(),
+                        20, vmi0->vn()->GetName(), SecurityGroupList(),
+                        PathPreference());
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (RouteFind("vrf1", addr, 0) == true));
+
+    TxTcpPacket(vmi0->id(), vm1_ip, linklocal_ip, 3000, linklocal_port, false,
+                1, vmi0->vrf_id());
+    client->WaitForIdle();
+    EXPECT_EQ(2U, get_flow_proto()->FlowCount());
+
+    FlowEntryPtr fe = FlowGet(VrfGet("vrf1")->vrf_id(), vm1_ip,
+                              linklocal_ip, IPPROTO_TCP, 3000,
+                              linklocal_port, vmi0_flow_nh_);
+
+    // Enable link local service, after the packet trap resulted in
+    // flow creation
+    std::vector<std::string> fabric_ip_list;
+    fabric_ip_list.push_back(fabric_ip);
+    TestLinkLocalService service = {
+        "test_service", linklocal_ip, linklocal_port, "", fabric_ip_list,
+        fabric_port
+    };
+    AddLinkLocalConfig(&service, 1);
+    client->WaitForIdle();
+
+    WAIT_FOR(1000, 1000, fe->IsShortFlow());
+    fe = NULL;
+    FlushFlowTable();
+    client->WaitForIdle();
+
+    agent()->fabric_inet4_unicast_table()->
+        DeleteReq(peer, "vrf1", addr, 0, new ControllerVmRoute(peer));
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1, (RouteFind("vrf1", addr, 0) == false));
+    DeleteBgpPeer(peer);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(FlowTableWait(0));
 }
 
 int main(int argc, char *argv[]) {
