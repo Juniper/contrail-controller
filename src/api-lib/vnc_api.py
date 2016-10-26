@@ -252,7 +252,7 @@ class VncApi(object):
                     certs.append(kscafile)
                 if kscertfile:
                     certs.append(kscertfile)
-                if kskeytfile:
+                if kskeyfile:
                     certs.append(kskeyfile)
                 if certs:
                    self._kscertbundle=utils.getCertKeyCaBundle(VncApi._DEFAULT_KS_CERT_BUNDLE,certs)
