@@ -3,16 +3,20 @@ sys.path.append("../common/tests")
 from test_utils import *
 import test_common
 sys.path.insert(0, '../../../../build/production/config/device-manager/')
+sys.path.insert(0, '../../../../build/debug/config/device-manager/device_manager')
+sys.path.insert(0, '../../../../build/debug/config/device-manager/device_api')
 
 from vnc_api.vnc_api import *
 import uuid
 from ncclient import manager
 from flexmock import flexmock
+from device_manager.physical_router_config import PhysicalRouterConfig
 
 class DMTestCase(test_common.TestCase):
     def setUp(self):
         super(DMTestCase, self).setUp()
         flexmock(manager, connect=fake_netconf_connect)
+        setattr(PhysicalRouterConfig, 'send_netconf', fake_send_netconf)
         self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
             self.id(), self._api_server_ip, self._api_server_port)
         self._dm_greenlet = gevent.spawn(test_common.launch_device_manager,

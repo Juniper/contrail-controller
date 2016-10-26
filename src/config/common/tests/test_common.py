@@ -163,6 +163,33 @@ def launch_disc_server(test_id, listen_ip, listen_port, http_server_port, conf_s
         disc_server.main(args_str)
 #end launch_disc_server
 
+def retry_exc_handler(tries_remaining, exception, delay):
+    print >> sys.stderr, "Caught '%s', %d tries remaining, sleeping for %s seconds" % (exception, tries_remaining, delay)
+# end retry_exc_handler
+
+def retries(max_tries, delay=1, backoff=2, exceptions=(Exception,), hook=None):
+    def dec(func):
+        def f2(*args, **kwargs):
+            mydelay = delay
+            tries = range(max_tries)
+            tries.reverse()
+            for tries_remaining in tries:
+                try:
+                   return func(*args, **kwargs)
+                except exceptions as e:
+                    if tries_remaining > 0:
+                        if hook is not None:
+                            hook(tries_remaining, e, mydelay)
+                        sleep(mydelay)
+                        mydelay = mydelay * backoff
+                    else:
+                        raise
+                else:
+                    break
+        return f2
+    return dec
+# end retries
+
 class VncTestApp(TestApp):
     def post_json(self, *args, **kwargs):
         resp = super(VncTestApp, self).post_json(*args, **kwargs)
