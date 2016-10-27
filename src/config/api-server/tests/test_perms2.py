@@ -873,6 +873,29 @@ class TestPermissions(test_case.ApiServerTestCase):
             self.assertEquals(user.vnc_lib.is_cloud_admin_role(), ExpectedCloudAdminRole[user.name])
             self.assertEquals(user.vnc_lib.is_global_read_only_role(), ExpectedGlobalReadOnlyRole[user.name])
 
+    def test_check_obj_perms_api_no_auth(self):
+        logger.info('')
+        logger.info( '########### CHECK OBJ PERMS API ##################')
+
+        alice = self.alice
+        bob   = self.bob
+        admin = self.admin
+        self.vn_name = "alice-vn-%s" % self.id()
+
+        rv = admin.vnc_lib.set_aaa_mode("no-auth")
+        self.assertEquals(rv['aaa-mode'], "no-auth")
+
+        vn = VirtualNetwork(self.vn_name, self.admin.project_obj)
+        self.admin.vnc_lib.virtual_network_create(vn)
+
+        ExpectedPerms = {'admin':'RWX', 'alice':'RWX', 'bob':'RWX'}
+        for user in [alice, bob, admin]:
+            perms = user.check_perms(vn.get_uuid())
+            self.assertEquals(perms, ExpectedPerms[user.name])
+
+        rv = admin.vnc_lib.set_aaa_mode("rbac")
+        self.assertEquals(rv['aaa-mode'], "rbac")
+
     # check owner of internally created ri is cloud-admin (bug #1528796)
     def test_ri_owner(self):
         """
