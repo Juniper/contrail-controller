@@ -333,6 +333,13 @@ void TcpSession::CloseInternal(const error_code &ec,
     }
 }
 
+void TcpSession::TriggerAsyncReadHandler() {
+    if (io_strand_) {
+        io_strand_->post(bind(&TcpSession::AsyncReadHandler,
+                              TcpSessionPtr(this)));
+    }
+}
+
 void TcpSession::Close() {
     error_code ec;
     CloseInternal(ec, false);

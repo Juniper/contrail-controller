@@ -39,6 +39,7 @@ public:
     }
     virtual bool Run() {
         if (session_->IsEstablished()) {
+            session_->ssl_last_read_len_ = BufferSize(buffer_);
             read_fn_(buffer_);
             if (session_->IsSslDisabled()) {
                 session_->AsyncReadStart();
@@ -63,7 +64,8 @@ SslSession::SslSession(SslServer *server, SslSocket *ssl_socket,
       ssl_handshake_in_progress_(false),
       ssl_handshake_success_(false),
       ssl_enabled_(true),
-      ssl_handshake_delayed_(false) {
+      ssl_handshake_delayed_(false),
+      ssl_last_read_len_(0) {
 
     if (server) {
         ssl_enabled_ = server->ssl_enabled_;
@@ -91,15 +93,15 @@ TcpSession::Socket *SslSession::socket() const {
 // Register for data read notification from the tcp socket or from the ssl
 // socket, as appropriate.
 void SslSession::AsyncReadSome() {
-    assert(!ssl_handshake_in_progress_);
-    if (!IsSslHandShakeSuccessLocked()) {
-        TcpSession::AsyncReadSome();
-        return;
-    }
-
     if (established()) {
-        socket()->async_read_some(null_buffers(),
-            bind(&TcpSession::AsyncReadHandler, TcpSessionPtr(this)));
+        if (ssl_last_read_len_ == 0) {
+            // we have drained the read buffer of the socket
+            // register for a read notification from the tcp socket
+            TcpSession::AsyncReadSome();
+        } else {
+            // trigger Async Read Handler for immediate read
+            TriggerAsyncReadHandler();
+        }
     }
 }
 
