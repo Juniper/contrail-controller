@@ -24,6 +24,7 @@ setup(
               'cfgm_common.uve.physical_router',
               'cfgm_common.uve.cfgm_cpuinfo',
               'cfgm_common.uve.greenlets',
+              'cfgm_common.uve.msg_traces',
               'cfgm_common.uve.nodeinfo',
               'cfgm_common.uve.nodeinfo.cpuinfo',
               'cfgm_common.uve.nodeinfo.process_info',

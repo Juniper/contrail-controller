@@ -9,8 +9,6 @@ Sechmatransformer  amqp handler
 
 from cfgm_common.vnc_amqp import VncAmqpHandle
 from config_db import DBBaseST, VirtualNetworkST
-from schema_transformer.sandesh.traces.ttypes import MessageBusNotifyTrace,\
-                DependencyTrackerResource
 
 
 class STAmqpHandle(VncAmqpHandle):
@@ -18,29 +16,7 @@ class STAmqpHandle(VncAmqpHandle):
     def __init__(self, logger, reaction_map, args):
         q_name_prefix = 'schema_transformer'
         super(STAmqpHandle, self).__init__(logger, DBBaseST, reaction_map,
-                q_name_prefix, args=args)
-
-    def create_msgbus_trace(self, request_id, oper, uuid):
-        self.msg_tracer = MessageBusNotifyTrace(request_id=request_id,
-                                                operation=oper, uuid=uuid)
-
-    def msgbus_store_err_msg(self, msg):
-        self.msg_tracer.error = msg
-
-    def msgbus_trace_msg(self):
-            self.msg_tracer.trace_msg(name='MessageBusNotifyTraceBuf',
-                                      sandesh=self.logger._sandesh)
-
-    def init_msgbus_fq_name(self):
-        self.msg_tracer.fq_name = self.obj.name
-
-    def init_msgbus_dtr(self):
-        self.msg_tracer.dependency_tracker_resources = []
-
-    def add_msgbus_dtr(self, res_type, res_id_list):
-        dtr = DependencyTrackerResource(obj_type=res_type,
-                                        obj_keys=res_id_list)
-        self.msg_tracer.dependency_tracker_resources.append(dtr)
+                                           q_name_prefix, args=args)
 
     def evaluate_dependency(self):
         if not self.dependency_tracker:
