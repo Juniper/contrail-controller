@@ -38,6 +38,7 @@ struct VmInterfaceStats {
     2: u64 in_bytes;
     3: u64 out_pkts;
     4: u64 out_bytes;
+    5: u64 drop_pkts;
 }
 
 struct VmHealthCheckInstance {
@@ -80,7 +81,7 @@ struct UveVMInterfaceAgent {
    17: optional list<VmFloatingIPStats> fip_diff_stats (tags=".virtual_network,.ip_address")
 
    18: optional VmInterfaceStats raw_if_stats (hidden="yes")
-    /** @display_name:Virtual Machine Interface Statistics*/
+   /** @display_name:Virtual Machine Interface Statistics*/
    30: optional VmInterfaceStats if_stats     (stats="raw_if_stats:DSNon0:", tags="vm_name,vm_uuid")
    31: optional derived_stats_results.AnomalyResult if_in_pkts_ewm 
                     (stats="raw_if_stats.in_pkts:DSAnomaly:EWM:0.1")
@@ -105,6 +106,10 @@ struct UveVMInterfaceAgent {
    27: optional bool admin_state;
    28: optional list<string> fixed_ip4_list;
    29: optional list<string> fixed_ip6_list;
+   33: optional map<string, u64> raw_drop_stats (metric="agg", hidden="yes")
+   /** @display_name:Packet drop Statistics*/
+   34: optional map<string, u64> drop_stats     (mstats="raw_drop_stats:DSNon0:", tags=".__key,virtual_network")
+   35: optional map<string, u64> drop_stats_1h  (mstats="raw_drop_stats:DSSum:120")
 }
 
 /**
