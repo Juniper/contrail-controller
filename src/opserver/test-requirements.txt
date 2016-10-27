@@ -9,6 +9,7 @@ flexmock==0.9.7
 kafka-python==0.9.2
 kazoo
 stevedore
+Cython==0.24.1
 cassandra-driver==3.0.0
 amqp==1.4.1
 kombu==3.0.9
