@@ -740,7 +740,22 @@ public:
         }
 
         return NULL;
+    } 
+
+    bool Match(const IpAddress &match_ip) const {
+        if (ip_.is_v4()) {
+            return (Address::GetIp4SubnetAddress(ip_.to_v4(), plen_) ==
+                    Address::GetIp4SubnetAddress(match_ip.to_v4(), plen_));
+        } else if (ip_.is_v6()) {
+            return (Address::GetIp6SubnetAddress(ip_.to_v6(), plen_) ==
+                    Address::GetIp6SubnetAddress(match_ip.to_v6(), plen_));
+        }
+        assert(0);
+        return false;
     }
+
+    bool NeedsReCompute(const FlowEntry *flow);
+
 
 private:
     friend class InetRouteFlowMgmtTree;
@@ -754,7 +769,10 @@ class InetRouteFlowMgmtEntry : public RouteFlowMgmtEntry {
 public:
     InetRouteFlowMgmtEntry() : RouteFlowMgmtEntry() { }
     virtual ~InetRouteFlowMgmtEntry() { }
-
+    // Handle covering routeEntry
+    bool RecomputeCoveringRouteEntry(FlowMgmtManager *mgr,
+                                     InetRouteFlowMgmtKey *covering_route,
+                                     InetRouteFlowMgmtKey *key);
 private:
     DISALLOW_COPY_AND_ASSIGN(InetRouteFlowMgmtEntry);
 };
@@ -798,6 +816,9 @@ public:
             delete rt_key;
         }
     }
+   bool RecomputeCoveringRoute(InetRouteFlowMgmtKey *covering_route,
+                               InetRouteFlowMgmtKey *key);
+
 private:
     LpmTree lpm_tree_;
     DISALLOW_COPY_AND_ASSIGN(InetRouteFlowMgmtTree);
