@@ -679,8 +679,6 @@ void AgentParam::ParseServices() {
 
 void AgentParam::ParseQueue() {
 
-    GetValueFromTree<uint16_t>(default_nic_queue_, "QOS.logical_queue");
-
     const std::string qos_str = "QUEUE";
     std::string input;
     std::vector<std::string> tokens;
@@ -690,8 +688,8 @@ void AgentParam::ParseQueue() {
             continue;
         }
         uint16_t queue;
-        std::string logical_queue = section.first;
-        if (sscanf(logical_queue.c_str(), "QUEUE-%hu", &queue) != 1) {
+        std::string hw_queue = section.first;
+        if (sscanf(hw_queue.c_str(), "QUEUE-%hu", &queue) != 1) {
                 continue;
         }
         BOOST_FOREACH(const ptree::value_type &key, section.second) {
@@ -701,28 +699,34 @@ void AgentParam::ParseQueue() {
                          boost::token_compress_on);
 
                 for (std::vector<string>::const_iterator it = tokens.begin();
-                     it != tokens.end(); it++) {
+                    it != tokens.end(); it++) {
 
-                if (*it == Agent::NullString()) {
-                    continue;
-                }
-
-                string range = *it;
-                std::vector<uint16_t> range_value;
-                if (stringToIntegerList(range, "-", range_value)) {
-                    if (range_value.size() == 1) {
-                        qos_queue_map_[range_value[0]] = queue;
+                    if (*it == Agent::NullString()) {
                         continue;
                     }
 
-                    if (range_value[0] > range_value[1]) {
-                        continue;
-                    }
+                    string range = *it;
+                    std::vector<uint16_t> range_value;
+                    if (stringToIntegerList(range, "-", range_value)) {
+                        if (range_value.size() == 1) {
+                            qos_queue_map_[range_value[0]] = queue;
+                            continue;
+                        }
 
-                    for (uint16_t i = range_value[0]; i <= range_value[1]; i++) {
-                        qos_queue_map_[i] = queue;
+                        if (range_value[0] > range_value[1]) {
+                            continue;
+                        }
+
+                        for (uint16_t i = range_value[0]; i <= range_value[1]; i++) {
+                            qos_queue_map_[i] = queue;
+                        }
                     }
                 }
+            }
+            if (key.first.compare("default_hw_queue") == 0) {
+                bool is_default = key.second.get_value<bool>();
+                if (is_default) {
+                    default_nic_queue_ = queue;
                 }
             }
         }
