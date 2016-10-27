@@ -102,6 +102,8 @@ private:
     bool ssl_handshake_delayed_;     // default false
     /**************************************************************/
 
+    size_t ssl_last_read_len_;       // data len of the last read done
+
     DISALLOW_COPY_AND_ASSIGN(SslSession);
 };
 

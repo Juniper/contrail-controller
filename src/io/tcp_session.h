@@ -205,6 +205,8 @@ protected:
     void CloseInternal(const boost::system::error_code &ec,
                        bool call_observer, bool notify_server = true);
 
+    void TriggerAsyncReadHandler();
+
     // Protects session state and buffer queue.
     mutable tbb::mutex mutex_;
 
