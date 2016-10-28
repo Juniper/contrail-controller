@@ -17,7 +17,7 @@ import datetime
 import sys
 from opserver_util import OpServerUtils
 import re
-from gevent.coros import BoundedSemaphore
+from gevent.lock import BoundedSemaphore
 from pysandesh.util import UTCTimestampUsec
 from pysandesh.connection_info import ConnectionState
 from sandesh.viz.constants import UVE_MAP

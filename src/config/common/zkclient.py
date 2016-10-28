@@ -13,7 +13,7 @@ from kazoo.retry import KazooRetry
 
 from bitarray import bitarray
 from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
-from gevent.coros import BoundedSemaphore
+from gevent.lock import BoundedSemaphore
 
 import uuid
 
