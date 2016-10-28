@@ -32,7 +32,7 @@ from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames,\
     Module2NodeType, INSTANCE_ID_DEFAULT, SERVICE_CONTRAIL_DATABASE, \
-    RepairNeededKeyspaces, ThreadPoolNames
+    RepairNeededKeyspaces, ThreadPoolNames, UVENodeTypeNames
 from subprocess import Popen, PIPE
 from StringIO import StringIO
 
@@ -52,6 +52,7 @@ class DatabaseEventManager(EventManager):
                  cassandra_repair_interval,
                  cassandra_repair_logdir):
         self.node_type = "contrail-database"
+        self.uve_node_type = UVENodeTypeNames[NodeType.DATABASE]
         self.table = "ObjectDatabaseInfo"
         self.module = Module.DATABASE_NODE_MGR
         self.module_id = ModuleNames[self.module]
