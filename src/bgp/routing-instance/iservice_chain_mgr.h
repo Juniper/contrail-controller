@@ -8,6 +8,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <string>
+
 class RoutingInstance;
 class ServiceChainConfig;
 class ShowServicechainInfo;
@@ -25,7 +27,8 @@ public:
     virtual bool IsQueueEmpty() const = 0;
     virtual bool FillServiceChainInfo(RoutingInstance *rtinstance,
                                       ShowServicechainInfo *info) const = 0;
-    virtual bool IsPending(RoutingInstance *rtinstance) const = 0;
+    virtual bool IsPending(RoutingInstance *rtinstance,
+                           std::string *reason = NULL) const = 0;
 
 private:
     template <typename U> friend class ServiceChainIntegrationTest;

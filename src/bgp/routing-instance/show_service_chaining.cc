@@ -39,6 +39,7 @@ static bool FillServiceChainInfo(Address::Family family,
     if (!sc_config)
         return false;
 
+    info.set_family(Address::FamilyToString(family));
     info.set_src_virtual_network(rtinstance->GetVirtualNetworkName());
     info.set_dest_virtual_network(GetVNFromRoutingInstance(
                                      sc_config->routing_instance));
@@ -50,6 +51,7 @@ static bool FillServiceChainInfo(Address::Family family,
     } else {
         info.set_connected_rt_instance(sc_config->source_routing_instance);
     }
+    info.set_service_chain_addr(sc_config->service_chain_address);
 
     return service_chain_mgr->FillServiceChainInfo(rtinstance, &info);
 }
