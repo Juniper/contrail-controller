@@ -9,7 +9,7 @@ import gevent
 import disc_consts
 import disc_exceptions
 from datetime import datetime
-from gevent.coros import BoundedSemaphore
+from gevent.lock import BoundedSemaphore
 
 import pycassa
 import pycassa.util
