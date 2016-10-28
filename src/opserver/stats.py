@@ -30,7 +30,7 @@ class StatQuerier(object):
     # Public functions
     def run(self):
         topdir = '/usr/share/doc/contrail-docs/html/messages/'
-        extn = '.json'
+        extn = '_stats_tables.json'
         stat_schema_files = []
         for dirpath, dirnames, files in os.walk(topdir):
             for name in files:
