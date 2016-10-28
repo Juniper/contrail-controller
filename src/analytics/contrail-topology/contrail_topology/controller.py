@@ -5,7 +5,7 @@ from analytic_client import AnalyticApiClient
 import time, socket, os
 from topology_uve import LinkUve
 import gevent
-from gevent.coros import Semaphore
+from gevent.lock import Semaphore
 from opserver.consistent_schdlr import ConsistentScheduler
 import traceback
 

@@ -50,7 +50,7 @@ from sandesh.nodeinfo.ttypes import NodeStatusUVE, NodeStatus
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeNames,\
     INSTANCE_ID_DEFAULT
 
-from gevent.coros import BoundedSemaphore
+from gevent.lock import BoundedSemaphore
 from cfgm_common.rest import LinkObject
 
 import disc_auth_keystone
