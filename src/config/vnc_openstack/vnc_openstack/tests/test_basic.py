@@ -62,7 +62,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         if name:
             res_name = name
         else:
-            res_name = '%s-%s-%s' % (res_type, self.id())
+            res_name = '%s-%s' % (res_type, self.id())
         data = {'resource': {'name': res_name,
                              'tenant_id': proj_id}}
         if extra_res_fields:
@@ -83,6 +83,28 @@ class TestBasic(test_case.NeutronBackendTestCase):
 
         body = {'context': context, 'data': data}
         self._api_svr_app.post_json('/neutron/%s' %(res_type), body)
+
+    def update_resource(self, res_type, res_id, proj_id, name=None, extra_res_fields=None):
+        context = {'operation': 'UPDATE',
+                   'user_id': '',
+                   'is_admin': False,
+                   'roles': '',
+                   'tenant_id': proj_id}
+        if name:
+            res_name = name
+        else:
+            res_name = '%s-%s' %(res_type, str(uuid.uuid4()))
+
+        data = {'resource': {'name': res_name,
+                             'tenant_id': proj_id},
+                'id': res_id}
+        if extra_res_fields:
+            data['resource'].update(extra_res_fields)
+
+        body = {'context': context, 'data': data}
+        resp = self._api_svr_app.post_json('/neutron/%s' %(res_type), body)
+        return json.loads(resp.text)
+    # end _update_resource
 
     def test_list_with_inconsistent_members(self):
         # 1. create collection
@@ -422,6 +444,35 @@ class TestBasic(test_case.NeutronBackendTestCase):
             self.fail("The manually added interface route table as been "
                       "automatically removed")
         self.assertIsNone(irt_obj.get_virtual_machine_interface_back_refs())
+
+    def _create_port_with_sg(self, proj_id, port_security):
+        net_q = self.create_resource('network', proj_id)
+        subnet_q = self.create_resource('subnet', proj_id, extra_res_fields={'network_id': net_q['id'], 'cidr': '10.2.0.0/24', 'ip_version': 4})
+        sg_q = self.create_resource('security_group', proj_id)
+        return self.create_resource('port', proj_id, extra_res_fields={'network_id': net_q['id'], 'security_groups': [sg_q['id']], 'port_security_enabled':port_security})
+
+    def _create_port_with_no_sg(self, proj_id):
+        net_q = self.create_resource('network', proj_id)
+        subnet_q = self.create_resource('subnet', proj_id, extra_res_fields={'network_id': net_q['id'], 'cidr': '10.2.0.0/24', 'ip_version': 4})
+        return self.create_resource('port', proj_id, extra_res_fields={'network_id': net_q['id'], 'port_security_enabled':False})
+
+    def test_create_port_with_port_security_disabled_and_sg(self):
+        proj_obj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
+        with ExpectedException(webtest.app.AppError):
+            self._create_port_with_sg(proj_obj.uuid, False)
+
+    def test_update_port_with_port_security_disabled_and_sg(self):
+        proj_obj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
+        port_q = self._create_port_with_sg(proj_obj.uuid, True)
+        with ExpectedException(webtest.app.AppError):
+            self.update_resource('port', port_q['id'], proj_obj.uuid, extra_res_fields={'port_security_enabled':False})
+
+    def test_update_port_with_security_group_and_port_security_disabled(self):
+        proj_obj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
+        port_q = self._create_port_with_no_sg(proj_obj.uuid)
+        sg_q = self.create_resource('security_group', proj_obj.uuid)
+        with ExpectedException(webtest.app.AppError):
+            self.update_resource('port', port_q['id'], proj_obj.uuid, extra_res_fields={'security_groups': [sg_q['id']]})
 # end class TestBasic
 
 class TestExtraFieldsPresenceByKnob(test_case.NeutronBackendTestCase):
