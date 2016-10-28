@@ -947,15 +947,25 @@ void ServiceChainMgr<T>::Enqueue(ServiceChainRequestT *req) {
 }
 
 template <typename T>
-bool ServiceChainMgr<T>::IsPending(RoutingInstance *rtinstance) const {
-    return pending_chains_.find(rtinstance) != pending_chains_.end();
+bool ServiceChainMgr<T>::IsPending(RoutingInstance *rtinstance,
+    string *reason) const {
+    PendingServiceChainList::const_iterator loc =
+        pending_chains_.find(rtinstance);
+    if (loc != pending_chains_.end()) {
+        if (reason)
+            *reason = loc->second;
+        return true;
+    }
+    return false;
 }
 
 template <typename T>
 bool ServiceChainMgr<T>::FillServiceChainInfo(RoutingInstance *rtinstance,
         ShowServicechainInfo *info) const {
-    if (IsPending(rtinstance)) {
+    string pending_reason;
+    if (IsPending(rtinstance, &pending_reason)) {
         info->set_state("pending");
+        info->set_pending_reason(pending_reason);
         return true;
     }
     const ServiceChain<T> *service_chain = FindServiceChain(rtinstance);
@@ -970,7 +980,7 @@ bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
     const ServiceChainConfig &config) {
     CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
 
-    // Verify whether the entry already exists
+    // Verify whether the entry already exists.
     tbb::mutex::scoped_lock lock(mutex_);
     ServiceChainMap::iterator it = chain_set_.find(rtinstance);
     if (it != chain_set_.end()) {
@@ -981,10 +991,11 @@ bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
             return true;
         }
 
-        // Entry already exists. Update of match condition
-        // The routing instance to pending resolve such that
-        // service chain is created after stop done cb
-        AddPendingServiceChain(rtinstance);
+        // Update of match condition.
+        // Add the routing instance to pending list so that service chain is
+        // created after stop done callback.
+        string reason = "Waiting for deletion of previous incarnation";
+        AddPendingServiceChain(rtinstance, reason);
 
         if (it->second->deleted()) {
             // Wait for the delete complete cb
@@ -1005,15 +1016,24 @@ bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
     RoutingInstanceMgr *mgr = server_->routing_instance_mgr();
     RoutingInstance *dest = mgr->GetRoutingInstance(config.routing_instance);
 
-    //
-    // Destination routing instance is not yet created.
-    // Or Destination routing instance is deleted Or
-    // virtual network index is not yet calculated (due missing virtual network
-    // link)
-    //
-    if (dest == NULL || dest->deleted() || !dest->virtual_network_index()) {
-        // Wait for the creation of RoutingInstance
-        AddPendingServiceChain(rtinstance);
+    // Destination routing instance does not exist.
+    if (!dest) {
+        string reason = "Destination routing instance does not exist";
+        AddPendingServiceChain(rtinstance, reason);
+        return false;
+    }
+
+    // Destination routing instance is being deleted.
+    if (dest->deleted()) {
+        string reason = "Destination routing instance is being deleted";
+        AddPendingServiceChain(rtinstance, reason);
+        return false;
+    }
+
+    // Destination virtual network index is unknown.
+    if (!dest->virtual_network_index()) {
+        string reason = "Destination virtual network index is unknown";
+        AddPendingServiceChain(rtinstance, reason);
         return false;
     }
 
@@ -1024,11 +1044,18 @@ bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
     } else {
         connected_ri = mgr->GetRoutingInstance(config.source_routing_instance);
     }
-    // routing instance to search for connected route is not yet created.
-    if (connected_ri == NULL || connected_ri->deleted()) {
-        // Wait for the creation of RoutingInstance where connected route
-        // will be published
-        AddPendingServiceChain(rtinstance);
+
+    // Connected routing instance does not exist.
+    if (!connected_ri) {
+        string reason = "Connected routing instance does not exist";
+        AddPendingServiceChain(rtinstance, reason);
+        return false;
+    }
+
+    // Connected routing instance is being deleted.
+    if (connected_ri->deleted()) {
+        string reason = "Connected routing instance is being deleted";
+        AddPendingServiceChain(rtinstance, reason);
         return false;
     }
 
@@ -1037,7 +1064,8 @@ bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
     AddressT chain_addr =
         AddressT::from_string(config.service_chain_address, ec);
     if (ec != 0) {
-        AddPendingServiceChain(rtinstance);
+        string reason = "Service chain address is invalid";
+        AddPendingServiceChain(rtinstance, reason);
         return false;
     }
 
@@ -1103,7 +1131,7 @@ bool ServiceChainMgr<T>::ResolvePendingServiceChain() {
          it != pending_chains_.end(); it = next) {
         next = it;
         ++next;
-        RoutingInstance *rtinstance = *it;
+        RoutingInstance *rtinstance = it->first;
         pending_chains_.erase(it);
         const ServiceChainConfig *sc_config =
             rtinstance->config()->service_chain_info(GetFamily());
