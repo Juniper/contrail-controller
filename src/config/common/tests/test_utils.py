@@ -15,6 +15,7 @@ import time
 import errno
 import re
 import copy
+from cStringIO import StringIO
 import uuid
 import six
 import contextlib
@@ -1573,6 +1574,35 @@ netconf_managers = {}
 def fake_netconf_connect(host, *args, **kwargs):
     return netconf_managers.setdefault(host, FakeNetconfManager(args, kwargs))
 
+class FakeDeviceConnect(object):
+    parms = {}
+
+    @staticmethod
+    def get_xml_data(self, config):
+        xml_data = StringIO()
+        config.export(xml_data, 1)
+        return xml_data.getvalue()
+    # end get_xml_data
+
+    @staticmethod
+    def send_netconf(obj, new_config, default_operation="merge", operation="replace"):
+        FakeDeviceConnect.params = {
+                                     "pr_config": obj,
+                                     "config": new_config,
+                                     "default_operation": default_operation,
+                                     "operation": operation
+                                   }
+        return len(FakeDeviceConnect.get_xml_data(new_config))
+    # end send_netconf
+
+    @staticmethod
+    def get_xml_config():
+        return FakeDeviceConnect.params.get('config')
+    # end get_xml_config
+# end
+
+def fake_send_netconf(self, new_config, default_operation="merge", operation="replace"):
+    return FakeDeviceConnect.send_netconf(self, new_config, default_operation, operation)
 
 class FakeVncApiStatsLog(object):
     _all_logs = []
