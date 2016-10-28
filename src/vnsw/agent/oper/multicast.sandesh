@@ -7,9 +7,10 @@
  */
 
 /**
- * Sandesh definition for physical device
+ * Structure definition for physical device
  */
 struct PDeviceData {
+    /** Uuid for physical device */
     1: string uuid;
 }
 
@@ -23,5 +24,6 @@ request sandesh MasterPhysicalDevicesReq {
  * Response  message for physical device list
  */
 response sandesh MasterPhysicalDevicesResp {
+    /** List of physical devices */
     1: list<PDeviceData> dev_list;
 }
