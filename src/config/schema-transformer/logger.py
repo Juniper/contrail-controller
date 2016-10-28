@@ -29,7 +29,7 @@ class SchemaTransformerLogger(ConfigServiceLogger):
         self._sandesh.trace_buffer_create(name="MessageBusNotifyTraceBuf",
                                           size=1000)
 
-    def redifine_sandesh_handles(self):
+    def redefine_sandesh_handles(self):
         sandesh.VnList.handle_request = self.sandesh_vn_handle_request
         sandesh.RoutintInstanceList.handle_request = \
             self.sandesh_ri_handle_request
