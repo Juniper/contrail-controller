@@ -1318,6 +1318,9 @@ class DBInterface(object):
                     # TODO add route table specific exception
                     self._raise_contrail_exception('NetworkNotFound',
                                                    net_id=net_obj.uuid)
+        if oper == CREATE or oper == UPDATE:
+            if 'port_security_enabled' in network_q:
+                net_obj.set_port_security_enabled(network_q['port_security_enabled'])
 
         return net_obj
     #end _network_neutron_to_vnc
@@ -1388,6 +1391,7 @@ class DBInterface(object):
 
         if self._contrail_extensions_enabled:
             net_q_dict.update(extra_dict)
+        net_q_dict['port_security_enabled'] = net_obj.get_port_security_enabled()
 
         return net_q_dict
     #end _network_vnc_to_neutron
@@ -1908,13 +1912,6 @@ class DBInterface(object):
                 mac_addrs_obj = MacAddressesType()
                 mac_addrs_obj.set_mac_address([port_q['mac_address']])
                 port_obj.set_virtual_machine_interface_mac_addresses(mac_addrs_obj)
-            port_obj.set_security_group_list([])
-            if ('security_groups' not in port_q or
-                port_q['security_groups'].__class__ is object):
-                id_perms = IdPermsType(enable=True,
-                                       description=vnc_openstack.DEFAULT_SECGROUP_DESCRIPTION)
-                sg_obj = SecurityGroup("default", proj_obj, id_perms=id_perms)
-                port_obj.add_security_group(sg_obj)
         else:  # READ/UPDATE/DELETE
             port_obj = self._virtual_machine_interface_read(port_id=port_q['id'])
             project_id = self._get_obj_tenant_id('port', port_obj.get_uuid())
@@ -1949,18 +1946,61 @@ class DBInterface(object):
                 port_obj.add_virtual_machine_interface_bindings(
                     KeyValuePair(key=k, value=v))
 
-        if 'security_groups' in port_q:
-            port_obj.set_security_group_list([])
-            for sg_id in port_q.get('security_groups') or []:
-                # TODO optimize to not read sg (only uuid/fqn needed)
-                sg_obj = self._vnc_lib.security_group_read(id=sg_id)
-                port_obj.add_security_group(sg_obj)
+        if oper == CREATE:
+            if 'port_security_enabled' in port_q:
+                port_security = port_q['port_security_enabled']
+            else:
+                port_security = net_obj.get_port_security_enabled()
+            port_obj.set_port_security_enabled(port_security)
+            if ('security_groups' in port_q and
+                port_q['security_groups'].__class__ is not object):
+                if not port_security and port_q['security_groups']:
+                    self._raise_contrail_exception('PortSecurityPortHasSecurityGroup', port_id=port_obj.uuid)
 
-            # When there is no-security-group for a port,the internal
-            # no_rule group should be used.
-            if not port_q['security_groups']:
-                sg_obj = self._get_no_rule_security_group()
+                port_obj.set_security_group_list([])
+                for sg_id in port_q.get('security_groups') or []:
+                    # TODO optimize to not read sg (only uuid/fqn needed)
+                    sg_obj = self._vnc_lib.security_group_read(id=sg_id)
+                    port_obj.add_security_group(sg_obj)
+
+                # When there is no-security-group for a port,the internal
+                # no_rule group should be used.
+                if port_security and not port_q['security_groups']:
+                    sg_obj = self._get_no_rule_security_group()
+                    port_obj.add_security_group(sg_obj)
+            elif port_security:
+                sg_obj = SecurityGroup("default", proj_obj)
                 port_obj.add_security_group(sg_obj)
+        elif oper == UPDATE:
+            if 'port_security_enabled' in port_q:
+                port_obj.set_port_security_enabled(port_q['port_security_enabled'])
+            port_security = port_obj.get_port_security_enabled()
+            if port_security:
+                if ('security_groups' in port_q and
+                    port_q['security_groups'].__class__ is not object):
+                    if not port_q['security_groups']:
+                        sg_obj = self._get_no_rule_security_group()
+                        port_obj.add_security_group(sg_obj)
+                    else:
+                        port_obj.set_security_group_list([])
+                        for sg_id in port_q.get('security_groups') or []:
+                            # TODO optimize to not read sg (only uuid/fqn needed)
+                            sg_obj = self._vnc_lib.security_group_read(id=sg_id)
+                            port_obj.add_security_group(sg_obj)
+            else:
+                if ('security_groups' in port_q and
+                    port_q['security_groups'].__class__ is not object and
+                    port_q['security_groups']):
+                    self._raise_contrail_exception('PortSecurityAndIPRequiredForSecurityGroups', port_id=port_obj.uuid)
+                port_sg_refs = port_obj.get_security_group_refs()
+                if port_sg_refs:
+                    if 'security_groups' in port_q and not port_q['security_groups']:
+                        # reset all SG on the port
+                        port_obj.set_security_groups_list([])
+                    elif len(port_sg_refs) == 1 and port_sg_refs[0]['to'] == SG_NO_RULE_FQ_NAME:
+                        port_obj.set_security_groups_list([])
+                    else:
+                        self._raise_contrail_exception('PortSecurityPortHasSecurityGroup', port_id=port_obj.uuid)
 
         id_perms = port_obj.get_id_perms()
         if 'admin_state_up' in port_q:
@@ -2251,7 +2291,7 @@ class DBInterface(object):
 
         if self._contrail_extensions_enabled:
             port_q_dict.update(extra_dict)
-
+        port_q_dict['port_security_enabled'] = port_obj.get_port_security_enabled()
         return port_q_dict
     #end _port_vnc_to_neutron
 
