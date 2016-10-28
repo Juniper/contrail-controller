@@ -43,6 +43,13 @@ static bool FillServiceChainInfo(Address::Family family,
     info.set_dest_virtual_network(GetVNFromRoutingInstance(
                                      sc_config->routing_instance));
     info.set_service_instance(sc_config->service_instance);
+    info.set_src_rt_instance(rtinstance->name());
+    info.set_dest_rt_instance(sc_config->routing_instance);
+    if (sc_config->source_routing_instance.empty()) {
+        info.set_connected_rt_instance(rtinstance->name());
+    } else {
+        info.set_connected_rt_instance(sc_config->source_routing_instance);
+    }
 
     return service_chain_mgr->FillServiceChainInfo(rtinstance, &info);
 }
@@ -58,16 +65,17 @@ bool BgpShowHandler<ShowServiceChainReq, ShowServiceChainReqIterate,
 
     RoutingInstanceMgr::const_name_iterator it =
         rim->name_clower_bound(data->next_entry);
-    ShowServicechainInfo info;
     for (uint32_t iter_count = 0; it != rim->name_cend(); ++it, ++iter_count) {
         RoutingInstance *rinstance = it->second;
-        if (FillServiceChainInfo(Address::INET, data->search_string, info,
-                                 rinstance)) {
-            data->show_list.push_back(info);
+        ShowServicechainInfo inet_info;
+        if (FillServiceChainInfo(Address::INET, data->search_string,
+                                 inet_info, rinstance)) {
+            data->show_list.push_back(inet_info);
         }
-        if (FillServiceChainInfo(Address::INET6, data->search_string, info,
-                                 rinstance)) {
-            data->show_list.push_back(info);
+        ShowServicechainInfo inet6_info;
+        if (FillServiceChainInfo(Address::INET6, data->search_string,
+                                 inet6_info, rinstance)) {
+            data->show_list.push_back(inet6_info);
         }
 
         if (data->show_list.size() >= page_limit)
