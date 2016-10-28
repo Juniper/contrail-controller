@@ -1,8 +1,8 @@
 requests
 pycassa
 lxml
-gevent
-geventhttpclient
+gevent==1.1a2
+geventhttpclient==1.0a
 redis
 xmltodict
 prettytable
