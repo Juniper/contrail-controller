@@ -9,7 +9,7 @@ public:
 
     bool StartTbbKeepAwakeTask(TaskScheduler *ts, EventManager *event_mgr,
                                const std::string task_name,
-                               uint32_t tbbKeepawakeTimeout = 20) {
+                               uint32_t tbbKeepawakeTimeout = 1000) {
         uint32_t task_id = ts->GetTaskId(task_name);
         tbb_awake_timer_ = TimerManager::CreateTimer(*event_mgr->io_service(),
                                                      "TBB Keep Awake",
