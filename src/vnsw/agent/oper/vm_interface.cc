@@ -3196,7 +3196,7 @@ void VmInterface::UpdateAllowedAddressPair(bool force_update, bool policy_change
             it->L2Activate(this, force_update, policy_change,
                     old_layer2_forwarding, old_layer3_forwarding);
         } else {
-           it->Activate(this, (force_update || policy_change));
+           it->Activate(this, force_update, policy_change);
         }
     }
 }
@@ -4295,11 +4295,18 @@ void VmInterface::AllowedAddressPair::L2DeActivate(VmInterface *interface) const
 }
 
 void VmInterface::AllowedAddressPair::CreateLabelAndNH(Agent *agent,
-                                                      VmInterface *interface) const {
+                                                       VmInterface *interface,
+                                                       bool policy_change)
+                                                       const {
+    uint32_t old_label = MplsTable::kInvalidLabel;
     //Allocate a new L3 label with proper layer 2
     //rewrite information
     if (label_ == MplsTable::kInvalidLabel) {
         label_ = agent->mpls_table()->AllocLabel();
+    } else if (policy_change) {
+        old_label = label_;
+        label_ = agent->mpls_table()->AllocLabel();
+        MplsLabel::Delete(interface->agent(), old_label);
     }
 
     InterfaceNH::CreateL3VmInterfaceNH(interface->GetUuid(), mac_,
@@ -4327,11 +4334,12 @@ void VmInterface::AllowedAddressPair::CreateLabelAndNH(Agent *agent,
 }
 
 void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
-                                               bool force_update) const {
+                                               bool force_update,
+                                               bool policy_change) const {
     IpAddress ip = interface->GetServiceIp(addr_);
 
     if (installed_ && force_update == false && service_ip_ == ip &&
-        ecmp_config_changed_ == false) {
+        policy_change == false && ecmp_config_changed_ == false) {
         return;
     }
 
@@ -4341,7 +4349,7 @@ void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
     }
 
     if (installed_ == false || force_update || service_ip_ != ip ||
-        ecmp_config_changed_) {
+        policy_change || ecmp_config_changed_) {
         service_ip_ = ip;
         IpAddress dependent_rt;
         if (ecmp_ == true) {
@@ -4364,7 +4372,7 @@ void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
                                 false, ecmp_, service_ip_, dependent_rt,
                                 CommunityList(), interface->label());
         } else {
-            CreateLabelAndNH(agent, interface);
+            CreateLabelAndNH(agent, interface, policy_change);
             interface->AddRoute(vrf_, addr_, plen_, interface->vn_->GetName(),
                                 false, ecmp_, service_ip_,
                                 dependent_rt, CommunityList(), label_);

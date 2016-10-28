@@ -4179,6 +4179,33 @@ void AddAap(std::string intf_name, int intf_id, Ip4Address ip,
     client->WaitForIdle();
 }
 
+void AddAapWithMacAndDisablePolicy(const std::string &intf_name, int intf_id,
+                                   Ip4Address ip, const std::string &mac,
+                                   bool disable_policy) {
+    std::ostringstream buf;
+    buf << "<virtual-machine-interface-allowed-address-pairs>";
+    buf << "<allowed-address-pair>";
+    buf << "<ip>";
+    buf << "<ip-prefix>" << ip.to_string() <<"</ip-prefix>";
+    buf << "<ip-prefix-len>"<< 32 << "</ip-prefix-len>";
+    buf << "</ip>";
+    buf << "<mac>" << mac << "</mac>";
+    buf << "<flag>" << "act-stby" << "</flag>";
+    buf << "</allowed-address-pair>";
+    buf << "</virtual-machine-interface-allowed-address-pairs>";
+    buf << "<virtual-machine-interface-disable-policy>";
+    if (disable_policy) {
+        buf << "true";
+    } else {
+        buf << "false";
+    }
+    buf << "</virtual-machine-interface-disable-policy>";
+    char cbuf[10000];
+    strcpy(cbuf, buf.str().c_str());
+    AddNode("virtual-machine-interface", intf_name.c_str(), intf_id, cbuf);
+    client->WaitForIdle();
+}
+
 void AddEcmpAap(std::string intf_name, int intf_id, Ip4Address ip) {
     std::ostringstream buf;
     buf << "<virtual-machine-interface-allowed-address-pairs>";
