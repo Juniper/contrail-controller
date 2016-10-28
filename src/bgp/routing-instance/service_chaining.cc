@@ -624,9 +624,6 @@ bool ServiceChain<T>::DeleteMoreSpecific(PrefixT aggregate,
 
 template <typename T>
 void ServiceChain<T>::FillServiceChainInfo(ShowServicechainInfo *info) const {
-    info->set_src_rt_instance(src_routing_instance()->name());
-    info->set_connected_rt_instance(connected_routing_instance()->name());
-    info->set_dest_rt_instance(dest_routing_instance()->name());
     info->set_state(deleted() ? "deleted" : "active");
 
     ConnectedRouteInfo connected_rt_info;
