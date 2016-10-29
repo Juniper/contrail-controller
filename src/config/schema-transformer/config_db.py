@@ -567,7 +567,7 @@ class VirtualNetworkST(DBBaseST):
             return v4_address, v6_address
         try:
             v4_address = self._vnc_lib.virtual_network_ip_alloc(
-                self.obj, count=1)[0]
+                self.obj, count=1, family='v4')[0]
         except (NoIdError, RefsExistError) as e:
             self._logger.error(
                 "Error while allocating ipv4 in network %s: %s" % (self.name,
