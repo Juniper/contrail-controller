@@ -5,9 +5,8 @@
 #include <boost/assign/list_of.hpp>
 #include <boost/foreach.hpp>
 
-
-
 #include "bgp/bgp_config_parser.h"
+#include "bgp/bgp_factory.h"
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/inet/inet_table.h"
@@ -52,6 +51,17 @@ static const char config_template1[] = "\
     </routing-instance>\
 </config>\
 ";
+
+// Use BgpPeerShowTest to make ToString() unique even with multiple peering
+// sessions between the same pair of BgpServers, by overriding with ToUVEKey()
+class BgpPeerShowTest : public BgpPeerTest {
+public:
+    BgpPeerShowTest(BgpServer *server, RoutingInstance *rtinst,
+                    const BgpNeighborConfig *config) :
+            BgpPeerTest(server, rtinst, config) {
+    }
+    const std::string &ToString() const { return ToUVEKey(); }
+};
 
 class ShowRouteTestBase : public ::testing::Test {
 public:
@@ -203,7 +213,7 @@ protected:
     }
 
     void DeleteInetRoute(std::string prefix_str, BgpPeer *peer, size_t size,
-                         const char *inst = NULL) {
+                         const char *inst = NULL, bool check_route = true) {
 
         //
         // Find the inet.0 table in A
@@ -223,7 +233,10 @@ protected:
         table_a->Enqueue(&req);
         task_util::WaitForIdle();
 
-        TASK_UTIL_ASSERT_TRUE(table_a->Find(&key) == NULL);
+        if (check_route) {
+            TASK_UTIL_EXPECT_EQ(static_cast<InetRoute *>(NULL),
+                                table_a->Find(&key));
+        }
         TASK_UTIL_EXPECT_EQ(size, table_a->Size());
     }
 
@@ -1308,7 +1321,7 @@ TEST_F(ShowRouteTest3, PageLimit1) {
     // (kMaxCount+1) routes. Read should return the first kMaxCount entries.
     ShowRouteReq *show_req = new ShowRouteReq;
     vector<int> result = list_of(100);
-    string next_batch = "||||||red||red.inet.0||10.1.1.0/24||0||false";
+    string next_batch = "||||||red||red.inet.0||10.1.1.0/24||0||||||||false";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
     show_req->set_start_routing_instance("red");
@@ -1433,7 +1446,7 @@ TEST_F(ShowRouteTest3, PageLimit4) {
     // We will get back [blue:all routes] and [red:1.2.3.0 to 1.2.3.9].
     show_req = new ShowRouteReq;
     result = list_of(90)(10);
-    next_batch = "||||||red||red.inet.0||1.2.3.10/32||80||false";
+    next_batch = "||||||red||red.inet.0||1.2.3.10/32||80||||||||false";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
     show_req->set_count(180);
@@ -1937,6 +1950,194 @@ TEST_F(ShowRouteTest3, PageLimit7) {
     DeleteInetRoute("80.1.1.0/24", peers_[0], 0, "red");
 }
 
+TEST_F(ShowRouteTest3, PageLimit8) {
+
+    // Add equal number of routes in blue and red so that their total is
+    // greater than kMaxCount.
+    std::string plen = "/32";
+    std::string ip = "1.2.3.";
+    for (int host = 0; host < 90; ++host) {
+        std::ostringstream repr;
+        repr << ip << host << plen;
+        AddInetRoute(repr.str(), peers_[0], "blue");
+        AddInetRoute(repr.str(), peers_[0], "red");
+    }
+
+    // Ask for all 180 routes. We should get back kMaxCount. The return count
+    // in next_batch should have 80 and the next IP should be 1.2.3.10 in red.
+    // We will get back [blue:all routes] and [red:1.2.3.0 to 1.2.3.9].
+    // matching source based filter is also specified.
+    ShowRouteReq *show_req = new ShowRouteReq;
+    vector<int> result = list_of(90)(10);
+    string next_batch = "||||||red||red.inet.0||1.2.3.10/32||80||" +
+                        peers_[0]->ToString() + "||||||false";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_count(180);
+    show_req->set_source(peers_[0]->ToString());
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for all 180 routes. We should get back kMaxCount. The return count
+    // in next_batch should have 80 and the next IP should be 1.2.3.10 in red.
+    // We will get back [blue:all routes] and [red:1.2.3.0 to 1.2.3.9].
+    // matching protocol based filter is also specified.
+    show_req = new ShowRouteReq;
+    result = list_of(90)(10);
+    next_batch = "||||||red||red.inet.0||1.2.3.10/32||80||||BGP||||false";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_count(180);
+    show_req->set_protocol("BGP");
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for all 180 routes. We should get back kMaxCount. The return count
+    // in next_batch should have 80 and the next IP should be 1.2.3.10 in red.
+    // We will get back [blue:all routes] and [red:1.2.3.0 to 1.2.3.9].
+    // matching source and protocol based filters are also specified.
+    show_req = new ShowRouteReq;
+    result = list_of(90)(10);
+    next_batch = "||||||red||red.inet.0||1.2.3.10/32||80||" +
+                        peers_[0]->ToString() + "||BGP||||false";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_count(180);
+    show_req->set_source(peers_[0]->ToString());
+    show_req->set_protocol("BGP");
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for all 180 routes. We should get back kMaxCount. The return count
+    // in next_batch should have 80 and the next IP should be 1.2.3.10 in red.
+    // We will get back [blue:all routes] and [red:1.2.3.0 to 1.2.3.9].
+    // matching source and family based filters are also specified.
+    show_req = new ShowRouteReq;
+    result = list_of(90)(10);
+    next_batch = "||||||red||red.inet.0||1.2.3.10/32||80||" +
+                        peers_[0]->ToString() + "||||inet||false";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_count(180);
+    show_req->set_source(peers_[0]->ToString());
+    show_req->set_family("inet");
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for all 180 routes. We should get back kMaxCount. The return count
+    // in next_batch should have 80 and the next IP should be 1.2.3.10 in red.
+    // We will get back [blue:all routes] and [red:1.2.3.0 to 1.2.3.9].
+    // matching source, protocol and family based filters are also specified.
+    show_req = new ShowRouteReq;
+    result = list_of(90)(10);
+    next_batch = "||||||red||red.inet.0||1.2.3.10/32||80||" +
+                        peers_[0]->ToString() + "||BGP||inet||false";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_count(180);
+    show_req->set_source(peers_[0]->ToString());
+    show_req->set_protocol("BGP");
+    show_req->set_family("inet");
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for all 180 routes. We should get back none as non-matching source
+    // and protocol based filters are also specified.
+    show_req = new ShowRouteReq;
+    result.clear();
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__));
+    show_req->set_count(180);
+    show_req->set_source(peers_[1]->ToString());
+    show_req->set_protocol("BGP");
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for all 180 routes. We should get back none as matching source
+    // and non-matching protocol based filters are also specified.
+    show_req = new ShowRouteReq;
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__));
+    show_req->set_count(180);
+    show_req->set_source(peers_[0]->ToString());
+    show_req->set_protocol("XMPP");
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for all 180 routes. We should get back none as non-matching source
+    // and non-matching protocol based filters are also specified.
+    show_req = new ShowRouteReq;
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__));
+    show_req->set_count(180);
+    show_req->set_source(peers_[1]->ToString());
+    show_req->set_protocol("XMPP");
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for all 180 routes. We should get back none as matching source
+    // and non-matching family based filters are also specified.
+    show_req = new ShowRouteReq;
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__));
+    show_req->set_count(180);
+    show_req->set_source(peers_[0]->ToString());
+    show_req->set_family("inet6");
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for all 180 routes. We should get back none as non-matching source
+    // and matching family based filters are also specified.
+    show_req = new ShowRouteReq;
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__));
+    show_req->set_count(180);
+    show_req->set_source(peers_[1]->ToString());
+    show_req->set_family("inet");
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for all 180 routes. We should get back none as non-matching source
+    // and non-matching family based filters are also specified.
+    show_req = new ShowRouteReq;
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__));
+    show_req->set_count(180);
+    show_req->set_source(peers_[1]->ToString());
+    show_req->set_family("inet6");
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    for (int host = 89; host >= 0; --host) {
+        std::ostringstream repr;
+        repr << ip << host << plen;
+        DeleteInetRoute(repr.str(), peers_[0], host, "blue");
+        DeleteInetRoute(repr.str(), peers_[0], host, "red");
+    }
+}
+
 TEST_F(ShowRouteTest3, SimulateClickingNextBatch) {
 
     // Add 400 routes and read them in 4 batches of 100 routes each.
@@ -1953,7 +2154,7 @@ TEST_F(ShowRouteTest3, SimulateClickingNextBatch) {
     // i.e. 100 entries
     ShowRouteReq *show_req = new ShowRouteReq;
     vector<int> result = list_of(100);
-    string next_batch = "||||||red||red.inet.0||1.2.0.100/32||300||false";
+    string next_batch = "||||||red||red.inet.0||1.2.0.100/32||300||||||||false";
     show_req->set_count(400);
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -1970,7 +2171,7 @@ TEST_F(ShowRouteTest3, SimulateClickingNextBatch) {
     show_req->set_start_prefix("1.2.0.100/32");
     show_req->set_count(300);
     show_req->set_longer_match(false);
-    next_batch = "||||||red||red.inet.0||1.2.0.200/32||200||false";
+    next_batch = "||||||red||red.inet.0||1.2.0.200/32||200||||||||false";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
     validate_done_ = false;
@@ -1986,7 +2187,7 @@ TEST_F(ShowRouteTest3, SimulateClickingNextBatch) {
     show_req->set_start_prefix("1.2.0.200/32");
     show_req->set_count(200);
     show_req->set_longer_match(false);
-    next_batch = "||||||red||red.inet.0||1.2.1.44/32||100||false";
+    next_batch = "||||||red||red.inet.0||1.2.1.44/32||100||||||||false";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
     validate_done_ = false;
@@ -2106,6 +2307,338 @@ TEST_F(ShowRouteVrfTest, Prefix4) {
     }
 }
 
+class ShowRouteTest4 : public ShowRouteTestBase {
+protected:
+    virtual void SetUp() {
+        ShowRouteTestBase::SetUp();
+        Configure();
+        task_util::WaitForIdle();
+
+        AddInetRoute("192.168.11.0/24", peers_[0], "red");
+        AddInetRoute("192.168.11.0/24", peers_[1], "red");
+        AddInetRoute("192.168.11.0/24", NULL, "red");
+
+        AddInetRoute("192.168.12.0/24", peers_[0], "blue");
+        AddInetRoute("192.168.12.0/24", peers_[1], "blue");
+        AddInetRoute("192.168.12.0/24", NULL, "blue");
+
+        AddInetRoute("192.168.13.0/24", NULL, "red");
+        AddInetRoute("192.168.13.0/24", NULL, "blue");
+    }
+
+    virtual void TearDown() {
+        DeleteInetRoute("192.168.11.0/24", peers_[0], 2, "red", false);
+        DeleteInetRoute("192.168.11.0/24", peers_[1], 2, "red", false);
+        DeleteInetRoute("192.168.11.0/24", NULL, 1, "red");
+
+        DeleteInetRoute("192.168.12.0/24", peers_[0], 2, "blue", false);
+        DeleteInetRoute("192.168.12.0/24", peers_[1], 2, "blue", false);
+        DeleteInetRoute("192.168.12.0/24", NULL, 1, "blue");
+
+        DeleteInetRoute("192.168.13.0/24", NULL, 0, "red");
+        DeleteInetRoute("192.168.13.0/24", NULL, 0, "blue");
+
+        task_util::WaitForIdle();
+        ShowRouteTestBase::TearDown();
+    }
+};
+
+// Limit routes by instance and source.
+TEST_F(ShowRouteTest4, Source1) {
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = a_.get();
+    Sandesh::set_client_context(&sandesh_context);
+
+    const char *table_names[] = { "blue.inet.0", "red.inet.0" };
+    BOOST_FOREACH(const char *table, table_names) {
+        ShowRouteReq *show_req = new ShowRouteReq;
+        vector<int> result = list_of(1);
+        Sandesh::set_response_callback(
+            boost::bind(ValidateShowRouteSandeshResponse, _1, result,
+                        __LINE__));
+        show_req->set_routing_table(table);
+        show_req->set_source(peers_[1]->ToString());
+        validate_done_ = false;
+        show_req->HandleRequest();
+        show_req->Release();
+        TASK_UTIL_EXPECT_EQ(true, validate_done_);
+    }
+}
+
+// Limit routes by instance and non-existent source.
+TEST_F(ShowRouteTest4, Source2) {
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = a_.get();
+    Sandesh::set_client_context(&sandesh_context);
+
+    const char *table_names[] = { "blue.inet.0", "red.inet.0" };
+    BOOST_FOREACH(const char *table, table_names) {
+        ShowRouteReq *show_req = new ShowRouteReq;
+        vector<int> result;
+        Sandesh::set_response_callback(
+            boost::bind(ValidateShowRouteSandeshResponse, _1, result,
+                        __LINE__));
+        show_req->set_routing_table(table);
+        show_req->set_source(peers_[2]->ToString());
+        validate_done_ = false;
+        show_req->HandleRequest();
+        show_req->Release();
+        TASK_UTIL_EXPECT_EQ(true, validate_done_);
+    }
+}
+
+// Limit routes by instance and protocol.
+TEST_F(ShowRouteTest4, Source3) {
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = a_.get();
+    Sandesh::set_client_context(&sandesh_context);
+
+    const char *table_names[] = { "blue.inet.0", "red.inet.0" };
+    BOOST_FOREACH(const char *table, table_names) {
+        ShowRouteReq *show_req = new ShowRouteReq;
+        vector<int> result = list_of(1);
+        Sandesh::set_response_callback(
+            boost::bind(ValidateShowRouteSandeshResponse, _1, result,
+                        __LINE__));
+        show_req->set_routing_table(table);
+        show_req->set_protocol(peers_[1]->IsXmppPeer() ? "XMPP" : "BGP");
+        validate_done_ = false;
+        show_req->HandleRequest();
+        show_req->Release();
+        TASK_UTIL_EXPECT_EQ(true, validate_done_);
+    }
+}
+
+// Limit routes by instance and non-existent protocol.
+TEST_F(ShowRouteTest4, Source4) {
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = a_.get();
+    Sandesh::set_client_context(&sandesh_context);
+
+    const char *table_names[] = { "blue.inet.0", "red.inet.0" };
+    BOOST_FOREACH(const char *table, table_names) {
+        ShowRouteReq *show_req = new ShowRouteReq;
+        vector<int> result;
+        Sandesh::set_response_callback(
+            boost::bind(ValidateShowRouteSandeshResponse, _1, result,
+                        __LINE__));
+        show_req->set_routing_table(table);
+        show_req->set_protocol(!peers_[1]->IsXmppPeer() ? "XMPP" : "BGP");
+        validate_done_ = false;
+        show_req->HandleRequest();
+        show_req->Release();
+        TASK_UTIL_EXPECT_EQ(true, validate_done_);
+    }
+}
+
+// Limit routes by instance, source and protocol.
+TEST_F(ShowRouteTest4, Source5) {
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = a_.get();
+    Sandesh::set_client_context(&sandesh_context);
+
+    const char *table_names[] = { "blue.inet.0", "red.inet.0" };
+    BOOST_FOREACH(const char *table, table_names) {
+        ShowRouteReq *show_req = new ShowRouteReq;
+        vector<int> result = list_of(1);
+        Sandesh::set_response_callback(
+            boost::bind(ValidateShowRouteSandeshResponse, _1, result,
+                        __LINE__));
+        show_req->set_routing_table(table);
+        show_req->set_source(peers_[1]->ToString());
+        show_req->set_protocol(peers_[1]->IsXmppPeer() ? "XMPP" : "BGP");
+        validate_done_ = false;
+        show_req->HandleRequest();
+        show_req->Release();
+        TASK_UTIL_EXPECT_EQ(true, validate_done_);
+    }
+}
+
+// Limit routes by instance, non-existent source and non-existent protocol.
+TEST_F(ShowRouteTest4, Source6) {
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = a_.get();
+    Sandesh::set_client_context(&sandesh_context);
+
+    const char *table_names[] = { "blue.inet.0", "red.inet.0" };
+    BOOST_FOREACH(const char *table, table_names) {
+        ShowRouteReq *show_req = new ShowRouteReq;
+        vector<int> result;
+        Sandesh::set_response_callback(
+            boost::bind(ValidateShowRouteSandeshResponse, _1, result,
+                        __LINE__));
+        show_req->set_routing_table(table);
+        show_req->set_source(peers_[2]->ToString());
+        show_req->set_protocol(!peers_[1]->IsXmppPeer() ? "XMPP" : "BGP");
+        validate_done_ = false;
+        show_req->HandleRequest();
+        show_req->Release();
+        TASK_UTIL_EXPECT_EQ(true, validate_done_);
+    }
+}
+
+// Limit routes by instance, existent source and non-existent protocol.
+TEST_F(ShowRouteTest4, Source7) {
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = a_.get();
+    Sandesh::set_client_context(&sandesh_context);
+
+    const char *table_names[] = { "blue.inet.0", "red.inet.0" };
+    BOOST_FOREACH(const char *table, table_names) {
+        ShowRouteReq *show_req = new ShowRouteReq;
+        vector<int> result;
+        Sandesh::set_response_callback(
+            boost::bind(ValidateShowRouteSandeshResponse, _1, result,
+                        __LINE__));
+        show_req->set_routing_table(table);
+        show_req->set_source(peers_[1]->ToString());
+        show_req->set_protocol(!peers_[1]->IsXmppPeer() ? "XMPP" : "BGP");
+        validate_done_ = false;
+        show_req->HandleRequest();
+        show_req->Release();
+        TASK_UTIL_EXPECT_EQ(true, validate_done_);
+    }
+}
+
+// Limit routes by instance, non-existent source and existent protocol.
+TEST_F(ShowRouteTest4, Source8) {
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = a_.get();
+    Sandesh::set_client_context(&sandesh_context);
+
+    const char *table_names[] = { "blue.inet.0", "red.inet.0" };
+    BOOST_FOREACH(const char *table, table_names) {
+        ShowRouteReq *show_req = new ShowRouteReq;
+        vector<int> result;
+        Sandesh::set_response_callback(
+            boost::bind(ValidateShowRouteSandeshResponse, _1, result,
+                        __LINE__));
+        show_req->set_routing_table(table);
+        show_req->set_source(peers_[2]->ToString());
+        show_req->set_protocol(peers_[1]->IsXmppPeer() ? "XMPP" : "BGP");
+        validate_done_ = false;
+        show_req->HandleRequest();
+        show_req->Release();
+        TASK_UTIL_EXPECT_EQ(true, validate_done_);
+    }
+}
+
+// Limit routes by instance and family.
+TEST_F(ShowRouteTest4, Source9) {
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = a_.get();
+    Sandesh::set_client_context(&sandesh_context);
+
+    const char *table_names[] = { "blue.inet.0", "red.inet.0" };
+    BOOST_FOREACH(const char *table, table_names) {
+        ShowRouteReq *show_req = new ShowRouteReq;
+        vector<int> result = list_of(2);
+        Sandesh::set_response_callback(
+            boost::bind(ValidateShowRouteSandeshResponse, _1, result,
+                        __LINE__));
+        show_req->set_routing_table(table);
+        show_req->set_family("inet");
+        validate_done_ = false;
+        show_req->HandleRequest();
+        show_req->Release();
+        TASK_UTIL_EXPECT_EQ(true, validate_done_);
+    }
+}
+
+// Limit routes by instance, source and family.
+TEST_F(ShowRouteTest4, Source10) {
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = a_.get();
+    Sandesh::set_client_context(&sandesh_context);
+
+    const char *table_names[] = { "blue.inet.0", "red.inet.0" };
+    BOOST_FOREACH(const char *table, table_names) {
+        ShowRouteReq *show_req = new ShowRouteReq;
+        vector<int> result = list_of(1);
+        Sandesh::set_response_callback(
+            boost::bind(ValidateShowRouteSandeshResponse, _1, result,
+                        __LINE__));
+        show_req->set_routing_table(table);
+        show_req->set_source(peers_[1]->ToString());
+        show_req->set_family("inet");
+        validate_done_ = false;
+        show_req->HandleRequest();
+        show_req->Release();
+        TASK_UTIL_EXPECT_EQ(true, validate_done_);
+    }
+}
+
+// Limit routes by instance, source, protocol and family.
+TEST_F(ShowRouteTest4, Source11) {
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = a_.get();
+    Sandesh::set_client_context(&sandesh_context);
+
+    const char *table_names[] = { "blue.inet.0", "red.inet.0" };
+    BOOST_FOREACH(const char *table, table_names) {
+        ShowRouteReq *show_req = new ShowRouteReq;
+        vector<int> result = list_of(1);
+        Sandesh::set_response_callback(
+            boost::bind(ValidateShowRouteSandeshResponse, _1, result,
+                        __LINE__));
+        show_req->set_routing_table(table);
+        show_req->set_protocol("BGP");
+        show_req->set_source(peers_[1]->ToString());
+        show_req->set_family("inet");
+        validate_done_ = false;
+        show_req->HandleRequest();
+        show_req->Release();
+        TASK_UTIL_EXPECT_EQ(true, validate_done_);
+    }
+}
+
+// Limit routes by instance and non-existent family.
+TEST_F(ShowRouteTest4, Source12) {
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = a_.get();
+    Sandesh::set_client_context(&sandesh_context);
+
+    const char *table_names[] = { "blue.inet.0", "red.inet.0" };
+    BOOST_FOREACH(const char *table, table_names) {
+        ShowRouteReq *show_req = new ShowRouteReq;
+        vector<int> result;
+        Sandesh::set_response_callback(
+            boost::bind(ValidateShowRouteSandeshResponse, _1, result,
+                        __LINE__));
+        show_req->set_routing_table(table);
+        show_req->set_family("l3vpn");
+        validate_done_ = false;
+        show_req->HandleRequest();
+        show_req->Release();
+        TASK_UTIL_EXPECT_EQ(true, validate_done_);
+    }
+}
+
+// Limit routes by instance, non-existent source, non-existent protocol and
+// non-existent family.
+TEST_F(ShowRouteTest4, Source13) {
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = a_.get();
+    Sandesh::set_client_context(&sandesh_context);
+
+    const char *table_names[] = { "blue.inet.0", "red.inet.0" };
+    BOOST_FOREACH(const char *table, table_names) {
+        ShowRouteReq *show_req = new ShowRouteReq;
+        vector<int> result;
+        Sandesh::set_response_callback(
+            boost::bind(ValidateShowRouteSandeshResponse, _1, result,
+                        __LINE__));
+        show_req->set_routing_table(table);
+        show_req->set_protocol("XMPP");
+        show_req->set_source(peers_[2]->ToString());
+        show_req->set_family("l3vpn");
+        validate_done_ = false;
+        show_req->HandleRequest();
+        show_req->Release();
+        TASK_UTIL_EXPECT_EQ(true, validate_done_);
+    }
+}
+
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }
 };
@@ -2113,6 +2646,7 @@ class TestEnvironment : public ::testing::Environment {
 static void SetUp() {
     ControlNode::SetDefaultSchedulingPolicy();
     BgpServerTest::GlobalSetUp();
+    BgpObjectFactory::Register<BgpPeer>(boost::factory<BgpPeerShowTest *>());
 }
 
 static void TearDown() {
