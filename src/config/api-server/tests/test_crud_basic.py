@@ -11,6 +11,7 @@ import logging
 import coverage
 import random
 import netaddr
+import tempfile
 
 import cgitb
 cgitb.enable(format='text')
@@ -2105,6 +2106,36 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         qc = self._vnc_lib.qos_config_read(fq_name=qc.get_fq_name())
         self.assertEqual(len(qc.get_global_system_config_refs()), 1)
 
+    def test_cert_bundle_refresh(self):
+        bundle_dir = tempfile.mkdtemp(self.id())
+        try:
+            with open(bundle_dir+'cert', 'w') as f:
+                f.write("CERT")
+            with open(bundle_dir+'ca', 'w') as f:
+                f.write("CA")
+            with open(bundle_dir+'key', 'w') as f:
+                f.write("KEY")
+            cfgm_common.utils.getCertKeyCaBundle(bundle_dir+'pem',
+                [bundle_dir+x for x in ['cert', 'ca', 'key']])
+            with open(bundle_dir+'pem', 'r') as f:
+                self.assertEqual(f.readlines()[0], 'CERTCAKEY')
+
+            # sleep so mods to cert/ca/key appear as different epoch
+            gevent.sleep(0.1)
+
+            with open(bundle_dir+'cert', 'w') as f:
+                f.write("CERTNEW")
+            with open(bundle_dir+'ca', 'w') as f:
+                f.write("CANEW")
+            with open(bundle_dir+'key', 'w') as f:
+                f.write("KEYNEW")
+            cfgm_common.utils.getCertKeyCaBundle(bundle_dir+'pem',
+                [bundle_dir+x for x in ['cert', 'ca', 'key']])
+            with open(bundle_dir+'pem', 'r') as f:
+                self.assertEqual(f.readlines()[0], 'CERTNEWCANEWKEYNEW')
+        finally:
+            os.removedirs(bundle_dir)
+    # end test_cert_bundle_refresh
 # end class TestVncCfgApiServer
 
 
