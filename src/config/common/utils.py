@@ -180,7 +180,17 @@ def CamelCase(input):
 
 def getCertKeyCaBundle(bundle, certs):
     if os.path.isfile(bundle):
-       return bundle
+        # Check if bundle needs to be replaced if
+        # constituent files were updated
+        bundle_is_stale = False
+        bundle_mod_time = os.path.getmtime(bundle)
+        for cert in certs:
+            if os.path.getmtime(cert) > bundle_mod_time:
+                bundle_is_stale = True
+                break
+        if not bundle_is_stale:
+            return bundle
+
     with open(bundle, 'w') as ofile:
          for cert in certs:
              with open(cert) as ifile:
