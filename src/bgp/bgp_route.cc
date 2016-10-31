@@ -417,7 +417,7 @@ static void FillPmsiTunnelInfo(const PmsiTunnel *pmsi_tunnel, bool label_is_vni,
 }
 
 void BgpRoute::FillRouteInfo(const BgpTable *table,
-    ShowRoute *show_route) const {
+    ShowRoute *show_route, string source, string protocol) const {
     const RoutingInstance *ri = table->routing_instance();
 
     show_route->set_prefix(ToString());
@@ -430,6 +430,15 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
         const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
         ShowRoutePath srp;
         const IPeer *peer = path->GetPeer();
+
+        // Filter against peer source, if specified.
+        if (!source.empty() && (!peer || source != peer->ToString()))
+            continue;
+
+        // Filter against path protocol, if specified.
+        if (!protocol.empty() && protocol != path->GetSourceString())
+            continue;
+
         if (peer) {
             srp.set_source(peer->ToString());
         }
