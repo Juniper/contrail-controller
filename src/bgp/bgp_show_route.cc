@@ -173,8 +173,10 @@ public:
                              req_->get_longer_match()))
                 continue;
             ShowRoute show_route;
-            route->FillRouteInfo(table, &show_route);
-            route_list->push_back(show_route);
+            route->FillRouteInfo(table, &show_route, req_->get_source(),
+                                 req_->get_protocol());
+            if (!show_route.get_paths().empty())
+                route_list->push_back(show_route);
             if (exact_lookup)
                 break;
         }
@@ -310,7 +312,28 @@ bool ShowRouteHandler::ConvertReqIterateToReq(
     string count_str = route_info.substr((pos6 + sep_size),
                                          pos7 - (pos6 + sep_size));
 
-    string longer_match = route_info.substr(pos7 + sep_size);
+    size_t pos8 = route_info.find(kIterSeparator, (pos7 + sep_size));
+    if (pos8 == string::npos) {
+        return false;
+    }
+    string user_source = route_info.substr((pos7 + sep_size),
+                                           pos8 - (pos7 + sep_size));
+
+    size_t pos9 = route_info.find(kIterSeparator, (pos8 + sep_size));
+    if (pos9 == string::npos) {
+        return false;
+    }
+    string user_protocol = route_info.substr((pos8 + sep_size),
+                                             pos9 - (pos8 + sep_size));
+
+    size_t pos10 = route_info.find(kIterSeparator, (pos9 + sep_size));
+    if (pos10 == string::npos) {
+        return false;
+    }
+    string user_family = route_info.substr((pos9 + sep_size),
+                                           pos10 - (pos9 + sep_size));
+
+    string longer_match = route_info.substr(pos10 + sep_size);
 
     req->set_routing_instance(user_ri);
     req->set_routing_table(user_rt);
@@ -319,6 +342,9 @@ bool ShowRouteHandler::ConvertReqIterateToReq(
     req->set_start_routing_table(next_rt);
     req->set_start_prefix(next_prefix);
     req->set_count(atoi(count_str.c_str()));
+    req->set_source(user_source);
+    req->set_protocol(user_protocol);
+    req->set_family(user_family);
     req->set_longer_match(StringToBool(longer_match));
 
     return true;
@@ -364,6 +390,10 @@ bool ShowRouteHandler::CallbackS1Common(const ShowRouteReq *req, int inst_id,
         }
         for (; j != i->second->GetTables().end(); ++j) {
             BgpTable *table = j->second;
+            if (!req->get_family().empty() && req->get_family() !=
+                    Address::FamilyToTableString(table->family())) {
+                continue;
+            }
             if (!handler.match(req->get_routing_table(), table->name())) {
                 continue;
             }
@@ -499,6 +529,9 @@ string ShowRouteHandler::SaveContextAndPopLast(const ShowRouteReq *req,
             last_route_table->get_routing_table_name() + kIterSeparator +
             last_route.get_prefix() + kIterSeparator +
             integerToString(new_count) + kIterSeparator +
+            req->get_source() + kIterSeparator +
+            req->get_protocol() + kIterSeparator +
+            req->get_family() + kIterSeparator +
             BoolToString(req->get_longer_match());
     }
 
