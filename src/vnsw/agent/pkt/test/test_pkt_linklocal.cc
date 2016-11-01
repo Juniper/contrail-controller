@@ -405,18 +405,13 @@ TEST_F(FlowTest, LinkLocalFlow_update) {
     DelLinkLocalConfig();
     client->WaitForIdle();
 
-    boost::system::error_code ec;
-    BgpPeer *peer = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
-                                  "xmpp channel");
+    Ip4Address addr = Ip4Address::from_string(linklocal_ip);
+    agent()->fabric_inet4_unicast_table()->
+        AddVHostRecvRouteReq(agent()->link_local_peer(), "vrf1",
+                             agent()->vhost_interface_name(),
+                             addr, 32, "", true);
     client->WaitForIdle();
-
-    Ip4Address addr = Ip4Address::from_string("0.0.0.0");
-    Ip4Address gw = Ip4Address::from_string(remote_server_ip);
-    Inet4TunnelRouteAdd(peer, "vrf1", addr, 0, gw, TunnelType::MplsType(),
-                        20, vmi0->vn()->GetName(), SecurityGroupList(),
-                        PathPreference());
-    client->WaitForIdle();
-    WAIT_FOR(1000, 500, (RouteFind("vrf1", addr, 0) == true));
+    WAIT_FOR(1000, 100, (RouteFind("vrf1", addr, 32) == true));
 
     TxTcpPacket(vmi0->id(), vm1_ip, linklocal_ip, 3000, linklocal_port, false,
                 1, vmi0->vrf_id());
@@ -441,13 +436,6 @@ TEST_F(FlowTest, LinkLocalFlow_update) {
     WAIT_FOR(1000, 1000, fe->IsShortFlow());
     fe = NULL;
     FlushFlowTable();
-    client->WaitForIdle();
-
-    agent()->fabric_inet4_unicast_table()->
-        DeleteReq(peer, "vrf1", addr, 0, new ControllerVmRoute(peer));
-    client->WaitForIdle();
-    WAIT_FOR(1000, 1, (RouteFind("vrf1", addr, 0) == false));
-    DeleteBgpPeer(peer);
     client->WaitForIdle();
 
     EXPECT_TRUE(FlowTableWait(0));
