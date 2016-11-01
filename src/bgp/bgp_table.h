@@ -139,6 +139,10 @@ public:
     const uint64_t GetInfeasiblePathCount() const {
         return infeasible_path_count_;
     }
+    const uint64_t GetStalePathCount() const { return stale_path_count_; }
+    const uint64_t GetLlgrStalePathCount() const {
+        return llgr_stale_path_count_;
+    }
 
     // Check whether the route is aggregate route
     bool IsAggregateRoute(const BgpRoute *route) const;
@@ -180,6 +184,8 @@ private:
     tbb::atomic<uint64_t> primary_path_count_;
     tbb::atomic<uint64_t> secondary_path_count_;
     tbb::atomic<uint64_t> infeasible_path_count_;
+    tbb::atomic<uint64_t> stale_path_count_;
+    tbb::atomic<uint64_t> llgr_stale_path_count_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpTable);
 };

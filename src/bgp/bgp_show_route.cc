@@ -67,6 +67,8 @@ int MergeValues(ShowRouteTable *result, vector<const ShowRouteTable *> *input,
     result->primary_paths = input->at(0)->primary_paths;
     result->secondary_paths = input->at(0)->secondary_paths;
     result->infeasible_paths = input->at(0)->infeasible_paths;
+    result->set_stale_paths(input->at(0)->get_stale_paths());
+    result->set_llgr_stale_paths(input->at(0)->get_llgr_stale_paths());
     result->paths = input->at(0)->paths;
     result->listeners = input->at(0)->listeners;
 
@@ -378,6 +380,8 @@ bool ShowRouteHandler::CallbackS1Common(const ShowRouteReq *req, int inst_id,
             srt.primary_paths = table->GetPrimaryPathCount();
             srt.secondary_paths = table->GetSecondaryPathCount();
             srt.infeasible_paths = table->GetInfeasiblePathCount();
+            srt.set_stale_paths(table->GetStalePathCount());
+            srt.set_llgr_stale_paths(table->GetLlgrStalePathCount());
             srt.paths = srt.primary_paths + srt.secondary_paths;
 
             vector<ShowTableListener> listeners;

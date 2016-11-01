@@ -25,6 +25,8 @@ static void FillRouteTableSummaryInfo(ShowRouteTableSummary *srts,
     srts->primary_paths = table->GetPrimaryPathCount();
     srts->secondary_paths = table->GetSecondaryPathCount();
     srts->infeasible_paths = table->GetInfeasiblePathCount();
+    srts->set_stale_paths(table->GetStalePathCount());
+    srts->set_llgr_stale_paths(table->GetLlgrStalePathCount());
     srts->paths = srts->primary_paths + srts->secondary_paths;
     srts->set_walk_requests(table->walk_request_count());
     srts->set_walk_again_requests(table->walk_again_count());

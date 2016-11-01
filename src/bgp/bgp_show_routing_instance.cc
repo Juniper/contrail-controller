@@ -35,6 +35,8 @@ static void FillRoutingInstanceTableInfo(ShowRoutingInstanceTable *srit,
     srit->primary_paths = table->GetPrimaryPathCount();
     srit->secondary_paths = table->GetSecondaryPathCount();
     srit->infeasible_paths = table->GetInfeasiblePathCount();
+    srit->set_stale_paths(table->GetStalePathCount());
+    srit->set_llgr_stale_paths(table->GetLlgrStalePathCount());
     srit->paths = srit->primary_paths + srit->secondary_paths;
 }
 

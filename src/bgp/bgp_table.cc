@@ -66,6 +66,8 @@ BgpTable::BgpTable(DB *db, const string &name)
     primary_path_count_ = 0;
     secondary_path_count_ = 0;
     infeasible_path_count_ = 0;
+    stale_path_count_ = 0;
+    llgr_stale_path_count_ = 0;
 }
 
 //
@@ -677,6 +679,14 @@ void BgpTable::UpdatePathCount(const BgpPath *path, int count) {
 
     if (!path->IsFeasible()) {
         infeasible_path_count_ += count;
+    }
+
+    if (!path->IsStale()) {
+        stale_path_count_ += count;
+    }
+
+    if (!path->IsLlgrStale()) {
+        llgr_stale_path_count_ += count;
     }
 }
 
