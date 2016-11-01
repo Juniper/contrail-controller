@@ -122,14 +122,20 @@ BuildEnv['KSYNC_DOC_FILES'] = ksync_doc_files
 bgp_doc_files = []
 bgp_doc_target = BuildEnv['TOP'] + '/bgp/'
 bgp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/bgp/bgp_log.sandesh', bgp_doc_target)
-bgp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/bgp/routing-instance/service_chaining.sandesh', bgp_doc_target)
-bgp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/bgp/routing-instance/static_route.sandesh', bgp_doc_target)
+bgp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/bgp/routing-instance/route_aggregate_internal.sandesh', bgp_doc_target)
+bgp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/bgp/routing-instance/route_aggregate.sandesh', bgp_doc_target)
 bgp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/bgp/routing-instance/routing_instance_analytics.sandesh', bgp_doc_target)
+bgp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/bgp/routing-instance/service_chaining_internal.sandesh', bgp_doc_target)
+bgp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/bgp/routing-instance/service_chaining.sandesh', bgp_doc_target)
+bgp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/bgp/routing-instance/static_route_internal.sandesh', bgp_doc_target)
+bgp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/bgp/routing-instance/static_route.sandesh', bgp_doc_target)
 bgp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/bgp/bgp_peer_internal.sandesh', bgp_doc_target)
 bgp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/bgp/virtual_network.sandesh', bgp_doc_target)
 bgp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/bgp/peer_info.sandesh', bgp_doc_target)
+bgp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/bgp/table_info.sandesh', bgp_doc_target)
 bgp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/bgp/vrouter.sandesh', bgp_doc_target)
 bgp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/bgp/bgp_peer.sandesh', bgp_doc_target)
+bgp_doc_files += BuildEnv.SandeshGenDoc('#controller/src/bgp/bgp_table.sandesh', bgp_doc_target)
 BuildEnv['BGP_DOC_FILES'] = bgp_doc_files
 
 # XMPP
