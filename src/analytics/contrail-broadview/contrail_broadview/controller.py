@@ -7,7 +7,7 @@ from client import BroadviewApiClient
 import time, socket, os
 from bv_uve import BroadViewOL
 import gevent
-from gevent.coros import Semaphore
+from gevent.lock import Semaphore
 from opserver.consistent_schdlr import ConsistentScheduler
 from bottle import Bottle, request, run
 import json
