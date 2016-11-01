@@ -43,7 +43,7 @@ from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeN
     INSTANCE_ID_DEFAULT    
 from sandesh.discovery_introspect import ttypes as sandesh
 
-from gevent.coros import BoundedSemaphore
+from gevent.lock import BoundedSemaphore
 from cfgm_common.rest import LinkObject
 
 
