@@ -6,6 +6,7 @@ import sys
 sys.path.append('../common/tests')
 
 import os
+import shutil
 
 import test_common
 import sqlalchemy
@@ -566,12 +567,10 @@ class TestPropertyWithMap(test_crud_basic.TestPropertyWithMap, test_case.ApiServ
 class TestRDBMSIndexAllocator(testtools.TestCase):
     def setUp(self):
         super(TestRDBMSIndexAllocator, self).setUp()
-        import shutil
         shutil.copyfile('./base_db.db', "test_id_allocater.db")
         connection = "sqlite:///test_id_allocater.db"
         engine_args = {
-            'echo': True,
-            #  'echo': False,
+            'echo': False,
         }
         engine = sqlalchemy.create_engine(connection, **engine_args)
         #vnc_rdbms.Base.metadata.create_all(engine)
