@@ -7,6 +7,7 @@
 #include "test_pkt_util.h"
 #include "pkt/flow_proto.h"
 #include "pkt/flow_mgmt.h"
+#include "pkt/pkt_handler.h"
 #include <base/task.h>
 #include <base/test/task_test_util.h>
 
@@ -82,6 +83,49 @@ public:
     FlowProto *flow_proto_;
     BgpPeer *peer;
 };
+
+//TTL 1
+TEST_F(BgpServiceTest, Test_ttl_1) {
+    AddAap("vnet1", 1, Ip4Address::from_string("10.10.10.10"), "00:00:01:01:01:01");
+    peer = CreateBgpPeer("127.0.0.1", "remote");
+    client->WaitForIdle();
+
+    TxTcpPacket(VmInterfaceGet(1)->id(), "10.10.10.10", "1.1.1.1", 10000, 179,
+                false, 1, 1, 1);
+    client->WaitForIdle();
+    FlowEntry *fe = FlowGet(VmInterfaceGet(1)->flow_key_nh()->id(),
+                            "10.10.10.10", "1.1.1.1", 6, 10000, 179);
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::BgpRouterService));
+    EXPECT_TRUE(fe->data().ttl == BGP_SERVICE_TTL_FWD_FLOW);
+    EXPECT_TRUE(fe->reverse_flow_entry()->data().ttl ==
+                BGP_SERVICE_TTL_REV_FLOW);
+
+    DeleteBgpPeer(peer);
+    client->WaitForIdle();
+}
+
+//TTL 64
+TEST_F(BgpServiceTest, Test_ttl_2) {
+    AddAap("vnet1", 1, Ip4Address::from_string("10.10.10.10"), "00:00:01:01:01:01");
+    peer = CreateBgpPeer("127.0.0.1", "remote");
+    client->WaitForIdle();
+
+    TxTcpPacket(VmInterfaceGet(1)->id(), "10.10.10.10", "1.1.1.1", 10000, 179,
+                false, 1, 1, 64);
+    client->WaitForIdle();
+    FlowEntry *fe = FlowGet(VmInterfaceGet(1)->flow_key_nh()->id(),
+                            "10.10.10.10", "1.1.1.1", 6, 10000, 179);
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::BgpRouterService));
+    EXPECT_TRUE(fe->data().ttl == 0);
+    EXPECT_TRUE(fe->reverse_flow_entry()->data().ttl == 0);
+
+    DeleteBgpPeer(peer);
+    client->WaitForIdle();
+}
 
 TEST_F(BgpServiceTest, Test_1) {
     peer = CreateBgpPeer("127.0.0.1", "remote");
