@@ -252,7 +252,8 @@ public:
     virtual size_t ResolvedQueueSize() const { return chain_set_.size(); }
     virtual uint32_t GetDownServiceChainCount() const;
     virtual bool IsQueueEmpty() const { return process_queue_->IsQueueEmpty(); }
-    virtual bool IsPending(RoutingInstance *rtinstance) const;
+    virtual bool IsPending(RoutingInstance *rtinstance,
+        std::string *reason = NULL) const;
 
     Address::Family GetFamily() const;
     void Enqueue(ServiceChainRequestT *req);
@@ -270,18 +271,21 @@ private:
     // Set of service chains created in the system
     typedef std::map<RoutingInstance *, ServiceChainPtr> ServiceChainMap;
 
-    // At the time of processing, service chain request, all required
-    // routing instance may not be created. Create a list of service chain
-    // waiting for a routing instance to get created
-    typedef std::set<RoutingInstance *> PendingServiceChainList;
+    // At the time of processing, service chain request, all required info
+    // may not be available (e.g. dest routing instance may not be created,
+    // or marked deleted etc). Create a list of pending service chains that
+    // are waiting to get created and maintain a reason string for why the
+    // service chain is on the pending list.
+    typedef std::map<RoutingInstance *, std::string> PendingServiceChainList;
 
     bool RequestHandler(ServiceChainRequestT *req);
     void StopServiceChainDone(BgpTable *table, ConditionMatch *info);
     ServiceChainT *FindServiceChain(const std::string &instance) const;
     ServiceChainT *FindServiceChain(RoutingInstance *rtinstance) const;
 
-    void AddPendingServiceChain(RoutingInstance *rtinstance) {
-        pending_chains_.insert(rtinstance);
+    void AddPendingServiceChain(RoutingInstance *rtinstance,
+        std::string reason) {
+        pending_chains_.insert(std::make_pair(rtinstance, reason));
     }
     void DeletePendingServiceChain(RoutingInstance *rtinstance) {
         pending_chains_.erase(rtinstance);
