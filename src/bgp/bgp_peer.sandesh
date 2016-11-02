@@ -230,6 +230,9 @@ request sandesh ShowRouteReq {
     5: string start_routing_table;
     4: string start_routing_instance;
     6: string start_prefix;
+    9: string source;
+    10: string protocol;
+    11: string family;
 }
 
 struct ShowRouteTableSummary {
