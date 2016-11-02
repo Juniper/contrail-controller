@@ -47,6 +47,8 @@ BgpServerTest::BgpServerTest(EventManager *evm, const string &localname,
     config_manager->Initialize(config_db_.get(), config_graph_.get(),
                                localname);
     cleanup_config_ = false;
+    source_port_ = 0;
+    peer_lookup_disable_ = false;
     rtarget_group_mgr_->Initialize();
 }
 
@@ -58,6 +60,8 @@ BgpServerTest::BgpServerTest(EventManager *evm, const string &localname)
       config_graph_(new DBGraph()) {
     ConcurrencyScope scope("bgp::Config");
     cleanup_config_ = true;
+    source_port_ = 0;
+    peer_lookup_disable_ = false;
     IFMapLinkTable_Init(config_db_.get(), config_graph_.get());
     vnc_cfg_Server_ModuleInit(config_db_.get(), config_graph_.get());
     bgp_schema_Server_ModuleInit(config_db_.get(), config_graph_.get());
@@ -276,7 +280,23 @@ void BgpPeerTest::BindLocalEndpoint(BgpSession *session) {
     BgpPeerKey peer_key;
     peer_key.endpoint.address(
         ip::address::from_string("127.0.0.1", err));
-    peer_key.endpoint.port(server()->session_manager()->GetPort());
+
+    // Check if we need to map to source-port only lookup (for BGPaas Clients)
+    local_port = static_cast<BgpServerTest *>(server())->source_port();
+    if (local_port) {
+
+        // Place the configured source-port in the map, as the fake BGPaaS
+        // clients do not actually send packets with configured source-port
+        // as local-port.
+        peer_key.endpoint.port(local_port);
+        peer_key.endpoint.address(Ip4Address());
+        local_endpoint.address(Ip4Address());
+    } else {
+
+        // Use server-port as the value (which is used later to find the proper
+        // bgp-peer in configuration.
+        peer_key.endpoint.port(server()->session_manager()->GetPort());
+    }
 
     if (config_) {
         if (!config_->uuid().empty()) {
@@ -284,7 +304,7 @@ void BgpPeerTest::BindLocalEndpoint(BgpSession *session) {
             peer_key.uuid = gen(config_->uuid());
         } else {
             boost::uuids::nil_generator nil;
-            peer_key.uuid == nil();
+            peer_key.uuid = nil();
         }
         tbb::mutex::scoped_lock lock(peer_connect_map_mutex_);
         peer_connect_map_[local_endpoint] = peer_key;
@@ -328,6 +348,11 @@ void PeerManagerTest::DestroyIPeer(IPeer *ipeer) {
 //
 BgpPeer *PeerManagerTest::PeerLookup(
     TcpSession::Endpoint remote_endpoint) const {
+
+    // Check if port-based peer lookup is disabled.
+    if (static_cast<BgpServerTest *>(server())->peer_lookup_disable())
+        return PeerManager::PeerLookup(remote_endpoint);
+
     BgpPeerKey peer_key;
     bool present;
 
@@ -360,6 +385,14 @@ BgpPeer *PeerManagerTest::PeerLookup(
     BGP_DEBUG_UT("Peer found in peers_ config map: "
                      << loc->second->ToString());
     return loc->second;
+}
+
+// Find peer based on remote-endpoint port (BGPaaS client)
+BgpPeer *BgpServerTest::FindPeer(TcpSession::Endpoint remote_endpoint) const {
+    tbb::mutex::scoped_lock lock(peer_connect_map_mutex_);
+    if (peer_connect_map_.count(remote_endpoint) > 0)
+        remote_endpoint = peer_connect_map_.at(remote_endpoint).endpoint;
+    return BgpServer::FindPeer(remote_endpoint);
 }
 
 BgpInstanceConfigTest *BgpTestUtil::CreateBgpInstanceConfig(

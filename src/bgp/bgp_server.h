@@ -75,7 +75,7 @@ public:
     BgpPeer *FindPeer(const std::string &name);
     void InsertPeer(TcpSession::Endpoint remote, BgpPeer *peer);
     void RemovePeer(TcpSession::Endpoint remote, BgpPeer *peer);
-    BgpPeer *FindPeer(TcpSession::Endpoint remote) const;
+    virtual BgpPeer *FindPeer(TcpSession::Endpoint remote) const;
     BgpPeer *FindNextPeer(
         TcpSession::Endpoint remote = TcpSession::Endpoint()) const;
 
