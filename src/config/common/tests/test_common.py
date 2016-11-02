@@ -5,6 +5,7 @@ import sys
 import gevent.monkey
 gevent.monkey.patch_all()
 
+import shutil
 import logging
 import tempfile
 from pprint import pformat
@@ -294,7 +295,6 @@ def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
 
 def launch_api_server_rdbms(test_id, listen_ip, listen_port, http_server_port,
                       admin_port, conf_sections):
-
     db_file = "./test_db_%s.db" % test_id
 
     args_str = ""
@@ -308,11 +308,12 @@ def launch_api_server_rdbms(test_id, listen_ip, listen_port, http_server_port,
     args_str = args_str + "--log_file api_server_%s.log " %(test_id)
     import cgitb
     cgitb.enable(format='text')
-
     try:
         os.remove(db_file)
+        shutil.copyfile('./base_db.db', db_file)
     except:
         pass
+
 
     with tempfile.NamedTemporaryFile() as conf, tempfile.NamedTemporaryFile() as logconf:
         cfg_parser = generate_conf_file_contents(conf_sections)

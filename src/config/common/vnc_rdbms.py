@@ -477,7 +477,6 @@ class VncRDBMSClient(object):
         self.db = engine
         self.create_sqalchemy_models()
         Base.metadata.create_all(engine)
-
         self.Session = sessionmaker(bind=engine)
         self.session_ctx = None
         if is_mysql:
