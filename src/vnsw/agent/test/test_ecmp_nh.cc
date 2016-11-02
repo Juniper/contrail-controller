@@ -172,7 +172,7 @@ TEST_F(EcmpNhTest, EcmpNH_1) {
     EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     comp_nh = static_cast<const CompositeNH *>(nh);
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 5);
-    EXPECT_TRUE(comp_nh->PolicyEnabled() == false);
+    EXPECT_FALSE(comp_nh->PolicyEnabled() == false);
 
     DeleteVmportEnv(input1, 5, true);
     client->WaitForIdle();
