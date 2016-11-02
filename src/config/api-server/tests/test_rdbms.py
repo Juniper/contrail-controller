@@ -27,7 +27,6 @@ import test_ip_alloc
 import test_fc_id
 import test_askip
 
-
 class TestFixtures(test_crud_basic.TestFixtures, test_case.ApiServerRDBMSTestCase):
     pass
 
@@ -567,17 +566,15 @@ class TestPropertyWithMap(test_crud_basic.TestPropertyWithMap, test_case.ApiServ
 class TestRDBMSIndexAllocator(testtools.TestCase):
     def setUp(self):
         super(TestRDBMSIndexAllocator, self).setUp()
-        try:
-            os.remove("test_id_allocater.db")
-        except:
-            pass
+        import shutil
+        shutil.copyfile('./base_db.db', "test_id_allocater.db")
         connection = "sqlite:///test_id_allocater.db"
         engine_args = {
             'echo': True,
             #  'echo': False,
         }
         engine = sqlalchemy.create_engine(connection, **engine_args)
-        vnc_rdbms.Base.metadata.create_all(engine)
+        #vnc_rdbms.Base.metadata.create_all(engine)
         self.db = engine
         self.Session = sqlalchemy.orm.sessionmaker(bind=engine)
 
