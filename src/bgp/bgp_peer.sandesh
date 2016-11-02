@@ -205,6 +205,8 @@ struct ShowRouteTable {
     5: u64 primary_paths;
     6: u64 secondary_paths;
     7: u64 infeasible_paths;
+    12: u64 stale_paths;
+    13: u64 llgr_stale_paths;
     8: list<ShowRoute> routes;
     10: list<db.ShowTableListener> listeners;
 }
@@ -240,6 +242,8 @@ struct ShowRouteTableSummary {
     5: u64 primary_paths;
     6: u64 secondary_paths;
     7: u64 infeasible_paths;
+    18: u64 stale_paths;
+    19: u64 llgr_stale_paths;
     8: u64 walk_requests;
     16: u64 walk_again_requests;
     9: u64 walk_completes;
@@ -285,6 +289,8 @@ struct ShowRoutingInstanceTable {
     5: u64 primary_paths;
     6: u64 secondary_paths;
     7: u64 infeasible_paths;
+    18: u64 stale_paths;
+    19: u64 llgr_stale_paths;
     8: u64 walk_requests;
     16: u64 walk_again_requests;
     17: u64 actual_walks;
