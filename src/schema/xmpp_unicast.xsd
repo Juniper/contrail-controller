@@ -15,12 +15,14 @@ xsd:targetNamespace="http://www.contrailsystems.com/bgp-l3vpn-unicast-cfg.xsd">
 
 <xsd:complexType name="TunnelEncapsulationListType">
     <xsd:element name="tunnel-encapsulation" type="TunnelEncapsulationType" maxOccurs="unbounded"/>
-</xsd:complexType> 
+</xsd:complexType>
 
 <xsd:complexType name="NextHopType">
     <xsd:element name="af" type="xsd:integer"/>
     <xsd:element name="address" type="xsd:string"/>
+    <xsd:element name="mac" type="xsd:string"/>
     <xsd:element name="label" type="xsd:integer"/>
+    <xsd:element name="vni" type="xsd:integer"/>
     <xsd:element name="tunnel-encapsulation-list" type="TunnelEncapsulationListType"/>
     <xsd:element name="virtual-network" type="xsd:string"/>
 </xsd:complexType>
