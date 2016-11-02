@@ -111,10 +111,29 @@ public:
     // A unified structure for storing FloatingIp information for both
     // operational and config elements
     struct FloatingIp : public ListEntry {
+        struct PortMapKey {
+            uint8_t protocol_;
+            uint16_t port_;
+            PortMapKey(): protocol_(0), port_(0) { }
+            PortMapKey(uint8_t protocol, uint16_t port) :
+                protocol_(protocol), port_(port) { }
+            ~PortMapKey() { }
+
+            bool operator()(const PortMapKey &lhs, const PortMapKey &rhs) {
+                if (lhs.protocol_ != rhs.protocol_)
+                    return lhs.protocol_ < rhs.protocol_;
+                return lhs.port_ < rhs.port_;
+            }
+        };
+
+        typedef std::map<PortMapKey, uint16_t, PortMapKey> PortMap;
+        typedef PortMap::iterator PortMapIterator;
         FloatingIp();
         FloatingIp(const FloatingIp &rhs);
         FloatingIp(const IpAddress &addr, const std::string &vrf,
-                   const boost::uuids::uuid &vn_uuid, const IpAddress &ip);
+                   const boost::uuids::uuid &vn_uuid, const IpAddress &ip,
+                   bool port_mappng_enabled,
+                   const PortMap &src_port_map, const PortMap &dst_port_map);
         virtual ~FloatingIp();
 
         bool operator() (const FloatingIp &lhs, const FloatingIp &rhs) const;
@@ -130,6 +149,10 @@ public:
         void Activate(VmInterface *interface, bool force_update,
                       bool l2, uint32_t old_ethernet_tag) const;
         const IpAddress GetFixedIp(const VmInterface *) const;
+        bool port_map_enabled() const;
+        uint32_t PortMappingSize() const;
+        int32_t GetSrcPortMap(uint8_t protocol, uint16_t src_port) const;
+        int32_t GetDstPortMap(uint8_t protocol, uint16_t dst_port) const;
 
         IpAddress floating_ip_;
         mutable VnEntryRef vn_;
@@ -140,6 +163,9 @@ public:
         mutable IpAddress fixed_ip_;
         mutable bool force_l3_update_;
         mutable bool force_l2_update_;
+        mutable bool port_map_enabled_;
+        mutable PortMap src_port_map_;
+        mutable PortMap dst_port_map_;
     };
     typedef std::set<FloatingIp, FloatingIp> FloatingIpSet;
     typedef std::map<Ip4Address, MetaDataIp*> MetaDataIpMap;
@@ -565,6 +591,7 @@ public:
         return mirror_direction_;
     }
 
+    uint32_t FloatingIpCount() const { return floating_ip_list_.list_.size(); }
     const FloatingIpList &floating_ip_list() const {
         return floating_ip_list_;
     }

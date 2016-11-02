@@ -280,7 +280,9 @@ void AddMirrorAcl(const char *name, int id, const char *src_vn,
 void AddSg(const char *name, int id, int sg_id = 1);
 void DelOperDBAcl(int id);
 void AddFloatingIp(const char *name, int id, const char *addr,
-                   const char *fixed_ip="0.0.0.0");
+                   const char *fixed_ip="0.0.0.0", bool port_map_enable = false,
+                   uint16_t port_map1 = 0, uint16_t port_map2 = 0,
+                   uint16_t port_map3 = 0, uint16_t port_map4 = 0);
 void DelFloatingIp(const char *name);
 void AddFloatingIpPool(const char *name, int id);
 void DelFloatingIpPool(const char *name);

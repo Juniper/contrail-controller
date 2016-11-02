@@ -908,8 +908,18 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
     if (nat_done == false)
         nat_ip_saddr = pkt->ip_saddr;
     nat_ip_daddr = it->fixed_ip_;
+    if (it->port_map_enabled()) {
+        int32_t map_port = it->GetDstPortMap(pkt->ip_proto, pkt->dport);
+        if (map_port < 0) {
+            short_flow = true;
+            short_flow_reason = FlowEntry::SHORT_PORT_MAP_DROP;
+        } else {
+            nat_dport = map_port;
+        }
+    } else {
+        nat_dport = pkt->dport;
+    }
     nat_sport = pkt->sport;
-    nat_dport = pkt->dport;
     nat_vrf = dest_vrf;
     nat_done = true;
 
@@ -1022,7 +1032,17 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
     nat_done = true;
     nat_ip_saddr = fip_it->floating_ip_;
     nat_ip_daddr = pkt->ip_daddr;
-    nat_sport = pkt->sport;
+    if (fip_it->port_map_enabled()) {
+        int32_t map_port = fip_it->GetSrcPortMap(pkt->ip_proto, pkt->sport);
+        if (map_port < 0) {
+            short_flow = true;
+            short_flow_reason = FlowEntry::SHORT_PORT_MAP_DROP;
+        } else {
+            nat_sport = map_port;
+        }
+    } else {
+        nat_sport = pkt->sport;
+    }
     nat_dport = pkt->dport;
 
     // Compute VRF for reverse flow

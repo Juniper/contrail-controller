@@ -132,6 +132,8 @@ static void BuildLinkToMetadata() {
     AddLinkToMetadata("virtual-machine-interface", "interface-route-table",
                       "virtual-machine-interface-route-table");
     AddLinkToMetadata("instance-ip", "virtual-machine-interface");
+    AddLinkToMetadata("instance-ip", "virtual-network");
+    AddLinkToMetadata("instance-ip", "floating-ip");
     AddLinkToMetadata("virtual-machine-interface", "virtual-machine-interface",
                       "virtual-machine-interface-sub-interface");
 
@@ -2126,14 +2128,34 @@ void AddSg(const char *name, int id, int sg_id) {
 }
 
 void AddFloatingIp(const char *name, int id, const char *addr,
-                   const char *fixed_ip) {
-    char buff[128];
+                   const char *fixed_ip, bool port_map_enable,
+                   uint16_t port_map1, uint16_t port_map2, uint16_t port_map3,
+                   uint16_t port_map4) {
+    uint16_t port_map[4] = { port_map1, port_map2, port_map3, port_map4 };
+    ostringstream str;
+    str << "<floating-ip-address>" << addr << "</floating-ip-address>" << endl;
+    str << "<floating-ip-fixed-ip-address>" << fixed_ip <<
+           "</floating-ip-fixed-ip-address>" << endl;
+    str << "<floating-ip-port-mappings-enable>";
+    if (port_map_enable)
+        str << "true";
+    else
+        str << "false";
+    str << "</floating-ip-port-mappings-enable>" << endl;
+    str << "<floating-ip-port-mappings>" << endl;
+    for (int i = 0; i < 4; i++) {
+        if (port_map[i]) {
+            str << "    <port-mappings>" << endl;
+            str << "        <src-port> " << port_map[i] << "</src-port>"
+                << endl;
+            str << "        <dst-port> " << port_map[i] + 1000 << "</dst-port>"
+                << endl;
+            str << "    </port-mappings>" << endl;
+        }
+    }
+    str << "</floating-ip-port-mappings>";
 
-    sprintf(buff, "<floating-ip-address>%s</floating-ip-address>"\
-                  "<floating-ip-fixed-ip-address>%s"\
-                  "</floating-ip-fixed-ip-address>",\
-                  addr, fixed_ip);
-    AddNode("floating-ip", name, id, buff);
+    AddNode("floating-ip", name, id, str.str().c_str());
 }
 
 void DelFloatingIp(const char *name) {
