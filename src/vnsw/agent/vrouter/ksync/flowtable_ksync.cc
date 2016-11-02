@@ -565,7 +565,7 @@ void FlowTableKSyncEntry::ErrorHandler(int err, uint32_t seq_no,
                     ">. Message number :", seq_no);
         return;
     }
-    if (err == EINVAL && IgnoreVrouterError()) {
+    if (IgnoreVrouterError()) {
         return;
     }
     KSyncEntry::ErrorHandler(err, seq_no, event);
@@ -575,7 +575,13 @@ bool FlowTableKSyncEntry::IgnoreVrouterError() const {
     if (flow_entry_->deleted())
         return true;
 
-    return false;
+    KSyncFlowMemory *flow_mem = ksync_obj_->ksync()->ksync_flow_memory();
+    const vr_flow_entry *kflow =
+        flow_mem->GetValidKFlowEntry(flow_entry_->key(),
+                                     flow_entry_->flow_handle(),
+                                     flow_entry_->gen_id());
+
+    return (kflow == NULL);
 }
 
 std::string FlowTableKSyncEntry::VrouterError(uint32_t error) const {
