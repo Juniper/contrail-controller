@@ -95,25 +95,5 @@ do {\
               SandeshLevel::SYS_ERR, __FILE__, __LINE__, ##__VA_ARGS__);\
 } while (false);\
 
-#define AGENT_ERROR(obj, ...)\
-do {\
-    if (LoggingDisabled()) break;\
-    obj::Send(g_vns_constants.CategoryNames.find(Category::VROUTER)->second,\
-              SandeshLevel::SYS_ERR, __FILE__, __LINE__, ##__VA_ARGS__);\
-} while (false);
-
-#define AGENT_LOG(obj, ...)\
-do {\
-    if (LoggingDisabled()) break;\
-    obj::Send(g_vns_constants.CategoryNames.find(Category::VROUTER)->second,\
-              SandeshLevel::SYS_INFO, __FILE__, __LINE__, ##__VA_ARGS__);\
-} while (false);
-
-#define AGENT_ASSERT(cond)\
-do {\
-   if (Agent::GetInstance()->debug() == true) {\
-       assert(cond);\
-   }\
-} while (false);
 #endif // vnsw_agent_cmn_hpp
 
