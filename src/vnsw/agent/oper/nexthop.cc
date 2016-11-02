@@ -1631,7 +1631,9 @@ void CompositeNH::ChangeComponentNHKeyTunnelType(
         ComponentNHKeyList &component_nh_key_list, TunnelType::Type type) const {
 
     ComponentNHKeyList::iterator it = component_nh_key_list.begin();
+    TunnelType::Type orig_type = type;
     for (;it != component_nh_key_list.end(); it++) {
+        type = orig_type;
         if ((*it) == NULL) {
             continue;
         }
