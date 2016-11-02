@@ -1189,7 +1189,8 @@ class OpServer(object):
                                         reply = bottle.HTTPError(_ERRORS[errno.EINVAL], \
                                                             'Unknown field %s' %field)
                                         return reply
-                            elif field != self._VIRTUAL_TABLES[tabn].name.split('.')[2]:
+                            elif field.split('.')[-1] != \
+                                      self._VIRTUAL_TABLES[tabn].name.split('.')[-1]:
                                 reply = bottle.HTTPError(_ERRORS[errno.EINVAL], \
                                             'Invalid COUNT field %s' %field)
                                 return reply
