@@ -394,21 +394,6 @@ def flexmocks(mocks):
             setattr(cls, method_name, method)
 # end flexmocks
 
-@contextlib.contextmanager
-def flexmocks(mocks):
-    orig_values = {}
-    try:
-        for cls, method_name, val in mocks:
-            kwargs = {method_name: val}
-            # save orig cls.method_name
-            orig_values[(cls, method_name)] = getattr(cls, method_name)
-            flexmock(cls, **kwargs)
-        yield
-    finally:
-        for (cls, method_name), method in orig_values.items():
-            setattr(cls, method_name, method)
-# end flexmocks
-
 def setup_extra_flexmock(mocks):
     for (cls, method_name, val) in mocks:
         kwargs = {method_name: val}
@@ -651,7 +636,6 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
 
         cfgm_common.zkclient.LOG_DIR = './'
         gevent.wsgi.WSGIServer.handler_class = FakeWSGIHandler
-    # end setUp
 
         cls.orig_mocked_values = setup_mocks(cls.mocks + (extra_mocks or []))
 
