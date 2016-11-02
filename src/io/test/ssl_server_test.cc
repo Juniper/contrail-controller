@@ -41,7 +41,7 @@ class EchoSession : public SslSession {
     virtual void OnRead(Buffer buffer) {
         const u_int8_t *data = BufferData(buffer);
         const size_t len = BufferSize(buffer);
-        TCP_UT_LOG_DEBUG("Received " << BufferData(buffer) << " " << len << " bytes");
+        //TCP_UT_LOG_DEBUG("Received " << BufferData(buffer) << " " << len << " bytes");
         Send(data, len, NULL);
     }
   private:
@@ -172,7 +172,7 @@ class ClientSession : public SslSession {
   protected:
     virtual void OnRead(Buffer buffer) {
         const size_t len = BufferSize(buffer);
-        TCP_UT_LOG_DEBUG("Received " << len << " bytes");
+        //TCP_UT_LOG_DEBUG("Received " << len << " bytes");
         len_ += len;
     }
 
@@ -389,7 +389,7 @@ TEST_F(SslEchoServerTest, msg_send_recv) {
     client = NULL;
 }
 
-TEST_F(SslEchoServerTest, DISABLED_large_msg_send_recv) {
+TEST_F(SslEchoServerTest, large_msg_send_recv) {
 
     SetUpImmedidate();
     SslClient *client = new SslClient(evm_.get(), false, true);
