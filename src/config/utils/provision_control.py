@@ -92,7 +92,7 @@ class ControlProvisioner(object):
                                         --md5 <key value>|None(optional)
                                         --graceful_restart_time 100
                                         --long_lived_graceful_restart_time 100
-                                        --end_of_rib_time 30
+                                        --end_of_rib_time 300
                                         --set_graceful_restart_parameters False
                                         --graceful_restart_bgp_helper_enable False
                                         --graceful_restart_xmpp_helper_enable False
@@ -121,7 +121,7 @@ class ControlProvisioner(object):
             'md5' : None,
             'graceful_restart_time': 60,
             'long_lived_graceful_restart_time': 300,
-            'end_of_rib_timeout': 30,
+            'end_of_rib_timeout': 300,
             'graceful_restart_bgp_helper_enable': False,
             'graceful_restart_xmpp_helper_enable': False,
             'graceful_restart_enable': False,
@@ -187,7 +187,7 @@ class ControlProvisioner(object):
         parser.add_argument(
             "--end_of_rib_timeout",
             help="EndOfRib timeout value in seconds (0..4095)",
-            type=self.gr_time_type, default=30,
+            type=self.gr_time_type, default=300,
             required=False)
         parser.add_argument("--graceful_restart_bgp_helper_enable",
                         help="Enable helper mode for BGP graceful restart")
