@@ -34,9 +34,9 @@ class SqaObjectBase(object):
     meta_create_epoch = Column(String(36))
     meta_prop_ref_update_epoch = Column(String(36))
     meta_update_epoch = Column(String(36)) # including children + backref
-    perm2_owner = Column(String(36))
-    perm2_global_access = Integer()
-    perm2_owner_access = Integer()
+    perms2_owner = Column(String(36))
+    perms2_global_access = Integer()
+    perms2_owner_access = Integer()
 
     def __repr__(self):
        return "<SqaObjectBase(obj_uuid='%s', obj_type='%s', obj_fq_name='%s', obj_parent_type='%s', obj_parent_uuid='%s')>" % (
@@ -44,11 +44,12 @@ class SqaObjectBase(object):
 # end class SqaObjectBase
 
 class SqaShare(object):
-    shared_for = Column(Integer, primary_key=True)
+    tenant = Column(String(1024))
+    tenant_permission = Column(Integer, primary_key=True)
 
     def __repr__(self):
-       return "<SqaShare(owner='%s' shared_for='%d')>" % (
-           self.owner, self.shared_for)
+       return "<SqaShare(owner='%s' tenant='%s', tenant_permission='%d')>" % (
+           self.owner, self.tenant, self.tenant_permission)
 
 class SqaObjectRef(object):
     #ref_value = Column(Text())
@@ -113,7 +114,6 @@ class IDPool(Base):
     def __repr__(self):
        return "<IDPool(start='%s', end='%s', path='%s', value='%s', used='%s')>" % (
                             unpack(self.start), unpack(self.end), self.path, self.value, self.used)
-
 
 def use_session(func):
     def wrapper(self, *args, **kwargs):
@@ -598,10 +598,11 @@ class VncRDBMSClient(object):
                 sqa_obj.perms2_global_accesss = prop_value.get('global_access')
 
                 sqa_share_class = self.sqa_classes[to_share_type(obj_type)]
-                for shared_for in prop_value.get('shared', []):
+                for shared in prop_value.get('shared', []):
                     sqa_share_obj = sqa_share_class(
                         owner=obj_id,
-                        shared_for=shared_for
+                        tenant=shared.tenant,
+                        tenant_access=shared.tenant_access,
                     )
                     session.add(sqa_share_obj)
                 continue
@@ -893,10 +894,12 @@ class VncRDBMSClient(object):
                 sqa_obj.perms2_global_accesss = prop_value.get('global_access')
 
                 sqa_share_class = self.sqa_classes[to_share_type(obj_type)]
-                for shared_for in prop_value.get('shared', []):
+                session.query(sqa_share_class).filter_by(owner=obj_uuid).delete()
+                for shared in prop_value.get('shared', []):
                     sqa_share_obj = sqa_share_class(
                         owner=obj_id,
-                        shared_for=shared_for
+                        tenant=shared.tenant,
+                        tenant_access=shared.tenant_access,
                     )
                     session.add(sqa_share_obj)
 
@@ -988,7 +991,7 @@ class VncRDBMSClient(object):
     @use_session
     def object_list(self, res_type, parent_uuids=None, back_ref_uuids=None,
                      obj_uuids=None, count=False, filters=None, field_names=None,
-                     is_detail=False, owner_id=None):
+                     is_detail=False, tenant_id=None, domain=None):
         obj_type = to_obj_type(res_type)
         obj_class = self._get_resource_class(obj_type)
         sqa_class = self.sqa_classes[obj_type]
@@ -1025,7 +1028,7 @@ class VncRDBMSClient(object):
             extra_join_clauses.extend([(cls, sqa_class.obj_uuid == cls.owner)
                               for cls in sqa_map_classes])
 
-            if owner_id:
+            if tenant_id or domain:
                 extra_sqa_classes.append(sqa_share_class)
                 extra_join_clauses.append((sqa_shared_class, sqa_class.obj_uuid == sqa_share_class.owner))
 
@@ -1055,10 +1058,24 @@ class VncRDBMSClient(object):
         if parent_uuids:
             sqa_objs = sqa_objs.filter(
                 sqa_class.obj_parent_uuid.in_(parent_uuids))
-        elif owner_id:
-            sqa_objs = sqa_objs.filter(or_(sqa_share_class.shared_for==owner_id,
-                                           sqa_class.perm2_owner==owner_id,
-                                           sqa_class.perm2_global_access >= 4))
+
+        shared_query = [sqa_class.perms2_owner==tenant_id,
+                        sqa_class.perms2_global_access >= 4]
+        if tenant_id:
+            shared_query.append(
+                and_(
+                    sqa_share_class.tenant=="tenant:" + tenant_id,
+                    sqa_share_class.tenant_access > 4
+            ))
+
+        if domain:
+            shared_query.append(
+                and_(
+                    sqa_share_class.tenant=="domain:" + domain,
+                    sqa_share_class.tenant_access > 4
+            ))
+
+        sqa_objs = sqa_objs.filter(or_(f for f in shared_query))
 
         if filters:
             for key, value in filters.iteritems():
@@ -1137,6 +1154,9 @@ class VncRDBMSClient(object):
             for sqa_ref_obj in session.query(sqa_ref_class).filter_by(
                                from_obj_uuid=obj_uuid).all():
                 session.delete(sqa_ref_obj)
+
+        sqa_share_class = self.sqa_classes[to_share_type(obj_type)]
+        session.query(sqa_share_class).filter_by(owner=obj_uuid).delete()
 
         sqa_obj = session.query(sqa_class).filter_by(
                        obj_uuid=obj_uuid).one()
@@ -1671,7 +1691,6 @@ class VncRDBMSClient(object):
         return True
 
     def is_latest(self, *args, **kwargs):
-        #TODO(nati) implement this
         return False
 
     def object_raw_read(self, obj_uuids, prop_names):
