@@ -25,5 +25,5 @@ TTL_EXPIRY_DELTA = 30
 HC_INTERVAL = 5
 
 # Expire published info after successive heartbeat miss
-HC_MAX_MISS = 5
+HC_MAX_MISS = 7
 
