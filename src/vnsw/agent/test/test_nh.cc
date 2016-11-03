@@ -1059,6 +1059,60 @@ TEST_F(CfgTest, EcmpNH_20) {
     EXPECT_FALSE(RouteFind("vrf1", ip, 32));
 }
 
+TEST_F(CfgTest, mcast_comp_nh_encap_change) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.3", "00:00:00:01:01:01", 1, 1},
+    };
+
+    CreateVmportWithEcmp(input, 1);
+    client->WaitForIdle();
+
+    MulticastHandler *mc_handler =
+        static_cast<MulticastHandler *>(agent_->
+                                        oper_db()->multicast());
+    TunnelOlist tor_olist;
+    tor_olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+                                     IpAddress::from_string("8.8.8.8").to_v4(),
+                                     TunnelType::VxlanType()));
+    mc_handler->ModifyTorMembers(bgp_peer,
+                                 "vrf1",
+                                 tor_olist,
+                                 10,
+                                 1);
+    client->WaitForIdle();
+    TunnelOlist evpn_olist;
+    evpn_olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+                                     IpAddress::from_string("8.8.8.8").to_v4(),
+                                     TunnelType::MplsType()));
+    mc_handler->ModifyEvpnMembers(bgp_peer,
+                                 "vrf1",
+                                 evpn_olist,
+                                 0,
+                                 1);
+    client->WaitForIdle();
+
+    BridgeRouteEntry *l2_rt =
+        L2RouteGet("vrf1",
+                   MacAddress::FromString("ff:ff:ff:ff:ff:ff"),
+                   Ip4Address(0));
+    CompositeNH *cnh =
+        dynamic_cast<CompositeNH *>(l2_rt->GetActivePath()->nexthop());
+    EXPECT_TRUE(cnh != NULL);
+    AddEncapList("MPLSoUDP", "MPLSoGRE", "VXLAN");
+    client->WaitForIdle();
+
+    CompositeNH *cnh_2 =
+        dynamic_cast<CompositeNH *>(l2_rt->GetActivePath()->nexthop());
+    for (ComponentNHList::const_iterator it = cnh_2->component_nh_list().begin();
+         it != cnh_2->component_nh_list().end(); it++) {
+        ASSERT_FALSE((*it) == NULL);
+    }
+
+    DeleteVmportEnv(input, 1, true);
+    WAIT_FOR(100, 1000, (VrfFind("vrf1") == false));
+    client->WaitForIdle();
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
