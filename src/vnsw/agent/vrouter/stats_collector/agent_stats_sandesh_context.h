@@ -23,7 +23,8 @@
 
 class AgentStatsSandeshContext: public AgentSandeshContext {
 public:
-    explicit AgentStatsSandeshContext(Agent *agent);
+    static const int kInvalidIndex = -1;
+    AgentStatsSandeshContext(Agent *agent, bool check_marker);
     virtual ~AgentStatsSandeshContext();
 
     Agent* agent() const { return agent_; }
@@ -69,11 +70,14 @@ public:
         assert(0);
     }
     virtual void VrouterOpsMsgHandler(vrouter_ops *req) { }
+    StatsManager::InterfaceStats *IdToStats(int id) const;
+    bool check_marker() const { return check_marker_; }
 private:
     Agent *agent_;
     StatsManager *stats_;
     int marker_id_;
     int response_code_;
+    bool check_marker_;
     DISALLOW_COPY_AND_ASSIGN(AgentStatsSandeshContext);
 };
 

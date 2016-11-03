@@ -579,13 +579,13 @@ TEST_F(UveVnUveTest, FlowCount_1) {
     WAIT_FOR(1000, 500, (vnut->VnUveObject("vn5") != NULL));
 
     UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn5");
-    vnut->SendVnStats(false);
+    vnut->SendVnStats();
     EXPECT_EQ(4U, uve1->get_ingress_flow_count());
     EXPECT_EQ(4U, uve1->get_egress_flow_count());
 
     DeleteFlow(flow, 1);
     WAIT_FOR(1000, 1000, ((flow_proto_->FlowCount() == 2U)));
-    vnut->SendVnStats(false);
+    vnut->SendVnStats();
     EXPECT_EQ(2U, uve1->get_ingress_flow_count());
     EXPECT_EQ(2U, uve1->get_egress_flow_count());
 
@@ -648,7 +648,7 @@ TEST_F(UveVnUveTest, FlowCount_2) {
     EXPECT_EQ(2U, out_count);
 
     //Trigger VN UVE send
-    vnut->SendVnStats(false);
+    vnut->SendVnStats();
 
     //Verfiy ingress and egress flow counts for local VN "vn5"
     UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn5");
@@ -665,7 +665,7 @@ TEST_F(UveVnUveTest, FlowCount_2) {
     WAIT_FOR(1000, 1000, ((flow_proto_->FlowCount() == 2U)));
 
     //Trigger VN UVE send
-    vnut->SendVnStats(false);
+    vnut->SendVnStats();
 
     //Verfiy ingress and egress flow counts in VN UVEs
     EXPECT_EQ(1U, uve1->get_ingress_flow_count());
@@ -742,7 +742,7 @@ TEST_F(UveVnUveTest, FipCount) {
     EXPECT_TRUE(VmPortActive(input, 0));
 
     //Trigger VN UVE send
-    vnut->SendVnStats(false);
+    vnut->SendVnStats();
 
     //Verify UVE 
     UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn1");
@@ -774,7 +774,7 @@ TEST_F(UveVnUveTest, FipCount) {
     WAIT_FOR(1000, 500, ((VmPortFloatingIpCount(1, 1) == true)));
 
     //Trigger VN UVE send
-    vnut->SendVnStats(false);
+    vnut->SendVnStats();
     client->WaitForIdle();
 
     //Verify UVE 
@@ -787,7 +787,7 @@ TEST_F(UveVnUveTest, FipCount) {
     client->WaitForIdle(3);
 
     //Trigger VN UVE send
-    vnut->SendVnStats(false);
+    vnut->SendVnStats();
     client->WaitForIdle();
 
     //Verify UVE 
@@ -800,7 +800,7 @@ TEST_F(UveVnUveTest, FipCount) {
     client->WaitForIdle();
 
     //Trigger VN UVE send
-    vnut->SendVnStats(false);
+    vnut->SendVnStats();
 
     //Verify UVE 
     WAIT_FOR(1000, 500, (uve1->get_associated_fip_count() == 1U));
@@ -812,7 +812,7 @@ TEST_F(UveVnUveTest, FipCount) {
     client->WaitForIdle();
 
     //Trigger VN UVE send
-    vnut->SendVnStats(false);
+    vnut->SendVnStats();
 
     //Verify UVE 
     WAIT_FOR(1000, 500, (uve1->get_associated_fip_count() == 0));
@@ -892,7 +892,7 @@ TEST_F(UveVnUveTest, VnVrfAssoDisassoc_1) {
     WAIT_FOR(1000, 500, (vnut->send_count() >= 1U));
 
     //Trigger send of VN stats
-    vnut->SendVnStats(false);
+    vnut->SendVnStats();
 
     //Verify vrf stats list in UVE
     UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn3");
@@ -904,7 +904,7 @@ TEST_F(UveVnUveTest, VnVrfAssoDisassoc_1) {
     client->WaitForIdle();
 
     //Trigger send of VN stats
-    vnut->SendVnStats(false);
+    vnut->SendVnStats();
 
     //Verify vrf stats list in UVE
     EXPECT_EQ(1U, uve1->get_vrf_stats_list().size()); 
@@ -914,7 +914,7 @@ TEST_F(UveVnUveTest, VnVrfAssoDisassoc_1) {
     client->WaitForIdle();
 
     //Trigger send of VN stats
-    vnut->SendVnStats(false);
+    vnut->SendVnStats();
 
     //Verify vrf stats list in UVE
     EXPECT_EQ(0U, uve1->get_vrf_stats_list().size()); 
@@ -924,7 +924,7 @@ TEST_F(UveVnUveTest, VnVrfAssoDisassoc_1) {
     client->WaitForIdle();
 
     //Trigger send of VN stats
-    vnut->SendVnStats(false);
+    vnut->SendVnStats();
 
     //Verify vrf stats list in UVE
     EXPECT_EQ(1U, uve1->get_vrf_stats_list().size()); 
@@ -1108,7 +1108,7 @@ TEST_F(UveVnUveTest, InterVnStats_1) {
 
     //Trigger dispatch of VN uve
     const VnEntry *vn5 = VnGet(5);
-    vnut->SendVnStatsMsg_Test(vn5, false);
+    vnut->SendVnStatsMsg_Test(vn5);
     client->WaitForIdle(10);
 
     //Verify stats in the dispatched UVE
@@ -1142,7 +1142,7 @@ TEST_F(UveVnUveTest, InterVnStats_1) {
     EXPECT_TRUE((entry->deleted() == false));
 
     //Trigger dispatch of VN uve
-    vnut->SendVnStatsMsg_Test(vn5, false);
+    vnut->SendVnStatsMsg_Test(vn5);
     client->WaitForIdle(10);
 
     //Verify stats in the dispatched UVE. Verify only differential stats are sent
@@ -1227,7 +1227,7 @@ TEST_F(UveVnUveTest, VnBandwidth) {
 
     //Trigger framing of UVE message
     UveVirtualNetworkAgent uve;
-    vne->FrameVnStatsMsg(vn, uve, false);
+    vne->FrameVnStatsMsg(vn, uve);
 
     //Verify that UVE msg has bandwidth
     EXPECT_TRUE(uve.get_in_bandwidth_usage() == 4000);

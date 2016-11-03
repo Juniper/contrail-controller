@@ -102,7 +102,6 @@ VnUveTable::VnUveEntryPtr VnUveTableTest::Allocate() {
     return uve;
 }
 
-void VnUveTableTest::SendVnStatsMsg_Test(const VnEntry *vn,
-                                         bool only_vrf_stats) {
-    SendVnStatsMsg(vn, only_vrf_stats);
+void VnUveTableTest::SendVnStatsMsg_Test(const VnEntry *vn) {
+    SendVnStatsMsg(vn);
 }

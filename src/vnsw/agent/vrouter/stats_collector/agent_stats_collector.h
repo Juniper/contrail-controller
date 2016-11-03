@@ -40,7 +40,6 @@ public:
     void SendDropStatsBulkGet();
     bool Run();
     void RegisterDBClients();
-    void SendStats();
     void Shutdown(void);
     virtual IoContext *AllocateIoContext(char* buf, uint32_t buf_len,
                                          StatsType type, uint32_t seq);

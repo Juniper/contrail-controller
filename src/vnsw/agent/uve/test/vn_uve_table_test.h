@@ -23,7 +23,7 @@ public:
     L4PortBitmap* GetVnUvePortBitmap(const std::string &vn);
     UveVirtualNetworkAgent* VnUveObject(const std::string &vn);
     const UveVirtualNetworkAgent &last_sent_uve() const { return uve_; }
-    void SendVnStatsMsg_Test(const VnEntry *vn, bool only_vrf_stats);
+    void SendVnStatsMsg_Test(const VnEntry *vn);
 private:
     virtual VnUveEntryPtr Allocate(const VnEntry *vn);
     virtual VnUveEntryPtr Allocate();

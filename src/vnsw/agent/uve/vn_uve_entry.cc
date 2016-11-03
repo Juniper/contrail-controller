@@ -375,18 +375,13 @@ bool VnUveEntry::UpdateVrfStats(const VnEntry *vn,
 }
 
 bool VnUveEntry::FrameVnStatsMsg(const VnEntry *vn,
-                                 UveVirtualNetworkAgent &uve,
-                                 bool only_vrf_stats) {
+                                 UveVirtualNetworkAgent &uve) {
     bool changed = false;
     assert(!deleted_);
     uve.set_name(vn->GetName());
 
     if (UpdateVrfStats(vn, uve)) {
         changed = true;
-    }
-
-    if (only_vrf_stats) {
-        return changed;
     }
 
     int fip_count = 0;

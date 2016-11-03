@@ -77,8 +77,7 @@ public:
     void UpdatePortBitmap(uint8_t proto, uint16_t sport, uint16_t dport);
     bool FillVrfStats(int vrf_id, UveVirtualNetworkAgent &s_vn);
     bool PopulateInterVnStats(UveVirtualNetworkAgent &s_vn);
-    bool FrameVnStatsMsg(const VnEntry *vn, UveVirtualNetworkAgent &uve,
-                         bool only_vrf_stats);
+    bool FrameVnStatsMsg(const VnEntry *vn, UveVirtualNetworkAgent &uve);
     void UpdateInterVnStats(const string &dst_vn, uint64_t bytes,
                             uint64_t pkts, bool outgoing);
     void UpdateVnAceStats(const std::string &ace_uuid);
