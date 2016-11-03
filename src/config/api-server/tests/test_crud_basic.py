@@ -4068,6 +4068,30 @@ class TestCacheWithMetadataExcludeTypes(test_case.ApiServerTestCase):
 # end class TestCacheWithMetadataExcludeTypes
 
 
+class TestVncApiStats(test_case.ApiServerTestCase):
+    from cfgm_common.vnc_api_stats import log_api_stats
+    _sandesh = None
+    @log_api_stats
+    def _sample_function(self, obj_type):
+        raise cfgm_common.exceptions.HttpError(409, '')
+
+    def _check_sendwith(self, sandesh, stats, *args):
+        self.assertEqual(stats.response_code, 409)
+        self.assertEqual(stats.obj_type, 'abc')
+
+    def test_response_code_on_exception(self):
+        from cfgm_common.vnc_api_stats import VncApiStatistics
+        try:
+            with test_common.patch(VncApiStatistics, 'sendwith', self._check_sendwith):
+                self._sample_function('abc')
+        except cfgm_common.exceptions.HttpError:
+            pass
+        else:
+            self.assertThat(0, 'Expecting HttpError to be raised, but was not raised')
+    # end test_response_code_on_exception
+# end TestVncApiStats
+
+
 if __name__ == '__main__':
     ch = logging.StreamHandler()
     ch.setLevel(logging.DEBUG)
