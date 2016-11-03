@@ -394,6 +394,18 @@ static inline unsigned long long int task_util_retry_count() {
         setrlimit(RLIMIT_CORE, &current_core_limit);                           \
     } while (false)
 
+#define TASK_UTIL_EXPECT_EXIT(statement, type, regex)                          \
+    do {                                                                       \
+        rlimit current_core_limit;                                             \
+        getrlimit(RLIMIT_CORE, &current_core_limit);                           \
+        rlimit new_core_limit;                                                 \
+        new_core_limit.rlim_cur = 0;                                           \
+        new_core_limit.rlim_max = 0;                                           \
+        setrlimit(RLIMIT_CORE, &new_core_limit);                               \
+        EXPECT_EXIT(statement, type, regex);                                   \
+        setrlimit(RLIMIT_CORE, &current_core_limit);                           \
+    } while (false)
+
 
 #define TASK_UTIL_ASSERT_EQ(expected, actual)                                  \
     do {                                                                       \

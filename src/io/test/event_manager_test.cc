@@ -29,14 +29,14 @@ typedef EventManagerTest EventManagerDeathTest;
 
 TEST_F(EventManagerDeathTest, Poll) {
     usleep(10000);
-    EXPECT_EXIT(evm_.Poll(),
-        ::testing::KilledBySignal(SIGABRT), ".*Poll.*");
+    TASK_UTIL_EXPECT_EXIT(evm_.Poll(), ::testing::KilledBySignal(SIGABRT),
+                          ".*Poll.*");
 }
 
 TEST_F(EventManagerDeathTest, RunOnce) {
     usleep(10000);
-    EXPECT_EXIT(evm_.RunOnce(),
-        ::testing::KilledBySignal(SIGABRT), ".*RunOnce.*");
+    TASK_UTIL_EXPECT_EXIT(evm_.RunOnce(), ::testing::KilledBySignal(SIGABRT),
+                          ".*RunOnce.*");
 }
 
 int main(int argc, char **argv) {
