@@ -93,26 +93,6 @@ def build_idperms_ifmap_obj(prop_field, values):
     prop_xml += u'</enable>'
     return prop_xml
 
-def _owner_id(request):
-    app = request.environ['bottle.app']
-    if app.config.local_auth or app.config.auth == False:
-        return (True, None)
-
-    if self._rbac:
-        user, roles = self.get_user_roles(request)
-        is_admin = self.cloud_admin_role in [x.lower() for x in roles]
-        if is_admin:
-            return (True, None)
-
-        env = request.headers.environ
-        tenant = env.get('HTTP_X_PROJECT_ID', None)
-        if tenant:
-            return (True, tenant)
-        else:
-            return (False, None)
-
-    return (True, None)
-
 class VncIfmapClient(object):
 
     # * Not all properties in an object needs to be published
@@ -172,6 +152,22 @@ class VncIfmapClient(object):
                vnc_greenlets.VncGreenlet('VNC IfMap Health Checker',
                                          self._health_checker)
     # end __init__
+
+    def _owner_id(self):
+        env = get_request().headers.environ
+        tenant_uuid = env.get('HTTP_X_PROJECT_ID')
+        domain = env.get('HTTP_X_DOMAIN_ID')
+        if domain is None:
+            domain = env.get('HTTP_X_USER_DOMAIN_ID')
+            try:
+                domain = str(uuid.UUID(domain))
+            except ValueError:
+                if domain == 'default':
+                    domain = 'default-domain'
+                domain = self._db_conn.fq_name_to_uuid('domain', [domain])
+        if domain:
+            domain = domain.replace('-','')
+        return domain, tenant_uuid
 
     @classmethod
     def object_alloc(cls, obj_class, parent_res_type, fq_name):
@@ -2034,15 +2030,16 @@ class VncDbClient(object):
                  obj_uuids=None, is_count=False, filters=None,
                  paginate_start=None, paginate_count=None, is_detail=False,
                  field_names=None, include_shared=False):
-        owner_id = None
+
+        domain = None
+        tenant_id = None
         if include_shared:
-            ok, owner_id = _owner_id(get_request())
-            if not ok:
-                raise cfgm_common.exceptions.HttpError(403, "Permission Denied")
+            domain, tenant_id = self._owner_id()
+
         return self._object_db.object_list(
                  obj_type, parent_uuids=parent_uuids,
                  back_ref_uuids=back_ref_uuids, obj_uuids=obj_uuids,
-                 count=is_count, filters=filters, is_detail=is_detail, field_names=field_names, owner_id=owner_id)
+                 count=is_count, filters=filters, is_detail=is_detail, field_names=field_names, tenant_id=tenant_id, domain=domain)
 
     def dbe_list(self, obj_type, parent_uuids=None, back_ref_uuids=None,
                  obj_uuids=None, is_count=False, filters=None,
@@ -2064,19 +2061,7 @@ class VncDbClient(object):
 
         # include objects shared with tenant
         if include_shared:
-            env = get_request().headers.environ
-            tenant_uuid = env.get('HTTP_X_PROJECT_ID')
-            domain = env.get('HTTP_X_DOMAIN_ID')
-            if domain is None:
-                domain = env.get('HTTP_X_USER_DOMAIN_ID')
-                try:
-                    domain = str(uuid.UUID(domain))
-                except ValueError:
-                    if domain == 'default':
-                        domain = 'default-domain'
-                    domain = self._db_conn.fq_name_to_uuid('domain', [domain])
-            if domain:
-                domain = domain.replace('-','')
+            domain, tenant_uuid = self._owner_id()
             shares = self.get_shared_objects(obj_type, tenant_uuid, domain)
             owned_objs = set([obj_uuid for (fq_name, obj_uuid) in result])
             for (obj_uuid, obj_perm) in shares:

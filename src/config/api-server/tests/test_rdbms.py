@@ -740,10 +740,6 @@ class TestSubnet(test_subnet_ip_count.TestSubnet, test_case.ApiServerRDBMSTestCa
     pass
 
 class TestPermissions(test_perms2.TestPermissions, test_case.ApiServerRDBMSTestCase):
-    #TODO(nati): support domain sharing
-    def test_domain_sharing(self):
-        pass
-
     #TODO(nati): support test obj view
     def test_obj_view(self):
         pass
