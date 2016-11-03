@@ -709,12 +709,8 @@ class VncApiServer(object):
 
     # filter object references based on permissions
     def obj_view(self, resource_type, obj_dict):
-        if self._db_engine != 'cassandra':
-            #TODO(nati) implement support for rdbms backend
-            return obj_dict
         ret_obj_dict = {}
         ret_obj_dict.update(obj_dict)
-
         r_class = self.get_resource_class(resource_type)
         obj_links = (r_class.ref_fields | r_class.backref_fields | r_class.children_fields) \
                      & set(obj_dict.keys())
