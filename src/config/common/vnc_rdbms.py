@@ -95,6 +95,12 @@ class UseragentKV(Base):
                             self.useragent, self.key, self.value)
 # end class UseragentKV
 
+class ObjectMetadata(Base):
+    __tablename__ = 'object_metadata'
+    obj_uuid = Column(String(36), primary_key=True)
+    obj_type = Column(String(255))
+    obj_fq_name = Column(String(1024)) # TODO can this be marked index?
+
 class IDPool(Base):
     __tablename__ = 'id_pool'
 
@@ -549,6 +555,11 @@ class VncRDBMSClient(object):
         now = datetime.utcnow()
         epoch = (time.mktime(now.timetuple()) + now.microsecond*1e-6) * 1e6
         sqa_class = self.sqa_classes[obj_type]
+        object_metadata = ObjectMetadata(obj_uuid=obj_id,
+                         obj_type=obj_type,
+                         obj_fq_name=obj_fq_name_json)
+        session.add(object_metadata)
+
         sqa_obj = sqa_class(obj_uuid=obj_id,
                          obj_type=obj_type,
                          obj_fq_name=obj_fq_name_json,
@@ -1131,8 +1142,11 @@ class VncRDBMSClient(object):
                        obj_uuid=obj_uuid).one()
 
         # TODO update epoch of ref'd and parent
-
         session.delete(sqa_obj)
+
+        object_metadata = session.query(ObjectMetadata).filter_by(
+                       obj_uuid=obj_uuid).one()
+        session.delete(object_metadata)
         session.commit()
 
         return (True, '')
@@ -1301,20 +1315,14 @@ class VncRDBMSClient(object):
     # end fq_name_to_uuid
 
     @use_session
-    # TODO(nati) improve performance on this
     def _uuid_to_fq_name_obj_type(self, id):
         session = self.session_ctx
-        for sqa_class_name, sqa_class in self.sqa_classes.items():
-            if sqa_class_name.startswith('ref_'):
-                continue
-            try:
-                sqa_obj = session.query(sqa_class).filter_by(
-                              obj_uuid=id).one()
-                return json.loads(sqa_obj.obj_fq_name), sqa_obj.obj_type
-            except NoResultFound:
-                # check next type table
-                pass
-        raise NoIdError(id)
+        try:
+            object_metadata = session.query(ObjectMetadata).filter_by(
+                obj_uuid=id).one()
+            return json.loads(object_metadata.obj_fq_name), object_metadata.obj_type
+        except NoResultFound:
+            raise NoIdError(id)
     # end _uuid_to_fq_name_obj_type
 
     def uuid_to_fq_name(self, id):
