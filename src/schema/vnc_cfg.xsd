@@ -1277,6 +1277,14 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('virtual-network-network-id', 'virtual-network', 'system-only', 'CR',
               'System assigned unique 32 bit ID for every virtual network.') -->
 
+<xsd:element name="port-security-enabled" type='xsd:boolean' default='true'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('port-security-enabled', 'virtual-network', 'optional', 'CRUD',
+              'Port security status on the network') -->
+<!--#IFMAP-SEMANTICS-IDL
+     Property('port-security-enabled', 'virtual-machine-interface', 'optional', 'CRUD',
+              'Port security status on the port') -->
+
 <xsd:complexType name="RouteTargetList">
     <xsd:all>
         <xsd:element name="route-target" type="xsd:string" maxOccurs="unbounded"/>
