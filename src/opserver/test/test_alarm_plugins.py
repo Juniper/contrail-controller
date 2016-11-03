@@ -74,7 +74,7 @@ class TestAlarmPlugins(unittest.TestCase):
             **kwargs)
     # end get_alarm_config
 
-    def test_alarm_address_mismatch(self):
+    def test_alarm_address_mismatch_control(self):
         tests = [
             TestCase(
                 name='ContrailConfig == null',
@@ -102,7 +102,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             ),
             TestCase(
-                name='ContrailConfig.elements.bgp_router_parameters.address'+\
+                name='ContrailConfig.elements.bgp_router_parameters.address'
                     ' == null',
                 input=TestInput(uve_key='ObjectBgpRouter:host1',
                     uve_data={
@@ -121,10 +121,23 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('ContrailConfig.elements.bgp_router_parameters' +\
-                                '.address not in BgpRouterState.' +\
-                                'bgp_router_ip_list', None,
-                             [('null', '["10.1.1.1"]', None)])
+                            {
+                                'condition': {
+                                    'operand1': 'ContrailConfig.elements.'
+                                        'bgp_router_parameters.address',
+                                    'operand2': {
+                                        'uve_attribute':
+                                            'BgpRouterState.bgp_router_ip_list'
+                                    },
+                                    'operation': 'not in'
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': 'null',
+                                        'json_operand2_val': '["10.1.1.1"]'
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
@@ -147,16 +160,29 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('ContrailConfig.elements.bgp_router_parameters' +\
-                                '.address not in BgpRouterState.' +\
-                                'bgp_router_ip_list', None,
-                             [('"10.1.1.1"', 'null', None)])
+                            {
+                                'condition': {
+                                    'operand1': 'ContrailConfig.elements.'
+                                        'bgp_router_parameters.address',
+                                    'operand2': {
+                                        'uve_attribute':
+                                            'BgpRouterState.bgp_router_ip_list'
+                                    },
+                                    'operation': 'not in'
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '"10.1.1.1"',
+                                        'json_operand2_val': 'null'
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
             ),
             TestCase(
-                name='ContrailConfig.elements.bgp_router_parameters.address' +\
+                name='ContrailConfig.elements.bgp_router_parameters.address'
                     ' not in BgpRouterState.bgp_router_ip_list',
                 input=TestInput(uve_key='ObjectBgpRouter:host1',
                     uve_data={
@@ -174,16 +200,29 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('ContrailConfig.elements.bgp_router_parameters' +\
-                                '.address not in BgpRouterState.' +\
-                                'bgp_router_ip_list', None,
-                             [('"1.1.1.2"', '["10.1.1.1"]', None)])
+                            {
+                                'condition': {
+                                    'operand1': 'ContrailConfig.elements.'
+                                        'bgp_router_parameters.address',
+                                    'operand2': {
+                                        'uve_attribute':
+                                            'BgpRouterState.bgp_router_ip_list'
+                                    },
+                                    'operation': 'not in'
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '"1.1.1.2"',
+                                        'json_operand2_val': '["10.1.1.1"]'
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
             ),
             TestCase(
-                name='ContrailConfig.elements.bgp_router_parameters.address' +\
+                name='ContrailConfig.elements.bgp_router_parameters.address'
                     ' in BgpRouterState.bgp_router_ip_list',
                 input=TestInput(uve_key='ObjectBgpRouter:host1',
                     uve_data={
@@ -259,20 +298,35 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('ContrailConfig.elements.bgp_router_parameters'
-                                '.address not in BgpRouterState.'
-                                'bgp_router_ip_list', None,
-                             [('null', '["10.1.1.1"]', None)])
+                            {
+                                'condition': {
+                                    'operand1': 'ContrailConfig.elements.'
+                                        'bgp_router_parameters.address',
+                                    'operand2': {
+                                        'uve_attribute': 'BgpRouterState.'
+                                            'bgp_router_ip_list'
+                                    },
+                                    'operation': 'not in'
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': 'null',
+                                        'json_operand2_val': '["10.1.1.1"]'
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
             )
         ]
         self._verify(AddressMismatchControl(), tests)
+    # end test_alarm_address_mismatch_control
 
+    def test_alarm_address_mismatch_compute(self):
         tests = [
             TestCase(
-                name='ContrailConfig.elements.virtual_router_ip_address ' +\
+                name='ContrailConfig.elements.virtual_router_ip_address '
                     '== null',
                 input=TestInput(uve_key='ObjectVRouter:host1',
                     uve_data={
@@ -288,10 +342,23 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('ContrailConfig.elements.' +\
-                                'virtual_router_ip_address != '
-                                'VrouterAgent.control_ip', None,
-                             [('null', '"10.1.1.1"', None)])
+                            {
+                                'condition': {
+                                    'operand1': 'ContrailConfig.elements.'
+                                        'virtual_router_ip_address',
+                                    'operand2': {
+                                        'uve_attribute':
+                                            'VrouterAgent.control_ip'
+                                    },
+                                    'operation': '!='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': 'null',
+                                        'json_operand2_val': '"10.1.1.1"'
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
@@ -312,16 +379,29 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('ContrailConfig.elements.' +\
-                                'virtual_router_ip_address != '
-                                'VrouterAgent.control_ip', None,
-                             [('"10.1.1.1"', 'null', None)])
+                            {
+                                'condition': {
+                                    'operand1': 'ContrailConfig.elements.'
+                                        'virtual_router_ip_address',
+                                    'operand2': {
+                                        'uve_attribute':
+                                            'VrouterAgent.control_ip'
+                                    },
+                                    'operation': '!='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '"10.1.1.1"',
+                                        'json_operand2_val': 'null'
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
             ),
             TestCase(
-                name='ContrailConfig.elements.virtual_router_ip_address ' +\
+                name='ContrailConfig.elements.virtual_router_ip_address '
                     '!= VrouterAgent.control_ip',
                 input=TestInput(uve_key='ObjectVRouter:host1',
                     uve_data={
@@ -338,10 +418,23 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('ContrailConfig.elements.' +\
-                                'virtual_router_ip_address != '
-                                'VrouterAgent.control_ip', None,
-                             [('"1.1.1.2"', '"1.1.1.1"', None)])
+                            {
+                                'condition': {
+                                    'operand1': 'ContrailConfig.elements.'
+                                        'virtual_router_ip_address',
+                                    'operand2': {
+                                        'uve_attribute':
+                                            'VrouterAgent.control_ip'
+                                    },
+                                    'operation': '!='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '"1.1.1.2"',
+                                        'json_operand2_val': '"1.1.1.1"'
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
@@ -409,17 +502,30 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('ContrailConfig.elements.' +\
-                                'virtual_router_ip_address != '
-                                'VrouterAgent.control_ip', None,
-                             [('"10.1.1.2"', '"10.1.1.1"', None)])
+                            {
+                                'condition': {
+                                    'operand1': 'ContrailConfig.elements.'
+                                        'virtual_router_ip_address',
+                                    'operand2': {
+                                        'uve_attribute':
+                                            'VrouterAgent.control_ip'
+                                    },
+                                    'operation': '!='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '"10.1.1.2"',
+                                        'json_operand2_val': '"10.1.1.1"'
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
             )
         ]
         self._verify(AddressMismatchCompute(), tests)
-    # end test_alarm_address_mismatch
+    # end test_alarm_address_mismatch_compute
 
     def test_alarm_bgp_connectivity(self):
         tests = [
@@ -441,21 +547,48 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('BgpRouterState.num_up_bgp_peer == null',
-                             None, [('null', None, None)])
+                            {
+                                'condition': {
+                                    'operand1':
+                                        'BgpRouterState.num_up_bgp_peer',
+                                    'operand2': {
+                                        'json_value': 'null'
+                                    },
+                                    'operation': '=='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': 'null'
+                                    }
+                                ]
+                            }
                         ]
                     },
                     {
                         'and_list': [
-                            ('BgpRouterState.num_up_bgp_peer != ' +\
-                                'BgpRouterState.num_bgp_peer',
-                             None, [('null', '2', None)])
+                            {
+                                'condition': {
+                                    'operand1':
+                                        'BgpRouterState.num_up_bgp_peer',
+                                    'operand2': {
+                                        'uve_attribute':
+                                            'BgpRouterState.num_bgp_peer'
+                                    },
+                                    'operation': '!='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': 'null',
+                                        'json_operand2_val': '2'
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
             ),
             TestCase(
-                name='BgpRouterState.num_up_bgp_peer != ' +\
+                name='BgpRouterState.num_up_bgp_peer != '
                     'BgpRouterState.num_bgp_peer',
                 input=TestInput(uve_key='ObjectBgpRouter:host1',
                     uve_data={
@@ -468,15 +601,29 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('BgpRouterState.num_up_bgp_peer != ' +\
-                                'BgpRouterState.num_bgp_peer',
-                             None, [('1', '2', None)])
+                            {
+                                'condition': {
+                                    'operand1':
+                                        'BgpRouterState.num_up_bgp_peer',
+                                    'operand2': {
+                                        'uve_attribute':
+                                            'BgpRouterState.num_bgp_peer'
+                                    },
+                                    'operation': '!='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '1',
+                                        'json_operand2_val': '2'
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
             ),
             TestCase(
-                name='BgpRouterState.num_up_bgp_peer == ' +\
+                name='BgpRouterState.num_up_bgp_peer == '
                     'BgpRouterState.num_bgp_peer',
                 input=TestInput(uve_key='ObjectBgpRouter:host1',
                     uve_data={
@@ -501,8 +648,20 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('ContrailConfig == null', None,
-                             [('null', None, None)])
+                            {
+                                'condition': {
+                                    'operand1': 'ContrailConfig',
+                                    'operand2': {
+                                        'json_value': 'null'
+                                    },
+                                    'operation': '=='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': 'null'
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
@@ -541,7 +700,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             ),
             TestCase(
-                name='NodeStatus.disk_usage_info.*.' +\
+                name='NodeStatus.disk_usage_info.*.'
                     'percentage_partition_space_used < threshold',
                 input=TestInput(uve_key='ObjectDatabaseInfo:host1',
                     uve_data={
@@ -560,7 +719,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             ),
             TestCase(
-                name='NodeStatus.disk_usage_info.*.' +\
+                name='NodeStatus.disk_usage_info.*.'
                     'percentage_partition_space_used >= threshold',
                 input=TestInput(uve_key='ObjectDatabaseInfo:host1',
                     uve_data={
@@ -585,13 +744,28 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('NodeStatus.disk_usage_info.*.' +\
-                                'percentage_partition_space_used >= 90',
-                             ['NodeStatus.disk_usage_info.__key'],
-                             [('95', None, {
-                                 'NodeStatus.disk_usage_info.__key':
-                                     '"dev/sda2"'})]
-                            )
+                            {
+                                'condition': {
+                                    'operand1': 'NodeStatus.disk_usage_info'
+                                        '.*.percentage_partition_space_used',
+                                    'operand2': {
+                                        'json_value': '90'
+                                    },
+                                    'operation': '>=',
+                                    'variables': [
+                                        'NodeStatus.disk_usage_info.__key'
+                                    ]
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '95',
+                                        'json_variables': {
+                                            'NodeStatus.disk_usage_info.__key':
+                                                '"dev/sda2"'
+                                        }
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
@@ -619,8 +793,21 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'and_list': [('CollectorState.build_info == null',
-                            None, [('null', None, None)])
+                        'and_list': [
+                            {
+                                'condition': {
+                                    'operand1': 'CollectorState.build_info',
+                                    'operand2': {
+                                        'json_value': 'null'
+                                    },
+                                    'operation': '=='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': 'null'
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
@@ -658,8 +845,21 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'and_list': [('ModuleCpuState.build_info == null',
-                            None, [('null', None, None)])
+                        'and_list': [
+                            {
+                                'condition': {
+                                    'operand1': 'ModuleCpuState.build_info',
+                                    'operand2': {
+                                        'json_value': 'null'
+                                    },
+                                    'operation': '=='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': 'null'
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
@@ -697,8 +897,21 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'and_list': [('BgpRouterState.build_info == null',
-                            None, [('null', None, None)])
+                        'and_list': [
+                            {
+                                'condition': {
+                                    'operand1': 'BgpRouterState.build_info',
+                                    'operand2': {
+                                        'json_value': 'null'
+                                    },
+                                    'operation': '=='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': 'null'
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
@@ -736,8 +949,21 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'and_list': [('VrouterAgent.build_info == null',
-                            None, [('null', None, None)])
+                        'and_list': [
+                            {
+                                'condition': {
+                                    'operand1': 'VrouterAgent.build_info',
+                                    'operand2': {
+                                        'json_value': 'null'
+                                    },
+                                    'operation': '=='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': 'null'
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
@@ -774,14 +1000,27 @@ class TestAlarmPlugins(unittest.TestCase):
                     uve_data={'NodeStatus': {}}),
                 output=TestOutput(or_list=[
                     {
-                        'and_list': [('NodeStatus.process_status == null',
-                            None, [('null', None, None)])
+                        'and_list': [
+                            {
+                                'condition': {
+                                    'operand1': 'NodeStatus.process_status',
+                                    'operand2': {
+                                        'json_value': 'null'
+                                    },
+                                    'operation': '=='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': 'null'
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
             ),
             TestCase(
-                name='All processes: NodeStatus.process_status.state' +\
+                name='All processes: NodeStatus.process_status.state'
                     ' == Functional',
                 input=TestInput(uve_key='ObjectCollectorInfo:host1',
                     uve_data={'NodeStatus': {'process_status': [
@@ -800,7 +1039,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             ),
             TestCase(
-                name='One process: NodeStatus.process_status.state' +\
+                name='One process: NodeStatus.process_status.state'
                     ' != Functional',
                 input=TestInput(uve_key='ObjectCollectorInfo:host1',
                     uve_data={'NodeStatus': {'process_status': [
@@ -819,20 +1058,38 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('NodeStatus.process_status.state != "Functional"',
-                             ['NodeStatus.process_status.module_id',
-                              'NodeStatus.process_status.instance_id'],
-                             [('"Non-Functional"', None, {
-                                 'NodeStatus.process_status.module_id':\
-                                     '"contrail-topology"',
-                                 'NodeStatus.process_status.instance_id': '0'})
-                             ])
+                            {
+                                'condition': {
+                                    'operand1':
+                                        'NodeStatus.process_status.state',
+                                    'operand2': {
+                                        'json_value': '"Functional"'
+                                    },
+                                    'operation': '!=',
+                                    'variables': [
+                                        'NodeStatus.process_status.module_id',
+                                        'NodeStatus.process_status.instance_id'
+                                    ]
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '"Non-Functional"',
+                                        'json_variables': {
+                                            'NodeStatus.process_status.'
+                                                'module_id':
+                                                    '"contrail-topology"',
+                                            'NodeStatus.process_status.'
+                                                'instance_id': '0'
+                                        }
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
             ),
             TestCase(
-                name='Multiple processes: NodeStatus.process_status.state' +\
+                name='Multiple processes: NodeStatus.process_status.state'
                     ' != Functional',
                 input=TestInput(uve_key='ObjectCollectorInfo:host1',
                     uve_data={'NodeStatus': {'process_status': [
@@ -856,18 +1113,42 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('NodeStatus.process_status.state != "Functional"',
-                             ['NodeStatus.process_status.module_id',
-                              'NodeStatus.process_status.instance_id'],
-                             [('"Non-Functional"', None, {
-                                 'NodeStatus.process_status.module_id':\
-                                     '"contrail-snmp-collector"',
-                                 'NodeStatus.process_status.instance_id': '0'}),
-                              ('"Non-Functional"', None, {
-                                  'NodeStatus.process_status.module_id':\
-                                      '"contrail-snmp-collector"',
-                                  'NodeStatus.process_status.instance_id': '1'})
-                             ])
+                            {
+                                'condition': {
+                                    'operand1':
+                                        'NodeStatus.process_status.state',
+                                    'operand2': {
+                                        'json_value': '"Functional"'
+                                    },
+                                    'operation': '!=',
+                                    'variables': [
+                                        'NodeStatus.process_status.module_id',
+                                        'NodeStatus.process_status.instance_id'
+                                    ]
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '"Non-Functional"',
+                                        'json_variables': {
+                                            'NodeStatus.process_status.'
+                                                'module_id':
+                                                    '"contrail-snmp-collector"',
+                                            'NodeStatus.process_status.'
+                                                'instance_id': '0'
+                                        }
+                                    },
+                                    {
+                                        'json_operand1_val': '"Non-Functional"',
+                                        'json_variables': {
+                                            'NodeStatus.process_status.'
+                                                'module_id':
+                                                    '"contrail-snmp-collector"',
+                                            'NodeStatus.process_status.'
+                                                'instance_id': '1'
+                                        }
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
@@ -890,14 +1171,27 @@ class TestAlarmPlugins(unittest.TestCase):
                     uve_data={'NodeStatus': {}}),
                 output=TestOutput(or_list=[
                     {
-                        'and_list': [('NodeStatus.process_info == null',
-                            None, [('null', None, None)])
+                        'and_list': [
+                            {
+                                'condition': {
+                                    'operand1': 'NodeStatus.process_info',
+                                    'operand2': {
+                                         'json_value': 'null'
+                                    },
+                                    'operation': '=='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': 'null'
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
             ),
             TestCase(
-                name='All processes: NodeStatus.process_info.process_state' +\
+                name='All processes: NodeStatus.process_info.process_state'
                     ' == PROCESS_STATE_RUNNING',
                 input=TestInput(uve_key='ObjectCollectorInfo:host1',
                     uve_data={'NodeStatus': {'process_info': [
@@ -914,7 +1208,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             ),
             TestCase(
-                name='One process: NodeStatus.process_info.process_state != ' +\
+                name='One process: NodeStatus.process_info.process_state != '
                     'PROCESS_STATE_RUNNING',
                 input=TestInput(uve_key='ObjectCollectorInfo:host1',
                     uve_data={'NodeStatus': {'process_info': [
@@ -931,18 +1225,37 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('NodeStatus.process_info.process_state ' +\
-                                 '!= "PROCESS_STATE_RUNNING"',
-                             ['NodeStatus.process_info.process_name'],
-                             [('"PROCESS_STATE_STOPPED"', None, {
-                                 'NodeStatus.process_info.process_name':\
-                                     '"contrail-topology"'})])
+                            {
+                                'condition': {
+                                    'operand1': 'NodeStatus.process_info.'
+                                        'process_state',
+                                    'operand2': {
+                                        'json_value':
+                                            '"PROCESS_STATE_RUNNING"'
+                                    },
+                                    'operation': '!=',
+                                    'variables': [
+                                        'NodeStatus.process_info.process_name'
+                                    ]
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val':
+                                            '"PROCESS_STATE_STOPPED"',
+                                        'json_variables': {
+                                            'NodeStatus.process_info.'
+                                                'process_name':
+                                                    '"contrail-topology"'
+                                        }
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
             ),
             TestCase(
-                name='Multiple processes: with process_state != ' +\
+                name='Multiple processes: with process_state != '
                     'PROCESS_STATE_RUNNING',
                 input=TestInput(uve_key='ObjectCollectorInfo:host4',
                     uve_data={'NodeStatus': {'process_info': [
@@ -962,16 +1275,41 @@ class TestAlarmPlugins(unittest.TestCase):
                 ),
                 output=TestOutput(or_list=[
                     {
-                        'and_list': [('NodeStatus.process_info.process_state ' +\
-                            '!= "PROCESS_STATE_RUNNING"',
-                            ['NodeStatus.process_info.process_name'],
-                            [('"PROCESS_STATE_STOPPED"', None, {
-                                'NodeStatus.process_info.process_name':\
-                                    '"contrail-topology"'}),
-                             ('"PROCESS_STATE_EXITED"', None, {
-                                 'NodeStatus.process_info.process_name':\
-                                    '"contrail-query-engine"'})
-                            ])
+                        'and_list': [
+                            {
+                                'condition': {
+                                    'operand1': 'NodeStatus.process_info.'
+                                        'process_state',
+                                    'operand2': {
+                                        'json_value':
+                                            '"PROCESS_STATE_RUNNING"'
+                                    },
+                                    'operation': '!=',
+                                    'variables': [
+                                        'NodeStatus.process_info.process_name'
+                                    ]
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val':
+                                            '"PROCESS_STATE_STOPPED"',
+                                        'json_variables': {
+                                            'NodeStatus.process_info.'
+                                                'process_name':
+                                                    '"contrail-topology"'
+                                        }
+                                    },
+                                    {
+                                        'json_operand1_val':
+                                            '"PROCESS_STATE_EXITED"',
+                                        'json_variables': {
+                                            'NodeStatus.process_info.'
+                                                'process_name':
+                                                    '"contrail-query-engine"'
+                                        }
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
@@ -1011,7 +1349,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             ),
             TestCase(
-                name='ContrailConfig.elements.virtual_router_refs != null &' +\
+                name='ContrailConfig.elements.virtual_router_refs != null &'
                     ' ProuterData.connected_agent_list == null',
                 input=TestInput(uve_key='ObjectPRouter:prouter1',
                     uve_data={
@@ -1027,17 +1365,43 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('ContrailConfig.elements.virtual_router_refs ' +\
-                                '!= null', None,
-                                [('[{"to": ["tor1"]}]', None, None)]),
-                            ('ProuterData.connected_agent_list size!= 1', None,
-                             [('null', None, None)])
+                            {
+                                'condition': {
+                                    'operand1': 'ContrailConfig.elements.'
+                                        'virtual_router_refs',
+                                    'operand2': {
+                                        'json_value': 'null'
+                                    },
+                                    'operation': '!='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val':
+                                            '[{"to": ["tor1"]}]'
+                                    }
+                                ]
+                            },
+                            {
+                                'condition': {
+                                    'operand1':
+                                        'ProuterData.connected_agent_list',
+                                    'operand2': {
+                                        'json_value': '1'
+                                    },
+                                    'operation': 'size!='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': 'null'
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
             ),
             TestCase(
-                name='ContrailConfig.elements.virtual_router_refs != null &' +\
+                name='ContrailConfig.elements.virtual_router_refs != null &'
                     ' ProuterData.connected_agent_list size!= 1',
                 input=TestInput(uve_key='ObjectPRouter:prouter1',
                     uve_data={
@@ -1054,18 +1418,43 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('ContrailConfig.elements.virtual_router_refs ' +\
-                                '!= null', None,
-                                [('[{"to": ["tor1"]}]', None, None)]
-                            ),
-                            ('ProuterData.connected_agent_list size!= 1', None,
-                             [('["tor1", "tor2"]', None, None)])
+                            {
+                                'condition': {
+                                    'operand1': 'ContrailConfig.elements.'
+                                        'virtual_router_refs',
+                                    'operand2': {
+                                        'json_value': 'null'
+                                    },
+                                    'operation': '!='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val':
+                                            '[{"to": ["tor1"]}]'
+                                    }
+                                ]
+                            },
+                            {
+                                'condition': {
+                                    'operand1':
+                                        'ProuterData.connected_agent_list',
+                                    'operand2': {
+                                        'json_value': '1'
+                                    },
+                                    'operation': 'size!='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '["tor1", "tor2"]'
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
             ),
             TestCase(
-                name='ContrailConfig.elements.virtual_router_refs != null &' +\
+                name='ContrailConfig.elements.virtual_router_refs != null &'
                     ' ProuterData.connected_agent_list size= 1',
                 input=TestInput(uve_key='ObjectPRouter:prouter1',
                     uve_data={
@@ -1116,7 +1505,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             ),
             TestCase(
-                name='ContrailConfig.elements.virtual_router_refs != null &' +\
+                name='ContrailConfig.elements.virtual_router_refs != null &'
                     ' ProuterData.tsn_agent_list == null',
                 input=TestInput(uve_key='ObjectPRouter:prouter1',
                     uve_data={
@@ -1132,17 +1521,42 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('ContrailConfig.elements.virtual_router_refs ' +\
-                                '!= null', None,
-                                [('[{"to": ["tor1"]}]', None, None)]),
-                            ('ProuterData.tsn_agent_list size!= 1', None,
-                             [('null', None, None)])
+                            {
+                                'condition': {
+                                    'operand1': 'ContrailConfig.elements.'
+                                        'virtual_router_refs',
+                                    'operand2': {
+                                        'json_value': 'null'
+                                    },
+                                    'operation': '!='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val':
+                                            '[{"to": ["tor1"]}]'
+                                    }
+                                ]
+                            },
+                            {
+                                'condition': {
+                                    'operand1': 'ProuterData.tsn_agent_list',
+                                    'operand2': {
+                                        'json_value': '1'
+                                    },
+                                    'operation': 'size!='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': 'null'
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
             ),
             TestCase(
-                name='ContrailConfig.elements.virtual_router_refs != null &' +\
+                name='ContrailConfig.elements.virtual_router_refs != null &'
                     ' ProuterData.tsn_agent_list size!= 1',
                 input=TestInput(uve_key='ObjectPRouter:prouter1',
                     uve_data={
@@ -1159,18 +1573,42 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('ContrailConfig.elements.virtual_router_refs ' +\
-                                '!= null', None,
-                                [('[{"to": ["tor1"]}]', None, None)]
-                            ),
-                            ('ProuterData.tsn_agent_list size!= 1', None,
-                             [('["tor1", "tor2"]', None, None)])
+                            {
+                                'condition': {
+                                    'operand1': 'ContrailConfig.elements.'
+                                        'virtual_router_refs',
+                                    'operand2': {
+                                        'json_value': 'null'
+                                    },
+                                    'operation': '!='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val':
+                                            '[{"to": ["tor1"]}]'
+                                    }
+                                ]
+                            },
+                            {
+                                'condition': {
+                                    'operand1': 'ProuterData.tsn_agent_list',
+                                    'operand2': {
+                                        'json_value': '1'
+                                    },
+                                    'operation': 'size!='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '["tor1", "tor2"]'
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
             ),
             TestCase(
-                name='ContrailConfig.elements.virtual_router_refs != null &' +\
+                name='ContrailConfig.elements.virtual_router_refs != null &'
                     ' ProuterData.tsn_agent_list size= 1',
                 input=TestInput(uve_key='ObjectPRouter:prouter1',
                     uve_data={
@@ -1225,11 +1663,29 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('StorageCluster.info_stats.status != 0',
-                             ['StorageCluster.info_stats.health_summary'],
-                             [('1', None, {
-                                 'StorageCluster.info_stats.health_summary':\
-                                     '"HEALTH_WARN"'})])
+                            {
+                                'condition': {
+                                    'operand1': 'StorageCluster.info_stats.'
+                                        'status',
+                                    'operand2': {
+                                        'json_value': '0'
+                                    },
+                                    'operation': '!=',
+                                    'variables': [
+                                        'StorageCluster.info_stats.'
+                                            'health_summary'
+                                    ]
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '1',
+                                        'json_variables': {
+                                            'StorageCluster.info_stats.'
+                                            'health_summary': '"HEALTH_WARN"'
+                                        }
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
@@ -1284,13 +1740,31 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('VrouterAgent.down_interface_count >= 1',
-                                ['VrouterAgent.error_intf_list',
-                                    'VrouterAgent.no_config_intf_list'],
-                                [('1', None, {'VrouterAgent.error_intf_list':
-                                            '["error1"]',
+                            {
+                                'condition': {
+                                    'operand1': 'VrouterAgent.'
+                                        'down_interface_count',
+                                    'operand2': {
+                                        'json_value': '1'
+                                    },
+                                    'operation': '>=',
+                                    'variables':[
+                                        'VrouterAgent.error_intf_list',
+                                        'VrouterAgent.no_config_intf_list'
+                                    ]
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '1',
+                                        'json_variables': {
+                                            'VrouterAgent.error_intf_list':
+                                                '["error1"]',
                                             'VrouterAgent.no_config_intf_list':
-                                            'null'})])
+                                                'null'
+                                        }
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
@@ -1319,21 +1793,48 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('BgpRouterState.num_up_xmpp_peer == null',
-                             None, [('null', None, None)])
+                            {
+                                'condition': {
+                                    'operand1': 'BgpRouterState.'
+                                        'num_up_xmpp_peer',
+                                    'operand2': {
+                                        'json_value': 'null'
+                                    },
+                                    'operation': '=='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': 'null'
+                                    }
+                                ]
+                            }
                         ]
                     },
                     {
                         'and_list': [
-                            ('BgpRouterState.num_up_xmpp_peer != ' +\
-                                'BgpRouterState.num_xmpp_peer',
-                             None, [('null', '3', None)])
+                            {
+                                'condition': {
+                                    'operand1': 'BgpRouterState.'
+                                        'num_up_xmpp_peer',
+                                    'operand2': {
+                                        'uve_attribute':
+                                            'BgpRouterState.num_xmpp_peer'
+                                    },
+                                    'operation': '!='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': 'null',
+                                        'json_operand2_val': '3'
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
             ),
             TestCase(
-                name='BgpRouterState.num_up_xmpp_peer != ' +\
+                name='BgpRouterState.num_up_xmpp_peer != '
                     'BgpRouterState.num_xmpp_peer',
                 input=TestInput(uve_key='ObjectBgpRouter:host1',
                     uve_data={
@@ -1346,15 +1847,29 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('BgpRouterState.num_up_xmpp_peer != ' +\
-                                'BgpRouterState.num_xmpp_peer',
-                             None, [('2', '3', None)])
+                            {
+                                'condition': {
+                                    'operand1': 'BgpRouterState.'
+                                        'num_up_xmpp_peer',
+                                    'operand2': {
+                                        'uve_attribute':
+                                            'BgpRouterState.num_xmpp_peer'
+                                    },
+                                    'operation': '!='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '2',
+                                        'json_operand2_val': '3'
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
             ),
             TestCase(
-                name='BgpRouterState.num_up_xmpp_peer == ' +\
+                name='BgpRouterState.num_up_xmpp_peer == '
                     'BgpRouterState.num_xmpp_peer',
                 input=TestInput(uve_key='ObjectBgpRouter:host1',
                     uve_data={
@@ -1395,13 +1910,30 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('VrouterStatsAgent.in_bps_ewm.*.sigma >= 2',
-                             ["VrouterStatsAgent.in_bps_ewm.__key"],
-                             [('2.11',
-                               None,
-                               {'VrouterStatsAgent.in_bps_ewm.__key':'"p4p1"'})])
+                            {
+                                'condition': {
+                                    'operand1': 'VrouterStatsAgent.'
+                                        'in_bps_ewm.*.sigma',
+                                    'operand2': {
+                                        'json_value': '2'
+                                    },
+                                    'operation': '>=',
+                                    'variables': [
+                                        'VrouterStatsAgent.in_bps_ewm.__key'
+                                    ]
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '2.11',
+                                        'json_variables': {
+                                            'VrouterStatsAgent.in_bps_ewm.'
+                                                '__key': '"p4p1"'
+                                        }
+                                    }
+                                ]
+                            }
                         ]
-                    },
+                    }
                 ])
             ),
             TestCase(
@@ -1427,13 +1959,30 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('VrouterStatsAgent.out_bps_ewm.*.sigma <= -2',
-                             ["VrouterStatsAgent.out_bps_ewm.__key"],
-                             [('-2.11',
-                               None,
-                               {'VrouterStatsAgent.out_bps_ewm.__key':'"p4p1"'})])
+                            {
+                                'condition': {
+                                    'operand1': 'VrouterStatsAgent.'
+                                        'out_bps_ewm.*.sigma',
+                                    'operand2': {
+                                        'json_value': '-2'
+                                    },
+                                    'operation': '<=',
+                                    'variables': [
+                                        'VrouterStatsAgent.out_bps_ewm.__key'
+                                    ]
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '-2.11',
+                                        'json_variables': {
+                                            'VrouterStatsAgent.out_bps_ewm.'
+                                                '__key': '"p4p1"'
+                                        }
+                                    }
+                                ]
+                            }
                         ]
-                    },
+                    }
                 ])
             ),
             TestCase(
@@ -1478,8 +2027,20 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=[
                     {
                         'and_list': [
-                            ('NodeStatus == null', None,
-                             [('null', None, None)])
+                            {
+                                'condition': {
+                                    'operand1': 'NodeStatus',
+                                    'operand2': {
+                                        'json_value': 'null'
+                                    },
+                                    'operation': '=='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': 'null'
+                                    }
+                                ]
+                            }
                         ]
                     }
                 ])
@@ -1506,29 +2067,31 @@ class TestAlarmPlugins(unittest.TestCase):
 
     def _verify(self, plugin, tests):
         for test in tests:
-            logging.info('Test: %s' % (test.name))
+            name = plugin.__class__.__name__
+            logging.info('Test: [%s]: [%s]' % (name, test.name))
             exp_or_list = None
             if test.output.or_list is not None:
                 exp_or_list = []
                 for elt in test.output.or_list:
                     and_list = []
-                    for condition, variables, match in elt['and_list']:
-                        oper1, tmp = condition.split(' ', 1)
-                        oper, oper2 = tmp.rsplit(' ', 1)
-                        try:
-                            json.loads(oper2)
-                        except ValueError:
-                            oper2 = SandeshAlarmOperand2(uve_attribute=oper2)
-                        else:
-                            oper2 = SandeshAlarmOperand2(json_value=oper2)
+                    for and_elt in elt['and_list']:
+                        cond = and_elt['condition']
+                        match = and_elt['match']
                         and_list.append(AlarmConditionMatch(
                             condition=AlarmCondition(
-                                operation=oper, operand1=oper1,
-                                operand2=oper2, variables=variables or []),
+                                operation=cond['operation'],
+                                operand1=cond['operand1'],
+                                operand2=SandeshAlarmOperand2(
+                                    uve_attribute=cond['operand2'].get(
+                                        'uve_attribute'),
+                                    json_value=cond['operand2'].get(
+                                        'json_value')),
+                                variables=cond.get('variables') or []),
                             match=[AlarmMatch(
-                                json_operand1_value=e[0],
-                                json_operand2_value=e[1],
-                                json_variables=e[2] or {}) for e in match]))
+                                json_operand1_value=m['json_operand1_val'],
+                                json_operand2_value=m.get('json_operand2_val'),
+                                json_variables=m.get('json_variables') or {}) \
+                                    for m in match]))
                     exp_or_list.append(SandeshAlarmAndList(and_list))
             if hasattr(plugin, '__call__'):
                 or_list = plugin.__call__(test.input.uve_key,
