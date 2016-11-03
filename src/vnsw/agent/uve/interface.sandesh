@@ -11,107 +11,219 @@ include "vnsw/agent/uve/vrouter.sandesh"
  */
 
 /**
- * Sandesh definition for vm floatingip in agent
+ * Structure definition for holding Floating Ip information
  */
-struct VmFloatingIPAgent {                                                      
-    1: string virtual_network;                                                  
-    2: string ip_address;                                                       
-}    
+struct VmFloatingIPAgent {
+    /** Name of virtual-network of Floating-IP */
+    1: string virtual_network;
+    /** Floating IP Address */
+    2: string ip_address;
+}
 
 /**
- * Sandesh definition for vm floating ip stats
+ * Structure definition for holding Floating Ip statistics information
  */
 struct VmFloatingIPStats {
+    /** Name of virtual-network of Floating-IP */
     1: string virtual_network;
+    /** Floating IP Address */
     2: string ip_address;
+    /** Count of incoming packets */
     3: u64 in_pkts;
+    /** Count of incoming bytes */
     4: u64 in_bytes;
+    /** Count of outgoing packets */
     5: u64 out_pkts;
+    /** Count of outgoing bytes */
     6: u64 out_bytes;
 }
 
 /**
- * VM's interfaces' stats samples (diff stats)
+ * Structure definition for holding virtual-machine-interface's statistics
  */
 struct VmInterfaceStats {
+    /** Count of incoming packets */
     1: u64 in_pkts;
+    /** Count of incoming bytes */
     2: u64 in_bytes;
+    /** Count of outgoing packets */
     3: u64 out_pkts;
+    /** Count of outgoing bytes */
     4: u64 out_bytes;
 }
 
+/**
+ * Structure definition for holding Health Check information
+ */
 struct VmHealthCheckInstance {
+    /** Name of Health check service */
     1: string name;
+    /** UUID of Health check service */
     2: string uuid;
+    /** Contains 'true' if the health check service is currently running and
+     * 'false' otherwise
+     */
     3: bool is_running;
+    /** Contains "Active" if the health check service is active and "InActive"
+     * otherwise
+     */
     4: string status;
 }
 
 /**
- * Number of flow hits for a given SG ACL Rule
+ * Structure definition for holding number of flow hits for a given SG ACL Rule
  */
 struct SgAclRuleStats {
+    /** UUID of Security Group Rule */
     1: string rule;
+    /** Number of flows that match the current SG rule */
     2: u64 count;
 }
 
 /**
- * Sandesh definition for vm interface in agent
+ * Structure definition for holding virtual-machine-interface information
  */
 struct UveVMInterfaceAgent {
+    /** Name of Virtual Machine Interface */
     1: string                name (key="ObjectVMITable")
+    /** Value 'true' indicates VMI is removed. Holds value of 'false' otherwise*/
     2: optional bool         deleted
+    /** Primary IP version 4 address of VMI in dotted decimal notation */
     3: optional string ip_address;
+    /** Name of virtual-network to which this VMI belongs */
     4: string virtual_network;
+    /** Hardware address of VMI */
     5: optional string mac_address;
+    /** MPLS label of VMI */
     6: optional u32 label;
+    /** Value 'true' indicates VMI is active. This means that
+     * It has received VM, VN and VRF configuration
+     * It is administratively UP
+     * Its VN is administratively UP
+     * Has OS interface which has valid index and is in UP state
+     * Has non-zero MAC address assigned
+     * It is not deleted.
+     * Its health check status is active.
+     * It has one of IPv4 address, IPv6 address or bridging enabled
+     If None of the above conditions are true, then it will have 'false'
+     */
     7: optional bool active;
+    /** Name of the virtual machine instance to which this VMI belongs */
     8: string vm_name;
+    /** Ipv4 address of gateway. It is picked from the subnet of primary IP
+     * address of VMI
+     */
     9: optional string gateway;
+    /** Value 'true' indicates VMI is L2 active. This means that
+     * It has received VM, VN and VRF configuration
+     * It is administratively UP
+     * Its VN is administratively UP
+     * Has OS interface which has valid index and is in UP state
+     * Has non-zero MAC address assigned
+     * It is not deleted.
+     * Its health check status is active.
+     * Has bridging enabled
+     If None of the above conditions are true, then it will have 'false'
+     */
    10: optional bool l2_active;
+    /** UUID of VMI */
    11: optional string uuid;
+    /** Primary IP version 6 address of VMI */
    12: optional string ip6_address;
+    /** Value 'true' indicates VMI is IPv6 active. This means that
+     * It has received VM, VN and VRF configuration
+     * It is administratively UP
+     * Its VN is administratively UP
+     * Has OS interface which has valid index and is in UP state
+     * Has non-zero MAC address assigned
+     * It is not deleted.
+     * Its health check status is active.
+     * It has IPv6 address assigned
+     If None of the above conditions are true, then it will have 'false'
+     */
    13: optional bool ip6_active;
+    /** Bitmap of port numbers that packets on this VMI have used */
    14: optional port_bmap.PortBucketBitmap port_bucket_bmap;
+    /** List of Floating IPs associated with VMI */
    15: optional list<VmFloatingIPAgent> floating_ips;
-       /* List of Floating Ips along with total stats */
+    /** List of Aggregate Floating IP statistics of all Floating IPs associated
+     * with VMI
+     */
    16: optional list<VmFloatingIPStats> fip_agg_stats;
-    /** @display_name:Virtual Machine Floating IP Statistics*/
+    /** Floating IP statistics of all Floating IPs on VMI since previous send.*/
+    /** @display_name:Virtual Machine Floating IP Statistics */
    17: optional list<VmFloatingIPStats> fip_diff_stats (tags=".virtual_network,.ip_address")
 
+    /** Statistics of VMI. Contains aggregate statistics */
    18: optional VmInterfaceStats raw_if_stats (hidden="yes")
-    /** @display_name:Virtual Machine Interface Statistics*/
+    /** Contains statistics of VMI since previous send */
+    /** @display_name:Virtual Machine Interface Statistics */
    30: optional VmInterfaceStats if_stats     (stats="raw_if_stats:DSNon0:", tags="vm_name,vm_uuid")
+    /** Anomaly Detection for incoming packets count using Exponentially
+     * Weighed Mean
+     */
    31: optional derived_stats_results.AnomalyResult if_in_pkts_ewm 
                     (stats="raw_if_stats.in_pkts:DSAnomaly:EWM:0.1")
+    /** Anomaly Detection for outgoing packets count using Exponentially
+     * Weighed Mean
+     */
    32: optional derived_stats_results.AnomalyResult if_out_pkts_ewm
                     (stats="raw_if_stats.out_pkts:DSAnomaly:EWM:0.1")
+    /** UUID of Virtual machine to which the VMI belongs */
    19: string vm_uuid;
+    /** Ingress direction bandwidth in bits per second */
    20: optional u64 in_bw_usage;
+    /** Egress direction bandwidth in bits per second */
    21: optional u64 out_bw_usage;
+    /** Value 'true' indicates VMI is IPv4 active. This means that
+     * It has received VM, VN and VRF configuration
+     * It is administratively UP
+     * Its VN is administratively UP
+     * Has OS interface which has valid index and is in UP state
+     * Has non-zero MAC address assigned
+     * It is not deleted.
+     * Its health check status is active.
+     * It has IPv4 address assigned
+     If None of the above conditions are true, then it will have 'false'
+     */
    22: optional bool ip4_active;
+    /** Contains 'true' if the health check status of VMI is active and 'false'
+     * Otherwise
+     */
    23: optional bool is_health_check_active;
+    /** List of health check objects associated with VMI */
    24: optional list<VmHealthCheckInstance> health_check_instance_list;
-    /** @display_name:VMI ACL Rule Statistics*/
+    /** Per VMI based list of SG rules matching flows. Also contains statistics
+     *  of number of flows matching this (SG-rule, VMI) tuple
+     */
+    /** @display_name:VMI ACL Rule Statistics */
    25: optional list<SgAclRuleStats> sg_rule_stats (tags=".rule");
     /** @display_name:Interface Flow Setup Statistics*/
    26: optional vrouter.VrouterFlowRate flow_rate (tags="virtual_network")
+    /** Anomaly Detection for added flows using Exponentially Weighed Mean */
    41: optional derived_stats_results.AnomalyResult added_flows_ewm
                     (stats="flow_rate.added_flows:DSAnomaly:EWM:0.1")
+    /** Anomaly Detection for deleted flows using Exponentially Weighed Mean */
    42: optional derived_stats_results.AnomalyResult deleted_flows_ewm
                      (stats="flow_rate.deleted_flows:DSAnomaly:EWM:0.1")
+    /** Anomaly Detection for active flows using Exponentially Weighed Mean */
    43: optional derived_stats_results.AnomalyResult active_flows_ewm
                      (stats="flow_rate.active_flows:DSAnomaly:EWM:0.1")
+    /** Contains 'true' if the VMI is administratively UP and 'false' otherwise
+     */
    27: optional bool admin_state;
+    /** List of IPv4 addresses assigned to VMI */
    28: optional list<string> fixed_ip4_list;
+    /** List of IPv6 addresses assigned to VMI */
    29: optional list<string> fixed_ip6_list;
 }
 
 /**
- * @description: uve for vm interface in agent
+ * @description: Uve for virtual-machine-interface object
  * @type: uve
- * @object:Interface
+ * @object: virtual-machine-interface
  */
 uve sandesh UveVMInterfaceAgentTrace {
+    /** Virtual Machine interface details */
     1: UveVMInterfaceAgent data;
 }
