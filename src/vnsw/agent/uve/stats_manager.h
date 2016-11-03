@@ -15,6 +15,7 @@
 #include <utility>
 #include <uve/flow_ace_stats_request.h>
 #include <vr_types.h>
+#include <uve/agent_uve.h>
 
 struct FlowRateComputeInfo {
     uint64_t prev_time_;
@@ -34,10 +35,10 @@ class StatsManager {
     struct InterfaceStats {
         InterfaceStats();
         void UpdateStats(uint64_t in_b, uint64_t in_p, uint64_t out_b,
-                         uint64_t out_p);
+                         uint64_t out_p, uint64_t drop_p);
         void UpdatePrevStats();
         void GetDiffStats(uint64_t *in_b, uint64_t *in_p, uint64_t *out_b,
-                          uint64_t *out_p);
+                          uint64_t *out_p, uint64_t *drop_p);
 
         std::string name;
         int32_t  speed;
@@ -46,16 +47,20 @@ class StatsManager {
         uint64_t in_bytes;
         uint64_t out_pkts;
         uint64_t out_bytes;
+        uint64_t drop_pkts;
         uint64_t prev_in_bytes;
         uint64_t prev_out_bytes;
         uint64_t prev_in_pkts;  /* Required for sending diff stats */
         uint64_t prev_out_pkts; /* Required for sending diff stats */
+        uint64_t prev_drop_pkts; /* Required for sending diff stats */
         uint64_t prev_5min_in_bytes;
         uint64_t prev_5min_out_bytes;
         uint64_t stats_time;
         FlowRateComputeInfo flow_info;
         AgentStats::FlowCounters added;
         AgentStats::FlowCounters deleted;
+        bool drop_stats_received;
+        vr_drop_stats_req drop_stats;
     };
     struct VrfStats {
         VrfStats();
@@ -180,6 +185,8 @@ class StatsManager {
                        AgentStats::FlowCounters &aged,
                        FlowRateComputeInfo &flow_info,
                        VrouterFlowRate &flow_rate) const;
+    void BuildDropStats(const vr_drop_stats_req &r,
+                        AgentUve::DerivedStatsMap &ds) const;
     friend class AgentStatsCollectorTest;
 
  private:

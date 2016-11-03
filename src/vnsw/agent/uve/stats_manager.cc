@@ -3,10 +3,10 @@
  */
 
 #include <uve/stats_manager.h>
-#include <uve/agent_uve_stats.h>
 #include <uve/vn_uve_table.h>
 #include <uve/interface_uve_stats_table.h>
 #include <oper/vm_interface.h>
+#include <uve/agent_uve_stats.h>
 
 StatsManager::StatsManager(Agent* agent)
     : vrf_listener_id_(DBTableBase::kInvalidId),
@@ -203,18 +203,20 @@ void StatsManager::Shutdown(void) {
 
 StatsManager::InterfaceStats::InterfaceStats()
     : name(""), speed(0), duplexity(0), in_pkts(0), in_bytes(0),
-    out_pkts(0), out_bytes(0), prev_in_bytes(0),
-    prev_out_bytes(0), prev_in_pkts(0), prev_out_pkts(0),
+    out_pkts(0), out_bytes(0), drop_pkts(0), prev_in_bytes(0),
+    prev_out_bytes(0), prev_in_pkts(0), prev_out_pkts(0), prev_drop_pkts(0),
     prev_5min_in_bytes(0), prev_5min_out_bytes(0), stats_time(0), flow_info(),
-    added(), deleted() {
+    added(), deleted(), drop_stats_received(false) {
 }
 
 void StatsManager::InterfaceStats::UpdateStats
-    (uint64_t in_b, uint64_t in_p, uint64_t out_b, uint64_t out_p) {
+    (uint64_t in_b, uint64_t in_p, uint64_t out_b, uint64_t out_p,
+     uint64_t drop_p) {
     in_bytes = in_b;
     in_pkts = in_p;
     out_bytes = out_b;
     out_pkts = out_p;
+    drop_pkts = drop_p;
 }
 
 void StatsManager::InterfaceStats::UpdatePrevStats() {
@@ -222,14 +224,17 @@ void StatsManager::InterfaceStats::UpdatePrevStats() {
     prev_in_pkts = in_pkts;
     prev_out_bytes = out_bytes;
     prev_out_pkts = out_pkts;
+    prev_drop_pkts = drop_pkts;
 }
 
 void StatsManager::InterfaceStats::GetDiffStats
-    (uint64_t *in_b, uint64_t *in_p, uint64_t *out_b, uint64_t *out_p) {
+    (uint64_t *in_b, uint64_t *in_p, uint64_t *out_b, uint64_t *out_p,
+     uint64_t *drop_p) {
     *in_b = in_bytes - prev_in_bytes;
     *in_p = in_pkts - prev_in_pkts;
     *out_b = out_bytes - prev_out_bytes;
     *out_p = out_pkts - prev_out_pkts;
+    *drop_p = drop_pkts - prev_drop_pkts;
 }
 
 StatsManager::VrfStats::VrfStats()
@@ -380,4 +385,48 @@ bool StatsManager::FlowStatsUpdate() {
 void StatsManager::InitDone() {
     timer_->Start(agent_->stats()->flow_stats_update_timeout(),
         boost::bind(&StatsManager::FlowStatsUpdate, this));
+}
+
+void StatsManager::BuildDropStats(const vr_drop_stats_req &req,
+                                  AgentUve::DerivedStatsMap &ds) const {
+    ds.insert(AgentUve::DerivedStatsPair("discard", req.get_vds_discard()));
+    ds.insert(AgentUve::DerivedStatsPair("pull", req.get_vds_pull()));
+    ds.insert(AgentUve::DerivedStatsPair("invalid_if", req.get_vds_invalid_if()));
+    ds.insert(AgentUve::DerivedStatsPair("invalid_arp",req.get_vds_invalid_arp()));
+    ds.insert(AgentUve::DerivedStatsPair("trap_no_if", req.get_vds_trap_no_if()));
+    ds.insert(AgentUve::DerivedStatsPair("nowhere_to_go", req.get_vds_nowhere_to_go()));
+    ds.insert(AgentUve::DerivedStatsPair("flow_queue_limit_exceeded", req.get_vds_flow_queue_limit_exceeded()));
+    ds.insert(AgentUve::DerivedStatsPair("flow_no_memory", req.get_vds_flow_no_memory()));
+    ds.insert(AgentUve::DerivedStatsPair("flow_invalid_protocol", req.get_vds_flow_invalid_protocol()));
+    ds.insert(AgentUve::DerivedStatsPair("flow_nat_no_rflow", req.get_vds_flow_nat_no_rflow()));
+    ds.insert(AgentUve::DerivedStatsPair("flow_action_drop", req.get_vds_flow_action_drop()));
+    ds.insert(AgentUve::DerivedStatsPair("flow_action_invalid", req.get_vds_flow_action_invalid()));
+    ds.insert(AgentUve::DerivedStatsPair("flow_unusable", req.get_vds_flow_unusable()));
+    ds.insert(AgentUve::DerivedStatsPair("flow_table_full", req.get_vds_flow_table_full()));
+    ds.insert(AgentUve::DerivedStatsPair("interface_tx_discard", req.get_vds_interface_tx_discard()));
+    ds.insert(AgentUve::DerivedStatsPair("interface_drop", req.get_vds_interface_drop()));
+    ds.insert(AgentUve::DerivedStatsPair("duplicated", req.get_vds_duplicated()));
+    ds.insert(AgentUve::DerivedStatsPair("push", req.get_vds_push()));
+    ds.insert(AgentUve::DerivedStatsPair("ttl_exceeded", req.get_vds_ttl_exceeded()));
+    ds.insert(AgentUve::DerivedStatsPair("invalid_nh", req.get_vds_invalid_nh()));
+    ds.insert(AgentUve::DerivedStatsPair("invalid_label", req.get_vds_invalid_label()));
+    ds.insert(AgentUve::DerivedStatsPair("invalid_protocol", req.get_vds_invalid_protocol()));
+    ds.insert(AgentUve::DerivedStatsPair("interface_rx_discard", req.get_vds_interface_rx_discard()));
+    ds.insert(AgentUve::DerivedStatsPair("invalid_mcast_source", req.get_vds_invalid_mcast_source()));
+    ds.insert(AgentUve::DerivedStatsPair("head_alloc_fail", req.get_vds_head_alloc_fail()));
+    ds.insert(AgentUve::DerivedStatsPair("pcow_fail", req.get_vds_pcow_fail()));
+    ds.insert(AgentUve::DerivedStatsPair("mcast_clone_fail", req.get_vds_mcast_clone_fail()));
+    ds.insert(AgentUve::DerivedStatsPair("rewrite_fail", req.get_vds_rewrite_fail()));
+    ds.insert(AgentUve::DerivedStatsPair("misc", req.get_vds_misc()));
+    ds.insert(AgentUve::DerivedStatsPair("invalid_packet", req.get_vds_invalid_packet()));
+    ds.insert(AgentUve::DerivedStatsPair("cksum_err", req.get_vds_cksum_err()));
+    ds.insert(AgentUve::DerivedStatsPair("no_fmd", req.get_vds_no_fmd()));
+    ds.insert(AgentUve::DerivedStatsPair("cloned_original", req.get_vds_cloned_original()));
+    ds.insert(AgentUve::DerivedStatsPair("invalid_vnid", req.get_vds_invalid_vnid()));
+    ds.insert(AgentUve::DerivedStatsPair("frag_err", req.get_vds_frag_err()));
+    ds.insert(AgentUve::DerivedStatsPair("invalid_source", req.get_vds_invalid_source()));
+    ds.insert(AgentUve::DerivedStatsPair("mcast_df_bit", req.get_vds_mcast_df_bit()));
+    ds.insert(AgentUve::DerivedStatsPair("l2_no_route", req.get_vds_l2_no_route()));
+    ds.insert(AgentUve::DerivedStatsPair("vlan_fwd_tx", req.get_vds_vlan_fwd_tx()));
+    ds.insert(AgentUve::DerivedStatsPair("vlan_fwd_enq", req.get_vds_vlan_fwd_enq()));
 }

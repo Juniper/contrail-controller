@@ -15,6 +15,8 @@ public:
     AgentUve(Agent *agent, uint64_t intvl, uint32_t default_intvl,
              uint32_t incremental_intvl);
     virtual ~AgentUve();
+    typedef std::map<string, uint64_t> DerivedStatsMap;
+    typedef std::pair<string, uint64_t> DerivedStatsPair;
 
 private:
     DISALLOW_COPY_AND_ASSIGN(AgentUve);

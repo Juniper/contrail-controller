@@ -31,14 +31,14 @@ public:
 
     void UpdateBitmap(const std::string &vn, uint8_t proto, uint16_t sport,
                       uint16_t dport);
-    void SendVnStats(bool only_vrf_stats);
+    void SendVnStats();
     void UpdateInterVnStats(const std::string &src, const std::string &dst,
                             uint64_t bytes, uint64_t pkts, bool outgoing);
     void IncrVnAceStats(const std::string &vn, const std::string &u);
 
 protected:
     //The following API is made protected for UT.
-    void SendVnStatsMsg(const VnEntry *vn, bool only_vrf_stats);
+    void SendVnStatsMsg(const VnEntry *vn);
     void SendVnAceStats(VnUveEntryBase *entry, const VnEntry *vn);
 private:
     virtual VnUveEntryPtr Allocate(const VnEntry *vn);

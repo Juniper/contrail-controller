@@ -186,7 +186,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
 
     SetVrouterPortBitmap(stats);
 
-    DerivedStatsMap ds;
+    AgentUve::DerivedStatsMap ds;
     FetchDropStats(ds);
     stats.set_raw_drop_stats(ds);
 
@@ -292,6 +292,11 @@ bool VrouterUveEntry::BuildPhysicalInterfaceList(map<string, PhyIfStats> &list,
         phy_stat_entry.set_in_bytes(s->in_bytes);
         phy_stat_entry.set_out_pkts(s->out_pkts);
         phy_stat_entry.set_out_bytes(s->out_bytes);
+        phy_stat_entry.set_drop_pkts(s->drop_pkts);
+
+        AgentUve::DerivedStatsMap ds;
+        uve->stats_manager()->BuildDropStats(s->drop_stats, ds);
+        phy_stat_entry.set_raw_drop_stats(ds);
         phy_if_info.set_speed(s->speed);
         phy_if_info.set_duplexity(s->duplexity);
         list.insert(make_pair(intf->name(), phy_stat_entry));
@@ -417,61 +422,22 @@ void VrouterUveEntry::InitPrevStats() const {
     }
 }
 
-void VrouterUveEntry::FetchDropStats(DerivedStatsMap &ds) const {
+void VrouterUveEntry::FetchDropStats(AgentUve::DerivedStatsMap &ds) const {
     AgentUveStats *uve = static_cast<AgentUveStats *>(agent_->uve());
-    const vr_drop_stats_req req = uve->stats_manager()->drop_stats();
-    ds.insert(DerivedStatsPair("discard", req.get_vds_discard()));
-    ds.insert(DerivedStatsPair("pull", req.get_vds_pull()));
-    ds.insert(DerivedStatsPair("invalid_if", req.get_vds_invalid_if()));
-    ds.insert(DerivedStatsPair("invalid_arp",req.get_vds_invalid_arp()));
-    ds.insert(DerivedStatsPair("trap_no_if", req.get_vds_trap_no_if()));
-    ds.insert(DerivedStatsPair("nowhere_to_go", req.get_vds_nowhere_to_go()));
-    ds.insert(DerivedStatsPair("flow_queue_limit_exceeded", req.get_vds_flow_queue_limit_exceeded()));
-    ds.insert(DerivedStatsPair("flow_no_memory", req.get_vds_flow_no_memory()));
-    ds.insert(DerivedStatsPair("flow_invalid_protocol", req.get_vds_flow_invalid_protocol()));
-    ds.insert(DerivedStatsPair("flow_nat_no_rflow", req.get_vds_flow_nat_no_rflow()));
-    ds.insert(DerivedStatsPair("flow_action_drop", req.get_vds_flow_action_drop()));
-    ds.insert(DerivedStatsPair("flow_action_invalid", req.get_vds_flow_action_invalid()));
-    ds.insert(DerivedStatsPair("flow_unusable", req.get_vds_flow_unusable()));
-    ds.insert(DerivedStatsPair("flow_table_full", req.get_vds_flow_table_full()));
-    ds.insert(DerivedStatsPair("interface_tx_discard", req.get_vds_interface_tx_discard()));
-    ds.insert(DerivedStatsPair("interface_drop", req.get_vds_interface_drop()));
-    ds.insert(DerivedStatsPair("duplicated", req.get_vds_duplicated()));
-    ds.insert(DerivedStatsPair("push", req.get_vds_push()));
-    ds.insert(DerivedStatsPair("ttl_exceeded", req.get_vds_ttl_exceeded()));
-    ds.insert(DerivedStatsPair("invalid_nh", req.get_vds_invalid_nh()));
-    ds.insert(DerivedStatsPair("invalid_label", req.get_vds_invalid_label()));
-    ds.insert(DerivedStatsPair("invalid_protocol", req.get_vds_invalid_protocol()));
-    ds.insert(DerivedStatsPair("interface_rx_discard", req.get_vds_interface_rx_discard()));
-    ds.insert(DerivedStatsPair("invalid_mcast_source", req.get_vds_invalid_mcast_source()));
-    ds.insert(DerivedStatsPair("head_alloc_fail", req.get_vds_head_alloc_fail()));
-    ds.insert(DerivedStatsPair("pcow_fail", req.get_vds_pcow_fail()));
-    ds.insert(DerivedStatsPair("mcast_clone_fail", req.get_vds_mcast_clone_fail()));
-    ds.insert(DerivedStatsPair("rewrite_fail", req.get_vds_rewrite_fail()));
-    ds.insert(DerivedStatsPair("misc", req.get_vds_misc()));
-    ds.insert(DerivedStatsPair("invalid_packet", req.get_vds_invalid_packet()));
-    ds.insert(DerivedStatsPair("cksum_err", req.get_vds_cksum_err()));
-    ds.insert(DerivedStatsPair("no_fmd", req.get_vds_no_fmd()));
-    ds.insert(DerivedStatsPair("cloned_original", req.get_vds_cloned_original()));
-    ds.insert(DerivedStatsPair("invalid_vnid", req.get_vds_invalid_vnid()));
-    ds.insert(DerivedStatsPair("frag_err", req.get_vds_frag_err()));
-    ds.insert(DerivedStatsPair("invalid_source", req.get_vds_invalid_source()));
-    ds.insert(DerivedStatsPair("mcast_df_bit", req.get_vds_mcast_df_bit()));
-    ds.insert(DerivedStatsPair("l2_no_route", req.get_vds_l2_no_route()));
-    ds.insert(DerivedStatsPair("vlan_fwd_tx", req.get_vds_vlan_fwd_tx()));
-    ds.insert(DerivedStatsPair("vlan_fwd_enq", req.get_vds_vlan_fwd_enq()));
+    const vr_drop_stats_req &req = uve->stats_manager()->drop_stats();
+    uve->stats_manager()->BuildDropStats(req, ds);
 }
 
-void VrouterUveEntry::FetchIFMapStats(DerivedStatsMap *ds) const {
+void VrouterUveEntry::FetchIFMapStats(AgentUve::DerivedStatsMap *ds) const {
     IFMapAgentParser *parser = agent_->cfg()->cfg_parser();
     if (parser) {
-        ds->insert(DerivedStatsPair("node_update_parse_errors",
+        ds->insert(AgentUve::DerivedStatsPair("node_update_parse_errors",
                                     parser->node_update_parse_errors()));
-        ds->insert(DerivedStatsPair("link_update_parse_errors",
+        ds->insert(AgentUve::DerivedStatsPair("link_update_parse_errors",
                                     parser->link_update_parse_errors()));
-        ds->insert(DerivedStatsPair("node_delete_parse_errors",
+        ds->insert(AgentUve::DerivedStatsPair("node_delete_parse_errors",
                                     parser->node_delete_parse_errors()));
-        ds->insert(DerivedStatsPair("link_delete_parse_errors",
+        ds->insert(AgentUve::DerivedStatsPair("link_delete_parse_errors",
                                     parser->link_delete_parse_errors()));
     }
 }
@@ -587,7 +553,7 @@ void VrouterUveEntry::BuildAndSendVrouterControlStats(RouteTableSizeMapPtr
     BuildXmppStatsList(&xstats);
     stats.set_raw_xmpp_stats(xstats);
 
-    DerivedStatsMap ifmap_stats;
+    AgentUve::DerivedStatsMap ifmap_stats;
     FetchIFMapStats(&ifmap_stats);
     stats.set_raw_ifmap_stats(ifmap_stats);
 

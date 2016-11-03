@@ -12,8 +12,6 @@
 //required for sending VRouter UVE.
 class VrouterUveEntry : public VrouterUveEntryBase {
 public:
-    typedef std::map<string, uint64_t> DerivedStatsMap;
-    typedef std::pair<string, uint64_t> DerivedStatsPair;
     typedef std::map<std::string, RouteTableSize> RouteTableSizeMap;
     typedef std::pair<std::string, RouteTableSize> RouteTableSizePair;
     typedef boost::shared_ptr<RouteTableSizeMap> RouteTableSizeMapPtr;
@@ -33,7 +31,7 @@ protected:
 private:
     void DispatchVrouterControlStats(const VrouterControlStats &uve) const;
     void InitPrevStats() const;
-    void FetchDropStats(DerivedStatsMap &ds) const;
+    void FetchDropStats(AgentUve::DerivedStatsMap &ds) const;
     bool SetVrouterPortBitmap(VrouterStatsAgent &vr_stats);
     uint64_t CalculateBandwitdh(uint64_t bytes, int speed_mbps,
                                int diff_seconds, double *utilization_bps) const;
@@ -51,7 +49,7 @@ private:
                                     std::map<std::string, PhyIfInfo> info)const;
     std::string GetMacAddress(const MacAddress &mac) const;
     void BuildXmppStatsList(std::map<std::string, AgentXmppStats> *stats) const;
-    void FetchIFMapStats(DerivedStatsMap *ds) const;
+    void FetchIFMapStats(AgentUve::DerivedStatsMap *ds) const;
     void VrfWalkDone(DBTableBase *base, RouteTableSizeMapPtr list);
     bool AppendVrf(DBTablePartBase *part, DBEntryBase *entry,
                    RouteTableSizeMapPtr list);

@@ -11,8 +11,8 @@
 #include <oper/vrf.h>
 #include <vrouter_types.h>
 
-AgentStatsSandeshContext::AgentStatsSandeshContext(Agent *agent)
-    : agent_(agent), marker_id_(-1) {
+AgentStatsSandeshContext::AgentStatsSandeshContext(Agent *agent, bool check)
+    : agent_(agent), marker_id_(kInvalidIndex), check_marker_(check) {
     AgentUveStats *uve = static_cast<AgentUveStats *>(agent_->uve());
     stats_ = uve->stats_manager();
 }
@@ -45,15 +45,25 @@ int AgentStatsSandeshContext::VrResponseMsgHandler(vr_response *r) {
     return 0;
 }
 
+StatsManager::InterfaceStats *AgentStatsSandeshContext::IdToStats(int id)
+    const {
+    const Interface *intf = InterfaceTable::GetInstance()->FindInterface(id);
+    if (intf == NULL) {
+        return NULL;
+     }
+
+    return stats_->GetInterfaceStats(intf);
+}
+
 void AgentStatsSandeshContext::IfMsgHandler(vr_interface_req *req) {
     set_marker_id(req->get_vifr_idx());
     const Interface *intf = InterfaceTable::GetInstance()->FindInterface
-                                                    (req->get_vifr_idx());
+        (marker_id());
     if (intf == NULL) {
         return;
      }
 
-    StatsManager::InterfaceStats *stats =stats_->GetInterfaceStats(intf);
+    StatsManager::InterfaceStats *stats = stats_->GetInterfaceStats(intf);
 
     if (!stats) {
         return;
@@ -69,8 +79,10 @@ void AgentStatsSandeshContext::IfMsgHandler(vr_interface_req *req) {
                                         stats->out_bytes);
     }
 
+    stats->drop_stats_received = false;
     stats->UpdateStats(req->get_vifr_ibytes(), req->get_vifr_ipackets(),
-                       req->get_vifr_obytes(), req->get_vifr_opackets());
+                       req->get_vifr_obytes(), req->get_vifr_opackets(),
+                       req->get_vifr_dpackets());
     stats->speed = req->get_vifr_speed();
     stats->duplexity = req->get_vifr_duplex();
 }
@@ -201,5 +213,25 @@ void AgentStatsSandeshContext::VrfStatsMsgHandler(vr_vrf_stats_req *req) {
 }
 
 void AgentStatsSandeshContext::DropStatsMsgHandler(vr_drop_stats_req *req) {
-    stats_->set_drop_stats(*req);
+    /* vr_drop_stats_req msg can be received by agent in response to two
+     * possible requests :-
+     * 1. Interface request
+     * 2. Drop stats request
+     * The request is identified here using the check_marker_ field of sandesh
+     * context.
+     */
+    if (!check_marker()) {
+        stats_->set_drop_stats(*req);
+        return;
+    }
+    if (marker_id() == AgentStatsSandeshContext::kInvalidIndex) {
+        return;
+    }
+    StatsManager::InterfaceStats *stats = IdToStats(marker_id());
+
+    if (!stats) {
+        return;
+    }
+    stats->drop_stats = *req;
+    stats->drop_stats_received = true;
 }
