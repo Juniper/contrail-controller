@@ -32,3 +32,4 @@ cassandra-driver==3.0.0
 ../opserver/plugins/alarm_xmpp_connectivity/dist/alarm_xmpp_connectivity-0.1dev.tar.gz
 ../opserver/plugins/alarm_storage/dist/alarm_storage-0.1dev.tar.gz
 ../opserver/plugins/alarm_prouter_connectivity/dist/alarm_prouter_connectivity-0.1dev.tar.gz
+../opserver/plugins/alarm_prouter_tsn_connectivity/dist/alarm_prouter_tsn_connectivity-0.1dev.tar.gz
