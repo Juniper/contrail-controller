@@ -8,10 +8,13 @@
     <xsd:restriction base="xsd:string">
         <xsd:enumeration value="=="/>
         <xsd:enumeration value="!="/>
+        <xsd:enumeration value="&lt;"/>
         <xsd:enumeration value="&lt;="/>
+        <xsd:enumeration value="&gt;"/>
         <xsd:enumeration value="&gt;="/>
         <xsd:enumeration value="in"/>
         <xsd:enumeration value="not in"/>
+        <xsd:enumeration value="range"/>
         <xsd:enumeration value="size=="/>
         <xsd:enumeration value="size!="/>
     </xsd:restriction>
