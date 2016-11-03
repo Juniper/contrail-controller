@@ -455,6 +455,9 @@ void AddAap(std::string intf_name, int intf_id, Ip4Address ip,
 void AddAapWithDisablePolicy(std::string intf_name, int intf_id,
                              std::vector<Ip4Address> aap_list,
                              bool disable_policy);
+void AddAapWithMacAndDisablePolicy(const std::string &intf_name, int intf_id,
+                                   Ip4Address ip, const std::string &mac,
+                                   bool disable_policy);
 
 class XmppChannelMock : public XmppChannel {
 public:

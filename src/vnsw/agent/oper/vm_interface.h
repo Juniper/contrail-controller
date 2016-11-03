@@ -300,13 +300,15 @@ public:
         bool operator() (const AllowedAddressPair &lhs,
                          const AllowedAddressPair &rhs) const;
         bool IsLess(const AllowedAddressPair *rhs) const;
-        void Activate(VmInterface *interface, bool force_update) const;
+        void Activate(VmInterface *interface, bool force_update,
+                      bool policy_change) const;
         void DeActivate(VmInterface *interface) const;
         void L2Activate(VmInterface *interface, bool force_update,
                         bool policy_change, bool old_layer2_forwarding,
                         bool old_layer3_forwarding) const;
         void L2DeActivate(VmInterface *interface) const;
-        void CreateLabelAndNH(Agent *agent, VmInterface *interface) const;
+        void CreateLabelAndNH(Agent *agent, VmInterface *interface,
+                              bool policy_change) const;
 
         mutable std::string vrf_;
         IpAddress   addr_;

@@ -123,6 +123,7 @@ struct StaticRouteSandesh {
    4: optional string mac_addr;
    /** Communities list associated to static route */
    5: optional list<string> communities;
+   6: optional u32 label;
 }
 
 /**
