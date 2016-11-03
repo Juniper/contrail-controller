@@ -11,6 +11,7 @@ reload(sys)
 sys.setdefaultencoding('UTF8')
 import logging
 import logging.config
+import cfgm_common
 from cfgm_common import jsonutils as json
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,15 @@ class VncServerRDBMSClient(VncRDBMSClient):
 
     def config_log(self, msg, level):
         self._db_client_mgr.config_log(msg, level)
+
+    def enable_domain_sharing(self, obj_uuid, perms2):
+        share_item = {
+            'tenant': 'domain:%s' % obj_uuid,
+            'tenant_access': cfgm_common.DOMAIN_SHARING_PERMS
+        }
+        perms2['share'].append(share_item)
+        res_type = self.uuid_to_obj_type(obj_uuid)
+        self.object_update(res_type, obj_uuid, {"perms2": perms2})
 
     def walk(self, fn):
         walk_results = []
