@@ -29,13 +29,13 @@ typedef EventManagerTest EventManagerDeathTest;
 
 TEST_F(EventManagerDeathTest, Poll) {
     usleep(10000);
-    EXPECT_EXIT(evm_.Poll(),
+    TASK_UTIL_EXPECT_DEATH_TYPE(evm_.Poll(),
         ::testing::KilledBySignal(SIGABRT), ".*Poll.*");
 }
 
 TEST_F(EventManagerDeathTest, RunOnce) {
     usleep(10000);
-    EXPECT_EXIT(evm_.RunOnce(),
+    TASK_UTIL_EXPECT_DEATH_TYPE(evm_.RunOnce(),
         ::testing::KilledBySignal(SIGABRT), ".*RunOnce.*");
 }
 
