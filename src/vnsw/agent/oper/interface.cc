@@ -980,6 +980,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             entry.set_prefix(rt.plen_);
             if (rt.mac_ !=  MacAddress::ZeroMac()) {
                 entry.set_mac_addr(rt.mac_.ToString());
+                entry.set_label(rt.label_);
             }
             aap_it++;
             aap_list.push_back(entry);
