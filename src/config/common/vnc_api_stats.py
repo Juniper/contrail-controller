@@ -7,7 +7,7 @@ from datetime import datetime
 
 from uve.vnc_api.ttypes import VncApiStats, VncApiStatsLog
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-
+frome exceptions import HttpError
 
 def log_api_stats(func):
     def wrapper(api_server_obj, resource_type, *args, **kwargs):
@@ -18,7 +18,7 @@ def log_api_stats(func):
             statistics.response_size = len(str(response))
             statistics.response_code = bottle.response.status_code
             return response
-        except bottle.HTTPError as err_response:
+        except HttpError as err_response:
             statistics.response_size = len(err_response.body)
             statistics.response_code = err_response.status_code
             raise
