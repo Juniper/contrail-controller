@@ -18,6 +18,7 @@ class BgpMembershipManager;
 class BgpNeighborResp;
 class BgpRoute;
 class BgpTable;
+class PeerCloseInfo;
 
 // PeerCloseManager
 //
@@ -122,6 +123,18 @@ private:
     struct Stats {
         Stats() { memset(this, 0, sizeof(Stats)); }
 
+        struct RouteStats {
+            RouteStats() { memset(this, 0, sizeof(RouteStats)); }
+            bool IsSet() const {
+                return staled || llgr_staled || swept || deleted;
+            }
+
+            uint64_t staled;
+            uint64_t llgr_staled;
+            uint64_t swept;
+            uint64_t deleted;
+        };
+
         uint64_t init;
         uint64_t close;
         uint64_t nested;
@@ -131,6 +144,7 @@ private:
         uint64_t sweep;
         uint64_t gr_timer;
         uint64_t llgr_timer;
+        RouteStats route_stats[Address::NUM_FAMILIES];
     };
 
     State state() const { return state_; }
@@ -145,6 +159,7 @@ private:
     void TriggerSweepStateActions();
     std::string GetStateName(State state) const;
     std::string GetMembershipStateName(MembershipState state) const;
+    void FillRouteCloseInfo(PeerCloseInfo *close_info) const;
     void CloseInternal();
     void MembershipRequest(Event *event);
     bool MembershipRequestCallback(Event *event);
