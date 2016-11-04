@@ -46,6 +46,13 @@ struct ShowBgpNeighborFamily {
     4: string gateway_address;
 }
 
+struct PeerCloseRouteInfo {
+    1: u64 staled;
+    2: u64 llgr_staled;
+    3: u64 swept;
+    4: u64 deleted;
+}
+
 struct PeerCloseInfo {
     1: string state;
     17: string membership_state;
@@ -60,6 +67,7 @@ struct PeerCloseInfo {
     8: u64 sweep;
     9: u64 gr_timer;
     14: u64 llgr_timer;
+    18: optional map<string, PeerCloseRouteInfo> route_stats;
 }
 
 struct BgpNeighborResp {
