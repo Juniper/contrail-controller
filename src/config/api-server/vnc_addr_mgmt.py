@@ -39,15 +39,18 @@ class AddrMgmtSubnetUndefined(AddrMgmtError):
 
 class AddrMgmtAllocUnitInvalid(AddrMgmtError):
 
-    def __init__(self, vn_fq_name, subnet_name, alloc_unit):
+    def __init__(self, vn_fq_name, subnet_name, alloc_unit, reason):
         self.vn_fq_name = vn_fq_name
         self.subnet_name = subnet_name
         self.alloc_unit = alloc_unit
+        self.reason = reason
     # end __init__
 
     def __str__(self):
-        return "Virtual-Network(%s) has invalid alloc_unit(%s) in subnet(%s)" %\
+        msg = "Virtual-Network(%s) has invalid alloc_unit(%s) in subnet(%s)" %\
             (self.vn_fq_name, self.alloc_unit, self.subnet_name)
+        msg += " reason: %s" %(self.reason)
+        return msg
     # end __str__
 # end AddrMgmtAllocUnitInvalid
 
@@ -63,6 +66,18 @@ class AddrMgmtSubnetInvalid(AddrMgmtError):
             (self.vn_fq_name, self.subnet_name)
     # end __str__
 # end AddrMgmtSubnetUndefined
+
+
+class AddrMgmtSubnetAbsent(AddrMgmtError):
+
+    def __init__(self, vn_fq_name):
+        self.vn_fq_name = vn_fq_name
+    # end __init__
+
+    def __str__(self):
+        return "Virtual-Network(%s) has no defined subnets" %(self.vn_fq_name)
+    # end __str__
+# end AddrMgmtSubnetAbsent
 
 
 class AddrMgmtSubnetExhausted(AddrMgmtError):
@@ -153,14 +168,14 @@ class AddrMgmtInvalidDnsNameServer(AddrMgmtError):
 
     def __init__(self, subnet_val, name_server):
         self.subnet_val = subnet_val
-        self.gw_ip = name_server
+        self.name_server = name_server
     # end __init__
 
     def __str__(self):
         return "subnet(%s) has Invalid DNS Nameserver(%s)" %\
             (self.subnet_val, self.name_server)
     # end __str__
-# end AddrMgmtInvalidGatewayIp
+# end AddrMgmtInvalidDnsNameServer
 
 
 # Class to manage a single subnet
@@ -236,13 +251,13 @@ class Subnet(object):
             try:
                 ip_addr = IPAddress(nameserver)
             except AddrFormatError:
-                raise AddrMgmtInvalidDnsServer(name, nameserver)
+                raise AddrMgmtInvalidDnsNameServer(name, nameserver)
 
         # check allocation-unit
         # alloc-unit should be power of 2
         if (ip_alloc_unit & (ip_alloc_unit-1)):
             raise AddrMgmtAllocUnitInvalid(name, prefix+'/'+prefix_len,
-                                           ip_alloc_unit)
+                                           ip_alloc_unit, 'Not power of 2')
 
         # if allocation-pool is not specified, create one with entire cidr
         no_alloc_pool = False
@@ -265,7 +280,8 @@ class Subnet(object):
             for alloc_int in alloc_int_list:
                 if alloc_int['start'] % ip_alloc_unit:
                     raise AddrMgmtAllocUnitInvalid(name, prefix+'/'+prefix_len,
-                                                   ip_alloc_unit)
+                        ip_alloc_unit, 'Pool start %s not aligned' %(
+                            alloc_int['start']))
 
         # go through each alloc_pool and validate allocation pool
         # given ip_alloc_unit
@@ -283,10 +299,11 @@ class Subnet(object):
             # each alloc-pool range should be integer multiple of ip_alloc_unit
             if (alloc_pool_range < ip_alloc_unit):
                 raise AddrMgmtAllocUnitInvalid(name, prefix+'/'+prefix_len,
-                                               ip_alloc_unit)
+                    ip_alloc_unit, 'Pool range smaller than alloc_unit')
             if (alloc_pool_range % ip_alloc_unit):
                 raise AddrMgmtAllocUnitInvalid(name, prefix+'/'+prefix_len,
-                                               ip_alloc_unit)
+                    ip_alloc_unit,
+                    'Pool range %s not aligned' %(alloc_pool_range))
 
             block_alloc_unit = 0
             if (net_ip == start_ip):
@@ -322,7 +339,7 @@ class Subnet(object):
             # possible allocation
             if (alloc_pool_range/ip_alloc_unit) <= block_alloc_unit:
                 raise AddrMgmtAllocUnitInvalid(name, prefix+'/'+prefix_len,
-                                               ip_alloc_unit)
+                    ip_alloc_unit, 'Pool range<=block_alloc_unit')
 
         # Exclude host and broadcast
         exclude = [IPAddress(network.first), network.broadcast]
@@ -416,7 +433,8 @@ class Subnet(object):
             #check if ipaddr is multiple of alloc_unit
             if ipaddr % self.alloc_unit:
                 raise AddrMgmtAllocUnitInvalid(self._name,
-                          self._prefix+'/'+self._prefix_len, self.alloc_unit)
+                          self._prefix+'/'+self._prefix_len, self.alloc_unit,
+                          'IP address %s not aligned' %(ipaddr))
             return self.ip_reserve(ipaddr/self.alloc_unit, value)
 
         addr = self._db_conn.subnet_alloc_req(self._name, value)
@@ -1207,6 +1225,8 @@ class AddrMgmt(object):
                           alloc_id=None):
         db_conn = self._get_db_conn()
         ipam_refs = vn_dict['network_ipam_refs']
+        subnets_tried = []
+        found_subnet_match = False
         for ipam_ref in ipam_refs:
             ipam_fq_name = ipam_ref['to']
 
@@ -1227,7 +1247,6 @@ class AddrMgmt(object):
                 continue
 
             if sub:
-                flat_subnet_uuid = False
                 #check if subnet_uuid is stored in the vm->ipam link
                 # to represent this ipam for flat-allocation.
                 ipam_subnets = ipam_ref['attr'].get('ipam_subnets') or []
@@ -1235,9 +1254,9 @@ class AddrMgmt(object):
                     ipam_subnet_uuid = ipam_subnet.get('subnet_uuid')
                     if (ipam_subnet_uuid != None) and\
                         (ipam_subnet_uuid == sub):
-                        flat_subnet_uuid = True
+                        found_subnet_match = True
                         break
-                if flat_subnet_uuid == False:
+                if not found_subnet_match:
                     continue
 
             ipam_uuid = db_conn.fq_name_to_uuid('network_ipam', ipam_fq_name)
@@ -1257,6 +1276,7 @@ class AddrMgmt(object):
                 if asked_ip_addr and not subnet_obj.ip_belongs(asked_ip_addr):
                     continue
 
+                subnets_tried.append(subnet_name)
                 # if user requests ip-addr and that can't be reserved due to
                 # existing object(iip/fip) using it, return an exception with
                 # the info. client can determine if its error or not
@@ -1265,7 +1285,9 @@ class AddrMgmt(object):
                         raise AddrMgmtAllocUnitInvalid(
                             subnet_obj._name,
                             subnet_obj._prefix+'/'+subnet_obj._prefix_len,
-                            subnet_obj.ip_alloc_unit)
+                            subnet_obj.ip_alloc_unit,
+                            'Requested IP address %s not aligned' %(
+                                asked_ip_addr))
 
                     return subnet_obj.ip_reserve(ipaddr=asked_ip_addr,
                                                  value=alloc_id)
@@ -1277,10 +1299,13 @@ class AddrMgmt(object):
                 if ip_addr is not None or sub:
                     return ip_addr
 
-        if sub or asked_ip_addr:
-            raise AddrMgmtSubnetInvalid(vn_fq_name, 'all')
+        if sub:
+            if not found_subnet_match:
+                raise AddrMgmtSubnetInvalid(vn_fq_name, sub)
+            else: # specified, matched but couldn't use
+                raise AddrMgmtSubnetExhausted(vn_fq_name, subnets_tried)
 
-        raise AddrMgmtSubnetExhausted(vn_fq_name, 'all')
+        raise AddrMgmtSubnetExhausted(vn_fq_name, subnets_tried)
     # end _ipam_ip_alloc_req
 
     def _net_ip_alloc_req(self, vn_fq_name, vn_dict=None, subnet_uuid=None,
@@ -1296,14 +1321,19 @@ class AddrMgmt(object):
         else:
             vn_uuid = vn_dict['uuid']
 
+        subnets_tried = []
+        found_subnet_match = False
         subnet_dicts = self._get_net_subnet_dicts(vn_uuid, vn_dict)
         if not subnet_dicts:
-            raise AddrMgmtSubnetExhausted(vn_fq_name, 'all')
+            raise AddrMgmtSubnetAbsent(vn_fq_name)
 
         for subnet_name in subnet_dicts:
             subnet_dict = subnet_dicts[subnet_name]
-            if subnet_uuid and subnet_uuid != subnet_dict['subnet_uuid']:
-                continue
+            if subnet_uuid:
+                if subnet_uuid != subnet_dict['subnet_uuid']:
+                    continue
+                else:
+                    found_subnet_match = True
 
             # create subnet_obj internally if it was created by some other
             # api-server before
@@ -1318,6 +1348,7 @@ class AddrMgmt(object):
             if asked_ip_addr and not subnet_obj.ip_belongs(asked_ip_addr):
                 continue
 
+            subnets_tried.append(subnet_name)
             # if user requests ip-addr and that can't be reserved due to
             # existing object(iip/fip) using it, return an exception with
             # the info. client can determine if its error or not
@@ -1326,7 +1357,9 @@ class AddrMgmt(object):
                     raise AddrMgmtAllocUnitInvalid(
                         subnet_obj._name,
                         subnet_obj._prefix+'/'+subnet_obj._prefix_len,
-                        subnet_obj.alloc_unit)
+                        subnet_obj.alloc_unit,
+                        'Requested IP address %s not aligned' %(
+                            asked_ip_addr))
 
                 return subnet_obj.ip_reserve(ipaddr=asked_ip_addr,
                                              value=alloc_id)
@@ -1338,10 +1371,14 @@ class AddrMgmt(object):
 
             if ip_addr is not None or subnet_uuid:
                 return ip_addr
-        if subnet_uuid or asked_ip_addr:
-            raise AddrMgmtSubnetInvalid(vn_fq_name, 'all')
 
-        raise AddrMgmtSubnetExhausted(vn_fq_name, 'all')
+        if subnet_uuid:
+            if not found_subnet_match:
+                raise AddrMgmtSubnetInvalid(vn_fq_name, subnet_uuid)
+            else: # specified, matched but couldn't use
+                raise AddrMgmtSubnetExhausted(vn_fq_name, subnets_tried)
+
+        raise AddrMgmtSubnetExhausted(vn_fq_name, subnets_tried)
     # end _net_ip_alloc_req
 
     # allocate an IP address for given virtual network
@@ -1363,7 +1400,7 @@ class AddrMgmt(object):
                 return self._ipam_ip_alloc_req(vn_fq_name, vn_dict, sub,
                                                asked_ip_addr, asked_ip_version,
                                                alloc_id)
-            except AddrMgmtSubnetInvalid:
+            except (AddrMgmtSubnetInvalid, AddrMgmtSubnetExhausted):
                 return self._net_ip_alloc_req(vn_fq_name, vn_dict, sub,
                                               asked_ip_addr, asked_ip_version,
                                               alloc_id)

@@ -492,7 +492,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
         ipv4_obj1.set_instance_ip_address(None)
         with ExpectedException(cfgm_common.exceptions.BadRequest,
-                               'Virtual-Network\(\[\'default-domain\', \'flat-subnet-proj-%s\', \'my-v4-v6-vn\'\]\) has exhausted subnet\(all\)' %(self.id())) as e:
+                               'Virtual-Network\(\[\'default-domain\', \'flat-subnet-proj-%s\', \'my-v4-v6-vn\'\]\) has no defined subnets' %(self.id())) as e:
             ipv4_id1 = self._vnc_lib.instance_ip_create(ipv4_obj1)
 
         # update allocation_mode to get ip_addresses from ipam_subnets
@@ -564,7 +564,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
         logger.debug('Allocating an IPV4 address for Fifth VM')
         with ExpectedException(cfgm_common.exceptions.BadRequest,
-                               'Virtual-Network\(\[\'default-domain\', \'flat-subnet-proj-%s\', \'my-v4-v6-vn\'\]\) has exhausted subnet\(all\)' %(self.id())) as e:
+                               'Virtual-Network\(\[\'default-domain\', \'flat-subnet-proj-%s\', \'my-v4-v6-vn\'\]\) has exhausted subnet\(\[\'11.1.1.0/28\', \'12.1.1.0/28\'\]\)' %(self.id())) as e:
             ipv4_id5 = self._vnc_lib.instance_ip_create(ipv4_obj5)
 
         #cleanup
@@ -686,7 +686,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         logger.debug('Allocating an IPV4 address for Third VM')
 
         with ExpectedException(cfgm_common.exceptions.BadRequest,
-            'Virtual-Network\(\[\'default-domain\', \'flat-subnet-proj-%s\', \'my-v4-v6-vn\'\]\) has exhausted subnet\(all\)' %(self.id())) as e:
+            'Virtual-Network\(\[\'default-domain\', \'flat-subnet-proj-%s\', \'my-v4-v6-vn\'\]\) has no defined subnets' %(self.id())) as e:
             ipv4_id3 = self._vnc_lib.instance_ip_create(ipv4_obj3)
 
         # update ipam with additional subnet
@@ -695,9 +695,8 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         #change allocation_mode to
         vn.set_address_allocation_mode('user-defined-subnet-only')
         self._vnc_lib.virtual_network_update(vn)
-
         with ExpectedException(cfgm_common.exceptions.BadRequest,
-            'Virtual-Network\(\[\'default-domain\', \'flat-subnet-proj-%s\', \'my-v4-v6-vn\'\]\) has exhausted subnet\(all\)' %(self.id())) as e:
+            'Virtual-Network\(\[\'default-domain\', \'flat-subnet-proj-%s\', \'my-v4-v6-vn\'\]\) has no defined subnets' %(self.id())) as e:
             ipv4_id3 = self._vnc_lib.instance_ip_create(ipv4_obj3)
 
         #restore allocation_mode to flat-subnet-preferred
@@ -870,9 +869,8 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         # we should get exception to ip_alloc_req
         logger.debug('Allocating an IP4 address for Next VM')
         ipv4_obj5.set_virtual_network(net_obj)
-
         with ExpectedException(cfgm_common.exceptions.BadRequest,
-            'Virtual-Network\(\[\'default-domain\', \'flat-subnet-proj-%s\', \'my-v4-v6-vn\'\]\) has exhausted subnet\(all\)' %(self.id())) as e:
+            'Virtual-Network\(\[\'default-domain\', \'flat-subnet-proj-%s\', \'my-v4-v6-vn\'\]\) has exhausted subnet\(\[\'11.1.1.0/28\', \'12.1.1.0/28\'\]\)' %(self.id())) as e:
             ipv4_id5 = self._vnc_lib.instance_ip_create(ipv4_obj5)
 
         #try allocating specific ip, which has been assigned already
@@ -1019,8 +1017,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         # we should get exception to ip_alloc_req
         logger.debug('Allocating an IP4 address for Next VM')
         ipv4_obj5.set_virtual_network(net_obj)
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
-            'Virtual-Network\(\[\'default-domain\', \'flat-subnet-proj-%s\', \'my-v4-v6-vn\'\]\) has exhausted subnet\(all\)' %(self.id())) as e:
+        with ExpectedException(cfgm_common.exceptions.BadRequest) as e:
             ipv4_id5 = self._vnc_lib.instance_ip_create(ipv4_obj5)
 
         #try allocating specific ip, which has been assigned already
@@ -1932,7 +1929,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
             logger.debug('Allocating an IP4 address for extra instance')
             with ExpectedException(BadRequest,
-                'Virtual-Network\(\[\'default-domain\', \'v4-proj-%s\', \'v4-vn\'\]\) has exhausted subnet\(all\)' %(
+                'Virtual-Network\(\[\'default-domain\', \'v4-proj-%s\', \'v4-vn\'\]\) has exhausted subnet\(\[\]\)' %(
                 self.id())) as e:
                 ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1)
 
