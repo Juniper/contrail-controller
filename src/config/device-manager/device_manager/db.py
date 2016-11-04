@@ -105,7 +105,6 @@ class BgpRouterDM(DBBaseDM):
 class PhysicalRouterDM(DBBaseDM):
     _dict = {}
     obj_type = 'physical_router'
-    _sandesh = None
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -731,8 +730,8 @@ class PhysicalRouterDM(DBBaseDM):
             pr_trace.deleted = True
             pr_msg = UvePhysicalRouterConfigTrace(
                 data=pr_trace,
-                sandesh=PhysicalRouterDM._sandesh)
-            pr_msg.send(sandesh=PhysicalRouterDM._sandesh)
+                sandesh=DBBaseDM._sandesh)
+            pr_msg.send(sandesh=DBBaseDM._sandesh)
             return
 
         commit_stats = self.config_manager.get_commit_stats()
@@ -750,8 +749,8 @@ class PhysicalRouterDM(DBBaseDM):
             pr_trace.netconf_enabled_status = False
 
         pr_msg = UvePhysicalRouterConfigTrace(
-            data=pr_trace, sandesh=PhysicalRouterDM._sandesh)
-        pr_msg.send(sandesh=PhysicalRouterDM._sandesh)
+            data=pr_trace, sandesh=DBBaseDM._sandesh)
+        pr_msg.send(sandesh=DBBaseDM._sandesh)
     # end uve_send
 
 # end PhysicalRouterDM
