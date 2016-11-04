@@ -1674,6 +1674,16 @@ class VncRDBMSClient(object):
         #TODO(nati) implement this
         return False
 
+    def object_raw_read(self, obj_uuids, prop_names):
+        raw_objects = []
+        for obj_uuid in obj_uuids:
+            type = self.uuid_to_obj_type(obj_uuid)
+            ok, raw_object = self.object_read(type, [obj_uuid], field_names=prop_names)
+            if ok and len(raw_object) > 0:
+                raw_objects.append(raw_object[0])
+
+        return raw_objects
+
 def migrate_from_cassandra(mysql_server='127.0.0.1', mysql_username='root', mysql_password='b2618966b123426b0d3d'):
     # TODO remove default creds
     # TODO zookeeper migration

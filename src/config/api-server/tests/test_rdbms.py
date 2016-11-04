@@ -744,10 +744,6 @@ class TestPermissions(test_perms2.TestPermissions, test_case.ApiServerRDBMSTestC
     def test_domain_sharing(self):
         pass
 
-    #TODO(nati): support test obj view
-    def test_obj_view(self):
-        pass
-
 class TestLogicalRouter(test_logical_router.TestLogicalRouter, test_case.ApiServerRDBMSTestCase):
     pass
 
