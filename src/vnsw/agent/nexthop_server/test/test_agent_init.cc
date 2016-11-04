@@ -2,7 +2,6 @@
 #include <base/task.h>
 #include <base/util.h>
 #include <cfg/cfg_init.h>
-#include <cfg/cfg_interface.h>
 #include <cmn/agent_cmn.h>
 #include <io/event_manager.h>
 #include <oper/interface_common.h>

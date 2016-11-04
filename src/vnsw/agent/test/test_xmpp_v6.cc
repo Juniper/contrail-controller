@@ -15,7 +15,6 @@
 #include "base/test/task_test_util.h"
 
 #include "cfg/cfg_init.h"
-#include "cfg/cfg_interface.h"
 #include "oper/operdb_init.h"
 #include "controller/controller_init.h"
 #include "controller/controller_ifmap.h"
