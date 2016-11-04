@@ -178,6 +178,8 @@ public:
     virtual const char *GetTaskName() const = 0;
     virtual int GetTaskInstance() const = 0;
     virtual PeerCloseManager *GetManager() const = 0;
+    virtual void UpdateRouteStats(Address::Family family,
+        const BgpPath *old_path, uint32_t path_flags) const = 0;
 };
 
 class IPeer : public IPeerUpdate {
@@ -188,6 +190,7 @@ public:
     virtual const std::string &ToUVEKey() const = 0;
     virtual BgpServer *server() = 0;
     virtual BgpServer *server() const = 0;
+    virtual IPeerClose *peer_close() const = 0;
     virtual IPeerClose *peer_close() = 0;
     virtual IPeerDebugStats *peer_stats() = 0;
     virtual const IPeerDebugStats *peer_stats() const = 0;
@@ -212,6 +215,8 @@ public:
         BgpRoute *route, BgpPath *path) = 0;
     virtual bool CanUseMembershipManager() const = 0;
     virtual bool IsInGRTimerWaitState() const = 0;
+    virtual void UpdateCloseRouteStats(Address::Family family,
+        const BgpPath *old_path, uint32_t path_flags) const = 0;
 };
 
 #endif  // SRC_BGP_IPEER_H_

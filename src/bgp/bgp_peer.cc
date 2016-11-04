@@ -936,6 +936,15 @@ IPeerClose *BgpPeer::peer_close() {
     return peer_close_.get();
 }
 
+IPeerClose *BgpPeer::peer_close() const {
+    return peer_close_.get();
+}
+
+void BgpPeer::UpdateCloseRouteStats(Address::Family family,
+        const BgpPath *old_path, uint32_t path_flags) const {
+    peer_close()->UpdateRouteStats(family, old_path, path_flags);
+}
+
 IPeerDebugStats *BgpPeer::peer_stats() {
     return peer_stats_.get();
 }

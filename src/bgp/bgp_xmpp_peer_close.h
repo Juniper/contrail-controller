@@ -10,6 +10,7 @@
 
 #include "bgp/ipeer.h"
 
+class BgpPath;
 class BgpXmppChannel;
 class PeerCloseManager;
 
@@ -38,6 +39,8 @@ public:
     virtual void Delete();
     virtual void Close(bool non_graceful);
     virtual PeerCloseManager *GetManager() const;
+    virtual void UpdateRouteStats(Address::Family family,
+        const BgpPath *old_path, uint32_t path_flags) const;
 
 private:
     BgpXmppChannel *channel_;
