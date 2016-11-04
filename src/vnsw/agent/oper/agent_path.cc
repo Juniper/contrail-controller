@@ -976,6 +976,7 @@ bool PathPreferenceData::AddChangePath(Agent *agent, AgentPath *path,
 
     path_preference_.set_ecmp(path->path_preference().ecmp());
     path_preference_.set_dependent_ip(path->path_preference().dependent_ip());
+    path_preference_.set_vrf(path->path_preference().vrf());
     if (path &&
         path->path_preference() != path_preference_) {
         path->set_path_preference(path_preference_);
@@ -1236,8 +1237,9 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
     path_preference_data.set_wait_for_traffic(
          path_preference_.wait_for_traffic());
     if (path_preference_.dependent_ip().is_unspecified() == false) {
-        path_preference_data.set_dependent_ip(
-                path_preference_.dependent_ip().to_string());
+        std::ostringstream str;
+        str << path_preference_.vrf() << " : " <<path_preference_.dependent_ip().to_string();
+        path_preference_data.set_dependent_ip(str.str());
     }
     pdata.set_path_preference_data(path_preference_data);
     pdata.set_active_label(GetActiveLabel());
