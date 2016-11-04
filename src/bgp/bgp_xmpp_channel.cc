@@ -299,6 +299,9 @@ public:
     virtual IPeerClose *peer_close() {
         return parent_->peer_close_.get();
     }
+    virtual IPeerClose *peer_close() const {
+        return parent_->peer_close_.get();
+    }
 
     virtual IPeerDebugStats *peer_stats() {
         return parent_->peer_stats_.get();

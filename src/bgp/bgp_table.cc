@@ -413,6 +413,8 @@ bool BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
 
         // The entry may currently be marked as deleted.
         rt->ClearDelete();
+        if (peer)
+            peer->UpdateCloseRouteStats(family(), path, flags);
 
         // Check whether peer already has a path.
         if (path != NULL) {

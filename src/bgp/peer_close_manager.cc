@@ -205,6 +205,7 @@ void PeerCloseManager::CloseInternal() {
 
     switch (state_) {
     case NONE:
+        stats_.ResetRouteStats();
         ProcessClosure();
         break;
 
@@ -591,6 +592,26 @@ bool PeerCloseManager::MembershipRequestCallback(Event *event) {
     return result;
 }
 
+void PeerCloseManager::FillRouteCloseInfo(PeerCloseInfo *close_info) const {
+    std::map<std::string, PeerCloseRouteInfo> route_stats;
+
+    for (int i = 0; i < Address::NUM_FAMILIES; i++) {
+        if (!stats_.route_stats[i].IsSet())
+            continue;
+        PeerCloseRouteInfo route_info;
+        route_info.set_staled(stats_.route_stats[i].staled);
+        route_info.set_llgr_staled(stats_.route_stats[i].llgr_staled);
+        route_info.set_refreshed(stats_.route_stats[i].refreshed);
+        route_info.set_fresh(stats_.route_stats[i].fresh);
+        route_info.set_deleted(stats_.route_stats[i].deleted);
+        route_stats[Address::FamilyToString(static_cast<Address::Family>(i))] =
+            route_info;
+    }
+
+    if (!route_stats.empty())
+        close_info->set_route_stats(route_stats);
+}
+
 void PeerCloseManager::FillCloseInfo(BgpNeighborResp *resp) const {
     PeerCloseInfo peer_close_info;
     peer_close_info.set_state(GetStateName(state_));
@@ -607,8 +628,20 @@ void PeerCloseManager::FillCloseInfo(BgpNeighborResp *resp) const {
     peer_close_info.set_sweep(stats_.sweep);
     peer_close_info.set_gr_timer(stats_.gr_timer);
     peer_close_info.set_llgr_timer(stats_.llgr_timer);
+    FillRouteCloseInfo(&peer_close_info);
 
     resp->set_peer_close_info(peer_close_info);
+}
+
+void PeerCloseManager::UpdateRouteStats(Address::Family family,
+        const BgpPath *old_path, uint32_t path_flags) const {
+    if (state_ == NONE)
+        return;
+
+    if (!old_path)
+        stats_.route_stats[family].fresh++;
+    else if (old_path->IsStale() && !(path_flags & BgpPath::Stale))
+        stats_.route_stats[family].refreshed++;
 }
 
 bool PeerCloseManager::MembershipPathCallback(DBTablePartBase *root,
@@ -637,6 +670,7 @@ bool PeerCloseManager::MembershipPathCallback(DBTablePartBase *root,
             path->ResetLlgrStale();
             oper = DBRequest::DB_ENTRY_DELETE;
             attrs = NULL;
+            stats_.route_stats[table->family()].deleted++;
             break;
 
         case DELETE:
@@ -644,6 +678,7 @@ bool PeerCloseManager::MembershipPathCallback(DBTablePartBase *root,
             // This path must be deleted. Hence attr is not required.
             oper = DBRequest::DB_ENTRY_DELETE;
             attrs = NULL;
+            stats_.route_stats[table->family()].deleted++;
             break;
 
         case STALE:
@@ -652,6 +687,7 @@ bool PeerCloseManager::MembershipPathCallback(DBTablePartBase *root,
             if (table->family() == Address::ERMVPN) {
                 oper = DBRequest::DB_ENTRY_DELETE;
                 attrs = NULL;
+                stats_.route_stats[table->family()].deleted++;
                 break;
             }
 
@@ -666,6 +702,7 @@ bool PeerCloseManager::MembershipPathCallback(DBTablePartBase *root,
             oper = DBRequest::DB_ENTRY_ADD_CHANGE;
             attrs = path->GetAttr();
             stale = BgpPath::Stale;
+            stats_.route_stats[table->family()].staled++;
             break;
 
         case LLGR_STALE:
@@ -676,6 +713,7 @@ bool PeerCloseManager::MembershipPathCallback(DBTablePartBase *root,
                     CommunityType::NoLlgr)) {
                 oper = DBRequest::DB_ENTRY_DELETE;
                 attrs = NULL;
+                stats_.route_stats[table->family()].deleted++;
                 break;
             }
 
@@ -688,6 +726,7 @@ bool PeerCloseManager::MembershipPathCallback(DBTablePartBase *root,
             attrs = path->GetAttr();
             stale = BgpPath::LlgrStale;
             oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+            stats_.route_stats[table->family()].llgr_staled++;
             break;
     }
 

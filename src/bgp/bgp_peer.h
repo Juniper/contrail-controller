@@ -221,6 +221,7 @@ public:
     void Clear(int subcode);
 
     virtual IPeerClose *peer_close();
+    virtual IPeerClose *peer_close() const;
     virtual IPeerDebugStats *peer_stats();
     virtual const IPeerDebugStats *peer_stats() const;
     void ManagedDelete();

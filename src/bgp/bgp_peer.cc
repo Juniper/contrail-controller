@@ -936,6 +936,10 @@ IPeerClose *BgpPeer::peer_close() {
     return peer_close_.get();
 }
 
+IPeerClose *BgpPeer::peer_close() const {
+    return peer_close_.get();
+}
+
 IPeerDebugStats *BgpPeer::peer_stats() {
     return peer_stats_.get();
 }
