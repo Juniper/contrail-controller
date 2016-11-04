@@ -57,6 +57,10 @@ enum flow_dir_t {
 #define QUERY_AGG_STATS_TYPE        "stat_type"
 #define QUERY_FLOW_DIR          "dir"
 #define QUERY_FILTER            "filter"
+#define QUERY_TABLE_SCHEMA                "table_schema"
+#define QUERY_TABLE_SCHEMA_DATATYPE        "datatype"
+#define QUERY_TABLE_SCHEMA_INDEX        "index"
+#define QUERY_TABLE_SCHEMA_SUFFIXES        "suffixes"
 
  
 /**** END DERIVED SECTION ***********/
