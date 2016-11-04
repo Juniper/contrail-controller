@@ -8,6 +8,7 @@
 #include "base/task_annotations.h"
 #include "net/bgp_af.h"
 #include "bgp/bgp_factory.h"
+#include "bgp/bgp_path.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_close.h"
@@ -116,6 +117,12 @@ const std::vector<std::string> &BgpPeerClose::negotiated_families() const {
 const std::vector<BgpProto::OpenMessage::Capability *> &
 BgpPeerClose::capabilities() const {
     return peer_->capabilities();
+}
+
+void BgpPeerClose::UpdateRouteStats(Address::Family family,
+                                    const BgpPath *old_path,
+                                    uint32_t path_flags) const {
+    GetManager()->UpdateRouteStats(family, old_path, path_flags);
 }
 
 void BgpPeerClose::Close(bool non_graceful) {
