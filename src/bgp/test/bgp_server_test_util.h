@@ -214,6 +214,7 @@ public:
                                 const std::string &uuid);
     BgpPeer *FindPeer(const char *routing_instance,
                       const std::string &peername);
+    BgpPeer *FindPeer(TcpSession::Endpoint remote) const;
     BgpPeer *FindMatchingPeer(const std::string &routing_instance,
                               const std::string &name);
     void DisableAllPeers();
@@ -235,6 +236,10 @@ public:
     }
 
     virtual std::string ToString() const;
+    uint16_t source_port() const { return source_port_; }
+    void set_source_port(uint16_t source_port) { source_port_ = source_port; }
+    bool peer_lookup_disable() const { return peer_lookup_disable_; }
+    void set_peer_lookup_disable(bool flag) { peer_lookup_disable_ = flag; }
 
 private:
     void PostShutdown();
@@ -243,6 +248,8 @@ private:
     boost::scoped_ptr<DB> config_db_;
     boost::scoped_ptr<DBGraph> config_graph_;
     bool cleanup_config_;
+    uint16_t source_port_;
+    bool peer_lookup_disable_;
 };
 
 typedef boost::shared_ptr<BgpServerTest> BgpServerTestPtr;
