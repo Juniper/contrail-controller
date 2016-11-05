@@ -144,7 +144,7 @@ class DeviceManager(object):
                 self._args.disc_server_ip,
                 self._args.disc_server_port,
                 ModuleNames[Module.DEVICE_MANAGER])
-        
+
         PushConfigState.set_repush_interval(int(self._args.repush_interval))
         PushConfigState.set_repush_max_interval(int(self._args.repush_max_interval))
         PushConfigState.set_push_delay_per_kb(float(self._args.push_delay_per_kb))
@@ -180,9 +180,9 @@ class DeviceManager(object):
                 self._REACTION_MAP, self._args)
         self._vnc_amqp.establish()
 
-        # Initialize cassandra
-        self._cassandra = DMCassandraDB.getInstance(self, _zookeeper_client)
-        DBBaseDM.init(self, self.logger, self._cassandra)
+        # Initialize object db
+        self._object_db = DMCassandraDB.getInstance(self, _zookeeper_client)
+        DBBaseDM.init(self, self.logger, self._object_db)
         DBBaseDM._sandesh = self.logger._sandesh
 
         for obj in GlobalSystemConfigDM.list_obj():
@@ -202,7 +202,7 @@ class DeviceManager(object):
 
         pr_obj_list = PhysicalRouterDM.list_obj()
         pr_uuid_set = set([pr_obj['uuid'] for pr_obj in pr_obj_list])
-        self._cassandra.handle_pr_deletes(pr_uuid_set)
+        self._object_db.handle_pr_deletes(pr_uuid_set)
 
         for obj in PortTupleDM.list_obj():
             PortTupleDM.locate(obj['uuid'],obj)
@@ -225,7 +225,7 @@ class DeviceManager(object):
 
         si_obj_list = ServiceInstanceDM.list_obj()
         si_uuid_set = set([si_obj['uuid'] for si_obj in si_obj_list])
-        self._cassandra.handle_pnf_resource_deletes(si_uuid_set)
+        self._object_db.handle_pnf_resource_deletes(si_uuid_set)
 
         for obj in si_obj_list:
             ServiceInstanceDM.locate(obj['uuid'], obj)
