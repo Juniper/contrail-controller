@@ -160,16 +160,16 @@ class SchemaTransformer(object):
                 self._REACTION_MAP, self._args)
         self._vnc_amqp.establish()
         try:
-            # Initialize cassandra
-            self._cassandra = SchemaTransformerDB(self, _zookeeper_client)
-            DBBaseST.init(self, self.logger, self._cassandra)
+            # Initialize object_db
+            self._object_db = SchemaTransformerDB(self, _zookeeper_client)
+            DBBaseST.init(self, self.logger, self._object_db)
             DBBaseST._sandesh = self.logger._sandesh
             DBBaseST._vnc_lib = _vnc_lib
             ServiceChain.init()
             self.reinit()
             self._vnc_amqp._db_resync_done.set()
         except Exception as e:
-            # If any of the above tasks like CassandraDB read fails, cleanup
+            # If any of the above tasks like ObjectDB read fails, cleanup
             # the RMQ constructs created earlier and then give up.
             self._vnc_amqp.close()
             raise e
