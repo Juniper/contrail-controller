@@ -40,29 +40,6 @@ traceobject sandesh CfgIntfTrace {
     12: string ip6;
 }
 
-request sandesh AddPortReq {
-    1: string port_uuid;
-    2: string instance_uuid;
-    3: string tap_name;
-    4: string ip_address;
-    5: string vn_uuid;
-    6: string mac_address;
-    7: optional string vm_name;
-    8: optional i16 tx_vlan_id;
-    9: optional i16 rx_vlan_id;
-   10: optional string vm_project_uuid;
-   11: i16 port_type;
-   12: optional string ip6_address;
-}
-
-response sandesh PortResp {
-    1: string resp;
-}
-
-request sandesh DeletePortReq {
-    1: string port_uuid;
-}
-
 /**
  * @description: Trace message for Ifmap graph traversal for port add/del completion
  * @type: Trace
@@ -70,6 +47,15 @@ request sandesh DeletePortReq {
  */
 trace sandesh CfgIntfWalkDone {
     1: i32 version;
+}
+
+/**
+ * @description: Trace message for interface add/del to config interface table
+ * @type: Trace
+ * @severity: DEBUG
+ */
+traceobject sandesh CfgIntfErrorTrace {
+    1: string err;
 }
 
 /**
