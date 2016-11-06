@@ -1,7 +1,6 @@
 /*
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
-
 #include <ctype.h>
 #include <stdio.h>
 #include <sstream>
@@ -10,6 +9,9 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/foreach.hpp>
+#include <rapidjson/document.h>
+#include <rapidjson/prettywriter.h>
+#include <rapidjson/stringbuffer.h>
 #include "base/logging.h"
 #include "base/task.h"
 #include "base/string_util.h"
@@ -29,36 +31,57 @@ namespace fs = boost::filesystem;
 
 const std::string PortIpcHandler::kPortsDir = "/var/lib/contrail/ports";
 
-PortIpcHandler::AddPortParams::AddPortParams
-    (const string &pid, const string &iid, const string &vid,
-     const string &vm_pid, const string &vname, const string &ifname,
-     const string &ip, const string &ip6, const string &mac, int ptype,
-     int tx_vid, int rx_vid) :
-     port_id(pid), instance_id(iid), vn_id(vid), vm_project_id(vm_pid),
-     vm_name(vname), system_name(ifname), ip_address(ip), ip6_address(ip6),
-     mac_address(mac), port_type(ptype), tx_vlan_id(tx_vid),
-     rx_vlan_id(rx_vid) {
+/////////////////////////////////////////////////////////////////////////////
+// Utility methods
+/////////////////////////////////////////////////////////////////////////////
+static bool GetStringMember(const rapidjson::Value &d, const char *member,
+                            std::string *data, std::string *err) {
+    if (!d.HasMember(member) || !d[member].IsString()) {
+        if (err) {
+            *err += "Invalid or missing field for <" + string(member) + ">";
+        }
+        return false;
+    }
+
+    *data = d[member].GetString();
+    return true;
 }
 
-void PortIpcHandler::AddPortParams::Set
-    (const string &pid, const string &iid, const string &vid,
-     const string &vm_pid, const string &vname, const string &ifname,
-     const string &ip, const string &ip6, const string &mac, int ptype,
-     int tx_vid, int rx_vid) {
-     port_id = pid;
-     instance_id = iid;
-     vn_id = vid;
-     vm_project_id = vm_pid;
-     vm_name= vname;
-     system_name = ifname;
-     ip_address = ip;
-     ip6_address = ip6;
-     mac_address = mac;
-     port_type = ptype;
-     tx_vlan_id = tx_vid;
-     rx_vlan_id = rx_vid;
+static bool GetUint32Member(const rapidjson::Value &d, const char *member,
+                            uint32_t *data, std::string *err) {
+    if (!d.HasMember(member) || !d[member].IsInt()) {
+        if (err) {
+            *err += "Invalid or missing field for <" + string(member) + ">";
+        }
+        return false;
+    }
+
+    *data = d[member].GetInt();
+    return true;
 }
 
+static bool GetUuidMember(const rapidjson::Value &d, const char *member,
+                          boost::uuids::uuid *u, std::string *err) {
+    if (!d.HasMember(member) || !d[member].IsString()) {
+        if (err) {
+            *err += "Invalid or missing data for <" + string(member) + ">";
+        }
+        return false;
+    }
+
+    *u = StringToUuid(d[member].GetString());
+    if (*u == nil_uuid()) {
+        if (err) {
+            *err += "Invalid data for <" + string(member) + ">";
+        }
+        return false;
+    }
+    return true;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// PortIpcHandler methods
+/////////////////////////////////////////////////////////////////////////////
 PortIpcHandler::PortIpcHandler(Agent *agent, const std::string &dir)
     : agent_(agent), ports_dir_(dir), version_(0),
       interface_stale_cleaner_(new InterfaceConfigStaleCleaner(agent)) {
@@ -115,64 +138,11 @@ void PortIpcHandler::ProcessFile(const string &file, bool check_port) {
     string json = tmp.str();
     f.close();
     
-    AddPortFromJson(json, check_port, err_msg);
-}
-
-bool PortIpcHandler::HasAllMembers(const rapidjson::Value &d,
-                                   std::string &member_err) const {
-    if (!d.HasMember("id") || !d["id"].IsString()) {
-        member_err = "id";
-        return false;
-    }
-    if (!d.HasMember("instance-id") || !d["instance-id"].IsString()) {
-        member_err = "instance-id";
-        return false;
-    }
-    if (!d.HasMember("vn-id") || !d["vn-id"].IsString()) {
-        member_err = "vn-id";
-        return false;
-    }
-    if (!d.HasMember("vm-project-id") || !d["vm-project-id"].IsString()) {
-        member_err = "vm-project-id";
-        return false;
-    }
-    if (!d.HasMember("display-name") || !d["display-name"].IsString()) {
-        member_err = "display-name";
-        return false;
-    }
-    if (!d.HasMember("system-name") || !d["system-name"].IsString()) {
-        member_err = "system-name";
-        return false;
-    }
-    if (!d.HasMember("ip-address") || !d["ip-address"].IsString()) {
-        member_err = "ip-address";
-        return false;
-    }
-    if (!d.HasMember("ip6-address") || !d["ip6-address"].IsString()) {
-        member_err = "ip6-address";
-        return false;
-    }
-    if (!d.HasMember("mac-address") || !d["mac-address"].IsString()) {
-        member_err = "mac-address";
-        return false;
-    }
-    if (!d.HasMember("type") || !d["type"].IsInt()) {
-        member_err = "type";
-        return false;
-    }
-    if (!d.HasMember("rx-vlan-id") || !d["rx-vlan-id"].IsInt()) {
-        member_err = "rx-vlan-id";
-        return false;
-    }
-    if (!d.HasMember("tx-vlan-id") || !d["tx-vlan-id"].IsInt()) {
-        member_err = "tx-vlan-id";
-        return false;
-    }
-    return true;
+    AddPortFromJson(json, check_port, err_msg, false);
 }
 
 bool PortIpcHandler::AddPortFromJson(const string &json, bool check_port,
-                                     string &err_msg) {
+                                     string &err_msg, bool write_file) {
     rapidjson::Document d;
     if (d.Parse<0>(const_cast<char *>(json.c_str())).HasParseError()) {
         err_msg = "Invalid Json string ==> " + json;
@@ -189,12 +159,14 @@ bool PortIpcHandler::AddPortFromJson(const string &json, bool check_port,
         /* When Json Array is passed, we do 'All or None'. We add all the
          * elements of the array or none are added. So we do validation in
          * first pass and addition in second pass */
-        vector<PortIpcHandler::AddPortParams> req_list;
+        std::vector<DBRequest> req_list;
         for (size_t i = 0; i < d.Size(); i++) {
             const rapidjson::Value& elem = d[i];
             if (elem.IsObject()) {
-                PortIpcHandler::AddPortParams req;
-                if (!ValidateRequest(elem, json, check_port, err_msg, req)) {
+                DBRequest req;
+                if (MakeAddVmiUuidRequest(elem, json, check_port, err_msg,
+                                          &req) == false) {
+                    CONFIG_TRACE(PortInfo, err_msg.c_str());
                     return false;
                 }
                 req_list.push_back(req);
@@ -204,201 +176,184 @@ bool PortIpcHandler::AddPortFromJson(const string &json, bool check_port,
                 return false;
             }
         }
-        vector<PortIpcHandler::AddPortParams>::iterator it = req_list.begin();
-        while (it != req_list.end()) {
-            if (!AddPort(*it, err_msg)) {
-                /* Stop adding additional ports after first error is
-                 * encountered */
-                return false;
-            }
-            ++it;
+
+        for (size_t i = 0; i < req_list.size(); i++) {
+            AddVmiUuidEntry(&req_list[i], d, write_file, err_msg);
         }
+
         return true;
     }
 
-    PortIpcHandler::AddPortParams req;
-    if (ValidateRequest(d, json, check_port, err_msg, req)) {
-        return AddPort(req, err_msg);
-    }
-    return false;
-}
-
-bool PortIpcHandler::ValidateRequest(const rapidjson::Value &d,
-                                     const string &json, bool check_port,
-                                     string &err_msg,
-                                     PortIpcHandler::AddPortParams &req) const {
-    string member_err;
-    if (!HasAllMembers(d, member_err)) {
-        err_msg = "Json string does not have all required members, "
-                         + member_err + " is missing ==> "
-                         + json;
+    DBRequest req;
+    if (MakeAddVmiUuidRequest(d, json, check_port, err_msg, &req) == false) {
         CONFIG_TRACE(PortInfo, err_msg.c_str());
         return false;
     }
 
-    req.Set(d["id"].GetString(),
-        d["instance-id"].GetString(), d["vn-id"].GetString(),
-        d["vm-project-id"].GetString(), d["display-name"].GetString(),
-        d["system-name"].GetString(), d["ip-address"].GetString(),
-        d["ip6-address"].GetString(), d["mac-address"].GetString(),
-        d["type"].GetInt(), d["tx-vlan-id"].GetInt(),
-        d["rx-vlan-id"].GetInt());
-    return CanAdd(req, check_port, err_msg);
-}
-
-bool PortIpcHandler::CanAdd(PortIpcHandler::AddPortParams &r,
-                            bool check_port, string &resp_str) const {
-    bool err = false;
-
-    r.port_uuid = StringToUuid(r.port_id);
-    r.instance_uuid = StringToUuid(r.instance_id);
-
-    /* VN UUID is optional for CfgIntNameSpacePort */
-    r.vn_uuid = nil_uuid();
-    if (r.vn_id.length() != 0) {
-        r.vn_uuid = StringToUuid(r.vn_id);
-    }
-    /* VM Project UUID is optional for CfgIntNameSpacePort */
-    r.vm_project_uuid = nil_uuid();
-    if (r.vm_project_id.length() != 0) {
-        r.vm_project_uuid = StringToUuid(r.vm_project_id);
-    }
-    boost::system::error_code ec, ec6;
-    /* from_string returns default constructor IP (all zeroes) when there is
-     * error in passed IP for both v4 and v6 */
-    r.ip = Ip4Address::from_string(r.ip_address, ec);
-    r.ip6 = Ip6Address::from_string(r.ip6_address, ec6);
-    /* We permit port-add with all zeroes IP address but not with
-     * invalid IP */
-    if ((ec != 0) && (ec6 != 0)) {
-        resp_str += "Neither Ipv4 nor IPv6 address is correct, ";
-        err = true;
-    }
-
-    if (r.port_uuid == nil_uuid()) {
-        resp_str += "invalid port uuid, ";
-        err = true;
-    }
-    if (r.instance_uuid == nil_uuid()) {
-        resp_str += "invalid instance uuid, ";
-        err = true;
-    }
-
-    int16_t port_type = r.port_type;
-
-    r.intf_type = CfgIntEntry::CfgIntVMPort;
-    if (port_type == 1) {
-        r.intf_type = CfgIntEntry::CfgIntNameSpacePort;
-    } else if (port_type == 2) {
-        r.intf_type = CfgIntEntry::CfgIntRemotePort;
-    }
-    if ((r.intf_type == CfgIntEntry::CfgIntVMPort) &&
-        (r.vn_uuid == nil_uuid())) {
-        resp_str += "invalid VN uuid, ";
-        err = true;
-    }
-    if ((r.intf_type == CfgIntEntry::CfgIntVMPort) &&
-        (r.vm_project_uuid == nil_uuid())) {
-        resp_str += "invalid VM project uuid, ";
-        err = true;
-    }
-    if (!ValidateMac(r.mac_address)) {
-        resp_str += "Invalid MAC, Use xx:xx:xx:xx:xx:xx format";
-        err = true;
-    }
-
-    // Sanity check. We should not have isolated_vlan_id set and vlan_id unset
-    if ((r.rx_vlan_id != -1) && (r.tx_vlan_id == -1)) {
-        resp_str += "Invalid request. RX (isolated) vlan set, "
-                    "but TX vlan not set";
-        err = true;
-    }
-
-    // No Validation required if port_type is VCenter
-    if (r.intf_type != CfgIntEntry::CfgIntRemotePort) {
-        // Verify that interface exists in OS
-        if (check_port && !InterfaceExists(r.system_name)) {
-            resp_str += "Interface does not exist in OS";
-            err = true;
-        }
-    }
-
-    if (err) {
-        CONFIG_TRACE(PortInfo, resp_str.c_str());
-        return false;
-    }
+    AddVmiUuidEntry(&req, d, write_file, err_msg);
     return true;
 }
 
-bool PortIpcHandler::AddPort(const PortIpcHandler::AddPortParams &r,
-                             string &resp_str) {
-    uint16_t tx_vlan_id = VmInterface::kInvalidVlanId;
-    // Set vlan_id as tx_vlan_id
-    if (r.tx_vlan_id != -1) {
-        tx_vlan_id = r.tx_vlan_id;
+bool PortIpcHandler::MakeAddVmiUuidRequest(const rapidjson::Value &d,
+                                           const std::string &json,
+                                           bool check_port,
+                                           std::string &err_msg,
+                                           DBRequest *req) const {
+    boost::uuids::uuid port_uuid;
+    if (GetUuidMember(d, "id", &port_uuid, &err_msg) == false) {
+        return false;
     }
 
-    // Backward compatibility. If only vlan_id is specified, set both
-    // rx_vlan_id and tx_vlan_id to same value
-    uint16_t rx_vlan_id = VmInterface::kInvalidVlanId;
-    if (r.rx_vlan_id) {
-        rx_vlan_id = r.rx_vlan_id;
-    } else {
-        rx_vlan_id = tx_vlan_id;
+    boost::uuids::uuid instance_uuid;
+    if (GetUuidMember(d, "instance-id", &instance_uuid, &err_msg) == false) {
+        return false;
     }
+
+    boost::uuids::uuid vn_uuid;
+    if (GetUuidMember(d, "vn-id", &vn_uuid, &err_msg) == false) {
+        return false;
+    }
+
+    boost::uuids::uuid project_uuid;
+    if (GetUuidMember(d, "vm-project-id", &project_uuid, &err_msg) == false) {
+        return false;
+    }
+
+    string vm_name;
+    if (GetStringMember(d, "display-name", &vm_name, &err_msg) == false) {
+        return false;
+    }
+
+    string ip4_str;
+    if (GetStringMember(d, "ip-address", &ip4_str, &err_msg) == false) {
+        return false;
+    }
+    boost::system::error_code ec;
+    Ip4Address ip4 = Ip4Address::from_string(ip4_str, ec);
+
+    string ip6_str;
+    if (GetStringMember(d, "ip6-address", &ip6_str, &err_msg) == false) {
+        return false;
+    }
+    boost::system::error_code ec6;
+    Ip6Address ip6 = Ip6Address::from_string(ip6_str, ec6);
+
+    // from_string returns default constructor IP (all zeroes) when there is
+    // error in passed IP for both v4 and v6
+    // We permit port-add with all zeroes IP address but not with invalid IP
+    if (((ec != 0) && (ec6 != 0)) ||
+        ((ip4 == Ip4Address()) && (ip6 == Ip6Address()))) {
+        err_msg = "Neither Ipv4 nor IPv6 address is correct, ";
+        return false;
+    }
+
+    uint32_t val;
+    if (GetUint32Member(d, "type", &val, &err_msg) == false) {
+        return false;
+    }
+
+    CfgIntEntry::CfgIntType vmi_type = CfgIntEntry::CfgIntVMPort;
+    if (val == 1) {
+        vmi_type = CfgIntEntry::CfgIntNameSpacePort;
+    } else if (val == 2) {
+        vmi_type = CfgIntEntry::CfgIntRemotePort;
+    }
+    if (vmi_type == CfgIntEntry::CfgIntVMPort) {
+        if (vn_uuid == nil_uuid()) {
+            err_msg = "Invalid VN uuid";
+            return false;
+        }
+
+        if (project_uuid == nil_uuid()) {
+            err_msg = "Invalid VM project uuid";
+            return false;
+        }
+    }
+
+    string ifname;
+    if (GetStringMember(d, "system-name", &ifname, &err_msg) == false) {
+        return false;
+    }
+    // Verify that interface exists in OS
+    if (vmi_type != CfgIntEntry::CfgIntRemotePort) {
+        if (check_port && !InterfaceExists(ifname)) {
+            err_msg = "Interface does not exist in OS";
+            return false;
+        }
+    }
+
+    string mac;
+    if (GetStringMember(d, "mac-address", &mac, &err_msg) == false) {
+        return false;
+    }
+    if (ValidateMac(mac) == false) {
+        err_msg = "Invalid MAC, Use xx:xx:xx:xx:xx:xx format";
+        return false;
+    }
+
+    // Sanity check. We should not have isolated_vlan_id set and vlan_id unset
+    uint32_t rx_vlan_id = VmInterface::kInvalidVlanId;
+    if (GetUint32Member(d, "rx-vlan-id", &rx_vlan_id, &err_msg) == false) {
+        return false;
+    }
+
+    uint32_t tx_vlan_id = VmInterface::kInvalidVlanId;
+    if (GetUint32Member(d, "tx-vlan-id", &tx_vlan_id, &err_msg) == false) {
+        return false;
+    }
+
+    if ((rx_vlan_id != VmInterface::kInvalidVlanId) &&
+        (tx_vlan_id == VmInterface::kInvalidVlanId-1)) {
+        err_msg += "Invalid request. RX (isolated) vlan set, "
+            "but TX vlan not set";
+        return false;
+    }
+
+    req->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req->key.reset(new CfgIntKey(port_uuid));
+    CfgIntData *cfg_int_data = new CfgIntData();
+    cfg_int_data->Init(instance_uuid, vn_uuid, project_uuid, ifname, ip4, ip6,
+                       mac, vm_name, tx_vlan_id, rx_vlan_id,
+                       (CfgIntEntry::CfgIntType)vmi_type, version_);
+    req->data.reset(cfg_int_data);
+    CONFIG_TRACE(AddPortEnqueue, "Add", UuidToString(port_uuid),
+                 UuidToString(instance_uuid), UuidToString(vn_uuid),
+                 ip4.to_string(), ifname, mac, vm_name, tx_vlan_id, rx_vlan_id,
+                 UuidToString(project_uuid),
+                 CfgIntEntry::CfgIntTypeToString(vmi_type),
+                 ip6.to_string(), version_);
+    return true;
+}
+
+bool PortIpcHandler::AddVmiUuidEntry(DBRequest *req, const rapidjson::Value &d,
+                                     bool write_file, string &err_msg) const {
+    CfgIntData *data = static_cast<CfgIntData *>(req->data.get());
+    CfgIntKey *key = static_cast<CfgIntKey *>(req->key.get());
 
     // If Writing to file fails return error
-    if(!WriteJsonToFile(r)) {
-        resp_str = "Writing of Json string to file failed for " + r.port_id;
+    if(write_file && WriteJsonToFile(d, key->id_) == false) {
+        err_msg += "Writing of Json string to file failed for " +
+            UuidToString(key->id_);
+        CONFIG_TRACE(PortInfo, err_msg.c_str());
         return false;
     }
 
     CfgIntTable *ctable = agent_->interface_config_table();
-    assert(ctable);
+    ctable->Enqueue(req);
 
-    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new CfgIntKey(r.port_uuid));
-    CfgIntData *cfg_int_data = new CfgIntData();
-    cfg_int_data->Init(r.instance_uuid, r.vn_uuid, r.vm_project_uuid,
-                       r.system_name, r.ip, r.ip6, r.mac_address, r.vm_name,
-                       tx_vlan_id, rx_vlan_id, r.intf_type, version_);
-    req.data.reset(cfg_int_data);
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    ctable->Enqueue(&req);
-    CONFIG_TRACE(AddPortEnqueue, "Add", r.port_id, r.instance_id, r.vn_id,
-                 r.ip_address, r.system_name, r.mac_address, r.vm_name,
-                 tx_vlan_id, rx_vlan_id, r.vm_project_id,
-                 CfgIntEntry::CfgIntTypeToString(r.intf_type), r.ip6_address);
+    CONFIG_TRACE(AddPortEnqueue, "Add", UuidToString(key->id_),
+                 UuidToString(data->vm_id_), UuidToString(data->vn_id_),
+                 data->ip_addr_.to_string(), data->tap_name_,
+                 data->mac_addr_, data->vm_name_, data->tx_vlan_id_,
+                 data->rx_vlan_id_, UuidToString(data->vm_project_id_),
+                 CfgIntEntry::CfgIntTypeToString(data->port_type_),
+                 data->ip6_addr_.to_string(), data->version_);
     return true;
 }
 
-string PortIpcHandler::GetJsonString(const PortIpcHandler::AddPortParams &r,
-                                     bool meta_info) const {
-    ostringstream out;
-    out << "{\"id\": \"" << r.port_id << "\""
-        << ", \"instance-id\": \"" << r.instance_id << "\""
-        << ", \"ip-address\": \"" << r.ip_address << "\""
-        << ", \"ip6-address\": \"" << r.ip6_address << "\""
-        << ", \"vn-id\": \""<< r.vn_id << "\""
-        << ", \"display-name\": \"" << r.vm_name << "\""
-        << ", \"vm-project-id\": \"" << r.vm_project_id << "\""
-        << ", \"mac-address\": \"" << r.mac_address << "\""
-        << ", \"system-name\": \""<< r.system_name << "\""
-        << ", \"type\": " << r.port_type
-        << ", \"rx-vlan-id\": " << r.rx_vlan_id
-        << ", \"tx-vlan-id\": " << r.tx_vlan_id;
-    if (meta_info) {
-        out << ", \"author\": \"" << agent_->program_name() << "\""
-            << ", \"time \": \"" << duration_usecs_to_string(UTCTimestampUsec())
-            << "\"";
-    }
-    out << "}";
-    return out.str();
-}
-
-bool PortIpcHandler::WriteJsonToFile(const PortIpcHandler::AddPortParams &r)
-    const {
-    string filename = ports_dir_ + "/" + r.port_id;
+bool PortIpcHandler::WriteJsonToFile(const rapidjson::Value &v,
+                                     const boost::uuids::uuid &vmi_uuid) const {
+    string filename = ports_dir_ + "/" + UuidToString(vmi_uuid);
     fs::path file_path(filename);
 
     /* Don't overwrite if the file already exists */
@@ -406,12 +361,22 @@ bool PortIpcHandler::WriteJsonToFile(const PortIpcHandler::AddPortParams &r)
         return true;
     }
 
+    // Add author and time fields
+    rapidjson::Document new_doc;
+    rapidjson::Document::AllocatorType &a = new_doc.GetAllocator();
+    new_doc.AddMember("author", agent_->program_name().c_str(), a);
+    string now = duration_usecs_to_string(UTCTimestampUsec()).c_str();
+    new_doc.AddMember("time", now.c_str(), a);
+    rapidjson::StringBuffer buffer;
+    rapidjson::Writer< rapidjson::StringBuffer > writer(buffer);
+    new_doc.Accept(writer);
+
     ofstream fs(filename.c_str());
     if (fs.fail()) {
         return false;
     }
-    string json_str = GetJsonString(r, true);
-    fs << json_str;
+
+    fs << buffer.GetString();
     fs.close();
     return true;
 }
@@ -428,28 +393,28 @@ bool PortIpcHandler::ValidateMac(const string &mac) const {
     }
     if (colon != 5)
         return false;
+
+    if (MacAddress::FromString(mac).IsZero())
+        return false;
+
     return true;
 }
 
-bool PortIpcHandler::DeletePort(const string &uuid_str, string &err_str) {
-    uuid port_uuid = StringToUuid(uuid_str);
-    if (port_uuid == nil_uuid()) {
-        CONFIG_TRACE(PortInfo, "Invalid port uuid");
-        err_str = "Invalid port uuid " + uuid_str;
-        return false;
+bool PortIpcHandler::DeletePort(const string &json, const string &url,
+                                string &err_msg) {
+    uuid port_uuid = StringToUuid(url);
+    if (port_uuid != nil_uuid()) {
+        DeleteVmiUuidEntry(port_uuid, err_msg);
+        return true;
     }
 
-    DeletePortInternal(port_uuid, err_str);
     return true;
 }
 
-void PortIpcHandler::DeletePortInternal(const uuid &u, string &err_str) {
-    CfgIntTable *ctable = agent_->interface_config_table();
-    assert(ctable);
-
-    DBRequest req;
+void PortIpcHandler::DeleteVmiUuidEntry(const uuid &u, string &err_msg) {
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new CfgIntKey(u));
-    req.oper = DBRequest::DB_ENTRY_DELETE;
+    CfgIntTable *ctable = agent_->interface_config_table();
     ctable->Enqueue(&req);
 
     string uuid_str = UuidToString(u);
@@ -460,7 +425,7 @@ void PortIpcHandler::DeletePortInternal(const uuid &u, string &err_str) {
 
     if (fs::exists(file_path) && fs::is_regular_file(file_path)) {
         if (remove(file.c_str())) {
-            err_str = "Error deleting file " + file;
+            err_msg = "Error deleting file " + file;
         }
     }
 }
@@ -473,6 +438,41 @@ bool PortIpcHandler::IsUUID(const string &uuid_str) const {
     return true;
 }
 
+void PortIpcHandler::MakeVmiUuidJson(const CfgIntEntry *entry,
+                                     string &info) const {
+    rapidjson::Document doc;
+    doc.SetObject();
+    rapidjson::Document::AllocatorType &a = doc.GetAllocator();
+
+    string str1 = UuidToString(entry->GetUuid());
+    doc.AddMember("id", str1.c_str(), a);
+    string str2 = UuidToString(entry->GetVmUuid());
+    doc.AddMember("instance-id", str2.c_str(), a);
+    doc.AddMember("display-name", entry->vm_name().c_str(), a);
+    string str3 = entry->ip_addr().to_string();
+    doc.AddMember("ip-address", str3.c_str(), a);
+    string str4 = entry->ip6_addr().to_string();
+    doc.AddMember("ip6-address", str4.c_str(), a);
+    string str5 = UuidToString(entry->GetVmUuid());
+    doc.AddMember("vn-id", str5.c_str(), a);
+    string str6 = UuidToString(entry->vm_project_uuid());
+    doc.AddMember("vm-project-id", str6.c_str(), a);
+    doc.AddMember("mac-address", entry->GetMacAddr().c_str(), a);
+    doc.AddMember("system-name", entry->GetIfname().c_str(), a);
+    doc.AddMember("type", (int)entry->port_type(), a);
+    doc.AddMember("rx-vlan-id", (int)entry->rx_vlan_id(), a);
+    doc.AddMember("tx-vlan-id", (int)entry->tx_vlan_id(), a);
+    doc.AddMember("author", agent_->program_name().c_str(), a);
+    string now = duration_usecs_to_string(UTCTimestampUsec());
+    doc.AddMember("time", now.c_str(), a);
+
+    rapidjson::StringBuffer buffer;
+    rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
+    doc.Accept(writer);
+    info = buffer.GetString();
+    return;
+}
+
 bool PortIpcHandler::GetPortInfo(const string &uuid_str, string &info) const {
     CfgIntTable *ctable = agent_->interface_config_table();
     assert(ctable);
@@ -480,18 +480,11 @@ bool PortIpcHandler::GetPortInfo(const string &uuid_str, string &info) const {
     DBRequestKey *key = static_cast<DBRequestKey *>
         (new CfgIntKey(StringToUuid(uuid_str)));
     CfgIntEntry *entry = static_cast<CfgIntEntry *>(ctable->Find(key));
-    if (entry != NULL) {
-        PortIpcHandler::AddPortParams req(UuidToString(entry->GetUuid()),
-            UuidToString(entry->GetVmUuid()), UuidToString(entry->GetVnUuid()),
-            UuidToString(entry->vm_project_uuid()), entry->vm_name(),
-            entry->GetIfname(), entry->ip_addr().to_string(),
-            entry->ip6_addr().to_string(), entry->GetMacAddr(),
-            entry->port_type(), entry->tx_vlan_id(), entry->rx_vlan_id());
-        info = GetJsonString(req, false);
-        return true;
+    if (entry == NULL) {
+        return false;
     }
-
-    return false;
+    MakeVmiUuidJson(entry, info);
+    return true;
 }
 
 bool PortIpcHandler::InterfaceExists(const std::string &name) const {
@@ -512,9 +505,8 @@ void PortIpcHandler::SyncHandler() {
 void PortIpcHandler::Shutdown() {
 }
 
-bool PortIpcHandler::BuildArrayElement(const rapidjson::Value &d,
-                                       VirtualGatewayConfig::Subnet *entry)
-                                       const {
+bool PortIpcHandler::BuildGatewayArrayElement
+(const rapidjson::Value &d, VirtualGatewayConfig::Subnet *entry) const {
     if (!d.HasMember("ip-address") || !d["ip-address"].IsString()) {
         return false;
     }
@@ -531,16 +523,15 @@ bool PortIpcHandler::BuildArrayElement(const rapidjson::Value &d,
     return true;
 }
 
-bool PortIpcHandler::ValidJsonArray(const rapidjson::Value &d,
-                                    VirtualGatewayConfig::SubnetList *list)
-                                    const {
+bool PortIpcHandler::ValidGatewayJsonString
+(const rapidjson::Value &d, VirtualGatewayConfig::SubnetList *list) const {
     for (size_t i = 0; i < d.Size(); i++) {
         const rapidjson::Value& elem = d[i];
         if (!elem.IsObject()) {
             return false;
         }
         VirtualGatewayConfig::Subnet entry;
-        if (!BuildArrayElement(elem, &entry)) {
+        if (!BuildGatewayArrayElement(elem, &entry)) {
             return false;
         }
         list->push_back(entry);
@@ -548,9 +539,9 @@ bool PortIpcHandler::ValidJsonArray(const rapidjson::Value &d,
     return true;
 }
 
-bool PortIpcHandler::HasAllFields(const rapidjson::Value &d,
-                                  std::string &member_err,
-                                  VirtualGatewayInfo *req) const {
+bool PortIpcHandler::HasAllGatewayFields(const rapidjson::Value &d,
+                                         std::string &member_err,
+                                         VirtualGatewayInfo *req) const {
     if (!d.HasMember("interface") || !d["interface"].IsString()) {
         member_err = "interface";
         return false;
@@ -566,7 +557,7 @@ bool PortIpcHandler::HasAllFields(const rapidjson::Value &d,
         return false;
     }
 
-    if (!ValidJsonArray(d["subnets"], &req->subnets_)) {
+    if (!ValidGatewayJsonString(d["subnets"], &req->subnets_)) {
         member_err = "subnets value";
         return false;
     }
@@ -576,7 +567,7 @@ bool PortIpcHandler::HasAllFields(const rapidjson::Value &d,
         return false;
     }
 
-    if (!ValidJsonArray(d["routes"], &req->routes_)) {
+    if (!ValidGatewayJsonString(d["routes"], &req->routes_)) {
         member_err = "routes value";
         return false;
     }
@@ -590,7 +581,7 @@ bool PortIpcHandler::BuildGateway(const rapidjson::Value &d,
                                   const string &json, string &err_msg,
                                   VirtualGatewayInfo *req) const {
     string member_err;
-    if (!HasAllFields(d, member_err, req)) {
+    if (!HasAllGatewayFields(d, member_err, req)) {
         err_msg = "Json string does not have all required members, "
                          + member_err + " is missing ==> "
                          + json;

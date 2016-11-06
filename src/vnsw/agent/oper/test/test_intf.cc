@@ -1641,6 +1641,16 @@ TEST_F(IntfTest, IntfActivateDeactivate_5) {
     client->Reset();
     CreateVmportEnvWithoutIp(input, 1);
     client->WaitForIdle();
+    // VMI not created since IP not assigned
+    EXPECT_TRUE(VmPortGet(1) == NULL);
+
+    struct PortInfo input1[] = {
+        {"vnet1", 1, "0.0.0.1", "00:00:00:01:01:01", 1, 1},
+    };
+    CreateVmportEnvWithoutIp(input1, 1);
+    client->WaitForIdle();
+    // VMI created now
+    EXPECT_TRUE(VmPortGet(1) != NULL);
 
     uuid intf_uuid = MakeUuid(1);
     MacAddress mac = MacAddress::FromString("00:00:00:01:01:01");

@@ -22,7 +22,7 @@ void RESTServer::VmPortPostHandler(const struct RESTData& data) {
     PortIpcHandler *pih = agent_->port_ipc_handler();
     if (pih) {
         std::string err_msg;
-        if (pih->AddPortFromJson(data.request->Body(), false, err_msg)) {
+        if (pih->AddPortFromJson(data.request->Body(), false, err_msg, true)) {
             REST::SendResponse(data.session, "{}");
         } else {
             REST::SendErrorResponse(data.session, "{ " + err_msg + " }");
@@ -47,7 +47,7 @@ void RESTServer::VmPortDeleteHandler(const struct RESTData& data) {
     const std::string& port_id = (*data.match)[1];
     PortIpcHandler *pih = agent_->port_ipc_handler();
     if (pih) {
-        if (pih->DeletePort(port_id, error)) {
+        if (pih->DeletePort(data.request->Body(), port_id, error)) {
             REST::SendResponse(data.session, "{}");
         } else {
             REST::SendErrorResponse(data.session, "{" + error + "}");
