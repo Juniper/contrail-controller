@@ -89,7 +89,7 @@ bool InterfaceConfigStaleCleaner::CfgIntfWalk(DBTablePartBase *partition,
             return true;
         }
         std::string msg;
-        pih->DeletePort(UuidToString(cfg_intf->GetUuid()), msg);
+        pih->DeleteVmiUuidEntry(cfg_intf->GetUuid(), msg);
     }
     return true;
 }

@@ -31,6 +31,7 @@ traceobject sandesh ConfigAddPortEnqueue {
     11: string vm_project_uuid;
     12: string port_type;
     13: string ip6_address;
+    14: i32 version;
 }
 
 /**
