@@ -816,7 +816,9 @@ void FlowMgmtManager::AddFlowMgmtKey(FlowEntry *flow, FlowEntryInfo *info,
         break;
 
     case FlowMgmtKey::BGPASASERVICE: {
-        int cn_index = BgpAsAServiceFlowMgmtTree::GetCNIndex(flow);
+        BgpAsAServiceFlowMgmtKey *bgp_service_key =
+            static_cast<BgpAsAServiceFlowMgmtKey *>(key);
+        int cn_index = bgp_service_key->cn_index();
         if (cn_index != BgpAsAServiceFlowMgmtTree::kInvalidCnIndex) {
             bgp_as_a_service_flow_mgmt_tree_[cn_index].get()->Add(key, flow,
                                                   (ret.second)? node : NULL);
