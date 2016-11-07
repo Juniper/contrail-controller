@@ -1,0 +1,23 @@
+
+# -*- mode: python; -*-
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import sys
+import os
+
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+cli_setup_sources = [
+                'commandlist.py',
+                'entry_points.py',
+                'contrail_cli_apps.py',
+          ]
+
+cli_setup_sources_rules = []
+for file in cli_setup_sources:
+    cli_setup_sources_rules.append(
+        env.Install(Dir("."), '#controller/src/utils/contrail-cli/' + file))
+
