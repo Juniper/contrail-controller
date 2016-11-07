@@ -593,10 +593,8 @@ void Collector::GetSmQueueWaterMarkInfo(
     GetQueueWaterMarkInfo(QueueType::Sm, wm_info);
 }
 
-
-static void SendQueueParamsError(std::string estr, const std::string &context) {
-    // SandeshGenerator is required, send error
-    QueueParamsError *eresp(new QueueParamsError);
+static void SendCollectorError(std::string estr, const std::string &context) {
+    CollectorError *eresp(new CollectorError);
     eresp->set_context(context);
     eresp->set_error(estr);
     eresp->Response();
@@ -607,7 +605,7 @@ static Collector* ExtractCollectorFromRequest(SandeshContext *vscontext,
     VizSandeshContext *vsc = 
             dynamic_cast<VizSandeshContext *>(vscontext);
     if (!vsc) {
-        SendQueueParamsError("Sandesh client context NOT PRESENT",
+        SendCollectorError("Sandesh client context NOT PRESENT",
             context);
         return NULL;
     }
@@ -636,7 +634,7 @@ static void SendQueueParamsResponse(Collector::QueueType::type type,
 
 void DbQueueParamsSet::HandleRequest() const {
     if (!(__isset.high && __isset.drop_level && __isset.queue_count)) {
-        SendQueueParamsError("Please specify all parameters", context());
+        SendCollectorError("Please specify all parameters", context());
         return;
     }
     Collector *collector = ExtractCollectorFromRequest(client_context(),
@@ -652,7 +650,7 @@ void DbQueueParamsSet::HandleRequest() const {
 
 void SmQueueParamsSet::HandleRequest() const {
     if (!(__isset.high && __isset.drop_level && __isset.queue_count)) {
-        SendQueueParamsError("Please specify all parameters", context());
+        SendCollectorError("Please specify all parameters", context());
         return;
     }
     Collector *collector = ExtractCollectorFromRequest(client_context(),
@@ -737,4 +735,54 @@ void DisableFlowCollectionRequest::HandleRequest() const {
 void FlowCollectionStatusRequest::HandleRequest() const {
     // Send response
     SendFlowCollectionStatusResponse(context());
+}
+
+static DbHandlerPtr ExtractDbHandlerFromRequest(SandeshContext *vscontext,
+    const std::string &context) {
+    VizSandeshContext *vsc =
+            dynamic_cast<VizSandeshContext *>(vscontext);
+    if (!vsc) {
+        SendCollectorError("Sandesh client context NOT PRESENT",
+            context);
+        return DbHandlerPtr();
+    }
+    return vsc->Analytics()->GetDbHandler();
+}
+
+static void SendDatabaseWritesStatusResponse(SandeshContext *vscontext, std::string context) {
+    DbHandlerPtr dbh(ExtractDbHandlerFromRequest(vscontext, context));
+    DatabaseWritesStatusResponse *dwsr(new DatabaseWritesStatusResponse);
+    dwsr->set_disable_all(dbh->IsAllWritesDisabled());
+    dwsr->set_disable_statistics(dbh->IsStatisticsWritesDisabled());
+    dwsr->set_disable_messages(dbh->IsMessagesWritesDisabled());
+    dwsr->set_disable_messages_keyword(dbh->IsMessagesKeywordWritesDisabled());
+    dwsr->set_disable_flows(Sandesh::IsFlowCollectionDisabled());
+    dwsr->set_context(context);
+    dwsr->Response();
+}
+
+void DisableDatabaseWritesRequest::HandleRequest() const {
+    DbHandlerPtr dbh(ExtractDbHandlerFromRequest(client_context(), context()));
+    if (__isset.disable_all) {
+        dbh->DisableAllWrites(get_disable_all());
+    }
+    if (__isset.disable_statistics) {
+        dbh->DisableStatisticsWrites(get_disable_statistics());
+    }
+    if (__isset.disable_messages) {
+        dbh->DisableMessagesWrites(get_disable_messages());
+    }
+    if (__isset.disable_messages_keyword) {
+        dbh->DisableMessagesKeywordWrites(get_disable_messages_keyword());
+    }
+    if (__isset.disable_flows) {
+        Sandesh::DisableFlowCollection(get_disable_flows());
+    }
+    // Send response
+    SendDatabaseWritesStatusResponse(client_context(), context());
+}
+
+void DatabaseWritesStatusRequest::HandleRequest() const {
+    // Send response
+    SendDatabaseWritesStatusResponse(client_context(), context());
 }
