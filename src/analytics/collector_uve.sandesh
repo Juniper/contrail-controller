@@ -310,10 +310,6 @@ struct QueueParams {
     3: string drop_level;
 }
 
-response sandesh QueueParamsError {
-    1: string error;
-}
-
 /**
  * @description: sandesh response to return State Machine Queue params
  */
@@ -351,4 +347,27 @@ request sandesh FlowCollectionStatusRequest {
 
 response sandesh FlowCollectionStatusResponse {
     1: bool disable
+}
+
+response sandesh CollectorError {
+    1: string error
+}
+
+request sandesh DisableDatabaseWritesRequest {
+    1: optional bool disable_all
+    2: optional bool disable_statistics
+    3: optional bool disable_messages
+    4: optional bool disable_flows
+    5: optional bool disable_messages_keyword
+}
+
+request sandesh DatabaseWritesStatusRequest {
+}
+
+response sandesh DatabaseWritesStatusResponse {
+    1: bool disable_all
+    2: bool disable_statistics
+    3: bool disable_messages
+    4: bool disable_flows
+    5: bool disable_messages_keyword
 }

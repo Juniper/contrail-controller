@@ -11,6 +11,7 @@
 #include <boost/uuid/random_generator.hpp>
 
 #include <base/logging.h>
+#include <database/gendb_constants.h>
 #include <database/gendb_if.h>
 #include <database/cassandra/cql/cql_if_impl.h>
 
@@ -68,7 +69,8 @@ TEST_F(CqlIfTest, StaticCfCreateTable) {
             ("columnJ", GenDb::DbDataType::InetType)
             ("columnK", GenDb::DbDataType::IntegerType));
     std::string actual_qstring(
-        cass::cql::impl::StaticCf2CassCreateTableIfNotExists(static_cf));
+        cass::cql::impl::StaticCf2CassCreateTableIfNotExists(static_cf,
+            GenDb::g_gendb_constants.SIZE_TIERED_COMPACTION_STRATEGY));
     std::string expected_qstring(
         "CREATE TABLE IF NOT EXISTS StaticCf ("
          "key uuid PRIMARY KEY, "
@@ -84,7 +86,7 @@ TEST_F(CqlIfTest, StaticCfCreateTable) {
          "\"columnJ\" inet, "
          "\"columnK\" varint) "
          "WITH compaction = {'class': "
-         "'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'} "
+         "'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy'} "
          "AND gc_grace_seconds = 0");
     EXPECT_EQ(expected_qstring, actual_qstring);
 }
@@ -100,7 +102,8 @@ TEST_F(CqlIfTest, DynamicCfCreateTable) {
         boost::assign::list_of // column value validation class
             (GenDb::DbDataType::LexicalUUIDType));
     std::string actual_qstring(
-        cass::cql::impl::DynamicCf2CassCreateTableIfNotExists(dynamic_cf));
+        cass::cql::impl::DynamicCf2CassCreateTableIfNotExists(dynamic_cf,
+            GenDb::g_gendb_constants.LEVELED_COMPACTION_STRATEGY));
     std::string expected_qstring(
         "CREATE TABLE IF NOT EXISTS DynamicCf ("
         "key int, "
@@ -131,7 +134,8 @@ TEST_F(CqlIfTest, DynamicCfCreateTable) {
         boost::assign::list_of // column value validation class
             (GenDb::DbDataType::UTF8Type));
     std::string actual_qstring1(
-        cass::cql::impl::DynamicCf2CassCreateTableIfNotExists(dynamic_cf1));
+        cass::cql::impl::DynamicCf2CassCreateTableIfNotExists(dynamic_cf1,
+            GenDb::g_gendb_constants.DATE_TIERED_COMPACTION_STRATEGY));
     std::string expected_qstring1(
         "CREATE TABLE IF NOT EXISTS DynamicCf1 ("
         "key ascii, "
@@ -162,7 +166,7 @@ TEST_F(CqlIfTest, DynamicCfCreateTable) {
         "column1, column2, column3, column4, column5, column6, column7, "
         "column8, column9, column10, column11)) "
         "WITH compaction = {'class': "
-        "'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'} "
+        "'org.apache.cassandra.db.compaction.DateTieredCompactionStrategy'} "
         "AND gc_grace_seconds = 0");
     EXPECT_EQ(expected_qstring1, actual_qstring1);
 }
