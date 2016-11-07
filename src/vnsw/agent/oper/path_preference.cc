@@ -207,16 +207,14 @@ struct ActiveActiveState : sc::state<ActiveActiveState, PathPreferenceSM> {
     ActiveActiveState(my_context ctx) : my_base(ctx) {
         PathPreferenceSM *state_machine = &context<PathPreferenceSM>();
         //Enqueue a route change
-        if (state_machine->preference() == PathPreference::LOW) {
-           state_machine->set_wait_for_traffic(false);
-           uint32_t seq = 0;
-           state_machine->set_max_sequence(seq);
-           state_machine->set_sequence(seq);
-           state_machine->set_preference(PathPreference::HIGH);
-           state_machine->EnqueuePathChange();
-           state_machine->UpdateDependentRoute();
-           state_machine->Log("Ecmp path");
-        }
+        state_machine->set_wait_for_traffic(false);
+        uint32_t seq = 0;
+        state_machine->set_max_sequence(seq);
+        state_machine->set_sequence(seq);
+        state_machine->set_preference(PathPreference::HIGH);
+        state_machine->EnqueuePathChange();
+        state_machine->UpdateDependentRoute();
+        state_machine->Log("Ecmp path");
     }
 
     sc::result react(const EvTrafficSeen &event) {
@@ -348,8 +346,10 @@ void PathPreferenceSM::Process() {
      uint32_t max_sequence = 0;
      const AgentPath *best_path = NULL;
 
+     const AgentPath *local_path =  rt_->FindPath(peer_);
      //Dont act on notification of derived routes
      if (is_dependent_rt_) {
+         path_preference_.set_ecmp(local_path->path_preference().ecmp());
          if (dependent_rt_.get()) {
              if (dependent_rt_->path_preference_.preference() ==
                      PathPreference::HIGH) {
@@ -361,11 +361,18 @@ void PathPreferenceSM::Process() {
          return;
      }
 
-     const AgentPath *local_path =  rt_->FindPath(peer_);
      if (local_path->path_preference().ecmp() == true) {
          path_preference_.set_ecmp(true);
          //If a path is ecmp, just set the priority to HIGH
          process_event(EvActiveActiveMode());
+         return;
+     }
+
+     if (path_preference_.ecmp() == true) {
+         path_preference_.set_ecmp(local_path->path_preference().ecmp());
+         //Route transition from ECMP to non ECMP,
+         //move to wait for traffic state
+         process_event(EvWaitForTraffic());
          return;
      }
 
@@ -388,14 +395,6 @@ void PathPreferenceSM::Process() {
      }
 
      if (!best_path) {
-         return;
-     }
-
-     if (ecmp() == true) {
-         path_preference_.set_ecmp(local_path->path_preference().ecmp());
-         //Route transition from ECMP to non ECMP,
-         //move to wait for traffic state
-         process_event(EvWaitForTraffic());
          return;
      }
 
@@ -720,7 +719,8 @@ PathPreferenceState::GetDependentPath(const AgentPath *path) const {
     return state->GetSM(path->peer());
 }
 
-void PathPreferenceState::Process() {
+bool PathPreferenceState::Process() {
+    bool should_resolve = false;
     PathPreferenceModule *path_module =
         agent_->oper_db()->route_preference_module();
     //Set all the path as not seen, eventually when path is seen
@@ -744,6 +744,7 @@ void PathPreferenceState::Process() {
              continue;
          }
 
+         bool new_path_added = false;
          PathPreferenceSM *path_preference_sm;
          if (path_preference_peer_map_.find(path->peer()) ==
                  path_preference_peer_map_.end()) {
@@ -754,6 +755,7 @@ void PathPreferenceState::Process() {
              path_preference_peer_map_.insert(
                 std::pair<const Peer *, PathPreferenceSM *>
                 (path->peer(), path_preference_sm));
+             new_path_added = true;
          } else {
              path_preference_sm =
                  path_preference_peer_map_.find(path->peer())->second;
@@ -779,9 +781,8 @@ void PathPreferenceState::Process() {
          path_preference_sm->set_seen(true);
          path_preference_sm->Process();
 
-         if (dependent_rt == false) {
-             //Resolve path which may not be resolved yet
-             path_module->Resolve();
+         if (dependent_rt == false && new_path_added) {
+             should_resolve = true;
          }
      }
 
@@ -795,6 +796,7 @@ void PathPreferenceState::Process() {
              path_preference_peer_map_.erase(prev_it);
          }
      }
+     return should_resolve;
 }
 
 PathPreferenceSM* PathPreferenceState::GetSM(const Peer *peer) {
@@ -882,8 +884,14 @@ void PathPreferenceRouteListener::Notify(DBTablePartBase *partition,
     if (!state) {
         state = new PathPreferenceState(agent_, rt);
     }
-    state->Process();
+    bool should_resolve = state->Process();
     e->SetState(rt_table_, id_, state);
+
+    if (should_resolve) {
+        PathPreferenceModule *path_module =
+                    agent_->oper_db()->route_preference_module();
+        path_module->Resolve();
+    }
 }
 
 PathPreferenceModule::PathPreferenceModule(Agent *agent):
