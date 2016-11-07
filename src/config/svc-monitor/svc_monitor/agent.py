@@ -21,10 +21,10 @@ import abc
 class Agent(object):
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, svc_mon, vnc_lib, cassandra, config_section):
+    def __init__(self, svc_mon, vnc_lib, object_db, config_section):
         self._vnc_lib = vnc_lib
         self._svc_mon = svc_mon
-        self._cassandra = cassandra
+        self._object_db = object_db
         self._args = config_section
 
     @abc.abstractmethod

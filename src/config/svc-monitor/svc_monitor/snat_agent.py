@@ -18,9 +18,9 @@ SNAT_SERVICE_TEMPLATE_FQ_NAME = ['default-domain', 'netns-snat-template']
 
 class SNATAgent(Agent):
 
-    def __init__(self, svc_mon, vnc_lib, cassandra, config_section, logger):
+    def __init__(self, svc_mon, vnc_lib, object_db, config_section, logger):
         super(SNATAgent, self).__init__(svc_mon, vnc_lib,
-                                        cassandra, config_section)
+                                        object_db, config_section)
         self.logger = logger
 
         # Register log functions to be used for SNAT Agent logs.
@@ -62,7 +62,7 @@ class SNATAgent(Agent):
                              si_obj.name)
         vn_fq_name = si_obj.fq_name[:-1] + [vn_name]
         try:
-            self._cassandra.fq_name_to_uuid('virtual-network', vn_fq_name)
+            self._object_db.fq_name_to_uuid('virtual-network', vn_fq_name)
         except vnc_exc.NoIdError:
             self.logger.debug("Virtual Network %s not found. Creating One." % \
                               (vn_name))

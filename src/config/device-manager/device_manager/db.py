@@ -157,7 +157,7 @@ class PhysicalRouterDM(DBBaseDM):
         obj = cls._dict[uuid]
         if obj.is_vnc_managed() and obj.is_conf_sent():
             obj.config_manager.delete_bgp_config()
-        obj._cassandra.delete_pr(uuid)
+        obj._object_db.delete_pr(uuid)
         obj.uve_send(True)
         obj.update_single_ref('bgp_router', {})
         obj.update_multiple_refs('virtual_network', {})
@@ -203,9 +203,9 @@ class PhysicalRouterDM(DBBaseDM):
     # end
 
     def init_cs_state(self):
-        vn_subnet_set = self._cassandra.get_pr_vn_set(self.uuid)
+        vn_subnet_set = self._object_db.get_pr_vn_set(self.uuid)
         for vn_subnet in vn_subnet_set:
-            ip = self._cassandra.get(self._cassandra._PR_VN_IP_CF,
+            ip = self._object_db.get(self._object_db._PR_VN_IP_CF,
                                      self.uuid + ':' + vn_subnet)
             if ip is not None:
                 self.vn_ip_map[vn_subnet] = ip['ip_address']
@@ -272,8 +272,8 @@ class PhysicalRouterDM(DBBaseDM):
                     vn_uuid,
                     subnet_prefix,
                     self.uuid))
-            ret = self._cassandra.delete(
-                self._cassandra._PR_VN_IP_CF,
+            ret = self._object_db.delete(
+                self._object_db._PR_VN_IP_CF,
                 self.uuid + ':' + vn_uuid + ':' + subnet_prefix)
             if ret == False:
                 self._logger.error("Unable to free ip from db for vn/subnet/pr \
@@ -282,7 +282,7 @@ class PhysicalRouterDM(DBBaseDM):
                     subnet_prefix,
                     self.uuid))
                 continue
-            self._cassandra.delete_from_pr_map(self.uuid, vn_subnet)
+            self._object_db.delete_from_pr_map(self.uuid, vn_subnet)
             del self.vn_ip_map[vn_subnet]
 
         for vn_subnet in create_set:
@@ -297,7 +297,7 @@ class PhysicalRouterDM(DBBaseDM):
                     subnet_prefix,
                     self.uuid))
                 continue
-            ret = self._cassandra.add(self._cassandra._PR_VN_IP_CF,
+            ret = self._object_db.add(self._object_db._PR_VN_IP_CF,
                                       self.uuid + ':' + vn_uuid +
                                       ':' + subnet_prefix,
                                       {'ip_address': ip_addr + '/' + length})
@@ -314,7 +314,7 @@ class PhysicalRouterDM(DBBaseDM):
                         subnet_prefix,
                         self.uuid))
                 continue
-            self._cassandra.add_to_pr_map(self.uuid, vn_subnet)
+            self._object_db.add_to_pr_map(self.uuid, vn_subnet)
             self.vn_ip_map[vn_subnet] = ip_addr + '/' + length
     # end evaluate_vn_irb_ip_map
 
@@ -394,7 +394,7 @@ class PhysicalRouterDM(DBBaseDM):
                     + '-sc-entry-point')
 
     def allocate_pnf_resources(self, vmi):
-        resources = self._cassandra.get_pnf_resources(
+        resources = self._object_db.get_pnf_resources(
             vmi, self.uuid)
         network_id = int(resources['network_id'])
         if vmi.service_interface_type == "left":
@@ -1237,7 +1237,7 @@ class ServiceInstanceDM(DBBaseDM):
     @classmethod
     def delete(cls, uuid):
         obj = cls._dict[uuid]
-        obj._cassandra.delete_pnf_resources(uuid)
+        obj._object_db.delete_pnf_resources(uuid)
         del cls._dict[uuid]
     # end
 
@@ -1293,13 +1293,13 @@ class DMCassandraDB(VncCassandraClient):
     _PNF_MAX_UNIT = 16385
     _PNF_UNIT_ALLOC_PATH = "/id/pnf/unit_id"
 
-    dm_cassandra_instance = None
+    dm_object_db_instance = None
 
     @classmethod
     def getInstance(cls, manager, zkclient):
-        if cls.dm_cassandra_instance == None:
-            cls.dm_cassandra_instance = DMCassandraDB(manager, zkclient)
-        return cls.dm_cassandra_instance
+        if cls.dm_object_db_instance == None:
+            cls.dm_object_db_instance = DMCassandraDB(manager, zkclient)
+        return cls.dm_object_db_instance
     # end
 
     def __init__(self, manager, zkclient):

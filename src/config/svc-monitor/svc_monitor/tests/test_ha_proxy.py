@@ -11,7 +11,7 @@ import ConfigParser
 class HAProxyTest(unittest.TestCase):
     def setUp(self):
         self.vnc_lib = mock.Mock()
-        self.cassandra = mock.Mock()
+        self.object_db = mock.Mock()
         self.logger = mock.Mock()
         self.svc = mock.Mock()
         self._si_pool = {}
@@ -34,7 +34,7 @@ class HAProxyTest(unittest.TestCase):
             return (True, [self.obj_to_dict(self._store_si[uuid[0]])])
 
         def store_si_create(obj):
-            config_db.ServiceInstanceSM._cassandra.object_read = \
+            config_db.ServiceInstanceSM._object_db.object_read = \
                 mock.Mock(side_effect=read_si)
             obj.uuid = 'pool-si'
             self._store_si[obj.uuid] = obj
@@ -63,9 +63,9 @@ class HAProxyTest(unittest.TestCase):
                 return
             if self._db[id][data[0]]:
                 del self._db[id][data[0]]
-        self.cassandra.pool_driver_info_get = mock.Mock(side_effect=read_db)
-        self.cassandra.pool_driver_info_insert = mock.Mock(side_effect=put_db)
-        self.cassandra.pool_remove = mock.Mock(side_effect=remove_db)
+        self.object_db.pool_driver_info_get = mock.Mock(side_effect=read_db)
+        self.object_db.pool_driver_info_insert = mock.Mock(side_effect=put_db)
+        self.object_db.pool_remove = mock.Mock(side_effect=remove_db)
 
         def validate_pool_update(obj_type, obj_uuid, ref_type, ref_uuid,
                                  ref_fq_name, operation):
@@ -100,12 +100,12 @@ class HAProxyTest(unittest.TestCase):
 .drivers.ha_proxy.driver.OpencontrailLoadbalancerDriver'
                    }])
             return (False, None)
-        DBBase.init(self.svc, None, self.cassandra)
-        config_db.ServiceApplianceSetSM._cassandra.object_read = \
+        DBBase.init(self.svc, None, self.object_db)
+        config_db.ServiceApplianceSetSM._object_db.object_read = \
                          mock.Mock(side_effect=sas_read_side_effect)
 
         self.lb_agent = loadbalancer_agent.LoadbalancerAgent(self.svc, self.vnc_lib,
-                                               self.cassandra, self._args)
+                                               self.object_db, self._args)
         self.svc.loadbalancer_agent = self.lb_agent
         sas = config_db.ServiceApplianceSetSM.get('opencontrail')
         self.assertEqual(sas.driver,
