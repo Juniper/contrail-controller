@@ -5,7 +5,6 @@
 #include "base/os.h"
 #include <base/connection_info.h>
 #include <cfg/cfg_init.h>
-#include <cfg/cfg_interface.h>
 #include <oper/operdb_init.h>
 #include <controller/controller_init.h>
 #include <pkt/pkt_init.h>

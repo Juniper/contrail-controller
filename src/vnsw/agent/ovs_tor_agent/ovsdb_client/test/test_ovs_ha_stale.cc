@@ -14,7 +14,6 @@
 #include <cmn/agent_cmn.h>
 
 #include "cfg/cfg_init.h"
-#include "cfg/cfg_interface.h"
 #include "pkt/pkt_init.h"
 #include "services/services_init.h"
 #include "vrouter/ksync/ksync_init.h"
