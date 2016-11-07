@@ -1,0 +1,17 @@
+# -*- mode: python; -*-
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import sys
+import os
+
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+env.SConscript('contrail-cli/SConscript', exports='BuildEnv', duplicate = 0)
+env.SConscript('contrail-cli/contrail_cli/SConscript', exports='BuildEnv', duplicate = 0)
+env.SConscript('contrail-cli/contrail_analytics_cli/SConscript', exports='BuildEnv', duplicate = 0)
+env.SConscript('contrail-cli/contrail_config_cli/SConscript', exports='BuildEnv', duplicate = 0)
+env.SConscript('contrail-cli/contrail_control_cli/SConscript', exports='BuildEnv', duplicate = 0)
+env.SConscript('contrail-cli/contrail_vrouter_cli/SConscript', exports='BuildEnv', duplicate = 0)
