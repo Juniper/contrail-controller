@@ -12,14 +12,14 @@ from svc_monitor.sandesh.port_tuple import ttypes
 
 class PortTupleTest(unittest.TestCase):
     def setUp(self):
-        InstanceIpSM._cassandra = mock.MagicMock()
-        InstanceIpSM._cassandra.object_read = test_utils.iip_db_read
-        ServiceInstanceSM._cassandra = mock.MagicMock()
-        ServiceInstanceSM._cassandra.object_read = test_utils.si_db_read
-        VirtualMachineInterfaceSM._cassandra = mock.MagicMock()
-        VirtualMachineInterfaceSM._cassandra.object_read = test_utils.vmi_db_read
-        InterfaceRouteTableSM._cassandra = mock.MagicMock()
-        InterfaceRouteTableSM._cassandra.object_read = test_utils.irt_db_read
+        InstanceIpSM._object_db = mock.MagicMock()
+        InstanceIpSM._object_db.object_read = test_utils.iip_db_read
+        ServiceInstanceSM._object_db = mock.MagicMock()
+        ServiceInstanceSM._object_db.object_read = test_utils.si_db_read
+        VirtualMachineInterfaceSM._object_db = mock.MagicMock()
+        VirtualMachineInterfaceSM._object_db.object_read = test_utils.vmi_db_read
+        InterfaceRouteTableSM._object_db = mock.MagicMock()
+        InterfaceRouteTableSM._object_db.object_read = test_utils.irt_db_read
 
         self.mocked_vnc = mock.MagicMock()
         self.mocked_vnc.fq_name_to_id = test_utils.get_vn_id_for_fq_name
@@ -31,20 +31,20 @@ class PortTupleTest(unittest.TestCase):
 
         self.pt_agent = PortTupleAgent(
             svc_mon=mock.MagicMock(), vnc_lib=self.mocked_vnc,
-            cassandra=mock.MagicMock(), config_section=mock.MagicMock(),
+            object_db=mock.MagicMock(), config_section=mock.MagicMock(),
             logger = self.module_logger)
 
     def tearDown(self):
         ServiceTemplateSM.reset()
         ServiceInstanceSM.reset()
         InstanceIpSM.reset()
-        del InstanceIpSM._cassandra
+        del InstanceIpSM._object_db
         ServiceInstanceSM.reset()
-        del ServiceInstanceSM._cassandra
+        del ServiceInstanceSM._object_db
         VirtualMachineInterfaceSM.reset()
-        del VirtualMachineInterfaceSM._cassandra
+        del VirtualMachineInterfaceSM._object_db
         InterfaceRouteTableSM.reset()
-        del InterfaceRouteTableSM._cassandra
+        del InterfaceRouteTableSM._object_db
 
     def __create_test_si(self):
         """

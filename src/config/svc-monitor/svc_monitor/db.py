@@ -9,10 +9,10 @@ Service monitor DB to store VM, SI information
 import inspect
 
 from cfgm_common import jsonutils as json
-from cfgm_common.vnc_cassandra import VncCassandraClient
+from cfgm_common.vnc_object_db import VncObjectDBClient
 from sandesh_common.vns.constants import SVC_MONITOR_KEYSPACE_NAME
 
-class ServiceMonitorDB(VncCassandraClient):
+class ServiceMonitorDB(VncObjectDBClient):
 
     _KEYSPACE = SVC_MONITOR_KEYSPACE_NAME
     _SVC_SI_CF = 'service_instance_table'

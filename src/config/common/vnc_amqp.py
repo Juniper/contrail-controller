@@ -108,7 +108,7 @@ class VncAmqpHandle(object):
         obj_key = self.db_cls.get_key_from_dict(obj_dict)
         obj_id = self.oper_info['uuid']
         obj_fq_name = obj_dict['fq_name']
-        self.db_cls._cassandra.cache_uuid_to_fq_name_add(
+        self.db_cls._object_db.cache_uuid_to_fq_name_add(
                 obj_id, obj_fq_name, self.obj_type)
         self.obj = self.obj_class.locate(obj_key)
         if self.obj is None:
@@ -155,7 +155,7 @@ class VncAmqpHandle(object):
     def handle_delete(self):
         obj_id = self.oper_info['uuid']
         self.obj = self.obj_class.get_by_uuid(obj_id)
-        self.db_cls._cassandra.cache_uuid_to_fq_name_del(obj_id)
+        self.db_cls._object_db.cache_uuid_to_fq_name_del(obj_id)
         if self.obj is None:
             return
         self.dependency_tracker = DependencyTracker(

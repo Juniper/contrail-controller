@@ -9,7 +9,7 @@ import logging
 import sys
 import yaml
 
-from cfgm_common.vnc_cassandra import VncCassandraClient
+from cfgm_common.vnc_object_db import VncObjectDBClient
 from cfgm_common.importutils import import_object
 from keystoneclient import session as ksession, auth as kauth,\
     client as kclient, exceptions as kexceptions
@@ -87,7 +87,7 @@ class LoadDataBase(object):
         def vnc_cassandra_client_logger(msg, level=logging.INFO):
             logger.log(msg=msg, level=level)
 
-        self._object_db = VncCassandraClient(
+        self._object_db = VncObjectDBClient(
             cassandra_servers,
             db_prefix,
             self._UUID_KEYSPACE,

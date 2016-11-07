@@ -195,7 +195,7 @@ class GlobalSystemConfigST(DBBaseST):
             for router_ref in route_tgt.obj.get_logical_router_back_refs() or []:
                 logical_router = LogicalRouterST.get_by_uuid(router_ref['uuid']).obj
                 logical_router.del_route_target(old_rtgt_obj)
-                logical_router.add_route_target(new_rtgt_obj.obj) 
+                logical_router.add_route_target(new_rtgt_obj.obj)
                 cls._vnc_lib.logical_router_update(logical_router)
 
             RouteTargetST.delete_vnc_obj(old_rtgt_obj.get_fq_name()[0])
@@ -273,7 +273,7 @@ class VirtualNetworkST(DBBaseST):
         #                 following code need to be remove in release (3.2 + 1)
         nid = self.obj.get_virtual_network_network_id()
         if nid is None:
-            nid = prop.network_id or self._cassandra.alloc_vn_id(name) + 1
+            nid = prop.network_id or self._object_db.alloc_vn_id(name) + 1
             self.obj.set_virtual_network_network_id(nid)
             self._vnc_lib.virtual_network_update(self.obj)
         if self.obj.get_fq_name() == common.IP_FABRIC_VN_FQ_NAME:
@@ -448,7 +448,7 @@ class VirtualNetworkST(DBBaseST):
             if props:
                 nid = props.network_id
         if nid:
-            self._cassandra.free_vn_id(nid - 1)
+            self._object_db.free_vn_id(nid - 1)
 
         self.update_multiple_refs('route_table', {})
         self.uve_send(deleted=True)
@@ -562,7 +562,7 @@ class VirtualNetworkST(DBBaseST):
 
     def allocate_service_chain_ip(self, sc_fq_name):
         sc_name = sc_fq_name.split(':')[-1]
-        v4_address, v6_address = self._cassandra.get_service_chain_ip(sc_name)
+        v4_address, v6_address = self._object_db.get_service_chain_ip(sc_name)
         if v4_address or v6_address:
             return v4_address, v6_address
         try:
@@ -581,13 +581,13 @@ class VirtualNetworkST(DBBaseST):
                                                                    str(e)))
         if v4_address is None and v6_address is None:
             return None, None
-        self._cassandra.add_service_chain_ip(sc_name, v4_address, v6_address)
+        self._object_db.add_service_chain_ip(sc_name, v4_address, v6_address)
         return v4_address, v6_address
     # end allocate_service_chain_ip
 
     def free_service_chain_ip(self, sc_fq_name):
         sc_name = sc_fq_name.split(':')[-1]
-        v4_address, v6_address = self._cassandra.get_service_chain_ip(sc_name)
+        v4_address, v6_address = self._object_db.get_service_chain_ip(sc_name)
         ip_addresses = []
         if v4_address:
             ip_addresses.append(v4_address)
@@ -595,7 +595,7 @@ class VirtualNetworkST(DBBaseST):
             ip_addresses.append(v6_address)
         if not ip_addresses:
             return
-        self._cassandra.remove_service_chain_ip(sc_name)
+        self._object_db.remove_service_chain_ip(sc_name)
         try:
             self._vnc_lib.virtual_network_ip_free(self.obj, ip_addresses)
         except NoIdError:
@@ -608,7 +608,7 @@ class VirtualNetworkST(DBBaseST):
             if ri is None:
                 return
             ri_name = ri.get_fq_name_str()
-            self._route_target = self._cassandra.get_route_target(ri_name)
+            self._route_target = self._object_db.get_route_target(ri_name)
         rtgt_name = "target:%s:%d" % (
                     GlobalSystemConfigST.get_autonomous_system(),
                     self._route_target)
@@ -1298,13 +1298,13 @@ class RouteTargetST(DBBaseST):
                 cls.locate(obj.get_fq_name_str(), obj)
             else:
                 cls._vnc_lib.route_target_delete(id=obj.uuid)
-        for ri, val in cls._cassandra._rt_cf.get_range():
+        for ri, val in cls._object_db._rt_cf.get_range():
             rt = val['rtgt_num']
             asn = GlobalSystemConfigST.get_autonomous_system()
             rt_key = "target:%s:%s" % (
                 GlobalSystemConfigST.get_autonomous_system(), rt)
             if rt_key not in cls:
-                cls._cassandra.free_route_target(ri)
+                cls._object_db.free_route_target(ri)
     # reinit
 
     def __init__(self, rt_key, obj=None):
@@ -1643,23 +1643,23 @@ class SecurityGroupST(DBBaseST):
         if config_id:
             if sg_id is not None:
                 if sg_id > SGID_MIN_ALLOC:
-                    self._cassandra.free_sg_id(sg_id - SGID_MIN_ALLOC)
+                    self._object_db.free_sg_id(sg_id - SGID_MIN_ALLOC)
                 else:
-                    if self.name == self._cassandra.get_sg_from_id(sg_id):
-                        self._cassandra.free_sg_id(sg_id)
+                    if self.name == self._object_db.get_sg_from_id(sg_id):
+                        self._object_db.free_sg_id(sg_id)
             self.obj.set_security_group_id(str(config_id))
         else:
             do_alloc = False
             if sg_id is not None:
                 if sg_id < SGID_MIN_ALLOC:
-                    if self.name == self._cassandra.get_sg_from_id(sg_id):
+                    if self.name == self._object_db.get_sg_from_id(sg_id):
                         self.obj.set_security_group_id(sg_id + SGID_MIN_ALLOC)
                     else:
                         do_alloc = True
             else:
                 do_alloc = True
             if do_alloc:
-                sg_id_num = self._cassandra.alloc_sg_id(self.name)
+                sg_id_num = self._object_db.alloc_sg_id(self.name)
                 self.obj.set_security_group_id(sg_id_num + SGID_MIN_ALLOC)
         if sg_id != int(self.obj.get_security_group_id()):
             self._vnc_lib.security_group_update(self.obj)
@@ -1678,9 +1678,9 @@ class SecurityGroupST(DBBaseST):
         sg_id = self.obj.get_security_group_id()
         if sg_id is not None and not self.config_sgid:
             if sg_id < SGID_MIN_ALLOC:
-                self._cassandra.free_sg_id(sg_id)
+                self._object_db.free_sg_id(sg_id)
             else:
-                self._cassandra.free_sg_id(sg_id-SGID_MIN_ALLOC)
+                self._object_db.free_sg_id(sg_id-SGID_MIN_ALLOC)
         self.rule_entries = None
         self.process_referred_sgs()
     # end delete_obj
@@ -1973,8 +1973,8 @@ class RoutingInstanceST(DBBaseST):
     # end import_default_ri_route_target_to_service_ri
 
     def locate_route_target(self):
-        old_rtgt = self._cassandra.get_route_target(self.name)
-        rtgt_num = self._cassandra.alloc_route_target(self.name)
+        old_rtgt = self._object_db.get_route_target(self.name)
+        rtgt_num = self._object_db.alloc_route_target(self.name)
 
         rt_key = "target:%s:%d" % (GlobalSystemConfigST.get_autonomous_system(),
                                    rtgt_num)
@@ -2241,7 +2241,7 @@ class RoutingInstanceST(DBBaseST):
                 ri2.connections.discard(self.name)
 
         rtgt_list = self.obj.get_route_target_refs()
-        self._cassandra.free_route_target(self.name)
+        self._object_db.free_route_target(self.name)
 
         service_chain = self.service_chain
         vn_obj = VirtualNetworkST.get(self.virtual_network)
@@ -2259,7 +2259,7 @@ class RoutingInstanceST(DBBaseST):
                     if vm_pt is None:
                         vm_pt = VirtualMachineST.get(vmi.virtual_machine)
                     if vm_pt is not None:
-                        self._cassandra.free_service_chain_vlan(vm_pt.uuid,
+                        self._object_db.free_service_chain_vlan(vm_pt.uuid,
                                                                 service_chain)
                     vmi.delete_routing_instance(self)
             # end for vmi_name
@@ -2333,7 +2333,7 @@ class ServiceChain(DBBaseST):
     @classmethod
     def init(cls):
         # When schema transformer restarts, read all service chains from cassandra
-        for (name, columns) in cls._cassandra.list_service_chain_uuid():
+        for (name, columns) in cls._object_db.list_service_chain_uuid():
             chain = jsonpickle.decode(columns['value'])
 
             # Some service chains may not be valid any more. We may need to
@@ -2417,7 +2417,7 @@ class ServiceChain(DBBaseST):
         sc = ServiceChain(name, left_vn, right_vn, direction, sp_list,
                           dp_list, protocol, service_list)
         ServiceChain._dict[name] = sc
-        cls._cassandra.add_service_chain_uuid(name, jsonpickle.encode(sc))
+        cls._object_db.add_service_chain_uuid(name, jsonpickle.encode(sc))
         return sc
     # end find_or_create
 
@@ -2673,7 +2673,7 @@ class ServiceChain(DBBaseST):
         self.created = True
         self.partially_created = False
         self.error_msg = None
-        self._cassandra.add_service_chain_uuid(self.name, jsonpickle.encode(self))
+        self._object_db.add_service_chain_uuid(self.name, jsonpickle.encode(self))
     # end _create
 
     def add_pbf_rule(self, vmi, ri, v4_address, v6_address, vlan):
@@ -2696,7 +2696,7 @@ class ServiceChain(DBBaseST):
 
     def process_transparent_service(self, vm_info, v4_address, v6_address,
                                     service_ri1, service_ri2):
-        vlan = self._cassandra.allocate_service_chain_vlan(vm_info['vm_uuid'],
+        vlan = self._object_db.allocate_service_chain_vlan(vm_info['vm_uuid'],
                                                            self.name)
         self.add_pbf_rule(vm_info['left']['vmi'], service_ri1,
                           v4_address, v6_address, vlan)
@@ -2726,7 +2726,7 @@ class ServiceChain(DBBaseST):
 
         self.created = False
         self.partially_created = False
-        self._cassandra.add_service_chain_uuid(self.name,
+        self._object_db.add_service_chain_uuid(self.name,
                                                jsonpickle.encode(self))
 
         vn1_obj = VirtualNetworkST.get(self.left_vn)
@@ -2746,7 +2746,7 @@ class ServiceChain(DBBaseST):
         if self.created or self.partially_created:
             self.destroy()
         del self._dict[self.name]
-        self._cassandra.remove_service_chain_uuid(self.name)
+        self._object_db.remove_service_chain_uuid(self.name)
     # end delete
 
     def build_introspect(self):
@@ -2885,7 +2885,7 @@ class BgpRouterST(DBBaseST):
     def delete_obj(self):
         self.update_single_ref('bgp_as_a_service', {})
         if self.router_type == 'bgpaas-client':
-            self._cassandra.free_bgpaas_port(self.source_port)
+            self._object_db.free_bgpaas_port(self.source_port)
     # end delete_ref
 
     def set_params(self, params):
@@ -3138,7 +3138,7 @@ class BgpAsAServiceST(DBBaseST):
         if not bgpr:
             bgp_router = BgpRouter(vmi.obj.name, parent_obj=ri.obj)
             create = True
-            src_port = self._cassandra.alloc_bgpaas_port(router_fq_name)
+            src_port = self._object_db.alloc_bgpaas_port(router_fq_name)
         else:
             bgp_router = self._vnc_lib.bgp_router_read(id=bgpr.obj.uuid)
             src_port = bgpr.source_port
@@ -3342,7 +3342,7 @@ class VirtualMachineInterfaceST(DBBaseST):
             service_ri = RoutingInstanceST.get(service_name)
             v4_address, v6_address = vn1_obj.allocate_service_chain_ip(
                 service_name)
-            vlan = self._cassandra.allocate_service_chain_vlan(
+            vlan = self._object_db.allocate_service_chain_vlan(
                 vm_pt.uuid, service_chain.name)
 
             service_chain.add_pbf_rule(self, service_ri, v4_address,
@@ -3703,7 +3703,7 @@ class LogicalRouterST(DBBaseST):
                 old_rt_key = rt_key
                 rt_ref = None
         if not rt_ref:
-            rtgt_num = self._cassandra.alloc_route_target(name, True)
+            rtgt_num = self._object_db.alloc_route_target(name, True)
             rt_key = "target:%s:%d" % (
                 GlobalSystemConfigST.get_autonomous_system(), rtgt_num)
             rtgt_obj = RouteTargetST.locate(rt_key)
@@ -3731,7 +3731,7 @@ class LogicalRouterST(DBBaseST):
         self.update_multiple_refs('route_table', {})
         self.update_virtual_networks()
         rtgt_num = int(self.route_target.split(':')[-1])
-        self._cassandra.free_route_target_by_number(rtgt_num)
+        self._object_db.free_route_target_by_number(rtgt_num)
         RouteTargetST.delete_vnc_obj(self.route_target)
     # end delete_obj
 

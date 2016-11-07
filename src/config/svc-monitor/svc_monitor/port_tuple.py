@@ -25,9 +25,9 @@ from sandesh.port_tuple import ttypes as sandesh
 
 class PortTupleAgent(Agent):
 
-    def __init__(self, svc_mon, vnc_lib, cassandra, config_section, logger):
+    def __init__(self, svc_mon, vnc_lib, object_db, config_section, logger):
         super(PortTupleAgent, self).__init__(svc_mon, vnc_lib,
-            cassandra, config_section)
+            object_db, config_section)
         self.logger = logger
 
         # Register log functions to be used for port tuple logs.

@@ -161,8 +161,8 @@ class SchemaTransformer(object):
         self._vnc_amqp.establish()
         try:
             # Initialize cassandra
-            self._cassandra = SchemaTransformerDB(self, _zookeeper_client)
-            DBBaseST.init(self, self.logger, self._cassandra)
+            self._object_db = SchemaTransformerDB(self, _zookeeper_client)
+            DBBaseST.init(self, self.logger, self._object_db)
             DBBaseST._sandesh = self.logger._sandesh
             DBBaseST._vnc_lib = _vnc_lib
             ServiceChain.init()

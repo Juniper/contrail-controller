@@ -11,11 +11,11 @@ from pycassa import NotFoundException
 import cfgm_common as common
 from cfgm_common.exceptions import VncError, NoIdError
 from cfgm_common.zkclient import IndexAllocator
-from cfgm_common.vnc_cassandra import VncCassandraClient
+from cfgm_common.vnc_object_db import VncObjectDBClient
 from sandesh_common.vns.constants import SCHEMA_KEYSPACE_NAME
 import uuid
 
-class SchemaTransformerDB(VncCassandraClient):
+class SchemaTransformerDB(VncObjectDBClient):
 
     _KEYSPACE = SCHEMA_KEYSPACE_NAME
     _RT_CF = 'route_target_table'

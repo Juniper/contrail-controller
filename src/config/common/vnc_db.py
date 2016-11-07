@@ -15,7 +15,7 @@ class DBBase(object):
     # The init method of this class must be callled before using any functions
 
     _logger = None
-    _cassandra = None
+    _object_db = None
     _manager = None
 
     # objects in the database could be indexed by uuid or fq-name
@@ -23,9 +23,9 @@ class DBBase(object):
     _indexed_by_name = False
 
     @classmethod
-    def init(cls, manager, logger, cassandra):
+    def init(cls, manager, logger, object_db):
         cls._logger = logger
-        cls._cassandra = cassandra
+        cls._object_db = object_db
         cls._manager = manager
     # end init
 
@@ -162,7 +162,7 @@ class DBBase(object):
                 key = ref['uuid']
             except KeyError:
                 fq_name = ref['to']
-                key = self._cassandra.fq_name_to_uuid(ref_type, fq_name)
+                key = self._object_db.fq_name_to_uuid(ref_type, fq_name)
         return key
     # end _get_ref_key
 
@@ -264,7 +264,7 @@ class DBBase(object):
 
     @classmethod
     def read_obj(cls, uuid, obj_type=None):
-        ok, objs = cls._cassandra.object_read(obj_type or cls.obj_type, [uuid])
+        ok, objs = cls._object_db.object_read(obj_type or cls.obj_type, [uuid])
         if not ok:
             cls._logger.error(
                 'Cannot read %s %s, error %s' % (obj_type, uuid, objs))
@@ -285,7 +285,7 @@ class DBBase(object):
         if uuid is None:
             if isinstance(fq_name, basestring):
                 fq_name = fq_name.split(':')
-            uuid = cls._cassandra.fq_name_to_uuid(obj_type, fq_name)
+            uuid = cls._object_db.fq_name_to_uuid(obj_type, fq_name)
         obj_dict = cls.read_obj(uuid, obj_type)
         obj = cls.vnc_obj_from_dict(obj_type, obj_dict)
         obj.clear_pending_updates()
@@ -295,11 +295,11 @@ class DBBase(object):
     @classmethod
     def list_obj(cls, obj_type=None):
         obj_type = obj_type or cls.obj_type
-        ok, result = cls._cassandra.object_list(obj_type)
+        ok, result = cls._object_db.object_list(obj_type)
         if not ok:
             return []
         uuids = [uuid for _, uuid in result]
-        ok, objs = cls._cassandra.object_read(obj_type, uuids)
+        ok, objs = cls._object_db.object_read(obj_type, uuids)
         if not ok:
             return []
         return objs
@@ -320,7 +320,7 @@ class DBBase(object):
         else:
             parent_type = obj['parent_type'].replace('-', '_')
             parent_fq_name = obj['fq_name'][:-1]
-            return self._cassandra.fq_name_to_uuid(parent_type, parent_fq_name)
+            return self._object_db.fq_name_to_uuid(parent_type, parent_fq_name)
     # end get_parent_uuid
 
     @classmethod
@@ -357,7 +357,7 @@ class DBBase(object):
     def get_by_uuid(cls, uuid, *args):
         name_or_uuid = uuid
         if cls._indexed_by_name:
-            fq_name = cls._cassandra.uuid_to_fq_name(uuid)
+            fq_name = cls._object_db.uuid_to_fq_name(uuid)
             name_or_uuid = ':'.join(fq_name)
         try:
             return cls.get(name_or_uuid)

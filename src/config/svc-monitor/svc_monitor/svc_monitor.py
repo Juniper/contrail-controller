@@ -89,9 +89,9 @@ class SvcMonitor(object):
             self.logger.warning("Failed to open trace file %s" %
                                     self._err_file)
 
-        # init cassandra
-        self._cassandra = ServiceMonitorDB(self._args, self.logger)
-        DBBaseSM.init(self, self.logger, self._cassandra)
+        # init object_db
+        self._object_db = ServiceMonitorDB(self._args, self.logger)
+        DBBaseSM.init(self, self.logger, self._object_db)
 
         # init rabbit connection
         self.rabbit = VncAmqpHandle(self.logger, DBBaseSM,
@@ -121,49 +121,49 @@ class SvcMonitor(object):
         # load virtual machine instance manager
         self.vm_manager = importutils.import_object(
             'svc_monitor.virtual_machine_manager.VirtualMachineManager',
-            self._vnc_lib, self._cassandra, self.logger,
+            self._vnc_lib, self._object_db, self.logger,
             self.vrouter_scheduler, self._nova_client, self._agent_manager,
             self._args)
 
         # load network namespace instance manager
         self.netns_manager = importutils.import_object(
             'svc_monitor.instance_manager.NetworkNamespaceManager',
-            self._vnc_lib, self._cassandra, self.logger,
+            self._vnc_lib, self._object_db, self.logger,
             self.vrouter_scheduler, self._nova_client, self._agent_manager,
             self._args)
 
         # load a vrouter instance manager
         self.vrouter_manager = importutils.import_object(
             'svc_monitor.vrouter_instance_manager.VRouterInstanceManager',
-            self._vnc_lib, self._cassandra, self.logger,
+            self._vnc_lib, self._object_db, self.logger,
             self.vrouter_scheduler, self._nova_client,
             self._agent_manager, self._args)
 
         # load PNF instance manager
         self.ps_manager = importutils.import_object(
             'svc_monitor.physical_service_manager.PhysicalServiceManager',
-            self._vnc_lib, self._cassandra, self.logger,
+            self._vnc_lib, self._object_db, self.logger,
             self.vrouter_scheduler, self._nova_client,
             self._agent_manager, self._args)
 
         # load a loadbalancer agent
         self.loadbalancer_agent = LoadbalancerAgent(
             self, self._vnc_lib,
-            self._cassandra, self._args)
+            self._object_db, self._args)
         self._agent_manager.register_agent(self.loadbalancer_agent)
 
         # load a snat agent
         self.snat_agent = SNATAgent(self, self._vnc_lib,
-                                    self._cassandra, self._args,
+                                    self._object_db, self._args,
                                     ServiceMonitorModuleLogger(self.logger))
         self._agent_manager.register_agent(self.snat_agent)
 
         # load port tuple agent
         self.port_tuple_agent = PortTupleAgent(self, self._vnc_lib,
-            self._cassandra, self._args, ServiceMonitorModuleLogger(self.logger))
+            self._object_db, self._args, ServiceMonitorModuleLogger(self.logger))
         self._agent_manager.register_agent(self.port_tuple_agent)
 
-        # Read the cassandra and populate the entry in ServiceMonitor DB
+        # Read the object_db and populate the entry in ServiceMonitor DB
         self.sync_sm()
 
         # create default analyzer template
