@@ -29,10 +29,12 @@
 
 #include "viz_constants.h"
 #include "vizd_table_desc.h"
+#include "viz_collector.h"
 #include "collector.h"
 #include "db_handler.h"
 #include "parser_util.h"
 #include "db_handler_impl.h"
+#include "viz_sandesh.h"
 
 #define DB_LOG(_Level, _Msg)                                                   \
     do {                                                                       \
@@ -69,18 +71,23 @@ DbHandler::DbHandler(EventManager *evm,
         std::string name, const TtlMap& ttl_map,
         const std::string& cassandra_user,
         const std::string& cassandra_password,
-        bool use_cql,
-        const std::string &zookeeper_server_list,
-        bool use_zookeeper) :
+        const std::string &cassandra_compaction_strategy,
+        bool use_cql, const std::string &zookeeper_server_list,
+        bool use_zookeeper, bool disable_all_writes,
+        bool disable_statistics_writes, bool disable_messages_writes) :
     name_(name),
     drop_level_(SandeshLevel::INVALID),
     ttl_map_(ttl_map),
     use_cql_(use_cql),
     tablespace_(),
+    compaction_strategy_(cassandra_compaction_strategy),
     gen_partition_no_((uint8_t)g_viz_constants.PARTITION_MIN,
         (uint8_t)g_viz_constants.PARTITION_MAX),
     zookeeper_server_list_(zookeeper_server_list),
-    use_zookeeper_(use_zookeeper) {
+    use_zookeeper_(use_zookeeper),
+    disable_all_writes_(disable_all_writes),
+    disable_statistics_writes_(disable_statistics_writes),
+    disable_messages_writes_(disable_messages_writes) {
 #ifdef USE_CASSANDRA_CQL
     if (use_cql) {
         dbif_.reset(new cass::cql::CqlIf(evm, cassandra_ips,
@@ -166,7 +173,7 @@ void DbHandler::SetDropLevel(size_t queue_count, SandeshLevel::type level,
 bool DbHandler::CreateTables() {
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_tables.begin();
             it != vizd_tables.end(); it++) {
-        if (!dbif_->Db_AddColumnfamily(*it)) {
+        if (!dbif_->Db_AddColumnfamily(*it, compaction_strategy_)) {
             DB_LOG(ERROR, it->cfname_ << " FAILED");
             return false;
         }
@@ -174,7 +181,7 @@ bool DbHandler::CreateTables() {
 
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_flow_tables.begin();
             it != vizd_flow_tables.end(); it++) {
-        if (!dbif_->Db_AddColumnfamily(*it)) {
+        if (!dbif_->Db_AddColumnfamily(*it, compaction_strategy_)) {
             DB_LOG(ERROR, it->cfname_ << " FAILED");
             return false;
         }
@@ -182,7 +189,7 @@ bool DbHandler::CreateTables() {
 
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_stat_tables.begin();
             it != vizd_stat_tables.end(); it++) {
-        if (!dbif_->Db_AddColumnfamily(*it)) {
+        if (!dbif_->Db_AddColumnfamily(*it, compaction_strategy_)) {
             DB_LOG(ERROR, it->cfname_ << " FAILED");
             return false;
         }
@@ -395,6 +402,30 @@ bool DbHandler::UseCql() const {
     return use_cql_;
 }
 
+bool DbHandler::IsAllWritesDisabled() const {
+    return disable_all_writes_;
+}
+
+bool DbHandler::IsStatisticsWritesDisabled() const {
+    return disable_statistics_writes_;
+}
+
+bool DbHandler::IsMessagesWritesDisabled() const {
+    return disable_messages_writes_;
+}
+
+void DbHandler::DisableAllWrites(bool disable) {
+    disable_all_writes_ = disable;
+}
+
+void DbHandler::DisableStatisticsWrites(bool disable) {
+    disable_statistics_writes_ = disable;
+}
+
+void DbHandler::DisableMessagesWrites(bool disable) {
+    disable_messages_writes_ = disable;
+}
+
 void DbHandler::SetDbQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm,
     boost::function<void (void)> defer_undefer_cb) {
     dbif_->Db_SetQueueWaterMark(boost::get<2>(wm),
@@ -462,8 +493,17 @@ bool DbHandler::GetCqlStats(cass::cql::DbStats *stats) const {
     return true;
 }
 
+bool DbHandler::InsertIntoDb(std::auto_ptr<GenDb::ColList> col_list,
+    GenDb::GenDbIf::DbAddColumnCb db_cb) {
+    if (IsAllWritesDisabled()) {
+        return true;
+    }
+    return dbif_->Db_AddColumn(col_list, db_cb);
+}
+
 bool DbHandler::AllowMessageTableInsert(const SandeshHeader &header) {
-    return header.get_Type() != SandeshType::FLOW;
+    return !IsMessagesWritesDisabled() && !IsAllWritesDisabled() &&
+        (header.get_Type() != SandeshType::FLOW);
 }
 
 bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
@@ -558,7 +598,7 @@ bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
     GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value, ttl));
     columns.push_back(col);
 #endif
-    if (!dbif_->Db_AddColumn(col_list, db_cb)) {
+    if (!InsertIntoDb(col_list, db_cb)) {
         DB_LOG(ERROR, "Addition of message: " << message_type <<
                 ", message UUID: " << unm << " to table: " << cfname <<
                 " FAILED");
@@ -644,7 +684,7 @@ void DbHandler::MessageTableOnlyInsert(const VizMsg *vmsgp,
     columns.push_back(new GenDb::NewCol(g_viz_constants.DATA,
         vmsgp->msg->ExtractMessage(), ttl));
 
-    if (!dbif_->Db_AddColumn(col_list, db_cb)) {
+    if (!InsertIntoDb(col_list, db_cb)) {
         DB_LOG(ERROR, "Addition of message: " << message_type <<
                 ", message UUID: " << vmsgp->unm << " COLUMN FAILED");
         return;
@@ -819,6 +859,9 @@ void DbHandler::GetRuleMap(RuleMap& rulemap) {
 void DbHandler::ObjectTableInsert(const std::string &table, const std::string &objectkey_str,
         uint64_t &timestamp, const boost::uuids::uuid& unm, const VizMsg *vmsgp,
         GenDb::GenDbIf::DbAddColumnCb db_cb) {
+    if (IsMessagesWritesDisabled() || IsAllWritesDisabled()) {
+        return;
+    }
     uint32_t T2(timestamp >> g_viz_constants.RowTimeInBits);
     uint32_t T1(timestamp & g_viz_constants.RowTimeInMask);
     const std::string &message_type(vmsgp->msg->GetMessageType());
@@ -849,7 +892,7 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
         GenDb::NewColVec& columns = col_list->columns_;
         columns.reserve(1);
         columns.push_back(col);
-        if (!dbif_->Db_AddColumn(col_list, db_cb)) {
+        if (!InsertIntoDb(col_list, db_cb)) {
             DB_LOG(ERROR, "Addition of " << objectkey_str <<
                     ", message UUID " << unm << " into table " << table <<
                     " FAILED");
@@ -870,7 +913,7 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
         GenDb::NewColVec& columns = col_list->columns_;
         columns.reserve(1);
         columns.push_back(col);
-        if (!dbif_->Db_AddColumn(col_list, db_cb)) {
+        if (!InsertIntoDb(col_list, db_cb)) {
             DB_LOG(ERROR, "Addition of " << objectkey_str <<
                     ", message UUID " << unm << " " << table << " into table "
                     << g_viz_constants.OBJECT_VALUE_TABLE << " FAILED");
@@ -1010,7 +1053,7 @@ bool DbHandler::StatTableWrite(uint32_t t2,
     GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value, ttl));
     columns.push_back(col);
 
-    if (!dbif_->Db_AddColumn(col_list, db_cb)) {
+    if (!InsertIntoDb(col_list, db_cb)) {
         DB_LOG(ERROR, "Addition of " << statName <<
                 ", " << statAttr <<  " tag " << ptag.first <<
                 ":" << stag.first << " into table " <<
@@ -1032,6 +1075,9 @@ DbHandler::StatTableInsert(uint64_t ts,
         const TagMap & attribs_tag,
         const AttribMap & attribs,
         GenDb::GenDbIf::DbAddColumnCb db_cb) {
+    if (IsAllWritesDisabled() || IsStatisticsWritesDisabled()) {
+        return;
+    }
     int ttl = GetTtl(TtlType::STATSDATA_TTL);
     StatTableInsertTtl(ts, statName, statAttr, attribs_tag, attribs, ttl,
         db_cb);
@@ -1232,14 +1278,14 @@ static void PopulateFlowRecordTableRowKey(
 }
 
 static bool PopulateFlowRecordTable(FlowValueArray &fvalues,
-    GenDb::GenDbIf *dbif, const TtlMap& ttl_map,
-    FlowFieldValuesCb fncb, GenDb::GenDbIf::DbAddColumnCb db_cb) {
+    DbInsertCb db_insert_cb, const TtlMap& ttl_map,
+    FlowFieldValuesCb fncb) {
     std::auto_ptr<GenDb::ColList> colList(new GenDb::ColList);
     colList->cfname_ = g_viz_constants.FLOW_TABLE;
     PopulateFlowRecordTableRowKey(fvalues, colList->rowkey_);
     PopulateFlowRecordTableColumns(FlowRecordTableColumns, fvalues,
         colList->columns_, ttl_map, fncb);
-    return dbif->Db_AddColumn(colList, db_cb);
+    return db_insert_cb(colList);
 }
 
 static const std::vector<FlowRecordFields::type> FlowIndexTableColumnValues =
@@ -1436,8 +1482,8 @@ static void PopulateFlowIndexTableColumns(FlowIndexTableType ftype,
 
 static bool PopulateFlowIndexTables(const FlowValueArray &fvalues, 
     const uint32_t &T2, const uint32_t &T1, uint8_t partition_no,
-    GenDb::GenDbIf *dbif, const TtlMap& ttl_map,
-    FlowFieldValuesCb fncb, GenDb::GenDbIf::DbAddColumnCb db_cb) {
+    DbInsertCb db_insert_cb, const TtlMap& ttl_map,
+    FlowFieldValuesCb fncb) {
     // Populate row key and column values (same for all flow index
     // tables)
     GenDb::DbDataValueVec rkey;
@@ -1455,7 +1501,7 @@ static bool PopulateFlowIndexTables(const FlowValueArray &fvalues,
         colList->rowkey_ = rkey;
         PopulateFlowIndexTableColumns(fitt, fvalues, T1, &colList->columns_,
             cvalues, ttl_map);
-        if (!dbif->Db_AddColumn(colList, db_cb)) {
+        if (!db_insert_cb(colList)) {
             LOG(ERROR, "Populating " << FlowIndexTable2String(fitt) <<
                 " FAILED");
         }
@@ -1616,8 +1662,10 @@ bool DbHandler::FlowSampleAdd(const pugi::xml_node& flow_sample,
     FlowFieldValuesCb fncb =
             boost::bind(&DbHandler::FieldNamesTableInsert,
             this, timestamp, g_viz_constants.FLOW_TABLE, _1, _2, _3, db_cb);
-    if (!PopulateFlowRecordTable(flow_entry_values, dbif_.get(), ttl_map_,
-            fncb, db_cb)) {
+    DbInsertCb db_insert_cb =
+        boost::bind(&DbHandler::InsertIntoDb, this, _1, db_cb);
+    if (!PopulateFlowRecordTable(flow_entry_values, db_insert_cb, ttl_map_,
+            fncb)) {
         DB_LOG(ERROR, "Populating FlowRecordTable FAILED");
     }
     GenDb::DbDataValue &diff_bytes(
@@ -1633,7 +1681,7 @@ bool DbHandler::FlowSampleAdd(const pugi::xml_node& flow_sample,
     if (diff_bytes.which() != GenDb::DB_VALUE_BLANK &&
         diff_packets.which() != GenDb::DB_VALUE_BLANK) {
        if (!PopulateFlowIndexTables(flow_entry_values, T2, T1, partition_no,
-                dbif_.get(), ttl_map_, fncb2, db_cb)) {
+                db_insert_cb, ttl_map_, fncb2)) {
            DB_LOG(ERROR, "Populating FlowIndexTables FAILED");
        }
     }
@@ -1718,16 +1766,20 @@ DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
     DbHandlerInitializer::InitializeDoneCb callback,
     const std::vector<std::string> &cassandra_ips,
     const std::vector<int> &cassandra_ports, const TtlMap& ttl_map,
-    const std::string& cassandra_user, const std::string& cassandra_password,
+    const std::string &cassandra_user, const std::string &cassandra_password,
+    const std::string &cassandra_compaction_strategy,
     bool use_cql, const std::string &zookeeper_server_list,
-    bool use_zookeeper) :
+    bool use_zookeeper, bool disable_all_db_writes,
+    bool disable_db_stats_writes, bool disable_db_messages_writes) :
     db_name_(db_name),
     db_task_instance_(db_task_instance),
     db_handler_(new DbHandler(evm,
         boost::bind(&DbHandlerInitializer::ScheduleInit, this),
         cassandra_ips, cassandra_ports, db_name, ttl_map,
-        cassandra_user, cassandra_password, use_cql,
-        zookeeper_server_list, use_zookeeper)),
+        cassandra_user, cassandra_password, cassandra_compaction_strategy,
+        use_cql, zookeeper_server_list, use_zookeeper,
+        disable_all_db_writes, disable_db_stats_writes,
+        disable_db_messages_writes)),
     callback_(callback),
     db_init_timer_(TimerManager::CreateTimer(*evm->io_service(),
         db_name + " Db Init Timer",
