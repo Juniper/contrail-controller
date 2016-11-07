@@ -22,8 +22,10 @@ namespace cass {
 namespace cql {
 namespace impl {
 
-std::string StaticCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf);
-std::string DynamicCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf);
+std::string StaticCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf,
+    const std::string &compaction_strategy);
+std::string DynamicCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf,
+    const std::string &compaction_strategy);
 std::string StaticCf2CassInsertIntoTable(const GenDb::ColList *v_columns);
 std::string DynamicCf2CassInsertIntoTable(const GenDb::ColList *v_columns);
 std::string StaticCf2CassPrepareInsertIntoTable(const GenDb::NewCf &cf);
