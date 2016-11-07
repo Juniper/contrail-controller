@@ -42,6 +42,9 @@ public:
     const std::string redis_password() const { return redis_password_; }
     const std::string cassandra_user() const { return cassandra_user_; }
     const std::string cassandra_password() const { return cassandra_password_; }
+    const std::string cassandra_compaction_strategy() const {
+        return cassandra_compaction_strategy_;
+    }
     const std::string hostname() const { return hostname_; }
     const std::string host_ip() const { return host_ip_; }
     const uint16_t http_server_port() const { return http_server_port_; }
@@ -67,6 +70,12 @@ public:
     const bool test_mode() const { return test_mode_; }
     const uint32_t sandesh_send_rate_limit() const { return sandesh_ratelimit_; }
     const bool disable_flow_collection() const { return disable_flow_collection_; }
+    const bool disable_all_db_writes() const { return disable_all_db_writes_; }
+    const bool disable_db_statistics_writes() const { return disable_db_stats_writes_; }
+    const bool disable_db_messages_writes() const { return disable_db_messages_writes_; }
+    const bool enable_db_messages_keyword_writes() const {
+        return enable_db_messages_keyword_writes_;
+    }
 
 private:
     template <typename ValueType>
@@ -106,6 +115,7 @@ private:
     std::string redis_password_;
     std::string cassandra_user_;
     std::string cassandra_password_;
+    std::string cassandra_compaction_strategy_;
     std::string hostname_;
     std::string host_ip_;
     uint16_t http_server_port_;
@@ -135,6 +145,10 @@ private:
     uint16_t partitions_;
     uint32_t sandesh_ratelimit_;
     bool disable_flow_collection_;
+    bool disable_all_db_writes_;
+    bool disable_db_stats_writes_;
+    bool disable_db_messages_writes_;
+    bool enable_db_messages_keyword_writes_;
 
     boost::program_options::options_description config_file_options_;
 };
