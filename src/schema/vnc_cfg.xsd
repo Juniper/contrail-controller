@@ -788,6 +788,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              description='Maximum number of loadbalancer health monitors'/>
 	<xsd:element name="virtual-ip" type="xsd:integer" required='optional'
              description='Maximum number of virtual ips'/>
+        <xsd:element name="security-logging-object" type="xsd:integer" required='optional'
+             description='Maximum number of security logging objects'/>
     </xsd:all>
 </xsd:complexType>
 
@@ -938,6 +940,68 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              'global-system-config', 'bgp-router', ['ref'], 'required', 'R',
              'List of references to all bgp routers in systems.') -->
 
+<xsd:element name="security-logging-object" type="ifmap:IdentityType"/>
+
+<xsd:complexType name="SecurityLoggingObjectRuleEntryType">
+    <xsd:element name="rule-uuid"    type="xsd:string" required='optional'
+         description='Rule UUID of network policy or security-group. When this is absent it implies all rules of security-group or network-policy'/>
+    <xsd:element name="rate" type="xsd:integer" required='optional' default='100'
+        description='Rate at which sessions are logged. When rates are specified at multiple levels, the rate which specifies highest frequency is selected'/>
+</xsd:complexType>
+
+<xsd:complexType name="SecurityLoggingObjectRuleListType">
+    <xsd:element name="rule" type="SecurityLoggingObjectRuleEntryType" maxOccurs="unbounded" required='optional'
+         description='List of rules along with logging rate for each rule. Both rule-uuid and rate are optional. When rule-uuid is absent then it means all rules of associated SG or network-policy'/>
+</xsd:complexType>
+<xsd:element name="security-logging-object-rules" type="SecurityLoggingObjectRuleListType"
+    description='List of rules along with logging rate for each rule. These are rules derived based on user configured rules on security-logging-object-network-policy and security-logging-object-security-group links'/>
+<xsd:element name="security-logging-object-rate" type="xsd:integer" default='100'
+    description='Rate at security-logging-object level. When multiple rates are specified at different levels, the rate which specifies highest frequency is selected'/>
+
+<!--#IFMAP-SEMANTICS-IDL
+     Property('security-logging-object-rules', 'security-logging-object', 'optional', 'CRUD',
+              'Security logging object rules derived internally.') -->
+
+<!--#IFMAP-SEMANTICS-IDL
+     Property('security-logging-object-rate', 'security-logging-object', 'optional', 'CRUD',
+              'Security logging object rate defining rate of session logging') -->
+
+<xsd:element name="global-vrouter-config-security-logging-object"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('global-vrouter-config-security-logging-object',
+          'global-vrouter-config', 'security-logging-object', ['has'], 'optional', 'CRUD',
+          'Reference to security logging object for global-vrouter-config.') -->
+
+<xsd:element name="virtual-network-security-logging-object"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('virtual-network-security-logging-object',
+          'virtual-network', 'security-logging-object', ['ref'], 'optional', 'CRUD',
+          'Reference to security logging object for this virtual network.') -->
+
+<xsd:element name="virtual-machine-interface-security-logging-object"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('virtual-machine-interface-security-logging-object',
+          'virtual-machine-interface', 'security-logging-object', ['ref'], 'optional', 'CRUD',
+          'Reference to security logging object for this virtual machine interface') -->
+
+<xsd:element name="project-security-logging-object"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('project-security-logging-object',
+          'project', 'security-logging-object', ['has'], 'optional', 'CRUD',
+          'Security logging object configuration for specifying session logging criteria') -->
+
+<xsd:element name="security-logging-object-network-policy" type="SecurityLoggingObjectRuleListType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('security-logging-object-network-policy',
+          'security-logging-object', 'network-policy', ['ref'], 'optional', 'CRUD',
+          'Reference to network-policy attached to this security-logging-object') -->
+
+<xsd:element name="security-logging-object-security-group" type="SecurityLoggingObjectRuleListType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('security-logging-object-security-group',
+          'security-logging-object', 'security-group', ['ref'], 'optional', 'CRUD',
+          'Reference to security-group attached to this security-logging-object') -->
+
 <!-- Ecmp load balance parameters to be used -->
 <xsd:complexType name="EcmpHashingIncludeFields">
     <xsd:all>
@@ -1011,6 +1075,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('flow-aging-timeout-list', 'global-vrouter-config', 'optional', 'CRUD',
               'Flow aging timeout per application (protocol, port) list.') -->
+
+<xsd:element name="enable-security-logging" type='xsd:boolean' default='true'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('enable-security-logging', 'global-vrouter-config', 'optional', 'CRUD',
+              'Enable or disable security-logging in the system') -->
 
 <xsd:element name="global-qos-config" type="ifmap:IdentityType"/>
 <!--Identifier "global-qos-config" is used to hang global QoS properties
