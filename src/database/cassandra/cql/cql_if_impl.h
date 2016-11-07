@@ -22,8 +22,10 @@ namespace cass {
 namespace cql {
 namespace impl {
 
-std::string StaticCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf);
-std::string DynamicCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf);
+std::string StaticCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf,
+    const std::string &compaction_strategy);
+std::string DynamicCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf,
+    const std::string &compaction_strategy);
 std::string StaticCf2CassInsertIntoTable(const GenDb::ColList *v_columns);
 std::string DynamicCf2CassInsertIntoTable(const GenDb::ColList *v_columns);
 std::string StaticCf2CassPrepareInsertIntoTable(const GenDb::NewCf &cf);
@@ -205,7 +207,7 @@ class CqlIfImpl {
         CassConsistency consistency);
 
     bool CreateTableIfNotExistsSync(const GenDb::NewCf &cf,
-        CassConsistency consistency);
+        const std::string &compaction_strategy, CassConsistency consistency);
     bool LocatePrepareInsertIntoTable(const GenDb::NewCf &cf);
     bool IsTablePresent(const std::string &table);
     bool IsTableStatic(const std::string &table);
