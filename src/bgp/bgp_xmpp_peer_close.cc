@@ -7,6 +7,7 @@
 
 #include "base/task_annotations.h"
 #include "bgp/bgp_factory.h"
+#include "bgp/bgp_path.h"
 #include "bgp/bgp_xmpp_peer_close.h"
 #include "bgp/bgp_xmpp_rtarget_manager.h"
 #include "bgp/peer_close_manager.h"
@@ -26,6 +27,12 @@ BgpXmppPeerClose::~BgpXmppPeerClose() {
 
 PeerCloseManager *BgpXmppPeerClose::GetManager() const {
     return channel_->close_manager();
+}
+
+void BgpXmppPeerClose::UpdateRouteStats(Address::Family family,
+                                        const BgpPath *old_path,
+                                        uint32_t path_flags) const {
+    GetManager()->UpdateRouteStats(family, old_path, path_flags);
 }
 
 bool BgpXmppPeerClose::IsReady() const {

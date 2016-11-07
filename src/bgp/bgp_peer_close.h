@@ -12,6 +12,7 @@
 #include "bgp/ipeer.h"
 
 class BgpNeighborResp;
+class BgpPath;
 class BgpPeerInfoData;
 class PeerCloseManager;
 
@@ -41,6 +42,8 @@ class BgpPeerClose : public IPeerClose {
     virtual void CloseComplete();
     virtual void GetGracefulRestartFamilies(Families *families) const;
     virtual PeerCloseManager *GetManager() const;
+    virtual void UpdateRouteStats(Address::Family family,
+        const BgpPath *old_path, uint32_t path_flags) const;
 
     void AddGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param);
     void AddLLGRCapabilities(BgpProto::OpenMessage::OptParam *opt_param);

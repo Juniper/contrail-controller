@@ -299,6 +299,14 @@ public:
     virtual IPeerClose *peer_close() {
         return parent_->peer_close_.get();
     }
+    virtual IPeerClose *peer_close() const {
+        return parent_->peer_close_.get();
+    }
+
+    void UpdateCloseRouteStats(Address::Family family, const BgpPath *old_path,
+                               uint32_t path_flags) const {
+        peer_close()->UpdateRouteStats(family, old_path, path_flags);
+    }
 
     virtual IPeerDebugStats *peer_stats() {
         return parent_->peer_stats_.get();
