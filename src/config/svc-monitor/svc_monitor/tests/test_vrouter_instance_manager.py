@@ -8,14 +8,14 @@ import test_common_utils as test_utils
 
 class VRouterInstanceManagerTest(unittest.TestCase):
     def setUp(self):
-        VirtualMachineSM._cassandra = mock.MagicMock()
-        VirtualMachineSM._cassandra.object_read = test_utils.vm_db_read
-        VirtualRouterSM._cassandra = mock.MagicMock()
-        VirtualRouterSM._cassandra.object_read = test_utils.vr_db_read
-        VirtualMachineInterfaceSM._cassandra = mock.MagicMock()
-        VirtualMachineInterfaceSM._cassandra.object_read = test_utils.vmi_db_read
-        InstanceIpSM._cassandra = mock.MagicMock()
-        InstanceIpSM._cassandra.object_read = test_utils.iip_db_read
+        VirtualMachineSM._object_db = mock.MagicMock()
+        VirtualMachineSM._object_db.object_read = test_utils.vm_db_read
+        VirtualRouterSM._object_db = mock.MagicMock()
+        VirtualRouterSM._object_db.object_read = test_utils.vr_db_read
+        VirtualMachineInterfaceSM._object_db = mock.MagicMock()
+        VirtualMachineInterfaceSM._object_db.object_read = test_utils.vmi_db_read
+        InstanceIpSM._object_db = mock.MagicMock()
+        InstanceIpSM._object_db.object_read = test_utils.iip_db_read
 
         self.mocked_vnc = mock.MagicMock()
         self.mocked_vnc.fq_name_to_id = test_utils.get_vn_id_for_fq_name
@@ -38,12 +38,12 @@ class VRouterInstanceManagerTest(unittest.TestCase):
         ServiceTemplateSM.reset()
         ServiceInstanceSM.reset()
         InstanceIpSM.reset()
-        del InstanceIpSM._cassandra
+        del InstanceIpSM._object_db
         VirtualMachineInterfaceSM.reset()
-        del VirtualMachineInterfaceSM._cassandra
+        del VirtualMachineInterfaceSM._object_db
         VirtualMachineSM.reset()
-        del VirtualMachineSM._cassandra
-        del VirtualRouterSM._cassandra
+        del VirtualMachineSM._object_db
+        del VirtualRouterSM._object_db
 
     def test_vrouter_instance_create(self):
         test_utils.create_test_project('fake-domain:fake-project')

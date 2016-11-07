@@ -305,16 +305,16 @@ class DepTrackTester(unittest.TestCase):
         DBBase._OBJ_TYPE_MAP['green'] = GreenSM
         DBBase._OBJ_TYPE_MAP['white'] = WhiteSM
         DBBase._OBJ_TYPE_MAP['purple'] = PurpleSM
-        BlueSM._cassandra = mock.MagicMock()
-        BlueSM._cassandra.object_read = self.blue_read
-        RedSM._cassandra = mock.MagicMock()
-        RedSM._cassandra.object_read = self.red_read
-        GreenSM._cassandra = mock.MagicMock()
-        GreenSM._cassandra.object_read = self.green_read
-        WhiteSM._cassandra = mock.MagicMock()
-        WhiteSM._cassandra.object_read = self.white_read
-        PurpleSM._cassandra = mock.MagicMock()
-        PurpleSM._cassandra.object_read = self.purple_read
+        BlueSM._object_db = mock.MagicMock()
+        BlueSM._object_db.object_read = self.blue_read
+        RedSM._object_db = mock.MagicMock()
+        RedSM._object_db.object_read = self.red_read
+        GreenSM._object_db = mock.MagicMock()
+        GreenSM._object_db.object_read = self.green_read
+        WhiteSM._object_db = mock.MagicMock()
+        WhiteSM._object_db.object_read = self.white_read
+        PurpleSM._object_db = mock.MagicMock()
+        PurpleSM._object_db.object_read = self.purple_read
     # end setUp
 
     def tearDown(self):
@@ -362,9 +362,9 @@ class DepTrackTester(unittest.TestCase):
     # end fq_name_to_uuid
 
     def test_add_set_child(self):
-        RedSM._cassandra = mock.MagicMock()
-        RedSM._cassandra.object_read = self.red_read_with_child
-        RedSM._cassandra.fq_name_to_uuid = self.fq_name_to_uuid
+        RedSM._object_db = mock.MagicMock()
+        RedSM._object_db.object_read = self.red_read_with_child
+        RedSM._object_db.fq_name_to_uuid = self.fq_name_to_uuid
 
         RedSM.locate("fake-red-uuid")
         self.assertIsNotNone(RedSM.get("fake-red-uuid"))
@@ -388,8 +388,8 @@ class DepTrackTester(unittest.TestCase):
     # end test_add_set_child
 
     def test_add_with_refs(self):
-        GreenSM._cassandra.object_read = self.green_read_with_refs
-        BlueSM._cassandra.object_read = self.blue_read_with_refs
+        GreenSM._object_db.object_read = self.green_read_with_refs
+        BlueSM._object_db.object_read = self.blue_read_with_refs
         RedSM.locate("fake-red-uuid")
         BlueSM.locate("fake-blue-uuid")
         GreenSM.locate("fake-green-uuid")
@@ -416,8 +416,8 @@ class DepTrackTester(unittest.TestCase):
     # end test_add_with_refs
 
     def test_update_with_refs(self):
-        GreenSM._cassandra.object_read = self.green_read_with_refs
-        BlueSM._cassandra.object_read = self.blue_read_with_refs
+        GreenSM._object_db.object_read = self.green_read_with_refs
+        BlueSM._object_db.object_read = self.blue_read_with_refs
         RedSM.locate("fake-red-uuid")
         BlueSM.locate("fake-blue-uuid")
         GreenSM.locate("fake-green-uuid")
@@ -439,7 +439,7 @@ class DepTrackTester(unittest.TestCase):
         BlueSM.delete("fake-blue-uuid")
 
         BlueSM.locate("fake-blue-uuid-1")
-        GreenSM._cassandra.object_read = self.green_read_with_update_refs
+        GreenSM._object_db.object_read = self.green_read_with_update_refs
         green.update()
 
         green = GreenSM.get("fake-green-uuid")
@@ -448,8 +448,8 @@ class DepTrackTester(unittest.TestCase):
     # end test_update_with_refs
 
     def test_add_with_multi_refs(self):
-        GreenSM._cassandra.object_read = self.green_read_with_refs
-        BlueSM._cassandra.object_read = self.blue_read_with_multi_refs
+        GreenSM._object_db.object_read = self.green_read_with_refs
+        BlueSM._object_db.object_read = self.blue_read_with_multi_refs
         RedSM.locate("fake-red-uuid")
         BlueSM.locate("fake-blue-uuid")
         GreenSM.locate("fake-green-uuid-0")
@@ -482,8 +482,8 @@ class DepTrackTester(unittest.TestCase):
     # end test_add_with_multi_refs
 
     def test_update_with_multi_refs(self):
-        GreenSM._cassandra.object_read = self.green_read_with_refs
-        BlueSM._cassandra.object_read = self.blue_read_with_multi_refs
+        GreenSM._object_db.object_read = self.green_read_with_refs
+        BlueSM._object_db.object_read = self.blue_read_with_multi_refs
         RedSM.locate("fake-red-uuid")
         BlueSM.locate("fake-blue-uuid")
         GreenSM.locate("fake-green-uuid-0")
@@ -514,7 +514,7 @@ class DepTrackTester(unittest.TestCase):
 
         GreenSM.locate("fake-green-uuid-2")
         GreenSM.locate("fake-green-uuid-3")
-        BlueSM._cassandra.object_read = self.blue_read_with_new_refs
+        BlueSM._object_db.object_read = self.blue_read_with_new_refs
         blue.update()
 
         green_2 = GreenSM.get("fake-green-uuid-2")
@@ -538,8 +538,8 @@ class DepTrackTester(unittest.TestCase):
     # end test_update_with_mulit_refs
 
     def test_find(self):
-        GreenSM._cassandra.object_read = self.green_read
-        BlueSM._cassandra.object_read = self.blue_read
+        GreenSM._object_db.object_read = self.green_read
+        BlueSM._object_db.object_read = self.blue_read
         RedSM.locate("fake-red-uuid")
         BlueSM.locate("OK")
         GreenSM.locate("fake-green-uuid-0")
@@ -603,8 +603,8 @@ class DepTrackTester(unittest.TestCase):
                 'self': [],
             },
         }
-        GreenSM._cassandra.object_read = self.green_read_with_refs
-        BlueSM._cassandra.object_read = self.blue_read_with_multi_refs
+        GreenSM._object_db.object_read = self.green_read_with_refs
+        BlueSM._object_db.object_read = self.blue_read_with_multi_refs
         dependency_tracker = DependencyTracker(DBBase._OBJ_TYPE_MAP, reaction_map)
         red = RedSM.locate("fake-red-uuid")
         blue = BlueSM.locate("fake-blue-uuid")
@@ -636,8 +636,8 @@ class DepTrackTester(unittest.TestCase):
                 'self': [],
             },
         }
-        GreenSM._cassandra.object_read = self.green_read_with_refs
-        BlueSM._cassandra.object_read = self.blue_read_with_multi_refs
+        GreenSM._object_db.object_read = self.green_read_with_refs
+        BlueSM._object_db.object_read = self.blue_read_with_multi_refs
         dependency_tracker = DependencyTracker(DBBase._OBJ_TYPE_MAP, reaction_map)
         red = RedSM.locate("fake-red-uuid")
         blue = BlueSM.locate("fake-blue-uuid")
@@ -678,10 +678,10 @@ class DepTrackTester(unittest.TestCase):
                 'white': ['blue'],
             },
         }
-        GreenSM._cassandra.object_read = self.green_read_with_refs
-        WhiteSM._cassandra.object_read = self.white_read_with_refs
-        BlueSM._cassandra.object_read = self.purple_read_with_multi_refs
-        BlueSM._cassandra.object_read = self.blue_read_with_multi_refs
+        GreenSM._object_db.object_read = self.green_read_with_refs
+        WhiteSM._object_db.object_read = self.white_read_with_refs
+        BlueSM._object_db.object_read = self.purple_read_with_multi_refs
+        BlueSM._object_db.object_read = self.blue_read_with_multi_refs
         dependency_tracker = DependencyTracker(DBBase._OBJ_TYPE_MAP, reaction_map)
         red = RedSM.locate("fake-red-uuid")
         blue = BlueSM.locate("fake-blue-uuid")
@@ -730,10 +730,10 @@ class DepTrackTester(unittest.TestCase):
                 'white': ['blue'],
             },
         }
-        GreenSM._cassandra.object_read = self.green_read_with_refs
-        WhiteSM._cassandra.object_read = self.white_read_with_refs
-        BlueSM._cassandra.object_read = self.purple_read_with_multi_refs
-        BlueSM._cassandra.object_read = self.blue_read_with_multi_refs
+        GreenSM._object_db.object_read = self.green_read_with_refs
+        WhiteSM._object_db.object_read = self.white_read_with_refs
+        BlueSM._object_db.object_read = self.purple_read_with_multi_refs
+        BlueSM._object_db.object_read = self.blue_read_with_multi_refs
         dependency_tracker = DependencyTracker(DBBase._OBJ_TYPE_MAP, reaction_map)
         red = RedSM.locate("fake-red-uuid")
         blue = BlueSM.locate("fake-blue-uuid")
@@ -782,10 +782,10 @@ class DepTrackTester(unittest.TestCase):
                 'white': ['blue'],
             },
         }
-        GreenSM._cassandra.object_read = self.green_read_with_refs
-        WhiteSM._cassandra.object_read = self.white_read_with_refs
-        BlueSM._cassandra.object_read = self.purple_read_with_multi_refs
-        BlueSM._cassandra.object_read = self.blue_read_with_multi_refs
+        GreenSM._object_db.object_read = self.green_read_with_refs
+        WhiteSM._object_db.object_read = self.white_read_with_refs
+        BlueSM._object_db.object_read = self.purple_read_with_multi_refs
+        BlueSM._object_db.object_read = self.blue_read_with_multi_refs
         dependency_tracker = DependencyTracker(DBBase._OBJ_TYPE_MAP, reaction_map)
         red = RedSM.locate("fake-red-uuid")
         blue = BlueSM.locate("fake-blue-uuid")
@@ -835,10 +835,10 @@ class DepTrackTester(unittest.TestCase):
                 'white': ['blue'],
             },
         }
-        GreenSM._cassandra.object_read = self.green_read_with_refs
-        WhiteSM._cassandra.object_read = self.white_read_with_refs
-        BlueSM._cassandra.object_read = self.purple_read_with_multi_refs
-        BlueSM._cassandra.object_read = self.blue_read_with_multi_refs
+        GreenSM._object_db.object_read = self.green_read_with_refs
+        WhiteSM._object_db.object_read = self.white_read_with_refs
+        BlueSM._object_db.object_read = self.purple_read_with_multi_refs
+        BlueSM._object_db.object_read = self.blue_read_with_multi_refs
         dependency_tracker = DependencyTracker(DBBase._OBJ_TYPE_MAP, reaction_map)
         red = RedSM.locate("fake-red-uuid")
         blue = BlueSM.locate("fake-blue-uuid")
@@ -888,10 +888,10 @@ class DepTrackTester(unittest.TestCase):
                 'white': ['blue'],
             },
         }
-        GreenSM._cassandra.object_read = self.green_read_with_refs
-        WhiteSM._cassandra.object_read = self.white_read_with_refs
-        BlueSM._cassandra.object_read = self.purple_read_with_multi_refs
-        BlueSM._cassandra.object_read = self.blue_read_with_multi_refs
+        GreenSM._object_db.object_read = self.green_read_with_refs
+        WhiteSM._object_db.object_read = self.white_read_with_refs
+        BlueSM._object_db.object_read = self.purple_read_with_multi_refs
+        BlueSM._object_db.object_read = self.blue_read_with_multi_refs
         dependency_tracker = DependencyTracker(DBBase._OBJ_TYPE_MAP, reaction_map)
         red = RedSM.locate("fake-red-uuid")
         blue = BlueSM.locate("fake-blue-uuid")
@@ -942,10 +942,10 @@ class DepTrackTester(unittest.TestCase):
                 'white': ['blue'],
             },
         }
-        GreenSM._cassandra.object_read = self.green_read_with_refs
-        WhiteSM._cassandra.object_read = self.white_read_with_refs
-        BlueSM._cassandra.object_read = self.purple_read_with_multi_refs
-        BlueSM._cassandra.object_read = self.blue_read_with_multi_refs
+        GreenSM._object_db.object_read = self.green_read_with_refs
+        WhiteSM._object_db.object_read = self.white_read_with_refs
+        BlueSM._object_db.object_read = self.purple_read_with_multi_refs
+        BlueSM._object_db.object_read = self.blue_read_with_multi_refs
         dependency_tracker = DependencyTracker(DBBase._OBJ_TYPE_MAP, reaction_map)
         red = RedSM.locate("fake-red-uuid")
         blue = BlueSM.locate("fake-blue-uuid")
@@ -994,10 +994,10 @@ class DepTrackTester(unittest.TestCase):
                 'white': ['blue'],
             },
         }
-        GreenSM._cassandra.object_read = self.green_read_with_refs
-        WhiteSM._cassandra.object_read = self.white_read_with_refs
-        BlueSM._cassandra.object_read = self.purple_read_with_multi_refs
-        BlueSM._cassandra.object_read = self.blue_read_with_multi_refs
+        GreenSM._object_db.object_read = self.green_read_with_refs
+        WhiteSM._object_db.object_read = self.white_read_with_refs
+        BlueSM._object_db.object_read = self.purple_read_with_multi_refs
+        BlueSM._object_db.object_read = self.blue_read_with_multi_refs
         dependency_tracker = DependencyTracker(DBBase._OBJ_TYPE_MAP, reaction_map)
         red = RedSM.locate("fake-red-uuid")
         blue = BlueSM.locate("fake-blue-uuid")
@@ -1011,7 +1011,7 @@ class DepTrackTester(unittest.TestCase):
 
         GreenSM.locate("fake-green-uuid-2")
         GreenSM.locate("fake-green-uuid-3")
-        BlueSM._cassandra.object_read = self.blue_read_with_new_refs
+        BlueSM._object_db.object_read = self.blue_read_with_new_refs
         blue.update()
         dependency_tracker.resources = {}
         dependency_tracker.evaluate('red', red)
@@ -1055,10 +1055,10 @@ class DepTrackTester(unittest.TestCase):
                 'white': ['blue'],
             },
         }
-        GreenSM._cassandra.object_read = self.green_read_with_refs
-        WhiteSM._cassandra.object_read = self.white_read_with_refs
-        BlueSM._cassandra.object_read = self.purple_read_with_multi_refs
-        BlueSM._cassandra.object_read = self.blue_read_with_multi_refs
+        GreenSM._object_db.object_read = self.green_read_with_refs
+        WhiteSM._object_db.object_read = self.white_read_with_refs
+        BlueSM._object_db.object_read = self.purple_read_with_multi_refs
+        BlueSM._object_db.object_read = self.blue_read_with_multi_refs
         dependency_tracker = DependencyTracker(DBBase._OBJ_TYPE_MAP, reaction_map)
         red = RedSM.locate("fake-red-uuid")
         blue = BlueSM.locate("fake-blue-uuid")
@@ -1071,7 +1071,7 @@ class DepTrackTester(unittest.TestCase):
         GreenSM.delete("fake-green-uuid-1")
         GreenSM.locate("fake-green-uuid-2")
         GreenSM.locate("fake-green-uuid-3")
-        BlueSM._cassandra.object_read = self.blue_read_with_new_refs
+        BlueSM._object_db.object_read = self.blue_read_with_new_refs
         blue.update()
         dependency_tracker.resources = {}
         dependency_tracker.evaluate('blue', blue)
@@ -1112,10 +1112,10 @@ class DepTrackTester(unittest.TestCase):
                 'white': ['blue'],
             },
         }
-        GreenSM._cassandra.object_read = self.green_read_with_refs
-        WhiteSM._cassandra.object_read = self.white_read_with_refs
-        BlueSM._cassandra.object_read = self.purple_read_with_multi_refs
-        BlueSM._cassandra.object_read = self.blue_read_with_multi_refs
+        GreenSM._object_db.object_read = self.green_read_with_refs
+        WhiteSM._object_db.object_read = self.white_read_with_refs
+        BlueSM._object_db.object_read = self.purple_read_with_multi_refs
+        BlueSM._object_db.object_read = self.blue_read_with_multi_refs
         dependency_tracker = DependencyTracker(DBBase._OBJ_TYPE_MAP, reaction_map)
         red = RedSM.locate("fake-red-uuid")
         blue = BlueSM.locate("fake-blue-uuid")
@@ -1138,7 +1138,7 @@ class DepTrackTester(unittest.TestCase):
         GreenSM.delete("fake-green-uuid-1")
         GreenSM.locate("fake-green-uuid-2")
         GreenSM.locate("fake-green-uuid-3")
-        BlueSM._cassandra.object_read = self.blue_read_with_new_refs
+        BlueSM._object_db.object_read = self.blue_read_with_new_refs
         blue.update()
         dependency_tracker.resources = {}
         dependency_tracker.evaluate('blue', blue)

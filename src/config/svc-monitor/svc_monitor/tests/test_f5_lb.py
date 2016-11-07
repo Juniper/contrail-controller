@@ -11,7 +11,7 @@ import ConfigParser
 class F5LBTest(unittest.TestCase):
     def setUp(self):
         self.vnc_lib = mock.Mock()
-        self.cassandra = mock.Mock()
+        self.object_db = mock.Mock()
         self.logger = mock.Mock()
         self.svc = mock.Mock()
 
@@ -46,9 +46,9 @@ class F5LBTest(unittest.TestCase):
                 return
             if self._db[id][data[0]]:
                 del self._db[id][data[0]]
-        self.cassandra.pool_driver_info_get = mock.Mock(side_effect=read_db)
-        self.cassandra.pool_driver_info_insert = mock.Mock(side_effect=put_db)
-        self.cassandra.pool_remove = mock.Mock(side_effect=remove_db)
+        self.object_db.pool_driver_info_get = mock.Mock(side_effect=read_db)
+        self.object_db.pool_driver_info_insert = mock.Mock(side_effect=put_db)
+        self.object_db.pool_remove = mock.Mock(side_effect=remove_db)
 
         conf_parser = argparse.ArgumentParser(add_help=False)
         config = ConfigParser.SafeConfigParser({'admin_token': None})
@@ -63,8 +63,8 @@ class F5LBTest(unittest.TestCase):
 .drivers.ha_proxy.driver.OpencontrailLoadbalancerDriver'
                    }])
             return (False, None)
-        DBBase.init(self.svc, None, self.cassandra)
-        config_db.ServiceApplianceSetSM._cassandra.object_read = \
+        DBBase.init(self.svc, None, self.object_db)
+        config_db.ServiceApplianceSetSM._object_db.object_read = \
                          mock.Mock(side_effect=sas_read_side_effect)
 
         # return NoIdError exception for first query
@@ -73,16 +73,16 @@ class F5LBTest(unittest.TestCase):
         self.vnc_lib.service_appliance_set_read = \
             mock.Mock(side_effect=no_id_side_effect)
 
-        self.lb_agent = loadbalancer_agent.LoadbalancerAgent(self.svc, 
-            self.vnc_lib, self.cassandra, self._args)
+        self.lb_agent = loadbalancer_agent.LoadbalancerAgent(self.svc,
+            self.vnc_lib, self.object_db, self._args)
         self.svc.loadbalancer_agent = self.lb_agent
         sas = config_db.ServiceApplianceSetSM.get('opencontrail')
         self.assertEqual(sas.driver,
 "svc_monitor.services.loadbalancer.drivers.ha_proxy.driver.\
 OpencontrailLoadbalancerDriver")
         sas.add()
-        DBBase.init(self.svc, None, self.cassandra)
-        config_db.ServiceApplianceSetSM._cassandra.object_read = \
+        DBBase.init(self.svc, None, self.object_db)
+        config_db.ServiceApplianceSetSM._object_db.object_read = \
                          mock.Mock(side_effect=sas_read_side_effect)
 
         import sys
@@ -114,7 +114,7 @@ OpencontrailLoadbalancerDriver")
         sa_obj['display_name'] = 'bigip'
         sa_obj['parent_uuid'] = 'f5-sas'
         sa_obj['service_appliance_ip_address'] = "1.1.1.1"
-        sa_obj['service_appliance_user_credentials'] = {'username': "admin", 
+        sa_obj['service_appliance_user_credentials'] = {'username': "admin",
                                                       'password': "contrail123"}
         sa = config_db.ServiceApplianceSM.locate(sa_obj['uuid'], sa_obj)
 
@@ -401,15 +401,15 @@ OpencontrailLoadbalancerDriver")
         pool.add()
 
         self._mock_BigIp.return_value.monitor.create.assert_called_with(
-          folder='tenant', interval='5', mon_type='HTTP', name='test-hm', 
+          folder='tenant', interval='5', mon_type='HTTP', name='test-hm',
           recv_text=None, send_text=None, timeout=400)
         self._mock_BigIp.return_value.pool.add_monitor.assert_called_with(
           folder='tenant', monitor_name='test-hm', name='test-lb-pool')
         self._mock_BigIp.return_value.monitor.set_send_string.assert_called_with(
-          folder='tenant', mon_type='HTTP', name='test-hm', 
+          folder='tenant', mon_type='HTTP', name='test-hm',
           send_text='GET / HTTP/1.0\\r\\n\\r\\n')
         self._mock_BigIp.return_value.monitor.set_recv_string.assert_called_with(
-          folder='tenant', mon_type='HTTP', name='test-hm', 
+          folder='tenant', mon_type='HTTP', name='test-hm',
           recv_text='HTTP/1\\.(0|1) 200')
         self.assertEqual(len(self._db), 1)
         self.assertTrue('test-lb-pool' in self._db)
@@ -433,7 +433,7 @@ OpencontrailLoadbalancerDriver")
                "default-domain:admin:test-lb-pool", project, vip)
         self.create_pool_members("test-lb-pool", 2)
         pool.add()
-        
+
         self._mock_BigIp.reset_mock()
         pool.id_perms['description'] = 'updated'
         pool.add()
@@ -505,11 +505,11 @@ OpencontrailLoadbalancerDriver")
                "default-domain:admin:test-lb-pool", project, vip)
         self.create_pool_members("test-lb-pool", 2)
         pool.add()
-        
+
         self._mock_BigIp.reset_mock()
         self.create_pool_members("test-lb-pool", 3)
         pool.add()
-        # Ensure that only the new member is added 
+        # Ensure that only the new member is added
         self._mock_BigIp.return_value.pool.add_member.assert_called_with(
             folder='tenant', ip_address='10.1.1.2%0', name='test-lb-pool',
             no_checks=True, port=80)
@@ -533,7 +533,7 @@ OpencontrailLoadbalancerDriver")
                 name='test-lb-pool', port=80)]
         call_list = self._mock_BigIp.return_value.pool.remove_member.call_args_list
         self.assertEqual(call_list, expected_calls_to_remove_member)
-        
+
         # Cleanup
         config_db.LoadbalancerMemberSM.delete('member_0')
         config_db.VirtualIpSM.delete('vip')
@@ -547,7 +547,7 @@ OpencontrailLoadbalancerDriver")
                "default-domain:admin:test-lb-pool", project, vip)
         self.create_pool_members("test-lb-pool", 2)
         pool.add()
-        
+
         # Validate member ratio update
         self._mock_BigIp.reset_mock()
         member = config_db.LoadbalancerMemberSM.get('member_0')
@@ -589,7 +589,7 @@ OpencontrailLoadbalancerDriver")
             self.create_pool_member("test-lb-pool", 'member_'+str(i),
                                     '10.1.1.'+str(i))
         pool.add()
-        
+
         self._mock_BigIp.reset_mock()
         # Existing member 1,2
         # New member 3
@@ -643,24 +643,24 @@ OpencontrailLoadbalancerDriver")
         member_0 = config_db.LoadbalancerMemberSM.get('member_0')
         member_0.params['protocol_port'] = '23'
         pool.add()
-        
+
         # Validate calls with correct port
         self._mock_BigIp.return_value.pool.create.assert_called_with(
-            description='test-lb-pool:Test pool', folder='tenant', 
+            description='test-lb-pool:Test pool', folder='tenant',
             lb_method='SOURCE_IP', name='test-lb-pool')
         self._mock_BigIp.return_value.pool.add_member.assert_called_with(
-            folder='tenant', ip_address='10.1.1.0%0', name='test-lb-pool', 
+            folder='tenant', ip_address='10.1.1.0%0', name='test-lb-pool',
             no_checks=True, port=23)
         self._mock_BigIp.return_value.pool.enable_member.assert_called_with(
-            folder='tenant', ip_address='10.1.1.0%0', name='test-lb-pool', 
+            folder='tenant', ip_address='10.1.1.0%0', name='test-lb-pool',
             no_checks=True, port=23)
         self._mock_BigIp.return_value.pool.set_member_ratio.assert_called_with(
-            folder='tenant', ip_address='10.1.1.0%0', name='test-lb-pool', 
+            folder='tenant', ip_address='10.1.1.0%0', name='test-lb-pool',
             no_checks=True, port=23, ratio=1)
         self._mock_BigIp.return_value.virtual_server.create.assert_called_with(
-            folder='tenant', ip_address='1.1.1.1%0', mask='255.255.255.255', 
-            name='vip', port=22, preserve_vlan_name=True, protocol='FTP', 
-            snat_pool=None, traffic_group='/Common/traffic-group-1', use_snat=True, 
+            folder='tenant', ip_address='1.1.1.1%0', mask='255.255.255.255',
+            name='vip', port=22, preserve_vlan_name=True, protocol='FTP',
+            snat_pool=None, traffic_group='/Common/traffic-group-1', use_snat=True,
             vlan_name='access')
         self._mock_BigIp.return_value.virtual_server.set_description.assert_called_with(
             description='vip:Test pool', folder='tenant', name='vip')
@@ -698,7 +698,7 @@ OpencontrailLoadbalancerDriver")
                "default-domain:admin:test-lb-pool", project, vip)
         self.create_pool_members("test-lb-pool", 2)
         pool.add()
-        
+
         # Validate vip update
         self._mock_BigIp.reset_mock()
         vip.id_perms['description'] = "New Description"
@@ -768,7 +768,7 @@ OpencontrailLoadbalancerDriver")
         self._mock_BigIp.return_value.virtual_server.set_fallback_persist_profile.assert_called_with(
             folder='tenant', name='vip', profile_name='/Common/source_addr')
 
-        # Test with persistence_type = APP_COOKIE, lb_method = SOURCE_IP, 
+        # Test with persistence_type = APP_COOKIE, lb_method = SOURCE_IP,
         # persistence_cookie_name = 'DumpKookie'
         self._mock_BigIp.reset_mock()
         vip.params['persistence_cookie_name'] = 'DumpKookie'
@@ -776,7 +776,7 @@ OpencontrailLoadbalancerDriver")
         self._mock_BigIp.return_value.virtual_server.add_profile.assert_called_with(
             folder='tenant', name='vip', profile_name='/Common/http')
         self._mock_BigIp.return_value.rule.create.assert_called_with(
-            folder='tenant', name='app_cookie_vip', 
+            folder='tenant', name='app_cookie_vip',
             rule_definition='when HTTP_REQUEST {\n if { [HTTP::cookie DumpKookie] ne "" }{\n     persist uie [string tolower [HTTP::cookie "DumpKookie"]] 3600\n }\n}\n\nwhen HTTP_RESPONSE {\n if { [HTTP::cookie "DumpKookie"] ne "" }{\n     persist add uie [string tolower [HTTP::cookie "DumpKookie"]] 3600\n }\n}\n\n')
         self._mock_BigIp.return_value.virtual_server.create_uie_profile.assert_called_with(
             folder='tenant', name='app_cookie_vip', rule_name='app_cookie_vip')
@@ -812,10 +812,10 @@ OpencontrailLoadbalancerDriver")
         self._mock_BigIp.return_value.monitor.set_timeout.assert_called_with(
             folder='tenant', mon_type='HTTP', name='test-hm', timeout=200)
         self._mock_BigIp.return_value.monitor.set_send_string.assert_called_with(
-          folder='tenant', mon_type='HTTP', name='test-hm', 
+          folder='tenant', mon_type='HTTP', name='test-hm',
           send_text='GET / HTTP/1.0\\r\\n\\r\\n')
         self._mock_BigIp.return_value.monitor.set_recv_string.assert_called_with(
-          folder='tenant', mon_type='HTTP', name='test-hm', 
+          folder='tenant', mon_type='HTTP', name='test-hm',
           recv_text='HTTP/1\\.(0|1) 200')
 
         self._mock_BigIp.reset_mock()
@@ -827,10 +827,10 @@ OpencontrailLoadbalancerDriver")
         self._mock_BigIp.return_value.monitor.set_timeout.assert_called_with(
             folder='tenant', mon_type='HTTP', name='test-hm', timeout=200)
         self._mock_BigIp.return_value.monitor.set_send_string.assert_called_with(
-          folder='tenant', mon_type='HTTP', name='test-hm', 
+          folder='tenant', mon_type='HTTP', name='test-hm',
           send_text='GET / HTTP/1.0\\r\\n\\r\\n')
         self._mock_BigIp.return_value.monitor.set_recv_string.assert_called_with(
-          folder='tenant', mon_type='HTTP', name='test-hm', 
+          folder='tenant', mon_type='HTTP', name='test-hm',
           recv_text='HTTP/1\\.(0|1) 200')
 
         self._mock_BigIp.reset_mock()
@@ -842,10 +842,10 @@ OpencontrailLoadbalancerDriver")
         self._mock_BigIp.return_value.monitor.set_timeout.assert_called_with(
             folder='tenant', mon_type='HTTP', name='test-hm', timeout=200)
         self._mock_BigIp.return_value.monitor.set_send_string.assert_called_with(
-          folder='tenant', mon_type='HTTP', name='test-hm', 
+          folder='tenant', mon_type='HTTP', name='test-hm',
           send_text='GET / HTTP/1.0\\r\\n\\r\\n')
         self._mock_BigIp.return_value.monitor.set_recv_string.assert_called_with(
-          folder='tenant', mon_type='HTTP', name='test-hm', 
+          folder='tenant', mon_type='HTTP', name='test-hm',
           recv_text='HTTP/1\\.(0|1) 401')
 
         self._mock_BigIp.reset_mock()
@@ -857,10 +857,10 @@ OpencontrailLoadbalancerDriver")
         self._mock_BigIp.return_value.monitor.set_timeout.assert_called_with(
             folder='tenant', mon_type='HTTP', name='test-hm', timeout=1000)
         self._mock_BigIp.return_value.monitor.set_send_string.assert_called_with(
-          folder='tenant', mon_type='HTTP', name='test-hm', 
+          folder='tenant', mon_type='HTTP', name='test-hm',
           send_text='GET / HTTP/1.0\\r\\n\\r\\n')
         self._mock_BigIp.return_value.monitor.set_recv_string.assert_called_with(
-          folder='tenant', mon_type='HTTP', name='test-hm', 
+          folder='tenant', mon_type='HTTP', name='test-hm',
           recv_text='HTTP/1\\.(0|1) 401')
 
         self._mock_BigIp.reset_mock()
@@ -872,10 +872,10 @@ OpencontrailLoadbalancerDriver")
         self._mock_BigIp.return_value.monitor.set_timeout.assert_called_with(
             folder='tenant', mon_type='HTTP', name='test-hm', timeout=1000)
         self._mock_BigIp.return_value.monitor.set_send_string.assert_called_with(
-          folder='tenant', mon_type='HTTP', name='test-hm', 
+          folder='tenant', mon_type='HTTP', name='test-hm',
           send_text='GET /status-check HTTP/1.0\\r\\n\\r\\n')
         self._mock_BigIp.return_value.monitor.set_recv_string.assert_called_with(
-          folder='tenant', mon_type='HTTP', name='test-hm', 
+          folder='tenant', mon_type='HTTP', name='test-hm',
           recv_text='HTTP/1\\.(0|1) 401')
 
         self._mock_BigIp.reset_mock()
@@ -911,9 +911,9 @@ OpencontrailLoadbalancerDriver")
         self.assertEqual(len(self._db), 2)
         self.assertEqual(len(self.lb_agent._loadbalancer_driver['f5'].project_list), 1)
         self.assertEqual(len(self.lb_agent._loadbalancer_driver['f5'].project_list['tenant']), 2)
-        self.assertEqual(self.lb_agent._loadbalancer_driver['f5'].project_list['tenant'], 
+        self.assertEqual(self.lb_agent._loadbalancer_driver['f5'].project_list['tenant'],
             set(['test-lb-pool', 'test-lb-pool_1']))
-        
+
         # Cleanup
         config_db.VirtualIpSM.delete('vip')
         config_db.LoadbalancerPoolSM.delete('test-lb-pool')
@@ -923,9 +923,9 @@ OpencontrailLoadbalancerDriver")
         self.assertEqual(len(self._db), 1)
         self.assertEqual(len(self.lb_agent._loadbalancer_driver['f5'].project_list), 1)
         self.assertEqual(len(self.lb_agent._loadbalancer_driver['f5'].project_list['tenant']), 1)
-        self.assertEqual(self.lb_agent._loadbalancer_driver['f5'].project_list['tenant'], 
+        self.assertEqual(self.lb_agent._loadbalancer_driver['f5'].project_list['tenant'],
             set(['test-lb-pool_1']))
- 
+
         # Cleanup
         config_db.VirtualIpSM.delete('vip_1')
         config_db.LoadbalancerPoolSM.delete('test-lb-pool_1')

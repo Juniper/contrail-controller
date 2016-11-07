@@ -7,9 +7,9 @@
 Kube network manager DB
 """
 
-from cfgm_common.vnc_cassandra import VncCassandraClient
+from cfgm_common.vnc_object_db import VncObjectDBClientnt
 
-class KubeNetworkManagerDB(VncCassandraClient):
+class KubeNetworkManagerDB(VncObjectDBClient):
 
     def __init__(self, args, logger):
         self._db_logger = logger
