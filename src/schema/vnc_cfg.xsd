@@ -788,6 +788,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              description='Maximum number of loadbalancer health monitors'/>
 	<xsd:element name="virtual-ip" type="xsd:integer" required='optional'
              description='Maximum number of virtual ips'/>
+        <xsd:element name="security-logging-object" type="xsd:integer" required='optional'
+             description='Maximum number of security logging objects'/>
     </xsd:all>
 </xsd:complexType>
 
@@ -937,6 +939,67 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('global-system-config-bgp-router', 
              'global-system-config', 'bgp-router', ['ref'], 'required', 'R',
              'List of references to all bgp routers in systems.') -->
+
+<xsd:element name="security-logging-object" type="ifmap:IdentityType"/>
+
+<xsd:complexType name="SecurityLoggingObjectRuleEntryType">
+    <xsd:element name="rule-uuid"    type="xsd:string" required='optional'
+         description='Rule UUID of network policy. Can have *'/>
+    <xsd:element name="rate" type="xsd:integer" required='optional'/>
+</xsd:complexType>
+
+<xsd:complexType name="SecurityLoggingObjectRuleObjectType">
+    <xsd:element name="rule" type="SecurityLoggingObjectRuleEntryType" maxOccurs="unbounded" required='optional'
+         description='List of rules along with logging rate for each rule'/>
+</xsd:complexType>
+
+<xsd:complexType name="SecurityLoggingObjectType">
+    <xsd:element name="security-logging-object-rules"
+        type="SecurityLoggingObjectRuleObjectType" maxOccurs="unbounded"
+        description='Derived rules based on link of security-logging-object with SG and policy'/>
+    <xsd:element name="rate" type="xsd:integer" required='optional'/>
+</xsd:complexType>
+
+<xsd:element name="security-logging-object-properties" type="SecurityLoggingObjectType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('security-logging-object-properties', 'security-logging-object', 'optional', 'CRUD',
+              'Security logging object configurations.') -->
+
+<xsd:element name="global-vrouter-config-security-logging-object"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('global-vrouter-config-logging-object',
+          'global-vrouter-config', 'security-logging-object', ['ref'], 'optional', 'CRUD',
+          'Reference to security logging object for global-vrouter-config.') -->
+
+<xsd:element name="virtual-network-security-logging-object"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('virtual-network-security-logging-object',
+          'virtual-network', 'security-logging-object', ['ref'], 'optional', 'CRUD',
+          'Reference to security logging object for this virtual network.') -->
+
+<xsd:element name="virtual-machine-interface-security-logging-object"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('virtual-machine-interface-security-logging-object',
+          'virtual-machine-interface', 'security-logging-object', ['ref'], 'optional', 'CRUD',
+          'Reference to security logging object for this virtual machine interface') -->
+
+<xsd:element name="project-security-logging-object"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('project-security-logging-object',
+          'project', 'security-logging-object', ['has'], 'optional', 'CRUD',
+          'Security logging object configuration for specifying session logging criteria') -->
+
+<xsd:element name="security-logging-object-network-policy" type="SecurityLoggingObjectRuleObjectType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('security-logging-object-network-policy',
+          'security-logging-object', 'network-policy', ['ref'], 'optional', 'CRUD',
+          'Reference to network-policy attached to this security-logging-object') -->
+
+<xsd:element name="security-logging-object-security-group" type="SecurityLoggingObjectRuleObjectType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('security-logging-object-security-group',
+          'security-logging-object', 'security-group', ['ref'], 'optional', 'CRUD',
+          'Reference to security-group attached to this security-logging-object') -->
 
 <!-- Ecmp load balance parameters to be used -->
 <xsd:complexType name="EcmpHashingIncludeFields">
