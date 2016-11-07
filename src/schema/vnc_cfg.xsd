@@ -788,6 +788,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              description='Maximum number of loadbalancer health monitors'/>
 	<xsd:element name="virtual-ip" type="xsd:integer" required='optional'
              description='Maximum number of virtual ips'/>
+        <xsd:element name="security-logging-object" type="xsd:integer" required='optional'
+             description='Maximum number of security logging objects'/>
     </xsd:all>
 </xsd:complexType>
 
@@ -938,6 +940,51 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              'global-system-config', 'bgp-router', ['ref'], 'required', 'R',
              'List of references to all bgp routers in systems.') -->
 
+<xsd:complexType name="SecurityLoggingObjectPolicyEntryType">
+    <xsd:element name="network-policy-name"  type="xsd:string" required='true'
+         description='Network policy name'/>
+    <xsd:element name="rule-uuid"    type="xsd:string" required='true'
+         description='Rule UUID of network policy. Can have *'/>
+    <xsd:element name="rate" type="xsd:integer" required='optional'/>
+</xsd:complexType>
+
+<xsd:complexType name="SecurityLoggingObjectSgEntryType">
+    <xsd:element name="security-group-id"  type="xsd:integer" required='true'
+         description='Security Group ID'/>
+    <xsd:element name="rule-uuid"    type="xsd:string" required='true'
+         description='Rule UUID of security group. Can have *'/>
+    <xsd:element name="rate" type="xsd:integer" required='optional'/>
+</xsd:complexType>
+
+<xsd:complexType name="SecurityLoggingObjectType">
+    <xsd:element name="security-logging-object-sg-entry"
+        type="SecurityLoggingObjectSgEntryType" maxOccurs="unbounded"/>
+    <xsd:element name="security-logging-object-policy-entry"
+        type="SecurityLoggingObjectPolicyEntryType" maxOccurs="unbounded"/>
+    <xsd:element name="rate" type="xsd:integer" required='optional'/>
+    <xsd:element name="enable" type="xsd:boolean" default='true'
+        description='Administratively Enable/Disable this object'/>
+</xsd:complexType>
+<xsd:element name="security-logging-object" type="SecurityLoggingObjectType"/>
+
+<xsd:element name="virtual-network-security-logging-object"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('virtual-network-security-logging-object',
+          'virtual-network', 'security-logging-object', ['ref'], 'optional', 'CRUD',
+          'Reference to security logging object for this virtual network.') -->
+
+<xsd:element name="virtual-machine-interface-security-logging-object"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('virtual-machine-interface-security-logging-object',
+          'virtual-machine-interface', 'security-logging-object', ['ref'], 'optional', 'CRUD',
+          'Reference to security logging object for this virtual machine interface') -->
+
+<xsd:element name="project-security-logging-object"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('project-security-logging-object',
+          'project', 'security-logging-object', ['has'], 'optional', 'CRUD',
+          'Security logging object configuration for specifying session logging criteria') -->
+
 <!-- Ecmp load balance parameters to be used -->
 <xsd:complexType name="EcmpHashingIncludeFields">
     <xsd:all>
@@ -1006,6 +1053,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('flow-export-rate', 'global-vrouter-config', 'optional', 'CRUD', 
               'Flow export rate is global config, rate at which each vrouter will sample and export flow records to analytics') -->
+
+<!--#IFMAP-SEMANTICS-IDL
+     Property('security-logging-object', 'global-vrouter-config', 'optional', 'CRUD',
+              'Global security logging object for logging of flow records to analytics') -->
 
 <xsd:element name="flow-aging-timeout-list" type="FlowAgingTimeoutList"/>
 <!--#IFMAP-SEMANTICS-IDL
