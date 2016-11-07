@@ -387,8 +387,8 @@ struct IdleError {
 //
 struct Idle : sc::state<Idle, StateMachine> {
     typedef mpl::list<
+        IdleCease<EvStop>::reaction,
         sc::custom_reaction<EvStart>,
-        sc::custom_reaction<EvStop>,
         sc::custom_reaction<EvIdleHoldTimerExpired>,
         sc::custom_reaction<EvTcpPassiveOpen>
     > reactions;
@@ -425,14 +425,6 @@ struct Idle : sc::state<Idle, StateMachine> {
         } else {
             return transit<Active>();
         }
-        return discard_event();
-    }
-
-    // Stop idle hold timer and stay in Idle.
-    sc::result react(const EvStop &event) {
-        StateMachine *state_machine = &context<StateMachine>();
-        state_machine->CancelIdleHoldTimer();
-        state_machine->peer()->Close(false);
         return discard_event();
     }
 
@@ -1757,6 +1749,8 @@ void StateMachine::set_last_notification_in(int code, int subcode,
 }
 
 void StateMachine::set_state(State state) {
+    if (state == state_)
+        return;
     last_state_ = state_; state_ = state;
     last_state_change_at_ = UTCTimestampUsec();
 
