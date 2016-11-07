@@ -145,7 +145,8 @@ class Collector(object):
             '--DEFAULT.ipfix_port', str(self.ipfix_port),
             '--DEFAULT.sflow_port', str(self.sflow_port),
             '--DEFAULT.log_level', 'SYS_DEBUG',
-            '--DEFAULT.log_file', self._log_file]
+            '--DEFAULT.log_file', self._log_file,
+            '--DATABASE.enable_message_keyword_writes']
         if self.redis_password:
             args.append('--REDIS.password')
             args.append(self.redis_password)

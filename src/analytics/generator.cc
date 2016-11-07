@@ -101,7 +101,6 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
         process_rules_cb_(
             boost::bind(&SandeshGenerator::ProcessRulesCb, this, _1)),
         sm_back_pressure_timer_(NULL) {
-
         //Use collector db_handler
         db_handler_ = global_db_handler;
         disconnected_ = false;
