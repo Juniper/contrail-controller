@@ -178,6 +178,15 @@ void Options::Initialize(EventManager &evm,
         ("DEFAULT.disable_flow_collection",
             opt::bool_switch(&disable_flow_collection_),
             "Disable flow message collection")
+        ("DATABASE.disable_writes",
+            opt::bool_switch(&disable_db_writes_),
+            "Disable all writes to the database")
+        ("DATABASE.disable_statistics_writes",
+            opt::bool_switch(&disable_db_stats_writes_),
+            "Disable statistics writes to the database")
+        ("DATABASE.disable_message_writes",
+            opt::bool_switch(&disable_db_messages_writes_),
+            "Disable message writes to the database")
 
         ("DISCOVERY.port", opt::value<uint16_t>()->default_value(
                                                        default_discovery_port),

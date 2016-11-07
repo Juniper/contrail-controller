@@ -594,9 +594,8 @@ void Collector::GetSmQueueWaterMarkInfo(
 }
 
 
-static void SendQueueParamsError(std::string estr, const std::string &context) {
-    // SandeshGenerator is required, send error
-    QueueParamsError *eresp(new QueueParamsError);
+void SendCollectorError(std::string estr, const std::string &context) {
+    CollectorError *eresp(new CollectorError);
     eresp->set_context(context);
     eresp->set_error(estr);
     eresp->Response();
@@ -607,7 +606,7 @@ static Collector* ExtractCollectorFromRequest(SandeshContext *vscontext,
     VizSandeshContext *vsc = 
             dynamic_cast<VizSandeshContext *>(vscontext);
     if (!vsc) {
-        SendQueueParamsError("Sandesh client context NOT PRESENT",
+        SendCollectorError("Sandesh client context NOT PRESENT",
             context);
         return NULL;
     }
@@ -636,7 +635,7 @@ static void SendQueueParamsResponse(Collector::QueueType::type type,
 
 void DbQueueParamsSet::HandleRequest() const {
     if (!(__isset.high && __isset.drop_level && __isset.queue_count)) {
-        SendQueueParamsError("Please specify all parameters", context());
+        SendCollectorError("Please specify all parameters", context());
         return;
     }
     Collector *collector = ExtractCollectorFromRequest(client_context(),
@@ -652,7 +651,7 @@ void DbQueueParamsSet::HandleRequest() const {
 
 void SmQueueParamsSet::HandleRequest() const {
     if (!(__isset.high && __isset.drop_level && __isset.queue_count)) {
-        SendQueueParamsError("Please specify all parameters", context());
+        SendCollectorError("Please specify all parameters", context());
         return;
     }
     Collector *collector = ExtractCollectorFromRequest(client_context(),

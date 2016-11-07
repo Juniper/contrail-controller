@@ -42,7 +42,8 @@ public:
             const std::string& cassandra_password,
             bool use_cql,
             const std::string &zookeeper_server_list,
-            bool use_zookeeper);
+            bool use_zookeeper, bool disable_db_writes,
+            bool disable_db_stats_writes, bool disable_db_messages_writes);
     VizCollector(EventManager *evm, DbHandlerPtr db_handler,
                  Ruleeng *ruleeng,
                  Collector *collector, OpServerProxy *osp);

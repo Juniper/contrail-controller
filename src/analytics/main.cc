@@ -372,7 +372,9 @@ int main(int argc, char *argv[])
             options.cassandra_password(),
             use_cql,
             zookeeper_server_list,
-            use_zookeeper);
+            use_zookeeper, options.disable_db_writes(),
+            options.disable_db_statistics_writes(),
+            options.disable_db_messages_writes());
 
 #if 0
     // initialize python/c++ API

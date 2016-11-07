@@ -67,6 +67,9 @@ public:
     const bool test_mode() const { return test_mode_; }
     const uint32_t sandesh_send_rate_limit() const { return sandesh_ratelimit_; }
     const bool disable_flow_collection() const { return disable_flow_collection_; }
+    const bool disable_db_writes() const { return disable_db_writes_; }
+    const bool disable_db_statistics_writes() const { return disable_db_stats_writes_; }
+    const bool disable_db_messages_writes() const { return disable_db_messages_writes_; }
 
 private:
     template <typename ValueType>
@@ -135,6 +138,9 @@ private:
     uint16_t partitions_;
     uint32_t sandesh_ratelimit_;
     bool disable_flow_collection_;
+    bool disable_db_writes_;
+    bool disable_db_stats_writes_;
+    bool disable_db_messages_writes_;
 
     boost::program_options::options_description config_file_options_;
 };

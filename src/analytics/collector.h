@@ -212,4 +212,6 @@ private:
     SandeshGenerator *gen_;
 };
 
+void SendCollectorError(std::string estr, const std::string &context);
+
 #endif /* COLLECTOR_H_ */
