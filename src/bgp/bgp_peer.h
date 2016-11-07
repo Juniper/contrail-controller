@@ -221,6 +221,9 @@ public:
     void Clear(int subcode);
 
     virtual IPeerClose *peer_close();
+    virtual IPeerClose *peer_close() const;
+    virtual void UpdateCloseRouteStats(Address::Family family,
+        const BgpPath *old_path, uint32_t path_flags) const;
     virtual IPeerDebugStats *peer_stats();
     virtual const IPeerDebugStats *peer_stats() const;
     void ManagedDelete();

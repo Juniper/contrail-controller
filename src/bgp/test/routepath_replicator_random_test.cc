@@ -78,6 +78,10 @@ public:
     virtual IPeerClose *peer_close() {
         return NULL;
     }
+    virtual IPeerClose *peer_close() const { return NULL; }
+    virtual void UpdateCloseRouteStats(Address::Family family,
+        const BgpPath *old_path, uint32_t path_flags) const {
+    }
     virtual IPeerDebugStats *peer_stats() {
         return NULL;
     }

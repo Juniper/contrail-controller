@@ -18,6 +18,7 @@ class BgpMembershipManager;
 class BgpNeighborResp;
 class BgpRoute;
 class BgpTable;
+class PeerCloseInfo;
 
 // PeerCloseManager
 //
@@ -64,6 +65,8 @@ public:
     void FillCloseInfo(BgpNeighborResp *resp) const;
     bool MembershipPathCallback(DBTablePartBase *root, BgpRoute *rt,
                                 BgpPath *path);
+    void UpdateRouteStats(Address::Family family, const BgpPath *old_path,
+                          uint32_t path_flags) const;
 
 private:
     friend class PeerCloseTest;
@@ -122,6 +125,33 @@ private:
     struct Stats {
         Stats() { memset(this, 0, sizeof(Stats)); }
 
+        struct RouteStats {
+            RouteStats() { reset(); }
+            bool IsSet() const {
+                return staled || llgr_staled || refreshed || fresh || deleted;
+            }
+
+            void reset() {
+                staled = 0;
+                llgr_staled = 0;
+                refreshed = 0;
+                fresh = 0;
+                deleted = 0;
+            }
+
+            tbb::atomic<uint64_t> staled;
+            tbb::atomic<uint64_t> llgr_staled;
+            tbb::atomic<uint64_t> refreshed;
+            tbb::atomic<uint64_t> fresh;
+            tbb::atomic<uint64_t> deleted;
+        };
+
+        void ResetRouteStats() {
+            for (size_t i = 0; i < Address::NUM_FAMILIES; i++) {
+                route_stats[i].reset();
+            }
+        }
+
         uint64_t init;
         uint64_t close;
         uint64_t nested;
@@ -131,6 +161,7 @@ private:
         uint64_t sweep;
         uint64_t gr_timer;
         uint64_t llgr_timer;
+        mutable RouteStats route_stats[Address::NUM_FAMILIES];
     };
 
     State state() const { return state_; }
@@ -145,6 +176,7 @@ private:
     void TriggerSweepStateActions();
     std::string GetStateName(State state) const;
     std::string GetMembershipStateName(MembershipState state) const;
+    void FillRouteCloseInfo(PeerCloseInfo *close_info) const;
     void CloseInternal();
     void MembershipRequest(Event *event);
     bool MembershipRequestCallback(Event *event);

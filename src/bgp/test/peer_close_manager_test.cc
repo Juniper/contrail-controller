@@ -46,6 +46,9 @@ public:
     virtual bool IsReady() const { return is_ready_; }
     virtual void UnregisterPeer() { }
     virtual void ReceiveEndOfRIB(Address::Family family);
+    virtual void UpdateRouteStats(Address::Family family,
+        const BgpPath *old_path, uint32_t path_flags) const {
+    }
 
     virtual const char *GetTaskName() const { return "bgp::StateMachine"; }
     virtual int GetTaskInstance() const { return 0; }
