@@ -563,19 +563,8 @@ void FlowTableKSyncEntry::ErrorHandler(int err, uint32_t seq_no,
                     ":", VrouterError(err), ">. Object <", ToString(),
                     ">. Operation <", AckOperationString(event),
                     ">. Message number :", seq_no);
-        return;
     }
-    if (err == EINVAL && IgnoreVrouterError()) {
-        return;
-    }
-    KSyncEntry::ErrorHandler(err, seq_no, event);
-}
-
-bool FlowTableKSyncEntry::IgnoreVrouterError() const {
-    if (flow_entry_->deleted())
-        return true;
-
-    return false;
+    return;
 }
 
 std::string FlowTableKSyncEntry::VrouterError(uint32_t error) const {

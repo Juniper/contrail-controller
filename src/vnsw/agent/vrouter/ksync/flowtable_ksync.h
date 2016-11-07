@@ -114,8 +114,6 @@ private:
     friend class KSyncFlowEntryFreeList;
     friend class KSyncFlowIndexManager;
 
-    bool IgnoreVrouterError() const;
-
     FlowEntryPtr flow_entry_;
     uint8_t gen_id_;  // contains the last propagated genid from flow module
     uint8_t evict_gen_id_;  // contains current active gen-id in vrouter
