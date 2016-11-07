@@ -432,7 +432,7 @@ struct Idle : sc::state<Idle, StateMachine> {
     sc::result react(const EvStop &event) {
         StateMachine *state_machine = &context<StateMachine>();
         state_machine->CancelIdleHoldTimer();
-        state_machine->peer()->Close(false);
+        state_machine->peer()->Close(true);
         return discard_event();
     }
 
