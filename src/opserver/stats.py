@@ -14,39 +14,52 @@ import sys
 import os
 import argparse
 import json
-import datetime
 from opserver_util import OpServerUtils
-from sandesh_common.vns.ttypes import Module
-from sandesh_common.vns.constants import ModuleNames, NodeTypeNames
 import sandesh.viz.constants as VizConstants
-from pysandesh.gen_py.sandesh.ttypes import SandeshType, SandeshLevel
 
 class StatQuerier(object):
 
     def __init__(self):
         self._args = None
+        self._defaults = {
+            'analytics_api_ip': '127.0.0.1',
+            'analytics_api_port': '8181',
+            'username': 'admin',
+            'password': 'contrail123',
+        }
     # end __init__
 
     # Public functions
     def run(self):
-        topdir = '/usr/share/doc/contrail-docs/html/messages/'
-        extn = '_stats_tables.json'
-        stat_schema_files = []
-        for dirpath, dirnames, files in os.walk(topdir):
-            for name in files:
-                if name.lower().endswith(extn):
-                    stat_schema_files.append(os.path.join(dirpath, name))
-        stat_tables = []
-        for schema_file in stat_schema_files:
-            with open(schema_file) as data_file:
-                data = json.load(data_file)
-            for _, tables in data.iteritems():
-                for table in tables:
-                    if table not in stat_tables:
-                        stat_tables.append(table)
+        index = 0
+        analytics_api_ip = self._defaults['analytics_api_ip']
+        analytics_api_port = self._defaults['analytics_api_port']
+        username = self._defaults['username']
+        password = self._defaults['password']
         stat_table_list = [xx.stat_type + "." + xx.stat_attr for xx in VizConstants._STAT_TABLES]
-        stat_table_list.extend([xx["stat_type"] + "." + xx["stat_attr"] for xx
-            in stat_tables])
+        stat_schema_files = []
+        for arg in sys.argv:
+            index = index + 1
+            if arg == "--analytics-api-ip":
+                analytics_api_ip = sys.argv[index]
+            elif arg == "--analytics-api-port":
+                analytics_api_port = sys.argv[index]
+            elif arg == "--admin-user":
+                username = sys.argv[index]
+            elif arg == "--admin-password":
+                password = sys.argv[index]
+        tab_url = "http://" + analytics_api_ip + ":" +\
+            analytics_api_port + "/analytics/tables"
+        tables = OpServerUtils.get_url_http(tab_url,
+            username, password)
+        if tables != {}:
+            table_list = json.loads(tables.text)
+            for table in table_list:
+                if table['type'] == 'STAT':
+                    table_name = '.'.join(table['name'].split('.')[1:])
+                    # append to stat_table_list only if not existing
+                    if table_name not in stat_table_list:
+                        stat_table_list.append(table_name)
 
         if self.parse_args(stat_table_list) != 0:
             return
