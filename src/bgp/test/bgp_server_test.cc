@@ -83,6 +83,7 @@ protected:
         a_old_local_as_ = 0;
         b_old_as_ = 0;
         b_old_local_as_ = 0;
+        gr_enabled_ = false;
     }
 
     virtual void SetUp() {
@@ -245,6 +246,7 @@ protected:
     as_t b_old_as_;
     as_t a_old_local_as_;
     as_t b_old_local_as_;
+    bool gr_enabled_;
 };
 
 bool BgpServerUnitTest::validate_done_;
@@ -290,6 +292,20 @@ string BgpServerUnitTest::GetConfigStr(int peer_count,
     if (families2.empty()) families2.push_back("inet");
 
     config << (!delete_config ? "<config>" : "<delete>");
+
+    if (!delete_config && gr_enabled_) {
+        config << "<global-system-config>\
+                   <graceful-restart-parameters>\
+                       <enable>true</enable>\
+                       <restart-time>600</restart-time>\
+                       <long-lived-restart-time>60000</long-lived-restart-time>\
+                       <end-of-rib-timeout>120</end-of-rib-timeout>\
+                       <bgp-helper-enable>true</bgp-helper-enable>\
+                       <xmpp-helper-enable>true</xmpp-helper-enable>\
+                   </graceful-restart-parameters>\
+               </global-system-config>";
+    }
+
     config << "<bgp-router name=\'A\'>"
         "<admin-down>" <<
             std::boolalpha << admin_down1 << std::noboolalpha <<
@@ -2649,6 +2665,93 @@ TEST_F(BgpServerUnitTest, DeleteInProgress) {
     for (int j = 0; j < peer_count; j++) {
         ResumeDelete(peer_a_list[j]->deleter());
     }
+}
+
+TEST_F(BgpServerUnitTest, DeleteDuringGR) {
+    vector<string> families_a;
+    vector<string> families_b;
+    families_a.push_back("inet");
+    families_b.push_back("inet");
+
+    gr_enabled_ = true;
+
+    SetupPeers(1, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11",
+               families_a, families_b);
+    VerifyPeers(1);
+
+    // Find the inet.0 table in A and B.
+    DB *db_a = a_.get()->database();
+    InetTable *table_a = static_cast<InetTable *>(db_a->FindTable("inet.0"));
+    assert(table_a);
+    DB *db_b = b_.get()->database();
+    InetTable *table_b = static_cast<InetTable *>(db_b->FindTable("inet.0"));
+    assert(table_b);
+
+    // Create a BgpAttrSpec to mimic a eBGP learnt route with Origin, AS Path
+    // NextHop and Local Pref.
+    BgpAttrSpec attr_spec;
+
+    BgpAttrOrigin origin(BgpAttrOrigin::IGP);
+    attr_spec.push_back(&origin);
+
+    AsPathSpec path_spec;
+    AsPathSpec::PathSegment *path_seg = new AsPathSpec::PathSegment;
+    path_seg->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    path_seg->path_segment.push_back(65534);
+    path_spec.path_segments.push_back(path_seg);
+    attr_spec.push_back(&path_spec);
+
+    BgpAttrNextHop nexthop(0x7f00007f);
+    attr_spec.push_back(&nexthop);
+
+    BgpAttrLocalPref local_pref(100);
+    attr_spec.push_back(&local_pref);
+
+    BgpAttrPtr attr_ptr = a_.get()->attr_db()->Locate(attr_spec);
+
+    // Create 3 IPv4 prefixes and the corresponding keys.
+    const Ip4Prefix prefix1(Ip4Prefix::FromString("192.168.1.0/24"));
+    const InetTable::RequestKey key1(prefix1, NULL);
+    DBRequest req;
+
+    // Add prefix1 to A and make sure it shows up at B.
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new InetTable::RequestKey(prefix1, NULL));
+    req.data.reset(new InetTable::RequestData(attr_ptr, 0, 0));
+    table_b->Enqueue(&req);
+    task_util::WaitForIdle();
+
+    BGP_VERIFY_ROUTE_COUNT(table_a, 1);
+    BGP_VERIFY_ROUTE_COUNT(table_b, 1);
+    BGP_VERIFY_ROUTE_PRESENCE(table_a, &key1);
+    BGP_VERIFY_ROUTE_PRESENCE(table_b, &key1);
+
+    // Close bgp-session and trigger GR process. Also keep idle-hold time long
+    // in order to hold the state in idle after GR session restart..
+    string uuid = BgpConfigParser::session_uuid("A", "B", 1);
+    BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                         uuid);
+    task_util::TaskFire(boost::bind(&BgpPeer::Clear, peer_a,
+                        BgpProto::Notification::Unknown), "bgp::Config");
+    task_util::WaitForIdle();
+    BGP_VERIFY_ROUTE_COUNT(table_a, 1);
+    BGP_VERIFY_ROUTE_COUNT(table_b, 1);
+    BGP_VERIFY_ROUTE_PRESENCE(table_a, &key1);
+    BGP_VERIFY_ROUTE_PRESENCE(table_b, &key1);
+
+    // Delete all the prefixes from A and make sure they are gone from B.
+    // Let TearDown() delete all the peers as well, triggering cleanup in the
+    // midst of GR.
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    req.key.reset(new InetTable::RequestKey(prefix1, NULL));
+    table_b->Enqueue(&req);
+    task_util::WaitForIdle();
+    BGP_VERIFY_ROUTE_COUNT(table_b, 0);
 }
 
 TEST_F(BgpServerUnitTest, CloseInProgress) {

@@ -491,6 +491,8 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
 }
 
 BgpPeer::~BgpPeer() {
+    assert(!close_manager()->IsCloseInProgress());
+    assert(!IsCloseInProgress());
     assert(GetTotalPathCount() == 0);
     STLDeleteValues(&family_attributes_list_);
     ClearListenSocketAuthKey();

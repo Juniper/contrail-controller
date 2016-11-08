@@ -92,9 +92,11 @@ protected:
     }
 
     void TearDown() {
+        ConcurrencyScope scope("bgp::Config");
         peer_->clear_session();
         server_.Shutdown();
         task_util::WaitForIdle();
+        peer_.reset();
     }
 
     RibExportPolicy BuildRibExportPolicy() {
