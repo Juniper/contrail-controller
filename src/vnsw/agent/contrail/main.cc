@@ -109,6 +109,7 @@ int main(int argc, char *argv[]) {
     }
 
     Agent *agent = init.agent();
+    TaskScheduler::GetInstance()->set_event_manager(agent->event_manager());
     agent->event_manager()->Run();
 
     return 0;
