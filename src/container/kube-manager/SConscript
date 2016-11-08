@@ -9,11 +9,8 @@ Import('CfgmEnv')
 env = CfgmEnv.Clone()
 
 setup_sources = [
-           'setup.py',
-           'requirements.txt',
-           'tests',
-          ]
-
+    'setup.py',
+]
 
 setup_sources_rules = []
 for file in setup_sources:
@@ -42,6 +39,7 @@ local_sources = [
     'kube_manager/vnc/vnc_network_policy.py',
     'kube_manager/vnc/vnc_pod.py',
     'kube_manager/vnc/vnc_service.py',
+    'kube_manager/tests/__init__.py',
 ]
 
 local_sources_rules = []

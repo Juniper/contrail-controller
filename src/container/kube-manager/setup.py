@@ -30,12 +30,6 @@ class RunTestsCommand(setuptools.Command):
             if not re.search('\nOK', ''.join(f.readlines())):
                 os._exit(1)
 
-def requirements(filename):
-    with open(filename) as f:
-        lines = f.read().splitlines()
-    c = re.compile(r'\s*#.*')
-    return filter(bool, map(lambda y: c.sub('', y).strip(), lines))
-
 setuptools.setup(
     name='kube_manager',
     version='0.1dev',
@@ -49,8 +43,6 @@ setuptools.setup(
     url="http://www.opencontrail.org/",
 
     long_description="Kubernetes Network Manager",
-
-    install_requires=requirements('requirements.txt'),
 
     test_suite='kube_manager.tests',
 
