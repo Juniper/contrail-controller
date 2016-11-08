@@ -113,7 +113,7 @@ class PhysicalRouterDM(DBBaseDM):
         self.bgp_router = None
         self.config_manager = None
         self.nc_q = queue.Queue(maxsize=1)
-        self.vn_ip_map = {}
+        self.vn_ip_map = {'irb': {}, 'lo0': {}}
         self.init_cs_state()
         self.update(obj_dict)
         self.config_manager = PhysicalRouterConfig(
@@ -205,10 +205,11 @@ class PhysicalRouterDM(DBBaseDM):
     def init_cs_state(self):
         vn_subnet_set = self._object_db.get_pr_vn_set(self.uuid)
         for vn_subnet in vn_subnet_set:
-            ip = self._object_db.get(self._object_db._PR_VN_IP_CF,
-                                     self.uuid + ':' + vn_subnet)
-            if ip is not None:
-                self.vn_ip_map[vn_subnet] = ip['ip_address']
+            subnet = vn_subnet[0]
+            ip_used_for = vn_subnet[1]
+            ip = self._object_db.get_ip(self.uuid + ':' + subnet, ip_used_for)
+            if ip:
+                self.vn_ip_map[ip_used_for][subnet] = ip['ip_address']
     # end init_cs_state
 
     def reserve_ip(self, vn_uuid, subnet_uuid):
@@ -217,7 +218,7 @@ class PhysicalRouterDM(DBBaseDM):
             vn.set_uuid(vn_uuid)
             ip_addr = self._manager._vnc_lib.virtual_network_ip_alloc(
                 vn,
-                subnet_uuid=subnet_uuid)
+                subnet=subnet_uuid)
             if ip_addr:
                 return ip_addr[0]  # ip_alloc default ip count is 1
         except Exception as e:
@@ -238,43 +239,47 @@ class PhysicalRouterDM(DBBaseDM):
     # end
 
     def get_vn_irb_ip_map(self):
-        irb_ips = {}
-        for vn_subnet, ip_addr in self.vn_ip_map.items():
-            (vn_uuid, subnet_prefix) = vn_subnet.split(':', 1)
-            vn = VirtualNetworkDM.get(vn_uuid)
-            if vn_uuid not in irb_ips:
-                irb_ips[vn_uuid] = set()
-            irb_ips[vn_uuid].add(
-                 (ip_addr,
-                 vn.gateways[subnet_prefix].get('default_gateway')))
-        return irb_ips
+        ips = {'irb': {}, 'lo0': {}}
+        for ip_used_for in ['irb', 'lo0']:
+            for vn_subnet, ip_addr in self.vn_ip_map[ip_used_for].items():
+                (vn_uuid, subnet_prefix) = vn_subnet.split(':', 1)
+                vn = VirtualNetworkDM.get(vn_uuid)
+                if vn_uuid not in ips[ip_used_for]:
+                    ips[ip_used_for][vn_uuid] = set()
+                ips[ip_used_for][vn_uuid].add(
+                    (ip_addr,
+                    vn.gateways[subnet_prefix].get('default_gateway')))
+        return ips
     # end get_vn_irb_ip_map
 
-    def evaluate_vn_irb_ip_map(self, vn_set):
+    def evaluate_vn_irb_ip_map(self, vn_set, fwd_mode, ip_used_for, ignore_external=False):
         new_vn_ip_set = set()
         for vn_uuid in vn_set:
             vn = VirtualNetworkDM.get(vn_uuid)
             # dont need irb ip, gateway ip
-            if vn.get_forwarding_mode() != 'l2_l3':
+            if vn.get_forwarding_mode() != fwd_mode:
+                continue
+            if vn.router_external and ignore_external:
                 continue
             for subnet_prefix in vn.gateways.keys():
                 new_vn_ip_set.add(vn_uuid + ':' + subnet_prefix)
 
-        old_set = set(self.vn_ip_map.keys())
+        old_set = set(self.vn_ip_map[ip_used_for].keys())
         delete_set = old_set.difference(new_vn_ip_set)
         create_set = new_vn_ip_set.difference(old_set)
         for vn_subnet in delete_set:
             (vn_uuid, subnet_prefix) = vn_subnet.split(':', 1)
-            ret = self.free_ip(vn_uuid, self.vn_ip_map[vn_subnet])
+            ret = self.free_ip(
+                vn_uuid, subnet_prefix, self.vn_ip_map[ip_used_for][vn_subnet])
             if ret == False:
                 self._logger.error("Unable to free ip for vn/subnet/pr \
                                   (%s/%s/%s)" % (
                     vn_uuid,
                     subnet_prefix,
                     self.uuid))
-            ret = self._object_db.delete(
-                self._object_db._PR_VN_IP_CF,
-                self.uuid + ':' + vn_uuid + ':' + subnet_prefix)
+
+            ret = self._object_db.delete_ip(
+                       self.uuid + ':' + vn_uuid + ':' + subnet_prefix, ip_used_for)
             if ret == False:
                 self._logger.error("Unable to free ip from db for vn/subnet/pr \
                                   (%s/%s/%s)" % (
@@ -282,8 +287,9 @@ class PhysicalRouterDM(DBBaseDM):
                     subnet_prefix,
                     self.uuid))
                 continue
-            self._object_db.delete_from_pr_map(self.uuid, vn_subnet)
-            del self.vn_ip_map[vn_subnet]
+
+            self._object_db.delete_from_pr_map(self.uuid, vn_subnet, ip_used_for)
+            del self.vn_ip_map[ip_used_for][vn_subnet]
 
         for vn_subnet in create_set:
             (vn_uuid, subnet_prefix) = vn_subnet.split(':', 1)
@@ -297,10 +303,8 @@ class PhysicalRouterDM(DBBaseDM):
                     subnet_prefix,
                     self.uuid))
                 continue
-            ret = self._object_db.add(self._object_db._PR_VN_IP_CF,
-                                      self.uuid + ':' + vn_uuid +
-                                      ':' + subnet_prefix,
-                                      {'ip_address': ip_addr + '/' + length})
+            ret = self._object_db.add_ip(self.uuid + ':' + vn_uuid + ':' + subnet_prefix,
+                                         ip_used_for, ip_addr + '/' + length)
             if ret == False:
                 self._logger.error("Unable to store ip for vn/subnet/pr \
                                (%s/%s/%s)" % (
@@ -314,8 +318,8 @@ class PhysicalRouterDM(DBBaseDM):
                         subnet_prefix,
                         self.uuid))
                 continue
-            self._object_db.add_to_pr_map(self.uuid, vn_subnet)
-            self.vn_ip_map[vn_subnet] = ip_addr + '/' + length
+            self._object_db.add_to_pr_map(self.uuid, vn_subnet, ip_used_for)
+            self.vn_ip_map[ip_used_for][vn_subnet] = ip_addr + '/' + length
     # end evaluate_vn_irb_ip_map
 
     def get_vn_li_map(self):
@@ -587,7 +591,8 @@ class PhysicalRouterDM(DBBaseDM):
                     bgp_router_ips)
 
         vn_dict = self.get_vn_li_map()
-        self.evaluate_vn_irb_ip_map(set(vn_dict.keys()))
+        self.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l2_l3', 'irb', False)
+        self.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l3', 'lo0', True)
         vn_irb_ip_map = self.get_vn_irb_ip_map()
 
         first_vrf = []
@@ -626,7 +631,7 @@ class PhysicalRouterDM(DBBaseDM):
                     if vn_obj.get_forwarding_mode() in ['l2', 'l2_l3']:
                         irb_ips = None
                         if vn_obj.get_forwarding_mode() == 'l2_l3':
-                            irb_ips = vn_irb_ip_map.get(vn_id, [])
+                            irb_ips = vn_irb_ip_map['irb'].get(vn_id, [])
 
                         ri_conf = { 'ri_name': vrf_name_l2 }
                         ri_conf['is_l2'] = True
@@ -643,11 +648,14 @@ class PhysicalRouterDM(DBBaseDM):
 
                     if vn_obj.get_forwarding_mode() in ['l3', 'l2_l3']:
                         interfaces = []
+                        lo0_ips = None
                         if vn_obj.get_forwarding_mode() == 'l2_l3':
                             interfaces = [
                                  JunosInterface(
                                 'irb.' + str(vn_obj.vn_network_id),
                                 'l3', 0)]
+                        else:
+                            lo0_ips = vn_irb_ip_map['lo0'].get(vn_id, [])
                         ri_conf = { 'ri_name': vrf_name_l3 }
                         ri_conf['is_l2_l3'] = (vn_obj.get_forwarding_mode() == 'l2_l3')
                         ri_conf['import_targets'] = import_set
@@ -655,6 +663,8 @@ class PhysicalRouterDM(DBBaseDM):
                         ri_conf['prefixes'] = vn_obj.get_prefixes()
                         ri_conf['router_external'] = vn_obj.router_external
                         ri_conf['interfaces'] = interfaces
+                        ri_conf['gateways'] = lo0_ips
+                        ri_conf['network_id'] = vn_obj.vn_network_id
                         self.config_manager.add_routing_instance(ri_conf)
                     break
 
@@ -1296,7 +1306,7 @@ class DMCassandraDB(VncObjectDBClient):
     dm_object_db_instance = None
 
     @classmethod
-    def getInstance(cls, manager, zkclient):
+    def getInstance(cls, manager=None, zkclient=None):
         if cls.dm_object_db_instance == None:
             cls.dm_object_db_instance = DMCassandraDB(manager, zkclient)
         return cls.dm_object_db_instance
@@ -1427,34 +1437,55 @@ class DMCassandraDB(VncObjectDBClient):
 
     def init_pr_map(self):
         cf = self.get_cf(self._PR_VN_IP_CF)
-        keys = dict(cf.get_range(column_count=0, filter_empty=False)).keys()
-        for key in keys:
-            (pr_uuid, vn_subnet_uuid) = key.split(':', 1)
-            self.add_to_pr_map(pr_uuid, vn_subnet_uuid)
+        pr_entries = dict(cf.get_range(column_count=0, filter_empty=False))
+        for key in pr_entries.keys():
+            key_data = key.split(':', 1)
+            cols = pr_entries[key] or {}
+            for col in cols.keys():
+                ip_used_for = DMUtils.get_ip_used_for_str(col)
+                (pr_uuid, vn_subnet_uuid) = (key_data[0], key_data[1])
+                self.add_to_pr_map(pr_uuid, vn_subnet_uuid, ip_used_for)
     # end
 
-    def add_to_pr_map(self, pr_uuid, vn_subnet):
+    def get_ip(self, key, ip_used_for):
+        return self.get_one_col(self._PR_VN_IP_CF, key,
+                      DMUtils.get_ip_cs_column_name(ip_used_for))
+    # end
+
+    def add_ip(self, key, ip_used_for, ip):
+        self.add(self._PR_VN_IP_CF, key, {DMUtils.get_ip_cs_column_name(ip_used_for): ip})
+    # end
+
+    def delete_ip(self, ip_used_for):
+        self.delete(self._PR_VN_IP_CF, key, [DMUtils.get_ip_cs_column_name(ip_used_for)])
+    # end
+
+
+    def add_to_pr_map(self, pr_uuid, vn_subnet, ip_used_for):
         if pr_uuid in self.pr_vn_ip_map:
-            self.pr_vn_ip_map[pr_uuid].add(vn_subnet)
+            self.pr_vn_ip_map[pr_uuid].add((vn_subnet, ip_used_for))
         else:
             self.pr_vn_ip_map[pr_uuid] = set()
-            self.pr_vn_ip_map[pr_uuid].add(vn_subnet)
+            self.pr_vn_ip_map[pr_uuid].add((vn_subnet, ip_used_for))
     # end
 
-    def delete_from_pr_map(self, pr_uuid, vn_subnet):
+    def delete_from_pr_map(self, pr_uuid, vn_subnet, ip_used_for):
         if pr_uuid in self.pr_vn_ip_map:
-            self.pr_vn_ip_map[pr_uuid].remove(vn_subnet)
+            self.pr_vn_ip_map[pr_uuid].remove((vn_subnet, ip_used_for))
             if not self.pr_vn_ip_map[pr_uuid]:
                 del self.pr_vn_ip_map[pr_uuid]
     # end
 
     def delete_pr(self, pr_uuid):
         vn_subnet_set = self.pr_vn_ip_map.get(pr_uuid, set())
-        for vn_subnet in vn_subnet_set:
-            ret = self.delete(self._PR_VN_IP_CF, pr_uuid + ':' + vn_subnet)
+        for vn_subnet_ip_used_for in vn_subnet_set:
+            vn_subnet = vn_subnet_ip_used_for[0]
+            ip_used_for = vn_subnet_ip_used_for[1]
+            ret = self.delete(self._PR_VN_IP_CF, pr_uuid + ':' + vn_subnet,
+                              [DMUtils.get_ip_cs_column_name(ip_used_for)])
             if ret == False:
-                self._logger.error("Unable to free ip from db for vn/pr/subnet \
-                                        (%s/%s)" % (pr_uuid, vn_subnet))
+                self._logger.error("Unable to free ip from db for vn/pr/subnet/ip_used_for \
+                                        (%s/%s/%s)" % (pr_uuid, vn_subnet, ip_used_for))
     # end
 
     def handle_pr_deletes(self, current_pr_set):

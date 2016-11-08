@@ -154,4 +154,23 @@ class DMUtils(object):
         return any(IPNetwork(prefix).version == 4 for prefix in prefixes or [])
     # end has_ipv4_prefixes
 
+    @staticmethod
+    def get_ip_cs_column_name(ip_type):
+        m = {
+              "irb": "ip_address",
+              "lo0": "lo0_ip_address"
+            }
+        return m.get(ip_type)
+    # end get_ip_cs_column_name
+
+    @staticmethod
+    def get_ip_used_for_str(cs_name):
+        m = {
+              "ip_address": "irb",
+              "lo0_ip_address": "lo0"
+            }
+        return m.get(cs_name)
+    # end get_ip_used_for_str
+
+
 # end DMUtils
