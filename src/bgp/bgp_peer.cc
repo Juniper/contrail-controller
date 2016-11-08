@@ -359,11 +359,6 @@ void BgpPeer::MembershipRequestCallback(BgpTable *table) {
         return;
     }
 
-    BgpPeerInfoData peer_info;
-    peer_info.set_name(ToUVEKey());
-    peer_info.set_send_state("in sync");
-    BGPPeerInfoSend(peer_info);
-
     SendEndOfRIB(table->family());
 }
 
@@ -377,10 +372,6 @@ bool BgpPeer::ResumeClose() {
 
     // No need to track graceful_closure once the close process is resumed.
     non_graceful_close_ = false;
-    BgpPeerInfoData peer_info;
-    peer_info.set_name(ToUVEKey());
-    peer_info.set_send_state("not advertising");
-    BGPPeerInfoSend(peer_info);
     return true;
 }
 
@@ -926,10 +917,6 @@ void BgpPeer::Close(bool non_graceful) {
     }
 
     peer_close_->Close(non_graceful);
-    BgpPeerInfoData peer_info;
-    peer_info.set_name(ToUVEKey());
-    peer_info.set_send_state("not advertising");
-    BGPPeerInfoSend(peer_info);
 }
 
 IPeerClose *BgpPeer::peer_close() {
@@ -1078,10 +1065,6 @@ void BgpPeer::RegisterAllTables() {
 
     BGP_LOG_PEER(Event, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
         BGP_PEER_DIR_NA, "Established");
-    BgpPeerInfoData peer_info;
-    peer_info.set_name(ToUVEKey());
-    peer_info.set_send_state("not advertising");
-    BGPPeerInfoSend(peer_info);
 
     vector<Address::Family> family_list = list_of
         (Address::INET)(Address::INET6);
@@ -1265,10 +1248,6 @@ bool BgpPeer::FlushUpdateUnlocked() {
     if (!send_ready_) {
         BGP_LOG_PEER(Event, this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
                      BGP_PEER_DIR_NA, "Send blocked");
-        BgpPeerInfoData peer_info;
-        peer_info.set_name(ToUVEKey());
-        peer_info.set_send_state("not in sync");
-        BGPPeerInfoSend(peer_info);
     }
     return send_ready_;
 }
@@ -1891,10 +1870,6 @@ void BgpPeer::SetSendReady() {
     send_ready_ = true;
     if (session_ != NULL)
         StartKeepaliveTimerUnlocked();
-    BgpPeerInfoData peer_info;
-    peer_info.set_name(ToUVEKey());
-    peer_info.set_send_state("in sync");
-    BGPPeerInfoSend(peer_info);
 }
 
 void BgpPeer::set_session(BgpSession *session) {
