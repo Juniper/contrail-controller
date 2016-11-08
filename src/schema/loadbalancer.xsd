@@ -51,7 +51,7 @@
 <!--#IFMAP-SEMANTICS-IDL
      Link('project-loadbalancer-pool',
           'project', 'loadbalancer-pool', ['has'], 'optional', 'CRUD',
-          'Loadbalancer pool object represent set(pool) memeber servers which needs load balancing.') -->
+          'Loadbalancer pool object represent set(pool) member servers which needs load balancing.') -->
 
 <xsd:element name="loadbalancer-pool-service-instance"/>
 <!--#IFMAP-SEMANTICS-IDL
@@ -69,12 +69,12 @@
 <!--#IFMAP-SEMANTICS-IDL
      Link('loadbalancer-pool-loadbalancer-listener',
           'loadbalancer-pool', 'loadbalancer-listener', ['ref'], 'optional', 'CRUD',
-          'Reference to loadbaancer listner served by this pool, applicabale to LBaaS V2.') -->
+          'Reference to loadbalancer listener served by this pool, applicable to LBaaS V2.') -->
 
 <xsd:element name="loadbalancer-pool-properties" type="LoadbalancerPoolType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('loadbalancer-pool-properties', 'loadbalancer-pool', 'required', 'CRUD',
-              'Configuration for loabalancer pool like protocol, subnet, etc.') -->
+              'Configuration for loadbalancer pool like protocol, subnet, etc.') -->
 
 <xsd:complexType name='LoadbalancerPoolType'>
     <xsd:sequence>
@@ -100,7 +100,7 @@
 <xsd:element name="loadbalancer-pool-provider" type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('loadbalancer-pool-provider', 'loadbalancer-pool', 'optional', 'CR',
-              'Provider field selects backend provider of the LBaaS, Cloudadmin could offere different levels of service like gold, silver, bronze. Provided by  HA-proxy or various HW or SW appliances in the backend. Applicable to LBaaS V1') -->
+              'Provider field selects backend provider of the LBaaS, Cloudadmin could offer different levels of service like gold, silver, bronze. Provided by  HA-proxy or various HW or SW appliances in the backend. Applicable to LBaaS V1') -->
 
 <xsd:element name="loadbalancer-pool-service-appliance-set"/>
 <!--#IFMAP-SEMANTICS-IDL
@@ -123,7 +123,7 @@
 <xsd:element name="loadbalancer-member-properties" type="LoadbalancerMemberType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('loadbalancer-member-properties', 'loadbalancer-member', 'required', 'CRUD',
-              'Member configuration like ip addres, destination port, weight etc.') -->
+              'Member configuration like ip address, destination port, weight etc.') -->
 
 <xsd:complexType name='LoadbalancerMemberType'>
     <xsd:sequence>
@@ -188,7 +188,7 @@
 <!--#IFMAP-SEMANTICS-IDL
      Link('project-virtual-ip',
           'project', 'virtual-ip', ['has'], 'optional', 'CRUD',
-          'Virtual ip opject application(protocol, port). Applicable only to LBaaS V1') -->
+          'Virtual ip object application(protocol, port). Applicable only to LBaaS V1') -->
 
 <xsd:element name="virtual-ip-loadbalancer-pool"/>
 <!--#IFMAP-SEMANTICS-IDL
@@ -286,7 +286,7 @@
 <xsd:element name="loadbalancer-properties" type="LoadbalancerType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('loadbalancer-properties', 'loadbalancer', 'required', 'CRUD',
-              'Loadbalance configuration like  admin state, VIP, VIP subnet etc.') -->
+              'Loadbalancer configuration like  admin state, VIP, VIP subnet etc.') -->
 
 <xsd:complexType name='LoadbalancerType'>
     <xsd:sequence>
@@ -308,6 +308,6 @@
 <xsd:element name="loadbalancer-provider" type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('loadbalancer-provider', 'loadbalancer', 'optional', 'CR',
-              'Provider field selects backend provider of the LBaaS, Cloudadmin could offere different levels of service like gold, silver, bronze. Provided by  HA-proxy or various HW or SW appliances in the backend.') -->
+              'Provider field selects backend provider of the LBaaS, Cloudadmin could offer different levels of service like gold, silver, bronze. Provided by  HA-proxy or various HW or SW appliances in the backend.') -->
 
 </xsd:schema>

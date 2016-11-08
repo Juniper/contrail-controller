@@ -24,7 +24,7 @@
     description_3='The regular expression will match all the log and update'
     description_4='messages. This will result in creating an object which will '
     description_5='update every time any log message matches for the given '
-    description_6='pattern. There are APIs to retrive and the '
+    description_6='pattern. There are APIs to retrieve and the '
     description_7='stats by name.'/>
 <!--#IFMAP-SEMANTICS-IDL
     MapProperty('user-defined-log-statistics', 'global-system-config', 'name',
