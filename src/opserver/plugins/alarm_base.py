@@ -11,7 +11,7 @@ class AlarmBase(object):
 
     def __init__(self, sev=None, at=0, it=0, fec=False,
                  fcs=0, fct=0, config=None):
-        self._sev = sev or self.ALARM_MAJOR
+        self._sev = sev
         self._ActiveTimer = at
         self._IdleTimer = it
         self._FreqExceededCheck = fec
