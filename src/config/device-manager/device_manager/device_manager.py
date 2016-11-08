@@ -183,6 +183,7 @@ class DeviceManager(object):
         # Initialize cassandra
         self._cassandra = DMCassandraDB.getInstance(self, _zookeeper_client)
         DBBaseDM.init(self, self.logger, self._cassandra)
+        DBBaseDM._sandesh = self.logger._sandesh
 
         for obj in GlobalSystemConfigDM.list_obj():
             GlobalSystemConfigDM.locate(obj['uuid'], obj)
