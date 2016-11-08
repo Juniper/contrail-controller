@@ -14,6 +14,7 @@
 #include "base/logging.h"
 #include "base/task.h"
 #include "base/task_annotations.h"
+#include "base/task_tbbkeepawake.h"
 
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
@@ -343,7 +344,7 @@ TaskScheduler::TaskScheduler(int task_count) :
     task_scheduler_(GetThreadCount(task_count) + 1),
     running_(true), seqno_(0), id_max_(0), log_fn_(), track_run_time_(false),
     measure_delay_(false), schedule_delay_(0), execute_delay_(0),
-    enqueue_count_(0), done_count_(0), cancel_count_(0) {
+    enqueue_count_(0), done_count_(0), cancel_count_(0), tbb_awake_task_(NULL) {
     hw_thread_count_ = GetThreadCount(task_count);
     task_group_db_.resize(TaskScheduler::kVectorGrowSize);
     stop_entry_ = new TaskEntry(-1);
@@ -373,9 +374,36 @@ TaskScheduler::~TaskScheduler() {
     return;
 }
 
-void TaskScheduler::Initialize(uint32_t thread_count) {
+void TaskScheduler::Initialize(uint32_t thread_count, EventManager *evm) {
     assert(singleton_.get() == NULL);
     singleton_.reset(new TaskScheduler((int)thread_count));
+
+    if (evm) {
+        singleton_.get()->evm_ = evm;
+        singleton_.get()->tbb_awake_task_ = new TaskTbbKeepAwake();
+        assert(singleton_.get()->tbb_awake_task_);
+
+        singleton_.get()->tbb_awake_task_->StartTbbKeepAwakeTask(
+                                               singleton_.get(), evm,
+                                               "TaskScheduler::TbbKeepAwake");
+    }
+}
+
+void TaskScheduler::set_event_manager(EventManager *evm) {
+    assert(evm);
+    evm_ = evm;
+    if (tbb_awake_task_ == NULL) {
+        tbb_awake_task_ = new TaskTbbKeepAwake();
+        assert(tbb_awake_task_);
+
+        tbb_awake_task_->StartTbbKeepAwakeTask(this, evm,
+            "TaskScheduler::TbbKeepAwake");
+    }
+}
+
+void TaskScheduler::ModifyTbbKeepAwakeTimeout(uint32_t timeout) {
+    assert(tbb_awake_task_);
+    tbb_awake_task_->ModifyTbbKeepAwakeTimeout(timeout);
 }
 
 void TaskScheduler::Log(const char *file_name, uint32_t line_no,
@@ -874,6 +902,10 @@ void TaskScheduler::Terminate() {
         usleep(1000);
     }
     assert(IsEmpty());
+    tbb_awake_task_->ShutTbbKeepAwakeTask();
+    delete tbb_awake_task_;
+    tbb_awake_task_ = NULL;
+    evm_ = NULL;
     singleton_->task_scheduler_.terminate();
     WaitForTerminateCompletion();
     singleton_.reset(NULL);
