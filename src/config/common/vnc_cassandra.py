@@ -236,9 +236,9 @@ class VncCassandraClient(object):
 
         return results
 
-    def delete(self, cf_name, key):
+    def delete(self, cf_name, key, columns=[]):
         try:
-            self.get_cf(cf_name).remove(key)
+            self.get_cf(cf_name).remove(key, columns=columns)
             return True
         except:
             return False
