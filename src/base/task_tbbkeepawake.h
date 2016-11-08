@@ -20,6 +20,14 @@ public:
         return ret;
     }
 
+    void ModifyTbbKeepAwakeTimeout(uint32_t timeout) {
+        if (tbb_awake_timer_) {
+            tbb_awake_timer_->Cancel();
+            tbb_awake_timer_->Start(timeout,
+                boost::bind(&TaskTbbKeepAwake::TbbKeepAwake, this));
+        }
+    }
+
     bool TbbKeepAwake() {
         tbb_awake_count_++;
         return true;

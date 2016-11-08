@@ -323,7 +323,6 @@ public:
 
     Agent();
     virtual ~Agent();
-    void Shutdown();
 
     static Agent *GetInstance() {return singleton_;}
     static const std::string &NullString() {return null_string_;}
@@ -1094,7 +1093,6 @@ private:
     VNController *controller_;
 
     EventManager *event_mgr_;
-    TaskTbbKeepAwake *tbb_awake_task_;
     boost::shared_ptr<AgentXmppChannel> agent_xmpp_channel_[MAX_XMPP_SERVERS];
     AgentIfMapXmppChannel *ifmap_channel_[MAX_XMPP_SERVERS];
     XmppClient *xmpp_client_[MAX_XMPP_SERVERS];
