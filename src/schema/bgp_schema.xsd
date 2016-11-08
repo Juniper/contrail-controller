@@ -117,11 +117,11 @@
     <xsd:element name='vendor' type='xsd:string' required='optional' operations='CRUD'
          description='Vendor name for this BGP router, contrail, juniper or cisco etc.'/>
     <xsd:element name='autonomous-system' type='xsd:integer' required='true' operations='CUR'
-         description='Autonomus System number for this BGP router. Currently only 16 bit AS number is supported. For contrail control nodes this has to be equal to global AS number.'/>
+         description='Autonomous System number for this BGP router. Currently only 16 bit AS number is supported. For contrail control nodes this has to be equal to global AS number.'/>
     <xsd:element name='identifier' type='smi:IpAddress' required='true' operations='CUR'
          description='Router ID for this BGP router. Dotted ip notation. For contrail control-nodes System will automatically assign value of address field.'/>
     <xsd:element name='address' type='smi:IpAddress' required='true' operations='CR'
-         description='Ip addres used to reach this BGP router by the system.'/>
+         description='Ip address used to reach this BGP router by the system.'/>
     <xsd:element name='port' type='xsd:integer' required='optional' operations='CUR'
          description='TCP port number on which BGP protocol connections are accepted. default is based on standareds.'/>
     <xsd:element name='source-port' type='xsd:integer' required='system-only' operations='CUR'
@@ -133,13 +133,13 @@
     <xsd:element name='auth-data' type='AuthenticationData' required='optional' operations='CRUD'
          description='Authentication related configuration like type, keys etc.'/>
     <xsd:element name='local-autonomous-system' type='xsd:integer' required='optional' operations='CRUD'
-         description='Only for contrail control nodes, Autonomus System number if different then global AS number. Used when clusters of control nodes in same contrail system are in differnt locations. Currently only 16 bit AS number is supported.'/>
+         description='Only for contrail control nodes, Autonomous System number if different then global AS number. Used when clusters of control nodes in same contrail system are in different locations. Currently only 16 bit AS number is supported.'/>
     <xsd:element name='router-type' type='BgpRouterType' required='optional' operations='CRUD'
          description='BGP router type.'/>
     <xsd:element name='gateway-address' type='smi:IpAddress' required='optional' operations='CRUD'
          description='gateway-address field is used only for router-type bgpaas-client. It holds the ipv4 gateway address for the ipv4 subnet from which the client has IP address. The value is used as nexthop when advertising routes to the client via bgp.' />
     <xsd:element name='ipv6-gateway-address' type='smi:IpAddress' required='optional' operations='CRUD'
-         description='The ipv6-gateway-addreess field is used only for router-type bgpaas-client. It holds ipv6 gateway address for ipv6 subnet from which the client has IP address. The value is used as nexthop when advertising routes to the client via bgp.  Note that the ipv6-gateway-address can be a regular ipv6 address or a ipv4-mapped-ipv6 adddress.'/>
+         description='The ipv6-gateway-address field is used only for router-type bgpaas-client. It holds ipv6 gateway address for ipv6 subnet from which the client has IP address. The value is used as nexthop when advertising routes to the client via bgp.  Note that the ipv6-gateway-address can be a regular ipv6 address or a ipv4-mapped-ipv6 adddress.'/>
 </xsd:complexType>
 
 <xsd:simpleType name='BgpPrivateAsAction'>
@@ -179,7 +179,7 @@
   -->
 <xsd:complexType name='BgpPeeringAttributes'>
     <xsd:element name='session' type='BgpSession' maxOccurs='unbounded' required='true' operations='CRUD'
-         description='List of BGP sessions parameters. There can be multiple BGP sessions between two BGP routers. Currently ony 1 session is supported.'/>
+         description='List of BGP sessions parameters. There can be multiple BGP sessions between two BGP routers. Currently only 1 session is supported.'/>
 </xsd:complexType>
 
 <!--
@@ -209,7 +209,7 @@
     <xsd:element name="admin-down" type="xsd:boolean" default="false" required='optional' operations='CRUD'
          description='Administratively mark this session down.'/>
     <xsd:element name="passive" type="xsd:boolean" default="false" required='optional' operations='CRUD'
-         description='This is passive session. It will not initiated connection. This is not relavent when session attributes represent common part. It is recomended that it should not be set to true in current release.'/>
+         description='This is passive session. It will not initiated connection. This is not relevant when session attributes represent common part. It is recommended that it should not be set to true in current release.'/>
     <xsd:element name="as-override" type="xsd:boolean" default="false" required='optional' operations='CRUD'
          description='To Be Added'/>
     <xsd:element name='hold-time' type='BgpHoldTime' default='0' required='optional' operations='CRUD'
