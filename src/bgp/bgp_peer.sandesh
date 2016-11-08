@@ -697,7 +697,6 @@ struct BgpPeerInfoData {
    10: optional u64 notification_out_at;
    11: optional u32 local_id;
    12: optional u32 peer_id;
-   13: optional string send_state;       // in sync/not in sync
    21: optional list<string> configured_families;
    14: optional list<string> families;
    22: optional list<string> negotiated_families;
