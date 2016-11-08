@@ -53,7 +53,6 @@
 #include "xmpp/xmpp_init.h"
 #include "xmpp/xmpp_sandesh.h"
 #include "xmpp/xmpp_server.h"
-#include "base/task_tbbkeepawake.h"
 
 using namespace std;
 using namespace boost::asio::ip;
@@ -133,7 +132,7 @@ static void ShutdownDiscoveryClient(DiscoveryServiceClient *client) {
 // Shutdown various server objects used in the control-node.
 static void ShutdownServers(
     boost::scoped_ptr<BgpXmppChannelManager> *channel_manager,
-    DiscoveryServiceClient *dsclient, TaskTbbKeepAwake *tbb_awake_task) {
+    DiscoveryServiceClient *dsclient) {
 
     // Bring down bgp server, xmpp server, etc. in the right order.
     BgpServer *bgp_server = (*channel_manager)->bgp_server();
@@ -168,8 +167,6 @@ static void ShutdownServers(
 
     ConnectionStateManager::
         GetInstance()->Shutdown();
-
-    tbb_awake_task->ShutTbbKeepAwakeTask();
 
     // Do sandesh cleanup.
     Sandesh::Uninit();
@@ -263,7 +260,7 @@ int main(int argc, char *argv[]) {
                         Sandesh::StringToLevel(options.log_level())));
     }
 
-    TaskScheduler::Initialize();
+    TaskScheduler::Initialize(0, &evm);
     TaskScheduler::GetInstance()->SetTrackRunTime(
         options.task_track_run_time());
     BgpServer::Initialize();
@@ -375,12 +372,6 @@ int main(int argc, char *argv[]) {
                     bgp_server.get(), ifmap_manager, _1, _2, _3,
                     expected_connections), "ObjectBgpRouter");
 
-    // Start TbbKeepAwake Task which makes scheduler always active,
-    // for it to not miss any spawn events
-    TaskTbbKeepAwake tbb_awake_task;
-    tbb_awake_task.StartTbbKeepAwakeTask(TaskScheduler::GetInstance(), &evm,
-                                         "bgp::TbbKeepAwake");
-
     // Parse discovery server configuration.
     DiscoveryServiceClient *ds_client = NULL;
     tcp::endpoint dss_ep;
@@ -433,7 +424,7 @@ int main(int argc, char *argv[]) {
                                    &sandesh_context));
             if (!success) {
                 LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
-                ShutdownServers(&bgp_peer_manager, ds_client, &tbb_awake_task);
+                ShutdownServers(&bgp_peer_manager, ds_client);
                 exit(1);
             }
         }
@@ -502,7 +493,7 @@ int main(int argc, char *argv[]) {
     // Event loop.
     evm.Run();
 
-    ShutdownServers(&bgp_peer_manager, ds_client, &tbb_awake_task);
+    ShutdownServers(&bgp_peer_manager, ds_client);
     BgpServer::Terminate();
     return 0;
 }

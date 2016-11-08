@@ -494,7 +494,6 @@ void AgentInit::ModulesShutdownBase() {
     if (agent_->cfg()) {
         agent_->cfg()->Shutdown();
     }
-    agent_->Shutdown();
     return;
 }
 

@@ -5,7 +5,8 @@
 
 class TaskTbbKeepAwake {
 public:
-    TaskTbbKeepAwake() : tbb_awake_count_(0), tbb_awake_timer_(NULL) { }
+    TaskTbbKeepAwake() : tbb_awake_count_(0), tbb_awake_val_(0),
+                         tbb_awake_timer_(NULL) { }
 
     bool StartTbbKeepAwakeTask(TaskScheduler *ts, EventManager *event_mgr,
                                const std::string task_name,
@@ -14,10 +15,19 @@ public:
         tbb_awake_timer_ = TimerManager::CreateTimer(*event_mgr->io_service(),
                                                      "TBB Keep Awake",
                                                      task_id, 0);
-
+        tbb_awake_val_ = tbbKeepawakeTimeout;
         bool ret = tbb_awake_timer_->Start(tbbKeepawakeTimeout,
                        boost::bind(&TaskTbbKeepAwake::TbbKeepAwake, this));
         return ret;
+    }
+
+    void ModifyTbbKeepAwakeTimeout(uint32_t timeout) {
+        if (tbb_awake_timer_ && tbb_awake_val_ != timeout) {
+            tbb_awake_timer_->Cancel();
+            tbb_awake_val_ = timeout;
+            tbb_awake_timer_->Start(timeout,
+                boost::bind(&TaskTbbKeepAwake::TbbKeepAwake, this));
+        }
     }
 
     bool TbbKeepAwake() {
@@ -34,5 +44,6 @@ public:
 
 private:
     uint64_t tbb_awake_count_;
+    uint32_t tbb_awake_val_;
     Timer *tbb_awake_timer_;
 };
