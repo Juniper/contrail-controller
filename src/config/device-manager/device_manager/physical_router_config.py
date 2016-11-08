@@ -557,6 +557,36 @@ class PhysicalRouterConfig(object):
 
             self.build_l2_evpn_interface_config(interfaces_config, interfaces)
 
+        if not is_l2 and gateways:
+            interfaces_config = self.interfaces_config or Interfaces()
+            ifl_num = str(1000 + int(network_id))
+            lo_intf = Interface(name="lo0")
+            interfaces_config.add_interface(lo_intf)
+            intf_unit = Unit(name=ifl_num)
+            lo_intf.add_unit(intf_unit)
+            family = Family()
+            intf_unit.set_family(family)
+            inet = None
+            inet6 = None
+            for (lo_ip, gateway) in gateways:
+                (ip, _) = lo_ip.split('/')
+                if ':' in lo_ip:
+                    if not inet6:
+                        inet6 = FamilyInet6()
+                        family.set_inet6(inet6)
+                    addr = Address()
+                    inet6.add_address(addr)
+                    lo_ip = ip + '/' + '128'
+                else:
+                    if not inet:
+                        inet = FamilyInet()
+                        family.set_inet(inet)
+                    addr = Address()
+                    inet.add_address(addr)
+                    lo_ip = ip + '/' + '32'
+                addr.set_name(lo_ip)
+            ri.add_interface(Interface(name="lo0." + ifl_num))
+
         # fip services config
         services_config = self.services_config
         if fip_map is not None:
