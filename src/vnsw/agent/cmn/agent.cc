@@ -41,7 +41,6 @@
 #include <filter/acl.h>
 
 #include <cmn/agent_factory.h>
-#include <base/task_tbbkeepawake.h>
 
 const std::string Agent::null_string_ = "";
 const std::set<std::string> Agent::null_string_list_;
@@ -563,18 +562,14 @@ void Agent::ReConnectCollectors() {
 }
 
 void Agent::InitDone() {
-    // Its observed that sometimes TBB doesnt scheduler misses spawn events
+    // Its observed that sometimes TBB scheduler misses spawn events
     // and doesnt schedule a task till its triggered again. As a work around
-    // start a dummy timer that fires and awake TBB periodically
+    // dummy timer is created at scheduler with default timeout of 1 sec
+    // that fires and awake TBB periodically. Modify the timeout if required.
     if (tbb_keepawake_timeout_) {
-        tbb_awake_task_->StartTbbKeepAwakeTask(TaskScheduler::GetInstance(),
-                             event_manager(), "Agent::TbbKeepAwake",
-                             tbb_keepawake_timeout_);
+        TaskScheduler::GetInstance()->ModifyTbbKeepAwakeTimeout(
+            tbb_keepawake_timeout_);
     }
-}
-
-void Agent::Shutdown() {
-    tbb_awake_task_->ShutTbbKeepAwakeTask();
 }
 
 static bool interface_exist(string &name) {
@@ -666,7 +661,7 @@ Agent::Agent() :
     stats_collector_(NULL), flow_stats_manager_(NULL), pkt_(NULL),
     services_(NULL), vgw_(NULL), rest_server_(NULL), oper_db_(NULL),
     diag_table_(NULL), controller_(NULL), resource_manager_(), event_mgr_(NULL),
-    tbb_awake_task_(NULL), agent_xmpp_channel_(), ifmap_channel_(),
+    agent_xmpp_channel_(), ifmap_channel_(),
     xmpp_client_(), xmpp_init_(), dns_xmpp_channel_(), dns_xmpp_client_(),
     dns_xmpp_init_(), agent_stale_cleaner_(NULL), cn_mcast_builder_(NULL),
     ds_client_(NULL), metadata_server_port_(0), host_name_(""), agent_name_(""),
@@ -723,9 +718,6 @@ Agent::Agent() :
     event_mgr_ = new EventManager();
     assert(event_mgr_);
 
-    tbb_awake_task_ = new TaskTbbKeepAwake();
-    assert(tbb_awake_task_);
-
     SetAgentTaskPolicy();
     CreateLifetimeManager();
 
@@ -759,9 +751,6 @@ Agent::~Agent() {
 
     delete event_mgr_;
     event_mgr_ = NULL;
-
-    delete tbb_awake_task_;
-    tbb_awake_task_ = NULL;
 }
 
 AgentConfig *Agent::cfg() const {
