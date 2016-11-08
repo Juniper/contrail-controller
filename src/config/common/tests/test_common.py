@@ -16,6 +16,7 @@ from testtools import content
 from flexmock import flexmock
 from webtest import TestApp
 import contextlib
+from time import sleep
 
 from vnc_api.vnc_api import *
 import cfgm_common.ifmap.client as ifmap_client

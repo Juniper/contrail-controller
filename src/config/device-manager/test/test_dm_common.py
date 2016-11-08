@@ -38,6 +38,42 @@ class TestCommonDM(test_case.DMTestCase):
         return grps
     # end get_bgp_groups
 
+    def get_routing_instances(self, config, ri_name=''):
+        ri_list  = config.get_routing_instances()
+        ri_list = ri_list.get_instance() or []
+        ris = []
+        for ri in ri_list or []:
+            if not ri_name or ri.get_name() == ri_name:
+                ris.append(ri)
+        return ris
+
+    def get_interfaces(self, config, name=''):
+        interfaces = config.get_interfaces()
+        interfaces = interfaces.get_interface()
+        intfs = []
+        for intf in interfaces or []:
+            if not name or name == intf.get_name():
+                intfs.append(intf)
+        return intfs
+    # end get_interfaces
+
+    def get_ip_list(self, intf, ip_type='v4', unit_name=''):
+        units = intf.get_unit() or []
+        ips = []
+        for ut in units:
+            if unit_name and ut.get_name() != unit_name:
+                continue
+            f = ut.get_family() or Family()
+            inet = None
+            if ip_type == 'v4':
+                inet = f.get_inet()
+            else:
+                inet = f.get_inet6()
+            addrs = inet.get_address() or []
+            for a in addrs:
+                ips.append(a.get_name())
+        return ips
+
     def set_hold_time(self, bgp_router, value):
         params = self.get_obj_param(bgp_router, 'bgp_router_parameters') or BgpRouterParams()
         self.set_obj_param(params, 'hold_time', 100)

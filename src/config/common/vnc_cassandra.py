@@ -244,6 +244,20 @@ class VncCassandraClient(object):
             return False
     #end
 
+    def update_key(self, cf_name, key, new_key, value):
+        ret = self.delete(cf_name, key)
+        if ret == False:
+            self._logger("Unable to delete entry (cf=%s, key=%s) " %
+                         (cf_name, key))
+            return False
+        ret = self.add(cf_name, new_key, value)
+        if ret == False:
+            self._logger("Unable to add entry (cf=%s, key=%s) " %
+                         (cf_name, new_key))
+            return False
+        return True
+    # end
+
     def get_range(self, cf_name):
         try:
             return self.get_cf(cf_name).get_range(column_count=100000)
