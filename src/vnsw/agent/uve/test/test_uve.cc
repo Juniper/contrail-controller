@@ -52,6 +52,8 @@ void RouterIdDepInit(Agent *agent) {
 
 class UveTest : public ::testing::Test {
 public:
+    UveTest() : agent_(Agent::GetInstance()) { }
+    ~UveTest() { }
     static void TestSetup(int *vrf, int count) {
         char vrf_name[80];
         for (int i = 0; i < count; i++) {
@@ -167,6 +169,7 @@ public:
         success_responses_ = error_responses_ = 0;
     }
 
+    Agent *agent_;
     int success_responses_;
     int error_responses_;
     int agent_stats_interval_;
@@ -185,7 +188,7 @@ TEST_F(UveTest, VmAddDelTest1) {
     client->WaitForIdle(2);
     WAIT_FOR(500, 1000, (VmPortActive(input, 0) == true));
     WAIT_FOR(500, 1000, (VmPortActive(input, 1) == true));
-    EXPECT_EQ(2U, Agent::GetInstance()->interface_config_table()->Size());
+    EXPECT_EQ(2U, PortSubscribeSize(agent_));
 
     VnUveTableTest *vnut = static_cast<VnUveTableTest *>
         (Agent::GetInstance()->uve()->vn_uve_table());
@@ -225,7 +228,7 @@ TEST_F(UveTest, VmAddDelTest1) {
     client->VnDelNotifyWait(2);
     client->PortDelNotifyWait(2);
     
-    WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_config_table()->Size() == 0));
+    WAIT_FOR(100, 1000, (PortSubscribeSize(agent_) == 0));
     WAIT_FOR(100, 1000, (Agent::GetInstance()->vm_table()->Size() == 0));
     WAIT_FOR(100, 1000, (Agent::GetInstance()->vn_table()->Size() == 0));
 
@@ -250,7 +253,7 @@ TEST_F(UveTest, VnAddDelTest1) {
     client->WaitForIdle(2);
     WAIT_FOR(500, 1000, (VmPortActive(input, 0) == true));
     WAIT_FOR(500, 1000, (VmPortActive(input, 1) == true));
-    EXPECT_EQ(2U, Agent::GetInstance()->interface_config_table()->Size());
+    EXPECT_EQ(2U, PortSubscribeSize(agent_));
 
     VnUveTableTest *vnut = static_cast<VnUveTableTest *>
         (Agent::GetInstance()->uve()->vn_uve_table());
@@ -287,7 +290,7 @@ TEST_F(UveTest, VnAddDelTest1) {
     client->VmDelNotifyWait(2);
     client->PortDelNotifyWait(2);
 
-    WAIT_FOR(500, 1000, (Agent::GetInstance()->interface_config_table()->Size() == 0));
+    WAIT_FOR(500, 1000, (PortSubscribeSize(agent_) == 0));
     WAIT_FOR(500, 1000, (Agent::GetInstance()->vm_table()->Size() == 0));
     WAIT_FOR(500, 1000, (Agent::GetInstance()->vn_table()->Size() == 0));
 
@@ -318,7 +321,7 @@ TEST_F(UveTest, IntAddDelTest1) {
     client->WaitForIdle(2);
     WAIT_FOR(500, 1000, (VmPortActive(input, 0) == true));
     WAIT_FOR(500, 1000, (VmPortActive(input, 1) == true));
-    EXPECT_EQ(2U, Agent::GetInstance()->interface_config_table()->Size());
+    EXPECT_EQ(2U, PortSubscribeSize(agent_));
     //Two entries in VM and VN map
     WAIT_FOR(500, 1000, (vnut->GetVnUveInterfaceCount("vn1")) == 1U);
     WAIT_FOR(500, 1000, (vnut->GetVnUveInterfaceCount("vn2")) == 1U);
@@ -343,7 +346,7 @@ TEST_F(UveTest, IntAddDelTest1) {
     client->VnDelNotifyWait(2);
     client->VmDelNotifyWait(2);
 
-    WAIT_FOR(500, 1000, (Agent::GetInstance()->interface_config_table()->Size() == 0));
+    WAIT_FOR(500, 1000, (PortSubscribeSize(agent_) == 0));
     WAIT_FOR(500, 1000, (Agent::GetInstance()->vm_table()->Size() == 0));
     WAIT_FOR(500, 1000, (Agent::GetInstance()->vn_table()->Size() == 0));
 

@@ -660,7 +660,7 @@ protected:
         EXPECT_EQ(7U, agent()->interface_table()->Size());
         EXPECT_EQ(3U, agent()->vm_table()->Size());
         EXPECT_EQ(vn_count, agent()->vn_table()->Size());
-        EXPECT_EQ(3U, agent()->interface_config_table()->Size());
+        EXPECT_EQ(3U, PortSubscribeSize(agent()));
 
         flow0 = VmInterfaceGet(input[0].intf_id);
         assert(flow0);
@@ -681,7 +681,7 @@ protected:
         EXPECT_EQ(8U, agent()->interface_table()->Size());
         EXPECT_EQ(4U, agent()->vm_table()->Size());
         EXPECT_EQ(vn_count, agent()->vn_table()->Size());
-        EXPECT_EQ(4U, agent()->interface_config_table()->Size());
+        EXPECT_EQ(4U, PortSubscribeSize(agent()));
         EXPECT_EQ(2U, agent()->acl_table()->Size());
 
         flow3 = VmInterfaceGet(input2[0].intf_id);
@@ -698,7 +698,7 @@ protected:
         EXPECT_EQ(9U, agent()->interface_table()->Size());
         EXPECT_EQ(5U, agent()->vm_table()->Size());
         EXPECT_EQ(vn_count, agent()->vn_table()->Size());
-        EXPECT_EQ(5U, agent()->interface_config_table()->Size());
+        EXPECT_EQ(5U, PortSubscribeSize(agent()));
         flow4 = VmInterfaceGet(input3[0].intf_id);
         assert(flow4);
         // Configure Floating-IP
@@ -742,7 +742,7 @@ protected:
         EXPECT_FALSE(VmPortFind(input, 1));
         EXPECT_FALSE(VmPortFind(input, 2));
         EXPECT_EQ(6U, agent()->interface_table()->Size());
-        EXPECT_EQ(2U, agent()->interface_config_table()->Size());
+        EXPECT_EQ(2U, PortSubscribeSize(agent()));
 
         client->Reset();
         DeleteVmportEnv(input2, 1, true, 2);
@@ -751,7 +751,7 @@ protected:
         client->WaitForIdle();
         client->PortDelNotifyWait(1);
         EXPECT_EQ(5U, agent()->interface_table()->Size());
-        EXPECT_EQ(1U, agent()->interface_config_table()->Size());
+        EXPECT_EQ(1U, PortSubscribeSize(agent()));
         EXPECT_FALSE(VmPortFind(input2, 0));
 
         client->Reset();
@@ -761,7 +761,7 @@ protected:
         client->WaitForIdle();
         client->PortDelNotifyWait(1);
         EXPECT_EQ(4U, agent()->interface_table()->Size());
-        EXPECT_EQ(0U, agent()->interface_config_table()->Size());
+        EXPECT_EQ(0U, PortSubscribeSize(agent()));
         EXPECT_FALSE(VmPortFind(input3, 0));
 
         EXPECT_EQ(0U, agent()->vm_table()->Size());

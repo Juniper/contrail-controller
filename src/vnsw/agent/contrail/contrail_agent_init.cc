@@ -130,6 +130,10 @@ void ContrailAgentInit::WaitForIdle() {
 void ContrailAgentInit::InitDone() {
     ContrailInitCommon::InitDone();
 
+    if (agent()->port_ipc_handler()) {
+        agent()->port_ipc_handler()->InitDone();
+    }
+
     /* Reads and processes port information written by nova-compute */
     PortIpcHandler *pih = agent()->port_ipc_handler();
     if (pih) {
