@@ -534,7 +534,7 @@ class TestAlarmPlugins(unittest.TestCase):
         self._verify(tests, alarm_name="conf-incorrect")
     # end test_alarm_incorrect_config
 
-    def test_alarm_disk_usage(self):
+    def test_alarm_disk_usage_high(self):
         tests = [
             TestCase(
                 name='NodeStatus == null',
@@ -553,7 +553,7 @@ class TestAlarmPlugins(unittest.TestCase):
             ),
             TestCase(
                 name='NodeStatus.disk_usage_info.*.'
-                    'percentage_partition_space_used < threshold',
+                    'percentage_partition_space_used range [70, 90] - no match',
                 input=TestInput(uve_key='ObjectDatabaseInfo:host1',
                     uve_data={
                         'NodeStatus': {
@@ -572,7 +572,112 @@ class TestAlarmPlugins(unittest.TestCase):
             ),
             TestCase(
                 name='NodeStatus.disk_usage_info.*.'
-                    'percentage_partition_space_used >= threshold',
+                    'percentage_partition_space_used range [70, 90]',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={
+                        'NodeStatus': {
+                            'disk_usage_info': {
+                                'dev/sda1': {
+                                    'partition_space_available_1k': 2097152,
+                                    'partition_space_used_1k': 8388608,
+                                    'partition_type': 'ext2',
+                                    'percentage_partition_space_used': 80
+                                },
+                                'dev/sda2': {
+                                    'partition_space_available_1k': 524288,
+                                    'partition_space_used_1k': 9961472,
+                                    'partition_type': 'ext2',
+                                    'percentage_partition_space_used': 95
+                                },
+                                'dev/sda3': {
+                                    'partition_space_available_1k': 1048576,
+                                    'partition_space_used_1k': 9437184,
+                                    'partition_type': 'ext4',
+                                    'percentage_partition_space_used': 90
+                                },
+                                'dev/sda4': {
+                                    'partition_space_available_1k': 3145728,
+                                    'partition_space_used_1k': 7340032,
+                                    'partition_type': 'ext4',
+                                    'percentage_partition_space_used': 70
+                                },
+                                'dev/sda5': {
+                                    'partition_space_available_1k': 100663296,
+                                    'partition_space_used_1k': 33554432,
+                                    'partition_type': 'ext2',
+                                    'percentage_partition_space_used': 25
+                                }
+                            }
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            {
+                                'condition': {
+                                    'operand1': 'NodeStatus.disk_usage_info'
+                                        '.*.percentage_partition_space_used',
+                                    'operand2': {
+                                        'json_value': '[70, 90]'
+                                    },
+                                    'operation': 'range',
+                                    'variables': [
+                                        'NodeStatus.disk_usage_info.__key'
+                                    ]
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '90',
+                                        'json_variables': {
+                                            'NodeStatus.disk_usage_info.__key':
+                                                '"dev/sda3"'
+                                        }
+                                    },
+                                    {
+                                        'json_operand1_val': '80',
+                                        'json_variables': {
+                                            'NodeStatus.disk_usage_info.__key':
+                                                '"dev/sda1"'
+                                        }
+                                    },
+                                    {
+                                        'json_operand1_val': '70',
+                                        'json_variables': {
+                                            'NodeStatus.disk_usage_info.__key':
+                                                '"dev/sda4"'
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ])
+            )
+        ]
+        self._verify(tests, alarm_name="disk-usage-high")
+    # end test_alarm_disk_usage_high
+
+    def test_alarm_disk_usage_critical(self):
+        tests = [
+            TestCase(
+                name='NodeStatus == null',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={}),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='NodeStatus.disk_usage_info == null',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={
+                        'NodeStatus': {}
+                    }
+                ),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='NodeStatus.disk_usage_info.*.'
+                    'percentage_partition_space_used > 90 - no match',
                 input=TestInput(uve_key='ObjectDatabaseInfo:host1',
                     uve_data={
                         'NodeStatus': {
@@ -582,12 +687,37 @@ class TestAlarmPlugins(unittest.TestCase):
                                     'partition_space_used_1k': 33554432,
                                     'partition_type': 'ext2',
                                     'percentage_partition_space_used': 25
+                                }
+                            }
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='NodeStatus.disk_usage_info.*.'
+                    'percentage_partition_space_used > 90',
+                input=TestInput(uve_key='ObjectDatabaseInfo:host1',
+                    uve_data={
+                        'NodeStatus': {
+                            'disk_usage_info': {
+                                'dev/sda1': {
+                                    'partition_space_available_1k': 2097152,
+                                    'partition_space_used_1k': 8388608,
+                                    'partition_type': 'ext2',
+                                    'percentage_partition_space_used': 80
                                 },
                                 'dev/sda2': {
-                                    'partition_space_available_1k': 60397978,
-                                    'partition_space_used_1k': 73819750,
-                                    'partition_type': 'ext4',
+                                    'partition_space_available_1k': 524288,
+                                    'partition_space_used_1k': 9961472,
+                                    'partition_type': 'ext2',
                                     'percentage_partition_space_used': 95
+                                },
+                                'dev/sda3': {
+                                    'partition_space_available_1k': 1048576,
+                                    'partition_space_used_1k': 9437184,
+                                    'partition_type': 'ext4',
+                                    'percentage_partition_space_used': 90
                                 }
                             }
                         }
@@ -603,7 +733,7 @@ class TestAlarmPlugins(unittest.TestCase):
                                     'operand2': {
                                         'json_value': '90'
                                     },
-                                    'operation': '>=',
+                                    'operation': '>',
                                     'variables': [
                                         'NodeStatus.disk_usage_info.__key'
                                     ]
@@ -623,8 +753,8 @@ class TestAlarmPlugins(unittest.TestCase):
                 ])
             )
         ]
-        self._verify(tests, alarm_name="disk-usage")
-    # end test_alarm_disk_usage
+        self._verify(tests, alarm_name="disk-usage-critical")
+    # end test_alarm_disk_usage_critical
 
     def test_alarm_partial_sysinfo(self):
         tests = [
