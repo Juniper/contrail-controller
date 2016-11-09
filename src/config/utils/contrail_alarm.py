@@ -151,7 +151,44 @@ alarm_list = [
                     "and_list": [
                         {
                             "operand1": "NodeStatus.disk_usage_info.*.percentage_partition_space_used",
-                            "operation": ">=",
+                            "operation": "range",
+                            "operand2": {
+                                "json_value": "[70, 90]"
+                            },
+                            "variables":
+                                ["NodeStatus.disk_usage_info.__key"]
+                        }
+                    ]
+                }
+            ]
+        },
+        "alarm_severity": 1,
+        "fq_name": [
+            "default-global-system-config",
+            "disk-usage-high"
+        ],
+        "id_perms": {
+            "description": "Disk usage crosses high threshold limit."
+        },
+        "parent_type": "global-system-config",
+        "uve_keys": {
+            "uve_key": [
+                "analytics-node",
+                "config-node",
+                "control-node",
+                "database-node",
+                "vrouter"
+            ]
+        }
+    },
+    {
+        "alarm_rules": {
+            "or_list": [
+                {
+                    "and_list": [
+                        {
+                            "operand1": "NodeStatus.disk_usage_info.*.percentage_partition_space_used",
+                            "operation": ">",
                             "operand2": {
                                 "json_value": "90"
                             },
@@ -165,10 +202,10 @@ alarm_list = [
         "alarm_severity": 0,
         "fq_name": [
             "default-global-system-config",
-            "disk-usage"
+            "disk-usage-critical"
         ],
         "id_perms": {
-            "description": "Disk Usage crosses a threshold."
+            "description": "Disk usage crosses critical threshold limit."
         },
         "parent_type": "global-system-config",
         "uve_keys": {
