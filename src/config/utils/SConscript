@@ -50,6 +50,7 @@ utils_scripts = [
   'provision_alarm.py',
   'contrail_alarm.py',
   'contrail-diff-docs.py',
+  'provision_issu.py',
 ]
 
 for utils in utils_scripts:
