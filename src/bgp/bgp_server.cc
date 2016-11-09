@@ -59,6 +59,10 @@ public:
 
     void ProcessGlobalSystemConfig(const BgpGlobalSystemConfig *system,
             BgpConfigManager::EventType event) {
+        // Clear peers only if GR is or was enabled.
+        bool clear_peers = server_->global_config()->gr_enable() ||
+            system->gr_enable();
+
         server_->global_config()->set_gr_enable(system->gr_enable());
         server_->global_config()->set_gr_time(system->gr_time());
         server_->global_config()->set_llgr_time(system->llgr_time());
@@ -67,6 +71,8 @@ public:
         server_->global_config()->set_gr_bgp_helper(
                 system->gr_bgp_helper());
 
+        if (!clear_peers)
+            return;
         RoutingInstanceMgr *ri_mgr = server_->routing_instance_mgr();
         RoutingInstance *rti = ri_mgr->GetDefaultRoutingInstance();
         assert(rti);

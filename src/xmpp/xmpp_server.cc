@@ -140,11 +140,16 @@ public:
 
     void ProcessGlobalSystemConfig(const BgpGlobalSystemConfig *system,
             BgpConfigManager::EventType event) {
+        // Clear peers only if GR is or was enabled.
+        bool clear_peers = config_.gr_enable() || system->gr_enable();
         config_.set_gr_enable(system->gr_enable());
         config_.set_gr_time(system->gr_time());
         config_.set_llgr_time(system->llgr_time());
         config_.set_end_of_rib_timeout(system->end_of_rib_timeout());
         config_.set_gr_xmpp_helper(system->gr_xmpp_helper());
+
+        if (!clear_peers)
+            return;
         server_->ClearAllConnections();
     }
 
