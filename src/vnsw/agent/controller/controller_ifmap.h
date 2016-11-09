@@ -16,6 +16,7 @@
 
 class XmppChannel;
 class AgentXmppChannel;
+class ControllerVmiSubscribeData;
 
 class AgentIfMapXmppChannel {
 public:
@@ -49,14 +50,21 @@ private:
 
 class AgentIfMapVmExport {
 public:
+    typedef std::list<boost::uuids::uuid> UuidList;
     struct VmExportInfo {
-        std::list<boost::uuids::uuid> vmi_list_;
+        UuidList vmi_list_;
         uint64_t seq_number_;
+
+        VmExportInfo(uint64_t seq_no) : vmi_list_(), seq_number_(seq_no) { }
+        ~VmExportInfo() { }
     };
 
     AgentIfMapVmExport(Agent *agent);
     ~AgentIfMapVmExport();
-    void Notify(DBTablePartBase *partition, DBEntryBase *e);
+
+    void VmiAdd(const ControllerVmiSubscribeData *entry);
+    void VmiDelete(const ControllerVmiSubscribeData *entry);
+    void VmiEvent(const ControllerVmiSubscribeData *entry);
     void NotifyAll(AgentXmppChannel *peer);
     typedef std::map<boost::uuids::uuid, struct VmExportInfo *> VmMap; 
     Agent *agent() const {return agent_;}

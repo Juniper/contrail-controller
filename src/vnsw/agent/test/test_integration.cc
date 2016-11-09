@@ -9,7 +9,6 @@
 #include <pugixml/pugixml.hpp>
 
 #include <cfg/cfg_init.h>
-#include <cfg/cfg_interface.h>
 #include <oper/operdb_init.h>
 #include <controller/controller_init.h>
 #include <pkt/pkt_init.h>
@@ -26,6 +25,7 @@
 #include <ifmap/ifmap_agent_table.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
+#include <port_ipc/port_subscribe_table.h>
 
 #include "testing/gunit.h"
 #include "test_cmn_util.h"
@@ -537,25 +537,15 @@ void NovaMsgProcess (xml_document &xdoc, pair<xml_node, GroupEntry *> node, bool
 
     DumpXmlNode(parent);
 
-    CfgIntKey *key = new CfgIntKey(port_id);
-
-    DBRequest req;
     if (create) {
-        CfgIntData *data = new CfgIntData();
         boost::system::error_code ec;
         Ip4Address ip = Ip4Address::from_string(ipaddr, ec);
-        data->Init(vm_id, vn_id, project_id, tap_intf, ip, Ip6Address(), mac, "",
-                   VmInterface::kInvalidVlanId, VmInterface::kInvalidVlanId,
-                   CfgIntEntry::CfgIntVMPort, 0);
-        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        req.key.reset(key);
-        req.data.reset(data);
+        PortSubscribe(tap_intf, port_id, vm_id, UuidToString(vm_id), vn_id,
+                      project_id, ip, Ip6Address(), mac);
     } else {
-        req.oper = DBRequest::DB_ENTRY_DELETE;
-        req.key.reset(key);
-        req.data.reset(NULL);
+        PortUnSubscribe(port_id);
     }
-    Agent::GetInstance()->interface_config_table()->Enqueue(&req);
+
     xdoc.append_copy(parent);
 
     if (create) {

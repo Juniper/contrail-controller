@@ -96,7 +96,7 @@ protected:
         EXPECT_EQ(6U, agent()->interface_table()->Size());
         EXPECT_EQ(3U, agent()->vm_table()->Size());
         EXPECT_EQ(vn_count, agent()->vn_table()->Size());
-        EXPECT_EQ(3U, agent()->interface_config_table()->Size());
+        EXPECT_EQ(3U, PortSubscribeSize(agent()));
 
         flow0 = VmInterfaceGet(input[0].intf_id);
         assert(flow0);

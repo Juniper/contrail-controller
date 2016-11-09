@@ -9,6 +9,7 @@
 
 using namespace std;
 
+class VmiSubscribeEntry;
 static const int kProjectUuid = 101;
 
 struct TestLinkLocalService {
@@ -93,8 +94,21 @@ void AddNode(Agent *agent, const char *node_name, const char *name, int id,
              const char *attr, bool admin_state = true);
 void DelNode(const char *node_name, const char *name);
 void DelNode(Agent *agent, const char *node_name, const char *name);
+uint32_t PortSubscribeSize(Agent *agent);
+bool PortSubscribe(VmiSubscribeEntry *entry);
+bool PortSubscribe(const std::string &ifname,
+                   const boost::uuids::uuid &vmi_uuid,
+                   const boost::uuids::uuid vm_uuid,
+                   const std::string &vm_name,
+                   const boost::uuids::uuid &vn_uuid,
+                   const boost::uuids::uuid &project_uuid,
+                   const Ip4Address &ip4_addr, const Ip6Address &ip6_addr,
+                   const std::string &mac_addr);
+void PortUnSubscribe(const boost::uuids::uuid &u);
 void IntfSyncMsg(PortInfo *input, int id);
-CfgIntEntry *CfgPortGet(boost::uuids::uuid u);
+void IntfCfgAddNoWait(int intf_id, const string &name, const string ipaddr,
+                      int vm_id, int vn_id, const string &mac, uint16_t vlan,
+                      const string ip6addr, int project_id);
 void IntfCfgAddThrift(PortInfo *input, int id);
 void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
                 int vm_id, int vn_id, const string &mac, uint16_t vlan,
@@ -103,6 +117,7 @@ void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
                 int vm_id, int vn_id, const string &mac, const string ip6addr);
 void IntfCfgAdd(PortInfo *input, int id);
 void IntfCfgDel(PortInfo *input, int id);
+void IntfCfgDelNoWait(int id);
 void IntfCfgDel(int id);
 NextHop *InetInterfaceNHGet(NextHopTable *table, const char *ifname,
                             InterfaceNHFlags::Type type, bool is_mcast,

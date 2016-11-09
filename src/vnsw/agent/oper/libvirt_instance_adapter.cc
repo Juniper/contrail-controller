@@ -13,7 +13,6 @@
 #include <pugixml/pugixml.hpp>
 #include <fstream>
 #include "cfg/cfg_init.h"
-#include "cfg/cfg_interface_listener.h"
 #include "oper/libvirt_instance_adapter.h"
 #include "oper/service_instance.h"
 #include "oper/instance_task.h"
