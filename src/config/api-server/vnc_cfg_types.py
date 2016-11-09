@@ -452,10 +452,13 @@ class InstanceIpServer(Resource, InstanceIp):
         if req_ip is None and subnet_uuid:
             # pickup the version from subnet
             req_ip_version = IPNetwork(sub).version
+        elif req_ip_family == "v4":
+            req_ip_version = 4
+        elif req_ip_family == "v6":
+            req_ip_version = 6
         else:
-            req_ip_version = 4 # default ip v4
+            req_ip_version = None
 
-        if req_ip_family == "v6": req_ip_version = 6
 
         # if request has ip and not g/w ip, report if already in use.
         # for g/w ip, creation allowed but only can ref to router port.
