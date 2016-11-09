@@ -10,24 +10,12 @@ import sys
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-SandeshGenFiles = env.SandeshGenCpp('cfg.sandesh')
-SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
-sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
-
 except_files = [ 'cfg_init.cc' ]
 except_objs = AgentEnv.BuildExceptionCcObj(env, except_files)
 
 libcfg = env.Library('cfg',
                      except_objs +
-                     sandesh_objs +
                      ['cfg_filter.cc',
-                      'cfg_interface.cc',
-                      'cfg_interface_listener.cc',
                       'cfg_mirror.cc',
                       'discovery_agent.cc',
                       ])
-
-libcfg_int = env.Library('cfg_int',
-                         ['cfg_interface.cc',
-                          ])
-

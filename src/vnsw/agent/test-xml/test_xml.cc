@@ -101,26 +101,14 @@ bool GetBoolAttribute(const xml_node &node, const string &name,
 void NovaIntfAdd(bool op_delete, const uuid &id, const Ip4Address &ip,
                  const uuid &vm_uuid, const uuid vn_uuid, const string &name,
                  const string &mac, const string vm_name) {
-    CfgIntKey *key = new CfgIntKey(id);
-    DBRequest req;
-    req.key.reset(key);
-
     if (op_delete) {
-        req.oper = DBRequest::DB_ENTRY_DELETE;
-        Agent::GetInstance()->interface_config_table()->Enqueue(&req);
+        PortUnSubscribe(id);
         cout << "Nova Del Interface Message " << endl;
         return;
     }
 
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    CfgIntData *data = new CfgIntData();
-    req.data.reset(data);
-    data->Init(vm_uuid, vn_uuid, MakeUuid(0), name, ip,
-               Ip6Address::v4_compatible(ip), mac, vm_name,
-               VmInterface::kInvalidVlanId, VmInterface::kInvalidVlanId,
-               CfgIntEntry::CfgIntVMPort, 0);
-
-    Agent::GetInstance()->interface_config_table()->Enqueue(&req);
+    PortSubscribe(name, id, vm_uuid, vm_name, vn_uuid, MakeUuid(1), ip,
+                  Ip6Address::v4_compatible(ip), mac);
     cout << "Nova Add Interface Message " << endl;
     return;
 }
