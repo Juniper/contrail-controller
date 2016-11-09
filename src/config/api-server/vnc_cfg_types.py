@@ -408,8 +408,12 @@ class InstanceIpServer(Resource, InstanceIp):
         subnet_uuid = obj_dict.get('subnet_uuid')
 
         req_ip_family = obj_dict.get("instance_ip_family")
-        req_ip_version = 4 # default ip v4
-        if req_ip_family == "v6": req_ip_version = 6
+        if req_ip_family == "v4":
+            req_ip_version = 4
+        elif req_ip_family == "v6":
+            req_ip_version = 6
+        else:
+            req_ip_version = None
 
         # if request has ip and not g/w ip, report if already in use.
         # for g/w ip, creation allowed but only can ref to router port.
