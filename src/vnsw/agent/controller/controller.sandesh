@@ -280,7 +280,7 @@ trace sandesh AgentXmppTimer {
  * @severity: DEBUG
  */
 trace sandesh AgentXmppMessage {
-    1: "Received xmpp message from: ";
+    1: "Control-node: ";
     /** IP address received from controller */
     2: string IPaddress;
     /** Port received from controller */
