@@ -13,6 +13,10 @@ import sqlalchemy
 import testtools
 import test_case
 
+import keystoneclient.exceptions as kc_exceptions
+import keystoneclient.v2_0.client as keystone
+from keystonemiddleware import auth_token
+
 from vnc_api.vnc_api import *
 from test_utils import *
 from cfgm_common import vnc_rdbms
@@ -20,6 +24,7 @@ from testtools.matchers import Equals, MismatchError, Not, Contains, LessThan
 from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
 from testtools import content, content_type, ExpectedException
 
+import test_utils
 import test_crud_basic
 import test_subnet_ip_count
 import test_perms2
@@ -740,9 +745,7 @@ class TestSubnet(test_subnet_ip_count.TestSubnet, test_case.ApiServerRDBMSTestCa
     pass
 
 class TestPermissions(test_perms2.TestPermissions, test_case.ApiServerRDBMSTestCase):
-    #TODO(nati): support domain sharing
-    def test_domain_sharing(self):
-        pass
+    pass
 
 class TestLogicalRouter(test_logical_router.TestLogicalRouter, test_case.ApiServerRDBMSTestCase):
     pass
