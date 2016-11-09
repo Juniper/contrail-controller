@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <routing-policy name='basic_2'>
+        <term>
+            <term-match-condition>
+                <community>23:13</community>
+            </term-match-condition>
+            <term-action-list>
+                <update>
+                    <local-pref>75</local-pref>
+                </update>
+                <action>accept</action>
+            </term-action-list>
+        </term>
+    </routing-policy>
+</config>
