@@ -142,7 +142,7 @@ TEST_F(PktTest, FlowAdd_1) {
     EXPECT_EQ(4U, Agent::GetInstance()->interface_table()->Size());
     EXPECT_EQ(1U, Agent::GetInstance()->vm_table()->Size());
     EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->interface_config_table()->Size());
+    EXPECT_EQ(1U, PortSubscribeSize(agent_));
 
     // Generate packet and enqueue
     VmInterface *intf = VmInterfaceGet(input[0].intf_id);

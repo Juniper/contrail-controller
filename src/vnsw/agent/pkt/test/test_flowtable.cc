@@ -324,7 +324,7 @@ public:
         WAIT_FOR(1000, 100,
                  (2U ==  Agent::GetInstance()->vn_table()->Size()));
         WAIT_FOR(1000, 100,
-                 (3U == Agent::GetInstance()->interface_config_table()->Size()));
+                 (3U == PortSubscribeSize(Agent::GetInstance())));
 
         vif1 = VmInterfaceGet(tap1[0].intf_id);
         assert(vif1);
@@ -352,8 +352,7 @@ public:
 
         WAIT_FOR(1000, 100, 
                  (Agent::GetInstance()->interface_table()->Size() == 3));
-        WAIT_FOR(1000, 100, 
-                 (Agent::GetInstance()->interface_config_table()->Size() == 0));
+        WAIT_FOR(1000, 100, (PortSubscribeSize(Agent::GetInstance()) == 0));
         WAIT_FOR(1000, 100, (Agent::GetInstance()->vm_table()->Size() == 0));
         WAIT_FOR(1000, 100, (Agent::GetInstance()->vn_table()->Size() == 0));
         WAIT_FOR(1000, 100, (Agent::GetInstance()->acl_table()->Size() == 0));

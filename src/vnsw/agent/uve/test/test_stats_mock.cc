@@ -95,7 +95,7 @@ public:
         EXPECT_EQ(5U, Agent::GetInstance()->interface_table()->Size());
         EXPECT_EQ(2U, Agent::GetInstance()->vm_table()->Size());
         EXPECT_EQ(vn_count, Agent::GetInstance()->vn_table()->Size());
-        EXPECT_EQ(2U, Agent::GetInstance()->interface_config_table()->Size());
+        EXPECT_EQ(2U, PortSubscribeSize(Agent::GetInstance()));
 
         flow0 = VmInterfaceGet(input[0].intf_id);
         assert(flow0);
@@ -115,7 +115,7 @@ public:
         EXPECT_TRUE(VmPortActive(stats_if, 1));
         EXPECT_EQ(4U, Agent::GetInstance()->vm_table()->Size());
         EXPECT_EQ(vn_count, Agent::GetInstance()->vn_table()->Size());
-        EXPECT_EQ(4U, Agent::GetInstance()->interface_config_table()->Size());
+        EXPECT_EQ(4U, PortSubscribeSize(Agent::GetInstance()));
 
         test0 = VmInterfaceGet(stats_if[0].intf_id);
         assert(test0);

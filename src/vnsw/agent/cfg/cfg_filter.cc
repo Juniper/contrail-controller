@@ -83,6 +83,10 @@ bool CfgFilter::CheckProperty(DBTable *table, IFMapNode *node, DBRequest *req) {
         return true;
     }
 
+    if (req->oper == DBRequest::DB_ENTRY_NOTIFY) {
+        return true;
+    }
+
     assert(req->oper == DBRequest::DB_ENTRY_ADD_CHANGE);
 
     IFMapAgentTable::IFMapAgentData *data =

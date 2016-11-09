@@ -9,7 +9,6 @@
 #include <init/agent_param.h>
 
 #include <cfg/cfg_init.h>
-#include <cfg/cfg_interface.h>
 #include <vgw/cfg_vgw.h>
 
 #include <oper/operdb_init.h>
@@ -452,7 +451,6 @@ void AgentInit::WaitForDBEmpty() {
     WaitForDbCount(agent_->vm_table(), this, 0, 10000);
     WaitForDbCount(agent_->vn_table(), this, 0, 10000);
     WaitForDbCount(agent_->mpls_table(), this, 0, 10000);
-    WaitForDbCount(agent_->interface_config_table(), this, 0, 10000);
     WaitForDbCount(agent_->acl_table(), this, 0, 10000);
 }
 

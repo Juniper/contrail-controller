@@ -149,30 +149,13 @@ protected:
 
     void NovaIntfAdd(int id, const char *name, const char *addr,
                     const char *mac) {
-        CfgIntKey *key = new CfgIntKey(MakeUuid(id));
-        CfgIntData *data = new CfgIntData();
-        boost::system::error_code ec;
-        IpAddress ip = Ip4Address::from_string(addr, ec);
-        data->Init(nil_uuid(), nil_uuid(), nil_uuid(), name, ip.to_v4(),
-                   Ip6Address(), mac, "", VmInterface::kInvalidVlanId,
-                   VmInterface::kInvalidVlanId, CfgIntEntry::CfgIntVMPort, 0);
-
-        DBRequest req;
-        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        req.key.reset(key);
-        req.data.reset(data);
-        Agent::GetInstance()->interface_config_table()->Enqueue(&req);
+        IntfCfgAddNoWait(id, name, ip.to_v4(), nil_uuid(), nil_uuid(), mac,
+                         VmInterface::kInvalidVlanId, Ip6Address(), nil_uuid());
         usleep(1000);
     }
 
     void NovaIntfDel(int id) {
-        CfgIntKey *key = new CfgIntKey(MakeUuid(id));
-
-        DBRequest req;
-        req.oper = DBRequest::DB_ENTRY_DELETE;
-        req.key.reset(key);
-        req.data.reset(NULL);
-        Agent::GetInstance()->interface_config_table()->Enqueue(&req);
+        IntfCfgDelNoWait(id);
         usleep(1000);
     }
 
