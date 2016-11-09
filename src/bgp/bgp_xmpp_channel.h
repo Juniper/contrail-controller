@@ -145,7 +145,7 @@ public:
     const XmppChannel *channel() const { return channel_; }
     XmppChannel *channel() { return channel_; }
     void StartEndOfRibReceiveTimer();
-    void RestEndOfRibState();
+    void ResetEndOfRibState();
     bool EndOfRibSendTimerExpired();
     bool MembershipResponseHandler(std::string table_name);
     Timer *eor_send_timer() const { return eor_send_timer_; }
