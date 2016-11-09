@@ -384,7 +384,7 @@ private:
         send_ready_ = true;
 
         // Restart EndOfRib Send timer if necessary.
-        parent_->RestEndOfRibState();
+        parent_->ResetEndOfRibState();
     }
 
     BgpServer *server_;
@@ -1725,7 +1725,7 @@ bool BgpXmppChannel::MembershipResponseHandler(string table_name) {
                channel_stats_.table_unsubscribe);
 
     // Restart EndOfRib send if necessary.
-    RestEndOfRibState();
+    ResetEndOfRibState();
 
     // If Close manager is waiting to use membership, try now.
     if (close_manager_->IsMembershipInWait())
@@ -2185,7 +2185,7 @@ bool BgpXmppChannel::EndOfRibReceiveTimerExpired() {
     // If max timeout has not reached yet, check if we can exit GR sooner by
     // looking at the activity in the channel.
     if (UTCTimestampUsec() - eor_receive_timer_start_time_
-            < timeout * 1000000) {
+            < timeout * 1000000 * 10) {
 
         // If there is some send or receive activity in the channel in last few
         // seconds, delay EoR receive event.
@@ -2216,7 +2216,8 @@ bool BgpXmppChannel::EndOfRibSendTimerExpired() {
 
     // If max timeout has not reached yet, check if we can exit GR sooner by
     // looking at the activity in the channel.
-    if (UTCTimestampUsec() - eor_send_timer_start_time_ < timeout * 1000000) {
+    if (UTCTimestampUsec() - eor_send_timer_start_time_ <
+            timeout * 1000000 * 10) {
 
         // If there is some send or receive activity in the channel in last few
         // seconds, delay EoR send event.
@@ -2226,7 +2227,7 @@ bool BgpXmppChannel::EndOfRibSendTimerExpired() {
             BGP_LOG_PEER(Message, Peer(), SandeshLevel::SYS_INFO,
                          BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
                          "EndOfRib Send timer rescheduled to fire after " <<
-                         kEndOfRibSendRetryTimeMsecs << "milliseconds ");
+                         kEndOfRibSendRetryTimeMsecs << " milliseconds ");
             return true;
         }
     }
@@ -2244,13 +2245,13 @@ void BgpXmppChannel::StartEndOfRibReceiveTimer() {
 
     BGP_LOG_PEER(Message, Peer(), SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
         BGP_PEER_DIR_IN, "EndOfRib Receive timer scheduled to fire after " <<
-        timeout * 100 << " milliseconds");
-    eor_receive_timer_->Start(timeout * 100, // 10% milliseconds
+        timeout * 1000 << " milliseconds");
+    eor_receive_timer_->Start(timeout * 1000,
         boost::bind(&BgpXmppChannel::EndOfRibReceiveTimerExpired, this),
         boost::bind(&BgpXmppChannel::EndOfRibTimerErrorHandler, this, _1, _2));
 }
 
-void BgpXmppChannel::RestEndOfRibState() {
+void BgpXmppChannel::ResetEndOfRibState() {
     if (eor_sent_)
         return;
 
@@ -2271,8 +2272,8 @@ void BgpXmppChannel::RestEndOfRibState() {
 
     BGP_LOG_PEER(Message, Peer(), SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
         BGP_PEER_DIR_OUT, "EndOfRib Send timer scheduled to fire after " <<
-        timeout * 100 << " milliseconds");
-    eor_send_timer_->Start(timeout * 100, // 10% msecs
+        timeout * 1000 << " milliseconds");
+    eor_send_timer_->Start(timeout * 1000,
         boost::bind(&BgpXmppChannel::EndOfRibSendTimerExpired, this),
         boost::bind(&BgpXmppChannel::EndOfRibTimerErrorHandler, this, _1, _2));
 }
@@ -2557,7 +2558,7 @@ void BgpXmppChannelManager::XmppHandleChannelEvent(XmppChannel *channel,
 
         bgp_xmpp_channel->eor_sent_ = false;
         bgp_xmpp_channel->StartEndOfRibReceiveTimer();
-        bgp_xmpp_channel->RestEndOfRibState();
+        bgp_xmpp_channel->ResetEndOfRibState();
     } else if (state == xmps::NOT_READY) {
         if (it != channel_map_.end()) {
             bgp_xmpp_channel = (*it).second;

@@ -286,10 +286,10 @@ bool BgpPeer::EndOfRibSendTimerExpired(Address::Family family) {
     if (!IsReady())
         return false;
 
-    // Retry if wait time has not exceeded the max and the output queue has not
-    // been fully drained yet.
+    // Retry if wait time has not exceeded the max (10 times configured) and
+    // the output queue has not been fully drained yet.
     if (GetEorSendTimerElapsedTimeUsecs() <
-            server_->GetEndOfRibSendTime() * 1000000) {
+            server_->GetEndOfRibSendTime() * 1000000 * 10) {
         uint32_t output_depth = GetOutputQueueDepth(family);
         if (output_depth) {
             eor_send_timer_[family]->Reschedule(kEndOfRibSendRetryTimeMsecs);
@@ -315,8 +315,8 @@ void BgpPeer::SendEndOfRIB(Address::Family family) {
         BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_OUT,
         "EndOfRib Send Timer scheduled for family " <<
         Address::FamilyToString(family) <<
-        " to fire after " << timeout * 100 << " milliseconds");
-    eor_send_timer_[family]->Start(timeout * 100,  // 10% msecs
+        " to fire after " << timeout * 1000 << " milliseconds");
+    eor_send_timer_[family]->Start(timeout * 1000,
         boost::bind(&BgpPeer::EndOfRibSendTimerExpired, this, family),
         boost::bind(&BgpPeer::EndOfRibTimerErrorHandler, this, _1, _2));
 }
