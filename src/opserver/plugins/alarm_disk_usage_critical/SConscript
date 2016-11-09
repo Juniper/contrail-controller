@@ -1,7 +1,7 @@
 # -*- mode: python; -*-
 
 #
-# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+# Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
 import sys
@@ -16,7 +16,7 @@ setup_sources = [
 setup_sources_rules = []
 for file in setup_sources:
     setup_sources_rules.append(env.Install(".",
-        "#/controller/src/opserver/plugins/alarm_disk_usage/" + file))
+        "#/controller/src/opserver/plugins/alarm_disk_usage_critical/" + file))
 
 local_sources = [
     '__init__.py',
@@ -24,15 +24,15 @@ local_sources = [
 ]
 local_sources_rules = []
 for file in local_sources:
-    local_sources_rules.append(env.Install(Dir("alarm_disk_usage"), file))
+    local_sources_rules.append(env.Install(Dir("alarm_disk_usage_critical"), file))
 
 sdist_depends = [setup_sources_rules, local_sources_rules]
 cd_cmd = 'cd ' + Dir('.').path + ' && '
-sdist_gen = env.Command('dist/alarm_disk_usage-0.1dev.tar.gz', 'setup.py',
+sdist_gen = env.Command('dist/alarm_disk_usage_critical-0.1dev.tar.gz', 'setup.py',
                         cd_cmd + 'python setup.py sdist')
 env.Depends(sdist_gen, sdist_depends)
 env.Default(sdist_gen)
-OpEnv['ALARM_DISK_USAGE_PKG'] = sdist_gen
+OpEnv['ALARM_DISK_USAGE_CRITICAL_PKG'] = sdist_gen
 
 if 'install' in BUILD_TARGETS:
     install_cmd = env.Command(None,
