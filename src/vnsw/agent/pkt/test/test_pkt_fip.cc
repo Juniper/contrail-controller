@@ -248,8 +248,8 @@ static void Setup() {
         ret = false;
     }
 
-    EXPECT_EQ(7U, Agent::GetInstance()->interface_config_table()->Size());
-    if (Agent::GetInstance()->interface_config_table()->Size() != 7) {
+    EXPECT_EQ(7U, PortSubscribeSize(agent_));
+    if (PortSubscribeSize(agent_) != 7) {
         ret = false;
     }
 

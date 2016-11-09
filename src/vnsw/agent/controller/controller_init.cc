@@ -825,6 +825,13 @@ bool VNController::ControllerWorkQueueProcess(ControllerWorkQueueDataType data) 
             LOG(ERROR, "Unknown Peer Id processing Discovery Response");
         }
     }
+
+    // VM Subscription message
+    ControllerVmiSubscribeData *subscribe_data =
+        boost::dynamic_pointer_cast<ControllerVmiSubscribeData>(data.get());
+    if (subscribe_data && agent_ifmap_vm_export_.get()) {
+        agent_ifmap_vm_export_->VmiEvent(subscribe_data);
+    }
     return true;
 }
 

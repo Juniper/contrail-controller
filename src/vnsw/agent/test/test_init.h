@@ -32,7 +32,6 @@
 
 #include <cmn/agent_cmn.h>
 #include <cfg/cfg_init.h>
-#include <cfg/cfg_interface.h>
 #include "cfg/cfg_mirror.h"
 
 #include <oper/operdb_init.h>
@@ -561,8 +560,6 @@ public:
     }
 
     void Init() {
-        Agent::GetInstance()->interface_config_table()->Register(boost::bind(&TestClient::CfgNotify, 
-                                                   this, _1, _2));
         Agent::GetInstance()->vn_table()->Register(boost::bind(&TestClient::VnNotify, 
                                                    this, _1, _2));
         Agent::GetInstance()->vm_table()->Register(boost::bind(&TestClient::VmNotify, 

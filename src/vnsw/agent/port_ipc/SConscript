@@ -21,6 +21,7 @@ libport_ipc = env.Library('port_ipc',
                           sandesh_objs +
                           ['config_stale_cleaner.cc',
                            except_env.Object('port_ipc_handler.cc'),
+                           'port_subscribe_table.cc',
                            'rest_common.cc',
                            except_env.Object('rest_server.cc')
                           ])

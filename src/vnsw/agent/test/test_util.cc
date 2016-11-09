@@ -15,6 +15,7 @@
 #include "uve/agent_uve_stats.h"
 #include <cfg/cfg_types.h>
 #include <port_ipc/port_ipc_handler.h>
+#include <port_ipc/port_subscribe_table.h>
 
 #define MAX_TESTNAME_LEN 80
 
@@ -522,6 +523,40 @@ void DelNode(Agent *agent, const char *node_name, const char *name) {
     return;
 }
 
+uint32_t PortSubscribeSize(Agent *agent) {
+    return agent->port_ipc_handler()->port_subscribe_table()->Size();
+}
+
+bool PortSubscribe(VmiSubscribeEntry *entry) {
+    string json;
+    Agent *agent = Agent::GetInstance();
+    agent->port_ipc_handler()->MakeVmiUuidJson(entry, json);
+    string err;
+    return agent->port_ipc_handler()->AddPortFromJson(json, false, err, false);
+}
+
+bool PortSubscribe(const std::string &ifname,
+                   const boost::uuids::uuid &vmi_uuid,
+                   const boost::uuids::uuid vm_uuid,
+                   const std::string &vm_name,
+                   const boost::uuids::uuid &vn_uuid,
+                   const boost::uuids::uuid &project_uuid,
+                   const Ip4Address &ip4_addr, const Ip6Address &ip6_addr,
+                   const std::string &mac_addr) {
+    VmiSubscribeEntry entry(VmiSubscribeEntry::VMPORT, ifname, 0,
+                            vmi_uuid, vm_uuid, vm_name, vn_uuid, project_uuid,
+                            ip4_addr, ip6_addr, mac_addr,
+                            VmInterface::kInvalidVlanId,
+                            VmInterface::kInvalidVlanId);
+    PortSubscribe(&entry);
+}
+
+void PortUnSubscribe(const boost::uuids::uuid &u) {
+    Agent *agent = Agent::GetInstance();
+    string err;
+    agent->port_ipc_handler()->DeleteVmiUuidEntry(u, err);
+}
+
 void IntfSyncMsg(PortInfo *input, int id) {
     VmInterfaceKey *key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                              MakeUuid(input[id].intf_id), "");
@@ -536,8 +571,6 @@ void IntfSyncMsg(PortInfo *input, int id) {
 void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
                 int vm_id, int vn_id, const string &mac, uint16_t vlan,
                 const string ip6addr, int project_id) {
-    CfgIntKey *key = new CfgIntKey(MakeUuid(intf_id));
-    CfgIntData *data = new CfgIntData();
     boost::system::error_code ec;
     Ip4Address ip = Ip4Address::from_string(ipaddr, ec);
     char vm_name[MAX_TESTNAME_LEN];
@@ -546,15 +579,16 @@ void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
     if (!ip6addr.empty()) {
         ip6 = Ip6Address::from_string(ip6addr, ec);
     }
-    data->Init(MakeUuid(vm_id), MakeUuid(vn_id), MakeUuid(project_id),
-               name, ip, ip6, mac, vm_name, vlan, vlan,
-               CfgIntEntry::CfgIntVMPort, 0);
 
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req.key.reset(key);
-    req.data.reset(data);
-    Agent::GetInstance()->interface_config_table()->Enqueue(&req);
+    VmiSubscribeEntry entry(PortSubscribeEntry::VMPORT, name, 0,
+                            MakeUuid(intf_id), MakeUuid(vm_id), vm_name,
+                            MakeUuid(vn_id), MakeUuid(project_id), ip, ip6,
+                            mac, vlan, vlan);
+    string json;
+    Agent *agent = Agent::GetInstance();
+    agent->port_ipc_handler()->MakeVmiUuidJson(&entry, json);
+    string err;
+    agent->port_ipc_handler()->AddPortFromJson(json, false, err, false);
     client->WaitForIdle();
 }
 
@@ -572,36 +606,18 @@ void IntfCfgAdd(PortInfo *input, int id) {
 }
 
 void IntfCfgAddThrift(PortInfo *input, int id) {
-    Ip4Address ip4;
-    Ip6Address ip6;
-    if (input[id].addr != string(""))
-        ip4 = Ip4Address::from_string(input[id].addr);
-    if (input[id].ip6addr != string(""))
-        ip6 = Ip6Address::from_string(input[id].ip6addr);
-    std::stringstream vm_ss;
-    vm_ss << "vm" << input[id].vm_id;
+    IntfCfgAdd(input, id);
+}
 
-    CfgIntData data;
-    data.Init(MakeUuid(input[id].vm_id), MakeUuid(input[id].vn_id),
-              MakeUuid(kProjectUuid), input[id].name, ip4, ip6,
-              input[id].mac, vm_ss.str(), VmInterface::kInvalidVlanId,
-              VmInterface::kInvalidVlanId, CfgIntEntry::CfgIntVMPort, 0);
-    CfgIntEntry entry(MakeUuid(input[id].intf_id));
-    entry.Init(data);
-    PortIpcHandler pih(Agent::GetInstance(), "/tmp");
-    string str;
+void IntfCfgDelNoWait(int id) {
+    Agent *agent = Agent::GetInstance();
     string err;
-    pih.MakeVmiUuidJson(&entry, str);
-    pih.AddPortFromJson(str, false, err, false);
-    client->WaitForIdle();
+    agent->port_ipc_handler()->DeleteVmiUuidEntry(MakeUuid(id), err);
 }
 
 void IntfCfgDel(int id) {
-    DBRequest req(DBRequest::DB_ENTRY_DELETE);
-    req.key.reset(new CfgIntKey(MakeUuid(id)));
-    req.data.reset(NULL);
-    Agent::GetInstance()->interface_config_table()->Enqueue(&req);
-    usleep(1000);
+    IntfCfgDelNoWait(id);
+    client->WaitForIdle();
 }
 
 void IntfCfgDel(PortInfo *input, int id) {
@@ -790,12 +806,6 @@ bool VmPortPolicyEnabled(PortInfo *input, int id) {
 InetInterface *InetInterfaceGet(const char *ifname) {
     InetInterfaceKey key(ifname);
     return static_cast<InetInterface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
-}
-
-CfgIntEntry *CfgPortGet(boost::uuids::uuid u) {
-    CfgIntKey key(u);
-    return static_cast<CfgIntEntry *>(Agent::GetInstance()->
-        interface_config_table()->Find(&key));
 }
 
 Interface *VmPortGet(int id) {

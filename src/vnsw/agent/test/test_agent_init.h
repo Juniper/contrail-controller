@@ -10,6 +10,7 @@
 #include <test/test_pkt0_interface.h>
 #include <uve/test/agent_stats_collector_test.h>
 #include <vrouter/flow_stats/flow_stats_collector.h>
+#include <port_ipc/port_ipc_handler.h>
 
 class Agent;
 class AgentParam;
@@ -30,6 +31,7 @@ public:
     // Initialization virtual methods
     void FactoryInit();
     void CreateModules();
+    void InitDone();
 
     // Shutdown virtual methods
     virtual void KSyncShutdown();
@@ -42,6 +44,7 @@ public:
     void ProcessComputeAddress(AgentParam *param);
 private:
     std::auto_ptr<KSync> ksync_;
+    std::auto_ptr<PortIpcHandler> pih_;
     std::auto_ptr<AgentUveBase> uve_;
     std::auto_ptr<TestPkt0Interface> pkt0_;
     std::auto_ptr<AgentStatsCollectorTest> stats_collector_;

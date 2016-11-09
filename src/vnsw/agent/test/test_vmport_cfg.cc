@@ -80,7 +80,7 @@ TEST_F(CfgTest, AddDelVmPortNoVn_1) {
     EXPECT_TRUE(client->PortNotifyWait(1));
     EXPECT_TRUE(VmPortInactive(input, 0));
     EXPECT_EQ(4U, Agent::GetInstance()->interface_table()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->interface_config_table()->Size());
+    EXPECT_EQ(1U, PortSubscribeSize(agent_));
 
     client->Reset();
     IntfCfgDel(input, 0);
@@ -88,42 +88,23 @@ TEST_F(CfgTest, AddDelVmPortNoVn_1) {
     EXPECT_TRUE(client->PortNotifyWait(1));
     EXPECT_FALSE(VmPortFind(input, 0));
     EXPECT_EQ(3U, Agent::GetInstance()->interface_table()->Size());
-    EXPECT_EQ(0U, Agent::GetInstance()->interface_config_table()->Size());
+    EXPECT_EQ(0U, PortSubscribeSize(agent_));
 }
 
 TEST_F(CfgTest, AddDelExport) {
 
     client->Reset();
+    PortSuscribe("vnet1", MakeUuid(1), MakeUuid(1), UuidToString(MakeUuid(1)),
+                 MakeUuid(1), MakeUuid(kProjectUuid), ip, Ip6Address(),
+                 "00:00:00:01:01:01");
 
-    CfgIntKey *key = new CfgIntKey(MakeUuid(1)); 
-    CfgIntData *data = new CfgIntData();
-    boost::system::error_code ec;
-    Ip4Address ip = Ip4Address::from_string("1.1.1.1", ec);
-    data->Init(MakeUuid(1), MakeUuid(1), MakeUuid(kProjectUuid),
-               "vnet1", ip, Ip6Address(), "00:00:00:01:01:01", "",
-               VmInterface::kInvalidVlanId, VmInterface::kInvalidVlanId,
-               CfgIntEntry::CfgIntVMPort, 0);
-
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req.key.reset(key);
-    req.data.reset(data);
-    Agent::GetInstance()->interface_config_table()->Enqueue(&req);
-
-    CfgIntKey *key1 = new CfgIntKey(MakeUuid(1)); 
-    CfgIntData *data1 = new CfgIntData();
     ip = Ip4Address::from_string("1.1.1.1", ec);
-    data1->Init(MakeUuid(1), MakeUuid(1), MakeUuid(kProjectUuid),
-                "vnet1", ip, Ip6Address(), "00:00:00:01:01:01", "",
-                VmInterface::kInvalidVlanId, VmInterface::kInvalidVlanId,
-                CfgIntEntry::CfgIntVMPort, 0);
-    req.key.reset(key1);
-    req.data.reset(data1);
-    req.oper = DBRequest::DB_ENTRY_DELETE;
-    Agent::GetInstance()->interface_config_table()->Enqueue(&req);
+    PortSuscribe("vnet1", MakeUuid(1), MakeUuid(1), UuidToString(MakeUuid(1)),
+                 MakeUuid(1), MakeUuid(kProjectUuid), ip, Ip6Address(),
+                 "00:00:00:01:01:01");
     usleep(1000);
 
-    EXPECT_EQ(0U, Agent::GetInstance()->interface_config_table()->Size());
+    EXPECT_EQ(0U, PortSubscribeSize(agent_));
 }
 
 TEST_F(CfgTest, AddDelVmPortDepOnVmVn_1) {
@@ -137,7 +118,7 @@ TEST_F(CfgTest, AddDelVmPortDepOnVmVn_1) {
     EXPECT_TRUE(client->PortNotifyWait(1));
     EXPECT_TRUE(VmPortInactive(input, 0));
     EXPECT_EQ(4U, Agent::GetInstance()->interface_table()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->interface_config_table()->Size());
+    EXPECT_EQ(1U, PortSubscribeSize(agent_));
 
     // Config VM Add - Port inactive since VN not present
     AddVm("vm1", 1);
@@ -247,7 +228,7 @@ TEST_F(CfgTest, AddDelVmPortDepOnVmVn_1) {
     EXPECT_FALSE(VmPortFind(input, 0));
     EXPECT_EQ(3U, Agent::GetInstance()->interface_table()->Size());
     EXPECT_EQ(0U, Agent::GetInstance()->vm_table()->Size());
-    EXPECT_EQ(0U, Agent::GetInstance()->interface_config_table()->Size());
+    EXPECT_EQ(0U, PortSubscribeSize(agent_));
     EXPECT_EQ(0U, Agent::GetInstance()->vn_table()->Size());
     EXPECT_FALSE(VnFind(1));
 }
@@ -270,7 +251,7 @@ TEST_F(CfgTest, AddDelVmPortDepOnVmVn_2) {
     EXPECT_TRUE(client->PortNotifyWait(1));
     EXPECT_TRUE(VmPortInactive(input, 0));
     EXPECT_EQ(4U, Agent::GetInstance()->interface_table()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->interface_config_table()->Size());
+    EXPECT_EQ(1U, PortSubscribeSize(agent_));
 
     // Config VN Add - Port inactive since interface oper-db not aware of
     // VM and VN added
@@ -336,7 +317,7 @@ TEST_F(CfgTest, AddDelVmPortDepOnVmVn_2) {
     EXPECT_TRUE(client->PortNotifyWait(1));
     EXPECT_FALSE(VmPortFind(input, 0));
     EXPECT_EQ(3U, Agent::GetInstance()->interface_table()->Size());
-    EXPECT_EQ(0U, Agent::GetInstance()->interface_config_table()->Size());
+    EXPECT_EQ(0U, PortSubscribeSize(agent_));
 
     client->Reset();
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
@@ -371,7 +352,7 @@ TEST_F(CfgTest, AddDelVmPortDepOnVmVn_3) {
     EXPECT_TRUE(client->PortNotifyWait(1));
     EXPECT_TRUE(VmPortInactive(input, 0));
     EXPECT_EQ(4U, Agent::GetInstance()->interface_table()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->interface_config_table()->Size());
+    EXPECT_EQ(1U, PortSubscribeSize(agent_));
 
     // Config VM Add - Port inactive since VN not present
     AddVm("vm1", 1);
@@ -665,7 +646,7 @@ TEST_F(CfgTest, VmPortPolicy_2) {
     EXPECT_EQ(5U, Agent::GetInstance()->interface_table()->Size());
     EXPECT_EQ(1U, Agent::GetInstance()->vm_table()->Size());
     EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
-    EXPECT_EQ(2U, Agent::GetInstance()->interface_config_table()->Size());
+    EXPECT_EQ(2U, PortSubscribeSize(agent_));
 
     AddVrf("vrf4");
     client->WaitForIdle();
@@ -755,7 +736,7 @@ TEST_F(CfgTest, VmPortPolicy_2) {
     EXPECT_EQ(5U, Agent::GetInstance()->interface_table()->Size());
     EXPECT_EQ(0U, Agent::GetInstance()->vm_table()->Size());
     EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
-    EXPECT_EQ(2U, Agent::GetInstance()->interface_config_table()->Size());
+    EXPECT_EQ(2U, PortSubscribeSize(agent_));
 
     DelPort(input[0].name);
     DelPort(input[1].name);
@@ -865,7 +846,7 @@ TEST_F(CfgTest, VnDepOnVrfAcl_1) {
     EXPECT_EQ(5U, Agent::GetInstance()->interface_table()->Size());
     EXPECT_EQ(1U, Agent::GetInstance()->vm_table()->Size());
     EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
-    EXPECT_EQ(2U, Agent::GetInstance()->interface_config_table()->Size());
+    EXPECT_EQ(2U, PortSubscribeSize(agent_));
 
     client->Reset();
     AddLink("virtual-network", "vn1", "access-control-list", "acl1");
@@ -930,7 +911,7 @@ TEST_F(CfgTest, VnDepOnVrfAcl_1) {
     EXPECT_EQ(5U, Agent::GetInstance()->interface_table()->Size());
     EXPECT_EQ(0U, Agent::GetInstance()->vm_table()->Size());
     EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
-    EXPECT_EQ(2U, Agent::GetInstance()->interface_config_table()->Size());
+    EXPECT_EQ(2U, PortSubscribeSize(agent_));
 
     // Delete Nova Port entry.
     client->Reset();
@@ -1160,7 +1141,7 @@ TEST_F(CfgTest, FloatingIp_1) {
     EXPECT_EQ(4U, Agent::GetInstance()->interface_table()->Size());
     EXPECT_EQ(0U, Agent::GetInstance()->vm_table()->Size());
     EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
-    EXPECT_EQ(2U, Agent::GetInstance()->interface_config_table()->Size());
+    EXPECT_EQ(2U, PortSubscribeSize(agent_));
 
     // Delete Nova Port entry.
     client->Reset();

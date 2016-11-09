@@ -166,12 +166,6 @@ private:
 };
 
 extern SandeshTraceBufferPtr CfgTraceBuf;
-
-#define CFG_TRACE(obj, ...) \
-do {\
-    Cfg##obj::TraceMsg(CfgTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__);\
-} while(0);\
-
 #define CONFIG_TRACE(obj, ...) \
 do {\
     Config##obj::TraceMsg(CfgTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__);\

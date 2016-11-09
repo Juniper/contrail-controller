@@ -313,6 +313,13 @@ void IFMapAgentTable::Input(DBTablePartition *partition, DBClient *client,
         return;
     }
 
+    if (request->oper == DBRequest::DB_ENTRY_NOTIFY) {
+        if (node) {
+            partition->Notify(node);
+        }
+        return;
+    }
+
     node = EntryLocate(node, key);
     assert(node);
 

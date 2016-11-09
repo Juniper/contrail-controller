@@ -117,7 +117,7 @@ protected:
         assert(vmi1);
 
         EXPECT_EQ(5U, agent()->interface_table()->Size());
-        EXPECT_EQ(2U, agent()->interface_config_table()->Size());
+        EXPECT_EQ(2U, PortSubscribeSize(agent_));
         EXPECT_EQ(2U, agent()->vm_table()->Size());
         EXPECT_EQ(1, agent()->vn_table()->Size());
         client->WaitForIdle();
@@ -148,7 +148,7 @@ protected:
         client->WaitForIdle();
 
         EXPECT_EQ(3U, agent()->interface_table()->Size());
-        EXPECT_EQ(0U, agent()->interface_config_table()->Size());
+        EXPECT_EQ(0U, PortSubscribeSize(agent_));
         EXPECT_EQ(0U, agent()->vm_table()->Size());
         EXPECT_EQ(0U, agent()->vn_table()->Size());
         EXPECT_EQ(0U, agent()->acl_table()->Size());
