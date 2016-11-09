@@ -2226,7 +2226,7 @@ bool BgpXmppChannel::EndOfRibSendTimerExpired() {
             BGP_LOG_PEER(Message, Peer(), SandeshLevel::SYS_INFO,
                          BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
                          "EndOfRib Send timer rescheduled to fire after " <<
-                         kEndOfRibSendRetryTimeMsecs << "milliseconds ");
+                         kEndOfRibSendRetryTimeMsecs << " milliseconds ");
             return true;
         }
     }
