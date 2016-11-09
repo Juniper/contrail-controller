@@ -2507,7 +2507,8 @@ TEST_F(RoutingPolicyTest, ProtocolMatchStaticRoute) {
 // 1. two routing instance test_0 and test_1
 // 2. Routing instnaces are connected with each other,
 // 3. two routing policies to edit local pref of matching route.
-// With above configuration, validate that route notify doesn't trigger
+// Verify that routing policy is not applied to replicated route.
+// Also, with above configuration, validate that route notify doesn't trigger
 // re-addition of replicated route paths.
 //
 TEST_F(RoutingPolicyTest, Policy_RouteReplicate) {
@@ -2535,7 +2536,7 @@ TEST_F(RoutingPolicyTest, Policy_RouteReplicate) {
     BgpRoute *rt = RouteLookup<Inet6Definition>("test_0.inet6.0",
                                             "2001:db8:85a3::8a2e:370:7335/128");
     ASSERT_TRUE(rt != NULL);
-    ASSERT_TRUE(rt->count() == 2);
+    ASSERT_TRUE(rt->count() == 1);
     VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
     ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
     const BgpAttr *attr = rt->BestPath()->GetAttr();
@@ -2545,15 +2546,14 @@ TEST_F(RoutingPolicyTest, Policy_RouteReplicate) {
     ASSERT_TRUE(policy_local_pref == 200);
     ASSERT_TRUE(original_local_pref == 100);
 
-    // Take the time stamp of the replicated path on the route.
-    // This will be compared with replicated path after triggering dummy
-    // notification of the primary route.
-    uint64_t rt1_replicated_path_time_stamp;
+    // Since the routing policy is not applied on the replicated route,
+    // the replicated route in test_1.inet6.0 table retains its
+    // local-pref of 200 and remains the best path.
+    // So it is no longer replicated to connected VRF test_0.inet6.0 table.
     for (Route::PathList::iterator it = rt->GetPathList().begin();
          it != rt->GetPathList().end(); it++) {
         BgpPath *path = static_cast<BgpPath *>(it.operator->());
-        if (path->IsReplicated())
-            rt1_replicated_path_time_stamp = path->time_stamp_usecs();
+        ASSERT_FALSE(path->IsReplicated());
     }
 
     rt = RouteLookup<Inet6Definition>("test_1.inet6.0",
@@ -2562,13 +2562,17 @@ TEST_F(RoutingPolicyTest, Policy_RouteReplicate) {
     ASSERT_TRUE(rt->count() == 2);
     VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
     ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    ASSERT_TRUE(rt->BestPath()->IsReplicated() == true);
     attr = rt->BestPath()->GetAttr();
     orig_attr = rt->BestPath()->GetOriginalAttr();
     original_local_pref = orig_attr->local_pref();
     policy_local_pref = attr->local_pref();
-    ASSERT_TRUE(policy_local_pref == 50);
+    ASSERT_TRUE(policy_local_pref == 200);
     ASSERT_TRUE(original_local_pref == 200);
 
+    // Take the time stamp of the replicated path on the route.
+    // This will be compared with replicated path after triggering dummy
+    // notification of the primary route.
     uint64_t rt2_replicated_path_time_stamp;
     for (Route::PathList::iterator it = rt->GetPathList().begin();
          it != rt->GetPathList().end(); it++) {
@@ -2590,18 +2594,17 @@ TEST_F(RoutingPolicyTest, Policy_RouteReplicate) {
     rt = RouteLookup<Inet6Definition>("test_0.inet6.0",
                                             "2001:db8:85a3::8a2e:370:7335/128");
     ASSERT_TRUE(rt != NULL);
-    ASSERT_TRUE(rt->count() == 2);
+    ASSERT_TRUE(rt->count() == 1);
 
-    uint64_t rt1_replicated_path_time_stamp_after_change;
+    // Since the routing policy is not applied on the replicated route,
+    // the replicated route in test_1.inet6.0 table retains its
+    // local-pref of 200 and remains the best path.
+    // So it is no longer replicated to connected VRF test_0.inet6.0 table.
     for (Route::PathList::iterator it = rt->GetPathList().begin();
          it != rt->GetPathList().end(); it++) {
         BgpPath *path = static_cast<BgpPath *>(it.operator->());
-        if (path->IsReplicated())
-            rt1_replicated_path_time_stamp_after_change
-                = path->time_stamp_usecs();
+        ASSERT_FALSE(path->IsReplicated());
     }
-    ASSERT_TRUE(rt1_replicated_path_time_stamp_after_change
-                == rt1_replicated_path_time_stamp);
 
     rt = RouteLookup<Inet6Definition>("test_1.inet6.0",
                                       "2001:db8:85a3::8a2e:370:7335/128");
