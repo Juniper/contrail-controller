@@ -16,7 +16,11 @@
 #include <boost/spirit/include/phoenix_core.hpp>
 #include <boost/spirit/include/phoenix_operator.hpp>
 #include <boost/spirit/include/phoenix_stl.hpp>
+#if BOOST_VERSION >= 105600
+#include <boost/phoenix/object/construct.hpp>
+#else
 #include <boost/spirit/home/phoenix/object/construct.hpp>
+#endif
 #include <boost/uuid/uuid.hpp>
 #if __GNUC_PREREQ(4, 6)
 #pragma GCC diagnostic push
