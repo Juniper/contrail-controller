@@ -45,11 +45,11 @@ class SqaObjectBase(object):
 
 class SqaShare(object):
     tenant = Column(String(1024))
-    tenant_permission = Column(Integer, primary_key=True)
+    tenant_access = Column(Integer, primary_key=True)
 
     def __repr__(self):
-       return "<SqaShare(owner='%s' tenant='%s', tenant_permission='%d')>" % (
-           self.owner, self.tenant, self.tenant_permission)
+       return "<SqaShare(owner='%s' tenant='%s', tenant_access='%d')>" % (
+           self.owner, self.tenant, self.tenant_access)
 
 class SqaObjectRef(object):
     #ref_value = Column(Text())
@@ -987,7 +987,6 @@ class VncRDBMSClient(object):
 
         return (True, '')
     # end object_update
-
     @use_session
     def object_list(self, res_type, parent_uuids=None, back_ref_uuids=None,
                      obj_uuids=None, count=False, filters=None, field_names=None,
