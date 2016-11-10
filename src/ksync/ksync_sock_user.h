@@ -246,6 +246,8 @@ public:
     virtual Sandesh* GetFirst(Sandesh *);
     virtual Sandesh* GetNext(Sandesh *);
     virtual Sandesh* Get(int idx);
+private:
+    vr_drop_stats_req drop_stats_req;
 };
 
 class NHDumpHandler : public MockDumpHandlerBase {

@@ -38,15 +38,20 @@ bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
         return false;
     }
 
+    AgentUve::DerivedStatsMap ds;
+    agent_uve->stats_manager()->BuildDropStats(s->drop_stats, ds);
+    uve->set_raw_drop_stats(ds);
+
     /* Only diff since previous send needs to be sent as we export
      * stats via StatsOracle infra provided by analytics module */
-    uint64_t in_b, in_p, out_b, out_p;
-    s->GetDiffStats(&in_b, &in_p, &out_b, &out_p);
+    uint64_t in_b, in_p, out_b, out_p, drop_p;
+    s->GetDiffStats(&in_b, &in_p, &out_b, &out_p, &drop_p);
 
     if_stats.set_in_pkts(in_p);
     if_stats.set_in_bytes(in_b);
     if_stats.set_out_pkts(out_p);
     if_stats.set_out_bytes(out_b);
+    if_stats.set_drop_pkts(drop_p);
     uve->set_raw_if_stats(if_stats);
 
     if ((in_b != 0) || (in_p != 0) || (out_b != 0) || (out_p != 0)) {
@@ -103,6 +108,7 @@ bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
         flow_rate.set_active_flows(active_flows);
         uve->set_flow_rate(flow_rate);
     }
+
     return true;
 }
 

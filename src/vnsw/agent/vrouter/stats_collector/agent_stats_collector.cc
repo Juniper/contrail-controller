@@ -34,9 +34,9 @@ AgentStatsCollector::AgentStatsCollector
                      io, agent->params()->agent_stats_interval(),
                      "Agent Stats collector"),
     agent_(agent) {
-    intf_stats_sandesh_ctx_.reset(new AgentStatsSandeshContext(agent));
-    vrf_stats_sandesh_ctx_.reset( new AgentStatsSandeshContext(agent));
-    drop_stats_sandesh_ctx_.reset(new AgentStatsSandeshContext(agent));
+    intf_stats_sandesh_ctx_.reset(new AgentStatsSandeshContext(agent, true));
+    vrf_stats_sandesh_ctx_.reset( new AgentStatsSandeshContext(agent, false));
+    drop_stats_sandesh_ctx_.reset(new AgentStatsSandeshContext(agent, false));
 }
 
 AgentStatsCollector::~AgentStatsCollector() {
@@ -48,6 +48,8 @@ void AgentStatsCollector::SendInterfaceBulkGet() {
     encoder.set_h_op(sandesh_op::DUMP);
     encoder.set_vifr_context(0);
     encoder.set_vifr_marker(intf_stats_sandesh_ctx_.get()->marker_id());
+    /* Always fetch per-interface Drop-stats along with other stats */
+    encoder.set_vifr_flags(VIF_FLAG_GET_DROP_STATS);
     SendRequest(encoder, InterfaceStatsType);
 }
 
@@ -66,6 +68,7 @@ void AgentStatsCollector::SendDropStatsBulkGet() {
 
     encoder.set_h_op(sandesh_op::GET);
     encoder.set_vds_rid(0);
+    encoder.set_vds_core(0);
     SendRequest(encoder, DropStatsType);
 }
 
@@ -119,20 +122,6 @@ bool AgentStatsCollector::Run() {
     SendVrfStatsBulkGet();
     SendDropStatsBulkGet();
     return true;
-}
-
-void AgentStatsCollector::SendStats() {
-    VnUveTable *vnt = static_cast<VnUveTable *>
-        (agent_->uve()->vn_uve_table());
-    vnt->SendVnStats(false);
-
-    VmUveTable *vmt = static_cast<VmUveTable *>
-        (agent_->uve()->vm_uve_table());
-    vmt->SendVmStats();
-
-    InterfaceUveStatsTable *it = static_cast<InterfaceUveStatsTable *>
-        (agent_->uve()->interface_uve_table());
-    it->SendInterfaceStats();
 }
 
 void AgentStatsCollector::Shutdown(void) {

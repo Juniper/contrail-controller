@@ -1206,7 +1206,9 @@ void MockDumpHandlerBase::SendGetResponse(uint32_t seq_num, int idx) {
      * KSyncSockTypeMap::set_error_code() with required error code and 
      * invoke get request */
     if (KSyncSockTypeMap::error_code()) {
-        KSyncSockTypeMap::SimulateResponse(seq_num, -KSyncSockTypeMap::error_code(), 0); 
+        int ret_code = -KSyncSockTypeMap::error_code();
+        ret_code &= ~VR_MESSAGE_DUMP_INCOMPLETE;
+        KSyncSockTypeMap::SimulateResponse(seq_num, ret_code, 0);
         return;
     }
     Sandesh *req = Get(idx);
@@ -1267,21 +1269,36 @@ Sandesh* IfDumpHandler::GetFirst(Sandesh *from_req) {
 
     if (it != sock->if_map.end()) {
         req = it->second;
+        req.set_vifr_flags(orig_req->get_vifr_flags());
         return &req;
     }
     return NULL;
 }
 
 Sandesh* IfDumpHandler::GetNext(Sandesh *input) {
+    static int last_intf_id = 0;
+    static int32_t last_if_flags = 0;
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
     KSyncSockTypeMap::ksync_map_if::const_iterator it;
     static vr_interface_req req, *r;
 
-    r = static_cast<vr_interface_req *>(input);
-    it = sock->if_map.upper_bound(r->get_vifr_idx());
+    r = dynamic_cast<vr_interface_req *>(input);
+    if (r != NULL) {
+        /* GetNext on vr_interface_req should return a dummy drop-stats object.
+         * We need to store the interface index which will be used during
+         * GetNext of IfDumpHandler when invoked with vr_drop_stats_req as
+         * argument */
+        last_intf_id = r->get_vifr_idx();
+        last_if_flags = r->get_vifr_flags();
+        if (r->get_vifr_flags() & VIF_FLAG_GET_DROP_STATS) {
+            return &drop_stats_req;
+        }
+    }
+    it = sock->if_map.upper_bound(last_intf_id);
 
     if (it != sock->if_map.end()) {
         req = it->second;
+        req.set_vifr_flags(last_if_flags);
         return &req;
     }
     return NULL;

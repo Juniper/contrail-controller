@@ -47,7 +47,7 @@ bool VnUveTable::SendUnresolvedVnMsg(const string &vn_name,
     return changed;
 }
 
-void VnUveTable::SendVnStats(bool only_vrf_stats) {
+void VnUveTable::SendVnStats() {
     UveVnMap::const_iterator it = uve_vn_map_.begin();
     while (it != uve_vn_map_.end()) {
         const VnUveEntry *entry = static_cast<VnUveEntry *>(it->second.get());
@@ -56,7 +56,7 @@ void VnUveTable::SendVnStats(bool only_vrf_stats) {
             continue;
         }
         if (entry->vn()) {
-            SendVnStatsMsg(entry->vn(), only_vrf_stats);
+            SendVnStatsMsg(entry->vn());
         }
     }
     UveVirtualNetworkAgent uve1, uve2;
@@ -68,7 +68,7 @@ void VnUveTable::SendVnStats(bool only_vrf_stats) {
     }
 }
 
-void VnUveTable::SendVnStatsMsg(const VnEntry *vn, bool only_vrf_stats) {
+void VnUveTable::SendVnStatsMsg(const VnEntry *vn) {
     VnUveEntry* entry = static_cast<VnUveEntry*>(UveEntryFromVn(vn));
     if (entry == NULL) {
         return;
@@ -78,7 +78,7 @@ void VnUveTable::SendVnStatsMsg(const VnEntry *vn, bool only_vrf_stats) {
     }
     UveVirtualNetworkAgent uve;
 
-    bool send = entry->FrameVnStatsMsg(vn, uve, only_vrf_stats);
+    bool send = entry->FrameVnStatsMsg(vn, uve);
     if (send) {
         DispatchVnMsg(uve);
     }

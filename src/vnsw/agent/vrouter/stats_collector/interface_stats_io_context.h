@@ -16,6 +16,7 @@ public:
     virtual void Handler();
     virtual void ErrorHandler(int err);
 private:
+    void UpdateMarker();
     DISALLOW_COPY_AND_ASSIGN(InterfaceStatsIoContext);
 };
 
