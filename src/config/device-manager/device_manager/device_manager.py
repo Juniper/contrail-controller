@@ -11,7 +11,6 @@ from cfgm_common.zkclient import ZookeeperClient
 from gevent import monkey
 monkey.patch_all()
 from cfgm_common.vnc_kombu import VncKombuClient
-import cgitb
 import sys
 import argparse
 import requests
@@ -42,6 +41,7 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB, PortTupleDM
 from physical_router_config import PushConfigState
 from cfgm_common.dependency_tracker import DependencyTracker
+from cfgm_common import vnc_cgitb
 from cfgm_common.utils import cgitb_hook
 
 
@@ -607,7 +607,7 @@ def run_device_manager(args):
 
 
 def server_main():
-    cgitb.enable(format='text')
+    vnc_cgitb.enable(format='text')
     main()
 # end server_main
 

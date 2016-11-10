@@ -8,11 +8,11 @@ from cfgm_common import jsonutils as json
 from netaddr import IPAddress, IPNetwork
 import argparse
 from cStringIO import StringIO
-import cgitb
 
 import kazoo.client
 import kazoo.exceptions
 import cfgm_common
+from cfgm_common import vnc_cgitb
 from cfgm_common.utils import cgitb_hook
 from cfgm_common.ifmap.client import client
 from cfgm_common.ifmap.request import NewSessionRequest
@@ -1452,7 +1452,7 @@ class DatabaseHealer(DatabaseManager):
 # end class DatabaseCleaner
 
 def db_check(args_str):
-    cgitb.enable(format='text')
+    vnc_cgitb.enable(format='text')
 
     db_checker = DatabaseChecker(args_str)
     # Mode and node count check across all nodes
@@ -1469,7 +1469,7 @@ def db_check(args_str):
 # end db_check
 
 def db_clean(args_str):
-    cgitb.enable(format='text')
+    vnc_cgitb.enable(format='text')
 
     db_cleaner = DatabaseCleaner(args_str)
     db_cleaner.clean_obj_missing_mandatory_fields()
@@ -1484,7 +1484,7 @@ def db_clean(args_str):
 # end db_clean
 
 def db_heal(args_str):
-    cgitb.enable(format='text')
+    vnc_cgitb.enable(format='text')
 
     db_healer = DatabaseHealer(args_str)
     db_healer.heal_fq_name_index()

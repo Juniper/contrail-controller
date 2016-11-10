@@ -11,9 +11,6 @@ import uuid
 import logging
 import coverage
 
-import cgitb
-cgitb.enable(format='text')
-
 import fixtures
 import testtools
 from testtools.matchers import Equals, MismatchError, Not, Contains
@@ -29,6 +26,8 @@ import stevedore
 
 from vnc_api.vnc_api import *
 import cfgm_common
+from cfgm_common import vnc_cgitb
+vnc_cgitb.enable(format='text')
 
 sys.path.append('../common/tests')
 import test_utils
