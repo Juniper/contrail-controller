@@ -31,7 +31,7 @@ class SchemaTransformerLogger(ConfigServiceLogger):
 
     def redefine_sandesh_handles(self):
         sandesh.VnList.handle_request = self.sandesh_vn_handle_request
-        sandesh.RoutintInstanceList.handle_request = \
+        sandesh.RoutingInstanceList.handle_request = \
             self.sandesh_ri_handle_request
         sandesh.ServiceChainList.handle_request = \
             self.sandesh_sc_handle_request
