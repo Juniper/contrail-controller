@@ -26,9 +26,10 @@ import re
 import urllib
 from collections import OrderedDict
 import sys
-import cgitb
 import cStringIO
 import logging
+
+from cfgm_common import vnc_cgitb
 
 
 # Masking of password from openstack/common/log.py
@@ -80,18 +81,7 @@ def mask_password(message, secret="***"):
 
 
 def cgitb_hook(info=None, **kwargs):
-    buf = sys.stdout
-    if 'file' in kwargs:
-        buf = kwargs['file']
-
-    local_buf = cStringIO.StringIO()
-    kwargs['file'] = local_buf
-    cgitb.Hook(**kwargs).handle(info or sys.exc_info())
-
-    doc = local_buf.getvalue()
-    local_buf.close()
-    buf.write(mask_password(doc))
-    buf.flush()
+    vnc_cgitb.Hook(**kwargs).handle(info or sys.exc_info())
 # end cgitb_hook
 
 
