@@ -18,10 +18,10 @@ reload(sys)
 sys.setdefaultencoding('UTF8')
 import requests
 import ConfigParser
-import cgitb
 
 import argparse
 
+from cfgm_common import vnc_cgitb
 from cfgm_common.exceptions import *
 from config_db import *
 
@@ -593,7 +593,7 @@ def main(args_str=None):
 
 
 def server_main():
-    cgitb.enable(format='text')
+    vnc_cgitb.enable(format='text')
     main()
 # end server_main
 

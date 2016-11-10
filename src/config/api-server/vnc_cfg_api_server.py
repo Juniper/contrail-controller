@@ -34,6 +34,8 @@ from cStringIO import StringIO
 from lxml import etree
 # import GreenletProfiler
 
+from cfgm_common import vnc_cgitb
+
 logger = logging.getLogger(__name__)
 
 """
@@ -3660,8 +3662,7 @@ def main(args_str=None, server=None):
 # end main
 
 def server_main(args_str=None):
-    import cgitb
-    cgitb.enable(format='text')
+    vnc_cgitb.enable(format='text')
 
     main(args_str, VncApiServer(args_str))
 #server_main
