@@ -64,6 +64,7 @@ static void FillRoutingInstanceInfo(ShowRoutingInstance *sri,
     }
     sri->set_export_target(export_rt);
     sri->set_always_subscribe(rtinstance->always_subscribe());
+    sri->set_allow_transit(rtinstance->virtual_network_allow_transit());
 
     if (!summary) {
         const BgpMembershipManager *bmm = bsc->bgp_server->membership_mgr();
