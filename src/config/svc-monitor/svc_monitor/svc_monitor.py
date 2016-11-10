@@ -16,7 +16,6 @@ monkey.patch_all(thread=not 'unittest' in sys.modules)
 from cfgm_common.zkclient import ZookeeperClient
 import requests
 import ConfigParser
-import cgitb
 import cStringIO
 import argparse
 
@@ -28,6 +27,7 @@ import logging.handlers
 from cfgm_common.imid import *
 from cfgm_common import importutils
 from cfgm_common import svc_info
+from cfgm_common import vnc_cgitb
 from cfgm_common.utils import cgitb_hook
 
 from config_db import *
@@ -887,7 +887,7 @@ def main(args_str=None):
 
 
 def server_main():
-    cgitb.enable(format='text')
+    vnc_cgitb.enable(format='text')
     main()
 # end server_main
 
