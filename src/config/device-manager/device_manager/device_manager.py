@@ -10,7 +10,6 @@ This file contains implementation of managing physical router configuration
 from cfgm_common.zkclient import ZookeeperClient
 from gevent import monkey
 monkey.patch_all()
-import cgitb
 import sys
 import argparse
 import requests
@@ -42,6 +41,7 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
 from dm_amqp import DMAmqpHandle
 from physical_router_config import PushConfigState
 from cfgm_common.dependency_tracker import DependencyTracker
+from cfgm_common import vnc_cgitb
 from cfgm_common.utils import cgitb_hook
 from cfgm_common.vnc_logger import ConfigServiceLogger
 
@@ -479,7 +479,7 @@ def run_device_manager(args):
 
 
 def server_main():
-    cgitb.enable(format='text')
+    vnc_cgitb.enable(format='text')
     main()
 # end server_main
 
