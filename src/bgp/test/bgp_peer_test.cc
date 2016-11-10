@@ -392,7 +392,7 @@ TEST_P(BgpPeerParamTest, SendEndOfRib) {
     }
 
     // If elapsed time is more the max time, eor must be sent out.
-    if (elapsed_ >= BgpServer::kEndOfRibTime) {
+    if (elapsed_ >= BgpServer::kEndOfRibTime * 10) {
         EXPECT_FALSE(peer_->EndOfRibSendTimerExpired(Address::INET));
         EXPECT_TRUE(peer_->sent_eor_);
         return;
@@ -413,11 +413,11 @@ TEST_P(BgpPeerParamTest, SendEndOfRib) {
 INSTANTIATE_TEST_CASE_P(BgpPeerTestWithParams, BgpPeerParamTest,
     testing::Combine(::testing::Values(
             0,
-            BgpServer::kEndOfRibTime * 0.10/2,
-            BgpServer::kEndOfRibTime * 0.10,
-            BgpServer::kEndOfRibTime * 0.50,
-            BgpServer::kEndOfRibTime,
-            BgpServer::kEndOfRibTime * 2),
+            BgpServer::kEndOfRibTime * 10 * 0.10/2,
+            BgpServer::kEndOfRibTime * 10 * 0.10,
+            BgpServer::kEndOfRibTime * 10 * 0.50,
+            BgpServer::kEndOfRibTime * 10,
+            BgpServer::kEndOfRibTime * 10 * 2),
         ::testing::Values(0, 100),
         ::testing::Bool()));
 
