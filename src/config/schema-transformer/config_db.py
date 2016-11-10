@@ -987,7 +987,7 @@ class VirtualNetworkST(DBBaseST):
                         continue
                 else:
                     self._logger.error("network policy rule attached to %s"
-                                       "has svn = %s, dvn = %s. Ignored." %
+                                       " has svn = %s, dvn = %s. Ignored." %
                                        (self.name, svn, dvn))
                     continue
 
@@ -1268,6 +1268,8 @@ class VirtualNetworkST(DBBaseST):
             sandesh.PropList('route_target', self.get_route_target()),
             sandesh.PropList('network_id',
                              str(self.obj.get_virtual_network_network_id()))
+            sandesh.PropList('multi_service_chains',
+                             str(self.multi_policy_service_chains_enabled))
         ]
         return resp
     # end handle_st_object_req
