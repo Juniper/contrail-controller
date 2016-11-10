@@ -20,6 +20,7 @@ import StringIO
 
 import socket
 from netaddr import IPNetwork, IPAddress
+from context import get_request
 
 from cfgm_common.uve.vnc_api.ttypes import *
 from cfgm_common import ignore_exceptions
@@ -152,23 +153,6 @@ class VncIfmapClient(object):
                vnc_greenlets.VncGreenlet('VNC IfMap Health Checker',
                                          self._health_checker)
     # end __init__
-
-    def _owner_id(self):
-        env = get_request().headers.environ
-        tenant_uuid = env.get('HTTP_X_PROJECT_ID')
-        domain = env.get('HTTP_X_DOMAIN_ID')
-        if domain is None:
-            domain = env.get('HTTP_X_USER_DOMAIN_ID')
-            try:
-                domain = str(uuid.UUID(domain))
-            except ValueError:
-                if domain == 'default':
-                    domain = 'default-domain'
-                domain = self._db_conn.fq_name_to_uuid('domain', [domain])
-        if domain:
-            domain = domain.replace('-','')
-        return domain, tenant_uuid
-
     @classmethod
     def object_alloc(cls, obj_class, parent_res_type, fq_name):
         res_type = obj_class.resource_type
@@ -2026,11 +2010,26 @@ class VncDbClient(object):
         return (ok, cassandra_result)
     # end dbe_update
 
+    def _owner_id(self):
+        env = get_request().headers.environ
+        tenant_uuid = env.get('HTTP_X_PROJECT_ID')
+        domain = env.get('HTTP_X_DOMAIN_ID')
+        if domain is None:
+            domain = env.get('HTTP_X_USER_DOMAIN_ID')
+            try:
+                domain = str(uuid.UUID(domain))
+            except ValueError:
+                if domain == 'default':
+                    domain = 'default-domain'
+                domain = self._db_conn.fq_name_to_uuid('domain', [domain])
+        if domain:
+            domain = domain.replace('-','')
+        return domain, tenant_uuid
+
     def dbe_list_rdbms(self, obj_type, parent_uuids=None, back_ref_uuids=None,
                  obj_uuids=None, is_count=False, filters=None,
                  paginate_start=None, paginate_count=None, is_detail=False,
                  field_names=None, include_shared=False):
-
         domain = None
         tenant_id = None
         if include_shared:
