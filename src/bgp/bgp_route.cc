@@ -12,6 +12,7 @@
 #include "bgp/extended-community/esi_label.h"
 #include "bgp/extended-community/load_balance.h"
 #include "bgp/extended-community/mac_mobility.h"
+#include "bgp/extended-community/router_mac.h"
 #include "bgp/extended-community/site_of_origin.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routepath_replicator.h"
@@ -356,6 +357,9 @@ static void FillRoutePathExtCommunityInfo(const BgpTable *table,
             MacMobility mm(*it);
             communities.push_back(mm.ToString());
             show_path->set_sequence_no(mm.ToString());
+        } else if (ExtCommunity::is_router_mac(*it)) {
+            RouterMac router_mac(*it);
+            communities.push_back(router_mac.ToString());
         } else if (ExtCommunity::is_origin_vn(*it)) {
             OriginVn origin_vn(*it);
             communities.push_back(origin_vn.ToString());

@@ -9,6 +9,8 @@
 #include "bgp/bgp_evpn.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_update.h"
+#include "bgp/inet/inet_table.h"
+#include "bgp/inet6/inet6_table.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routing_instance.h"
 
@@ -16,14 +18,21 @@ using std::auto_ptr;
 using std::string;
 
 size_t EvpnTable::HashFunction(const EvpnPrefix &prefix) {
-    if (prefix.type() != EvpnPrefix::MacAdvertisementRoute)
-        return 0;
-    if (prefix.mac_addr().IsBroadcast())
-        return 0;
-
-    const uint8_t *data = prefix.mac_addr().GetData();
-    uint32_t value = get_value(data + 2, 4);
-    return boost::hash_value(value);
+    if (prefix.type() == EvpnPrefix::MacAdvertisementRoute) {
+        if (prefix.mac_addr().IsBroadcast())
+            return 0;
+        const uint8_t *data = prefix.mac_addr().GetData();
+        uint32_t value = get_value(data + 2, 4);
+        return boost::hash_value(value);
+    }
+    if (prefix.type() == EvpnPrefix::IpPrefixRoute) {
+        if (prefix.ip_address().is_v4()) {
+            return InetTable::HashFunction(prefix.inet_prefix());
+        } else {
+            return Inet6Table::HashFunction(prefix.inet6_prefix());
+        }
+    }
+    return 0;
 }
 
 EvpnTable::EvpnTable(DB *db, const string &name)
@@ -115,8 +124,11 @@ BgpRoute *EvpnTable::RouteReplicate(BgpServer *server,
         BgpTable *src_table, BgpRoute *src_rt, const BgpPath *src_path,
         ExtCommunityPtr community) {
     assert(src_table->family() == Address::EVPN);
+    EvpnRoute *evpn_rt = dynamic_cast<EvpnRoute *>(src_rt);
+    assert(evpn_rt);
+    EvpnPrefix evpn_prefix(evpn_rt->GetPrefix());
 
-    if (!IsMaster()) {
+    if (!IsMaster() && evpn_prefix.type() != EvpnPrefix::IpPrefixRoute) {
         // Don't replicate to a VRF from other VRF tables.
         EvpnTable *src_evpn_table = dynamic_cast<EvpnTable *>(src_table);
         if (!src_evpn_table->IsMaster())
@@ -129,14 +141,9 @@ BgpRoute *EvpnTable::RouteReplicate(BgpServer *server,
             return NULL;
     }
 
-    EvpnRoute *evpn_rt = dynamic_cast<EvpnRoute *>(src_rt);
-    assert(evpn_rt);
-    EvpnPrefix evpn_prefix(evpn_rt->GetPrefix());
     if (evpn_prefix.type() == EvpnPrefix::AutoDiscoveryRoute)
         return NULL;
     if (evpn_prefix.type() == EvpnPrefix::SegmentRoute)
-        return NULL;
-    if (evpn_prefix.type() == EvpnPrefix::IpPrefixRoute)
         return NULL;
     if (evpn_prefix.type() == EvpnPrefix::MacAdvertisementRoute &&
         evpn_prefix.mac_addr().IsBroadcast())
@@ -150,12 +157,16 @@ BgpRoute *EvpnTable::RouteReplicate(BgpServer *server,
             evpn_prefix.set_route_distinguisher(new_attr->source_rd());
         }
 
-        Ip4Address originator_id = new_attr->nexthop().to_v4();
-        new_attr = attr_db->ReplaceOriginatorIdAndLocate(
-            new_attr.get(), originator_id);
+        if (evpn_prefix.type() != EvpnPrefix::IpPrefixRoute) {
+            Ip4Address originator_id = new_attr->nexthop().to_v4();
+            new_attr = attr_db->ReplaceOriginatorIdAndLocate(
+                new_attr.get(), originator_id);
+        }
     } else {
-        if (evpn_prefix.type() == EvpnPrefix::MacAdvertisementRoute)
+        if (evpn_prefix.type() == EvpnPrefix::MacAdvertisementRoute ||
+            evpn_prefix.type() == EvpnPrefix::IpPrefixRoute) {
             evpn_prefix.set_route_distinguisher(RouteDistinguisher::kZeroRd);
+        }
     }
     EvpnRoute rt_key(evpn_prefix);
 

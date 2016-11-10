@@ -154,7 +154,6 @@ struct NextHop {
         if (tun1 == "all") {
             tunnel_encapsulations_.push_back("gre");
             tunnel_encapsulations_.push_back("udp");
-            tunnel_encapsulations_.push_back("vxlan");
         } else if (tun1 == "all_ipv6") {
             tunnel_encapsulations_.push_back("gre");
             tunnel_encapsulations_.push_back("udp");
