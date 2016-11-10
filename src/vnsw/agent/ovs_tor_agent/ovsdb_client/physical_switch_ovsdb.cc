@@ -88,23 +88,30 @@ PhysicalSwitchTable::~PhysicalSwitchTable() {
 
 void PhysicalSwitchTable::Notify(OvsdbClientIdl::Op op,
         struct ovsdb_idl_row *row) {
-    PhysicalSwitchEntry key(this, ovsdb_wrapper_physical_switch_name(row));
-    PhysicalSwitchEntry *entry =
-        static_cast<PhysicalSwitchEntry *>(FindActiveEntry(&key));
+    PhysicalSwitchEntry *row_entry = FindSwitchEntry(row);
     if (op == OvsdbClientIdl::OVSDB_DEL) {
-        if (entry != NULL) {
-            entry->SendTrace(PhysicalSwitchEntry::DEL);
-            entry->ovs_entry_ = NULL;
-            UpdatePorts(entry);
-            Delete(entry);
-        }
+        TriggerDelete(row_entry);
     } else if (op == OvsdbClientIdl::OVSDB_ADD) {
+        std::string ps_name(ovsdb_wrapper_physical_switch_name(row));
+        PhysicalSwitchEntry key(this, ps_name);
+        PhysicalSwitchEntry *entry =
+            static_cast<PhysicalSwitchEntry *>(FindActiveEntry(&key));
+        if (entry != row_entry) {
+            // Physical Switch name has been changed trigger delete
+            // for both the entries to cleanup and re-add the newly
+            // created entry
+            TriggerDelete(row_entry);
+            TriggerDelete(entry);
+            row_entry = NULL;
+            entry = NULL;
+        }
         if (entry == NULL) {
             entry = static_cast<PhysicalSwitchEntry *>(Create(&key));
             entry->SendTrace(PhysicalSwitchEntry::ADD);
+            entry->ovs_entry_ = row;
+            idl_entry_map_[row] = entry;
         }
         entry->set_tunnel_ip(ovsdb_wrapper_physical_switch_tunnel_ip(row));
-        entry->ovs_entry_ = row;
 
         // check if we need to skip ports updation
         if (update_ports_) {
@@ -135,6 +142,19 @@ void PhysicalSwitchTable::StartUpdatePorts() {
     }
 }
 
+void PhysicalSwitchTable::TriggerDelete(PhysicalSwitchEntry *entry){
+    if (entry == NULL) {
+        return;
+    }
+    entry->SendTrace(PhysicalSwitchEntry::DEL);
+    idl_entry_map_.erase(entry->ovs_entry_);
+    entry->ovs_entry_ = NULL;
+    // UpdatePorts after reseting ovs_entry_ to NULL will result in
+    // clean up of all the ports
+    UpdatePorts(entry);
+    Delete(entry);
+}
+
 void PhysicalSwitchTable::UpdatePorts(PhysicalSwitchEntry *entry) {
     PhysicalPortTable *p_table = client_idl()->physical_port_table();
     PhysicalSwitchEntry::InterfaceList old = entry->intf_list_;
@@ -161,6 +181,16 @@ void PhysicalSwitchTable::UpdatePorts(PhysicalSwitchEntry *entry) {
         old.erase(it);
         it = old.begin();
     }
+}
+
+PhysicalSwitchEntry *PhysicalSwitchTable::FindSwitchEntry(
+        struct ovsdb_idl_row *row) {
+    IdlEntryMap::iterator it = idl_entry_map_.find(row);
+    if (it != idl_entry_map_.end()) {
+        return it->second;
+    }
+
+    return NULL;
 }
 
 /////////////////////////////////////////////////////////////////////////////
