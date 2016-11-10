@@ -11,9 +11,9 @@ from gevent.queue import Empty
 
 import requests
 import argparse
-import cgitb
 
 from cfgm_common import importutils
+from cfgm_common import vnc_cgitb
 from vnc_api.vnc_api import *
 from config_db import *
 import rabbit

@@ -52,6 +52,7 @@ from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeN
 
 from gevent.lock import BoundedSemaphore
 from cfgm_common.rest import LinkObject
+from cfgm_common import vnc_cgitb
 
 import disc_auth_keystone
 
@@ -1513,8 +1514,7 @@ def main(args_str=None):
 # end main
 
 def server_main():
-    import cgitb
-    cgitb.enable(format='text')
+    vnc_cgitb.enable(format='text')
 
     main()
 # end server_main
