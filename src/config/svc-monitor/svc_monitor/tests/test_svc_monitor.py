@@ -9,7 +9,7 @@ from cfgm_common.vnc_db import DBBase
 from svc_monitor import config_db
 from vnc_api.vnc_api import *
 import test_common_utils as test_utils
-from cfgm_common.vnc_cassandra import VncCassandraClient
+from cfgm_common.vnc_object_db import VncObjectDBClient
 from cfgm_common.vnc_kombu import VncKombuClient
 
 
@@ -38,13 +38,13 @@ si_del_info = {
         u'fq_name': [u'fake-domain', u'fake-project', u'fake-instance'],
         u'uuid': u'fake-instance',
         u'service_instance_properties': {
-            u'scale_out': {u'max_instances': 1}, 
+            u'scale_out': {u'max_instances': 1},
             u'interface_list': [
-                {u'virtual_network': u''}, 
+                {u'virtual_network': u''},
                 {u'virtual_network': u'default-domain:admin:left_vn'},
                 {u'virtual_network': u'default-domain:admin:right_vn'}
             ]
-        }, 
+        },
         u'parent_type': u'project'
     },
     u'display_name': u'fake-instance',
@@ -493,8 +493,8 @@ class SvcMonitorTest(unittest.TestCase):
         ServiceMonitorLogger.notice = mock.MagicMock()
         ServiceMonitorLogger.error = mock.MagicMock()
         ServiceMonitorLogger.uve_svc_instance = mock.MagicMock()
-        VncCassandraClient.__init__ = mock.MagicMock()    
-        VncCassandraClient._cf_dict = \
+        VncObjectDBClient.__init__ = mock.MagicMock()
+        VncObjectDBClient._cf_dict = \
             {'service_instance_table':None, 'pool_table':None, 'loadbalancer_table': None}
         VncKombuClient.__init__ = mock.MagicMock(return_value=None)
         self.vnc_mock = mock.MagicMock()
@@ -503,9 +503,9 @@ class SvcMonitorTest(unittest.TestCase):
 
         self.add_domain("default-domain", 'default-domain')
         self.vnc_mock.service_template_create = test_utils.st_create
-        config_db.DBBaseSM._cassandra = mock.MagicMock()
-        config_db.DBBaseSM._cassandra.object_list = self.db_list
-        config_db.DBBaseSM._cassandra.object_read = self.db_read
+        config_db.DBBaseSM._object_db = mock.MagicMock()
+        config_db.DBBaseSM._object_db.object_list = self.db_list
+        config_db.DBBaseSM._object_db.object_read = self.db_read
 
         self._svc_monitor.post_init(self.vnc_mock, self.args)
         self._return_obj = {}
@@ -530,7 +530,7 @@ class SvcMonitorTest(unittest.TestCase):
         ServiceMonitorLogger.info.reset_mock()
         ServiceMonitorLogger.notice.reset_mock()
         ServiceMonitorLogger.error.reset_mock()
-        del config_db.DBBaseSM._cassandra
+        del config_db.DBBaseSM._object_db
         del self.vnc_mock
 
     def obj_to_dict(self, obj):
@@ -545,7 +545,7 @@ class SvcMonitorTest(unittest.TestCase):
     def add_domain(self, name, uuid):
         dom = Domain(name)
         dom_dict = self.obj_to_dict(dom)
-        config_db.DomainSM._cassandra.object_read = mock.Mock(return_value=(True, [dom_dict]))
+        config_db.DomainSM._object_db.object_read = mock.Mock(return_value=(True, [dom_dict]))
         config_db.DomainSM.locate(uuid)
 
     def add_project(self, name, uuid):
@@ -553,7 +553,7 @@ class SvcMonitorTest(unittest.TestCase):
         proj_dict = self.obj_to_dict(project)
         proj_dict['uuid'] = 'project'
         proj_obj = Project.from_dict(**proj_dict)
-        config_db.ProjectSM._cassandra.object_read = mock.Mock(return_value=(True, [proj_dict]))
+        config_db.ProjectSM._object_db.object_read = mock.Mock(return_value=(True, [proj_dict]))
         config_db.ProjectSM.locate(uuid)
         return proj_obj
 
@@ -562,7 +562,7 @@ class SvcMonitorTest(unittest.TestCase):
         irt_dict = self.obj_to_dict(irt)
         irt_dict['uuid'] = 'irt'
         irt_obj = InterfaceRouteTable.from_dict(**irt_dict)
-        config_db.InterfaceRouteTableSM._cassandra.object_read = mock.Mock(return_value=(True, [irt_dict]))
+        config_db.InterfaceRouteTableSM._object_db.object_read = mock.Mock(return_value=(True, [irt_dict]))
         config_db.InterfaceRouteTableSM.locate(uuid)
         return irt_obj
 
@@ -572,7 +572,7 @@ class SvcMonitorTest(unittest.TestCase):
         si_dict = self.obj_to_dict(si)
         si_dict['uuid'] = uuid
         si_obj = ServiceInstance.from_dict(**si_dict)
-        config_db.ServiceInstanceSM._cassandra.object_read = mock.Mock(return_value=(True, [si_dict]))
+        config_db.ServiceInstanceSM._object_db.object_read = mock.Mock(return_value=(True, [si_dict]))
         config_db.ServiceInstanceSM.locate(uuid)
         return si_obj
 
@@ -581,7 +581,7 @@ class SvcMonitorTest(unittest.TestCase):
         st_dict = self.obj_to_dict(st)
         st_dict['uuid'] = uuid
         st_obj = ServiceTemplate.from_dict(**st_dict)
-        config_db.ServiceTemplateSM._cassandra.object_read = mock.Mock(return_value=(True, [st_dict]))
+        config_db.ServiceTemplateSM._object_db.object_read = mock.Mock(return_value=(True, [st_dict]))
         config_db.ServiceTemplateSM.locate(uuid)
         return st_obj
 
@@ -598,7 +598,7 @@ class SvcMonitorTest(unittest.TestCase):
         vm_dict = self.obj_to_dict(vm)
         vm_dict['uuid'] = uuid
         vm_obj = VirtualMachine.from_dict(**vm_dict)
-        config_db.VirtualMachineSM._cassandra.object_read = mock.Mock(return_value=(True, [vm_dict]))
+        config_db.VirtualMachineSM._object_db.object_read = mock.Mock(return_value=(True, [vm_dict]))
         config_db.VirtualMachineSM.locate(uuid)
         return vm_obj
 
@@ -608,7 +608,7 @@ class SvcMonitorTest(unittest.TestCase):
         net_dict['parent_uuid'] = parent_obj.uuid
         net_dict['uuid'] = uuid
         net_obj = VirtualNetwork.from_dict(**net_dict)
-        config_db.VirtualNetworkSM._cassandra.object_read = mock.Mock(return_value=(True, [net_dict]))
+        config_db.VirtualNetworkSM._object_db.object_read = mock.Mock(return_value=(True, [net_dict]))
         config_db.VirtualNetworkSM.locate(uuid)
         return net_obj
 
@@ -625,7 +625,7 @@ class SvcMonitorTest(unittest.TestCase):
         vmi_dict['parent_uuid'] = parent_obj.uuid
         vmi_dict['uuid'] = uuid
         vmi_obj = VirtualMachineInterface.from_dict(**vmi_dict)
-        config_db.VirtualMachineInterfaceSM._cassandra.object_read = mock.Mock(return_value=(True, [vmi_dict]))
+        config_db.VirtualMachineInterfaceSM._object_db.object_read = mock.Mock(return_value=(True, [vmi_dict]))
         config_db.VirtualMachineInterfaceSM.locate(uuid)
         return vmi_obj
 
@@ -768,14 +768,14 @@ class SvcMonitorTest(unittest.TestCase):
         self.assertEqual(driver_vip['pool_id'], config_vip.loadbalancer_pool)
     #end
 
-    def cassandra_vn_read(self, obj_type, uuids):
+    def object_db_vn_read(self, obj_type, uuids):
         obj = {}
         obj['uuid'] = uuids[0]
         obj['fq_name'] = ['fake-domain', 'fake-project', uuids[0]]
         obj['parent_type'] = 'project'
         return True, [obj]
 
-    def cassandra_vmi_read(self, obj_type, uuids):
+    def object_db_vmi_read(self, obj_type, uuids):
         obj = {}
         obj['uuid'] = 'left-vmi'
         obj['fq_name'] = ['fake-domain', 'fake-project',
@@ -846,8 +846,8 @@ class SvcMonitorTest(unittest.TestCase):
     def test_svc_monitor_sas(self):
         def db_read(obj_type, uuids):
             return (True, [self._return_obj[obj_type]])
-        config_db.DBBaseSM._cassandra.reset()
-        config_db.DBBaseSM._cassandra.object_read = db_read
+        config_db.DBBaseSM._object_db.reset()
+        config_db.DBBaseSM._object_db.object_read = db_read
         sas_obj = self.add_sas("Test-SAS", 'sas')
         sa_obj = self.add_sa("Test-SA", 'sa', sas_obj)
         self._svc_monitor.rabbit._vnc_subscribe_callback(sas_add_info)
@@ -874,8 +874,8 @@ class SvcMonitorTest(unittest.TestCase):
 
         proj_obj = self.add_project('fakeproject', 'fakeproject')
 
-        config_db.DBBaseSM._cassandra.reset()
-        config_db.DBBaseSM._cassandra.object_read = db_read
+        config_db.DBBaseSM._object_db.reset()
+        config_db.DBBaseSM._object_db.object_read = db_read
 
         sas_obj = self.add_sas("Test-SAS", 'sas')
         sa_obj = self.add_sa("Test-SA", 'sa', sas_obj)
@@ -932,8 +932,8 @@ class SvcMonitorTest(unittest.TestCase):
 
         proj_obj = self.add_project('fakeproject', 'fakeproject')
 
-        config_db.DBBaseSM._cassandra.reset()
-        config_db.DBBaseSM._cassandra.object_read = db_read
+        config_db.DBBaseSM._object_db.reset()
+        config_db.DBBaseSM._object_db.object_read = db_read
 
         sas_obj = self.add_sas("Test-SAS", 'sas')
         sa_obj = self.add_sa("Test-SA", 'sa', sas_obj)
@@ -1036,7 +1036,7 @@ class SvcMonitorTest(unittest.TestCase):
         si.service_template = 'fake-template'
         st = config_db.ServiceTemplateSM.get('fake-template')
 
-        config_db.VirtualNetworkSM._cassandra.object_read = self.cassandra_vn_read
+        config_db.VirtualNetworkSM._object_db.object_read = self.object_db_vn_read
         self._svc_monitor.vm_manager = mock.MagicMock()
         self._svc_monitor.rabbit._vnc_subscribe_callback(vn_add_info)
         self._svc_monitor.vm_manager.create_service.assert_called_with(st, si)
@@ -1053,12 +1053,12 @@ class SvcMonitorTest(unittest.TestCase):
         vm_obj = self.add_vm("fake-vm", 'fake-vm', None, 'virtual-machine')
         project = self.add_project('fake-project', 'fake-project')
         net_obj = self.add_vn('left-vn', 'left-vn', project)
-        vmi_obj = self.add_vmi('fake-domain__fake-project__fake-instance__1__left__0', 
+        vmi_obj = self.add_vmi('fake-domain__fake-project__fake-instance__1__left__0',
                                'left-vmi', project, net_obj, vm_obj)
         vmi = config_db.VirtualMachineInterfaceSM.get('left-vmi')
         vmi.if_type = 'left'
 
-        config_db.VirtualMachineInterfaceSM._cassandra.object_read = self.cassandra_vmi_read
+        config_db.VirtualMachineInterfaceSM._object_db.object_read = self.object_db_vmi_read
         self._svc_monitor.rabbit._vnc_subscribe_callback(vmi_add_info)
         ServiceMonitorLogger.info.assert_any_call(test_utils.AnyStringWith('updated SI'))
 
@@ -1070,7 +1070,7 @@ class SvcMonitorTest(unittest.TestCase):
         vmi = config_db.VirtualMachineInterfaceSM.get('left-vmi')
         vmi.interface_route_table = 'fake-irt'
 
-        config_db.VirtualMachineInterfaceSM._cassandra.object_read = self.cassandra_vmi_read
+        config_db.VirtualMachineInterfaceSM._object_db.object_read = self.object_db_vmi_read
         self._svc_monitor.rabbit._vnc_subscribe_callback(vmi_del_info)
         self.vnc_mock.interface_route_table_delete.assert_called_with(id='fake-irt')
 
@@ -1212,9 +1212,9 @@ class SvcMonitorTest(unittest.TestCase):
             else:
                 return (False, None)
 
-        config_db.DBBaseSM._cassandra.reset()
-        config_db.DBBaseSM._cassandra.object_list = db_list
-        config_db.DBBaseSM._cassandra.object_read = db_read
+        config_db.DBBaseSM._object_db.reset()
+        config_db.DBBaseSM._object_db.object_list = db_list
+        config_db.DBBaseSM._object_db.object_read = db_read
         self._svc_monitor.create_service_instance = mock.MagicMock()
 
         st_obj = self.add_st('fake-template', 'fake-template')

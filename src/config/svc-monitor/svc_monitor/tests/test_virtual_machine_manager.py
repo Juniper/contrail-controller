@@ -7,14 +7,14 @@ import test_common_utils as test_utils
 
 class VirtualMachineManagerTest(unittest.TestCase):
     def setUp(self):
-        VirtualMachineSM._cassandra = mock.MagicMock()
-        VirtualMachineSM._cassandra.object_read = test_utils.vm_db_read
-        VirtualMachineInterfaceSM._cassandra = mock.MagicMock()
-        VirtualMachineInterfaceSM._cassandra.object_read = test_utils.vmi_db_read
-        InstanceIpSM._cassandra = mock.MagicMock()
-        InstanceIpSM._cassandra.object_read = test_utils.iip_db_read
-        InterfaceRouteTableSM._cassandra = mock.MagicMock()
-        InterfaceRouteTableSM._cassandra.object_read = test_utils.irt_db_read
+        VirtualMachineSM._object_db = mock.MagicMock()
+        VirtualMachineSM._object_db.object_read = test_utils.vm_db_read
+        VirtualMachineInterfaceSM._object_db = mock.MagicMock()
+        VirtualMachineInterfaceSM._object_db.object_read = test_utils.vmi_db_read
+        InstanceIpSM._object_db = mock.MagicMock()
+        InstanceIpSM._object_db.object_read = test_utils.iip_db_read
+        InterfaceRouteTableSM._object_db = mock.MagicMock()
+        InterfaceRouteTableSM._object_db.object_read = test_utils.irt_db_read
         self.mocked_vnc = mock.MagicMock()
         self.mocked_vnc.fq_name_to_id = test_utils.get_vn_id_for_fq_name
         self.mocked_vnc.virtual_network_create = test_utils.vn_create
@@ -41,8 +41,8 @@ class VirtualMachineManagerTest(unittest.TestCase):
         InstanceIpSM.reset()
         VirtualMachineInterfaceSM.reset()
         VirtualMachineSM.reset()
-        del InterfaceRouteTableSM._cassandra
-        del VirtualMachineSM._cassandra
+        del InterfaceRouteTableSM._object_db
+        del VirtualMachineSM._object_db
 
     def test_virtual_machine_create(self):
         test_utils.create_test_project('fake-domain:fake-project')
@@ -67,7 +67,7 @@ class VirtualMachineManagerTest(unittest.TestCase):
         self.vm_manager.create_service(st, si)
         self.mocked_vnc.virtual_machine_create.assert_any_call(test_utils.VMObjMatcher(1))
         self.mocked_vnc.virtual_machine_create.assert_any_call(test_utils.VMObjMatcher(2))
-        self.assertTrue(si.availability_zone, 'default-availability-zone') 
+        self.assertTrue(si.availability_zone, 'default-availability-zone')
 
     def test_virtual_machine_delete(self):
         vm = test_utils.create_test_virtual_machine('fake-vm-uuid')
@@ -179,7 +179,7 @@ class VirtualMachineManagerTest(unittest.TestCase):
         st.params['availability_zone_enable'] = True
         si.params['availability_zone'] = 'test-availability-zone'
         self.vm_manager.create_service(st, si)
-        self.assertTrue(si.availability_zone, 'test-availability-zone') 
+        self.assertTrue(si.availability_zone, 'test-availability-zone')
 
     def test_network_config_validation(self):
         test_utils.create_test_project('fake-domain:fake-project')
