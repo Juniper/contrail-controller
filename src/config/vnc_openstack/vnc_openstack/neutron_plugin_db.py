@@ -3624,7 +3624,7 @@ class DBInterface(object):
         return ip_addr in net_ip_list
 
     def _create_instance_ip(self, net_obj, port_obj, ip_addr=None,
-                            subnet_uuid=None, ip_family="v4"):
+                            subnet_uuid=None, ip_family=None):
         ip_name = str(uuid.uuid4())
         ip_obj = InstanceIp(name=ip_name)
         ip_obj.uuid = ip_name
@@ -3643,7 +3643,7 @@ class DBInterface(object):
         return ip_id
     # end _create_instance_ip
 
-    def _port_create_instance_ip(self, net_obj, port_obj, port_q, ip_family="v4"):
+    def _port_create_instance_ip(self, net_obj, port_obj, port_q, ip_family=None):
         fixed_ips = port_q.get('fixed_ips')
         if fixed_ips is None:
             return
