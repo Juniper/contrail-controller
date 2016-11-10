@@ -1516,6 +1516,9 @@ bool RoutingInstance::HasExportTarget(const ExtCommunity *extcomm) const {
 
 bool RoutingInstance::ProcessRoutingPolicy(const BgpRoute *route,
                                            BgpPath *path) const {
+    // Don't apply routing policy on secondary path
+    if (path->IsReplicated())
+        return true;
     const RoutingPolicyMgr *policy_mgr = server()->routing_policy_mgr();
     // Take snapshot of original attribute
     BgpAttr *out_attr = new BgpAttr(*(path->GetOriginalAttr()));
