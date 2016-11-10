@@ -88,8 +88,10 @@ public:
         std::string name, const TtlMap& ttl_map,
         const std::string& cassandra_user,
         const std::string& cassandra_password,
+        const std::string& cassandra_compaction_strategy,
         bool use_cql, const std::string &zookeeper_server_list,
-        bool use_zookeeper);
+        bool use_zookeeper, bool disable_all_writes, bool disable_stats_writes,
+        bool disable_messages_writes);
     DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map);
     virtual ~DbHandler();
 
@@ -135,6 +137,12 @@ public:
     std::vector<boost::asio::ip::tcp::endpoint> GetEndpoints() const;
     std::string GetName() const;
     bool UseCql() const;
+    bool IsAllWritesDisabled() const;
+    bool IsStatisticsWritesDisabled() const;
+    bool IsMessagesWritesDisabled() const;
+    void DisableAllWrites(bool disable);
+    void DisableStatisticsWrites(bool disable);
+    void DisableMessagesWrites(bool disable);
 
 private:
     void StatTableInsertTtl(uint64_t ts,
@@ -174,9 +182,10 @@ private:
     uint64_t GetTtl(TtlType::type type) {
         return GetTtlFromMap(ttl_map_, type);
     }
+    bool InsertIntoDb(std::auto_ptr<GenDb::ColList> col_list,
+        GenDb::GenDbIf::DbAddColumnCb db_cb);
 
     boost::scoped_ptr<GenDb::GenDbIf> dbif_;
-
     // Random generator for UUIDs
     ThreadSafeUuidGenerator umn_gen_;
     std::string name_;
@@ -194,9 +203,13 @@ private:
     static tbb::mutex fmutex_;
     bool use_cql_;
     std::string tablespace_;
+    std::string compaction_strategy_;
     UniformInt8RandomGenerator gen_partition_no_;
     std::string zookeeper_server_list_;
     bool use_zookeeper_;
+    bool disable_all_writes_;
+    bool disable_statistics_writes_;
+    bool disable_messages_writes_;
     bool CanRecordDataForT2(uint32_t, std::string);
     friend class DbHandlerTest;
     DISALLOW_COPY_AND_ASSIGN(DbHandler);
@@ -234,11 +247,13 @@ class DbHandlerInitializer {
         const std::vector<std::string> &cassandra_ips,
         const std::vector<int> &cassandra_ports,
         const TtlMap& ttl_map,
-        const std::string& cassandra_user,
-        const std::string& cassandra_password,
+        const std::string &cassandra_user,
+        const std::string &cassandra_password,
+        const std::string &cassandra_compaction_strategy,
         bool use_cql,
         const std::string &zookeeper_server_list,
-        bool use_zookeeper);
+        bool use_zookeeper, bool disable_all_db_writes,
+        bool disable_db_stats_writes, bool disable_db_messages_writes);
     DbHandlerInitializer(EventManager *evm,
         const std::string &db_name, int db_task_instance,
         const std::string &timer_task_name, InitializeDoneCb callback,

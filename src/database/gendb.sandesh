@@ -22,6 +22,10 @@ enum DbDataType {
     BlobType          = 12, // blob / bytes
 }
 
+const string DATE_TIERED_COMPACTION_STRATEGY = "DateTieredCompactionStrategy";
+const string LEVELED_COMPACTION_STRATEGY = "LeveledCompactionStrategy";
+const string SIZE_TIERED_COMPACTION_STRATEGY = "SizeTieredCompactionStrategy";
+
 struct DbTableInfo {
     1: string                              table_name
     2: u64                                 reads
