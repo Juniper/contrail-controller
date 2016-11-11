@@ -19,22 +19,22 @@ struct BgpRouterState {
    30: optional bool admin_down
     2: optional bool deleted
     3: optional u64 uptime;
-    7: optional u32 output_queue_depth;
-    8: optional u32 num_bgp_peer;
-    9: optional u32 num_up_bgp_peer;
-   20: optional u32 num_deleting_bgp_peer;
-   31: optional u32 num_bgpaas_peer;
-   32: optional u32 num_up_bgpaas_peer;
-   33: optional u32 num_deleting_bgpaas_peer;
-   10: optional u32 num_xmpp_peer;
-   11: optional u32 num_up_xmpp_peer;
-   21: optional u32 num_deleting_xmpp_peer;
-   12: optional u32 num_routing_instance;
-   22: optional u32 num_deleted_routing_instance;
-   23: optional u32 num_service_chains;
-   24: optional u32 num_down_service_chains;
-   25: optional u32 num_static_routes;
-   26: optional u32 num_down_static_routes;
+    7: optional u32 output_queue_depth(tags="");
+    8: optional u32 num_bgp_peer(tags="");
+    9: optional u32 num_up_bgp_peer(tags="");
+   20: optional u32 num_deleting_bgp_peer(tags="");
+   31: optional u32 num_bgpaas_peer(tags="");
+   32: optional u32 num_up_bgpaas_peer(tags="");
+   33: optional u32 num_deleting_bgpaas_peer(tags="");
+   10: optional u32 num_xmpp_peer(tags="");
+   11: optional u32 num_up_xmpp_peer(tags="");
+   21: optional u32 num_deleting_xmpp_peer(tags="");
+   12: optional u32 num_routing_instance(tags="");
+   22: optional u32 num_deleted_routing_instance(tags="");
+   23: optional u32 num_service_chains(tags="");
+   24: optional u32 num_down_service_chains(tags="");
+   25: optional u32 num_static_routes(tags="");
+   26: optional u32 num_down_static_routes(tags="");
    13: optional string build_info;
    14: optional string collector_ip;
    15: optional list<string> bgp_router_ip_list;
