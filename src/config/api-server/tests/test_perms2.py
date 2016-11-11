@@ -692,6 +692,8 @@ class TestPermissions(test_case.ApiServerTestCase):
         try:
             net_obj = bob.vnc_lib.virtual_network_read(id=vn.get_uuid())
             self.assertTrue(True, 'Succeeded in reading VN. Test passed!')
+            net_objs = bob.vnc_lib.virtual_networks_list(shared=True)
+            self.assertTrue(vn.get_uuid(), net_objs['virtual-networks'][0]['uuid'])
         except PermissionDenied as e:
             self.assertTrue(False, 'Failed to read VN ... Test failed!')
 
@@ -707,6 +709,9 @@ class TestPermissions(test_case.ApiServerTestCase):
         except PermissionDenied as e:
             self.assertTrue(True, 'Failed to read VN ... Test passed!')
 
+        net_objs = bob.vnc_lib.virtual_networks_list(shared=True)
+        for net_obj in net_objs['virtual-networks']:
+            self.assertNotEquals(vn.get_uuid(), net_obj['uuid'])
         logger.info( 'Enable "tenant" scope share in virtual network for bob project')
         set_perms(vn, share = [('tenant:'+bob.project_uuid, PERMS_R)])
         alice.vnc_lib.virtual_network_update(vn)
@@ -739,6 +744,8 @@ class TestPermissions(test_case.ApiServerTestCase):
         try:
             net_obj = bob.vnc_lib.virtual_network_read(id=vn.get_uuid())
             self.assertTrue(True, 'Succeeded in reading VN. Test passed!')
+            net_objs = bob.vnc_lib.virtual_networks_list(shared=True)
+            self.assertTrue(vn.get_uuid(), net_objs['virtual-networks'][0]['uuid'])
         except PermissionDenied as e:
             self.assertTrue(False, 'Failed to read VN ... Test failed!')
 
