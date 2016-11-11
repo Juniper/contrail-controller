@@ -9,6 +9,8 @@ from pycassa.system_manager import SystemManager, SIMPLE_STRATEGY
 from pycassa.pool import AllServersUnavailable, MaximumRetryException
 import gevent
 
+from sandesh_common.vns.constants import SCHEMA_KEYSPACE_NAME, SVC_MONITOR_KEYSPACE_NAME
+
 from vnc_api import vnc_api
 from exceptions import NoIdError, DatabaseUnavailableError, VncError
 from pysandesh.connection_info import ConnectionState
@@ -73,6 +75,15 @@ class VncCassandraClient(object):
 
     _MAX_COL = 10000000
 
+    _RT_CF = 'route_target_table'
+    _SC_IP_CF = 'service_chain_ip_address_table'
+    _SERVICE_CHAIN_CF = 'service_chain_table'
+    _SERVICE_CHAIN_UUID_CF = 'service_chain_uuid_table'
+
+    _SVC_SI_CF = 'service_instance_table'
+    _POOL_CF = 'pool_table'
+    _LB_CF = 'loadbalancer_table'
+
     @classmethod
     def get_db_info(cls):
         db_info = [(cls._UUID_KEYSPACE_NAME, [cls._OBJ_UUID_CF_NAME,
@@ -133,6 +144,16 @@ class VncCassandraClient(object):
         self._cf_dict = {}
         self._ro_keyspaces = ro_keyspaces or {}
         self._rw_keyspaces = rw_keyspaces or {}
+        self._rw_keyspaces[SCHEMA_KEYSPACE_NAME] = {
+            self._RT_CF: {},
+            self._SC_IP_CF: {},
+            self._SERVICE_CHAIN_CF: {},
+            self._SERVICE_CHAIN_UUID_CF: {}}
+        self._rw_keyspaces[SVC_MONITOR_KEYSPACE_NAME] = {
+            self._SVC_SI_CF: {},
+            self._POOL_CF: {},
+            self._LB_CF: {}
+        }
         if ((self._UUID_KEYSPACE_NAME not in self._ro_keyspaces) and
             (self._UUID_KEYSPACE_NAME not in self._rw_keyspaces)):
             self._ro_keyspaces.update(self._UUID_KEYSPACE)
@@ -144,6 +165,18 @@ class VncCassandraClient(object):
         self._obj_cache_mgr = ObjectCacheManager(
                                   self, max_entries=obj_cache_entries)
         self._obj_cache_exclude_types = obj_cache_exclude_types or []
+
+        self._rt_cf = self._cf_dict[self._RT_CF]
+        self._sc_ip_cf = self._cf_dict[self._SC_IP_CF]
+        self._service_chain_cf = self._cf_dict[
+            self._SERVICE_CHAIN_CF]
+        self._service_chain_uuid_cf = self._cf_dict[
+            self._SERVICE_CHAIN_UUID_CF]
+        self._svc_si_cf = self._cf_dict[self._SVC_SI_CF]
+        self._pool_cf = self._cf_dict[self._POOL_CF]
+        self._lb_cf = self._cf_dict[self._LB_CF]
+
+    # db CRUD
         if walk:
             self.walk()
     # end __init__
@@ -965,7 +998,7 @@ class VncCassandraClient(object):
     # end object_update
 
     def object_list(self, obj_type, parent_uuids=None, back_ref_uuids=None,
-                     obj_uuids=None, count=False, filters=None):
+                     obj_uuids=None, count=False, filters=None, is_detail=False):
         obj_class = self._get_resource_class(obj_type)
 
         children_fq_names_uuids = []
@@ -1111,6 +1144,10 @@ class VncCassandraClient(object):
 
         if count:
             return (True, len(children_fq_names_uuids))
+
+        if is_detail:
+            return self.object_read(obj_type, [uuid for _, uuid in children_fq_names_uuids])
+
         return (True, children_fq_names_uuids)
     # end object_list
 
@@ -1544,6 +1581,166 @@ class VncCassandraClient(object):
 
         return walk_results
     # end walk
+
+    def get_service_chain_vlan(self, service_vm, service_chain):
+        return int(self.get_one_col(self._SERVICE_CHAIN_CF,
+                                    service_vm, service_chain))
+
+    def set_service_chain_vlan(self, service_vm, service_chain, vlan):
+        self._service_chain_cf.insert(service_vm,
+                                      {service_chain: str(vlan)})
+
+    def remove_service_chain_vlan(self, service_vm, service_chain):
+        self._service_chain_cf.remove(service_vm, [service_chain])
+
+    def get_route_target(self, ri_fq_name):
+        try:
+            return int(self.get_one_col(self._RT_CF, ri_fq_name, 'rtgt_num'))
+        except (VncError, NoIdError):
+            # TODO(ethuleau): VncError is raised if more than one row was
+            #                 fetched from db with get_one_col method.
+            #                 Probably need to be cleaned
+            return 0
+
+    def list_route_target(self):
+        return self._rt_cf.get_range()
+
+    def set_route_target(self, ri_fq_name, rtgt_num):
+        self._rt_cf.insert(ri_fq_name, {'rtgt_num': str(rtgt_num)})
+
+    def remove_route_target(self, ri_fq_name):
+        self._rt_cf.remove(ri_fq_name)
+
+    def get_service_chain_ip(self, sc_name):
+        addresses = self.get(self._SC_IP_CF, sc_name)
+        if addresses:
+            return addresses.get('ip_address'), addresses.get('ipv6_address')
+        else:
+            return None, None
+
+    def add_service_chain_ip(self, sc_name, ip, ipv6):
+        val = {}
+        if ip:
+            val['ip_address'] = ip
+        if ipv6:
+            val['ipv6_address'] = ipv6
+        self._sc_ip_cf.insert(sc_name, val)
+
+    def remove_service_chain_ip(self, sc_name):
+        try:
+            self._sc_ip_cf.remove(sc_name)
+        except NotFoundException:
+            pass
+
+    def list_service_chain_uuid(self):
+        try:
+            return self._service_chain_uuid_cf.get_range()
+        except NotFoundException:
+            return []
+
+    def add_service_chain_uuid(self, name, value):
+        self._service_chain_uuid_cf.insert(name, {'value': value})
+
+    def remove_service_chain_uuid(self, name):
+        try:
+            self._service_chain_uuid_cf.remove(name)
+        except NotFoundException:
+            pass
+
+    def _db_get(self, table, key, column):
+        try:
+            entry = self.get_one_col(table.column_family, key, column)
+        except Exception:
+            # TODO(ethuleau): VncError is raised if more than one row was
+            #                 fetched from db with get_one_col method.
+            #                 Probably need to be cleaned
+            self._db_logger.log("DB: %s %s get failed" %
+                             (inspect.stack()[1][3], key))
+            return None
+
+        return entry
+
+    def _db_insert(self, table, key, entry):
+        try:
+            table.insert(key, entry)
+        except Exception:
+            self._db_logger.log("DB: %s %s insert failed" %
+                             (inspect.stack()[1][3], key))
+            return False
+
+        return True
+
+    def _db_remove(self, table, key, columns=None):
+        try:
+            if columns:
+                table.remove(key, columns=columns)
+            else:
+                table.remove(key)
+        except Exception:
+            self._db_logger.log("DB: %s %s remove failed" %
+                             (inspect.stack()[1][3], key))
+            return False
+
+        return True
+
+    def _db_list(self, table):
+        try:
+            entries = list(table.get_range())
+        except Exception:
+            self._db_logger.log("DB: %s list failed" %
+                             (inspect.stack()[1][3]))
+            return None
+
+        return entries
+
+    def loadbalancer_driver_info_get(self, lb_id):
+        return self._db_get(self._lb_cf, lb_id, 'driver_info')
+
+    def loadbalancer_config_insert(self, lb_id, lb_obj):
+        entry = json.dumps(lb_obj)
+        return self._db_insert(self._lb_cf, lb_id, {'config_info': entry})
+
+    def loadbalancer_driver_info_insert(self, lb_id, lb_obj):
+        entry = json.dumps(lb_obj)
+        return self._db_insert(self._lb_cf, lb_id, {'driver_info': entry})
+
+    def loadbalancer_remove(self, lb_id, columns=None):
+        return self._db_remove(self._lb_cf, lb_id, columns)
+
+    def loadbalancer_list(self):
+        ret_list = []
+        for each_entry_id, each_entry_data in self._db_list(self._lb_cf) or []:
+            config_info_obj_dict = json.loads(each_entry_data['config_info'])
+            driver_info_obj_dict = None
+            if 'driver_info' in each_entry_data:
+                driver_info_obj_dict = json.loads(each_entry_data['driver_info'])
+            ret_list.append((each_entry_id, config_info_obj_dict, driver_info_obj_dict))
+        return ret_list
+
+    def pool_driver_info_get(self, pool_id):
+        return self._db_get(self._pool_cf, pool_id, 'driver_info')
+
+    def pool_config_insert(self, pool_id, pool_obj):
+        entry = json.dumps(pool_obj)
+        return self._db_insert(self._pool_cf, pool_id, {'config_info': entry})
+
+    def pool_driver_info_insert(self, pool_id, pool_obj):
+        entry = json.dumps(pool_obj)
+        return self._db_insert(self._pool_cf, pool_id, {'driver_info': entry})
+
+    def pool_remove(self, pool_id, columns=None):
+        return self._db_remove(self._pool_cf, pool_id, columns)
+
+    def pool_list(self):
+        ret_list = []
+        for each_entry_id, each_entry_data in self._db_list(self._pool_cf) or []:
+            config_info_obj_dict = json.loads(each_entry_data['config_info'])
+            driver_info_obj_dict = None
+            if 'driver_info' in each_entry_data:
+                driver_info_obj_dict = json.loads(each_entry_data['driver_info'])
+            ret_list.append((each_entry_id, config_info_obj_dict, driver_info_obj_dict))
+        return ret_list
+
 # end class VncCassandraClient
 
 

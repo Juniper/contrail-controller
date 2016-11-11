@@ -55,12 +55,12 @@ class VerifyCommon(object):
 class STTestCase(test_common.TestCase):
 
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls, db=None):
         extra_config = [
             ('DEFAULTS', 'multi_tenancy', 'False'),
             ('DEFAULTS', 'aaa_mode', 'no-auth'),
         ]
-        super(STTestCase, cls).setUpClass(extra_config_knobs=extra_config)
+        super(STTestCase, cls).setUpClass(extra_config_knobs=extra_config, db=db)
 
     def _class_str(self):
         return str(self.__class__).strip('<class ').strip('>').strip("'")
@@ -243,3 +243,16 @@ class STTestCase(test_common.TestCase):
             self._vnc_lib.network_policy_delete(id=policy.uuid)
 
     # end delete_network_policy
+
+class STTestCaseRDBMS(STTestCase):
+    @classmethod
+    def setUpClass(cls, extra_config_knobs=None, extra_mocks=None):
+        super(STTestCaseRDBMS, cls).setUpClass(
+            db="rdbms")
+
+    def setUp(self):
+        super(STTestCase, self).setUp()
+        self._svc_mon_greenlet = gevent.spawn(test_common.launch_svc_monitor_rdbms,
+            self.__class__.__name__, self._api_server_ip, self._api_server_port)
+        self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer_rdbms,
+            self.__class__.__name__, self._api_server_ip, self._api_server_port)
