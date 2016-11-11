@@ -1,0 +1,10 @@
+Approved+1: opencontrail-admin <ci-admin@opencontrail.org>
+Verified+2: opencontrail-admin <ci-admin@opencontrail.org>
+Verified+2: Zuul <zuul@lists.opencontrail.org>
+Approved+1: Praneet Bachheti <praneetb@juniper.net>
+Code-Review+2: Praneet Bachheti <praneetb@juniper.net>
+Submitted-by: Zuul <zuul@lists.opencontrail.org>
+Submitted-at: Thu, 10 Nov 2016 17:17:54 -0800
+Reviewed-on: https://review.opencontrail.org/25908
+Project: Juniper/contrail-controller
+Branch: refs/heads/master
