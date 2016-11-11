@@ -13,6 +13,7 @@ class PhysicalSwitchEntry;
 
 class PhysicalSwitchTable : public OvsdbObject {
 public:
+    typedef std::map<struct ovsdb_idl_row *, PhysicalSwitchEntry *> IdlEntryMap;
     PhysicalSwitchTable(OvsdbClientIdl *idl);
     virtual ~PhysicalSwitchTable();
 
@@ -22,7 +23,9 @@ public:
     void StartUpdatePorts();
 
 private:
+    void TriggerDelete(PhysicalSwitchEntry *entry);
     void UpdatePorts(PhysicalSwitchEntry *entry);
+    PhysicalSwitchEntry *FindSwitchEntry(struct ovsdb_idl_row *row);
 
     // By default update ports is set to false to avoid updation
     // of physical port entries in ovsdb client context, which
@@ -32,6 +35,11 @@ private:
     // is complete OvsdbClientIdl triggers StartUpdatePorts to
     // update the pending ports and allow further ports updation
     bool update_ports_;
+    // map to store corelation between ovsdb_idl_row and
+    // PhysicalSwitchEntry, used to ensure appropriate handling
+    // when physical switch name is changed for the same
+    // ovsdb_idl_row
+    IdlEntryMap idl_entry_map_;
     DISALLOW_COPY_AND_ASSIGN(PhysicalSwitchTable);
 };
 
