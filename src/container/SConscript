@@ -25,6 +25,7 @@ CfgmEnv['CFGM_DOC_FILES'] = CfgmDocFiles
 subdirs=[
     'kube-manager',
     'kube-cni',
+    'mesos-cni',
 ]
 
 CfgmEnv.SConscript(dirs=subdirs, exports='CfgmEnv', duplicate = 0)
