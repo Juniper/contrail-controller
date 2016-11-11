@@ -167,7 +167,6 @@ class TestBgp(STTestCase, VerifyBgp):
         # create router2
         r2_name = self.id() + 'router2'
         router2 = self.create_bgp_router(r2_name, 'contrail')
-
         self.check_bgp_peering(router1, router2, 1)
 
         r3_name = self.id() + 'router3'
@@ -179,7 +178,6 @@ class TestBgp(STTestCase, VerifyBgp):
         params.autonomous_system = 64512
         router3.set_bgp_router_parameters(params)
         self._vnc_lib.bgp_router_update(router3)
-
         self.check_bgp_peering(router1, router3, 2)
 
         r4_name = self.id() + 'router4'
