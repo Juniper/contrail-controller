@@ -24,6 +24,7 @@ import discoveryclient.client as disc_client
 import cfgm_common.zkclient
 from cfgm_common.uve.vnc_api.ttypes import VncApiConfigLog
 from cfgm_common import imid
+from cfgm_common import vnc_cgitb
 from cfgm_common.utils import cgitb_hook
 
 from test_utils import *
@@ -148,8 +149,7 @@ def launch_disc_server(test_id, listen_ip, listen_port, http_server_port, conf_s
     args_str = args_str + "--log_local "
     args_str = args_str + "--log_file discovery_server_%s.log " % test_id
 
-    import cgitb
-    cgitb.enable(format='text')
+    vnc_cgitb.enable(format='text')
 
     with tempfile.NamedTemporaryFile() as conf, tempfile.NamedTemporaryFile() as logconf:
         cfg_parser = generate_conf_file_contents(conf_sections)
@@ -274,8 +274,7 @@ def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
     args_str = args_str + "--log_local "
     args_str = args_str + "--log_file api_server_%s.log " %(test_id)
 
-    import cgitb
-    cgitb.enable(format='text')
+    vnc_cgitb.enable(format='text')
 
     with tempfile.NamedTemporaryFile() as conf, tempfile.NamedTemporaryFile() as logconf:
         cfg_parser = generate_conf_file_contents(conf_sections)
@@ -306,8 +305,7 @@ def launch_api_server_rdbms(test_id, listen_ip, listen_port, http_server_port,
     args_str = args_str + "--rdbms_connection sqlite:///%s " % db_file
     args_str = args_str + "--log_local "
     args_str = args_str + "--log_file api_server_%s.log " %(test_id)
-    import cgitb
-    cgitb.enable(format='text')
+    vnc_cgitb.enable(format='text')
     try:
         os.remove(db_file)
         shutil.copyfile('./base_db.db', db_file)
@@ -521,8 +519,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         self.addOnException(self._add_detailed_traceback)
 
     def _add_detailed_traceback(self, exc_info):
-        import cgitb
-        cgitb.enable(format='text')
+        vnc_cgitb.enable(format='text')
         from cStringIO  import StringIO
 
         tmp_file = StringIO()

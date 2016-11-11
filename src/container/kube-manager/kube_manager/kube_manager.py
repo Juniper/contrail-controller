@@ -14,11 +14,12 @@ import gevent
 from gevent.queue import Queue
 
 import argparse
-import cgitb
 
 from vnc_api.vnc_api import *
 import vnc.vnc_kubernetes as vnc_kubernetes
 import common.logger as logger
+from cfgm_common import vnc_cgitb
+from cfgm_common.utils import cgitb_hook
 
 import kube.namespace_monitor as namespace_monitor
 import kube.pod_monitor as pod_monitor
@@ -112,7 +113,7 @@ def parse_args():
 
 
 def main():
-    cgitb.enable(format='text')
+    vnc_cgitb.enable(format='text')
     args = parse_args()
     kube_nw_mgr = KubeNetworkManager(args)
     kube_nw_mgr.start_tasks()
