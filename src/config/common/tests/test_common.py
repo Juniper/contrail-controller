@@ -18,6 +18,8 @@ from webtest import TestApp
 import contextlib
 
 from vnc_api.vnc_api import *
+import cfgm_common.ifmap.client as ifmap_client
+import sqlalchemy
 import kombu
 import discoveryclient.client as disc_client
 import cfgm_common.zkclient
@@ -25,6 +27,7 @@ from cfgm_common.uve.vnc_api.ttypes import VncApiConfigLog
 from cfgm_common import imid
 from cfgm_common import vnc_cgitb
 from cfgm_common.utils import cgitb_hook
+from cfgm_common import vnc_rdbms
 
 from test_utils import *
 import bottle
@@ -294,6 +297,18 @@ def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
         vnc_cfg_api_server.main(args_str, server)
 #end launch_api_server
 
+def init_rdbms():
+    try:
+        connection = "sqlite:///base_db.db"
+        engine_args = {
+            'echo': False,
+        }
+        engine = sqlalchemy.create_engine(connection, **engine_args)
+        vnc_rdbms.VncRDBMSClient.create_sqalchemy_models()
+        vnc_rdbms.Base.metadata.create_all(engine)
+    except:
+        pass
+
 def launch_api_server_rdbms(test_id, listen_ip, listen_port, http_server_port,
                       admin_port, ifmap_port, conf_sections):
     db_file = "./test_db_%s.db" % test_id
@@ -310,12 +325,13 @@ def launch_api_server_rdbms(test_id, listen_ip, listen_port, http_server_port,
     args_str = args_str + "--log_local "
     args_str = args_str + "--log_file api_server_%s.log " %(test_id)
     vnc_cgitb.enable(format='text')
+
+    init_rdbms()
     try:
         os.remove(db_file)
         shutil.copyfile('./base_db.db', db_file)
     except:
         pass
-
 
     with tempfile.NamedTemporaryFile() as conf, tempfile.NamedTemporaryFile() as logconf:
         cfg_parser = generate_conf_file_contents(conf_sections)
@@ -346,6 +362,23 @@ def launch_svc_monitor(test_id, api_server_ip, api_server_port):
     svc_monitor.main(args_str)
 # end launch_svc_monitor
 
+def launch_svc_monitor_rdbms(test_id, api_server_ip, api_server_port):
+    db_file = "./test_db_%s.db" % test_id
+
+    args_str = ""
+    args_str = args_str + "--api_server_ip %s " % (api_server_ip)
+    args_str = args_str + "--api_server_port %s " % (api_server_port)
+    args_str = args_str + "--http_server_port %s " % (get_free_port())
+    args_str = args_str + "--ifmap_username api-server "
+    args_str = args_str + "--ifmap_password api-server "
+    args_str = args_str + "--db_engine rdbms "
+    args_str = args_str + "--rdbms_connection sqlite:///%s " % db_file
+    args_str = args_str + "--log_local "
+    args_str = args_str + "--log_file svc_monitor_%s.log " %(test_id)
+    args_str = args_str + "--check_service_interval 2 "
+
+    svc_monitor.main(args_str)
+
 def kill_svc_monitor(glet):
     glet.kill()
     svc_monitor.SvcMonitor.reset()
@@ -368,6 +401,21 @@ def launch_schema_transformer(test_id, api_server_ip, api_server_port):
     args_str = args_str + "--trace_file schema_transformer_%s.err " %(test_id)
     to_bgp.main(args_str)
 # end launch_schema_transformer
+
+def launch_schema_transformer_rdbms(test_id, api_server_ip, api_server_port):
+    db_file = "./test_db_%s.db" % test_id
+
+    args_str = ""
+    args_str = args_str + "--api_server_ip %s " % (api_server_ip)
+    args_str = args_str + "--api_server_port %s " % (api_server_port)
+    args_str = args_str + "--http_server_port %s " % (get_free_port())
+    args_str = args_str + "--db_engine rdbms "
+    args_str = args_str + "--rdbms_connection sqlite:///%s " % db_file
+    args_str = args_str + "--log_local "
+    args_str = args_str + "--log_file schema_transformer_%s.log " %(test_id)
+    args_str = args_str + "--trace_file schema_transformer_%s.err " %(test_id)
+    to_bgp.main(args_str)
+# end launch_schema_transforme
 
 def launch_device_manager(test_id, api_server_ip, api_server_port):
     args_str = ""

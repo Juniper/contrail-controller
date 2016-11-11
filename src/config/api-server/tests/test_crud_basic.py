@@ -3337,7 +3337,6 @@ class TestBulk(test_case.ApiServerTestCase):
         vn_uuid = vn_objs[0].uuid
         vn_uuids = [vn_uuid] +\
                    ['bad-uuid'] * self._vnc_lib.POST_FOR_LIST_THRESHOLD
-
         try:
             results = self._vnc_lib.resource_list('virtual-network',
                                                   obj_uuids=vn_uuids)
