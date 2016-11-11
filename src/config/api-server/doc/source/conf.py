@@ -55,8 +55,8 @@ copyright = u'2013, Juniper Networks Inc.'
 # The short X.Y version.
 data = '0.99'
 try:
-    with open ("../../../../../src/base/version.info", "r") as myfile:
-        data=myfile.read().replace('\n', '')
+    with open("../../../../../controller/src/base/version.info", "r") as f:
+        data=f.read().replace('\n', '')
 except:
     pass
 
@@ -132,7 +132,7 @@ html_theme_path = ["themes"]
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = ['_static', 'contrail_openapi.json']
 
 # If not '', a 'Last updated on:' timestamp is inserted at every page bottom,
 # using the given strftime format.
