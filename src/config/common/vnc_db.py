@@ -295,14 +295,10 @@ class DBBase(object):
     @classmethod
     def list_obj(cls, obj_type=None):
         obj_type = obj_type or cls.obj_type
-        ok, result = cls._object_db.object_list(obj_type)
+        ok, result = cls._object_db.object_list(obj_type, is_detail=True)
         if not ok:
             return []
-        uuids = [uuid for _, uuid in result]
-        ok, objs = cls._object_db.object_read(obj_type, uuids)
-        if not ok:
-            return []
-        return objs
+        return result
 
     @classmethod
     def list_vnc_obj(cls, obj_type=None):
