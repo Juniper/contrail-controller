@@ -208,19 +208,25 @@ bool BgpPeerClose::IsGRReady() const {
     }
 
     // Make sure that forwarding state is preserved for all families in
-    // the restarting speaker.
+    // the restarting speaker. (Except for EVPN and ERMVPN)
     BOOST_FOREACH(BgpProto::OpenMessage::Capability::GR::Family family,
                   gr_params_.families) {
-        if (!family.forwarding_state_preserved()) {
-            string family_str = Address::FamilyToString(BgpAf::AfiSafiToFamily(
-                                                            family.afi,
-                                                            family.safi));
-            BGP_LOG_PEER(Message, peer_, SandeshLevel::SYS_DEBUG,
-                BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN, "GR Helper mode is not  "
-                "enabled because after restart, GR forwarding state is not "
-                "preserved for address family " << family_str);
-            return false;
-        }
+        // Check if forwarding state was preserved during restart.
+        if (family.forwarding_state_preserved())
+            continue;
+
+        // Ignore forwarding-state preservation check for certain families.
+        Address::Family addr_family =
+            BgpAf::AfiSafiToFamily(family.afi, family.safi);
+        if (addr_family == Address::EVPN || addr_family == Address::ERMVPN)
+            continue;
+
+        string family_str = Address::FamilyToString(addr_family);
+        BGP_LOG_PEER(Message, peer_, SandeshLevel::SYS_DEBUG,
+            BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN, "GR Helper mode is not  "
+            "enabled because after restart, GR forwarding state is not "
+            "preserved for address family " << family_str);
+        return false;
     }
     return true;
 }
