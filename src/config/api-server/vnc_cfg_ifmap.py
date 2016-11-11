@@ -1046,7 +1046,7 @@ class VncServerKombuClient(VncKombuClient):
 
     def dbe_uve_trace(self, oper, typ, uuid, body):
         self._db_client_mgr.dbe_uve_trace(oper, typ, uuid, body)
-    # end uuid_to_fq_name
+    # end dbe_uve_trace
 
     def dbe_oper_publish_pending(self):
         return self.num_pending_messages()
