@@ -112,7 +112,7 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
                 module + ":" + instance_id, collector->analytics_ttl_map(),
             collector->cassandra_user(), collector->cassandra_password(),
             std::string(), false, std::string(),
-            false, false, false, false));
+            false, false, false, false, false));
     } else {
         //Use collector db_handler
         db_handler_ = global_db_handler;

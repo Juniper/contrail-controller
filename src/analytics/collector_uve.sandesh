@@ -336,6 +336,7 @@ request sandesh DisableDatabaseWritesRequest {
     2: optional bool disable_statistics
     3: optional bool disable_messages
     4: optional bool disable_flows
+    5: optional bool disable_messages_keyword
 }
 
 request sandesh DatabaseWritesStatusRequest {
@@ -346,4 +347,5 @@ response sandesh DatabaseWritesStatusResponse {
     2: bool disable_statistics
     3: bool disable_messages
     4: bool disable_flows
+    5: bool disable_messages_keyword
 }

@@ -74,7 +74,8 @@ DbHandler::DbHandler(EventManager *evm,
         const std::string &cassandra_compaction_strategy,
         bool use_cql, const std::string &zookeeper_server_list,
         bool use_zookeeper, bool disable_all_writes,
-        bool disable_statistics_writes, bool disable_messages_writes) :
+        bool disable_statistics_writes, bool disable_messages_writes,
+        bool disable_messages_keyword_writes) :
     name_(name),
     drop_level_(SandeshLevel::INVALID),
     ttl_map_(ttl_map),
@@ -87,7 +88,8 @@ DbHandler::DbHandler(EventManager *evm,
     use_zookeeper_(use_zookeeper),
     disable_all_writes_(disable_all_writes),
     disable_statistics_writes_(disable_statistics_writes),
-    disable_messages_writes_(disable_messages_writes) {
+    disable_messages_writes_(disable_messages_writes),
+    disable_messages_keyword_writes_(disable_messages_keyword_writes) {
 #ifdef USE_CASSANDRA_CQL
     if (use_cql) {
         dbif_.reset(new cass::cql::CqlIf(evm, cassandra_ips,
@@ -114,7 +116,8 @@ DbHandler::DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map) :
         (uint8_t)g_viz_constants.PARTITION_MAX),
     disable_all_writes_(false),
     disable_statistics_writes_(false),
-    disable_messages_writes_(false) {
+    disable_messages_writes_(false),
+    disable_messages_keyword_writes_(false) {
 }
 
 DbHandler::~DbHandler() {
@@ -417,6 +420,10 @@ bool DbHandler::IsMessagesWritesDisabled() const {
     return disable_messages_writes_;
 }
 
+bool DbHandler::IsMessagesKeywordWritesDisabled() const {
+    return disable_messages_keyword_writes_;
+}
+
 void DbHandler::DisableAllWrites(bool disable) {
     disable_all_writes_ = disable;
 }
@@ -427,6 +434,10 @@ void DbHandler::DisableStatisticsWrites(bool disable) {
 
 void DbHandler::DisableMessagesWrites(bool disable) {
     disable_messages_writes_ = disable;
+}
+
+void DbHandler::DisableMessagesKeywordWrites(bool disable) {
+    disable_messages_keyword_writes_ = disable;
 }
 
 void DbHandler::SetDbQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm,
@@ -694,30 +705,16 @@ void DbHandler::MessageTableOnlyInsert(const VizMsg *vmsgp,
     }
 }
 
-void DbHandler::MessageTableInsert(const VizMsg *vmsgp,
+void DbHandler::MessageTableKeywordInsert(const VizMsg *vmsgp,
     GenDb::GenDbIf::DbAddColumnCb db_cb) {
+    if (IsMessagesKeywordWritesDisabled() ||
+        IsAllWritesDisabled()) {
+        return;
+    }
+    LineParser::WordListType words;
     const SandeshHeader &header(vmsgp->msg->GetHeader());
     const std::string &message_type(vmsgp->msg->GetMessageType());
-
-    if (!AllowMessageTableInsert(header))
-        return;
-
-    MessageTableOnlyInsert(vmsgp, db_cb);
-
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_SOURCE, header,
-            message_type, vmsgp->unm, "", db_cb);
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MODULE_ID, header,
-            message_type, vmsgp->unm, "", db_cb);
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_CATEGORY, header,
-            message_type, vmsgp->unm, "", db_cb);
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE, header,
-            message_type, vmsgp->unm, "", db_cb);
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_TIMESTAMP, header,
-            message_type, vmsgp->unm, "", db_cb);
-
     const SandeshType::type &stype(header.get_Type());
-
-    LineParser::WordListType words;
     if (stype == SandeshType::SYSTEM || stype == SandeshType::UVE ||
             stype == SandeshType::OBJECT) {
         const SandeshXMLMessage *sxmsg =
@@ -739,6 +736,32 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp,
         if (!r)
             DB_LOG(ERROR, "Failed to parse:");
     }
+}
+
+void DbHandler::MessageTableInsert(const VizMsg *vmsgp,
+    GenDb::GenDbIf::DbAddColumnCb db_cb) {
+    const SandeshHeader &header(vmsgp->msg->GetHeader());
+    const std::string &message_type(vmsgp->msg->GetMessageType());
+
+    if (!AllowMessageTableInsert(header))
+        return;
+
+    MessageTableOnlyInsert(vmsgp, db_cb);
+
+    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_SOURCE, header,
+            message_type, vmsgp->unm, "", db_cb);
+    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MODULE_ID, header,
+            message_type, vmsgp->unm, "", db_cb);
+    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_CATEGORY, header,
+            message_type, vmsgp->unm, "", db_cb);
+    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE, header,
+            message_type, vmsgp->unm, "", db_cb);
+    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_TIMESTAMP, header,
+            message_type, vmsgp->unm, "", db_cb);
+
+    MessageTableKeywordInsert(vmsgp, db_cb);
+
+    const SandeshType::type &stype(header.get_Type());
 
     /*
      * Insert the message types,module_id in the stat table
@@ -1773,7 +1796,8 @@ DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
     const std::string &cassandra_compaction_strategy,
     bool use_cql, const std::string &zookeeper_server_list,
     bool use_zookeeper, bool disable_all_db_writes,
-    bool disable_db_stats_writes, bool disable_db_messages_writes) :
+    bool disable_db_stats_writes, bool disable_db_messages_writes,
+    bool disable_db_messages_keyword_writes) :
     db_name_(db_name),
     db_task_instance_(db_task_instance),
     db_handler_(new DbHandler(evm,
@@ -1782,7 +1806,7 @@ DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
         cassandra_user, cassandra_password, cassandra_compaction_strategy,
         use_cql, zookeeper_server_list, use_zookeeper,
         disable_all_db_writes, disable_db_stats_writes,
-        disable_db_messages_writes)),
+        disable_db_messages_writes, disable_db_messages_keyword_writes)),
     callback_(callback),
     db_init_timer_(TimerManager::CreateTimer(*evm->io_service(),
         db_name + " Db Init Timer",

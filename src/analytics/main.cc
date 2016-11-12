@@ -375,7 +375,8 @@ int main(int argc, char *argv[])
             zookeeper_server_list,
             use_zookeeper, options.disable_all_db_writes(),
             options.disable_db_statistics_writes(),
-            options.disable_db_messages_writes());
+            options.disable_db_messages_writes(),
+            !options.enable_db_messages_keyword_writes());
 
 #if 0
     // initialize python/c++ API
