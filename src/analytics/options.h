@@ -73,6 +73,9 @@ public:
     const bool disable_all_db_writes() const { return disable_all_db_writes_; }
     const bool disable_db_statistics_writes() const { return disable_db_stats_writes_; }
     const bool disable_db_messages_writes() const { return disable_db_messages_writes_; }
+    const bool enable_db_messages_keyword_writes() const {
+        return enable_db_messages_keyword_writes_;
+    }
 
 private:
     template <typename ValueType>
@@ -145,6 +148,7 @@ private:
     bool disable_all_db_writes_;
     bool disable_db_stats_writes_;
     bool disable_db_messages_writes_;
+    bool enable_db_messages_keyword_writes_;
 
     boost::program_options::options_description config_file_options_;
 };
