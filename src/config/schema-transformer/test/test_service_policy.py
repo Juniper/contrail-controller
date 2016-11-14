@@ -256,14 +256,63 @@ class VerifyServicePolicy(VerifyPolicy):
             raise Exception('virtual machine interfaces still exist' + str(vmi_list))
         print 'all virtual machine interfaces deleted'
 
-
+    @retries(5)
+    def check_acl_match_subnets(self, fq_name, subnet1, subnet2, sc_ri_fq_name):
+        acl = self._vnc_lib.access_control_list_read(fq_name)
+        for rule in acl.access_control_list_entries.acl_rule:
+            if (rule.match_condition.src_address.subnet == subnet1 and
+                rule.match_condition.dst_address.subnet == subnet2):
+                    if rule.action_list.assign_routing_instance == sc_ri_fq_name:
+                        return
+        raise Exception('subnets assigned not matched in ACL rules for %s; sc: %s' %
+                        (fq_name, sc_ri_fq_name))
 
 class TestServicePolicy(STTestCase, VerifyServicePolicy):
+    def test_match_subnets_in_service_policy(self, version=None):
+        # create  vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, ['10.0.0.2/24'])
+        # create vn2
+        vn2_name = self.id() + 'vn2'
+        vn2_obj = self.create_virtual_network(vn2_name, ['20.0.0.2/24'])
+
+        subnet1= SubnetType('10.0.0.2', 24)
+        subnet2= SubnetType('20.0.0.2', 24)
+
+        service_name = self.id() + 's1'
+        kwargs = {'subnet_1': subnet1, 'subnet_2': subnet2}
+        np = self.create_network_policy(vn1_obj, vn2_obj,
+                                        [service_name], version=version, **kwargs)
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+
+        vn1_obj.set_network_policy(np, vnp)
+        vn2_obj.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+
+        sc = self.wait_to_get_sc()
+        sc_ri_name = 'service-'+sc+'-default-domain_default-project_' + service_name
+        self.check_acl_match_subnets(vn1_obj.get_fq_name(), subnet1,
+                                  subnet2, ':'.join(self.get_ri_name(vn1_obj, sc_ri_name)))
+
+        vn1_obj.del_network_policy(np)
+        vn2_obj.del_network_policy(np)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+        self.check_ri_refs_are_deleted(fq_name=self.get_ri_name(vn1_obj))
+
+        self.delete_network_policy(np)
+        self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
+        self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
+        self.check_vn_is_deleted(uuid=vn1_obj.uuid)
+        self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
+    # end test_match_subnets_in_service_policy
+
     def service_policy_test_with_version(self, version=None):
         # create  vn1
         vn1_name = self.id() + 'vn1'
         vn1_obj = self.create_virtual_network(vn1_name, ['10.0.0.0/24', '1000::/16'])
-
         # create vn2
         vn2_name = self.id() + 'vn2'
         vn2_obj = self.create_virtual_network(vn2_name, ['20.0.0.0/24', '2000::/16'])
