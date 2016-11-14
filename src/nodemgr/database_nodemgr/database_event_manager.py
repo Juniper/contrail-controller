@@ -86,7 +86,7 @@ class DatabaseEventManager(EventManager):
             self.instance_id,
             staticmethod(ConnectionState.get_process_state_cb),
             NodeStatusUVE, NodeStatus, self.table)
-        self.send_system_cpu_info()
+        self.send_init_info()
         self.third_party_process_dict = {}
         self.third_party_process_dict["cassandra"] = "Dcassandra-pidfile=.*cassandra\.pid"
         self.third_party_process_dict["zookeeper"] = "org.apache.zookeeper.server.quorum.QuorumPeerMain"
@@ -369,3 +369,6 @@ class DatabaseEventManager(EventManager):
                 self.database_periodic()
                 self.event_tick_60()
             self.listener_nodemgr.ok(self.stdout)
+
+    def get_package_name(self):
+        return self.node_type + '-common'
