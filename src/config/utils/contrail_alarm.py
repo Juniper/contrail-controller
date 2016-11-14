@@ -797,5 +797,41 @@ alarm_list = [
             ]
         }
     },
+    {
+        "alarm_rules": {
+            "or_list": [
+                {
+                    "and_list": [
+                        {
+                            "operand1": "NodeStatus.running_package_version",
+                            "operation": "!=",
+                            "operand2": {
+                                "uve_attribute": "NodeStatus.installed_package_version"
+                            }
+
+                        }
+                    ]
+                }
+            ]
+        },
+        "alarm_severity": 0,
+        "fq_name": [
+            "default-global-system-config",
+            "package-version-mismatch"
+        ],
+        "parent_type": "global-system-config",
+        "id_perms": {
+            "description": "There is a mismatch between installed and running package version."
+        },
+        "uve_keys": {
+            "uve_key": [
+                "analytics-node",
+                "config-node",
+                "control-node",
+                "database-node",
+                "vrouter"
+            ]
+        }
+    },
 ]
     
