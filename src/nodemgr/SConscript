@@ -21,7 +21,8 @@ for file in setup_sources:
 
 local_sources = [
            '__init__.py',
-           'main.py'
+           'main.py',
+           'utils.py'
           ]
 
 local_sources_rules = []

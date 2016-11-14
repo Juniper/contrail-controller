@@ -69,7 +69,7 @@ class ConfigEventManager(EventManager):
 		self.module_id, self.instance_id,
 		staticmethod(ConnectionState.get_process_state_cb),
                 NodeStatusUVE, NodeStatus, self.table)
-        self.send_system_cpu_info()
+        self.send_init_info()
         self.third_party_process_dict = {}
     # end __init__
 
@@ -106,3 +106,6 @@ class ConfigEventManager(EventManager):
             # Perform nodetool repair every cassandra_repair_interval hours
             if self.tick_count % (60 * self.cassandra_repair_interval) == 0:
                 self.cassandra_mgr.repair()
+
+    def get_package_name(self):
+        return self.node_type

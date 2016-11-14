@@ -72,7 +72,7 @@ class VrouterEventManager(EventManager):
             NodeStatusUVE, NodeStatus, self.table)
 
         self.lb_stats = LoadbalancerStatsUVE()
-        self.send_system_cpu_info()
+        self.send_init_info()
         self.third_party_process_dict = {}
     # end __init__
 
@@ -145,3 +145,6 @@ class VrouterEventManager(EventManager):
                 self.lb_stats.send_loadbalancer_stats()
 
             self.listener_nodemgr.ok(self.stdout)
+
+    def get_package_name(self):
+        return self.node_type + '-common'
