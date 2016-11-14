@@ -91,7 +91,7 @@ public:
         const std::string& cassandra_compaction_strategy,
         bool use_cql, const std::string &zookeeper_server_list,
         bool use_zookeeper, bool disable_all_writes, bool disable_stats_writes,
-        bool disable_messages_writes);
+        bool disable_messages_writes, bool disable_messages_keyword_writes);
     DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map);
     virtual ~DbHandler();
 
@@ -140,11 +140,15 @@ public:
     bool IsAllWritesDisabled() const;
     bool IsStatisticsWritesDisabled() const;
     bool IsMessagesWritesDisabled() const;
+    bool IsMessagesKeywordWritesDisabled() const;
     void DisableAllWrites(bool disable);
     void DisableStatisticsWrites(bool disable);
     void DisableMessagesWrites(bool disable);
+    void DisableMessagesKeywordWrites(bool disable);
 
 private:
+    void MessageTableKeywordInsert(const VizMsg *vmsgp,
+        GenDb::GenDbIf::DbAddColumnCb db_cb);
     void StatTableInsertTtl(uint64_t ts,
         const std::string& statName,
         const std::string& statAttr,
@@ -210,6 +214,7 @@ private:
     bool disable_all_writes_;
     bool disable_statistics_writes_;
     bool disable_messages_writes_;
+    bool disable_messages_keyword_writes_;
     bool CanRecordDataForT2(uint32_t, std::string);
     friend class DbHandlerTest;
     DISALLOW_COPY_AND_ASSIGN(DbHandler);
@@ -253,7 +258,8 @@ class DbHandlerInitializer {
         bool use_cql,
         const std::string &zookeeper_server_list,
         bool use_zookeeper, bool disable_all_db_writes,
-        bool disable_db_stats_writes, bool disable_db_messages_writes);
+        bool disable_db_stats_writes, bool disable_db_messages_writes,
+        bool disable_db_messages_keyword_writes);
     DbHandlerInitializer(EventManager *evm,
         const std::string &db_name, int db_task_instance,
         const std::string &timer_task_name, InitializeDoneCb callback,
