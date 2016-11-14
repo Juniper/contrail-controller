@@ -15,10 +15,14 @@ if distname != 'Ubuntu' or float(version) < 14.04:
     gunit_h = env.Install('#/build/include/testing', 'gunit.h')
     env.Depends(gunit_h, [gtest_dir, gmock_dir])
 else:
-    gtest_path = '/usr/src/gmock/gtest'
-    gmock_path = '/usr/src/gmock'
+    if distname == 'Ubuntu' and float(version) == 16.04:
+        gtest_path = '/usr/src/gtest'
+        gtest_dir = env.Install('#/build/include', gtest_path)
+    else:
+        gtest_path = '/usr/src/gmock/gtest'
+        gtest_dir = env.Install('#/build/include', gtest_path + '/include/gtest')
 
-    gtest_dir = env.Install('#/build/include', gtest_path + '/include/gtest')
+    gmock_path = '/usr/src/gmock'
     gunit_h = env.InstallAs('#/build/include/testing/gunit.h', 'gunit_nowarn.h')
     env.Depends(gunit_h, [gtest_dir])
 # endif
