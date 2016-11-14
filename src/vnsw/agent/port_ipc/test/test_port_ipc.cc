@@ -20,13 +20,40 @@ class PortIpcTest : public ::testing::Test {
      PortIpcTest() : agent_(Agent::GetInstance()) {
      }
      Agent *agent() { return agent_; }
-     bool AddPort(PortIpcHandler &pih, PortIpcHandler::AddPortParams &req) {
-         string err_msg;
-         if (pih.CanAdd(req, false, err_msg)) {
-             return pih.AddPort(req, err_msg);
+     bool AddPort(PortIpcHandler &pih, const char *port_id, const char *vm_id,
+                  const char *vn_id, const char *project_id,
+                  const char *vm_name, const char *tap_name,
+                  const char *ip4, const char *ip6, const char *mac,
+                  CfgIntEntry::CfgIntType type, uint16_t tx_vlan,
+                  uint16_t rx_vlan) {
+         CfgIntEntry entry;
+         entry.port_id_ = StringToUuid(port_id);
+         entry.vm_id_ = StringToUuid(vm_id);
+         entry.vn_id_ = StringToUuid(vn_id);
+         entry.vm_project_id_ = StringToUuid(project_id);
+         entry.tap_name_ = tap_name;
+
+         boost::system::error_code ec;
+         Ip4Address ip4_addr = Ip4Address::from_string(ip4, ec);
+         if (!ec) {
+            entry.ip_addr_ = ip4_addr;
          }
-         return false;
+
+         Ip6Address ip6_addr = Ip6Address::from_string(ip6, ec);
+         if (!ec) {
+            entry.ip6_addr_ = ip6_addr;
+         }
+         entry.mac_addr_ = mac;
+         entry.vm_name_ = vm_name;
+         entry.tx_vlan_id_ = tx_vlan;
+         entry.rx_vlan_id_ = rx_vlan;
+         entry.port_type_ = type;
+         string str;
+         string err;
+         pih.MakeVmiUuidJson(&entry, str);
+         return pih.AddPortFromJson(str, false, err, false);
      }
+
      void Sync(PortIpcHandler &pih) {
          pih.SyncHandler();
      }
@@ -53,7 +80,8 @@ class PortIpcTest : public ::testing::Test {
              if (!IsUUID(pih, p.filename().string())) {
                  continue;
              }
-             pih.DeletePort(p.filename().string(), err_str);
+             pih.DeleteVmiUuidEntry(StringToUuid(p.filename().string()),
+                                   err_str);
          }
      }
 
@@ -70,17 +98,18 @@ TEST_F(PortIpcTest, Port_Add_Del) {
     uint32_t port_count = ctable->Size();
     std::string err_str;
 
-    PortIpcHandler::AddPortParams req("ea73b285-01a7-4d3e-8322-50976e8913da",
-        "ea73b285-01a7-4d3e-8322-50976e8913db",
-        "fa73b285-01a7-4d3e-8322-50976e8913de",
-        "b02a3bfb-7946-4b1c-8cc4-bf8cedcbc48d", "vm1", "tap1af4bee3-04",
-        "11.0.0.3", "", "02:1a:f4:be:e3:04", 0, -1, -1);
     PortIpcHandler pih(agent(), dir);
-    AddPort(pih, req);
+    AddPort(pih, "ea73b285-01a7-4d3e-8322-50976e8913da",
+            "ea73b285-01a7-4d3e-8322-50976e8913db",
+            "fa73b285-01a7-4d3e-8322-50976e8913de",
+            "b02a3bfb-7946-4b1c-8cc4-bf8cedcbc48d", "vm1", "tap1af4bee3-04",
+            "11.0.0.3", "", "02:1a:f4:be:e3:04", CfgIntEntry::CfgIntVMPort,
+            -1, -1);
     client->WaitForIdle(2);
     WAIT_FOR(500, 1000, ((port_count + 1) == ctable->Size()));
 
-    pih.DeletePort(req.port_id, err_str);
+    pih.DeleteVmiUuidEntry(StringToUuid("ea73b285-01a7-4d3e-8322-50976e8913da"),
+                          err_str);
     client->WaitForIdle(2);
     WAIT_FOR(500, 1000, ((port_count) == ctable->Size()));
 }
@@ -92,13 +121,13 @@ TEST_F(PortIpcTest, Port_Add_Invalid_Ip) {
     CfgIntTable *ctable = agent()->interface_config_table();
     assert(ctable);
 
-    PortIpcHandler::AddPortParams req("ea73b285-01a7-4d3e-8322-50976e8913da",
-        "ea73b285-01a7-4d3e-8322-50976e8913db",
-        "fa73b285-01a7-4d3e-8322-50976e8913de",
-        "b02a3bfb-7946-4b1c-8cc4-bf8cedcbc48d", "vm1", "tap1af4bee3-04",
-        "fd11::3", "", "02:1a:f4:be:e3:04", 0, -1, -1);
     PortIpcHandler pih(agent(), dir);
-    bool ret = AddPort(pih, req);
+    bool ret = AddPort(pih, "ea73b285-01a7-4d3e-8322-50976e8913da",
+                       "ea73b285-01a7-4d3e-8322-50976e8913db",
+                       "fa73b285-01a7-4d3e-8322-50976e8913de",
+                       "b02a3bfb-7946-4b1c-8cc4-bf8cedcbc48d", "vm1",
+                       "tap1af4bee3-04", "fd11::3", "", "02:1a:f4:be:e3:04",
+                       CfgIntEntry::CfgIntVMPort, -1, -1);
     EXPECT_FALSE(ret);
 }
 
@@ -133,18 +162,18 @@ TEST_F(PortIpcTest, Vcenter_Port_Add_Del) {
     uint32_t port_count = ctable->Size();
     std::string err_str;
 
-    PortIpcHandler::AddPortParams req("ea73b285-01a7-4d3e-8322-50976e8913da",
-        "ea73b285-01a7-4d3e-8322-50976e8913db",
-        "fa73b285-01a7-4d3e-8322-50976e8913de",
-        "b02a3bfb-7946-4b1c-8cc4-bf8cedcbc48d", "vm1", "tap1af4bee3-04",
-        "11.0.0.3", "", "02:1a:f4:be:e3:04", CfgIntEntry::CfgIntRemotePort,
-        -1, -1);
     PortIpcHandler pih(agent(), dir);
-    AddPort(pih, req);
+    AddPort(pih, "ea73b285-01a7-4d3e-8322-50976e8913da",
+            "ea73b285-01a7-4d3e-8322-50976e8913db",
+            "fa73b285-01a7-4d3e-8322-50976e8913de",
+            "b02a3bfb-7946-4b1c-8cc4-bf8cedcbc48d", "vm1", "tap1af4bee3-04",
+            "11.0.0.3", "", "02:1a:f4:be:e3:04", CfgIntEntry::CfgIntRemotePort,
+            -1, -1);
     client->WaitForIdle(2);
     WAIT_FOR(500, 1000, ((port_count + 1) == ctable->Size()));
 
-    pih.DeletePort(req.port_id, err_str);
+    pih.DeleteVmiUuidEntry(StringToUuid("ea73b285-01a7-4d3e-8322-50976e8913da"),
+                           err_str);
     client->WaitForIdle(2);
     WAIT_FOR(500, 1000, ((port_count) == ctable->Size()));
 }
@@ -161,22 +190,22 @@ TEST_F(PortIpcTest, Port_Sync) {
     agent()->set_port_ipc_handler(&pih);
 
     //ADD a port
-    PortIpcHandler::AddPortParams req("ea73b285-01a7-4d3e-8322-50976e8913da",
-        "ea73b285-01a7-4d3e-8322-50976e8913db",
-        "fa73b285-01a7-4d3e-8322-50976e8913de",
-        "b02a3bfb-7946-4b1c-8cc4-bf8cedcbc48d", "vm1", "tap1af4bee3-04",
-        "11.0.0.3", "", "02:1a:f4:be:e3:04", 0, -1, -1);
-    AddPort(pih, req);
+    AddPort(pih, "ea73b285-01a7-4d3e-8322-50976e8913da",
+            "ea73b285-01a7-4d3e-8322-50976e8913db",
+            "fa73b285-01a7-4d3e-8322-50976e8913de",
+            "b02a3bfb-7946-4b1c-8cc4-bf8cedcbc48d", "vm1", "tap1af4bee3-04",
+            "11.0.0.3", "", "02:1a:f4:be:e3:04", CfgIntEntry::CfgIntVMPort,
+            -1, -1);
     client->WaitForIdle(2);
     WAIT_FOR(500, 1000, ((port_count + 1) == ctable->Size()));
 
     //Add one more port
-    PortIpcHandler::AddPortParams req2("ea73b285-01a7-4d3e-8322-50976e8913db",
-        "ea73b285-01a7-4d3e-8322-50976e8913dc",
-        "fa73b285-01a7-4d3e-8322-50976e8913dd",
-        "b02a3bfb-7946-4b1c-8cc4-bf8cedcbc48e", "vm2", "tap1af4bee3-05",
-        "11.0.0.4", "", "02:1a:f4:be:e3:05", 0, -1, -1);
-    AddPort(pih, req2);
+    AddPort(pih, "ea73b285-01a7-4d3e-8322-50976e8913db",
+            "ea73b285-01a7-4d3e-8322-50976e8913dc",
+            "fa73b285-01a7-4d3e-8322-50976e8913dd",
+            "b02a3bfb-7946-4b1c-8cc4-bf8cedcbc48e", "vm2", "tap1af4bee3-05",
+            "11.0.0.4", "", "02:1a:f4:be:e3:05", CfgIntEntry::CfgIntVMPort,
+            -1, -1);
     client->WaitForIdle(2);
     WAIT_FOR(500, 1000, ((port_count + 2) == ctable->Size()));
 
@@ -184,7 +213,12 @@ TEST_F(PortIpcTest, Port_Sync) {
     EXPECT_TRUE(cleaner != NULL);
     cleaner->set_timeout(1);
     Sync(pih);
-    AddPort(pih, req2);
+    AddPort(pih, "ea73b285-01a7-4d3e-8322-50976e8913db",
+            "ea73b285-01a7-4d3e-8322-50976e8913dc",
+            "fa73b285-01a7-4d3e-8322-50976e8913dd",
+            "b02a3bfb-7946-4b1c-8cc4-bf8cedcbc48e", "vm2", "tap1af4bee3-05",
+            "11.0.0.4", "", "02:1a:f4:be:e3:05", CfgIntEntry::CfgIntVMPort,
+            -1, -1);
     client->WaitForIdle(2);
 
     WAIT_FOR(1000, 1000, (cleaner->TimersCount() == 0));
@@ -192,7 +226,8 @@ TEST_F(PortIpcTest, Port_Sync) {
     WAIT_FOR(500, 1000, ((port_count + 1) == ctable->Size()));
     //cleanup
     cleaner->set_timeout(ConfigStaleCleaner::kConfigStaleTimeout);
-    pih.DeletePort(req2.port_id, err_str);
+    pih.DeleteVmiUuidEntry(StringToUuid("ea73b285-01a7-4d3e-8322-50976e8913db"),
+                           err_str);
     client->WaitForIdle(2);
     WAIT_FOR(500, 1000, ((port_count) == ctable->Size()));
     agent()->set_port_ipc_handler(ipc);

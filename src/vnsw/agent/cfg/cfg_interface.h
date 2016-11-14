@@ -46,6 +46,7 @@ public:
     static std::string CfgIntTypeToString(CfgIntType);
 
 private:
+    friend class PortIpcTest;
     boost::uuids::uuid port_id_;
     boost::uuids::uuid vm_id_;
     boost::uuids::uuid vn_id_;
