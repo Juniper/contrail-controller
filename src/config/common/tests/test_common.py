@@ -772,8 +772,10 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
                               auto_policy=False, **kwargs):
         vn1_name = vn1 if isinstance(vn1, basestring) else vn1.get_fq_name_str()
         vn2_name = vn2 if isinstance(vn2, basestring) else vn2.get_fq_name_str()
-        addr1 = AddressType(virtual_network=vn1_name)
-        addr2 = AddressType(virtual_network=vn2_name)
+
+        addr1 = AddressType(virtual_network=vn1_name, subnet=kwargs.get('subnet_1'))
+        addr2 = AddressType(virtual_network=vn2_name, subnet=kwargs.get('subnet_2'))
+
         port = PortType(-1, 0)
         service_name_list = []
         si_list = service_list or []
