@@ -62,6 +62,7 @@ from sandesh.alarmgen_ctrl.ttypes import PartitionOwnershipReq, \
 
 from sandesh.discovery.ttypes import CollectorTrace
 from opserver_util import ServicePoller
+from opserver_util import AnalyticsDiscovery
 from stevedore import hook, extension
 from pysandesh.util import UTCTimestampUsec
 from libpartition.libpartition import PartitionClient
@@ -950,6 +951,20 @@ class Controller(object):
             # If there is no discovery service, use fixed alarmgen list
             self._libpart = self.start_libpart(self._conf.alarmgen_list())
 
+        # Start AnalyticsDiscovery to monitor AlarmGen instances
+        if self._conf.zk_list():
+            self._ad = AnalyticsDiscovery(self._logger,
+                ','.join(self._conf.zk_list()),
+                ALARM_GENERATOR_SERVICE_NAME,
+                self._hostname + "-" + self._instance_id,
+                # TODO: Use this callback instead of  DiscoveryClient
+                {ALARM_GENERATOR_SERVICE_NAME:None},
+                self._conf.kafka_prefix())
+
+            self._ad.start()
+        else:
+            self._ad = None
+
         self._workers = {}
         self._uvestats = {}
         self._uveq = {}
@@ -1318,16 +1333,18 @@ class Controller(object):
                 if self._workers[part]._up:
                     workerset[part] = self._workers[part].acq_time()
             if workerset != oldworkerset:
+		data = {
+		    'ip-address': self._conf.host_ip(),
+		    'instance-id': self._instance_id,
+		    'redis-port': str(self._conf.redis_server_port()),
+		    'partitions': json.dumps(workerset)
+		}
                 if self.disc:
-                    data = {
-                        'ip-address': self._conf.host_ip(),
-                        'instance-id': self._instance_id,
-                        'redis-port': str(self._conf.redis_server_port()),
-                        'partitions': json.dumps(workerset)
-                    }
                     self._logger.error("Disc Publish to %s : %s"
                                   % (str(self._conf.discovery()), str(data)))
                     self.disc.publish(ALARM_GENERATOR_SERVICE_NAME, data)
+                if self._ad:
+		    self._ad.publish(json.dumps(data))
                 oldworkerset = copy.deepcopy(workerset)
              
             for part in self._uveqf.keys():

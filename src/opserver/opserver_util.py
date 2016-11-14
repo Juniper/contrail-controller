@@ -22,8 +22,14 @@ import copy
 import traceback
 import ast
 import re
+import logging
+from functools import partial
 try:
     from pysandesh.gen_py.sandesh.ttypes import SandeshType
+    from pysandesh.connection_info import ConnectionState
+    from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
+	ConnectionType
+    from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 except:
     class SandeshType(object):
         SYSTEM = 1
@@ -50,6 +56,203 @@ def camel_case_to_hyphen(name):
 def inverse_dict(d):
     return dict(zip(d.values(), d.keys()))
 # end inverse_dict
+
+
+from kazoo.client import KazooClient
+from kazoo.client import KazooState
+
+class AnalyticsDiscovery(gevent.Greenlet):
+
+    def _sandesh_connection_info_update(self, status, message):
+
+        new_conn_state = getattr(ConnectionStatus, status)
+        ConnectionState.update(conn_type = ConnectionType.ZOOKEEPER,
+                name = self._svc_name, status = new_conn_state,
+                message = message,
+                server_addrs = self._zk_server.split(','))
+
+        if (self._conn_state and self._conn_state != ConnectionStatus.DOWN and
+                new_conn_state == ConnectionStatus.DOWN):
+            msg = 'Connection to Zookeeper down: %s' %(message)
+            self._logger.error(msg)
+        if (self._conn_state and self._conn_state != new_conn_state and
+                new_conn_state == ConnectionStatus.UP):
+            msg = 'Connection to Zookeeper ESTABLISHED'
+            self._logger.error(msg)
+
+        self._conn_state = new_conn_state
+        #import pdb; pdb.set_trace()
+    # end _sandesh_connection_info_update
+
+    def _zk_listen(self, state):
+        self._logger.error("Analytics Discovery listen %s" % str(state))
+        if state == KazooState.CONNECTED:
+            if self._conn_state != ConnectionStatus.UP:
+                self._sandesh_connection_info_update(status='UP', message='')
+                self._logger.error("Analytics Discovery to publish %s" % str(self._pubinfo))
+                self._reconnect = True
+            else:
+                self._logger.error("Analytics Discovery already connected")
+        else:
+            self._logger.error("Analytics Discovery NOT connected")
+            if self._conn_state == ConnectionStatus.UP:
+                self._sandesh_connection_info_update(status='DOWN', message='')
+
+    def _zk_datawatch(self, watcher, child, data, stat, event):
+        self._logger.error(\
+                "Analytics Discovery %s ChildData : child %s, data %s, event %s" % \
+                (watcher, child, data, event))
+        self._wchildren[watcher][child] = data
+        if self._watchers[watcher]:
+            self._watchers[watcher](self._wchildren[watcher])
+
+    def _zk_watcher(self, watcher, children):
+        self._logger.error("Analytics Discovery Children %s" % children)
+        self._reconnect = True
+
+    def __init__(self, logger, zkservers, svc_name, inst,
+                watchers={}, zpostfix=""):
+        gevent.Greenlet.__init__(self)
+        self._svc_name = svc_name
+        self._inst = inst
+        self._zk_server = zkservers
+        # initialize logging and other stuff
+        if logger is None:
+            logging.basicConfig()
+            self._logger = logging
+        else:
+            self._logger = logger
+        self._conn_state = None
+        self._sandesh_connection_info_update(status='INIT', message='')
+        self._zk = KazooClient(hosts=zkservers)
+        self._pubinfo = None
+        self._watchers = watchers
+        self._wchildren = {}
+        self._zpostfix = zpostfix
+        self._basepath = "/analytics-discovery-" + self._zpostfix
+        self._reconnect = None
+
+    def publish(self, pubinfo):
+        self._pubinfo = pubinfo
+        #import pdb; pdb.set_trace()
+        if self._conn_state == ConnectionStatus.UP:
+            try:
+                self._logger.error("ensure %s" % (self._basepath + "/" + self._svc_name))
+                self._logger.error("zk state %s (%s)" % (self._zk.state, self._zk.client_state))
+                self._zk.ensure_path(self._basepath + "/" + self._svc_name)
+                self._logger.error("check for %s/%s/%s" % \
+                                (self._basepath, self._svc_name, self._inst))
+                if pubinfo is not None:
+                    if self._zk.exists("%s/%s/%s" % \
+                            (self._basepath, self._svc_name, self._inst)):
+                        self._zk.set("%s/%s/%s" % \
+                                (self._basepath, self._svc_name, self._inst),
+                                self._pubinfo)
+                    else:
+                        self._zk.create("%s/%s/%s" % \
+                                (self._basepath, self._svc_name, self._inst),
+                                self._pubinfo, ephemeral=True)
+                else:
+                    self._logger.error("cannot publish empty info")
+            except Exception as ex:
+                template = "Exception {0} in AnalyticsDiscovery publish. Args:\n{1!r}"
+                messag = template.format(type(ex).__name__, ex.args)
+                self._logger.error("%s : traceback %s for %s info %s" % \
+                        (messag, traceback.format_exc(), self._svc_name, str(self._pubinfo)))
+                self._sandesh_connection_info_update(status='DOWN', message='')
+                self._reconnect = True
+        else:
+            self._logger.error("Analytics Discovery cannot publish while down")
+
+    def _run(self):
+        while True:
+            try:
+                self._zk.start()
+                break
+            except gevent.event.Timeout as e:
+                # Update connection info
+                self._sandesh_connection_info_update(status='DOWN',
+                                                         message=str(e))
+                gevent.sleep(1)
+                # Zookeeper is also throwing exception due to delay in master election
+            except Exception as e:
+                # Update connection info
+                self._sandesh_connection_info_update(status='DOWN',
+                                                     message=str(e))
+                gevent.sleep(1)
+
+        try:
+            # Update connection info
+            self._sandesh_connection_info_update(status='UP', message='')
+            self._reconnect = False
+            # Done connecting to ZooKeeper
+
+            self._zk.add_listener(self._zk_listen)
+            for wk in self._watchers.keys():
+                self._zk.ensure_path(self._basepath + "/" + wk)
+                self._wchildren[wk] = {}
+                self._zk.ChildrenWatch(self._basepath + "/" + wk,
+                        partial(self._zk_watcher, wk))
+
+            # Trigger the initial publish
+            self._reconnect = True
+
+            while True:
+                try:
+                    gevent.sleep(10)
+
+                    # If a reconnect happens during processing, don't lose it
+                    while self._reconnect:
+                        self._reconnect = False
+                        if self._pubinfo:
+                            self.publish(self._pubinfo)
+
+                        for wk in self._watchers.keys():
+                            self._zk.ensure_path(self._basepath + "/" + wk)
+                            children = self._zk.get_children(self._basepath + "/" + wk)
+
+                            old_children = set(self._wchildren[wk].keys())
+                            new_children = set(children)
+
+                            # Remove contents for the children who are gone
+                            # (DO NOT remove the watch)
+                            for elem in old_children - new_children:
+                                 self._wchildren[wk][elem] = None
+
+                            # Overwrite existing children, or create new ones
+                            for elem in new_children:
+                                # Create a watch for new children
+                                if elem not in self._wchildren[wk]:
+                                    self._zk.DataWatch(self._basepath + "/" + \
+                                            wk + "/" + elem,
+                                            partial(self._zk_datawatch, wk, elem))
+                                self._wchildren[wk][elem], _ = \
+                                        self._zk.get(self._basepath + "/" + wk + "/" + elem)
+				self._logger.error(\
+					"Analytics Discovery %s ChildData : child %s, data %s, event %s" % \
+					(wk, elem, self._wchildren[wk][elem], "GET"))
+                            if self._watchers[wk]:
+                                self._watchers[wk](self._wchildren[wk])
+
+                except gevent.GreenletExit:
+                    self._logger.error("Exiting AnalyticsDiscovery for %s" % \
+                            self._svc_name)
+                    self._zk.stop()
+                    break
+
+                except Exception as ex:
+                    template = "Exception {0} in AnalyticsDiscovery reconnect. Args:\n{1!r}"
+                    messag = template.format(type(ex).__name__, ex.args)
+                    self._logger.error("%s : traceback %s for %s info %s" % \
+                        (messag, traceback.format_exc(), self._svc_name, str(self._pubinfo)))
+                    self._reconnect = True
+
+        except Exception as ex:
+            template = "Exception {0} in AnalyticsDiscovery run. Args:\n{1!r}"
+            messag = template.format(type(ex).__name__, ex.args)
+            self._logger.error("%s : traceback %s for %s info %s" % \
+                    (messag, traceback.format_exc(), self._svc_name, str(self._pubinfo)))
+            raise SystemExit
 
 
 class ServicePoller(gevent.Greenlet):

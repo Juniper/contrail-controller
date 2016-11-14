@@ -65,6 +65,7 @@ from sandesh.discovery.ttypes import CollectorTrace
 import discoveryclient.client as discovery_client
 from opserver_util import OpServerUtils
 from opserver_util import ServicePoller
+from opserver_util import AnalyticsDiscovery
 from sandesh_req_impl import OpserverSandeshReqImpl
 from sandesh.analytics_database.ttypes import *
 from sandesh.analytics_database.constants import PurgeStatusString
@@ -401,11 +402,14 @@ class OpServer(object):
             'ip-address': self._args.host_ip,
             'port': self._args.rest_api_port,
         }
-        self.disc.set_sandesh(self._sandesh)
-        self._logger.info("Disc Publish to %s : %d - %s"
-                          % (self._args.disc_server_ip,
-                             self._args.disc_server_port, str(data)))
-        self.disc.publish(ANALYTICS_API_SERVER_DISCOVERY_SERVICE_NAME, data)
+        if self.disc:
+	    self.disc.set_sandesh(self._sandesh)
+	    self._logger.info("Disc Publish to %s : %d - %s"
+			      % (self._args.disc_server_ip,
+				 self._args.disc_server_port, str(data)))
+	    self.disc.publish(ANALYTICS_API_SERVER_DISCOVERY_SERVICE_NAME, data)
+        if self._ad:
+            self._ad.publish(json.dumps(data))
     # end disc_publish
 
     def validate_user_token(func):
@@ -467,6 +471,7 @@ class OpServer(object):
                             self._args.disc_server_ip,
                             self._args.disc_server_port,
                             ModuleNames[Module.OPSERVER])
+
         self._sandesh.init_generator(
             self._moduleid, self._hostname, self._node_type_name,
             self._instance_id, self._args.collectors, 'opserver_context',
@@ -555,9 +560,21 @@ class OpServer(object):
                 name = 'UVE-Aggregation', status = ConnectionStatus.UP)
             self._uvepartitions_state = ConnectionStatus.UP
 
-        if self._args.disc_server_ip:
-            self.disc_publish()
+        if self._args.zk_list:
+            self._ad = AnalyticsDiscovery(self._logger,
+                ','.join(self._args.zk_list),
+                ANALYTICS_API_SERVER_DISCOVERY_SERVICE_NAME,
+                self._hostname + "-" + self._instance_id,
+                # TODO: Use this callback instead of  DiscoveryClient
+                {ALARM_GENERATOR_SERVICE_NAME:None},
+                self._args.zk_prefix)
+            self._ad.start()
         else:
+            self._ad = None
+
+        self.disc_publish()
+
+        if not self._args.disc_server_ip:
             for part in range(0,self._args.partitions):
                 pi = PartInfo(ip_address = self._args.host_ip,
                               acq_time = UTCTimestampUsec(),
@@ -778,6 +795,7 @@ class OpServer(object):
                                --syslog_facility LOG_USER
                                --worker_id 0
                                --partitions 15
+                               --zk_list 127.0.0.1:2181
                                --redis_uve_list 127.0.0.1:6379
                                --auto_db_purge
         '''
@@ -814,6 +832,8 @@ class OpServer(object):
             'logging_conf': '',
             'logger_class': None,
             'partitions'        : 15,
+            'zk_list'           : None,
+            'zk_prefix'         : '',
             'sandesh_send_rate_limit': SandeshSystem. \
                  get_sandesh_send_rate_limit(),
             'aaa_mode'          : AAA_MODE_CLOUD_ADMIN,
@@ -941,6 +961,11 @@ class OpServer(object):
             help="Cassandra password")
         parser.add_argument("--partitions", type=int,
             help="Number of partitions for hashing UVE keys")
+        parser.add_argument("--zk_list",
+            help="List of zookeepers in ip:port format",
+            nargs="+")
+        parser.add_argument("--zk_prefix",
+            help="System Prefix for zookeeper")
         parser.add_argument("--sandesh_send_rate_limit", type=int,
             help="Sandesh send rate limit in messages/sec")
         parser.add_argument("--cloud_admin_role",
@@ -970,6 +995,8 @@ class OpServer(object):
             self._args.redis_uve_list = self._args.redis_uve_list.split()
         if type(self._args.cassandra_server_list) is str:
             self._args.cassandra_server_list = self._args.cassandra_server_list.split()
+        if type(self._args.zk_list) is str:
+            self._args.zk_list= self._args.zk_list.split()
 
         auth_conf_info = {}
         auth_conf_info['admin_user'] = self._args.admin_user
