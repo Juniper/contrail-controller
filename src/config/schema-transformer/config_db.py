@@ -1021,10 +1021,16 @@ class VirtualNetworkST(DBBaseST):
                     if not service_ris:
                         continue
                     if self.me(svn):
-                        da_list = [AddressType(virtual_network=x)
+                        da_list = [AddressType(
+                                       virtual_network=x,
+                                       subnet=daddr_match.subnet,
+                                       subnet_list=daddr_match.subnet_list)
                                    for x in service_ris]
                     elif self.me(dvn):
-                        sa_list = [AddressType(virtual_network=x)
+                        sa_list = [AddressType(
+                                       virtual_network=x,
+                                       subnet=saddr_match.subnet,
+                                       subnet_list=saddr_match.subnet_list)
                                    for x in service_ris]
 
                 for sp, dp, sa, da in itertools.product(sp_list, dp_list,
