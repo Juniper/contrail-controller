@@ -63,7 +63,7 @@ class ControlEventManager(EventManager):
             self.instance_id,
             staticmethod(ConnectionState.get_process_state_cb),
             NodeStatusUVE, NodeStatus, self.table)
-        self.send_system_cpu_info()
+        self.send_init_info()
         self.third_party_process_dict = {}
     # end __init__
 
@@ -88,3 +88,6 @@ class ControlEventManager(EventManager):
     def get_process_state(self, fail_status_bits):
         return self.get_process_state_base(
             fail_status_bits, ProcessStateNames, ProcessState)
+
+    def get_package_name(self):
+        return self.node_type

@@ -2271,6 +2271,66 @@ class TestAlarmPlugins(unittest.TestCase):
         self._verify(tests, alarm_name="pending-cassandra-compaction-tasks")
     # end test_alarm_pending_cassandra_compaction_tasks
 
+    def test_alarm_package_version(self):
+        tests = [
+
+            TestCase(
+                name='NodeStatus == null',
+                input=TestInput(uve_key='ObjectCollectorInfo:host1',
+                    uve_data={}),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='NodeStatus.running_package_version == ' +\
+                     'NodeStatus.installed_package_version',
+                input=TestInput(uve_key='ObjectCollectorInfo:host1',
+                    uve_data={
+                        'NodeStatus': {
+                            'running_package_version': '"3.1.0.0-2740"',
+                            'installed_package_version': '"3.1.0.0-2740"'
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='NodeStatus.running_package_version != ' +\
+                     'NodeStatus.installed_package_version',
+                input=TestInput(uve_key='ObjectCollectorInfo:host1',
+                    uve_data={
+                        'NodeStatus': {
+                            'running_package_version': '"3.1.0.0-2740"',
+                            'installed_package_version': '"3.1.0.0-18"'
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            {
+                                'condition': {
+                                    'operand1': 'NodeStatus.running_package_version',
+                                    'operand2': {
+                                        'uve_attribute':
+                                            'NodeStatus.installed_package_version'
+                                    },
+                                    'operation': '!='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '"3.1.0.0-2740"',
+                                        'json_operand2_val': '"3.1.0.0-18"'
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ])
+            )
+        ]
+        self._verify(tests, alarm_name="package-version-mismatch")
+    # end test_alarm_package_version
+
     def _verify(self, tests, plugin=None, alarm_name=None):
         for test in tests:
             name = alarm_name or plugin.__class__.__name__
