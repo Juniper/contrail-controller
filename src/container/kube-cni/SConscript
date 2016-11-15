@@ -19,8 +19,19 @@ for file in setup_sources:
 
 local_sources = [
     'kube_cni/__init__.py',
-    'kube_cni/kube_cni.py',
     'kube_cni/tests/__init__.py',
+    'kube_cni/tests/cni.info',
+    'kube_cni/tests/contrail-cni.conf',
+    'kube_cni/tests/contrail-test.sh',
+    'kube_cni/cni/__init__.py',
+    'kube_cni/cni/cni.py',
+    'kube_cni/common/__init__.py',
+    'kube_cni/common/logger.py',
+    'kube_cni/opencontrail.py',
+    'kube_cni/params/__init__.py',
+    'kube_cni/params/params.py',
+    'kube_cni/vrouter/__init__.py',
+    'kube_cni/vrouter/vrouter.py',
 ]
 
 local_sources_rules = []
