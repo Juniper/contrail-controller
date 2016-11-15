@@ -351,6 +351,14 @@ class VncApiServer(object):
         r_class = self.get_resource_class(resource_type)
         obj_type = resource_type.replace('-', '_')
         obj_dict = get_request().json[resource_type]
+
+        # check visibility
+        user_visible = (obj_dict.get('id_perms') or {}).get('user_visible', True)
+        if not user_visible and not self.is_admin_request():
+            result = 'This object is not visible by users'
+            self.config_object_error(None, None, obj_type, 'http_post', result)
+            raise cfgm_common.exceptions.HttpError(400, result)
+
         self._post_validate(obj_type, obj_dict=obj_dict)
         fq_name = obj_dict['fq_name']
 
@@ -661,6 +669,13 @@ class VncApiServer(object):
         except NoIdError as e:
             raise cfgm_common.exceptions.HttpError(404, str(e))
 
+        # check visibility
+        if (not read_result['id_perms'].get('user_visible', True) and
+            not self.is_admin_request()):
+            result = 'This object is not visible by users: %s' % id
+            self.config_object_error(id, None, obj_type, 'http_put', result)
+            raise cfgm_common.exceptions.HttpError(404, result)
+
         # properties validator
         ok, result = self._validate_props_in_request(r_class, obj_dict)
         if not ok:
@@ -793,6 +808,13 @@ class VncApiServer(object):
             self.config_object_error(
                 id, None, obj_type, 'http_delete', read_result)
             # proceed down to delete the resource
+
+        # check visibility
+        if (not read_result['id_perms'].get('user_visible', True) and
+            not self.is_admin_request()):
+            result = 'This object is not visible by users: %s' % id
+            self.config_object_error(id, None, obj_type, 'http_delete', result)
+            raise cfgm_common.exceptions.HttpError(404, result)
 
         # common handling for all resource delete
         parent_type = read_result.get('parent_type')
