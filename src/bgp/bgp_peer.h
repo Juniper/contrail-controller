@@ -217,7 +217,7 @@ public:
     virtual uint64_t GetEorSendTimerElapsedTimeUsecs() const;
     virtual bool send_ready() const { return send_ready_; }
 
-    void Close(bool non_graceful);
+    void Close(bool graceful);
     void Clear(int subcode);
 
     virtual IPeerClose *peer_close();
@@ -451,7 +451,7 @@ private:
 
     tbb::atomic<int> membership_req_pending_;
     bool defer_close_;
-    bool non_graceful_close_;
+    bool graceful_close_;
     bool vpn_tables_registered_;
     std::vector<BgpProto::OpenMessage::Capability *> capabilities_;
     uint16_t hold_time_;

@@ -50,7 +50,7 @@ PeerCloseManager::PeerCloseManager(IPeerClose *peer_close,
                          peer_close_->GetTaskName()),
                      peer_close_->GetTaskInstance(),
                      boost::bind(&PeerCloseManager::EventCallback, this, _1))),
-        state_(NONE), close_again_(false), non_graceful_(false), gr_elapsed_(0),
+        state_(NONE), close_again_(false), graceful_(true), gr_elapsed_(0),
         llgr_elapsed_(0), membership_state_(MEMBERSHIP_NONE) {
     stats_.init++;
     membership_req_pending_ = 0;
@@ -66,7 +66,7 @@ PeerCloseManager::PeerCloseManager(IPeerClose *peer_close) :
                          peer_close_->GetTaskName()),
                      peer_close_->GetTaskInstance(),
                      boost::bind(&PeerCloseManager::EventCallback, this, _1))),
-        state_(NONE), close_again_(false), non_graceful_(false), gr_elapsed_(0),
+        state_(NONE), close_again_(false), graceful_(true), gr_elapsed_(0),
         llgr_elapsed_(0), membership_state_(MEMBERSHIP_NONE) {
     stats_.init++;
     membership_req_pending_ = 0;
@@ -139,7 +139,7 @@ std::string PeerCloseManager::GetEventName(EventType eventType) const {
 void PeerCloseManager::EnqueueEvent(Event *event) {
     PEER_CLOSE_MANAGER_LOG("Enqueued event " <<
             GetEventName(event->event_type) <<
-            ", non_graceful " << event->non_graceful <<
+            ", graceful " << event->graceful <<
             ", family " << Address::FamilyToString(event->family));
     event_queue_->Enqueue(event);
 }
@@ -180,9 +180,9 @@ void PeerCloseManager::EnqueueEvent(Event *event) {
 //
 // If Close is restarted, account for GR timer's elapsed time.
 //
-// Use non_graceful as true for non-graceful closure
-void PeerCloseManager::Close(bool non_graceful) {
-    EnqueueEvent(new Event(CLOSE, non_graceful));
+// Use graceful as true to close gracefully.
+void PeerCloseManager::Close(bool graceful) {
+    EnqueueEvent(new Event(CLOSE, graceful));
 }
 
 void PeerCloseManager::Close(Event *event) {
@@ -190,7 +190,7 @@ void PeerCloseManager::Close(Event *event) {
     // Note down non-graceful close trigger. Once non-graceful closure is
     // triggered, it should remain so until close process is complete. Further
     // graceful closure calls until then should remain non-graceful.
-    non_graceful_ |= event->non_graceful;
+    graceful_ &= event->graceful;
     CloseInternal();
 }
 
@@ -298,7 +298,7 @@ void PeerCloseManager::ProcessClosure() {
     // sweep old paths which may not have come back in the new session
     switch (state_) {
         case NONE:
-            if (non_graceful_ || !peer_close_->IsCloseGraceful()) {
+            if (!graceful_ || !peer_close_->IsCloseGraceful()) {
                 MOVE_TO_STATE(DELETE);
                 stats_.deletes++;
             } else {
@@ -545,7 +545,7 @@ bool PeerCloseManager::MembershipRequestCallback(Event *event) {
         llgr_elapsed_ = 0;
         stats_.init++;
         close_again_ = false;
-        non_graceful_ = false;
+        graceful_ = true;
         return result;
     }
 
@@ -618,7 +618,7 @@ void PeerCloseManager::FillCloseInfo(BgpNeighborResp *resp) const {
     peer_close_info.set_membership_state(
         GetMembershipStateName(membership_state_));
     peer_close_info.set_close_again(close_again_);
-    peer_close_info.set_non_graceful(non_graceful_);
+    peer_close_info.set_graceful(graceful_);
     peer_close_info.set_init(stats_.init);
     peer_close_info.set_close(stats_.close);
     peer_close_info.set_nested(stats_.nested);

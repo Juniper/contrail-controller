@@ -125,12 +125,12 @@ void BgpXmppPeerClose::Delete() {
     channel_ = NULL;
 }
 
-void BgpXmppPeerClose::Close(bool non_graceful) {
+void BgpXmppPeerClose::Close(bool graceful) {
     if (channel_) {
         assert(channel_->peer_deleted());
         assert(channel_->channel()->IsCloseInProgress());
         if (!IsCloseGraceful())
-            non_graceful = true;
-        GetManager()->Close(non_graceful);
+            graceful = false;
+        GetManager()->Close(graceful);
     }
 }

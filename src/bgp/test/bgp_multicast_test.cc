@@ -79,7 +79,7 @@ public:
     virtual bool IsReady() const { return true; }
     virtual bool IsXmppPeer() const { return true; }
     virtual bool IsRegistrationRequired() const { return false; }
-    virtual void Close(bool non_graceful) { }
+    virtual void Close(bool graceful) { }
     virtual BgpProto::BgpPeerType PeerType() const { return BgpProto::IBGP; }
     virtual uint32_t bgp_identifier() const { return address_.to_ulong(); }
     virtual const std::string GetStateName() const { return ""; }

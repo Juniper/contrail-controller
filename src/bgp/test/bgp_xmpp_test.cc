@@ -478,7 +478,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
 
     // trigger EvTcpClose on server, which will result in xmpp channel
     // deletion on the server via Peer()->Close()
-    xmpp_cchannel_->Peer()->Close(true);
+    xmpp_cchannel_->Peer()->Close(false);
     task_util::WaitForIdle();
     usleep(2000);
 }
@@ -541,7 +541,7 @@ TEST_F(BgpXmppUnitTest, ShowXmppServer) {
 
     // Trigger EvTcpClose on server, which will result in xmpp channel
     // deletion on the server via Peer()->Close().
-    xmpp_cchannel_->Peer()->Close(true);
+    xmpp_cchannel_->Peer()->Close(false);
     task_util::WaitForIdle();
     usleep(2000);
 }

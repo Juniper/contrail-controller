@@ -368,10 +368,8 @@ bool BgpPeer::MembershipPathCallback(DBTablePartBase *tpart, BgpRoute *route,
 }
 
 bool BgpPeer::ResumeClose() {
-    peer_close_->Close(non_graceful_close_);
-
-    // No need to track graceful_closure once the close process is resumed.
-    non_graceful_close_ = false;
+    peer_close_->Close(graceful_close_);
+    graceful_close_ = true;
     return true;
 }
 
@@ -401,7 +399,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           resolve_paths_(config->router_type() == "bgpaas-client"),
           as_override_(config->as_override()),
           defer_close_(false),
-          non_graceful_close_(false),
+          graceful_close_(true),
           vpn_tables_registered_(false),
           hold_time_(config->hold_time()),
           local_as_(config->local_as()),
@@ -905,7 +903,7 @@ void BgpPeer::CustomClose() {
 //
 // Close this peer by closing all of it's RIBs.
 //
-void BgpPeer::Close(bool non_graceful) {
+void BgpPeer::Close(bool graceful) {
     send_ready_ = true;
     if (membership_req_pending_ && !close_manager_->IsMembershipInUse()) {
         BGP_LOG_PEER(Event, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
@@ -914,11 +912,11 @@ void BgpPeer::Close(bool non_graceful) {
 
         // Note down non-graceful closures. Once a close is non-graceful,
         // it shall remain as non-graceful.
-        non_graceful_close_ |= non_graceful;
+        graceful_close_ &= graceful;
         return;
     }
 
-    peer_close_->Close(non_graceful);
+    peer_close_->Close(graceful);
 }
 
 IPeerClose *BgpPeer::peer_close() {
@@ -1020,7 +1018,7 @@ void BgpPeer::Register(BgpTable *table, const RibExportPolicy &policy) {
     if (close_manager_->IsMembershipInUse()) {
         BGP_LOG_PEER(Config, this, SandeshLevel::SYS_NOTICE, BGP_LOG_FLAG_ALL,
                      BGP_PEER_DIR_IN, "Session cleared due to GR not ready");
-        Close(false);
+        Close(true);
     }
 
     if (close_manager_->IsMembershipInWait())
@@ -1037,7 +1035,7 @@ void BgpPeer::Register(BgpTable *table) {
     if (close_manager_->IsMembershipInUse()) {
         BGP_LOG_PEER(Config, this, SandeshLevel::SYS_NOTICE, BGP_LOG_FLAG_ALL,
                      BGP_PEER_DIR_IN, "Session cleared due to GR not ready");
-        Close(false);
+        Close(true);
     }
 
     if (close_manager_->IsMembershipInWait())
@@ -1529,7 +1527,7 @@ bool BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
     if (!peer_close_->SetGRCapabilities(&peer_info)) {
         BGP_LOG_PEER(Message, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
                      BGP_PEER_DIR_IN, "Close non-gracefully");
-        Close(true);
+        Close(false);
         return false;
     }
     return true;
