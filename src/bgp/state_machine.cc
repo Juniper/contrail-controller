@@ -1360,8 +1360,8 @@ void StateMachine::SendNotificationAndClose(BgpSession *session, int code,
     set_idle_hold_time(idle_hold_time() ? idle_hold_time() : kIdleHoldTime);
     reset_hold_time();
 
-    bool non_graceful = code && !peer_->SkipNotificationReceive(code, subcode);
-    peer_->Close(non_graceful);
+    bool graceful = !code || peer_->SkipNotificationReceive(code, subcode);
+    peer_->Close(graceful);
 }
 
 //

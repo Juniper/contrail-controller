@@ -28,7 +28,7 @@ class BgpPeerClose : public IPeerClose {
     virtual void GracefulRestartSweep();
     virtual bool IsReady() const;
     virtual IPeer *peer() const;
-    virtual void Close(bool non_graceful);
+    virtual void Close(bool graceful);
     virtual void Delete();
     virtual int GetGracefulRestartTime() const;
     virtual int GetLongLivedGracefulRestartTime() const;
