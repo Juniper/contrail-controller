@@ -1,0 +1,48 @@
+K8S Environment variables
+--------------------------
+LANG en_US.UTF-8
+CNI_IFNAME eth0
+CNI_NETNS /proc/6992/ns/net
+CNI_PATH /opt/cni/bin:/opt/bridge/bin
+KUBELET_DNS_ARGS --cluster-dns=100.64.0.10 --cluster-domain=cluster.local
+CNI_ARGS IgnoreUnknown=1;K8S_POD_NAMESPACE=default;K8S_POD_NAME=helloworld-2136270121-6snjw;K8S_POD_INFRA_CONTAINER_ID=efc68692cedc021a6d515d87dc00264dc1fb35de8708f56ae63d1aa7d824ab6e
+KUBELET_KUBECONFIG_ARGS --kubeconfig=/etc/kubernetes/kubelet.conf --require-kubeconfig=true
+CNI_COMMAND ADD
+KUBELET_SYSTEM_PODS_ARGS --pod-manifest-path=/etc/kubernetes/manifests --allow-privileged=true
+KUBELET_EXTRA_ARGS --v=4
+PATH /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+KUBELET_NETWORK_ARGS --network-plugin=cni --cni-conf-dir=/etc/cni/net.d --cni-bin-dir=/opt/cni/bin
+CNI_CONTAINERID efc68692cedc021a6d515d87dc00264dc1fb35de8708f56ae63d1aa7d824ab6e
+
+K8S Stdin
+---------
+{
+    "name": "mynet",
+    "type": "bridge",
+    "bridge": "mynet0",
+    "isDefaultGateway": true,
+    "forceAddress": false,
+    "ipMasq": true,
+    "hairpinMode": true,
+    "ipam": {
+        "type": "host-local",
+        "subnet": "10.10.0.0/16"
+    }
+}
+
+
+Bridge Output
+------------
+{
+    "ip4": {
+        "ip": "10.10.0.36/16",
+        "gateway": "10.10.0.1",
+        "routes": [
+            {
+                "dst": "0.0.0.0/0",
+                "gw": "10.10.0.1"
+            }
+        ]
+    },
+    "dns": {}
+}
