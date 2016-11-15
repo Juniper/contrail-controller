@@ -7,7 +7,7 @@
 Kube network manager DB
 """
 
-from cfgm_common.vnc_object_db import VncObjectDBClientnt
+from cfgm_common.vnc_object_db import VncObjectDBClient
 
 class KubeNetworkManagerDB(VncObjectDBClient):
 
