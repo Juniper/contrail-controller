@@ -105,7 +105,7 @@ public:
     virtual bool IsRegistrationRequired() const {
         return false;
     }
-    virtual void Close(bool non_graceful) { }
+    virtual void Close(bool graceful) { }
     BgpProto::BgpPeerType PeerType() const {
         return BgpProto::IBGP;
     }

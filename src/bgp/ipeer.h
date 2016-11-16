@@ -159,7 +159,7 @@ public:
     typedef std::set<Address::Family> Families;
 
     virtual ~IPeerClose() { }
-    virtual void Close(bool non_graceful) = 0;
+    virtual void Close(bool graceful) = 0;
     virtual bool IsCloseGraceful() const = 0;
     virtual bool IsCloseLongLivedGraceful() const = 0;
     virtual void CustomClose() = 0;
@@ -202,7 +202,7 @@ public:
     // Control is mostly required in MockPeer in unit tests.
     //
     virtual bool IsRegistrationRequired() const = 0;
-    virtual void Close(bool non_graceful) = 0;
+    virtual void Close(bool graceful) = 0;
     virtual BgpProto::BgpPeerType PeerType() const = 0;
     virtual uint32_t bgp_identifier() const = 0;
     virtual const std::string GetStateName() const = 0;

@@ -77,7 +77,7 @@ public:
     virtual const IPeerDebugStats *peer_stats() const { return NULL; }
     virtual bool IsReady() const { return true; }
     virtual bool IsXmppPeer() const { return false; }
-    virtual void Close(bool non_graceful) { }
+    virtual void Close(bool graceful) { }
     BgpProto::BgpPeerType PeerType() const {
          return internal_ ? BgpProto::IBGP : BgpProto::EBGP;
     }
