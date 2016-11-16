@@ -53,10 +53,7 @@ bool QedVersion(std::string &version) {
 #include <csignal>
 
 static EventManager * pevm = NULL;
-static void terminate_qe (int param)
-{
-  pevm->Shutdown();
-}
+static DiscoveryServiceClient *ds_client = NULL;
 
 static void WaitForIdle() {
     static const int kTimeout = 15;
@@ -101,6 +98,12 @@ static void ShutdownQe(DiscoveryServiceClient *ds_client,
     WaitForIdle();
 }
 
+static void terminate_qe (int param)
+{
+  ShutdownQe(ds_client, NULL);
+  pevm->Shutdown();
+}
+
 int
 main(int argc, char *argv[]) {
     EventManager evm;
@@ -134,7 +137,6 @@ main(int argc, char *argv[]) {
                         Sandesh::StringToLevel(options.log_level())));
     }
     error_code error;
-    DiscoveryServiceClient *ds_client = NULL;
     ip::tcp::endpoint dss_ep;
     Sandesh::CollectorSubFn csf = 0;
 
