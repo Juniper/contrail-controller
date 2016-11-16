@@ -381,7 +381,7 @@ void DeleteAllFlowRecords::HandleRequest() const {
 void FetchFlowRecord::HandleRequest() const {
     FlowKey key;
     Agent *agent = Agent::GetInstance();
-    FlowTable *flow_obj;
+    FlowTable *flow_obj = NULL;
 
     key.nh = get_nh();
     error_code ec;
@@ -405,7 +405,7 @@ void FetchFlowRecord::HandleRequest() const {
     }
 
     SandeshResponse *resp;
-    if (it != flow_obj->flow_entry_map_.end()) {
+    if (flow_obj && it != flow_obj->flow_entry_map_.end()) {
        FlowRecordResp *flow_resp = new FlowRecordResp();
        FlowEntry *fe = it->second;
        FlowStatsCollector *fec = fe->fsc();
