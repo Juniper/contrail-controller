@@ -38,7 +38,7 @@ response sandesh RoutingInstanceListResp {
     1: list<RoutingInstance> routing_instances;
 }
 
-request sandesh RoutintInstanceList {
+request sandesh RoutingInstanceList {
     1: string vn_name;
     2: string ri_name;
 }
