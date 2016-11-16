@@ -21,6 +21,7 @@ class IFMapServerTable : public IFMapTable {
 public:
     struct RequestData : DBRequestData {
         RequestData();
+        RequestData(IFMapOrigin::Origin orig);
         ~RequestData();
         IFMapOrigin origin;
         std::string id_type;

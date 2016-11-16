@@ -416,6 +416,21 @@ systemlog sandesh IFMapXmlLoadError {
 }
 
 /**
+ * @description: System log for IFMap module
+ * @severity: ERROR
+ * @cause: Error detected in loading incoming JSON message
+ * @action: Contact your technical support representative
+ */
+systemlog sandesh IFMapJsonLoadError {
+    1: string message1
+    /** Position of the error in the incoming message */
+    2: u32 position
+    3: string message2
+    /** Parse error string */
+    4: string parse_error
+}
+
+/**
  * @description: Trace message for IFMap module
  * @severity: DEBUG
  */
@@ -741,6 +756,17 @@ trace sandesh IFMapLinkOperationTrace {
 trace sandesh IFMapXmlLoadErrorTrace {
     1: string message
     2: u32 length
+}
+
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
+trace sandesh IFMapJsonLoadErrorTrace {
+    1: string message1
+    2: u32 position
+    3: string message2
+    4: string parse_error
 }
 
 trace sandesh IFMapUSSplitBlocked {

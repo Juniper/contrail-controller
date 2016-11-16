@@ -24,6 +24,10 @@ using namespace std;
 IFMapServerTable::RequestData::RequestData() {
 }
 
+IFMapServerTable::RequestData::RequestData(IFMapOrigin::Origin orig)
+    : origin(orig) {
+}
+
 // Warning: std::auto_ptr<> will not call the destructor if the type is
 // incomplete at the time the auto_ptr destructor is generated. Depending
 // on the compiler this may occur at different times. With clang the
