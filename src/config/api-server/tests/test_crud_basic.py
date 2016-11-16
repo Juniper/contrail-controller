@@ -319,6 +319,33 @@ class TestCrud(test_case.ApiServerTestCase):
         with ExpectedException(BadRequest) as e:
             self._vnc_lib.global_system_config_update(gsc)
     #end test_user_defined_log_statistics_bad_set
+
+    def test_vlan_tag_on_sub_intefaces(self):
+        vn = VirtualNetwork('vn-%s' %(self.id()))
+        self._vnc_lib.virtual_network_create(vn)
+
+        vm_inst_obj = VirtualMachine(str(uuid.uuid4()))
+        vm_inst_obj.uuid = vm_inst_obj.name
+        self._vnc_lib.virtual_machine_create(vm_inst_obj)
+
+        id_perms = IdPermsType(enable=True)
+        vmi_prop = VirtualMachineInterfacePropertiesType(sub_interface_vlan_tag=256)
+        port_obj = VirtualMachineInterface(
+            str(uuid.uuid4()), vm_inst_obj, virtual_machine_interface_properties=vmi_prop,
+            id_perms=id_perms)
+        port_obj.uuid = port_obj.name
+        port_obj.set_virtual_network(vn)
+
+        #create port with sub_interface_vlan_tag specified
+        port_id = self._vnc_lib.virtual_machine_interface_create(port_obj)
+
+        vmi_prop.sub_interface_vlan_tag = 128
+        port_obj.set_virtual_machine_interface_properties(vmi_prop)
+        #updating sub_interface_vlan_tag of the port to a new value should fail
+        #as vrouter doesn't support it.
+        with ExpectedException(PermissionDenied) as e:
+            self._vnc_lib.virtual_machine_interface_update(port_obj)
+        # end test_vlan_tag_on_sub_interfaces
 # end class TestCrud
 
 class TestVncCfgApiServer(test_case.ApiServerTestCase):
