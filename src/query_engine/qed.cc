@@ -53,10 +53,7 @@ bool QedVersion(std::string &version) {
 #include <csignal>
 
 static EventManager * pevm = NULL;
-static void terminate_qe (int param)
-{
-  pevm->Shutdown();
-}
+static DiscoveryServiceClient *ds_client = NULL;
 
 static void WaitForIdle() {
     static const int kTimeout = 15;
@@ -84,21 +81,22 @@ static bool OptionsParse(Options &options, EventManager &evm,
     return false;
 }
 
-static void ShutdownQe(DiscoveryServiceClient *ds_client,
-    Timer *qe_info_log_timer) {
+static void ShutdownQe() {
     if (ds_client) {
         ds_client->Shutdown();
         delete ds_client;
-    }
-    if (qe_info_log_timer) {
-        qe_info_log_timer->Cancel();
-        TimerManager::DeleteTimer(qe_info_log_timer);
     }
     WaitForIdle();
     Sandesh::Uninit();
     ConnectionStateManager::
         GetInstance()->Shutdown();
     WaitForIdle();
+}
+
+static void terminate_qe (int param)
+{
+  ShutdownQe();
+  pevm->Shutdown();
 }
 
 int
@@ -134,7 +132,6 @@ main(int argc, char *argv[]) {
                         Sandesh::StringToLevel(options.log_level())));
     }
     error_code error;
-    DiscoveryServiceClient *ds_client = NULL;
     ip::tcp::endpoint dss_ep;
     Sandesh::CollectorSubFn csf = 0;
 
@@ -231,7 +228,7 @@ main(int argc, char *argv[]) {
     }
     if (!success) {
         LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
-        ShutdownQe(ds_client, NULL);
+        ShutdownQe();
         exit(1);
     }
 
