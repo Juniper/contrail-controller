@@ -77,6 +77,18 @@ public:
     DISALLOW_COPY_AND_ASSIGN(ControllerDiscoveryData);
 };
 
+class ControllerVmiSubscribeData : public ControllerWorkQueueData {
+public:
+    ControllerVmiSubscribeData(bool del, const boost::uuids::uuid &vmi_uuid,
+                               const boost::uuids::uuid &vm_uuid) :
+        del_(del), vmi_uuid_(vmi_uuid), vm_uuid_(vm_uuid) { }
+    virtual ~ControllerVmiSubscribeData() {}
+
+    bool del_;
+    boost::uuids::uuid vmi_uuid_;
+    boost::uuids::uuid vm_uuid_;
+};
+
 class VNController {
 public:
     typedef boost::function<void(uint8_t)> XmppChannelDownCb;

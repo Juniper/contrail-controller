@@ -93,6 +93,16 @@ void TestAgentInit::CreateModules() {
 
     ksync_.reset(AgentObjectFactory::Create<KSync>(agent()));
     agent()->set_ksync(ksync_.get());
+
+    pih_.reset(new PortIpcHandler(agent(), "/tmp"));
+    agent()->set_port_ipc_handler(pih_.get());
+}
+
+void TestAgentInit::InitDone() {
+    ContrailInitCommon::InitDone();
+    if (agent()->port_ipc_handler()) {
+        agent()->port_ipc_handler()->InitDone();
+    }
 }
 
 /****************************************************************************
@@ -106,6 +116,9 @@ void TestAgentInit::KSyncShutdown() {
 }
 
 void TestAgentInit::UveShutdown() {
+    if (agent()->port_ipc_handler()) {
+        agent()->port_ipc_handler()->Shutdown();
+    }
     if (agent()->uve()) {
         agent()->uve()->Shutdown();
     }

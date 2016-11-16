@@ -183,7 +183,7 @@ protected:
         assert(vmi_3);
 
         EXPECT_EQ(8U, agent()->interface_table()->Size());
-        EXPECT_EQ(4U, agent()->interface_config_table()->Size());
+        EXPECT_EQ(4U, PortSubscribeSize(agent()));
         EXPECT_EQ(4U, agent()->vm_table()->Size());
         EXPECT_EQ(2, agent()->vn_table()->Size());
         client->WaitForIdle();
@@ -204,7 +204,7 @@ protected:
         EXPECT_FALSE(VmPortFind(input, 3));
 
         EXPECT_EQ(4U, agent()->interface_table()->Size());
-        EXPECT_EQ(0U, agent()->interface_config_table()->Size());
+        EXPECT_EQ(0U, PortSubscribeSize(agent()));
         EXPECT_EQ(0U, agent()->vm_table()->Size());
         EXPECT_EQ(0U, agent()->vn_table()->Size());
         EXPECT_EQ(0U, agent()->acl_table()->Size());

@@ -87,7 +87,7 @@ public:
         EXPECT_EQ(5U, agent_->interface_table()->Size());
         EXPECT_EQ(2U, agent_->vm_table()->Size());
         EXPECT_EQ(vn_count, agent_->vn_table()->Size());
-        EXPECT_EQ(2U, agent_->interface_config_table()->Size());
+        EXPECT_EQ(2U, PortSubscribeSize(agent_));
 
         flow0 = VmInterfaceGet(input[0].intf_id);
         assert(flow0);

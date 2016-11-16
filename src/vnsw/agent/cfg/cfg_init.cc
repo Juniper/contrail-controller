@@ -12,8 +12,6 @@
 #include <bgp_schema_types.h>
 
 #include <cfg/cfg_init.h>
-#include <cfg/cfg_interface.h>
-#include <cfg/cfg_interface_listener.h>
 #include <cfg/cfg_filter.h>
 #include <cfg/cfg_mirror.h>
 #include <cfg/discovery_agent.h>
@@ -50,8 +48,6 @@ AgentConfig::AgentConfig(Agent *agent)
     cfg_filter_ = std::auto_ptr<CfgFilter>(new CfgFilter(this));
 
     cfg_graph_ = std::auto_ptr<DBGraph>(new DBGraph());
-    cfg_interface_client_ = std::auto_ptr<InterfaceCfgClient>
-        (new InterfaceCfgClient(this));
     discovery_client_ = std::auto_ptr<DiscoveryAgentClient>
         (new DiscoveryAgentClient(this));
 
@@ -67,20 +63,12 @@ AgentConfig::~AgentConfig() {
     cfg_filter_.reset();
     cfg_parser_.reset();
     cfg_graph_.reset();
-    cfg_interface_client_.reset();
     discovery_client_.reset();
     cfg_mirror_table_.reset();
     cfg_intf_mirror_table_.reset();
 }
 
 void AgentConfig::CreateDBTables(DB *db) {
-    CfgIntTable *table;
-
-    DB::RegisterFactory("db.cfg_int.0", &CfgIntTable::CreateTable);
-    table = static_cast<CfgIntTable *>(db->CreateTable("db.cfg_int.0"));
-    assert(table);
-    agent_->set_interface_config_table(table);
-
     // Create parser once we know the db
     cfg_parser_ = std::auto_ptr<IFMapAgentParser>(new IFMapAgentParser(db));
     vnc_cfg_Agent_ModuleInit(db, cfg_graph_.get());
@@ -210,8 +198,6 @@ void AgentConfig::RegisterDBClients(DB *db) {
                             (IFMapTable::FindTable(agent_->db(),
                                                    "forwarding-class")));
     assert(cfg_forwarding_class_table_);
-
-    cfg_interface_client_->Init();
 }
 
 void AgentConfig::Init() {
@@ -231,15 +217,10 @@ void AgentConfig::InitDone() {
 void AgentConfig::Shutdown() {
     cfg_filter_->Shutdown();
 
-    cfg_interface_client_->Shutdown();
     discovery_client_->Shutdown();
 
     cfg_mirror_table_->Shutdown();
     cfg_intf_mirror_table_->Shutdown();
-
-    agent_->db()->RemoveTable(agent_->interface_config_table());
-    delete agent_->interface_config_table();
-    agent_->set_interface_config_table(NULL);
 
     agent_->set_ifmap_parser(NULL);
 

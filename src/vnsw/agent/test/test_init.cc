@@ -5,6 +5,7 @@
 #include "base/os.h"
 #include "test/test_init.h"
 #include "oper/mirror_table.h"
+#include "port_ipc/port_subscribe_table.h"
 #include "vgw/cfg_vgw.h"
 #include "vgw/vgw.h"
 #include "vrouter/ksync/ksync_init.h"
