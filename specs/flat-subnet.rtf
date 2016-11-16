@@ -1,0 +1,98 @@
+{\rtf1\ansi\ansicpg1252\cocoartf1348\cocoasubrtf170
+{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+\margl1440\margr1440\vieww18720\viewh18580\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural
+
+\f0\fs24 \cf0 1. Introduction\
+This document describes the behavior of flat-subnet based ip allocation scheme which can be used along with existing allocation scheme (called user-defined ip allocation) or independently. \
+\
+2. Problem Statement \
+In Current ip allocation scheme, subnets are defined on links between Virtual Network and IPAMs associated with virtual network. For multiple network attached to same ipam, user needs to configure subnet(s) on each link (network -> link) to make address space available for that network. Flat-subnet scheme is designed so that user can configure subnet(s) at ipam level and address space would be available to all networks on that ipam. \
+\
+3. Proposed Solution\
+\
+3.1 ipam-subnet-method in network-ipam\
+In order for flat-subnet allocation scheme to work in conjunction with user-defined ip allocation, a flag has been added in network-ipam object to classify ipam type. This property of network-ipam is ipam-subnet-method and can be configured as user-defined or flat. In the absence of ipam-subnet-method in ipam object system assumes user-defined. \
+ipam-subnet-method can be defined only at ipam create. Update of this field is not allowed. Once defined, this flag decides the ipam type and depending on its value, would allow or block ipam-subnets configuration in the ipam object. \
+\
+3.2 ipam-subnets in network-ipam\
+	List property ipam-subnets has been added network-ipjm object. This is list property of type IpamSubnets, which consists of different subnets on the ipam. If ipjm-subnet-method is flat then only user can configure subnets in this property, otherwise subnet configuration will be blocked. IpamSubnets configuration in ipam is similar to its configuration in user-defined-ipam where this is configured in network-ipm link and existing implementation.\
+\
+3.3 address-allocation-mode in VirtualNetwork object\
+	address-allocation-mode property is added in virtual-network object which is Type AddressAllocationModeType and can be defined at a network create time or can be updated later. This property can take any of the four values or remain undefined. \
+	1. user-defined-subnet-preferred (Default value)\
+	2. user-defined-subnet-only\
+	3. flat-subnet-preferred\
+	4. flat-subnet-only\
+\
+3.4 Configuration constraints\
+	If ipam is created with flat-subnet, adding subnets on the network-ipam link is not allowed and configuration is rejected. \
+	if ipam is created as a user-defined-subnet or not configured for ipam-subnet-method, IpamSubnets can not be configured in ipam object \
+	overlapping subnets from virtual network view are not allowed to configured.\
+\
+3.5 Auto Ip-allocation based on address-allocation-mode configuration in Virtual Network and ipam-subnet-method in network-ipam\
+	1. address-allocation-mode is user-defined-perferred\
+		Virtual Network will try to allocate ip address from user-defined ipam (i.e. from subnets defined on the network and ipam link of user defined ipam)\
+		if all subnets on network-ipam link for all user-defined ipams are exhausted, then VirtualNework will allocate ip from subnets defined in flat-subnet\
+ 		ipams. In this allocation scheme, subnets on the link have priority over flat subnets. \
+\
+	2. address-allocation mode is user-defined-only \
+		Virtual network will use subnets from user-defined ipam only and will not use flat-subnets even if user-defined subnets are exhausted. \
+\
+	3. flat-subnet-preferred\
+		Virtual network will preferably use subnets from flat-subnet ipams and in case subnets in flat-subnet ipams are exhausted or not configured, \
+		user-defined subnets will be used for ip allocation\
+\
+	4. flat-subnet only		 \
+		Virtual Network will use subnets from flat-subnet ipam only and ignore any user-defined-subnets ipam. \
+\
+3.6 ip allocation for specific ip address:\
+		If specific ip address is requested and is available in one of the subnets defined at user-defined ipams or flat-subnet, ip address will be allocated ignoring address-allocation-mode in virtual-network and ipam-subnet-method in network-ipjm\
+\
+3.7 ip address allocation from specific subnet:\
+		ip address can be allocated from specific subnet using subnet uuid. In case of user-defined subnets, actual uuid needs to be used to request ip-allocation, \
+		For flat-subnets, system will add a unique uuid on network-ipam and this uuid is required to make a subnet based ip-allocation from flat-subnet pool. \
+\
+3.8 API Changes.\
+	Schema for two objects have been changed to implement this feature.\
+		1. address-allocation-mode in virtual-network\
+		2. ipam-subnet-method in network-ipam\
+\
+4 Implementation\
+4.1 Assignees \
+	Development \'97 Atul Moghe, Sachin Bansal\
+	QA - Manish Krishnan, Jeba Paulaiyan \
+\
+4.2 Work Items\
+	Changes are confined to Api-server\'92s address management module and handling of VirtualNetowk\'92s and network-ipam\'92s create, delete and update methods. \
+\
+5 Performance and Scaling Impact\
+	TBD\
+\
+6. Upgrade\
+	There is no upgrade impact due to this feature, existing user-defined ip allocation will work as is\
+\
+7. Deprecations.\
+	This feature does not deprecate any feature or APIs \
+\
+8 Dependencies \
+	TBD\
+\
+9 Testing\
+9.1 Unite Tests\
+	UT for this feature is implemented in api server tests module along with other ip allocation tests. Following new test cases have been added \
+	1. test_flat_subnet_ipam_crud\
+	2. test_flat_subnet_ipam_user_defined_network\
+	3. test_flat_subnet_ipam_flat_subnet_network\
+	4. test_hybrid_subnet_ipam_flat_subnet_network\
+	5. test_hybrid_subnet_ipam_user_subnet_network\
+	6. test_hybrid_subnet_ipam_ask_ip\
+	7. test_hybrid_subnet_ipam_ip_alloc_from_subnet_uuid\
+\
+9.2 Dev tests\
+	TBD\
+\
+\
+\
+}
