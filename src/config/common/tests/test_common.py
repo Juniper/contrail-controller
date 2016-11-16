@@ -181,7 +181,7 @@ def retries(max_tries, delay=1, backoff=2, exceptions=(Exception,), hook=None):
                     if tries_remaining > 0:
                         if hook is not None:
                             hook(tries_remaining, e, mydelay)
-                        sleep(mydelay)
+                        gevent.sleep(mydelay)
                         mydelay = mydelay * backoff
                     else:
                         raise
