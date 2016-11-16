@@ -84,3 +84,19 @@ for VxLAN ID. if new VxLAN ID is available before the deletion went through
 completely OVSDB client cancels the deletion and update the new VxLAN ID to
 OVSDB server freeing old VxLAN ID.
 
+Multiple Physical Switch Handling
+---------------------------------
+OVSDB allows two ways to provide handling of multiple Physical Switches
+- Multiple Physical Switches/ToRs can appear on the same ovsdb_server/ToR agent
+  session, like Arista Cloud Vision OVSDB model.
+- Single Physical Switch resides over one ovsdb_server, however multiple such
+  entities comes and connect to same ToR agent over different sessions
+
+ToR agent do need following to handle above cases.
+- Export multicast local MAC as EVPN route with ToR IP, so that we will be able
+  to distinguish and allow same Virtual Network to have multiple multicast
+  routes exported and held in Oper
+- Allow programming of Logical Switch as long as any Physical Device VN has a
+  corresonding Physical Switch available on the ovsdb server (ovsdb idl), and
+  should withdraw the logical switch when we donot have Physical Switch
+  available corresponding to any of the Physical Device VN
