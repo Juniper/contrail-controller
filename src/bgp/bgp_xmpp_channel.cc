@@ -333,7 +333,7 @@ public:
     virtual bool IsXmppPeer() const {
         return true;
     }
-    virtual void Close(bool non_graceful);
+    virtual void Close(bool graceful);
 
     const bool IsDeleted() const { return is_closed_; }
     void SetPeerClosed(bool closed) {
@@ -440,7 +440,7 @@ bool BgpXmppChannel::XmppPeer::SendUpdate(const uint8_t *msg, size_t msgsize,
     }
 }
 
-void BgpXmppChannel::XmppPeer::Close(bool non_graceful) {
+void BgpXmppChannel::XmppPeer::Close(bool graceful) {
     send_ready_ = true;
     parent_->set_peer_closed(true);
     if (server_ == NULL)
@@ -454,7 +454,7 @@ void BgpXmppChannel::XmppPeer::Close(bool non_graceful) {
         // Clear EOR state.
         parent_->ClearEndOfRibState();
 
-        parent_->peer_close_->Close(non_graceful);
+        parent_->peer_close_->Close(graceful);
     }
 }
 
@@ -1751,7 +1751,7 @@ void BgpXmppChannel::DequeueRequest(const string &table_name,
 }
 
 bool BgpXmppChannel::ResumeClose() {
-    peer_->Close(false);
+    peer_->Close(true);
     return true;
 }
 
@@ -2773,7 +2773,7 @@ void BgpXmppChannel::Close() {
         defer_peer_close_ = true;
         return;
     }
-    peer_->Close(false);
+    peer_->Close(true);
 }
 
 //

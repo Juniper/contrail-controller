@@ -58,7 +58,7 @@ public:
     bool IsInLlgrTimerWaitState() const { return state_ == LLGR_TIMER; }
     bool IsQueueEmpty() const { return event_queue_->IsQueueEmpty(); }
 
-    void Close(bool non_graceful);
+    void Close(bool graceful);
     void ProcessEORMarkerReceived(Address::Family family);
     void MembershipRequest();
     void MembershipRequestCallback();
@@ -105,20 +105,20 @@ private:
     };
 
     struct Event {
-        Event(EventType event_type, bool non_graceful) :
-                event_type(event_type), non_graceful(non_graceful),
+        Event(EventType event_type, bool graceful) :
+                event_type(event_type), graceful(graceful),
                 family(Address::UNSPEC) { }
         Event(EventType event_type, Address::Family family) :
-                event_type(event_type), non_graceful(false),
+                event_type(event_type), graceful(true),
                 family(family) { }
         explicit Event(EventType event_type) : event_type(event_type),
-                                               non_graceful(false),
+                                               graceful(true),
                                                family(Address::UNSPEC) { }
-        Event() : event_type(EVENT_NONE), non_graceful(false),
+        Event() : event_type(EVENT_NONE), graceful(true),
                              family(Address::UNSPEC) { }
 
         EventType event_type;
-        bool non_graceful;
+        bool graceful;
         Address::Family family;
     };
 
@@ -207,7 +207,7 @@ private:
     boost::scoped_ptr<WorkQueue<Event *> > event_queue_;
     State state_;
     bool close_again_;
-    bool non_graceful_;
+    bool graceful_;
     int gr_elapsed_;
     int llgr_elapsed_;
     MembershipState membership_state_;

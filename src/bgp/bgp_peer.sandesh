@@ -58,7 +58,7 @@ struct PeerCloseInfo {
     1: string state;
     17: string membership_state;
     2: bool close_again;
-    16: bool non_graceful;
+    16: bool graceful;
     3: u64 init;
     4: u64 close;
     5: u64 nested;

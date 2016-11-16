@@ -1995,7 +1995,7 @@ void BgpStressTest::BringDownXmppAgent(
 void BgpStressTest::BringDownXmppAgents(int nagents) {
     if (xmpp_close_from_control_node_) {
         BOOST_FOREACH(BgpXmppChannel *peer, xmpp_peers_) {
-            peer->Peer()->Close(true);
+            peer->Peer()->Close(false);
         }
     } else {
         vector<int> agent_ids;

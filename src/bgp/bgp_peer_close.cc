@@ -125,16 +125,16 @@ void BgpPeerClose::UpdateRouteStats(Address::Family family,
     GetManager()->UpdateRouteStats(family, old_path, path_flags);
 }
 
-void BgpPeerClose::Close(bool non_graceful) {
+void BgpPeerClose::Close(bool graceful) {
     // Abort GR-Closure if this request is for non-graceful closure.
     // Reset GR-Closure if previous closure is still in progress or if
     // this is a flip (from established state).
-    if (non_graceful || flap_count_ != peer_->total_flap_count()) {
+    if (!graceful || flap_count_ != peer_->total_flap_count()) {
         if (flap_count_ != peer_->total_flap_count()) {
             flap_count_++;
             assert(peer_->total_flap_count() == flap_count_);
         }
-        GetManager()->Close(non_graceful);
+        GetManager()->Close(graceful);
         return;
     }
 

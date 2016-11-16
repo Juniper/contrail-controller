@@ -30,7 +30,7 @@ public:
     virtual bool IsCloseLongLivedGraceful() const { return ll_graceful_; }
     virtual void CustomClose() { }
     virtual void CloseComplete() { }
-    virtual void Close(bool non_graceful) { }
+    virtual void Close(bool graceful) { }
     virtual void Delete() { deleted_ = true; }
     virtual void GracefulRestartStale() { stale_ = true; }
     virtual void LongLivedGracefulRestartStale() { llgr_stale_ = true; }
@@ -203,7 +203,7 @@ public:
     }
 
     void CloseAndDie() {
-        Close(!peer_close_->close_graceful());
+        Close(peer_close_->close_graceful());
         TASK_UTIL_EXPECT_TRUE(died_);
     }
 
@@ -240,7 +240,7 @@ public:
                 CloseAndDie();
                 break;
             }
-            Close(!peer_close_->close_graceful());
+            Close(peer_close_->close_graceful());
             break;
         case EOR_RECEIVED:
             if ((test_state_ == GR_TIMER || test_state_== LLGR_TIMER) &&
