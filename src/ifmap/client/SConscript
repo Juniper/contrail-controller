@@ -24,6 +24,7 @@ libifmapio = env.Library('ifmapio',
                           'config_cassandra_client.cc',
                           'config_client_manager.cc',
                           'config_db_client.cc',
+                          'config_json_parser.cc',
                          ])
 
 env.Requires(libifmapio, '#/build/include/rapidjson.h')
