@@ -190,13 +190,17 @@ class ControlProvisioner(object):
             type=self.gr_time_type, default=300,
             required=False)
         parser.add_argument("--graceful_restart_bgp_helper_enable",
-                        help="Enable helper mode for BGP graceful restart")
+                            action='store_true',
+                            help="Enable helper mode for BGP graceful restart")
         parser.add_argument("--graceful_restart_xmpp_helper_enable",
-                        help="Enable helper mode for XMPP graceful restart")
+                            action='store_true',
+                            help="Enable helper mode for XMPP graceful restart")
         parser.add_argument("--graceful_restart_enable",
-                        help="Enable Graceful Restart")
+                            action='store_true',
+                            help="Enable Graceful Restart")
         parser.add_argument("--set_graceful_restart_parameters",
-                        help="Set Graceful Restart Parameters")
+                            action='store_true',
+                            help="Set Graceful Restart Parameters")
 
         self._args = parser.parse_args(remaining_argv)
 
