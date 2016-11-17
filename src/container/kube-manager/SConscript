@@ -32,7 +32,6 @@ local_sources = [
     'kube_manager/vnc/config_db.py',
     'kube_manager/vnc/db.py',
     'kube_manager/vnc/label_cache.py',
-    'kube_manager/vnc/rabbit.py',
     'kube_manager/vnc/reaction_map.py',
     'kube_manager/vnc/vnc_kubernetes.py',
     'kube_manager/vnc/vnc_namespace.py',
