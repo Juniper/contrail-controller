@@ -721,6 +721,23 @@ class TestCrud(test_case.ApiServerTestCase):
         with ExpectedException(BadRequest) as e:
             self._vnc_lib.global_system_config_update(gsc)
     #end test_user_defined_log_statistics_bad_set
+
+    def test_service_interface_type_value(self):
+        vn = VirtualNetwork('vn-%s' %(self.id()))
+        self._vnc_lib.virtual_network_create(vn)
+
+        vmi_prop = VirtualMachineInterfacePropertiesType(service_interface_type='Left')
+        port_obj = VirtualMachineInterface(
+                   str(uuid.uuid4()), parent_obj=Project(),
+                   virtual_machine_interface_properties=vmi_prop)
+        port_obj.uuid = port_obj.name
+        port_obj.set_virtual_network(vn)
+
+        #creation of port should fail as the valid values for
+        #service_interface_type are: management|left|right|other[0-9]*
+        with ExpectedException(BadRequest) as e:
+            port_id = self._vnc_lib.virtual_machine_interface_create(port_obj)
+       #end test_service_interface_type_value
 # end class TestCrud
 
 

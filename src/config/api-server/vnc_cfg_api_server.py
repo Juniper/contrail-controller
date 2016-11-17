@@ -265,6 +265,21 @@ class VncApiServer(object):
                              % value)
 
     @classmethod
+    def _validate_serviceinterface_type(cls, value):
+        poss_values = ["management",
+                       "left",
+                       "right"]
+
+        if value in poss_values:
+            return
+
+        res = re.match('other[0-9]*', value)
+        if res is None:
+            raise ValueError('Invalid service interface type %s. '
+                             'Valid values are: management|left|right|other[0-9]*'
+                              % value)
+
+    @classmethod
     def _validate_simple_type(cls, type_name, xsd_type, simple_type, value, restrictions=None):
         if value is None:
             return
@@ -282,6 +297,8 @@ class VncApiServer(object):
                     type_name, value))
         elif xsd_type == 'string' and simple_type == 'CommunityAttribute':
             cls._validate_communityattribute_type(value)
+        elif xsd_type == 'string' and simple_type == 'ServiceInterfaceType':
+            cls._validate_serviceinterface_type(value)
         else:
             if not isinstance(value, basestring):
                 raise ValueError('%s: string value expected instead of %s' %(
