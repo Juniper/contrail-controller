@@ -6,7 +6,7 @@
 #define vnsw_agent_vrouter_uve_entry_h
 
 #include <uve/vrouter_uve_entry_base.h>
-#include <uve/stats_manager.h>
+#include <uve/agent_uve_stats.h>
 
 //The class that defines data-structures to store VRouter information
 //required for sending VRouter UVE.
@@ -22,9 +22,7 @@ public:
 protected:
     uint8_t bandwidth_count_;
     L4PortBitmap port_bitmap_;
-    uint64_t prev_flow_setup_rate_export_time_;
-    uint64_t prev_flow_created_;
-    uint64_t prev_flow_aged_;
+    FlowRateComputeInfo flow_info_;
 private:
     void InitPrevStats() const;
     void FetchDropStats(AgentDropStats &ds) const;

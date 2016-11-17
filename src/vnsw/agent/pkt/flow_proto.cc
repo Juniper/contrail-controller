@@ -26,7 +26,10 @@ FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
     flow_update_queue_(agent, this, &update_tokens_,
                        agent->params()->flow_task_latency_limit(), 16),
     use_vrouter_hash_(false), ipv4_trace_filter_(), ipv6_trace_filter_(),
-    stats_() {
+    stats_(),
+    stats_update_timer_(TimerManager::CreateTimer
+        (*(agent->event_manager())->io_service(), "FlowStatsUpdateTimer",
+         TaskScheduler::GetInstance()->GetTaskId(kTaskFlowStatsUpdate), 0)) {
     linklocal_flow_count_ = 0;
     agent->SetFlowProto(this);
     set_trace(false);
@@ -90,6 +93,8 @@ void FlowProto::InitDone() {
     for (uint16_t i = 0; i < flow_table_list_.size(); i++) {
         flow_table_list_[i]->InitDone();
     }
+    stats_update_timer_->Start(agent_->stats()->flow_stats_update_timeout(),
+        boost::bind(&FlowProto::FlowStatsUpdate, this));
 }
 
 void FlowProto::Shutdown() {
@@ -103,6 +108,10 @@ void FlowProto::Shutdown() {
         flow_ksync_queue_[i]->Shutdown();
     }
     flow_update_queue_.Shutdown();
+    if (stats_update_timer_) {
+        stats_update_timer_->Cancel();
+        TimerManager::DeleteTimer(stats_update_timer_);
+    }
 }
 
 static std::size_t HashCombine(std::size_t hash, uint64_t val) {
@@ -837,4 +846,12 @@ void FlowProto::SetProfileData(ProfileData *data) {
     data->flow_.token_stats_.del_tokens_ = del_tokens_.token_count();
     data->flow_.token_stats_.del_failures_ = del_tokens_.failures();
     data->flow_.token_stats_.del_restarts_ = del_tokens_.restarts();
+}
+
+bool FlowProto::FlowStatsUpdate() const {
+    agent_->stats()->UpdateFlowMinMaxStats(agent_->stats()->flow_created(),
+                                           agent_->stats()->added());
+    agent_->stats()->UpdateFlowMinMaxStats(agent_->stats()->flow_aged(),
+                                           agent_->stats()->deleted());
+    return true;
 }

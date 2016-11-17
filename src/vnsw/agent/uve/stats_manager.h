@@ -6,6 +6,7 @@
 #define _ROOT_STATS_MANAGER_H_
 
 #include <cmn/agent_cmn.h>
+#include <cmn/agent_stats.h>
 #include <oper/vrf.h>
 #include <oper/interface.h>
 #include <vrouter_types.h>
@@ -13,6 +14,16 @@
 #include <map>
 #include <utility>
 #include <uve/flow_ace_stats_request.h>
+
+struct FlowRateComputeInfo {
+    uint64_t prev_time_;
+    uint64_t prev_flow_created_;
+    uint64_t prev_flow_aged_;
+
+    FlowRateComputeInfo() : prev_time_(UTCTimestampUsec()),
+        prev_flow_created_(0), prev_flow_aged_(0) {
+    }
+};
 
 // The container class for storing stats queried from vrouter
 // Defines routines for storing and managing (add, delete and query)
@@ -159,6 +170,10 @@ class StatsManager {
     void RegisterDBClients();
     bool RequestHandler(boost::shared_ptr<FlowAceStatsRequest> req);
     void EnqueueEvent(const boost::shared_ptr<FlowAceStatsRequest> &req);
+    bool BuildFlowRate(AgentStats::FlowCounters &created,
+                       AgentStats::FlowCounters &aged,
+                       FlowRateComputeInfo &flow_info,
+                       VrouterFlowRate &flow_rate) const;
     friend class AgentStatsCollectorTest;
 
  private:
