@@ -355,6 +355,8 @@ public:
     // Handle change in VxLan Identifier mode from global-config
     void GlobalVrouterConfigChanged();
 
+    InterfaceConstRef FindVmi(const boost::uuids::uuid &u);
+
     // Helper functions
     VrfEntry *FindVrfRef(const std::string &name) const;
     VnEntry *FindVnRef(const boost::uuids::uuid &uuid) const;

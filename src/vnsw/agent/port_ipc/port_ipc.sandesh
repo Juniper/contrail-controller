@@ -63,3 +63,41 @@ traceobject sandesh ConfigVgwEnqueue {
     1: string op;
     2: string json;
 }
+
+/**
+ * @description: Trace message for adding port keyed with VM+VN
+ * @type: Trace
+ * @severity: DEBUG
+ */
+traceobject sandesh ConfigAddVmVnPortEnqueue {
+    1: string op;
+    2: string vm_uuid;
+    3: string vn_uuid;
+    4: string vm_name;
+    5: string vm_id;
+    6: string host_ifname;
+    7: string vm_ifname;
+    8: string vm_namespace;
+    9: i32 version;
+}
+
+/**
+ * @description: Trace message for deleting port keyed with VM+VN
+ * @type: Trace
+ * @severity: DEBUG
+ */
+traceobject sandesh ConfigDeleteVmVnPortEnqueue {
+    1: string op;
+    2: string vm_uuid;
+    3: string vn_uuid;
+    4: i32 version;
+}
+
+/**
+ * @description: Trace message for config of port keyed with VM+VN
+ * @type: Trace
+ * @severity: DEBUG
+ */
+trace sandesh ConfigVmVnPortInfo {
+    1: string info;
+}

@@ -101,6 +101,50 @@ void RESTServer::GatewayDeleteHandler(const struct RESTData& data) {
     }
 }
 
+void RESTServer::VmVnPortPostHandler(const struct RESTData& data) {
+    PortIpcHandler *pih = agent_->port_ipc_handler();
+    if (pih) {
+        std::string err_msg;
+        if (pih->AddVmVnPort(data.request->Body(), false, err_msg, true)) {
+            REST::SendResponse(data.session, "{}");
+        } else {
+            REST::SendErrorResponse(data.session, "{ " + err_msg + " }");
+        }
+    } else {
+       REST::SendErrorResponse(data.session, "{ Operation Not Supported }");
+    }
+}
+
+void RESTServer::VmVnPortDeleteHandler(const struct RESTData& data) {
+    std::string error;
+    const std::string &vm_uuid = (*data.match)[1];
+    PortIpcHandler *pih = agent_->port_ipc_handler();
+    if (pih) {
+        if (pih->DeleteVmVnPort(data.request->Body(), vm_uuid, error)) {
+            REST::SendResponse(data.session, "{}");
+        } else {
+            REST::SendErrorResponse(data.session, "{" + error + "}");
+        }
+    } else {
+        REST::SendErrorResponse(data.session, "{ Operation Not Supported }");
+    }
+}
+
+void RESTServer::VmVnPortGetHandler(const struct RESTData& data) {
+    const std::string &vm_uuid = (*data.match)[1];
+    PortIpcHandler *pih = agent_->port_ipc_handler();
+    if (pih) {
+        std::string info;
+        if (pih->GetVmVnPort(vm_uuid, info)) {
+            REST::SendResponse(data.session, info);
+        } else {
+            REST::SendErrorResponse(data.session, "{ Not Found }", 404);
+        }
+    } else {
+        REST::SendErrorResponse(data.session, "{ Operation Not Supported }");
+    }
+}
+
 const std::vector<RESTServer::HandlerSpecifier> RESTServer::RESTHandlers_ =
     boost::assign::list_of
     (HandlerSpecifier(
@@ -128,7 +172,21 @@ const std::vector<RESTServer::HandlerSpecifier> RESTServer::RESTHandlers_ =
     (HandlerSpecifier(
         boost::regex("/gateway"),
         HTTP_DELETE,
-        &RESTServer::GatewayDeleteHandler));
+        &RESTServer::GatewayDeleteHandler))
+    (HandlerSpecifier(
+        boost::regex("/vm"),
+        HTTP_POST,
+        &RESTServer::VmVnPortPostHandler))
+    (HandlerSpecifier(
+        boost::regex("/vm/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
+                     "[0-9a-f]{12})"),
+        HTTP_DELETE,
+        &RESTServer::VmVnPortDeleteHandler))
+    (HandlerSpecifier(
+        boost::regex("/vm/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
+                     "[0-9a-f]{12})"),
+        HTTP_GET,
+        &RESTServer::VmVnPortGetHandler));
 
 RESTServer::RESTServer(Agent *agent)
     : agent_(agent), http_server_(new HttpServer(agent->event_manager())) {

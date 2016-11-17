@@ -16,8 +16,9 @@ class Agent;
 class PortSubscribeTable;
 class PortSubscribeEntry;
 class VmiSubscribeEntry;
-typedef boost::shared_ptr<VmiSubscribeEntry> VmiSubscribeEntryPtr;
-typedef std::vector<VmiSubscribeEntryPtr> VmiSubscribeEntryPtrList;
+class VmVnPortSubscribeEntry;
+typedef boost::shared_ptr<PortSubscribeEntry> PortSubscribeEntryPtr;
+typedef std::vector<PortSubscribeEntryPtr> VmiSubscribeEntryPtrList;
 
 class PortIpcHandler {
  public:
@@ -28,7 +29,8 @@ class PortIpcHandler {
 
     void InitDone();
     void Shutdown();
-    void ReloadAllPorts(const std::string &dir, bool check_port);
+    void ReloadAllPorts(const std::string &dir, bool check_port,
+                        bool vm_vn_port);
     void ReloadAllPorts(bool check_port);
     void SyncHandler();
 
@@ -50,6 +52,18 @@ class PortIpcHandler {
     void MakeVmiUuidJson(const VmiSubscribeEntry *entry, string &info,
                          bool meta_info) const;
 
+    // VM+Vn message handlers
+    bool AddVmVnPort(const std::string &json, bool check_port,
+                     std::string &err_msg, bool write_file);
+    bool DeleteVmVnPort(const boost::uuids::uuid &vmi_uuid, string &err_msg);
+    bool DeleteVmVnPort(const std::string &json, const std::string &vm,
+                        string &err_msg);
+    bool GetVmVnPort(const std::string &vm_uuid, std::string &info) const;
+
+
+    boost::uuids::uuid VmVnToVmi(const boost::uuids::uuid &vm_uuid) const;
+    bool MakeJsonFromVmi(const boost::uuids::uuid &vmi_uuid,
+                         std::string &resp) const;
     PortSubscribeTable *port_subscribe_table() const {
         return port_subscribe_table_.get();
     }
@@ -62,6 +76,11 @@ class PortIpcHandler {
                                              bool check_port,
                                              std::string &err_msg) const;
 
+    VmVnPortSubscribeEntry *MakeAddVmVnPortRequest(const rapidjson::Value &d,
+                                                   const std::string &json,
+                                                   bool check_port,
+                                                   std::string &err_msg) const;
+
     bool BuildGateway(const rapidjson::Value &d, const std::string &json,
                       std::string &err_msg, VirtualGatewayInfo *req) const;
     bool HasAllGatewayFields(const rapidjson::Value &d,
@@ -72,17 +91,26 @@ class PortIpcHandler {
     bool BuildGatewayArrayElement(const rapidjson::Value &d,
                                   VirtualGatewayConfig::Subnet *entry) const;
 
-    bool AddVmiUuidEntry(VmiSubscribeEntryPtr entry, const rapidjson::Value &d,
+    bool AddVmiUuidEntry(PortSubscribeEntryPtr entry, const rapidjson::Value &d,
                          bool write_file, std::string &err_msg) const;
+    bool AddVmVnPortEntry(PortSubscribeEntryPtr entry,
+                          const rapidjson::Value &d, bool write_file,
+                          std::string &err_msg) const;
 
     bool ValidateMac(const std::string &mac) const;
     bool IsUUID(const std::string &uuid_str) const;
-    void ProcessFile(const std::string &file, bool check_port);
+    void ProcessFile(const std::string &file, bool check_port, bool vm_vn_port);
     bool WriteJsonToFile(const rapidjson::Value &v,
-                         VmiSubscribeEntryPtr entry) const;
+                         VmiSubscribeEntry *entry) const;
+    bool WriteJsonToFile(const rapidjson::Value &v,
+                         VmVnPortSubscribeEntry *entry) const;
+
+    void MakeVmVnPortJson(const VmVnPortSubscribeEntry *entry, string &info,
+                          bool meta_info) const;
 
     Agent *agent_;
     std::string ports_dir_;
+    std::string vmvn_dir_;
     int version_;
     boost::scoped_ptr<InterfaceConfigStaleCleaner> interface_stale_cleaner_;
     std::auto_ptr<PortSubscribeTable> port_subscribe_table_;

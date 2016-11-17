@@ -692,24 +692,37 @@ static void BuildSgList(VmInterfaceConfigData *data, IFMapNode *node) {
     }
 }
 
+static void CompareVnVm(const uuid &vmi_uuid, VmInterfaceConfigData *data,
+                        const PortSubscribeEntry *entry) {
+    if (entry && (entry->MatchVn(data->vn_uuid_) == false)) {
+        IFMAP_ERROR(InterfaceConfiguration, 
+                    "Virtual-network UUID mismatch for interface:",
+                    UuidToString(vmi_uuid),
+                    "configuration VN uuid",
+                    UuidToString(data->vn_uuid_),
+                    "compute VN uuid",
+                    UuidToString(entry->vn_uuid()));
+    }
+
+    if (entry && (entry->MatchVm(data->vm_uuid_) == false)) {
+        IFMAP_ERROR(InterfaceConfiguration,
+                    "Virtual-machine UUID mismatch for interface:",
+                    UuidToString(vmi_uuid),
+                    "configuration VM UUID is",
+                    UuidToString(data->vm_uuid_),
+                    "compute VM uuid is",
+                    UuidToString(entry->vm_uuid()));
+    }
+}
+
 static void BuildVn(VmInterfaceConfigData *data, IFMapNode *node,
-                    const boost::uuids::uuid &u,
-                    const VmiSubscribeEntry *entry) {
+                    const boost::uuids::uuid &u) {
     VirtualNetwork *vn = static_cast<VirtualNetwork *>
         (node->GetObject());
     assert(vn);
     autogen::IdPermsType id_perms = vn->id_perms();
     CfgUuidSet(id_perms.uuid.uuid_mslong,
                id_perms.uuid.uuid_lslong, data->vn_uuid_);
-    if (entry && (entry->MatchVn(data->vn_uuid_) == false)) {
-        IFMAP_ERROR(InterfaceConfiguration, 
-                    "Virtual-network UUID mismatch for interface:",
-                    UuidToString(u),
-                    "configuration VN uuid",
-                    UuidToString(data->vn_uuid_),
-                    "compute VN uuid",
-                    UuidToString(entry->vn_uuid()));
-    }
 }
 
 static void BuildQosConfig(VmInterfaceConfigData *data, IFMapNode *node) {
@@ -722,8 +735,7 @@ static void BuildQosConfig(VmInterfaceConfigData *data, IFMapNode *node) {
 }
 
 static void BuildVm(VmInterfaceConfigData *data, IFMapNode *node,
-                    const boost::uuids::uuid &u,
-                    const VmiSubscribeEntry *entry) {
+                    const boost::uuids::uuid &u) {
     VirtualMachine *vm = static_cast<VirtualMachine *>
         (node->GetObject());
     assert(vm);
@@ -731,15 +743,6 @@ static void BuildVm(VmInterfaceConfigData *data, IFMapNode *node,
     autogen::IdPermsType id_perms = vm->id_perms();
     CfgUuidSet(id_perms.uuid.uuid_mslong,
                id_perms.uuid.uuid_lslong, data->vm_uuid_);
-    if (entry && (entry->MatchVm(data->vm_uuid_) == false)) {
-        IFMAP_ERROR(InterfaceConfiguration, 
-                    "Virtual-machine UUID mismatch for interface:",
-                    UuidToString(u),
-                    "configuration VM UUID is",
-                    UuidToString(data->vm_uuid_),
-                    "compute VM uuid is",
-                    UuidToString(entry->vm_uuid()));
-    }
 }
 
 // Get DHCP configuration
@@ -1011,7 +1014,7 @@ static void UpdateAttributes(Agent *agent, VmInterfaceConfigData *data) {
 }
 
 static void ComputeTypeInfo(Agent *agent, VmInterfaceConfigData *data,
-                            const VmiSubscribeEntry *entry,
+                            const PortSubscribeEntry *entry,
                             PhysicalRouter *prouter,
                             IFMapNode *node, IFMapNode *logical_node) {
     if (entry != NULL) {
@@ -1155,10 +1158,6 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
     }
 
     assert(!u.is_nil());
-    // Get VmiSubscribeEntry for the interface
-    VmiSubscribeEntryPtr subscribe_entry =
-        agent_->port_ipc_handler()->port_subscribe_table()->Get(u);
-
     // Update interface configuration
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     VmInterfaceConfigData *data = new VmInterfaceConfigData(agent(), NULL);
@@ -1189,7 +1188,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
 
         if (adj_node->table() == agent_->cfg()->cfg_vn_table()) {
             vn_node = adj_node;
-            BuildVn(data, adj_node, u, subscribe_entry.get());
+            BuildVn(data, adj_node, u);
         }
 
         if (adj_node->table() == agent_->cfg()->cfg_qos_table()) {
@@ -1197,7 +1196,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
         }
 
         if (adj_node->table() == agent_->cfg()->cfg_vm_table()) {
-            BuildVm(data, adj_node, u, subscribe_entry.get());
+            BuildVm(data, adj_node, u);
         }
 
         if (adj_node->table() == agent_->cfg()->cfg_instanceip_table()) {
@@ -1263,6 +1262,13 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
                               parent_vmi_node);
     BuildEcmpHashingIncludeFields(cfg, vn_node, data);
 
+    // Compare and log any mismatch in vm/vn between config and port-subscribe
+    PortIpcHandler *pih =  agent_->port_ipc_handler();
+    PortSubscribeEntryPtr subscribe_entry =
+        pih->port_subscribe_table()->Get(u, data->vm_uuid_);
+    CompareVnVm(u, data, subscribe_entry.get());
+    pih->port_subscribe_table()->HandleVmiIfnodeAdd(u, data);
+
     // Compute device-type and vmi-type for the interface
     ComputeTypeInfo(agent_, data, subscribe_entry.get(), prouter, node,
                     li_node);
@@ -1307,6 +1313,8 @@ bool InterfaceTable::VmiIFNodeToReq(IFMapNode *node, DBRequest &req,
     if ((req.oper == DBRequest::DB_ENTRY_DELETE) || node->IsDeleted()) {
         agent_->oper_db()->bgp_as_a_service()->DeleteVmInterface(u);
         DelPhysicalDeviceVnEntry(u);
+        PortIpcHandler *pih =  agent_->port_ipc_handler();
+        pih->port_subscribe_table()->HandleVmiIfnodeDelete(u);
         return DeleteVmi(this, u, &req);
     }
 
@@ -2193,12 +2201,24 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         ret = true;
     }
 
+    // Update MAC address if not set already. We dont allow modification
+    // of mac-address
     bool mac_set = true;
     if (vm_mac_ == MacAddress::kZeroMac) {
         mac_set = false;
     }
     if (mac_set_ != mac_set) {
         mac_set_ = mac_set;
+    }
+
+    if (mac_set_ == false) {
+        boost::system::error_code ec;
+        mac_set_ = true;
+        vm_mac_ = MacAddress::FromString(data->vm_mac_, &ec);
+        if (ec.value() != 0) {
+            vm_mac_ = MacAddress();
+            mac_set_ = false;
+        }
         ret = true;
     }
 
@@ -5591,4 +5611,75 @@ void AddVmiQosConfig::HandleRequest() const {
     table->Enqueue(&req);
     resp->set_resp("Success");
     resp->Response();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// VmInterfaceIfNameData routines
+// The request is used to add/delete interface with only ifname as data
+/////////////////////////////////////////////////////////////////////////////
+VmInterfaceIfNameData::VmInterfaceIfNameData() :
+    VmInterfaceData(NULL, NULL, INSTANCE_MSG, Interface::TRANSPORT_INVALID),
+    ifname_() {
+}
+
+VmInterfaceIfNameData::VmInterfaceIfNameData
+(const std::string &ifname):
+    VmInterfaceData(NULL, NULL, INSTANCE_MSG, Interface::TRANSPORT_ETHERNET),
+    ifname_(ifname) {
+}
+
+VmInterfaceIfNameData::~VmInterfaceIfNameData() {
+}
+
+VmInterface *VmInterfaceIfNameData::OnAdd(const InterfaceTable *table,
+                                          const VmInterfaceKey *key) const {
+    VmInterface *vmi =
+        new VmInterface(key->uuid_, key->name_, Ip4Address(),
+                        MacAddress(), "", nil_uuid(),
+                        VmInterface::kInvalidVlanId,
+                        VmInterface::kInvalidVlanId, NULL, Ip6Address(),
+                        VmInterface::VM_ON_TAP, VmInterface::INSTANCE);
+    vmi->SetConfigurer(VmInterface::INSTANCE_MSG);
+    return vmi;
+}
+
+bool VmInterfaceIfNameData::OnDelete(const InterfaceTable *table,
+                                     VmInterface *vmi) const {
+    if (vmi->IsConfigurerSet(VmInterface::INSTANCE_MSG) == false)
+        return true;
+
+    VmInterfaceConfigData data(NULL, NULL);
+    vmi->Resync(table, &data);
+    vmi->ResetConfigurer(VmInterface::CONFIG);
+    vmi->ResetConfigurer(VmInterface::INSTANCE_MSG);
+    table->operdb()->bgp_as_a_service()->DeleteVmInterface(vmi->GetUuid());
+    table->agent()->interface_table()->DelPhysicalDeviceVnEntry(vmi->GetUuid());
+    return true;
+}
+
+bool VmInterfaceIfNameData::OnResync(const InterfaceTable *table,
+                                   VmInterface *vmi,
+                                   bool *force_update) const {
+    bool ret = false;
+    vmi->SetConfigurer(VmInterface::INSTANCE_MSG);
+    return ret;
+}
+
+// Utility methods to enqueue add/delete requests
+void VmInterface::SetIfNameReq(InterfaceTable *table, const uuid &uuid,
+                               const string &ifname) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, uuid,
+                                     ifname));
+
+    req.data.reset(new VmInterfaceIfNameData(ifname));
+    table->Enqueue(&req);
+}
+
+// Delete a VM-Interface
+void VmInterface::DeleteIfNameReq(InterfaceTable *table, const uuid &uuid) {
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, uuid, ""));
+    req.data.reset(new VmInterfaceIfNameData());
+    table->Enqueue(&req);
 }
