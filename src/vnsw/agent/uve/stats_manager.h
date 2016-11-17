@@ -173,8 +173,7 @@ class StatsManager {
     void InitDone();
     bool RequestHandler(boost::shared_ptr<FlowAceStatsRequest> req);
     void EnqueueEvent(const boost::shared_ptr<FlowAceStatsRequest> &req);
-    bool BuildFlowRate(uint64_t flow_created, uint64_t flow_aged,
-                       AgentStats::FlowCounters &created,
+    bool BuildFlowRate(AgentStats::FlowCounters &created,
                        AgentStats::FlowCounters &aged,
                        FlowRateComputeInfo &flow_info,
                        VrouterFlowRate &flow_rate) const;
