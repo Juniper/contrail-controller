@@ -13,7 +13,6 @@ StatsManager::StatsManager(Agent* agent)
       intf_listener_id_(DBTableBase::kInvalidId), agent_(agent),
       request_queue_(agent->task_scheduler()->GetTaskId("Agent::Uve"), 0,
                      boost::bind(&StatsManager::RequestHandler, this, _1)) {
-
     AddNamelessVrfStatsEntry();
 }
 
@@ -308,4 +307,67 @@ bool StatsManager::RequestHandler(boost::shared_ptr<FlowAceStatsRequest> req) {
         assert(0);
     }
     return true;
+}
+
+bool StatsManager::BuildFlowRate(AgentStats::FlowCounters &created,
+                                 AgentStats::FlowCounters &aged,
+                                 FlowRateComputeInfo &flow_info,
+                                 VrouterFlowRate &flow_rate) const {
+    uint64_t max_add_rate = 0, min_add_rate = 0;
+    uint64_t max_del_rate = 0, min_del_rate = 0;
+    uint64_t cur_time = UTCTimestampUsec();
+    if (flow_info.prev_time_) {
+        uint64_t diff_time = cur_time - flow_info.prev_time_;
+        uint64_t diff_secs = diff_time / 1000000;
+        if (diff_secs) {
+            uint64_t created_flows = created.prev_flow_count -
+                flow_info.prev_flow_created_;
+            uint64_t aged_flows = aged.prev_flow_count -
+                flow_info.prev_flow_aged_;
+            //Flow setup/delete rate are always sent
+            if (created_flows) {
+                max_add_rate = created.max_flows_per_second;
+                min_add_rate = created.min_flows_per_second;
+                if (max_add_rate == AgentStats::kInvalidFlowCount) {
+                    LOG(WARN, "Invalid max_flow_adds_per_second " <<
+                        max_add_rate);
+                    max_add_rate = 0;
+                }
+                if (min_add_rate == AgentStats::kInvalidFlowCount) {
+                    LOG(WARN, "Invalid min_flow_adds_per_second " <<
+                        min_add_rate);
+                    min_add_rate = 0;
+                }
+            }
+            if (aged_flows) {
+                max_del_rate = aged.max_flows_per_second;
+                min_del_rate = aged.min_flows_per_second;
+                if (max_del_rate == AgentStats::kInvalidFlowCount) {
+                    LOG(WARN, "Invalid max_flow_deletes_per_second " <<
+                        max_del_rate);
+                    max_del_rate = 0;
+                }
+                if (min_del_rate == AgentStats::kInvalidFlowCount) {
+                    LOG(WARN, "Invalid min_flow_deletes_per_second " <<
+                        min_del_rate);
+                    min_del_rate = 0;
+                }
+            }
+            flow_rate.set_added_flows(created_flows);
+            flow_rate.set_max_flow_adds_per_second(max_add_rate);
+            flow_rate.set_min_flow_adds_per_second(min_add_rate);
+            flow_rate.set_deleted_flows(aged_flows);
+            flow_rate.set_max_flow_deletes_per_second(max_del_rate);
+            flow_rate.set_min_flow_deletes_per_second(min_del_rate);
+            agent_->stats()->ResetFlowMinMaxStats(created);
+            agent_->stats()->ResetFlowMinMaxStats(aged);
+            flow_info.prev_time_ = cur_time;
+            flow_info.prev_flow_created_ = created.prev_flow_count;
+            flow_info.prev_flow_aged_ = aged.prev_flow_count;
+            return true;
+        }
+    } else {
+        flow_info.prev_time_ = cur_time;
+    }
+    return false;
 }
