@@ -48,6 +48,7 @@ utils_scripts = [
   'discovery_cli.py',
   'provision_user_defined_log_statistics.py',
   'contrail-diff-docs.py',
+  'provision_issu.py',
 ]
 
 for utils in utils_scripts:

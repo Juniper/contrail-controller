@@ -97,14 +97,15 @@ class ContrailZKIssu():
         if self._zk_new.exists(new_prefix):
             children = self._zk_new.get_children(new_prefix)
             for _path in children:
-                if _path == "zookeeper":
-                    continue
-                self._logger(
-                    "Issu contrail zookeeper ,issu_zk_start, deleted paths"
-                    + str((new_prefix + str(_path))),
-                    level=SandeshLevel.SYS_INFO,
-                )
-                self._zk_new.delete_node((new_prefix + str(_path)), True)
+                if _path in self._Znode_Issu_List: 
+                    self._logger(
+                        "Issu contrail zookeeper ,issu_zk_start, deleted paths"
+                        + str((new_prefix + str(_path))),
+                        level=SandeshLevel.SYS_INFO,
+                    )
+                    self._zk_new.delete_node((new_prefix + str(_path)), True)
+                else:
+                    continue;
         else:
             self._zk_new.create_node(new_prefix, "")
 
