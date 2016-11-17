@@ -7,8 +7,6 @@ Kubernetes network manager
 """
 
 import sys
-sys.path.insert(0, '/root/kube')
-sys.path.insert(0, '/usr/lib/python2.7/dist-packages')
 
 import gevent
 from gevent.queue import Queue

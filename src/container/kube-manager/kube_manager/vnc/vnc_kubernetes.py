@@ -14,11 +14,12 @@ import argparse
 
 from cfgm_common import importutils
 from cfgm_common import vnc_cgitb
+from cfgm_common.vnc_amqp import VncAmqpHandle
 from vnc_api.vnc_api import *
 from config_db import *
-import rabbit
 import db
 import label_cache
+from reaction_map import REACTION_MAP
 
 class VncKubernetes(object):
 
@@ -35,10 +36,13 @@ class VncKubernetes(object):
         DBBaseKM.init(self, self.logger, self._db)
 
         # init rabbit connection
-        self.rabbit = rabbit.RabbitConnection(self.logger, self.args)
+        self.rabbit = VncAmqpHandle(self.logger, DBBaseKM,
+            REACTION_MAP, 'kube_manager', args=self.args)
+        self.rabbit.establish()
 
         # sync api server db in local cache
         self._sync_sm()
+        self.rabbit._db_resync_done.set()
 
         # provision cluster
         self._provision_cluster()
