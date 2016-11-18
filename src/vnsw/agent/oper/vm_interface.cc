@@ -902,7 +902,8 @@ static bool DeleteVmi(InterfaceTable *table, const uuid &u, DBRequest *req) {
         req->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         req->key.reset(new VmInterfaceKey(AgentKey::RESYNC, u, ""));
         req->data.reset(new VmInterfaceConfigData(NULL, NULL));
-        return true;
+        table->Enqueue(req);
+        return false;
     } else {
         VmInterface::Delete(table, u, VmInterface::CONFIG);
         return false;
