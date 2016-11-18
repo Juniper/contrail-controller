@@ -644,6 +644,8 @@ class PhysicalRouterDM(DBBaseDM):
                         ri_conf['interfaces'] = interfaces
                         ri_conf['vni'] = vn_obj.get_vxlan_vni()
                         ri_conf['network_id'] = vn_obj.vn_network_id
+                        ri_conf['supported_highest_enapsulation_priority'] = \
+                                  GlobalVRouterConfigDM.global_encapsulation_priority
                         self.config_manager.add_routing_instance(ri_conf)
 
                     if vn_obj.get_forwarding_mode() in ['l3', 'l2_l3']:
@@ -772,6 +774,8 @@ class GlobalVRouterConfigDM(DBBaseDM):
     obj_type = 'global_vrouter_config'
     global_vxlan_id_mode = None
     global_forwarding_mode = None
+    global_encapsulation_priority = None
+    supported_encapsulation_priorities = ["MPLSoGRE", "VXLAN"]
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -782,15 +786,27 @@ class GlobalVRouterConfigDM(DBBaseDM):
         if obj is None:
             obj = self.read_obj(self.uuid)
         new_global_vxlan_id_mode = obj.get('vxlan_network_identifier_mode')
+        new_global_encapsulation_priority = None
+        encapsulation_priorities = obj.get('encapsulation_priorities')
+        if encapsulation_priorities:
+            new_global_encapsulation_priorities = encapsulation_priorities.get("encapsulation")
+            for encap in new_global_encapsulation_priorities or []:
+                if encap in GlobalVRouterConfigDM.supported_encapsulation_priorities:
+                    new_global_encapsulation_priority = encap
+                    break
         new_global_forwarding_mode = obj.get('forwarding_mode')
         if (GlobalVRouterConfigDM.global_vxlan_id_mode !=
                 new_global_vxlan_id_mode or
             GlobalVRouterConfigDM.global_forwarding_mode !=
-                new_global_forwarding_mode):
+                new_global_forwarding_mode or
+             GlobalVRouterConfigDM.global_encapsulation_priority !=
+                new_global_encapsulation_priority):
             GlobalVRouterConfigDM.global_vxlan_id_mode = \
                 new_global_vxlan_id_mode
             GlobalVRouterConfigDM.global_forwarding_mode = \
                 new_global_forwarding_mode
+            GlobalVRouterConfigDM.global_encapsulation_priority = \
+                new_global_encapsulation_priority
             self.update_physical_routers()
     # end update
 
@@ -856,10 +872,8 @@ class PhysicalInterfaceDM(DBBaseDM):
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
         self.physical_interfaces = set()
-        self.update(obj_dict)
-        pr = PhysicalRouterDM.get(self.physical_router)
-        if pr:
-            pr.physical_interfaces.add(self.uuid)
+        obj = self.update(obj_dict)
+        self.add_to_parent(obj)
     # end __init__
 
     def update(self, obj=None):
@@ -871,6 +885,7 @@ class PhysicalInterfaceDM(DBBaseDM):
         self.name = obj.get('fq_name')[-1]
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('physical_interface', obj)
+        return obj
     # end update
 
     @classmethod
@@ -878,9 +893,7 @@ class PhysicalInterfaceDM(DBBaseDM):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
-        pr = PhysicalRouterDM.get(obj.physical_router)
-        if pr:
-            pr.physical_interfaces.discard(obj.uuid)
+        obj.remove_from_parent()
         del cls._dict[uuid]
     # end delete
 # end PhysicalInterfaceDM
@@ -895,13 +908,8 @@ class LogicalInterfaceDM(DBBaseDM):
         self.virtual_machine_interface = None
         self.vlan_tag = 0
         self.li_type = None
-        self.update(obj_dict)
-        if self.physical_interface:
-            parent = PhysicalInterfaceDM.get(self.physical_interface)
-        elif self.physical_router:
-            parent = PhysicalRouterDM.get(self.physical_router)
-        if parent:
-            parent.logical_interfaces.add(self.uuid)
+        obj = self.update(obj_dict)
+        self.add_to_parent(obj)
     # end __init__
 
     def update(self, obj=None):
@@ -918,6 +926,7 @@ class LogicalInterfaceDM(DBBaseDM):
         self.li_type = obj.get("logical_interface_type", 0)
         self.update_single_ref('virtual_machine_interface', obj)
         self.name = obj['fq_name'][-1]
+        return obj
     # end update
 
     @classmethod
@@ -932,6 +941,7 @@ class LogicalInterfaceDM(DBBaseDM):
         if parent:
             parent.logical_interfaces.discard(obj.uuid)
         obj.update_single_ref('virtual_machine_interface', {})
+        obj.remove_from_parent()
         del cls._dict[uuid]
     # end delete
 # end LogicalInterfaceDM
