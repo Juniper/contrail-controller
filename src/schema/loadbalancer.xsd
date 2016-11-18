@@ -135,7 +135,7 @@
              description='Operational status description of the member.'/>
         <xsd:element name='protocol-port' type='xsd:integer' required='optional' operations='CR'
              description='Destination port for the application on the member.'/>
-        <xsd:element name='weight' type='xsd:integer' required='optional' operations='CUR'
+        <xsd:element name='weight' type='xsd:integer' default='1' required='optional' operations='CUR'
              description='Weight for load balancing'/>
         <xsd:element name='address' type='IpAddressType' required='required' operations='CR'
              description='Ip address of the member'/>
