@@ -1,0 +1,2 @@
+recursive-include kube_manager/uve *.html *.xml *.css
+recursive-include kube_manager/sandesh *.html *.xml *.css
