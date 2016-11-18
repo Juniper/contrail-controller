@@ -146,7 +146,8 @@ class VncApi(object):
                  auth_token=None, auth_host=None, auth_port=None,
                  auth_protocol = None, auth_url=None, auth_type=None,
                  wait_for_connect=False, api_server_use_ssl=False,
-                 domain_name=None, exclude_hrefs=None):
+                 domain_name=None, exclude_hrefs=None,
+                 auth_token_url=None):
         # TODO allow for username/password to be present in creds file
 
         self._obj_serializer = self._obj_serializer_diff
@@ -209,6 +210,8 @@ class VncApi(object):
             self._domain_name = domain_name or \
                 _read_cfg(cfg_parser, 'auth', 'AUTHN_DOMAIN',
                           self._DEFAULT_DOMAIN_ID)
+            self._authn_token_url = auth_token_url or \
+                _read_cfg(cfg_parser, 'auth', 'AUTHN_TOKEN_URL', None)
 
             #contrail-api SSL support
             try:
@@ -582,7 +585,11 @@ class VncApi(object):
     def _authenticate(self, response=None, headers=None):
         if self._authn_type is None:
             return headers
-        url = "%s://%s:%s%s" % (self._authn_protocol, self._authn_server, self._authn_port,
+
+        if self._authn_token_url:
+            url = self._authn_token_url
+        else:
+            url = "%s://%s:%s%s" % (self._authn_protocol, self._authn_server, self._authn_port,
                                   self._authn_url)
         new_headers = headers or {}
         try:
