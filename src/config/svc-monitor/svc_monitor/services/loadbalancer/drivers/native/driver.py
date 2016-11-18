@@ -49,6 +49,7 @@ class OpencontrailLoadbalancerDriver(
     def _add_port_map(self, fip, src_port, dst_port):
         portmap_entry = False
         portmappings = fip.get_floating_ip_port_mappings()
+        portmap_list = []
         if portmappings:
             portmap_list = portmappings.get_port_mappings()
         if portmappings is None:
@@ -78,13 +79,6 @@ class OpencontrailLoadbalancerDriver(
                     fip.floating_ip_port_mappings_enable = False
                 self._api.floating_ip_update(fip)
                 return portmap
-
-    def create_loadbalancer(self, loadbalancer):
-        self._update_loadbalancer_props(loadbalancer['id'])
-
-    def update_loadbalancer(self, old_loadbalancer, loadbalancer):
-        self._update_loadbalancer_props(loadbalancer['id'])
-        pass
 
     def set_config_v2(self, lb_id):
         lb = LoadbalancerSM.get(lb_id)
@@ -257,6 +251,8 @@ class OpencontrailLoadbalancerDriver(
         driver_data = self.db.loadbalancer_driver_info_get(lb_id)
         if driver_data is None:
             return
+        lb_instance_ips = []
+        lb_floating_ips = []
         if 'lb_instance_ips' in driver_data:
             lb_instance_ips = driver_data['lb_instance_ips']
         if 'lb_floating_ips' in driver_data:
@@ -276,6 +272,14 @@ class OpencontrailLoadbalancerDriver(
                 src_port = listener['protocol_port']
                 dst_port = portmap.dst_port
                 self._add_port_map(fip, src_port, dst_port)
+        for fip_id in lb_floating_ips or []:
+            fip = self._get_floating_ip(fip_id=fip_id)
+            if fip:
+                src_port = old_listener.props['protocol_port']
+                portmap = self._delete_port_map(fip, src_port)
+                src_port = listener['protocol_port']
+                dst_port = portmap.dst_port
+                self._add_port_map(fip, src_port, dst_port)
 
     def _clear_listener_props(self, listener_id):
         listener = LoadbalancerListenerSM.get(listener_id)
@@ -285,6 +289,8 @@ class OpencontrailLoadbalancerDriver(
         driver_data = self.db.loadbalancer_driver_info_get(lb_id)
         if driver_data is None:
             return
+        lb_instance_ips = []
+        lb_floating_ips = []
         if 'lb_instance_ips' in driver_data:
             lb_instance_ips = driver_data['lb_instance_ips']
         if 'lb_floating_ips' in driver_data:
@@ -305,6 +311,8 @@ class OpencontrailLoadbalancerDriver(
         driver_data = self.db.loadbalancer_driver_info_get(lb_id)
         if driver_data is None:
             return
+        lb_instance_ips = []
+        lb_floating_ips = []
         if 'lb_instance_ips' in driver_data:
             lb_instance_ips = driver_data['lb_instance_ips']
         if 'lb_floating_ips' in driver_data:
