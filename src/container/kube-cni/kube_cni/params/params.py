@@ -13,10 +13,12 @@ Parameters are defined in 3 different classes
 """
 
 import sys
-sys.path.insert(0, '/root/kube_cni')
-sys.path.insert(0, '/usr/lib/python2.7/dist-packages')
 import os
 import json
+import kube_cni.common.logger as Logger
+
+# Logger for the file
+logger = None
 
 # Error codes from params module
 PARAMS_ERR_ENV = 101
@@ -27,57 +29,75 @@ PARAMS_ERR_GET_UUID = 103
 VROUTER_AGENT_IP = '127.0.0.1'
 VROUTER_AGENT_PORT = 9091
 VROUTER_POLL_TIMEOUT = 3
-VROUTER_POLL_RETRIES= 20
+VROUTER_POLL_RETRIES = 20
 
 # Container mode. Can only be k8s
 CONTRAIL_CONTAINER_MODE = "k8s"
 CONTRAIL_CONTAINER_MTU = 1500
-CONTRAIL_CONFIG_DIR = '/opt/contrail/ports'
+CONTRAIL_CONFIG_DIR = '/var/lib/contrail/ports/vm'
 
 # Default K8S Pod related values
 POD_DEFAULT_MTU = 1500
 
-# Exception class for params related errors
+# Logging parameters
+LOG_FILE = '/var/log/contrail/cni/opencontrail.log'
+LOG_LEVEL = 'WARNING'
+
+
+def get_env(key):
+    '''
+    Helper function to get environment variable
+    '''
+    val = os.environ.get(key)
+    if val == None:
+        raise ParamsError(PARAMS_ERR_ENV,
+                          'Missing environment variable ' + key)
+    return val
+
+
 class ParamsError(RuntimeError):
+    '''
+    Exception class for params related errors
+    '''
+
     def __init__(self, code, msg):
         self.msg = msg
         self.code = code
         return
 
-    def Log(self, logger):
-        logger.error('Params %d - %s', code, self.msg)
+    def log(self):
+        logger.error(str(self.code) + ' : ' + self.msg)
         return
 
-# Helper function to get environment variable
-def GetEnv(key):
-    val = os.environ.get(key)
-    if val == None:
-        raise ParamsError(PARAMS_ERR_ENV, 'Missing environment variable ' + key)
-    return val
 
-# Contrail 
-# - mode      : Only kubenrnetes supported for now (k8s)
-# - mtu       : MTU to be configured for interface inside container
-# - conf_dir  : Plugin will store the Pod configuration in this directory.
-#               The VRouter agent will scan this directore on restart
-# - vrouter_ip : IP address where VRouter agent is running
-# - vrouter_port : Port on which VRouter agent is running
-# - poll_timeout : Timeout for the GET request to VRouter
-# - poll_retries : Number of retries for GET request to VRouter
 class ContrailParams():
+    '''
+    Contrail specific parameters
+    - mode      : Only kubenrnetes supported for now (k8s)
+    - conf_dir  : Plugin will store the Pod configuration in this directory.
+                  The VRouter agent will scan this directore on restart
+    - vrouter_ip : IP address where VRouter agent is running
+    - vrouter_port : Port on which VRouter agent is running
+    - poll_timeout : Timeout for the GET request to VRouter
+    - poll_retries : Number of retries for GET request to VRouter
+    '''
+
     def __init__(self):
         self.mode = CONTRAIL_CONTAINER_MODE
-        self.mtu = CONTRAIL_CONTAINER_MTU
-        self.dir = CONTRAIL_CONFIG_DIR
+        self.directory = CONTRAIL_CONFIG_DIR
         self.vrouter_ip = VROUTER_AGENT_IP
         self.vrouter_port = VROUTER_AGENT_PORT
         self.poll_timeout = VROUTER_POLL_TIMEOUT
         self.poll_retries = VROUTER_POLL_RETRIES
+        self.log_file = LOG_FILE
+        self.log_level = LOG_LEVEL
         return
 
-    def Get(self, json_input = None):
+    def get_params(self, json_input=None):
+        if json_input == None:
+            return
         if json_input.get('config-dir') != None:
-            self.dir = json_input['config-dir']
+            self.directory = json_input['config-dir']
         if json_input.get('vrouter-ip') != None:
             self.vrouter_ip = json_input['vrouter-ip']
         if json_input.get('vrouter-port') != None:
@@ -88,52 +108,77 @@ class ContrailParams():
             self.poll_timeout = json_input['poll-retries']
         return
 
-    def Log(self, logger):
-        logger.log('ContrailParams mode = ', self.mode, ' mtu = %d', self.mtu,
-                   ' config-dir = ', self.dir)
-        logger.log('ContrailParams vrouter-ip = ', self.vrouter_ip,
-                ' vrouter-port = ', self.vrouter_port,
-                ' poll-timeout = ', self.poll_timeout,
-                ' poll-retries = ', self.poll_retries)
+    def get_loggin_params(self, json_input):
+        if json_input == None:
+            return
+        if json_input.get('log-file') != None:
+            self.log_file = json_input['log-file']
+        if json_input.get('log-level') != None:
+            self.log_level = json_input['log-level']
         return
 
-# Kubernetes specific parameters. Will contain parameters not generic to CNI
-# pod_uuid - UUID for the POD. Got from "docker inspect" equivalent
-# pod_name - Name of POD got from CNI_ARGS
-# pod_namespace - Namespace for the POD got from CNI_ARGS
+    def log(self):
+        logger.debug('mode = ' + self.mode + ' config-dir = ' + self.directory)
+        logger.debug('vrouter-ip = ' + self.vrouter_ip +
+                     ' vrouter-port = ' + str(self.vrouter_port) +
+                     ' poll-timeout = ' + str(self.poll_timeout) +
+                     ' poll-retries = ' + str(self.poll_retries))
+        return
+
+
 class K8SParams():
+    '''
+    Kubernetes specific parameters. Will contain parameters not generic to CNI
+    pod_uuid - UUID for the POD. Got from "docker inspect" equivalent
+    pod_name - Name of POD got from CNI_ARGS
+    pod_namespace - Namespace for the POD got from CNI_ARGS
+    pod_pid  - pid for the PODs pause container. Used to map namespace
+               pid is needed by the nsenter library used in 'cni' module
+    '''
+
     def __init__(self):
         self.pod_uuid = None
         self.pod_name = None
         self.pod_namespace = None
-        self.pod_pid = 0
+        self.pod_pid = None
+
+    def set_pod_uuid(self, pod_uuid):
+        self.pod_uuid = pod_uuid
         return
 
-    # Get UUID and PID for POD. Uses "docker inspect" equivalent API
-    def GetPodInfo(self, container_id):
+    def get_pod_info(self, container_id, pod_uuid=None):
+        '''
+        Get UUID and PID for POD using "docker inspect" equivalent API
+        '''
         from docker import client
         os.environ['DOCKER_API_VERSION'] = '1.22'
         try:
             docker_client = client.Client()
             if docker_client == None:
                 raise ParamsError(PARAMS_ERR_DOCKER_CONNECTION,
-                                'Error creating docker client')
+                                  'Error creating docker client')
             container = docker_client.inspect_container(container_id)
-            self.pod_uuid = container['Config']['Labels']\
-                            ['io.kubernetes.pod.uid']
             self.pod_pid = container['State']['Pid']
+            self.pod_uuid = container['Config']['Labels']\
+                ['io.kubernetes.pod.uid']
         except:
-            raise ParamsError(PARAMS_ERR_GET_UUID,
-                            'Error finding UUID/PID for pod ' + container_id)
+            # Dont report exception if pod_uuid set from argument already
+            # pod-uuid will be specified in argument in case of UT
+            if self.pod_uuid == None:
+                raise ParamsError(PARAMS_ERR_GET_UUID,
+                                  'Error finding UUID/PID for pod ' +
+                                  container_id)
         return
 
-    def Get(self, container_id = None, json_input = None):
-        # In K8S, CNI_ARGS is of format
-        # "IgnoreUnknown=1;K8S_POD_NAMESPACE=default;\
-        # K8S_POD_NAME=hello-world-1-81nl8;\
-        # K8S_POD_INFRA_CONTAINER_ID=<container-id>"
-        # Get pod-name and infra-container-id from this
-        args = GetEnv('CNI_ARGS')
+    def get_params(self, container_id=None, json_input=None):
+        '''
+        In K8S, CNI_ARGS is of format
+        "IgnoreUnknown=1;K8S_POD_NAMESPACE=default;\
+        K8S_POD_NAME=hello-world-1-81nl8;\
+        K8S_POD_INFRA_CONTAINER_ID=<container-id>"
+        Get pod-name and infra-container-id from this
+        '''
+        args = get_env('CNI_ARGS')
         args_list = args.split(";")
         for x in args_list:
             vars_list = x.split('=')
@@ -147,54 +192,63 @@ class K8SParams():
                     self.pod_name = vars_list[1]
         if self.pod_namespace == None:
             raise ParamsError(CNI_INVALID_ARGS,
-                            'K8S_POD_NAMESPACE not set in CNI_ARGS')
+                              'K8S_POD_NAMESPACE not set in CNI_ARGS')
 
         if self.pod_name == None:
             raise ParamsError(CNI_INVALID_ARGS,
-                            'K8S_POD_NAME not set in CNI_ARGS')
+                              'K8S_POD_NAME not set in CNI_ARGS')
 
         # Get UUID and PID for the POD
-        self.GetPodInfo(container_id)
+        self.get_pod_info(container_id)
         return
 
-    def Log(self, logger):
-        logger.log('K8SParams pod_uuid = ', self.pod_uuid,
-                ' pod_pid = ', self.pod_pid,
-                ' pod_name = ', self.pod_name,
-                ' pod_namespace = ', self.pod_namespace)
+    def log(self):
+        logger.debug('K8SParams pod_uuid = ' + str(self.pod_uuid) +
+                     ' pod_pid = ' + str(self.pod_pid) +
+                     ' pod_name = ' + str(self.pod_name) +
+                     ' pod_namespace = ' + str(self.pod_namespace))
         return
 
-# Top level class holding all arguments relavent to CNI
-# - k8s_params       : Contains kubernetes specific arguements
-# - contrail_params  : Contains contrail specific arguments needed for CNI
-# - container_id     : Identifier for the container
-# - container_ifname : Name of interface inside the container
-# - container_netns  : Network namespace for the container
-# - command          : CNI command for the operation
+
 class Params():
-    def __init__(self, logger):
-        self.contrail_params = ContrailParams()
+    '''
+    Top level class holding all arguments relavent to CNI
+    - command          : CNI command for the operation
+    - k8s_params       : Contains kubernetes specific arguements
+    - contrail_params  : Contains contrail specific arguments needed for CNI
+    - container_id     : Identifier for the container
+    - container_ifname : Name of interface inside the container
+    - container_netns  : Network namespace for the container
+    '''
+
+    def __init__(self):
+        self.command = None
         self.k8s_params = K8SParams()
+        self.contrail_params = ContrailParams()
         self.container_id = None
         self.container_ifname = None
         self.container_netns = None
-        self.command = None
-        self.logger = logger
         return
 
-    def Get(self, json_input = None):
-        self.command = GetEnv('CNI_COMMAND')
-        self.container_id = GetEnv('CNI_CONTAINERID')
-        self.container_netns = GetEnv('CNI_NETNS')
-        self.container_ifname = GetEnv('CNI_IFNAME')
-        self.k8s_params.Get(self.container_id, json_input.get('k8s'))
-        self.contrail_params.Get(json_input.get('contrail'))
+    def get_loggin_params(self, json_input):
+        self.contrail_params.get_loggin_params(json_input.get('contrail'))
+        global logger
+        logger = Logger.Logger('params', self.contrail_params.log_file,
+                               self.contrail_params.log_level)
+
+    def get_params(self, json_input=None):
+        self.command = get_env('CNI_COMMAND')
+        self.container_id = get_env('CNI_CONTAINERID')
+        self.container_netns = get_env('CNI_NETNS')
+        self.container_ifname = get_env('CNI_IFNAME')
+        self.contrail_params.get_params(json_input.get('contrail'))
+        self.k8s_params.get_params(self.container_id, json_input.get('k8s'))
         return
 
-    def Log(self):
-        self.logger.log('Params container-id = ', self.container_id,
-                ' container-ifname = ', self.container_ifname,
-                ' continer-netns = ', self.container_netns)
-        self.k8s_params.Log(self.logger)
-        self.contrail_params.Log(self.logger)
+    def log(self):
+        logger.debug('Params container-id = ' + self.container_id +
+                     ' container-ifname = ' + self.container_ifname +
+                     ' continer-netns = ' + self.container_netns)
+        self.k8s_params.log()
+        self.contrail_params.log()
         return

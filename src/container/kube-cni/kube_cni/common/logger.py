@@ -4,23 +4,30 @@
 #
 
 """
-CNI logger
+Logger for Opencontrail CNI
 """
 
 import logging
 
+
 class Logger(object):
-    def __init__(self, args=None):
-        self._args = args
 
-    def error(self, *msg):
-        print(msg)
+    def __init__(self, module, log_file, log_level):
+        logging.basicConfig(filename=log_file, level=log_level.upper())
+        self.logger = logging.getLogger(module)
+        return
 
-    def warning(self, *msg):
-        print(msg)
+    def debug(self, msg):
+        self.logger.debug(msg)
 
-    def debug(self, *msg):
-        print(msg)
+    def info(self, msg):
+        self.logger.info(msg)
 
-    def log(self, *msg):
-        print(msg)
+    def warning(self, msg):
+        self.logger.warning(msg)
+
+    def error(self, msg):
+        self.logger.error(msg)
+
+    def critical(self, msg):
+        self.logger.criticial(msg)
