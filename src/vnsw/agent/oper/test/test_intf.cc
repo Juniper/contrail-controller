@@ -845,8 +845,8 @@ TEST_F(IntfTest, VmPortPolicy_1) {
     CfgIntfSync(2, "cfg-vnet2", 1, 1, "vrf5", "1.1.1.2");
     client->WaitForIdle();
     EXPECT_TRUE(client->PortNotifyWait(2));
-    EXPECT_FALSE(VmPortPolicyEnable(1));
-    EXPECT_FALSE(VmPortPolicyEnable(2));
+    EXPECT_TRUE(VmPortPolicyEnable(1));
+    EXPECT_TRUE(VmPortPolicyEnable(2));
 
     client->Reset();
     NovaDel(1);
@@ -901,8 +901,8 @@ TEST_F(IntfTest, VmPortPolicy_2) {
     EXPECT_TRUE(client->PortNotifyWait(2));
     EXPECT_TRUE(VmPortActive(1));
     EXPECT_TRUE(VmPortActive(2));
-    EXPECT_TRUE(VmPortPolicyDisable(1));
-    EXPECT_TRUE(VmPortPolicyDisable(2));
+    EXPECT_FALSE(VmPortPolicyDisable(1));
+    EXPECT_FALSE(VmPortPolicyDisable(2));
 
     client->Reset();
     AclAddReq(1);
@@ -934,8 +934,8 @@ TEST_F(IntfTest, VmPortPolicy_2) {
     WAIT_FOR(100, 1000, (Agent::GetInstance()->vn_table()->Size() == 1U));
     WAIT_FOR(100, 1000, (Agent::GetInstance()->acl_table()->Size() == 0U));
     // Ports already notified. So, they still have policy disabled
-    EXPECT_TRUE(VmPortPolicyDisable(1));
-    EXPECT_TRUE(VmPortPolicyDisable(2));
+    EXPECT_FALSE(VmPortPolicyDisable(1));
+    EXPECT_FALSE(VmPortPolicyDisable(2));
 
     client->Reset();
     NovaDel(1);
@@ -1018,7 +1018,7 @@ TEST_F(IntfTest, VmPortFloatingIp_1) {
     EXPECT_TRUE(client->PortNotifyWait(1));
     EXPECT_TRUE(VmPortFloatingIpCount(1, 0));
     EXPECT_TRUE(VmPortActive(1));
-    EXPECT_TRUE(VmPortPolicyDisable(1));
+    EXPECT_FALSE(VmPortPolicyDisable(1));
     EXPECT_FALSE(RouteFind("vrf2", "2.2.2.2", 32));
 
     client->Reset();
@@ -1093,7 +1093,7 @@ TEST_F(IntfTest, VmPortFloatingIpPolicy_1) {
     VnAddReq(1, "vn1");
     CfgIntfSync(1, "cfg-vnet1", 1, 1, "vrf1", "1.1.1.1");
     client->WaitForIdle();
-    EXPECT_TRUE(VmPortPolicyDisable(1));
+    EXPECT_FALSE(VmPortPolicyDisable(1));
 
     // ACL first followed by interface
     VnAddReq(1, "vn1", 1, "vrf1");
@@ -2603,13 +2603,13 @@ TEST_F(IntfTest, IntfStaticRoute_3) {
    const NextHop *nh;
    nh = RouteGet("vrf1", static_route[0].addr_,
                  static_route[0].plen_)->GetActiveNextHop();
-   EXPECT_FALSE(nh->PolicyEnabled());
+   EXPECT_TRUE(nh->PolicyEnabled());
 
    EXPECT_TRUE(RouteFind("vrf1", static_route[1].addr_,
                          static_route[1].plen_));
    nh = RouteGet("vrf1", static_route[1].addr_,
            static_route[1].plen_)->GetActiveNextHop();
-   EXPECT_FALSE(nh->PolicyEnabled());
+   EXPECT_TRUE(nh->PolicyEnabled());
 
    //Add a acl to interface and verify NH policy changes
    AddAcl("Acl", 1, "vn1", "vn1", "pass");
@@ -3322,7 +3322,7 @@ TEST_F(IntfTest, Layer2Mode_1) {
     client->WaitForIdle();
     EXPECT_TRUE(client->PortNotifyWait(1));
     const VmInterface *vm_intf = static_cast<const VmInterface *>(VmPortGet(1));
-    EXPECT_TRUE(vm_intf->policy_enabled() == false);
+    EXPECT_FALSE(vm_intf->policy_enabled() == false);
     EXPECT_TRUE(vm_intf->IsL2Active() == true);
 
     const MacAddress mac("00:00:00:00:00:01");
@@ -3378,26 +3378,24 @@ TEST_F(IntfTest, Layer2Mode_2) {
 
     //Make the VN as layer2 only
     //EVPN route should be added with IP set to 0
-    //Interface should be policy disabled
     AddL2Vn("vn1", 1);
     client->WaitForIdle();
-    EXPECT_TRUE(vm_intf->policy_enabled() == false);
+    EXPECT_FALSE(vm_intf->policy_enabled() == false);
     EXPECT_TRUE(vm_intf->IsL2Active() == true);
     EXPECT_TRUE(vm_intf->dhcp_enable_config() == true);
 
     evpn_rt = EvpnRouteGet("vrf1", mac, zero_ip,
                            vm_intf->ethernet_tag());
     EXPECT_TRUE(evpn_rt != NULL);
-    EXPECT_TRUE(evpn_rt->GetActiveNextHop()->PolicyEnabled() == false);
+    EXPECT_FALSE(evpn_rt->GetActiveNextHop()->PolicyEnabled() == false);
     uint32_t label = vm_intf->l2_label();
     MplsLabel *mpls_label = GetActiveLabel(MplsLabel::VPORT_NH, label);
-    EXPECT_TRUE(mpls_label->nexthop()->PolicyEnabled() == false);
+    EXPECT_FALSE(mpls_label->nexthop()->PolicyEnabled() == false);
     evpn_rt = EvpnRouteGet("vrf1", mac, ip, vm_intf->ethernet_tag());
     EXPECT_TRUE(evpn_rt == NULL);
     WAIT_FOR(100, 1000, (RouteFind("vrf1", "8.1.1.1", 32) == false));
 
     //Verify L3 route gets added
-    //and policy get enabled
     AddVn("vn1", 1);
     client->WaitForIdle();
     EXPECT_TRUE(vm_intf->policy_enabled() == true);
@@ -3452,10 +3450,9 @@ TEST_F(IntfTest, Layer2Mode_3) {
 
     //Make the VN as layer2 only
     //EVPN route should be added with IP set to 0
-    //Interface should be policy disabled
     AddL2Vn("vn1", 1);
     client->WaitForIdle();
-    EXPECT_TRUE(vm_intf->policy_enabled() == false);
+    EXPECT_FALSE(vm_intf->policy_enabled() == false);
     EXPECT_TRUE(vm_intf->IsL2Active() == true);
 
     evpn_rt = EvpnRouteGet("vrf1", mac, zero_ip,
@@ -3466,7 +3463,6 @@ TEST_F(IntfTest, Layer2Mode_3) {
     EXPECT_FALSE(RouteFindV6("vrf1", addr, 128));
 
     //Verify L3 route gets added
-    //and policy get enabled
     AddVn("vn1", 1);
     client->WaitForIdle();
     EXPECT_TRUE(vm_intf->IsL2Active() == true);
@@ -3668,19 +3664,18 @@ TEST_F(IntfTest, MultipleIp2) {
 
     //Make the VN as layer2 only
     //EVPN route should be added with IP set to 0
-    //Interface should be policy disabled
     AddL2Vn("vn1", 1);
     client->WaitForIdle();
-    EXPECT_TRUE(vm_intf->policy_enabled() == false);
+    EXPECT_FALSE(vm_intf->policy_enabled() == false);
     EXPECT_TRUE(vm_intf->IsL2Active() == true);
 
     evpn_rt = EvpnRouteGet("vrf1", mac, zero_ip,
                            vm_intf->ethernet_tag());
     EXPECT_TRUE(evpn_rt != NULL);
-    EXPECT_TRUE(evpn_rt->GetActiveNextHop()->PolicyEnabled() == false);
+    EXPECT_FALSE(evpn_rt->GetActiveNextHop()->PolicyEnabled() == false);
     uint32_t label = vm_intf->l2_label();
     MplsLabel *mpls_label = GetActiveLabel(MplsLabel::VPORT_NH, label);
-    EXPECT_TRUE(mpls_label->nexthop()->PolicyEnabled() == false);
+    EXPECT_FALSE(mpls_label->nexthop()->PolicyEnabled() == false);
 
     //VN is on l2 only mode, verify ip + mac evpn route is deleted
     evpn_rt = EvpnRouteGet("vrf1", mac, ip, vm_intf->ethernet_tag());

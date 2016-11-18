@@ -2587,51 +2587,14 @@ bool VmInterface::WaitForTraffic() const {
      return rt->FindPath(peer_.get())->path_preference().wait_for_traffic();
 }
 
-// Compute if policy is to be enabled on the interface
+// Policy is disabled only if user explicitly sets disable policy.
+// If user changes to disable policy. only policy will be enabled in case of
+// link local services & BGP as a service.
 bool VmInterface::PolicyEnabled() const {
     if (disable_policy_) {
         return false;
     }
-
-    // Policy not supported for fabric ports
-    if (fabric_port_) {
-        return false;
-    }
-
-    if (layer3_forwarding_ == false) {
-        return false;
-    }
-
-    if (vn_.get() && vn_->IsAclSet()) {
-        return true;
-    }
-
-    // Floating-IP list and SG List can have entries in del_pending state
-    // Look for entries in non-del-pending state
-    FloatingIpSet::iterator fip_it = floating_ip_list_.list_.begin();
-    while (fip_it != floating_ip_list_.list_.end()) {
-        if (fip_it->del_pending_ == false) {
-            return true;
-        }
-        fip_it++;
-    }
-
-    SecurityGroupEntrySet::iterator sg_it = sg_list_.list_.begin();
-    while (sg_it != sg_list_.list_.end()) {
-        if (sg_it->del_pending_ == false) {
-            return true;
-        }
-        sg_it++;
-    }
-
-    VrfAssignRuleSet::iterator vrf_it = vrf_assign_rule_list_.list_.begin();
-    while (vrf_it != vrf_assign_rule_list_.list_.end()) {
-        if (vrf_it->del_pending_ == false) {
-            return true;
-        }
-        vrf_it++;
-    }
-    return false;
+    return true;
 }
 
 // VN is in VXLAN mode if,
