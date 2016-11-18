@@ -300,6 +300,7 @@ class PhysicalRouterConfig(object):
      no_vrf_table_label: if this is set to True will not generate vrf table label knob
      restrict_proxy_arp: proxy-arp restriction config is generated for irb interfaces
                          only if vn is external and has fip map
+     highest_enapsulation_priority: highest encapsulation configured
     '''
 
     def add_routing_instance(self, ri_conf):
@@ -318,6 +319,8 @@ class PhysicalRouterConfig(object):
         static_routes = ri_conf.get("static_routes", {})
         no_vrf_table_label = ri_conf.get("no_vrf_table_label", False)
         restrict_proxy_arp = ri_conf.get("restrict_proxy_arp", False)
+        highest_enapsulation_priority = \
+                  ri_conf.get("highest_enapsulation_priority") or "MPLSoGRE"
 
         self.routing_instances[ri_name] = ri_conf
         ri_config = self.ri_config or RoutingInstances()
@@ -374,7 +377,10 @@ class PhysicalRouterConfig(object):
             if has_ipv6_prefixes:
                 ri_opt.set_auto_export(AutoExport(family=Family(inet6=FamilyInet6(unicast=''))))
         else:
-            ri.set_instance_type("virtual-switch")
+            if highest_enapsulation_priority == "VXLAN":
+                ri.set_instance_type("virtual-switch")
+            elif highest_enapsulation_priority in ["MPLSoGRE", "MPLSoUDP"]:
+                ri.set_instance_type("evpn")
 
         if fip_map is not None:
             if ri_opt is None:
@@ -508,17 +514,27 @@ class PhysicalRouterConfig(object):
         if (is_l2 and vni is not None and
                 self.is_family_configured(self.bgp_params, "e-vpn")):
             ri.set_vtep_source_interface("lo0.0")
-            bd_config = BridgeDomains()
-            ri.set_bridge_domains(bd_config)
-            bd = Domain(name=DMUtils.make_bridge_name(vni), vlan_id='none', vxlan=VXLan(vni=vni))
-            bd_config.add_domain(bd)
-            for interface in interfaces:
-                bd.add_interface(Interface(name=interface.name))
-            if is_l2_l3:
-                # network_id is unique, hence irb
-                bd.set_routing_interface("irb." + str(network_id))
-            ri.set_protocols(RoutingInstanceProtocols(
+            if highest_enapsulation_priority == "VXLAN":
+                bd_config = BridgeDomains()
+                ri.set_bridge_domains(bd_config)
+                bd = Domain(name=DMUtils.make_bridge_name(vni), vlan_id='none', vxlan=VXLan(vni=vni))
+                bd_config.add_domain(bd)
+                for interface in interfaces:
+                     bd.add_interface(Interface(name=interface.name))
+                if is_l2_l3:
+                    # network_id is unique, hence irb
+                    bd.set_routing_interface("irb." + str(network_id))
+                ri.set_protocols(RoutingInstanceProtocols(
                                evpn=Evpn(encapsulation='vxlan', extended_vni_list='all')))
+            elif highest_enapsulation_priority in ["MPLSoGRE", "MPLSoUDP"]:
+                ri.set_vlan_id('none')
+                if is_l2_l3:
+                    # network_id is unique, hence irb
+                    ri.set_routing_interface("irb." + str(network_id))
+                evpn = Evpn()
+                for interface in interfaces:
+                     evpn.add_interface(Interface(name=interface.name))
+                ri.set_protocols(RoutingInstanceProtocols(evpn=evpn))
 
             interfaces_config = self.interfaces_config or Interfaces()
             if is_l2_l3:

@@ -324,6 +324,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
     <xsd:all>
         <xsd:element name="encapsulation" type="xsd:string"/>
         <xsd:element name="extended-vni-list" type="xsd:string"/>
+        <xsd:element name="interface" type="Interface" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -354,6 +355,8 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
         <xsd:element name="instance-type" type="xsd:string"/>
         <xsd:element name="vrf-import" type="xsd:string"/>
         <xsd:element name="vrf-export" type="xsd:string"/>
+        <xsd:element name="vlan-id" type="xsd:string"/>
+        <xsd:element name="routing-interface" type="xsd:string"/>
         <xsd:element name="protocols" type="RoutingInstanceProtocols"/>
         <xsd:element name="bridge-domains" type="BridgeDomains"/>
         <xsd:element name="vrf-table-label"/>
