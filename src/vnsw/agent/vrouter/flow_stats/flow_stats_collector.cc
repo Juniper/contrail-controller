@@ -1238,10 +1238,9 @@ void FlowStatsCollector::AddFlow(FlowExportInfo info) {
         ret.first->second.set_changed(true);
         ret.first->second.set_delete_enqueue_time(0);
         ret.first->second.set_evict_enqueue_time(0);
-        return;
+    } else {
+        NewFlow(info.flow());
     }
-
-    NewFlow(info.flow());
     if (ret.first->second.is_linked() == false) {
         flow_export_info_list_.push_back(ret.first->second);
     }
