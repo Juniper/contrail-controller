@@ -1291,6 +1291,12 @@ class FlowValueJsonPrinter : public boost::static_visitor<> {
         val.SetString(tipaddr.to_string().c_str(), dd_.GetAllocator());
         dd_.AddMember(name_.c_str(), val, dd_.GetAllocator());
     }
+    void operator()(const GenDb::Blob &tblob) {
+        rapidjson::Value val(rapidjson::kStringType);
+        val.SetString(reinterpret_cast<const char *>(tblob.data()),
+            tblob.size(), dd_.GetAllocator());
+        dd_.AddMember(name_.c_str(), val, dd_.GetAllocator());
+    }
     void operator()(const boost::blank &tblank) {
     }
     void SetName(const std::string &name) {

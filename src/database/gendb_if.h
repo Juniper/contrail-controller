@@ -37,9 +37,37 @@ struct DbConsistency {
     };
 };
 
+struct Blob {
+    Blob(const uint8_t *data, size_t size) :
+        data_(reinterpret_cast<const char *>(data), size) {
+    }
+    const uint8_t* data() const {
+        return reinterpret_cast<const uint8_t *>(data_.c_str());
+    }
+    size_t size() const {
+        return data_.length();
+    }
+ private:
+    friend inline bool operator==(const Blob &lhs, const Blob &rhs);
+    friend inline bool operator<(const Blob &lhs, const Blob &rhs);
+    std::string data_;
+};
+
+inline bool operator==(const Blob &lhs, const Blob &rhs) {
+    return lhs.data_ == rhs.data_;
+}
+
+inline bool operator<(const Blob &lhs, const Blob &rhs) {
+    return lhs.data_ < rhs.data_;
+}
+
+std::ostream& operator<<(std::ostream &out, const Blob &value);
+
 /* New stuff */
 typedef boost::variant<boost::blank, std::string, uint64_t, uint32_t,
-    boost::uuids::uuid, uint8_t, uint16_t, double, IpAddress> DbDataValue;
+    boost::uuids::uuid, uint8_t, uint16_t, double, IpAddress, Blob>
+    DbDataValue;
+
 enum DbDataValueType {
     DB_VALUE_BLANK = 0,
     DB_VALUE_STRING = 1,
@@ -49,13 +77,16 @@ enum DbDataValueType {
     DB_VALUE_UINT8 = 5,
     DB_VALUE_UINT16 = 6,
     DB_VALUE_DOUBLE = 7,
-    DB_VALUE_INET = 8
+    DB_VALUE_INET = 8,
+    DB_VALUE_BLOB = 9,
 };
+
 typedef std::vector<DbDataValue> DbDataValueVec;
 typedef std::vector<GenDb::DbDataType::type> DbDataTypeVec;
 
 std::string DbDataValueVecToString(const GenDb::DbDataValueVec &v_db_value);
 std::string DbDataValueToString(const GenDb::DbDataValue &db_value);
+std::string bytes_to_hex(const uint8_t *byte_array, size_t size);
 
 struct NewCf {
     enum ColumnFamilyType {

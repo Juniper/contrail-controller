@@ -104,6 +104,8 @@ class CassLibrary {
         size_t index, cass_double_t value) = 0;
     virtual CassError CassStatementBindInet(CassStatement* statement,
         size_t index, CassInet value) = 0;
+    virtual CassError CassStatementBindBytes(CassStatement* statement,
+        size_t index, const cass_byte_t* value, size_t value_length) = 0;
     virtual CassError CassStatementBindStringByNameN(CassStatement* statement,
         const char* name, size_t name_length, const char* value,
         size_t value_length) = 0;
@@ -117,6 +119,9 @@ class CassLibrary {
         const char* name, cass_double_t value) = 0;
     virtual CassError CassStatementBindInetByName(CassStatement* statement,
         const char* name, CassInet value) = 0;
+    virtual CassError CassStatementBindBytesByNameN(CassStatement* statement,
+        const char* name, size_t name_length, const cass_byte_t* value,
+        size_t value_length) = 0;
 
     // CassPrepare
     virtual void CassPreparedFree(const CassPrepared* prepared) = 0;
@@ -140,6 +145,8 @@ class CassLibrary {
         cass_double_t* output) = 0;
     virtual CassError CassValueGetInet(const CassValue* value,
         CassInet* output) = 0;
+    virtual CassError CassValueGetBytes(const CassValue* value,
+        const cass_byte_t** output, size_t* output_size) = 0;
 
     // CassInet
     virtual CassInet CassInetInitV4(const cass_uint8_t* address) = 0;
@@ -248,6 +255,8 @@ class CassDatastaxLibrary : public CassLibrary {
         size_t index, cass_double_t value);
     virtual CassError CassStatementBindInet(CassStatement* statement,
         size_t index, CassInet value);
+    virtual CassError CassStatementBindBytes(CassStatement* statement,
+        size_t index, const cass_byte_t* value, size_t value_length);
     virtual CassError CassStatementBindStringByNameN(CassStatement* statement,
         const char* name, size_t name_length, const char* value,
         size_t value_length);
@@ -261,6 +270,9 @@ class CassDatastaxLibrary : public CassLibrary {
         const char* name, cass_double_t value);
     virtual CassError CassStatementBindInetByName(CassStatement* statement,
         const char* name, CassInet value);
+    virtual CassError CassStatementBindBytesByNameN(CassStatement* statement,
+        const char* name, size_t name_length, const cass_byte_t* value,
+        size_t value_length);
 
     // CassPrepare
     virtual void CassPreparedFree(const CassPrepared* prepared);
@@ -284,6 +296,8 @@ class CassDatastaxLibrary : public CassLibrary {
         cass_double_t* output);
     virtual CassError CassValueGetInet(const CassValue* value,
         CassInet* output);
+    virtual CassError CassValueGetBytes(const CassValue* value,
+        const cass_byte_t** output, size_t* output_size);
 
     // CassInet
     virtual CassInet CassInetInitV4(const cass_uint8_t* address);
