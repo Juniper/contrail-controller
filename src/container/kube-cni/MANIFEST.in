@@ -1,0 +1,2 @@
+recursive-include kube_cni/uve *.html *.xml *.css
+recursive-include kube_cni/sandesh *.html *.xml *.css
