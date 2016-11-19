@@ -1,14 +1,13 @@
 coverage
-python-subunit
 junitxml
 testrepository
 mock
 bitarray
 kombu
-gevent==1.1a2
+gevent
+eventlet
 cfgm_common
 vnc_api
-discoveryclient
 sandesh
 sandesh-common
 vnc_cfg_api_server

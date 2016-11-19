@@ -69,7 +69,11 @@ class VncPod(object):
 
     def _link_vm_to_node(self, vm_obj, pod_node):
         vrouter_fq_name = ['default-global-system-config', pod_node]
-        vrouter_obj = self._vnc_lib.virtual_router_read(fq_name=vrouter_fq_name)
+        try:
+            vrouter_obj = self._vnc_lib.virtual_router_read(fq_name=vrouter_fq_name)
+        except Exception as e:
+            return
+
         self._vnc_lib.ref_update('virtual-router', vrouter_obj.uuid,
             'virtual-machine', vm_obj.uuid, None, 'ADD')
         vm = VirtualMachineKM.get(vm_obj.uuid)
