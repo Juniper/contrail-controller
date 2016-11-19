@@ -448,7 +448,7 @@ bool MirrorTable::UnresolvedMirrorVrf(const VrfEntry *vrf,
 }
 // if the Unresolved remote mac is present it will return the entry
 MirrorEntry*
-MirrorTable::UnresolvedMirrorEntry(VrfEntry *vrf, const MacAddress & mac,
+MirrorTable::GetMirrorEntry(VrfEntry *vrf, const MacAddress & mac,
                                    VrfMirrorEntryList &list) {
     VrfMirrorEntryList::iterator it = list.find(vrf->GetName());
     if (it == list.end()) {
@@ -468,12 +468,16 @@ MirrorTable::UnresolvedMirrorEntry(VrfEntry *vrf, const MacAddress & mac,
 void MirrorTable::BridgeRouteTableNotify(DBTablePartBase *partition,
                                        DBEntryBase *entry) {
     const BridgeRouteEntry *bridge_rt = static_cast<const BridgeRouteEntry *>(entry);
-    if (bridge_rt->IsDeleted()) {
+    MirrorEntry *resolved_mirror_entry = GetMirrorEntry(bridge_rt->vrf(),
+                                                        bridge_rt->mac(),
+                                                        resolved_entry_list_);
+    if (bridge_rt->IsDeleted() ||
+        (resolved_mirror_entry->vni_ != bridge_rt->GetActiveLabel())) {
         ResyncResolvedMirrorEntry(bridge_rt->vrf());
     } else {
-        MirrorEntry *mirror_entry = UnresolvedMirrorEntry(bridge_rt->vrf(),
-                                                          bridge_rt->mac(),
-                                                          unresolved_entry_list_);
+        MirrorEntry *mirror_entry = GetMirrorEntry(bridge_rt->vrf(),
+                                                   bridge_rt->mac(),
+                                                   unresolved_entry_list_);
         if (mirror_entry &&
             mirror_entry->mirror_flags_ ==
             MirrorEntryData::DynamicNH_Without_JuniperHdr) {
