@@ -448,7 +448,7 @@ bool MirrorTable::UnresolvedMirrorVrf(const VrfEntry *vrf,
 }
 // if the Unresolved remote mac is present it will return the entry
 MirrorEntry*
-MirrorTable::UnresolvedMirrorEntry(VrfEntry *vrf, const MacAddress & mac,
+MirrorTable::GetMirrorEntry(VrfEntry *vrf, const MacAddress & mac,
                                    VrfMirrorEntryList &list) {
     VrfMirrorEntryList::iterator it = list.find(vrf->GetName());
     if (it == list.end()) {
@@ -471,13 +471,20 @@ void MirrorTable::BridgeRouteTableNotify(DBTablePartBase *partition,
     if (bridge_rt->IsDeleted()) {
         ResyncResolvedMirrorEntry(bridge_rt->vrf());
     } else {
-        MirrorEntry *mirror_entry = UnresolvedMirrorEntry(bridge_rt->vrf(),
-                                                          bridge_rt->mac(),
-                                                          unresolved_entry_list_);
-        if (mirror_entry &&
-            mirror_entry->mirror_flags_ ==
+        MirrorEntry *unresolved_mirror_entry = GetMirrorEntry(bridge_rt->vrf(),
+                                                              bridge_rt->mac(),
+                                                              unresolved_entry_list_);
+        MirrorEntry *resolved_mirror_entry = GetMirrorEntry(bridge_rt->vrf(),
+                                                            bridge_rt->mac(),
+                                                            resolved_entry_list_);
+        // Check for Both resolved and unresolved list for Change in route
+        if (unresolved_mirror_entry &&
+            unresolved_mirror_entry->mirror_flags_ ==
             MirrorEntryData::DynamicNH_Without_JuniperHdr) {
             ResyncUnresolvedMirrorEntry(bridge_rt->vrf());
+        } else if (resolved_mirror_entry &&
+                   resolved_mirror_entry->vni_ != bridge_rt->GetActiveLabel()) {
+            ResyncResolvedMirrorEntry(bridge_rt->vrf());
         }
     }
 }

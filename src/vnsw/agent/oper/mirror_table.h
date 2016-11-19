@@ -160,8 +160,8 @@ public:
     void UnRegisterBridgeRouteTableListener(const VrfEntry *entry,
                                             MirrorVrfState *state);
     bool UnresolvedMirrorVrf(const VrfEntry *vrf, VrfMirrorEntryList &list);
-    MirrorEntry* UnresolvedMirrorEntry(VrfEntry *vrf, const MacAddress & mac,
-                                       VrfMirrorEntryList &list);
+    MirrorEntry* GetMirrorEntry(VrfEntry *vrf, const MacAddress & mac,
+                                VrfMirrorEntryList &list);
     static MirrorEntryData::MirrorEntryFlags
         DecodeMirrorFlag (const std::string &nh_mode, bool juniper_header);
     void DeleteMirrorVrf(MirrorEntry *entry);
