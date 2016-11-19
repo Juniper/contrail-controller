@@ -50,15 +50,16 @@ class VncKubernetes(object):
         # handle events
         self.label_cache = label_cache.LabelCache()
         self.namespace_mgr = importutils.import_object(
-            'vnc.vnc_namespace.VncNamespace', self.vnc_lib)
+            'kube_manager.vnc.vnc_namespace.VncNamespace', self.vnc_lib)
         self.service_mgr = importutils.import_object(
-            'vnc.vnc_service.VncService', self.vnc_lib,
+            'kube_manager.vnc.vnc_service.VncService', self.vnc_lib,
             self.label_cache)
         self.pod_mgr = importutils.import_object(
-            'vnc.vnc_pod.VncPod', self.vnc_lib,
+            'kube_manager.vnc.vnc_pod.VncPod', self.vnc_lib,
             self.label_cache, self.service_mgr)
         self.network_policy_mgr = importutils.import_object(
-            'vnc.vnc_network_policy.VncNetworkPolicy', self.vnc_lib)
+            'kube_manager.vnc.vnc_network_policy.VncNetworkPolicy',
+            self.vnc_lib)
 
     def _vnc_connect(self):
         # Retry till API server connection is up

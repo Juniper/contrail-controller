@@ -14,10 +14,10 @@ import sys
 import os
 import argparse
 import json
-import kube_cni.common.logger as Logger
-import kube_cni.params.params as Params
-import kube_cni.cni.cni as Cni
-import kube_cni.vrouter.vrouter as VRouter
+from common import logger as Logger
+from params import params as Params
+from cni import cni as Cni
+from vrouter import vrouter as VRouter
 
 # logger for the file
 logger = None

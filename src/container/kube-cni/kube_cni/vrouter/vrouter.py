@@ -9,7 +9,7 @@ import json
 import os
 import errno
 import datetime
-import common.logger as Logger
+import kube_cni.common.logger as Logger
 
 from requests.exceptions import ConnectionError
 
