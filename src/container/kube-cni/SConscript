@@ -10,6 +10,12 @@ env = CfgmEnv.Clone()
 
 setup_sources = [
     'setup.py',
+    'requirements.txt',
+    'run_tests.sh',
+    'test-requirements.txt',
+    '.testr.conf',
+    '.coveragerc',
+    'MANIFEST.in',
 ]
 
 setup_sources_rules = []
@@ -62,3 +68,30 @@ if buildspace_link:
     top_dir = Dir(top_path)
 else:
     top_dir = Dir('.')
+
+# unit test
+cov_cmd = env.Command('coveragetest.log', sdist_gen,
+          'bash -c "set -o pipefail && cd ' + Dir(top_dir).path + ' && python setup.py run_tests --coverage 2>&1 | tee coveragetest.log"')
+
+test_cmd = env.Command('test.log', sdist_gen,
+          'bash -c "set -o pipefail && cd ' + Dir(top_dir).path + ' && python setup.py run_tests 2>&1 | tee test.log"')
+
+test_depends = ['/config/common/dist/cfgm_common-0.1dev.tar.gz',
+                '/api-lib/dist/vnc_api-0.1dev.tar.gz',
+                '/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz',
+                '/sandesh/common/dist/sandesh-common-0.1dev.tar.gz',
+                '/config/api-server/dist/vnc_cfg_api_server-0.1dev.tar.gz',]
+env.Depends(test_cmd, [env['TOP']+x for x in test_depends])
+env.Depends(cov_cmd, [env['TOP']+x for x in test_depends])
+
+env.Alias('test', test_cmd)
+env.Alias('coverage', cov_cmd)
+
+env.Alias('controller/src/container/kube_cni:test', test_cmd)
+env.Alias('controller/src/container/kube_cni:coverage', cov_cmd)
+# This add'l alias is to allow retry of UT in CI
+env.Alias('controller/src/container/kube-cni/kube_cni:test', test_cmd)
+
+# Local Variables:
+# mode: python
+# End:
