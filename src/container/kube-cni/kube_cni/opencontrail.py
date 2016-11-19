@@ -11,37 +11,44 @@ Support Kubernetes for now
 """
 
 import sys
-sys.path.insert(0, '/root/kube_cni')
-sys.path.insert(0, '/usr/lib/python2.7/dist-packages')
-
 import os
 import argparse
 import json
-import common.logger as Logger
-import params.params as Params
-import cni.cni as Cni
-import vrouter.vrouter as VRouter
+import kube_cni.common.logger as Logger
+import kube_cni.params.params as Params
+import kube_cni.cni.cni as Cni
+import kube_cni.vrouter.vrouter as VRouter
 
-# Read config file from STDIN or optionally from a file
-def read_config_file(conf_file = None):
+# logger for the file
+logger = None
+
+
+def read_config_file(conf_file=None):
+    '''
+    Read config file from STDIN or optionally from a file
+    '''
     if conf_file:
         with open(conf_file, 'r') as f:
             input_str = f.read()
     else:
-        input_str = sys.stdin.read();
+        input_str = sys.stdin.read()
     obj = json.loads(input_str)
     return obj
 
-# Define arguemnts.
-# Note: CNI does not use any command-line arguments. These are used only when
-# run as standalone application
-# Command-line argument overrides environment variables
+
 def parse_args():
+    '''
+    Define command-line arguemnts.
+    Note: CNI does not use any command-line arguments. Arguments are used only
+    when run as standalone application (ex: for UT)
+    Command-line argument overrides environment variables
+    '''
     parser = argparse.ArgumentParser(description='CNI Arguments')
     parser.add_argument('-c', '--command',
-                        help = 'CNI command add/del/version/get/poll')
-    parser.add_argument('-v', '--version', action = 'version', version='0.1')
-    parser.add_argument('-f', '--file', help = 'Contrail CNI config file')
+                        help='CNI command add/del/version/get/poll')
+    parser.add_argument('-v', '--version', action='version', version='0.1')
+    parser.add_argument('-f', '--file', help='Contrail CNI config file')
+    parser.add_argument('-u', '--uuid', help='Container UUID')
     args = parser.parse_args()
 
     # Override CNI_COMMAND environment
@@ -49,32 +56,49 @@ def parse_args():
         os.environ['CNI_COMMAND'] = args.command
     return args
 
+
 def main():
+    params = Params.Params()
     args = parse_args()
     input_json = read_config_file(args.file)
 
-    logger = Logger.Logger()
-    cni = Cni.Cni(logger)
-    try:
-        params = Params.Params(logger)
-        params.Get(input_json)
-    except Params.ParamsError as params_err:
-        params_err.Log(logger)
-        cni.ErrorExit(params_err.code, params_err.msg)
+    # Read logging parameters first and then create logger
+    params.get_loggin_params(input_json)
+    global logger
+    logger = Logger.Logger('opencontrail', params.contrail_params.log_file,
+                           params.contrail_params.log_level)
 
-    #params.Log()
+    try:
+        # Set UUID from argument. If valid-uuid is found, it will overwritten
+        # later. Useful in case of UT where valid uuid for pod cannot be found
+        if args.uuid != None:
+            params.k8s_params.set_pod_uuid(args.uuid)
+        # Update parameters from environement and input-string
+        params.get_params(input_json)
+    except Params.ParamsError as params_err:
+        params_err.log()
+        Cni.ErrorExit(params_err.code, params_err.msg)
+
+    # Log params for debugging
+    params.log()
     try:
         contrail_params = params.contrail_params
-        vrouter = VRouter.VRouter(logger, contrail_params.vrouter_ip,
-                contrail_params.vrouter_port, contrail_params.poll_timeout,
-                contrail_params.poll_retries, contrail_params.dir)
+        vrouter = VRouter.VRouter(contrail_params.vrouter_ip,
+                                  contrail_params.vrouter_port,
+                                  contrail_params.poll_timeout,
+                                  contrail_params.poll_retries,
+                                  contrail_params.directory,
+                                  contrail_params.log_file,
+                                  contrail_params.log_level)
+        cni = Cni.Cni(vrouter, params)
+        # Run CNI
         cni.Run(vrouter, params)
     except Cni.CniError as cni_err:
-        cni_err.Log(logger)
-        cni.ErrorExit(cni_err.code, cni_err.msg)
+        cni_err.log()
+        Cni.ErrorExit(cni_err.code, cni_err.msg)
     except VRouter.VRouterError as vr_err:
-        vr_err.Log(logger)
-        cni.ErrorExit(vr_err.code, vr_err.msg)
+        vr_err.log()
+        Cni.ErrorExit(vr_err.code, vr_err.msg)
     return
 
 if __name__ == "__main__":
