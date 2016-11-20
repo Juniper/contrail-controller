@@ -64,7 +64,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     vm_project_uuid_(nil_uuid()), vxlan_id_(0), bridging_(false),
     layer3_forwarding_(true), flood_unknown_unicast_(false),
     mac_set_(false), ecmp_(false), ecmp6_(false), disable_policy_(false),
-    tx_vlan_id_(kInvalidVlanId), rx_vlan_id_(kInvalidVlanId), parent_(NULL),
+    tx_vlan_id_(kInvalidVlanId), rx_vlan_id_(kInvalidVlanId), parent_(NULL, this),
     local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
     sg_list_(), floating_ip_list_(), alias_ip_list_(), service_vlan_list_(),
     static_route_list_(), allowed_address_pair_list_(), fat_flow_list_(),
@@ -104,7 +104,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     bridging_(false), layer3_forwarding_(true),
     flood_unknown_unicast_(false), mac_set_(false),
     ecmp_(false), ecmp6_(false), disable_policy_(false),
-    tx_vlan_id_(tx_vlan_id), rx_vlan_id_(rx_vlan_id), parent_(parent),
+    tx_vlan_id_(tx_vlan_id), rx_vlan_id_(rx_vlan_id), parent_(parent, this),
     local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
     sg_list_(), floating_ip_list_(), alias_ip_list_(), service_vlan_list_(),
     static_route_list_(), allowed_address_pair_list_(), vrf_assign_rule_list_(),
@@ -881,7 +881,7 @@ static PhysicalRouter *BuildParentInfo(Agent *agent,
         return NULL;
     }
 
-    if (parent_vmi_node == false)
+    if (!parent_vmi_node)
         return NULL;
 
     // process Parent VMI for sub-interface
@@ -1581,6 +1581,7 @@ void VmInterface::DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
         DeleteVrfAssignRule();
         DeleteResolveRoute(old_vrf, old_subnet, old_subnet_plen);
     }
+
 }
 
 void VmInterface::UpdateVxLan() {
@@ -2570,6 +2571,9 @@ bool VmInterfaceOsOperStateData::OnResync(const InterfaceTable *table,
     vmi->ipv6_active_ = vmi->IsIpv6Active();
     if (vmi->ipv6_active_ != old_ipv6_active)
         ret = true;
+    // Resync the Oper data for SubInterfaces if attached to parent interface.
+    if (ret == true)
+        vmi->UpdateOperStateOfSubIntf(table);
 
     return ret;
 }
@@ -2697,9 +2701,14 @@ bool VmInterface::IsActive()  const {
     // If sub_interface VMIs, parent_vmi_ should be set
     // (We dont track parent_ and activate sub-interfaces. So, we only check 
     //  paremt_vmi is present and not necessarily active)
+    //  Check if parent is  not active set the SubInterface also not active
+    const VmInterface *parentIntf = static_cast<const VmInterface *>(parent());
     if (device_type_ == VM_VLAN_ON_VMI) {
-        if (parent_.get() == NULL)
+        if (parentIntf == NULL)
             return false;
+        else if (parentIntf->IsActive() == false) {
+            return false;
+        }
     }
 
     if (device_type_ == REMOTE_VM_VLAN_ON_VMI) {

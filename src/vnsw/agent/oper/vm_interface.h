@@ -732,7 +732,6 @@ private:
     friend struct VmInterfaceGlobalVrouterData;
     friend struct VmInterfaceHealthCheckData;
     friend struct VmInterfaceNewFlowDropData;
-
     bool IsMetaDataL2Active() const;
     bool IsMetaDataIPActive() const;
     bool IsIpv4Active() const;
@@ -934,7 +933,7 @@ private:
     // VLAN Tag and the parent interface when VLAN is enabled
     uint16_t tx_vlan_id_;
     uint16_t rx_vlan_id_;
-    InterfaceRef parent_;
+    InterfaceBackRef parent_;
     Preference local_preference_;
     // DHCP options defined for the interface
     OperDhcpOptions oper_dhcp_options_;
