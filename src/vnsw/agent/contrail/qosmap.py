@@ -13,7 +13,7 @@ class QosmapProv(object):
 
         self.conf_file = conf_file
         self._parse_args()
-        qos_cmd = '/usr/bin/qosmap --set-queue ' + self.ifname + ' --dcbx ' + self.dcbx + ' --pg ' + self.priority_group
+        qos_cmd = '/usr/bin/qosmap --set-queue ' + self.ifname + ' --dcbx ' + self.dcbx
         qos_cmd = qos_cmd + ' --bw ' + self.bandwidth + ' --strict ' + self.scheduling + ' --tc ' + self.traffic_class
         self.execute_command(qos_cmd)
 
@@ -24,32 +24,38 @@ class QosmapProv(object):
         # Use agent config file /etc/contrail/contrail-vrouter-agent.conf
         self.ifname = ""
         self.dcbx = "ieee"
-        self.priority_group = ""
-        self.bandwidth = ""
-        self.scheduling = ""
-        self.traffic_class = ""
+        self.priority_group = []
+        self.bandwidth = []
+        self.scheduling = []
+        self.traffic_class = []
         scheduling = ""
         bandwidth = ""
         config = ConfigParser.SafeConfigParser()
         config.read([self.conf_file])
         self.ifname = config.get('VIRTUAL-HOST-INTERFACE', 'physical_interface')
+        for i in range(8):
+            self.priority_group.append('0')
+            self.bandwidth.append('0')
+            self.scheduling.append('0')
+
         for section in config.sections():
-            if "QUEUE-" in section:
-                self.traffic_class = self.traffic_class + section.strip('[]').split('-')[1] + ','
 
             if "PG-" in section:
                 # For one to one mapping priority group is same as traffic class
-                self.priority_group = self.priority_group + section.strip('[]').split('-')[1] + ','
+                priority_id = section.strip('[]').split('-')[1]
+                self.priority_group[int(priority_id)] = priority_id
                 scheduling = config.get(section, 'scheduling')
                 if scheduling == 'strict':
-                    self.scheduling = self.scheduling + '1'
-                    self.bandwidth = self.bandwidth + '0,'
+                    self.scheduling[int(priority_id)] = '1'
                 else:
-                    self.scheduling = self.scheduling + '0'
                     bandwidth = config.get(section, 'bandwidth')
-                    self.bandwidth = self.bandwidth + bandwidth + ','
+                    self.bandwidth[int(priority_id)] = bandwidth
 
-        if ( (self.traffic_class == "") and (self.priority_group == "") ):
+        self.priority_group = [elem for elem in self.priority_group if elem != '0']
+        self.traffic_class = ",".join(self.priority_group)
+        self.bandwidth = ",".join(self.bandwidth)
+        self.scheduling = "".join(self.scheduling)
+        if (self.traffic_class == ""):
             print "Please configure qos parameters"
 
     # end _parse_args
