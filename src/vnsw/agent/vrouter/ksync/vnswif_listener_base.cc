@@ -197,14 +197,15 @@ static void InterfaceResync(Agent *agent, uint32_t id, bool active) {
         VNSWIF_TRACE(msg.c_str());
         return;
     }
-
     if (agent->test_mode())
         interface->set_test_oper_state(active);
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, interface->GetUuid(),
-                                     interface->name()));
+                                    interface->name()));
     req.data.reset(new VmInterfaceOsOperStateData());
     table->Enqueue(&req);
+    // Update the oper state of Sub interfaces part of primary interface
+    interface->UpdateOperStateOfSubIntf(table);
 }
 
 VnswInterfaceListenerBase::HostInterfaceEntry *
