@@ -136,7 +136,7 @@ public:
     const AgentQosConfig* qos_config() const {
         return qos_config_.get();
     }
-
+    void UpdateOperStateOfSubIntf(InterfaceTable *table);
 protected:
     void SetItfSandeshData(ItfSandeshData &data) const;
 
