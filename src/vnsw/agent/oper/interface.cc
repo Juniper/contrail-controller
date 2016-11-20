@@ -1178,6 +1178,20 @@ bool Interface::IsUveActive() const {
     return false;
 }
 
+void Interface::UpdateOperStateOfSubIntf(const InterfaceTable *table) {
+    tbb::mutex::scoped_lock lock(Interface::back_ref_mutex_);
+    std::set<IntrusiveReferrer>::const_iterator it = Interface::back_ref_set_.begin();
+    for (; it != Interface::back_ref_set_.end(); it++) {
+        VmInterface *vm_intf = static_cast<VmInterface *>((*it).first);
+        if (vm_intf && vm_intf->parent()) {
+           DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+           req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, vm_intf->GetUuid(),
+                         vm_intf->name()));
+           req.data.reset(new VmInterfaceOsOperStateData());
+           const_cast<InterfaceTable *>(table)->Enqueue(&req);
+        }
+    }
+}
 /////////////////////////////////////////////////////////////////////////////
 // Map of VMI-UUID to VmiType
 /////////////////////////////////////////////////////////////////////////////
