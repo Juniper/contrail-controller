@@ -83,6 +83,43 @@ TEST_F(TestVrf, vrouter_1) {
     }
 }
 
+TEST_F(TestVrf, vm_sub_if_oper_state) {
+    AgentUtXmlTest test("controller/src/vnsw/agent/oper/test/vmi-sub-if-add.xml");
+    AgentUtXmlOperInit(&test);
+    if (test.Load() == true) {
+        test.ReadXml();
+
+        string str;
+        test.ToString(&str);
+        cout << str << endl;
+        test.Run();
+    }
+    VmInterface *vm_interface = static_cast<VmInterface *>(VmPortGet(1));
+    VmInterface *vm_sub_interface = static_cast<VmInterface *>(VmPortGet(2));
+    EXPECT_TRUE(vm_interface != NULL);
+    EXPECT_TRUE(vm_interface->IsActive());
+    EXPECT_TRUE(vm_sub_interface->parent() != NULL);
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, vm_interface->GetUuid(),
+                  vm_interface->name()));
+    req.data.reset(new VmInterfaceOsOperStateData());
+    vm_interface->set_test_oper_state(false);
+    Agent::GetInstance()->interface_table()->Enqueue(&req);
+    client->WaitForIdle();
+    EXPECT_FALSE(vm_interface->IsActive());
+    EXPECT_FALSE(vm_sub_interface->IsActive());
+    AgentUtXmlTest test1("controller/src/vnsw/agent/oper/test/vmi-sub-if-del.xml");
+    AgentUtXmlOperInit(&test1);
+    if (test1.Load() == true) {
+        test1.ReadXml();
+
+        string str;
+        test1.ToString(&str);
+        cout << str << endl;
+        test1.Run();
+    }
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
