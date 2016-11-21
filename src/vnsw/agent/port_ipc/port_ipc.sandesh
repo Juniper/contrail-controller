@@ -101,3 +101,113 @@ traceobject sandesh ConfigDeleteVmVnPortEnqueue {
 trace sandesh ConfigVmVnPortInfo {
     1: string info;
 }
+
+/**
+ * Introspect request for vmi-based port subscription requests
+ */
+request sandesh FetchVmiPortSubscriptionReq {
+    1: string ifname;
+    2: string vmi_uuid;
+}
+
+/**
+ * Response for vmi-based port subscription requests
+ */
+struct SandeshVmiPortSubscriptionInfo {
+    1: string ifname;
+    2: u32 version;
+    3: string vmi_uuid;
+    4: string vm_uuid;
+    5: string vm_name;
+    6: string vn_uuid;
+    7: string ip4_addr;
+    8: string ip6_addr;
+    9: string mac;
+    10: i16 tx_vlan;
+    11: i16 rx_vlan;
+}
+
+/**
+ * Response for vmi-based port subscription requests
+ */
+response sandesh SandeshVmiPortSubscriptionResp {
+    1: list<SandeshVmiPortSubscriptionInfo> port_list
+}
+
+/**
+ * Introspect request for vmvn-based port subscription requests
+ */
+request sandesh FetchVmVnPortSubscriptionReq {
+    1: string ifname;
+    2: string vm_uuid;
+}
+
+/**
+ * Response for vmvn-based port subscription requests
+ */
+struct SandeshVmVnPortSubscriptionInfo {
+    1:  string ifname;
+    2:  u32 version;
+    3:  string vm_uuid;
+    4:  string vn_uuid;
+    5:  string vmi_uuid;
+    6:  string vm_name;
+    7:  string vm_identifier;
+    8:  string vm_ifname;
+    9:  string vm_namespace;
+}
+
+/**
+ * Response for vmvm-based port subscription requests
+ */
+response sandesh SandeshVmVnPortSubscriptionResp {
+    1: list<SandeshVmVnPortSubscriptionInfo> port_list;
+}
+
+
+/**
+ * Introspect request for vmi-uuid to vm-uuid+vn-uuid tree
+ */
+request sandesh FetchVmiToVmVnUuidReq {
+    1: string vmi_uuid;
+}
+
+/**
+ * Response for vmi-uuid to vm-uuid+vn-uuid tree request
+ */
+struct SandeshVmiToVmVnInfo {
+    1:  string vmi_uuid;
+    2:  string vm_uuid;
+    3:  string vn_uuid;
+}
+
+/**
+ * Response for vmi-uuid to vm-uuid+vn-uuid tree request
+ */
+response sandesh SandeshVmiToVmVnResp {
+    1: list<SandeshVmiToVmVnInfo> port_list;
+}
+
+/**
+ * Introspect request for <vm-uuid, vn-uuid> to vmi-uuid to tree
+ */
+request sandesh FetchVmVnToVmiUuidReq{
+    1: string vm_uuid;
+    2: string vn_uuid;
+}
+
+/**
+ * Response for <vm-uuid, vn-uuid> to vmi-uuid to tree
+ */
+struct SandeshVmVnToVmiInfo {
+    1:  string vm_uuid;
+    2:  string vn_uuid;
+    3:  string vmi_uuid;
+}
+
+/**
+ * Response for <vm-uuid, vn-uuid> to vmi-uuid to tree
+ */
+response sandesh SandeshVmVnToVmiResp {
+    1: list<SandeshVmVnToVmiInfo> port_list;
+}

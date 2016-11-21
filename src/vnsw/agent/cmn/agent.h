@@ -253,6 +253,7 @@ extern void RouterIdDepInit(Agent *agent);
 
 #define kTaskDBExclude "Agent::DBExcludeTask"
 #define kTaskConfigManager "Agent::ConfigManager"
+#define kTaskHttpRequstHandler "http::RequestHandlerTask"
 
 #define kInterfaceDbTablePrefix "db.interface"
 #define kVnDbTablePrefix  "db.vn"

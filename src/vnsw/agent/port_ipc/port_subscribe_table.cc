@@ -1,7 +1,9 @@
 /*
  * Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
  */
-#include <bgp_schema_types.h>
+#include <string>
+#include <sandesh/sandesh_trace.h>
+#include <port_ipc/port_ipc_types.h>
 #include <cmn/agent_cmn.h>
 #include <init/agent_param.h>
 #include <oper/interface_common.h>
@@ -10,6 +12,23 @@
 #include "port_ipc_handler.h"
 
 using namespace autogen;
+
+/////////////////////////////////////////////////////////////////////////////
+// Init/Shutdown routines
+/////////////////////////////////////////////////////////////////////////////
+void PortSubscribeTable::InitDone() {
+    // Register with config DB table for vm-port UUID to IFNode mapping
+    vmi_config_table_ = (static_cast<IFMapAgentTable *>
+                         (IFMapTable::FindTable(agent_->db(),
+                                                "virtual-machine-interface")));
+    vmi_config_listener_id_ = vmi_config_table_->Register
+        (boost::bind(&PortSubscribeTable::Notify, this, _1, _2));
+}
+
+void PortSubscribeTable::Shutdown() {
+    DBTable::DBStateClear(vmi_config_table_, vmi_config_listener_id_);
+    vmi_config_table_->Unregister(vmi_config_listener_id_);
+}
 
 /////////////////////////////////////////////////////////////////////////////
 // PortSubscribeEntry routines
@@ -507,18 +526,273 @@ boost::uuids::uuid PortSubscribeTable::VmVnToVmi
 }
 
 /////////////////////////////////////////////////////////////////////////////
-// Init/Shutdown routines
+// Introspect routines
 /////////////////////////////////////////////////////////////////////////////
-void PortSubscribeTable::InitDone() {
-    // Register with config DB table for vm-port UUID to IFNode mapping
-    vmi_config_table_ = (static_cast<IFMapAgentTable *>
-                         (IFMapTable::FindTable(agent_->db(),
-                                                "virtual-machine-interface")));
-    vmi_config_listener_id_ = vmi_config_table_->Register
-        (boost::bind(&PortSubscribeTable::Notify, this, _1, _2));
+class SandeshPortSubscribeTask : public Task {
+public:
+    SandeshPortSubscribeTask(Agent *agent, const std::string &context) :
+        Task(agent->task_scheduler()->GetTaskId(kTaskHttpRequstHandler), 0),
+        agent_(agent),
+        table_(agent->port_ipc_handler()->port_subscribe_table()),
+        context_(context) {
+    }
+    virtual ~SandeshPortSubscribeTask() { }
+
+protected:
+    Agent *agent_;
+    const PortSubscribeTable *table_;
+    std::string context_;
+    DISALLOW_COPY_AND_ASSIGN(SandeshPortSubscribeTask);
+};
+
+// vmi_tree_ routes
+class SandeshVmiPortSubscribeTask : public SandeshPortSubscribeTask {
+public:
+    SandeshVmiPortSubscribeTask(Agent *agent, const std::string &context,
+                                const std::string &ifname,
+                                const boost::uuids::uuid &vmi_uuid) :
+        SandeshPortSubscribeTask(agent, context),
+        ifname_(ifname), vmi_uuid_(vmi_uuid) {
+    }
+    virtual ~SandeshVmiPortSubscribeTask() { }
+
+    virtual bool Run();
+    std::string Description() const { return "SandeshVmiPortSubscribeTask"; }
+private:
+    std::string ifname_;
+    boost::uuids::uuid vmi_uuid_;
+    DISALLOW_COPY_AND_ASSIGN(SandeshVmiPortSubscribeTask);
+};
+
+bool SandeshVmiPortSubscribeTask::Run() {
+    SandeshVmiPortSubscriptionResp *resp = new SandeshVmiPortSubscriptionResp();
+
+    PortSubscribeTable::VmiTree::const_iterator it = table_->vmi_tree_.begin();
+    std::vector<SandeshVmiPortSubscriptionInfo> port_list;
+    while (it != table_->vmi_tree_.end()) {
+        const VmiSubscribeEntry *entry =
+            dynamic_cast<const VmiSubscribeEntry *> (it->second.get());
+        it++;
+
+        if ((ifname_.empty() == false) &&
+            (entry->ifname().find(ifname_) == string::npos) ) {
+            continue;
+        }
+
+        if (vmi_uuid_.is_nil() == false && entry->vmi_uuid() != vmi_uuid_) {
+            continue;
+        }
+
+        SandeshVmiPortSubscriptionInfo info;
+        info.set_ifname(entry->ifname());
+        info.set_version(entry->version());
+        info.set_vmi_uuid(UuidToString(entry->vmi_uuid()));
+        info.set_vm_uuid(UuidToString(entry->vm_uuid()));
+        info.set_vn_uuid(UuidToString(entry->vn_uuid()));
+        info.set_vm_name(entry->vm_name());
+        info.set_ip4_addr(entry->ip4_addr().to_string());
+        info.set_ip6_addr(entry->ip6_addr().to_string());
+        info.set_mac(entry->mac_addr());
+        info.set_tx_vlan(entry->tx_vlan_id());
+        info.set_rx_vlan(entry->rx_vlan_id());
+
+        port_list.push_back(info);
+    }
+    resp->set_port_list(port_list);
+
+    resp->set_context(context_);
+    resp->set_more(false);
+    resp->Response();
+    return true;
 }
 
-void PortSubscribeTable::Shutdown() {
-    DBTable::DBStateClear(vmi_config_table_, vmi_config_listener_id_);
-    vmi_config_table_->Unregister(vmi_config_listener_id_);
+void FetchVmiPortSubscriptionReq::HandleRequest() const {
+    Agent *agent = Agent::GetInstance();
+    boost::uuids::uuid u = StringToUuid(get_vmi_uuid());
+    SandeshVmiPortSubscribeTask *t =
+        new SandeshVmiPortSubscribeTask(agent, context(), get_ifname(), u);
+    agent->task_scheduler()->Enqueue(t);
+}
+
+// vmvn_subscribe_tree_ routes
+class SandeshVmVnPortSubscribeTask : public SandeshPortSubscribeTask {
+public:
+    SandeshVmVnPortSubscribeTask(Agent *agent, const std::string &context,
+                                const std::string &ifname,
+                                const boost::uuids::uuid &vm_uuid) :
+        SandeshPortSubscribeTask(agent, context),
+        ifname_(ifname), vm_uuid_(vm_uuid) {
+    }
+    virtual ~SandeshVmVnPortSubscribeTask() { }
+
+    virtual bool Run();
+    std::string Description() const { return "SandeshVmVnPortSubscribeTask"; }
+private:
+    std::string ifname_;
+    boost::uuids::uuid vm_uuid_;
+    DISALLOW_COPY_AND_ASSIGN(SandeshVmVnPortSubscribeTask);
+};
+
+bool SandeshVmVnPortSubscribeTask::Run() {
+    SandeshVmVnPortSubscriptionResp *resp =
+        new SandeshVmVnPortSubscriptionResp();
+
+    PortSubscribeTable::VmVnTree::const_iterator it =
+        table_->vmvn_subscribe_tree_.begin();
+    std::vector<SandeshVmVnPortSubscriptionInfo> port_list;
+    while (it != table_->vmvn_subscribe_tree_.end()) {
+        const VmVnPortSubscribeEntry *entry =
+            dynamic_cast<const VmVnPortSubscribeEntry *> (it->second.get());
+        it++;
+
+        if ((ifname_.empty() == false) &&
+            (entry->ifname().find(ifname_) == string::npos) ) {
+            continue;
+        }
+
+        if (vm_uuid_.is_nil() == false && entry->vm_uuid() != vm_uuid_) {
+            continue;
+        }
+
+        SandeshVmVnPortSubscriptionInfo info;
+        info.set_ifname(entry->ifname());
+        info.set_version(entry->version());
+        info.set_vm_uuid(UuidToString(entry->vm_uuid()));
+        info.set_vn_uuid(UuidToString(nil_uuid()));
+        info.set_vm_name(entry->vm_name());
+        info.set_vm_identifier(entry->vm_identifier());
+        info.set_vm_ifname(entry->vm_ifname());
+        info.set_vm_namespace(entry->vm_namespace());
+        info.set_vmi_uuid(UuidToString(entry->vmi_uuid()));
+        port_list.push_back(info);
+    }
+    resp->set_port_list(port_list);
+
+    resp->set_context(context_);
+    resp->set_more(false);
+    resp->Response();
+    return true;
+}
+
+void FetchVmVnPortSubscriptionReq::HandleRequest() const {
+    Agent *agent = Agent::GetInstance();
+    boost::uuids::uuid u = StringToUuid(get_vm_uuid());
+    SandeshVmVnPortSubscribeTask *t =
+        new SandeshVmVnPortSubscribeTask(agent, context(), get_ifname(), u);
+    agent->task_scheduler()->Enqueue(t);
+}
+
+// vmi_to_vmvn_tree_ routes
+class SandeshVmiToVmVnTask : public SandeshPortSubscribeTask {
+public:
+    SandeshVmiToVmVnTask(Agent *agent, const std::string &context,
+                           const boost::uuids::uuid &vmi_uuid) :
+        SandeshPortSubscribeTask(agent, context),
+        vmi_uuid_(vmi_uuid) {
+    }
+    virtual ~SandeshVmiToVmVnTask() { }
+
+    virtual bool Run();
+    std::string Description() const { return "SandeshVmiToVmVnTask"; }
+private:
+    boost::uuids::uuid vmi_uuid_;
+    DISALLOW_COPY_AND_ASSIGN(SandeshVmiToVmVnTask);
+};
+
+bool SandeshVmiToVmVnTask::Run() {
+    SandeshVmiToVmVnResp *resp = new SandeshVmiToVmVnResp();
+
+    PortSubscribeTable::VmiToVmVnTree::const_iterator it =
+        table_->vmi_to_vmvn_tree_.begin();
+    std::vector<SandeshVmiToVmVnInfo> port_list;
+    while (it != table_->vmi_to_vmvn_tree_.end()) {
+        boost::uuids::uuid vmi_uuid = it->first;
+        boost::uuids::uuid vm_uuid = it->second.vm_uuid_;
+        boost::uuids::uuid vn_uuid = it->second.vn_uuid_;
+        it++;
+
+        if (vmi_uuid_.is_nil() == false && vmi_uuid != vmi_uuid_) {
+            continue;
+        }
+
+        SandeshVmiToVmVnInfo info;
+        info.set_vmi_uuid(UuidToString(vmi_uuid));
+        info.set_vm_uuid(UuidToString(vm_uuid));
+        info.set_vn_uuid(UuidToString(vn_uuid));
+        port_list.push_back(info);
+    }
+    resp->set_port_list(port_list);
+
+    resp->set_context(context_);
+    resp->set_more(false);
+    resp->Response();
+    return true;
+}
+
+void FetchVmiToVmVnUuidReq::HandleRequest() const {
+    Agent *agent = Agent::GetInstance();
+    boost::uuids::uuid u = StringToUuid(get_vmi_uuid());
+    agent->task_scheduler()->Enqueue(new SandeshVmiToVmVnTask(agent, context(),
+                                                              u));
+}
+
+// vmvn_to_vmi_tree_ routes
+class SandeshVmVnToVmiTask : public SandeshPortSubscribeTask {
+public:
+    SandeshVmVnToVmiTask(Agent *agent, const std::string &context,
+                           const boost::uuids::uuid &vm_uuid,
+                           const boost::uuids::uuid &vn_uuid) :
+        SandeshPortSubscribeTask(agent, context),
+        vm_uuid_(vm_uuid), vn_uuid_(vn_uuid) {
+    }
+    virtual ~SandeshVmVnToVmiTask() { }
+
+    virtual bool Run();
+    std::string Description() const { return "SandeshVmVnToVmiTask"; }
+private:
+    boost::uuids::uuid vm_uuid_;
+    boost::uuids::uuid vn_uuid_;
+    DISALLOW_COPY_AND_ASSIGN(SandeshVmVnToVmiTask);
+};
+
+bool SandeshVmVnToVmiTask::Run() {
+    SandeshVmVnToVmiResp *resp = new SandeshVmVnToVmiResp();
+
+    PortSubscribeTable::VmVnToVmiTree::const_iterator it =
+        table_->vmvn_to_vmi_tree_.begin();
+    std::vector<SandeshVmVnToVmiInfo> port_list;
+    while (it != table_->vmvn_to_vmi_tree_.end()) {
+        boost::uuids::uuid vm_uuid = it->first.vm_uuid_;
+        boost::uuids::uuid vn_uuid = it->first.vn_uuid_;
+        boost::uuids::uuid vmi_uuid = it->second;
+        it++;
+
+        if (vm_uuid_.is_nil() == false && vm_uuid != vm_uuid_) {
+            continue;
+        }
+
+        if (vn_uuid_.is_nil() == false && vn_uuid != vn_uuid_) {
+            continue;
+        }
+
+        SandeshVmVnToVmiInfo info;
+        info.set_vmi_uuid(UuidToString(vmi_uuid));
+        info.set_vm_uuid(UuidToString(vm_uuid));
+        info.set_vn_uuid(UuidToString(vn_uuid));
+        port_list.push_back(info);
+    }
+    resp->set_port_list(port_list);
+
+    resp->set_context(context_);
+    resp->set_more(false);
+    resp->Response();
+    return true;
+}
+
+void FetchVmVnToVmiUuidReq::HandleRequest() const {
+    Agent *agent = Agent::GetInstance();
+    boost::uuids::uuid u1 = StringToUuid(get_vm_uuid());
+    boost::uuids::uuid u2 = StringToUuid(get_vn_uuid());
+    agent->task_scheduler()->Enqueue(new SandeshVmVnToVmiTask(agent, context(),
+                                                              u1, u2));
 }

@@ -235,6 +235,11 @@ private:
                              const boost::uuids::uuid &vn_uuid);
     void DeleteVmiIfnodeInfo(const boost::uuids::uuid &vmi_uuid);
 private:
+    friend class SandeshVmiPortSubscribeTask;
+    friend class SandeshVmVnPortSubscribeTask;
+    friend class SandeshVmiToVmVnTask;
+    friend class SandeshVmVnToVmiTask;
+
     Agent *agent_;
     InterfaceTable *interface_table_;
     VNController *controller_;
