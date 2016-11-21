@@ -400,6 +400,7 @@ void Agent::CopyConfig(AgentParam *params) {
     flow_del_tokens_ = params_->flow_del_tokens();
     flow_update_tokens_ = params_->flow_update_tokens();
     tbb_keepawake_timeout_ = params_->tbb_keepawake_timeout();
+    send_ratelimit_ = params_->sandesh_send_rate_limit();
 }
 
 DiscoveryAgentClient *Agent::discovery_client() const {
