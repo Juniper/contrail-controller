@@ -20,9 +20,12 @@
 
 class InterfaceTable;
 class Agent;
+class VmInterfaceConfigData;
 class VmiSubscribeEntry;
+class VmVnPortSubscribeEntry;
+class PortSubscribeEntry;
 class PortSubscribeTable;
-typedef boost::shared_ptr<VmiSubscribeEntry> VmiSubscribeEntryPtr;
+typedef boost::shared_ptr<PortSubscribeEntry> PortSubscribeEntryPtr;
 
 /****************************************************************************
  * The class is responsible to manage port subscribe/unsubscribe from IPC
@@ -104,6 +107,49 @@ private:
     DISALLOW_COPY_AND_ASSIGN(VmiSubscribeEntry);
 };
 
+/****************************************************************************
+ * In case of container orchestrators like k8s/mesos, we do not get VMI UUID
+ * in port-subscribe message. Instead, the interface is addressed by
+ * vm-uuid and vn. The VmVnPortSubscribeEntry class is used for these
+ * scenarios
+ ****************************************************************************/
+class VmVnPortSubscribeEntry : public PortSubscribeEntry {
+public:
+    VmVnPortSubscribeEntry(PortSubscribeEntry::Type type,
+                           const std::string &ifname, uint32_t version,
+                           const boost::uuids::uuid &vm_uuid,
+                           const std::string &vm_name,
+                           const std::string &vm_identifier,
+                           const std::string &vm_ifname,
+                           const std::string &vm_namespace);
+    ~VmVnPortSubscribeEntry();
+
+    virtual bool MatchVn(const boost::uuids::uuid &u) const;
+    virtual const boost::uuids::uuid &vn_uuid() const { return vn_uuid_; }
+    virtual bool MatchVm(const boost::uuids::uuid &u) const;
+    virtual const boost::uuids::uuid &vm_uuid() const { return vm_uuid_; }
+
+    virtual void Update(const PortSubscribeEntry *rhs);
+    void OnAdd(Agent *agent, PortSubscribeTable *table) const;
+    void OnDelete(Agent *agent, PortSubscribeTable *table) const;
+
+    const std::string &vm_name() const { return vm_name_; }
+    const std::string &vm_identifier() const { return vm_identifier_; }
+    const std::string &vm_ifname() const { return vm_ifname_; }
+    const std::string &vm_namespace() const { return vm_namespace_; }
+    void set_vmi_uuid(const boost::uuids::uuid &u) { vmi_uuid_ = u; }
+    const boost::uuids::uuid &vmi_uuid() const { return vmi_uuid_; }
+private:
+    boost::uuids::uuid vm_uuid_;
+    boost::uuids::uuid vn_uuid_;
+    std::string vm_name_;
+    std::string vm_identifier_;
+    std::string vm_ifname_;
+    std::string vm_namespace_;
+    boost::uuids::uuid vmi_uuid_;
+    DISALLOW_COPY_AND_ASSIGN(VmVnPortSubscribeEntry);
+};
+
 class PortSubscribeTable {
 public:
     PortSubscribeTable(Agent *agent);
@@ -122,8 +168,39 @@ public:
             return lhs < rhs;
         }
     };
-    typedef std::map<boost::uuids::uuid, VmiSubscribeEntryPtr, Cmp> VmiTree;
+    typedef std::map<boost::uuids::uuid, PortSubscribeEntryPtr, Cmp> VmiTree;
     typedef std::map<boost::uuids::uuid, IFMapNode *> UuidToIFNodeTree;
+
+    // trees used for managing vm-vn port subscriptions
+    // VmiToVmVnTree       : The tree from vmi-uuid to corresponding
+    //                       vm+vn uuid
+    // VmVnToVmiTree       : Reverse mapping for VmiToVmVnTree. Will be used
+    //                       to find VMI when port-subscription message
+    // Both the tree are built from VmInterfaceConfigData
+    struct VmVnUuidEntry {
+        boost::uuids::uuid vm_uuid_;
+        boost::uuids::uuid vn_uuid_;
+
+        VmVnUuidEntry(const boost::uuids::uuid &vm_uuid,
+                      const boost::uuids::uuid &vn_uuid) :
+            vm_uuid_(vm_uuid), vn_uuid_(vn_uuid) {
+        }
+        VmVnUuidEntry() : vm_uuid_(nil_uuid()), vn_uuid_(nil_uuid()) { }
+        virtual ~VmVnUuidEntry() { }
+        bool operator()(const VmVnUuidEntry &lhs,
+                        const VmVnUuidEntry &rhs) const {
+            if (lhs.vm_uuid_ != rhs.vm_uuid_) {
+                return lhs.vm_uuid_ < rhs.vm_uuid_;
+            }
+            return lhs.vn_uuid_ < rhs.vn_uuid_;
+        }
+    };
+
+    typedef std::map<boost::uuids::uuid, VmVnUuidEntry> VmiToVmVnTree;
+    typedef std::map<VmVnUuidEntry, boost::uuids::uuid, VmVnUuidEntry>
+        VmVnToVmiTree;
+    typedef std::map<VmVnUuidEntry, PortSubscribeEntryPtr, VmVnUuidEntry>
+        VmVnTree;
 
     void InitDone();
     void Shutdown();
@@ -132,10 +209,31 @@ public:
     void StaleWalk(uint64_t version);
     uint32_t Size() const { return vmi_tree_.size(); }
 
-    void Add(const boost::uuids::uuid &u, VmiSubscribeEntryPtr entry);
-    void Delete(const boost::uuids::uuid &u);
-    VmiSubscribeEntryPtr Get(const boost::uuids::uuid &u) const;
+    void AddVmi(const boost::uuids::uuid &u, PortSubscribeEntryPtr entry);
+    void DeleteVmi(const boost::uuids::uuid &u);
+    PortSubscribeEntryPtr GetVmi(const boost::uuids::uuid &u) const;
 
+    void AddVmVnPort(const boost::uuids::uuid &vm_uuid,
+                     PortSubscribeEntryPtr entry);
+    void DeleteVmVnPort(const boost::uuids::uuid &vm_uuid);
+    PortSubscribeEntryPtr GetVmVnPortNoLock(const boost::uuids::uuid &vm_uuid);
+    PortSubscribeEntryPtr GetVmVnPort(const boost::uuids::uuid &vm_uuid);
+
+    void HandleVmiIfnodeAdd(const boost::uuids::uuid &vmi_uuid,
+                            const VmInterfaceConfigData *data);
+    void HandleVmiIfnodeDelete(const boost::uuids::uuid &vmi_uuid);
+
+    PortSubscribeEntryPtr Get(const boost::uuids::uuid &vmi_uuid,
+                              const boost::uuids::uuid &vm_uuid) const;
+
+    boost::uuids::uuid VmVnToVmi(const boost::uuids::uuid &vm_uuid) const;
+    boost::uuids::uuid VmVnToVmiNoLock(const boost::uuids::uuid &vm_uuid) const;
+
+private:
+    void UpdateVmiIfnodeInfo(const boost::uuids::uuid &vmi_uuid,
+                             const boost::uuids::uuid &vm_uuid,
+                             const boost::uuids::uuid &vn_uuid);
+    void DeleteVmiIfnodeInfo(const boost::uuids::uuid &vmi_uuid);
 private:
     Agent *agent_;
     InterfaceTable *interface_table_;
@@ -145,6 +243,9 @@ private:
     IFMapAgentTable *vmi_config_table_;
     DBTableBase::ListenerId vmi_config_listener_id_;
     UuidToIFNodeTree uuid_ifnode_tree_;
+    VmiToVmVnTree vmi_to_vmvn_tree_;
+    VmVnToVmiTree vmvn_to_vmi_tree_;
+    VmVnTree vmvn_subscribe_tree_;
     DISALLOW_COPY_AND_ASSIGN(PortSubscribeTable);
 };
 

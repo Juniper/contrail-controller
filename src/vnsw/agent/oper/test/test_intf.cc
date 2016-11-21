@@ -1641,8 +1641,10 @@ TEST_F(IntfTest, IntfActivateDeactivate_5) {
     client->Reset();
     CreateVmportEnvWithoutIp(input, 1);
     client->WaitForIdle();
-    // VMI not created since IP not assigned
-    EXPECT_TRUE(VmPortGet(1) == NULL);
+    // VMI created without IP address
+    VmInterface *vmi = dynamic_cast<VmInterface *>(VmPortGet(1));
+    EXPECT_TRUE(vmi != NULL);
+    EXPECT_TRUE(vmi->primary_ip_addr() == Ip4Address());
 
     struct PortInfo input1[] = {
         {"vnet1", 1, "0.0.0.1", "00:00:00:01:01:01", 1, 1},

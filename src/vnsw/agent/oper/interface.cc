@@ -334,6 +334,12 @@ void InterfaceTable::GlobalVrouterConfigChanged() {
                                   this, _1));
 }
 
+InterfaceConstRef InterfaceTable::FindVmi(const boost::uuids::uuid &vmi_uuid) {
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, vmi_uuid, "");
+    Interface *intf = static_cast<Interface *>(Find(&key, false));
+    InterfaceConstRef ref(intf);
+    return ref;
+}
 /////////////////////////////////////////////////////////////////////////////
 // Interface Base Entry routines
 /////////////////////////////////////////////////////////////////////////////

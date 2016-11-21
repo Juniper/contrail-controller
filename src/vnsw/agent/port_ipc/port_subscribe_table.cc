@@ -49,7 +49,7 @@ const char *PortSubscribeEntry::TypeToString(Type type) {
 }
 
 /////////////////////////////////////////////////////////////////////////////
-// PortSubscribeEntry routines
+// VmiSubscribeEntry routines
 /////////////////////////////////////////////////////////////////////////////
 VmiSubscribeEntry::VmiSubscribeEntry(PortSubscribeEntry::Type type,
                                      const std::string &ifname,
@@ -130,6 +130,48 @@ bool VmiSubscribeEntry::MatchVm(const boost::uuids::uuid &u) const {
 }
 
 /////////////////////////////////////////////////////////////////////////////
+// VmVnPortSubscribeEntry routines
+/////////////////////////////////////////////////////////////////////////////
+VmVnPortSubscribeEntry::VmVnPortSubscribeEntry
+(PortSubscribeEntry::Type type, const std::string &ifname, uint32_t version,
+ const boost::uuids::uuid &vm_uuid, const std::string &vm_name,
+ const std::string &vm_identifier, const std::string &vm_ifname,
+ const std::string &vm_namespace) :
+    PortSubscribeEntry(type, ifname, version), vm_uuid_(vm_uuid),
+    vn_uuid_(), vm_name_(vm_name), vm_identifier_(vm_identifier),
+    vm_ifname_(vm_ifname), vm_namespace_(vm_namespace), vmi_uuid_() {
+}
+
+VmVnPortSubscribeEntry::~VmVnPortSubscribeEntry() {
+}
+
+void VmVnPortSubscribeEntry::Update(const PortSubscribeEntry *rhs) {
+    PortSubscribeEntry::Update(rhs);
+}
+
+void VmVnPortSubscribeEntry::OnAdd(Agent *agent, PortSubscribeTable *table)
+    const {
+    VmInterface::SetIfNameReq(agent->interface_table(), vmi_uuid_, ifname_);
+
+}
+
+void VmVnPortSubscribeEntry::OnDelete(Agent *agent, PortSubscribeTable *table)
+    const {
+    VmInterface::DeleteIfNameReq(agent->interface_table(), vmi_uuid_);
+}
+
+bool VmVnPortSubscribeEntry::MatchVn(const boost::uuids::uuid &u) const {
+    if (vn_uuid_ == nil_uuid())
+        return true;
+
+    return vn_uuid_ == u;
+}
+
+bool VmVnPortSubscribeEntry::MatchVm(const boost::uuids::uuid &u) const {
+    return vm_uuid_ == u;
+}
+
+/////////////////////////////////////////////////////////////////////////////
 // PortSubscribeTable routines
 /////////////////////////////////////////////////////////////////////////////
 PortSubscribeTable::PortSubscribeTable(Agent *agent) :
@@ -142,8 +184,8 @@ PortSubscribeTable::~PortSubscribeTable() {
     assert(vmi_tree_.size() == 0);
 }
 
-void PortSubscribeTable::Add(const boost::uuids::uuid &u,
-                             VmiSubscribeEntryPtr entry) {
+void PortSubscribeTable::AddVmi(const boost::uuids::uuid &u,
+                             PortSubscribeEntryPtr entry) {
     tbb::mutex::scoped_lock lock(mutex_);
     std::pair<VmiTree::iterator, bool> ret =
         vmi_tree_.insert(std::make_pair(u, entry));
@@ -154,7 +196,7 @@ void PortSubscribeTable::Add(const boost::uuids::uuid &u,
     ret.first->second->OnAdd(agent_, this);
 }
 
-void PortSubscribeTable::Delete(const boost::uuids::uuid &u) {
+void PortSubscribeTable::DeleteVmi(const boost::uuids::uuid &u) {
     tbb::mutex::scoped_lock lock(mutex_);
     VmiTree::iterator it = vmi_tree_.find(u);
     if (it == vmi_tree_.end())
@@ -164,14 +206,70 @@ void PortSubscribeTable::Delete(const boost::uuids::uuid &u) {
     vmi_tree_.erase(it);
 }
 
-VmiSubscribeEntryPtr PortSubscribeTable::Get(const boost::uuids::uuid &u)
+PortSubscribeEntryPtr PortSubscribeTable::GetVmi(const boost::uuids::uuid &u)
     const {
     tbb::mutex::scoped_lock lock(mutex_);
     VmiTree::const_iterator it = vmi_tree_.find(u);
     if (it == vmi_tree_.end())
-        return VmiSubscribeEntryPtr();
+        return PortSubscribeEntryPtr();
 
     return it->second;
+}
+
+/*
+ * Process add of vm-vn subscribe entry.
+ * Add an entry to vmvn_subscribe_tree_
+ * If VMI config was already received for port then
+ *   - find vmi-uuid from * vmvn_to_vmi_tree_
+ *   - ifmap config resync will be done once vmi is added
+ */
+void PortSubscribeTable::AddVmVnPort(const boost::uuids::uuid &vm_uuid,
+                                     PortSubscribeEntryPtr entry) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    std::pair<VmVnTree::iterator, bool> ret = vmvn_subscribe_tree_.insert
+        (make_pair(VmVnUuidEntry(vm_uuid, nil_uuid()),entry));
+    if (ret.second == false) {
+        ret.first->second->Update(entry.get());
+    }
+
+    // Find VMI for the vm-vn
+    boost::uuids::uuid vmi_uuid = VmVnToVmiNoLock(vm_uuid);
+    if (vmi_uuid.is_nil())
+        return;
+
+    // If entry is found, it means IFNode for VMI already present
+    // Enqueue vm-add request
+    VmVnPortSubscribeEntry *vmvn_entry =
+        static_cast<VmVnPortSubscribeEntry *>(entry.get());
+    vmvn_entry->set_vmi_uuid(vmi_uuid);
+    vmvn_entry->OnAdd(agent_, this);
+}
+
+void PortSubscribeTable::DeleteVmVnPort(const boost::uuids::uuid &vm_uuid) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    VmVnTree::iterator it =
+        vmvn_subscribe_tree_.find(VmVnUuidEntry(vm_uuid, nil_uuid()));
+    if (it == vmvn_subscribe_tree_.end())
+        return;
+
+    it->second->OnDelete(agent_, this);
+    vmvn_subscribe_tree_.erase(it);
+}
+
+PortSubscribeEntryPtr PortSubscribeTable::GetVmVnPortNoLock
+(const boost::uuids::uuid &vm_uuid) {
+    VmVnTree::iterator it =
+        vmvn_subscribe_tree_.find(VmVnUuidEntry(vm_uuid, nil_uuid()));
+    if (it == vmvn_subscribe_tree_.end())
+        return PortSubscribeEntryPtr();
+
+    return it->second;
+}
+
+PortSubscribeEntryPtr PortSubscribeTable::GetVmVnPort
+(const boost::uuids::uuid &vm_uuid) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    return GetVmVnPortNoLock(vm_uuid);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -230,14 +328,117 @@ IFMapNode *PortSubscribeTable::UuidToIFNode(const uuid &u) const {
     return it->second;
 }
 
+/*
+ * Update config tables built from VMI IFnode
+ * - Adds entry into vmi_to_vmvn_tree_
+ * - Adds entry to vmvn_to_vmi_tree_
+ */
+void PortSubscribeTable::UpdateVmiIfnodeInfo(const boost::uuids::uuid &vmi_uuid,
+                                             const boost::uuids::uuid &vm_uuid,
+                                             const boost::uuids::uuid &vn_uuid){
+    // Find entry from vmi to vm-vn tree first
+    VmiToVmVnTree::iterator it;
+    it = vmi_to_vmvn_tree_.find(vmi_uuid);
+
+    if (it != vmi_to_vmvn_tree_.end()) {
+        // Nothing to do if entry already present and vm/vn match
+        if (it->second.vm_uuid_ == vm_uuid &&
+            it->second.vn_uuid_ == vn_uuid) {
+            return;
+        }
+
+        // If an entry already present and VM/VN are different, remove the
+        // reverse entry first and then update with new entry
+        vmvn_to_vmi_tree_.erase(it->second);
+        it->second.vm_uuid_ = vm_uuid;
+        it->second.vn_uuid_ = vn_uuid;
+        VmVnUuidEntry entry(vm_uuid, vn_uuid);
+        vmvn_to_vmi_tree_.insert(std::make_pair(entry, vmi_uuid));
+    } else {
+        // Entry not present add to vmi_to_vmvn_tree_ and vmvn_to_vmi_tree_
+        VmVnUuidEntry entry(vm_uuid, vn_uuid);
+        vmi_to_vmvn_tree_.insert(std::make_pair(vmi_uuid, entry));
+        vmvn_to_vmi_tree_.insert(std::make_pair(entry, vmi_uuid));
+    }
+
+}
+
+/*
+ * VMI IFNode config added. Build vmi_to_vmvn_tree_ and vmvn_to_vmi_tree from
+ * interface configuration. It will be used for vm-vn based subscriptions
+ *
+ * If the vm-vn port subscription is already received, the message would have
+ * been ignored since vmi-uuid was not known. Process the vm-vn port
+ * subscription now
+ */
+void PortSubscribeTable::HandleVmiIfnodeAdd(const boost::uuids::uuid &vmi_uuid,
+                                            const VmInterfaceConfigData *data) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    UpdateVmiIfnodeInfo(vmi_uuid, data->vm_uuid_, data->vn_uuid_);
+    // Add vm-interface if possible
+    PortSubscribeEntryPtr entry_ref = GetVmVnPortNoLock(data->vm_uuid_);
+    if (entry_ref.get() == NULL)
+        return;
+
+    VmVnPortSubscribeEntry *entry =
+        dynamic_cast<VmVnPortSubscribeEntry *>(entry_ref.get());
+    // Nothing to do if vmi-uuid doesnt change
+    if (entry->vmi_uuid() == vmi_uuid) {
+        return;
+    }
+
+    // vmi-uuid for vmvn-port entry changed. Delete old VMI and add new VMI
+    if (entry->vmi_uuid().is_nil() == false) {
+        entry->OnDelete(agent_, this);
+    }
+    entry->set_vmi_uuid(vmi_uuid);
+    if (entry->vmi_uuid().is_nil() == false) {
+        entry->OnAdd(agent_, this);
+    }
+}
+
+/*
+ * Update config tables built from VMI IFnode
+ * - Deletes entry from vmi_to_vmvn_tree_
+ * - Deletes entry from vmvn_to_vmi_tree_
+ */
+void PortSubscribeTable::DeleteVmiIfnodeInfo
+(const boost::uuids::uuid &vmi_uuid) {
+    VmiToVmVnTree::iterator it;
+    it = vmi_to_vmvn_tree_.find(vmi_uuid);
+    if (it == vmi_to_vmvn_tree_.end()) {
+        return;
+    }
+
+    // If an entry already present in vm-vn entry, delete entries from
+    // vmi_to_vmvn_tree_ and vmvn_to_vmi_tree_
+    vmvn_to_vmi_tree_.erase(it->second);
+    vmi_to_vmvn_tree_.erase(it);
+}
+
+/*
+ * VMI IFNode config deleted. Remove entries from vmi_to_vmvn_tree_ and
+ * vmvn_to_vmi_tree from interface configuration.
+ *
+ * VMI deletion happens only on deletion of vm-vn port subscription. So, dont
+ * enqueue any VMI delete from here
+ */
+void PortSubscribeTable::HandleVmiIfnodeDelete
+(const boost::uuids::uuid &vmi_uuid) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    DeleteVmiIfnodeInfo(vmi_uuid);
+}
+
 void PortSubscribeTable::StaleWalk(uint64_t version) {
+    // TODO : The tree can be modified in parallel. Must ensure synchronization
     PortIpcHandler *pih = agent_->port_ipc_handler();
     if (!pih) {
         return;
     }
     VmiTree::iterator it = vmi_tree_.begin();
     while (it != vmi_tree_.end()) {
-        VmiSubscribeEntry *entry = it->second.get();
+        VmiSubscribeEntry *entry =
+            dynamic_cast<VmiSubscribeEntry *>(it->second.get());
         it++;
         if (entry->type() == PortSubscribeEntry::NAMESPACE)
             continue;
@@ -249,6 +450,60 @@ void PortSubscribeTable::StaleWalk(uint64_t version) {
         std::string msg;
         pih->DeleteVmiUuidEntry(entry->vmi_uuid(), msg);
     }
+
+    // Audit vm-vn port subscription entries
+    VmVnTree::iterator vmvn_it = vmvn_subscribe_tree_.begin();
+    while (vmvn_it != vmvn_subscribe_tree_.end()) {
+        VmVnPortSubscribeEntry *entry =
+            dynamic_cast<VmVnPortSubscribeEntry *>(vmvn_it->second.get());
+        vmvn_it++;
+        if (entry->type() == PortSubscribeEntry::NAMESPACE)
+            continue;
+
+        if (entry->version() >= version) {
+            continue;
+        }
+
+        std::string msg;
+        pih->DeleteVmVnPort(entry->vm_uuid(), msg);
+    }
+}
+
+// Get port-subscribe-entry for a VMI
+// First looks at VMI subscription table. If not found, looks into
+// vmvn-port-subscribe table
+PortSubscribeEntryPtr PortSubscribeTable::Get
+(const boost::uuids::uuid &vmi_uuid, const boost::uuids::uuid &vm_uuid) const {
+    tbb::mutex::scoped_lock lock(mutex_);
+    VmiTree::const_iterator it = vmi_tree_.find(vmi_uuid);
+    if (it != vmi_tree_.end())
+        return it->second;
+
+    VmVnTree::const_iterator it1 =
+        vmvn_subscribe_tree_.find(VmVnUuidEntry(vm_uuid, nil_uuid()));
+    if (it1 != vmvn_subscribe_tree_.end())
+        return it1->second;
+
+    return PortSubscribeEntryPtr();
+}
+
+boost::uuids::uuid PortSubscribeTable::VmVnToVmiNoLock
+(const boost::uuids::uuid &vm_uuid) const {
+    VmVnToVmiTree::const_iterator it =
+        vmvn_to_vmi_tree_.lower_bound(VmVnUuidEntry(vm_uuid, nil_uuid()));
+    if (it == vmvn_to_vmi_tree_.end())
+        return nil_uuid();
+
+    if (it->first.vm_uuid_ != vm_uuid)
+        return nil_uuid();
+
+    return it->second;
+}
+
+boost::uuids::uuid PortSubscribeTable::VmVnToVmi
+(const boost::uuids::uuid &vm_uuid) const {
+    tbb::mutex::scoped_lock lock(mutex_);
+    return VmVnToVmiNoLock(vm_uuid);
 }
 
 /////////////////////////////////////////////////////////////////////////////

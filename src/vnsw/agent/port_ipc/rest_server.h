@@ -54,6 +54,11 @@ class RESTServer {
     void GatewayPostHandler(const struct RESTData& data);
     void GatewayDeleteHandler(const struct RESTData& data);
 
+    // Handler for VM+VN based messages
+    void VmVnPortPostHandler(const struct RESTData&);
+    void VmVnPortGetHandler(const struct RESTData&);
+    void VmVnPortDeleteHandler(const struct RESTData&);
+
  private:
     Agent *agent_;
     HttpServer *http_server_;

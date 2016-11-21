@@ -103,13 +103,23 @@ TEST_F(PortIpcTest, Port_Add_Invalid_Ip) {
 
     const string dir = "/tmp/";
 
-    bool ret = AddPort("ea73b285-01a7-4d3e-8322-50976e8913da",
-                       "ea73b285-01a7-4d3e-8322-50976e8913db",
-                       "fa73b285-01a7-4d3e-8322-50976e8913de",
-                       "b02a3bfb-7946-4b1c-8cc4-bf8cedcbc48d", "vm1",
-                       "tap1af4bee3-04", "fd11::3", "", "02:1a:f4:be:e3:04",
-                       VmiSubscribeEntry::VMPORT, -1, -1);
-    EXPECT_FALSE(ret);
+    string vmi_uuid = "ea73b285-01a7-4d3e-8322-50976e8913da";
+    AddPort(vmi_uuid.c_str(),
+            "ea73b285-01a7-4d3e-8322-50976e8913db",
+            "fa73b285-01a7-4d3e-8322-50976e8913de",
+            "b02a3bfb-7946-4b1c-8cc4-bf8cedcbc48d", "vm1",
+            "tap1af4bee3-04", "fd11::3", "", "02:1a:f4:be:e3:04",
+            VmiSubscribeEntry::VMPORT, -1, -1);
+    client->WaitForIdle();
+
+    InterfaceConstRef vmi_ref =
+        agent_->interface_table()->FindVmi(StringToUuid(vmi_uuid));
+    const VmInterface *vmi = dynamic_cast<const VmInterface *>(vmi_ref.get());
+    EXPECT_TRUE(vmi->primary_ip_addr() == Ip4Address(0));
+
+    std::string err_str;
+    pih_->DeleteVmiUuidEntry(StringToUuid(vmi_uuid), err_str);
+    client->WaitForIdle();
 }
 
 /* Reads files in a directory and adds port info into agent */
@@ -119,7 +129,7 @@ TEST_F(PortIpcTest, PortReload) {
     uint32_t port_count = PortSubscribeSize(agent_);
 
     //There are 2 files present in controller/src/vnsw/agent/port_ipc/test/
-    pih_->ReloadAllPorts(dir, false);
+    pih_->ReloadAllPorts(dir, false, false);
     client->WaitForIdle(2);
 
     // Port count should increase by 2 as we have 2 ports

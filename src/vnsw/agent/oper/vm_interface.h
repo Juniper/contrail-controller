@@ -708,6 +708,11 @@ public:
     static void Delete(InterfaceTable *table,
                        const boost::uuids::uuid &intf_uuid,
                        VmInterface::Configurer configurer);
+    static void SetIfNameReq(InterfaceTable *table,
+                             const boost::uuids::uuid &uuid,
+                             const std::string &ifname);
+    static void DeleteIfNameReq(InterfaceTable *table,
+                                const boost::uuids::uuid &uuid);
 
     void AllocL2MplsLabel(bool force_update, bool policy_change);
     void DeleteL2MplsLabel();
@@ -1240,4 +1245,18 @@ struct VmInterfaceNewFlowDropData : public VmInterfaceData {
     bool drop_new_flows_;
 };
 
+// Data used when interface added with only ifname in data
+struct VmInterfaceIfNameData : public VmInterfaceData {
+    VmInterfaceIfNameData();
+    VmInterfaceIfNameData(const std::string &ifname);
+    virtual ~VmInterfaceIfNameData();
+
+    virtual VmInterface *OnAdd(const InterfaceTable *table,
+                               const VmInterfaceKey *key) const;
+    virtual bool OnDelete(const InterfaceTable *table, VmInterface *vmi) const;
+    virtual bool OnResync(const InterfaceTable *table, VmInterface *vmi,
+                          bool *force_update) const;
+
+    std::string ifname_;
+};
 #endif // vnsw_agent_vm_interface_hpp

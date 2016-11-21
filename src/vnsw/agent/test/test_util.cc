@@ -548,7 +548,7 @@ bool PortSubscribe(const std::string &ifname,
                             ip4_addr, ip6_addr, mac_addr,
                             VmInterface::kInvalidVlanId,
                             VmInterface::kInvalidVlanId);
-    PortSubscribe(&entry);
+    return PortSubscribe(&entry);
 }
 
 void PortUnSubscribe(const boost::uuids::uuid &u) {
