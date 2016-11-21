@@ -78,8 +78,10 @@ def fill_keystone_opts(obj, conf_sections):
 
     obj._kscertbundle=''
     obj._use_certs=False
-    if obj._certfile and obj._keyfile and obj._cafile:
-       certs=[obj._certfile,obj._keyfile,obj._cafile]
+    if obj._certfile:
+        certs = [obj._certfile]
+        if obj._keyfile and obj._cafile:
+            certs=[obj._certfile,obj._keyfile,obj._cafile]
        obj._kscertbundle=cfgmutils.getCertKeyCaBundle(_DEFAULT_KS_CERT_BUNDLE,certs)
        obj._use_certs=True
 
