@@ -100,8 +100,7 @@ bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
     uint32_t active_flows = 0;
     agent_->pkt()->get_flow_proto()->InterfaceFlowCount(vm_intf, &created,
                                                         &aged, &active_flows);
-    bool built = agent_uve->stats_manager()->BuildFlowRate(created, aged,
-                                                           s->added, s->deleted,
+    bool built = agent_uve->stats_manager()->BuildFlowRate(s->added, s->deleted,
                                                            s->flow_info,
                                                            flow_rate);
     if (built) {
