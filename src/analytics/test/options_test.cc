@@ -88,6 +88,10 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 0);
     EXPECT_EQ(options_.disable_flow_collection(), false);
+    EXPECT_EQ(options_.disable_db_messages_writes(), false);
+    EXPECT_EQ(options_.enable_db_messages_keyword_writes(), false);
+    EXPECT_EQ(options_.disable_db_stats_writes(), false);
+    EXPECT_EQ(options_.disable_all_db_writes(), false);
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
 }
@@ -133,6 +137,10 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 100);
     EXPECT_EQ(options_.disable_flow_collection(), false);
+    EXPECT_EQ(options_.disable_db_messages_writes(), false);
+    EXPECT_EQ(options_.enable_db_messages_keyword_writes(), false);
+    EXPECT_EQ(options_.disable_db_stats_writes(), false);
+    EXPECT_EQ(options_.disable_all_db_writes(), false);
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
 }
@@ -193,10 +201,14 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     char argv_1[] = "--conf_file=controller/src/analytics/contrail-collector.conf";
     char argv_2[] = "--DEFAULT.test_mode";
     char argv_3[] = "--DEFAULT.disable_flow_collection";
+    char argv_4[] = "--DATABASE.disable_all_db_writes";
+    char argv_5[] = "--DATABASE.enable_db_messages_keyword_writes";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
     argv[3] = argv_3;
+    argv[4] = argv_4;
+    argv[5] = argv_5;
 
     options_.Parse(evm_, argc, argv);
     vector<string> passed_conf_files;
@@ -230,6 +242,8 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), true); // Overridden from command line.
     EXPECT_EQ(options_.disable_flow_collection(), true); // Overridden from command line.
+    EXPECT_EQ(options_.disable_all_db_writes(), true); // Overridden from command line.
+    EXPECT_EQ(options_.enable_db_messages_keyword_writes(), true); // Overriden from command line.
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
 }
