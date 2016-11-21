@@ -11,8 +11,8 @@ import errno
 import os
 import sys
 import json
-import common.logger as Logger
-import params.params as Params
+import kube_cni.common.logger as Logger
+import kube_cni.params.params as Params
 
 # Namespace management class for CNI
 from nsenter import Namespace
