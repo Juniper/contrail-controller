@@ -132,6 +132,7 @@ void Agent::SetAgentTaskPolicy() {
         kTaskFlowKSync,
         kTaskFlowUpdate,
         kTaskFlowAudit,
+        kTaskFlowStatsUpdate,
         "Agent::Services",
         "Agent::StatsCollector",
         kTaskFlowStatsCollector,
@@ -309,6 +310,11 @@ void Agent::SetAgentTaskPolicy() {
     SetTaskPolicyOne(kTaskDBExclude, db_exclude_task_exclude_list,
                      sizeof(db_exclude_task_exclude_list) / sizeof(char *));
 
+    const char *flow_stats_update_exclude_list[] = {
+        "Agent::Uve"
+    };
+    SetTaskPolicyOne(kTaskFlowStatsUpdate, flow_stats_update_exclude_list,
+                     sizeof(flow_stats_update_exclude_list) / sizeof(char *));
 }
 
 void Agent::CreateLifetimeManager() {

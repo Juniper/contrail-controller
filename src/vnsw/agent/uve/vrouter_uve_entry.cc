@@ -25,8 +25,7 @@ using namespace std;
 
 VrouterUveEntry::VrouterUveEntry(Agent *agent)
     : VrouterUveEntryBase(agent), bandwidth_count_(0), port_bitmap_(),
-      prev_flow_setup_rate_export_time_(0), prev_flow_created_(0),
-      prev_flow_aged_(0) {
+      flow_info_() {
     start_time_ = UTCTimestampUsec();
 }
 
@@ -35,8 +34,6 @@ VrouterUveEntry::~VrouterUveEntry() {
 
 bool VrouterUveEntry::SendVrouterMsg() {
     static bool first = true;
-    uint64_t max_add_rate = 0, min_add_rate = 0;
-    uint64_t max_del_rate = 0, min_del_rate = 0;
     bool change = false;
     VrouterStatsAgent stats;
 
@@ -232,43 +229,15 @@ bool VrouterUveEntry::SendVrouterMsg() {
     if (first) {
         stats.set_uptime(start_time_);
     }
-    uint64_t cur_time = UTCTimestampUsec();
-    if (prev_flow_setup_rate_export_time_) {
-        uint64_t diff_time = cur_time - prev_flow_setup_rate_export_time_;
-        uint64_t created_flows = agent_->stats()->flow_created() -
-            prev_flow_created_;
-        uint64_t aged_flows = agent_->stats()->flow_aged() - prev_flow_aged_;
-        uint64_t diff_secs = diff_time / 1000000;
-        if (diff_secs) {
-            //Flow setup/delete rate are always sent
-            if (created_flows) {
-                max_add_rate = agent_->stats()->max_flow_adds_per_second();
-                min_add_rate = agent_->stats()->min_flow_adds_per_second();
-            }
-            if (aged_flows) {
-                max_del_rate = agent_->stats()->max_flow_deletes_per_second();
-                min_del_rate = agent_->stats()->min_flow_deletes_per_second();
-            }
-
-            VrouterFlowRate flow_rate;
-            flow_rate.set_added_flows(created_flows);
-            flow_rate.set_max_flow_adds_per_second(max_add_rate);
-            flow_rate.set_min_flow_adds_per_second(min_add_rate);
-            flow_rate.set_deleted_flows(aged_flows);
-            flow_rate.set_max_flow_deletes_per_second(max_del_rate);
-            flow_rate.set_min_flow_deletes_per_second(min_del_rate);
-            flow_rate.set_active_flows(agent_->pkt()->get_flow_proto()->
-                                       FlowCount());
-            stats.set_flow_rate(flow_rate);
-            change = true;
-            agent_->stats()->ResetFlowAddMinMaxStats(cur_time);
-            agent_->stats()->ResetFlowDelMinMaxStats(cur_time);
-            prev_flow_setup_rate_export_time_ = cur_time;
-            prev_flow_created_ = agent_->stats()->flow_created();
-            prev_flow_aged_ = agent_->stats()->flow_aged();
-        }
-    } else {
-        prev_flow_setup_rate_export_time_ = cur_time;
+    AgentStats::FlowCounters &added =  agent_->stats()->added();
+    AgentStats::FlowCounters &deleted =  agent_->stats()->deleted();
+    uint32_t active_flows = agent_->pkt()->get_flow_proto()->FlowCount();
+    VrouterFlowRate flow_rate;
+    bool built = uve->stats_manager()->BuildFlowRate(added, deleted, flow_info_,
+                                                     flow_rate);
+    if (built) {
+        flow_rate.set_active_flows(active_flows);
+        stats.set_flow_rate(flow_rate);
     }
 
     AgentIFMapStats ifmap_stats;
@@ -388,6 +357,7 @@ bool VrouterUveEntry::BuildPhysicalInterfaceList(vector<AgentIfStats> &list)
     PhysicalInterfaceSet::const_iterator it = phy_intf_set_.begin();
     while (it != phy_intf_set_.end()) {
         const Interface *intf = *it;
+        ++it;
         AgentUveStats *uve = static_cast<AgentUveStats *>(agent_->uve());
         StatsManager::InterfaceStats *s =
               uve->stats_manager()->GetInterfaceStats(intf);
@@ -404,7 +374,6 @@ bool VrouterUveEntry::BuildPhysicalInterfaceList(vector<AgentIfStats> &list)
         phy_stat_entry.set_duplexity(s->duplexity);
         list.push_back(phy_stat_entry);
         changed = true;
-        ++it;
     }
     return changed;
 }
@@ -462,6 +431,7 @@ void VrouterUveEntry::InitPrevStats() const {
     PhysicalInterfaceSet::const_iterator it = phy_intf_set_.begin();
     while (it != phy_intf_set_.end()) {
         const Interface *intf = *it;
+        ++it;
         AgentUveStats *uve = static_cast<AgentUveStats *>(agent_->uve());
         StatsManager::InterfaceStats *s =
               uve->stats_manager()->GetInterfaceStats(intf);
@@ -474,7 +444,6 @@ void VrouterUveEntry::InitPrevStats() const {
         s->prev_out_bytes = s->out_bytes;
         s->prev_5min_out_bytes = s->out_bytes;
         s->prev_10min_out_bytes = s->out_bytes;
-        ++it;
     }
 }
 
