@@ -193,15 +193,12 @@ bool VrouterUveEntry::SendVrouterMsg() {
     if (first) {
         stats.set_uptime(start_time_);
     }
-    uint64_t flow_created = agent_->stats()->flow_created();
-    uint64_t flow_aged = agent_->stats()->flow_aged();
     AgentStats::FlowCounters &added =  agent_->stats()->added();
     AgentStats::FlowCounters &deleted =  agent_->stats()->deleted();
     uint32_t active_flows = agent_->pkt()->get_flow_proto()->FlowCount();
 
     VrouterFlowRate flow_rate;
-    bool built = uve->stats_manager()->BuildFlowRate(flow_created, flow_aged,
-                                                     added, deleted, flow_info_,
+    bool built = uve->stats_manager()->BuildFlowRate(added, deleted, flow_info_,
                                                      flow_rate);
     if (built) {
         flow_rate.set_active_flows(active_flows);
@@ -352,8 +349,7 @@ bool VrouterUveEntry::BuildPhysicalInterfaceFlowRate
         agent_->pkt()->get_flow_proto()->InterfaceFlowCount(intf, &created,
                                                             &aged,
                                                             &active_flows);
-        bool built = uve->stats_manager()->BuildFlowRate(created, aged,
-                                                         s->added, s->deleted,
+        bool built = uve->stats_manager()->BuildFlowRate(s->added, s->deleted,
                                                          s->flow_info,
                                                          flow_rate);
         if (built) {
