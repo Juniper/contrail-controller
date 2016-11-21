@@ -260,6 +260,8 @@ private:
     uint16_t AddIP(uint16_t opt_len, const std::string &input);
     uint16_t AddDomainNameOption(uint16_t opt_len);
     uint16_t FillDhcpv6Hdr();
+    Ip6Address GetNextV6Address(uint8_t addr[]);
+    void IncrementByteInAddress(boost::array<uint8_t,16> &bytes, uint8_t index);
     void WriteIaOption(const Dhcpv6Ia &ia, uint16_t &optlen);
     uint16_t FillDhcpResponse(const MacAddress &dest_mac,
                               Ip6Address src_ip, Ip6Address dest_ip);
