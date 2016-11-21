@@ -225,17 +225,12 @@ class VncApi(object):
             apicafile=_read_cfg(cfg_parser,'global','cafile','')
 
             self._use_api_certs=False
-            if api_server_use_ssl:
-                certs = []
-                if apicafile:
-                    certs.append(apicafile)
-                if apicertfile:
-                    certs.append(apicertfile)
-                if apikeyfile:
-                    certs.append(apikeyfile)
-                if certs:
-                    self._apicertbundle=utils.getCertKeyCaBundle(VncApi._DEFAULT_API_CERT_BUNDLE,certs)
-                    self._use_api_certs=True
+            if apicafile and api_server_use_ssl:
+                certs=[apicafile]
+                if apikeyfile and apicertfile:
+                    certs=[apicertfile, apikeyfile, apicafile]
+                self._apicertbundle=utils.getCertKeyCaBundle(VncApi._DEFAULT_API_CERT_BUNDLE,certs)
+                self._use_api_certs=True
 
             # keystone SSL support
             try:
@@ -249,17 +244,12 @@ class VncApi(object):
             kscafile=_read_cfg(cfg_parser,'auth','cafile','')
 
             self._use_ks_certs=False
-            if self._authn_protocol == 'https':
-                certs = []
-                if kscafile:
-                    certs.append(kscafile)
-                if kscertfile:
-                    certs.append(kscertfile)
-                if kskeyfile:
-                    certs.append(kskeyfile)
-                if certs:
-                   self._kscertbundle=utils.getCertKeyCaBundle(VncApi._DEFAULT_KS_CERT_BUNDLE,certs)
-                   self._use_ks_certs=True
+            if kscafile and self._authn_protocol == 'https':
+                certs=[kscafile]
+                if kskeyfile and kscertfile:
+                    certs=[kscertfile, kskeyfile, kscafile]
+                self._kscertbundle=utils.getCertKeyCaBundle(VncApi._DEFAULT_KS_CERT_BUNDLE,certs)
+                self._use_ks_certs=True
 
             if 'v2' in self._authn_url:
                 self._authn_body = \
