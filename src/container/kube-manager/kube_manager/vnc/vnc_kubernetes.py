@@ -97,13 +97,19 @@ class VncKubernetes(object):
         ProjectKM.locate(proj_obj.uuid)
         return proj_obj
 
-    def _create_ipam(self, ipam_name, subnets, proj_obj):
+    def _create_ipam(self, ipam_name, subnets, proj_obj,
+            type='user-defined-subnet'):
         ipam_subnets = []
         for subnet in subnets:
             pfx, pfx_len = subnet.split('/')
             ipam_subnet = IpamSubnetType(subnet=SubnetType(pfx, int(pfx_len)))
             ipam_subnets.append(ipam_subnet)
         ipam_obj = NetworkIpam(name=ipam_name, parent_obj=proj_obj)
+
+        if type == 'flat-subnet':
+            ipam_obj.set_ipam_subnet_method('flat-subnet')
+            ipam_obj.set_ipam_subnets(IpamSubnets(ipam_subnets))
+
         try:
             self.vnc_lib.network_ipam_create(ipam_obj)
         except RefsExistError:
@@ -112,15 +118,19 @@ class VncKubernetes(object):
         return ipam_obj, ipam_subnets
 
     def _create_cluster_network(self, vn_name, proj_obj):
-        vn_obj = VirtualNetwork(name=vn_name, parent_obj=proj_obj)
+        vn_obj = VirtualNetwork(name=vn_name, parent_obj=proj_obj,
+            address_allocation_mode='user-defined-subnet-only')
+
         ipam_obj, ipam_subnets= self._create_ipam('pod-ipam',
             self.args.pod_subnets, proj_obj)
         vn_obj.add_network_ipam(ipam_obj, VnSubnetsType(ipam_subnets))
-        ipam_obj, ipam_subnets = self._create_ipam('service-ipam',
-            self.args.service_subnets, proj_obj)
-        vn_obj.add_network_ipam(ipam_obj, VnSubnetsType(ipam_subnets))
 
-        #vn_obj.set_virtual_network_properties(VirtualNetworkType(forwarding_mode='l3'))
+        ipam_obj, ipam_subnets = self._create_ipam('service-ipam',
+            self.args.service_subnets, proj_obj, type='flat-subnet')
+        vn_obj.add_network_ipam(ipam_obj, VnSubnetsType([]))
+
+        vn_obj.set_virtual_network_properties(
+             VirtualNetworkType(forwarding_mode='l3'))
         try:
             self.vnc_lib.virtual_network_create(vn_obj)
         except RefsExistError:
