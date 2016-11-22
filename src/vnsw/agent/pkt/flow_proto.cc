@@ -250,6 +250,10 @@ size_t FlowProto::FlowUpdateQueueLength() {
     return flow_update_queue_.Length();
 }
 
+void FlowProto::DisableFlowDeleteQueue(uint32_t index, bool disabled) {
+    flow_delete_queue_[index]->set_disable(disabled);
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // FlowTable related routines
 /////////////////////////////////////////////////////////////////////////////

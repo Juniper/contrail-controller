@@ -13,6 +13,7 @@
 #include "pkt/test/test_flow_util.h"
 #include "ksync/ksync_sock_user.h"
 #include <vrouter/flow_stats/flow_stats_types.h>
+#include "uve/test/test_uve_util.h"
 
 struct PortInfo input[] = {
         {"flow0", 6, "1.1.1.1", "00:00:00:01:01:01", 5, 1},
@@ -32,7 +33,7 @@ void RouterIdDepInit(Agent *agent) {
 class FlowStatsTest : public ::testing::Test {
 public:
     FlowStatsTest() : response_count_(0), type_specific_response_count_(0), 
-    num_entries_(0), agent_(Agent::GetInstance()) {
+    num_entries_(0), agent_(Agent::GetInstance()), util_() {
         flow_proto_ = agent_->pkt()->get_flow_proto();
     }
     void FlowParamsResponse(Sandesh *sandesh) {
@@ -113,6 +114,7 @@ public:
     uint32_t num_entries_;
     Agent *agent_;
     FlowProto *flow_proto_;
+    TestUveUtil util_;
 };
 
 TEST_F(FlowStatsTest, SandeshFlowParams) {
@@ -204,11 +206,81 @@ TEST_F(FlowStatsTest, FlowTreeSize) {
     FlowTeardown();
 }
 
+//Verify that after Flow Add request is processed by FlowStats Module, the flow
+//is present in both the trees of FlowStats Module
+TEST_F(FlowStatsTest, FlowAddVerify) {
+    FlowStatsCollectorObject *fsc_obj = agent_->flow_stats_manager()->
+        default_flow_stats_collector_obj();
+    int tmp_age_time = 10 * 1000;
+    int bkp_age_time = fsc_obj->GetFlowAgeTime();
+    //Set the flow age time to 100 microsecond
+    fsc_obj->SetFlowAgeTime(tmp_age_time);
+    FlowSetup();
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(Address::INET, "1.1.1.1", "1.1.1.2", 1, 0, 0, "vrf5",
+                        flow0->id()),
+            {
+            }
+        }
+    };
+
+    //Create short flow by having unknown destination IP
+    CreateFlow(flow, 1);
+    client->WaitForIdle();
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
+
+    FlowEntry *fe = flow[0].pkt_.FlowFetch();
+    FlowEntry *rfe = fe->reverse_flow_entry();
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(rfe != NULL);
+    FlowStatsCollector *col = fe->fsc();
+    EXPECT_TRUE(col != NULL);
+
+    //Verify that flows are present in flow_tree_ of FlowStatsCollector
+    FlowExportInfo *info = col->FindFlowExportInfo(fe);
+    FlowExportInfo *rinfo = col->FindFlowExportInfo(rfe);
+    EXPECT_TRUE(info != NULL);
+    EXPECT_TRUE(rinfo != NULL);
+    EXPECT_EQ(2U, col->Size());
+
+    //Verify that sizes of both flow_tree_ and flow_export_info_list_ are same
+    WAIT_FOR(5000, 1000, (col->Size() == col->AgeTreeSize()));
+
+    //Disable flow delete queue
+    flow_proto_->DisableFlowDeleteQueue(0, true);
+
+    usleep(tmp_age_time + 10);
+
+    //Enqueue Flow Aging request
+    util_.EnqueueFlowStatsCollectorTask();
+
+    WAIT_FOR(5000, 1000, (col->AgeTreeSize() == (col->Size() - 2)));
+
+    //Send requests to create flow again
+    CreateFlow(flow, 1);
+
+    //Verify that sizes of both flow_tree_ and flow_export_info_list_ are same
+    WAIT_FOR(5000, 1000, (col->Size() == col->AgeTreeSize()));
+
+    //cleanup
+    flow_proto_->DisableFlowDeleteQueue(0, false);
+
+    fsc_obj->SetFlowAgeTime(bkp_age_time);
+    DeleteFlow(flow, 1);
+    client->WaitForIdle();
+    EXPECT_EQ(0U, flow_proto_->FlowCount());
+    WAIT_FOR(1000, 1000, (col->Size() == 0));
+    FlowTeardown();
+}
+
 int main(int argc, char *argv[]) {
     int ret;
     GETUSERARGS();
     
-    client = TestInit(init_file, ksync_init, true, false);
+    client = TestInit(init_file, ksync_init, true, false,
+                      true, (10 * 60 * 1000), (10 * 60 * 1000),
+                      true, true, (10 * 60 * 1000));
     ::testing::InitGoogleTest(&argc, argv);
     usleep(10000);
     ret = RUN_ALL_TESTS();
