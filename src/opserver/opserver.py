@@ -18,6 +18,7 @@ except ImportError:
 from collections import namedtuple
 TableSchema = namedtuple("TableSchema", ("name", "datatype", "index", "suffixes"))
 from uveserver import UVEServer
+import math
 import sys
 import ConfigParser
 import bottle
@@ -68,6 +69,8 @@ from opserver_util import ServicePoller
 from sandesh_req_impl import OpserverSandeshReqImpl
 from sandesh.analytics_database.ttypes import *
 from sandesh.analytics_database.constants import PurgeStatusString
+from sandesh.analytics.ttypes import DbInfoSetRequest, \
+     DbInfoGetRequest, DbInfoResponse
 from overlay_to_underlay_mapper import OverlayToUnderlayMapper, \
      OverlayToUnderlayMapperError
 from generator_introspect_util import GeneratorIntrospectUtil
@@ -456,6 +459,8 @@ class OpServer(object):
         if self._args.dup:
             self._hostname += 'dup'
         self._sandesh = Sandesh()
+        self.disk_usage_percentage = 0
+        self.pending_compaction_tasks = 0
         opserver_sandesh_req_impl = OpserverSandeshReqImpl(self)
         # Reset the sandesh send rate limit value
         if self._args.sandesh_send_rate_limit is not None:
@@ -2098,6 +2103,41 @@ class OpServer(object):
         purge_info.send(sandesh=self._sandesh)
     #end db_purge_operation
 
+    def handle_db_info(self,
+                       disk_usage_percentage = None,
+                       pending_compaction_tasks = None):
+        if (disk_usage_percentage != None):
+            self.disk_usage_percentage = disk_usage_percentage
+        if (pending_compaction_tasks != None):
+            self.pending_compaction_tasks = pending_compaction_tasks
+        source = self._hostname
+        module_id = Module.COLLECTOR
+        module = ModuleNames[module_id]
+        node_type = Module2NodeType[module_id]
+        node_type_name = NodeTypeNames[node_type]
+        instance_id_str = INSTANCE_ID_DEFAULT
+        destination = source + ':' + node_type_name + ':' \
+                      + module + ':' + instance_id_str
+        req = DbInfoSetRequest(disk_usage_percentage, pending_compaction_tasks)
+        if (disk_usage_percentage != None):
+            req.disk_usage_percentage = disk_usage_percentage
+        if (pending_compaction_tasks != None):
+            req.pending_compaction_tasks = pending_compaction_tasks
+
+        if self._state_server.redis_publish(msg_type='db-info',
+                                            destination=destination,
+                                            msg=req):
+            self._logger.info("redis-publish success for db_info usage(%u)"
+                              " pending_compaction_tasks(%u)",
+                              req.disk_usage_percentage,
+                              req.pending_compaction_tasks);
+        else:
+            self._logger.error("redis-publish failure for db_info usage(%u)"
+                               " pending_compaction_tasks(%u)",
+                               req.disk_usage_percentage,
+                               req.pending_compaction_tasks);
+    # end handle_db_info
+
     def _auto_purge(self):
         """ monitor dbusage continuously and purge the db accordingly """
         # wait for 10 minutes before starting to monitor
@@ -2116,14 +2156,40 @@ class OpServer(object):
 
             # check database disk usage on each node
             for node in db_node_usage:
-                if (int(db_node_usage[node]) > int(self._args.db_purge_threshold)):
-                    self._logger.error("Database usage of %d on %s exceeds threshold",
-                            db_node_usage[node], node)
+                if (int(db_node_usage[node]) >
+                    int(self._args.db_purge_threshold)):
+                    self._logger.error("Database usage of %d on %s"
+                            " exceeds threshold", db_node_usage[node], node)
                     trigger_purge = True
                     break
                 else:
-                    self._logger.info("Database usage of %d on %s does not exceed threshold",
-                            db_node_usage[node], node)
+                    self._logger.info("Database usage of %d on %s does not"
+                            " exceed threshold", db_node_usage[node], node)
+            # get max disk-usage-percentage value from dict
+            disk_usage_percentage = None
+            if (len(db_node_usage)):
+                disk_usage_percentage = \
+                        int(math.ceil(max(db_node_usage.values())))
+
+            pending_compaction_tasks_info = \
+                self._analytics_db.get_pending_compaction_tasks(
+                    'localhost',
+                    self._args.auth_conf_info['admin_port'],
+                    self._args.auth_conf_info['admin_user'],
+                    self._args.auth_conf_info['admin_password'])
+            self._logger.info("node pending-compaction-tasks:" +
+                              str(pending_compaction_tasks_info) )
+
+            # get max pending-compaction-tasks value from dict
+            pending_compaction_tasks = None
+            if (len(pending_compaction_tasks_info)):
+                pending_compaction_tasks = \
+                    max(pending_compaction_tasks_info.values())
+
+            if ((disk_usage_percentage != None) or
+                (pending_compaction_tasks != None)):
+                self.handle_db_info(disk_usage_percentage,
+                                    pending_compaction_tasks)
 
             # check if there is a purge already going on
             purge_id = str(uuid.uuid1())

@@ -91,3 +91,22 @@ struct UserDefinedLogStatistic {
 uve sandesh UserDefinedLogStatisticUVE {
     1: UserDefinedLogStatistic data
 }
+
+struct DbInfo {
+    1: u32 disk_usage_percentage;
+    2: u32 pending_compaction_tasks;
+    3: u32 disk_usage_percentage_level;
+    4: u32 pending_compaction_tasks_level;
+}
+
+request sandesh DbInfoGetRequest {
+}
+
+request sandesh DbInfoSetRequest {
+    1: optional u32 disk_usage_percentage;
+    2: optional u32 pending_compaction_tasks;
+}
+
+response sandesh DbInfoResponse {
+    1: DbInfo db_info;
+}

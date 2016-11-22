@@ -32,6 +32,7 @@
 #include "collector.h"
 #include "viz_collector.h"
 #include "viz_sandesh.h"
+#include <analytics_types.h>
 
 using std::string;
 using std::map;
@@ -526,6 +527,10 @@ static void SendCollectorError(std::string estr, const std::string &context) {
     eresp->Response();
 }
 
+DbHandlerPtr Collector::GetDbHandlerPtr() {
+    return db_handler_;
+}
+
 static Collector* ExtractCollectorFromRequest(SandeshContext *vscontext,
     const std::string &context) {
     VizSandeshContext *vsc = 
@@ -711,4 +716,55 @@ void DisableDatabaseWritesRequest::HandleRequest() const {
 void DatabaseWritesStatusRequest::HandleRequest() const {
     // Send response
     SendDatabaseWritesStatusResponse(client_context(), context());
+}
+
+static void SendDbInfoResponse(Collector *collector, std::string context) {
+    DbInfoResponse *fcsr(new DbInfoResponse);
+    DbInfo db_info;
+    DbHandlerPtr db_handler = collector->GetDbHandlerPtr();
+
+    db_info.set_disk_usage_percentage(
+            db_handler->GetDiskUsagePercentage());
+    db_info.set_pending_compaction_tasks(
+            db_handler->GetPendingCompactionTasks());
+    db_info.set_disk_usage_percentage_level(
+            db_handler->GetDiskUsagePercentageDropLevel());
+    db_info.set_pending_compaction_tasks_level(
+            db_handler->GetPendingCompactionTasksDropLevel());
+
+    fcsr->set_db_info(db_info);
+    fcsr->set_context(context);
+    fcsr->Response();
+}
+
+void DbInfoGetRequest::HandleRequest() const {
+    Collector *collector = ExtractCollectorFromRequest(client_context(),
+                                                       context());
+    if (collector == NULL) {
+        return;
+    }
+
+    // Send response
+    SendDbInfoResponse(collector, context());
+}
+
+void DbInfoSetRequest::HandleRequest() const {
+    Collector *collector = ExtractCollectorFromRequest(client_context(),
+                                                       context());
+    if (collector == NULL) {
+        return;
+    }
+    DbHandlerPtr db_handler = collector->GetDbHandlerPtr();
+    if (__isset.disk_usage_percentage) {
+        db_handler->ProcessDiskUsagePercentage(get_disk_usage_percentage());
+        db_handler->SetDiskUsagePercentage(get_disk_usage_percentage());
+    }
+    if (__isset.pending_compaction_tasks) {
+        db_handler->ProcessPendingCompactionTasks(
+                                         get_pending_compaction_tasks());
+        db_handler->SetPendingCompactionTasks(get_pending_compaction_tasks());
+    }
+
+    // Send response
+    SendDbInfoResponse(collector, context());
 }
