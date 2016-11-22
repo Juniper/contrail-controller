@@ -92,6 +92,7 @@ private:
     InterfaceKSyncObject *ksync_obj_;
     bool l2_active_;
     bool metadata_l2_active_;
+    bool metadata_ip_active_;
     bool bridging_;
     MacAddress mac_;
     MacAddress smac_;

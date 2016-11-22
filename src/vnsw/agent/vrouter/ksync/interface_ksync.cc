@@ -52,6 +52,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     layer3_forwarding_(entry->layer3_forwarding_),
     ksync_obj_(obj), l2_active_(false),
     metadata_l2_active_(entry->metadata_l2_active_),
+    metadata_ip_active_(entry->metadata_ip_active_),
     bridging_(entry->bridging_),
     mac_(entry->mac_),
     smac_(entry->smac_),
@@ -95,6 +96,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     ksync_obj_(obj),
     l2_active_(false),                
     metadata_l2_active_(false),
+    metadata_ip_active_(false),
     bridging_(true),
     mac_(),
     smac_(),
@@ -277,6 +279,13 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
                 vm_port->metadata_l2_active();
             ret = true;
         }
+
+        if (metadata_ip_active_ !=
+            vm_port->metadata_ip_active()) {
+            metadata_ip_active_ =
+                vm_port->metadata_ip_active();
+            ret = true;
+        }
     }
 
     uint32_t vrf_id = VIF_VRF_INVALID;
@@ -284,7 +293,7 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
     std::string analyzer_name;
     Interface::MirrorDirection mirror_direction = Interface::UNKNOWN;
     bool has_service_vlan = false;
-    if (l2_active_ || ipv4_active_ || metadata_l2_active_) {
+    if (l2_active_ || ipv4_active_ || metadata_l2_active_ || metadata_ip_active_) {
         vrf_id = intf->vrf_id();
         if (vrf_id == VrfEntry::kInvalidIndex) {
             vrf_id = VIF_VRF_INVALID;
