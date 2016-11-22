@@ -149,6 +149,7 @@ public:
     void UpdateStatsEvent(const FlowEntryPtr &flow, uint32_t bytes,
                           uint32_t packets, uint32_t oflow_bytes);
     size_t Size() const { return flow_tree_.size(); }
+    size_t AgeTreeSize() const { return flow_export_info_list_.size(); }
     void NewFlow(FlowEntry *flow);
     void set_deleted(bool val) {
         deleted_ = val;
