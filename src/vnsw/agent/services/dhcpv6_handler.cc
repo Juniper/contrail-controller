@@ -599,17 +599,49 @@ uint16_t Dhcpv6Handler::FillDhcpv6Hdr() {
     return (DHCPV6_FIXED_LEN + opt_len);
 }
 
+void Dhcpv6Handler::IncrementByteInAddress(boost::array<uint8_t,16> &bytes, uint8_t index) {
+    if (index > 15) {
+        return;
+    }
+    bytes[index]++;
+    if (bytes[index] != 0) {
+        return;
+    } else {
+        IncrementByteInAddress(bytes, index - 1);
+    }
+}
+
+Ip6Address Dhcpv6Handler::GetNextV6Address(uint8_t addr[16]) {
+    boost::array<uint8_t,16> bytes;
+    for (int i = 0; i < 16; i++) {
+        bytes[i] = addr[i];
+    }
+    IncrementByteInAddress(bytes, 15);
+    return Ip6Address(bytes);
+}
+
 void Dhcpv6Handler::WriteIaOption(const Dhcpv6Ia &ia,
                                   uint16_t &optlen) {
+    uint32_t alloc_unit = vm_itf_->vn()->GetAllocUnitFromIpam(config_.ip_addr);
+    if (alloc_unit > 128) {
+        DHCPV6_TRACE(Error, "Alloc-unit(" << alloc_unit << ") in Ipam is"
+                     " higher than supported value(128), using max supported"
+                     " value");
+        alloc_unit = 128;
+    }
     Dhcpv6IaAddr ia_addr(config_.ip_addr.to_v6().to_bytes().data(),
                          config_.preferred_time,
                          config_.valid_time);
 
     option_->WriteData(DHCPV6_OPTION_IA_NA, sizeof(Dhcpv6Ia), (void *)&ia, &optlen);
-    Dhcpv6Options *ia_addr_opt = GetNextOptionPtr(optlen);
-    ia_addr_opt->WriteData(DHCPV6_OPTION_IAADDR, sizeof(Dhcpv6IaAddr),
-                           (void *)&ia_addr, &optlen);
-    option_->AddLen(sizeof(Dhcpv6IaAddr) + 4);
+    for (uint32_t i = 0; i < alloc_unit; i++) {
+        Dhcpv6Options *ia_addr_opt = GetNextOptionPtr(optlen);
+        ia_addr_opt->WriteData(DHCPV6_OPTION_IAADDR, sizeof(Dhcpv6IaAddr),
+                               (void *)&ia_addr, &optlen);
+        option_->AddLen(sizeof(Dhcpv6IaAddr) + 4);
+        Ip6Address next_ip = GetNextV6Address(ia_addr.address);
+        memcpy(ia_addr.address, next_ip.to_bytes().data(), 16);
+    }
 }
 
 uint16_t Dhcpv6Handler::FillDhcpResponse(const MacAddress &dest_mac,
