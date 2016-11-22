@@ -103,6 +103,7 @@ public:
     void ResetSmQueueWaterMarkInfo();
     void GetSmQueueWaterMarkInfo(
         std::vector<Sandesh::QueueWaterMarkInfo> &wm_info) const;
+    DbHandlerPtr GetDbHandlerPtr();
     void GetQueueWaterMarkInfo(QueueType::type type,
         std::vector<Sandesh::QueueWaterMarkInfo> &wm_info) const;
 
