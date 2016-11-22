@@ -23,6 +23,7 @@ import kube.namespace_monitor as namespace_monitor
 import kube.pod_monitor as pod_monitor
 import kube.service_monitor as service_monitor
 import kube.network_policy_monitor as network_policy_monitor
+import cStringIO
 
 def cgitb_error_log(monitor):
     string_buf = cStringIO.StringIO()
