@@ -26,6 +26,7 @@
 #include "base/parse_object.h"
 #include "io/event_manager.h"
 #include "base/random_generator.h"
+#include <base/watermark.h>
 #include "gendb_if.h"
 #include "gendb_statistics.h"
 #include "sandesh/sandesh.h"
@@ -34,6 +35,7 @@
 #include "viz_constants.h"
 #include <database/cassandra/cql/cql_types.h>
 #include "usrdef_counters.h"
+#include "options.h"
 
 class Options;
 class DiscoveryServiceClient;
@@ -95,7 +97,9 @@ public:
         const std::string& cassandra_compaction_strategy,
         const std::string &zookeeper_server_list,
         bool use_zookeeper, bool disable_all_writes, bool disable_stats_writes,
-        bool disable_messages_writes, bool disable_messages_keyword_writes);
+        bool disable_messages_writes, bool disable_messages_keyword_writes,
+        bool use_db_write_options,
+        const DbWriteOptions &db_write_options);
     DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map);
     virtual ~DbHandler();
 
@@ -152,6 +156,38 @@ public:
     void DisableStatisticsWrites(bool disable);
     void DisableMessagesWrites(bool disable);
     void DisableMessagesKeywordWrites(bool disable);
+
+    // Disk Usage Percentage
+    void SetDiskUsagePercentageDropLevel(size_t count,
+                                       SandeshLevel::type drop_level);
+    SandeshLevel::type GetDiskUsagePercentageDropLevel() const {
+        return disk_usage_percentage_drop_level_;
+    }
+    void SetDiskUsagePercentage(size_t disk_usage_percentage);
+    uint32_t GetDiskUsagePercentage()  const { return disk_usage_percentage_; }
+    void SetDiskUsagePercentageHighWaterMark(uint32_t disk_usage_percentage,
+                                           SandeshLevel::type level);
+    void SetDiskUsagePercentageLowWaterMark(uint32_t disk_usage_percentage,
+                                          SandeshLevel::type level);
+    void ProcessDiskUsagePercentage(uint32_t disk_usage_percentage);
+
+    // Pending Compaction Tasks
+    void SetPendingCompactionTasksDropLevel(size_t count,
+                                            SandeshLevel::type drop_level);
+    SandeshLevel::type GetPendingCompactionTasksDropLevel() const {
+        return pending_compaction_tasks_drop_level_;
+    }
+    void SetPendingCompactionTasks(size_t pending_compaction_tasks);
+    uint32_t GetPendingCompactionTasks() const {
+        return pending_compaction_tasks_;
+    }
+    void SetPendingCompactionTasksHighWaterMark(
+                                        uint32_t pending_compaction_tasks,
+                                        SandeshLevel::type level);
+    void SetPendingCompactionTasksLowWaterMark(
+                                        uint32_t pending_compaction_tasks,
+                                        SandeshLevel::type level);
+    void ProcessPendingCompactionTasks(uint32_t pending_compaction_tasks);
 
 private:
     void MessageTableKeywordInsert(const VizMsg *vmsgp,
@@ -227,7 +263,18 @@ private:
     static const int kUDCPollInterval = 120 * 1000; // in ms
     bool PollUDCCfg() { if(udc_) udc_->PollCfg(); return true; }
     void PollUDCCfgErrorHandler(std::string err_name, std::string err_message);
+    bool use_db_write_options_;
+    uint32_t disk_usage_percentage_;
+    SandeshLevel::type disk_usage_percentage_drop_level_;
+    uint32_t pending_compaction_tasks_;
+    SandeshLevel::type pending_compaction_tasks_drop_level_;
+    mutable tbb::mutex disk_usage_percentage_water_mutex_;
+    mutable tbb::mutex pending_compaction_tasks_water_mutex_;
+    WaterMarkTuple disk_usage_percentage_watermark_tuple_;
+    WaterMarkTuple pending_compaction_tasks_watermark_tuple_;
+
     friend class DbHandlerTest;
+
     DISALLOW_COPY_AND_ASSIGN(DbHandler);
 };
 
@@ -269,7 +316,8 @@ class DbHandlerInitializer {
         const std::string &zookeeper_server_list,
         bool use_zookeeper, bool disable_all_db_writes,
         bool disable_db_stats_writes, bool disable_db_messages_writes,
-        bool disable_db_messages_keyword_writes);
+        bool disable_db_messages_keyword_writes,
+        const DbWriteOptions &db_write_options);
     DbHandlerInitializer(EventManager *evm,
         const std::string &db_name, int db_task_instance,
         const std::string &timer_task_name, InitializeDoneCb callback,

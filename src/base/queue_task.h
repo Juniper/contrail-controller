@@ -25,32 +25,7 @@
 
 #include <base/task.h>
 #include <base/time_util.h>
-
-// WaterMarkInfo
-typedef boost::function<void (size_t)> WaterMarkCallback;
-
-struct WaterMarkInfo {
-    WaterMarkInfo(size_t count, WaterMarkCallback cb) :
-        count_(count),
-        cb_(cb) {
-    }
-    friend inline bool operator<(const WaterMarkInfo& lhs,
-        const WaterMarkInfo& rhs);
-    friend inline bool operator==(const WaterMarkInfo& lhs,
-        const WaterMarkInfo& rhs);
-    size_t count_;
-    WaterMarkCallback cb_;
-};
-
-inline bool operator<(const WaterMarkInfo& lhs, const WaterMarkInfo& rhs) {
-    return lhs.count_ < rhs.count_;
-}
-
-inline bool operator==(const WaterMarkInfo& lhs, const WaterMarkInfo& rhs) {
-    return lhs.count_ == rhs.count_;
-}
-
-typedef std::vector<WaterMarkInfo> WaterMarkInfos;
+#include <base/watermark.h>
 
 template <typename QueueEntryT, typename QueueT>
 class QueueTaskRunner : public Task {
@@ -168,11 +143,7 @@ public:
         busy_time_(0),
         measure_busy_time_(false) {
         count_ = 0;
-        hwater_index_ = -1;
-        lwater_index_ = -1;
         disabled_ = false;
-        hwater_mark_set_ = false;
-        lwater_mark_set_ = false;
     }
 
     // Concurrency - should be called from a task whose policy
@@ -236,74 +207,42 @@ public:
 
     void SetHighWaterMark(const WaterMarkInfos &high_water) {
         tbb::mutex::scoped_lock lock(water_mutex_);
-        // Eliminate duplicates and sort by converting to set
-        std::set<WaterMarkInfo> hwater_set(high_water.begin(),
-            high_water.end());
-        // Update both high and low water mark indexes
-        SetWaterMarkIndexes(-1, -1);
-        high_water_ = WaterMarkInfos(hwater_set.begin(), hwater_set.end());
-        hwater_mark_set_ = true;
+        wm_tuple.SetHighWaterMark(high_water);
     }
 
     void SetHighWaterMark(const WaterMarkInfo& hwm_info) {
         tbb::mutex::scoped_lock lock(water_mutex_);
-        // Eliminate duplicates and sort by converting to set
-        std::set<WaterMarkInfo> hwater_set(high_water_.begin(),
-            high_water_.end());
-        hwater_set.insert(hwm_info);
-        // Update both high and low water mark indexes
-        SetWaterMarkIndexes(-1, -1);
-        high_water_ = WaterMarkInfos(hwater_set.begin(), hwater_set.end());
-        hwater_mark_set_ = true;
+        wm_tuple.SetHighWaterMark(hwm_info);
     }
 
     void ResetHighWaterMark() {
         tbb::mutex::scoped_lock lock(water_mutex_);
-        // Update both high and low water mark indexes
-        SetWaterMarkIndexes(-1, -1);
-        high_water_.clear();
-        hwater_mark_set_ = false;
+        wm_tuple.ResetHighWaterMark();
     }
 
     WaterMarkInfos GetHighWaterMark() const {
         tbb::mutex::scoped_lock lock(water_mutex_);
-        return high_water_;
+        return wm_tuple.GetHighWaterMark();
     }
 
     void SetLowWaterMark(const WaterMarkInfos &low_water) {
         tbb::mutex::scoped_lock lock(water_mutex_);
-        // Eliminate duplicates and sort by converting to set
-        std::set<WaterMarkInfo> lwater_set(low_water.begin(),
-            low_water.end());
-        // Update both high and low water mark indexes
-        SetWaterMarkIndexes(-1, -1);
-        low_water_ = WaterMarkInfos(lwater_set.begin(), lwater_set.end());
-        lwater_mark_set_ = true;
+        wm_tuple.SetLowWaterMark(low_water);
      }
 
     void SetLowWaterMark(const WaterMarkInfo& lwm_info) {
         tbb::mutex::scoped_lock lock(water_mutex_);
-        // Eliminate duplicates and sort by converting to set
-        std::set<WaterMarkInfo> lwater_set(low_water_.begin(),
-            low_water_.end());
-        lwater_set.insert(lwm_info);
-        // Update both high and low water mark indexes
-        SetWaterMarkIndexes(-1, -1);
-        low_water_ = WaterMarkInfos(lwater_set.begin(), lwater_set.end());
-        lwater_mark_set_ = true;
+        wm_tuple.SetLowWaterMark(lwm_info);
      }
 
     void ResetLowWaterMark() {
         tbb::mutex::scoped_lock lock(water_mutex_);
-        // Update both high and low water mark indexes
-        SetWaterMarkIndexes(-1, -1);
-        low_water_.clear();
-        lwater_mark_set_ = false;
+        wm_tuple.ResetLowWaterMark();
     }
 
     WaterMarkInfos GetLowWaterMark() const {
         tbb::mutex::scoped_lock lock(water_mutex_);
-        return low_water_;
+        return wm_tuple.GetLowWaterMark();
     }
 
     bool Enqueue(QueueEntryT entry) {
@@ -465,7 +404,7 @@ private:
     }
 
     bool AreWaterMarksSet() const {
-        return hwater_mark_set_ || lwater_mark_set_;
+        return wm_tuple.AreWaterMarksSet();
     }
 
     void ShutdownLocked(bool delete_entries) {
@@ -498,64 +437,11 @@ private:
     }
 
     void ProcessHighWaterMarks(size_t count) {
-        if (!hwater_mark_set_ || high_water_.size() == 0) {
-            return;
-        }
-        // Are we crossing any new high water marks ? Assumption here is that
-        // the vector is sorted in ascending order of the high water
-        // mark counts. Upper bound finds first element that is greater than
-        // count.
-        WaterMarkInfos::const_iterator ubound(std::upper_bound(
-            high_water_.begin(), high_water_.end(),
-            WaterMarkInfo(count, NULL)));
-        // Get high and low water mark indexes
-        int hwater_index, lwater_index;
-        GetWaterMarkIndexes(&hwater_index, &lwater_index);
-        // If the first element is greater than count, then we have not
-        // yet crossed any water marks
-        if (ubound == high_water_.begin()) {
-            SetWaterMarkIndexes(-1, lwater_index);
-            return;
-        }
-        int nhwater_index(ubound - high_water_.begin() - 1);
-        if (hwater_index == nhwater_index) {
-            return;
-        }
-        // Update the high and low water indexes
-        SetWaterMarkIndexes(nhwater_index, nhwater_index + 1);
-        const WaterMarkInfo &wm_info(high_water_[nhwater_index]);
-        assert(count >= wm_info.count_);
-        wm_info.cb_(count);
+        wm_tuple.ProcessHighWaterMarks(count);
     }
 
     void ProcessLowWaterMarks(size_t count) {
-        if (!lwater_mark_set_ || low_water_.size() == 0) {
-            return;
-        }
-        // Are we crossing any new low water marks ? Assumption here is that
-        // the vector is sorted in ascending order of the low water
-        // mark counts. Lower bound finds first element that is not less than
-        // count.
-        WaterMarkInfos::const_iterator lbound(std::lower_bound(
-            low_water_.begin(), low_water_.end(),
-            WaterMarkInfo(count, NULL)));
-        // If no element is not less than count we have not yet crossed
-        // any low water marks
-        if (lbound == low_water_.end()) {
-            return;
-        }
-        int nlwater_index(lbound - low_water_.begin());
-        // Get the high and low water indexes
-        int hwater_index, lwater_index;
-        GetWaterMarkIndexes(&hwater_index, &lwater_index);
-        if (lwater_index == nlwater_index) {
-            return;
-        }
-        // Update the high and low water indexes
-        SetWaterMarkIndexes(nlwater_index - 1, nlwater_index);
-        const WaterMarkInfo &wm_info(low_water_[nlwater_index]);
-        assert(count <= wm_info.count_);
-        wm_info.cb_(count);
+        wm_tuple.ProcessLowWaterMarks(count);
     }
 
     bool EnqueueInternal(QueueEntryT entry) {
@@ -625,13 +511,11 @@ private:
     }
 
     void GetWaterMarkIndexes(int *hwater_index, int *lwater_index) const {
-        *hwater_index = hwater_index_;
-        *lwater_index = lwater_index_;
+        wm_tuple.GetWaterMarkIndexes(hwater_index, lwater_index);
     }
 
     void SetWaterMarkIndexes(int hwater_index, int lwater_index) {
-        hwater_index_ = hwater_index;
-        lwater_index_ = lwater_index;
+        wm_tuple.SetWaterMarkIndexes(hwater_index, lwater_index);
     }
 
     Queue queue_;
@@ -657,15 +541,8 @@ private:
     bool bounded_;
     bool shutdown_scheduled_;
     bool delete_entries_on_shutdown_;
-    // Watermarks
-    // Sorted in ascending order
-    WaterMarkInfos high_water_; // When queue count goes above
-    WaterMarkInfos low_water_; // When queue count goes below
-    int hwater_index_;
-    int lwater_index_;
+    WaterMarkTuple wm_tuple;
     mutable tbb::mutex water_mutex_;
-    tbb::atomic<bool> hwater_mark_set_;
-    tbb::atomic<bool> lwater_mark_set_;
     mutable uint32_t task_starts_;
     mutable uint32_t max_queue_len_;
     mutable uint64_t busy_time_;
