@@ -52,6 +52,7 @@ syslog_test = env.UnitTest('syslog_test',
                                   '../db_handler.o',
                                   '../usrdef_counters.o',
                                   '../analytics_types.o',
+                                  '../analytics_html.o',
                                   '../parser_util.o',
                                   '../viz_constants.o',
                                   '../collector_uve_types.o',
@@ -72,6 +73,8 @@ env.Alias('src/analytics:syslog_test', syslog_test)
 #                              )
 #env.Alias('src/analytics:ruleeng_test', ruleeng_test)
 
+analytics_request_obj = env.Object('analytics_request_skeleton.o',
+                                   '../analytics_request_skeleton.cpp')
 db_handler_test_obj = env_noWerror_excep.Object('db_handler_test.o', 'db_handler_test.cc')
 db_handler_test = env.UnitTest('db_handler_test',
                               AnalyticsEnv['ANALYTICS_VIZ_SANDESH_GEN_OBJS'] + 
@@ -79,9 +82,11 @@ db_handler_test = env.UnitTest('db_handler_test',
                               '../db_handler.o',
                               '../usrdef_counters.o',
                               '../analytics_types.o',
+                              '../analytics_html.o',
                               '../parser_util.o',
                               '../vizd_table_desc.o',
                               '../viz_message.o',
+                              analytics_request_obj,
                               ]
                               )
 env.Alias('src/analytics:db_handler_test', db_handler_test)
