@@ -90,54 +90,56 @@ std::string GenDb::DbDataValueVecToString(
     return ss.str();
 }
 
-std::string GenDb::DbDataValueToString(const GenDb::DbDataValue &db_value) {
-    std::string vstr;
-    switch (db_value.which()) {
-      case GenDb::DB_VALUE_STRING: {
-        vstr = boost::get<std::string>(db_value);
-        break;
-      }
-      case GenDb::DB_VALUE_UINT64: {
-        uint64_t vint = boost::get<uint64_t>(db_value);
-        vstr = integerToString(vint);
-        break;
-      }
-      case GenDb::DB_VALUE_UINT32: {
-        uint32_t vint = boost::get<uint32_t>(db_value);
-        vstr = integerToString(vint);
-        break;
-      }
-      case GenDb::DB_VALUE_UINT16: {
-        uint16_t vint = boost::get<uint16_t>(db_value);
-        vstr = integerToString(vint);
-        break;
-      }
-      case GenDb::DB_VALUE_UINT8: {
-        uint8_t vint = boost::get<uint8_t>(db_value);
-        vstr = integerToString(vint);
-        break;
-      }
-      case GenDb::DB_VALUE_UUID: {
-        boost::uuids::uuid vuuid = boost::get<boost::uuids::uuid>(db_value);
-        vstr = to_string(vuuid);
-        break;
-      }
-      case GenDb::DB_VALUE_DOUBLE: {
-        double vdouble = boost::get<double>(db_value);
-        vstr = integerToString(vdouble);
-        break;
-      }
-      case GenDb::DB_VALUE_INET: {
-        IpAddress ip = boost::get<IpAddress>(db_value);
-        boost::system::error_code ec;
-        vstr = ip.to_string(ec);
-        assert(ec == 0);
-        break;
-      }
-      default: {
-        assert(0);
-        break;
-      }
+std::string GenDb::bytes_to_hex(const uint8_t *byte_array, size_t size) {
+    std::stringstream value;
+    value << std::hex << std::setfill('0');
+    for (unsigned int n = 0; n < size; ++n) {
+      value << std::setw(2) << static_cast<unsigned>(byte_array[n]);
     }
-    return vstr;
+    if (value.str().size() == 0) {
+      value << "00";
+    }
+    return "0x" + value.str();
+}
+
+std::ostream& GenDb::operator<<(std::ostream &out, const Blob &value) {
+    out << bytes_to_hex(value.data(), value.size());
+    return out;
+}
+
+// DbDataValue Printer
+class DbDataValuePrinter : public boost::static_visitor<std::string> {
+ public:
+    DbDataValuePrinter() {
+    }
+    template <typename IntegerType>
+    std::string operator()(const IntegerType &tint) const {
+        return integerToString(tint);
+    }
+    std::string operator()(const std::string &tstring) const {
+        return tstring;
+    }
+    std::string operator()(const boost::uuids::uuid &tuuid) const {
+        return to_string(tuuid);
+    }
+    std::string operator()(const IpAddress &tipaddr) const {
+        boost::system::error_code ec;
+        std::string ips(tipaddr.to_string(ec));
+        assert(ec == 0);
+        return ips;
+    }
+    std::string operator()(const GenDb::Blob &tblob) const {
+        std::stringstream value;
+        value << tblob;
+        return value.str();
+    }
+    std::string operator()(const boost::blank &tblank) const {
+        assert(false && "Empty Db Value");
+        return "EMPTY DB VALUE";
+    }
+};
+
+std::string GenDb::DbDataValueToString(const GenDb::DbDataValue &db_value) {
+    DbDataValuePrinter vprinter;
+    return boost::apply_visitor(vprinter, db_value);
 }

@@ -67,7 +67,8 @@ TEST_F(CqlIfTest, StaticCfCreateTable) {
             ("columnH", GenDb::DbDataType::DoubleType)
             ("columnI", GenDb::DbDataType::UTF8Type)
             ("columnJ", GenDb::DbDataType::InetType)
-            ("columnK", GenDb::DbDataType::IntegerType));
+            ("columnK", GenDb::DbDataType::IntegerType)
+            ("columnL", GenDb::DbDataType::BlobType));
     std::string actual_qstring(
         cass::cql::impl::StaticCf2CassCreateTableIfNotExists(static_cf,
             GenDb::g_gendb_constants.SIZE_TIERED_COMPACTION_STRATEGY));
@@ -84,7 +85,8 @@ TEST_F(CqlIfTest, StaticCfCreateTable) {
          "\"columnH\" double, "
          "\"columnI\" text, "
          "\"columnJ\" inet, "
-         "\"columnK\" varint) "
+         "\"columnK\" varint, "
+         "\"columnL\" blob) "
          "WITH compaction = {'class': "
          "'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy'} "
          "AND gc_grace_seconds = 0");
@@ -126,7 +128,8 @@ TEST_F(CqlIfTest, DynamicCfCreateTable) {
         (GenDb::DbDataType::DoubleType)
         (GenDb::DbDataType::UTF8Type)
         (GenDb::DbDataType::InetType)
-        (GenDb::DbDataType::IntegerType);
+        (GenDb::DbDataType::IntegerType)
+        (GenDb::DbDataType::BlobType);
     GenDb::NewCf dynamic_cf1(
         "DynamicCf1", // name
         all_types, // partition key
@@ -149,6 +152,7 @@ TEST_F(CqlIfTest, DynamicCfCreateTable) {
         "key9 text, "
         "key10 inet, "
         "key11 varint, "
+        "key12 blob, "
         "column1 ascii, "
         "column2 uuid, "
         "column3 timeuuid, "
@@ -160,11 +164,13 @@ TEST_F(CqlIfTest, DynamicCfCreateTable) {
         "column9 text, "
         "column10 inet, "
         "column11 varint, "
+        "column12 blob, "
         "value text, "
         "PRIMARY KEY ("
-        "(key, key2, key3, key4, key5, key6, key7, key8, key9, key10, key11), "
+        "(key, key2, key3, key4, key5, key6, key7, key8, key9, key10, key11, "
+        "key12), "
         "column1, column2, column3, column4, column5, column6, column7, "
-        "column8, column9, column10, column11)) "
+        "column8, column9, column10, column11, column12)) "
         "WITH compaction = {'class': "
         "'org.apache.cassandra.db.compaction.DateTieredCompactionStrategy'} "
         "AND gc_grace_seconds = 0");
@@ -187,7 +193,8 @@ TEST_F(CqlIfTest, StaticCfInsertIntoTablePrepare) {
             ("columnH", GenDb::DbDataType::DoubleType)
             ("columnI", GenDb::DbDataType::UTF8Type)
             ("columnJ", GenDb::DbDataType::InetType)
-            ("columnK", GenDb::DbDataType::IntegerType));
+            ("columnK", GenDb::DbDataType::IntegerType)
+            ("columnL", GenDb::DbDataType::BlobType));
     std::string actual_qstring(
         cass::cql::impl::StaticCf2CassPrepareInsertIntoTable(static_cf));
     std::string expected_qstring(
@@ -203,7 +210,9 @@ TEST_F(CqlIfTest, StaticCfInsertIntoTablePrepare) {
          "\"columnH\", "
          "\"columnI\", "
          "\"columnJ\", "
-         "\"columnK\") VALUES ("
+         "\"columnK\", "
+         "\"columnL\") VALUES ("
+         "?, "
          "?, "
          "?, "
          "?, "
@@ -232,7 +241,8 @@ TEST_F(CqlIfTest, DynamicCfInsertIntoTablePrepare) {
         (GenDb::DbDataType::DoubleType)
         (GenDb::DbDataType::UTF8Type)
         (GenDb::DbDataType::InetType)
-        (GenDb::DbDataType::IntegerType);
+        (GenDb::DbDataType::IntegerType)
+        (GenDb::DbDataType::BlobType);
     GenDb::NewCf dynamic_cf(
         "InsertIntoDynamicCf", // name
         all_types, // partition key
@@ -254,6 +264,7 @@ TEST_F(CqlIfTest, DynamicCfInsertIntoTablePrepare) {
         "key9, "
         "key10, "
         "key11, "
+        "key12, "
         "column1, "
         "column2, "
         "column3, "
@@ -265,7 +276,10 @@ TEST_F(CqlIfTest, DynamicCfInsertIntoTablePrepare) {
         "column9, "
         "column10, "
         "column11, "
+        "column12, "
         "value) VALUES ("
+        "?, "
+        "?, "
         "?, "
         "?, "
         "?, "
@@ -300,6 +314,9 @@ static const std::string tuuid_s_(to_string(tuuid_));
 static const uint8_t tu8_(128);
 static const uint16_t tu16_(65535);
 static const double tdouble_(1.123);
+static const GenDb::Blob tblob_(
+    reinterpret_cast<const uint8_t *>("012345678901234567890123456789"),
+    strlen("012345678901234567890123456789"));
 
 static const GenDb::DbDataValueVec all_values = boost::assign::list_of
     (GenDb::DbDataValue(tstring_))
@@ -308,7 +325,8 @@ static const GenDb::DbDataValueVec all_values = boost::assign::list_of
     (GenDb::DbDataValue(tuuid_))
     (GenDb::DbDataValue(tu8_))
     (GenDb::DbDataValue(tu16_))
-    (GenDb::DbDataValue(tdouble_));
+    (GenDb::DbDataValue(tdouble_))
+    (GenDb::DbDataValue(tblob_));
 
 TEST_F(CqlIfTest, InsertIntoDynamicTable) {
     // DynamicCf
@@ -326,11 +344,14 @@ TEST_F(CqlIfTest, InsertIntoDynamicTable) {
         cass::cql::impl::DynamicCf2CassInsertIntoTable(v_dyn_columns.get()));
     std::string expected_qstring(
         "INSERT INTO InsertIntoDynamicCf "
-        "(key, key2, key3, key4, key5, key6, key7, "
+        "(key, key2, key3, key4, key5, key6, key7, key8, "
         "column1, column2, column3, column4, column5, column6, column7, "
+        "column8, "
         "value) VALUES ("
         "'Test', 123456789, 123456789, " + tuuid_s_ + ", 128, 65535, 1.123, "
+        "0x303132333435363738393031323334353637383930313233343536373839, "
         "'Test', 123456789, 123456789, " + tuuid_s_ + ", 128, 65535, 1.123, "
+        "0x303132333435363738393031323334353637383930313233343536373839, "
         "'Test') USING TTL 864000");
     EXPECT_EQ(expected_qstring, actual_qstring);
 }
@@ -362,15 +383,21 @@ TEST_F(CqlIfTest, InsertIntoStaticTable) {
     GenDb::NewCol *tdouble_column(new GenDb::NewCol(
         "DoubleColumn", tdouble_, 864000));
     columns.push_back(tdouble_column);
+    GenDb::NewCol *tblob_column(new GenDb::NewCol(
+        "BlobColumn", tblob_, 864000));
+    columns.push_back(tblob_column);
     std::string actual_qstring(
         cass::cql::impl::StaticCf2CassInsertIntoTable(v_static_columns.get()));
     std::string expected_qstring(
         "INSERT INTO InsertIntoStaticCf "
-        "(key, key2, key3, key4, key5, key6, key7, "
+        "(key, key2, key3, key4, key5, key6, key7, key8, "
         "\"StringColumn\", \"U64Column\", \"U32Column\", \"UUIDColumn\", "
-        "\"U8Column\", \"U16Column\", \"DoubleColumn\") VALUES ("
+        "\"U8Column\", \"U16Column\", \"DoubleColumn\", \"BlobColumn\") "
+        "VALUES ("
         "'Test', 123456789, 123456789, " + tuuid_s_ + ", 128, 65535, 1.123, "
-        "'Test', 123456789, 123456789, " + tuuid_s_ + ", 128, 65535, 1.123) "
+        "0x303132333435363738393031323334353637383930313233343536373839, "
+        "'Test', 123456789, 123456789, " + tuuid_s_ + ", 128, 65535, 1.123, "
+        "0x303132333435363738393031323334353637383930313233343536373839) "
         "USING TTL 864000");
     EXPECT_EQ(expected_qstring, actual_qstring);
 }
@@ -387,7 +414,8 @@ TEST_F(CqlIfTest, SelectFromTablePartitionKey) {
         "key4=" + tuuid_s_ + " AND "
         "key5=128 AND "
         "key6=65535 AND "
-        "key7=1.123");
+        "key7=1.123 AND "
+        "key8=0x303132333435363738393031323334353637383930313233343536373839");
     EXPECT_EQ(expected_qstring, actual_qstring);
 }
 
@@ -406,7 +434,8 @@ TEST_F(CqlIfTest, SelectFromTableSlice) {
         "key4=" + tuuid_s_ + " AND "
         "key5=128 AND "
         "key6=65535 AND "
-        "key7=1.123");
+        "key7=1.123 AND "
+        "key8=0x303132333435363738393031323334353637383930313233343536373839");
     EXPECT_EQ(expected_qstring, actual_qstring);
     // Normal slice
     GenDb::ColumnNameRange crange;
@@ -425,11 +454,16 @@ TEST_F(CqlIfTest, SelectFromTableSlice) {
         "key5=128 AND "
         "key6=65535 AND "
         "key7=1.123 AND "
-        "(column1, column2, column3, column4, column5, column6, column7) >= "
-        "('Test', 123456789, 123456789, " + tuuid_s_ + ", 128, 65535, 1.123)"
+        "key8=0x303132333435363738393031323334353637383930313233343536373839 AND "
+        "(column1, column2, column3, column4, column5, column6, column7, "
+        "column8) >= "
+        "('Test', 123456789, 123456789, " + tuuid_s_ + ", 128, 65535, 1.123, "
+        "0x303132333435363738393031323334353637383930313233343536373839)"
         " AND "
-        "(column1, column2, column3, column4, column5, column6, column7) <= "
-        "('Test', 123456789, 123456789, " + tuuid_s_ + ", 128, 65535, 1.123)"
+        "(column1, column2, column3, column4, column5, column6, column7, "
+        "column8) <= "
+        "('Test', 123456789, 123456789, " + tuuid_s_ + ", 128, 65535, 1.123, "
+        "0x303132333435363738393031323334353637383930313233343536373839)"
         " LIMIT 5000");
     EXPECT_EQ(expected_qstring1, actual_string1);
     // Start slice only
@@ -448,8 +482,11 @@ TEST_F(CqlIfTest, SelectFromTableSlice) {
         "key5=128 AND "
         "key6=65535 AND "
         "key7=1.123 AND "
-        "(column1, column2, column3, column4, column5, column6, column7) >= "
-        "('Test', 123456789, 123456789, " + tuuid_s_ + ", 128, 65535, 1.123)"
+        "key8=0x303132333435363738393031323334353637383930313233343536373839 AND "
+        "(column1, column2, column3, column4, column5, column6, column7, "
+        "column8) >= "
+        "('Test', 123456789, 123456789, " + tuuid_s_ + ", 128, 65535, 1.123, "
+        "0x303132333435363738393031323334353637383930313233343536373839)"
         " LIMIT 5000");
     EXPECT_EQ(expected_qstring2, actual_string2);
     // Finish slice only
@@ -468,8 +505,11 @@ TEST_F(CqlIfTest, SelectFromTableSlice) {
         "key5=128 AND "
         "key6=65535 AND "
         "key7=1.123 AND "
-        "(column1, column2, column3, column4, column5, column6, column7) <= "
-        "('Test', 123456789, 123456789, " + tuuid_s_ + ", 128, 65535, 1.123)"
+        "key8=0x303132333435363738393031323334353637383930313233343536373839 AND "
+        "(column1, column2, column3, column4, column5, column6, column7, "
+        "column8) <= "
+        "('Test', 123456789, 123456789, " + tuuid_s_ + ", 128, 65535, 1.123, "
+        "0x303132333435363738393031323334353637383930313233343536373839)"
         " LIMIT 5000");
     EXPECT_EQ(expected_qstring3, actual_string3);
     // Count only
@@ -486,7 +526,8 @@ TEST_F(CqlIfTest, SelectFromTableSlice) {
         "key4=" + tuuid_s_ + " AND "
         "key5=128 AND "
         "key6=65535 AND "
-        "key7=1.123 "
+        "key7=1.123 AND "
+        "key8=0x303132333435363738393031323334353637383930313233343536373839 "
         "LIMIT 5000");
     EXPECT_EQ(expected_qstring4, actual_string4);
 }
