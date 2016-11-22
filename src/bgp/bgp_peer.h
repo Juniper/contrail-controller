@@ -78,6 +78,7 @@ public:
     static const int kMinEndOfRibSendTimeUsecs = 10000000;  // 10 Seconds
     static const int kMaxEndOfRibSendTimeUsecs = 60000000;  // 60 Seconds
     static const int kEndOfRibSendRetryTimeMsecs = 2000;    // 2 Seconds
+    static const int kRouteTargetEndOfRibTimeSecs = 30;     // Seconds
     static const size_t kBufferSize = 32768;
 
     typedef std::set<Address::Family> AddressFamilyList;
@@ -365,6 +366,7 @@ private:
     bool EndOfRibReceiveTimerExpired(Address::Family family);
     void EndOfRibTimerErrorHandler(std::string error_name,
                                    std::string error_message);
+    uint32_t GetEndOfRibTime(Address::Family family) const;
 
     virtual void BindLocalEndpoint(BgpSession *session);
     void UnregisterAllTables();
