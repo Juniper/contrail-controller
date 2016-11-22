@@ -19,7 +19,8 @@ import gevent
 import datetime
 from fcntl import fcntl, F_GETFL, F_SETFL
 from operator import itemgetter
-from opserver_introspect_utils import VerificationOpsSrv
+from opserver_introspect_utils import VerificationOpsSrv, \
+     VerificationOpsSrvIntrospect
 from collector_introspect_utils import VerificationCollector
 from alarmgen_introspect_utils import VerificationAlarmGen
 from generator_introspect_utils import VerificationGenerator
@@ -2082,6 +2083,51 @@ class AnalyticsFixture(fixtures.Fixture):
     # end verify_collector_redis_uve_connection 
 
     @retry(delay=2, tries=5)
+    def verify_collector_db_info(self, collector,
+                                 disk_usage_percentage_out = None,
+                                 pending_compaction_tasks_out = None,
+                                 disk_usage_percentage_level_out = None,
+                                 pending_compaction_tasks_level_out = None):
+
+        self.logger.info('verify_collector_db_info')
+        vcl = VerificationCollector('127.0.0.1', collector.http_port)
+        try:
+            db_info_dict = vcl.get_db_info()
+            db_info = (db_info_dict['db_info'])['DbInfo']
+            disk_usage_percentage = int(db_info['disk_usage_percentage'])
+            pending_compaction_tasks = int(db_info['pending_compaction_tasks'])
+            disk_usage_percentage_level = \
+                int(db_info['disk_usage_percentage_level'])
+            pending_compaction_tasks_level = \
+                int(db_info['pending_compaction_tasks_level'])
+            self.logger.info('collector exp  disk_usage_percentage:%u'
+                             ' pending_compaction_tasks:%u'
+                             ' disk_usage_percentage_level:%u'
+                             ' pending_compaction_tasks_level:%u' %
+                             (disk_usage_percentage_out,
+                              pending_compaction_tasks_out,
+                              disk_usage_percentage_level_out,
+                              pending_compaction_tasks_level_out))
+            self.logger.info('collector read disk_usage_percentage:%u'
+                             ' pending_compaction_tasks:%u'
+                             ' disk_usage_percentage_level:%u'
+                             ' pending_compaction_tasks_level:%u' %
+                             (disk_usage_percentage, pending_compaction_tasks,
+                              disk_usage_percentage_level,
+                              pending_compaction_tasks_level))
+            if ((disk_usage_percentage == disk_usage_percentage_out) and
+                (pending_compaction_tasks == pending_compaction_tasks_out) and
+                (disk_usage_percentage_level ==
+                 disk_usage_percentage_level_out) and
+                (pending_compaction_tasks_level ==
+                 pending_compaction_tasks_level_out)):
+                return True
+        except Exception as err:
+            self.logger.error('Exception: %s' % err)
+        return False
+    # end verify_collector_db_info
+
+    @retry(delay=2, tries=5)
     def verify_opserver_redis_uve_connection(self, opserver, connected=True):
         self.logger.info('verify_opserver_redis_uve_connection')
         vops = VerificationOpsSrv('127.0.0.1', opserver.http_port,
@@ -2094,6 +2140,38 @@ class AnalyticsFixture(fixtures.Fixture):
             self.logger.error('Exception: %s' % err)
         return not connected
     # end verify_opserver_redis_uve_connection
+
+    @retry(delay=2, tries=5)
+    def set_opserver_db_info(self, opserver,
+                             disk_usage_percentage_in = None,
+                             pending_compaction_tasks_in = None,
+                             disk_usage_percentage_out = None,
+                             pending_compaction_tasks_out = None):
+        self.logger.info('set_opserver_db_info')
+        vops = VerificationOpsSrvIntrospect('127.0.0.1', opserver.http_port,
+            self.admin_user, self.admin_password)
+        try:
+            vops.db_info_set_request(disk_usage_percentage_in,
+                                     pending_compaction_tasks_in)
+            db_info_dict = vops.db_info_get_request()
+            db_info = db_info_dict['DbInfo']
+            disk_usage_percentage = int(db_info['disk_usage_percentage'])
+            pending_compaction_tasks = int(db_info['pending_compaction_tasks'])
+
+            self.logger.info('opserver exp  disk_usage_percentage:%u'
+                             ' pending_compaction_tasks:%u' %
+                             (disk_usage_percentage_out,
+                              pending_compaction_tasks_out))
+            self.logger.info('opserver read disk_usage_percentage:%u'
+                             ' pending_compaction_tasks:%u' %
+                             (disk_usage_percentage, pending_compaction_tasks))
+            if ((disk_usage_percentage == disk_usage_percentage_out) and
+                (pending_compaction_tasks == pending_compaction_tasks_out)):
+                return True
+        except Exception as err:
+            self.logger.error('Exception: %s' % err)
+        return False
+    # end set_opserver_db_info
 
     @retry(delay=2, tries=5)
     def verify_tracebuffer_in_analytics_db(self, src, mod, tracebuf):
