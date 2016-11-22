@@ -63,6 +63,7 @@ private:
     virtual bool IsInLlgrTimerWaitState() const;
     virtual const std::vector<BgpProto::OpenMessage::Capability *>
         &capabilities() const;
+    bool IsLlgrSupportedForFamilies() const;
 
     BgpPeer *peer_;
     uint64_t flap_count_;
