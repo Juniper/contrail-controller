@@ -282,6 +282,16 @@ uint64_t BgpPeer::GetEorSendTimerElapsedTimeUsecs() const {
     return UTCTimestampUsec() - eor_send_timer_start_time_;
 }
 
+uint32_t BgpPeer::GetEndOfRibSendTime(Address::Family family) const {
+    return family == Address::RTARGET ?
+        kRouteTargetEndOfRibTimeSecs : server_->GetEndOfRibSendTime();
+}
+
+uint32_t BgpPeer::GetEndOfRibReceiveTime(Address::Family family) const {
+    return family == Address::RTARGET ?
+        kRouteTargetEndOfRibTimeSecs : server_->GetEndOfRibReceiveTime();
+}
+
 bool BgpPeer::EndOfRibSendTimerExpired(Address::Family family) {
     if (!IsReady())
         return false;
@@ -289,7 +299,7 @@ bool BgpPeer::EndOfRibSendTimerExpired(Address::Family family) {
     // Retry if wait time has not exceeded the max (10 times configured) and
     // the output queue has not been fully drained yet.
     if (GetEorSendTimerElapsedTimeUsecs() <
-            server_->GetEndOfRibSendTime() * 1000000 * 10) {
+            GetEndOfRibSendTime(family) * 1000000 * 10) {
         uint32_t output_depth = GetOutputQueueDepth(family);
         if (output_depth) {
             eor_send_timer_[family]->Reschedule(kEndOfRibSendRetryTimeMsecs);
@@ -308,7 +318,7 @@ bool BgpPeer::EndOfRibSendTimerExpired(Address::Family family) {
 }
 
 void BgpPeer::SendEndOfRIB(Address::Family family) {
-    uint32_t timeout = server_->GetEndOfRibSendTime();
+    uint32_t timeout = GetEndOfRibSendTime(family);
 
     eor_send_timer_start_time_ = UTCTimestampUsec();
     BGP_LOG_PEER(Message, this, SandeshLevel::SYS_INFO,
@@ -1799,7 +1809,7 @@ void BgpPeer::RegisterToVpnTables() {
 }
 
 void BgpPeer::StartEndOfRibReceiveTimer(Address::Family family) {
-    uint32_t timeout = server_->GetEndOfRibReceiveTime();
+    uint32_t timeout = GetEndOfRibReceiveTime(family);
 
     BGP_LOG_PEER(Message, this, SandeshLevel::SYS_INFO,
         BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_OUT,
