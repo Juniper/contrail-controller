@@ -4,9 +4,11 @@
 
 #include "bgp/peer_close_manager.h"
 
-#include <boost/foreach.hpp>
 
 #include <list>
+#include <map>
+
+#include <boost/foreach.hpp>
 
 #include "base/task_annotations.h"
 #include "base/timer.h"
@@ -186,7 +188,6 @@ void PeerCloseManager::Close(bool graceful) {
 }
 
 void PeerCloseManager::Close(Event *event) {
-
     // Note down non-graceful close trigger. Once non-graceful closure is
     // triggered, it should remain so until close process is complete. Further
     // graceful closure calls until then should remain non-graceful.
@@ -278,7 +279,6 @@ void PeerCloseManager::RestartTimerCallback(Event *event) {
         return;
 
     if (peer_close_->IsReady() && !families_.empty()) {
-
         // Fake reception of all EORs.
         for (IPeerClose::Families::iterator i = families_.begin(), next = i;
                 i != families_.end(); i = next) {
