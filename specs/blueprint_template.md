@@ -26,10 +26,7 @@
 
 
 #4. Implementation
-##4.1 Assignee(s)
-####List dev and test assignments
-
-##4.2 Work items
+##4.1 Work items
 ####Describe changes needed for different components such as Controller, Analytics, Agent, UI. 
 ####Add subsections as needed.
 
