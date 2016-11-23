@@ -34,16 +34,24 @@ class KubeNetworkManager(object):
         self.args = args
         self.logger = logger.Logger(args)
         self.q = Queue()
+
         self.vnc = vnc_kubernetes.VncKubernetes(args=self.args,
             logger=self.logger, q=self.q)
-        self.namespace = namespace_monitor.NamespaceMonitor(args=self.args,
-            logger=self.logger, q=self.q)
-        self.pod = pod_monitor.PodMonitor(args=self.args,
-            logger=self.logger, q=self.q)
-        self.service = service_monitor.ServiceMonitor(args=self.args,
-            logger=self.logger, q=self.q)
-        self.network_policy = network_policy_monitor.NetworkPolicyMonitor(
-            args=self.args, logger=self.logger, q=self.q)
+
+        kube_api_connected = False
+        while not kube_api_connected:
+            try:   
+                self.namespace = namespace_monitor.NamespaceMonitor(
+                    args=self.args, logger=self.logger, q=self.q)
+                self.pod = pod_monitor.PodMonitor(args=self.args,
+                    logger=self.logger, q=self.q)
+                self.service = service_monitor.ServiceMonitor(
+                    args=self.args, logger=self.logger, q=self.q)
+                self.network_policy = network_policy_monitor.NetworkPolicyMonitor(
+                    args=self.args, logger=self.logger, q=self.q)
+                kube_api_connected = True
+            except Exception as e:
+                time.sleep(5)
 
     def start_tasks(self):
         gevent.joinall([
