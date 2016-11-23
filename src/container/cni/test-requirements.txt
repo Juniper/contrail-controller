@@ -1,0 +1,13 @@
+coverage
+junitxml
+testrepository
+mock
+bitarray
+kombu
+gevent
+eventlet
+cfgm_common
+vnc_api
+sandesh
+sandesh-common
+vnc_cfg_api_server
