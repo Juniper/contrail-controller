@@ -13,6 +13,7 @@ import errno
 import datetime
 import re
 import time
+import socket
 
 sys.path.insert(1, sys.path[0]+'/../api-venv/lib/python2.7/site-packages')
 from vnc_api.vnc_api import *
@@ -20,6 +21,8 @@ from requests.exceptions import ConnectionError
 PORT_PATH="/var/lib/contrail/ports/"
 PORT_IPC_VROUTER_AGENT_PORT=9091
 TIMEOUT_SECS=15
+DPDK_NETLINK_TCP_PORT=20914
+DPDK_NETLINK_TCP_PORT_OPEN_TIMEOUT_SECS=120
 
 class VrouterPortControl(object):
     def __init__(self, args_str = None):
@@ -34,8 +37,11 @@ class VrouterPortControl(object):
         headers = {'content-type': 'application/json'}
         base_url = "http://localhost:" + str(PORT_IPC_VROUTER_AGENT_PORT)
         if self._args.oper == "add":
-            if self._args.vif_type == "VhostUser" and not self._args.vhostuser_socket:
-                sys.exit(1)
+            if self._args.vif_type == "VhostUser":
+                if not self._args.vhostuser_socket:
+                    sys.exit(1)
+                if not self.WaitForDpdkNetlinkPortOpen():
+                    sys.exit(2)
 
             if self._args.port_type == "NovaVMPort":
                 port_type_value = 0
@@ -249,6 +255,26 @@ class VrouterPortControl(object):
             time.sleep(sleep_usecs/1000000.0)
         return 1
     #end WaitForSocketFile
+
+    def DpdkNetlinkPortOpen(self):
+        s = socket.socket()
+        try:
+            s.connect(('127.0.0.1', DPDK_NETLINK_TCP_PORT))
+            return True
+        except socket.error, e:
+            return False
+    #end DpdkNetlinkPortOpen
+
+    def WaitForDpdkNetlinkPortOpen(self):
+        timeout_usecs = DPDK_NETLINK_TCP_PORT_OPEN_TIMEOUT_SECS * 1000000
+        sleep_usecs = 1000
+        for i in range(1,(timeout_usecs/sleep_usecs)):
+            if self.DpdkNetlinkPortOpen():
+                return True
+            #sleep takes time in seconds. Convert usecs to secs.
+            time.sleep(sleep_usecs/1000000.0)
+        return False
+    #end WaitForDpdkNetlinkPortOpen
 
 # end class VrouterPortControl
 
