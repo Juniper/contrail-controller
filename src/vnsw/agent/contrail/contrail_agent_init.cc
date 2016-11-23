@@ -130,6 +130,11 @@ void ContrailAgentInit::WaitForIdle() {
 void ContrailAgentInit::InitDone() {
     ContrailInitCommon::InitDone();
 
+    if (agent()->rest_server()) {
+        /* Open REST API port for port add/change/deletes */
+        agent()->rest_server()->InitDone();
+    }
+
     /* Reads and processes port information written by nova-compute */
     PortIpcHandler *pih = agent()->port_ipc_handler();
     if (pih) {
