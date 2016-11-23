@@ -17,6 +17,7 @@ class RESTServer {
     explicit RESTServer(Agent *agent);
     virtual ~RESTServer();
 
+    void InitDone();
     void HandleRequest(HttpSession* session, const HttpRequest* request);
     void Shutdown();
 
