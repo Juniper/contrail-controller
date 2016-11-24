@@ -162,20 +162,6 @@ class FloatingIpServer(FloatingIpServerGen):
         return True, ""
     # end http_delete_fail
 
-    @classmethod
-    def dbe_create_notification(cls, obj_ids, obj_dict):
-        fip_addr = obj_dict['floating_ip_address']
-        vn_fq_name = obj_dict['fq_name'][:-2]
-        cls.addr_mgmt.ip_alloc_notify(fip_addr, vn_fq_name)
-    # end dbe_create_notification
-
-    @classmethod
-    def dbe_delete_notification(cls, obj_ids, obj_dict):
-        fip_addr = obj_dict['floating_ip_address']
-        vn_fq_name = obj_dict['fq_name'][:-2]
-        cls.addr_mgmt.ip_free_notify(fip_addr, vn_fq_name)
-    # end dbe_delete_notification
-
 # end class FloatingIpServer
 
 
@@ -316,23 +302,6 @@ class InstanceIpServer(InstanceIpServerGen):
 
         return True, ""
     # end http_delete_fail
-
-    @classmethod
-    def dbe_create_notification(cls, obj_ids, obj_dict):
-        ip_addr = obj_dict['instance_ip_address']
-        vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
-        cls.addr_mgmt.ip_alloc_notify(ip_addr, vn_fq_name)
-    # end dbe_create_notification
-
-    @classmethod
-    def dbe_delete_notification(cls, obj_ids, obj_dict):
-        try:
-            ip_addr = obj_dict['instance_ip_address']
-        except KeyError:
-            return
-        vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
-        cls.addr_mgmt.ip_free_notify(ip_addr, vn_fq_name)
-    # end dbe_delete_notification
 
 # end class InstanceIpServer
 
@@ -631,21 +600,6 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
             ip_count_list.append(cls.addr_mgmt.ip_count(obj_dict, item))
         return {'ip_count_list': ip_count_list}
     # end subnet_ip_count
-
-    @classmethod
-    def dbe_create_notification(cls, obj_ids, obj_dict):
-        cls.addr_mgmt.net_create_notify(obj_ids, obj_dict)
-    # end dbe_create_notification
-
-    @classmethod
-    def dbe_update_notification(cls, obj_ids):
-        cls.addr_mgmt.net_update_notify(obj_ids)
-    # end dbe_update_notification
-
-    @classmethod
-    def dbe_delete_notification(cls, obj_ids, obj_dict):
-        cls.addr_mgmt.net_delete_notify(obj_ids, obj_dict)
-    # end dbe_update_notification
 
 # end class VirtualNetworkServer
 
