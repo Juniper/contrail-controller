@@ -575,7 +575,7 @@ struct PathPreferenceSandeshData {
     /** Boolean value which indicates to wait for traffic before setting
      * path preference to High
      */
-    4: bool wait_for_traffic;
+    4: optional bool wait_for_traffic;
     /** Dependent ip address for agent path */
     5: optional string dependent_ip;
 }
