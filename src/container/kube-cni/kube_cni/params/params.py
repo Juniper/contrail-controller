@@ -12,10 +12,15 @@ Parameters are defined in 3 different classes
               Also holds ContrailParams + K8SParams
 """
 
-import sys
-import os
+import inspect
 import json
-import kube_cni.common.logger as Logger
+import os
+import sys
+
+# set parent directory in sys.path
+current_file = os.path.abspath(inspect.getfile(inspect.currentframe()))
+sys.path.append(os.path.dirname(os.path.dirname(current_file)))
+from common import logger as Logger
 
 # Logger for the file
 logger = None
@@ -24,6 +29,7 @@ logger = None
 PARAMS_ERR_ENV = 101
 PARAMS_ERR_DOCKER_CONNECTION = 102
 PARAMS_ERR_GET_UUID = 103
+PARAMS_ERR_INVALID_CMD = 104
 
 # Default VRouter related values
 VROUTER_AGENT_IP = '127.0.0.1'
@@ -105,7 +111,7 @@ class ContrailParams():
         if json_input.get('poll-timeout') != None:
             self.poll_timeout = json_input['poll-timeout']
         if json_input.get('poll-retries') != None:
-            self.poll_timeout = json_input['poll-retries']
+            self.poll_retries = json_input['poll-retries']
         return
 
     def get_loggin_params(self, json_input):
@@ -132,8 +138,8 @@ class K8SParams():
     pod_uuid - UUID for the POD. Got from "docker inspect" equivalent
     pod_name - Name of POD got from CNI_ARGS
     pod_namespace - Namespace for the POD got from CNI_ARGS
-    pod_pid  - pid for the PODs pause container. Used to map namespace
-               pid is needed by the nsenter library used in 'cni' module
+    pod_pid  - pid for the PODs pause container.
+               pid is needed by 'cni' module in creating veth interfaces
     '''
 
     def __init__(self):
@@ -238,17 +244,27 @@ class Params():
 
     def get_params(self, json_input=None):
         self.command = get_env('CNI_COMMAND')
-        self.container_id = get_env('CNI_CONTAINERID')
-        self.container_netns = get_env('CNI_NETNS')
-        self.container_ifname = get_env('CNI_IFNAME')
-        self.contrail_params.get_params(json_input.get('contrail'))
-        self.k8s_params.get_params(self.container_id, json_input.get('k8s'))
+        arg_cmds = ['get', 'poll', 'add', 'delete']
+
+        if self.command.lower() == 'version':
+            return
+
+        if self.command.lower() in arg_cmds:
+            self.container_id = get_env('CNI_CONTAINERID')
+            self.container_netns = get_env('CNI_NETNS')
+            self.container_ifname = get_env('CNI_IFNAME')
+            self.contrail_params.get_params(json_input.get('contrail'))
+            self.k8s_params.get_params(self.container_id, json_input.get('k8s'))
+            return
+        else:
+            raise ParamsError(PARAMS_ERR_INVALID_CMD,
+                          'Invalid command : ' + self.command)
         return
 
     def log(self):
-        logger.debug('Params container-id = ' + self.container_id +
-                     ' container-ifname = ' + self.container_ifname +
-                     ' continer-netns = ' + self.container_netns)
+        logger.debug('Params container-id = ' + str(self.container_id) +
+                     ' container-ifname = ' + str(self.container_ifname) +
+                     ' continer-netns = ' + str(self.container_netns))
         self.k8s_params.log()
         self.contrail_params.log()
         return
