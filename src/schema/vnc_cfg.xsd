@@ -155,6 +155,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name="PortMap">
     <xsd:all>
+        <xsd:element name="protocol" type="xsd:string"/>
         <xsd:element name="src-port" type="xsd:integer"/>
         <xsd:element name="dst-port" type="xsd:integer"/>
     </xsd:all>
