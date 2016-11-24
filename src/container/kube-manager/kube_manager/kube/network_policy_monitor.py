@@ -7,6 +7,7 @@ class NetworkPolicyMonitor(KubeMonitor):
     def __init__(self, args=None, logger=None, q=None):
         super(NetworkPolicyMonitor, self).__init__(args, logger, q)
         self.handle = self.register_monitor('networkpolicies', beta=True)
+        self.logger.info("NetworkPolicyMonitor init done.");
 
     def _process_network_policy_event(self, event):
         print("Put %s %s %s:%s" % (event['type'],

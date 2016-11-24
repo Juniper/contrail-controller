@@ -14,6 +14,8 @@ class KubeMonitor(object):
         self.beta_url = "http://%s:%s/apis/extensions/v1beta1" % (
             self.args.kubernetes_api_server, self.args.kubernetes_api_port)
 
+        self.logger.info("KubeMonitor init done.");
+
     def register_monitor(self, resource_type, beta=False):
         if beta:
             url = "%s/%s" % (self.beta_url, resource_type)
