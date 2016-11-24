@@ -1234,9 +1234,11 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
     PathPreferenceSandeshData path_preference_data;
     path_preference_data.set_sequence(path_preference_.sequence());
     path_preference_data.set_preference(path_preference_.preference());
-    path_preference_data.set_ecmp(path_preference_.ecmp());
-    path_preference_data.set_wait_for_traffic(
-         path_preference_.wait_for_traffic());
+    path_preference_data.set_ecmp(path_preference_.is_ecmp());
+    if ((peer()->GetType() != Peer::BGP_PEER) && (peer()->GetType() != Peer::ECMP_PEER )) {
+        path_preference_data.set_wait_for_traffic(
+             path_preference_.wait_for_traffic());
+    }
     if (path_preference_.dependent_ip().is_unspecified() == false) {
         std::ostringstream str;
         str << path_preference_.vrf() << " : " <<path_preference_.dependent_ip().to_string();
