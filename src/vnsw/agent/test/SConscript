@@ -95,7 +95,7 @@ test_xmpp_discovery_hv = AgentEnv.MakeTestCmd(env, 'test_xmpp_discovery_hv',
 env.Alias('agent::test_xmpp_discovery_hv', test_xmpp_discovery_hv)
 
 test_xmpp_discovery_non_hv = AgentEnv.MakeTestCmd(env, 'test_xmpp_discovery_non_hv', 
-                                                  agent_suite)
+                                                  flaky_agent_suite)
 env.Alias('agent::test_xmpp_discovery_non_hv', test_xmpp_discovery_non_hv)
 
 test_xmpp_discovery_dns_hv = AgentEnv.MakeTestCmd(env, 'test_xmpp_discovery_dns_hv',
