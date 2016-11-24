@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+# Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
 """
@@ -7,7 +7,7 @@ Kubernetes network manager
 """
 
 import sys
-
+import socket
 import gevent
 from gevent.queue import Queue
 
@@ -18,11 +18,19 @@ import vnc.vnc_kubernetes as vnc_kubernetes
 import common.logger as logger
 from cfgm_common import vnc_cgitb
 from cfgm_common.utils import cgitb_hook
+from sandesh_common.vns.constants import (ModuleNames, Module2NodeType,
+                                          NodeTypeNames, INSTANCE_ID_DEFAULT,
+                                          HttpPortKubemgr)
+from sandesh_common.vns.ttypes import Module
+from pysandesh.sandesh_base import Sandesh, SandeshSystem
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from sandesh.kube_manager import ttypes as sandesh
 
 import kube.namespace_monitor as namespace_monitor
 import kube.pod_monitor as pod_monitor
 import kube.service_monitor as service_monitor
 import kube.network_policy_monitor as network_policy_monitor
+import discoveryclient.client as client
 
 def cgitb_error_log(monitor):
     string_buf = cStringIO.StringIO()
@@ -32,7 +40,36 @@ def cgitb_error_log(monitor):
 class KubeNetworkManager(object):
     def __init__(self, args=None):
         self.args = args
-        self.logger = logger.Logger(args)
+
+        #
+        # Initialize module parameters.
+        #
+        self._module = {}
+        self._module["id"] = Module.KUBE_MANAGER
+        self._module["name"] = ModuleNames[self._module["id"]]
+        self._module["node_type"] = Module2NodeType[self._module["id"]]
+        self._module["node_type_name"] = NodeTypeNames[self._module["node_type"]]
+        self._module["hostname"] = socket.gethostname()
+        self._module["table"] = "ObjectConfigNode"
+
+        if self.args.worker_id:
+            self._module["instance_id"] = self.args.worker_id
+        else:
+            self._module["instance_id"] = INSTANCE_ID_DEFAULT
+
+        # Initialize discovery client
+        self._disc = None
+        if self.args.disc_server_ip and self.args.disc_server_port:
+            self._module["discovery"] = client.DiscoveryClient(
+                                        self.args.disc_server_ip,
+                                        self.args.disc_server_port,
+                                        self._module["name"])
+
+        # Instantiate and initialize logger.
+        self.logger = logger.KubeManagerLogger(
+                             logger.KubeManagerLoggerParams(**self._module),
+                             args)
+
         self.q = Queue()
         self.vnc = vnc_kubernetes.VncKubernetes(args=self.args,
             logger=self.logger, q=self.q)
@@ -46,14 +83,16 @@ class KubeNetworkManager(object):
             args=self.args, logger=self.logger, q=self.q)
 
     def start_tasks(self):
+
+        self.logger.info("Starting all tasks.")
+
         gevent.joinall([
             gevent.spawn(self.vnc.vnc_process),
             gevent.spawn(self.namespace.namespace_callback),
             gevent.spawn(self.service.service_callback),
             gevent.spawn(self.pod.pod_callback),
             gevent.spawn(self.network_policy.network_policy_callback)
-        ]) 
-
+        ])
 
 def parse_args():
     conf_parser = argparse.ArgumentParser(add_help=False)
@@ -62,9 +101,18 @@ def parse_args():
     args, remaining_argv = conf_parser.parse_known_args(sys.argv)
 
     defaults = {
-        'disc_server_ip': 'localhost',
-        'disc_server_port': '5998',
+        'http_server_port': HttpPortKubemgr,
+        'worker_id': '0',
+        'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
+        'collectors': None,
+        'logger_class': None,
+        'logging_conf': '',
+        'log_local': False,
+        'log_category': '',
+        'use_syslog': False,
+        'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
     }
+
     vnc_opts = {
         'rabbit_server': 'localhost',
         'rabbit_port': '5672',
@@ -90,6 +138,8 @@ def parse_args():
             vnc_opts.update(dict(config.items("VNC")))
         if 'KUBERNETES' in config.sections():
             k8s_opts.update(dict(config.items("KUBERNETES")))
+        if 'DEFAULTS' in config.sections():
+            defaults.update(dict(config.items("DEFAULTS")))
 
     parser = argparse.ArgumentParser(
         parents=[conf_parser],
