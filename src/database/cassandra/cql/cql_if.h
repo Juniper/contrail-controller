@@ -79,6 +79,8 @@ class CqlIf : public GenDb::GenDbIf {
         const GenDb::ColumnNameRange &crange,
         GenDb::DbConsistency::type dconsistency, int task_id,
         int task_instance, GenDb::GenDbIf::DbGetRowCb cb);
+    virtual bool Db_GetAllRows(GenDb::ColListVec *out,
+        const std::string &cfname, GenDb::DbConsistency::type dconsistency);
     // Queue
     virtual bool Db_GetQueueStats(uint64_t *queue_count,
         uint64_t *enqueues) const;

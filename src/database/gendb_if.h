@@ -166,6 +166,12 @@ struct ColList {
     NewColVec columns_;
 };
 
+inline bool operator==(const ColList &lhs, const ColList &rhs) {
+    return (lhs.cfname_ == rhs.cfname_ &&
+        lhs.rowkey_ == rhs.rowkey_ &&
+        lhs.columns_ == rhs.columns_);
+}
+
 typedef boost::ptr_vector<ColList> ColListVec;
 
 struct ColumnNameRange {
@@ -249,6 +255,8 @@ public:
         const DbDataValueVec& rowkey, const ColumnNameRange &crange,
         DbConsistency::type dconsistency, int task_id, int task_instance,
         DbGetRowCb cb) = 0;
+    virtual bool Db_GetAllRows(ColListVec *ret,
+        const std::string& cfname, DbConsistency::type dconsistency) = 0;
     // Queue
     virtual bool Db_GetQueueStats(uint64_t *queue_count,
         uint64_t *enqueues) const = 0;
