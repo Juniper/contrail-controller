@@ -377,7 +377,7 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
          ("physical-router-logical-interface")
          ("physical-router-virtual-network"))
         ("service-template", list_of("domain-service-template"))
-        ("instance-ip", std::set<std::string>())
+        ("instance-ip", list_of("instance-ip-virtual-network"))
         ("virtual-network",
          list_of("virtual-network-floating-ip-pool")
          ("virtual-network-alias-ip-pool")
@@ -385,7 +385,8 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
          ("virtual-network-access-control-list")
          ("virtual-network-routing-instance")
          ("virtual-network-qos-config"))
-        ("floating-ip", list_of("floating-ip-pool-floating-ip"))
+        ("floating-ip", list_of("floating-ip-pool-floating-ip")
+         ("instance-ip-floating-ip"))
         ("alias-ip", list_of("alias-ip-pool-alias-ip"))
         ("customer-attachment", std::set<std::string>())
         ("virtual-machine-interface-routing-instance",
