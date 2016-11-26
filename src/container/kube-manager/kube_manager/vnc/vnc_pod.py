@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+# Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
 """
@@ -55,6 +55,16 @@ class VncPod(object):
             for service_id in service_ids:
                 self._service_mgr.update_service(service_id, [pod_id])
 
+
+    def _remove_label(self, key, cache, label, uuid):
+        key = label[0] + ':' + label[1]
+        if key in cache:
+            try:
+                cache[key].remove(uuid)
+            except KeyError:
+
+        cache[key] = set()
+
     def _create_vm(self, pod_id, pod_name, labels):
         vm_obj = VirtualMachine(name=pod_name)
         vm_obj.uuid = pod_id
@@ -86,6 +96,7 @@ class VncPod(object):
         vmi_obj = self._create_vmi(pod_name, pod_namespace, vm_obj, vn_obj)
         self._create_iip(pod_name, vn_obj, vmi_obj)
         self._link_vm_to_node(vm_obj, pod_node)
+        self.check_pod_label_actions(labels, pod_id)
 
     def vnc_port_delete(self, vmi_id):
         vmi = VirtualMachineInterfaceKM.get(vmi_id)
@@ -126,8 +137,6 @@ class VncPod(object):
 
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
             pod_node = event['object']['spec'].get('nodeName')
-            if not pod_node or pod_node == 'master':
-                return
             host_network = event['object']['spec'].get('hostNetwork')
             if host_network:
                 return
