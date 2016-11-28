@@ -379,8 +379,14 @@ public:
     explicit XmppStateMachineTest(XmppConnection *connection, bool active,
                                   bool auth_enabled = false)
         : XmppStateMachine(connection, active, auth_enabled) {
+        if (!notify.empty())
+            notify(this, true);
     }
-    ~XmppStateMachineTest() { }
+
+    ~XmppStateMachineTest() {
+        if (!notify.empty())
+            notify(this, false);
+    }
 
     void StartConnectTimer(int seconds) {
         connect_timer_->Start(100,
@@ -414,6 +420,10 @@ public:
         else
             skip_tcp_event_ = TcpSession::EVENT_NONE;
     }
+    size_t get_queue_length() const { return work_queue_.Length(); }
+    void set_queue_disable(bool disable) { work_queue_.set_disable(disable); }
+    typedef boost::function<void(XmppStateMachineTest *, bool)> NotifyFn;
+    static NotifyFn notify;
 
 private:
     static int hold_time_msecs_;
