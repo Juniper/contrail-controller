@@ -1239,7 +1239,7 @@ class VncZkClient(object):
             self._zk_client.delete_node(self._subnet_path, True)
             self._zk_client.delete_node(self._fq_name_to_uuid_path, True)
             self._zk_client.delete_node(_vn_id_alloc_path, True)
-            self._zk_client.delete_node(_vn_id_alloc_path, True)
+            self._zk_client.delete_node(_sg_id_alloc_path, True)
 
         self._subnet_allocators = {}
 
