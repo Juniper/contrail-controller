@@ -6,6 +6,7 @@ import re
 import logging
 from cfgm_common import jsonutils as json
 from netaddr import IPAddress, IPNetwork
+from netaddr.core import AddrFormatError
 import argparse
 from cStringIO import StringIO
 
@@ -26,7 +27,25 @@ from vnc_db import VncServerCassandraClient
 import schema_transformer.db
 import discovery.disc_cassdb
 
-MAX_COL = 10000000
+SG_ID_MIN_ALLOC = cfgm_common.SGID_MIN_ALLOC
+RT_ID_MIN_ALLOC = cfgm_common.BGP_RTGT_MIN_ID
+
+def _parse_rt(rt):
+    if isinstance(rt, basestring):
+        prefix, asn, target = rt.split(':')
+    else:
+        prefix, asn, target = rt
+    if prefix != 'target':
+        raise ValueError()
+    target = int(target)
+    if not asn.isdigit():
+        try:
+            IPAddress(asn)
+        except AddrFormatError:
+            raise ValueError()
+    else:
+        asn = int(asn)
+    return asn, target
 
 # All possible errors from audit
 class AuditError(object):
@@ -42,6 +61,7 @@ class CassWrongRFError(AuditError): pass
 class FQNIndexMissingError(AuditError): pass
 class FQNStaleIndexError(AuditError): pass
 class FQNMismatchError(AuditError): pass
+class FQNDuplicateError(AuditError): pass
 class IfmapMissingIdentifiersError(AuditError): pass
 class IfmapExtraIdentifiersError(AuditError): pass
 class MandatoryFieldsMissingError(AuditError): pass
@@ -60,8 +80,11 @@ class ZkRTgtIdExtraError(AuditError): pass
 class ZkSGIdMissingError(AuditError): pass
 class ZkSGIdExtraError(AuditError): pass
 class SG0UnreservedError(AuditError): pass
+class SGDuplicateIdError(AuditError): pass
 class ZkVNIdExtraError(AuditError): pass
 class ZkVNIdMissingError(AuditError): pass
+class VNDuplicateIdError(AuditError): pass
+class RTDuplicateIdError(AuditError): pass
 class RTCountMismatchError(AuditError): pass
 class CassRTRangeError(AuditError): pass
 class ZkRTRangeError(AuditError): pass
@@ -71,6 +94,7 @@ class ZkSubnetMissingError(AuditError): pass
 class ZkSubnetExtraError(AuditError): pass
 class ZkVNMissingError(AuditError): pass
 class ZkVNExtraError(AuditError): pass
+class AllocateIdError(AuditError): pass
 
 class DatabaseManager(object):
     OBJ_MANDATORY_COLUMNS = ['type', 'fq_name', 'prop:id_perms']
@@ -78,7 +102,6 @@ class DatabaseManager(object):
     BASE_RTGT_ID_ZK_PATH = '/id/bgp/route-targets'
     BASE_SG_ID_ZK_PATH = '/id/security-groups/id'
     BASE_SUBNET_ZK_PATH = '/api-server/subnets'
-    AUTO_RTGT_START = 8000000
     def __init__(self, args_str=''):
         self._parse_args(args_str)
 
@@ -117,6 +140,9 @@ class DatabaseManager(object):
         zk_server = self._api_args.zk_server_ip.split(',')[0]
         self._zk_client = kazoo.client.KazooClient(zk_server)
         self._zk_client.start()
+
+        # Get the system global autonomous system
+        self.global_asn = self.get_autonomous_system()
     # end __init__
 
     def _parse_args(self, args_str):
@@ -149,6 +175,17 @@ class DatabaseManager(object):
         self._api_args = utils.parse_args('-c %s %s'
             %(self._args.api_conf, ' '.join(remaining_argv)))[0]
     # end _parse_args
+
+    def get_autonomous_system(self):
+        fq_name_table = self._cf_dict['obj_fq_name_table']
+        obj_uuid_table = self._cf_dict['obj_uuid_table']
+        cols = fq_name_table.get(
+            'global_system_config',
+            column_start='default-global-system-config:',
+            column_finish='default-global-system-config;')
+        gsc_uuid = cols.popitem()[0].split(':')[-1]
+        cols = obj_uuid_table.get(gsc_uuid, columns=['prop:autonomous_system'])
+        return int(json.loads(cols['prop:autonomous_system']))
 
     def audit_subnet_uuid(self):
         ret_errors = []
@@ -183,21 +220,18 @@ class DatabaseManager(object):
         vnc_all_subnet_uuids = []
         fq_name_table = self._cf_dict['obj_fq_name_table']
         obj_uuid_table = self._cf_dict['obj_uuid_table']
-        vn_row = fq_name_table.get('virtual_network', column_count=MAX_COL)
-        vn_uuids = [x.split(':')[-1] for x in vn_row]
+        vn_row = fq_name_table.xget('virtual_network')
+        vn_uuids = [x.split(':')[-1] for x, _ in vn_row]
         for vn_id in vn_uuids:
-            try:
-                ipam_refs = obj_uuid_table.get(vn_id,
-                    column_start='ref:network_ipam:',
-                    column_finish='ref:network_ipam;',
-                    column_count=MAX_COL)
-            except pycassa.NotFoundException:
+            ipam_refs = obj_uuid_table.xget(
+                vn_id,
+                column_start='ref:network_ipam:',
+                column_finish='ref:network_ipam;')
+            if not ipam_refs:
                 continue
 
-            for ipam in ipam_refs:
-                ipam_col = obj_uuid_table.get(vn_id,
-                    columns=[ipam], column_count=MAX_COL)
-                attr_dict = json.loads(ipam_col[ipam])['attr']
+            for _, attr_json_dict in ipam_refs:
+                attr_dict = json.loads(attr_json_dict)['attr']
                 for subnet in attr_dict['ipam_subnets']:
                     try:
                         sn_id = subnet['subnet_uuid']
@@ -222,7 +256,7 @@ class DatabaseManager(object):
         for rtgt_id in self._zk_client.get_children(base_path) or []:
             rtgt_fq_name_str = self._zk_client.get(base_path+'/'+rtgt_id)[0]
             zk_all_rtgts[int(rtgt_id)] = rtgt_fq_name_str
-            if int(rtgt_id) >= self.AUTO_RTGT_START:
+            if int(rtgt_id) >= RT_ID_MIN_ALLOC:
                 continue # all good
 
             errmsg = 'Wrong route-target range in zookeeper %s' %(rtgt_id)
@@ -236,33 +270,63 @@ class DatabaseManager(object):
         fq_name_table = self._cf_dict['obj_fq_name_table']
         obj_uuid_table = self._cf_dict['obj_uuid_table']
         logger.debug("Reading route-target objects from cassandra")
-        try:
-            rtgt_row = fq_name_table.get('route_target', column_count=MAX_COL)
-        except pycassa.NotFoundException:
-            rtgt_row = []
-        rtgt_uuids = [x.split(':')[-1] for x in rtgt_row]
+        rtgt_row = fq_name_table.xget('route_target')
+        rtgt_fq_name_uuid = [(x.split(':')[:-1], x.split(':')[-1])
+                             for x, _ in rtgt_row]
         cassandra_all_rtgts = {}
-        num_bad_rtgts = 0
-        for rtgt_uuid in rtgt_uuids:
-            rtgt_cols = obj_uuid_table.get(rtgt_uuid,
-                columns=['fq_name'],
-                column_count=MAX_COL)
-            rtgt_fq_name_str = ':'.join(json.loads(rtgt_cols['fq_name']))
-            rtgt_id = json.loads(rtgt_cols['fq_name']).split(':')[-1]
-            if rtgt_id >= self.AUTO_RTGT_START:
-                errmsg = 'Wrong route-target range in cassandra %s' %(rtgt_id)
-                ret_errors.append(CassRTRangeError(errmsg))
-                num_bad_rtgts += 1
-            cassandra_all_rtgts[rtgt_id] = rtgt_fq_name_str
+        duplicate_rt_ids = {}
+        user_rtgts = 0
+        for rtgt_fq_name, rtgt_uuid in rtgt_fq_name_uuid:
+            fq_name = None
+            rtgt_cols = dict(obj_uuid_table.xget(
+                rtgt_uuid,
+                column_start='backref:routing_instance:',
+                column_finish='backref:routing_instance;'))
+            if rtgt_cols:
+                # Take only the first RI back ref
+                uuid = rtgt_cols.keys()[0].split(':')[-1]
+            else:
+                rtgt_cols = dict(obj_uuid_table.xget(
+                    rtgt_uuid,
+                    column_start='backref:logical_router:',
+                    column_finish='backref:logical_router;'))
+                if rtgt_cols:
+                    # Take only the first LR back ref
+                    uuid = rtgt_cols.keys()[0].split(':')[-1]
+                else:
+                    # unknow the resource which allocated that RT,
+                    # probably defined by users. Use the RT fq_name.
+                    fq_name = rtgt_fq_name
 
-        logger.debug("Got %d route-targets with id in cassandra %d from wrong range",
-            len(cassandra_all_rtgts), num_bad_rtgts)
-        zk_set = set([(id, fqns) for id, fqns in zk_all_rtgts.items()])
-        cassandra_set = set([(id-self.AUTO_RTGT_START, fqns)
-            for id, fqns in cassandra_all_rtgts.items()
-            if id >= self.AUTO_RTGT_START])
+            if fq_name is None:
+                cols = obj_uuid_table.get(uuid, columns=['fq_name'])
+                fq_name = json.loads(cols['fq_name'])
+            fq_name_str = ':'.join(fq_name)
 
-        return zk_set, cassandra_set, ret_errors
+            rtgt_asn, rtgt_id = _parse_rt(rtgt_fq_name)
+            if rtgt_asn != self.global_asn or rtgt_id < RT_ID_MIN_ALLOC:
+                user_rtgts += 1
+                # Ignore user defined RT
+                continue
+
+            if rtgt_id in cassandra_all_rtgts:
+                if rtgt_id < RT_ID_MIN_ALLOC:
+                    continue
+                duplicate_rt_ids.setdefault(
+                    rtgt_id - RT_ID_MIN_ALLOC, []).append(
+                        (fq_name_str, rtgt_uuid))
+            else:
+                cassandra_all_rtgts[rtgt_id] = fq_name_str
+
+        logger.debug("Got %d route-targets with id in cassandra whose %d are "
+                     "defined by users", len(cassandra_all_rtgts), user_rtgts)
+        zk_set = set([(id - RT_ID_MIN_ALLOC, fqns)
+                      for id, fqns in zk_all_rtgts.items()])
+        cassandra_set = set([(id - RT_ID_MIN_ALLOC, fqns)
+                             for id, fqns in cassandra_all_rtgts.items()
+                             if id >= RT_ID_MIN_ALLOC])
+
+        return zk_set, cassandra_set, ret_errors, duplicate_rt_ids
     # end audit_route_targets_id
 
     def audit_security_groups_id(self):
@@ -290,26 +354,31 @@ class DatabaseManager(object):
         fq_name_table = self._cf_dict['obj_fq_name_table']
         obj_uuid_table = self._cf_dict['obj_uuid_table']
         logger.debug("Reading security-group objects from cassandra")
-        try:
-            sg_row = fq_name_table.get('security_group', column_count=MAX_COL)
-        except pycassa.NotFoundException:
-            sg_row = []
-        sg_uuids = [x.split(':')[-1] for x in sg_row]
+        sg_uuids = [x.split(':')[-1] for x, _ in
+                    fq_name_table.xget('security_group')]
         cassandra_all_sgs = {}
+        duplicate_sg_ids = {}
         for sg_uuid in sg_uuids:
             sg_cols = obj_uuid_table.get(sg_uuid,
-                columns=['prop:security_group_id', 'fq_name'],
-                column_count=MAX_COL)
+                columns=['prop:security_group_id', 'fq_name'])
             sg_id = json.loads(sg_cols['prop:security_group_id'])
             sg_fq_name_str = ':'.join(json.loads(sg_cols['fq_name']))
-            cassandra_all_sgs[sg_id] = sg_fq_name_str
+            if sg_id in cassandra_all_sgs:
+                if sg_id < SG_ID_MIN_ALLOC:
+                    continue
+                duplicate_sg_ids.setdefault(
+                    sg_id - SG_ID_MIN_ALLOC, []).append(
+                        (sg_fq_name_str, sg_uuid))
+            else:
+                cassandra_all_sgs[sg_id] = sg_fq_name_str
 
         logger.debug("Got %d security-groups with id", len(cassandra_all_sgs))
-        min_id = 8000000
         zk_set = set([(id, fqns) for id, fqns in zk_all_sgs.items()])
-        cassandra_set = set([(id-min_id, fqns) for id, fqns in cassandra_all_sgs.items() if id >= min_id])
+        cassandra_set = set([(id - SG_ID_MIN_ALLOC, fqns)
+                             for id, fqns in cassandra_all_sgs.items()
+                             if id >= SG_ID_MIN_ALLOC])
 
-        return zk_set, cassandra_set, ret_errors
+        return zk_set, cassandra_set, ret_errors, duplicate_sg_ids
     # end audit_security_groups_id
 
     def audit_virtual_networks_id(self):
@@ -332,17 +401,14 @@ class DatabaseManager(object):
         fq_name_table = self._cf_dict['obj_fq_name_table']
         obj_uuid_table = self._cf_dict['obj_uuid_table']
         logger.debug("Reading virtual-network objects from cassandra")
-        try:
-            vn_row = fq_name_table.get('virtual_network', column_count=MAX_COL)
-        except pycassa.NotFoundException:
-            vn_row = []
-        vn_uuids = [x.split(':')[-1] for x in vn_row]
+        vn_uuids = [x.split(':')[-1] for x, _ in
+                    fq_name_table.xget('virtual_network')]
         cassandra_all_vns = {}
+        duplicate_vn_ids = {}
         for vn_uuid in vn_uuids:
             vn_cols = obj_uuid_table.get(vn_uuid,
                 columns=['prop:virtual_network_properties', 'fq_name',
-                         'prop:virtual_network_network_id'],
-                column_count=MAX_COL)
+                         'prop:virtual_network_network_id'])
             try:
                 vn_id = json.loads(vn_cols['prop:virtual_network_network_id'])
             except KeyError:
@@ -356,7 +422,11 @@ class DatabaseManager(object):
                     ret_errors.append(VirtualNetworkIdMissingError(errmsg))
                     continue
             vn_fq_name_str = ':'.join(json.loads(vn_cols['fq_name']))
-            cassandra_all_vns[vn_id] = vn_fq_name_str
+            if vn_id in cassandra_all_vns:
+                duplicate_vn_ids.setdefault(vn_id, []).append(
+                    (vn_fq_name_str, vn_uuid))
+            else:
+                cassandra_all_vns[vn_id] = vn_fq_name_str
 
         logger.debug("Got %d virtual-networks with id in Cassandra.",
             len(cassandra_all_vns))
@@ -364,7 +434,7 @@ class DatabaseManager(object):
         zk_set = set([(id, fqns) for id, fqns in zk_all_vns.items()])
         cassandra_set = set([(id, fqns) for id, fqns in cassandra_all_vns.items()])
 
-        return zk_set, cassandra_set, ret_errors
+        return zk_set, cassandra_set, ret_errors, duplicate_vn_ids
     # end audit_virtual_networks_id
 
 # end class DatabaseManager
@@ -471,11 +541,8 @@ class DatabaseChecker(DatabaseManager):
         return ret_errors
     # end check_cassandra_keyspace_replication
 
-    @checker
     def check_rabbitmq_queue(self):
-        ret_errors = []
-
-        return ret_errors
+        pass
     # end check_rabbitmq_queue
 
     @checker
@@ -491,37 +558,40 @@ class DatabaseChecker(DatabaseManager):
         obj_uuid_table = self._cf_dict['obj_uuid_table']
         fq_name_table_all = []
         logger.debug("Reading all objects from obj_fq_name_table")
-        for obj_type, cols in obj_fq_name_table.get_range(column_count=MAX_COL):
-            for fq_name_str_uuid in cols:
+        for obj_type, _ in obj_fq_name_table.get_range(column_count=1):
+            for fq_name_str_uuid, _ in obj_fq_name_table.xget(obj_type):
                 fq_name_str = ':'.join(fq_name_str_uuid.split(':')[:-1])
                 fq_name_str = cfgm_common.utils.decode_string(fq_name_str)
                 obj_uuid = fq_name_str_uuid.split(':')[-1]
                 fq_name_table_all.append((obj_type, fq_name_str, obj_uuid))
                 try:
-                    obj_cols = obj_uuid_table.get(obj_uuid, column_count=MAX_COL)
-                    obj_fq_name_str = ':'.join(json.loads(obj_cols['fq_name']))
-                    if fq_name_str != obj_fq_name_str:
-                        ret_errors.append(FQNMismatchError(
-                            'Mismatched FQ Name %s (index) vs %s (object)' \
-                                   %(fq_name_str, obj_fq_name_str)))
+                    obj_cols = obj_uuid_table.get(obj_uuid,
+                                                  columns=['fq_name'])
                 except pycassa.NotFoundException:
                     ret_errors.append(FQNStaleIndexError(
                         'Missing object %s %s %s in uuid table'
                         %(obj_uuid, obj_type, fq_name_str)))
+                    continue
+                obj_fq_name_str = ':'.join(json.loads(obj_cols['fq_name']))
+                if fq_name_str != obj_fq_name_str:
+                    ret_errors.append(FQNMismatchError(
+                        'Mismatched FQ Name %s (index) vs %s (object)' \
+                               %(fq_name_str, obj_fq_name_str)))
             # end for all objects in a type
         # end for all obj types
         logger.debug("Got %d objects", len(fq_name_table_all))
 
         uuid_table_all = []
         logger.debug("Reading all objects from obj_uuid_table")
-        for obj_uuid, cols in obj_uuid_table.get_range(column_count=MAX_COL):
+        for obj_uuid, _ in obj_uuid_table.get_range(column_count=1):
             try:
-                obj_type = json.loads(cols['type'])
-                fq_name_str = ':'.join(json.loads(cols['fq_name']))
-                uuid_table_all.append((obj_type, fq_name_str, obj_uuid))
-            except Exception as e:
-                ret_errors.append(MandatoryFieldsMissingError(
-                    'uuid %s cols %s' %(obj_uuid, cols)))
+                cols = obj_uuid_table.get(obj_uuid, columns=['type', 'fq_name'])
+            except pycassa.NotFoundException:
+                ret_errors.append( MandatoryFieldsMissingError(
+                    'uuid %s cols %s' % (obj_uuid, cols)))
+            obj_type = json.loads(cols['type'])
+            fq_name_str = ':'.join(json.loads(cols['fq_name']))
+            uuid_table_all.append((obj_type, fq_name_str, obj_uuid))
 
         logger.debug("Got %d objects", len(uuid_table_all))
 
@@ -580,7 +650,19 @@ class DatabaseChecker(DatabaseManager):
                     'Missing identifiers %s in ifmap %s vs obj_uuid_table.\n' \
                     %(extra, mapclient._client__url[0])))
 
-
+        # Find duplicated fq_names
+        for obj_type, _ in obj_fq_name_table.get_range(column_count=1):
+            fq_names = set()
+            for fq_name_str_uuid, _ in obj_fq_name_table.xget(obj_type):
+                obj_uuid = fq_name_str_uuid.split(':')[-1]
+                fq_name_str = ':'.join(fq_name_str_uuid.split(':')[:-1])
+                fq_name_str = cfgm_common.utils.decode_string(fq_name_str)
+                obj_uuid = fq_name_str_uuid.split(':')[-1]
+                if fq_name_str in fq_names:
+                    msg = ("Duplicate FQ name found for the %s %s (%s)" %
+                           (obj_type, fq_name_str, obj_uuid))
+                    ret_errors.append(FQNDuplicateError(msg))
+                fq_names.add(fq_name_str)
         return ret_errors
     # end check_fq_name_uuid_ifmap_match
 
@@ -594,7 +676,8 @@ class DatabaseChecker(DatabaseManager):
         obj_uuid_table = self._cf_dict['obj_uuid_table']
         num_objs = 0
         num_bad_objs = 0
-        for obj_uuid, cols in obj_uuid_table.get_range(column_count=MAX_COL):
+        for obj_uuid, _ in obj_uuid_table.get_range(column_count=1):
+            cols = dict(obj_uuid_table.xget(obj_uuid))
             num_objs += 1
             for col_name in self.OBJ_MANDATORY_COLUMNS:
                 if col_name in cols:
@@ -666,7 +749,7 @@ class DatabaseChecker(DatabaseManager):
                 continue
             zk_all_vns[vn_fq_name_str][subnet_key] = \
                 [str(IPAddress(int(addr))) for addr in addrs]
-            num_addrs += len(zk_all_vns[vn_fq_name_str])
+            num_addrs += len(zk_all_vns[vn_fq_name_str][subnet_key])
         # end for all subnet paths
         logger.debug("Got %d networks %d addresses",
                      len(zk_all_vns), num_addrs)
@@ -676,22 +759,16 @@ class DatabaseChecker(DatabaseManager):
         num_addrs = 0
         fq_name_table = self._cf_dict['obj_fq_name_table']
         obj_uuid_table = self._cf_dict['obj_uuid_table']
-        try:
-            iip_row = fq_name_table.get('instance_ip', column_count=MAX_COL)
-        except pycassa.NotFoundException:
-            iip_row = []
-        iip_uuids = [x.split(':')[-1] for x in iip_row]
+
+        iip_row = fq_name_table.xget('instance_ip')
+        iip_uuids = [x.split(':')[-1] for x, _ in iip_row]
         ret_errors.extend(self._addr_alloc_process_ip_objects(
             cassandra_all_vns, 'instance-ip', iip_uuids))
 
         num_addrs += len(iip_uuids)
 
-        try:
-            fip_row = fq_name_table.get('floating_ip', column_count=MAX_COL)
-        except pycassa.NotFoundException:
-            fip_row = []
-
-        fip_uuids = [x.split(':')[-1] for x in fip_row]
+        fip_row = fq_name_table.xget('floating_ip')
+        fip_uuids = [x.split(':')[-1] for x, _ in fip_row]
         ret_errors.extend(self._addr_alloc_process_ip_objects(
             cassandra_all_vns, 'floating-ip', fip_uuids))
 
@@ -708,11 +785,6 @@ class DatabaseChecker(DatabaseManager):
             ret_errors.append(ZkVNExtraError(errmsg))
 
         extra_vn = set(cassandra_all_vns.keys()) - set(zk_all_vns.keys())
-        for vn in list(extra_vn):
-            # It really is extra in zookeeper only if there is a subnet
-            # configured but missing in zookeeper
-            if not cassandra_all_vns[vn]:
-                extra_vn.remove(vn)
         if extra_vn:
             errmsg = 'Missing VN in zookeeper (vs.cassandra) for %s' \
                      %(str(extra_vn))
@@ -777,8 +849,14 @@ class DatabaseChecker(DatabaseManager):
         logger = self._logger
 
         # read in route-target ids from zookeeper and cassandra
-        zk_set, cassandra_set, errors = self.audit_route_targets_id()
+        zk_set, cassandra_set, errors, duplicate_ids =\
+            self.audit_route_targets_id()
         ret_errors.extend(errors)
+
+        for vn_id, fq_name_uuids in duplicate_ids.items():
+            errmsg = ("Duplicate RT ID: '%s' used for RT(s) %s already used"
+                      "by another one" % (vn_id, fq_name_uuids))
+            ret_errors.append(RTDuplicateIdError(errmsg))
 
         extra_rtgt_ids = zk_set - cassandra_set
         for rtgt_id, rtgt_fq_name_str in extra_rtgt_ids:
@@ -799,23 +877,21 @@ class DatabaseChecker(DatabaseManager):
         fq_name_table = self._cf_dict['obj_fq_name_table']
         obj_uuid_table = self._cf_dict['obj_uuid_table']
         logger.debug("Reading virtual-network objects from cassandra")
-        try:
-            vn_row = fq_name_table.get('virtual_network', column_count=MAX_COL)
-        except pycassa.NotFoundException:
-            vn_row = []
-        vn_uuids = [x.split(':')[-1] for x in vn_row]
+        vn_row = fq_name_table.xget('virtual_network')
+        vn_uuids = [x.split(':')[-1] for x, _ in vn_row]
         for vn_id in vn_uuids:
             try:
                 rtgt_list_json = obj_uuid_table.get(vn_id,
-                    columns=['prop:route_target_list'],
-                    column_count=MAX_COL)['prop:route_target_list']
+                    columns=['prop:route_target_list'])\
+                    ['prop:route_target_list']
                 rtgt_list = json.loads(rtgt_list_json).get('route_target', [])
             except pycassa.NotFoundException:
                 continue
 
             for rtgt in rtgt_list:
-                rtgt_num = int(rtgt.split(':')[-1])
-                if rtgt_num < self.AUTO_RTGT_START:
+                rtgt_asn, rtgt_id = _parse_rt(rtgt)
+                rtgt_id = int(rtgt.split(':')[-1])
+                if rtgt_asn != self.global_asn or rtgt_num < RT_ID_MIN_ALLOC:
                     num_user_rtgts += 1
                     continue # all good
 
@@ -841,8 +917,14 @@ class DatabaseChecker(DatabaseManager):
         ret_errors = []
         logger = self._logger
 
-        zk_set, cassandra_set, errors = self.audit_virtual_networks_id()
+        zk_set, cassandra_set, errors, duplicate_ids =\
+            self.audit_virtual_networks_id()
         ret_errors.extend(errors)
+
+        for vn_id, fq_name_uuids in duplicate_ids.items():
+            errmsg = ("Duplicate VN ID: '%s' used for VN(s) %s already used by"
+                      "another one" % (vn_id, fq_name_uuids))
+            ret_errors.append(VNDuplicateIdError(errmsg))
 
         extra_vn_ids = zk_set - cassandra_set
         for vn_id, vn_fq_name_str in extra_vn_ids:
@@ -866,8 +948,14 @@ class DatabaseChecker(DatabaseManager):
         ret_errors = []
         logger = self._logger
 
-        zk_set, cassandra_set, errors = self.audit_security_groups_id()
+        zk_set, cassandra_set, errors, duplicate_ids =\
+            self.audit_security_groups_id()
         ret_errors.extend(errors)
+
+        for sg_id, fq_name_uuids in duplicate_ids.items():
+            errmsg = ("Duplicate SG ID: '%s' used for SG(s) %s already used by"
+                      "another one" % (sg_id, fq_name_uuids))
+            ret_errors.append(SGDuplicateIdError(errmsg))
 
         extra_sg_ids = zk_set - cassandra_set
         for sg_id, sg_fq_name_str in extra_sg_ids:
@@ -885,7 +973,6 @@ class DatabaseChecker(DatabaseManager):
         return ret_errors
     # end check_security_groups_id
 
-    @checker
     def check_schema_db_mismatch(self):
         # TODO detect all objects persisted that have discrepancy from
         # defined schema
@@ -916,21 +1003,17 @@ class DatabaseChecker(DatabaseManager):
                 return
 
             # find all subnets on this VN and add for later check
-            try:
-                ipam_refs = obj_uuid_table.get(vn_id,
-                    column_start='ref:network_ipam:',
-                    column_finish='ref:network_ipam;',
-                    column_count=MAX_COL)
-            except pycassa.NotFoundException:
+            ipam_refs = obj_uuid_table.xget(vn_id,
+                column_start='ref:network_ipam:',
+                column_finish='ref:network_ipam;')
+            if not ipam_refs:
                 logger.debug('VN %s (%s) has no ipam refs',
                     vn_id, fq_name_str)
                 return
 
             cassandra_all_vns[fq_name_str] = {}
-            for ipam in ipam_refs:
-                ipam_col = obj_uuid_table.get(vn_id,
-                    columns=[ipam], column_count=MAX_COL)
-                attr_dict = json.loads(ipam_col[ipam])['attr']
+            for _, attr_json_dict in ipam_refs:
+                attr_dict = json.loads(attr_json_dict)['attr']
                 for subnet in attr_dict['ipam_subnets']:
                     sn_key = '%s/%s' %(subnet['subnet']['ip_prefix'],
                                        subnet['subnet']['ip_prefix_len'])
@@ -943,8 +1026,7 @@ class DatabaseChecker(DatabaseManager):
                         'addrs': []}
         # end set_reserved_addrs_in_cassandra
 
-        for fq_name_str_uuid in obj_fq_name_table.get('virtual_network',
-                                                      column_count=MAX_COL):
+        for fq_name_str_uuid, _ in obj_fq_name_table.xget('virtual_network'):
             fq_name_str = ':'.join(fq_name_str_uuid.split(':')[:-1])
             vn_id = fq_name_str_uuid.split(':')[-1]
             set_reserved_addrs_in_cassandra(vn_id, fq_name_str)
@@ -953,9 +1035,8 @@ class DatabaseChecker(DatabaseManager):
         for ip_id in ip_uuids:
 
             # get addr
-            try:
-                ip_cols = obj_uuid_table.get(ip_id, column_count=MAX_COL)
-            except pycassa.NotFoundException:
+            ip_cols = dict(obj_uuid_table.xget(ip_id))
+            if not ip_cols:
                 errmsg = 'Missing object in uuid table for %s %s' %(ip_type, ip_id)
                 ret_errors.append(FQNStaleIndexError(errmsg))
                 continue
@@ -987,10 +1068,8 @@ class DatabaseChecker(DatabaseManager):
                     'Missing vn in %s %s.\n' %(ip_type, ip_id)))
                 continue
 
-            fq_name_json = obj_uuid_table.get(vn_id,
-                               columns=['fq_name'],
-                               column_count=MAX_COL)['fq_name']
-            fq_name_str = ':'.join(json.loads(fq_name_json))
+            col = obj_uuid_table.get(vn_id, columns=['fq_name'])
+            fq_name_str = ':'.join(json.loads(col['fq_name']))
             if fq_name_str not in cassandra_all_vns:
                 msg = "Found IP %s %s on VN %s (%s) thats not in FQ NAME index" \
                       %(ip_type, ip_id, vn_id, fq_name_str)
@@ -1015,6 +1094,14 @@ class DatabaseChecker(DatabaseManager):
             # end handled the ip
         # end for all ip_uuids
 
+        # Remove subnets without IP and network without subnets
+        for vn_fq_name_str, sn_keys in cassandra_all_vns.items():
+            for sn_key, subnet in sn_keys.items():
+                if not subnet['addrs']:
+                    del cassandra_all_vns[vn_fq_name_str][sn_key]
+            if not cassandra_all_vns[vn_fq_name_str]:
+                del cassandra_all_vns[vn_fq_name_str]
+
         return ret_errors
     # end _addr_alloc_process_ip_objects
 
@@ -1033,8 +1120,15 @@ class DatabaseChecker(DatabaseManager):
             ifmap_ips_ports = [(ip_port.split(':'))
                                    for ip_port in self._args.ifmap_servers]
         else:
-            ifmap_ips_ports = [(self._api_args.ifmap_listen_ip,
-                                    str(self._api_args.ifmap_listen_port))]
+            if ('ifmap_listen_ip' not in self._api_args or
+                    self._api_args.ifmap_listen_ip is None or
+                    'ifmap_listen_port' not in self._api_args or
+                    self._api_args.ifmap_listen_port is None):
+                ifmap_ips_ports = [(self._api_args.ifmap_server_ip,
+                                        str(self._api_args.ifmap_server_port))]
+            else:
+                ifmap_ips_ports = [(self._api_args.ifmap_listen_ip,
+                                        str(self._api_args.ifmap_listen_port))]
         if self._args.ifmap_credentials:
             ifmap_user, ifmap_passwd = self._args.ifmap_credentials.split(':')
         else:
@@ -1090,9 +1184,9 @@ class DatabaseCleaner(DatabaseManager):
         obj_fq_name_table = self._cf_dict['obj_fq_name_table']
         obj_uuid_table = self._cf_dict['obj_uuid_table']
         logger.debug("Reading all objects from obj_fq_name_table")
-        for obj_type, cols in obj_fq_name_table.get_range(column_count=MAX_COL):
+        for obj_type, _ in obj_fq_name_table.get_range(column_count=1):
             stale_cols = []
-            for fq_name_str_uuid in cols:
+            for fq_name_str_uuid, _ in obj_fq_name_table.xget(obj_type):
                 obj_uuid = fq_name_str_uuid.split(':')[-1]
                 try:
                     _ = obj_uuid_table.get(obj_uuid)
@@ -1126,7 +1220,8 @@ class DatabaseCleaner(DatabaseManager):
         obj_uuid_table = self._cf_dict['obj_uuid_table']
 
         logger.debug("Reading all objects from obj_uuid_table")
-        for obj_uuid, cols in obj_uuid_table.get_range(column_count=MAX_COL):
+        for obj_uuid, cols in obj_uuid_table.get_range(
+                columns=self.OBJ_MANDATORY_COLUMNS):
             missing_cols = set(self.OBJ_MANDATORY_COLUMNS) - set(cols.keys())
             if not missing_cols:
                 continue
@@ -1146,7 +1241,8 @@ class DatabaseCleaner(DatabaseManager):
 
         stale_vm_uuids = []
         logger.debug("Reading all VMs from obj_uuid_table")
-        for obj_uuid, cols in obj_uuid_table.get_range(column_count=MAX_COL):
+        for obj_uuid, _ in obj_uuid_table.get_range(column_count=1):
+            cols = dict(obj_uuid_table.xget(obj_uuid))
             obj_type = json.loads(cols.get('type', '""'))
             if not obj_type or obj_type != 'virtual_machine':
                 continue
@@ -1158,7 +1254,7 @@ class DatabaseCleaner(DatabaseManager):
             logger.info("Found stale VM %s columns %s", vm_uuid, col_names)
             stale_vm_uuids.append(vm_uuid)
 
-        logger.info("Total %s VMs with no VMIs", len(stale_vm_uuids))
+        logger.debug("Total %s VMs with no VMIs", len(stale_vm_uuids))
         for vm_uuid in stale_vm_uuids:
             obj_uuid_table.remove(vm_uuid)
             logger.info("Removed stale VM %s", vm_uuid)
@@ -1167,58 +1263,48 @@ class DatabaseCleaner(DatabaseManager):
     # end clean_vm_with_no_vmi
 
     @cleaner
-    def clean_stale_route_targets_id(self):
-        logger = self._logger
+    def clean_stale_route_target_id(self):
         ret_errors = []
 
-        zk_set, cassandra_set, errors = self.audit_route_targets_id()
+        zk_set, cassandra_set, errors, _ = self.audit_route_targets_id()
         ret_errors.extend(errors)
 
-        stale_rtgt_ids = zk_set - cassandra_set
-        for rtgt_id, rtgt_fq_name_str in stale_rtgt_ids:
-            id_str = "%(#)010d" % {'#': rtgt_id}
-            self._zk_client.delete('%s/%s' %(self.BASE_RTGT_ID_ZK_PATH, id_str))
-            logger.info("Removed stale route-target id %s for %s",
-                rtgt_id, rtgt_fq_name_str)
+        self._clean_zk_id_allocation(self.BASE_RTGT_ID_ZK_PATH,
+                                     cassandra_set,
+                                     zk_set)
 
         return ret_errors
-    # end clean_stale_route_targets_id
+    # end clean_stale_route_target_id
 
     @cleaner
-    def clean_stale_security_groups_id(self):
-        logger = self._logger
+    def clean_stale_security_group_id(self):
         ret_errors = []
 
-        zk_set, cassandra_set, errors = self.audit_security_groups_id()
+        zk_set, cassandra_set, errors, _ = self.audit_security_groups_id()
         ret_errors.extend(errors)
 
-        stale_sg_ids = zk_set - cassandra_set
-        for sg_id, sg_fq_name_str in stale_sg_ids:
-            id_str = "%(#)010d" % {'#': sg_id}
-            self._zk_client.delete('%s/%s' %(self.BASE_SG_ID_ZK_PATH, id_str))
-            logger.info("Removed stale security group id %s for %s",
-                sg_id, sg_fq_name_str)
+        self._clean_zk_id_allocation(self.BASE_SG_ID_ZK_PATH,
+                                     cassandra_set,
+                                     zk_set)
 
         return ret_errors
-    # end clean_stale_security_groups_id
+    # end clean_stale_security_group_id
 
     @cleaner
-    def clean_stale_virtual_networks_id(self):
-        logger = self._logger
+    def clean_stale_virtual_network_id(self):
         ret_errors = []
 
-        zk_set, cassandra_set, errors = self.audit_virtual_networks_id()
+        zk_set, cassandra_set, errors, _ = self.audit_virtual_networks_id()
         ret_errors.extend(errors)
 
-        stale_vn_ids = zk_set - cassandra_set
-        for vn_id, vn_fq_name_str in stale_vn_ids:
-            id_str = "%(#)010d" % {'#': vn_id-1}
-            self._zk_client.delete('%s/%s' %(self.BASE_VN_ID_ZK_PATH, id_str))
-            logger.info("Removed stale virtual network id %s for %s",
-                vn_id, vn_fq_name_str)
+        self._clean_zk_id_allocation(self.BASE_VN_ID_ZK_PATH,
+                                     cassandra_set,
+                                     zk_set,
+                                     id_oper='%s - 1')
 
         return ret_errors
-    # end clean_stale_virtual_networks_id
+    # end clean_stale_virtual_network_id
+
 
     @cleaner
     def clean_stale_subnet_uuid(self):
@@ -1248,7 +1334,8 @@ class DatabaseCleaner(DatabaseManager):
 
         obj_uuid_table = self._cf_dict['obj_uuid_table']
         logger.debug("Reading all objects from obj_uuid_table")
-        for obj_uuid, cols in obj_uuid_table.get_range(column_count=MAX_COL):
+        for obj_uuid, _ in obj_uuid_table.get_range(column_count=1):
+            cols = dict(obj_uuid_table.xget(obj_uuid))
             obj_type = json.loads(cols.get('type', '"UnknownType"'))
             fq_name = json.loads(cols.get('fq_name', '"UnknownFQN"'))
             stale_cols = []
@@ -1271,6 +1358,29 @@ class DatabaseCleaner(DatabaseManager):
 
         return ret_errors
     # end _remove_stale_from_uuid_table
+
+    def _clean_zk_id_allocation(self, zk_path, cassandra_set, zk_set,
+                                id_oper=None):
+        logger = self._logger
+        zk_path = '%s/%%s' % zk_path
+
+        # Remove stale IDs in zk
+        for id, fq_name_str in zk_set - cassandra_set:
+            if id_oper is not None:
+                id = eval(id_oper % id)
+            id_str = "%(#)010d" % {'#': id}
+            self._zk_client.delete(zk_path % id_str)
+            logger.info("Removed stale id %s for %s", zk_path % id_str,
+                        fq_name_str)
+
+        # Add missing IDs in zk
+        for id, fq_name_str in cassandra_set - zk_set:
+            if id_oper is not None:
+                id = eval(id_oper % id)
+            id_str = "%(#)010d" % {'#': id}
+            self._zk_client.create(zk_path % id_str, fq_name_str)
+            logger.info("Add missing id %s for %s", zk_path % id_str,
+                        fq_name_str)
 # end class DatabaseCleaner
 
 
@@ -1307,8 +1417,8 @@ class DatabaseHealer(DatabaseManager):
         logger.debug("Reading all objects from obj_uuid_table")
         # dict of set, key is row-key val is set of col-names
         fixups = {}
-        for obj_uuid, cols in obj_uuid_table.get_range(column_count=MAX_COL,
-                                  columns=['type', 'fq_name']):
+        for obj_uuid, cols in obj_uuid_table.get_range(
+                columns=['type', 'fq_name']):
             obj_type = json.loads(cols.get('type', ""))
             fq_name = json.loads(cols.get('fq_name', ""))
             if not obj_type:
@@ -1354,12 +1464,13 @@ class DatabaseHealer(DatabaseManager):
         logger = self._logger
         ret_errors = []
 
+        obj_uuid_table = self._cf_dict['obj_uuid_table']
         logger.debug("Reading all objects from obj_uuid_table")
         # dict of set, key is parent row-key val is set of col-names
         fixups = {}
-        for obj_uuid, cols in self._cf_dict['obj_uuid_table'].get_range(
-                column_count=MAX_COL, column_start='parent:',
-                column_finish='parent;'):
+        for obj_uuid, cols in obj_uuid_table.get_range(column_count=1):
+            cols = dict(obj_uuid_table.xget(obj_uuid, column_start='parent:',
+                                            column_finish='parent;'))
             if not cols:
                 continue # no parent
             if len(cols) > 1:
@@ -1368,24 +1479,23 @@ class DatabaseHealer(DatabaseManager):
 
             parent_uuid = cols.keys()[0].split(':')[-1]
             try:
-                _ = self._cf_dict['obj_uuid_table'].get(parent_uuid)
+                _ = obj_uuid_table.get(parent_uuid)
             except pycassa.NotFoundException:
                 msg = "Missing parent %s for object %s" \
                     %(parent_uuid, obj_uuid)
                 logger.info(msg)
                 continue
 
-            cols = self._cf_dict['obj_uuid_table'].get(
-                obj_uuid, columns=['type'], column_count=MAX_COL)
-            obj_type = json.loads(cols.get('type', ""))
-            if not obj_type:
+            try:
+                cols = obj_uuid_table.get(obj_uuid, columns=['type'])
+            except pycassa.NotFoundException:
                 logger.info("Missing type for object %s", obj_uuid)
                 continue
+            obj_type = json.loads(cols['type'])
 
             child_col = 'children:%s:%s' %(obj_type, obj_uuid)
             try:
-                _ = self._cf_dict['obj_uuid_table'].get(
-                        parent_uuid, columns=[child_col])
+                _ = obj_uuid_table.get(parent_uuid, columns=[child_col])
                 # found it, this object is indexed by parent fine
                 continue
             except pycassa.NotFoundException:
@@ -1393,9 +1503,7 @@ class DatabaseHealer(DatabaseManager):
                     %(child_col, parent_uuid)
                 logger.info(msg)
 
-            if parent_uuid not in fixups:
-                fixups[parent_uuid] = set([])
-            fixups[parent_uuid].add(child_col)
+            fixups.setdefault(parent_uuid, []).append(child_col)
         # for all objects in uuid table
 
         for parent_uuid in fixups:
@@ -1406,7 +1514,7 @@ class DatabaseHealer(DatabaseManager):
             else:
                 logger.info("Inserting row/columns: %s %s",
                     parent_uuid, cols)
-                self._cf_dict['obj_uuid_table'].insert(parent_uuid,
+                obj_uuid_table.insert(parent_uuid,
                     columns=dict((x, json.dumps(None)) for x in cols))
 
         return ret_errors
@@ -1456,9 +1564,9 @@ def db_clean(args_str=''):
     db_cleaner.clean_stale_back_refs()
     db_cleaner.clean_stale_children()
     db_cleaner.clean_stale_subnet_uuid()
-    db_cleaner.clean_stale_route_targets_id()
-    db_cleaner.clean_stale_virtual_networks_id()
-    db_cleaner.clean_stale_security_groups_id()
+    db_cleaner.clean_stale_route_target_id()
+    db_cleaner.clean_stale_virtual_network_id()
+    db_cleaner.clean_stale_security_group_id()
 # end db_clean
 
 def db_heal(args_str=''):
