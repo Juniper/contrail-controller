@@ -11,7 +11,7 @@ Support PBB EVPN tunneling
 Following diagram shows the network connections and roles of different compents
 in the solution.
 
-<img src=https://github.com/Juniper/contrail-controller/tree/master/specs/images/pbb_evpn_components.png alt="PBB EVPN Components">
+<img src="images/pbb_evpn_components.png" alt="PBB EVPN Components" style="width:512px;height:256px;">
 
 For PBB EVPN, Contrail implements the PE router with vRouter learning the C-MAC
 in datapath and Contrail Control node learning the B-MAC via EVPN BGP route
@@ -36,7 +36,7 @@ Component will provide B-MAC to be used for forwarding. B-MAC lookup is done
 in the bridge table of B Component to derive the PBB EVPN tunnel to forward
 the traffic.
 
-<img src=https://github.com/Juniper/contrail-controller/tree/master/specs/images/pbb_evpn_logical_model.png alt="PBB EVPN Logical Model">
+<img src="images/pbb_evpn_logical_model.png" alt="PBB EVPN Logical Model" style="width:384px;height:160px;">
 
 ##3.1 Configuration/API Model
 This section provides details of configuration properties to configure PBB EVPN
