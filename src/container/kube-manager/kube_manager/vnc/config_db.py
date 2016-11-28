@@ -281,6 +281,7 @@ class SecurityGroupKM(DBBaseKM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
+        self.annotations = None
         self.update(obj_dict)
 
     def update(self, obj=None):
@@ -289,6 +290,7 @@ class SecurityGroupKM(DBBaseKM):
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
         self.update_multiple_refs('virtual_machine_interface', obj)
+        self.annotations = obj.get('annotations', None)
 
     @classmethod
     def delete(cls, uuid):
