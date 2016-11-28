@@ -60,6 +60,7 @@ xsd:targetNamespace="http://www.contrailsystems.com/xmpp-enet-cfg.xsd">
         <xsd:element name="assisted-replication-supported" type="xsd:boolean"/>
         <xsd:element name="leaf-olist" type="EnetOlistType"/>
         <xsd:element name="replicator-address" type="xsd:string"/>
+        <xsd:element name="pbb-etree-leaf-mode" type="xsd:boolean"/>
     </xsd:all>
 </xsd:complexType>
 
