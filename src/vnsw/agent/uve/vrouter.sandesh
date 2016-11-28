@@ -256,6 +256,10 @@ struct AgentIfStats {
     6: i32 speed;
     /** Duplexity of interface */
     7: i32 duplexity;
+    8: u64 drop_pkts;
+    9: optional map<string, u64> raw_drop_stats (metric="agg", hidden="yes")
+    /** @display_name:vhost Interface Packet drop Statistics*/
+   10: optional map<string, u64> drop_stats     (mstats="raw_drop_stats:DSNon0:", tags=".__key")
 }
 
 /**
@@ -365,7 +369,9 @@ struct VrouterStatsAgent {
     /** Physical interface speed and duplexity information */
     33: optional map<string, PhyIfInfo> phy_if_info
     /** Statistics for vhost interface */
-    34: optional AgentIfStats vhost_stats;
+    76: optional AgentIfStats raw_vhost_stats (metric="agg", hidden="yes")
+    /** @display_name:Vrouter vhost Interface Traffic Statistics*/
+    77: optional AgentIfStats vhost_stats (stats="raw_vhost_stats:DSNon0:", tags="")
     /** Bandwidth of physical interface in bps for last 5 minutes */
     36: optional list<AgentIfBandwidth> phy_if_5min_usage; 
     /** Bitmap of UDP source port numbers that packets on this vrouter have

@@ -171,6 +171,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
         uve->stats_manager()->GetInterfaceStats(vhost);
     if (s != NULL) {
         AgentIfStats vhost_stats;
+        AgentUve::DerivedStatsMap vhost_ds;
         vhost_stats.set_name(agent_->vhost_interface_name());
         vhost_stats.set_in_pkts(s->in_pkts);
         vhost_stats.set_in_bytes(s->in_bytes);
@@ -178,10 +179,10 @@ bool VrouterUveEntry::SendVrouterMsg() {
         vhost_stats.set_out_bytes(s->out_bytes);
         vhost_stats.set_speed(s->speed);
         vhost_stats.set_duplexity(s->duplexity);
-        if (prev_stats_.get_vhost_stats() != vhost_stats) {
-            stats.set_vhost_stats(vhost_stats);
-            prev_stats_.set_vhost_stats(vhost_stats);
-        }
+        vhost_stats.set_drop_pkts(s->drop_pkts);
+        uve->stats_manager()->BuildDropStats(s->drop_stats, vhost_ds);
+        vhost_stats.set_raw_drop_stats(vhost_ds);
+        stats.set_raw_vhost_stats(vhost_stats);
     }
 
     SetVrouterPortBitmap(stats);
