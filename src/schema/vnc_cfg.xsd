@@ -2837,4 +2837,170 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!-- Userdefined Counter Config -->
 <xsd:include schemaLocation='usr_def_cntr.xsd'/>
 
+<!-- PBB EVPN Configurations -->
+<xsd:simpleType name="MACLimitExceedActionType" default="log">
+    <xsd:annotation>
+        <xsd:documentation>
+            Action to be taken when number of MACs learnt exceeds the configured
+            MAC limit. Possible actions can be
+            1. LOG
+            2. ALARM
+            3. SHUTDOWN
+            4. DROP
+            Currently only LOG option will be supported
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="log"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="MACMoveLimitExceedActionType" default="log">
+    <xsd:annotation>
+        <xsd:documentation>
+            Action to be taken when number of MAC moves exceed the configured
+            MAC move limit. Possible actions can be
+            1. LOG
+            2. ALARM
+            3. SHUTDOWN
+            4. DROP
+            Currently only LOG option will be supported
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="log"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="MACLimitControlType">
+    <xsd:annotation>
+        <xsd:documentation>
+            This property defines the MAC limit and MAC limit exceed actions
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:element name='mac-limit' type='xsd:integer' required='true' operations='CRUD'
+        description='Number of MACs that can be learnt'/>
+    <xsd:element name='mac-limit-action' type='MACLimitExceedActionType' required='optional' operations='CRUD'
+        description='Action to be taken when MAC limit exceeds'/>
+</xsd:complexType>
+
+<xsd:complexType name="MACMoveLimitControlType">
+    <xsd:annotation>
+        <xsd:documentation>
+            This property defines the permitted MAC moves and actions to be taken
+            when MAC move limit exceeds
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:element name='mac-move-limit' type='xsd:integer' required='true' operations='CRUD'
+        description='Number of MACs that can be learnt'/>
+    <xsd:element name='mac-move-limit-action' type='MACLimitExceedActionType' required='optional' operations='CRUD'
+        description='Action to be taken when MAC limit exceeds'/>
+</xsd:complexType>
+
+<!-- MAC learning configurations on Virtual network -->
+<xsd:element name="mac-learning-enabled" type='xsd:boolean' default='false'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('mac-learning-enabled', 'virtual-network', 'optional', 'CRUD',
+              'Enable MAC learning on the network') -->
+
+<xsd:element name="mac-limit-control" type='MACLimitControlType'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('mac-limit-control', 'virtual-network', 'optional', 'CRUD',
+              'MAC limit control on the network') -->
+
+<xsd:element name="mac-move-control" type='MACMoveLimitControlType'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('mac-move-control', 'virtual-network', 'optional', 'CRUD',
+              'MAC move control on the network') -->
+
+<xsd:simpleType name="MACAgeTimer" default="300">
+    <xsd:annotation>
+        <xsd:documentation>
+            MAC Age timer value in seconds
+            MAC age timeout ranges from 10 seconds to 1 day(86400 secs)
+            Special value of 0 means MAC aging is disabled
+            Default MAC Age timeout is set to 5 Minutes(300 seconds)
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:integer">
+        <xsd:minInclusive value="0"/>
+        <xsd:maxInclusive value="86400"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:element name="mac-age-timer" type="MACAgeTimer"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('mac-age-timer', 'virtual-network', 'optional', 'CRUD',
+              'MAC age time on the network') -->
+
+<!-- MAC learning configurations on global system config -->
+    <xsd:annotation>
+        <xsd:documentation>
+            Following attribute will be configured on the global level
+                MAC learning control
+                MAC move control
+                MAC age timer
+            These configuration is applied on the Virtual Network that has
+            MAC learning enabled and above parameters are not explicitly configured
+        </xsd:documentation>
+    </xsd:annotation>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('mac-limit-control', 'global-system-config', 'optional', 'CRUD',
+              'Global MAC limit control') -->
+<!--#IFMAP-SEMANTICS-IDL
+     Property('mac-move-control', 'global-system-config', 'optional', 'CRUD',
+              'Global MAC move control') -->
+<!--#IFMAP-SEMANTICS-IDL
+     Property('mac-age-timer', 'global-system-config', 'optional', 'CRUD',
+              'Global MAC age time') -->
+<!-- I-SID configuration -->
+<xsd:element name="instance-service-identifier"  type="ifmap:IdentityType"/>
+<xsd:simpleType name="IsidType">
+    <xsd:annotation>
+        <xsd:documentation>
+            Instance Service Identified or I-SID is a 24 bit number that
+            uniquely identifies an I-Component. It is unique across a service
+            provider's PBB network.
+        </xsd:documentation>
+    </xsd:annotation>
+     <xsd:restriction base="xsd:integer">
+         <xsd:minInclusive value="1"/>
+         <xsd:maxInclusive value="16777215"/>
+     </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:element name="isid" type='IsidType'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('isid', 'instance-service-identifier', 'required', 'CRUD',
+              'i-sid value') -->
+<xsd:element name="virtual-network-isid"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('virtual-network-isid',
+          'virtual-network', 'instance-service-identifier', ['ref'], 'optional', 'CRUD',
+          'Reference to isid of this virtual network.') -->
+
+<xsd:element name="routing-instance-isid"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('routing-instance-isid',
+          'bgp:routing-instance', 'instance-service-identifier', ['ref'], 'optional', 'CRUD',
+          'Reference to isid of this routing instance.') -->
+
+<!-- PBB configuration -->
+<xsd:element name="pbb-evpn-enable" type="xsd:boolean" default="false"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('pbb-evpn-enable', 'virtual-network', 'optional', 'CRUD',
+              'Enable/Disable PBB EVPN tunneling on the network') -->
+
+<xsd:element name="pbb-etree-mode" type="xsd:boolean" default="false"/>
+    <xsd:annotation>
+        <xsd:documentation>
+            This Boolean will allow/disallow L2 communication between two
+            endpoints connected to vRouters in a virtual network.
+            When it is disabled, endpoint communication happens via a L3 gateway
+            provisioned in the remote PE.
+        </xsd:documentation>
+    </xsd:annotation>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('pbb-etree-mode', 'virtual-network', 'optional', 'CRUD',
+              'Enable/Disable PBB ETREE mode on the network') -->
 </xsd:schema>
