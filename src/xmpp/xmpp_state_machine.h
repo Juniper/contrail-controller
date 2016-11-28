@@ -98,6 +98,8 @@ public:
 
     // Receive incoming message
     void OnMessage(XmppSession *session, const XmppStanza::XmppMessage *msg);
+    void ProcessMessage(XmppSession *session,
+                        const XmppStanza::XmppMessage *msg);
 
     // Receive incoming ssl events
     //void OnEvent(XmppSession *session, xmsm::SslHandShakeResponse);

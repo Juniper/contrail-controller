@@ -23,6 +23,7 @@
 #include "sandesh/sandesh_trace.h"
 #include "sandesh/common/vns_types.h"
 #include "sandesh/common/vns_constants.h"
+#include "sandesh/xmpp_client_server_sandesh_types.h"
 #include "sandesh/xmpp_peer_info_types.h"
 #include "sandesh/xmpp_state_machine_sandesh_types.h"
 #include "sandesh/xmpp_trace_sandesh_types.h"
@@ -119,6 +120,16 @@ struct EvTcpDeleteSession : sc::event<EvTcpDeleteSession> {
         return "EvTcpDeleteSession";
     }
     TcpSession *session;
+};
+
+struct EvProcessMessage : sc::event<EvProcessMessage> {
+    explicit EvProcessMessage(XmppSession *session,
+        const XmppStanza::XmppMessage *msg) : session(session), msg(msg) { }
+    static const char *Name() {
+        return "EvProcessMessage";
+    }
+    XmppSession *session;
+    const XmppStanza::XmppMessage *msg;
 };
 
 struct EvXmppOpen : public sc::event<EvXmppOpen> {
@@ -1401,6 +1412,12 @@ bool XmppStateMachine::ProcessStreamHeaderMessage(XmppSession *session,
 
 void XmppStateMachine::OnMessage(XmppSession *session,
                                  const XmppStanza::XmppMessage *msg) {
+    if (!Enqueue(xmsm::EvProcessMessage(session, msg)))
+        delete msg;
+}
+
+void XmppStateMachine::ProcessMessage(XmppSession *session,
+                                        const XmppStanza::XmppMessage *msg) {
     bool enqueued = false;
     const XmppStanza::XmppStreamMessage *stream_msg =
         static_cast<const XmppStanza::XmppStreamMessage *>(msg);
@@ -1557,6 +1574,14 @@ const char *XmppStateMachine::ChannelType() {
 
 bool XmppStateMachine::DequeueEvent(
         boost::intrusive_ptr<const sc::event_base>  &event) {
+    // Process message event and enqueue additional events as necessary.
+    const xmsm::EvProcessMessage *process_message =
+            dynamic_cast<const xmsm::EvProcessMessage *>(event.get());
+    if (process_message) {
+        ProcessMessage(process_message->session, process_message->msg);
+        return true;
+    }
+
     const xmsm::EvTcpDeleteSession *deferred_delete =
             dynamic_cast<const xmsm::EvTcpDeleteSession *>(event.get());
     if (deferred_delete) {
@@ -1648,7 +1673,7 @@ void XmppStateMachine::SendConnectionInfo(XmppConnectionInfo *info,
 
 // Resurrect an old xmpp connection if present (when under GracefulRestart)
 //
-// During Graceful Restart (or otherwise), new connections are not rejected in
+// During Graceful Restart (or otherwise), new connections are rejected in
 // ProcessStreamHeaderMessage() itself until old one's cleanup process is
 // complete and the system is ready to start a new session.
 //
@@ -1674,6 +1699,9 @@ void XmppStateMachine::ResurrectOldConnection(XmppConnection *new_connection,
     // If this is a new endpoint, then there is no older connection to manage.
     if (created)
         return;
+
+    XMPP_DEBUG(XmppCreateConnection, "Resurrect xmpp connection " +
+               new_session->ToString());
 
     // Retrieve old XmppConnection and XmppStateMachine (to reuse)
     XmppConnection *old_xmpp_connection = connection_endpoint->connection();
