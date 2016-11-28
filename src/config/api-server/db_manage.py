@@ -25,6 +25,8 @@ import vnc_cfg_ifmap
 import schema_transformer.db
 import discovery.disc_cassdb
 
+SG_ID_MIN_ALLOC = cfgm_common.SGID_MIN_ALLOC
+RT_ID_MIN_ALLOC = cfgm_common.BGP_RTGT_MIN_ID
 MAX_COL = 10000000
 
 # All possible errors from audit
@@ -59,8 +61,10 @@ class ZkRTgtIdExtraError(AuditError): pass
 class ZkSGIdMissingError(AuditError): pass
 class ZkSGIdExtraError(AuditError): pass
 class SG0UnreservedError(AuditError): pass
+class SGDuplicateIdError(AuditError): pass
 class ZkVNIdExtraError(AuditError): pass
 class ZkVNIdMissingError(AuditError): pass
+class VNDuplicateIdError(AuditError): pass
 class RTCountMismatchError(AuditError): pass
 class CassRTRangeError(AuditError): pass
 class ZkRTRangeError(AuditError): pass
@@ -70,6 +74,7 @@ class ZkSubnetMissingError(AuditError): pass
 class ZkSubnetExtraError(AuditError): pass
 class ZkVNMissingError(AuditError): pass
 class ZkVNExtraError(AuditError): pass
+class AllocateIdError(AuditError): pass
 
 class DatabaseManager(object):
     OBJ_MANDATORY_COLUMNS = ['type', 'fq_name', 'prop:id_perms']
@@ -77,7 +82,6 @@ class DatabaseManager(object):
     BASE_RTGT_ID_ZK_PATH = '/id/bgp/route-targets'
     BASE_SG_ID_ZK_PATH = '/id/security-groups/id'
     BASE_SUBNET_ZK_PATH = '/api-server/subnets'
-    AUTO_RTGT_START = 8000000
     def __init__(self, args_str):
         self._parse_args(args_str)
 
@@ -218,11 +222,11 @@ class DatabaseManager(object):
         base_path = self.BASE_RTGT_ID_ZK_PATH
         logger.debug("Doing recursive zookeeper read from %s", base_path)
         zk_all_rtgts = {}
-        num_bad_rtgts = 0 
+        num_bad_rtgts = 0
         for rtgt_id in self._zk_client.get_children(base_path) or []:
             rtgt_fq_name_str = self._zk_client.get(base_path+'/'+rtgt_id)[0]
             zk_all_rtgts[int(rtgt_id)] = rtgt_fq_name_str
-            if int(rtgt_id) >= self.AUTO_RTGT_START:
+            if int(rtgt_id) >= RT_ID_MIN_ALLOC:
                 continue # all good
 
             errmsg = 'Wrong route-target range in zookeeper %s' %(rtgt_id)
@@ -242,27 +246,33 @@ class DatabaseManager(object):
             rtgt_row = []
         rtgt_uuids = [x.split(':')[-1] for x in rtgt_row]
         cassandra_all_rtgts = {}
-        num_bad_rtgts = 0 
+        duplicate_rt_ids = {}
+        user_rtgts = 0
         for rtgt_uuid in rtgt_uuids:
             rtgt_cols = obj_uuid_table.get(rtgt_uuid,
                 columns=['fq_name'],
                 column_count=MAX_COL)
-            rtgt_fq_name_str = ':'.join(json.loads(rtgt_cols['fq_name']))
-            rtgt_id = json.loads(rtgt_cols['fq_name']).split(':')[-1]
-            if rtgt_id >= self.AUTO_RTGT_START:
-                errmsg = 'Wrong route-target range in cassandra %s' %(rtgt_id)
-                ret_errors.append(CassRTRangeError(errmsg))
-                num_bad_rtgts += 1
-            cassandra_all_rtgts[rtgt_id] = rtgt_fq_name_str
+            rtgt_fq_name_str = json.loads(rtgt_cols['fq_name'])[0]
+            rtgt_id = int(rtgt_fq_name_str.split(':')[-1])
+            if rtgt_id < RT_ID_MIN_ALLOC:
+                user_rtgts += 1
+            if rtgt_id in cassandra_all_rtgts:
+                if rtgt_id < RT_ID_MIN_ALLOC:
+                    continue
+                duplicate_rt_ids.setdefault(
+                    rtgt_id - RT_ID_MIN_ALLOC, []).append(
+                        (rtgt_fq_name_str, rtgt_uuid))
+            else:
+                cassandra_all_rtgts[rtgt_id] = rtgt_fq_name_str
 
-        logger.debug("Got %d route-targets with id in cassandra %d from wrong range",
-            len(cassandra_all_rtgts), num_bad_rtgts)
+        logger.debug("Got %d route-targets with id in cassandra whose %d are "
+                     "defined by users", len(cassandra_all_rtgts), user_rtgts)
         zk_set = set([(id, fqns) for id, fqns in zk_all_rtgts.items()])
-        cassandra_set = set([(id-self.AUTO_RTGT_START, fqns) 
-            for id, fqns in cassandra_all_rtgts.items()
-            if id >= self.AUTO_RTGT_START])
+        cassandra_set = set([(id - RT_ID_MIN_ALLOC, fqns)
+                             for id, fqns in cassandra_all_rtgts.items()
+                             if id >= RT_ID_MIN_ALLOC])
 
-        return zk_set, cassandra_set, ret_errors
+        return zk_set, cassandra_set, ret_errors, duplicate_rt_ids
     # end audit_route_targets_id
 
     def audit_security_groups_id(self):
@@ -280,7 +290,7 @@ class DatabaseManager(object):
                 if sg_val != '__reserved__':
                     ret_errors.append(SG0UnreservedError(''))
                 continue
-                
+
             sg_fq_name_str = self._zk_client.get(base_path+'/'+sg_id)[0]
             zk_all_sgs[int(sg_id)] = sg_fq_name_str
 
@@ -296,20 +306,29 @@ class DatabaseManager(object):
             sg_row = []
         sg_uuids = [x.split(':')[-1] for x in sg_row]
         cassandra_all_sgs = {}
+        duplicate_sg_ids = {}
         for sg_uuid in sg_uuids:
             sg_cols = obj_uuid_table.get(sg_uuid,
                 columns=['prop:security_group_id', 'fq_name'],
                 column_count=MAX_COL)
             sg_id = json.loads(sg_cols['prop:security_group_id'])
             sg_fq_name_str = ':'.join(json.loads(sg_cols['fq_name']))
-            cassandra_all_sgs[sg_id] = sg_fq_name_str
+            if sg_id in cassandra_all_sgs:
+                if sg_id < SG_ID_MIN_ALLOC:
+                    continue
+                duplicate_sg_ids.setdefault(
+                    sg_id - SG_ID_MIN_ALLOC, []).append(
+                        (sg_fq_name_str, sg_uuid))
+            else:
+                cassandra_all_sgs[sg_id] = sg_fq_name_str
 
         logger.debug("Got %d security-groups with id", len(cassandra_all_sgs))
-        min_id = 8000000
         zk_set = set([(id, fqns) for id, fqns in zk_all_sgs.items()])
-        cassandra_set = set([(id-min_id, fqns) for id, fqns in cassandra_all_sgs.items() if id >= min_id])
+        cassandra_set = set([(id - SG_ID_MIN_ALLOC, fqns)
+                             for id, fqns in cassandra_all_sgs.items()
+                             if id >= SG_ID_MIN_ALLOC])
 
-        return zk_set, cassandra_set, ret_errors
+        return zk_set, cassandra_set, ret_errors, duplicate_sg_ids
     # end audit_security_groups_id
 
     def audit_virtual_networks_id(self):
@@ -338,6 +357,7 @@ class DatabaseManager(object):
             vn_row = []
         vn_uuids = [x.split(':')[-1] for x in vn_row]
         cassandra_all_vns = {}
+        duplicate_vn_ids = {}
         for vn_uuid in vn_uuids:
             vn_cols = obj_uuid_table.get(vn_uuid,
                 columns=['prop:virtual_network_properties', 'fq_name',
@@ -356,7 +376,11 @@ class DatabaseManager(object):
                     ret_errors.append(VirtualNetworkIdMissingError(errmsg))
                     continue
             vn_fq_name_str = ':'.join(json.loads(vn_cols['fq_name']))
-            cassandra_all_vns[vn_id] = vn_fq_name_str
+            if vn_id in cassandra_all_vns:
+                duplicate_vn_ids.setdefault(vn_id, []).append(
+                    (vn_fq_name_str, vn_uuid))
+            else:
+                cassandra_all_vns[vn_id] = vn_fq_name_str
 
         logger.debug("Got %d virtual-networks with id in Cassandra.",
             len(cassandra_all_vns))
@@ -364,7 +388,7 @@ class DatabaseManager(object):
         zk_set = set([(id, fqns) for id, fqns in zk_all_vns.items()])
         cassandra_set = set([(id, fqns) for id, fqns in cassandra_all_vns.items()])
 
-        return zk_set, cassandra_set, ret_errors
+        return zk_set, cassandra_set, ret_errors, duplicate_vn_ids
     # end audit_virtual_networks_id
 
 # end class DatabaseManager
@@ -698,7 +722,7 @@ class DatabaseChecker(DatabaseManager):
 
         num_addrs += len(fip_uuids)
 
-        logger.debug("Got %d networks %d addresses", 
+        logger.debug("Got %d networks %d addresses",
                      len(cassandra_all_vns), num_addrs)
 
         # check for differences in networks
@@ -778,8 +802,14 @@ class DatabaseChecker(DatabaseManager):
         logger = self._logger
 
         # read in route-target ids from zookeeper and cassandra
-        zk_set, cassandra_set, errors = self.audit_route_targets_id()
+        zk_set, cassandra_set, errors, duplicate_ids =\
+            self.audit_route_targets_id()
         ret_errors.extend(errors)
+
+        for vn_id, fq_name_uuids in duplicate_ids:
+            errmsg = ("Duplicate RT ID: '%s' used for RT(s) %s already used by"
+                      "another one" % (vn_id, fq_name_uuids))
+            ret_errors.append(VNDuplicateIdError(errmsg))
 
         extra_rtgt_ids = zk_set - cassandra_set
         for rtgt_id, rtgt_fq_name_str in extra_rtgt_ids:
@@ -816,7 +846,7 @@ class DatabaseChecker(DatabaseManager):
 
             for rtgt in rtgt_list:
                 rtgt_num = int(rtgt.split(':')[-1])
-                if rtgt_num < self.AUTO_RTGT_START:
+                if rtgt_num < RT_ID_MIN_ALLOC:
                     num_user_rtgts += 1
                     continue # all good
 
@@ -842,8 +872,14 @@ class DatabaseChecker(DatabaseManager):
         ret_errors = []
         logger = self._logger
 
-        zk_set, cassandra_set, errors = self.audit_virtual_networks_id()
+        zk_set, cassandra_set, errors, duplicate_ids =\
+            self.audit_virtual_networks_id()
         ret_errors.extend(errors)
+
+        for vn_id, fq_name_uuids in duplicate_ids:
+            errmsg = ("Duplicate VN ID: '%s' used for VN(s) %s already used by"
+                      "another one" % (vn_id, fq_name_uuids))
+            ret_errors.append(VNDuplicateIdError(errmsg))
 
         extra_vn_ids = zk_set - cassandra_set
         for vn_id, vn_fq_name_str in extra_vn_ids:
@@ -867,8 +903,14 @@ class DatabaseChecker(DatabaseManager):
         ret_errors = []
         logger = self._logger
 
-        zk_set, cassandra_set, errors = self.audit_security_groups_id()
+        zk_set, cassandra_set, errors, duplicate_ids =\
+            self.audit_security_groups_id()
         ret_errors.extend(errors)
+
+        for sg_id, fq_name_uuids in duplicate_ids:
+            errmsg = ("Duplicate SG ID: '%s' used for SG(s) %s already used by"
+                      "another one" % (sg_id, fq_name_uuids))
+            ret_errors.append(SGDuplicateIdError(errmsg))
 
         extra_sg_ids = zk_set - cassandra_set
         for sg_id, sg_fq_name_str in extra_sg_ids:
@@ -925,7 +967,7 @@ class DatabaseChecker(DatabaseManager):
             except pycassa.NotFoundException:
                 logger.debug('VN %s (%s) has no ipam refs',
                     vn_id, fq_name_str)
-                return 
+                return
 
             cassandra_all_vns[fq_name_str] = {}
             for ipam in ipam_refs:
@@ -1193,7 +1235,7 @@ class DatabaseCleaner(DatabaseManager):
         logger = self._logger
         ret_errors = []
 
-        zk_set, cassandra_set, errors = self.audit_route_targets_id()
+        zk_set, cassandra_set, errors, _ = self.audit_route_targets_id()
         ret_errors.extend(errors)
 
         stale_rtgt_ids = zk_set - cassandra_set
@@ -1211,7 +1253,7 @@ class DatabaseCleaner(DatabaseManager):
         logger = self._logger
         ret_errors = []
 
-        zk_set, cassandra_set, errors = self.audit_security_groups_id()
+        zk_set, cassandra_set, errors, _ = self.audit_security_groups_id()
         ret_errors.extend(errors)
 
         stale_sg_ids = zk_set - cassandra_set
@@ -1229,7 +1271,7 @@ class DatabaseCleaner(DatabaseManager):
         logger = self._logger
         ret_errors = []
 
-        zk_set, cassandra_set, errors = self.audit_virtual_networks_id()
+        zk_set, cassandra_set, errors, _ = self.audit_virtual_networks_id()
         ret_errors.extend(errors)
 
         stale_vn_ids = zk_set - cassandra_set
@@ -1363,6 +1405,39 @@ class DatabaseHealer(DatabaseManager):
                 obj_fq_name_table.insert(obj_type,
                     columns=dict((x, json.dumps(None)) for x in cols))
 
+        # Fix duplicate fq_name
+        for obj_type, _ in obj_fq_name_table.get_range(column_count=1):
+            fq_names = set()
+            for fq_name_str_uuid, _ in obj_fq_name_table.xget(obj_type):
+                fq_name_str = ':'.join(fq_name_str_uuid.split(':')[:-1])
+                fq_name_str = cfgm_common.utils.decode_string(fq_name_str)
+                obj_uuid = fq_name_str_uuid.split(':')[-1]
+                if fq_name_str in fq_names:
+                    msg = ("Duplicate FQ name found for the %s %s" %
+                           (obj_type, fq_name_str))
+                    logger.info(msg)
+                    old_fq_name_str = fq_name_str
+                    fq_name_str = fq_name_str + '-' + obj_uuid
+                    uuid_cols = {}
+                    uuid_cols['fq_name'] = json.dumps(fq_name_str.split(':'))
+                    fq_name_cols = {}
+                    fq_name_cols['%s:%s' %(fq_name_str, obj_uuid)] = json.dumps(None)
+                    old_fq_name_cols = {}
+                    old_fq_name_cols['%s:%s' %(old_fq_name_str, obj_uuid)] = json.dumps(None)
+
+                    if self._args.dry_run:
+                        logger.info("Would update row/columns: %s %s", obj_uuid, uuid_cols)
+                        logger.info("Would update row/columns: %s %s", obj_type, fq_name_cols)
+                        logger.info("Would remove row/columns: %s %s", obj_type, old_fq_name_cols)
+                    else:
+                        logger.info("Inserting row/columns: %s %s", obj_uuid, uuid_cols)
+                        obj_uuid_table.insert(obj_uuid, columns=uuid_cols)
+                        logger.info("Inserting row/columns: %s %s", obj_type, fq_name_cols)
+                        obj_fq_name_table.insert(obj_type, columns=fq_name_cols)
+                        logger.info("Removing row/columns: %s %s", obj_type, old_fq_name_cols)
+                        obj_fq_name_table.remove(obj_type, columns=old_fq_name_cols)
+                fq_names.add(fq_name_str)
+
         return ret_errors
     # end heal_fq_name_index
 
@@ -1438,16 +1513,125 @@ class DatabaseHealer(DatabaseManager):
         pass
     # end heal_subnet_uuid
 
+    @healer
     def heal_route_targets_id(self):
-        pass
+        logger = self._logger
+        ret_errors = []
+
+        _, cassandra_set, errors, duplicate_ids =\
+            self.audit_route_targets_id()
+        ret_errors.extend(errors)
+
+        if not duplicate_ids:
+            return ret_errors
+
+        # NOTE(ethuleau): As the route target is also a part of the route
+        #                 target fq_name, it's impossible to have a duplicate
+        #                 RT ID as fq_name is unique.
+
+        return ret_errors
     # end heal_route_targets_id
 
+    @healer
     def heal_virtual_networks_id(self):
-        pass
+        logger = self._logger
+        ret_errors = []
+
+        _, cassandra_set, errors, duplicate_ids =\
+            self.audit_virtual_networks_id()
+        ret_errors.extend(errors)
+
+        if not duplicate_ids:
+            return ret_errors
+
+        allocated_id = {id_fqn_uuid[0] for id_fqn_uuid in cassandra_set}
+        id_needed = 0
+        for _, fq_name_uuids in duplicate_ids.items():
+            id_needed += len(fq_name_uuids)
+        logger.debug("%d virtual network IDs need to be reallocated",
+                     id_needed)
+        integer_bit_len = 16
+        available_id = set(range(1, 1 << integer_bit_len)) - allocated_id
+        while id_needed > len(available_id):
+            integer_bit_length += 1
+            if integer_bit_len > 24:
+                msg = "Cannot find free virtual network IDs to allocate."
+                ret_errors.append(AllocateIdError(msg))
+                return ret_errors
+            available_id = set(range(1, 1 << integer_bit_len)) - allocated_id
+
+        cass_batch = self._cf_dict['obj_uuid_table'].batch()
+        for _, fq_name_uuids in duplicate_ids.items():
+            for fq_name_uuid in fq_name_uuids:
+                id = available_id.pop()
+                if self._args.dry_run:
+                    logger.info("Would update row/columns: %s "
+                                "'prop:virtual_network_network_id' %d",
+                                fq_name_uuid[1], id)
+                else:
+                    logger.info("Updating row/columns: %s "
+                                "'prop:virtual_network_network_id' %d",
+                                fq_name_uuid[1], id)
+                    cass_batch.remove(
+                        fq_name_uuid[1],
+                        columns=['prop:virtual_network_network_id'])
+                    cass_batch.insert(fq_name_uuid[1],
+                                      {'prop:virtual_network_network_id':
+                                       json.dumps(id)})
+        if not self._args.dry_run:
+            cass_batch.send()
+
+        return ret_errors
     # end heal_virtual_networks_id
 
+    @healer
     def heal_security_groups_id(self):
-        pass
+        logger = self._logger
+        ret_errors = []
+
+        _, cassandra_set, errors, duplicate_ids =\
+            self.audit_security_groups_id()
+        ret_errors.extend(errors)
+
+        if not duplicate_ids:
+            return ret_errors
+
+        allocated_id = {id_fqn_uuid[0] for id_fqn_uuid in cassandra_set}
+        id_needed = 0
+        for _, fq_name_uuids in duplicate_ids.items():
+            id_needed += len(fq_name_uuids)
+        logger.debug("%d security group IDs need to be reallocated", id_needed)
+        integer_bit_len = 16
+        available_id = set(range(1, 1 << integer_bit_len)) - allocated_id
+        while id_needed > len(available_id):
+            integer_bit_length += 1
+            if integer_bit_len > 32:
+                msg = "Cannot find free security group IDs to allocate."
+                ret_errors.append(AllocateIdError(msg))
+                return ret_errors
+            available_id = set(range(1, 1 << integer_bit_len)) - allocated_id
+
+        cass_batch = self._cf_dict['obj_uuid_table'].batch()
+        for _, fq_name_uuids in duplicate_ids.items():
+            for fq_name_uuid in fq_name_uuids:
+                id = available_id.pop()
+                if self._args.dry_run:
+                    logger.info("Would update row/columns: %s "
+                                "'prop:security_group_id' %d",
+                                fq_name_uuid[1], id + SG_ID_MIN_ALLOC)
+                else:
+                    logger.info("Updating row/columns: %s "
+                                "'prop:security_group_id' %d",
+                                fq_name_uuid[1], id + SG_ID_MIN_ALLOC)
+                    cass_batch.remove(fq_name_uuid[1],
+                                      columns=['prop:security_group_id'])
+                    cass_batch.insert(fq_name_uuid[1],
+                                      {'prop:security_group_id':
+                                       json.dumps(id + SG_ID_MIN_ALLOC)})
+        if not self._args.dry_run:
+            cass_batch.send()
+
+        return ret_errors
     # end heal_security_groups_id
 # end class DatabaseCleaner
 
