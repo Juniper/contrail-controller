@@ -78,3 +78,12 @@ systemlog sandesh XmppCreateConnection {
     1: "Xmpp creating dynamic channel"
     2: string f1;
 }
+
+/**
+ * @description: XMPP Connection deleted
+ * @severity: DEBUG
+ */
+systemlog sandesh XmppDeleteConnection {
+    1: "Xmpp deleting dynamic channel"
+    2: string to;
+}

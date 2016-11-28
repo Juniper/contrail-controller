@@ -123,6 +123,7 @@ protected:
     }
 
     virtual void TearDown() {
+        XmppStateMachineTest::set_notify_fn(NULL);
         xs_x_->Shutdown();
         task_util::WaitForIdle();
         TASK_UTIL_EXPECT_EQ(0, xs_x_->ConnectionCount());
@@ -271,6 +272,21 @@ protected:
         TASK_UTIL_EXPECT_EQ(true, validate_done_);
     }
 
+public:
+    void XmppStateMachineNotify(XmppStateMachineTest *sm, bool create,
+                                bool queue_disable) {
+        if (sm->IsActiveChannel())
+            return;
+        tbb::mutex::scoped_lock lock(mutex_);
+        if (create) {
+            xmpp_state_machines_.insert(sm);
+            sm->set_queue_disable(queue_disable);
+        } else {
+            xmpp_state_machines_.erase(sm);
+        }
+    }
+
+protected:
     EventManager evm_;
     ServerThread thread_;
     boost::scoped_ptr<BgpServerTest> bs_x_;
@@ -290,6 +306,8 @@ protected:
     test::NetworkAgentMockPtr agent_x2_;
     test::NetworkAgentMockPtr agent_x3_;
     boost::scoped_ptr<BgpXmppChannelManager> cm_x_;
+    std::set<XmppStateMachineTest *> xmpp_state_machines_;
+    mutable tbb::mutex mutex_;
 };
 
 bool BgpXmppBasicTest::validate_done_ = false;
@@ -1216,6 +1234,48 @@ TEST_P(BgpXmppBasicParamTest, IntrospectClearNonExistentConnection) {
     TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
 
     DestroyAgents();
+}
+
+// Disable XmppStateMachine queue processing in the server and send back to
+// back connections from the client. We expect the server to correctly detect
+// duplicate connections and drop them until existing connection cleanup is
+// complete. This shall happen only later, when the state machine queue
+// processing is enabled.
+TEST_P(BgpXmppBasicParamTest, BackToBackOpen) {
+    XmppStateMachineTest::set_notify_fn(
+        boost::bind(&BgpXmppBasicParamTest::XmppStateMachineNotify, this, _1,
+                    _2, true));
+    agent_a_.reset(
+            new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            agent_a_addr_, "127.0.0.1", auth_enabled_));
+    TASK_UTIL_EXPECT_EQ(1, xmpp_state_machines_.size());
+    agent_a_->Delete();
+
+    agent_a_.reset(
+            new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            agent_a_addr_, "127.0.0.1", auth_enabled_));
+    TASK_UTIL_EXPECT_EQ(2, xmpp_state_machines_.size());
+    agent_a_->Delete();
+
+    BOOST_FOREACH(XmppStateMachineTest *sm, xmpp_state_machines_) {
+        TASK_UTIL_EXPECT_EQ(2, sm->get_queue_length());
+    }
+
+    agent_a_.reset(
+            new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            agent_a_addr_, "127.0.0.1", auth_enabled_));
+    TASK_UTIL_EXPECT_EQ(3, xmpp_state_machines_.size());
+
+    // Enable the state machine queue now.
+    BOOST_FOREACH(XmppStateMachineTest *sm, xmpp_state_machines_) {
+        sm->set_queue_disable(false);
+    }
+
+    XmppStateMachineTest::set_notify_fn(
+        boost::bind(&BgpXmppBasicParamTest::XmppStateMachineNotify, this, _1,
+                    _2, false));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    agent_a_->Delete();
 }
 
 // Parameterize shared vs unique IP for each agent.
