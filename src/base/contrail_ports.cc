@@ -66,6 +66,10 @@ const uint16_t ContrailPorts::HttpPortDns() {
     return VnsPorts().HttpPortDns;
 }
 
+const uint16_t ContrailPorts::HttpPortKubemgr() {
+    return VnsPorts().HttpPortKubemgr;
+}
+
 // Supervisor control ports
 const uint16_t ContrailPorts::AnalyticsSupervisor() {
     return VnsPorts().AnalyticsSupervisorPort;

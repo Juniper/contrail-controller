@@ -1,0 +1,88 @@
+//
+// Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
+//
+
+// contrail-kube-manager.sandesh
+//
+// Sandesh messages for Contrail Kube Manager.
+//
+
+/**
+ * @description: Emergency log messages from Contrail Kube Manager.
+ * @severity: Emergency
+ * @cause: Kube Manager has run into unrecoverable state.
+ * @action: Restart Contrail Kube Manager.
+ */
+systemlog sandesh KubeManagerEmergencyLog {
+1: string log_msg;
+}
+
+/**
+ * @description: Alert log messages from Contrail Kube Manager.
+ * @severity: Alert
+ * @cause: Kube Manager has run into unrecoverable state.
+ * @action: Restart Contrail Kube Manager.
+ */
+systemlog sandesh KubeManagerAlertLog {
+1: string log_msg;
+}
+
+/**
+ * @description: Critical log messages from Contrail Kube Manager.
+ * @severity: Critical
+ * @cause: Kube Manager has run into unrecoverable state.
+ * @action: Restart Contrail Kube Manager.
+ */
+systemlog sandesh KubeManagerCriticalLog {
+1: string log_msg;
+}
+
+/**
+ * @description: Error log messages from Contrail Kube Manager.
+ * @severity: Error
+ * @cause: Kube Manager has run into error state.
+ * @action: Restart Contrail Kube Manager.
+ */
+systemlog sandesh KubeManagerErrorLog {
+1: string log_msg;
+}
+
+/**
+ * @description: Warning log messages from Contrail Kube Manager.
+ * @severity: Warning
+ * @cause: Kube manager detected an opeationally impacting condition.
+ * @action: No action needed. Restart Contrail Kube Manager recommended.
+ */
+systemlog sandesh KubeManagerWarningLog {
+1: string log_msg;
+}
+
+/**
+ * @description: Notice log messages from Contrail Kube Manager.
+ * @severity: Notice
+ * @cause: A condition that operator should be aware of.
+ * @action: No action needed.
+ */
+systemlog sandesh KubeManagerNoticeLog {
+1: string log_msg;
+}
+
+/**
+ * @description: Informational logs Contrail Kube Manager.
+ * @severity: Info
+ * @cause: Informational logs.
+ * @action: No action needed.
+ */
+systemlog sandesh KubeManagerInfoLog {
+1: string log_msg;
+}
+
+/**
+ * @description: Debug logs Contrail Kube Manager.
+ * @severity: Debug
+ * @cause: Debug logs.
+ * @action: No action needed.
+ */
+systemlog sandesh KubeManagerDebugLog {
+1: string log_msg;
+}

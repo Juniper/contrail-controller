@@ -7,6 +7,7 @@ class NamespaceMonitor(KubeMonitor):
     def __init__(self, args=None, logger=None, q=None):
         super(NamespaceMonitor, self).__init__(args, logger, q)
         self.handle = self.register_monitor('namespaces')
+        self.logger.info("NamespaceMonitor init done.");
 
     def _process_namespace_event(self, event):
         print("Put %s %s %s" % (event['type'],

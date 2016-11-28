@@ -7,6 +7,7 @@ class ServiceMonitor(KubeMonitor):
     def __init__(self, args=None, logger=None, q=None):
         super(ServiceMonitor, self).__init__(args, logger, q)
         self.handle = self.register_monitor('services')
+        self.logger.info("ServiceMonitor init done.");
 
     def _process_service_event(self, event):
         service_data = event['object']

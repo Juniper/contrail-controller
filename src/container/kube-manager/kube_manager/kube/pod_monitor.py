@@ -7,6 +7,7 @@ class PodMonitor(KubeMonitor):
     def __init__(self, args=None, logger=None, q=None):
         super(PodMonitor, self).__init__(args, logger, q)
         self.handle = self.register_monitor('pods')
+        self.logger.info("PodMonitor init done.");
 
     def _process_pod_event(self, event):
         pod_data = event['object']
