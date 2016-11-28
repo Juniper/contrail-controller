@@ -138,6 +138,7 @@ def MapBuildDir(list):
     return map(lambda x: Dir('../../../' + x).abspath, list)
 
 mockEnv.Prepend(LIBS=[
+    'ksync',
     'sandeshflow',
     'sandeshvns',
     'sandesh',
@@ -160,8 +161,10 @@ libpath = MapBuildDir(
     [
      'base',
      'io',
+     'ksync',
     ])
 mockEnv.Append(LIBPATH=libpath)
+mockEnv.Prepend(CPPPATH = mockEnv['TOP'])
 mockgen = mockEnv.Program('mock_generator',
                           ['mock_generator.cc'])
 mockEnv.Alias("vrouter:mock_gen", mockgen)

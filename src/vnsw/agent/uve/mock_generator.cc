@@ -22,6 +22,7 @@
 #include <sandesh/common/vns_constants.h>
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/flow_types.h>
+#include <ksync/ksync_types.h>
 
 namespace opt = boost::program_options;
 
@@ -29,6 +30,7 @@ class MockGenerator {
 public:
     const static int kNumFlowSamplesPerSec;
     const static int kNumFlowSamplesInMessage;
+    const static int kNumVRouterErrorMessagesPerSec;
 
     MockGenerator(std::string &hostname, std::string &module_name,
                   std::string &node_type_name,
@@ -40,6 +42,7 @@ public:
                   int ip_start_index, int num_flows_per_vm,
                   int num_flow_samples_per_sec,
                   int num_flow_samples_in_message,
+                  int num_vrouter_error_messages_per_sec,
                   EventManager *evm) :
         hostname_(hostname),
         module_name_(module_name),
@@ -57,6 +60,7 @@ public:
         num_flows_per_vm_(num_flows_per_vm),
         num_flow_samples_per_sec_(num_flow_samples_per_sec),
         num_flow_samples_in_message_(num_flow_samples_in_message),
+        num_vrouter_error_messages_per_sec_(num_vrouter_error_messages_per_sec),
         rgen_(std::time(0)),
         u_rgen_(&rgen_),
         evm_(evm) {
@@ -73,10 +77,66 @@ public:
         SendFlowTask *ftask(new SendFlowTask(this,
             scheduler->GetTaskId("mockgen::SendFlowTask"), -1));
         scheduler->Enqueue(ftask);
-        return true; 
+        SendMessageTask *mtask(new SendMessageTask(this,
+            scheduler->GetTaskId("mockgen::SendMessageTask"), -1));
+        scheduler->Enqueue(mtask);
+        return true;
     }
 
 private:
+
+    class SendMessageTask : public Task {
+    public:
+        SendMessageTask(MockGenerator *mock_generator,
+            int task_id, int task_instance) :
+            Task(task_id, task_instance),
+            mgen_(mock_generator) {
+        }
+
+        void SendVRouterError() {
+            std::string str1("VRouter operation failed. Error <");
+            uint32_t error(2);
+            std::string str2(":");
+            std::string error_msg("Entry not pressent");
+            std::string str3(">. Object <");
+            std::string obj_str("Flow: 333333 with Source IP: "
+                "not present >. Object < Flow: 333333 with Source IP: "
+                "10.0.0.6 Source Port: 3333 Destination IP: 10.0.0.10 "
+                "Destination Port: 13333 Protocol 6");
+            std::string str4(">. Operation <");
+            std::string state_str("Change");
+            std::string str5(">. Message number :");
+            uint64_t msg_no(418940931);
+            V_ROUTER_ERROR_LOG("", SandeshLevel::SYS_DEBUG, str1, error,
+                str2, error_msg, str3, obj_str, str4, state_str, str5,
+                msg_no);
+        }
+
+        bool Run() {
+            uint64_t diff_time(0);
+            for (int i = 0; i < mgen_->num_vrouter_error_messages_per_sec_;
+                i++) {
+                uint64_t stime(UTCTimestampUsec());
+                SendVRouterError();
+                diff_time += UTCTimestampUsec() - stime;
+                if (diff_time >= 1000000) {
+                    LOG(ERROR, "Sent: " << i + 1 << " in " <<
+                        diff_time/1000000 << " seconds, NOT sending at " <<
+                        mgen_->num_vrouter_error_messages_per_sec_ << " rate");
+                    return false;
+                }
+            }
+            usleep(1000000 - diff_time);
+            return false;
+        }
+
+        std::string Description() const {
+            return "SendMessageTask";
+        }
+
+    private:
+        MockGenerator *mgen_;
+    };
 
     class SendFlowTask : public Task {
     public:
@@ -85,7 +145,7 @@ private:
             Task(task_id, task_instance),
             mgen_(mock_generator) {
         }
- 
+
         bool Run() {
             // Populate flows if not done
             if (mgen_->flows_.empty()) {
@@ -96,9 +156,9 @@ private:
                              nflow++) {
                             uint64_t init_packets(mgen_->dFlowPktsPerSec(
                                 mgen_->rgen_));
-                            uint64_t init_bytes(init_packets * 
+                            uint64_t init_bytes(init_packets *
                                 mgen_->dBytesPerPacket(mgen_->rgen_));
-                            uint32_t sourceip(mgen_->ip_vns_[vn] + 
+                            uint32_t sourceip(mgen_->ip_vns_[vn] +
                                 mgen_->ip_start_index_ + nvm);
                             uint32_t destip(mgen_->ip_vns_[other_vn] +
                                 mgen_->ip_start_index_ + nvm);
@@ -191,11 +251,11 @@ private:
     const static std::string kVmPrefix;
     const static int kBytesPerPacket = 1024;
     const static int kOtherVnPktsPerSec = 1000;
-    const static int kUveMsgIntvlInSec = 10; 
+    const static int kUveMsgIntvlInSec = 10;
     const static int kFlowMsgIntvlInSec = 1;
     const static int kFlowPktsPerSec = 100;
 
-    const static boost::random::uniform_int_distribution<> 
+    const static boost::random::uniform_int_distribution<>
         dBytesPerPacket;
     const static boost::random::uniform_int_distribution<>
         dOtherVnPktsPerSec;
@@ -208,7 +268,7 @@ private:
     const static std::vector<int> kProtocols;
     const static boost::random::uniform_int_distribution<>
         dProtocols;
-    
+
     const std::string hostname_;
     const std::string module_name_;
     const std::string node_type_name_;
@@ -225,6 +285,7 @@ private:
     const int num_flows_per_vm_;
     const int num_flow_samples_per_sec_;
     const int num_flow_samples_in_message_;
+    const int num_vrouter_error_messages_per_sec_;
     std::vector<FlowLogData> flows_;
     static int flow_counter_;
     boost::random::mt19937 rgen_;
@@ -232,12 +293,13 @@ private:
     EventManager *evm_;
 
     friend class SendFlowTask;
+    friend class SendMessageTask;
 };
 
 const std::string MockGenerator::kVnPrefix("default-domain:mock-gen-test:vn");
 const std::string MockGenerator::kVmPrefix("vm");
-const boost::random::uniform_int_distribution<> 
-    MockGenerator::dBytesPerPacket(1, MockGenerator::kBytesPerPacket); 
+const boost::random::uniform_int_distribution<>
+    MockGenerator::dBytesPerPacket(1, MockGenerator::kBytesPerPacket);
 const boost::random::uniform_int_distribution<>
     MockGenerator::dOtherVnPktsPerSec(1, MockGenerator::kOtherVnPktsPerSec);
 const boost::random::uniform_int_distribution<>
@@ -253,6 +315,7 @@ const boost::random::uniform_int_distribution<>
 int MockGenerator::flow_counter_(0);
 const int MockGenerator::kNumFlowSamplesPerSec(200);
 const int MockGenerator::kNumFlowSamplesInMessage(32);
+const int MockGenerator::kNumVRouterErrorMessagesPerSec(50);
 
 int main(int argc, char *argv[]) {
     bool log_local(false), use_syslog(false), log_flow(false);
@@ -285,6 +348,9 @@ int main(int argc, char *argv[]) {
         ("num_flow_samples_in_message", opt::value<int>()->default_value(
             MockGenerator::kNumFlowSamplesInMessage),
          "Number of flow samples to send in one message")
+        ("num_vrouter_errors_per_second", opt::value<int>()->default_value(
+            MockGenerator::kNumVRouterErrorMessagesPerSec),
+         "Number of VRouterErrror messages to send in one second")
         ("log_property_file", opt::value<std::string>()->default_value(""),
             "log4cplus property file name")
         ("log_files_count", opt::value<int>()->default_value(10),
@@ -359,7 +425,7 @@ int main(int argc, char *argv[]) {
     int gen_factor = num_networks / num_instances;
     if (gen_factor == 0) {
         LOG(ERROR, "Number of virtual networks(" << num_networks << ") should "
-            "be greater than number of instances per generator(" << 
+            "be greater than number of instances per generator(" <<
             num_instances << ")");
         exit(1);
     }
@@ -372,8 +438,8 @@ int main(int argc, char *argv[]) {
     } else {
         other_vn = gen_id + other_vn_adj;
     }
-    int instance_iterations((num_instances + num_networks - 1) / num_networks); 
-    int num_ips_per_vn(((ngens * num_instances) + num_networks - 1) / 
+    int instance_iterations((num_instances + num_networks - 1) / num_networks);
+    int num_ips_per_vn(((ngens * num_instances) + num_networks - 1) /
             num_networks);
     std::string start_ip(var_map["start_ip_address"].as<std::string>());
     boost::asio::ip::address_v4 start_ip_address(
@@ -384,7 +450,7 @@ int main(int argc, char *argv[]) {
     }
     std::vector<uint32_t> ip_vns;
     for (int num = 0; num < num_networks; num++) {
-        ip_vns.push_back(start_ip_address.to_ulong() +  
+        ip_vns.push_back(start_ip_address.to_ulong() +
                          num_ips_per_vn * num);
     }
     int start_ip_index(gen_id * num_instances / num_networks);
@@ -395,12 +461,14 @@ int main(int argc, char *argv[]) {
         var_map["num_flow_samples_per_second"].as<int>());
     int num_flow_samples_in_message(
         var_map["num_flow_samples_in_message"].as<int>());
+    int num_vrouter_error_messages_per_sec(
+        var_map["num_vrouter_errors_per_second"].as<int>());
     std::string instance_id(integerToString(gen_id));
     MockGenerator mock_generator(hostname, moduleid, node_type_name,
         instance_id, http_server_port, start_vn, end_vn, other_vn,
         num_networks, instance_iterations, collectors, ip_vns, start_ip_index,
         num_flows_per_instance, num_flow_samples_per_sec,
-        num_flow_samples_in_message, &evm);
+        num_flow_samples_in_message, num_vrouter_error_messages_per_sec, &evm);
     mock_generator.Run();
     evm.Run();
     return 0;
