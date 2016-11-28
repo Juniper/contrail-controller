@@ -69,11 +69,14 @@ public:
 
     void set_negotiated_families(const vector<string> &negotiated_families) {
         negotiated_families_ = negotiated_families;
+        std::sort(negotiated_families_.begin(), negotiated_families_.end());
     }
 
     void set_peer_negotiated_families(
             const vector<string> &peer_negotiated_families) {
         peer_negotiated_families_ = peer_negotiated_families;
+        std::sort(peer_negotiated_families_.begin(),
+                  peer_negotiated_families_.end());
     }
 
     void set_server_deleted(bool deleted) { server_deleted_ = deleted; }
@@ -230,9 +233,10 @@ protected:
                                                             gr_families);
         capabilities_.push_back(cap);
 
-
         afi_flags.clear();
-        afi_flags.push_back(llgr_afi_flags);
+        for (size_t i = 0; i < llgr_families.size(); i++) {
+            afi_flags.push_back(llgr_afi_flags);
+        }
         cap = BgpProto::OpenMessage::Capability::LLGR::Encode(llgr_time,
                                                               llgr_afi_flags,
                                                               llgr_families);
@@ -256,6 +260,7 @@ TEST_P(BgpPeerCloseGrTestParam, TestSetGRCapabilities) {
         Initialize();
         bgp_peer_close_test_->set_capabilities(capabilities[i]);
         bool expected = true;
+        int mismatch = 0;
 
         GRInfo *gr_info = NULL;
         GRInfo *llgr_info = NULL;
@@ -269,55 +274,112 @@ TEST_P(BgpPeerCloseGrTestParam, TestSetGRCapabilities) {
             }
         }
 
-        // If there is no GR Family negotiated, then GR must be aborted.
-        if (expected && (!gr_info || gr_info->families.empty()))
-            expected = false;
+        vector<string> gr_families;
+        if (gr_info) {
+            gr_families = gr_info->families;
+            std::sort(gr_families.begin(), gr_families.end());
+        }
 
-        if (expected && !gr_info->time)
+        vector<string> llgr_families;
+        if (llgr_info) {
+            llgr_families = llgr_info->families;
+            std::sort(llgr_families.begin(), llgr_families.end());
+        }
+
+        // If there is no GR Family negotiated, then GR must be aborted.
+        if (expected && (!gr_info || gr_info->families.empty())) {
+            mismatch = __LINE__;
             expected = false;
+        }
+
+        if (expected && !gr_info->time) {
+            mismatch = __LINE__;
+            expected = false;
+        }
 
         if (expected && !bgp_peer_close_test_->negotiated_families().empty() &&
                 bgp_peer_close_test_->PeerNegotiatedFamilies() !=
                     bgp_peer_close_test_->negotiated_families()) {
+            mismatch = __LINE__;
             expected = false;
         }
 
         if (expected && bgp_peer_close_test_->PeerNegotiatedFamilies() !=
-                            gr_info->families) {
+                                                  gr_families) {
+            mismatch = __LINE__;
             expected = false;
         }
 
         if (expected) {
+            size_t i = 0;
             BOOST_FOREACH(uint8_t afi_flags, gr_info->afi_flags) {
+                string fmly = gr_info->families[i++];
                 if (!(afi_flags & BgpProto::OpenMessage::Capability::GR
                                       ::ForwardingStatePreserved)) {
-                    expected = false;
-                    break;
-                }
-            }
-        }
-
-        if (expected && bgp_peer_close_test_->IsInLlgrTimerWaitState()) {
-            if (!llgr_info  || !llgr_info->time ||
-                    llgr_info->families != gr_info->families) {
-                expected = false;
-            } else {
-                BOOST_FOREACH(uint8_t afi_flags, llgr_info->afi_flags) {
-                    if (!(afi_flags & BgpProto::OpenMessage::Capability::LLGR
-                                ::ForwardingStatePreserved)) {
+                    if (fmly != Address::FamilyToString(Address::EVPN) &&
+                        fmly != Address::FamilyToString(Address::ERMVPN)) {
+                        mismatch = __LINE__;
                         expected = false;
                         break;
                     }
                 }
             }
         }
+
+        if (expected && bgp_peer_close_test_->IsInLlgrTimerWaitState()) {
+            if (!llgr_info  || !llgr_info->time || llgr_families.empty()) {
+                mismatch = __LINE__;
+                expected = false;
+            } else if (llgr_families != gr_families) {
+                // Check if differing families are only evpn and/or ermvpn.
+                vector<string> differing_families;
+                std::set_symmetric_difference(gr_families.begin(),
+                        gr_families.end(),
+                        llgr_families.begin(), llgr_families.end(),
+                        std::back_inserter(differing_families));
+
+                if (differing_families.size() > 2) {
+                    mismatch = __LINE__;
+                    expected = false;
+                } else if (differing_families.size() == 1) {
+                    if (differing_families[0] != "e-vpn" &&
+                            differing_families[0] != "erm-vpn") {
+                        mismatch = __LINE__;
+                        expected = false;
+                    }
+                } else {
+                    if (differing_families[0] != "e-vpn" ||
+                            differing_families[1] != "erm-vpn") {
+                        mismatch = __LINE__;
+                        expected = false;
+                    }
+                }
+            }
+
+            if (expected && llgr_info) {
+                size_t i = 0;
+                BOOST_FOREACH(uint8_t afi_flag, llgr_info->afi_flags) {
+                    string fmly = llgr_info->families[i++];
+                    if (!(afi_flag & BgpProto::OpenMessage::Capability::LLGR::ForwardingStatePreserved)) {
+                        if (fmly != Address::FamilyToString(Address::EVPN) &&
+                            fmly != Address::FamilyToString(Address::ERMVPN)) {
+                            mismatch = __LINE__;
+                            expected = false;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
         EXPECT_EQ(expected, bgp_peer_close_test_->SetGRCapabilities(NULL));
+        if (expected)
+            EXPECT_EQ(0, mismatch);
     }
 }
 
-static string af[] = { "inet", "inet-vpn", "inet6-vpn" };
+static string af[] = { "e-vpn", "erm-vpn", "inet-vpn" };
 static Address::Family afi[] = {
-    Address::INET, Address::INET6, Address::INETVPN
+    Address::EVPN, Address::INETVPN, Address::ERMVPN
 };
 
 #define COMBINE_PARAMS                                                         \
