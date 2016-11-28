@@ -59,7 +59,7 @@ class VncKubernetes(object):
             self.label_cache, self.service_mgr)
         self.network_policy_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_network_policy.VncNetworkPolicy',
-            self.vnc_lib)
+            self.vnc_lib, self.label_cache)
 
     def _vnc_connect(self):
         # Retry till API server connection is up

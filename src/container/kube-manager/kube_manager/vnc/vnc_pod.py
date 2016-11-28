@@ -91,7 +91,7 @@ class VncPod(object):
         vmi = VirtualMachineInterfaceKM.get(vmi_id)
         if not vmi:
             return
-        for iip_id in vmi.instance_ips:
+        for iip_id in list(vmi.instance_ips):
             try:
                 self._vnc_lib.instance_ip_delete(id=iip_id)
             except NoIdError:
@@ -111,7 +111,7 @@ class VncPod(object):
             self._vnc_lib.ref_update('virtual-router', vm.virtual_router,
                 'virtual-machine', vm.uuid, None, 'DELETE')
 
-        for vmi_id in vm.virtual_machine_interfaces:
+        for vmi_id in list(vm.virtual_machine_interfaces):
             self.vnc_port_delete(vmi_id)
 
         try:
