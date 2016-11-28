@@ -1217,7 +1217,7 @@ class VncApiServer(object):
     # end internal_request_ref_update
 
     def alloc_vn_id(self, name):
-        return self._db_conn._zk_db.alloc_vn_id(name)
+        return self._db_conn._zk_db.alloc_vn_id(name) + 1
 
     def create_default_children(self, object_type, parent_obj):
         r_class = self.get_resource_class(object_type)
@@ -1243,8 +1243,7 @@ class VncApiServer(object):
             # For virtual networks, allocate an ID
             if child_obj_type == 'virtual_network':
                 child_dict['virtual_network_network_id'] =\
-                    self.alloc_vn_id(
-                        child_obj.get_fq_name_str())
+                    self.alloc_vn_id(child_obj.get_fq_name_str())
 
             (ok, result) = self._db_conn.dbe_create(child_obj_type, obj_ids,
                                                     child_dict)
@@ -2992,8 +2991,7 @@ class VncApiServer(object):
             obj_ids = result
             # For virtual networks, allocate an ID
             if obj_type == 'virtual_network':
-                vn_id = self.alloc_vn_id(
-                    s_obj.get_fq_name_str())
+                vn_id = self.alloc_vn_id(s_obj.get_fq_name_str())
                 obj_dict['virtual_network_network_id'] = vn_id
             self._db_conn.dbe_create(obj_type, obj_ids, obj_dict)
             self.create_default_children(obj_type, s_obj)
