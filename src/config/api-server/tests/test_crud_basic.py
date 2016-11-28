@@ -2012,7 +2012,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         vn_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
         vn_id = vn_obj.virtual_network_network_id
         self.assertEqual(vn_obj.get_fq_name_str(),
-                         mock_zk.get_vn_from_id(vn_id))
+                         mock_zk.get_vn_from_id(vn_id - 1))
 
     def test_deallocate_vn_id(self):
         mock_zk = self._api_server._db_conn._zk_db
@@ -2023,7 +2023,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
 
         self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
 
-        self.assertIsNone(mock_zk.get_vn_from_id(vn_id))
+        self.assertIsNone(mock_zk.get_vn_from_id(vn_id - 1))
 
     # TODO(ethuleau): As we keep the virtual network ID allocation in
     #                 schema and in the vnc API for one release overlap to

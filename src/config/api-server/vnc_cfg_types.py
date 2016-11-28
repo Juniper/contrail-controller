@@ -1081,7 +1081,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                 cls.vnc_zk_client.free_vn_id(vn_id)
                 return True, ""
             get_context().push_undo(undo_vn_id)
-            obj_dict['virtual_network_network_id'] = vn_id
+            obj_dict['virtual_network_network_id'] = vn_id + 1
 
         vn_uuid = obj_dict.get('uuid')
         (ok, return_code, result) = cls._check_ipam_network_subnets(obj_dict,
@@ -1312,7 +1312,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
         # Deallocate the virtual network ID
         cls.vnc_zk_client.free_vn_id(
-            obj_dict.get('virtual_network_network_id'))
+            obj_dict.get('virtual_network_network_id') - 1)
 
         return True, ""
     # end post_dbe_delete
