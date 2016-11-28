@@ -260,25 +260,7 @@ public:
     }
     
     static int GetFlowPassCount(int total_flows, int age_time_usecs) {
-        // TODO(prabhjot) following code has compilation errors side-effect
-        // of fix for bug-1562798, need to fix and enable it.
-#if 0
-        int age_time_millisec = age_time_usecs / 1000;
-        int default_age_time_millisec = FlowStatsCollector::FlowAgeTime / 1000;
-        int max_flows = (FlowStatsCollector::MaxFlows * age_time_millisec) / default_age_time_millisec;
-        int flow_multiplier = (max_flows * FlowStatsCollector::FlowStatsMinInterval)/age_time_millisec;
-
-        int flow_timer_interval = std::min((age_time_millisec * flow_multiplier)/total_flows, 1000);
-        int flow_count_per_pass = std::max((flow_timer_interval * total_flows)/age_time_millisec, 100);
-
-        int ret = total_flows / flow_count_per_pass;
-        if (total_flows % flow_count_per_pass) {
-            ret++;
-        }
-        return ret;
-#else
         return 0;
-#endif
     }
 
     static void TestTearDown() {

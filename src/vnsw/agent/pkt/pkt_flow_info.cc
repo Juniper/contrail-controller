@@ -425,9 +425,6 @@ static const VnEntry *InterfaceToVn(const Interface *intf) {
 
 static bool IntfHasFloatingIp(PktFlowInfo *pkt_info, const Interface *intf,
                               Address::Family family) {
-    if (pkt_info->l3_flow == false)
-        return false;
-
     if (!intf || intf->type() != Interface::VM_INTERFACE)
         return false;
 
@@ -904,6 +901,13 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
         return;
     }
 
+    // Force packet to be treated as L3-flow in such case
+    // Flow is already marked as l3-flow by the time we are here. But, there is
+    // an exception in case of DNat.
+    // - In normal cases, packet hits bridge entry with receive-nh
+    // - If native-vrf and floating-ip vrf are same, the bridge entry points
+    //   to interface-nh instead of receive nh.
+    l3_flow = true;
     // Translate the Dest-IP
     if (nat_done == false)
         nat_ip_saddr = pkt->ip_saddr;
@@ -1219,7 +1223,7 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
                                    in->intf_)) {
         // If interface has floating IP, check if we have more specific route in
         // public VN (floating IP)
-        if (IntfHasFloatingIp(this, in->intf_, pkt->family)) {
+        if (l3_flow && IntfHasFloatingIp(this, in->intf_, pkt->family)) {
             FloatingIpSNat(pkt, in, out);
         }
     }
