@@ -2,15 +2,20 @@
 #
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
-import sys
-import time
-import requests
+import datetime
+import errno
+import inspect
 import json
 import os
-import errno
-import datetime
-import kube_cni.common.logger as Logger
+import requests
+import sys
+import time
 
+
+# set parent directory in sys.path
+current_file = os.path.abspath(inspect.getfile(inspect.currentframe()))
+sys.path.append(os.path.dirname(os.path.dirname(current_file)))
+from common import logger as Logger
 from requests.exceptions import ConnectionError
 
 """
@@ -87,12 +92,20 @@ class VRouter():
         url, headers = self.make_url(vm, nw)
         try:
             r = requests.get(url)
-            if r.status_code != requests.status_codes.codes.ok:
-                raise VRouterError(VROUTER_GET_ERROR, 'Error in GET ' + url)
+            r.raise_for_status()
             return json.loads(r.text)
+        except requests.exceptions.HTTPError as e:
+            raise VRouterError(VROUTER_CONN_ERROR,
+                               'Error in GET ' + url +
+                               ' HTTP Response <' + str(r.status_code) +
+                               '> Data : ' + r.text)
+        except requests.exceptions.RequestException as e:
+            raise VRouterError(VROUTER_CONN_ERROR,
+                               'Connection error in GET ' + url +
+                               ' Error {}'.format(e))
         except:
             raise VRouterError(VROUTER_CONN_ERROR,
-                               'Error connecting to ' + url + ' operaion GET')
+                               'Unknown error in GET ' + url)
         return
 
     def poll_cmd(self, vm, nw=None):
@@ -103,13 +116,12 @@ class VRouter():
         while i < self.poll_retries:
             i = i + 1
             try:
-                resp = self.get_cmd(vm, nw)
-                return resp
+                return self.get_cmd(vm, nw)
             except VRouterError as vr_err:
                 time.sleep(self.poll_timeout)
                 # Pass the last exception got at end of polling
                 if i == self.poll_retries:
-                    pass
+                    raise vr_err
         return
 
     def delete_file(self, vm, nw=None):
@@ -139,15 +151,19 @@ class VRouter():
                 data['nw'] = nw
             data_str = json.dumps(data, indent=4)
             r = requests.delete(url, data=data_str, headers=headers)
-            if r.status_code != requests.status_codes.codes.ok:
-                raise VRouterError(VROUTER_DELETE_ERROR,
-                                   'Error in Delete ' + url +
-                                   ' HTTP Response code ' + r.status_code +
-                                   ' HTTP Response Data ' + r.text)
-            return
+            r.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            raise VRouterError(VROUTER_CONN_ERROR,
+                               'Error in DELETE ' + url + 
+                               ' HTTP Response <' + str(r.status_code) +
+                               '> Data : ' + r.text)
+        except requests.exceptions.RequestException as e:
+            raise VRouterError(VROUTER_CONN_ERROR,
+                               'Connection error in DELETE ' + url +
+                               ' Error {}'.format(e))
         except:
             raise VRouterError(VROUTER_CONN_ERROR,
-                               'Error connecting to ' + url + ' operaion DEL')
+                               'Unknown error in GET ' + url)
         return
 
     def delete_cmd(self, container_uuid, nw=None):
@@ -224,15 +240,20 @@ class VRouter():
         url, headers = self.make_url(None, None)
         try:
             r = requests.post(url, data=data, headers=headers)
-            if r.status_code != requests.status_codes.codes.ok:
-                raise VRouterError(VROUTER_ADD_ERROR,
-                                   'Error in Add ' + url +
-                                   ' HTTP Response code ' + r.status_code +
-                                   ' HTTP Response Data ' + r.text)
-            return
+            r.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            raise VRouterError(VROUTER_CONN_ERROR,
+                               'Error in ADD ' + url +
+                               ' HTTP Response <' + str(r.status_code) +
+                               '> Data : ' + r.text)
+        except requests.exceptions.RequestException as e:
+            raise VRouterError(VROUTER_CONN_ERROR,
+                               'Connection error in ADD ' + url +
+                               ' Error {}'.format(e))
         except:
             raise VRouterError(VROUTER_CONN_ERROR,
-                               'Error connecting to ' + url + ' operaion POST')
+                               'Unknown error in ADD ' + url)
+        return
 
     def add_cmd(self, container_uuid, container_id, container_name,
                 container_namespace, host_ifname, container_ifname, nw=None):

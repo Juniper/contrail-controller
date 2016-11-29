@@ -4,23 +4,35 @@
 #
 
 """
-CNI skeletal code for CNI
+CNI implementation
+Demultiplexes on the CNI_COMMAND and runs the necessary operation
 """
 
+import ctypes
 import errno
+import inspect
+import json
 import os
 import sys
-import json
-import kube_cni.common.logger as Logger
-import kube_cni.params.params as Params
 
-# Namespace management class for CNI
-from nsenter import Namespace
 from pyroute2 import NetlinkError
 from pyroute2 import IPRoute
 
+# set parent directory in sys.path
+current_file = os.path.abspath(inspect.getfile(inspect.currentframe()))
+sys.path.append(os.path.dirname(os.path.dirname(current_file)))
+from common import logger as Logger
+from params import params as Params
+
 # logger for the file
 logger = None
+
+# CNI commands
+CNI_CMD_VERSION = 'version'
+CNI_CMD_GET = 'get'
+CNI_CMD_POLL = 'poll'
+CNI_CMD_ADD = 'add'
+CNI_CMD_DELETE = 'delete'
 
 # CNI version supported
 CNI_VERSION = '0.2.0'
@@ -29,9 +41,11 @@ CNI_UNSUPPORTED_CMD = 301
 CNI_ERROR_DEL_VETH = 302
 CNI_ERROR_ADD_VETH = 303
 CNI_ERROR_CONFIG_VETH = 304
+CNI_ERROR_NS_ENTER = 305
+CNI_ERROR_NS_LEAVE = 306
 
 
-def ErrorExit(code, msg):
+def ErrorExit(logger, code, msg):
     '''
     Report CNI error and exit
     '''
@@ -60,14 +74,60 @@ class CniError(RuntimeError):
         logger.error(str(self.code) + ' : ' + self.msg)
         return
 
+class CniNamespace(object):
+    '''
+    Helper class to configure interface inside a network-namespace
+    The class must be used using 'with' statement as follows,
+    with CniNamespace('/proc/<pid>/ns/net'):
+        do_something()
+    The namespace is restored at end
+    '''
+    def __init__(self, ns_path, logger):
+        self.libc = ctypes.CDLL('libc.so.6', use_errno=True)
+        self.my_path = '/proc/self/ns/net'
+        self.my_fd = os.open(self.my_path, os.O_RDONLY)
+        self.ns_path = ns_path
+        self.ns_fd = os.open(self.ns_path, os.O_RDONLY)
+        self.logger = logger
+        return
+
+    def close_files(self):
+        if self.ns_fd is not None:
+            os.close(self.ns_fd)
+            self.ns_fd = None
+
+        if self.my_fd is not None:
+            os.close(self.my_fd)
+            self.my_fd = None
+        return
+
+    def __enter__(self):
+        self.logger.debug('Entering namespace <' + self.ns_path + '>')
+        # Enter the namespace
+        if self.libc.setns(self.ns_fd, 0) == -1:
+            e = ctypes.get_errno()
+            self.close_files()
+            raise CniError(CNI_ERROR_NS_ENTER,
+                           'Error entering namespace ' + self.ns_path +
+                           '. Error ' + str(e) + ' : ' + errno.errorcode[e])
+        return
+
+    def __exit__(self, type, value, tb):
+        self.logger.debug('Leaving namespace <' + self.ns_path + '>')
+        if self.libc.setns(self.my_fd, 0) == -1:
+            e = ctypes.get_errno()
+            self.close_files()
+            raise CniError(CNI_ERROR_NS_LEAVE,
+                           'Error leaving namespace ' + self.ns_path +
+                           '. Error ' + str(e) + ' : ' + errno.errorcode[e])
+        self.close_files()
+        return
 
 class CniNetns():
 
-    def __init__(self, host_ifname, container_ifname, container_pid):
-        # FIXME : Cannot always rely on ppid().
-        #        What if the parent has changed his namespace temporarily!!!
+    def __init__(self, host_ifname, container_ifname, container_netns):
         self.main_pid = os.getppid()
-        self.container_pid = container_pid
+        self.container_netns = container_netns
         self.host_ifname = host_ifname
         self.container_ifname = container_ifname
         return
@@ -101,7 +161,7 @@ class CniNetns():
             return
 
         # Switch to container namespace
-        with Namespace(self.container_pid, 'net'):
+        with CniNamespace(self.container_netns, logger):
             ip_ns = IPRoute()
             try:
                 # Create veth pairs
@@ -135,7 +195,7 @@ class CniNetns():
         idx = ip.link_lookup(ifname=self.host_ifname)[0]
         ip.link('set', index=idx, state='up')
 
-        with Namespace(self.container_pid, 'net'):
+        with CniNamespace(self.container_netns, logger):
             ip_ns = IPRoute()
             idx_ns = ip_ns.link_lookup(ifname=self.container_ifname)[0]
             try:
@@ -222,7 +282,7 @@ class Cni():
         host_ifname = self.BuildTapName(k8s_params.pod_pid)
 
         cni_netns = CniNetns(host_ifname, cni_params.container_ifname,
-                             cni_params.k8s_params.pod_pid)
+                             cni_params.container_netns)
         cni_netns.create_veth()
         resp = self.vrouter.add_cmd(k8s_params.pod_uuid,
                                     cni_params.container_id,
@@ -247,7 +307,7 @@ class Cni():
         host_ifname = self.BuildTapName(k8s_params.pod_pid)
 
         cni_netns = CniNetns(host_ifname, cni_params.container_ifname,
-                             cni_params.k8s_params.pod_pid)
+                             cni_params.container_netns)
         cni_netns.delete_veth()
         self.vrouter.delete_cmd(self.params.k8s_params.pod_uuid, None)
         resp = {}
@@ -277,15 +337,15 @@ class Cni():
         self.vrouter = vrouter
         ret = True
         code = 0
-        if self.params.command.lower() == 'version':
+        if self.params.command.lower() == CNI_CMD_VERSION:
             resp = self.Version()
-        elif self.params.command.lower() == 'add':
+        elif self.params.command.lower() == CNI_CMD_ADD:
             resp = self.add_cmd()
-        elif self.params.command.lower() == 'delete':
+        elif self.params.command.lower() == CNI_CMD_DELETE:
             resp = self.delete_cmd()
-        elif self.params.command.lower() == 'get':
+        elif self.params.command.lower() == CNI_CMD_GET:
             resp = self.get_cmd()
-        elif self.params.command.lower() == 'poll':
+        elif self.params.command.lower() == CNI_CMD_POLL:
             resp = self.poll_cmd()
         else:
             raise CniError(CNI_UNSUPPORTED_CMD,

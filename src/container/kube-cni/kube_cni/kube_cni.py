@@ -10,14 +10,15 @@ Contrail CNI plugin
 Support Kubernetes for now
 """
 
-import sys
-import os
 import argparse
 import json
+import os
+import sys
+from cni import cni as Cni
 from common import logger as Logger
 from params import params as Params
-from cni import cni as Cni
 from vrouter import vrouter as VRouter
+
 
 # logger for the file
 logger = None
@@ -50,10 +51,6 @@ def parse_args():
     parser.add_argument('-f', '--file', help='Contrail CNI config file')
     parser.add_argument('-u', '--uuid', help='Container UUID')
     args = parser.parse_args()
-
-    # Override CNI_COMMAND environment
-    if args.command != None:
-        os.environ['CNI_COMMAND'] = args.command
     return args
 
 
@@ -69,6 +66,9 @@ def main():
                            params.contrail_params.log_level)
 
     try:
+        # Set command from argument if specified
+        if args.command != None:
+            os.environ['CNI_COMMAND'] = args.command
         # Set UUID from argument. If valid-uuid is found, it will overwritten
         # later. Useful in case of UT where valid uuid for pod cannot be found
         if args.uuid != None:
@@ -77,7 +77,7 @@ def main():
         params.get_params(input_json)
     except Params.ParamsError as params_err:
         params_err.log()
-        Cni.ErrorExit(params_err.code, params_err.msg)
+        Cni.ErrorExit(logger, params_err.code, params_err.msg)
 
     # Log params for debugging
     params.log()
@@ -95,10 +95,12 @@ def main():
         cni.Run(vrouter, params)
     except Cni.CniError as cni_err:
         cni_err.log()
-        Cni.ErrorExit(cni_err.code, cni_err.msg)
+        Cni.ErrorExit(logger, cni_err.code, cni_err.msg)
+        sys.exit(cno_err.code)
     except VRouter.VRouterError as vr_err:
         vr_err.log()
-        Cni.ErrorExit(vr_err.code, vr_err.msg)
+        Cni.ErrorExit(logger, vr_err.code, vr_err.msg)
+        sys.exit(cno_err.code)
     return
 
 if __name__ == "__main__":
