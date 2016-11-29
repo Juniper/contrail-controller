@@ -671,6 +671,16 @@ void query_result_unit_t::set_stattable_info(
     info.push_back(uuid);
 }
 
+void query_result_unit_t::get_objectid(std::string& object_id) const {
+    try {
+        object_id = boost::get<std::string>(info.at(1));
+    } catch (boost::bad_get& ex) {
+        QE_ASSERT(0);
+    } catch (const std::out_of_range& oor) {
+        QE_ASSERT(0);
+    }
+}
+
 void  query_result_unit_t::get_stattable_info(
             std::string& attribstr,
             boost::uuids::uuid& uuid) const {
