@@ -120,7 +120,6 @@ public:
 
     void set_peer_closed(bool flag);
     bool peer_deleted() const;
-    bool membership_unavailable() const { return membership_unavailable_; }
     uint64_t peer_closed_at() const;
     bool routingtable_membership_request_map_empty() const;
     size_t GetMembershipRequestQueueSize() const;
@@ -312,7 +311,6 @@ private:
     bool delete_in_progress_;
     bool deleted_;
     bool defer_peer_close_;
-    bool membership_unavailable_;
     bool skip_update_send_;
     bool skip_update_send_cached_;
     bool eor_sent_;
