@@ -201,7 +201,23 @@ query_status_t DbQueryUnit::process_query()
                             uuid_val.push_back(i->name->at(i->name->size() - 1)                             );
                             result_unit.info = uuid_val;
                         } else {
-                            result_unit.info = *i->value;
+                            if (m_query->is_object_table_query(m_query->table())) {
+                                boost::uuids::uuid uuid;
+                                try {
+                                    uuid = boost::get<boost::uuids::uuid>
+                                           (i->value->at(0));
+                                } catch (boost::bad_get& ex) {
+                                    QE_ASSERT(0);
+                                }
+                                GenDb::DbDataValueVec uuid_obj_id_val;
+                                uuid_obj_id_val.push_back(uuid);
+                                // should correspond to object_id
+                                uuid_obj_id_val.push_back(i->name->at(0));
+                                result_unit.info = uuid_obj_id_val;
+                            } else {
+                                result_unit.info = *i->value;
+                            }
+
                         }
 #else
                         result_unit.info = *i->value;

@@ -320,12 +320,13 @@ struct query_result_unit_t {
             boost::uuids::uuid& uuid);
 
     // Get UUID from the info field
-    void get_uuid(boost::uuids::uuid& u);
+    void get_uuid(boost::uuids::uuid& u) const;
     // Get UUID and stats
     void get_uuid_stats(boost::uuids::uuid& u, flow_stats& stats);
     // Get UUID and stats and 8-tuple
     void get_uuid_stats_8tuple(boost::uuids::uuid& u,
             flow_stats& stats, flow_tuple& tuple);
+    void get_objectid(std::string&) const;
     // for sorting and set operations
     bool operator<(const query_result_unit_t& rhs) const;
 
@@ -551,6 +552,7 @@ public:
         return ((select_column_fields.size() == 1 &&
                     select_column_fields[0] == g_viz_constants.OBJECT_ID));
     }
+    friend class SelectTest;
 private:
     bool is_valid_select_field(const std::string& select_field) const;
     // 
@@ -559,8 +561,10 @@ private:
     bool process_object_query_specific_select_params(
                         const std::string& sel_field,
                         std::map<std::string, GenDb::DbDataValue>& col_res_map,
-                        std::map<std::string, std::string>& cmap);
- 
+                        std::map<std::string, std::string>& cmap,
+                        const boost::uuids::uuid& uuid,
+                        std::map<boost::uuids::uuid, std::string>&);
+
     // For flow class id in select field
 
     // flow class id to flow tuple map

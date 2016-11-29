@@ -29,6 +29,7 @@ from opserver.sandesh.alarmgen_ctrl.ttypes import UVEAlarmState
 from sandesh_common.vns.constants import NodeTypeNames, ModuleNames
 from sandesh_common.vns.ttypes import NodeType, Module
 from pysandesh.util import UTCTimestampUsec
+from sets import Set
 
 class Query(object):
     table = None
@@ -2321,6 +2322,27 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger.info('Actual message types: %s' % str(actual_msg_types))
         return actual_msg_types == exp_msg_types
     # end verify_object_table_sandesh_types
+
+    @retry(delay=1, tries=5)
+    def verify_object_table_objectid_values(self, table, exp_object_id ):
+        self.logger.info('verify_object_table_objectid_values')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port,
+            self.admin_user, self.admin_password)
+        res = vns.post_query(table, start_time='-1m', end_time='now',
+                select_fields=['Messagetype', 'ObjectLog', 'SystemLog',
+                'ObjectId'], where_clause='')
+        if not res:
+           return False
+        self.logger.info('ObjectTable query response: %s' % str(res))
+        actual_object_id = [r['ObjectId'] for r in res]
+        actual_object_id.sort()
+        actual_object_id_s = Set(actual_object_id)
+        exp_object_id.sort()
+        exp_object_id_s = Set(exp_object_id)
+        self.logger.info('Expected ObjectIds: %s' % str(exp_object_id_s))
+        self.logger.info('Actual ObjectIds: %s' % str(actual_object_id_s))
+        return (actual_object_id_s-exp_object_id_s) == Set()
+    # end verify_object_table_objectid_values
 
     @retry(delay=1, tries=10)
     def verify_object_value_table_query(self, table, exp_object_values):

@@ -645,7 +645,7 @@ QueryUnit::~QueryUnit()
 
 
 // Get UUID from the info field
-void query_result_unit_t::get_uuid(boost::uuids::uuid& u)
+void query_result_unit_t::get_uuid(boost::uuids::uuid& u) const
 {
     try {
         u = boost::get<boost::uuids::uuid>(info.at(0));
@@ -698,6 +698,16 @@ void query_result_unit_t::set_stattable_info(
         const boost::uuids::uuid& uuid) {
     info.push_back(attribstr);
     info.push_back(uuid);
+}
+
+void query_result_unit_t::get_objectid(std::string& object_id) const {
+    try {
+        object_id = boost::get<std::string>(info.at(1));
+    } catch (boost::bad_get& ex) {
+        QE_ASSERT(0);
+    } catch (const std::out_of_range& oor) {
+        QE_ASSERT(0);
+    }
 }
 
 void  query_result_unit_t::get_stattable_info(
