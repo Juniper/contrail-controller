@@ -390,6 +390,23 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                         socket.gethostname())
         assert vizd_obj.verify_object_table_sandesh_types('ObjectBgpRouter',
                 socket.gethostname(), msg_types)
+        # Check if ObjectId's can be fetched properly for ObjectTable queries
+        vm_generator_obj = self.useFixture(
+            GeneratorFixture("contrail-vrouter-agent", collectors,
+                             logging, vizd_obj.get_opserver_port()))
+        assert vm_generator_obj.verify_on_setup()
+        assert vizd_obj.verify_object_table_objectid_values('ObjectBgpRouter',
+            [socket.gethostname()])
+        vm1_name = 'vm1'
+        vm2_name = 'vm2'
+        vm_generator_obj.send_vm_uve(vm_id=vm1_name,
+                                  num_vm_ifs=2,
+                                  msg_count=2)
+        vm_generator_obj.send_vm_uve(vm_id=vm2_name,
+                                  num_vm_ifs=2,
+                                  msg_count=2)
+        assert vizd_obj.verify_object_table_objectid_values('ObjectVMTable',
+            [vm1_name, vm2_name])
     # end test_09_verify_object_table_query
 
     #@unittest.skip('verify ObjectValueTable query')
