@@ -21,6 +21,23 @@ from test_dm_common import *
 class TestInfraDM(TestCommonDM):
 
     @retries(5, hook=retry_exc_handler)
+    def check_if_xml_is_generated(self):
+        pr_config = FakeDeviceConnect.params.get("pr_config")
+        new_config = FakeDeviceConnect.params.get("config")
+        operation = FakeDeviceConnect.params.get("operation")
+        conf = pr_config.build_netconf_config(new_config, operation)
+        xml_conf = pr_config.get_xml_data(conf)
+        if not xml_conf or 'config' not in xml_conf or 'apply-groups' not in xml_conf:
+            self.assertTrue(False)
+        return
+
+    # check for xml conf generation, very basic validation
+    def test_dm_xml_generation(self):
+        bgp_router, pr = self.create_router('router1', '1.1.1.1')
+        gevent.sleep(2)
+        self.check_if_xml_is_generated()
+
+    @retries(5, hook=retry_exc_handler)
     def check_dm_state(self):
         try:
             dm_cs = DMCassandraDB.getInstance()
