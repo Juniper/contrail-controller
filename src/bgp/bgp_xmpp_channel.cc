@@ -1757,7 +1757,7 @@ bool BgpXmppChannel::ResumeClose() {
 
 void BgpXmppChannel::RegisterTable(int line, BgpTable *table, int instance_id) {
     // Defer if Membership manager is in use (by close manager).
-    if (membership_unavailable_) {
+    if (membership_unavailable_ || close_manager_->IsMembershipInUse()) {
         BGP_LOG_PEER_TABLE(Peer(), SandeshLevel::SYS_DEBUG,
                            BGP_LOG_FLAG_ALL, table, "RegisterTable deferred "
                            "from :" << line);
@@ -1780,7 +1780,7 @@ void BgpXmppChannel::RegisterTable(int line, BgpTable *table, int instance_id) {
 
 void BgpXmppChannel::UnregisterTable(int line, BgpTable *table) {
     // Defer if Membership manager is in use (by close manager).
-    if (membership_unavailable_) {
+    if (membership_unavailable_ || close_manager_->IsMembershipInUse()) {
         BGP_LOG_PEER_TABLE(Peer(), SandeshLevel::SYS_DEBUG,
                            BGP_LOG_FLAG_ALL, table, "UnregisterTable deferred "
                            "from :" << line);
