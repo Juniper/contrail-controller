@@ -353,6 +353,7 @@ void PeerCloseManager::ProcessClosure() {
 
 void PeerCloseManager::CloseComplete() {
     MOVE_TO_STATE(NONE);
+    set_membership_state(MEMBERSHIP_NONE);
     stale_timer_->Cancel();
     families_.clear();
     stats_.init++;
@@ -481,6 +482,7 @@ void PeerCloseManager::MembershipRequest(Event *evnet) {
 
     if (tables.empty()) {
         assert(MembershipRequestCallback(NULL));
+        set_membership_state(MEMBERSHIP_NONE);
         return;
     }
 
@@ -536,7 +538,6 @@ bool PeerCloseManager::MembershipRequestCallback(Event *event) {
 
     // Indicate to the caller that we are done using the membership manager.
     result = true;
-    set_membership_state(MEMBERSHIP_NONE);
 
     if (state_ == DELETE) {
         MOVE_TO_STATE(NONE);
@@ -759,8 +760,10 @@ bool PeerCloseManager::EventCallback(Event *event) {
         result = MembershipRequestCallback(event);
 
         // Notify clients if we are no longer using the membership mgr.
-        if (result)
+        if (result) {
+            set_membership_state(MEMBERSHIP_NONE);
             peer_close_->MembershipRequestCallbackComplete();
+        }
         break;
     case TIMER_CALLBACK:
         RestartTimerCallback(event);

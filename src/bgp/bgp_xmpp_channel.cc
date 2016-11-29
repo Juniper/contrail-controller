@@ -472,7 +472,6 @@ BgpXmppChannel::BgpXmppChannel(XmppChannel *channel,
       delete_in_progress_(false),
       deleted_(false),
       defer_peer_close_(false),
-      membership_unavailable_(false),
       skip_update_send_(false),
       skip_update_send_cached_(false),
       eor_sent_(false),
@@ -1613,7 +1612,7 @@ bool BgpXmppChannel::ResumeClose() {
 
 void BgpXmppChannel::RegisterTable(int line, BgpTable *table, int instance_id) {
     // Defer if Membership manager is in use (by close manager).
-    if (membership_unavailable_) {
+    if (close_manager_->IsMembershipInUse()) {
         BGP_LOG_PEER_TABLE(Peer(), SandeshLevel::SYS_DEBUG,
                            BGP_LOG_FLAG_ALL, table, "RegisterTable deferred "
                            "from :" << line);
@@ -1636,7 +1635,7 @@ void BgpXmppChannel::RegisterTable(int line, BgpTable *table, int instance_id) {
 
 void BgpXmppChannel::UnregisterTable(int line, BgpTable *table) {
     // Defer if Membership manager is in use (by close manager).
-    if (membership_unavailable_) {
+    if (close_manager_->IsMembershipInUse()) {
         BGP_LOG_PEER_TABLE(Peer(), SandeshLevel::SYS_DEBUG,
                            BGP_LOG_FLAG_ALL, table, "UnregisterTable deferred "
                            "from :" << line);
@@ -1655,12 +1654,7 @@ void BgpXmppChannel::UnregisterTable(int line, BgpTable *table) {
 #define UnregisterTable(table) UnregisterTable(__LINE__, table)
 
 // Process all pending membership requests of various tables.
-//
-// This must be done before opening gate for normal register and
-// unregister requessts. Hence membership_unavailable_ state is
-// maintained with the BgpXmppChannel object.
 void BgpXmppChannel::ProcessPendingSubscriptions() {
-    membership_unavailable_ = false;
     assert(!close_manager_->IsMembershipInUse());
     BOOST_FOREACH(RoutingTableMembershipRequestMap::value_type &i,
                   routingtable_membership_request_map_) {
@@ -1682,7 +1676,6 @@ size_t BgpXmppChannel::membership_requests() const {
 
 bool BgpXmppChannel::MembershipResponseHandler(string table_name) {
     if (close_manager_->IsMembershipInUse()) {
-        membership_unavailable_ = true;
         close_manager_->MembershipRequestCallback();
         return true;
     }
