@@ -1,0 +1,88 @@
+//
+// Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
+//
+
+// contrail-mesos-manager.sandesh
+//
+// Sandesh messages for Contrail Mesos Manager.
+//
+
+/**
+ * @description: Emergency log messages from Contrail Mesos Manager.
+ * @severity: Emergency
+ * @cause: Mesos Manager has run into unrecoverable state.
+ * @action: Restart Contrail Mesos Manager recommended.
+ */
+systemlog sandesh MesosManagerEmergencyLog {
+1: string log_msg;
+}
+
+/**
+ * @description: Alert log messages from Contrail Mesos Manager.
+ * @severity: Alert
+ * @cause: Mesos Manager has run into unrecoverable state.
+ * @action: Restart Contrail Mesos Manager recommended.
+ */
+systemlog sandesh MesosManagerAlertLog {
+1: string log_msg;
+}
+
+/**
+ * @description: Critical log messages from Contrail Mesos Manager.
+ * @severity: Critical
+ * @cause: Mesos Manager has run into unrecoverable state.
+ * @action: Restart Contrail Mesos Manager recommended.
+ */
+systemlog sandesh MesosManagerCriticalLog {
+1: string log_msg;
+}
+
+/**
+ * @description: Error log messages from Contrail Mesos Manager.
+ * @severity: Error
+ * @cause: Mesos Manager has run into error state.
+ * @action: No action needed.
+ */
+systemlog sandesh MesosManagerErrorLog {
+1: string log_msg;
+}
+
+/**
+ * @description: Warning log messages from Contrail Mesos Manager.
+ * @severity: Warning
+ * @cause: Mesos manager detected an operationally impacting condition.
+ * @action: No action needed.
+ */
+systemlog sandesh MesosManagerWarningLog {
+1: string log_msg;
+}
+
+/**
+ * @description: Notice log messages from Contrail Mesos Manager.
+ * @severity: Notice
+ * @cause: A condition that operator should be aware of.
+ * @action: No action needed.
+ */
+systemlog sandesh MesosManagerNoticeLog {
+1: string log_msg;
+}
+
+/**
+ * @description: Informational logs Contrail Mesos Manager.
+ * @severity: Info
+ * @cause: Informational logs.
+ * @action: No action needed.
+ */
+systemlog sandesh MesosManagerInfoLog {
+1: string log_msg;
+}
+
+/**
+ * @description: Debug logs Contrail Mesos Manager.
+ * @severity: Debug
+ * @cause: Debug logs.
+ * @action: No action needed.
+ */
+systemlog sandesh MesosManagerDebugLog {
+1: string log_msg;
+}

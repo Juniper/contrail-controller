@@ -1,0 +1,2 @@
+recursive-include mesos_manager/uve *.html *.xml *.css
+recursive-include mesos_manager/sandesh *.html *.xml *.css
