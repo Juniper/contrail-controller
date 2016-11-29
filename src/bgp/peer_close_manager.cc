@@ -403,6 +403,9 @@ void PeerCloseManager::TriggerSweepStateActions() {
 
     // Notify clients to trigger sweep as appropriate.
     peer_close_->GracefulRestartSweep();
+
+    // Reset MembershipUse state after client has been notified above.
+    set_membership_state(MEMBERSHIP_NONE);
     CloseComplete();
 }
 
@@ -536,7 +539,6 @@ bool PeerCloseManager::MembershipRequestCallback(Event *event) {
 
     // Indicate to the caller that we are done using the membership manager.
     result = true;
-    set_membership_state(MEMBERSHIP_NONE);
 
     if (state_ == DELETE) {
         MOVE_TO_STATE(NONE);
@@ -546,11 +548,13 @@ bool PeerCloseManager::MembershipRequestCallback(Event *event) {
         stats_.init++;
         close_again_ = false;
         graceful_ = true;
+        set_membership_state(MEMBERSHIP_NONE);
         return result;
     }
 
     // Process nested closures.
     if (close_again_) {
+        set_membership_state(MEMBERSHIP_NONE);
         CloseComplete();
         return result;
     }
@@ -569,6 +573,7 @@ bool PeerCloseManager::MembershipRequestCallback(Event *event) {
             time = 0;
         StartRestartTimer(time);
         stats_.gr_timer++;
+        set_membership_state(MEMBERSHIP_NONE);
         return result;
     }
 
@@ -585,6 +590,7 @@ bool PeerCloseManager::MembershipRequestCallback(Event *event) {
             time = 0;
         StartRestartTimer(time);
         stats_.llgr_timer++;
+        set_membership_state(MEMBERSHIP_NONE);
         return result;
     }
 
