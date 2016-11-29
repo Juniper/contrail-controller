@@ -1,9 +1,9 @@
 #
-# Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+# Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
 """
-This file contains implementation of data model for SVC monitor
+This file contains implementation of data model for kube manager
 """
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from cfgm_common.vnc_db import DBBase
