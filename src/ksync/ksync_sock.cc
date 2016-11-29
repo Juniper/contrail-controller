@@ -1197,7 +1197,7 @@ KSyncBulkMsgContext::~KSyncBulkMsgContext() {
     assert(vr_response_count_ == io_context_list_.size()); 
     io_context_list_.clear_and_dispose(IoContextDisposer());
     for (uint32_t i = 0; i < rx_buffer_index_; i++) {
-        delete rx_buffers_[i];
+        delete[] rx_buffers_[i];
     }
 }
 

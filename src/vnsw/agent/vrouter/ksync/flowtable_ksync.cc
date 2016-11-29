@@ -130,6 +130,7 @@ void FlowTableKSyncEntry::Reset() {
     trap_flow_ = false;
     old_drop_reason_ = 0;
     ecmp_ = false;
+    enable_rpf_ = true;
     src_nh_id_ = NextHopTable::kRpfDiscardIndex;
     last_event_ = FlowEvent::INVALID;
     token_.reset();
