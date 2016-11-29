@@ -56,6 +56,7 @@ bool DbQueryUnitTest::GetRowAsyncSuccess(const std::string& cfname,
     colname->push_back(unm);
     colname->push_back((uint32_t)(21212));
     GenDb::DbDataValueVec *colvalue(new GenDb::DbDataValueVec());
+    colvalue->push_back(unm);
     std::auto_ptr<GenDb::ColList> columns(new GenDb::ColList());
     int ttl = 5;
     columns->columns_ = boost::assign::ptr_list_of<GenDb::NewCol>
@@ -173,6 +174,22 @@ TEST_F(DbQueryUnitTest, WhereQueryProcessing) {
     wq->subquery_processed(dbq2);
     delete q1;
     delete q2;
+}
+
+/*
+ * push uuid and object_id into query_result_unit_t.info
+ * check if GetObjectId returns the object id correctly
+ */
+TEST_F(DbQueryUnitTest, GetObjectId) {
+    query_result_unit_t res1;
+    boost::uuids::random_generator rgen_;
+    boost::uuids::uuid unm(rgen_());
+    std::string object_id("id1");
+    res1.info.push_back(unm);
+    res1.info.push_back(object_id);
+    std::string returned_val;
+    res1.get_objectid(returned_val);
+    EXPECT_EQ(object_id, returned_val);
 }
 
 int main(int argc, char **argv) {
