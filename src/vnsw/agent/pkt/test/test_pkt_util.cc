@@ -49,6 +49,8 @@ void TxL2Packet(int ifindex, const char *smac, const char *dmac,
         pkt->AddIcmpHdr();
     } else if (proto == IPPROTO_UDP) {
         pkt->AddUdpHdr(sport, dport, 64);
+    } else if (proto == IPPROTO_TCP) {
+        pkt->AddTcpHdr(sport, dport, false, false, false, 64);
     }
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
