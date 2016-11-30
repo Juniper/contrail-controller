@@ -140,9 +140,6 @@ struct TrafficSeen : sc::state<TrafficSeen, PathPreferenceSM> {
         //Enqueue a route change
         if (state_machine->wait_for_traffic() == true) {
            state_machine->UpdateFlapTime();
-           if (state_machine->flap_count() == 0) {
-               state_machine->DecreaseRetryTimeout();
-           }
            uint32_t seq = state_machine->max_sequence();
            state_machine->set_wait_for_traffic(false);
            seq++;
@@ -244,6 +241,7 @@ PathPreferenceSM::PathPreferenceSM(Agent *agent, const Peer *peer,
     flap_count_(0) {
     initiate();
     process_event(EvStart());
+    backoff_timer_fired_time_ = UTCTimestampUsec();
 }
 
 PathPreferenceSM::~PathPreferenceSM() {
@@ -256,6 +254,7 @@ PathPreferenceSM::~PathPreferenceSM() {
 
 bool PathPreferenceSM::Retry() {
     flap_count_ = 0;
+    backoff_timer_fired_time_ = UTCTimestampUsec();
     process_event(EvWaitForTraffic());
     return false;
 }
@@ -293,30 +292,37 @@ void PathPreferenceSM::IncreaseRetryTimeout() {
     }
 }
 
+bool PathPreferenceSM::IsFlap() const {
+    uint64_t time_sec = (UTCTimestampUsec() -
+                         last_stable_high_priority_change_at_)/1000;
+    if (time_sec > kMinInterval) {
+        return false;
+    }
+    return true;
+}
+
 void PathPreferenceSM::DecreaseRetryTimeout() {
-    timeout_ = timeout_ / 2;
-    if (timeout_ < kMinInterval) {
+    uint64_t time_sec =
+        (UTCTimestampUsec() - backoff_timer_fired_time_)/1000;
+    if (time_sec > kMinInterval) {
         timeout_ = kMinInterval;
     }
 }
 
 void PathPreferenceSM::UpdateFlapTime() {
-    uint64_t time_sec = (UTCTimestampUsec() - last_high_priority_change_at_)/1000;
-
-    //Update last flap time
-    last_high_priority_change_at_ = UTCTimestampUsec();
-    if (time_sec < timeout_ + kMinInterval) {
+    if (IsFlap()) {
         flap_count_++;
     } else {
+        DecreaseRetryTimeout();
+        last_stable_high_priority_change_at_ = UTCTimestampUsec();
         flap_count_ = 0;
     }
 }
 
 bool PathPreferenceSM::IsPathFlapping() const {
-    if (flap_count_ >= kMaxFlapCount) {
+    if (flap_count_ >= kMaxFlapCount && IsFlap()) {
         return true;
     }
-
     return false;
 }
 
@@ -378,7 +384,8 @@ void PathPreferenceSM::Process() {
 
 void PathPreferenceSM::Log(std::string state) {
     PATH_PREFERENCE_TRACE(rt_->vrf()->GetName(), rt_->GetAddressString(),
-                          preference(), sequence(), state, timeout());
+                          preference(), sequence(), state, timeout(),
+                          flap_count_);
 }
 
 void PathPreferenceSM::EnqueuePathChange() {
