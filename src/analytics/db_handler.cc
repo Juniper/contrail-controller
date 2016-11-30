@@ -71,7 +71,7 @@ DbHandler::DbHandler(EventManager *evm,
         const std::string &zookeeper_server_list,
         bool use_zookeeper, bool disable_all_writes,
         bool disable_statistics_writes, bool disable_messages_writes,
-        bool disable_messages_keyword_writes,
+        bool disable_messages_keyword_writes, bool use_db_write_options,
         const DbWriteOptions &db_write_options) :
     dbif_(new cass::cql::CqlIf(evm, cassandra_ips,
         cassandra_ports[0], cassandra_user, cassandra_password)),
@@ -91,58 +91,61 @@ DbHandler::DbHandler(EventManager *evm,
     udc_(new UserDefinedCounters(evm, 0)),
     udc_cfg_poll_timer_(TimerManager::CreateTimer(*evm->io_service(),
         "udc config poll timer",
-        TaskScheduler::GetInstance()->GetTaskId("vnc-api http client"))) {
+        TaskScheduler::GetInstance()->GetTaskId("vnc-api http client"))),
+    use_db_write_options_(use_db_write_options) {
     error_code error;
     col_name_ = boost::asio::ip::host_name(error);
     udc_cfg_poll_timer_->Start(kUDCPollInterval,
         boost::bind(&DbHandler::PollUDCCfg, this),
         boost::bind(&DbHandler::PollUDCCfgErrorHandler, this, _1, _2));
 
-    // Set disk-usage watermark defaults
-    SetDiskUsagePercentageHighWaterMark(
+    if (use_db_write_options_) {
+        // Set disk-usage watermark defaults
+        SetDiskUsagePercentageHighWaterMark(
             db_write_options.get_disk_usage_percentage_high_watermark0(),
             db_write_options.get_high_watermark0_message_severity_level());
-    SetDiskUsagePercentageLowWaterMark(
+        SetDiskUsagePercentageLowWaterMark(
             db_write_options.get_disk_usage_percentage_low_watermark0(),
             db_write_options.get_low_watermark0_message_severity_level());
-    SetDiskUsagePercentageHighWaterMark(
+        SetDiskUsagePercentageHighWaterMark(
             db_write_options.get_disk_usage_percentage_high_watermark1(),
             db_write_options.get_high_watermark1_message_severity_level());
-    SetDiskUsagePercentageLowWaterMark(
+        SetDiskUsagePercentageLowWaterMark(
             db_write_options.get_disk_usage_percentage_low_watermark1(),
             db_write_options.get_low_watermark1_message_severity_level());
-    SetDiskUsagePercentageHighWaterMark(
+        SetDiskUsagePercentageHighWaterMark(
             db_write_options.get_disk_usage_percentage_high_watermark2(),
             db_write_options.get_high_watermark2_message_severity_level());
-    SetDiskUsagePercentageLowWaterMark(
+        SetDiskUsagePercentageLowWaterMark(
             db_write_options.get_disk_usage_percentage_low_watermark2(),
             db_write_options.get_low_watermark2_message_severity_level());
 
-    // Set cassandra pending tasks watermark defaults
-    SetPendingCompactionTasksHighWaterMark(
+        // Set cassandra pending tasks watermark defaults
+        SetPendingCompactionTasksHighWaterMark(
             db_write_options.get_pending_compaction_tasks_high_watermark0(),
             db_write_options.get_high_watermark0_message_severity_level());
-    SetPendingCompactionTasksLowWaterMark(
+        SetPendingCompactionTasksLowWaterMark(
             db_write_options.get_pending_compaction_tasks_low_watermark0(),
             db_write_options.get_low_watermark0_message_severity_level());
-    SetPendingCompactionTasksHighWaterMark(
+        SetPendingCompactionTasksHighWaterMark(
             db_write_options.get_pending_compaction_tasks_high_watermark1(),
             db_write_options.get_high_watermark1_message_severity_level());
-    SetPendingCompactionTasksLowWaterMark(
+        SetPendingCompactionTasksLowWaterMark(
             db_write_options.get_pending_compaction_tasks_low_watermark1(),
             db_write_options.get_low_watermark1_message_severity_level());
-    SetPendingCompactionTasksHighWaterMark(
+        SetPendingCompactionTasksHighWaterMark(
             db_write_options.get_pending_compaction_tasks_high_watermark2(),
             db_write_options.get_high_watermark2_message_severity_level());
-    SetPendingCompactionTasksLowWaterMark(
+        SetPendingCompactionTasksLowWaterMark(
             db_write_options.get_pending_compaction_tasks_low_watermark2(),
             db_write_options.get_low_watermark2_message_severity_level());
 
-    // Initialize drop-levels to lowest severity level.
-    SetDiskUsagePercentageDropLevel(0,
+        // Initialize drop-levels to lowest severity level.
+        SetDiskUsagePercentageDropLevel(0,
             db_write_options.get_low_watermark2_message_severity_level());
-    SetPendingCompactionTasksDropLevel(0,
+        SetPendingCompactionTasksDropLevel(0,
             db_write_options.get_low_watermark2_message_severity_level());
+    }
 }
 
 void DbHandler::PollUDCCfgErrorHandler(string error_name,
@@ -268,9 +271,9 @@ bool DbHandler::DropMessage(const SandeshHeader &header,
     SandeshType::type stype(header.get_Type());
     bool disk_usage_percentage_drop = false;
     bool pending_compaction_tasks_drop = false;
-    if (stype == SandeshType::SYSTEM ||
+    if (use_db_write_options_ && (stype == SandeshType::SYSTEM ||
         stype == SandeshType::OBJECT ||
-        stype == SandeshType::FLOW) {
+        stype == SandeshType::FLOW)) {
         SandeshLevel::type slevel((SandeshLevel::type)header.get_Level());
         SandeshLevel::type disk_usage_percentage_drop_level =
                                         GetDiskUsagePercentageDropLevel();
@@ -1876,7 +1879,7 @@ DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
         zookeeper_server_list, use_zookeeper,
         disable_all_db_writes, disable_db_stats_writes,
         disable_db_messages_writes, disable_db_messages_keyword_writes,
-        db_write_options)),
+        true, db_write_options)),
     callback_(callback),
     db_init_timer_(TimerManager::CreateTimer(*evm->io_service(),
         db_name + " Db Init Timer",
