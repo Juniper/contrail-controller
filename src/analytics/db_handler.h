@@ -98,6 +98,7 @@ public:
         const std::string &zookeeper_server_list,
         bool use_zookeeper, bool disable_all_writes, bool disable_stats_writes,
         bool disable_messages_writes, bool disable_messages_keyword_writes,
+        bool use_db_write_options,
         const DbWriteOptions &db_write_options);
     DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map);
     virtual ~DbHandler();
@@ -263,7 +264,7 @@ private:
     boost::scoped_ptr<UserDefinedCounters> udc_;
     Timer *udc_cfg_poll_timer_;
     static const int kUDCPollInterval = 120 * 1000; // in ms
-    friend class DbHandlerTest;
+    bool use_db_write_options_;
     uint32_t disk_usage_percentage_;
     SandeshLevel::type disk_usage_percentage_drop_level_;
     uint32_t pending_compaction_tasks_;
@@ -272,6 +273,8 @@ private:
     mutable tbb::mutex pending_compaction_tasks_water_mutex_;
     WaterMarkTuple disk_usage_percentage_watermark_tuple_;
     WaterMarkTuple pending_compaction_tasks_watermark_tuple_;
+
+    friend class DbHandlerTest;
 
     DISALLOW_COPY_AND_ASSIGN(DbHandler);
 };
