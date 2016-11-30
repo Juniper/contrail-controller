@@ -1498,6 +1498,7 @@ traceobject sandesh PathPreferenceTrace {
     6: i32 retry_timeout;
     /** Dependent ip address for agent path */
     7: string dependent_ip;
+    8: i32 flap_count;
 }
 
 /**
