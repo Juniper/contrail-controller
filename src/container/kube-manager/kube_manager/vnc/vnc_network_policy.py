@@ -17,8 +17,34 @@ class VncNetworkPolicy(object):
         self._vnc_lib = vnc_lib
         self._label_cache = label_cache
 
-    def _set_sg_rule(self, sg, pod_id, ports):
-        vm = VirtualMachineKM.get(pod_id)
+    def _append_sg_rule(self, sg_obj, sg_rule):
+        rules = sg_obj.get_security_group_entries()
+        if rules is None:
+            rules = PolicyEntriesType([sg_rule])
+        else:
+            for sgr in rules.get_policy_rule() or []:
+                sgr_copy = copy.copy(sgr)
+                sgr_copy.rule_uuid = sg_rule.rule_uuid
+                if sg_rule == sgr_copy:
+                    raise Exception('SecurityGroupRuleExists %s' % sgr.rule_uuid)
+            rules.add_policy_rule(sg_rule)
+
+        sg_obj.set_security_group_entries(rules)
+
+    def _remove_sg_rule(self, sg_obj, sg_rule):
+        rules = sg_obj.get_security_group_entries()
+        if rules is None:
+            raise Exception('SecurityGroupRuleNotExists %s' % sg_rule.rule_uuid)
+        else:
+            for sgr in rules.get_policy_rule() or []:
+                if sgr.rule_uuid == sg_rule.rule_uuid:
+                    rules.delete_policy_rule(sgr)
+                    sg_obj.set_security_group_entries(rules)
+                    return
+            raise Exception('SecurityGroupRuleNotExists %s' % sg_rule.rule_uuid)
+
+    def _set_sg_rule(self, sg, src_pod, ports):
+        vm = VirtualMachineKM.get(src_pod)
         if not vm:
             return
    
@@ -36,8 +62,8 @@ class VncNetworkPolicy(object):
             return
 
         sgr_uuid = str(uuid.uuid4())
-        dst_addr = AddressType(subnet=SubnetType(ip_addr, 32))
-        src_addr = AddressType(security_group='local')
+        src_addr = AddressType(subnet=SubnetType(ip_addr, 32))
+        dst_addr = AddressType(security_group='local')
         for port in ports:
             proto = port['protocol'].lower()
             rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
@@ -47,44 +73,58 @@ class VncNetworkPolicy(object):
                 dst_addresses=[dst_addr],
                 dst_ports=[PortType(0, int(port['port']))],
                 ethertype='IPv4')
+            self._append_sg_rule(sg, rule)
 
-    def _set_sg_rules(self, sg):
-        if not sg.annotations:
+    def _set_sg_rules(self, sg, event):
+        rules = event['object']['spec']['ingress']
+        for rule in rules:
+            ports = rule['ports']
+            src_selectors = rule['from']
+            for src_selector in src_selectors:
+                podSelector = src_selector.get('podSelector', None)
+                if not podSelector:
+                    continue
+
+                src_labels = podSelector['matchLabels']
+                src_pods = self._select_pods(src_labels)
+                for src_pod in src_pods:
+                    self._set_sg_rule(sg, src_pod, ports)
+
+        self._vnc_lib.security_group_update(sg)
+
+    def _apply_sg_2_pod(self, sg, pod):
+        vm = VirtualMachineKM.get(pod)
+        if not vm:
             return
 
-        ingress = None
-        for kvp in sg.annotations.get('key_value_pair', []):
-            if kvp['key'] == 'ingress':
-                ingress = kvp['value']
-                break
-        if not ingress:
+        for vmi_id in vm.virtual_machine_interfaces:
+#            vmi = VirtualMachineInterfaceKM.get(vmi_id)
+            vmi = self._vnc_lib.virtual_machine_interface_read(id=vmi_id)
+            if not vmi:
+                continue
+
+            vmi.add_security_group(sg)
+            self._vnc_lib.virtual_machine_interface_update(vmi)
+
+    def _apply_sg_2_pods(self, sg, event):
+        podSelector = event['object']['spec'].get('podSelector', None)
+        if not podSelector:
             return
 
-        sources = json.loads(kvp['value'])
-        for source in sources:
-            ports = source.get('ports', [])
-            for selectors in source.get('from', []):
-                labels = selectors['namespaceSelector']['matchLabels']
-                pod_ids = set()
-                for label in labels.items():
-                    key = self._label_cache._get_key(label)
-                    pod_ids = pod_ids.union(
-                        self._label_cache.pod_label_cache.get(key, []))
-            for pod_id in pod_ids:
-                self._set_sg_rule(sg, pod_id, ports)
+        labels = podSelector['matchLabels']
+        if not labels:
+            return
+        dest_pods = self._select_pods(labels)
 
-    def _apply_sg(self, sg):
-        pass
+        for pod in dest_pods:
+            self._apply_sg_2_pod(sg, pod)
 
     def _sg_create_annotations(self, event):
-        spec = event['object']['spec']
-        kvp1 = KeyValuePair(key='ingress',
-            value=json.dumps(spec['ingress']))
-        kvp2 = KeyValuePair(key='podSelector',
-            value=json.dumps(spec['podSelector']))
-        return KeyValuePairs([kvp1, kvp2])
+        kvp = KeyValuePair(key='spec',
+            value=json.dumps(event['object']['spec']))
+        return KeyValuePairs([kvp])
 
-    def _vnc_create_sg(self, uid, namespace, event):
+    def _vnc_create_sg(self, uid, name, namespace, event):
         sg_fq_name = ['default-domain', namespace, name]
         sg_obj = SecurityGroup(name=name, fq_name=sg_fq_name)
         sg_obj.uuid = uid
@@ -94,28 +134,55 @@ class VncNetworkPolicy(object):
             self._vnc_lib.security_group_create(sg_obj)
         except Exception as e:
             print str(e)
-        return SecurityGroupKM.locate(uid)
+        return self._vnc_lib.security_group_read(id=sg_obj.uuid)
+#        return SecurityGroupKM.locate(uid)
 
-    def _sg_create(self, uid, name, namespace, event):
-        sg = SecurityGroupKM.get(uid)
-        if not sg:
-            sg = self._vnc_create_sg(uid, name, namespace, event)
-       
-        self._set_sg_rules(sg)
-        self._apply_sg(sg)
-
-    def vnc_network_policy_add(self, uid, name, namespace, event):
-        self._sg_create(uid, name, namespace, event)
-
-    def vnc_network_policy_delete(self, uid, name):
-        pass
-
-    def process(self, event):
-        uid = event['object']['metadata'].get('uid')
+    def _sg_create(self, event):
+        uuid = event['object']['metadata'].get('uid')
         name = event['object']['metadata'].get('name')
         namespace = event['object']['metadata'].get('namespace')
 
+#        sg = SecurityGroupKM.get(uid)
+        try:
+            sg = self._vnc_lib.security_group_read(id=uuid)
+        except Exception as e:
+            sg = self._vnc_create_sg(uuid, name, namespace, event)
+        return sg
+
+    def vnc_network_policy_add(self, event):
+        sg = self._sg_create(event)
+        self._set_sg_rules(sg, event)
+        self._apply_sg_2_pods(sg, event)
+
+    def _vnc_sg_clear_vmis(self, sg):
+        vmi_ids = sg.get_virtual_machine_interface_back_refs()
+        if not vmi_ids:
+            return
+        for vmi_id in vmi_ids:
+#            vmi = VirtualMachineInterfaceKM.get(vmi_id)
+            vmi = self._vnc_lib.virtual_machine_interface_read(id=vmi_id['uuid'])
+            vmi.del_security_group(sg)
+            self._vnc_lib.virtual_machine_interface_update(vmi)
+
+    def vnc_network_policy_delete(self, event):
+        uuid = event['object']['metadata'].get('uid')
+        sg = self._vnc_lib.security_group_read(id=uuid)
+        self._vnc_sg_clear_vmis(sg)
+        self._vnc_lib.security_group_delete(id=uuid)
+
+    def process(self, event):
+
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
-            self.vnc_network_policy_add(uid, name, namespace, event)
+            self.vnc_network_policy_add(event)
         elif event['type'] == 'DELETED':
-            self.vnc_network_policy_delete(uid, name)
+            self.vnc_network_policy_delete(event)
+
+    def _select_pods(self, labels):
+        result = set()
+        for label in labels.items():
+            key = self._label_cache._get_key(label)
+            pod_ids = self._label_cache.pod_label_cache.get(key)
+            if not pod_ids:
+                continue
+            result.update(pod_ids)
+        return result

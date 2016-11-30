@@ -15,7 +15,7 @@ import argparse
 
 from vnc_api.vnc_api import *
 import vnc.vnc_kubernetes as vnc_kubernetes
-import common.logger as logger
+import common.logger
 from cfgm_common import vnc_cgitb
 from cfgm_common.utils import cgitb_hook
 from sandesh_common.vns.constants import (ModuleNames, Module2NodeType,
@@ -66,8 +66,8 @@ class KubeNetworkManager(object):
                                         self._module["name"])
 
         # Instantiate and initialize logger.
-        self.logger = logger.KubeManagerLogger(
-                             logger.KubeManagerLoggerParams(**self._module),
+        self.logger = common.logger.KubeManagerLogger(
+                             common.logger.KubeManagerLoggerParams(**self._module),
                              args)
 
         self.q = Queue()
