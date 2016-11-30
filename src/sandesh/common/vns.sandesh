@@ -29,6 +29,7 @@ const string SERVICE_IPMI_STATS_MGR = "contrail-ipmi-stats"
 const string SERVICE_INVENTORY_AGENT = "contrail-inventory-agent"
 const string SERVICE_CONTRAIL_DATABASE = "contrail-database"
 const string SERVICE_KUBE_MANAGER = "contrail-kube-manager"
+const string SERVICE_MESOS_MANAGER = "contrail-mesos-manager"
 
 // NodeMgr names
 const string SERVICE_COMPUTE_NODE_MGR = "contrail-vrouter-nodemgr"
@@ -56,6 +57,7 @@ const u16 HttpPortStorageStatsmgr = 8105
 const u16 HttpPortIpmiStatsmgr = 8106
 const u16 HttpPortInventorymgr = 8107
 const u16 HttpPortKubemgr = 8108
+const u16 HttpPortMesosManager = 8109
 
 const u16 HttpPortControl = 8083
 const u16 HttpPortApiServer = 8084
@@ -130,6 +132,7 @@ const map<string, u16> ServiceHttpPortMap = {
     SERVICE_TOPOLOGY : HttpPortTopology,
     SERVICE_DISCOVERY : HttpPortDiscovery
     SERVICE_KUBE_MANAGER: HttpPortKubemgr,
+    SERVICE_MESOS_MANAGER: HttpPortMesosManager,
 }
 
 const list<string> NodeUVEImplementedServices = [
@@ -154,6 +157,7 @@ const list<string> NodeUVEImplementedServices = [
     SERVICE_TOPOLOGY,
     SERVICE_DISCOVERY,
     SERVICE_KUBE_MANAGER,
+    SERVICE_MESOS_MANAGER,
 ]
 
 const list<string> BackupImplementedServices = [
@@ -179,6 +183,7 @@ const map<string, string> ServicesDefaultConfigurationFile = {
     SERVICE_DNSD : '/etc/contrail/dns.conf',
     SERVICE_DISCOVERY : '/etc/contrail/contrail-discovery.conf',
     SERVICE_KUBE_MANAGER : '/etc/contrail/contrail-kubernetes.conf',
+    SERVICE_MESOS_MANAGER : '/etc/contrail/contrail-mesos.conf',
 }
 
 enum Module {
@@ -210,6 +215,7 @@ enum Module {
     TOR_AGENT,
     CONTRAIL_BROADVIEW,
     KUBE_MANAGER,
+    MESOS_MANAGER,
     MAX_MODULE,
 }
 
@@ -265,6 +271,7 @@ const string MODULE_SERVER_INVENTORY_AGENT_NAME = "InventoryAgent"
 const string MODULE_TOR_AGENT_NAME = "contrail-tor-agent"
 const string MODULE_CONTRAIL_BROADVIEW_NAME = "contrail-broadview"
 const string MODULE_KUBE_MANAGER_NAME = SERVICE_KUBE_MANAGER
+const string MODULE_MESOS_MANAGER_NAME = SERVICE_MESOS_MANAGER
 
 
 const map<Module, string> ModuleNames = {
@@ -296,6 +303,7 @@ const map<Module, string> ModuleNames = {
     Module.TOR_AGENT          : MODULE_TOR_AGENT_NAME,
     Module.CONTRAIL_BROADVIEW : MODULE_CONTRAIL_BROADVIEW_NAME,
     Module.KUBE_MANAGER       : MODULE_KUBE_MANAGER_NAME,
+    Module.MESOS_MANAGER      : MODULE_MESOS_MANAGER_NAME,
 }
 
 const map<string, Module> ModuleIds = {
@@ -327,6 +335,7 @@ const map<string, Module> ModuleIds = {
     MODULE_TOR_AGENT_NAME              : Module.TOR_AGENT
     MODULE_CONTRAIL_BROADVIEW_NAME     : Module.CONTRAIL_BROADVIEW,
     MODULE_KUBE_MANAGER_NAME           : Module.KUBE_MANAGER,
+    MODULE_MESOS_MANAGER_NAME          : Module.MESOS_MANAGER,
 }
 
 // Supervisor names
@@ -392,6 +401,7 @@ const map <Module, NodeType> Module2NodeType = {
     Module.TOR_AGENT          : NodeType.COMPUTE,
     Module.CONTRAIL_BROADVIEW : NodeType.ANALYTICS,
     Module.KUBE_MANAGER       : NodeType.CONFIG,
+    Module.MESOS_MANAGER      : NodeType.CONFIG,
 }
 
 const string INSTANCE_ID_DEFAULT = "0"
@@ -487,6 +497,8 @@ const map<Module, list<Category>> ModuleCategoryMap = {
                                 ],
     Module.KUBE_MANAGER       : [Category.DEFAULT,
                                 ],
+    Module.MESOS_MANAGER      : [Category.DEFAULT,
+                                ],
 }
 
 const string COLLECTOR_DISCOVERY_SERVICE_NAME = "Collector"
@@ -505,6 +517,7 @@ const string DISCOVERY_SERVER_KEYSPACE_NAME = "DISCOVERY_SERVER"
 const string USERAGENT_KEYSPACE_NAME = "useragent"
 const string DEVICE_MANAGER_KEYSPACE_NAME = "dm_keyspace"
 const string KUBE_MANAGER_KEYSPACE_NAME = "kube_manager_keyspace"
+const string MESOS_MANAGER_KEYSPACE_NAME = "mesos_manager_keyspace"
 
 const list<string> RepairNeededKeyspaces = [
     API_SERVER_KEYSPACE_NAME,

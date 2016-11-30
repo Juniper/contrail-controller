@@ -24,6 +24,7 @@ CfgmEnv['CFGM_DOC_FILES'] = CfgmDocFiles
 #
 subdirs=[
     'kube-manager',
+    'mesos-manager',
     'kube-cni',
     'mesos-cni',
 ]
