@@ -23,7 +23,7 @@ alarm_list = [
         "alarm_severity": 1,
         "fq_name": [
             "default-global-system-config",
-            "address-mismatch-compute"
+            "system-defined-address-mismatch-compute"
         ],
         "id_perms": {
             "description": "Compute Node IP Address mismatch."
@@ -55,7 +55,7 @@ alarm_list = [
         "alarm_severity": 1,
         "fq_name": [
             "default-global-system-config",
-            "address-mismatch-control"
+            "system-defined-address-mismatch-control"
         ],
         "id_perms": {
             "description": "Control Node IP Address mismatch."
@@ -97,7 +97,7 @@ alarm_list = [
         "alarm_severity": 1,
         "fq_name": [
             "default-global-system-config",
-            "bgp-connectivity"
+            "system-defined-bgp-connectivity"
         ],
         "id_perms": {
             "description": "BGP peer mismatch. Not enough BGP peers are up."
@@ -128,7 +128,7 @@ alarm_list = [
         "alarm_severity": 1,
         "fq_name": [
             "default-global-system-config",
-            "conf-incorrect"
+            "system-defined-conf-incorrect"
         ],
         "id_perms": {
             "description": "ContrailConfig missing or incorrect. Configuration pushed to Ifmap as ContrailConfig is missing/incorrect."
@@ -165,7 +165,7 @@ alarm_list = [
         "alarm_severity": 1,
         "fq_name": [
             "default-global-system-config",
-            "disk-usage-high"
+            "system-defined-disk-usage-high"
         ],
         "id_perms": {
             "description": "Disk usage crosses high threshold limit."
@@ -202,7 +202,7 @@ alarm_list = [
         "alarm_severity": 0,
         "fq_name": [
             "default-global-system-config",
-            "disk-usage-critical"
+            "system-defined-disk-usage-critical"
         ],
         "id_perms": {
             "description": "Disk usage crosses critical threshold limit."
@@ -237,7 +237,7 @@ alarm_list = [
         "alarm_severity": 0,
         "fq_name": [
             "default-global-system-config",
-            "node-status"
+            "system-defined-node-status"
         ],
         "id_perms": {
             "description": "Node Failure. NodeStatus UVE not present."
@@ -272,7 +272,7 @@ alarm_list = [
         "alarm_severity": 1,
         "fq_name": [
             "default-global-system-config",
-            "partial-sysinfo-compute"
+            "system-defined-partial-sysinfo-compute"
         ],
         "id_perms": {
             "description": "System Info Incomplete."
@@ -303,7 +303,7 @@ alarm_list = [
         "alarm_severity": 1,
         "fq_name": [
             "default-global-system-config",
-            "partial-sysinfo-analytics"
+            "system-defined-partial-sysinfo-analytics"
         ],
         "id_perms": {
             "description": "System Info Incomplete."
@@ -334,7 +334,7 @@ alarm_list = [
         "alarm_severity": 1,
         "fq_name": [
             "default-global-system-config",
-            "partial-sysinfo-config"
+            "system-defined-partial-sysinfo-config"
         ],
         "id_perms": {
             "description": "System Info Incomplete."
@@ -365,7 +365,7 @@ alarm_list = [
         "alarm_severity": 1,
         "fq_name": [
             "default-global-system-config",
-            "partial-sysinfo-control"
+            "system-defined-partial-sysinfo-control"
         ],
         "id_perms": {
             "description": "System Info Incomplete."
@@ -433,7 +433,7 @@ alarm_list = [
         "alarm_severity": 2,
         "fq_name": [
             "default-global-system-config",
-            "phyif-bandwidth"
+            "system-defined-phyif-bandwidth"
         ],
         "id_perms": {
             "description": "Physical Bandwidth usage anomaly."
@@ -477,7 +477,7 @@ alarm_list = [
         "alarm_severity": 0,
         "fq_name": [
             "default-global-system-config",
-            "process-connectivity"
+            "system-defined-process-connectivity"
         ],
         "id_perms": {
             "description": "Process(es) reporting as non-functional."
@@ -524,7 +524,7 @@ alarm_list = [
         "alarm_severity": 0,
         "fq_name": [
             "default-global-system-config",
-            "process-status"
+            "system-defined-process-status"
         ],
         "id_perms": {
             "description": "Process Failure."
@@ -566,7 +566,7 @@ alarm_list = [
         "alarm_severity": 1,
         "fq_name": [
             "default-global-system-config",
-            "prouter-connectivity"
+            "system-defined-prouter-connectivity"
         ],
         "id_perms": {
             "description": "Prouter connectivity to controlling tor agent does not exist we look for non-empty value for connected_agent_list"
@@ -604,7 +604,7 @@ alarm_list = [
         "alarm_severity": 1,
         "fq_name": [
             "default-global-system-config",
-            "prouter-tsn-connectivity"
+            "system-defined-prouter-tsn-connectivity"
         ],
         "id_perms": {
             "description": "Prouter connectivity to controlling tsn agent does not exist we look for non-empty value for tsn_agent_list"
@@ -637,7 +637,7 @@ alarm_list = [
         "alarm_severity": 1,
         "fq_name": [
             "default-global-system-config",
-            "storage-cluster-state"
+            "system-defined-storage-cluster-state"
         ],
         "id_perms": {
             "description": "Storage Cluster warning/errors."
@@ -670,7 +670,7 @@ alarm_list = [
         "alarm_severity": 1,
         "fq_name": [
             "default-global-system-config",
-            "vrouter-interface"
+            "system-defined-vrouter-interface"
         ],
         "id_perms": {
             "description": "Vrouter interface(s) down."
@@ -712,7 +712,7 @@ alarm_list = [
         "alarm_severity": 1,
         "fq_name": [
             "default-global-system-config",
-            "xmpp-connectivity"
+            "system-defined-xmpp-connectivity"
         ],
         "id_perms": {
             "description": "XMPP peer mismatch."
@@ -750,7 +750,7 @@ alarm_list = [
         "alarm_severity": 0,
         "fq_name": [
             "default-global-system-config",
-            "core-files"
+            "system-defined-core-files"
         ],
         "id_perms": {
             "description": "A core file has been generated on the node."
@@ -785,7 +785,7 @@ alarm_list = [
         "alarm_severity": 1,
         "fq_name": [
             "default-global-system-config",
-            "pending-cassandra-compaction-tasks"
+            "system-defined-pending-cassandra-compaction-tasks"
         ],
         "parent_type": "global-system-config",
         "id_perms": {
@@ -796,6 +796,6 @@ alarm_list = [
                 "database-node"
             ]
         }
-    },
+    }
 ]
     
